@@ -40,7 +40,30 @@
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-[Gates determined based on constitution file]
+Answer each gate with `PASS`, `FAIL`, or `N/A`, and document any justified
+exception in Complexity Tracking.
+
+- **Real production paths**: Plan identifies the real project command/API path
+  being exercised, or labels any fixture/mock use as non-evidence scaffolding.
+- **Deterministic reviewed transforms**: Accepted mappings, transforms, prompts,
+  and retrieval changes are stored in reviewed config/scripts/code, not only in
+  model output or prose.
+- **Record-level evidence**: Validation claims link to inspected records,
+  retrieved/cited identifiers, reviewer labels, decision rationale, or
+  reproducible queries.
+- **Metadata and provenance**: Plan emits or updates versioned
+  `run_manifest.json`, `events.jsonl`, schema/mapping versions, and relevant
+  model/provider/prompt/dataset provenance, including decision rationale where
+  judgments are made.
+- **Tests define behavior**: Behavioral changes include tests that fail before
+  implementation or explicitly document why the change is documentation-only;
+  validation tests cover scenario diversity and are not limited to the exact
+  tuning/honeypot case.
+- **Data boundaries and governance**: Clinical evidence data remains separate
+  from run metadata, and material model/prompt/retrieval/mapping/pipeline changes
+  include PCCP-style review context.
+- **Why this is sufficient**: Plan explains why the evidence, tests, and
+  governance controls support the claimed validation outcome.
 
 ## Project Structure
 
@@ -65,17 +88,22 @@ specs/[###-feature]/
 -->
 
 ```text
-# [REMOVE IF UNUSED] Option 1: Single project (DEFAULT)
-src/
-├── models/
-├── services/
-├── cli/
-└── lib/
+# [REMOVE IF UNUSED] Option 1: Harness/control-plane feature (DEFAULT)
+harness/
+├── adapters/
+├── cli.py
+├── metadata.py
+└── [feature modules]
 
-tests/
-├── contract/
-├── integration/
-└── unit/
+evals/
+├── dataset_import/
+├── indexing/
+├── metadata/
+└── retrieval/
+
+docs/
+datasets/
+compose/
 
 # [REMOVE IF UNUSED] Option 2: Web application (when "frontend" + "backend" detected)
 backend/

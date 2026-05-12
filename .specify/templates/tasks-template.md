@@ -9,7 +9,8 @@ description: "Task list template for feature implementation"
 
 **Prerequisites**: plan.md (required), spec.md (required for user stories), research.md, data-model.md, contracts/
 
-**Tests**: The examples below include test tasks. Tests are OPTIONAL - only include them if explicitly requested in the feature specification.
+**Tests**: Behavioral changes MUST include tests. Documentation-only changes may
+mark tests as N/A with a short justification.
 
 **Organization**: Tasks are grouped by user story to enable independent implementation and testing of each story.
 
@@ -24,7 +25,9 @@ description: "Task list template for feature implementation"
 - **Single project**: `src/`, `tests/` at repository root
 - **Web app**: `backend/src/`, `frontend/src/`
 - **Mobile**: `api/src/`, `ios/src/` or `android/src/`
-- Paths shown below assume single project - adjust based on plan.md structure
+- **Harness/control-plane**: `harness/`, `adapters/`, `compose/`, `datasets/`,
+  `docs/`, `evals/`
+- Paths shown below are examples - adjust based on plan.md structure
 
 <!--
   ============================================================================
@@ -32,9 +35,11 @@ description: "Task list template for feature implementation"
 
   The /speckit-tasks command MUST replace these with actual tasks based on:
   - User stories from spec.md (with their priorities P1, P2, P3...)
-  - Feature requirements from plan.md
+  - Feature requirements and Constitution Check from plan.md
   - Entities from data-model.md
   - Endpoints from contracts/
+  - Evidence, decision-rationale, provenance, data-boundary, scenario-diversity,
+    and PCCP requirements from spec.md
 
   Tasks MUST be organized by user story so each story can be:
   - Implemented independently
@@ -52,6 +57,7 @@ description: "Task list template for feature implementation"
 - [ ] T001 Create project structure per implementation plan
 - [ ] T002 Initialize [language] project with [framework] dependencies
 - [ ] T003 [P] Configure linting and formatting tools
+- [ ] T004 [P] Configure artifact/output locations and ignored run directories
 
 ---
 
@@ -63,12 +69,14 @@ description: "Task list template for feature implementation"
 
 Examples of foundational tasks (adjust based on your project):
 
-- [ ] T004 Setup database schema and migrations framework
-- [ ] T005 [P] Implement authentication/authorization framework
-- [ ] T006 [P] Setup API routing and middleware structure
-- [ ] T007 Create base models/entities that all stories depend on
-- [ ] T008 Configure error handling and logging infrastructure
-- [ ] T009 Setup environment configuration management
+- [ ] T005 Setup database/schema/import or external service prerequisites
+- [ ] T006 [P] Implement adapter/configuration contracts for real project commands/APIs
+- [ ] T007 [P] Setup metadata/provenance emission and validation
+- [ ] T008 Create base models/entities that all stories depend on
+- [ ] T009 Configure error handling and structured event logging
+- [ ] T010 Setup environment/profile configuration management
+- [ ] T011 Add PCCP-style change record scaffolding if the feature changes models,
+  prompts, retrieval, mappings, transforms, or pipelines
 
 **Checkpoint**: Foundation ready - user story implementation can now begin in parallel
 
@@ -80,21 +88,25 @@ Examples of foundational tasks (adjust based on your project):
 
 **Independent Test**: [How to verify this story works on its own]
 
-### Tests for User Story 1 (OPTIONAL - only if tests requested) ⚠️
+### Tests for User Story 1 (required for behavioral changes)
 
 > **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
 
-- [ ] T010 [P] [US1] Contract test for [endpoint] in tests/contract/test_[name].py
-- [ ] T011 [P] [US1] Integration test for [user journey] in tests/integration/test_[name].py
+- [ ] T012 [P] [US1] Contract/adapter test for [real command/API] in evals/[area]/test_[name].py
+- [ ] T013 [P] [US1] Integration/evidence test for [user journey] in evals/[area]/test_[name].py
+- [ ] T014 [P] [US1] Metadata/provenance test for emitted manifest/events in evals/metadata/test_[name].py
 
 ### Implementation for User Story 1
 
-- [ ] T012 [P] [US1] Create [Entity1] model in src/models/[entity1].py
-- [ ] T013 [P] [US1] Create [Entity2] model in src/models/[entity2].py
-- [ ] T014 [US1] Implement [Service] in src/services/[service].py (depends on T012, T013)
-- [ ] T015 [US1] Implement [endpoint/feature] in src/[location]/[file].py
-- [ ] T016 [US1] Add validation and error handling
-- [ ] T017 [US1] Add logging for user story 1 operations
+- [ ] T015 [P] [US1] Create [Entity1] model/config in harness/[path]/[entity1].py
+- [ ] T016 [P] [US1] Create [Entity2] model/config in harness/[path]/[entity2].py
+- [ ] T017 [US1] Implement [Service/adapter] in harness/[path]/[service].py (depends on T015, T016)
+- [ ] T018 [US1] Implement [CLI/feature] in harness/[path]/[file].py
+- [ ] T019 [US1] Add validation, error handling, and record-level evidence capture
+- [ ] T020 [US1] Add decision-rationale capture for validation/review judgments
+- [ ] T021 [US1] Add structured events and manifest fields for user story 1 operations
+- [ ] T022 [US1] Add diverse scenario coverage for ambiguous, missing, unsupported,
+  abstention, or tool/API failure cases relevant to user story 1
 
 **Checkpoint**: At this point, User Story 1 should be fully functional and testable independently
 
@@ -106,7 +118,7 @@ Examples of foundational tasks (adjust based on your project):
 
 **Independent Test**: [How to verify this story works on its own]
 
-### Tests for User Story 2 (OPTIONAL - only if tests requested) ⚠️
+### Tests for User Story 2 (required for behavioral changes)
 
 - [ ] T018 [P] [US2] Contract test for [endpoint] in tests/contract/test_[name].py
 - [ ] T019 [P] [US2] Integration test for [user journey] in tests/integration/test_[name].py
@@ -128,7 +140,7 @@ Examples of foundational tasks (adjust based on your project):
 
 **Independent Test**: [How to verify this story works on its own]
 
-### Tests for User Story 3 (OPTIONAL - only if tests requested) ⚠️
+### Tests for User Story 3 (required for behavioral changes)
 
 - [ ] T024 [P] [US3] Contract test for [endpoint] in tests/contract/test_[name].py
 - [ ] T025 [P] [US3] Integration test for [user journey] in tests/integration/test_[name].py
@@ -152,9 +164,13 @@ Examples of foundational tasks (adjust based on your project):
 **Purpose**: Improvements that affect multiple user stories
 
 - [ ] TXXX [P] Documentation updates in docs/
+- [ ] TXXX [P] Update README quickstart or milestone status if user-visible behavior changes
+- [ ] TXXX [P] Update docs/metadata-schema.md if emitted metadata changes
+- [ ] TXXX [P] Add or update PCCP-style change record for material model/prompt/retrieval/mapping/pipeline changes
+- [ ] TXXX [P] Review validation cases for overfitting to a narrow fixture or honeypot scenario
 - [ ] TXXX Code cleanup and refactoring
 - [ ] TXXX Performance optimization across all stories
-- [ ] TXXX [P] Additional unit tests (if requested) in tests/unit/
+- [ ] TXXX [P] Additional focused unit tests in evals/ or harness tests
 - [ ] TXXX Security hardening
 - [ ] TXXX Run quickstart.md validation
 
@@ -179,7 +195,7 @@ Examples of foundational tasks (adjust based on your project):
 
 ### Within Each User Story
 
-- Tests (if included) MUST be written and FAIL before implementation
+- Tests for behavioral changes MUST be written and FAIL before implementation
 - Models before services
 - Services before endpoints
 - Core implementation before integration
@@ -199,7 +215,7 @@ Examples of foundational tasks (adjust based on your project):
 ## Parallel Example: User Story 1
 
 ```bash
-# Launch all tests for User Story 1 together (if tests requested):
+# Launch all tests for User Story 1 together:
 Task: "Contract test for [endpoint] in tests/contract/test_[name].py"
 Task: "Integration test for [user journey] in tests/integration/test_[name].py"
 

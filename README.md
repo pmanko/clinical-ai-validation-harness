@@ -11,11 +11,19 @@ The repository is intended to coordinate local and VM-based setup, testing, and 
 
 ## Scope and Principles
 
+The canonical constitution is `.specify/memory/constitution.md`; `docs/constitution.md`
+points readers to that source of truth.
+
 - Run real production paths, not test-only simulations.
 - Keep clinical evidence stores separate from operating metadata.
 - Treat LLM mapping output as advisory only.
 - Promote only reviewed mappings into deterministic scripts.
 - Use run manifests and event traces for every run.
+- Preserve record-level evidence and rationale for validation claims.
+- Cover diverse validation scenarios, not only the narrow case used to tune a
+  prompt, mapping, or adapter.
+- Use PCCP-style review records for material model, prompt, retrieval, mapping,
+  or pipeline changes.
 
 ## Repository Layout
 

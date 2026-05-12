@@ -8,9 +8,12 @@ This is a standalone validation harness for early clinical AI prototypes across 
 
 ## Operating Principles
 
+- Treat `.specify/memory/constitution.md` as the canonical governance source;
+  keep this file, README, and docs aligned when the constitution changes.
 - Use real production paths for validation; do not simulate chartsearchai, querystore, OpenMRS, or Catalyst behavior when the real path can be exercised.
 - Treat LLM-assisted mapping as advisory analysis only. Accepted mappings must live in reviewed config and deterministic scripts.
-- Preserve record-level evidence. Do not claim a filter, mapping, retrieval result, or answer is correct from counts alone.
+- Preserve record-level evidence and decision rationale. Do not claim a filter, mapping, retrieval result, or answer is correct from counts alone.
+- Include diverse validation scenarios so tests do not only prove the exact case used to tune a prompt, mapping, adapter, or fixture.
 - Keep clinical evidence data separate from operating metadata. Query Store/CQRS is for searchable clinical records; this harness stores run, trace, response, evaluation, and review metadata.
 - Prefer small, reviewable changes that preserve reproducibility.
 

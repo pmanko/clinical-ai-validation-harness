@@ -1,5 +1,8 @@
 # Metadata Schema v0
 
+The metadata schema supports the constitution's provenance and traceability
+requirements in `.specify/memory/constitution.md`.
+
 Each run emits:
 
 - `run_manifest.json`
@@ -43,4 +46,10 @@ Keep clinical-specific fields in extension payload:
 - claim support labels
 - abstention label
 - reviewer label
+- decision rationale
 - mapping version
+
+Evaluation and review events should record why the cited evidence supports,
+does not support, or is insufficient for a validation decision. This keeps
+alignment and safety claims reviewable instead of reducing them to outcome
+labels alone.
