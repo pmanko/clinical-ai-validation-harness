@@ -5,8 +5,8 @@ Date: 2026-05-12
 This artifact captures the working context needed to switch IDE/workspace from
 `openmrs-module-chartsearchai` to the new standalone repository:
 
-- Local repo: `/Users/pmanko/code/openmrs-ai-validation-harness`
-- GitHub repo: <https://github.com/pmanko/openmrs-ai-validation-harness>
+- Local repo: `/Users/pmanko/code/clinical-ai-validation-harness`
+- GitHub repo: <https://github.com/pmanko/clinical-ai-validation-harness>
 - Current branch for this handoff: `setup/orchestration-monorepo`
 
 ## Why This Exists
@@ -16,14 +16,14 @@ Spec Kit was installed in the new standalone repo, so `/speckit-*` skills may no
 appear in this chat/context. To use the installed Spec Kit skills, open Cursor on:
 
 ```sh
-/Users/pmanko/code/openmrs-ai-validation-harness
+/Users/pmanko/code/clinical-ai-validation-harness
 ```
 
 The new repo contains the Spec Kit installation and agent integration files.
 
 ## Project Goal
 
-`openmrs-ai-validation-harness` is intended to be an umbrella validation and
+`clinical-ai-validation-harness` is intended to be an umbrella validation and
 orchestration repository for early clinical AI prototypes across OpenMRS and
 OpenELIS work:
 
@@ -158,8 +158,8 @@ The harness was accidentally first created and pushed inside
 
 - Mistaken module commit: `01209c6`
 - Revert commit in module repo: `02bed2d`
-- Standalone repo created and pushed separately:
-  <https://github.com/pmanko/openmrs-ai-validation-harness>
+- Standalone repo created and later renamed:
+  <https://github.com/pmanko/clinical-ai-validation-harness>
 
 The old module repo may still have local untracked files/folders from the work:
 
@@ -167,6 +167,7 @@ The old module repo may still have local untracked files/folders from the work:
 - `docs/local-dev-validation-runbook.md`
 - `docs/openmrs-ai-dev-context.md`
 - `openmrs-ai-validation-harness/`
+- `clinical-ai-validation-harness/` if a renamed local checkout has been created
 
 Those were not part of the standalone repo setup and should be reviewed before
 deleting or committing.

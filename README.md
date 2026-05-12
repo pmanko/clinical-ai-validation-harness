@@ -1,13 +1,13 @@
-# openmrs-ai-validation-harness
+# clinical-ai-validation-harness
 
-Standalone cross-project validation harness for early clinical AI systems:
+Umbrella validation and orchestration harness for early clinical AI systems:
 
 - `chartsearchai`
 - `querystore`
 - `openmrs_chatbot`
 - `Catalyst` (OpenELIS)
 
-The first milestone in this repository is OpenMRS-specific: deterministic remap/import of `large-demo-data-2-7-0.sql` into an OpenMRS 2.8 Ref App-compatible candidate database, then validation through real `chartsearchai` and `querystore` paths.
+The repository is intended to coordinate local and VM-based setup, testing, and validation across the referenced projects. The first implementation slice is the OpenMRS demo-data remap/import because it provides a realistic clinical corpus and concrete validation target for `chartsearchai` and `querystore`.
 
 ## Scope and Principles
 
