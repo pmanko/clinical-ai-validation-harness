@@ -41,14 +41,16 @@ The first milestone in this repository is OpenMRS-specific: deterministic remap/
 
 ## Spec Kit
 
-This repo is initialized with GitHub Spec Kit `v0.8.9` using the Cursor Agent integration:
+This repo is initialized with GitHub Spec Kit `v0.8.9` using multi-agent integrations:
 
 - Spec Kit config: `.specify/`
 - Cursor skills: `.cursor/skills/`
 - Cursor rule: `.cursor/rules/specify-rules.mdc`
+- Claude skills: `.claude/skills/`
+- Claude guidance: `CLAUDE.md`
 - Agent guidance: `AGENTS.md`
 
-Useful Cursor Agent skills:
+Useful Spec Kit skills:
 
 - `/speckit-constitution`
 - `/speckit-specify`
