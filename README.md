@@ -39,6 +39,25 @@ The first milestone in this repository is OpenMRS-specific: deterministic remap/
 5. Run smoke tests:
    - `pytest evals/dataset_import evals/metadata`
 
+## Spec Kit
+
+This repo is initialized with GitHub Spec Kit `v0.8.9` using the Cursor Agent integration:
+
+- Spec Kit config: `.specify/`
+- Cursor skills: `.cursor/skills/`
+- Cursor rule: `.cursor/rules/specify-rules.mdc`
+- Agent guidance: `AGENTS.md`
+
+Useful Cursor Agent skills:
+
+- `/speckit-constitution`
+- `/speckit-specify`
+- `/speckit-clarify`
+- `/speckit-plan`
+- `/speckit-tasks`
+- `/speckit-analyze`
+- `/speckit-implement`
+
 ## Milestone 1 Contract
 
 Milestone 1 is complete when the harness can:
