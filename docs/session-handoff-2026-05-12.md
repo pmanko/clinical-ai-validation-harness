@@ -23,20 +23,23 @@ The new repo contains the Spec Kit installation and agent integration files.
 
 ## Project Goal
 
-`openmrs-ai-validation-harness` is intended to be a standalone validation and
-orchestration repository for early clinical AI prototypes:
+`openmrs-ai-validation-harness` is intended to be an umbrella validation and
+orchestration repository for early clinical AI prototypes across OpenMRS and
+OpenELIS work:
 
 - `openmrs-module-chartsearchai`
 - `openmrs-module-querystore`
 - `openmrs_chatbot`
 - OpenELIS Catalyst under `OpenELIS-Global-2/projects/catalyst`
 
-The first milestone is OpenMRS-focused: transform/remap/import
+The repo is not meant to be OpenMRS-only. The first implementation slice is the
+OpenMRS demo-data remap because it gives the umbrella harness a realistic clinical
+corpus and a concrete validation target: transform/remap/import
 `large-demo-data-2-7-0.sql` into an OpenMRS Platform/Core 2.8 Ref App-compatible
 candidate database, then validate through real chartsearchai and querystore paths.
 
-The expanded direction is for this repo to act as a lightweight monorepo-style
-control plane for local development/testing and VM setup across the referenced
+The primary direction is for this repo to act as a lightweight monorepo-style
+control plane for local development/testing and VM setup across all referenced
 projects. The intended shape is not to vendor all upstream code by default, but to
 provide repeatable checkout/build/run profiles and compose environments that can
 work with sibling/local checkouts or VM-mounted code.
