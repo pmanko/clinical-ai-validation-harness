@@ -1,0 +1,7 @@
+version: v0
+cases:
+  - id: demo-case-001
+    question: "What allergies are documented for this patient?"
+    expected_resource_families: ["allergy", "obs", "encounter"]
+    expected_record_ids: []
+    notes: "Populate with inspected imported records only."

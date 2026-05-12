@@ -1,0 +1,22 @@
+version: openmrs-2.7-to-2.8@v0
+source:
+  dataset_id: large-demo-data-2-7-0
+  sql_path: /Users/pmanko/code/openmrs-module-chartsearchai/data/large-demo-data-2-7-0.sql
+target:
+  platform: openmrs-refapp-2.8
+  baseline_db: refapp_28_clean
+mapping_status:
+  reviewed: false
+  notes: "Initial placeholder; reviewed mappings only."
+tables:
+  concept:
+    strategy: review_required
+  encounter:
+    strategy: review_required
+  obs:
+    strategy: review_required
+  patient:
+    strategy: preserve_ids_if_safe
+unresolved_blockers:
+  - "Legacy metadata alignment pending concept dictionary review"
+  - "Liquibase/module table compatibility pending schema diff output"

@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "openmrs-ai-validation-harness"
+version = "0.1.0"
+description = "Cross-project clinical AI validation harness"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "PyYAML>=6.0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.0",
+]
+
+[project.scripts]
+harness-cli = "harness.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["harness*"]

@@ -1,0 +1,34 @@
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: harness-mysql
+    command: --default-authentication-plugin=mysql_native_password
+    environment:
+      MYSQL_ROOT_PASSWORD: openmrs
+      MYSQL_DATABASE: openmrs
+      MYSQL_USER: openmrs
+      MYSQL_PASSWORD: openmrs
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+
+  openmrs:
+    image: openmrs/openmrs-reference-application-distro:2.8.0
+    container_name: harness-openmrs
+    depends_on:
+      - mysql
+    environment:
+      DB_HOST: mysql
+      DB_DATABASE: openmrs
+      DB_USERNAME: openmrs
+      DB_PASSWORD: openmrs
+      DB_CREATE_TABLES: "true"
+      MODULE_WEB_ADMIN: "true"
+    ports:
+      - "8081:8080"
+    volumes:
+      - ../artifacts/openmrs/modules:/openmrs/data/modules
+
+volumes:
+  mysql_data:
