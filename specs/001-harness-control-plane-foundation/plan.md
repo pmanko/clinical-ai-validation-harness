@@ -36,7 +36,7 @@ Establish the harness as a cross-project control plane that pins target reposito
 - **Deterministic reviewed transforms**: PASS. No data transform is introduced. Accepted behavior lives in `.gitmodules`, gitlink pins, `harness/targets.yaml`, compose files, CLI code, and tests.
 - **Record-level evidence**: PASS. This foundation does not create clinical evidence itself, but it defines readiness/evidence status, target pin provenance, and override-run metadata required for later record-level evidence.
 - **Metadata and provenance**: PASS. Plan updates metadata shape to include target SHAs, override provenance, OTel GenAI version/attributes, readiness decisions, and run manifest/event destinations.
-- **Tests define behavior**: PASS. Behavioral changes require tests for target metadata validation, sync planning, readiness status, override provenance, OTel field shape, and compose ownership.
+- **Tests define behavior**: PASS. Behavioral changes require tests for target metadata validation, sync planning, readiness status, override provenance, OTel field shape, and compose ownership. Scenario diversity categories ambiguous/abstention/tool-API failure are N/A for the control-plane foundation; they re-enter scope under the metadata spine (M2) and retrieval evaluation (M4) features.
 - **Data boundaries and governance**: PASS. Clinical data remains in target/source systems; harness stores operating metadata and generated run artifacts. Target pin bumps, evidence-status promotions, and override evidence promotion require review context.
 - **Why this is sufficient**: The plan treats repository pins and target metadata as reviewed inputs, forces readiness classification before evidence claims, preserves source/pin/override provenance in manifests, and keeps target-owned app startup separate from shared infrastructure.
 
@@ -124,6 +124,6 @@ Design artifacts:
 - **Deterministic reviewed transforms**: PASS. No transforms introduced; reviewed inputs are deterministic files and pinned submodule SHAs.
 - **Record-level evidence**: PASS. Readiness and manifest contracts preserve target pin/override evidence and decision rationale; downstream clinical records remain in source systems.
 - **Metadata and provenance**: PASS. Run manifest contract records harness SHA, target SHA, override status/source, target metadata version, OTel GenAI convention status, and evidence status.
-- **Tests define behavior**: PASS. Contracts are directly testable with fixture target metadata, mocked submodule status, and manifest examples.
+- **Tests define behavior**: PASS. Contracts are directly testable with fixture target metadata, mocked submodule status, and manifest examples. Scenario diversity categories ambiguous/abstention/tool-API failure are N/A for the control-plane foundation; they re-enter scope under the metadata spine (M2) and retrieval evaluation (M4) features.
 - **Data boundaries and governance**: PASS. Override promotion and target evidence-status changes require review context; compose ownership avoids vendoring target app definitions into harness shared infra.
 - **Why this is sufficient**: The design makes every later validation run traceable to reviewed target pins and explicit target metadata while keeping development overrides possible but non-ambiguous.

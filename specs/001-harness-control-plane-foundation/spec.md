@@ -13,7 +13,7 @@
 ### Session 2026-05-12
 
 - Q: Which target repository layout should this spec lock in for the control plane? → A: Use pinned Git submodules under `targets/<id>` plus a lightweight `harness/targets.yaml` for target metadata that `.gitmodules` cannot carry.
-- Q: What repository shape should the Catalyst target use? → A: Catalyst will be extracted from `OpenELIS-Global-2` and pinned as a standalone `targets/catalyst` submodule; future OpenELIS Java/frontend integration remains a separate dependency boundary.
+- Q: What repository shape should the Catalyst target use? → A: Catalyst is intended as a standalone extracted repository at `targets/catalyst`; until extraction lands it MUST appear in `harness/targets.yaml` with `evidence_status: unavailable` and without a `.gitmodules` entry; future OpenELIS Java/frontend integration remains a separate dependency boundary.
 - Q: How should contributors and VM environments materialize pinned target repositories while allowing local forks? → A: Provide a harness-level `targets sync` workflow that initializes pinned submodules by default, with `HARNESS_TARGET_<ID>` environment overrides for forks or active local clones.
 - Q: How should Compose ownership work across the harness and target repositories? → A: Target-owned Compose files remain in target repositories by default, while the harness owns and orchestrates shared infrastructure Compose files when multiple targets need common services.
 - Q: What OTel GenAI conventions should the control plane align to? → A: Align to the current Development-status OTel GenAI conventions (post-v1.36.0) using `OTEL_SEMCONV_STABILITY_OPT_IN=gen_ai_latest_experimental`, not the old `gen_ai.system` field; use `gen_ai.provider.name` and the full current attribute set; note that stable status has not yet been reached.
@@ -32,7 +32,7 @@ A validation engineer can open the harness control plane and identify every supp
 
 **Acceptance Scenarios**:
 
-1. **Given** a contributor has a fresh checkout of the harness, **When** they inspect the control-plane target list, **Then** they can identify `chartsearchai`, `querystore`, `openmrs_chatbot`, and Catalyst as distinct validation targets backed by pinned target repositories.
+1. **Given** a contributor has a fresh checkout of the harness, **When** they inspect the control-plane target list, **Then** they can identify `chartsearchai`, `querystore`, `openmrs_chatbot`, and Catalyst as distinct validation targets with declared submodule paths or explicit unavailable status where no submodule pin exists yet.
 2. **Given** a target project entry exists, **When** a reviewer checks the entry, **Then** the entry states whether validation claims for that target must use a real project command or API, or whether the entry is still non-evidence scaffolding.
 3. **Given** a target project is not available in the contributor's environment, **When** the contributor reviews its status, **Then** the harness clearly distinguishes "unavailable" from "validated" without implying evidence was produced.
 
@@ -104,7 +104,7 @@ A reviewer can determine where run outputs, traces, reports, and review records 
 - **FR-013**: The system MUST document which downstream roadmap features are unblocked by the control-plane foundation and which remain blocked until additional data, metadata, or adapter specs are complete.
 - **FR-014**: The system MUST treat target repositories as pinned Git submodules under `targets/`, with submodule changes reviewed as explicit target-version changes.
 - **FR-015**: The system MUST maintain lightweight target metadata in `harness/targets.yaml` for information not represented by `.gitmodules`, including target identity, target path, validation surface, required services, optional compose overlays, environment overrides, and evidence status.
-- **FR-016**: The system MUST treat Catalyst as a standalone extracted target repository pinned at `targets/catalyst`, while representing future OpenELIS Java/frontend integration as a separate dependency boundary rather than as part of the M0 target pin.
+- **FR-016**: The system MUST treat Catalyst as the intended standalone extracted target at `targets/catalyst`. Until the standalone Catalyst repository is extracted and pinned, Catalyst MUST be represented in `harness/targets.yaml` with `evidence_status: unavailable` and without a `.gitmodules` entry; future OpenELIS Java/frontend integration remains a separate dependency boundary rather than as part of the M0 target pin.
 - **FR-017**: The system MUST provide a target synchronization workflow that initializes reviewed submodule pins for all enabled targets without requiring contributors to remember raw Git submodule commands.
 - **FR-018**: The system MUST support per-target environment overrides for active development or fork testing without changing reviewed submodule pins.
 - **FR-019**: The system MUST treat target-owned Compose files as the default source for target-specific app services and MUST NOT duplicate those service definitions in the harness unless the harness is intentionally providing shared infrastructure.
@@ -118,7 +118,7 @@ A reviewer can determine where run outputs, traces, reports, and review records 
 
 - **Validation Target**: A referenced project or component that the harness can prepare or validate; includes project identity, pinned repository path, supported profiles, readiness status, and evidence status.
 - **Target Metadata**: Reviewed metadata in `harness/targets.yaml` that describes each target's validation surface, required services, optional compose overlays, environment override name, and evidence status.
-- **Catalyst Target**: The extracted standalone Catalyst repository pinned at `targets/catalyst`; its current evidence scope covers the Catalyst Python gateway, agent, MCP, tests, and dev services, with OpenELIS Java/frontend integration tracked separately.
+- **Catalyst Target**: The intended standalone Catalyst repository at `targets/catalyst`; until extraction and submodule pinning land, control-plane metadata MUST carry `evidence_status: unavailable`. Once pinned, evidence scope covers the Catalyst Python gateway, agent, MCP, tests, and dev services, with OpenELIS Java/frontend integration tracked separately.
 - **Target Override**: A per-target environment setting that points a harness target at an alternate local checkout for active development while preserving the reviewed submodule pin as the default evidence source.
 - **Shared Infrastructure Profile**: A harness-owned environment profile that starts common services such as OpenMRS, MySQL, Elasticsearch, OpenTelemetry, or model-provider dependencies needed by more than one target; uses Docker Compose `profiles:` to keep opt-in services inactive by default.
 - **Target-Owned Compose**: A Compose file maintained inside a pinned target repository and used by the harness as the source of truth for that target's app-specific service startup.
@@ -143,13 +143,13 @@ A reviewer can determine where run outputs, traces, reports, and review records 
 
 ### Measurable Outcomes
 
-- **SC-001**: A new contributor can identify all initial validation targets, their pinned repository locations, and their evidence status in under 10 minutes using the control-plane documentation or readiness summary.
+- **SC-001**: A new contributor can identify all initial validation targets, their pinned repository locations or declared unavailable submodule paths, and their evidence status in under 10 minutes using the control-plane documentation or readiness summary.
 - **SC-002**: 100% of initial validation targets declare whether evidence requires a real project command/API, fixture-backed support, or non-evidence scaffolding.
 - **SC-003**: 100% of supported environment profiles declare required target locations, required services, required credentials or secrets, and output-location expectations.
 - **SC-004**: A reviewer can determine whether a prepared run is evidence-producing, blocked, or scaffolding-only without inspecting implementation internals.
 - **SC-005**: At least one positive and one blocked-readiness scenario are covered for each supported environment profile.
 - **SC-006**: No downstream feature spec needs to redefine target project identities, environment profile names, or baseline artifact boundary categories.
-- **SC-007**: Catalyst readiness clearly states whether the extracted `targets/catalyst` repository is initialized at the reviewed pin and whether any OpenELIS Java/frontend integration dependency remains outside the current evidence scope.
+- **SC-007**: Catalyst readiness clearly states whether the standalone `targets/catalyst` repository is unavailable, initialized at the reviewed pin once pinned, or blocked for another declared reason, and whether any OpenELIS Java/frontend integration dependency remains outside the current evidence scope.
 - **SC-008**: A contributor can materialize all enabled pinned target repositories through one documented harness workflow and can identify any active target override in the readiness summary.
 - **SC-009**: A reviewer can identify, for each environment profile, which services are harness-owned shared infrastructure and which services come from target-owned startup definitions.
 - **SC-010**: 100% of run manifests emitted during a target override run include `target_override: true`, the override source, and the actual target SHA; zero override-run manifests are indistinguishable from reviewed-pin run manifests.
