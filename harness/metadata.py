@@ -20,11 +20,16 @@ class RunManifest:
     dataset_id: str
     dataset_version: str
     schema_mapping_version: str
-    gen_ai_system: str
+    gen_ai_provider_name: str
     generated_at: str = field(default_factory=utc_now_iso)
+    evidence_status: str = "development"
+    decision_rationale: str | None = None
+    target_provenance: list[dict[str, Any]] = field(default_factory=list)
+    otel_semconv_status: str = "development"
+    otel_semconv_stability_opt_in: str = "gen_ai_latest_experimental"
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        payload: dict[str, Any] = {
             "run_id": self.run_id,
             "project": self.project,
             "component": self.component,
@@ -33,10 +38,17 @@ class RunManifest:
             "dataset_version": self.dataset_version,
             "schema_mapping_version": self.schema_mapping_version,
             "generated_at": self.generated_at,
+            "evidence_status": self.evidence_status,
+            "target_provenance": list(self.target_provenance),
             "otel": {
-                "gen_ai.system": self.gen_ai_system,
+                "semconv_status": self.otel_semconv_status,
+                "semconv_stability_opt_in": self.otel_semconv_stability_opt_in,
+                "gen_ai.provider.name": self.gen_ai_provider_name,
             },
         }
+        if self.decision_rationale is not None:
+            payload["decision_rationale"] = self.decision_rationale
+        return payload
 
 
 def write_manifest(path: Path, manifest: RunManifest) -> None:

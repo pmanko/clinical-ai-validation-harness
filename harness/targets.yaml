@@ -1,0 +1,95 @@
+schema_version: 1
+
+# Reviewed control-plane registry: submodule pins live in .gitmodules; metadata here
+# carries validation surfaces, profiles, and evidence status (see contracts in
+# specs/001-harness-control-plane-foundation/contracts/targets.schema.yaml).
+
+shared_infrastructure:
+  - id: openmrs_refapp
+    owner: harness
+    compose_file: compose/openmrs-2.8-refapp.yml
+    service_names: [mysql, openmrs]
+  - id: search_otel
+    owner: harness
+    compose_file: compose/services.yml
+    service_names: [elasticsearch, otel-collector]
+
+profiles:
+  - id: local
+    description: Local developer machine; shared infra via harness compose files.
+    artifact_root: artifacts
+    enabled_targets: [chartsearchai, querystore, openmrs_chatbot, catalyst]
+    shared_compose_files:
+      - compose/openmrs-2.8-refapp.yml
+      - compose/services.yml
+    allows_overrides: true
+  - id: vm
+    description: VM or CI runner; same compose contract as local unless overridden.
+    artifact_root: artifacts
+    enabled_targets: [chartsearchai, querystore, openmrs_chatbot, catalyst]
+    shared_compose_files:
+      - compose/openmrs-2.8-refapp.yml
+      - compose/services.yml
+    allows_overrides: true
+
+targets:
+  - id: chartsearchai
+    display_name: openmrs-module-chartsearchai
+    submodule_path: targets/chartsearchai
+    environment_override: HARNESS_TARGET_CHARTSEARCHAI
+    evidence_status: development
+    supported_profiles: [local, vm]
+    shared_profiles: [openmrs_refapp, search_otel]
+    required_services:
+      - mysql:8.0
+      - elasticsearch
+    validation_surface:
+      kind: command
+      description: Maven API module tests (retrieval, enrichment, LLM inference).
+      evidence_mode: real_path_required
+      command:
+        - mvn -pl api test
+
+  - id: querystore
+    display_name: openmrs-module-querystore
+    submodule_path: targets/querystore
+    environment_override: HARNESS_TARGET_QUERYSTORE
+    evidence_status: development
+    supported_profiles: [local, vm]
+    shared_profiles: [openmrs_refapp, search_otel]
+    required_services:
+      - mysql:8.0
+    validation_surface:
+      kind: command
+      description: Maven API install and integration tests for CQRS read store.
+      evidence_mode: real_path_required
+      command:
+        - mvn -pl api install
+
+  - id: openmrs_chatbot
+    display_name: openmrs_chatbot
+    submodule_path: targets/openmrs_chatbot
+    environment_override: HARNESS_TARGET_OPENMRS_CHATBOT
+    evidence_status: scaffolding
+    supported_profiles: [local, vm]
+    shared_profiles: [openmrs_refapp]
+    required_services:
+      - mysql:8.0
+    validation_surface:
+      kind: unavailable
+      description: Real validation commands are not yet declared in harness metadata.
+      evidence_mode: scaffolding_only
+
+  - id: catalyst
+    display_name: OpenELIS Catalyst (standalone target)
+    submodule_path: targets/catalyst
+    environment_override: HARNESS_TARGET_CATALYST
+    evidence_status: unavailable
+    supported_profiles: [local, vm]
+    shared_profiles: []
+    validation_surface:
+      kind: unavailable
+      description: >-
+        Intended path targets/catalyst after extraction; no .gitmodules pin yet.
+        OpenELIS Java/frontend integration is out of scope for this target pin.
+      evidence_mode: unavailable

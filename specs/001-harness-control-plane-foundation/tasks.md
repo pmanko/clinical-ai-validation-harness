@@ -18,12 +18,12 @@
 
 **Purpose**: Establish repo-level Python/dev workflow and target-repository scaffolding needed before control-plane code.
 
-- [ ] T001 Verify the `uv` development workflow runs `make validate-plan` and `uv run pytest` successfully using `.python-version`, `uv.lock`, `Makefile`, and `pyproject.toml`
-- [ ] T002 [P] Create the ignored target submodule root placeholder in `targets/.gitkeep`
-- [ ] T003 Add reviewed absolute submodule entries for `chartsearchai`, `querystore`, and `openmrs_chatbot` in `.gitmodules` using `https://github.com/openmrs/openmrs-module-chartsearchai.git`, `https://github.com/openmrs/openmrs-module-querystore.git`, and `https://github.com/anichiti/openmrs_chatbot.git`
-- [ ] T004 Document Catalyst as `evidence_status: unavailable` in `.gitmodules` review notes by leaving `targets/catalyst` unpinned until a standalone extracted Catalyst repository URL exists
-- [ ] T005 [P] Create target registry test directory scaffolding in `evals/target_registry/.gitkeep`
-- [ ] T006 [P] Create orchestration test directory scaffolding in `evals/orchestration/.gitkeep`
+- [X] T001 Verify the `uv` development workflow runs `make validate-plan` and `uv run pytest` successfully using `.python-version`, `uv.lock`, `Makefile`, and `pyproject.toml`
+- [X] T002 [P] Create the ignored target submodule root placeholder in `targets/.gitkeep`
+- [X] T003 Add reviewed absolute submodule entries for `chartsearchai`, `querystore`, and `openmrs_chatbot` in `.gitmodules` using `https://github.com/openmrs/openmrs-module-chartsearchai.git`, `https://github.com/openmrs/openmrs-module-querystore.git`, and `https://github.com/anichiti/openmrs_chatbot.git`
+- [X] T004 Document Catalyst as `evidence_status: unavailable` in `.gitmodules` review notes by leaving `targets/catalyst` unpinned until a standalone extracted Catalyst repository URL exists
+- [X] T005 [P] Create target registry test directory scaffolding in `evals/target_registry/.gitkeep`
+- [X] T006 [P] Create orchestration test directory scaffolding in `evals/orchestration/.gitkeep`
 
 ---
 
@@ -33,19 +33,19 @@
 
 **Critical**: No user story work should begin until this phase is complete.
 
-- [ ] T007 [P] Add target metadata schema fixture expectations in `evals/target_registry/test_targets_yaml_contract.py`
-- [ ] T008 [P] Add submodule status command-planning tests in `evals/target_registry/test_submodule_plans.py`
-- [ ] T009 [P] Add current OTel GenAI manifest field tests in `evals/metadata/test_run_manifest_control_plane.py`
-- [ ] T010 Create reviewed initial target metadata in `harness/targets.yaml` covering `chartsearchai`, `querystore`, `openmrs_chatbot`, and Catalyst with `evidence_status: unavailable`, plus minimal `local` and `vm` profile stubs and shared infrastructure references so the file validates against `specs/001-harness-control-plane-foundation/contracts/targets.schema.yaml` from creation
-- [ ] T011 Implement target metadata dataclasses, YAML loading, and schema validation in `harness/targets.py`
-- [ ] T012 Implement submodule command planning and status models in `harness/submodules.py`
-- [ ] T012a [P] Add required-services conflict detection tests for incompatible target service assumptions in `evals/orchestration/test_required_services_conflicts.py`
-- [ ] T012b [P] Add compose-conflict detection tests for clashing service names, ports, credentials, or volumes between target-owned and harness-owned compose files in `evals/orchestration/test_compose_conflicts.py`
-- [ ] T012c Implement required-services and compose-conflict detection in `harness/targets.py` and `harness/compose.py`
-- [ ] T013 Implement harness root, artifact root, and target metadata loading in `harness/config.py`
-- [ ] T014 Update run manifest dataclass fields for `evidence_status`, target provenance, and current OTel GenAI attributes in `harness/metadata.py`
-- [ ] T015 Update existing `schema-diff` and `import-smoke` manifest creation to use `gen_ai.provider.name` instead of `gen_ai.system` in `harness/cli.py`
-- [ ] T016 Run foundational tests with `uv run pytest evals/target_registry evals/orchestration evals/metadata` and fix failures in `harness/targets.py`, `harness/submodules.py`, `harness/config.py`, `harness/metadata.py`, and `harness/compose.py`
+- [X] T007 [P] Add target metadata schema fixture expectations in `evals/target_registry/test_targets_yaml_contract.py`
+- [X] T008 [P] Add submodule status command-planning tests in `evals/target_registry/test_submodule_plans.py`
+- [X] T009 [P] Add current OTel GenAI manifest field tests in `evals/metadata/test_run_manifest_control_plane.py`
+- [X] T010 Create reviewed initial target metadata in `harness/targets.yaml` covering `chartsearchai`, `querystore`, `openmrs_chatbot`, and Catalyst with `evidence_status: unavailable`, plus minimal `local` and `vm` profile stubs and shared infrastructure references so the file validates against `specs/001-harness-control-plane-foundation/contracts/targets.schema.yaml` from creation
+- [X] T011 Implement target metadata dataclasses, YAML loading, and schema validation in `harness/targets.py`
+- [X] T012 Implement submodule command planning and status models in `harness/submodules.py`
+- [X] T012a [P] Add required-services conflict detection tests for incompatible target service assumptions in `evals/orchestration/test_required_services_conflicts.py`
+- [X] T012b [P] Add compose-conflict detection tests for clashing service names, ports, credentials, or volumes between target-owned and harness-owned compose files in `evals/orchestration/test_compose_conflicts.py`
+- [X] T012c Implement required-services and compose-conflict detection in `harness/targets.py` and `harness/compose.py`
+- [X] T013 Implement harness root, artifact root, and target metadata loading in `harness/config.py`
+- [X] T014 Update run manifest dataclass fields for `evidence_status`, target provenance, and current OTel GenAI attributes in `harness/metadata.py`
+- [X] T015 Update existing `schema-diff` and `import-smoke` manifest creation to use `gen_ai.provider.name` instead of `gen_ai.system` in `harness/cli.py`
+- [X] T016 Run foundational tests with `uv run pytest evals/target_registry evals/orchestration evals/metadata` and fix failures in `harness/targets.py`, `harness/submodules.py`, `harness/config.py`, `harness/metadata.py`, and `harness/compose.py`
 
 **Checkpoint**: Target metadata, submodule planning, conflict detection primitives, and metadata primitives are ready for story work.
 
