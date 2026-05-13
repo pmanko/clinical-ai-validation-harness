@@ -77,6 +77,8 @@
 
 - What happens when [boundary condition]?
 - How does system handle [error scenario]?
+- If validation evidence is produced, how are unsupported claims, missing
+  records, ambiguous mappings, or abstentions represented?
 
 ## Requirements *(mandatory)*
 
@@ -92,6 +94,17 @@
 - **FR-003**: Users MUST be able to [key interaction, e.g., "reset their password"]
 - **FR-004**: System MUST [data requirement, e.g., "persist user preferences"]
 - **FR-005**: System MUST [behavior, e.g., "log all security events"]
+- **FR-006**: System MUST identify whether validation uses real project
+  commands/APIs or non-evidence scaffolding.
+- **FR-007**: System MUST preserve record-level evidence for claims involving
+  clinical data, mappings, retrieval, model responses, or reviewer decisions,
+  including why the evidence supports the decision.
+- **FR-008**: System MUST emit or update versioned metadata/provenance artifacts
+  when a run, transform, retrieval, model call, response, evaluation, or review
+  record is produced.
+- **FR-009**: System MUST cover scenario diversity for validation behavior,
+  including ambiguous, missing, unsupported, abstention, and failure cases when
+  they are relevant to the feature.
 
 *Example of marking unclear requirements:*
 
@@ -102,6 +115,15 @@
 
 - **[Entity 1]**: [What it represents, key attributes without implementation]
 - **[Entity 2]**: [What it represents, relationships to other entities]
+
+### Evidence, Provenance & Data Boundaries *(mandatory when clinical data, models, retrieval, mappings, or validation artifacts are involved)*
+
+- **Clinical evidence records**: [Record identifiers and stores touched by the feature]
+- **Decision rationale**: [Why evidence supports each validation/review decision]
+- **Operating metadata**: [Run manifests, event traces, reports, review records, rationale fields, and artifact locations]
+- **Accepted deterministic inputs**: [Reviewed mappings, prompts, transforms, config, or scripts]
+- **Advisory inputs**: [LLM proposals, research notes, or non-binding analysis]
+- **PCCP/change record needs**: [Material model, prompt, retrieval, mapping, or pipeline changes requiring review context]
 
 ## Success Criteria *(mandatory)*
 

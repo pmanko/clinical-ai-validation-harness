@@ -1,25 +1,33 @@
-# openmrs-ai-validation-harness
+# clinical-ai-validation-harness
 
-Standalone cross-project validation harness for early clinical AI systems:
+Umbrella validation and orchestration harness for early clinical AI systems:
 
 - `chartsearchai`
 - `querystore`
 - `openmrs_chatbot`
 - `Catalyst` (OpenELIS)
 
-The first milestone in this repository is OpenMRS-specific: deterministic remap/import of `large-demo-data-2-7-0.sql` into an OpenMRS 2.8 Ref App-compatible candidate database, then validation through real `chartsearchai` and `querystore` paths.
+The repository is intended to coordinate local and VM-based setup, testing, and validation across the referenced projects. The first implementation slice is the OpenMRS demo-data remap/import because it provides a realistic clinical corpus and concrete validation target for `chartsearchai` and `querystore`.
 
 ## Scope and Principles
+
+The canonical constitution is `.specify/memory/constitution.md`.
 
 - Run real production paths, not test-only simulations.
 - Keep clinical evidence stores separate from operating metadata.
 - Treat LLM mapping output as advisory only.
 - Promote only reviewed mappings into deterministic scripts.
 - Use run manifests and event traces for every run.
+- Preserve record-level evidence and rationale for validation claims.
+- Cover diverse validation scenarios, not only the narrow case used to tune a
+  prompt, mapping, or adapter.
+- Use PCCP-style review records for material model, prompt, retrieval, mapping,
+  or pipeline changes.
 
 ## Repository Layout
 
-- `docs/`: architecture, governance, mapping notes, metadata schema, canvases.
+- `docs/`: user-facing documentation only.
+- `specs/`: roadmap plus future feature spec directories; supporting materials live in `specs/artifacts/`.
 - `compose/`: OpenMRS/MySQL and optional service stack compose files.
 - `datasets/`: source pointers, mapping specs, deterministic transforms, fixtures.
 - `harness/`: Python orchestration package and CLI.
@@ -70,7 +78,7 @@ Milestone 1 is complete when the harness can:
 - validate OpenMRS startup + API readability + core table sanity,
 - run chartsearchai/querystore adapter entrypoints,
 - emit `run_manifest.json` + `events.jsonl` for each run,
-- retain durable copies of research canvases in `docs/canvases/`.
+- retain durable copies of research canvases in `specs/artifacts/`.
 
 ## Notes
 

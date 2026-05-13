@@ -15,6 +15,11 @@ Transform `large-demo-data-2-7-0.sql` into a deterministic OpenMRS 2.8 Ref App-c
 7. Execute deterministic transforms from `datasets/transforms/`.
 8. Validate import with smoke tests and API readability checks.
 
+This workflow is governed by `.specify/memory/constitution.md`: LLM proposals
+remain advisory, accepted mappings must be reviewed and deterministic, and import
+claims must preserve record-level evidence and rationale rather than relying on
+counts alone.
+
 ## Required Reviews
 
 - Unmapped concept and encounter metadata.

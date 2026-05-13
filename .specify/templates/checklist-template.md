@@ -15,6 +15,9 @@
   - Feature requirements from spec.md
   - Technical context from plan.md
   - Implementation details from tasks.md
+  - Constitution requirements for real paths, deterministic reviewed transforms,
+    record-level evidence, decision rationale, metadata/provenance, scenario
+    diversity, testing, data boundaries, and PCCP-style review records
   
   DO NOT keep these sample items in the generated checklist file.
   ============================================================================

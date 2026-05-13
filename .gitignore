@@ -1,5 +1,18 @@
+.DS_Store
+
+# Python
 .venv/
+venv/
 __pycache__/
+**/__pycache__/
+*.py[cod]
 .pytest_cache/
-artifacts/*
+.ruff_cache/
+.mypy_cache/
+
+# Local configuration and generated run output
+.env
+.env.*
+artifacts/**
+!artifacts/
 !artifacts/.gitkeep

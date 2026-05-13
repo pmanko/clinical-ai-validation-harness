@@ -11,7 +11,7 @@ from .schema_diff import write_schema_diff
 
 
 def _build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="OpenMRS AI validation harness CLI")
+    parser = argparse.ArgumentParser(description="Clinical AI validation harness CLI")
     sub = parser.add_subparsers(dest="command", required=True)
 
     schema = sub.add_parser("schema-diff", help="Emit schema diff artifacts")
@@ -35,7 +35,7 @@ def _start_run(output_dir: Path, component: str) -> tuple[Path, Path]:
     run_id = str(uuid4())
     manifest = RunManifest(
         run_id=run_id,
-        project="openmrs-ai-validation-harness",
+        project="clinical-ai-validation-harness",
         component=component,
         git_sha="unknown",
         dataset_id="large-demo-data-2-7-0",
