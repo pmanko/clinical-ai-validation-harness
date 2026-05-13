@@ -8,6 +8,7 @@ from .config import HarnessConfig
 from .import_smoke import run_import_smoke_stub
 from .metadata import RunManifest, append_event, write_manifest
 from .schema_diff import write_schema_diff
+from .submodules import read_harness_git_sha
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -31,17 +32,20 @@ def _build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _start_run(output_dir: Path, component: str) -> tuple[Path, Path]:
+def _start_run(output_dir: Path, component: str, project_root: Path) -> tuple[Path, Path]:
     run_id = str(uuid4())
     manifest = RunManifest(
         run_id=run_id,
         project="clinical-ai-validation-harness",
         component=component,
-        git_sha="unknown",
+        git_sha=read_harness_git_sha(project_root),
         dataset_id="large-demo-data-2-7-0",
         dataset_version="2.7.0",
         schema_mapping_version="openmrs-2.7-to-2.8@v0",
-        gen_ai_system="lmstudio",
+        gen_ai_provider_name="lmstudio",
+        evidence_status="development",
+        decision_rationale=None,
+        target_provenance=[],
     )
     manifest_path = output_dir / "run_manifest.json"
     events_path = output_dir / "events.jsonl"
@@ -62,7 +66,7 @@ def main() -> None:
     config = HarnessConfig.from_defaults(Path("."))
     if args.command == "schema-diff":
         output_dir = Path(args.output_dir)
-        _manifest, events = _start_run(output_dir, "schema-diff")
+        _manifest, events = _start_run(output_dir, "schema-diff", config.project_root)
         diff_path, summary_path = write_schema_diff(output_dir)
         append_event(
             events,
@@ -71,14 +75,13 @@ def main() -> None:
                 "check": "schema_diff",
                 "diff_path": str(diff_path),
                 "summary_path": str(summary_path),
-                "legacy_sql_path": str(config.legacy_sql_path),
             },
         )
         return
 
     if args.command == "import-smoke":
         output_dir = Path(args.output_dir)
-        _manifest, events = _start_run(output_dir, "import-smoke")
+        _manifest, events = _start_run(output_dir, "import-smoke", config.project_root)
         result = run_import_smoke_stub()
         append_event(events, result.to_event())
         return

@@ -9,18 +9,18 @@ def test_manifest_and_events_are_written(tmp_path: Path) -> None:
     events_path = tmp_path / "events.jsonl"
     manifest = RunManifest(
         run_id="run-1",
-        project="harness",
+        project="clinical-ai-validation-harness",
         component="schema-diff",
         git_sha="abc123",
         dataset_id="large-demo-data-2-7-0",
         dataset_version="2.7.0",
         schema_mapping_version="v0",
-        gen_ai_system="lmstudio",
+        gen_ai_provider_name="lmstudio",
     )
     write_manifest(manifest_path, manifest)
     append_event(events_path, {"event_type": "run"})
 
     payload = json.loads(manifest_path.read_text(encoding="utf-8"))
-    assert payload["otel"]["gen_ai.system"] == "lmstudio"
+    assert payload["otel"]["gen_ai.provider.name"] == "lmstudio"
     event_line = events_path.read_text(encoding="utf-8").strip()
     assert '"event_type":"run"' in event_line

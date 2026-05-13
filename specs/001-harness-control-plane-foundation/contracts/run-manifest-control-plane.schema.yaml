@@ -1,0 +1,133 @@
+schema_version: 1
+kind: RunManifestControlPlaneSchema
+description: Control-plane provenance fields required in run_manifest.json for target-aware harness runs.
+
+top_level_required:
+  - run_id
+  - project
+  - component
+  - git_sha
+  - generated_at
+  - evidence_status
+  - target_provenance
+  - otel
+
+fields:
+  run_id:
+    type: string
+  project:
+    type: string
+    expected: clinical-ai-validation-harness
+  component:
+    type: string
+  git_sha:
+    type: string
+    description: Harness repository SHA.
+  generated_at:
+    type: string
+    format: date-time
+  evidence_status:
+    type: string
+    allowed:
+      - release
+      - development
+      - fixture
+      - scaffolding
+      - unavailable
+      - blocked
+  decision_rationale:
+    type: string
+    required_when:
+      - evidence_status != release
+      - target_provenance[].target_override == true
+
+target_provenance:
+  type: array
+  min_items: 0
+  items:
+    required:
+      - target_id
+      - target_source
+      - target_path
+      - target_actual_sha
+      - target_override
+      - evidence_status
+    properties:
+      target_id:
+        type: string
+      target_source:
+        type: string
+        allowed:
+          - reviewed_submodule
+          - override
+      target_path:
+        type: string
+      target_url:
+        type: string
+        required: false
+      target_reviewed_sha:
+        type: string
+        required: false
+      target_actual_sha:
+        type: string
+      target_dirty:
+        type: boolean
+        default: false
+      target_override:
+        type: boolean
+      target_override_source:
+        type: string
+        required_when: target_override == true
+      target_metadata_version:
+        type: integer
+        required: false
+      evidence_status:
+        type: string
+      decision_rationale:
+        type: string
+        required_when:
+          - target_override == true
+          - evidence_status != release
+
+otel:
+  type: object
+  required:
+    - semconv_status
+    - semconv_stability_opt_in
+  properties:
+    semconv_status:
+      type: string
+      expected: development
+    semconv_stability_opt_in:
+      type: string
+      expected: gen_ai_latest_experimental
+    gen_ai.provider.name:
+      type: string
+      required_when: model_or_agent_involved == true
+    gen_ai.operation.name:
+      type: string
+      required_when: model_or_agent_involved == true
+    gen_ai.agent.name:
+      type: string
+      required: false
+    gen_ai.agent.id:
+      type: string
+      required: false
+    gen_ai.agent.version:
+      type: string
+      required: false
+    gen_ai.tool.name:
+      type: string
+      required: false
+    gen_ai.data_source.id:
+      type: string
+      required: false
+
+forbidden_fields:
+  - otel.gen_ai.system
+
+rules:
+  - If any target_override is true, the run MUST NOT be promoted as release evidence without a reviewed change record.
+  - Override runs MUST include target_override_source and target_actual_sha.
+  - Reviewed-pin runs SHOULD include target_reviewed_sha and MUST include target_actual_sha.
+  - New control-plane manifests MUST use gen_ai.provider.name instead of gen_ai.system.
