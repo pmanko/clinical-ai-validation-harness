@@ -3,20 +3,21 @@
 Date: 2026-05-12
 
 This artifact captures the working context needed to switch IDE/workspace from
-`openmrs-module-chartsearchai` to the new standalone repository:
+`openmrs-module-chartsearchai` to the new standalone repository.
 
-- Local repo: `/Users/pmanko/code/clinical-ai-validation-harness`
-- GitHub repo: <https://github.com/pmanko/clinical-ai-validation-harness>
-- Current branch for this handoff: `setup/orchestration-monorepo`
+- Local repo: `$HOME/code/clinical-ai-validation-harness` (example)
+- GitHub repo: `<your-fork-or-org>/clinical-ai-validation-harness` (example)
+- Current branch for this handoff: `<handoff-branch>` (example)
 
 ## Why This Exists
 
 The current chat was started in the old `openmrs-module-chartsearchai` workspace.
 Spec Kit was installed in the new standalone repo, so `/speckit-*` skills may not
-appear in this chat/context. To use the installed Spec Kit skills, open Cursor on:
+appear in this chat/context. To use the installed Spec Kit skills, open Cursor on
+your local clone path, for example:
 
 ```sh
-/Users/pmanko/code/clinical-ai-validation-harness
+$HOME/code/clinical-ai-validation-harness
 ```
 
 The new repo contains the Spec Kit installation and agent integration files.
@@ -99,15 +100,16 @@ Relevant generated files:
 - `.specify/integrations/cursor-agent.manifest.json`
 - `.specify/integrations/claude.manifest.json`
 
-Important: `.specify/memory/constitution.md` is intentionally still the generated
-template. The user wants the constitution created through the proper Spec Kit
-command, not by manually editing the file. Next step in the new Cursor workspace:
+Historical note (as of this handoff date): `.specify/memory/constitution.md` was
+still the generated template and the next step at that time was:
 
 ```text
 /speckit-constitution
 ```
 
-Suggested constitution principles to feed that command:
+In the current repository state, the constitution has since been ratified and the
+canonical source is `.specify/memory/constitution.md`. The suggested principles
+below are preserved as handoff context:
 
 - Real production paths over simulations
 - Deterministic, reviewed data transformations
