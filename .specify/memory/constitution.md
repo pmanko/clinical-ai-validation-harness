@@ -19,9 +19,8 @@ Templates requiring updates:
 - updated: .specify/templates/commands/*.md (no command templates present)
 - updated: README.md
 - updated: AGENTS.md
-- updated: docs/constitution.md
-- updated: docs/data-remap-2.8.md
-- updated: docs/metadata-schema.md
+- updated: specs/data-remap-2.8.md
+- updated: specs/metadata-schema.md
 Follow-up TODOs: none
 -->
 # clinical-ai-validation-harness Constitution
@@ -139,11 +138,12 @@ PCCP-style review records when applicable.
 
 This constitution supersedes conflicting guidance in repository documentation,
 Spec Kit templates, feature plans, and agent instructions. Repository guidance
-such as `AGENTS.md`, `README.md`, and `docs/` MUST be kept aligned when this
-constitution changes.
+such as `AGENTS.md`, `README.md`, user-facing `docs/`, and planning artifacts in
+`specs/` MUST be kept aligned when this constitution changes.
 
 Amendments require a pull request that explains the governance change, updates
-affected templates and docs, and includes a Sync Impact Report in this file.
+affected templates, specs, and docs, and includes a Sync Impact Report in this
+file.
 Versioning follows semantic versioning:
 
 - MAJOR: removes or redefines a core principle in a backward-incompatible way.

@@ -11,8 +11,7 @@ The repository is intended to coordinate local and VM-based setup, testing, and 
 
 ## Scope and Principles
 
-The canonical constitution is `.specify/memory/constitution.md`; `docs/constitution.md`
-points readers to that source of truth.
+The canonical constitution is `.specify/memory/constitution.md`.
 
 - Run real production paths, not test-only simulations.
 - Keep clinical evidence stores separate from operating metadata.
@@ -27,7 +26,8 @@ points readers to that source of truth.
 
 ## Repository Layout
 
-- `docs/`: architecture, governance, mapping notes, metadata schema, canvases.
+- `docs/`: user-facing documentation only.
+- `specs/`: roadmap, milestone specs, feature planning docs, and research artifacts.
 - `compose/`: OpenMRS/MySQL and optional service stack compose files.
 - `datasets/`: source pointers, mapping specs, deterministic transforms, fixtures.
 - `harness/`: Python orchestration package and CLI.
@@ -78,7 +78,7 @@ Milestone 1 is complete when the harness can:
 - validate OpenMRS startup + API readability + core table sanity,
 - run chartsearchai/querystore adapter entrypoints,
 - emit `run_manifest.json` + `events.jsonl` for each run,
-- retain durable copies of research canvases in `docs/canvases/`.
+- retain durable copies of research canvases in `specs/artifacts/`.
 
 ## Notes
 

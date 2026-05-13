@@ -61,10 +61,11 @@ The repo currently includes:
 - `.cursor/skills/`: Cursor Agent Spec Kit skills
 - `.cursor/rules/specify-rules.mdc`: Cursor rule for Spec Kit
 - `.claude/skills/`: Claude Code Spec Kit skills
-- `docs/canvases/`: durable copies of the research canvases
-- `docs/data-remap-2.8.md`: demo-data remap plan
-- `docs/metadata-schema.md`: v0 manifest/event schema
-- `docs/pccp-change-record-template.md`: governance/change-control template
+- `specs/artifacts/`: durable copies of research canvases and handoff snapshots
+- `specs/roadmap.canvas.tsx`: source-of-truth roadmap dashboard
+- `specs/data-remap-2.8.md`: demo-data remap plan
+- `specs/metadata-schema.md`: v0 manifest/event schema
+- `specs/pccp-change-record-template.md`: governance/change-control template
 - `compose/`: OpenMRS/MySQL and optional service compose stubs
 - `datasets/`: sources, mappings, transforms, fixtures
 - `harness/`: Python CLI/package scaffolding
@@ -120,9 +121,9 @@ Suggested constitution principles to feed that command:
 
 Three canvases were created during research and copied into the new repo:
 
-- `docs/canvases/validation-research.canvas.tsx`
-- `docs/canvases/cross-project-comparison.canvas.tsx`
-- `docs/canvases/clinical-ai-research-guidance.canvas.tsx`
+- `specs/artifacts/validation-research.canvas.tsx`
+- `specs/artifacts/cross-project-comparison.canvas.tsx`
+- `specs/artifacts/clinical-ai-research-guidance.canvas.tsx`
 
 These are intended as durable documentation snapshots, not build artifacts.
 
@@ -190,7 +191,7 @@ Next implementation work should likely define:
 - artifact/run directories that remain ignored
 - adapter contracts that call real project commands/APIs rather than reimplementing
   behavior
-- docs that clarify sibling checkout vs vendored/submodule choices
+- user-facing docs that clarify sibling checkout vs vendored/submodule choices
 
 Do this through Spec Kit in the new repo:
 

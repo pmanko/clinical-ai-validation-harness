@@ -101,7 +101,8 @@ evals/
 ├── metadata/
 └── retrieval/
 
-docs/
+docs/                 # user-facing documentation
+specs/                # roadmap, planning docs, and milestone artifacts
 datasets/
 compose/
 

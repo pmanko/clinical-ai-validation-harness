@@ -1,6 +1,6 @@
-# Canvas Artifact Index
+# Spec Artifact Index
 
-Durable snapshot copies of the validation research canvases:
+Durable planning and research artifacts that support the feature roadmap:
 
 - `validation-research.canvas.tsx`
   - Validation roadmap, architecture, validation flow, and demo-data remap plan.
@@ -9,4 +9,4 @@ Durable snapshot copies of the validation research canvases:
 - `clinical-ai-research-guidance.canvas.tsx`
   - Research grounding, maturity framing, and evolution guidance.
 
-These files are intentionally checked in as documentation artifacts so research context travels with this repository.
+These files are intentionally checked in as spec artifacts so research context travels with this repository without making `docs/` a planning archive.

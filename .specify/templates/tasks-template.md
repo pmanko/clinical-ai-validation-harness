@@ -26,7 +26,7 @@ mark tests as N/A with a short justification.
 - **Web app**: `backend/src/`, `frontend/src/`
 - **Mobile**: `api/src/`, `ios/src/` or `android/src/`
 - **Harness/control-plane**: `harness/`, `adapters/`, `compose/`, `datasets/`,
-  `docs/`, `evals/`
+  `specs/`, `docs/`, `evals/`
 - Paths shown below are examples - adjust based on plan.md structure
 
 <!--
@@ -163,9 +163,10 @@ Examples of foundational tasks (adjust based on your project):
 
 **Purpose**: Improvements that affect multiple user stories
 
-- [ ] TXXX [P] Documentation updates in docs/
+- [ ] TXXX [P] User-facing documentation updates in docs/ if behavior changes
+- [ ] TXXX [P] Planning/specification updates in specs/ if milestone or validation contracts change
 - [ ] TXXX [P] Update README quickstart or milestone status if user-visible behavior changes
-- [ ] TXXX [P] Update docs/metadata-schema.md if emitted metadata changes
+- [ ] TXXX [P] Update specs/metadata-schema.md if emitted metadata changes
 - [ ] TXXX [P] Add or update PCCP-style change record for material model/prompt/retrieval/mapping/pipeline changes
 - [ ] TXXX [P] Review validation cases for overfitting to a narrow fixture or honeypot scenario
 - [ ] TXXX Code cleanup and refactoring
