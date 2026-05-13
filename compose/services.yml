@@ -19,7 +19,7 @@ services:
       - "4317:4317"
       - "4318:4318"
     volumes:
-      - ../specs/otel-collector-config.yaml:/etc/otelcol/config.yaml:ro
+      - ../specs/artifacts/planning/otel-collector-config.yaml:/etc/otelcol/config.yaml:ro
 
 volumes:
   es_data:

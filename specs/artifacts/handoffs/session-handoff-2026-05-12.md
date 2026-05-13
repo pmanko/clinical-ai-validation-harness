@@ -61,11 +61,11 @@ The repo currently includes:
 - `.cursor/skills/`: Cursor Agent Spec Kit skills
 - `.cursor/rules/specify-rules.mdc`: Cursor rule for Spec Kit
 - `.claude/skills/`: Claude Code Spec Kit skills
-- `specs/artifacts/`: durable copies of research canvases and handoff snapshots
+- `specs/artifacts/`: supporting planning docs, research canvases, and handoff snapshots
 - `specs/roadmap.canvas.tsx`: source-of-truth roadmap dashboard
-- `specs/data-remap-2.8.md`: demo-data remap plan
-- `specs/metadata-schema.md`: v0 manifest/event schema
-- `specs/pccp-change-record-template.md`: governance/change-control template
+- `specs/artifacts/planning/data-remap-2.8.md`: demo-data remap plan
+- `specs/artifacts/planning/metadata-schema.md`: v0 manifest/event schema
+- `specs/artifacts/planning/pccp-change-record-template.md`: governance/change-control template
 - `compose/`: OpenMRS/MySQL and optional service compose stubs
 - `datasets/`: sources, mappings, transforms, fixtures
 - `harness/`: Python CLI/package scaffolding
@@ -121,9 +121,9 @@ Suggested constitution principles to feed that command:
 
 Three canvases were created during research and copied into the new repo:
 
-- `specs/artifacts/validation-research.canvas.tsx`
-- `specs/artifacts/cross-project-comparison.canvas.tsx`
-- `specs/artifacts/clinical-ai-research-guidance.canvas.tsx`
+- `specs/artifacts/canvases/validation-research.canvas.tsx`
+- `specs/artifacts/canvases/cross-project-comparison.canvas.tsx`
+- `specs/artifacts/canvases/clinical-ai-research-guidance.canvas.tsx`
 
 These are intended as durable documentation snapshots, not build artifacts.
 

@@ -166,7 +166,7 @@ Examples of foundational tasks (adjust based on your project):
 - [ ] TXXX [P] User-facing documentation updates in docs/ if behavior changes
 - [ ] TXXX [P] Planning/specification updates in specs/ if milestone or validation contracts change
 - [ ] TXXX [P] Update README quickstart or milestone status if user-visible behavior changes
-- [ ] TXXX [P] Update specs/metadata-schema.md if emitted metadata changes
+- [ ] TXXX [P] Update specs/artifacts/planning/metadata-schema.md if emitted metadata changes
 - [ ] TXXX [P] Add or update PCCP-style change record for material model/prompt/retrieval/mapping/pipeline changes
 - [ ] TXXX [P] Review validation cases for overfitting to a narrow fixture or honeypot scenario
 - [ ] TXXX Code cleanup and refactoring

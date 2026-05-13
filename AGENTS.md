@@ -35,8 +35,8 @@ This is a standalone validation harness for early clinical AI prototypes across 
 ## Documentation
 
 - Keep `README.md` current for quickstart and milestone status.
-- Keep `specs/metadata-schema.md` aligned with emitted artifacts.
-- Keep `specs/data-remap-2.8.md` aligned with the current import/remap strategy.
+- Keep `specs/artifacts/planning/metadata-schema.md` aligned with emitted artifacts.
+- Keep `specs/artifacts/planning/data-remap-2.8.md` aligned with the current import/remap strategy.
 - Treat `specs/artifacts/` as durable planning and research snapshots, not generated build output.
 - Keep `docs/` reserved for user-facing documentation.
 

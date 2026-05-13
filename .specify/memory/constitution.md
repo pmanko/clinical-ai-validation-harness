@@ -19,8 +19,8 @@ Templates requiring updates:
 - updated: .specify/templates/commands/*.md (no command templates present)
 - updated: README.md
 - updated: AGENTS.md
-- updated: specs/data-remap-2.8.md
-- updated: specs/metadata-schema.md
+- updated: specs/artifacts/planning/data-remap-2.8.md
+- updated: specs/artifacts/planning/metadata-schema.md
 Follow-up TODOs: none
 -->
 # clinical-ai-validation-harness Constitution

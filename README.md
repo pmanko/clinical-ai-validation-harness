@@ -27,7 +27,7 @@ The canonical constitution is `.specify/memory/constitution.md`.
 ## Repository Layout
 
 - `docs/`: user-facing documentation only.
-- `specs/`: roadmap, milestone specs, feature planning docs, and research artifacts.
+- `specs/`: roadmap plus future feature spec directories; supporting materials live in `specs/artifacts/`.
 - `compose/`: OpenMRS/MySQL and optional service stack compose files.
 - `datasets/`: source pointers, mapping specs, deterministic transforms, fixtures.
 - `harness/`: Python orchestration package and CLI.
