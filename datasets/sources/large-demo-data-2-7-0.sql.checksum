@@ -15,19 +15,56 @@ insert_batch_count: 153
 # Provenance
 source_description: |
   Publicly-published, cleaned, anonymized OpenMRS demo dataset corresponding to
-  OpenMRS Platform/Core 2.7.0. See the OpenMRS Demo Data wiki page:
-  https://openmrs.atlassian.net/wiki/spaces/RES/pages/26273323/Demo+Data
-origin_url: TBD-confirm-canonical-download-url  # Operator: fill in the exact download URL used to fetch the dump.
+  OpenMRS Platform 2.7.0. Per the OpenMRS Demo Data wiki: 5,000 patients and
+  ~500,000 observations.
+origin_wiki: https://openmrs.atlassian.net/wiki/spaces/docs/pages/26273323/Demo+Data
+origin_file: large-demo-data-2-7-0.sql.zip  # ZIP archive containing the .sql dump
+origin_uploaded_at: 2025-01-10
+origin_uploaded_by: Daniel Kayiwa
+origin_url: TBD-confirm-canonical-download-url  # Confluence attachment URL; the wiki page hosts the zip as an attachment whose direct URL the operator should record at fetch time.
+
+# IMPORTANT — Platform vs Reference Application caveat (from the OpenMRS Demo
+# Data wiki, verbatim):
+#
+#   "demo data for OpenMRS Platform releases ... will not work for OpenMRS
+#    Reference Application releases"
+#
+# This is exactly the gap feature 002 bridges: the corpus is a Platform 2.7
+# dump and is NOT directly loadable into a 3.x Reference Application install.
+# Feature 002 transforms the Platform-only corpus into a candidate database
+# that boots cleanly under the modern (O3) RefApp on Core 2.8.x by remapping
+# the concept dictionary onto the seeded CIEL, handling unbundled-module
+# tables, and addressing terminology drift. The wiki's documented path for
+# RefApp demo data (the `referencedemodata.createDemoPatientsOnNextStartup`
+# global property) produces fresh synthetic patients without the rich clinical
+# history this 5,000-patient/500K-observation corpus carries; feature 002
+# unlocks that corpus for the modern RefApp specifically.
+
 license: |
-  OpenMRS is licensed under MPL 2.0. The demo data dump is published as part of
-  OpenMRS's demo-data resources; treat as MPL 2.0 unless the download page states
-  otherwise. Verify the license note on the canonical download page.
+  OpenMRS is licensed under MPL 2.0. The demo data dump is published as part
+  of OpenMRS's demo-data resources on the wiki; treat as MPL 2.0 unless the
+  download page states otherwise.
+
 phi_classification: public-cleaned-anonymized
+
+default_credentials_note: |
+  Per the wiki: "When installing this demo data, the initial password for the
+  user 'admin' is 'Admin123'." This is published, well-known, and not a secret.
+  FR-PHI3 confirms credential hygiene for any public deployment of the
+  produced demo is the deploying environment's responsibility, not this
+  feature's. Feature 002 does NOT reset admin credentials.
+
 data_handling_policy: |
   No PHI scrubbing, person/narrative re-anonymization, or credential reset is
   applied by this feature (FR-PHI1, FR-PHI2, FR-PHI3). The dump is transformed
-  as-is; credential hygiene for any public deployment of the produced demo is
-  the deploying environment's responsibility, not this feature's.
+  as-is.
+
+install_pattern_in_origin_form: |
+  Per the wiki, the install pattern for the original (Platform-targeted) dump:
+      mysql> use database_name;
+      mysql> source demo-1.10.0.sql
+  Feature 002 produces a transformed dump that follows the same shape but
+  imports into a fresh MariaDB underlying an O3 RefApp 3.x backend.
 
 retrieval:
   retrieved_at: 2026-05-13

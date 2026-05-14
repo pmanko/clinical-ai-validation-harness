@@ -126,6 +126,24 @@ OpenTelemetry GenAI alignment is N/A for this feature — no model invocations a
 
 **Rationale**: The harness already plans a metadata schema; piggy-backing keeps fields consistent across milestones.
 
+## R-Source-Provenance. Source corpus facts (from the OpenMRS Demo Data wiki)
+
+Confirmed by reading the OpenMRS Demo Data wiki content directly (https://openmrs.atlassian.net/wiki/spaces/docs/pages/26273323/Demo+Data, content as of 2026-05-13):
+
+- **What it is**: `large-demo-data-2-7-0.sql.zip` — ZIP archive containing the SQL dump for OpenMRS **Platform 2.7.0**. Uploaded 2025-01-10 by Daniel Kayiwa.
+- **Scale**: 5,000 patients and ~500,000 observations (per wiki's "anonymized data set" header).
+- **Install pattern (origin form, Platform target)**: `mysql> use <db>; mysql> source demo-1.10.0.sql` against an empty MySQL/MariaDB. This is the canonical schema-and-data load path. Confirms our M2-F approach: load the transformed dump into the MariaDB underlying the O3 RefApp 3.x backend the same way.
+- **Default credentials**: `admin` / `Admin123`. Public, well-known, not a secret. FR-PHI3's stance (credential hygiene is the deployer's responsibility, not the transform's) is consistent with the wiki's own note ("You should change the password after installing the demo data").
+- **License framing**: published as part of OpenMRS's demo-data resources on the openmrs.org wiki; treated as MPL 2.0 (OpenMRS's project license).
+
+**Load-bearing caveat from the wiki, verbatim**:
+
+> "demo data for OpenMRS Platform releases ... will not work for OpenMRS Reference Application releases"
+
+For the RefApp, the wiki points to the `referencedemodata.createDemoPatientsOnNextStartup` global property — which generates fresh synthetic patients without the published corpus's clinical history.
+
+**Implication for this feature**: feature 002 IS the bridge between the wiki's "Platform demo data" path and the modern (O3) RefApp. The transformation work (concept remap onto seeded CIEL, module-policy for unbundled module tables, terminology drift handling) is exactly what closes the wiki-documented incompatibility. Success is defined by: the transformed dump loads into the MariaDB underlying the O3 RefApp 3.x backend, Liquibase upgrade-in-place succeeds, and the rich clinical history (5,000 patients / ~500K observations) is preserved by the translation policy. The wiki's "createDemoPatientsOnNextStartup" path remains a valid alternative for users who do not need the published corpus's clinical depth.
+
 ## R-Liquibase. Liquibase upgrade-in-place cost (used by M2-A enumeration and M2-D pre-stage decisions)
 
 **Observation**: OpenMRS Talk thread "Challenges with large data during platform upgrade" documents per-changeset Liquibase costs reaching multiple hours on `obs`-heavy datasets across Platform versions — one practitioner reported ~8h on a 1.11→2.1 jump for three `obs` alterations (specifically: `add status column`, `add interpretation column`, and a `value_complex` column resize). The change-type pattern that drives these costs is **schema modifications on the `obs` table requiring full-table copies** (MySQL/MariaDB's `ALGORITHM=COPY` path), especially `modifyDataType` against `value_complex` and `addColumn` with default backfill.
