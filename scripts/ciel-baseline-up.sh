@@ -58,16 +58,12 @@ fi
 #    is_already_bootstrapped() check will short-circuit the import step.)
 echo ""
 echo "=== bootstrapping CIEL ${VERSION} into OpenMRS via openconceptlab module ==="
+# Module CLI: argv handles quoting safely (no shell-string interpolation into
+# Python source). Exit codes: 0 success, 1 bootstrap error, 2 credential error.
 if [[ "$ONLINE" == "1" ]]; then
-  python3 -c "
-from harness.ocl.bootstrap import bootstrap_ciel
-bootstrap_ciel('${VERSION}', use_online_subscription=True)
-"
+  python3 -m harness.ocl ciel-baseline --version "$VERSION" --online
 else
-  python3 -c "
-from harness.ocl.bootstrap import bootstrap_ciel
-bootstrap_ciel('${VERSION}')
-"
+  python3 -m harness.ocl ciel-baseline --version "$VERSION"
 fi
 
 echo ""

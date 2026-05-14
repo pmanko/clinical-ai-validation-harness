@@ -25,9 +25,15 @@
         max_size 256MB
     }
 
-    # Large multipart uploads (OCL import ZIPs ~60MB) bypass the gateway's
+    # Large multipart POST uploads (OCL import ZIPs ~60MB) bypass the gateway's
     # nginx default client_max_body_size=1MB and go directly to backend Tomcat.
-    handle /openmrs/ws/rest/v1/openconceptlab/import* {
+    # Restricted to POST so polling GETs (import status, item enumeration) keep
+    # going through the gateway's normal routing (headers, gzip, etc.).
+    @ocl_upload {
+        method POST
+        path /openmrs/ws/rest/v1/openconceptlab/import
+    }
+    handle @ocl_upload {
         reverse_proxy backend:8080
     }
 

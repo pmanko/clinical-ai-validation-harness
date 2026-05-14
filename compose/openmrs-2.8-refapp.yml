@@ -27,7 +27,8 @@ services:
       - caddy-data:/data
       - caddy-config:/config
     depends_on:
-      - gateway
+      gateway:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost/__proxy_health"]
       interval: 10s
@@ -39,11 +40,22 @@ services:
     container_name: harness-openmrs-gateway
     restart: "unless-stopped"
     depends_on:
-      - frontend
-      - backend
+      frontend:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
     # Intentionally NOT exposed on the host; access via the `proxy` service.
     expose:
       - "80"
+    healthcheck:
+      # Gateway is itself nginx; routes through to backend's /openmrs landing.
+      # Backend Liquibase on first boot can take 5-10 min, so start_period is
+      # generous; backend has its own start_period that gates this one anyway.
+      test: ["CMD-SHELL", "wget -qO- http://localhost/openmrs >/dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
 
   frontend:
     image: openmrs/openmrs-reference-application-3-frontend:${OPENMRS_REFAPP_TAG:-3.6.0}
@@ -56,16 +68,21 @@ services:
       SPA_DEFAULT_LOCALE:
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost/"]
+      interval: 10s
       timeout: 5s
+      retries: 10
+      start_period: 60s
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
 
   backend:
     image: openmrs/openmrs-reference-application-3-backend:${OPENMRS_REFAPP_TAG:-3.6.0}
     container_name: harness-openmrs-backend
     restart: "unless-stopped"
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     environment:
       OMRS_CONFIG_MODULE_WEB_ADMIN: "true"
       OMRS_CONFIG_AUTO_UPDATE_DATABASE: "true"
@@ -75,8 +92,14 @@ services:
       OMRS_CONFIG_CONNECTION_USERNAME: ${OMRS_DB_USER:-openmrs}
       OMRS_CONFIG_CONNECTION_PASSWORD: ${OMRS_DB_PASSWORD:-openmrs}
     healthcheck:
+      # First-boot Liquibase migrations on the RefApp 3.x stack take 5-10 min
+      # against a fresh MariaDB volume; start_period covers that window so
+      # health-gated `depends_on` chains don't trigger spurious restarts.
       test: ["CMD", "curl", "-f", "http://localhost:8080/openmrs"]
+      interval: 15s
       timeout: 5s
+      retries: 20
+      start_period: 600s
     volumes:
       - openmrs-data:/openmrs/data
       - ../artifacts/openmrs/modules:/openmrs/data/modules

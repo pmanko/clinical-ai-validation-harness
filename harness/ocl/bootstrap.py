@@ -42,9 +42,21 @@ _BASE = os.environ.get("OPENMRS_BASE_URL", "http://localhost:8088/openmrs")
 _USER = os.environ.get("OPENMRS_ADMIN_USER", "admin")
 _PASS = os.environ.get("OPENMRS_ADMIN_PASSWORD", "Admin123")
 
+# Fail fast if the operator points at a non-demo OpenMRS but forgot to set the
+# admin password — we'd otherwise silently send the documented demo default
+# `Admin123` to a real instance.
+_DEMO_BASE = "http://localhost:8088/openmrs"
+if _BASE != _DEMO_BASE and not os.environ.get("OPENMRS_ADMIN_PASSWORD"):
+    raise RuntimeError(
+        f"OPENMRS_BASE_URL is set to {_BASE!r} (non-demo) but OPENMRS_ADMIN_PASSWORD "
+        "is not set. Refusing to send the demo default password to a non-default URL."
+    )
+
 _REST = f"{_BASE}/ws/rest/v1"
 _SUB_URL = f"{_REST}/openconceptlab/subscription"
 _IMP_URL = f"{_REST}/openconceptlab/import"
+
+_DEFAULT_TIMEOUT = int(os.environ.get("CIEL_IMPORT_TIMEOUT_SECONDS", "5400"))
 
 
 def _basic_auth_header() -> str:
@@ -194,9 +206,11 @@ def parse_progress(d: dict[str, Any]) -> ImportProgress:
     )
 
 
-def wait_for_import(uuid: str, *, timeout_seconds: int = 5400,
+def wait_for_import(uuid: str, *, timeout_seconds: int | None = None,
                     poll_interval: int = 10) -> ImportProgress:
     """Poll until the import completes; report progress periodically."""
+    if timeout_seconds is None:
+        timeout_seconds = _DEFAULT_TIMEOUT
     deadline = time.time() + timeout_seconds
     last_progress = -1
     while time.time() < deadline:
@@ -214,13 +228,56 @@ def wait_for_import(uuid: str, *, timeout_seconds: int = 5400,
     raise TimeoutError(f"Import {uuid} did not finish within {timeout_seconds}s")
 
 
+def _marker_path(version: str) -> Path:
+    return Path("datasets/sources/ocl/CIEL") / version / ".imported-at"
+
+
+def read_marker(version: str) -> dict[str, Any] | None:
+    p = _marker_path(version)
+    if not p.exists():
+        return None
+    try:
+        return json.loads(p.read_text())
+    except (json.JSONDecodeError, OSError):
+        return None
+
+
+def write_marker(version: str, import_uuid: str) -> Path:
+    p = _marker_path(version)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "version": version,
+        "import_uuid": import_uuid,
+        "imported_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "openmrs_base_url": _BASE,
+    }
+    p.write_text(json.dumps(payload, indent=2) + "\n")
+    return p
+
+
 def is_already_bootstrapped(version: str) -> bool:
-    """Return True if a recent import is for the expected CIEL release version and succeeded."""
-    for imp in list_imports(limit=10):
-        if imp.get("releaseVersion") == version and not imp.get("errorMessage"):
-            if imp.get("localDateStopped") and int(imp.get("importProgress", "0") or 0) == 100:
-                return True
-    return False
+    """Return True iff (a) a marker file from a prior successful import exists for this
+    pinned version AND (b) the live OpenMRS subscription URL still points at it.
+
+    Offline imports do NOT populate `releaseVersion` on the import record (it
+    comes from the subscription metadata, which is only set on online pulls),
+    so the prior "check most recent import.releaseVersion" approach never
+    short-circuited and every re-run re-uploaded the 60MB ZIP. The marker file
+    + live subscription verification fixes that while still re-running the
+    import if the DB was nuked (subscription URL gone) or the marker was
+    removed.
+    """
+    marker = read_marker(version)
+    if not marker:
+        return False
+    expected_url = f"https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/{version}/"
+    try:
+        cur = get_subscription()
+    except Exception:
+        return False
+    if not cur or cur.get("url") != expected_url:
+        return False
+    return True
 
 
 def bootstrap_ciel(
@@ -271,6 +328,9 @@ def bootstrap_ciel(
         f"  finished. status={prog.status!r}  items={prog.all_items}  added={prog.added}"
         f"  updated={prog.updated}  errors={prog.errors}"
     )
+    if prog.is_finished and not prog.error_message:
+        marker = write_marker(version, prog.uuid or uuid)
+        print(f"  marker written: {marker}")
     return prog
 
 
@@ -285,5 +345,8 @@ __all__ = [
     "trigger_subscription_import",
     "wait_for_import",
     "parse_progress",
+    "is_already_bootstrapped",
+    "read_marker",
+    "write_marker",
     "is_already_bootstrapped",
 ]

@@ -36,6 +36,17 @@ fields:
       properties:
         policy_bucket:
           type: string
+          description: Harness-internal action taken on rows in this bucket.
+          allowed:
+            - remap
+            - seed-augment
+            - drop
+        equivalence_label:
+          type: string
+          description: >-
+            FHIR ConceptMap equivalence label this bucket aggregates over.
+            Optional at the bucket level — buckets are keyed by policy action,
+            equivalence is captured per-record below.
           allowed:
             - equivalent
             - equal
@@ -44,9 +55,7 @@ fields:
             - inexact
             - unmatched
             - disjoint
-            - remap
-            - seed-augment
-            - drop
+          required: false
         declared_empty_by_mapping:
           type: boolean
           description: True if the accepted ConceptMap contains zero elements with this bucket. Sampler reports zero records and passes by definition.

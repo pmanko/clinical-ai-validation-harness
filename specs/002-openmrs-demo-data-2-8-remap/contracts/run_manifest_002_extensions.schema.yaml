@@ -22,6 +22,7 @@ additional_top_level_required:
   - fhir_validator_version
   - sqlmesh_version
   - python_version
+  - equivalence_labels
   - policy_buckets
   - reviewer_signoffs
 
@@ -75,9 +76,12 @@ fields:
     type: string
   python_version:
     type: string
-  policy_buckets:
+  equivalence_labels:
     type: array
-    description: Enumerated from the accepted ConceptMap; each bucket may be empty.
+    description: >-
+      FHIR R4 ConceptMap equivalence vocabulary used by the accepted ConceptMap.
+      Describes the *semantic relationship* between source and target concepts.
+      Each label may be empty (zero map elements with that label).
     items:
       type: string
       allowed:
@@ -88,6 +92,17 @@ fields:
         - inexact
         - unmatched
         - disjoint
+  policy_buckets:
+    type: array
+    description: >-
+      Harness-internal policy decisions per row. Disjoint from
+      `equivalence_labels` — describes the *action* taken during transform.
+      `unmatched` (an equivalence label) is not the same as `drop` (a policy
+      bucket); a row can be `unmatched` and still kept under a different policy.
+      Each bucket may be empty.
+    items:
+      type: string
+      allowed:
         - remap
         - seed-augment
         - drop

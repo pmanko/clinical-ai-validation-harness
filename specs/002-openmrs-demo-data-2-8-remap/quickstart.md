@@ -7,7 +7,7 @@ Operator walkthrough from a clean checkout to a passing import-smoke + binding +
 ## 0. Prerequisites
 
 - Docker + Docker Compose (Docker Desktop or rootless Docker on Linux)
-- Java 17+ (for HL7 FHIR Validator CLI) and Java 21+ (for the chartsearchai `mvn -pl api test` validation surface)
+- Java 21+ (satisfies both the HL7 FHIR Validator CLI and the chartsearchai `mvn -pl api test` validation surface)
 - `uv` (managed Python; see M0 quickstart)
 - `mvn` (Maven; for chartsearchai tests)
 - GitHub access to the four target submodules

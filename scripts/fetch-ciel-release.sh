@@ -42,17 +42,40 @@ TOK=$(python3 -c "from harness.ocl import get_token; print(get_token())")
 
 EXPORT_URL="https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/${VERSION}/export/"
 echo "Resolving signed download URL via ${EXPORT_URL}..."
-SIGNED_URL=$(curl -sS -L -o /dev/null -w "%{url_effective}" \
+# Single HEAD-ish pass: capture the Location header *without* following the
+# redirect (no `-L`). Previously `-L -o /dev/null -w %{url_effective}` followed
+# the redirect AND streamed the full 60MB to /dev/null, doubling bandwidth.
+SIGNED_URL=$(curl -sS -o /dev/null -w "%{redirect_url}" \
   -H "Authorization: Token $TOK" \
   "$EXPORT_URL")
-if [[ -z "$SIGNED_URL" ]] || [[ "$SIGNED_URL" == "$EXPORT_URL" ]]; then
-  echo "ERROR: could not resolve signed download URL (got: $SIGNED_URL)" >&2
+if [[ -z "$SIGNED_URL" ]]; then
+  echo "ERROR: OCL did not return a redirect URL (auth issue, or anon access disabled?)" >&2
   exit 1
 fi
 echo "Resolved (S3 signed URL; redacted)."
 
+# Download to a temp path and atomically rename on success so a partial
+# download from a network failure does not poison the cache for the next run.
+ZIP_TMP="${ZIP_PATH}.tmp.$$"
+trap 'rm -f "$ZIP_TMP"' EXIT
 echo "Downloading CIEL ${VERSION} ZIP -> $ZIP_PATH ..."
-curl -sS -L -o "$ZIP_PATH" "$SIGNED_URL" --progress-bar
+curl -sS -L -o "$ZIP_TMP" "$SIGNED_URL" --progress-bar
+# If a prior provenance.json pins a sha256, verify before promoting.
+if [[ -f "$PROVENANCE" ]]; then
+  EXPECTED_SHA=$(python3 -c "import json,sys; print(json.load(open('$PROVENANCE')).get('sha256',''))" 2>/dev/null || echo "")
+  if [[ -n "$EXPECTED_SHA" ]]; then
+    ACTUAL_SHA=$(shasum -a 256 "$ZIP_TMP" | awk '{print $1}')
+    if [[ "$ACTUAL_SHA" != "$EXPECTED_SHA" ]]; then
+      echo "ERROR: SHA-256 mismatch vs pinned provenance.json" >&2
+      echo "  expected: $EXPECTED_SHA" >&2
+      echo "  actual:   $ACTUAL_SHA" >&2
+      exit 1
+    fi
+    echo "Checksum matches pinned provenance (${ACTUAL_SHA:0:12}...)."
+  fi
+fi
+mv "$ZIP_TMP" "$ZIP_PATH"
+trap - EXIT
 echo "Download complete."
 
 SIZE=$(stat -f %z "$ZIP_PATH" 2>/dev/null || stat -c %s "$ZIP_PATH")

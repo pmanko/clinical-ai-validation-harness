@@ -65,7 +65,7 @@ Before mappings are reviewed and accepted, an analyst needs a deterministic prof
 
 1. **Given** the source SQL dump, **When** profiling runs, **Then** the output enumerates every table populated, distinct concept reference sources in use (e.g., CIEL, SNOMED CT, LOINC, ICD-10, RxNorm, CPT, MedDRA, AMPATH, locally defined sources), counts of mapped vs. unmapped concepts, and the locale set covered by `concept_name`.
 2. **Given** the profile output, **When** compared against a freshly built clean Core 2.8.x baseline (produced by the O3 RefApp backend), **Then** a diff identifies: tables present in source but not target, tables present in target but not source, columns added/removed/retyped, module-owned tables (with the contributing module), and Liquibase changeset deltas.
-3. **Given** the diff, **When** an LLM produces a mapping proposal, **Then** the proposal is stored as advisory-only and is not consumable by the transform stage until it is promoted into `datasets/mappings/openmrs-2.7-to-2.8.yaml` by a reviewer with a recorded rationale.
+3. **Given** the diff, **When** an LLM produces a mapping proposal, **Then** the proposal is stored as advisory-only and is not consumable by the transform stage until it is promoted into `datasets/mappings/openmrs-2.7-to-2.8.conceptmap.json` by a reviewer with a recorded rationale.
 4. **Given** a tables-only inventory without terminology details, **When** the reviewer inspects it, **Then** the workflow flags terminology coverage as incomplete and refuses to advance to the transform stage.
 
 ---
