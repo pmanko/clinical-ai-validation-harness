@@ -1,0 +1,176 @@
+schema_version: 1
+kind: HarnessTargetsSchema
+description: Contract for harness/targets.yaml used by the control plane foundation.
+
+top_level:
+  required:
+    - schema_version
+    - targets
+    - profiles
+    - shared_infrastructure
+  properties:
+    schema_version:
+      type: integer
+      allowed: [1]
+    targets:
+      type: array
+      min_items: 4
+      items: ValidationTarget
+    profiles:
+      type: array
+      min_items: 2
+      items: EnvironmentProfile
+    shared_infrastructure:
+      type: array
+      items: SharedInfrastructureService
+
+ValidationTarget:
+  required:
+    - id
+    - display_name
+    - submodule_path
+    - validation_surface
+    - supported_profiles
+    - evidence_status
+    - environment_override
+  properties:
+    id:
+      type: string
+      allowed_initial_values:
+        - chartsearchai
+        - querystore
+        - openmrs_chatbot
+        - catalyst
+    display_name:
+      type: string
+    submodule_path:
+      type: string
+      rule: MUST start with targets/
+    project_subpath:
+      type: string
+      required: false
+      default: "."
+    validation_surface:
+      type: object
+      required:
+        - kind
+        - description
+        - evidence_mode
+      properties:
+        kind:
+          type: string
+          allowed:
+            - command
+            - api
+            - workflow
+            - unavailable
+        command:
+          type: array
+          items: string
+          required: false
+        description:
+          type: string
+        evidence_mode:
+          type: string
+          allowed:
+            - real_path_required
+            - fixture_backed
+            - scaffolding_only
+            - unavailable
+    supported_profiles:
+      type: array
+      items: string
+    required_services:
+      type: array
+      items: string
+      required: false
+    target_compose_files:
+      type: array
+      items: string
+      required: false
+      rule: Paths are resolved relative to the target root.
+    shared_profiles:
+      type: array
+      items: string
+      required: false
+    environment_override:
+      type: string
+      rule: MUST match HARNESS_TARGET_[A-Z0-9_]+
+    evidence_status:
+      type: string
+      allowed:
+        - release
+        - development
+        - fixture
+        - scaffolding
+        - unavailable
+    readiness_notes:
+      type: string
+      required: false
+
+EnvironmentProfile:
+  required:
+    - id
+    - description
+    - artifact_root
+    - enabled_targets
+    - shared_compose_files
+  properties:
+    id:
+      type: string
+      allowed_initial_values:
+        - local
+        - vm
+    description:
+      type: string
+    artifact_root:
+      type: string
+    enabled_targets:
+      type: array
+      items: string
+    shared_compose_files:
+      type: array
+      items: string
+    active_compose_profiles:
+      type: array
+      items: string
+      required: false
+    required_env:
+      type: array
+      items: string
+      required: false
+    allows_overrides:
+      type: boolean
+      default: true
+
+SharedInfrastructureService:
+  required:
+    - id
+    - owner
+    - compose_file
+    - service_names
+  properties:
+    id:
+      type: string
+    owner:
+      type: string
+      allowed: [harness]
+    compose_file:
+      type: string
+      rule: MUST resolve under compose/
+    service_names:
+      type: array
+      items: string
+    docker_profiles:
+      type: array
+      items: string
+      required: false
+
+cross_field_rules:
+  - Every target id MUST be unique.
+  - Every profile id MUST be unique.
+  - Every supported_profiles value MUST reference an EnvironmentProfile id.
+  - Every shared_profiles value MUST reference a SharedInfrastructureService id.
+  - Every target with evidence_status release MUST use validation_surface.evidence_mode real_path_required.
+  - Catalyst MUST use submodule_path targets/catalyst.
+  - .gitmodules target paths and harness/targets.yaml submodule_path values MUST agree for initialized targets.

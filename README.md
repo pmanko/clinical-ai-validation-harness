@@ -37,15 +37,28 @@ The canonical constitution is `.specify/memory/constitution.md`.
 
 ## Quickstart
 
-1. Create a Python 3.11+ environment.
-2. Install package and dev dependencies:
-   - `pip install -e .[dev]`
+1. Install `uv` if needed:
+   - `curl -LsSf https://astral.sh/uv/install.sh | sh`
+2. Create the local Python environment and install dev dependencies:
+   - `make setup`
 3. Prepare stack:
    - `docker compose -f compose/openmrs-2.8-refapp.yml up -d`
 4. Run a schema diff:
-   - `harness-cli schema-diff --output-dir artifacts/schema-diff`
+   - `uv run harness-cli schema-diff --output-dir artifacts/schema-diff`
 5. Run smoke tests:
-   - `pytest evals/dataset_import evals/metadata`
+   - `make smoke`
+
+The project tracks `.python-version` as `3.11` and keeps `requires-python =
+">=3.11"` in `pyproject.toml`, so local and VM environments can use any
+compatible 3.11+ Python while sharing the same `uv.lock`.
+
+If `make` is unavailable, run the equivalent commands directly:
+
+```bash
+uv python install 3.11
+uv sync --extra dev
+uv run pytest evals/dataset_import evals/metadata
+```
 
 ## Spec Kit
 

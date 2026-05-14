@@ -1,0 +1,13 @@
+[submodule "targets/chartsearchai"]
+	path = targets/chartsearchai
+	url = https://github.com/openmrs/openmrs-module-chartsearchai.git
+[submodule "targets/querystore"]
+	path = targets/querystore
+	url = https://github.com/openmrs/openmrs-module-querystore.git
+[submodule "targets/openmrs_chatbot"]
+	path = targets/openmrs_chatbot
+	url = https://github.com/anichiti/openmrs_chatbot.git
+
+# Review note (Catalyst): targets/catalyst is intentionally NOT a submodule yet.
+# Control-plane metadata lists Catalyst with evidence_status: unavailable until a
+# standalone extracted Catalyst repository URL is pinned and added here.
