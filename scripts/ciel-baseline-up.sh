@@ -24,6 +24,35 @@ done
 
 HERE="$(dirname "$0")"
 
+# Cross-platform single-instance lock: two operators (or human + CI) running
+# `make ciel-baseline` simultaneously would otherwise both upload the ZIP and
+# create duplicate import records. We use a lock-FD pattern that works on
+# both macOS (no flock(1)) and Linux. The lock is released automatically when
+# the script exits (FD closed).
+LOCK_DIR="${TMPDIR:-/tmp}"
+LOCK_FILE="${LOCK_DIR}/harness-ciel-baseline-${VERSION}.lock"
+exec 9>"$LOCK_FILE"
+if command -v flock >/dev/null 2>&1; then
+  if ! flock -n 9; then
+    echo "Another ciel-baseline run is in progress (lock: $LOCK_FILE). Exiting." >&2
+    exit 0
+  fi
+else
+  # macOS has no flock(1); use a sentinel PID file alongside.
+  PIDFILE="${LOCK_FILE}.pid"
+  if [[ -f "$PIDFILE" ]] && kill -0 "$(cat "$PIDFILE" 2>/dev/null)" 2>/dev/null; then
+    echo "Another ciel-baseline run is in progress (pid $(cat "$PIDFILE")). Exiting." >&2
+    exit 0
+  fi
+  echo $$ > "$PIDFILE"
+  trap 'rm -f "$PIDFILE"' EXIT
+fi
+
+# Preflight: cwd + python import sanity.
+# shellcheck source=./_preflight.sh
+source "$HERE/_preflight.sh"
+harness_preflight || exit 1
+
 # 1) If a pre-snapshotted baseline exists, prefer the fast path (seconds)
 #    over the full openconceptlab import (30-90 min). The bootstrap is still
 #    invoked afterwards so that the subscription URL is recorded in

@@ -18,8 +18,12 @@
 #   ./scripts/setup-ocl-keychain.sh --rotate
 #     -> same; semantic alias for documenting a token rotation event.
 #
-# The script never echoes the token, never writes it to a file, never logs it.
-# It does NOT take the token as an argv argument (would leak via `ps`).
+# The script never echoes the token and never writes it to a file or log.
+# The `security` CLI does briefly receive the token on its argv (the `-w VALUE`
+# form below) — visible to `ps` for a few milliseconds. On a single-user macOS
+# workstation this is the documented apple-recommended invocation and we
+# accept the tiny window; on a shared host you should run this script under a
+# dedicated account.
 
 set -euo pipefail
 

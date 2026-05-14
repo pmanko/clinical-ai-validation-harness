@@ -36,7 +36,28 @@ if [[ ! -f "$SRC" ]]; then
 fi
 
 if [[ -f "$PROVENANCE" ]]; then
-  EXPECTED=$(python3 -c "import json; print(json.load(open('$PROVENANCE'))['sha256'])")
+  # Validate the provenance file shape before trusting its sha256. A malformed
+  # provenance.json should fail fast with a clear message, not a python
+  # traceback in front of the operator.
+  EXPECTED=$(python3 - "$PROVENANCE" <<'PY' 2>/dev/null || true
+import json, sys
+try:
+    with open(sys.argv[1]) as f:
+        data = json.load(f)
+except (OSError, json.JSONDecodeError) as e:
+    sys.stderr.write(f"provenance unreadable: {e}\n")
+    sys.exit(2)
+sha = data.get("sha256")
+if not isinstance(sha, str) or len(sha) != 64:
+    sys.stderr.write("provenance missing valid sha256 field\n")
+    sys.exit(3)
+print(sha)
+PY
+)
+  if [[ -z "$EXPECTED" ]]; then
+    echo "ERROR: provenance file $PROVENANCE is missing/invalid (no sha256). Refusing to load." >&2
+    exit 1
+  fi
   ACTUAL=$(shasum -a 256 "$SRC" | awk '{print $1}')
   if [[ "$EXPECTED" != "$ACTUAL" ]]; then
     echo "ERROR: SHA-256 mismatch for $SRC" >&2
@@ -45,10 +66,15 @@ if [[ -f "$PROVENANCE" ]]; then
     exit 1
   fi
   echo "Checksum OK ($ACTUAL)"
+else
+  echo "WARNING: no provenance file at $PROVENANCE; loading without checksum verification."
 fi
 
-SIZE=$(stat -f %z "$SRC" 2>/dev/null || stat -c %s "$SRC")
-echo "Loading ${SRC} ($(numfmt --to=iec-i --suffix=B "$SIZE" 2>/dev/null || echo "${SIZE} bytes")) into ${DB_CONTAINER}:${DB_NAME} ..."
+# Portable byte count: wc -c is on every POSIX system; avoids the macOS/Linux
+# stat-flag fork (-f vs -c) and the GNU-only numfmt.
+SIZE=$(wc -c < "$SRC" | tr -d ' ')
+SIZE_HUMAN=$(awk -v b="$SIZE" 'BEGIN { split("B KB MB GB TB", u); i=1; while (b>=1024 && i<5) { b/=1024; i++ } printf("%.1f %s", b, u[i]) }')
+echo "Loading ${SRC} (${SIZE_HUMAN}) into ${DB_CONTAINER}:${DB_NAME} ..."
 time docker exec -i "${DB_CONTAINER}" mariadb \
   --user="${DB_USER}" \
   --password="${DB_PASS}" \

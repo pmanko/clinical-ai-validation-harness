@@ -41,6 +41,13 @@ OUT="${OUT:-$DEST_DIR/seeded-baseline.sql}"
 # Concept-dictionary tables (everything that holds CIEL content) + openconceptlab
 # state tables (so reloading the snapshot also restores "I have this version imported"
 # bookkeeping so the bootstrap is correctly idempotent on next run).
+#
+# Note: per-table CHARACTER SET / COLLATION declarations are preserved by
+# mysqldump's data-only output (CREATE TABLE statements are skipped via
+# --no-create-info, but row data is emitted in utf8mb4 via
+# --default-character-set=utf8mb4 below). The companion compose stack runs
+# MariaDB with `--character-set-server=utf8mb4 --collation-server=utf8mb4_general_ci`
+# so the loader sees consistent encoding.
 TABLES=(
   concept
   concept_name
@@ -120,7 +127,7 @@ cat "$HEADER_TMP" "$OUT" > "${OUT}.tmp" && mv "${OUT}.tmp" "$OUT"
 echo "SET FOREIGN_KEY_CHECKS=1;" >> "$OUT"
 rm -f "$HEADER_TMP"
 
-SIZE=$(stat -f %z "$OUT" 2>/dev/null || stat -c %s "$OUT")
+SIZE=$(wc -c < "$OUT" | tr -d ' ')
 SHA=$(shasum -a 256 "$OUT" | awk '{print $1}')
 
 # Write companion checksum / provenance

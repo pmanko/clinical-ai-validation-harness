@@ -37,6 +37,11 @@ if [[ -f "$ZIP_PATH" ]] && [[ "$FORCE" != "1" ]]; then
   exit 0
 fi
 
+# Preflight: cwd + python import sanity.
+# shellcheck source=./_preflight.sh
+source "$(dirname "$0")/_preflight.sh"
+harness_preflight || exit 1
+
 echo "Resolving OCL token from keychain..."
 TOK=$(python3 -c "from harness.ocl import get_token; print(get_token())")
 
@@ -78,7 +83,7 @@ mv "$ZIP_TMP" "$ZIP_PATH"
 trap - EXIT
 echo "Download complete."
 
-SIZE=$(stat -f %z "$ZIP_PATH" 2>/dev/null || stat -c %s "$ZIP_PATH")
+SIZE=$(wc -c < "$ZIP_PATH" | tr -d ' ')
 SHA=$(shasum -a 256 "$ZIP_PATH" | awk '{print $1}')
 
 python3 - <<PY > "$PROVENANCE"
