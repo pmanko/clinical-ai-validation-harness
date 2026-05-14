@@ -6,7 +6,9 @@
 
 ## Summary
 
-Transform the publicly published `data/large-demo-data-2-7-0.sql` (OpenMRS 2.7.0 demo dump) into an OpenMRS **Core/Platform 2.8.x + Reference Application 3.x (O3)** compatible importable database — deterministically and from a clean baseline — with **terminology translation onto the seeded CIEL dictionary as the central first-class deliverable** (records remap onto the 2.8/O3 RefApp's seeded concept dictionary using FHIR ConceptMap equivalence labels, with CIEL via OCL as the terminology authority and LOINC as the bridge for OpenELIS analysis). The same source corpus is analyzed for OpenELIS Global cross-load feasibility — analysis and machine-readable mapping skeleton only; no live OpenELIS load runs in this milestone.
+Transform the publicly published `data/large-demo-data-2-7-0.sql` (OpenMRS 2.7.0 demo dump) into an OpenMRS **Core/Platform 2.8.x + Reference Application 3.x (O3)** compatible importable database — deterministically and from a clean baseline — with **terminology translation onto a CIEL concept dictionary loaded into the clean baseline as the central first-class deliverable** (records remap onto that CIEL dictionary using FHIR ConceptMap equivalence labels, with CIEL via OCL as the terminology authority and LOINC as the bridge for OpenELIS analysis). The same source corpus is analyzed for OpenELIS Global cross-load feasibility — analysis and machine-readable mapping skeleton only; no live OpenELIS load runs in this milestone.
+
+> **Note on terminology baseline**: The O3 RefApp distro **bundles `openmrs-module-openconceptlab` (the loader) but does not pre-populate the concept dictionary**. The "loaded CIEL baseline" referenced above is constructed explicitly by M2-A using the module's offline-import against a pinned CIEL export under `datasets/sources/ocl/CIEL/<version>/`. See `research.md` §R-Terminology-Stack for the corrected understanding.
 
 This feature consumes the M0 control plane (PR #2 / merged to main via PR #3) and the M0 follow-up (PR #4, in review) which pins the `targets/catalyst` submodule and updates `compose/openmrs-2.8-refapp.yml` to the O3 stack.
 

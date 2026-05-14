@@ -94,14 +94,92 @@ Other concept classes (concept-set, convertor, misc, etc.) may **not** be seed-a
 
 > **Status**: Working default. Confirm with user once Profile output enumerates which source concept classes actually need augmentation.
 
+## R-Terminology-Stack. OpenMRS concept-dictionary architecture, OCL/CIEL state, RefApp seeding (corrected, 2026-05-14)
+
+Captured from reading the OpenMRS Concept Dictionary Basics wiki, the OCL docs, the `openmrs/openmrs-distro-referenceapplication` repo's actual distro configuration, and the `openmrs/openmrs-module-openconceptlab` README. Replaces earlier assumptions about "the seeded dictionary the RefApp ships with" — what the RefApp actually ships is the *mechanism to load CIEL*, not the dictionary itself.
+
+### OpenMRS's concept-dictionary tables
+
+A clinical OpenMRS installation's concept dictionary lives across these tables (all present in our 2.7 source dump's schema):
+
+| Table | Role |
+|---|---|
+| `concept` | The concept rows themselves; one row per concept, with `concept_class_id` + `concept_datatype_id` + `is_set` + UUID. |
+| `concept_name` | Localized names per concept (many rows per `concept_id`); each name has `locale`, `concept_name_type` (`FULLY_SPECIFIED`/`SHORT`/`INDEX_TERM`), and `locale_preferred`. |
+| `concept_description` | Per-concept human descriptions, per locale. |
+| `concept_class` | The 19 classes: `Test`, `Diagnosis`, `Drug`, `Question`, `Procedure`, `Finding`, `Symptom`, `LabSet`, etc. Drives semantic typing. |
+| `concept_datatype` | Datatypes: `Numeric`, `Coded`, `Text`, `Date`, `Boolean`, `N/A`, `Document`, `Rule`, `Structured Numeric`, `Complex`. Drives which `value_*` column of `obs` is populated. |
+| `concept_answer` | Concept-to-concept links: question-concept's allowable coded answers. (E.g., "Antiretroviral plan" question → list of answer concepts.) |
+| `concept_set` | Concept-to-concept links: a "set" concept groups its member concepts (used for forms, lab panels). |
+| `concept_reference_source` | External terminology authorities the deployment knows about: LOINC, SNOMED CT, ICD-10-WHO, RxNorm, CIEL, etc. |
+| `concept_reference_term` | A specific code in one external source (e.g., LOINC `8302-2` = "Body height"). |
+| `concept_reference_map` | The wire: links an OpenMRS `concept` to a `concept_reference_term` via a `concept_map_type` (`SAME-AS` / `NARROWER-THAN` / `BROADER-THAN` / etc.). This is what allows an OpenMRS concept to declare "I am LOINC 8302-2". |
+
+### What ships with Platform/Core vs what a deployment loads
+
+- **OpenMRS Platform/Core** ships an essentially **empty concept dictionary**. There are a handful of system-required concepts (Liquibase changesets populate things like the "Yes"/"No" boolean answer concepts and similar bookkeeping rows), but nothing clinical. A bare-bones Platform install can't represent a patient's vital signs because the concepts don't exist yet.
+- **Distros (including the O3 RefApp)** are responsible for loading the clinical dictionary on top of Platform.
+
+### The O3 Reference Application — what it actually ships
+
+Verified directly from `openmrs/openmrs-distro-referenceapplication@main`:
+
+- `distro/distro.properties` declares `omod.openconceptlab=${openconceptlab.version}` (currently `3.0.0`). The **`openmrs-module-openconceptlab` module is bundled as a default module** in every O3 RefApp install.
+- `frontend/spa-assemble-config.json` bundles `@openmrs/esm-openconceptlab-app` — the O3 microfrontend UI for managing the OpenConceptLab module.
+- **No concept seed CSVs / JSON dumps are committed in the RefApp distro.** The RefApp doesn't pre-populate the dictionary; it only ships the *loader*.
+
+So when you `docker compose up` the O3 RefApp 3.6.0 against an empty MariaDB:
+1. Liquibase creates the schema and populates only the system-required concepts.
+2. The `openconceptlab` module starts; its admin UI is reachable; no concepts are pre-loaded.
+3. To actually have a clinical dictionary, the deployer must either (a) configure an OCL subscription URL+token and run a sync, or (b) import an offline OCL export file.
+
+Implication for this feature: when the harness brings up "the clean Core 2.8.x baseline" (M2-A), the concept dictionary it sees is **just the system-required stub**, not CIEL. Our spec's earlier framing — "the O3 RefApp's seeded CIEL dictionary" as the translation target — is precise only if we ALSO explicitly load CIEL into that baseline before treating it as authoritative.
+
+### Two complementary loading mechanisms
+
+- **`openmrs-module-openconceptlab`** — pulls concepts from OCL. Two modes:
+  - **Subscription**: configure a subscription URL + OCL API token; the module syncs from OCL's API on a schedule. Not deterministic from a feature-002 perspective (subscription content can drift between runs).
+  - **Offline**: import an OCL collection export file (zip). Deterministic if the file is pinned. This is the path that satisfies SC-004.
+- **`openmrs-module-initializer`** — declarative configuration framework. Reads CSV / JSON / XML from `<openmrs-data>/configuration/`, applies metadata at startup. Includes a `concepts/` domain that loads concepts from CSVs. Independent of OCL — Initializer doesn't pull from OCL, it loads whatever files are in the configuration directory. Not currently bundled in the O3 RefApp distro by default but widely used in production distros (e.g., Bahmni).
+
+The two modules can coexist: openconceptlab handles broad terminology imports (CIEL), Initializer handles distro-specific metadata that isn't in CIEL.
+
+### CIEL and OCL — state as of 2026-05-14
+
+- **CIEL** (Columbia International eHealth Laboratory dictionary) is the de-facto open clinical concept dictionary for OpenMRS deployments. ~50,000+ concepts; >20K with LOINC mappings; also SNOMED CT, ICD-10-WHO, RxNorm cross-references. Maintained by Andrew Kanter (Columbia U) and team. **Hosted on OCL** under `orgs/CIEL/sources/CIEL/`.
+- **OCL (Open Concept Lab)** is a terminology service. Hosts CIEL plus many other dictionaries.
+  - **REST API**: `https://api.openconceptlab.org`. **Anonymous read access is now gated** (verified 2026-05-14: returns `{"detail":"Authentication required. Anonymous API access is disabled.","upgrade_url":"https://app.openconceptlab.org/pricing"}` on `/orgs/CIEL/sources/CIEL/`). Requires an OCL user account; tokens are issued from the user profile page. The user (Piotr) confirms they have access.
+  - **FHIR endpoint**: the standalone `openconceptlab/oclfhir` repo was **archived as deprecated 2026-04-07**; the FHIR endpoint is being integrated/replaced. Status of an anonymous FHIR read for CIEL is currently uncertain from public docs — needs verification with auth credentials.
+  - **OpenMRS integration**: `openmrs-module-openconceptlab` (the bundled module in the RefApp) consumes OCL via subscription URL + token, or via an offline export file. **Public CIEL is downloadable as an OCL export** that the offline import path accepts.
+
+### Implications for feature 002
+
+This corrected understanding reshapes the spec's "remap to the seeded dictionary" framing in two ways:
+
+1. **There is no "seeded dictionary" pre-loaded in a stock O3 RefApp install.** The target dictionary we map TO is whatever we explicitly load into the baseline before snapshotting it. Three deterministic paths:
+   - **(a)** Configure `openmrs-module-openconceptlab` offline-import with a pinned CIEL export file (provenance-tracked under `datasets/sources/ocl/CIEL/<version>/`).
+   - **(b)** Use `openmrs-module-initializer` with a curated subset of CIEL concepts loaded from CSV.
+   - **(c)** Direct SQL load of a CIEL snapshot into the `concept`/`concept_name`/etc. tables before importing the demo.
+
+   Path (a) is most idiomatic to OpenMRS and uses the already-bundled module. Path (b) is most controllable but requires the harness to author/maintain CSVs. Path (c) is operationally cheapest but bypasses the modules entirely.
+
+2. **The R7 "OCL candidate-mining" path is correct in principle but needs authenticated OCL access for the mining queries**. Anonymous fetch is no longer an option. The user has OCL credentials; the harness must accept them (env var, runtime properties) and never log them.
+
+### Open follow-ups (not blocking this section's commit)
+
+- Decide which loading path (a/b/c above) the harness uses to populate the baseline CIEL. Path (a) is the working default unless overridden.
+- Identify the canonical published CIEL export file (URL + checksum) — there are mirrored CIEL exports published by Bahmni and others; the most current canonical export needs confirmation.
+- Verify whether OCL's FHIR endpoint (post-oclfhir-deprecation) supports anonymous reads for public CIEL or requires the same auth as the REST API.
+
 ## R7. Deterministic OCL / CIEL integration
 
-**Decision**: OCL data is pinned by collection version and used offline during the transform.
+**Decision** (corrected after R-Terminology-Stack): OCL data is pinned by collection version and used offline during the transform; the target "seeded" dictionary is explicitly *loaded into* the clean baseline via the bundled `openmrs-module-openconceptlab` offline-import path before it is treated as authoritative — the O3 RefApp does not ship CIEL pre-loaded.
 
-- The harness fetches the **current CIEL collection** (and any required reference-source snapshots — at minimum LOINC) from OCL **once per accepted-mapping cycle**, into `datasets/sources/ocl/<collection>/<version>/`. The snapshot is committed (or LFS-tracked if oversized), checksum-recorded in `run_manifest.json`, and read-only during the transform.
+- The harness fetches a **CIEL OCL export** (published collection version) **once per accepted-mapping cycle**, into `datasets/sources/ocl/CIEL/<version>/`. The export is checksum-recorded in `run_manifest.json` and read-only during the transform.
+- Authenticated OCL access is required (user has credentials). The fetch happens out-of-band; the transform never makes live OCL calls.
 - Refreshing the pin is a deliberate, out-of-band step that produces a new run-manifest version and triggers a PCCP-style change record (FR-023) because it is a material mapping-input change.
-- The **default target** is the seeded dictionary that the modern (O3) RefApp distro ships (pinned by RefApp distro image digest; currently 3.6.0 on Core 2.8.x). After the RefApp container has applied Liquibase, the harness snapshots the seeded `concept` / `concept_name` / `concept_reference_map` / `concept_reference_term` / `concept_reference_source` rows into `artifacts/<run>/profile/refapp_28_seeded_dictionary.snapshot.json`. That is the per-run deterministic target authority.
-- The **authoritative target for mapping decisions** is **most-current CIEL via the pinned OCL snapshot**. The mapping job for each source 2.7 concept becomes a tiered lookup: (1) semantically equivalent concept in the seeded baseline → cheap remap; (2) not in seeded baseline but in current CIEL → `seed-augment`; (3) not in current CIEL → remap with non-`equivalent` label or drop.
+- The **target seeded dictionary** is produced by: boot the O3 RefApp's `db`+`backend` against empty MariaDB, install the bundled `openmrs-module-openconceptlab`, run an **offline import** of the pinned CIEL export, then snapshot the resulting `concept`/`concept_name`/`concept_reference_map`/`concept_reference_term`/`concept_reference_source` rows into `artifacts/<run>/profile/refapp_28_seeded_dictionary.snapshot.json`. This is the per-run deterministic target authority and the M2-A clean-target-baseline deliverable.
+- The mapping job for each source 2.7 concept becomes a tiered lookup: (1) semantically equivalent concept in the loaded baseline CIEL → cheap remap; (2) not in baseline CIEL but in current CIEL via OCL (a later/wider CIEL version) → `seed-augment`; (3) not in current CIEL → remap with non-`equivalent` label or drop.
 
 **Three concrete review tasks OCL assists with (offline, against the pinned snapshot)**:
 
