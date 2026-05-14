@@ -1,0 +1,107 @@
+schema_version: 1
+kind: ProfileInventory
+description: Machine-readable inventory of the source corpus produced by harness/profile/.
+
+top_level_required:
+  - source_dump_path
+  - source_dump_checksum
+  - generated_at
+  - tables
+  - reference_sources
+  - locales
+  - modules
+
+fields:
+  source_dump_path:
+    type: string
+    expected: data/large-demo-data-2-7-0.sql
+  source_dump_checksum:
+    type: string
+  generated_at:
+    type: string
+    format: date-time
+  tables:
+    type: array
+    items:
+      required: [name, row_count, populated_columns]
+      properties:
+        name:
+          type: string
+        row_count:
+          type: integer
+        populated_columns:
+          type: array
+          items:
+            required: [name, non_null_count, distinct_count]
+            properties:
+              name:
+                type: string
+              non_null_count:
+                type: integer
+              distinct_count:
+                type: integer
+        pk_range:
+          type: object
+          required: false
+          properties:
+            min:
+              type: integer
+            max:
+              type: integer
+        foreign_keys_out:
+          type: array
+          items:
+            type: object
+            properties:
+              column:
+                type: string
+              references:
+                type: string
+        owning_module:
+          type: string
+          required: false
+        bundled_in_2_8_refapp:
+          type: boolean
+          required: false
+  reference_sources:
+    type: array
+    items:
+      required: [hl7_code, name, concept_reference_map_count]
+      properties:
+        hl7_code:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+          required: false
+        retired:
+          type: boolean
+        concept_reference_map_count:
+          type: integer
+  locales:
+    type: array
+    items:
+      required: [locale, source_count]
+      properties:
+        locale:
+          type: string
+        source_count:
+          type: integer
+          description: Total references to this locale across concept_name, concept_description, global_property.
+        expected_by_refapp:
+          type: boolean
+  modules:
+    type: array
+    items:
+      required: [module_id, contributed_tables, status_in_2_8_refapp]
+      properties:
+        module_id:
+          type: string
+        contributed_tables:
+          type: array
+          items:
+            type: string
+        status_in_2_8_refapp:
+          type: string
+          allowed: [bundled, optional, removed, unknown]

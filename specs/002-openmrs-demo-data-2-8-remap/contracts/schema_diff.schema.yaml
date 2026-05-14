@@ -1,0 +1,52 @@
+schema_version: 1
+kind: SchemaDiff
+description: >-
+  Diff between the source corpus schema (legacy_27_raw) and the freshly bootstrapped
+  clean baseline schema (refapp_28_clean, produced by booting the O3 RefApp backend
+  against empty MariaDB and letting Liquibase complete).
+
+top_level_required:
+  - source_schema_id
+  - target_schema_id
+  - generated_at
+  - items
+
+fields:
+  source_schema_id:
+    type: string
+    expected: legacy_27_raw
+  target_schema_id:
+    type: string
+    expected: refapp_28_clean
+  generated_at:
+    type: string
+    format: date-time
+  items:
+    type: array
+    items:
+      required: [id, category, clinical_meaningful]
+      properties:
+        id:
+          type: string
+          description: Stable identifier (e.g. table:obs:value_complex:retype, changeset:liquibase-changelog:CORE-2.8.0:add-status-column).
+        category:
+          type: string
+          allowed:
+            - table_only_in_source
+            - table_only_in_target
+            - column_added
+            - column_removed
+            - column_retyped
+            - index_difference
+            - constraint_difference
+            - module_owned
+            - liquibase_changeset_delta
+        clinical_meaningful:
+          type: boolean
+          description: True when the diff touches a clinical-reference-bearing table, FK/unique/coded column, or REST/FHIR-exposed column (per research.md §R5).
+        clinical_meaningful_rationale:
+          type: string
+          required_when: clinical_meaningful == true
+        details:
+          type: object
+          description: Category-specific payload (column name, types old/new, referenced source rows, changeset metadata).
