@@ -1,34 +1,80 @@
-services:
-  mysql:
-    image: mysql:8.0
-    container_name: harness-mysql
-    command: --default-authentication-plugin=mysql_native_password
-    environment:
-      MYSQL_ROOT_PASSWORD: openmrs
-      MYSQL_DATABASE: openmrs
-      MYSQL_USER: openmrs
-      MYSQL_PASSWORD: openmrs
-    ports:
-      - "3307:3306"
-    volumes:
-      - mysql_data:/var/lib/mysql
+# Harness-owned shared infrastructure: OpenMRS 3.x Reference Application
+# (O3 / modern UI) running on top of OpenMRS Core/Platform 2.8.x.
+#
+# Image pins mirror the canonical distro at
+# https://github.com/openmrs/openmrs-distro-referenceapplication (verified
+# 2026-05-13; current stable tag 3.6.0). Bump TAG via environment override.
+#
+# Filename retains "2.8" to identify the OpenMRS Core/Platform line this
+# stack sits on; the RefApp itself is 3.x (latest stable 3.6.0).
 
-  openmrs:
-    image: openmrs/openmrs-reference-application-distro:2.8.0
-    container_name: harness-openmrs
+services:
+  gateway:
+    image: openmrs/openmrs-reference-application-3-gateway:${OPENMRS_REFAPP_TAG:-3.6.0}
+    container_name: harness-openmrs-gateway
+    restart: "unless-stopped"
     depends_on:
-      - mysql
-    environment:
-      DB_HOST: mysql
-      DB_DATABASE: openmrs
-      DB_USERNAME: openmrs
-      DB_PASSWORD: openmrs
-      DB_CREATE_TABLES: "true"
-      MODULE_WEB_ADMIN: "true"
+      - frontend
+      - backend
     ports:
-      - "8081:8080"
+      - "${OPENMRS_GATEWAY_PORT:-8080}:80"
+
+  frontend:
+    image: openmrs/openmrs-reference-application-3-frontend:${OPENMRS_REFAPP_TAG:-3.6.0}
+    container_name: harness-openmrs-frontend
+    restart: "unless-stopped"
+    environment:
+      SPA_PATH: /openmrs/spa
+      API_URL: /openmrs
+      SPA_CONFIG_URLS: /openmrs/spa/config-core_demo.json
+      SPA_DEFAULT_LOCALE:
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/"]
+      timeout: 5s
+    depends_on:
+      - backend
+
+  backend:
+    image: openmrs/openmrs-reference-application-3-backend:${OPENMRS_REFAPP_TAG:-3.6.0}
+    container_name: harness-openmrs-backend
+    restart: "unless-stopped"
+    depends_on:
+      - db
+    environment:
+      OMRS_CONFIG_MODULE_WEB_ADMIN: "true"
+      OMRS_CONFIG_AUTO_UPDATE_DATABASE: "true"
+      OMRS_CONFIG_CREATE_TABLES: "true"
+      OMRS_CONFIG_CONNECTION_SERVER: db
+      OMRS_CONFIG_CONNECTION_DATABASE: openmrs
+      OMRS_CONFIG_CONNECTION_USERNAME: ${OMRS_DB_USER:-openmrs}
+      OMRS_CONFIG_CONNECTION_PASSWORD: ${OMRS_DB_PASSWORD:-openmrs}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/openmrs"]
+      timeout: 5s
     volumes:
+      - openmrs-data:/openmrs/data
       - ../artifacts/openmrs/modules:/openmrs/data/modules
 
+  db:
+    image: mariadb:10.11.7
+    container_name: harness-openmrs-db
+    restart: "unless-stopped"
+    command: "mysqld --character-set-server=utf8mb4 --collation-server=utf8mb4_general_ci"
+    healthcheck:
+      test: "mariadb --user=${OMRS_DB_USER:-openmrs} --password=${OMRS_DB_PASSWORD:-openmrs} --execute \"SHOW DATABASES;\""
+      interval: 3s
+      timeout: 1s
+      retries: 5
+    environment:
+      MYSQL_DATABASE: openmrs
+      MYSQL_USER: ${OMRS_DB_USER:-openmrs}
+      MYSQL_PASSWORD: ${OMRS_DB_PASSWORD:-openmrs}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-openmrs}
+    ports:
+      - "${OMRS_DB_PORT:-3307}:3306"
+    volumes:
+      - db-data:/var/lib/mysql
+
 volumes:
-  mysql_data:
+  openmrs-data:
+  db-data:

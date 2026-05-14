@@ -7,7 +7,6 @@
 [submodule "targets/openmrs_chatbot"]
 	path = targets/openmrs_chatbot
 	url = https://github.com/anichiti/openmrs_chatbot.git
-
-# Review note (Catalyst): targets/catalyst is intentionally NOT a submodule yet.
-# Control-plane metadata lists Catalyst with evidence_status: unavailable until a
-# standalone extracted Catalyst repository URL is pinned and added here.
+[submodule "targets/catalyst"]
+	path = targets/catalyst
+	url = https://github.com/DIGI-UW/openelis-catalyst.git
