@@ -1,0 +1,16 @@
+{
+  "uuid": "abc-123-test-uuid",
+  "localDateStarted": "2026-04-29T10:15:00.000-0700",
+  "localDateStopped": "2026-04-29T11:42:00.000-0700",
+  "importProgress": "100",
+  "status": "import-done",
+  "allItemsCount": 49612,
+  "addedItemsCount": 49612,
+  "updatedItemsCount": 0,
+  "upToDateItemsCount": 0,
+  "retiredItemsCount": 0,
+  "unretiredItemsCount": 0,
+  "errorItemsCount": 0,
+  "errorMessage": null,
+  "releaseVersion": null
+}

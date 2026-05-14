@@ -1,0 +1,112 @@
+schema_version: 1
+kind: TranslationCoverageSample
+description: >-
+  Deterministic on-demand sampler output (FR-015). For each policy bucket declared
+  in the accepted ConceptMap, draw N records from the imported demo database and
+  verify each survives Ref App REST/FHIR round-trip with translated concept identity,
+  units, value, date, encounter linkage, provider linkage, and equivalence label
+  preserved.
+
+top_level_required:
+  - sampler_seed
+  - sampler_version
+  - conceptmap_checksum
+  - records_per_bucket
+  - generated_at
+  - buckets
+
+fields:
+  sampler_seed:
+    type: string
+  sampler_version:
+    type: string
+  conceptmap_checksum:
+    type: string
+    description: Must match run_manifest.conceptmap_checksum at sample time.
+  records_per_bucket:
+    type: integer
+    description: Default 5; configurable per run.
+  generated_at:
+    type: string
+    format: date-time
+  buckets:
+    type: array
+    items:
+      required: [policy_bucket, records, declared_empty_by_mapping]
+      properties:
+        policy_bucket:
+          type: string
+          description: Harness-internal action taken on rows in this bucket.
+          allowed:
+            - remap
+            - seed-augment
+            - drop
+        equivalence_label:
+          type: string
+          description: >-
+            FHIR ConceptMap equivalence label this bucket aggregates over.
+            Optional at the bucket level — buckets are keyed by policy action,
+            equivalence is captured per-record below.
+          allowed:
+            - equivalent
+            - equal
+            - wider
+            - narrower
+            - inexact
+            - unmatched
+            - disjoint
+          required: false
+        declared_empty_by_mapping:
+          type: boolean
+          description: True if the accepted ConceptMap contains zero elements with this bucket. Sampler reports zero records and passes by definition.
+        records:
+          type: array
+          items:
+            required:
+              - source_record_id
+              - source_table
+              - target_record_id
+              - target_table
+              - translated_concept_id
+              - equivalence_label
+              - pass
+            properties:
+              source_record_id:
+                type: string
+              source_table:
+                type: string
+              target_record_id:
+                type: string
+              target_table:
+                type: string
+              translated_concept_id:
+                type: string
+              translated_concept_uuid:
+                type: string
+              equivalence_label:
+                type: string
+              value:
+                description: Concept-typed (coded/numeric/text); preserved as-is from the REST/FHIR readback.
+              units:
+                type: string
+                required: false
+              date:
+                type: string
+                format: date-time
+                required: false
+              encounter_id:
+                type: string
+                required: false
+              provider_id:
+                type: string
+                required: false
+              rest_response_excerpt:
+                type: string
+              fhir_response_excerpt:
+                type: string
+                required: false
+              pass:
+                type: boolean
+              failure_reason:
+                type: string
+                required_when: pass == false

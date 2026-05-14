@@ -1,0 +1,97 @@
+schema_version: 1
+kind: OpenELISFeasibilityReport
+description: >-
+  Per-entity feasibility analysis for cross-loading the OpenMRS demo corpus into
+  OpenELIS Global. Analysis-only deliverable (Q1 clarification); no live OpenELIS
+  load is executed under this feature. Sourced from reading OpenELIS-Global-2/
+  schema directly (sibling checkout, not a harness submodule) plus the OpenMRS
+  profile + ConceptMap.
+
+top_level_required:
+  - openelis_target_version
+  - openelis_target_source
+  - generated_at
+  - entities
+
+fields:
+  openelis_target_version:
+    type: string
+    description: Built OE Global release version targeted by the analysis (e.g. 3.2.1).
+  openelis_target_source:
+    type: string
+    expected: built-release
+    description: Per user direction, analysis targets built OE releases; harness does not build OE from source under this feature.
+  catalyst_umbrella_ref:
+    type: object
+    required: false
+    description: Documented entry point for any future loader feature (PR #4 pins the submodule); no Catalyst code is executed here.
+    properties:
+      submodule_path:
+        type: string
+        expected: targets/catalyst
+      submodule_sha:
+        type: string
+  generated_at:
+    type: string
+    format: date-time
+  entities:
+    type: array
+    description: Standard OpenELIS Global entities covered by the analysis.
+    items:
+      required:
+        - entity
+        - feasibility
+        - source_columns
+        - rationale
+      properties:
+        entity:
+          type: string
+          allowed:
+            - patient
+            - provider
+            - organization
+            - location
+            - test
+            - analyte
+            - order
+            - result
+            - observation
+            - specimen
+            - reference_terminology
+        feasibility:
+          type: string
+          allowed:
+            - full
+            - partial
+            - synthesized
+            - not_feasible
+        source_columns:
+          type: array
+          items:
+            type: string
+            pattern: ^[a-z_]+\.[a-z_]+$
+        rationale:
+          type: string
+        shared_identifier_proposal:
+          type: object
+          required: false
+          description: How OpenMRS patients/providers/locations would match their OpenELIS counterparts.
+          properties:
+            openmrs_field:
+              type: string
+            openelis_field:
+              type: string
+            shared_scheme:
+              type: string
+              description: e.g. OpenMRS patient_identifier.identifier with a designated identifier_type whose uuid maps to OpenELIS patient external_id.
+        terminology_translation_required:
+          type: boolean
+        loinc_bridge_coverage_percent:
+          type: number
+          required_when: entity in [test, analyte, result, observation]
+          description: % of clinical references in the corpus that have a LOINC mapping via CIEL.
+        gaps:
+          type: array
+          items:
+            type: string
+            description: Specific source-record-level gaps that prevent full feasibility.

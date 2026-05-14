@@ -1,0 +1,133 @@
+schema_version: 1
+kind: RunManifest002Extensions
+description: >-
+  Feature-002 extensions to the base run manifest schema defined by M0
+  (specs/001-harness-control-plane-foundation/contracts/run-manifest-control-plane.schema.yaml).
+  All fields below are ADDITIONAL top-level keys in run_manifest.json; none replace
+  or shadow M0 keys. A 002 run manifest MUST validate against the M0 schema AND
+  populate the additional fields here.
+
+extends: specs/001-harness-control-plane-foundation/contracts/run-manifest-control-plane.schema.yaml
+
+additional_top_level_required:
+  - conceptmap_path
+  - conceptmap_checksum
+  - sqlmesh_project_path
+  - sqlmesh_project_checksum
+  - concept_translation_seed_checksum
+  - module_table_policy_seed_checksum
+  - ocl_collection_versions
+  - openmrs_refapp_image_digest
+  - mariadb_image_digest
+  - fhir_validator_version
+  - sqlmesh_version
+  - python_version
+  - equivalence_labels
+  - policy_buckets
+  - reviewer_signoffs
+
+fields:
+  conceptmap_path:
+    type: string
+    expected: datasets/mappings/openmrs-2.7-to-2.8.conceptmap.json
+  conceptmap_checksum:
+    type: string
+    description: SHA-256 of the accepted ConceptMap file at run time.
+  sqlmesh_project_path:
+    type: string
+    expected: datasets/transforms/sqlmesh
+  sqlmesh_project_checksum:
+    type: string
+    description: SHA-256 of a normalized tar of datasets/transforms/sqlmesh/ at run time (excluding seeds/ which are checksummed separately).
+  concept_translation_seed_checksum:
+    type: string
+    description: SHA-256 of datasets/transforms/sqlmesh/seeds/concept_translation.csv (must match what `harness.conceptmap.seed_emit` would produce from the accepted ConceptMap at this run's checksum).
+  module_table_policy_seed_checksum:
+    type: string
+    description: SHA-256 of datasets/transforms/sqlmesh/seeds/module_table_policy.csv.
+  ocl_collection_versions:
+    type: array
+    items:
+      required:
+        - collection
+        - version
+        - snapshot_path
+        - checksum
+      properties:
+        collection:
+          type: string
+          allowed: [CIEL, LOINC, SNOMED-CT]
+        version:
+          type: string
+        snapshot_path:
+          type: string
+          pattern: ^datasets/sources/ocl/[^/]+/[^/]+/$
+        checksum:
+          type: string
+  openmrs_refapp_image_digest:
+    type: string
+    description: Digest of openmrs/openmrs-reference-application-3-backend (and gateway/frontend when relevant) at compose-up time.
+  mariadb_image_digest:
+    type: string
+    description: Digest of mariadb:10.11.7 at compose-up time.
+  fhir_validator_version:
+    type: string
+  sqlmesh_version:
+    type: string
+  python_version:
+    type: string
+  equivalence_labels:
+    type: array
+    description: >-
+      FHIR R4 ConceptMap equivalence vocabulary used by the accepted ConceptMap.
+      Describes the *semantic relationship* between source and target concepts.
+      Each label may be empty (zero map elements with that label).
+    items:
+      type: string
+      allowed:
+        - equivalent
+        - equal
+        - wider
+        - narrower
+        - inexact
+        - unmatched
+        - disjoint
+  policy_buckets:
+    type: array
+    description: >-
+      Harness-internal policy decisions per row. Disjoint from
+      `equivalence_labels` — describes the *action* taken during transform.
+      `unmatched` (an equivalence label) is not the same as `drop` (a policy
+      bucket); a row can be `unmatched` and still kept under a different policy.
+      Each bucket may be empty.
+    items:
+      type: string
+      allowed:
+        - remap
+        - seed-augment
+        - drop
+  reviewer_signoffs:
+    type: array
+    items:
+      required:
+        - document_path
+        - document_checksum
+        - signer
+        - signed_at
+      properties:
+        document_path:
+          type: string
+        document_checksum:
+          type: string
+        signer:
+          type: string
+          description: Identifier (email or GitHub handle).
+        signed_at:
+          type: string
+          format: date-time
+
+rules:
+  - When `evidence_status != release`, M0's base schema already requires `decision_rationale`. 002 inherits that rule; no override.
+  - `ocl_collection_versions` MUST contain at least one CIEL entry. LOINC is required when the ConceptMap references LOINC reference terms (typical for lab analyte concepts).
+  - `concept_translation_seed_checksum` MUST match the checksum that `harness.conceptmap.seed_emit` produces when run against the file at `conceptmap_path` with checksum `conceptmap_checksum`. Mismatch indicates the seed CSV was hand-edited and is a release-evidence disqualifier.
+  - `target_provenance[]` (from M0) MUST include entries for every target consumed at run time. For 002: chartsearchai is always present (M2-F invokes `mvn -pl api test`); querystore is optional (only if M4 has begun integration); catalyst is optional (umbrella reference only).

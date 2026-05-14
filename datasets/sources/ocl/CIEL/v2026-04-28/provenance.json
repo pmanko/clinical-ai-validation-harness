@@ -1,0 +1,11 @@
+{
+  "collection": "CIEL",
+  "version": "v2026-04-28",
+  "ocl_source": "/orgs/CIEL/sources/CIEL/v2026-04-28/",
+  "ocl_export_endpoint": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/v2026-04-28/export/",
+  "local_path": "datasets/sources/ocl/CIEL/v2026-04-28/CIEL_v2026-04-28.zip",
+  "sha256": "c71dcaddc34f4d558ac44a7f72f0e86370e700e9f1be6dd5b482caf65fc55507",
+  "size_bytes": 59483018,
+  "retrieved_at": "2026-05-14T17:49:33.555183+00:00",
+  "note": "Pinned CIEL release. Signed S3 URL has 7-day expiry; re-resolve via export/ endpoint if needed."
+}

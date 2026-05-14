@@ -3,7 +3,45 @@ PYTHON_VERSION ?= 3.11
 UV_PROJECT_ENVIRONMENT ?= .venv
 export UV_PROJECT_ENVIRONMENT
 
-.PHONY: setup python-pin test smoke validate-plan clean-venv
+.PHONY: setup python-pin test smoke validate-plan clean-venv \
+        up down reset status logs \
+        ciel-fetch ciel-baseline
+
+# --- compose lifecycle ---
+up:
+	./scripts/stack-up.sh --wait
+
+down:
+	./scripts/stack-down.sh
+
+reset:
+	./scripts/stack-reset.sh
+
+status:
+	./scripts/stack-status.sh
+
+logs:
+	docker compose -f compose/openmrs-2.8-refapp.yml logs -f --tail=200
+
+# --- CIEL baseline ---
+CIEL_VERSION ?= v2026-04-28
+
+ciel-fetch:
+	./scripts/fetch-ciel-release.sh --version $(CIEL_VERSION)
+
+ciel-baseline:
+	./scripts/ciel-baseline-up.sh --version $(CIEL_VERSION)
+
+# After a successful ciel-baseline, snapshot the concept tables so future
+# fresh starts can use the fast-path load-baseline target.
+snapshot-baseline:
+	./scripts/snapshot-baseline.sh --version $(CIEL_VERSION)
+
+# Fast-path: load a pre-snapshotted CIEL baseline (seconds, vs 30-90 min for
+# the full openconceptlab import).
+load-baseline:
+	./scripts/load-baseline.sh --version $(CIEL_VERSION)
+
 
 setup:
 	$(UV) python install $(PYTHON_VERSION)

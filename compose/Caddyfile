@@ -1,0 +1,59 @@
+{
+    auto_https off
+    admin off
+    log {
+        output stderr
+        format console
+    }
+}
+
+# Harness reverse proxy.
+# All host-facing HTTP traffic comes through this server; internal services
+# (gateway, backend, frontend, future chartsearchai-gateway, etc.) are not
+# directly exposed on the host. Routing is path-based on a single port.
+#
+# Access:
+#   http://localhost:${HARNESS_PROXY_HTTP_PORT:-8088}/openmrs/spa   -> O3 RefApp UI
+#   http://localhost:${HARNESS_PROXY_HTTP_PORT:-8088}/openmrs/ws/   -> OpenMRS REST/FHIR API
+#   http://localhost:${HARNESS_PROXY_HTTP_PORT:-8088}/              -> redirects to /openmrs/spa
+#
+# Add new services here as they join the stack (chartsearchai, querystore, etc.).
+
+:80 {
+    # 256 MB body limit is plenty for CIEL OCL exports (current ~60MB) plus headroom.
+    request_body {
+        max_size 256MB
+    }
+
+    # Large multipart POST uploads (OCL import ZIPs ~60MB) bypass the gateway's
+    # nginx default client_max_body_size=1MB and go directly to backend Tomcat.
+    # Restricted to POST so polling GETs (import status, item enumeration) keep
+    # going through the gateway's normal routing (headers, gzip, etc.).
+    @ocl_upload {
+        method POST
+        path /openmrs/ws/rest/v1/openconceptlab/import
+    }
+    handle @ocl_upload {
+        reverse_proxy backend:8080
+    }
+
+    # OpenMRS RefApp (gateway is itself nginx that routes between backend + frontend)
+    handle /openmrs/* {
+        reverse_proxy gateway:80
+    }
+
+    # Health probe target for the proxy itself
+    handle /__proxy_health {
+        respond "ok" 200
+    }
+
+    # Bare root: redirect to OpenMRS SPA
+    handle / {
+        redir /openmrs/spa 302
+    }
+
+    # Anything unrecognised: 404 with a hint
+    handle {
+        respond "harness proxy: no route configured for {http.request.uri.path}. See compose/Caddyfile." 404
+    }
+}

@@ -1,0 +1,86 @@
+schema_version: 1
+kind: LiquibaseCostEstimate
+description: >-
+  Per-changeset cost estimate for the OpenMRS Core 2.7 -> 2.8 upgrade-in-place
+  Liquibase changesets applied at import time. Driven by corpus row counts plus
+  known-expensive-changeset patterns from OpenMRS Talk (e.g. obs.value_complex
+  column resizes can take 1-2h per changeset on obs-heavy datasets).
+
+top_level_required:
+  - target_core_version
+  - corpus_row_counts
+  - changesets
+  - total_estimated_cost_class
+  - estimated_pre_stage_recommended
+
+fields:
+  target_core_version:
+    type: string
+    expected: 2.8.x
+  corpus_row_counts:
+    type: object
+    description: Subset of profile_inventory.json table row counts that influence cost.
+    properties:
+      obs:
+        type: integer
+      concept:
+        type: integer
+      patient:
+        type: integer
+      encounter:
+        type: integer
+      drug_order:
+        type: integer
+  changesets:
+    type: array
+    items:
+      required:
+        - changeset_id
+        - file
+        - changeset_type
+        - affected_tables
+        - estimated_cost_class
+        - estimated_minutes
+        - pre_stage_recommended
+      properties:
+        changeset_id:
+          type: string
+        file:
+          type: string
+          description: Liquibase changelog file path within openmrs-core.
+        changeset_type:
+          type: string
+          allowed:
+            - addColumn
+            - dropColumn
+            - modifyDataType
+            - createTable
+            - dropTable
+            - addIndex
+            - dropIndex
+            - addForeignKey
+            - dropForeignKey
+            - sql
+            - other
+        affected_tables:
+          type: array
+          items:
+            type: string
+        estimated_cost_class:
+          type: string
+          allowed: [instant, seconds, minutes, hours]
+        estimated_minutes:
+          type: number
+          description: Point estimate; pessimistic side preferred.
+        pre_stage_recommended:
+          type: boolean
+          description: True when SQLMesh should pre-stage the post-changeset schema/data to skip this changeset at import time.
+        pre_stage_rationale:
+          type: string
+          required_when: pre_stage_recommended == true
+  total_estimated_cost_class:
+    type: string
+    allowed: [instant, seconds, minutes, hours]
+  estimated_pre_stage_recommended:
+    type: boolean
+    description: Whether SC-001's <60min budget is achievable without any pre-staging.
