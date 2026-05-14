@@ -17,7 +17,7 @@ This feature consumes the M0 control plane (PR #2 / merged to main via PR #3) an
 - **Structural transform engine**: **SQLMesh** (Apache-2.0, Linux Foundation, dbt-project-compatible). Chosen over dbt-core because SC-004 (byte-identical re-runs) is a primary success criterion and SQLMesh's content-fingerprint model versioning + time-filtered query wrappers + virtual environments are engineered around that property. ConceptMap is bridged into SQLMesh via a one-way emitter that produces a `seed_csv` model.
 - **Real bringup** = M0's shared compose. `compose/openmrs-2.8-refapp.yml` (after PR #4 lands) brings up the O3 RefApp 3.x stack — `gateway` + `frontend` + `backend` (Core 2.8.x) + `db` (MariaDB 10.11.7) — declared in `harness/targets.yaml` as `shared_infrastructure.openmrs_refapp`. The harness does **not** invent its own bringup; it invokes the M0 compose contract.
 - **Module-data policy**: orphan-table carry-forward by default (mirrors real OpenMRS distro upgrade behavior); escalations to drop/install/remap are explicit SQLMesh models with reviewer rationale.
-- **Real-path validation against chartsearchai**: M2-F invokes chartsearchai's existing `validation_surface.command` from `harness/targets.yaml` (`mvn -pl api test`) as the cross-module verification authority, supplemented by a thin harness layer for concept-translation-binding assertions.
+- **Real-path validation against chartsearchai** is split across two milestones for clarity: (a) **M2-F** invokes chartsearchai's M0-declared `validation_surface.command` (`mvn -pl api test` inside `targets/chartsearchai/`) to confirm the module is healthy against its own internal fixtures, plus a thin harness layer for concept-translation-binding assertions against the imported demo; (b) **M2-F.1 — the first real milestone (SC-015)** — brings up the live chartsearchai docker-compose stack (`targets/chartsearchai/docker-compose.yml`, image tag `nightly-chartsearch`) against the translated demo, runs an indexer warmup, posts a clinical question to `/ws/rest/v1/chartsearchai/search`, and verifies citations resolve to translated records. M2-F.1 is what satisfies Constitution Principle I (real chartsearchai production path against our translated data).
 - **Translation-coverage sampler**: a deterministic Python module under `harness/` parameterized off the accepted ConceptMap's equivalence labels and policy buckets, drawing record-level evidence on demand from the imported demo via OpenMRS REST/FHIR.
 - **OpenELIS analysis**: terminology skeleton (FHIR ConceptMap, LOINC-bridged) + structural skeleton YAML + per-entity feasibility report. Reads OE Global schema from `OpenELIS-Global-2/` (sibling, not a submodule of this harness). Catalyst submodule (`targets/catalyst`) is referenced as the AI-umbrella entry point but no Catalyst code is invoked under this feature.
 
@@ -89,14 +89,15 @@ Eight numbered milestones plus continuous provenance. Each milestone is independ
 | **M2-C** | Accepted terminology mapping (FHIR ConceptMap) | US3 (P1), FR-CD1..CD4, FR-007, FR-025, FR-027, FR-028, SC-011, SC-012, SC-014 | `datasets/mappings/openmrs-2.7-to-2.8.conceptmap.json` + `datasets/mappings/openmrs-2.7-to-2.8.conceptmap.review.md` | Clinically informed reviewer signs ConceptMap; HL7 FHIR Validator passes; every source-record-referenced concept appears with target + equivalence + policy bucket + rationale |
 | **M2-D** | Accepted structural mapping (SQLMesh project) | US1 (P1), FR-008, FR-009, FR-012, FR-025, FR-026 | `datasets/transforms/sqlmesh/` (config.yaml, models/, audits/, seeds/), `datasets/mappings/openmrs-2.7-to-2.8.review.md` | Engineering review: every clinically-meaningful diff item covered, orphan-module policy explicit, `sqlmesh plan` + `sqlmesh run --dry-run` clean; pre-stage decisions for slow Liquibase changesets from M2-A locked in |
 | **M2-E** | Deterministic transform execution | FR-009, FR-010, FR-011, FR-013, SC-001, SC-004 | `artifacts/<run>/transform/refapp_28_demo.sql`, `artifacts/<run>/transform/orphan-fk-report.json`, SQLMesh run logs + content-fingerprint versions | Reproduction check: two runs from clean baseline produce stable transform output; SQLMesh content fingerprints stable |
-| **M2-F** | Import smoke + RefApp tests + binding check | US1, FR-014, FR-CD5, SC-002 (binding), SC-013 | `artifacts/<run>/import-smoke/report.json`, `artifacts/<run>/refapp-binding/report.json`, `artifacts/<run>/chartsearchai-tests/results.xml` | Live O3 stack starts cleanly (`harness.compose` plan); Liquibase upgrade-in-place succeeds within Liquibase-cost budget; chartsearchai `mvn -pl api test` runs green against the live O3 backend talking to translated demo data; thin harness layer asserts concept-translation-specific bindings (forms / order types / drug catalog) |
+| **M2-F** | Import smoke + RefApp binding check + chartsearchai self-tests | US1, FR-014, FR-CD5, SC-002 (binding), SC-013 | `artifacts/<run>/import-smoke/report.json`, `artifacts/<run>/refapp-binding/report.json`, `artifacts/<run>/chartsearchai-tests/results.xml` | Live O3 stack starts cleanly via M0 `harness.compose`; Liquibase upgrade-in-place succeeds within the M2-A budget; chartsearchai `mvn -pl api test` runs green inside `targets/chartsearchai/` (verifies the module itself is healthy against its own internal fixtures — distinct from M2-F.1's data-path check); harness thin layer asserts concept-translation-specific bindings (forms / order types / drug catalog / vitals / allergen / problem). |
+| **M2-F.1** | **First real milestone — live chartsearchai path against translated demo** | US1, FR-014, FR-022, **SC-015**, Constitution Principle I | `artifacts/<run>/chartsearchai-live/compose-up.log`, `artifacts/<run>/chartsearchai-live/indexer-warmup.json`, `artifacts/<run>/chartsearchai-live/search-response.json`, `artifacts/<run>/chartsearchai-live/citation-resolution.json` | Operator follows `targets/chartsearchai/README.md` to bring up the chartsearchai docker-compose stack (image tag `nightly-chartsearch`); harness swaps in `refapp_28_demo.sql` as the imported DB; chartsearchai's embedding indexer is populated for a known patient set; `POST /ws/rest/v1/chartsearchai/search` returns an answer with ≥1 citation; each citation resolves to a translated record in the demo. UI walkthrough optional but recommended. |
 | **M2-G** | Translation-coverage sampler | FR-015, FR-024, SC-002, SC-010 | `harness/sampler/`, `artifacts/<run>/coverage/sample-<seed>.json` | Per-policy-bucket sample produced; every bucket has ≥1 record (or mapping declares empty); failure surfaces record IDs |
 | **M2-H** | OpenELIS feasibility analysis + mapping skeleton | US4, FR-017..FR-020, SC-007, SC-008 | `artifacts/<run>/openelis/feasibility.md`, `datasets/mappings/openmrs-2.7-to-openelis.skeleton.conceptmap.json` (terminology, LOINC-bridged) + `datasets/mappings/openmrs-2.7-to-openelis.skeleton.yaml` (structural) | Cross-system reviewer: per-entity classification with source-column refs and rationale; reads OE Global schema from sibling checkout; labelled `evidence_mode: scaffolding_only` per M0 catalyst entry; no live OpenELIS load |
 | **M2-Z** | Provenance + PCCP wrap-up | FR-021..FR-023, FR-PHI2, SC-006, SC-009 | `artifacts/<run>/run_manifest.json` (via `harness.metadata.RunManifest`), `artifacts/<run>/events.jsonl` (via `harness.metadata.append_event`), `specs/002-openmrs-demo-data-2-8-remap/pccp/*.md` | Manifest validates against M0 control-plane schema + 002 extensions; PCCP records exist for every material decision |
 
 **Note on dropped M2-B**: the prior plan included an "advisory LLM proposal generator" milestone. Removed per user direction: FR-006 permits advisory output but doesn't require us to produce one, and the OCL candidate-mining queries (research.md §R7) already cover that function deterministically.
 
-**Critical path**: M2-A → M2-C → M2-D → M2-E → M2-F → M2-G. M2-H runs in parallel with M2-D..G once M2-A and M2-C are partial. M2-Z accrues throughout and closes last.
+**Critical path**: M2-A → M2-C → M2-D → M2-E → M2-F → **M2-F.1 (first real milestone, SC-015)** → M2-G. M2-H runs in parallel with M2-D..G once M2-A and M2-C are partial. M2-Z accrues throughout and closes last.
 
 **Dependency graph**:
 
@@ -106,8 +107,9 @@ flowchart LR
   A --> D[M2-D SQLMesh project]
   C --> D
   D --> E[M2-E Transform run]
-  E --> F[M2-F Smoke + RefApp tests + Binding]
-  F --> G[M2-G Sampler]
+  E --> F[M2-F Smoke + Binding + chartsearchai self-tests]
+  F --> F1[M2-F.1 Live chartsearchai vs translated demo — SC-015]
+  F1 --> G[M2-G Sampler]
   A --> H[M2-H OpenELIS analysis]
   C --> H
   A --> Z[M2-Z Manifest + PCCP]
@@ -115,6 +117,7 @@ flowchart LR
   D --> Z
   E --> Z
   F --> Z
+  F1 --> Z
   G --> Z
   H --> Z
 ```

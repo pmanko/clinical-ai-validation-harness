@@ -54,7 +54,7 @@ Harness/control-plane layout per plan.md §Project Structure. New 002 modules li
 - [ ] T012 [P] Add CLI argument-parsing test in `evals/orchestration/test_cli_subcommands.py`: dispatch each new subcommand with `--help`; assert exit code 0 and presence of expected flags from quickstart.md
 - [ ] T013 [P] Implement `harness/conceptmap/load.py`: parse a FHIR R4 ConceptMap JSON with `fhir.resources`, surface `element.target.equivalence` + the harness extensions defined in `contracts/conceptmap.profile.md` (`policy-bucket`, `source-record-examples`, optional `seed-augment-class`, `seed-augment-reference-term`); typed dataclasses returned
 - [ ] T014 [P] Add ConceptMap-load test in `evals/conceptmap_conformance/test_load.py`: load a minimal fixture ConceptMap; assert harness-extension parsing and the cross-element constraints from `contracts/conceptmap.profile.md` (every entry has policy-bucket, single target, seed-augment entries have reference term)
-- [ ] T015 PCCP scaffolding: create `specs/002-openmrs-demo-data-2-8-remap/pccp/TEMPLATE.md` referencing `specs/artifacts/planning/pccp-change-record-template.md`; add a smoke test `evals/metadata/test_pccp_records.py` that asserts every committed `pccp/*.md` cites ≥1 before/after record example
+- [ ] T015 PCCP scaffolding: create `specs/002-openmrs-demo-data-2-8-remap/pccp/TEMPLATE.md` referencing `specs/artifacts/planning/pccp-change-record-template.md`; add a smoke test `evals/metadata/test_pccp_records.py` that asserts every committed `pccp/*.md` cites ≥1 before/after record example. (See also T077 for the per-decision PCCP records this template will be instantiated into.)
 - [ ] T016 Implement `harness/config.py` extension: a `get_feature_002_paths()` helper returning the canonical paths from `data-model.md` §0 (datasets/mappings/, datasets/transforms/sqlmesh/, datasets/sources/ocl/, artifacts/<run>/ subdirs) so individual modules don't hard-code them
 
 **Checkpoint**: Foundation ready — user story implementation can begin.
@@ -121,13 +121,13 @@ Harness/control-plane layout per plan.md §Project Structure. New 002 modules li
 
 ---
 
-## Phase 5: User Story 1 — Reproducible OpenMRS 2.8/O3 demo database from the legacy corpus (Priority: P1) 🎯 MVP end-state
+## Phase 5: User Story 1 — Reproducible OpenMRS demo database on the O3 RefApp + first real chartsearchai milestone (Priority: P1) 🎯 MVP end-state
 
-**Maps to milestones M2-D, M2-E, M2-F, M2-G. Anchors on US2 (profile/diff) and US3 (ConceptMap + seed CSV).**
+**Maps to milestones M2-D, M2-E, M2-F, M2-F.1 (first real milestone — SC-015), M2-G. Anchors on US2 (profile/diff) and US3 (ConceptMap + seed CSV).**
 
-**Goal**: Author the SQLMesh project, run the deterministic transform, import the result into a live O3 RefApp 3.x backend on Core 2.8.x, run chartsearchai's declared validation surface plus the harness binding layer, and verify the translation-coverage sampler reports record-level evidence per policy bucket.
+**Goal**: Author the SQLMesh project, run the deterministic transform, import the result into a live O3 RefApp 3.x backend on Core 2.8.x, run chartsearchai's declared validation surface plus the harness binding layer, **then bring up the live chartsearchai docker-compose stack against the translated demo and verify SC-015 (clinician-facing AI answer with citations)**, and verify the translation-coverage sampler reports record-level evidence per policy bucket.
 
-**Independent Test**: From an accepted ConceptMap (US3) and a clean baseline, run `harness-cli transform run && harness-cli import-smoke && harness-cli sample --seed 42`. Expect: deterministic SQLMesh output (two runs byte-identical or under documented normalization), live O3 RefApp boots cleanly with Liquibase upgrade-in-place within the SC-001 budget, chartsearchai `mvn -pl api test` runs green against the translated demo, every policy bucket has ≥1 record sampled.
+**Independent Test**: From an accepted ConceptMap (US3) and a clean baseline, run `harness-cli transform run && harness-cli import-smoke && harness-cli chartsearchai-live && harness-cli sample --seed 42`. Expect: deterministic SQLMesh output (two runs byte-identical under documented normalization), live O3 RefApp boots within the SC-001 budget, chartsearchai `mvn -pl api test` runs green (self-tests), the live chartsearchai chat returns an answer with ≥1 citation that resolves to a translated record (SC-015), every policy bucket has ≥1 record sampled.
 
 ### Tests for User Story 1
 
@@ -162,8 +162,20 @@ Harness/control-plane layout per plan.md §Project Structure. New 002 modules li
 - [ ] T060 [P] [US1] Implement `harness/refapp_binding/forms.py`: render-check bundled forms against translated concepts via REST `/ws/rest/v1/form` and the related concept resolution endpoints
 - [ ] T061 [P] [US1] Implement `harness/refapp_binding/orders.py`: default order types resolution; assert every order type's concept_id resolves in the translated dictionary
 - [ ] T062 [P] [US1] Implement `harness/refapp_binding/drugs.py`: drug catalog resolution; assert every drug's concept_id resolves
-- [ ] T063 [US1] Implement `harness/refapp_binding/__init__.py` orchestrator: run forms+orders+drugs; emit `artifacts/<run>/refapp-binding/report.json`
-- [ ] T064 [US1] Wire `harness-cli import-smoke` end-to-end in `harness/cli.py`: invokes T059 + T063 + the chartsearchai target validation surface (`harness.targets.targets.chartsearchai.validation_surface.command`); captures surefire XML under `artifacts/<run>/chartsearchai-tests/`
+- [ ] T063a [P] [US1] Implement `harness/refapp_binding/vitals.py`: assert each vitals concept used by the translated `obs` rows resolves via REST `/ws/rest/v1/concept` and renders in the O3 vitals UI / FHIR Observation surfaces; record under `artifacts/<run>/refapp-binding/report.json` `vitals[]`
+- [ ] T063b [P] [US1] Implement `harness/refapp_binding/allergens.py`: assert allergen concepts referenced by translated `allergy.coded_allergen` resolve and render in the O3 allergy UI / FHIR AllergyIntolerance; record under `report.json` `allergens[]`
+- [ ] T063c [P] [US1] Implement `harness/refapp_binding/problems.py`: assert problem-list concepts referenced by translated `conditions.condition_coded` resolve and render in the O3 problem-list UI / FHIR Condition; record under `report.json` `problems[]`
+- [ ] T063 [US1] Implement `harness/refapp_binding/__init__.py` orchestrator: run forms+orders+drugs+vitals+allergens+problems; emit `artifacts/<run>/refapp-binding/report.json` covering all six SC-013 concept classes (lab/vitals/problem/allergen/drug/diagnosis); depends on T060, T061, T062, T063a, T063b, T063c
+- [ ] T064 [US1] Wire `harness-cli import-smoke` end-to-end in `harness/cli.py`: invokes T059 + T063 + the chartsearchai target validation surface (`harness.targets.targets.chartsearchai.validation_surface.command`); captures surefire XML under `artifacts/<run>/chartsearchai-tests/`. This task closes M2-F (chartsearchai self-tests + binding); M2-F.1 (live chartsearchai data path) is T064a–e below.
+
+### Implementation for User Story 1 — M2-F.1 (First real milestone — live chartsearchai vs translated demo, SC-015)
+
+- [ ] T064a [US1] Implement `harness/refapp_binding/chartsearchai_live.py`: bring up `targets/chartsearchai/docker-compose.yml` (TAG=nightly-chartsearch, image `openmrs/openmrs-reference-application-3-{gateway,frontend,backend}:nightly-chartsearch`) via `harness.compose`, seeding the `db` service with `artifacts/<run>/transform/refapp_28_demo.sql` before chartsearchai's backend bootstraps. Capture compose lifecycle in `artifacts/<run>/chartsearchai-live/compose-up.log`. Health-gate on `GET http://localhost/openmrs/` returning 302 (Tomcat ready) before continuing.
+- [ ] T064b [US1] Add indexer-warmup step in `harness/refapp_binding/chartsearchai_live.py`: invoke `POST /ws/rest/v1/chartsearchai/warmup` for a canary patient set drawn from `harness/sampler/sample.py` (depends on T066) **OR** trigger the "Chart Search AI - Embedding Backfill" scheduler task via OpenMRS REST `/ws/rest/v1/scheduler/task`. Records outcomes in `artifacts/<run>/chartsearchai-live/indexer-warmup.json` — closes coverage gap for FR-014 (search index population).
+- [ ] T064c [US1] Live REST-flow test in `evals/refapp_binding/test_chartsearchai_live_search.py`: POST `/ws/rest/v1/chartsearchai/search` for ≥1 known translated patient with a representative clinical question (e.g., "What medications is this patient on?"); assert response schema (`answer`, `references[]`, `disclaimer`, `questionId`); persist response to `artifacts/<run>/chartsearchai-live/search-response.json`
+- [ ] T064d [US1] Citation-resolution test in `evals/refapp_binding/test_chartsearchai_citation_resolution.py`: take the `references[]` from T064c, look each up against the translated demo's REST endpoints (Encounter, Observation, Order, etc.); assert every cited record exists with concept identity matching the accepted ConceptMap's target side; emit `artifacts/<run>/chartsearchai-live/citation-resolution.json`. This task closes the real-path retrieval loop and satisfies Constitution Principle I.
+- [ ] T064e [US1] [optional] Playwright/Cypress UI smoke in `evals/refapp_binding/test_chartsearchai_ui_walkthrough.py`: drive the chartsearchai chat UI per `targets/chartsearchai/README.md` "Try it on the demo server" walkthrough against the translated demo — one known patient, one clinical question, screenshot of answer-with-citations under `artifacts/<run>/chartsearchai-live/ui-screenshot.png`. Marked `[optional]` because Playwright adds CI complexity; covered by T064c+d at the API level for non-UI verification.
+- [ ] T064f [US1] Wire `harness-cli chartsearchai-live` in `harness/cli.py`: orchestrate T064a + T064b, then invoke T064c + T064d as pytest runs (T064e if --include-ui); emit `chartsearchai_live_compose_up`, `chartsearchai_live_search_request`, `chartsearchai_live_citation_resolved` events via `harness.metadata.append_event`; close the SC-015 budget timer in the run manifest.
 
 ### Implementation for User Story 1 — M2-G (Translation-coverage sampler)
 
@@ -171,7 +183,7 @@ Harness/control-plane layout per plan.md §Project Structure. New 002 modules li
 - [ ] T066 [US1] Implement `harness/sampler/sample.py`: deterministic sampler given a seed and records-per-bucket count; per bucket, sample N records from the imported demo, fetch via REST/FHIR, assert clinical fields preserved per `contracts/coverage_sample.schema.yaml`
 - [ ] T067 [US1] Wire `harness-cli sample --seed --records-per-bucket` in `harness/cli.py` (depends on T065, T066); emit `sample_drawn` events with per-record rationale for failures
 
-**Checkpoint**: M2-D/E/F/G complete. Operator has a reproducible end-to-end pipeline from source dump to imported, validated, sampled demo database on the modern (O3) RefApp.
+**Checkpoint**: M2-D / M2-E / M2-F / **M2-F.1 (first real milestone, SC-015)** / M2-G complete. Operator has a reproducible end-to-end pipeline from source dump to imported, validated, sampled demo database on the modern (O3) RefApp **plus a live chartsearchai chat returning grounded answers about translated patients** — satisfying Constitution Principle I.
 
 ---
 
@@ -226,7 +238,7 @@ Harness/control-plane layout per plan.md §Project Structure. New 002 modules li
 - **Foundational (Phase 2)**: Depends on Setup completion. BLOCKS all user stories.
 - **US2 (Phase 3, M2-A)**: Depends on Foundational. No dependencies on other user stories.
 - **US3 (Phase 4, M2-C)**: Depends on Foundational + US2 (needs `profile/inventory.json` to enumerate source concept references).
-- **US1 (Phase 5, M2-D/E/F/G)**: Depends on Foundational + US3 (needs accepted ConceptMap + emitted seed). Implementation tasks within are mostly parallelizable across staging/terminology/clinical/modules/audits.
+- **US1 (Phase 5, M2-D/E/F/F.1/G)**: Depends on Foundational + US3 (needs accepted ConceptMap + emitted seed). Implementation tasks within are mostly parallelizable across staging/terminology/clinical/modules/audits. Internal sequence: M2-D/E/F land first; **M2-F.1 (first real milestone, SC-015)** runs after M2-F (depends on the imported translated demo from M2-F and on the sampler bucket-list from T065 for the canary patient set used in indexer warmup).
 - **US4 (Phase 6, M2-H)**: Depends on Foundational + US2 + US3. Runs in parallel with US1.
 - **Polish (Phase 7, M2-Z)**: Depends on US1, US2, US3, US4.
 
