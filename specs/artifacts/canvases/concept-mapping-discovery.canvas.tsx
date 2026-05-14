@@ -148,6 +148,364 @@ const obsUsageByClass = [
   { class: 'Anatomy',           distinct: 1 },
 ];
 
+// ----- B5 deep dive: obs → typed-table promotion rules ---------------------
+//
+// The four typed tables (allergy, conditions, orders, drug_order) all have
+// 0 rows in legacy_27_raw — every clinical event lives in obs, dispatched
+// by concept class. Below: the proposed promotion rules, the obs rows each
+// rule would consume, and the rows that must stay in obs.
+
+// Total obs rows by question-side (concept_class × datatype). 476,973 total.
+const obsQuestionDistribution = [
+  { question_class: 'Question',  question_dt: 'Coded',   n_obs: 246365, distinct_q: 60,  promotion_intent: 'mostly STAYS_IN_OBS; subset → drug_order via value_coded class=Drug; subset → conditions via question 6042 (PROBLEM ADDED)' },
+  { question_class: 'Test',      question_dt: 'Numeric', n_obs: 104730, distinct_q: 21,  promotion_intent: 'STAYS_IN_OBS — vitals are observations, not orders. Drives FHIR Observation generation in the read-side, not table promotion.' },
+  { question_class: 'Question',  question_dt: 'Boolean', n_obs: 85116,  distinct_q: 29,  promotion_intent: 'STAYS_IN_OBS; subset → allergy (Boolean YES on questions 6011/1083/6012). Booleans use value_coded → YES (1065) / NO (1066) — no value_boolean column in either 2.7 OR 2.8.' },
+  { question_class: 'Finding',   question_dt: 'Coded',   n_obs: 19917,  distinct_q: 17,  promotion_intent: 'STAYS_IN_OBS — findings ≠ diagnoses; semantically distinct in CIEL.' },
+  { question_class: 'Misc',      question_dt: 'Date',    n_obs: 14214,  distinct_q: 1,   promotion_intent: 'STAYS_IN_OBS (single question: RETURN VISIT DATE 5096). Could feed appointment/visit-planning later.' },
+  { question_class: 'Diagnosis', question_dt: 'Coded',   n_obs: 4452,   distinct_q: 2,   promotion_intent: 'MIXED — question 6042 PROBLEM ADDED (3,642 rows) → conditions; the other 810 rows stay in obs.' },
+  { question_class: 'Test',      question_dt: 'Coded',   n_obs: 1120,   distinct_q: 5,   promotion_intent: 'NEEDS_REVIEW — lab-order shapes (IMMUNIZATIONS ORDERED, X-RAY, VDRL, HIV PCR). Likely synthesize test_order rows.' },
+  { question_class: 'Finding',   question_dt: 'Numeric', n_obs: 655,    distinct_q: 1,   promotion_intent: 'STAYS_IN_OBS' },
+  { question_class: 'Question',  question_dt: 'Numeric', n_obs: 299,    distinct_q: 9,   promotion_intent: 'STAYS_IN_OBS' },
+  { question_class: 'Question',  question_dt: 'Date',    n_obs: 73,     distinct_q: 2,   promotion_intent: 'STAYS_IN_OBS' },
+  { question_class: 'Question',  question_dt: 'Datetime', n_obs: 30,    distinct_q: 1,   promotion_intent: 'STAYS_IN_OBS' },
+  { question_class: 'ConvSet',   question_dt: 'N/A',     n_obs: 2,      distinct_q: 2,   promotion_intent: 'GROUPING — obs_group header rows; preserve via obs_group_id linkage on children.' },
+];
+
+// Value-side distribution (rows where value_coded is set, grouped by the
+// CLASS of the answer concept). This is the primary promotion signal — the
+// answer's class tells us what kind of clinical event it is.
+const obsValueDistribution = [
+  { value_class: 'Misc',            n_obs: 263963, distinct_v: 53,  what_it_is: 'YES/NO/NONE/CONTINUE-style answers',                  promotion: 'STAYS_IN_OBS' },
+  { value_class: 'Drug',            n_obs: 43412,  distinct_v: 30,  what_it_is: 'Coded drug answers (ARVs, antibiotics, vaccines)',    promotion: 'PROMOTE → drug_order (1 row per obs)' },
+  { value_class: 'Misc Order',      n_obs: 18477,  distinct_v: 6,   what_it_is: 'Treatment-plan status codes (CONTINUE / STOP / START / CHANGE / INPATIENT)', promotion: 'STAYS_IN_OBS — these are plan-status answers, not actionable orders.' },
+  { value_class: 'ConvSet',         n_obs: 14476,  distinct_v: 11,  what_it_is: 'Convenience-set group headers',                       promotion: 'GROUPING — keep' },
+  { value_class: 'Diagnosis',       n_obs: 4652,   distinct_v: 117, what_it_is: 'Coded diagnoses',                                     promotion: 'MIXED — 3,642 under question 6042 PROBLEM ADDED → conditions; remainder (REASON-STOPPED patterns, CHILDS CURRENT HIV STATUS) STAYS_IN_OBS.' },
+  { value_class: 'LabSet',          n_obs: 4068,   distinct_v: 2,   what_it_is: 'Lab-test grouping concepts',                          promotion: 'STAYS_IN_OBS (grouping)' },
+  { value_class: 'Test',            n_obs: 4053,   distinct_v: 15,  what_it_is: 'Coded lab-test result categories',                    promotion: 'STAYS_IN_OBS' },
+  { value_class: 'Finding',         n_obs: 2902,   distinct_v: 53,  what_it_is: 'Coded clinical findings (non-diagnosis)',             promotion: 'STAYS_IN_OBS' },
+  { value_class: 'MedSet',          n_obs: 435,    distinct_v: 4,   what_it_is: 'Medication-set grouping concepts',                    promotion: 'STAYS_IN_OBS' },
+  { value_class: 'Symptom/Finding', n_obs: 291,    distinct_v: 13,  what_it_is: '',                                                    promotion: 'STAYS_IN_OBS' },
+  { value_class: 'Anatomy',         n_obs: 149,    distinct_v: 1,   what_it_is: 'Body-site references',                                promotion: 'STAYS_IN_OBS' },
+  { value_class: 'Symptom',         n_obs: 88,     distinct_v: 13,  what_it_is: '',                                                    promotion: 'STAYS_IN_OBS' },
+];
+
+// Concrete proposed promotion rules. Each rule is what would emit one or
+// more typed rows for each matching obs row. Ordered most-impactful first.
+type PromotionRule = {
+  id: string;
+  target_table: 'drug_order' | 'conditions' | 'allergy' | 'test_order';
+  selector: string;            // human-readable predicate
+  selector_sql: string;        // executable SELECT against legacy_27_raw
+  rows_promoted: number;       // count of obs that would be consumed
+  field_mapping: Array<{ target: string; source: string; note?: string }>;
+  open_questions: string[];    // anything that needs a review decision
+};
+
+const promotionRules: PromotionRule[] = [
+  {
+    id: 'P1',
+    target_table: 'drug_order',
+    selector: 'obs rows where value_coded.class = Drug. Top: question 1088 CURRENT ANTIRETROVIRAL DRUGS USED FOR TREATMENT (30,507 obs); answers like 628 LAMIVUDINE (9,913), 625 STAVUDINE (9,781), 631 NEVIRAPINE (8,810), 916 TRIMETHOPRIM AND SULFAMETHOXAZOLE (4,887), 656 ISONIAZID (1,972), 633 EFAVIRENZ (1,548), vaccines (DTP/Polio/HepB/Hib/Measles).',
+    selector_sql: `SELECT o.obs_id, o.person_id, o.encounter_id, o.value_coded AS drug_concept_id, o.obs_datetime
+FROM legacy_27_raw.obs o
+JOIN legacy_27_raw.concept c ON c.concept_id = o.value_coded
+JOIN legacy_27_raw.concept_class cc ON cc.concept_class_id = c.class_id
+WHERE cc.name = 'Drug' AND o.voided = 0`,
+    rows_promoted: 43412,
+    field_mapping: [
+      { target: 'drug_order.patient_id',      source: 'obs.person_id' },
+      { target: 'drug_order.encounter_id',    source: 'obs.encounter_id' },
+      { target: 'drug_order.concept_id',      source: 'lookup(obs.value_coded → CIEL UUID)',  note: 'rebind per the B1 bridge rule' },
+      { target: 'drug_order.drug_inventory_id', source: 'NULL (no drug rows referenced from obs.value_drug in this dump)' },
+      { target: 'drug_order.start_date',      source: 'obs.obs_datetime' },
+      { target: 'drug_order.orderer',         source: 'obs.creator', note: 'best-available proxy; encounter_provider could refine' },
+      { target: 'drug_order.dose / units / frequency / duration', source: 'NULL', note: 'not present in legacy obs — leave null; flag in coverage_sample' },
+      { target: 'drug_order.urgency',         source: "'ROUTINE'" },
+      { target: 'drug_order.uuid',            source: 'fresh UUID v4' },
+    ],
+    open_questions: [
+      'Vaccines (measles, polio, etc.) — are these correctly drug_order rows, or should they emit an Immunization-shaped resource? In FHIR they are MedicationAdministration / Immunization, not MedicationRequest.',
+      'Should we group same-drug repeats per patient into a single drug_order with effective-date span, or keep one row per obs? Per-obs is simpler and traceable.',
+      'No dose/frequency present — does this fail any 2.8 NOT NULL constraints? Verify against refapp_28_clean DDL.',
+    ],
+  },
+  {
+    id: 'P2',
+    target_table: 'conditions',
+    selector: 'obs rows whose QUESTION is 6042 PROBLEM ADDED (semantic anchor for "the clinician recorded a new diagnosis on this visit"). 3,642 obs / 114 distinct diagnoses.',
+    selector_sql: `SELECT o.obs_id, o.person_id, o.encounter_id, o.value_coded AS dx_concept_id, o.obs_datetime
+FROM legacy_27_raw.obs o
+WHERE o.concept_id = 6042 AND o.value_coded IS NOT NULL AND o.voided = 0`,
+    rows_promoted: 3642,
+    field_mapping: [
+      { target: 'conditions.patient_id',     source: 'obs.person_id' },
+      { target: 'conditions.encounter_id',   source: 'obs.encounter_id' },
+      { target: 'conditions.condition_coded', source: 'lookup(obs.value_coded → CIEL UUID)' },
+      { target: 'conditions.clinical_status', source: "'ACTIVE'", note: 'PROBLEM ADDED implies active at recording time; revisit if a corresponding PROBLEM RESOLVED concept exists.' },
+      { target: 'conditions.onset_date',     source: 'obs.obs_datetime' },
+      { target: 'conditions.date_created',   source: 'obs.date_created' },
+      { target: 'conditions.creator',        source: 'obs.creator' },
+      { target: 'conditions.uuid',           source: 'fresh UUID v4' },
+    ],
+    open_questions: [
+      'Does the 2.7 dump ever record "PROBLEM RESOLVED"? If yes, those would close out the condition; if no, every promoted condition stays ACTIVE forever in the new model.',
+      'CHILDS CURRENT HIV STATUS (5303, 629 obs) has Diagnosis-class answers (HIV positive/negative) — should this also promote to conditions? Argument FOR: HIV status is a condition. Argument AGAINST: it is repeated screening, not a problem-list entry. Default: STAYS_IN_OBS pending review.',
+    ],
+  },
+  {
+    id: 'P3',
+    target_table: 'allergy',
+    selector: 'obs rows on the three explicit allergy-Boolean questions (6011 ALLERGY TO PENICILLIN, 6012 ALLERGY TO SULFA, 1083 ALLERGY TO OTHER MEDICINE) where value_coded = 1065 (YES). NO rows do NOT promote — absence-of-allergy is not an allergy row.',
+    selector_sql: `SELECT o.obs_id, o.person_id, o.encounter_id, o.concept_id AS allergen_question, o.obs_datetime
+FROM legacy_27_raw.obs o
+WHERE o.concept_id IN (6011, 6012, 1083) AND o.value_coded = 1065 AND o.voided = 0`,
+    rows_promoted: 7, // 3 + 2 + 2 — extremely sparse in this demo
+    field_mapping: [
+      { target: 'allergy.patient_id',     source: 'obs.person_id' },
+      { target: 'allergy.coded_allergen', source: 'rebind by allergen-question-concept: 6011 → penicillin allergen concept; 6012 → sulfa; 1083 → "other medication" allergen concept' },
+      { target: 'allergy.allergen_type',  source: "'DRUG'", note: 'all three legacy questions are drug-allergy flavor' },
+      { target: 'allergy.severity_concept_id', source: 'NULL', note: 'not recorded in legacy boolean form' },
+      { target: 'allergy.encounter_id',   source: 'obs.encounter_id' },
+      { target: 'allergy.date_created',   source: 'obs.date_created' },
+      { target: 'allergy.uuid',           source: 'fresh UUID v4' },
+    ],
+    open_questions: [
+      'Map each of the 3 allergen-flavored question concepts to a specific CIEL allergen concept — needs human pick (PENICILLIN as substance, SULFA as substance, etc.).',
+      'Should the patient.allergy_status flag flip to See-list when any allergy row is promoted? Or leave as default?',
+    ],
+  },
+  {
+    id: 'P4',
+    target_table: 'test_order',
+    selector: 'obs rows whose QUESTION class is Test and datatype is Coded (lab/imaging orders): question 984 IMMUNIZATIONS ORDERED (891), 12 X-RAY, CHEST (172), 299 VDRL (33), 1030 HIV DNA PCR QUAL (15), 1042 HIV ENZYME IMMUNOASSAY (9).',
+    selector_sql: `SELECT o.obs_id, o.person_id, o.encounter_id, o.concept_id AS test_concept, o.value_coded AS result_coded, o.obs_datetime
+FROM legacy_27_raw.obs o
+JOIN legacy_27_raw.concept c ON c.concept_id = o.concept_id
+JOIN legacy_27_raw.concept_class cc ON cc.concept_class_id = c.class_id
+JOIN legacy_27_raw.concept_datatype cd ON cd.concept_datatype_id = c.datatype_id
+WHERE cc.name = 'Test' AND cd.name = 'Coded' AND o.voided = 0`,
+    rows_promoted: 1120,
+    field_mapping: [
+      { target: 'orders / test_order.patient_id',  source: 'obs.person_id' },
+      { target: 'test_order.concept_id',           source: 'lookup(obs.concept_id → CIEL UUID)', note: 'this is the TEST concept, not the result' },
+      { target: 'test_order.encounter_id',         source: 'obs.encounter_id' },
+      { target: 'test_order.date_activated',       source: 'obs.obs_datetime', note: 'no order/result split in legacy; assume order-and-result coincident' },
+      { target: 'test_order.urgency',              source: "'ROUTINE'" },
+      { target: 'test_order.order_action',         source: "'NEW'" },
+      { target: 'obs.value_coded (result)',        source: 'preserved as obs row pointing to the new test_order via obs.order_id' },
+    ],
+    open_questions: [
+      'Whether to promote IMMUNIZATIONS ORDERED (891 obs) — these are technically immunization records, not lab tests. Could split off to a different target.',
+      'Should we synthesize a paired (test_order + result obs) pattern, or just promote the order and keep the existing obs row as the result with an order_id linkback?',
+      'orders.order_type_id — needs mapping per concept class. 2.8 ships a test_order_type by default; verify ID against refapp_28_clean.',
+    ],
+  },
+];
+
+const stayInObsCases = [
+  { case: 'Coded YES/NO answers (value_class=Misc)',                          n: 263963, why: 'Free-form answers to boolean/coded questions; semantically observations, not events. Top: 1107 NONE (114,070), 1066 NO (66,679), 1065 YES (39,776).' },
+  { case: 'Numeric vital signs (Test+Numeric questions)',                     n: 104730, why: 'TEMPERATURE (5088), WEIGHT (5089), PULSE (5087), BLOOD OXYGEN SATURATION (5092) etc. These are observations by definition; FHIR Observation is the read-side projection.' },
+  { case: 'Boolean questions (Q+Boolean) other than the 3 allergy questions', n: 85109,  why: 'YES/NO survey answers (ANTIRETROVIRAL USE, NEW COMPLAINTS, SCHEDULED VISIT). Stay as obs.' },
+  { case: 'Treatment-plan status codes (value_class=Misc Order)',             n: 18477,  why: 'CONTINUE / STOP / START / CHANGE — answer values describing plan changes, not actionable orders.' },
+  { case: 'ConvSet / LabSet / MedSet grouping rows',                          n: 18979,  why: 'obs_group headers. Preserve via obs_group_id linkage; do not flatten into typed tables.' },
+  { case: 'Coded Diagnosis answers NOT under question 6042 PROBLEM ADDED',    n: 1010,   why: 'REASON ARV/TB/PCP/CRYPTOCOCCAL STOPPED patterns and similar — diagnosis-coded values used as reasons, not new conditions.' },
+  { case: 'RETURN VISIT DATE (5096)',                                         n: 14214,  why: 'Single Misc+Date question; could feed an Appointment resource later but no 2.8 target table needed.' },
+];
+
+const promotionSummaryTotals = {
+  total_obs_legacy: 476973,
+  promoted_drug_order: 43412,
+  promoted_conditions: 3642,
+  promoted_allergy: 7,
+  promoted_test_order: 1120,
+  total_promoted: 48181,
+  pct_promoted: '10.1%',
+  stays_in_obs: 428792,
+  pct_stays: '89.9%',
+};
+
+function PromotionRulesPanel() {
+  return (
+    <Card>
+      <CardHeader>
+        <H2>Proposed obs → typed-table promotion rules</H2>
+        <Text>
+          One rule per target table. Each rule consumes a well-bounded slice of obs and emits typed rows; the
+          rest of obs (89.9%) stays as obs (vitals, survey answers, plan-status codes, groupings).
+        </Text>
+      </CardHeader>
+      <CardBody>
+        <Stack gap={14}>
+          <Callout variant="info">
+            <Text>
+              The four promotion rules together consume <strong>{promotionSummaryTotals.total_promoted.toLocaleString()}</strong> obs rows
+              ({promotionSummaryTotals.pct_promoted} of the legacy total of {promotionSummaryTotals.total_obs_legacy.toLocaleString()}).
+              The remaining {promotionSummaryTotals.stays_in_obs.toLocaleString()} obs ({promotionSummaryTotals.pct_stays}) stay
+              in obs unchanged (after concept-id rebind).
+            </Text>
+          </Callout>
+
+          {promotionRules.map((r) => (
+            <Card key={r.id}>
+              <CardHeader>
+                <Row gap={8}>
+                  <Pill variant={r.target_table === 'drug_order' || r.target_table === 'conditions' ? 'success' : 'warning'}>{r.id}</Pill>
+                  <Pill variant="subtle">→ {r.target_table}</Pill>
+                  <Pill variant="subtle">{r.rows_promoted.toLocaleString()} rows</Pill>
+                </Row>
+              </CardHeader>
+              <CardBody>
+                <Stack gap={10}>
+                  <Text><strong>Selector.</strong> {r.selector}</Text>
+                  <Code language="sql">{r.selector_sql}</Code>
+                  <H3>Field mapping</H3>
+                  <Table
+                    columns={[
+                      { key: 'target', header: 'target column' },
+                      { key: 'source', header: 'source' },
+                      { key: 'note', header: 'note', optional: true },
+                    ]}
+                    rows={r.field_mapping}
+                  />
+                  <H3>Open questions for review</H3>
+                  <ul>
+                    {r.open_questions.map((q, i) => <li key={i}><Text>{q}</Text></li>)}
+                  </ul>
+                </Stack>
+              </CardBody>
+            </Card>
+          ))}
+        </Stack>
+      </CardBody>
+    </Card>
+  );
+}
+
+function ObsQuestionDistributionPanel() {
+  return (
+    <Card>
+      <CardHeader>
+        <H3>obs by (question concept class × datatype)</H3>
+        <Text>The full 476,973 obs accounted for by the class+datatype of the QUESTION concept. promotion_intent describes whether that slice is consumed by a rule or stays in obs.</Text>
+      </CardHeader>
+      <CardBody>
+        <Table
+          columns={[
+            { key: 'question_class', header: 'question class' },
+            { key: 'question_dt',    header: 'datatype' },
+            { key: 'n_obs',          header: 'n obs' },
+            { key: 'distinct_q',     header: 'distinct questions' },
+            { key: 'promotion_intent', header: 'promotion intent' },
+          ]}
+          rows={obsQuestionDistribution}
+        />
+      </CardBody>
+    </Card>
+  );
+}
+
+function ObsValueDistributionPanel() {
+  return (
+    <Card>
+      <CardHeader>
+        <H3>obs.value_coded by class of the ANSWER concept</H3>
+        <Text>Where the answer concept lives in the class hierarchy. This is the primary signal for promotion: value_class=Drug → drug_order, etc.</Text>
+      </CardHeader>
+      <CardBody>
+        <Table
+          columns={[
+            { key: 'value_class', header: 'answer class' },
+            { key: 'n_obs',       header: 'n obs' },
+            { key: 'distinct_v',  header: 'distinct values' },
+            { key: 'what_it_is',  header: 'what it represents' },
+            { key: 'promotion',   header: 'promotion decision' },
+          ]}
+          rows={obsValueDistribution}
+        />
+      </CardBody>
+    </Card>
+  );
+}
+
+function StayInObsPanel() {
+  return (
+    <Card>
+      <CardHeader>
+        <H3>What stays in obs (after concept-id rebind)</H3>
+        <Text>Rows the promotion rules deliberately do NOT consume. Each gets a one-line justification so the review can accept or contest it.</Text>
+      </CardHeader>
+      <CardBody>
+        <Table
+          columns={[
+            { key: 'case', header: 'case' },
+            { key: 'n',    header: 'n obs' },
+            { key: 'why',  header: 'why it stays in obs' },
+          ]}
+          rows={stayInObsCases}
+        />
+      </CardBody>
+    </Card>
+  );
+}
+
+function PromotionGlobalQuestionsPanel() {
+  return (
+    <Card>
+      <CardHeader>
+        <H2>Cross-cutting decisions for review</H2>
+      </CardHeader>
+      <CardBody>
+        <Stack gap={10}>
+          <Callout variant="warning">
+            <Text>
+              <strong>Q1 — obs preservation alongside promotion.</strong> When a Drug obs becomes a drug_order row,
+              do we DELETE the obs (single source of truth) or KEEP the obs with a link via obs.order_id?
+              The 2.8 RefApp UI reads from typed tables; chartsearchai indexes obs. Keeping both costs disk + indexing
+              effort; dropping obs loses the "this was originally recorded as an answer to question X" provenance.
+              Default proposal: KEEP both, link via obs.order_id (already a column in 2.7).
+            </Text>
+          </Callout>
+          <Callout variant="warning">
+            <Text>
+              <strong>Q2 — fresh UUIDs vs deterministic UUIDs on promoted rows.</strong> Random UUID v4 breaks
+              reproducibility across two transform runs against the same input. Deterministic UUID v5 derived
+              from (obs.uuid, target_table) preserves reproducibility. Default proposal: UUID v5 with namespace
+              "harness-002-promotion".
+            </Text>
+          </Callout>
+          <Callout variant="warning">
+            <Text>
+              <strong>Q3 — Vaccines as drug_order vs immunization-shaped resource.</strong> Among the 43,412 Drug-class
+              answers, ~2,400 are vaccines (DTP, polio, HepB, Hib, measles). In FHIR R4 these are Immunization, not
+              MedicationRequest. The 2.8 OpenMRS schema does not have an immunization table by default; drug_order is
+              the canonical home. Default proposal: emit all Drug-class answers as drug_order regardless of vaccine
+              status; flag vaccines via an attribute or a class hint so the FHIR layer can re-project them as
+              Immunization at read time.
+            </Text>
+          </Callout>
+          <Callout variant="warning">
+            <Text>
+              <strong>Q4 — orderer field on drug_order / test_order.</strong> Legacy obs has creator (user_id) but
+              no provider linkage on the obs itself; encounter_provider holds the encounter-level provider list.
+              Best-available orderer for a promoted order is the encounter_provider for the matching encounter.
+              Default proposal: prefer encounter_provider (single provider per encounter for this dataset), fall
+              back to obs.creator.
+            </Text>
+          </Callout>
+          <Callout variant="warning">
+            <Text>
+              <strong>Q5 — coverage_sample population.</strong> The promoted rows need entries in the per-bucket
+              coverage_sample artifact (per FR-015) so reviewers can spot-check that the round-trip preserves
+              clinical meaning. Default proposal: per rule, draw 5 records per concept_class × datatype × value_class
+              cohort using a deterministic sampler_seed (recorded in run_manifest).
+            </Text>
+          </Callout>
+        </Stack>
+      </CardBody>
+    </Card>
+  );
+}
+
 function BridgeRulePanel() {
   return (
     <Card>
@@ -324,6 +682,39 @@ export default function Canvas() {
       <Divider />
 
       <ObsUsagePanel />
+
+      <Divider />
+
+      <H1>B5 deep dive — obs → typed-table promotion</H1>
+      <Text>
+        Four rules, four target tables. Together they consume <strong>{promotionSummaryTotals.total_promoted.toLocaleString()}</strong> obs
+        rows ({promotionSummaryTotals.pct_promoted} of the 476,973 legacy total). The remaining 89.9% stay
+        in obs unchanged after concept-id rebind. Every cell below is sourced from a live query against
+        legacy_27_raw — tweak the rules in this file, then re-run the corresponding selector_sql to confirm
+        the count before accepting.
+      </Text>
+
+      <Grid columns={4} gap={12}>
+        <Stat label="Total obs (legacy)" value={promotionSummaryTotals.total_obs_legacy.toLocaleString()} />
+        <Stat label="Promoted" value={`${promotionSummaryTotals.total_promoted.toLocaleString()} (${promotionSummaryTotals.pct_promoted})`} />
+        <Stat label="→ drug_order" value={promotionSummaryTotals.promoted_drug_order.toLocaleString()} />
+        <Stat label="→ conditions" value={promotionSummaryTotals.promoted_conditions.toLocaleString()} />
+      </Grid>
+
+      <ObsQuestionDistributionPanel />
+      <ObsValueDistributionPanel />
+
+      <Divider />
+
+      <PromotionRulesPanel />
+
+      <Divider />
+
+      <StayInObsPanel />
+
+      <Divider />
+
+      <PromotionGlobalQuestionsPanel />
 
       <Divider />
 
