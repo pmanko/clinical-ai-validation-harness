@@ -656,7 +656,7 @@ function NextActionsPanel() {
   );
 }
 
-export default function Canvas() {
+export default function ConceptMappingDiscovery() {
   return (
     <Stack gap={18}>
       <H1>002 / M2-A — Concept Mapping Discovery</H1>
