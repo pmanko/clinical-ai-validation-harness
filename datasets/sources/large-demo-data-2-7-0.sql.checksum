@@ -1,0 +1,38 @@
+# Source corpus provenance — feature 002-openmrs-demo-data-2-8-remap
+#
+# This file is committed; the source corpus itself (data/large-demo-data-2-7-0.sql)
+# is NOT committed (114 MB; gitignored). Operators re-fetch from origin and verify
+# against the checksum below.
+
+dataset_id: openmrs-large-demo-2-7-0
+local_path: data/large-demo-data-2-7-0.sql
+sha256: a7ca4bbe9875d4d7928f84688dfe8e76eca52f16b85bcea189605a235e760cc4
+size_bytes: 119537664   # ~114 MB
+line_count: 5989
+ddl_table_count: 143
+insert_batch_count: 153
+
+# Provenance
+source_description: |
+  Publicly-published, cleaned, anonymized OpenMRS demo dataset corresponding to
+  OpenMRS Platform/Core 2.7.0. See the OpenMRS Demo Data wiki page:
+  https://openmrs.atlassian.net/wiki/spaces/RES/pages/26273323/Demo+Data
+origin_url: TBD-confirm-canonical-download-url  # Operator: fill in the exact download URL used to fetch the dump.
+license: |
+  OpenMRS is licensed under MPL 2.0. The demo data dump is published as part of
+  OpenMRS's demo-data resources; treat as MPL 2.0 unless the download page states
+  otherwise. Verify the license note on the canonical download page.
+phi_classification: public-cleaned-anonymized
+data_handling_policy: |
+  No PHI scrubbing, person/narrative re-anonymization, or credential reset is
+  applied by this feature (FR-PHI1, FR-PHI2, FR-PHI3). The dump is transformed
+  as-is; credential hygiene for any public deployment of the produced demo is
+  the deploying environment's responsibility, not this feature's.
+
+retrieval:
+  retrieved_at: 2026-05-13
+  retrieved_by: pmanko
+  verification_command: |
+    shasum -a 256 data/large-demo-data-2-7-0.sql
+  expected_output: |
+    a7ca4bbe9875d4d7928f84688dfe8e76eca52f16b85bcea189605a235e760cc4  data/large-demo-data-2-7-0.sql

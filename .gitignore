@@ -17,3 +17,8 @@ __pycache__/
 artifacts/**
 !artifacts/
 !artifacts/.gitkeep
+
+# Source corpus files (large; checksum/provenance is committed under
+# datasets/sources/<dataset>.checksum). Operators re-fetch the actual dump
+# from its canonical origin and verify the checksum.
+data/
