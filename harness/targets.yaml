@@ -8,7 +8,7 @@ shared_infrastructure:
   - id: openmrs_refapp
     owner: harness
     compose_file: compose/openmrs-2.8-refapp.yml
-    service_names: [mysql, openmrs]
+    service_names: [db, backend, frontend, gateway]
   - id: search_otel
     owner: harness
     compose_file: compose/services.yml
@@ -84,12 +84,13 @@ targets:
     display_name: OpenELIS Catalyst (standalone target)
     submodule_path: targets/catalyst
     environment_override: HARNESS_TARGET_CATALYST
-    evidence_status: unavailable
+    evidence_status: scaffolding
     supported_profiles: [local, vm]
     shared_profiles: []
     validation_surface:
       kind: unavailable
       description: >-
-        Intended path targets/catalyst after extraction; no .gitmodules pin yet.
-        OpenELIS Java/frontend integration is out of scope for this target pin.
-      evidence_mode: unavailable
+        Submodule pinned at https://github.com/DIGI-UW/openelis-catalyst (extracted
+        from OpenELIS-Global-2 projects/catalyst). Specific validation commands
+        will be declared by a future feature that exercises Catalyst's real path.
+      evidence_mode: scaffolding_only
