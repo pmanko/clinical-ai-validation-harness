@@ -24,17 +24,38 @@ done
 
 HERE="$(dirname "$0")"
 
-# 1) Ensure pinned ZIP exists
+# 1) If a pre-snapshotted baseline exists, prefer the fast path (seconds)
+#    over the full openconceptlab import (30-90 min). The bootstrap is still
+#    invoked afterwards so that the subscription URL is recorded in
+#    OpenMRS's global_property table.
+BASELINE_SQL="datasets/sources/ocl/CIEL/${VERSION}/seeded-baseline.sql"
+USE_FAST_PATH=0
+if [[ -f "$BASELINE_SQL" ]] && [[ "$ONLINE" != "1" ]]; then
+  USE_FAST_PATH=1
+  echo "Pre-snapshotted baseline found at $BASELINE_SQL; will use fast-path load."
+fi
+
+# 2) Ensure pinned ZIP exists (only required when no baseline snapshot)
 ZIP_PATH="datasets/sources/ocl/CIEL/${VERSION}/CIEL_${VERSION}.zip"
-if [[ ! -f "$ZIP_PATH" ]] && [[ "$ONLINE" != "1" ]]; then
+if [[ "$USE_FAST_PATH" != "1" ]] && [[ ! -f "$ZIP_PATH" ]] && [[ "$ONLINE" != "1" ]]; then
   echo "ZIP not present at $ZIP_PATH; fetching..."
   "$HERE/fetch-ciel-release.sh" --version "$VERSION"
 fi
 
-# 2) Ensure the stack is up + backend is healthy
+# 3) Ensure the stack is up + backend is healthy
 "$HERE/stack-up.sh" --wait
 
-# 3) Run the Python bootstrap
+# 4) If using fast path: load the snapshot directly into MariaDB
+if [[ "$USE_FAST_PATH" == "1" ]]; then
+  "$HERE/load-baseline.sh" --version "$VERSION"
+  echo ""
+  echo "Fast-path baseline loaded. Subscription URL will still be set below for"
+  echo "consistency with the slow-path bootstrap state."
+fi
+
+# 5) Run the Python bootstrap (sets subscription URL; idempotent — if
+#    fast-path was used and openconceptlab_import rows came along, the
+#    is_already_bootstrapped() check will short-circuit the import step.)
 echo ""
 echo "=== bootstrapping CIEL ${VERSION} into OpenMRS via openconceptlab module ==="
 if [[ "$ONLINE" == "1" ]]; then

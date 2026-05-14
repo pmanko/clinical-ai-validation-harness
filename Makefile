@@ -32,6 +32,16 @@ ciel-fetch:
 ciel-baseline:
 	./scripts/ciel-baseline-up.sh --version $(CIEL_VERSION)
 
+# After a successful ciel-baseline, snapshot the concept tables so future
+# fresh starts can use the fast-path load-baseline target.
+snapshot-baseline:
+	./scripts/snapshot-baseline.sh --version $(CIEL_VERSION)
+
+# Fast-path: load a pre-snapshotted CIEL baseline (seconds, vs 30-90 min for
+# the full openconceptlab import).
+load-baseline:
+	./scripts/load-baseline.sh --version $(CIEL_VERSION)
+
 
 setup:
 	$(UV) python install $(PYTHON_VERSION)
