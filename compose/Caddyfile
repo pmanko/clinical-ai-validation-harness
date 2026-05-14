@@ -20,6 +20,17 @@
 # Add new services here as they join the stack (chartsearchai, querystore, etc.).
 
 :80 {
+    # 256 MB body limit is plenty for CIEL OCL exports (current ~60MB) plus headroom.
+    request_body {
+        max_size 256MB
+    }
+
+    # Large multipart uploads (OCL import ZIPs ~60MB) bypass the gateway's
+    # nginx default client_max_body_size=1MB and go directly to backend Tomcat.
+    handle /openmrs/ws/rest/v1/openconceptlab/import* {
+        reverse_proxy backend:8080
+    }
+
     # OpenMRS RefApp (gateway is itself nginx that routes between backend + frontend)
     handle /openmrs/* {
         reverse_proxy gateway:80
