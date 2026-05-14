@@ -22,3 +22,10 @@ artifacts/**
 # datasets/sources/<dataset>.checksum). Operators re-fetch the actual dump
 # from its canonical origin and verify the checksum.
 data/
+
+# Pinned OCL collection exports (ZIPs are large; provenance.json is committed
+# under datasets/sources/ocl/<collection>/<version>/ for re-fetch + integrity).
+datasets/sources/ocl/**/*.zip
+
+# FHIR Validator CLI binary (pulled at run time; version pin under VERSION file).
+tools/fhir-validator/*.jar

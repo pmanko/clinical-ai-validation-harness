@@ -7,8 +7,33 @@
 #
 # Filename retains "2.8" to identify the OpenMRS Core/Platform line this
 # stack sits on; the RefApp itself is 3.x (latest stable 3.6.0).
+#
+# Access pattern: a `proxy` service (Caddy) fronts everything. Internal
+# services (gateway, frontend, backend) are NOT exposed on the host. Reach
+# the RefApp at http://localhost:${HARNESS_PROXY_HTTP_PORT:-8088}/openmrs/spa
+# (configurable; default 8088 avoids 8080 conflicts with OrbStack/etc.).
+# To add new HTTP services (chartsearchai gateway, etc.), route them in
+# compose/Caddyfile.
 
 services:
+  proxy:
+    image: caddy:2.8-alpine
+    container_name: harness-proxy
+    restart: "unless-stopped"
+    ports:
+      - "${HARNESS_PROXY_HTTP_PORT:-8088}:80"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - gateway
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost/__proxy_health"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
   gateway:
     image: openmrs/openmrs-reference-application-3-gateway:${OPENMRS_REFAPP_TAG:-3.6.0}
     container_name: harness-openmrs-gateway
@@ -16,8 +41,9 @@ services:
     depends_on:
       - frontend
       - backend
-    ports:
-      - "${OPENMRS_GATEWAY_PORT:-8080}:80"
+    # Intentionally NOT exposed on the host; access via the `proxy` service.
+    expose:
+      - "80"
 
   frontend:
     image: openmrs/openmrs-reference-application-3-frontend:${OPENMRS_REFAPP_TAG:-3.6.0}
@@ -78,3 +104,5 @@ services:
 volumes:
   openmrs-data:
   db-data:
+  caddy-data:
+  caddy-config:
