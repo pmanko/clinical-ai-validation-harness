@@ -21,7 +21,7 @@ origin_wiki: https://openmrs.atlassian.net/wiki/spaces/docs/pages/26273323/Demo+
 origin_file: large-demo-data-2-7-0.sql.zip  # ZIP archive containing the .sql dump
 origin_uploaded_at: 2025-01-10
 origin_uploaded_by: Daniel Kayiwa
-origin_url: TBD-confirm-canonical-download-url  # Confluence attachment URL; the wiki page hosts the zip as an attachment whose direct URL the operator should record at fetch time.
+origin_url: https://openmrs.atlassian.net/wiki/download/attachments/26273323/large-demo-data-2-7-0.sql.zip?api=v2
 
 # IMPORTANT — Platform vs Reference Application caveat (from the OpenMRS Demo
 # Data wiki, verbatim):
