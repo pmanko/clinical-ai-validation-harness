@@ -7,9 +7,9 @@ This phase resolves the plan-shaped open items from `/speckit-clarify` and recor
 
 ## Terminology stack (corrected baseline for all decisions below)
 
-- **Terminology authority on the OpenMRS side**: **OCL (Open Concept Lab)** managing **CIEL**. The 2.7 source dictionary is a CIEL snapshot of some vintage; the 2.8 RefApp's seeded dictionary is also a CIEL subset (different vintage / curated subset).
+- **Terminology authority on the OpenMRS side**: **OCL (Open Concept Lab)** managing **CIEL**. The 2.7 source dictionary is a CIEL snapshot of some vintage; the O3 RefApp's seeded dictionary (running on Core 2.8.x) is also a CIEL subset (different vintage / curated subset).
 - **Cross-terminology references**: LOINC (labs), SNOMED CT (findings/procedures), ICD-10 (diagnoses), RxNorm (drugs). Present in source corpus via `concept_reference_map` → `concept_reference_source` rows; present in CIEL similarly.
-- **Mapping artifact grammar**: **FHIR ConceptMap R4** — used purely as the equivalence-labeled grammar for source-concept ↔ target-concept relationships. FHIR is not a terminology standard; it provides resource types for representing terminology and mappings.
+- **Mapping artifact grammar**: **FHIR R4 ConceptMap** — used purely as the equivalence-labeled grammar for source-concept ↔ target-concept relationships. FHIR is not a terminology standard; it provides resource types for representing terminology and mappings.
 - **OpenMRS↔OpenELIS bridge**: **LOINC**. OpenMRS is CIEL-heavy; OpenELIS is LOINC-heavy; CIEL maps to LOINC in many places via `concept_reference_map`. The OpenELIS mapping skeleton resolves OpenMRS concept → its LOINC reference (via CIEL via OCL) → OpenELIS analyte that uses that LOINC.
 
 ## R1. Mapping artifact grammar
@@ -72,7 +72,7 @@ This phase resolves the plan-shaped open items from `/speckit-clarify` and recor
 
 - The diff touches a table that is referenced by ≥1 row in: `patient`, `person`, `person_name`, `person_address`, `person_attribute`, `encounter`, `encounter_provider`, `encounter_diagnosis`, `obs`, `conditions`, `diagnosis_attribute`, `allergy`, `allergy_reaction`, `drug_order`, `drug`, `drug_ingredient`, `concept`, `concept_name`, `concept_reference_map`, `concept_reference_source`, `concept_reference_term`, `location`, `provider`, `provider_attribute`, `orders`, `order_type`, `order_frequency`, `program`, `patient_program`, `patient_state`, `visit`, `visit_attribute`, `form`, `form_field`, `field`.
 - The diff alters a column that participates in a foreign key, a unique constraint, a `concept_id` reference, or a coded-value column.
-- The diff removes or retypes any column that the OpenMRS REST or FHIR module exposes (per the 2.8.0 RefApp module set).
+- The diff removes or retypes any column that the OpenMRS REST or FHIR module exposes (per the O3 RefApp module set on Core 2.8.x).
 
 Items not matching are recorded as `cosmetic` (e.g., audit-only attribute_type tables that the demo doesn't populate, log-style tables with no clinical references).
 
@@ -100,7 +100,7 @@ Other concept classes (concept-set, convertor, misc, etc.) may **not** be seed-a
 
 - The harness fetches the **current CIEL collection** (and any required reference-source snapshots — at minimum LOINC) from OCL **once per accepted-mapping cycle**, into `datasets/sources/ocl/<collection>/<version>/`. The snapshot is committed (or LFS-tracked if oversized), checksum-recorded in `run_manifest.json`, and read-only during the transform.
 - Refreshing the pin is a deliberate, out-of-band step that produces a new run-manifest version and triggers a PCCP-style change record (FR-023) because it is a material mapping-input change.
-- The **default target** is the seeded dictionary that the 2.8 RefApp distro ships (pinned by RefApp distro image digest). After the RefApp container has applied Liquibase, the harness snapshots the seeded `concept` / `concept_name` / `concept_reference_map` / `concept_reference_term` / `concept_reference_source` rows into `artifacts/<run>/profile/refapp_28_seeded_dictionary.snapshot.json`. That is the per-run deterministic target authority.
+- The **default target** is the seeded dictionary that the modern (O3) RefApp distro ships (pinned by RefApp distro image digest; currently 3.6.0 on Core 2.8.x). After the RefApp container has applied Liquibase, the harness snapshots the seeded `concept` / `concept_name` / `concept_reference_map` / `concept_reference_term` / `concept_reference_source` rows into `artifacts/<run>/profile/refapp_28_seeded_dictionary.snapshot.json`. That is the per-run deterministic target authority.
 - The **authoritative target for mapping decisions** is **most-current CIEL via the pinned OCL snapshot**. The mapping job for each source 2.7 concept becomes a tiered lookup: (1) semantically equivalent concept in the seeded baseline → cheap remap; (2) not in seeded baseline but in current CIEL → `seed-augment`; (3) not in current CIEL → remap with non-`equivalent` label or drop.
 
 **Three concrete review tasks OCL assists with (offline, against the pinned snapshot)**:
@@ -116,7 +116,7 @@ Other concept classes (concept-set, convertor, misc, etc.) may **not** be seed-a
 **Alternatives considered**:
 
 - Live OCL API at transform time: rejected; would break SC-004.
-- Tighter "subset of CIEL the 2.8 RefApp seeds" pinning: more compact but conflates "what we ship as default" with "what we have authority to consult." User's framing — "we need the default ciel, and then whatever we need to properly map the test data concepts" — favors pinning the full current CIEL collection so the reviewer has the full authority surface available during mapping.
+- Tighter "subset of CIEL the O3 RefApp seeds" pinning: more compact but conflates "what we ship as default" with "what we have authority to consult." User's framing — "we need the default ciel, and then whatever we need to properly map the test data concepts" — favors pinning the full current CIEL collection so the reviewer has the full authority surface available during mapping.
 
 ## R8. Run-id, manifest schema alignment
 

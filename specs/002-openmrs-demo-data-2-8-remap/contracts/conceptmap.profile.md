@@ -8,7 +8,7 @@
 
 This is a **profile** of FHIR R4 ConceptMap — i.e., it tightens the standard's optionality without modifying its semantics. Any artifact conformant to this profile is also conformant to the underlying FHIR R4 ConceptMap resource, so conformance attestation routes through the standard's own tool (FR-028, SC-011).
 
-The ConceptMap describes the translation from the 2.7 source dump's concept dictionary to the 2.8 RefApp's seeded CIEL dictionary. CIEL via OCL is the terminology authority; LOINC/SNOMED/ICD-10/RxNorm are referenced terminologies; FHIR ConceptMap is the *grammar*.
+The ConceptMap describes the translation from the 2.7 source dump's concept dictionary to the O3 RefApp's seeded CIEL dictionary (running on Core 2.8.x). CIEL via OCL is the terminology authority; LOINC/SNOMED/ICD-10/RxNorm are referenced terminologies; FHIR R4 ConceptMap is the *grammar*.
 
 ## Required elements
 
