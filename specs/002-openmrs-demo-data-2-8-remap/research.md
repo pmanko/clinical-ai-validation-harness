@@ -234,6 +234,30 @@ For the RefApp, the wiki points to the `referencedemodata.createDemoPatientsOnNe
 
 **Sources**: OpenMRS Talk "Challenges with large data during platform upgrade" thread; mitigation pattern documented there uses Percona Toolkit's `pt-online-schema-change` but pre-staging in SQLMesh achieves the same outcome with less operational complexity.
 
+## R-Import-Error-Tolerance. Acceptable error rate for the openconceptlab CIEL import (added 2026-05-14 from /speckit-analyze U3)
+
+The openconceptlab module imports CIEL items (concepts, names, descriptions, mappings, reference terms, etc.) one at a time. A small percentage routinely fail — typical causes include foreign-key references to retired concepts, locale mismatches against the deployment's allowed-locales list, custom-validation-schema violations (CIEL uses `custom_validation_schema: "OpenMRS"`, so most errors are minor metadata issues), or concept-class definitions that already differ from what the deployment has.
+
+Observed: live import of CIEL `v2026-04-28` against a fresh O3 RefApp baseline reported **73 errors out of 207,511 items (~0.035%)** at 98% progress.
+
+**Decision**: For M2-A, acceptable error rate is **≤ 0.1% of total CIEL items**. Above that threshold, M2-A's gate refuses to advance to M2-C until the errors are enumerated and either (a) accepted with rationale or (b) repaired by adjusting the openconceptlab subscription / validation settings / locale config.
+
+Per Constitution Principle III (record-level evidence), every error MUST be captured at record level — concept identity (uuid + display name if available), error message, item type. Aggregate count alone is insufficient.
+
+**Operator path** (T024c):
+1. Hit `GET /openmrs/ws/rest/v1/openconceptlab/import/<uuid>/item?state=ERROR&limit=...` (paginated) to enumerate failed items.
+2. Emit `artifacts/<run>/profile/ciel-import-errors.json` with per-record evidence.
+3. Compute error rate; gate M2-A on the ≤ 0.1% threshold.
+4. Below threshold: log as known acceptable, continue.
+5. Above threshold: surface for reviewer + halt M2-A.
+
+**Rationale**: 0.1% is empirically slack-enough to absorb the routine FK-to-retired-concept noise that CIEL imports always produce, while tight enough that a structural CIEL problem (e.g., schema-version drift, locale config mismatch) shows up as a gate failure.
+
+**Alternatives considered**:
+- Zero-tolerance (any error fails M2-A): too brittle; ~0.03% is normal.
+- 1% tolerance: too loose; would mask real terminology-drift issues at scale.
+- Per-class thresholds (e.g., 0% errors in Drug class, 0.5% in Misc): more nuanced but premature optimization; revisit if 0.1% global proves wrong.
+
 ## R9. Determinism caveats
 
 **Decision**: Re-run determinism (SC-004) is asserted **byte-identically** for:
