@@ -1,0 +1,39 @@
+# GitGuardian configuration for the clinical-ai-validation-harness repo.
+# https://docs.gitguardian.com/ggshield-docs/reference/configuration-files
+#
+# The harness coordinates dev-only OpenMRS reference-application stacks. The
+# OpenMRS demo defaults (admin/Admin123 for the application, openmrs/openmrs
+# for the database) are widely published documented values — see:
+#   https://openmrs.atlassian.net/wiki/spaces/docs/pages/26273323/Demo+Data
+#   targets/chartsearchai/README.md
+# They are NOT production secrets. They live in the compose file and the
+# helper scripts only as defaults so a developer can `make up` without
+# pre-configuring env vars. Production deployments override via env vars
+# (OMRS_DB_USER, OMRS_DB_PASSWORD, etc.) or by adopting a real secrets
+# management approach.
+#
+# The matches below are intentionally scoped to the specific shell parameter
+# expansion pattern that contains the demo default, NOT a blanket ignore of
+# the word "openmrs" (which is the project name and appears everywhere).
+
+version: 2
+
+secret:
+  show_secrets: false
+  ignored_matches:
+    - name: "OpenMRS public demo DB default password (`openmrs/openmrs`) in shell defaults"
+      # The bash parameter-expansion default `${OMRS_DB_PASSWORD:-openmrs}` —
+      # documented public demo credential per the OpenMRS wiki, used by
+      # compose/openmrs-2.8-refapp.yml and harness helper scripts.
+      match: "OMRS_DB_PASSWORD:-openmrs"
+    - name: "OpenMRS public demo DB default password (`openmrs/openmrs`) in compose env block"
+      # The compose env-mapping form `MYSQL_PASSWORD: ${OMRS_DB_PASSWORD:-openmrs}` —
+      # same documented default, expressed in YAML.
+      match: "MYSQL_PASSWORD: ${OMRS_DB_PASSWORD:-openmrs}"
+    - name: "OpenMRS public demo MariaDB root default (`openmrs`) in compose env block"
+      match: "MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-openmrs}"
+    - name: "OpenMRS public demo admin default (`Admin123`) referenced in operator-facing docs/scripts"
+      # Quoted appearances of the published default admin password in
+      # README/quickstart-style docs and the stack-up.sh "default creds"
+      # banner. Documented in chartsearchai/README.md + the OpenMRS wiki.
+      match: "admin / Admin123"
