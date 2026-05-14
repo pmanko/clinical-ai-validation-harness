@@ -1,0 +1,2575 @@
+{
+  "import_uuid": "a239009d-c0bc-46b0-a0cc-231bbf97b48e",
+  "all_items_count": 358026,
+  "error_items_count": 133,
+  "error_rate": 0.00037148140079212123,
+  "gate_threshold": 0.001,
+  "gate_passed": true,
+  "generated_at": "2026-05-14T21:23:21Z",
+  "errors": [
+    {
+      "uuid": "2c42635e-07a9-428d-bd82-8b4e03a130f7",
+      "type": "MAPPING",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/13127663/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/13127663/",
+      "hashed_url": "NfT6HqQ4+7FdaLxI3ZBd6w==",
+      "updated_on": "2026-04-28T07:49:56.000+0000",
+      "error_message": "Cannot save mapping https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/13127663/ [CAUSE]: Cannot create mapping from concept with URL https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/78200/, because the concept has not been imported",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "mappings",
+        "code": "13127663"
+      },
+      "referenced_concept": {
+        "source": "CIEL",
+        "code": "78200"
+      }
+    },
+    {
+      "uuid": "94dbd48a-30d5-4b5b-b5d4-fa6705223326",
+      "type": "MAPPING",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/13127656/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/13127656/",
+      "hashed_url": "l1sNdJTrIWGrntEupvmjyg==",
+      "updated_on": "2026-04-28T07:49:56.000+0000",
+      "error_message": "Cannot save mapping https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/13127656/ [CAUSE]: Cannot create mapping from concept with URL https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/78200/, because the concept has not been imported",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "mappings",
+        "code": "13127656"
+      },
+      "referenced_concept": {
+        "source": "CIEL",
+        "code": "78200"
+      }
+    },
+    {
+      "uuid": "c4cbe4e8-aacf-418d-b294-90b75055d17c",
+      "type": "MAPPING",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/9563189/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/9563189/",
+      "hashed_url": "Kb5XIJeVkGGevp/6EDTGMA==",
+      "updated_on": "2026-04-28T09:10:47.000+0000",
+      "error_message": "Cannot save mapping https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/9563189/ [CAUSE]: Cannot create mapping from concept with URL https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/118492/, because the concept has not been imported",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "mappings",
+        "code": "9563189"
+      },
+      "referenced_concept": {
+        "source": "CIEL",
+        "code": "118492"
+      }
+    },
+    {
+      "uuid": "175358ABBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+      "type": "MAPPING",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/1026672/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/1026672/",
+      "hashed_url": "NpG7ymRwDauceUDar3D9kg==",
+      "updated_on": "2026-04-28T07:49:55.000+0000",
+      "error_message": "Cannot save mapping https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/1026672/ [CAUSE]: Cannot create mapping from concept with URL https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/78200/, because the concept has not been imported",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "mappings",
+        "code": "1026672"
+      },
+      "referenced_concept": {
+        "source": "CIEL",
+        "code": "78200"
+      }
+    },
+    {
+      "uuid": "269523ABBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+      "type": "MAPPING",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/75453/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/75453/",
+      "hashed_url": "jqAsRojfmyanpjEMunqzrg==",
+      "updated_on": "2026-04-28T09:10:46.000+0000",
+      "error_message": "Cannot save mapping https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/75453/ [CAUSE]: Cannot create mapping from concept with URL https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/118492/, because the concept has not been imported",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "mappings",
+        "code": "75453"
+      },
+      "referenced_concept": {
+        "source": "CIEL",
+        "code": "118492"
+      }
+    },
+    {
+      "uuid": "129769ABBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+      "type": "MAPPING",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/28284/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/28284/",
+      "hashed_url": "QrsrDpkL7VlzxjpC3j35Hg==",
+      "updated_on": "2026-04-28T07:49:55.000+0000",
+      "error_message": "Cannot save mapping https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/28284/ [CAUSE]: Cannot create mapping from concept with URL https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/78200/, because the concept has not been imported",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "mappings",
+        "code": "28284"
+      },
+      "referenced_concept": {
+        "source": "CIEL",
+        "code": "78200"
+      }
+    },
+    {
+      "uuid": "183998ABBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+      "type": "MAPPING",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/1066098/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/1066098/",
+      "hashed_url": "HApeRQS0ZYDcUgqbdDhh5g==",
+      "updated_on": "2026-04-28T09:10:46.000+0000",
+      "error_message": "Cannot save mapping https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/1066098/ [CAUSE]: Cannot create mapping from concept with URL https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/118492/, because the concept has not been imported",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "mappings",
+        "code": "1066098"
+      },
+      "referenced_concept": {
+        "source": "CIEL",
+        "code": "118492"
+      }
+    },
+    {
+      "uuid": "29b103e9-1be1-4ad4-b14a-56923d07ac5d",
+      "type": "MAPPING",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/10327824/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/10327824/",
+      "hashed_url": "U4QJS5JhO9MUYSjmiflgRg==",
+      "updated_on": "2026-04-28T08:02:33.000+0000",
+      "error_message": "Cannot save mapping https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/10327824/ [CAUSE]: Cannot create mapping from concept with URL https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/82734/, because the concept has not been imported",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "mappings",
+        "code": "10327824"
+      },
+      "referenced_concept": {
+        "source": "CIEL",
+        "code": "82734"
+      }
+    },
+    {
+      "uuid": "176801ABBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+      "type": "MAPPING",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/1032216/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/1032216/",
+      "hashed_url": "rNVguZhHqKpVLePDgRRjSw==",
+      "updated_on": "2026-04-28T08:02:33.000+0000",
+      "error_message": "Cannot save mapping https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/1032216/ [CAUSE]: Cannot create mapping from concept with URL https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/82734/, because the concept has not been imported",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "mappings",
+        "code": "1032216"
+      },
+      "referenced_concept": {
+        "source": "CIEL",
+        "code": "82734"
+      }
+    },
+    {
+      "uuid": "145768ABBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+      "type": "MAPPING",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/27508/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/27508/",
+      "hashed_url": "ZE6EBbfvyhGkjnPD3fBkMQ==",
+      "updated_on": "2026-04-28T08:02:33.000+0000",
+      "error_message": "Cannot save mapping https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/27508/ [CAUSE]: Cannot create mapping from concept with URL https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/82734/, because the concept has not been imported",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "mappings",
+        "code": "27508"
+      },
+      "referenced_concept": {
+        "source": "CIEL",
+        "code": "82734"
+      }
+    },
+    {
+      "uuid": "162994ABBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+      "type": "MAPPING",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/79913/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/79913/",
+      "hashed_url": "yAdMaTn4tH6t/1f6u5TuoQ==",
+      "updated_on": "2026-04-28T09:10:46.000+0000",
+      "error_message": "Cannot save mapping https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/79913/ [CAUSE]: Cannot create mapping from concept with URL https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/118492/, because the concept has not been imported",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "mappings",
+        "code": "79913"
+      },
+      "referenced_concept": {
+        "source": "CIEL",
+        "code": "118492"
+      }
+    },
+    {
+      "uuid": "145767ABBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+      "type": "MAPPING",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/32398/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/32398/",
+      "hashed_url": "QkzoDHQBjs5Xdvwsf/gfYA==",
+      "updated_on": "2026-04-28T08:02:33.000+0000",
+      "error_message": "Cannot save mapping https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/32398/ [CAUSE]: Cannot create mapping from concept with URL https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/82734/, because the concept has not been imported",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "mappings",
+        "code": "32398"
+      },
+      "referenced_concept": {
+        "source": "CIEL",
+        "code": "82734"
+      }
+    },
+    {
+      "uuid": "131220ABBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+      "type": "MAPPING",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/33491/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/33491/",
+      "hashed_url": "nEKNOT+YO6GFXJ5jKemfJw==",
+      "updated_on": "2026-04-28T08:02:33.000+0000",
+      "error_message": "Cannot save mapping https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/33491/ [CAUSE]: Cannot create mapping from concept with URL https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/82734/, because the concept has not been imported",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "mappings",
+        "code": "33491"
+      },
+      "referenced_concept": {
+        "source": "CIEL",
+        "code": "82734"
+      }
+    },
+    {
+      "uuid": "2155b90b-a0d8-4847-a5f4-9e4755911b3f",
+      "type": "MAPPING",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/14899438/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/14899438/",
+      "hashed_url": "Elxfq7e2ZJ5qZY1QwQHYbA==",
+      "updated_on": "2026-04-28T09:59:51.000+0000",
+      "error_message": "Cannot save mapping https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/14899438/ [CAUSE]: Cannot create mapping from concept with URL https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/160034/, because the concept has not been imported",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "mappings",
+        "code": "14899438"
+      },
+      "referenced_concept": {
+        "source": "CIEL",
+        "code": "160034"
+      }
+    },
+    {
+      "uuid": "4042CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC",
+      "type": "MAPPING",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/13762/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/13762/",
+      "hashed_url": "VMXtdCNR2DFhBQwSdx7wSQ==",
+      "updated_on": "2026-04-28T07:27:34.000+0000",
+      "error_message": "Cannot save mapping https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/13762/ [CAUSE]: Cannot create mapping to concept with URL https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/160034/, because the concept has not been imported",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "mappings",
+        "code": "13762"
+      },
+      "referenced_concept": {
+        "source": "CIEL",
+        "code": "160034"
+      }
+    },
+    {
+      "uuid": "151234ABBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+      "type": "MAPPING",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/63344/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/63344/",
+      "hashed_url": "uvhO48/eQuf6BsBFgiTIdA==",
+      "updated_on": "2026-04-28T09:10:46.000+0000",
+      "error_message": "Cannot save mapping https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/63344/ [CAUSE]: Cannot create mapping from concept with URL https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/118492/, because the concept has not been imported",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "mappings",
+        "code": "63344"
+      },
+      "referenced_concept": {
+        "source": "CIEL",
+        "code": "118492"
+      }
+    },
+    {
+      "uuid": "217171ABBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+      "type": "MAPPING",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/1250908/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/1250908/",
+      "hashed_url": "WRptr8L5KyOe1iFR+qnhWw==",
+      "updated_on": "2026-04-28T09:59:51.000+0000",
+      "error_message": "Cannot save mapping https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/1250908/ [CAUSE]: Cannot create mapping from concept with URL https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/160034/, because the concept has not been imported",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "mappings",
+        "code": "1250908"
+      },
+      "referenced_concept": {
+        "source": "CIEL",
+        "code": "160034"
+      }
+    },
+    {
+      "uuid": "98018ABBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+      "type": "MAPPING",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/76904/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/76904/",
+      "hashed_url": "dhoXR7y/5iMA9/f1VpvNyw==",
+      "updated_on": "2026-04-28T09:10:46.000+0000",
+      "error_message": "Cannot save mapping https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/76904/ [CAUSE]: Cannot create mapping from concept with URL https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/118492/, because the concept has not been imported",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "mappings",
+        "code": "76904"
+      },
+      "referenced_concept": {
+        "source": "CIEL",
+        "code": "118492"
+      }
+    },
+    {
+      "uuid": "a1446200-879a-4d28-aa27-4a059de65f38",
+      "type": "MAPPING",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/11269559/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/11269559/",
+      "hashed_url": "FVWDoy9H6BzkJdAj/cq6Cg==",
+      "updated_on": "2026-04-28T09:01:44.000+0000",
+      "error_message": "Cannot save mapping https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/11269559/ [CAUSE]: Cannot create mapping from concept with URL https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/117045/, because the concept has not been imported",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "mappings",
+        "code": "11269559"
+      },
+      "referenced_concept": {
+        "source": "CIEL",
+        "code": "117045"
+      }
+    },
+    {
+      "uuid": "137924ABBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+      "type": "MAPPING",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/311621/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/311621/",
+      "hashed_url": "bs508NNsR2rgEG/Gs87Pmg==",
+      "updated_on": "2026-04-28T09:59:51.000+0000",
+      "error_message": "Cannot save mapping https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/311621/ [CAUSE]: Cannot create mapping from concept with URL https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/160034/, because the concept has not been imported",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "mappings",
+        "code": "311621"
+      },
+      "referenced_concept": {
+        "source": "CIEL",
+        "code": "160034"
+      }
+    },
+    {
+      "uuid": "72206ABBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+      "type": "MAPPING",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/63175/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/63175/",
+      "hashed_url": "5NDYL8vDcwzr4DO5ozbp/w==",
+      "updated_on": "2026-04-28T09:10:46.000+0000",
+      "error_message": "Cannot save mapping https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/63175/ [CAUSE]: Cannot create mapping from concept with URL https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/118492/, because the concept has not been imported",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "mappings",
+        "code": "63175"
+      },
+      "referenced_concept": {
+        "source": "CIEL",
+        "code": "118492"
+      }
+    },
+    {
+      "uuid": "271023ABBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+      "type": "MAPPING",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/68708/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/68708/",
+      "hashed_url": "GpVLdLUtucsvL5Atk0mPwA==",
+      "updated_on": "2026-04-28T09:01:44.000+0000",
+      "error_message": "Cannot save mapping https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/68708/ [CAUSE]: Cannot create mapping from concept with URL https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/117045/, because the concept has not been imported",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "mappings",
+        "code": "68708"
+      },
+      "referenced_concept": {
+        "source": "CIEL",
+        "code": "117045"
+      }
+    },
+    {
+      "uuid": "88383233-35ff-4584-a734-90bd0d1d6e52",
+      "type": "MAPPING",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/10678441/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/10678441/",
+      "hashed_url": "d3JQPmkWx93ZyKdxmUC/IA==",
+      "updated_on": "2026-04-28T07:54:36.000+0000",
+      "error_message": "Cannot save mapping https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/10678441/ [CAUSE]: Cannot create mapping from concept with URL https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/79767/, because the concept has not been imported",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "mappings",
+        "code": "10678441"
+      },
+      "referenced_concept": {
+        "source": "CIEL",
+        "code": "79767"
+      }
+    },
+    {
+      "uuid": "183208ABBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+      "type": "MAPPING",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/1061596/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/1061596/",
+      "hashed_url": "CNJHx0TA6Sdi2PYvpfXk9w==",
+      "updated_on": "2026-04-28T09:01:44.000+0000",
+      "error_message": "Cannot save mapping https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/1061596/ [CAUSE]: Cannot create mapping from concept with URL https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/117045/, because the concept has not been imported",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "mappings",
+        "code": "1061596"
+      },
+      "referenced_concept": {
+        "source": "CIEL",
+        "code": "117045"
+      }
+    },
+    {
+      "uuid": "144809ABBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+      "type": "MAPPING",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/69279/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/69279/",
+      "hashed_url": "vFO1ZKHZyXH/eYdpfhB/Yw==",
+      "updated_on": "2026-04-28T09:01:44.000+0000",
+      "error_message": "Cannot save mapping https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/69279/ [CAUSE]: Cannot create mapping from concept with URL https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/117045/, because the concept has not been imported",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "mappings",
+        "code": "69279"
+      },
+      "referenced_concept": {
+        "source": "CIEL",
+        "code": "117045"
+      }
+    },
+    {
+      "uuid": "175891ABBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+      "type": "MAPPING",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/1028743/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/1028743/",
+      "hashed_url": "zPRKcvfIO9VsTxZOKIgN7Q==",
+      "updated_on": "2026-04-28T07:54:35.000+0000",
+      "error_message": "Cannot save mapping https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/1028743/ [CAUSE]: Cannot create mapping from concept with URL https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/79767/, because the concept has not been imported",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "mappings",
+        "code": "1028743"
+      },
+      "referenced_concept": {
+        "source": "CIEL",
+        "code": "79767"
+      }
+    },
+    {
+      "uuid": "142649ABBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+      "type": "MAPPING",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/29269/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/29269/",
+      "hashed_url": "pRt/l1FtPZyJe0+AzV7okQ==",
+      "updated_on": "2026-04-28T07:54:35.000+0000",
+      "error_message": "Cannot save mapping https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/29269/ [CAUSE]: Cannot create mapping from concept with URL https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/79767/, because the concept has not been imported",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "mappings",
+        "code": "29269"
+      },
+      "referenced_concept": {
+        "source": "CIEL",
+        "code": "79767"
+      }
+    },
+    {
+      "uuid": "113729ABBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+      "type": "MAPPING",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/50591/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/50591/",
+      "hashed_url": "5KcP6m5693Vb1XeJYSPtmg==",
+      "updated_on": "2026-04-28T09:01:43.000+0000",
+      "error_message": "Cannot save mapping https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/50591/ [CAUSE]: Cannot create mapping from concept with URL https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/117045/, because the concept has not been imported",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "mappings",
+        "code": "50591"
+      },
+      "referenced_concept": {
+        "source": "CIEL",
+        "code": "117045"
+      }
+    },
+    {
+      "uuid": "118492AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      "type": "CONCEPT",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/118492/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/118492/11485896/",
+      "hashed_url": "0nv0PTlS11iaJI8iSmvWEw==",
+      "updated_on": null,
+      "error_message": "Cannot import concept 118492AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA, tried:\nFixing duplicate names for concept 118492AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA after failure due to 'exantema s\u00fabito' is a duplicate name in locale 'es' for the same concept\nDone fixing duplicate names for concept 118492AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA [CAUSE]: 'exantema s\u00fabito' is a duplicate name in locale 'es' for the same concept",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "concepts",
+        "code": "118492"
+      }
+    },
+    {
+      "uuid": "73074ABBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+      "type": "MAPPING",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/58327/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/58327/",
+      "hashed_url": "HkCyw/w6bM+qL+AG+Wcruw==",
+      "updated_on": "2026-04-28T09:01:43.000+0000",
+      "error_message": "Cannot save mapping https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/58327/ [CAUSE]: Cannot create mapping from concept with URL https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/117045/, because the concept has not been imported",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "mappings",
+        "code": "58327"
+      },
+      "referenced_concept": {
+        "source": "CIEL",
+        "code": "117045"
+      }
+    },
+    {
+      "uuid": "130305ABBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+      "type": "MAPPING",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/21389/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/21389/",
+      "hashed_url": "HkaTo7VzKPTJYFXziv/krQ==",
+      "updated_on": "2026-04-28T07:54:35.000+0000",
+      "error_message": "Cannot save mapping https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/21389/ [CAUSE]: Cannot create mapping from concept with URL https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/79767/, because the concept has not been imported",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "mappings",
+        "code": "21389"
+      },
+      "referenced_concept": {
+        "source": "CIEL",
+        "code": "79767"
+      }
+    },
+    {
+      "uuid": "288381ABBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+      "type": "MAPPING",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/1277465/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/1277465/",
+      "hashed_url": "cFHnWd8d5ZJpk9r9ZGt21A==",
+      "updated_on": "2026-04-28T10:38:52.000+0000",
+      "error_message": "Cannot save mapping https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/1277465/ [CAUSE]: Cannot create mapping from concept with URL https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/166273/, because the concept has not been imported",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "mappings",
+        "code": "1277465"
+      },
+      "referenced_concept": {
+        "source": "CIEL",
+        "code": "166273"
+      }
+    },
+    {
+      "uuid": "83028AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      "type": "CONCEPT",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/83028/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/83028/11532317/",
+      "hashed_url": "mPZPKEFcFsiHjgeMh6GPQA==",
+      "updated_on": null,
+      "error_message": "Cannot import concept 83028AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA, tried:\nFixing duplicate names for concept 83028AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA after failure due to 'Quinine sulfate' is a duplicate name in locale 'en'\nChanged name 'Quinine sulfate' in locale en to index term\nDone fixing duplicate names for concept 83028AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\nRetrying import of concept 83028AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA after failure due to ''Concept #null' failed to validate with reason: No fully specified name for this concept' [CAUSE]: 'Quinine sulfate' is a duplicate name in locale 'en'",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "concepts",
+        "code": "83028"
+      }
+    },
+    {
+      "uuid": "288380ABBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+      "type": "MAPPING",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/305139/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/305139/",
+      "hashed_url": "61uZLv/aTUNjIj915UInMA==",
+      "updated_on": "2026-04-28T10:38:52.000+0000",
+      "error_message": "Cannot save mapping https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/305139/ [CAUSE]: Cannot create mapping from concept with URL https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/166273/, because the concept has not been imported",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "mappings",
+        "code": "305139"
+      },
+      "referenced_concept": {
+        "source": "CIEL",
+        "code": "166273"
+      }
+    },
+    {
+      "uuid": "288379ABBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+      "type": "MAPPING",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/326490/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/326490/",
+      "hashed_url": "N9DwUcQcqyIkw6zJjNEVaQ==",
+      "updated_on": "2026-04-28T10:38:52.000+0000",
+      "error_message": "Cannot save mapping https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/326490/ [CAUSE]: Cannot create mapping from concept with URL https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/166273/, because the concept has not been imported",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "mappings",
+        "code": "326490"
+      },
+      "referenced_concept": {
+        "source": "CIEL",
+        "code": "166273"
+      }
+    },
+    {
+      "uuid": "2ee49fd5-72b3-42ab-a21d-a9fa9634e6c1",
+      "type": "CONCEPT",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/170275/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/170275/11522237/",
+      "hashed_url": "94u7uuSJEu4iwds8kNjL+w==",
+      "updated_on": null,
+      "error_message": "Cannot import concept 2ee49fd5-72b3-42ab-a21d-a9fa9634e6c1, tried:\nFixing duplicate names for concept 2ee49fd5-72b3-42ab-a21d-a9fa9634e6c1 after failure due to 'Phosphate de chloroquine' is a duplicate name in locale 'fr'\nChanged name 'Chloroquine phosphate' in locale en to index term\nChanged name 'Phosphate de chloroquine' in locale fr to index term\nDone fixing duplicate names for concept 2ee49fd5-72b3-42ab-a21d-a9fa9634e6c1\nRetrying import of concept 2ee49fd5-72b3-42ab-a21d-a9fa9634e6c1 after failure due to ''Concept #null' failed to validate with reason: No fully specified name for this concept' [CAUSE]: 'Phosphate de chloroquine' is a duplicate name in locale 'fr'",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "concepts",
+        "code": "170275"
+      }
+    },
+    {
+      "uuid": "288375ABBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+      "type": "MAPPING",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/1277458/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/1277458/",
+      "hashed_url": "+F4n6qjb5HoCDCrYzX/sJQ==",
+      "updated_on": "2026-04-28T10:38:52.000+0000",
+      "error_message": "Cannot save mapping https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/1277458/ [CAUSE]: Cannot create mapping from concept with URL https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/166271/, because the concept has not been imported",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "mappings",
+        "code": "1277458"
+      },
+      "referenced_concept": {
+        "source": "CIEL",
+        "code": "166271"
+      }
+    },
+    {
+      "uuid": "71917AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      "type": "CONCEPT",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/71917/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/71917/11528465/",
+      "hashed_url": "una7BGSDmUkoeBghmB+znQ==",
+      "updated_on": null,
+      "error_message": "Cannot import concept 71917AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA, tried:\nFixing duplicate names for concept 71917AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA after failure due to 'Beclomethasone dipropionate' is a duplicate name in locale 'en'\nChanged name 'Beclomethasone dipropionate' in locale en to index term\nDone fixing duplicate names for concept 71917AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\nRetrying import of concept 71917AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA after failure due to ''Concept #null' failed to validate with reason: No fully specified name for this concept' [CAUSE]: 'Beclomethasone dipropionate' is a duplicate name in locale 'en'",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "concepts",
+        "code": "71917"
+      }
+    },
+    {
+      "uuid": "288374ABBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+      "type": "MAPPING",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/321996/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/321996/",
+      "hashed_url": "Ay8BsLYlqf3VqG1/94507Q==",
+      "updated_on": "2026-04-28T10:38:52.000+0000",
+      "error_message": "Cannot save mapping https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/321996/ [CAUSE]: Cannot create mapping from concept with URL https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/166271/, because the concept has not been imported",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "mappings",
+        "code": "321996"
+      },
+      "referenced_concept": {
+        "source": "CIEL",
+        "code": "166271"
+      }
+    },
+    {
+      "uuid": "288373ABBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+      "type": "MAPPING",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/331747/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/331747/",
+      "hashed_url": "cm800hAHh7LuOssMZ1vOVQ==",
+      "updated_on": "2026-04-28T10:38:52.000+0000",
+      "error_message": "Cannot save mapping https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/331747/ [CAUSE]: Cannot create mapping from concept with URL https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/166271/, because the concept has not been imported",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "mappings",
+        "code": "331747"
+      },
+      "referenced_concept": {
+        "source": "CIEL",
+        "code": "166271"
+      }
+    },
+    {
+      "uuid": "6865CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC",
+      "type": "MAPPING",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/331972/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/331972/",
+      "hashed_url": "q+UjhKYWOLI6YhTcDECvrg==",
+      "updated_on": "2026-04-28T10:32:34.000+0000",
+      "error_message": "Cannot save mapping https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/331972/ [CAUSE]: Cannot create mapping to concept with URL https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/160034/, because the concept has not been imported",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "mappings",
+        "code": "331972"
+      },
+      "referenced_concept": {
+        "source": "CIEL",
+        "code": "160034"
+      }
+    },
+    {
+      "uuid": "79767AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      "type": "CONCEPT",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/79767/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/79767/11531268/",
+      "hashed_url": "2LZDawzaO7Sn8hUxV6KSKg==",
+      "updated_on": null,
+      "error_message": "Cannot import concept 79767AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA, tried:\nFixing duplicate names for concept 79767AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA after failure due to 'Metoprolol tartrate' is a duplicate name in locale 'en'\nChanged name 'Metoprolol tartrate' in locale en to index term\nDone fixing duplicate names for concept 79767AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\nRetrying import of concept 79767AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA after failure due to ''Concept #null' failed to validate with reason: No fully specified name for this concept' [CAUSE]: 'Metoprolol tartrate' is a duplicate name in locale 'en'",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "concepts",
+        "code": "79767"
+      }
+    },
+    {
+      "uuid": "a46d7f72-62f1-4787-9210-89ecf7030f2c",
+      "type": "MAPPING",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/13920808/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/13920808/",
+      "hashed_url": "6TDBl9u+CdOCft3D2PHmvw==",
+      "updated_on": "2026-04-28T08:03:18.000+0000",
+      "error_message": "Cannot save mapping https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/13920808/ [CAUSE]: Cannot create mapping from concept with URL https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/83028/, because the concept has not been imported",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "mappings",
+        "code": "13920808"
+      },
+      "referenced_concept": {
+        "source": "CIEL",
+        "code": "83028"
+      }
+    },
+    {
+      "uuid": "176897ABBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+      "type": "MAPPING",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/1032642/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/1032642/",
+      "hashed_url": "Z4RiXNj8gHuh+zUYrb3B/g==",
+      "updated_on": "2026-04-28T08:03:18.000+0000",
+      "error_message": "Cannot save mapping https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/1032642/ [CAUSE]: Cannot create mapping from concept with URL https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/83028/, because the concept has not been imported",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "mappings",
+        "code": "1032642"
+      },
+      "referenced_concept": {
+        "source": "CIEL",
+        "code": "83028"
+      }
+    },
+    {
+      "uuid": "74b16fdd-e901-4c75-ba2f-123aeda4393a",
+      "type": "CONCEPT",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/170032/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/170032/11521704/",
+      "hashed_url": "GZs7MVA8gUAa+e1K6jSfNw==",
+      "updated_on": null,
+      "error_message": "Cannot import concept 74b16fdd-e901-4c75-ba2f-123aeda4393a, tried:\nFixing duplicate names for concept 74b16fdd-e901-4c75-ba2f-123aeda4393a after failure due to 'Clove oil' is a duplicate name in locale 'en'\nChanged name 'Clove oil' in locale en to index term\nDone fixing duplicate names for concept 74b16fdd-e901-4c75-ba2f-123aeda4393a\nRetrying import of concept 74b16fdd-e901-4c75-ba2f-123aeda4393a after failure due to ''Concept #null' failed to validate with reason: No fully specified name for this concept' [CAUSE]: 'Clove oil' is a duplicate name in locale 'en'",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "concepts",
+        "code": "170032"
+      }
+    },
+    {
+      "uuid": "ae6547ea-ce9e-47cc-87a5-a829e7b9a5de",
+      "type": "MAPPING",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/10324695/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/10324695/",
+      "hashed_url": "5l3T4XsnSRGzgS0j4rcsuw==",
+      "updated_on": "2026-04-28T07:59:43.000+0000",
+      "error_message": "Cannot save mapping https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/10324695/ [CAUSE]: Cannot create mapping from concept with URL https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/81946/, because the concept has not been imported",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "mappings",
+        "code": "10324695"
+      },
+      "referenced_concept": {
+        "source": "CIEL",
+        "code": "81946"
+      }
+    },
+    {
+      "uuid": "142860ABBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+      "type": "MAPPING",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/27804/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/27804/",
+      "hashed_url": "Utlda31ljoC1tAxeBLnSiQ==",
+      "updated_on": "2026-04-28T08:03:18.000+0000",
+      "error_message": "Cannot save mapping https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/27804/ [CAUSE]: Cannot create mapping from concept with URL https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/83028/, because the concept has not been imported",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "mappings",
+        "code": "27804"
+      },
+      "referenced_concept": {
+        "source": "CIEL",
+        "code": "83028"
+      }
+    },
+    {
+      "uuid": "df15890b-a676-4b09-8e02-409408aef9c3",
+      "type": "MAPPING",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/10324687/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/10324687/",
+      "hashed_url": "vNBrWnSkN/cxbCq8ogPvGA==",
+      "updated_on": "2026-04-28T07:59:43.000+0000",
+      "error_message": "Cannot save mapping https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/10324687/ [CAUSE]: Cannot create mapping from concept with URL https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/81946/, because the concept has not been imported",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "mappings",
+        "code": "10324687"
+      },
+      "referenced_concept": {
+        "source": "CIEL",
+        "code": "81946"
+      }
+    },
+    {
+      "uuid": "131316ABBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+      "type": "MAPPING",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/31538/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/31538/",
+      "hashed_url": "EQbBmQQBrX2ep1ZoH0pF+A==",
+      "updated_on": "2026-04-28T08:03:18.000+0000",
+      "error_message": "Cannot save mapping https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/31538/ [CAUSE]: Cannot create mapping from concept with URL https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/83028/, because the concept has not been imported",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "mappings",
+        "code": "31538"
+      },
+      "referenced_concept": {
+        "source": "CIEL",
+        "code": "83028"
+      }
+    },
+    {
+      "uuid": "176459ABBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+      "type": "MAPPING",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/1030967/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/1030967/",
+      "hashed_url": "/PCU9x1phhq6R0ndelxnGg==",
+      "updated_on": "2026-04-28T07:59:43.000+0000",
+      "error_message": "Cannot save mapping https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/1030967/ [CAUSE]: Cannot create mapping from concept with URL https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/81946/, because the concept has not been imported",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "mappings",
+        "code": "1030967"
+      },
+      "referenced_concept": {
+        "source": "CIEL",
+        "code": "81946"
+      }
+    },
+    {
+      "uuid": "142771ABBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+      "type": "MAPPING",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/32879/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/32879/",
+      "hashed_url": "HawmfLxU1VSmA0DeHQb9MA==",
+      "updated_on": "2026-04-28T07:59:43.000+0000",
+      "error_message": "Cannot save mapping https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/32879/ [CAUSE]: Cannot create mapping from concept with URL https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/81946/, because the concept has not been imported",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "mappings",
+        "code": "32879"
+      },
+      "referenced_concept": {
+        "source": "CIEL",
+        "code": "81946"
+      }
+    },
+    {
+      "uuid": "130876ABBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+      "type": "MAPPING",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/32752/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/32752/",
+      "hashed_url": "5o20VXcCPqxqJra9mzS8Uw==",
+      "updated_on": "2026-04-28T07:59:42.000+0000",
+      "error_message": "Cannot save mapping https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/32752/ [CAUSE]: Cannot create mapping from concept with URL https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/81946/, because the concept has not been imported",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "mappings",
+        "code": "32752"
+      },
+      "referenced_concept": {
+        "source": "CIEL",
+        "code": "81946"
+      }
+    },
+    {
+      "uuid": "80665AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      "type": "CONCEPT",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/80665/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/80665/11531509/",
+      "hashed_url": "Ziyo04GazB2v7g8ZaDzm+g==",
+      "updated_on": null,
+      "error_message": "Cannot import concept 80665AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA, tried:\nFixing duplicate names for concept 80665AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA after failure due to 'Nimesulide' is a duplicate name in locale 'en'\nChanged name 'Nimesulide' in locale en to index term\nDone fixing duplicate names for concept 80665AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\nRetrying import of concept 80665AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA after failure due to ''Concept #null' failed to validate with reason: No fully specified name for this concept' [CAUSE]: 'Nimesulide' is a duplicate name in locale 'en'",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "concepts",
+        "code": "80665"
+      }
+    },
+    {
+      "uuid": "119441AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      "type": "CONCEPT",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/119441/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/119441/11486876/",
+      "hashed_url": "y813jU4jf9etbC8wMxYDAw==",
+      "updated_on": null,
+      "error_message": "Cannot import concept 119441AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA, tried:\nRetrying import of concept 119441AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA after failure due to ''Concept #2629' failed to validate with reason: conceptMappings[2]: Cannot map a reference term multiple times to the same concept' [CAUSE]: 'Concept #2629' failed to validate with reason: conceptMappings[2]: Cannot map a reference term multiple times to the same concept",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "concepts",
+        "code": "119441"
+      }
+    },
+    {
+      "uuid": "5fd2a1bf-4bfc-4664-992c-9ae05bdecbcd",
+      "type": "MAPPING",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/13914025/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/13914025/",
+      "hashed_url": "+6wXoum56//YsZiBTFu8Zg==",
+      "updated_on": "2026-04-28T07:56:49.000+0000",
+      "error_message": "Cannot save mapping https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/13914025/ [CAUSE]: Cannot create mapping from concept with URL https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/80665/, because the concept has not been imported",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "mappings",
+        "code": "13914025"
+      },
+      "referenced_concept": {
+        "source": "CIEL",
+        "code": "80665"
+      }
+    },
+    {
+      "uuid": "711433a7-5ebe-46e0-8913-643214f64dde",
+      "type": "MAPPING",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/13914015/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/13914015/",
+      "hashed_url": "7U8PahfPz44no0y1eV8mBQ==",
+      "updated_on": "2026-04-28T07:56:48.000+0000",
+      "error_message": "Cannot save mapping https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/13914015/ [CAUSE]: Cannot create mapping from concept with URL https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/80665/, because the concept has not been imported",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "mappings",
+        "code": "13914015"
+      },
+      "referenced_concept": {
+        "source": "CIEL",
+        "code": "80665"
+      }
+    },
+    {
+      "uuid": "176120ABBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+      "type": "MAPPING",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/1029661/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/1029661/",
+      "hashed_url": "cFev/NFp7uDQyuHt7AxdZg==",
+      "updated_on": "2026-04-28T07:56:48.000+0000",
+      "error_message": "Cannot save mapping https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/1029661/ [CAUSE]: Cannot create mapping from concept with URL https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/80665/, because the concept has not been imported",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "mappings",
+        "code": "1029661"
+      },
+      "referenced_concept": {
+        "source": "CIEL",
+        "code": "80665"
+      }
+    },
+    {
+      "uuid": "130535ABBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+      "type": "MAPPING",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/25309/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/25309/",
+      "hashed_url": "3U3w8XvevSIpBi318k6WOw==",
+      "updated_on": "2026-04-28T07:56:48.000+0000",
+      "error_message": "Cannot save mapping https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/25309/ [CAUSE]: Cannot create mapping from concept with URL https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/80665/, because the concept has not been imported",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "mappings",
+        "code": "25309"
+      },
+      "referenced_concept": {
+        "source": "CIEL",
+        "code": "80665"
+      }
+    },
+    {
+      "uuid": "a911f350-8e56-4653-adb2-0dd49801df4a",
+      "type": "MAPPING",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/13880774/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/13880774/",
+      "hashed_url": "wrj7R8TUne5MW8k+u3lHAQ==",
+      "updated_on": "2026-04-28T07:32:51.000+0000",
+      "error_message": "Cannot save mapping https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/13880774/ [CAUSE]: Cannot create mapping from concept with URL https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/71917/, because the concept has not been imported",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "mappings",
+        "code": "13880774"
+      },
+      "referenced_concept": {
+        "source": "CIEL",
+        "code": "71917"
+      }
+    },
+    {
+      "uuid": "651f0945-ae11-4442-8eed-5ce73de2ae6e",
+      "type": "MAPPING",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/13880762/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/13880762/",
+      "hashed_url": "x/ixIkv45YIMeQKPf8b+pQ==",
+      "updated_on": "2026-04-28T07:32:51.000+0000",
+      "error_message": "Cannot save mapping https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/13880762/ [CAUSE]: Cannot create mapping from concept with URL https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/71917/, because the concept has not been imported",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "mappings",
+        "code": "13880762"
+      },
+      "referenced_concept": {
+        "source": "CIEL",
+        "code": "71917"
+      }
+    },
+    {
+      "uuid": "115427AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      "type": "CONCEPT",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/115427/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/115427/11483016/",
+      "hashed_url": "SbDSOmdAwQVM34gHOKPzUg==",
+      "updated_on": null,
+      "error_message": "Cannot import concept 115427AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA, tried:\nFixing duplicate names for concept 115427AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA after failure due to 'Miocarditis infecciosa' is a duplicate name in locale 'es' for the same concept\nDone fixing duplicate names for concept 115427AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA [CAUSE]: 'Miocarditis infecciosa' is a duplicate name in locale 'es' for the same concept",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "concepts",
+        "code": "115427"
+      }
+    },
+    {
+      "uuid": "424a7e66-8eba-4d0f-bc18-12f41a988aa7",
+      "type": "MAPPING",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/13880750/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/13880750/",
+      "hashed_url": "+pe6X5d94RkrfZJv9ZJfFQ==",
+      "updated_on": "2026-04-28T07:32:51.000+0000",
+      "error_message": "Cannot save mapping https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/13880750/ [CAUSE]: Cannot create mapping from concept with URL https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/71917/, because the concept has not been imported",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "mappings",
+        "code": "13880750"
+      },
+      "referenced_concept": {
+        "source": "CIEL",
+        "code": "71917"
+      }
+    },
+    {
+      "uuid": "b021c840-98bd-498c-985e-31274e7a4f52",
+      "type": "MAPPING",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/13880738/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/13880738/",
+      "hashed_url": "UXp1fchTzlma4+Um8NLkpQ==",
+      "updated_on": "2026-04-28T07:32:50.000+0000",
+      "error_message": "Cannot save mapping https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/13880738/ [CAUSE]: Cannot create mapping from concept with URL https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/71917/, because the concept has not been imported",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "mappings",
+        "code": "13880738"
+      },
+      "referenced_concept": {
+        "source": "CIEL",
+        "code": "71917"
+      }
+    },
+    {
+      "uuid": "d149e9ff-9722-48f8-a985-6d5ecd6f7118",
+      "type": "MAPPING",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/13880726/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/13880726/",
+      "hashed_url": "RxiigVrurs5cW4n/M45IZQ==",
+      "updated_on": "2026-04-28T07:32:50.000+0000",
+      "error_message": "Cannot save mapping https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/13880726/ [CAUSE]: Cannot create mapping from concept with URL https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/71917/, because the concept has not been imported",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "mappings",
+        "code": "13880726"
+      },
+      "referenced_concept": {
+        "source": "CIEL",
+        "code": "71917"
+      }
+    },
+    {
+      "uuid": "78200AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      "type": "CONCEPT",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/78200/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/78200/11530716/",
+      "hashed_url": "bLVpSareAj4Gd4qLdva06A==",
+      "updated_on": null,
+      "error_message": "Cannot import concept 78200AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA, tried:\nFixing duplicate names for concept 78200AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA after failure due to 'Ipratropium bromide' is a duplicate name in locale 'en'\nChanged name 'Ipratropium bromide' in locale en to index term\nDone fixing duplicate names for concept 78200AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\nRetrying import of concept 78200AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA after failure due to ''Concept #null' failed to validate with reason: No fully specified name for this concept' [CAUSE]: 'Ipratropium bromide' is a duplicate name in locale 'en'",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "concepts",
+        "code": "78200"
+      }
+    },
+    {
+      "uuid": "166281AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      "type": "CONCEPT",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/166281/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/166281/11513475/",
+      "hashed_url": "nKfi0FKcGY9Lcb/4pxtXaA==",
+      "updated_on": null,
+      "error_message": "Cannot import concept 166281AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA, tried:\nFixing duplicate names for concept 166281AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA after failure due to 'P\u00e1rpado superior' is a duplicate name in locale 'es' for the same concept\nDone fixing duplicate names for concept 166281AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA [CAUSE]: 'P\u00e1rpado superior' is a duplicate name in locale 'es' for the same concept",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "concepts",
+        "code": "166281"
+      }
+    },
+    {
+      "uuid": "173194ABBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+      "type": "MAPPING",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/1018348/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/1018348/",
+      "hashed_url": "idxB/jXw8K1cGhjhycT9Kw==",
+      "updated_on": "2026-04-28T07:32:50.000+0000",
+      "error_message": "Cannot save mapping https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/1018348/ [CAUSE]: Cannot create mapping from concept with URL https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/71917/, because the concept has not been imported",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "mappings",
+        "code": "1018348"
+      },
+      "referenced_concept": {
+        "source": "CIEL",
+        "code": "71917"
+      }
+    },
+    {
+      "uuid": "127588ABBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+      "type": "MAPPING",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/17704/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/17704/",
+      "hashed_url": "EWs0l0Bxspu3g8nBzB5kIA==",
+      "updated_on": "2026-04-28T07:32:50.000+0000",
+      "error_message": "Cannot save mapping https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/17704/ [CAUSE]: Cannot create mapping from concept with URL https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/71917/, because the concept has not been imported",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "mappings",
+        "code": "17704"
+      },
+      "referenced_concept": {
+        "source": "CIEL",
+        "code": "71917"
+      }
+    },
+    {
+      "uuid": "288618ABBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+      "type": "MAPPING",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/1277945/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/1277945/",
+      "hashed_url": "uo1WREUb7zNdPPhK3BAvcw==",
+      "updated_on": "2026-04-28T10:39:17.000+0000",
+      "error_message": "Cannot save mapping https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/1277945/ [CAUSE]: Cannot create mapping from concept with URL https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/166353/, because the concept has not been imported",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "mappings",
+        "code": "1277945"
+      },
+      "referenced_concept": {
+        "source": "CIEL",
+        "code": "166353"
+      }
+    },
+    {
+      "uuid": "288617ABBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+      "type": "MAPPING",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/333530/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/333530/",
+      "hashed_url": "qL+yHs9pjBTBETpafV9nLA==",
+      "updated_on": "2026-04-28T10:39:17.000+0000",
+      "error_message": "Cannot save mapping https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/333530/ [CAUSE]: Cannot create mapping from concept with URL https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/166353/, because the concept has not been imported",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "mappings",
+        "code": "333530"
+      },
+      "referenced_concept": {
+        "source": "CIEL",
+        "code": "166353"
+      }
+    },
+    {
+      "uuid": "288616ABBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+      "type": "MAPPING",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/322233/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/322233/",
+      "hashed_url": "2M/cSwEPTXfUD/FJjLhXyA==",
+      "updated_on": "2026-04-28T10:39:17.000+0000",
+      "error_message": "Cannot save mapping https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/322233/ [CAUSE]: Cannot create mapping from concept with URL https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/166353/, because the concept has not been imported",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "mappings",
+        "code": "322233"
+      },
+      "referenced_concept": {
+        "source": "CIEL",
+        "code": "166353"
+      }
+    },
+    {
+      "uuid": "166273AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      "type": "CONCEPT",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/166273/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/166273/11513457/",
+      "hashed_url": "b/kozMXFgcBosni8nijtfQ==",
+      "updated_on": null,
+      "error_message": "Cannot import concept 166273AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA, tried:\nFixing duplicate names for concept 166273AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA after failure due to 'cuerpo uterino' is a duplicate name in locale 'es' for the same concept\nDone fixing duplicate names for concept 166273AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA [CAUSE]: 'cuerpo uterino' is a duplicate name in locale 'es' for the same concept",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "concepts",
+        "code": "166273"
+      }
+    },
+    {
+      "uuid": "b06a8c70-11f6-4601-ad2b-52c93e396613",
+      "type": "MAPPING",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/9810523/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/9810523/",
+      "hashed_url": "INl2vu1ZBwZBbYnujqMSyw==",
+      "updated_on": "2026-04-28T08:52:23.000+0000",
+      "error_message": "Cannot save mapping https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/9810523/ [CAUSE]: Cannot create mapping from concept with URL https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/115427/, because the concept has not been imported",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "mappings",
+        "code": "9810523"
+      },
+      "referenced_concept": {
+        "source": "CIEL",
+        "code": "115427"
+      }
+    },
+    {
+      "uuid": "269862ABBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+      "type": "MAPPING",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/63293/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/63293/",
+      "hashed_url": "5OtvJJYKEgRGYogiv3OZrA==",
+      "updated_on": "2026-04-28T08:52:23.000+0000",
+      "error_message": "Cannot save mapping https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/63293/ [CAUSE]: Cannot create mapping from concept with URL https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/115427/, because the concept has not been imported",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "mappings",
+        "code": "63293"
+      },
+      "referenced_concept": {
+        "source": "CIEL",
+        "code": "115427"
+      }
+    },
+    {
+      "uuid": "166271AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      "type": "CONCEPT",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/166271/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/166271/11513452/",
+      "hashed_url": "rZ7hZBWp5an05Fg3GuJEKA==",
+      "updated_on": null,
+      "error_message": "Cannot import concept 166271AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA, tried:\nFixing duplicate names for concept 166271AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA after failure due to 'Istmo del \u00fatero' is a duplicate name in locale 'es' for the same concept\nDone fixing duplicate names for concept 166271AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA [CAUSE]: 'Istmo del \u00fatero' is a duplicate name in locale 'es' for the same concept",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "concepts",
+        "code": "166271"
+      }
+    },
+    {
+      "uuid": "182401ABBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+      "type": "MAPPING",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/1057035/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/1057035/",
+      "hashed_url": "hKkEJD/G8Yyp/Z0lXqNNNg==",
+      "updated_on": "2026-04-28T08:52:23.000+0000",
+      "error_message": "Cannot save mapping https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/1057035/ [CAUSE]: Cannot create mapping from concept with URL https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/115427/, because the concept has not been imported",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "mappings",
+        "code": "1057035"
+      },
+      "referenced_concept": {
+        "source": "CIEL",
+        "code": "115427"
+      }
+    },
+    {
+      "uuid": "160432ABBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+      "type": "MAPPING",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/52697/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/52697/",
+      "hashed_url": "GjdoDU69OQjjwUUl9bPVHg==",
+      "updated_on": "2026-04-28T08:52:22.000+0000",
+      "error_message": "Cannot save mapping https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/52697/ [CAUSE]: Cannot create mapping from concept with URL https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/115427/, because the concept has not been imported",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "mappings",
+        "code": "52697"
+      },
+      "referenced_concept": {
+        "source": "CIEL",
+        "code": "115427"
+      }
+    },
+    {
+      "uuid": "148672ABBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+      "type": "MAPPING",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/56921/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/56921/",
+      "hashed_url": "0Gk/ZQd12yDuJjpk/qOnHw==",
+      "updated_on": "2026-04-28T08:52:22.000+0000",
+      "error_message": "Cannot save mapping https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/56921/ [CAUSE]: Cannot create mapping from concept with URL https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/115427/, because the concept has not been imported",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "mappings",
+        "code": "56921"
+      },
+      "referenced_concept": {
+        "source": "CIEL",
+        "code": "115427"
+      }
+    },
+    {
+      "uuid": "96026ABBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+      "type": "MAPPING",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/52584/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/52584/",
+      "hashed_url": "Nn115ZfXnMSaMo1s9FDaGQ==",
+      "updated_on": "2026-04-28T08:52:22.000+0000",
+      "error_message": "Cannot save mapping https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/52584/ [CAUSE]: Cannot create mapping from concept with URL https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/115427/, because the concept has not been imported",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "mappings",
+        "code": "52584"
+      },
+      "referenced_concept": {
+        "source": "CIEL",
+        "code": "115427"
+      }
+    },
+    {
+      "uuid": "73970ABBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+      "type": "MAPPING",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/61334/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/61334/",
+      "hashed_url": "0pNd9TEgC11lqXkMKLk+5w==",
+      "updated_on": "2026-04-28T08:52:22.000+0000",
+      "error_message": "Cannot save mapping https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/61334/ [CAUSE]: Cannot create mapping from concept with URL https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/115427/, because the concept has not been imported",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "mappings",
+        "code": "61334"
+      },
+      "referenced_concept": {
+        "source": "CIEL",
+        "code": "115427"
+      }
+    },
+    {
+      "uuid": "82734AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      "type": "CONCEPT",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/82734/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/82734/11532217/",
+      "hashed_url": "Oa27P5bCUkBZSIuNzwcWHg==",
+      "updated_on": null,
+      "error_message": "Cannot import concept 82734AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA, tried:\nFixing duplicate names for concept 82734AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA after failure due to 'Propranolol hydrochloride' is a duplicate name in locale 'en'\nChanged name 'Propranolol hydrochloride' in locale en to index term\nDone fixing duplicate names for concept 82734AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\nRetrying import of concept 82734AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA after failure due to ''Concept #null' failed to validate with reason: No fully specified name for this concept' [CAUSE]: 'Propranolol hydrochloride' is a duplicate name in locale 'en'",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "concepts",
+        "code": "82734"
+      }
+    },
+    {
+      "uuid": "288606ABBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+      "type": "MAPPING",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/1277928/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/1277928/",
+      "hashed_url": "DhUm3U6my5Z7rCgICCoSTA==",
+      "updated_on": "2026-04-28T10:39:15.000+0000",
+      "error_message": "Cannot save mapping https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/1277928/ [CAUSE]: Cannot create mapping from concept with URL https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/166349/, because the concept has not been imported",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "mappings",
+        "code": "1277928"
+      },
+      "referenced_concept": {
+        "source": "CIEL",
+        "code": "166349"
+      }
+    },
+    {
+      "uuid": "6441CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC",
+      "type": "MAPPING",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/285353/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/285353/",
+      "hashed_url": "FwfXmAFh56eWRROs6oVsKA==",
+      "updated_on": "2026-04-28T09:57:47.000+0000",
+      "error_message": "Cannot save mapping https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/285353/ [CAUSE]: Cannot create mapping to concept with URL https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/160034/, because the concept has not been imported",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "mappings",
+        "code": "285353"
+      },
+      "referenced_concept": {
+        "source": "CIEL",
+        "code": "160034"
+      }
+    },
+    {
+      "uuid": "288605ABBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+      "type": "MAPPING",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/335181/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/335181/",
+      "hashed_url": "tzcJ+Q6QthpAswx4OwQXkA==",
+      "updated_on": "2026-04-28T10:39:15.000+0000",
+      "error_message": "Cannot save mapping https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/335181/ [CAUSE]: Cannot create mapping from concept with URL https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/166349/, because the concept has not been imported",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "mappings",
+        "code": "335181"
+      },
+      "referenced_concept": {
+        "source": "CIEL",
+        "code": "166349"
+      }
+    },
+    {
+      "uuid": "288604ABBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+      "type": "MAPPING",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/305250/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/305250/",
+      "hashed_url": "Bpe0XQk+b0z7cagnE5jttQ==",
+      "updated_on": "2026-04-28T10:39:15.000+0000",
+      "error_message": "Cannot save mapping https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/305250/ [CAUSE]: Cannot create mapping from concept with URL https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/166349/, because the concept has not been imported",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "mappings",
+        "code": "305250"
+      },
+      "referenced_concept": {
+        "source": "CIEL",
+        "code": "166349"
+      }
+    },
+    {
+      "uuid": "863cd349-d28b-48ef-863f-3e20260776d3",
+      "type": "MAPPING",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/11298445/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/11298445/",
+      "hashed_url": "3C8JKM7kkeKdF6q7QN6lLA==",
+      "updated_on": "2026-04-28T09:30:42.000+0000",
+      "error_message": "Cannot save mapping https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/11298445/ [CAUSE]: Cannot create mapping from concept with URL https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/121492/, because the concept has not been imported",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "mappings",
+        "code": "11298445"
+      },
+      "referenced_concept": {
+        "source": "CIEL",
+        "code": "121492"
+      }
+    },
+    {
+      "uuid": "267595ABBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+      "type": "MAPPING",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/81250/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/81250/",
+      "hashed_url": "IAe/rpU2eM9Z6nZ86Eu8CQ==",
+      "updated_on": "2026-04-28T09:30:42.000+0000",
+      "error_message": "Cannot save mapping https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/81250/ [CAUSE]: Cannot create mapping from concept with URL https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/121492/, because the concept has not been imported",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "mappings",
+        "code": "81250"
+      },
+      "referenced_concept": {
+        "source": "CIEL",
+        "code": "121492"
+      }
+    },
+    {
+      "uuid": "185650ABBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+      "type": "MAPPING",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/1075505/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/1075505/",
+      "hashed_url": "MTgKb/jtK752i7E4eDpjaA==",
+      "updated_on": "2026-04-28T09:30:42.000+0000",
+      "error_message": "Cannot save mapping https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/1075505/ [CAUSE]: Cannot create mapping from concept with URL https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/121492/, because the concept has not been imported",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "mappings",
+        "code": "1075505"
+      },
+      "referenced_concept": {
+        "source": "CIEL",
+        "code": "121492"
+      }
+    },
+    {
+      "uuid": "0dd294d2-bc16-4dc7-a303-4b5743bb4e60",
+      "type": "MAPPING",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/13074882/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/13074882/",
+      "hashed_url": "OQLYTdh+llxOeAGjyap2vw==",
+      "updated_on": "2026-04-28T11:04:06.000+0000",
+      "error_message": "Cannot save mapping https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/13074882/ [CAUSE]: Cannot create mapping from concept with URL https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/170032/, because the concept has not been imported",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "mappings",
+        "code": "13074882"
+      },
+      "referenced_concept": {
+        "source": "CIEL",
+        "code": "170032"
+      }
+    },
+    {
+      "uuid": "110663ABBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+      "type": "MAPPING",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/73849/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/73849/",
+      "hashed_url": "SE+ZDw8PhDZNrV6PntZwUw==",
+      "updated_on": "2026-04-28T09:30:42.000+0000",
+      "error_message": "Cannot save mapping https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/73849/ [CAUSE]: Cannot create mapping from concept with URL https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/121492/, because the concept has not been imported",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "mappings",
+        "code": "73849"
+      },
+      "referenced_concept": {
+        "source": "CIEL",
+        "code": "121492"
+      }
+    },
+    {
+      "uuid": "51e4cadd-e2ba-48c6-a077-5bcd466bf8a3",
+      "type": "MAPPING",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/13074880/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/13074880/",
+      "hashed_url": "IUZFfcHgQJGWV30Hp1lHQQ==",
+      "updated_on": "2026-04-28T11:04:06.000+0000",
+      "error_message": "Cannot save mapping https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/13074880/ [CAUSE]: Cannot create mapping from concept with URL https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/170032/, because the concept has not been imported",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "mappings",
+        "code": "13074880"
+      },
+      "referenced_concept": {
+        "source": "CIEL",
+        "code": "170032"
+      }
+    },
+    {
+      "uuid": "70371ABBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+      "type": "MAPPING",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/88197/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/88197/",
+      "hashed_url": "c+cY5EWdPGegrBKXQAZ4Ug==",
+      "updated_on": "2026-04-28T09:30:42.000+0000",
+      "error_message": "Cannot save mapping https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/88197/ [CAUSE]: Cannot create mapping from concept with URL https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/121492/, because the concept has not been imported",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "mappings",
+        "code": "88197"
+      },
+      "referenced_concept": {
+        "source": "CIEL",
+        "code": "121492"
+      }
+    },
+    {
+      "uuid": "137927ABBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+      "type": "MAPPING",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/307854/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/307854/",
+      "hashed_url": "s9m5ke8dvLLOkCkBxTdWmQ==",
+      "updated_on": "2025-11-22T07:24:20.000+0000",
+      "error_message": "Cannot save mapping https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/307854/ [CAUSE]: Cannot create mapping from concept with URL https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/160034/, because the concept has not been imported",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "mappings",
+        "code": "307854"
+      },
+      "referenced_concept": {
+        "source": "CIEL",
+        "code": "160034"
+      }
+    },
+    {
+      "uuid": "f0dadcdc-ce53-4327-836c-05a1c7c8e23a",
+      "type": "MAPPING",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/13074878/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/13074878/",
+      "hashed_url": "2CPkwiZvUejcVKWJHkZmQw==",
+      "updated_on": "2026-04-28T11:04:06.000+0000",
+      "error_message": "Cannot save mapping https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/13074878/ [CAUSE]: Cannot create mapping from concept with URL https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/170032/, because the concept has not been imported",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "mappings",
+        "code": "13074878"
+      },
+      "referenced_concept": {
+        "source": "CIEL",
+        "code": "170032"
+      }
+    },
+    {
+      "uuid": "594ef9b5-929a-4dc0-9c2d-2a5429c03324",
+      "type": "MAPPING",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/15836920/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/15836920/",
+      "hashed_url": "qEyVHpmXSYnG10evx33oXg==",
+      "updated_on": "2026-04-28T11:05:31.000+0000",
+      "error_message": "Cannot save mapping https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/15836920/ [CAUSE]: Cannot create mapping from concept with URL https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/170275/, because the concept has not been imported",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "mappings",
+        "code": "15836920"
+      },
+      "referenced_concept": {
+        "source": "CIEL",
+        "code": "170275"
+      }
+    },
+    {
+      "uuid": "c056039f-e442-404c-96a3-acceead17787",
+      "type": "MAPPING",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/14976701/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/14976701/",
+      "hashed_url": "89Or2CzGDNVde4r6qjpVRA==",
+      "updated_on": "2026-04-28T11:05:31.000+0000",
+      "error_message": "Cannot save mapping https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/14976701/ [CAUSE]: Cannot create mapping from concept with URL https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/170275/, because the concept has not been imported",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "mappings",
+        "code": "14976701"
+      },
+      "referenced_concept": {
+        "source": "CIEL",
+        "code": "170275"
+      }
+    },
+    {
+      "uuid": "83517AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      "type": "CONCEPT",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/83517/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/83517/11532425/",
+      "hashed_url": "A4MD77Drv9ey1uDYGVLWTQ==",
+      "updated_on": null,
+      "error_message": "Cannot import concept 83517AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA, tried:\nFixing duplicate names for concept 83517AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA after failure due to 'Rosa de bengala' is a duplicate name in locale 'es' for the same concept\nDone fixing duplicate names for concept 83517AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA [CAUSE]: 'Rosa de bengala' is a duplicate name in locale 'es' for the same concept",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "concepts",
+        "code": "83517"
+      }
+    },
+    {
+      "uuid": "4bcc462b-3fc0-4f64-9bde-8dc02dd2986a",
+      "type": "MAPPING",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/14976689/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/14976689/",
+      "hashed_url": "XLUNpYlbC2ABQNBiWOOzpQ==",
+      "updated_on": "2026-04-28T11:05:31.000+0000",
+      "error_message": "Cannot save mapping https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/14976689/ [CAUSE]: Cannot create mapping from concept with URL https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/170275/, because the concept has not been imported",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "mappings",
+        "code": "14976689"
+      },
+      "referenced_concept": {
+        "source": "CIEL",
+        "code": "170275"
+      }
+    },
+    {
+      "uuid": "82576AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      "type": "CONCEPT",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/82576/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/82576/11532167/",
+      "hashed_url": "eOeo/8x1p+9RhyI1jSaXQQ==",
+      "updated_on": null,
+      "error_message": "Cannot import concept 82576AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA, tried:\nFixing duplicate names for concept 82576AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA after failure due to 'Prochlorperazine maleate' is a duplicate name in locale 'en'\nChanged name 'Prochlorperazine maleate' in locale en to index term\nDone fixing duplicate names for concept 82576AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\nRetrying import of concept 82576AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA after failure due to ''Concept #null' failed to validate with reason: No fully specified name for this concept' [CAUSE]: 'Prochlorperazine maleate' is a duplicate name in locale 'en'",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "concepts",
+        "code": "82576"
+      }
+    },
+    {
+      "uuid": "166353AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      "type": "CONCEPT",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/166353/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/166353/11513647/",
+      "hashed_url": "RsEzOF4tUHrOXWvbZ8n9JQ==",
+      "updated_on": null,
+      "error_message": "Cannot import concept 166353AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA, tried:\nFixing duplicate names for concept 166353AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA after failure due to '\u00f3rgano genital femenino' is a duplicate name in locale 'es' for the same concept\nDone fixing duplicate names for concept 166353AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA [CAUSE]: '\u00f3rgano genital femenino' is a duplicate name in locale 'es' for the same concept",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "concepts",
+        "code": "166353"
+      }
+    },
+    {
+      "uuid": "f6c08c0f-c7b3-4e61-90bb-056b19dc832d",
+      "type": "MAPPING",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/14976681/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/14976681/",
+      "hashed_url": "UUAgy5Om9ZVU5FwVR1t1gw==",
+      "updated_on": "2026-04-28T11:05:31.000+0000",
+      "error_message": "Cannot save mapping https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/14976681/ [CAUSE]: Cannot create mapping from concept with URL https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/170275/, because the concept has not been imported",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "mappings",
+        "code": "14976681"
+      },
+      "referenced_concept": {
+        "source": "CIEL",
+        "code": "170275"
+      }
+    },
+    {
+      "uuid": "c238eae3-595a-4ab9-96de-0ea66e7880b7",
+      "type": "MAPPING",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/14976674/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/14976674/",
+      "hashed_url": "cEHvlW8p0n6UYuKTRrSmtA==",
+      "updated_on": "2026-04-28T11:05:31.000+0000",
+      "error_message": "Cannot save mapping https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/14976674/ [CAUSE]: Cannot create mapping from concept with URL https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/170275/, because the concept has not been imported",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "mappings",
+        "code": "14976674"
+      },
+      "referenced_concept": {
+        "source": "CIEL",
+        "code": "170275"
+      }
+    },
+    {
+      "uuid": "166349AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      "type": "CONCEPT",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/166349/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/166349/11513638/",
+      "hashed_url": "4HDIisE1kEjbUrbOtf7XCw==",
+      "updated_on": null,
+      "error_message": "Cannot import concept 166349AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA, tried:\nFixing duplicate names for concept 166349AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA after failure due to 'nervio perif\u00e9rico del miembro superior' is a duplicate name in locale 'es' for the same concept\nDone fixing duplicate names for concept 166349AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA [CAUSE]: 'nervio perif\u00e9rico del miembro superior' is a duplicate name in locale 'es' for the same concept",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "concepts",
+        "code": "166349"
+      }
+    },
+    {
+      "uuid": "117045AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      "type": "CONCEPT",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/117045/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/117045/11484430/",
+      "hashed_url": "m886X+lfLRX9uG9hZ5Jiiw==",
+      "updated_on": null,
+      "error_message": "Cannot import concept 117045AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA, tried:\nFixing duplicate names for concept 117045AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA after failure due to 'artritis infecciosa' is a duplicate name in locale 'es' for the same concept\nDone fixing duplicate names for concept 117045AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA [CAUSE]: 'artritis infecciosa' is a duplicate name in locale 'es' for the same concept",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "concepts",
+        "code": "117045"
+      }
+    },
+    {
+      "uuid": "5255CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC",
+      "type": "MAPPING",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/323936/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/323936/",
+      "hashed_url": "Hmx9uMCmZ+mMj7AYVeBoJw==",
+      "updated_on": "2026-04-28T10:19:11.000+0000",
+      "error_message": "Cannot save mapping https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/323936/ [CAUSE]: Cannot create mapping to concept with URL https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/160034/, because the concept has not been imported",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "mappings",
+        "code": "323936"
+      },
+      "referenced_concept": {
+        "source": "CIEL",
+        "code": "160034"
+      }
+    },
+    {
+      "uuid": "288556ABBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+      "type": "MAPPING",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/1277862/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/1277862/",
+      "hashed_url": "/8jVwnYzzqqdFdiMreV/bw==",
+      "updated_on": "2026-04-28T10:39:10.000+0000",
+      "error_message": "Cannot save mapping https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/1277862/ [CAUSE]: Cannot create mapping from concept with URL https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/166332/, because the concept has not been imported",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "mappings",
+        "code": "1277862"
+      },
+      "referenced_concept": {
+        "source": "CIEL",
+        "code": "166332"
+      }
+    },
+    {
+      "uuid": "288555ABBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+      "type": "MAPPING",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/328877/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/328877/",
+      "hashed_url": "amEjunO0rs1mr3jjwaeoWA==",
+      "updated_on": "2026-04-28T10:39:10.000+0000",
+      "error_message": "Cannot save mapping https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/328877/ [CAUSE]: Cannot create mapping from concept with URL https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/166332/, because the concept has not been imported",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "mappings",
+        "code": "328877"
+      },
+      "referenced_concept": {
+        "source": "CIEL",
+        "code": "166332"
+      }
+    },
+    {
+      "uuid": "81946AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      "type": "CONCEPT",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/81946/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/81946/11531864/",
+      "hashed_url": "9LPukOrF1U4qh8s6t52Nwg==",
+      "updated_on": null,
+      "error_message": "Cannot import concept 81946AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA, tried:\nFixing duplicate names for concept 81946AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA after failure due to 'Pheniramine maleate' is a duplicate name in locale 'en'\nChanged name 'Pheniramine maleate' in locale en to index term\nDone fixing duplicate names for concept 81946AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\nRetrying import of concept 81946AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA after failure due to ''Concept #null' failed to validate with reason: No fully specified name for this concept' [CAUSE]: 'Pheniramine maleate' is a duplicate name in locale 'en'",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "concepts",
+        "code": "81946"
+      }
+    },
+    {
+      "uuid": "288554ABBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+      "type": "MAPPING",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/322052/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/322052/",
+      "hashed_url": "tDaHEoB75GCsO/2kneFkSQ==",
+      "updated_on": "2026-04-28T10:39:09.000+0000",
+      "error_message": "Cannot save mapping https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/322052/ [CAUSE]: Cannot create mapping from concept with URL https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/166332/, because the concept has not been imported",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "mappings",
+        "code": "322052"
+      },
+      "referenced_concept": {
+        "source": "CIEL",
+        "code": "166332"
+      }
+    },
+    {
+      "uuid": "166332AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      "type": "CONCEPT",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/166332/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/166332/11513598/",
+      "hashed_url": "PMBcfV3KdVWS67J8+R15pQ==",
+      "updated_on": null,
+      "error_message": "Cannot import concept 166332AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA, tried:\nFixing duplicate names for concept 166332AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA after failure due to 'nervio plantar medial' is a duplicate name in locale 'es' for the same concept\nDone fixing duplicate names for concept 166332AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA [CAUSE]: 'nervio plantar medial' is a duplicate name in locale 'es' for the same concept",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "concepts",
+        "code": "166332"
+      }
+    },
+    {
+      "uuid": "288553ABBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+      "type": "MAPPING",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/1277692/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/1277692/",
+      "hashed_url": "OY96pfYYmHlk1JBiD8NyYQ==",
+      "updated_on": "2026-04-28T10:39:09.000+0000",
+      "error_message": "Cannot save mapping https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/1277692/ [CAUSE]: Cannot create mapping from concept with URL https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/166331/, because the concept has not been imported",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "mappings",
+        "code": "1277692"
+      },
+      "referenced_concept": {
+        "source": "CIEL",
+        "code": "166331"
+      }
+    },
+    {
+      "uuid": "47fb46e8-fd5d-49f4-9518-e44297cedf93",
+      "type": "MAPPING",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/10327382/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/10327382/",
+      "hashed_url": "YFZf1uv+PX3SlAs0Aea1ZQ==",
+      "updated_on": "2026-04-28T08:02:09.000+0000",
+      "error_message": "Cannot save mapping https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/10327382/ [CAUSE]: Cannot create mapping from concept with URL https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/82576/, because the concept has not been imported",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "mappings",
+        "code": "10327382"
+      },
+      "referenced_concept": {
+        "source": "CIEL",
+        "code": "82576"
+      }
+    },
+    {
+      "uuid": "166331AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      "type": "CONCEPT",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/166331/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/166331/11513595/",
+      "hashed_url": "MnTRfLIlgUDDupkQX5rYcQ==",
+      "updated_on": null,
+      "error_message": "Cannot import concept 166331AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA, tried:\nFixing duplicate names for concept 166331AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA after failure due to 'nervio mediano' is a duplicate name in locale 'es' for the same concept\nDone fixing duplicate names for concept 166331AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA [CAUSE]: 'nervio mediano' is a duplicate name in locale 'es' for the same concept",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "concepts",
+        "code": "166331"
+      }
+    },
+    {
+      "uuid": "288552ABBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+      "type": "MAPPING",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/331783/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/331783/",
+      "hashed_url": "lflYs1kzl/7w5VYvWNwCAw==",
+      "updated_on": "2026-04-28T10:39:09.000+0000",
+      "error_message": "Cannot save mapping https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/331783/ [CAUSE]: Cannot create mapping from concept with URL https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/166331/, because the concept has not been imported",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "mappings",
+        "code": "331783"
+      },
+      "referenced_concept": {
+        "source": "CIEL",
+        "code": "166331"
+      }
+    },
+    {
+      "uuid": "176753ABBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+      "type": "MAPPING",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/1032037/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/1032037/",
+      "hashed_url": "nIOB0TVLv7p81D4Ig39Idg==",
+      "updated_on": "2026-04-28T08:02:09.000+0000",
+      "error_message": "Cannot save mapping https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/1032037/ [CAUSE]: Cannot create mapping from concept with URL https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/82576/, because the concept has not been imported",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "mappings",
+        "code": "1032037"
+      },
+      "referenced_concept": {
+        "source": "CIEL",
+        "code": "82576"
+      }
+    },
+    {
+      "uuid": "288551ABBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+      "type": "MAPPING",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/333585/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/333585/",
+      "hashed_url": "W0ifI5EYOpNG6JoNicYo4Q==",
+      "updated_on": "2026-04-28T10:39:09.000+0000",
+      "error_message": "Cannot save mapping https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/333585/ [CAUSE]: Cannot create mapping from concept with URL https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/166331/, because the concept has not been imported",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "mappings",
+        "code": "333585"
+      },
+      "referenced_concept": {
+        "source": "CIEL",
+        "code": "166331"
+      }
+    },
+    {
+      "uuid": "142827ABBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+      "type": "MAPPING",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/27657/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/27657/",
+      "hashed_url": "ND1ZsNolcTF7CEy3vtU8/g==",
+      "updated_on": "2026-04-28T08:02:08.000+0000",
+      "error_message": "Cannot save mapping https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/27657/ [CAUSE]: Cannot create mapping from concept with URL https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/82576/, because the concept has not been imported",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "mappings",
+        "code": "27657"
+      },
+      "referenced_concept": {
+        "source": "CIEL",
+        "code": "82576"
+      }
+    },
+    {
+      "uuid": "176996ABBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+      "type": "MAPPING",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/1032961/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/1032961/",
+      "hashed_url": "jghZ2qz3Lob0agW3OMoqzg==",
+      "updated_on": "2026-04-28T08:04:09.000+0000",
+      "error_message": "Cannot save mapping https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/1032961/ [CAUSE]: Cannot create mapping from concept with URL https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/83517/, because the concept has not been imported",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "mappings",
+        "code": "1032961"
+      },
+      "referenced_concept": {
+        "source": "CIEL",
+        "code": "83517"
+      }
+    },
+    {
+      "uuid": "131172ABBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+      "type": "MAPPING",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/30277/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/30277/",
+      "hashed_url": "QHomH5t+qxP8oEmdvnA17w==",
+      "updated_on": "2026-04-28T08:02:08.000+0000",
+      "error_message": "Cannot save mapping https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/30277/ [CAUSE]: Cannot create mapping from concept with URL https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/82576/, because the concept has not been imported",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "mappings",
+        "code": "30277"
+      },
+      "referenced_concept": {
+        "source": "CIEL",
+        "code": "82576"
+      }
+    },
+    {
+      "uuid": "139246ABBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+      "type": "MAPPING",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/35203/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/35203/",
+      "hashed_url": "O7cVx2f6L0ORE9M6Km/7+A==",
+      "updated_on": "2026-04-28T08:04:09.000+0000",
+      "error_message": "Cannot save mapping https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/35203/ [CAUSE]: Cannot create mapping from concept with URL https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/83517/, because the concept has not been imported",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "mappings",
+        "code": "35203"
+      },
+      "referenced_concept": {
+        "source": "CIEL",
+        "code": "83517"
+      }
+    },
+    {
+      "uuid": "121492AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      "type": "CONCEPT",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/121492/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/121492/11489011/",
+      "hashed_url": "+ILhJA/Y153ybPo+qOcmnA==",
+      "updated_on": null,
+      "error_message": "Cannot import concept 121492AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA, tried:\nFixing duplicate names for concept 121492AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA after failure due to 'Displasia arteriohep\u00e1tica' is a duplicate name in locale 'es' for the same concept\nDone fixing duplicate names for concept 121492AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA [CAUSE]: 'Displasia arteriohep\u00e1tica' is a duplicate name in locale 'es' for the same concept",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "concepts",
+        "code": "121492"
+      }
+    },
+    {
+      "uuid": "145474ABBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+      "type": "MAPPING",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/17860/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/17860/",
+      "hashed_url": "AUMv0cu48xJ2ix7hdKd2WA==",
+      "updated_on": "2025-10-18T16:32:05.000+0000",
+      "error_message": "Cannot save mapping https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/17860/ [CAUSE]: Cannot create mapping from concept with URL https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/71917/, because the concept has not been imported",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "mappings",
+        "code": "17860"
+      },
+      "referenced_concept": {
+        "source": "CIEL",
+        "code": "71917"
+      }
+    },
+    {
+      "uuid": "131419ABBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+      "type": "MAPPING",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/28505/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/28505/",
+      "hashed_url": "vH0aKuWWfS4VBi6q5baY8w==",
+      "updated_on": "2026-04-28T08:04:09.000+0000",
+      "error_message": "Cannot save mapping https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/28505/ [CAUSE]: Cannot create mapping from concept with URL https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/83517/, because the concept has not been imported",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "mappings",
+        "code": "28505"
+      },
+      "referenced_concept": {
+        "source": "CIEL",
+        "code": "83517"
+      }
+    },
+    {
+      "uuid": "145475ABBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+      "type": "MAPPING",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/17956/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/17956/",
+      "hashed_url": "kVRm0PLcL1759E92It0Diw==",
+      "updated_on": "2025-10-18T16:32:04.000+0000",
+      "error_message": "Cannot save mapping https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/17956/ [CAUSE]: Cannot create mapping from concept with URL https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/71917/, because the concept has not been imported",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "mappings",
+        "code": "17956"
+      },
+      "referenced_concept": {
+        "source": "CIEL",
+        "code": "71917"
+      }
+    },
+    {
+      "uuid": "624AEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE",
+      "type": "MAPPING",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/308310/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/308310/",
+      "hashed_url": "3PxPpnH/gZYouXQpxHORvg==",
+      "updated_on": "2026-04-28T09:59:53.000+0000",
+      "error_message": "Cannot save mapping https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/308310/ [CAUSE]: Cannot create mapping to concept with URL https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/160034/, because the concept has not been imported",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "mappings",
+        "code": "308310"
+      },
+      "referenced_concept": {
+        "source": "CIEL",
+        "code": "160034"
+      }
+    },
+    {
+      "uuid": "288405ABBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+      "type": "MAPPING",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/1277497/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/1277497/",
+      "hashed_url": "oGaJPy7t97tsyHXrx1rGmw==",
+      "updated_on": "2026-04-28T10:38:55.000+0000",
+      "error_message": "Cannot save mapping https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/1277497/ [CAUSE]: Cannot create mapping from concept with URL https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/166281/, because the concept has not been imported",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "mappings",
+        "code": "1277497"
+      },
+      "referenced_concept": {
+        "source": "CIEL",
+        "code": "166281"
+      }
+    },
+    {
+      "uuid": "288404ABBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+      "type": "MAPPING",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/334770/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/334770/",
+      "hashed_url": "C4fSMy6Isg/R5bmUCfNFSQ==",
+      "updated_on": "2026-04-28T10:38:55.000+0000",
+      "error_message": "Cannot save mapping https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/334770/ [CAUSE]: Cannot create mapping from concept with URL https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/166281/, because the concept has not been imported",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "mappings",
+        "code": "334770"
+      },
+      "referenced_concept": {
+        "source": "CIEL",
+        "code": "166281"
+      }
+    },
+    {
+      "uuid": "145699ABBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+      "type": "MAPPING",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/27442/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/27442/",
+      "hashed_url": "PTzf5BlAN/V0iBev3b5SMg==",
+      "updated_on": "2025-09-22T01:39:55.000+0000",
+      "error_message": "Cannot save mapping https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/27442/ [CAUSE]: Cannot create mapping from concept with URL https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/78200/, because the concept has not been imported",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "mappings",
+        "code": "27442"
+      },
+      "referenced_concept": {
+        "source": "CIEL",
+        "code": "78200"
+      }
+    },
+    {
+      "uuid": "288403ABBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+      "type": "MAPPING",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/323538/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/323538/",
+      "hashed_url": "2oaYNe1+mjeFpX+vJ/fSmQ==",
+      "updated_on": "2026-04-28T10:38:55.000+0000",
+      "error_message": "Cannot save mapping https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/323538/ [CAUSE]: Cannot create mapping from concept with URL https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/166281/, because the concept has not been imported",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "mappings",
+        "code": "323538"
+      },
+      "referenced_concept": {
+        "source": "CIEL",
+        "code": "166281"
+      }
+    },
+    {
+      "uuid": "145700ABBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+      "type": "MAPPING",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/26801/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/26801/",
+      "hashed_url": "baiRG/RJA4QqS2KAOjjNqQ==",
+      "updated_on": "2025-09-22T01:39:54.000+0000",
+      "error_message": "Cannot save mapping https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/26801/ [CAUSE]: Cannot create mapping from concept with URL https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/78200/, because the concept has not been imported",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "mappings",
+        "code": "26801"
+      },
+      "referenced_concept": {
+        "source": "CIEL",
+        "code": "78200"
+      }
+    },
+    {
+      "uuid": "160034AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      "type": "CONCEPT",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/160034/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/160034/11499244/",
+      "hashed_url": "PmLv93aWQQoA4nECyQmayQ==",
+      "updated_on": null,
+      "error_message": "Cannot import concept 160034AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA, tried:\nFixing duplicate names for concept 160034AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA after failure due to 'D\u00e8c\u00e9d\u00e9' is a duplicate name in locale 'fr'\nDone fixing duplicate names for concept 160034AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA [CAUSE]: 'D\u00e8c\u00e9d\u00e9' is a duplicate name in locale 'fr'",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "concepts",
+        "code": "160034"
+      }
+    },
+    {
+      "uuid": "4637CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC",
+      "type": "MAPPING",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/320263/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/320263/",
+      "hashed_url": "Oqr76ZGuOeYk+SCLL4p2Cw==",
+      "updated_on": "2026-04-28T10:10:48.000+0000",
+      "error_message": "Cannot save mapping https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/320263/ [CAUSE]: Cannot create mapping to concept with URL https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/160034/, because the concept has not been imported",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "mappings",
+        "code": "320263"
+      },
+      "referenced_concept": {
+        "source": "CIEL",
+        "code": "160034"
+      }
+    },
+    {
+      "uuid": "0839b5a3-f201-484c-80ba-cfc5bafc1958",
+      "type": "MAPPING",
+      "state": "ERROR",
+      "url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/13127670/",
+      "version_url": "https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/13127670/",
+      "hashed_url": "KsUHnklcWJzj0zh8j19/8w==",
+      "updated_on": "2026-04-28T07:49:56.000+0000",
+      "error_message": "Cannot save mapping https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/mappings/13127670/ [CAUSE]: Cannot create mapping from concept with URL https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/concepts/78200/, because the concept has not been imported",
+      "identity": {
+        "org": "CIEL",
+        "source": "CIEL",
+        "kind": "mappings",
+        "code": "13127670"
+      },
+      "referenced_concept": {
+        "source": "CIEL",
+        "code": "78200"
+      }
+    }
+  ]
+}
