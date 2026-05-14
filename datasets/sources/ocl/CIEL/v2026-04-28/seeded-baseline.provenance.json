@@ -1,0 +1,12 @@
+{
+  "kind": "openmrs-concept-dictionary-snapshot",
+  "ciel_version": "v2026-04-28",
+  "tables": 25,
+  "local_path": "datasets/sources/ocl/CIEL/v2026-04-28/seeded-baseline.sql",
+  "sha256": "c4122d55f384bf853c55b7de196f9cdd6cc1760ae516272a754ea2ff7035d12a",
+  "size_bytes": 196861884,
+  "generated_at": "2026-05-14T21:22:12.413738+00:00",
+  "source_db": "harness-openmrs-db:openmrs",
+  "loader": "scripts/load-baseline.sh --version v2026-04-28",
+  "intent": "Fast-path: skip the slow openconceptlab import on fresh restarts by loading this snapshot."
+}
