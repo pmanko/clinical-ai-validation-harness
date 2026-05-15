@@ -25,6 +25,18 @@ Harness/control-plane layout per plan.md §Project Structure. New 002 modules li
 
 ---
 
+## Deferred from the M2-A close PR (PR #10)
+
+The following task groups are explicitly deferred to follow-up plans. M2-A close gates them; building them before the audit/recovery infrastructure (`scripts/reset-transform.sh`, per-mart row-count audits, fresh-replay test, state-drift detector) inverts dependencies.
+
+- **Phase 5 — Loadback + smoke (T059–T064)**: depends on a stable, audit-attested transform. Open a new feature/plan when M2-A close lands and Phase 5 is the next slot.
+- **Phase 5 — M2-F.1 live chartsearchai (T064a–f)**: the live chartsearchai docker-compose stack against the translated demo (SC-015). 6 sub-tasks including an optional Playwright UI walkthrough. Defer to a separate plan once the transform is rock-solid.
+- **Phase 5 — Sampler (T065–T067)**: depends on the live transform + binding probes; defer with the rest of Phase 5.
+- **Phase 6 — OpenELIS analysis (T068–T075)**: parallel-track work; pick up after Phase 5 ships.
+- **T077 PCCP records — drop the preflight plan**: spec.md:265 says heavyweight PCCPs are reserved for changes that materially affect downstream consumers. The earlier T077 planned 6 upfront records; we now author them lazily.
+
+---
+
 ## Phase 0.5: Operator Infrastructure (Reusable Stack + OCL Pipeline)
 
 **Purpose**: User-facing wrappers around M0 primitives so the operator never has to retype docker/compose/curl commands. Built during initial exploration of the dataset (commits 6c23075..b5c8362). Maps to G6 finding in `/speckit-analyze` (work products that existed without corresponding tasks).
@@ -58,11 +70,11 @@ Harness/control-plane layout per plan.md §Project Structure. New 002 modules li
 
 **Purpose**: Project dependencies, tooling, and directory scaffolding 002 needs in addition to the M0 control-plane primitives.
 
-- [ ] T001 Add 002 runtime dependencies to `pyproject.toml` (sqlmesh>=0.150, fhir.resources>=7.0, mariadb-connector-python or PyMySQL, requests, ocldev or equivalent) and refresh `uv.lock`
+- [X] T001 Add 002 runtime dependencies to `pyproject.toml` (sqlmesh>=0.150, fhir.resources>=7.0, mariadb-connector-python or PyMySQL, requests, ocldev or equivalent) and refresh `uv.lock`. **Landed in commit `0f671da` (PyMySQL chosen over mariadb-connector-python).**
 - [ ] T002 [P] Add Java/FHIR Validator setup notes to `docs/local-dev-setup.md` and `Makefile` target `make fhir-validator` that pulls the pinned `org.hl7.fhir.validator` JAR into `tools/fhir-validator/`
 - [ ] T003 [P] Add `tools/fhir-validator/` to `.gitignore`; commit a `tools/fhir-validator/.gitkeep` and a `tools/fhir-validator/VERSION` pin file recording the validator version expected at run time
-- [ ] T004 [P] Create empty package directories with `__init__.py` for the new 002 harness packages: `harness/profile/`, `harness/conceptmap/`, `harness/ocl/`, `harness/transform/`, `harness/refapp_binding/`, `harness/sampler/`, `harness/openelis/`
-- [ ] T005 [P] Create empty test directories with `__init__.py` and a top-level `conftest.py` placeholder: `evals/conceptmap_conformance/`, `evals/sqlmesh_conformance/`, `evals/sampler/`, `evals/refapp_binding/`, `evals/openelis_analysis/`
+- [X] T004 [P] Create empty package directories with `__init__.py` for the new 002 harness packages: `harness/profile/`, `harness/conceptmap/`, `harness/ocl/`, `harness/transform/`, `harness/refapp_binding/`, `harness/sampler/`, `harness/openelis/`. **Landed in commit `0f671da`.**
+- [X] T005 [P] Create empty test directories with `__init__.py` and a top-level `conftest.py` placeholder: `evals/conceptmap_conformance/`, `evals/sqlmesh_conformance/`, `evals/sampler/`, `evals/refapp_binding/`, `evals/openelis_analysis/`. **Landed in commit `0f671da`.**
 - [ ] T006 Document 002 prereqs in `specs/002-openmrs-demo-data-2-8-remap/quickstart.md` cross-reference: ensure quickstart §0 mentions Java 17+, `uv`, Maven (already there), and the FHIR Validator pull step
 
 **Checkpoint**: Dependencies declared, package skeletons exist, no behavioral code yet.
@@ -75,14 +87,14 @@ Harness/control-plane layout per plan.md §Project Structure. New 002 modules li
 
 **⚠️ CRITICAL**: No user story implementation begins until this phase is complete.
 
-- [ ] T007 Implement run-manifest 002 extensions in `harness/metadata.py`: add a `RunManifest002Extensions` helper that augments the base `RunManifest.to_dict()` payload with the top-level keys defined in `specs/002-openmrs-demo-data-2-8-remap/contracts/run_manifest_002_extensions.schema.yaml` (conceptmap_path/checksum, sqlmesh_project_path/checksum, ocl_collection_versions[], openmrs_refapp_image_digest, mariadb_image_digest, fhir_validator_version, sqlmesh_version, python_version, policy_buckets[], reviewer_signoffs[])
+- [X] T007 Implement run-manifest 002 extensions in `harness/metadata.py`: add a `RunManifest002Extensions` helper that augments the base `RunManifest.to_dict()` payload with the top-level keys defined in `specs/002-openmrs-demo-data-2-8-remap/contracts/run_manifest_002_extensions.schema.yaml` (conceptmap_path/checksum, sqlmesh_project_path/checksum, ocl_collection_versions[], openmrs_refapp_image_digest, mariadb_image_digest, fhir_validator_version, sqlmesh_version, python_version, policy_buckets[], reviewer_signoffs[]). **Landed in commit `0f671da`; extended in `c615137` with `materialized_outputs[]` for SC-004 per-table determinism evidence.**
 - [ ] T008 [P] Add 002 manifest extension validator test in `evals/metadata/test_run_manifest_002_extensions.py`: round-trip a sample manifest through `RunManifest.to_dict()` + extensions; assert it validates against both the M0 base schema and the 002 extensions schema
 - [ ] T009 [P] Implement `harness/ocl/snapshot.py`: load a pinned OCL collection snapshot directory (`datasets/sources/ocl/<collection>/<version>/`), expose typed accessors for CIEL concepts, LOINC reference terms, and `provenance.json` metadata; refuse to load if `provenance.json` is missing
 - [ ] T010 [P] Add OCL snapshot loader test in `evals/dataset_import/test_ocl_snapshot_loader.py`: fixture pinned mini-snapshot under `evals/_fixtures/ocl-mini/CIEL/test-v1/`; assert loader rejects missing provenance and returns expected concept count for the fixture
 - [ ] T011 [P] Extend `harness/cli.py` with 002 subcommand entry points (no implementations yet, just argument parsing skeletons): `profile`, `conceptmap candidates|validate|seed-emit`, `transform run`, `import-smoke`, `sample`, `openelis analyze`, `manifest finalize`, `ocl refresh`. Each prints "not yet implemented" but returns the documented exit codes
 - [ ] T012 [P] Add CLI argument-parsing test in `evals/orchestration/test_cli_subcommands.py`: dispatch each new subcommand with `--help`; assert exit code 0 and presence of expected flags from quickstart.md
-- [ ] T013 [P] Implement `harness/conceptmap/load.py`: parse a FHIR R4 ConceptMap JSON with `fhir.resources`, surface `element.target.equivalence` + the harness extensions defined in `contracts/conceptmap.profile.md` (`policy-bucket`, `source-record-examples`, optional `seed-augment-class`, `seed-augment-reference-term`); typed dataclasses returned
-- [ ] T014 [P] Add ConceptMap-load test in `evals/conceptmap_conformance/test_load.py`: load a minimal fixture ConceptMap; assert harness-extension parsing and the cross-element constraints from `contracts/conceptmap.profile.md` (every entry has policy-bucket, single target, seed-augment entries have reference term)
+- [X] T013 [P] Implement `harness/conceptmap/load.py`: parse a FHIR R4 ConceptMap JSON with `fhir.resources`, surface `element.target.equivalence` + the harness extensions defined in `contracts/conceptmap.profile.md` (`policy-bucket`, `source-record-examples`, optional `seed-augment-class`, `seed-augment-reference-term`); typed dataclasses returned. **Landed in commit `0f671da`.**
+- [X] T014 [P] Add ConceptMap-load test in `evals/conceptmap_conformance/test_load.py`: load a minimal fixture ConceptMap; assert harness-extension parsing and the cross-element constraints from `contracts/conceptmap.profile.md` (every entry has policy-bucket, single target, seed-augment entries have reference term). **Landed in commit `0f671da`.**
 - [ ] T015 PCCP scaffolding: create `specs/002-openmrs-demo-data-2-8-remap/pccp/TEMPLATE.md` referencing `specs/artifacts/planning/pccp-change-record-template.md`; add a smoke test `evals/metadata/test_pccp_records.py` that asserts every committed `pccp/*.md` cites ≥1 before/after record example. (See also T077 for the per-decision PCCP records this template will be instantiated into.)
 - [ ] T016 Implement `harness/config.py` extension: a `get_feature_002_paths()` helper returning the canonical paths from `data-model.md` §0 (datasets/mappings/, datasets/transforms/sqlmesh/, datasets/sources/ocl/, artifacts/<run>/ subdirs) so individual modules don't hard-code them
 
@@ -146,7 +158,7 @@ Harness/control-plane layout per plan.md §Project Structure. New 002 modules li
 - [ ] T036 [US3] Author the initial accepted ConceptMap at `datasets/mappings/openmrs-2.7-to-2.8.conceptmap.json` covering every source concept_id referenced by ≥1 clinical row in the 2.7 corpus. Use OCL candidate-mining (T033) as the starting input. Each entry carries target + equivalence + policy-bucket extension + source-record-examples extension + reviewer comment.
 - [ ] T037 [US3] Author the companion review document `datasets/mappings/openmrs-2.7-to-2.8.conceptmap.review.md`: per-bucket counts, reviewer identity, signoff date, summary of seed-augment decisions, open follow-ups, cross-reference to the OCL CIEL snapshot version used
 - [ ] T038 [US3] Emit `conceptmap_loaded` and `conceptmap_validated` events via `harness.metadata.append_event` with `decision_rationale` capturing reviewer identity + signoff timestamp + validator version
-- [ ] T039 [US3] Implement `harness/conceptmap/seed_emit.py`: read the accepted ConceptMap, emit `datasets/transforms/sqlmesh/seeds/concept_translation.csv` with columns `(source_concept_id, source_uuid, target_concept_id, target_uuid, equivalence, policy_bucket, source_record_examples)`. Deterministic given the same input ConceptMap.
+- [X] T039 [US3] Implement `harness/conceptmap/seed_emit.py`: read the accepted ConceptMap, emit `datasets/transforms/sqlmesh/seeds/concept_translation.csv` with columns `(source_concept_id, source_uuid, target_concept_id, target_uuid, equivalence, policy_bucket, source_record_examples)`. Deterministic given the same input ConceptMap. **Landed in commit `de20aca`.**
 - [ ] T040 [US3] Seed-emit determinism test in `evals/conceptmap_conformance/test_seed_emit_determinism.py`: run seed-emit twice on a fixture; assert byte-identical output; assert checksum matches the value `harness.conceptmap.seed_emit` would compute
 
 **Checkpoint**: M2-C complete. Reviewer has signed `openmrs-2.7-to-2.8.conceptmap.json`. The seed CSV exists and is ready for SQLMesh consumption.
@@ -173,22 +185,22 @@ Harness/control-plane layout per plan.md §Project Structure. New 002 modules li
 
 ### Implementation for User Story 1 — M2-D (SQLMesh project)
 
-- [ ] T048 [P] [US1] Create `datasets/transforms/sqlmesh/config.yaml` per `contracts/sqlmesh_project.profile.md`: gateway `harness` pointing at MariaDB via environment vars, default gateway, model defaults
-- [ ] T049 [P] [US1] Create staging models under `datasets/transforms/sqlmesh/models/staging/` — one model per source table (1:1 copy from `legacy_27_raw.<table>` into `refapp_28_demo`), each with description, policy_bucket tag, audits
-- [ ] T050 [US1] Create terminology model `datasets/transforms/sqlmesh/models/terminology/concept_translation_applied.sql` that consumes the `concept_translation` seed and produces a mapped reference for clinical models. Depends on T039 (seed emitted).
+- [X] T048 [P] [US1] Create `datasets/transforms/sqlmesh/config.yaml` per `contracts/sqlmesh_project.profile.md`: gateway `harness` pointing at MariaDB via environment vars, default gateway, model defaults. **Landed in `45615ed`; `model_defaults.kind: FULL` added in `fe34090`.**
+- [X] T049 [P] [US1] Create staging models under `datasets/transforms/sqlmesh/models/staging/` — one model per source table (1:1 copy from `legacy_27_raw.<table>` into `refapp_28_demo`), each with description, policy_bucket tag, audits. **Landed in `45615ed` (39 staging models). Composite-PK exceptions documented in `contracts/sqlmesh_project.profile.md` and asserted via `evals/sqlmesh_conformance/test_composite_pk_uniqueness.py` per commit `5d6d6d0`.**
+- [X] T050 [US1] Create terminology model `datasets/transforms/sqlmesh/models/terminology/concept_rebind.sql` that exposes legacy obs with concept_id + value_coded rebound via the bridge rule (joins stg_obs to seed__concept_translation). Depends on T039 (seed emitted). **Landed in commit `22f9094`.**
 - [ ] T051 [US1] Create clinical models under `datasets/transforms/sqlmesh/models/clinical/`: one per `obs`, `conditions`, `diagnosis`, `allergy`, `drug_order`, `encounter_diagnosis`, each joining staging to terminology and emitting translated concept references. Depends on T049, T050. **Sub-tasks for the 4 structural promotions** (per spec FR-029 and `data-model.md` §R-promotion-rules):
-  - [ ] T051a [US1] `models/clinical/drug_order.sql` (P1) — `obs WHERE value_coded.concept_class = 'Drug'` → drug_order. Row-count floor enforced by `audits/audit_drug_order_row_count_min.sql`.
-  - [ ] T051b [US1] `models/clinical/conditions.sql` (P2) — `obs WHERE concept_id = 6042` (PROBLEM ADDED) → conditions. Row-count floor enforced by `audits/audit_conditions_row_count_min.sql`.
-  - [ ] T051c [US1] `models/clinical/allergy.sql` (P3) — `obs WHERE concept_id IN (6011, 6012, 1083) AND value_coded = 1065` (YES) → allergy. Row-count floor enforced by `audits/audit_allergy_row_count_min.sql`.
-  - [ ] T051d [US1] `models/clinical/test_order.sql` (P4) — `obs WHERE concept.concept_class = 'Test' AND datatype = 'Coded'` → test_order. Row-count floor enforced by `audits/audit_test_order_row_count_min.sql`.
-- [ ] T052 [US1] Create module-policy models under `datasets/transforms/sqlmesh/models/modules/`: orphan-carry-forward / drop / install-module / remap per module per `seeds/module_table_policy.csv`. Author the policy CSV alongside.
-- [ ] T053 [US1] Create audit views under `datasets/transforms/sqlmesh/models/audit_views/`: row-level audit with equivalence-label decoration (source_table, source_pk, target_table, target_pk, policy_bucket, equivalence_label)
-- [ ] T054 [P] [US1] Create SQLMesh audits under `datasets/transforms/sqlmesh/audits/`: ConceptMap-coverage cross-audit, FK-closure cross-audit, policy-bucket-coverage cross-audit, plus per-model unique/not-null audits
-- [ ] T055 [US1] Author `datasets/mappings/openmrs-2.7-to-2.8.review.md`: per-model reviewer rationale index, mapping from schema-diff items to covering models, checklist of clinically-meaningful diff items covered
+  - [X] T051a [US1] `models/clinical/drug_order.sql` (P1) — `obs WHERE value_coded.concept_class = 'Drug'` → drug_order. Row-count floor enforced by `audits/audit_drug_order_row_count_min.sql`. **Landed in `45615ed`; audit wired in `c6b608e`.**
+  - [X] T051b [US1] `models/clinical/conditions.sql` (P2) — `obs WHERE concept_id = 6042` (PROBLEM ADDED) → conditions. Row-count floor enforced by `audits/audit_conditions_row_count_min.sql`. **Landed in `45615ed`; audit wired in `c6b608e`.**
+  - [X] T051c [US1] `models/clinical/allergy.sql` (P3) — `obs WHERE concept_id IN (6011, 6012, 1083) AND value_coded = 1065` (YES) → allergy. Row-count floor enforced by `audits/audit_allergy_row_count_min.sql`. **Landed in `45615ed`; audit wired in `c6b608e`.**
+  - [X] T051d [US1] `models/clinical/test_order.sql` (P4) — `obs WHERE concept.concept_class = 'Test' AND datatype = 'Coded'` → test_order. Row-count floor enforced by `audits/audit_test_order_row_count_min.sql`. **Landed in `45615ed`; audit wired in `c6b608e`.**
+- [X] T052 [US1] Create module-policy models under `datasets/transforms/sqlmesh/models/modules/`: orphan-carry-forward / drop / install-module / remap per module per `seeds/module_table_policy.csv`. Author the policy CSV alongside. **Seed CSV landed in `de20aca`; 16 carry-forward models generated by `harness/transform/gen_modules.py` in commit `22f9094`. 6 over-long-named tables deferred (documented in review.md).**
+- [X] T053 [US1] Create audit views under `datasets/transforms/sqlmesh/models/audit_views/`: row-level audit with equivalence-label decoration (source_table, source_pk, target_table, target_pk, policy_bucket, equivalence_label). **Landed in commit `22f9094` (`aud__equivalence_decoration`).**
+- [X] T054 [P] [US1] Create SQLMesh audits under `datasets/transforms/sqlmesh/audits/`: ConceptMap-coverage cross-audit, FK-closure cross-audit, policy-bucket-coverage cross-audit, plus per-model unique/not-null audits. **Cross-model audits landed in `45615ed`. Per-mart row-count-min audits added in `c6b608e` (5 audits).**
+- [X] T055 [US1] Author `datasets/mappings/openmrs-2.7-to-2.8.review.md`: per-model reviewer rationale index, mapping from schema-diff items to covering models, checklist of clinically-meaningful diff items covered. **Landed in commit `de20aca`; carry-forward deferral section added in `22f9094`.**
 
 ### Implementation for User Story 1 — M2-E (Transform execution)
 
-- [ ] T056 [US1] Implement `harness/transform/run.py`: orchestrate `sqlmesh seed && sqlmesh run && sqlmesh audit` against the live MariaDB; capture run logs + content-fingerprint versions; dump `refapp_28_demo` to `artifacts/<run>/transform/refapp_28_demo.sql`
+- [X] T056 [US1] Implement `harness/transform/run.py`: orchestrate `sqlmesh seed && sqlmesh run && sqlmesh audit` against the live MariaDB; capture run logs + content-fingerprint versions; dump `refapp_28_demo` to `artifacts/<run>/transform/refapp_28_demo.sql`. **Landed in commit `45615ed`; extended in `c615137` with `materialized_outputs[]` stamping (per-table SHA-256 + row counts in `transform.report.json`).**
 - [ ] T057 [US1] Implement `harness/transform/orphan_fk.py`: post-run FK-orphan detection across the produced `refapp_28_demo`; emit `artifacts/<run>/transform/orphan-fk-report.json`; fail if any unrepaired orphans exist
 - [ ] T058 [US1] Wire `harness-cli transform run` in `harness/cli.py` (depends on T056, T057); emit `sqlmesh_seed`, `sqlmesh_run_model`, `sqlmesh_audit`, `orphan_fk_detected` events with rationale
 
@@ -254,7 +266,7 @@ Harness/control-plane layout per plan.md §Project Structure. New 002 modules li
 **Purpose**: Finalize provenance, PCCP records, docs, and run-quickstart validation.
 
 - [ ] T076 [P] Implement `harness-cli manifest finalize` in `harness/cli.py`: build the full `artifacts/<run>/run_manifest.json` via `harness.metadata.RunManifest` + T007 extensions; populate `target_provenance[]` for chartsearchai + querystore (if used) + catalyst (scaffolding); close `events.jsonl` with `run_complete`
-- [ ] T077 [P] PCCP records for all material decisions in `specs/002-openmrs-demo-data-2-8-remap/pccp/`: one record per — (a) ConceptMap acceptance, (b) SQLMesh project acceptance, (c) module_table_policy acceptance, (d) OCL snapshot version pin, (e) OpenMRS RefApp image digest pin, (f) OpenELIS feasibility classification acceptance. Each cites before/after record examples per FR-023
+- [ ] T077 [P] Author PCCP records **lazily** in `specs/002-openmrs-demo-data-2-8-remap/pccp/` only when a material change affects downstream consumers (chartsearchai, OpenELIS). Per spec.md:265 demo-data posture clarification: heavyweight PCCP records are reserved for changes that materially affect downstream consumers, not for per-rule tuning during M2-A iteration. The earlier draft of T077 planned 6 preflight PCCPs (ConceptMap, SQLMesh project, module_table_policy, OCL snapshot pin, RefApp image digest, OpenELIS feasibility) — that contradicts the demo-data posture and is dropped. PCCPs land when the trigger event happens, with before/after record examples per FR-023.
 - [ ] T078 [P] Update `README.md`: feature 002 status, quickstart pointer, link to plan.md and tasks.md
 - [ ] T079 [P] Update `AGENTS.md` (if present): note that 002 anchors on M0 primitives and consumes `harness/targets.yaml` for cross-target validation
 - [ ] T080 [P] Update `specs/artifacts/planning/metadata-schema.md`: cross-reference the 002 manifest extensions schema (`contracts/run_manifest_002_extensions.schema.yaml`)
