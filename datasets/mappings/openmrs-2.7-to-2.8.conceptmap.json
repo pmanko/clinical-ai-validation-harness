@@ -1,0 +1,197 @@
+{
+  "experimental": false,
+  "group": [
+    {
+      "element": [
+        {
+          "code": "*",
+          "display": "Identity bridge \u2014 every legacy concept_id N rebinds to the seeded CIEL concept with uuid RPAD(N, 36, 'A').",
+          "target": [
+            {
+              "code": "{source.code}AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+              "comment": "The 2.7 demo dump uses AMPATH-style concept numbering; CIEL stores its concepts with UUIDs in the pattern <canonical_id>AAAA...A (32 A's). Measured 100% coverage on the 457 concepts referenced by obs in the current corpus. Identity rebind; reviewer rationale: AMPATH FSN strings match CIEL FSN strings modulo case. See data-model.md \u00a7R-bridge-rule.",
+              "display": "Seeded CIEL concept resolved by UUID pattern.",
+              "equivalence": "equal",
+              "extension": [
+                {
+                  "url": "http://harness.local/StructureDefinition/policy-bucket",
+                  "valueCode": "remap"
+                },
+                {
+                  "url": "http://harness.local/StructureDefinition/source-record-examples",
+                  "valueString": "[]"
+                },
+                {
+                  "url": "http://harness.local/StructureDefinition/bridge-template",
+                  "valueString": "RPAD(CAST(source.code AS CHAR), 36, 'A')"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "code": "$selector:value_coded.concept_class=Drug",
+          "display": "P1 \u2014 obs whose value_coded is a Drug-class concept.",
+          "target": [
+            {
+              "code": "$table:drug_order",
+              "comment": "Coded drug answers on obs are promoted to drug_order. Top answers in the current corpus: LAMIVUDINE, STAVUDINE, NEVIRAPINE, TRIMETHOPRIM+SULFA, ISONIAZID, EFAVIRENZ, plus vaccines (DTP, polio, HepB, Hib, measles). See data-model.md \u00a7R-promotion-rules and research.md \u00a7R-typed-table-promotion for cross-cutting decisions (Q1 obs preservation via obs.order_id, Q2 UUID v5, Q3 vaccines emit as drug_order, Q4 orderer from encounter_provider).",
+              "display": "drug_order rows synthesized from obs.",
+              "equivalence": "inexact",
+              "extension": [
+                {
+                  "url": "http://harness.local/StructureDefinition/policy-bucket",
+                  "valueCode": "seed-augment"
+                },
+                {
+                  "url": "http://harness.local/StructureDefinition/source-record-examples",
+                  "valueString": "[\"obs_id:1088001\", \"obs_id:1088002\", \"obs_id:625001\"]"
+                },
+                {
+                  "url": "http://harness.local/StructureDefinition/selector-sql",
+                  "valueString": "SELECT o.obs_id, o.person_id, o.encounter_id, o.value_coded AS drug_concept_id, o.obs_datetime FROM legacy_27_raw.obs o JOIN legacy_27_raw.concept c ON c.concept_id = o.value_coded JOIN legacy_27_raw.concept_class cc ON cc.concept_class_id = c.class_id WHERE cc.name = 'Drug' AND o.voided = 0"
+                },
+                {
+                  "url": "http://harness.local/StructureDefinition/target-table",
+                  "valueString": "drug_order"
+                },
+                {
+                  "url": "http://harness.local/StructureDefinition/field-mapping",
+                  "valueString": "{\"patient_id\": \"obs.person_id\", \"encounter_id\": \"obs.encounter_id\", \"concept_id\": \"lookup(obs.value_coded \\u2192 CIEL via concept_translation)\", \"start_date\": \"obs.obs_datetime\", \"orderer\": \"encounter_provider.provider_id; fallback obs.creator\", \"urgency\": \"'ROUTINE'\", \"uuid\": \"UUIDv5(obs.uuid, 'drug_order')\"}"
+                },
+                {
+                  "url": "http://harness.local/StructureDefinition/row-count-expected",
+                  "valueInteger": 43412
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "code": "$selector:concept_id=6042",
+          "display": "P2 \u2014 obs whose question concept is 6042 (PROBLEM ADDED).",
+          "target": [
+            {
+              "code": "$table:conditions",
+              "comment": "PROBLEM ADDED is the semantic anchor for 'clinician recorded a new diagnosis this visit'. value_coded is the diagnosis concept (rebound via the bridge rule). 114 distinct diagnoses in the current corpus. See data-model.md \u00a7R-promotion-rules.",
+              "display": "conditions rows synthesized from obs.",
+              "equivalence": "inexact",
+              "extension": [
+                {
+                  "url": "http://harness.local/StructureDefinition/policy-bucket",
+                  "valueCode": "seed-augment"
+                },
+                {
+                  "url": "http://harness.local/StructureDefinition/source-record-examples",
+                  "valueString": "[\"obs_id:6042001\", \"obs_id:6042002\"]"
+                },
+                {
+                  "url": "http://harness.local/StructureDefinition/selector-sql",
+                  "valueString": "SELECT o.obs_id, o.person_id, o.encounter_id, o.value_coded AS dx_concept_id, o.obs_datetime FROM legacy_27_raw.obs o WHERE o.concept_id = 6042 AND o.value_coded IS NOT NULL AND o.voided = 0"
+                },
+                {
+                  "url": "http://harness.local/StructureDefinition/target-table",
+                  "valueString": "conditions"
+                },
+                {
+                  "url": "http://harness.local/StructureDefinition/field-mapping",
+                  "valueString": "{\"patient_id\": \"obs.person_id\", \"encounter_id\": \"obs.encounter_id\", \"condition_coded\": \"lookup(obs.value_coded \\u2192 CIEL via concept_translation)\", \"clinical_status\": \"'ACTIVE'\", \"onset_date\": \"obs.obs_datetime\", \"date_created\": \"obs.date_created\", \"creator\": \"obs.creator\", \"uuid\": \"UUIDv5(obs.uuid, 'conditions')\"}"
+                },
+                {
+                  "url": "http://harness.local/StructureDefinition/row-count-expected",
+                  "valueInteger": 3642
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "code": "$selector:concept_id_in_{6011,6012,1083}_and_value=1065",
+          "display": "P3 \u2014 drug-allergy boolean questions answered YES.",
+          "target": [
+            {
+              "code": "$table:allergy",
+              "comment": "Three explicit drug-allergy questions: 6011 PENICILLIN, 6012 SULFA, 1083 OTHER MEDICINE. Promotion only on value_coded=1065 ('YES'); NO answers do NOT promote (absence of allergy is not an allergy row). Extremely sparse in the current corpus (7 obs total). Allergen substance concept is hand-picked per question concept at acceptance time. See data-model.md \u00a7R-promotion-rules.",
+              "display": "allergy rows synthesized from obs.",
+              "equivalence": "inexact",
+              "extension": [
+                {
+                  "url": "http://harness.local/StructureDefinition/policy-bucket",
+                  "valueCode": "seed-augment"
+                },
+                {
+                  "url": "http://harness.local/StructureDefinition/source-record-examples",
+                  "valueString": "[\"obs_id:6011001\"]"
+                },
+                {
+                  "url": "http://harness.local/StructureDefinition/selector-sql",
+                  "valueString": "SELECT o.obs_id, o.person_id, o.encounter_id, o.concept_id AS allergen_question, o.obs_datetime FROM legacy_27_raw.obs o WHERE o.concept_id IN (6011, 6012, 1083) AND o.value_coded = 1065 AND o.voided = 0"
+                },
+                {
+                  "url": "http://harness.local/StructureDefinition/target-table",
+                  "valueString": "allergy"
+                },
+                {
+                  "url": "http://harness.local/StructureDefinition/field-mapping",
+                  "valueString": "{\"patient_id\": \"obs.person_id\", \"coded_allergen\": \"allergen-substance pick per question concept (hand-curated)\", \"allergen_type\": \"'DRUG'\", \"severity_concept_id\": \"NULL (not recorded in legacy boolean form)\", \"encounter_id\": \"obs.encounter_id\", \"date_created\": \"obs.date_created\", \"creator\": \"obs.creator\", \"uuid\": \"UUIDv5(obs.uuid, 'allergy')\"}"
+                },
+                {
+                  "url": "http://harness.local/StructureDefinition/row-count-expected",
+                  "valueInteger": 7
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "code": "$selector:concept.class=Test_and_datatype=Coded",
+          "display": "P4 \u2014 obs whose question concept is Test-class with Coded datatype.",
+          "target": [
+            {
+              "code": "$table:test_order",
+              "comment": "Test-class concepts with Coded datatype are lab/imaging orders. Top questions in the current corpus: IMMUNIZATIONS ORDERED (891), X-RAY CHEST (172), VDRL (33), HIV DNA PCR (15), HIV ENZYME IMMUNOASSAY (9). test_order.concept_id is the TEST concept (obs.concept_id, not value_coded). The source obs is preserved as the result row, linked via obs.order_id. See data-model.md \u00a7R-promotion-rules.",
+              "display": "test_order rows synthesized from obs.",
+              "equivalence": "inexact",
+              "extension": [
+                {
+                  "url": "http://harness.local/StructureDefinition/policy-bucket",
+                  "valueCode": "seed-augment"
+                },
+                {
+                  "url": "http://harness.local/StructureDefinition/source-record-examples",
+                  "valueString": "[\"obs_id:984001\", \"obs_id:12001\"]"
+                },
+                {
+                  "url": "http://harness.local/StructureDefinition/selector-sql",
+                  "valueString": "SELECT o.obs_id, o.person_id, o.encounter_id, o.concept_id AS test_concept, o.value_coded AS result_coded, o.obs_datetime FROM legacy_27_raw.obs o JOIN legacy_27_raw.concept c ON c.concept_id = o.concept_id JOIN legacy_27_raw.concept_class cc ON cc.concept_class_id = c.class_id JOIN legacy_27_raw.concept_datatype cd ON cd.concept_datatype_id = c.datatype_id WHERE cc.name = 'Test' AND cd.name = 'Coded' AND o.voided = 0"
+                },
+                {
+                  "url": "http://harness.local/StructureDefinition/target-table",
+                  "valueString": "test_order"
+                },
+                {
+                  "url": "http://harness.local/StructureDefinition/field-mapping",
+                  "valueString": "{\"patient_id\": \"obs.person_id\", \"concept_id\": \"lookup(obs.concept_id \\u2192 CIEL via concept_translation)\", \"encounter_id\": \"obs.encounter_id\", \"date_activated\": \"obs.obs_datetime\", \"urgency\": \"'ROUTINE'\", \"order_action\": \"'NEW'\", \"uuid\": \"UUIDv5(obs.uuid, 'test_order')\"}"
+                },
+                {
+                  "url": "http://harness.local/StructureDefinition/row-count-expected",
+                  "valueInteger": 1120
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "source": "http://openmrs.org/concepts/2.7-demo",
+      "target": "http://openmrs.org/concepts/2.8-seeded-ciel"
+    }
+  ],
+  "name": "OpenMRS27To28SeededCiel",
+  "resourceType": "ConceptMap",
+  "sourceUri": "http://openmrs.org/concepts/2.7-demo",
+  "status": "active",
+  "targetUri": "http://openmrs.org/concepts/2.8-seeded-ciel",
+  "title": "OpenMRS 2.7 demo \u2192 2.8 RefApp seeded-CIEL",
+  "url": "http://harness.local/openmrs-2.7-to-2.8",
+  "version": "0.1.0"
+}
