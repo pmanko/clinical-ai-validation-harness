@@ -1,4 +1,5 @@
 import {
+  BarChart,
   Callout,
   Card,
   CardBody,
@@ -9,742 +10,666 @@ import {
   H1,
   H2,
   H3,
-  Link,
   Pill,
   Row,
   Stack,
   Stat,
   Table,
   Text,
+  computeDAGLayout,
+  useHostTheme,
 } from 'cursor/canvas';
 
-// Canvas: feature 002 / M2-A concept mapping discovery — 2026-05-14.
-//
-// Source signals: queries against the live harness MariaDB containing
-//   legacy_27_raw (the 5,284-patient 2.7 demo dump)
-//   openmrs        (the live RefApp 3.6.0 with CIEL v2026-04-28 imported)
-// All counts are from `SELECT COUNT(*)` queries — not the approximate
-// information_schema.table_rows — to avoid the drift documented in PR #6.
+// Canvas: feature 002 / M2-A concept mapping & transformation — 2026-05-14.
+// All counts come from live SELECT COUNT(*) queries against the running
+// harness MariaDB (legacy_27_raw + the CIEL-loaded openmrs DB on RefApp 3.6.0).
 
-const headlineFacts = [
-  { label: 'Distinct concepts referenced by obs', value: '457', sub: '150 as concept_id + 318 as value_coded (with overlap)' },
-  { label: 'Bridgeable to CIEL via UUID rule', value: '457 / 457', sub: '100% — zero unmapped' },
-  { label: 'Legacy concept_reference_map rows', value: '0', sub: 'No prior terminology cross-references at all' },
-  { label: 'CIEL import errors hitting legacy data', value: '0 / 23', sub: 'All failed concepts are in CIEL\'s long tail, untouched by this dataset' },
+// =========================================================================
+// 1. HERO NUMBERS
+// =========================================================================
+
+const heroStats = [
+  { value: '5,284',   label: 'patients (legacy 2.7 dump)',       tone: 'info' as const },
+  { value: '476,973', label: 'obs rows to transform',            tone: 'info' as const },
+  { value: '457/457', label: 'concepts bridgeable to CIEL (100%)', tone: 'success' as const },
+  { value: '48,181',  label: 'obs → typed-table promotions',     tone: 'success' as const },
+  { value: '10.1%',   label: 'promoted; 89.9% stays in obs',     tone: 'info' as const },
+  { value: '7 / 8',   label: 'B5–B8 blockers, 1 open structural', tone: 'warning' as const },
 ];
 
-const bridgeExamples = [
-  { legacy: 5088, legacy_fsn: 'TEMPERATURE (C)', ciel_uuid: '5088AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA', ciel_internal: 4166, ciel_fsn: 'Temperature (c)' },
-  { legacy: 5089, legacy_fsn: 'WEIGHT (KG)',     ciel_uuid: '5089AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA', ciel_internal: 4168, ciel_fsn: 'Weight (kg)' },
-  { legacy: 1088, legacy_fsn: 'CURRENT ANTIRETROVIRAL DRUGS USED FOR TREATMENT', ciel_uuid: '1088AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA', ciel_internal: 55823, ciel_fsn: 'Current antiretroviral drugs used for treatment' },
-  { legacy: 1111, legacy_fsn: 'PATIENT REPORTED CURRENT TUBERCULOSIS TREATMENT', ciel_uuid: '1111AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA', ciel_internal: 55043, ciel_fsn: 'Patient reported current tuberculosis treatment' },
-  { legacy: 1107, legacy_fsn: 'NONE', ciel_uuid: '1107AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA', ciel_internal: 0, ciel_fsn: 'None' },
+// =========================================================================
+// 2. TRANSFORM PIPELINE DIAGRAM (SVG via DAG layout)
+//    Shows the end-to-end shape: source → rebind → promote/keep → target
+// =========================================================================
+
+const pipelineNodes: Record<string, { label: string; sub?: string; accent?: 'source' | 'transform' | 'target' | 'side' }> = {
+  legacy_concepts:   { label: 'legacy_27_raw.concept',        sub: '2,528 rows · 0 ref maps', accent: 'source' },
+  legacy_obs:        { label: 'legacy_27_raw.obs',            sub: '476,973 rows',            accent: 'source' },
+  rebind:            { label: 'concept-id rebind',            sub: "RPAD(id,36,'A')",          accent: 'transform' },
+  classify:          { label: 'classify by class/datatype',   sub: 'P1-P4 selectors',          accent: 'transform' },
+  drug_order:        { label: 'drug_order',                   sub: '43,412 rows',             accent: 'target' },
+  conditions:        { label: 'conditions',                   sub: '3,642 rows',              accent: 'target' },
+  test_order:        { label: 'test_order',                   sub: '1,120 rows',              accent: 'target' },
+  allergy:           { label: 'allergy',                      sub: '7 rows',                  accent: 'target' },
+  obs_clean:         { label: 'obs (clean)',                  sub: '428,792 rows',            accent: 'target' },
+  ciel_loaded:       { label: 'openmrs.concept (CIEL)',       sub: '358,026 imported',         accent: 'side' },
+};
+
+const pipelineEdges: Array<[string, string]> = [
+  ['legacy_obs', 'rebind'],
+  ['legacy_concepts', 'rebind'],
+  ['ciel_loaded', 'rebind'],
+  ['rebind', 'classify'],
+  ['classify', 'drug_order'],
+  ['classify', 'conditions'],
+  ['classify', 'test_order'],
+  ['classify', 'allergy'],
+  ['classify', 'obs_clean'],
 ];
 
-const blockers = [
-  {
-    id: 'B1',
-    status: 'SOLVED',
-    severity: 'critical',
-    title: 'Identity bridge legacy → CIEL',
-    finding:
-      'concept_id numbers collide (legacy 5088 = TEMPERATURE; CIEL canonical 5088 = also TEMPERATURE — but openmrs.concept.concept_id is the internal OCL-import row id, which DIFFERS). Legacy concept UUIDs do not exist in CIEL.',
-    resolution:
-      'Bridge by CIEL UUID pattern: legacy.concept_id N ↔ openmrs.concept WHERE uuid = RPAD(N, 36, \'A\'). 100% coverage on the 457 distinct concepts actually used in obs.',
-    artifact: 'preliminary mapping rule (this canvas, §Bridge Rule)',
-  },
-  {
-    id: 'B2',
-    status: 'SOLVED',
-    severity: 'high',
-    title: 'No reference_map rows in legacy',
-    finding:
-      'concept_reference_source, concept_reference_term, concept_reference_map all have ZERO rows in the 2.7 dump. The dump shipped without any external-terminology cross-references.',
-    resolution:
-      'Not a problem under the rebind strategy. We are not translating concept rows; we are pointing obs.concept_id / obs.value_coded at the CIEL-imported concept (different internal id, same canonical identity). Reference maps come from CIEL itself, already loaded.',
-    artifact: '—',
-  },
-  {
-    id: 'B3',
-    status: 'SOLVED',
-    severity: 'medium',
-    title: 'CIEL import had 133 errors',
-    finding:
-      '23 distinct CIEL canonical IDs failed import (cascade: 109 mapping errors trace back to these 23). The errors are duplicate-name-in-locale validation failures (e.g. \'exantema súbito\' es, \'Quinine sulfate\' en).',
-    resolution:
-      'Cross-check: 0 of the 23 failed CIEL IDs are referenced by legacy obs. The errors are entirely in CIEL\'s long tail. Non-blocking for this dataset; we can revisit if/when other datasets land.',
-    artifact: 'artifacts/dev-20260514-212318/profile/ciel-import-errors.json',
-  },
-  {
-    id: 'B4',
-    status: 'PARTIAL',
-    severity: 'medium',
-    title: 'concept_class FK shift (4 of 19 misaligned)',
-    finding:
-      'class_id=16 means \'Program\' in legacy but \'Frequency\' in CIEL-loaded openmrs. class_id 16/17/18/19 are all reshuffled. Naively migrating concept rows would semantically corrupt class assignment.',
-    resolution:
-      'Bypassed by rebind strategy — we don\'t carry forward legacy concept rows. concept_class on the target side is whatever CIEL says. The 4 misaligned IDs are a non-issue for obs migration; would be a real problem for a schema-level concept merge.',
-    artifact: '—',
-  },
-  {
-    id: 'B5',
-    status: 'OPEN',
-    severity: 'high',
-    title: 'Four typed clinical tables are empty',
-    finding:
-      'allergy, conditions, orders, drug_order all have 0 rows in legacy_27_raw. Clinical events live entirely in obs, keyed by concept (e.g. answer-class Drug, answer-class Diagnosis).',
-    resolution:
-      'M2-A scope: synthesize typed rows by reading obs with concept-class hints (Drug → drug_order; Diagnosis → conditions; etc.). Not an identity problem; a SEMANTIC promotion problem. Needs a per-class promotion rule set, reviewable per constitution.',
-    artifact: 'TODO: harness/transform/promote_obs.py (T049–T055 territory)',
-  },
-  {
-    id: 'B6',
-    status: 'OPEN',
-    severity: 'medium',
-    title: 'Schema deltas 2.7 → 2.8',
-    finding:
-      '22 tables exist in legacy_27_raw but NOT in the RefApp 3.6.0 openmrs DB (likely modules removed/refactored). 109 tables exist in openmrs but NOT in legacy (RefApp 3 additions: openconceptlab, fhir2, addresshierarchy, formentryapp, …). 121 tables are shared.',
-    resolution:
-      'T024 schema_diff.py will enumerate each delta with clinical_meaningful flag per the §R5 rule. The 22 legacy-only tables likely need bucket decisions (drop / migrate / preserve). Most are 0-row in this dump (only 52 of 143 legacy tables are populated).',
-    artifact: 'TODO: artifacts/<run>/schema-diff/diff.json from T024',
-  },
-  {
-    id: 'B7',
-    status: 'NON-ISSUE',
-    severity: 'low',
-    title: 'Locale set divergence',
-    finding:
-      'Legacy concept_name has English only (3,555 names). Legacy global_property says locale.allowed.list = en,es,fr,it,pt — multilingual aspiration but English-only authoring.',
-    resolution:
-      'Under the rebind strategy, the target obs rows reference CIEL concepts which already carry 12 locales (en/es/fr/nl/pt_BR/pt/vi/ru/ht/sw/bn/km). Multilingual upgrade comes for free.',
-    artifact: '—',
-  },
-  {
-    id: 'B8',
-    status: 'NON-ISSUE',
-    severity: 'low',
-    title: 'obs.value_drug references',
-    finding:
-      '0 rows in obs have value_drug populated. drug table has 6 rows, all unreferenced from obs.',
-    resolution:
-      'No drug-table mapping problem in this dataset. drug_order promotion (B5) will need to fabricate drug rows from obs answer-coded drug references, but no orphan value_drug references to resolve.',
-    artifact: '—',
-  },
-];
+function TransformPipelineDiagram() {
+  const theme = useHostTheme();
+  const nodeWidth = 200;
+  const nodeHeight = 56;
+  const layout = computeDAGLayout({
+    nodes: Object.keys(pipelineNodes).map((id) => ({ id })),
+    edges: pipelineEdges.map(([from, to]) => ({ from, to })),
+    direction: 'horizontal',
+    nodeWidth,
+    nodeHeight,
+    rankGap: 80,
+    nodeGap: 16,
+    padding: 28,
+  });
 
-const obsUsageByClass = [
-  { class: 'Diagnosis',         distinct: 119, notes: 'Question + Diagnosis answer-coded → conditions promotion target' },
-  { class: 'Question',          distinct: 101, notes: 'Obs question concepts (the keys of the obs grid)' },
-  { class: 'Finding',           distinct: 69 },
-  { class: 'Misc',              distinct: 54,  notes: 'Date / free-text outcomes (return-visit-date, etc.)' },
-  { class: 'Test',              distinct: 34,  notes: 'Numeric vitals: temp, weight, pulse, O2sat → could feed FHIR Observation' },
-  { class: 'Drug',              distinct: 30,  notes: 'Drug-coded answers → drug_order promotion target' },
-  { class: 'Symptom',           distinct: 13 },
-  { class: 'Symptom/Finding',   distinct: 13 },
-  { class: 'ConvSet',           distinct: 11 },
-  { class: 'Misc Order',        distinct: 6 },
-  { class: 'MedSet',            distinct: 4 },
-  { class: 'LabSet',            distinct: 2 },
-  { class: 'Anatomy',           distinct: 1 },
-];
+  const accentFill: Record<string, string> = {
+    source:    theme.fill.tertiary,
+    transform: theme.fill.brand ?? theme.fill.tertiary,
+    target:    theme.fill.tertiary,
+    side:      theme.fill.tertiary,
+  };
+  const accentStroke: Record<string, string> = {
+    source:    theme.stroke.secondary,
+    transform: theme.stroke.brand ?? theme.stroke.primary,
+    target:    theme.stroke.success ?? theme.stroke.secondary,
+    side:      theme.stroke.tertiary ?? theme.stroke.secondary,
+  };
 
-// ----- B5 deep dive: obs → typed-table promotion rules ---------------------
-//
-// The four typed tables (allergy, conditions, orders, drug_order) all have
-// 0 rows in legacy_27_raw — every clinical event lives in obs, dispatched
-// by concept class. Below: the proposed promotion rules, the obs rows each
-// rule would consume, and the rows that must stay in obs.
+  return (
+    <svg
+      role="img"
+      aria-label="2.7 → 2.8 transform pipeline"
+      width="100%"
+      viewBox={`0 0 ${layout.width} ${layout.height + 8}`}
+      style={{ display: 'block' }}
+    >
+      <defs>
+        <marker id="pipe-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M 0 0 L 10 5 L 0 10 z" fill={theme.stroke.secondary} />
+        </marker>
+      </defs>
 
-// Total obs rows by question-side (concept_class × datatype). 476,973 total.
-const obsQuestionDistribution = [
-  { question_class: 'Question',  question_dt: 'Coded',   n_obs: 246365, distinct_q: 60,  promotion_intent: 'mostly STAYS_IN_OBS; subset → drug_order via value_coded class=Drug; subset → conditions via question 6042 (PROBLEM ADDED)' },
-  { question_class: 'Test',      question_dt: 'Numeric', n_obs: 104730, distinct_q: 21,  promotion_intent: 'STAYS_IN_OBS — vitals are observations, not orders. Drives FHIR Observation generation in the read-side, not table promotion.' },
-  { question_class: 'Question',  question_dt: 'Boolean', n_obs: 85116,  distinct_q: 29,  promotion_intent: 'STAYS_IN_OBS; subset → allergy (Boolean YES on questions 6011/1083/6012). Booleans use value_coded → YES (1065) / NO (1066) — no value_boolean column in either 2.7 OR 2.8.' },
-  { question_class: 'Finding',   question_dt: 'Coded',   n_obs: 19917,  distinct_q: 17,  promotion_intent: 'STAYS_IN_OBS — findings ≠ diagnoses; semantically distinct in CIEL.' },
-  { question_class: 'Misc',      question_dt: 'Date',    n_obs: 14214,  distinct_q: 1,   promotion_intent: 'STAYS_IN_OBS (single question: RETURN VISIT DATE 5096). Could feed appointment/visit-planning later.' },
-  { question_class: 'Diagnosis', question_dt: 'Coded',   n_obs: 4452,   distinct_q: 2,   promotion_intent: 'MIXED — question 6042 PROBLEM ADDED (3,642 rows) → conditions; the other 810 rows stay in obs.' },
-  { question_class: 'Test',      question_dt: 'Coded',   n_obs: 1120,   distinct_q: 5,   promotion_intent: 'NEEDS_REVIEW — lab-order shapes (IMMUNIZATIONS ORDERED, X-RAY, VDRL, HIV PCR). Likely synthesize test_order rows.' },
-  { question_class: 'Finding',   question_dt: 'Numeric', n_obs: 655,    distinct_q: 1,   promotion_intent: 'STAYS_IN_OBS' },
-  { question_class: 'Question',  question_dt: 'Numeric', n_obs: 299,    distinct_q: 9,   promotion_intent: 'STAYS_IN_OBS' },
-  { question_class: 'Question',  question_dt: 'Date',    n_obs: 73,     distinct_q: 2,   promotion_intent: 'STAYS_IN_OBS' },
-  { question_class: 'Question',  question_dt: 'Datetime', n_obs: 30,    distinct_q: 1,   promotion_intent: 'STAYS_IN_OBS' },
-  { question_class: 'ConvSet',   question_dt: 'N/A',     n_obs: 2,      distinct_q: 2,   promotion_intent: 'GROUPING — obs_group header rows; preserve via obs_group_id linkage on children.' },
-];
+      {layout.edges.map((edge, i) => {
+        const dx = Math.max(20, (edge.targetX - edge.sourceX) / 2);
+        const d = `M ${edge.sourceX} ${edge.sourceY} C ${edge.sourceX + dx} ${edge.sourceY}, ${edge.targetX - dx} ${edge.targetY}, ${edge.targetX} ${edge.targetY}`;
+        return (
+          <path
+            key={i}
+            d={d}
+            stroke={theme.stroke.secondary}
+            strokeWidth={1.4}
+            fill="none"
+            markerEnd="url(#pipe-arrow)"
+          />
+        );
+      })}
 
-// Value-side distribution (rows where value_coded is set, grouped by the
-// CLASS of the answer concept). This is the primary promotion signal — the
-// answer's class tells us what kind of clinical event it is.
-const obsValueDistribution = [
-  { value_class: 'Misc',            n_obs: 263963, distinct_v: 53,  what_it_is: 'YES/NO/NONE/CONTINUE-style answers',                  promotion: 'STAYS_IN_OBS' },
-  { value_class: 'Drug',            n_obs: 43412,  distinct_v: 30,  what_it_is: 'Coded drug answers (ARVs, antibiotics, vaccines)',    promotion: 'PROMOTE → drug_order (1 row per obs)' },
-  { value_class: 'Misc Order',      n_obs: 18477,  distinct_v: 6,   what_it_is: 'Treatment-plan status codes (CONTINUE / STOP / START / CHANGE / INPATIENT)', promotion: 'STAYS_IN_OBS — these are plan-status answers, not actionable orders.' },
-  { value_class: 'ConvSet',         n_obs: 14476,  distinct_v: 11,  what_it_is: 'Convenience-set group headers',                       promotion: 'GROUPING — keep' },
-  { value_class: 'Diagnosis',       n_obs: 4652,   distinct_v: 117, what_it_is: 'Coded diagnoses',                                     promotion: 'MIXED — 3,642 under question 6042 PROBLEM ADDED → conditions; remainder (REASON-STOPPED patterns, CHILDS CURRENT HIV STATUS) STAYS_IN_OBS.' },
-  { value_class: 'LabSet',          n_obs: 4068,   distinct_v: 2,   what_it_is: 'Lab-test grouping concepts',                          promotion: 'STAYS_IN_OBS (grouping)' },
-  { value_class: 'Test',            n_obs: 4053,   distinct_v: 15,  what_it_is: 'Coded lab-test result categories',                    promotion: 'STAYS_IN_OBS' },
-  { value_class: 'Finding',         n_obs: 2902,   distinct_v: 53,  what_it_is: 'Coded clinical findings (non-diagnosis)',             promotion: 'STAYS_IN_OBS' },
-  { value_class: 'MedSet',          n_obs: 435,    distinct_v: 4,   what_it_is: 'Medication-set grouping concepts',                    promotion: 'STAYS_IN_OBS' },
-  { value_class: 'Symptom/Finding', n_obs: 291,    distinct_v: 13,  what_it_is: '',                                                    promotion: 'STAYS_IN_OBS' },
-  { value_class: 'Anatomy',         n_obs: 149,    distinct_v: 1,   what_it_is: 'Body-site references',                                promotion: 'STAYS_IN_OBS' },
-  { value_class: 'Symptom',         n_obs: 88,     distinct_v: 13,  what_it_is: '',                                                    promotion: 'STAYS_IN_OBS' },
-];
+      {layout.nodes.map((n) => {
+        const def = pipelineNodes[n.id];
+        const accent = def.accent ?? 'source';
+        return (
+          <g key={n.id}>
+            <rect
+              x={n.x - nodeWidth / 2}
+              y={n.y - nodeHeight / 2}
+              width={nodeWidth}
+              height={nodeHeight}
+              rx={8}
+              fill={accentFill[accent]}
+              stroke={accentStroke[accent]}
+              strokeWidth={accent === 'transform' ? 1.6 : 1}
+            />
+            <text
+              x={n.x}
+              y={n.y - 4}
+              textAnchor="middle"
+              fontSize={12}
+              fontWeight={600}
+              fill={theme.text.primary}
+              style={{ fontFamily: 'inherit' }}
+            >
+              {def.label}
+            </text>
+            {def.sub && (
+              <text
+                x={n.x}
+                y={n.y + 14}
+                textAnchor="middle"
+                fontSize={10.5}
+                fill={theme.text.tertiary}
+                style={{ fontFamily: 'inherit' }}
+              >
+                {def.sub}
+              </text>
+            )}
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
 
-// Concrete proposed promotion rules. Each rule is what would emit one or
-// more typed rows for each matching obs row. Ordered most-impactful first.
+// =========================================================================
+// 3. PROMOTION FLOW DIAGRAM (where every obs row goes)
+//    Centerpiece visual: 476,973 obs broken down into promotion buckets
+// =========================================================================
+
+function PromotionFlowDiagram() {
+  const theme = useHostTheme();
+  const W = 980;
+  const H = 360;
+  const left = { x: 20, y: H / 2, w: 220, h: 64, label: 'legacy_27_raw.obs', sub: '476,973 rows' };
+  const buckets = [
+    { id: 'drug_order',  label: 'drug_order',   sub: '43,412 (9.1%)',  rule: 'P1 · value_coded.class=Drug',         tone: 'success', n: 43412 },
+    { id: 'conditions',  label: 'conditions',   sub: '3,642 (0.76%)',  rule: 'P2 · q=6042 PROBLEM ADDED',           tone: 'success', n: 3642 },
+    { id: 'test_order',  label: 'test_order',   sub: '1,120 (0.23%)',  rule: 'P4 · question class=Test+Coded',      tone: 'warning', n: 1120 },
+    { id: 'allergy',     label: 'allergy',      sub: '7 (0.001%)',     rule: 'P3 · q∈{6011,6012,1083} & v=YES',     tone: 'warning', n: 7 },
+    { id: 'obs_clean',   label: 'obs (clean)',  sub: '428,792 (89.9%)', rule: 'remainder · concept-id rebound',     tone: 'info',    n: 428792 },
+  ];
+  // Distribute targets vertically on the right.
+  const rightX = 700;
+  const rightW = 250;
+  const rightH = 50;
+  const totalSlots = buckets.length;
+  const slotGap = (H - 40 - totalSlots * rightH) / (totalSlots - 1);
+
+  const toneStroke: Record<string, string> = {
+    success: theme.stroke.success ?? theme.stroke.primary,
+    warning: theme.stroke.warning ?? theme.stroke.secondary,
+    info:    theme.stroke.tertiary ?? theme.stroke.secondary,
+  };
+
+  return (
+    <svg role="img" aria-label="Obs row distribution by promotion target" width="100%" viewBox={`0 0 ${W} ${H}`} style={{ display: 'block' }}>
+      <defs>
+        <marker id="flow-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M 0 0 L 10 5 L 0 10 z" fill={theme.stroke.secondary} />
+        </marker>
+      </defs>
+
+      {/* left: source */}
+      <rect x={left.x} y={left.y - left.h / 2} width={left.w} height={left.h} rx={10} fill={theme.fill.tertiary} stroke={theme.stroke.secondary} />
+      <text x={left.x + left.w / 2} y={left.y - 6} textAnchor="middle" fontSize={14} fontWeight={600} fill={theme.text.primary}>{left.label}</text>
+      <text x={left.x + left.w / 2} y={left.y + 14} textAnchor="middle" fontSize={12} fill={theme.text.tertiary}>{left.sub}</text>
+
+      {/* right: targets */}
+      {buckets.map((b, i) => {
+        const y = 20 + i * (rightH + slotGap);
+        const sourceX = left.x + left.w;
+        const sourceY = left.y;
+        const targetX = rightX;
+        const targetY = y + rightH / 2;
+        const widthFromN = Math.max(0.4, Math.min(6, Math.log10(b.n + 1) - 0.5));
+        const dx = (targetX - sourceX) / 2;
+        const path = `M ${sourceX} ${sourceY} C ${sourceX + dx} ${sourceY}, ${targetX - dx} ${targetY}, ${targetX} ${targetY}`;
+        return (
+          <g key={b.id}>
+            <path d={path} stroke={toneStroke[b.tone]} strokeWidth={widthFromN} fill="none" opacity={0.7} markerEnd="url(#flow-arrow)" />
+            <rect x={rightX} y={y} width={rightW} height={rightH} rx={8} fill={theme.fill.tertiary} stroke={toneStroke[b.tone]} strokeWidth={1.2} />
+            <text x={rightX + 12} y={y + 18} fontSize={13} fontWeight={600} fill={theme.text.primary}>{b.label}</text>
+            <text x={rightX + 12} y={y + 35} fontSize={11} fill={theme.text.tertiary}>{b.sub}</text>
+            <text x={rightX + rightW - 12} y={y + 35} fontSize={10.5} textAnchor="end" fill={theme.text.tertiary} style={{ fontStyle: 'italic' }}>{b.rule}</text>
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+// =========================================================================
+// 4. BRIDGE RULE VISUAL (legacy ↔ CIEL identity bridge)
+// =========================================================================
+
+function BridgeRuleVisual() {
+  const theme = useHostTheme();
+  const examples = [
+    { legacy: 5088, legacy_fsn: 'TEMPERATURE (C)', ciel_uuid: '5088AAAA…AAAA', ciel_id: 4166, ciel_fsn: 'Temperature (c)' },
+    { legacy: 5089, legacy_fsn: 'WEIGHT (KG)',     ciel_uuid: '5089AAAA…AAAA', ciel_id: 4168, ciel_fsn: 'Weight (kg)' },
+    { legacy: 1088, legacy_fsn: 'CURRENT ANTIRETROVIRAL DRUGS USED FOR TREATMENT', ciel_uuid: '1088AAAA…AAAA', ciel_id: 55823, ciel_fsn: 'Current antiretroviral drugs used for treatment' },
+    { legacy: 1107, legacy_fsn: 'NONE', ciel_uuid: '1107AAAA…AAAA', ciel_id: 1107, ciel_fsn: 'None' },
+  ];
+  const W = 980;
+  const rowH = 70;
+  const H = 56 + examples.length * rowH;
+  const lx = 30,  lw = 360;
+  const mx = 410, mw = 160;
+  const rx = 590, rw = 360;
+
+  return (
+    <svg role="img" aria-label="Legacy ↔ CIEL bridge examples" width="100%" viewBox={`0 0 ${W} ${H}`} style={{ display: 'block' }}>
+      <defs>
+        <marker id="bridge-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M 0 0 L 10 5 L 0 10 z" fill={theme.stroke.brand ?? theme.stroke.primary} />
+        </marker>
+      </defs>
+      <text x={lx + lw / 2} y={24} textAnchor="middle" fontSize={12} fontWeight={600} fill={theme.text.tertiary} style={{ letterSpacing: '0.06em', textTransform: 'uppercase' }}>legacy_27_raw.concept</text>
+      <text x={mx + mw / 2} y={24} textAnchor="middle" fontSize={12} fontWeight={600} fill={theme.text.tertiary} style={{ letterSpacing: '0.06em', textTransform: 'uppercase' }}>{"RPAD(id, 36, 'A')"}</text>
+      <text x={rx + rw / 2} y={24} textAnchor="middle" fontSize={12} fontWeight={600} fill={theme.text.tertiary} style={{ letterSpacing: '0.06em', textTransform: 'uppercase' }}>openmrs.concept (CIEL)</text>
+
+      {examples.map((e, i) => {
+        const y = 44 + i * rowH;
+        return (
+          <g key={e.legacy}>
+            <rect x={lx} y={y} width={lw} height={rowH - 14} rx={6} fill={theme.fill.tertiary} stroke={theme.stroke.secondary} />
+            <text x={lx + 12} y={y + 22} fontSize={13} fontWeight={600} fill={theme.text.primary}>id = {e.legacy}</text>
+            <text x={lx + 12} y={y + 40} fontSize={11.5} fill={theme.text.tertiary}>{e.legacy_fsn}</text>
+
+            <rect x={mx} y={y} width={mw} height={rowH - 14} rx={6} fill={theme.fill.tertiary} stroke={theme.stroke.brand ?? theme.stroke.primary} strokeDasharray="3 3" />
+            <text x={mx + mw / 2} y={y + 22} textAnchor="middle" fontSize={11} fontFamily="ui-monospace, monospace" fill={theme.text.primary}>{e.ciel_uuid}</text>
+            <text x={mx + mw / 2} y={y + 40} textAnchor="middle" fontSize={10.5} fill={theme.text.tertiary}>matches uuid</text>
+
+            <rect x={rx} y={y} width={rw} height={rowH - 14} rx={6} fill={theme.fill.tertiary} stroke={theme.stroke.success ?? theme.stroke.secondary} />
+            <text x={rx + 12} y={y + 22} fontSize={13} fontWeight={600} fill={theme.text.primary}>internal id = {e.ciel_id}</text>
+            <text x={rx + 12} y={y + 40} fontSize={11.5} fill={theme.text.tertiary}>{e.ciel_fsn}</text>
+
+            <path d={`M ${lx + lw} ${y + (rowH - 14) / 2} L ${mx} ${y + (rowH - 14) / 2}`} stroke={theme.stroke.brand ?? theme.stroke.primary} strokeWidth={1.2} markerEnd="url(#bridge-arrow)" />
+            <path d={`M ${mx + mw} ${y + (rowH - 14) / 2} L ${rx} ${y + (rowH - 14) / 2}`} stroke={theme.stroke.brand ?? theme.stroke.primary} strokeWidth={1.2} markerEnd="url(#bridge-arrow)" />
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+// =========================================================================
+// 5. PROMOTION RULES — detailed
+// =========================================================================
+
 type PromotionRule = {
   id: string;
-  target_table: 'drug_order' | 'conditions' | 'allergy' | 'test_order';
-  selector: string;            // human-readable predicate
-  selector_sql: string;        // executable SELECT against legacy_27_raw
-  rows_promoted: number;       // count of obs that would be consumed
-  field_mapping: Array<{ target: string; source: string; note?: string }>;
-  open_questions: string[];    // anything that needs a review decision
+  target_table: string;
+  status: 'ready' | 'review' | 'sparse';
+  rows: number;
+  selector: string;
+  selector_sql: string;
+  field_mapping: Array<[string, string, string?]>;   // target, source, optional note
+  open_questions: string[];
 };
 
 const promotionRules: PromotionRule[] = [
   {
-    id: 'P1',
-    target_table: 'drug_order',
-    selector: 'obs rows where value_coded.class = Drug. Top: question 1088 CURRENT ANTIRETROVIRAL DRUGS USED FOR TREATMENT (30,507 obs); answers like 628 LAMIVUDINE (9,913), 625 STAVUDINE (9,781), 631 NEVIRAPINE (8,810), 916 TRIMETHOPRIM AND SULFAMETHOXAZOLE (4,887), 656 ISONIAZID (1,972), 633 EFAVIRENZ (1,548), vaccines (DTP/Polio/HepB/Hib/Measles).',
+    id: 'P1', target_table: 'drug_order', status: 'ready', rows: 43412,
+    selector: 'obs rows where value_coded.class = Drug. Top answers: LAMIVUDINE (9,913), STAVUDINE (9,781), NEVIRAPINE (8,810), TRIMETHOPRIM+SULFAMETHOXAZOLE (4,887), ISONIAZID (1,972), EFAVIRENZ (1,548); plus ~3,000 vaccine doses (DTP, polio, HepB, Hib, measles).',
     selector_sql: `SELECT o.obs_id, o.person_id, o.encounter_id, o.value_coded AS drug_concept_id, o.obs_datetime
 FROM legacy_27_raw.obs o
 JOIN legacy_27_raw.concept c ON c.concept_id = o.value_coded
 JOIN legacy_27_raw.concept_class cc ON cc.concept_class_id = c.class_id
 WHERE cc.name = 'Drug' AND o.voided = 0`,
-    rows_promoted: 43412,
     field_mapping: [
-      { target: 'drug_order.patient_id',      source: 'obs.person_id' },
-      { target: 'drug_order.encounter_id',    source: 'obs.encounter_id' },
-      { target: 'drug_order.concept_id',      source: 'lookup(obs.value_coded → CIEL UUID)',  note: 'rebind per the B1 bridge rule' },
-      { target: 'drug_order.drug_inventory_id', source: 'NULL (no drug rows referenced from obs.value_drug in this dump)' },
-      { target: 'drug_order.start_date',      source: 'obs.obs_datetime' },
-      { target: 'drug_order.orderer',         source: 'obs.creator', note: 'best-available proxy; encounter_provider could refine' },
-      { target: 'drug_order.dose / units / frequency / duration', source: 'NULL', note: 'not present in legacy obs — leave null; flag in coverage_sample' },
-      { target: 'drug_order.urgency',         source: "'ROUTINE'" },
-      { target: 'drug_order.uuid',            source: 'fresh UUID v4' },
+      ['drug_order.patient_id',     'obs.person_id'],
+      ['drug_order.encounter_id',   'obs.encounter_id'],
+      ['drug_order.concept_id',     'lookup(obs.value_coded → CIEL UUID)', 'rebind via B1'],
+      ['drug_order.start_date',     'obs.obs_datetime'],
+      ['drug_order.orderer',        'encounter_provider.provider_id', 'fallback obs.creator'],
+      ['drug_order.urgency',        "'ROUTINE'"],
+      ['drug_order.dose/units/freq', 'NULL', 'not present in legacy obs — flag in coverage_sample'],
+      ['drug_order.uuid',           'UUID v5(obs.uuid, target)', 'deterministic — Q2'],
     ],
     open_questions: [
-      'Vaccines (measles, polio, etc.) — are these correctly drug_order rows, or should they emit an Immunization-shaped resource? In FHIR they are MedicationAdministration / Immunization, not MedicationRequest.',
-      'Should we group same-drug repeats per patient into a single drug_order with effective-date span, or keep one row per obs? Per-obs is simpler and traceable.',
-      'No dose/frequency present — does this fail any 2.8 NOT NULL constraints? Verify against refapp_28_clean DDL.',
+      'Vaccines as drug_order vs Immunization shape? (Q3)',
+      'One-row-per-obs vs grouped-by-patient+drug? Default: per-obs.',
+      'NOT NULL constraints on dose/units/freq in 2.8? Verify against refapp_28_clean DDL.',
     ],
   },
   {
-    id: 'P2',
-    target_table: 'conditions',
-    selector: 'obs rows whose QUESTION is 6042 PROBLEM ADDED (semantic anchor for "the clinician recorded a new diagnosis on this visit"). 3,642 obs / 114 distinct diagnoses.',
+    id: 'P2', target_table: 'conditions', status: 'ready', rows: 3642,
+    selector: 'obs where concept_id = 6042 PROBLEM ADDED. 114 distinct diagnosis values.',
     selector_sql: `SELECT o.obs_id, o.person_id, o.encounter_id, o.value_coded AS dx_concept_id, o.obs_datetime
 FROM legacy_27_raw.obs o
 WHERE o.concept_id = 6042 AND o.value_coded IS NOT NULL AND o.voided = 0`,
-    rows_promoted: 3642,
     field_mapping: [
-      { target: 'conditions.patient_id',     source: 'obs.person_id' },
-      { target: 'conditions.encounter_id',   source: 'obs.encounter_id' },
-      { target: 'conditions.condition_coded', source: 'lookup(obs.value_coded → CIEL UUID)' },
-      { target: 'conditions.clinical_status', source: "'ACTIVE'", note: 'PROBLEM ADDED implies active at recording time; revisit if a corresponding PROBLEM RESOLVED concept exists.' },
-      { target: 'conditions.onset_date',     source: 'obs.obs_datetime' },
-      { target: 'conditions.date_created',   source: 'obs.date_created' },
-      { target: 'conditions.creator',        source: 'obs.creator' },
-      { target: 'conditions.uuid',           source: 'fresh UUID v4' },
+      ['conditions.patient_id',      'obs.person_id'],
+      ['conditions.encounter_id',    'obs.encounter_id'],
+      ['conditions.condition_coded', 'lookup(obs.value_coded → CIEL UUID)'],
+      ['conditions.clinical_status', "'ACTIVE'", 'no PROBLEM RESOLVED concept observed'],
+      ['conditions.onset_date',      'obs.obs_datetime'],
+      ['conditions.uuid',            'UUID v5(obs.uuid, target)'],
     ],
     open_questions: [
-      'Does the 2.7 dump ever record "PROBLEM RESOLVED"? If yes, those would close out the condition; if no, every promoted condition stays ACTIVE forever in the new model.',
-      'CHILDS CURRENT HIV STATUS (5303, 629 obs) has Diagnosis-class answers (HIV positive/negative) — should this also promote to conditions? Argument FOR: HIV status is a condition. Argument AGAINST: it is repeated screening, not a problem-list entry. Default: STAYS_IN_OBS pending review.',
+      'No PROBLEM RESOLVED signal observed → every promoted condition stays ACTIVE forever. Acceptable?',
+      'Should CHILDS CURRENT HIV STATUS (5303, 629 rows) also promote? Default: STAYS_IN_OBS (it is repeated screening, not problem-list).',
     ],
   },
   {
-    id: 'P3',
-    target_table: 'allergy',
-    selector: 'obs rows on the three explicit allergy-Boolean questions (6011 ALLERGY TO PENICILLIN, 6012 ALLERGY TO SULFA, 1083 ALLERGY TO OTHER MEDICINE) where value_coded = 1065 (YES). NO rows do NOT promote — absence-of-allergy is not an allergy row.',
-    selector_sql: `SELECT o.obs_id, o.person_id, o.encounter_id, o.concept_id AS allergen_question, o.obs_datetime
+    id: 'P3', target_table: 'allergy', status: 'sparse', rows: 7,
+    selector: 'obs on the 3 explicit allergy-Boolean questions (6011 PENICILLIN, 6012 SULFA, 1083 OTHER MED) where value_coded = 1065 YES.',
+    selector_sql: `SELECT o.obs_id, o.person_id, o.encounter_id, o.concept_id AS q, o.obs_datetime
 FROM legacy_27_raw.obs o
 WHERE o.concept_id IN (6011, 6012, 1083) AND o.value_coded = 1065 AND o.voided = 0`,
-    rows_promoted: 7, // 3 + 2 + 2 — extremely sparse in this demo
     field_mapping: [
-      { target: 'allergy.patient_id',     source: 'obs.person_id' },
-      { target: 'allergy.coded_allergen', source: 'rebind by allergen-question-concept: 6011 → penicillin allergen concept; 6012 → sulfa; 1083 → "other medication" allergen concept' },
-      { target: 'allergy.allergen_type',  source: "'DRUG'", note: 'all three legacy questions are drug-allergy flavor' },
-      { target: 'allergy.severity_concept_id', source: 'NULL', note: 'not recorded in legacy boolean form' },
-      { target: 'allergy.encounter_id',   source: 'obs.encounter_id' },
-      { target: 'allergy.date_created',   source: 'obs.date_created' },
-      { target: 'allergy.uuid',           source: 'fresh UUID v4' },
+      ['allergy.patient_id',     'obs.person_id'],
+      ['allergy.coded_allergen', 'allergen-pick keyed by question concept', '6011→penicillin, 6012→sulfa, 1083→other med'],
+      ['allergy.allergen_type',  "'DRUG'", 'all 3 are drug allergies'],
+      ['allergy.severity_concept_id', 'NULL', 'not recorded in legacy boolean form'],
+      ['allergy.encounter_id',   'obs.encounter_id'],
     ],
     open_questions: [
-      'Map each of the 3 allergen-flavored question concepts to a specific CIEL allergen concept — needs human pick (PENICILLIN as substance, SULFA as substance, etc.).',
-      'Should the patient.allergy_status flag flip to See-list when any allergy row is promoted? Or leave as default?',
+      'Map 3 question concepts → specific CIEL allergen substance concepts (needs human pick).',
+      'Flip patient.allergy_status to See-list when any row promotes?',
     ],
   },
   {
-    id: 'P4',
-    target_table: 'test_order',
-    selector: 'obs rows whose QUESTION class is Test and datatype is Coded (lab/imaging orders): question 984 IMMUNIZATIONS ORDERED (891), 12 X-RAY, CHEST (172), 299 VDRL (33), 1030 HIV DNA PCR QUAL (15), 1042 HIV ENZYME IMMUNOASSAY (9).',
-    selector_sql: `SELECT o.obs_id, o.person_id, o.encounter_id, o.concept_id AS test_concept, o.value_coded AS result_coded, o.obs_datetime
+    id: 'P4', target_table: 'test_order', status: 'review', rows: 1120,
+    selector: 'obs where question class=Test AND datatype=Coded. Top: IMMUNIZATIONS ORDERED (891), X-RAY CHEST (172), VDRL (33), HIV DNA PCR (15).',
+    selector_sql: `SELECT o.obs_id, o.person_id, o.encounter_id, o.concept_id AS test_concept, o.value_coded AS result, o.obs_datetime
 FROM legacy_27_raw.obs o
 JOIN legacy_27_raw.concept c ON c.concept_id = o.concept_id
 JOIN legacy_27_raw.concept_class cc ON cc.concept_class_id = c.class_id
 JOIN legacy_27_raw.concept_datatype cd ON cd.concept_datatype_id = c.datatype_id
 WHERE cc.name = 'Test' AND cd.name = 'Coded' AND o.voided = 0`,
-    rows_promoted: 1120,
     field_mapping: [
-      { target: 'orders / test_order.patient_id',  source: 'obs.person_id' },
-      { target: 'test_order.concept_id',           source: 'lookup(obs.concept_id → CIEL UUID)', note: 'this is the TEST concept, not the result' },
-      { target: 'test_order.encounter_id',         source: 'obs.encounter_id' },
-      { target: 'test_order.date_activated',       source: 'obs.obs_datetime', note: 'no order/result split in legacy; assume order-and-result coincident' },
-      { target: 'test_order.urgency',              source: "'ROUTINE'" },
-      { target: 'test_order.order_action',         source: "'NEW'" },
-      { target: 'obs.value_coded (result)',        source: 'preserved as obs row pointing to the new test_order via obs.order_id' },
+      ['test_order.patient_id',     'obs.person_id'],
+      ['test_order.concept_id',     'lookup(obs.concept_id → CIEL UUID)', 'TEST concept, not the result'],
+      ['test_order.encounter_id',   'obs.encounter_id'],
+      ['test_order.date_activated', 'obs.obs_datetime'],
+      ['test_order.urgency',        "'ROUTINE'"],
+      ['obs.order_id',              'new test_order.order_id', 'preserve result obs row, link back via FK'],
     ],
     open_questions: [
-      'Whether to promote IMMUNIZATIONS ORDERED (891 obs) — these are technically immunization records, not lab tests. Could split off to a different target.',
-      'Should we synthesize a paired (test_order + result obs) pattern, or just promote the order and keep the existing obs row as the result with an order_id linkback?',
-      'orders.order_type_id — needs mapping per concept class. 2.8 ships a test_order_type by default; verify ID against refapp_28_clean.',
+      'IMMUNIZATIONS ORDERED (891 rows) really immunizations, not lab tests — split off?',
+      'order_type_id mapping per concept class — verify 2.8 RefApp test_order_type id.',
     ],
   },
 ];
 
-const stayInObsCases = [
-  { case: 'Coded YES/NO answers (value_class=Misc)',                          n: 263963, why: 'Free-form answers to boolean/coded questions; semantically observations, not events. Top: 1107 NONE (114,070), 1066 NO (66,679), 1065 YES (39,776).' },
-  { case: 'Numeric vital signs (Test+Numeric questions)',                     n: 104730, why: 'TEMPERATURE (5088), WEIGHT (5089), PULSE (5087), BLOOD OXYGEN SATURATION (5092) etc. These are observations by definition; FHIR Observation is the read-side projection.' },
-  { case: 'Boolean questions (Q+Boolean) other than the 3 allergy questions', n: 85109,  why: 'YES/NO survey answers (ANTIRETROVIRAL USE, NEW COMPLAINTS, SCHEDULED VISIT). Stay as obs.' },
-  { case: 'Treatment-plan status codes (value_class=Misc Order)',             n: 18477,  why: 'CONTINUE / STOP / START / CHANGE — answer values describing plan changes, not actionable orders.' },
-  { case: 'ConvSet / LabSet / MedSet grouping rows',                          n: 18979,  why: 'obs_group headers. Preserve via obs_group_id linkage; do not flatten into typed tables.' },
-  { case: 'Coded Diagnosis answers NOT under question 6042 PROBLEM ADDED',    n: 1010,   why: 'REASON ARV/TB/PCP/CRYPTOCOCCAL STOPPED patterns and similar — diagnosis-coded values used as reasons, not new conditions.' },
-  { case: 'RETURN VISIT DATE (5096)',                                         n: 14214,  why: 'Single Misc+Date question; could feed an Appointment resource later but no 2.8 target table needed.' },
+// =========================================================================
+// 6. WHAT STAYS IN OBS
+// =========================================================================
+
+const staysInObs: Array<[string, string, string]> = [
+  // [bucket name, row count, why]
+  ['YES/NO/NONE answers (value_class=Misc)',                          '263,963', 'survey/coded answers — semantically observations, not events. Top: NONE (114,070), NO (66,679), YES (39,776)'],
+  ['Numeric vital signs (Test+Numeric questions)',                    '104,730', 'Temperature/Weight/Pulse/BloodOxygen — observations by definition. FHIR Observation projects them on the read side.'],
+  ['Boolean survey questions (excluding the 3 allergy ones)',         '85,109',  'ARV use, new complaints, scheduled visit — yes/no surveys stay as obs.'],
+  ['Treatment-plan status (value_class=Misc Order)',                  '18,477',  'CONTINUE / STOP / START / CHANGE — plan-status answers, not actionable orders.'],
+  ['ConvSet / LabSet / MedSet groupings',                             '18,979',  'obs_group_id header rows — preserve grouping, do not flatten.'],
+  ['RETURN VISIT DATE (5096)',                                        '14,214',  'Misc+Date question; may feed Appointment resource later but no 2.8 target table.'],
+  ['Coded Diagnosis answers NOT under question 6042',                 '1,010',   'REASON-STOPPED patterns + similar — diagnosis-coded values used as reasons, not new conditions.'],
 ];
 
-const promotionSummaryTotals = {
-  total_obs_legacy: 476973,
-  promoted_drug_order: 43412,
-  promoted_conditions: 3642,
-  promoted_allergy: 7,
-  promoted_test_order: 1120,
-  total_promoted: 48181,
-  pct_promoted: '10.1%',
-  stays_in_obs: 428792,
-  pct_stays: '89.9%',
+// =========================================================================
+// 7. BLOCKERS / ISSUES INVENTORY
+// =========================================================================
+
+type Blocker = { id: string; title: string; status: 'SOLVED' | 'PARTIAL' | 'OPEN' | 'NON-ISSUE'; severity: 'critical' | 'high' | 'medium' | 'low'; finding: string; resolution: string };
+
+const blockers: Blocker[] = [
+  { id: 'B1', status: 'SOLVED',    severity: 'critical', title: 'Identity bridge legacy → CIEL',
+    finding: 'concept_id integers collide (legacy 5088=TEMPERATURE; openmrs internal 5088=Stock ragweed pollen mixture). Legacy UUIDs are NOT in CIEL.',
+    resolution: "Bridge by CIEL UUID pattern: openmrs.concept WHERE uuid = RPAD(legacy_id, 36, 'A'). 100% coverage on 457 obs-referenced concepts." },
+  { id: 'B2', status: 'SOLVED',    severity: 'high', title: 'No reference_map rows in legacy',
+    finding: 'concept_reference_source / concept_reference_term / concept_reference_map all 0 rows.',
+    resolution: 'Not a problem under rebind. We point at CIEL concepts; their reference maps come from CIEL itself.' },
+  { id: 'B3', status: 'SOLVED',    severity: 'medium', title: '133 CIEL import errors',
+    finding: '23 distinct CIEL ids failed (mostly duplicate-name-in-locale validation). 109 cascading mapping errors trace back to these.',
+    resolution: '0 of the 23 are referenced by legacy obs. Non-blocking for this dataset.' },
+  { id: 'B4', status: 'PARTIAL',   severity: 'medium', title: 'concept_class FK shift (4 of 19 misaligned)',
+    finding: 'class_id 16/17/18/19 reshuffled between legacy (Program/Workflow/State/Frequency) and CIEL (Frequency/Pharm Drug Class/Units/Workflow).',
+    resolution: 'Bypassed by rebind. Would matter only if we ever carried concept rows forward; we do not.' },
+  { id: 'B5', status: 'OPEN',      severity: 'high', title: 'Four typed clinical tables empty in legacy',
+    finding: 'allergy/conditions/orders/drug_order all 0 rows; events live entirely in obs.',
+    resolution: 'M2-A authored work — promotion rules P1–P4 (see section above). Reviewable per constitution.' },
+  { id: 'B6', status: 'OPEN',      severity: 'medium', title: 'Schema deltas 2.7 → 2.8',
+    finding: '22 legacy-only tables, 109 openmrs-only, 121 shared.',
+    resolution: 'T024 schema_diff enumerates with clinical_meaningful flag. Most legacy-only tables are 0-row anyway.' },
+  { id: 'B7', status: 'NON-ISSUE', severity: 'low', title: 'Locale set divergence',
+    finding: 'Legacy concept_name English-only (3,555 names).',
+    resolution: 'CIEL ships 12 locales — multilingual upgrade for free after rebind.' },
+  { id: 'B8', status: 'NON-ISSUE', severity: 'low', title: 'obs.value_drug references',
+    finding: '0 rows in obs have value_drug populated.',
+    resolution: 'No drug-table mapping problem.' },
+];
+
+const blockerToneMap: Record<Blocker['status'], 'success' | 'warning' | 'danger' | 'neutral'> = {
+  'SOLVED': 'success', 'PARTIAL': 'warning', 'OPEN': 'danger', 'NON-ISSUE': 'neutral',
 };
 
-function PromotionRulesPanel() {
-  return (
-    <Card>
-      <CardHeader>
-        <H2>Proposed obs → typed-table promotion rules</H2>
-        <Text>
-          One rule per target table. Each rule consumes a well-bounded slice of obs and emits typed rows; the
-          rest of obs (89.9%) stays as obs (vitals, survey answers, plan-status codes, groupings).
-        </Text>
-      </CardHeader>
-      <CardBody>
-        <Stack gap={14}>
-          <Callout variant="info">
-            <Text>
-              The four promotion rules together consume <strong>{promotionSummaryTotals.total_promoted.toLocaleString()}</strong> obs rows
-              ({promotionSummaryTotals.pct_promoted} of the legacy total of {promotionSummaryTotals.total_obs_legacy.toLocaleString()}).
-              The remaining {promotionSummaryTotals.stays_in_obs.toLocaleString()} obs ({promotionSummaryTotals.pct_stays}) stay
-              in obs unchanged (after concept-id rebind).
-            </Text>
-          </Callout>
+// =========================================================================
+// 8. CROSS-CUTTING DECISIONS
+// =========================================================================
 
-          {promotionRules.map((r) => (
-            <Card key={r.id}>
-              <CardHeader>
-                <Row gap={8}>
-                  <Pill variant={r.target_table === 'drug_order' || r.target_table === 'conditions' ? 'success' : 'warning'}>{r.id}</Pill>
-                  <Pill variant="subtle">→ {r.target_table}</Pill>
-                  <Pill variant="subtle">{r.rows_promoted.toLocaleString()} rows</Pill>
-                </Row>
-              </CardHeader>
-              <CardBody>
-                <Stack gap={10}>
-                  <Text><strong>Selector.</strong> {r.selector}</Text>
-                  <Code language="sql">{r.selector_sql}</Code>
-                  <H3>Field mapping</H3>
-                  <Table
-                    columns={[
-                      { key: 'target', header: 'target column' },
-                      { key: 'source', header: 'source' },
-                      { key: 'note', header: 'note', optional: true },
-                    ]}
-                    rows={r.field_mapping}
-                  />
-                  <H3>Open questions for review</H3>
-                  <ul>
-                    {r.open_questions.map((q, i) => <li key={i}><Text>{q}</Text></li>)}
-                  </ul>
-                </Stack>
-              </CardBody>
-            </Card>
-          ))}
-        </Stack>
-      </CardBody>
-    </Card>
-  );
-}
+const decisions: Array<{ id: string; title: string; question: string; proposal: string }> = [
+  { id: 'Q1', title: 'Obs preservation alongside promotion',
+    question: 'When obs → typed row, do we DELETE the obs or KEEP it with a link via obs.order_id?',
+    proposal: 'KEEP both. obs.order_id already exists in 2.7. chartsearchai indexes obs; refapp UI reads typed tables. Both win.' },
+  { id: 'Q2', title: 'UUID strategy on promoted rows',
+    question: 'Fresh UUID v4 (random) vs deterministic UUID v5 (from obs.uuid + target_table)?',
+    proposal: 'UUID v5 with namespace "harness-002-promotion". Reproducibility across reruns.' },
+  { id: 'Q3', title: 'Vaccines as drug_order or Immunization?',
+    question: 'In FHIR R4 vaccines are Immunization, not MedicationRequest. 2.8 OpenMRS has no immunization table by default.',
+    proposal: 'Emit as drug_order; the FHIR read-side can re-project vaccines to Immunization. Tag via attribute.' },
+  { id: 'Q4', title: 'Orderer field source',
+    question: 'obs has no provider FK; encounter_provider is per encounter.',
+    proposal: 'Use encounter_provider for the matching encounter; fall back to obs.creator.' },
+  { id: 'Q5', title: 'coverage_sample sampling per rule',
+    question: 'FR-015 requires per-bucket coverage samples for spot-check.',
+    proposal: '5 records per (concept_class × datatype × value_class) cohort, deterministic sampler_seed recorded in run_manifest.' },
+];
 
-function ObsQuestionDistributionPanel() {
-  return (
-    <Card>
-      <CardHeader>
-        <H3>obs by (question concept class × datatype)</H3>
-        <Text>The full 476,973 obs accounted for by the class+datatype of the QUESTION concept. promotion_intent describes whether that slice is consumed by a rule or stays in obs.</Text>
-      </CardHeader>
-      <CardBody>
-        <Table
-          columns={[
-            { key: 'question_class', header: 'question class' },
-            { key: 'question_dt',    header: 'datatype' },
-            { key: 'n_obs',          header: 'n obs' },
-            { key: 'distinct_q',     header: 'distinct questions' },
-            { key: 'promotion_intent', header: 'promotion intent' },
-          ]}
-          rows={obsQuestionDistribution}
-        />
-      </CardBody>
-    </Card>
-  );
-}
+// =========================================================================
+// 9. BAR CHART — promotion distribution
+// =========================================================================
 
-function ObsValueDistributionPanel() {
-  return (
-    <Card>
-      <CardHeader>
-        <H3>obs.value_coded by class of the ANSWER concept</H3>
-        <Text>Where the answer concept lives in the class hierarchy. This is the primary signal for promotion: value_class=Drug → drug_order, etc.</Text>
-      </CardHeader>
-      <CardBody>
-        <Table
-          columns={[
-            { key: 'value_class', header: 'answer class' },
-            { key: 'n_obs',       header: 'n obs' },
-            { key: 'distinct_v',  header: 'distinct values' },
-            { key: 'what_it_is',  header: 'what it represents' },
-            { key: 'promotion',   header: 'promotion decision' },
-          ]}
-          rows={obsValueDistribution}
-        />
-      </CardBody>
-    </Card>
-  );
-}
+const promotionChartCategories = ['drug_order', 'conditions', 'test_order', 'allergy', 'obs (clean)'];
+const promotionChartCounts    = [43412,           3642,         1120,          7,         428792];
 
-function StayInObsPanel() {
-  return (
-    <Card>
-      <CardHeader>
-        <H3>What stays in obs (after concept-id rebind)</H3>
-        <Text>Rows the promotion rules deliberately do NOT consume. Each gets a one-line justification so the review can accept or contest it.</Text>
-      </CardHeader>
-      <CardBody>
-        <Table
-          columns={[
-            { key: 'case', header: 'case' },
-            { key: 'n',    header: 'n obs' },
-            { key: 'why',  header: 'why it stays in obs' },
-          ]}
-          rows={stayInObsCases}
-        />
-      </CardBody>
-    </Card>
-  );
-}
-
-function PromotionGlobalQuestionsPanel() {
-  return (
-    <Card>
-      <CardHeader>
-        <H2>Cross-cutting decisions for review</H2>
-      </CardHeader>
-      <CardBody>
-        <Stack gap={10}>
-          <Callout variant="warning">
-            <Text>
-              <strong>Q1 — obs preservation alongside promotion.</strong> When a Drug obs becomes a drug_order row,
-              do we DELETE the obs (single source of truth) or KEEP the obs with a link via obs.order_id?
-              The 2.8 RefApp UI reads from typed tables; chartsearchai indexes obs. Keeping both costs disk + indexing
-              effort; dropping obs loses the "this was originally recorded as an answer to question X" provenance.
-              Default proposal: KEEP both, link via obs.order_id (already a column in 2.7).
-            </Text>
-          </Callout>
-          <Callout variant="warning">
-            <Text>
-              <strong>Q2 — fresh UUIDs vs deterministic UUIDs on promoted rows.</strong> Random UUID v4 breaks
-              reproducibility across two transform runs against the same input. Deterministic UUID v5 derived
-              from (obs.uuid, target_table) preserves reproducibility. Default proposal: UUID v5 with namespace
-              "harness-002-promotion".
-            </Text>
-          </Callout>
-          <Callout variant="warning">
-            <Text>
-              <strong>Q3 — Vaccines as drug_order vs immunization-shaped resource.</strong> Among the 43,412 Drug-class
-              answers, ~2,400 are vaccines (DTP, polio, HepB, Hib, measles). In FHIR R4 these are Immunization, not
-              MedicationRequest. The 2.8 OpenMRS schema does not have an immunization table by default; drug_order is
-              the canonical home. Default proposal: emit all Drug-class answers as drug_order regardless of vaccine
-              status; flag vaccines via an attribute or a class hint so the FHIR layer can re-project them as
-              Immunization at read time.
-            </Text>
-          </Callout>
-          <Callout variant="warning">
-            <Text>
-              <strong>Q4 — orderer field on drug_order / test_order.</strong> Legacy obs has creator (user_id) but
-              no provider linkage on the obs itself; encounter_provider holds the encounter-level provider list.
-              Best-available orderer for a promoted order is the encounter_provider for the matching encounter.
-              Default proposal: prefer encounter_provider (single provider per encounter for this dataset), fall
-              back to obs.creator.
-            </Text>
-          </Callout>
-          <Callout variant="warning">
-            <Text>
-              <strong>Q5 — coverage_sample population.</strong> The promoted rows need entries in the per-bucket
-              coverage_sample artifact (per FR-015) so reviewers can spot-check that the round-trip preserves
-              clinical meaning. Default proposal: per rule, draw 5 records per concept_class × datatype × value_class
-              cohort using a deterministic sampler_seed (recorded in run_manifest).
-            </Text>
-          </Callout>
-        </Stack>
-      </CardBody>
-    </Card>
-  );
-}
-
-function BridgeRulePanel() {
-  return (
-    <Card>
-      <CardHeader>
-        <H2>The bridge rule (preliminary mapping)</H2>
-        <Text>One deterministic SQL expression covers 100% of the obs-referenced concepts. No hand curation needed for identity.</Text>
-      </CardHeader>
-      <CardBody>
-        <Stack gap={12}>
-          <Callout variant="success">
-            <Text>
-              For every legacy concept_id <Code>N</Code> referenced from obs, the CIEL counterpart is
-              the row in <Code>openmrs.concept</Code> where <Code>uuid = RPAD(N, 36, &#39;A&#39;)</Code>.
-            </Text>
-          </Callout>
-          <Code language="sql">{`-- Identity rule: legacy.concept_id  →  openmrs.concept (CIEL-loaded)
-SELECT
-  l_obs.obs_id,
-  l_obs.concept_id           AS legacy_concept_id,
-  ciel_q.concept_id          AS new_concept_id,
-  ciel_v.concept_id          AS new_value_coded
-FROM legacy_27_raw.obs l_obs
-LEFT JOIN openmrs.concept ciel_q ON ciel_q.uuid = RPAD(CAST(l_obs.concept_id  AS CHAR), 36, 'A')
-LEFT JOIN openmrs.concept ciel_v ON ciel_v.uuid = RPAD(CAST(l_obs.value_coded AS CHAR), 36, 'A');`}</Code>
-          <Text variant="subtle">
-            Coverage verified: 457 / 457 distinct concept_ids actually used in obs map to a non-null row.
-            FSN names match modulo case (legacy is uppercase AMPATH-style; CIEL is title-case).
-          </Text>
-        </Stack>
-      </CardBody>
-    </Card>
-  );
-}
-
-function BridgeExamplesPanel() {
-  return (
-    <Card>
-      <CardHeader>
-        <H3>Bridge examples — top 5 by obs usage</H3>
-      </CardHeader>
-      <CardBody>
-        <Table
-          columns={[
-            { key: 'legacy', header: 'legacy id' },
-            { key: 'legacy_fsn', header: 'legacy FSN (en)' },
-            { key: 'ciel_uuid', header: 'CIEL UUID' },
-            { key: 'ciel_internal', header: 'openmrs internal id' },
-            { key: 'ciel_fsn', header: 'CIEL FSN (en)' },
-          ]}
-          rows={bridgeExamples}
-        />
-      </CardBody>
-    </Card>
-  );
-}
-
-function BlockersPanel() {
-  const ordered = [...blockers].sort((a, b) => {
-    const rank = (s: string) => ({ critical: 0, high: 1, medium: 2, low: 3 }[s as 'critical' | 'high' | 'medium' | 'low'] ?? 4);
-    if (rank(a.severity) !== rank(b.severity)) return rank(a.severity) - rank(b.severity);
-    return a.id.localeCompare(b.id);
-  });
-
-  return (
-    <Card>
-      <CardHeader>
-        <H2>Blocker inventory</H2>
-        <Text>Each row is a concrete blocker we can either close or call out as scope.</Text>
-      </CardHeader>
-      <CardBody>
-        <Stack gap={10}>
-          {ordered.map((b) => (
-            <Card key={b.id}>
-              <CardHeader>
-                <Row gap={8}>
-                  <Pill variant={b.status === 'SOLVED' ? 'success' : b.status === 'PARTIAL' ? 'warning' : b.status === 'NON-ISSUE' ? 'subtle' : 'danger'}>{b.status}</Pill>
-                  <Pill variant="subtle">{b.severity}</Pill>
-                  <Text style={{ fontWeight: 600 }}>{b.id} · {b.title}</Text>
-                </Row>
-              </CardHeader>
-              <CardBody>
-                <Stack gap={6}>
-                  <Text><strong>Finding.</strong> {b.finding}</Text>
-                  <Text><strong>Resolution.</strong> {b.resolution}</Text>
-                  {b.artifact !== '—' && <Text variant="subtle">Artifact: <Code>{b.artifact}</Code></Text>}
-                </Stack>
-              </CardBody>
-            </Card>
-          ))}
-        </Stack>
-      </CardBody>
-    </Card>
-  );
-}
-
-function ObsUsagePanel() {
-  return (
-    <Card>
-      <CardHeader>
-        <H3>Distinct concepts in obs, by class</H3>
-        <Text>The 457 concepts that need bridging, grouped by concept_class. Drug + Diagnosis classes feed the promotion-from-obs work (B5).</Text>
-      </CardHeader>
-      <CardBody>
-        <Table
-          columns={[
-            { key: 'class', header: 'class' },
-            { key: 'distinct', header: 'distinct concepts used' },
-            { key: 'notes', header: 'notes', optional: true },
-          ]}
-          rows={obsUsageByClass}
-        />
-      </CardBody>
-    </Card>
-  );
-}
-
-function NextActionsPanel() {
-  return (
-    <Card>
-      <CardHeader>
-        <H2>What this changes about M2-A</H2>
-      </CardHeader>
-      <CardBody>
-        <Stack gap={10}>
-          <Callout variant="info">
-            <Text>
-              The big M2-A concern — "how do we authorially map 2,528 source concepts to CIEL" — collapses.
-              We don't curate per-concept; we apply the UUID rule and rebind. ConceptMap authoring is reserved for
-              the structural promotions (obs → conditions/drug_order/allergy/orders), which is fewer rules and more
-              clearly clinical-judgment territory.
-            </Text>
-          </Callout>
-          <Text><strong>Newly unblocked:</strong></Text>
-          <ul>
-            <li>T024 schema_diff can run against the two side-by-side DBs immediately (legacy_27_raw + openmrs).</li>
-            <li>The 002 ConceptMap artifact (datasets/mappings/openmrs-2.7-to-2.8.conceptmap.json) becomes <em>thin</em> — a single rule statement plus the obs-promotion class-to-table rules. Hand-curated entries reduce from "thousands" to "tens".</li>
-            <li>T022 (terminology profile) can finish quickly — there's nothing to enumerate in legacy reference_map; just emit the empty-array case with a flag.</li>
-          </ul>
-          <Text><strong>Still required:</strong></Text>
-          <ul>
-            <li>B5 — obs → typed-table promotion rules per concept class. Real semantic work; reviewable.</li>
-            <li>B6 — T024 schema diff; the 22 legacy-only tables need bucket decisions.</li>
-            <li>Verification that the rebind preserves answer-set membership (concept_answer rows in legacy reference concept_ids; under rebind, the answer set still resolves correctly because both endpoints share the UUID space). To be confirmed by a spot-check.</li>
-          </ul>
-        </Stack>
-      </CardBody>
-    </Card>
-  );
-}
+// =========================================================================
+// MAIN
+// =========================================================================
 
 export default function ConceptMappingDiscovery() {
   return (
     <Stack gap={18}>
-      <H1>002 / M2-A — Concept Mapping Discovery</H1>
-      <Text>
-        Probing legacy_27_raw vs the CIEL-loaded openmrs DB to answer: what blocks mapping the 2.7 demo
-        concepts to CIEL + the OpenMRS 2.8 data model? Findings recorded 2026-05-14 from the live stack;
-        see PR #6 for the inventory tooling.
+      <H1>002 / M2-A — Concept Mapping &amp; Transformation</H1>
+      <Text tone="secondary">
+        How the 5,284-patient OpenMRS 2.7 demo dump becomes a 2.8-RefApp-loadable dataset bound to CIEL v2026-04-28. Every count below
+        is sourced from live <Code>SELECT COUNT(*)</Code> queries against legacy_27_raw and the CIEL-loaded openmrs DB on the running
+        harness stack. PR #6 lands the inventory, snapshot, error-audit, and loader tooling.
       </Text>
 
-      <Grid columns={2} gap={12}>
-        {headlineFacts.map((f) => (
-          <Stat key={f.label} label={f.label} value={f.value} subtext={f.sub} />
+      <Grid columns={3} gap={12}>
+        {heroStats.map((s, i) => (<Stat key={i} value={s.value} label={s.label} tone={s.tone} />))}
+      </Grid>
+
+      <Divider />
+
+      <H2>End-to-end transformation</H2>
+      <Text tone="secondary">Source on the left, transform in the middle, target tables on the right. The CIEL-loaded openmrs DB is the metadata reference, not a data source.</Text>
+      <Card><CardBody><TransformPipelineDiagram /></CardBody></Card>
+
+      <Divider />
+
+      <H2>Where every obs row goes</H2>
+      <Text tone="secondary">All 476,973 legacy obs accounted for. Line thickness = log10(row count); colored borders flag the per-target status (green = ready, amber = needs review or sparse, neutral = stays unchanged).</Text>
+      <Card><CardBody><PromotionFlowDiagram /></CardBody></Card>
+
+      <Card>
+        <CardHeader><H3>Same data as a bar chart</H3></CardHeader>
+        <CardBody>
+          <BarChart
+            categories={promotionChartCategories}
+            series={[{ name: 'rows', data: promotionChartCounts, tone: 'info' }]}
+            height={240}
+          />
+          <Text tone="secondary" size="small">obs (clean) dominates the y-axis. The four promotion targets are the small bars on the left — visible in the absolute counts but barely a sliver of the dataset volume.</Text>
+        </CardBody>
+      </Card>
+
+      <Divider />
+
+      <H2>The identity bridge</H2>
+      <Callout tone="success" title="One deterministic rule covers every concept reference in legacy obs">
+        <Text>
+          For every legacy <Code>concept_id N</Code> referenced from obs (as <Code>concept_id</Code> or <Code>value_coded</Code>), the
+          CIEL counterpart is the row in <Code>openmrs.concept</Code> where <Code>{"uuid = RPAD(CAST(N AS CHAR), 36, 'A')"}</Code>.
+          Verified: <strong>457/457</strong> distinct obs-referenced concept_ids resolve. Names match modulo case
+          (legacy is uppercase AMPATH-style; CIEL is title-case).
+        </Text>
+      </Callout>
+      <Card><CardBody><BridgeRuleVisual /></CardBody></Card>
+      <Card>
+        <CardHeader><H3>Rebind SQL (executable against the live stack)</H3></CardHeader>
+        <CardBody>
+          <Code language="sql">{`SELECT
+  l_obs.obs_id,
+  l_obs.concept_id        AS legacy_concept_id,
+  q.concept_id            AS new_concept_id,
+  v.concept_id            AS new_value_coded
+FROM legacy_27_raw.obs l_obs
+LEFT JOIN openmrs.concept q ON q.uuid = RPAD(CAST(l_obs.concept_id  AS CHAR), 36, 'A')
+LEFT JOIN openmrs.concept v ON v.uuid = RPAD(CAST(l_obs.value_coded AS CHAR), 36, 'A');`}</Code>
+        </CardBody>
+      </Card>
+
+      <Divider />
+
+      <H2>Promotion rules — for review and tweaking</H2>
+      <Text tone="secondary">
+        Four rules, four target tables. Together they consume 48,181 obs rows (10.1%). Each rule is independently editable: edit
+        <Code>selector_sql</Code>, re-run against legacy_27_raw, confirm the row count before accepting into
+        <Code>datasets/mappings/openmrs-2.7-to-2.8.conceptmap.json</Code>.
+      </Text>
+
+      {promotionRules.map((r) => (
+        <Card key={r.id}>
+          <CardHeader trailing={
+            <Row gap={6}>
+              <Pill size="sm" tone={r.status === 'ready' ? 'success' : 'warning'} active>{r.status}</Pill>
+              <Pill size="sm" tone="neutral">{r.rows.toLocaleString()} rows</Pill>
+            </Row>
+          }>
+            <H3>{r.id} · obs → <Code>{r.target_table}</Code></H3>
+          </CardHeader>
+          <CardBody>
+            <Stack gap={10}>
+              <Text>{r.selector}</Text>
+              <Code language="sql">{r.selector_sql}</Code>
+              <Text weight="semibold">Field mapping</Text>
+              <Table
+                headers={['target column', 'source', 'note']}
+                rows={r.field_mapping.map((m) => [m[0], m[1], m[2] ?? ''])}
+                striped
+              />
+              <Text weight="semibold">Open questions</Text>
+              <Stack gap={4}>
+                {r.open_questions.map((q, i) => (<Text key={i} size="small" tone="secondary">• {q}</Text>))}
+              </Stack>
+            </Stack>
+          </CardBody>
+        </Card>
+      ))}
+
+      <Divider />
+
+      <H2>What stays in obs (after concept-id rebind)</H2>
+      <Text tone="secondary">The 89.9% of obs the promotion rules do NOT consume. Each bucket gets a one-line justification so the review can accept or contest it.</Text>
+      <Card><CardBody>
+        <Table
+          headers={['Bucket', 'n obs', 'Why it stays in obs']}
+          rows={staysInObs}
+          striped
+        />
+      </CardBody></Card>
+
+      <Divider />
+
+      <H2>Blocker inventory</H2>
+      <Text tone="secondary">Each blocker is either solved by tooling, called out as authored scope (B5), or surfaced as a structural diff (B6).</Text>
+      <Grid columns={2} gap={10}>
+        {blockers.map((b) => (
+          <Card key={b.id}>
+            <CardHeader trailing={
+              <Row gap={6}>
+                <Pill size="sm" tone={blockerToneMap[b.status]} active>{b.status}</Pill>
+                <Pill size="sm" tone="neutral">{b.severity}</Pill>
+              </Row>
+            }>
+              <Text weight="semibold">{b.id} · {b.title}</Text>
+            </CardHeader>
+            <CardBody>
+              <Stack gap={6}>
+                <Text size="small"><Text weight="semibold">Finding.</Text> {b.finding}</Text>
+                <Text size="small"><Text weight="semibold">Resolution.</Text> {b.resolution}</Text>
+              </Stack>
+            </CardBody>
+          </Card>
         ))}
       </Grid>
 
-      <BridgeRulePanel />
-      <BridgeExamplesPanel />
+      <Divider />
+
+      <H2>Cross-cutting decisions for review</H2>
+      <Stack gap={10}>
+        {decisions.map((d) => (
+          <Callout key={d.id} tone="warning" title={`${d.id} — ${d.title}`}>
+            <Stack gap={4}>
+              <Text size="small"><Text weight="semibold">Question.</Text> {d.question}</Text>
+              <Text size="small"><Text weight="semibold">Default proposal.</Text> {d.proposal}</Text>
+            </Stack>
+          </Callout>
+        ))}
+      </Stack>
 
       <Divider />
 
-      <BlockersPanel />
-
-      <Divider />
-
-      <ObsUsagePanel />
-
-      <Divider />
-
-      <H1>B5 deep dive — obs → typed-table promotion</H1>
-      <Text>
-        Four rules, four target tables. Together they consume <strong>{promotionSummaryTotals.total_promoted.toLocaleString()}</strong> obs
-        rows ({promotionSummaryTotals.pct_promoted} of the 476,973 legacy total). The remaining 89.9% stay
-        in obs unchanged after concept-id rebind. Every cell below is sourced from a live query against
-        legacy_27_raw — tweak the rules in this file, then re-run the corresponding selector_sql to confirm
-        the count before accepting.
-      </Text>
-
-      <Grid columns={4} gap={12}>
-        <Stat label="Total obs (legacy)" value={promotionSummaryTotals.total_obs_legacy.toLocaleString()} />
-        <Stat label="Promoted" value={`${promotionSummaryTotals.total_promoted.toLocaleString()} (${promotionSummaryTotals.pct_promoted})`} />
-        <Stat label="→ drug_order" value={promotionSummaryTotals.promoted_drug_order.toLocaleString()} />
-        <Stat label="→ conditions" value={promotionSummaryTotals.promoted_conditions.toLocaleString()} />
-      </Grid>
-
-      <ObsQuestionDistributionPanel />
-      <ObsValueDistributionPanel />
-
-      <Divider />
-
-      <PromotionRulesPanel />
-
-      <Divider />
-
-      <StayInObsPanel />
-
-      <Divider />
-
-      <PromotionGlobalQuestionsPanel />
-
-      <Divider />
-
-      <NextActionsPanel />
+      <H2>Missing or under-specified — what this canvas does NOT yet cover</H2>
+      <Card><CardBody>
+        <Table
+          headers={['Gap', 'Status', 'Where it will land']}
+          rows={[
+            ['Per-class promotion rules for unmapped Drug answers (e.g. immunizations as Immunization)', 'Pending Q3 decision', 'Update to P1; FHIR read-side projection'],
+            ['T022 terminology profile: reference_sources[], locales[]', 'Trivially empty in legacy; not yet emitted', 'harness/profile/terminology.py — next commit'],
+            ['T023 module classification: bundled_in_2_8_refapp per table', 'Pending', 'harness/profile/modules.py — next commit'],
+            ['T024 schema_diff legacy_27_raw vs refapp_28_clean (the 22 + 109 + 121 tables)', 'Pending — depends on T021/T022/T023 outputs', 'harness/schema_diff.py — next milestone'],
+            ['drug.dose / units / frequency / duration sourcing', 'No signal in legacy obs', 'Flag in coverage_sample as NULL columns; review per-drug'],
+            ['order_type_id mapping for test_order', 'Pending — verify against refapp_28_clean DDL', 'In P4 review'],
+            ['Allergen-concept hand-pick (penicillin, sulfa, other-med)', 'Pending human pick', 'datasets/mappings/openmrs-2.7-to-2.8.conceptmap.json — 3 hand-curated entries'],
+          ]}
+          striped
+        />
+      </CardBody></Card>
 
       <Divider />
 
       <Card>
-        <CardHeader>
-          <H3>Reproducing the queries behind this canvas</H3>
-        </CardHeader>
+        <CardHeader><H3>Reproducing the queries behind this canvas</H3></CardHeader>
         <CardBody>
-          <Stack gap={8}>
-            <Text>All counts and examples here come from queries against the running harness MariaDB. To re-derive:</Text>
-            <Code language="bash">{`# Bridge coverage (expects "legacy_distinct_in_obs = bridgeable_via_ciel_uuid")
-docker exec harness-openmrs-db mariadb --user=openmrs --password=openmrs -B -e "
+          <Stack gap={6}>
+            <Text size="small">All counts here come from queries against the running harness MariaDB. Re-derive any number with one command:</Text>
+            <Code language="bash">{`docker exec harness-openmrs-db mariadb --user=openmrs --password=openmrs -B -e "
+-- Bridge coverage (expect bridgeable == legacy_distinct_in_obs)
 WITH legacy_used AS (
   SELECT DISTINCT concept_id FROM legacy_27_raw.obs WHERE concept_id IS NOT NULL
-  UNION
-  SELECT DISTINCT value_coded FROM legacy_27_raw.obs WHERE value_coded IS NOT NULL
+  UNION SELECT DISTINCT value_coded FROM legacy_27_raw.obs WHERE value_coded IS NOT NULL
 )
-SELECT
-  COUNT(DISTINCT lu.concept_id) AS legacy_distinct_in_obs,
-  COUNT(DISTINCT CASE WHEN ciel.concept_id IS NOT NULL THEN lu.concept_id END) AS bridgeable
+SELECT COUNT(DISTINCT lu.concept_id) AS legacy_distinct_in_obs,
+       COUNT(DISTINCT CASE WHEN ciel.concept_id IS NOT NULL THEN lu.concept_id END) AS bridgeable
 FROM legacy_used lu
 LEFT JOIN openmrs.concept ciel ON ciel.uuid = RPAD(CAST(lu.concept_id AS CHAR), 36, 'A');
 "`}</Code>
-            <Text variant="subtle">
-              Provenance: PR #6 commit a5edc31 (T024c errors), 37b3211 (T021 inventory), 76300d0 (T024b
-              snapshot). CIEL version: v2026-04-28.
+            <Text size="small" tone="secondary">
+              Provenance: PR #6 commits 53df8bb (demo loader), 37b3211 (T021 inventory), 76300d0 (T024b snapshot), a5edc31 (T024c errors).
+              CIEL version: v2026-04-28. Source dump sha256: a7ca4bbe....
             </Text>
           </Stack>
         </CardBody>
