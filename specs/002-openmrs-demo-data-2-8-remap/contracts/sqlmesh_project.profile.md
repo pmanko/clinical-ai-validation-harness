@@ -36,10 +36,10 @@ Every model file MUST declare in its `MODEL (...)` block:
 
 | Property | Requirement |
 |---|---|
-| `name` | Two-part `refapp_28_demo.<prefix>__<model>` (MySQL/MariaDB adapter does not support catalogs; the SQLMesh-on-MySQL convention is `database.table`). Prefixes: `seed__`, `stg__`, `clin__`, `mod__`, `aud__`. |
+| `name` | Two-part `refapp_28_demo.<prefix>__<model>` (MySQL/MariaDB adapter does not support catalogs; the SQLMesh-on-MySQL convention is `database.table`). Prefixes: `seed__`, `stg_` (single underscore — staging models historically used `stg__` but ran into MariaDB's 64-char identifier limit; the prefix is shortened), `clin__`, `mod__`, `aud__`, `terminology__`. |
 | `description` | Reviewer-readable rationale. MUST cite the diff item IDs from `schema_diff.json` that this model resolves (`diff_items_covered:` list inside the description prose). |
-| `tags` | MUST include exactly one of `policy_bucket:remap`, `policy_bucket:drop`, `policy_bucket:install-module`, `policy_bucket:orphan-carry-forward`, `policy_bucket:passthrough` |
-| `audits` | MUST include `unique_values(columns := (<pk>))` and at least one `not_null(columns := (...))` for FK columns where applicable |
+| `tags` | MUST include exactly one of `policy_bucket:remap`, `policy_bucket:drop`, `policy_bucket:install_module`, `policy_bucket:orphan_carry_forward`, `policy_bucket:passthrough`, `policy_bucket:seed_augment`. Tag values use underscores rather than dashes because SQLMesh's tag parser rejects dashes in unquoted values. |
+| `audits` | MUST include `unique_values(columns := (<pk>))` and at least one `not_null(columns := (...))` for FK columns where applicable. **Composite-PK exception**: SQLMesh's `unique_values((a, b))` treats columns independently (checks each column individually), not as a row-level uniqueness predicate. For tables with multi-column PKs (`liquibasechangelog`, `role_privilege`, `user_property`, `user_role`), the model declares `audits ()` (empty) and a separate pytest at `evals/sqlmesh_conformance/test_composite_pk_uniqueness.py` asserts composite-row uniqueness via direct SQL. Move this back to an inline SQLMesh custom audit when SQLMesh ships `unique_rows((a, b))` or equivalent. |
 | `grain` | MUST be declared (model's grain at the SQLMesh level) |
 
 ## Per-audit conventions
