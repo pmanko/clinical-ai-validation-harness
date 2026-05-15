@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 
 from harness.metadata import (
+    MaterializedOutput,
     OclCollectionVersion,
     ReviewerSignoff,
     RunManifest,
@@ -61,6 +62,18 @@ def _sample_extensions() -> RunManifest002Extensions:
                 signed_at="2026-05-15T01:00:00Z",
             )
         ],
+        materialized_outputs=[
+            MaterializedOutput(
+                table_name="refapp_28_demo.clin__obs",
+                row_count=428013,
+                content_checksum="f" * 64,
+            ),
+            MaterializedOutput(
+                table_name="refapp_28_demo.clin__drug_order",
+                row_count=43412,
+                content_checksum="0" * 64,
+            ),
+        ],
     )
 
 
@@ -83,6 +96,7 @@ def test_extensions_to_dict_has_all_top_level_keys():
         "equivalence_labels",
         "policy_buckets",
         "reviewer_signoffs",
+        "materialized_outputs",
     }
     assert required.issubset(d.keys())
 
@@ -138,3 +152,35 @@ def test_extensions_empty_lists_default():
     assert d["policy_buckets"] == []
     assert d["reviewer_signoffs"] == []
     assert d["ocl_collection_versions"] == []
+    assert d["materialized_outputs"] == []
+
+
+def test_materialized_outputs_round_trip():
+    ext = _sample_extensions()
+    d = ext.to_dict()
+    outs = d["materialized_outputs"]
+    assert len(outs) == 2
+    assert outs[0]["table_name"] == "refapp_28_demo.clin__obs"
+    assert outs[0]["row_count"] == 428013
+    assert outs[0]["content_checksum"] == "f" * 64
+    assert outs[0]["checksum_method"] == "sha256_of_canonical_dump"  # default
+
+
+def test_materialized_output_custom_checksum_method():
+    out = MaterializedOutput(
+        table_name="refapp_28_demo.clin__obs",
+        row_count=428013,
+        content_checksum="a" * 64,
+        checksum_method="sha256_of_canonical_dump",
+    )
+    payload = RunManifest002Extensions(
+        conceptmap_path="x", conceptmap_checksum="0" * 64,
+        sqlmesh_project_path="y", sqlmesh_project_checksum="0" * 64,
+        concept_translation_seed_checksum="0" * 64,
+        module_table_policy_seed_checksum="0" * 64,
+        ocl_collection_versions=[], openmrs_refapp_image_digest="",
+        mariadb_image_digest="", fhir_validator_version="",
+        sqlmesh_version="", python_version="",
+        materialized_outputs=[out],
+    ).to_dict()
+    assert payload["materialized_outputs"][0]["checksum_method"] == "sha256_of_canonical_dump"

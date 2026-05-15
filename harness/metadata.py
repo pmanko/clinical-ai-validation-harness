@@ -80,6 +80,28 @@ class ReviewerSignoff:
 
 
 @dataclass
+class MaterializedOutput:
+    """One materialized target table — row count + content checksum.
+
+    Stamped after the transform completes so two runs that should be
+    byte-identical can be compared per-table without diffing the full
+    dump. ``checksum_method`` documents how ``content_checksum`` was
+    computed:
+
+      - ``sha256_of_canonical_dump`` (default): SHA-256 over a
+        column-ordered, PK-ordered row representation. Works on views.
+      - ``mariadb_checksum_table``: MariaDB's built-in ``CHECKSUM
+        TABLE`` integer, rendered as a string. Only works on base
+        tables (returns NULL on views).
+    """
+
+    table_name: str
+    row_count: int
+    content_checksum: str
+    checksum_method: str = "sha256_of_canonical_dump"
+
+
+@dataclass
 class RunManifest002Extensions:
     """Additional top-level keys appended to ``RunManifest.to_dict()``."""
 
@@ -98,6 +120,7 @@ class RunManifest002Extensions:
     equivalence_labels: list[str] = field(default_factory=list)
     policy_buckets: list[str] = field(default_factory=list)
     reviewer_signoffs: list[ReviewerSignoff] = field(default_factory=list)
+    materialized_outputs: list[MaterializedOutput] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -131,6 +154,15 @@ class RunManifest002Extensions:
                     "signed_at": s.signed_at,
                 }
                 for s in self.reviewer_signoffs
+            ],
+            "materialized_outputs": [
+                {
+                    "table_name": o.table_name,
+                    "row_count": o.row_count,
+                    "content_checksum": o.content_checksum,
+                    "checksum_method": o.checksum_method,
+                }
+                for o in self.materialized_outputs
             ],
         }
 

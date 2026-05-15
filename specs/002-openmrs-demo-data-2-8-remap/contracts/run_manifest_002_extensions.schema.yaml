@@ -25,6 +25,7 @@ additional_top_level_required:
   - equivalence_labels
   - policy_buckets
   - reviewer_signoffs
+  - materialized_outputs
 
 fields:
   conceptmap_path:
@@ -125,6 +126,40 @@ fields:
         signed_at:
           type: string
           format: date-time
+  materialized_outputs:
+    type: array
+    description: >-
+      Per-table state of the materialized target schema (refapp_28_demo)
+      at the end of the transform run. Lets two runs that should be
+      byte-identical compare row-by-row without diffing the full dump.
+      A SC-004 (determinism) regression manifests as a mismatch here.
+      Mandatory for clinical marts (clin__obs, clin__drug_order,
+      clin__conditions, clin__allergy, clin__test_order); optional for
+      staging and module models.
+    items:
+      required:
+        - table_name
+        - row_count
+        - content_checksum
+        - checksum_method
+      properties:
+        table_name:
+          type: string
+          description: Two-part name `<schema>.<table>` or just `<table>` if schema is implicit.
+        row_count:
+          type: integer
+          minimum: 0
+        content_checksum:
+          type: string
+          description: >-
+            Content checksum, formatted per `checksum_method`. For
+            `mariadb_checksum_table` this is the decimal integer
+            CHECKSUM TABLE returned, rendered as a string.
+        checksum_method:
+          type: string
+          allowed:
+            - mariadb_checksum_table
+            - sha256_of_canonical_dump
 
 rules:
   - When `evidence_status != release`, M0's base schema already requires `decision_rationale`. 002 inherits that rule; no override.

@@ -59,6 +59,64 @@ def _ensure_target_schema(host: str, port: str, user: str, password: str, schema
         conn.close()
 
 
+_CLINICAL_MARTS: tuple[str, ...] = (
+    "clin__obs", "clin__drug_order", "clin__conditions",
+    "clin__allergy", "clin__test_order",
+)
+
+
+def _materialized_outputs(
+    host: str, port: str, user: str, password: str, schema: str
+) -> list[dict[str, Any]]:
+    """Per-clinical-mart row counts + content hash for determinism check.
+
+    ``row_count`` is the load-bearing signal — it caught the C2-class
+    "silent 0" failure mode (mart materialized as empty view).
+
+    ``content_checksum`` is a SHA-256 of a canonical column-ordered,
+    PK-ordered row representation. The clinical marts are SQLMesh
+    views (CHECKSUM TABLE returns NULL on views), so we compute the
+    hash in Python over a streaming row scan. Skippable per-table if
+    a table's row count is below a small threshold.
+    """
+    import hashlib
+    import pymysql
+    conn = pymysql.connect(host=host, port=int(port), user=user, password=password,
+                           database=schema)
+    out: list[dict[str, Any]] = []
+    try:
+        with conn.cursor() as cur:
+            for table in _CLINICAL_MARTS:
+                cur.execute(f"SELECT COUNT(*) FROM `{table}`")
+                row_count = int(cur.fetchone()[0])
+
+                cur.execute(f"""
+                    SELECT column_name
+                    FROM information_schema.columns
+                    WHERE table_schema=%s AND table_name=%s
+                    ORDER BY ordinal_position
+                """, (schema, table))
+                cols = [r[0] for r in cur.fetchall()]
+                col_list = ", ".join(f"`{c}`" for c in cols)
+
+                pk = "uuid" if "uuid" in cols else cols[0]
+                h = hashlib.sha256()
+                cur.execute(f"SELECT {col_list} FROM `{table}` ORDER BY `{pk}`")
+                for row in cur:
+                    h.update("\x1f".join("" if v is None else str(v) for v in row).encode("utf-8"))
+                    h.update(b"\x1e")
+
+                out.append({
+                    "table_name": f"{schema}.{table}",
+                    "row_count": row_count,
+                    "content_checksum": h.hexdigest(),
+                    "checksum_method": "sha256_of_canonical_dump",
+                })
+    finally:
+        conn.close()
+    return out
+
+
 def _sqlmesh_bin() -> str:
     """Locate the sqlmesh CLI binary alongside the active Python interpreter."""
     candidate = Path(sys.executable).parent / "sqlmesh"
@@ -181,6 +239,8 @@ def run_transform(
     seed_translation_sha = _sha256_of_file(project_dir / "seeds" / "concept_translation.csv")
     seed_policy_sha = _sha256_of_file(project_dir / "seeds" / "module_table_policy.csv")
 
+    materialized_outputs = _materialized_outputs(host, port, user, password, target_schema)
+
     report = {
         "status": "ok" if audit.returncode == 0 else "audit_failed",
         "audit_exit_code": audit.returncode,
@@ -193,6 +253,7 @@ def run_transform(
         "refapp_28_demo_sql_path": str(dump_path),
         "refapp_28_demo_sql_checksum": _sha256_of_file(dump_path),
         "refapp_28_demo_sql_bytes": dump_path.stat().st_size,
+        "materialized_outputs": materialized_outputs,
         "generated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
     }
     (output_dir / "transform.report.json").write_text(json.dumps(report, indent=2) + "\n")
