@@ -132,14 +132,9 @@ export const navTree: NavSection[] = [
       { kind: 'spec', slug: 'specs/artifacts/sibling-context/chartsearchai-openmrs-ai-dev-context',           title: 'chartsearchai — OpenMRS AI dev-context dump' },
     ],
   },
-  {
-    title: 'Handoffs',
-    collapsed: true,
-    intro: 'Historical session handoff snapshots.',
-    items: [
-      { kind: 'spec', slug: 'specs/artifacts/handoffs/session-handoff-2026-05-12', title: 'Session handoff — 2026-05-12' },
-    ],
-  },
+  // Historical session handoffs (specs/artifacts/handoffs/*) are intentionally
+  // omitted from the published nav — they're checkout-internal context, not
+  // collaborator-facing docs.
 ];
 
 /** Flatten the tree into a slug → leaf map. Used by routes to look up content. */
