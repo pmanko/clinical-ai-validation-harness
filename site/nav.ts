@@ -109,6 +109,7 @@ export const navTree: NavSection[] = [
     title: 'Cross-cutting canvases',
     intro: 'Topic-scoped dashboards outside any single feature.',
     items: [
+      { kind: 'canvas', slug: 'specs/artifacts/canvases/scout-comparative-analysis', title: 'Scout comparative analysis', blurb: 'Deep-dive analysis of Duke DIHI Scout and implications for chartsearchai, openmrs_chatbot, and Catalyst.' },
       { kind: 'canvas', slug: 'specs/artifacts/canvases/cross-project-comparison',    title: 'Cross-project comparison',    blurb: 'Side-by-side architecture of chartsearchai, openmrs_chatbot, Catalyst.' },
       { kind: 'canvas', slug: 'specs/artifacts/canvases/clinical-ai-research-guidance', title: 'Clinical-AI research guidance', blurb: 'Research vectors, evidence levels, maturity framing.' },
     ],
