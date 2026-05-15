@@ -194,14 +194,16 @@ A validation lead wants the same source corpus analyzed for which clinical slice
 
 - **FR-029** — The transform MUST synthesize typed clinical rows from `obs` per the rules in the table below (P1–P4). Each rule is encoded as one structural-promotion element in the accepted ConceptMap (FR-007) and as one SQLMesh model under `datasets/transforms/sqlmesh/models/clinical/`. Field mapping is canonical in `data-model.md` §R-promotion-rules; cross-cutting decisions (obs preservation, UUID strategy, vaccine handling, orderer source, sampler strategy) are in research.md §R-typed-table-promotion.
 
-  | Rule | Selector (from `obs`, voided=0) | Target table | Measured rows |
+  | Rule | Selector (from `obs`, voided=0) | Target table | Measured rows[^rc] |
   |---|---|---|---|
   | **P1** | `value_coded.concept_class = 'Drug'` | `drug_order` | 43,412 |
   | **P2** | `concept_id = 6042` ('PROBLEM ADDED') | `conditions` | 4,451 |
   | **P3** | `concept_id IN (6011, 6012, 1083) AND value_coded = 1065 ('YES')` | `allergy` | 2 |
   | **P4** | `concept.concept_class = 'Test' AND concept.concept_datatype = 'Coded'` | `test_order` | 1,120 |
 
-  Source rows are preserved and back-linked via `obs.order_id`. Row counts above are measured directly from the first end-to-end transform run against the live stack; they are signals to report in `transform.report.json` for iterative review, not exact-match gates. Total promoted: 48,985 (10.3% of legacy obs); residual obs ~428,013 (89.7%).
+  Source rows are preserved and back-linked via `obs.order_id`. Total promoted: 48,985 (10.3% of legacy obs); residual obs ~428,013 (89.7%).
+
+  [^rc]: Counts above are illustrative measurements from the first end-to-end transform run. **The enforced floors live in the SQLMesh audits:** `datasets/transforms/sqlmesh/audits/audit_<mart>_row_count_min.sql`. The audits are the single source of truth — they fail the pipeline if a mart drops below its floor, catching silent-zero materialization failures.
 
 ### Key Entities
 
