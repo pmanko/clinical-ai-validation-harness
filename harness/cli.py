@@ -127,6 +127,12 @@ def main() -> int:
     if args.command == "conceptmap":
         return _not_yet_implemented(f"conceptmap {args.conceptmap_action}")
     if args.command == "transform":
+        if args.transform_action == "run":
+            from .transform.run import main as transform_main
+            return transform_main([
+                "--project-dir", "datasets/transforms/sqlmesh",
+                "--conceptmap", "datasets/mappings/openmrs-2.7-to-2.8.conceptmap.json",
+            ])
         return _not_yet_implemented(f"transform {args.transform_action}")
     if args.command == "sample":
         return _not_yet_implemented("sample")

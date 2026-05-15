@@ -59,7 +59,6 @@ def test_missing_action_for_grouped_subcommand_errors():
 
 @pytest.mark.parametrize("argv,label", [
     (["conceptmap", "validate"], "conceptmap validate"),
-    (["transform",  "run"],      "transform run"),
     (["sample"],                 "sample"),
     (["ocl",        "refresh"],  "ocl refresh"),
     (["manifest",   "finalize"], "manifest finalize"),
@@ -71,3 +70,22 @@ def test_scaffolded_subcommands_return_exit_2_and_print_to_stderr(argv, label, c
     assert rc == 2
     assert label in err
     assert "not yet implemented" in err
+
+
+def test_transform_run_dispatches_to_orchestrator(monkeypatch):
+    """`harness-cli transform run` must invoke the transform orchestrator,
+    not the not-yet-implemented stub."""
+    monkeypatch.setattr(sys, "argv", ["harness-cli", "transform", "run"])
+    called_with: list[list[str]] = []
+    def fake_main(argv):
+        called_with.append(list(argv))
+        return 0
+    monkeypatch.setattr("harness.transform.run.main", fake_main)
+    rc = main()
+    assert rc == 0
+    assert called_with, "transform.run.main was not invoked"
+    invoked = called_with[0]
+    assert "--project-dir" in invoked
+    assert "--conceptmap" in invoked
+    assert "datasets/transforms/sqlmesh" in invoked
+    assert "datasets/mappings/openmrs-2.7-to-2.8.conceptmap.json" in invoked

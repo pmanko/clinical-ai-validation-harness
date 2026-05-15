@@ -1,0 +1,30 @@
+# SQLMesh project config — see contracts/sqlmesh_project.profile.md.
+#
+# The harness orchestrator (harness/transform/run.py) sets the
+# MARIADB_HOST / MARIADB_PORT / MARIADB_USER / MARIADB_PASSWORD env vars
+# before invoking `sqlmesh plan` / `run` / `audit`.
+
+gateways:
+  harness:
+    connection:
+      type: mysql
+      host: "{{ env_var('MARIADB_HOST', '127.0.0.1') }}"
+      port: "{{ env_var('MARIADB_PORT', '3307') | int }}"
+      user: "{{ env_var('MARIADB_USER', 'openmrs') }}"
+      password: "{{ env_var('MARIADB_PASSWORD', 'openmrs') }}"
+      database: refapp_28_demo
+      charset: utf8mb4
+
+default_gateway: harness
+
+model_defaults:
+  dialect: mysql
+  start: 2026-01-01
+
+# Schemas the SQLMesh project reads from (source) and writes to (target).
+# These names are referenced in models via `FROM legacy_27_raw.<table>`,
+# `FROM openmrs.<table>`, and `FROM refapp_28_demo.<schema>.<model>`.
+variables:
+  source_legacy_schema: legacy_27_raw
+  source_seeded_ciel_schema: openmrs
+  target_schema: refapp_28_demo
