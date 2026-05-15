@@ -1,5 +1,5 @@
 MODEL (
-  name refapp_28_demo.seeds.module_table_policy,
+  name refapp_28_demo.seed__module_table_policy,
   kind SEED (
     path '../../seeds/module_table_policy.csv'
   ),

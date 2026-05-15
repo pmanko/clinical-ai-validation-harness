@@ -15,7 +15,7 @@ WITH obs_concepts AS (
 SELECT
   oc.concept_id AS missing_concept_id
 FROM obs_concepts oc
-LEFT JOIN refapp_28_demo.seeds.concept_translation ct
+LEFT JOIN refapp_28_demo.seed__concept_translation ct
   ON ct.source_concept_id = oc.concept_id
 WHERE ct.source_concept_id IS NULL
 ;

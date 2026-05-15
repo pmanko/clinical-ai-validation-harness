@@ -11,6 +11,6 @@ AUDIT (
 SELECT
   mt.table_name,
   mt.policy AS unhandled_policy
-FROM refapp_28_demo.seeds.module_table_policy mt
+FROM refapp_28_demo.seed__module_table_policy mt
 WHERE mt.policy NOT IN ('drop', 'carry-forward', 'install-module', 'remap')
 ;

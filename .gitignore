@@ -37,3 +37,4 @@ datasets/sources/ocl/**/seeded-baseline.sql
 tools/fhir-validator/*.jar
 datasets/transforms/sqlmesh/.cache/
 logs/
+.claude/scheduled_tasks.lock

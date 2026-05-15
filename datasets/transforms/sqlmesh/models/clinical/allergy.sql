@@ -1,5 +1,5 @@
 MODEL (
-  name refapp_28_demo.clinical.allergy,
+  name refapp_28_demo.clin__allergy,
   kind FULL,
   description 'P3 — drug-allergy boolean obs answered YES, promoted to allergy. Source questions: 6011 PENICILLIN, 6012 SULFA, 1083 OTHER MEDICINE. The allergen-substance pick per question concept is hand-curated at acceptance (placeholder concept_id 162523 used here; reviewer adjusts in datasets/mappings/openmrs-2.7-to-2.8.review.md). Expected ~7 rows.',
   tags (policy_bucket:seed_augment),
@@ -32,7 +32,7 @@ SELECT
   CAST(NULL AS VARCHAR) AS form_namespace_and_path,
   s.encounter_id,
   s.obs_id AS source_obs_id
-FROM refapp_28_demo.staging.stg__legacy_obs s
+FROM refapp_28_demo.stg_obs s
 WHERE s.concept_id IN (6011, 6012, 1083)
   AND s.value_coded = 1065
 ;

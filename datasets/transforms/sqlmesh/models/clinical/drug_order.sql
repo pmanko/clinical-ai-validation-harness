@@ -1,5 +1,5 @@
 MODEL (
-  name refapp_28_demo.clinical.drug_order,
+  name refapp_28_demo.clin__drug_order,
   kind FULL,
   description 'P1 — obs whose value_coded is a Drug-class concept, promoted to drug_order with concept_id rebound via the bridge rule. Expected row count against the current corpus: ~43,412. Field mapping per data-model.md §R-promotion-rules.',
   tags (policy_bucket:seed_augment),
@@ -28,14 +28,14 @@ SELECT
   CAST(NULL AS VARCHAR) AS void_reason,
   UUID() AS uuid,
   s.obs_id AS source_obs_id
-FROM refapp_28_demo.staging.stg__legacy_obs s
+FROM refapp_28_demo.stg_obs s
 JOIN legacy_27_raw.concept c
   ON c.concept_id = s.value_coded
 JOIN legacy_27_raw.concept_class cc
   ON cc.concept_class_id = c.class_id
-LEFT JOIN refapp_28_demo.seeds.concept_translation ct
+LEFT JOIN refapp_28_demo.seed__concept_translation ct
   ON ct.source_concept_id = s.value_coded
-LEFT JOIN refapp_28_demo.staging.stg__legacy_encounter_provider ep
+LEFT JOIN refapp_28_demo.stg_encounter_provider ep
   ON ep.encounter_id = s.encounter_id
 WHERE cc.name = 'Drug'
 ;

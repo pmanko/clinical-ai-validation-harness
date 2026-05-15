@@ -8,11 +8,11 @@ AUDIT (
 -- Emits failing (source_table, concept_id) pairs on fail; zero rows on pass.
 
 WITH promoted_concept_refs AS (
-  SELECT 'drug_order' AS source_table, concept_id FROM refapp_28_demo.clinical.drug_order
+  SELECT 'drug_order' AS source_table, concept_id FROM refapp_28_demo.clin__drug_order
   UNION ALL
-  SELECT 'conditions',                  condition_coded FROM refapp_28_demo.clinical.conditions
+  SELECT 'conditions',                  condition_coded FROM refapp_28_demo.clin__conditions
   UNION ALL
-  SELECT 'test_order',                  concept_id FROM refapp_28_demo.clinical.test_order
+  SELECT 'test_order',                  concept_id FROM refapp_28_demo.clin__test_order
 )
 SELECT
   pcr.source_table,

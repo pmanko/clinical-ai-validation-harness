@@ -59,9 +59,15 @@ def _ensure_target_schema(host: str, port: str, user: str, password: str, schema
         conn.close()
 
 
+def _sqlmesh_bin() -> str:
+    """Locate the sqlmesh CLI binary alongside the active Python interpreter."""
+    candidate = Path(sys.executable).parent / "sqlmesh"
+    return str(candidate) if candidate.is_file() else "sqlmesh"
+
+
 def _invoke_sqlmesh(project_dir: Path, args: list[str], env: dict[str, str]) -> subprocess.CompletedProcess:
     return subprocess.run(
-        [sys.executable, "-m", "sqlmesh", "-p", str(project_dir), *args],
+        [_sqlmesh_bin(), "-p", str(project_dir), *args],
         env=env,
         capture_output=True,
         text=True,
@@ -133,9 +139,9 @@ def run_transform(
     env = {**os.environ, "MARIADB_HOST": host, "MARIADB_PORT": port,
            "MARIADB_USER": user, "MARIADB_PASSWORD": password}
 
-    plan_args = ["plan", "--no-prompts"]
+    plan_args = ["plan", "--no-prompts", "--auto-apply"]
     if dry_run:
-        plan_args.append("--no-auto-categorization")
+        plan_args.append("--skip-backfill")
     plan = _invoke_sqlmesh(project_dir, plan_args, env)
     (output_dir / "sqlmesh-plan.txt").write_text(plan.stdout + "\n--- stderr ---\n" + plan.stderr)
     if plan.returncode != 0:

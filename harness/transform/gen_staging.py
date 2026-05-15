@@ -142,7 +142,7 @@ def render_staging_model(table: TableInfo, source_schema: str) -> str:
         if col.is_concept_fk:
             alias = f"ct_{join_idx}"
             join_lines.append(
-                f"  LEFT JOIN refapp_28_demo.seeds.concept_translation {alias} "
+                f"  LEFT JOIN refapp_28_demo.seed__concept_translation {alias} "
                 f"ON {alias}.source_concept_id = src.{col.name}"
             )
             select_lines.append(
@@ -155,8 +155,16 @@ def render_staging_model(table: TableInfo, source_schema: str) -> str:
     join_clause = "\n".join(join_lines)
 
     pk_clause = ", ".join(table.pk_columns) if table.pk_columns else "1"
+    # Audit only when the PK is a single column — SQLMesh's `unique_values`
+    # audit treats each named column as independently unique (not as a
+    # compound key), so multi-column PKs would falsely fail.
+    audits_clause = (
+        f"  audits (unique_values(columns := ({pk_clause})))"
+        if len(table.pk_columns) == 1
+        else "  audits ()"
+    )
 
-    model_name = f"refapp_28_demo.staging.stg__legacy_{table.name}"
+    model_name = f"refapp_28_demo.stg_{table.name}"
 
     return f"""MODEL (
   name {model_name},
@@ -164,7 +172,7 @@ def render_staging_model(table: TableInfo, source_schema: str) -> str:
   description 'Staging copy of {source_schema}.{table.name} with concept-FK columns rebound via the bridge rule.',
   tags (policy_bucket:passthrough),
   grain ({pk_clause}),
-  audits (unique_values(columns := ({pk_clause})))
+{audits_clause}
 );
 
 SELECT

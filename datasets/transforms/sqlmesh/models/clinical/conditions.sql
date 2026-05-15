@@ -1,5 +1,5 @@
 MODEL (
-  name refapp_28_demo.clinical.conditions,
+  name refapp_28_demo.clin__conditions,
   kind FULL,
   description 'P2 — obs whose question concept is 6042 (PROBLEM ADDED), promoted to conditions with condition_coded rebound via the bridge rule. Expected ~3,642 rows.',
   tags (policy_bucket:seed_augment),
@@ -27,8 +27,8 @@ SELECT
   CAST(NULL AS VARCHAR) AS void_reason,
   UUID() AS uuid,
   s.obs_id AS source_obs_id
-FROM refapp_28_demo.staging.stg__legacy_obs s
-LEFT JOIN refapp_28_demo.seeds.concept_translation ct
+FROM refapp_28_demo.stg_obs s
+LEFT JOIN refapp_28_demo.seed__concept_translation ct
   ON ct.source_concept_id = s.value_coded
 WHERE s.concept_id = 6042
   AND s.value_coded IS NOT NULL

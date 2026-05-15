@@ -1,5 +1,5 @@
 MODEL (
-  name refapp_28_demo.seeds.concept_translation,
+  name refapp_28_demo.seed__concept_translation,
   kind SEED (
     path '../../seeds/concept_translation.csv'
   ),

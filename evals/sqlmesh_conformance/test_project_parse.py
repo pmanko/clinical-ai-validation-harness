@@ -58,9 +58,9 @@ def test_clinical_promotion_models_present():
 
 def test_staging_models_cover_critical_legacy_tables():
     staging = SQLMESH_DIR / "models" / "staging"
-    present = {p.stem for p in staging.glob("stg__legacy_*.sql")}
-    for critical in ("stg__legacy_patient", "stg__legacy_person",
-                     "stg__legacy_encounter", "stg__legacy_obs"):
+    present = {p.stem for p in staging.glob("stg_*.sql")}
+    for critical in ("stg_patient", "stg_person",
+                     "stg_encounter", "stg_obs"):
         assert critical in present, f"missing critical staging model {critical}"
 
 

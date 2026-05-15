@@ -94,10 +94,10 @@ Documented per-rule below; encoded as one ConceptMap element each (FR-029–FR-0
 | Rule | Source selector | Target table | Expected rows (measured) | Field-mapping reference |
 |---|---|---|---|---|
 | P1 (FR-029) | `obs WHERE value_coded.concept.concept_class = 'Drug' AND voided = 0` | `drug_order` | 43,412 | clinical/drug_order.sql + ConceptMap element ext |
-| P2 (FR-030) | `obs WHERE concept_id = 6042 ('PROBLEM ADDED') AND value_coded IS NOT NULL AND voided = 0` | `conditions` | 3,642 | clinical/conditions.sql |
-| P3 (FR-031) | `obs WHERE concept_id IN (6011, 6012, 1083) AND value_coded = 1065 ('YES') AND voided = 0` | `allergy` | 7 | clinical/allergy.sql |
+| P2 (FR-030) | `obs WHERE concept_id = 6042 ('PROBLEM ADDED') AND value_coded IS NOT NULL AND voided = 0` | `conditions` | 4,451 | clinical/conditions.sql |
+| P3 (FR-031) | `obs WHERE concept_id IN (6011, 6012, 1083) AND value_coded = 1065 ('YES') AND voided = 0` | `allergy` | 2 | clinical/allergy.sql |
 | P4 (FR-032) | `obs WHERE concept.concept_class = 'Test' AND concept.concept_datatype = 'Coded' AND voided = 0` | `test_order` | 1,120 | clinical/test_order.sql |
-| (residual) | obs not matched by P1–P4 (after rebind) | `obs` (rebound) | ~428,792 | clinical/obs.sql |
+| (residual) | obs not matched by P1–P4 (after rebind) | `obs` (rebound) | ~428,013 | clinical/obs.sql |
 
 Field mapping per rule is recorded canonically in the ConceptMap element's harness extensions (see `contracts/conceptmap.profile.md`). The SQLMesh model is the executable instantiation; `audit_<table>_row_count` audits enforce the measured-row-count expectation within acceptance tolerance. Cross-cutting decisions (obs-preservation via `obs.order_id`, deterministic UUID v5, vaccine handling, orderer source, sampler strategy) are in `research.md` §R-typed-table-promotion.
 

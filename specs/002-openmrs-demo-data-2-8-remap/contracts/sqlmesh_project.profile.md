@@ -36,7 +36,7 @@ Every model file MUST declare in its `MODEL (...)` block:
 
 | Property | Requirement |
 |---|---|
-| `name` | Fully qualified name `refapp_28_demo.<schema>.<model>` |
+| `name` | Two-part `refapp_28_demo.<prefix>__<model>` (MySQL/MariaDB adapter does not support catalogs; the SQLMesh-on-MySQL convention is `database.table`). Prefixes: `seed__`, `stg__`, `clin__`, `mod__`, `aud__`. |
 | `description` | Reviewer-readable rationale. MUST cite the diff item IDs from `schema_diff.json` that this model resolves (`diff_items_covered:` list inside the description prose). |
 | `tags` | MUST include exactly one of `policy_bucket:remap`, `policy_bucket:drop`, `policy_bucket:install-module`, `policy_bucket:orphan-carry-forward`, `policy_bucket:passthrough` |
 | `audits` | MUST include `unique_values(columns := (<pk>))` and at least one `not_null(columns := (...))` for FK columns where applicable |
