@@ -175,6 +175,26 @@ harness-cli compose down --profile local
 
 Artifact directory under `artifacts/<run-id>/` persists; raw clinical content stays under MariaDB volumes (gitignored).
 
+### 13a. Reset the SQLMesh transform state (when needed)
+
+The SQLMesh metadata schema (`sqlmesh`) and snapshot-data schema (`sqlmesh__refapp_28_demo`) can decouple — most commonly after a MariaDB container restart that reinitializes the metadata schema while leaving snapshot tables in place. The symptom is orphaned views in `refapp_28_demo.*` pointing at snapshot tables SQLMesh no longer tracks. Row counts can silently be wrong.
+
+To recover:
+
+```bash
+make reset-transform           # drops 3 schemas, recreates the target (prompts before drop)
+make reset-transform FORCE=1   # skip the interactive prompt
+make reset-transform PLAN=1    # also chain `sqlmesh plan` after reset
+```
+
+After reset, re-materialize:
+
+```bash
+uv run sqlmesh -p datasets/transforms/sqlmesh plan prod --no-prompts --auto-apply
+```
+
+The `legacy_27_raw` and `openmrs` schemas are NOT touched by reset-transform — only the transform-side state.
+
 ---
 
 ## Common failure modes and where they surface

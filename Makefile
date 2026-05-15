@@ -5,7 +5,8 @@ export UV_PROJECT_ENVIRONMENT
 
 .PHONY: setup python-pin test smoke validate-plan clean-venv \
         up down reset status logs \
-        ciel-fetch ciel-baseline
+        ciel-fetch ciel-baseline \
+        reset-transform
 
 # --- compose lifecycle ---
 up:
@@ -41,6 +42,15 @@ snapshot-baseline:
 # the full openconceptlab import).
 load-baseline:
 	./scripts/load-baseline.sh --version $(CIEL_VERSION)
+
+# --- SQLMesh transform state ---
+# Destructive reset of the transform state (drops refapp_28_demo +
+# sqlmesh__refapp_28_demo + sqlmesh schemas, recreates the target). Use
+# when the SQLMesh state schema has decoupled from the snapshot data
+# schema. Pass FORCE=1 to skip the interactive prompt, PLAN=1 to chain
+# `sqlmesh plan` after the reset.
+reset-transform:
+	./scripts/reset-transform.sh $(if $(FORCE),--force) $(if $(PLAN),--plan)
 
 
 setup:
