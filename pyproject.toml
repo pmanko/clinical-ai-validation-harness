@@ -26,3 +26,10 @@ harness-cli = "harness.cli:main"
 
 [tool.setuptools.packages.find]
 include = ["harness*"]
+
+[tool.pytest.ini_options]
+markers = [
+  "slow: integration tests that take minutes — excluded from default run; included in CI matrix via `pytest -m slow`",
+]
+# Default: skip slow tests. CI re-enables explicitly with `-m slow` or `-m 'slow or not slow'`.
+addopts = "-m 'not slow'"
