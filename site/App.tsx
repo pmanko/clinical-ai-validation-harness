@@ -1,205 +1,181 @@
 import * as React from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
+import { isSection, navTree, neighbors, NavLeaf, NavSection } from './nav';
 
-// Auto-discover every canvas .tsx and every spec .md in specs/. Vite resolves
-// the glob at build time relative to vite.config.ts's root (= site/), so we
-// reach up one level.
+// ---------- raw module discovery (file presence; the IA lives in nav.ts) -----
+
 const canvasModules = import.meta.glob('../specs/**/*.canvas.tsx', { eager: true }) as Record<string, { default: React.ComponentType }>;
-// No `?raw` here: that bypasses our markdown-as-html plugin and we'd lose
-// the rendered `html` export. The plugin transforms .md into a JS module
-// that exports both `raw` (string) and `html` (rendered).
 const specModules   = import.meta.glob('../specs/**/*.md',        { eager: true }) as Record<string, { html?: string; default: string }>;
 const repoMd        = import.meta.glob(['../README.md', '../docs/**/*.md'], { eager: true }) as Record<string, { html?: string; default: string }>;
 
-function toSlug(p: string): string {
-  // ../specs/artifacts/canvases/concept-mapping-discovery.canvas.tsx
-  //   → specs/artifacts/canvases/concept-mapping-discovery
-  // ../specs/002-.../tasks.md
-  //   → specs/002-.../tasks
+function pathToSlug(p: string): string {
   return p.replace(/^\.\.\//, '').replace(/\.canvas\.tsx$/, '').replace(/\.md$/, '').replace(/\.tsx$/, '');
 }
 
-function prettyName(p: string): string {
-  const base = p.split('/').pop() ?? p;
-  return base
-    .replace(/\.canvas\.tsx$|\.md$/g, '')
-    .replace(/[-_]/g, ' ')
-    .replace(/\b\w/g, (c) => c.toUpperCase());
+function findCanvasModule(slug: string) {
+  const key = Object.keys(canvasModules).find((p) => pathToSlug(p) === slug);
+  return key ? canvasModules[key] : undefined;
+}
+function findSpecModule(slug: string) {
+  // "README" maps to ../README.md; "specs/foo/bar" → ../specs/foo/bar.md
+  const target = slug === 'README' ? '../README.md' : `../${slug}.md`;
+  return specModules[target] ?? repoMd[target];
 }
 
-type Entry = { slug: string; group: string; name: string; kind: 'canvas' | 'spec' };
+// ---------- sidebar tree ----------------------------------------------------
 
-const canvases: Entry[] = Object.keys(canvasModules).sort().map((p) => ({
-  slug: toSlug(p),
-  group: p.replace(/^\.\.\//, '').split('/').slice(0, -1).join('/') || 'specs',
-  name: prettyName(p),
-  kind: 'canvas',
-}));
+function SidebarSection({ section, depth }: { section: NavSection; depth: number }) {
+  const isTop = depth === 0;
+  const storageKey = `nav.collapsed.${depth}.${section.title}`;
+  const initialCollapsed = section.collapsed === true && depth > 0;
+  const [collapsed, setCollapsed] = React.useState(() => {
+    if (typeof window === 'undefined') return initialCollapsed;
+    const stored = window.localStorage.getItem(storageKey);
+    return stored === null ? initialCollapsed : stored === '1';
+  });
+  React.useEffect(() => {
+    if (typeof window !== 'undefined') window.localStorage.setItem(storageKey, collapsed ? '1' : '0');
+  }, [storageKey, collapsed]);
 
-const specs: Entry[] = [...Object.keys(specModules), ...Object.keys(repoMd)].sort().map((p) => ({
-  slug: toSlug(p),
-  group: p.replace(/^\.\.\//, '').split('/').slice(0, -1).join('/') || '(root)',
-  name: prettyName(p),
-  kind: 'spec',
-}));
+  return (
+    <div className={`nav-section depth-${depth}`}>
+      <button
+        type="button"
+        className={`nav-section-header${isTop ? ' top' : ''}`}
+        onClick={() => setCollapsed((c) => !c)}
+        aria-expanded={!collapsed}
+      >
+        <span className="caret">{collapsed ? '▸' : '▾'}</span>
+        <span className="nav-section-title">{section.title}</span>
+      </button>
+      {!collapsed && (
+        <div className="nav-section-children">
+          {section.items.map((it, i) => isSection(it)
+            ? <SidebarSection key={`s-${i}-${it.title}`} section={it} depth={depth + 1} />
+            : <SidebarLeaf  key={`l-${i}-${it.slug}`}    leaf={it} />)}
+        </div>
+      )}
+    </div>
+  );
+}
 
-function groupBy<T>(items: T[], key: (t: T) => string): Record<string, T[]> {
-  const out: Record<string, T[]> = {};
-  for (const it of items) {
-    const k = key(it);
-    (out[k] ??= []).push(it);
-  }
-  return out;
+function SidebarLeaf({ leaf }: { leaf: NavLeaf }) {
+  const to = leaf.kind === 'home' ? '/'
+    : leaf.kind === 'canvas' ? `/canvas/${leaf.slug}`
+    : `/spec/${leaf.slug}`;
+  return (
+    <NavLink to={to} end={leaf.kind === 'home'} className={({ isActive }) => `nav-leaf${isActive ? ' active' : ''}${leaf.kind === 'canvas' ? ' canvas' : ''}`}>
+      {leaf.kind === 'canvas' && <span className="nav-leaf-badge">canvas</span>}
+      <span className="nav-leaf-title">{leaf.title}</span>
+    </NavLink>
+  );
 }
 
 function Sidebar() {
-  const canvasGroups = groupBy(canvases, (e) => e.group);
-  const specGroups = groupBy(specs, (e) => e.group);
   return (
     <aside className="sidebar">
-      <div className="sidebar-section">
-        <Link to="/welcome" className="sidebar-brand">clinical-ai-validation-harness</Link>
-      </div>
-      <div className="sidebar-section">
-        <div className="sidebar-section-label">Canvases</div>
-        {Object.entries(canvasGroups).map(([group, entries]) => (
-          <div key={group} className="sidebar-group">
-            <div className="sidebar-group-label">{group}</div>
-            {entries.map((e) => (
-              <NavLink key={e.slug} to={`/canvas/${e.slug}`} className={({ isActive }) => `sidebar-link${isActive ? ' active' : ''}`}>
-                {e.name}
-              </NavLink>
-            ))}
-          </div>
-        ))}
-      </div>
-      <div className="sidebar-section">
-        <div className="sidebar-section-label">Specs &amp; Docs</div>
-        {Object.entries(specGroups).map(([group, entries]) => (
-          <div key={group} className="sidebar-group">
-            <div className="sidebar-group-label">{group}</div>
-            {entries.map((e) => (
-              <NavLink key={e.slug} to={`/spec/${e.slug}`} className={({ isActive }) => `sidebar-link${isActive ? ' active' : ''}`}>
-                {e.name}
-              </NavLink>
-            ))}
-          </div>
-        ))}
-      </div>
+      <Link to="/" className="sidebar-brand">clinical-ai-validation-harness</Link>
+      <div className="sidebar-sub">Planning artifacts &amp; canvases</div>
+      <nav className="sidebar-nav">
+        {navTree.map((s, i) => <SidebarSection key={`top-${i}-${s.title}`} section={s} depth={0} />)}
+      </nav>
     </aside>
   );
 }
 
-function blurbForCanvas(slug: string): string | undefined {
-  const map: Record<string, string> = {
-    'specs/roadmap':
-      'Top-level feature roadmap. Lanes, priorities, dependency graph.',
-    'specs/artifacts/canvases/concept-mapping-discovery':
-      'M2-A — the legacy 2.7 → CIEL bridge. Transform pipeline, promotion rules, blockers, open decisions.',
-    'specs/artifacts/canvases/validation-research':
-      'Validation research foundation. Lanes, primitives, evals, the run-manifest spine.',
-    'specs/artifacts/canvases/cross-project-comparison':
-      'Side-by-side architecture of chartsearchai, openmrs_chatbot, Catalyst.',
-    'specs/artifacts/canvases/clinical-ai-research-guidance':
-      'Clinical-AI research vectors, evidence levels, maturity framing.',
-  };
-  return map[slug];
+// ---------- views -----------------------------------------------------------
+
+function HomeView() {
+  const mod = findSpecModule('README');
+  const html = mod?.html ?? '';
+  return (
+    <div className="content-prose">
+      <div dangerouslySetInnerHTML={{ __html: html }} />
+      <hr />
+      <h2>Where to go from here</h2>
+      <div className="card-grid">
+        {navTree.flatMap((section) =>
+          section.items.filter((x): x is NavLeaf => !isSection(x))
+            .filter((x) => x.kind !== 'home')
+            .map((leaf) => (
+              <Link
+                key={section.title + ':' + leaf.slug}
+                to={leaf.kind === 'canvas' ? `/canvas/${leaf.slug}` : `/spec/${leaf.slug}`}
+                className="dispatch-card"
+              >
+                <div className="dispatch-card-pill">{leaf.kind === 'canvas' ? 'canvas' : section.title.toLowerCase()}</div>
+                <div className="dispatch-card-title">{leaf.title}</div>
+                {leaf.blurb && <div className="dispatch-card-blurb">{leaf.blurb}</div>}
+              </Link>
+            ))
+        )}
+      </div>
+    </div>
+  );
 }
 
-const docGroups: Array<{ label: string; pred: (g: string) => boolean }> = [
-  { label: 'Repository overview',     pred: (g) => g === '(root)' || g === 'docs' },
-  { label: 'Feature 001 (M0)',        pred: (g) => g.includes('001-harness-control-plane') },
-  { label: 'Feature 002 (M2-A)',      pred: (g) => g.includes('002-openmrs-demo-data-2-8-remap') && !g.includes('contracts') && !g.includes('checklists') },
-  { label: 'Feature 002 contracts',   pred: (g) => g.includes('002-openmrs-demo-data-2-8-remap/contracts') },
-  { label: 'Feature 002 checklists',  pred: (g) => g.includes('002-openmrs-demo-data-2-8-remap/checklists') },
-  { label: 'Planning artifacts',      pred: (g) => g.includes('artifacts/planning') },
-  { label: 'Sibling-project context', pred: (g) => g.includes('artifacts/sibling-context') },
-  { label: 'Handoffs',                pred: (g) => g.includes('artifacts/handoffs') },
-];
-
-function Welcome() {
+function NotFoundView({ what }: { what: string }) {
   return (
-    <div className="landing">
-      <header className="landing-hero">
-        <div className="landing-hero-eyebrow">clinical-ai-validation-harness</div>
-        <h1>Planning artifacts &amp; canvases</h1>
-        <p>
-          Public reading view for the harness's specs and canvases. Auto-deployed from <code>main</code>.
-          The canvases here are rendered via a plain-React polyfill of <code>cursor/canvas</code>;
-          for the authoritative version, open the matching <code>.canvas.tsx</code> in Cursor.
-        </p>
-        <div className="landing-stat-row">
-          <div className="landing-stat"><span className="n">{canvases.length}</span> <span className="l">canvases</span></div>
-          <div className="landing-stat"><span className="n">{specs.length}</span> <span className="l">specs &amp; docs</span></div>
-          <div className="landing-stat"><span className="n">5</span> <span className="l">tracked sibling projects</span></div>
-        </div>
-      </header>
-
-      <section className="landing-section">
-        <h2>Canvases</h2>
-        <p className="landing-section-sub">Topic-scoped visual dashboards. Each canvas is a single <code>.canvas.tsx</code> rendered by the polyfill.</p>
-        <div className="card-grid">
-          {canvases.map((c) => (
-            <Link key={c.slug} to={`/canvas/${c.slug}`} className="dispatch-card">
-              <div className="dispatch-card-pill">canvas</div>
-              <div className="dispatch-card-title">{c.name}</div>
-              <div className="dispatch-card-blurb">{blurbForCanvas(c.slug) ?? c.group}</div>
-              <div className="dispatch-card-path">{c.group}</div>
-            </Link>
-          ))}
-        </div>
-      </section>
-
-      <section className="landing-section">
-        <h2>Specs &amp; docs</h2>
-        <p className="landing-section-sub">26 markdown files: spec.md, plan.md, tasks.md, research.md, contracts, planning artifacts.</p>
-        {docGroups.map(({ label, pred }) => {
-          const items = specs.filter((s) => pred(s.group));
-          if (items.length === 0) return null;
-          return (
-            <div className="doc-group" key={label}>
-              <h3>{label}</h3>
-              <ul className="doc-list">
-                {items.map((s) => (
-                  <li key={s.slug}>
-                    <Link to={`/spec/${s.slug}`}>{s.name}</Link>
-                    <span className="doc-path">{s.group.replace(/^specs\//, '')}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          );
-        })}
-      </section>
+    <div className="content-prose">
+      <h1>Not found</h1>
+      <p>No <code>{what}</code> matches that URL. <Link to="/">Back to home</Link>.</p>
     </div>
   );
 }
 
 function CanvasView({ slug }: { slug: string }) {
-  // Find the entry whose canonical slug matches.
-  const moduleKey = Object.keys(canvasModules).find((p) => toSlug(p) === slug);
-  if (!moduleKey) {
-    return <div className="content-prose"><h1>Canvas not found</h1><p>No canvas registered for <code>{slug}</code>.</p></div>;
-  }
-  const Comp = canvasModules[moduleKey].default;
+  const mod = findCanvasModule(slug);
+  if (!mod) return <NotFoundView what="canvas" />;
+  const Comp = mod.default;
   return (
     <div className="canvas-frame">
       <Comp />
+      <PrevNext slug={slug} />
     </div>
   );
 }
 
 function SpecView({ slug }: { slug: string }) {
-  const moduleKey = [...Object.keys(specModules), ...Object.keys(repoMd)].find((p) => toSlug(p) === slug);
-  if (!moduleKey) {
-    return <div className="content-prose"><h1>Document not found</h1><p>No markdown file registered for <code>{slug}</code>.</p></div>;
-  }
-  const mod = (specModules[moduleKey] ?? repoMd[moduleKey]);
+  const mod = findSpecModule(slug);
+  if (!mod) return <NotFoundView what="document" />;
   const html = mod.html ?? '';
   return (
-    <div className="content-prose" dangerouslySetInnerHTML={{ __html: html }} />
+    <div className="content-prose">
+      <div dangerouslySetInnerHTML={{ __html: html }} />
+      <PrevNext slug={slug} />
+    </div>
   );
 }
+
+function PrevNext({ slug }: { slug: string }) {
+  const { prev, next } = neighbors(slug);
+  if (!prev && !next) return null;
+  const toFor = (leaf: NavLeaf) => leaf.kind === 'canvas' ? `/canvas/${leaf.slug}` : leaf.kind === 'home' ? '/' : `/spec/${leaf.slug}`;
+  return (
+    <div className="prev-next">
+      {prev ? (
+        <Link to={toFor(prev)} className="prev-next-link prev-next-prev">
+          <span className="prev-next-arrow">←</span>
+          <span className="prev-next-text">
+            <span className="prev-next-label">previous</span>
+            <span className="prev-next-title">{prev.title}</span>
+          </span>
+        </Link>
+      ) : <span />}
+      {next ? (
+        <Link to={toFor(next)} className="prev-next-link prev-next-next">
+          <span className="prev-next-text">
+            <span className="prev-next-label">next</span>
+            <span className="prev-next-title">{next.title}</span>
+          </span>
+          <span className="prev-next-arrow">→</span>
+        </Link>
+      ) : <span />}
+    </div>
+  );
+}
+
+// ---------- top app -------------------------------------------------------
 
 export default function App() {
   const loc = useLocation();
@@ -208,10 +184,10 @@ export default function App() {
   const slug = rest.join('/');
 
   let main: React.ReactNode;
-  if (!kind || kind === 'welcome') main = <Welcome />;
-  else if (kind === 'canvas') main = <CanvasView slug={slug} />;
-  else if (kind === 'spec')    main = <SpecView slug={slug} />;
-  else main = <Welcome />;
+  if (!kind || kind === 'welcome')      main = <HomeView />;
+  else if (kind === 'canvas')           main = <CanvasView slug={slug} />;
+  else if (kind === 'spec')             main = <SpecView slug={slug} />;
+  else                                  main = <HomeView />;
 
   return (
     <div className="layout">
