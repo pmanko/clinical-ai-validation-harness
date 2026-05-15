@@ -133,8 +133,10 @@ A validation lead wants the same source corpus analyzed for which clinical slice
 #### Mapping authority and review
 
 - **FR-006**: The system MUST keep LLM-produced mapping proposals strictly advisory; they MUST be written to a clearly labelled advisory artifact path and MUST NOT be consumed by transform steps.
-- **FR-007**: The system MUST require accepted mappings to live in reviewed configuration under `datasets/mappings/` (path canonical; file extension determined by the chosen standard), with each accepted entry carrying reviewer rationale and the source-record example that justified it.
-- **FR-008**: The system MUST refuse to execute the transform stage if the accepted mapping does not cover every difference flagged in the schema/metadata diff as clinically meaningful (configurable severity threshold reviewed by a human; see research.md §R5 for the working threshold rule that the reviewer confirms at M2-A signoff), and MUST list the uncovered items.
+- **FR-007**: The system MUST require accepted mappings to live in reviewed configuration under `datasets/mappings/` (path canonical; file extension determined by the chosen standard). The accepted ConceptMap (`openmrs-2.7-to-2.8.conceptmap.json`) is a small file: **(a) one identity-bridge element** that maps the entire source concept-id space to the seeded-CIEL space via a single deterministic rule (see research.md §R-bridge-rule), plus **(b) one element per structural promotion rule** (one per typed clinical table the transform synthesizes from `obs` — see FR-029–FR-032). Each element MUST carry reviewer rationale and a source-record example. A companion `datasets/mappings/openmrs-2.7-to-2.8.review.md` records per-element rationale plus the schema-diff-items-to-models index required by `contracts/sqlmesh_project.profile.md`.
+- **FR-008**: Coverage gates for the transform — split into one hard determinism gate and one iterative-review gate:
+  - **(a) Identity-rebind coverage (hard, deterministic).** The transform MUST refuse to execute when any legacy concept_id referenced by ≥1 source record has no entry in `concept_translation.csv`. Coverage is measured 100% on the current corpus (457 / 457 distinct obs-referenced concepts via the §R-bridge-rule UUID pattern); any future drop in coverage is a determinism failure and halts the transform.
+  - **(b) Structural-diff coverage (iterative).** The transform MUST list every schema/metadata-diff item flagged `clinical_meaningful: true` (per research.md §R5) that is not covered by an accepted ConceptMap element, a `policy:drop` row in `module_table_policy.csv`, or a `policy:carry-forward` row. Reviewer + project-owner decide iteratively whether to advance, drop, or extend coverage. This is demo-data — validation loops on iteration, not on pre-flight gate hardness.
 
 #### Concept dictionary and terminology translation
 
@@ -187,6 +189,19 @@ A validation lead wants the same source corpus analyzed for which clinical slice
 - **FR-026**: The chosen mapping format MUST be **executable by an existing open-source transformation/mapping tool or runtime**; the harness integrates with that tool through the M0 adapter contract rather than implementing a bespoke executor for the mapping grammar. The plan MUST identify the tool/runtime, its version pin, and the adapter invocation contract.
 - **FR-027**: Terminology mappings (e.g., source concept ↔ target concept, source reference term ↔ target reference term) MUST be representable in a **published terminology-mapping standard** (such as a FHIR R4 ConceptMap resource or equivalent), regardless of which mapping language is chosen for structural transforms. This keeps terminology decisions interoperable with downstream clinical tooling and with the OpenELIS skeleton.
 - **FR-028**: The harness MUST emit, alongside accepted mapping artifacts, a small set of **conformance tests** that the chosen standard's tool can run against the artifacts to verify they parse and execute under that tool's stated semantics, so that "valid mapping" is defined by the standard's tool rather than by harness-internal checking only.
+
+### Structural promotion (obs → typed clinical tables)
+
+- **FR-029** — The transform MUST synthesize typed clinical rows from `obs` per the rules in the table below (P1–P4). Each rule is encoded as one structural-promotion element in the accepted ConceptMap (FR-007) and as one SQLMesh model under `datasets/transforms/sqlmesh/models/clinical/`. Field mapping is canonical in `data-model.md` §R-promotion-rules; cross-cutting decisions (obs preservation, UUID strategy, vaccine handling, orderer source, sampler strategy) are in research.md §R-typed-table-promotion.
+
+  | Rule | Selector (from `obs`, voided=0) | Target table | Measured rows |
+  |---|---|---|---|
+  | **P1** | `value_coded.concept_class = 'Drug'` | `drug_order` | ~43,412 |
+  | **P2** | `concept_id = 6042` ('PROBLEM ADDED') | `conditions` | ~3,642 |
+  | **P3** | `concept_id IN (6011, 6012, 1083) AND value_coded = 1065 ('YES')` | `allergy` | 7 |
+  | **P4** | `concept.concept_class = 'Test' AND concept.concept_datatype = 'Coded'` | `test_order` | ~1,120 |
+
+  Source rows are preserved and back-linked via `obs.order_id`. Row counts above are signals to report in `transform.report.json` for iterative review, not exact-match gates.
 
 ### Key Entities
 
@@ -247,3 +262,29 @@ A validation lead wants the same source corpus analyzed for which clinical slice
 - The source SQL dump is a publicly-published, cleaned, anonymized OpenMRS demo corpus; no PHI risk attaches to it and no anonymization or credential-reset work is required as part of this feature.
 - Reviewers (engineering plus, where clinical interpretation matters, a clinically informed reviewer) are available to sign off on accepted mappings and PCCP-style change records; their identity is recorded.
 - Validation of the candidate database depends on real OpenMRS and OpenELIS startup paths being executable from the harness; if a real path cannot run in a given environment, the run is labelled development scaffolding and excluded from release evidence.
+- **Demo-data posture**: this is demo data, not a production migration. Replication + determinism (SC-004) stay non-negotiable — two runs of the same inputs produce identical transform outputs. Validation is **iterative**: run the transform, inspect outputs, adjust the ConceptMap or a model, re-run. Acceptance is a consensus-guided review with the project owner; heavyweight PCCP records (FR-023) are reserved for changes that materially affect downstream consumers (chartsearchai, OpenELIS), not for per-rule tuning during M2-A iteration.
+
+## Implementation Status
+
+Live snapshot of progress against the milestones above. Detail is in `tasks.md`; measured signals are kept here because they shape FR-007/008/029.
+
+| Milestone | Status | Evidence |
+|---|---|---|
+| Operator infra (T000a–g) | ✅ done | PRs #5, #6 |
+| Public docs site (T000h–k) | ✅ done | PRs #6–9; live at `pmanko.github.io/clinical-ai-validation-harness/` |
+| Profile inventory (T021) | ✅ done | `artifacts/legacy-27-raw-baseline/profile/inventory.json`, dump sha256 `a7ca4bbe…` |
+| CIEL load + snapshot (T024a/b) | ✅ done | `datasets/sources/ocl/CIEL/v2026-04-28/` |
+| CIEL import-error audit (T024c) | ✅ done | `artifacts/dev-20260514-212318/profile/ciel-import-errors.json` |
+| Foundational (T001–T016) | ⏳ next | deps, manifest extensions, ConceptMap loader |
+| Accepted ConceptMap + seeds | ⏳ pending | drives the SQLMesh transform |
+| SQLMesh transform | ⏳ pending | produces `refapp_28_demo.sql` |
+| Loadback + sampler | ⏳ pending | clinician opens O3, sees rebound + promoted rows |
+| Schema diff + M2-A gate | ⏳ pending | closes FR-008(b) iteration |
+
+### Measured signals driving FR-007/008/029
+
+**Source corpus** (T021): 5,284 patients · 476,973 obs · 14,316 encounters · 0 rows in `allergy`/`conditions`/`orders`/`drug_order` · 0 reference_map rows · 457 distinct concept ids referenced in `obs`.
+
+**Bridge rule coverage** (live join): **457 / 457 (100%)** of obs-referenced concepts resolve to a CIEL concept via `uuid = RPAD(CAST(legacy.concept_id AS CHAR), 36, 'A')`. Drives FR-008(a) — see `research.md` §R-bridge-rule.
+
+**CIEL import** (T024c): 358,026 items, 133 errors (**0.0371%**, under 0.1% gate). 23 root concepts; **0 overlap** with the 457 legacy-referenced concepts → non-blocking. See `research.md` §R-Import-Error-Tolerance.

@@ -238,7 +238,14 @@ For the RefApp, the wiki points to the `referencedemodata.createDemoPatientsOnNe
 
 The openconceptlab module imports CIEL items (concepts, names, descriptions, mappings, reference terms, etc.) one at a time. A small percentage routinely fail — typical causes include foreign-key references to retired concepts, locale mismatches against the deployment's allowed-locales list, custom-validation-schema violations (CIEL uses `custom_validation_schema: "OpenMRS"`, so most errors are minor metadata issues), or concept-class definitions that already differ from what the deployment has.
 
-Observed: live import of CIEL `v2026-04-28` against a fresh O3 RefApp baseline reported **73 errors out of 207,511 items (~0.035%)** at 98% progress.
+**Final measurement (2026-05-14, T024c output `artifacts/dev-20260514-212318/profile/ciel-import-errors.json`)**: full import of CIEL `v2026-04-28` against the harness O3 RefApp baseline reported **133 errors out of 358,026 items (0.0371%)**.
+
+- **23 distinct CIEL canonical IDs implicated** (root causes; 109 of 133 errors are cascading mapping failures whose `error_message` references the same 23 unimported concepts).
+- **All 23 root failures are duplicate-name-in-locale validations** (e.g. `exantema súbito` es, `Quinine sulfate` en, `Phosphate de chloroquine` fr — CIEL FSN collisions the OpenMRS Hibernate validator rejects).
+- **Top blockers**: `160034` (10×), `71917` (9×), `78200` (7×), `118492` (7×), `115427` (7×) — concentrated cascade.
+- **Overlap with the 457 obs-referenced concepts in legacy_27_raw**: **0**. The 23 failed CIEL IDs are entirely in CIEL's long tail; non-blocking for this dataset.
+
+(Earlier observation in this document noted ~73 errors / 207k items at 98% progress; the final measurement above replaces it.)
 
 **Decision**: For M2-A, acceptable error rate is **≤ 0.1% of total CIEL items**. Above that threshold, M2-A's gate refuses to advance to M2-C until the errors are enumerated and either (a) accepted with rationale or (b) repaired by adjusting the openconceptlab subscription / validation settings / locale config.
 
@@ -282,3 +289,59 @@ Stable normalizations are documented in `contracts/run_manifest.schema.json` and
 - **OpenELIS↔OpenMRS demo (OpenHIE)**: production pattern is FHIR APIs + LOINC, not any heavyweight ETL framework — confirms that "structural-transform tool choice" is a harness-internal concern, not an OpenMRS community convention to match. (Source: OpenHIE discourse thread.)
 
 **All NEEDS CLARIFICATION items resolved. Proceed to Phase 1.**
+
+---
+
+## R-bridge-rule. Legacy concept-id ↔ seeded CIEL identity bridge (M2-A discovery, 2026-05-14)
+
+**Decision**: The accepted ConceptMap's identity-rebind for legacy→seeded-CIEL terminology is **one rule, not a per-concept curated table**:
+
+```
+target_concept_id = (SELECT concept_id FROM openmrs.concept
+                     WHERE uuid = RPAD(CAST(legacy.concept_id AS CHAR), 36, 'A'))
+```
+
+i.e., the seeded-CIEL concept whose UUID is the legacy `concept_id` left-padded by `A` to 36 chars. This rule is materialized into the SQLMesh seed `concept_translation.csv` as one row per distinct legacy `concept_id` present in `legacy_27_raw.concept` (~2,528 rows); the SQLMesh `audit_concept_translation_coverage` audit gates the M2-A acceptance bar at 100% coverage of obs-referenced concepts.
+
+**How the discovery was made**:
+1. T021 (`harness/profile/inventory.py`) produced `artifacts/legacy-27-raw-baseline/profile/inventory.json` — 5,284 patients / 476,973 obs / 52 populated tables / 0 reference_map rows / **0 rows in the four typed clinical tables**.
+2. Manual probing during the M2-A canvas authoring showed that the legacy concept dictionary uses AMPATH-style numbering: `concept_id=5088` = "TEMPERATURE (C)", `concept_id=5089` = "WEIGHT (KG)", etc. — the same canonical IDs CIEL uses.
+3. CIEL concepts in `openmrs.concept` carry UUIDs in the pattern `<canonical_id>AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA` (32 As after the integer). Reproduction in `data-model.md` §R-bridge-rule shows the JOIN and the 100% coverage result.
+4. FSN strings match across the two dictionaries modulo case: legacy is uppercase AMPATH-style ("TEMPERATURE (C)"); CIEL is title-case ("Temperature (c)"). Same semantic concept.
+
+**Rationale**:
+- Removes the largest authoring burden the original spec/plan implied ("hundreds-to-thousands of curated mappings reviewed one at a time"). The actual remaining authoring surface for terminology is **zero per-concept rows** — every concept is identity-rebound. Per-row authoring is reserved for structural promotions (§R-typed-table-promotion).
+- Preserves SC-004 (byte-identical re-runs): the bridge is a pure SQL function of `legacy.concept_id`, deterministic by construction.
+- Preserves FR-007 reviewer rationale requirement: the ConceptMap carries one identity-bridge element with reviewer rationale citing this section; the per-row seed CSV is regenerable from that one element.
+- Does not weaken FR-008: the SQLMesh `audit_concept_translation_coverage` audit emits any unmapped concept as a failing row and halts the pipeline. The 100% measurement above is on the current corpus's obs-referenced set; an unmatched concept on any future input would surface immediately.
+
+**Alternatives considered**:
+- Per-concept curated rows (the original framing): defensible but unnecessary given the measured 100% identity coverage; would inflate the ConceptMap artifact and add review friction without changing the deterministic output.
+- Reference-term-based bridging (LOINC / SNOMED CT codes): not viable for legacy_27_raw — `concept_reference_map` is empty (0 rows) per T021. Reserved for §R-typed-table-promotion edge cases and for the OpenELIS skeleton (M2-H).
+- Name-based fuzzy matching: rejected — non-deterministic; would violate SC-004.
+
+> **Status**: confirmed against measured corpus + CIEL `v2026-04-28`. Sole risk: a future input concept whose UUID doesn't match the canonical CIEL pattern. The `audit_concept_translation_coverage` audit catches this at transform time.
+
+## R-typed-table-promotion. obs → typed clinical tables (M2-A canvas, 2026-05-14)
+
+**Decision**: The four target typed clinical tables (`allergy`, `conditions`, `orders`/`test_order`, `drug_order`) are empty in the source dump (measured: 0 rows each); the transform synthesizes typed rows from `obs` via four selector rules. The rules are encoded as one ConceptMap element each (FR-029–FR-032) and as one SQLMesh model each (`datasets/transforms/sqlmesh/models/clinical/{drug_order,conditions,allergy,test_order}.sql`).
+
+The five cross-cutting decisions below are the project's defaults; documented here so reviewers don't re-derive them at each model.
+
+| | Question | Decision (default) | Rationale |
+|---|---|---|---|
+| **Q1** | When obs → typed row, do we DELETE the obs or KEEP it with `obs.order_id` linkback? | **KEEP both.** `obs.order_id` already exists in the 2.7 schema (carries over to 2.8). | chartsearchai indexes obs; refapp UI reads typed tables. Both win. Preserves provenance. |
+| **Q2** | UUID strategy on promoted rows? | **UUID v5 with namespace `harness-002-promotion`** derived from `(obs.uuid, target_table)`. | Reproducibility across re-runs (SC-004); fresh v4 would break determinism. |
+| **Q3** | Vaccines (~3,045 of the 43,412 Drug-class answers) as `drug_order` or Immunization shape? | **Emit all as `drug_order`** with an attribute hint distinguishing vaccines. | OpenMRS 2.8 has no immunization table by default. FHIR read-side projects vaccines to FHIR Immunization at read time; record-side stays on `drug_order`. |
+| **Q4** | Orderer field source on promoted orders? | **`encounter_provider` for the matching encounter**; fallback `obs.creator`. | Source `obs` has no provider FK. `encounter_provider` is the best-available proxy in this corpus (one provider per encounter). |
+| **Q5** | `coverage_sample` sampling strategy per rule (FR-015)? | **5 records per (concept_class × datatype × value_class) cohort** × 5 buckets (rebound obs + 4 typed targets); deterministic `sampler_seed` recorded in `run_manifest.json`. | Per-class spread keeps the sample diverse; deterministic seed satisfies SC-004 across runs. |
+
+**Per-rule field mapping** (target column ← source expression) is recorded canonically in the ConceptMap element's harness extensions (see `contracts/conceptmap.profile.md`). Each rule's SQLMesh model under `models/clinical/` instantiates it.
+
+**Rationale**: The 4 rules are the only structural per-row authoring the M2-A reviewer signs off on; all other terminology decisions ride on §R-bridge-rule. This bounds the human-review surface to a tractable handful of rules with measured row counts, and concentrates the policy debate into the five Q1–Q5 cells.
+
+**Alternatives considered**:
+- Promote any obs whose `value_coded.class` matches a target-bucket class (without the question-concept filters in P2/P3/P4): too noisy; would emit "diagnosis observed on review" obs as new conditions, "yes I do have allergies" boolean answers as allergy rows, etc.
+- Per-form mapping (route forms to specific target tables): more granular but the demo corpus's form metadata is sparse; class-based routing is more robust.
+
+> **Status**: open questions tracked per-rule in `specs/artifacts/canvases/concept-mapping-discovery.canvas.tsx` (the B5 deep-dive panels). Defaults above are the M2-A acceptance baseline. **Demo-data validation posture**: deviations are reviewed iteratively with the project owner (consensus-guided), not gated through a heavyweight PCCP record. PCCP remains available for changes that materially affect downstream consumers; for per-rule tuning during M2-A iteration, recording the decision in the ConceptMap element's `comment` field is sufficient.

@@ -41,6 +41,19 @@ Harness/control-plane layout per plan.md §Project Structure. New 002 modules li
 
 ---
 
+## Phase 0.6: Public docs site (retroactive — already landed)
+
+**Purpose**: collaborator-facing reading view of the spec + canvases. Deployed from `main` to GitHub Pages at `https://pmanko.github.io/clinical-ai-validation-harness/` via `.github/workflows/pages.yml`.
+
+- [X] T000h Public docs site scaffold: `site/` directory with Vite + React + a `cursor/canvas` polyfill (`site/cursor-canvas.tsx`) implementing the ~20 components used by the 5 `.canvas.tsx` files. Uses `dagre` for `computeDAGLayout`, `recharts` for `BarChart`, static dark theme matching the in-Cursor look. Resolves alias `cursor/canvas → ./cursor-canvas.tsx` at build time so canvases in `specs/` import the polyfill without modification.
+- [X] T000i Markdown render pipeline: inline Vite plugin in `site/vite.config.ts` transforms `.md` files into modules exporting `{ raw, html }` via `marked`. `SpecView` consumes `mod.html`.
+- [X] T000j Curated information architecture: `site/nav.ts` encodes the navigation tree (Start here / Active features / Cross-cutting canvases / Planning artifacts / Sibling-project context). `site/App.tsx` renders a collapsible-tree sidebar with state persisted in localStorage. Prev/next walks the canonical doc order.
+- [X] T000k Welcome dashboard + GH Pages deploy: hero stats, canvas card grid, doc lists grouped by nav section. `.github/workflows/pages.yml` builds + deploys on push to `main` using `actions/deploy-pages@v4`. Pages enabled with source = GitHub Actions.
+
+**Checkpoint**: `cd site && npm run dev` opens the local dashboard; push to `main` deploys.
+
+---
+
 ## Phase 1: Setup (Shared Infrastructure)
 
 **Purpose**: Project dependencies, tooling, and directory scaffolding 002 needs in addition to the M0 control-plane primitives.
@@ -163,7 +176,11 @@ Harness/control-plane layout per plan.md §Project Structure. New 002 modules li
 - [ ] T048 [P] [US1] Create `datasets/transforms/sqlmesh/config.yaml` per `contracts/sqlmesh_project.profile.md`: gateway `harness` pointing at MariaDB via environment vars, default gateway, model defaults
 - [ ] T049 [P] [US1] Create staging models under `datasets/transforms/sqlmesh/models/staging/` — one model per source table (1:1 copy from `legacy_27_raw.<table>` into `refapp_28_demo`), each with description, policy_bucket tag, audits
 - [ ] T050 [US1] Create terminology model `datasets/transforms/sqlmesh/models/terminology/concept_translation_applied.sql` that consumes the `concept_translation` seed and produces a mapped reference for clinical models. Depends on T039 (seed emitted).
-- [ ] T051 [US1] Create clinical models under `datasets/transforms/sqlmesh/models/clinical/`: one per `obs`, `conditions`, `diagnosis`, `allergy`, `drug_order`, `encounter_diagnosis`, each joining staging to terminology and emitting translated concept references. Depends on T049, T050.
+- [ ] T051 [US1] Create clinical models under `datasets/transforms/sqlmesh/models/clinical/`: one per `obs`, `conditions`, `diagnosis`, `allergy`, `drug_order`, `encounter_diagnosis`, each joining staging to terminology and emitting translated concept references. Depends on T049, T050. **Sub-tasks for the 4 structural promotions** (per spec FR-029 and `data-model.md` §R-promotion-rules):
+  - [ ] T051a [US1] `models/clinical/drug_order.sql` (P1) — `obs WHERE value_coded.concept_class = 'Drug'` → drug_order. Expected ~43,412 rows.
+  - [ ] T051b [US1] `models/clinical/conditions.sql` (P2) — `obs WHERE concept_id = 6042` (PROBLEM ADDED) → conditions. Expected ~3,642 rows.
+  - [ ] T051c [US1] `models/clinical/allergy.sql` (P3) — `obs WHERE concept_id IN (6011, 6012, 1083) AND value_coded = 1065` (YES) → allergy. Expected ~7 rows.
+  - [ ] T051d [US1] `models/clinical/test_order.sql` (P4) — `obs WHERE concept.concept_class = 'Test' AND datatype = 'Coded'` → test_order. Expected ~1,120 rows.
 - [ ] T052 [US1] Create module-policy models under `datasets/transforms/sqlmesh/models/modules/`: orphan-carry-forward / drop / install-module / remap per module per `seeds/module_table_policy.csv`. Author the policy CSV alongside.
 - [ ] T053 [US1] Create audit views under `datasets/transforms/sqlmesh/models/audit_views/`: row-level audit with equivalence-label decoration (source_table, source_pk, target_table, target_pk, policy_bucket, equivalence_label)
 - [ ] T054 [P] [US1] Create SQLMesh audits under `datasets/transforms/sqlmesh/audits/`: ConceptMap-coverage cross-audit, FK-closure cross-audit, policy-bucket-coverage cross-audit, plus per-model unique/not-null audits

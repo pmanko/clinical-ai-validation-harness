@@ -10,6 +10,15 @@ This is a **profile** of FHIR R4 ConceptMap — i.e., it tightens the standard's
 
 The ConceptMap describes the translation from the 2.7 source dump's concept dictionary to the O3 RefApp's seeded CIEL dictionary (running on Core 2.8.x). CIEL via OCL is the terminology authority; LOINC/SNOMED/ICD-10/RxNorm are referenced terminologies; FHIR R4 ConceptMap is the *grammar*.
 
+### Expected shape (M2-A discovery)
+
+For feature 002 the accepted ConceptMap is small:
+
+1. **One identity-bridge element** that encodes the UUID-pattern rule from `data-model.md` §R-bridge-rule (legacy `concept_id N` ↔ seeded CIEL `uuid = RPAD(N, 36, 'A')`). At seed-emit time this single element expands to one `concept_translation.csv` row per distinct legacy concept_id present in the source dump (~2,528 rows against the current corpus). `equivalence='equal'`, `policy-bucket='remap'`.
+2. **Four structural-promotion elements** (P1–P4 per spec FR-029) — one per typed clinical table the transform synthesizes from `obs`. Each promotion element carries its selector SQL + target table + field mapping in harness extensions (see below). `equivalence='inexact'` (target is a structural shape, not a code), `policy-bucket='seed-augment'`.
+
+That's the entire authoring surface for terminology — there is no per-concept curated lookup. Heavy lifting moves to the SQLMesh project (`contracts/sqlmesh_project.profile.md`) and to the seed CSVs it consumes.
+
 ## Required elements
 
 ### Resource level

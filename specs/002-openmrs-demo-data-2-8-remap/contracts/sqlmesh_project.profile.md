@@ -50,7 +50,7 @@ Every model file MUST declare in its `MODEL (...)` block:
 
 ## Seeds
 
-- `seeds/concept_translation.csv` — columns `(source_concept_id, source_uuid, target_concept_id, target_uuid, equivalence, policy_bucket, source_record_examples)`. Emitted by `harness/conceptmap/seed_emit.py` from the accepted ConceptMap. The seed's content checksum MUST match `run_manifest.concept_translation_seed_checksum`.
+- `seeds/concept_translation.csv` — columns `(source_concept_id, source_uuid, target_concept_id, target_uuid, equivalence, policy_bucket, source_record_examples)`. Emitted by `harness/conceptmap/seed_emit.py` from the accepted ConceptMap. The seed's content checksum MUST match `run_manifest.concept_translation_seed_checksum`. Per the M2-A discovery (`data-model.md` §R-bridge-rule), the ConceptMap's single identity-bridge element expands here to one row per distinct legacy `concept_id` (~2,528 rows); there is no separate "rule" entry — the seed model IS the bridge rule at SQLMesh time.
 - `seeds/module_table_policy.csv` — columns `(table_name, policy, rationale, ticket_ref)`. One row per module-owned table classified in M2-D.
 
 ## Conformance commands
