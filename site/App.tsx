@@ -24,7 +24,7 @@ function findSpecModule(slug: string) {
 
 // ---------- sidebar tree ----------------------------------------------------
 
-function SidebarSection({ section, depth }: { section: NavSection; depth: number }) {
+function SidebarSection({ section, depth, onNavigate }: { section: NavSection; depth: number; onNavigate: () => void }) {
   const isTop = depth === 0;
   const storageKey = `nav.collapsed.${depth}.${section.title}`;
   const initialCollapsed = section.collapsed === true && depth > 0;
@@ -51,33 +51,36 @@ function SidebarSection({ section, depth }: { section: NavSection; depth: number
       {!collapsed && (
         <div className="nav-section-children">
           {section.items.map((it, i) => isSection(it)
-            ? <SidebarSection key={`s-${i}-${it.title}`} section={it} depth={depth + 1} />
-            : <SidebarLeaf  key={`l-${i}-${it.slug}`}    leaf={it} />)}
+            ? <SidebarSection key={`s-${i}-${it.title}`} section={it} depth={depth + 1} onNavigate={onNavigate} />
+            : <SidebarLeaf  key={`l-${i}-${it.slug}`}    leaf={it} onNavigate={onNavigate} />)}
         </div>
       )}
     </div>
   );
 }
 
-function SidebarLeaf({ leaf }: { leaf: NavLeaf }) {
+function SidebarLeaf({ leaf, onNavigate }: { leaf: NavLeaf; onNavigate: () => void }) {
   const to = leaf.kind === 'home' ? '/'
     : leaf.kind === 'canvas' ? `/canvas/${leaf.slug}`
     : `/spec/${leaf.slug}`;
   return (
-    <NavLink to={to} end={leaf.kind === 'home'} className={({ isActive }) => `nav-leaf${isActive ? ' active' : ''}${leaf.kind === 'canvas' ? ' canvas' : ''}`}>
+    <NavLink to={to} end={leaf.kind === 'home'} onClick={onNavigate} className={({ isActive }) => `nav-leaf${isActive ? ' active' : ''}${leaf.kind === 'canvas' ? ' canvas' : ''}`}>
       {leaf.kind === 'canvas' && <span className="nav-leaf-badge">canvas</span>}
       <span className="nav-leaf-title">{leaf.title}</span>
     </NavLink>
   );
 }
 
-function Sidebar() {
+function Sidebar({ onClose, onNavigate }: { onClose: () => void; onNavigate: () => void }) {
   return (
-    <aside className="sidebar">
-      <Link to="/" className="sidebar-brand">clinical-ai-validation-harness</Link>
+    <aside id="site-sidebar" className="sidebar">
+      <div className="sidebar-header">
+        <Link to="/" className="sidebar-brand" onClick={onNavigate}>clinical-ai-validation-harness</Link>
+        <button type="button" className="sidebar-close" onClick={onClose} aria-label="Close navigation">Close</button>
+      </div>
       <div className="sidebar-sub">Planning artifacts &amp; canvases</div>
       <nav className="sidebar-nav">
-        {navTree.map((s, i) => <SidebarSection key={`top-${i}-${s.title}`} section={s} depth={0} />)}
+        {navTree.map((s, i) => <SidebarSection key={`top-${i}-${s.title}`} section={s} depth={0} onNavigate={onNavigate} />)}
       </nav>
     </aside>
   );
@@ -251,9 +254,23 @@ function PrevNext({ slug }: { slug: string }) {
 
 export default function App() {
   const loc = useLocation();
+  const [sidebarOpen, setSidebarOpen] = React.useState(false);
   const path = loc.pathname.replace(/^\//, '');
   const [kind, ...rest] = path.split('/');
   const slug = rest.join('/');
+
+  React.useEffect(() => {
+    setSidebarOpen(false);
+  }, [loc.pathname]);
+
+  React.useEffect(() => {
+    if (!sidebarOpen) return;
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') setSidebarOpen(false);
+    }
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [sidebarOpen]);
 
   let main: React.ReactNode;
   if (!kind || kind === 'welcome')      main = <HomeView />;
@@ -262,8 +279,24 @@ export default function App() {
   else                                  main = <HomeView />;
 
   return (
-    <div className="layout">
-      <Sidebar />
+    <div className={`layout${sidebarOpen ? ' sidebar-open' : ''}`}>
+      <button
+        type="button"
+        className="mobile-nav-toggle"
+        onClick={() => setSidebarOpen(true)}
+        aria-controls="site-sidebar"
+        aria-expanded={sidebarOpen}
+        aria-label="Open navigation"
+      >
+        Menu
+      </button>
+      <Sidebar onClose={() => setSidebarOpen(false)} onNavigate={() => setSidebarOpen(false)} />
+      <button
+        type="button"
+        className="sidebar-scrim"
+        onClick={() => setSidebarOpen(false)}
+        aria-label="Close navigation"
+      />
       <main className="content">{main}</main>
     </div>
   );

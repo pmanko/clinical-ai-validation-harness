@@ -34,11 +34,21 @@ body {
   overflow: hidden;
 }
 
+.mobile-nav-toggle,
+.sidebar-close,
+.sidebar-scrim {
+  display: none;
+}
+
 .sidebar {
   background: var(--bg-sidebar);
   border-right: 1px solid var(--stroke-1);
   overflow-y: auto;
   padding: 16px 12px;
+}
+
+.sidebar-header {
+  display: block;
 }
 
 .sidebar-brand {
@@ -309,4 +319,111 @@ body {
 .prev-next-text { display: flex; flex-direction: column; }
 .prev-next-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-tertiary); }
 .prev-next-title { font-size: 13.5px; font-weight: 500; }
+
+@media (max-width: 840px) {
+  .layout {
+    display: block;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  .mobile-nav-toggle {
+    display: inline-flex;
+    align-items: center;
+    position: fixed;
+    top: 10px;
+    left: 10px;
+    z-index: 30;
+    height: 34px;
+    padding: 0 12px;
+    border: 1px solid var(--stroke-2);
+    border-radius: 8px;
+    background: var(--bg-sidebar);
+    color: var(--text-primary);
+    font: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .sidebar {
+    position: fixed;
+    z-index: 40;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: min(82vw, 320px);
+    max-width: 100vw;
+    transform: translateX(-100%);
+    transition: transform 160ms ease;
+    border-right: 1px solid var(--stroke-2);
+  }
+
+  .layout.sidebar-open .sidebar {
+    transform: translateX(0);
+  }
+
+  .sidebar-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+  }
+
+  .sidebar-close {
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    height: 28px;
+    padding: 0 9px;
+    border: 1px solid var(--stroke-1);
+    border-radius: 6px;
+    background: var(--fill-tertiary);
+    color: var(--text-secondary);
+    font: inherit;
+    font-size: 12px;
+    cursor: pointer;
+  }
+
+  .sidebar-scrim {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 35;
+    border: 0;
+    padding: 0;
+    background: rgba(0, 0, 0, 0.48);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 160ms ease;
+  }
+
+  .layout.sidebar-open .sidebar-scrim {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .content {
+    height: 100vh;
+    padding: 58px 18px 24px;
+  }
+
+  .landing-hero {
+    padding-top: 8px;
+  }
+
+  .landing-stat-row {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .card-grid,
+  .doc-list {
+    grid-template-columns: 1fr;
+  }
+
+  .prev-next {
+    grid-template-columns: 1fr;
+  }
+}
 
