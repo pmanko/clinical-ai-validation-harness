@@ -34,6 +34,26 @@ The canonical constitution is `.specify/memory/constitution.md`.
 - `adapters/`: wrappers/contracts for project-specific validation integration.
 - `evals/`: pytest suites for import, indexing, retrieval, metadata checks.
 - `artifacts/`: output folder for run manifests, JSONL events, and reports.
+- `site/`: Vite-built static-site renderer for the specs and canvases. Public docs auto-deploy from `main` via `.github/workflows/pages.yml`.
+
+## Public docs site
+
+`specs/` and the `.canvas.tsx` canvases are auto-published to GitHub Pages at
+`https://pmanko.github.io/clinical-ai-validation-harness/` on every push to `main`.
+
+Browse locally:
+
+```bash
+cd site
+npm install     # one-time
+npm run dev     # → http://127.0.0.1:4321/clinical-ai-validation-harness/
+```
+
+The dev server picks up live changes to `specs/**/*.md` and `specs/**/*.canvas.tsx`.
+
+Canvases render via a small `cursor/canvas` polyfill in `site/cursor-canvas.tsx` —
+their authoritative rendering remains the in-Cursor canvas view; the published view is
+best-effort visual parity for collaborators outside Cursor.
 
 ## Quickstart
 
