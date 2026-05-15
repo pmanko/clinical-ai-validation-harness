@@ -13,6 +13,7 @@ def _cmd_inventory(args: argparse.Namespace) -> int:
     from harness.profile.inventory import generate_inventory, write_inventory
 
     cfg = DBConfig.from_env(database=args.db)
+    target_cfg = DBConfig.from_env(database=args.target_db) if args.target_db else None
     src = Path(args.src)
     if not src.exists():
         print(f"ERROR: source dump not found: {src}", file=sys.stderr)
@@ -22,12 +23,18 @@ def _cmd_inventory(args: argparse.Namespace) -> int:
     out_path = Path("artifacts") / run_id / "profile" / "inventory.json"
 
     print(f"Profiling DB '{cfg.database}' against source {src} ...")
-    inv = generate_inventory(cfg, source_dump_path=src, progress=args.verbose)
+    if target_cfg:
+        print(f"  cross-referencing target DB '{target_cfg.database}' for modules + terminology")
+    inv = generate_inventory(cfg, source_dump_path=src, progress=args.verbose,
+                             target_cfg=target_cfg)
     written = write_inventory(inv, out_path)
     print(f"Wrote {written}")
-    print(f"  tables: {len(inv['tables'])}")
+    print(f"  tables:            {len(inv['tables'])}")
     populated = [t for t in inv["tables"] if t["row_count"] > 0]
-    print(f"  populated: {len(populated)}")
+    print(f"  populated:         {len(populated)}")
+    print(f"  reference_sources: {len(inv['reference_sources'])}")
+    print(f"  locales:           {len(inv['locales'])}")
+    print(f"  modules:           {len(inv['modules'])}")
     return 0
 
 
@@ -35,8 +42,11 @@ def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(prog="python -m harness.profile")
     sub = p.add_subparsers(dest="cmd", required=True)
 
-    inv = sub.add_parser("inventory", help="Profile a legacy schema (T021).")
+    inv = sub.add_parser("inventory", help="Profile a legacy schema.")
     inv.add_argument("--db", default="legacy_27_raw", help="Source DB (default: legacy_27_raw).")
+    inv.add_argument("--target-db", default=None,
+                     help="Target DB to cross-reference for modules + terminology "
+                          "(omit to leave reference_sources/locales/modules empty).")
     inv.add_argument("--src", default="data/large-demo-data-2-7-0.sql",
                      help="Path to source dump (default: data/large-demo-data-2-7-0.sql).")
     inv.add_argument("--run-id", default=None,
