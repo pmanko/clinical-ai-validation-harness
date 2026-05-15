@@ -45,7 +45,7 @@ Existing M0 primitives reused (NOT reimplemented):
 - `harness.metadata.append_event` — events.jsonl writer
 - `harness.config` — harness root + artifact-root resolution
 
-**Storage**: MariaDB 10.11 (the O3 RefApp's DB engine, per `compose/openmrs-2.8-refapp.yml`). Source dump loaded into disposable `legacy_27_raw` schema; clean target built into `refapp_28_clean` by letting the O3 backend boot against an empty MariaDB; transformed output written to `refapp_28_demo` and dumped to `artifacts/<run>/transform/refapp_28_demo.sql`.
+**Storage**: MariaDB 10.11 (the O3 RefApp's DB engine, per `compose/openmrs-2.8-refapp.yml`). Source dump loaded into disposable `legacy_27_raw` schema; the live `openmrs` schema (CIEL-loaded via the openconceptlab module) IS the clean baseline — no separate empty-Liquibase-only schema is maintained; transformed output written to `refapp_28_demo` and dumped to `artifacts/<run>/transform/refapp_28_demo.sql`.
 
 **Testing**:
 - `pytest >= 8.0` (already pinned) for harness modules and integration smoke
@@ -76,7 +76,7 @@ Existing M0 primitives reused (NOT reimplemented):
 | **Record-level evidence** | PASS | Translation-coverage sampler reports per-record evidence (translated concept identity, units, value, date, encounter/provider linkage, equivalence label) via OpenMRS REST/FHIR. Import smoke surfaces failing record IDs. PCCP change records cite before/after record examples. |
 | **Metadata and provenance** | PASS | Run manifest emitted via `harness.metadata.RunManifest` — reuses M0's schema (run_id, project, component, git_sha, dataset_id, dataset_version, schema_mapping_version, generated_at, evidence_status, decision_rationale, target_provenance[], otel.gen_ai.provider.name). 002 adds top-level fields (`conceptmap_checksum`, `sqlmesh_project_checksum`, `ocl_collection_versions[]`, `openmrs_refapp_image_digest`, `policy_buckets[]`) as schema-compatible additions. OTel GenAI fields use M0's current names (no `gen_ai.system`). |
 | **Tests define behavior** | PASS | SQLMesh `audits/`, pytest (harness modules), `sqlmesh plan` (structural conformance), HL7 FHIR Validator (terminology conformance), and M0-defined `validation_surface.command` for chartsearchai. Scenario-diverse coverage per FR-024 (ambiguous mappings, unmatched concepts, terminology drift, locale gap, FK orphan, Liquibase failure). |
-| **Data boundaries and governance** | PASS | Clinical data confined to MariaDB schemas (`legacy_27_raw`, `refapp_28_clean`, `refapp_28_demo`) and SQL dumps; harness metadata lives under `artifacts/<run-id>/`. PCCP records under `specs/002-openmrs-demo-data-2-8-remap/pccp/`. Source provenance recorded per FR-PHI2 (public, cleaned, anonymized — no scrubbing). |
+| **Data boundaries and governance** | PASS | Clinical data confined to MariaDB schemas (`legacy_27_raw`, `openmrs` (CIEL-loaded clean baseline), `refapp_28_demo`) and SQL dumps; harness metadata lives under `artifacts/<run-id>/`. PCCP records under `specs/002-openmrs-demo-data-2-8-remap/pccp/`. Source provenance recorded per FR-PHI2 (public, cleaned, anonymized — no scrubbing). |
 | **Why this is sufficient** | PASS | Every spec success criterion maps to either an M0 primitive or a 002-defined artifact, with conformance defined by published standards (FHIR R4 ConceptMap + SQLMesh + M0 manifest schema). No new ad-hoc machinery; no parallel structures invented. |
 
 No constitutional violations; **Complexity Tracking** intentionally empty.

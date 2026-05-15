@@ -19,6 +19,7 @@ default_gateway: harness
 
 model_defaults:
   dialect: mysql
+  kind: FULL
   start: 2026-01-01
 
 # Schemas the SQLMesh project reads from (source) and writes to (target).

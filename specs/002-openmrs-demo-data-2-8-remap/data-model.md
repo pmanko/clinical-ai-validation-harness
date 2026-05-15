@@ -51,9 +51,9 @@ The empty typed clinical tables + zero reference-map state IS the M2-A discovery
 
 ## 2. Clean target baseline
 
-- **Schema**: `refapp_28_clean` (MariaDB 10.11)
-- **Built by**: launching the O3 backend container (`openmrs/openmrs-reference-application-3-backend:3.6.0`) against an empty MariaDB and letting it complete Liquibase bootstrap (Core 2.8.x changesets). Then exporting the schema (no data rows) for diff comparison.
-- **Lifecycle**: rebuilt at the start of every run. Schema export captured under `artifacts/<run>/schema-diff/refapp_28_clean.schema.json`.
+- **Schema**: `openmrs` (MariaDB 10.11) — the live RefApp's DB, **after** CIEL has been loaded via the openconceptlab module (T024a/b). The CIEL-loaded `openmrs` schema IS the clean baseline; no separate empty-Liquibase-only DB is maintained.
+- **Built by**: `make ciel-baseline` (calls `scripts/ciel-baseline-up.sh`), which boots the O3 backend against an empty MariaDB, lets Liquibase complete the Core 2.8.x changesets, then imports the pinned CIEL export via the openconceptlab module's offline-import path. The result is a Core 2.8.x schema populated with CIEL concepts but no clinical records.
+- **Lifecycle**: rebuilt only when the CIEL pin or RefApp image digest changes (via `make ciel-baseline`); otherwise reused across runs. Schema export captured under `artifacts/<run>/schema-diff/openmrs.schema.json` (formerly `refapp_28_clean.schema.json`; renamed in M2-A close).
 
 ## 2.5 Materialized target — `refapp_28_demo`
 
@@ -246,7 +246,7 @@ Field mapping per rule is recorded canonically in the ConceptMap element's harne
 stateDiagram-v2
   [*] --> SourceLoaded: load legacy_27_raw
   SourceLoaded --> Profiled: harness profile (M2-A)
-  Profiled --> DiffComputed: schema-diff vs refapp_28_clean
+  Profiled --> DiffComputed: schema-diff vs openmrs (CIEL-loaded clean baseline)
   DiffComputed --> LiquibaseCostEstimated: per-changeset cost classifier
   LiquibaseCostEstimated --> ConceptMapReviewed: clinically informed reviewer (M2-C)
   ConceptMapReviewed --> ConceptMapValidated: HL7 FHIR Validator pass

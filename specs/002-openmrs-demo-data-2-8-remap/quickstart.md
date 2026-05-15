@@ -58,7 +58,7 @@ harness-cli profile --source data/large-demo-data-2-7-0.sql
 Outputs under `artifacts/<run-id>/`:
 
 - `profile/inventory.json` — populated tables, reference sources, locales, modules
-- `schema-diff/diff.json` — diff vs clean `refapp_28_clean` baseline (the harness boots a disposable O3 backend against empty MariaDB to build the baseline)
+- `schema-diff/diff.json` — diff vs the CIEL-loaded `openmrs` DB (the clean baseline; constructed by `make ciel-baseline`)
 - `profile/liquibase-cost-estimate.json` — per-changeset cost estimate for the 2.7→2.8 upgrade-in-place path; flags any changeset that should be pre-staged in SQLMesh to keep SC-001's <60min budget
 
 **Review gate (M2-A)**: an engineering reviewer confirms inventory completeness, reference-source enumeration, locale coverage, and reviews the Liquibase cost estimates to decide which changesets need pre-staging in M2-D.
