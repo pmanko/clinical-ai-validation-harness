@@ -1,1 +1,0 @@
-../../specs/artifacts/canvases/concept-mapping-discovery.canvas.tsx

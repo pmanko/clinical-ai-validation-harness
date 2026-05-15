@@ -1,1 +1,0 @@
-../../specs/artifacts/canvases/clinical-ai-research-guidance.canvas.tsx

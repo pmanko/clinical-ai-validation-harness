@@ -1,1 +1,0 @@
-../../specs/artifacts/canvases/validation-research.canvas.tsx

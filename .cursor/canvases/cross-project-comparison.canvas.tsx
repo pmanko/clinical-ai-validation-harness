@@ -1,1 +1,0 @@
-../../specs/artifacts/canvases/cross-project-comparison.canvas.tsx
