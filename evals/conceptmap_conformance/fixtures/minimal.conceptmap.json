@@ -1,0 +1,110 @@
+{
+  "resourceType": "ConceptMap",
+  "url": "http://harness.local/test-fixture",
+  "version": "0.0.1",
+  "status": "draft",
+  "experimental": true,
+  "sourceUri": "http://openmrs.org/concepts/2.7-demo",
+  "targetUri": "http://openmrs.org/concepts/2.8-seeded-ciel",
+  "group": [
+    {
+      "source": "http://openmrs.org/concepts/2.7-demo",
+      "target": "http://openmrs.org/concepts/2.8-seeded-ciel",
+      "element": [
+        {
+          "code": "*",
+          "display": "Identity bridge (test fixture)",
+          "target": [
+            {
+              "code": "{source.code}AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+              "display": "CIEL concept by UUID pattern",
+              "equivalence": "equal",
+              "comment": "Bridge rule per data-model.md §R-bridge-rule.",
+              "extension": [
+                { "url": "http://harness.local/StructureDefinition/policy-bucket", "valueCode": "remap" },
+                { "url": "http://harness.local/StructureDefinition/source-record-examples", "valueString": "[]" },
+                { "url": "http://harness.local/StructureDefinition/bridge-template", "valueString": "RPAD(source.code, 36, 'A')" }
+              ]
+            }
+          ]
+        },
+        {
+          "code": "$selector:value_coded.concept_class=Drug",
+          "display": "P1 — Drug-class obs → drug_order",
+          "target": [
+            {
+              "code": "$table:drug_order",
+              "display": "drug_order rows synthesized from obs",
+              "equivalence": "inexact",
+              "comment": "Structural promotion P1 — see spec FR-029.",
+              "extension": [
+                { "url": "http://harness.local/StructureDefinition/policy-bucket", "valueCode": "seed-augment" },
+                { "url": "http://harness.local/StructureDefinition/source-record-examples", "valueString": "[]" },
+                { "url": "http://harness.local/StructureDefinition/selector-sql", "valueString": "SELECT obs_id FROM legacy_27_raw.obs o JOIN legacy_27_raw.concept c ON c.concept_id=o.value_coded JOIN legacy_27_raw.concept_class cc ON cc.concept_class_id=c.class_id WHERE cc.name='Drug' AND o.voided=0" },
+                { "url": "http://harness.local/StructureDefinition/target-table", "valueString": "drug_order" },
+                { "url": "http://harness.local/StructureDefinition/row-count-expected", "valueInteger": 43412 }
+              ]
+            }
+          ]
+        },
+        {
+          "code": "$selector:concept_id=6042",
+          "display": "P2 — PROBLEM ADDED → conditions",
+          "target": [
+            {
+              "code": "$table:conditions",
+              "display": "conditions rows synthesized from obs",
+              "equivalence": "inexact",
+              "comment": "Structural promotion P2 — see spec FR-029.",
+              "extension": [
+                { "url": "http://harness.local/StructureDefinition/policy-bucket", "valueCode": "seed-augment" },
+                { "url": "http://harness.local/StructureDefinition/source-record-examples", "valueString": "[]" },
+                { "url": "http://harness.local/StructureDefinition/selector-sql", "valueString": "SELECT obs_id FROM legacy_27_raw.obs WHERE concept_id=6042 AND value_coded IS NOT NULL AND voided=0" },
+                { "url": "http://harness.local/StructureDefinition/target-table", "valueString": "conditions" },
+                { "url": "http://harness.local/StructureDefinition/row-count-expected", "valueInteger": 3642 }
+              ]
+            }
+          ]
+        },
+        {
+          "code": "$selector:concept_id_in_{6011,6012,1083}_and_value=1065",
+          "display": "P3 — drug allergy YES → allergy",
+          "target": [
+            {
+              "code": "$table:allergy",
+              "display": "allergy rows synthesized from obs",
+              "equivalence": "inexact",
+              "comment": "Structural promotion P3 — see spec FR-029.",
+              "extension": [
+                { "url": "http://harness.local/StructureDefinition/policy-bucket", "valueCode": "seed-augment" },
+                { "url": "http://harness.local/StructureDefinition/source-record-examples", "valueString": "[]" },
+                { "url": "http://harness.local/StructureDefinition/selector-sql", "valueString": "SELECT obs_id FROM legacy_27_raw.obs WHERE concept_id IN (6011,6012,1083) AND value_coded=1065 AND voided=0" },
+                { "url": "http://harness.local/StructureDefinition/target-table", "valueString": "allergy" },
+                { "url": "http://harness.local/StructureDefinition/row-count-expected", "valueInteger": 7 }
+              ]
+            }
+          ]
+        },
+        {
+          "code": "$selector:concept.class=Test_and_datatype=Coded",
+          "display": "P4 — Test+Coded → test_order",
+          "target": [
+            {
+              "code": "$table:test_order",
+              "display": "test_order rows synthesized from obs",
+              "equivalence": "inexact",
+              "comment": "Structural promotion P4 — see spec FR-029.",
+              "extension": [
+                { "url": "http://harness.local/StructureDefinition/policy-bucket", "valueCode": "seed-augment" },
+                { "url": "http://harness.local/StructureDefinition/source-record-examples", "valueString": "[]" },
+                { "url": "http://harness.local/StructureDefinition/selector-sql", "valueString": "SELECT obs_id FROM legacy_27_raw.obs o JOIN legacy_27_raw.concept c ON c.concept_id=o.concept_id JOIN legacy_27_raw.concept_class cc ON cc.concept_class_id=c.class_id JOIN legacy_27_raw.concept_datatype cd ON cd.concept_datatype_id=c.datatype_id WHERE cc.name='Test' AND cd.name='Coded' AND o.voided=0" },
+                { "url": "http://harness.local/StructureDefinition/target-table", "valueString": "test_order" },
+                { "url": "http://harness.local/StructureDefinition/row-count-expected", "valueInteger": 1120 }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

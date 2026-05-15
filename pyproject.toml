@@ -10,6 +10,11 @@ readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
   "PyYAML>=6.0",
+  # Feature 002 runtime deps (T001)
+  "sqlmesh>=0.150",          # structural transform engine (research.md §R2)
+  "fhir.resources>=7.0",     # FHIR R4 ConceptMap parse/serialize (research.md §R1)
+  "PyMySQL>=1.1",            # pure-Python MariaDB/MySQL driver for harness/profile/db.py (T001)
+  "requests>=2.32",          # HTTP client for OCL bootstrap + auxiliary
 ]
 
 [project.optional-dependencies]
