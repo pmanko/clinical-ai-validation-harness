@@ -34,6 +34,21 @@ Filled in after Phase 6 schema diff runs. Each `clinical_meaningful: true` item 
 - Whether `CHILDS CURRENT HIV STATUS` (concept 5303) promotes to `conditions` alongside P2. Default: stays in obs.
 - Whether vaccine drug-class answers should carry an attribute hint so the FHIR layer re-projects them as Immunization (Q3 in `research.md` §R-typed-table-promotion).
 
+## Carry-forward orphan tables — deferred from materialization
+
+The following legacy-only module tables ARE flagged `carry-forward` in `seeds/module_table_policy.csv` but are NOT materialized as `models/modules/<table>__carry-forward.sql` because their target identifiers would exceed MariaDB's 64-char limit when prefixed by SQLMesh's snapshot template (`refapp_28_demo__mod__<table>__<10-digit-hash>`). The `gen_modules.py` script (`harness/transform/gen_modules.py`) skips them with a clear log line:
+
+| Table | Length | Status |
+|---|---|---|
+| `metadatasharing_imported_package_item` | 37 | deferred (over limit) |
+| `metadatasharing_exported_package` | 32 | deferred (over limit) |
+| `metadatasharing_imported_package` | 32 | deferred (over limit) |
+| `xforms_person_repeat_attribute` | 30 | deferred (over limit) |
+| `dataintegrity_integrity_checks` | 30 | deferred (over limit) |
+| `metadatasharing_imported_item` | 29 | deferred (over limit) |
+
+These tables are all empty in the 2.7 demo dump (0 rows each per the inventory). Carrying forward zero rows of an over-long-named table is symbolic; the deferral has no behavioral impact on the produced demo. If a future corpus populates one of these, options are: (a) rename in the target with documentation, (b) install the owning module in the 2.8 RefApp distro, or (c) drop with explicit reviewer rationale.
+
 ## Signoff
 
 - Project owner: pending
