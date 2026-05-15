@@ -1,13 +1,9 @@
-"""T014 — load the test ConceptMap fixture and assert profile invariants.
+"""Load the test ConceptMap fixture and assert profile invariants.
 
-The fixture under `fixtures/minimal.conceptmap.json` mimics the M2-A shape:
-1 identity-bridge element + 4 structural-promotion elements (P1-P4 per
-spec FR-029). The real `datasets/mappings/openmrs-2.7-to-2.8.conceptmap.json`
-(landed in Phase 3) follows the same shape with real reviewer rationale.
-
-These tests exercise both the positive shape (load a well-formed file)
-and the negative validation surface (corrupt the file and confirm the
-loader refuses it) — so the loader can be relied on as the gate that
+The fixture contains one identity-bridge element plus four structural-
+promotion elements; the real ``datasets/mappings/openmrs-2.7-to-2.8.conceptmap.json``
+follows the same shape. The tests exercise the positive parse + the
+negative validation surface so the loader functions as the gate that
 catches malformed accepted ConceptMaps before they reach the transform.
 """
 
@@ -88,7 +84,7 @@ def test_promotion_p2_conditions_shape(cm: AcceptedConceptMap):
 
 def test_promotion_p3_allergy_shape(cm: AcceptedConceptMap):
     p3 = next(p for p in cm.promotion_rules if p.ext.target_table == "allergy")
-    assert p3.ext.row_count_expected == 7  # extremely sparse but real
+    assert p3.ext.row_count_expected == 7
     assert "value_coded=1065" in (p3.ext.selector_sql or "")
 
 
@@ -180,9 +176,6 @@ def test_rejects_target_with_empty_comment(tmp_path: Path):
 
 def test_rejects_when_no_bridge_rule_present(tmp_path: Path):
     doc = _load_doc()
-    # Drop the bridge-template extension from the bridge element — it becomes
-    # an ordinary element (no longer "bridge"). With 0 bridge rules, load
-    # should raise.
     bridge_elem = doc["group"][0]["element"][0]
     bridge_elem["target"][0]["extension"] = [
         e for e in bridge_elem["target"][0]["extension"] if e.get("url") != EXT_BRIDGE_TEMPLATE
@@ -194,7 +187,6 @@ def test_rejects_when_no_bridge_rule_present(tmp_path: Path):
 
 def test_rejects_when_no_promotion_rules_present(tmp_path: Path):
     doc = _load_doc()
-    # Keep only the bridge element; drop P1-P4.
     doc["group"][0]["element"] = doc["group"][0]["element"][:1]
     p = _write_tmp(tmp_path, doc)
     with pytest.raises(ValueError, match="promotion"):

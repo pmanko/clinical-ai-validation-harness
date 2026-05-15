@@ -63,35 +63,25 @@ def append_event(path: Path, event: dict[str, Any]) -> None:
         handle.write(json.dumps(event, separators=(",", ":")) + "\n")
 
 
-# ---------------------------------------------------------------------------
-# Feature 002 extensions (T007)
-#
-# The base RunManifest above is M0's primitive. Feature 002 adds top-level
-# keys per `specs/002-openmrs-demo-data-2-8-remap/contracts/run_manifest_002_extensions.schema.yaml`.
-# Producers stamp the extension dataclass into the manifest payload via
-# `RunManifest.to_dict() | RunManifest002Extensions(...).to_dict()`.
-# ---------------------------------------------------------------------------
-
-
 @dataclass
 class OclCollectionVersion:
-    collection: str        # 'CIEL' | 'LOINC' | 'SNOMED-CT'
-    version: str           # e.g. 'v2026-04-28'
-    snapshot_path: str     # 'datasets/sources/ocl/CIEL/v2026-04-28/'
-    checksum: str          # SHA-256 of the snapshot tar / SQL
+    collection: str
+    version: str
+    snapshot_path: str
+    checksum: str
 
 
 @dataclass
 class ReviewerSignoff:
     document_path: str
     document_checksum: str
-    signer: str            # email or GitHub handle
-    signed_at: str         # ISO 8601
+    signer: str
+    signed_at: str
 
 
 @dataclass
 class RunManifest002Extensions:
-    """002 top-level extensions appended to RunManifest.to_dict()."""
+    """Additional top-level keys appended to ``RunManifest.to_dict()``."""
 
     conceptmap_path: str
     conceptmap_checksum: str
@@ -148,10 +138,8 @@ class RunManifest002Extensions:
 def merge_002_extensions(
     manifest: RunManifest, extensions: RunManifest002Extensions
 ) -> dict[str, Any]:
-    """Compose the full 002 run-manifest dict: M0 base ∪ 002 extensions.
+    """Compose the base manifest dict with the 002 extension keys.
 
-    Schema invariant per contracts/run_manifest_002_extensions.schema.yaml:
-    a 002 manifest validates against BOTH the M0 base schema AND the 002
-    extensions schema. Top-level keys don't overlap.
+    Top-level keys are required to be disjoint between the two.
     """
     return {**manifest.to_dict(), **extensions.to_dict()}

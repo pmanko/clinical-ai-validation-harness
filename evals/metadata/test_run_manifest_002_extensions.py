@@ -1,7 +1,7 @@
-"""T008 — round-trip RunManifest002Extensions through to_dict() + assert it
-composes with the M0 base manifest into a single 002 payload.
+"""Round-trip ``RunManifest002Extensions`` and assert disjoint composition
+with the base manifest.
 
-The full schema is `specs/002-openmrs-demo-data-2-8-remap/contracts/run_manifest_002_extensions.schema.yaml`.
+Schema: ``specs/.../contracts/run_manifest_002_extensions.schema.yaml``.
 """
 
 from __future__ import annotations
