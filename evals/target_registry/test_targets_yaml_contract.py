@@ -12,5 +12,9 @@ def test_harness_targets_yaml_matches_contract() -> None:
     profile_ids = {p.id for p in doc.profiles}
     assert profile_ids == {"local", "vm"}
     catalyst = next(t for t in doc.targets if t.id == "catalyst")
-    assert catalyst.evidence_status == "unavailable"
+    # Was "unavailable" pre-PR #4 (M0). PR #4 pinned the catalyst submodule
+    # so it exists on disk as a documentation reference; the yaml moved to
+    # "scaffolding" but this assertion was missed. Both values are in the
+    # contract enum (specs/001-.../contracts/targets.schema.yaml).
+    assert catalyst.evidence_status == "scaffolding"
     assert catalyst.submodule_path == "targets/catalyst"
