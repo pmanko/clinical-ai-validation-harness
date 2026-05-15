@@ -5,7 +5,8 @@ MODEL (
   tags (policy_bucket:seed_augment),
   grain (uuid),
   audits (
-    unique_values(columns := (uuid))
+    unique_values(columns := (uuid)),
+    audit_test_order_row_count_min
   )
 );
 

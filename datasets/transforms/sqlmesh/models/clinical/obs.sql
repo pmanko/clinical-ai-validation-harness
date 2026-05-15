@@ -5,7 +5,8 @@ MODEL (
   tags (policy_bucket:passthrough),
   grain (obs_id),
   audits (
-    unique_values(columns := (obs_id))
+    unique_values(columns := (obs_id)),
+    audit_obs_row_count_min
   )
 );
 
