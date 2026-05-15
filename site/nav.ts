@@ -50,9 +50,10 @@ export const navTree: NavSection[] = [
   {
     title: 'Start here',
     items: [
-      { kind: 'home',   slug: 'README',                                    title: 'Project home', blurb: 'What this harness is and how its pieces fit together.' },
-      { kind: 'canvas', slug: 'specs/roadmap',                             title: 'Feature roadmap',          blurb: 'Top-level lanes, priorities, dependency graph.' },
-      { kind: 'canvas', slug: 'specs/artifacts/canvases/validation-research', title: 'Validation research',    blurb: 'Lanes, primitives, evals, the run-manifest spine.' },
+      { kind: 'home',   slug: 'welcome',                                       title: 'Welcome — dashboard', blurb: 'Front door: canvases, features, and everything else at a glance.' },
+      { kind: 'spec',   slug: 'README',                                        title: 'Project README',      blurb: 'What this harness is and how its pieces fit together.' },
+      { kind: 'canvas', slug: 'specs/roadmap',                                 title: 'Feature roadmap',     blurb: 'Top-level lanes, priorities, dependency graph.' },
+      { kind: 'canvas', slug: 'specs/artifacts/canvases/validation-research',  title: 'Validation research', blurb: 'Lanes, primitives, evals, the run-manifest spine.' },
     ],
   },
   {
@@ -131,14 +132,9 @@ export const navTree: NavSection[] = [
       { kind: 'spec', slug: 'specs/artifacts/sibling-context/chartsearchai-openmrs-ai-dev-context',           title: 'chartsearchai — OpenMRS AI dev-context dump' },
     ],
   },
-  {
-    title: 'Handoffs',
-    collapsed: true,
-    intro: 'Historical session handoff snapshots.',
-    items: [
-      { kind: 'spec', slug: 'specs/artifacts/handoffs/session-handoff-2026-05-12', title: 'Session handoff — 2026-05-12' },
-    ],
-  },
+  // Historical session handoffs (specs/artifacts/handoffs/*) are intentionally
+  // omitted from the published nav — they're checkout-internal context, not
+  // collaborator-facing docs.
 ];
 
 /** Flatten the tree into a slug → leaf map. Used by routes to look up content. */

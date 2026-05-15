@@ -86,30 +86,102 @@ function Sidebar() {
 // ---------- views -----------------------------------------------------------
 
 function HomeView() {
-  const mod = findSpecModule('README');
-  const html = mod?.html ?? '';
+  // Pull a flat list of all leaves from the curated tree (so the welcome
+  // page stays in lockstep with the sidebar — single source of truth).
+  type LeafWithPath = { leaf: NavLeaf; topSection: NavSection; parentSection?: NavSection };
+  const allLeaves: LeafWithPath[] = [];
+  function walk(items: Array<NavLeaf | NavSection>, topSection: NavSection, parentSection?: NavSection) {
+    for (const it of items) {
+      if (isSection(it)) walk(it.items, topSection, it);
+      else allLeaves.push({ leaf: it, topSection, parentSection });
+    }
+  }
+  for (const top of navTree) walk(top.items, top);
+
+  const canvasLeaves = allLeaves.filter((x) => x.leaf.kind === 'canvas');
+  const totalDocs = allLeaves.filter((x) => x.leaf.kind === 'spec').length;
+  const totalCanvases = canvasLeaves.length;
+  const featureCount = navTree.find((s) => s.title === 'Active features')?.items.filter(isSection).length ?? 0;
+
+  const toFor = (leaf: NavLeaf) =>
+    leaf.kind === 'canvas' ? `/canvas/${leaf.slug}` : leaf.kind === 'home' ? '/' : `/spec/${leaf.slug}`;
+
   return (
-    <div className="content-prose">
-      <div dangerouslySetInnerHTML={{ __html: html }} />
-      <hr />
-      <h2>Where to go from here</h2>
-      <div className="card-grid">
-        {navTree.flatMap((section) =>
-          section.items.filter((x): x is NavLeaf => !isSection(x))
-            .filter((x) => x.kind !== 'home')
-            .map((leaf) => (
-              <Link
-                key={section.title + ':' + leaf.slug}
-                to={leaf.kind === 'canvas' ? `/canvas/${leaf.slug}` : `/spec/${leaf.slug}`}
-                className="dispatch-card"
-              >
-                <div className="dispatch-card-pill">{leaf.kind === 'canvas' ? 'canvas' : section.title.toLowerCase()}</div>
-                <div className="dispatch-card-title">{leaf.title}</div>
-                {leaf.blurb && <div className="dispatch-card-blurb">{leaf.blurb}</div>}
-              </Link>
-            ))
-        )}
-      </div>
+    <div className="landing">
+      <header className="landing-hero">
+        <div className="landing-hero-eyebrow">clinical-ai-validation-harness</div>
+        <h1>Planning artifacts &amp; canvases</h1>
+        <p>
+          Front door for the harness's spec / plan / canvas tree. Auto-deployed from <code>main</code> to
+          GitHub Pages. Canvases render via a small <code>cursor/canvas</code> polyfill so they show up outside
+          Cursor; the authoritative rendering remains the in-Cursor canvas view.
+        </p>
+        <div className="landing-stat-row">
+          <div className="landing-stat"><span className="n">{featureCount}</span> <span className="l">active features</span></div>
+          <div className="landing-stat"><span className="n">{totalCanvases}</span> <span className="l">canvases</span></div>
+          <div className="landing-stat"><span className="n">{totalDocs}</span> <span className="l">specs &amp; docs</span></div>
+        </div>
+      </header>
+
+      <section className="landing-section">
+        <h2>Canvases</h2>
+        <p className="landing-section-sub">Topic-scoped visual dashboards. Each renders the same <code>.canvas.tsx</code> source as inside Cursor, via the polyfill.</p>
+        <div className="card-grid">
+          {canvasLeaves.map(({ leaf, topSection, parentSection }) => (
+            <Link key={leaf.slug} to={toFor(leaf)} className="dispatch-card">
+              <div className="dispatch-card-pill">canvas</div>
+              <div className="dispatch-card-title">{leaf.title}</div>
+              {leaf.blurb && <div className="dispatch-card-blurb">{leaf.blurb}</div>}
+              <div className="dispatch-card-path">{parentSection?.title ?? topSection.title}</div>
+            </Link>
+          ))}
+        </div>
+      </section>
+
+      <section className="landing-section">
+        <h2>Specs &amp; docs</h2>
+        <p className="landing-section-sub">Markdown sources in document order. Click any to read; every page has prev/next at the bottom.</p>
+        {navTree.map((top) => {
+          // Group leaves by parent section within the top — preserving the curated order.
+          type Group = { label: string; leaves: NavLeaf[] };
+          const groups: Group[] = [];
+          function visit(items: Array<NavLeaf | NavSection>, label: string) {
+            const ownLeaves: NavLeaf[] = [];
+            for (const it of items) {
+              if (isSection(it)) visit(it.items, it.title);
+              else ownLeaves.push(it);
+            }
+            if (ownLeaves.length > 0) groups.push({ label, leaves: ownLeaves });
+          }
+          visit(top.items, top.title);
+
+          // Only include spec/home leaves in this section (canvases shown above).
+          const specGroups = groups
+            .map((g) => ({ ...g, leaves: g.leaves.filter((l) => l.kind !== 'canvas') }))
+            .filter((g) => g.leaves.length > 0);
+          if (specGroups.length === 0) return null;
+
+          return (
+            <div className="landing-section-block" key={top.title}>
+              <h3>{top.title}</h3>
+              {top.intro && <p className="landing-section-block-intro">{top.intro}</p>}
+              {specGroups.map((g) => (
+                <div key={g.label} className="doc-group">
+                  {g.label !== top.title && <h4>{g.label}</h4>}
+                  <ul className="doc-list">
+                    {g.leaves.map((leaf) => (
+                      <li key={leaf.slug}>
+                        <Link to={toFor(leaf)}>{leaf.title}</Link>
+                        {leaf.blurb && <span className="doc-blurb">{leaf.blurb}</span>}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          );
+        })}
+      </section>
     </div>
   );
 }
