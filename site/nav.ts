@@ -50,9 +50,10 @@ export const navTree: NavSection[] = [
   {
     title: 'Start here',
     items: [
-      { kind: 'home',   slug: 'README',                                    title: 'Project home', blurb: 'What this harness is and how its pieces fit together.' },
-      { kind: 'canvas', slug: 'specs/roadmap',                             title: 'Feature roadmap',          blurb: 'Top-level lanes, priorities, dependency graph.' },
-      { kind: 'canvas', slug: 'specs/artifacts/canvases/validation-research', title: 'Validation research',    blurb: 'Lanes, primitives, evals, the run-manifest spine.' },
+      { kind: 'home',   slug: 'welcome',                                       title: 'Welcome — dashboard', blurb: 'Front door: canvases, features, and everything else at a glance.' },
+      { kind: 'spec',   slug: 'README',                                        title: 'Project README',      blurb: 'What this harness is and how its pieces fit together.' },
+      { kind: 'canvas', slug: 'specs/roadmap',                                 title: 'Feature roadmap',     blurb: 'Top-level lanes, priorities, dependency graph.' },
+      { kind: 'canvas', slug: 'specs/artifacts/canvases/validation-research',  title: 'Validation research', blurb: 'Lanes, primitives, evals, the run-manifest spine.' },
     ],
   },
   {
