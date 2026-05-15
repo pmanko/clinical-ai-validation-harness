@@ -6,7 +6,7 @@ export UV_PROJECT_ENVIRONMENT
 .PHONY: setup python-pin test smoke validate-plan clean-venv \
         up down reset status logs \
         ciel-fetch ciel-baseline \
-        reset-transform
+        reset-transform sqlmesh-status
 
 # --- compose lifecycle ---
 up:
@@ -20,6 +20,8 @@ reset:
 
 status:
 	./scripts/stack-status.sh
+	@echo ""
+	@./scripts/sqlmesh-state-check.sh --quiet || true
 
 logs:
 	docker compose -f compose/openmrs-2.8-refapp.yml logs -f --tail=200
@@ -51,6 +53,11 @@ load-baseline:
 # `sqlmesh plan` after the reset.
 reset-transform:
 	./scripts/reset-transform.sh $(if $(FORCE),--force) $(if $(PLAN),--plan)
+
+# Inspect SQLMesh state health (environment count, snapshot count,
+# orphan tables/views). Exit 0 if healthy; 1 if drift detected.
+sqlmesh-status:
+	./scripts/sqlmesh-state-check.sh
 
 
 setup:
