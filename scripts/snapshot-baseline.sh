@@ -48,6 +48,12 @@ OUT="${OUT:-$DEST_DIR/seeded-baseline.sql}"
 # --default-character-set=utf8mb4 below). The companion compose stack runs
 # MariaDB with `--character-set-server=utf8mb4 --collation-server=utf8mb4_general_ci`
 # so the loader sees consistent encoding.
+# Concept tables that exist in OpenMRS Core 2.8.x / RefApp 3.6.0. Earlier
+# Core versions had `concept_word` and `concept_set_derived`; those were
+# removed when free-text concept search moved to Lucene. The openconceptlab
+# module stores its subscription URL/token in `global_property` rows (key
+# prefix `openconceptlab.`) rather than a dedicated table, so we dump those
+# global_property rows separately below.
 TABLES=(
   concept
   concept_name
@@ -66,15 +72,12 @@ TABLES=(
   concept_attribute
   concept_attribute_type
   concept_reference_range
-  concept_word
   concept_stop_word
   concept_proposal
   concept_proposal_tag_map
   concept_name_tag
   concept_name_tag_map
-  concept_set_derived
   concept_state_conversion
-  openconceptlab_subscription
   openconceptlab_import
   openconceptlab_item
 )
@@ -124,6 +127,26 @@ HEADER_TMP="$(mktemp)"
   echo ""
 } > "$HEADER_TMP"
 cat "$HEADER_TMP" "$OUT" > "${OUT}.tmp" && mv "${OUT}.tmp" "$OUT"
+
+# Append openconceptlab global_property rows (subscription URL/token + module
+# settings). These persist the "I am pinned to CIEL <vYYYY-MM-DD>" state that
+# would otherwise live in a `openconceptlab_subscription` table in older
+# Core versions. INSERT IGNORE so reloading on top of a fresh schema does
+# not error on duplicate property keys.
+docker exec "${DB_CONTAINER}" mariadb \
+  --user="${DB_USER}" --password="${DB_PASS}" \
+  --default-character-set=utf8mb4 \
+  --skip-column-names --batch \
+  "${DB_NAME}" \
+  -e "SELECT CONCAT('INSERT IGNORE INTO global_property (property, property_value, description, datatype, datatype_config, preferred_handler, handler_config, uuid) VALUES (',
+        QUOTE(property), ',', QUOTE(IFNULL(property_value,'')), ',', QUOTE(IFNULL(description,'')), ',',
+        IFNULL(QUOTE(datatype),'NULL'), ',', IFNULL(QUOTE(datatype_config),'NULL'), ',',
+        IFNULL(QUOTE(preferred_handler),'NULL'), ',', IFNULL(QUOTE(handler_config),'NULL'), ',',
+        QUOTE(uuid), ');')
+      FROM global_property
+      WHERE property LIKE 'openconceptlab.%'
+      ORDER BY property;" >> "$OUT"
+
 echo "SET FOREIGN_KEY_CHECKS=1;" >> "$OUT"
 rm -f "$HEADER_TMP"
 

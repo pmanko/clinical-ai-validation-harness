@@ -49,8 +49,44 @@ def main(argv: list[str] | None = None) -> int:
     )
     cb.set_defaults(func=_cmd_ciel_baseline)
 
+    ae = sub.add_parser(
+        "audit-errors",
+        help="Enumerate per-item errors for a finished CIEL import and emit the gate JSON.",
+    )
+    ae.add_argument("--uuid", required=True, help="openconceptlab import uuid")
+    ae.add_argument("--run-id", default=None,
+                    help="run id for artifacts/<run-id>/profile/. Defaults to dev-<UTC timestamp>.")
+    ae.add_argument("--root", default="artifacts", help="root artifacts directory")
+    ae.set_defaults(func=_cmd_audit_errors)
+
     args = p.parse_args(argv)
     return args.func(args)
+
+
+def _cmd_audit_errors(args: argparse.Namespace) -> int:
+    from harness.profile.ciel_import_errors import (
+        default_run_id,
+        enumerate_errors,
+        write_payload,
+    )
+    from pathlib import Path
+
+    try:
+        run_id = args.run_id or default_run_id()
+        payload = enumerate_errors(args.uuid)
+        out = write_payload(payload, run_id=run_id, root=Path(args.root))
+    except Exception as e:
+        print(f"ERROR: audit-errors failed: {e}", file=sys.stderr)
+        return 1
+    print(
+        f"Wrote {out}\n"
+        f"  all_items={payload['all_items_count']}"
+        f"  errors={payload['error_items_count']}"
+        f"  rate={payload['error_rate']:.6f}"
+        f"  threshold={payload['gate_threshold']:.4f}"
+        f"  gate_passed={payload['gate_passed']}"
+    )
+    return 0 if payload["gate_passed"] else 1
 
 
 if __name__ == "__main__":

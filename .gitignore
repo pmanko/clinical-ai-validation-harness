@@ -27,5 +27,11 @@ data/
 # under datasets/sources/ocl/<collection>/<version>/ for re-fetch + integrity).
 datasets/sources/ocl/**/*.zip
 
+# Seeded baseline SQL snapshots (~200MB each; regeneratable by running
+# `scripts/snapshot-baseline.sh` after a one-time full CIEL import on the
+# operator's stack). seeded-baseline.provenance.json IS committed so a
+# replicated snapshot can be checksum-verified against the canonical run.
+datasets/sources/ocl/**/seeded-baseline.sql
+
 # FHIR Validator CLI binary (pulled at run time; version pin under VERSION file).
 tools/fhir-validator/*.jar
