@@ -5,9 +5,11 @@ import { Link, NavLink, useLocation } from 'react-router-dom';
 // the glob at build time relative to vite.config.ts's root (= site/), so we
 // reach up one level.
 const canvasModules = import.meta.glob('../specs/**/*.canvas.tsx', { eager: true }) as Record<string, { default: React.ComponentType }>;
-const specModules   = import.meta.glob('../specs/**/*.md',        { eager: true, query: '?raw' }) as Record<string, { html?: string; default: string }>;
-// Top-level markdown (README, docs/README) — also surface them
-const repoMd        = import.meta.glob(['../README.md', '../docs/**/*.md'], { eager: true, query: '?raw' }) as Record<string, { html?: string; default: string }>;
+// No `?raw` here: that bypasses our markdown-as-html plugin and we'd lose
+// the rendered `html` export. The plugin transforms .md into a JS module
+// that exports both `raw` (string) and `html` (rendered).
+const specModules   = import.meta.glob('../specs/**/*.md',        { eager: true }) as Record<string, { html?: string; default: string }>;
+const repoMd        = import.meta.glob(['../README.md', '../docs/**/*.md'], { eager: true }) as Record<string, { html?: string; default: string }>;
 
 function toSlug(p: string): string {
   // ../specs/artifacts/canvases/concept-mapping-discovery.canvas.tsx
