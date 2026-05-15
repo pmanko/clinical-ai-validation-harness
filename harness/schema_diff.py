@@ -325,13 +325,18 @@ def diff_shared_table(
     for name in sorted(src_idx_names ^ tgt_idx_names):
         side = "only_in_source" if name in src_idx_names else "only_in_target"
         idx = (src.indexes.get(name) or tgt.indexes.get(name))
-        items.append({
+        item = {
             "id": f"index:{table}:{name}:{side}",
             "category": "index_difference",
-            "clinical_meaningful": False,
+            "clinical_meaningful": table in CLINICAL_TABLES,
             "details": {"table": table, "index": name, "side": side,
                         "columns": list(idx.columns) if idx else []},
-        })
+        }
+        if table in CLINICAL_TABLES:
+            item["clinical_meaningful_rationale"] = (
+                f"index on §R5 clinical-reference table {table!r}"
+            )
+        items.append(item)
 
     # FK constraints — name-based shallow comparison.
     src_fks = {fk.constraint_name for fk in src.foreign_keys}
