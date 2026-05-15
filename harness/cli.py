@@ -29,7 +29,44 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Directory to write smoke artifacts",
     )
 
+    # conceptmap subcommands
+    cm = sub.add_parser("conceptmap", help="ConceptMap authoring and validation")
+    cm_sub = cm.add_subparsers(dest="conceptmap_action", required=True)
+    cm_sub.add_parser("validate", help="Validate the accepted ConceptMap against the profile")
+    cm_sub.add_parser("seed-emit", help="Emit SQLMesh seed CSVs from the accepted ConceptMap")
+    cm_sub.add_parser("candidates", help="Mine OCL for candidate target concepts (advisory)")
+
+    # transform
+    tr = sub.add_parser("transform", help="Run the SQLMesh transform")
+    tr_sub = tr.add_subparsers(dest="transform_action", required=True)
+    tr_run = tr_sub.add_parser("run", help="Plan + run the SQLMesh project; emit refapp_28_demo.sql")
+    tr_run.add_argument("--output-dir", default="artifacts/transform")
+
+    # sample
+    sample = sub.add_parser("sample", help="Translation-coverage sampler")
+    sample.add_argument("--seed", type=int, default=42)
+    sample.add_argument("--records-per-bucket", type=int, default=5)
+    sample.add_argument("--output-dir", default="artifacts/sample")
+
+    # ocl
+    ocl = sub.add_parser("ocl", help="OCL collection management")
+    ocl_sub = ocl.add_subparsers(dest="ocl_action", required=True)
+    ocl_sub.add_parser("refresh", help="Pin a new OCL collection snapshot")
+
+    # manifest
+    mf = sub.add_parser("manifest", help="Run-manifest operations")
+    mf_sub = mf.add_subparsers(dest="manifest_action", required=True)
+    mf_sub.add_parser("finalize", help="Close out a run manifest with reviewer signoffs")
+
     return parser
+
+
+def _not_yet_implemented(command: str) -> int:
+    print(
+        f"{command}: not yet implemented",
+        file=__import__("sys").stderr,
+    )
+    return 2
 
 
 def _start_run(output_dir: Path, component: str, project_root: Path) -> tuple[Path, Path]:
@@ -61,7 +98,8 @@ def _start_run(output_dir: Path, component: str, project_root: Path) -> tuple[Pa
     return manifest_path, events_path
 
 
-def main() -> None:
+def main() -> int:
+    import sys
     args = _build_parser().parse_args()
     config = HarnessConfig.from_defaults(Path("."))
     if args.command == "schema-diff":
@@ -77,15 +115,30 @@ def main() -> None:
                 "summary_path": str(summary_path),
             },
         )
-        return
+        return 0
 
     if args.command == "import-smoke":
         output_dir = Path(args.output_dir)
         _manifest, events = _start_run(output_dir, "import-smoke", config.project_root)
         result = run_import_smoke_stub()
         append_event(events, result.to_event())
-        return
+        return 0
+
+    if args.command == "conceptmap":
+        return _not_yet_implemented(f"conceptmap {args.conceptmap_action}")
+    if args.command == "transform":
+        return _not_yet_implemented(f"transform {args.transform_action}")
+    if args.command == "sample":
+        return _not_yet_implemented("sample")
+    if args.command == "ocl":
+        return _not_yet_implemented(f"ocl {args.ocl_action}")
+    if args.command == "manifest":
+        return _not_yet_implemented(f"manifest {args.manifest_action}")
+
+    print(f"unknown command: {args.command}", file=sys.stderr)
+    return 2
 
 
 if __name__ == "__main__":
-    main()
+    import sys
+    sys.exit(main())
