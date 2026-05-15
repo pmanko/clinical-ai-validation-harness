@@ -201,7 +201,40 @@ body {
 .content-prose ul, .content-prose ol { padding-left: 22px; }
 .content-prose hr { border: none; border-top: 1px solid var(--stroke-1); margin: 22px 0; }
 
-/* ---------- landing cards (used by HomeView "Where to go from here") ---------- */
+/* ---------- landing (welcome dashboard) ---------- */
+.landing { max-width: 1100px; margin: 0 auto; }
+
+.landing-hero { padding: 24px 0 8px; border-bottom: 1px solid var(--stroke-1); margin-bottom: 24px; }
+.landing-hero-eyebrow {
+  font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--text-tertiary); margin-bottom: 8px;
+}
+.landing-hero h1 { font-size: 30px; font-weight: 700; margin: 4px 0 12px; letter-spacing: -0.012em; }
+.landing-hero p  { color: var(--text-secondary); max-width: 760px; font-size: 14.5px; }
+
+.landing-stat-row {
+  display: flex; gap: 32px; margin-top: 22px; padding-top: 18px;
+  border-top: 1px solid var(--stroke-1);
+}
+.landing-stat { display: flex; align-items: baseline; gap: 8px; }
+.landing-stat .n { font-size: 26px; font-weight: 700; color: var(--text-primary); letter-spacing: -0.01em; }
+.landing-stat .l { color: var(--text-tertiary); font-size: 13px; }
+
+.landing-section { margin-top: 36px; }
+.landing-section h2 { font-size: 20px; margin: 0 0 4px; }
+.landing-section-sub { color: var(--text-secondary); font-size: 13.5px; margin: 0 0 18px; }
+
+.landing-section-block { margin-top: 22px; }
+.landing-section-block h3 {
+  font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--text-tertiary); margin: 16px 0 4px; font-weight: 600;
+}
+.landing-section-block-intro { color: var(--text-secondary); font-size: 12.5px; margin: 0 0 8px; max-width: 760px; }
+.landing-section-block .doc-group h4 {
+  font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--text-tertiary); margin: 12px 0 4px; font-weight: 600; opacity: 0.85;
+}
+
 .card-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
@@ -234,10 +267,18 @@ body {
 
 .doc-group { margin-top: 18px; }
 .doc-group h3 { font-size: 13.5px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-secondary); margin: 0 0 6px; font-weight: 600; }
-.doc-list { list-style: none; padding-left: 0; margin: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 4px 24px; }
-.doc-list li { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 3px 0; border-bottom: 1px solid var(--stroke-1); }
-.doc-list a { color: var(--text-primary); text-decoration: none; }
+.doc-list {
+  list-style: none; padding-left: 0; margin: 0;
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); gap: 2px 28px;
+}
+.doc-list li {
+  display: flex; flex-direction: column;
+  padding: 6px 0; border-bottom: 1px solid var(--stroke-1);
+  font-size: 13px;
+}
+.doc-list a { color: var(--text-primary); text-decoration: none; font-weight: 500; }
 .doc-list a:hover { color: var(--accent); }
+.doc-blurb { color: var(--text-tertiary); font-size: 12px; margin-top: 2px; line-height: 1.45; }
 .doc-path { color: var(--text-tertiary); font-size: 11px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; flex-shrink: 0; }
 
 /* ---------- prev/next ---------- */
