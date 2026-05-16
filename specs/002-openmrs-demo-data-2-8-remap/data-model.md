@@ -101,6 +101,20 @@ Documented per-rule below; encoded as one ConceptMap element each (FR-029–FR-0
 
 Field mapping per rule is recorded canonically in the ConceptMap element's harness extensions (see `contracts/conceptmap.profile.md`). The SQLMesh model is the executable instantiation; `audits/audit_<mart>_row_count_min.sql` are the **single source of truth** for the minimum row-count floor — the audits fail the pipeline if a mart drops below its floor (catches silent-zero materialization failures, the C2-class incident from M2-A close). The "Expected rows (measured)" column above is illustrative; the audit SQL is canonical. Cross-cutting decisions (obs-preservation via `obs.order_id`, deterministic UUID v5, vaccine handling, orderer source, sampler strategy) are in `research.md` §R-typed-table-promotion.
 
+## §R-load-stage. OLTP load layer (dlt; per research.md §R-load-pattern)
+
+After SQLMesh materializes the transform into `refapp_28_demo` (virtual views over `sqlmesh__refapp_28_demo.*` snapshot tables), **dlt** moves the data into the live OpenMRS DB. This is the second half of the SQLMesh+dlt handover; see `contracts/dlt_pipeline.profile.md` for the load-layer contract.
+
+- **Path**: `harness/load/` (package), `datasets/load/openmrs-loadback.review.md` (companion review doc)
+- **Inputs**:
+  - `sqlmesh__refapp_28_demo.*` — the physical snapshot tables SQLMesh writes (resolved via `harness/load/snapshot_resolver.py` mapping each `refapp_28_demo.<view>` to its underlying snapshot)
+  - FK reconciliation seed maps under `datasets/transforms/sqlmesh/models/terminology/<entity>_map.sql` (legacy ↔ openmrs ID harmonization; default identity)
+- **Outputs**: rows in `openmrs_test.*` (iteration target) or `openmrs.*` (promotion target).
+- **Tool**: dlt `>=1.0` with the sqlalchemy destination, MySQL/MariaDB via PyMySQL.
+- **Idempotency**: per-resource via `write_disposition='merge'` with declared `primary_key`. Re-runs produce no row deltas if SQLMesh inputs are unchanged.
+- **Stamping**: each run writes `dlt_pipeline_run_id` + `dlt_state_hash` into the run manifest, plus per-table row counts into `materialized_outputs[]`.
+- **Lifecycle**: replayed on every iteration of the validation loop (edit SQLMesh model → re-run plan + audit → re-run dlt → restart backend → smoke). Wall-time per incremental iteration < 10 min.
+
 ## 3. Pinned OCL snapshots
 
 - **Path**: `datasets/sources/ocl/<collection>/<version>/`

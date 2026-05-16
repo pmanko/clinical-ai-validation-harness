@@ -17,6 +17,7 @@ This feature consumes the M0 control plane (PR #2 / merged to main via PR #3) an
 - **Terminology stack** (corrected baseline): **CIEL via OCL (Open Concept Lab)** is the OpenMRS-side terminology authority; **LOINC** is the OpenMRS↔OpenELIS bridge; **FHIR R4 ConceptMap** is used purely as the mapping artifact *grammar* (equivalence labels: `equivalent` / `equal` / `wider` / `narrower` / `inexact` / `unmatched`). FHIR is not a terminology authority itself.
 - **OCL integration is deterministic**: harness pins a current CIEL collection version (plus LOINC snapshot) into `datasets/sources/ocl/<collection>/<version>/` once per accepted-mapping cycle; the snapshot is checksum-recorded and read-only during transform. No live OCL API calls during `sqlmesh run` / smoke / sampler. Refreshing the pin is a deliberate, PCCP-triggering action.
 - **Structural transform engine**: **SQLMesh** (Apache-2.0, Linux Foundation, dbt-project-compatible). Chosen over dbt-core because SC-004 (byte-identical re-runs) is a primary success criterion and SQLMesh's content-fingerprint model versioning + time-filtered query wrappers + virtual environments are engineered around that property. ConceptMap is bridged into SQLMesh via a one-way emitter that produces a `seed_csv` model.
+- **OLTP load layer**: **dlt** (Apache-2.0, Python-native ETL framework) reads SQLMesh's physical snapshot tables (`sqlmesh__refapp_28_demo.*`) and writes to the target OpenMRS DB (`openmrs_test` for iteration, `openmrs` for promotion) with primary-key idempotency, schema evolution, and pipeline-state tracking. SQLMesh's virtual layer (views over versioned snapshots) is optimized for analytical use; it doesn't produce loadable SQL artifacts for OLTP targets. dlt fills that gap. See research.md §R-load-pattern for the architectural rationale + the Tobiko-endorsed SQLMesh+dlt handover pattern.
 - **Real bringup** = M0's shared compose. `compose/openmrs-2.8-refapp.yml` (after PR #4 lands) brings up the O3 RefApp 3.x stack — `gateway` + `frontend` + `backend` (Core 2.8.x) + `db` (MariaDB 10.11.7) — declared in `harness/targets.yaml` as `shared_infrastructure.openmrs_refapp`. The harness does **not** invent its own bringup; it invokes the M0 compose contract.
 - **Module-data policy**: orphan-table carry-forward by default (mirrors real OpenMRS distro upgrade behavior); escalations to drop/install/remap are explicit SQLMesh models with reviewer rationale.
 - **Real-path validation against chartsearchai** is split across two milestones for clarity: (a) **M2-F** invokes chartsearchai's M0-declared `validation_surface.command` (`mvn -pl api test` inside `targets/chartsearchai/`) to confirm the module is healthy against its own internal fixtures, plus a thin harness layer for concept-translation-binding assertions against the imported demo; (b) **M2-F.1 — the first real milestone (SC-015)** — brings up the live chartsearchai docker-compose stack (`targets/chartsearchai/docker-compose.yml`, image tag `nightly-chartsearch`) against the translated demo, runs an indexer warmup, posts a clinical question to `/ws/rest/v1/chartsearchai/search`, and verifies citations resolve to translated records. M2-F.1 is what satisfies Constitution Principle I (real chartsearchai production path against our translated data).
@@ -28,7 +29,8 @@ This feature consumes the M0 control plane (PR #2 / merged to main via PR #3) an
 **Language/Version**: Python 3.11+ (harness layer; `uv` managed per M0); SQL (SQLMesh models against MariaDB 10.11); FHIR R4 (ConceptMap artifacts); YAML (SQLMesh metadata, `harness/targets.yaml`-conformant).
 
 **Primary Dependencies**:
-- `sqlmesh >= 0.150` with MariaDB/MySQL adapter (Apache-2.0; Linux Foundation)
+- `sqlmesh >= 0.150` with MariaDB/MySQL adapter (Apache-2.0; Linux Foundation) — transform engine
+- `dlt[sqlalchemy] >= 1.0` (Apache-2.0; dltHub) — OLTP load layer on top of SQLMesh (see research.md §R-load-pattern + `contracts/dlt_pipeline.profile.md`)
 - `fhir.resources >= 7.0` (Python R4 ConceptMap parser/validator; MIT)
 - HL7 FHIR Validator CLI (`org.hl7.fhir.validator` JAR) for ConceptMap conformance
 - `mariadb-connector-python` or `PyMySQL` (DB introspection; MariaDB-compatible)
@@ -45,7 +47,7 @@ Existing M0 primitives reused (NOT reimplemented):
 - `harness.metadata.append_event` — events.jsonl writer
 - `harness.config` — harness root + artifact-root resolution
 
-**Storage**: MariaDB 10.11 (the O3 RefApp's DB engine, per `compose/openmrs-2.8-refapp.yml`). Source dump loaded into disposable `legacy_27_raw` schema; the live `openmrs` schema (CIEL-loaded via the openconceptlab module) IS the clean baseline — no separate empty-Liquibase-only schema is maintained; transformed output written to `refapp_28_demo` and dumped to `artifacts/<run>/transform/refapp_28_demo.sql`.
+**Storage**: MariaDB 10.11 (the O3 RefApp's DB engine, per `compose/openmrs-2.8-refapp.yml`). Source dump loaded into disposable `legacy_27_raw` schema; the live `openmrs` schema (CIEL-loaded via the openconceptlab module) IS the clean baseline — no separate empty-Liquibase-only schema is maintained; transformed output materialized to `refapp_28_demo` (SQLMesh virtual layer over `sqlmesh__refapp_28_demo` snapshot tables); dlt loads from those snapshots into `openmrs_test` (iteration target) for validation cycles, then to `openmrs` (promotion target) once iteration is green. The original "dump `refapp_28_demo` to a single `.sql` file" approach was superseded after the SQLMesh-virtual-layer/OLTP-artifact mismatch was discovered; the loadback mechanism is dlt per research.md §R-load-pattern.
 
 **Testing**:
 - `pytest >= 8.0` (already pinned) for harness modules and integration smoke
@@ -200,6 +202,10 @@ harness/
 ├── sampler/                             # NEW: translation-coverage sampler (FR-015)
 │   ├── policy_buckets.py
 │   └── sample.py
+├── load/                                # NEW: dlt OLTP load layer (per research.md §R-load-pattern + contracts/dlt_pipeline.profile.md)
+│   ├── snapshot_resolver.py            # refapp_28_demo.<view> → sqlmesh__refapp_28_demo.<snapshot>
+│   ├── pipeline.py                     # dlt pipeline (sqlalchemy source + destination)
+│   └── __main__.py                     # `python -m harness.load run`
 └── openelis/                            # NEW: analysis only (FR-017..FR-020)
     ├── feasibility.py
     └── skeleton_emit.py
