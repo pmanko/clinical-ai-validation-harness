@@ -14,6 +14,7 @@ dependencies = [
   "fhir.resources>=7.0",
   "PyMySQL>=1.1",
   "requests>=2.32",
+  "dlt[sqlalchemy]>=1.0",
 ]
 
 [project.optional-dependencies]

@@ -7,7 +7,8 @@ export UV_PROJECT_ENVIRONMENT
         up down reset status logs \
         ciel-fetch ciel-baseline \
         reset-transform sqlmesh-status \
-        loadtest-up loadtest-down
+        loadtest-up loadtest-down \
+        load-test orphan-fk-check import-smoke dump-loaded
 
 # --- compose lifecycle ---
 up:
@@ -69,6 +70,27 @@ loadtest-up:
 
 loadtest-down:
 	./scripts/loadtest-down.sh
+
+# --- Phase 5D: load + verify + dump ---
+
+# Run the SQLMesh+dlt loader: refapp_28_demo snapshots → openmrs_test_dlt → openmrs_test.
+load-test:
+	$(UV) run python -m harness.load run --target $(or $(TARGET),openmrs_test)
+
+# Post-load FK orphan audit (FR-013 / T057). Exit non-zero on orphans
+# unless ALLOW_ORPHANS=1 (iteration mode).
+orphan-fk-check:
+	$(UV) run python -m harness.transform.orphan_fk --target $(or $(TARGET),openmrs_test) \
+	  $(if $(ALLOW_ORPHANS),--allow-orphans)
+
+# Post-load smoke: REST + FHIR readback against a sample of legacy patients.
+import-smoke:
+	$(UV) run python -m harness.import_smoke --target $(or $(TARGET),openmrs_test)
+
+# Dump the loaded schema into a portable SQL.gz file (matches the
+# original data/large-demo-data-2-7-0.sql.zip distribution shape).
+dump-loaded:
+	./scripts/dump-loaded.sh $(if $(SOURCE),--source $(SOURCE)) $(if $(OUT),--out $(OUT))
 
 
 setup:

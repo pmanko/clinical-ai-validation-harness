@@ -10,10 +10,23 @@ This profile mirrors `contracts/sqlmesh_project.profile.md` for the **load layer
 
 ## Pipeline identity
 
-- **Name**: `openmrs_loadback`
+- **Name**: `openmrs_loadback__<target_schema>` — parameterized by target so iteration runs (`openmrs_test`) and promotion runs (`openmrs`) don't share dlt state.
 - **Source pattern**: read from `sqlmesh__refapp_28_demo.<resolved_snapshot_table>` via `dlt.sources.sql_database`. The `harness/load/snapshot_resolver.py` module resolves each user-facing view in `refapp_28_demo` to its underlying physical snapshot table in `sqlmesh__refapp_28_demo`.
-- **Destination pattern**: `sqlalchemy` destination configured via env-injected DSN `mysql+pymysql://<user>:<pass>@<host>:<port>/<OMRS_DB_NAME>`. Default `OMRS_DB_NAME=openmrs_test` (iteration target); promotion target is `OMRS_DB_NAME=openmrs`.
-- **Working directory**: `.dlt/openmrs_loadback/` (pipeline state, logs); gitignored.
+- **Destination pattern**: `sqlalchemy` destination configured via env-injected DSN `mysql+pymysql://<user>:<pass>@<host>:<port>/<staging_schema>`. The `staging_schema` is **always** `<target_schema>_dlt` (e.g., `openmrs_test_dlt` for the `openmrs_test` target).
+- **Working directory**: `~/.dlt/pipelines/openmrs_loadback__<target>/` (pipeline state, logs); gitignored.
+
+## Two-schema architecture (mandatory)
+
+dlt's `_dlt_load_id` and `_dlt_id` columns are not suppressible (see [dlt-hub#1317](https://github.com/dlt-hub/dlt/issues/1317) — open feature request, not a release). Writing dlt directly into OpenMRS tables would destructively mutate the Hibernate-defined schema (`_dlt_*` columns appended as NOT NULL).
+
+The deterministic resolution:
+
+```
+sqlmesh__refapp_28_demo → [dlt] → openmrs_test_dlt → [promote] → openmrs_test
+                                    (with _dlt_*)               (clean OpenMRS schema)
+```
+
+The **promote step** (`harness/load/promote.py`) reads from `<target>_dlt.<table>` and INSERTs into `<target>.<table>` using only the OpenMRS-defined column set (intersection of staging + destination, `_dlt_*` excluded). Replace-disposition tables get TRUNCATE+INSERT; merge-disposition tables get INSERT IGNORE.
 
 ## Resource conventions
 
@@ -44,16 +57,17 @@ Every load run MUST stamp into `artifacts/<run>/run_manifest.json` (via `harness
 | `dlt_state_hash` | SHA-256 of `.dlt/openmrs_loadback/state.json` after run | Determinism witness across replays |
 | `materialized_outputs[]` (extended) | per-resource row count + content checksum | Stamped per loaded table, mirroring the SQLMesh-side stamp |
 
+## Performance / parallelism
+
+- SQLAlchemy engine: `pool_size=20, max_overflow=40, pool_pre_ping=True, pool_recycle=300`. dlt parallelizes resource extraction; a smaller pool exhausts with our 32-resource load.
+- Session init: `SET sql_mode='ALLOW_INVALID_DATES', time_zone='+00:00', FOREIGN_KEY_CHECKS=0;` — needed because (a) dlt sends TZ-aware datetimes that MariaDB's DATETIME can't accept with strict mode; (b) we replay clinical tables in non-FK-order (orphans then resolved on full load); orphan-FK audit (Phase 5D.4 / FR-013) catches anything that should still error.
+
 ## Conformance commands
 
 ```bash
 # Discovery + schema integrity
-dlt pipeline openmrs_loadback info
-dlt pipeline openmrs_loadback show          # browse loaded data
-
-# Idempotency: re-running yields no row deltas
-make load-test                              # first run
-make load-test                              # second run (must produce identical materialized_outputs[])
+dlt pipeline openmrs_loadback__openmrs_test info
+dlt pipeline openmrs_loadback__openmrs_test show         # browse loaded data
 
 # Cross-tool consistency: row counts post-load match SQLMesh-side audit floors
 docker exec harness-openmrs-db mariadb -uroot -popenmrs -e "
@@ -64,9 +78,33 @@ docker exec harness-openmrs-db mariadb -uroot -popenmrs -e "
   UNION ALL SELECT 'test_order', COUNT(*) FROM openmrs_test.test_order;
 "
 # Expect counts ≥ the audit_<mart>_row_count_min.sql floors on the SQLMesh side.
+
+# Idempotency (slow): re-running yields no row deltas
+uv run pytest evals/load/test_pipeline_idempotency.py -m slow
+
+# FK integrity (FR-013): no orphans across declared FKs
+make orphan-fk-check
+
+# Patient-level REST/FHIR readback
+make import-smoke
+
+# Portable SQL dump for sharing
+make dump-loaded                            # → artifacts/<run>/transform/refapp_28_demo.sql.gz
 ```
 
 Any failure here disqualifies the load run from acceptance.
+
+## Schema modification policy (NONE on target)
+
+The promote step is the architectural enforcement: **no _dlt_* columns ever appear in the OpenMRS schema**. Two cross-checks:
+
+```bash
+docker exec harness-openmrs-db mariadb -uroot -popenmrs \
+  -e "SHOW CREATE TABLE openmrs_test.patient\G" | grep _dlt
+# Expect: (empty output)
+```
+
+If `_dlt_*` columns appear in the target, the promote step has been bypassed and the load is unsafe to use.
 
 ## Companion review document
 

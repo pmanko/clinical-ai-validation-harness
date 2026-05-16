@@ -27,20 +27,33 @@ Required alongside `harness/load/pipeline.py` per `specs/002-openmrs-demo-data-2
 
 **Rationale**: Legacy has the rich clinical history; openmrs's CIEL-baseline has minimal stock data. Keeping legacy IDs as canonical preserves clinical-record stability across iterations. If a specific ID collision surfaces during iteration (Phase 5F), the relevant `_map.sql` model is updated to renumber, and dlt's column projection consults the map.
 
-## Known follow-ups (filled during Phase 5F iteration)
+## Phase 5C terminology maps — status (path B per Phase 5D.7)
 
-_(populated during the iteration cycle — empty at spec-alignment time)_
+The six terminology maps under `datasets/transforms/sqlmesh/models/terminology/` (`user_map`, `location_map`, `encounter_type_map`, `encounter_role_map`, `role_map`, `provider_map`) are **identity maps** — every `source_id` equals its `target_id`. They are **documentation-only** at this stage.
 
-- _Expected entries_:
-  - First FK-orphan surface (which table, which column, fix applied)
-  - First column-shape mismatch (which table, which column, fix applied)
-  - First concept-binding gap (which concept, which surface, fix applied)
-  - Liquibase upgrade-in-place behavior (any changesets that needed pre-staging)
+**Path B decision**: the dlt loader does NOT consult these maps. They exist to document the FK reconciliation contract ("legacy IDs are preserved verbatim into openmrs_test; openmrs stock is wiped at promote time for clinical tables, merged for lookup tables"). Path A — actively reading the maps to translate FK columns at load time — is deferred until a specific ID collision surfaces during iteration.
+
+**Trigger to switch to Path A**: a concrete FK collision (e.g., legacy user_id=2 must be remapped to openmrs user_id=99 to avoid a conflict). When that surfaces, the relevant map's body is replaced with explicit translation, and the dlt loader is extended to JOIN the map during the promote step.
+
+## Known follow-ups (discovered during Phase 5D first iteration)
+
+- **FK orphans surfaced by `make orphan-fk-check`** (1,967 total across 13 FKs). All concentrate around stock-data residue that wasn't cleaned out before the load:
+  - `encounter_diagnosis.encounter_id → encounter.encounter_id`: 562 orphans (stock encounter_diagnosis kept while encounter was wiped + reloaded with legacy)
+  - `encounter_diagnosis.patient_id → patient.patient_id`: 530 orphans (same)
+  - `obs_reference_range.obs_id → obs.obs_id`: 451 orphans
+  - `visit.patient_id → patient.patient_id`: 174 orphans
+  - `patient_appointment.patient_id → patient.patient_id`: 100 orphans
+  - + 8 smaller FKs
+  - **Fix path**: add the affected tables (encounter_diagnosis, obs_reference_range, visit, patient_appointment, etc.) to `LOAD_RESOURCES` so the dlt loader wipes + replaces them, OR add a post-clone TRUNCATE step in `loadtest-up.sh` that empties stock clinical-detail tables before dlt runs. Deferred to a follow-up iteration; current orphans don't block the demo for the marquee patient/obs/drug_order flow.
+- **Lucene reindex 28 PersonAttribute orphans**: `PersonAttribute#1` references `Person#7` which doesn't exist. Stock-data residue. Same fix path as above.
+- **Column-shape diffs surfaced by promote (`dropped_columns` per resource)**: 2.7→2.8 schema diffs handled automatically by the promote step's column-intersection. Notably `provider.provider_role_id` (added in 2.8). No data loss; the new column gets MySQL's DEFAULT.
+- **drug_order vs test_order disambiguation**: 25 obs match both Drug-class value_coded AND Test-class concept_id. drug_order wins (added NOT EXISTS clause to test_order's selector). test_order final count: 1,095 (vs 1,120 unfiltered).
 
 ## Signoff
 
 - Project owner: pending
 - CIEL snapshot used during review: `datasets/sources/ocl/CIEL/v2026-04-28/`
-- SQLMesh project checksum at review time: pending (stamped by `make load-test` into the run manifest)
-- dlt version at review time: pending
-- Date: pending
+- SQLMesh project checksum at review time: stamped per-run in `artifacts/<run>/transform/transform.report.json`
+- dlt version at review time: 1.26.0
+- First successful end-to-end load: 2026-05-16 (this commit chain)
+- Date: pending reviewer signoff
