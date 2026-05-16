@@ -8,6 +8,8 @@ Durable planning and research artifacts that support the feature roadmap:
   - Comparative synthesis across chartsearchai, openmrs_chatbot, and Catalyst.
 - `canvases/sqlmesh-transformation-flow.canvas.tsx`
   - Concise process map for how feature 002 uses SQLMesh to materialize the OpenMRS 2.7-to-2.8 transform.
+- `canvases/scout-comparative-analysis.canvas.tsx`
+  - Deep-dive analysis of Duke DIHI Scout and implications for chartsearchai, openmrs_chatbot, and Catalyst.
 - `canvases/clinical-ai-research-guidance.canvas.tsx`
   - Research grounding, maturity framing, and evolution guidance.
 - `planning/data-remap-2.8.md`
