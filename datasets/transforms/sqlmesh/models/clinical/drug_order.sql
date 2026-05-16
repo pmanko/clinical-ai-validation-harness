@@ -11,8 +11,10 @@ MODEL (
 );
 
 SELECT
-  -- order_id is auto-generated in the loadback; emit a row per obs.
-  NULL AS order_id,
+  -- order_id = source obs_id. Matches the parent clin__orders row.
+  -- Deterministic, clinically traceable. No clinical relevance —
+  -- clinical identity is in uuid. See research.md §R-load-pattern.
+  s.obs_id AS order_id,
   s.person_id AS patient_id,
   s.encounter_id,
   COALESCE(ct.target_concept_id, s.value_coded) AS concept_id,
@@ -36,7 +38,11 @@ JOIN legacy_27_raw.concept_class cc
   ON cc.concept_class_id = c.class_id
 LEFT JOIN refapp_28_demo.seed__concept_translation ct
   ON ct.source_concept_id = s.value_coded
-LEFT JOIN refapp_28_demo.stg_encounter_provider ep
-  ON ep.encounter_id = s.encounter_id
+LEFT JOIN (
+  -- One provider per encounter (encounter_provider can have multiple roles per encounter).
+  SELECT encounter_id, MIN(provider_id) AS provider_id
+  FROM refapp_28_demo.stg_encounter_provider
+  GROUP BY encounter_id
+) ep ON ep.encounter_id = s.encounter_id
 WHERE cc.name = 'Drug'
 ;

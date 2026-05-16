@@ -11,6 +11,8 @@ MODEL (
 );
 
 SELECT
+  -- order_id = source obs_id. Matches the parent clin__orders row.
+  s.obs_id AS order_id,
   s.person_id AS patient_id,
   COALESCE(ct.target_concept_id, s.concept_id) AS concept_id,
   s.encounter_id,
@@ -38,4 +40,13 @@ LEFT JOIN refapp_28_demo.seed__concept_translation ct
   ON ct.source_concept_id = s.concept_id
 WHERE cc.name = 'Test'
   AND cd.name = 'Coded'
+  -- Drug_order wins when an obs has a Test-class question AND a Drug-class
+  -- answer (see clin__orders for the same exclusion). Prevents duplicate
+  -- orders rows for the same obs_id.
+  AND NOT EXISTS (
+    SELECT 1
+    FROM legacy_27_raw.concept dc
+    JOIN legacy_27_raw.concept_class dcc ON dcc.concept_class_id = dc.class_id
+    WHERE dc.concept_id = s.value_coded AND dcc.name = 'Drug'
+  )
 ;
