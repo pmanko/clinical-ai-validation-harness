@@ -102,37 +102,42 @@ All four must succeed before M2-E.
 ## 8. Bring up the O3 RefApp (M0 shared compose) and run the transform (M2-E)
 
 ```bash
-harness-cli compose up --profile local
+make up                                                        # full compose stack
+make ciel-baseline CIEL_VERSION=v2026-04-28                    # one-time CIEL load into openmrs
+sqlmesh -p datasets/transforms/sqlmesh plan prod --no-prompts --auto-apply
+sqlmesh -p datasets/transforms/sqlmesh audit                   # acceptance gate
 ```
 
-This invokes `harness.compose.compose_files_for_profile("local")` which brings up:
+Result: SQLMesh materializes the 64+ models into `refapp_28_demo` (views over physical snapshots in `sqlmesh__refapp_28_demo`). Audits enforce row-count floors, concept-translation coverage, FK closure, and policy-bucket coverage.
 
-- `db` (MariaDB 10.11.7)
-- `backend` (OpenMRS 3.x backend on Core 2.8.x)
-- `frontend` + `gateway` (O3 microfrontends + nginx)
-- plus `compose/services.yml` services (`elasticsearch`, `otel-collector`)
+## 9. Load via dlt + promote (Phase 5D — M2-F entry)
 
-Then run the transform:
+The transform output lives in `refapp_28_demo` as SQLMesh views over physical snapshot tables. The dlt loader picks up from there and writes into `openmrs_test` via a two-schema architecture (`openmrs_test_dlt` is the dlt staging schema; the promote step copies clean rows to `openmrs_test`). See `contracts/dlt_pipeline.profile.md` + research.md §R-load-pattern.
 
 ```bash
-harness-cli transform run
+make loadtest-up            # clones openmrs (CIEL canvas) → openmrs_test; creates openmrs_test_dlt
+make load-test              # dlt reads sqlmesh__refapp_28_demo snapshots → openmrs_test_dlt → promote → openmrs_test
 ```
 
-This: (a) loads `data/large-demo-data-2-7-0.sql` into `legacy_27_raw`; (b) executes `sqlmesh seed && sqlmesh run`; (c) writes `refapp_28_demo.sql` to `artifacts/<run>/transform/`; (d) runs `harness/transform/orphan_fk.py` to detect FK orphans.
-
-## 9. Import smoke + RefApp tests + binding check (M2-F)
+Then point the live RefApp backend at the loaded schema and verify:
 
 ```bash
-harness-cli import-smoke
+OMRS_DB_NAME=openmrs_test docker compose -f compose/openmrs-2.8-refapp.yml up -d backend
+# Wait for backend to come up (~30-60s after a recreate); Liquibase no-ops because the schema is already 2.8.
+
+make orphan-fk-check        # FR-013 — emits artifacts/<run>/transform/orphan-fk-report.json
+make import-smoke           # REST + FHIR readback against a sample of legacy patients
 ```
 
-Drops the O3 RefApp's `db` schema, loads `refapp_28_demo.sql`, restarts `backend`, waits for Liquibase to complete upgrade-in-place, then runs:
+`make import-smoke` reads `openmrs_test.patient`, picks N legacy patients, and asserts each resolves via `/ws/rest/v1/patient/<uuid>` + `/ws/fhir2/R4/Patient/<uuid>` with the right demographic shape. Report at `artifacts/<run>/import-smoke/report.json` per FR-016 record-level evidence.
 
-- **Smoke**: REST `/ws/rest/v1/patient`, FHIR `/ws/fhir2/R4/Patient`, search index population.
-- **RefApp tests**: `mvn -pl api test` inside `targets/chartsearchai/` (via `harness.targets.targets.chartsearchai.validation_surface.command`); surefire XML lands in `artifacts/<run>/chartsearchai-tests/`.
-- **Thin harness binding layer**: bundled-form rendering, default order type resolution, drug catalog resolution against translated concepts.
+### 9a. Produce a portable SQL dump (for sharing)
 
-Failures surface specific patient/encounter/observation/concept IDs.
+```bash
+make dump-loaded            # → artifacts/<run>/transform/refapp_28_demo.sql.gz (~39 MB)
+```
+
+Same shape as the original `data/large-demo-data-2-7-0.sql.zip` distribution. Load anywhere via `zcat refapp_28_demo.sql.gz | mariadb -u root -p` into a fresh empty MariaDB.
 
 ## 10. Translation-coverage sampler (M2-G)
 
