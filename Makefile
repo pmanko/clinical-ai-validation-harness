@@ -6,7 +6,8 @@ export UV_PROJECT_ENVIRONMENT
 .PHONY: setup python-pin test smoke validate-plan clean-venv \
         up down reset status logs \
         ciel-fetch ciel-baseline \
-        reset-transform sqlmesh-status
+        reset-transform sqlmesh-status \
+        loadtest-up loadtest-down
 
 # --- compose lifecycle ---
 up:
@@ -58,6 +59,16 @@ reset-transform:
 # orphan tables/views). Exit 0 if healthy; 1 if drift detected.
 sqlmesh-status:
 	./scripts/sqlmesh-state-check.sh
+
+# --- Loadback test surface (Phase 5B) ---
+# Bring up a hermetic openmrs_test schema cloned from the live
+# openmrs (CIEL-loaded 2.8 canvas). The dlt loader writes here during
+# iteration; the main openmrs schema stays untouched.
+loadtest-up:
+	./scripts/loadtest-up.sh $(if $(FORCE),--force)
+
+loadtest-down:
+	./scripts/loadtest-down.sh
 
 
 setup:
