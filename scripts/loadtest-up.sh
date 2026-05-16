@@ -25,6 +25,7 @@ DB_ROOT_PASS="${MYSQL_ROOT_PASSWORD:-openmrs}"
 DB_USER="${OMRS_DB_USER:-openmrs}"
 SOURCE_DB="${SOURCE_DB:-openmrs}"
 TARGET_DB="${TARGET_DB:-openmrs_test}"
+STAGING_DB="${STAGING_DB:-${TARGET_DB}_dlt}"
 FORCE=0
 
 while [[ $# -gt 0 ]]; do
@@ -62,12 +63,15 @@ if [[ "$TARGET_EXISTS" == "1" ]] && [[ "$FORCE" != "1" ]]; then
   [[ ! "$REPLY" =~ ^[Yy]$ ]] && { echo "Aborted."; exit 1; }
 fi
 
-echo "Dropping + recreating '${TARGET_DB}'..."
+echo "Dropping + recreating '${TARGET_DB}' and '${STAGING_DB}'..."
 docker exec "$DB_CONTAINER" mariadb \
   --user=root --password="$DB_ROOT_PASS" \
   -e "DROP SCHEMA IF EXISTS \`${TARGET_DB}\`;
+      DROP SCHEMA IF EXISTS \`${STAGING_DB}\`;
       CREATE SCHEMA \`${TARGET_DB}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
+      CREATE SCHEMA \`${STAGING_DB}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
       GRANT ALL PRIVILEGES ON \`${TARGET_DB}\`.* TO '${DB_USER}'@'%';
+      GRANT ALL PRIVILEGES ON \`${STAGING_DB}\`.* TO '${DB_USER}'@'%';
       FLUSH PRIVILEGES;"
 
 # Get rough source size for progress feedback.
