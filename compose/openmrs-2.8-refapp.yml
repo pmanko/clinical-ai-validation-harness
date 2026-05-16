@@ -88,7 +88,10 @@ services:
       OMRS_CONFIG_AUTO_UPDATE_DATABASE: "true"
       OMRS_CONFIG_CREATE_TABLES: "true"
       OMRS_CONFIG_CONNECTION_SERVER: db
-      OMRS_CONFIG_CONNECTION_DATABASE: openmrs
+      # OMRS_DB_NAME defaults to `openmrs` (the canvas baseline). Override to
+      # `openmrs_test` to point the backend at the dlt-loaded transformed
+      # corpus per `contracts/dlt_pipeline.profile.md`.
+      OMRS_CONFIG_CONNECTION_DATABASE: ${OMRS_DB_NAME:-openmrs}
       OMRS_CONFIG_CONNECTION_USERNAME: ${OMRS_DB_USER:-openmrs}
       OMRS_CONFIG_CONNECTION_PASSWORD: ${OMRS_DB_PASSWORD:-openmrs}
     healthcheck:
