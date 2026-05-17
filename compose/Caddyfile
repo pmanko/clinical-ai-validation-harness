@@ -23,7 +23,7 @@
 #
 # Add new services here as they join the stack (chartsearchai, querystore, etc.).
 
-{$CADDY_SITE::80} {
+(openmrs_routes) {
     # 256 MB body limit is plenty for CIEL OCL exports (current ~60MB) plus headroom.
     request_body {
         max_size 256MB
@@ -50,13 +50,40 @@
     handle /__proxy_health {
         respond "ok" 200
     }
+}
 
-    # Bare root: redirect to OpenMRS SPA
+# Main site: legacy URL shape `<host>/openmrs/spa` (bare root redirects to it).
+# Local dev uses ":80" catch-all; cloud sets CADDY_SITE="openclinai.org".
+{$CADDY_SITE::80} {
+    import openmrs_routes
+
+    # Bare root: redirect to the OpenMRS SPA at its canonical path.
     handle / {
         redir /openmrs/spa 302
     }
 
     # Anything unrecognised: 404 with a hint
+    handle {
+        respond "harness proxy: no route configured for {http.request.uri.path}. See compose/Caddyfile." 404
+    }
+}
+
+# OpenMRS subdomain: SPA at bare root (`<host>/`) via transparent rewrite to
+# the gateway's /openmrs/spa/. /openmrs/* still works for REST/FHIR/legacy UI
+# and /openmrs/spa direct still works for callers who already use that path.
+# Default ":8090" is a port we don't publish, so the block is dormant on local
+# dev (no Host-header match, no LE attempt); cloud sets the real subdomain.
+{$CADDY_SITE_OPENMRS::8090} {
+    import openmrs_routes
+
+    # Bare root: serve the SPA index transparently (browser URL stays "/").
+    # Subsequent SPA navigation will surface "/openmrs/spa/..." in the URL bar
+    # because the SPA's internal links are absolute. Acceptable cost.
+    handle / {
+        rewrite * /openmrs/spa/
+        reverse_proxy gateway:80
+    }
+
     handle {
         respond "harness proxy: no route configured for {http.request.uri.path}. See compose/Caddyfile." 404
     }

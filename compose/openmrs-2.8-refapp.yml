@@ -31,6 +31,9 @@ services:
       # domain, which triggers Caddy's auto-TLS via Let's Encrypt (CADDY_EMAIL
       # is the LE registration contact).
       CADDY_SITE: ${CADDY_SITE:-:80}
+      # Optional subdomain that serves the SPA at its bare root for cleaner
+      # URLs (defaults to a non-published port so the block is dormant locally).
+      CADDY_SITE_OPENMRS: ${CADDY_SITE_OPENMRS:-:8090}
       CADDY_EMAIL: ${CADDY_EMAIL:-nobody@example.com}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro

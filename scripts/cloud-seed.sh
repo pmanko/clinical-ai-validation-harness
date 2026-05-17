@@ -1,10 +1,16 @@
 #!/usr/bin/env bash
-# One-time data seed: dump openmrs_test from the LOCAL DB container, gzip,
-# rsync to the VM, and restore into the VM's DB container. ~1 GB dataset;
-# expect ~3-10 minutes depending on uplink.
+# One-time data seed: dump the 5,284-patient corpus from the LOCAL DB,
+# rsync to the VM, restore on the cloud DB. ~50MB dump; ~3-10 minutes
+# end-to-end depending on uplink.
 #
-# Re-run is destructive on the VM-side openmrs_test schema (drops then
-# recreates). Local DB is read-only here.
+# Source (local) and target (cloud) DB names differ by convention:
+#   - Local: openmrs_test (feature 002's transform pipeline target)
+#   - Cloud: openmrs      (the OpenMRS default; cloud doesn't carry the
+#                          local pipeline's split between baseline and corpus)
+# Override via SEED_SOURCE_DB / SEED_TARGET_DB if you need a different shape.
+#
+# Re-run is destructive on the VM-side TARGET schema (drops then recreates).
+# Local DB is read-only here.
 
 set -euo pipefail
 
@@ -12,18 +18,19 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # shellcheck disable=SC1091
 . "${ROOT}/scripts/cloud-lib.sh"
 
-SCHEMA="${SEED_SCHEMA:-openmrs_test}"
-DUMP_LOCAL="${ROOT}/artifacts/cloud-seed/${SCHEMA}.sql.gz"
+SOURCE_DB="${SEED_SOURCE_DB:-openmrs_test}"
+TARGET_DB="${SEED_TARGET_DB:-openmrs}"
+DUMP_LOCAL="${ROOT}/artifacts/cloud-seed/${SOURCE_DB}.sql.gz"
 
 mkdir -p "${ROOT}/artifacts/cloud-seed"
 
-echo "==> dumping ${SCHEMA} from local harness-openmrs-db (this can take a few minutes)"
+echo "==> dumping ${SOURCE_DB} from local harness-openmrs-db"
 docker exec harness-openmrs-db \
   mysqldump --user="${OMRS_DB_USER:-openmrs}" \
             --password="${OMRS_DB_PASSWORD:-openmrs}" \
             --single-transaction --quick --no-tablespaces \
             --routines --triggers --events \
-            "${SCHEMA}" \
+            "${SOURCE_DB}" \
   | gzip -c > "${DUMP_LOCAL}"
 echo "    dump: ${DUMP_LOCAL} ($(du -h "${DUMP_LOCAL}" | cut -f1))"
 
@@ -35,26 +42,21 @@ rsync -avz --progress \
   "${DUMP_LOCAL}" \
   "${GCP_SSH_USER}@${IP}:${GCP_REMOTE_REPO}/artifacts/cloud-seed/"
 
-echo "==> restoring ${SCHEMA} on VM"
-# Each step is a discrete ssh invocation so any failure surfaces a non-zero
-# exit and `set -e` aborts cleanly. The earlier heredoc-bash + pipefail
-# approach silently passed on a stuck pipeline, which is exactly the smell
-# we don't want. DROP/CREATE/GRANT need root (the openmrs user only has
-# privs on `openmrs`, the default DB MariaDB created from MYSQL_DATABASE);
-# root password is MYSQL_ROOT_PASSWORD from compose (default `openmrs`).
-
+echo "==> restoring into ${TARGET_DB} on VM"
+# DROP/CREATE/GRANT use root (the openmrs user only has DML privs on whatever
+# DB MariaDB initially created from MYSQL_DATABASE; DDL needs root).
 gcp_ssh "docker exec -i harness-openmrs-db mysql -u root -popenmrs -e \"
-  DROP DATABASE IF EXISTS ${SCHEMA};
-  CREATE DATABASE ${SCHEMA};
-  GRANT ALL PRIVILEGES ON ${SCHEMA}.* TO 'openmrs'@'%';
+  DROP DATABASE IF EXISTS ${TARGET_DB};
+  CREATE DATABASE ${TARGET_DB};
+  GRANT ALL PRIVILEGES ON ${TARGET_DB}.* TO 'openmrs'@'%';
   FLUSH PRIVILEGES;
 \""
 
 echo "    loading $(du -h "${DUMP_LOCAL}" | cut -f1) of SQL via gunzip → mysql..."
-gcp_ssh "cd ${GCP_REMOTE_REPO} && gunzip -c artifacts/cloud-seed/${SCHEMA}.sql.gz | docker exec -i harness-openmrs-db mysql -u root -popenmrs ${SCHEMA}"
+gcp_ssh "cd ${GCP_REMOTE_REPO} && gunzip -c artifacts/cloud-seed/${SOURCE_DB}.sql.gz | docker exec -i harness-openmrs-db mysql -u root -popenmrs ${TARGET_DB}"
 
 echo "    row counts (sample):"
-gcp_ssh "docker exec harness-openmrs-db mysql -u openmrs -popenmrs ${SCHEMA} -e \"
+gcp_ssh "docker exec harness-openmrs-db mysql -u openmrs -popenmrs ${TARGET_DB} -e \"
   SELECT 'patient' AS tbl, COUNT(*) AS rows_ct FROM patient
   UNION ALL SELECT 'encounter', COUNT(*) FROM encounter
   UNION ALL SELECT 'obs', COUNT(*) FROM obs;
