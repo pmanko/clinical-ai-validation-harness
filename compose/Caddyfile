@@ -1,10 +1,10 @@
 {
-    # auto_https controls Let's Encrypt cert issuance.
-    #   off  — local dev, plain HTTP on :80 (default)
-    #   on   — cloud bring-up: Caddy provisions LE certs for the configured domain
-    auto_https {$CADDY_AUTO_HTTPS:off}
+    # Caddy auto-enables TLS when the site address is a domain name; for a
+    # port-only address like `:80` it stays plain HTTP. So local dev
+    # (CADDY_SITE=":80") gets no TLS; cloud bring-up (CADDY_SITE="<domain>")
+    # gets a Let's Encrypt cert automatically.
     admin off
-    email {$CADDY_EMAIL:}
+    email {$CADDY_EMAIL:nobody@example.com}
     log {
         output stderr
         format console
