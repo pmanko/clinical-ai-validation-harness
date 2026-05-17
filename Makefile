@@ -8,7 +8,8 @@ export UV_PROJECT_ENVIRONMENT
         ciel-fetch ciel-baseline \
         reset-transform sqlmesh-status \
         loadtest-up loadtest-down \
-        load-test orphan-fk-check import-smoke dump-loaded
+        load-test orphan-fk-check import-smoke dump-loaded \
+        chartsearch-build chartsearch-configure
 
 # --- compose lifecycle ---
 up:
@@ -91,6 +92,24 @@ import-smoke:
 # original data/large-demo-data-2-7-0.sql.zip distribution shape).
 dump-loaded:
 	./scripts/dump-loaded.sh $(if $(SOURCE),--source $(SOURCE)) $(if $(OUT),--out $(OUT))
+
+# --- ChartSearchAI adapter (feature 004 PoC) ---
+
+# Build the chartsearchai .omod from the harness's pinned submodule
+# (targets/chartsearchai/) and drop it into artifacts/openmrs/modules/ so the
+# existing harness backend picks it up on next restart. The submodule SHA is
+# the pin — no Dockerfile variant or in-Docker build needed.
+chartsearch-build:
+	cd targets/chartsearchai && mvn -DskipTests -B package
+	mkdir -p artifacts/openmrs/modules
+	cp targets/chartsearchai/omod/target/chartsearchai-*.omod artifacts/openmrs/modules/
+	@ls -la artifacts/openmrs/modules/chartsearchai-*.omod
+
+# Configure chartsearchai LLM global properties via REST. Reads .env.chartsearch
+# for endpoint + model + engine. The API key goes via the backend env var
+# OMRS_EXTRA_CHARTSEARCHAI_LLM_REMOTE_APIKEY, not via REST.
+chartsearch-configure:
+	@./scripts/chartsearch-configure.sh
 
 
 setup:

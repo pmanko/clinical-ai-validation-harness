@@ -94,6 +94,12 @@ services:
       OMRS_CONFIG_CONNECTION_DATABASE: ${OMRS_DB_NAME:-openmrs}
       OMRS_CONFIG_CONNECTION_USERNAME: ${OMRS_DB_USER:-openmrs}
       OMRS_CONFIG_CONNECTION_PASSWORD: ${OMRS_DB_PASSWORD:-openmrs}
+      # chartsearchai (feature 004 PoC) reads its LLM API key from
+      # openmrs-runtime.properties (NOT a DB global property) for security.
+      # OpenMRS's OMRS_EXTRA_<NAME> mechanism translates this into
+      # `chartsearchai.llm.remote.apikey=<value>` in runtime properties at boot.
+      # Empty default keeps base RefApp behavior unchanged when CHARTSEARCH_REMOTE_API_KEY is unset.
+      OMRS_EXTRA_CHARTSEARCHAI_LLM_REMOTE_APIKEY: ${CHARTSEARCH_REMOTE_API_KEY:-}
     healthcheck:
       # First-boot Liquibase migrations on the RefApp 3.x stack take 5-10 min
       # against a fresh MariaDB volume; start_period covers that window so
