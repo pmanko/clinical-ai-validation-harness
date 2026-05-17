@@ -12,8 +12,9 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 if [ ! -f "${ROOT}/.env.chartsearch.cloud" ]; then
   cat >&2 <<EOF
 error: .env.chartsearch.cloud not found.
-       Copy .env.chartsearch.cloud.example and fill in CHARTSEARCH_REMOTE_ENDPOINT_URL
-       (the cloudflared / tunnel URL). Then re-run.
+       Copy .env.chartsearch.cloud.example. The default
+       CHARTSEARCH_REMOTE_ENDPOINT_URL points at the VM's local lms server
+       (LM Link → your Mac); change it only to use a cloud LLM directly.
 EOF
   exit 1
 fi

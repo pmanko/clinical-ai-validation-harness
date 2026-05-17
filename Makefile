@@ -10,7 +10,7 @@ export UV_PROJECT_ENVIRONMENT
         loadtest-up loadtest-down \
         load-test orphan-fk-check import-smoke dump-loaded \
         chartsearch-build chartsearch-configure chartsearch-doctor chartsearch-warmup chartsearch-up \
-        cloud-init cloud-sync cloud-up cloud-down cloud-deploy cloud-seed \
+        cloud-init cloud-sync cloud-up cloud-down cloud-reset cloud-deploy cloud-seed \
         cloud-start cloud-stop cloud-ssh cloud-logs cloud-status cloud-destroy
 
 # --- compose lifecycle ---
@@ -184,13 +184,16 @@ cloud-sync:       ## rsync repo to VM (excludes .git, .venv, build caches, secre
 cloud-up:         ## first compose up on VM (waits for backend healthy, runs configure)
 	@./scripts/cloud-up.sh
 
-cloud-down:       ## compose down on VM (stack stays installed; VM keeps running)
-	@./scripts/cloud-down.sh
+cloud-down:       ## compose down on VM; pass ARGS=--volumes to nuke data too
+	@./scripts/cloud-down.sh $(ARGS)
+
+cloud-reset:      ## DESTRUCTIVE: down --volumes + clear binds + resync + cloud-up. FORCE=1 to skip prompt
+	@FORCE=$(FORCE) ./scripts/cloud-reset.sh
 
 cloud-deploy:     ## fast iteration: rebuild .omod + rsync + restart backend on VM
 	@./scripts/cloud-deploy.sh
 
-cloud-seed:       ## one-time: dump openmrs_test locally + restore on VM (~1 GB)
+cloud-seed:       ## one-time: dump openmrs_test locally + restore on VM
 	@./scripts/cloud-seed.sh
 
 cloud-start:      ## start the VM (no compose changes; pair with cloud-up after)

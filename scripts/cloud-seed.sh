@@ -36,15 +36,22 @@ rsync -avz --progress \
   "${GCP_SSH_USER}@${IP}:${GCP_REMOTE_REPO}/artifacts/cloud-seed/"
 
 echo "==> restoring ${SCHEMA} on VM"
+# DROP/CREATE/GRANT need root (the openmrs user only has privs on `openmrs`,
+# the default DB MariaDB created from MYSQL_DATABASE). Root password matches
+# MYSQL_ROOT_PASSWORD in compose (defaults to `openmrs`).
 gcp_ssh bash <<REMOTE
 set -euo pipefail
 cd "\${HOME}/${GCP_REMOTE_REPO}"
-docker exec -i harness-openmrs-db sh -c \
-  "mysql --user=openmrs --password=openmrs -e 'DROP DATABASE IF EXISTS ${SCHEMA}; CREATE DATABASE ${SCHEMA};'"
+docker exec -i harness-openmrs-db sh -c "mysql -u root -popenmrs -e \"
+  DROP DATABASE IF EXISTS ${SCHEMA};
+  CREATE DATABASE ${SCHEMA};
+  GRANT ALL PRIVILEGES ON ${SCHEMA}.* TO 'openmrs'@'%';
+  FLUSH PRIVILEGES;
+\""
 gunzip -c artifacts/cloud-seed/${SCHEMA}.sql.gz \
-  | docker exec -i harness-openmrs-db mysql --user=openmrs --password=openmrs ${SCHEMA}
+  | docker exec -i harness-openmrs-db mysql -u root -popenmrs ${SCHEMA}
 echo "    restored. Row counts (sample):"
-docker exec harness-openmrs-db mysql --user=openmrs --password=openmrs ${SCHEMA} -e \
+docker exec harness-openmrs-db mysql -u openmrs -popenmrs ${SCHEMA} -e \
   "SELECT 'patient' AS tbl, COUNT(*) FROM patient UNION ALL SELECT 'encounter', COUNT(*) FROM encounter UNION ALL SELECT 'obs', COUNT(*) FROM obs;"
 REMOTE
 

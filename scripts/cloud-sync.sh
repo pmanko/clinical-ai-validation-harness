@@ -66,4 +66,14 @@ rsync -avz --delete \
   "${ROOT}/" \
   "${GCP_SSH_USER}@${IP}:${GCP_REMOTE_REPO}/"
 
+# OpenMRS RefApp backend image runs as UID 1001:0. The compose bind-mounts
+# artifacts/openmrs/modules and artifacts/openmrs/backend-logs INTO the
+# container's writable paths (/openmrs/data/modules + /usr/local/tomcat/logs).
+# On Linux the rsync'd files keep host ownership (UID 1000 / pmanko), which
+# the container can't write into — startup.sh fails to populate distribution
+# modules, backend never reaches healthy. On Docker Desktop (Mac) the UID
+# virtualization papers over this, which is why the local flow works.
+# Chown the two bind-mount targets here so the container can take ownership.
+gcp_ssh "mkdir -p ${GCP_REMOTE_REPO}/artifacts/openmrs/modules ${GCP_REMOTE_REPO}/artifacts/openmrs/backend-logs && sudo chown -R 1001:0 ${GCP_REMOTE_REPO}/artifacts/openmrs/modules ${GCP_REMOTE_REPO}/artifacts/openmrs/backend-logs"
+
 echo "==> sync complete"
