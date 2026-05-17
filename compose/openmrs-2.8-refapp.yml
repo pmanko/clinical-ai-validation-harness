@@ -127,6 +127,12 @@ services:
     volumes:
       - openmrs-data:/openmrs/data
       - ../artifacts/openmrs/modules:/openmrs/data/modules
+      # Surface Tomcat access logs to the host so debugging doesn't require
+      # `docker exec ... tail` against /usr/local/tomcat/logs/. The catalina
+      # log already streams to docker logs (stdout/stderr); this mount adds
+      # the AccessLogValve output (localhost_access_log.*.txt) for completeness.
+      # Tail from host: tail -F artifacts/openmrs/backend-logs/localhost_access_log.*.txt
+      - ../artifacts/openmrs/backend-logs:/usr/local/tomcat/logs
 
   db:
     image: mariadb:10.11.7
