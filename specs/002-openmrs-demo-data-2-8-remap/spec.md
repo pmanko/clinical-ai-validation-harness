@@ -290,3 +290,17 @@ Live snapshot of progress against the milestones above. Detail is in `tasks.md`;
 **Bridge rule coverage** (live join): **457 / 457 (100%)** of obs-referenced concepts resolve to a CIEL concept via `uuid = RPAD(CAST(legacy.concept_id AS CHAR), 36, 'A')`. Drives FR-008(a) — see `research.md` §R-bridge-rule.
 
 **CIEL import** (T024c): 358,026 items, 133 errors (**0.0371%**, under 0.1% gate). 23 root concepts; **0 overlap** with the 457 legacy-referenced concepts → non-blocking. See `research.md` §R-Import-Error-Tolerance.
+
+---
+
+## Cross-reference: M2-H as input to M10 (Catalyst FHIR sidecar)
+
+The M2-H OpenELIS feasibility analysis and mapping skeleton produced by this feature is a useful **advisory input** to roadmap milestone M10 (`011-catalyst-fhir-sidecar-poc`):
+
+- The LOINC-bridged terminology skeleton (`datasets/mappings/openmrs-2.7-to-openelis.skeleton.conceptmap.json`) gives M10 a starting vocabulary for LOINC codes that appear in OpenELIS `Observation` FHIR resources, supporting the M10 FHIR resource coverage verification.
+- The structural skeleton YAML (`datasets/mappings/openmrs-2.7-to-openelis.skeleton.yaml`) documents per-entity fidelity levels and source-column references; M10 can reference these when validating that FHIR resources from OE2's HAPI FHIR server align with the expected lab data model.
+- The feasibility report's per-entity gap log (especially the `Specimen` absence finding) is directly relevant to M10's OE2 FHIR gap log.
+
+**No Catalyst pre-requisite.** M10 does not depend on M2-H being complete; M10's FHIR POC targets the OE2 HAPI FHIR server directly. M2-H artifacts are advisory enrichment, not a gate.
+
+See: [`specs/artifacts/planning/catalyst-fhir-sidecar-brief.md`](../artifacts/planning/catalyst-fhir-sidecar-brief.md) (the M10 source brief) and the [roadmap](../roadmap.canvas.tsx) (M10 — Planning).
