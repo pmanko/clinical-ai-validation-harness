@@ -221,6 +221,7 @@ body {
 }
 .landing-hero h1 { font-size: 30px; font-weight: 700; margin: 4px 0 12px; letter-spacing: -0.012em; }
 .landing-hero p  { color: var(--text-secondary); max-width: 760px; font-size: 14.5px; }
+.landing-hero-sub { font-size: 13px !important; color: var(--text-tertiary) !important; margin-top: 4px; }
 
 .landing-stat-row {
   display: flex; gap: 32px; margin-top: 22px; padding-top: 18px;

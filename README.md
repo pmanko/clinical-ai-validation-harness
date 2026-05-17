@@ -1,78 +1,118 @@
 # clinical-ai-validation-harness
 
-Umbrella validation and orchestration harness for early clinical AI systems:
+A validation harness for early clinical AI tools — helping teams test AI-powered clinical systems against realistic health data and real integration paths, with traceable, reviewable evidence at every step.
 
-- `chartsearchai`
-- `querystore`
-- `openmrs_chatbot`
-- `Catalyst` (OpenELIS)
+The harness currently focuses on OpenMRS-based clinical AI (chart search, query retrieval, clinical chat) and OpenELIS lab-system AI (Catalyst). Validation means real systems, real data, and decisions that can be traced back to specific clinical records — not just passing unit tests.
 
-The repository is intended to coordinate local and VM-based setup, testing, and validation across the referenced projects. The first implementation slice is the OpenMRS demo-data remap/import because it provides a realistic clinical corpus and concrete validation target for `chartsearchai` and `querystore`.
+## Who this is for
 
-## Scope and Principles
+- **Clinical and program stakeholders** — understand how AI answers are evaluated, what evidence backs a validation claim, and where the governance guardrails are.
+- **Technical collaborators** — run the harness locally or on a VM, inspect transforms and run artifacts, and contribute code or mapping reviews.
+- **AI validation and research readers** — explore the evidence model, evaluation methodology, and metadata schema across retrieval, answer quality, citation, abstention, and safety dimensions.
+- **OpenMRS / OpenELIS community members** — see how demo data is modernized for the latest Reference Application, how harness tools relate to existing modules, and what parts could be reused.
 
-The canonical constitution is `.specify/memory/constitution.md`.
+## What this harness validates
 
-- Run real production paths, not test-only simulations.
-- Keep clinical evidence stores separate from operating metadata.
-- Treat LLM mapping output as advisory only.
-- Promote only reviewed mappings into deterministic scripts.
-- Use run manifests and event traces for every run.
-- Preserve record-level evidence and rationale for validation claims.
-- Cover diverse validation scenarios, not only the narrow case used to tune a
-  prompt, mapping, or adapter.
-- Use PCCP-style review records for material model, prompt, retrieval, mapping,
-  or pipeline changes.
+The harness coordinates validation across four clinical AI projects:
 
-## Repository Layout
+| Project | What it does | Role here |
+|---------|-------------|-----------|
+| `chartsearchai` | Embedded OpenMRS module: searches patient chart records using embeddings and lexical retrieval, then generates cited answers | Primary validation target: retrieval quality, answer grounding, citation, abstention, and security |
+| `querystore` | Emerging read-optimized store that will back `chartsearchai` retrieval | Parity testbed: compare retrieval behavior before and after migration |
+| `openmrs_chatbot` | Python clinical chatbot with patient/doctor interfaces and agent workflow scaffolding | Future expansion: multi-turn grounding and role-aware answer evaluation |
+| `Catalyst` (OpenELIS) | Lab-system AI: natural-language-to-SQL, schema-aware retrieval, and allowlisted SQL execution over OpenELIS data | Future expansion: NL-to-SQL correctness, schema allowlist enforcement, multi-agent trace evaluation |
 
-- `docs/`: user-facing documentation only.
-- `specs/`: roadmap plus future feature spec directories; supporting materials live in `specs/artifacts/`.
-- `compose/`: OpenMRS/MySQL and optional service stack compose files.
-- `datasets/`: source pointers, mapping specs, deterministic transforms, fixtures.
-- `harness/`: Python orchestration package and CLI.
-- `adapters/`: wrappers/contracts for project-specific validation integration.
-- `evals/`: pytest suites for import, indexing, retrieval, metadata checks.
-- `artifacts/`: output folder for run manifests, JSONL events, and reports.
-- `site/`: Vite-built static-site renderer for the specs and canvases. Public docs auto-deploy from `main` via `.github/workflows/pages.yml`.
+## Current priority: OpenMRS demo-data remap (Roadmap M1)
 
-## Public docs site
+The first major deliverable transforms the publicly available OpenMRS 2.7 demo corpus (`large-demo-data-2-7-0.sql`) into a Reference Application 3.x / Core 2.8-compatible database. This creates a realistic, importable clinical corpus that `chartsearchai` and other tools can be validated against.
 
-`specs/` and the `.canvas.tsx` canvases are auto-published to GitHub Pages at
-`https://pmanko.github.io/clinical-ai-validation-harness/` on every push to `main`.
+Work includes profiling the source corpus (schema, terminology, modules), mapping concepts onto the CIEL clinical terminology standard, running deterministic SQL transforms, validating the imported database against a live OpenMRS stack, and running chart search and coverage checks against real imported data.
 
-Browse locally:
+Status: actively in progress. See the [Feature 002 spec](specs/002-openmrs-demo-data-2-8-remap/spec.md) and [quickstart](specs/002-openmrs-demo-data-2-8-remap/quickstart.md) for step-by-step detail.
 
-```bash
-cd site
-npm install     # one-time
-npm run dev     # → http://127.0.0.1:4321/clinical-ai-validation-harness/
+## How the docs fit together
+
+| What you need | Where to go |
+|---------------|-------------|
+| Visual project overview and navigation | [Public docs site](https://pmanko.github.io/clinical-ai-validation-harness/) |
+| Roadmap — what is planned, why, and in what order | [Feature roadmap canvas](specs/roadmap.canvas.tsx) |
+| Validation evidence model and evaluation methodology | [Validation research canvas](specs/artifacts/canvases/validation-research.canvas.tsx) |
+| Current priority operator walkthrough | [Feature 002 quickstart](specs/002-openmrs-demo-data-2-8-remap/quickstart.md) |
+| Harness foundation and control-plane detail | [Feature 001 spec](specs/001-harness-control-plane-foundation/spec.md) |
+| All planning artifacts, canvases, and research docs | [specs/artifacts/](specs/artifacts/) |
+| Cloud/GCE deploy guide | [docs/cloud-deploy.md](docs/cloud-deploy.md) |
+
+The public docs site auto-deploys from `main` and includes all canvases and spec markdown. Browse locally with `cd site && npm install && npm run dev` (opens at `http://127.0.0.1:4321/clinical-ai-validation-harness/`).
+
+## Milestone names and IDs
+
+Human-facing docs use plain names. IDs appear in parentheses on first use and inside technical specs.
+
+| Plain name | Roadmap ID | Feature folder | Status |
+|-----------|-----------|----------------|--------|
+| Harness foundation | M0 | `001` | Complete |
+| OpenMRS demo-data remap | M1 | `002` | In progress |
+| Validation spine | M2 | `003` | Planned |
+| Real adapter entrypoints | M3 | `004` | In progress |
+| Retrieval evaluation | M4 | `005` | Planned |
+| Answer, citation, and abstention | M5 | `006` | Planned |
+| Safety and red-team | M6 | `007` | Planned |
+| Clinician governance review | M7 | `008` | Planned |
+| Querystore parity testbed | M8 | `009` | Planned |
+| Cross-project expansion | M9 | `010` | Planned |
+
+> **Note on feature 002 internal phases:** Work inside the OpenMRS demo-data remap (M1 / `002`) uses implementation sub-labels `M2-A` through `M2-Z` in detailed feature docs. These are internal planning labels for that feature's phases — not related to roadmap milestone M2 (Validation spine).
+
+## Principles
+
+How validation claims are made and how evidence is handled:
+
+- **Use real paths.** Run real OpenMRS, real `chartsearchai`, and real adapters. Stubs and simulations are labeled as scaffolding and cannot count as production-path evidence.
+- **Separate clinical data from operating metadata.** Record-level clinical evidence lives in the database or SQL artifacts. Run manifests, event traces, and evaluation records are metadata kept separate.
+- **Keep LLM output advisory.** Machine-generated mapping proposals are starting points only. Accepted mappings must be reviewed and stored in deterministic, versioned artifacts before use.
+- **Require record-level evidence.** Validation claims trace to specific records — not just counts or aggregate metrics.
+- **Cover diverse scenarios.** Evaluation sets include edge cases, absent-data cases, and adversarial inputs — not only the happy path used to tune a prompt or mapping.
+- **Document material changes.** Significant changes to models, prompts, retrieval, mappings, or pipelines require a change record (PCCP — see Key Terms). This keeps decisions reviewable and reproducible.
+
+The canonical governance reference is `.specify/memory/constitution.md`.
+
+## Repository layout
+
 ```
-
-The dev server picks up live changes to `specs/**/*.md` and `specs/**/*.canvas.tsx`.
-
-Canvases render via a small `cursor/canvas` polyfill in `site/cursor-canvas.tsx` —
-their authoritative rendering remains the in-Cursor canvas view; the published view is
-best-effort visual parity for collaborators outside Cursor.
+docs/          User-facing guides and operator runbooks
+specs/         Feature specs, plans, research docs, and canvases; specs/artifacts/ for cross-cutting materials
+compose/       Docker Compose files for the OpenMRS/MariaDB stack and optional services
+datasets/      Source pointers, mapping artifacts, deterministic transforms, and fixtures
+harness/       Python orchestration package and CLI (harness-cli)
+adapters/      Adapter contracts for invoking real project validation paths
+evals/         pytest suites for import, indexing, retrieval, and metadata checks
+artifacts/     Per-run outputs: manifests, events, reports (gitignored)
+site/          Static-site build of specs and canvases; auto-deployed to GitHub Pages
+targets/       Pinned submodule checkouts of the four target projects
+```
 
 ## Quickstart
 
-1. Install `uv` if needed:
-   - `curl -LsSf https://astral.sh/uv/install.sh | sh`
-2. Create the local Python environment and install dev dependencies:
-   - `make setup`
-3. Prepare stack:
-   - `docker compose -f compose/openmrs-2.8-refapp.yml up -d`
-4. Run a schema diff:
-   - `uv run harness-cli schema-diff --output-dir artifacts/schema-diff`
-5. Run smoke tests:
-   - `make smoke`
+**Requirements:** Python 3.11+, `uv`, Docker / Docker Compose, Git.
 
-The project tracks `.python-version` as `3.11` and keeps `requires-python =
-">=3.11"` in `pyproject.toml`, so local and VM environments can use any
-compatible 3.11+ Python while sharing the same `uv.lock`.
+```bash
+# 1. Install uv (Python environment manager) if not already installed
+curl -LsSf https://astral.sh/uv/install.sh | sh
 
-If `make` is unavailable, run the equivalent commands directly:
+# 2. Set up the Python environment and install all dev dependencies
+make setup
+
+# 3. Bring up the OpenMRS Reference Application stack (MariaDB + backend + frontend)
+docker compose -f compose/openmrs-2.8-refapp.yml up -d
+
+# 4. Run a schema diff between the legacy 2.7 source and the clean 2.8 baseline
+uv run harness-cli schema-diff --output-dir artifacts/schema-diff
+
+# 5. Run the smoke test suite
+make smoke
+```
+
+If `make` is unavailable:
 
 ```bash
 uv python install 3.11
@@ -80,41 +120,52 @@ uv sync --extra dev
 uv run pytest evals/dataset_import evals/metadata
 ```
 
-## Spec Kit
+Python 3.11+ is required. The project tracks `.python-version = 3.11` and `requires-python = ">=3.11"` in `pyproject.toml`.
 
-This repo is initialized with GitHub Spec Kit `v0.8.9` using multi-agent integrations:
+For the full OpenMRS demo-data remap workflow, see [specs/002-openmrs-demo-data-2-8-remap/quickstart.md](specs/002-openmrs-demo-data-2-8-remap/quickstart.md).
 
-- Spec Kit config: `.specify/`
-- Cursor skills: `.cursor/skills/`
-- Cursor rule: `.cursor/rules/specify-rules.mdc`
-- Claude skills: `.claude/skills/`
-- Claude guidance: `CLAUDE.md`
-- Agent guidance: `AGENTS.md`
+## Key terms
 
-Useful Spec Kit skills:
+| Term | Meaning |
+|------|---------|
+| **Harness** | This repository — it orchestrates validation across the four target projects without living inside any of them. |
+| **Target** | One of the four clinical AI projects validated here: `chartsearchai`, `querystore`, `openmrs_chatbot`, or Catalyst. |
+| **Canvas** | An interactive visual summary page (`.canvas.tsx`) authored in Cursor and published on the docs site. |
+| **CIEL** | Columbia International eHealth Laboratory dictionary — the open clinical concept terminology standard used by OpenMRS. |
+| **OCL** | Open Concept Lab — the terminology service that hosts CIEL and other clinical dictionaries. |
+| **FHIR** | Fast Healthcare Interoperability Resources — used here as the grammar for terminology mapping artifacts (ConceptMap format). |
+| **Ref App** | OpenMRS Reference Application, the standard OpenMRS distribution. "O3 Ref App" refers to the current 3.x version on Core 2.8. |
+| **SQLMesh** | The deterministic data transformation framework used to materialize the OpenMRS 2.7 → 2.8 migration. |
+| **run_manifest.json** | Machine-readable provenance record emitted for every harness run: inputs, versions, component SHAs, and evidence status. |
+| **events.jsonl** | Append-only event trace for a run: queries, retrievals, model calls, evaluations, and reviewer actions. |
+| **PCCP** | Predetermined Change Control Plan — a structured change record (adapted from FDA AI guidance) used here for material changes to models, prompts, retrieval, mappings, or pipelines. Keeps decisions auditable. |
 
-- `/speckit-constitution`
-- `/speckit-specify`
-- `/speckit-clarify`
-- `/speckit-plan`
-- `/speckit-tasks`
-- `/speckit-analyze`
-- `/speckit-implement`
+## Spec Kit and contributor automation
 
-## Milestone 1 Contract
+This repository uses [GitHub Spec Kit](https://github.com/github/spec-kit) (`v0.8.9`) for AI-assisted feature specification and planning. Agent and contributor guidance lives in `AGENTS.md`. Cursor skills are in `.cursor/skills/`; Claude skills are in `.claude/skills/`.
 
-Milestone 1 is complete when the harness can:
+Useful skills for contributors:
 
-- compare legacy source schema vs clean Ref App 2.8 schema,
-- produce reviewable mapping artifacts,
-- run deterministic transforms repeatedly from scratch,
-- validate OpenMRS startup + API readability + core table sanity,
-- run chartsearchai/querystore adapter entrypoints,
-- emit `run_manifest.json` + `events.jsonl` for each run,
-- retain durable copies of research canvases in `specs/artifacts/`.
+- `/speckit-specify` — create or update a feature spec
+- `/speckit-plan` — generate an implementation plan
+- `/speckit-tasks` — generate task lists from a plan
+- `/speckit-implement` — execute tasks from `tasks.md`
+- `/speckit-analyze` — cross-artifact consistency check
 
-## Notes
+## Notes on source data and sibling repositories
 
-- Expected legacy source: `/Users/pmanko/code/openmrs-module-chartsearchai/data/large-demo-data-2-7-0.sql`.
-- Querystore repository is expected as sibling checkout:
-  - `/Users/pmanko/code/openmrs-module-querystore`
+The OpenMRS 2.7 demo corpus (`large-demo-data-2-7-0.sql`) is not stored in this repository. It is expected as a sibling checkout alongside this repo:
+
+```
+../openmrs-module-chartsearchai/data/large-demo-data-2-7-0.sql
+```
+
+Use an environment variable to override the location:
+
+```bash
+export HARNESS_TARGET_CHARTSEARCHAI=/path/to/openmrs-module-chartsearchai
+```
+
+The `querystore` source repository is also expected as a sibling checkout (`../openmrs-module-querystore`) or via `HARNESS_TARGET_QUERYSTORE`.
+
+For OpenELIS feasibility analysis (feature 002, sub-phase M2-H), the OpenELIS Global 2 repository is read from a sibling checkout (`../OpenELIS-Global-2`) or via `OPENELIS_ROOT=/path/to/OpenELIS-Global-2`.

@@ -748,10 +748,10 @@ export default function SpecRoadmap() {
   return (
     <Stack gap={20}>
       <Stack gap={6}>
-        <H1>Spec Roadmap</H1>
+        <H1>Validation Roadmap</H1>
         <Text tone="secondary">
-          Canonical roadmap for deciding which Spec Kit feature specs to create. This document is dependency-oriented,
-          not a strict execution order: some work can proceed in parallel once its prerequisites are in place.
+          Planned validation work for the clinical-ai-validation-harness — organized by dependency, not strict execution order.
+          Some milestones can run in parallel once their prerequisites are in place.
         </Text>
       </Stack>
 
@@ -763,11 +763,19 @@ export default function SpecRoadmap() {
         <Stat value={laneCounts.expansion} label="Expansion/migration" tone="success" />
       </Grid>
 
-      <Callout tone="info" title="Default first spec">
+      <Callout tone="info" title="Reading this roadmap">
         <Text>
-          Start with <Code>001-harness-control-plane-foundation</Code>. It creates stable assumptions for project
-          locations, environment profiles, compose overlays, artifacts, adapter boundaries, and local/VM workflows.
-          <Code>002-openmrs-demo-data-2-8-remap</Code> can still run in parallel as a focused corpus-readiness effort.
+          Milestone IDs (M0, M1 …) are planning labels for this harness — they are not OpenMRS version numbers or product releases.
+          For plain-language names and a cross-reference to feature folders, see the <Code>README.md</Code> milestone table.
+          Not building specs? Use the <Code>Validation research</Code> canvas (Start here → Validation research) for the evidence model and evaluation methodology.
+        </Text>
+      </Callout>
+
+      <Callout tone="neutral" title="Where to start">
+        <Text>
+          Harness foundation (<Code>001</Code>, M0) is complete. OpenMRS demo-data remap (<Code>002</Code>, M1) and
+          real adapter entrypoints (<Code>004</Code>, M3) are actively in progress.
+          <Code>002</Code> and <Code>004</Code> can proceed in parallel.
         </Text>
       </Callout>
 
