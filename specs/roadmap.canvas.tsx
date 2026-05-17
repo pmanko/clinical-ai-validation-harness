@@ -19,7 +19,7 @@ import {
   useHostTheme,
 } from "cursor/canvas";
 
-type LaneId = "foundation" | "openmrs" | "safety" | "expansion";
+type LaneId = "foundation" | "openmrs" | "safety" | "expansion" | "openelis";
 
 type Feature = {
   id: string;
@@ -61,6 +61,12 @@ const lanes: Record<
     shortLabel: "Expansion",
     tone: "success",
     purpose: "Querystore parity and reuse of the validation spine across sibling projects.",
+  },
+  openelis: {
+    label: "OpenELIS / Catalyst",
+    shortLabel: "Catalyst",
+    tone: "info",
+    purpose: "FHIR-first lab AI sidecar over OpenELIS Global 2 — resource-grounded answers and report/analytics UI.",
   },
 };
 
@@ -259,10 +265,9 @@ const features: Feature[] = [
     slug: "010-cross-project-validation-expansion",
     lane: "expansion",
     purpose:
-      "Apply the shared validation spine to openmrs_chatbot and Catalyst without inventing separate harnesses.",
+      "Apply the shared validation spine to openmrs_chatbot without inventing a separate harness.",
     scope: [
       "openmrs_chatbot: role-aware chat, multi-turn grounding, and agent handoff traces.",
-      "Catalyst: NL-to-SQL correctness, Pass^N consistency, schema allowlist enforcement, RBAC-safe execution, and provider drift.",
       "Shared metadata and review records across projects.",
     ],
     evidence: [
@@ -270,6 +275,28 @@ const features: Feature[] = [
       "Project-specific risks are captured without fragmenting the harness model.",
     ],
     needs: ["M2", "M3", "M6", "M7"],
+    unlocks: [],
+  },
+  {
+    id: "M10",
+    num: "M10",
+    title: "Catalyst FHIR sidecar POC",
+    slug: "011-catalyst-fhir-sidecar-poc",
+    lane: "openelis",
+    purpose:
+      "Stand up a Catalyst-owned FHIR-first sidecar over OE2's HAPI FHIR server, answering five canonical lab-data questions with resource-grounded citations and a Scout-style report/analytics UI.",
+    scope: [
+      "catalyst-mcp FHIR tools (search_patient, get_observations, get_service_requests, get_diagnostic_reports, build_patient_lab_timeline).",
+      "HAPI-first answer path; embedded-FHIR parity probe with gap log.",
+      "Catalyst sidecar UI: question input, cited answers, evidence cards, lab-result table, lab timeline.",
+      "Sidecar response contract (answer + facts[] + citations[] + uiBlocks[]).",
+      "Harness adapter smoke: OE2 up → Catalyst up → five canonical questions → emit run_manifest.json + events.jsonl.",
+    ],
+    evidence: [
+      "All five canonical questions answered with FHIR resource IDs cited and resolvable in OE2.",
+      "Parity probe records HAPI vs embedded divergences in the OE2 FHIR gap log.",
+    ],
+    needs: ["M0", "M2", "M3"],
     unlocks: [],
   },
 ];
@@ -285,6 +312,7 @@ const laneFlows: Record<LaneId, string[]> = {
   openmrs: ["M1", "M4", "M5"],
   safety: ["M6", "M7"],
   expansion: ["M8", "M9"],
+  openelis: ["M10"],
 };
 
 const crossLaneEdges = [
@@ -300,6 +328,8 @@ const crossLaneEdges = [
   ["M2", "M9"],
   ["M3", "M9"],
   ["M7", "M9"],
+  ["M2", "M10"],
+  ["M3", "M10"],
 ] as const;
 
 const sequencingNotes: Array<[string, string]> = [
@@ -331,6 +361,10 @@ const sequencingNotes: Array<[string, string]> = [
     "M8 and M9 are reuse tests",
     "Querystore parity and cross-project expansion should reuse the validation spine rather than create separate harnesses.",
   ],
+  [
+    "M10 is Catalyst-lane, not expansion",
+    "The Catalyst FHIR sidecar POC runs in its own openelis lane. It needs M0 (harness foundation), M2 (metadata contract), and M3 (real adapter boundaries) — not full M4/M5/M6. Spec Kit drives Phase 2 (spec/plan/tasks); implementation lands in Phase 3.",
+  ],
 ];
 
 const governanceGates = [
@@ -352,6 +386,8 @@ function laneAccentToken(theme: ReturnType<typeof useHostTheme>, lane: LaneId): 
       return theme.diff.stripRemoved;
     case "expansion":
       return theme.diff.stripAdded;
+    case "openelis":
+      return theme.accent.primary;
   }
 }
 
@@ -742,7 +778,7 @@ export default function SpecRoadmap() {
       acc[feature.lane] = acc[feature.lane] + 1;
       return acc;
     },
-    { foundation: 0, openmrs: 0, safety: 0, expansion: 0 },
+    { foundation: 0, openmrs: 0, safety: 0, expansion: 0, openelis: 0 },
   );
 
   return (
@@ -755,12 +791,13 @@ export default function SpecRoadmap() {
         </Text>
       </Stack>
 
-      <Grid columns={5} gap={16}>
+      <Grid columns={6} gap={16}>
         <Stat value={features.length} label="Planned feature specs" />
         <Stat value={laneCounts.foundation} label="Foundation" tone="info" />
         <Stat value={laneCounts.openmrs} label="OpenMRS corpus/eval" />
         <Stat value={laneCounts.safety} label="Safety/governance" tone="warning" />
         <Stat value={laneCounts.expansion} label="Expansion/migration" tone="success" />
+        <Stat value={laneCounts.openelis} label="Catalyst/OpenELIS" tone="info" />
       </Grid>
 
       <Callout tone="info" title="Reading this roadmap">
