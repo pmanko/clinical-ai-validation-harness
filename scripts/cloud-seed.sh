@@ -74,8 +74,16 @@ gcp_ssh "docker exec harness-openmrs-db mysql -u openmrs -popenmrs ${TARGET_DB} 
 # silent success on a stale index is exactly the smell this fix removes.
 echo ""
 echo "==> trigger Hibernate Search reindex (synchronous, ~30-60s for 5K patients)"
-gcp_ssh "curl -fsS -u admin:Admin123 -m 600 -X POST http://localhost/openmrs/ws/rest/v1/searchindexupdate"
-echo "    reindex complete"
+# Reindex requires the backend to be up. During cold bring-up sequences
+# (e.g. stop backend → seed → start backend) the seed runs DB-only ops
+# without the backend; skip with a clear message in that case.
+if gcp_ssh "docker inspect -f '{{.State.Health.Status}}' harness-openmrs-backend 2>/dev/null | grep -q healthy"; then
+  gcp_ssh "curl -fsS -u admin:Admin123 -m 600 -X POST http://localhost/openmrs/ws/rest/v1/searchindexupdate"
+  echo "    reindex complete"
+else
+  echo "    backend not healthy — skipping reindex. Run this after backend is up:"
+  echo "      make cloud-ssh ARGS='curl -fsS -u admin:Admin123 -m 600 -X POST http://localhost/openmrs/ws/rest/v1/searchindexupdate'"
+fi
 
 echo ""
 echo "==> seed complete."
