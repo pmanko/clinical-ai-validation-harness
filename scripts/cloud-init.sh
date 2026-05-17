@@ -31,19 +31,25 @@ echo "    address: ${STATIC_IP}"
 # 2. Firewall rule for the proxy port (HTTP from anywhere). SSH on :22 is
 #    already covered by the default-allow-ssh rule that ships with every
 #    new GCP project's `default` network.
+HTTP_CIDR="$(gcp_http_cidr)"
 if ! gcloud compute firewall-rules describe "${GCP_FIREWALL_HTTP}" \
        --project="${GCP_PROJECT}" --format='value(name)' >/dev/null 2>&1; then
-  echo "==> creating firewall rule ${GCP_FIREWALL_HTTP} (TCP/${GCP_HTTP_PORT} from 0.0.0.0/0)"
+  echo "==> creating firewall rule ${GCP_FIREWALL_HTTP} (TCP/${GCP_HTTP_PORT} from ${HTTP_CIDR})"
   gcloud compute firewall-rules create "${GCP_FIREWALL_HTTP}" \
     --network=default \
     --direction=INGRESS \
     --action=ALLOW \
     --rules="tcp:${GCP_HTTP_PORT}" \
-    --source-ranges=0.0.0.0/0 \
+    --source-ranges="${HTTP_CIDR}" \
     --target-tags=harness-http \
     --project="${GCP_PROJECT}" --quiet
 else
-  echo "    firewall rule ${GCP_FIREWALL_HTTP} already exists"
+  # Rule exists; reconcile its source range to the current CIDR (operator's
+  # IP may have changed since last init).
+  echo "    firewall rule ${GCP_FIREWALL_HTTP} exists; updating source range to ${HTTP_CIDR}"
+  gcloud compute firewall-rules update "${GCP_FIREWALL_HTTP}" \
+    --source-ranges="${HTTP_CIDR}" \
+    --project="${GCP_PROJECT}" --quiet
 fi
 
 # 3. Create the instance with a startup script that installs docker.

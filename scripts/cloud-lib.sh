@@ -18,6 +18,11 @@ GCP_IMAGE_PROJECT="${GCP_IMAGE_PROJECT:-debian-cloud}"
 GCP_STATIC_IP_NAME="${GCP_STATIC_IP_NAME:-${GCP_VM_NAME}-ip}"
 GCP_FIREWALL_HTTP="${GCP_FIREWALL_HTTP:-allow-harness-http}"
 GCP_HTTP_PORT="${GCP_HTTP_PORT:-8088}"
+# Firewall source range for the proxy port. Defaults to the operator's
+# current public IP (single /32) so the dev URL isn't world-open while the
+# stack ships with admin/Admin123. To open to the world (e.g. a demo),
+# explicitly export GCP_HTTP_CIDR=0.0.0.0/0. Auto-discovered IP fetched
+# lazily by cloud-init via gcp_http_cidr().
 
 # Remote path layout on the VM (under the SSH user's home).
 GCP_REMOTE_REPO="${GCP_REMOTE_REPO:-clinical-ai-validation-harness}"
@@ -77,4 +82,23 @@ gcp_ssh_keygen_once() {
       --zone="${GCP_ZONE}" --project="${GCP_PROJECT}" \
       --quiet --command='true'
   fi
+}
+
+gcp_http_cidr() {
+  # Resolve the source range for the proxy HTTP firewall rule. Honors an
+  # explicit GCP_HTTP_CIDR override; otherwise pins to the operator's
+  # current public IP. Aborts if neither is available — refuses to default
+  # to 0.0.0.0/0 silently because the stack ships with admin/Admin123.
+  if [ -n "${GCP_HTTP_CIDR:-}" ]; then
+    echo "${GCP_HTTP_CIDR}"
+    return 0
+  fi
+  local ip
+  ip="$(curl -fsS --max-time 5 https://api.ipify.org 2>/dev/null || true)"
+  if [ -z "${ip}" ]; then
+    echo "error: could not auto-detect public IP for firewall source range." >&2
+    echo "       Set GCP_HTTP_CIDR=<your-ip>/32 (or 0.0.0.0/0 to open to world)." >&2
+    return 1
+  fi
+  echo "${ip}/32"
 }

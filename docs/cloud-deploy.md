@@ -52,11 +52,16 @@ make cloud-ssh   # interactive: run `lms daemon up && lms login` and follow
 
 # 3. enable LM Link on the VM and pair with your Mac
 make cloud-ssh ARGS='lms link enable'
-make cloud-ssh ARGS='lms link set-preferred-device Piotrs-MBP'
+# Get your Mac's device identifier from your Mac's `lms link status` output
+# (the long hex UUID, not the human-readable device name). Then set it as
+# the VM's preferred device:
+LM_LINK_PEER_ID=<paste-your-mac-uuid-here>
+make cloud-ssh ARGS="lms link set-preferred-device ${LM_LINK_PEER_ID}"
 
-# 4. start llmster's local HTTP server on the VM (bound to localhost only;
-#    Docker reaches it via host.docker.internal)
-make cloud-ssh ARGS='lms server start --port 1234'
+# 4. start llmster's local HTTP server on the VM, bound to 0.0.0.0 so the
+#    backend container can reach it via host.docker.internal. GCE firewall
+#    does not expose :1234 to the public internet.
+make cloud-ssh ARGS='lms server start --port 1234 --bind 0.0.0.0'
 
 # 5. wire the cloud env file
 cp .env.chartsearch.cloud.example .env.chartsearch.cloud

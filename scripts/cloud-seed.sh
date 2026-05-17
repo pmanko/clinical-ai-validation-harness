@@ -36,24 +36,30 @@ rsync -avz --progress \
   "${GCP_SSH_USER}@${IP}:${GCP_REMOTE_REPO}/artifacts/cloud-seed/"
 
 echo "==> restoring ${SCHEMA} on VM"
-# DROP/CREATE/GRANT need root (the openmrs user only has privs on `openmrs`,
-# the default DB MariaDB created from MYSQL_DATABASE). Root password matches
-# MYSQL_ROOT_PASSWORD in compose (defaults to `openmrs`).
-gcp_ssh bash <<REMOTE
-set -euo pipefail
-cd "\${HOME}/${GCP_REMOTE_REPO}"
-docker exec -i harness-openmrs-db sh -c "mysql -u root -popenmrs -e \"
+# Each step is a discrete ssh invocation so any failure surfaces a non-zero
+# exit and `set -e` aborts cleanly. The earlier heredoc-bash + pipefail
+# approach silently passed on a stuck pipeline, which is exactly the smell
+# we don't want. DROP/CREATE/GRANT need root (the openmrs user only has
+# privs on `openmrs`, the default DB MariaDB created from MYSQL_DATABASE);
+# root password is MYSQL_ROOT_PASSWORD from compose (default `openmrs`).
+
+gcp_ssh "docker exec -i harness-openmrs-db mysql -u root -popenmrs -e \"
   DROP DATABASE IF EXISTS ${SCHEMA};
   CREATE DATABASE ${SCHEMA};
   GRANT ALL PRIVILEGES ON ${SCHEMA}.* TO 'openmrs'@'%';
   FLUSH PRIVILEGES;
 \""
-gunzip -c artifacts/cloud-seed/${SCHEMA}.sql.gz \
-  | docker exec -i harness-openmrs-db mysql -u root -popenmrs ${SCHEMA}
-echo "    restored. Row counts (sample):"
-docker exec harness-openmrs-db mysql -u openmrs -popenmrs ${SCHEMA} -e \
-  "SELECT 'patient' AS tbl, COUNT(*) FROM patient UNION ALL SELECT 'encounter', COUNT(*) FROM encounter UNION ALL SELECT 'obs', COUNT(*) FROM obs;"
-REMOTE
 
+echo "    loading $(du -h "${DUMP_LOCAL}" | cut -f1) of SQL via gunzip → mysql..."
+gcp_ssh "cd ${GCP_REMOTE_REPO} && gunzip -c artifacts/cloud-seed/${SCHEMA}.sql.gz | docker exec -i harness-openmrs-db mysql -u root -popenmrs ${SCHEMA}"
+
+echo "    row counts (sample):"
+gcp_ssh "docker exec harness-openmrs-db mysql -u openmrs -popenmrs ${SCHEMA} -e \"
+  SELECT 'patient' AS tbl, COUNT(*) AS rows_ct FROM patient
+  UNION ALL SELECT 'encounter', COUNT(*) FROM encounter
+  UNION ALL SELECT 'obs', COUNT(*) FROM obs;
+\""
+
+echo ""
 echo "==> seed complete. Restart backend to pick up the new schema:"
 echo "    make cloud-ssh ARGS='cd ${GCP_REMOTE_REPO} && docker compose -f compose/openmrs-2.8-refapp.yml restart backend'"

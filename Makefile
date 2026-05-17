@@ -128,17 +128,18 @@ chartsearch-up:
 	@if [ ! -f .env.chartsearch ]; then \
 	  echo "error: .env.chartsearch not found. Copy .env.chartsearch.example and edit."; exit 1; \
 	fi
-	@echo "==> chartsearch-build (mvn package + patch apply + drop .omod)"
+	@echo "==> chartsearch-build (mvn package + drop .omod)"
 	@$(MAKE) chartsearch-build
 	@echo "==> docker compose up (frontend+gateway on :nightly-chartsearch tag, backend env wired)"
 	@set -a && . ./.env.chartsearch && set +a && \
 	  docker compose -f compose/openmrs-2.8-refapp.yml up -d --force-recreate frontend gateway backend
 	@echo "==> wait for backend healthy (Liquibase + module init can take 5-10 min cold)"
-	@for i in $$(seq 1 60); do \
+	@observed=0; for i in $$(seq 1 60); do \
 	  s=$$(docker inspect -f '{{.State.Health.Status}}' harness-openmrs-backend 2>/dev/null || echo starting); \
-	  if [ "$$s" = "healthy" ]; then echo "    healthy after $$((i*5))s"; break; fi; \
+	  if [ "$$s" = "healthy" ]; then echo "    healthy after $$((i*5))s"; observed=1; break; fi; \
 	  sleep 5; \
-	done
+	done; \
+	if [ "$$observed" != "1" ]; then echo "ERROR: backend not healthy after 5 min" >&2; exit 1; fi
 	@echo "==> chartsearch-configure (LLM globals via REST)"
 	@$(MAKE) chartsearch-configure
 	@echo "==> chartsearch-warmup (LM Studio model preload + persistent defaults)"
