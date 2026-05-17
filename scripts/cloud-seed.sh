@@ -60,6 +60,20 @@ gcp_ssh "docker exec harness-openmrs-db mysql -u openmrs -popenmrs ${SCHEMA} -e 
   UNION ALL SELECT 'obs', COUNT(*) FROM obs;
 \""
 
+# Bulk-INSERTed rows don't fire Hibernate Search entity listeners, so OpenMRS's
+# Lucene index is out of sync with the freshly-restored data — patient search
+# returns 0 hits until a full reindex happens. Trigger it now so the seed
+# operation produces a search-ready DB, not a half-loaded state.
+#
+# Runs over ssh on the VM (POSTs to the proxy's local port 80) so we don't
+# need to know the public URL / TLS state from the local shell. POST returns
+# when reindex is done; 10-min cap is well above the observed ~35s for 5K
+# patients on e2-standard-4. Fails the script if reindex doesn't complete —
+# silent success on a stale index is exactly the smell this fix removes.
 echo ""
-echo "==> seed complete. Restart backend to pick up the new schema:"
-echo "    make cloud-ssh ARGS='cd ${GCP_REMOTE_REPO} && docker compose -f compose/openmrs-2.8-refapp.yml restart backend'"
+echo "==> trigger Hibernate Search reindex (synchronous, ~30-60s for 5K patients)"
+gcp_ssh "curl -fsS -u admin:Admin123 -m 600 -X POST http://localhost/openmrs/ws/rest/v1/searchindexupdate"
+echo "    reindex complete"
+
+echo ""
+echo "==> seed complete."
