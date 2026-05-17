@@ -1,6 +1,6 @@
 [submodule "targets/chartsearchai"]
 	path = targets/chartsearchai
-	url = https://github.com/openmrs/openmrs-module-chartsearchai.git
+	url = https://github.com/pmanko/openmrs-module-chartsearchai.git
 [submodule "targets/querystore"]
 	path = targets/querystore
 	url = https://github.com/openmrs/openmrs-module-querystore.git

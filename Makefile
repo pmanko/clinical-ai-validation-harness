@@ -97,29 +97,12 @@ dump-loaded:
 
 # --- ChartSearchAI adapter (feature 004 PoC) ---
 
-# Build the chartsearchai .omod from the harness's pinned submodule
-# (targets/chartsearchai/) and drop it into artifacts/openmrs/modules/ so the
-# existing harness backend picks it up on next restart. The submodule SHA is
-# the pin — no Dockerfile variant or in-Docker build needed.
-#
-# Patches under compose/chartsearchai/patches/ are applied idempotently
-# before mvn package. Each is independently re-checked, so once upstream
-# merges a fix the patch becomes a no-op (git apply --check returns
-# non-zero on already-applied diffs).
+# Build the chartsearchai .omod from the pinned submodule and drop it into
+# artifacts/openmrs/modules/ so the harness backend picks it up on next
+# restart. The submodule URL points at the harness fork's
+# `harness-integration` branch; the parent records the exact SHA so
+# `git submodule update --init` gives a buildable state.
 chartsearch-build:
-	@echo "==> Applying harness patches to chartsearchai submodule (idempotent)"
-	@for p in compose/chartsearchai/patches/*.patch; do \
-	  if [ -f "$$p" ]; then \
-	    name=$$(basename $$p); \
-	    if (cd targets/chartsearchai && git apply --check ../../$$p) 2>/dev/null; then \
-	      echo "    applying $$name"; \
-	      (cd targets/chartsearchai && git apply ../../$$p); \
-	    else \
-	      echo "    $$name already applied (or upstream merged it)"; \
-	    fi; \
-	  fi; \
-	done
-	@echo "==> Building chartsearchai .omod from submodule"
 	cd targets/chartsearchai && mvn -DskipTests -B package
 	mkdir -p artifacts/openmrs/modules
 	cp targets/chartsearchai/omod/target/chartsearchai-*.omod artifacts/openmrs/modules/
