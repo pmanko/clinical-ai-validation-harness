@@ -102,15 +102,11 @@ dump-loaded:
 # existing harness backend picks it up on next restart. The submodule SHA is
 # the pin — no Dockerfile variant or in-Docker build needed.
 #
-# Recent chartsearchai versions (post-2026-05-15) depend on querystore-api at
-# build time (scope=provided, off by default at runtime). Since querystore
-# isn't published to Maven Central, we install our submodule's querystore-api
-# into the local Maven repo first. At runtime querystore is OFF by default
-# (chartsearchai.querystore.enabled=false), so this is purely a build-time
-# dependency.
+# Patches under compose/chartsearchai/patches/ are applied idempotently
+# before mvn package. Each is independently re-checked, so once upstream
+# merges a fix the patch becomes a no-op (git apply --check returns
+# non-zero on already-applied diffs).
 chartsearch-build:
-	@echo "==> Installing querystore-api locally (build-time dep for recent chartsearchai)"
-	cd targets/querystore && mvn -Dmaven.test.skip=true -B install -pl api -am
 	@echo "==> Applying harness patches to chartsearchai submodule (idempotent)"
 	@for p in compose/chartsearchai/patches/*.patch; do \
 	  if [ -f "$$p" ]; then \
