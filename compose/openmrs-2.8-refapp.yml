@@ -21,7 +21,17 @@ services:
     container_name: harness-proxy
     restart: "unless-stopped"
     ports:
+      # Local dev: HARNESS_PROXY_HTTP_PORT defaults to 8088 (avoids OrbStack/8080
+      # conflicts). Cloud bring-up overrides to 80 and adds 443 for TLS.
       - "${HARNESS_PROXY_HTTP_PORT:-8088}:80"
+      - "${HARNESS_PROXY_HTTPS_PORT:-8443}:443"
+    environment:
+      # Driven by .env.chartsearch / .env.chartsearch.cloud. Local default is the
+      # ":80" catch-all site block; cloud sets CADDY_SITE=openclinai.org and
+      # CADDY_AUTO_HTTPS=on so Caddy provisions Let's Encrypt automatically.
+      CADDY_SITE: ${CADDY_SITE:-:80}
+      CADDY_AUTO_HTTPS: ${CADDY_AUTO_HTTPS:-off}
+      CADDY_EMAIL: ${CADDY_EMAIL:-}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy-data:/data
