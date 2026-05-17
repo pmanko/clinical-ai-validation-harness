@@ -9,7 +9,7 @@ export UV_PROJECT_ENVIRONMENT
         reset-transform sqlmesh-status \
         loadtest-up loadtest-down \
         load-test orphan-fk-check import-smoke dump-loaded \
-        chartsearch-build chartsearch-configure chartsearch-doctor
+        chartsearch-build chartsearch-configure chartsearch-doctor chartsearch-warmup chartsearch-up
 
 # --- compose lifecycle ---
 up:
@@ -132,6 +132,37 @@ chartsearch-build:
 # OMRS_EXTRA_CHARTSEARCHAI_LLM_REMOTE_APIKEY, not via REST.
 chartsearch-configure:
 	@./scripts/chartsearch-configure.sh
+
+# Pre-load LM Studio models with the configured context length and write
+# persistent per-model defaults. Prevents JIT-reload-with-default-context
+# (which silently reverts to 4K and breaks chartsearchai's full-chart prompt).
+# Reads CHARTSEARCH_WARMUP_MODELS + CHARTSEARCH_CONTEXT_LENGTH from .env.chartsearch.
+chartsearch-warmup:
+	@./scripts/chartsearch-warmup.sh
+
+# End-to-end chartsearch bring-up: build .omod, recreate compose with
+# chartsearch tags, wait for backend healthy, configure LLM globals,
+# warm up LM Studio models. Idempotent — safe to re-run.
+chartsearch-up:
+	@if [ ! -f .env.chartsearch ]; then \
+	  echo "error: .env.chartsearch not found. Copy .env.chartsearch.example and edit."; exit 1; \
+	fi
+	@echo "==> chartsearch-build (mvn package + patch apply + drop .omod)"
+	@$(MAKE) chartsearch-build
+	@echo "==> docker compose up (frontend+gateway on :nightly-chartsearch tag, backend env wired)"
+	@set -a && . ./.env.chartsearch && set +a && \
+	  docker compose -f compose/openmrs-2.8-refapp.yml up -d --force-recreate frontend gateway backend
+	@echo "==> wait for backend healthy (Liquibase + module init can take 5-10 min cold)"
+	@for i in $$(seq 1 60); do \
+	  s=$$(docker inspect -f '{{.State.Health.Status}}' harness-openmrs-backend 2>/dev/null || echo starting); \
+	  if [ "$$s" = "healthy" ]; then echo "    healthy after $$((i*5))s"; break; fi; \
+	  sleep 5; \
+	done
+	@echo "==> chartsearch-configure (LLM globals via REST)"
+	@$(MAKE) chartsearch-configure
+	@echo "==> chartsearch-warmup (LM Studio model preload + persistent defaults)"
+	@$(MAKE) chartsearch-warmup
+	@echo "==> chartsearch-up complete"
 
 # Verify chartsearchai prerequisites: backend container can reach the LLM
 # endpoint (LM Studio / Anthropic / etc.), models are available, module is
