@@ -9,7 +9,9 @@ export UV_PROJECT_ENVIRONMENT
         reset-transform sqlmesh-status \
         loadtest-up loadtest-down \
         load-test orphan-fk-check import-smoke dump-loaded \
-        chartsearch-build chartsearch-configure chartsearch-doctor chartsearch-warmup chartsearch-up
+        chartsearch-build chartsearch-configure chartsearch-doctor chartsearch-warmup chartsearch-up \
+        cloud-init cloud-sync cloud-up cloud-down cloud-deploy cloud-seed \
+        cloud-start cloud-stop cloud-ssh cloud-logs cloud-tunnel cloud-status cloud-destroy
 
 # --- compose lifecycle ---
 up:
@@ -181,6 +183,66 @@ chartsearch-doctor:
 	  | python3 -c "import sys,json; d=json.load(sys.stdin); print(f'  chartsearchai {d.get(\"version\",\"?\")} started={d.get(\"started\")}')" \
 	  || echo "  module not found (backend may still be starting, or chartsearchai .omod not in artifacts/openmrs/modules/)"
 
+
+# --- Cloud deploy target (local-driven push to GCE) ---
+#
+# Deploy the chartsearch stack to a GCE VM in the clinical-ai-harness project
+# for browser testing without saturating the laptop. Iteration loop is:
+#   1. edit chartsearchai code locally
+#   2. `make cloud-deploy`  (builds .omod, rsyncs diff, restarts backend on VM)
+#   3. test at http://<vm-ip>:8088/openmrs/spa
+# The cloud backend reaches your LOCAL LM Studio via a cloudflared tunnel
+# you start with `make cloud-tunnel`. See docs/cloud-deploy.md.
+
+cloud-init:       ## one-time: reserve IP, firewall, VM, docker install
+	@./scripts/cloud-init.sh
+
+cloud-sync:       ## rsync repo to VM (excludes .git, .venv, build caches, secrets)
+	@./scripts/cloud-sync.sh
+
+cloud-up:         ## first compose up on VM (waits for backend healthy, runs configure)
+	@./scripts/cloud-up.sh
+
+cloud-down:       ## compose down on VM (stack stays installed; VM keeps running)
+	@./scripts/cloud-down.sh
+
+cloud-deploy:     ## fast iteration: rebuild .omod + rsync + restart backend on VM
+	@./scripts/cloud-deploy.sh
+
+cloud-seed:       ## one-time: dump openmrs_test locally + restore on VM (~1 GB)
+	@./scripts/cloud-seed.sh
+
+cloud-start:      ## start the VM (no compose changes; pair with cloud-up after)
+	@gcloud compute instances start $${GCP_VM_NAME:-harness-chartsearch} \
+	  --zone=$${GCP_ZONE:-us-central1-a} --project=$${GCP_PROJECT:-clinical-ai-harness}
+
+cloud-stop:       ## stop the VM (saves ~$3/day; static IP keeps its address)
+	@gcloud compute instances stop $${GCP_VM_NAME:-harness-chartsearch} \
+	  --zone=$${GCP_ZONE:-us-central1-a} --project=$${GCP_PROJECT:-clinical-ai-harness}
+
+cloud-ssh:        ## interactive ssh, or `ARGS='cmd...'` for one-shot
+	@./scripts/cloud-ssh.sh $(ARGS)
+
+cloud-logs:       ## tail compose logs on VM; SERVICE=backend to filter, FOLLOW=0 to dump+exit
+	@./scripts/cloud-logs.sh
+
+cloud-tunnel:     ## start cloudflared quick-tunnel exposing local LM Studio (foreground)
+	@./scripts/cloud-tunnel.sh
+
+cloud-status:     ## print VM state, IP, browser URL, compose ps
+	@./scripts/cloud-status.sh
+
+cloud-destroy:    ## tear down VM + firewall + static IP (FORCE=1 to skip prompt)
+	@if [ "$(FORCE)" != "1" ]; then \
+	  printf 'About to delete VM, firewall rule, and static IP in %s. Type YES to confirm: ' "$${GCP_PROJECT:-clinical-ai-harness}"; \
+	  read -r answer; [ "$$answer" = "YES" ] || { echo aborted; exit 1; }; \
+	fi; \
+	gcloud compute instances delete $${GCP_VM_NAME:-harness-chartsearch} \
+	  --zone=$${GCP_ZONE:-us-central1-a} --project=$${GCP_PROJECT:-clinical-ai-harness} --quiet || true; \
+	gcloud compute firewall-rules delete $${GCP_FIREWALL_HTTP:-allow-harness-http} \
+	  --project=$${GCP_PROJECT:-clinical-ai-harness} --quiet || true; \
+	gcloud compute addresses delete $${GCP_STATIC_IP_NAME:-harness-chartsearch-ip} \
+	  --region=$${GCP_REGION:-us-central1} --project=$${GCP_PROJECT:-clinical-ai-harness} --quiet || true
 
 setup:
 	$(UV) python install $(PYTHON_VERSION)
