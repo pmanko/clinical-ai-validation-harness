@@ -31,6 +31,15 @@ cd "${HOME}/${REMOTE_REPO}"
 mkdir -p artifacts/openmrs/modules artifacts/openmrs/backend-logs
 ls -la artifacts/openmrs/modules/ || true
 
+# Force OpenMRS to re-bootstrap openmrs-runtime.properties from the current
+# OMRS_CONFIG_* env vars. Without this, a runtime.properties left over from
+# an earlier start (e.g. before OMRS_DB_NAME was set) keeps pointing at the
+# old DB, and subsequent env changes are silently ignored — the most
+# painful instance of this was an entire afternoon of debugging Hibernate
+# Search when the backend was connected to the wrong schema. Delete is
+# safe — OpenMRS regenerates it from server.properties + env on next start.
+docker run --rm -v compose_openmrs-data:/data alpine rm -f /data/openmrs-runtime.properties
+
 # chartsearch-configure.sh reads .env.chartsearch — symlink the cloud variant
 # into place so the same script works against either env file.
 ln -sf .env.chartsearch.cloud .env.chartsearch
