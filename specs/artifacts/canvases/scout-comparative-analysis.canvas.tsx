@@ -71,14 +71,14 @@ const projectStages: Record<
   },
   catalyst: {
     name: 'Catalyst (OpenELIS)',
-    badge: 'Python multi-service · POC → MVP',
-    user: 'Lab tech or clinician',
-    entry: 'catalyst-gateway (A2A router)',
-    context: 'catalyst-mcp serves allowlisted schema (no PHI tables by default)',
-    retrieve: 'Schema RAG via MCP; read-only DB user; no PHI in LLM context',
-    generate: 'catalyst-agents calling LM Studio or Gemini through provider abstraction',
-    execute: 'User reviews SQL; OE backend executes under RBAC + audit',
-    output: 'Generated SQL plus result rows from OE backend',
+    badge: 'Python FHIR sidecar · M10 Planning',
+    user: 'Lab tech or reviewer (sidecar report portal)',
+    entry: 'catalyst-gateway (A2A router) + sidecar UI',
+    context: 'catalyst-mcp queries OE2 HAPI FHIR (:8444); embedded FHIR parity probe',
+    retrieve: 'FHIR resource tools: search_patient, get_observations, get_diagnostic_reports, build_patient_lab_timeline',
+    generate: 'catalyst-agents (LM Studio / Gemini); FHIR-grounded answer with inline citation markers',
+    execute: 'Read-only FHIR queries; no SQL execution in POC; Scout-style evidence cards + lab timeline',
+    output: 'answer + facts[] + citations[resourceType, id, url] + uiBlocks[lab_result_table, lab_timeline]',
   },
 };
 
@@ -275,7 +275,7 @@ const alignDivergeRows = [
     'Yes — OpenAI GPT via Azure ZDR with BAA',
     'Yes — but local-first (embedded llama-server) keeps prompts on box; remote endpoint optional',
     'Implementation-defined',
-    'No — allowlist excludes PHI tables; LLM sees schema, not patient data',
+    'No PHI sent to LLM in FHIR POC path; FHIR resources are read-only; LocalPHI mode (full record in context) deferred',
   ],
   [
     'Provider strategy',
@@ -376,10 +376,10 @@ const chatbotActions = [
 ];
 
 const catalystActions = [
-  'Scout\'s fast/slow-path orchestrator pattern fits NL-to-SQL: trivially-aliased table queries can route to a one-shot path, while multi-step "trend over time" queries route through the multi-agent path. Add this routing decision to the eval surface.',
-  'Borrow Scout\'s evidence-card concept for SQL: surface not just the generated SQL but the schema fragments and allowlist entries the agent consulted. This is a verification surface analogous to Scout\'s span-level citations.',
-  'Add NASA-TLX to lab-tech evaluation when E2E sign-off is reached. Scout shows that workload reduction is independently measurable and trial-grade.',
-  'Adopt the LLM-as-judge calibration discipline: any automated CLINSQL-style execution-grounded scorer must be benchmarked against a gold-standard human-adjudicated subset before being trusted for regression gating.',
+  'The sidecar report/analytics portal (M10) directly mirrors Scout\'s evidence-card presentation: FHIR-resource citations serve the same verification role as Scout\'s span-level citations. Design evidence cards per resource type (Observation, DiagnosticReport, ServiceRequest) with resource ID, display text, and date.',
+  'Scout\'s fast/slow-path orchestrator pattern still applies: single-resource lookups (one Observation) route to a one-shot path; multi-resource "trend" queries (all Observations for a patient over 90 days) route through the multi-agent MCP path. Add routing decision to the events.jsonl trace.',
+  'Add NASA-TLX to lab-tech evaluation of the sidecar UI once five canonical questions are answered end-to-end. Scout demonstrates workload reduction is independently measurable; the lab-timeline and evidence-card layout directly address the charting burden Scout measured.',
+  'Adopt LLM-as-judge calibration discipline: any automated FHIR-grounded answer scorer (resource ID present, flag correct, date matches) must be benchmarked against a human-adjudicated gold subset before being trusted for regression gating.',
 ];
 
 const usageCategoryRows = [
@@ -624,10 +624,10 @@ export default function ScoutComparativeAnalysis() {
           </CardHeader>
           <CardBody>
             <Stack gap={8}>
-              <Text><Text weight="semibold">Aligns on:</Text> agentic multi-step orchestration, tool-call discipline, verification-first design (evidence cards / SQL preview), separation of plan and execution.</Text>
-              <Text><Text weight="semibold">Diverges on:</Text> NL-to-SQL primitive vs free-text synthesis, no-PHI-in-context vs PHI-via-Azure, provider-portable vs single provider.</Text>
-              <Text><Text weight="semibold">Take from Scout:</Text> fast/slow-path routing pattern for SQL complexity, the LLM-as-judge calibration discipline (especially for any execution-grounded auto-grader), NASA-TLX for lab-tech workload measurement.</Text>
-              <Text tone="secondary"><Text weight="semibold">Catalyst's structural strength:</Text> Catalyst's no-PHI-in-context stance is stronger than Scout's; the harness should not erode it under "Scout does it differently" pressure.</Text>
+              <Text><Text weight="semibold">Aligns on:</Text> agentic multi-step orchestration, tool-call discipline, verification-first design (evidence cards over FHIR resources vs Scout's span-level citations), separation of retrieval and generation.</Text>
+              <Text><Text weight="semibold">Diverges on:</Text> FHIR resource retrieval vs Scout's free-text synthesis over notes; read-only FHIR vs PHI-via-Azure; dedicated report/analytics sidecar UI vs embedded modal.</Text>
+              <Text><Text weight="semibold">Take from Scout:</Text> fast/slow-path routing for single vs multi-resource queries; LLM-as-judge calibration discipline; NASA-TLX for lab-tech workload on the sidecar UI; non-inferiority margins for RCT readiness.</Text>
+              <Text tone="secondary"><Text weight="semibold">Catalyst's structural strength:</Text> FHIR-read-only + no-PHI-in-LLM-context is structurally stronger than Scout's Azure-hosted PHI pipeline. The harness should not erode this under "Scout does it differently" pressure.</Text>
             </Stack>
           </CardBody>
         </Card>
@@ -728,7 +728,7 @@ export default function ScoutComparativeAnalysis() {
         </Card>
         <Card>
           <CardHeader trailing={<Pill size="sm" tone="info" active>Catalyst</Pill>}>
-            NL-to-SQL lab
+            FHIR sidecar lab
           </CardHeader>
           <CardBody>
             <Stack gap={8}>

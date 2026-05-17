@@ -20,7 +20,7 @@ The harness coordinates validation across four clinical AI projects:
 | `chartsearchai` | Embedded OpenMRS module: searches patient chart records using embeddings and lexical retrieval, then generates cited answers | Primary validation target: retrieval quality, answer grounding, citation, abstention, and security |
 | `querystore` | Emerging read-optimized store that will back `chartsearchai` retrieval | Parity testbed: compare retrieval behavior before and after migration |
 | `openmrs_chatbot` | Python clinical chatbot with patient/doctor interfaces and agent workflow scaffolding | Future expansion: multi-turn grounding and role-aware answer evaluation |
-| `Catalyst` (OpenELIS) | Lab-system AI: natural-language-to-SQL, schema-aware retrieval, and allowlisted SQL execution over OpenELIS data | Future expansion: NL-to-SQL correctness, schema allowlist enforcement, multi-agent trace evaluation |
+| `Catalyst` (OpenELIS) | Lab AI sidecar over OpenELIS Global 2: FHIR-grounded retrieval over HAPI and embedded FHIR providers, resource-cited answers, and a Scout-style lab report/analytics UI | M10 (Planning): FHIR-first sidecar POC — canonical question set, evidence cards, lab timeline, and embedded-FHIR parity probe |
 
 ## Current priority: OpenMRS demo-data remap (Roadmap M1)
 
@@ -60,8 +60,11 @@ Human-facing docs use plain names. IDs appear in parentheses on first use and in
 | Clinician governance review | M7 | `008` | Planned |
 | Querystore parity testbed | M8 | `009` | Planned |
 | Cross-project expansion | M9 | `010` | Planned |
+| Catalyst FHIR sidecar POC | M10 | `011` | [Planning](specs/artifacts/planning/catalyst-fhir-sidecar-brief.md) |
 
 > **Note on feature 002 internal phases:** Work inside the OpenMRS demo-data remap (M1 / `002`) uses implementation sub-labels `M2-A` through `M2-Z` in detailed feature docs. These are internal planning labels for that feature's phases — not related to roadmap milestone M2 (Validation spine).
+
+> **Note on M10 and sibling checkouts:** The Catalyst FHIR sidecar POC (M10) consumes OpenELIS Global 2 as a **sibling checkout** at `../OpenELIS-Global-2/` (or `$OPENELIS_ROOT`). OE2 is not a submodule of this harness. Catalyst Python services live in `targets/catalyst` (submodule pinned to `DIGI-UW/openelis-catalyst`). The Spec Kit Phase 2 workflow (`/speckit-specify` through `/speckit-tasks`) runs against the [source brief](specs/artifacts/planning/catalyst-fhir-sidecar-brief.md) to produce `specs/011-catalyst-fhir-sidecar-poc/`.
 
 ## Principles
 
