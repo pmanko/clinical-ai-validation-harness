@@ -79,16 +79,25 @@ for i in $(seq 1 36); do
   sleep 5
 done
 
-# 5. Bootstrap SSH key.
+# 5. Bootstrap SSH key. First gcloud-mediated ssh creates the user account
+#    (${GCP_SSH_USER}) on the VM via project-level SSH keys. The startup
+#    script's awk loop adds existing users to the docker group, but our user
+#    didn't exist yet at first boot — so add it explicitly now.
 gcp_ssh_keygen_once
 
-# 6. Confirm docker is up on the VM.
-echo "==> verifying docker on VM"
-if gcp_ssh 'docker --version && docker compose version' 2>&1; then
+echo "==> adding ${GCP_SSH_USER} to docker group (needs new SSH session to take effect)"
+gcp_ssh 'sudo usermod -aG docker $USER && sudo systemctl restart docker' || \
+  echo "    warning: docker group assignment failed; may need manual sudo"
+
+# 6. Confirm docker is up on the VM. This opens a FRESH SSH session — the
+#    one above's group change only applies to subsequent logins.
+echo "==> verifying docker on VM (fresh SSH session picks up the docker group)"
+if gcp_ssh 'docker --version && docker compose version && docker ps' 2>&1; then
   echo "    docker ready"
 else
-  echo "    warning: docker not ready yet — startup script may still be running."
-  echo "    Re-check with:  make cloud-ssh ARGS='docker --version'"
+  echo "    warning: docker not ready yet — startup script may still be running,"
+  echo "    or the group change hasn't propagated. Re-check with:"
+  echo "      make cloud-ssh ARGS='docker ps'"
 fi
 
 echo ""

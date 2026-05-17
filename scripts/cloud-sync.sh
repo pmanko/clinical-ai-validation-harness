@@ -28,17 +28,23 @@ echo "==> rsync to ${GCP_SSH_USER}@${IP}:${GCP_REMOTE_REPO}/"
 gcp_ssh_keygen_once
 gcp_ssh "mkdir -p ${GCP_REMOTE_REPO}"
 
-# Rsync excludes:
-# - .git, .venv, node_modules:  local-only state, fast to recreate
-# - artifacts/dev-*:            transient diagnostic dumps (gigabytes over time)
-# - artifacts/openmrs/backend-logs: Tomcat logs bind-mount; recreated by compose
-# - data/large-demo-data-*.sql: only needed if cloud-seed wants it (separate target)
-# - .env, .env.* (except cloud + examples): local secrets stay local
-# - targets/*/{.git,target,node_modules}: submodule build state
-# - *.iml, .idea, .vscode:      editor cruft
+# Rsync filter rules — FIRST MATCH WINS. Includes come before broad excludes
+# so they survive. Notes:
+# - `.git` (no slash): matches both the repo-root .git dir AND submodule
+#   .git gitdir-pointer files. Covers both shapes.
+# - `.env.chartsearch.cloud`: the one .env we ship to the VM. Symlinked on
+#   the VM to .env.chartsearch by cloud-up.sh so scripts run there too.
+# - `.env.chartsearch`: protected from --delete (it's the symlink target).
+# - `artifacts/openmrs/modules/`: NOT excluded — that's where the built
+#   .omod lives; the whole point of cloud-deploy is to ship it.
 
 rsync -avz --delete \
-  --exclude='.git/' \
+  --include='.env.chartsearch.cloud' \
+  --include='.env.*.example' \
+  --exclude='.env' \
+  --exclude='.env.*' \
+  --exclude='.env.chartsearch' \
+  --exclude='.git' \
   --exclude='.venv/' \
   --exclude='venv/' \
   --exclude='__pycache__/' \
@@ -50,13 +56,8 @@ rsync -avz --delete \
   --exclude='.idea/' \
   --exclude='.vscode/' \
   --exclude='*.iml' \
-  --exclude='.env' \
-  --exclude='.env.*' \
-  --include='.env.chartsearch.cloud' \
-  --include='.env.*.example' \
   --exclude='artifacts/dev-*' \
   --exclude='artifacts/openmrs/backend-logs/' \
-  --exclude='targets/*/.git' \
   --exclude='targets/*/target/' \
   --exclude='targets/*/node_modules/' \
   --exclude='targets/*/omod/target/' \

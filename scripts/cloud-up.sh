@@ -28,6 +28,10 @@ cd "${HOME}/clinical-ai-validation-harness"
 mkdir -p artifacts/openmrs/modules artifacts/openmrs/backend-logs
 ls -la artifacts/openmrs/modules/ || true
 
+# chartsearch-configure.sh reads .env.chartsearch — symlink the cloud variant
+# into place so the same script works against either env file.
+ln -sf .env.chartsearch.cloud .env.chartsearch
+
 # Source the cloud env file so docker compose interpolates the cloudflared
 # URL, DB schema name, and chartsearchai apikey.
 set -a
