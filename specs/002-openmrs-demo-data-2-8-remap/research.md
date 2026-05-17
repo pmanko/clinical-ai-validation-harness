@@ -43,7 +43,7 @@ This phase resolves the plan-shaped open items from `/speckit-clarify` and recor
 - **dbt-core + dbt-mysql**: more mature ecosystem and bigger hiring pool. Loses on SC-004 because Jinja non-determinism is real and ongoing. Defensible alternative; not chosen because the spec puts reproducibility ahead of ecosystem familiarity.
 - **Apache Hop**: visual / XML-files-on-disk; less natural for code-review of mapping logic. Apache-2.0.
 - **Apache Camel**: wrong category — integration framework / EIP routes, not a batch-SQL transform engine. Adds JVM weight, gives us no native treatment of mapping as reviewable artifact.
-- **Airbyte / Meltano / Singer / dlt**: ELT integration tools for moving data between systems; wrong shape for in-place dump transformation.
+- **Airbyte / Meltano / Singer**: ELT integration tools for moving data between systems; wrong shape for in-place dump transformation as the transform engine. Note: **dlt was initially rejected here on the same basis but is reintroduced in §R-load-pattern as the load layer on top of SQLMesh** — the validated SQLMesh+dlt handover pattern is purpose-built for this exact "transform with SQLMesh, load into a downstream OLTP target with dlt" architecture.
 - **Plain SQL + Liquibase changesets**: closest to OpenMRS-native. Liquibase publishes a changeset format. Loses on lineage-aware testing, content-versioning, and reviewable audits out of the box. Stays in scope as a fallback if SQLMesh adoption proves friction-heavy mid-implementation.
 - **FHIR StructureMap / FML** for the structural transform: strong fit for resource-shape transforms but our source/target are relational tables. The two extra format hops (SQL → FHIR → FML → FHIR → SQL) are operational cost without standards-fidelity benefit; rejected for structural transforms, retained for terminology as ConceptMap (R1).
 
@@ -238,7 +238,14 @@ For the RefApp, the wiki points to the `referencedemodata.createDemoPatientsOnNe
 
 The openconceptlab module imports CIEL items (concepts, names, descriptions, mappings, reference terms, etc.) one at a time. A small percentage routinely fail — typical causes include foreign-key references to retired concepts, locale mismatches against the deployment's allowed-locales list, custom-validation-schema violations (CIEL uses `custom_validation_schema: "OpenMRS"`, so most errors are minor metadata issues), or concept-class definitions that already differ from what the deployment has.
 
-Observed: live import of CIEL `v2026-04-28` against a fresh O3 RefApp baseline reported **73 errors out of 207,511 items (~0.035%)** at 98% progress.
+**Final measurement (2026-05-14, T024c output `artifacts/dev-20260514-212318/profile/ciel-import-errors.json`)**: full import of CIEL `v2026-04-28` against the harness O3 RefApp baseline reported **133 errors out of 358,026 items (0.0371%)**.
+
+- **23 distinct CIEL canonical IDs implicated** (root causes; 109 of 133 errors are cascading mapping failures whose `error_message` references the same 23 unimported concepts).
+- **All 23 root failures are duplicate-name-in-locale validations** (e.g. `exantema súbito` es, `Quinine sulfate` en, `Phosphate de chloroquine` fr — CIEL FSN collisions the OpenMRS Hibernate validator rejects).
+- **Top blockers**: `160034` (10×), `71917` (9×), `78200` (7×), `118492` (7×), `115427` (7×) — concentrated cascade.
+- **Overlap with the 457 obs-referenced concepts in legacy_27_raw**: **0**. The 23 failed CIEL IDs are entirely in CIEL's long tail; non-blocking for this dataset.
+
+(Earlier observation in this document noted ~73 errors / 207k items at 98% progress; the final measurement above replaces it.)
 
 **Decision**: For M2-A, acceptable error rate is **≤ 0.1% of total CIEL items**. Above that threshold, M2-A's gate refuses to advance to M2-C until the errors are enumerated and either (a) accepted with rationale or (b) repaired by adjusting the openconceptlab subscription / validation settings / locale config.
 
@@ -282,3 +289,103 @@ Stable normalizations are documented in `contracts/run_manifest.schema.json` and
 - **OpenELIS↔OpenMRS demo (OpenHIE)**: production pattern is FHIR APIs + LOINC, not any heavyweight ETL framework — confirms that "structural-transform tool choice" is a harness-internal concern, not an OpenMRS community convention to match. (Source: OpenHIE discourse thread.)
 
 **All NEEDS CLARIFICATION items resolved. Proceed to Phase 1.**
+
+---
+
+## R-bridge-rule. Legacy concept-id ↔ seeded CIEL identity bridge (M2-A discovery, 2026-05-14)
+
+**Decision**: The accepted ConceptMap's identity-rebind for legacy→seeded-CIEL terminology is **one rule, not a per-concept curated table**:
+
+```
+target_concept_id = (SELECT concept_id FROM openmrs.concept
+                     WHERE uuid = RPAD(CAST(legacy.concept_id AS CHAR), 36, 'A'))
+```
+
+i.e., the seeded-CIEL concept whose UUID is the legacy `concept_id` left-padded by `A` to 36 chars. This rule is materialized into the SQLMesh seed `concept_translation.csv` as one row per distinct legacy `concept_id` present in `legacy_27_raw.concept` (~2,528 rows); the SQLMesh `audit_concept_translation_coverage` audit gates the M2-A acceptance bar at 100% coverage of obs-referenced concepts.
+
+**How the discovery was made**:
+1. T021 (`harness/profile/inventory.py`) produced `artifacts/legacy-27-raw-baseline/profile/inventory.json` — 5,284 patients / 476,973 obs / 52 populated tables / 0 reference_map rows / **0 rows in the four typed clinical tables**.
+2. Manual probing during the M2-A canvas authoring showed that the legacy concept dictionary uses AMPATH-style numbering: `concept_id=5088` = "TEMPERATURE (C)", `concept_id=5089` = "WEIGHT (KG)", etc. — the same canonical IDs CIEL uses.
+3. CIEL concepts in `openmrs.concept` carry UUIDs in the pattern `<canonical_id>AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA` (32 As after the integer). Reproduction in `data-model.md` §R-bridge-rule shows the JOIN and the 100% coverage result.
+4. FSN strings match across the two dictionaries modulo case: legacy is uppercase AMPATH-style ("TEMPERATURE (C)"); CIEL is title-case ("Temperature (c)"). Same semantic concept.
+
+**Rationale**:
+- Removes the largest authoring burden the original spec/plan implied ("hundreds-to-thousands of curated mappings reviewed one at a time"). The actual remaining authoring surface for terminology is **zero per-concept rows** — every concept is identity-rebound. Per-row authoring is reserved for structural promotions (§R-typed-table-promotion).
+- Preserves SC-004 (byte-identical re-runs): the bridge is a pure SQL function of `legacy.concept_id`, deterministic by construction.
+- Preserves FR-007 reviewer rationale requirement: the ConceptMap carries one identity-bridge element with reviewer rationale citing this section; the per-row seed CSV is regenerable from that one element.
+- Does not weaken FR-008: the SQLMesh `audit_concept_translation_coverage` audit emits any unmapped concept as a failing row and halts the pipeline. The 100% measurement above is on the current corpus's obs-referenced set; an unmatched concept on any future input would surface immediately.
+
+**Alternatives considered**:
+- Per-concept curated rows (the original framing): defensible but unnecessary given the measured 100% identity coverage; would inflate the ConceptMap artifact and add review friction without changing the deterministic output.
+- Reference-term-based bridging (LOINC / SNOMED CT codes): not viable for legacy_27_raw — `concept_reference_map` is empty (0 rows) per T021. Reserved for §R-typed-table-promotion edge cases and for the OpenELIS skeleton (M2-H).
+- Name-based fuzzy matching: rejected — non-deterministic; would violate SC-004.
+
+> **Status**: confirmed against measured corpus + CIEL `v2026-04-28`. Sole risk: a future input concept whose UUID doesn't match the canonical CIEL pattern. The `audit_concept_translation_coverage` audit catches this at transform time.
+
+## R-typed-table-promotion. obs → typed clinical tables (M2-A canvas, 2026-05-14)
+
+**Decision**: The four target typed clinical tables (`allergy`, `conditions`, `orders`/`test_order`, `drug_order`) are empty in the source dump (measured: 0 rows each); the transform synthesizes typed rows from `obs` via four selector rules. The rules are encoded as one ConceptMap element each (FR-029–FR-032) and as one SQLMesh model each (`datasets/transforms/sqlmesh/models/clinical/{drug_order,conditions,allergy,test_order}.sql`).
+
+The five cross-cutting decisions below are the project's defaults; documented here so reviewers don't re-derive them at each model.
+
+| | Question | Decision (default) | Rationale |
+|---|---|---|---|
+| **Q1** | When obs → typed row, do we DELETE the obs or KEEP it with `obs.order_id` linkback? | **KEEP both.** `obs.order_id` already exists in the 2.7 schema (carries over to 2.8). | chartsearchai indexes obs; refapp UI reads typed tables. Both win. Preserves provenance. |
+| **Q2** | UUID strategy on promoted rows? | **UUID v5 with namespace `harness-002-promotion`** derived from `(obs.uuid, target_table)`. | Reproducibility across re-runs (SC-004); fresh v4 would break determinism. |
+| **Q3** | Vaccines (~3,045 of the 43,412 Drug-class answers) as `drug_order` or Immunization shape? | **Emit all as `drug_order`** with an attribute hint distinguishing vaccines. | OpenMRS 2.8 has no immunization table by default. FHIR read-side projects vaccines to FHIR Immunization at read time; record-side stays on `drug_order`. |
+| **Q4** | Orderer field source on promoted orders? | **`encounter_provider` for the matching encounter**; fallback `obs.creator`. | Source `obs` has no provider FK. `encounter_provider` is the best-available proxy in this corpus (one provider per encounter). |
+| **Q5** | `coverage_sample` sampling strategy per rule (FR-015)? | **5 records per (concept_class × datatype × value_class) cohort** × 5 buckets (rebound obs + 4 typed targets); deterministic `sampler_seed` recorded in `run_manifest.json`. | Per-class spread keeps the sample diverse; deterministic seed satisfies SC-004 across runs. |
+
+**Per-rule field mapping** (target column ← source expression) is recorded canonically in the ConceptMap element's harness extensions (see `contracts/conceptmap.profile.md`). Each rule's SQLMesh model under `models/clinical/` instantiates it.
+
+**Rationale**: The 4 rules are the only structural per-row authoring the M2-A reviewer signs off on; all other terminology decisions ride on §R-bridge-rule. This bounds the human-review surface to a tractable handful of rules with measured row counts, and concentrates the policy debate into the five Q1–Q5 cells.
+
+**Alternatives considered**:
+- Promote any obs whose `value_coded.class` matches a target-bucket class (without the question-concept filters in P2/P3/P4): too noisy; would emit "diagnosis observed on review" obs as new conditions, "yes I do have allergies" boolean answers as allergy rows, etc.
+- Per-form mapping (route forms to specific target tables): more granular but the demo corpus's form metadata is sparse; class-based routing is more robust.
+
+> **Status**: open questions tracked per-rule in `specs/artifacts/canvases/concept-mapping-discovery.canvas.tsx` (the B5 deep-dive panels). Defaults above are the M2-A acceptance baseline. **Demo-data validation posture**: deviations are reviewed iteratively with the project owner (consensus-guided), not gated through a heavyweight PCCP record. PCCP remains available for changes that materially affect downstream consumers; for per-rule tuning during M2-A iteration, recording the decision in the ConceptMap element's `comment` field is sufficient.
+
+## R-load-pattern. OLTP load layer (SQLMesh + dlt handover, M2-F entry)
+
+**Decision**: SQLMesh terminates at the **transform spec** (legacy_27_raw → refapp_28_demo). The **load** into the live OLTP target (`openmrs` / `openmrs_test`) is handled by [**dlt**](https://dlthub.com/) with the SQLAlchemy destination. Two complementary tools, each operating at its design intent.
+
+**Rationale** — why this split rather than one tool end-to-end:
+
+- SQLMesh's storage layer is **virtual-by-design**: the user-facing `refapp_28_demo` schema is views over versioned snapshot tables in `sqlmesh__refapp_28_demo`. That virtualization is the whole point of SQLMesh's atomic env-swap + time-travel + content-fingerprint guarantees for analytical workflows. It is **not designed to produce a portable, loadable SQL artifact for a separate OLTP application** — confirmed empirically (a `mariadb-dump refapp_28_demo` produces 165KB of CREATE VIEW statements, no data) and via the [SQLMesh Multi-Engine guide](https://sqlmesh.readthedocs.io/en/stable/guides/multi_engine/) which states models materialize in their assigned gateway only.
+- dlt is purpose-built for the missing piece: SQL-source → SQL-destination ETL with primary-key idempotency, schema evolution, and pipeline state tracking. [Tobiko (the SQLMesh company) explicitly endorses the dlt handover pattern](https://dlthub.com/blog/sqlmesh-dlt-handover).
+- The transform itself is non-trivial (1:N obs→typed-table promotions, FK reconciliation across user/location/encounter_type, ~2,528 concept rebinds with policy-bucket metadata) and benefits from SQLMesh's lineage + audit machinery. Throwing SQLMesh out to use plain SQL or a single ETL tool would re-encode in less-audited form what SQLMesh already gets right.
+
+**What each tool owns**:
+
+| Tool | Owns | Outputs |
+|---|---|---|
+| **SQLMesh** | Transform spec: bridge rule (concept rebind), 4 obs→typed-table promotions, FK reconciliation seed maps (`models/terminology/*.sql`), audit gates (row-count, concept-translation-coverage, FK-closure, policy-bucket-coverage), content-fingerprint determinism. | Physical snapshot tables in `sqlmesh__refapp_28_demo.*`; user-facing views in `refapp_28_demo.*`. |
+| **dlt** | OLTP load: read from SQLMesh's physical snapshots → write to `openmrs_test.*` (iteration target) or `openmrs.*` (promotion target). PK-based idempotency via `write_disposition='merge'`; schema evolution; per-pipeline state. | Rows in the live RefApp's DB. Pipeline state under `.dlt/openmrs_loadback/state.json`. |
+
+**Hermetic iteration**: dlt writes to `openmrs_test` (a separate schema in the same MariaDB), not the live `openmrs`. The iteration loop (edit SQLMesh model → re-run plan + audit → re-run dlt → restart backend pointed at openmrs_test → smoke) keeps the main CIEL-loaded baseline untouched. Promotion to `openmrs` is a single env-var change.
+
+**Run-manifest extensions**: `RunManifest002Extensions` gains two fields per `contracts/run_manifest_002_extensions.schema.yaml`:
+
+- `dlt_pipeline_run_id` — dlt's run UUID for the load step
+- `dlt_state_hash` — SHA-256 of dlt's pipeline state JSON; a determinism witness (same SQLMesh inputs + same dlt config → same state hash)
+
+Each loaded table's row count continues to stamp into `materialized_outputs[]` (already implemented in B2 of the prior remediation; extends naturally from "post-transform" to "post-load").
+
+**Conformance signals**:
+- SQLMesh side: `sqlmesh audit` exits 0 (existing).
+- dlt side: `dlt pipeline info openmrs_loadback --schema` runs cleanly; per-table row counts post-load match the SQLMesh-side audit floors (`audit_<mart>_row_count_min.sql`).
+- Integrated: a fresh-replay run (`scripts/reset-transform.sh && sqlmesh plan && harness-cli load-test`) produces byte-identical content checksums in `materialized_outputs[]` and the same `dlt_state_hash` for the same inputs.
+
+**Companion artifacts**:
+- `contracts/dlt_pipeline.profile.md` — the load-layer contract (write_dispositions per table, PK conventions, required dlt config).
+- `datasets/load/openmrs-loadback.review.md` — reviewer rationale per resource + FK-reconciliation decisions; analogous to `datasets/mappings/openmrs-2.7-to-2.8.review.md` for the transform spec.
+
+**Alternatives considered** (and rejected):
+
+- **Plain SQL + mysqldump**: would force re-encoding the 1:N promotion fan-out and FK reconciliation in ad-hoc SQL, losing SQLMesh's audit gates and lineage tracking. Defensible only if SQLMesh's transform were trivial; ours isn't.
+- **Liquibase custom changesets** (`loadData` / `loadUpdateData` from CSV): idiomatic to OpenMRS, but requires a separate module to host the changesets and adds XML ceremony. Held in reserve for the eventual production-grade artifact handoff if we ever ship the demo dataset upstream.
+- **dlt for the entire transform**: dlt has SQL transformations via ibis, but the audit + content-fingerprint + reviewable-model-file machinery in SQLMesh is the load-bearing part of the spec's reproducibility commitment (SC-004). Replacing SQLMesh wholesale would be a larger architectural shift than the load-layer addition justifies.
+
+**License**: dlt is Apache-2.0 (compatible with SQLMesh's Apache-2.0 and our existing OSS licensing).
+

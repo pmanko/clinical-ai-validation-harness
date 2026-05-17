@@ -35,3 +35,6 @@ datasets/sources/ocl/**/seeded-baseline.sql
 
 # FHIR Validator CLI binary (pulled at run time; version pin under VERSION file).
 tools/fhir-validator/*.jar
+datasets/transforms/sqlmesh/.cache/
+logs/
+.claude/scheduled_tasks.lock

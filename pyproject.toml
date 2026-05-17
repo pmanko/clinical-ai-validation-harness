@@ -10,6 +10,11 @@ readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
   "PyYAML>=6.0",
+  "sqlmesh>=0.150",
+  "fhir.resources>=7.0",
+  "PyMySQL>=1.1",
+  "requests>=2.32",
+  "dlt[sqlalchemy]>=1.0",
 ]
 
 [project.optional-dependencies]
@@ -22,3 +27,10 @@ harness-cli = "harness.cli:main"
 
 [tool.setuptools.packages.find]
 include = ["harness*"]
+
+[tool.pytest.ini_options]
+markers = [
+  "slow: integration tests that take minutes — excluded from default run; included in CI matrix via `pytest -m slow`",
+]
+# Default: skip slow tests. CI re-enables explicitly with `-m slow` or `-m 'slow or not slow'`.
+addopts = "-m 'not slow'"

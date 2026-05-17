@@ -21,10 +21,14 @@ additional_top_level_required:
   - mariadb_image_digest
   - fhir_validator_version
   - sqlmesh_version
+  - dlt_version
+  - dlt_pipeline_run_id
+  - dlt_state_hash
   - python_version
   - equivalence_labels
   - policy_buckets
   - reviewer_signoffs
+  - materialized_outputs
 
 fields:
   conceptmap_path:
@@ -74,6 +78,23 @@ fields:
     type: string
   sqlmesh_version:
     type: string
+  dlt_version:
+    type: string
+    description: dlt package version (e.g., "1.4.0"). Pinned in pyproject.toml.
+  dlt_pipeline_run_id:
+    type: string
+    description: >-
+      dlt's pipeline run UUID stamped at end of the load step
+      (`pipeline.last_trace.run_id`). Identifies the specific load run within
+      .dlt/openmrs_loadback/trace.json for cross-reference.
+  dlt_state_hash:
+    type: string
+    description: >-
+      SHA-256 of .dlt/openmrs_loadback/state.json after the load run completes.
+      Determinism witness — same SQLMesh inputs + same dlt config + same source
+      data should produce the same state hash across replays. Mismatch indicates
+      either (a) intentional pipeline-shape change, or (b) non-determinism that
+      needs investigation.
   python_version:
     type: string
   equivalence_labels:
@@ -125,6 +146,40 @@ fields:
         signed_at:
           type: string
           format: date-time
+  materialized_outputs:
+    type: array
+    description: >-
+      Per-table state of the materialized target schema (refapp_28_demo)
+      at the end of the transform run. Lets two runs that should be
+      byte-identical compare row-by-row without diffing the full dump.
+      A SC-004 (determinism) regression manifests as a mismatch here.
+      Mandatory for clinical marts (clin__obs, clin__drug_order,
+      clin__conditions, clin__allergy, clin__test_order); optional for
+      staging and module models.
+    items:
+      required:
+        - table_name
+        - row_count
+        - content_checksum
+        - checksum_method
+      properties:
+        table_name:
+          type: string
+          description: Two-part name `<schema>.<table>` or just `<table>` if schema is implicit.
+        row_count:
+          type: integer
+          minimum: 0
+        content_checksum:
+          type: string
+          description: >-
+            Content checksum, formatted per `checksum_method`. For
+            `mariadb_checksum_table` this is the decimal integer
+            CHECKSUM TABLE returned, rendered as a string.
+        checksum_method:
+          type: string
+          allowed:
+            - mariadb_checksum_table
+            - sha256_of_canonical_dump
 
 rules:
   - When `evidence_status != release`, M0's base schema already requires `decision_rationale`. 002 inherits that rule; no override.

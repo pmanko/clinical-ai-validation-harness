@@ -184,13 +184,33 @@ def generate_inventory(
     *,
     source_dump_path: Path,
     progress: bool = False,
+    target_cfg: DBConfig | None = None,
 ) -> dict[str, Any]:
+    """Generate the profile inventory artifact.
+
+    When ``target_cfg`` is provided, also emits ``reference_sources``,
+    ``locales``, and ``modules`` populated via ``harness.profile.terminology``
+    and ``harness.profile.modules``. When omitted, those arrays are empty.
+    """
     tables = list_tables(cfg)
     summaries: list[TableSummary] = []
     for i, t in enumerate(tables, 1):
         if progress:
             print(f"  [{i:3d}/{len(tables)}] {t}", flush=True)
         summaries.append(summarize_table(cfg, t))
+
+    reference_sources: list[dict[str, Any]] = []
+    locales: list[dict[str, Any]] = []
+    modules: list[dict[str, Any]] = []
+    if target_cfg is not None:
+        from harness.profile.terminology import (
+            enumerate_locales, enumerate_reference_sources,
+        )
+        from harness.profile.modules import enumerate_modules
+
+        reference_sources = [r.to_dict() for r in enumerate_reference_sources(cfg)]
+        locales = [l.to_dict() for l in enumerate_locales(cfg)]
+        modules = [m.to_dict() for m in enumerate_modules(cfg, target_cfg)]
 
     return {
         "schema_version": 1,
@@ -199,11 +219,9 @@ def generate_inventory(
         "source_dump_checksum": sha256_file(source_dump_path),
         "generated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "tables": [_table_to_dict(s) for s in summaries],
-        # T022/T023 fill these; emit empty arrays so the artifact validates
-        # against the contract even before those modules land.
-        "reference_sources": [],
-        "locales": [],
-        "modules": [],
+        "reference_sources": reference_sources,
+        "locales": locales,
+        "modules": modules,
     }
 
 

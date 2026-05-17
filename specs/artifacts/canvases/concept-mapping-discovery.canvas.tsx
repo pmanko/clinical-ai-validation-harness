@@ -29,12 +29,12 @@ import {
 // =========================================================================
 
 const heroStats = [
-  { value: '5,284',   label: 'patients (legacy 2.7 dump)',       tone: 'info' as const },
-  { value: '476,973', label: 'obs rows to transform',            tone: 'info' as const },
-  { value: '457/457', label: 'concepts bridgeable to CIEL (100%)', tone: 'success' as const },
-  { value: '48,181',  label: 'obs → typed-table promotions',     tone: 'success' as const },
-  { value: '10.1%',   label: 'promoted; 89.9% stays in obs',     tone: 'info' as const },
-  { value: '7 / 8',   label: 'B5–B8 blockers, 1 open structural', tone: 'warning' as const },
+  { value: '5,284',   label: 'patients (legacy 2.7 dump)',                  tone: 'info' as const },
+  { value: '476,973', label: 'obs rows to transform',                       tone: 'info' as const },
+  { value: '457/457', label: 'concepts bridgeable to CIEL (100%)',          tone: 'success' as const },
+  { value: '48,960',  label: 'obs → typed-table promotions (measured 5D)', tone: 'success' as const },
+  { value: '10.3%',   label: 'promoted; 89.7% stays in obs',                tone: 'info' as const },
+  { value: 'loaded',  label: 'live in openmrs_test via dlt + promote',      tone: 'success' as const },
 ];
 
 // =========================================================================
@@ -47,11 +47,12 @@ const pipelineNodes: Record<string, { label: string; sub?: string; accent?: 'sou
   legacy_obs:        { label: 'legacy_27_raw.obs',            sub: '476,973 rows',            accent: 'source' },
   rebind:            { label: 'concept-id rebind',            sub: "RPAD(id,36,'A')",          accent: 'transform' },
   classify:          { label: 'classify by class/datatype',   sub: 'P1-P4 selectors',          accent: 'transform' },
-  drug_order:        { label: 'drug_order',                   sub: '43,412 rows',             accent: 'target' },
-  conditions:        { label: 'conditions',                   sub: '3,642 rows',              accent: 'target' },
-  test_order:        { label: 'test_order',                   sub: '1,120 rows',              accent: 'target' },
-  allergy:           { label: 'allergy',                      sub: '7 rows',                  accent: 'target' },
-  obs_clean:         { label: 'obs (clean)',                  sub: '428,792 rows',            accent: 'target' },
+  drug_order:        { label: 'drug_order',                   sub: '43,412 rows (measured)', accent: 'target' },
+  conditions:        { label: 'conditions',                   sub: '4,451 rows (measured)', accent: 'target' },
+  test_order:        { label: 'test_order',                   sub: '1,095 rows (measured)', accent: 'target' },
+  allergy:           { label: 'allergy',                      sub: '2 rows (measured)',     accent: 'target' },
+  obs_clean:         { label: 'obs (clean)',                  sub: '428,013 rows (measured)', accent: 'target' },
+  orders_parent:     { label: 'orders (parent of drug/test)', sub: '44,507 rows · order_id = obs.obs_id', accent: 'target' },
   ciel_loaded:       { label: 'openmrs.concept (CIEL)',       sub: '358,026 imported',         accent: 'side' },
 };
 
@@ -60,9 +61,10 @@ const pipelineEdges: Array<[string, string]> = [
   ['legacy_concepts', 'rebind'],
   ['ciel_loaded', 'rebind'],
   ['rebind', 'classify'],
-  ['classify', 'drug_order'],
+  ['classify', 'orders_parent'],
+  ['orders_parent', 'drug_order'],
+  ['orders_parent', 'test_order'],
   ['classify', 'conditions'],
-  ['classify', 'test_order'],
   ['classify', 'allergy'],
   ['classify', 'obs_clean'],
 ];
@@ -180,11 +182,11 @@ function PromotionFlowDiagram() {
   const H = 360;
   const left = { x: 20, y: H / 2, w: 220, h: 64, label: 'legacy_27_raw.obs', sub: '476,973 rows' };
   const buckets = [
-    { id: 'drug_order',  label: 'drug_order',   sub: '43,412 (9.1%)',  rule: 'P1 · value_coded.class=Drug',         tone: 'success', n: 43412 },
-    { id: 'conditions',  label: 'conditions',   sub: '3,642 (0.76%)',  rule: 'P2 · q=6042 PROBLEM ADDED',           tone: 'success', n: 3642 },
-    { id: 'test_order',  label: 'test_order',   sub: '1,120 (0.23%)',  rule: 'P4 · question class=Test+Coded',      tone: 'warning', n: 1120 },
-    { id: 'allergy',     label: 'allergy',      sub: '7 (0.001%)',     rule: 'P3 · q∈{6011,6012,1083} & v=YES',     tone: 'warning', n: 7 },
-    { id: 'obs_clean',   label: 'obs (clean)',  sub: '428,792 (89.9%)', rule: 'remainder · concept-id rebound',     tone: 'info',    n: 428792 },
+    { id: 'drug_order',  label: 'drug_order',   sub: '43,412 (9.10%)',   rule: 'P1 · value_coded.class=Drug',                       tone: 'success', n: 43412 },
+    { id: 'conditions',  label: 'conditions',   sub: '4,451 (0.93%)',    rule: 'P2 · q=6042 PROBLEM ADDED',                         tone: 'success', n: 4451 },
+    { id: 'test_order',  label: 'test_order',   sub: '1,095 (0.23%)',    rule: 'P4 · q class=Test+Coded · drug-class excluded',    tone: 'warning', n: 1095 },
+    { id: 'allergy',     label: 'allergy',      sub: '2 (0.0004%)',      rule: 'P3 · q∈{6011,6012,1083} & v=YES',                   tone: 'warning', n: 2 },
+    { id: 'obs_clean',   label: 'obs (clean)',  sub: '428,013 (89.74%)', rule: 'remainder · concept-id rebound',                   tone: 'info',    n: 428013 },
   ];
   // Distribute targets vertically on the right.
   const rightX = 700;
@@ -323,16 +325,17 @@ WHERE cc.name = 'Drug' AND o.voided = 0`,
       ['drug_order.orderer',        'encounter_provider.provider_id', 'fallback obs.creator'],
       ['drug_order.urgency',        "'ROUTINE'"],
       ['drug_order.dose/units/freq', 'NULL', 'not present in legacy obs — flag in coverage_sample'],
-      ['drug_order.uuid',           'UUID v5(obs.uuid, target)', 'deterministic — Q2'],
+      ['drug_order.uuid',           'UUID()', 'non-deterministic; UUID v5 deferred per research.md §R-typed-table-promotion Q2'],
+      ['drug_order.order_id',       'obs.obs_id', 'parent row in clin__orders (Hibernate joined-table inheritance)'],
     ],
     open_questions: [
       'Vaccines as drug_order vs Immunization shape? (Q3)',
       'One-row-per-obs vs grouped-by-patient+drug? Default: per-obs.',
-      'NOT NULL constraints on dose/units/freq in 2.8? Verify against refapp_28_clean DDL.',
+      'NOT NULL constraints on dose/units/freq in 2.8? Verify against openmrs DDL.',
     ],
   },
   {
-    id: 'P2', target_table: 'conditions', status: 'ready', rows: 3642,
+    id: 'P2', target_table: 'conditions', status: 'ready', rows: 4451,
     selector: 'obs where concept_id = 6042 PROBLEM ADDED. 114 distinct diagnosis values.',
     selector_sql: `SELECT o.obs_id, o.person_id, o.encounter_id, o.value_coded AS dx_concept_id, o.obs_datetime
 FROM legacy_27_raw.obs o
@@ -343,7 +346,7 @@ WHERE o.concept_id = 6042 AND o.value_coded IS NOT NULL AND o.voided = 0`,
       ['conditions.condition_coded', 'lookup(obs.value_coded → CIEL UUID)'],
       ['conditions.clinical_status', "'ACTIVE'", 'no PROBLEM RESOLVED concept observed'],
       ['conditions.onset_date',      'obs.obs_datetime'],
-      ['conditions.uuid',            'UUID v5(obs.uuid, target)'],
+      ['conditions.uuid',            'UUID() — non-deterministic; UUID v5 deferred (Q2)'],
     ],
     open_questions: [
       'No PROBLEM RESOLVED signal observed → every promoted condition stays ACTIVE forever. Acceptable?',
@@ -383,6 +386,7 @@ WHERE cc.name = 'Test' AND cd.name = 'Coded' AND o.voided = 0`,
       ['test_order.encounter_id',   'obs.encounter_id'],
       ['test_order.date_activated', 'obs.obs_datetime'],
       ['test_order.urgency',        "'ROUTINE'"],
+      ['test_order.order_id',       'obs.obs_id', 'parent row in clin__orders'],
       ['obs.order_id',              'new test_order.order_id', 'preserve result obs row, link back via FK'],
     ],
     open_questions: [
@@ -471,7 +475,7 @@ const decisions: Array<{ id: string; title: string; question: string; proposal: 
 // =========================================================================
 
 const promotionChartCategories = ['drug_order', 'conditions', 'test_order', 'allergy', 'obs (clean)'];
-const promotionChartCounts    = [43412,           3642,         1120,          7,         428792];
+const promotionChartCounts    = [43412,           4451,         1095,          2,         428013];
 
 // =========================================================================
 // MAIN
@@ -640,9 +644,9 @@ LEFT JOIN openmrs.concept v ON v.uuid = RPAD(CAST(l_obs.value_coded AS CHAR), 36
             ['Per-class promotion rules for unmapped Drug answers (e.g. immunizations as Immunization)', 'Pending Q3 decision', 'Update to P1; FHIR read-side projection'],
             ['T022 terminology profile: reference_sources[], locales[]', 'Trivially empty in legacy; not yet emitted', 'harness/profile/terminology.py — next commit'],
             ['T023 module classification: bundled_in_2_8_refapp per table', 'Pending', 'harness/profile/modules.py — next commit'],
-            ['T024 schema_diff legacy_27_raw vs refapp_28_clean (the 22 + 109 + 121 tables)', 'Pending — depends on T021/T022/T023 outputs', 'harness/schema_diff.py — next milestone'],
+            ['T024 schema_diff legacy_27_raw vs openmrs (CIEL-loaded baseline)', 'Done — real introspection + §R5 classifier (commit 6d8ead5)', 'harness/schema_diff.py'],
             ['drug.dose / units / frequency / duration sourcing', 'No signal in legacy obs', 'Flag in coverage_sample as NULL columns; review per-drug'],
-            ['order_type_id mapping for test_order', 'Pending — verify against refapp_28_clean DDL', 'In P4 review'],
+            ['order_type_id mapping for test_order', 'Done — hardcoded 3 (Test Order) per openmrs.order_type; drug_order = 2', 'clinical/orders.sql'],
             ['Allergen-concept hand-pick (penicillin, sulfa, other-med)', 'Pending human pick', 'datasets/mappings/openmrs-2.7-to-2.8.conceptmap.json — 3 hand-curated entries'],
           ]}
           striped

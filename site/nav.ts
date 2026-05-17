@@ -86,6 +86,7 @@ export const navTree: NavSection[] = [
         items: [
           ...featureDocs('002-openmrs-demo-data-2-8-remap'),
           { kind: 'canvas', slug: 'specs/artifacts/canvases/concept-mapping-discovery', title: 'Canvas — Concept mapping & transformation', blurb: 'Bridge rule, promotion rules, blockers, open decisions.' },
+          { kind: 'canvas', slug: 'specs/artifacts/canvases/sqlmesh-transformation-flow', title: 'Canvas — SQLMesh transformation flow', blurb: 'How feature 002 uses SQLMesh to materialize the deterministic OpenMRS 2.7 to 2.8 transform.' },
           {
             title: 'Contracts',
             items: [

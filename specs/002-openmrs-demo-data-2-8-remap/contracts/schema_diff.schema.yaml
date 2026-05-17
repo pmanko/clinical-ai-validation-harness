@@ -1,9 +1,11 @@
 schema_version: 1
 kind: SchemaDiff
 description: >-
-  Diff between the source corpus schema (legacy_27_raw) and the freshly bootstrapped
-  clean baseline schema (refapp_28_clean, produced by booting the O3 RefApp backend
-  against empty MariaDB and letting Liquibase complete).
+  Diff between the source corpus schema (legacy_27_raw) and the CIEL-loaded
+  clean baseline schema (the live `openmrs` DB after `make ciel-baseline`).
+  The earlier draft referred to this as `refapp_28_clean`; the current
+  implementation uses `openmrs` because the CIEL load is part of the clean
+  baseline construction (research.md §R-Terminology-Stack).
 
 top_level_required:
   - source_schema_id
@@ -17,7 +19,7 @@ fields:
     expected: legacy_27_raw
   target_schema_id:
     type: string
-    expected: refapp_28_clean
+    expected: openmrs
   generated_at:
     type: string
     format: date-time
