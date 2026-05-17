@@ -195,8 +195,8 @@ const sourceRows = [
   ],
   [
     <Link href="https://github.com/DIGI-UW/OpenELIS-Global-2/tree/develop/projects/catalyst">OpenELIS Catalyst</Link>,
-    'Lab-system AI: catalyst-gateway + catalyst-agents + catalyst-mcp (Python) with allowlisted schema RAG, LM Studio/Gemini providers, and RBAC-gated SQL execution.',
-    'Validation primitives for NL->SQL, schema RAG, allowlist enforcement, multi-agent traces; shared infrastructure with the chartsearchai spine.',
+    'Lab AI sidecar over OpenELIS Global 2: catalyst-gateway + catalyst-agents + catalyst-mcp (Python) with FHIR-grounded retrieval over OE2 HAPI FHIR and embedded providers; resource-cited answers; Scout-style report/analytics UI. (M10 — Planning)',
+    'Validation primitives for FHIR resource retrieval QA, resource-level citation/grounding, multi-agent traces, and embedded-FHIR parity probing; shared metadata spine from M2.',
   ],
 ];
 
@@ -211,50 +211,50 @@ const parallelComparisonRows = [
     'Architecture',
     'Embedded Java module in OpenMRS; ONNX + Lucene + RRF retrieval over serialized chart records.',
     'Python chatbot with patient/doctor UIs and agent-team workflow scaffolding.',
-    'Multi-service Python: catalyst-gateway + catalyst-agents + catalyst-mcp with provider abstraction (LM Studio + Gemini).',
+    'Multi-service Python sidecar: catalyst-gateway + catalyst-agents + catalyst-mcp; FHIR tools hit OE2 HAPI FHIR (:8444) as primary surface and embedded FHIR (/fhir/*) for parity.',
   ],
   [
     'Retrieval mode',
     'Embedding-driven retrieval over patient chart records; ranks by cosine + BM25 + RRF.',
     'Conversational retrieval/orchestration over OpenMRS data; role-aware context shaping.',
-    'MCP serves allowlisted schema context; LLM generates SQL, OE backend executes after user review.',
+    'FHIR resource queries via catalyst-mcp tools (search_patient, get_observations, get_diagnostic_reports, build_patient_lab_timeline); no SQL execution in POC.',
   ],
   [
     'Generation surface',
     'Structured JSON answer with chart-record citations.',
     'Multi-turn role-conditioned response (patient or doctor view).',
-    'Generated SQL plus structured answer over query results; SQL is reviewed before execution.',
+    'FHIR-grounded answer with inline citation markers per resource (Patient, Observation, ServiceRequest, DiagnosticReport IDs); lab-result table + timeline uiBlocks.',
   ],
   [
     'Validation maturity',
     '485-case enriched retrieval, citation eval, absent-data eval, prompt-injection eval; planned spine and clinician adjudication.',
     'Early; setup, debug, and workflow-trace docs imply iterative manual eval; no published harness.',
-    'M0/M1 milestones with provider and multi-agent E2E smoke scripts; allowlist + RBAC as guardrails.',
+    'M10 Planning — Spec Kit Phase 2 pending. Five canonical FHIR questions; HAPI-first + embedded parity probe; sidecar report/analytics UI (Scout-style); harness adapter smoke with run_manifest + events.',
   ],
   [
     'Privacy/safety stance',
     'PHI handled through OpenMRS module boundary; PromptInjectionEvalTest covers direct injection.',
     'Patient/doctor role isolation in UI; safety surface needs definition.',
-    'Schema allowlist + read-only DB user + RBAC at execution; defense-in-depth across MCP and OE.',
+    'FHIR read-only access to HAPI; no SQL in POC; LocalPHI mode deferred; schema allowlist + RBAC preserved for future SQL path.',
   ],
   [
     'Test data path',
     'Synthetic patient fixtures + planned large demo-data 2.8 remap.',
     'Likely in-app test fixtures; corpus and reproducibility unclear from public docs.',
-    'Schema-only allowlist for non-PHI tables; uses real OpenELIS DB for execution under RBAC.',
+    'OE2 HAPI FHIR dev stack (sibling checkout via OPENELIS_ROOT); FHIR-populated data from FhirTransformService; real patient/lab fixtures in clinlims DB.',
   ],
 ];
 
 const primitiveMatrixRows = [
-  ['Test-data fidelity', 'Planned (2.8 remap)', 'Implementation-defined', 'Schema allowlist + dev DB'],
-  ['Retrieval QA', 'Yes (golden baselines, 485 cases)', 'Implied (response coverage)', 'Schema-RAG QA (allowlisted)'],
-  ['NL->SQL QA', 'Not applicable', 'Not applicable', 'Yes (primary surface)'],
-  ['Agent-team trace QA', 'Not applicable', 'Yes (workflow trace docs)', 'Yes (multi-agent E2E)'],
-  ['Citation/grounding', 'Yes (record-level)', 'Needs definition', 'Result-row attribution'],
-  ['Abstention/empty answer', 'Yes (AbsentDataEvalTest)', 'Needs definition', 'No-result handling'],
-  ['Prompt injection / safety', 'Yes (PromptInjectionEvalTest)', 'Needs definition', 'Allowlist + SQL validation + RBAC'],
-  ['Clinician/expert review', 'Planned (P6 clinician adjudication)', 'Implied (debug docs)', 'Lab-tech review path on SQL'],
-  ['Governance metadata', 'Planned (run-manifest from spine)', 'Limited', 'Provider/version pinning, env templates'],
+  ['Test-data fidelity', 'Planned (2.8 remap)', 'Implementation-defined', 'OE2 HAPI FHIR dev stack; clinlims data via FhirTransformService'],
+  ['Retrieval QA', 'Yes (golden baselines, 485 cases)', 'Implied (response coverage)', 'FHIR resource query QA; 5 canonical questions; HAPI + embedded parity'],
+  ['NL->SQL QA', 'Not applicable', 'Not applicable', 'Not POC focus (FHIR-first; SQL execution deferred to Phase 3)'],
+  ['Agent-team trace QA', 'Not applicable', 'Yes (workflow trace docs)', 'Yes (multi-agent MCP trace via events.jsonl)'],
+  ['Citation/grounding', 'Yes (record-level)', 'Needs definition', 'Resource-level (Patient/Observation/DiagnosticReport IDs; inline citation markers)'],
+  ['Abstention/empty answer', 'Yes (AbsentDataEvalTest)', 'Needs definition', 'No-result FHIR response handling; empty bundle path'],
+  ['Prompt injection / safety', 'Yes (PromptInjectionEvalTest)', 'Needs definition', 'FHIR read-only; schema allowlist + RBAC preserved for SQL path'],
+  ['Clinician/expert review', 'Planned (P6 clinician adjudication)', 'Implied (debug docs)', 'Lab-tech review path on FHIR-grounded answers and evidence cards'],
+  ['Governance metadata', 'Planned (run-manifest from spine)', 'Limited', 'run_manifest.json + events.jsonl per M2 spine; provider/FHIR surface provenance'],
 ];
 
 const archLabels: Record<string, string> = {
