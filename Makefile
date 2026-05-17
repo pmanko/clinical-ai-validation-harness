@@ -9,7 +9,7 @@ export UV_PROJECT_ENVIRONMENT
         reset-transform sqlmesh-status \
         loadtest-up loadtest-down \
         load-test orphan-fk-check import-smoke dump-loaded \
-        chartsearch-build chartsearch-configure
+        chartsearch-build chartsearch-configure chartsearch-doctor
 
 # --- compose lifecycle ---
 up:
@@ -99,7 +99,17 @@ dump-loaded:
 # (targets/chartsearchai/) and drop it into artifacts/openmrs/modules/ so the
 # existing harness backend picks it up on next restart. The submodule SHA is
 # the pin — no Dockerfile variant or in-Docker build needed.
+#
+# Recent chartsearchai versions (post-2026-05-15) depend on querystore-api at
+# build time (scope=provided, off by default at runtime). Since querystore
+# isn't published to Maven Central, we install our submodule's querystore-api
+# into the local Maven repo first. At runtime querystore is OFF by default
+# (chartsearchai.querystore.enabled=false), so this is purely a build-time
+# dependency.
 chartsearch-build:
+	@echo "==> Installing querystore-api locally (build-time dep for recent chartsearchai)"
+	cd targets/querystore && mvn -Dmaven.test.skip=true -B install -pl api -am
+	@echo "==> Building chartsearchai .omod from submodule"
 	cd targets/chartsearchai && mvn -DskipTests -B package
 	mkdir -p artifacts/openmrs/modules
 	cp targets/chartsearchai/omod/target/chartsearchai-*.omod artifacts/openmrs/modules/
@@ -110,6 +120,23 @@ chartsearch-build:
 # OMRS_EXTRA_CHARTSEARCHAI_LLM_REMOTE_APIKEY, not via REST.
 chartsearch-configure:
 	@./scripts/chartsearch-configure.sh
+
+# Verify chartsearchai prerequisites: backend container can reach the LLM
+# endpoint (LM Studio / Anthropic / etc.), models are available, module is
+# loaded. Useful before chartsearch-configure or when debugging.
+chartsearch-doctor:
+	@set -a; . .env.chartsearch 2>/dev/null || true; set +a; \
+	URL="$${CHARTSEARCH_REMOTE_ENDPOINT_URL%/chat/completions}/models"; \
+	echo "Probing LLM endpoint from inside backend container: $$URL"; \
+	docker exec harness-openmrs-backend curl -fsS -m 5 "$$URL" \
+	  | python3 -c "import sys,json; d=json.load(sys.stdin); ms=d.get('data',[]); print('  models available:' if ms else '  no models loaded'); [print(f'    - {m[\"id\"]}') for m in ms]" \
+	  || echo "  endpoint unreachable from container (check LM Studio: Serve on Local Network must be enabled)"; \
+	echo ""; \
+	echo "Module status:"; \
+	curl -fsS -u admin:Admin123 \
+	  "http://localhost:$${HARNESS_PROXY_HTTP_PORT:-8088}/openmrs/ws/rest/v1/module/chartsearchai?v=custom:(uuid,started,version)" \
+	  | python3 -c "import sys,json; d=json.load(sys.stdin); print(f'  chartsearchai {d.get(\"version\",\"?\")} started={d.get(\"started\")}')" \
+	  || echo "  module not found (backend may still be starting, or chartsearchai .omod not in artifacts/openmrs/modules/)"
 
 
 setup:

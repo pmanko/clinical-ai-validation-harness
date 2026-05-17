@@ -77,7 +77,16 @@ services:
         condition: service_healthy
 
   backend:
-    image: openmrs/openmrs-reference-application-3-backend:${OPENMRS_REFAPP_TAG:-3.6.0}
+    # Backend tag is independent of frontend/gateway so the chartsearchai PoC
+    # (feature 004) can run frontend+gateway on `:nightly-chartsearch` (to get
+    # the ESM UI) while keeping the backend on the stable `:3.6.0` line — this
+    # matters because the chartsearch-flavored backend image bakes its own
+    # chartsearchai .omod into /openmrs/distribution/openmrs_modules/, and
+    # OpenMRS startup.sh wipes /openmrs/data/modules/ then copies the
+    # distribution modules in — which would overwrite the .omod we built
+    # locally from `targets/chartsearchai/`. A non-chartsearch backend image
+    # has no baked .omod to clobber our submodule build.
+    image: openmrs/openmrs-reference-application-3-backend:${OPENMRS_BACKEND_TAG:-3.6.0}
     container_name: harness-openmrs-backend
     restart: "unless-stopped"
     depends_on:
@@ -100,6 +109,12 @@ services:
       # `chartsearchai.llm.remote.apikey=<value>` in runtime properties at boot.
       # Empty default keeps base RefApp behavior unchanged when CHARTSEARCH_REMOTE_API_KEY is unset.
       OMRS_EXTRA_CHARTSEARCHAI_LLM_REMOTE_APIKEY: ${CHARTSEARCH_REMOTE_API_KEY:-}
+    extra_hosts:
+      # Linux: docker doesn't resolve host.docker.internal automatically; this maps
+      # it to the host gateway so the chartsearchai backend can reach LM Studio
+      # (or any host-bound OpenAI-compat server) at http://host.docker.internal:1234.
+      # No-op on Docker Desktop (Mac/Win) where the alias is already provided.
+      - "host.docker.internal:host-gateway"
     healthcheck:
       # First-boot Liquibase migrations on the RefApp 3.x stack take 5-10 min
       # against a fresh MariaDB volume; start_period covers that window so
