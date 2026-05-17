@@ -113,14 +113,19 @@ function HomeView() {
     <div className="landing">
       <header className="landing-hero">
         <div className="landing-hero-eyebrow">clinical-ai-validation-harness</div>
-        <h1>Planning artifacts &amp; canvases</h1>
+        <h1>Validating early clinical AI — with traceable, reviewable evidence</h1>
         <p>
-          Front door for the harness's spec / plan / canvas tree. Auto-deployed from <code>main</code> to
-          GitHub Pages. Canvases render via a small <code>cursor/canvas</code> polyfill so they show up outside
-          Cursor; the authoritative rendering remains the in-Cursor canvas view.
+          A validation harness for clinical AI tools built on OpenMRS and OpenELIS. We test real systems
+          against realistic health data: chart search, query retrieval, clinical chat, and lab-system AI.
+          Every validation claim traces back to specific clinical records, not just aggregate metrics.
+        </p>
+        <p className="landing-hero-sub">
+          This site organizes the specs, plans, and visual summaries ("canvases") produced during development.
+          Auto-deployed from <code>main</code>. Canvases render via a <code>cursor/canvas</code> polyfill
+          for collaborators outside Cursor; the authoritative rendering remains the in-Cursor view.
         </p>
         <div className="landing-stat-row">
-          <div className="landing-stat"><span className="n">{featureCount}</span> <span className="l">active features</span></div>
+          <div className="landing-stat"><span className="n">{featureCount}</span> <span className="l">feature folders</span></div>
           <div className="landing-stat"><span className="n">{totalCanvases}</span> <span className="l">canvases</span></div>
           <div className="landing-stat"><span className="n">{totalDocs}</span> <span className="l">specs &amp; docs</span></div>
         </div>
@@ -128,7 +133,7 @@ function HomeView() {
 
       <section className="landing-section">
         <h2>Canvases</h2>
-        <p className="landing-section-sub">Topic-scoped visual dashboards. Each renders the same <code>.canvas.tsx</code> source as inside Cursor, via the polyfill.</p>
+        <p className="landing-section-sub">Topic-scoped visual summary pages. Each renders the same <code>.canvas.tsx</code> source as inside Cursor, via the polyfill.</p>
         <div className="card-grid">
           {canvasLeaves.map(({ leaf, topSection, parentSection }) => (
             <Link key={leaf.slug} to={toFor(leaf)} className="dispatch-card">
@@ -143,7 +148,7 @@ function HomeView() {
 
       <section className="landing-section">
         <h2>Specs &amp; docs</h2>
-        <p className="landing-section-sub">Markdown sources in document order. Click any to read; every page has prev/next at the bottom.</p>
+        <p className="landing-section-sub">Markdown sources in sidebar navigation order. Click any to read; every page has prev/next links at the bottom.</p>
         {navTree.map((top) => {
           // Group leaves by parent section within the top — preserving the curated order.
           type Group = { label: string; leaves: NavLeaf[] };

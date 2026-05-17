@@ -151,7 +151,7 @@ For each policy bucket declared in the accepted ConceptMap, samples N records fr
 
 ```bash
 harness-cli openelis analyze \
-  --openelis-source /Users/pmanko/code/OpenELIS-Global-2 \
+  --openelis-source ${OPENELIS_ROOT:-../OpenELIS-Global-2} \
   --openelis-target-version 3.2.1
 ```
 

@@ -71,7 +71,7 @@ Readiness output must distinguish:
 Overrides point a target at an active local checkout or fork without changing the reviewed submodule pin.
 
 ```bash
-export HARNESS_TARGET_CHARTSEARCHAI=/Users/pmanko/code/openmrs-module-chartsearchai
+export HARNESS_TARGET_CHARTSEARCHAI=../openmrs-module-chartsearchai
 harness-cli targets status --profile local --target chartsearchai
 ```
 

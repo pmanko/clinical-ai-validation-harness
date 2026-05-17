@@ -50,10 +50,10 @@ export const navTree: NavSection[] = [
   {
     title: 'Start here',
     items: [
-      { kind: 'home',   slug: 'welcome',                                       title: 'Welcome — dashboard', blurb: 'Front door: canvases, features, and everything else at a glance.' },
-      { kind: 'spec',   slug: 'README',                                        title: 'Project README',      blurb: 'What this harness is and how its pieces fit together.' },
-      { kind: 'canvas', slug: 'specs/roadmap',                                 title: 'Feature roadmap',     blurb: 'Top-level lanes, priorities, dependency graph.' },
-      { kind: 'canvas', slug: 'specs/artifacts/canvases/validation-research',  title: 'Validation research', blurb: 'Lanes, primitives, evals, the run-manifest spine.' },
+      { kind: 'home',   slug: 'welcome',                                       title: 'Welcome — overview',  blurb: 'Purpose, project overview, canvases, and all docs at a glance.' },
+      { kind: 'spec',   slug: 'README',                                        title: 'Project README',      blurb: 'What this harness is, who it is for, how to get started, and key terms.' },
+      { kind: 'canvas', slug: 'specs/roadmap',                                 title: 'Validation roadmap',  blurb: 'Planned validation milestones, lanes, dependencies. Start here to understand sequencing.' },
+      { kind: 'canvas', slug: 'specs/artifacts/canvases/validation-research',  title: 'Validation research', blurb: 'Evidence model, evaluation methodology, and the run-manifest traceability spine.' },
     ],
   },
   {
@@ -61,8 +61,8 @@ export const navTree: NavSection[] = [
     intro: 'Feature folders. Each carries spec → plan → research → data-model → quickstart → tasks, plus contracts and checklists.',
     items: [
       {
-        title: '001 — Harness control plane foundation',
-        intro: 'M0: cross-project orchestration substrate. Targets registry, run-manifest schema, CLI scaffold.',
+        title: '001 — Harness foundation',
+        intro: 'Roadmap M0: cross-project orchestration substrate — target registry, run-manifest schema, CLI scaffold.',
         items: [
           ...featureDocs('001-harness-control-plane-foundation'),
           {
@@ -81,8 +81,8 @@ export const navTree: NavSection[] = [
         ],
       },
       {
-        title: '002 — OpenMRS demo data remap (M2-A in flight)',
-        intro: 'Legacy 2.7 → CIEL-bound 2.8 RefApp transform. Plus chartsearchai/OpenELIS cross-load analysis.',
+        title: '002 — OpenMRS demo-data remap (in progress)',
+        intro: 'Roadmap M1: legacy 2.7 → CIEL-bound 2.8 Ref App transform. Plus chartsearchai/OpenELIS cross-load analysis.',
         items: [
           ...featureDocs('002-openmrs-demo-data-2-8-remap'),
           { kind: 'canvas', slug: 'specs/artifacts/canvases/concept-mapping-discovery', title: 'Canvas — Concept mapping & transformation', blurb: 'Bridge rule, promotion rules, blockers, open decisions.' },
