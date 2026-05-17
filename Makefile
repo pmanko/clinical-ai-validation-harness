@@ -11,7 +11,7 @@ export UV_PROJECT_ENVIRONMENT
         load-test orphan-fk-check import-smoke dump-loaded \
         chartsearch-build chartsearch-configure chartsearch-doctor chartsearch-warmup chartsearch-up \
         cloud-init cloud-sync cloud-up cloud-down cloud-deploy cloud-seed \
-        cloud-start cloud-stop cloud-ssh cloud-logs cloud-tunnel cloud-status cloud-destroy
+        cloud-start cloud-stop cloud-ssh cloud-logs cloud-status cloud-destroy
 
 # --- compose lifecycle ---
 up:
@@ -187,8 +187,10 @@ chartsearch-doctor:
 #   1. edit chartsearchai code locally
 #   2. `make cloud-deploy`  (builds .omod, rsyncs diff, restarts backend on VM)
 #   3. test at http://<vm-ip>:8088/openmrs/spa
-# The cloud backend reaches your LOCAL LM Studio via a cloudflared tunnel
-# you start with `make cloud-tunnel`. See docs/cloud-deploy.md.
+# The cloud backend reaches your LOCAL LM Studio over LM Link — VM runs
+# headless llmster, signed in to your account, paired with the Mac. The
+# inference HTTP call lands on the VM's localhost:1234 and llmster routes
+# it across the encrypted LM Link tunnel. See docs/cloud-deploy.md.
 
 cloud-init:       ## one-time: reserve IP, firewall, VM, docker install
 	@./scripts/cloud-init.sh
@@ -221,9 +223,6 @@ cloud-ssh:        ## interactive ssh, or `ARGS='cmd...'` for one-shot
 
 cloud-logs:       ## tail compose logs on VM; SERVICE=backend to filter, FOLLOW=0 to dump+exit
 	@./scripts/cloud-logs.sh
-
-cloud-tunnel:     ## start cloudflared quick-tunnel exposing local LM Studio (foreground)
-	@./scripts/cloud-tunnel.sh
 
 cloud-status:     ## print VM state, IP, browser URL, compose ps
 	@./scripts/cloud-status.sh
