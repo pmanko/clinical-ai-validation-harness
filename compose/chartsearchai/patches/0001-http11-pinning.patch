@@ -1,0 +1,12 @@
+diff --git a/api/src/main/java/org/openmrs/module/chartsearchai/api/impl/RemoteLlmEngine.java b/api/src/main/java/org/openmrs/module/chartsearchai/api/impl/RemoteLlmEngine.java
+index ff6e4b0..a442c7f 100644
+--- a/api/src/main/java/org/openmrs/module/chartsearchai/api/impl/RemoteLlmEngine.java
++++ b/api/src/main/java/org/openmrs/module/chartsearchai/api/impl/RemoteLlmEngine.java
+@@ -206,6 +206,7 @@ public class RemoteLlmEngine implements LlmEngine {
+ 	private synchronized HttpClient getHttpClient() {
+ 		if (httpClient == null) {
+ 			httpClient = HttpClient.newBuilder()
++					.version(HttpClient.Version.HTTP_1_1)
+ 					.connectTimeout(Duration.ofSeconds(30))
+ 					.build();
+ 		}

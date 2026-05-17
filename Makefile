@@ -109,6 +109,18 @@ dump-loaded:
 chartsearch-build:
 	@echo "==> Installing querystore-api locally (build-time dep for recent chartsearchai)"
 	cd targets/querystore && mvn -Dmaven.test.skip=true -B install -pl api -am
+	@echo "==> Applying harness patches to chartsearchai submodule (idempotent)"
+	@for p in compose/chartsearchai/patches/*.patch; do \
+	  if [ -f "$$p" ]; then \
+	    name=$$(basename $$p); \
+	    if (cd targets/chartsearchai && git apply --check ../../$$p) 2>/dev/null; then \
+	      echo "    applying $$name"; \
+	      (cd targets/chartsearchai && git apply ../../$$p); \
+	    else \
+	      echo "    $$name already applied (or upstream merged it)"; \
+	    fi; \
+	  fi; \
+	done
 	@echo "==> Building chartsearchai .omod from submodule"
 	cd targets/chartsearchai && mvn -DskipTests -B package
 	mkdir -p artifacts/openmrs/modules
