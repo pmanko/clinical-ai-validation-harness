@@ -37,9 +37,20 @@ chartsearchai reads `chartsearchai.llm.remote.apikey` from `openmrs-runtime.prop
 
 The other 3 LLM properties (`engine`, `remote.endpointUrl`, `remote.modelName`) are DB-backed global properties. Configure via REST POST after backend health.
 
-### D6 — Querystore deferred to M8
+### D6 — Querystore is a build-time dep, runtime-deferred to M8 — CORRECTED from earlier draft
 
-Querystore is architecturally the future read layer for chartsearchai but operationally pre-alpha: 5 critical runtime bugs open (any blocks startup), 4 ADR-level open questions, scaffold-only PR merged. The PoC validates today's chartsearchai (in-process retrieval). M8 (`009-querystore-parity-testbed`) is the formal home for the future comparison — gated on querystore reaching alpha-usable state. See "Querystore situation" below for measured signals.
+**Earlier (wrong) claim**: "Today's chartsearchai works standalone with its own retrieval; no querystore involvement." That was based on our stale submodule SHA `e490782` (2026-05-13), which pre-dates upstream's querystore integration.
+
+**Measured reality** (after `git submodule update --remote targets/chartsearchai` → SHA `ab37133`, 2026-05-16):
+- Commit `0215d81` (May 15): chartsearchai added querystore-api as a Maven dep (`scope=provided`) + a `chartsearchai.querystore.enabled` global property to route retrieval through `QueryStoreService`.
+- Commits `c091f98` + `0ca730e` + `ab37133` (May 16): chartsearchai integration polish — declares querystore as aware_of_module, registers querystore migration globals in `config.xml`, strips stopwords from querystore queries.
+- Default at runtime: `chartsearchai.querystore.enabled=false` — chartsearchai uses its OWN retrieval, querystore is not contacted.
+- Graceful degradation: per the commit message of `0215d81`, "chartsearchai still starts if the omod isn't installed (APIException + LinkageError both degrade to an empty chart)."
+
+**Implication for this PoC**:
+- **Build**: chartsearchai requires querystore-api on the local Maven classpath. The harness's `make chartsearch-build` target installs `querystore-api:1.0.0-SNAPSHOT` from our `targets/querystore/` submodule first, then builds chartsearchai.
+- **Runtime**: querystore is NOT deployed in the running stack. Only chartsearchai's `.omod` is installed. `chartsearchai.querystore.enabled` stays at its default (false). chartsearchai uses its in-process retrieval, the same way it always has.
+- Future M8 (`009-querystore-parity-testbed`): we'd flip `chartsearchai.querystore.enabled=true` and deploy the querystore .omod. That requires querystore to reach alpha-usable state (5 critical runtime bugs blocking).
 
 ## Querystore situation (measured 2026-05-16)
 
@@ -59,7 +70,15 @@ Querystore is architecturally the future read layer for chartsearchai but operat
 
 **Migration blockers** (per `targets/querystore/docs/migration-chartsearchai.md`): 4 ADR open questions (patient merge, initial backfill, long-text chunking, sync reliability + reconciliation) PLUS the 5 runtime bugs above. None of the port-map items in `targets/querystore/docs/chartsearchai-port-map.md` have landed (8 serializers + embedding provider + tokenizer + indexer + RRF + ES query DSL all still in chartsearchai).
 
-**Implication**: PoC validates today's chartsearchai. M8 deferred.
+**Chartsearchai-side integration progress** (post-2026-05-15, measured from submodule HEAD `ab37133`):
+- `chartsearchai.querystore.enabled` global property added (default false)
+- `QueryStoreChartBuilder` added to call `QueryStoreService.searchByPatient(uuid, query, topK)` when flag is on
+- AOP indexing advice + `EmbeddingIndexTask` become no-ops when querystore is enabled (to avoid double indexing)
+- querystore-api added as `<scope>provided</scope>` Maven dep — required at build time, not at runtime
+
+So the chartsearchai side of the migration has its scaffolding in place (off by default). The querystore side has 5 runtime bugs that block actually flipping the switch.
+
+**Implication**: PoC validates today's chartsearchai (querystore-disabled). When we want querystore-backed retrieval (future M8), the chartsearchai side is ready to flip; the work is on the querystore side.
 
 ## Files
 

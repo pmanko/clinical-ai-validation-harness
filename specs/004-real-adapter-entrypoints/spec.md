@@ -23,7 +23,7 @@ This is M3 scoped to the chartsearchai adapter. The other M3 adapter targets (qu
 - **FR-004.1**: The chartsearchai `.omod` MUST be built from the harness's `targets/chartsearchai/` submodule via `mvn -DskipTests package`. The submodule SHA is the pin.
 - **FR-004.2**: The PoC MUST use chartsearchai's **remote** LLM engine (OpenAI-compatible). The bundled local llama-server is out of scope.
 - **FR-004.3**: The harness MUST minimize customization vs upstream: no Dockerfile variants, no separate compose stack, no Maven build inside Docker. Only an env-var addition to the existing compose, an env-file template, a Makefile target wrapping `mvn package + cp`, and a small `chartsearch-configure.sh` wrapping 3 REST POSTs.
-- **FR-004.4**: The PoC MUST NOT depend on querystore. Today's chartsearchai uses its own internal retrieval; querystore-backed retrieval is M8 (`009-querystore-parity-testbed`), deferred.
+- **FR-004.4**: The PoC MUST NOT deploy querystore at runtime. (Correction from earlier draft: recent chartsearchai *does* declare a build-time dep on `querystore-api` with `scope=provided`. We install querystore-api locally from our submodule so chartsearchai builds; at runtime `chartsearchai.querystore.enabled=false` keeps chartsearchai on its in-process retrieval. Deploying querystore is M8 (`009-querystore-parity-testbed`) and is blocked by querystore's 5 open critical runtime bugs.)
 - **FR-004.5**: The architecture canvas MUST capture both the current standalone-chartsearchai shape and the future querystore-backed shape, with the migration gap and open-bug count from upstream so future planning has measured context.
 
 ## Demo patient anchor
