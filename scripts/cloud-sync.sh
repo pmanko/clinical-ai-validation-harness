@@ -28,6 +28,13 @@ echo "==> rsync to ${GCP_SSH_USER}@${IP}:${GCP_REMOTE_REPO}/"
 gcp_ssh_keygen_once
 gcp_ssh "mkdir -p ${GCP_REMOTE_REPO}"
 
+# Reclaim ownership of dirs we chown'd to 1001:0 on a previous run so this
+# rsync can write into them. Without this, an updated .omod cannot replace
+# the existing one (permission denied) and rsync exits 23 with the cosmetic
+# warning that gets users blaming "rsync flakiness". Chown back to the
+# real container UID happens at the end of this script.
+gcp_ssh "sudo chown -R ${GCP_SSH_USER}:${GCP_SSH_USER} ${GCP_REMOTE_REPO}/artifacts/openmrs/modules ${GCP_REMOTE_REPO}/artifacts/openmrs/backend-logs 2>/dev/null || true"
+
 # Rsync filter rules — FIRST MATCH WINS. Includes come before broad excludes
 # so they survive. Notes:
 # - `.git` (no slash): matches both the repo-root .git dir AND submodule
