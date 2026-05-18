@@ -3,22 +3,44 @@ AUDIT (
   dialect mysql
 );
 
--- Every concept_id referenced by a promoted clinical row MUST resolve to
--- an actual concept in the seeded CIEL dictionary (the live openmrs DB).
--- Emits failing (source_table, concept_id) pairs on fail; zero rows on pass.
+-- Every concept_id FK referenced by a promoted clinical row MUST:
+--   (a) exist in the target concept table, AND
+--   (b) match the UUID recorded in seed__concept_translation.
+-- Emits failing (source_table, concept_id, target_uuid, concept_uuid) on fail;
+-- zero rows on pass.
+--
+-- This catches the legacy "794 → Hip pain" class of bug where a source integer
+-- existed in the concept table but was the wrong concept (UUID mismatch).
 
 WITH promoted_concept_refs AS (
-  SELECT 'drug_order' AS source_table, concept_id FROM refapp_28_demo.clin__drug_order
+  SELECT 'orders (drug)'    AS source_table, o.concept_id, ct.target_uuid
+  FROM refapp_28_demo.clin__orders o
+  JOIN refapp_28_demo.seed__concept_translation ct
+    ON ct.target_concept_id = o.concept_id
+  WHERE o.order_type_id = 2
+
   UNION ALL
-  SELECT 'conditions',                  condition_coded FROM refapp_28_demo.clin__conditions
+
+  SELECT 'orders (test)',               o.concept_id, ct.target_uuid
+  FROM refapp_28_demo.clin__orders o
+  JOIN refapp_28_demo.seed__concept_translation ct
+    ON ct.target_concept_id = o.concept_id
+  WHERE o.order_type_id = 3
+
   UNION ALL
-  SELECT 'test_order',                  concept_id FROM refapp_28_demo.clin__test_order
+
+  SELECT 'conditions',                  condition_coded, ct.target_uuid
+  FROM refapp_28_demo.clin__conditions cond
+  JOIN refapp_28_demo.seed__concept_translation ct
+    ON ct.target_concept_id = cond.condition_coded
 )
 SELECT
   pcr.source_table,
-  pcr.concept_id AS missing_concept_id
+  pcr.concept_id          AS promoted_concept_id,
+  pcr.target_uuid         AS expected_uuid,
+  c.uuid                  AS actual_uuid
 FROM promoted_concept_refs pcr
-LEFT JOIN openmrs.concept c
-  ON c.concept_id = pcr.concept_id
-WHERE c.concept_id IS NULL
+LEFT JOIN openmrs.concept c ON c.concept_id = pcr.concept_id
+WHERE c.concept_id IS NULL          -- concept does not exist
+   OR c.uuid <> pcr.target_uuid     -- concept exists but UUID does not match
 ;
