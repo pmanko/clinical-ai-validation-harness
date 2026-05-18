@@ -140,6 +140,7 @@ cloud-deploy-esm:
 	@./scripts/chartsearch-esm-build.sh
 	@./scripts/cloud-sync.sh
 	@CLOUD=1 ./scripts/chartsearch-importmap-gen.sh
+	@CLOUD=1 ./scripts/chartsearch-registry-gen.sh
 	@./scripts/cloud-sync.sh
 	@./scripts/cloud-ssh.sh "docker exec harness-proxy caddy reload --config /etc/caddy/Caddyfile" || \
 	  ./scripts/cloud-ssh.sh "cd $${GCP_REMOTE_REPO:-/opt/clinical-ai-harness}/compose && docker compose exec proxy caddy reload --config /etc/caddy/Caddyfile"

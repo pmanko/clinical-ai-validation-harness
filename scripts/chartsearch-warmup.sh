@@ -19,12 +19,21 @@ set -uo pipefail   # don't `set -e` — a failed `lms load` shouldn't stop warmi
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "${ROOT}"
 
+# Preserve command-line env over .env.chartsearch file values (the obvious
+# "override the file" path). `set -a; . file; set +a` would otherwise clobber
+# pre-exported vars.
+__OVR_MODELS="${CHARTSEARCH_WARMUP_MODELS:-}"
+__OVR_REMOTE_MODEL="${CHARTSEARCH_REMOTE_MODEL_NAME:-}"
+__OVR_CTX="${CHARTSEARCH_CONTEXT_LENGTH:-}"
 if [ -f .env.chartsearch ]; then
   set -a
   # shellcheck disable=SC1091
   . .env.chartsearch
   set +a
 fi
+[ -n "${__OVR_MODELS}" ]       && CHARTSEARCH_WARMUP_MODELS="${__OVR_MODELS}"
+[ -n "${__OVR_REMOTE_MODEL}" ] && CHARTSEARCH_REMOTE_MODEL_NAME="${__OVR_REMOTE_MODEL}"
+[ -n "${__OVR_CTX}" ]          && CHARTSEARCH_CONTEXT_LENGTH="${__OVR_CTX}"
 
 MODELS="${CHARTSEARCH_WARMUP_MODELS:-${CHARTSEARCH_REMOTE_MODEL_NAME:-}}"
 CTX="${CHARTSEARCH_CONTEXT_LENGTH:-32768}"
