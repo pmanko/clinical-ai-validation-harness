@@ -44,6 +44,18 @@
         root * /srv/spa-custom
         file_server
     }
+    handle /openmrs/spa/routes.registry.json {
+        # The OpenMRS app-shell reads this on boot to discover frontend modules
+        # and their extensions/workspaces. The stock :3.6.0 frontend image
+        # doesn't bake chartsearchai into the registry, so we serve an
+        # overridden copy that adds the @openmrs/esm-chartsearchai-app entry.
+        # Without this override the importmap alias is unused — the app-shell
+        # never imports the bundle and the patient-banner extension never
+        # mounts. The registry is what makes routes.json take effect.
+        rewrite * /routes.registry.json
+        root * /srv/spa-custom
+        file_server
+    }
     handle_path /openmrs/spa/openmrs-esm-chartsearchai-app-multiturn/* {
         # `handle_path` strips the matched prefix before passing to `file_server`,
         # so chunk URLs like `.../101.js` resolve to /srv/spa-custom/<bundle>/101.js.

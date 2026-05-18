@@ -7,6 +7,7 @@
 #
 # Layout produced under artifacts/openmrs/spa-custom/:
 #   importmap.json                                           — Caddy-served
+#   spa-assemble-config.json                                 — Caddy-served
 #   openmrs-esm-chartsearchai-app-multiturn/main.js          — Caddy-served
 #   openmrs-esm-chartsearchai-app-multiturn/<chunks>.js      — Caddy-served
 #
@@ -38,5 +39,10 @@ rsync -a --delete "${ESM_DIR}/dist/" "${ARTIFACT_DIR}/${TARGET_NAME}/"
 echo "==> regenerate custom importmap.json"
 "${ROOT}/scripts/chartsearch-importmap-gen.sh"
 
+echo "==> regenerate custom routes.registry.json"
+"${ROOT}/scripts/chartsearch-registry-gen.sh"
+
 echo "==> esm build complete:"
-ls -lh "${ARTIFACT_DIR}/${TARGET_NAME}/openmrs-esm-chartsearchai-app.js" "${ARTIFACT_DIR}/importmap.json" 2>/dev/null || true
+ls -lh "${ARTIFACT_DIR}/${TARGET_NAME}/openmrs-esm-chartsearchai-app.js" \
+       "${ARTIFACT_DIR}/importmap.json" \
+       "${ARTIFACT_DIR}/routes.registry.json" 2>/dev/null || true
