@@ -128,3 +128,52 @@ So the chartsearchai side of the migration has its scaffolding in place (off by 
 5. Architecture canvas shipped
 6. Spec/plan/tasks updated with measured signals (timings, observed module version, screenshot)
 7. PR opens against `main`, GitGuardian green
+
+---
+
+# Phase 2 plan — Multi-turn chat (added 2026-05-18)
+
+Background and 13 design decisions in `spec.md` Phase 2 section. This is the execution plan.
+
+## Sequencing actually followed
+
+1. Discovery — read backend Java code paths, frontend ESM source, primary docs (Anthropic / OpenAI / llama.cpp prompt-caching). Identified the chart-in-current-user shape as cache-hostile.
+2. **First attempt (rejected)** — simple `ChatMessages.fromTurns` with chart still in current user, budget trim around it. Symptom: LM Studio still saw `"conversation with 2 messages"` on every turn. The budget trim dropped every prior because chart-alone exceeded the budget. Root cause: chart placement, not budget arithmetic.
+3. Research dive — 8 numbered design questions answered against primary sources (saved as `streamed-watching-stream-agent-*.md`). Conclusion: chart MUST live in a stable prefix; D2 (freeze per session) follows directly.
+4. 13-question Q&A pass with the user to lock decisions (D1–D13).
+5. Implementation in order:
+   - `ChartBuildingStrategy.buildChartUnfiltered` sibling method (advisor pre-check: smaller diff than adding a conditional)
+   - Liquibase `chartsearchai-008` adds `chart_snapshot` / `chart_mappings_json` / `chart_built_at`
+   - `ChatSession` entity + hbm.xml extended
+   - `ChatMessages.assembleChat` — new builder; old `fromTurns` deleted as dead code
+   - `LlmProvider.chat` / `chatStreaming` switch to `assembleChat`
+   - `LlmInferenceService.chat` / `chatStreaming` signatures take chart envelope + mappings
+   - `ChatServiceImpl` builds + persists snapshot on session create; deserializes mappings on every chat
+   - `MessagesArrayShapeTest` (7 cases) — RED verified by stubbing `assembleChat` to single-shot, 7/7 fail including the byte-identity test
+6. Local curl smoke — turn 3 referential test passes (LLM correctly recalls "11 medications" from turn 1)
+7. Cloud deploy via `make cloud-deploy` (FUP.1 rsync fix held)
+8. Cloud curl smoke — same pass
+9. Slice-branch the work into clean upstream PRs (squash dd28cf6+9e56b3a+1374669 into one commit)
+10. Open backend PR #20 + ESM PR #9 (both against `main` of openmrs/openmrs-*)
+11. Switch cloud to medgemma — required reloading medgemma in LM Studio with `--context-length 32768`
+12. Spec/plan/tasks/canvas updates (this commit)
+
+## Risks specific to Phase 2
+
+- **R6 — Chart freshness mid-session**: see spec trade-off. Clinician must click "New chat" to refresh.
+- **R7 — Switching models invalidates cache**: GP change → next call hits with new model → first call after switch pays full prompt cost. Acceptable but worth knowing.
+- **R8 — Service-worker caches the baked importmap**: addressed by hard-reload on first browser visit. Cache-buster query string could be added in v2.
+- **R9 — Importmap drift across `:nightly-chartsearch` rebuilds**: our custom importmap is regenerated from the running container's baked importmap each deploy, so unrelated module versions stay in sync.
+- **R10 — Trim path uses `chars/4`**: vestigial under the new design (chart lives in reserved prefix, conversation tail is small). Accurate tokenizer is a v2 follow-up.
+
+## Acceptance — Phase 2 closes when
+
+1. `MessagesArrayShapeTest` green (7/7); RED verified by stubbing
+2. Backend smoke: turn 3 referential test passes both local + cloud (turn-1's "11 medications" recalled correctly)
+3. `chart_chars` byte-stable in backend logs across all turns of one session
+4. ESM build clean; 118/118 frontend tests green
+5. Caddy interception verified: importmap + chartsearchai bundle served from `/srv/spa-custom`, other ESMs flow through
+6. Upstream PRs opened: backend #20, ESM #9
+7. Harness PR #15 bumps both submodule pins
+8. Specs + canvas extended (this commit)
+9. Browser visual pass: user verifies multi-turn UX end-to-end

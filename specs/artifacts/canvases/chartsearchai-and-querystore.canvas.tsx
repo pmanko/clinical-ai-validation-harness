@@ -30,6 +30,36 @@ const heroStats = [
   { value: 'off', label: 'chartsearchai.querystore.enabled default', tone: 'info' as const },
 ];
 
+// Phase 2 (added 2026-05-18) — multi-turn chat history. The 13 design
+// decisions locked with the user; see spec.md "Phase 2" section.
+const multiTurnDecisionRows = [
+  ['D1', 'Chart placement in message array', 'First user message, byte-stable across turns (cache-friendly prefix)'],
+  ['D2', 'Chart freshness', 'Frozen on session open; "New chat" rebuilds'],
+  ['D3', 'Pre-filter retrieval in chat', 'Always full chart (chat bypasses chartsearchai.embedding.preFilter)'],
+  ['D4', 'Chart persistence shape', 'Snapshot on chat_session row (chart_snapshot + chart_mappings_json)'],
+  ['D5', 'Tokenizer', 'chars/4 (POC); jtokkit / llama-server /tokenize is v2 follow-up'],
+  ['D6', '/search vs /chat coexistence', 'Both endpoints; AI panel uses /chat only'],
+  ['D7', 'Mid-stream client disconnect', 'Persist partial with finish_reason=aborted (POC); consumeStream is v2'],
+  ['D8', 'Chat content retention', '90 days (chartsearchai.chat.retentionDays); separate from 6yr audit log'],
+  ['D9', 'System prompt stability', 'Live GP; operator edit invalidates cache (rare; acceptable)'],
+  ['D11', 'Session uuid client storage', 'Server-side via openOrLoadActiveSession; no localStorage'],
+  ['D12', 'Session boundary', 'Per (patient, user)'],
+  ['D13', 'Sequencing', 'Ship redesign + browser-verify before opening upstream PRs'],
+];
+
+const multiTurnRestRows = [
+  ['POST', '/ws/rest/v1/chartsearchai/chat', 'Single-call multi-turn; returns {answer, references, session, messageId}'],
+  ['POST', '/ws/rest/v1/chartsearchai/chat/stream', 'SSE; emits X-ChartSearchAi-Session header before stream opens'],
+  ['POST', '/ws/rest/v1/chartsearchai/chat/new', 'Close current active session + open fresh ("New chat" button)'],
+  ['GET',  '/ws/rest/v1/chartsearchai/chat?patient=', 'Hydrate SPA panel on mount (returns session + ordered messages)'],
+];
+
+const multiTurnPrRows = [
+  ['openmrs/openmrs-module-chartsearchai', '#20', 'Backend multi-turn chat with frozen-session chart in stable prefix'],
+  ['openmrs/openmrs-esm-chartsearchai',    '#9',  'Frontend chat panel routed through /chat/stream'],
+  ['pmanko/clinical-ai-validation-harness', '#15', 'Harness: paired submodule pin bumps + Caddy interception'],
+];
+
 const moduleStatusRows = [
   ['chartsearchai', 'mature, shipping, hot iteration', 'ab37133 (2026-05-16)', '12 merged PRs', 'Standalone capable; querystore integration code added 2026-05-15 (off by default)'],
   ['querystore', 'pre-alpha, single-author iteration', 'ab371333 (2026-05-16)', '1 merged PR (scaffold)', '5 critical runtime bugs block any backend tier from starting cleanly'],
@@ -297,6 +327,53 @@ export default function ChartSearchAIAndQueryStoreArchitecture() {
         rows={chartsearchPipelineRows}
         striped
       />
+
+      <Divider />
+
+      <Row gap={8} wrap>
+        <Pill tone="success" active>Phase 2 — 2026-05-18</Pill>
+        <Pill tone="info" active>Multi-turn chat</Pill>
+        <Pill tone="info" active>Frozen-session chart</Pill>
+        <Pill tone="info" active>3 PRs paired</Pill>
+      </Row>
+      <H2>Multi-turn Chat History (Phase 2)</H2>
+      <Text tone="secondary">
+        The Phase 1 PoC shipped single-shot search. Phase 2 (added 2026-05-18) adds multi-turn chat so referential follow-ups ("and her allergies?", "how many did you list?") resolve against prior turns. The load-bearing design choice: <Code>chart</Code> sits in the first user message and is frozen per session, so the LLM's prompt cache hits on the stable system+chart prefix while only the conversation tail varies per turn. Anthropic / OpenAI / llama.cpp prompt-caching docs all converge on this static-at-top / variable-at-end rule.
+      </Text>
+
+      <Callout tone="success" title="The message-array shape">
+        <Code>{`[system, user(chart envelope — frozen on session), ...prior user/assistant pairs..., user(current question)]`}</Code>
+        <br />
+        First two messages byte-identical across every turn of a session → <Code>cache_prompt=true</Code> hits → 11K-token chart re-processed only on session create.
+      </Callout>
+
+      <H3>13 design decisions (locked with user via structured Q&A)</H3>
+      <Table
+        headers={['#', 'Decision', 'Choice']}
+        rows={multiTurnDecisionRows}
+        striped
+      />
+
+      <H3>REST surface added</H3>
+      <Table
+        headers={['Method', 'Path', 'Purpose']}
+        rows={multiTurnRestRows}
+        striped
+      />
+
+      <H3>Paired-PR strategy</H3>
+      <Text tone="secondary">
+        Three repos, three PRs. Backend + ESM PRs cut from clean slice branches off upstream <Code>main</Code> with squashed commits (one coherent change per PR). The consolidated <Code>harness-integration</Code> branches on each fork carry both this slice and the earlier already-PR'd commits, so the harness submodule pin tracks a single ref instead of N branches.
+      </Text>
+      <Table
+        headers={['Repo', 'PR #', 'Scope']}
+        rows={multiTurnPrRows}
+        striped
+      />
+
+      <Callout tone="warning" title="Phase 2 trade-off">
+        Chart snapshot is frozen on session create — new lab results don't appear mid-conversation. Clinician clicks "New chat" to refresh. This is the deliberate cost of cache-eligibility; it matches the user-facing mental model ("opening a new chat = a fresh context view") and is documented in <Code>populateChartSnapshot</Code> Javadoc.
+      </Callout>
 
       <Divider />
 
