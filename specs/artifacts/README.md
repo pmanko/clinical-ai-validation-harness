@@ -10,6 +10,8 @@ Durable planning and research artifacts that support the feature roadmap:
   - Concise process map for how feature 002 uses SQLMesh to materialize the OpenMRS 2.7-to-2.8 transform.
 - `canvases/scout-comparative-analysis.canvas.tsx`
   - Deep-dive analysis of Duke DIHI Scout and implications for chartsearchai, openmrs_chatbot, and Catalyst.
+- `canvases/chartsearchai-and-querystore.canvas.tsx`
+  - chartsearchai + querystore architecture (today's standalone vs tomorrow's querystore-backed), port map, upstream status, and harness M3 + M8 integration points.
 - `canvases/clinical-ai-research-guidance.canvas.tsx`
   - Research grounding, maturity framing, and evolution guidance.
 - `planning/data-remap-2.8.md`

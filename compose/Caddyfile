@@ -1,6 +1,10 @@
 {
-    auto_https off
+    # Caddy auto-enables TLS when the site address is a domain name; for a
+    # port-only address like `:80` it stays plain HTTP. So local dev
+    # (CADDY_SITE=":80") gets no TLS; cloud bring-up (CADDY_SITE="<domain>")
+    # gets a Let's Encrypt cert automatically.
     admin off
+    email {$CADDY_EMAIL:nobody@example.com}
     log {
         output stderr
         format console
@@ -10,16 +14,57 @@
 # Harness reverse proxy.
 # All host-facing HTTP traffic comes through this server; internal services
 # (gateway, backend, frontend, future chartsearchai-gateway, etc.) are not
-# directly exposed on the host. Routing is path-based on a single port.
+# directly exposed on the host. Routing is path-based on a single port (or
+# domain when running in cloud).
 #
-# Access:
-#   http://localhost:${HARNESS_PROXY_HTTP_PORT:-8088}/openmrs/spa   -> O3 RefApp UI
-#   http://localhost:${HARNESS_PROXY_HTTP_PORT:-8088}/openmrs/ws/   -> OpenMRS REST/FHIR API
-#   http://localhost:${HARNESS_PROXY_HTTP_PORT:-8088}/              -> redirects to /openmrs/spa
+# Site address is env-driven:
+#   CADDY_SITE unset (default)  -> ":80"   — local dev, any Host header
+#   CADDY_SITE="openclinai.org" -> the domain, with auto-TLS via Let's Encrypt
 #
 # Add new services here as they join the stack (chartsearchai, querystore, etc.).
 
-:80 {
+# Higher-priority handles that intercept SPA paths before the generic
+# /openmrs/* gateway route. Used to swap in our harness-built ESM bundle
+# without rebuilding the :nightly-chartsearch image: Caddy serves the
+# regenerated importmap.json and the custom chartsearchai bundle dir
+# from artifacts/openmrs/spa-custom (mounted into the proxy container
+# at /srv/spa-custom), while the rest of /openmrs/* falls through to
+# the gateway → frontend container as before.
+#
+# The custom importmap is fetched live from the running frontend
+# container at build time and only the chartsearchai entry is rewritten,
+# so unrelated module versions stay aligned with whatever upstream
+# nightly the SPA shell expects.
+(chartsearch_overrides) {
+    handle /openmrs/spa/importmap.json {
+        # `handle` matches but does NOT strip the URL prefix; `root` is a
+        # filesystem path. `rewrite` re-targets the URL to the bare filename
+        # before `file_server` resolves it relative to `root`.
+        rewrite * /importmap.json
+        root * /srv/spa-custom
+        file_server
+    }
+    handle /openmrs/spa/routes.registry.json {
+        # The OpenMRS app-shell reads this on boot to discover frontend modules
+        # and their extensions/workspaces. The stock :3.6.0 frontend image
+        # doesn't bake chartsearchai into the registry, so we serve an
+        # overridden copy that adds the @openmrs/esm-chartsearchai-app entry.
+        # Without this override the importmap alias is unused — the app-shell
+        # never imports the bundle and the patient-banner extension never
+        # mounts. The registry is what makes routes.json take effect.
+        rewrite * /routes.registry.json
+        root * /srv/spa-custom
+        file_server
+    }
+    handle_path /openmrs/spa/openmrs-esm-chartsearchai-app-multiturn/* {
+        # `handle_path` strips the matched prefix before passing to `file_server`,
+        # so chunk URLs like `.../101.js` resolve to /srv/spa-custom/<bundle>/101.js.
+        root * /srv/spa-custom/openmrs-esm-chartsearchai-app-multiturn
+        file_server
+    }
+}
+
+(openmrs_routes) {
     # 256 MB body limit is plenty for CIEL OCL exports (current ~60MB) plus headroom.
     request_body {
         max_size 256MB
@@ -46,13 +91,42 @@
     handle /__proxy_health {
         respond "ok" 200
     }
+}
 
-    # Bare root: redirect to OpenMRS SPA
+# Main site: legacy URL shape `<host>/openmrs/spa` (bare root redirects to it).
+# Local dev uses ":80" catch-all; cloud sets CADDY_SITE="openclinai.org".
+{$CADDY_SITE::80} {
+    import chartsearch_overrides
+    import openmrs_routes
+
+    # Bare root: redirect to the OpenMRS SPA at its canonical path.
     handle / {
         redir /openmrs/spa 302
     }
 
     # Anything unrecognised: 404 with a hint
+    handle {
+        respond "harness proxy: no route configured for {http.request.uri.path}. See compose/Caddyfile." 404
+    }
+}
+
+# OpenMRS subdomain: SPA at bare root (`<host>/`) via transparent rewrite to
+# the gateway's /openmrs/spa/. /openmrs/* still works for REST/FHIR/legacy UI
+# and /openmrs/spa direct still works for callers who already use that path.
+# Default ":8090" is a port we don't publish, so the block is dormant on local
+# dev (no Host-header match, no LE attempt); cloud sets the real subdomain.
+{$CADDY_SITE_OPENMRS::8090} {
+    import chartsearch_overrides
+    import openmrs_routes
+
+    # Bare root: serve the SPA index transparently (browser URL stays "/").
+    # Subsequent SPA navigation will surface "/openmrs/spa/..." in the URL bar
+    # because the SPA's internal links are absolute. Acceptable cost.
+    handle / {
+        rewrite * /openmrs/spa/
+        reverse_proxy gateway:80
+    }
+
     handle {
         respond "harness proxy: no route configured for {http.request.uri.path}. See compose/Caddyfile." 404
     }

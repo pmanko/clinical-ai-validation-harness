@@ -1,6 +1,7 @@
 [submodule "targets/chartsearchai"]
 	path = targets/chartsearchai
-	url = https://github.com/openmrs/openmrs-module-chartsearchai.git
+	url = https://github.com/pmanko/openmrs-module-chartsearchai.git
+	branch = harness-integration
 [submodule "targets/querystore"]
 	path = targets/querystore
 	url = https://github.com/openmrs/openmrs-module-querystore.git
@@ -10,3 +11,7 @@
 [submodule "targets/catalyst"]
 	path = targets/catalyst
 	url = https://github.com/DIGI-UW/openelis-catalyst.git
+[submodule "targets/chartsearchai-esm"]
+	path = targets/chartsearchai-esm
+	url = https://github.com/pmanko/openmrs-esm-chartsearchai.git
+	branch = harness-integration

@@ -8,7 +8,11 @@ export UV_PROJECT_ENVIRONMENT
         ciel-fetch ciel-baseline \
         reset-transform sqlmesh-status \
         loadtest-up loadtest-down \
-        load-test orphan-fk-check import-smoke dump-loaded
+        load-test orphan-fk-check import-smoke dump-loaded \
+        chartsearch-build chartsearch-configure chartsearch-doctor chartsearch-warmup chartsearch-up \
+        chartsearch-esm-build chartsearch-esm-dev cloud-deploy-esm \
+        cloud-init cloud-sync cloud-up cloud-down cloud-reset cloud-deploy cloud-seed \
+        cloud-start cloud-stop cloud-ssh cloud-logs cloud-status cloud-destroy
 
 # --- compose lifecycle ---
 up:
@@ -92,6 +96,171 @@ import-smoke:
 dump-loaded:
 	./scripts/dump-loaded.sh $(if $(SOURCE),--source $(SOURCE)) $(if $(OUT),--out $(OUT))
 
+# --- ChartSearchAI adapter (feature 004 PoC) ---
+
+# Build the chartsearchai .omod from the pinned submodule and drop it into
+# artifacts/openmrs/modules/ so the harness backend picks it up on next
+# restart. The submodule URL points at the harness fork's
+# `harness-integration` branch; the parent records the exact SHA so
+# `git submodule update --init` gives a buildable state.
+chartsearch-build:
+	cd targets/chartsearchai && mvn -DskipTests -B package
+	mkdir -p artifacts/openmrs/modules
+	cp targets/chartsearchai/omod/target/chartsearchai-*.omod artifacts/openmrs/modules/
+	@ls -la artifacts/openmrs/modules/chartsearchai-*.omod
+
+# Build the chartsearchai frontend ESM from the pinned submodule and stage
+# it under artifacts/openmrs/spa-custom/. Caddy serves both the bundle
+# directory and the regenerated importmap.json at the same URL the SPA
+# would fetch from the gateway, so the dockerized shell loads our fork's
+# code without rebuilding the :nightly-chartsearch image. The unrelated
+# importmap entries are fetched live from the running frontend container
+# so they always match the upstream nightly the rest of the SPA is using.
+chartsearch-esm-build:
+	@./scripts/chartsearch-esm-build.sh
+
+# Day-to-day ESM dev loop. Spins up `openmrs develop` (Express + HMR) on
+# port 8080 and proxies API to the local docker backend. Edits in
+# targets/chartsearchai-esm/ hot-reload in the browser at
+# http://localhost:8080/openmrs/spa. The dockerized :nightly-chartsearch
+# frontend container stays up but is bypassed during dev — `openmrs
+# develop` runs its own app-shell with an in-memory importmap pointing
+# at the locally-bundled ESM (per OpenMRS o3-docs).
+chartsearch-esm-dev:
+	@if [ ! -d targets/chartsearchai-esm/node_modules ]; then \
+	  echo "==> installing ESM deps"; \
+	  (cd targets/chartsearchai-esm && yarn install); \
+	fi
+	@cd targets/chartsearchai-esm && yarn start --backend=http://localhost:8088 --spa-path=/openmrs/spa --api-url=/openmrs
+
+# Fast cloud iteration for ESM changes only — rebuild the bundle, rsync
+# the artifacts dir to the VM, reload Caddy on the VM (picks up new
+# static files; no frontend container restart needed). Backend untouched.
+cloud-deploy-esm:
+	@./scripts/chartsearch-esm-build.sh
+	@./scripts/cloud-sync.sh
+	@CLOUD=1 ./scripts/chartsearch-importmap-gen.sh
+	@./scripts/cloud-sync.sh
+	@./scripts/cloud-ssh.sh "docker exec harness-proxy caddy reload --config /etc/caddy/Caddyfile" || \
+	  ./scripts/cloud-ssh.sh "cd $${GCP_REMOTE_REPO:-/opt/clinical-ai-harness}/compose && docker compose exec proxy caddy reload --config /etc/caddy/Caddyfile"
+
+# Configure chartsearchai LLM global properties via REST. Reads .env.chartsearch
+# for endpoint + model + engine. The API key goes via the backend env var
+# OMRS_EXTRA_CHARTSEARCHAI_LLM_REMOTE_APIKEY, not via REST.
+chartsearch-configure:
+	@./scripts/chartsearch-configure.sh
+
+# Pre-load LM Studio models with the configured context length and write
+# persistent per-model defaults. Prevents JIT-reload-with-default-context
+# (which silently reverts to 4K and breaks chartsearchai's full-chart prompt).
+# Reads CHARTSEARCH_WARMUP_MODELS + CHARTSEARCH_CONTEXT_LENGTH from .env.chartsearch.
+chartsearch-warmup:
+	@./scripts/chartsearch-warmup.sh
+
+# End-to-end chartsearch bring-up: build .omod, recreate compose with
+# chartsearch tags, wait for backend healthy, configure LLM globals,
+# warm up LM Studio models. Idempotent — safe to re-run.
+chartsearch-up:
+	@if [ ! -f .env.chartsearch ]; then \
+	  echo "error: .env.chartsearch not found. Copy .env.chartsearch.example and edit."; exit 1; \
+	fi
+	@echo "==> chartsearch-build (mvn package + drop .omod)"
+	@$(MAKE) chartsearch-build
+	@echo "==> docker compose up (frontend+gateway on :nightly-chartsearch tag, backend env wired)"
+	@set -a && . ./.env.chartsearch && set +a && \
+	  docker compose -f compose/openmrs-2.8-refapp.yml up -d --force-recreate frontend gateway backend
+	@echo "==> wait for backend healthy (Liquibase + module init can take 5-10 min cold)"
+	@observed=0; for i in $$(seq 1 60); do \
+	  s=$$(docker inspect -f '{{.State.Health.Status}}' harness-openmrs-backend 2>/dev/null || echo starting); \
+	  if [ "$$s" = "healthy" ]; then echo "    healthy after $$((i*5))s"; observed=1; break; fi; \
+	  sleep 5; \
+	done; \
+	if [ "$$observed" != "1" ]; then echo "ERROR: backend not healthy after 5 min" >&2; exit 1; fi
+	@echo "==> chartsearch-configure (LLM globals via REST)"
+	@$(MAKE) chartsearch-configure
+	@echo "==> chartsearch-warmup (LM Studio model preload + persistent defaults)"
+	@$(MAKE) chartsearch-warmup
+	@echo "==> chartsearch-up complete"
+
+# Verify chartsearchai prerequisites: backend container can reach the LLM
+# endpoint (LM Studio / Anthropic / etc.), models are available, module is
+# loaded. Useful before chartsearch-configure or when debugging.
+chartsearch-doctor:
+	@set -a; . .env.chartsearch 2>/dev/null || true; set +a; \
+	URL="$${CHARTSEARCH_REMOTE_ENDPOINT_URL%/chat/completions}/models"; \
+	echo "Probing LLM endpoint from inside backend container: $$URL"; \
+	docker exec harness-openmrs-backend curl -fsS -m 5 "$$URL" \
+	  | python3 -c "import sys,json; d=json.load(sys.stdin); ms=d.get('data',[]); print('  models available:' if ms else '  no models loaded'); [print(f'    - {m[\"id\"]}') for m in ms]" \
+	  || echo "  endpoint unreachable from container (check LM Studio: Serve on Local Network must be enabled)"; \
+	echo ""; \
+	echo "Module status:"; \
+	curl -fsS -u admin:Admin123 \
+	  "http://localhost:$${HARNESS_PROXY_HTTP_PORT:-8088}/openmrs/ws/rest/v1/module/chartsearchai?v=custom:(uuid,started,version)" \
+	  | python3 -c "import sys,json; d=json.load(sys.stdin); print(f'  chartsearchai {d.get(\"version\",\"?\")} started={d.get(\"started\")}')" \
+	  || echo "  module not found (backend may still be starting, or chartsearchai .omod not in artifacts/openmrs/modules/)"
+
+
+# --- Cloud deploy target (local-driven push to GCE) ---
+#
+# Deploy the chartsearch stack to a GCE VM in the clinical-ai-harness project
+# for browser testing without saturating the laptop. Iteration loop is:
+#   1. edit chartsearchai code locally
+#   2. `make cloud-deploy`  (builds .omod, rsyncs diff, restarts backend on VM)
+#   3. test at http://<vm-ip>:8088/openmrs/spa
+# The cloud backend reaches your LOCAL LM Studio over LM Link — VM runs
+# headless llmster, signed in to your account, paired with the Mac. The
+# inference HTTP call lands on the VM's localhost:1234 and llmster routes
+# it across the encrypted LM Link tunnel. See docs/cloud-deploy.md.
+
+cloud-init:       ## one-time: reserve IP, firewall, VM, docker install
+	@./scripts/cloud-init.sh
+
+cloud-sync:       ## rsync repo to VM (excludes .git, .venv, build caches, secrets)
+	@./scripts/cloud-sync.sh
+
+cloud-up:         ## first compose up on VM (waits for backend healthy, runs configure)
+	@./scripts/cloud-up.sh
+
+cloud-down:       ## compose down on VM; pass ARGS=--volumes to nuke data too
+	@./scripts/cloud-down.sh $(ARGS)
+
+cloud-reset:      ## DESTRUCTIVE: down --volumes + clear binds + resync + cloud-up. FORCE=1 to skip prompt
+	@FORCE=$(FORCE) ./scripts/cloud-reset.sh
+
+cloud-deploy:     ## fast iteration: rebuild .omod + rsync + restart backend on VM
+	@./scripts/cloud-deploy.sh
+
+cloud-seed:       ## one-time: dump openmrs_test locally + restore on VM
+	@./scripts/cloud-seed.sh
+
+cloud-start:      ## start the VM (no compose changes; pair with cloud-up after)
+	@gcloud compute instances start $${GCP_VM_NAME:-harness-chartsearch} \
+	  --zone=$${GCP_ZONE:-us-central1-a} --project=$${GCP_PROJECT:-clinical-ai-harness}
+
+cloud-stop:       ## stop the VM (saves ~$3/day; static IP keeps its address)
+	@gcloud compute instances stop $${GCP_VM_NAME:-harness-chartsearch} \
+	  --zone=$${GCP_ZONE:-us-central1-a} --project=$${GCP_PROJECT:-clinical-ai-harness}
+
+cloud-ssh:        ## interactive ssh, or `ARGS='cmd...'` for one-shot
+	@./scripts/cloud-ssh.sh $(ARGS)
+
+cloud-logs:       ## tail compose logs on VM; SERVICE=backend to filter, FOLLOW=0 to dump+exit
+	@./scripts/cloud-logs.sh
+
+cloud-status:     ## print VM state, IP, browser URL, compose ps
+	@./scripts/cloud-status.sh
+
+cloud-destroy:    ## tear down VM + firewall + static IP (FORCE=1 to skip prompt)
+	@if [ "$(FORCE)" != "1" ]; then \
+	  printf 'About to delete VM, firewall rule, and static IP in %s. Type YES to confirm: ' "$${GCP_PROJECT:-clinical-ai-harness}"; \
+	  read -r answer; [ "$$answer" = "YES" ] || { echo aborted; exit 1; }; \
+	fi; \
+	gcloud compute instances delete $${GCP_VM_NAME:-harness-chartsearch} \
+	  --zone=$${GCP_ZONE:-us-central1-a} --project=$${GCP_PROJECT:-clinical-ai-harness} --quiet || true; \
+	gcloud compute firewall-rules delete $${GCP_FIREWALL_HTTP:-allow-harness-http} \
+	  --project=$${GCP_PROJECT:-clinical-ai-harness} --quiet || true; \
+	gcloud compute addresses delete $${GCP_STATIC_IP_NAME:-harness-chartsearch-ip} \
+	  --region=$${GCP_REGION:-us-central1} --project=$${GCP_PROJECT:-clinical-ai-harness} --quiet || true
 
 setup:
 	$(UV) python install $(PYTHON_VERSION)

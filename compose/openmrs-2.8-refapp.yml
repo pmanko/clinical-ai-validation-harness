@@ -21,11 +21,30 @@ services:
     container_name: harness-proxy
     restart: "unless-stopped"
     ports:
+      # Local dev: HARNESS_PROXY_HTTP_PORT defaults to 8088 (avoids OrbStack/8080
+      # conflicts). Cloud bring-up overrides to 80 and adds 443 for TLS.
       - "${HARNESS_PROXY_HTTP_PORT:-8088}:80"
+      - "${HARNESS_PROXY_HTTPS_PORT:-8443}:443"
+    environment:
+      # Driven by .env.chartsearch / .env.chartsearch.cloud. Local default is the
+      # ":80" catch-all site block (no TLS); cloud sets CADDY_SITE to a real
+      # domain, which triggers Caddy's auto-TLS via Let's Encrypt (CADDY_EMAIL
+      # is the LE registration contact).
+      CADDY_SITE: ${CADDY_SITE:-:80}
+      # Optional subdomain that serves the SPA at its bare root for cleaner
+      # URLs (defaults to a non-published port so the block is dormant locally).
+      CADDY_SITE_OPENMRS: ${CADDY_SITE_OPENMRS:-:8090}
+      CADDY_EMAIL: ${CADDY_EMAIL:-nobody@example.com}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy-data:/data
       - caddy-config:/config
+      # Static-file mount for the harness-built chartsearchai ESM bundle
+      # and a regenerated importmap.json. Caddy serves these to override
+      # the corresponding paths from the :nightly-chartsearch frontend
+      # container without rebuilding that image. See (chartsearch_overrides)
+      # in Caddyfile and `make chartsearch-esm-build` for the build step.
+      - ../artifacts/openmrs/spa-custom:/srv/spa-custom:ro
     depends_on:
       gateway:
         condition: service_healthy
@@ -77,7 +96,16 @@ services:
         condition: service_healthy
 
   backend:
-    image: openmrs/openmrs-reference-application-3-backend:${OPENMRS_REFAPP_TAG:-3.6.0}
+    # Backend tag is independent of frontend/gateway so the chartsearchai PoC
+    # (feature 004) can run frontend+gateway on `:nightly-chartsearch` (to get
+    # the ESM UI) while keeping the backend on the stable `:3.6.0` line — this
+    # matters because the chartsearch-flavored backend image bakes its own
+    # chartsearchai .omod into /openmrs/distribution/openmrs_modules/, and
+    # OpenMRS startup.sh wipes /openmrs/data/modules/ then copies the
+    # distribution modules in — which would overwrite the .omod we built
+    # locally from `targets/chartsearchai/`. A non-chartsearch backend image
+    # has no baked .omod to clobber our submodule build.
+    image: openmrs/openmrs-reference-application-3-backend:${OPENMRS_BACKEND_TAG:-3.6.0}
     container_name: harness-openmrs-backend
     restart: "unless-stopped"
     depends_on:
@@ -94,6 +122,18 @@ services:
       OMRS_CONFIG_CONNECTION_DATABASE: ${OMRS_DB_NAME:-openmrs}
       OMRS_CONFIG_CONNECTION_USERNAME: ${OMRS_DB_USER:-openmrs}
       OMRS_CONFIG_CONNECTION_PASSWORD: ${OMRS_DB_PASSWORD:-openmrs}
+      # chartsearchai (feature 004 PoC) reads its LLM API key from
+      # openmrs-runtime.properties (NOT a DB global property) for security.
+      # OpenMRS's OMRS_EXTRA_<NAME> mechanism translates this into
+      # `chartsearchai.llm.remote.apikey=<value>` in runtime properties at boot.
+      # Empty default keeps base RefApp behavior unchanged when CHARTSEARCH_REMOTE_API_KEY is unset.
+      OMRS_EXTRA_CHARTSEARCHAI_LLM_REMOTE_APIKEY: ${CHARTSEARCH_REMOTE_API_KEY:-}
+    extra_hosts:
+      # Linux: docker doesn't resolve host.docker.internal automatically; this maps
+      # it to the host gateway so the chartsearchai backend can reach LM Studio
+      # (or any host-bound OpenAI-compat server) at http://host.docker.internal:1234.
+      # No-op on Docker Desktop (Mac/Win) where the alias is already provided.
+      - "host.docker.internal:host-gateway"
     healthcheck:
       # First-boot Liquibase migrations on the RefApp 3.x stack take 5-10 min
       # against a fresh MariaDB volume; start_period covers that window so
@@ -106,6 +146,12 @@ services:
     volumes:
       - openmrs-data:/openmrs/data
       - ../artifacts/openmrs/modules:/openmrs/data/modules
+      # Surface Tomcat access logs to the host so debugging doesn't require
+      # `docker exec ... tail` against /usr/local/tomcat/logs/. The catalina
+      # log already streams to docker logs (stdout/stderr); this mount adds
+      # the AccessLogValve output (localhost_access_log.*.txt) for completeness.
+      # Tail from host: tail -F artifacts/openmrs/backend-logs/localhost_access_log.*.txt
+      - ../artifacts/openmrs/backend-logs:/usr/local/tomcat/logs
 
   db:
     image: mariadb:10.11.7
