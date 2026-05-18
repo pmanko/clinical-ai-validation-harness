@@ -11,3 +11,7 @@
 [submodule "targets/catalyst"]
 	path = targets/catalyst
 	url = https://github.com/DIGI-UW/openelis-catalyst.git
+[submodule "targets/chartsearchai-esm"]
+	path = targets/chartsearchai-esm
+	url = https://github.com/pmanko/openmrs-esm-chartsearchai.git
+	branch = harness-integration

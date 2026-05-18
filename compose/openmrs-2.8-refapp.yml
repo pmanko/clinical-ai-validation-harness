@@ -39,6 +39,12 @@ services:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy-data:/data
       - caddy-config:/config
+      # Static-file mount for the harness-built chartsearchai ESM bundle
+      # and a regenerated importmap.json. Caddy serves these to override
+      # the corresponding paths from the :nightly-chartsearch frontend
+      # container without rebuilding that image. See (chartsearch_overrides)
+      # in Caddyfile and `make chartsearch-esm-build` for the build step.
+      - ../artifacts/openmrs/spa-custom:/srv/spa-custom:ro
     depends_on:
       gateway:
         condition: service_healthy

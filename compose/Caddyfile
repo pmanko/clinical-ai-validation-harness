@@ -23,6 +23,35 @@
 #
 # Add new services here as they join the stack (chartsearchai, querystore, etc.).
 
+# Higher-priority handles that intercept SPA paths before the generic
+# /openmrs/* gateway route. Used to swap in our harness-built ESM bundle
+# without rebuilding the :nightly-chartsearch image: Caddy serves the
+# regenerated importmap.json and the custom chartsearchai bundle dir
+# from artifacts/openmrs/spa-custom (mounted into the proxy container
+# at /srv/spa-custom), while the rest of /openmrs/* falls through to
+# the gateway → frontend container as before.
+#
+# The custom importmap is fetched live from the running frontend
+# container at build time and only the chartsearchai entry is rewritten,
+# so unrelated module versions stay aligned with whatever upstream
+# nightly the SPA shell expects.
+(chartsearch_overrides) {
+    handle /openmrs/spa/importmap.json {
+        # `handle` matches but does NOT strip the URL prefix; `root` is a
+        # filesystem path. `rewrite` re-targets the URL to the bare filename
+        # before `file_server` resolves it relative to `root`.
+        rewrite * /importmap.json
+        root * /srv/spa-custom
+        file_server
+    }
+    handle_path /openmrs/spa/openmrs-esm-chartsearchai-app-multiturn/* {
+        # `handle_path` strips the matched prefix before passing to `file_server`,
+        # so chunk URLs like `.../101.js` resolve to /srv/spa-custom/<bundle>/101.js.
+        root * /srv/spa-custom/openmrs-esm-chartsearchai-app-multiturn
+        file_server
+    }
+}
+
 (openmrs_routes) {
     # 256 MB body limit is plenty for CIEL OCL exports (current ~60MB) plus headroom.
     request_body {
@@ -55,6 +84,7 @@
 # Main site: legacy URL shape `<host>/openmrs/spa` (bare root redirects to it).
 # Local dev uses ":80" catch-all; cloud sets CADDY_SITE="openclinai.org".
 {$CADDY_SITE::80} {
+    import chartsearch_overrides
     import openmrs_routes
 
     # Bare root: redirect to the OpenMRS SPA at its canonical path.
@@ -74,6 +104,7 @@
 # Default ":8090" is a port we don't publish, so the block is dormant on local
 # dev (no Host-header match, no LE attempt); cloud sets the real subdomain.
 {$CADDY_SITE_OPENMRS::8090} {
+    import chartsearch_overrides
     import openmrs_routes
 
     # Bare root: serve the SPA index transparently (browser URL stays "/").

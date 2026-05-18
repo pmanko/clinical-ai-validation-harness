@@ -76,4 +76,9 @@ rsync -avz --delete \
 # Chown the two bind-mount targets here so the container can take ownership.
 gcp_ssh "mkdir -p ${GCP_REMOTE_REPO}/artifacts/openmrs/modules ${GCP_REMOTE_REPO}/artifacts/openmrs/backend-logs && sudo chown -R 1001:0 ${GCP_REMOTE_REPO}/artifacts/openmrs/modules ${GCP_REMOTE_REPO}/artifacts/openmrs/backend-logs"
 
+# Caddy in the proxy container reads /srv/spa-custom (mounted from this
+# host path) as read-only static files. No UID-fix needed — the alpine
+# nginx process can read any owner's files as long as the dir is +rx.
+gcp_ssh "mkdir -p ${GCP_REMOTE_REPO}/artifacts/openmrs/spa-custom && chmod -R a+rX ${GCP_REMOTE_REPO}/artifacts/openmrs/spa-custom"
+
 echo "==> sync complete"

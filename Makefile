@@ -10,6 +10,7 @@ export UV_PROJECT_ENVIRONMENT
         loadtest-up loadtest-down \
         load-test orphan-fk-check import-smoke dump-loaded \
         chartsearch-build chartsearch-configure chartsearch-doctor chartsearch-warmup chartsearch-up \
+        chartsearch-esm-build chartsearch-esm-dev cloud-deploy-esm \
         cloud-init cloud-sync cloud-up cloud-down cloud-reset cloud-deploy cloud-seed \
         cloud-start cloud-stop cloud-ssh cloud-logs cloud-status cloud-destroy
 
@@ -107,6 +108,41 @@ chartsearch-build:
 	mkdir -p artifacts/openmrs/modules
 	cp targets/chartsearchai/omod/target/chartsearchai-*.omod artifacts/openmrs/modules/
 	@ls -la artifacts/openmrs/modules/chartsearchai-*.omod
+
+# Build the chartsearchai frontend ESM from the pinned submodule and stage
+# it under artifacts/openmrs/spa-custom/. Caddy serves both the bundle
+# directory and the regenerated importmap.json at the same URL the SPA
+# would fetch from the gateway, so the dockerized shell loads our fork's
+# code without rebuilding the :nightly-chartsearch image. The unrelated
+# importmap entries are fetched live from the running frontend container
+# so they always match the upstream nightly the rest of the SPA is using.
+chartsearch-esm-build:
+	@./scripts/chartsearch-esm-build.sh
+
+# Day-to-day ESM dev loop. Spins up `openmrs develop` (Express + HMR) on
+# port 8080 and proxies API to the local docker backend. Edits in
+# targets/chartsearchai-esm/ hot-reload in the browser at
+# http://localhost:8080/openmrs/spa. The dockerized :nightly-chartsearch
+# frontend container stays up but is bypassed during dev — `openmrs
+# develop` runs its own app-shell with an in-memory importmap pointing
+# at the locally-bundled ESM (per OpenMRS o3-docs).
+chartsearch-esm-dev:
+	@if [ ! -d targets/chartsearchai-esm/node_modules ]; then \
+	  echo "==> installing ESM deps"; \
+	  (cd targets/chartsearchai-esm && yarn install); \
+	fi
+	@cd targets/chartsearchai-esm && yarn start --backend=http://localhost:8088 --spa-path=/openmrs/spa --api-url=/openmrs
+
+# Fast cloud iteration for ESM changes only — rebuild the bundle, rsync
+# the artifacts dir to the VM, reload Caddy on the VM (picks up new
+# static files; no frontend container restart needed). Backend untouched.
+cloud-deploy-esm:
+	@./scripts/chartsearch-esm-build.sh
+	@./scripts/cloud-sync.sh
+	@CLOUD=1 ./scripts/chartsearch-importmap-gen.sh
+	@./scripts/cloud-sync.sh
+	@./scripts/cloud-ssh.sh "docker exec harness-proxy caddy reload --config /etc/caddy/Caddyfile" || \
+	  ./scripts/cloud-ssh.sh "cd $${GCP_REMOTE_REPO:-/opt/clinical-ai-harness}/compose && docker compose exec proxy caddy reload --config /etc/caddy/Caddyfile"
 
 # Configure chartsearchai LLM global properties via REST. Reads .env.chartsearch
 # for endpoint + model + engine. The API key goes via the backend env var
