@@ -6,19 +6,21 @@ Phase letters mirror the approved planning file's phase numbers (`~/.claude/plan
 
 - [X] 0.1 — Cut harness branch `005-med-agent-hub-bridge` from `004-chartsearchai-adapter`
 - [X] 0.2 — Scaffold `specs/005-med-agent-hub-bridge/{spec,plan,tasks}.md`
-- [ ] 0.3 — Cut `harness-integration` branch on `pmanko/med-agent-hub` from `main`; push
-- [ ] 0.4 — Initial commit on harness branch with scaffold; push
+- [X] 0.3 — Cut `harness-integration` branch on `pmanko/med-agent-hub` from `main`; push
+- [X] 0.4 — Initial commit on harness branch with scaffold; push
 
 ## Phase 1 — Reboot med-agent-hub fork (MAH.1a–MAH.1e)
 
-### 1A — Delete legacy surface (MAH.1a)
+### 1A — Delete legacy surface (MAH.1a) ✓ — fork commit 5cac078
 
-- [ ] 1A.1 — On `pmanko/med-agent-hub:harness-integration`: remove `/generate/orchestrator`, `/generate/medical`, `/generate/clinical`, `/chat` from `server/main.py`
-- [ ] 1A.2 — Delete `client/`, `web/`, `Dockerfile.client`, `client-entrypoint.sh`, `nginx.conf`
-- [ ] 1A.3 — Delete `server/sdk_agents/administrative_server.py`, `administrative_executor.py`, `agent_configs/administrative.yaml`
-- [ ] 1A.4 — Remove the `admin` line from `Procfile.dev`
-- [ ] 1A.5 — Update `README.md` to drop legacy-endpoint references
-- [ ] 1A.6 — Commit "chore(reboot): drop legacy endpoints + frontends + administrative agent"; push
+- [X] 1A.1 — Removed `/generate/orchestrator`, `/generate/medical`, `/generate/clinical`, `/chat` from `server/main.py`; trimmed imports + dropped helper models; main.py now ~95 lines
+- [X] 1A.2 — Deleted `client/`, `web/`, `Dockerfile.client`, `client-entrypoint.sh`, `nginx.conf`
+- [X] 1A.3 — Deleted `server/sdk_agents/administrative_{server,executor}.py`, `server/agent_configs/administrative.yaml`
+- [X] 1A.4 — Removed `admin:` line from `Procfile.dev`; also dropped file-redirect (`>> logs/<name>.log`) so stdout works in Docker
+- [X] 1A.5 — Rewrote `README.md` around new three-agent A2A + OpenAI-compat bridge framing
+- [X] 1A.6 — Bonus cleanup: dropped administrative refs from `router_executor.py` (ACTIVE_AGENTS default, URL map), `tests/test_a2a_sdk.py`, `tests/test_mcp_integration.py`, `tests/run_tests.sh`
+- [X] 1A.7 — Verified: `python3 -m py_compile` clean on every touched file; no stray `administrative` / `/generate/` / `@app.post(.../chat)` matches
+- [X] 1A.8 — Pushed: `pmanko/med-agent-hub:harness-integration` is at 5cac078
 
 ### 1B — Add OpenAI-compat bridge (MAH.1b)
 
