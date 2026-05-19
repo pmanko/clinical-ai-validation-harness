@@ -7,10 +7,15 @@ MODEL (
   audits (unique_values(columns := (obs_id)))
 );
 
+-- source_concept_id and source_value_coded carry the pre-rebind (legacy) concept IDs.
+-- Downstream clinical models MUST use these for concept-class classification joins
+-- against legacy_27_raw.concept, because concept_id / value_coded are the rebound
+-- target local IDs which do not exist in legacy_27_raw.
 SELECT
   src.obs_id,
   src.person_id,
-  COALESCE(ct_0.target_concept_id, src.concept_id) AS concept_id,
+  src.concept_id                                          AS source_concept_id,
+  COALESCE(ct_0.target_concept_id, src.concept_id)       AS concept_id,
   src.encounter_id,
   src.order_id,
   src.obs_datetime,
@@ -18,7 +23,8 @@ SELECT
   src.obs_group_id,
   src.accession_number,
   src.value_group_id,
-  COALESCE(ct_1.target_concept_id, src.value_coded) AS value_coded,
+  src.value_coded                                         AS source_value_coded,
+  COALESCE(ct_1.target_concept_id, src.value_coded)      AS value_coded,
   COALESCE(ct_2.target_concept_id, src.value_coded_name_id) AS value_coded_name_id,
   src.value_drug,
   src.value_datetime,

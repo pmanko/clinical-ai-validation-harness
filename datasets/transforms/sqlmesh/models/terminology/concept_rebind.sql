@@ -9,12 +9,10 @@ MODEL (
 SELECT
   s.obs_id,
   s.person_id,
-  s.concept_id                       AS source_concept_id,
-  COALESCE(ct_q.target_concept_id, s.concept_id)
-                                     AS rebound_concept_id,
-  s.value_coded                      AS source_value_coded,
-  COALESCE(ct_v.target_concept_id, s.value_coded)
-                                     AS rebound_value_coded,
+  s.source_concept_id,
+  s.concept_id                       AS rebound_concept_id,
+  s.source_value_coded,
+  s.value_coded                      AS rebound_value_coded,
   ct_q.equivalence                   AS question_equivalence,
   ct_v.equivalence                   AS value_equivalence,
   s.encounter_id,
@@ -27,8 +25,8 @@ SELECT
   s.voided
 FROM refapp_28_demo.stg_obs s
 LEFT JOIN refapp_28_demo.seed__concept_translation ct_q
-  ON ct_q.source_concept_id = s.concept_id
+  ON ct_q.source_concept_id = s.source_concept_id
 LEFT JOIN refapp_28_demo.seed__concept_translation ct_v
-  ON ct_v.source_concept_id = s.value_coded
+  ON ct_v.source_concept_id = s.source_value_coded
 WHERE s.voided = 0
 ;

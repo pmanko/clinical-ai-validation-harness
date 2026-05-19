@@ -11,12 +11,14 @@ WITH drug_order_dec AS (
     'obs'                          AS source_table,
     d.source_obs_id                AS source_pk,
     'drug_order'                   AS target_table,
-    d.uuid                         AS target_pk,
+    o.uuid                         AS target_pk,
     'seed-augment'                 AS policy_bucket,
     COALESCE(ct.equivalence, 'inexact') AS equivalence_label
   FROM refapp_28_demo.clin__drug_order d
+  JOIN refapp_28_demo.clin__orders o
+    ON o.order_id = d.order_id
   LEFT JOIN refapp_28_demo.seed__concept_translation ct
-    ON ct.target_concept_id = d.concept_id
+    ON ct.target_concept_id = o.concept_id
 ), conditions_dec AS (
   SELECT
     'obs'                          AS source_table,
@@ -44,12 +46,14 @@ WITH drug_order_dec AS (
     'obs'                          AS source_table,
     t.source_obs_id                AS source_pk,
     'test_order'                   AS target_table,
-    t.uuid                         AS target_pk,
+    o.uuid                         AS target_pk,
     'seed-augment'                 AS policy_bucket,
     COALESCE(ct.equivalence, 'inexact') AS equivalence_label
   FROM refapp_28_demo.clin__test_order t
+  JOIN refapp_28_demo.clin__orders o
+    ON o.order_id = t.order_id
   LEFT JOIN refapp_28_demo.seed__concept_translation ct
-    ON ct.target_concept_id = t.concept_id
+    ON ct.target_concept_id = o.concept_id
 ), obs_dec AS (
   SELECT
     'obs'                          AS source_table,

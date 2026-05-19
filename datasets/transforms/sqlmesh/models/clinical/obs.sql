@@ -6,7 +6,8 @@ MODEL (
   grain (obs_id),
   audits (
     unique_values(columns := (obs_id)),
-    audit_obs_row_count_min
+    audit_obs_row_count_min,
+    audit_no_duplicate_canonical_facts
   )
 );
 
@@ -16,15 +17,15 @@ WHERE NOT EXISTS (
   SELECT 1
   FROM legacy_27_raw.concept c
   JOIN legacy_27_raw.concept_class cc ON cc.concept_class_id = c.class_id
-  WHERE c.concept_id = s.value_coded AND cc.name = 'Drug'
+  WHERE c.concept_id = s.source_value_coded AND cc.name = 'Drug'
 )
-AND s.concept_id <> 6042
-AND NOT (s.concept_id IN (6011, 6012, 1083) AND s.value_coded = 1065)
+AND s.source_concept_id <> 6042
+AND NOT (s.source_concept_id IN (6011, 6012, 1083) AND s.source_value_coded = 1065)
 AND NOT EXISTS (
   SELECT 1
   FROM legacy_27_raw.concept c
   JOIN legacy_27_raw.concept_class    cc ON cc.concept_class_id = c.class_id
   JOIN legacy_27_raw.concept_datatype cd ON cd.concept_datatype_id = c.datatype_id
-  WHERE c.concept_id = s.concept_id AND cc.name = 'Test' AND cd.name = 'Coded'
+  WHERE c.concept_id = s.source_concept_id AND cc.name = 'Test' AND cd.name = 'Coded'
 )
 ;

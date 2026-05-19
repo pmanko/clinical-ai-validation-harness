@@ -1,12 +1,12 @@
 """Idempotency: re-running the loader without input changes produces stable
-row counts (and ~stable content) in openmrs_test.
+row counts and stable promoted clinical table content in openmrs_test.
 
 Per /speckit-analyze H3. Per research.md §R-load-pattern, the dlt
 ``write_disposition='replace'`` semantics guarantee that re-running on
-identical staging input yields identical row counts. Content is also
-identical except for ``UUID()`` calls in the SQLMesh promotion models
-(research.md §R-typed-table-promotion Q2 specifies UUID v5; not yet
-implemented), so we assert row counts but not content checksums.
+identical staging input yields identical row counts. Promoted-row UUIDs
+are deterministic name-based UUIDs (research.md §R-typed-table-promotion
+Q2), so this test also checks content fingerprints for the promoted
+clinical tables rather than tolerating UUID drift.
 
 Marked ``@pytest.mark.slow`` — full reset + replay takes 8-15 min.
 Excluded from default ``pytest evals/``; included in CI via ``-m slow``.
@@ -38,6 +38,59 @@ CLINICAL_TABLES_MIN_ROWS: dict[str, int] = {
     "test_order":  1_000,
 }
 
+PROMOTED_TABLE_CHECKSUM_SQL: dict[str, str] = {
+    "orders": """
+        SELECT MD5(GROUP_CONCAT(row_hash ORDER BY order_id SEPARATOR ''))
+        FROM (
+          SELECT order_id, MD5(CONCAT_WS('|',
+            order_id, order_type_id, concept_id, patient_id, encounter_id,
+            COALESCE(date_activated, ''), uuid, order_number
+          )) AS row_hash
+          FROM openmrs_test.orders
+        ) x
+    """,
+    "drug_order": """
+        SELECT MD5(GROUP_CONCAT(row_hash ORDER BY order_id SEPARATOR ''))
+        FROM (
+          SELECT order_id, MD5(CONCAT_WS('|',
+            order_id, COALESCE(drug_inventory_id, ''), COALESCE(dose, ''),
+            COALESCE(as_needed, ''), COALESCE(drug_non_coded, '')
+          )) AS row_hash
+          FROM openmrs_test.drug_order
+        ) x
+    """,
+    "conditions": """
+        SELECT MD5(GROUP_CONCAT(row_hash ORDER BY uuid SEPARATOR ''))
+        FROM (
+          SELECT uuid, MD5(CONCAT_WS('|',
+            uuid, patient_id, COALESCE(encounter_id, ''), COALESCE(condition_coded, ''),
+            clinical_status, COALESCE(onset_date, ''), voided
+          )) AS row_hash
+          FROM openmrs_test.conditions
+        ) x
+    """,
+    "allergy": """
+        SELECT MD5(GROUP_CONCAT(row_hash ORDER BY uuid SEPARATOR ''))
+        FROM (
+          SELECT uuid, MD5(CONCAT_WS('|',
+            uuid, patient_id, coded_allergen, allergen_type, voided, COALESCE(encounter_id, '')
+          )) AS row_hash
+          FROM openmrs_test.allergy
+        ) x
+    """,
+    "test_order": """
+        SELECT MD5(GROUP_CONCAT(row_hash ORDER BY order_id SEPARATOR ''))
+        FROM (
+          SELECT order_id, MD5(CONCAT_WS('|',
+            order_id, COALESCE(specimen_source, ''), COALESCE(laterality, ''),
+            COALESCE(clinical_history, ''), COALESCE(frequency, ''),
+            COALESCE(number_of_repeats, ''), COALESCE(location, '')
+          )) AS row_hash
+          FROM openmrs_test.test_order
+        ) x
+    """,
+}
+
 
 def _openmrs_test_available() -> bool:
     if not shutil.which("docker"):
@@ -60,6 +113,15 @@ def _row_count(table: str) -> int:
     return int(val or 0)
 
 
+def _content_checksum(table: str) -> str:
+    sql = (
+        "SET SESSION group_concat_max_len = 1073741824; "
+        + PROMOTED_TABLE_CHECKSUM_SQL[table]
+    )
+    val = query_scalar(DBConfig.from_env(database="openmrs_test"), sql, timeout=120)
+    return val or ""
+
+
 pytestmark = [
     pytest.mark.slow,
     pytest.mark.skipif(not _openmrs_test_available(),
@@ -79,8 +141,9 @@ def test_loaded_row_counts_match_audit_floors():
 
 
 def test_rerun_loader_produces_stable_row_counts():
-    """Run the dlt+promote pipeline twice; assert row counts identical."""
+    """Run the dlt+promote pipeline twice; assert row counts and promoted content are identical."""
     pre_counts = {t: _row_count(t) for t in CLINICAL_TABLES_MIN_ROWS}
+    pre_checksums = {t: _content_checksum(t) for t in PROMOTED_TABLE_CHECKSUM_SQL}
 
     # Re-run: dlt pipeline picks up its prior state; replace-disposition
     # tables get TRUNCATE+INSERT cycle, merge tables get INSERT IGNORE (no-op).
@@ -95,6 +158,7 @@ def test_rerun_loader_produces_stable_row_counts():
     )
 
     post_counts = {t: _row_count(t) for t in CLINICAL_TABLES_MIN_ROWS}
+    post_checksums = {t: _content_checksum(t) for t in PROMOTED_TABLE_CHECKSUM_SQL}
 
     diffs = {
         t: (pre_counts[t], post_counts[t])
@@ -104,4 +168,14 @@ def test_rerun_loader_produces_stable_row_counts():
     assert not diffs, (
         "Row counts changed on re-run (loader is not idempotent):\n"
         + "\n".join(f"  {t}: {a:,} → {b:,}" for t, (a, b) in diffs.items())
+    )
+
+    checksum_diffs = {
+        t: (pre_checksums[t], post_checksums[t])
+        for t in PROMOTED_TABLE_CHECKSUM_SQL
+        if pre_checksums[t] != post_checksums[t]
+    }
+    assert not checksum_diffs, (
+        "Promoted clinical table content changed on re-run:\n"
+        + "\n".join(f"  {t}: {a} → {b}" for t, (a, b) in checksum_diffs.items())
     )
