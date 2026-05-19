@@ -1,0 +1,20 @@
+{
+  "filename": "openmrs-2.8-refapp-demo-5284-patients.sql.gz",
+  "source_schema": "openmrs_test",
+  "table_count": 236,
+  "approx_row_count": 1679376,
+  "output_path": "artifacts/share/openmrs-2.8-refapp-demo-5284-patients.sql.gz",
+  "output_bytes": 42265831,
+  "output_sha256": "3bfbf52b65abdc687a587107f1ac06f1513f584a8db73e5d38804c9a91ed369e",
+  "gzipped": true,
+  "generated_at": "2026-05-18T23:21:05Z",
+  "generator": "scripts/dump-loaded.sh",
+  "load_into_command": "zcat artifacts/share/openmrs-2.8-refapp-demo-5284-patients.sql.gz | mariadb -u root -p",
+  "deprecated": true,
+  "superseded_by": {
+    "filename": "openmrs-2.8-refapp-demo-5284-patients-2026-05-19.sql.gz",
+    "sha256": "91c66bf4d08e0e3b475402e39ebdbe19c3217989d47891ce3d7838701fcce6b8",
+    "generated_at": "2026-05-19T22:08:50Z",
+    "reason": "This file loads into 'openmrs_test' (not the conventional 'openmrs' schema) and includes 4 chartsearchai_* consumer-side module tables that downstream installs should create themselves. The successor sources from the 'openmrs' schema and excludes chartsearchai_* via --ignore-pattern. Use the successor for the OpenMRS Confluence handoff."
+  }
+}
