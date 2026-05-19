@@ -73,6 +73,3 @@ Produced by the [clinical-ai-validation-harness](https://github.com/pmanko/clini
 
 Result is a deterministic, clinically-faithful 2.8/RefApp-compatible corpus suitable for development, testing, and demos. See the [feature 002 spec](https://github.com/pmanko/clinical-ai-validation-harness/tree/main/specs/002-openmrs-demo-data-2-8-remap) for details on the transformation.
 
-## Previous artifact (deprecated)
-
-`openmrs-2.8-refapp-demo-5284-patients.sql.gz` (2026-05-18 23:21 UTC, sha256 `3bfbf52b…`) is preserved for historical comparison only — **do not use for the Confluence handoff**. It was sourced from the `openmrs_test` schema (so loading it produces a literal `openmrs_test` database, not the conventional `openmrs`), and it includes the four `chartsearchai_*` consumer-side module tables that downstream installs should create themselves. The current `…-2026-05-19.sql.gz` artifact corrects both issues.

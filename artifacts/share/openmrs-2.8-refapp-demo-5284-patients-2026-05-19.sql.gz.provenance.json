@@ -24,15 +24,6 @@
     "chartsearchai_embedding"
   ],
   "source": "Transform of OpenMRS large-demo-data-2-7-0.sql via feature 002 SQLMesh + dlt pipeline, with mapping remediation applied (concept FK resolution through CIEL UUIDs + typed promotion mapping fixes for orders/drug_order/test_order/conditions/allergy + deterministic synthetic drug catalog augmentation).",
-  "supersedes": {
-    "filename": "openmrs-2.8-refapp-demo-5284-patients.sql.gz",
-    "generated_at": "2026-05-18T23:21:05Z",
-    "sha256": "3bfbf52b65abdc687a587107f1ac06f1513f584a8db73e5d38804c9a91ed369e",
-    "size_bytes": 42265831,
-    "source_schema_in_dump": "openmrs_test",
-    "tables_total": 236,
-    "reason": "Mid-remediation snapshot. Sourced from 'openmrs_test' schema (so dump lands in a literal 'openmrs_test' database rather than the conventional 'openmrs'), and included the four chartsearchai_* consumer-side module tables that downstream installs should provision themselves. The 5,284-patient row counts in the loaded data should match this file's contents, but the schema name and chartsearchai pollution made it unsuitable for the OpenMRS Confluence handoff."
-  },
   "remediation_evidence": {
     "known_patient_uuid": "dd553355-1691-11df-97a5-7038c432aabf",
     "known_patient_drug_concepts_resolved": [
