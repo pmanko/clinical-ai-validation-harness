@@ -9,6 +9,6 @@ SELECT
   'clin__drug_order' AS table_name,
   COUNT(*)           AS actual_rows,
   40000              AS required_min_rows
-FROM refapp_28_demo.clin__drug_order
+FROM @this_model
 HAVING COUNT(*) < 40000
 ;

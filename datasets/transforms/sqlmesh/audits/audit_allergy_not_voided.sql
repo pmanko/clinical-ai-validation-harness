@@ -9,7 +9,7 @@ AUDIT (
 SELECT allergy_id_proxy, voided
 FROM (
   SELECT source_obs_id AS allergy_id_proxy, voided
-  FROM refapp_28_demo.clin__allergy
+  FROM @this_model
 ) t
 WHERE voided <> 0
 ;

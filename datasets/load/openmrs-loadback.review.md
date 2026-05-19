@@ -13,7 +13,7 @@ Required alongside `harness/load/pipeline.py` per `specs/002-openmrs-demo-data-2
 | `encounter_provider` / `encounter_diagnosis` | `replace` | composite | Child of encounter. |
 | `obs` | `replace` | `obs_id` | 428,013 rebound rows from `clin__obs` (the non-promoted obs). Promoted P1/P2/P3 facts are excluded so residual obs does not duplicate canonical typed-table facts. Wipe-and-reload. |
 | `orders` | `replace` | `order_id` | 44,507 promoted parent rows for `drug_order` + `test_order`. `orders.uuid` is deterministic UUIDv5-style name-based synthetic identity. Wipe — legacy has no usable parent order rows for these promotions. |
-| `drug_order` | `replace` | `order_id` | 43,412 promoted child rows from `clin__drug_order`; child table contains only OpenMRS `drug_order` columns. Medication catalog/display gaps are not fabricated; unresolved concepts are listed in `datasets/load/medication-mapping-triage.tsv`. |
+| `drug_order` | `replace` | `order_id` | 43,412 promoted child rows from `clin__drug_order`; child table contains only OpenMRS `drug_order` columns. Every promoted row points to an augmented `drug` catalog row via `drug_inventory_id`; formulation/regimen semantics remain listed for review in `datasets/load/medication-mapping-triage.tsv`. |
 | `conditions` | `replace` | `condition_id` (via uuid) | 4,451 promoted from `clin__conditions`. Wipe. |
 | `allergy` | `replace` | `allergy_id` (via uuid) | 2 promoted from `clin__allergy`. Wipe. |
 | `test_order` | `replace` | `order_id` | 1,095 promoted child rows from `clin__test_order` after the source-selector rule lets drug_order win for the 25 obs that match both Drug-class value_coded and Test-class concept_id. Parent fields live in `orders`. |
@@ -38,8 +38,9 @@ The six terminology maps under `datasets/transforms/sqlmesh/models/terminology/`
 
 ## Current mapping triage artifacts
 
-- `datasets/load/medication-mapping-triage.tsv` lists every unresolved medication concept after the deterministic concept-FK fix. Current bucket summary: 43,412 `drug_order` rows are intentionally unresolved for catalog/display review; no `drug_inventory_id` or `drug_non_coded` values are fabricated without reviewer approval.
-- Known patient `dd553355-1691-11df-97a5-7038c432aabf` now resolves medication order concepts to local CIEL target IDs, including `6689` Lopinavir / ritonavir, `6592` Didanosine, and `6531` Retrovir; no `Hip pain`/imaging concepts appear as medication names.
+- `datasets/load/medication-mapping-triage.tsv` lists all 30 promoted medication concepts with source concept ID, target CIEL concept ID, generated deterministic drug catalog ID, row count, and review note.
+- Current bucket summary: 43,412 `drug_order` rows are catalog-backed by 30 generated concept-level `drug` rows (`drug_id = 300000 + source_value_coded`) plus 6 preserved legacy drug rows (`drug_id = 200000 + source drug_id`). Loader/display gaps are resolved; clinical review remains for formulation-specific drugs, immunization-like concepts, and regimen/nutrition concepts.
+- Known patient `dd553355-1691-11df-97a5-7038c432aabf` now resolves medication order concepts and drug catalog rows to local CIEL target IDs, including `6689` Lopinavir / ritonavir, `6592` Didanosine, and `6531` Retrovir; no `Hip pain`/imaging concepts appear as medication names.
 - Typed-table canonicalization is enforced: promoted P1/P2/P3 facts do not remain as duplicate residual obs. P4 is limited to the normal order/result distinction and requires explicit review if linked result obs are retained.
 
 ## Known follow-ups (discovered during Phase 5D first iteration)

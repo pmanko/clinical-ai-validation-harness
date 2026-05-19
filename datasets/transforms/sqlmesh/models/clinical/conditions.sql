@@ -6,7 +6,8 @@ MODEL (
   grain (uuid),
   audits (
     unique_values(columns := (uuid)),
-    audit_conditions_row_count_min
+    audit_conditions_row_count_min,
+    audit_condition_fk_integrity
   )
 );
 

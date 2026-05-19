@@ -9,30 +9,35 @@ AUDIT (
 -- and represent a semantically distinct result, not a copy of the order fact.
 --
 -- Emits (promotion_table, source_obs_id) for any promoted obs_id that still
--- appears in clin__obs; zero rows on pass.
+-- appears in this clin__obs evaluation table; zero rows on pass. Re-deriving
+-- promoted source IDs keeps the audit valid during a clean SQLMesh build before
+-- the sibling promoted-table virtual views are swapped in.
 
-SELECT 'drug_order' AS promotion_table, d.source_obs_id
-FROM refapp_28_demo.clin__drug_order d
-WHERE EXISTS (
-  SELECT 1 FROM refapp_28_demo.clin__obs o
-  WHERE o.obs_id = d.source_obs_id
+WITH promoted_sources AS (
+  SELECT 'drug_order' AS promotion_table, s.obs_id AS source_obs_id
+  FROM refapp_28_demo.stg_obs s
+  JOIN legacy_27_raw.concept c
+    ON c.concept_id = s.source_value_coded
+  JOIN legacy_27_raw.concept_class cc
+    ON cc.concept_class_id = c.class_id
+  WHERE cc.name = 'Drug'
+
+  UNION ALL
+
+  SELECT 'conditions', s.obs_id
+  FROM refapp_28_demo.stg_obs s
+  WHERE s.source_concept_id = 6042
+    AND s.source_value_coded IS NOT NULL
+
+  UNION ALL
+
+  SELECT 'allergy', s.obs_id
+  FROM refapp_28_demo.stg_obs s
+  WHERE s.source_concept_id IN (6011, 6012, 1083)
+    AND s.source_value_coded = 1065
 )
-
-UNION ALL
-
-SELECT 'conditions', c.source_obs_id
-FROM refapp_28_demo.clin__conditions c
-WHERE EXISTS (
-  SELECT 1 FROM refapp_28_demo.clin__obs o
-  WHERE o.obs_id = c.source_obs_id
-)
-
-UNION ALL
-
-SELECT 'allergy', a.source_obs_id
-FROM refapp_28_demo.clin__allergy a
-WHERE EXISTS (
-  SELECT 1 FROM refapp_28_demo.clin__obs o
-  WHERE o.obs_id = a.source_obs_id
-)
+SELECT ps.promotion_table, ps.source_obs_id
+FROM promoted_sources ps
+JOIN @this_model o
+  ON o.obs_id = ps.source_obs_id
 ;

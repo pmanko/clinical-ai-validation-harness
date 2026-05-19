@@ -9,6 +9,6 @@ SELECT
   'clin__conditions' AS table_name,
   COUNT(*)           AS actual_rows,
   4000               AS required_min_rows
-FROM refapp_28_demo.clin__conditions
+FROM @this_model
 HAVING COUNT(*) < 4000
 ;
