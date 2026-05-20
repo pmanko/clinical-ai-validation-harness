@@ -13,6 +13,7 @@
 #   ./scripts/dump-loaded.sh                                    # default openmrs_test → artifacts/<run>/transform/refapp_28_demo.sql.gz
 #   ./scripts/dump-loaded.sh --source openmrs --out /tmp/x.sql.gz
 #   ./scripts/dump-loaded.sh --no-gzip                          # plain .sql
+#   ./scripts/dump-loaded.sh --ignore-pattern 'chartsearchai_%' # exclude consumer-side module tables
 set -euo pipefail
 
 DB_CONTAINER="${DB_CONTAINER:-harness-openmrs-db}"
@@ -20,15 +21,33 @@ DB_ROOT_PASS="${MYSQL_ROOT_PASSWORD:-openmrs}"
 SOURCE_DB="${SOURCE_DB:-openmrs_test}"
 OUT=""
 GZIP=1
+IGNORE_PATTERNS=()
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --source) SOURCE_DB="$2"; shift 2 ;;
     --out)    OUT="$2"; shift 2 ;;
     --no-gzip) GZIP=0; shift ;;
+    --ignore-pattern) IGNORE_PATTERNS+=("$2"); shift 2 ;;
     -h|--help) sed -n '2,16p' "$0"; exit 0 ;;
     *) echo "unknown arg: $1" >&2; exit 1 ;;
   esac
+done
+
+# Resolve --ignore-pattern globs to concrete --ignore-table flags by querying
+# information_schema. mariadb-dump itself doesn't accept LIKE patterns.
+IGNORE_TABLE_FLAGS=()
+EXCLUDED_TABLES=()
+for pat in "${IGNORE_PATTERNS[@]:-}"; do
+  [[ -z "$pat" ]] && continue
+  while IFS= read -r tbl; do
+    [[ -z "$tbl" ]] && continue
+    IGNORE_TABLE_FLAGS+=( "--ignore-table=${SOURCE_DB}.${tbl}" )
+    EXCLUDED_TABLES+=( "$tbl" )
+  done < <(docker exec "$DB_CONTAINER" mariadb \
+    --user=root --password="$DB_ROOT_PASS" \
+    -N -B -e "SELECT table_name FROM information_schema.tables WHERE table_schema='${SOURCE_DB}' AND table_name LIKE '${pat}';" \
+    2>/dev/null)
 done
 
 if ! docker exec "$DB_CONTAINER" sh -c 'true' 2>/dev/null; then
@@ -52,7 +71,13 @@ TABLE_COUNT=$(docker exec "$DB_CONTAINER" mariadb \
   -N -B -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='${SOURCE_DB}';" \
   2>/dev/null | head -1)
 
-echo "Dumping '${SOURCE_DB}' (${TABLE_COUNT} tables, ~${ROW_COUNT} rows) → ${OUT}"
+if (( ${#EXCLUDED_TABLES[@]} > 0 )); then
+  EFFECTIVE_TABLE_COUNT=$(( TABLE_COUNT - ${#EXCLUDED_TABLES[@]} ))
+  echo "Dumping '${SOURCE_DB}' (${EFFECTIVE_TABLE_COUNT} of ${TABLE_COUNT} tables, ~${ROW_COUNT} rows; excluding ${#EXCLUDED_TABLES[@]}: ${EXCLUDED_TABLES[*]}) → ${OUT}"
+  TABLE_COUNT=$EFFECTIVE_TABLE_COUNT
+else
+  echo "Dumping '${SOURCE_DB}' (${TABLE_COUNT} tables, ~${ROW_COUNT} rows) → ${OUT}"
+fi
 
 DUMP_CMD=(
   docker exec "$DB_CONTAINER" mariadb-dump
@@ -67,6 +92,7 @@ DUMP_CMD=(
   --extended-insert
   --hex-blob
   --default-character-set=utf8mb4
+  "${IGNORE_TABLE_FLAGS[@]}"
   --databases "$SOURCE_DB"
 )
 
@@ -80,11 +106,17 @@ SIZE=$(wc -c < "$OUT" | tr -d ' ')
 SIZE_HUMAN=$(awk -v b="$SIZE" 'BEGIN { split("B KB MB GB", u); i=1; while (b>=1024 && i<4) { b/=1024; i++ } printf("%.1f %s", b, u[i]) }')
 SHA=$(shasum -a 256 "$OUT" | awk '{print $1}')
 
+EXCLUDED_JSON="[]"
+if (( ${#EXCLUDED_TABLES[@]} > 0 )); then
+  EXCLUDED_JSON=$(printf '%s\n' "${EXCLUDED_TABLES[@]}" | python3 -c 'import json,sys; print(json.dumps([l.strip() for l in sys.stdin if l.strip()]))')
+fi
+
 cat > "${OUT}.provenance.json" <<EOF
 {
   "source_schema": "${SOURCE_DB}",
   "table_count": ${TABLE_COUNT},
   "approx_row_count": ${ROW_COUNT:-0},
+  "excluded_tables": ${EXCLUDED_JSON},
   "output_path": "${OUT}",
   "output_bytes": ${SIZE},
   "output_sha256": "${SHA}",

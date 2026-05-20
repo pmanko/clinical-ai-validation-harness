@@ -12,6 +12,6 @@ SELECT
   'clin__obs' AS table_name,
   COUNT(*)   AS actual_rows,
   400000     AS required_min_rows
-FROM refapp_28_demo.clin__obs
+FROM @this_model
 HAVING COUNT(*) < 400000
 ;

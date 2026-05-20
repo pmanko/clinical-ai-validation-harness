@@ -17,6 +17,10 @@ gateways:
 
 default_gateway: harness
 
+# Keep generated physical/temp table identifiers within MariaDB's 64-character
+# limit. The default schema+table convention can overflow for longer model names.
+physical_table_naming_convention: table_only
+
 model_defaults:
   dialect: mysql
   kind: FULL

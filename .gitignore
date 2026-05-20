@@ -18,6 +18,11 @@ __pycache__/
 artifacts/**
 !artifacts/
 !artifacts/.gitkeep
+# Keep the shareable handoff text-artifacts under version control — they carry
+# the validation evidence + supersedes trail. The .gz binaries stay ignored.
+!artifacts/share/
+!artifacts/share/README.md
+!artifacts/share/*.provenance.json
 
 # Source corpus files (large; checksum/provenance is committed under
 # datasets/sources/<dataset>.checksum). Operators re-fetch the actual dump

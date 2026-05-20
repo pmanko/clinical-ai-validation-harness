@@ -192,7 +192,7 @@ A validation lead wants the same source corpus analyzed for which clinical slice
 
 ### Structural promotion (obs → typed clinical tables)
 
-- **FR-029** — The transform MUST synthesize typed clinical rows from `obs` per the rules in the table below (P1–P4). Each rule is encoded as one structural-promotion element in the accepted ConceptMap (FR-007) and as one SQLMesh model under `datasets/transforms/sqlmesh/models/clinical/`. Field mapping is canonical in `data-model.md` §R-promotion-rules; cross-cutting decisions (obs preservation, UUID strategy, vaccine handling, orderer source, sampler strategy) are in research.md §R-typed-table-promotion.
+- **FR-029** — The transform MUST synthesize typed clinical rows from `obs` per the rules in the table below (P1–P4). Each rule is encoded as one structural-promotion element in the accepted ConceptMap (FR-007) and as one SQLMesh model under `datasets/transforms/sqlmesh/models/clinical/`. Field mapping is canonical in `data-model.md` §R-promotion-rules; cross-cutting decisions (typed-table canonicalization, UUID strategy, vaccine handling, orderer source, sampler strategy) are in research.md §R-typed-table-promotion.
 
   | Rule | Selector (from `obs`, voided=0) | Target table | Measured rows[^rc] |
   |---|---|---|---|
@@ -201,7 +201,7 @@ A validation lead wants the same source corpus analyzed for which clinical slice
   | **P3** | `concept_id IN (6011, 6012, 1083) AND value_coded = 1065 ('YES')` | `allergy` | 2 |
   | **P4** | `concept.concept_class = 'Test' AND concept.concept_datatype = 'Coded'` | `test_order` | 1,120 |
 
-  Source rows are preserved and back-linked via `obs.order_id`. Total promoted: 48,985 (10.3% of legacy obs); residual obs ~428,013 (89.7%).
+  Typed tables are canonical. Promoted P1/P2/P3 source rows do NOT remain in residual obs. P4 test-order source obs may remain only as a linked result row (via `obs.order_id`) when it is semantically the test result, not a copy of the order. Total promoted: ~48,985 (10.3% of legacy obs); residual obs ~428,013 (89.7%).
 
   [^rc]: Counts above are illustrative measurements from the first end-to-end transform run. **The enforced floors live in the SQLMesh audits:** `datasets/transforms/sqlmesh/audits/audit_<mart>_row_count_min.sql`. The audits are the single source of truth — they fail the pipeline if a mart drops below its floor, catching silent-zero materialization failures.
 
