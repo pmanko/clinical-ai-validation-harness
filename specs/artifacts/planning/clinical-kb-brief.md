@@ -1,0 +1,162 @@
+# Clinical Knowledge Base Service — Source Brief
+
+**Status**: Source brief — feeds `/speckit-specify` for feature 012.
+**Roadmap entry**: M11 (Planning) — `012-clinical-knowledge-base`.
+**Recommended spec number**: 012 (after 011-catalyst-fhir-sidecar-poc; independent of 005 and the parallel gateway spec).
+**Last updated**: 2026-05-19.
+**Paired research**: [`clinical-kb-research.md`](./clinical-kb-research.md).
+
+This document is the authoritative architectural brief for the clinical knowledge base service. It is the **input** to Spec Kit commands (`/speckit-specify`, `/speckit-clarify`, `/speckit-plan`, `/speckit-tasks`). Spec Kit–generated artifacts will live under `specs/012-clinical-knowledge-base/` after Phase 2. Do not edit the generated artifacts; update this brief instead.
+
+---
+
+## 1. Goal
+
+Stand up `clinical-kb`, a dedicated host-agnostic clinical knowledge service that consumers (chartsearchai, the model gateway, openmrs_chatbot, Catalyst sidecar, med-agent-hub subagents) can call to retrieve grounded, citable, short clinical snippets optimized for low-power local models (4-8B parameter range).
+
+The service has two layers:
+- **General KB**: a curated corpus of openly licensed clinical reference content (WHO IMCI/EML/ANC, MSF Clinical Guidelines, RxNorm essentials, immunization schedules, pediatric dosing). Hybrid sparse+dense retrieval with RRF; small-cross-encoder reranking; section-aware chunking; explicit abstention.
+- **Contextualized KB**: a deployment-tailored subset of the general KB produced by an offline curation worker that analyzes the deployment's OpenMRS DB (concept frequency, diagnosis distribution, drug formulary, encounter mix) and proposes the relevant subset for human review. PHI never leaves the deployment.
+
+The service is *orthogonal* to chartsearchai's per-patient chart retrieval; the two stack at the LLM call site (KB context above patient records, both below the system prompt).
+
+---
+
+## 2. Relationship to other specs
+
+| Spec | Relationship |
+|------|--------------|
+| **004-real-adapter-entrypoints** | KB is a new target with its own adapter. No code change to 004; KB is an additive target. |
+| **005-med-agent-hub-bridge** | Future consumer. Subagents can call KB as an MCP tool when ready; not required in 005 scope. |
+| **006-deferred / 007-deferred** | KB MCP tooling becomes a natural building block for these "frontend agent affordance" and "MCP tooling expansion" deferred features. |
+| **011-catalyst-fhir-sidecar-poc** | Catalyst MCP can register `kb_lookup` as an additional MCP tool alongside the FHIR tools in §8 of the catalyst-fhir-sidecar-brief. |
+| **Parallel gateway spec (sister item)** | The gateway is a natural first consumer because Python-to-Python is fastest to demo. KB is sequenceable independently — the gateway becomes one consumer of many when it lands. |
+| **002-openmrs-demo-data-2-8-remap** | The curation worker reads the demo dataset (large-demo-data-2-7-0.sql remapped to 2.8) for its first end-to-end smoke. |
+
+**Sequencing**: KB does **not** depend on the gateway spec. KB MUST be implementable and demonstrable independently. The first consumer integration can be chartsearchai (Java `LlmProvider.search` adds one parameter), the gateway (Python prompt assembly), or `openmrs_chatbot` — whichever is fastest to demonstrate when the KB service is ready.
+
+---
+
+## 3. Success criteria
+
+- **SC-012.1** `make clinical-kb-build` produces `clinical-kb:dev` Docker image from `targets/clinical-kb/` submodule (or in-repo source, decision per `/speckit-clarify`).
+- **SC-012.2** `make clinical-kb-up` starts the service; `/health` reports green; `/manifest` reports loaded corpus version, embedding model identity, dense+sparse index sizes.
+- **SC-012.3** `POST /v1/kb/lookup` with `{query, k, intent_hint?, deployment_id?}` returns ≤5 ranked snippets, each with `{id, title, content, source_url, source_version, citation_anchor, score, type}` in <500 ms on a 16 GB MacBook (excluding cold start). Cited sources resolve to a real local document fragment, not a hallucination.
+- **SC-012.4** `POST /v1/kb/lookup` returns `{snippets: [], abstain: true, reason: "no_relevant_kb_match"}` when no snippet exceeds the relevance floor, demonstrating MedAbstain-aligned discipline. An eval suite asserts this on a held-out negative set.
+- **SC-012.5** `make clinical-kb-curate DEPLOYMENT=<demo>` runs the curation worker against the harness's OpenMRS 2.8 demo DB, emits a `curation_<deployment>_<timestamp>.yaml` artifact with included/excluded/flagged entries plus deployment-profile hash. No PHI appears in the artifact (asserted by an automated check).
+- **SC-012.6** After human review and `clinical-kb load-curation <artifact>`, calling `/v1/kb/lookup` with `deployment_id=<demo>` returns the contextualized subset. Same query against general layer returns a (potentially) different result set; both behaviors are eval-asserted.
+- **SC-012.7** Citation/grounding eval: on a held-out medical-QA subset (subset of MIRAGE-style cases, harness-curated), KB-augmented small-model answers achieve ≥10 pp accuracy lift over no-KB baseline at unchanged refusal-on-unanswerable rate.
+- **SC-012.8** One real consumer integration demonstrably calls the KB end-to-end. Recommended primary demo: chartsearchai's `LlmProvider.search` prepends a KB context block to numbered records for a clinical-question patient case; the AI answer cites both KB sources (`[KB-1]`) and patient records (`[1]`) distinctly.
+
+---
+
+## 4. Functional requirements
+
+- **FR-012.1** Service MUST expose HTTP REST at `POST /v1/kb/lookup` and `POST /v1/kb/lookup_contextualized` returning `{snippets, abstain, reason, model_provenance, retrieval_provenance}`. Schema is JSON-versioned in `contracts/kb_response.schema.json`.
+- **FR-012.2** Service MUST expose an MCP server interface registering at least `kb_lookup`, `kb_lookup_contextualized`, `kb_list_sources`, `kb_get_source_metadata` tools. Both REST and MCP wrap the same retrieval core.
+- **FR-012.3** Retrieval MUST be hybrid BM25 + dense, fused with RRF (k=60) per MedRAG/chartsearchai precedent. Dense encoder defaults to all-MiniLM-L6-v2; alternative encoders (MedCPT, bge-small) are pluggable.
+- **FR-012.4** A small cross-encoder reranker (MS-MARCO MiniLM tier) MUST score the fused top-N and select the final top-K. Default K=3 for ≤8B-parameter consumers; configurable.
+- **FR-012.5** Snippets MUST be section-aware atomic units (one drug monograph section, one guideline recommendation, one immunization schedule entry). Each snippet MUST carry a stable `source_url + source_version + citation_anchor` triple.
+- **FR-012.6** When no snippet scores above the relevance floor (configurable; default cosine 0.5 + z-score gate analogous to chartsearchai's absent-data detection), the response MUST be `{snippets: [], abstain: true, reason: "no_relevant_kb_match"}`. The consumer prompt template MUST surface "no KB context available" plainly so the LLM can abstain rather than fabricate.
+- **FR-012.7** The general KB corpus MUST be openly licensed (WHO, MSF, RxNorm, CDC public-domain sources, public guideline portals). Any non-open-licensed source MUST be excluded from the v1 ship; placeholder hooks MAY exist for deployments to substitute licensed content locally.
+- **FR-012.8** A separable `clinical-kb-curate` worker MUST accept a deployment DB connection string (read-only) and emit a YAML curation artifact. The worker MUST NOT write to the OpenMRS DB. The artifact MUST contain only concept IDs, vocabulary codes, and aggregate counts — never patient IDs, observation IDs, free-text observations, or any PHI. An automated check MUST assert the no-PHI property.
+- **FR-012.9** Curation activation MUST require a human review gate by default, recorded in the artifact (`review_status`, `human_reviewer`). Auto-merge is opt-in per deployment via explicit configuration. (Constitution principle II.)
+- **FR-012.10** The curation worker MAY call a cloud LLM with the deployment profile (aggregate counts + general-KB titles). Such calls MUST be captured in the curation artifact with model/provider/prompt provenance per constitution principle IV.
+- **FR-012.11** All `/v1/kb/lookup` responses MUST emit metadata to harness-conformant trace events (OTel GenAI-aligned where applicable) and persist to the harness's `events.jsonl` when invoked under a run.
+- **FR-012.12** The KB content store MUST hot-reload on a watched directory change without service restart, to support the user's iteration-velocity requirement.
+- **FR-012.13** The service MUST support a "type-aware" hint analogous to chartsearchai's type detection: queries mentioning drug names route extra-weight to drug-monograph sources; queries mentioning guideline/protocol terms route extra-weight to guideline sources. The hint MAY be passed by the consumer or detected internally.
+- **FR-012.14** Service MUST provide an eval CLI (`clinical-kb eval <suite>`) that runs the held-out test sets and emits a CSV report (KB recall, citation correctness, abstention rate, contextualization regression). Pattern follows chartsearchai's eval framework.
+- **FR-012.15** A consumer integration adapter MUST land for at least one consumer (recommended: chartsearchai's `LlmProvider.search` is updated to prepend KB context block via a single optional parameter; rollback path is "set KB endpoint URL global property to empty").
+
+---
+
+## 5. Open design questions for `/speckit-clarify`
+
+(See research Section E for full rationale.)
+
+1. **General-KB content scope at v1** — seed corpus vs. full WHO/MSF/RxNorm coverage?
+2. **Curation auto-merge policy** — mandatory human review (default) vs. eval-gated auto-merge?
+3. **PHI boundary for curation worker** — cloud LLM with aggregates allowed, or local-LLM only?
+4. **First consumer integration** — chartsearchai (Java) or gateway (Python) first?
+5. **Knowledge source licensing** — which open-licensed sources are in scope for v1?
+6. **Per-deployment subset vs. per-deployment full KB** — filter only, or filter-plus-augment for custom protocols?
+7. **In-repo source vs. submodule** — does `clinical-kb` follow the chartsearchai/med-agent-hub submodule pattern or live as in-repo Python alongside the harness control plane?
+
+---
+
+## 6. Out of scope (POC)
+
+- **Licensed content (UpToDate, ClinicalKey, BNF)** — placeholder hooks only; substitution is a deployment operator responsibility.
+- **Full GraphRAG / Neo4j integration** — start with hybrid sparse+dense; defer GraphRAG until evidence shows it's needed.
+- **Multimodal retrieval (images, ECGs, etc.)** — text only for v1.
+- **Patient-axis retrieval** — that is chartsearchai's job; KB is orthogonal.
+- **Fine-tuned curation model** — v1 uses prompted off-the-shelf cloud LLMs; fine-tuning deferred.
+- **Real-time KB updates from new published guidelines** — manual content refresh by maintainer; auto-fetch deferred.
+- **Cross-deployment knowledge sharing** — every deployment has its own contextualized layer; sharing aggregate signals across deployments is deferred (privacy review required).
+- **Frontend "Sources used" UI surface** — consumer-side concern; KB returns the citation data, consumers render it. UI work happens in the consumer specs.
+
+---
+
+## 7. Demo path that proves success
+
+### 7.1 Local single-consumer demo (chartsearchai)
+1. `make clinical-kb-build && make clinical-kb-up` — service healthy on `:8090`.
+2. `curl POST /v1/kb/lookup` with query "metformin contraindications" returns 3 snippets, each with WHO/RxNorm source URL.
+3. `curl POST /v1/kb/lookup` with query "asdf jkl bananarama" returns `abstain: true`.
+4. Run `clinical-kb eval recall` — KB recall on held-out eval >0.80.
+5. Patch chartsearchai's `LlmProvider.search` (one new parameter `kbContext`) with a feature-flagged call that fetches KB context for the user's question.
+6. Open Betty Williams in chartsearchai demo, ask "What is the standard dose of metformin and is the patient on it?" — answer cites both `[KB-1]` (RxNorm dosing) and `[3]` (patient's metformin order).
+
+### 7.2 Local curation demo
+1. `make clinical-kb-curate DEPLOYMENT=demo-008` against the harness OpenMRS 2.8 demo DB.
+2. Inspect `curation_demo-008_<ts>.yaml` — verify included/excluded/flagged entries match the demo dataset's concept profile (e.g. HIV demo data should include ART monographs and exclude warfarin).
+3. Verify the no-PHI assertion passes.
+4. Run `clinical-kb load-curation <artifact>` after marking it reviewed.
+5. `POST /v1/kb/lookup_contextualized` with `deployment_id=demo-008` returns a measurably narrower set than the same query against the general layer.
+
+### 7.3 Smoke against second consumer (gateway when available)
+1. Once the parallel model-gateway spec lands, gateway prepends `kb_lookup` results to the messages array.
+2. Same chartsearchai 3-turn referential smoke from spec 005, but with KB context — verify the answer cites both KB and patient sources.
+
+---
+
+## 8. Risks
+
+| Risk | Mitigation |
+|------|------------|
+| **Auto-curation produces unsafe subset (excludes critical KB)** | Mandatory human review by default; held-out eval blocks promotion; constitution III evidence requirements force record-level audit. |
+| **KB content licensing dispute** | Limit v1 ship to verifiably open-licensed sources; document licenses per source; placeholder hooks for licensed substitutions. |
+| **KB context degrades small-model performance ("lost in the middle")** | Default K=3; top-of-context placement; eval suite includes a long-context stress test; abstain when no snippet clears the floor (better to omit KB than dilute). |
+| **Scope creep — KB grows into a full clinical decision-support engine** | Spec out: KB returns snippets, period. Decision-support is consumer-side (e.g. drug-interaction checks). |
+| **Cloud-LLM use during curation leaks PHI** | Worker reads only aggregates; no patient-level data ever passed to cloud; automated PHI-detection check on the prompt body before send; comprehensive audit log. |
+| **Embedding model choice locks in retrieval quality** | A/B framework supports swapping encoders; eval suite quantifies impact; "generalist beats biomedical" 2024 evidence cited to keep choice open. |
+| **Reviewer fatigue on curation artifacts** | Artifacts are diff-able YAML; "flagged for review" subset is small; second deployment's artifact reuses first deployment's reviewed decisions where the profile overlaps. |
+| **Auto-curation is application-novel — no published end-to-end pattern** | Build incrementally; ship general layer first, contextualization second; treat contextualization v1 as evidence-gathering, not as a guaranteed quality win. |
+| **Service becomes a single point of failure for consumers** | Consumers fall back to "no KB context" path; chartsearchai already works without KB; no consumer's primary function depends on KB up-ness. |
+
+---
+
+## 9. References
+
+**Research artifact**: [`clinical-kb-research.md`](./clinical-kb-research.md) — methodology survey, host evaluation matrix, recommendation rationale, sources.
+
+**In-repo signals**:
+- `/Users/pmanko/code/clinical-ai-validation-harness/targets/openmrs_chatbot/KNOWLEDGE_BASE_INTEGRATION_METHODS.md` — dominant existing thinking; 7-method approach (intent classification, SQL agent, drug KB, ChromaDB, response gating, validation agent, specialized handlers); reused as the openmrs_chatbot library/service reference pattern.
+- `/Users/pmanko/code/clinical-ai-validation-harness/targets/chartsearchai/README.md` — hybrid retrieval (RRF), MedCPT support, embedding/lucene/hybrid/elasticsearch pipelines, type-aware expansion, absent-data detection (z-score gate), eval framework — all directly transferable.
+- `/Users/pmanko/code/clinical-ai-validation-harness/targets/chartsearchai/api/src/main/java/org/openmrs/module/chartsearchai/api/impl/LlmProvider.java` — integration point at `search` (line 120); system-prompt design with JSON-schema enforcement and citation requirements.
+- `/Users/pmanko/code/clinical-ai-validation-harness/specs/005-med-agent-hub-bridge/spec.md` — future consumer.
+- `/Users/pmanko/code/clinical-ai-validation-harness/specs/artifacts/planning/catalyst-fhir-sidecar-brief.md` — sibling brief structure followed here; §8 MCP tool sketch is the pattern for KB MCP exposure.
+
+**External sources** (top 12 from research Section A.5; full list in research doc):
+- MedRAG/MIRAGE — https://arxiv.org/abs/2402.13178
+- i-MedRAG — https://arxiv.org/abs/2408.00727
+- Self-BioRAG — https://arxiv.org/abs/2401.15269
+- MedGraphRAG — https://arxiv.org/abs/2408.04187
+- CUICurate — https://arxiv.org/pdf/2602.17949
+- MedAbstain — https://arxiv.org/abs/2601.12471
+- Lost in the Middle — https://aclanthology.org/2024.tacl-1.9/
+- MedCPT — https://huggingface.co/ncbi/MedCPT-Query-Encoder
+- HalluGuard — https://arxiv.org/abs/2510.00880
+- Generalist beats biomedical embeddings — https://arxiv.org/abs/2401.01943
+- NICE-guideline iatroX — https://arxiv.org/abs/2510.02967
+- Toward Safer RAG in Healthcare — https://arxiv.org/pdf/2511.06668
