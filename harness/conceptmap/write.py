@@ -115,8 +115,8 @@ def _promotion_p1_drug_order() -> dict[str, Any]:
             "current corpus: LAMIVUDINE, STAVUDINE, NEVIRAPINE, TRIMETHOPRIM+SULFA, "
             "ISONIAZID, EFAVIRENZ, plus vaccines (DTP, polio, HepB, Hib, measles). "
             "See data-model.md §R-promotion-rules and research.md §R-typed-table-promotion "
-            "for cross-cutting decisions (Q1 obs preservation via obs.order_id, Q2 UUID v5, "
-            "Q3 vaccines emit as drug_order, Q4 orderer from encounter_provider)."
+            "for cross-cutting decisions (Q1 typed-table canonicalization — no duplicate obs, "
+            "Q2 deterministic UUIDv5-style name-based UUIDs, Q3 vaccines emit as drug_order, Q4 orderer from encounter_provider)."
         ),
         selector_sql=(
             "SELECT o.obs_id, o.person_id, o.encounter_id, o.value_coded AS drug_concept_id, o.obs_datetime "
@@ -132,7 +132,7 @@ def _promotion_p1_drug_order() -> dict[str, Any]:
             "start_date":        "obs.obs_datetime",
             "orderer":           "encounter_provider.provider_id; fallback obs.creator",
             "urgency":           "'ROUTINE'",
-            "uuid":              "UUIDv5(obs.uuid, 'drug_order')",
+            "uuid":              "UUIDv5-style(feature-002:orders:drug:<obs.uuid>) [parent orders row]",
         },
         row_count_expected=43412,
         source_record_examples=["obs_id:1088001", "obs_id:1088002", "obs_id:625001"],
@@ -164,7 +164,7 @@ def _promotion_p2_conditions() -> dict[str, Any]:
             "onset_date":         "obs.obs_datetime",
             "date_created":       "obs.date_created",
             "creator":            "obs.creator",
-            "uuid":               "UUIDv5(obs.uuid, 'conditions')",
+            "uuid":               "UUIDv5-style(feature-002:conditions:<obs.uuid>)",
         },
         row_count_expected=3642,
         source_record_examples=["obs_id:6042001", "obs_id:6042002"],
@@ -198,7 +198,7 @@ def _promotion_p3_allergy() -> dict[str, Any]:
             "encounter_id":         "obs.encounter_id",
             "date_created":         "obs.date_created",
             "creator":              "obs.creator",
-            "uuid":                 "UUIDv5(obs.uuid, 'allergy')",
+            "uuid":                 "UUIDv5-style(feature-002:allergy:<obs.uuid>)",
         },
         row_count_expected=7,
         source_record_examples=["obs_id:6011001"],
@@ -216,8 +216,9 @@ def _promotion_p4_test_order() -> dict[str, Any]:
             "questions in the current corpus: IMMUNIZATIONS ORDERED (891), X-RAY "
             "CHEST (172), VDRL (33), HIV DNA PCR (15), HIV ENZYME IMMUNOASSAY (9). "
             "test_order.concept_id is the TEST concept (obs.concept_id, not value_coded). "
-            "The source obs is preserved as the result row, linked via obs.order_id. "
-            "See data-model.md §R-promotion-rules."
+            "test_order is the child table; all parent fields live in orders. "
+            "A source obs may remain as a result row only when it is semantically the test result, "
+            "not a duplicate of the order fact. See data-model.md §R-promotion-rules."
         ),
         selector_sql=(
             "SELECT o.obs_id, o.person_id, o.encounter_id, o.concept_id AS test_concept, o.value_coded AS result_coded, o.obs_datetime "
@@ -234,7 +235,7 @@ def _promotion_p4_test_order() -> dict[str, Any]:
             "date_activated": "obs.obs_datetime",
             "urgency":        "'ROUTINE'",
             "order_action":   "'NEW'",
-            "uuid":           "UUIDv5(obs.uuid, 'test_order')",
+            "uuid":           "UUIDv5-style(feature-002:orders:test:<obs.uuid>) [parent orders row]",
         },
         row_count_expected=1120,
         source_record_examples=["obs_id:984001", "obs_id:12001"],

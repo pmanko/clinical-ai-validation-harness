@@ -6,16 +6,23 @@ MODEL (
   grain (order_id),
   audits (
     unique_values(columns := (order_id)),
-    audit_orders_row_count_min
+    audit_orders_row_count_min,
+    audit_clinical_fk_integrity,
+    audit_parent_child_integrity
   )
 );
 
--- The two promotion selectors are disjoint (drug_order = value_coded.class=Drug;
--- test_order = concept.class=Test+datatype=Coded) so an obs_id appears in at most one branch.
+-- Promotion selectors are source-ID-safe: class filtering uses legacy_27_raw.concept
+-- (source concept IDs) not the rebound seed FKs. This keeps classification stable
+-- regardless of which local target_concept_id the seed resolves to.
+--
+-- uuid: deterministic UUIDv5-style name-based UUID with fixed namespace
+-- 2f56d7b8-8f8f-5d3a-9f52-002002800001 and names
+-- feature-002:orders:drug:<source obs uuid> / feature-002:orders:test:<source obs uuid>.
 SELECT
   s.obs_id                                      AS order_id,
   2                                             AS order_type_id,    -- 2 = Drug Order (openmrs.order_type)
-  COALESCE(ct.target_concept_id, s.value_coded) AS concept_id,
+  ct.target_concept_id                          AS concept_id,       -- UUID-resolved local FK; no source-integer fallback
   COALESCE(ep.provider_id, 1)                   AS orderer,           -- fallback: user_id=1
   s.encounter_id,
   CAST(NULL AS TEXT)                            AS instructions,
@@ -32,7 +39,14 @@ SELECT
   CAST(NULL AS VARCHAR)                         AS void_reason,
   s.person_id                                   AS patient_id,
   CAST(NULL AS VARCHAR)                         AS accession_number,
-  CONCAT('ORD-DRG-', s.obs_id)                  AS uuid,              -- placeholder; opportunistic uniqueness; sufficient until §R-typed-promotion Q2 UUIDv5 lands
+  LOWER(CONCAT(
+    SUBSTR(SHA1(CONCAT(UNHEX(REPLACE('2f56d7b8-8f8f-5d3a-9f52-002002800001', '-', '')), CONCAT('feature-002:orders:drug:', COALESCE(s.uuid, CAST(s.obs_id AS CHAR))))), 1, 8), '-',
+    SUBSTR(SHA1(CONCAT(UNHEX(REPLACE('2f56d7b8-8f8f-5d3a-9f52-002002800001', '-', '')), CONCAT('feature-002:orders:drug:', COALESCE(s.uuid, CAST(s.obs_id AS CHAR))))), 9, 4), '-',
+    '5', SUBSTR(SHA1(CONCAT(UNHEX(REPLACE('2f56d7b8-8f8f-5d3a-9f52-002002800001', '-', '')), CONCAT('feature-002:orders:drug:', COALESCE(s.uuid, CAST(s.obs_id AS CHAR))))), 14, 3), '-',
+    ELT(CONV(SUBSTR(SHA1(CONCAT(UNHEX(REPLACE('2f56d7b8-8f8f-5d3a-9f52-002002800001', '-', '')), CONCAT('feature-002:orders:drug:', COALESCE(s.uuid, CAST(s.obs_id AS CHAR))))), 17, 1), 16, 10) % 4 + 1, '8', '9', 'a', 'b'),
+    SUBSTR(SHA1(CONCAT(UNHEX(REPLACE('2f56d7b8-8f8f-5d3a-9f52-002002800001', '-', '')), CONCAT('feature-002:orders:drug:', COALESCE(s.uuid, CAST(s.obs_id AS CHAR))))), 18, 3), '-',
+    SUBSTR(SHA1(CONCAT(UNHEX(REPLACE('2f56d7b8-8f8f-5d3a-9f52-002002800001', '-', '')), CONCAT('feature-002:orders:drug:', COALESCE(s.uuid, CAST(s.obs_id AS CHAR))))), 21, 12)
+  ))                                            AS uuid,
   'ROUTINE'                                     AS urgency,
   CONCAT('ORD-', s.obs_id)                      AS order_number,
   CAST(NULL AS INT)                             AS previous_order_id,
@@ -47,15 +61,12 @@ SELECT
   CAST(NULL AS VARCHAR)                         AS form_namespace_and_path
 FROM refapp_28_demo.stg_obs s
 JOIN legacy_27_raw.concept c
-  ON c.concept_id = s.value_coded
+  ON c.concept_id = s.source_value_coded        -- source ID (pre-rebind) for correct legacy classification
 JOIN legacy_27_raw.concept_class cc
   ON cc.concept_class_id = c.class_id
-LEFT JOIN refapp_28_demo.seed__concept_translation ct
-  ON ct.source_concept_id = s.value_coded
+JOIN refapp_28_demo.seed__concept_translation ct
+  ON ct.source_concept_id = s.source_value_coded
 LEFT JOIN (
-  -- An encounter can have multiple providers (one per role). For the
-  -- orderer fallback we just need one — pick the lowest provider_id
-  -- deterministically.
   SELECT encounter_id, MIN(provider_id) AS provider_id
   FROM refapp_28_demo.stg_encounter_provider
   GROUP BY encounter_id
@@ -67,7 +78,7 @@ UNION ALL
 SELECT
   s.obs_id                                      AS order_id,
   3                                             AS order_type_id,    -- 3 = Test Order
-  COALESCE(ct.target_concept_id, s.concept_id)  AS concept_id,
+  ct.target_concept_id                          AS concept_id,       -- UUID-resolved local FK; no source-integer fallback
   COALESCE(ep.provider_id, 1)                   AS orderer,
   s.encounter_id,
   CAST(NULL AS TEXT)                            AS instructions,
@@ -84,7 +95,14 @@ SELECT
   CAST(NULL AS VARCHAR)                         AS void_reason,
   s.person_id                                   AS patient_id,
   CAST(NULL AS VARCHAR)                         AS accession_number,
-  CONCAT('ORD-TST-', s.obs_id)                  AS uuid,
+  LOWER(CONCAT(
+    SUBSTR(SHA1(CONCAT(UNHEX(REPLACE('2f56d7b8-8f8f-5d3a-9f52-002002800001', '-', '')), CONCAT('feature-002:orders:test:', COALESCE(s.uuid, CAST(s.obs_id AS CHAR))))), 1, 8), '-',
+    SUBSTR(SHA1(CONCAT(UNHEX(REPLACE('2f56d7b8-8f8f-5d3a-9f52-002002800001', '-', '')), CONCAT('feature-002:orders:test:', COALESCE(s.uuid, CAST(s.obs_id AS CHAR))))), 9, 4), '-',
+    '5', SUBSTR(SHA1(CONCAT(UNHEX(REPLACE('2f56d7b8-8f8f-5d3a-9f52-002002800001', '-', '')), CONCAT('feature-002:orders:test:', COALESCE(s.uuid, CAST(s.obs_id AS CHAR))))), 14, 3), '-',
+    ELT(CONV(SUBSTR(SHA1(CONCAT(UNHEX(REPLACE('2f56d7b8-8f8f-5d3a-9f52-002002800001', '-', '')), CONCAT('feature-002:orders:test:', COALESCE(s.uuid, CAST(s.obs_id AS CHAR))))), 17, 1), 16, 10) % 4 + 1, '8', '9', 'a', 'b'),
+    SUBSTR(SHA1(CONCAT(UNHEX(REPLACE('2f56d7b8-8f8f-5d3a-9f52-002002800001', '-', '')), CONCAT('feature-002:orders:test:', COALESCE(s.uuid, CAST(s.obs_id AS CHAR))))), 18, 3), '-',
+    SUBSTR(SHA1(CONCAT(UNHEX(REPLACE('2f56d7b8-8f8f-5d3a-9f52-002002800001', '-', '')), CONCAT('feature-002:orders:test:', COALESCE(s.uuid, CAST(s.obs_id AS CHAR))))), 21, 12)
+  ))                                            AS uuid,
   'ROUTINE'                                     AS urgency,
   CONCAT('ORD-', s.obs_id)                      AS order_number,
   CAST(NULL AS INT)                             AS previous_order_id,
@@ -99,13 +117,13 @@ SELECT
   CAST(NULL AS VARCHAR)                         AS form_namespace_and_path
 FROM refapp_28_demo.stg_obs s
 JOIN legacy_27_raw.concept c
-  ON c.concept_id = s.concept_id
+  ON c.concept_id = s.source_concept_id         -- source ID (pre-rebind) for correct legacy classification
 JOIN legacy_27_raw.concept_class cc
   ON cc.concept_class_id = c.class_id
 JOIN legacy_27_raw.concept_datatype cd
   ON cd.concept_datatype_id = c.datatype_id
-LEFT JOIN refapp_28_demo.seed__concept_translation ct
-  ON ct.source_concept_id = s.concept_id
+JOIN refapp_28_demo.seed__concept_translation ct
+  ON ct.source_concept_id = s.source_concept_id
 LEFT JOIN (
   SELECT encounter_id, MIN(provider_id) AS provider_id
   FROM refapp_28_demo.stg_encounter_provider
@@ -113,14 +131,12 @@ LEFT JOIN (
 ) ep ON ep.encounter_id = s.encounter_id
 WHERE cc.name = 'Test'
   AND cd.name = 'Coded'
-  -- An obs can have a Test-class question AND a Drug-class answer
-  -- (e.g., "what drug did the patient take?"). Drug_order wins the
-  -- promotion in that case; this clause prevents the same obs from
-  -- producing two orders rows.
+  -- Drug_order wins when an obs has a Test-class question AND a Drug-class
+  -- answer. Prevents the same obs_id from producing two orders rows.
   AND NOT EXISTS (
     SELECT 1
     FROM legacy_27_raw.concept dc
     JOIN legacy_27_raw.concept_class dcc ON dcc.concept_class_id = dc.class_id
-    WHERE dc.concept_id = s.value_coded AND dcc.name = 'Drug'
+    WHERE dc.concept_id = s.source_value_coded AND dcc.name = 'Drug'  -- source ID
   )
 ;

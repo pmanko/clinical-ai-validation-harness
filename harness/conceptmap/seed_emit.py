@@ -2,15 +2,17 @@
 
 One-way emit, deterministic given the same inputs:
 
-  - ``concept_translation.csv`` — one row per distinct legacy concept_id
-    present in ``legacy_27_raw.concept``. Materializes the bridge rule's
-    UUID template (``RPAD(N, 36, 'A')``) as ``(source_concept_id,
-    source_uuid, target_concept_id, target_uuid, equivalence,
-    policy_bucket, source_record_examples)``.
+  - ``concept_translation.csv`` — one row per distinct legacy concept_id that
+    successfully resolves to a local target ``concept.concept_id`` via its
+    CIEL UUID (``RPAD(N, 36, 'A')`` bridge rule). Columns:
+    (source_concept_id, source_uuid, target_concept_id, target_uuid,
+    equivalence, policy_bucket, source_record_examples).
+  - ``concept_translation_omissions.csv`` — one row per legacy concept_id that
+    is NOT clinically referenced in obs AND could not resolve to a target UUID.
+    These are omitted from the executable seed; a reviewer must sign off.
+    Clinically-referenced concepts that cannot resolve raise ``ValueError``.
   - ``module_table_policy.csv`` — one row per legacy-only table
     (``policy`` ∈ ``drop``/``carry-forward``/``install-module``/``remap``).
-    Initial pass marks every legacy-only table as ``carry-forward`` for
-    iteration; reviewer adjusts at acceptance.
 
 Schema authoritative in
 ``specs/.../contracts/sqlmesh_project.profile.md`` §Seeds.
@@ -42,9 +44,16 @@ CT_COLUMNS = (
     "source_record_examples",
 )
 
+CT_OMISSIONS_COLUMNS = (
+    "source_concept_id",
+    "source_uuid",
+    "target_uuid",
+    "reason",
+)
+
 
 def _ciel_uuid(concept_id: int) -> str:
-    """Apply the bridge-rule UUID template."""
+    """Apply the bridge-rule UUID template: pad to 36 chars with 'A'."""
     s = str(concept_id)
     return s + "A" * (36 - len(s))
 
@@ -55,36 +64,109 @@ def fetch_legacy_concepts(cfg: DBConfig) -> list[tuple[int, str]]:
     return [(int(cid), uid) for cid, uid in rows if cid is not None]
 
 
+def fetch_target_uuid_to_id(cfg: DBConfig) -> dict[str, int]:
+    """Return {uuid: concept_id} for every concept in the target DB."""
+    rows = query(cfg, "SELECT uuid, concept_id FROM concept WHERE uuid IS NOT NULL")
+    return {uid: int(cid) for uid, cid in rows if uid and cid is not None}
+
+
+def fetch_clinically_referenced_concept_ids(cfg: DBConfig) -> set[int]:
+    """Return the set of legacy concept_ids referenced in obs.concept_id or obs.value_coded."""
+    rows = query(cfg, (
+        "SELECT DISTINCT concept_id FROM obs WHERE concept_id IS NOT NULL "
+        "UNION "
+        "SELECT DISTINCT value_coded FROM obs WHERE value_coded IS NOT NULL"
+    ))
+    return {int(r[0]) for r in rows if r[0] is not None}
+
+
 def emit_concept_translation_rows(
-    cm: AcceptedConceptMap, legacy_concepts: Sequence[tuple[int, str]]
-) -> list[tuple[str, ...]]:
-    """One row per distinct legacy concept_id, encoding the bridge rule."""
+    cm: AcceptedConceptMap,
+    legacy_concepts: Sequence[tuple[int, str]],
+    target_uuid_to_id: dict[str, int],
+    clinically_referenced: set[int] | None = None,
+) -> tuple[list[tuple[str, ...]], list[tuple[str, ...]]]:
+    """One row per distinct legacy concept_id that resolves by CIEL UUID.
+
+    Args:
+        cm: Accepted ConceptMap carrying bridge-rule metadata.
+        legacy_concepts: (concept_id, source_uuid) from the legacy DB.
+        target_uuid_to_id: {uuid: local_concept_id} from the target DB.
+        clinically_referenced: Set of legacy concept_ids found in obs. If
+            ``None``, every concept is treated as clinically referenced (strict
+            mode: any unresolvable concept raises ValueError).
+
+    Returns:
+        (rows, omissions) where ``rows`` are valid seed rows and ``omissions``
+        are unreferenced concepts that did not resolve.
+
+    Raises:
+        ValueError: if a clinically-referenced concept cannot resolve by UUID.
+    """
     bridge = cm.bridge_rule
     eq = bridge.equivalence
     pb = bridge.ext.policy_bucket
     rows: list[tuple[str, ...]] = []
+    omissions: list[tuple[str, ...]] = []
+
     for cid, src_uuid in legacy_concepts:
+        target_uuid = _ciel_uuid(cid)
+        local_id = target_uuid_to_id.get(target_uuid)
+
+        if local_id is None:
+            is_referenced = (clinically_referenced is None) or (cid in clinically_referenced)
+            if is_referenced:
+                raise ValueError(
+                    f"Clinically referenced concept {cid} (CIEL UUID {target_uuid!r}) "
+                    f"has no matching concept.uuid in the target database. "
+                    f"Cannot emit a safe seed without a valid local FK. "
+                    f"Verify the target DB is fully loaded with CIEL concepts."
+                )
+            omissions.append((
+                str(cid),
+                src_uuid or "",
+                target_uuid,
+                "uuid not found in target concept table; not clinically referenced",
+            ))
+            continue
+
         rows.append((
             str(cid),
             src_uuid or "",
-            str(cid),               # target_concept_id: same canonical id by the bridge rule
-            _ciel_uuid(cid),
+            str(local_id),   # UUID-resolved local concept.concept_id (was: source integer)
+            target_uuid,
             eq,
             pb,
-            "",                     # examples deliberately empty per row (kept in ConceptMap element)
+            "",              # examples kept in ConceptMap element, not per-row
         ))
-    return rows
+    return rows, omissions
 
 
 def write_concept_translation_csv(
-    cm: AcceptedConceptMap, legacy_concepts: Sequence[tuple[int, str]], out: Path
+    cm: AcceptedConceptMap,
+    legacy_concepts: Sequence[tuple[int, str]],
+    target_uuid_to_id: dict[str, int],
+    clinically_referenced: set[int] | None,
+    out: Path,
+    omissions_out: Path | None = None,
 ) -> Path:
+    """Write concept_translation.csv, optionally writing omissions alongside."""
     out.parent.mkdir(parents=True, exist_ok=True)
+    rows, omissions = emit_concept_translation_rows(
+        cm, legacy_concepts, target_uuid_to_id, clinically_referenced
+    )
     with out.open("w", newline="") as f:
         w = csv.writer(f, lineterminator="\n")
         w.writerow(CT_COLUMNS)
-        for row in emit_concept_translation_rows(cm, legacy_concepts):
+        for row in rows:
             w.writerow(row)
+    if omissions_out is not None:
+        omissions_out.parent.mkdir(parents=True, exist_ok=True)
+        with omissions_out.open("w", newline="") as f:
+            w = csv.writer(f, lineterminator="\n")
+            w.writerow(CT_OMISSIONS_COLUMNS)
+            for row in omissions:
+                w.writerow(row)
     return out
 
 
@@ -159,14 +241,29 @@ def main(argv: list[str] | None = None) -> int:
     target_cfg = DBConfig.from_env(database=args.target_db)
 
     legacy_concepts = fetch_legacy_concepts(legacy_cfg)
+    target_uuid_to_id = fetch_target_uuid_to_id(target_cfg)
+    clinically_referenced = fetch_clinically_referenced_concept_ids(legacy_cfg)
+
+    seeds_dir = Path(args.seeds_dir)
     ct_path = write_concept_translation_csv(
-        cm, legacy_concepts, Path(args.seeds_dir) / "concept_translation.csv"
+        cm,
+        legacy_concepts,
+        target_uuid_to_id,
+        clinically_referenced,
+        seeds_dir / "concept_translation.csv",
+        omissions_out=seeds_dir / "concept_translation_omissions.csv",
     )
-    print(f"Wrote {ct_path} ({len(legacy_concepts)} rows)")
+    omissions_path = seeds_dir / "concept_translation_omissions.csv"
+    print(f"Wrote {ct_path} ({len(legacy_concepts)} legacy concepts)")
+    if omissions_path.exists():
+        import csv as _csv
+        with omissions_path.open() as f:
+            omission_count = sum(1 for _ in _csv.reader(f)) - 1
+        print(f"Wrote {omissions_path} ({omission_count} unresolvable unreferenced concepts omitted)")
 
     legacy_only = discover_legacy_only_tables(legacy_cfg, target_cfg)
     mtp_path = write_module_table_policy_csv(
-        legacy_only, Path(args.seeds_dir) / "module_table_policy.csv"
+        legacy_only, seeds_dir / "module_table_policy.csv"
     )
     print(f"Wrote {mtp_path} ({len(legacy_only)} legacy-only tables)")
     return 0

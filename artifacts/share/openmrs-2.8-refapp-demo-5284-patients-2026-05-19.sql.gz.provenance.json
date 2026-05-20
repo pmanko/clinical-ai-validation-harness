@@ -1,0 +1,55 @@
+{
+  "filename": "openmrs-2.8-refapp-demo-5284-patients-2026-05-19.sql.gz",
+  "sha256": "91c66bf4d08e0e3b475402e39ebdbe19c3217989d47891ce3d7838701fcce6b8",
+  "size_bytes": 42214406,
+  "size_human": "40.3 MB",
+  "schema_version": "OpenMRS Platform 2.8 / Reference Application 3.6.0",
+  "source_schema_in_dump": "openmrs",
+  "row_counts": {
+    "patient": 5284,
+    "encounter": 14316,
+    "obs": 428013,
+    "orders": 44507,
+    "drug_order": 43412,
+    "drug_order_with_drug_inventory_id": 43412,
+    "test_order": 1095,
+    "conditions": 4451,
+    "allergy": 2
+  },
+  "tables_total": 232,
+  "excluded_tables": [
+    "chartsearchai_audit_log",
+    "chartsearchai_chat_message",
+    "chartsearchai_chat_session",
+    "chartsearchai_embedding"
+  ],
+  "source": "Transform of OpenMRS large-demo-data-2-7-0.sql via feature 002 SQLMesh + dlt pipeline, with mapping remediation applied (concept FK resolution through CIEL UUIDs + typed promotion mapping fixes for orders/drug_order/test_order/conditions/allergy + deterministic synthetic drug catalog augmentation).",
+  "remediation_evidence": {
+    "known_patient_uuid": "dd553355-1691-11df-97a5-7038c432aabf",
+    "known_patient_drug_concepts_resolved": [
+      {"concept_id": 6531, "uuid": "797AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", "name": "Retrovir"},
+      {"concept_id": 6689, "uuid": "794AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", "name": "Lopinavir / ritonavir"},
+      {"concept_id": 6592, "uuid": "796AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", "name": "Didanosine"}
+    ],
+    "sqlmesh_audits_passing": [
+      "audit_concept_uuid_agreement (0 failures)",
+      "audit_clinical_fk_integrity (0 failures)",
+      "audit_no_duplicate_canonical_facts (0 failures)",
+      "audit_drug_order_catalog_coverage (0 failures)"
+    ],
+    "pytest_evals_passing": [
+      "evals/conceptmap_conformance/test_seed_emit.py: 20/20",
+      "evals/load/test_pipeline_idempotency.py -m slow: 2/2"
+    ]
+  },
+  "generated_at": "2026-05-19T22:08:50Z",
+  "generator": "scripts/dump-loaded.sh --source openmrs --ignore-pattern 'chartsearchai_%'",
+  "verified_load": {
+    "target": "ephemeral mariadb:10.11.7 (clean container, MARIADB_ROOT_PASSWORD=test)",
+    "approx_load_seconds": 22,
+    "row_counts_match_source": true,
+    "creates_schema_named": "openmrs",
+    "verified_at": "2026-05-19T22:09:30Z"
+  },
+  "load_into_command": "gunzip -c openmrs-2.8-refapp-demo-5284-patients-2026-05-19.sql.gz | mariadb -u root -p"
+}

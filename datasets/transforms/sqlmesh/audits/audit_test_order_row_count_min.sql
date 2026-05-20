@@ -9,6 +9,6 @@ SELECT
   'clin__test_order' AS table_name,
   COUNT(*)           AS actual_rows,
   1000               AS required_min_rows
-FROM refapp_28_demo.clin__test_order
+FROM @this_model
 HAVING COUNT(*) < 1000
 ;

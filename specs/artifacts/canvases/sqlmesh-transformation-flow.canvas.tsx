@@ -405,12 +405,13 @@ export default function SQLMeshTransformationFlow() {
         </Card>
       </Grid>
 
-      <Callout tone="warning" title="Known gap — UUID v5 deferred">
-        Promoted-row <Code>uuid</Code> columns in <Code>clinical/drug_order.sql</Code> and siblings currently use
-        non-deterministic <Code>UUID()</Code>. Research.md §R-typed-table-promotion Q2 specifies UUID v5 from row hash;
-        this is acknowledged as a deferred gap. Idempotency is asserted via per-table row counts + content checksums in{' '}
-        <Code>materialized_outputs[]</Code> rather than dlt&apos;s state hash to keep the SC-004 contract honest in the
-        meantime. <Code>order_id</Code> uses <Code>obs.obs_id</Code> directly (deterministic, traceable).
+      <Callout tone="success" title="Promoted-row UUIDs are deterministic">
+        Promoted-row <Code>uuid</Code> columns in <Code>clinical/orders.sql</Code>, <Code>clinical/conditions.sql</Code>,
+        and <Code>clinical/allergy.sql</Code> now use deterministic UUIDv5-style name-based identifiers from a fixed
+        Feature 002 namespace plus stable source obs identity. Child tables such as <Code>drug_order</Code> and{' '}
+        <Code>test_order</Code> inherit identity through their parent <Code>orders</Code> rows. This removes SQL{' '}
+        <Code>UUID()</Code> from the promotion path while keeping <Code>order_id</Code> equal to <Code>obs.obs_id</Code>
+        for deterministic traceability.
       </Callout>
 
       <Callout tone="info" title="Why SQLMesh ends at refapp_28_demo and dlt picks up from there">

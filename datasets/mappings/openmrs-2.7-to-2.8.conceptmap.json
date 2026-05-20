@@ -35,7 +35,7 @@
           "target": [
             {
               "code": "$table:drug_order",
-              "comment": "Coded drug answers on obs are promoted to drug_order. Top answers in the current corpus: LAMIVUDINE, STAVUDINE, NEVIRAPINE, TRIMETHOPRIM+SULFA, ISONIAZID, EFAVIRENZ, plus vaccines (DTP, polio, HepB, Hib, measles). See data-model.md \u00a7R-promotion-rules and research.md \u00a7R-typed-table-promotion for cross-cutting decisions (Q1 obs preservation via obs.order_id, Q2 UUID v5, Q3 vaccines emit as drug_order, Q4 orderer from encounter_provider).",
+              "comment": "Coded drug answers on obs are promoted to drug_order. Top answers in the current corpus: LAMIVUDINE, STAVUDINE, NEVIRAPINE, TRIMETHOPRIM+SULFA, ISONIAZID, EFAVIRENZ, plus vaccines (DTP, polio, HepB, Hib, measles). Typed table is canonical; source obs does NOT remain as a duplicate residual row. drug_order is the child table; parent row in orders carries uuid/concept_id. UUID is deterministic UUIDv5-style name-based per Q2 in research.md \u00a7R-typed-table-promotion. See data-model.md \u00a7R-promotion-rules for field mapping.",
               "display": "drug_order rows synthesized from obs.",
               "equivalence": "inexact",
               "extension": [
@@ -149,7 +149,7 @@
           "target": [
             {
               "code": "$table:test_order",
-              "comment": "Test-class concepts with Coded datatype are lab/imaging orders. Top questions in the current corpus: IMMUNIZATIONS ORDERED (891), X-RAY CHEST (172), VDRL (33), HIV DNA PCR (15), HIV ENZYME IMMUNOASSAY (9). test_order.concept_id is the TEST concept (obs.concept_id, not value_coded). The source obs is preserved as the result row, linked via obs.order_id. See data-model.md \u00a7R-promotion-rules.",
+              "comment": "Test-class concepts with Coded datatype are lab/imaging orders. Top questions in the current corpus: IMMUNIZATIONS ORDERED (891), X-RAY CHEST (172), VDRL (33), HIV DNA PCR (15), HIV ENZYME IMMUNOASSAY (9). test_order is the child table; all parent fields live in orders. A source obs may remain as a result obs only when it is semantically the test result (not a copy of the order fact). UUID on parent orders row is deterministic UUIDv5-style name-based. See data-model.md \u00a7R-promotion-rules.",
               "display": "test_order rows synthesized from obs.",
               "equivalence": "inexact",
               "extension": [
