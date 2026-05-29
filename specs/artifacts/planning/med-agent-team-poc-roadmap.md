@@ -34,19 +34,19 @@ med-agent-hub (fork `pmanko/med-agent-hub`, branch `harness-integration` @ `5cac
 
 **Streaming + json_schema tension.** `response_format` is sent on the stream path too (`RemoteLlmEngine.java:110,183-189`), and the sync-path `.timeout()` wraps the *whole* pipeline → `HttpTimeoutException` if the team is slow. Posture: **buffer the chain, then stream only the synthesizer's structured output** once its call begins. Pre-synthesis work (KB + medgemma) raises time-to-first-token; measure it.
 
-## 3. Knowledge base (POC mechanism, NOT roadmap F009)
+## 3. Knowledge base — openly-licensed clinical seed + OpenMRS contextualization (demo-grade precursor to F009)
 
-Dogfoods *our own design docs* to demonstrate the KB-agent *mechanism*. Explicitly **not** F009 (`roadmap.canvas.tsx:347-368`), the real clinical KB (WHO IMCI/EML, RxNorm, hybrid BM25+RRF+cross-encoder, ≥10pp accuracy-lift gate). Label as mechanism POC so "FTS5-only / our-docs corpus" is never mistaken for F009.
+**User decision:** "clinical seed + OpenMRS-contextualized" (over dogfooding our own docs). The demo KB carries **real openly-licensed clinical content**, narrowed to the demo deployment's profile. It is a **demo-grade precursor to F009** (`roadmap.canvas.tsx:347-368`), not F009 itself — no hybrid rerank, no LLM-assisted curation worker, no ≥10pp eval gate yet.
 
-**Corpus (high-value seeds):** `roadmap.canvas.tsx`; `specs/006-validation-harness-mvp/spec.md` (envelope + abstention rubric); `specs/007-llm-config-overrides/`; `specs/artifacts/canvases/{chartsearchai-and-querystore, clinical-ai-research-guidance, scout-comparative-analysis, validation-research}.canvas.tsx`; `specs/artifacts/sibling-context/*`; `specs/artifacts/planning/clinical-kb-{brief,research}.md`; `specs/artifacts/handoffs/session-handoff-2026-05-12.md`.
+**Content — openly-licensed clinical seed (Tier 1):** a few dozen hand-curated, section-aware snippets from WHO IMCI (danger signs, common-illness management), WHO Essential Medicines List, WHO/national immunization schedules, pediatric dosing, RxNorm drug essentials, and a few MSF Clinical Guideline protocols. All openly licensed (F009 FR-009.7; exact terms verified at acquisition — WHO is CC BY-NC-SA IGO, RxNorm is NLM public domain, MSF guidelines freely published). Each snippet carries `source + version + url + anchor` so it cites to a real fragment. LMIC-relevant by design.
 
-**Ingestion — mixed corpus, two parsers.** Richest sources are `.canvas.tsx`, not markdown. `.md`: split on `##`/`###`, prepend full header path ([Weaviate chunking](https://weaviate.io/blog/chunking-strategies-for-rag)), 256-512 tokens. `.tsx` canvases: **targeted field extraction** (pull `title/purpose/scope[]/evidence[]/note/detail` from node objects; skip SVG/layout). Without the canvas parser the corpus collapses to a handful of specs.
+**Contextualization — OpenMRS, demo-grade (Tier 2):** narrow/boost the seed to what the demo deployment actually treats, via a **read-only aggregate query** against the harness OpenMRS 2.8 demo DB (top diagnoses / concepts / formulary by frequency) that filters or boosts the seed — e.g. the HIV demo data surfaces ART content, not warfarin. Optionally tag snippets with **CIEL concept codes** so KB retrieval aligns with the chart's coded data. This is **not** F009's full LLM-assisted curation worker + human-review gate (CUICurate-inspired) — that's deferred; the demo shows the contextualization *idea* with a deterministic, **PHI-free** (aggregates only) filter.
 
-**Search tech (concrete, in-container):** SQLite **FTS5 BM25** via stdlib `sqlite3` — zero new deps, explainable, fine for a few-hundred-chunk corpus reusing our own vocabulary. Upgrade path only if recall is visibly poor: a `sqlite-vec` table in the same `.db`, vectors from LM Studio `/v1/embeddings` ([LM Studio docs](https://lmstudio.ai/docs/developer/openai-compat/embeddings)), fused via RRF. Avoid FAISS/Chroma.
+**Search tech (in-container):** SQLite **FTS5 BM25** via stdlib `sqlite3` — zero new deps, explainable, fine for a few-hundred-snippet corpus. Upgrade path only if recall is visibly poor: a `sqlite-vec` table in the same `.db`, vectors from LM Studio `/v1/embeddings` ([LM Studio docs](https://lmstudio.ai/docs/developer/openai-compat/embeddings)), fused via RRF. Avoid FAISS/Chroma.
 
-**Retrieve/inject:** a **deterministic pre-step**, not an orchestrator tool — predictable, reproducible, honest to demo. Each snippet carries a provenance label ("Source: internal project documentation — not clinical guidance") propagated into the synthesizer's system instruction.
+**Retrieve/inject:** a **deterministic pre-step** (not an orchestrator tool) — predictable, reproducible, honest to demo. Each snippet carries a provenance label ("openly-licensed reference content — not a substitute for clinical judgment") propagated into the synthesizer's system instruction. KB content stays **out of the integer citation array** (inline prose provenance only).
 
-**Index-as-artifact:** **commit `artifacts/kb/corpus.jsonl`** (small, diff-reviewable). **Gitignore the index; rebuild on boot.** A `make kb-build` regenerates corpus + index from `specs/`.
+**Index-as-artifact:** **commit `artifacts/kb/corpus.jsonl`** (the curated clinical seed — small, diff-reviewable, license-tagged per snippet). **Gitignore the FTS5 index; rebuild on boot.** `make kb-build` regenerates corpus + index; `make kb-contextualize DEPLOYMENT=demo` runs the aggregate filter.
 
 ## 4. Roadmap
 
@@ -58,9 +58,9 @@ Exit: `curl /v1/chat/completions` returns a valid `chart_answer` envelope; **`/v
 Deliverables: thin code orchestrator; medgemma free-text expert call; gemma-4 synthesizer bound to `response_format`; buffer-then-stream-synthesizer path; guaranteed-valid fallback envelope on sub-agent timeout.
 Exit: a turn produces a schema-valid envelope from real medgemma→gemma calls; killing medgemma still returns a valid (reduced-confidence) envelope; streamed `delta.content` incrementally forms valid `{"answer":...}` so chartsearchai's `AnswerExtractingConsumer` can parse it.
 
-**P3 — KB agent + searchable KB.**
-Deliverables: ingestion (md + canvas parsers) → `corpus.jsonl`; FTS5 index built on boot; KB pre-step injecting a labeled block after the question; synthesizer instruction enforcing integer-citations-for-chart-only + inline KB provenance.
-Exit: a question whose answer lives in our docs visibly pulls the right snippet; KB content never appears as an integer citation; frozen prefix byte-identical across turns (`cached_tokens > 0`).
+**P3 — KB agent + clinical seed + OpenMRS contextualization.**
+Deliverables: curate the openly-licensed clinical seed → `corpus.jsonl` (section-aware; per-snippet source+version+url+anchor+license); FTS5 index built on boot; a read-only aggregate query against the demo OpenMRS DB → a PHI-free contextualization filter/boost (optional CIEL tags); KB pre-step injecting a labeled block after the question; synthesizer instruction enforcing integer-citations-for-chart-only + inline KB provenance.
+Exit: a clinical question whose answer lives in the seed (e.g. IMCI danger signs, metformin dosing) pulls the right cited snippet; the contextualized set is measurably narrower/relevant to the demo deployment's profile (HIV-demo surfaces ART content); KB content never appears as an integer citation; no PHI in the contextualization query/artifact (asserted); frozen prefix byte-identical across turns (`cached_tokens > 0`).
 
 **P4 — Wire into validation harness (006).**
 Deliverables: team registered as a harness endpoint; scenario eval over 006's abstention + Scout rubric.
