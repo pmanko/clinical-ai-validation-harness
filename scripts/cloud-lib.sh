@@ -17,6 +17,12 @@ GCP_IMAGE_FAMILY="${GCP_IMAGE_FAMILY:-debian-12}"
 GCP_IMAGE_PROJECT="${GCP_IMAGE_PROJECT:-debian-cloud}"
 GCP_STATIC_IP_NAME="${GCP_STATIC_IP_NAME:-${GCP_VM_NAME}-ip}"
 GCP_FIREWALL_HTTP="${GCP_FIREWALL_HTTP:-allow-harness-http}"
+# Defensive deny for the LM Studio HTTP server (lms server start --port 1234
+# --bind 0.0.0.0). The GCE default network's implicit ingress-deny normally
+# keeps :1234 off the public internet, but this explicit deny at priority 100
+# survives any future broad ALLOW rule an operator might add.
+GCP_FIREWALL_DENY_LMS="${GCP_FIREWALL_DENY_LMS:-deny-harness-lms-1234}"
+GCP_LMS_PORT="${GCP_LMS_PORT:-1234}"
 GCP_HTTP_PORT="${GCP_HTTP_PORT:-8088}"
 # Firewall source range for the proxy port. Defaults to the operator's
 # current public IP (single /32) so the dev URL isn't world-open while the

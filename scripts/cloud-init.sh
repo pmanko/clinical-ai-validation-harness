@@ -50,6 +50,28 @@ else
   gcp_reconcile_http_firewall
 fi
 
+# 2b. Defensive DENY rule for LM Studio's HTTP port. lms server binds to
+#     0.0.0.0:1234 on the VM so the backend container can reach it via
+#     host.docker.internal. The GCE default network blocks :1234 from the
+#     public internet implicitly, but this explicit DENY at priority 100
+#     beats any future broad ALLOW an operator might add (priority defaults
+#     to 1000 for new rules).
+if ! gcloud compute firewall-rules describe "${GCP_FIREWALL_DENY_LMS}" \
+       --project="${GCP_PROJECT}" --format='value(name)' >/dev/null 2>&1; then
+  echo "==> creating firewall deny rule ${GCP_FIREWALL_DENY_LMS} (TCP/${GCP_LMS_PORT} from 0.0.0.0/0, priority 100)"
+  gcloud compute firewall-rules create "${GCP_FIREWALL_DENY_LMS}" \
+    --network=default \
+    --direction=INGRESS \
+    --action=DENY \
+    --rules="tcp:${GCP_LMS_PORT}" \
+    --source-ranges="0.0.0.0/0" \
+    --target-tags=harness-http \
+    --priority=100 \
+    --project="${GCP_PROJECT}" --quiet
+else
+  echo "    firewall deny rule ${GCP_FIREWALL_DENY_LMS} already exists"
+fi
+
 # 3. Create the instance with a startup script that installs docker.
 if gcp_vm_exists; then
   echo "    instance ${GCP_VM_NAME} already exists (status: $(gcp_vm_status)); skipping create"
