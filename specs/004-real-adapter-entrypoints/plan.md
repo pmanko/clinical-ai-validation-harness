@@ -118,6 +118,30 @@ So the chartsearchai side of the migration has its scaffolding in place (off by 
 - **R3 — `:nightly-chartsearch` frontend ESM expects backend REST API newer than `:3.6.0`**: possible compat mismatch. Mitigation: if breakage surfaces, swap backend to `:nightly-chartsearch` too.
 - **R4 — LM Studio not reachable**: `host.docker.internal` resolves to host on Docker Desktop (Mac/Win); Linux native may need `--add-host=host.docker.internal:host-gateway`. Document.
 - **R5 — chartsearchai PR #17 UUID migration (2026-05-14)**: resource identifiers migrated Integer → UUID. May affect dumps produced before that date. Verify in PoC; if conflicts, rebuild dump or pin chartsearchai to a pre-#17 SHA.
+- **R6 — Fork-branch drift vs upstream**: `targets/chartsearchai` and `targets/chartsearchai-esm` both pin to `pmanko/*` fork `harness-integration` branches. Drift measured 2026-05-28: chartsearchai 5 ahead / 35 behind upstream `openmrs/main`; chartsearchai-esm similar. Two open upstream PRs (#18 HTTP/1.1 pin, #19 querystore reflection) carry the ahead-commits. Mitigation: see Maintenance section below.
+
+## Maintenance — fork branch rebase cadence
+
+Both `targets/chartsearchai` and `targets/chartsearchai-esm` pin to fork branches we maintain. Without an explicit cadence, fork drift compounds — every upstream merge widens the diff we'd need to rebase.
+
+**Cadence**: monthly checkpoint. On the first business day of each month:
+
+1. For each submodule (`chartsearchai`, `chartsearchai-esm`):
+   - Fetch upstream `origin/main`
+   - Rebase `fork/harness-integration` on upstream main
+   - Drop any commits that landed upstream in the interim (e.g. when upstream PR #18/#19/#20 merges, drop the corresponding fork commits)
+   - Force-push `fork/harness-integration`
+2. Bump the harness `targets/<submodule>` SHA in a maintenance commit on the next active feature branch (or directly on main if no active feature branch)
+3. Run the existing smoke tests (Playwright + `make chartsearch-up` browser pass) before pushing
+4. Update the "measured as of" date in `specs/artifacts/canvases/chartsearchai-and-querystore.canvas.tsx`
+
+**Cost**: ~30 minutes per submodule per month when upstream is calm; up to ~2 hours when upstream merges touch files we've also modified.
+
+**When to deviate from monthly**:
+- Skip the month if drift is <5 commits behind (cheap to defer)
+- Bump immediately when an upstream-merged change unblocks a harness feature (e.g. if upstream merges a `/v1/models` schema change we depend on)
+
+**Owner**: harness maintainer. Failure mode if neglected: rebase becomes >1 day of work; harness-integration branch becomes "dead" (operators avoid bumping submodule SHAs because the rebase is scary). Avoid this by enforcing the monthly checkpoint even when no upstream changes touch our files.
 
 ## Acceptance — PoC closes when
 
