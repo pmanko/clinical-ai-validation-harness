@@ -136,10 +136,10 @@ const curatedPatients: Patient[] = [
   },
   {
     name: 'Constatina Buigut', uuid: 'dd55457a-1691-11df-97a5-7038c432aabf',
-    sex: 'F', age: 22, obs: 113, enc: 4, cond: 1, dx: 42, orders: 0,
-    tags: ['structured-diagnosis specialist'],
+    sex: 'F', age: 22, obs: 113, enc: 4, cond: 1, dx: 42, orders: 12,
+    tags: ['HIV on ART', 'structured-diagnosis specialist'],
     conditions: 'Urinary tract infection (1 coded condition)',
-    drugs: '— (no orders)',
+    drugs: 'Lamivudine, Nevirapine, Stavudine',
     programs: 'HIV care',
     goodFor: 'The rare structured encounter-diagnosis surface — 42 coded diagnoses (the most in the corpus). Tests whether retrieval reaches the diagnosis table at all.',
   },
