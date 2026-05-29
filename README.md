@@ -54,15 +54,20 @@ Human-facing docs use plain names. IDs appear in parentheses on first use and in
 | OpenMRS demo-data remap | M1 | `002` | In progress |
 | Validation spine | M2 | `003` | Planned |
 | Real adapter entrypoints | M3 | `004` | In progress |
-| Retrieval evaluation | M4 | `005` | Planned |
-| Answer, citation, and abstention | M5 | `006` | Planned |
-| Safety and red-team | M6 | `007` | Planned |
-| Clinician governance review | M7 | `008` | Planned |
-| Querystore parity testbed | M8 | `009` | Planned |
-| Cross-project expansion | M9 | `010` | Planned |
-| Catalyst FHIR sidecar POC | M10 | `011` | [Planning](specs/artifacts/planning/catalyst-fhir-sidecar-brief.md) |
+| med-agent-hub bridge | F005 | `005` | In progress |
+| Chartsearchai model gateway | F008 | `008` | [Brief](specs/artifacts/planning/chartsearchai-model-gateway-brief.md) |
+| Clinical knowledge base | F009 | `009` | [Brief + research](specs/artifacts/planning/clinical-kb-brief.md) |
+| Retrieval evaluation | M4 | `010` | Planned |
+| Catalyst FHIR sidecar POC | M10 | `011` | [Brief](specs/artifacts/planning/catalyst-fhir-sidecar-brief.md) |
+| Answer, citation, and abstention | M5 | `012` | Planned |
+| Safety and red-team | M6 | `013` | Planned |
+| Clinician governance review | M7 | `014` | Planned |
+| Querystore parity testbed | M8 | `015` | Planned |
+| Cross-project expansion | M9 | `016` | Planned |
 
 > **Note on feature 002 internal phases:** Work inside the OpenMRS demo-data remap (M1 / `002`) uses implementation sub-labels `M2-A` through `M2-Z` in detailed feature docs. These are internal planning labels for that feature's phases — not related to roadmap milestone M2 (Validation spine).
+
+> **Note on F-prefixed IDs and non-monotonic slugs:** F005, F008, F009 are features inserted into the roadmap after the M0–M10 sequence was authored. Slugs `006` and `007` are reserved by feature 005's "Out of scope" deferrals (ESM "Answered by" pill; MCP/Spark/FHIR tooling). The Roadmap IDs (M0–M10, F005/F008/F009) carry the semantic ordering anchor; folder slugs are filesystem identifiers and may be non-monotonic. See [`specs/roadmap.canvas.tsx`](specs/roadmap.canvas.tsx) for the dependency DAG.
 
 > **Note on M10 and sibling checkouts:** The Catalyst FHIR sidecar POC (M10) consumes OpenELIS Global 2 as a **sibling checkout** at `../OpenELIS-Global-2/` (or `$OPENELIS_ROOT`). OE2 is not a submodule of this harness. Catalyst Python services live in `targets/catalyst` (submodule pinned to `DIGI-UW/openelis-catalyst`). The Spec Kit Phase 2 workflow (`/speckit-specify` through `/speckit-tasks`) runs against the [source brief](specs/artifacts/planning/catalyst-fhir-sidecar-brief.md) to produce `specs/011-catalyst-fhir-sidecar-poc/`.
 

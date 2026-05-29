@@ -153,13 +153,13 @@ const features: Feature[] = [
       "Simulated paths cannot masquerade as production-path evidence.",
     ],
     needs: ["M0"],
-    unlocks: ["M4", "M5", "M6", "M8", "M9"],
+    unlocks: ["M4", "M5", "M6", "M8", "M9", "F005", "F009"],
   },
   {
     id: "M4",
     num: "M4",
     title: "OpenMRS retrieval evaluation",
-    slug: "005-openmrs-retrieval-eval",
+    slug: "010-openmrs-retrieval-eval",
     lane: "openmrs",
     purpose:
       "Run stage-aware retrieval checks over imported or clearly labelled fixture-backed OpenMRS data.",
@@ -180,7 +180,7 @@ const features: Feature[] = [
     id: "M5",
     num: "M5",
     title: "Answer, citation, and abstention evaluation",
-    slug: "006-answer-citation-abstention-eval",
+    slug: "012-answer-citation-abstention-eval",
     lane: "openmrs",
     purpose:
       "Evaluate model-dependent answers through a pinned OpenAI-compatible endpoint.",
@@ -201,7 +201,7 @@ const features: Feature[] = [
     id: "M6",
     num: "M6",
     title: "Safety and red-team evaluation",
-    slug: "007-safety-red-team-eval",
+    slug: "013-safety-red-team-eval",
     lane: "safety",
     purpose:
       "Expand prompt-injection and safety coverage beyond direct user prompts.",
@@ -221,7 +221,7 @@ const features: Feature[] = [
     id: "M7",
     num: "M7",
     title: "Clinician and expert governance review",
-    slug: "008-clinician-governance-review",
+    slug: "014-clinician-governance-review",
     lane: "safety",
     purpose:
       "Create the review and change-control process for validation baselines.",
@@ -242,7 +242,7 @@ const features: Feature[] = [
     id: "M8",
     num: "M8",
     title: "Querystore parity testbed",
-    slug: "009-querystore-parity-testbed",
+    slug: "015-querystore-parity-testbed",
     lane: "expansion",
     purpose:
       "Compare the current chartsearchai retrieval path with the future querystore-backed path using the same artifacts.",
@@ -262,7 +262,7 @@ const features: Feature[] = [
     id: "M9",
     num: "M9",
     title: "Cross-project validation expansion",
-    slug: "010-cross-project-validation-expansion",
+    slug: "016-cross-project-validation-expansion",
     lane: "expansion",
     purpose:
       "Apply the shared validation spine to openmrs_chatbot without inventing a separate harness.",
@@ -299,6 +299,72 @@ const features: Feature[] = [
     needs: ["M0", "M2", "M3"],
     unlocks: [],
   },
+  {
+    id: "F005",
+    num: "F005",
+    title: "med-agent-hub bridge",
+    slug: "005-med-agent-hub-bridge",
+    lane: "openmrs",
+    purpose:
+      "Integrate pmanko/med-agent-hub as a harness submodule serving chartsearchai over OpenAI-compat with an LLM-classifier router engaged on every request. chartsearchai code untouched; two global-property flips switch the backend.",
+    scope: [
+      "Submodule at targets/med-agent-hub/ on the harness-integration branch.",
+      "OpenAI-compat POST /v1/chat/completions and GET /v1/models on med-agent-hub.",
+      "Router engaged on every request; forwards full messages[] (system + chart-prefix + priors + current) to chosen subagent.",
+      "Containerized via single Docker image + honcho + stdout logs.",
+      "Reaches LM Studio via host.docker.internal:host-gateway; mirrors chartsearchai backend pattern.",
+    ],
+    evidence: [
+      "Three-turn referential chat against Zabella Halambe answers turn 2 referentially against turn 1's content, proving priors flow through router → subagent → LM Studio.",
+      "Per-turn latency captured for the bridge canvas (prefix-cache loss trade-off documented).",
+    ],
+    needs: ["M3"],
+    unlocks: ["F008"],
+  },
+  {
+    id: "F008",
+    num: "F008",
+    title: "Chartsearchai model gateway",
+    slug: "008-chartsearchai-model-gateway",
+    lane: "foundation",
+    purpose:
+      "New Python FastAPI service that sits between chartsearchai's RemoteLlmEngine and the real LLM providers. Generalizes the model picker to show classes of connections; normalizes per-provider /v1/models; holds provider credentials at the gateway boundary.",
+    scope: [
+      "OpenAI-compat ingress (chartsearchai sees one URL; preserves response_format / stream / top_k / messages[] verbatim).",
+      "Connection registry of providers grouped by class: local-runtime (LM Studio, Ollama, vLLM, llama.cpp), cloud-api (OpenAI, Anthropic, Gemini, Azure), agentic (med-agent-hub from F005).",
+      "Provider-specific quirks (Anthropic /v1/messages adapter; claude-opus-4-7 top_k=1; per-provider SSE translation) encoded in gateway, not in chartsearchai.",
+      "Picker UX generalized from flat /v1/models list to grouped/two-level view with class metadata.",
+      "Backwards compatible: chartsearchai pointing direct at LM Studio (M3 posture) or direct at med-agent-hub (F005 posture) keeps working.",
+    ],
+    evidence: [
+      "Wire-shape preservation verified by byte-identical chartsearchai parser output across providers.",
+      "Provider API keys never present in chartsearchai's runtime properties, OpenMRS DB, OpenMRS logs, or chartsearchai → gateway wire traffic.",
+    ],
+    needs: ["M3", "F005"],
+    unlocks: ["F009"],
+  },
+  {
+    id: "F009",
+    num: "F009",
+    title: "Clinical knowledge base",
+    slug: "009-clinical-knowledge-base",
+    lane: "foundation",
+    purpose:
+      "Dedicated host-agnostic Python service (REST + MCP) providing general clinical KB plus a DB-curated contextualized layer for lower-power local models. Orthogonal to chartsearchai's per-patient retrieval; stacks at the prompt.",
+    scope: [
+      "Hybrid sparse+dense retrieval (BM25 + RRF, cross-encoder rerank, section-aware chunking, explicit abstention) per MedRAG/MIRAGE methodology.",
+      "Openly-licensed reference corpus (WHO IMCI/EML/ANC, MSF, RxNorm essentials, immunization schedules).",
+      "Separable curation worker that reads deployment OpenMRS DB as aggregates only; LLM-assisted concept-set selection (CUICurate-inspired); YAML curation artifact for mandatory human review.",
+      "First consumer: chartsearchai's LlmProvider.search via one optional kbContext parameter.",
+      "Second consumer (once F008 lands): gateway-injected KB-augmented provider class.",
+    ],
+    evidence: [
+      "Citation/grounding eval: ≥10 pp accuracy lift over no-KB baseline at unchanged refusal-on-unanswerable rate, on a held-out MIRAGE-style subset.",
+      "Curation artifact PHI-free (asserted programmatically); review_status + human_reviewer captured per constitution principle II.",
+    ],
+    needs: ["M1", "M3"],
+    unlocks: [],
+  },
 ];
 
 const featureById = new Map(features.map((feature) => [feature.id, feature]));
@@ -308,8 +374,8 @@ const dependencyEdges: Array<{ from: string; to: string }> = features.flatMap((f
 );
 
 const laneFlows: Record<LaneId, string[]> = {
-  foundation: ["M0", "M2", "M3"],
-  openmrs: ["M1", "M4", "M5"],
+  foundation: ["M0", "M2", "M3", "F008", "F009"],
+  openmrs: ["M1", "F005", "M4", "M5"],
   safety: ["M6", "M7"],
   expansion: ["M8", "M9"],
   openelis: ["M10"],
@@ -330,6 +396,14 @@ const crossLaneEdges = [
   ["M7", "M9"],
   ["M2", "M10"],
   ["M3", "M10"],
+  ["M3", "F005"],
+  ["F005", "F008"],
+  ["F008", "M5"],
+  ["F008", "F009"],
+  ["M1", "F009"],
+  ["M3", "F009"],
+  ["F009", "M5"],
+  ["F009", "M6"],
 ] as const;
 
 const sequencingNotes: Array<[string, string]> = [
@@ -364,6 +438,22 @@ const sequencingNotes: Array<[string, string]> = [
   [
     "M10 is Catalyst-lane, not expansion",
     "The Catalyst FHIR sidecar POC runs in its own openelis lane. It needs M0 (harness foundation), M2 (metadata contract), and M3 (real adapter boundaries) — not full M4/M5/M6. Spec Kit drives Phase 2 (spec/plan/tasks); implementation lands in Phase 3.",
+  ],
+  [
+    "F005 (med-agent-hub bridge) unlocks the gateway slot",
+    "Once med-agent-hub serves as a single OpenAI-compat endpoint chartsearchai talks to, F008 (model gateway) generalizes that posture across many provider classes — local-runtime, cloud-api, agentic. Wait for F005 cloud smoke green before starting F008 implementation. F008 absorbs med-agent-hub as one provider class among many.",
+  ],
+  [
+    "F009 (clinical KB) does not block on F008",
+    "KB integrates directly with chartsearchai's LlmProvider.search via one optional kbContext parameter; gateway is a likely second consumer. F009 does block on a pre-spec planning brief that resolves hosting + contextualization decisions — see specs/artifacts/planning/clinical-kb-brief.md.",
+  ],
+  [
+    "M5/M6 evolve once F008 + F009 ship",
+    "Answer/citation eval (M5) and safety/red-team eval (M6) gain new measurement axes once the gateway exposes per-provider-class metadata and the KB exposes citation/abstention discipline. Reserve room in M5/M6 designs for KB-on/off variants.",
+  ],
+  [
+    "Slug numbering is non-monotonic by design",
+    "005's reservation of 006/007 (ESM pill, MCP tooling) plus the F008/F009 inserts shift M5–M9 to slugs 012–016, and M4 (retrieval eval) to 010. M10 stays pinned at 011 because external references are cemented. The Milestone IDs (M0–M10) remain the semantic ordering anchor — slugs are filesystem identifiers, not strict order.",
   ],
 ];
 
