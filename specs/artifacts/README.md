@@ -12,6 +12,8 @@ Durable planning and research artifacts that support the feature roadmap:
   - Deep-dive analysis of Duke DIHI Scout and implications for chartsearchai, openmrs_chatbot, and Catalyst.
 - `canvases/chartsearchai-and-querystore.canvas.tsx`
   - chartsearchai + querystore architecture (today's standalone vs tomorrow's querystore-backed), port map, upstream status, and harness M3 + M8 integration points.
+- `canvases/demo-data-profile.canvas.tsx`
+  - Profile of the loaded OpenMRS 2.8 demo corpus (5,284 patients): landscape metrics, richness/completeness assessment, content-verified phenotype cohorts, and curated data-rich validation patients. Measured live against schema `openmrs`.
 - `canvases/clinical-ai-research-guidance.canvas.tsx`
   - Research grounding, maturity framing, and evolution guidance.
 - `planning/data-remap-2.8.md`
