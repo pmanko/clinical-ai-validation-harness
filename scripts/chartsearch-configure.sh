@@ -55,17 +55,47 @@ set_property() {
   local name="$1"
   local value="$2"
   echo "  ${name} = ${value}"
-  curl -fsS -o /dev/null \
-    -u "${ADMIN_USER}:${ADMIN_PASS}" \
-    -H "Content-Type: application/json" \
-    -X POST "${BASE_URL}/ws/rest/v1/systemsetting/${name}" \
-    -d "{\"value\": \"${value}\"}"
+  # Update the existing (registered) setting. If it has no row yet — e.g.
+  # querystore.backend, which the module reads with a code default instead of
+  # registering a global property — fall back to creating it via the collection
+  # endpoint.
+  if ! curl -fsS -o /dev/null \
+      -u "${ADMIN_USER}:${ADMIN_PASS}" \
+      -H "Content-Type: application/json" \
+      -X POST "${BASE_URL}/ws/rest/v1/systemsetting/${name}" \
+      -d "{\"value\": \"${value}\"}" 2>/dev/null; then
+    curl -fsS -o /dev/null \
+      -u "${ADMIN_USER}:${ADMIN_PASS}" \
+      -H "Content-Type: application/json" \
+      -X POST "${BASE_URL}/ws/rest/v1/systemsetting" \
+      -d "{\"property\": \"${name}\", \"value\": \"${value}\"}"
+  fi
 }
 
 echo "Configuring chartsearchai LLM globals at ${BASE_URL}:"
 set_property "chartsearchai.llm.engine"             "${ENGINE}"
 set_property "chartsearchai.llm.remote.endpointUrl" "${ENDPOINT}"
 set_property "chartsearchai.llm.remote.modelName"   "${MODEL}"
+
+# Querystore (CQRS read-store) retrieval. On by default; set
+# CHARTSEARCH_QUERYSTORE_ENABLED=false to fall back to chartsearchai's in-process
+# retrieval. The embedding model + vocab are the files backend-init.sh downloads
+# into /openmrs/data/chartsearchai (paths relative to the app data dir); both are
+# read per-query, so setting them here (post-startup, after the backend is
+# healthy) takes effect on the next search with no restart.
+#
+# querystore.backend is intentionally NOT set here: QueryStoreActivator wires the
+# store once at module startup, so a post-startup change wouldn't take effect
+# without a restart. The single-step path therefore uses the module default
+# (mysql, wired at startup); it serves identically to lucene.
+QUERYSTORE_ENABLED="${CHARTSEARCH_QUERYSTORE_ENABLED:-true}"
+echo ""
+echo "Configuring querystore (enabled=${QUERYSTORE_ENABLED}):"
+set_property "chartsearchai.querystore.enabled"     "${QUERYSTORE_ENABLED}"
+if [ "${QUERYSTORE_ENABLED}" = "true" ]; then
+  set_property "querystore.embedding.modelFilePath" "chartsearchai/model.onnx"
+  set_property "querystore.embedding.vocabFilePath" "chartsearchai/vocab.txt"
+fi
 
 echo ""
 echo "Module status:"
