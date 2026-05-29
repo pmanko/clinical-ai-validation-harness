@@ -2,7 +2,7 @@ import { test, expect, type Page, type APIRequestContext } from '@playwright/tes
 
 const ADMIN_USER = process.env.E2E_USER ?? 'admin';
 const ADMIN_PASSWORD = process.env.E2E_PASSWORD ?? 'Admin123';
-const PATIENT_UUID = process.env.E2E_PATIENT_UUID ?? 'dd553355-1691-11df-97a5-7038c432aabf';
+const PATIENT_UUID = process.env.E2E_PATIENT_UUID ?? 'dd75c020-1691-11df-97a5-7038c432aabf';
 const MEDS_QUESTION = 'List the medications this patient is on.';
 
 async function resetChatSession(request: APIRequestContext): Promise<void> {
