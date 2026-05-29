@@ -27,9 +27,22 @@ if [ -f .env.chartsearch ]; then
   set +a
 fi
 
-BASE_URL="${CHARTSEARCH_BASE_URL:-http://localhost:${HARNESS_PROXY_HTTP_PORT:-8088}/openmrs}"
+# CHARTSEARCH_EXEC: run every REST call inside a container (the backend) via
+# `docker exec`, hitting localhost:8080 directly. On the cloud the host can only
+# reach the backend through Caddy, which serves the public domain on :80 and
+# redirects to HTTPS — host-side curls get 308/reset. Running inside the backend
+# container (localhost:8080) is the reliable path. Empty = plain host curl (local).
+EXEC="${CHARTSEARCH_EXEC:-}"
+if [ -n "${EXEC}" ]; then
+  BASE_URL="${CHARTSEARCH_BASE_URL:-http://localhost:8080/openmrs}"
+else
+  BASE_URL="${CHARTSEARCH_BASE_URL:-http://localhost:${HARNESS_PROXY_HTTP_PORT:-8088}/openmrs}"
+fi
 ADMIN_USER="${CHARTSEARCH_ADMIN_USER:-admin}"
 ADMIN_PASS="${CHARTSEARCH_ADMIN_PASSWORD:-Admin123}"
+
+# curl wrapper: runs inside CHARTSEARCH_EXEC's container when set, else on the host.
+rc() { if [ -n "${EXEC}" ]; then docker exec "${EXEC}" curl "$@"; else curl "$@"; fi; }
 
 ENGINE="${CHARTSEARCH_LLM_ENGINE:-remote}"
 ENDPOINT="${CHARTSEARCH_REMOTE_ENDPOINT_URL:?must be set in .env.chartsearch}"
@@ -40,7 +53,7 @@ MODEL="${CHARTSEARCH_REMOTE_MODEL_NAME:-}"
 if [ -z "${MODEL}" ]; then
   MODELS_URL="${ENDPOINT%/chat/completions}/models"
   echo "Auto-discovering model from ${MODELS_URL}..."
-  MODEL=$(curl -fsS "${MODELS_URL}" 2>/dev/null \
+  MODEL=$(rc -fsS "${MODELS_URL}" 2>/dev/null \
     | python3 -c "import sys,json; d=json.load(sys.stdin); ms=d.get('data',[]); print(ms[0]['id']) if ms else sys.exit('no models loaded — load one in LM Studio first')" \
     || true)
   if [ -z "${MODEL}" ]; then
@@ -59,12 +72,12 @@ set_property() {
   # querystore.backend, which the module reads with a code default instead of
   # registering a global property — fall back to creating it via the collection
   # endpoint.
-  if ! curl -fsS -o /dev/null \
+  if ! rc -fsS -o /dev/null \
       -u "${ADMIN_USER}:${ADMIN_PASS}" \
       -H "Content-Type: application/json" \
       -X POST "${BASE_URL}/ws/rest/v1/systemsetting/${name}" \
       -d "{\"value\": \"${value}\"}" 2>/dev/null; then
-    curl -fsS -o /dev/null \
+    rc -fsS -o /dev/null \
       -u "${ADMIN_USER}:${ADMIN_PASS}" \
       -H "Content-Type: application/json" \
       -X POST "${BASE_URL}/ws/rest/v1/systemsetting" \
@@ -99,6 +112,10 @@ fi
 
 echo ""
 echo "Module status:"
-curl -fsS -u "${ADMIN_USER}:${ADMIN_PASS}" \
-  "${BASE_URL}/ws/rest/v1/module/chartsearchai?v=custom:(uuid,started,version)" \
-  | python3 -c "import sys,json; d=json.load(sys.stdin); print(f\"  chartsearchai {d.get('version','?')} started={d.get('started')}\")"
+# Informational only — the GPs above are already set. Don't let a transient
+# status-read (or the custom-rep parse) fail the whole configure/deploy.
+if ! rc -fsS -u "${ADMIN_USER}:${ADMIN_PASS}" \
+     "${BASE_URL}/ws/rest/v1/module/chartsearchai?v=custom:(uuid,started,version)" 2>/dev/null \
+     | python3 -c "import sys,json; d=json.load(sys.stdin); print(f\"  chartsearchai {d.get('version','?')} started={d.get('started')}\")" 2>/dev/null; then
+  echo "  (module status unavailable right now — GPs above are set regardless)"
+fi

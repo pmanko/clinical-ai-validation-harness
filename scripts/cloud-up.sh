@@ -56,7 +56,33 @@ set -a
 . ./.env.chartsearch.cloud
 set +a
 
-docker compose -f compose/openmrs-2.8-refapp.yml up -d --force-recreate \
+# Querystore storage backend (mysql|lucene|elasticsearch). Default elasticsearch:
+# the harness exists to validate the real CQRS read store — a separate service,
+# off the clinical DB. querystore.backend is wired at module startup, so pre-set
+# it here (works when the schema already exists, i.e. re-deploys → no extra
+# boot); on a fresh DB the schema isn't created until the backend boots, so we
+# set it post-boot + restart once (below).
+QUERYSTORE_BACKEND="${CHARTSEARCH_QUERYSTORE_BACKEND:-elasticsearch}"
+
+if [ "${QUERYSTORE_BACKEND}" = "elasticsearch" ]; then
+  echo "==> starting elasticsearch (querystore read store) + waiting healthy"
+  docker compose -f compose/openmrs-2.8-refapp.yml --profile elasticsearch up -d elasticsearch
+  for i in $(seq 1 72); do
+    es=$(docker inspect -f '{{.State.Health.Status}}' harness-querystore-es 2>/dev/null || echo none)
+    [ "${es}" = healthy ] && { echo "    ES healthy after $((i*5))s"; break; }
+    sleep 5
+  done
+fi
+
+backend_preset=0
+if docker exec harness-openmrs-db mariadb -u"${OMRS_DB_USER:-openmrs}" -p"${OMRS_DB_PASSWORD:-openmrs}" "${OMRS_DB_NAME:-openmrs}" \
+     -e "INSERT INTO global_property (property,property_value,uuid) VALUES ('querystore.backend','${QUERYSTORE_BACKEND}',UUID()) ON DUPLICATE KEY UPDATE property_value='${QUERYSTORE_BACKEND}'" 2>/dev/null; then
+  backend_preset=1
+  echo "==> querystore.backend pre-set to ${QUERYSTORE_BACKEND}"
+fi
+
+# --build so Dockerfile / backend-init.sh changes are picked up on the VM.
+docker compose -f compose/openmrs-2.8-refapp.yml up -d --build --force-recreate \
   proxy gateway frontend backend db
 
 echo "==> waiting for backend healthy (Liquibase + module init; up to 10 min cold)"
@@ -79,8 +105,36 @@ if [ "${observed_healthy}" != "1" ]; then
   exit 1
 fi
 
-echo "==> chartsearch-configure (LLM globals via REST against localhost on VM)"
-HARNESS_PROXY_HTTP_PORT="${HTTP_PORT}" ./scripts/chartsearch-configure.sh
+# The Docker healthcheck only probes Tomcat's root, which answers before the REST
+# API (modules + webservices.rest) finishes initializing — so configure's POSTs
+# would hit a connection reset (curl 56). Wait for the systemsetting endpoint to
+# actually answer (from inside the backend container) before configuring.
+echo "==> waiting for REST API to answer"
+for i in $(seq 1 80); do
+  if docker exec harness-openmrs-backend curl -fsS -o /dev/null -m 5 \
+       -u admin:Admin123 "http://localhost:8080/openmrs/ws/rest/v1/systemsetting?limit=1" 2>/dev/null; then
+    echo "    REST ready after $((i*3))s"; break
+  fi
+  sleep 3
+done
+
+echo "==> chartsearch-configure (LLM + querystore globals — REST via docker exec into the backend)"
+CHARTSEARCH_EXEC=harness-openmrs-backend ./scripts/chartsearch-configure.sh
+
+# Fresh-DB path: the schema didn't exist when we tried to pre-set querystore.backend,
+# so the backend booted on the default store. Set it now and restart once to wire
+# the selected backend. (Re-deploys hit the pre-set path above and skip this.)
+if [ "${backend_preset}" != "1" ]; then
+  echo "==> setting querystore.backend=${QUERYSTORE_BACKEND} + restarting backend to wire it"
+  docker exec harness-openmrs-db mariadb -u"${OMRS_DB_USER:-openmrs}" -p"${OMRS_DB_PASSWORD:-openmrs}" "${OMRS_DB_NAME:-openmrs}" \
+    -e "INSERT INTO global_property (property,property_value,uuid) VALUES ('querystore.backend','${QUERYSTORE_BACKEND}',UUID()) ON DUPLICATE KEY UPDATE property_value='${QUERYSTORE_BACKEND}'"
+  docker compose -f compose/openmrs-2.8-refapp.yml restart backend
+  for i in $(seq 1 120); do
+    s=$(docker inspect -f '{{.State.Health.Status}}' harness-openmrs-backend 2>/dev/null || echo starting)
+    [ "${s}" = "healthy" ] && { echo "    backend healthy on ${QUERYSTORE_BACKEND} after $((i*5))s"; break; }
+    sleep 5
+  done
+fi
 REMOTE
 
 IP="$(gcp_vm_ip)"
