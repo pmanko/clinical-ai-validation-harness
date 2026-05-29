@@ -18,6 +18,20 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # shellcheck disable=SC1091
 . "${ROOT}/scripts/cloud-lib.sh"
 
+# Source the cloud env file so MYSQL_ROOT_PASSWORD / OMRS_DB_PASSWORD on
+# the target VM match what compose set there. Defaults to "openmrs" only
+# when neither the cloud env file nor the calling shell defines them —
+# matching compose/openmrs-2.8-refapp.yml:170.
+if [ -f "${ROOT}/.env.chartsearch.cloud" ]; then
+  set -a
+  # shellcheck disable=SC1091
+  . "${ROOT}/.env.chartsearch.cloud"
+  set +a
+fi
+CLOUD_DB_ROOT_PW="${MYSQL_ROOT_PASSWORD:-openmrs}"
+CLOUD_DB_USER_PW="${OMRS_DB_PASSWORD:-openmrs}"
+CLOUD_DB_USER="${OMRS_DB_USER:-openmrs}"
+
 SOURCE_DB="${SEED_SOURCE_DB:-openmrs_test}"
 TARGET_DB="${SEED_TARGET_DB:-openmrs}"
 DUMP_LOCAL="${ROOT}/artifacts/cloud-seed/${SOURCE_DB}.sql.gz"
@@ -45,18 +59,20 @@ rsync -avz --progress \
 echo "==> restoring into ${TARGET_DB} on VM"
 # DROP/CREATE/GRANT use root (the openmrs user only has DML privs on whatever
 # DB MariaDB initially created from MYSQL_DATABASE; DDL needs root).
-gcp_ssh "docker exec -i harness-openmrs-db mysql -u root -popenmrs -e \"
+# Password parameterized — defaults to "openmrs" only when nothing else set;
+# honors operator overrides in .env.chartsearch.cloud.
+gcp_ssh "docker exec -i harness-openmrs-db mysql -u root -p'${CLOUD_DB_ROOT_PW}' -e \"
   DROP DATABASE IF EXISTS ${TARGET_DB};
   CREATE DATABASE ${TARGET_DB};
-  GRANT ALL PRIVILEGES ON ${TARGET_DB}.* TO 'openmrs'@'%';
+  GRANT ALL PRIVILEGES ON ${TARGET_DB}.* TO '${CLOUD_DB_USER}'@'%';
   FLUSH PRIVILEGES;
 \""
 
 echo "    loading $(du -h "${DUMP_LOCAL}" | cut -f1) of SQL via gunzip → mysql..."
-gcp_ssh "cd ${GCP_REMOTE_REPO} && gunzip -c artifacts/cloud-seed/${SOURCE_DB}.sql.gz | docker exec -i harness-openmrs-db mysql -u root -popenmrs ${TARGET_DB}"
+gcp_ssh "cd ${GCP_REMOTE_REPO} && gunzip -c artifacts/cloud-seed/${SOURCE_DB}.sql.gz | docker exec -i harness-openmrs-db mysql -u root -p'${CLOUD_DB_ROOT_PW}' ${TARGET_DB}"
 
 echo "    row counts (sample):"
-gcp_ssh "docker exec harness-openmrs-db mysql -u openmrs -popenmrs ${TARGET_DB} -e \"
+gcp_ssh "docker exec harness-openmrs-db mysql -u ${CLOUD_DB_USER} -p'${CLOUD_DB_USER_PW}' ${TARGET_DB} -e \"
   SELECT 'patient' AS tbl, COUNT(*) AS rows_ct FROM patient
   UNION ALL SELECT 'encounter', COUNT(*) FROM encounter
   UNION ALL SELECT 'obs', COUNT(*) FROM obs;
