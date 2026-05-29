@@ -9,7 +9,7 @@ export UV_PROJECT_ENVIRONMENT
         reset-transform sqlmesh-status \
         loadtest-up loadtest-down \
         load-test orphan-fk-check import-smoke dump-loaded \
-        chartsearch-build chartsearch-configure chartsearch-doctor chartsearch-warmup chartsearch-up \
+        chartsearch-build chartsearch-configure chartsearch-backend chartsearch-doctor chartsearch-warmup chartsearch-up \
         chartsearch-esm-build chartsearch-esm-dev cloud-deploy-esm \
         cloud-init cloud-sync cloud-up cloud-down cloud-reset cloud-deploy cloud-seed \
         cloud-start cloud-stop cloud-ssh cloud-logs cloud-status cloud-destroy
@@ -159,6 +159,35 @@ cloud-deploy-esm:
 # OMRS_EXTRA_CHARTSEARCHAI_LLM_REMOTE_APIKEY, not via REST.
 chartsearch-configure:
 	@./scripts/chartsearch-configure.sh
+
+# Switch querystore's storage backend and re-test it. The backend is wired at
+# module startup (QueryStoreActivator), so this sets the querystore.backend GP,
+# brings up Elasticsearch when selected, recreates the backend, and re-runs
+# configure. The harness is a validation tool — flip tiers to compare/troubleshoot
+# retrieval. Usage: make chartsearch-backend BACKEND=elasticsearch  (or lucene|mysql)
+chartsearch-backend:
+	@if [ -z "$(BACKEND)" ]; then echo "usage: make chartsearch-backend BACKEND=mysql|lucene|elasticsearch"; exit 1; fi
+	@case "$(BACKEND)" in mysql|lucene|elasticsearch) ;; *) echo "BACKEND must be mysql|lucene|elasticsearch (got: $(BACKEND))"; exit 1;; esac
+	@echo "==> querystore.backend -> $(BACKEND)"
+	@set -a; [ -f .env.chartsearch ] && . ./.env.chartsearch; set +a; \
+	  docker exec harness-openmrs-db mariadb -u"$${OMRS_DB_USER:-openmrs}" -p"$${OMRS_DB_PASSWORD:-openmrs}" "$${OMRS_DB_NAME:-openmrs}" \
+	    -e "INSERT INTO global_property (property,property_value,uuid) VALUES ('querystore.backend','$(BACKEND)',UUID()) ON DUPLICATE KEY UPDATE property_value='$(BACKEND)'"
+	@if [ "$(BACKEND)" = "elasticsearch" ]; then \
+	  echo "==> starting elasticsearch service (profile)"; \
+	  docker compose -f compose/openmrs-2.8-refapp.yml --profile elasticsearch up -d elasticsearch; \
+	fi
+	@echo "==> recreating backend (re-wires querystore at startup)"
+	@set -a; [ -f .env.chartsearch ] && . ./.env.chartsearch; set +a; \
+	  docker compose -f compose/openmrs-2.8-refapp.yml up -d --force-recreate backend
+	@observed=0; for i in $$(seq 1 60); do \
+	  s=$$(docker inspect -f '{{.State.Health.Status}}' harness-openmrs-backend 2>/dev/null || echo starting); \
+	  if [ "$$s" = "healthy" ]; then echo "    healthy after $$((i*5))s on $(BACKEND)"; observed=1; break; fi; \
+	  sleep 5; \
+	done; \
+	if [ "$$observed" != "1" ]; then echo "ERROR: backend not healthy after 5 min" >&2; exit 1; fi
+	@echo "==> chartsearch-configure (querystore embedding GPs + LLM globals)"
+	@$(MAKE) chartsearch-configure
+	@echo "==> querystore now on $(BACKEND); open a patient / run a search to (re)index into it"
 
 # Pre-load LM Studio models with the configured context length and write
 # persistent per-model defaults. Prevents JIT-reload-with-default-context
