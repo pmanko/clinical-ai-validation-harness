@@ -137,6 +137,11 @@ services:
       # `chartsearchai.llm.remote.apikey=<value>` in runtime properties at boot.
       # Empty default keeps base RefApp behavior unchanged when CHARTSEARCH_REMOTE_API_KEY is unset.
       OMRS_EXTRA_CHARTSEARCHAI_LLM_REMOTE_APIKEY: ${CHARTSEARCH_REMOTE_API_KEY:-}
+      # querystore's Elasticsearch backend reads its endpoint from a runtime
+      # property (not a DB global), wired via OMRS_EXTRA_*. Points at the
+      # `elasticsearch` service; only consulted when querystore.backend=elasticsearch,
+      # harmless otherwise. Start ES with: docker compose --profile elasticsearch up -d
+      OMRS_EXTRA_QUERYSTORE_ELASTICSEARCH_URI: ${QUERYSTORE_ELASTICSEARCH_URI:-http://elasticsearch:9200}
     extra_hosts:
       # Linux: docker doesn't resolve host.docker.internal automatically; this maps
       # it to the host gateway so the chartsearchai backend can reach LM Studio
@@ -182,8 +187,35 @@ services:
     volumes:
       - db-data:/var/lib/mysql
 
+  elasticsearch:
+    # querystore's "large"/production tier — the real CQRS read store, running as
+    # a SEPARATE service from core's MariaDB (clinical OLTP), which is the whole
+    # point of CQRS: get the read store off the transactional clinical DB. Matches
+    # querystore's elasticsearch-java 8.13.4 client. Opt-in via the `elasticsearch`
+    # compose profile so mysql/lucene runs don't pay its ~1GB. Single-node,
+    # security disabled — dev/validation harness only, never a public deployment.
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.13.4
+    container_name: harness-querystore-es
+    profiles: ["elasticsearch"]
+    restart: "unless-stopped"
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:9200/_cluster/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 24
+      start_period: 60s
+    ports:
+      - "${QUERYSTORE_ES_PORT:-9200}:9200"
+    volumes:
+      - es-data:/usr/share/elasticsearch/data
+
 volumes:
   openmrs-data:
   db-data:
+  es-data:
   caddy-data:
   caddy-config:
