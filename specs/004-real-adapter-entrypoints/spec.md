@@ -1,7 +1,7 @@
 # Feature 004: Real Adapter Entrypoints — chartsearchai PoC
 
 **Roadmap slot**: M3 (`004-real-adapter-entrypoints`) per `specs/roadmap.canvas.tsx`
-**Scope of this PR**: chartsearchai adapter only — proof of concept against `openmrs_test` from feature 002
+**Scope of this PR**: chartsearchai adapter only — proof of concept against the feature-002 corpus (now promoted to `openmrs`; see 2026-05-29 update)
 **Status**: in progress | **Started**: 2026-05-16
 
 ## Goal
@@ -42,7 +42,7 @@ This is M3 scoped to the chartsearchai adapter. The other M3 adapter targets (qu
 | Condition count | 0 |
 | Allergy count | 0 |
 
-Richest chart in `openmrs_test`. Anchors the smoke on a known-populated medication history (39 orders).
+Richest chart in `openmrs`. Anchors the smoke on a known-populated medication history (39 orders).
 
 **Smoke question**: *"What medications is this patient on?"*
 
@@ -62,7 +62,7 @@ NOT asserted: specific drug names. Brittle vs LLM phrasing; smoke is about wirin
 ## Non-functional notes
 
 - **`:nightly-chartsearch` floats**: published image rebuilt nightly from upstream main. Acceptable for PoC; pin to digest in v2.
-- **Backend stays at `:3.6.0`**: stock Amazon Linux 2 base hosts the chartsearchai `.omod` fine in remote-engine mode (the bundled `llama-server` is never invoked, so the glibc-2.39+ requirement is moot).
+- **Backend image**: the original PoC ran on stock `:3.6.0` (Amazon Linux 2), valid while remote-engine mode never invoked the bundled `llama-server`. The harness now rebases that dist onto temurin (`compose/Dockerfile.backend`) — required once querystore was enabled, because its onnxruntime embedder needs glibc ≥ 2.27 and AL2 ships 2.26. See the 2026-05-29 update.
 - **LM Studio**: default endpoint URL in `.env.chartsearch.example` is `http://host.docker.internal:1234/v1/chat/completions`. Anthropic/OpenAI shown as commented alternatives.
 
 ---
@@ -160,3 +160,15 @@ Chat sessions don't pick up new lab results mid-session — the chart snapshot i
 - Real tokenizer (jtokkit / llama-server `/tokenize`) — POC keeps `chars/4`
 - Vercel `consumeStream` pattern for mid-stream disconnect — POC keeps status quo
 - Picker for live model-switch (scoped in `model-picker-scoping.md`)
+
+---
+
+# Update — querystore enabled + backend rebased (2026-05-29)
+
+The PoC above deliberately ran chartsearchai standalone (`querystore.enabled=false`) on the stock Amazon Linux 2 backend. That posture has changed; this update governs where it conflicts with the original text — specifically **FR-004.4**'s querystore deferral, the **"5 critical runtime bugs"** framing (FR-004.4, out-of-scope list), and the original "glibc is moot" note.
+
+- **DB schema**: `openmrs` is canonical — the full 5,284-patient corpus (feature 002's transform, promoted). The iteration/staging schemas (`openmrs_test`, `openmrs_*_dlt`, `*_staging`) are dropped; the backend connects to `openmrs` only.
+- **querystore: ON and serving.** `chartsearchai.querystore.enabled=true`. The earlier "5 critical runtime bugs block any backend tier from starting" assessment was stale (fixed/unreproducible upstream). querystore starts clean, lazily indexes a patient on first access (`BootstrapService.ensureIndexed`), and serves kNN-retrieved charts — verified end-to-end against Zabella (real medications + 15 citations from a populated `querystore_drug_order` Lucene index).
+- **Backend rebased to temurin.** querystore bundles onnxruntime 1.24.3, whose native lib needs glibc ≥ 2.27; the RefApp backend is Amazon Linux 2 (glibc 2.26), so the embedder died at load with `GLIBC_2.27 not found`. `compose/Dockerfile.backend` copies the stock `:3.6.0` dist onto `eclipse-temurin:21-jre` (glibc 2.39) and bakes **no** module, so the bind-mounted omods stay authoritative. Same rebase chartsearchai's own `Dockerfile.backend` uses; the "glibc is moot" note held only while querystore was off.
+- **Chat LLM remote; embedded LLM off.** `chartsearchai.llm.engine=remote` (LM Studio). The bundled local engine stays off in local and cloud; its GP toggle is sufficient and the model picker stays at **F008 Phase 0** (no gating work) — consistent with the roadmap's "wait for F005 cloud-smoke green before F008 implementation."
+- **Applies to local + cloud** (`openclinai.org`): the target running state is identical in both.

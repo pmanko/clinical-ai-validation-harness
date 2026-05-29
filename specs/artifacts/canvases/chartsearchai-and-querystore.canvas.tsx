@@ -21,13 +21,22 @@ import {
 // Measurements pulled 2026-05-16 from upstream chartsearchai + querystore
 // GitHub repos. See specs/004-real-adapter-entrypoints/plan.md "Querystore
 // situation (measured 2026-05-16)" for the source-of-truth audit.
+//
+// UPDATE 2026-05-29: querystore is now deployed, enabled, and serving — it
+// starts clean and serves kNN charts once the backend runs the temurin rebase
+// (compose/Dockerfile.backend; its onnxruntime needs glibc >= 2.27, which the
+// stock Amazon Linux 2 backend lacked). The "5 critical runtime bugs",
+// "standalone-only today", "querystore.enabled=off", and "backend stays on
+// stock :3.6.0" framing below is SUPERSEDED where it conflicts. The corpus
+// also moved to the canonical `openmrs` schema (openmrs_test + *_dlt dropped).
+// See spec.md's 2026-05-29 update.
 
 const heroStats = [
   { value: '12', label: 'chartsearchai merged PRs (since 2026-03-10)', tone: 'info' as const },
   { value: '1', label: 'querystore merged PRs (scaffold only)', tone: 'warning' as const },
-  { value: '5', label: 'querystore open critical runtime bugs', tone: 'warning' as const },
+  { value: 'serving', label: 'querystore status — enabled + indexing (2026-05-29)', tone: 'success' as const },
   { value: '4', label: 'open ADR migration questions', tone: 'warning' as const },
-  { value: 'off', label: 'chartsearchai.querystore.enabled default', tone: 'info' as const },
+  { value: 'on', label: 'chartsearchai.querystore.enabled (this harness)', tone: 'success' as const },
 ];
 
 // Phase 2 (added 2026-05-18) — multi-turn chat history. The 13 design

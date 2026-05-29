@@ -21,7 +21,7 @@ If we later wanted to build the `.omod` inside Docker (e.g., for reproducible CI
 
 `chartsearchai.llm.engine=remote` is the only mode wired in the PoC. Default endpoint in `.env.chartsearch.example` is LM Studio at `http://host.docker.internal:1234/v1/chat/completions`. The bundled `llama-server` (local engine) is never invoked, sidestepping its glibc/libgomp OS coupling.
 
-*Aside*: chartsearchai's bundled local engine has an OS coupling (needs glibc 2.39+ via libgomp) that the upstream Dockerfile.backend "fixes" by rebasing to Ubuntu. The actual fix should be static-linking libgomp or dropping OpenMP. Out of scope for our PoC; file upstream issue if we ever need the local engine.
+*Aside (updated 2026-05-29)*: the local engine's OS coupling (glibc 2.39+ via libgomp) is the same class of issue as querystore's onnxruntime (needs glibc ≥ 2.27). Enabling querystore forced a backend rebase anyway, so the harness now ships `compose/Dockerfile.backend` (stock `:3.6.0` dist → temurin) — the same rebase the upstream Dockerfile.backend uses. The remote chat engine still doesn't need it; querystore does. Static-linking libgomp upstream remains the cleaner long-term fix, not pursued here. See spec.md's 2026-05-29 update.
 
 ### D4 — Frontend + gateway: swap published image tag; backend stays at 3.6.0
 
@@ -49,8 +49,7 @@ The other 3 LLM properties (`engine`, `remote.endpointUrl`, `remote.modelName`) 
 
 **Implication for this PoC**:
 - **Build**: chartsearchai requires querystore-api on the local Maven classpath. The harness's `make chartsearch-build` target installs `querystore-api:1.0.0-SNAPSHOT` from our `targets/querystore/` submodule first, then builds chartsearchai.
-- **Runtime**: querystore is NOT deployed in the running stack. Only chartsearchai's `.omod` is installed. `chartsearchai.querystore.enabled` stays at its default (false). chartsearchai uses its in-process retrieval, the same way it always has.
-- Future M8 (`009-querystore-parity-testbed`): we'd flip `chartsearchai.querystore.enabled=true` and deploy the querystore .omod. That requires querystore to reach alpha-usable state (5 critical runtime bugs blocking).
+- **Runtime** *(superseded 2026-05-29 — see spec.md update)*: querystore is now deployed and enabled. The querystore `.omod` is bind-mounted alongside chartsearchai's and `chartsearchai.querystore.enabled=true`. The "5 critical runtime bugs" blocker was stale — querystore starts clean and serves kNN-retrieved charts once the backend runs the temurin rebase (`compose/Dockerfile.backend`), required because its onnxruntime embedder needs glibc ≥ 2.27 and stock AL2 ships 2.26. Verified end-to-end against Zabella (real meds + citations from a populated `querystore_drug_order` Lucene index).
 
 ## Querystore situation (measured 2026-05-16)
 
