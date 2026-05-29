@@ -30,6 +30,8 @@ Durable planning and research artifacts that support the feature roadmap:
   - Methodology survey + host evaluation matrix + recommendation for feature 009 (clinical knowledge base, F009). 15 cited sources covering MedRAG, MedAbstain, CUICurate, MedGraphRAG and related; DB-curated contextualization methodology sketch with sample prompt + YAML schema.
 - `planning/clinical-kb-brief.md`
   - Source brief that feeds `/speckit-specify` for feature 009. Dedicated host-agnostic clinical-kb Python service (REST + MCP) with separable curation worker; orthogonal to chartsearchai's per-patient retrieval.
+- `planning/lm-studio-api-reference.md`
+  - Operating reference for LM Studio's three concurrent API surfaces on port 1234 (OpenAI-compat /v1/*, LM Studio REST v1 /api/v1/*, Anthropic-compat /v1/messages). Documents per-endpoint shape, load-state semantics, harness config decisions. Cited by feature 004 and F008.
 - `handoffs/session-handoff-2026-05-12.md`
   - Historical project setup and planning handoff snapshot.
 
