@@ -96,16 +96,25 @@ services:
         condition: service_healthy
 
   backend:
-    # Backend tag is independent of frontend/gateway so the chartsearchai PoC
-    # (feature 004) can run frontend+gateway on `:nightly-chartsearch` (to get
-    # the ESM UI) while keeping the backend on the stable `:3.6.0` line — this
-    # matters because the chartsearch-flavored backend image bakes its own
-    # chartsearchai .omod into /openmrs/distribution/openmrs_modules/, and
-    # OpenMRS startup.sh wipes /openmrs/data/modules/ then copies the
-    # distribution modules in — which would overwrite the .omod we built
-    # locally from `targets/chartsearchai/`. A non-chartsearch backend image
-    # has no baked .omod to clobber our submodule build.
-    image: openmrs/openmrs-reference-application-3-backend:${OPENMRS_BACKEND_TAG:-3.6.0}
+    # Backend tag is independent of frontend/gateway so frontend+gateway can run
+    # on `:nightly-chartsearch` (for the ESM UI) while the backend stays on the
+    # stable `:3.6.0` app line. We do NOT use the `:nightly-chartsearch` backend
+    # image: it bakes its own chartsearchai .omod into
+    # /openmrs/distribution/openmrs_modules/, and OpenMRS startup copies
+    # distribution modules over /openmrs/data/modules — clobbering the .omod we
+    # build locally from `targets/chartsearchai/` (which carries our multi-turn
+    # work). So we build our OWN backend image: Dockerfile.backend rebases the
+    # stock `:3.6.0` dist off Amazon Linux 2 (glibc 2.26) onto Ubuntu/temurin
+    # (glibc 2.39) so querystore's onnxruntime embedder and chartsearchai's
+    # bundled llama-server native libs load — but bakes NO module, so the
+    # bind-mounted omods below (chartsearchai + querystore) are the only ones,
+    # with no clobber. Only the base OS changes; the OpenMRS app stays at 3.6.0.
+    image: harness-openmrs-backend:${OPENMRS_BACKEND_TAG:-3.6.0}-temurin
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+      args:
+        OPENMRS_BACKEND_TAG: ${OPENMRS_BACKEND_TAG:-3.6.0}
     container_name: harness-openmrs-backend
     restart: "unless-stopped"
     depends_on:

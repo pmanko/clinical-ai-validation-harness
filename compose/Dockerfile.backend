@@ -1,0 +1,50 @@
+# Harness backend image: the stock OpenMRS RefApp backend, rebased off
+# Amazon Linux 2 (glibc 2.26) onto Ubuntu/temurin (glibc 2.39).
+#
+# Why: querystore's onnxruntime embedder and chartsearchai's bundled
+# llama-server ship native binaries with a hard glibc floor (onnxruntime
+# needs >= 2.27, llama-server >= 2.39). The official RefApp backend is built
+# on Amazon Linux 2 (glibc 2.26), so those libs fail to load — the embedder
+# dies with `libonnxruntime.so: ... version GLIBC_2.27 not found`, which leaves
+# querystore unable to index and search to fall back to "no results". OpenMRS
+# core is pure-JVM and never cared about host glibc, so the base was never
+# modernized; the AI modules are the first components to link native code.
+#
+# The upstream chartsearchai team hit the same wall and fixed it the same way
+# in their own Dockerfile.backend. This mirrors that rebase but bakes NO
+# module: the harness bind-mounts its locally-built omods at
+# /openmrs/data/modules, and a baked omod would be clobbered when OpenMRS
+# startup copies distribution modules over it. Only the base OS changes — the
+# OpenMRS dist, Tomcat, startup scripts, and entrypoint are copied verbatim
+# from the stock image and run unchanged.
+ARG OPENMRS_BACKEND_TAG=3.6.0
+FROM openmrs/openmrs-reference-application-3-backend:${OPENMRS_BACKEND_TAG} AS dist
+
+FROM eclipse-temurin:21-jre
+
+# curl: compose healthcheck + startup.sh. tini: stock entrypoint (PID 1 reaper).
+# libgomp1: OpenMP runtime onnxruntime links against, not pulled in by the JRE.
+# awk/grep/sed, used by the startup scripts, are Ubuntu essentials already in
+# the temurin base (the mysql/nc calls in those scripts are unused paths — the
+# stock image lacks those binaries too and boots fine via Liquibase + bash
+# /dev/tcp).
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        curl tini libgomp1 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Match the stock image's runtime user (uid 1001) so the bind-mounted
+# /openmrs/data/modules and the named data volume keep the same ownership.
+RUN groupadd -r openmrs && useradd -r -g openmrs -u 1001 openmrs
+
+WORKDIR /openmrs
+COPY --from=dist /openmrs /openmrs
+COPY --from=dist /usr/local/tomcat /usr/local/tomcat
+RUN chown -R 1001:1001 /openmrs /usr/local/tomcat
+
+USER 1001
+EXPOSE 8080
+
+# Identical to the stock image: tini as PID 1, OpenMRS startup.sh as the
+# command. The healthcheck is defined in compose so it stays the single source.
+ENTRYPOINT ["/usr/bin/tini", "--"]
+CMD ["/openmrs/startup.sh"]
