@@ -7,10 +7,16 @@
 #   CHARTSEARCH_WARMUP_MODELS    comma-separated model identifiers (matches `lms ls` / /v1/models)
 #                                default: just CHARTSEARCH_REMOTE_MODEL_NAME if set
 #   CHARTSEARCH_CONTEXT_LENGTH   tokens; default 32768
+#   CHARTSEARCH_WARMUP_TTL       idle seconds before LM Studio auto-unloads a warmed model, freeing
+#                                RAM for JIT loads of other models (timer resets on each request, so
+#                                a model in active use stays warm). default 3600; set 0 to pin until
+#                                restart. NOTE: LM Studio never evicts an explicitly-loaded model under
+#                                memory pressure (only this idle-TTL unload), so the warmed base set
+#                                plus the largest model you JIT-load must still fit in RAM together.
 #   CHARTSEARCH_REMOTE_ENDPOINT_URL  used to derive LM Studio host (the /v1/chat/completions URL)
 #
 # Side effects:
-# 1. `lms load <model> -c <ctx>` for each model (ephemeral — until LM Studio restart or manual unload)
+# 1. `lms load <model> -c <ctx> [--ttl <s>]` for each model (idle-TTL unload; pinned until restart if TTL=0)
 # 2. Writes ~/.lmstudio/.internal/user-concrete-model-default-config/.../<gguf>.json
 #    so the context survives LM Studio restart + JIT-reload (persistent — until user clears it)
 
@@ -28,6 +34,11 @@ fi
 
 MODELS="${CHARTSEARCH_WARMUP_MODELS:-${CHARTSEARCH_REMOTE_MODEL_NAME:-}}"
 CTX="${CHARTSEARCH_CONTEXT_LENGTH:-32768}"
+TTL="${CHARTSEARCH_WARMUP_TTL:-3600}"
+TTL_ARGS=""
+if [ -n "${TTL}" ] && [ "${TTL}" != "0" ]; then
+  TTL_ARGS="--ttl ${TTL}"
+fi
 
 if [ -z "${MODELS}" ]; then
   echo "error: no models to warm up. Set CHARTSEARCH_WARMUP_MODELS (comma-separated) or CHARTSEARCH_REMOTE_MODEL_NAME in .env.chartsearch"
@@ -99,7 +110,7 @@ for raw_model in "${MODEL_LIST[@]}"; do
   if already_loaded "${model}"; then
     echo "    already loaded — skipping load (will refresh persistent default below)"
   else
-    "${LMS}" load "${model}" -c "${CTX}" 2>&1 | tail -2 | sed 's/^/    /' \
+    "${LMS}" load "${model}" -c "${CTX}" ${TTL_ARGS} 2>&1 | tail -2 | sed 's/^/    /' \
       || echo "    warn: load failed for ${model}"
   fi
   write_default_for_model "${model}" "${CTX}"
