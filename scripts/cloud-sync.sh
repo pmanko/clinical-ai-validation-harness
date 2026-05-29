@@ -73,6 +73,13 @@ rsync -avz --delete \
   "${ROOT}/" \
   "${GCP_SSH_USER}@${IP}:${GCP_REMOTE_REPO}/"
 
+# Lock down .env.chartsearch.cloud on the VM. The file contains the
+# CHARTSEARCH_LLM_REMOTE_APIKEY plus DB passwords, and rsync preserves
+# the local umask perms (usually 644 = world-readable). If the project
+# later enables OS Login, other authorized GCP users inherit shell access
+# and could read the env file. chmod 600 makes it owner-only-readable.
+gcp_ssh "chmod 600 ${GCP_REMOTE_REPO}/.env.chartsearch.cloud"
+
 # OpenMRS RefApp backend image runs as UID 1001:0. The compose bind-mounts
 # artifacts/openmrs/modules and artifacts/openmrs/backend-logs INTO the
 # container's writable paths (/openmrs/data/modules + /usr/local/tomcat/logs).
