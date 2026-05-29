@@ -330,6 +330,7 @@ const features: Feature[] = [
     purpose:
       "New Python FastAPI service that sits between chartsearchai's RemoteLlmEngine and the real LLM providers. Generalizes the model picker to show classes of connections; normalizes per-provider /v1/models; holds provider credentials at the gateway boundary.",
     scope: [
+      "Phase 0 (shipped on PR #15 — LM Studio /api/v1/models probe + 'LM Studio' sub-category header + per-entry loaded state + pre-load on select). Proves the wire-shape contract (additive provider + entries[] fields) and forward-compatibility with the picker UX.",
       "OpenAI-compat ingress (chartsearchai sees one URL; preserves response_format / stream / top_k / messages[] verbatim).",
       "Connection registry of providers grouped by class: local-runtime (LM Studio, Ollama, vLLM, llama.cpp), cloud-api (OpenAI, Anthropic, Gemini, Azure), agentic (med-agent-hub from F005).",
       "Provider-specific quirks (Anthropic /v1/messages adapter; claude-opus-4-7 top_k=1; per-provider SSE translation) encoded in gateway, not in chartsearchai.",
