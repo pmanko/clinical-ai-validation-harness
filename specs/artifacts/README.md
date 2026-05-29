@@ -22,6 +22,14 @@ Durable planning and research artifacts that support the feature roadmap:
   - Governance/change-control template for material validation changes.
 - `planning/otel-collector-config.yaml`
   - Supporting OpenTelemetry collector config for harness services.
+- `planning/catalyst-fhir-sidecar-brief.md`
+  - Source brief that feeds `/speckit-specify` for feature 011 (Catalyst FHIR sidecar POC, M10).
+- `planning/chartsearchai-model-gateway-brief.md`
+  - Source brief that feeds `/speckit-specify` for feature 008 (chartsearchai model gateway, F008). New FastAPI service routing chartsearchai's LLM calls to classes of connections (local-runtime / cloud-api / agentic).
+- `planning/clinical-kb-research.md`
+  - Methodology survey + host evaluation matrix + recommendation for feature 009 (clinical knowledge base, F009). 15 cited sources covering MedRAG, MedAbstain, CUICurate, MedGraphRAG and related; DB-curated contextualization methodology sketch with sample prompt + YAML schema.
+- `planning/clinical-kb-brief.md`
+  - Source brief that feeds `/speckit-specify` for feature 009. Dedicated host-agnostic clinical-kb Python service (REST + MCP) with separable curation worker; orthogonal to chartsearchai's per-patient retrieval.
 - `handoffs/session-handoff-2026-05-12.md`
   - Historical project setup and planning handoff snapshot.
 
