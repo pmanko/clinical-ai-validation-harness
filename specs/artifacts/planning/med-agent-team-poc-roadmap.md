@@ -48,6 +48,12 @@ med-agent-hub (fork `pmanko/med-agent-hub`, branch `harness-integration` @ `5cac
 
 **Index-as-artifact:** **commit `artifacts/kb/corpus.jsonl`** (the curated clinical seed — small, diff-reviewable, license-tagged per snippet). **Gitignore the FTS5 index; rebuild on boot.** `make kb-build` regenerates corpus + index; `make kb-contextualize DEPLOYMENT=demo` runs the aggregate filter.
 
+**Content & index guidance for low-power accuracy** (grounded in `clinical-kb-research.md` §A.3; goal = maximize 4-8B accuracy lift):
+- **Prioritize fact-pinning content** — the lift (MedRAG/MIRAGE: up to ~18pp) concentrates on specifics small models fabricate: exact doses, contraindications, interactions, IMCI thresholds, immunization timing. Seed those first.
+- **Snippet shape**: atomic, section-aware, ≤~300 tokens; **K=3** at the **top** of the KB block (lost-in-the-middle, TACL 2024); **abstain** below the relevance floor (no KB beats irrelevant KB).
+- **Two indexes** (both): (1) retrieval index — FTS5 BM25 for the demo; if recall is weak, add a **cross-encoder reranker** (MS-MARCO MiniLM, ~22M, CPU-cheap — highest-leverage small-model lever) *before* a dense index (`sqlite-vec`+RRF, encoder chosen empirically per "generalist beats biomedical", §A.3). (2) content manifest — `corpus.jsonl` (title+summary+source+version+license+tags+CIEL), doubling as the contextualization input, citation resolver, and transparency surface.
+- **Measure the lift, don't assert it**: gate on KB-on vs KB-off A/B via the 006 validation harness (F009's bar is ≥10pp on a MIRAGE-style set). Seed the KB with content that answers the eval scenarios so the lift is observable.
+
 ## 4. Roadmap
 
 **P1 — Boot as a chartsearchai-selectable OpenAI-compat endpoint (the bridge).**
