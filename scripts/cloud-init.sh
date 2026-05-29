@@ -45,11 +45,9 @@ if ! gcloud compute firewall-rules describe "${GCP_FIREWALL_HTTP}" \
     --project="${GCP_PROJECT}" --quiet
 else
   # Rule exists; reconcile its source range to the current CIDR (operator's
-  # IP may have changed since last init).
-  echo "    firewall rule ${GCP_FIREWALL_HTTP} exists; updating source range to ${HTTP_CIDR}"
-  gcloud compute firewall-rules update "${GCP_FIREWALL_HTTP}" \
-    --source-ranges="${HTTP_CIDR}" \
-    --project="${GCP_PROJECT}" --quiet
+  # IP may have changed since last init). cloud-up also calls this on every
+  # bring-up so post-init IP shifts don't lock the operator out.
+  gcp_reconcile_http_firewall
 fi
 
 # 3. Create the instance with a startup script that installs docker.

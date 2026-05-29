@@ -19,6 +19,12 @@ EOF
   exit 1
 fi
 
+# Reconcile firewall source range first — operator IP may have shifted since
+# last cloud-init (DHCP / coffee shop / home), which silently locks them out
+# of the proxy without this. Cheap: one gcloud describe + (occasionally) one
+# update. Safe: no-op when current source range matches desired.
+gcp_reconcile_http_firewall
+
 echo "==> compose up on ${GCP_VM_NAME}"
 # Pass remote-repo path through the env so the heredoc can stay quoted
 # (literal $vars on the remote) while still parameterizing the dir.

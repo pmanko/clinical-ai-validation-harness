@@ -102,3 +102,35 @@ gcp_http_cidr() {
   fi
   echo "${ip}/32"
 }
+
+gcp_reconcile_http_firewall() {
+  # Reconcile the proxy HTTP firewall rule's source range to the operator's
+  # current public IP (or explicit GCP_HTTP_CIDR override). Called by both
+  # cloud-init (initial create) and cloud-up (every bring-up, in case the
+  # operator's IP shifted on DHCP / coffee-shop / home network).
+  #
+  # If the firewall rule does not yet exist, returns silently — cloud-init
+  # is the only path that creates it. cloud-up calls this purely to update.
+  local desired_cidr current_cidr
+  if ! desired_cidr="$(gcp_http_cidr)"; then
+    return 1
+  fi
+  current_cidr="$(gcloud compute firewall-rules describe "${GCP_FIREWALL_HTTP}" \
+                    --project="${GCP_PROJECT}" \
+                    --format='value(sourceRanges)' 2>/dev/null || echo '')"
+  if [ -z "${current_cidr}" ]; then
+    # Rule doesn't exist yet; cloud-init owns creation.
+    return 0
+  fi
+  # gcloud returns sourceRanges as a semicolon-separated string when multiple;
+  # we set exactly one. Normalize whitespace for the compare.
+  current_cidr="$(echo "${current_cidr}" | tr -d '[:space:]')"
+  if [ "${current_cidr}" = "${desired_cidr}" ]; then
+    echo "    firewall ${GCP_FIREWALL_HTTP} source range already ${desired_cidr}"
+    return 0
+  fi
+  echo "==> reconciling firewall ${GCP_FIREWALL_HTTP}: ${current_cidr} → ${desired_cidr}"
+  gcloud compute firewall-rules update "${GCP_FIREWALL_HTTP}" \
+    --source-ranges="${desired_cidr}" \
+    --project="${GCP_PROJECT}" --quiet
+}
