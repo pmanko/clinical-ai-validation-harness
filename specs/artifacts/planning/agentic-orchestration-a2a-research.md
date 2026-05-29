@@ -33,9 +33,23 @@
 3. Will mid/late-2026 convergence shift build-vs-buy before we scale?
 4. Concrete migration path from in-house MCP/workflow → A2A agent cards when an agent first crosses a boundary.
 
-## Conflict with the current roadmap (must reconcile)
+## Reconciled decision (with user, 2026-05-28)
 
-The med-agent-team roadmap §2 (after round 2) currently says: **keep A2A**, **ReAct LLM orchestrator**, **KB as an A2A agent**. This research recommends the opposite for the in-house case: **MCP-for-tools**, **deterministic workflow**, **KB as an MCP tool**, **A2A deferred**. This vindicates the roadmap's *original* draft (thin code orchestrator, A2A overkill) that was overridden in round 2. Decision pending with the user before §2 is rewritten.
+The research recommended deterministic-only orchestration + MCP-for-tools. The user refined it on two axes; the settled decision is:
+
+1. **Orchestrator = a PLUGGABLE strategy behind the OpenAI-compat boundary**, selected per-request via the `model` id and **compared empirically in the 006 validation harness**:
+   - `team-deterministic` — **the documented default** (fixed: KB lookup? → medical-expert → gemma-4 synthesize → envelope). Lowest latency, lowest small-model tool-calling risk.
+   - `team-react` — gemma-4 ReAct loop, **kept as an option** for open-ended / multi-hop clinical questions (the research's "predictable pipeline" assumption does not always hold — clinical questions can be open-ended).
+   - `team-cloud` — orchestration delegated to a frontier cloud agent (Claude/GPT) over the **same** tool interface; the top-shelf comparison baseline.
+   - "Strong guidance on the default" = deterministic by default, with the harness measuring the tradeoff per question-type rather than asserting it.
+
+2. **Tool layer = a clean typed tool INTERFACE now, NOT the MCP protocol yet.** The KB is a plain `kb.search(query) -> snippets` function (a direct API/CLI/SQL call); the medical-expert is just an OpenAI-compat call. Grounded by Anthropic "Code execution with MCP" (tool-def + intermediate-result bloat; 150k→2k tokens / 98.7% via code-over-tools; "direct tool calls remain appropriate for simpler scenarios") and Cloudflare "Code Mode" ("LLMs are better at writing code to call MCP than calling MCP directly"; MCP earns its keep at scale + uniformity). We have neither the scale nor the chaining pain points, so the **protocol is deferred**; MCP / code-mode is the seam we adopt when tools multiply or are consumed by external agents.
+
+3. **A2A deferred** (unchanged from the research) — adopt only when an agent crosses a boundary (remote / cross-vendor / independently lifecycle-managed).
+
+The two durable seams to commit to now: the **OpenAI-compat `/v1/chat/completions` + strict JSON envelope** (consumer + orchestrator-strategy selector) and the **typed tool interface** (KB + future tools). Everything else (MCP protocol, A2A cards, framework choice) is a deferred seam.
+
+Supersedes the round-2 roadmap §2 ("keep A2A + ReAct loop + KB as A2A agent"). §2 to be rewritten to this.
 
 ## Key sources
 
@@ -45,3 +59,4 @@ The med-agent-team roadmap §2 (after round 2) currently says: **keep A2A**, **R
 - Google A2A launch: https://developers.googleblog.com/en/a2a-a-new-era-of-agent-interoperability/
 - Berkeley BFCL: https://gorilla.cs.berkeley.edu/leaderboard.html · PMLR v267 patil25a
 - FunReason-MT: https://arxiv.org/pdf/2510.24645 · ACI/SWE-agent: arXiv 2405.15793
+- MCP criticism (tool layer): Anthropic "Code execution with MCP" https://www.anthropic.com/engineering/code-execution-with-mcp · Cloudflare "Code Mode" https://blog.cloudflare.com/code-mode/
