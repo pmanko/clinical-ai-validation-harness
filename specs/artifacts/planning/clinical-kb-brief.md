@@ -158,11 +158,11 @@ The recommendation: **let F008 sequencing drive first-consumer choice**. If F008
 **Research artifact**: [`clinical-kb-research.md`](./clinical-kb-research.md) — methodology survey, host evaluation matrix, recommendation rationale, sources.
 
 **In-repo signals**:
-- `/Users/pmanko/code/clinical-ai-validation-harness/targets/openmrs_chatbot/KNOWLEDGE_BASE_INTEGRATION_METHODS.md` — dominant existing thinking; 7-method approach (intent classification, SQL agent, drug KB, ChromaDB, response gating, validation agent, specialized handlers); reused as the openmrs_chatbot library/service reference pattern.
-- `/Users/pmanko/code/clinical-ai-validation-harness/targets/chartsearchai/README.md` — hybrid retrieval (RRF), MedCPT support, embedding/lucene/hybrid/elasticsearch pipelines, type-aware expansion, absent-data detection (z-score gate), eval framework — all directly transferable.
-- `/Users/pmanko/code/clinical-ai-validation-harness/targets/chartsearchai/api/src/main/java/org/openmrs/module/chartsearchai/api/impl/LlmProvider.java` — integration point at `search` (line 120); system-prompt design with JSON-schema enforcement and citation requirements.
-- `/Users/pmanko/code/clinical-ai-validation-harness/specs/005-med-agent-hub-bridge/spec.md` — future consumer.
-- `/Users/pmanko/code/clinical-ai-validation-harness/specs/artifacts/planning/catalyst-fhir-sidecar-brief.md` — sibling brief structure followed here; §8 MCP tool sketch is the pattern for KB MCP exposure.
+- `targets/openmrs_chatbot/KNOWLEDGE_BASE_INTEGRATION_METHODS.md` — dominant existing thinking; 7-method approach (intent classification, SQL agent, drug KB, ChromaDB, response gating, validation agent, specialized handlers); reused as the openmrs_chatbot library/service reference pattern.
+- `targets/chartsearchai/README.md` — hybrid retrieval (RRF), MedCPT support, embedding/lucene/hybrid/elasticsearch pipelines, type-aware expansion, absent-data detection (z-score gate), eval framework — all directly transferable.
+- `targets/chartsearchai/api/src/main/java/org/openmrs/module/chartsearchai/api/impl/LlmProvider.java` — integration point at `search` (line 120); system-prompt design with JSON-schema enforcement and citation requirements.
+- `specs/005-med-agent-hub-bridge/spec.md` — future consumer.
+- `specs/artifacts/planning/catalyst-fhir-sidecar-brief.md` — sibling brief structure followed here; §8 MCP tool sketch is the pattern for KB MCP exposure.
 
 **External sources** (top 12 from research Section A.5; full list in research doc):
 - MedRAG/MIRAGE — https://arxiv.org/abs/2402.13178

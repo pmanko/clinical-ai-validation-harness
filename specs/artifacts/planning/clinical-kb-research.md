@@ -279,3 +279,120 @@ The OpenMRS data model centers on `concept` and `obs`. Concrete signals:
 
 ### D.3 Pipeline shape
 
+```
+[OpenMRS DB (deployment-local)]
+        │  read-only, aggregate-only
+        ▼
+[clinical-kb-curate worker (per deployment)]
+        │
+        ├── Concept frequency analysis (SQL)
+        ├── External vocab mapping (deterministic)
+        ├── Cluster construction (deterministic, SNOMED hierarchy)
+        └── LLM-guided KB subset selection (cloud LLM call permitted; no PHI sent)
+        │
+        ▼
+[curation_<deployment>_<timestamp>.yaml]   ← human review gate
+        │
+        ▼
+[clinical-kb service: deployment-scoped collection]
+        │
+        ▼ (consumed by)
+[chartsearchai | gateway | openmrs_chatbot | catalyst | med-agent-hub]
+```
+
+### D.4 Sample curation prompt sketch
+
+```
+You are auditing the relevance of a clinical knowledge base for a specific deployment.
+
+DEPLOYMENT PROFILE (aggregate counts, no patient data):
+- Encounter mix: 62% antenatal care, 18% general adult, 12% pediatric, 8% other.
+- Top diagnoses (last 12 months): malaria (3,210), anemia in pregnancy (1,850), HIV stable on ART (1,290), ...
+- Top drug orders: iron+folate (5,402), artemether-lumefantrine (3,109), TDF/3TC/DTG (1,210), ...
+- Vocabularies present: CIEL, SNOMED-CT, RxNorm (partial).
+
+GENERAL KB INDEX (titles + summaries):
+[1] WHO IMCI: Pneumonia management in under-fives — Pediatric, respiratory ...
+[2] WHO ANC contact 3: First-trimester anemia screening — Antenatal, hematology ...
+[3] BNF: Warfarin dosing in atrial fibrillation — Adult, anticoagulation ...
+... (full index)
+
+TASK: Output a YAML list of KB entry IDs to INCLUDE in the deployment-specific subset.
+For each, give a one-sentence rationale tied to the deployment profile. Output entries to EXCLUDE separately, with rationale.
+
+CONSTRAINTS:
+- Never output PHI.
+- If the deployment profile is insufficient to judge an entry, mark it review-required.
+- Prefer inclusion when uncertain; the human reviewer will trim.
+```
+
+### D.5 Output schema
+
+```yaml
+curation_artifact:
+  deployment_id: "kenya-hiv-clinic-002"
+  curated_at: "2026-05-19T14:00:00Z"
+  source_db_snapshot: "openmrs-202605-week-19"
+  curator_model: "claude-sonnet-4-7@anthropic"
+  human_reviewer: null  # filled when reviewed
+  review_status: "pending"
+  deployment_profile_hash: "sha256:..."
+  included_entries:
+    - kb_entry_id: "who-imci-art-pediatric-v2024"
+      rationale: "high HIV pediatric volume; ART regimens differ by age cohort"
+      review_required: false
+    - kb_entry_id: "who-art-adult-first-line-2024"
+      rationale: "top-3 drug orders include TDF/3TC/DTG; first-line ART monograph essential"
+      review_required: false
+  excluded_entries:
+    - kb_entry_id: "bnf-warfarin-monitoring"
+      rationale: "no warfarin prescriptions in 12 months"
+      review_required: false
+  flagged_for_review:
+    - kb_entry_id: "msf-pediatric-tb-treatment"
+      rationale: "no TB diagnoses but ART-treated cohort has TB comorbidity risk; reviewer judgment"
+```
+
+This artifact is the durable, reviewable record per constitution III ("Record-Level Evidence").
+
+### D.6 Prior art status
+
+Components are well-supported:
+- **CUICurate (2026)** — LLM-driven concept-set curation from UMLS.
+- **PrimeKG (2023)** — LLM-assisted assembly of biomedical KG from many sources.
+- **Structured Extraction from EHR (Respond Health 2024)** — LLM extraction of knowledge structures from real-world EHR data.
+- **EHR-R1 (2025)** — reasoning-tuned LM specialized for EHR analysis.
+
+The end-to-end pattern — "introspect a deployment's OpenMRS DB to curate a deployment-tailored KB subset for a small local model" — is application-novel. The brief should claim this honestly: components are well-supported, the integration pattern is novel.
+
+---
+
+## Section E — Open questions for the spec author (`/speckit-clarify` candidates)
+
+1. **General-KB content scope at v1.** Must the v1 KB ship with full WHO IMCI / WHO EML / WHO ANC / BNF / RxNorm essentials, or is a smaller "seed corpus" (e.g. pediatric pneumonia + maternal anemia + HIV first-line ART + top-20 essential drugs) acceptable for the demo path? Smaller seed = faster to demo; larger = more honest assessment of retrieval quality.
+
+2. **Curation auto-merge vs. mandatory human review.** Constitution principle II requires accepted mappings to "live in reviewed configuration." Does the contextualized KB require human review before activation, or is "LLM-curated + automated gate (e.g. eval pass) + audit log" acceptable for v1? Bias should be toward mandatory review; confirm.
+
+3. **PHI boundary for the curation worker.** Is the auto-curation worker permitted to send aggregate concept frequency data to a cloud LLM (no patient-level data, only counts and concept IDs/external vocab codes)? Or must all curation run on a locally hosted LLM regardless of cost?
+
+4. **First consumer.** Should chartsearchai or the parallel model-gateway be the first KB consumer integration? Recommend gateway-first because Python-to-Python is fastest to demo and chartsearchai's Java integration requires a small `.omod` change that the chartsearchai maintainer must sign off on.
+
+5. **Knowledge source provenance and licensing.** WHO and MSF content is openly licensed. BNF / UpToDate / ClinicalKey are NOT. Which sources are in scope for v1, and is there a process for ingesting open-licensed content only, with placeholders for licensed content the deployment can substitute?
+
+6. **Per-deployment subset vs. per-deployment full KB.** Does the contextualized layer (a) filter the general KB to a relevant subset (lighter), or (b) augment the general KB with deployment-specific content (e.g. a deployment's own custom protocols)? Recommendation: (a) for v1, (b) deferred.
+
+---
+
+## Appendix — How this maps onto existing harness code
+
+| Existing component | Role in proposed architecture |
+|---|---|
+| `targets/chartsearchai/api/.../LlmProvider.java` (line 120, `search`) | Injects KB context into the `system + records + question` envelope. One small change. |
+| `targets/openmrs_chatbot/KNOWLEDGE_BASE_INTEGRATION_METHODS.md` (methods 1, 4, 5, 6) | Source pattern for intent classification, retrieval, response gating, validation. Re-implemented as KB-service-internal logic. |
+| `targets/openmrs_chatbot/data/*.json` (drug KBs, immunization schedules, milestones) | Seed content for the general KB. |
+| `targets/openmrs_chatbot/vectorstore/chroma.py` | Reference impl for the KB ChromaDB collection. |
+| `specs/005-med-agent-hub-bridge/spec.md` | Future consumer; KB lookup is a candidate MCP tool for subagents. |
+| `specs/artifacts/planning/catalyst-fhir-sidecar-brief.md` § 8 (MCP tool sketch) | Pattern for how Catalyst could consume KB MCP tools. |
+| `compose/` | Adds one `clinical-kb` service; one optional `clinical-kb-curate` job. |
+| `harness/targets.yaml` | New `clinical-kb` target entry. |
+| `evals/` | New eval suite: KB recall, KB citation correctness, abstention discipline, lost-in-middle stress, contextualization regression. |
