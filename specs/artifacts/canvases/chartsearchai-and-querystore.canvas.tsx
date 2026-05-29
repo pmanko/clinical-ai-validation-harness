@@ -29,7 +29,14 @@ import {
 // "standalone-only today", "querystore.enabled=off", and "backend stays on
 // stock :3.6.0" framing below is SUPERSEDED where it conflicts. The corpus
 // also moved to the canonical `openmrs` schema (openmrs_test + *_dlt dropped).
-// See spec.md's 2026-05-29 update.
+//
+// UPDATE 2026-05-29 (backend tiers): querystore.backend is pluggable
+// (mysql|lucene|elasticsearch — ADR Decision 3). The harness now exercises all
+// three, validated against Zabella. Elasticsearch (a separate ES 8.13.4 service,
+// the real CQRS read store off the clinical DB) is the production/scale target
+// and the default for `make cloud-up`; `make chartsearch-backend BACKEND=...`
+// flips tiers locally. So the "future querystore-backed" architecture below is
+// shipped, not future. See spec.md's two 2026-05-29 updates.
 
 const heroStats = [
   { value: '12', label: 'chartsearchai merged PRs (since 2026-03-10)', tone: 'info' as const },

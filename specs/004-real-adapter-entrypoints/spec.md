@@ -172,3 +172,45 @@ The PoC above deliberately ran chartsearchai standalone (`querystore.enabled=fal
 - **Backend rebased to temurin.** querystore bundles onnxruntime 1.24.3, whose native lib needs glibc ≥ 2.27; the RefApp backend is Amazon Linux 2 (glibc 2.26), so the embedder died at load with `GLIBC_2.27 not found`. `compose/Dockerfile.backend` copies the stock `:3.6.0` dist onto `eclipse-temurin:21-jre` (glibc 2.39) and bakes **no** module, so the bind-mounted omods stay authoritative. Same rebase chartsearchai's own `Dockerfile.backend` uses; the "glibc is moot" note held only while querystore was off.
 - **Chat LLM remote; embedded LLM off.** `chartsearchai.llm.engine=remote` (LM Studio). The bundled local engine stays off in local and cloud; its GP toggle is sufficient and the model picker stays at **F008 Phase 0** (no gating work) — consistent with the roadmap's "wait for F005 cloud-smoke green before F008 implementation."
 - **Applies to local + cloud** (`openclinai.org`): the target running state is identical in both.
+
+---
+
+# Update — querystore backend tiers + reproducible cloud (2026-05-29)
+
+querystore's storage backend is pluggable (querystore ADR Decision 3):
+`querystore.backend=mysql|lucene|elasticsearch` — three reference tiers for three
+deployment scales. A validation harness exists to exercise the *real* ones, so it
+now runs all three, with **Elasticsearch** as the headline: the real CQRS read
+store, a separate service *off* the clinical MariaDB (native HNSW + RRF). The
+earlier update's "lucene" wording is just one tier; the canonical default is now
+explicit below.
+
+- **Backend tiers.** `mysql` (module default; vectors live in core's DB — the
+  convenient case, but the read store is still *inside* the clinical OLTP DB, so
+  not real CQRS separation), `lucene` (on-disk FSDirectory; better BM25), and
+  `elasticsearch` (separate cluster — the production/scale path). For
+  patient-scoped chart search all three serve identically; the cross-patient kNN
+  O(N) limit of mysql/lucene doesn't bite us. All three validated end-to-end
+  against Zabella (real meds + `drug_order` citations).
+- **Elasticsearch service.** `compose/openmrs-2.8-refapp.yml` gains an
+  `elasticsearch` service (ES 8.13.4, matching querystore's client) behind an
+  `elasticsearch` compose profile. The backend reaches it via
+  `querystore.elasticsearch.uri` (runtime property, wired by
+  `OMRS_EXTRA_QUERYSTORE_ELASTICSEARCH_URI`). `querystore.backend` is wired at
+  module startup, so switching tiers = set the GP + (re)start the backend.
+- **`make chartsearch-backend BACKEND=mysql|lucene|elasticsearch`** flips the
+  tier locally in one command (set GP → start ES if needed → recreate → configure).
+- **Single-step deploy via `backend-init.sh`.** The temurin image
+  (`compose/Dockerfile.backend`) now uses chartsearchai's own `backend-init.sh`
+  entrypoint: it heals the data-volume ownership, downloads the all-MiniLM ONNX
+  embedding model + vocab if absent (read by both querystore and chartsearchai),
+  then drops to uid 1001. `chartsearch-configure` sets the querystore embedding
+  GPs alongside the LLM GPs. This removed the manual model copy / volume heal /
+  GP-setting that the first cloud bring-up needed.
+- **Reproducible cloud.** `make cloud-up` brings up querystore-on-Elasticsearch
+  hands-off (`CHARTSEARCH_QUERYSTORE_BACKEND`, default elasticsearch): starts ES,
+  pre-sets the backend GP, `--build`s the image, waits for the REST API to answer
+  (not just the Tomcat healthcheck), and runs configure *inside* the backend
+  container (`CHARTSEARCH_EXEC` — on the cloud the host only reaches the backend
+  through Caddy's domain on :443, so host curls get 308/reset). Verified:
+  `cloud-up` → "Stack up", cloud ES cluster populated (`querystore_drug_order`=39).

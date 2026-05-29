@@ -49,7 +49,7 @@ The other 3 LLM properties (`engine`, `remote.endpointUrl`, `remote.modelName`) 
 
 **Implication for this PoC**:
 - **Build**: chartsearchai requires querystore-api on the local Maven classpath. The harness's `make chartsearch-build` target installs `querystore-api:1.0.0-SNAPSHOT` from our `targets/querystore/` submodule first, then builds chartsearchai.
-- **Runtime** *(superseded 2026-05-29 — see spec.md update)*: querystore is now deployed and enabled. The querystore `.omod` is bind-mounted alongside chartsearchai's and `chartsearchai.querystore.enabled=true`. The "5 critical runtime bugs" blocker was stale — querystore starts clean and serves kNN-retrieved charts once the backend runs the temurin rebase (`compose/Dockerfile.backend`), required because its onnxruntime embedder needs glibc ≥ 2.27 and stock AL2 ships 2.26. Verified end-to-end against Zabella (real meds + citations from a populated `querystore_drug_order` Lucene index).
+- **Runtime** *(superseded 2026-05-29 — see spec.md update)*: querystore is now deployed and enabled. The querystore `.omod` is bind-mounted alongside chartsearchai's and `chartsearchai.querystore.enabled=true`. The "5 critical runtime bugs" blocker was stale — querystore starts clean and serves kNN-retrieved charts once the backend runs the temurin rebase (`compose/Dockerfile.backend`), required because its onnxruntime embedder needs glibc ≥ 2.27 and stock AL2 ships 2.26. Verified end-to-end against Zabella (real meds + citations from a populated `querystore_drug_order` index). The backend is pluggable — mysql/lucene/elasticsearch, default elasticsearch (the real CQRS read store, a separate service off the clinical DB); see spec.md's 2026-05-29 backend-tier update.
 
 ## Querystore situation (measured 2026-05-16)
 
