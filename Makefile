@@ -134,15 +134,25 @@ chartsearch-esm-dev:
 	@cd targets/chartsearchai-esm && yarn start --backend=http://localhost:8088 --spa-path=/openmrs/spa --api-url=/openmrs
 
 # Fast cloud iteration for ESM changes only — rebuild the bundle, rsync
-# the artifacts dir to the VM, reload Caddy on the VM (picks up new
-# static files; no frontend container restart needed). Backend untouched.
+# the artifacts dir to the VM. Caddy serves the new files immediately
+# (artifacts/openmrs/spa-custom is bind-mounted into the proxy container
+# per compose/openmrs-2.8-refapp.yml → /srv/spa-custom:ro). No reload
+# needed for ESM changes.
+#
+# Reload would only be needed if compose/Caddyfile itself changed. The
+# Caddyfile sets `admin off` for security, so `caddy reload` (which
+# requires the admin API on localhost:2019) does NOT work here — earlier
+# versions of this target chained two reload paths that both failed
+# silently and broke the deploy step. For Caddyfile edits, the right
+# move is:
+#   ./scripts/cloud-ssh.sh "cd ~/$${GCP_REMOTE_REPO:-clinical-ai-validation-harness} && \
+#       docker compose -f compose/openmrs-2.8-refapp.yml restart proxy"
 cloud-deploy-esm:
 	@./scripts/chartsearch-esm-build.sh
 	@./scripts/cloud-sync.sh
 	@CLOUD=1 ./scripts/chartsearch-importmap-gen.sh
 	@./scripts/cloud-sync.sh
-	@./scripts/cloud-ssh.sh "docker exec harness-proxy caddy reload --config /etc/caddy/Caddyfile" || \
-	  ./scripts/cloud-ssh.sh "cd $${GCP_REMOTE_REPO:-/opt/clinical-ai-harness}/compose && docker compose exec proxy caddy reload --config /etc/caddy/Caddyfile"
+	@echo "==> cloud-deploy-esm complete (bind-mounted spa-custom updated; Caddy serves new files on next request)"
 
 # Configure chartsearchai LLM global properties via REST. Reads .env.chartsearch
 # for endpoint + model + engine. The API key goes via the backend env var
