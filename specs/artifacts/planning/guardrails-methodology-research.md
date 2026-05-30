@@ -6,7 +6,7 @@
 
 **Your "start soft → measure → harden" instinct is SOUND and matches established practice — with two non-negotiable qualifiers the evidence forces:**
 
-1. **Defense-in-depth means NOT everything starts soft.** The recognized framing is the Swiss Cheese model: every layer has holes, so no single guardrail — least of all a system prompt — is trusted alone. Real systems (NeMo Guardrails, Meta LlamaFirewall) deliberately *stack and mix* enforcement types, and layering empirically beats any single mechanism. So a set of clinical-safety goals must be **HARD from day one**, carved out of "start soft" entirely.
+1. **Defense-in-depth means NOT everything starts soft.** The recognized framing is the Swiss Cheese model: every layer has holes, so no single guardrail — least of all a system prompt — is trusted alone. Real systems (NeMo Guardrails, Meta LlamaFirewall) deliberately *stack and mix* enforcement types, and layering empirically beats any single mechanism. So a set of clinical-safety goals must be **HARD by real-clinical-use** (the research says "from day one"; *our* build order scopes that to production use — for the demo POC these are the first measurement-driven output guards, not preconditions; see the Goal-by-goal map scoping note and the Reconciliation section).
 
 2. **"Measure" must measure CORRECTNESS + GROUNDEDNESS, not just that the JSON is well-formed.** Small models can be "reliably wrong" (consistent, schema-conformant, still incorrect), and single-pass scores collapse on paraphrases. Schema-validity ≠ the guardrail holds.
 
@@ -33,20 +33,22 @@
    - **Harden the OUTPUT** (constrained/structured decoding — json_schema response_format / grammar makes violating tokens unproducible) when the guarantee is about *shape/format*. We already do this for the envelope. **Guarantees well-formed, NOT correct or grounded.**
    - **Harden the CONTROL FLOW** (deterministic code / state machine that calls the tool, gates retrieval, forces abstention) when the guarantee is about a *procedure or safety gate a prompt could skip*.
 
-6. **Goal-by-goal map for our POC** (the deliverable):
+6. **Goal-by-goal map** (the deliverable):
 
-| Goal | Layer at POC | Mechanism |
-|---|---|---|
-| JSON envelope shape | **HARD now** | constrained decoding (json_schema) — keep as-is |
-| Citation groundedness (no fabricated indices) | **HARD now** | code validates every integer citation index resolves to a real chart record + quote-first prompting |
-| Abstention on insufficient evidence | **HARD now** | retrieval-gating: if KB search returns nothing relevant, **code** forces abstention (don't trust the prompt) |
-| Scope / PHI limits | **HARD now** | code-enforced |
-| Default-path adherence (search→expert→synthesize) | **SOFT now** | strong system-prompt guidance; promote to hard control-flow code on measured failure |
-| Completeness / thoroughness | SOFT | prompt |
-| Tone | SOFT | prompt |
-| Citation *selection* quality | SOFT | prompt + harness groundedness scoring |
+> **Scoping (synced with user 2026-05-29):** the research says clinical-safety goals should be "HARD from day one." We scope "day one" to **day one of real clinical use, not day one of the demo POC** (this is a demo — openclinai.org — not production patient care). For the POC we **start on the existing ReAct loop + the one hard guard we already have (the JSON envelope)** and add the safety guards as the *first, cheap, measurement-driven* hardenings — not as preconditions to starting. The "Production floor" column is the research's must-be-hard target for real clinical use; the "Demo POC start" column is where we actually begin. Crucially, the safety guards are thin **output validators wrapping the loop's result** — they are NOT the deterministic orchestration complexity we're deferring.
 
-**Promotion criterion:** promote a soft goal → hard control-flow when the 006 harness shows the small model failing it on **correctness / groundedness / abstention-outcome** across paraphrase or adversarial probes — not on a single pass, and not on schema-validity.
+| Goal | Demo POC start | Production floor | Mechanism |
+|---|---|---|---|
+| JSON envelope shape | **HARD (have it)** | HARD | constrained decoding (json_schema) — already in place |
+| Citation groundedness (no fabricated indices) | SOFT (prompt) → first guard to add | **HARD** | thin output check: each integer citation index resolves to a real chart record + quote-first prompting |
+| Abstention on insufficient evidence | SOFT (prompt) → early guard | **HARD** | retrieval-gating output guard: empty/irrelevant KB hit → force abstention |
+| Scope / PHI limits | SOFT (prompt) | **HARD** | code-enforced output/log guard |
+| Path adherence (KB→expert→synthesize) | SOFT — and the path is a **hypothesis**, not a fixed default | SOFT (only harden if measured) | light, provisional prompt steering on the ReAct loop |
+| Completeness / thoroughness | SOFT | SOFT | prompt |
+| Tone | SOFT | SOFT | prompt |
+| Citation *selection* quality | SOFT | SOFT | prompt + harness groundedness scoring |
+
+**Promotion criterion:** promote a goal from soft → a hard guard (or, for *path*, → deterministic control flow) when the 006 harness shows the loop failing it on **correctness / groundedness / abstention-outcome** across paraphrase or adversarial probes — not on a single pass, and not on schema-validity. The safety guards (citation resolution, abstention) are the cheapest and first to add when the harness shows the model fabricating citations or failing to abstain; path-hardening (deterministic orchestration) is a last resort, only if guidance can't hold a behavior that matters.
 
 ## Framework recommendation
 
@@ -68,12 +70,13 @@
 3. Are Guardrails AI / OpenAI Agents SDK tripwires worth adopting over hand-rolled validators for our local + OpenAI-compat + small-model + observability needs?
 4. Within 4-8B (gemma-4-e4b vs medgemma-1.5-4b), does the accuracy-vs-reliability decoupling hold — i.e. select the default engine by measured *reliability on the guided path*, not benchmark accuracy?
 
-## Reconciliation with the settled orchestrator design
+## Reconciliation with the settled orchestrator design (synced with user 2026-05-29)
 
-This **refines** the settled design (one agentic loop, two knobs, typed tool interface) — it does not reverse it. One meaningful update:
+This **refines** the settled design (start on the existing ReAct loop, typed tool interface) — it does not reverse it, and it does **not** introduce deterministic complexity up front.
 
-- Earlier we said hard control-flow code is a **deferred promotion**, triggered only if measurement shows the small model can't hold the guided path. The research confirms that for **path adherence / completeness / tone** — but **carves out clinical-safety goals** (citation-index resolution, retrieval-gated abstention, scope/PHI) which must be **HARD from day one**, not deferred. The "defer" applies to the *path*, not to *safety gates*.
-- Everything else lands cleanly: the existing hard JSON envelope stays; the strong-guidance default lives in the system prompt with the documented structure; the 006 harness (which already measures correctness/groundedness/abstention) is exactly the "measure" step; promotion is measurement-driven.
+- **Start lean on what exists.** The orchestrator is the ReAct loop med-agent-hub already has; we begin with it + the one hard guard we already have (the JSON envelope) + light, provisional prompt steering. We do not pre-build deterministic control flow or pre-prescribe a fixed path — the path is a hypothesis the harness tests against the real (wide) question range, and the agent set will grow (admin, clinical-research, …), which favors a flexible router over a pipeline.
+- **Two enforcement *kinds*, don't conflate them.** (1) *Orchestration control flow* (a deterministic pipeline/state machine) — **deferred**, a last-resort promotion only if guidance can't hold a behavior that matters. (2) *Output guards* (citation-index resolution, retrieval-gated abstention, scope/PHI) — thin validators that wrap the loop's **output**, a few lines each, NOT orchestration complexity. The research wants these "hard from day one"; we scope "day one" to **real clinical use**, and for the demo POC they're the *first, cheapest, measurement-driven* hardenings rather than preconditions.
+- **The harness is the decider.** 006 already measures correctness/groundedness/abstention — exactly the "measure" step. Everything is promotion-by-measurement: add a safety output-guard the moment the harness shows fabricated citations or failed abstention; harden the path (deterministic flow) only as a last resort.
 
 ## Key sources
 
