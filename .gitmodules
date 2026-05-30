@@ -15,3 +15,7 @@
 	path = targets/chartsearchai-esm
 	url = https://github.com/pmanko/openmrs-esm-chartsearchai.git
 	branch = harness-integration
+[submodule "targets/med-agent-hub"]
+	path = targets/med-agent-hub
+	url = https://github.com/pmanko/med-agent-hub.git
+	branch = harness-integration

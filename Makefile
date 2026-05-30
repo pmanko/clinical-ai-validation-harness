@@ -11,6 +11,7 @@ export UV_PROJECT_ENVIRONMENT
         load-test orphan-fk-check import-smoke dump-loaded \
         chartsearch-build chartsearch-configure chartsearch-backend chartsearch-doctor chartsearch-warmup chartsearch-up \
         chartsearch-esm-build chartsearch-esm-dev cloud-deploy-esm \
+        med-agent-hub-build med-agent-hub-up med-agent-hub-logs med-agent-hub-restart \
         cloud-init cloud-sync cloud-up cloud-down cloud-reset cloud-deploy cloud-seed \
         cloud-start cloud-stop cloud-ssh cloud-logs cloud-status cloud-destroy
 
@@ -153,6 +154,23 @@ cloud-deploy-esm:
 	@CLOUD=1 ./scripts/chartsearch-importmap-gen.sh
 	@./scripts/cloud-sync.sh
 	@echo "==> cloud-deploy-esm complete (bind-mounted spa-custom updated; Caddy serves new files on next request)"
+
+# --- med-agent-hub ("Med Agent Team" bridge) ---
+# Builds/runs the in-process agent-team endpoint from targets/med-agent-hub.
+# Internal-only service (no host port); the OpenMRS backend reaches it at
+# http://med-agent-hub:8080. Point chartsearchai at it with `make
+# chartsearch-configure` after setting the endpoint in .env.chartsearch.
+med-agent-hub-build:
+	docker compose -f compose/openmrs-2.8-refapp.yml build med-agent-hub
+
+med-agent-hub-up:
+	docker compose -f compose/openmrs-2.8-refapp.yml up -d med-agent-hub
+
+med-agent-hub-logs:
+	docker compose -f compose/openmrs-2.8-refapp.yml logs -f --tail=200 med-agent-hub
+
+med-agent-hub-restart:
+	docker compose -f compose/openmrs-2.8-refapp.yml restart med-agent-hub
 
 # Configure chartsearchai LLM global properties via REST. Reads .env.chartsearch
 # for endpoint + model + engine. The API key goes via the backend env var

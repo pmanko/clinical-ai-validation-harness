@@ -167,6 +167,35 @@ services:
       # Tail from host: tail -F artifacts/openmrs/backend-logs/localhost_access_log.*.txt
       - ../artifacts/openmrs/backend-logs:/usr/local/tomcat/logs
 
+  med-agent-hub:
+    # The "Med Agent Team" — an OpenAI-compat endpoint that runs an in-process
+    # ReAct team (orchestrator + medgemma expert) and returns chartsearchai's
+    # strict {answer,citations,blocks} envelope. The OpenMRS backend selects it
+    # by pointing chartsearchai.llm.remote.endpointUrl at
+    # http://med-agent-hub:8080/v1/chat/completions (service name on the default
+    # network). Internal-only: no host port, no Caddy route.
+    image: med-agent-hub:dev
+    build:
+      context: ../targets/med-agent-hub
+    container_name: harness-med-agent-hub
+    restart: "unless-stopped"
+    environment:
+      # Models are swappable per role; defaults are the roadmap team. The team
+      # reaches LM Studio (or any OpenAI-compat server) at LLM_BASE_URL.
+      LLM_BASE_URL: ${MED_AGENT_LLM_BASE_URL:-http://host.docker.internal:1234}
+      ORCHESTRATOR_MODEL: ${MED_AGENT_ORCHESTRATOR_MODEL:-google/gemma-4-e4b}
+      MED_MODEL: ${MED_AGENT_MED_MODEL:-medgemma-1.5-4b-it}
+      LLM_TEMPERATURE: ${MED_AGENT_TEMPERATURE:-0.0}
+    extra_hosts:
+      # Reach LM Studio on the host, same pattern as the backend.
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
   db:
     image: mariadb:10.11.7
     container_name: harness-openmrs-db
