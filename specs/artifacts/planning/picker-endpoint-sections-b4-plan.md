@@ -2,9 +2,17 @@
 
 > Granular plan. The roadmap (§4) only specs the picker minimally for P1 (model round-trip within one endpoint). This is the expansion: the picker switches **endpoints**, each a **section** with its own models. Built on 004; chartsearchai + chartsearchai-esm forks.
 
-## Goal (confirmed with user)
+## Goal (confirmed with user — scoped down 2026-05-30)
 
-The chat picker shows **one section per configured endpoint** — e.g. **LM Studio** and **Med Agent Hub** — each listing that endpoint's models. Selecting a model under a section switches to **that endpoint + that model** (writes both `endpointUrl` and `modelName`), no manual GP flip. The **endpoint list is operator config** (a backend GP registry).
+This is **for testing**, and the user needs a **clear connection to the actual running models**. The chat picker shows **one section per configured endpoint** — **LM Studio** and **Med Agent Hub** — and you switch between them (writes both `endpointUrl` and `modelName`, no manual GP flip). The **endpoint list is operator config** (a backend GP registry).
+
+Scope for now (keep it small):
+- **LM Studio section** = its real loaded models (as today).
+- **Med Agent Hub section** = a **single choice**: the orchestrator **team** (`med-agent-team`), running whatever orchestrator model it's configured with. NOT its raw backends.
+- **Clear connection to running models**: each choice surfaces the *real* model behind it — LM Studio entries are the actual model ids; the team entry shows the orchestrator model it's actually running (e.g. "Med Agent Team · google/gemma-4-e4b").
+- **Deferred**: dynamically filling the hub section with multiple models / team flavors (later).
+
+Implication: the bridge advertises **just `med-agent-team`** in `/v1/models` for now (single choice), and surfaces the orchestrator model id so the picker can show the connection. Raw backends stay callable via passthrough (for the 006 A/B) — just not advertised in the picker yet.
 
 ## Test principle (per user)
 
