@@ -37,5 +37,13 @@ The team + KB scope are **settled in the roadmap §2–§3**; this delta applies
 ## Team (settled, §2) — not re-litigated
 gemma-4 e4b **orchestrator + synthesizer** (dual role, swappable, llama-3.1-8b fallback) · medgemma-1.5-4b medical expert · KB lookup (FTS5 BM25). The separate `clinical/generalist` A2A subagent in the current code is old demo scaffolding — dropped. KB & expert are **typed tools** (recalibration), not A2A agents. Probe gemma-4 tool-calling reliability before committing.
 
+## Operational requirement (found in C1): warm the bridge models at a large context
+
+The bridge forwards chartsearchai's `max_tokens:4096` and a full patient chart. LM Studio **JIT-loads models at a default 4096 context**, so `chart + 4096` overflows → `400 Bad Request` on both the tool-loop and the synthesis call (the team then returns only the fallback envelope). Same issue the main chartsearchai app already solved with `scripts/chartsearch-warmup.sh`.
+
+**Fix:** warm the bridge's models at a large context (`lms load <model> -c 32768`), exactly as the main app warms its model. C1 passed end-to-end (real grounded multi-turn answers through chartsearchai) once `google/gemma-4-e4b` + `medgemma-1.5-4b-it` were loaded at 32768.
+
+**Durability TODO:** add the bridge models to `CHARTSEARCH_WARMUP_MODELS` (or a med-agent-hub warmup) so the **persistent context default** is written for *their exact GGUFs* — otherwise after the idle TTL evicts them they JIT-reload at 4096 and regress. The one-off `lms load -c 32768` is loaded now but the persistent default was written for the chartsearch GGUFs, not necessarily the bridge's.
+
 ## Out of scope for v1 (deferred seams, unchanged)
 MCP protocol, A2A agent-cards/executors, real KB (F009), Spark/FHIR tools, `/v1/agents` skill surface, deterministic control-flow hardening, output safety-guards (citation-resolution/abstention) — all measurement-driven or boundary-triggered per the synced planning docs.
