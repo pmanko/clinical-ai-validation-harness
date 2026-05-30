@@ -24,12 +24,19 @@ Grounded in the actual code: med-agent-hub `harness-integration` (server/) + cha
 1. **Reuse the ReAct *pattern*, shed the A2A *wrapper*.** Extract the loop (iterate: LLM-with-tools → run tool → observe → loop → finalize; keep `MAX_ITERATIONS`, `_extract_json`) into a plain in-process async orchestrator the bridge calls with `messages[]`. **Drop:** the `AgentExecutor` base, the `_call_agent` A2A dispatch, the subagent server processes (collapse Procfile to one), the heatstroke/cities heuristics, the process-comments. Keep it iterative + multi-tool (NOT a fixed pipeline).
 2. **Envelope on the FINAL synthesis call only.** Run the tool loop **plain** (tools, no `response_format`) — constrained-JSON + tool-calling in the same turn is unreliable on 4-8B. When the model stops calling tools, do **one** final synthesis call **with** `response_format`=the forwarded envelope and no tools. (Bonus: this is exactly the single constrained call the guardrails research wants.)
 3. **Forward, don't hardcode.** Thread chartsearchai's `response_format`/`temperature`/`max_tokens`/`stream` through to LM Studio. (`_call_llm` currently hardcodes `max_tokens:1000` → would truncate a 4096 multi-block envelope. Fix.)
-4. **Typed tools, KB STUBBED for v1.** Tools = a typed `medical-expert` call (medgemma) + a `kb.search()` **stub**. Chart grounding comes from the **chart snapshot in `messages[]`**, not the KB — so v1 works without a real KB. The KB earns its place when **MAH.C2 measurement** shows it helps (don't pull F009 forward speculatively).
-5. **Streaming: support `stream:true` via buffer-then-emit SSE.** The chat path can send `stream:true`, so the bridge must return valid SSE — but it can run the loop, build the whole envelope, then emit it as a final SSE chunk + `[DONE]`. No true token-streaming from the loop. (Simplification, not full deferral.)
-6. **Team v1 = orchestrator loop + medical-expert tool.** Drop the separate `clinical/generalist` A2A subagent for v1 (fold its role into the expert or defer); add agents later through the same flexible loop.
+4. **Streaming: support `stream:true` via buffer-then-emit SSE.** The chat path can send `stream:true`, so the bridge must return valid SSE — but it can run the loop, build the whole envelope, then emit it as a final SSE chunk + `[DONE]`. No true token-streaming from the loop. (Simplification, not full deferral.)
 
-## Open question for the user
-- **KB stub vs minimal-real-KB for v1?** Advisor + lean-start favor stub-now / measure-then-build. The KB was part of the original team vision — flagging so you can veto cheaply.
+## Phase sequencing (roadmap §4, P1–P4 — confirmed with user 2026-05-29)
+
+The team + KB scope are **settled in the roadmap §2–§3**; this delta only applies the recalibration (in-process ReAct over typed tools; A2A/MCP-protocol deferred) to them. Build order:
+
+- **P1 — Bridge boots + selectable.** OpenAI-compat endpoint; `messages[]` + `response_format`/`temperature`/`max_tokens` **passthrough** to LM Studio; valid `chart_answer` envelope; `/v1/models`≥2 ids; picker round-trips; runs in the harness (container + submodule + compose). *Thin passthrough — no team logic yet.*
+- **P2 — Team (no KB).** The settled §2 team minus KB: ReAct loop (gemma-4, swappable / llama-3.1-8b fallback) + **medgemma-1.5-4b** expert tool + **gemma-4 synthesizer** (envelope on the final call) + a **guaranteed-valid fallback envelope** on sub-agent timeout.
+- **P3 — KB.** The settled §3 scope: openly-licensed clinical seed + OpenMRS contextualization (PHI-free aggregate), FTS5 BM25, `corpus.jsonl` committed, fact-pinning/K=3/abstain, integer-citations-chart-only + inline KB provenance. **KB engagement (typed tool the loop may call vs always-on pre-step) decided at P3** — measure both with the 006 harness.
+- **P4 — Validate.** Register the team in the 006 harness; **KB-on/off A/B** + abstention/Scout rubric; latency/cost per turn.
+
+## Team (settled, §2) — not re-litigated
+gemma-4 e4b **orchestrator + synthesizer** (dual role, swappable, llama-3.1-8b fallback) · medgemma-1.5-4b medical expert · KB lookup (FTS5 BM25). The separate `clinical/generalist` A2A subagent in the current code is old demo scaffolding — dropped. KB & expert are **typed tools** (recalibration), not A2A agents. Probe gemma-4 tool-calling reliability before committing.
 
 ## Out of scope for v1 (deferred seams, unchanged)
 MCP protocol, A2A agent-cards/executors, real KB (F009), Spark/FHIR tools, `/v1/agents` skill surface, deterministic control-flow hardening, output safety-guards (citation-resolution/abstention) — all measurement-driven or boundary-triggered per the synced planning docs.
