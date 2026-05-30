@@ -68,6 +68,12 @@ set_property() {
   local name="$1"
   local value="$2"
   echo "  ${name} = ${value}"
+  # Build the request bodies with python so values that themselves contain
+  # JSON/quotes (e.g. the endpoint registry) are escaped correctly. Simple
+  # string values are unaffected.
+  local body body_create
+  body=$(python3 -c "import json,sys; print(json.dumps({'value': sys.argv[1]}))" "${value}")
+  body_create=$(python3 -c "import json,sys; print(json.dumps({'property': sys.argv[1], 'value': sys.argv[2]}))" "${name}" "${value}")
   # Update the existing (registered) setting. If it has no row yet — e.g.
   # querystore.backend, which the module reads with a code default instead of
   # registering a global property — fall back to creating it via the collection
@@ -76,12 +82,12 @@ set_property() {
       -u "${ADMIN_USER}:${ADMIN_PASS}" \
       -H "Content-Type: application/json" \
       -X POST "${BASE_URL}/ws/rest/v1/systemsetting/${name}" \
-      -d "{\"value\": \"${value}\"}" 2>/dev/null; then
+      -d "${body}" 2>/dev/null; then
     rc -fsS -o /dev/null \
       -u "${ADMIN_USER}:${ADMIN_PASS}" \
       -H "Content-Type: application/json" \
       -X POST "${BASE_URL}/ws/rest/v1/systemsetting" \
-      -d "{\"property\": \"${name}\", \"value\": \"${value}\"}"
+      -d "${body_create}"
   fi
 }
 
@@ -89,6 +95,15 @@ echo "Configuring chartsearchai LLM globals at ${BASE_URL}:"
 set_property "chartsearchai.llm.engine"             "${ENGINE}"
 set_property "chartsearchai.llm.remote.endpointUrl" "${ENDPOINT}"
 set_property "chartsearchai.llm.remote.modelName"   "${MODEL}"
+
+# Optional endpoint registry for the picker's per-endpoint sections (LM Studio,
+# Med Agent Hub, ...). JSON array of {label,url}; single-quote it in
+# .env.chartsearch so the shell preserves the inner quotes. Unset -> the picker
+# falls back to a single section from endpointUrl above.
+ENDPOINTS_JSON="${CHARTSEARCH_REMOTE_ENDPOINTS:-}"
+if [ -n "${ENDPOINTS_JSON}" ]; then
+  set_property "chartsearchai.llm.remote.endpoints" "${ENDPOINTS_JSON}"
+fi
 
 # Querystore (CQRS read-store) retrieval. On by default; set
 # CHARTSEARCH_QUERYSTORE_ENABLED=false to fall back to chartsearchai's in-process
