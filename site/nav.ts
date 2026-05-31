@@ -110,6 +110,7 @@ export const navTree: NavSection[] = [
     title: 'Cross-cutting canvases',
     intro: 'Topic-scoped dashboards outside any single feature.',
     items: [
+      { kind: 'canvas', slug: 'specs/artifacts/canvases/upstream-contribution-and-compatibility', title: 'Upstream contribution & compatibility', blurb: 'The chartsearchai integration burst organized into reviewable openmrs PRs (esm + module), plus a live-verified check that the changes do not break the out-of-the-box bundled-LLM shape.' },
       { kind: 'canvas', slug: 'specs/artifacts/canvases/demo-data-profile', title: 'Demo-data profile & cohorts', blurb: 'Profile of the loaded OpenMRS 2.8 demo corpus: landscape metrics, completeness, content-verified phenotype cohorts, and curated data-rich validation patients.' },
       { kind: 'canvas', slug: 'specs/artifacts/canvases/scout-comparative-analysis', title: 'Scout comparative analysis', blurb: 'Deep-dive analysis of Duke DIHI Scout and implications for chartsearchai, openmrs_chatbot, and Catalyst.' },
       { kind: 'canvas', slug: 'specs/artifacts/canvases/cross-project-comparison',    title: 'Cross-project comparison',    blurb: 'Side-by-side architecture of chartsearchai, openmrs_chatbot, Catalyst.' },
