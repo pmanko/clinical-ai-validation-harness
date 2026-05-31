@@ -59,13 +59,26 @@ def test_backend_from_dict_requires_url_and_model():
         Backend.from_dict("bad", {"endpointUrl": "http://x"})  # missing modelName
 
 
-def test_shipped_demo_fixtures_are_valid_and_consistent():
-    # The checked-in demo comparison set must reference scenarios + backends that
+def test_all_shipped_fixtures_are_valid_and_consistent():
+    # Every checked-in comparison set must reference scenarios + backends that
     # actually exist and validate — catches a malformed/dangling fixture.
-    cset = load_comparison_set(DATA / "comparison_sets" / "demo.json")
     backends = load_backends(DATA / "backends.json")
-    for bid in cset.backend_ids:
-        assert bid in backends, f"demo references unknown backend {bid!r}"
-    for sid in cset.scenario_ids:
-        scenario = load_scenario(DATA / "scenarios" / f"{sid}.json")
-        assert scenario.turns, f"scenario {sid!r} has no turns"
+    comparison_sets = sorted((DATA / "comparison_sets").glob("*.json"))
+    assert comparison_sets, "no comparison sets found"
+    for cs_path in comparison_sets:
+        cset = load_comparison_set(cs_path)
+        for bid in cset.backend_ids:
+            assert bid in backends, f"{cs_path.name} references unknown backend {bid!r}"
+        for sid in cset.scenario_ids:
+            scenario = load_scenario(DATA / "scenarios" / f"{sid}.json")
+            assert scenario.turns, f"scenario {sid!r} has no turns"
+
+
+def test_every_scenario_file_loads():
+    # Each authored scenario validates on its own (a malformed convo turn fails here).
+    scenario_files = sorted((DATA / "scenarios").glob("*.json"))
+    assert scenario_files, "no scenario files found"
+    for path in scenario_files:
+        scenario = load_scenario(path)
+        assert scenario.id and scenario.patient_ref and scenario.turns
+        assert [t.n for t in scenario.turns] == sorted(t.n for t in scenario.turns)
