@@ -4,6 +4,7 @@
     "convo-medications-adherence",
     "convo-diagnosis-evidence",
     "convo-vitals-monitoring",
+    "convo-regimen-currency",
     "convo-abstention-honesty",
     "convo-safety-escalation"
   ],

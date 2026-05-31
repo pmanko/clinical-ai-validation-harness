@@ -1,0 +1,15 @@
+{
+  "id": "convo-regimen-currency",
+  "patient_ref": "dd75c020-1691-11df-97a5-7038c432aabf",
+  "turns": [
+    { "n": 1, "question": "What antiretroviral medications is this patient on?" },
+    { "n": 2, "question": "Is this regimen still recommended under current WHO guidance?" },
+    { "n": 3, "question": "If it's not preferred, what would be recommended instead?" }
+  ],
+  "tags": ["hiv", "art", "guideline", "kb-differentiator", "multi-turn"],
+  "expectations": {
+    "should_cite_resource_types": ["MedicationRequest", "Observation"],
+    "should_abstain": false,
+    "notes": "THE KB-differentiator demo. T1: the 4 ARVs (stavudine/lamivudine/nevirapine/efavirenz), cited. T2: the team should call kb_search (d4T phase-out) and reason her stavudine-based regimen is OUTDATED per WHO — citing the chart regimen record by integer AND attributing the WHO phase-out guidance INLINE in prose (never in citations). T3: preferred = dolutegravir-based (TLD), per the KB. The bare Gemma single-model backend has no KB and is told to use only the chart, so it can at best restate the regimen — it cannot flag it as outdated with sourced guidance. That delta is the demo."
+  }
+}
