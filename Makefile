@@ -335,8 +335,10 @@ cloud-stop:       ## stop the VM (saves ~$3/day; static IP keeps its address)
 	@gcloud compute instances stop $${GCP_VM_NAME:-harness-chartsearch} \
 	  --zone=$${GCP_ZONE:-us-central1-a} --project=$${GCP_PROJECT:-clinical-ai-harness}
 
+# Quote ARGS as a single token so compound commands (`&&`, `|`) run ON THE VM,
+# not split by this recipe's local shell. Empty ARGS → interactive ssh.
 cloud-ssh:        ## interactive ssh, or `ARGS='cmd...'` for one-shot
-	@./scripts/cloud-ssh.sh $(ARGS)
+	@./scripts/cloud-ssh.sh $(if $(strip $(ARGS)),"$(ARGS)")
 
 cloud-logs:       ## tail compose logs on VM; SERVICE=backend to filter, FOLLOW=0 to dump+exit
 	@./scripts/cloud-logs.sh
