@@ -11,7 +11,7 @@ export UV_PROJECT_ENVIRONMENT
         load-test orphan-fk-check import-smoke dump-loaded \
         chartsearch-build chartsearch-configure chartsearch-backend chartsearch-doctor chartsearch-warmup chartsearch-up \
         chartsearch-esm-build chartsearch-esm-dev cloud-deploy-esm \
-        med-agent-hub-build med-agent-hub-up med-agent-hub-logs med-agent-hub-restart \
+        med-agent-hub-build med-agent-hub-up med-agent-hub-logs med-agent-hub-restart med-agent-hub-test \
         cloud-init cloud-sync cloud-up cloud-down cloud-reset cloud-deploy cloud-seed \
         cloud-start cloud-stop cloud-ssh cloud-logs cloud-status cloud-destroy
 
@@ -171,6 +171,15 @@ med-agent-hub-logs:
 
 med-agent-hub-restart:
 	docker compose -f compose/openmrs-2.8-refapp.yml restart med-agent-hub
+
+# Run the bridge + KB unit tests in a throwaway python container. The runtime
+# image is built from exported requirements (no dev deps), so tests run here
+# against the source mount with the minimal import set + pytest. No host venv.
+# Scoped to the bridge's suite; the legacy A2A tests belong to the multi-process
+# topology the in-process team replaced (they import the unused a2a-sdk).
+med-agent-hub-test:
+	docker run --rm -v $(CURDIR)/targets/med-agent-hub:/app -w /app python:3.11-slim \
+		sh -c "pip install --quiet --root-user-action=ignore fastapi httpx psutil python-dotenv pytest && python -m pytest -q tests/test_bridge.py tests/test_kb.py"
 
 # Configure chartsearchai LLM global properties via REST. Reads .env.chartsearch
 # for endpoint + model + engine. The API key goes via the backend env var
