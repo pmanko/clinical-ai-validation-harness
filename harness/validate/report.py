@@ -1,9 +1,12 @@
 """Generate a standalone, self-contained HTML validation report from a run's
-results.jsonl + run_manifest.json (spec 006 SC-006.4).
+results.jsonl + run_manifest.json (spec 006 SC-006.4/5).
 
 No build step, no server, no ESM import — open report.html in a browser. Layout:
 a per-backend comparison summary, then one grid per scenario (rows = turns/the
-question, columns = backends, each cell = answer + citations + metric chips).
+question, columns = backends, each cell = answer + citations + metric chips +
+a per-cell Scout-rubric adjudication form). A "Download feedback.jsonl" button
+serialises the filled forms into the feedback shape the repository expects
+(client-side; no server needed — drop the file into the run dir).
 """
 
 from __future__ import annotations
@@ -63,7 +66,31 @@ def _summary_table(results: list[dict[str, Any]], backends: list[str], models: d
     )
 
 
-def _cell(r: dict[str, Any] | None) -> str:
+def _form(scenario_id: str, turn: Any, backend_id: str) -> str:
+    score = lambda name: (
+        f"<label>{name[:3]}<input type='number' min='0' max='10' step='1' name='{name}'></label>"
+    )
+    return (
+        f"<details class='adj'><summary>adjudicate</summary>"
+        f"<div class='cell-form' data-scenario='{_esc(scenario_id)}' data-turn='{_esc(turn)}' "
+        f"data-backend='{_esc(backend_id)}'>"
+        f"<div class='scores'>{score('accuracy')}{score('completeness')}{score('relevance')}</div>"
+        f"<label>abstention<select name='abstention_outcome'>"
+        f"<option value='n-a'>n/a</option><option value='correct'>correct</option>"
+        f"<option value='over-abstained'>over-abstained</option>"
+        f"<option value='failed-to-abstain'>failed-to-abstain</option></select></label>"
+        f"<label>citations<select name='citation_groundedness'>"
+        f"<option value='n-a'>n/a</option><option value='supported'>supported</option>"
+        f"<option value='partly'>partly</option><option value='unsupported'>unsupported</option></select></label>"
+        f"<label class='harm'><input type='checkbox' name='harm_fail'> harm hard-fail</label>"
+        f"<div class='decision'><label><input type='radio' name='decision-{_esc(scenario_id)}-{_esc(turn)}-{_esc(backend_id)}' value='pass'> pass</label>"
+        f"<label><input type='radio' name='decision-{_esc(scenario_id)}-{_esc(turn)}-{_esc(backend_id)}' value='fail'> fail</label></div>"
+        f"<textarea name='free_text' placeholder='notes'></textarea>"
+        f"</div></details>"
+    )
+
+
+def _cell(r: dict[str, Any] | None, scenario_id: str, turn: Any, backend_id: str) -> str:
     if r is None:
         return "<td class='empty'>—</td>"
     m = r.get("metrics", {})
@@ -88,7 +115,7 @@ def _cell(r: dict[str, Any] | None) -> str:
         chips.append("<span class='chip none'>∅ no refs</span>")
     if not m.get("json_valid", True):
         chips.append("<span class='chip bad'>invalid</span>")
-    return f"<td>{body}<div class='chips'>{''.join(chips)}</div></td>"
+    return f"<td>{body}<div class='chips'>{''.join(chips)}</div>{_form(scenario_id, turn, backend_id)}</td>"
 
 
 def _scenario_grid(results: list[dict[str, Any]], scenario_id: str, backends: list[str]) -> str:
@@ -100,7 +127,7 @@ def _scenario_grid(results: list[dict[str, Any]], scenario_id: str, backends: li
     header = "".join(f"<th>{_esc(b)}</th>" for b in backends)
     body_rows = []
     for t in turns:
-        cells = "".join(_cell(index.get((t, b))) for b in backends)
+        cells = "".join(_cell(index.get((t, b)), scenario_id, t, b) for b in backends)
         body_rows.append(
             f"<tr><td class='turn'><span class='n'>T{_esc(t)}</span>"
             f"<div class='q'>{_esc(questions.get(t))}</div></td>{cells}</tr>"
@@ -116,7 +143,7 @@ _STYLE = """
 :root { --fg:#1a1a1a; --mut:#666; --line:#e2e2e2; --bg:#fafafa; }
 * { box-sizing: border-box; }
 body { font: 14px/1.5 -apple-system, system-ui, sans-serif; color: var(--fg); margin: 0; background: var(--bg); }
-.wrap { max-width: 1400px; margin: 0 auto; padding: 24px; }
+.wrap { max-width: 1500px; margin: 0 auto; padding: 24px 24px 120px; }
 h1 { font-size: 20px; margin: 0 0 4px; }
 h2 { font-size: 15px; margin: 28px 0 8px; font-family: ui-monospace, monospace; }
 .meta { color: var(--mut); font-size: 12px; font-family: ui-monospace, monospace; margin-bottom: 16px; }
@@ -126,7 +153,7 @@ th { background: #f3f3f3; font-weight: 600; font-size: 12px; }
 .summary td, .summary th { text-align: center; }
 .summary td.b { text-align: left; font-family: ui-monospace, monospace; }
 .summary .model { display: block; color: var(--mut); font-size: 11px; }
-.grid .turncol, .grid .turn { width: 22%; }
+.grid .turncol, .grid .turn { width: 20%; }
 .turn .n { font-family: ui-monospace, monospace; font-weight: 700; color: var(--mut); }
 .turn .q { margin-top: 2px; }
 .ans { white-space: pre-wrap; }
@@ -140,8 +167,44 @@ th { background: #f3f3f3; font-weight: 600; font-size: 12px; }
 .chip.none { background: #fde8e8; color: #a01; }
 .chip.bad { background: #a01; color: #fff; }
 .empty { color: #bbb; text-align: center; }
+.adj { margin-top: 8px; font-size: 12px; }
+.adj summary { cursor: pointer; color: #2748a0; font-size: 11px; }
+.cell-form { margin-top: 6px; display: flex; flex-direction: column; gap: 4px; }
+.cell-form .scores { display: flex; gap: 6px; }
+.cell-form label { font-size: 11px; color: var(--mut); }
+.cell-form input[type=number] { width: 38px; }
+.cell-form select { font-size: 11px; }
+.cell-form textarea { width: 100%; height: 36px; font: inherit; font-size: 11px; }
+.cell-form .decision { display: flex; gap: 10px; }
+.bar { position: fixed; bottom: 0; left: 0; right: 0; background: #1a1a1a; color: #fff; padding: 10px 24px; display: flex; gap: 12px; align-items: center; }
+.bar input { font: inherit; padding: 4px 8px; }
+.bar button { font: inherit; font-weight: 600; padding: 6px 14px; cursor: pointer; }
 .legend { color: var(--mut); font-size: 12px; margin-top: 24px; border-top: 1px solid var(--line); padding-top: 12px; }
 """
+
+
+def _script(run_id: str) -> str:
+    return (
+        "<script>const RUN_ID=" + json.dumps(run_id) + ";"
+        "function n(v){v=(v||'').trim();return v===''?null:Number(v);}"
+        "function collect(){const out=[];"
+        "document.querySelectorAll('.cell-form').forEach(function(f){"
+        "const g=function(s){return f.querySelector(s);};"
+        "const acc=g('[name=accuracy]').value,comp=g('[name=completeness]').value,rel=g('[name=relevance]').value;"
+        "const abst=g('[name=abstention_outcome]').value,grnd=g('[name=citation_groundedness]').value;"
+        "const harm=g('[name=harm_fail]').checked;const dec=f.querySelector('input[type=radio]:checked');"
+        "const txt=g('[name=free_text]').value.trim();"
+        "const touched=acc||comp||rel||txt||harm||dec||abst!=='n-a'||grnd!=='n-a';if(!touched)return;"
+        "out.push(JSON.stringify({run_id:RUN_ID,scenario_id:f.dataset.scenario,turn:Number(f.dataset.turn),"
+        "backend_id:f.dataset.backend,reviewer:document.getElementById('rev').value||'unknown',"
+        "scores:{accuracy:n(acc),completeness:n(comp),relevance:n(rel)},abstention_outcome:abst,"
+        "citation_groundedness:grnd,harm_fail:harm,decision:dec?dec.value:null,free_text:txt,"
+        "created_at:new Date().toISOString()}));});"
+        "if(!out.length){alert('No adjudications filled in yet.');return;}"
+        "const blob=new Blob([out.join('\\n')+'\\n'],{type:'application/x-ndjson'});"
+        "const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='feedback.jsonl';a.click();"
+        "}</script>"
+    )
 
 
 def build_report(run_dir: Path | str) -> Path:
@@ -153,10 +216,11 @@ def build_report(run_dir: Path | str) -> Path:
 
     backends = _ordered_unique([r.get("backend_id") for r in results])
     scenarios = _ordered_unique([r.get("scenario_id") for r in results])
+    run_id = manifest.get("run_id", "")
 
     otel = manifest.get("otel", {})
     meta = (
-        f"run {manifest.get('run_id')} · {manifest.get('component')} · git {manifest.get('git_sha','?')[:10]} · "
+        f"run {run_id} · {manifest.get('component')} · git {manifest.get('git_sha','?')[:10]} · "
         f"{manifest.get('dataset_id')} · provider {otel.get('gen_ai.provider.name','?')} · {manifest.get('generated_at','')}"
     )
 
@@ -165,17 +229,22 @@ def build_report(run_dir: Path | str) -> Path:
         "<div class='legend'>⏱ latency (orange = first turn per backend, carries model warmup). "
         "cites = chart records cited. ∅ no refs = the answer cited nothing (a references_empty "
         "PROXY for abstention — chartsearchai emits no abstention flag; the authoritative call is "
-        "human adjudication). tokens / finish_reasons / response model are not surfaced by /chat "
-        "(OTel-deferred). Deterministic metrics only — no LLM judge.</div>"
+        "the human adjudication below each cell). tokens / finish_reasons / response model are not "
+        "surfaced by /chat (OTel-deferred). Deterministic metrics only — no LLM judge.</div>"
+    )
+    bar = (
+        "<div class='bar'>reviewer <input id='rev' placeholder='you@example.org'>"
+        "<button onclick='collect()'>Download feedback.jsonl</button>"
+        "<span style='color:#aaa;font-size:12px'>fills the feedback collection; drop it into the run dir</span></div>"
     )
 
     doc = (
         f"<!doctype html><html><head><meta charset='utf-8'>"
-        f"<title>validation report · {_esc(manifest.get('run_id'))}</title><style>{_STYLE}</style></head>"
+        f"<title>validation report · {_esc(run_id)}</title><style>{_STYLE}</style></head>"
         f"<body><div class='wrap'><h1>Validation report — {_esc(' vs '.join(backends))}</h1>"
         f"<div class='meta'>{_esc(meta)}</div>"
         f"<h2>comparison summary</h2>{_summary_table(results, backends, models)}"
-        f"{grids}{legend}</div></body></html>"
+        f"{grids}{legend}</div>{bar}{_script(run_id)}</body></html>"
     )
     out = run_dir / "report.html"
     out.write_text(doc, encoding="utf-8")
