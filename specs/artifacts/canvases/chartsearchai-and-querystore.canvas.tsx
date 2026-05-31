@@ -37,6 +37,16 @@ import {
 // and the default for `make cloud-up`; `make chartsearch-backend BACKEND=...`
 // flips tiers locally. So the "future querystore-backed" architecture below is
 // shipped, not future. See spec.md's two 2026-05-29 updates.
+//
+// UPDATE 2026-05-31 (LLM engine + picker): BOTH chartsearchai engines are now
+// wired + validated — engine=local runs the bundled llama-server in-process (the
+// module's OOTB default per config.xml), engine=remote (harness default) hits an
+// OpenAI-compat endpoint; switch with `make chartsearch-engine ENGINE=local|remote`.
+// A sectioned model picker + per-request {endpointUrl,modelName} override ship in
+// the esm + module (chartsearchai pin now harness-integration @ 8cab949). The
+// "remote engine only / bundled llama-server out of scope" framing below is
+// SUPERSEDED. med-agent-hub (the Med Agent Team) runs as a picker endpoint both
+// locally and on the cloud VM.
 
 const heroStats = [
   { value: '12', label: 'chartsearchai merged PRs (since 2026-03-10)', tone: 'info' as const },
@@ -77,7 +87,7 @@ const multiTurnPrRows = [
 ];
 
 const moduleStatusRows = [
-  ['chartsearchai', 'mature, shipping, hot iteration', 'ab37133 (2026-05-16)', '12 merged PRs', 'Standalone capable; querystore integration code added 2026-05-15 (off by default)'],
+  ['chartsearchai', 'mature, shipping, hot iteration', 'harness-integration @ 8cab949 (2026-05-31)', '12 merged PRs (upstream, as of 2026-05-16)', 'Harness pins the fork harness-integration tip: per-request override, sectioned model picker, engine-aware override + both engines (local/remote) wired. Standalone capable; querystore integration off by default.'],
   ['querystore', 'pre-alpha, single-author iteration', 'ab371333 (2026-05-16)', '1 merged PR (scaffold)', '5 critical runtime bugs block any backend tier from starting cleanly'],
 ];
 
@@ -135,7 +145,7 @@ const assumptionRows = [
   ['Both modules require OpenMRS Platform 2.8.0+', 'Compatibility', 'Our harness backend (RefApp 3.6.0) sits on 2.8 line — compatible.'],
   ['chartsearchai requires Webservices REST 2.44.0+', 'Compatibility', 'Our backend has 3.2.0 — compatible.'],
   ['chartsearchai default = preFilter=false (full-chart mode)', 'Simplicity', 'No ONNX model file required for the PoC; LLM gets the whole chart.'],
-  ['chartsearchai LLM engine = remote (OpenAI-compat)', 'PoC scope', 'LM Studio/Anthropic/OpenAI/Ollama all work; bundled llama-server out of scope.'],
+  ['chartsearchai LLM engine: local (module default) + remote, both wired', 'Engine', 'engine=local runs the bundled llama-server in-process (config.xml defaultValue=local); engine=remote (harness default) hits an OpenAI-compat endpoint (LM Studio/Med Agent Hub/Anthropic/OpenAI/Ollama). Switch via `make chartsearch-engine ENGINE=local|remote`. [updated 2026-05-31]'],
   ['chartsearchai.llm.remote.apikey in runtime properties, not DB globals', 'Security', 'Injected via OMRS_EXTRA_CHARTSEARCHAI_LLM_REMOTE_APIKEY env var (OpenMRS auto-translates).'],
   ['querystore is build-time dep, runtime opt-in', 'Architecture', 'querystore-api compiled into chartsearchai .omod (scope=provided); chartsearchai degrades gracefully if querystore not installed.'],
   ['Chartsearchai eval dataset (153 records) = only available validator', 'Validation', 'Run against querystore-backed retrieval (when ready) to catch regressions vs in-process baseline.'],
@@ -300,6 +310,7 @@ export default function ChartSearchAIAndQueryStoreArchitecture() {
           <Pill tone="warning" active>querystore: pre-alpha</Pill>
           <Pill tone="success" active>chartsearchai: shipping</Pill>
           <Pill tone="info" active>Measured 2026-05-16</Pill>
+          <Pill tone="success" active>Updated 2026-05-31</Pill>
         </Row>
         <H1>ChartSearchAI + QueryStore — Architecture and Migration</H1>
         <Text tone="secondary">

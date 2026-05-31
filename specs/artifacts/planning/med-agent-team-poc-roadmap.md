@@ -19,6 +19,11 @@ Decisions that diverged from §4–§5 below are resolved inline (annotated **[R
 
 ## 1. Situation
 
+> **Historical pre-work baseline (as of `@5cac078`).** This survey describes the *starting* stub; the
+> target it sets out has since SHIPPED — the OpenAI-compat bridge + in-process team are live (see the status
+> table above and §4), the harness pins the current `harness-integration` tip (not `5cac078`), and
+> `specs/005-med-agent-hub-bridge/spec.md` was retro-created. Kept as the "before" snapshot.
+
 med-agent-hub (fork `pmanko/med-agent-hub`, branch `harness-integration` @ `5cac078`, clone at `/Users/pmanko/code/med-agent-hub`) is a reboot stub. It serves only `/`, `/manifest`, `/health` (`server/main.py:46,60,76`); the OpenAI-compat bridge chartsearchai needs is a commented placeholder (`main.py:94-98`). The router is single-dispatch and query-string-only — it extracts one string via `context.get_user_input()` (`router_executor.py:179`), routes on it, forwards one `TextPart` to one subagent, and copies that artifact back verbatim (`router_executor.py:215-242`). `response_format` appears nowhere (grep = 0 hits); `Dockerfile.server:99` runs only `uvicorn server.main:app`, so the image can't even reach the A2A agents (`Procfile.dev` runs four processes). The target: med-agent-hub exposes OpenAI-compat `/v1/chat/completions` + `/v1/models`, forwards the full chartsearchai `messages[]`, runs a coordinated team (orchestrator → KB → medgemma → gemma synthesizer), and returns chartsearchai's strict `{answer, citations, blocks}` envelope — selectable in the model picker as "Med Agent Team." Note: the survey-referenced `specs/005-med-agent-hub-bridge/` dir does **not** exist on this branch; F005 lives in `roadmap.canvas.tsx:303-322`. The wire contract below is pinned from live chartsearchai Java source, the source of truth.
 
 ## 2. Target architecture
@@ -76,7 +81,7 @@ med-agent-hub (fork `pmanko/med-agent-hub`, branch `harness-integration` @ `5cac
 
 **P1 — Boot as a chartsearchai-selectable OpenAI-compat endpoint (the bridge).**
 Deliverables: `server/openai_compat.py` with `POST /v1/chat/completions` (sync + SSE) and `GET /v1/models`; ChatCompletion schemas in `schemas.py`; full `messages[]` threaded through; `response_format` passthrough; honcho/Procfile single-image `Dockerfile` running web + 3 agent processes; harness submodule `targets/med-agent-hub/`; compose + registry entry.
-Exit: `curl /v1/chat/completions` returns a valid `chart_answer` envelope; **`/v1/models` exposes ≥2 ids** (picker hides when `available.length < 2`, `model-picker.component.tsx:148`); let `/api/v1/models` 404 so the hub is tagged `provider:"generic-openai-compat"` (`:514`); a picker selection writes the GP and the id round-trips as the request `model`; per-turn latency captured.
+Exit: `curl /v1/chat/completions` returns a valid `chart_answer` envelope; **`/v1/models` exposes the single `med-agent-team` id** (as shipped — `openai_compat.py` `_advertised_models()`; the picker's `available.length < 2` hide rule is satisfied *across endpoints* — LM Studio's models + the team — so one team id is correct, not a blocker); let `/api/v1/models` 404 so the hub is tagged `provider:"generic-openai-compat"`; a picker selection round-trips the id as the request `model` (now a per-request override, not a GP write); per-turn latency captured.
 
 **P2 — Orchestrator + medgemma + gemma-4 synthesizer (no KB).**
 Deliverables: thin code orchestrator; medgemma free-text expert call; gemma-4 synthesizer bound to `response_format`; buffer-then-stream-synthesizer path; guaranteed-valid fallback envelope on sub-agent timeout.

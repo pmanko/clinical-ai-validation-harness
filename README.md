@@ -132,6 +132,41 @@ Python 3.11+ is required. The project tracks `.python-version = 3.11` and `requi
 
 For the full OpenMRS demo-data remap workflow, see [specs/002-openmrs-demo-data-2-8-remap/quickstart.md](specs/002-openmrs-demo-data-2-8-remap/quickstart.md).
 
+## ChartSearch operations
+
+The chartsearchai adapter (feature 004) and its Med Agent Hub team are operated through `make` targets that
+wrap the build, the LLM engine, the retrieval backend, and the per-endpoint model picker:
+
+```bash
+# Build chartsearchai's .omod from the submodule and stage it for the backend
+make chartsearch-build
+
+# Bring up / configure the stack, then warm the LM Studio models
+make chartsearch-up
+make chartsearch-configure          # sets the chartsearchai.llm.* global properties from .env.chartsearch
+make chartsearch-warmup
+
+# LLM engine — switch between the bundled local model and a remote endpoint
+make chartsearch-engine ENGINE=local     # chartsearchai's own bundled llama-server, in-process (module OOTB default)
+make chartsearch-engine ENGINE=remote    # OpenAI-compatible endpoint (LM Studio / Med Agent Hub / cloud) — harness default
+
+# Retrieval backend — querystore's CQRS read store tier
+make chartsearch-backend BACKEND=elasticsearch   # or lucene | mysql
+
+# Med Agent Hub team (an OpenAI-compatible endpoint the picker can select)
+make med-agent-hub-up
+```
+
+**Model picker.** When `CHARTSEARCH_REMOTE_ENDPOINTS` (a JSON array of `{label, url}`) is set in
+`.env.chartsearch`, the chat panel shows a sectioned picker — one section per endpoint (e.g. *LM Studio* and
+*Med Agent Hub*). Selecting a model sends it as a per-request `{endpointUrl, modelName}` override on that chat
+only; it does not change the config-controlled global default (shown with a faded "default" tag). With no
+registry set, the picker collapses to the single configured endpoint.
+
+**Cloud.** `make cloud-deploy` ships the backend (`.omod`) and `make cloud-deploy-esm` ships the frontend
+bundle; `make cloud-status` / `cloud-ssh` inspect the VM. The cloud runs the same engine + picker + Med Agent
+Hub setup as local (it reaches the operator's LM Studio over the LM Link).
+
 ## Key terms
 
 | Term | Meaning |

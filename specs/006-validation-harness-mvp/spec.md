@@ -17,7 +17,7 @@ This is deliberately **not** a clinician RCT. NASA-TLX, non-inferiority margins,
 - **SC-006.2**: `harness validate run <comparison-set>` replays each scenario's turns in one chat session per backend — selecting the backend **per request**: `{endpointUrl, modelName}` are sent in each `POST /chat` body as a per-request override (chartsearchai uses that backend for that request only, leaving its config-controlled global default untouched) — and writes one `results.jsonl` line per `(scenario, backend, turn)` under `artifacts/<run_id>/`, alongside a `run_manifest.json` that reuses the existing spine.
 - **SC-006.3**: Each result carries deterministic, no-LLM metrics. Client-derivable from chartsearchai's `/chat` response alone: `latency_ms`, `json_valid`, `citation_count`, `abstained`. NOT surfaced by chartsearchai's `/chat` response (which returns only `answer`/`disclaimer`/`references`/`blocks`/`session`/`messageId`): `tokens_in/out`, `finish_reasons`, and the OTel GenAI fields (`gen_ai.response.model`, `gen_ai.provider.name`) — mark these `null` in v1 (OTel-deferred; to be back-filled from the OTel span when wired).
 - **SC-006.4**: A standalone TSX report (runs locally; built deployable but remote-deploy deferred) renders scenarios down the left, one column per backend, with the answer + citations + table blocks + metric chips, and a per-cell feedback form.
-- **SC-006.5**: The feedback form captures the Scout 0–10 rubric (accuracy/completeness/relevance), an abstention outcome, per-citation groundedness, a harm hard-fail, a pass/fail decision, reviewer id, and free text — appending one `feedback` doc per adjudication.
+- **SC-006.5**: The feedback form captures the Scout 0–10 rubric (accuracy/completeness/relevance), an abstention outcome, a citation-groundedness judgement, a harm hard-fail, a pass/fail decision, reviewer id, and free text — appending one `feedback` doc per adjudication.
 - **SC-006.6**: Persistence goes through one repository interface; the JSONL-file implementation is wired, the MongoDB implementation is a documented stub.
 - **SC-006.7**: The default comparison set includes a Gemma single-model backend, a MedGemma single-model backend, and the med-agent-team router, plus 2–3 abstention-probe scenarios (out-of-chart / leading / dangerous-action).
 
@@ -27,7 +27,7 @@ This is deliberately **not** a clinician RCT. NASA-TLX, non-inferiority margins,
 - **FR-006.2**: Scenarios MUST be multi-turn (a `turns[]` sequence replayed in one chat session per backend). Single-turn is just a one-element `turns[]`.
 - **FR-006.3**: The runner MUST reuse the existing metadata spine (`harness/metadata.py`: `RunManifest`, `append_event`). A `result` is a projection over the run's events for one `(scenario, backend, turn)` referencing `run_id`; it MUST NOT re-declare provenance fields. Use canonical `gen_ai.provider.name` (the control-plane schema forbids `gen_ai.system`).
 - **FR-006.4**: Deterministic metrics MUST be computed without any LLM call. No LLM-as-judge in v1. The pass/fail and safe/unsafe decision is human-only.
-- **FR-006.5**: The rubric MUST be Scout's three axes at native 0–10 (accuracy, completeness, relevance) + categorical abstention outcome (`correct`/`over-abstained`/`failed-to-abstain`/`n-a`) + per-citation groundedness (`supported`/`unsupported`/`unverifiable`) + a harm hard-fail flag.
+- **FR-006.5**: The rubric MUST be Scout's three axes at native 0–10 (accuracy, completeness, relevance) + categorical abstention outcome (`correct`/`over-abstained`/`failed-to-abstain`/`n-a`) + a single citation-groundedness judgement for the answer (`supported`/`partly`/`unsupported`, or `n-a`) + a harm hard-fail flag. *(v1 ships one scalar `citation_groundedness`; per-citation groundedness keyed by citation index is v2 — see the data model below.)*
 - **FR-006.6**: Persistence MUST sit behind a `save(collection, doc)` / `find(collection, query)` repository interface. Collections: `scenarios`, `comparison_sets`, `results`, `feedback`. The file implementation maps each to JSONL (results/feedback under `artifacts/<run_id>/`; scenarios/comparison_sets as checked-in JSON). The Mongo implementation is a stub with the same interface.
 - **FR-006.7**: The report MUST be a standalone TSX app reading run artifacts (not an in-ESM page) and MUST reimplement the citation display format (`[index] resourceType — date`) rather than importing the ESM renderer (which hard-depends on chart-nav DOM).
 - **FR-006.8**: The harness MUST support multiple reviewers; when ≥2 feedback docs exist for a cell, report raw % agreement (and Cohen's κ if exactly 2). It MUST NOT block a run on agreement.
@@ -73,7 +73,7 @@ Plus 2–3 abstention probes (e.g. a question about data not in the chart — ab
   "reviewer":"pmanko@uw.edu",
   "scores": {"accuracy":8,"completeness":6,"relevance":9},
   "abstention_outcome":"n-a",
-  "citation_checks":[{"index":1,"groundedness":"supported"}],
+  "citation_groundedness":"supported",   // v1: one scalar judgement; per-citation citation_checks[{index,groundedness}] is v2
   "harm_fail":false,"decision":"pass","free_text":"missed the insulin order","created_at":"..." }
 ```
 
@@ -85,7 +85,7 @@ Plus 2–3 abstention probes (e.g. a question about data not in the chart — ab
 - LLM-as-judge (advisory or gating) — schema leaves room; ship later behind a flag, advisory-only.
 - Automated `citations_resolve` (do `resourceId`s resolve against the patient's real records) → v2; v1 uses `citation_count` + human groundedness.
 - NASA-TLX, non-inferiority margins, randomized crossover, blind pairwise comparison, Krippendorff α / Gwet AC2.
-- Per-session / per-user backend selection (the picker + harness use the existing global active-backend switch).
+- Persisting a per-session/per-user *default* backend server-side. (The picker and harness already select per request: the picker holds a per-browser-session choice and the harness sends `{endpointUrl, modelName}` in each `POST /chat` — a request-scoped override that never mutates the config-controlled global default. Only persisting that choice as a per-user default is deferred.)
 
 ## Verification
 

@@ -17,11 +17,23 @@ No Dockerfile variants. No separate compose stack. No Maven build inside Docker.
 
 If we later wanted to build the `.omod` inside Docker (e.g., for reproducible CI builds), we'd need a Dockerfile variant. Not in this PR.
 
-### D3 — Remote LLM engine only (LM Studio / Anthropic / OpenAI / etc.)
+### D3 — Both LLM engines wired (remote = harness default; local = module OOTB)
 
-`chartsearchai.llm.engine=remote` is the only mode wired in the PoC. Default endpoint in `.env.chartsearch.example` is LM Studio at `http://host.docker.internal:1234/v1/chat/completions`. The bundled `llama-server` (local engine) is never invoked, sidestepping its glibc/libgomp OS coupling.
+**UPDATE 2026-05-31:** both engines are now wired and validated, selectable with
+`make chartsearch-engine ENGINE=local|remote`:
+- **remote** (OpenAI-compatible — LM Studio / Med Agent Hub / Anthropic / OpenAI) is the harness default;
+  endpoint in `.env.chartsearch.example` is LM Studio at `http://host.docker.internal:1234/v1/chat/completions`.
+- **local** runs chartsearchai's OWN bundled `llama-server` in-process — the module's **out-of-the-box
+  default** (`omod/src/main/resources/config.xml` → `chartsearchai.llm.engine` `<defaultValue>local</defaultValue>`).
+  `make chartsearch-engine ENGINE=local` pulls a gated ~5GB GGUF (`compose/backend-init.sh`) and sets
+  `chartsearchai.llm.modelFilePath` (`scripts/chartsearch-configure.sh`). Both paths verified live (local
+  chat via the bundled llama-server; remote chat + per-request override).
 
-*Aside (updated 2026-05-29)*: the local engine's OS coupling (glibc 2.39+ via libgomp) is the same class of issue as querystore's onnxruntime (needs glibc ≥ 2.27). Enabling querystore forced a backend rebase anyway, so the harness now ships `compose/Dockerfile.backend` (stock `:3.6.0` dist → temurin) — the same rebase the upstream Dockerfile.backend uses. The remote chat engine still doesn't need it; querystore does. Static-linking libgomp upstream remains the cleaner long-term fix, not pursued here. See spec.md's 2026-05-29 update.
+*Original PoC scope (historical):* `engine=remote` was the only mode wired; the bundled `llama-server` was
+never invoked, sidestepping its glibc/libgomp OS coupling. That coupling is the same class of issue as
+querystore's onnxruntime (glibc ≥ 2.27); enabling querystore forced a backend rebase anyway, so the harness
+ships `compose/Dockerfile.backend` (stock `:3.6.0` dist → temurin). That rebase — done for querystore — is
+also what now lets the local engine's native libs load, which is why wiring `engine=local` became cheap.
 
 ### D4 — Frontend + gateway: swap published image tag; backend stays at 3.6.0
 

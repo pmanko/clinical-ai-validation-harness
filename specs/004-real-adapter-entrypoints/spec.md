@@ -21,7 +21,7 @@ This is M3 scoped to the chartsearchai adapter. The other M3 adapter targets (qu
 ## Functional requirements
 
 - **FR-004.1**: The chartsearchai `.omod` MUST be built from the harness's `targets/chartsearchai/` submodule via `mvn -DskipTests package`. The submodule SHA is the pin.
-- **FR-004.2**: The PoC MUST use chartsearchai's **remote** LLM engine (OpenAI-compatible). The bundled local llama-server is out of scope.
+- **FR-004.2**: The harness MUST support **both** chartsearchai LLM engines, selectable via `make chartsearch-engine ENGINE=local|remote`: **remote** (OpenAI-compatible — LM Studio / Med Agent Hub / cloud) is the harness default; **local** runs the module's bundled `llama-server` in-process (the module's OOTB default per `config.xml`). *(Updated 2026-05-31: the local engine, originally out of scope, is now wired + validated — see plan §D3.)*
 - **FR-004.3**: The harness MUST minimize customization vs upstream: no Dockerfile variants, no separate compose stack, no Maven build inside Docker. Only an env-var addition to the existing compose, an env-file template, a Makefile target wrapping `mvn package + cp`, and a small `chartsearch-configure.sh` wrapping 3 REST POSTs.
 - **FR-004.4**: The PoC MUST NOT deploy querystore at runtime. (Correction from earlier draft: recent chartsearchai *does* declare a build-time dep on `querystore-api` with `scope=provided`. We install querystore-api locally from our submodule so chartsearchai builds; at runtime `chartsearchai.querystore.enabled=false` keeps chartsearchai on its in-process retrieval. Deploying querystore is M8 (`009-querystore-parity-testbed`) and is blocked by querystore's 5 open critical runtime bugs.)
 - **FR-004.5**: The architecture canvas MUST capture both the current standalone-chartsearchai shape and the future querystore-backed shape, with the migration gap and open-bug count from upstream so future planning has measured context.
@@ -52,7 +52,8 @@ NOT asserted: specific drug names. Brittle vs LLM phrasing; smoke is about wirin
 
 ## Out of scope
 
-- Local LLM engine (bundled `llama-server` + GGUF model) — `chartsearchai.llm.engine=remote` only
+- ~~Local LLM engine (bundled `llama-server` + GGUF)~~ — **now in scope (2026-05-31): wired + validated via
+  `make chartsearch-engine ENGINE=local`; see FR-004.2 + plan §D3.**
 - Playwright automation — v2 follow-up
 - chartsearchai's embedding/Lucene/hybrid/elasticsearch retrieval pipelines — default `preFilter=false` (full-chart mode) is the simplest path
 - querystore module bringup — pre-alpha upstream, blocked by 5 critical runtime bugs + 4 open ADR questions (see `plan.md`)
