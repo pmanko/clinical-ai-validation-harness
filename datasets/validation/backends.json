@@ -1,8 +1,8 @@
 {
   "gemma-local": {
-    "label": "Gemma (LM Studio direct)",
+    "label": "Gemma 4-E4B (LM Studio direct)",
     "endpointUrl": "http://host.docker.internal:1234/v1/chat/completions",
-    "modelName": "gemma-4-e2b-it"
+    "modelName": "google/gemma-4-e4b"
   },
   "medgemma-local": {
     "label": "MedGemma (LM Studio direct)",
