@@ -12,6 +12,7 @@ export UV_PROJECT_ENVIRONMENT
         chartsearch-build chartsearch-configure chartsearch-backend chartsearch-doctor chartsearch-warmup chartsearch-up \
         chartsearch-esm-build chartsearch-esm-dev cloud-deploy-esm \
         med-agent-hub-build med-agent-hub-up med-agent-hub-logs med-agent-hub-restart med-agent-hub-test \
+        validate-run \
         cloud-init cloud-sync cloud-up cloud-down cloud-reset cloud-deploy cloud-seed \
         cloud-start cloud-stop cloud-ssh cloud-logs cloud-status cloud-destroy
 
@@ -343,6 +344,14 @@ smoke: setup
 
 validate-plan: setup
 	$(UV) run python -c 'from pathlib import Path; import yaml; base = Path("specs/001-harness-control-plane-foundation"); files = ["contracts/targets.schema.yaml", "contracts/run-manifest-control-plane.schema.yaml"]; [yaml.safe_load((base / rel).read_text(encoding="utf-8")) for rel in files]; [print(f"{rel}: valid YAML") for rel in files]'
+
+# Run a scenario × backend comparison through chartsearchai's real REST API and
+# write results.jsonl under artifacts/validate/<run_id>/. Needs the full local
+# stack up (backend + DB + LM Studio + med-agent-hub). Override the set with
+# `make validate-run SET=<comparison-set-id>` (default: demo).
+SET ?= demo
+validate-run: setup
+	$(UV) run harness-cli validate run $(SET)
 
 clean-venv:
 	rm -rf $(UV_PROJECT_ENVIRONMENT)

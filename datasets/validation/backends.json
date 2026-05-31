@@ -1,0 +1,17 @@
+{
+  "gemma-local": {
+    "label": "Gemma (LM Studio direct)",
+    "endpointUrl": "http://host.docker.internal:1234/v1/chat/completions",
+    "modelName": "gemma-4-e2b-it"
+  },
+  "medgemma-local": {
+    "label": "MedGemma (LM Studio direct)",
+    "endpointUrl": "http://host.docker.internal:1234/v1/chat/completions",
+    "modelName": "medgemma-1.5-4b-it"
+  },
+  "med-agent-team": {
+    "label": "Med Agent Team (med-agent-hub)",
+    "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
+    "modelName": "med-agent-team"
+  }
+}

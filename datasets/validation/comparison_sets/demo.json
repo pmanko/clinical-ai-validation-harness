@@ -1,0 +1,5 @@
+{
+  "id": "demo",
+  "scenario_ids": ["meds-zabella", "abstain-out-of-chart"],
+  "backend_ids": ["gemma-local", "medgemma-local", "med-agent-team"]
+}
