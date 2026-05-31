@@ -66,11 +66,14 @@ write_default_for_model() {
   # already include the publisher prefix (e.g. "unsloth/gemma-4-e4b-it") or be
   # the model's id under the publisher's default (e.g. "gemma-4-e2b-it").
   # We search for any GGUF whose path matches.
+  # Prefer the full publisher/repo path (e.g. "google/gemma-4-e4b") so we don't
+  # collide with a similarly-named model (google/gemma-4-e4b vs unsloth/gemma-4-e4b-it);
+  # fall back to the bare id for publisher-less identifiers.
   local hit
-  hit=$(find "${MODELS_DIR}" -name '*.gguf' 2>/dev/null \
-    | grep -i -- "/${model_id##*/}" \
-    | grep -v 'mmproj' \
-    | head -1 || true)
+  hit=$(find "${MODELS_DIR}" -name '*.gguf' 2>/dev/null | grep -v 'mmproj' \
+    | grep -i -- "/${model_id}/" | head -1 || true)
+  [ -z "${hit}" ] && hit=$(find "${MODELS_DIR}" -name '*.gguf' 2>/dev/null | grep -v 'mmproj' \
+    | grep -i -- "/${model_id##*/}" | head -1 || true)
 
   if [ -z "${hit}" ]; then
     echo "    warn: couldn't locate GGUF for ${model_id} under ${MODELS_DIR}; skipping persistent default"
@@ -90,15 +93,15 @@ JSON
   echo "    persistent default written: ${target} (contextLength=${ctx})"
 }
 
-already_loaded() {
+# Echo the context length a model is currently loaded at (empty if not loaded).
+# `lms ps` columns: IDENTIFIER MODEL STATUS SIZE-value SIZE-unit CONTEXT ...
+# SIZE is two tokens ("4.95 GB"), so CONTEXT is the field right after the unit.
+loaded_context() {
   local id="$1"
-  # `lms ps` lists identifiers in first column. An exact match means it's
-  # loaded; partial match (e.g. ":2" suffix) means a previous load was
-  # incomplete and we should skip rather than spawn duplicates.
   "${LMS}" ps 2>/dev/null | awk -v want="$id" '
-    NR > 1 && $1 == want { found = 1 }
-    END { exit (found ? 0 : 1) }
-  '
+    NR > 1 && $1 == want {
+      for (i = 3; i <= NF; i++) if ($i == "GB" || $i == "MB") { print $(i + 1); exit }
+    }'
 }
 
 echo "Warming up LM Studio models (context=${CTX}):"
@@ -107,9 +110,14 @@ for raw_model in "${MODEL_LIST[@]}"; do
   model=$(echo "${raw_model}" | xargs)  # trim
   [ -z "${model}" ] && continue
   echo "  [${model}]"
-  if already_loaded "${model}"; then
-    echo "    already loaded — skipping load (will refresh persistent default below)"
+  cur_ctx=$(loaded_context "${model}")
+  if [ -n "${cur_ctx}" ] && [ "${cur_ctx}" = "${CTX}" ]; then
+    echo "    already loaded at ctx=${CTX} — skipping load"
   else
+    if [ -n "${cur_ctx}" ]; then
+      echo "    loaded at ctx=${cur_ctx}, want ${CTX} — unloading first"
+      "${LMS}" unload "${model}" >/dev/null 2>&1 || true
+    fi
     "${LMS}" load "${model}" -c "${CTX}" ${TTL_ARGS} 2>&1 | tail -2 | sed 's/^/    /' \
       || echo "    warn: load failed for ${model}"
   fi
