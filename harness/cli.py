@@ -72,6 +72,10 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     val_run.add_argument("--data-root", default="datasets/validation")
     val_run.add_argument("--output-dir", default="artifacts/validate")
+    val_report = val_sub.add_parser("report", help="Render report.html from a completed run")
+    val_report.add_argument("run_id", nargs="?", help="Run id under <output-dir>/")
+    val_report.add_argument("--run-dir", help="Explicit run directory (overrides run_id)")
+    val_report.add_argument("--output-dir", default="artifacts/validate")
 
     return parser
 
@@ -170,8 +174,15 @@ def main() -> int:
             )
             print(
                 f"validate run {args.comparison_set}: {result.result_count} results -> "
-                f"{result.results_path}"
+                f"{result.results_path}\nreport -> {result.report_path}"
             )
+            return 0
+        if args.validate_action == "report":
+            from .validate.report import build_report
+
+            run_dir = args.run_dir or str(Path(args.output_dir) / args.run_id)
+            out = build_report(run_dir)
+            print(f"report -> {out}")
             return 0
         return _not_yet_implemented(f"validate {args.validate_action}")
 

@@ -21,6 +21,7 @@ from ..submodules import read_harness_git_sha
 from .client import ChatResult
 from .metrics import compute_metrics
 from .models import load_comparison_set, load_scenario
+from .report import build_report
 from .repository import JsonlRepository
 from .resolver import resolve_backends
 
@@ -37,6 +38,7 @@ class RunResult:
     run_dir: Path
     manifest_path: Path
     results_path: Path
+    report_path: Path
     result_count: int
 
 
@@ -152,10 +154,13 @@ def run_comparison(
                 result_count += 1
                 first_turn = False
 
+    report_path = build_report(run_dir)
+
     return RunResult(
         run_id=run_id,
         run_dir=run_dir,
         manifest_path=manifest_path,
         results_path=run_dir / "results.jsonl",
+        report_path=report_path,
         result_count=result_count,
     )

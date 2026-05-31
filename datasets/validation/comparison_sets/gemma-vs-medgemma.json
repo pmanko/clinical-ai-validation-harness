@@ -1,0 +1,11 @@
+{
+  "id": "gemma-vs-medgemma",
+  "scenario_ids": [
+    "convo-medications-adherence",
+    "convo-diagnosis-evidence",
+    "convo-vitals-monitoring",
+    "convo-abstention-honesty",
+    "convo-safety-escalation"
+  ],
+  "backend_ids": ["gemma-local", "medgemma-local"]
+}

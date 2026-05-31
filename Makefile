@@ -353,5 +353,9 @@ SET ?= demo
 validate-run: setup
 	$(UV) run harness-cli validate run $(SET)
 
+# Render report.html for a completed run: `make validate-report RUN=<run_id>`.
+validate-report: setup
+	$(UV) run harness-cli validate report $(RUN)
+
 clean-venv:
 	rm -rf $(UV_PROJECT_ENVIRONMENT)

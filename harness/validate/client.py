@@ -38,9 +38,29 @@ class ChartSearchAiClient:
         user: str | None = None,
         password: str | None = None,
         timeout: float = 300.0,
+        min_interval_s: float | None = None,
+        max_retries: int | None = None,
+        retry_wait_s: float | None = None,
     ) -> None:
         self.base_url = (base_url or _default_base_url()).rstrip("/")
         self.timeout = timeout
+        # chartsearchai rate-limits per user (GP chartsearchai.rateLimitPerMinute,
+        # default 10/min). Space chat calls just under that to avoid 429s, and
+        # retry-on-429 as a backstop. Raise the GP + set VALIDATE_MIN_INTERVAL_S=0
+        # for full-speed runs.
+        self.min_interval_s = (
+            min_interval_s if min_interval_s is not None
+            else float(os.environ.get("VALIDATE_MIN_INTERVAL_S", "6.5"))
+        )
+        self.max_retries = (
+            max_retries if max_retries is not None
+            else int(os.environ.get("VALIDATE_MAX_RETRIES", "3"))
+        )
+        self.retry_wait_s = (
+            retry_wait_s if retry_wait_s is not None
+            else float(os.environ.get("VALIDATE_RETRY_WAIT_S", "7.0"))
+        )
+        self._last_call = 0.0
         self._session = requests.Session()
         self._session.auth = (
             user or os.environ.get("CHARTSEARCH_ADMIN_USER", "admin"),
@@ -74,22 +94,38 @@ class ChartSearchAiClient:
             raise RuntimeError(f"new_session({patient!r}) failed [{resp.status_code}]: {resp.text[:300]}")
         return resp.json().get("session")
 
+    def _throttle(self) -> None:
+        if self.min_interval_s > 0:
+            wait = self.min_interval_s - (time.monotonic() - self._last_call)
+            if wait > 0:
+                time.sleep(wait)
+
     def chat(self, patient: str, session: str | None, question: str) -> ChatResult:
         """One chat turn. Never raises on a non-200 — the turn is recorded with
-        its status so a failed turn still produces a result line."""
+        its status so a failed turn still produces a result line. Paces to stay
+        under the rate limit and retries on 429 (the recorded latency_ms is the
+        final attempt's, not the wait)."""
         body: dict[str, str] = {"patient": patient, "question": question}
         if session:
             body["session"] = session
-        start = time.monotonic()
-        resp = self._session.post(self._url("/chat"), json=body, timeout=self.timeout)
-        latency_ms = int((time.monotonic() - start) * 1000)
-        try:
-            payload = resp.json()
-        except ValueError:
-            payload = None
-        return ChatResult(
-            status=resp.status_code,
-            envelope=payload if isinstance(payload, dict) else None,
-            latency_ms=latency_ms,
-            raw_text=resp.text,
-        )
+        attempt = 0
+        while True:
+            self._throttle()
+            start = time.monotonic()
+            resp = self._session.post(self._url("/chat"), json=body, timeout=self.timeout)
+            latency_ms = int((time.monotonic() - start) * 1000)
+            self._last_call = time.monotonic()
+            if resp.status_code == 429 and attempt < self.max_retries:
+                attempt += 1
+                time.sleep(self.retry_wait_s)
+                continue
+            try:
+                payload = resp.json()
+            except ValueError:
+                payload = None
+            return ChatResult(
+                status=resp.status_code,
+                envelope=payload if isinstance(payload, dict) else None,
+                latency_ms=latency_ms,
+                raw_text=resp.text,
+            )
