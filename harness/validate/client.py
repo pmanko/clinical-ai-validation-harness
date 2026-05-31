@@ -100,14 +100,30 @@ class ChartSearchAiClient:
             if wait > 0:
                 time.sleep(wait)
 
-    def chat(self, patient: str, session: str | None, question: str) -> ChatResult:
+    def chat(
+        self,
+        patient: str,
+        session: str | None,
+        question: str,
+        *,
+        endpoint_url: str | None = None,
+        model_name: str | None = None,
+    ) -> ChatResult:
         """One chat turn. Never raises on a non-200 — the turn is recorded with
         its status so a failed turn still produces a result line. Paces to stay
         under the rate limit and retries on 429 (the recorded latency_ms is the
-        final attempt's, not the wait)."""
+        final attempt's, not the wait).
+
+        When endpoint_url + model_name are given they are sent as a per-request
+        backend override — chartsearchai uses that backend for THIS request only,
+        leaving its config-controlled global default untouched (so a run can't
+        collide with the UI or another run)."""
         body: dict[str, str] = {"patient": patient, "question": question}
         if session:
             body["session"] = session
+        if endpoint_url and model_name:
+            body["endpointUrl"] = endpoint_url
+            body["modelName"] = model_name
         attempt = 0
         while True:
             self._throttle()

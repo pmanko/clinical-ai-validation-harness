@@ -23,8 +23,11 @@ class FakeClient:
         self.new_session_calls.append(patient)
         return "sess-initial"
 
-    def chat(self, patient, session, question):
-        self.chat_calls.append({"patient": patient, "session": session, "question": question})
+    def chat(self, patient, session, question, *, endpoint_url=None, model_name=None):
+        self.chat_calls.append({
+            "patient": patient, "session": session, "question": question,
+            "endpoint_url": endpoint_url, "model_name": model_name,
+        })
         self._n += 1
         return ChatResult(
             status=200,
@@ -72,9 +75,15 @@ def test_runner_threads_session_and_writes_projected_results(tmp_path):
         git_sha="test-sha",
     )
 
-    # The resolved backend was selected exactly once, before any chat.
-    assert client.endpoint_calls == [("http://e/v1/chat/completions", "mm")]
+    # The runner selects the backend PER REQUEST — it never calls set_endpoint, so
+    # a run never mutates chartsearchai's config-controlled global default.
+    assert client.endpoint_calls == []
     assert client.new_session_calls == ["pat"]
+    # Every chat turn carries the backend as a per-request override.
+    assert all(
+        c["endpoint_url"] == "http://e/v1/chat/completions" and c["model_name"] == "mm"
+        for c in client.chat_calls
+    )
 
     # Session threading: turn 1 sends the fresh session; turn 2 sends what the
     # server returned on turn 1.

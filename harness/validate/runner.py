@@ -27,9 +27,16 @@ from .resolver import resolve_backends
 
 
 class _Client(Protocol):
-    def set_endpoint(self, endpoint_url: str, model_name: str) -> dict[str, Any]: ...
     def new_session(self, patient: str) -> str: ...
-    def chat(self, patient: str, session: str | None, question: str) -> ChatResult: ...
+    def chat(
+        self,
+        patient: str,
+        session: str | None,
+        question: str,
+        *,
+        endpoint_url: str | None = None,
+        model_name: str | None = None,
+    ) -> ChatResult: ...
 
 
 @dataclass
@@ -90,8 +97,11 @@ def run_comparison(
     repo = JsonlRepository(authored_root=data_root, run_dir=run_dir)
     result_count = 0
 
-    for backend in backends:  # sequential: /endpoint is a global mutation
-        client.set_endpoint(backend.endpoint_url, backend.model_name)
+    # Backends run sequentially because a chat session is per (patient, user) and
+    # opening a new one closes the prior — NOT because of any global backend state.
+    # The backend is selected per /chat request (a per-request override), so a run
+    # never mutates chartsearchai's config-controlled global default.
+    for backend in backends:
         append_event(
             events_path,
             {
@@ -108,7 +118,10 @@ def run_comparison(
             for turn in scenario.turns:
                 session_sent = session
                 started = utc_now_iso()
-                res = client.chat(scenario.patient_ref, session_sent, turn.question)
+                res = client.chat(
+                    scenario.patient_ref, session_sent, turn.question,
+                    endpoint_url=backend.endpoint_url, model_name=backend.model_name,
+                )
                 ended = utc_now_iso()
                 if res.envelope and res.envelope.get("session"):
                     session = res.envelope["session"]
