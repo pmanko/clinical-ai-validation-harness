@@ -33,4 +33,7 @@ markers = [
   "slow: integration tests that take minutes — excluded from default run; included in CI matrix via `pytest -m slow`",
 ]
 # Default: skip slow tests. CI re-enables explicitly with `-m slow` or `-m 'slow or not slow'`.
-addopts = "-m 'not slow'"
+# Ignore submodules under targets/ — they are separate projects with their own
+# deps + test runners (e.g. `make med-agent-hub-test`); collecting them here fails
+# on missing deps (a2a-sdk, fastapi, ...).
+addopts = "-m 'not slow' --ignore=targets"
