@@ -2,8 +2,8 @@
 
 **Roadmap slot**: operationalizes 003 (validation spine) + 012 (answer/citation/abstention eval) + 014 (review/rubric) as a minimal, honest MVP.
 **Scope of this PR**: an offline, file-first, deterministic-gated eval that runs authored multi-turn scenarios against multiple model backends through chartsearchai's own API, records results onto the existing run_manifest/events.jsonl spine, and presents a standalone TSX report with per-cell human adjudication.
-**Status**: planned | **Started**: 2026-05-28
-**Depends on**: feature 005 (med-agent-hub bridge + endpoint-registry picker) — the harness drives backends via the same REST API the picker uses, and compares the team endpoint that 005 stands up.
+**Status**: in progress (core runner/client/report + feedback form shipped and live-run validated) | **Started**: 2026-05-28
+**Depends on**: the med-agent-hub bridge + endpoint-registry picker (shipped on branch `004`; see `specs/005-med-agent-hub-bridge/spec.md` and `specs/artifacts/planning/med-agent-team-poc-roadmap.md`) — the harness drives backends through chartsearchai's REST API and compares the `med-agent-team` endpoint that bridge stands up.
 
 ## Goal
 
@@ -14,7 +14,7 @@ This is deliberately **not** a clinician RCT. NASA-TLX, non-inferiority margins,
 ## Success criteria
 
 - **SC-006.1**: A scenario is authored as checked-in JSON (`{id, patient_ref, turns[], tags, expectations}`); a comparison set references scenarios + backend configs. Both validate against a documented schema.
-- **SC-006.2**: `harness validate run <comparison-set>` replays each scenario's turns in one chat session per backend — selecting endpoint+model via the same `POST /endpoint {endpointUrl, modelName}` the picker uses (one atomic call; no separate `/model` call needed), then `POST /chat` — and writes one `results.jsonl` line per `(scenario, backend, turn)` under `artifacts/<run_id>/`, alongside a `run_manifest.json` that reuses the existing spine.
+- **SC-006.2**: `harness validate run <comparison-set>` replays each scenario's turns in one chat session per backend — selecting the backend **per request**: `{endpointUrl, modelName}` are sent in each `POST /chat` body as a per-request override (chartsearchai uses that backend for that request only, leaving its config-controlled global default untouched) — and writes one `results.jsonl` line per `(scenario, backend, turn)` under `artifacts/<run_id>/`, alongside a `run_manifest.json` that reuses the existing spine.
 - **SC-006.3**: Each result carries deterministic, no-LLM metrics. Client-derivable from chartsearchai's `/chat` response alone: `latency_ms`, `json_valid`, `citation_count`, `abstained`. NOT surfaced by chartsearchai's `/chat` response (which returns only `answer`/`disclaimer`/`references`/`blocks`/`session`/`messageId`): `tokens_in/out`, `finish_reasons`, and the OTel GenAI fields (`gen_ai.response.model`, `gen_ai.provider.name`) — mark these `null` in v1 (OTel-deferred; to be back-filled from the OTel span when wired).
 - **SC-006.4**: A standalone TSX report (runs locally; built deployable but remote-deploy deferred) renders scenarios down the left, one column per backend, with the answer + citations + table blocks + metric chips, and a per-cell feedback form.
 - **SC-006.5**: The feedback form captures the Scout 0–10 rubric (accuracy/completeness/relevance), an abstention outcome, per-citation groundedness, a harm hard-fail, a pass/fail decision, reviewer id, and free text — appending one `feedback` doc per adjudication.
@@ -23,7 +23,7 @@ This is deliberately **not** a clinician RCT. NASA-TLX, non-inferiority margins,
 
 ## Functional requirements
 
-- **FR-006.1**: The runner MUST drive backends via chartsearchai's REST API exactly as the chat UI does — select the backend (`POST /endpoint {endpointUrl, modelName}`, one atomic call that sets endpoint+model together), then chat (`POST /chat`) replaying the scenario's turns in one session. No special per-request override; no bypassing chartsearchai to call endpoints directly.
+- **FR-006.1**: The runner MUST drive backends via chartsearchai's real REST API — selecting the backend **per request**: `{endpointUrl, modelName}` are carried IN each `POST /chat` body as a per-request override (chartsearchai's request-scoped `RequestLlmOverride`, validated against the endpoint registry; that backend is used for that request only and the config-controlled global default is NOT mutated), replaying the scenario's turns in one chat session. No bypassing chartsearchai to call the LLM endpoints directly. (The config-only `POST /endpoint` global switch is for the picker's "set as default", not the runner.)
 - **FR-006.2**: Scenarios MUST be multi-turn (a `turns[]` sequence replayed in one chat session per backend). Single-turn is just a one-element `turns[]`.
 - **FR-006.3**: The runner MUST reuse the existing metadata spine (`harness/metadata.py`: `RunManifest`, `append_event`). A `result` is a projection over the run's events for one `(scenario, backend, turn)` referencing `run_id`; it MUST NOT re-declare provenance fields. Use canonical `gen_ai.provider.name` (the control-plane schema forbids `gen_ai.system`).
 - **FR-006.4**: Deterministic metrics MUST be computed without any LLM call. No LLM-as-judge in v1. The pass/fail and safe/unsafe decision is human-only.
@@ -58,7 +58,7 @@ Plus 2–3 abstention probes (e.g. a question about data not in the chart — ab
 // comparison_sets/<id>.json      (collection: comparison_sets) — checked in
 { "id": "demo",
   "scenario_ids": ["meds-zabella","abstain-out-of-chart"],
-  "backend_ids": ["gemma-local","medgemma-local","med-agent-team"] }  // each backend_id resolves to a concrete {endpointUrl, modelName} (via GET /endpoints / the endpoint-registry GP) for the POST /endpoint call
+  "backend_ids": ["gemma-local","medgemma-local","med-agent-team"] }  // each backend_id resolves (via the checked-in backends.json registry) to a concrete {endpointUrl, modelName} included in each POST /chat request body as the per-request override
 
 // artifacts/<run_id>/results.jsonl   (collection: results) — one line per (scenario,backend,turn)
 { "run_id":"dev-...","scenario_id":"meds-zabella","turn":1,"backend_id":"gemma-local",

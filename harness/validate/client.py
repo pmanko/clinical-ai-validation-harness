@@ -1,6 +1,8 @@
-"""HTTP client that drives chartsearchai's real REST API exactly as the chat UI
-does (spec 006 FR-006.1): select the backend with POST /endpoint, then replay
-turns with POST /chat in one session. No bypass of chartsearchai.
+"""HTTP client that drives chartsearchai's real REST API (spec 006 FR-006.1): the
+backend is selected PER REQUEST — `{endpointUrl, modelName}` are sent in each
+`POST /chat` body as a per-request override (chartsearchai's `RequestLlmOverride`;
+used for that request only, the config-global default untouched) — replaying turns
+in one session. No bypass of chartsearchai.
 
 Base URL + Basic-auth credentials reuse the same env vars as
 scripts/chartsearch-configure.sh so the two agree.
