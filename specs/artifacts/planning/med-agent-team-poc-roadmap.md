@@ -2,6 +2,21 @@
 
 > Review draft (workflow `wab20szmm`, 7 agents). Grounded in live source; cites file:line + primary sources. Not yet committed scope — for critique. Once approved it graduates to a numbered feature spec.
 
+## 0. Status — as-built (2026-05-30)
+
+The POC shipped against an **in-process ReAct loop over typed tools (no A2A)** — see the SUPERSEDED note in §2. State by milestone:
+
+| Milestone | Status | As-built |
+|-----------|--------|----------|
+| **P1** bridge + team | ✅ shipped | OpenAI-compat `/v1/chat/completions` (sync + buffer-then-stream) + `/v1/models` (single `med-agent-team` id); in-process `run_team()` — gemma-4-e4b orchestrator/synthesizer + `medical_expert` (medgemma) typed tool; envelope on the final constrained call only; guaranteed-valid fallback. Verified end-to-end through chartsearchai. |
+| **B4** picker sections | ✅ shipped | Carbon `MenuButton` sectioned picker; LM Studio + Med Agent Hub as per-endpoint sections (GP `chartsearchai.llm.remote.endpoints`); backend `listEndpoints/setEndpointAndModel` + REST. |
+| **WARM** durable warmup | ✅ shipped | Bridge models (`google/gemma-4-e4b`, `medgemma-1.5-4b-it`) in `CHARTSEARCH_WARMUP_MODELS`; persistent 32768-ctx defaults written. |
+| **P3** KB | ◑ Tier-1 shipped | `kb_search` typed tool over a 6-snippet openly-licensed WHO seed (`server/kb_data/corpus.jsonl`); FTS5/BM25 + keyword fallback; abstains on no match; KB facts inline-attributed, out of the integer-citation array. Provenance URLs verified vs live WHO pages. **Tier-2 (OpenMRS contextualization) deferred to F009.** |
+| **P4** wire 006 harness | ☐ pending | team vs lm-studio-direct + KB-on/off A/B. |
+| **C3** cloud deploy | ☐ pending | |
+
+Decisions that diverged from §4–§5 below are resolved inline (annotated **[RESOLVED]**). §2–§5 text is kept for history; treat this table as the current state.
+
 ## 1. Situation
 
 med-agent-hub (fork `pmanko/med-agent-hub`, branch `harness-integration` @ `5cac078`, clone at `/Users/pmanko/code/med-agent-hub`) is a reboot stub. It serves only `/`, `/manifest`, `/health` (`server/main.py:46,60,76`); the OpenAI-compat bridge chartsearchai needs is a commented placeholder (`main.py:94-98`). The router is single-dispatch and query-string-only — it extracts one string via `context.get_user_input()` (`router_executor.py:179`), routes on it, forwards one `TextPart` to one subagent, and copies that artifact back verbatim (`router_executor.py:215-242`). `response_format` appears nowhere (grep = 0 hits); `Dockerfile.server:99` runs only `uvicorn server.main:app`, so the image can't even reach the A2A agents (`Procfile.dev` runs four processes). The target: med-agent-hub exposes OpenAI-compat `/v1/chat/completions` + `/v1/models`, forwards the full chartsearchai `messages[]`, runs a coordinated team (orchestrator → KB → medgemma → gemma synthesizer), and returns chartsearchai's strict `{answer, citations, blocks}` envelope — selectable in the model picker as "Med Agent Team." Note: the survey-referenced `specs/005-med-agent-hub-bridge/` dir does **not** exist on this branch; F005 lives in `roadmap.canvas.tsx:303-322`. The wire contract below is pinned from live chartsearchai Java source, the source of truth.
@@ -47,9 +62,9 @@ med-agent-hub (fork `pmanko/med-agent-hub`, branch `harness-integration` @ `5cac
 
 **Search tech (in-container):** SQLite **FTS5 BM25** via stdlib `sqlite3` — zero new deps, explainable, fine for a few-hundred-snippet corpus. Upgrade path only if recall is visibly poor: a `sqlite-vec` table in the same `.db`, vectors from LM Studio `/v1/embeddings` ([LM Studio docs](https://lmstudio.ai/docs/developer/openai-compat/embeddings)), fused via RRF. Avoid FAISS/Chroma.
 
-**Retrieve/inject:** a **deterministic pre-step** (not an orchestrator tool) — predictable, reproducible, honest to demo. Each snippet carries a provenance label ("openly-licensed reference content — not a substitute for clinical judgment") propagated into the synthesizer's system instruction. KB content stays **out of the integer citation array** (inline prose provenance only).
+**Retrieve/inject:** **[RESOLVED — shipped as a typed tool, not a pre-step].** Per the §2 recalibration (don't add deterministic complexity ahead of the ReAct structure), KB engagement is a typed `kb_search` tool the orchestrator may call, alongside `medical_expert`. The tool observation flows into the synthesis context as a labelled reference block; the synthesis instruction enforces integer-citations-for-chart-only with **inline** KB provenance. KB content stays **out of the integer citation array**. (A deterministic pre-step remains a future option if measurement shows the small model under-calls the tool.)
 
-**Index-as-artifact:** **commit `artifacts/kb/corpus.jsonl`** (the curated clinical seed — small, diff-reviewable, license-tagged per snippet). **Gitignore the FTS5 index; rebuild on boot.** `make kb-build` regenerates corpus + index; `make kb-contextualize DEPLOYMENT=demo` runs the aggregate filter.
+**Index-as-artifact:** corpus committed at **`targets/med-agent-hub/server/kb_data/corpus.jsonl`** (in the submodule, so it bakes into the image via `COPY server/`) — small, diff-reviewable, license-tagged per snippet, with a `kb_data/README.md` documenting provenance scope. The FTS5 index is built **in-memory on first search** (no committed index, no separate `make kb-build`); edit the corpus and restart to pick up changes. `make med-agent-hub-test` runs the KB + bridge suite. The OpenMRS contextualization filter (`make kb-contextualize`) is Tier-2 / F009.
 
 **Content & index guidance for low-power accuracy** (grounded in `clinical-kb-research.md` §A.3; goal = maximize 4-8B accuracy lift):
 - **Prioritize fact-pinning content** — the lift (MedRAG/MIRAGE: up to ~18pp) concentrates on specifics small models fabricate: exact doses, contraindications, interactions, IMCI thresholds, immunization timing. Seed those first.
@@ -77,9 +92,9 @@ Exit: team scored on ≥1 scenario set; KB-on vs KB-off A/B captured; latency/co
 
 ## 5. Open decisions (defaults proposed)
 
-1. **Orchestrator topology** — fold routing into gemma-4 + thin code orchestrator, OR keep F005's LLM-classifier router? *Default: fold* — a fixed run-every-agent pipeline has nothing to classify. (F005 author veto point.)
-2. **KB search tech** — FTS5 BM25 only, OR hybrid (BM25+sqlite-vec+RRF) now? *Default: BM25 only* — zero deps; few-hundred-chunk corpus; clean upgrade path.
-3. **KB agent** — deterministic pre-step, OR a tool the orchestrator may call? *Default: pre-step* — predictable, reproducible, cheaper, honest to demo.
-4. **Internal agent transport** — keep A2A multi-process, OR in-process Python team? *Default: keep A2A* — current code is A2A executors; preserves F005 posture. (In-process would cut latency/complexity.)
+1. **Orchestrator topology** — fold routing into gemma-4 + thin code orchestrator, OR keep F005's LLM-classifier router? *Default: fold.* **[RESOLVED — folded]:** one gemma-4-e4b plays orchestrator + synthesizer over the typed-tool loop; no separate classifier router.
+2. **KB search tech** — FTS5 BM25 only, OR hybrid (BM25+sqlite-vec+RRF) now? *Default: BM25 only* — zero deps; few-hundred-chunk corpus; clean upgrade path. **[RESOLVED — BM25 only]**, with a pure-Python keyword fallback when the runtime sqlite lacks FTS5.
+3. **KB agent** — deterministic pre-step, OR a tool the orchestrator may call? *Default: pre-step.* **[RESOLVED — typed tool]:** reversed per the §2 recalibration — KB is a `kb_search` tool the orchestrator calls dynamically (no fixed pre-step), consistent with the path-as-hypothesis posture. Pre-step stays a future option if measurement shows under-calling.
+4. **Internal agent transport** — keep A2A multi-process, OR in-process Python team? *Default: keep A2A.* **[RESOLVED — in-process]:** the team is a single-process ReAct loop calling typed tools directly; A2A and the MCP protocol are deferred seams, not the v1 transport.
 5. **Bridge scope this milestone** — minimal bridge for the team only, OR finish F005's full cleanup/upstream first? *Default: minimal* — unblocks the demo fastest; F008 gateway generalizes later.
 6. **Demo `/v1/models` second id** — expose underlying medgemma/gemma as real selectable backends, OR a synthetic A/B sibling? *Default: real underlying models* — satisfies the ≥2-id picker constraint *and* gives genuine team-vs-raw A/B demo value.
