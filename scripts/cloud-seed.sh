@@ -3,11 +3,10 @@
 # rsync to the VM, restore on the cloud DB. ~50MB dump; ~3-10 minutes
 # end-to-end depending on uplink.
 #
-# Source (local) and target (cloud) DB names differ by convention:
-#   - Local: openmrs_test (feature 002's transform pipeline target)
-#   - Cloud: openmrs      (the OpenMRS default; cloud doesn't carry the
-#                          local pipeline's split between baseline and corpus)
-# Override via SEED_SOURCE_DB / SEED_TARGET_DB if you need a different shape.
+# Seeds the canonical `openmrs` corpus to the cloud — both source and target are
+# `openmrs`. `openmrs_test` is ONLY the mapper/transformer pipeline's hermetic
+# iteration target (see `make load-test`); it is dropped after promotion and is
+# never the seed source. Override via SEED_SOURCE_DB / SEED_TARGET_DB if needed.
 #
 # Re-run is destructive on the VM-side TARGET schema (drops then recreates).
 # Local DB is read-only here.
@@ -32,7 +31,7 @@ CLOUD_DB_ROOT_PW="${MYSQL_ROOT_PASSWORD:-openmrs}"
 CLOUD_DB_USER_PW="${OMRS_DB_PASSWORD:-openmrs}"
 CLOUD_DB_USER="${OMRS_DB_USER:-openmrs}"
 
-SOURCE_DB="${SEED_SOURCE_DB:-openmrs_test}"
+SOURCE_DB="${SEED_SOURCE_DB:-openmrs}"
 TARGET_DB="${SEED_TARGET_DB:-openmrs}"
 DUMP_LOCAL="${ROOT}/artifacts/cloud-seed/${SOURCE_DB}.sql.gz"
 

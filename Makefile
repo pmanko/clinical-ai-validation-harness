@@ -79,7 +79,10 @@ loadtest-down:
 
 # --- Phase 5D: load + verify + dump ---
 
-# Run the SQLMesh+dlt loader: refapp_28_demo snapshots → openmrs_test_dlt → openmrs_test.
+# Run the SQLMesh+dlt loader: refapp_28_demo snapshots → openmrs_test_dlt → <target>.
+# Default target `openmrs_test` is the HERMETIC iteration surface (drop+recreate
+# freely; live `openmrs` untouched). Promote the canonical load with TARGET=openmrs
+# — that is the proper deliverable (the corpus the backend + cloud-seed serve).
 load-test:
 	$(UV) run python -m harness.load run --target $(or $(TARGET),openmrs_test)
 
@@ -324,7 +327,7 @@ cloud-reset:      ## DESTRUCTIVE: down --volumes + clear binds + resync + cloud-
 cloud-deploy:     ## fast iteration: rebuild .omod + rsync + restart backend on VM
 	@./scripts/cloud-deploy.sh
 
-cloud-seed:       ## one-time: dump openmrs_test locally + restore on VM
+cloud-seed:       ## one-time: dump the canonical openmrs corpus locally + restore on VM
 	@./scripts/cloud-seed.sh
 
 cloud-start:      ## start the VM (no compose changes; pair with cloud-up after)

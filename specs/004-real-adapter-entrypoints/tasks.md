@@ -32,7 +32,7 @@
 
 - [ ] E.1 — Update spec.md with measured timings + observed chartsearchai version + screenshot inline reference
 - [ ] E.2 — Commit + push
-- [ ] E.3 — Open PR titled `feat(004): M3 PoC — chartsearchai (built from submodule) against openmrs_test + architecture canvas`
+- [ ] E.3 — Open PR titled `feat(004): M3 PoC — chartsearchai (built from submodule) against the openmrs corpus + architecture canvas`
 
 ## Phase F — Multi-turn chat (added 2026-05-18)
 

@@ -133,7 +133,7 @@ const querystoreBlockersRows = [
 ];
 
 const harnessIntegrationRows = [
-  ['M3 — chartsearchai adapter, today (this PR)', '004-real-adapter-entrypoints', 'Bring up chartsearchai against openmrs_test (5,284 patients). Manual browser smoke against Zabella Halambe. .omod built from submodule.'],
+  ['M3 — chartsearchai adapter, today (this PR)', '004-real-adapter-entrypoints', 'Bring up chartsearchai against the `openmrs` schema (5,284 patients; openmrs_test dropped post-promotion). Manual browser smoke against Zabella Halambe. .omod built from submodule.'],
   ['M3 deferred', '004-real-adapter-entrypoints v2', 'Playwright smoke automation; digest-pinned :nightly-chartsearch images; chartsearchai eval-dataset replay (153 records).'],
   ['M3 — querystore adapter', '004-real-adapter-entrypoints v3', 'Currently impossible — blocked by 5 querystore runtime bugs. Revisit when querystore reaches alpha-usable state.'],
   ['M8 — querystore parity testbed', '009-querystore-parity-testbed', 'Compare chartsearchai-internal vs chartsearchai-via-querystore retrieval on the same questions. Gated on M3 querystore adapter.'],
