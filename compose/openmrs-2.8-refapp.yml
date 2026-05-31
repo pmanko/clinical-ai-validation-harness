@@ -142,6 +142,11 @@ services:
       # `elasticsearch` service; only consulted when querystore.backend=elasticsearch,
       # harmless otherwise. Start ES with: docker compose --profile elasticsearch up -d
       OMRS_EXTRA_QUERYSTORE_ELASTICSEARCH_URI: ${QUERYSTORE_ELASTICSEARCH_URI:-http://elasticsearch:9200}
+      # Selects the chartsearchai LLM engine for backend-init.sh: `local` triggers
+      # the bundled-llama GGUF download (~5GB) so LocalLlmEngine can spawn its
+      # llama-server child process; `remote` (default) skips it. The matching
+      # chartsearchai.llm.engine GP is set by chartsearch-configure.sh.
+      CHARTSEARCH_LLM_ENGINE: ${CHARTSEARCH_LLM_ENGINE:-remote}
     extra_hosts:
       # Linux: docker doesn't resolve host.docker.internal automatically; this maps
       # it to the host gateway so the chartsearchai backend can reach LM Studio

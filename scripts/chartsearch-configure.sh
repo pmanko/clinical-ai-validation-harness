@@ -19,12 +19,18 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "${ROOT}"
 
-# Load env file if present.
+# Load env file if present. An explicitly-exported CHARTSEARCH_LLM_ENGINE (e.g.
+# from `make chartsearch-engine ENGINE=local`) must win over the file default,
+# so capture it before sourcing and restore it after.
+_OVERRIDE_ENGINE="${CHARTSEARCH_LLM_ENGINE:-}"
 if [ -f .env.chartsearch ]; then
   set -a
   # shellcheck disable=SC1091
   . .env.chartsearch
   set +a
+fi
+if [ -n "${_OVERRIDE_ENGINE}" ]; then
+  CHARTSEARCH_LLM_ENGINE="${_OVERRIDE_ENGINE}"
 fi
 
 # CHARTSEARCH_EXEC: run every REST call inside a container (the backend) via
@@ -95,6 +101,15 @@ echo "Configuring chartsearchai LLM globals at ${BASE_URL}:"
 set_property "chartsearchai.llm.engine"             "${ENGINE}"
 set_property "chartsearchai.llm.remote.endpointUrl" "${ENDPOINT}"
 set_property "chartsearchai.llm.remote.modelName"   "${MODEL}"
+
+# Local (bundled llama-server) engine: point the module at the GGUF that
+# backend-init.sh downloads into /openmrs/data/chartsearchai (path relative to
+# the app data dir). Only meaningful when ENGINE=local; harmless otherwise, but
+# we only set it for local to avoid implying a local model exists under remote.
+if [ "${ENGINE}" = "local" ]; then
+  set_property "chartsearchai.llm.modelFilePath" \
+    "${CHARTSEARCH_LOCAL_MODEL_FILE:-chartsearchai/gemma-4-E4B-it-Q4_K_M.gguf}"
+fi
 
 # Optional endpoint registry for the picker's per-endpoint sections (LM Studio,
 # Med Agent Hub, ...). JSON array of {label,url}; single-quote it in

@@ -35,6 +35,33 @@ if [ ! -f "$VOCAB_FILE" ]; then
   echo "Vocab downloaded."
 fi
 
-# No local-engine GGUF download here: the harness uses chartsearchai.llm.engine=remote.
+# Local-engine GGUF — downloaded only when CHARTSEARCH_LLM_ENGINE=local (the
+# bundled llama-server path). The harness default is `remote` (no 5GB pull).
+# Mirrors chartsearchai's own backend-init.sh: resumable background download so
+# OpenMRS can become healthy without waiting; chart search returns errors until
+# the .partial is renamed. The module's chartsearchai.llm.modelFilePath GP (set
+# by chartsearch-configure.sh for local) points at this filename.
+if [ "${CHARTSEARCH_LLM_ENGINE:-remote}" = "local" ]; then
+  LLM_FILE="$MODEL_DIR/gemma-4-E4B-it-Q4_K_M.gguf"
+  LLM_PARTIAL="$LLM_FILE.partial"
+  HF_LLM="https://huggingface.co/unsloth/gemma-4-E4B-it-GGUF/resolve/main/gemma-4-E4B-it-Q4_K_M.gguf"
+  if [ ! -f "$LLM_FILE" ]; then
+    if [ -f "$LLM_PARTIAL" ]; then
+      echo "Resuming Gemma 4 E4B Q4_K_M download (~5GB) in background..."
+    else
+      echo "Starting Gemma 4 E4B Q4_K_M download (~5GB) in background; local chart search is unavailable until it completes..."
+    fi
+    (
+      # --speed-time/--speed-limit aborts a stalled transfer (HF hangs the
+      # socket without closing it); curl -C - resumes on the next start.
+      if curl -fsSL -C - --speed-time 60 --speed-limit 1024 -o "$LLM_PARTIAL" "$HF_LLM"; then
+        mv "$LLM_PARTIAL" "$LLM_FILE"
+        echo "LLM model downloaded."
+      else
+        echo "LLM model download failed; will retry on next container start."
+      fi
+    ) &
+  fi
+fi
 
 exec /openmrs/startup.sh
