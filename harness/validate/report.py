@@ -17,6 +17,18 @@ from pathlib import Path
 from typing import Any
 
 
+# The med-agent-team bridge gracefully degrades to a schema-valid envelope when
+# its own LLM calls fail, so a degraded turn looks like a 200/json_valid/0-cites
+# answer to the harness. Surface it from the answer text so a broken backend is
+# visible instead of silently passing as an empty answer.
+_FALLBACK_MARKER = "could not produce a complete answer"
+
+
+def _is_degraded(r: dict[str, Any]) -> bool:
+    answer = (r.get("response") or {}).get("answer")
+    return isinstance(answer, str) and _FALLBACK_MARKER in answer.lower()
+
+
 def _read_jsonl(path: Path) -> list[dict[str, Any]]:
     if not path.exists():
         return []
@@ -53,16 +65,17 @@ def _summary_table(results: list[dict[str, Any]], backends: list[str], models: d
         lat = [r["metrics"]["latency_ms"] for r in rs if r.get("metrics")]
         cites = sum(r["metrics"].get("citation_count", 0) for r in rs if r.get("metrics"))
         empty = sum(1 for r in rs if r.get("metrics", {}).get("references_empty"))
+        degraded = sum(1 for r in rs if _is_degraded(r))
         errs = sum(1 for r in rs if r.get("error"))
         rows.append(
             f"<tr><td class='b'>{_esc(b)}<span class='model'>{_esc(models.get(b,''))}</span></td>"
             f"<td>{len(rs)}</td><td>{_avg(lat)} ms</td><td>{max(lat) if lat else 0} ms</td>"
-            f"<td>{cites}</td><td>{empty}</td><td>{errs}</td></tr>"
+            f"<td>{cites}</td><td>{empty}</td><td>{degraded}</td><td>{errs}</td></tr>"
         )
     return (
         "<table class='summary'><thead><tr><th>backend</th><th>turns</th><th>avg latency</th>"
-        "<th>max latency</th><th>total citations</th><th>no-refs turns</th><th>errors</th>"
-        "</tr></thead><tbody>" + "".join(rows) + "</tbody></table>"
+        "<th>max latency</th><th>total citations</th><th>no-refs turns</th><th>degraded</th>"
+        "<th>errors</th></tr></thead><tbody>" + "".join(rows) + "</tbody></table>"
     )
 
 
@@ -115,6 +128,8 @@ def _cell(r: dict[str, Any] | None, scenario_id: str, turn: Any, backend_id: str
         chips.append("<span class='chip none'>∅ no refs</span>")
     if not m.get("json_valid", True):
         chips.append("<span class='chip bad'>invalid</span>")
+    if _is_degraded(r):
+        chips.append("<span class='chip bad'>⚠ degraded</span>")
     return f"<td>{body}<div class='chips'>{''.join(chips)}</div>{_form(scenario_id, turn, backend_id)}</td>"
 
 
