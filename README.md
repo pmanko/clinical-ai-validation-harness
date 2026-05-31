@@ -51,10 +51,10 @@ Human-facing docs use plain names. IDs appear in parentheses on first use and in
 | Plain name | Roadmap ID | Feature folder | Status |
 |-----------|-----------|----------------|--------|
 | Harness foundation | M0 | `001` | Complete |
-| OpenMRS demo-data remap | M1 | `002` | In progress |
+| OpenMRS demo-data remap | M1 | `002` | Complete |
 | Validation spine | M2 | `003` | Planned |
 | Real adapter entrypoints | M3 | `004` | In progress |
-| med-agent-hub bridge | F005 | `005` | In progress |
+| med-agent-hub bridge | F005 | `005` | Shipped (model-switch + Carbon picker + model warmup + Tier-1 KB) |
 | Chartsearchai model gateway | F008 | `008` | [Brief](specs/artifacts/planning/chartsearchai-model-gateway-brief.md) |
 | Clinical knowledge base | F009 | `009` | [Brief + research](specs/artifacts/planning/clinical-kb-brief.md) |
 | Retrieval evaluation | M4 | `010` | Planned |

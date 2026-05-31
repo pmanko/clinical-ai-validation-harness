@@ -14,8 +14,8 @@ This is deliberately **not** a clinician RCT. NASA-TLX, non-inferiority margins,
 ## Success criteria
 
 - **SC-006.1**: A scenario is authored as checked-in JSON (`{id, patient_ref, turns[], tags, expectations}`); a comparison set references scenarios + backend configs. Both validate against a documented schema.
-- **SC-006.2**: `harness validate run <comparison-set>` replays each scenario's turns in one chat session per backend — switching backend via the same `POST /backend` the picker uses, then `POST /chat` — and writes one `results.jsonl` line per `(scenario, backend, turn)` under `artifacts/<run_id>/`, alongside a `run_manifest.json` that reuses the existing spine.
-- **SC-006.3**: Each result carries deterministic, no-LLM metrics: `latency_ms`, `tokens_in/out`, `json_valid`, `citation_count`, `abstained`, plus OTel GenAI fields (`gen_ai.response.model`, `gen_ai.provider.name`, `finish_reasons`).
+- **SC-006.2**: `harness validate run <comparison-set>` replays each scenario's turns in one chat session per backend — selecting endpoint+model via the same `POST /endpoint {endpointUrl, modelName}` the picker uses (one atomic call; no separate `/model` call needed), then `POST /chat` — and writes one `results.jsonl` line per `(scenario, backend, turn)` under `artifacts/<run_id>/`, alongside a `run_manifest.json` that reuses the existing spine.
+- **SC-006.3**: Each result carries deterministic, no-LLM metrics. Client-derivable from chartsearchai's `/chat` response alone: `latency_ms`, `json_valid`, `citation_count`, `abstained`. NOT surfaced by chartsearchai's `/chat` response (which returns only `answer`/`disclaimer`/`references`/`blocks`/`session`/`messageId`): `tokens_in/out`, `finish_reasons`, and the OTel GenAI fields (`gen_ai.response.model`, `gen_ai.provider.name`) — mark these `null` in v1 (OTel-deferred; to be back-filled from the OTel span when wired).
 - **SC-006.4**: A standalone TSX report (runs locally; built deployable but remote-deploy deferred) renders scenarios down the left, one column per backend, with the answer + citations + table blocks + metric chips, and a per-cell feedback form.
 - **SC-006.5**: The feedback form captures the Scout 0–10 rubric (accuracy/completeness/relevance), an abstention outcome, per-citation groundedness, a harm hard-fail, a pass/fail decision, reviewer id, and free text — appending one `feedback` doc per adjudication.
 - **SC-006.6**: Persistence goes through one repository interface; the JSONL-file implementation is wired, the MongoDB implementation is a documented stub.
@@ -23,7 +23,7 @@ This is deliberately **not** a clinician RCT. NASA-TLX, non-inferiority margins,
 
 ## Functional requirements
 
-- **FR-006.1**: The runner MUST drive backends via chartsearchai's REST API exactly as the chat UI does — select the backend (`POST /backend {endpointId, model}`), then chat (`POST /chat`) replaying the scenario's turns in one session. No special per-request override; no bypassing chartsearchai to call endpoints directly.
+- **FR-006.1**: The runner MUST drive backends via chartsearchai's REST API exactly as the chat UI does — select the backend (`POST /endpoint {endpointUrl, modelName}`, one atomic call that sets endpoint+model together), then chat (`POST /chat`) replaying the scenario's turns in one session. No special per-request override; no bypassing chartsearchai to call endpoints directly.
 - **FR-006.2**: Scenarios MUST be multi-turn (a `turns[]` sequence replayed in one chat session per backend). Single-turn is just a one-element `turns[]`.
 - **FR-006.3**: The runner MUST reuse the existing metadata spine (`harness/metadata.py`: `RunManifest`, `append_event`). A `result` is a projection over the run's events for one `(scenario, backend, turn)` referencing `run_id`; it MUST NOT re-declare provenance fields. Use canonical `gen_ai.provider.name` (the control-plane schema forbids `gen_ai.system`).
 - **FR-006.4**: Deterministic metrics MUST be computed without any LLM call. No LLM-as-judge in v1. The pass/fail and safe/unsafe decision is human-only.
@@ -58,7 +58,7 @@ Plus 2–3 abstention probes (e.g. a question about data not in the chart — ab
 // comparison_sets/<id>.json      (collection: comparison_sets) — checked in
 { "id": "demo",
   "scenario_ids": ["meds-zabella","abstain-out-of-chart"],
-  "backend_ids": ["gemma-local","medgemma-local","med-agent-team"] }  // resolved against feature 005's endpoint registry
+  "backend_ids": ["gemma-local","medgemma-local","med-agent-team"] }  // each backend_id resolves to a concrete {endpointUrl, modelName} (via GET /endpoints / the endpoint-registry GP) for the POST /endpoint call
 
 // artifacts/<run_id>/results.jsonl   (collection: results) — one line per (scenario,backend,turn)
 { "run_id":"dev-...","scenario_id":"meds-zabella","turn":1,"backend_id":"gemma-local",
