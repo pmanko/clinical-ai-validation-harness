@@ -24,41 +24,10 @@ import pytest
 
 from harness.profile.db import DBConfig, DBError, query_scalar
 from harness.profile.modules import classify_modules
-from harness.profile.terminology import (
-    LocaleUsage, ReferenceSource, DEFAULT_REFAPP_LOCALES,
-)
 from harness.schema_diff import classify_table_diff
 
 
 # ---------- pure unit ----------
-
-
-def test_scenario_ambiguous_reference_sources_when_zero_in_source():
-    """When the source has no reference_map rows, the inventory's
-    ``reference_sources`` is empty — that's the M2-A signal."""
-    source_sources: list[ReferenceSource] = []
-    target_sources = [
-        ReferenceSource("CIEL", "CIEL", None, False, 50_000),
-        ReferenceSource("LN", "LOINC", None, False, 12_000),
-        ReferenceSource("SCT", "SNOMED CT", None, False, 8_000),
-    ]
-    assert len(source_sources) == 0
-    assert {s.name for s in target_sources} & {"CIEL", "LOINC", "SNOMED CT"}
-
-
-def test_scenario_missing_locales_when_target_is_multilingual():
-    source_locales = [LocaleUsage("en", 3555, expected_by_refapp=True)]
-    target_locales = [
-        LocaleUsage("en", 90_000, True),
-        LocaleUsage("es", 55_000, True),
-        LocaleUsage("fr", 15_000, True),
-        LocaleUsage("nl", 12_000, True),
-        LocaleUsage("pt_BR", 5_800, True),
-        LocaleUsage("vi", 4_000, True),
-        LocaleUsage("ru", 2_700, False),
-    ]
-    missing_in_source = {l.locale for l in target_locales} - {l.locale for l in source_locales}
-    assert missing_in_source == {"es", "fr", "nl", "pt_BR", "vi", "ru"}
 
 
 def test_scenario_unbundled_module_tables_show_removed_status():

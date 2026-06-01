@@ -33,15 +33,15 @@ def _sqlmesh_bin() -> Path:
     return candidate
 
 
-def test_project_root_exists():
-    assert SQLMESH_DIR.is_dir()
-    assert (SQLMESH_DIR / "config.yaml").is_file()
-
-
-def test_seeds_present():
-    seeds = SQLMESH_DIR / "seeds"
-    assert (seeds / "concept_translation.csv").is_file()
-    assert (seeds / "module_table_policy.csv").is_file()
+# `test_project_root_exists` (config.yaml) and `test_seeds_present` (the seed CSVs)
+# were dropped: both are hard prerequisites for `sqlmesh info` to run at all. Without
+# config.yaml the CLI cannot load the project, and a SEED model declares its CSV via an
+# explicit `path` so a missing CSV is a load error that suppresses the "Models:" line —
+# either way test_sqlmesh_info_runs_and_lists_models goes red. The name-specific model/
+# audit checks below are NOT redundant: the parse test only asserts a loose count
+# (>= 46 vs 71 actual), so a single missing model just drops the count and stays green,
+# and audits are not counted by `sqlmesh info` at all. They pin required artifacts the
+# count threshold misses.
 
 
 def test_seed_models_present():
