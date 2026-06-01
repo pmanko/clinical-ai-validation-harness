@@ -203,4 +203,47 @@ def promote_all(
     }
 
 
-__all__ = ["PromoteResult", "promote_one", "promote_all"]
+def repair_scaffolding_accounts(target_schema: str) -> dict[str, Any]:
+    """FR-013 deterministic repair: drop RefApp scaffolding accounts whose
+    backing person was replaced by the legacy corpus.
+
+    The load replaces ``person`` with the legacy corpus (which carries its own
+    ``admin``/``daemon``), so the RefApp's stock service accounts
+    (clerk/nurse/technician) are left referencing persons that no longer exist.
+    These are RefApp stock metadata, not source demo data, so the deterministic
+    repair is to remove them and their account-layer children. Idempotent.
+    """
+    statements = [
+        ("user_role",
+         "DELETE ur FROM user_role ur JOIN users u ON u.user_id=ur.user_id "
+         "LEFT JOIN person p ON p.person_id=u.person_id "
+         "WHERE u.person_id IS NOT NULL AND p.person_id IS NULL"),
+        ("user_property",
+         "DELETE up FROM user_property up JOIN users u ON u.user_id=up.user_id "
+         "LEFT JOIN person p ON p.person_id=u.person_id "
+         "WHERE u.person_id IS NOT NULL AND p.person_id IS NULL"),
+        ("users",
+         "DELETE u FROM users u LEFT JOIN person p ON p.person_id=u.person_id "
+         "WHERE u.person_id IS NOT NULL AND p.person_id IS NULL"),
+        ("provider_attribute",
+         "DELETE pa FROM provider_attribute pa JOIN provider pr ON pr.provider_id=pa.provider_id "
+         "LEFT JOIN person p ON p.person_id=pr.person_id "
+         "WHERE pr.person_id IS NOT NULL AND p.person_id IS NULL"),
+        ("provider",
+         "DELETE pr FROM provider pr LEFT JOIN person p ON p.person_id=pr.person_id "
+         "WHERE pr.person_id IS NOT NULL AND p.person_id IS NULL"),
+    ]
+    conn = _connect(target_schema)
+    deleted: dict[str, int] = {}
+    try:
+        with conn.cursor() as cur:
+            for name, sql in statements:
+                cur.execute(sql)
+                deleted[name] = cur.rowcount
+        conn.commit()
+    finally:
+        conn.close()
+    return {"deleted": deleted, "total": sum(deleted.values())}
+
+
+__all__ = ["PromoteResult", "promote_one", "promote_all", "repair_scaffolding_accounts"]

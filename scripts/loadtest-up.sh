@@ -103,6 +103,22 @@ time docker exec "$DB_CONTAINER" sh -c "
     '${TARGET_DB}'
 "
 
+# Clear the stock RefApp demo-patient clinical-detail tables that the dlt load
+# does NOT replace. Their rows belong to the RefApp's stock ~50 demo patients
+# (seeded by referencedemodata), not our corpus, and would dangle once our
+# remapped patients overwrite person/encounter/obs. Emptying them here yields a
+# clean base; the load repopulates only our remapped data.
+echo "Clearing stock demo-patient residue tables in '${TARGET_DB}'..."
+docker exec "$DB_CONTAINER" mariadb \
+  --user=root --password="$DB_ROOT_PASS" \
+  -e "SET FOREIGN_KEY_CHECKS=0;
+      TRUNCATE \`${TARGET_DB}\`.encounter_diagnosis;
+      TRUNCATE \`${TARGET_DB}\`.obs_reference_range;
+      TRUNCATE \`${TARGET_DB}\`.visit;
+      TRUNCATE \`${TARGET_DB}\`.patient_appointment;
+      TRUNCATE \`${TARGET_DB}\`.patient_appointment_audit;
+      TRUNCATE \`${TARGET_DB}\`.patient_appointment_provider;"
+
 # Verify
 echo ""
 echo "Final state of '${TARGET_DB}':"

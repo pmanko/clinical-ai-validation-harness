@@ -88,18 +88,25 @@ LOAD_RESOURCES: tuple[LoadResource, ...] = (
     LoadResource("stg_drug",             "drug",             ("drug_id",),        "merge"),
     LoadResource("stg_care_setting",     "care_setting",     ("care_setting_id",), "merge"),
 
-    # ---- Clinical / fact tables (replace — legacy is canonical) ----
+    # ---- Clinical / fact tables (mostly replace — legacy is canonical; a few
+    #      merge: *_type lookups + the carry-forward concept/concept_name rows) ----
     LoadResource("stg_person",           "person",           ("person_id",),      "replace"),
     LoadResource("stg_person_name",      "person_name",      ("person_name_id",), "replace"),
+    LoadResource("stg_person_attribute_type", "person_attribute_type", ("person_attribute_type_id",), "merge"),
+    LoadResource("stg_person_address",   "person_address",   ("person_address_id",), "replace"),
+    LoadResource("stg_person_attribute", "person_attribute", ("person_attribute_id",), "replace"),
     LoadResource("stg_patient",          "patient",          ("patient_id",),     "replace"),
     LoadResource("stg_patient_identifier", "patient_identifier", ("patient_identifier_id",), "replace"),
     LoadResource("stg_patient_identifier_type", "patient_identifier_type", ("patient_identifier_type_id",), "merge"),
     LoadResource("stg_encounter",        "encounter",        ("encounter_id",),   "replace"),
     LoadResource("stg_encounter_provider", "encounter_provider", ("encounter_provider_id",), "replace"),
-    LoadResource("stg_program",          "program",          ("program_id",),     "merge"),
-    LoadResource("stg_program_workflow", "program_workflow", ("program_workflow_id",), "merge"),
-    LoadResource("stg_program_workflow_state", "program_workflow_state", ("program_workflow_state_id",), "merge"),
+    LoadResource("stg_concept_carryforward", "concept", ("concept_id",), "merge"),
+    LoadResource("stg_concept_name_carryforward", "concept_name", ("concept_name_id",), "merge"),
+    LoadResource("stg_program",          "program",          ("program_id",),     "replace"),
+    LoadResource("stg_program_workflow", "program_workflow", ("program_workflow_id",), "replace"),
+    LoadResource("stg_program_workflow_state", "program_workflow_state", ("program_workflow_state_id",), "replace"),
     LoadResource("stg_patient_program",  "patient_program",  ("patient_program_id",), "replace"),
+    LoadResource("stg_patient_state",    "patient_state",    ("patient_state_id",), "replace"),
 
     # ---- The 4 obs-promoted clinical marts + the residual obs ----
     # NB clin__orders is the PARENT of drug_order and test_order (Hibernate
@@ -111,6 +118,25 @@ LOAD_RESOURCES: tuple[LoadResource, ...] = (
     LoadResource("clin__allergy",        "allergy",          ("uuid",),           "replace"),
     LoadResource("clin__test_order",     "test_order",       ("order_id",),       "replace"),
 )
+
+
+# Non-empty legacy_27_raw tables intentionally NOT row-copied, each with a reason.
+# The completeness gate (harness.transform.completeness) fails the run if a
+# non-empty source table is neither a LOAD_RESOURCES target nor listed here — the
+# guard that would have caught the original person_address/patient_state silent
+# drop. `concept_*` is matched by prefix (CIEL owns the dictionary).
+EXCLUDED_PREFIXES: tuple[str, ...] = ("concept",)
+EXCLUDED_WITH_REASON: dict[str, str] = {
+    "liquibasechangelog": "schema migration bookkeeping; target owns its own",
+    "liquibasechangeloglock": "schema migration bookkeeping; target owns its own",
+    "global_property": "system config; RefApp 3.x owns its own",
+    "privilege": "security metadata; RefApp 3.x owns its own",
+    "tribe": "deprecated table, removed from modern OpenMRS",
+    "logic_token_registration": "logic-module infra; RefApp owns its own",
+    "scheduler_task_config": "scheduler infra; RefApp owns its own",
+    "hl7_source": "HL7 infra; RefApp owns its own",
+    "relationship_type": "relationship metadata; legacy.relationship has 0 rows (nothing references the legacy types); RefApp owns its own",
+}
 
 
 def staging_schema(target_schema: str) -> str:
@@ -286,10 +312,12 @@ def run_pipeline(target_schema: str = "openmrs_test", promote: bool = True) -> d
     }
 
     if promote:
-        from harness.load.promote import promote_all
+        from harness.load.promote import promote_all, repair_scaffolding_accounts
         print(f"\nPromoting {staging} → {target_schema} ...")
         promote_report = promote_all(staging, target_schema, LOAD_RESOURCES, snapshots)
         report["promote"] = promote_report
+        print("Repairing scaffolding accounts (FR-013 deterministic repair) ...")
+        report["repair"] = repair_scaffolding_accounts(target_schema)
 
     return report
 
