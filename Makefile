@@ -98,6 +98,12 @@ completeness-check:
 dump-loaded:
 	./scripts/dump-loaded.sh $(if $(SOURCE),--source $(SOURCE)) $(if $(OUT),--out $(OUT))
 
+# Promote the loaded, verified-clean openmrs_test into the live `openmrs` schema
+# the RefApp backend reads, then restart the backend. GATED on FR-013 (refuses
+# to promote a schema with orphan FKs). Override PROMOTE_SOURCE_DB/PROMOTE_TARGET_DB.
+promote:
+	./scripts/promote.sh
+
 
 setup:
 	$(UV) python install $(PYTHON_VERSION)
