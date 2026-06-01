@@ -87,6 +87,12 @@ orphan-fk-check:
 import-smoke:
 	$(UV) run python -m harness.import_smoke --target $(or $(TARGET),openmrs_test)
 
+# Completeness gate (FR-013): fail if a non-empty legacy source table is neither
+# loaded (a LOAD_RESOURCES target) nor excluded-with-reason. The guard that would
+# have caught the original person_address/patient_state silent drop. Exit 0 clean.
+completeness-check:
+	$(UV) run python -m harness.transform.completeness
+
 # Dump the loaded schema into a portable SQL.gz file (matches the
 # original data/large-demo-data-2-7-0.sql.zip distribution shape).
 dump-loaded:

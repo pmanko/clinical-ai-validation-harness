@@ -119,6 +119,25 @@ LOAD_RESOURCES: tuple[LoadResource, ...] = (
 )
 
 
+# Non-empty legacy_27_raw tables intentionally NOT row-copied, each with a reason.
+# The completeness gate (harness.transform.completeness) fails the run if a
+# non-empty source table is neither a LOAD_RESOURCES target nor listed here — the
+# guard that would have caught the original person_address/patient_state silent
+# drop. `concept_*` is matched by prefix (CIEL owns the dictionary).
+EXCLUDED_PREFIXES: tuple[str, ...] = ("concept",)
+EXCLUDED_WITH_REASON: dict[str, str] = {
+    "liquibasechangelog": "schema migration bookkeeping; target owns its own",
+    "liquibasechangeloglock": "schema migration bookkeeping; target owns its own",
+    "global_property": "system config; RefApp 3.x owns its own",
+    "privilege": "security metadata; RefApp 3.x owns its own",
+    "tribe": "deprecated table, removed from modern OpenMRS",
+    "logic_token_registration": "logic-module infra; RefApp owns its own",
+    "scheduler_task_config": "scheduler infra; RefApp owns its own",
+    "hl7_source": "HL7 infra; RefApp owns its own",
+    "relationship_type": "relationship metadata; legacy.relationship has 0 rows (nothing references the legacy types); RefApp owns its own",
+}
+
+
 def staging_schema(target_schema: str) -> str:
     """Convert ``openmrs_test`` → ``openmrs_test_dlt``, ``openmrs`` → ``openmrs_dlt``.
 
