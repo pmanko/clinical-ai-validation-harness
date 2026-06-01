@@ -34,11 +34,18 @@ if ! uv run python -m harness.transform.orphan_fk --target "${SOURCE_DB}"; then
   exit 1
 fi
 
+# --- FR-013 completeness gate: no non-empty source table silently dropped ---
+echo "==> FR-013 completeness gate: every non-empty source table loaded or excluded-with-reason"
+if ! uv run python -m harness.transform.completeness; then
+  echo "REFUSING TO PROMOTE: completeness gate failed (a source table is silently dropped)." >&2
+  exit 1
+fi
+
 # --- copy SOURCE_DB → TARGET_DB (drop+recreate tables, full data) ---
 echo "==> promoting '${SOURCE_DB}' → '${TARGET_DB}'"
 docker exec "$DB_CONTAINER" sh -c "
   mariadb-dump --user=root --password='${DB_ROOT_PASS}' \
-    --skip-comments --single-transaction --quick --hex-blob \
+    --add-drop-table --skip-comments --single-transaction --quick --hex-blob \
     --default-character-set=utf8mb4 '${SOURCE_DB}' \
   | mariadb --user=root --password='${DB_ROOT_PASS}' \
     --default-character-set=utf8mb4 '${TARGET_DB}'

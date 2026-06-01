@@ -56,9 +56,10 @@ CT_OMISSIONS_COLUMNS = (
 # (program.concept_id, program_workflow.concept_id, program_workflow_state.concept_id).
 # These rebind the legacy AMPATH HIV/TB program + clinical treatment-status states
 # to their modern OpenMRS RefApp 3.x / CIEL equivalents. The legacy
-# "treatment GROUP" cohort states are deliberately NOT listed: with no mapping they
-# fall out of the inner-joined program_workflow_state/patient_state staging, which
-# is how modern OpenMRS represents these programs (no cohort-group construct).
+# The legacy "treatment GROUP" cohort states are deliberately NOT listed here: they
+# have no CIEL equivalent, so stg_concept_carryforward loads them into the dictionary
+# as local concepts and the program/workflow/state staging models keep them (LEFT
+# JOIN + COALESCE on the legacy id). Nothing is dropped.
 MANUAL_CONCEPT_OVERRIDES: dict[int, int] = {
     991482: 1086,   # HIV PROGRAM                      -> Human immunodeficiency virus (HIV) infection
     991648: 35263,  # TUBERCULOSIS PROGRAM            -> TB Program

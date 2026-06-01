@@ -88,7 +88,8 @@ LOAD_RESOURCES: tuple[LoadResource, ...] = (
     LoadResource("stg_drug",             "drug",             ("drug_id",),        "merge"),
     LoadResource("stg_care_setting",     "care_setting",     ("care_setting_id",), "merge"),
 
-    # ---- Clinical / fact tables (replace — legacy is canonical) ----
+    # ---- Clinical / fact tables (mostly replace — legacy is canonical; a few
+    #      merge: *_type lookups + the carry-forward concept/concept_name rows) ----
     LoadResource("stg_person",           "person",           ("person_id",),      "replace"),
     LoadResource("stg_person_name",      "person_name",      ("person_name_id",), "replace"),
     LoadResource("stg_person_attribute_type", "person_attribute_type", ("person_attribute_type_id",), "merge"),

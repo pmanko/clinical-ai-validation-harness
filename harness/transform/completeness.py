@@ -32,9 +32,11 @@ def find_uncovered(legacy_db: str = "legacy_27_raw") -> list[tuple[str, int]]:
     for t in tables:
         if t in targets or t in EXCLUDED_WITH_REASON or t.startswith(EXCLUDED_PREFIXES):
             continue
-        raw = query(cfg, f"SELECT COUNT(*) FROM `{t}`")
-        n = int(raw[0][0]) if raw and raw[0][0] is not None else 0
-        if n > 0:
+        # Constant-time non-empty probe (avoids a COUNT(*) full scan per table).
+        # The COUNT only runs for the rare flagged table, to enrich the message.
+        if query(cfg, f"SELECT 1 FROM `{t}` LIMIT 1"):
+            cnt = query(cfg, f"SELECT COUNT(*) FROM `{t}`")
+            n = int(cnt[0][0]) if cnt and cnt[0][0] is not None else 0
             uncovered.append((t, n))
     return uncovered
 
