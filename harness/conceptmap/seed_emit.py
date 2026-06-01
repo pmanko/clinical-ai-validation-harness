@@ -51,6 +51,28 @@ CT_OMISSIONS_COLUMNS = (
     "reason",
 )
 
+# Legacy concepts the UUID bridge rule cannot resolve but that ARE referenced —
+# not through obs (the bridge's coverage set), but through the program model
+# (program.concept_id, program_workflow.concept_id, program_workflow_state.concept_id).
+# These rebind the legacy AMPATH HIV/TB program + clinical treatment-status states
+# to their modern OpenMRS RefApp 3.x / CIEL equivalents. The legacy
+# "treatment GROUP" cohort states are deliberately NOT listed: with no mapping they
+# fall out of the inner-joined program_workflow_state/patient_state staging, which
+# is how modern OpenMRS represents these programs (no cohort-group construct).
+MANUAL_CONCEPT_OVERRIDES: dict[int, int] = {
+    991482: 1086,   # HIV PROGRAM                      -> Human immunodeficiency virus (HIV) infection
+    991648: 35263,  # TUBERCULOSIS PROGRAM            -> TB Program
+    992842: 36254,  # MDR-TB PROGRAM                  -> MDR-TB program
+    991484: 4180,   # TREATMENT STATUS (workflow)     -> Program status
+    991577: 4181,   # ON ANTIRETROVIRALS             -> On Antiretrovirals
+    991487: 36285,  # ACTIVE TREATMENT               -> Still on treatment
+    991490: 36285,  # FOLLOWING                       -> Still on treatment
+    991714: 36291,  # TREATMENT COMPLETE             -> Treatment complete
+    991744: 36288,  # PATIENT TRANSFERRED OUT        -> Patient transferred out
+    991743: 36298,  # PATIENT DEFAULTED              -> Defaulted
+    991483: 36326,  # TREATMENT STOPPED - PATIENT REFUSED -> Treatment never started - patient refused
+}
+
 
 def _ciel_uuid(concept_id: int) -> str:
     """Apply the bridge-rule UUID template: pad to 36 chars with 'A'."""
@@ -108,8 +130,28 @@ def emit_concept_translation_rows(
     pb = bridge.ext.policy_bucket
     rows: list[tuple[str, ...]] = []
     omissions: list[tuple[str, ...]] = []
+    target_id_to_uuid = {v: k for k, v in target_uuid_to_id.items()}
 
     for cid, src_uuid in legacy_concepts:
+        override_id = MANUAL_CONCEPT_OVERRIDES.get(cid)
+        if override_id is not None:
+            ov_uuid = target_id_to_uuid.get(override_id)
+            if ov_uuid is None:
+                raise ValueError(
+                    f"Manual override target concept_id {override_id} for legacy "
+                    f"concept {cid} not found in the target database."
+                )
+            rows.append((
+                str(cid),
+                src_uuid or "",
+                str(override_id),
+                ov_uuid,
+                eq,
+                pb,
+                "manual program/state rebind (bridge-rule UUID miss)",
+            ))
+            continue
+
         target_uuid = _ciel_uuid(cid)
         local_id = target_uuid_to_id.get(target_uuid)
 

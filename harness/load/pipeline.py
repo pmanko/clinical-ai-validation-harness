@@ -91,15 +91,21 @@ LOAD_RESOURCES: tuple[LoadResource, ...] = (
     # ---- Clinical / fact tables (replace — legacy is canonical) ----
     LoadResource("stg_person",           "person",           ("person_id",),      "replace"),
     LoadResource("stg_person_name",      "person_name",      ("person_name_id",), "replace"),
+    LoadResource("stg_person_attribute_type", "person_attribute_type", ("person_attribute_type_id",), "merge"),
+    LoadResource("stg_person_address",   "person_address",   ("person_address_id",), "replace"),
+    LoadResource("stg_person_attribute", "person_attribute", ("person_attribute_id",), "replace"),
     LoadResource("stg_patient",          "patient",          ("patient_id",),     "replace"),
     LoadResource("stg_patient_identifier", "patient_identifier", ("patient_identifier_id",), "replace"),
     LoadResource("stg_patient_identifier_type", "patient_identifier_type", ("patient_identifier_type_id",), "merge"),
     LoadResource("stg_encounter",        "encounter",        ("encounter_id",),   "replace"),
     LoadResource("stg_encounter_provider", "encounter_provider", ("encounter_provider_id",), "replace"),
-    LoadResource("stg_program",          "program",          ("program_id",),     "merge"),
-    LoadResource("stg_program_workflow", "program_workflow", ("program_workflow_id",), "merge"),
-    LoadResource("stg_program_workflow_state", "program_workflow_state", ("program_workflow_state_id",), "merge"),
+    LoadResource("stg_concept_carryforward", "concept", ("concept_id",), "merge"),
+    LoadResource("stg_concept_name_carryforward", "concept_name", ("concept_name_id",), "merge"),
+    LoadResource("stg_program",          "program",          ("program_id",),     "replace"),
+    LoadResource("stg_program_workflow", "program_workflow", ("program_workflow_id",), "replace"),
+    LoadResource("stg_program_workflow_state", "program_workflow_state", ("program_workflow_state_id",), "replace"),
     LoadResource("stg_patient_program",  "patient_program",  ("patient_program_id",), "replace"),
+    LoadResource("stg_patient_state",    "patient_state",    ("patient_state_id",), "replace"),
 
     # ---- The 4 obs-promoted clinical marts + the residual obs ----
     # NB clin__orders is the PARENT of drug_order and test_order (Hibernate
@@ -286,10 +292,12 @@ def run_pipeline(target_schema: str = "openmrs_test", promote: bool = True) -> d
     }
 
     if promote:
-        from harness.load.promote import promote_all
+        from harness.load.promote import promote_all, repair_scaffolding_accounts
         print(f"\nPromoting {staging} → {target_schema} ...")
         promote_report = promote_all(staging, target_schema, LOAD_RESOURCES, snapshots)
         report["promote"] = promote_report
+        print("Repairing scaffolding accounts (FR-013 deterministic repair) ...")
+        report["repair"] = repair_scaffolding_accounts(target_schema)
 
     return report
 

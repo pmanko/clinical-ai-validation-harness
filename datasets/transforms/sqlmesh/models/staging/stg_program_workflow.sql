@@ -1,7 +1,7 @@
 MODEL (
   name refapp_28_demo.stg_program_workflow,
   kind FULL,
-  description 'Staging copy of legacy_27_raw.program_workflow with concept-FK columns rebound via the bridge rule.',
+  description 'All legacy program workflows, concept rebound to CIEL where a mapping exists (clinical TREATMENT STATUS), else keeping the legacy concept_id which stg_concept_carryforward loads into the dictionary (the AMPATH cohort TREATMENT GROUP workflows). No workflow is dropped.',
   tags (policy_bucket:passthrough),
   grain (program_workflow_id),
   audits (unique_values(columns := (program_workflow_id)))

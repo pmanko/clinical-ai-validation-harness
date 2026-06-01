@@ -2449,3 +2449,14 @@ source_concept_id,source_uuid,target_concept_id,target_uuid,equivalence,policy_b
 6096,be5a85ac-1691-11df-97a5-7038c432aabf,10409,6096AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA,equal,remap,
 6097,be5a8776-1691-11df-97a5-7038c432aabf,1466,6097AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA,equal,remap,
 6098,be5a88e6-1691-11df-97a5-7038c432aabf,10405,6098AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA,equal,remap,
+991482,0ae1ad4c-15f5-102d-96e4-000c29c2a5d7,1086,138405AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA,equal,remap,manual program/state rebind (bridge-rule UUID miss)
+991483,0ae1ae50-15f5-102d-96e4-000c29c2a5d7,36326,160018AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA,equal,remap,manual program/state rebind (bridge-rule UUID miss)
+991484,0ae1af4a-15f5-102d-96e4-000c29c2a5d7,4180,7dc37ad2-1725-11ed-861d-0242ac120002,equal,remap,manual program/state rebind (bridge-rule UUID miss)
+991487,0ae1b24c-15f5-102d-96e4-000c29c2a5d7,36285,160037AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA,equal,remap,manual program/state rebind (bridge-rule UUID miss)
+991490,0ae1b544-15f5-102d-96e4-000c29c2a5d7,36285,160037AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA,equal,remap,manual program/state rebind (bridge-rule UUID miss)
+991577,0ae2164c-15f5-102d-96e4-000c29c2a5d7,4181,7dc37bb8-1725-11ed-861d-0242ac120002,equal,remap,manual program/state rebind (bridge-rule UUID miss)
+991648,0ae32f00-15f5-102d-96e4-000c29c2a5d7,35263,160541AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA,equal,remap,manual program/state rebind (bridge-rule UUID miss)
+991714,0ae395a8-15f5-102d-96e4-000c29c2a5d7,36291,160035AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA,equal,remap,manual program/state rebind (bridge-rule UUID miss)
+991743,0ae3b7fe-15f5-102d-96e4-000c29c2a5d7,36298,160031AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA,equal,remap,manual program/state rebind (bridge-rule UUID miss)
+991744,0ae3b8f8-15f5-102d-96e4-000c29c2a5d7,36288,160036AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA,equal,remap,manual program/state rebind (bridge-rule UUID miss)
+992842,0aeb82cc-15f5-102d-96e4-000c29c2a5d7,36254,160052AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA,equal,remap,manual program/state rebind (bridge-rule UUID miss)
