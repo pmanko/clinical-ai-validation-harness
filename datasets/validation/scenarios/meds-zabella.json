@@ -1,0 +1,14 @@
+{
+  "id": "meds-zabella",
+  "patient_ref": "dd75c020-1691-11df-97a5-7038c432aabf",
+  "turns": [
+    { "n": 1, "question": "What medications is this patient on?" },
+    { "n": 2, "question": "How many did you list?" },
+    { "n": 3, "question": "And what about her allergies?" }
+  ],
+  "tags": ["medications", "multi-turn", "smoke"],
+  "expectations": {
+    "should_cite_resource_types": ["MedicationRequest", "Observation"],
+    "should_abstain": false
+  }
+}

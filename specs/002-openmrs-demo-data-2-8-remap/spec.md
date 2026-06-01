@@ -4,7 +4,7 @@
 
 **Created**: 2026-05-13
 
-**Status**: Draft
+**Status**: Completed — transform shipped; the corpus is promoted to `openmrs`, now the canonical 5,284-patient demo schema the harness backend runs against. The dlt iteration/staging schemas described below (`openmrs_test`, `openmrs_*_dlt`, `*_staging`) were dropped after promotion (2026-05-29) — they document the methodology, not live schemas.
 
 **Input**: User description: "we need a robust feature #2 (see the project spec roadmap and artifacts/canvases etc) spec that takes the dataset in ./data, profiles/analyzes it, determines what terminology etc the dataset uses, and maps it to a transformed version that works with 2.8.0 and the most recent ref app, so we can use it as demo data in our OpenMRS work. Also, I want it analyzed for if any parts could be transformed to load into OpenELIS to have same base set of data at some level"
 

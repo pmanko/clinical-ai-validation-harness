@@ -10,7 +10,12 @@ readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
   "PyYAML>=6.0",
-  "sqlmesh>=0.150",
+  # Pinned to a minor: sqlmesh changed its physical snapshot-table naming
+  # (<schema>__<model>__<hash> -> <model>__<hash>) across the 0.15x->0.234 drift
+  # that the old unbounded ">=0.150" allowed in silently. The resolver reads names
+  # dynamically so the pipeline survived, but the convention is load-bearing for
+  # snapshot resolution — bound it so an upgrade is a deliberate, tested step.
+  "sqlmesh>=0.234.1,<0.235",
   "fhir.resources>=7.0",
   "PyMySQL>=1.1",
   "requests>=2.32",
@@ -20,6 +25,9 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
   "pytest>=8.0",
+  "tdd-guard",      # pytest reporter feeding the in-session red-first hook
+  "pytest-cov",     # coverage.xml for the CI diff-coverage gate
+  "diff-cover",     # enforce coverage on changed lines in CI
 ]
 
 [project.scripts]
@@ -33,4 +41,7 @@ markers = [
   "slow: integration tests that take minutes — excluded from default run; included in CI matrix via `pytest -m slow`",
 ]
 # Default: skip slow tests. CI re-enables explicitly with `-m slow` or `-m 'slow or not slow'`.
-addopts = "-m 'not slow'"
+# Ignore submodules under targets/ — they are separate projects with their own
+# deps + test runners (e.g. `make med-agent-hub-test`); collecting them here fails
+# on missing deps (a2a-sdk, fastapi, ...).
+addopts = "-m 'not slow' --ignore=targets"

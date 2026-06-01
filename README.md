@@ -51,10 +51,10 @@ Human-facing docs use plain names. IDs appear in parentheses on first use and in
 | Plain name | Roadmap ID | Feature folder | Status |
 |-----------|-----------|----------------|--------|
 | Harness foundation | M0 | `001` | Complete |
-| OpenMRS demo-data remap | M1 | `002` | In progress |
+| OpenMRS demo-data remap | M1 | `002` | Complete |
 | Validation spine | M2 | `003` | Planned |
 | Real adapter entrypoints | M3 | `004` | In progress |
-| med-agent-hub bridge | F005 | `005` | In progress |
+| med-agent-hub bridge | F005 | `005` | Shipped (model-switch + Carbon picker + model warmup + Tier-1 KB) |
 | Chartsearchai model gateway | F008 | `008` | [Brief](specs/artifacts/planning/chartsearchai-model-gateway-brief.md) |
 | Clinical knowledge base | F009 | `009` | [Brief + research](specs/artifacts/planning/clinical-kb-brief.md) |
 | Retrieval evaluation | M4 | `010` | Planned |
@@ -131,6 +131,41 @@ uv run pytest evals/dataset_import evals/metadata
 Python 3.11+ is required. The project tracks `.python-version = 3.11` and `requires-python = ">=3.11"` in `pyproject.toml`.
 
 For the full OpenMRS demo-data remap workflow, see [specs/002-openmrs-demo-data-2-8-remap/quickstart.md](specs/002-openmrs-demo-data-2-8-remap/quickstart.md).
+
+## ChartSearch operations
+
+The chartsearchai adapter (feature 004) and its Med Agent Hub team are operated through `make` targets that
+wrap the build, the LLM engine, the retrieval backend, and the per-endpoint model picker:
+
+```bash
+# Build chartsearchai's .omod from the submodule and stage it for the backend
+make chartsearch-build
+
+# Bring up / configure the stack, then warm the LM Studio models
+make chartsearch-up
+make chartsearch-configure          # sets the chartsearchai.llm.* global properties from .env.chartsearch
+make chartsearch-warmup
+
+# LLM engine — switch between the bundled local model and a remote endpoint
+make chartsearch-engine ENGINE=local     # chartsearchai's own bundled llama-server, in-process (module OOTB default)
+make chartsearch-engine ENGINE=remote    # OpenAI-compatible endpoint (LM Studio / Med Agent Hub / cloud) — harness default
+
+# Retrieval backend — querystore's CQRS read store tier
+make chartsearch-backend BACKEND=elasticsearch   # or lucene | mysql
+
+# Med Agent Hub team (an OpenAI-compatible endpoint the picker can select)
+make med-agent-hub-up
+```
+
+**Model picker.** When `CHARTSEARCH_REMOTE_ENDPOINTS` (a JSON array of `{label, url}`) is set in
+`.env.chartsearch`, the chat panel shows a sectioned picker — one section per endpoint (e.g. *LM Studio* and
+*Med Agent Hub*). Selecting a model sends it as a per-request `{endpointUrl, modelName}` override on that chat
+only; it does not change the config-controlled global default (shown with a faded "default" tag). With no
+registry set, the picker collapses to the single configured endpoint.
+
+**Cloud.** `make cloud-deploy` ships the backend (`.omod`) and `make cloud-deploy-esm` ships the frontend
+bundle; `make cloud-status` / `cloud-ssh` inspect the VM. The cloud runs the same engine + picker + Med Agent
+Hub setup as local (it reaches the operator's LM Studio over the LM Link).
 
 ## Key terms
 

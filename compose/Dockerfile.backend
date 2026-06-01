@@ -1,0 +1,47 @@
+# Harness backend image: the stock OpenMRS RefApp backend rebased off Amazon
+# Linux 2 (glibc 2.26) onto Ubuntu/temurin (glibc 2.39), running chartsearchai's
+# own backend-init.sh as the entrypoint.
+#
+# Why temurin: querystore's onnxruntime embedder (and chartsearchai's bundled
+# llama-server) ship native libs needing glibc >= 2.27; the official RefApp
+# backend is Amazon Linux 2 (glibc 2.26), so the embedder dies at load with
+# `GLIBC_2.27 not found`. chartsearchai's upstream Dockerfile.backend rebases the
+# same way for the same reason.
+#
+# Why backend-init.sh (not the bare stock entrypoint): we are running
+# chartsearch, so we use chartsearch's own runtime setup. It heals the data
+# volume's ownership, downloads the ONNX embedding model + vocab that BOTH
+# querystore and chartsearchai read, then drops to uid 1001 and runs OpenMRS
+# startup — turning the cloud bring-up into a single step. No module is baked:
+# the harness bind-mounts its locally-built omods at /openmrs/data/modules (a
+# baked omod would be clobbered when OpenMRS copies distribution modules on
+# startup). Only the base OS changes; the OpenMRS app stays at the pinned tag.
+ARG OPENMRS_BACKEND_TAG=3.6.0
+FROM openmrs/openmrs-reference-application-3-backend:${OPENMRS_BACKEND_TAG} AS dist
+
+FROM eclipse-temurin:21-jre
+
+# curl + ca-certificates: backend-init.sh fetches the embedding model from
+# HuggingFace over HTTPS; the compose healthcheck curls the backend. libgomp1:
+# onnxruntime's OpenMP runtime (not pulled in by the JRE). util-linux: runuser
+# (backend-init.sh starts as root to heal the volume, then re-execs as openmrs).
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        curl ca-certificates libgomp1 util-linux \
+    && rm -rf /var/lib/apt/lists/*
+
+# Match the stock image's runtime user (uid 1001) so the bind-mounted
+# /openmrs/data/modules and the named data volume keep consistent ownership.
+RUN groupadd -r openmrs && useradd -r -g openmrs -u 1001 openmrs
+
+WORKDIR /openmrs
+COPY --from=dist /openmrs /openmrs
+COPY --from=dist /usr/local/tomcat /usr/local/tomcat
+RUN chown -R 1001:1001 /openmrs /usr/local/tomcat
+
+COPY --chmod=755 backend-init.sh /usr/local/bin/backend-init.sh
+
+EXPOSE 8080
+
+# Starts as root so backend-init.sh can chown the data volume (legacy volumes
+# were created root-owned by pre-uid-1001 images), then it re-execs as openmrs.
+ENTRYPOINT ["/usr/local/bin/backend-init.sh"]

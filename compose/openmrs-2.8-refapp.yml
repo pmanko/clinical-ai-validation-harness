@@ -21,11 +21,30 @@ services:
     container_name: harness-proxy
     restart: "unless-stopped"
     ports:
+      # Local dev: HARNESS_PROXY_HTTP_PORT defaults to 8088 (avoids OrbStack/8080
+      # conflicts). Cloud bring-up overrides to 80 and adds 443 for TLS.
       - "${HARNESS_PROXY_HTTP_PORT:-8088}:80"
+      - "${HARNESS_PROXY_HTTPS_PORT:-8443}:443"
+    environment:
+      # Driven by .env.chartsearch / .env.chartsearch.cloud. Local default is the
+      # ":80" catch-all site block (no TLS); cloud sets CADDY_SITE to a real
+      # domain, which triggers Caddy's auto-TLS via Let's Encrypt (CADDY_EMAIL
+      # is the LE registration contact).
+      CADDY_SITE: ${CADDY_SITE:-:80}
+      # Optional subdomain that serves the SPA at its bare root for cleaner
+      # URLs (defaults to a non-published port so the block is dormant locally).
+      CADDY_SITE_OPENMRS: ${CADDY_SITE_OPENMRS:-:8090}
+      CADDY_EMAIL: ${CADDY_EMAIL:-nobody@example.com}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy-data:/data
       - caddy-config:/config
+      # Static-file mount for the harness-built chartsearchai ESM bundle
+      # and a regenerated importmap.json. Caddy serves these to override
+      # the corresponding paths from the :nightly-chartsearch frontend
+      # container without rebuilding that image. See (chartsearch_overrides)
+      # in Caddyfile and `make chartsearch-esm-build` for the build step.
+      - ../artifacts/openmrs/spa-custom:/srv/spa-custom:ro
     depends_on:
       gateway:
         condition: service_healthy
@@ -77,7 +96,25 @@ services:
         condition: service_healthy
 
   backend:
-    image: openmrs/openmrs-reference-application-3-backend:${OPENMRS_REFAPP_TAG:-3.6.0}
+    # Backend tag is independent of frontend/gateway so frontend+gateway can run
+    # on `:nightly-chartsearch` (for the ESM UI) while the backend stays on the
+    # stable `:3.6.0` app line. We do NOT use the `:nightly-chartsearch` backend
+    # image: it bakes its own chartsearchai .omod into
+    # /openmrs/distribution/openmrs_modules/, and OpenMRS startup copies
+    # distribution modules over /openmrs/data/modules — clobbering the .omod we
+    # build locally from `targets/chartsearchai/` (which carries our multi-turn
+    # work). So we build our OWN backend image: Dockerfile.backend rebases the
+    # stock `:3.6.0` dist off Amazon Linux 2 (glibc 2.26) onto Ubuntu/temurin
+    # (glibc 2.39) so querystore's onnxruntime embedder and chartsearchai's
+    # bundled llama-server native libs load — but bakes NO module, so the
+    # bind-mounted omods below (chartsearchai + querystore) are the only ones,
+    # with no clobber. Only the base OS changes; the OpenMRS app stays at 3.6.0.
+    image: harness-openmrs-backend:${OPENMRS_BACKEND_TAG:-3.6.0}-temurin
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+      args:
+        OPENMRS_BACKEND_TAG: ${OPENMRS_BACKEND_TAG:-3.6.0}
     container_name: harness-openmrs-backend
     restart: "unless-stopped"
     depends_on:
@@ -94,6 +131,28 @@ services:
       OMRS_CONFIG_CONNECTION_DATABASE: ${OMRS_DB_NAME:-openmrs}
       OMRS_CONFIG_CONNECTION_USERNAME: ${OMRS_DB_USER:-openmrs}
       OMRS_CONFIG_CONNECTION_PASSWORD: ${OMRS_DB_PASSWORD:-openmrs}
+      # chartsearchai (feature 004 PoC) reads its LLM API key from
+      # openmrs-runtime.properties (NOT a DB global property) for security.
+      # OpenMRS's OMRS_EXTRA_<NAME> mechanism translates this into
+      # `chartsearchai.llm.remote.apikey=<value>` in runtime properties at boot.
+      # Empty default keeps base RefApp behavior unchanged when CHARTSEARCH_REMOTE_API_KEY is unset.
+      OMRS_EXTRA_CHARTSEARCHAI_LLM_REMOTE_APIKEY: ${CHARTSEARCH_REMOTE_API_KEY:-}
+      # querystore's Elasticsearch backend reads its endpoint from a runtime
+      # property (not a DB global), wired via OMRS_EXTRA_*. Points at the
+      # `elasticsearch` service; only consulted when querystore.backend=elasticsearch,
+      # harmless otherwise. Start ES with: docker compose --profile elasticsearch up -d
+      OMRS_EXTRA_QUERYSTORE_ELASTICSEARCH_URI: ${QUERYSTORE_ELASTICSEARCH_URI:-http://elasticsearch:9200}
+      # Selects the chartsearchai LLM engine for backend-init.sh: `local` triggers
+      # the bundled-llama GGUF download (~5GB) so LocalLlmEngine can spawn its
+      # llama-server child process; `remote` (default) skips it. The matching
+      # chartsearchai.llm.engine GP is set by chartsearch-configure.sh.
+      CHARTSEARCH_LLM_ENGINE: ${CHARTSEARCH_LLM_ENGINE:-remote}
+    extra_hosts:
+      # Linux: docker doesn't resolve host.docker.internal automatically; this maps
+      # it to the host gateway so the chartsearchai backend can reach LM Studio
+      # (or any host-bound OpenAI-compat server) at http://host.docker.internal:1234.
+      # No-op on Docker Desktop (Mac/Win) where the alias is already provided.
+      - "host.docker.internal:host-gateway"
     healthcheck:
       # First-boot Liquibase migrations on the RefApp 3.x stack take 5-10 min
       # against a fresh MariaDB volume; start_period covers that window so
@@ -106,6 +165,79 @@ services:
     volumes:
       - openmrs-data:/openmrs/data
       - ../artifacts/openmrs/modules:/openmrs/data/modules
+      # Surface Tomcat access logs to the host so debugging doesn't require
+      # `docker exec ... tail` against /usr/local/tomcat/logs/. The catalina
+      # log already streams to docker logs (stdout/stderr); this mount adds
+      # the AccessLogValve output (localhost_access_log.*.txt) for completeness.
+      # Tail from host: tail -F artifacts/openmrs/backend-logs/localhost_access_log.*.txt
+      - ../artifacts/openmrs/backend-logs:/usr/local/tomcat/logs
+
+  med-agent-hub:
+    # The "Med Agent Team" — an OpenAI-compat endpoint that runs an in-process
+    # ReAct team (orchestrator + medgemma expert) and returns chartsearchai's
+    # strict {answer,citations,blocks} envelope. The OpenMRS backend selects it
+    # by pointing chartsearchai.llm.remote.endpointUrl at
+    # http://med-agent-hub:8080/v1/chat/completions (service name on the default
+    # network). Internal-only: no host port, no Caddy route.
+    #
+    # This is the A side of the prompt A/B: PROMPT_VARIANT=v1 is the control
+    # (system prompts byte-identical to the original module constants). The B
+    # side (med-agent-hub-b) runs the SAME image with PROMPT_VARIANT=v2 — the two
+    # differ ONLY by the prompt variant, which is the single experimental
+    # variable. The prompts dir is bind-mounted so the loader's per-request read
+    # picks up edits to a .txt with no rebuild/restart (shared mount keeps v1 ==
+    # the baked fallback consistent across both sides).
+    image: med-agent-hub:dev
+    build:
+      context: ../targets/med-agent-hub
+    container_name: harness-med-agent-hub
+    restart: "unless-stopped"
+    environment:
+      # Models are swappable per role; defaults are the roadmap team. The team
+      # reaches LM Studio (or any OpenAI-compat server) at LLM_BASE_URL.
+      LLM_BASE_URL: ${MED_AGENT_LLM_BASE_URL:-http://host.docker.internal:1234}
+      ORCHESTRATOR_MODEL: ${MED_AGENT_ORCHESTRATOR_MODEL:-google/gemma-4-e4b}
+      MED_MODEL: ${MED_AGENT_MED_MODEL:-medgemma-1.5-4b-it}
+      LLM_TEMPERATURE: ${MED_AGENT_TEMPERATURE:-0.0}
+      PROMPT_VARIANT: v1
+    extra_hosts:
+      # Reach LM Studio on the host, same pattern as the backend.
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ../targets/med-agent-hub/server/prompts:/app/server/prompts:ro
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  med-agent-hub-b:
+    # B side of the prompt A/B. Identical to med-agent-hub except PROMPT_VARIANT=v2,
+    # reachable at http://med-agent-hub-b:8080/v1/chat/completions. The editable
+    # v2 delta is server/prompts/v2/synthesis.txt (bind-mounted, read per request);
+    # variant names absent from v2/ fall back to v1, so synthesis is the lone change.
+    image: med-agent-hub:dev
+    build:
+      context: ../targets/med-agent-hub
+    container_name: harness-med-agent-hub-b
+    restart: "unless-stopped"
+    environment:
+      LLM_BASE_URL: ${MED_AGENT_LLM_BASE_URL:-http://host.docker.internal:1234}
+      ORCHESTRATOR_MODEL: ${MED_AGENT_ORCHESTRATOR_MODEL:-google/gemma-4-e4b}
+      MED_MODEL: ${MED_AGENT_MED_MODEL:-medgemma-1.5-4b-it}
+      LLM_TEMPERATURE: ${MED_AGENT_TEMPERATURE:-0.0}
+      PROMPT_VARIANT: v2
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ../targets/med-agent-hub/server/prompts:/app/server/prompts:ro
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
 
   db:
     image: mariadb:10.11.7
@@ -127,8 +259,35 @@ services:
     volumes:
       - db-data:/var/lib/mysql
 
+  elasticsearch:
+    # querystore's "large"/production tier — the real CQRS read store, running as
+    # a SEPARATE service from core's MariaDB (clinical OLTP), which is the whole
+    # point of CQRS: get the read store off the transactional clinical DB. Matches
+    # querystore's elasticsearch-java 8.13.4 client. Opt-in via the `elasticsearch`
+    # compose profile so mysql/lucene runs don't pay its ~1GB. Single-node,
+    # security disabled — dev/validation harness only, never a public deployment.
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.13.4
+    container_name: harness-querystore-es
+    profiles: ["elasticsearch"]
+    restart: "unless-stopped"
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:9200/_cluster/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 24
+      start_period: 60s
+    ports:
+      - "${QUERYSTORE_ES_PORT:-9200}:9200"
+    volumes:
+      - es-data:/usr/share/elasticsearch/data
+
 volumes:
   openmrs-data:
   db-data:
+  es-data:
   caddy-data:
   caddy-config:

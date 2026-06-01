@@ -1,0 +1,27 @@
+{
+  "$comment": "In-session TDD gate for the harness Python repo. tdd-guard reads the pytest reporter output (.claude/tdd-guard/data/test.json) and blocks implementing without a failing test / over-implementing. The protect-tdd-config self-guard denies edits to this gate config so an agent cannot silently remove it (a human edits it directly). Durable backstop lives in .github/workflows/harness-ci.yml.",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit|TodoWrite",
+        "hooks": [
+          { "type": "command", "command": "tdd-guard" }
+        ]
+      },
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          { "type": "command", "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/protect-tdd-config.sh" }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|clear",
+        "hooks": [
+          { "type": "command", "command": "tdd-guard" }
+        ]
+      }
+    ]
+  }
+}

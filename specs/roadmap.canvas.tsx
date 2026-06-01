@@ -306,16 +306,16 @@ const features: Feature[] = [
     slug: "005-med-agent-hub-bridge",
     lane: "openmrs",
     purpose:
-      "Integrate pmanko/med-agent-hub as a harness submodule serving chartsearchai over OpenAI-compat with an LLM-classifier router engaged on every request. chartsearchai code untouched; two global-property flips switch the backend.",
+      "Shipped (as-built): integrate pmanko/med-agent-hub as a harness submodule serving chartsearchai over OpenAI-compat via an in-process ReAct loop over typed tools (medical_expert + kb_search). chartsearchai code untouched; two global-property flips switch the backend. Carries the shipped F005 work — chartsearchai P1 model-switch + B4 Carbon picker + WARM model warmup — plus the P3 Tier-1 KB.",
     scope: [
       "Submodule at targets/med-agent-hub/ on the harness-integration branch.",
       "OpenAI-compat POST /v1/chat/completions and GET /v1/models on med-agent-hub.",
-      "Router engaged on every request; forwards full messages[] (system + chart-prefix + priors + current) to chosen subagent.",
-      "Containerized via single Docker image + honcho + stdout logs.",
+      "In-process ReAct loop (orchestrator/synthesizer over typed medical_expert + kb_search tools, MAX_TOOL_ITERATIONS=3) receives full messages[] (system + chart-prefix + priors + current); envelope bound only on the final synthesis call, with a fallback envelope.",
+      "Containerized via a single uvicorn Docker image with stdout logs (no honcho/Procfile).",
       "Reaches LM Studio via host.docker.internal:host-gateway; mirrors chartsearchai backend pattern.",
     ],
     evidence: [
-      "Three-turn referential chat against Zabella Halambe answers turn 2 referentially against turn 1's content, proving priors flow through router → subagent → LM Studio.",
+      "Three-turn referential chat against Zabella Halambe answers turn 2 referentially against turn 1's content, proving priors flow through the in-process ReAct loop to LM Studio.",
       "Per-turn latency captured for the bridge canvas (prefix-cache loss trade-off documented).",
     ],
     needs: ["M3"],
@@ -330,6 +330,7 @@ const features: Feature[] = [
     purpose:
       "New Python FastAPI service that sits between chartsearchai's RemoteLlmEngine and the real LLM providers. Generalizes the model picker to show classes of connections; normalizes per-provider /v1/models; holds provider credentials at the gateway boundary.",
     scope: [
+      "Phase 0 (shipped on PR #15 — LM Studio /api/v1/models probe + 'LM Studio' sub-category header + per-entry loaded state + pre-load on select). Proves the wire-shape contract (additive provider + entries[] fields) and forward-compatibility with the picker UX.",
       "OpenAI-compat ingress (chartsearchai sees one URL; preserves response_format / stream / top_k / messages[] verbatim).",
       "Connection registry of providers grouped by class: local-runtime (LM Studio, Ollama, vLLM, llama.cpp), cloud-api (OpenAI, Anthropic, Gemini, Azure), agentic (med-agent-hub from F005).",
       "Provider-specific quirks (Anthropic /v1/messages adapter; claude-opus-4-7 top_k=1; per-provider SSE translation) encoded in gateway, not in chartsearchai.",

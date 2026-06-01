@@ -34,7 +34,7 @@ const heroStats = [
   { value: '457/457', label: 'concepts bridgeable to CIEL (100%)',          tone: 'success' as const },
   { value: '48,960',  label: 'obs → typed-table promotions (measured 5D)', tone: 'success' as const },
   { value: '10.3%',   label: 'promoted; 89.7% stays in obs',                tone: 'info' as const },
-  { value: 'loaded',  label: 'live in openmrs_test via dlt + promote',      tone: 'success' as const },
+  { value: 'loaded',  label: 'live in the canonical openmrs schema via dlt + promote', tone: 'success' as const },
 ];
 
 // =========================================================================

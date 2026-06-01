@@ -1,0 +1,17 @@
+{
+  "id": "convo-vitals-monitoring",
+  "patient_ref": "dd75c020-1691-11df-97a5-7038c432aabf",
+  "turns": [
+    { "n": 1, "question": "What was her most recent blood pressure?" },
+    { "n": 2, "question": "Is that within a normal range?" },
+    { "n": 3, "question": "What is her most recent weight, and has it changed?" },
+    { "n": 4, "question": "Does the chart record her oxygen saturation?" },
+    { "n": 5, "question": "What is her blood type?" }
+  ],
+  "tags": ["vitals", "trend", "kb-touchpoint", "multi-turn", "abstention"],
+  "expectations": {
+    "should_cite_resource_types": ["Observation"],
+    "should_abstain": false,
+    "notes": "Grounded: T1 most recent BP = 110/60 (2006-06-06), cited. T2 KB TOUCHPOINT — 110/60 is normal (below the WHO 140/90 hypertension threshold in the KB); the team may consult kb_search and attribute inline. T3 weight 71 kg, down from 73. T4 SpO2 is recorded (cite the obs). T5 ABSTAIN — blood type is not in the chart."
+  }
+}

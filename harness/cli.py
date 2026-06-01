@@ -58,6 +58,25 @@ def _build_parser() -> argparse.ArgumentParser:
     mf_sub = mf.add_subparsers(dest="manifest_action", required=True)
     mf_sub.add_parser("finalize", help="Close out a run manifest with reviewer signoffs")
 
+    # validate
+    val = sub.add_parser("validate", help="Scenario × backend comparison through chartsearchai")
+    val_sub = val.add_subparsers(dest="validate_action", required=True)
+    val_run = val_sub.add_parser(
+        "run", help="Replay a comparison set against each backend; write results.jsonl"
+    )
+    val_run.add_argument(
+        "comparison_set",
+        nargs="?",
+        default="demo",
+        help="Comparison-set id under <data-root>/comparison_sets/ (default: demo)",
+    )
+    val_run.add_argument("--data-root", default="datasets/validation")
+    val_run.add_argument("--output-dir", default="artifacts/validate")
+    val_report = val_sub.add_parser("report", help="Render report.html from a completed run")
+    val_report.add_argument("run_id", nargs="?", help="Run id under <output-dir>/")
+    val_report.add_argument("--run-dir", help="Explicit run directory (overrides run_id)")
+    val_report.add_argument("--output-dir", default="artifacts/validate")
+
     return parser
 
 
@@ -140,6 +159,32 @@ def main() -> int:
         return _not_yet_implemented(f"ocl {args.ocl_action}")
     if args.command == "manifest":
         return _not_yet_implemented(f"manifest {args.manifest_action}")
+
+    if args.command == "validate":
+        if args.validate_action == "run":
+            from .validate.client import ChartSearchAiClient
+            from .validate.runner import run_comparison
+
+            result = run_comparison(
+                comparison_set_id=args.comparison_set,
+                client=ChartSearchAiClient(),
+                data_root=args.data_root,
+                output_dir=args.output_dir,
+                project_root=config.project_root,
+            )
+            print(
+                f"validate run {args.comparison_set}: {result.result_count} results -> "
+                f"{result.results_path}\nreport -> {result.report_path}"
+            )
+            return 0
+        if args.validate_action == "report":
+            from .validate.report import build_report
+
+            run_dir = args.run_dir or str(Path(args.output_dir) / args.run_id)
+            out = build_report(run_dir)
+            print(f"report -> {out}")
+            return 0
+        return _not_yet_implemented(f"validate {args.validate_action}")
 
     print(f"unknown command: {args.command}", file=sys.stderr)
     return 2

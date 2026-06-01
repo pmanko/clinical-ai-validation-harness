@@ -1,0 +1,14 @@
+{
+  "id": "mvp-team-ab",
+  "scenario_ids": [
+    "convo-medications-adherence",
+    "convo-diagnosis-evidence",
+    "convo-regimen-currency"
+  ],
+  "backend_ids": [
+    "gemma-local",
+    "medgemma-local",
+    "med-agent-team-a",
+    "med-agent-team-b"
+  ]
+}

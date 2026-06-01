@@ -1,0 +1,5 @@
+{
+  "id": "team-smoke",
+  "scenario_ids": ["convo-diagnosis-evidence"],
+  "backend_ids": ["med-agent-team"]
+}

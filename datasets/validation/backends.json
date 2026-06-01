@@ -1,0 +1,27 @@
+{
+  "gemma-local": {
+    "label": "Gemma 4-E4B (LM Studio direct)",
+    "endpointUrl": "http://host.docker.internal:1234/v1/chat/completions",
+    "modelName": "google/gemma-4-e4b"
+  },
+  "medgemma-local": {
+    "label": "MedGemma (LM Studio direct)",
+    "endpointUrl": "http://host.docker.internal:1234/v1/chat/completions",
+    "modelName": "medgemma-1.5-4b-it"
+  },
+  "med-agent-team": {
+    "label": "Med Agent Team (med-agent-hub)",
+    "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
+    "modelName": "med-agent-team"
+  },
+  "med-agent-team-a": {
+    "label": "Med Agent Team — v1 prompt + orchestrator/expert models",
+    "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
+    "modelName": "med-agent-team"
+  },
+  "med-agent-team-b": {
+    "label": "Med Agent Team — v2 structured prompt + same models",
+    "endpointUrl": "http://med-agent-hub-b:8080/v1/chat/completions",
+    "modelName": "med-agent-team"
+  }
+}

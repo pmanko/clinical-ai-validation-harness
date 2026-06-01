@@ -1,0 +1,44 @@
+name: harness-ci
+
+# Durable, bypass-proof TDD backstop for the harness Python repo (the agent has
+# no merge rights, so this cannot be skipped the way a local pre-commit can).
+# Runs the harness test suite and enforces that changed production lines are
+# actually covered by a test. Mark this check "required" in branch protection.
+#
+# Scope: the harness repo only — `--ignore=targets` excludes the openmrs
+# submodules (they carry their own upstream CI).
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  pytest-and-diff-coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # diff-cover needs history to compare against the base
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Set up Python + venv
+        run: |
+          uv python install 3.11
+          uv venv
+
+      - name: Install harness + test/coverage tooling
+        run: uv pip install -e ".[dev]" pytest-cov diff-cover
+
+      - name: Run harness tests with coverage
+        run: |
+          uv run pytest -m 'not slow' --ignore=targets \
+            --cov=harness --cov-report=xml --cov-report=term-missing
+
+      - name: Enforce coverage on changed lines
+        run: |
+          uv run diff-cover coverage.xml \
+            --compare-branch "origin/${{ github.base_ref || 'main' }}" \
+            --fail-under 90

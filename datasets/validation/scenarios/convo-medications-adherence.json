@@ -1,0 +1,17 @@
+{
+  "id": "convo-medications-adherence",
+  "patient_ref": "dd75c020-1691-11df-97a5-7038c432aabf",
+  "turns": [
+    { "n": 1, "question": "What medications is this patient on?" },
+    { "n": 2, "question": "How many did you list?" },
+    { "n": 3, "question": "Which of those are antiretrovirals?" },
+    { "n": 4, "question": "Is there anything in the chart about how well she's been taking them?" },
+    { "n": 5, "question": "And does she have any documented drug allergies?" }
+  ],
+  "tags": ["medications", "adherence", "multi-turn", "referential", "honest-absence"],
+  "expectations": {
+    "should_cite_resource_types": ["MedicationRequest", "Observation"],
+    "should_abstain": false,
+    "notes": "Grounded: 4 ARVs (stavudine, lamivudine, nevirapine, efavirenz). T2 referential count (=4). T3 all four are ARVs. T4 cite ART-adherence obs (past week / last month). T5 honest absence — NO allergies are recorded; correct answer is 'none documented', not a confabulated list."
+  }
+}

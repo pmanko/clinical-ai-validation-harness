@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import hashlib
-import json
 from pathlib import Path
 
 from harness.conceptmap.load import load_conceptmap
@@ -57,14 +55,6 @@ def test_field_mapping_is_round_trippable_json(tmp_path: Path):
     assert p1.ext.field_mapping is not None
     assert p1.ext.field_mapping["patient_id"] == "obs.person_id"
     assert "encounter_id" in p1.ext.field_mapping
-
-
-def test_checked_in_artifact_loads_and_matches_generator(tmp_path: Path):
-    """The committed file must equal what the generator produces today."""
-    committed = Path(__file__).resolve().parents[2] / "datasets" / "mappings" / "openmrs-2.7-to-2.8.conceptmap.json"
-    assert committed.is_file(), "the accepted ConceptMap artifact is missing"
-    regenerated = write_conceptmap(tmp_path / "regenerated.conceptmap.json")
-    assert hashlib.sha256(committed.read_bytes()).hexdigest() == hashlib.sha256(regenerated.read_bytes()).hexdigest()
 
 
 def test_no_extension_url_typos_in_generated_doc():

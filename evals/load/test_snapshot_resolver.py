@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import shutil
 import subprocess
 
@@ -61,4 +62,10 @@ def test_resolve_snapshots_finds_clinical_marts():
         assert view in m, f"missing resolved snapshot for {view!r}"
         snap = m[view]
         assert snap.physical_schema == "sqlmesh__refapp_28_demo"
-        assert snap.physical_table.startswith("refapp_28_demo__")
+        # sqlmesh names physical snapshot tables <model>__<fingerprint> inside the
+        # sqlmesh__<schema> physical layer — the schema lives in the schema name, not
+        # the table name. The fingerprint changes on every model edit, so assert the
+        # shape, not a literal hash.
+        assert re.fullmatch(rf"{re.escape(view)}__\d+", snap.physical_table), (
+            f"{view!r} resolved to unexpected physical table {snap.physical_table!r}"
+        )
