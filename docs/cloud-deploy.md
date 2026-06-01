@@ -27,7 +27,7 @@ from your laptop against a GCE VM you own.
     │      /completions                  │           end-to-end encrypted)
     ▼                                    │
   llmster (LM Studio, headless) ─── LM Link tunnel
-   (signed in, preferred-device = Piotrs-MBP)
+   (signed in, preferred-device = <your-mac>)
 ```
 
 llmster on the VM listens on `:1234` for OpenAI-compatible HTTP. When it

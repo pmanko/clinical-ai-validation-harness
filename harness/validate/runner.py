@@ -1,9 +1,11 @@
 """Replay a comparison set against each backend and write results over the
 run-manifest spine.
 
-Backends are iterated STRICTLY SEQUENTIALLY: POST /endpoint mutates global
-active-backend state, so two backends must never run concurrently or their turns
-cross-contaminate (spec 006 risk note).
+Backends are iterated SEQUENTIALLY: the backend is selected per /chat request via
+a per-request {endpointUrl, modelName} override, so a run never mutates
+chartsearchai's config-controlled global default. Sequencing is for determinism
+and session isolation — a chat session is per (patient, user) and opening a new
+one closes the prior, so concurrent backends would cross-contaminate sessions.
 
 A result line is a projection referencing run_id — it does NOT re-declare the
 manifest's provenance fields (FR-006.3); provenance lives in run_manifest.json.

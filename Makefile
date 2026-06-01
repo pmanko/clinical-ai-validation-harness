@@ -265,7 +265,7 @@ chartsearch-up:
 	@$(MAKE) chartsearch-build
 	@echo "==> docker compose up (frontend+gateway on :nightly-chartsearch tag, backend env wired)"
 	@set -a && . ./.env.chartsearch && set +a && \
-	  docker compose -f compose/openmrs-2.8-refapp.yml up -d --force-recreate frontend gateway backend
+	  docker compose -f compose/openmrs-2.8-refapp.yml up -d --force-recreate proxy db frontend gateway backend
 	@echo "==> wait for backend healthy (Liquibase + module init can take 5-10 min cold)"
 	@observed=0; for i in $$(seq 1 60); do \
 	  s=$$(docker inspect -f '{{.State.Health.Status}}' harness-openmrs-backend 2>/dev/null || echo starting); \

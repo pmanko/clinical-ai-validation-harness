@@ -22,5 +22,5 @@ for arg in "$@"; do
   esac
 done
 
-echo "==> compose down on ${GCP_VM_NAME}${EXTRA:+ (with volume nuke)}"
+echo "==> compose down on ${GCP_VM_NAME}${EXTRA[*]:+ (with volume nuke)}"
 gcp_ssh "cd ${GCP_REMOTE_REPO} && docker compose -f compose/openmrs-2.8-refapp.yml down ${EXTRA[*]:-}"

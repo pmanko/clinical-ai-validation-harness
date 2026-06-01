@@ -5,8 +5,8 @@
 # Use when iterating on compose / startup / DB-init state changes, or when
 # a previous cloud-up left a half-broken state.
 #
-# DESTRUCTIVE: drops the openmrs + openmrs_test DB schemas on the VM. After
-# this, you'll need `make cloud-seed` again to re-populate the corpus.
+# DESTRUCTIVE: nukes the cloud DB volume (the canonical `openmrs` corpus) on the
+# VM. After this, you'll need `make cloud-seed` again to re-populate the corpus.
 
 set -euo pipefail
 
@@ -15,7 +15,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 . "${ROOT}/scripts/cloud-lib.sh"
 
 if [ "${FORCE:-0}" != "1" ]; then
-  printf 'About to drop all compose volumes (incl. openmrs_test data) on %s. Type YES to confirm: ' "${GCP_VM_NAME}"
+  printf 'About to drop all compose volumes (incl. the openmrs corpus) on %s. Type YES to confirm: ' "${GCP_VM_NAME}"
   read -r answer
   [ "${answer}" = "YES" ] || { echo aborted; exit 1; }
 fi
@@ -33,4 +33,4 @@ echo "==> cloud-up (compose up + wait healthy + configure LLM globals)"
 "${ROOT}/scripts/cloud-up.sh"
 
 echo ""
-echo "Reset complete. Next: \`make cloud-seed\` to repopulate openmrs_test."
+echo "Reset complete. Next: \`make cloud-seed\` to repopulate openmrs."

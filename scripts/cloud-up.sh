@@ -44,7 +44,8 @@ ls -la artifacts/openmrs/modules/ || true
 # painful instance of this was an entire afternoon of debugging Hibernate
 # Search when the backend was connected to the wrong schema. Delete is
 # safe — OpenMRS regenerates it from server.properties + env on next start.
-docker run --rm -v compose_openmrs-data:/data alpine rm -f /data/openmrs-runtime.properties
+docker compose -f compose/openmrs-2.8-refapp.yml run --rm --no-deps \
+  --entrypoint sh backend -c 'rm -f /openmrs/data/openmrs-runtime.properties'
 
 # chartsearch-configure.sh reads .env.chartsearch — symlink the cloud variant
 # into place so the same script works against either env file.

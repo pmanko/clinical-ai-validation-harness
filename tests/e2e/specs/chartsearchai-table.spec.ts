@@ -39,7 +39,7 @@ async function login(page: Page): Promise<void> {
 }
 
 async function openPatientChart(page: Page): Promise<void> {
-  await page.goto(`/openmrs/spa/patient/${PATIENT_UUID}/chart/Patient Summary`);
+  await page.goto(`/openmrs/spa/patient/${PATIENT_UUID}/chart/Patient%20Summary`);
   // Banner is the cheapest "chart loaded" signal across refapp versions.
   await expect(page.locator('[data-testid="patient-banner"], .patient-banner, header').first()).toBeVisible({
     timeout: 60_000,

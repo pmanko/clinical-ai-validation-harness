@@ -17,6 +17,13 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # shellcheck disable=SC1091
 . "${ROOT}/scripts/cloud-lib.sh"
 
+# Local DB creds for the LOCAL dump below — captured BEFORE sourcing the cloud env
+# (which overwrites OMRS_DB_* with the VM's credentials). Without this, an operator
+# whose local password differs from the cloud default would have the local
+# mysqldump fail authentication against harness-openmrs-db.
+LOCAL_DB_USER="${OMRS_DB_USER:-openmrs}"
+LOCAL_DB_PASSWORD="${OMRS_DB_PASSWORD:-openmrs}"
+
 # Source the cloud env file so MYSQL_ROOT_PASSWORD / OMRS_DB_PASSWORD on
 # the target VM match what compose set there. Defaults to "openmrs" only
 # when neither the cloud env file nor the calling shell defines them —
@@ -39,8 +46,8 @@ mkdir -p "${ROOT}/artifacts/cloud-seed"
 
 echo "==> dumping ${SOURCE_DB} from local harness-openmrs-db"
 docker exec harness-openmrs-db \
-  mysqldump --user="${OMRS_DB_USER:-openmrs}" \
-            --password="${OMRS_DB_PASSWORD:-openmrs}" \
+  mysqldump --user="${LOCAL_DB_USER}" \
+            --password="${LOCAL_DB_PASSWORD}" \
             --single-transaction --quick --no-tablespaces \
             --routines --triggers --events \
             "${SOURCE_DB}" \
