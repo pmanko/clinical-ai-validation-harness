@@ -8,7 +8,7 @@ export UV_PROJECT_ENVIRONMENT
         ciel-fetch ciel-baseline \
         reset-transform sqlmesh-status \
         loadtest-up loadtest-down \
-        load-test orphan-fk-check import-smoke dump-loaded \
+        load-test orphan-fk-check import-smoke dump-loaded promote \
         chartsearch-build chartsearch-configure chartsearch-backend chartsearch-doctor chartsearch-warmup chartsearch-up \
         chartsearch-esm-build chartsearch-esm-dev cloud-deploy-esm \
         med-agent-hub-build med-agent-hub-up med-agent-hub-logs med-agent-hub-restart med-agent-hub-test \
@@ -95,6 +95,12 @@ orphan-fk-check:
 # Post-load smoke: REST + FHIR readback against a sample of legacy patients.
 import-smoke:
 	$(UV) run python -m harness.import_smoke --target $(or $(TARGET),openmrs_test)
+
+# Completeness gate (FR-013): fail if a non-empty legacy source table is neither
+# loaded (a LOAD_RESOURCES target) nor excluded-with-reason. The guard that would
+# have caught the original person_address/patient_state silent drop. Exit 0 clean.
+completeness-check:
+	$(UV) run python -m harness.transform.completeness
 
 # Dump the loaded schema into a portable SQL.gz file (matches the
 # original data/large-demo-data-2-7-0.sql.zip distribution shape).
@@ -360,6 +366,12 @@ cloud-destroy:    ## tear down VM + firewall + static IP (FORCE=1 to skip prompt
 	  --project=$${GCP_PROJECT:-clinical-ai-harness} --quiet || true; \
 	gcloud compute addresses delete $${GCP_STATIC_IP_NAME:-harness-chartsearch-ip} \
 	  --region=$${GCP_REGION:-us-central1} --project=$${GCP_PROJECT:-clinical-ai-harness} --quiet || true
+# Promote the loaded, verified-clean openmrs_test into the live `openmrs` schema
+# the RefApp backend reads, then restart the backend. GATED on FR-013 (refuses
+# to promote a schema with orphan FKs). Override PROMOTE_SOURCE_DB/PROMOTE_TARGET_DB.
+promote:
+	./scripts/promote.sh
+
 
 setup:
 	$(UV) python install $(PYTHON_VERSION)

@@ -1,23 +1,13 @@
 source_concept_id,source_uuid,target_uuid,reason
 991377,0ae0f136-15f5-102d-96e4-000c29c2a5d7,991377AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA,uuid not found in target concept table; not clinically referenced
 991378,0ae0f226-15f5-102d-96e4-000c29c2a5d7,991378AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA,uuid not found in target concept table; not clinically referenced
-991482,0ae1ad4c-15f5-102d-96e4-000c29c2a5d7,991482AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA,uuid not found in target concept table; not clinically referenced
-991483,0ae1ae50-15f5-102d-96e4-000c29c2a5d7,991483AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA,uuid not found in target concept table; not clinically referenced
-991484,0ae1af4a-15f5-102d-96e4-000c29c2a5d7,991484AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA,uuid not found in target concept table; not clinically referenced
 991485,0ae1b04e-15f5-102d-96e4-000c29c2a5d7,991485AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA,uuid not found in target concept table; not clinically referenced
-991487,0ae1b24c-15f5-102d-96e4-000c29c2a5d7,991487AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA,uuid not found in target concept table; not clinically referenced
-991490,0ae1b544-15f5-102d-96e4-000c29c2a5d7,991490AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA,uuid not found in target concept table; not clinically referenced
 991574,0ae21354-15f5-102d-96e4-000c29c2a5d7,991574AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA,uuid not found in target concept table; not clinically referenced
-991577,0ae2164c-15f5-102d-96e4-000c29c2a5d7,991577AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA,uuid not found in target concept table; not clinically referenced
 991579,0ae2187c-15f5-102d-96e4-000c29c2a5d7,991579AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA,uuid not found in target concept table; not clinically referenced
-991648,0ae32f00-15f5-102d-96e4-000c29c2a5d7,991648AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA,uuid not found in target concept table; not clinically referenced
 991708,0ae38fd6-15f5-102d-96e4-000c29c2a5d7,991708AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA,uuid not found in target concept table; not clinically referenced
 991710,0ae391ca-15f5-102d-96e4-000c29c2a5d7,991710AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA,uuid not found in target concept table; not clinically referenced
 991713,0ae394b8-15f5-102d-96e4-000c29c2a5d7,991713AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA,uuid not found in target concept table; not clinically referenced
-991714,0ae395a8-15f5-102d-96e4-000c29c2a5d7,991714AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA,uuid not found in target concept table; not clinically referenced
 991742,0ae3b704-15f5-102d-96e4-000c29c2a5d7,991742AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA,uuid not found in target concept table; not clinically referenced
-991743,0ae3b7fe-15f5-102d-96e4-000c29c2a5d7,991743AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA,uuid not found in target concept table; not clinically referenced
-991744,0ae3b8f8-15f5-102d-96e4-000c29c2a5d7,991744AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA,uuid not found in target concept table; not clinically referenced
 991944,0ae4dca6-15f5-102d-96e4-000c29c2a5d7,991944AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA,uuid not found in target concept table; not clinically referenced
 991946,0ae4de9a-15f5-102d-96e4-000c29c2a5d7,991946AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA,uuid not found in target concept table; not clinically referenced
 991949,0ae4e188-15f5-102d-96e4-000c29c2a5d7,991949AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA,uuid not found in target concept table; not clinically referenced
@@ -76,4 +66,3 @@ source_concept_id,source_uuid,target_uuid,reason
 992002,0ae5c5bc-15f5-102d-96e4-000c29c2a5d7,992002AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA,uuid not found in target concept table; not clinically referenced
 992003,0ae5c756-15f5-102d-96e4-000c29c2a5d7,992003AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA,uuid not found in target concept table; not clinically referenced
 992007,0ae5cda0-15f5-102d-96e4-000c29c2a5d7,992007AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA,uuid not found in target concept table; not clinically referenced
-992842,0aeb82cc-15f5-102d-96e4-000c29c2a5d7,992842AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA,uuid not found in target concept table; not clinically referenced
