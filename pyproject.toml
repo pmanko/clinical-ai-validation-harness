@@ -20,6 +20,9 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
   "pytest>=8.0",
+  "tdd-guard",      # pytest reporter feeding the in-session red-first hook
+  "pytest-cov",     # coverage.xml for the CI diff-coverage gate
+  "diff-cover",     # enforce coverage on changed lines in CI
 ]
 
 [project.scripts]

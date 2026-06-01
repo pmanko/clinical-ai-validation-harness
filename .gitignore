@@ -44,3 +44,4 @@ tools/fhir-validator/*.jar
 datasets/transforms/sqlmesh/.cache/
 logs/
 .claude/scheduled_tasks.lock
+.claude/tdd-guard/data/
