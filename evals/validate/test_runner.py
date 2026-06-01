@@ -116,3 +116,21 @@ def test_runner_threads_session_and_writes_projected_results(tmp_path):
     assert types[0] == "run"
     assert types.count("backend_selected") == 1
     assert types.count("evaluation") == 2
+
+
+def test_runner_backend_selected_event_carries_config_label(tmp_path):
+    # The report renders each backend's config descriptor (label = prompt variant +
+    # orchestrator/expert models) so columns are self-describing; the runner must
+    # emit that label on the backend_selected event — otherwise two same-modelName
+    # team backends are indistinguishable in the report.
+    data = tmp_path / "data"
+    _write_fixtures(data)
+
+    out = run_comparison(
+        comparison_set_id="cs", client=FakeClient(), data_root=data,
+        output_dir=tmp_path / "art", git_sha="test-sha",
+    )
+
+    events = [json.loads(x) for x in (out.run_dir / "events.jsonl").read_text(encoding="utf-8").splitlines()]
+    sel = next(e for e in events if e.get("event_type") == "backend_selected")
+    assert sel.get("label") == "Only"  # the backends.json label for backend 'only'

@@ -108,6 +108,7 @@ def run_comparison(
                 "event_type": "backend_selected",
                 "run_id": run_id,
                 "backend_id": backend.id,
+                "label": backend.label,
                 "endpointUrl": backend.endpoint_url,
                 "modelName": backend.model_name,
             },

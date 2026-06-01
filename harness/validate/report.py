@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import html
 import json
+import re
 from pathlib import Path
 from typing import Any
 
@@ -39,6 +40,53 @@ def _esc(value: Any) -> str:
     return html.escape("" if value is None else str(value))
 
 
+def _render_answer(text: Any) -> str:
+    """Render the answer's light markdown to HTML, escaping the untrusted model
+    text FIRST so it can never inject markup, then upgrading the two structural
+    forms the v2 synthesis prompt emits: `**bold**` section headers (-> <strong>)
+    and `##` ATX headings (-> <h3>). Newlines stay as-is — the .ans { pre-wrap }
+    style already renders them as line breaks."""
+    s = html.escape("" if text is None else str(text))
+    # A literal backslash-n the 4B may copy verbatim from the v2 prompt's JSON-string
+    # few-shot -> a real newline (pre-wrap renders it), so a copied escape can't
+    # masquerade as worse v2 output and confound the A/B.
+    s = s.replace("\\n", "\n")
+    s = re.sub(r"^##\s+(.+?)\s*$", r"<h3>\1</h3>", s, flags=re.MULTILINE)
+    s = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", s)
+    return s
+
+
+def _render_blocks(blocks: Any) -> str:
+    """Render the bridge's `blocks[]` (kind:"table" enumerations the chart-answer
+    envelope carries alongside the prose answer) as HTML tables, reusing the
+    existing `.ref` chip for each cell's chart-record indices. A missing column
+    key in a row -> empty cell rather than a KeyError, so a partial row can't
+    drop the whole report."""
+    out = []
+    for b in blocks or []:
+        if not isinstance(b, dict) or b.get("kind") != "table":
+            continue
+        cols = b.get("columns") or []
+        head = "".join(f"<th>{_esc(c.get('label'))}</th>" for c in cols)
+        rows_html = []
+        for row in b.get("rows") or []:
+            cells = row.get("cells") or {}
+            tds = []
+            for c in cols:
+                cell = cells.get(c.get("key")) or {}
+                refs = "".join(
+                    f"<span class='ref'>[{_esc(i)}]</span>" for i in (cell.get("refs") or [])
+                )
+                tds.append(f"<td>{_esc(cell.get('text'))}{(' ' + refs) if refs else ''}</td>")
+            rows_html.append("<tr>" + "".join(tds) + "</tr>")
+        title = f"<div class='block-title'>{_esc(b.get('title'))}</div>" if b.get("title") else ""
+        out.append(
+            f"<div class='block'>{title}<table class='block-tbl'>"
+            f"<thead><tr>{head}</tr></thead><tbody>{''.join(rows_html)}</tbody></table></div>"
+        )
+    return "".join(out)
+
+
 def _ordered_unique(values: list[Any]) -> list[Any]:
     seen: dict[Any, None] = {}
     for v in values:
@@ -46,9 +94,12 @@ def _ordered_unique(values: list[Any]) -> list[Any]:
     return list(seen)
 
 
-def _backend_models(events: list[dict[str, Any]]) -> dict[str, str]:
+def _backend_labels(events: list[dict[str, Any]]) -> dict[str, str]:
+    # The backend's config descriptor (prompt variant + orchestrator/expert models),
+    # carried on the backend_selected event so report columns are self-describing.
+    # Falls back to modelName for runs recorded before the label was emitted.
     return {
-        e["backend_id"]: e.get("modelName", "")
+        e["backend_id"]: (e.get("label") or e.get("modelName", ""))
         for e in events
         if e.get("event_type") == "backend_selected"
     }
@@ -58,23 +109,22 @@ def _avg(nums: list[int]) -> int:
     return round(sum(nums) / len(nums)) if nums else 0
 
 
-def _summary_table(results: list[dict[str, Any]], backends: list[str], models: dict[str, str]) -> str:
+def _summary_table(results: list[dict[str, Any]], backends: list[str], labels: dict[str, str]) -> str:
     rows = []
     for b in backends:
         rs = [r for r in results if r.get("backend_id") == b]
         lat = [r["metrics"]["latency_ms"] for r in rs if r.get("metrics")]
         cites = sum(r["metrics"].get("citation_count", 0) for r in rs if r.get("metrics"))
-        empty = sum(1 for r in rs if r.get("metrics", {}).get("references_empty"))
         degraded = sum(1 for r in rs if _is_degraded(r))
         errs = sum(1 for r in rs if r.get("error"))
         rows.append(
-            f"<tr><td class='b'>{_esc(b)}<span class='model'>{_esc(models.get(b,''))}</span></td>"
+            f"<tr><td class='b'>{_esc(b)}<span class='model'>{_esc(labels.get(b,''))}</span></td>"
             f"<td>{len(rs)}</td><td>{_avg(lat)} ms</td><td>{max(lat) if lat else 0} ms</td>"
-            f"<td>{cites}</td><td>{empty}</td><td>{degraded}</td><td>{errs}</td></tr>"
+            f"<td>{cites}</td><td>{degraded}</td><td>{errs}</td></tr>"
         )
     return (
         "<table class='summary'><thead><tr><th>backend</th><th>turns</th><th>avg latency</th>"
-        "<th>max latency</th><th>total citations</th><th>no-refs turns</th><th>degraded</th>"
+        "<th>max latency</th><th>total chart refs</th><th>degraded</th>"
         "<th>errors</th></tr></thead><tbody>" + "".join(rows) + "</tbody></table>"
     )
 
@@ -111,7 +161,7 @@ def _cell(r: dict[str, Any] | None, scenario_id: str, turn: Any, backend_id: str
         body = f"<div class='err'>HTTP {_esc(m.get('http_status'))}: {_esc(r['error'])[:400]}</div>"
     else:
         resp = r.get("response") or {}
-        body = f"<div class='ans'>{_esc(resp.get('answer'))}</div>"
+        body = f"<div class='ans'>{_render_answer(resp.get('answer'))}</div>"
         refs = resp.get("references") or []
         if refs:
             shown = " ".join(
@@ -120,12 +170,11 @@ def _cell(r: dict[str, Any] | None, scenario_id: str, turn: Any, backend_id: str
             )
             more = f" <span class='more'>+{len(refs) - 8}</span>" if len(refs) > 8 else ""
             body += f"<div class='refs'>{shown}{more}</div>"
+        body += _render_blocks(resp.get("blocks"))
     chips = [
         f"<span class='chip{' warm' if m.get('first_turn') else ''}'>⏱ {_esc(m.get('latency_ms'))}ms</span>",
-        f"<span class='chip'>cites {_esc(m.get('citation_count'))}</span>",
+        f"<span class='chip'>{_esc(m.get('citation_count'))} chart refs</span>",
     ]
-    if m.get("references_empty"):
-        chips.append("<span class='chip none'>∅ no refs</span>")
     if not m.get("json_valid", True):
         chips.append("<span class='chip bad'>invalid</span>")
     if _is_degraded(r):
@@ -227,7 +276,7 @@ def build_report(run_dir: Path | str) -> Path:
     manifest = json.loads((run_dir / "run_manifest.json").read_text(encoding="utf-8"))
     results = _read_jsonl(run_dir / "results.jsonl")
     events = _read_jsonl(run_dir / "events.jsonl")
-    models = _backend_models(events)
+    labels = _backend_labels(events)
 
     backends = _ordered_unique([r.get("backend_id") for r in results])
     scenarios = _ordered_unique([r.get("scenario_id") for r in results])
@@ -242,10 +291,9 @@ def build_report(run_dir: Path | str) -> Path:
     grids = "".join(_scenario_grid(results, s, backends) for s in scenarios)
     legend = (
         "<div class='legend'>⏱ latency (orange = first turn per backend, carries model warmup). "
-        "cites = chart records cited. ∅ no refs = the answer cited nothing (a references_empty "
-        "PROXY for abstention — chartsearchai emits no abstention flag; the authoritative call is "
-        "the human adjudication below each cell). tokens / finish_reasons / response model are not "
-        "surfaced by /chat (OTel-deferred). Deterministic metrics only — no LLM judge.</div>"
+        "chart refs = count of chart records cited — a COUNT, not a grounding/quality signal; "
+        "the authoritative call is the human adjudication below each cell. tokens / finish_reasons / "
+        "response model are not surfaced by /chat (OTel-deferred). Deterministic metrics only — no LLM judge.</div>"
     )
     bar = (
         "<div class='bar'>reviewer <input id='rev' placeholder='you@example.org'>"
@@ -258,7 +306,7 @@ def build_report(run_dir: Path | str) -> Path:
         f"<title>validation report · {_esc(run_id)}</title><style>{_STYLE}</style></head>"
         f"<body><div class='wrap'><h1>Validation report — {_esc(' vs '.join(backends))}</h1>"
         f"<div class='meta'>{_esc(meta)}</div>"
-        f"<h2>comparison summary</h2>{_summary_table(results, backends, models)}"
+        f"<h2>comparison summary</h2>{_summary_table(results, backends, labels)}"
         f"{grids}{legend}</div>{bar}{_script(run_id)}</body></html>"
     )
     out = run_dir / "report.html"
