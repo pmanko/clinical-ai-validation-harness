@@ -13,5 +13,15 @@
     "label": "Med Agent Team (med-agent-hub)",
     "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
     "modelName": "med-agent-team"
+  },
+  "med-agent-team-a": {
+    "label": "Med Agent Team — v1 prompt + orchestrator/expert models",
+    "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
+    "modelName": "med-agent-team"
+  },
+  "med-agent-team-b": {
+    "label": "Med Agent Team — v2 structured prompt + same models",
+    "endpointUrl": "http://med-agent-hub-b:8080/v1/chat/completions",
+    "modelName": "med-agent-team"
   }
 }

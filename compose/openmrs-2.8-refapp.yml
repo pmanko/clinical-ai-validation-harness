@@ -179,6 +179,14 @@ services:
     # by pointing chartsearchai.llm.remote.endpointUrl at
     # http://med-agent-hub:8080/v1/chat/completions (service name on the default
     # network). Internal-only: no host port, no Caddy route.
+    #
+    # This is the A side of the prompt A/B: PROMPT_VARIANT=v1 is the control
+    # (system prompts byte-identical to the original module constants). The B
+    # side (med-agent-hub-b) runs the SAME image with PROMPT_VARIANT=v2 — the two
+    # differ ONLY by the prompt variant, which is the single experimental
+    # variable. The prompts dir is bind-mounted so the loader's per-request read
+    # picks up edits to a .txt with no rebuild/restart (shared mount keeps v1 ==
+    # the baked fallback consistent across both sides).
     image: med-agent-hub:dev
     build:
       context: ../targets/med-agent-hub
@@ -191,9 +199,39 @@ services:
       ORCHESTRATOR_MODEL: ${MED_AGENT_ORCHESTRATOR_MODEL:-google/gemma-4-e4b}
       MED_MODEL: ${MED_AGENT_MED_MODEL:-medgemma-1.5-4b-it}
       LLM_TEMPERATURE: ${MED_AGENT_TEMPERATURE:-0.0}
+      PROMPT_VARIANT: v1
     extra_hosts:
       # Reach LM Studio on the host, same pattern as the backend.
       - "host.docker.internal:host-gateway"
+    volumes:
+      - ../targets/med-agent-hub/server/prompts:/app/server/prompts:ro
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  med-agent-hub-b:
+    # B side of the prompt A/B. Identical to med-agent-hub except PROMPT_VARIANT=v2,
+    # reachable at http://med-agent-hub-b:8080/v1/chat/completions. The editable
+    # v2 delta is server/prompts/v2/synthesis.txt (bind-mounted, read per request);
+    # variant names absent from v2/ fall back to v1, so synthesis is the lone change.
+    image: med-agent-hub:dev
+    build:
+      context: ../targets/med-agent-hub
+    container_name: harness-med-agent-hub-b
+    restart: "unless-stopped"
+    environment:
+      LLM_BASE_URL: ${MED_AGENT_LLM_BASE_URL:-http://host.docker.internal:1234}
+      ORCHESTRATOR_MODEL: ${MED_AGENT_ORCHESTRATOR_MODEL:-google/gemma-4-e4b}
+      MED_MODEL: ${MED_AGENT_MED_MODEL:-medgemma-1.5-4b-it}
+      LLM_TEMPERATURE: ${MED_AGENT_TEMPERATURE:-0.0}
+      PROMPT_VARIANT: v2
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ../targets/med-agent-hub/server/prompts:/app/server/prompts:ro
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://localhost:8080/health"]
       interval: 30s
