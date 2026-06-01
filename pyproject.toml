@@ -10,7 +10,12 @@ readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
   "PyYAML>=6.0",
-  "sqlmesh>=0.150",
+  # Pinned to a minor: sqlmesh changed its physical snapshot-table naming
+  # (<schema>__<model>__<hash> -> <model>__<hash>) across the 0.15x->0.234 drift
+  # that the old unbounded ">=0.150" allowed in silently. The resolver reads names
+  # dynamically so the pipeline survived, but the convention is load-bearing for
+  # snapshot resolution — bound it so an upgrade is a deliberate, tested step.
+  "sqlmesh>=0.234.1,<0.235",
   "fhir.resources>=7.0",
   "PyMySQL>=1.1",
   "requests>=2.32",
