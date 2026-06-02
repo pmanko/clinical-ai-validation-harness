@@ -198,6 +198,7 @@ services:
       LLM_BASE_URL: ${MED_AGENT_LLM_BASE_URL:-http://host.docker.internal:1234}
       ORCHESTRATOR_MODEL: ${MED_AGENT_ORCHESTRATOR_MODEL:-google/gemma-4-e4b}
       MED_MODEL: ${MED_AGENT_MED_MODEL:-medgemma-1.5-4b-it}
+      SYNTHESIZER_MODEL: ${MED_AGENT_SYNTHESIZER_MODEL:-google/gemma-4-e4b}
       LLM_TEMPERATURE: ${MED_AGENT_TEMPERATURE:-0.0}
       PROMPT_VARIANT: v1
     extra_hosts:
@@ -226,6 +227,7 @@ services:
       LLM_BASE_URL: ${MED_AGENT_LLM_BASE_URL:-http://host.docker.internal:1234}
       ORCHESTRATOR_MODEL: ${MED_AGENT_ORCHESTRATOR_MODEL:-google/gemma-4-e4b}
       MED_MODEL: ${MED_AGENT_MED_MODEL:-medgemma-1.5-4b-it}
+      SYNTHESIZER_MODEL: ${MED_AGENT_SYNTHESIZER_MODEL:-google/gemma-4-e4b}
       LLM_TEMPERATURE: ${MED_AGENT_TEMPERATURE:-0.0}
       PROMPT_VARIANT: v2
     extra_hosts:
