@@ -200,7 +200,7 @@ services:
       MED_MODEL: ${MED_AGENT_MED_MODEL:-medgemma-1.5-4b-it}
       SYNTHESIZER_MODEL: ${MED_AGENT_SYNTHESIZER_MODEL:-google/gemma-4-e4b}
       LLM_TEMPERATURE: ${MED_AGENT_TEMPERATURE:-0.0}
-      PROMPT_VARIANT: v1
+      PROMPT_VARIANT: v2
     extra_hosts:
       # Reach LM Studio on the host, same pattern as the backend.
       - "host.docker.internal:host-gateway"
