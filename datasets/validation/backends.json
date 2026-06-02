@@ -23,5 +23,15 @@
     "label": "Med Agent Team — v2 structured prompt + same models",
     "endpointUrl": "http://med-agent-hub-b:8080/v1/chat/completions",
     "modelName": "med-agent-team"
+  },
+  "med-agent-team-a4b": {
+    "label": "Med Agent Team — e4b orch + a4b synth + medgemma-1.5 expert (low power)",
+    "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
+    "modelName": "med-agent-team-a4b"
+  },
+  "gemma-a4b-pure": {
+    "label": "Gemma 4-26B-A4B (LM Studio direct, no team)",
+    "endpointUrl": "http://host.docker.internal:1234/v1/chat/completions",
+    "modelName": "google/gemma-4-26b-a4b"
   }
 }
