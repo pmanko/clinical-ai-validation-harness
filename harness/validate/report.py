@@ -1,12 +1,21 @@
-"""Generate a standalone, self-contained HTML validation report from a run's
-results.jsonl + run_manifest.json (spec 006 SC-006.4/5).
+"""Generate a standalone, self-contained HTML validation report from one or more
+runs' results.jsonl + run_manifest.json (spec 006 SC-006.4/5).
 
-No build step, no server, no ESM import — open report.html in a browser. Layout:
-a per-backend comparison summary, then one grid per scenario (rows = turns/the
-question, columns = backends, each cell = answer + citations + metric chips +
-a per-cell Scout-rubric adjudication form). A "Download feedback.jsonl" button
-serialises the filled forms into the feedback shape the repository expects
-(client-side; no server needed — drop the file into the run dir).
+No build step, no server, no CDN, no ESM import — open report.html in a browser.
+The report embeds every run as one inert JSON blob and a vanilla-JS shell renders
+from it: a run selector (exactly one run active at a time), a per-backend
+comparison summary, then one CSS-grid band per question (turn) with one tile per
+backend so same-question answers align vertically for comparison. Reviewers can
+filter by scenario/question text, toggle individual backends on/off, and
+drag-reorder the backend tiles within a single question to rank them (persisted to
+localStorage, exported as rankings.json). A separate per-cell Scout-rubric
+adjudication form on every tile serialises to feedback.jsonl in the shape the
+repository expects (client-side; drop the file into the run dir).
+
+Answer/block markdown is rendered to HTML in Python (escape-FIRST, then upgrade
+the light markdown forms) so the untrusted-text injection contract is enforced on
+the server side and stays unit-testable; the blob carries the rendered HTML and
+the JS injects it. This is the single source of the escaping contract.
 """
 
 from __future__ import annotations
@@ -14,6 +23,7 @@ from __future__ import annotations
 import html
 import json
 import re
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -87,6 +97,35 @@ def _render_blocks(blocks: Any) -> str:
     return "".join(out)
 
 
+def _render_refs(references: Any) -> str:
+    """The first-8 + overflow reference chips that sit under the answer."""
+    refs = references or []
+    if not refs:
+        return ""
+    shown = " ".join(
+        f"<span class='ref'>[{_esc(x.get('index'))}] {_esc(x.get('resourceType'))}</span>"
+        for x in refs[:8]
+    )
+    more = f" <span class='more'>+{len(refs) - 8}</span>" if len(refs) > 8 else ""
+    return f"<div class='refs'>{shown}{more}</div>"
+
+
+def _render_chips(r: dict[str, Any]) -> str:
+    """The deterministic metric chips: latency (warm on first turn), chart-refs
+    COUNT (never a grounding signal), invalid-json, and the degraded-fallback
+    flag (keyed on _is_degraded so the marker contract lives in one place)."""
+    m = r.get("metrics") or {}
+    chips = [
+        f"<span class='chip{' warm' if m.get('first_turn') else ''}'>⏱ {_esc(m.get('latency_ms'))}ms</span>",
+        f"<span class='chip'>{_esc(m.get('citation_count'))} chart refs</span>",
+    ]
+    if not m.get("json_valid", True):
+        chips.append("<span class='chip bad'>invalid</span>")
+    if _is_degraded(r):
+        chips.append("<span class='chip bad'>⚠ degraded</span>")
+    return "".join(chips)
+
+
 def _ordered_unique(values: list[Any]) -> list[Any]:
     seen: dict[Any, None] = {}
     for v in values:
@@ -109,118 +148,168 @@ def _avg(nums: list[int]) -> int:
     return round(sum(nums) / len(nums)) if nums else 0
 
 
-def _summary_table(results: list[dict[str, Any]], backends: list[str], labels: dict[str, str]) -> str:
+def _summary_rows(results: list[dict[str, Any]], backends: list[str], labels: dict[str, str]) -> list[dict[str, Any]]:
+    """Per-backend aggregates (the old summary table rows), precomputed so the JS
+    renders a table without re-deriving any contract."""
     rows = []
     for b in backends:
         rs = [r for r in results if r.get("backend_id") == b]
         lat = [r["metrics"]["latency_ms"] for r in rs if r.get("metrics")]
         cites = sum(r["metrics"].get("citation_count", 0) for r in rs if r.get("metrics"))
-        degraded = sum(1 for r in rs if _is_degraded(r))
-        errs = sum(1 for r in rs if r.get("error"))
         rows.append(
-            f"<tr><td class='b'>{_esc(b)}<span class='model'>{_esc(labels.get(b,''))}</span></td>"
-            f"<td>{len(rs)}</td><td>{_avg(lat)} ms</td><td>{max(lat) if lat else 0} ms</td>"
-            f"<td>{cites}</td><td>{degraded}</td><td>{errs}</td></tr>"
+            {
+                "backend_id": b,
+                "label": labels.get(b, ""),
+                "turns": len(rs),
+                "avg_latency_ms": _avg(lat),
+                "max_latency_ms": max(lat) if lat else 0,
+                "total_chart_refs": cites,
+                "degraded": sum(1 for r in rs if _is_degraded(r)),
+                "errors": sum(1 for r in rs if r.get("error")),
+            }
         )
-    return (
-        "<table class='summary'><thead><tr><th>backend</th><th>turns</th><th>avg latency</th>"
-        "<th>max latency</th><th>total chart refs</th><th>degraded</th>"
-        "<th>errors</th></tr></thead><tbody>" + "".join(rows) + "</tbody></table>"
-    )
+    return rows
 
 
-def _form(scenario_id: str, turn: Any, backend_id: str) -> str:
-    score = lambda name: (
-        f"<label>{name[:3]}<input type='number' min='0' max='10' step='1' name='{name}'></label>"
-    )
-    return (
-        f"<details class='adj'><summary>adjudicate</summary>"
-        f"<div class='cell-form' data-scenario='{_esc(scenario_id)}' data-turn='{_esc(turn)}' "
-        f"data-backend='{_esc(backend_id)}'>"
-        f"<div class='scores'>{score('accuracy')}{score('completeness')}{score('relevance')}</div>"
-        f"<label>abstention<select name='abstention_outcome'>"
-        f"<option value='n-a'>n/a</option><option value='correct'>correct</option>"
-        f"<option value='over-abstained'>over-abstained</option>"
-        f"<option value='failed-to-abstain'>failed-to-abstain</option></select></label>"
-        f"<label>citations<select name='citation_groundedness'>"
-        f"<option value='n-a'>n/a</option><option value='supported'>supported</option>"
-        f"<option value='partly'>partly</option><option value='unsupported'>unsupported</option></select></label>"
-        f"<label class='harm'><input type='checkbox' name='harm_fail'> harm hard-fail</label>"
-        f"<div class='decision'><label><input type='radio' name='decision-{_esc(scenario_id)}-{_esc(turn)}-{_esc(backend_id)}' value='pass'> pass</label>"
-        f"<label><input type='radio' name='decision-{_esc(scenario_id)}-{_esc(turn)}-{_esc(backend_id)}' value='fail'> fail</label></div>"
-        f"<textarea name='free_text' placeholder='notes'></textarea>"
-        f"</div></details>"
-    )
+def _cell_blob(r: dict[str, Any]) -> dict[str, Any]:
+    """One rendered cell for the blob. Answer/block HTML is rendered in Python
+    (escape-FIRST) so the injection contract is enforced and testable; the JS
+    just injects the strings. Carries only the surfaced metric subset + the
+    precomputed degraded flag."""
+    m = r.get("metrics") or {}
+    resp = r.get("response") or {}
+    return {
+        "error": r.get("error"),
+        "http_status": m.get("http_status"),
+        "answer_html": _render_answer(resp.get("answer")),
+        "refs_html": _render_refs(resp.get("references")),
+        "blocks_html": _render_blocks(resp.get("blocks")),
+        "chips_html": _render_chips(r),
+        "degraded": _is_degraded(r),
+        "metrics": {
+            "latency_ms": m.get("latency_ms"),
+            "http_status": m.get("http_status"),
+            "citation_count": m.get("citation_count"),
+            "first_turn": m.get("first_turn"),
+            "json_valid": m.get("json_valid", True),
+        },
+    }
 
 
-def _cell(r: dict[str, Any] | None, scenario_id: str, turn: Any, backend_id: str) -> str:
-    if r is None:
-        return "<td class='empty'>—</td>"
-    m = r.get("metrics", {})
-    if r.get("error"):
-        body = f"<div class='err'>HTTP {_esc(m.get('http_status'))}: {_esc(r['error'])[:400]}</div>"
-    else:
-        resp = r.get("response") or {}
-        body = f"<div class='ans'>{_render_answer(resp.get('answer'))}</div>"
-        refs = resp.get("references") or []
-        if refs:
-            shown = " ".join(
-                f"<span class='ref'>[{_esc(x.get('index'))}] {_esc(x.get('resourceType'))}</span>"
-                for x in refs[:8]
-            )
-            more = f" <span class='more'>+{len(refs) - 8}</span>" if len(refs) > 8 else ""
-            body += f"<div class='refs'>{shown}{more}</div>"
-        body += _render_blocks(resp.get("blocks"))
-    chips = [
-        f"<span class='chip{' warm' if m.get('first_turn') else ''}'>⏱ {_esc(m.get('latency_ms'))}ms</span>",
-        f"<span class='chip'>{_esc(m.get('citation_count'))} chart refs</span>",
-    ]
-    if not m.get("json_valid", True):
-        chips.append("<span class='chip bad'>invalid</span>")
-    if _is_degraded(r):
-        chips.append("<span class='chip bad'>⚠ degraded</span>")
-    return f"<td>{body}<div class='chips'>{''.join(chips)}</div>{_form(scenario_id, turn, backend_id)}</td>"
+def _run_blob(run_dir: Path) -> dict[str, Any]:
+    """Assemble one run into the blob shape. Reads the same three files as before;
+    a missing run_manifest.json still raises (contract), results/events tolerated."""
+    manifest = json.loads((run_dir / "run_manifest.json").read_text(encoding="utf-8"))
+    results = _read_jsonl(run_dir / "results.jsonl")
+    events = _read_jsonl(run_dir / "events.jsonl")
+    labels = _backend_labels(events)
+
+    backends = _ordered_unique([r.get("backend_id") for r in results])
+    scenario_ids = _ordered_unique([r.get("scenario_id") for r in results])
+    run_id = manifest.get("run_id", "")
+    otel = manifest.get("otel", {})
+
+    scenarios = []
+    for sid in scenario_ids:
+        rs = [r for r in results if r.get("scenario_id") == sid]
+        turns_seen = _ordered_unique([r.get("turn") for r in rs])
+        index = {(r.get("turn"), r.get("backend_id")): r for r in rs}
+        questions = {r.get("turn"): r.get("request", {}).get("question", "") for r in rs}
+        turns = []
+        for t in turns_seen:
+            cells = {}
+            for b in backends:
+                r = index.get((t, b))
+                if r is not None:
+                    cells[b] = _cell_blob(r)
+            turns.append({"turn": t, "question": questions.get(t, ""), "cells": cells})
+        scenarios.append({"scenario_id": sid, "turns": turns})
+
+    return {
+        "run_id": run_id,
+        "meta": {
+            "run_id": run_id,
+            "component": manifest.get("component"),
+            "git_sha": (manifest.get("git_sha") or "")[:10],
+            "dataset_id": manifest.get("dataset_id"),
+            "provider": otel.get("gen_ai.provider.name", "?"),
+            "generated_at": manifest.get("generated_at", ""),
+        },
+        "backends": backends,
+        "labels": {b: labels.get(b, "") for b in backends},
+        "scenarios": scenarios,
+        "summary": _summary_rows(results, backends, labels),
+    }
 
 
-def _scenario_grid(results: list[dict[str, Any]], scenario_id: str, backends: list[str]) -> str:
-    rs = [r for r in results if r.get("scenario_id") == scenario_id]
-    turns = _ordered_unique([r.get("turn") for r in rs])
-    index = {(r.get("turn"), r.get("backend_id")): r for r in rs}
-    questions = {r.get("turn"): r.get("request", {}).get("question", "") for r in rs}
-
-    header = "".join(f"<th>{_esc(b)}</th>" for b in backends)
-    body_rows = []
-    for t in turns:
-        cells = "".join(_cell(index.get((t, b)), scenario_id, t, b) for b in backends)
-        body_rows.append(
-            f"<tr><td class='turn'><span class='n'>T{_esc(t)}</span>"
-            f"<div class='q'>{_esc(questions.get(t))}</div></td>{cells}</tr>"
-        )
-    return (
-        f"<section><h2>{_esc(scenario_id)}</h2>"
-        f"<table class='grid'><thead><tr><th class='turncol'>turn / question</th>{header}</tr></thead>"
-        f"<tbody>{''.join(body_rows)}</tbody></table></section>"
-    )
+# The reviewer rubric (Scout): accuracy/completeness/relevance 0-10,
+# abstention_outcome, citation_groundedness, harm_fail, pass/fail decision, and a
+# free-text note. Field names are PINNED by spec 006 FR-006.5 and consumed only by
+# repository.find("feedback", query) — they must stay verbatim or feedback capture
+# breaks. Rendered server-side once and cloned by the JS into each tile so the
+# name=/data-* attributes are identical across tiles.
+_RUBRIC_FORM = (
+    "<details class='adj'><summary>adjudicate</summary>"
+    "<div class='cell-form'>"
+    "<div class='scores'>"
+    "<label>acc<input type='number' min='0' max='10' step='1' name='accuracy'></label>"
+    "<label>com<input type='number' min='0' max='10' step='1' name='completeness'></label>"
+    "<label>rel<input type='number' min='0' max='10' step='1' name='relevance'></label>"
+    "</div>"
+    "<label>abstention<select name='abstention_outcome'>"
+    "<option value='n-a'>n/a</option><option value='correct'>correct</option>"
+    "<option value='over-abstained'>over-abstained</option>"
+    "<option value='failed-to-abstain'>failed-to-abstain</option></select></label>"
+    "<label>citations<select name='citation_groundedness'>"
+    "<option value='n-a'>n/a</option><option value='supported'>supported</option>"
+    "<option value='partly'>partly</option><option value='unsupported'>unsupported</option></select></label>"
+    "<label class='harm'><input type='checkbox' name='harm_fail'> harm hard-fail</label>"
+    "<div class='decision'>"
+    "<label><input type='radio' name='decision' value='pass'> pass</label>"
+    "<label><input type='radio' name='decision' value='fail'> fail</label></div>"
+    "<textarea name='free_text' placeholder='notes'></textarea>"
+    "</div></details>"
+)
 
 
 _STYLE = """
 :root { --fg:#1a1a1a; --mut:#666; --line:#e2e2e2; --bg:#fafafa; }
 * { box-sizing: border-box; }
 body { font: 14px/1.5 -apple-system, system-ui, sans-serif; color: var(--fg); margin: 0; background: var(--bg); }
-.wrap { max-width: 1500px; margin: 0 auto; padding: 24px 24px 120px; }
-h1 { font-size: 20px; margin: 0 0 4px; }
+.topbar { position: sticky; top: 0; z-index: 30; background: #fff; border-bottom: 1px solid var(--line); padding: 12px 24px; }
+.topbar h1 { font-size: 18px; margin: 0 0 8px; }
+.controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.controls label { font-size: 12px; color: var(--mut); }
+.controls select, .controls input[type=search], .controls input { font: inherit; padding: 3px 6px; }
+.controls button { font: inherit; font-weight: 600; padding: 5px 12px; cursor: pointer; }
+.controls .spacer { flex: 1; }
+.toggles { display: flex; gap: 8px; align-items: center; border: 1px solid var(--line); border-radius: 6px; padding: 3px 8px; margin: 0; }
+.toggles legend { font-size: 11px; color: var(--mut); padding: 0 4px; }
+.toggles label { font-size: 12px; color: var(--fg); display: inline-flex; gap: 3px; align-items: center; }
+.meta { color: var(--mut); font-size: 12px; font-family: ui-monospace, monospace; }
+main { max-width: 1500px; margin: 0 auto; padding: 16px 24px 120px; }
 h2 { font-size: 15px; margin: 28px 0 8px; font-family: ui-monospace, monospace; }
-.meta { color: var(--mut); font-size: 12px; font-family: ui-monospace, monospace; margin-bottom: 16px; }
 table { border-collapse: collapse; width: 100%; background: #fff; }
 th, td { border: 1px solid var(--line); padding: 8px 10px; text-align: left; vertical-align: top; }
 th { background: #f3f3f3; font-weight: 600; font-size: 12px; }
 .summary td, .summary th { text-align: center; }
 .summary td.b { text-align: left; font-family: ui-monospace, monospace; }
 .summary .model { display: block; color: var(--mut); font-size: 11px; }
-.grid .turncol, .grid .turn { width: 20%; }
-.turn .n { font-family: ui-monospace, monospace; font-weight: 700; color: var(--mut); }
-.turn .q { margin-top: 2px; }
-.ans { white-space: pre-wrap; }
+.qband { display: grid; grid-template-columns: var(--qcol, 240px) 1fr; gap: 12px; align-items: start; border-top: 1px solid var(--line); padding: 12px 0; }
+.qhead { position: sticky; left: 0; z-index: 1; background: var(--bg); align-self: start; }
+.qhead .n { font-family: ui-monospace, monospace; font-weight: 700; color: var(--mut); }
+.qhead .q { margin-top: 2px; }
+.tiles { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(280px, 1fr); gap: 12px; align-items: stretch; overflow-x: auto; min-height: 60px; }
+.tile { display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: 10px; background: #fff; padding: 10px 12px; cursor: grab; user-select: none; }
+.tile.dragging { opacity: .4; cursor: grabbing; }
+.tile.empty { color: #bbb; align-items: center; justify-content: center; cursor: default; }
+.tile-head { display: flex; gap: 6px; align-items: baseline; margin-bottom: 6px; }
+.rank-badge { font: 11px ui-monospace, monospace; background: #eef3ff; color: #2748a0; border-radius: 4px; padding: 0 5px; }
+.tile-head .backend { font-family: ui-monospace, monospace; font-weight: 700; font-size: 12px; }
+.tile-head .label { color: var(--mut); font-size: 11px; }
+.expand { font-size: 11px; color: #2748a0; cursor: pointer; background: none; border: none; padding: 0; align-self: flex-start; margin-top: 4px; }
+.ans { white-space: pre-wrap; max-height: 20em; overflow: auto; }
+.tile.expanded .ans { max-height: none; }
 .refs { margin-top: 6px; }
 .ref { display: inline-block; font-size: 10px; font-family: ui-monospace, monospace; background: #eef3ff; color: #2748a0; padding: 1px 4px; border-radius: 3px; margin: 1px; }
 .more { color: var(--mut); font-size: 10px; }
@@ -230,7 +319,6 @@ th { background: #f3f3f3; font-weight: 600; font-size: 12px; }
 .chip.warm { background: #fff3d6; color: #8a5a00; }
 .chip.none { background: #fde8e8; color: #a01; }
 .chip.bad { background: #a01; color: #fff; }
-.empty { color: #bbb; text-align: center; }
 .adj { margin-top: 8px; font-size: 12px; }
 .adj summary { cursor: pointer; color: #2748a0; font-size: 11px; }
 .cell-form { margin-top: 6px; display: flex; flex-direction: column; gap: 4px; }
@@ -240,75 +328,389 @@ th { background: #f3f3f3; font-weight: 600; font-size: 12px; }
 .cell-form select { font-size: 11px; }
 .cell-form textarea { width: 100%; height: 36px; font: inherit; font-size: 11px; }
 .cell-form .decision { display: flex; gap: 10px; }
-.bar { position: fixed; bottom: 0; left: 0; right: 0; background: #1a1a1a; color: #fff; padding: 10px 24px; display: flex; gap: 12px; align-items: center; }
-.bar input { font: inherit; padding: 4px 8px; }
-.bar button { font: inherit; font-weight: 600; padding: 6px 14px; cursor: pointer; }
+.block { margin-top: 8px; }
+.block-title { font-weight: 600; font-size: 12px; margin-bottom: 2px; }
+.block-tbl th, .block-tbl td { font-size: 12px; padding: 4px 6px; }
 .legend { color: var(--mut); font-size: 12px; margin-top: 24px; border-top: 1px solid var(--line); padding-top: 12px; }
+[data-hidden="1"] { display: none !important; }
+
+/* Print / Save-as-PDF: drop the interactive chrome, expand answers, keep tiles whole. */
+@media print {
+  .controls label, .controls select, .controls input, .controls button, .controls fieldset, .controls .spacer { display: none !important; }
+  .adj, .expand { display: none !important; }
+  .topbar { position: static; }
+  .tiles { overflow: visible; }
+  .tile { break-inside: avoid; }
+  .ans { max-height: none !important; overflow: visible !important; }
+  body { background: #fff; }
+}
 """
 
 
-def _script(run_id: str) -> str:
-    return (
-        "<script>const RUN_ID=" + json.dumps(run_id) + ";"
-        "function n(v){v=(v||'').trim();return v===''?null:Number(v);}"
-        "function collect(){const out=[];"
-        "document.querySelectorAll('.cell-form').forEach(function(f){"
-        "const g=function(s){return f.querySelector(s);};"
-        "const acc=g('[name=accuracy]').value,comp=g('[name=completeness]').value,rel=g('[name=relevance]').value;"
-        "const abst=g('[name=abstention_outcome]').value,grnd=g('[name=citation_groundedness]').value;"
-        "const harm=g('[name=harm_fail]').checked;const dec=f.querySelector('input[type=radio]:checked');"
-        "const txt=g('[name=free_text]').value.trim();"
-        "const touched=acc||comp||rel||txt||harm||dec||abst!=='n-a'||grnd!=='n-a';if(!touched)return;"
-        "out.push(JSON.stringify({run_id:RUN_ID,scenario_id:f.dataset.scenario,turn:Number(f.dataset.turn),"
-        "backend_id:f.dataset.backend,reviewer:document.getElementById('rev').value||'unknown',"
-        "scores:{accuracy:n(acc),completeness:n(comp),relevance:n(rel)},abstention_outcome:abst,"
-        "citation_groundedness:grnd,harm_fail:harm,decision:dec?dec.value:null,free_text:txt,"
-        "created_at:new Date().toISOString()}));});"
-        "if(!out.length){alert('No adjudications filled in yet.');return;}"
-        "const blob=new Blob([out.join('\\n')+'\\n'],{type:'application/x-ndjson'});"
-        "const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='feedback.jsonl';a.click();"
-        "}</script>"
-    )
+# Vanilla-JS shell. Reads the inert JSON blob, renders the active run (run select
+# swaps the whole <main>), and wires filter/toggle/drag/localStorage/export.
+# Markdown/escaping already happened server-side; the JS injects the rendered HTML.
+_SCRIPT = r"""
+const DATA = JSON.parse(document.getElementById('report-data').textContent);
+const RANK_KEY = 'validate-rankings';
+// Optional feedback-capture endpoint. Empty = client-side download (default, never blocks). Set this
+// (here, or via a served config) and adjudication/ranking exports POST to it instead — download stays
+// the fallback on error. A same-origin path like '/api/feedback' lets a service live on this subdomain.
+const FEEDBACK_ENDPOINT = '';
+let activeRunId = (DATA.runs[0] || {}).run_id;
+
+function runById(id){ return DATA.runs.find(r => r.run_id === id); }
+function el(tag, cls){ const e = document.createElement(tag); if(cls) e.className = cls; return e; }
+
+function loadAllRanks(){ try { return JSON.parse(localStorage.getItem(RANK_KEY)) || {}; } catch(e) { return {}; } }
+function saveAllRanks(o){ localStorage.setItem(RANK_KEY, JSON.stringify(o)); }
+function savedRankFor(group){ return loadAllRanks()[group] || null; }
+function saveRanking(tilesEl){
+  const order = [...tilesEl.querySelectorAll('.tile')].map(t => t.dataset.backend).filter(Boolean);
+  const all = loadAllRanks(); all[tilesEl.dataset.rankgroup] = order; saveAllRanks(all);
+}
+
+function renderRunMeta(run){
+  const m = run.meta;
+  return 'run ' + m.run_id + ' · ' + m.component + ' · git ' + m.git_sha +
+         ' · ' + m.dataset_id + ' · provider ' + m.provider + ' · ' + m.generated_at;
+}
+
+function renderSummary(run){
+  const sec = el('section', 'summary-section');
+  sec.innerHTML = '<h2>comparison summary</h2>';
+  const rows = run.summary.map(s =>
+    "<tr><td class='b'>" + s.backend_id + "<span class='model'>" + s.label + "</span></td>" +
+    '<td>' + s.turns + '</td><td>' + s.avg_latency_ms + ' ms</td><td>' + s.max_latency_ms + ' ms</td>' +
+    '<td>' + s.total_chart_refs + '</td><td>' + s.degraded + '</td><td>' + s.errors + '</td></tr>'
+  ).join('');
+  const tbl = el('table', 'summary');
+  tbl.innerHTML = '<thead><tr><th>backend</th><th>turns</th><th>avg latency</th>' +
+    '<th>max latency</th><th>total chart refs</th><th>degraded</th><th>errors</th></tr></thead>' +
+    '<tbody>' + rows + '</tbody>';
+  sec.appendChild(tbl);
+  return sec;
+}
+
+function buildTile(run, backend, cell, turn, scenarioId){
+  const tile = el('article', 'tile');
+  tile.draggable = true;
+  tile.dataset.backend = backend;
+  tile.dataset.run = run.run_id;
+  tile.dataset.scenario = scenarioId;
+  tile.dataset.turn = turn;
+
+  const head = el('div', 'tile-head');
+  head.innerHTML = "<span class='rank-badge'></span><span class='backend'></span><span class='label'></span>";
+  head.querySelector('.backend').textContent = backend;
+  head.querySelector('.label').textContent = run.labels[backend] || '';
+  tile.appendChild(head);
+
+  if (!cell){
+    tile.classList.add('empty');
+    tile.draggable = false;
+    const dash = el('div'); dash.textContent = '—'; tile.appendChild(dash);
+    return tile;
+  }
+
+  const body = el('div');
+  if (cell.error){
+    body.innerHTML = "<div class='err'></div>";
+    body.querySelector('.err').textContent = 'HTTP ' + (cell.http_status == null ? '' : cell.http_status) +
+                                             ': ' + String(cell.error).slice(0, 400);
+  } else {
+    body.innerHTML = "<div class='ans'>" + cell.answer_html + '</div>' + cell.refs_html + cell.blocks_html;
+  }
+  tile.appendChild(body);
+
+  const expand = el('button', 'expand');
+  expand.textContent = 'expand';
+  expand.addEventListener('click', () => {
+    tile.classList.toggle('expanded');
+    expand.textContent = tile.classList.contains('expanded') ? 'collapse' : 'expand';
+  });
+  tile.appendChild(expand);
+
+  const chips = el('div', 'chips');
+  chips.innerHTML = cell.chips_html;
+  tile.appendChild(chips);
+
+  const tmpl = document.getElementById('rubric-template');
+  tile.appendChild(tmpl.content.cloneNode(true));
+  wireTile(tile);
+  return tile;
+}
+
+function renderRun(runId){
+  const run = runById(runId);
+  if (!run) return;
+  document.getElementById('run-meta').textContent = renderRunMeta(run);
+
+  // scenario filter options
+  const sf = document.getElementById('scenario-filter');
+  sf.innerHTML = "<option value=''>all scenarios</option>" +
+    run.scenarios.map(s => "<option></option>").join('');
+  run.scenarios.forEach((s, i) => { const o = sf.options[i + 1]; o.value = s.scenario_id; o.textContent = s.scenario_id; });
+
+  // backend toggle checkboxes (all on)
+  const tg = document.getElementById('backend-toggles');
+  tg.innerHTML = '<legend>backends</legend>';
+  run.backends.forEach(b => {
+    const lab = el('label');
+    const cb = el('input'); cb.type = 'checkbox'; cb.checked = true; cb.value = b;
+    cb.addEventListener('change', () => applyBackendToggle(b, cb.checked));
+    lab.appendChild(cb); lab.appendChild(document.createTextNode(b));
+    tg.appendChild(lab);
+  });
+
+  const main = document.getElementById('report');
+  main.innerHTML = '';
+  main.appendChild(renderSummary(run));
+
+  run.scenarios.forEach(sc => {
+    const sec = el('section', 'scenario');
+    sec.dataset.scenario = sc.scenario_id;
+    const h = el('h2'); h.textContent = sc.scenario_id; sec.appendChild(h);
+
+    sc.turns.forEach(tn => {
+      const band = el('div', 'qband');
+      band.dataset.run = run.run_id; band.dataset.scenario = sc.scenario_id; band.dataset.turn = tn.turn;
+
+      const qhead = el('div', 'qhead');
+      qhead.innerHTML = "<span class='n'></span><div class='q'></div>";
+      qhead.querySelector('.n').textContent = 'T' + tn.turn;
+      qhead.querySelector('.q').textContent = tn.question || '';
+      band.appendChild(qhead);
+
+      const tilesEl = el('div', 'tiles');
+      const group = run.run_id + '|' + sc.scenario_id + '|' + tn.turn;
+      tilesEl.dataset.rankgroup = group;
+
+      const saved = savedRankFor(group);
+      const ordered = saved
+        ? saved.filter(b => run.backends.includes(b)).concat(run.backends.filter(b => !saved.includes(b)))
+        : run.backends.slice();
+      ordered.forEach(b => tilesEl.appendChild(buildTile(run, b, tn.cells[b], tn.turn, sc.scenario_id)));
+
+      wireGroup(tilesEl);
+      renumber(tilesEl);
+      band.appendChild(tilesEl);
+      sec.appendChild(band);
+    });
+    main.appendChild(sec);
+  });
+
+  applyFilters();
+}
+
+/* ---- filter + toggle (attribute flips, no re-render) ---- */
+function applyScenarioFilter(){
+  const v = document.getElementById('scenario-filter').value;
+  document.querySelectorAll('#report .scenario').forEach(sec => {
+    sec.dataset.hidden = (v && sec.dataset.scenario !== v) ? '1' : '0';
+  });
+}
+function applyQuestionSearch(){
+  const raw = document.getElementById('q-search').value.trim();
+  let re = null;
+  if (raw){ try { re = new RegExp(raw, 'i'); } catch(e) { re = null; } }
+  document.querySelectorAll('#report .qband').forEach(band => {
+    if (!raw){ band.dataset.hidden = '0'; return; }
+    const q = band.querySelector('.qhead .q').textContent || '';
+    const tiles = [...band.querySelectorAll('.tile')].map(t => t.textContent).join(' ');
+    const hay = q + ' ' + tiles;
+    const hit = re ? re.test(hay) : hay.toLowerCase().includes(raw.toLowerCase());
+    band.dataset.hidden = hit ? '0' : '1';
+  });
+}
+function applyBackendToggle(backend, on){
+  document.querySelectorAll("#report .tile[data-backend='" + cssEsc(backend) + "']").forEach(t => {
+    t.dataset.hidden = on ? '0' : '1';
+  });
+}
+function cssEsc(s){ return (window.CSS && CSS.escape) ? CSS.escape(s) : s.replace(/'/g, "\\'"); }
+function applyFilters(){
+  applyScenarioFilter();
+  applyQuestionSearch();
+  document.querySelectorAll('#backend-toggles input[type=checkbox]').forEach(cb => applyBackendToggle(cb.value, cb.checked));
+}
+
+/* ---- drag-rank (native DnD, constrained within one band) ---- */
+let dragged = null;
+function wireTile(tile){
+  tile.addEventListener('dragstart', () => { dragged = tile; requestAnimationFrame(() => tile.classList.add('dragging')); });
+  tile.addEventListener('dragend', () => {
+    tile.classList.remove('dragging'); const g = tile.closest('.tiles'); dragged = null;
+    if (g){ renumber(g); saveRanking(g); }
+  });
+}
+function wireGroup(tilesEl){
+  tilesEl.addEventListener('dragover', e => {
+    e.preventDefault();
+    if (!dragged || dragged.closest('.tiles') !== tilesEl) return;
+    const after = getDragAfterElementX(tilesEl, e.clientX);
+    if (after == null) tilesEl.appendChild(dragged); else tilesEl.insertBefore(dragged, after);
+  });
+}
+function getDragAfterElementX(container, x){
+  const tiles = [...container.querySelectorAll('.tile:not(.dragging)')];
+  return tiles.reduce((closest, child) => {
+    const box = child.getBoundingClientRect();
+    const offset = x - box.left - box.width / 2;
+    return (offset < 0 && offset > closest.offset) ? { offset, element: child } : closest;
+  }, { offset: -Infinity, element: null }).element;
+}
+function renumber(tilesEl){
+  [...tilesEl.querySelectorAll('.tile')].forEach((t, i) => {
+    const b = t.querySelector('.rank-badge'); if (b) b.textContent = (i + 1);
+  });
+}
+
+/* ---- exports: two files, two grains ---- */
+function n(v){ v = (v || '').trim(); return v === '' ? null : Number(v); }
+function collectFeedback(){
+  const out = [];
+  const reviewer = document.getElementById('rev').value || 'unknown';
+  document.querySelectorAll("#report .tile:not(.empty)").forEach(tile => {
+    const f = tile.querySelector('.cell-form'); if (!f) return;
+    const g = s => f.querySelector(s);
+    const acc = g('[name=accuracy]').value, comp = g('[name=completeness]').value, rel = g('[name=relevance]').value;
+    const abst = g('[name=abstention_outcome]').value, grnd = g('[name=citation_groundedness]').value;
+    const harm = g('[name=harm_fail]').checked;
+    const dec = f.querySelector('input[name=decision]:checked');
+    const txt = g('[name=free_text]').value.trim();
+    const touched = acc || comp || rel || txt || harm || dec || abst !== 'n-a' || grnd !== 'n-a';
+    if (!touched) return;
+    out.push(JSON.stringify({
+      run_id: activeRunId, scenario_id: tile.dataset.scenario, turn: Number(tile.dataset.turn),
+      backend_id: tile.dataset.backend, reviewer: reviewer,
+      scores: { accuracy: n(acc), completeness: n(comp), relevance: n(rel) },
+      abstention_outcome: abst, citation_groundedness: grnd, harm_fail: harm,
+      decision: dec ? dec.value : null, free_text: txt, created_at: new Date().toISOString()
+    }));
+  });
+  if (!out.length){ alert('No adjudications filled in yet.'); return; }
+  submit(out.join('\n') + '\n', 'feedback.jsonl', 'application/x-ndjson');
+}
+function exportRankings(){
+  const payload = {
+    run_set: DATA.runs.map(r => r.run_id),
+    exported_at: new Date().toISOString(),
+    rankings: loadAllRanks()
+  };
+  submit(JSON.stringify(payload, null, 2), 'rankings.json', 'application/json');
+}
+function resetRanking(){
+  const all = loadAllRanks();
+  Object.keys(all).forEach(k => { if (k.startsWith(activeRunId + '|')) delete all[k]; });
+  saveAllRanks(all);
+  renderRun(activeRunId);
+}
+function download(text, name, mime){
+  const b = new Blob([text], { type: mime });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(b); a.download = name;
+  document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(a.href);
+}
+function submit(text, name, mime){
+  // Feedback-capture seam: POST to the configured endpoint if set, else fall back to the download.
+  if (!FEEDBACK_ENDPOINT){ download(text, name, mime); return; }
+  fetch(FEEDBACK_ENDPOINT, { method: 'POST', headers: { 'Content-Type': mime, 'X-Report-Artifact': name }, body: text })
+    .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); alert(name + ' submitted'); })
+    .catch(e => { alert('submit failed (' + e + ') — downloading instead'); download(text, name, mime); });
+}
+
+/* ---- boot ---- */
+function boot(){
+  const rs = document.getElementById('run-select');
+  rs.innerHTML = DATA.runs.map(() => '<option></option>').join('');
+  DATA.runs.forEach((r, i) => { const o = rs.options[i]; o.value = r.run_id; o.textContent = r.run_id; });
+  rs.value = activeRunId;
+  rs.addEventListener('change', () => { activeRunId = rs.value; renderRun(activeRunId); });
+
+  document.getElementById('scenario-filter').addEventListener('change', applyScenarioFilter);
+  const search = document.getElementById('q-search');
+  search.addEventListener('input', applyQuestionSearch);
+  search.addEventListener('keydown', e => { if (e.key === 'Escape'){ search.value = ''; applyQuestionSearch(); } });
+  document.getElementById('reset-rank').addEventListener('click', resetRanking);
+  document.getElementById('export-rankings').addEventListener('click', exportRankings);
+  document.getElementById('export-feedback').addEventListener('click', collectFeedback);
+  document.getElementById('print-pdf').addEventListener('click', () => window.print());
+
+  if (activeRunId) renderRun(activeRunId);
+}
+boot();
+"""
 
 
-def build_report(run_dir: Path | str) -> Path:
-    run_dir = Path(run_dir)
-    manifest = json.loads((run_dir / "run_manifest.json").read_text(encoding="utf-8"))
-    results = _read_jsonl(run_dir / "results.jsonl")
-    events = _read_jsonl(run_dir / "events.jsonl")
-    labels = _backend_labels(events)
+def _embed_json(blob: dict[str, Any]) -> str:
+    """Serialise the blob and neutralise the three chars that could break out of
+    the <script type="application/json"> element (a model answer containing
+    </script> must not escape). \\uXXXX escapes are JSON-valid, so JSON.parse
+    reverses them transparently."""
+    s = json.dumps(blob, ensure_ascii=False)
+    return s.replace("<", "\\u003c").replace(">", "\\u003e").replace("&", "\\u0026")
 
-    backends = _ordered_unique([r.get("backend_id") for r in results])
-    scenarios = _ordered_unique([r.get("scenario_id") for r in results])
-    run_id = manifest.get("run_id", "")
 
-    otel = manifest.get("otel", {})
-    meta = (
-        f"run {run_id} · {manifest.get('component')} · git {manifest.get('git_sha','?')[:10]} · "
-        f"{manifest.get('dataset_id')} · provider {otel.get('gen_ai.provider.name','?')} · {manifest.get('generated_at','')}"
-    )
-
-    grids = "".join(_scenario_grid(results, s, backends) for s in scenarios)
+def _document(blob: dict[str, Any]) -> str:
     legend = (
         "<div class='legend'>⏱ latency (orange = first turn per backend, carries model warmup). "
         "chart refs = count of chart records cited — a COUNT, not a grounding/quality signal; "
-        "the authoritative call is the human adjudication below each cell. tokens / finish_reasons / "
-        "response model are not surfaced by /chat (OTel-deferred). Deterministic metrics only — no LLM judge.</div>"
+        "the authoritative call is the human adjudication on each tile. tokens / finish_reasons / "
+        "response model are not surfaced by /chat (OTel-deferred). Deterministic metrics only — no LLM judge. "
+        "Drag tiles within a question to rank backends; rank + adjudication export to separate files.</div>"
     )
-    bar = (
-        "<div class='bar'>reviewer <input id='rev' placeholder='you@example.org'>"
-        "<button onclick='collect()'>Download feedback.jsonl</button>"
-        "<span style='color:#aaa;font-size:12px'>fills the feedback collection; drop it into the run dir</span></div>"
+    title = blob["runs"][0]["run_id"] if blob.get("runs") else ""
+    return (
+        "<!doctype html><html><head><meta charset='utf-8'>"
+        f"<title>validation report · {_esc(title)}</title><style>{_STYLE}</style></head>"
+        "<body>"
+        "<header class='topbar'><h1>Validation report</h1>"
+        "<div class='controls'>"
+        "<label>run <select id='run-select'></select></label>"
+        "<div id='run-meta' class='meta'></div>"
+        "<label>scenario <select id='scenario-filter'></select></label>"
+        "<input id='q-search' type='search' placeholder='filter questions… (Esc clears)'>"
+        "<fieldset id='backend-toggles' class='toggles'></fieldset>"
+        "<span class='spacer'></span>"
+        "<button id='reset-rank' title='restore default backend order'>reset ranking</button>"
+        "<button id='export-rankings'>Export rankings.json</button>"
+        "<input id='rev' placeholder='you@example.org'>"
+        "<button id='export-feedback'>Download feedback.jsonl</button>"
+        "<button id='print-pdf' title='print / save as PDF'>Download PDF</button>"
+        "</div></header>"
+        "<main id='report'></main>"
+        f"<template id='rubric-template'>{_RUBRIC_FORM}</template>"
+        f"{legend}"
+        f"<script type='application/json' id='report-data'>{_embed_json(blob)}</script>"
+        f"<script>{_SCRIPT}</script>"
+        "</body></html>"
     )
 
-    doc = (
-        f"<!doctype html><html><head><meta charset='utf-8'>"
-        f"<title>validation report · {_esc(run_id)}</title><style>{_STYLE}</style></head>"
-        f"<body><div class='wrap'><h1>Validation report — {_esc(' vs '.join(backends))}</h1>"
-        f"<div class='meta'>{_esc(meta)}</div>"
-        f"<h2>comparison summary</h2>{_summary_table(results, backends, labels)}"
-        f"{grids}{legend}</div>{bar}{_script(run_id)}</body></html>"
-    )
+
+def _assemble(run_dirs: list[Path]) -> dict[str, Any]:
+    return {
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "runs": [_run_blob(Path(d)) for d in run_dirs],
+    }
+
+
+def build_report(run_dir: Path | str) -> Path:
+    """Single-run report (N=1 case). Reads run_manifest.json + results.jsonl +
+    events.jsonl from run_dir; writes run_dir/report.html. Unchanged signature."""
+    run_dir = Path(run_dir)
+    blob = _assemble([run_dir])
     out = run_dir / "report.html"
-    out.write_text(doc, encoding="utf-8")
+    out.write_text(_document(blob), encoding="utf-8")
+    return out
+
+
+def build_multi_report(run_dirs: list[Path | str], out_path: Path | str) -> Path:
+    """Aggregate report embedding N runs (run selector picks the active one).
+    Each run dir is read with the same three files; missing run_manifest.json
+    raises (contract), missing results/events tolerated."""
+    blob = _assemble([Path(d) for d in run_dirs])
+    out = Path(out_path)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(_document(blob), encoding="utf-8")
     return out
