@@ -4,9 +4,18 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>clinical-ai-validation-harness</title>
+    <!-- Advertise the LLM-readable mirror: catalog + concatenated markdown. -->
+    <link rel="alternate" type="text/markdown" href="/clinical-ai-validation-harness/llms-full.txt" />
+    <link rel="alternate" type="text/plain" href="/clinical-ai-validation-harness/llms.txt" />
   </head>
   <body>
     <div id="root"></div>
+    <noscript>
+      <p>This is an interactive single-page app. For a full static-HTML version of
+      every page (readable without JavaScript, e.g. by LLM agents), see the
+      <a href="/clinical-ai-validation-harness/welcome.html">page index</a> or the
+      <a href="/clinical-ai-validation-harness/llms.txt">llms.txt catalog</a>.</p>
+    </noscript>
     <script type="module" src="/main.tsx"></script>
   </body>
 </html>

@@ -1,6 +1,14 @@
 import * as React from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
 import { isSection, navTree, neighbors, NavLeaf, NavSection } from './nav';
+import { htmlHrefFor } from './prerender-lib';
+
+// Link from the interactive view to its full-static-HTML twin (the LLM-readable
+// mirror emitted by the prerender pass). Same mirror-routes-minus-hash mapping.
+function PlainHtmlLink({ kind, slug }: { kind: 'spec' | 'canvas'; slug: string }) {
+  const href = htmlHrefFor({ kind, slug, title: '' }, import.meta.env.BASE_URL);
+  return <a className="plain-html-link" href={href} title="Full static HTML — readable without JavaScript">View as plain HTML ↗</a>;
+}
 
 // ---------- raw module discovery (file presence; the IA lives in nav.ts) -----
 
@@ -209,6 +217,7 @@ function CanvasView({ slug }: { slug: string }) {
   const Comp = mod.default;
   return (
     <div className="canvas-frame">
+      <div className="plain-html-bar"><PlainHtmlLink kind="canvas" slug={slug} /></div>
       <Comp />
       <PrevNext slug={slug} />
     </div>
@@ -221,6 +230,7 @@ function SpecView({ slug }: { slug: string }) {
   const html = mod.html ?? '';
   return (
     <div className="content-prose">
+      <div className="plain-html-bar"><PlainHtmlLink kind="spec" slug={slug} /></div>
       <div dangerouslySetInnerHTML={{ __html: html }} />
       <PrevNext slug={slug} />
     </div>

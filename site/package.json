@@ -5,23 +5,27 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1 --port 4321 --open",
-    "build": "vite build",
-    "preview": "vite preview --host 127.0.0.1 --port 4321 --open"
+    "build": "vite build && node prerender-run.mjs",
+    "prerender": "node prerender-run.mjs",
+    "preview": "vite preview --host 127.0.0.1 --port 4321 --open",
+    "test": "vitest run"
   },
   "dependencies": {
     "dagre": "^0.8.5",
+    "marked": "^14.1.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.26.0",
-    "recharts": "^2.13.0",
-    "marked": "^14.1.0"
+    "recharts": "^2.13.0"
   },
   "devDependencies": {
     "@types/dagre": "^0.7.52",
     "@types/react": "^18.3.5",
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^4.3.1",
+    "tdd-guard-vitest": "^0.2.0",
     "typescript": "^5.6.0",
-    "vite": "^5.4.0"
+    "vite": "^5.4.0",
+    "vitest": "^4.1.8"
   }
 }
