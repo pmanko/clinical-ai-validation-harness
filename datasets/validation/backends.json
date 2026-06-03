@@ -33,5 +33,15 @@
     "label": "Gemma 4-26B-A4B (LM Studio direct, no team)",
     "endpointUrl": "http://host.docker.internal:1234/v1/chat/completions",
     "modelName": "google/gemma-4-26b-a4b"
+  },
+  "med-agent-team-low": {
+    "label": "Med Agent Team — LOW (qwen2.5-14b synth, medgemma-1.5 expert)",
+    "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
+    "modelName": "med-agent-team-low"
+  },
+  "med-agent-team-med": {
+    "label": "Med Agent Team — MED (qwen2.5-32b synth, medgemma-1.5 expert)",
+    "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
+    "modelName": "med-agent-team-med"
   }
 }
