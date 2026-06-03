@@ -131,3 +131,11 @@
         respond "harness proxy: no route configured for {http.request.uri.path}. See compose/Caddyfile." 404
     }
 }
+
+# Reports subdomain: static-serve published validation reports from artifacts/reports (mounted at
+# /srv/reports). Dormant locally on :8091 (unpublished — no Host match, no LE attempt); cloud sets
+# CADDY_SITE_REPORTS=reports.<domain> for auto-TLS. `browse` gives a directory index of published runs.
+{$CADDY_SITE_REPORTS::8091} {
+    root * /srv/reports
+    file_server browse
+}

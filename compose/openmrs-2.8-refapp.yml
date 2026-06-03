@@ -34,6 +34,9 @@ services:
       # Optional subdomain that serves the SPA at its bare root for cleaner
       # URLs (defaults to a non-published port so the block is dormant locally).
       CADDY_SITE_OPENMRS: ${CADDY_SITE_OPENMRS:-:8090}
+      # Optional subdomain serving published validation reports (static files from
+      # artifacts/reports). Dormant locally on a non-published port; cloud sets the real subdomain.
+      CADDY_SITE_REPORTS: ${CADDY_SITE_REPORTS:-:8091}
       CADDY_EMAIL: ${CADDY_EMAIL:-nobody@example.com}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
@@ -45,6 +48,8 @@ services:
       # container without rebuilding that image. See (chartsearch_overrides)
       # in Caddyfile and `make chartsearch-esm-build` for the build step.
       - ../artifacts/openmrs/spa-custom:/srv/spa-custom:ro
+      # Published validation reports, static-served at the reports subdomain (see Caddyfile).
+      - ../artifacts/reports:/srv/reports:ro
     depends_on:
       gateway:
         condition: service_healthy
