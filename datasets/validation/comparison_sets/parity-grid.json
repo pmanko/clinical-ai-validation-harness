@@ -1,0 +1,15 @@
+{
+  "id": "parity-grid",
+  "scenario_ids": [
+    "single-vitals-summary",
+    "convo-regimen-review"
+  ],
+  "backend_ids": [
+    "gemma-26b-llamacpp",
+    "gemma-e4b-llamacpp",
+    "gemma-a4b-pure",
+    "med-agent-team-low",
+    "med-agent-team-med",
+    "med-agent-team-high"
+  ]
+}

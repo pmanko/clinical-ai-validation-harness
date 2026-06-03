@@ -43,5 +43,20 @@
     "label": "Med Agent Team — MED (qwen2.5-32b synth, medgemma-1.5 expert)",
     "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
     "modelName": "med-agent-team-med"
+  },
+  "med-agent-team-high": {
+    "label": "Med Agent Team — HIGH (gemma-4-26b-a4b orch, medgemma-27b expert, qwen3.6-35b-a3b synth)",
+    "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
+    "modelName": "med-agent-team-high"
+  },
+  "gemma-26b-llamacpp": {
+    "label": "Gemma 4-26B-A4B (llama.cpp GGUF + DRY, via llama-server)",
+    "endpointUrl": "http://host.docker.internal:8077/v1/chat/completions",
+    "modelName": "gemma-26b"
+  },
+  "gemma-e4b-llamacpp": {
+    "label": "Gemma 4-E4B (llama.cpp GGUF + DRY, via llama-server)",
+    "endpointUrl": "http://host.docker.internal:8077/v1/chat/completions",
+    "modelName": "gemma-e4b"
   }
 }
