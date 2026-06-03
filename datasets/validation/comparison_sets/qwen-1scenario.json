@@ -1,0 +1,11 @@
+{
+  "id": "qwen-1scenario",
+  "scenario_ids": [
+    "convo-regimen-currency"
+  ],
+  "backend_ids": [
+    "gemma-local",
+    "med-agent-team-low",
+    "med-agent-team-med"
+  ]
+}

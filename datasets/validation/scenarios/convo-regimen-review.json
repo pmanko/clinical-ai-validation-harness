@@ -1,0 +1,16 @@
+{
+  "id": "convo-regimen-review",
+  "patient_ref": "dd75c020-1691-11df-97a5-7038c432aabf",
+  "turns": [
+    { "n": 1, "question": "What medications is this patient currently on?" },
+    { "n": 2, "question": "What does this medication regimen suggest about her diagnosis?" },
+    { "n": 3, "question": "Is there anything in the chart about her adherence to this regimen?" },
+    { "n": 4, "question": "What do current WHO guidelines recommend for a patient like this, and how does her regimen align with them?" }
+  ],
+  "tags": ["hiv", "art", "adherence", "guideline", "kb-differentiator", "multi-turn"],
+  "expectations": {
+    "should_cite_resource_types": ["MedicationRequest", "Observation"],
+    "should_abstain": false,
+    "notes": "T1 meds (chart-only); T2 regimen->diagnosis inference; T3 adherence (abstain if the chart lacks adherence data); T4 WHO guideline alignment (the KB differentiator — vanilla/no-KB backends can only restate the regimen)."
+  }
+}
