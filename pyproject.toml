@@ -45,3 +45,8 @@ markers = [
 # deps + test runners (e.g. `make med-agent-hub-test`); collecting them here fails
 # on missing deps (a2a-sdk, fastapi, ...).
 addopts = "-m 'not slow' --ignore=targets"
+
+[dependency-groups]
+dev = [
+    "playwright>=1.60.0",
+]

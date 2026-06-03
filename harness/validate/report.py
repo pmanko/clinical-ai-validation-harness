@@ -287,7 +287,7 @@ body { font: 14px/1.5 -apple-system, system-ui, sans-serif; color: var(--fg); ma
 .toggles legend { font-size: 11px; color: var(--mut); padding: 0 4px; }
 .toggles label { font-size: 12px; color: var(--fg); display: inline-flex; gap: 3px; align-items: center; }
 .meta { color: var(--mut); font-size: 12px; font-family: ui-monospace, monospace; }
-main { max-width: 1500px; margin: 0 auto; padding: 16px 24px 120px; }
+main { max-width: none; margin: 0 auto; padding: 16px 24px 120px; }
 h2 { font-size: 15px; margin: 28px 0 8px; font-family: ui-monospace, monospace; }
 table { border-collapse: collapse; width: 100%; background: #fff; }
 th, td { border: 1px solid var(--line); padding: 8px 10px; text-align: left; vertical-align: top; }
