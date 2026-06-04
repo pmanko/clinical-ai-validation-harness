@@ -1,0 +1,74 @@
+{
+  "filename": "openmrs-2.8-refapp-demo-5284-patients-2026-06-03.sql.gz",
+  "sha256": "2f95ec363b2c44ab8f68aca7766ad3f6b7ee0d7f7570b201c3b21efc2a63be47",
+  "size_bytes": 42292072,
+  "size_human": "40.3 MB",
+  "uncompressed_sql_lines": 1716515,
+  "schema_version": "OpenMRS Platform 2.8 / Reference Application 3.6.0",
+  "source_schema_in_dump": "openmrs",
+  "row_counts": {
+    "patient": 5284,
+    "encounter": 14316,
+    "obs": 428013,
+    "orders": 44507,
+    "drug_order": 43412,
+    "drug_order_with_drug_inventory_id": 43412,
+    "test_order": 1095,
+    "conditions": 4451,
+    "allergy": 2
+  },
+  "tables_total": 232,
+  "excluded_tables": [
+    "chartsearchai_audit_log",
+    "chartsearchai_chat_message",
+    "chartsearchai_chat_session",
+    "chartsearchai_embedding",
+    "querystore_bootstrap_progress"
+  ],
+  "excluded_reason": "Consumer-side module tables (chartsearchai chat/embedding/audit + querystore bootstrap marker). They are recreated empty when the consuming module installs against the demo; chartsearchai_chat_message also carried 1,846 rows of harness test-chat history that is not demo data.",
+  "source": "Transform of OpenMRS large-demo-data-2-7-0.sql via feature 002 SQLMesh + dlt pipeline. This build is the demo-data regeneration that made the corpus referentially clean, fully preserved, and promotable (supersedes the 2026-05-19 publish).",
+  "pipeline_provenance": {
+    "harness_git_sha": "59827af5a536573fa2dd2506a1993309a230e258",
+    "regen_commit": "bdc10026bee42581d942a8ed407f2355222bf24e",
+    "regen_commit_subject": "Demo-data regen: referentially clean, fully preserved, promotable (#20)"
+  },
+  "remediation_evidence": {
+    "_note": "Every value below was re-derived from the live promoted openmrs schema during this dump, not copied forward from a prior publish.",
+    "referential_integrity": {
+      "gate": "harness.transform.orphan_fk --target openmrs",
+      "fk_constraints_checked": 868,
+      "fks_with_orphans": 0,
+      "total_orphan_rows": 0
+    },
+    "drug_catalog_coverage": {
+      "drug_order_rows": 43412,
+      "with_drug_inventory_id": 43412,
+      "synthetic_drug_id_rule": "drug_id = 300000 + CIEL concept numeric (e.g. 300633 -> CIEL 633 Efavirenz)"
+    },
+    "known_patient": {
+      "uuid": "dd75c020-1691-11df-97a5-7038c432aabf",
+      "identifier": "2428TU-4",
+      "name": "Zabella Talai Halambe",
+      "gender": "F",
+      "birthdate": "1978-10-08",
+      "drug_order_concepts_resolved_to_ciel": [
+        {"concept_id": 10352, "uuid": "633AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", "name": "Efavirenz"},
+        {"concept_id": 10356, "uuid": "631AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", "name": "Nevirapine"},
+        {"concept_id": 10365, "uuid": "628AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", "name": "Lamivudine"},
+        {"concept_id": 10370, "uuid": "625AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", "name": "Stavudine"}
+      ],
+      "evidence_note": "This patient's drug-order concepts resolve through CIEL UUIDs to correctly-named antiretroviral concepts, confirming the concept-FK-through-CIEL remediation (no accidental landing on unrelated target concepts)."
+    }
+  },
+  "generated_at": "2026-06-04T05:41:13Z",
+  "generator": "scripts/dump-loaded.sh --source openmrs --ignore-pattern 'chartsearchai_%' --ignore-pattern 'querystore_%'",
+  "verified_load": {
+    "target": "clean mariadb:10.11.7 container (MARIADB_ROOT_PASSWORD=test, utf8mb4 server charset)",
+    "approx_load_seconds": 20,
+    "creates_schema_named": "openmrs",
+    "tables_loaded": 232,
+    "row_counts_match_source": true,
+    "verified_at": "2026-06-04T05:44:25Z"
+  },
+  "load_into_command": "gunzip -c openmrs-2.8-refapp-demo-5284-patients-2026-06-03.sql.gz | mariadb -u root -p"
+}
