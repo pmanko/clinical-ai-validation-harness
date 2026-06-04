@@ -196,12 +196,19 @@ services:
     container_name: harness-med-agent-hub
     restart: "unless-stopped"
     environment:
-      # Models are swappable per role; defaults are the roadmap team. The team
-      # reaches LM Studio (or any OpenAI-compat server) at LLM_BASE_URL.
-      LLM_BASE_URL: ${MED_AGENT_LLM_BASE_URL:-http://host.docker.internal:1234}
-      ORCHESTRATOR_MODEL: ${MED_AGENT_ORCHESTRATOR_MODEL:-google/gemma-4-e4b}
-      MED_MODEL: ${MED_AGENT_MED_MODEL:-medgemma-1.5-4b-it}
-      SYNTHESIZER_MODEL: ${MED_AGENT_SYNTHESIZER_MODEL:-google/gemma-4-e4b}
+      # Full-GGUF default: every role points at the llama-router (:8077) so the whole
+      # team runs one engine with real DRY + tool-calling — engine parity with the
+      # single-LLM llama-server arms. Ids are llama-router.ini section names. Override
+      # any MED_AGENT_* var to repoint a role (e.g. back at LM Studio MLX on :1234).
+      LLM_BASE_URL: ${MED_AGENT_LLM_BASE_URL:-http://host.docker.internal:8077}
+      ORCHESTRATOR_MODEL: ${MED_AGENT_ORCHESTRATOR_MODEL:-gemma-e4b}
+      ORCHESTRATOR_MODEL_HIGH: ${MED_AGENT_ORCHESTRATOR_MODEL_HIGH:-gemma-26b}
+      MED_MODEL: ${MED_AGENT_MED_MODEL:-medgemma-1.5-4b}
+      EXPERT_MODEL_HIGH: ${MED_AGENT_EXPERT_MODEL_HIGH:-medgemma-27b}
+      SYNTH_MODEL_LOW: ${MED_AGENT_SYNTH_MODEL_LOW:-qwen2.5-14b}
+      SYNTH_MODEL_MED: ${MED_AGENT_SYNTH_MODEL_MED:-qwen2.5-32b}
+      SYNTH_MODEL_HIGH: ${MED_AGENT_SYNTH_MODEL_HIGH:-qwen3.6-35b}
+      SYNTHESIZER_MODEL: ${MED_AGENT_SYNTHESIZER_MODEL:-gemma-e4b}
       LLM_TEMPERATURE: ${MED_AGENT_TEMPERATURE:-0.0}
       PROMPT_VARIANT: v2
     extra_hosts:

@@ -1,0 +1,13 @@
+{
+  "id": "single-medications",
+  "patient_ref": "dd75c020-1691-11df-97a5-7038c432aabf",
+  "turns": [
+    { "n": 1, "question": "What medications is this patient currently on?" }
+  ],
+  "tags": ["medications", "single-turn", "basic-question", "core"],
+  "expectations": {
+    "should_cite_resource_types": ["MedicationRequest"],
+    "should_abstain": false,
+    "notes": "Core single-turn medication-list lookup on the HIV patient — should enumerate the ART regimen (lamivudine / nevirapine / stavudine / efavirenz) with citations, no abstention."
+  }
+}

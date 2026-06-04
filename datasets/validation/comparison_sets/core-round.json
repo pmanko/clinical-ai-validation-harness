@@ -1,0 +1,17 @@
+{
+  "id": "core-round",
+  "scenario_ids": [
+    "single-vitals-summary",
+    "single-medications",
+    "abstain-out-of-chart",
+    "convo-regimen-review",
+    "convo-safety-escalation"
+  ],
+  "backend_ids": [
+    "gemma-26b-llamacpp",
+    "gemma-e4b-llamacpp",
+    "med-agent-team-low",
+    "med-agent-team-med",
+    "med-agent-team-high"
+  ]
+}
