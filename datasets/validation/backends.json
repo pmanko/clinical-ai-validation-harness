@@ -23,5 +23,30 @@
     "label": "Med Agent Team — v2 structured prompt + same models",
     "endpointUrl": "http://med-agent-hub-b:8080/v1/chat/completions",
     "modelName": "med-agent-team"
+  },
+  "gemma-e4b-llamacpp": {
+    "label": "Gemma 4-E4B — single-LLM (llama-server GGUF + DRY)",
+    "endpointUrl": "http://host.docker.internal:8077/v1/chat/completions",
+    "modelName": "gemma-e4b"
+  },
+  "gemma-26b-llamacpp": {
+    "label": "Gemma 4-26B-A4B — single-LLM (llama-server GGUF + DRY)",
+    "endpointUrl": "http://host.docker.internal:8077/v1/chat/completions",
+    "modelName": "gemma-26b-a4b"
+  },
+  "med-agent-team-low": {
+    "label": "Med Agent Team — LOW (e4b · medgemma-4b · qwen2.5-14b)",
+    "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
+    "modelName": "med-agent-team-low"
+  },
+  "med-agent-team-med": {
+    "label": "Med Agent Team — MED (e4b · medgemma-4b · qwen2.5-32b)",
+    "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
+    "modelName": "med-agent-team-med"
+  },
+  "med-agent-team-high": {
+    "label": "Med Agent Team — HIGH (gemma-26b-a4b · medgemma-27b · qwen3.6-35b)",
+    "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
+    "modelName": "med-agent-team-high"
   }
 }
