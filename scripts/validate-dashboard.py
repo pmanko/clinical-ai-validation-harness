@@ -3,10 +3,11 @@
 
     python3 scripts/validate-dashboard.py        # then open http://localhost:8099
 
-Shows, auto-refreshing every 2s: overall progress, per-arm stats, the GGUF models
-the llama-router has resident right now (lsof — the LM-Studio-style view), a
-scenario x arm status grid, and a recent-results feed. Reads the newest run dir
-under artifacts/validate/ so it always tracks the run in flight.
+Auto-refreshes every 2s: overall progress, per-arm stats, the GGUF models the
+llama-router has resident right now (lsof — the LM-Studio-style view), a
+scenario x arm status grid, and a recent feed. Click any grid cell or feed row to
+drill into that (scenario, arm): the expected behaviour + every turn's question,
+full answer, citations, and metrics. Reads the newest artifacts/validate run.
 """
 import glob
 import http.server
@@ -16,6 +17,7 @@ import re
 import socketserver
 import subprocess
 from pathlib import Path
+from urllib.parse import parse_qs, urlparse
 
 ROOT = Path(__file__).resolve().parent.parent
 DATA = ROOT / "datasets" / "validation"
@@ -77,8 +79,6 @@ def status():
     total = sum(turns.values()) * len(back_ids) if back_ids else 0
 
     results = read_jsonl(Path(run) / "results.jsonl")
-    done = len(results)
-
     arms = {}
     for b in back_ids:
         rs = [r for r in results if r.get("backend_id") == b]
@@ -104,12 +104,39 @@ def status():
                      "chars": m.get("answer_chars"),
                      "ans": _esc(((r.get("response") or {}).get("answer", "") or "")[:90])})
 
-    return {"run": os.path.basename(run), "set": set_id, "done": done, "total": total,
+    return {"run": os.path.basename(run), "set": set_id, "done": len(results), "total": total,
             "scenarios": scen_ids, "backends": back_ids, "arms": arms,
             "grid": grid_list, "feed": feed, "models": resident_models()}
 
 
-PAGE = """<!doctype html><html><head><meta charset=utf-8><title>validate run</title><style>
+def detail(scenario, backend):
+    run = newest_run()
+    if not run or not scenario or not backend:
+        return {"turns": []}
+    rows = [r for r in read_jsonl(Path(run) / "results.jsonl")
+            if r.get("scenario_id") == scenario and r.get("backend_id") == backend]
+    rows.sort(key=lambda r: r.get("turn", 0))
+    exp = {}
+    try:
+        exp = json.load(open(DATA / "scenarios" / f"{scenario}.json")).get("expectations", {})
+    except Exception:
+        pass
+    turns = []
+    for r in rows:
+        m = r.get("metrics") or {}
+        resp = r.get("response") or {}
+        refs = resp.get("references") or resp.get("citations") or []
+        turns.append({"turn": r.get("turn"),
+                      "question": (r.get("request") or {}).get("question", ""),
+                      "answer": resp.get("answer", ""),
+                      "refs": refs,
+                      "status": m.get("http_status"), "latency_ms": m.get("latency_ms"),
+                      "chars": m.get("answer_chars"), "citations": m.get("citation_count"),
+                      "error": r.get("error")})
+    return {"scenario": scenario, "backend": backend, "expectations": exp, "turns": turns}
+
+
+PAGE = r"""<!doctype html><html><head><meta charset=utf-8><title>validate run</title><style>
 body{background:#0d1117;color:#c9d1d9;font:13px/1.5 -apple-system,BlinkMacSystemFont,Menlo,monospace;margin:0;padding:18px}
 h1{font-size:15px;margin:0 0 6px}.muted{color:#8b949e}.ok{color:#3fb950}.err{color:#f85149}
 .bar{height:20px;background:#161b22;border-radius:10px;overflow:hidden;margin:8px 0}
@@ -121,28 +148,39 @@ h1{font-size:15px;margin:0 0 6px}.muted{color:#8b949e}.ok{color:#3fb950}.err{col
 table.grid{border-collapse:collapse;margin-top:6px;font-size:11px}
 .grid td,.grid th{border:1px solid #21262d;padding:3px 6px;text-align:center}
 .grid th{color:#8b949e;font-weight:400;text-align:left;white-space:nowrap}
-.c200{background:#196c2e;color:#e6ffe9}.cerr{background:#8b1a1a;color:#ffe9e9}.cpend{background:#1a1f27;color:#484f58}
-.feed div{padding:2px 0;border-bottom:1px solid #161b22;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.grid td{cursor:pointer}.grid td:hover{outline:2px solid #58a6ff}
+.c200{background:#196c2e;color:#e6ffe9}.cerr{background:#8b1a1a;color:#ffe9e9}.cpend{background:#1a1f27;color:#484f58;cursor:default}
+.feed div{padding:2px 0;border-bottom:1px solid #161b22;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
+.feed div:hover{background:#161b22}
 section{margin:18px 0}h2{font-size:12px;color:#8b949e;margin:0 0 4px;text-transform:uppercase;letter-spacing:.05em}
+#modal{display:none;position:fixed;inset:0;background:rgba(1,4,9,.7);z-index:10;align-items:flex-start;justify-content:center}
+#mbody{background:#0d1117;border:1px solid #30363d;border-radius:10px;max-width:820px;width:92%;max-height:88vh;overflow:auto;padding:18px;margin-top:3vh}
+.mhead{font-size:14px;margin-bottom:8px}.mhead .x{float:right;cursor:pointer;color:#8b949e;font-size:16px}
+.exp{background:#161b22;border:1px solid #30363d;border-radius:6px;padding:8px 10px;margin-bottom:10px;color:#d2a8ff}
+.turn{border-top:1px solid #21262d;padding:10px 0}.q{color:#79c0ff;margin-bottom:4px}
+.meta{font-size:11px;color:#8b949e;margin-bottom:6px}
+.ans{white-space:pre-wrap;background:#0b0f14;border:1px solid #21262d;border-radius:6px;padding:10px}
+.refs{font-size:11px;color:#8b949e;margin-top:6px}
 </style></head><body>
 <h1 id=hdr>validate run</h1>
 <div class=bar><div id=fill style=width:0%></div></div>
 <div id=prog class=muted></div>
 <section><h2>Models resident (llama-router)</h2><div id=models></div></section>
 <section><h2>Arms</h2><div class=row id=arms></div></section>
-<section><h2>Scenario &times; arm</h2><div id=grid></div></section>
-<section><h2>Recent</h2><div class=feed id=feed></div></section>
+<section><h2>Scenario &times; arm &nbsp;<span class=muted>(click a cell)</span></h2><div id=grid></div></section>
+<section><h2>Recent &nbsp;<span class=muted>(click a row)</span></h2><div class=feed id=feed></div></section>
+<div id=modal onclick="if(event.target===this)closeD()"><div id=mbody></div></div>
 <script>
 const cls=s=>s===200?'c200':(s==null?'cpend':'cerr');
 const sym=s=>s===200?'✓':(s==null?'·':'×');
 const shortB=b=>b.replace('med-agent-team-','').replace('-baseline','-base');
+const esc=s=>(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 async function tick(){
  let d; try{d=await(await fetch('/api/status')).json()}catch(e){return}
  if(!d.run){hdr.textContent='waiting for a run...';return}
  const pct=d.total?Math.round(100*d.done/d.total):0;
  hdr.textContent='run '+d.run.slice(0,8)+'  ·  set '+(d.set||'')+'  ·  '+pct+'%';
- fill.style.width=pct+'%';
- prog.textContent=d.done+' / '+d.total+' results';
+ fill.style.width=pct+'%'; prog.textContent=d.done+' / '+d.total+' results';
  models.innerHTML=(d.models||[]).map(m=>'<span class=chip>'+m+'</span>').join('')||'<span class=muted>none resident</span>';
  arms.innerHTML=(d.backends||[]).map(b=>{const a=d.arms[b]||{};
    return '<div class=card><b>'+b+'</b><br>'+(a.rows||0)+' rows · <span class="'+(a.errors?'err':'ok')+'">'+(a.errors||0)+' err</span>'
@@ -151,11 +189,30 @@ async function tick(){
  const gm={};(d.grid||[]).forEach(g=>gm[g.scenario+'|'+g.backend]=g.status);
  let h='<table class=grid><tr><th></th>'+(d.backends||[]).map(b=>'<th>'+shortB(b)+'</th>').join('')+'</tr>';
  (d.scenarios||[]).forEach(s=>{h+='<tr><th>'+s+'</th>'+(d.backends||[]).map(b=>{const st=gm[s+'|'+b];
-   return '<td class='+cls(st)+'>'+sym(st)+'</td>'}).join('')+'</tr>'});
+   const oc=st==null?'':' onclick="openD(\''+s+'\',\''+b+'\')"';
+   return '<td class='+cls(st)+oc+'>'+sym(st)+'</td>'}).join('')+'</tr>'});
  grid.innerHTML=h+'</table>';
- feed.innerHTML=(d.feed||[]).slice().reverse().map(f=>'<div><span class="'+(f.status===200?'ok':'err')+'">'+f.status
-   +'</span> '+f.scenario+'/'+shortB(f.backend)+' t'+f.turn+' <span class=muted>'+f.chars+'c</span> '+f.ans+'</div>').join('');
+ feed.innerHTML=(d.feed||[]).slice().reverse().map(f=>'<div onclick="openD(\''+f.scenario+'\',\''+f.backend+'\')"><span class="'
+   +(f.status===200?'ok':'err')+'">'+f.status+'</span> '+f.scenario+'/'+shortB(f.backend)+' t'+f.turn
+   +' <span class=muted>'+f.chars+'c</span> '+f.ans+'</div>').join('');
 }
+async function openD(s,b){
+ const d=await(await fetch('/api/detail?scenario='+encodeURIComponent(s)+'&backend='+encodeURIComponent(b))).json();
+ const e=d.expectations||{};
+ let h='<div class=mhead><b>'+s+'</b> &nbsp;·&nbsp; '+b+'<span class=x onclick="closeD()">✕</span></div>';
+ h+='<div class=exp><b>Expected:</b> '+(e.should_abstain?'ABSTAIN':'retrieve')+(e.should_cite_resource_types?' ['+e.should_cite_resource_types.join(', ')+']':'')+'<br>'+esc(e.notes||'')+'</div>';
+ (d.turns||[]).forEach(t=>{
+  h+='<div class=turn><div class=q>Turn '+t.turn+': '+esc(t.question)+'</div>';
+  h+='<div class=meta><span class="'+(t.status===200?'ok':'err')+'">status '+t.status+'</span> · '+(t.latency_ms||0)+'ms · '+(t.chars||0)+' chars · '+(t.citations||0)+' citations</div>';
+  if(t.error)h+='<div class="ans err">'+esc(t.error)+'</div>';
+  else h+='<div class=ans>'+esc(t.answer)+'</div>';
+  if(t.refs&&t.refs.length)h+='<div class=refs>refs: '+esc(t.refs.map(r=>typeof r==='object'?('['+(r.index!=null?r.index:'?')+'] '+(r.resourceType||'')):('['+r+']')).join('  '))+'</div>';
+  h+='</div>';
+ });
+ mbody.innerHTML=h; modal.style.display='flex';
+}
+function closeD(){modal.style.display='none'}
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeD()});
 tick();setInterval(tick,2000);
 </script></body></html>"""
 
@@ -165,7 +222,12 @@ class H(http.server.BaseHTTPRequestHandler):
         pass
 
     def do_GET(self):
-        if self.path.startswith("/api/status"):
+        if self.path.startswith("/api/detail"):
+            q = parse_qs(urlparse(self.path).query)
+            payload = detail(q.get("scenario", [""])[0], q.get("backend", [""])[0])
+            body = json.dumps(payload).encode()
+            ctype = "application/json"
+        elif self.path.startswith("/api/status"):
             body = json.dumps(status()).encode()
             ctype = "application/json"
         else:
@@ -180,4 +242,5 @@ class H(http.server.BaseHTTPRequestHandler):
 
 if __name__ == "__main__":
     print(f"validate dashboard -> http://localhost:{PORT}   (Ctrl-C to stop)")
+    socketserver.TCPServer.allow_reuse_address = True
     socketserver.TCPServer(("127.0.0.1", PORT), H).serve_forever()
