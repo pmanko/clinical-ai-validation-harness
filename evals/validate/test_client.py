@@ -70,3 +70,60 @@ def test_chat_records_429_after_exhausting_retries():
     c._session.post = fake_post
     res = c.chat("p", "s", "q")
     assert res.status == 429  # recorded as a failed turn, never raised
+
+
+class _GetResp:
+    def __init__(self, payload, ok=True):
+        self._payload = payload
+        self.ok = ok
+
+    def json(self):
+        return self._payload
+
+
+def test_get_patient_profile_assembles_demographics_meds_counts_vitals():
+    c = _client()
+
+    def fake_get(url, timeout=None):
+        if "/rest/v1/patient/" in url:
+            return _GetResp({
+                "identifiers": [{"identifier": "2428TU-4", "identifierType": {"name": "OpenMRS ID"}}],
+                "person": {"display": "Zabella", "gender": "F", "age": 47,
+                           "birthdate": "1978-10-08T00:00:00.000+0000"},
+            })
+        if "MedicationRequest" in url:
+            return _GetResp({"entry": [
+                {"resource": {"status": "active", "medicationReference": {"display": "Stavudine"}}},
+                {"resource": {"status": "active", "medicationReference": {"display": "Lamivudine"}}},
+                {"resource": {"status": "stopped", "medicationReference": {"display": "OldDrug"}}},
+            ]})
+        if "/rest/v1/encounter" in url:
+            return _GetResp({"totalCount": 11})
+        if "Observation" in url:
+            return _GetResp({"total": 303, "entry": [
+                {"resource": {"code": {"text": "Pulse"}, "valueQuantity": {"value": 69, "unit": "beats/min"}}},
+                {"resource": {"code": {"text": "Arterial blood oxygen saturation (pulse oximeter)"},
+                              "valueQuantity": {"value": 93, "unit": "%"}}},
+            ]})
+        return _GetResp(None, ok=False)
+
+    c._session.get = fake_get
+    prof = c.get_patient_profile("uuid-1")
+    assert prof["display"] == "Zabella" and prof["identifier"] == "2428TU-4"
+    assert prof["gender"] == "F" and prof["age"] == 47 and prof["birthdate"] == "1978-10-08"
+    # active meds only, deduped + sorted; the stopped order is dropped
+    assert prof["medications"] == ["Lamivudine", "Stavudine"]
+    assert prof["encounter_count"] == 11 and prof["observation_count"] == 303
+    # the SpO2 obs ("...pulse oximeter") must NOT also fill Pulse with the saturation value
+    assert prof["vitals"]["Pulse"] == "69 beats/min"
+    assert prof["vitals"]["SpO2"] == "93%"
+
+
+def test_get_patient_profile_is_best_effort_and_never_raises():
+    c = _client()
+
+    def boom(url, timeout=None):
+        raise RuntimeError("network down")
+
+    c._session.get = boom
+    assert c.get_patient_profile("uuid-1") == {}  # total failure -> empty, not an exception

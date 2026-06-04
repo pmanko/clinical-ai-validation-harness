@@ -134,3 +134,31 @@ def test_runner_backend_selected_event_carries_config_label(tmp_path):
     events = [json.loads(x) for x in (out.run_dir / "events.jsonl").read_text(encoding="utf-8").splitlines()]
     sel = next(e for e in events if e.get("event_type") == "backend_selected")
     assert sel.get("label") == "Only"  # the backends.json label for backend 'only'
+
+
+class FakeClientWithProfile(FakeClient):
+    def get_patient_profile(self, patient):
+        return {"display": "Pat " + patient, "identifier": "ID-" + patient,
+                "medications": ["DrugA"], "encounter_count": 3}
+
+
+def test_runner_captures_patient_profiles_into_the_manifest(tmp_path):
+    # When the client exposes get_patient_profile, the runner captures a profile for each
+    # unique patient and stores it in the manifest, so the report can ground the comparison
+    # in the real chart. Clients without the method (FakeClient) leave patients empty.
+    data = tmp_path / "data"
+    _write_fixtures(data)
+    out = run_comparison(
+        comparison_set_id="cs", client=FakeClientWithProfile(), data_root=data,
+        output_dir=tmp_path / "art", git_sha="test-sha",
+    )
+    manifest = json.loads(out.manifest_path.read_text(encoding="utf-8"))
+    assert manifest["patients"]["pat"]["identifier"] == "ID-pat"
+    assert manifest["patients"]["pat"]["medications"] == ["DrugA"]
+
+    # A client without get_patient_profile leaves patients empty (no key emitted).
+    out2 = run_comparison(
+        comparison_set_id="cs", client=FakeClient(), data_root=data,
+        output_dir=tmp_path / "art2", git_sha="test-sha",
+    )
+    assert "patients" not in json.loads(out2.manifest_path.read_text(encoding="utf-8"))

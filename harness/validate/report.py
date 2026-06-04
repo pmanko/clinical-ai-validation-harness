@@ -422,7 +422,7 @@ function renderSummary(run){
   const sec = el('section', 'summary-section');
   sec.innerHTML = '<h2>comparison summary</h2>';
   const rows = run.summary.map(s =>
-    "<tr><td class='b'>" + s.backend_id + "<span class='model'>" + s.label + "</span></td>" +
+    "<tr><td class='b'>" + htmlEsc(s.backend_id) + "<span class='model'>" + htmlEsc(s.label) + "</span></td>" +
     '<td>' + s.turns + '</td><td>' + s.avg_latency_ms + ' ms</td><td>' + s.max_latency_ms + ' ms</td>' +
     '<td>' + s.total_chart_refs + '</td><td>' + s.degraded + '</td><td>' + s.errors + '</td></tr>'
   ).join('');
@@ -485,6 +485,9 @@ function buildTile(run, backend, cell, turn, scenarioId){
 
   const tmpl = document.getElementById('rubric-template');
   tile.appendChild(tmpl.content.cloneNode(true));
+  // Unique radio group per tile — otherwise every tile shares name='decision', so a
+  // pass/fail pick in one tile deselects the others (one global group).
+  tile.querySelectorAll("input[name='decision']").forEach(r => { r.name = 'decision-' + backend + '-' + turn; });
   wireTile(tile);
   return tile;
 }
@@ -584,6 +587,7 @@ function applyBackendToggle(backend, on){
   });
 }
 function cssEsc(s){ return (window.CSS && CSS.escape) ? CSS.escape(s) : s.replace(/'/g, "\\'"); }
+function htmlEsc(s){ const d = document.createElement('div'); d.textContent = (s == null ? '' : String(s)); return d.innerHTML; }
 function applyFilters(){
   applyScenarioFilter();
   applyQuestionSearch();
@@ -711,7 +715,7 @@ function collectFeedback(){
     const acc = g('[name=accuracy]').value, comp = g('[name=completeness]').value, rel = g('[name=relevance]').value;
     const abst = g('[name=abstention_outcome]').value, grnd = g('[name=citation_groundedness]').value;
     const harm = g('[name=harm_fail]').checked;
-    const dec = f.querySelector('input[name=decision]:checked');
+    const dec = f.querySelector('input[name^="decision"]:checked');
     const txt = g('[name=free_text]').value.trim();
     const touched = acc || comp || rel || txt || harm || dec || abst !== 'n-a' || grnd !== 'n-a';
     if (!touched) return;
