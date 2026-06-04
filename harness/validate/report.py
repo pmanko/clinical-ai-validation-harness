@@ -212,6 +212,33 @@ def _metric_distributions(
     return out
 
 
+def _load_judge(run_dir: Path) -> list[dict[str, Any]]:
+    """Optional reviewer scores at run_dir/judge.jsonl: one line per (scenario_id,
+    backend_id) carrying faithfulness + correctness in [0,1] and a short note — the
+    LLM-dependent quality layer the raw metrics can't capture. Absent file -> no layer."""
+    path = run_dir / "judge.jsonl"
+    if not path.exists():
+        return []
+    return _read_jsonl(path)
+
+
+def _judge_summary(rows: list[dict[str, Any]], backends: list[str]) -> list[dict[str, Any]]:
+    """Per-arm mean faithfulness + correctness over the judged scenarios. Arms with no
+    judgments still appear (n=0, means None) so report columns stay aligned."""
+    out = []
+    for b in backends:
+        rs = [r for r in rows if r.get("backend_id") == b]
+        faith = [r["faithfulness"] for r in rs if isinstance(r.get("faithfulness"), (int, float))]
+        corr = [r["correctness"] for r in rs if isinstance(r.get("correctness"), (int, float))]
+        out.append({
+            "backend": b,
+            "n": len(rs),
+            "faithfulness_mean": round(sum(faith) / len(faith), 3) if faith else None,
+            "correctness_mean": round(sum(corr) / len(corr), 3) if corr else None,
+        })
+    return out
+
+
 def _summary_rows(results: list[dict[str, Any]], backends: list[str], labels: dict[str, str]) -> list[dict[str, Any]]:
     """Per-backend aggregates (the old summary table rows), precomputed so the JS
     renders a table without re-deriving any contract."""
@@ -320,6 +347,8 @@ def _run_blob(run_dir: Path) -> dict[str, Any]:
         "scenarios": scenarios,
         "summary": _summary_rows(results, backends, labels),
         "metrics": _metric_distributions(results, backends),
+        "judge": _judge_summary(_load_judge(run_dir), backends),
+        "judge_rows": _load_judge(run_dir),
         "patients": patients,
     }
 
@@ -392,6 +421,9 @@ th { background: #f3f3f3; font-weight: 600; font-size: 12px; }
 .bp-mean { stroke: #d9730d; stroke-width: 1.4; stroke-dasharray: 3 2; }
 .bp-whisker, .bp-cap { stroke: #2748a0; stroke-width: 1; }
 .bp-out { fill: #d9730d; opacity: .75; }
+.judge-section { margin-top: 18px; }
+.jb-faith { fill: #2748a0; }
+.jb-corr { fill: #d9730d; }
 .qband { display: grid; grid-template-columns: var(--qcol, 240px) 1fr; gap: 12px; align-items: start; border-top: 1px solid var(--line); padding: 12px 0; }
 .qhead { position: sticky; left: 0; z-index: 1; background: var(--bg); align-self: start; }
 .qhead .n { font-family: ui-monospace, monospace; font-weight: 700; color: var(--mut); }
@@ -555,6 +587,40 @@ function renderMetrics(run){
   return sec;
 }
 
+function jpct(v){ return v==null ? '—' : Math.round(v*100)+'%'; }
+function judgeBarsSVG(series){
+  var arms=[]; for(var k=0;k<series.length;k++){ if(series[k].n>0) arms.push(series[k]); }
+  var W=Math.max(320, 60+arms.length*92), H=210, padL=40, padR=12, padT=20, padB=46, plotH=H-padT-padB;
+  function Y(v){ return padT+plotH-v*plotH; }
+  var step=(W-padL-padR)/Math.max(1,arms.length);
+  var g='<svg viewBox="0 0 '+W+' '+H+'" class="boxplot" role="img" aria-label="reviewer quality by arm">';
+  g+='<text x="'+padL+'" y="13" class="bp-title">faithfulness (blue) · correctness (orange)</text>';
+  var ticks=[0,0.25,0.5,0.75,1], t, yy;
+  for(t=0;t<ticks.length;t++){ yy=Y(ticks[t]); g+='<line x1="'+padL+'" y1="'+yy+'" x2="'+(W-padR)+'" y2="'+yy+'" class="bp-grid"/>'; g+='<text x="'+(padL-5)+'" y="'+(yy+3)+'" class="bp-ytick">'+Math.round(ticks[t]*100)+'</text>'; }
+  for(var i=0;i<arms.length;i++){
+    var s=arms[i], cx=padL+step*i+step/2, bw=Math.min(20, step*0.28);
+    var f=s.faithfulness_mean||0, c=s.correctness_mean||0;
+    g+='<rect x="'+(cx-bw-2)+'" y="'+Y(f)+'" width="'+bw+'" height="'+(f*plotH)+'" class="jb-faith"/>';
+    g+='<rect x="'+(cx+2)+'" y="'+Y(c)+'" width="'+bw+'" height="'+(c*plotH)+'" class="jb-corr"/>';
+    g+='<text x="'+cx+'" y="'+(H-26)+'" class="bp-xtick">'+htmlEsc(bpShort(s.backend))+'</text>';
+    g+='<text x="'+cx+'" y="'+(H-14)+'" class="bp-xn">F '+Math.round(f*100)+'% · C '+Math.round(c*100)+'%</text>';
+  }
+  g+='</svg>';
+  var wrap=el('div','boxplot-wrap'); wrap.innerHTML=g; return wrap;
+}
+function renderJudge(run){
+  var sec=el('section','judge-section'), j=run.judge||[], has=false;
+  for(var i=0;i<j.length;i++){ if(j[i].n>0){ has=true; break; } }
+  if(!has){ return sec; }
+  sec.innerHTML='<h2>quality — reviewer judgment</h2><p class="metrics-legend">faithfulness = claims grounded in the chart; correctness = matches the chart. scored against each patient chart, 0–1 per scenario (successful answers only).</p>';
+  var rows=j.map(function(s){ return "<tr><td class='b'>"+htmlEsc(bpShort(s.backend))+"</td><td>"+s.n+"</td><td>"+jpct(s.faithfulness_mean)+"</td><td>"+jpct(s.correctness_mean)+"</td></tr>"; }).join('');
+  var tbl=el('table','summary');
+  tbl.innerHTML='<thead><tr><th>backend</th><th>judged</th><th>faithfulness</th><th>correctness</th></tr></thead><tbody>'+rows+'</tbody>';
+  sec.appendChild(tbl);
+  sec.appendChild(judgeBarsSVG(j));
+  return sec;
+}
+
 function buildTile(run, backend, cell, turn, scenarioId){
   const tile = el('article', 'tile');
   tile.draggable = true;
@@ -641,6 +707,7 @@ function renderRun(runId){
   if (pbanner) main.appendChild(pbanner);
   main.appendChild(renderSummary(run));
   main.appendChild(renderMetrics(run));
+  main.appendChild(renderJudge(run));
 
   run.scenarios.forEach(sc => {
     const sec = el('section', 'scenario');
