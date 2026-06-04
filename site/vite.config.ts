@@ -28,7 +28,13 @@ export default defineConfig({
   resolve: {
     alias: {
       // Canvases in specs/ import from 'cursor/canvas'; resolve to our polyfill.
-      'cursor/canvas': path.resolve(__dirname, 'cursor-canvas.tsx'),
+      // The prerender pass sets CANVAS_STATIC=1 to swap in the static-HTML
+      // backend (charts/graphs -> tables) for the LLM-readable twins; the SPA
+      // build leaves it unset and keeps the interactive recharts/SVG polyfill.
+      'cursor/canvas': path.resolve(
+        __dirname,
+        process.env.CANVAS_STATIC ? 'cursor-canvas-static.tsx' : 'cursor-canvas.tsx',
+      ),
     },
   },
   // The canvases live OUTSIDE the site/ root; allow Vite to read from the parent tree.

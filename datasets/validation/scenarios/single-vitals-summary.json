@@ -1,0 +1,13 @@
+{
+  "id": "single-vitals-summary",
+  "patient_ref": "dd75c020-1691-11df-97a5-7038c432aabf",
+  "turns": [
+    { "n": 1, "question": "Summarize this patient's vital signs." }
+  ],
+  "tags": ["vitals", "single-turn", "basic-question"],
+  "expectations": {
+    "should_cite_resource_types": ["Observation"],
+    "should_abstain": false,
+    "notes": "A simple chart-only lookup any backend (incl. vanilla gemma-4-26b-a4b) should handle — the baseline 'easy question' row of the 2x4 grid."
+  }
+}
