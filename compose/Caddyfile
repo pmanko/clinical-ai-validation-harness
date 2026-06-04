@@ -82,6 +82,23 @@
         reverse_proxy backend:8080
     }
 
+    # chartsearchai chat turns can take minutes (HIGH tier cold-loads 19-29G GGUFs
+    # one at a time and runs an orchestrator tool-loop). The gateway's nginx
+    # proxy_read_timeout (60s default) returns 504 before the backend answers, so
+    # these requests bypass the gateway and go straight to backend Tomcat, where
+    # Caddy's reverse_proxy applies a generous read timeout instead.
+    @chartsearch_chat {
+        path /openmrs/ws/rest/v1/chartsearchai/*
+    }
+    handle @chartsearch_chat {
+        reverse_proxy backend:8080 {
+            transport http {
+                read_timeout 1200s
+                write_timeout 1200s
+            }
+        }
+    }
+
     # OpenMRS RefApp (gateway is itself nginx that routes between backend + frontend)
     handle /openmrs/* {
         reverse_proxy gateway:80
