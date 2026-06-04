@@ -90,11 +90,52 @@ def status():
                    "avg_chars": (sum(ch) // len(ch)) if ch else 0,
                    "last": rs[-1]["scenario_id"] if rs else ""}
 
-    grid = {}
+    # Cell state per (scenario, backend), aggregating ALL turns of a (multi-turn) scenario:
+    #   done    = every expected turn answered (200 + non-empty)  -> green
+    #   err     = a turn failed or came back empty                -> red
+    #   running = the cell the runner is currently on (active frontier, or a partially
+    #             completed multi-turn)                           -> yellow
+    #   pending = not started yet                                 -> grey
+    cell_rows = {}
     for r in results:
-        grid.setdefault((r.get("scenario_id"), r.get("backend_id")),
-                        (r.get("metrics") or {}).get("http_status"))
-    grid_list = [{"scenario": s, "backend": b, "status": st} for (s, b), st in grid.items()]
+        cell_rows.setdefault((r.get("scenario_id"), r.get("backend_id")), []).append(r)
+
+    def _good(r):
+        m = r.get("metrics") or {}
+        return m.get("http_status") == 200 and (m.get("answer_chars") or 0) > 0
+
+    states = {}
+    for s in scen_ids:
+        exp = turns.get(s, 1)
+        for b in back_ids:
+            rs = cell_rows.get((s, b), [])
+            good = sum(1 for r in rs if _good(r))
+            bad = sum(1 for r in rs if (r.get("metrics") or {}).get("http_status") not in (200, None))
+            if good >= exp:
+                st = "done"
+            elif bad > 0 or len(rs) >= exp:
+                st = "err"          # a failure, or all turns present but some empty
+            elif len(rs) > 0:
+                st = "running"      # multi-turn mid-flight
+            else:
+                st = "pending"
+            states[(s, b)] = st
+
+    # While the run is in progress, the single active cell is the first incomplete one in
+    # backend-major order (mirrors the runner) — show it yellow even before its first row lands.
+    if total and len(results) < total:
+        marked = False
+        for b in back_ids:
+            for s in scen_ids:
+                if states[(s, b)] in ("pending", "running"):
+                    states[(s, b)] = "running"
+                    marked = True
+                    break
+            if marked:
+                break
+
+    grid_list = [{"scenario": s, "backend": b, "state": states[(s, b)]}
+                 for s in scen_ids for b in back_ids]
 
     feed = []
     for r in results[-14:]:
@@ -146,11 +187,15 @@ h1{font-size:15px;margin:0 0 6px}.muted{color:#8b949e}.ok{color:#3fb950}.err{col
 .card{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:10px 12px;min-width:160px}
 .card b{font-size:13px;color:#79c0ff}
 .chip{display:inline-block;background:#1f2937;border:1px solid #30363d;border-radius:12px;padding:2px 11px;margin:3px;color:#79c0ff}
-table.grid{border-collapse:collapse;margin-top:6px;font-size:11px}
+table.grid{border-collapse:collapse;margin-top:6px;font-size:11px;table-layout:fixed}
 .grid td,.grid th{border:1px solid #21262d;padding:3px 6px;text-align:center}
-.grid th{color:#8b949e;font-weight:400;text-align:left;white-space:nowrap}
+.grid th{color:#8b949e;font-weight:400;white-space:nowrap}
+.grid th:first-child,.grid td:first-child{width:210px;text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.grid th:not(:first-child),.grid td:not(:first-child){width:84px;text-align:center}
 .grid td{cursor:pointer}.grid td:hover{outline:2px solid #58a6ff}
 .c200{background:#196c2e;color:#e6ffe9}.cerr{background:#8b1a1a;color:#ffe9e9}.cpend{background:#1a1f27;color:#484f58;cursor:default}
+.crun{background:#9e6a03;color:#ffe9b3;animation:pulse 1.1s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
 .feed div{padding:2px 0;border-bottom:1px solid #161b22;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
 .feed div:hover{background:#161b22}
 section{margin:18px 0}h2{font-size:12px;color:#8b949e;margin:0 0 4px;text-transform:uppercase;letter-spacing:.05em}
@@ -177,8 +222,8 @@ table.btbl{border-collapse:collapse;font-size:11px;width:100%}
 <section><h2>Recent &nbsp;<span class=muted>(click a row)</span></h2><div class=feed id=feed></div></section>
 <div id=modal onclick="if(event.target===this)closeD()"><div id=mbody></div></div>
 <script>
-const cls=s=>s===200?'c200':(s==null?'cpend':'cerr');
-const sym=s=>s===200?'✓':(s==null?'·':'×');
+const cls=s=>({done:'c200',err:'cerr',running:'crun',pending:'cpend'}[s]||'cpend');
+const sym=s=>({done:'✓',err:'×',running:'●',pending:'·'}[s]||'·');
 const shortB=b=>b.replace('med-agent-team-','').replace('-baseline','-base');
 const esc=s=>(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 async function tick(){
@@ -192,10 +237,10 @@ async function tick(){
    return '<div class=card><b>'+b+'</b><br>'+(a.rows||0)+' rows · <span class="'+(a.errors?'err':'ok')+'">'+(a.errors||0)+' err</span>'
    +'<br><span class=muted>~'+(a.avg_latency_ms||0)+'ms · '+(a.avg_chars||0)+' chars</span>'
    +'<br><span class=muted>'+(a.last||'')+'</span></div>'}).join('');
- const gm={};(d.grid||[]).forEach(g=>gm[g.scenario+'|'+g.backend]=g.status);
+ const gm={};(d.grid||[]).forEach(g=>gm[g.scenario+'|'+g.backend]=g.state);
  let h='<table class=grid><tr><th></th>'+(d.backends||[]).map(b=>'<th>'+shortB(b)+'</th>').join('')+'</tr>';
  (d.scenarios||[]).forEach(s=>{h+='<tr><th>'+s+'</th>'+(d.backends||[]).map(b=>{const st=gm[s+'|'+b];
-   const oc=st==null?'':' onclick="openD(\''+s+'\',\''+b+'\')"';
+   const oc=(st==null||st==='pending')?'':' onclick="openD(\''+s+'\',\''+b+'\')"';
    return '<td class='+cls(st)+oc+'>'+sym(st)+'</td>'}).join('')+'</tr>'});
  grid.innerHTML=h+'</table>';
  feed.innerHTML=(d.feed||[]).slice().reverse().map(f=>'<div onclick="openD(\''+f.scenario+'\',\''+f.backend+'\')"><span class="'
