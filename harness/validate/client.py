@@ -39,7 +39,7 @@ class ChartSearchAiClient:
         base_url: str | None = None,
         user: str | None = None,
         password: str | None = None,
-        timeout: float = 300.0,
+        timeout: float = 1200.0,  # generous: HIGH-tier cold GGUF loads + thinking synth
         min_interval_s: float | None = None,
         max_retries: int | None = None,
         retry_wait_s: float | None = None,

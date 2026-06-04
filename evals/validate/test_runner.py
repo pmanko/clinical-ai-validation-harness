@@ -162,3 +162,28 @@ def test_runner_captures_patient_profiles_into_the_manifest(tmp_path):
         output_dir=tmp_path / "art2", git_sha="test-sha",
     )
     assert "patients" not in json.loads(out2.manifest_path.read_text(encoding="utf-8"))
+
+
+class FakeClientThatRaises(FakeClient):
+    """chat() raises (simulating a hung / timed-out request) so we can assert the
+    runner records it and continues rather than aborting the whole run."""
+
+    def chat(self, patient, session, question, *, endpoint_url=None, model_name=None):
+        raise RuntimeError("simulated request hang")
+
+
+def test_runner_records_a_failed_request_and_keeps_going(tmp_path):
+    # A request that raises (e.g. a ReadTimeout on a slow backend) must NOT abort the
+    # whole run -- it is recorded as an error result (status != 200) and the run
+    # continues to completion + a report.
+    data = tmp_path / "data"
+    _write_fixtures(data)
+    out = run_comparison(
+        comparison_set_id="cs", client=FakeClientThatRaises(), data_root=data,
+        output_dir=tmp_path / "art", git_sha="test-sha",
+    )
+    lines = out.results_path.read_text(encoding="utf-8").splitlines()
+    assert len(lines) == 2  # both turns recorded despite the failure
+    r0 = json.loads(lines[0])
+    assert r0["metrics"]["http_status"] != 200
+    assert "request failed" in (r0.get("error") or "")

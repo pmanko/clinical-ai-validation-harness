@@ -21,6 +21,7 @@ from uuid import uuid4
 from ..metadata import RunManifest, append_event, utc_now_iso, write_manifest
 from ..submodules import read_harness_git_sha
 from .client import ChatResult
+from .client import ChatResult
 from .metrics import compute_metrics
 from .models import load_comparison_set, load_scenario
 from .report import build_report
@@ -136,10 +137,16 @@ def run_comparison(
             for turn in scenario.turns:
                 session_sent = session
                 started = utc_now_iso()
-                res = client.chat(
-                    scenario.patient_ref, session_sent, turn.question,
-                    endpoint_url=backend.endpoint_url, model_name=backend.model_name,
-                )
+                try:
+                    res = client.chat(
+                        scenario.patient_ref, session_sent, turn.question,
+                        endpoint_url=backend.endpoint_url, model_name=backend.model_name,
+                    )
+                except Exception as exc:
+                    # A hung/failed request must NOT abort the whole run — record it
+                    # as an error result (like a non-200 response) and continue.
+                    res = ChatResult(status=0, envelope=None, latency_ms=0,
+                                     raw_text=f"request failed: {type(exc).__name__}: {exc}")
                 ended = utc_now_iso()
                 if res.envelope and res.envelope.get("session"):
                     session = res.envelope["session"]
