@@ -129,6 +129,7 @@ def detail(scenario, backend):
         turns.append({"turn": r.get("turn"),
                       "question": (r.get("request") or {}).get("question", ""),
                       "answer": resp.get("answer", ""),
+                      "blocks": resp.get("blocks") or [],
                       "refs": refs,
                       "status": m.get("http_status"), "latency_ms": m.get("latency_ms"),
                       "chars": m.get("answer_chars"), "citations": m.get("citation_count"),
@@ -161,6 +162,11 @@ section{margin:18px 0}h2{font-size:12px;color:#8b949e;margin:0 0 4px;text-transf
 .meta{font-size:11px;color:#8b949e;margin-bottom:6px}
 .ans{white-space:pre-wrap;background:#0b0f14;border:1px solid #21262d;border-radius:6px;padding:10px}
 .refs{font-size:11px;color:#8b949e;margin-top:6px}
+.block{margin-top:8px}.btitle{font-size:11px;color:#8b949e;margin-bottom:3px}
+table.btbl{border-collapse:collapse;font-size:11px;width:100%}
+.btbl td,.btbl th{border:1px solid #21262d;padding:3px 7px;text-align:left;vertical-align:top}
+.btbl th{color:#8b949e;font-weight:400;white-space:nowrap}
+.btbl .cref{color:#586069;font-size:10px;margin-left:3px}
 </style></head><body>
 <h1 id=hdr>validate run</h1>
 <div class=bar><div id=fill style=width:0%></div></div>
@@ -196,6 +202,25 @@ async function tick(){
    +(f.status===200?'ok':'err')+'">'+f.status+'</span> '+f.scenario+'/'+shortB(f.backend)+' t'+f.turn
    +' <span class=muted>'+f.chars+'c</span> '+f.ans+'</div>').join('');
 }
+function renderBlocks(blocks){
+ if(!blocks||!blocks.length)return '';
+ return blocks.map(bl=>{
+  if(bl.kind!=='table')return '';
+  const cols=bl.columns||[];
+  const head=cols.map(c=>'<th>'+esc(c.label||c.key||'')+'</th>').join('');
+  const body=(bl.rows||[]).map(row=>{
+   const cells=row.cells||{};
+   return '<tr>'+cols.map(c=>{
+    const cell=cells[c.key]||{};
+    const txt=esc(cell.text!=null?String(cell.text):'');
+    const rf=(cell.refs&&cell.refs.length)?'<span class=cref>['+cell.refs.join('][')+']</span>':'';
+    return '<td>'+txt+rf+'</td>';
+   }).join('')+'</tr>';
+  }).join('');
+  const title=bl.title?'<div class=btitle>'+esc(bl.title)+'</div>':'';
+  return '<div class=block>'+title+'<table class=btbl><thead><tr>'+head+'</tr></thead><tbody>'+body+'</tbody></table></div>';
+ }).join('');
+}
 async function openD(s,b){
  const d=await(await fetch('/api/detail?scenario='+encodeURIComponent(s)+'&backend='+encodeURIComponent(b))).json();
  const e=d.expectations||{};
@@ -206,6 +231,7 @@ async function openD(s,b){
   h+='<div class=meta><span class="'+(t.status===200?'ok':'err')+'">status '+t.status+'</span> · '+(t.latency_ms||0)+'ms · '+(t.chars||0)+' chars · '+(t.citations||0)+' citations</div>';
   if(t.error)h+='<div class="ans err">'+esc(t.error)+'</div>';
   else h+='<div class=ans>'+esc(t.answer)+'</div>';
+  h+=renderBlocks(t.blocks);
   if(t.refs&&t.refs.length)h+='<div class=refs>refs: '+esc(t.refs.map(r=>typeof r==='object'?('['+(r.index!=null?r.index:'?')+'] '+(r.resourceType||'')):('['+r+']')).join('  '))+'</div>';
   h+='</div>';
  });
