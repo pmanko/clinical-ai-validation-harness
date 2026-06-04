@@ -69,6 +69,20 @@ def run_comparison(
     scenarios = [load_scenario(data_root / "scenarios" / f"{sid}.json") for sid in cset.scenario_ids]
     backends = resolve_backends(cset.backend_ids, data_root / "backends.json")
 
+    # Capture a rich patient profile (demographics + clinical snapshot) for each unique
+    # patient the run touches, so the report grounds the comparison in the real chart.
+    # Best-effort + optional: only if the client exposes get_patient_profile; never fatal.
+    patients: dict[str, Any] = {}
+    get_profile = getattr(client, "get_patient_profile", None)
+    if get_profile is not None:
+        for patient_uuid in dict.fromkeys(s.patient_ref for s in scenarios):
+            try:
+                profile = get_profile(patient_uuid)
+                if profile:
+                    patients[patient_uuid] = profile
+            except Exception:
+                pass
+
     run_id = str(uuid4())
     run_dir = Path(output_dir) / run_id
     manifest = RunManifest(
@@ -80,6 +94,7 @@ def run_comparison(
         dataset_version=dataset_version,
         schema_mapping_version=schema_mapping_version,
         gen_ai_provider_name=gen_ai_provider_name,
+        patients=patients,
     )
     manifest_path = run_dir / "run_manifest.json"
     events_path = run_dir / "events.jsonl"

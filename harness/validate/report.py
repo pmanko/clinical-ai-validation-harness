@@ -234,17 +234,12 @@ def _run_blob(run_dir: Path) -> dict[str, Any]:
     patient_meta = manifest.get("patients", {})
     patient_uuids = _ordered_unique(
         [(r.get("request") or {}).get("patient") for r in results if (r.get("request") or {}).get("patient")])
-    patients = [
-        {
-            "uuid": u,
-            "display": (patient_meta.get(u) or {}).get("display", ""),
-            "identifier": (patient_meta.get(u) or {}).get("identifier", ""),
-            "gender": (patient_meta.get(u) or {}).get("gender", ""),
-            "age": (patient_meta.get(u) or {}).get("age"),
-            "chart_url": f"{chart_base}/{u}/chart",
-        }
-        for u in patient_uuids
-    ]
+    patients = []
+    for u in patient_uuids:
+        profile = dict(patient_meta.get(u) or {})  # display/identifier/medications/vitals/counts...
+        profile["uuid"] = u
+        profile["chart_url"] = f"{chart_base}/{u}/chart"
+        patients.append(profile)
 
     return {
         "run_id": run_id,
@@ -361,6 +356,12 @@ th { background: #f3f3f3; font-weight: 600; font-size: 12px; }
 .patient-banner .pt-name { font-weight: 600; }
 .patient-banner a { color: #2748a0; font-weight: 600; text-decoration: none; margin-left: 8px; }
 .patient-banner a:hover { text-decoration: underline; }
+.patient-banner .pt-block + .pt-block { margin-top: 8px; border-top: 1px solid #d7e3fb; padding-top: 8px; }
+.patient-banner .pt-head { font-size: 13px; }
+.patient-banner .pt-demo { color: var(--mut); }
+.patient-banner .pt-line { margin-top: 3px; font-size: 12px; color: #2a2a2a; }
+.patient-banner .pt-lab { font-weight: 600; color: var(--mut); }
+.patient-banner .pt-counts { color: var(--mut); }
 .tile { position: relative; }
 .tiles-wrap { position: relative; min-width: 0; }
 .scroll-arrow { position: absolute; top: 0; bottom: 0; width: 30px; display: flex; align-items: center; justify-content: center; border: none; cursor: pointer; z-index: 5; font-size: 15px; color: #2748a0; background: rgba(255,255,255,.9); box-shadow: 0 0 8px rgba(0,0,0,.15); }
@@ -624,19 +625,43 @@ function renumber(tilesEl){
 function renderPatientBanner(run){
   const pts = run.patients || [];
   if (!pts.length) return null;
-  const pb = el('div', 'patient-banner');
-  pb.appendChild(document.createTextNode('Patient — '));
-  pts.forEach((pt, i) => {
-    if (i) pb.appendChild(document.createTextNode('   ·   '));
+  const card = el('div', 'patient-banner');
+  pts.forEach(pt => {
+    const blk = el('div', 'pt-block');
+    const head = el('div', 'pt-head');
+    head.appendChild(document.createTextNode('Patient — '));
     const id = el('span', 'pt-id');
     id.textContent = pt.identifier ? ('OpenMRS ID ' + pt.identifier) : ('UUID ' + (pt.uuid || '').slice(0, 8));
-    pb.appendChild(id);
-    if (pt.display){ const nm = el('span', 'pt-name'); nm.textContent = ' ' + pt.display; pb.appendChild(nm); }
-    const demo = [pt.gender, (pt.age != null ? pt.age + 'y' : '')].filter(Boolean).join(', ');
-    if (demo){ const d = el('span', 'pt-demo'); d.textContent = ' (' + demo + ')'; pb.appendChild(d); }
-    if (pt.chart_url){ const a = el('a'); a.href = pt.chart_url; a.target = '_blank'; a.rel = 'noopener'; a.textContent = 'open chart ↗'; pb.appendChild(a); }
+    head.appendChild(id);
+    if (pt.display){ const nm = el('span', 'pt-name'); nm.textContent = ' ' + pt.display; head.appendChild(nm); }
+    const demo = [pt.gender, (pt.age != null ? pt.age + 'y' : ''), (pt.birthdate ? 'b.' + pt.birthdate : '')].filter(Boolean).join(', ');
+    if (demo){ const d = el('span', 'pt-demo'); d.textContent = ' (' + demo + ')'; head.appendChild(d); }
+    if (pt.chart_url){ const a = el('a'); a.href = pt.chart_url; a.target = '_blank'; a.rel = 'noopener'; a.textContent = 'open chart ↗'; head.appendChild(a); }
+    blk.appendChild(head);
+
+    if (pt.medications && pt.medications.length){
+      const ln = el('div', 'pt-line');
+      const lab = el('span', 'pt-lab'); lab.textContent = 'Active regimen: '; ln.appendChild(lab);
+      ln.appendChild(document.createTextNode(pt.medications.join('  ·  ')));
+      blk.appendChild(ln);
+    }
+    if (pt.vitals && Object.keys(pt.vitals).length){
+      const ln = el('div', 'pt-line');
+      const lab = el('span', 'pt-lab'); lab.textContent = 'Recent vitals: '; ln.appendChild(lab);
+      ln.appendChild(document.createTextNode(Object.keys(pt.vitals).map(k => k + ' ' + pt.vitals[k]).join('  ·  ')));
+      blk.appendChild(ln);
+    }
+    const counts = [];
+    if (pt.encounter_count != null) counts.push(pt.encounter_count + ' encounters');
+    if (pt.observation_count != null) counts.push(pt.observation_count + ' observations');
+    if (counts.length){
+      const ln = el('div', 'pt-line pt-counts');
+      ln.textContent = 'Chart: ' + counts.join('  ·  ');
+      blk.appendChild(ln);
+    }
+    card.appendChild(blk);
   });
-  return pb;
+  return card;
 }
 
 /* ---- horizontal scroll affordance: greyed ◀▶ arrows show when tiles run off-screen ---- */

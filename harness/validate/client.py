@@ -147,3 +147,84 @@ class ChartSearchAiClient:
                 latency_ms=latency_ms,
                 raw_text=resp.text,
             )
+
+    def get_patient_profile(self, patient: str) -> dict[str, Any]:
+        """Best-effort rich patient snapshot for report grounding: demographics +
+        identifiers + active regimen + chart counts + recent vitals, from the OpenMRS
+        REST + FHIR APIs (same base + auth as the chat client). Never raises — returns a
+        partial/empty dict on any failure, so a profile fetch can't block a run."""
+        base = f"{self.base_url}/ws"
+
+        def _get(path: str) -> Any:
+            try:
+                resp = self._session.get(base + path, timeout=self.timeout)
+                return resp.json() if resp.ok else None
+            except Exception:
+                return None
+
+        out: dict[str, Any] = {}
+        demo = _get(
+            f"/rest/v1/patient/{patient}?v=custom:(identifiers:(identifier,"
+            "identifierType:(name)),person:(display,gender,age,birthdate))")
+        if isinstance(demo, dict):
+            person = demo.get("person") or {}
+            out["display"] = person.get("display")
+            out["gender"] = person.get("gender")
+            out["age"] = person.get("age")
+            out["birthdate"] = (person.get("birthdate") or "")[:10] or None
+            ids = [
+                {"id": i.get("identifier"), "type": (i.get("identifierType") or {}).get("name")}
+                for i in (demo.get("identifiers") or []) if i.get("identifier")
+            ]
+            if ids:
+                out["identifiers"] = ids
+                out["identifier"] = ids[0]["id"]
+
+        meds = _get(f"/fhir2/R4/MedicationRequest?patient={patient}")
+        if isinstance(meds, dict):
+            names = []
+            for entry in (meds.get("entry") or []):
+                res = entry.get("resource") or {}
+                if res.get("status") == "active":
+                    name = (res.get("medicationReference") or {}).get("display") or (
+                        res.get("medicationCodeableConcept") or {}).get("text")
+                    if name:
+                        names.append(name)
+            if names:
+                out["medications"] = sorted(set(names))
+
+        enc = _get(f"/rest/v1/encounter?patient={patient}&limit=1&totalCount=true")
+        if isinstance(enc, dict) and enc.get("totalCount") is not None:
+            out["encounter_count"] = enc["totalCount"]
+
+        obs = _get(f"/fhir2/R4/Observation?patient={patient}&_count=120&_sort=-date")
+        if isinstance(obs, dict):
+            if obs.get("total") is not None:
+                out["observation_count"] = obs["total"]
+            # SpO2's concept text contains "pulse oximeter", so the loose "pulse" needle MUST
+            # come last, and each obs matches at most one vital (break) — else the SpO2 obs
+            # also fills Pulse with the saturation value.
+            wanted = [
+                ("arterial blood oxygen saturation", "SpO2"),
+                ("systolic blood pressure", "Systolic BP"),
+                ("diastolic blood pressure", "Diastolic BP"),
+                ("temperature", "Temp"),
+                ("weight", "Weight"),
+                ("pulse", "Pulse"),
+            ]
+            vitals: dict[str, str] = {}
+            for entry in (obs.get("entry") or []):
+                res = entry.get("resource") or {}
+                text = ((res.get("code") or {}).get("text") or "").lower()
+                for needle, label in wanted:
+                    if needle in text:
+                        if label not in vitals:
+                            q = res.get("valueQuantity") or {}
+                            if q.get("value") is not None:
+                                unit = (q.get("unit") or "").strip()
+                                sep = "" if unit in ("%", "") else " "
+                                vitals[label] = f"{q['value']}{sep}{unit}".strip()
+                        break
+            if vitals:
+                out["vitals"] = vitals
+        return out

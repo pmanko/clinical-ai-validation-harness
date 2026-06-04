@@ -25,8 +25,13 @@ def _write_run(run_dir: Path, backends, *, with_patient=True) -> None:
     }
     if with_patient:
         manifest["patients"] = {
-            PATIENT_UUID: {"display": "Zabella Talai Halambe", "identifier": "2428TU-4",
-                           "gender": "F", "age": 47},
+            PATIENT_UUID: {
+                "display": "Zabella Talai Halambe", "identifier": "2428TU-4",
+                "gender": "F", "age": 47, "birthdate": "1978-10-08",
+                "medications": ["Lamivudine", "Nevirapine", "Stavudine"],
+                "encounter_count": 11, "observation_count": 303,
+                "vitals": {"Systolic BP": "110 mmHg", "Pulse": "69 beats/min", "SpO2": "93%"},
+            },
         }
     (run_dir / "run_manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
     (run_dir / "events.jsonl").write_text("".join(
@@ -160,3 +165,8 @@ def test_patient_banner_links_to_openmrs_chart(tmp_path):
     assert "2428TU-4" in banner_text, f"patient identifier missing from banner: {banner_text!r}"
     assert "openmrs.openclinai.org" in href and PATIENT_UUID in href, (
         f"banner should link to the live OpenMRS chart for {PATIENT_UUID}, got {href!r}")
+    # richer grounding: active regimen, chart counts, recent vitals
+    assert "Lamivudine" in banner_text, f"active regimen missing from banner: {banner_text!r}"
+    assert "11" in banner_text, f"encounter count missing from banner: {banner_text!r}"
+    assert ("SpO2" in banner_text) or ("93%" in banner_text), (
+        f"recent vitals missing from banner: {banner_text!r}")

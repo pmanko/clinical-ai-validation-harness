@@ -27,6 +27,7 @@ class RunManifest:
     target_provenance: list[dict[str, Any]] = field(default_factory=list)
     otel_semconv_status: str = "development"
     otel_semconv_stability_opt_in: str = "gen_ai_latest_experimental"
+    patients: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         payload: dict[str, Any] = {
@@ -48,6 +49,8 @@ class RunManifest:
         }
         if self.decision_rationale is not None:
             payload["decision_rationale"] = self.decision_rationale
+        if self.patients:
+            payload["patients"] = self.patients
         return payload
 
 
