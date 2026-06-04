@@ -1,0 +1,20 @@
+{
+  "id": "am-upcoming-appointments",
+  "patient_ref": "dd5558ed-1691-11df-97a5-7038c432aabf",
+  "turns": [
+    {
+      "n": 1,
+      "question": "Does this patient have any upcoming appointments?"
+    }
+  ],
+  "tags": [
+    "patient:aloice-mukangu",
+    "single-turn",
+    "12b-run"
+  ],
+  "expectations": {
+    "should_cite_resource_types": [],
+    "should_abstain": false,
+    "notes": "Return-visit / scheduled-visit observations are recorded - should surface the scheduled follow-up."
+  }
+}

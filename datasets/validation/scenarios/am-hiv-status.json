@@ -1,0 +1,22 @@
+{
+  "id": "am-hiv-status",
+  "patient_ref": "dd5558ed-1691-11df-97a5-7038c432aabf",
+  "turns": [
+    {
+      "n": 1,
+      "question": "What is the patient's current HIV status, and when was he last tested?"
+    }
+  ],
+  "tags": [
+    "patient:aloice-mukangu",
+    "single-turn",
+    "12b-run"
+  ],
+  "expectations": {
+    "should_cite_resource_types": [
+      "Observation"
+    ],
+    "should_abstain": false,
+    "notes": "HIV-positive; WHO HIV stage documented; CD4 72 cells/uL (2006-03-02). Advanced disease."
+  }
+}

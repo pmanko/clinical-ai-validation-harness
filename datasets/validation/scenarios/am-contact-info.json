@@ -1,0 +1,21 @@
+{
+  "id": "am-contact-info",
+  "patient_ref": "dd5558ed-1691-11df-97a5-7038c432aabf",
+  "turns": [
+    {
+      "n": 1,
+      "question": "What is the patient's contact information?"
+    }
+  ],
+  "tags": [
+    "patient:aloice-mukangu",
+    "single-turn",
+    "12b-run",
+    "abstain"
+  ],
+  "expectations": {
+    "should_cite_resource_types": [],
+    "should_abstain": true,
+    "notes": "No telecom/phone/address recorded; only a Mother's Name person-attribute - should abstain on contact details, not confabulate a phone number."
+  }
+}

@@ -1,0 +1,34 @@
+{
+  "id": "aloice-run",
+  "scenario_ids": [
+    "am-medications",
+    "am-vitals-summary",
+    "am-allergies",
+    "am-problem-list",
+    "am-recent-activity",
+    "am-last-visit",
+    "am-contact-info",
+    "am-hiv-status",
+    "am-weight-trend",
+    "am-cd4-history",
+    "am-immunizations",
+    "am-orders-6mo",
+    "am-last-bmp",
+    "am-upcoming-appointments",
+    "am-last-visit-detail",
+    "am-age",
+    "am-care-programs",
+    "am-hiv-labs",
+    "am-convo-medications-adherence",
+    "am-convo-diagnosis-evidence",
+    "am-convo-safety-escalation",
+    "am-convo-azt-anemia"
+  ],
+  "backend_ids": [
+    "12b-baseline",
+    "med-agent-team-low",
+    "med-agent-team-med",
+    "med-agent-team-12b",
+    "med-agent-team-high"
+  ]
+}

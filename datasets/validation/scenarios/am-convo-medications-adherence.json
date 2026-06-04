@@ -1,0 +1,40 @@
+{
+  "id": "am-convo-medications-adherence",
+  "patient_ref": "dd5558ed-1691-11df-97a5-7038c432aabf",
+  "turns": [
+    {
+      "n": 1,
+      "question": "What medications is this patient on?"
+    },
+    {
+      "n": 2,
+      "question": "How many did you list?"
+    },
+    {
+      "n": 3,
+      "question": "Which of those are antiretrovirals?"
+    },
+    {
+      "n": 4,
+      "question": "Is there anything in the chart about how well he's been taking them?"
+    },
+    {
+      "n": 5,
+      "question": "And does he have any documented drug allergies?"
+    }
+  ],
+  "tags": [
+    "patient:aloice-mukangu",
+    "multi-turn",
+    "12b-run"
+  ],
+  "expectations": {
+    "should_cite_resource_types": [
+      "MedicationRequest",
+      "Observation",
+      "AllergyIntolerance"
+    ],
+    "should_abstain": false,
+    "notes": "ARVs: lamivudine/zidovudine + efavirenz (cotrimoxazole and RIPE are NOT ARVs). T2 referential count. T4 cite adherence obs. T5: a Penicillin allergy IS recorded - should report it (retrieve, not absence)."
+  }
+}

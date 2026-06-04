@@ -1,0 +1,23 @@
+{
+  "id": "am-immunizations",
+  "patient_ref": "dd5558ed-1691-11df-97a5-7038c432aabf",
+  "turns": [
+    {
+      "n": 1,
+      "question": "Are this patient's immunizations up to date?"
+    }
+  ],
+  "tags": [
+    "patient:aloice-mukangu",
+    "single-turn",
+    "12b-run",
+    "abstain"
+  ],
+  "expectations": {
+    "should_cite_resource_types": [
+      "Immunization"
+    ],
+    "should_abstain": true,
+    "notes": "No immunization records for Aloice (verified absent) - should abstain honestly, not confabulate."
+  }
+}

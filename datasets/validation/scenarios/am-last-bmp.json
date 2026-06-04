@@ -1,0 +1,22 @@
+{
+  "id": "am-last-bmp",
+  "patient_ref": "dd5558ed-1691-11df-97a5-7038c432aabf",
+  "turns": [
+    {
+      "n": 1,
+      "question": "Give me the results of this patient's last basic metabolic panel (BMP)."
+    }
+  ],
+  "tags": [
+    "patient:aloice-mukangu",
+    "single-turn",
+    "12b-run"
+  ],
+  "expectations": {
+    "should_cite_resource_types": [
+      "Observation"
+    ],
+    "should_abstain": false,
+    "notes": "No formally-labelled BMP/electrolyte panel. Serum creatinine (193.7->72 umol/L) and SGPT ARE documented - expect the available chemistry, and NOT confabulated Na/K/Cl/glucose values."
+  }
+}

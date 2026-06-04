@@ -39,6 +39,16 @@
     "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
     "modelName": "med-agent-team-high"
   },
+  "12b-baseline": {
+    "label": "12B baseline — Gemma 4-12B single LLM, direct chart (GGUF+DRY)",
+    "endpointUrl": "http://host.docker.internal:8077/v1/chat/completions",
+    "modelName": "gemma-4-12b"
+  },
+  "med-agent-team-12b": {
+    "label": "Med Agent Team — 12B (gemma-4-12b orch · medgemma-1.5-q8 expert · qwen2.5-14b synth)",
+    "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
+    "modelName": "med-agent-team-12b"
+  },
   "gemma-26b-llamacpp": {
     "label": "Gemma 4-26B-A4B (llama.cpp GGUF + DRY, via llama-server)",
     "endpointUrl": "http://host.docker.internal:8077/v1/chat/completions",

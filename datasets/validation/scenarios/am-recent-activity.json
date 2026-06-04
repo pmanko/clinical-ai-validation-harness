@@ -1,0 +1,23 @@
+{
+  "id": "am-recent-activity",
+  "patient_ref": "dd5558ed-1691-11df-97a5-7038c432aabf",
+  "turns": [
+    {
+      "n": 1,
+      "question": "What has happened with this patient lately?"
+    }
+  ],
+  "tags": [
+    "patient:aloice-mukangu",
+    "single-turn",
+    "12b-run"
+  ],
+  "expectations": {
+    "should_cite_resource_types": [
+      "Encounter",
+      "Observation"
+    ],
+    "should_abstain": false,
+    "notes": "9 visit dates Feb-May 2006; recent encounters carry vitals, labs, new complaints, plan updates."
+  }
+}
