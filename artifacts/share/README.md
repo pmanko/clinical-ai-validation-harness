@@ -4,14 +4,15 @@ Drop-in demo data for **OpenMRS Platform 2.8 / Reference Application 3.6.0**. Th
 
 ## Current artifact
 
-**`openmrs-2.8-refapp-demo-5284-patients-2026-06-03.sql.gz`** (40.3 MB, sha256 `2f95ec36…`)
+**`openmrs-2.8-refapp-demo-5284-patients-2026-06-04.sql.gz`** (40.3 MB, sha256 `44c02628…`)
 
-This build is the #20 demo-data regeneration (referentially clean, fully preserved, promotable) and **supersedes** the `2026-05-19` publish. Top-level row counts are unchanged from that publish; the difference is structural (per #20).
+This build adds the **preferred-address normalization** (so the O3 patient chart renders addresses) on top of the #20 demo-data regeneration (referentially clean, fully preserved, promotable). It **supersedes** the `2026-06-03` and `2026-05-19` publishes. Clinical row counts are unchanged; the deltas are structural (per #20) plus the preferred-address flag.
 
 - Loads into a database literally named **`openmrs`** (the dump embeds `CREATE DATABASE openmrs; USE openmrs;` so it is self-contained — no schema choice on the consumer side).
 - 232 tables, ~1.70M rows.
 - **Referentially clean**: the `harness.transform.orphan_fk --target openmrs` gate checked **868 FK constraints, 0 orphans** against this build.
 - Mapping remediation in this build:
+  - **Preferred address** (display normalization): the legacy 2.7 corpus marks no preferred address, so OpenMRS FHIR emits every address with `use="old"` and the O3 patient header shows a blank address. The transform now deterministically flags one non-voided address per person preferred (all **5,283**). FHIR then emits `use="home"` and O3 renders it — e.g. Zabella (`2428TU-4`) → *Maili Nne (Eld)*; Horatio Hornblower (`101`) → *1050 Wishard Blvd., Indianapolis, IN 46202, USA*. This is a demo-display normalization, not source-faithful for the `preferred` column. Guarded by `audit_person_address_one_preferred`.
   - Concept FK resolution: drug-order parent concepts resolve through CIEL UUIDs to the correct concept instead of accidentally landing on unrelated target concepts. Verified on a known patient (Zabella Talai Halambe, `2428TU-4`): her drug-order concepts resolve to CIEL **Efavirenz** (`633…`), **Nevirapine** (`631…`), **Lamivudine** (`628…`), and **Stavudine** (`625…`).
   - `drug_order.drug_inventory_id` is non-null for **all 43,412** promoted drug-order rows, backed by a deterministic synthetic concept-level drug catalog (`drug_id = 300000 + CIEL concept numeric`).
   - Typed-table promotion writes only canonical promoted rows; no duplicate residual obs for P1/P2/P3 facts.
@@ -42,7 +43,7 @@ This build is the #20 demo-data regeneration (referentially clean, fully preserv
 # needs an empty MariaDB / MySQL with a privileged user. No CREATE DATABASE
 # step on the consumer side.
 
-gunzip -c openmrs-2.8-refapp-demo-5284-patients-2026-06-03.sql.gz | mariadb -u root -p
+gunzip -c openmrs-2.8-refapp-demo-5284-patients-2026-06-04.sql.gz | mariadb -u root -p
 ```
 
 Takes ~20 seconds against an empty `mariadb:10.11.7` container (verified — see `verified_load` in the provenance).
@@ -64,7 +65,7 @@ Dump produced via [`scripts/dump-loaded.sh`](../../scripts/dump-loaded.sh) with 
 --ignore-pattern 'querystore_%'      # consumer-side querystore bootstrap marker
 ```
 
-See `openmrs-2.8-refapp-demo-5284-patients-2026-06-03.sql.gz.provenance.json` for the exact `sha256`, row counts, remediation evidence (the orphan-FK gate result, drug-catalog coverage, and the known-patient CIEL concept resolution — each re-derived from this build), the pipeline provenance (regen commit), and the ephemeral clean-container load verification.
+See `openmrs-2.8-refapp-demo-5284-patients-2026-06-04.sql.gz.provenance.json` for the exact `sha256`, row counts, remediation evidence (the orphan-FK gate result, drug-catalog coverage, the preferred-address normalization, and the known-patient CIEL concept resolution — each re-derived from this build), the pipeline provenance (regen + preferred-address commits), and the ephemeral clean-container load verification.
 
 ## Source
 

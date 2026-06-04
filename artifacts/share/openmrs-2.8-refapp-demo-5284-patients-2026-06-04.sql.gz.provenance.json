@@ -1,0 +1,89 @@
+{
+  "filename": "openmrs-2.8-refapp-demo-5284-patients-2026-06-04.sql.gz",
+  "sha256": "44c02628f587202d213165ded2f8776b3015542cfacbca7a4eda11ec0279faaa",
+  "size_bytes": 42291825,
+  "size_human": "40.3 MB",
+  "uncompressed_sql_lines": 1716512,
+  "schema_version": "OpenMRS Platform 2.8 / Reference Application 3.6.0",
+  "source_schema_in_dump": "openmrs",
+  "row_counts": {
+    "patient": 5284,
+    "encounter": 14316,
+    "obs": 428013,
+    "orders": 44507,
+    "drug_order": 43412,
+    "drug_order_with_drug_inventory_id": 43412,
+    "test_order": 1095,
+    "conditions": 4451,
+    "allergy": 2,
+    "person_address_non_voided": 5283,
+    "person_address_preferred": 5283
+  },
+  "tables_total": 232,
+  "excluded_tables": [
+    "chartsearchai_audit_log",
+    "chartsearchai_chat_message",
+    "chartsearchai_chat_session",
+    "chartsearchai_embedding",
+    "querystore_bootstrap_progress"
+  ],
+  "excluded_reason": "Consumer-side module tables (chartsearchai chat/embedding/audit + querystore bootstrap marker). They are recreated empty when the consuming module installs against the demo; chartsearchai_chat_message also carried harness test-chat history that is not demo data.",
+  "source": "Transform of OpenMRS large-demo-data-2-7-0.sql via feature 002 SQLMesh + dlt pipeline. This build adds the deterministic preferred-address normalization (see remediation_evidence.preferred_address) so the O3 patient chart renders addresses. Supersedes the 2026-06-03 and 2026-05-19 publishes; clinical row counts are unchanged.",
+  "pipeline_provenance": {
+    "harness_git_sha": "6ff33a0703636933a63d647986f06faae3ece9a4",
+    "demo_regen_commit": "bdc10026bee42581d942a8ed407f2355222bf24e",
+    "demo_regen_commit_subject": "Demo-data regen: referentially clean, fully preserved, promotable (#20)",
+    "preferred_address_commit": "6ff33a0703636933a63d647986f06faae3ece9a4",
+    "preferred_address_commit_subject": "feat(002): derive preferred address in stg_person_address so O3 renders it"
+  },
+  "remediation_evidence": {
+    "_note": "Every value below was re-derived from the live promoted openmrs schema during this dump, not copied forward from a prior publish.",
+    "referential_integrity": {
+      "gate": "harness.transform.orphan_fk --target openmrs (also re-run by promote.sh)",
+      "fk_constraints_checked": 868,
+      "fks_with_orphans": 0,
+      "total_orphan_rows": 0
+    },
+    "drug_catalog_coverage": {
+      "drug_order_rows": 43412,
+      "with_drug_inventory_id": 43412,
+      "synthetic_drug_id_rule": "drug_id = 300000 + CIEL concept numeric (e.g. 300633 -> CIEL 633 Efavirenz)"
+    },
+    "preferred_address": {
+      "_note": "The legacy 2.7 corpus marks no preferred address (all 0), so OpenMRS FHIR emits every address with use=old and O3 renders no address. The transform now deterministically flags one non-voided address per person preferred. This is a demo-display normalization, NOT source-faithful for the preferred column.",
+      "non_voided_addresses": 5283,
+      "preferred_after_fix": 5283,
+      "guard_audit": "audit_person_address_one_preferred (0 failures)",
+      "examples": [
+        {"identifier": "2428TU-4", "name": "Zabella Talai Halambe", "fhir_address_use": "home", "city": "Maili Nne (Eld)"},
+        {"identifier": "101", "name": "Horatio L Hornblower", "fhir_address_use": "home", "address": "1050 Wishard Blvd., Indianapolis, IN 46202, USA"}
+      ]
+    },
+    "known_patient": {
+      "uuid": "dd75c020-1691-11df-97a5-7038c432aabf",
+      "identifier": "2428TU-4",
+      "name": "Zabella Talai Halambe",
+      "gender": "F",
+      "birthdate": "1978-10-08",
+      "drug_order_concepts_resolved_to_ciel": [
+        {"concept_id": 10352, "uuid": "633AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", "name": "Efavirenz"},
+        {"concept_id": 10356, "uuid": "631AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", "name": "Nevirapine"},
+        {"concept_id": 10365, "uuid": "628AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", "name": "Lamivudine"},
+        {"concept_id": 10370, "uuid": "625AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", "name": "Stavudine"}
+      ],
+      "evidence_note": "This patient's drug-order concepts resolve through CIEL UUIDs to correctly-named antiretroviral concepts, confirming the concept-FK-through-CIEL remediation."
+    }
+  },
+  "generated_at": "2026-06-04T19:33:36Z",
+  "generator": "scripts/dump-loaded.sh --source openmrs --ignore-pattern 'chartsearchai_%' --ignore-pattern 'querystore_%'",
+  "verified_load": {
+    "target": "clean mariadb:10.11.7 container (MARIADB_ROOT_PASSWORD=test, utf8mb4 server charset)",
+    "approx_load_seconds": 20,
+    "creates_schema_named": "openmrs",
+    "tables_loaded": 232,
+    "row_counts_match_source": true,
+    "preferred_addresses_loaded": 5283,
+    "verified_at": "2026-06-04T19:34:15Z"
+  },
+  "load_into_command": "gunzip -c openmrs-2.8-refapp-demo-5284-patients-2026-06-04.sql.gz | mariadb -u root -p"
+}
