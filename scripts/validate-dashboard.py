@@ -1,0 +1,183 @@
+#!/usr/bin/env python3
+"""Tiny local dashboard for a live validate run — stdlib only, no installs.
+
+    python3 scripts/validate-dashboard.py        # then open http://localhost:8099
+
+Shows, auto-refreshing every 2s: overall progress, per-arm stats, the GGUF models
+the llama-router has resident right now (lsof — the LM-Studio-style view), a
+scenario x arm status grid, and a recent-results feed. Reads the newest run dir
+under artifacts/validate/ so it always tracks the run in flight.
+"""
+import glob
+import http.server
+import json
+import os
+import re
+import socketserver
+import subprocess
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+DATA = ROOT / "datasets" / "validation"
+PORT = int(os.environ.get("DASH_PORT", "8099"))
+
+
+def newest_run():
+    dirs = [d for d in glob.glob(str(ROOT / "artifacts" / "validate" / "*")) if os.path.isdir(d)]
+    return max(dirs, key=os.path.getmtime) if dirs else None
+
+
+def resident_models():
+    try:
+        out = subprocess.run(["lsof", "-c", "llama-server"], capture_output=True,
+                             text=True, timeout=4).stdout
+    except Exception:
+        return []
+    return sorted(set(re.findall(r"[A-Za-z0-9._-]+\.gguf", out)))
+
+
+def read_jsonl(p):
+    rows = []
+    try:
+        with open(p) as f:
+            for line in f:
+                line = line.strip()
+                if line:
+                    try:
+                        rows.append(json.loads(line))
+                    except json.JSONDecodeError:
+                        pass
+    except FileNotFoundError:
+        pass
+    return rows
+
+
+def _esc(s):
+    return (s or "").replace("\n", " ").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+
+def status():
+    run = newest_run()
+    if not run:
+        return {"run": None}
+    events = read_jsonl(Path(run) / "events.jsonl")
+    run_ev = next((e for e in events if e.get("event_type") == "run"), {})
+    set_id = run_ev.get("comparison_set")
+    scen_ids = run_ev.get("scenario_ids", [])
+    back_ids = run_ev.get("backend_ids", [])
+    labels = {e["backend_id"]: e.get("label", "")
+              for e in events if e.get("event_type") == "backend_selected"}
+
+    turns = {}
+    for sid in scen_ids:
+        try:
+            turns[sid] = len(json.load(open(DATA / "scenarios" / f"{sid}.json"))["turns"])
+        except Exception:
+            turns[sid] = 1
+    total = sum(turns.values()) * len(back_ids) if back_ids else 0
+
+    results = read_jsonl(Path(run) / "results.jsonl")
+    done = len(results)
+
+    arms = {}
+    for b in back_ids:
+        rs = [r for r in results if r.get("backend_id") == b]
+        errs = [r for r in rs if (r.get("metrics") or {}).get("http_status") != 200]
+        lat = [(r.get("metrics") or {}).get("latency_ms", 0) for r in rs]
+        ch = [(r.get("metrics") or {}).get("answer_chars", 0) for r in rs]
+        arms[b] = {"label": labels.get(b, b), "rows": len(rs), "errors": len(errs),
+                   "avg_latency_ms": (sum(lat) // len(lat)) if lat else 0,
+                   "avg_chars": (sum(ch) // len(ch)) if ch else 0,
+                   "last": rs[-1]["scenario_id"] if rs else ""}
+
+    grid = {}
+    for r in results:
+        grid.setdefault((r.get("scenario_id"), r.get("backend_id")),
+                        (r.get("metrics") or {}).get("http_status"))
+    grid_list = [{"scenario": s, "backend": b, "status": st} for (s, b), st in grid.items()]
+
+    feed = []
+    for r in results[-14:]:
+        m = r.get("metrics") or {}
+        feed.append({"scenario": r.get("scenario_id"), "backend": r.get("backend_id"),
+                     "turn": r.get("turn"), "status": m.get("http_status"),
+                     "chars": m.get("answer_chars"),
+                     "ans": _esc(((r.get("response") or {}).get("answer", "") or "")[:90])})
+
+    return {"run": os.path.basename(run), "set": set_id, "done": done, "total": total,
+            "scenarios": scen_ids, "backends": back_ids, "arms": arms,
+            "grid": grid_list, "feed": feed, "models": resident_models()}
+
+
+PAGE = """<!doctype html><html><head><meta charset=utf-8><title>validate run</title><style>
+body{background:#0d1117;color:#c9d1d9;font:13px/1.5 -apple-system,BlinkMacSystemFont,Menlo,monospace;margin:0;padding:18px}
+h1{font-size:15px;margin:0 0 6px}.muted{color:#8b949e}.ok{color:#3fb950}.err{color:#f85149}
+.bar{height:20px;background:#161b22;border-radius:10px;overflow:hidden;margin:8px 0}
+.bar>div{height:100%;background:linear-gradient(90deg,#1f6feb,#388bfd);transition:width .4s}
+.row{display:flex;gap:12px;flex-wrap:wrap;margin:10px 0}
+.card{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:10px 12px;min-width:160px}
+.card b{font-size:13px;color:#79c0ff}
+.chip{display:inline-block;background:#1f2937;border:1px solid #30363d;border-radius:12px;padding:2px 11px;margin:3px;color:#79c0ff}
+table.grid{border-collapse:collapse;margin-top:6px;font-size:11px}
+.grid td,.grid th{border:1px solid #21262d;padding:3px 6px;text-align:center}
+.grid th{color:#8b949e;font-weight:400;text-align:left;white-space:nowrap}
+.c200{background:#196c2e;color:#e6ffe9}.cerr{background:#8b1a1a;color:#ffe9e9}.cpend{background:#1a1f27;color:#484f58}
+.feed div{padding:2px 0;border-bottom:1px solid #161b22;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+section{margin:18px 0}h2{font-size:12px;color:#8b949e;margin:0 0 4px;text-transform:uppercase;letter-spacing:.05em}
+</style></head><body>
+<h1 id=hdr>validate run</h1>
+<div class=bar><div id=fill style=width:0%></div></div>
+<div id=prog class=muted></div>
+<section><h2>Models resident (llama-router)</h2><div id=models></div></section>
+<section><h2>Arms</h2><div class=row id=arms></div></section>
+<section><h2>Scenario &times; arm</h2><div id=grid></div></section>
+<section><h2>Recent</h2><div class=feed id=feed></div></section>
+<script>
+const cls=s=>s===200?'c200':(s==null?'cpend':'cerr');
+const sym=s=>s===200?'✓':(s==null?'·':'×');
+const shortB=b=>b.replace('med-agent-team-','').replace('-baseline','-base');
+async function tick(){
+ let d; try{d=await(await fetch('/api/status')).json()}catch(e){return}
+ if(!d.run){hdr.textContent='waiting for a run...';return}
+ const pct=d.total?Math.round(100*d.done/d.total):0;
+ hdr.textContent='run '+d.run.slice(0,8)+'  ·  set '+(d.set||'')+'  ·  '+pct+'%';
+ fill.style.width=pct+'%';
+ prog.textContent=d.done+' / '+d.total+' results';
+ models.innerHTML=(d.models||[]).map(m=>'<span class=chip>'+m+'</span>').join('')||'<span class=muted>none resident</span>';
+ arms.innerHTML=(d.backends||[]).map(b=>{const a=d.arms[b]||{};
+   return '<div class=card><b>'+b+'</b><br>'+(a.rows||0)+' rows · <span class="'+(a.errors?'err':'ok')+'">'+(a.errors||0)+' err</span>'
+   +'<br><span class=muted>~'+(a.avg_latency_ms||0)+'ms · '+(a.avg_chars||0)+' chars</span>'
+   +'<br><span class=muted>'+(a.last||'')+'</span></div>'}).join('');
+ const gm={};(d.grid||[]).forEach(g=>gm[g.scenario+'|'+g.backend]=g.status);
+ let h='<table class=grid><tr><th></th>'+(d.backends||[]).map(b=>'<th>'+shortB(b)+'</th>').join('')+'</tr>';
+ (d.scenarios||[]).forEach(s=>{h+='<tr><th>'+s+'</th>'+(d.backends||[]).map(b=>{const st=gm[s+'|'+b];
+   return '<td class='+cls(st)+'>'+sym(st)+'</td>'}).join('')+'</tr>'});
+ grid.innerHTML=h+'</table>';
+ feed.innerHTML=(d.feed||[]).slice().reverse().map(f=>'<div><span class="'+(f.status===200?'ok':'err')+'">'+f.status
+   +'</span> '+f.scenario+'/'+shortB(f.backend)+' t'+f.turn+' <span class=muted>'+f.chars+'c</span> '+f.ans+'</div>').join('');
+}
+tick();setInterval(tick,2000);
+</script></body></html>"""
+
+
+class H(http.server.BaseHTTPRequestHandler):
+    def log_message(self, *a):
+        pass
+
+    def do_GET(self):
+        if self.path.startswith("/api/status"):
+            body = json.dumps(status()).encode()
+            ctype = "application/json"
+        else:
+            body = PAGE.encode()
+            ctype = "text/html; charset=utf-8"
+        self.send_response(200)
+        self.send_header("Content-Type", ctype)
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+
+if __name__ == "__main__":
+    print(f"validate dashboard -> http://localhost:{PORT}   (Ctrl-C to stop)")
+    socketserver.TCPServer(("127.0.0.1", PORT), H).serve_forever()
