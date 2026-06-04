@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
 import { isSection, navTree, neighbors, NavLeaf, NavSection } from './nav';
+import { completeNav } from './nav-auto';
 import { htmlHrefFor } from './prerender-lib';
 
 // Link from the interactive view to its full-static-HTML twin (the LLM-readable
@@ -15,6 +16,15 @@ function PlainHtmlLink({ kind, slug }: { kind: 'spec' | 'canvas'; slug: string }
 const canvasModules = import.meta.glob('../specs/**/*.canvas.tsx', { eager: true }) as Record<string, { default: React.ComponentType }>;
 const specModules   = import.meta.glob('../specs/**/*.md',        { eager: true }) as Record<string, { html?: string; default: string }>;
 const repoMd        = import.meta.glob(['../README.md', '../docs/**/*.md'], { eager: true }) as Record<string, { html?: string; default: string }>;
+
+// The curated nav defines priority/order; every other doc and canvas on disk is
+// auto-discovered and appended into deep sections, so the SPA and the prerendered
+// twins surface the whole repo from one source of truth.
+const fullNavTree = completeNav(
+  [...Object.keys(specModules), ...Object.keys(repoMd)],
+  Object.keys(canvasModules),
+  navTree,
+);
 
 function pathToSlug(p: string): string {
   return p.replace(/^\.\.\//, '').replace(/\.canvas\.tsx$/, '').replace(/\.md$/, '').replace(/\.tsx$/, '');
@@ -88,7 +98,7 @@ function Sidebar({ onClose, onNavigate }: { onClose: () => void; onNavigate: () 
       </div>
       <div className="sidebar-sub">Planning artifacts &amp; canvases</div>
       <nav className="sidebar-nav">
-        {navTree.map((s, i) => <SidebarSection key={`top-${i}-${s.title}`} section={s} depth={0} onNavigate={onNavigate} />)}
+        {fullNavTree.map((s, i) => <SidebarSection key={`top-${i}-${s.title}`} section={s} depth={0} onNavigate={onNavigate} />)}
       </nav>
     </aside>
   );
@@ -107,12 +117,12 @@ function HomeView() {
       else allLeaves.push({ leaf: it, topSection, parentSection });
     }
   }
-  for (const top of navTree) walk(top.items, top);
+  for (const top of fullNavTree) walk(top.items, top);
 
   const canvasLeaves = allLeaves.filter((x) => x.leaf.kind === 'canvas');
   const totalDocs = allLeaves.filter((x) => x.leaf.kind === 'spec').length;
   const totalCanvases = canvasLeaves.length;
-  const featureCount = navTree.find((s) => s.title === 'Active features')?.items.filter(isSection).length ?? 0;
+  const featureCount = fullNavTree.find((s) => s.title === 'Active features')?.items.filter(isSection).length ?? 0;
 
   const toFor = (leaf: NavLeaf) =>
     leaf.kind === 'canvas' ? `/canvas/${leaf.slug}` : leaf.kind === 'home' ? '/' : `/spec/${leaf.slug}`;
@@ -157,7 +167,7 @@ function HomeView() {
       <section className="landing-section">
         <h2>Specs &amp; docs</h2>
         <p className="landing-section-sub">Markdown sources in sidebar navigation order. Click any to read; every page has prev/next links at the bottom.</p>
-        {navTree.map((top) => {
+        {fullNavTree.map((top) => {
           // Group leaves by parent section within the top — preserving the curated order.
           type Group = { label: string; leaves: NavLeaf[] };
           const groups: Group[] = [];
@@ -238,7 +248,7 @@ function SpecView({ slug }: { slug: string }) {
 }
 
 function PrevNext({ slug }: { slug: string }) {
-  const { prev, next } = neighbors(slug);
+  const { prev, next } = neighbors(slug, fullNavTree);
   if (!prev && !next) return null;
   const toFor = (leaf: NavLeaf) => leaf.kind === 'canvas' ? `/canvas/${leaf.slug}` : leaf.kind === 'home' ? '/' : `/spec/${leaf.slug}`;
   return (

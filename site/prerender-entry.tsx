@@ -11,7 +11,8 @@
  */
 import * as React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { leafSequence } from './nav';
+import { leafSequence, navTree } from './nav';
+import { completeNav } from './nav-auto';
 import { planOutputs, type RenderedPage } from './prerender-lib';
 
 const canvasModules = import.meta.glob('../specs/**/*.canvas.tsx', { eager: true }) as Record<
@@ -41,7 +42,14 @@ function findSpec(slug: string) {
 
 /** Build the full output plan, with every doc/canvas body rendered via Vite. */
 export function plan(base: string, meta: { title: string; summary: string }) {
-  const leaves = leafSequence().map((x) => x.leaf);
+  // Auto-discover every doc/canvas on disk and merge it into the curated nav, so
+  // the mirror covers the whole repo (priority pages curated, the rest deep).
+  const fullTree = completeNav(
+    [...Object.keys(specModules), ...Object.keys(repoMd)],
+    Object.keys(canvasModules),
+    navTree,
+  );
+  const leaves = leafSequence(fullTree).map((x) => x.leaf);
   const rendered: Record<string, RenderedPage> = {};
   const missing: string[] = [];
   for (const leaf of leaves) {

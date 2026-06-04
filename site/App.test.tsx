@@ -29,4 +29,16 @@ describe('App full-HTML twin link', () => {
     );
     expect(html).toContain('canvas/specs/roadmap.html');
   });
+
+  it('surfaces auto-discovered (uncurated) repo pages in the nav', () => {
+    const html = renderToStaticMarkup(
+      React.createElement(
+        MemoryRouter,
+        { initialEntries: ['/welcome'] },
+        React.createElement(App),
+      ),
+    );
+    expect(html).toContain('More documents');
+    expect(html).toContain('specs/004-real-adapter-entrypoints/spec');
+  });
 });
