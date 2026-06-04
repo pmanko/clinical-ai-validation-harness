@@ -1,0 +1,23 @@
+{
+  "id": "single-last-bmp",
+  "patient_ref": "dd75c020-1691-11df-97a5-7038c432aabf",
+  "turns": [
+    {
+      "n": 1,
+      "question": "Give me the results of this patient's last basic metabolic panel (BMP)."
+    }
+  ],
+  "tags": [
+    "labs",
+    "abstain",
+    "single-turn",
+    "priority"
+  ],
+  "expectations": {
+    "should_cite_resource_types": [
+      "Observation"
+    ],
+    "should_abstain": true,
+    "notes": "A BMP (Na/K/Cl/CO2/BUN/Cr/glucose) is not expected in this HIV-focused chart \u2014 abstain if absent, or report only metabolic labs that exist; must NOT fabricate values. [provisional - confirm against chart]"
+  }
+}

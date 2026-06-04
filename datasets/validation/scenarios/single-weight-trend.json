@@ -1,0 +1,23 @@
+{
+  "id": "single-weight-trend",
+  "patient_ref": "dd75c020-1691-11df-97a5-7038c432aabf",
+  "turns": [
+    {
+      "n": 1,
+      "question": "How has this patient's weight changed over the past year?"
+    }
+  ],
+  "tags": [
+    "vitals",
+    "trend",
+    "single-turn",
+    "priority"
+  ],
+  "expectations": {
+    "should_cite_resource_types": [
+      "Observation"
+    ],
+    "should_abstain": false,
+    "notes": "Latest weight ~71 kg. A one-year trend needs >=2 dated weights \u2014 if only one/sparse, report the value(s) and state insufficient data for a trend, not a fabricated trajectory."
+  }
+}

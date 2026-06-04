@@ -195,25 +195,17 @@ services:
     container_name: harness-med-agent-hub
     restart: "unless-stopped"
     environment:
-      # Full-GGUF default: every role points at the llama-router (:8077) so the whole
-      # team runs one engine with real DRY + tool-calling — engine parity with the
-      # single-LLM llama-server arms. Ids are llama-router.ini section names. Override
-      # any MED_AGENT_* var to repoint a role (e.g. back at LM Studio MLX on :1234).
+      # Team tiers (per-role models per level) live in server/levels.yaml,
+      # bind-mounted below + resolved per request — no per-level model env here.
+      # LLM_BASE_URL points every role at the llama-router (:8077) for GGUF + DRY.
       LLM_BASE_URL: ${MED_AGENT_LLM_BASE_URL:-http://host.docker.internal:8077}
-      ORCHESTRATOR_MODEL: ${MED_AGENT_ORCHESTRATOR_MODEL:-gemma-e4b}
-      ORCHESTRATOR_MODEL_HIGH: ${MED_AGENT_ORCHESTRATOR_MODEL_HIGH:-gemma-26b}
-      MED_MODEL: ${MED_AGENT_MED_MODEL:-medgemma-1.5-4b}
-      EXPERT_MODEL_HIGH: ${MED_AGENT_EXPERT_MODEL_HIGH:-medgemma-27b}
-      SYNTH_MODEL_LOW: ${MED_AGENT_SYNTH_MODEL_LOW:-qwen2.5-14b}
-      SYNTH_MODEL_MED: ${MED_AGENT_SYNTH_MODEL_MED:-qwen2.5-32b}
-      SYNTH_MODEL_HIGH: ${MED_AGENT_SYNTH_MODEL_HIGH:-qwen3.6-35b}
-      SYNTHESIZER_MODEL: ${MED_AGENT_SYNTHESIZER_MODEL:-gemma-e4b}
       LLM_TEMPERATURE: ${MED_AGENT_TEMPERATURE:-0.0}
     extra_hosts:
       # Reach LM Studio on the host, same pattern as the backend.
       - "host.docker.internal:host-gateway"
     volumes:
       - ../targets/med-agent-hub/server/prompts:/app/server/prompts:ro
+      - ../targets/med-agent-hub/server/levels.yaml:/app/server/levels.yaml:ro
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://localhost:8080/health"]
       interval: 30s

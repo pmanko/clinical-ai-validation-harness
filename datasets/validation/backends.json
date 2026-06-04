@@ -14,18 +14,28 @@
     "endpointUrl": "http://host.docker.internal:1234/v1/chat/completions",
     "modelName": "google/gemma-4-26b-a4b"
   },
+  "a4b-baseline": {
+    "label": "A4B baseline — Gemma 4-26B-A4B single LLM, direct chart (GGUF+DRY)",
+    "endpointUrl": "http://host.docker.internal:8077/v1/chat/completions",
+    "modelName": "gemma-26b"
+  },
+  "e2b-baseline": {
+    "label": "E2B baseline — Gemma 4-E2B single LLM, direct chart (GGUF+DRY)",
+    "endpointUrl": "http://host.docker.internal:8077/v1/chat/completions",
+    "modelName": "gemma-e2b"
+  },
   "med-agent-team-low": {
-    "label": "Med Agent Team — LOW (qwen2.5-14b synth, medgemma-1.5 expert)",
+    "label": "Med Agent Team — LOW (e2b-2bit orch · medgemma-1.5 expert · qwen3-4b synth)",
     "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
     "modelName": "med-agent-team-low"
   },
   "med-agent-team-med": {
-    "label": "Med Agent Team — MED (qwen2.5-32b synth, medgemma-1.5 expert)",
+    "label": "Med Agent Team — MED (e4b-q8 orch · medgemma-1.5-q8 expert · qwen2.5-14b synth)",
     "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
     "modelName": "med-agent-team-med"
   },
   "med-agent-team-high": {
-    "label": "Med Agent Team — HIGH (gemma-4-26b-a4b orch, medgemma-27b expert, qwen3.6-35b-a3b synth)",
+    "label": "Med Agent Team — HIGH (gemma-31b orch · medgemma-27b expert · qwen3.6-35b-q6 synth)",
     "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
     "modelName": "med-agent-team-high"
   },

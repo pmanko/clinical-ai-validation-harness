@@ -1,0 +1,19 @@
+{
+  "id": "single-age",
+  "patient_ref": "dd75c020-1691-11df-97a5-7038c432aabf",
+  "turns": [
+    {
+      "n": 1,
+      "question": "How old is this patient?"
+    }
+  ],
+  "tags": [
+    "demographics",
+    "single-turn",
+    "priority"
+  ],
+  "expectations": {
+    "should_abstain": false,
+    "notes": "DOB is 1978-10-08 \u2014 a correct answer derives age from the birthdate. Retrieve (demographic; no record citation needed)."
+  }
+}

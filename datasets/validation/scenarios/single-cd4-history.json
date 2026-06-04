@@ -1,0 +1,24 @@
+{
+  "id": "single-cd4-history",
+  "patient_ref": "dd75c020-1691-11df-97a5-7038c432aabf",
+  "turns": [
+    {
+      "n": 1,
+      "question": "Share the history of CD4 counts since this patient came to clinic."
+    }
+  ],
+  "tags": [
+    "hiv",
+    "labs",
+    "trend",
+    "single-turn",
+    "priority"
+  ],
+  "expectations": {
+    "should_cite_resource_types": [
+      "Observation"
+    ],
+    "should_abstain": false,
+    "notes": "Only ONE CD4 value is recorded (341, 2006-04-04). Report that single value and explicitly note there is no multi-point history/trend \u2014 do NOT fabricate a series."
+  }
+}

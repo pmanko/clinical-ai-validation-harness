@@ -1,0 +1,23 @@
+{
+  "id": "single-orders-6mo",
+  "patient_ref": "dd75c020-1691-11df-97a5-7038c432aabf",
+  "turns": [
+    {
+      "n": 1,
+      "question": "What has been ordered for this patient over the past 6 months?"
+    }
+  ],
+  "tags": [
+    "orders",
+    "single-turn",
+    "priority"
+  ],
+  "expectations": {
+    "should_cite_resource_types": [
+      "MedicationRequest",
+      "ServiceRequest"
+    ],
+    "should_abstain": false,
+    "notes": "Enumerate medication + service/lab orders within ~6 months of the most recent chart date (~2006). Retrieve, cited; abstain on the window if no recent orders."
+  }
+}

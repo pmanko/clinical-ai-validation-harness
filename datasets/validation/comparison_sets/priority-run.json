@@ -1,0 +1,27 @@
+{
+  "id": "priority-run",
+  "scenario_ids": [
+    "single-medications",
+    "single-vitals-summary",
+    "single-allergies",
+    "single-problem-list",
+    "single-recent-activity",
+    "single-last-visit",
+    "single-contact-info",
+    "single-hiv-status",
+    "single-weight-trend",
+    "single-cd4-history",
+    "single-immunizations",
+    "single-orders-6mo",
+    "single-last-bmp",
+    "single-upcoming-appointments",
+    "single-last-visit-detail",
+    "single-age",
+    "single-care-programs",
+    "single-hiv-labs",
+    "convo-medications-adherence",
+    "convo-diagnosis-evidence",
+    "convo-safety-escalation"
+  ],
+  "backend_ids": ["a4b-baseline", "e2b-baseline", "med-agent-team-low", "med-agent-team-med", "med-agent-team-high"]
+}

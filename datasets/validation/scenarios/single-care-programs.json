@@ -1,0 +1,19 @@
+{
+  "id": "single-care-programs",
+  "patient_ref": "dd75c020-1691-11df-97a5-7038c432aabf",
+  "turns": [
+    {
+      "n": 1,
+      "question": "What care programs is this patient enrolled in?"
+    }
+  ],
+  "tags": [
+    "programs",
+    "single-turn",
+    "priority"
+  ],
+  "expectations": {
+    "should_abstain": false,
+    "notes": "The patient is part of the demo's HIV care cohort \u2014 report the HIV program enrollment; abstain on programs not recorded. [provisional - confirm enrollment is exposed to the chart view]"
+  }
+}

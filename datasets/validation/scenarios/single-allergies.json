@@ -1,0 +1,23 @@
+{
+  "id": "single-allergies",
+  "patient_ref": "dd75c020-1691-11df-97a5-7038c432aabf",
+  "turns": [
+    {
+      "n": 1,
+      "question": "Does this patient have any allergies?"
+    }
+  ],
+  "tags": [
+    "allergies",
+    "abstain",
+    "single-turn",
+    "priority"
+  ],
+  "expectations": {
+    "should_cite_resource_types": [
+      "AllergyIntolerance"
+    ],
+    "should_abstain": true,
+    "notes": "No allergies are recorded for Zabella (verified absent) \u2014 should state none / abstain honestly, not confabulate."
+  }
+}

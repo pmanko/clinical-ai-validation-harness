@@ -1,0 +1,5 @@
+{
+  "id": "priority-smoke",
+  "scenario_ids": ["single-medications"],
+  "backend_ids": ["a4b-baseline", "e2b-baseline", "med-agent-team-low", "med-agent-team-med", "med-agent-team-high"]
+}
