@@ -225,6 +225,27 @@ def _run_blob(run_dir: Path) -> dict[str, Any]:
             turns.append({"turn": t, "question": questions.get(t, ""), "cells": cells})
         scenarios.append({"scenario_id": sid, "turns": turns})
 
+    # Patient grounding: the chart-QA runs are about a real OpenMRS patient. Surface the
+    # patient(s) the run actually hit (results' request.patient) with a deep link to the live
+    # chart, plus name/identifier when the manifest carries a `patients` map (uuid -> meta;
+    # the runner can populate it from OpenMRS — falls back to UUID + chart link without it).
+    chart_base = manifest.get(
+        "openmrs_chart_base", "https://openmrs.openclinai.org/openmrs/spa/patient")
+    patient_meta = manifest.get("patients", {})
+    patient_uuids = _ordered_unique(
+        [(r.get("request") or {}).get("patient") for r in results if (r.get("request") or {}).get("patient")])
+    patients = [
+        {
+            "uuid": u,
+            "display": (patient_meta.get(u) or {}).get("display", ""),
+            "identifier": (patient_meta.get(u) or {}).get("identifier", ""),
+            "gender": (patient_meta.get(u) or {}).get("gender", ""),
+            "age": (patient_meta.get(u) or {}).get("age"),
+            "chart_url": f"{chart_base}/{u}/chart",
+        }
+        for u in patient_uuids
+    ]
+
     return {
         "run_id": run_id,
         "meta": {
@@ -239,6 +260,7 @@ def _run_blob(run_dir: Path) -> dict[str, Any]:
         "labels": {b: labels.get(b, "") for b in backends},
         "scenarios": scenarios,
         "summary": _summary_rows(results, backends, labels),
+        "patients": patients,
     }
 
 
@@ -299,7 +321,7 @@ th { background: #f3f3f3; font-weight: 600; font-size: 12px; }
 .qhead { position: sticky; left: 0; z-index: 1; background: var(--bg); align-self: start; }
 .qhead .n { font-family: ui-monospace, monospace; font-weight: 700; color: var(--mut); }
 .qhead .q { margin-top: 2px; }
-.tiles { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(280px, 1fr); gap: 12px; align-items: stretch; overflow-x: auto; min-height: 60px; }
+.tiles { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(340px, 1fr); gap: 12px; align-items: stretch; overflow-x: auto; min-height: 60px; scroll-behavior: smooth; }
 .tile { display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: 10px; background: #fff; padding: 10px 12px; cursor: grab; user-select: none; }
 .tile.dragging { opacity: .4; cursor: grabbing; }
 .tile.empty { color: #bbb; align-items: center; justify-content: center; cursor: default; }
@@ -307,7 +329,8 @@ th { background: #f3f3f3; font-weight: 600; font-size: 12px; }
 .rank-badge { font: 11px ui-monospace, monospace; background: #eef3ff; color: #2748a0; border-radius: 4px; padding: 0 5px; }
 .tile-head .backend { font-family: ui-monospace, monospace; font-weight: 700; font-size: 12px; }
 .tile-head .label { color: var(--mut); font-size: 11px; }
-.expand { font-size: 11px; color: #2748a0; cursor: pointer; background: none; border: none; padding: 0; align-self: flex-start; margin-top: 4px; }
+.expand { font: 600 11px/1.2 ui-monospace, monospace; color: #2748a0; cursor: pointer; background: #eef3ff; border: 1px solid #c7d6f5; border-radius: 6px; padding: 4px 11px; align-self: flex-start; margin-top: 6px; }
+.expand:hover { background: #dce6fb; }
 .ans { white-space: pre-wrap; max-height: 20em; overflow: auto; }
 .tile.expanded .ans { max-height: none; }
 .refs { margin-top: 6px; }
@@ -333,6 +356,24 @@ th { background: #f3f3f3; font-weight: 600; font-size: 12px; }
 .block-tbl th, .block-tbl td { font-size: 12px; padding: 4px 6px; }
 .legend { color: var(--mut); font-size: 12px; margin-top: 24px; border-top: 1px solid var(--line); padding-top: 12px; }
 [data-hidden="1"] { display: none !important; }
+.patient-banner { background: #f0f6ff; border: 1px solid #c7d6f5; border-radius: 8px; padding: 8px 14px; margin: 0 0 14px; font-size: 13px; }
+.patient-banner .pt-id { font-family: ui-monospace, monospace; font-weight: 700; }
+.patient-banner .pt-name { font-weight: 600; }
+.patient-banner a { color: #2748a0; font-weight: 600; text-decoration: none; margin-left: 8px; }
+.patient-banner a:hover { text-decoration: underline; }
+.tile { position: relative; }
+.tiles-wrap { position: relative; min-width: 0; }
+.scroll-arrow { position: absolute; top: 0; bottom: 0; width: 30px; display: flex; align-items: center; justify-content: center; border: none; cursor: pointer; z-index: 5; font-size: 15px; color: #2748a0; background: rgba(255,255,255,.9); box-shadow: 0 0 8px rgba(0,0,0,.15); }
+.scroll-arrow.left { left: -2px; } .scroll-arrow.right { right: -2px; }
+.scroll-arrow.disabled { color: #cfcfcf; cursor: default; box-shadow: none; background: rgba(255,255,255,.4); pointer-events: none; }
+.fs-btn { position: absolute; top: 8px; right: 8px; font-size: 12px; color: #2748a0; cursor: pointer; background: #eef3ff; border: 1px solid #c7d6f5; border-radius: 6px; padding: 2px 7px; line-height: 1; }
+.fs-btn:hover { background: #dce6fb; }
+.fs-overlay { display: none; position: fixed; inset: 0; background: rgba(20,20,20,.55); z-index: 100; }
+.fs-overlay.open { display: flex; align-items: center; justify-content: center; }
+.fs-modal { background: #fff; width: 92vw; height: 92vh; border-radius: 12px; padding: 18px 24px; overflow: auto; box-shadow: 0 8px 40px rgba(0,0,0,.35); }
+.fs-close { float: right; font: inherit; font-weight: 600; cursor: pointer; background: #f3f3f3; border: 1px solid var(--line); border-radius: 6px; padding: 4px 12px; }
+.fs-body { clear: both; }
+.fs-body .ans { max-height: none; overflow: visible; font-size: 15px; line-height: 1.6; }
 
 /* Print / Save-as-PDF: drop the interactive chrome, expand answers, keep tiles whole. */
 @media print {
@@ -423,6 +464,12 @@ function buildTile(run, backend, cell, turn, scenarioId){
   }
   tile.appendChild(body);
 
+  const fsBtn = el('button', 'fs-btn');
+  fsBtn.textContent = '⛶';
+  fsBtn.title = 'view full screen';
+  fsBtn.addEventListener('click', (e) => { e.stopPropagation(); openFullscreen(tile); });
+  tile.appendChild(fsBtn);
+
   const expand = el('button', 'expand');
   expand.textContent = 'expand';
   expand.addEventListener('click', () => {
@@ -465,6 +512,8 @@ function renderRun(runId){
 
   const main = document.getElementById('report');
   main.innerHTML = '';
+  const pbanner = renderPatientBanner(run);
+  if (pbanner) main.appendChild(pbanner);
   main.appendChild(renderSummary(run));
 
   run.scenarios.forEach(sc => {
@@ -494,7 +543,12 @@ function renderRun(runId){
 
       wireGroup(tilesEl);
       renumber(tilesEl);
-      band.appendChild(tilesEl);
+      const wrap = el('div', 'tiles-wrap');
+      const aL = el('button', 'scroll-arrow left'); aL.textContent = '◀'; aL.setAttribute('aria-label', 'scroll left');
+      const aR = el('button', 'scroll-arrow right'); aR.textContent = '▶'; aR.setAttribute('aria-label', 'scroll right');
+      wrap.appendChild(aL); wrap.appendChild(tilesEl); wrap.appendChild(aR);
+      wireScroll(tilesEl, aL, aR);
+      band.appendChild(wrap);
       sec.appendChild(band);
     });
     main.appendChild(sec);
@@ -565,6 +619,61 @@ function renumber(tilesEl){
     const b = t.querySelector('.rank-badge'); if (b) b.textContent = (i + 1);
   });
 }
+
+/* ---- patient grounding banner (links to the live OpenMRS chart) ---- */
+function renderPatientBanner(run){
+  const pts = run.patients || [];
+  if (!pts.length) return null;
+  const pb = el('div', 'patient-banner');
+  pb.appendChild(document.createTextNode('Patient — '));
+  pts.forEach((pt, i) => {
+    if (i) pb.appendChild(document.createTextNode('   ·   '));
+    const id = el('span', 'pt-id');
+    id.textContent = pt.identifier ? ('OpenMRS ID ' + pt.identifier) : ('UUID ' + (pt.uuid || '').slice(0, 8));
+    pb.appendChild(id);
+    if (pt.display){ const nm = el('span', 'pt-name'); nm.textContent = ' ' + pt.display; pb.appendChild(nm); }
+    const demo = [pt.gender, (pt.age != null ? pt.age + 'y' : '')].filter(Boolean).join(', ');
+    if (demo){ const d = el('span', 'pt-demo'); d.textContent = ' (' + demo + ')'; pb.appendChild(d); }
+    if (pt.chart_url){ const a = el('a'); a.href = pt.chart_url; a.target = '_blank'; a.rel = 'noopener'; a.textContent = 'open chart ↗'; pb.appendChild(a); }
+  });
+  return pb;
+}
+
+/* ---- horizontal scroll affordance: greyed ◀▶ arrows show when tiles run off-screen ---- */
+function wireScroll(tilesEl, aL, aR){
+  function update(){
+    const max = tilesEl.scrollWidth - tilesEl.clientWidth;
+    aL.classList.toggle('disabled', tilesEl.scrollLeft <= 1);
+    aR.classList.toggle('disabled', max <= 1 || tilesEl.scrollLeft >= max - 1);
+  }
+  aL.addEventListener('click', () => tilesEl.scrollBy({ left: -tilesEl.clientWidth * 0.85, behavior: 'smooth' }));
+  aR.addEventListener('click', () => tilesEl.scrollBy({ left: tilesEl.clientWidth * 0.85, behavior: 'smooth' }));
+  tilesEl.addEventListener('scroll', update);
+  window.addEventListener('resize', update);
+  update();
+  requestAnimationFrame(update);
+}
+
+/* ---- per-tile fullscreen: read one backend's answer full-screen ---- */
+function openFullscreen(tile){
+  let ov = document.querySelector('.fs-overlay');
+  if (!ov){
+    ov = el('div', 'fs-overlay');
+    ov.innerHTML = "<div class='fs-modal'><button class='fs-close'>✕ close</button><div class='fs-body'></div></div>";
+    ov.addEventListener('click', e => { if (e.target === ov) closeFullscreen(); });
+    ov.querySelector('.fs-close').addEventListener('click', closeFullscreen);
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeFullscreen(); });
+    document.body.appendChild(ov);
+  }
+  const body = ov.querySelector('.fs-body');
+  body.innerHTML = '';
+  const clone = tile.cloneNode(true);
+  clone.classList.add('expanded');
+  clone.querySelectorAll('.fs-btn, .adj, .expand, .rank-badge').forEach(x => x.remove());
+  body.appendChild(clone);
+  ov.classList.add('open');
+}
+function closeFullscreen(){ const ov = document.querySelector('.fs-overlay'); if (ov) ov.classList.remove('open'); }
 
 /* ---- exports: two files, two grains ---- */
 function n(v){ v = (v || '').trim(); return v === '' ? null : Number(v); }
