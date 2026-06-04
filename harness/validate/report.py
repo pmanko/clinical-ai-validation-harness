@@ -424,6 +424,17 @@ th { background: #f3f3f3; font-weight: 600; font-size: 12px; }
 .judge-section { margin-top: 18px; }
 .jb-faith { fill: #2748a0; }
 .jb-corr { fill: #d9730d; }
+.jh-title { font-size: 13px; margin: 16px 0 5px; color: #374151; }
+table.jheat { border-collapse: collapse; font-size: 11px; }
+.jheat th, .jheat td { border: 1px solid #e5e7eb; padding: 3px 7px; text-align: center; }
+.jheat th.jh-scen { text-align: left; font-weight: 400; font-family: ui-monospace, monospace; white-space: nowrap; }
+.jh { cursor: pointer; font-variant-numeric: tabular-nums; }
+.jh:hover { outline: 2px solid #2748a0; }
+.jh-good { background: #d6f0d8; }
+.jh-mid { background: #fdedc8; }
+.jh-bad { background: #f6d2d2; }
+.jh-na { color: #cbd5e1; }
+.jh-note { margin-top: 8px; padding: 8px 10px; background: #f6f8fa; border: 1px solid #e5e7eb; border-radius: 6px; font-size: 12px; color: #374151; min-height: 18px; }
 .qband { display: grid; grid-template-columns: var(--qcol, 240px) 1fr; gap: 12px; align-items: start; border-top: 1px solid var(--line); padding: 12px 0; }
 .qhead { position: sticky; left: 0; z-index: 1; background: var(--bg); align-self: start; }
 .qhead .n { font-family: ui-monospace, monospace; font-weight: 700; color: var(--mut); }
@@ -578,7 +589,7 @@ function boxPlotSVG(label, series){
 }
 function renderMetrics(run){
   var sec=el('section','metrics-section');
-  sec.innerHTML='<h2>metric distributions</h2><p class="metrics-legend">box = IQR (q1–q3), solid line = median, dashed = mean, whiskers = 1.5×IQR, dots = outliers · successful turns only.</p>';
+  sec.innerHTML='<h2>metric distributions</h2><p class="metrics-legend"><b>What each is:</b> latency = end-to-end response time (ms) · chart references = citations per answer (a grounding-density proxy) · answer length = characters. <b>Reading a box:</b> the box spans the middle 50% of scenarios (q1–q3), the solid line is the median, the dashed line the mean, whiskers reach 1.5×IQR, dots are outliers. Successful turns only.</p>';
   var m=run.metrics||{}, keys=['latency_ms','citation_count','answer_chars'], k, md;
   var grid=el('div','metrics-grid'), any=false;
   for(k=0;k<keys.length;k++){ md=m[keys[k]]; if(md&&md.series&&md.series.length){ grid.appendChild(boxPlotSVG(md.label, md.series)); any=true; } }
@@ -608,16 +619,50 @@ function judgeBarsSVG(series){
   g+='</svg>';
   var wrap=el('div','boxplot-wrap'); wrap.innerHTML=g; return wrap;
 }
+function fmtFC(v){ return v==null?'–':(v==1?'1':(v==0?'0':String(v).replace('0.','.'))); }
+function judgeHeatmap(run){
+  var jr=run.judge_rows||[]; if(!jr.length) return null;
+  var idx={}; for(var i=0;i<jr.length;i++){ idx[jr[i].scenario_id+'|'+jr[i].backend_id]=jr[i]; }
+  var arms=run.backends||[];
+  var h='<h3 class="jh-title">per-scenario evaluation — faithfulness / correctness (click a cell for the note)</h3>';
+  h+='<table class="jheat"><thead><tr><th>scenario</th>';
+  for(var a=0;a<arms.length;a++){ h+='<th>'+htmlEsc(bpShort(arms[a]))+'</th>'; }
+  h+='</tr></thead><tbody>';
+  var scen=(run.scenarios||[]).map(function(s){return s.scenario_id;});
+  for(var sI=0;sI<scen.length;sI++){
+    var sid=scen[sI];
+    h+='<tr><th class="jh-scen">'+htmlEsc(sid)+'</th>';
+    for(var aI=0;aI<arms.length;aI++){
+      var r=idx[sid+'|'+arms[aI]];
+      if(!r){ h+='<td class="jh-na">·</td>'; continue; }
+      var cls=r.correctness>=1?'jh-good':(r.correctness>=0.5?'jh-mid':'jh-bad');
+      var tip=htmlEsc('faithfulness '+r.faithfulness+' · correctness '+r.correctness+(r.note?' — '+r.note:''));
+      h+='<td class="jh '+cls+'" title="'+tip+'" data-note="'+htmlEsc(r.note||'')+'" data-f="'+r.faithfulness+'" data-c="'+r.correctness+'" data-sid="'+htmlEsc(sid)+'" data-arm="'+htmlEsc(arms[aI])+'">'+fmtFC(r.faithfulness)+'/'+fmtFC(r.correctness)+'</td>';
+    }
+    h+='</tr>';
+  }
+  h+='</tbody></table><div class="jh-note" id="jh-note">click any cell to read the reviewer’s note for that answer.</div>';
+  var wrap=el('div','judge-heatmap-wrap'); wrap.innerHTML=h;
+  var cells=wrap.querySelectorAll('td.jh');
+  for(var c=0;c<cells.length;c++){
+    cells[c].onclick=(function(td){ return function(){
+      wrap.querySelector('#jh-note').innerHTML='<b>'+htmlEsc(td.dataset.sid)+' · '+htmlEsc(bpShort(td.dataset.arm))+'</b> — faithfulness '+td.dataset.f+', correctness '+td.dataset.c+'<br>'+htmlEsc(td.dataset.note||'(no note)');
+    }; })(cells[c]);
+  }
+  return wrap;
+}
 function renderJudge(run){
   var sec=el('section','judge-section'), j=run.judge||[], has=false;
   for(var i=0;i<j.length;i++){ if(j[i].n>0){ has=true; break; } }
   if(!has){ return sec; }
-  sec.innerHTML='<h2>quality — reviewer judgment</h2><p class="metrics-legend">faithfulness = claims grounded in the chart; correctness = matches the chart. scored against each patient chart, 0–1 per scenario (successful answers only).</p>';
+  sec.innerHTML='<h2>quality — reviewer judgment</h2>'
+   +'<p class="metrics-legend">Every answer was scored against the patient’s actual chart. <b>Faithfulness</b> = are all of the answer’s claims grounded in the chart (no hallucinated meds, labs, dates, or trends). <b>Correctness</b> = does it match the chart and the question’s intent — retrieve the right data, or correctly <i>abstain</i> when the data is absent. Each is 0 / 0.5 / 1 per scenario; the table and bars below are per-arm means. <b>Drill down:</b> the heatmap shows every scenario × arm (green = correct, amber = partial, red = wrong) — click a cell for the reviewer’s note.</p>';
   var rows=j.map(function(s){ return "<tr><td class='b'>"+htmlEsc(bpShort(s.backend))+"</td><td>"+s.n+"</td><td>"+jpct(s.faithfulness_mean)+"</td><td>"+jpct(s.correctness_mean)+"</td></tr>"; }).join('');
   var tbl=el('table','summary');
   tbl.innerHTML='<thead><tr><th>backend</th><th>judged</th><th>faithfulness</th><th>correctness</th></tr></thead><tbody>'+rows+'</tbody>';
   sec.appendChild(tbl);
   sec.appendChild(judgeBarsSVG(j));
+  var hm=judgeHeatmap(run); if(hm) sec.appendChild(hm);
   return sec;
 }
 
