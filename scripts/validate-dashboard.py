@@ -16,6 +16,7 @@ import os
 import re
 import socketserver
 import subprocess
+import time
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
@@ -25,8 +26,16 @@ PORT = int(os.environ.get("DASH_PORT", "8099"))
 
 
 def newest_run():
+    # Rank by when results were last WRITTEN (results.jsonl mtime), not the dir mtime —
+    # rebuilding a report.html into an old run dir bumps the dir mtime and would otherwise
+    # hijack the live view.
     dirs = [d for d in glob.glob(str(ROOT / "artifacts" / "validate" / "*")) if os.path.isdir(d)]
-    return max(dirs, key=os.path.getmtime) if dirs else None
+
+    def _activity(d):
+        rp = os.path.join(d, "results.jsonl")
+        return os.path.getmtime(rp) if os.path.exists(rp) else os.path.getmtime(d)
+
+    return max(dirs, key=_activity) if dirs else None
 
 
 def resident_models():
@@ -79,6 +88,10 @@ def status():
     total = sum(turns.values()) * len(back_ids) if back_ids else 0
 
     results = read_jsonl(Path(run) / "results.jsonl")
+    # A run is "active" only if its results were written in the last ~2 min; a stopped run
+    # shouldn't paint any cell yellow.
+    _rp = Path(run) / "results.jsonl"
+    active = _rp.exists() and (time.time() - _rp.stat().st_mtime) < 120
     arms = {}
     for b in back_ids:
         rs = [r for r in results if r.get("backend_id") == b]
@@ -116,14 +129,14 @@ def status():
             elif bad > 0 or len(rs) >= exp:
                 st = "err"          # a failure, or all turns present but some empty
             elif len(rs) > 0:
-                st = "running"      # multi-turn mid-flight
+                st = "running" if active else "err"   # partial: in-flight if active, else abandoned
             else:
                 st = "pending"
             states[(s, b)] = st
 
     # While the run is in progress, the single active cell is the first incomplete one in
     # backend-major order (mirrors the runner) — show it yellow even before its first row lands.
-    if total and len(results) < total:
+    if total and len(results) < total and active:
         marked = False
         for b in back_ids:
             for s in scen_ids:
