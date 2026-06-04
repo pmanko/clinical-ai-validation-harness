@@ -428,3 +428,22 @@ body {
   }
 }
 
+/* Link from the interactive view to its full-static-HTML (LLM-readable) twin. */
+.plain-html-bar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 8px;
+}
+.plain-html-link {
+  font-size: 12px;
+  color: var(--muted, #667085);
+  text-decoration: none;
+  border: 1px solid var(--border, #e2e6ee);
+  border-radius: 6px;
+  padding: 2px 8px;
+}
+.plain-html-link:hover {
+  color: var(--text, #1a2233);
+  background: var(--surface, #f6f8fc);
+}
+

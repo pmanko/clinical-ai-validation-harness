@@ -168,8 +168,8 @@ export function leafSequence(tree: NavSection[] = navTree): Array<{ leaf: NavLea
 }
 
 /** Find the previous and next leaves around a given slug (for prev/next links). */
-export function neighbors(slug: string): { prev?: NavLeaf; next?: NavLeaf } {
-  const seq = leafSequence();
+export function neighbors(slug: string, tree: NavSection[] = navTree): { prev?: NavLeaf; next?: NavLeaf } {
+  const seq = leafSequence(tree);
   const i = seq.findIndex((x) => x.leaf.slug === slug);
   if (i < 0) return {};
   return {
