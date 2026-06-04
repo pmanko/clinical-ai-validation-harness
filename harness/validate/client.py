@@ -19,6 +19,10 @@ import requests
 
 _REST = "/ws/rest/v1/chartsearchai"
 
+# Transient HTTP statuses worth a limited retry: 429 (rate limit) plus the 5xx the
+# proxy emits while the backend is restarting / an upstream momentarily times out.
+_RETRYABLE = frozenset({429, 500, 502, 503, 504})
+
 
 def _default_base_url() -> str:
     port = os.environ.get("HARNESS_PROXY_HTTP_PORT", "8088")
@@ -88,13 +92,21 @@ class ChartSearchAiClient:
         return resp.json()
 
     def new_session(self, patient: str) -> str:
-        """Close the active session for this patient and open a fresh one."""
-        resp = self._session.post(
-            self._url("/chat/new"), json={"patient": patient}, timeout=self.timeout
-        )
-        if resp.status_code != 200:
-            raise RuntimeError(f"new_session({patient!r}) failed [{resp.status_code}]: {resp.text[:300]}")
-        return resp.json().get("session")
+        """Close the active session for this patient and open a fresh one. Retries a
+        transient gateway/rate-limit status (the backend may be restarting) up to
+        max_retries before raising, so a single blip doesn't abort the whole run."""
+        attempt = 0
+        while True:
+            resp = self._session.post(
+                self._url("/chat/new"), json={"patient": patient}, timeout=self.timeout
+            )
+            if resp.status_code in _RETRYABLE and attempt < self.max_retries:
+                attempt += 1
+                time.sleep(self.retry_wait_s)
+                continue
+            if resp.status_code != 200:
+                raise RuntimeError(f"new_session({patient!r}) failed [{resp.status_code}]: {resp.text[:300]}")
+            return resp.json().get("session")
 
     def _throttle(self) -> None:
         if self.min_interval_s > 0:
@@ -130,10 +142,20 @@ class ChartSearchAiClient:
         while True:
             self._throttle()
             start = time.monotonic()
-            resp = self._session.post(self._url("/chat"), json=body, timeout=self.timeout)
+            try:
+                resp = self._session.post(self._url("/chat"), json=body, timeout=self.timeout)
+            except requests.RequestException:
+                # Dropped connection / read timeout: retry the transient, then let it
+                # propagate (the runner records it and moves on).
+                self._last_call = time.monotonic()
+                if attempt < self.max_retries:
+                    attempt += 1
+                    time.sleep(self.retry_wait_s)
+                    continue
+                raise
             latency_ms = int((time.monotonic() - start) * 1000)
             self._last_call = time.monotonic()
-            if resp.status_code == 429 and attempt < self.max_retries:
+            if resp.status_code in _RETRYABLE and attempt < self.max_retries:
                 attempt += 1
                 time.sleep(self.retry_wait_s)
                 continue

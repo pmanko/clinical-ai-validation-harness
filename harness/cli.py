@@ -72,6 +72,11 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     val_run.add_argument("--data-root", default="datasets/validation")
     val_run.add_argument("--output-dir", default="artifacts/validate")
+    val_run.add_argument(
+        "--resume",
+        help="Prior run dir to resume from: scenario×backend cells that completed cleanly "
+        "are carried over; only missing/partial cells are re-run.",
+    )
     val_report = val_sub.add_parser("report", help="Render report.html from a completed run")
     val_report.add_argument("run_id", nargs="?", help="Run id under <output-dir>/")
     val_report.add_argument("--run-dir", help="Explicit run directory (overrides run_id)")
@@ -171,6 +176,7 @@ def main() -> int:
                 data_root=args.data_root,
                 output_dir=args.output_dir,
                 project_root=config.project_root,
+                resume_from=Path(args.resume) if args.resume else None,
             )
             print(
                 f"validate run {args.comparison_set}: {result.result_count} results -> "

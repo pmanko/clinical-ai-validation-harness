@@ -32,6 +32,37 @@ def test_help_top_level(capsys):
         assert expected in out
 
 
+def test_validate_run_accepts_resume_dir():
+    p = _build_parser()
+    args = p.parse_args(["validate", "run", "priority-run-high", "--resume", "artifacts/validate/abc"])
+    assert args.validate_action == "run"
+    assert args.comparison_set == "priority-run-high"
+    assert args.resume == "artifacts/validate/abc"
+    # absent -> None (a full run, no carry-over)
+    assert p.parse_args(["validate", "run", "cs"]).resume is None
+
+
+def test_validate_run_passes_resume_to_run_comparison(monkeypatch):
+    captured = {}
+
+    class _Result:
+        result_count = 0
+        results_path = "r.jsonl"
+        report_path = "report.html"
+
+    def fake_run_comparison(**kw):
+        captured.update(kw)
+        return _Result()
+
+    monkeypatch.setattr("harness.validate.runner.run_comparison", fake_run_comparison)
+    monkeypatch.setattr("harness.validate.client.ChartSearchAiClient", lambda *a, **k: object())
+    monkeypatch.setattr(
+        sys, "argv",
+        ["harness-cli", "validate", "run", "cs", "--resume", "artifacts/validate/abc"])
+    assert main() == 0
+    assert str(captured["resume_from"]) == "artifacts/validate/abc"
+
+
 @pytest.mark.parametrize("argv,expected_attr,expected_value", [
     (["conceptmap", "validate"],  "conceptmap_action", "validate"),
     (["conceptmap", "seed-emit"], "conceptmap_action", "seed-emit"),

@@ -72,6 +72,58 @@ def test_chat_records_429_after_exhausting_retries():
     assert res.status == 429  # recorded as a failed turn, never raised
 
 
+def test_chat_retries_on_502_then_succeeds():
+    # A transient gateway error (backend restarting) must be retried, not surfaced as
+    # a failed turn on the first hit.
+    c = _client()
+    seq = [FakeResp(502, None, ""), FakeResp(200, {"answer": "ok", "references": []}, "{}")]
+    calls = {"n": 0}
+
+    def fake_post(url, json=None, timeout=None):
+        resp = seq[calls["n"]]
+        calls["n"] += 1
+        return resp
+
+    c._session.post = fake_post
+    res = c.chat("p", "s", "q")
+    assert res.status == 200 and calls["n"] == 2  # retried once after the 502
+
+
+def test_new_session_retries_on_502_then_succeeds():
+    # new_session was the un-retried, run-aborting call: a single 502 used to raise and
+    # kill the whole run. It must retry the transient and recover.
+    c = _client()
+    seq = [FakeResp(502, None, ""), FakeResp(200, {"session": "sess-1"}, "{}")]
+    calls = {"n": 0}
+
+    def fake_post(url, json=None, timeout=None):
+        resp = seq[calls["n"]]
+        calls["n"] += 1
+        return resp
+
+    c._session.post = fake_post
+    assert c.new_session("pat") == "sess-1" and calls["n"] == 2
+
+
+def test_chat_retries_on_connection_error_then_succeeds():
+    # A dropped connection / read timeout (requests raises) must be retried too, not
+    # propagated on the first hit.
+    import requests
+
+    c = _client()
+    state = {"n": 0}
+
+    def fake_post(url, json=None, timeout=None):
+        state["n"] += 1
+        if state["n"] == 1:
+            raise requests.ConnectionError("connection refused")
+        return FakeResp(200, {"answer": "ok", "references": []}, "{}")
+
+    c._session.post = fake_post
+    res = c.chat("p", "s", "q")
+    assert res.status == 200 and state["n"] == 2  # retried once after the connection error
+
+
 class _GetResp:
     def __init__(self, payload, ok=True):
         self._payload = payload
