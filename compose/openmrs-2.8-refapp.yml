@@ -186,10 +186,9 @@ services:
     # network). Internal-only: no host port, no Caddy route.
     #
     # One instance serves every team config: the OpenAI `model` id is a preset
-    # (med-agent-team / med-agent-team-a4b-27b) that selects the per-role models
-    # at request time — no reboot, no second service. PROMPT_VARIANT=v2; the
-    # prompts dir is bind-mounted so the loader's per-request read picks up .txt
-    # edits with no rebuild/restart.
+    # (med-agent-team-low / -med / -high) that selects the per-role models at
+    # request time — no reboot, no second service. The prompts dir is bind-mounted
+    # so the loader's per-request read picks up .txt edits with no rebuild/restart.
     image: med-agent-hub:dev
     build:
       context: ../targets/med-agent-hub
@@ -210,7 +209,6 @@ services:
       SYNTH_MODEL_HIGH: ${MED_AGENT_SYNTH_MODEL_HIGH:-qwen3.6-35b}
       SYNTHESIZER_MODEL: ${MED_AGENT_SYNTHESIZER_MODEL:-gemma-e4b}
       LLM_TEMPERATURE: ${MED_AGENT_TEMPERATURE:-0.0}
-      PROMPT_VARIANT: v2
     extra_hosts:
       # Reach LM Studio on the host, same pattern as the backend.
       - "host.docker.internal:host-gateway"
