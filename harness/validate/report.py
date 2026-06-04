@@ -148,6 +148,70 @@ def _avg(nums: list[int]) -> int:
     return round(sum(nums) / len(nums)) if nums else 0
 
 
+def _box_stats(values: list[float]) -> dict[str, Any] | None:
+    """Five-number summary + Tukey whiskers/outliers + mean for a box-and-whisker
+    plot. Quartiles use linear interpolation. Returns None for an empty series."""
+    xs = sorted(v for v in values if v is not None)
+    n = len(xs)
+    if n == 0:
+        return None
+
+    def _q(p: float) -> float:
+        if n == 1:
+            return float(xs[0])
+        idx = p * (n - 1)
+        lo = int(idx)
+        frac = idx - lo
+        return xs[lo] + (xs[min(lo + 1, n - 1)] - xs[lo]) * frac
+
+    q1, med, q3 = _q(0.25), _q(0.5), _q(0.75)
+    iqr = q3 - q1
+    lo_fence, hi_fence = q1 - 1.5 * iqr, q3 + 1.5 * iqr
+    inliers = [x for x in xs if lo_fence <= x <= hi_fence]
+    return {
+        "n": n,
+        "min": xs[0],
+        "max": xs[-1],
+        "q1": round(q1, 2),
+        "median": round(med, 2),
+        "q3": round(q3, 2),
+        "whisker_lo": min(inliers) if inliers else xs[0],
+        "whisker_hi": max(inliers) if inliers else xs[-1],
+        "outliers": [x for x in xs if x < lo_fence or x > hi_fence],
+        "mean": round(sum(xs) / n, 1),
+    }
+
+
+# Numeric metrics worth a per-arm distribution (box-and-whisker). Only successful
+# (HTTP 200) turns count — an errored turn is not a real measurement of speed/length.
+_DIST_METRICS = [
+    ("latency_ms", "latency (ms)"),
+    ("citation_count", "chart references"),
+    ("answer_chars", "answer length (chars)"),
+]
+
+
+def _metric_distributions(
+    results: list[dict[str, Any]], backends: list[str]
+) -> dict[str, Any]:
+    """Per-arm box-and-whisker stats for each distribution metric, computed over the
+    successful turns only. Shape: {metric_key: {label, series:[{backend, ...stats}]}}."""
+    out: dict[str, Any] = {}
+    for key, label in _DIST_METRICS:
+        series = []
+        for b in backends:
+            vals = [
+                (r.get("metrics") or {}).get(key)
+                for r in results
+                if r.get("backend_id") == b and (r.get("metrics") or {}).get("http_status") == 200
+            ]
+            stats = _box_stats([v for v in vals if isinstance(v, (int, float))])
+            if stats:
+                series.append({"backend": b, **stats})
+        out[key] = {"label": label, "series": series}
+    return out
+
+
 def _summary_rows(results: list[dict[str, Any]], backends: list[str], labels: dict[str, str]) -> list[dict[str, Any]]:
     """Per-backend aggregates (the old summary table rows), precomputed so the JS
     renders a table without re-deriving any contract."""
@@ -255,6 +319,7 @@ def _run_blob(run_dir: Path) -> dict[str, Any]:
         "labels": {b: labels.get(b, "") for b in backends},
         "scenarios": scenarios,
         "summary": _summary_rows(results, backends, labels),
+        "metrics": _metric_distributions(results, backends),
         "patients": patients,
     }
 
@@ -312,6 +377,21 @@ th { background: #f3f3f3; font-weight: 600; font-size: 12px; }
 .summary td, .summary th { text-align: center; }
 .summary td.b { text-align: left; font-family: ui-monospace, monospace; }
 .summary .model { display: block; color: var(--mut); font-size: 11px; }
+.metrics-section { margin-top: 18px; }
+.metrics-legend { color: #6b7280; font-size: 12px; margin: 2px 0 10px; }
+.metrics-grid { display: flex; flex-wrap: wrap; gap: 16px; }
+.boxplot-wrap { flex: 1 1 300px; min-width: 280px; max-width: 460px; border: 1px solid #e5e7eb; border-radius: 8px; padding: 6px 8px; background: #fff; }
+.boxplot { width: 100%; height: auto; }
+.bp-title { font-size: 12px; font-weight: 600; fill: #1f2937; }
+.bp-grid { stroke: #eef0f3; stroke-width: 1; }
+.bp-ytick { font-size: 9px; fill: #8b949e; text-anchor: end; }
+.bp-xtick { font-size: 10px; fill: #374151; text-anchor: middle; }
+.bp-xn { font-size: 8.5px; fill: #9aa3af; text-anchor: middle; }
+.bp-box { fill: rgba(39,72,160,.14); stroke: #2748a0; stroke-width: 1.3; }
+.bp-median { stroke: #2748a0; stroke-width: 2.2; }
+.bp-mean { stroke: #d9730d; stroke-width: 1.4; stroke-dasharray: 3 2; }
+.bp-whisker, .bp-cap { stroke: #2748a0; stroke-width: 1; }
+.bp-out { fill: #d9730d; opacity: .75; }
 .qband { display: grid; grid-template-columns: var(--qcol, 240px) 1fr; gap: 12px; align-items: start; border-top: 1px solid var(--line); padding: 12px 0; }
 .qhead { position: sticky; left: 0; z-index: 1; background: var(--bg); align-self: start; }
 .qhead .n { font-family: ui-monospace, monospace; font-weight: 700; color: var(--mut); }
@@ -434,6 +514,47 @@ function renderSummary(run){
   return sec;
 }
 
+function bpShort(b){ return b.replace('med-agent-team-','').replace('-baseline','-base'); }
+function bpNiceCeil(v){ if(v<=0) return 1; var p=Math.pow(10,Math.floor(Math.log10(v))); var f=v/p; var nf=f<=1?1:(f<=2?2:(f<=5?5:10)); return nf*p; }
+function bpFmt(v){ v=Math.round(v); return v>=1000?((v/1000).toFixed(v>=10000?0:1)+'k'):String(v); }
+function boxPlotSVG(label, series){
+  var W=Math.max(320, 70+series.length*92), H=232, padL=46, padR=12, padT=22, padB=40, plotH=H-padT-padB;
+  var maxV=0, i, s, o;
+  for(i=0;i<series.length;i++){ s=series[i]; maxV=Math.max(maxV, s.whisker_hi, s.max); for(o=0;o<(s.outliers||[]).length;o++) maxV=Math.max(maxV, s.outliers[o]); }
+  var nm=bpNiceCeil(maxV);
+  function Y(v){ return padT + plotH - (v/nm)*plotH; }
+  var step=(W-padL-padR)/series.length;
+  var g='<svg viewBox="0 0 '+W+' '+H+'" class="boxplot" role="img" aria-label="'+htmlEsc(label)+'">';
+  g+='<text x="'+padL+'" y="13" class="bp-title">'+htmlEsc(label)+'</text>';
+  var ticks=[0,0.25,0.5,0.75,1], t, yy, val;
+  for(t=0;t<ticks.length;t++){ val=nm*ticks[t]; yy=Y(val); g+='<line x1="'+padL+'" y1="'+yy+'" x2="'+(W-padR)+'" y2="'+yy+'" class="bp-grid"/>'; g+='<text x="'+(padL-5)+'" y="'+(yy+3)+'" class="bp-ytick">'+bpFmt(val)+'</text>'; }
+  for(i=0;i<series.length;i++){
+    s=series[i];
+    var cx=padL+step*i+step/2, bw=Math.min(42, step*0.52), x0=cx-bw/2, x1=cx+bw/2;
+    g+='<line x1="'+cx+'" y1="'+Y(s.whisker_lo)+'" x2="'+cx+'" y2="'+Y(s.whisker_hi)+'" class="bp-whisker"/>';
+    g+='<line x1="'+(x0+7)+'" y1="'+Y(s.whisker_hi)+'" x2="'+(x1-7)+'" y2="'+Y(s.whisker_hi)+'" class="bp-cap"/>';
+    g+='<line x1="'+(x0+7)+'" y1="'+Y(s.whisker_lo)+'" x2="'+(x1-7)+'" y2="'+Y(s.whisker_lo)+'" class="bp-cap"/>';
+    g+='<rect x="'+x0+'" y="'+Y(s.q3)+'" width="'+bw+'" height="'+Math.max(1,Y(s.q1)-Y(s.q3))+'" class="bp-box"/>';
+    g+='<line x1="'+x0+'" y1="'+Y(s.median)+'" x2="'+x1+'" y2="'+Y(s.median)+'" class="bp-median"/>';
+    g+='<line x1="'+x0+'" y1="'+Y(s.mean)+'" x2="'+x1+'" y2="'+Y(s.mean)+'" class="bp-mean"/>';
+    for(o=0;o<(s.outliers||[]).length;o++){ g+='<circle cx="'+cx+'" cy="'+Y(s.outliers[o])+'" r="2.1" class="bp-out"/>'; }
+    g+='<text x="'+cx+'" y="'+(H-24)+'" class="bp-xtick">'+htmlEsc(bpShort(s.backend))+'</text>';
+    g+='<text x="'+cx+'" y="'+(H-13)+'" class="bp-xn">n'+s.n+' · md '+bpFmt(s.median)+'</text>';
+  }
+  g+='</svg>';
+  var wrap=el('div','boxplot-wrap'); wrap.innerHTML=g; return wrap;
+}
+function renderMetrics(run){
+  var sec=el('section','metrics-section');
+  sec.innerHTML='<h2>metric distributions</h2><p class="metrics-legend">box = IQR (q1–q3), solid line = median, dashed = mean, whiskers = 1.5×IQR, dots = outliers · successful turns only.</p>';
+  var m=run.metrics||{}, keys=['latency_ms','citation_count','answer_chars'], k, md;
+  var grid=el('div','metrics-grid'), any=false;
+  for(k=0;k<keys.length;k++){ md=m[keys[k]]; if(md&&md.series&&md.series.length){ grid.appendChild(boxPlotSVG(md.label, md.series)); any=true; } }
+  if(!any){ sec.innerHTML+='<p class="muted">no successful turns to chart yet.</p>'; }
+  sec.appendChild(grid);
+  return sec;
+}
+
 function buildTile(run, backend, cell, turn, scenarioId){
   const tile = el('article', 'tile');
   tile.draggable = true;
@@ -519,6 +640,7 @@ function renderRun(runId){
   const pbanner = renderPatientBanner(run);
   if (pbanner) main.appendChild(pbanner);
   main.appendChild(renderSummary(run));
+  main.appendChild(renderMetrics(run));
 
   run.scenarios.forEach(sc => {
     const sec = el('section', 'scenario');
