@@ -6,7 +6,7 @@ Drop-in demo data for **OpenMRS Platform 2.8 / Reference Application 3.6.0**. Th
 
 **`openmrs-2.8-refapp-demo-5284-patients-2026-06-03.sql.gz`** (40.3 MB, sha256 `2f95ec36…`)
 
-This is the regenerated corpus (referentially clean, fully preserved, promotable) and **supersedes** the `2026-05-19` publish.
+This build is the #20 demo-data regeneration (referentially clean, fully preserved, promotable) and **supersedes** the `2026-05-19` publish. Top-level row counts are unchanged from that publish; the difference is structural (per #20).
 
 - Loads into a database literally named **`openmrs`** (the dump embeds `CREATE DATABASE openmrs; USE openmrs;` so it is self-contained — no schema choice on the consumer side).
 - 232 tables, ~1.70M rows.

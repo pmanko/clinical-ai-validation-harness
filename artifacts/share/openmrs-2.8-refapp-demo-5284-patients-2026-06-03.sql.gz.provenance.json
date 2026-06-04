@@ -26,7 +26,7 @@
     "querystore_bootstrap_progress"
   ],
   "excluded_reason": "Consumer-side module tables (chartsearchai chat/embedding/audit + querystore bootstrap marker). They are recreated empty when the consuming module installs against the demo; chartsearchai_chat_message also carried 1,846 rows of harness test-chat history that is not demo data.",
-  "source": "Transform of OpenMRS large-demo-data-2-7-0.sql via feature 002 SQLMesh + dlt pipeline. This build is the demo-data regeneration that made the corpus referentially clean, fully preserved, and promotable (supersedes the 2026-05-19 publish).",
+  "source": "Transform of OpenMRS large-demo-data-2-7-0.sql via feature 002 SQLMesh + dlt pipeline. This build is the #20 demo-data regeneration (referentially clean, fully preserved, promotable) and supersedes the 2026-05-19 publish. Top-level row counts are unchanged from that publish; the difference is structural (per #20). Referential cleanliness of THIS build was verified here (see remediation_evidence.referential_integrity).",
   "pipeline_provenance": {
     "harness_git_sha": "59827af5a536573fa2dd2506a1993309a230e258",
     "regen_commit": "bdc10026bee42581d942a8ed407f2355222bf24e",
