@@ -218,7 +218,11 @@ def detail(scenario, backend):
                       "status": m.get("http_status"), "latency_ms": m.get("latency_ms"),
                       "chars": m.get("answer_chars"), "citations": m.get("citation_count"),
                       "error": r.get("error"),
-                      "trace": {"disposition": tr.get("disposition"), "steps": tr.get("steps") or [],
+                      "trace": {"answer_confidence": tr.get("answer_confidence"),
+                                "indepth_confidence": tr.get("indepth_confidence"),
+                                "answer_text": tr.get("answer_text", ""),
+                                "in_depth_claims": tr.get("in_depth_claims") or [],
+                                "steps": tr.get("steps") or [],
                                 "models": tr.get("models") or {}} if tr else None})
     return {"scenario": scenario, "backend": backend, "expectations": exp, "turns": turns}
 
@@ -270,6 +274,14 @@ table.btbl{border-collapse:collapse;font-size:11px;width:100%}
 .tbody{font-size:11px;white-space:pre-wrap;color:#c9d1d9}
 .tarrow{text-align:center;color:#30363d;font-size:11px;line-height:1.1;margin:1px 0}
 .notrace{font-size:11px;color:#586069;padding:8px 10px}
+.cchip{display:inline-block;padding:1px 7px;border-radius:10px;color:#fff;font-size:10px;margin-left:6px;vertical-align:middle}
+.csec{margin-top:8px}
+.ctitle{font-size:11px;color:#8b949e;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px}
+.caveat{border-radius:6px;padding:8px 10px;font-size:12px;margin:4px 0}
+.caveat.red{background:#3d1416;border:1px solid #8b1a1a;color:#ffd0d0}
+.caveat.yellow{background:#3a2e08;border:1px solid #9e6a03;color:#ffe9b3}
+.collapse summary{cursor:pointer;color:#8b949e;font-size:11px;padding:3px 0;list-style:revert}
+.idl{margin:2px 0 0 0;padding-left:18px}.idl li{margin:2px 0}
 </style></head><body>
 <h1 id=hdr>validate run</h1>
 <div class=bar><div id=fill style=width:0%></div></div>
@@ -324,6 +336,24 @@ function renderBlocks(blocks){
   return '<div class=block>'+title+'<table class=btbl><thead><tr>'+head+'</tr></thead><tbody>'+body+'</tbody></table></div>';
  }).join('');
 }
+const CONF={green:['🟢','high','#196c2e'],yellow:['🟡','med','#9e6a03'],red:['🔴','low','#8b1a1a']};
+function chip(level){const c=CONF[level]||['','?','#30363d'];return '<span class=cchip style="background:'+c[2]+'">'+c[0]+' '+c[1]+'</span>';}
+// Per-section render with the confidence inversion: red -> caveat shown, message collapsed;
+// yellow -> message shown, caveat collapsed; green -> message, no caveat.
+function confSection(title, bodyHtml, conf){
+ const level=(conf&&conf.level)||'green', note=(conf&&conf.note)||'';
+ let h='<div class=csec><div class=ctitle>'+title+' '+chip(level)+'</div>';
+ if(level==='red'){
+  if(note) h+='<div class="caveat red">'+esc(note)+'</div>';
+  h+='<details class=collapse><summary>show '+title.toLowerCase()+'</summary><div class=ans>'+bodyHtml+'</div></details>';
+ }else if(level==='yellow'){
+  h+='<div class=ans>'+bodyHtml+'</div>';
+  if(note) h+='<details class=collapse><summary>show review note</summary><div class="caveat yellow">'+esc(note)+'</div></details>';
+ }else{
+  h+='<div class=ans>'+bodyHtml+'</div>';
+ }
+ return h+'</div>';
+}
 function renderTrace(tr){
  if(!tr) return '<div class=notrace>no reasoning trace captured for this turn (hub trace off, or older run)</div>';
  const fmt=s=>{
@@ -334,7 +364,8 @@ function renderTrace(tr){
   if(s.role==='answer_resynth') return ['answer re-synth',esc(s.output||'')];
   if(s.role==='answer_validator') return ['answer validator'+(s.attempt?' #'+s.attempt:''),(s.answer_ok?'PASS':'FLAG')+(s.answer_issues?' · '+esc(s.answer_issues):''),s.answer_ok?'ok':(s.answer_issues?'flag':'')];
   if(s.role==='indepth_synth') return ['in-depth synth',((s.claims||[]).map(c=>'• '+esc(c)).join('<br>')||'(no claims)')];
-  if(s.role==='indepth_validator') return ['in-depth validator','drop '+JSON.stringify(s.drop||[])+' of '+(s.claims_in||0)+(s.issues?' · '+esc(s.issues):'')];
+  if(s.role==='indepth_resynth') return ['in-depth re-synth',((s.claims||[]).map(c=>'• '+esc(c)).join('<br>')||'(no claims)')];
+  if(s.role==='indepth_validator') return ['in-depth validator'+(s.attempt?' #'+s.attempt:''),'drop '+JSON.stringify(s.drop||[])+' of '+(s.claims_in||0)+(s.issues?' · '+esc(s.issues):''),(s.drop&&s.drop.length)?'flag':'ok'];
   return [s.role,esc(JSON.stringify(s))];
  };
  const steps=(tr.steps||[]).map(s=>{
@@ -343,7 +374,7 @@ function renderTrace(tr){
   const m=s.model?'<span class=tmodel>'+esc(s.model)+'</span>':'';
   return '<div class=tstep><div class="'+cls+'">'+esc(label)+m+'</div><div class=tbody>'+body+'</div></div>';
  }).join('<div class=tarrow>↓</div>');
- return '<div class=trace><div class=tdisp>disposition: <b>'+esc(tr.disposition||'?')+'</b></div>'+(steps||'<div class=notrace>no steps</div>')+'</div>';
+ return '<div class=trace>'+(steps||'<div class=notrace>no steps</div>')+'</div>';
 }
 async function openD(s,b){
  const d=await(await fetch('/api/detail?scenario='+encodeURIComponent(s)+'&backend='+encodeURIComponent(b))).json();
@@ -351,13 +382,23 @@ async function openD(s,b){
  let h='<div class=mhead><b>'+s+'</b> &nbsp;·&nbsp; '+b+'<span class=x onclick="closeD()">✕</span></div>';
  h+='<div class=exp><b>Expected:</b> '+(e.should_abstain?'ABSTAIN':'retrieve')+(e.should_cite_resource_types?' ['+e.should_cite_resource_types.join(', ')+']':'')+'<br>'+esc(e.notes||'')+'</div>';
  (d.turns||[]).forEach(t=>{
+  const tr=t.trace;
   h+='<div class=turn><div class=q>Turn '+t.turn+': '+esc(t.question)+'</div>';
-  h+='<div class=meta><span class="'+(t.status===200?'ok':'err')+'">status '+t.status+'</span> · '+(t.latency_ms||0)+'ms · '+(t.chars||0)+' chars · '+(t.citations||0)+' citations'+(t.trace?' · <span class=muted>'+esc(t.trace.disposition||'')+'</span>':'')+'</div>';
-  if(t.error)h+='<div class="ans err">'+esc(t.error)+'</div>';
-  else h+='<div class=ans>'+esc(t.answer)+'</div>';
+  h+='<div class=meta><span class="'+(t.status===200?'ok':'err')+'">status '+t.status+'</span> · '+(t.latency_ms||0)+'ms · '+(t.chars||0)+' chars · '+(t.citations||0)+' citations</div>';
+  if(t.error){
+   h+='<div class="ans err">'+esc(t.error)+'</div>';
+  }else if(tr&&(tr.answer_confidence||tr.indepth_confidence)){
+   // structured render with the per-section confidence inversion (chips + collapse)
+   h+=confSection('Answer', esc(tr.answer_text||''), tr.answer_confidence);
+   const cl=tr.in_depth_claims||[];
+   const idb=cl.length?'<ul class=idl>'+cl.map(c=>'<li>'+esc(c)+'</li>').join('')+'</ul>':'<span class=muted>(none)</span>';
+   h+=confSection('In Depth', idb, tr.indepth_confidence);
+  }else{
+   h+='<div class=ans>'+esc(t.answer)+'</div>';   // fallback: raw envelope (non-team backend / older run)
+  }
   h+=renderBlocks(t.blocks);
   if(t.refs&&t.refs.length)h+='<div class=refs>refs: '+esc(t.refs.map(r=>typeof r==='object'?('['+(r.index!=null?r.index:'?')+'] '+(r.resourceType||'')):('['+r+']')).join('  '))+'</div>';
-  h+='<details class=tracebox><summary>▸ reasoning trace'+(t.trace?' — '+esc(t.trace.disposition||''):'')+'</summary>'+renderTrace(t.trace)+'</details>';
+  h+='<details class=tracebox><summary>▸ reasoning trace</summary>'+renderTrace(tr)+'</details>';
   h+='</div>';
  });
  mbody.innerHTML=h; modal.style.display='flex';
