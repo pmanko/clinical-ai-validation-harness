@@ -105,6 +105,118 @@ export default function ValidatorAuditFramework() {
       </Callout>
 
       <Divider />
+      <H2>Prompt flow — what we ask, how we validate, what we return</H2>
+      <Stack gap={8}>
+        <Text tone="secondary">
+          End-to-end trace of one team turn, grounded in <Code>team.py::run_team</Code> and the prompt files.
+          The synthesizer is asked for a two-section <Code>answer</Code>; the validator judges those two
+          sections separately; the hub always returns the <em>same</em> one-envelope shape.
+        </Text>
+        <Code>{`INPUT  chartsearchai message array
+  [ system = DEFAULT_SYSTEM_PROMPT  (chart-only, "cite EVERY record") ]
+  [ user = PATIENT CHART ]  [ ...prior turns ]  [ user = QUESTION ]
+        |
+        v
+ORCHESTRATOR LOOP        prompt orchestrator.txt   model = tier orchestrator (LOW gemma-e2b-q2 ... HIGH gemma-31b)
+  ReAct tool loop on its OWN message list, repeat until no tool call:
+    - kb_search       -> KB reference snippets   (NOT chart data)
+    - medical_expert  -> MedGemma interprets the CHART against KB (free text)
+        |  kb_context + expert_notes
+        v  _gathered_evidence()
+GATHERED EVIDENCE  (one block: KB snippets + expert notes)
+        |
+        v
+SYNTHESIS                prompt synthesis(-low).txt  model = tier synth (LOW qwen3-4b ... HIGH qwen3.6-35b)
+  call = ORIGINAL prefix messages + user( synthesis_instruction + gathered )
+  bound to chartsearchai response_format -> ONE JSON envelope:
+     { "answer": "<two markdown sections in ONE string>", "citations":[N...], "blocks":[...] }
+        the answer string =
+          **Answer**     1-2 sentences, direct, cite chart records inline [N]
+          **In Depth**   reasoning: KB guidance (named in prose) + expert reading of THIS chart
+        |
+        v  _normalize_envelope()   repair mangled \\n  -  fold inline [N] -> citations
+   validator set on this level? ---- no ----> RETURN envelope unchanged
+        | yes   _audit_and_revise()  (max_loops, default 1)
+        v
+VALIDATOR                prompt validation.txt  model = tier validator (gemma; cross-family vs the qwen synth)
+  sees  CHART (ground truth) + GATHERED + the Answer string
+  judges the TWO sections SEPARATELY, returns
+     { answer_ok, answer_issues, indepth_ok, indepth_issues }   (FAIL-OPEN -> ok on any parse error)
+        |
+        v  GRANULAR decision
+   answer_ok &  indepth_ok  ->  SHIP full draft (both sections)
+   answer_ok & !indepth_ok  ->  _drop_indepth(): keep **Answer**, In Depth -> "(elaboration withheld...)"  -> SHIP
+  !answer_ok                ->  re-synthesize( draft + _validator_feedback ) -> re-audit:
+                                  Answer now ok    -> adopt (drop In Depth if still bad)
+                                  Answer still bad -> ABSTAIN -> _fallback_envelope(_VALIDATOR_ABSTAIN_MSG)
+        |
+        v
+RETURN   ALWAYS the same shape ->  { answer, citations, blocks }
+         (the two sections live INSIDE the one answer string; the verdict does NOT leave the hub)`}</Code>
+        <Callout tone="warning" title="Why the low-validated run still reads as one confident answer">
+          The return contract is fixed: one <Code>{`{ answer, citations, blocks }`}</Code> envelope.
+          <Code>**Answer**</Code> and <Code>**In Depth**</Code> are markdown headers <em>inside</em> the single
+          <Code>answer</Code> string — not separate fields — and the validator verdict
+          (<Code>answer_ok</Code> / <Code>indepth_ok</Code> + issues) never leaves the hub. It only steers
+          ship / drop-In-Depth / abstain and goes to the hub logs. So downstream (chartsearchai &rarr; report / ESM)
+          receives one prose blob with no machine-readable confidence and no per-section status. Consequences:
+          (a) plain LOW (no validator) ships a confident <Code>**Answer**</Code> even when fabricated — nothing
+          gates it; (b) when the validator drops In Depth or abstains, the consumer still sees only one string
+          (the inline italic notice is the sole signal); (c) the dashboard drilldown and any confidence UI have
+          nothing to render yet. <strong>Candidate fix</strong> (ties to the dashboard-flow item + goal-framing):
+          emit the per-section verdict + issues into the returned artifact / run trace, so the answer carries an
+          explicit grounded confidence instead of one uniform-confidence blob.
+        </Callout>
+      </Stack>
+
+      <Divider />
+      <H2>Answer vs In Depth — different scope, different validation (research-grounded)</H2>
+      <Text tone="secondary">
+        The two sections have different epistemic scope, so they need different criteria, different
+        thresholds, and different fallbacks. Full write-up + citations:
+        <Code>specs/artifacts/planning/answer-indepth-structure-research-brief.md</Code>.
+      </Text>
+      <Table headers={['Aspect', 'Answer (direct)', 'In Depth (elaboration)']} rows={[
+        ['Content', 'patient facts from THIS chart', 'interpretation + external KB / guideline guidance'],
+        ['Truth test', 'faithful to the chart (groundedness)', 'chart-claims grounded; guideline-claims correct + attributed (NOT in chart); + does the KB actually INFORM the answer'],
+        ['Rubric axis', 'accuracy + faithfulness + abstention', 'completeness + relevance + KB-utilization + attribution'],
+        ['Threshold', 'STRICT — error cost is high', 'LOWER / advisory — error cost is bounded (it can be dropped)'],
+        ['On failure', 'ABSTAIN (never ship a wrong fact)', 'soften / drop the claim — NEVER abstain the turn for an In-Depth-only miss'],
+      ]} striped />
+      <Callout tone="danger" title="The mis-scoping bug — we judge the In Depth against the chart it is meant to go beyond">
+        Our validator prompt tells it the In Depth must be &quot;grounded only in the patient chart.&quot; But the
+        In Depth&apos;s job is to bring in KB / guideline guidance that is <em>not</em> in the chart. That is a
+        category error: in this run&apos;s verdict logs the e4b validator flagged an In Depth because it
+        &quot;introduces external knowledge (OpenMRS guidelines)&quot; — the exact content the synthesis prompt
+        <em> asks for</em>. Fix = <strong>route the In Depth audit by claim type</strong> (chart-claims grounded
+        vs chart; guideline-claims judged for not-fabricated + correctly-attributed + medically-plausible), and
+        add the real In-Depth test: <strong>does the retrieved KB relevantly and correctly inform the answer</strong>
+        (context-utilization), at an <strong>advisory threshold</strong> — not the Answer&apos;s strict abstain-or-die bar.
+      </Callout>
+      <Callout tone="info" title="What the literature says (validated)">
+        <strong>Validate the two separately</strong> — answer correctness and explanation/attribution faithfulness
+        are independent; passing one does not imply the other (Wallat et al. 2025, <em>Correctness is not
+        Faithfulness in RAG Attributions</em>). <strong>An explanation can be plausible yet unfaithful</strong>, so
+        a clean In Depth must not vouch for the Answer or vice-versa — keep the gates independent (Turpin et al.
+        2023, arXiv:2305.04388). <strong>Completeness is a distinct axis from accuracy</strong> (~90% accurate yet
+        omits key info in ~47% of summaries, npj Digit. Med. 2025) — so the In Depth matters, but bound it by the
+        question. <strong>For weak models, elaboration can HURT</strong>: reasoning does not uniformly help and can
+        reduce small-model accuracy (<em>Selective CoT in Medical QA</em>, arXiv:2602.20130); models elaborate on
+        planted errors in up to 83% of cases (Comm. Medicine 2025) — the In Depth is the fabrication surface, so its
+        richness should <strong>scale with tier</strong>. <strong>Partial abstention is research-backed</strong> but
+        the principled unit is the <em>claim</em>, not the section (selective generation does not scale to long-form;
+        I-CALM 2604.03904, AbstentionBench 2506.09038) — section-drop is our pragmatic interim, claim-level is the target.
+      </Callout>
+      <Callout tone="warning" title="Open decisions (discuss before building)">
+        <strong>D1 granularity</strong> — section-level drop (now) vs claim-level keep/drop (research ideal).
+        <strong> D2 tier-scaled elaboration</strong> — should weak tiers emit a rich In Depth at all, or Answer +
+        the <Code>blocks</Code> evidence table only? (needs a measured A/B). <strong> D3 validator scope fix</strong> —
+        route the In Depth audit by claim type + add the KB-informs / advisory-threshold check (looks unambiguously
+        correct). <strong> D4 fix mechanism</strong> — one full re-synth + keep-best vs a targeted In-Depth-only
+        regeneration that freezes the validated Answer.
+      </Callout>
+
+      <Divider />
       <H2>A. What the live run actually did</H2>
       <Stack gap={8}>
         <Text>Verdict logging (added this session) on a live LOW-validated turn, <Code>am-weight-trend</Code>:</Text>
@@ -184,6 +296,38 @@ validator: revision still flagged -> kept the original draft`}</Code>
         <strong> 3. Offline auto-scoring is unreliable</strong> — the re-validator over-flagged correct rewrites
         (stripped-chart noise), so the auto-count under-reports real fixes. A clean measure needs the full chart +
         human calibration.
+      </Callout>
+
+      <H3>Granular split + validator floor — e4b vs 12b, SAME synth (live run, only the validator differs)</H3>
+      <Table headers={['Scenario / turn', 'e4b validator', '12b validator']} rows={[
+        ['am-weight-trend t1', 'ABSTAIN (correct)', 'ABSTAIN (correct)'],
+        ['am-cd4-history t1', 'FULL', 'FULL'],
+        ['am-convo-azt-anemia t1', 'FULL', 'Answer-only (In Depth dropped)'],
+        ['am-convo-azt-anemia t2', 'ABSTAIN', 'Answer-only (In Depth dropped)'],
+        ['am-convo-azt-anemia t3', 'ABSTAIN', 'FULL'],
+        ['am-convo-azt-anemia t4', 'Answer-only (In Depth dropped)', 'Answer-only (In Depth dropped)'],
+        ['shipped / 6', '3/6', '5/6'],
+      ]} striped />
+      <Callout tone="success" title="The granular split works — and 12b is at the validator floor, e4b below it">
+        Same orchestrator + synth on both arms; the ONLY difference is the validator model. The granular
+        Answer/In-Depth split fires on both (drop-In-Depth keeps the grounded Answer instead of abstaining the
+        whole turn). But the e4b validator over-flags the <em>Answer</em> — in the verdict logs it returns
+        <Code>answer_ok=False</Code> even for In-Depth-localized issues and citation-index near-misses — so it
+        over-abstains (azt t2/t3). The 12b discriminates: <Code>answer_ok=True, indepth_ok=False</Code> for
+        In-Depth-only problems (9.2 vs chart 9.1; an unsupported &quot;normal range&quot; / &quot;improved due to ART&quot; claim),
+        keeping the Answer and dropping only the elaboration, and passes the one fully-clean turn. Net:
+        <strong> 12b ships 5/6 with only the one CORRECT abstain (weight-trend); e4b ships 3/6, over-abstaining two
+        turns the 12b correctly ships.</strong> Both correctly abstain the genuine weight-trend fabrication.
+      </Callout>
+      <Callout tone="warning" title="Two grounded residuals from the verdict logs">
+        <strong>1. Citation-index near-miss still trips <Code>answer_ok=False</Code></strong> — even 12b flagged an
+        Answer for citing <Code>[168]</Code> (diastolic BP) where <Code>[186]</Code> is the Hgb record, though the
+        clinical value + date were right. The prompt says an index near-miss is NOT an Answer failure; the rule
+        isn&apos;t fully obeyed → tighten it, or resolve indices deterministically before the audit.
+        <strong> 2. Re-synthesis by the weak LOW synth makes things WORSE</strong> — the 12b weight re-synth produced
+        NEW hallucinations (&quot;year 2016&quot;, &quot;52.3 kg&quot;). Detection is solved; correction by the same weak synth is the
+        bottleneck — which is exactly why the abstain (never ship a wrong Answer) is load-bearing, and why the
+        corrector belongs to a separate, more capable role.
       </Callout>
 
       <Callout tone="info" title="Feasibility — a strong corrector is only viable if it fires rarely">
