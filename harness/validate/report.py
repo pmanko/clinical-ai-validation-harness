@@ -644,17 +644,18 @@ function renderJudge(run){
   for(var i=0;i<j.length;i++){ if(j[i].n>0){ has=true; break; } }
   if(!has){ return sec; }
   sec.innerHTML='<h2>quality — reviewer judgment (Scout rubric)</h2>'
-   +'<p class="metrics-legend">Each answer scored against the patient’s chart by a strong LLM reviewer (advisory). <b>accuracy</b> = stated facts correct · <b>completeness</b> = includes the needed info · <b>relevance</b> = on-question, no padding (each 0–10). <b>abstain ✓/✗</b> = correctly said "not documented" vs failed-to-abstain. <b>grounding s/p/u</b> = supported / partly / unsupported. <b>fab refs</b> = references that don’t resolve to a real chart record (deterministic). <b>Drill down:</b> the heatmap is every scenario × arm (green=accurate, amber, red) — click a cell for the note. Caveat: N=21 on one patient, single judge — directional, not a benchmark.</p>';
+   +'<p class="metrics-legend">Each answer scored against the patient’s chart by a strong LLM reviewer (advisory). <b>accuracy</b> = stated facts correct · <b>completeness</b> = includes the needed info · <b>relevance</b> = on-question, no padding (each 0–10). <b>abstain ✓/✗</b> = correctly said "not documented" vs failed-to-abstain. <b>grounding s/p/u</b> = supported / partly / unsupported. <b>fab refs</b> = references that don’t resolve to a real chart record (deterministic). <b>temporal</b> — date ✗ = wrong date↔value or fabricated date · win-over = window claimed beyond the data span · trend-fab = trend asserted from too few points / wrong direction. <b>Drill down:</b> the heatmap is every scenario × arm (green=accurate, amber, red) — click a cell for the note. Caveat: small N, one patient, single judge — directional, not a benchmark.</p>';
   var fab={}, jr=run.judge_rows||[];
   for(var x=0;x<jr.length;x++){ var cr=jr[x].citation_resolution||{}; fab[jr[x].backend_id]=(fab[jr[x].backend_id]||0)+(cr.n_unresolved||0); }
-  var rows=j.map(function(s){ var ab=s.abstention||{}, gr=s.groundedness||{};
+  var rows=j.map(function(s){ var ab=s.abstention||{}, gr=s.groundedness||{}, t=s.temporal||{};
     return "<tr><td class='b'>"+htmlEsc(bpShort(s.backend))+"</td><td>"+s.n+"</td>"
       +"<td>"+fmt10(s.accuracy_mean)+"</td><td>"+fmt10(s.completeness_mean)+"</td><td>"+fmt10(s.relevance_mean)+"</td>"
       +"<td>"+(ab['correct']||0)+" / "+(ab['failed-to-abstain']||0)+"</td>"
       +"<td>"+(gr['supported']||0)+" / "+(gr['partly']||0)+" / "+(gr['unsupported']||0)+"</td>"
-      +"<td>"+(s.harm_count||0)+"</td><td>"+(fab[s.backend]||0)+"</td></tr>"; }).join('');
+      +"<td>"+(s.harm_count||0)+"</td><td>"+(fab[s.backend]||0)+"</td>"
+      +"<td>"+(t.date_wrong||0)+"</td><td>"+(t.window_over||0)+"</td><td>"+(t.trend_fab||0)+"</td></tr>"; }).join('');
   var tbl=el('table','summary');
-  tbl.innerHTML='<thead><tr><th>backend</th><th>judged</th><th>acc</th><th>comp</th><th>rel</th><th>abstain ✓/✗</th><th>grounding s/p/u</th><th>harm</th><th>fab refs</th></tr></thead><tbody>'+rows+'</tbody>';
+  tbl.innerHTML='<thead><tr><th>backend</th><th>judged</th><th>acc</th><th>comp</th><th>rel</th><th>abstain ✓/✗</th><th>grounding s/p/u</th><th>harm</th><th>fab refs</th><th>date ✗</th><th>win over</th><th>trend fab</th></tr></thead><tbody>'+rows+'</tbody>';
   sec.appendChild(tbl);
   sec.appendChild(judgeBarsSVG(j));
   var hm=judgeHeatmap(run); if(hm) sec.appendChild(hm);

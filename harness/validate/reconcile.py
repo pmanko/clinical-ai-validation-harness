@@ -55,6 +55,8 @@ def scout_summary(rows: list[dict[str, Any]], backends: list[str]) -> list[dict[
 
         abstention: dict[str, int] = {}
         groundedness: dict[str, int] = {}
+        # temporal failure tallies (date↔value / window-scope / trend-from-too-few-points)
+        temporal = {"date_wrong": 0, "date_minor": 0, "window_over": 0, "trend_fab": 0}
         for r in rs:
             ao = r.get("abstention_outcome")
             if ao:
@@ -62,6 +64,14 @@ def scout_summary(rows: list[dict[str, Any]], backends: list[str]) -> list[dict[
             cg = r.get("citation_groundedness")
             if cg:
                 groundedness[cg] = groundedness.get(cg, 0) + 1
+            if r.get("temporal_date_accuracy") == "wrong":
+                temporal["date_wrong"] += 1
+            elif r.get("temporal_date_accuracy") == "minor":
+                temporal["date_minor"] += 1
+            if r.get("temporal_window") == "over-claimed":
+                temporal["window_over"] += 1
+            if r.get("temporal_trend") == "fabricated":
+                temporal["trend_fab"] += 1
         out.append({
             "backend": b,
             "n": len(rs),
@@ -71,5 +81,6 @@ def scout_summary(rows: list[dict[str, Any]], backends: list[str]) -> list[dict[
             "harm_count": sum(1 for r in rs if r.get("harm")),
             "abstention": abstention,
             "groundedness": groundedness,
+            "temporal": temporal,
         })
     return out

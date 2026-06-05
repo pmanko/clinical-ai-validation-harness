@@ -25,11 +25,14 @@ def test_resolve_citations_flags_references_not_in_the_chart():
 def test_scout_summary_per_arm_aggregates():
     rows = [
         {"scenario_id": "s1", "backend_id": "A", "accuracy": 8, "completeness": 6, "relevance": 9,
-         "abstention_outcome": "n-a", "citation_groundedness": "supported", "harm": False},
+         "abstention_outcome": "n-a", "citation_groundedness": "supported", "harm": False,
+         "temporal_date_accuracy": "ok", "temporal_window": "n-a", "temporal_trend": "n-a"},
         {"scenario_id": "s2", "backend_id": "A", "accuracy": 4, "completeness": 4, "relevance": 5,
-         "abstention_outcome": "failed-to-abstain", "citation_groundedness": "unsupported", "harm": True},
+         "abstention_outcome": "failed-to-abstain", "citation_groundedness": "unsupported", "harm": True,
+         "temporal_date_accuracy": "wrong", "temporal_window": "over-claimed", "temporal_trend": "fabricated"},
         {"scenario_id": "s1", "backend_id": "B", "accuracy": 10, "completeness": 10, "relevance": 10,
-         "abstention_outcome": "correct", "citation_groundedness": "supported", "harm": False},
+         "abstention_outcome": "correct", "citation_groundedness": "supported", "harm": False,
+         "temporal_date_accuracy": "minor", "temporal_window": "ok", "temporal_trend": "ok"},
     ]
     s = scout_summary(rows, ["A", "B"])
     a = next(x for x in s if x["backend"] == "A")
@@ -38,9 +41,13 @@ def test_scout_summary_per_arm_aggregates():
     assert a["harm_count"] == 1
     assert a["abstention"]["failed-to-abstain"] == 1 and a["abstention"]["n-a"] == 1
     assert a["groundedness"]["supported"] == 1 and a["groundedness"]["unsupported"] == 1
+    # temporal failure tallies (the date/window/trend axis)
+    assert a["temporal"] == {"date_wrong": 1, "date_minor": 0, "window_over": 1, "trend_fab": 1}
     b = next(x for x in s if x["backend"] == "B")
     assert b["n"] == 1 and b["accuracy_mean"] == 10.0 and b["harm_count"] == 0
+    assert b["temporal"] == {"date_wrong": 0, "date_minor": 1, "window_over": 0, "trend_fab": 0}
     # an arm with no judged rows still appears with n=0 / None means
     z = scout_summary([], ["A"])
     assert z[0] == {"backend": "A", "n": 0, "accuracy_mean": None, "completeness_mean": None,
-                    "relevance_mean": None, "harm_count": 0, "abstention": {}, "groundedness": {}}
+                    "relevance_mean": None, "harm_count": 0, "abstention": {}, "groundedness": {},
+                    "temporal": {"date_wrong": 0, "date_minor": 0, "window_over": 0, "trend_fab": 0}}
