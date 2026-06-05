@@ -27,7 +27,29 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from .hub_trace import load_traces, match_trace
 from .reconcile import scout_summary
+
+_CONF_LABEL = {"green": "High confidence", "yellow": "Medium confidence", "red": "Low confidence"}
+
+
+def _conf_tag(label: str, conf: Any) -> str:
+    """One confidence TAG (a colored pill) for a section, with the reviewer note as a tooltip.
+    Empty when there is no confidence (non-team / older run)."""
+    if not isinstance(conf, dict) or not conf.get("level"):
+        return ""
+    level = conf.get("level")
+    note = conf.get("note") or ""
+    title = f" title='{_esc(note)}'" if note else ""
+    return f"<span class='ctag {_esc(level)}'{title}>{label}: {_esc(_CONF_LABEL.get(level, level))}</span>"
+
+
+def _conf_html(trace: Any) -> str:
+    """The per-section confidence tags (Answer + In-Depth) for a cell, from its hub trace."""
+    if not isinstance(trace, dict):
+        return ""
+    tags = _conf_tag("Answer", trace.get("answer_confidence")) + _conf_tag("In-Depth", trace.get("indepth_confidence"))
+    return f"<div class='ctags'>{tags}</div>" if tags else ""
 
 
 # The med-agent-team bridge gracefully degrades to a schema-valid envelope when
@@ -54,46 +76,16 @@ def _esc(value: Any) -> str:
 
 def _render_answer(text: Any) -> str:
     """Render the chart-answer envelope's markdown body to HTML, escaping the untrusted model text
-    FIRST so it can never inject markup, then upgrading the structural forms the two-call synthesis
-    emits: `**Answer**` / `**In Depth**` section headers (-> <h4 class=sec>), `> …` confidence
-    caveats (-> a styled .caveat box, red/yellow by its 🔴/🟡 marker), `- …` claim bullets (-> <ul>),
-    `##` ATX headings (-> <h3>), and inline `**bold**`. Newlines stay as-is (the .ans pre-wrap)."""
+    FIRST so it can never inject markup, then upgrading the structural forms the synthesis emits:
+    `**Answer**` / `**In Depth**` bold headers (-> <strong>) and `##` ATX headings (-> <h3>). The
+    body is CLEAN of confidence text now — confidence renders separately as a tag (see _conf_html).
+    Newlines (incl. a literal backslash-n a 4B may copy from the prompt) stay as line breaks under
+    the .ans { pre-wrap } style, so the In-Depth `- …` claim bullets render as a readable list."""
     s = html.escape("" if text is None else str(text))
     s = s.replace("\\n", "\n")
-    out: list[str] = []
-    in_list = False
-
-    def _close_list() -> None:
-        nonlocal in_list
-        if in_list:
-            out.append("</ul>")
-            in_list = False
-
-    for raw in s.split("\n"):
-        line = raw.strip()
-        hdr = re.match(r"^\*\*(.+?)\*\*$", line)          # a whole-line **bold** = a section header
-        if hdr:
-            _close_list()
-            out.append(f"<h4 class='sec'>{hdr.group(1)}</h4>")
-        elif line.startswith("&gt;"):                      # > caveat (escaped)
-            _close_list()
-            cav = line[4:].strip()
-            tone = "red" if "🔴" in cav else ("yellow" if "🟡" in cav else "")
-            out.append(f"<div class='caveat {tone}'>{cav}</div>")
-        elif line.startswith("- "):                        # - claim bullet
-            if not in_list:
-                out.append("<ul class='idl'>")
-                in_list = True
-            out.append(f"<li>{line[2:]}</li>")
-        elif not line:
-            _close_list()
-        else:
-            _close_list()
-            m = re.match(r"^##\s+(.+?)$", line)
-            out.append(f"<h3>{m.group(1)}</h3>" if m else f"<p>{line}</p>")
-    _close_list()
-    rendered = "".join(out)  # no stray newlines between block elements (the .ans pre-wrap)
-    return re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", rendered)  # inline bold
+    s = re.sub(r"^##\s+(.+?)\s*$", r"<h3>\1</h3>", s, flags=re.MULTILINE)
+    s = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", s)
+    return s
 
 
 def _render_blocks(blocks: Any) -> str:
@@ -275,16 +267,18 @@ def _summary_rows(results: list[dict[str, Any]], backends: list[str], labels: di
     return rows
 
 
-def _cell_blob(r: dict[str, Any]) -> dict[str, Any]:
+def _cell_blob(r: dict[str, Any], traces: list[dict[str, Any]] | None = None) -> dict[str, Any]:
     """One rendered cell for the blob. Answer/block HTML is rendered in Python
     (escape-FIRST) so the injection contract is enforced and testable; the JS
     just injects the strings. Carries only the surfaced metric subset + the
-    precomputed degraded flag."""
+    precomputed degraded flag, plus the per-section confidence tags from the hub trace."""
     m = r.get("metrics") or {}
     resp = r.get("response") or {}
+    trace = match_trace(traces or [], r.get("backend_id"), r.get("started_at"), r.get("ended_at"))
     return {
         "error": r.get("error"),
         "http_status": m.get("http_status"),
+        "conf_html": _conf_html(trace),
         "answer_html": _render_answer(resp.get("answer")),
         "refs_html": _render_refs(resp.get("references")),
         "blocks_html": _render_blocks(resp.get("blocks")),
@@ -307,6 +301,10 @@ def _run_blob(run_dir: Path) -> dict[str, Any]:
     results = _read_jsonl(run_dir / "results.jsonl")
     events = _read_jsonl(run_dir / "events.jsonl")
     labels = _backend_labels(events)
+    # Per-turn confidence/trace lives in the hub artifact (chartsearchai drops the envelope field);
+    # correlate by level_id + the cell's started_at..ended_at window. artifacts/hub-trace is a sibling
+    # of artifacts/validate/<run>, i.e. run_dir.parent.parent / hub-trace.
+    traces = load_traces(run_dir.parent.parent / "hub-trace" / "trace.jsonl")
 
     backends = _ordered_unique([r.get("backend_id") for r in results])
     scenario_ids = _ordered_unique([r.get("scenario_id") for r in results])
@@ -325,7 +323,7 @@ def _run_blob(run_dir: Path) -> dict[str, Any]:
             for b in backends:
                 r = index.get((t, b))
                 if r is not None:
-                    cells[b] = _cell_blob(r)
+                    cells[b] = _cell_blob(r, traces)
             turns.append({"turn": t, "question": questions.get(t, ""), "cells": cells})
         scenarios.append({"scenario_id": sid, "turns": turns})
 
@@ -467,14 +465,11 @@ table.jheat { border-collapse: collapse; font-size: 11px; }
 .expand:hover { background: #dce6fb; }
 .ans { white-space: pre-wrap; max-height: 20em; overflow: auto; }
 .tile.expanded .ans { max-height: none; }
-.ans h4.sec { margin: 8px 0 2px; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--mut); }
-.ans h4.sec:first-child { margin-top: 0; }
-.ans p { margin: 2px 0; }
-.ans ul.idl { margin: 2px 0 2px 0; padding-left: 18px; }
-.ans ul.idl li { margin: 2px 0; }
-.ans .caveat { border-radius: 5px; padding: 5px 8px; margin: 4px 0; font-size: 12px; }
-.ans .caveat.red { background: #fdecec; border: 1px solid #f0b4b4; color: #8b1a1a; }
-.ans .caveat.yellow { background: #fdf6e3; border: 1px solid #e6cf8a; color: #7a5b00; }
+.ctags { margin: 0 0 6px; display: flex; flex-wrap: wrap; gap: 4px; }
+.ctag { display: inline-block; font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 10px; color: #fff; cursor: default; }
+.ctag.green { background: #196c2e; }
+.ctag.yellow { background: #9e6a03; }
+.ctag.red { background: #8b1a1a; }
 .refs { margin-top: 6px; }
 .ref { display: inline-block; font-size: 10px; font-family: ui-monospace, monospace; background: #eef3ff; color: #2748a0; padding: 1px 4px; border-radius: 3px; margin: 1px; }
 .more { color: var(--mut); font-size: 10px; }
@@ -725,7 +720,7 @@ function buildTile(run, backend, cell, turn, scenarioId){
     body.querySelector('.err').textContent = 'HTTP ' + (cell.http_status == null ? '' : cell.http_status) +
                                              ': ' + String(cell.error).slice(0, 400);
   } else {
-    body.innerHTML = "<div class='ans'>" + cell.answer_html + '</div>' + cell.refs_html + cell.blocks_html;
+    body.innerHTML = (cell.conf_html || '') + "<div class='ans'>" + cell.answer_html + '</div>' + cell.refs_html + cell.blocks_html;
   }
   tile.appendChild(body);
 

@@ -336,8 +336,8 @@ function renderBlocks(blocks){
   return '<div class=block>'+title+'<table class=btbl><thead><tr>'+head+'</tr></thead><tbody>'+body+'</tbody></table></div>';
  }).join('');
 }
-const CONF={green:['🟢','high','#196c2e'],yellow:['🟡','med','#9e6a03'],red:['🔴','low','#8b1a1a']};
-function chip(level){const c=CONF[level]||['','?','#30363d'];return '<span class=cchip style="background:'+c[2]+'">'+c[0]+' '+c[1]+'</span>';}
+const CONF={green:['High confidence','#196c2e'],yellow:['Medium confidence','#9e6a03'],red:['Low confidence','#8b1a1a']};
+function chip(level){const c=CONF[level]||['unrated','#30363d'];return '<span class=cchip style="background:'+c[1]+'">'+c[0]+'</span>';}
 // Per-section render with the confidence inversion: red -> caveat shown, message collapsed;
 // yellow -> message shown, caveat collapsed; green -> message, no caveat.
 function confSection(title, bodyHtml, conf){
