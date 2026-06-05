@@ -53,19 +53,47 @@ def _esc(value: Any) -> str:
 
 
 def _render_answer(text: Any) -> str:
-    """Render the answer's light markdown to HTML, escaping the untrusted model
-    text FIRST so it can never inject markup, then upgrading the two structural
-    forms the v2 synthesis prompt emits: `**bold**` section headers (-> <strong>)
-    and `##` ATX headings (-> <h3>). Newlines stay as-is — the .ans { pre-wrap }
-    style already renders them as line breaks."""
+    """Render the chart-answer envelope's markdown body to HTML, escaping the untrusted model text
+    FIRST so it can never inject markup, then upgrading the structural forms the two-call synthesis
+    emits: `**Answer**` / `**In Depth**` section headers (-> <h4 class=sec>), `> …` confidence
+    caveats (-> a styled .caveat box, red/yellow by its 🔴/🟡 marker), `- …` claim bullets (-> <ul>),
+    `##` ATX headings (-> <h3>), and inline `**bold**`. Newlines stay as-is (the .ans pre-wrap)."""
     s = html.escape("" if text is None else str(text))
-    # A literal backslash-n the 4B may copy verbatim from the v2 prompt's JSON-string
-    # few-shot -> a real newline (pre-wrap renders it), so a copied escape can't
-    # masquerade as worse v2 output and confound the A/B.
     s = s.replace("\\n", "\n")
-    s = re.sub(r"^##\s+(.+?)\s*$", r"<h3>\1</h3>", s, flags=re.MULTILINE)
-    s = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", s)
-    return s
+    out: list[str] = []
+    in_list = False
+
+    def _close_list() -> None:
+        nonlocal in_list
+        if in_list:
+            out.append("</ul>")
+            in_list = False
+
+    for raw in s.split("\n"):
+        line = raw.strip()
+        hdr = re.match(r"^\*\*(.+?)\*\*$", line)          # a whole-line **bold** = a section header
+        if hdr:
+            _close_list()
+            out.append(f"<h4 class='sec'>{hdr.group(1)}</h4>")
+        elif line.startswith("&gt;"):                      # > caveat (escaped)
+            _close_list()
+            cav = line[4:].strip()
+            tone = "red" if "🔴" in cav else ("yellow" if "🟡" in cav else "")
+            out.append(f"<div class='caveat {tone}'>{cav}</div>")
+        elif line.startswith("- "):                        # - claim bullet
+            if not in_list:
+                out.append("<ul class='idl'>")
+                in_list = True
+            out.append(f"<li>{line[2:]}</li>")
+        elif not line:
+            _close_list()
+        else:
+            _close_list()
+            m = re.match(r"^##\s+(.+?)$", line)
+            out.append(f"<h3>{m.group(1)}</h3>" if m else f"<p>{line}</p>")
+    _close_list()
+    rendered = "".join(out)  # no stray newlines between block elements (the .ans pre-wrap)
+    return re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", rendered)  # inline bold
 
 
 def _render_blocks(blocks: Any) -> str:
@@ -439,6 +467,14 @@ table.jheat { border-collapse: collapse; font-size: 11px; }
 .expand:hover { background: #dce6fb; }
 .ans { white-space: pre-wrap; max-height: 20em; overflow: auto; }
 .tile.expanded .ans { max-height: none; }
+.ans h4.sec { margin: 8px 0 2px; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--mut); }
+.ans h4.sec:first-child { margin-top: 0; }
+.ans p { margin: 2px 0; }
+.ans ul.idl { margin: 2px 0 2px 0; padding-left: 18px; }
+.ans ul.idl li { margin: 2px 0; }
+.ans .caveat { border-radius: 5px; padding: 5px 8px; margin: 4px 0; font-size: 12px; }
+.ans .caveat.red { background: #fdecec; border: 1px solid #f0b4b4; color: #8b1a1a; }
+.ans .caveat.yellow { background: #fdf6e3; border: 1px solid #e6cf8a; color: #7a5b00; }
 .refs { margin-top: 6px; }
 .ref { display: inline-block; font-size: 10px; font-family: ui-monospace, monospace; background: #eef3ff; color: #2748a0; padding: 1px 4px; border-radius: 3px; margin: 1px; }
 .more { color: var(--mut); font-size: 10px; }
@@ -644,7 +680,7 @@ function renderJudge(run){
   for(var i=0;i<j.length;i++){ if(j[i].n>0){ has=true; break; } }
   if(!has){ return sec; }
   sec.innerHTML='<h2>quality — reviewer judgment (Scout rubric)</h2>'
-   +'<p class="metrics-legend">Each answer scored against the patient’s chart by a strong LLM reviewer (advisory). <b>accuracy</b> = stated facts correct · <b>completeness</b> = includes the needed info · <b>relevance</b> = on-question, no padding (each 0–10). <b>abstain ✓/✗</b> = correctly said "not documented" vs failed-to-abstain. <b>grounding s/p/u</b> = supported / partly / unsupported. <b>fab refs</b> = references that don’t resolve to a real chart record (deterministic). <b>temporal</b> — date ✗ = wrong date↔value or fabricated date · win-over = window claimed beyond the data span · trend-fab = trend asserted from too few points / wrong direction. <b>Drill down:</b> the heatmap is every scenario × arm (green=accurate, amber, red) — click a cell for the note. Caveat: small N, one patient, single judge — directional, not a benchmark.</p>';
+   +'<p class="metrics-legend">Each answer scored against the patient’s chart by a strong LLM reviewer (advisory). <b>accuracy</b> = stated facts correct · <b>completeness</b> = includes the needed info · <b>relevance</b> = on-question, no padding (each 0–10). <b>abstain ✓/✗</b> = correctly said "not documented" vs failed-to-abstain. <b>grounding s/p/u</b> = supported / partly / unsupported. <b>fab refs</b> = references that don’t resolve to a real chart record (deterministic). <b>temporal</b> — date ✗ = wrong date↔value or fabricated date · win-over = window claimed beyond the data span · trend-fab = trend asserted from too few points / wrong direction. <b>Drill down:</b> the heatmap is every scenario × arm (green=accurate, amber, red) — click a cell for the note. Caveat: small N, one patient, single judge — directional, not a benchmark. Note: arms are NOT prompt-harmonized — the single-model path uses chartsearchai’s default prompt while the team path uses the orchestrator + synthesis prompts, so differences here confound orchestration with prompt; the next run harmonizes prompts to separate the two.</p>';
   var fab={}, jr=run.judge_rows||[];
   for(var x=0;x<jr.length;x++){ var cr=jr[x].citation_resolution||{}; fab[jr[x].backend_id]=(fab[jr[x].backend_id]||0)+(cr.n_unresolved||0); }
   var rows=j.map(function(s){ var ab=s.abstention||{}, gr=s.groundedness||{}, t=s.temporal||{};
