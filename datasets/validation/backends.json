@@ -30,9 +30,14 @@
     "modelName": "med-agent-team-low"
   },
   "med-agent-team-low-validated": {
-    "label": "Med Agent Team — LOW + validator (gemma-e2b-q2 orchestrator-as-validator)",
+    "label": "Med Agent Team — LOW + validator gemma-e4b-q8 (floor candidate, goal-framed)",
     "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
     "modelName": "med-agent-team-low-validated"
+  },
+  "med-agent-team-low-validated-12b": {
+    "label": "Med Agent Team — LOW + validator gemma-4-12b (floor comparison, goal-framed)",
+    "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
+    "modelName": "med-agent-team-low-validated-12b"
   },
   "med-agent-team-med-validated": {
     "label": "Med Agent Team — MED + validator (gemma-e4b-q8 orchestrator-as-validator)",
