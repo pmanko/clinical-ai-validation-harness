@@ -206,6 +206,8 @@ services:
     volumes:
       - ../targets/med-agent-hub/server/prompts:/app/server/prompts:ro
       - ../targets/med-agent-hub/server/levels.yaml:/app/server/levels.yaml:ro
+      # Writable: per-turn reasoning-trace JSONL the live dashboard renders (team._write_trace).
+      - ../artifacts/hub-trace:/app/trace:rw
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://localhost:8080/health"]
       interval: 30s

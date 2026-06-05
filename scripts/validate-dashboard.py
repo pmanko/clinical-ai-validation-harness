@@ -9,6 +9,7 @@ scenario x arm status grid, and a recent feed. Click any grid cell or feed row t
 drill into that (scenario, arm): the expected behaviour + every turn's question,
 full answer, citations, and metrics. Reads the newest artifacts/validate run.
 """
+import datetime as _datetime
 import glob
 import http.server
 import json
@@ -22,7 +23,34 @@ from urllib.parse import parse_qs, urlparse
 
 ROOT = Path(__file__).resolve().parent.parent
 DATA = ROOT / "datasets" / "validation"
+TRACE_FILE = ROOT / "artifacts" / "hub-trace" / "trace.jsonl"
 PORT = int(os.environ.get("DASH_PORT", "8099"))
+
+
+def _parse_iso(s):
+    try:
+        return _datetime.datetime.fromisoformat(s)
+    except (ValueError, TypeError):
+        return None
+
+
+def _match_trace(traces, backend, started_at, ended_at):
+    """Correlate a results cell to its hub reasoning-trace: same level_id (== backend id) and the
+    trace ts inside the cell's [started_at, ended_at] window (the runner is strictly sequential).
+    A few seconds of slack absorbs container/host clock rounding. Returns the latest match, or None."""
+    st, en = _parse_iso(started_at), _parse_iso(ended_at)
+    if not st or not en:
+        return None
+    slack = _datetime.timedelta(seconds=5)
+    lo, hi = st - slack, en + slack
+    best = None
+    for tr in traces:
+        if tr.get("level_id") != backend:
+            continue
+        ts = _parse_iso(tr.get("ts", ""))
+        if ts and lo <= ts <= hi:
+            best = tr  # keep the latest match within the window
+    return best
 
 
 def newest_run():
@@ -175,11 +203,13 @@ def detail(scenario, backend):
         exp = json.load(open(DATA / "scenarios" / f"{scenario}.json")).get("expectations", {})
     except Exception:
         pass
+    traces = read_jsonl(TRACE_FILE)
     turns = []
     for r in rows:
         m = r.get("metrics") or {}
         resp = r.get("response") or {}
         refs = resp.get("references") or resp.get("citations") or []
+        tr = _match_trace(traces, backend, r.get("started_at"), r.get("ended_at"))
         turns.append({"turn": r.get("turn"),
                       "question": (r.get("request") or {}).get("question", ""),
                       "answer": resp.get("answer", ""),
@@ -187,7 +217,9 @@ def detail(scenario, backend):
                       "refs": refs,
                       "status": m.get("http_status"), "latency_ms": m.get("latency_ms"),
                       "chars": m.get("answer_chars"), "citations": m.get("citation_count"),
-                      "error": r.get("error")})
+                      "error": r.get("error"),
+                      "trace": {"disposition": tr.get("disposition"), "steps": tr.get("steps") or [],
+                                "models": tr.get("models") or {}} if tr else None})
     return {"scenario": scenario, "backend": backend, "expectations": exp, "turns": turns}
 
 
@@ -225,6 +257,19 @@ table.btbl{border-collapse:collapse;font-size:11px;width:100%}
 .btbl td,.btbl th{border:1px solid #21262d;padding:3px 7px;text-align:left;vertical-align:top}
 .btbl th{color:#8b949e;font-weight:400;white-space:nowrap}
 .btbl .cref{color:#586069;font-size:10px;margin-left:3px}
+.tracebox{margin-top:8px;border:1px solid #21262d;border-radius:6px;background:#0b0f14}
+.tracebox summary{cursor:pointer;color:#8b949e;font-size:11px;padding:6px 10px;list-style:none}
+.tracebox summary::-webkit-details-marker{display:none}
+.tracebox[open] summary{border-bottom:1px solid #21262d}
+.trace{padding:8px 10px}
+.tdisp{font-size:11px;color:#d2a8ff;margin-bottom:6px}
+.tstep{border:1px solid #21262d;border-radius:6px;padding:6px 8px;background:#0d1117}
+.trole{font-size:10px;color:#79c0ff;text-transform:uppercase;letter-spacing:.04em;margin-bottom:3px}
+.trole.flag{color:#f0883e}.trole.ok{color:#3fb950}
+.tmodel{color:#586069;text-transform:none;letter-spacing:0;margin-left:5px}
+.tbody{font-size:11px;white-space:pre-wrap;color:#c9d1d9}
+.tarrow{text-align:center;color:#30363d;font-size:11px;line-height:1.1;margin:1px 0}
+.notrace{font-size:11px;color:#586069;padding:8px 10px}
 </style></head><body>
 <h1 id=hdr>validate run</h1>
 <div class=bar><div id=fill style=width:0%></div></div>
@@ -279,6 +324,27 @@ function renderBlocks(blocks){
   return '<div class=block>'+title+'<table class=btbl><thead><tr>'+head+'</tr></thead><tbody>'+body+'</tbody></table></div>';
  }).join('');
 }
+function renderTrace(tr){
+ if(!tr) return '<div class=notrace>no reasoning trace captured for this turn (hub trace off, or older run)</div>';
+ const fmt=s=>{
+  if(s.role==='orchestrator') return ['orchestrator','tools: '+((s.tool_calls||[]).join(', ')||'(none — straight to synthesis)')];
+  if(s.role==='kb_search') return ['kb_search',(s.hit?'HIT':'miss')+(s.fallback?' (deterministic fallback)':'')+' · '+esc(s.query||'')+' · '+(s.chars||0)+'c'];
+  if(s.role==='medical_expert') return ['medical_expert',esc(s.note||'')];
+  if(s.role==='answer_synth') return ['answer synth',esc(s.output||'')+(s.citations&&s.citations.length?'  ['+s.citations.join(',')+']':'')];
+  if(s.role==='answer_resynth') return ['answer re-synth',esc(s.output||'')];
+  if(s.role==='answer_validator') return ['answer validator'+(s.attempt?' #'+s.attempt:''),(s.answer_ok?'PASS':'FLAG')+(s.answer_issues?' · '+esc(s.answer_issues):''),s.answer_ok?'ok':(s.answer_issues?'flag':'')];
+  if(s.role==='indepth_synth') return ['in-depth synth',((s.claims||[]).map(c=>'• '+esc(c)).join('<br>')||'(no claims)')];
+  if(s.role==='indepth_validator') return ['in-depth validator','drop '+JSON.stringify(s.drop||[])+' of '+(s.claims_in||0)+(s.issues?' · '+esc(s.issues):'')];
+  return [s.role,esc(JSON.stringify(s))];
+ };
+ const steps=(tr.steps||[]).map(s=>{
+  const [label,body,tone]=fmt(s);
+  const cls='trole'+(tone==='flag'?' flag':(tone==='ok'?' ok':''));
+  const m=s.model?'<span class=tmodel>'+esc(s.model)+'</span>':'';
+  return '<div class=tstep><div class="'+cls+'">'+esc(label)+m+'</div><div class=tbody>'+body+'</div></div>';
+ }).join('<div class=tarrow>↓</div>');
+ return '<div class=trace><div class=tdisp>disposition: <b>'+esc(tr.disposition||'?')+'</b></div>'+(steps||'<div class=notrace>no steps</div>')+'</div>';
+}
 async function openD(s,b){
  const d=await(await fetch('/api/detail?scenario='+encodeURIComponent(s)+'&backend='+encodeURIComponent(b))).json();
  const e=d.expectations||{};
@@ -286,11 +352,12 @@ async function openD(s,b){
  h+='<div class=exp><b>Expected:</b> '+(e.should_abstain?'ABSTAIN':'retrieve')+(e.should_cite_resource_types?' ['+e.should_cite_resource_types.join(', ')+']':'')+'<br>'+esc(e.notes||'')+'</div>';
  (d.turns||[]).forEach(t=>{
   h+='<div class=turn><div class=q>Turn '+t.turn+': '+esc(t.question)+'</div>';
-  h+='<div class=meta><span class="'+(t.status===200?'ok':'err')+'">status '+t.status+'</span> · '+(t.latency_ms||0)+'ms · '+(t.chars||0)+' chars · '+(t.citations||0)+' citations</div>';
+  h+='<div class=meta><span class="'+(t.status===200?'ok':'err')+'">status '+t.status+'</span> · '+(t.latency_ms||0)+'ms · '+(t.chars||0)+' chars · '+(t.citations||0)+' citations'+(t.trace?' · <span class=muted>'+esc(t.trace.disposition||'')+'</span>':'')+'</div>';
   if(t.error)h+='<div class="ans err">'+esc(t.error)+'</div>';
   else h+='<div class=ans>'+esc(t.answer)+'</div>';
   h+=renderBlocks(t.blocks);
   if(t.refs&&t.refs.length)h+='<div class=refs>refs: '+esc(t.refs.map(r=>typeof r==='object'?('['+(r.index!=null?r.index:'?')+'] '+(r.resourceType||'')):('['+r+']')).join('  '))+'</div>';
+  h+='<details class=tracebox><summary>▸ reasoning trace'+(t.trace?' — '+esc(t.trace.disposition||''):'')+'</summary>'+renderTrace(t.trace)+'</details>';
   h+='</div>';
  });
  mbody.innerHTML=h; modal.style.display='flex';
