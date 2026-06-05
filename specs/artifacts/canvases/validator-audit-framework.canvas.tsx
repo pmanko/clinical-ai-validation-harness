@@ -126,31 +126,28 @@ ORCHESTRATOR LOOP        prompt orchestrator.txt   model = tier orchestrator (LO
 GATHERED EVIDENCE  (one block: KB snippets + expert notes)
         |
         v
-SYNTHESIS                prompt synthesis(-low).txt  model = tier synth (LOW qwen3-4b ... HIGH qwen3.6-35b)
-  call = ORIGINAL prefix messages + user( synthesis_instruction + gathered )
-  bound to chartsearchai response_format -> ONE JSON envelope:
-     { "answer": "<two markdown sections in ONE string>", "citations":[N...], "blocks":[...] }
-        the answer string =
-          **Answer**     1-2 sentences, direct, cite chart records inline [N]
-          **In Depth**   one claim per BULLET (each individually addressable): KB guidance (prose) + expert reading
-        |
-        v  _normalize_envelope()   repair mangled \\n  -  fold inline [N] -> citations
-   validator set on this level? ---- no ----> RETURN envelope unchanged
-        | yes   _audit_and_revise()  (max_loops, default 1)
-        v
-VALIDATOR                prompt validation.txt  model = tier validator (gemma; cross-family vs the qwen synth)
-  sees  CHART (ground truth) + GATHERED KB + the Answer + the NUMBERED In-Depth claims
-  judges by SCOPE (Answer strict vs claims by type), returns
-     { answer_ok, answer_issues, indepth_drop: [claim #s to remove], indepth_issues }   (FAIL-OPEN on parse error)
-        |
-        v  TWO INDEPENDENT remediation paths:
-   ANSWER (strict)    answer_ok   ->  keep the Answer
-                      !answer_ok  ->  re-synthesize(Answer) -> re-audit -> ok? adopt : ABSTAIN the turn
-   IN DEPTH (advisory, claim-level)  ->  block/strip the flagged claim #s; Answer untouched; NEVER abstains
+SYNTHESIS -- TWO DISTINCT CALLS (model = tier synth; LOW qwen3-4b ... HIGH qwen3.6-35b)
+  (1) ANSWER call     prompt synthesis-answer.txt, bound to chartsearchai {answer,citations,blocks}
+        -> the DIRECT answer ONLY (1-2 sentences, [N] chart cites) + any table blocks
+  (2) IN-DEPTH call   prompt synthesis-indepth.txt, schema { claims:[...] }, given the ANSWER + gathered KB
+        -> a list of claims, each ONE KB-guidance / expert point (attributed; chart facts [N])
         |
         v
-RETURN   ALWAYS the same shape ->  { answer, citations, blocks }
-         (the two sections live INSIDE the one answer string; the verdict does NOT leave the hub)`}</Code>
+   validator set on this level? ---- no ----> assemble + RETURN
+        | yes
+        v
+VALIDATION -- TWO DISTINCT VALIDATORS (model = tier validator gemma; cross-family vs the qwen synth)
+  ANSWER validator    validation-answer.txt, schema { answer_ok, answer_issues }   (STRICT)
+     answer_ok                        ->  keep the Answer
+     !answer_ok WITH a stated reason  ->  re-synthesize(Answer) -> re-audit -> ok? adopt : ABSTAIN turn
+     !answer_ok with NO reason        ->  treated as PASS (noise never abstains)
+  IN-DEPTH validator  validation-indepth.txt, schema { drop:[claim #s] }   (ADVISORY, per claim)
+     ->  block/strip exactly the flagged claims; Answer untouched; NEVER abstains
+        |
+        v
+ASSEMBLE (only here) -> answer body = "**Answer**\\n<answer>\\n\\n**In Depth**\\n- <kept claim> ..."
+RETURN   { answer: <combined body>, citations, blocks }
+         (distinct objects everywhere internally; combined into one body only at the handoff)`}</Code>
         <Callout tone="warning" title="Why the low-validated run still reads as one confident answer">
           The return contract is fixed: one <Code>{`{ answer, citations, blocks }`}</Code> envelope.
           <Code>**Answer**</Code> and <Code>**In Depth**</Code> are markdown headers <em>inside</em> the single
