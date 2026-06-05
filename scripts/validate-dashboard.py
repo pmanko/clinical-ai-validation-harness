@@ -432,7 +432,14 @@ class H(http.server.BaseHTTPRequestHandler):
         self.wfile.write(body)
 
 
+class _Server(socketserver.ThreadingTCPServer):
+    # Threaded + daemon threads: a slow request (e.g. a cell-click detail() that reads the growing
+    # trace) must never block the 2s /api/status poll — that single-threaded stall made the live
+    # page look frozen / "down".
+    allow_reuse_address = True
+    daemon_threads = True
+
+
 if __name__ == "__main__":
     print(f"validate dashboard -> http://localhost:{PORT}   (Ctrl-C to stop)")
-    socketserver.TCPServer.allow_reuse_address = True
-    socketserver.TCPServer(("127.0.0.1", PORT), H).serve_forever()
+    _Server(("127.0.0.1", PORT), H).serve_forever()
