@@ -64,6 +64,7 @@
   <a href="#runs">④ Run lessons</a>
   <a href="#tuning">⑤ Tuning lessons</a>
   <a href="#extend">⑥ Extending to roles/models</a>
+  <a href="#experiment">⑦ Validator experiment</a>
 </nav>
 <main>
 
@@ -189,6 +190,36 @@
     <div class="card"><h3>The cross-family principle generalizes</h3><p>Any auditor/judge role should differ in model family from what it judges. Today gemma-audits-qwen holds for free; if prompts are harmonized to a gemma synthesizer, the validator must move off gemma — a constraint to carry forward.</p></div>
     <div class="card"><h3>The deterministic floor is shared infrastructure</h3><p><code>reconcile.py</code> already backs both the offline judge and the runtime validator. The Tier-1 recompute-then-diff helpers (no-trend-&lt;2pts, window-clamp, date↔value, value-in-source, numeric-relation) are pure functions over the dated series — reusable by any role or a future second auditor. Tier-2 (RxCUI meds, allergy extraction, UCUM units) needs small envelope extensions; Tier-3 (DDI / cross-reactivity) needs a clinical KB.</p></div>
     <div class="card"><h3>Scaling &amp; what's next</h3><ul><li>Validator size scales with the team class; the same pattern could scale the <b>expert</b> or add a second auditor.</li><li>Harmonize knobs + prompts across paths for a clean direct-vs-team comparison.</li><li>Measure validator <b>flag-precision</b> on a gold subset before trusting the loop.</li><li>This dashboard grows as runs + tuning accumulate.</li></ul></div>
+  </div>
+</section>
+
+<section id="experiment">
+  <h2><span class="n">⑦</span>Validator experiment (live)</h2>
+  <p class="lede">Testing whether a tier-scaled, cross-family audit round actually catches and fixes the failures — first cheaply against the recorded runs, then a targeted rerun with the full pipeline context.</p>
+
+  <div class="card"><h3>Offline pre-check — does the audit catch known failures?</h3>
+    <p>The real <code>validation.txt</code> audit replayed against 16 recorded Aloice answers (10 known-bad, 6 clean), at two validator sizes:</p>
+    <table>
+      <thead><tr><th>Validator</th><th class="num">catch (of 10 bad)</th><th class="num">false-flag (of 6 good)</th></tr></thead>
+      <tbody>
+        <tr><td class="b">gemma-4-12b</td><td class="num hi">9</td><td class="num">3*</td></tr>
+        <tr><td class="b">gemma-31b</td><td class="num hi">10</td><td class="num">4*</td></tr>
+      </tbody>
+    </table>
+    <p class="src">* false-flags are <b>artifacts of a stripped chart</b> — the offline replay fed only dated observations, so answers about allergies / problem-list / contact (not observations) were wrongly flagged. The live rerun (full chart + KB + chat history) is the faithful false-flag measurement. Catch is the real signal: even the 12B validator flags ~all fabrications.</p>
+  </div>
+
+  <div class="card"><h3>Live targeted A/B — orchestrator-as-validator, scaled per tier</h3>
+    <p>Rerunning the 4 worst scenarios (reversed weight trend, single-CD4 trap, fabricated pulse trend, multi-turn AZT-anemia harm) through the real pipeline with each tier's own orchestrator as the cross-family validator, vs the recorded Aloice baseline (no validator).</p>
+    <table>
+      <thead><tr><th>Tier</th><th>Validator (= orchestrator)</th><th class="num">caught</th><th class="num">fixed</th><th class="num">kept-original (gate)</th><th>net effect</th></tr></thead>
+      <tbody>
+        <tr><td class="b">LOW</td><td>gemma-e2b-q2</td><td class="num">—</td><td class="num">—</td><td class="num">—</td><td class="src">running…</td></tr>
+        <tr><td class="b">MED</td><td>gemma-e4b-q8</td><td class="num">—</td><td class="num">—</td><td class="num">—</td><td class="src">running…</td></tr>
+        <tr><td class="b">HIGH</td><td>gemma-31b</td><td class="num">—</td><td class="num">—</td><td class="num">—</td><td class="src">running…</td></tr>
+      </tbody>
+    </table>
+    <p class="src">Catch = audit flagged the failure · Fixed = feedback-guided re-synthesis cleared it · Kept-original = re-validate-and-keep-best rejected a still-flagged rewrite (safe). Tests the size floor: does the tiny LOW orchestrator-validator help, or is a bigger validator needed? Results populate when the run completes.</p>
   </div>
 </section>
 

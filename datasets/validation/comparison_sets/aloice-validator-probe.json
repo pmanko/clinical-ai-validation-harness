@@ -1,0 +1,14 @@
+{
+  "id": "aloice-validator-probe",
+  "scenario_ids": [
+    "am-weight-trend",
+    "am-cd4-history",
+    "am-vitals-summary",
+    "am-convo-azt-anemia"
+  ],
+  "backend_ids": [
+    "med-agent-team-low-validated",
+    "med-agent-team-med-validated",
+    "med-agent-team-high-validated"
+  ]
+}

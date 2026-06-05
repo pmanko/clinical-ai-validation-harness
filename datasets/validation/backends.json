@@ -29,6 +29,21 @@
     "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
     "modelName": "med-agent-team-low"
   },
+  "med-agent-team-low-validated": {
+    "label": "Med Agent Team — LOW + validator (gemma-e2b-q2 orchestrator-as-validator)",
+    "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
+    "modelName": "med-agent-team-low-validated"
+  },
+  "med-agent-team-med-validated": {
+    "label": "Med Agent Team — MED + validator (gemma-e4b-q8 orchestrator-as-validator)",
+    "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
+    "modelName": "med-agent-team-med-validated"
+  },
+  "med-agent-team-high-validated": {
+    "label": "Med Agent Team — HIGH + validator (gemma-31b orchestrator-as-validator)",
+    "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
+    "modelName": "med-agent-team-high-validated"
+  },
   "med-agent-team-med": {
     "label": "Med Agent Team — MED (e4b-q8 orch · medgemma-1.5-q8 expert · qwen2.5-14b synth)",
     "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
