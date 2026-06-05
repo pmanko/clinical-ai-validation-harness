@@ -186,6 +186,17 @@ validator: revision still flagged -> kept the original draft`}</Code>
         human calibration.
       </Callout>
 
+      <Callout tone="info" title="Feasibility — a strong corrector is only viable if it fires rarely">
+        The strong corrector is the expensive top rung (a 31B model that evicts the tier models on the
+        <Code>--models-max</Code> stack — a thrash cycle per call). It runs <strong>per-flag, never per-query</strong>
+        (cost ≈ flag-rate × corrector-cost) — so it&apos;s only affordable if the <strong>flag rate is low</strong>. But
+        the weak tiers that need correction most fabricate most, so they&apos;d flag most, and the corrector would fire on
+        a large fraction (a per-turn tax exactly where it&apos;s least affordable). Resolution,
+        ordered by cost: <strong>prevent (deterministic computed evidence → fewer fabrications → fewer flags; cheap,
+        always-on) → gate + abstain (free) → selective strong correction (expensive, rare).</strong> Prevention is what
+        earns the right to use a powerful corrector at all; correction is the last resort, not the workhorse.
+      </Callout>
+
       <Divider />
       <H2>F. Recommendations</H2>
       <Stack gap={8}>
