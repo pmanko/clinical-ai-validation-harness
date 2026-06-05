@@ -62,6 +62,14 @@ const catchRows = [
   ['gemma-4-12b', '9 / 10', '0', 'missed one borderline "fluctuated" weight case'],
 ];
 
+// Empirical: corrector comparison — does a flagged answer get FIXED? (re-validated by
+// gemma-4-12b on a stripped chart, so the auto-count under-reports; eyeball in the note).
+const correctorRows = [
+  ['qwen3-4b (LOW synth, control)', '0 / 9', 'weak same-tier synth still fabricates ("weight increased") — genuine fail'],
+  ['qwen2.5-14b (MED synth, control)', '2 / 9', 'fixes single-CD4 + most-recent-Hgb'],
+  ['gemma-26b (strong x-family, treatment)', '1 / 9 (≈3 real)', 'cd4 ✓, weight-decline ✓, Hgb-most-recent ✓ — but re-validator FALSE-FLAGGED 2 correct rewrites'],
+];
+
 export default function ValidatorAuditFramework() {
   return (
     <Stack gap={20}>
@@ -164,11 +172,18 @@ validator: revision still flagged -> kept the original draft`}</Code>
         * offline false-flags were artifacts of a stripped (observations-only) chart; the live audit sees the full
         chart + gathered context. Catch is the real signal: even a 2-bit 2B model flags ~every fabrication.
       </Text>
-      <Callout tone="neutral" title="Control vs treatment — corrector comparison (result landing)">
-        Smoke test in progress: does the <strong>same-tier synth (qwen3-4b / qwen2.5-14b) with pointed feedback</strong>
-        fix a flagged answer (control), vs a <strong>strong cross-family corrector (gemma-26b)</strong> (treatment)?
-        This settles whether the corrector must be its own capable role. Numbers will be filled here when the run
-        completes.
+      <H3>Control vs treatment — does a flagged answer get FIXED?</H3>
+      <Table headers={['Corrector', 'auto-fixed / 9', 'eyeball']} rows={correctorRows} striped />
+      <Callout tone="warning" title="Three takeaways (the corrector helps, but isn't a silver bullet)">
+        <strong>1. A capable corrector beats the weak synth</strong> (0 → ~3 real fixes) — the corrector-as-a-role
+        has merit; re-prompting the same weak synth is the dead end (qwen3-4b: 0/9).
+        <strong> 2. No corrector reliably fixed the hard multi-turn chronology</strong> — even gemma-26b still
+        garbled the AZT-anemia Hgb inversion (&quot;9.1… higher than the earlier 3.9&quot;) and a weight ordering.
+        That points back to <strong>deterministic computed temporal evidence (prevention) + abstain</strong> for
+        the residual, not correction alone.
+        <strong> 3. Offline auto-scoring is unreliable</strong> — the re-validator over-flagged correct rewrites
+        (stripped-chart noise), so the auto-count under-reports real fixes. A clean measure needs the full chart +
+        human calibration.
       </Callout>
 
       <Divider />
