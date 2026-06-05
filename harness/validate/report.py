@@ -27,6 +27,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from .reconcile import scout_summary
+
 
 # The med-agent-team bridge gracefully degrades to a schema-valid envelope when
 # its own LLM calls fail, so a degraded turn looks like a 200/json_valid/0-cites
@@ -222,23 +224,6 @@ def _load_judge(run_dir: Path) -> list[dict[str, Any]]:
     return _read_jsonl(path)
 
 
-def _judge_summary(rows: list[dict[str, Any]], backends: list[str]) -> list[dict[str, Any]]:
-    """Per-arm mean faithfulness + correctness over the judged scenarios. Arms with no
-    judgments still appear (n=0, means None) so report columns stay aligned."""
-    out = []
-    for b in backends:
-        rs = [r for r in rows if r.get("backend_id") == b]
-        faith = [r["faithfulness"] for r in rs if isinstance(r.get("faithfulness"), (int, float))]
-        corr = [r["correctness"] for r in rs if isinstance(r.get("correctness"), (int, float))]
-        out.append({
-            "backend": b,
-            "n": len(rs),
-            "faithfulness_mean": round(sum(faith) / len(faith), 3) if faith else None,
-            "correctness_mean": round(sum(corr) / len(corr), 3) if corr else None,
-        })
-    return out
-
-
 def _summary_rows(results: list[dict[str, Any]], backends: list[str], labels: dict[str, str]) -> list[dict[str, Any]]:
     """Per-backend aggregates (the old summary table rows), precomputed so the JS
     renders a table without re-deriving any contract."""
@@ -347,7 +332,7 @@ def _run_blob(run_dir: Path) -> dict[str, Any]:
         "scenarios": scenarios,
         "summary": _summary_rows(results, backends, labels),
         "metrics": _metric_distributions(results, backends),
-        "judge": _judge_summary(_load_judge(run_dir), backends),
+        "judge": scout_summary(_load_judge(run_dir), backends),
         "judge_rows": _load_judge(run_dir),
         "patients": patients,
     }
@@ -424,6 +409,9 @@ th { background: #f3f3f3; font-weight: 600; font-size: 12px; }
 .judge-section { margin-top: 18px; }
 .jb-faith { fill: #2748a0; }
 .jb-corr { fill: #d9730d; }
+.jb-acc { fill: #2748a0; }
+.jb-comp { fill: #2f9e44; }
+.jb-rel { fill: #d9730d; }
 .jh-title { font-size: 13px; margin: 16px 0 5px; color: #374151; }
 table.jheat { border-collapse: collapse; font-size: 11px; }
 .jheat th, .jheat td { border: 1px solid #e5e7eb; padding: 3px 7px; text-align: center; }
@@ -598,33 +586,31 @@ function renderMetrics(run){
   return sec;
 }
 
-function jpct(v){ return v==null ? '—' : Math.round(v*100)+'%'; }
+function fmt10(v){ return v==null ? '—' : (Math.round(v*10)/10); }
 function judgeBarsSVG(series){
   var arms=[]; for(var k=0;k<series.length;k++){ if(series[k].n>0) arms.push(series[k]); }
-  var W=Math.max(320, 60+arms.length*92), H=210, padL=40, padR=12, padT=20, padB=46, plotH=H-padT-padB;
-  function Y(v){ return padT+plotH-v*plotH; }
+  var W=Math.max(380, 60+arms.length*112), H=212, padL=30, padR=12, padT=20, padB=46, plotH=H-padT-padB;
+  function Y(v){ return padT+plotH-(v/10)*plotH; }
   var step=(W-padL-padR)/Math.max(1,arms.length);
-  var g='<svg viewBox="0 0 '+W+' '+H+'" class="boxplot" role="img" aria-label="reviewer quality by arm">';
-  g+='<text x="'+padL+'" y="13" class="bp-title">faithfulness (blue) · correctness (orange)</text>';
-  var ticks=[0,0.25,0.5,0.75,1], t, yy;
-  for(t=0;t<ticks.length;t++){ yy=Y(ticks[t]); g+='<line x1="'+padL+'" y1="'+yy+'" x2="'+(W-padR)+'" y2="'+yy+'" class="bp-grid"/>'; g+='<text x="'+(padL-5)+'" y="'+(yy+3)+'" class="bp-ytick">'+Math.round(ticks[t]*100)+'</text>'; }
+  var g='<svg viewBox="0 0 '+W+' '+H+'" class="boxplot" role="img" aria-label="Scout quality by arm">';
+  g+='<text x="'+padL+'" y="13" class="bp-title">accuracy (blue) · completeness (green) · relevance (orange) — 0–10</text>';
+  var ticks=[0,2.5,5,7.5,10], t, yy;
+  for(t=0;t<ticks.length;t++){ yy=Y(ticks[t]); g+='<line x1="'+padL+'" y1="'+yy+'" x2="'+(W-padR)+'" y2="'+yy+'" class="bp-grid"/>'; g+='<text x="'+(padL-4)+'" y="'+(yy+3)+'" class="bp-ytick">'+ticks[t]+'</text>'; }
   for(var i=0;i<arms.length;i++){
-    var s=arms[i], cx=padL+step*i+step/2, bw=Math.min(20, step*0.28);
-    var f=s.faithfulness_mean||0, c=s.correctness_mean||0;
-    g+='<rect x="'+(cx-bw-2)+'" y="'+Y(f)+'" width="'+bw+'" height="'+(f*plotH)+'" class="jb-faith"/>';
-    g+='<rect x="'+(cx+2)+'" y="'+Y(c)+'" width="'+bw+'" height="'+(c*plotH)+'" class="jb-corr"/>';
+    var s=arms[i], cx=padL+step*i+step/2, bw=Math.min(13, step*0.17);
+    var vals=[[s.accuracy_mean||0,'jb-acc'],[s.completeness_mean||0,'jb-comp'],[s.relevance_mean||0,'jb-rel']];
+    for(var v=0;v<3;v++){ var x=cx+(v-1)*(bw+2)-bw/2; g+='<rect x="'+x+'" y="'+Y(vals[v][0])+'" width="'+bw+'" height="'+((vals[v][0]/10)*plotH)+'" class="'+vals[v][1]+'"/>'; }
     g+='<text x="'+cx+'" y="'+(H-26)+'" class="bp-xtick">'+htmlEsc(bpShort(s.backend))+'</text>';
-    g+='<text x="'+cx+'" y="'+(H-14)+'" class="bp-xn">F '+Math.round(f*100)+'% · C '+Math.round(c*100)+'%</text>';
+    g+='<text x="'+cx+'" y="'+(H-14)+'" class="bp-xn">A'+fmt10(s.accuracy_mean)+' C'+fmt10(s.completeness_mean)+' R'+fmt10(s.relevance_mean)+'</text>';
   }
   g+='</svg>';
   var wrap=el('div','boxplot-wrap'); wrap.innerHTML=g; return wrap;
 }
-function fmtFC(v){ return v==null?'–':(v==1?'1':(v==0?'0':String(v).replace('0.','.'))); }
 function judgeHeatmap(run){
   var jr=run.judge_rows||[]; if(!jr.length) return null;
   var idx={}; for(var i=0;i<jr.length;i++){ idx[jr[i].scenario_id+'|'+jr[i].backend_id]=jr[i]; }
   var arms=run.backends||[];
-  var h='<h3 class="jh-title">per-scenario evaluation — faithfulness / correctness (click a cell for the note)</h3>';
+  var h='<h3 class="jh-title">per-scenario evaluation — accuracy/completeness/relevance (click a cell for the note)</h3>';
   h+='<table class="jheat"><thead><tr><th>scenario</th>';
   for(var a=0;a<arms.length;a++){ h+='<th>'+htmlEsc(bpShort(arms[a]))+'</th>'; }
   h+='</tr></thead><tbody>';
@@ -635,18 +621,20 @@ function judgeHeatmap(run){
     for(var aI=0;aI<arms.length;aI++){
       var r=idx[sid+'|'+arms[aI]];
       if(!r){ h+='<td class="jh-na">·</td>'; continue; }
-      var cls=r.correctness>=1?'jh-good':(r.correctness>=0.5?'jh-mid':'jh-bad');
-      var tip=htmlEsc('faithfulness '+r.faithfulness+' · correctness '+r.correctness+(r.note?' — '+r.note:''));
-      h+='<td class="jh '+cls+'" title="'+tip+'" data-note="'+htmlEsc(r.note||'')+'" data-f="'+r.faithfulness+'" data-c="'+r.correctness+'" data-sid="'+htmlEsc(sid)+'" data-arm="'+htmlEsc(arms[aI])+'">'+fmtFC(r.faithfulness)+'/'+fmtFC(r.correctness)+'</td>';
+      var acc=(r.accuracy==null?0:r.accuracy);
+      var cls=acc>=7.5?'jh-good':(acc>=5?'jh-mid':'jh-bad');
+      var flag=(r.abstention_outcome==='failed-to-abstain'?' ⚑':'')+(r.citation_groundedness==='unsupported'?' ✗':'')+(r.harm?' ☠':'');
+      var det='accuracy '+r.accuracy+' · completeness '+r.completeness+' · relevance '+r.relevance+' · abstention '+r.abstention_outcome+' · citations '+r.citation_groundedness+(r.harm?' · HARM':'');
+      h+='<td class="jh '+cls+'" title="'+htmlEsc(det+(r.note?' — '+r.note:''))+'" data-det="'+htmlEsc(det)+'" data-note="'+htmlEsc(r.note||'')+'" data-sid="'+htmlEsc(sid)+'" data-arm="'+htmlEsc(arms[aI])+'">'+fmt10(r.accuracy)+'/'+fmt10(r.completeness)+'/'+fmt10(r.relevance)+flag+'</td>';
     }
     h+='</tr>';
   }
-  h+='</tbody></table><div class="jh-note" id="jh-note">click any cell to read the reviewer’s note for that answer.</div>';
+  h+='</tbody></table><div class="jh-note" id="jh-note">click any cell to read the reviewer’s note. ⚑ = failed to abstain · ✗ = unsupported citation · ☠ = harm</div>';
   var wrap=el('div','judge-heatmap-wrap'); wrap.innerHTML=h;
   var cells=wrap.querySelectorAll('td.jh');
   for(var c=0;c<cells.length;c++){
     cells[c].onclick=(function(td){ return function(){
-      wrap.querySelector('#jh-note').innerHTML='<b>'+htmlEsc(td.dataset.sid)+' · '+htmlEsc(bpShort(td.dataset.arm))+'</b> — faithfulness '+td.dataset.f+', correctness '+td.dataset.c+'<br>'+htmlEsc(td.dataset.note||'(no note)');
+      wrap.querySelector('#jh-note').innerHTML='<b>'+htmlEsc(td.dataset.sid)+' · '+htmlEsc(bpShort(td.dataset.arm))+'</b><br>'+htmlEsc(td.dataset.det)+'<br>'+htmlEsc(td.dataset.note||'(no note)');
     }; })(cells[c]);
   }
   return wrap;
@@ -655,11 +643,18 @@ function renderJudge(run){
   var sec=el('section','judge-section'), j=run.judge||[], has=false;
   for(var i=0;i<j.length;i++){ if(j[i].n>0){ has=true; break; } }
   if(!has){ return sec; }
-  sec.innerHTML='<h2>quality — reviewer judgment</h2>'
-   +'<p class="metrics-legend">Every answer was scored against the patient’s actual chart. <b>Faithfulness</b> = are all of the answer’s claims grounded in the chart (no hallucinated meds, labs, dates, or trends). <b>Correctness</b> = does it match the chart and the question’s intent — retrieve the right data, or correctly <i>abstain</i> when the data is absent. Each is 0 / 0.5 / 1 per scenario; the table and bars below are per-arm means. <b>Drill down:</b> the heatmap shows every scenario × arm (green = correct, amber = partial, red = wrong) — click a cell for the reviewer’s note.</p>';
-  var rows=j.map(function(s){ return "<tr><td class='b'>"+htmlEsc(bpShort(s.backend))+"</td><td>"+s.n+"</td><td>"+jpct(s.faithfulness_mean)+"</td><td>"+jpct(s.correctness_mean)+"</td></tr>"; }).join('');
+  sec.innerHTML='<h2>quality — reviewer judgment (Scout rubric)</h2>'
+   +'<p class="metrics-legend">Each answer scored against the patient’s chart by a strong LLM reviewer (advisory). <b>accuracy</b> = stated facts correct · <b>completeness</b> = includes the needed info · <b>relevance</b> = on-question, no padding (each 0–10). <b>abstain ✓/✗</b> = correctly said "not documented" vs failed-to-abstain. <b>grounding s/p/u</b> = supported / partly / unsupported. <b>fab refs</b> = references that don’t resolve to a real chart record (deterministic). <b>Drill down:</b> the heatmap is every scenario × arm (green=accurate, amber, red) — click a cell for the note. Caveat: N=21 on one patient, single judge — directional, not a benchmark.</p>';
+  var fab={}, jr=run.judge_rows||[];
+  for(var x=0;x<jr.length;x++){ var cr=jr[x].citation_resolution||{}; fab[jr[x].backend_id]=(fab[jr[x].backend_id]||0)+(cr.n_unresolved||0); }
+  var rows=j.map(function(s){ var ab=s.abstention||{}, gr=s.groundedness||{};
+    return "<tr><td class='b'>"+htmlEsc(bpShort(s.backend))+"</td><td>"+s.n+"</td>"
+      +"<td>"+fmt10(s.accuracy_mean)+"</td><td>"+fmt10(s.completeness_mean)+"</td><td>"+fmt10(s.relevance_mean)+"</td>"
+      +"<td>"+(ab['correct']||0)+" / "+(ab['failed-to-abstain']||0)+"</td>"
+      +"<td>"+(gr['supported']||0)+" / "+(gr['partly']||0)+" / "+(gr['unsupported']||0)+"</td>"
+      +"<td>"+(s.harm_count||0)+"</td><td>"+(fab[s.backend]||0)+"</td></tr>"; }).join('');
   var tbl=el('table','summary');
-  tbl.innerHTML='<thead><tr><th>backend</th><th>judged</th><th>faithfulness</th><th>correctness</th></tr></thead><tbody>'+rows+'</tbody>';
+  tbl.innerHTML='<thead><tr><th>backend</th><th>judged</th><th>acc</th><th>comp</th><th>rel</th><th>abstain ✓/✗</th><th>grounding s/p/u</th><th>harm</th><th>fab refs</th></tr></thead><tbody>'+rows+'</tbody>';
   sec.appendChild(tbl);
   sec.appendChild(judgeBarsSVG(j));
   var hm=judgeHeatmap(run); if(hm) sec.appendChild(hm);

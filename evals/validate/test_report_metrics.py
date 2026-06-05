@@ -1,4 +1,4 @@
-from harness.validate.report import _box_stats, _judge_summary, _metric_distributions
+from harness.validate.report import _box_stats, _metric_distributions
 
 
 def test_box_stats_quartiles_whiskers_outliers():
@@ -29,19 +29,3 @@ def test_metric_distributions_per_arm_excludes_errors():
     # arm B has one good row
     lat_b = next(x for x in d["latency_ms"]["series"] if x["backend"] == "B")
     assert lat_b["n"] == 1 and lat_b["median"] == 200
-
-
-def test_judge_summary_per_arm_means():
-    rows = [
-        {"scenario_id": "s1", "backend_id": "A", "faithfulness": 1, "correctness": 1},
-        {"scenario_id": "s2", "backend_id": "A", "faithfulness": 0.5, "correctness": 0},
-        {"scenario_id": "s1", "backend_id": "B", "faithfulness": 1, "correctness": 1},
-    ]
-    s = _judge_summary(rows, ["A", "B"])
-    a = next(x for x in s if x["backend"] == "A")
-    assert a["n"] == 2 and a["faithfulness_mean"] == 0.75 and a["correctness_mean"] == 0.5
-    b = next(x for x in s if x["backend"] == "B")
-    assert b["n"] == 1 and b["faithfulness_mean"] == 1.0
-    # an arm with no judgments still appears (n=0), so columns stay aligned
-    s2 = _judge_summary([], ["A"])
-    assert s2 == [{"backend": "A", "n": 0, "faithfulness_mean": None, "correctness_mean": None}]
