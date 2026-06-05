@@ -134,21 +134,21 @@ synthesis prompt *asks* for. The fix is **claim-type routing in the validator**,
 3. **Scale In-Depth *presence* to tier** (Selective CoT). Weak tiers may do better with a **lean** output
    (Answer + the structured `blocks` evidence table, minimal free-text interpretation); rich interpretive
    In Depth is for tiers strong enough not to fabricate it. Measure before fixing this.
-4. **Section-drop now, claim-level later.** Whole-In-Depth drop is the pragmatic interim; the research
-   target is keep-confident-claims / drop-uncertain-claims within the In Depth.
-5. **Try before conceding (goal-framing).** When a section is flagged, attempt to satisfy its goal
-   (re-synthesis with targeted feedback) and drop/abstain only if that fails — symmetric for both
-   sections, with keep-best protecting whichever section was already good.
+4. **Claim-level, not section-level.** The In Depth is emitted as an enumerated claim list and the
+   validator drops only the unsupported claims (keep-confident / drop-uncertain *within* the In Depth).
+5. **Separate remediation paths.** The Answer path (re-synthesize → abstain if unfixable) and the
+   In-Depth path (block/strip the flagged claims) are independent; an In-Depth miss never touches the
+   Answer and never abstains the turn. The only coupling is logical (no Answer → nothing to elaborate).
 
-## Open decisions to settle before building
-- **D1 — granularity:** section-level (drop the whole In Depth) vs claim-level (drop only unsupported
-  claims) handling. Claim-level is the research ideal; section-level is cheaper and simpler.
-- **D2 — tier-scaled elaboration:** should weak tiers emit a rich In Depth at all, or Answer + `blocks`
-  evidence only? (Needs a measured A/B, per Selective CoT.)
-- **D3 — validator scope fix:** route the In Depth audit by claim type (chart-fact vs guideline) — the
-  fix for the mis-scoping bug. (This one looks unambiguously correct.)
-- **D4 — In-Depth fix mechanism:** one full re-synth + keep-best, vs a targeted In-Depth-only
-  regeneration that freezes the validated Answer.
+## Decisions — resolved + built (this iteration)
+- **D1 — claim-level (BUILT).** In Depth emitted as enumerated claims; validator returns `indepth_drop`
+  (the claim numbers); `team.py` block/strips exactly those (`_split_answer_indepth` / `_strip_indepth_claims`).
+- **D3 — validator scope fix (BUILT).** `validation.txt` routes the In-Depth audit by claim type
+  (chart vs guideline) + checks KB-utilization at an advisory threshold; the Answer stays a strict gate.
+- **D4 — separate paths, block/strip (BUILT).** Answer = re-synth → abstain; In Depth = block/strip,
+  no regeneration (for efficiency, this iteration). Verified red-first.
+- **D2 — tier-scaled elaboration (OPEN).** Weak tiers still emit the In Depth and let the validator gate
+  it; whether the weakest tier should instead emit Answer + `blocks` only is a measured A/B for later.
 
 ## Sources
 Wallat et al. 2025 *Correctness is not Faithfulness in RAG Attributions* (UvA);

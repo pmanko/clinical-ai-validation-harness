@@ -132,23 +132,21 @@ SYNTHESIS                prompt synthesis(-low).txt  model = tier synth (LOW qwe
      { "answer": "<two markdown sections in ONE string>", "citations":[N...], "blocks":[...] }
         the answer string =
           **Answer**     1-2 sentences, direct, cite chart records inline [N]
-          **In Depth**   reasoning: KB guidance (named in prose) + expert reading of THIS chart
+          **In Depth**   one claim per BULLET (each individually addressable): KB guidance (prose) + expert reading
         |
         v  _normalize_envelope()   repair mangled \\n  -  fold inline [N] -> citations
    validator set on this level? ---- no ----> RETURN envelope unchanged
         | yes   _audit_and_revise()  (max_loops, default 1)
         v
 VALIDATOR                prompt validation.txt  model = tier validator (gemma; cross-family vs the qwen synth)
-  sees  CHART (ground truth) + GATHERED + the Answer string
-  judges the TWO sections SEPARATELY, returns
-     { answer_ok, answer_issues, indepth_ok, indepth_issues }   (FAIL-OPEN -> ok on any parse error)
+  sees  CHART (ground truth) + GATHERED KB + the Answer + the NUMBERED In-Depth claims
+  judges by SCOPE (Answer strict vs claims by type), returns
+     { answer_ok, answer_issues, indepth_drop: [claim #s to remove], indepth_issues }   (FAIL-OPEN on parse error)
         |
-        v  GRANULAR decision
-   answer_ok &  indepth_ok  ->  SHIP full draft (both sections)
-   answer_ok & !indepth_ok  ->  _drop_indepth(): keep **Answer**, In Depth -> "(elaboration withheld...)"  -> SHIP
-  !answer_ok                ->  re-synthesize( draft + _validator_feedback ) -> re-audit:
-                                  Answer now ok    -> adopt (drop In Depth if still bad)
-                                  Answer still bad -> ABSTAIN -> _fallback_envelope(_VALIDATOR_ABSTAIN_MSG)
+        v  TWO INDEPENDENT remediation paths:
+   ANSWER (strict)    answer_ok   ->  keep the Answer
+                      !answer_ok  ->  re-synthesize(Answer) -> re-audit -> ok? adopt : ABSTAIN the turn
+   IN DEPTH (advisory, claim-level)  ->  block/strip the flagged claim #s; Answer untouched; NEVER abstains
         |
         v
 RETURN   ALWAYS the same shape ->  { answer, citations, blocks }
@@ -207,13 +205,17 @@ RETURN   ALWAYS the same shape ->  { answer, citations, blocks }
         the principled unit is the <em>claim</em>, not the section (selective generation does not scale to long-form;
         I-CALM 2604.03904, AbstentionBench 2506.09038) — section-drop is our pragmatic interim, claim-level is the target.
       </Callout>
-      <Callout tone="warning" title="Open decisions (discuss before building)">
-        <strong>D1 granularity</strong> — section-level drop (now) vs claim-level keep/drop (research ideal).
-        <strong> D2 tier-scaled elaboration</strong> — should weak tiers emit a rich In Depth at all, or Answer +
-        the <Code>blocks</Code> evidence table only? (needs a measured A/B). <strong> D3 validator scope fix</strong> —
-        route the In Depth audit by claim type + add the KB-informs / advisory-threshold check (looks unambiguously
-        correct). <strong> D4 fix mechanism</strong> — one full re-synth + keep-best vs a targeted In-Depth-only
-        regeneration that freezes the validated Answer.
+      <Callout tone="success" title="Decided + built (this iteration)">
+        <strong>D1 claim-level</strong> — the In Depth is emitted as an enumerated claim list; the validator returns
+        <Code>indepth_drop</Code> = the claim numbers to remove; we block/strip exactly those.
+        <strong> D3 scope fix</strong> — <Code>validation.txt</Code> now routes the In-Depth audit by claim type
+        (chart vs guideline) and checks KB-utilization at an advisory threshold; the Answer stays a strict gate.
+        <strong> D4 separate paths</strong> — Answer remediation (re-synth → abstain) and In-Depth remediation
+        (block/strip) are fully independent; the In Depth never touches the Answer and never abstains the turn.
+        <strong> Block/strip</strong> for In-Depth remediation (no regeneration) for now, for efficiency.
+        <em>Still open — </em><strong>D2 tier-scaled elaboration</strong>: weak tiers still EMIT the In Depth and let
+        the validator gate it (per D2); whether to instead emit Answer + <Code>blocks</Code> only at the weakest tier
+        is a measured A/B for later. Verified red-first (6 new claim-level tests fail against the prior section-level code).
       </Callout>
 
       <Divider />
