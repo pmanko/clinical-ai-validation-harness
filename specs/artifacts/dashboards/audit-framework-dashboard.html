@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Validation &amp; Audit-Framework Dashboard</title>
+<style>
+  :root{
+    --bg:#0e1116; --panel:#161b22; --panel2:#1c232d; --ink:#e6edf3; --mut:#9da7b3;
+    --line:#2b333d; --accent:#2f81f7; --good:#2ea043; --warn:#d29922; --bad:#f85149;
+    --gemma:#2748a0; --qwen:#8957e5; --medg:#2e8b57;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+  header{padding:26px 30px 18px;border-bottom:1px solid var(--line);background:linear-gradient(180deg,#11161d,#0e1116)}
+  h1{margin:0 0 4px;font-size:23px;letter-spacing:.2px}
+  .sub{color:var(--mut);font-size:13.5px}
+  nav{position:sticky;top:0;z-index:5;display:flex;flex-wrap:wrap;gap:6px;padding:10px 30px;background:#0e1116ee;backdrop-filter:blur(6px);border-bottom:1px solid var(--line)}
+  nav a{color:var(--mut);text-decoration:none;font-size:13px;padding:4px 10px;border:1px solid var(--line);border-radius:14px}
+  nav a:hover{color:var(--ink);border-color:var(--accent)}
+  main{max-width:1140px;margin:0 auto;padding:8px 24px 80px}
+  section{margin:30px 0;scroll-margin-top:54px}
+  h2{font-size:19px;margin:0 0 4px;padding-top:10px}
+  h2 .n{color:var(--accent);font-variant-numeric:tabular-nums;margin-right:8px}
+  .lede{color:var(--mut);margin:.2em 0 14px;max-width:80ch}
+  .grid{display:grid;gap:14px}
+  .g2{grid-template-columns:1fr 1fr}.g3{grid-template-columns:1fr 1fr 1fr}
+  @media(max-width:820px){.g2,.g3{grid-template-columns:1fr}}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+  .card h3{margin:0 0 6px;font-size:14.5px}
+  .card p{margin:.35em 0;color:#cdd6df;font-size:13.5px}
+  .tag{display:inline-block;font-size:11px;padding:1px 7px;border-radius:10px;border:1px solid var(--line);color:var(--mut);margin-right:4px}
+  .t-good{color:#7ee2a8;border-color:#234d33}.t-bad{color:#ffb1ab;border-color:#5c2a28}.t-warn{color:#f1d18a;border-color:#5c4a1f}
+  table{border-collapse:collapse;width:100%;font-size:13px;margin:6px 0}
+  th,td{border:1px solid var(--line);padding:6px 9px;text-align:left;vertical-align:top}
+  th{background:var(--panel2);color:var(--mut);font-weight:600}
+  td.num{text-align:right;font-variant-numeric:tabular-nums}
+  .b{font-weight:600}
+  .pill{font-size:11px;padding:1px 6px;border-radius:8px}
+  .fam-gemma{background:#16224a;color:#9db8ff}.fam-qwen{background:#2a1c44;color:#c4a7f5}.fam-medg{background:#14301f;color:#86d6a4}
+  .hi{color:#7ee2a8}.lo{color:#ffb1ab}.mid{color:#f1d18a}
+  .flow{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:10px 0}
+  .step{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 11px;font-size:12.5px;max-width:215px}
+  .step .h{font-weight:600;display:block;margin-bottom:2px}
+  .arrow{color:var(--accent);font-size:18px}
+  .det{border-left:3px solid var(--good)}.llm{border-left:3px solid var(--accent)}.gate{border-left:3px solid var(--warn)}
+  code{background:#0b0f14;border:1px solid var(--line);border-radius:4px;padding:0 4px;font-size:12px}
+  .src{color:var(--mut);font-size:11.5px}
+  .callout{border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:8px;padding:10px 14px;background:#10161f;margin:10px 0}
+  .callout.warn{border-left-color:var(--warn)} .callout.bad{border-left-color:var(--bad)} .callout.good{border-left-color:var(--good)}
+  footer{color:var(--mut);font-size:12px;border-top:1px solid var(--line);padding:18px 30px;max-width:1140px;margin:0 auto}
+  ul{margin:.3em 0;padding-left:18px}li{margin:.2em 0;color:#cdd6df;font-size:13.5px}
+</style>
+</head>
+<body>
+<header>
+  <h1>Validation &amp; Audit-Framework Dashboard</h1>
+  <div class="sub">A living view: how the answer paths actually behave, what we've learned about tuning them, and the research-grounded design for a validator audit framework. Last updated 2026-06-05 · directional, evolving with each run.</div>
+</header>
+<nav>
+  <a href="#framework">① Audit framework</a>
+  <a href="#validators">② Viable validators</a>
+  <a href="#prompts">③ Audit prompts</a>
+  <a href="#runs">④ Run lessons</a>
+  <a href="#tuning">⑤ Tuning lessons</a>
+  <a href="#extend">⑥ Extending to roles/models</a>
+</nav>
+<main>
+
+<section id="framework">
+  <h2><span class="n">①</span>The audit framework</h2>
+  <p class="lede">The validator's job splits into two very different difficulty profiles, and the design follows that split: deterministic checks do the quantitative/temporal work soundly; a cross-family LLM does the irreducibly semantic work; a re-validate gate stops a bad flag from turning a correct answer wrong.</p>
+
+  <div class="flow">
+    <div class="step"><span class="h">Team synthesis</span>orchestrator → expert → synthesizer draft the <code>{answer,citations,blocks}</code> envelope</div>
+    <span class="arrow">→</span>
+    <div class="step det"><span class="h">Deterministic floor</span>recompute-then-diff vs the chart: citation resolves · date↔value · no-trend-&lt;2pts · window-clamp · value-in-source. Sound, always-on.</div>
+    <span class="arrow">→</span>
+    <div class="step llm"><span class="h">LLM audit (cross-family)</span>decomposed per-claim grounding; <b>context</b> &amp; <b>answer</b> judged separately</div>
+    <span class="arrow">→</span>
+    <div class="step gate"><span class="h">Flag? revise → RE-VALIDATE</span>span-targeted re-synthesis, then re-audit; <b>keep whichever draft passes</b> the validator + deterministic gate. Max 1 round default.</div>
+    <span class="arrow">→</span>
+    <div class="step"><span class="h">Return</span>original draft if the revision doesn't clear the flags</div>
+  </div>
+
+  <div class="grid g3">
+    <div class="card det"><h3>Deterministic floor — sound, always-on</h3>
+      <p>Models are provably unreliable at quantitative/temporal claims (EQUATE: NLI ≈ majority baseline, symbolic +24.2%; Faith-and-Fate: GPT-4 ~59% on 3-digit ×). So <b>recompute, don't entail</b>: these checks fire only when certain, never false-positive, and feed the validator hard flags.</p>
+      <p class="src">EQUATE 1901.03735 · Faith-and-Fate 2305.18654 · PAL 2211.10435 · ALCE 2305.14627. Lives in shared <code>reconcile.py</code>, used by offline judge + runtime validator.</p>
+    </div>
+    <div class="card llm"><h3>LLM audit — decomposed, cross-family</h3>
+      <p>Decompose answer + evidence into atomic claims → retrieve the chart spans → per-claim entailment (VeriFact pattern: 92.7% vs adjudicated clinicians, above clinician–clinician). A critic that conditions on the draft <i>rubber-stamps</i> it — CoVe's factored variant (+28% FActScore) and the cross-family rule both say keep the verifier decoupled.</p>
+      <p class="src">VeriFact (NEJM AI 2025) · CoVe 2309.11495 · RAGAS 2309.15217 · self-preference 2410.21819</p>
+    </div>
+    <div class="card gate"><h3>The binding risk: false flags</h3>
+      <p>Self/▸under-powered critique can <b>degrade a correct answer</b> (Huang; Kambhampati "collapse"). Our loop is in the safe regime (external, source-grounded) <i>only if flags are reliable</i>. Mitigations, in priority: <b>(1) re-validate after revising, keep-best</b> (don't accept unconditionally); <b>(2)</b> gate the revision through the deterministic checks; <b>(3)</b> prefer span-edits over full rewrite; <b>(4)</b> 1 round; <b>(5)</b> measure flag-precision on a gold subset.</p>
+      <p class="src">Huang 2310.01798 · Kambhampati 2402.08115 · RARR 2210.08726 · AgenticSum 2602.20040 · MEDIQA-CORR 2405.18028 (detection is the bottleneck)</p>
+    </div>
+  </div>
+  <div class="callout warn"><b>Gap vs what's built today:</b> the shipped validator (<code>team.py::_audit_and_revise</code>) audits <i>holistically</i> and accepts the revision <i>unconditionally</i> with a full re-synthesis. The research says add the <b>re-validate-and-keep-best gate</b>, the <b>deterministic floor</b>, and ideally <b>per-claim decomposition</b>. Those are the next refinements.</div>
+</section>
+
+<section id="validators">
+  <h2><span class="n">②</span>Viable validators — local, cross-family, scaled to the tier</h2>
+  <p class="lede">The structural win: in every tier the orchestrator is <span class="pill fam-gemma">gemma</span> and the synthesizer is <span class="pill fam-qwen">qwen</span>, so <b>the orchestrator is cross-family vs the synthesizer by construction — and already loaded</b>. Reusing it as the validator costs no extra model (no eviction). Viability scales with the orchestrator's size; the deterministic floor + decomposition lower the size needed, making orchestrator-reuse workable from the 12B tier up.</p>
+  <table>
+    <thead><tr><th>Tier</th><th>Synthesizer (audited)</th><th>Orchestrator (candidate validator)</th><th>Orch as validator?</th><th>Recommended validator</th></tr></thead>
+    <tbody>
+      <tr><td class="b">LOW</td><td><span class="pill fam-qwen">qwen3-4b</span></td><td><span class="pill fam-gemma">gemma-e2b-q2</span> ~2B, 2-bit</td><td class="lo">cross-family ✓ but below the reliability floor</td><td>deterministic floor carries it + <span class="pill fam-gemma">gemma-e4b</span>; or accept a weak audit matching the tier</td></tr>
+      <tr><td class="b">MED</td><td><span class="pill fam-qwen">qwen2.5-14b</span></td><td><span class="pill fam-gemma">gemma-e4b-q8</span> ~4B</td><td class="mid">cross-family ✓, borderline</td><td>orch-reuse + deterministic floor + decomposition; or step up to <span class="pill fam-gemma">gemma-4-12b</span></td></tr>
+      <tr><td class="b">12B</td><td><span class="pill fam-qwen">qwen2.5-14b</span></td><td><span class="pill fam-gemma">gemma-4-12b</span> 12B</td><td class="hi">cross-family ✓ — good</td><td><b>orchestrator-as-validator</b> (already loaded)</td></tr>
+      <tr><td class="b">HIGH</td><td><span class="pill fam-qwen">qwen3.6-35b</span></td><td><span class="pill fam-gemma">gemma-31b</span> 31B</td><td class="hi">cross-family ✓ — best (near the 32–35B floor)</td><td><b>orchestrator-as-validator</b> (already loaded)</td></tr>
+    </tbody>
+  </table>
+  <div class="grid g2">
+    <div class="card"><h3>Available local cross-family validators</h3>
+      <p>vs the qwen synthesizer: <span class="pill fam-gemma">gemma-e4b</span> <span class="pill fam-gemma">gemma-4-12b</span> <span class="pill fam-gemma">gemma-26b</span> <span class="pill fam-gemma">gemma-31b</span> and the clinical <span class="pill fam-medg">medgemma</span> family (gemma-derived, still cross-family vs qwen).</p>
+      <p class="callout bad" style="margin:8px 0 0"><b>Avoid</b> <span class="pill fam-qwen">qwen2.5-32b</span> as a validator — same family as the synthesizer → self-preference (doesn't shrink with size).</p>
+    </div>
+    <div class="card"><h3>Why the size floor is lower than it looks</h3>
+      <p>Strand-1 says small models fail <i>holistic</i> judgment, not necessarily <i>decomposed</i> per-claim entailment — and the deterministic floor removes the quantitative/temporal load entirely. So with decomposition + the deterministic helpers, a tier-matched gemma (12B/31B) is a viable grounding auditor without a cloud call.</p>
+      <p class="src">PRM/process-supervision 2305.20050 · GenRM 2408.15240 · Weaver 2506.18203 (weak-verifier ensemble within 0.5% of a frontier reasoner) · "fine-tuned judge ≠ general" 2403.02839</p>
+    </div>
+  </div>
+</section>
+
+<section id="prompts">
+  <h2><span class="n">③</span>Audit prompts</h2>
+  <p class="lede">Two focused audits with specific instructions, judged only against the chart (drafted in <code>prompts/validation.txt</code>). Separating context from answer localizes where the error entered — bad evidence vs bad synthesis.</p>
+  <div class="grid g2">
+    <div class="card"><h3>CONTEXT audit — is the gathered evidence right?</h3>
+      <ul><li>A lab attributed to the wrong test (e.g. absolute lymphocyte count reported as CD4).</li><li>A value/date not in the chart, or on the wrong observation.</li><li>Anything the evidence asserts the chart doesn't support.</li></ul>
+    </div>
+    <div class="card"><h3>ANSWER audit — is the draft faithful &amp; safe?</h3>
+      <ul><li><b>Trend</b> fabricated from &lt;2 points, or wrong direction/magnitude.</li><li><b>Window</b> claimed beyond the data span (e.g. "past year" on 3 months).</li><li><b>Date↔value</b> mismatch, invented date, year typo, chronology out of order.</li><li><b>Unsupported</b> claim; failure to <b>abstain</b> when the chart is silent.</li><li><b>Safety</b>: reversing a result's meaning, denying a documented allergy/adverse effect.</li></ul>
+    </div>
+  </div>
+  <p class="src">Verdict is schema-constrained JSON: <code>{ok, answer_issues, context_issues}</code> (separate fields). Spend the budget on verifier accuracy, not feedback prose — binary vs detailed feedback barely changes outcomes (Kambhampati 2310.08118). Detection, not correction, is the bottleneck (MEDIQA-CORR 2405.18028).</p>
+</section>
+
+<section id="runs">
+  <h2><span class="n">④</span>What we've learned from the validation runs</h2>
+  <p class="lede">Two runs, two patients. The single-model path is consistently at least as accurate as the teams and cleaner on time and safety — the orchestration is <i>introducing</i> errors. This replicates across patients, which matters more than either run alone.</p>
+  <table>
+    <thead><tr><th>Run / arm</th><th>kind</th><th class="num">acc</th><th class="num">harm</th><th class="num">wrong dates</th><th class="num">window over</th><th class="num">trend fab</th><th class="num">refs/ans</th></tr></thead>
+    <tbody>
+      <tr><td class="b">Aloice · 12b-baseline</td><td>single</td><td class="num hi">7.22</td><td class="num hi">0</td><td class="num hi">0</td><td class="num hi">0</td><td class="num">1</td><td class="num">7.1</td></tr>
+      <tr><td>Aloice · team-low</td><td>team</td><td class="num">6.64</td><td class="num lo">5</td><td class="num lo">5</td><td class="num">2</td><td class="num">3</td><td class="num">2.5</td></tr>
+      <tr><td>Aloice · team-med</td><td>team</td><td class="num lo">5.83</td><td class="num">2</td><td class="num lo">5</td><td class="num">1</td><td class="num lo">4</td><td class="num">5.0</td></tr>
+      <tr><td>Aloice · team-12b</td><td>team</td><td class="num">6.33</td><td class="num lo">4</td><td class="num lo">9</td><td class="num">2</td><td class="num">3</td><td class="num">3.8</td></tr>
+      <tr><td>Aloice · team-high</td><td>team</td><td class="num hi">7.31</td><td class="num hi">0</td><td class="num lo">9</td><td class="num">3</td><td class="num">1</td><td class="num lo">12.6</td></tr>
+      <tr><td class="b">Zabella · a4b-baseline</td><td>single</td><td class="num hi">9.05</td><td class="num hi">0</td><td colspan="3" class="src">scoped windows correctly; honest single-value handling</td><td class="num lo">17.5</td></tr>
+      <tr><td class="b">Zabella · e2b-baseline</td><td>single</td><td class="num hi">8.48</td><td class="num hi">0</td><td colspan="3" class="src">honest dated lists; one year-typo</td><td class="num lo">23.6</td></tr>
+      <tr><td>Zabella · team (low/med/high)</td><td>team</td><td class="num">6.7–7.9</td><td class="num hi">0</td><td colspan="3" class="src">trend/window fabrication on the weak tiers</td><td class="num">3.8–7.5</td></tr>
+    </tbody>
+  </table>
+  <div class="grid g3">
+    <div class="card"><h3>Orchestration introduces errors</h3><p>Hgb chronology inverted (9.1→3.9 crash framed as "improvement"), the absolute lymphocyte count relabeled as CD4 to fabricate a "decline", the weight trend reversed, "over the past year" on 3 months of data.</p></div>
+    <div class="card"><h3>Harm tracks acuity</h3><p>Zabella: 0 harm anywhere. Aloice (wasting 52→41 kg, CD4 72, Hgb crash, AZT-anemia): 2–5 harm rows per team arm. The same fabrication tendency becomes <b>dangerous</b> on the sicker patient.</p></div>
+    <div class="card"><h3>Over-referencing is universal</h3><p>a4b 17.5, e2b 23.6, team-high 12.6 refs/answer; fabricated refs stay rare (1–8 total/arm). Motivates the reference-cleanup track.</p></div>
+  </div>
+  <div class="callout warn"><b>Confound, stated plainly:</b> neither run is prompt-harmonized and the single models differ in size (26B/E2B/12B) — so this is a <i>pattern across runs</i>, not a controlled head-to-head. The single-model "win" confounds orchestration with prompt, sampling, and serving engine. The next run harmonizes prompts and isolates the validator.</div>
+  <p class="src">Reports: <a href="https://reports.openclinai.org/aloice-run-5arm-2026-06-04/" style="color:var(--accent)">aloice-run-5arm</a> · <a href="https://reports.openclinai.org/priority-run-5arm-2026-06-04/" style="color:var(--accent)">zabella priority-run-5arm</a></p>
+</section>
+
+<section id="tuning">
+  <h2><span class="n">⑤</span>What we've learned about tuning</h2>
+  <p class="lede">A lane is not "a model" — it's <b>model × prompt × knobs</b> per role, plus the validator's own <code>{model, prompt, knobs, loops}</code>. All of it is now per-lane data, so any arm is reproducible from its level block.</p>
+  <div class="grid g2">
+    <div class="card"><h3>Knobs move degeneration, not structural accuracy</h3>
+      <p>Temperature is a degeneration↔confabulation trade-off: at temp 0 the small synths collapse into repetition loops (we saw the <code>am-hiv-status</code> loop and the "114 is 04-26… no, re-check" ramble), so the synth floors at 0.5 + <code>repeat_penalty 1.15</code> + DRY 0.8. But knobs <b>do not</b> fix date math / trend-from-one-point — those are knob-insensitive. Control temp; don't make it a primary variable.</p>
+    </div>
+    <div class="card"><h3>Knobs were a hidden confound — now per-lane</h3>
+      <p>Knobs were global env, asymmetric per role (orchestrator DRY-off, synth DRY-on+penalty) and per path (the single-LLM arm keeps DRY), and the MLX engine silently drops DRY while llama.cpp honors it. Direct-vs-team thus confounded prompt + orchestration + <b>sampling + serving engine</b>. The per-role <code>knobs:</code> block makes each lane fully specified.</p>
+    </div>
+    <div class="card"><h3>Validator design lessons (this session's research)</h3>
+      <ul><li><b>Cross-family is mandatory</b> — self-preference doesn't shrink with capability.</li><li><b>Split the audit</b>: grounding is decomposable (lower size floor); correctness needs the strongest reasoner.</li><li><b>False flags are the binding risk</b> → re-validate-and-keep-best, never accept blindly.</li><li><b>Deterministic floor</b> offloads quantitative/temporal → shrinks the LLM's load → smaller cross-family models become viable.</li></ul>
+    </div>
+    <div class="card"><h3>Validator A/B is clean even without prompt parity</h3>
+      <p>Validator on vs off shares one level (same models, prompts, knobs); the audit runs deterministically and the re-synth inherits the synth knobs — only the audit round differs. So the validator's lift is isolated even while the cross-path comparison still needs harmonization.</p>
+    </div>
+  </div>
+</section>
+
+<section id="extend">
+  <h2><span class="n">⑥</span>How the tuning extends to other roles &amp; models</h2>
+  <div class="grid g2">
+    <div class="card"><h3>Per-lane knobs already cover every role</h3><p>orchestrator / expert / synthesizer / validator each take per-lane <code>temperature / repeat_penalty / dry</code>. The same mechanism that tunes the synthesizer tunes any role — and makes each arm reproducible. The next experiment can sweep a role's knobs as a real variable instead of a global env change.</p></div>
+    <div class="card"><h3>The cross-family principle generalizes</h3><p>Any auditor/judge role should differ in model family from what it judges. Today gemma-audits-qwen holds for free; if prompts are harmonized to a gemma synthesizer, the validator must move off gemma — a constraint to carry forward.</p></div>
+    <div class="card"><h3>The deterministic floor is shared infrastructure</h3><p><code>reconcile.py</code> already backs both the offline judge and the runtime validator. The Tier-1 recompute-then-diff helpers (no-trend-&lt;2pts, window-clamp, date↔value, value-in-source, numeric-relation) are pure functions over the dated series — reusable by any role or a future second auditor. Tier-2 (RxCUI meds, allergy extraction, UCUM units) needs small envelope extensions; Tier-3 (DDI / cross-reactivity) needs a clinical KB.</p></div>
+    <div class="card"><h3>Scaling &amp; what's next</h3><ul><li>Validator size scales with the team class; the same pattern could scale the <b>expert</b> or add a second auditor.</li><li>Harmonize knobs + prompts across paths for a clean direct-vs-team comparison.</li><li>Measure validator <b>flag-precision</b> on a gold subset before trusting the loop.</li><li>This dashboard grows as runs + tuning accumulate.</li></ul></div>
+  </div>
+</section>
+
+</main>
+<footer>
+  Living document · grounded in runs <code>9af1192f</code> (Aloice) + <code>1528100e</code> (Zabella) and ~60 papers across four research strands (temporal · validator models · validation methodology · deterministic tooling). Companion briefs in <code>specs/artifacts/planning/</code>. Directional, not a benchmark — small N, single judge, no prompt parity yet.
+</footer>
+</body>
+</html>
