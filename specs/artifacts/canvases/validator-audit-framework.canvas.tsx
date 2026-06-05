@@ -208,6 +208,22 @@ validator: revision still flagged -> kept the original draft`}</Code>
       </Stack>
 
       <Divider />
+      <H2>G. Iteration log + refined design</H2>
+      <Callout tone="danger" title="Iteration 1 (abstain-terminal): correct, but exposed the real blocker">
+        Shipped abstain-terminal (never return a flagged answer). Live re-run of the worst scenarios →
+        <strong> 100% abstention.</strong> Cause: the validator is <strong>barrier-framed</strong> ("hunt every
+        violation → ok=false → abstain"), and the 2-bit gemma-e2b-q2 over-flags (it even false-flagged a correct
+        answer for &quot;not auditing separately&quot; — a prompt misread). A reject-everything machine only knows how to
+        reject.
+      </Callout>
+      <Grid columns={2} gap={12}>
+        <div><H3>Goal-framing, not barrier-framing</H3><Text size="small">Guide the validator + corrector by GOALS — (1) an accurate Answer, (2) a valid, useful In Depth — not by hunting violations. The validator asks &quot;is it good enough / what would make it so&quot;; abstain is the rare fallback when the goal truly can&apos;t be met, not the default. This is the root fix for the all-abstain.</Text></div>
+        <div><H3>Granular abstain (Answer vs In Depth)</H3><Text size="small">The envelope is <Code>**Answer**</Code> (direct) + <Code>**In Depth**</Code> (elaboration). Validate them separately; return the grounded Answer and fix/drop only the flagged In Depth — not all-or-nothing. Smaller focused audits also help the tiny validator over-flag less.</Text></div>
+        <div><H3>Validator floor — compare, don&apos;t assume</H3><Text size="small">The 2-bit model over-flags. Find the MINIMUM competent validator: compare <Code>gemma-e4b</Code> vs <Code>gemma-4-12b</Code> (cross-family) on the worst scenarios — pick the smallest that flags real fabrications without false-flagging correct answers.</Text></div>
+        <div><H3>Visibility — LLM flow in the dashboard drilldown</H3><Text size="small">The live dashboard (<Code>:8099</Code>) should surface the full per-turn LLM flow (orchestrator → expert → synth → validator verdict → corrector) inside the drilldown modal of each scenario×backend cell, to dig into why a turn passed / abstained. Needs the hub to emit a per-turn trace into the run artifacts.</Text></div>
+      </Grid>
+
+      <Divider />
       <Text tone="secondary" size="small">
         Sources — orchestration: Reflexion 2303.11366 · Self-Refine 2303.17651 · CRITIC 2305.11738 · LATS 2310.04406 ·
         Plan-and-Solve 2305.04091 · ReWOO 2305.18323 · AutoGen 2308.08155 · Huang &quot;cannot self-correct yet&quot; 2310.01798.
