@@ -22,6 +22,22 @@ def test_resolve_citations_flags_references_not_in_the_chart():
     assert resolve_citations([], valid)["rate"] is None
 
 
+def test_scout_summary_aggregates_citation_resolution():
+    # P2: the judge writes each cell's resolve_citations() output into the row as
+    # `citation_resolution`; scout_summary must pool it per arm so the report shows a
+    # resolution rate (n_resolved/n_refs) and total fabricated (unresolved) references.
+    rows = [
+        {"backend_id": "A", "citation_resolution": {"n_refs": 4, "n_resolved": 3, "n_unresolved": 1}},
+        {"backend_id": "A", "citation_resolution": {"n_refs": 2, "n_resolved": 2, "n_unresolved": 0}},
+        {"backend_id": "A"},  # abstain / no refs -> contributes nothing, never drags the rate
+    ]
+    a = next(x for x in scout_summary(rows, ["A"]) if x["backend"] == "A")
+    assert a["citation_resolution"] == {"n_refs": 6, "n_resolved": 5, "n_unresolved": 1, "rate": 0.83}
+    # No judged rows -> zero counts, rate None (so it never drags an aggregate down).
+    z = scout_summary([], ["A"])[0]
+    assert z["citation_resolution"] == {"n_refs": 0, "n_resolved": 0, "n_unresolved": 0, "rate": None}
+
+
 def test_scout_summary_per_arm_aggregates():
     rows = [
         {"scenario_id": "s1", "backend_id": "A", "accuracy": 8, "completeness": 6, "relevance": 9,
@@ -50,4 +66,5 @@ def test_scout_summary_per_arm_aggregates():
     z = scout_summary([], ["A"])
     assert z[0] == {"backend": "A", "n": 0, "accuracy_mean": None, "completeness_mean": None,
                     "relevance_mean": None, "harm_count": 0, "abstention": {}, "groundedness": {},
-                    "temporal": {"date_wrong": 0, "date_minor": 0, "window_over": 0, "trend_fab": 0}}
+                    "temporal": {"date_wrong": 0, "date_minor": 0, "window_over": 0, "trend_fab": 0},
+                    "citation_resolution": {"n_refs": 0, "n_resolved": 0, "n_unresolved": 0, "rate": None}}

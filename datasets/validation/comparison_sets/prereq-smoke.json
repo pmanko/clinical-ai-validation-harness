@@ -1,0 +1,10 @@
+{
+    "id": "prereq-smoke",
+    "scenario_ids": [
+        "am-weight-trend"
+    ],
+    "backend_ids": [
+        "12b-baseline",
+        "med-agent-team-parity"
+    ]
+}

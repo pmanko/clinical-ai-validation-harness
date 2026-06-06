@@ -57,6 +57,10 @@ def scout_summary(rows: list[dict[str, Any]], backends: list[str]) -> list[dict[
         groundedness: dict[str, int] = {}
         # temporal failure tallies (date↔value / window-scope / trend-from-too-few-points)
         temporal = {"date_wrong": 0, "date_minor": 0, "window_over": 0, "trend_fab": 0}
+        # Layer-1 citation resolution, pooled across the arm's judged cells: each cell's
+        # resolve_citations() output (written into the row by the judge). Pooled rate =
+        # resolved/refs across all refs; None when the arm cited nothing (never drags down).
+        cit = {"n_refs": 0, "n_resolved": 0, "n_unresolved": 0, "rate": None}
         for r in rs:
             ao = r.get("abstention_outcome")
             if ao:
@@ -64,6 +68,10 @@ def scout_summary(rows: list[dict[str, Any]], backends: list[str]) -> list[dict[
             cg = r.get("citation_groundedness")
             if cg:
                 groundedness[cg] = groundedness.get(cg, 0) + 1
+            cr = r.get("citation_resolution") or {}
+            cit["n_refs"] += cr.get("n_refs") or 0
+            cit["n_resolved"] += cr.get("n_resolved") or 0
+            cit["n_unresolved"] += cr.get("n_unresolved") or 0
             if r.get("temporal_date_accuracy") == "wrong":
                 temporal["date_wrong"] += 1
             elif r.get("temporal_date_accuracy") == "minor":
@@ -72,6 +80,8 @@ def scout_summary(rows: list[dict[str, Any]], backends: list[str]) -> list[dict[
                 temporal["window_over"] += 1
             if r.get("temporal_trend") == "fabricated":
                 temporal["trend_fab"] += 1
+        if cit["n_refs"]:
+            cit["rate"] = round(cit["n_resolved"] / cit["n_refs"], 2)
         out.append({
             "backend": b,
             "n": len(rs),
@@ -82,5 +92,6 @@ def scout_summary(rows: list[dict[str, Any]], backends: list[str]) -> list[dict[
             "abstention": abstention,
             "groundedness": groundedness,
             "temporal": temporal,
+            "citation_resolution": cit,
         })
     return out

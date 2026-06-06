@@ -1,0 +1,11 @@
+{
+  "id": "temporal-smoke",
+  "scenario_ids": [
+    "am-weight-trend",
+    "am-convo-azt-anemia"
+  ],
+  "backend_ids": [
+    "12b-baseline",
+    "med-agent-team-med-validated"
+  ]
+}

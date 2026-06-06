@@ -69,6 +69,11 @@
     "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
     "modelName": "med-agent-team-12b"
   },
+  "med-agent-team-parity": {
+    "label": "Med Agent Team — Parity (MED orch+expert, chartsearchai prompt, single synth, validator OFF)",
+    "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
+    "modelName": "med-agent-team-parity"
+  },
   "gemma-26b-llamacpp": {
     "label": "Gemma 4-26B-A4B (llama.cpp GGUF + DRY, via llama-server)",
     "endpointUrl": "http://host.docker.internal:8077/v1/chat/completions",

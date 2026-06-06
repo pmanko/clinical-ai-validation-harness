@@ -1,0 +1,29 @@
+{
+  "id": "temporal-ablation",
+  "scenario_ids": [
+    "am-weight-trend",
+    "am-cd4-history",
+    "am-recent-activity",
+    "am-last-bmp",
+    "am-hiv-labs",
+    "am-convo-azt-anemia",
+    "am-convo-medications-adherence",
+    "am-convo-safety-escalation",
+    "single-weight-trend",
+    "single-cd4-history",
+    "single-recent-activity",
+    "single-last-bmp",
+    "abstain-out-of-chart",
+    "convo-regimen-currency",
+    "convo-medications-adherence",
+    "convo-safety-escalation"
+  ],
+  "backend_ids": [
+    "gemma-e4b-llamacpp",
+    "12b-baseline",
+    "a4b-baseline",
+    "med-agent-team-low-validated-12b",
+    "med-agent-team-med-validated",
+    "med-agent-team-high-validated"
+  ]
+}

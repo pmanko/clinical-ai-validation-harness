@@ -343,6 +343,19 @@ def _run_blob(run_dir: Path) -> dict[str, Any]:
         profile["chart_url"] = f"{chart_base}/{u}/chart"
         patients.append(profile)
 
+    # Reference date = the resolved temporal anchor the hub ran under (the "now" for
+    # recency/most-recent/series), written into each trace by team._write_trace. Scope to
+    # THIS run's cells via the per-cell time-window match (trace.jsonl is append-only across
+    # runs, so a whole-file scan would pick up stale anchors). A run is one time reality, so
+    # collapse to one value; direct (non-hub) backends carry no trace -> excluded.
+    _ref_dates = _ordered_unique([
+        (match_trace(traces, r.get("backend_id"), r.get("started_at"), r.get("ended_at")) or {}).get("reference_date")
+        for r in results
+    ])
+    _ref_dates = [d for d in _ref_dates if d]
+    reference_date = (_ref_dates[0] if len(_ref_dates) == 1
+                      else (", ".join(_ref_dates) if _ref_dates else None))
+
     return {
         "run_id": run_id,
         "meta": {
@@ -352,6 +365,7 @@ def _run_blob(run_dir: Path) -> dict[str, Any]:
             "dataset_id": manifest.get("dataset_id"),
             "provider": otel.get("gen_ai.provider.name", "?"),
             "generated_at": manifest.get("generated_at", ""),
+            "reference_date": reference_date,
         },
         "backends": backends,
         "labels": {b: labels.get(b, "") for b in backends},
@@ -556,8 +570,9 @@ function saveRanking(tilesEl){
 
 function renderRunMeta(run){
   const m = run.meta;
+  const rd = m.reference_date ? ' · reference-date ' + m.reference_date : '';
   return 'run ' + m.run_id + ' · ' + m.component + ' · git ' + m.git_sha +
-         ' · ' + m.dataset_id + ' · provider ' + m.provider + ' · ' + m.generated_at;
+         ' · ' + m.dataset_id + ' · provider ' + m.provider + ' · ' + m.generated_at + rd;
 }
 
 function renderSummary(run){
