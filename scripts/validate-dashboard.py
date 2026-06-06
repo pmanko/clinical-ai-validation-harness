@@ -53,7 +53,13 @@ def _match_trace(traces, backend, started_at, ended_at):
     return best
 
 
+# When set (by --freeze --run), pin the dashboard to one run instead of "newest".
+_RUN_OVERRIDE = None
+
+
 def newest_run():
+    if _RUN_OVERRIDE:
+        return _RUN_OVERRIDE
     # Rank by when results were last WRITTEN (results.jsonl mtime), not the dir mtime —
     # rebuilding a report.html into an old run dir bumps the dir mtime and would otherwise
     # hijack the live view.
@@ -440,6 +446,47 @@ class _Server(socketserver.ThreadingTCPServer):
     daemon_threads = True
 
 
+def freeze(out_path):
+    """Write a SELF-CONTAINED snapshot of the dashboard for the current run: the exact live
+    page, but with the /api/status payload + every cell's /api/detail payload embedded inline
+    and window.fetch shimmed to serve them. The grid, click-to-drill detail, reasoning traces,
+    confidence chips — full functionality — work offline from a single .html (no server). The
+    2s auto-refresh just re-renders the frozen data (no network)."""
+    st = status()
+    if not st.get("run"):
+        raise SystemExit("no run to snapshot")
+    details = {}
+    for g in st.get("grid", []):
+        if g.get("state") in ("done", "err", "running"):  # cells that have results
+            s, b = g["scenario"], g["backend"]
+            details[f"{s}|{b}"] = detail(s, b)
+    shim = (
+        "<script>\n"
+        "window.__STATUS__=" + json.dumps(st) + ";\n"
+        "window.__DETAIL__=" + json.dumps(details) + ";\n"
+        "(function(){var of=window.fetch;window.fetch=function(u,o){u=String(u);\n"
+        "  if(u.indexOf('/api/status')>-1){return Promise.resolve({json:function(){return Promise.resolve(window.__STATUS__);}});}\n"
+        "  if(u.indexOf('/api/detail')>-1){var q=new URLSearchParams((u.split('?')[1]||''));\n"
+        "    var k=q.get('scenario')+'|'+q.get('backend');\n"
+        "    return Promise.resolve({json:function(){return Promise.resolve(window.__DETAIL__[k]||{turns:[]});}});}\n"
+        "  return of?of(u,o):Promise.reject('offline snapshot');};})();\n"
+        "</script>\n"
+    )
+    # Inject the shim BEFORE the page's own <script> so the fetch override is in place first.
+    html = PAGE.replace("<script>", shim + "<script>", 1)
+    Path(out_path).write_text(html, encoding="utf-8")
+    print(f"frozen dashboard snapshot -> {out_path}  ({st['done']}/{st['total']} results, {len(details)} cells embedded)")
+
+
 if __name__ == "__main__":
-    print(f"validate dashboard -> http://localhost:{PORT}   (Ctrl-C to stop)")
-    _Server(("127.0.0.1", PORT), H).serve_forever()
+    import sys
+    if "--freeze" in sys.argv:
+        i = sys.argv.index("--freeze")
+        out = sys.argv[i + 1] if i + 1 < len(sys.argv) else "dashboard-snapshot.html"
+        if "--run" in sys.argv:
+            j = sys.argv.index("--run")
+            _RUN_OVERRIDE = os.path.abspath(sys.argv[j + 1])
+        freeze(out)
+    else:
+        print(f"validate dashboard -> http://localhost:{PORT}   (Ctrl-C to stop)")
+        _Server(("127.0.0.1", PORT), H).serve_forever()
