@@ -10,4 +10,14 @@ MODEL (
 -- seeds/module_table_policy.csv. Do NOT edit by hand — re-run the
 -- generator instead.
 
-SELECT * FROM legacy_27_raw.formentry_xsn;
+SELECT
+  src.formentry_xsn_id,
+  src.form_id,
+  src.xsn_data,
+  src.creator,
+  @shift_date(src.date_created) AS date_created,
+  src.archived,
+  src.archived_by,
+  @shift_date(src.date_archived) AS date_archived,
+  src.uuid
+FROM legacy_27_raw.formentry_xsn src;

@@ -10,4 +10,11 @@ MODEL (
 -- seeds/module_table_policy.csv. Do NOT edit by hand — re-run the
 -- generator instead.
 
-SELECT * FROM legacy_27_raw.formentry_error;
+SELECT
+  src.formentry_error_id,
+  src.form_data,
+  src.error,
+  src.error_details,
+  src.creator,
+  @shift_date(src.date_created) AS date_created
+FROM legacy_27_raw.formentry_error src;

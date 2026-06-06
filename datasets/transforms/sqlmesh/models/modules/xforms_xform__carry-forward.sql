@@ -10,4 +10,14 @@ MODEL (
 -- seeds/module_table_policy.csv. Do NOT edit by hand — re-run the
 -- generator instead.
 
-SELECT * FROM legacy_27_raw.xforms_xform;
+SELECT
+  src.form_id,
+  src.xform_xml,
+  src.layout_xml,
+  src.creator,
+  @shift_date(src.date_created) AS date_created,
+  src.changed_by,
+  @shift_date(src.date_changed) AS date_changed,
+  src.locale_xml,
+  src.javascript_src
+FROM legacy_27_raw.xforms_xform src;

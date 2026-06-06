@@ -10,4 +10,19 @@ MODEL (
 -- seeds/module_table_policy.csv. Do NOT edit by hand — re-run the
 -- generator instead.
 
-SELECT * FROM legacy_27_raw.htmlformentry_html_form;
+SELECT
+  src.id,
+  src.form_id,
+  src.name,
+  src.xml_data,
+  src.creator,
+  @shift_date(src.date_created) AS date_created,
+  src.changed_by,
+  @shift_date(src.date_changed) AS date_changed,
+  src.retired,
+  src.uuid,
+  src.description,
+  src.retired_by,
+  @shift_date(src.date_retired) AS date_retired,
+  src.retire_reason
+FROM legacy_27_raw.htmlformentry_html_form src;

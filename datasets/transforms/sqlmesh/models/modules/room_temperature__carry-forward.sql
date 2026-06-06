@@ -10,4 +10,9 @@ MODEL (
 -- seeds/module_table_policy.csv. Do NOT edit by hand — re-run the
 -- generator instead.
 
-SELECT * FROM legacy_27_raw.room_temperature;
+SELECT
+  src.room_temperature_id,
+  @shift_date(src.`time`) AS `time`,
+  src.temp,
+  src.uuid
+FROM legacy_27_raw.room_temperature src;

@@ -33,3 +33,8 @@ variables:
   source_legacy_schema: legacy_27_raw
   source_seeded_ciel_schema: openmrs
   target_schema: refapp_28_demo
+  # Uniform date-transplant target (<= now). Default 2026-06-01; override per-run with
+  # env TRANSPLANT_END_DATE=YYYY-MM-DD. sqlmesh 0.234.1 has NO `--var` flag — var() reads
+  # only this config.variables block — so env_var (rendered at config load, mirroring the
+  # connection block) is the override path. Quoted: variables accept str, not a bare YAML date.
+  end_date: "{{ env_var('TRANSPLANT_END_DATE', '2026-06-01') }}"

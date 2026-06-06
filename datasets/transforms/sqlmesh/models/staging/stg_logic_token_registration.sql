@@ -10,9 +10,9 @@ MODEL (
 SELECT
   src.token_registration_id,
   src.creator,
-  src.date_created,
+  @shift_date(src.date_created) AS date_created,
   src.changed_by,
-  src.date_changed,
+  @shift_date(src.date_changed) AS date_changed,
   src.token,
   src.provider_class_name,
   src.provider_token,

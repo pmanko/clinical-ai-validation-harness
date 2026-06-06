@@ -10,12 +10,12 @@ MODEL (
 SELECT
   src.patient_id,
   src.creator,
-  src.date_created,
+  @shift_date(src.date_created) AS date_created,
   src.changed_by,
-  src.date_changed,
+  @shift_date(src.date_changed) AS date_changed,
   src.voided,
   src.voided_by,
-  src.date_voided,
+  @shift_date(src.date_voided) AS date_voided,
   src.void_reason,
   src.allergy_status
 FROM legacy_27_raw.patient src

@@ -26,13 +26,13 @@ SELECT
   COALESCE(ep.provider_id, 1)                   AS orderer,           -- fallback: user_id=1
   s.encounter_id,
   CAST(NULL AS TEXT)                            AS instructions,
-  s.obs_datetime                                AS date_activated,
+  s.obs_datetime                                AS date_activated,  -- already shifted in stg_obs; pass through
   CAST(NULL AS DATETIME)                        AS auto_expire_date,
   CAST(NULL AS DATETIME)                        AS date_stopped,
   CAST(NULL AS INT)                             AS order_reason,
   CAST(NULL AS VARCHAR)                         AS order_reason_non_coded,
   s.creator,
-  s.date_created,
+  s.date_created                                AS date_created,    -- already shifted in stg_obs; pass through
   0                                             AS voided,
   CAST(NULL AS INT)                             AS voided_by,
   CAST(NULL AS DATETIME)                        AS date_voided,
@@ -82,13 +82,13 @@ SELECT
   COALESCE(ep.provider_id, 1)                   AS orderer,
   s.encounter_id,
   CAST(NULL AS TEXT)                            AS instructions,
-  s.obs_datetime                                AS date_activated,
+  s.obs_datetime                                AS date_activated,  -- already shifted in stg_obs; pass through
   CAST(NULL AS DATETIME)                        AS auto_expire_date,
   CAST(NULL AS DATETIME)                        AS date_stopped,
   CAST(NULL AS INT)                             AS order_reason,
   CAST(NULL AS VARCHAR)                         AS order_reason_non_coded,
   s.creator,
-  s.date_created,
+  s.date_created                                AS date_created,    -- already shifted in stg_obs; pass through
   0                                             AS voided,
   CAST(NULL AS INT)                             AS voided_by,
   CAST(NULL AS DATETIME)                        AS date_voided,

@@ -200,6 +200,12 @@ services:
       # LLM_BASE_URL points every role at the llama-router (:8077) for GGUF + DRY.
       LLM_BASE_URL: ${MED_AGENT_LLM_BASE_URL:-http://host.docker.internal:8077}
       LLM_TEMPERATURE: ${MED_AGENT_TEMPERATURE:-0.0}
+      # Run-wide reference-date anchor for the hub's temporal grounding (the "now" for
+      # "most recent"/recency/series). Since the demo data is date-transplanted to land
+      # at a recent window, the backend runs at the REAL clock and this is set to
+      # `wall_clock` so chart age and hub "now" both track today. Empty default =
+      # per-request latest_record (the max date in the chart). A level's `anchor` overrides this.
+      HUB_ANCHOR: ${HUB_ANCHOR:-}
     extra_hosts:
       # Reach LM Studio on the host, same pattern as the backend.
       - "host.docker.internal:host-gateway"

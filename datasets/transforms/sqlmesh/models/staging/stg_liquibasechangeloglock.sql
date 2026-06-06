@@ -10,7 +10,7 @@ MODEL (
 SELECT
   src.ID,
   src.LOCKED,
-  src.LOCKGRANTED,
+  @shift_date(src.LOCKGRANTED) AS LOCKGRANTED,
   src.LOCKEDBY
 FROM legacy_27_raw.liquibasechangeloglock src
 

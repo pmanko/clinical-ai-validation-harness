@@ -18,12 +18,12 @@ SELECT
   src.template,
   src.xslt,
   src.creator,
-  src.date_created,
+  @shift_date(src.date_created) AS date_created,
   src.changed_by,
-  src.date_changed,
+  @shift_date(src.date_changed) AS date_changed,
   src.retired,
   src.retired_by,
-  src.date_retired,
+  @shift_date(src.date_retired) AS date_retired,
   src.retired_reason,
   src.uuid
 FROM legacy_27_raw.form src

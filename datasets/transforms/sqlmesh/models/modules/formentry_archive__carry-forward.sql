@@ -10,4 +10,9 @@ MODEL (
 -- seeds/module_table_policy.csv. Do NOT edit by hand — re-run the
 -- generator instead.
 
-SELECT * FROM legacy_27_raw.formentry_archive;
+SELECT
+  src.formentry_archive_id,
+  src.form_data,
+  @shift_date(src.date_created) AS date_created,
+  src.creator
+FROM legacy_27_raw.formentry_archive src;
