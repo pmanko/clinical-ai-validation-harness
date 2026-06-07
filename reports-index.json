@@ -1,0 +1,24 @@
+{
+  "intro": "We test how reliably different AI setups answer real clinical questions from a patient's chart. Every setup answers the same questions, and each answer is then graded against the full chart by a clinical scoring rubric. Two kinds of setup are compared: a <b>single model</b> (one AI reads the chart and answers) and a <b>multi-agent AI team</b> (several models that search a medical knowledge base, consult a specialist model, and cross-check each other before answering).",
+  "scoring_note": "Each answer is graded 0–10, higher is better — <b>Accuracy</b>: are the stated facts correct? <b>Completeness</b>: did it cover what mattered? <b>Relevance</b>: did it actually answer the question? <b>Unsafe answers</b> counts responses with a potential safety problem (lower is better). <b>Questions</b> is how many were scored per setup, and the best value in each column is highlighted. These come from a single automated judge on a small sample — they're directional, not a formal benchmark.",
+  "runs": [
+    {
+      "slug": "temporal-ablation-7arm-2026-06-06",
+      "title": "Temporal reasoning — can the AI get dates and trends right?",
+      "summary": "Two patients, 16 questions that hinge on timing: the most-recent lab value, weight trends over months, what's changed recently, and whether a medication regimen is current. We compared plain single models (Gemma 4B → 12B → 26B) against our multi-agent AI team at four configurations.",
+      "takeaway": "The 12B single model was the most accurate (8.7/10), while the AI team gave the most complete answers (Advanced tier, 7.9/10) with no unsafe answers. Bigger isn't automatically better — and the team trades a little accuracy for more thorough, safer answers."
+    },
+    {
+      "slug": "priority-run-5arm-judged-2026-06-04",
+      "title": "Priority clinical questions — single model vs. AI team",
+      "summary": "21 high-priority questions about one complex HIV/TB patient (Aloice), comparing two single models (Gemma 2B and 26B) with three AI-team configurations.",
+      "takeaway": "The 26B single model led on accuracy (9.1/10); the AI team's Advanced tier led on completeness (8.4/10). No unsafe answers in this run."
+    },
+    {
+      "slug": "aloice-run-5arm-2026-06-04",
+      "title": "Aloice deep-dive — 22 clinical scenarios (earlier run)",
+      "summary": "An earlier, broader sweep of 22 scenarios on the same patient, comparing the Gemma 12B single model with several AI-team configurations. This run predates our safety cross-checker and the temporal-reasoning fixes.",
+      "takeaway": "The Advanced AI team led on both accuracy and completeness — but the smaller team tiers produced several unsafe answers (Basic tier: 5). That's exactly what motivated the cross-checking 'validator' added in the later runs."
+    }
+  ]
+}
