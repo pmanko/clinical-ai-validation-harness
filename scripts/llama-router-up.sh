@@ -14,12 +14,23 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 EMPTY_HF="${HOME}/.cache/llama-router-emptyhf"
 mkdir -p "${EMPTY_HF}"
 
-# LLAMA_ROUTER_MODELS_MAX caps how many model instances stay co-resident. Default
-# 2 keeps a second model warm (fast role-switches for small low/med models). Set to
-# 1 for the HIGH tier: its 19G/17G/29G GGUFs can't safely co-reside — any two
-# (46-48G of weights + KV + compute buffers) exceed Metal's ~48G working-set limit
-# on a 64G host, so the router thrashes (spawn → child OOM-dies → 500). One at a
-# time loads each big model alone, well under the limit.
+# LLAMA_ROUTER_MODELS_MAX caps how many model instances stay co-resident, and it MUST be
+# set per-workload — the tiers have wildly different footprints on this 64G host (Metal
+# working-set limit ~48G), and one router can only be tuned for one of them at a time:
+#
+#   LOW / MED (interactive) — DEFAULT 4. Each turn cycles 4 distinct role-models
+#     (orchestrator · expert · synthesizer · validator), all small/mid: LOW ~20G of weights,
+#     MED ~34G — both fit co-resident, so 4 keeps every role-switch AND the next turn warm
+#     (zero reloads). Anything LESS thrashes: with 4 distinct models cycled in order,
+#     max=1/2/3 evicts the very model needed next, so every call reloads from disk (max=1
+#     is why even the LOW team was painfully slow).
+#
+#   HIGH (benchmark) — set LLAMA_ROUTER_MODELS_MAX=1. Its 3 big GGUFs (19G/17G/29G) can't
+#     co-reside: any two (~46-48G weights + KV) blow past the ~48G Metal limit and the
+#     router thrashes (spawn -> child OOM-dies -> 500). One at a time loads each alone.
+#
+# Note: on a 64G host you cannot serve LOW/MED co-resident AND HIGH loaded at once
+# (LOW+MED weights ~41G + one HIGH model ~29G > 64G) — pick the workload, restart to switch.
 exec env HF_HOME="${EMPTY_HF}" llama-server \
   --models-preset "${ROOT}/scripts/llama-router.ini" \
-  --models-max "${LLAMA_ROUTER_MODELS_MAX:-2}" --port 8077 --host 0.0.0.0
+  --models-max "${LLAMA_ROUTER_MODELS_MAX:-4}" --port 8077 --host 0.0.0.0
