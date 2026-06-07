@@ -60,6 +60,13 @@ _RUN_OVERRIDE = None
 def newest_run():
     if _RUN_OVERRIDE:
         return _RUN_OVERRIDE
+    # DASH_RUN pins the dashboard to a specific run (id or path) instead of "newest by mtime" —
+    # so side runs (1-cell verifies) don't hijack the view away from the real run being watched.
+    pin = os.environ.get("DASH_RUN")
+    if pin:
+        p = pin if os.path.isabs(pin) or os.path.sep in pin else str(ROOT / "artifacts" / "validate" / pin)
+        if os.path.isdir(p):
+            return p
     # Rank by when results were last WRITTEN (results.jsonl mtime), not the dir mtime —
     # rebuilding a report.html into an old run dir bumps the dir mtime and would otherwise
     # hijack the live view.
@@ -122,10 +129,17 @@ def status():
     total = sum(turns.values()) * len(back_ids) if back_ids else 0
 
     results = read_jsonl(Path(run) / "results.jsonl")
-    # A run is "active" only if its results were written in the last ~2 min; a stopped run
-    # shouldn't paint any cell yellow.
+    # "Active" = results written recently OR the runner process is still alive. The mtime check
+    # alone misses slow tiers — a HIGH cell runs ~17 min writing NOTHING, so results.jsonl looks
+    # stale and the run appears dead with no running cell. The process check keeps the frontier
+    # cell painted yellow across long per-cell gaps.
     _rp = Path(run) / "results.jsonl"
-    active = _rp.exists() and (time.time() - _rp.stat().st_mtime) < 120
+    try:
+        _runner_alive = subprocess.run(
+            ["pgrep", "-f", "harness-cli validate run"], capture_output=True).returncode == 0
+    except Exception:
+        _runner_alive = False
+    active = _runner_alive or (_rp.exists() and (time.time() - _rp.stat().st_mtime) < 120)
     arms = {}
     for b in back_ids:
         rs = [r for r in results if r.get("backend_id") == b]

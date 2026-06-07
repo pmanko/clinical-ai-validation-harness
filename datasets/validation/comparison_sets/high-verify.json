@@ -1,0 +1,5 @@
+{
+  "id": "high-verify",
+  "scenario_ids": ["am-cd4-history"],
+  "backend_ids": ["med-agent-team-high-validated"]
+}

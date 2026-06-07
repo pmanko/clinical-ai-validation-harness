@@ -22,6 +22,7 @@
     "gemma-e4b-llamacpp",
     "12b-baseline",
     "a4b-baseline",
+    "med-agent-team-parity",
     "med-agent-team-low-validated-12b",
     "med-agent-team-med-validated",
     "med-agent-team-high-validated"

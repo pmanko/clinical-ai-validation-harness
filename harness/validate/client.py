@@ -43,7 +43,8 @@ class ChartSearchAiClient:
         base_url: str | None = None,
         user: str | None = None,
         password: str | None = None,
-        timeout: float = 1200.0,  # generous: HIGH-tier cold GGUF loads + thinking synth
+        timeout: float = 2400.0,  # > chartsearchai.llm.timeoutSeconds (1800) so its timeout governs;
+                                   # HIGH tier serial-loads 3-4 big GGUFs/turn (~17 min) at router models-max=1
         min_interval_s: float | None = None,
         max_retries: int | None = None,
         retry_wait_s: float | None = None,

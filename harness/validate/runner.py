@@ -30,11 +30,16 @@ from .resolver import resolve_backends
 
 
 def _row_is_good(row: dict[str, Any]) -> bool:
-    """A turn counts as completed only if it answered: HTTP 200 with a non-empty
-    answer. A status-200-but-empty row (e.g. an upstream blip) is NOT done."""
+    """A turn counts as completed only if it answered: HTTP 200 with a non-empty,
+    NON-FALLBACK answer. A status-200-but-empty row (upstream blip) or the hub's
+    200-but-fallback envelope ("I could not produce a complete answer…") is NOT done —
+    otherwise a fallback gets carried over on --resume instead of being re-run."""
     if (row.get("metrics") or {}).get("http_status") != 200:
         return False
-    return bool(((row.get("response") or {}).get("answer") or "").strip())
+    ans = ((row.get("response") or {}).get("answer") or "").strip()
+    if not ans:
+        return False
+    return "could not produce a complete answer" not in ans
 
 
 def _load_completed(
