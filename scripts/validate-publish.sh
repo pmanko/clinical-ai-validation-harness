@@ -27,6 +27,32 @@ mkdir -p "${DEST}"
 cp "${SRC}" "${DEST}/index.html"
 echo "==> staged ${DEST}/index.html"
 
+# Record the exact run DIRECTORY that produced this report, so the index resolves
+# judge/results unambiguously. The data's run_id can differ from the dir name — a judged
+# sibling reuses another run's results.jsonl and only adds judge.jsonl — so grepping the
+# rendered HTML for a run_id is unreliable; meta.run_dir is authoritative.
+python3 - "${ROOT}/artifacts/validate/${RUN}" "${SLUG}" "${DEST}/meta.json" <<'PY'
+import json, sys
+from datetime import datetime, timezone
+from pathlib import Path
+run_path, slug, out = Path(sys.argv[1]), sys.argv[2], sys.argv[3]
+cset = None
+ev = run_path / "events.jsonl"
+if ev.exists():
+    for line in ev.read_text().splitlines():
+        try:
+            o = json.loads(line)
+            if o.get("event_type") == "run" and o.get("comparison_set"):
+                cset = o["comparison_set"]; break
+        except Exception:
+            pass
+gen = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+Path(out).write_text(json.dumps(
+    {"slug": slug, "run_dir": run_path.name, "comparison_set": cset, "generated_at": gen},
+    indent=2) + "\n")
+print(f"==> wrote {out} (run_dir={run_path.name}, set={cset})")
+PY
+
 if ! gcp_vm_exists || [ "$(gcp_vm_status)" != "RUNNING" ]; then
   echo "warn: VM ${GCP_VM_NAME} not RUNNING — staged locally only. Start it (make cloud-start) and re-run to publish." >&2
   exit 1
