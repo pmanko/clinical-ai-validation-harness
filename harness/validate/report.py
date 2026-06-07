@@ -88,6 +88,65 @@ def _render_answer(text: Any) -> str:
     return s
 
 
+_IN_DEPTH_RE = re.compile(r"\*\*In ?Depth\*\*", re.IGNORECASE)
+_CONF = {"green": ("High confidence", "#196c2e"), "yellow": ("Medium confidence", "#9e6a03"),
+         "red": ("Low confidence", "#8b1a1a")}
+
+
+def _conf_chip(level: str) -> str:
+    label, color = _CONF.get(level, ("Unrated", "#30363d"))
+    return f"<span class='cchip' style='background:{color}'>{label}</span>"
+
+
+def _render_section(label: str, body: str, conf: Any) -> str:
+    """One answer section with the validate dashboard's confidence inversion (confSection):
+    red -> show the validator note as a caveat + COLLAPSE the message behind "show <section>";
+    yellow -> show the message + collapse the note behind "show review note"; green -> message."""
+    if not body.strip():
+        return ""
+    level = (conf.get("level") if isinstance(conf, dict) else None) or "green"
+    note = (conf.get("note") if isinstance(conf, dict) else "") or ""
+    rendered = _render_answer(body)
+    h = f"<div class='csec'><div class='ctitle'>{_esc(label)} {_conf_chip(level)}</div>"
+    if level == "red":
+        if note:
+            h += f"<div class='caveat red'>{_esc(note)}</div>"
+        h += (f"<details class='collapse'><summary>show {_esc(label.lower())}</summary>"
+              f"<div class='secbody'>{rendered}</div></details>")
+    elif level == "yellow":
+        h += f"<div class='secbody'>{rendered}</div>"
+        if note:
+            h += (f"<details class='collapse'><summary>show review note</summary>"
+                  f"<div class='caveat yellow'>{_esc(note)}</div></details>")
+    else:
+        h += f"<div class='secbody'>{rendered}</div>"
+    return h + "</div>"
+
+
+def _render_answer_sections(text: Any, trace: Any) -> str:
+    """Render the answer split into its Answer / In-Depth sections, each headed by its validator
+    confidence tag, with LOW sections withheld behind a reveal (parity with the OpenMRS chat).
+    Falls back to a single plain answer when there's no per-section confidence (direct single-LLM
+    arms / older runs carry no hub trace)."""
+    answer = "" if text is None else str(text)
+    a_conf = trace.get("answer_confidence") if isinstance(trace, dict) else None
+    d_conf = trace.get("indepth_confidence") if isinstance(trace, dict) else None
+    has_conf = (isinstance(a_conf, dict) and a_conf.get("level")) or (
+        isinstance(d_conf, dict) and d_conf.get("level"))
+    if not has_conf:
+        return _render_answer(answer)
+    m = _IN_DEPTH_RE.search(answer)
+    strip_hdr = lambda s: re.sub(r"^\s*\*\*Answer\*\*\s*", "", s, flags=re.IGNORECASE).strip()  # noqa: E731
+    if m:
+        answer_body, indepth_body = strip_hdr(answer[: m.start()]), answer[m.end():].strip()
+    else:
+        answer_body, indepth_body = strip_hdr(answer), ""
+    out = _render_section("Answer", answer_body, a_conf)
+    if indepth_body:
+        out += _render_section("In-Depth", indepth_body, d_conf)
+    return out
+
+
 def _render_blocks(blocks: Any) -> str:
     """Render the bridge's `blocks[]` (kind:"table" enumerations the chart-answer
     envelope carries alongside the prose answer) as HTML tables, reusing the
@@ -278,8 +337,8 @@ def _cell_blob(r: dict[str, Any], traces: list[dict[str, Any]] | None = None) ->
     return {
         "error": r.get("error"),
         "http_status": m.get("http_status"),
-        "conf_html": _conf_html(trace),
-        "answer_html": _render_answer(resp.get("answer")),
+        "conf_html": "",  # tags now head each answer section (see _render_answer_sections)
+        "answer_html": _render_answer_sections(resp.get("answer"), trace),
         "refs_html": _render_refs(resp.get("references")),
         "blocks_html": _render_blocks(resp.get("blocks")),
         "chips_html": _render_chips(r),
@@ -484,6 +543,14 @@ table.jheat { border-collapse: collapse; font-size: 11px; }
 .ctag.green { background: #196c2e; }
 .ctag.yellow { background: #9e6a03; }
 .ctag.red { background: #8b1a1a; }
+.csec { margin: 8px 0 0; }
+.ctitle { font-size: 11px; color: #586069; text-transform: uppercase; letter-spacing: .04em; margin-bottom: 4px; }
+.cchip { display: inline-block; padding: 1px 7px; border-radius: 10px; color: #fff; font-size: 10px; margin-left: 6px; vertical-align: middle; }
+.caveat { border-radius: 6px; padding: 8px 10px; font-size: 12px; margin: 4px 0; }
+.caveat.red { background: #fff1f1; border: 1px solid #da1e28; color: #a2191f; }
+.caveat.yellow { background: #fcf4d6; border: 1px solid #f1c21b; color: #684e00; }
+.collapse > summary { cursor: pointer; color: #2748a0; font-size: 11px; padding: 3px 0; }
+.secbody { margin-top: 4px; }
 .refs { margin-top: 6px; }
 .ref { display: inline-block; font-size: 10px; font-family: ui-monospace, monospace; background: #eef3ff; color: #2748a0; padding: 1px 4px; border-radius: 3px; margin: 1px; }
 .more { color: var(--mut); font-size: 10px; }
