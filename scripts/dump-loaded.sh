@@ -9,11 +9,17 @@
 # extended-inserts for speed, hex-blob for binary safety) so two runs
 # against identical state produce byte-identical output (SC-004).
 #
+# By DEFAULT the dump is a clean portable CORPUS: OpenMRS-core + clinical only, with the consumer
+# chartsearchai module's tables AND its liquibasechangelog rows excluded, so it loads onto any RefApp
+# and the module installs itself fresh on boot (no checksum mismatch). Override the module prefix with
+# MODULE_PREFIX=, or keep all module state (full backup) with --include-module-state.
+#
 # Usage:
-#   ./scripts/dump-loaded.sh                                    # default openmrs_test → artifacts/<run>/transform/refapp_28_demo.sql.gz
+#   ./scripts/dump-loaded.sh                                    # clean corpus, default openmrs_test → artifacts/<run>/transform/refapp_28_demo.sql.gz
 #   ./scripts/dump-loaded.sh --source openmrs --out /tmp/x.sql.gz
 #   ./scripts/dump-loaded.sh --no-gzip                          # plain .sql
-#   ./scripts/dump-loaded.sh --ignore-pattern 'chartsearchai_%' # exclude consumer-side module tables
+#   ./scripts/dump-loaded.sh --include-module-state            # full backup (keep chartsearchai tables + changelog)
+#   ./scripts/dump-loaded.sh --ignore-pattern 'foo_%'          # exclude additional table patterns
 set -euo pipefail
 
 DB_CONTAINER="${DB_CONTAINER:-harness-openmrs-db}"
@@ -22,6 +28,13 @@ SOURCE_DB="${SOURCE_DB:-openmrs_test}"
 OUT=""
 GZIP=1
 IGNORE_PATTERNS=()
+# A portable CORPUS is OpenMRS-core + clinical only — never the consumer-side chartsearchai
+# module's state. By default we exclude BOTH its tables AND its liquibasechangelog rows: those
+# rows carry version-specific checksums, so shipping them makes the module fail to start under a
+# different omod version (liquibase checksum mismatch). With them absent, the module's own
+# liquibase installs it fresh on boot. --include-module-state keeps everything (a full backup).
+MODULE_PREFIX="${MODULE_PREFIX:-chartsearchai}"
+EXCLUDE_MODULE=1
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -29,10 +42,14 @@ while [[ $# -gt 0 ]]; do
     --out)    OUT="$2"; shift 2 ;;
     --no-gzip) GZIP=0; shift ;;
     --ignore-pattern) IGNORE_PATTERNS+=("$2"); shift 2 ;;
+    --include-module-state) EXCLUDE_MODULE=0; shift ;;
     -h|--help) sed -n '2,16p' "$0"; exit 0 ;;
     *) echo "unknown arg: $1" >&2; exit 1 ;;
   esac
 done
+# Exclude the consumer module's TABLES via the existing ignore mechanism (its changelog rows are
+# stripped separately in the dump below, since mariadb-dump can't row-filter within --databases).
+[[ "$EXCLUDE_MODULE" == "1" ]] && IGNORE_PATTERNS+=("${MODULE_PREFIX}_%")
 
 # Resolve --ignore-pattern globs to concrete --ignore-table flags by querying
 # information_schema. mariadb-dump itself doesn't accept LIKE patterns.
@@ -79,27 +96,33 @@ else
   echo "Dumping '${SOURCE_DB}' (${TABLE_COUNT} tables, ~${ROW_COUNT} rows) → ${OUT}"
 fi
 
-DUMP_CMD=(
-  docker exec "$DB_CONTAINER" mariadb-dump
+COMMON_FLAGS=(
   --user=root --password="$DB_ROOT_PASS"
-  --skip-comments
-  --skip-dump-date
-  --skip-tz-utc
-  --skip-add-locks
-  --skip-disable-keys
-  --single-transaction
-  --quick
-  --extended-insert
-  --hex-blob
-  --default-character-set=utf8mb4
-  "${IGNORE_TABLE_FLAGS[@]}"
-  --databases "$SOURCE_DB"
+  --skip-comments --skip-dump-date --skip-tz-utc --skip-add-locks --skip-disable-keys
+  --single-transaction --quick --extended-insert --hex-blob --default-character-set=utf8mb4
 )
 
+# Stream the dump. When excluding a consumer module, do it in two parts: (1) everything except
+# liquibasechangelog (its tables already in IGNORE_TABLE_FLAGS), keeping --databases so the dump is
+# self-contained; (2) liquibasechangelog WITHOUT the module's rows, no --databases so it applies to
+# the schema part 1 USE'd. mariadb-dump can't row-filter inside a --databases dump, hence the split.
+dump_stream() {
+  if [[ "$EXCLUDE_MODULE" == "1" ]]; then
+    docker exec "$DB_CONTAINER" mariadb-dump "${COMMON_FLAGS[@]}" "${IGNORE_TABLE_FLAGS[@]}" \
+      --ignore-table="${SOURCE_DB}.liquibasechangelog" --databases "$SOURCE_DB"
+    docker exec "$DB_CONTAINER" mariadb-dump "${COMMON_FLAGS[@]}" \
+      --where="id NOT LIKE '${MODULE_PREFIX}%' AND filename NOT LIKE '%${MODULE_PREFIX}%'" \
+      "$SOURCE_DB" liquibasechangelog
+  else
+    docker exec "$DB_CONTAINER" mariadb-dump "${COMMON_FLAGS[@]}" "${IGNORE_TABLE_FLAGS[@]}" \
+      --databases "$SOURCE_DB"
+  fi
+}
+
 if [[ "$GZIP" == "1" ]]; then
-  time "${DUMP_CMD[@]}" | gzip -9 > "$OUT"
+  time dump_stream | gzip -9 > "$OUT"
 else
-  time "${DUMP_CMD[@]}" > "$OUT"
+  time dump_stream > "$OUT"
 fi
 
 SIZE=$(wc -c < "$OUT" | tr -d ' ')
