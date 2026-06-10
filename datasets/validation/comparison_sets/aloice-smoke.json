@@ -1,0 +1,10 @@
+{
+  "id": "aloice-smoke",
+  "scenario_ids": [
+    "am-medications"
+  ],
+  "backend_ids": [
+    "12b-baseline",
+    "med-agent-team-12b"
+  ]
+}

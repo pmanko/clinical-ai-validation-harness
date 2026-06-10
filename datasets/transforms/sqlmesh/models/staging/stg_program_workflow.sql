@@ -12,10 +12,10 @@ SELECT
   src.program_id,
   COALESCE(ct_0.target_concept_id, src.concept_id) AS concept_id,
   src.creator,
-  src.date_created,
+  @shift_date(src.date_created) AS date_created,
   src.retired,
   src.changed_by,
-  src.date_changed,
+  @shift_date(src.date_changed) AS date_changed,
   src.uuid
 FROM legacy_27_raw.program_workflow src
   LEFT JOIN refapp_28_demo.seed__concept_translation ct_0 ON ct_0.source_concept_id = src.concept_id

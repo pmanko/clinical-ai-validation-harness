@@ -1,0 +1,23 @@
+{
+  "id": "am-last-visit-detail",
+  "patient_ref": "dd5558ed-1691-11df-97a5-7038c432aabf",
+  "turns": [
+    {
+      "n": 1,
+      "question": "What was recorded for this patient's last visit?"
+    }
+  ],
+  "tags": [
+    "patient:aloice-mukangu",
+    "single-turn",
+    "12b-run"
+  ],
+  "expectations": {
+    "should_cite_resource_types": [
+      "Encounter",
+      "Observation"
+    ],
+    "should_abstain": false,
+    "notes": "Last encounter (2006-05-18) carries vitals, regimen continuation, and plan obs."
+  }
+}

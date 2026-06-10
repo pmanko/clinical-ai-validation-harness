@@ -1,0 +1,22 @@
+{
+  "id": "am-medications",
+  "patient_ref": "dd5558ed-1691-11df-97a5-7038c432aabf",
+  "turns": [
+    {
+      "n": 1,
+      "question": "What medications is this patient currently on?"
+    }
+  ],
+  "tags": [
+    "patient:aloice-mukangu",
+    "single-turn",
+    "12b-run"
+  ],
+  "expectations": {
+    "should_cite_resource_types": [
+      "MedicationRequest"
+    ],
+    "should_abstain": false,
+    "notes": "ART (lamivudine/zidovudine + efavirenz), cotrimoxazole prophylaxis, and RIPE TB therapy (rifampicin/isoniazid/pyrazinamide/ethambutol, from Apr 2006). Enumerate with citations."
+  }
+}

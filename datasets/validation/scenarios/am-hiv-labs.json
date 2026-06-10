@@ -1,0 +1,22 @@
+{
+  "id": "am-hiv-labs",
+  "patient_ref": "dd5558ed-1691-11df-97a5-7038c432aabf",
+  "turns": [
+    {
+      "n": 1,
+      "question": "Show me all the lab results that help me understand this patient's current HIV status."
+    }
+  ],
+  "tags": [
+    "patient:aloice-mukangu",
+    "single-turn",
+    "12b-run"
+  ],
+  "expectations": {
+    "should_cite_resource_types": [
+      "Observation"
+    ],
+    "should_abstain": false,
+    "notes": "Immune-status labs: CD4 72, CD4% 5, CD8 1180 (2006-03-02). No viral load documented."
+  }
+}

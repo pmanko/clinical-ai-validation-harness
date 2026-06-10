@@ -1,0 +1,5 @@
+{
+  "id": "aloice-validator-smoke",
+  "scenario_ids": ["am-weight-trend"],
+  "backend_ids": ["med-agent-team-low-validated"]
+}

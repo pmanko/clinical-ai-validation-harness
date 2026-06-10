@@ -1,0 +1,23 @@
+{
+  "id": "am-orders-6mo",
+  "patient_ref": "dd5558ed-1691-11df-97a5-7038c432aabf",
+  "turns": [
+    {
+      "n": 1,
+      "question": "What has been ordered for this patient over the past 6 months?"
+    }
+  ],
+  "tags": [
+    "patient:aloice-mukangu",
+    "single-turn",
+    "12b-run"
+  ],
+  "expectations": {
+    "should_cite_resource_types": [
+      "MedicationRequest",
+      "ServiceRequest"
+    ],
+    "should_abstain": false,
+    "notes": "Rich drug + lab orders Feb-May 2006 (ART, cotrimoxazole, RIPE, CBC/chemistry labs)."
+  }
+}

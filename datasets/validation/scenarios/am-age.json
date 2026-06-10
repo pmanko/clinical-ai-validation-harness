@@ -1,0 +1,20 @@
+{
+  "id": "am-age",
+  "patient_ref": "dd5558ed-1691-11df-97a5-7038c432aabf",
+  "turns": [
+    {
+      "n": 1,
+      "question": "How old is this patient?"
+    }
+  ],
+  "tags": [
+    "patient:aloice-mukangu",
+    "single-turn",
+    "12b-run"
+  ],
+  "expectations": {
+    "should_cite_resource_types": [],
+    "should_abstain": false,
+    "notes": "~41 in 2006 (DOB-derived demographic). Trivial lookup; kept for coverage."
+  }
+}

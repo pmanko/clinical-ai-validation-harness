@@ -4,13 +4,17 @@ Drop-in demo data for **OpenMRS Platform 2.8 / Reference Application 3.6.0**. Th
 
 ## Current artifact
 
-**`openmrs-2.8-refapp-demo-5284-patients-2026-05-19.sql.gz`** (40.3 MB, sha256 `91c66bf4…`)
+**`openmrs-2.8-refapp-demo-5284-patients-2026-06-04.sql.gz`** (40.3 MB, sha256 `44c02628…`)
+
+This build adds the **preferred-address normalization** (so the O3 patient chart renders addresses) on top of the #20 demo-data regeneration (referentially clean, fully preserved, promotable). It **supersedes** the `2026-06-03` and `2026-05-19` publishes. Clinical row counts are unchanged; the deltas are structural (per #20) plus the preferred-address flag.
 
 - Loads into a database literally named **`openmrs`** (the dump embeds `CREATE DATABASE openmrs; USE openmrs;` so it is self-contained — no schema choice on the consumer side).
-- 232 tables, ~1.65M rows.
-- Includes the mapping remediation that fixes:
-  - Concept FK resolution: drug-order parent concepts now resolve through CIEL UUIDs (e.g. legacy `794` → CIEL `6689 Lopinavir / ritonavir`) instead of accidentally landing on unrelated target concepts (`794` was historically being read as the local `Hip pain` concept).
-  - `drug_order.drug_inventory_id` is non-null for **all 43,412** promoted drug-order rows, backed by a deterministic synthetic concept-level drug catalog (`drug_id = 300000 + source_concept_id`).
+- 232 tables, ~1.70M rows.
+- **Referentially clean**: the `harness.transform.orphan_fk --target openmrs` gate checked **868 FK constraints, 0 orphans** against this build.
+- Mapping remediation in this build:
+  - **Preferred address** (display normalization): the legacy 2.7 corpus marks no preferred address, so OpenMRS FHIR emits every address with `use="old"` and the O3 patient header shows a blank address. The transform now deterministically flags one non-voided address per person preferred (all **5,283**). FHIR then emits `use="home"` and O3 renders it — e.g. Zabella (`2428TU-4`) → *Maili Nne (Eld)*; Horatio Hornblower (`101`) → *1050 Wishard Blvd., Indianapolis, IN 46202, USA*. This is a demo-display normalization, not source-faithful for the `preferred` column. Guarded by `audit_person_address_one_preferred`.
+  - Concept FK resolution: drug-order parent concepts resolve through CIEL UUIDs to the correct concept instead of accidentally landing on unrelated target concepts. Verified on a known patient (Zabella Talai Halambe, `2428TU-4`): her drug-order concepts resolve to CIEL **Efavirenz** (`633…`), **Nevirapine** (`631…`), **Lamivudine** (`628…`), and **Stavudine** (`625…`).
+  - `drug_order.drug_inventory_id` is non-null for **all 43,412** promoted drug-order rows, backed by a deterministic synthetic concept-level drug catalog (`drug_id = 300000 + CIEL concept numeric`).
   - Typed-table promotion writes only canonical promoted rows; no duplicate residual obs for P1/P2/P3 facts.
   - Synthetic UUIDs on promoted rows are deterministic (UUIDv5-style, name-based), so byte-identical dumps are reproducible from identical source state.
 
@@ -28,8 +32,9 @@ Drop-in demo data for **OpenMRS Platform 2.8 / Reference Application 3.6.0**. Th
 | `allergy` (non-voided) | 2 |
 | **Total tables** | **232** (full OpenMRS Platform 2.8 schema; standard module tables included) |
 
-**Excluded** (consumer-side modules will create their own tables on install):
+**Excluded** (consumer-side module tables — the consuming module recreates them empty on install):
 - `chartsearchai_audit_log`, `chartsearchai_chat_message`, `chartsearchai_chat_session`, `chartsearchai_embedding`
+- `querystore_bootstrap_progress`
 
 ## Load
 
@@ -38,10 +43,10 @@ Drop-in demo data for **OpenMRS Platform 2.8 / Reference Application 3.6.0**. Th
 # needs an empty MariaDB / MySQL with a privileged user. No CREATE DATABASE
 # step on the consumer side.
 
-gunzip -c openmrs-2.8-refapp-demo-5284-patients-2026-05-19.sql.gz | mariadb -u root -p
+gunzip -c openmrs-2.8-refapp-demo-5284-patients-2026-06-04.sql.gz | mariadb -u root -p
 ```
 
-Takes ~22 seconds against an empty `mariadb:10.11.7` container.
+Takes ~20 seconds against an empty `mariadb:10.11.7` container (verified — see `verified_load` in the provenance).
 
 The dump toggles `FOREIGN_KEY_CHECKS=0` + `UNIQUE_CHECKS=0` for the duration of the load so the order of `CREATE TABLE` within a single transaction is safe.
 
@@ -56,20 +61,20 @@ Dump produced via [`scripts/dump-loaded.sh`](../../scripts/dump-loaded.sh) with 
 --extended-insert --hex-blob
 --default-character-set=utf8mb4
 --databases openmrs
---ignore-pattern 'chartsearchai_%'   # excludes consumer-side module tables
+--ignore-pattern 'chartsearchai_%'   # consumer-side chartsearchai module tables
+--ignore-pattern 'querystore_%'      # consumer-side querystore bootstrap marker
 ```
 
-See `openmrs-2.8-refapp-demo-5284-patients-2026-05-19.sql.gz.provenance.json` for `sha256`, exact row counts, the remediation evidence (resolved CIEL concept IDs on a known patient + 0-failure SQLMesh audits + passing pytest evals), and ephemeral-load verification metadata.
+See `openmrs-2.8-refapp-demo-5284-patients-2026-06-04.sql.gz.provenance.json` for the exact `sha256`, row counts, remediation evidence (the orphan-FK gate result, drug-catalog coverage, the preferred-address normalization, and the known-patient CIEL concept resolution — each re-derived from this build), the pipeline provenance (regen + preferred-address commits), and the ephemeral clean-container load verification.
 
 ## Source
 
 Produced by the [clinical-ai-validation-harness](https://github.com/pmanko/clinical-ai-validation-harness) feature 002 transformation pipeline (SQLMesh + dlt), which takes the original `large-demo-data-2-7-0.sql.zip` and applies:
 
-1. Concept identity bridge: legacy concept IDs → CIEL UUIDs → target local concept IDs (validated by `audit_concept_uuid_agreement`).
+1. Concept identity bridge: legacy concept IDs → CIEL UUIDs → target local concept IDs.
 2. 2.7 → 2.8 schema diff (Liquibase changesets pre-staged in SQLMesh).
 3. Typed-table promotion rules (obs → drug_order / test_order / conditions / allergy with parent/child shape preserved).
 4. Drug catalog augmentation (concept-level deterministic synthetic drug rows for promoted medication orders).
 5. FK closure + orphan reconciliation; no duplicate canonical facts.
 
 Result is a deterministic, clinically-faithful 2.8/RefApp-compatible corpus suitable for development, testing, and demos. See the [feature 002 spec](https://github.com/pmanko/clinical-ai-validation-harness/tree/main/specs/002-openmrs-demo-data-2-8-remap) for details on the transformation.
-

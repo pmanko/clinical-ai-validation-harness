@@ -1,0 +1,23 @@
+{
+  "id": "single-problem-list",
+  "patient_ref": "dd75c020-1691-11df-97a5-7038c432aabf",
+  "turns": [
+    {
+      "n": 1,
+      "question": "What is on this patient's active problem list?"
+    }
+  ],
+  "tags": [
+    "problem-list",
+    "abstain",
+    "single-turn",
+    "priority"
+  ],
+  "expectations": {
+    "should_cite_resource_types": [
+      "Condition"
+    ],
+    "should_abstain": true,
+    "notes": "No coded problem-list conditions are recorded. HIV is evidenced by the ART regimen + WHO staging + CD4 obs but is not a coded problem \u2014 should say no coded problems (optionally noting HIV is inferable), not invent a list."
+  }
+}

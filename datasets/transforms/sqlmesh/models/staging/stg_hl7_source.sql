@@ -12,7 +12,7 @@ SELECT
   src.name,
   src.description,
   src.creator,
-  src.date_created,
+  @shift_date(src.date_created) AS date_created,
   src.uuid
 FROM legacy_27_raw.hl7_source src
 

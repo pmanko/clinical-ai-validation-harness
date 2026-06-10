@@ -1,0 +1,13 @@
+{
+  "id": "core-round-high",
+  "scenario_ids": [
+    "single-vitals-summary",
+    "single-medications",
+    "abstain-out-of-chart",
+    "convo-regimen-review",
+    "convo-safety-escalation"
+  ],
+  "backend_ids": [
+    "med-agent-team-high"
+  ]
+}

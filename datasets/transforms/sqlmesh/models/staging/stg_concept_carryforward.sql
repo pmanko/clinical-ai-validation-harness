@@ -17,12 +17,12 @@ SELECT
   CASE WHEN src.class_id = 18 THEN 20 ELSE src.class_id END AS class_id,
   src.is_set,
   src.creator,
-  src.date_created,
+  @shift_date(src.date_created) AS date_created,
   src.version,
   src.changed_by,
-  src.date_changed,
+  @shift_date(src.date_changed) AS date_changed,
   src.retired_by,
-  src.date_retired,
+  @shift_date(src.date_retired) AS date_retired,
   src.retire_reason,
   src.uuid
 FROM legacy_27_raw.concept src

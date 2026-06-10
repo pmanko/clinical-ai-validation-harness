@@ -1,0 +1,5 @@
+{
+  "id": "high-amwt",
+  "scenario_ids": ["am-weight-trend"],
+  "backend_ids": ["med-agent-team-high-validated"]
+}

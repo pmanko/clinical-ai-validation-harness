@@ -1,0 +1,22 @@
+{
+  "id": "single-hiv-status",
+  "patient_ref": "dd75c020-1691-11df-97a5-7038c432aabf",
+  "turns": [
+    {
+      "n": 1,
+      "question": "What is the patient's current HIV status, and when was she last tested?"
+    }
+  ],
+  "tags": [
+    "hiv",
+    "single-turn",
+    "priority"
+  ],
+  "expectations": {
+    "should_cite_resource_types": [
+      "Observation"
+    ],
+    "should_abstain": false,
+    "notes": "HIV-positive is well-evidenced (ART + WHO stage + CD4). A discrete 'last HIV test date' obs may be absent \u2014 state status confidently, abstain/qualify on the exact test date if not recorded."
+  }
+}

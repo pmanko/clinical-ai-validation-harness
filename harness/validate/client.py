@@ -19,6 +19,10 @@ import requests
 
 _REST = "/ws/rest/v1/chartsearchai"
 
+# Transient HTTP statuses worth a limited retry: 429 (rate limit) plus the 5xx the
+# proxy emits while the backend is restarting / an upstream momentarily times out.
+_RETRYABLE = frozenset({429, 500, 502, 503, 504})
+
 
 def _default_base_url() -> str:
     port = os.environ.get("HARNESS_PROXY_HTTP_PORT", "8088")
@@ -39,7 +43,8 @@ class ChartSearchAiClient:
         base_url: str | None = None,
         user: str | None = None,
         password: str | None = None,
-        timeout: float = 300.0,
+        timeout: float = 2400.0,  # > chartsearchai.llm.timeoutSeconds (1800) so its timeout governs;
+                                   # HIGH tier serial-loads 3-4 big GGUFs/turn (~17 min) at router models-max=1
         min_interval_s: float | None = None,
         max_retries: int | None = None,
         retry_wait_s: float | None = None,
@@ -88,13 +93,21 @@ class ChartSearchAiClient:
         return resp.json()
 
     def new_session(self, patient: str) -> str:
-        """Close the active session for this patient and open a fresh one."""
-        resp = self._session.post(
-            self._url("/chat/new"), json={"patient": patient}, timeout=self.timeout
-        )
-        if resp.status_code != 200:
-            raise RuntimeError(f"new_session({patient!r}) failed [{resp.status_code}]: {resp.text[:300]}")
-        return resp.json().get("session")
+        """Close the active session for this patient and open a fresh one. Retries a
+        transient gateway/rate-limit status (the backend may be restarting) up to
+        max_retries before raising, so a single blip doesn't abort the whole run."""
+        attempt = 0
+        while True:
+            resp = self._session.post(
+                self._url("/chat/new"), json={"patient": patient}, timeout=self.timeout
+            )
+            if resp.status_code in _RETRYABLE and attempt < self.max_retries:
+                attempt += 1
+                time.sleep(self.retry_wait_s)
+                continue
+            if resp.status_code != 200:
+                raise RuntimeError(f"new_session({patient!r}) failed [{resp.status_code}]: {resp.text[:300]}")
+            return resp.json().get("session")
 
     def _throttle(self) -> None:
         if self.min_interval_s > 0:
@@ -130,10 +143,20 @@ class ChartSearchAiClient:
         while True:
             self._throttle()
             start = time.monotonic()
-            resp = self._session.post(self._url("/chat"), json=body, timeout=self.timeout)
+            try:
+                resp = self._session.post(self._url("/chat"), json=body, timeout=self.timeout)
+            except requests.RequestException:
+                # Dropped connection / read timeout: retry the transient, then let it
+                # propagate (the runner records it and moves on).
+                self._last_call = time.monotonic()
+                if attempt < self.max_retries:
+                    attempt += 1
+                    time.sleep(self.retry_wait_s)
+                    continue
+                raise
             latency_ms = int((time.monotonic() - start) * 1000)
             self._last_call = time.monotonic()
-            if resp.status_code == 429 and attempt < self.max_retries:
+            if resp.status_code in _RETRYABLE and attempt < self.max_retries:
                 attempt += 1
                 time.sleep(self.retry_wait_s)
                 continue
@@ -147,3 +170,84 @@ class ChartSearchAiClient:
                 latency_ms=latency_ms,
                 raw_text=resp.text,
             )
+
+    def get_patient_profile(self, patient: str) -> dict[str, Any]:
+        """Best-effort rich patient snapshot for report grounding: demographics +
+        identifiers + active regimen + chart counts + recent vitals, from the OpenMRS
+        REST + FHIR APIs (same base + auth as the chat client). Never raises — returns a
+        partial/empty dict on any failure, so a profile fetch can't block a run."""
+        base = f"{self.base_url}/ws"
+
+        def _get(path: str) -> Any:
+            try:
+                resp = self._session.get(base + path, timeout=self.timeout)
+                return resp.json() if resp.ok else None
+            except Exception:
+                return None
+
+        out: dict[str, Any] = {}
+        demo = _get(
+            f"/rest/v1/patient/{patient}?v=custom:(identifiers:(identifier,"
+            "identifierType:(name)),person:(display,gender,age,birthdate))")
+        if isinstance(demo, dict):
+            person = demo.get("person") or {}
+            out["display"] = person.get("display")
+            out["gender"] = person.get("gender")
+            out["age"] = person.get("age")
+            out["birthdate"] = (person.get("birthdate") or "")[:10] or None
+            ids = [
+                {"id": i.get("identifier"), "type": (i.get("identifierType") or {}).get("name")}
+                for i in (demo.get("identifiers") or []) if i.get("identifier")
+            ]
+            if ids:
+                out["identifiers"] = ids
+                out["identifier"] = ids[0]["id"]
+
+        meds = _get(f"/fhir2/R4/MedicationRequest?patient={patient}")
+        if isinstance(meds, dict):
+            names = []
+            for entry in (meds.get("entry") or []):
+                res = entry.get("resource") or {}
+                if res.get("status") == "active":
+                    name = (res.get("medicationReference") or {}).get("display") or (
+                        res.get("medicationCodeableConcept") or {}).get("text")
+                    if name:
+                        names.append(name)
+            if names:
+                out["medications"] = sorted(set(names))
+
+        enc = _get(f"/rest/v1/encounter?patient={patient}&limit=1&totalCount=true")
+        if isinstance(enc, dict) and enc.get("totalCount") is not None:
+            out["encounter_count"] = enc["totalCount"]
+
+        obs = _get(f"/fhir2/R4/Observation?patient={patient}&_count=120&_sort=-date")
+        if isinstance(obs, dict):
+            if obs.get("total") is not None:
+                out["observation_count"] = obs["total"]
+            # SpO2's concept text contains "pulse oximeter", so the loose "pulse" needle MUST
+            # come last, and each obs matches at most one vital (break) — else the SpO2 obs
+            # also fills Pulse with the saturation value.
+            wanted = [
+                ("arterial blood oxygen saturation", "SpO2"),
+                ("systolic blood pressure", "Systolic BP"),
+                ("diastolic blood pressure", "Diastolic BP"),
+                ("temperature", "Temp"),
+                ("weight", "Weight"),
+                ("pulse", "Pulse"),
+            ]
+            vitals: dict[str, str] = {}
+            for entry in (obs.get("entry") or []):
+                res = entry.get("resource") or {}
+                text = ((res.get("code") or {}).get("text") or "").lower()
+                for needle, label in wanted:
+                    if needle in text:
+                        if label not in vitals:
+                            q = res.get("valueQuantity") or {}
+                            if q.get("value") is not None:
+                                unit = (q.get("unit") or "").strip()
+                                sep = "" if unit in ("%", "") else " "
+                                vitals[label] = f"{q['value']}{sep}{unit}".strip()
+                        break
+            if vitals:
+                out["vitals"] = vitals
+        return out

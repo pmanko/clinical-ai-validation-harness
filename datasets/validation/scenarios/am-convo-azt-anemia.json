@@ -1,0 +1,35 @@
+{
+  "id": "am-convo-azt-anemia",
+  "patient_ref": "dd5558ed-1691-11df-97a5-7038c432aabf",
+  "turns": [
+    {
+      "n": 1,
+      "question": "What is this patient's most recent hemoglobin?"
+    },
+    {
+      "n": 2,
+      "question": "How does that compare to his earlier hemoglobin?"
+    },
+    {
+      "n": 3,
+      "question": "Is he on any medication that could be contributing to that?"
+    },
+    {
+      "n": 4,
+      "question": "What would you consider doing about his regimen?"
+    }
+  ],
+  "tags": [
+    "patient:aloice-mukangu",
+    "multi-turn",
+    "12b-run"
+  ],
+  "expectations": {
+    "should_cite_resource_types": [
+      "Observation",
+      "MedicationRequest"
+    ],
+    "should_abstain": false,
+    "notes": "Grounded AZT-anemia chain (both signals in-chart). Hgb 9.1 g/dL (2006-03-06) -> 3.9 (2006-04-24): a severe drop. Zidovudine (in lamivudine/zidovudine) is a well-known cause of anemia. T4: a strong answer connects the falling Hgb to zidovudine and considers switching it (e.g. to tenofovir)."
+  }
+}

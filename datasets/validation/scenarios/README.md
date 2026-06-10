@@ -39,10 +39,15 @@ Five foundation questions expanded into multi-prompt conversations
 grounded conversation set. Per-turn expected behaviour is in each scenario's
 `expectations.notes` for the human adjudicator.
 
-## Open decision — KB differentiator (D6)
+## KB coverage (D6)
 
-The KB seed (WHO IMCI, metformin/T2DM, HTN, ORS+zinc) does not intersect an HIV
-patient, so the KB-on/off A/B is only lightly exercised here (the HTN-threshold
-touchpoint in `convo-vitals` T2). For a real KB A/B, add a **KB-aligned demo
-patient** (diabetic → metformin; or pediatric → IMCI) or extend the KB to the
-HIV/ART cohort.
+The KB corpus (`targets/med-agent-hub/server/kb_data/corpus.jsonl`, 24 entries)
+covers HIV/ART well — preferred first-line + second-line ART, the stavudine (d4T)
+phase-out, treat-all, WHO clinical staging, the CD4 role, adherence, TB
+co-infection, co-trimoxazole, and cryptococcal disease — alongside peds IMCI/
+pneumonia/diarrhoea, TB, malaria, metformin/HTN, an infant immunization schedule,
+and OpenMRS/OCL meta. So the KB-grounded path IS exercised for this HIV patient
+(regimen currency, staging, CD4 role, adherence). Known minor gaps for the
+priority question set: **adult** immunization guidance (only the infant EPI
+schedule is present) and a dedicated HIV **viral-load-monitoring** entry — add
+these if the run shows the team reaching for absent KB.

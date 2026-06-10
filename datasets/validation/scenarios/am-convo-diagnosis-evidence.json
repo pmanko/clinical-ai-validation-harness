@@ -1,0 +1,39 @@
+{
+  "id": "am-convo-diagnosis-evidence",
+  "patient_ref": "dd5558ed-1691-11df-97a5-7038c432aabf",
+  "turns": [
+    {
+      "n": 1,
+      "question": "What is this patient being treated for?"
+    },
+    {
+      "n": 2,
+      "question": "What in the chart supports that?"
+    },
+    {
+      "n": 3,
+      "question": "What is his current WHO HIV stage?"
+    },
+    {
+      "n": 4,
+      "question": "What is his most recent CD4 count?"
+    },
+    {
+      "n": 5,
+      "question": "Has his CD4 count changed over time?"
+    }
+  ],
+  "tags": [
+    "patient:aloice-mukangu",
+    "multi-turn",
+    "12b-run"
+  ],
+  "expectations": {
+    "should_cite_resource_types": [
+      "Observation",
+      "MedicationRequest"
+    ],
+    "should_abstain": false,
+    "notes": "HIV (with TB co-infection). WHO stage + ART support it. CD4 72. T5: only ONE CD4 timepoint exists - correct answer is 'single value, no documented trend', not a confabulated series."
+  }
+}

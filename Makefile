@@ -12,7 +12,7 @@ export UV_PROJECT_ENVIRONMENT
         chartsearch-build chartsearch-configure chartsearch-backend chartsearch-doctor chartsearch-warmup chartsearch-up \
         chartsearch-esm-build chartsearch-esm-dev cloud-deploy-esm \
         med-agent-hub-build med-agent-hub-up med-agent-hub-logs med-agent-hub-restart med-agent-hub-test \
-        validate-run \
+        validate-run validate-publish \
         cloud-init cloud-sync cloud-up cloud-down cloud-reset cloud-deploy cloud-seed \
         cloud-start cloud-stop cloud-ssh cloud-logs cloud-status cloud-destroy
 
@@ -189,7 +189,7 @@ med-agent-hub-restart:
 # topology the in-process team replaced (they import the unused a2a-sdk).
 med-agent-hub-test:
 	docker run --rm -v $(CURDIR)/targets/med-agent-hub:/app -w /app python:3.11-slim \
-		sh -c "pip install --quiet --root-user-action=ignore fastapi httpx psutil python-dotenv pytest && python -m pytest -q tests/test_bridge.py tests/test_kb.py"
+		sh -c "pip install --quiet --root-user-action=ignore fastapi httpx psutil python-dotenv pyyaml pytest && python -m pytest -q tests/test_bridge.py tests/test_kb.py"
 
 # Configure chartsearchai LLM global properties via REST. Reads .env.chartsearch
 # for endpoint + model + engine. The API key goes via the backend env var
@@ -403,3 +403,7 @@ validate-report: setup
 
 clean-venv:
 	rm -rf $(UV_PROJECT_ENVIRONMENT)
+
+# Publish a chosen run report to the reports subdomain: make validate-publish RUN=<id> SLUG=<slug>
+validate-publish: setup
+	@./scripts/validate-publish.sh $(RUN) $(SLUG)

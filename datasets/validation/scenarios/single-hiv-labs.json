@@ -1,0 +1,23 @@
+{
+  "id": "single-hiv-labs",
+  "patient_ref": "dd75c020-1691-11df-97a5-7038c432aabf",
+  "turns": [
+    {
+      "n": 1,
+      "question": "Show me all the lab results that help me understand this patient's current HIV status."
+    }
+  ],
+  "tags": [
+    "hiv",
+    "labs",
+    "single-turn",
+    "priority"
+  ],
+  "expectations": {
+    "should_cite_resource_types": [
+      "Observation"
+    ],
+    "should_abstain": false,
+    "notes": "Enumerate the HIV-relevant labs/observations: CD4 (341), WHO clinical stage, viral load if recorded. Retrieve, cited; do not invent labs not present."
+  }
+}

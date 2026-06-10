@@ -11,7 +11,7 @@ SELECT
   src.ID,
   src.AUTHOR,
   src.FILENAME,
-  src.DATEEXECUTED,
+  @shift_date(src.DATEEXECUTED) AS DATEEXECUTED,
   src.MD5SUM,
   src.DESCRIPTION,
   src.COMMENTS,

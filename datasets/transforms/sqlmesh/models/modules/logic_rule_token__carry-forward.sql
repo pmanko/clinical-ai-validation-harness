@@ -10,4 +10,14 @@ MODEL (
 -- seeds/module_table_policy.csv. Do NOT edit by hand — re-run the
 -- generator instead.
 
-SELECT * FROM legacy_27_raw.logic_rule_token;
+SELECT
+  src.logic_rule_token_id,
+  src.creator,
+  @shift_date(src.date_created) AS date_created,
+  src.changed_by,
+  @shift_date(src.date_changed) AS date_changed,
+  src.token,
+  src.class_name,
+  src.state,
+  src.uuid
+FROM legacy_27_raw.logic_rule_token src;

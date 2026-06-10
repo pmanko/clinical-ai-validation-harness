@@ -23,8 +23,8 @@ SELECT
   'ACTIVE'                          AS clinical_status,
   CAST(NULL AS VARCHAR)             AS verification_status,
   CAST(NULL AS INT)                 AS previous_version,
-  s.obs_datetime                    AS onset_date,            -- best available signal from legacy obs
-  s.obs_datetime                    AS date_created,
+  s.obs_datetime                    AS onset_date,            -- already shifted in stg_obs; pass through (no re-shift)
+  s.obs_datetime                    AS date_created,          -- already shifted in stg_obs; pass through
   s.creator,
   0                                 AS voided,
   CAST(NULL AS INT)                 AS voided_by,

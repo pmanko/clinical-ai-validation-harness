@@ -1,0 +1,20 @@
+{
+  "id": "am-care-programs",
+  "patient_ref": "dd5558ed-1691-11df-97a5-7038c432aabf",
+  "turns": [
+    {
+      "n": 1,
+      "question": "What care programs is this patient enrolled in?"
+    }
+  ],
+  "tags": [
+    "patient:aloice-mukangu",
+    "single-turn",
+    "12b-run"
+  ],
+  "expectations": {
+    "should_cite_resource_types": [],
+    "should_abstain": false,
+    "notes": "Enrolled in the TB Program (clinically HIV+TB co-infected)."
+  }
+}

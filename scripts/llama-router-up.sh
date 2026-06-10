@@ -1,46 +1,36 @@
 #!/usr/bin/env bash
-# Launch the llama-router serving every GGUF arm on :8077 (the picker's "llama-server"
-# section + the med-agent-hub team roles when pointed here).
+# Launch the llama.cpp Router Mode server backing the harness chat picker's
+# "llama-server" section (GGUF + DRY, OpenAI-compatible, on :8077).
 #
-# Self-healing: (re)builds the model symlinks from the HF cache before launch, so a
-# vanished ~/.cache/llama-router-models/ can't silently break the INI's `model =` paths.
-# Each model must already be in the HF cache — pull a missing one with:
-#   llama-server -hf <repo>:Q4_K_M --no-warmup
-#
-# HF_HOME is redirected to an empty dir so the router advertises ONLY the INI presets,
-# not every other repo in the real HF cache. --models-max 2 bounds resident GGUFs (64GB
-# safety); the router queues/evicts across calls rather than 400-ing, so the HIGH team's
-# three big models serialize (slow) instead of failing on an eviction race.
+# Why HF_HOME is redirected to an empty dir: build 9430's router auto-publishes
+# EVERY model in the HF cache as an extra preset on top of scripts/llama-router.ini
+# (with default/untuned settings — no DRY, no seed), and there is no flag to disable
+# it. All INI sections use local model= paths (stable symlinks under
+# ~/.cache/llama-router-models -> the real HF blobs), so pointing HF_HOME at an empty
+# dir costs nothing at runtime and makes /v1/models == exactly the INI's sections.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-HF_HUB="${HOME}/.cache/huggingface/hub"
-LINKS="${HOME}/.cache/llama-router-models"
 EMPTY_HF="${HOME}/.cache/llama-router-emptyhf"
-mkdir -p "${LINKS}" "${EMPTY_HF}"
+mkdir -p "${EMPTY_HF}"
 
-# section-name : HF cache repo dir : gguf filename glob (first match wins, incl. shard 1)
-MODELS=(
-  "gemma-e4b:models--unsloth--gemma-4-E4B-it-GGUF:*Q4_K_M.gguf"
-  "gemma-26b-a4b:models--unsloth--gemma-4-26B-A4B-it-GGUF:*Q4_K_M.gguf"
-  "medgemma-4b:models--unsloth--medgemma-1.5-4b-it-GGUF:*Q4_K_M.gguf"
-  "medgemma-27b:models--unsloth--medgemma-27b-text-it-GGUF:*Q4_K_M.gguf"
-  "qwen2.5-14b:models--bartowski--Qwen2.5-14B-Instruct-GGUF:*Q4_K_M.gguf"
-  "qwen2.5-32b:models--bartowski--Qwen2.5-32B-Instruct-GGUF:*Q4_K_M.gguf"
-  "qwen3.6-35b:models--unsloth--Qwen3.6-35B-A3B-GGUF:*Q4_K_M.gguf"
-)
-for entry in "${MODELS[@]}"; do
-  name="${entry%%:*}"; rest="${entry#*:}"; repo="${rest%%:*}"; glob="${rest#*:}"
-  gguf="$(find "${HF_HUB}/${repo}/snapshots" -name "${glob}" 2>/dev/null | sort | head -1 || true)"
-  if [[ -z "${gguf}" ]]; then
-    echo "ERROR: no ${glob} under ${HF_HUB}/${repo}" >&2
-    echo "       pull it first:  llama-server -hf ${repo#models--}:Q4_K_M --no-warmup" | sed 's#--#/#' >&2
-    exit 1
-  fi
-  ln -sfn "${gguf}" "${LINKS}/${name}.gguf"
-done
-
+# LLAMA_ROUTER_MODELS_MAX caps how many model instances stay co-resident, and it MUST be
+# set per-workload — the tiers have wildly different footprints on this 64G host (Metal
+# working-set limit ~48G), and one router can only be tuned for one of them at a time:
+#
+#   LOW / MED (interactive) — DEFAULT 4. Each turn cycles 4 distinct role-models
+#     (orchestrator · expert · synthesizer · validator), all small/mid: LOW ~20G of weights,
+#     MED ~34G — both fit co-resident, so 4 keeps every role-switch AND the next turn warm
+#     (zero reloads). Anything LESS thrashes: with 4 distinct models cycled in order,
+#     max=1/2/3 evicts the very model needed next, so every call reloads from disk (max=1
+#     is why even the LOW team was painfully slow).
+#
+#   HIGH (benchmark) — set LLAMA_ROUTER_MODELS_MAX=1. Its 3 big GGUFs (19G/17G/29G) can't
+#     co-reside: any two (~46-48G weights + KV) blow past the ~48G Metal limit and the
+#     router thrashes (spawn -> child OOM-dies -> 500). One at a time loads each alone.
+#
+# Note: on a 64G host you cannot serve LOW/MED co-resident AND HIGH loaded at once
+# (LOW+MED weights ~41G + one HIGH model ~29G > 64G) — pick the workload, restart to switch.
 exec env HF_HOME="${EMPTY_HF}" llama-server \
   --models-preset "${ROOT}/scripts/llama-router.ini" \
-  --models-max 2 \
-  --port 8077 --host 0.0.0.0
+  --models-max "${LLAMA_ROUTER_MODELS_MAX:-4}" --port 8077 --host 0.0.0.0

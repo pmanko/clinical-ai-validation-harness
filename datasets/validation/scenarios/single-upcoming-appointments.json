@@ -1,0 +1,20 @@
+{
+  "id": "single-upcoming-appointments",
+  "patient_ref": "dd75c020-1691-11df-97a5-7038c432aabf",
+  "turns": [
+    {
+      "n": 1,
+      "question": "Does this patient have any upcoming appointments?"
+    }
+  ],
+  "tags": [
+    "appointments",
+    "abstain",
+    "single-turn",
+    "priority"
+  ],
+  "expectations": {
+    "should_abstain": true,
+    "notes": "Data is historical (~2004-2006) with no future-dated appointments \u2014 should say none / abstain, not invent one. [provisional - confirm against chart]"
+  }
+}

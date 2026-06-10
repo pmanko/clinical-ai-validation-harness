@@ -10,4 +10,19 @@ MODEL (
 -- seeds/module_table_policy.csv. Do NOT edit by hand — re-run the
 -- generator instead.
 
-SELECT * FROM legacy_27_raw.logic_rule_definition;
+SELECT
+  src.id,
+  src.uuid,
+  src.name,
+  src.description,
+  src.rule_content,
+  src.language,
+  src.creator,
+  @shift_date(src.date_created) AS date_created,
+  src.changed_by,
+  @shift_date(src.date_changed) AS date_changed,
+  src.retired,
+  src.retired_by,
+  @shift_date(src.date_retired) AS date_retired,
+  src.retire_reason
+FROM legacy_27_raw.logic_rule_definition src;

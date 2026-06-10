@@ -16,10 +16,10 @@ SELECT
   ct_q.equivalence                   AS question_equivalence,
   ct_v.equivalence                   AS value_equivalence,
   s.encounter_id,
-  s.obs_datetime,
+  s.obs_datetime AS obs_datetime,            -- already shifted in stg_obs; pass through
   s.value_numeric,
   s.value_text,
-  s.value_datetime,
+  s.value_datetime AS value_datetime,        -- already shifted in stg_obs; pass through
   s.value_drug,
   s.uuid                             AS source_uuid,
   s.voided

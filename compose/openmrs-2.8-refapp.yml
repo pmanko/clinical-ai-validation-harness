@@ -34,6 +34,9 @@ services:
       # Optional subdomain that serves the SPA at its bare root for cleaner
       # URLs (defaults to a non-published port so the block is dormant locally).
       CADDY_SITE_OPENMRS: ${CADDY_SITE_OPENMRS:-:8090}
+      # Optional subdomain serving published validation reports (static files from
+      # artifacts/reports). Dormant locally on a non-published port; cloud sets the real subdomain.
+      CADDY_SITE_REPORTS: ${CADDY_SITE_REPORTS:-:8091}
       CADDY_EMAIL: ${CADDY_EMAIL:-nobody@example.com}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
@@ -45,6 +48,8 @@ services:
       # container without rebuilding that image. See (chartsearch_overrides)
       # in Caddyfile and `make chartsearch-esm-build` for the build step.
       - ../artifacts/openmrs/spa-custom:/srv/spa-custom:ro
+      # Published validation reports, static-served at the reports subdomain (see Caddyfile).
+      - ../artifacts/reports:/srv/reports:ro
     depends_on:
       gateway:
         condition: service_healthy
@@ -174,78 +179,41 @@ services:
 
   med-agent-hub:
     # The "Med Agent Team" — an OpenAI-compat endpoint that runs an in-process
-    # ReAct team (orchestrator + medgemma expert) and returns chartsearchai's
-    # strict {answer,citations,blocks} envelope. The OpenMRS backend selects it
-    # by pointing chartsearchai.llm.remote.endpointUrl at
+    # ReAct team (orchestrator + synthesizer + medgemma expert) and returns
+    # chartsearchai's strict {answer,citations,blocks} envelope. The OpenMRS
+    # backend selects it by pointing chartsearchai.llm.remote.endpointUrl at
     # http://med-agent-hub:8080/v1/chat/completions (service name on the default
     # network). Internal-only: no host port, no Caddy route.
     #
-    # This is the A side of the prompt A/B: PROMPT_VARIANT=v1 is the control
-    # (system prompts byte-identical to the original module constants). The B
-    # side (med-agent-hub-b) runs the SAME image with PROMPT_VARIANT=v2 — the two
-    # differ ONLY by the prompt variant, which is the single experimental
-    # variable. The prompts dir is bind-mounted so the loader's per-request read
-    # picks up edits to a .txt with no rebuild/restart (shared mount keeps v1 ==
-    # the baked fallback consistent across both sides).
+    # One instance serves every team config: the OpenAI `model` id is a preset
+    # (med-agent-team-low / -med / -high) that selects the per-role models at
+    # request time — no reboot, no second service. The prompts dir is bind-mounted
+    # so the loader's per-request read picks up .txt edits with no rebuild/restart.
     image: med-agent-hub:dev
     build:
       context: ../targets/med-agent-hub
     container_name: harness-med-agent-hub
     restart: "unless-stopped"
     environment:
-      # Full-GGUF default: every role points at the llama-router (:8077) so the whole
-      # team runs one engine with real DRY + tool-calling — engine parity with the
-      # single-LLM llama-server arms. Override any MED_AGENT_* var to repoint a role
-      # (e.g. back at LM Studio MLX on :1234). Ids are llama-router.ini section names.
+      # Team tiers (per-role models per level) live in server/levels.yaml,
+      # bind-mounted below + resolved per request — no per-level model env here.
+      # LLM_BASE_URL points every role at the llama-router (:8077) for GGUF + DRY.
       LLM_BASE_URL: ${MED_AGENT_LLM_BASE_URL:-http://host.docker.internal:8077}
-      ORCHESTRATOR_MODEL: ${MED_AGENT_ORCHESTRATOR_MODEL:-gemma-e4b}
-      ORCHESTRATOR_MODEL_HIGH: ${MED_AGENT_ORCHESTRATOR_MODEL_HIGH:-gemma-26b-a4b}
-      MED_MODEL: ${MED_AGENT_MED_MODEL:-medgemma-4b}
-      EXPERT_MODEL_HIGH: ${MED_AGENT_EXPERT_MODEL_HIGH:-medgemma-27b}
-      SYNTH_MODEL_LOW: ${MED_AGENT_SYNTH_MODEL_LOW:-qwen2.5-14b}
-      SYNTH_MODEL_MED: ${MED_AGENT_SYNTH_MODEL_MED:-qwen2.5-32b}
-      SYNTH_MODEL_HIGH: ${MED_AGENT_SYNTH_MODEL_HIGH:-qwen3.6-35b}
       LLM_TEMPERATURE: ${MED_AGENT_TEMPERATURE:-0.0}
-      PROMPT_VARIANT: v1
+      # Run-wide reference-date anchor for the hub's temporal grounding (the "now" for
+      # "most recent"/recency/series). Since the demo data is date-transplanted to land
+      # at a recent window, the backend runs at the REAL clock and this is set to
+      # `wall_clock` so chart age and hub "now" both track today. Empty default =
+      # per-request latest_record (the max date in the chart). A level's `anchor` overrides this.
+      HUB_ANCHOR: ${HUB_ANCHOR:-}
     extra_hosts:
       # Reach LM Studio on the host, same pattern as the backend.
       - "host.docker.internal:host-gateway"
     volumes:
       - ../targets/med-agent-hub/server/prompts:/app/server/prompts:ro
-    healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://localhost:8080/health"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 20s
-
-  med-agent-hub-b:
-    # B side of the prompt A/B. Identical to med-agent-hub except PROMPT_VARIANT=v2,
-    # reachable at http://med-agent-hub-b:8080/v1/chat/completions. The editable
-    # v2 delta is server/prompts/v2/synthesis.txt (bind-mounted, read per request);
-    # variant names absent from v2/ fall back to v1, so synthesis is the lone change.
-    image: med-agent-hub:dev
-    build:
-      context: ../targets/med-agent-hub
-    container_name: harness-med-agent-hub-b
-    restart: "unless-stopped"
-    environment:
-      # Full-GGUF default, identical to med-agent-hub (see that block's note); only
-      # PROMPT_VARIANT differs (v2). Override MED_AGENT_* to repoint a role.
-      LLM_BASE_URL: ${MED_AGENT_LLM_BASE_URL:-http://host.docker.internal:8077}
-      ORCHESTRATOR_MODEL: ${MED_AGENT_ORCHESTRATOR_MODEL:-gemma-e4b}
-      ORCHESTRATOR_MODEL_HIGH: ${MED_AGENT_ORCHESTRATOR_MODEL_HIGH:-gemma-26b-a4b}
-      MED_MODEL: ${MED_AGENT_MED_MODEL:-medgemma-4b}
-      EXPERT_MODEL_HIGH: ${MED_AGENT_EXPERT_MODEL_HIGH:-medgemma-27b}
-      SYNTH_MODEL_LOW: ${MED_AGENT_SYNTH_MODEL_LOW:-qwen2.5-14b}
-      SYNTH_MODEL_MED: ${MED_AGENT_SYNTH_MODEL_MED:-qwen2.5-32b}
-      SYNTH_MODEL_HIGH: ${MED_AGENT_SYNTH_MODEL_HIGH:-qwen3.6-35b}
-      LLM_TEMPERATURE: ${MED_AGENT_TEMPERATURE:-0.0}
-      PROMPT_VARIANT: v2
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    volumes:
-      - ../targets/med-agent-hub/server/prompts:/app/server/prompts:ro
+      - ../targets/med-agent-hub/server/levels.yaml:/app/server/levels.yaml:ro
+      # Writable: per-turn reasoning-trace JSONL the live dashboard renders (team._write_trace).
+      - ../artifacts/hub-trace:/app/trace:rw
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://localhost:8080/health"]
       interval: 30s

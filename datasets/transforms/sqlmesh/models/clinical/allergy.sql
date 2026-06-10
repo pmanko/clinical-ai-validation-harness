@@ -32,7 +32,7 @@ SELECT
   'DRUG'                       AS allergen_type,
   CAST(NULL AS VARCHAR)        AS comments,
   s.creator,
-  s.obs_datetime               AS date_created,
+  s.obs_datetime               AS date_created,   -- already shifted in stg_obs; pass through
   CAST(NULL AS INT)            AS changed_by,
   CAST(NULL AS DATETIME)       AS date_changed,
   0                            AS voided,

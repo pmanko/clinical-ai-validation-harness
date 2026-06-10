@@ -1,0 +1,23 @@
+{
+  "id": "single-immunizations",
+  "patient_ref": "dd75c020-1691-11df-97a5-7038c432aabf",
+  "turns": [
+    {
+      "n": 1,
+      "question": "Are this patient's immunizations up to date?"
+    }
+  ],
+  "tags": [
+    "immunizations",
+    "abstain",
+    "single-turn",
+    "priority"
+  ],
+  "expectations": {
+    "should_cite_resource_types": [
+      "Immunization"
+    ],
+    "should_abstain": true,
+    "notes": "Immunization records are expected to be absent for this adult \u2014 should say none recorded / abstain, not assert up-to-date. [provisional - confirm against chart]"
+  }
+}

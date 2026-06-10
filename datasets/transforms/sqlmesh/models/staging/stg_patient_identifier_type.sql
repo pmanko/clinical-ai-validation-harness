@@ -14,18 +14,18 @@ SELECT
   src.format,
   src.check_digit,
   src.creator,
-  src.date_created,
+  @shift_date(src.date_created) AS date_created,
   src.required,
   src.format_description,
   src.validator,
   src.retired,
   src.retired_by,
-  src.date_retired,
+  @shift_date(src.date_retired) AS date_retired,
   src.retire_reason,
   src.uuid,
   src.location_behavior,
   src.uniqueness_behavior,
-  src.date_changed,
+  @shift_date(src.date_changed) AS date_changed,
   src.changed_by
 FROM legacy_27_raw.patient_identifier_type src
 

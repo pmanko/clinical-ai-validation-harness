@@ -9,44 +9,79 @@
     "endpointUrl": "http://host.docker.internal:1234/v1/chat/completions",
     "modelName": "medgemma-1.5-4b-it"
   },
-  "med-agent-team": {
-    "label": "Med Agent Team (med-agent-hub)",
-    "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
-    "modelName": "med-agent-team"
+  "gemma-a4b-pure": {
+    "label": "Gemma 4-26B-A4B (LM Studio direct, no team)",
+    "endpointUrl": "http://host.docker.internal:1234/v1/chat/completions",
+    "modelName": "google/gemma-4-26b-a4b"
   },
-  "med-agent-team-a": {
-    "label": "Med Agent Team — v1 prompt + orchestrator/expert models",
-    "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
-    "modelName": "med-agent-team"
-  },
-  "med-agent-team-b": {
-    "label": "Med Agent Team — v2 structured prompt + same models",
-    "endpointUrl": "http://med-agent-hub-b:8080/v1/chat/completions",
-    "modelName": "med-agent-team"
-  },
-  "gemma-e4b-llamacpp": {
-    "label": "Gemma 4-E4B — single-LLM (llama-server GGUF + DRY)",
+  "a4b-baseline": {
+    "label": "A4B baseline — Gemma 4-26B-A4B single LLM, direct chart (GGUF+DRY)",
     "endpointUrl": "http://host.docker.internal:8077/v1/chat/completions",
-    "modelName": "gemma-e4b"
+    "modelName": "gemma-26b"
   },
-  "gemma-26b-llamacpp": {
-    "label": "Gemma 4-26B-A4B — single-LLM (llama-server GGUF + DRY)",
+  "e2b-baseline": {
+    "label": "E2B baseline — Gemma 4-E2B single LLM, direct chart (GGUF+DRY)",
     "endpointUrl": "http://host.docker.internal:8077/v1/chat/completions",
-    "modelName": "gemma-26b-a4b"
+    "modelName": "gemma-e2b"
   },
   "med-agent-team-low": {
-    "label": "Med Agent Team — LOW (e4b · medgemma-4b · qwen2.5-14b)",
+    "label": "Med Agent Team — LOW (e2b-2bit orch · medgemma-1.5 expert · qwen3-4b synth)",
     "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
     "modelName": "med-agent-team-low"
   },
+  "med-agent-team-low-validated": {
+    "label": "Med Agent Team — LOW + validator gemma-e4b-q8 (floor candidate, goal-framed)",
+    "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
+    "modelName": "med-agent-team-low-validated"
+  },
+  "med-agent-team-low-validated-12b": {
+    "label": "Med Agent Team — LOW + validator gemma-4-12b (floor comparison, goal-framed)",
+    "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
+    "modelName": "med-agent-team-low-validated-12b"
+  },
+  "med-agent-team-med-validated": {
+    "label": "Med Agent Team — MED + validator (gemma-e4b-q8 orchestrator-as-validator)",
+    "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
+    "modelName": "med-agent-team-med-validated"
+  },
+  "med-agent-team-high-validated": {
+    "label": "Med Agent Team — HIGH + validator (gemma-31b orchestrator-as-validator)",
+    "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
+    "modelName": "med-agent-team-high-validated"
+  },
   "med-agent-team-med": {
-    "label": "Med Agent Team — MED (e4b · medgemma-4b · qwen2.5-32b)",
+    "label": "Med Agent Team — MED (e4b-q8 orch · medgemma-1.5-q8 expert · qwen2.5-14b synth)",
     "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
     "modelName": "med-agent-team-med"
   },
   "med-agent-team-high": {
-    "label": "Med Agent Team — HIGH (gemma-26b-a4b · medgemma-27b · qwen3.6-35b)",
+    "label": "Med Agent Team — HIGH (gemma-31b orch · medgemma-27b expert · qwen3.6-35b-q6 synth)",
     "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
     "modelName": "med-agent-team-high"
+  },
+  "12b-baseline": {
+    "label": "12B baseline — Gemma 4-12B single LLM, direct chart (GGUF+DRY)",
+    "endpointUrl": "http://host.docker.internal:8077/v1/chat/completions",
+    "modelName": "gemma-4-12b"
+  },
+  "med-agent-team-12b": {
+    "label": "Med Agent Team — 12B (gemma-4-12b orch · medgemma-1.5-q8 expert · qwen2.5-14b synth)",
+    "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
+    "modelName": "med-agent-team-12b"
+  },
+  "med-agent-team-parity": {
+    "label": "Med Agent Team — Parity (MED orch+expert, chartsearchai prompt, single synth, validator OFF)",
+    "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
+    "modelName": "med-agent-team-parity"
+  },
+  "gemma-26b-llamacpp": {
+    "label": "Gemma 4-26B-A4B (llama.cpp GGUF + DRY, via llama-server)",
+    "endpointUrl": "http://host.docker.internal:8077/v1/chat/completions",
+    "modelName": "gemma-26b"
+  },
+  "gemma-e4b-llamacpp": {
+    "label": "Gemma 4-E4B (llama.cpp GGUF + DRY, via llama-server)",
+    "endpointUrl": "http://host.docker.internal:8077/v1/chat/completions",
+    "modelName": "gemma-e4b"
   }
 }

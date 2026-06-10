@@ -13,7 +13,7 @@ SELECT
   src.description,
   src.is_set,
   src.creator,
-  src.date_created,
+  @shift_date(src.date_created) AS date_created,
   src.uuid
 FROM legacy_27_raw.field_type src
 

@@ -1,0 +1,11 @@
+{
+  "id": "2x4-remaining",
+  "scenario_ids": [
+    "single-vitals-summary",
+    "convo-regimen-review"
+  ],
+  "backend_ids": [
+    "med-agent-team-med",
+    "med-agent-team-high"
+  ]
+}

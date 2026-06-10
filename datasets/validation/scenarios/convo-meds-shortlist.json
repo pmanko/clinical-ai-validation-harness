@@ -1,0 +1,15 @@
+{
+  "id": "convo-meds-shortlist",
+  "patient_ref": "dd75c020-1691-11df-97a5-7038c432aabf",
+  "turns": [
+    { "n": 1, "question": "What medications is this patient on?" },
+    { "n": 2, "question": "How many did you list?" },
+    { "n": 3, "question": "Which of those are antiretrovirals?" }
+  ],
+  "tags": ["medications", "multi-turn", "referential", "table", "bigmodel-ladder"],
+  "expectations": {
+    "should_cite_resource_types": ["MedicationRequest"],
+    "should_abstain": false,
+    "notes": "Bounded 3-turn subset of convo-medications-adherence for the big-model team ladder (gemma-4-31b orchestrator / medgemma-27b expert run slowly, so few turns). T1: the 4 ARVs (stavudine, lamivudine, nevirapine, efavirenz) — naturally tabular. T2: referential count (=4; v1 miscounted order-rows as '14'). T3: all four are ARVs. Exercises detail/tabular output + the multi-turn referential signal."
+  }
+}

@@ -19,9 +19,9 @@ SELECT
   src.max_occurs,
   src.required,
   src.changed_by,
-  src.date_changed,
+  @shift_date(src.date_changed) AS date_changed,
   src.creator,
-  src.date_created,
+  @shift_date(src.date_created) AS date_created,
   src.sort_weight,
   src.uuid
 FROM legacy_27_raw.form_field src

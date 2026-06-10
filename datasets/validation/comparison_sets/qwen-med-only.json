@@ -1,0 +1,11 @@
+{
+  "id": "qwen-med-only",
+  "scenario_ids": [
+    "convo-medications-adherence",
+    "convo-diagnosis-evidence",
+    "convo-regimen-currency"
+  ],
+  "backend_ids": [
+    "med-agent-team-med"
+  ]
+}

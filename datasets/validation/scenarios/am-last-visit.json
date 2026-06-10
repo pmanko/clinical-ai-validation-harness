@@ -1,0 +1,22 @@
+{
+  "id": "am-last-visit",
+  "patient_ref": "dd5558ed-1691-11df-97a5-7038c432aabf",
+  "turns": [
+    {
+      "n": 1,
+      "question": "When was this patient's last visit, and what was it for?"
+    }
+  ],
+  "tags": [
+    "patient:aloice-mukangu",
+    "single-turn",
+    "12b-run"
+  ],
+  "expectations": {
+    "should_cite_resource_types": [
+      "Encounter"
+    ],
+    "should_abstain": false,
+    "notes": "Most recent encounter 2006-05-18 (ART/TB follow-up)."
+  }
+}

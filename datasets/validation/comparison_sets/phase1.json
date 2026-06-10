@@ -8,5 +8,5 @@
     "convo-abstention-honesty",
     "convo-safety-escalation"
   ],
-  "backend_ids": ["gemma-local", "medgemma-local", "med-agent-team"]
+  "backend_ids": ["gemma-local", "medgemma-local", "med-agent-team-med"]
 }

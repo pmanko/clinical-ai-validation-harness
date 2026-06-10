@@ -1,0 +1,22 @@
+{
+  "id": "single-last-visit",
+  "patient_ref": "dd75c020-1691-11df-97a5-7038c432aabf",
+  "turns": [
+    {
+      "n": 1,
+      "question": "When was this patient's last visit, and what was it for?"
+    }
+  ],
+  "tags": [
+    "last-visit",
+    "single-turn",
+    "priority"
+  ],
+  "expectations": {
+    "should_cite_resource_types": [
+      "Encounter"
+    ],
+    "should_abstain": false,
+    "notes": "Report the most recent encounter's date + type/reason. Retrieve, cited."
+  }
+}

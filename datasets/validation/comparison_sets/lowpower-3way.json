@@ -1,14 +1,13 @@
 {
-  "id": "mvp-team-ab",
+  "id": "lowpower-3way",
   "scenario_ids": [
     "convo-medications-adherence",
     "convo-diagnosis-evidence",
     "convo-regimen-currency"
   ],
   "backend_ids": [
+    "med-agent-team-low",
     "gemma-local",
-    "medgemma-local",
-    "med-agent-team-a",
-    "med-agent-team-b"
+    "gemma-a4b-pure"
   ]
 }

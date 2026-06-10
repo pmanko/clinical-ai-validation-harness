@@ -1,0 +1,23 @@
+{
+  "id": "single-recent-activity",
+  "patient_ref": "dd75c020-1691-11df-97a5-7038c432aabf",
+  "turns": [
+    {
+      "n": 1,
+      "question": "What has happened with this patient lately?"
+    }
+  ],
+  "tags": [
+    "recent",
+    "single-turn",
+    "priority"
+  ],
+  "expectations": {
+    "should_cite_resource_types": [
+      "Encounter",
+      "Observation"
+    ],
+    "should_abstain": false,
+    "notes": "Summarize the most recent encounters/observations (data vintage ~2004-2006): recent visits, ART, monitoring obs. Retrieve, cited."
+  }
+}

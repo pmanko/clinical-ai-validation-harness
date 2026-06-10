@@ -70,3 +70,112 @@ def test_chat_records_429_after_exhausting_retries():
     c._session.post = fake_post
     res = c.chat("p", "s", "q")
     assert res.status == 429  # recorded as a failed turn, never raised
+
+
+def test_chat_retries_on_502_then_succeeds():
+    # A transient gateway error (backend restarting) must be retried, not surfaced as
+    # a failed turn on the first hit.
+    c = _client()
+    seq = [FakeResp(502, None, ""), FakeResp(200, {"answer": "ok", "references": []}, "{}")]
+    calls = {"n": 0}
+
+    def fake_post(url, json=None, timeout=None):
+        resp = seq[calls["n"]]
+        calls["n"] += 1
+        return resp
+
+    c._session.post = fake_post
+    res = c.chat("p", "s", "q")
+    assert res.status == 200 and calls["n"] == 2  # retried once after the 502
+
+
+def test_new_session_retries_on_502_then_succeeds():
+    # new_session was the un-retried, run-aborting call: a single 502 used to raise and
+    # kill the whole run. It must retry the transient and recover.
+    c = _client()
+    seq = [FakeResp(502, None, ""), FakeResp(200, {"session": "sess-1"}, "{}")]
+    calls = {"n": 0}
+
+    def fake_post(url, json=None, timeout=None):
+        resp = seq[calls["n"]]
+        calls["n"] += 1
+        return resp
+
+    c._session.post = fake_post
+    assert c.new_session("pat") == "sess-1" and calls["n"] == 2
+
+
+def test_chat_retries_on_connection_error_then_succeeds():
+    # A dropped connection / read timeout (requests raises) must be retried too, not
+    # propagated on the first hit.
+    import requests
+
+    c = _client()
+    state = {"n": 0}
+
+    def fake_post(url, json=None, timeout=None):
+        state["n"] += 1
+        if state["n"] == 1:
+            raise requests.ConnectionError("connection refused")
+        return FakeResp(200, {"answer": "ok", "references": []}, "{}")
+
+    c._session.post = fake_post
+    res = c.chat("p", "s", "q")
+    assert res.status == 200 and state["n"] == 2  # retried once after the connection error
+
+
+class _GetResp:
+    def __init__(self, payload, ok=True):
+        self._payload = payload
+        self.ok = ok
+
+    def json(self):
+        return self._payload
+
+
+def test_get_patient_profile_assembles_demographics_meds_counts_vitals():
+    c = _client()
+
+    def fake_get(url, timeout=None):
+        if "/rest/v1/patient/" in url:
+            return _GetResp({
+                "identifiers": [{"identifier": "2428TU-4", "identifierType": {"name": "OpenMRS ID"}}],
+                "person": {"display": "Zabella", "gender": "F", "age": 47,
+                           "birthdate": "1978-10-08T00:00:00.000+0000"},
+            })
+        if "MedicationRequest" in url:
+            return _GetResp({"entry": [
+                {"resource": {"status": "active", "medicationReference": {"display": "Stavudine"}}},
+                {"resource": {"status": "active", "medicationReference": {"display": "Lamivudine"}}},
+                {"resource": {"status": "stopped", "medicationReference": {"display": "OldDrug"}}},
+            ]})
+        if "/rest/v1/encounter" in url:
+            return _GetResp({"totalCount": 11})
+        if "Observation" in url:
+            return _GetResp({"total": 303, "entry": [
+                {"resource": {"code": {"text": "Pulse"}, "valueQuantity": {"value": 69, "unit": "beats/min"}}},
+                {"resource": {"code": {"text": "Arterial blood oxygen saturation (pulse oximeter)"},
+                              "valueQuantity": {"value": 93, "unit": "%"}}},
+            ]})
+        return _GetResp(None, ok=False)
+
+    c._session.get = fake_get
+    prof = c.get_patient_profile("uuid-1")
+    assert prof["display"] == "Zabella" and prof["identifier"] == "2428TU-4"
+    assert prof["gender"] == "F" and prof["age"] == 47 and prof["birthdate"] == "1978-10-08"
+    # active meds only, deduped + sorted; the stopped order is dropped
+    assert prof["medications"] == ["Lamivudine", "Stavudine"]
+    assert prof["encounter_count"] == 11 and prof["observation_count"] == 303
+    # the SpO2 obs ("...pulse oximeter") must NOT also fill Pulse with the saturation value
+    assert prof["vitals"]["Pulse"] == "69 beats/min"
+    assert prof["vitals"]["SpO2"] == "93%"
+
+
+def test_get_patient_profile_is_best_effort_and_never_raises():
+    c = _client()
+
+    def boom(url, timeout=None):
+        raise RuntimeError("network down")
+
+    c._session.get = boom
+    assert c.get_patient_profile("uuid-1") == {}  # total failure -> empty, not an exception

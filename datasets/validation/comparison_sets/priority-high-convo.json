@@ -1,0 +1,9 @@
+{
+  "id": "priority-high-convo",
+  "scenario_ids": [
+    "convo-medications-adherence",
+    "convo-diagnosis-evidence",
+    "convo-safety-escalation"
+  ],
+  "backend_ids": ["med-agent-team-high"]
+}

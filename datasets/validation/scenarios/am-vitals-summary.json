@@ -1,0 +1,22 @@
+{
+  "id": "am-vitals-summary",
+  "patient_ref": "dd5558ed-1691-11df-97a5-7038c432aabf",
+  "turns": [
+    {
+      "n": 1,
+      "question": "Summarize this patient's vital signs."
+    }
+  ],
+  "tags": [
+    "patient:aloice-mukangu",
+    "single-turn",
+    "12b-run"
+  ],
+  "expectations": {
+    "should_cite_resource_types": [
+      "Observation"
+    ],
+    "should_abstain": false,
+    "notes": "Vitals series Feb-May 2006: temperature, systolic/diastolic BP, pulse, SpO2, weight."
+  }
+}

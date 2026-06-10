@@ -1,0 +1,13 @@
+{
+  "id": "qwen-3way",
+  "scenario_ids": [
+    "convo-medications-adherence",
+    "convo-diagnosis-evidence",
+    "convo-regimen-currency"
+  ],
+  "backend_ids": [
+    "gemma-local",
+    "med-agent-team-low",
+    "med-agent-team-med"
+  ]
+}

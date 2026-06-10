@@ -1,0 +1,19 @@
+{
+  "id": "single-contact-info",
+  "patient_ref": "dd75c020-1691-11df-97a5-7038c432aabf",
+  "turns": [
+    {
+      "n": 1,
+      "question": "What is the patient's contact information?"
+    }
+  ],
+  "tags": [
+    "demographics",
+    "single-turn",
+    "priority"
+  ],
+  "expectations": {
+    "should_abstain": false,
+    "notes": "Retrieve recorded contact details (name/address typically on file; a phone may be absent) \u2014 report what is recorded, abstain on any field that isn't. [provisional - confirm against chart]"
+  }
+}
