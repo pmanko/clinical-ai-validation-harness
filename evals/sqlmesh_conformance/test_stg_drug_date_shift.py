@@ -8,9 +8,11 @@ its original output name. For `stg_drug` the legacy passthrough date columns are
 
 The assertion renders the *actual* model through the real SQLMesh project
 Context (the same loader SQLMesh uses), so it covers the rendered SQL — not a
-source-string grep. At LOADING stage the anchor delta is the stable `0`
-placeholder (no DB needed); the structural DATE_ADD(NULLIF(...)) wrapping is
-what proves the columns are shifted.
+source-string grep. Rendering goes through `get_model().render_query_or_raise()`
+(the same path the sibling stg_* conformance tests use) so it needs no warehouse
+connection: at LOADING stage the anchor delta is the stable `0` placeholder and
+the structural DATE_ADD(NULLIF(...)) wrapping is what proves the columns are
+shifted.
 """
 
 from __future__ import annotations
@@ -27,7 +29,7 @@ SQLMESH_DIR = PROJECT_ROOT / "datasets" / "transforms" / "sqlmesh"
 @lru_cache(maxsize=1)
 def _rendered_stg_drug() -> str:
     ctx = Context(paths=[str(SQLMESH_DIR)])
-    return ctx.render("refapp_28_demo.stg_drug").sql(dialect="mysql")
+    return ctx.get_model("refapp_28_demo.stg_drug").render_query_or_raise().sql(dialect="mysql")
 
 
 def test_legacy_passthrough_date_columns_are_shifted():
