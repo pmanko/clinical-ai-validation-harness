@@ -12,7 +12,7 @@ MODEL (
 
 SELECT
   src.room_temperature_id,
-  @shift_date(src.`time`) AS `time`,
+  @shift_date(src.time) AS time,
   src.temp,
   src.uuid
 FROM legacy_27_raw.room_temperature src;
