@@ -81,7 +81,21 @@ def resolve_grain(cfg: DBConfig, table: str) -> str:
     return _first_column(cfg, table)
 
 
-CARRY_FORWARD_TEMPLATE = """\
+def _columns(cfg: DBConfig, table: str) -> list[tuple[str, bool]]:  # pragma: no cover - needs live legacy_27_raw; covered by the @db_only byte-identical test
+    """Each column as ``(name, is_date)`` in ordinal order, where ``is_date``
+    marks the date/datetime/timestamp columns the transplant must shift."""
+    rows = query(cfg, f"""
+        SELECT column_name, data_type FROM information_schema.columns
+        WHERE table_schema='{cfg.database}' AND table_name='{table}'
+        ORDER BY ordinal_position
+    """)
+    return [(r[0], (r[1] or "").lower() in DATE_TYPES) for r in rows if r and r[0]]
+
+
+# MariaDB date/time types whose values must ride the uniform date-transplant.
+DATE_TYPES = {"date", "datetime", "timestamp"}
+
+MODEL_HEADER_TEMPLATE = """\
 MODEL (
   name {target}.mod__{table},
   kind VIEW,
@@ -94,22 +108,39 @@ MODEL (
 -- seeds/module_table_policy.csv. Do NOT edit by hand — re-run the
 -- generator instead.
 
-SELECT * FROM {legacy}.{table};
 """
 
 
-def render_carry_forward(table: str, rationale: str, grain: str) -> str:
+def _carry_forward_select(table: str, columns: list[tuple[str, bool]]) -> str:
+    """The SELECT body for a carry-forward model.
+
+    Tables with no date column stay a verbatim ``SELECT *``. Once any column is
+    date-typed we must enumerate every column (SQL has no "* except" form) so the
+    date columns can be wrapped with ``@shift_date(...)`` under their original
+    names while the rest pass through unchanged."""
+    if not any(is_date for _, is_date in columns):
+        return f"SELECT * FROM {LEGACY_SCHEMA}.{table};\n"
+    projected = [
+        f"  @shift_date(src.{name}) AS {name}" if is_date else f"  src.{name}"
+        for name, is_date in columns
+    ]
+    return "SELECT\n" + ",\n".join(projected) + f"\nFROM {LEGACY_SCHEMA}.{table} src;\n"
+
+
+def render_carry_forward(
+    table: str, rationale: str, grain: str, columns: list[tuple[str, bool]]
+) -> str:
     description = (
         f"Carry-forward orphan: legacy module-owned table preserved verbatim "
         f"in the materialized output. {rationale}"
     ).replace("'", "''")
-    return CARRY_FORWARD_TEMPLATE.format(
+    header = MODEL_HEADER_TEMPLATE.format(
         target=TARGET_SCHEMA,
-        legacy=LEGACY_SCHEMA,
         table=table,
         description=description,
         grain=grain,
     )
+    return header + _carry_forward_select(table, columns)
 
 
 def generate(
@@ -135,7 +166,8 @@ def generate(
                 continue
             if policy == "carry-forward":
                 grain = resolve_grain(cfg, table)
-                sql = render_carry_forward(table, rationale, grain)
+                columns = _columns(cfg, table)  # pragma: no cover - DB-backed; see _columns
+                sql = render_carry_forward(table, rationale, grain, columns)  # pragma: no cover
             else:
                 raise NotImplementedError(
                     f"policy {policy!r} not yet supported by gen_modules.py; "
