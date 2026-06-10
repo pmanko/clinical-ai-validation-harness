@@ -30,28 +30,6 @@ from typing import Any
 from .hub_trace import load_traces, match_trace
 from .reconcile import scout_summary
 
-_CONF_LABEL = {"green": "High confidence", "yellow": "Medium confidence", "red": "Low confidence"}
-
-
-def _conf_tag(label: str, conf: Any) -> str:
-    """One confidence TAG (a colored pill) for a section, with the reviewer note as a tooltip.
-    Empty when there is no confidence (non-team / older run)."""
-    if not isinstance(conf, dict) or not conf.get("level"):
-        return ""
-    level = conf.get("level")
-    note = conf.get("note") or ""
-    title = f" title='{_esc(note)}'" if note else ""
-    return f"<span class='ctag {_esc(level)}'{title}>{label}: {_esc(_CONF_LABEL.get(level, level))}</span>"
-
-
-def _conf_html(trace: Any) -> str:
-    """The per-section confidence tags (Answer + In-Depth) for a cell, from its hub trace."""
-    if not isinstance(trace, dict):
-        return ""
-    tags = _conf_tag("Answer", trace.get("answer_confidence")) + _conf_tag("In-Depth", trace.get("indepth_confidence"))
-    return f"<div class='ctags'>{tags}</div>" if tags else ""
-
-
 # The med-agent-team bridge gracefully degrades to a schema-valid envelope when
 # its own LLM calls fail, so a degraded turn looks like a 200/json_valid/0-cites
 # answer to the harness. Surface it from the answer text so a broken backend is
@@ -78,7 +56,8 @@ def _render_answer(text: Any) -> str:
     """Render the chart-answer envelope's markdown body to HTML, escaping the untrusted model text
     FIRST so it can never inject markup, then upgrading the structural forms the synthesis emits:
     `**Answer**` / `**In Depth**` bold headers (-> <strong>) and `##` ATX headings (-> <h3>). The
-    body is CLEAN of confidence text now — confidence renders separately as a tag (see _conf_html).
+    body is CLEAN of confidence text now — confidence renders separately as a chip heading each
+    section (see _render_answer_sections / _conf_chip).
     Newlines (incl. a literal backslash-n a 4B may copy from the prompt) stay as line breaks under
     the .ans { pre-wrap } style, so the In-Depth `- …` claim bullets render as a readable list."""
     s = html.escape("" if text is None else str(text))
