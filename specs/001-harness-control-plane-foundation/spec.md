@@ -4,7 +4,7 @@
 
 **Created**: 2026-05-12
 
-**Status**: Draft
+**Status**: Complete (M0 — harness control plane shipped; foundation for all downstream features)
 
 **Input**: User description: "001-harness-control-plane-foundation based on the roadmap and supporting documentation."
 

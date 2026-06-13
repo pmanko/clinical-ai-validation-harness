@@ -117,11 +117,11 @@ const features: Feature[] = [
   {
     id: "M2",
     num: "M2",
-    title: "Validation spine and metadata contract",
-    slug: "003-validation-spine-metadata",
+    title: "Validation spine + metadata contract (006 MVP)",
+    slug: "006-validation-harness-mvp",
     lane: "foundation",
     purpose:
-      "Standardize run_manifest.json and events.jsonl across validation lanes.",
+      "Standardize run_manifest.json + events.jsonl across lanes and operationalize them as a scenario x backend comparison with human adjudication. Shipped as the 006 validation-harness MVP (runner/client/report + feedback form, live-run validated). NOTE: judge.jsonl + the clinical-answer-scoring skill, validator confidence, the run-index, and the live dashboard postdate the original spec — lane L3 reconciles 006 to as-built and closes M2-F.1 (SC-015). The phantom slug 003 never existed; this is the real spine.",
     scope: [
       "Project/component, git SHA, dataset version, and mapping version capture.",
       "Model/provider/prompt and retrieval pipeline provenance.",
@@ -308,7 +308,7 @@ const features: Feature[] = [
     purpose:
       "Shipped (as-built): integrate pmanko/med-agent-hub as a harness submodule serving chartsearchai over OpenAI-compat via an in-process ReAct loop over typed tools (medical_expert + kb_search). chartsearchai code untouched; two global-property flips switch the backend. Carries the shipped F005 work — chartsearchai P1 model-switch + B4 Carbon picker + WARM model warmup — plus the P3 Tier-1 KB.",
     scope: [
-      "Submodule at targets/med-agent-hub/ on the harness-integration branch.",
+      "Submodule at targets/med-agent-hub/, pinned to med-agent-hub `main` (the harness-integration buffer was retired 2026-06-11 — the hub is our own repo, not a fork; CI gates main directly).",
       "OpenAI-compat POST /v1/chat/completions and GET /v1/models on med-agent-hub.",
       "In-process ReAct loop (orchestrator/synthesizer over typed medical_expert + kb_search tools, MAX_TOOL_ITERATIONS=3) receives full messages[] (system + chart-prefix + priors + current); envelope bound only on the final synthesis call, with a fallback envelope.",
       "Containerized via a single uvicorn Docker image with stdout logs (no honcho/Procfile).",
@@ -366,16 +366,167 @@ const features: Feature[] = [
     needs: ["M1", "M3"],
     unlocks: [],
   },
+  {
+    id: "F007",
+    num: "F007",
+    title: "File-based LLM config overrides",
+    slug: "007-llm-config-overrides",
+    lane: "foundation",
+    purpose:
+      "Make chartsearchai's LLM system prompt + request params (temperature, max_tokens, …) overridable via an optional operator-editable file pair (JSON config + prompt .md), read at call-time, layered over today's defaults, no rebuild/restart. Enabler for rapid validation iteration; feeds the 006 MVP (M2).",
+    scope: [
+      "Optional file pair read at call-time; works unchanged when absent (today: system prompt is a DB-string GP, params are hardcoded in RemoteLlmEngine/LocalLlmEngine.buildRequestBody).",
+      "JSON via Jackson (already on the classpath); no new YAML parser.",
+      "chartsearchai backend change — ships via the paired-PR fork model (branch on pmanko → PR openmrs:main → consolidate into harness-integration).",
+    ],
+    evidence: [
+      "Override file present → prompt/params change with no restart; absent → byte-identical to current defaults.",
+    ],
+    needs: ["M3"],
+    unlocks: ["M2"],
+  },
+  {
+    id: "F010",
+    num: "F010",
+    title: "med-agent-hub MCP-ification",
+    slug: "017-med-agent-hub-mcp-tools",
+    lane: "foundation",
+    purpose:
+      "Replace the hub's hand-rolled tool dispatch + the homegrown fake-'MCP' layer with one valid FastMCP server mounted at /mcp. kb_search becomes a real MCP tool; medical_expert stays an in-process role; the team consumes the server via an in-memory client. Extensible (FHIR/Spark drop in later) and a product surface other MCP clients can consume. Locked plan: ~/.claude/plans/keen-jingling-muffin.md; executing as lane L1.",
+    scope: [
+      "FastMCP server (server/mcp/ rebuilt) registering kb_search with @mcp.tool; team-facing in-memory client converts MCP tool schema → OpenAI tool defs.",
+      "Delete the homegrown server/mcp/ base + the unwired A2A clinical tools (FHIR/Spark/appointments/medical_search) and dead modules (sdk_agents, agent_configs, llm_clients, explore_a2a.py, launch_a2a_agents.py).",
+      "Drop deps that only served deleted code (a2a-sdk, jsonschema, spark/duckdb extras); add fastmcp.",
+    ],
+    evidence: [
+      "tests/test_bridge.py (/v1 OpenAI-compat contract) stays green at every commit while the tool layer underneath is replaced.",
+      "Hub-boundary smoke before the harness pin bump: README /v1 curl with real models + a -validated level returns the confidence block + trace.jsonl grows.",
+    ],
+    needs: ["F005"],
+    unlocks: ["F008"],
+  },
+];
+
+// Active lanes — the in-flight sprint, richer than the milestone cards because
+// each is meant to cold-start its own worktree + Claude session. Roadmap drives
+// the WHAT/WHY of the program; these drive the HOW of the next three PRs.
+type ActiveLane = {
+  id: string;
+  title: string;
+  repo: string;
+  branch: string;
+  worktree: string;
+  relatesTo: string;
+  status: string;
+  context: string;
+  scope: string[];
+  gate: string[];
+  kickoff: string;
+};
+
+const activeLanes: ActiveLane[] = [
+  {
+    id: "L1",
+    title: "med-agent-hub MCP-ification",
+    repo: "pmanko/med-agent-hub — our own repo (pins main; the harness-integration buffer was retired 2026-06-11)",
+    branch: "feat/real-mcp-tools (off origin/main @ ebdbb43)",
+    worktree: "~/code/hub-wt-mcp",
+    relatesTo:
+      "Extends F005 and realizes the real-MCP tool layer F008 anticipates. Locked plan: ~/.claude/plans/keen-jingling-muffin.md.",
+    status: "Ready — worktree created; hub-ci (unit-and-contract + docker-build) green on main.",
+    context:
+      "Replace the hand-rolled tool dispatch and the homegrown fake-'MCP' layer with one valid FastMCP server mounted in the hub's FastAPI at /mcp. kb_search becomes a real MCP tool; medical_expert stays an in-process role (not a tool); the team consumes the server via an in-memory client (no network hop). Tool surface is hub-global — levels keep choosing only models/prompts/validator.",
+    scope: [
+      "FastMCP server mounted at /mcp (streamable-HTTP for external clients); team consumes it in-memory.",
+      "kb_search → real MCP tool; delete the homegrown server/mcp/ + the unwired A2A clinical tools (FHIR/Spark/appointments/medical_search, all mock).",
+      "Delete legacy modules per the locked plan's deletion list: server/sdk_agents/, server/agent_configs/, server/llm_clients.py, explore_a2a.py, launch_a2a_agents.py.",
+      "Sweep 5 pre-reboot origin branches (a2a-updates, doc-cleanup-update, feature/agenta, multiagent, rag-augment): quick triage, default delete.",
+    ],
+    gate: [
+      "hub-ci green; tests/test_bridge.py (/v1 OpenAI-compat contract — the surface both chartsearchai and the harness consume) green at EVERY commit.",
+      "Pin-bump gate (hub-boundary smoke): rebuild container → README /v1 curl with real local models + a -validated level returns the confidence block + trace.jsonl grows → THEN bump the harness pin (.gitmodules already tracks main).",
+    ],
+    kickoff:
+      "Execute the approved MCP plan at ~/.claude/plans/keen-jingling-muffin.md in this worktree (med-agent-hub, branch feat/real-mcp-tools off origin/main). Red-first tests for the new MCP tool surface; tests/test_bridge.py (/v1 contract) must stay green throughout; delete the legacy A2A/fake-MCP modules per the plan's deletion list. First, sweep the 5 legacy origin branches per the quick-triage-default-delete rule. PR to hub main gated by hub-ci; after merge, rebuild the container and run the hub-boundary smoke (README /v1 curl with real models + -validated confidence block + trace.jsonl growth) before pushing the harness pin bump.",
+  },
+  {
+    id: "L2",
+    title: "Reports and human feedback",
+    repo: "clinical-ai-validation-harness",
+    branch: "feat/report-human-feedback (off main)",
+    worktree: "~/code/harness-wt-report",
+    relatesTo:
+      "Amends feature 006 (validation-harness-mvp) report layer. Driven by reviewer (Ian) feedback; the human-feedback surface is the intake for the parked UCD work.",
+    status: "Ready — worktree created and synced.",
+    context:
+      "The 006 report ships 0-10 rubric scores, a per-cell adjudication form, and a feedback.jsonl export with an optional FEEDBACK_ENDPOINT POST seam. Evolve it for real reviewers: clearer numbers, judgement shown in context, an explainer of what the 'AI team' is, and a split between the machine deep-dive and the human-feedback surface.",
+    scope: [
+      "Scores as percentages (not 0-10); per-scenario rubric judgement inline with each response (today it's the click-a-cell heatmap note).",
+      "An 'AI team' explainer (tiers, roles, system prompts); the Unsafe Answers stat links to the flagged answers.",
+      "Two-part report: a Claude-review deep-dive vs. a human-feedback view with answer ranking/annotation.",
+      "Redesign the feedback.jsonl export for usability (web + repo research: eval-methodology-brief, Scout rubric); keep the no-backend default.",
+      "Parity (decided): extract confidence-inversion rules + score->percentage formatting + labels into ONE shared module under harness/validate/ imported by both report.py and validate-dashboard.py, plus parity tests rendering one fixture through both (extend evals/validate/test_report_confidence.py).",
+    ],
+    gate: ["harness CI: pytest + diff-cover >=90% on changed lines; squash-only merge."],
+    kickoff:
+      "/speckit-specify Report evolution for human reviewers: convert scores to percentages, surface per-scenario rubric judgements inline with each response, add an AI-team explainer (tiers, roles, system prompts), link the Unsafe Answers stat to the flagged answers, split the report into a Claude-review deep-dive and a human-feedback view with answer ranking/annotation, and redesign the existing JSON feedback download for usability — grounded in web + repo research on what validation feedback to capture. Static hosting only. Parity is implemented as: a shared rules module under harness/validate/ imported by both report.py and validate-dashboard.py, plus parity tests rendering one fixture through both (extend evals/validate/test_report_confidence.py).",
+  },
+  {
+    id: "L3",
+    title: "Validation spine — specs/006 as-built + close M2-F.1",
+    repo: "clinical-ai-validation-harness",
+    branch: "docs/006-validation-spine-asbuilt (off main)",
+    worktree: "~/code/harness-wt-spine",
+    relatesTo:
+      "Feature 006 IS the validation spine (the canvas's phantom M2/003 never materialized — see audit). Closes M2-F.1 / SC-015 deferred from feature 002.",
+    status: "Ready — worktree created and synced.",
+    context:
+      "specs/006-validation-harness-mvp is 'in progress' since 2026-05-28 and stale: it defers an LLM-as-judge subsystem, but judge.jsonl + the clinical-answer-scoring skill shipped; validator confidence, the run-index, and the live dashboard all postdate it. Bring the spec to as-built and close the one substantive gap.",
+    scope: [
+      "Update 006 to as-built: reconcile its deferrals against what shipped (judge.jsonl + scoring skill, validator confidence, run-index, live dashboard).",
+      "Execute M2-F.1 (SC-015): produce the four artifacts specs/002.../plan.md names — chartsearchai-live/{compose-up.log, indexer-warmup.json, search-response.json, citation-resolution.json} — against the running :8088 stack; every citation must resolve to a translated demo record.",
+      "Fix the README slug-numbering note (says 006/007 are 'reserved' while the dirs exist with real content) and sweep stale spec statuses (006, 007).",
+    ],
+    gate: [
+      "The four M2-F.1 artifacts exist under artifacts/<run>/chartsearchai-live/ and the citation-resolution check passes.",
+      "POSTs to the live stack on :8088 served from the MAIN checkout — do not bring a second stack up from the worktree.",
+    ],
+    kickoff:
+      "Update specs/006-validation-harness-mvp to as-built: reconcile its deferrals against what shipped (judge.jsonl + scoring skill, validator confidence, run-index, live dashboard); execute M2-F.1 by producing the four artifacts named in specs/002-openmrs-demo-data-2-8-remap/plan.md row M2-F.1 against the running :8088 stack (indexer warmup -> POST /ws/rest/v1/chartsearchai/search -> citation-resolution check, per SC-015); fix the README slug-numbering note; sweep stale spec statuses (006, 007).",
+  },
 ];
 
 const featureById = new Map(features.map((feature) => [feature.id, feature]));
+
+// Single source of truth for delivery status, mirroring the README milestone
+// table. Rendered as a pill on each card and a column in the compact reference,
+// so status lives in data, not in prose that drifts.
+type StatusTone = "info" | "neutral" | "warning" | "success";
+const statusById: Record<string, { label: string; tone: StatusTone }> = {
+  M0: { label: "Complete", tone: "success" },
+  M1: { label: "Complete", tone: "success" },
+  M2: { label: "In progress", tone: "warning" },
+  M3: { label: "In progress", tone: "warning" },
+  M4: { label: "Planned", tone: "neutral" },
+  M5: { label: "Planned", tone: "neutral" },
+  M6: { label: "Planned", tone: "neutral" },
+  M7: { label: "Planned", tone: "neutral" },
+  M8: { label: "Planned", tone: "neutral" },
+  M9: { label: "Planned", tone: "neutral" },
+  M10: { label: "Brief", tone: "info" },
+  F005: { label: "Shipped", tone: "success" },
+  F007: { label: "Planned", tone: "neutral" },
+  F008: { label: "Phase 0 shipped", tone: "info" },
+  F009: { label: "Brief", tone: "info" },
+  F010: { label: "In progress (lane L1)", tone: "warning" },
+};
 
 const dependencyEdges: Array<{ from: string; to: string }> = features.flatMap((feature) =>
   feature.needs.map((need) => ({ from: need, to: feature.id })),
 );
 
 const laneFlows: Record<LaneId, string[]> = {
-  foundation: ["M0", "M2", "M3", "F008", "F009"],
+  foundation: ["M0", "M2", "M3", "F007", "F010", "F008", "F009"],
   openmrs: ["M1", "F005", "M4", "M5"],
   safety: ["M6", "M7"],
   expansion: ["M8", "M9"],
@@ -398,6 +549,7 @@ const crossLaneEdges = [
   ["M2", "M10"],
   ["M3", "M10"],
   ["M3", "F005"],
+  ["F005", "F010"],
   ["F005", "F008"],
   ["F008", "M5"],
   ["F008", "F009"],
@@ -454,7 +606,7 @@ const sequencingNotes: Array<[string, string]> = [
   ],
   [
     "Slug numbering is non-monotonic by design",
-    "005's reservation of 006/007 (ESM pill, MCP tooling) plus the F008/F009 inserts shift M5–M9 to slugs 012–016, and M4 (retrieval eval) to 010. M10 stays pinned at 011 because external references are cemented. The Milestone IDs (M0–M10) remain the semantic ordering anchor — slugs are filesystem identifiers, not strict order.",
+    "The phantom slug 003 was never created — the validation spine landed as 006 (validation-harness MVP). Real slugs now: 006 = validation MVP (M2), 007 = llm-config-overrides (F007), 008/009 = the F008/F009 briefs, 017 = F010 (med-agent-hub MCP tools); M4 = 010, M5–M9 = 012–016, M10 = 011 (external refs cemented). Milestone/feature IDs (M0–M10, F005–F010) are the semantic anchor; slugs are filesystem identifiers, not strict order.",
   ],
 ];
 
@@ -610,12 +762,13 @@ function DependencyGraph() {
 function ParallelLaneDiagram() {
   const theme = useHostTheme();
   const laneIds = Object.keys(laneFlows) as LaneId[];
-  const width = 980;
   const laneHeight = 108;
   const leftLabelWidth = 150;
   const nodeWidth = 136;
   const nodeHeight = 44;
   const gap = 48;
+  const maxLaneLen = Math.max(...laneIds.map((id) => laneFlows[id].length));
+  const width = leftLabelWidth + maxLaneLen * (nodeWidth + gap) + 24;
   const top = 20;
   const height = laneIds.length * laneHeight + top;
   const nodePositions = new Map<string, { x: number; y: number; lane: LaneId }>();
@@ -777,7 +930,18 @@ function FeatureCard({ feature }: { feature: Feature }) {
 
   return (
     <Card>
-      <CardHeader trailing={<Pill size="sm" tone={lane.tone} active>{lane.shortLabel}</Pill>}>
+      <CardHeader
+        trailing={
+          <Row gap={4}>
+            <Pill size="sm" tone={statusById[feature.id]?.tone ?? "neutral"} active>
+              {statusById[feature.id]?.label ?? "—"}
+            </Pill>
+            <Pill size="sm" tone={lane.tone} active>
+              {lane.shortLabel}
+            </Pill>
+          </Row>
+        }
+      >
         {`${feature.num} - ${feature.title}`}
       </CardHeader>
       <CardBody>
@@ -854,9 +1018,63 @@ function FeatureCard({ feature }: { feature: Feature }) {
   );
 }
 
+function ActiveLaneCard({ lane }: { lane: ActiveLane }) {
+  return (
+    <Card>
+      <CardHeader trailing={<Pill size="sm" tone="success" active>{lane.id}</Pill>}>
+        {`${lane.id} - ${lane.title}`}
+      </CardHeader>
+      <CardBody>
+        <Stack gap={10}>
+          <Text tone="secondary">{lane.context}</Text>
+          <Stack gap={3}>
+            <Row gap={6} wrap>
+              <Text size="small" tone="tertiary">Repo:</Text>
+              <Text size="small" tone="secondary">{lane.repo}</Text>
+            </Row>
+            <Row gap={6} wrap>
+              <Text size="small" tone="tertiary">Branch:</Text>
+              <Code>{lane.branch}</Code>
+            </Row>
+            <Row gap={6} wrap>
+              <Text size="small" tone="tertiary">Worktree:</Text>
+              <Code>{lane.worktree}</Code>
+            </Row>
+            <Row gap={6} wrap>
+              <Text size="small" tone="tertiary">Status:</Text>
+              <Text size="small" tone="secondary">{lane.status}</Text>
+            </Row>
+          </Stack>
+          <Divider />
+          <Stack gap={4}>
+            <Text size="small" weight="semibold">Relates to</Text>
+            <Text size="small" tone="secondary">{lane.relatesTo}</Text>
+          </Stack>
+          <Stack gap={4}>
+            <Text size="small" weight="semibold">Scope</Text>
+            {lane.scope.map((item) => (
+              <Text key={item} size="small" tone="secondary">- {item}</Text>
+            ))}
+          </Stack>
+          <Stack gap={4}>
+            <Text size="small" weight="semibold">Gate</Text>
+            {lane.gate.map((item) => (
+              <Text key={item} size="small" tone="secondary">- {item}</Text>
+            ))}
+          </Stack>
+          <Callout tone="neutral" title="Kickoff prompt">
+            <Text size="small">{lane.kickoff}</Text>
+          </Callout>
+        </Stack>
+      </CardBody>
+    </Card>
+  );
+}
+
 const tableRows = features.map((feature) => [
   feature.num,
   feature.title,
+  statusById[feature.id]?.label ?? "—",
   lanes[feature.lane].label,
   feature.needs.length === 0 ? "-" : feature.needs.join(", "),
   feature.unlocks.length === 0 ? "-" : feature.unlocks.join(", "),
@@ -882,6 +1100,50 @@ export default function SpecRoadmap() {
         </Text>
       </Stack>
 
+      <Callout tone="info" title="In plain terms — what this project is">
+        <Stack gap={8}>
+          <Text>
+            A test bench for early clinical AI. Clinics are starting to put AI assistants in front of patient data — to
+            search a chart, answer a clinician's question, or read lab results. Before anyone relies on those answers we
+            have to show they are correct, safe, and traceable back to the real record they came from. This harness runs
+            realistic questions through the actual systems and grades the answers with evidence, not impressions.
+          </Text>
+          <Text size="small" weight="semibold">
+            The landscape — what we validate
+          </Text>
+          <Text size="small" tone="secondary">
+            - chartsearchai: the AI inside OpenMRS that searches and answers over one patient's chart.
+          </Text>
+          <Text size="small" tone="secondary">
+            - med-agent-hub: a local "AI team" of small models (orchestrator, medical expert, synthesizer, validator)
+            that can stand in for one large model, entirely on your own hardware.
+          </Text>
+          <Text size="small" tone="secondary">
+            - Catalyst: lab-result AI over the OpenELIS lab system.
+          </Text>
+          <Text size="small" tone="secondary">
+            - the harness: the shared bench that drives real questions through these on realistic data (a 5,284-patient
+            demo corpus) and records graded, cited evidence.
+          </Text>
+          <Text size="small" weight="semibold">
+            How the work is organized
+          </Text>
+          <Text size="small" tone="secondary">
+            - Milestones (M0-M10, F005-F010, below) are the what and why, ordered by dependency.
+          </Text>
+          <Text size="small" tone="secondary">
+            - Active Lanes (bottom of the page) are the how — the three workstreams in flight right now.
+          </Text>
+          <Text size="small" tone="secondary">
+            - Constitutional gates are the bar every durable claim clears: real systems, reviewed data, and
+            record-level evidence with rationale.
+          </Text>
+          <Text size="small" tone="tertiary">
+            Everything below this primer is the detailed, grounded plan.
+          </Text>
+        </Stack>
+      </Callout>
+
       <Grid columns={6} gap={16}>
         <Stat value={features.length} label="Planned feature specs" />
         <Stat value={laneCounts.foundation} label="Foundation" tone="info" />
@@ -901,9 +1163,10 @@ export default function SpecRoadmap() {
 
       <Callout tone="neutral" title="Where to start">
         <Text>
-          Harness foundation (<Code>001</Code>, M0) is complete. OpenMRS demo-data remap (<Code>002</Code>, M1) and
-          real adapter entrypoints (<Code>004</Code>, M3) are actively in progress.
-          <Code>002</Code> and <Code>004</Code> can proceed in parallel.
+          Harness foundation (<Code>001</Code>, M0) and the OpenMRS demo-data remap (<Code>002</Code>, M1) are complete;
+          real adapter entrypoints (<Code>004</Code>, M3) remain in progress. The current sprint is the three
+          Active Lanes at the bottom of this page — L1 med-agent-hub MCP-ification (F010), L2 reports and human
+          feedback (amends <Code>006</Code>), and L3 validation-spine as-built (<Code>006</Code>/M2, closes M2-F.1).
         </Text>
       </Callout>
 
@@ -1045,10 +1308,25 @@ export default function SpecRoadmap() {
 
       <H3>Compact Reference</H3>
       <Table
-        headers={["#", "Title", "Lane", "Needs", "Unlocks", "Suggested Spec Slug"]}
+        headers={["#", "Title", "Status", "Lane", "Needs", "Unlocks", "Suggested Spec Slug"]}
         rows={tableRows}
         striped
       />
+
+      <Divider />
+
+      <H2>Active Lanes — Current Sprint</H2>
+      <Text tone="secondary">
+        The three in-flight workstreams, each running in its own git worktree and Claude session. These carry more
+        operational detail than the milestone cards above because each is meant to cold-start a lane: repo, branch,
+        worktree, scope, the gate that lets it merge, and a verbatim kickoff prompt. Lanes have disjoint file sets and
+        merge independently. Source of truth for sequencing: the roadmap plan (squishy-bubbling-spindle).
+      </Text>
+      <Grid columns={1} gap={14}>
+        {activeLanes.map((lane) => (
+          <ActiveLaneCard key={lane.id} lane={lane} />
+        ))}
+      </Grid>
     </Stack>
   );
 }
