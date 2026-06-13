@@ -12,7 +12,7 @@ tag `backup/pre-sync-2026-06` in each fork's `origin`.
 
 | Submodule | Old pin | New pin | Action |
 |-----------|---------|---------|--------|
-| `targets/chartsearchai` | `9af767e` | `b2cb57b` | Rebased `harness-integration` onto `upstream/main` (`8bda8f8`); force-pushed |
+| `targets/chartsearchai` | `9af767e` | `45a49f2` | Rebased `harness-integration` onto `upstream/main` (`8bda8f8`); Liquibase cleanup stacked chat changesets on upstream trunk |
 | `targets/chartsearchai-esm` | `37427f2` | `34c1949` | Rebased `harness-integration` onto `upstream/main` (`e2b6cd0`); force-pushed |
 | `targets/querystore` | `ba1fa2c` | `4ba55f7` | Advanced to `origin/main` tip (+18, origin-only) |
 | `targets/med-agent-hub` | `ebdbb43` | `ebdbb43` | Unchanged — already at `origin/main` tip |
@@ -26,7 +26,7 @@ Both forks now sit **0 commits behind `upstream/main`** with our feature commits
 ## chartsearchai (Java module)
 
 - **Strategy:** rebase `harness-integration` directly onto `upstream/main`.
-- **Result:** 32 upstream commits absorbed; 26 of our commits replayed on top. `mvn -DskipTests -B package` + `mvn -pl api test` green. New pin `b2cb57b`.
+- **Result:** 32 upstream commits absorbed; 26 of our commits replayed on top, plus one Liquibase cleanup commit (`45a49f2`) to keep the integration branch stacked on upstream's consolidated changelog. `mvn -DskipTests -B package` + `mvn -pl api test` green. New pin `45a49f2`.
 
 ### Upstream incoming (highlights of 32 commits, `2c1eb27..8bda8f8`)
 
@@ -46,7 +46,7 @@ Our `harness-integration` carried **multi-turn chat history** and a **structured
 - **LLM engine layer** (`LlmEngine`, `LlmProvider`, `LocalLlmEngine`, `RemoteLlmEngine`) — combined upstream's schema-selectable grounding (`ObjectNode responseFormat`) with our multi-turn `ArrayNode messages` request path.
 - **Answer schema** (`ChartAnswerResponseFormat`, `LlmAnswerExtractor`) — reasoning-first schema with our `blocks[]` structured output; required fields = `reasoning, answer, citations, blocks`.
 - **`ChartBuildingStrategy`** — removed the upstream-deleted in-memory `chartCache`; `buildChartUnfiltered` calls `chartSerializer.serialize(patient)` directly.
-- **`liquibase.xml`** — kept our chat-session/message migration (`chartsearchai-007`) alongside upstream audit-log changesets.
+- **`liquibase.xml`** — removed obsolete audit-log changesets resurrected during rebase and stacked our chat-session/message migrations directly after upstream's consolidated audit-log schema (`chartsearchai-003` through `chartsearchai-005`).
 - **Tests** — updated `LlmProviderTest`, `LocalLlmEngineTest`, `RemoteLlmEngineTest` to the merged 4-field schema.
 
 ### Implications
@@ -161,9 +161,9 @@ The running backend matches this canonical config (`chartsearchai.llm.remote.end
 
 ### 3) Impact Assessment
 
-- **Retrieval impact:** querystore read methods now `@Authorized(GET_PATIENTS)`; typed bridge replaces reflective access. To be confirmed green by the Phase 6 chart-search smoke.
+- **Retrieval impact:** querystore read methods now `@Authorized(GET_PATIENTS)`; typed bridge replaces reflective access. Confirmed green by the Phase 6 chart-search smoke.
 - **Answer/citation impact:** reasoning-first schema + async grounding; inline citations are grounding-aware in prose and tables; per-section confidence chips retained.
 - **Safety impact:** grounding verdicts surfaced inline and in the references list (ungrounded marked, never shown as verified); advisory framing unchanged.
 - **Clinician review outcome:** N/A (infrastructure/sync change).
 - **Residual risk:** intermediate rebased commits in the ESM history are not each independently green (cross-cutting fixups land in `34c1949`); final tree is fully validated. Upstream feature branches not yet on `main` may need a follow-up sync.
-- **Decision:** proceed to Phase 6 validation, then merge the single harness PR.
+- **Decision:** proceed with the single harness PR after local deployment and chart-search smoke passed on the cleaned module pin.
