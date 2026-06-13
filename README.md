@@ -137,31 +137,39 @@ For the full OpenMRS demo-data remap workflow, see [specs/002-openmrs-demo-data-
 The chartsearchai adapter (feature 004) and its Med Agent Hub team are operated through `make` targets that
 wrap the build, the LLM engine, the retrieval backend, and the per-endpoint model picker:
 
+The **canonical LLM path** is chartsearchai → Med Agent Hub (`:8080`) → llama-router (`:8077`): a llama.cpp
+Router Mode server serving the tier GGUFs the hub maps its per-role models onto. LM Studio (`:1234`) and the
+module's bundled in-process `llama-server` remain configurable alternatives.
+
 ```bash
 # Build chartsearchai's .omod from the submodule and stage it for the backend
 make chartsearch-build
 
-# Bring up / configure the stack, then warm the LM Studio models
+# Canonical local LLM backend (foreground server, own terminal). TIER=low|med|high.
+make llama-router-up                 # serves the tier GGUFs on :8077
+make llama-router-models             # probe what :8077 is serving
+
+# Bring up / configure the stack
 make chartsearch-up
+make med-agent-hub-up               # the agent team; routes to llama-router (:8077)
 make chartsearch-configure          # sets the chartsearchai.llm.* global properties from .env.chartsearch
-make chartsearch-warmup
 
 # LLM engine — switch between the bundled local model and a remote endpoint
 make chartsearch-engine ENGINE=local     # chartsearchai's own bundled llama-server, in-process (module OOTB default)
-make chartsearch-engine ENGINE=remote    # OpenAI-compatible endpoint (LM Studio / Med Agent Hub / cloud) — harness default
+make chartsearch-engine ENGINE=remote    # OpenAI-compatible endpoint (Med Agent Hub / LM Studio / cloud) — harness default
+
+# LM Studio is an alternative remote endpoint; warm its models if you use it
+make chartsearch-warmup
 
 # Retrieval backend — querystore's CQRS read store tier
 make chartsearch-backend BACKEND=elasticsearch   # or lucene | mysql
-
-# Med Agent Hub team (an OpenAI-compatible endpoint the picker can select)
-make med-agent-hub-up
 ```
 
 **Model picker.** When `CHARTSEARCH_REMOTE_ENDPOINTS` (a JSON array of `{label, url}`) is set in
-`.env.chartsearch`, the chat panel shows a sectioned picker — one section per endpoint (e.g. *LM Studio* and
-*Med Agent Hub*). Selecting a model sends it as a per-request `{endpointUrl, modelName}` override on that chat
-only; it does not change the config-controlled global default (shown with a faded "default" tag). With no
-registry set, the picker collapses to the single configured endpoint.
+`.env.chartsearch`, the chat panel shows a sectioned picker — one section per endpoint (e.g. *Med Agent Hub*,
+*llama-server*, *LM Studio*). Selecting a model sends it as a per-request `{endpointUrl, modelName}` override on
+that chat only; it does not change the config-controlled global default (shown with a faded "default" tag). With
+no registry set, the picker collapses to the single configured endpoint.
 
 **Cloud.** `make cloud-deploy` ships the backend (`.omod`) and `make cloud-deploy-esm` ships the frontend
 bundle; `make cloud-status` / `cloud-ssh` inspect the VM. The cloud runs the same engine + picker + Med Agent
