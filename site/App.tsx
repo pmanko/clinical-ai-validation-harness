@@ -1,9 +1,10 @@
 import * as React from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
-import { isSection, navTree, neighbors, NavLeaf, NavSection } from './nav';
+import { isSection, leafSequence, navTree, neighbors, NavLeaf, NavSection } from './nav';
 import { completeNav } from './nav-auto';
 import { htmlHrefFor } from './prerender-lib';
 import { topics } from './topics';
+import { filterEntries, toPlainText, SearchEntry } from './search';
 
 // Link from the interactive view to its full-static-HTML twin (the LLM-readable
 // mirror emitted by the prerender pass). Same mirror-routes-minus-hash mapping.
@@ -39,6 +40,60 @@ function findSpecModule(slug: string) {
   // "README" maps to ../README.md; "specs/foo/bar" → ../specs/foo/bar.md
   const target = slug === 'README' ? '../README.md' : `../${slug}.md`;
   return specModules[target] ?? repoMd[target];
+}
+
+// Client-side search index, built once from the same globs the SPA already loads:
+// every curated/auto doc + canvas (spec bodies full-text, canvases by title/blurb)
+// plus the topic pages. Works in dev and prod with no fetch.
+const searchIndex: SearchEntry[] = (() => {
+  const out: SearchEntry[] = [];
+  for (const { leaf } of leafSequence(fullNavTree)) {
+    if (leaf.kind !== 'spec' && leaf.kind !== 'canvas') continue;
+    let text = '';
+    if (leaf.kind === 'spec') {
+      const mod = findSpecModule(leaf.slug);
+      text = toPlainText(mod?.default ?? '').slice(0, 4000);
+    }
+    out.push({ title: leaf.title, kind: leaf.kind, slug: leaf.slug, blurb: leaf.blurb ?? '', text });
+  }
+  for (const t of topics) out.push({ title: t.title, kind: 'topic', slug: t.id, blurb: t.blurb, text: '' });
+  return out;
+})();
+
+function searchHref(e: SearchEntry): string {
+  return e.kind === 'topic' ? `/topic/${e.slug}` : e.kind === 'canvas' ? `/canvas/${e.slug}` : `/spec/${e.slug}`;
+}
+
+function SearchBox({ onNavigate }: { onNavigate: () => void }) {
+  const [q, setQ] = React.useState('');
+  const results = React.useMemo(() => filterEntries(searchIndex, q), [q]);
+  const noMatch = q.trim().length >= 2 && results.length === 0;
+  return (
+    <div className="search">
+      <input
+        className="search-input"
+        type="search"
+        placeholder="Search docs…"
+        value={q}
+        onChange={(e) => setQ(e.target.value)}
+        aria-label="Search documentation"
+      />
+      {results.length > 0 && (
+        <ul className="search-results">
+          {results.map((e) => (
+            <li key={`${e.kind}-${e.slug}`}>
+              <Link to={searchHref(e)} onClick={() => { setQ(''); onNavigate(); }}>
+                <span className="search-result-title">{e.title}</span>
+                <span className="search-result-kind">{e.kind}</span>
+                {e.blurb && <span className="search-result-blurb">{e.blurb}</span>}
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
+      {noMatch && <div className="search-empty">No matches.</div>}
+    </div>
+  );
 }
 
 // ---------- sidebar tree ----------------------------------------------------
@@ -98,6 +153,7 @@ function Sidebar({ onClose, onNavigate }: { onClose: () => void; onNavigate: () 
         <button type="button" className="sidebar-close" onClick={onClose} aria-label="Close navigation">Close</button>
       </div>
       <div className="sidebar-sub">Planning artifacts &amp; canvases</div>
+      <SearchBox onNavigate={onNavigate} />
       <nav className="sidebar-nav">
         <div className="nav-section depth-0">
           <div className="nav-section-header top nav-section-static">
