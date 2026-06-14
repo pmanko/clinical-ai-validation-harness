@@ -36,6 +36,7 @@ Status: actively in progress. See the [Feature 002 spec](specs/002-openmrs-demo-
 |---------------|-------------|
 | Visual project overview and navigation | [Public docs site](https://pmanko.github.io/clinical-ai-validation-harness/) |
 | Roadmap — what is planned, why, and in what order | [Feature roadmap canvas](specs/roadmap.canvas.tsx) |
+| Development operating plan — lanes, gates, launch sequence | [docs/dev-roadmap.md](docs/dev-roadmap.md) |
 | Validation evidence model and evaluation methodology | [Validation research canvas](specs/artifacts/canvases/validation-research.canvas.tsx) |
 | Current priority operator walkthrough | [Feature 002 quickstart](specs/002-openmrs-demo-data-2-8-remap/quickstart.md) |
 | Harness foundation and control-plane detail | [Feature 001 spec](specs/001-harness-control-plane-foundation/spec.md) |
