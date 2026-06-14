@@ -11,6 +11,7 @@ export UV_PROJECT_ENVIRONMENT
         load-test orphan-fk-check import-smoke dump-loaded promote \
         chartsearch-build chartsearch-configure chartsearch-backend chartsearch-doctor chartsearch-warmup chartsearch-up \
         chartsearch-esm-build chartsearch-esm-dev cloud-deploy-esm \
+        llama-router-up llama-router-models \
         med-agent-hub-build med-agent-hub-up med-agent-hub-logs med-agent-hub-restart med-agent-hub-test \
         validate-run validate-publish \
         cloud-init cloud-sync cloud-up cloud-down cloud-reset cloud-deploy cloud-seed \
@@ -165,15 +166,59 @@ cloud-deploy-esm:
 	@./scripts/cloud-sync.sh
 	@echo "==> cloud-deploy-esm complete (bind-mounted spa-custom updated; Caddy serves new files on next request)"
 
+# --- llama-router (CANONICAL local LLM backend) ---
+# The canonical local LLM path for the harness: a llama.cpp Router Mode server on
+# :8077 serving the tier GGUFs (DRY, OpenAI-compatible) that med-agent-hub maps
+# its per-role models onto. LM Studio (:1234) is a CONFIGURABLE ALTERNATIVE, not
+# the default. Long-lived foreground server — run in its own terminal.
+#
+# LLAMA_ROUTER_TIER picks the co-residency cap (see scripts/llama-router-up.sh):
+#   med (default) / low -> models-max 4 (interactive LOW/MED tiers co-resident)
+#   high             -> models-max 1 (the big benchmark GGUFs can't co-reside)
+# Requires the `llama-server` binary (llama.cpp build 9430+) on the host PATH.
+LLAMA_ROUTER_TIER ?= med
+llama-router-up:
+	@case "$(LLAMA_ROUTER_TIER)" in \
+	  low|med) MAX=4;; \
+	  high) MAX=1;; \
+	  *) echo "LLAMA_ROUTER_TIER must be low|med|high (got: $(LLAMA_ROUTER_TIER))"; exit 1;; \
+	esac; \
+	command -v llama-server >/dev/null 2>&1 || { \
+	  echo "ERROR: 'llama-server' not on PATH — install llama.cpp (build 9430+) first."; exit 1; }; \
+	echo "==> llama-router on :8077 (tier=$(LLAMA_ROUTER_TIER), models-max=$$MAX) — Ctrl-C to stop"; \
+	LLAMA_ROUTER_MODELS_MAX=$$MAX ./scripts/llama-router-up.sh
+
+# Probe what the router is serving (the picker's llama-server section + the tiers
+# med-agent-hub maps onto). Fails clearly when :8077 is down.
+llama-router-models:
+	@curl -fsS -m 5 http://localhost:8077/v1/models \
+	  | python3 -c "import sys,json; d=json.load(sys.stdin); ms=d.get('data',[]); print('models on :8077:' if ms else 'no models loaded'); [print(f'  - {m[\"id\"]}') for m in ms]" \
+	  || { echo "llama-router not reachable on :8077 — start it: make llama-router-up"; exit 1; }
+
 # --- med-agent-hub ("Med Agent Team" bridge) ---
 # Builds/runs the in-process agent-team endpoint from targets/med-agent-hub.
 # Internal-only service (no host port); the OpenMRS backend reaches it at
-# http://med-agent-hub:8080. Point chartsearchai at it with `make
-# chartsearch-configure` after setting the endpoint in .env.chartsearch.
+# http://med-agent-hub:8080. The hub's roles reach the canonical llama-router on
+# the host (:8077); start that first with `make llama-router-up`. Point
+# chartsearchai at the hub with `make chartsearch-configure` after setting the
+# endpoint in .env.chartsearch.
 med-agent-hub-build:
 	docker compose -f compose/openmrs-2.8-refapp.yml build med-agent-hub
 
+# Preflight: the container bind-mounts server/levels.yaml read-only; if it's
+# missing (uninitialized submodule), the hub 500s on every request with a
+# FileNotFoundError. Fail early with the fix instead of a confusing runtime 500.
+# Soft-warn when the canonical llama-router (:8077) isn't reachable — the hub
+# starts but every inference call fails until the router is up.
 med-agent-hub-up:
+	@if [ ! -f targets/med-agent-hub/server/levels.yaml ]; then \
+	  echo "ERROR: targets/med-agent-hub/server/levels.yaml is missing."; \
+	  echo "  The hub bind-mounts it read-only; without it the hub 500s on every request."; \
+	  echo "  Fix: git submodule update --init targets/med-agent-hub"; \
+	  exit 1; \
+	fi
+	@curl -fsS -m 3 http://localhost:8077/v1/models >/dev/null 2>&1 \
+	  || echo "WARN: llama-router (:8077) not reachable — start it with 'make llama-router-up' or the hub's inference calls will fail."
 	docker compose -f compose/openmrs-2.8-refapp.yml up -d med-agent-hub
 
 med-agent-hub-logs:
