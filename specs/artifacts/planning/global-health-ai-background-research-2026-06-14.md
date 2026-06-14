@@ -1,13 +1,11 @@
-# Background & evidence — clinical AI for low-resource health settings (research, 2026-06-14)
+# Background & evidence — clinical AI for low-resource health settings
 
-Cited grounding for the project's "why," gathered from authoritative sources (WHO,
-peer-reviewed literature, respected global/digital-health bodies). Assembled to back
-the public site's problem/background narrative — **every on-surface claim should trace
-to an entry here.** Confidence and caveats are recorded; do not overclaim past them.
-
-> Status: reference. Web findings verified 2026-06-14 via fan-out search + fetch.
-> Several primary PDFs (WHO IRIS, some journals) were paywalled/403 to automated
-> fetch; those claims rest on official WHO news/landing pages or abstracts, noted inline.
+Cited grounding for the project's "why," from authoritative sources (WHO,
+peer-reviewed literature, and respected global / digital-health bodies). Each claim is
+recorded with its source and a confidence note. Where a figure is qualified, or a
+primary source (e.g. some WHO PDFs and paywalled journals) was reached only through an
+official summary or abstract rather than the full text, that is stated inline — nothing
+should be cited more strongly than the confidence noted here.
 
 ---
 
