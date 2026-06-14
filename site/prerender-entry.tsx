@@ -20,11 +20,8 @@ const canvasModules = import.meta.glob('../specs/**/*.canvas.tsx', { eager: true
   string,
   { default: React.ComponentType }
 >;
-const specModules = import.meta.glob('../specs/**/*.md', { eager: true }) as Record<
-  string,
-  { html?: string; raw?: string; default: string }
->;
-const repoMd = import.meta.glob(['../README.md', '../docs/**/*.md'], { eager: true }) as Record<
+// Published site = README + canvases only; everything else under specs/ is dev-internal (mirror of App.tsx).
+const repoMd = import.meta.glob('../README.md', { eager: true }) as Record<
   string,
   { html?: string; raw?: string; default: string }
 >;
@@ -38,7 +35,7 @@ function findCanvas(slug: string) {
 }
 function findSpec(slug: string) {
   const target = slug === 'README' ? '../README.md' : `../${slug}.md`;
-  return specModules[target] ?? repoMd[target];
+  return repoMd[target];
 }
 
 /** Build the full output plan, with every doc/canvas body rendered via Vite. */
@@ -46,7 +43,7 @@ export function plan(base: string, meta: { title: string; summary: string }) {
   // Auto-discover every doc/canvas on disk and merge it into the curated nav, so
   // the mirror covers the whole repo (priority pages curated, the rest deep).
   const fullTree = completeNav(
-    [...Object.keys(specModules), ...Object.keys(repoMd)],
+    Object.keys(repoMd),
     Object.keys(canvasModules),
     navTree,
   );

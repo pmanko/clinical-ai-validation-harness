@@ -30,7 +30,7 @@ The harness coordinates validation across four clinical AI projects:
 
 The OpenMRS demo-data remap (Roadmap M1 / feature 002) is **complete** — the public 2.7 demo corpus is transformed and imported as the canonical 5,284-patient 2.8 demo schema the harness validates against. (See the [Feature 002 spec](specs/002-openmrs-demo-data-2-8-remap/spec.md) and [quickstart](specs/002-openmrs-demo-data-2-8-remap/quickstart.md) for that work.)
 
-Current work is the **validation spine** (Roadmap M2 / feature 006): run the same clinical questions across model backends through chartsearchai's real API, score the answers against the patient chart, and record reviewable, record-level evidence. Three lanes are in flight — the local "AI team" tool layer, human-feedback reports, and closing the first live-chartsearchai milestone. See the [development operating plan](docs/dev-roadmap.md) and the [roadmap canvas](specs/roadmap.canvas.tsx).
+Current work is the **validation spine** (Roadmap M2 / feature 006): run the same clinical questions across model backends through chartsearchai's real API, score the answers against the patient chart, and record reviewable, record-level evidence. Three lanes are in flight — the local "AI team" tool layer, human-feedback reports, and closing the first live-chartsearchai milestone. See the [roadmap canvas](specs/roadmap.canvas.tsx); the development operating plan and per-lane dossiers live in-repo under `specs/artifacts/lanes/`.
 
 ## How the docs fit together
 
@@ -38,14 +38,14 @@ Current work is the **validation spine** (Roadmap M2 / feature 006): run the sam
 |---------------|-------------|
 | Visual project overview and navigation | [Public docs site](https://pmanko.github.io/clinical-ai-validation-harness/) |
 | Roadmap — what is planned, why, and in what order | [Feature roadmap canvas](specs/roadmap.canvas.tsx) |
-| Development operating plan — lanes, gates, launch sequence | [docs/dev-roadmap.md](docs/dev-roadmap.md) |
+| Development operating plan — lanes, gates, launch sequence | `specs/artifacts/lanes/` (in-repo) |
 | Validation evidence model and evaluation methodology | [Validation research canvas](specs/artifacts/canvases/validation-research.canvas.tsx) |
 | Current priority operator walkthrough | [Feature 002 quickstart](specs/002-openmrs-demo-data-2-8-remap/quickstart.md) |
 | Harness foundation and control-plane detail | [Feature 001 spec](specs/001-harness-control-plane-foundation/spec.md) |
 | All planning artifacts, canvases, and research docs | [specs/artifacts/](specs/artifacts/) |
 | Cloud/GCE deploy guide | [docs/cloud-deploy.md](docs/cloud-deploy.md) |
 
-The public docs site auto-deploys from `main` and includes all canvases and spec markdown. Browse locally with `cd site && npm install && npm run dev` (opens at `http://127.0.0.1:4321/clinical-ai-validation-harness/`).
+The public docs site auto-deploys from `main` and publishes the public-facing surface — this README and the visual canvases. The detailed feature specs, plans, briefs, and per-lane dossiers are dev-internal: they live in the repo (under `specs/`), not on the published site. Browse the site locally with `cd site && npm install && npm run dev` (opens at `http://127.0.0.1:4321/clinical-ai-validation-harness/`).
 
 ## Milestone names and IDs
 
@@ -100,7 +100,7 @@ harness/       Python orchestration package and CLI (harness-cli)
 adapters/      Adapter contracts for invoking real project validation paths
 evals/         pytest suites for import, indexing, retrieval, and metadata checks
 artifacts/     Per-run outputs: manifests, events, reports (gitignored)
-site/          Static-site build of specs and canvases; auto-deployed to GitHub Pages
+site/          Static-site build of the README and canvases (public surface); auto-deployed to GitHub Pages
 targets/       Pinned submodule checkouts of the four target projects
 ```
 

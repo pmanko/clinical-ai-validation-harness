@@ -16,14 +16,17 @@ function PlainHtmlLink({ kind, slug }: { kind: 'spec' | 'canvas'; slug: string }
 // ---------- raw module discovery (file presence; the IA lives in nav.ts) -----
 
 const canvasModules = import.meta.glob('../specs/**/*.canvas.tsx', { eager: true }) as Record<string, { default: React.ComponentType }>;
-const specModules   = import.meta.glob('../specs/**/*.md',        { eager: true }) as Record<string, { html?: string; default: string }>;
-const repoMd        = import.meta.glob(['../README.md', '../docs/**/*.md'], { eager: true }) as Record<string, { html?: string; default: string }>;
+// The published site is the public-facing surface: the README + the visual canvases.
+// Everything else under specs/ (specs, plans, briefs, contracts, planning, handoffs,
+// lanes) is dev-internal — it lives in the repo but is NOT published. Canvases (globbed
+// above) are the exception that stays public.
+const repoMd        = import.meta.glob('../README.md', { eager: true }) as Record<string, { html?: string; default: string }>;
 
 // The curated nav defines priority/order; every other doc and canvas on disk is
 // auto-discovered and appended into deep sections, so the SPA and the prerendered
 // twins surface the whole repo from one source of truth.
 const fullNavTree = completeNav(
-  [...Object.keys(specModules), ...Object.keys(repoMd)],
+  Object.keys(repoMd),
   Object.keys(canvasModules),
   navTree,
 );
@@ -37,9 +40,9 @@ function findCanvasModule(slug: string) {
   return key ? canvasModules[key] : undefined;
 }
 function findSpecModule(slug: string) {
-  // "README" maps to ../README.md; "specs/foo/bar" → ../specs/foo/bar.md
+  // Only the README is published as markdown; everything else under specs/ is dev-internal.
   const target = slug === 'README' ? '../README.md' : `../${slug}.md`;
-  return specModules[target] ?? repoMd[target];
+  return repoMd[target];
 }
 
 // Client-side search index, built once from the same globs the SPA already loads:
@@ -163,9 +166,10 @@ function Sidebar({ onClose, onNavigate }: { onClose: () => void; onNavigate: () 
         <Link to="/" className="sidebar-brand" onClick={onNavigate}>clinical-ai-validation-harness</Link>
         <button type="button" className="sidebar-close" onClick={onClose} aria-label="Close navigation">Close</button>
       </div>
-      <div className="sidebar-sub">Planning artifacts &amp; canvases</div>
+      <div className="sidebar-sub">Overview &amp; canvases</div>
       <SearchBox onNavigate={onNavigate} />
       <nav className="sidebar-nav">
+        {fullNavTree.map((s, i) => <SidebarSection key={`top-${i}-${s.title}`} section={s} depth={0} onNavigate={onNavigate} />)}
         <div className="nav-section depth-0">
           <div className="nav-section-header top nav-section-static">
             <span className="caret">▾</span><span className="nav-section-title">Browse by topic</span>
@@ -178,7 +182,6 @@ function Sidebar({ onClose, onNavigate }: { onClose: () => void; onNavigate: () 
             ))}
           </div>
         </div>
-        {fullNavTree.map((s, i) => <SidebarSection key={`top-${i}-${s.title}`} section={s} depth={0} onNavigate={onNavigate} />)}
       </nav>
     </aside>
   );
@@ -200,9 +203,7 @@ function HomeView() {
   for (const top of fullNavTree) walk(top.items, top);
 
   const canvasLeaves = allLeaves.filter((x) => x.leaf.kind === 'canvas');
-  const totalDocs = allLeaves.filter((x) => x.leaf.kind === 'spec').length;
   const totalCanvases = canvasLeaves.length;
-  const featureCount = fullNavTree.find((s) => s.title === 'Active features')?.items.filter(isSection).length ?? 0;
 
   const toFor = (leaf: NavLeaf) =>
     leaf.kind === 'canvas' ? `/canvas/${leaf.slug}` : leaf.kind === 'home' ? '/' : `/spec/${leaf.slug}`;
@@ -222,9 +223,8 @@ function HomeView() {
           underneath, a click away.
         </p>
         <div className="landing-stat-row">
-          <div className="landing-stat"><span className="n">{featureCount}</span> <span className="l">feature folders</span></div>
           <div className="landing-stat"><span className="n">{totalCanvases}</span> <span className="l">canvases</span></div>
-          <div className="landing-stat"><span className="n">{totalDocs}</span> <span className="l">specs &amp; docs</span></div>
+          <div className="landing-stat"><span className="n">{topics.length}</span> <span className="l">topics</span></div>
         </div>
       </header>
 
@@ -312,7 +312,7 @@ function HomeView() {
 
       <section className="landing-section">
         <h2>Browse by topic</h2>
-        <p className="landing-section-sub">Prefer to explore by theme? Each gathers the specs, research, and canvases for one aspect of the project.</p>
+        <p className="landing-section-sub">Prefer to explore by theme? Each gathers the canvases for one aspect of the project.</p>
         <div className="card-grid">
           {topics.map((t) => (
             <Link key={t.id} to={`/topic/${t.id}`} className="dispatch-card">
@@ -339,50 +339,6 @@ function HomeView() {
         </div>
       </section>
 
-      <section className="landing-section">
-        <h2>Specs &amp; docs</h2>
-        <p className="landing-section-sub">Markdown sources in sidebar navigation order. Click any to read; every page has prev/next links at the bottom.</p>
-        {fullNavTree.map((top) => {
-          // Group leaves by parent section within the top — preserving the curated order.
-          type Group = { label: string; leaves: NavLeaf[] };
-          const groups: Group[] = [];
-          function visit(items: Array<NavLeaf | NavSection>, label: string) {
-            const ownLeaves: NavLeaf[] = [];
-            for (const it of items) {
-              if (isSection(it)) visit(it.items, it.title);
-              else ownLeaves.push(it);
-            }
-            if (ownLeaves.length > 0) groups.push({ label, leaves: ownLeaves });
-          }
-          visit(top.items, top.title);
-
-          // Only include spec/home leaves in this section (canvases shown above).
-          const specGroups = groups
-            .map((g) => ({ ...g, leaves: g.leaves.filter((l) => l.kind !== 'canvas') }))
-            .filter((g) => g.leaves.length > 0);
-          if (specGroups.length === 0) return null;
-
-          return (
-            <div className="landing-section-block" key={top.title}>
-              <h3>{top.title}</h3>
-              {top.intro && <p className="landing-section-block-intro">{top.intro}</p>}
-              {specGroups.map((g) => (
-                <div key={g.label} className="doc-group">
-                  {g.label !== top.title && <h4>{g.label}</h4>}
-                  <ul className="doc-list">
-                    {g.leaves.map((leaf) => (
-                      <li key={leaf.slug}>
-                        <Link to={toFor(leaf)}>{leaf.title}</Link>
-                        {leaf.blurb && <span className="doc-blurb">{leaf.blurb}</span>}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ))}
-            </div>
-          );
-        })}
-      </section>
     </div>
   );
 }

@@ -22,15 +22,22 @@ describe('neighbors', () => {
   });
 });
 
-// Consistency invariant: every feature folder's spec.md must be CURATED in the
-// hand-written navTree (human title + blurb), not left to nav-auto's collapsed
-// "More documents" junk drawer. Discovered the same way App.tsx discovers specs.
-describe('curated nav coverage', () => {
-  const specFiles = Object.keys(import.meta.glob('../specs/*/spec.md'));
+// Policy invariant: the public site is README + the visual canvases only. Feature
+// specs / plans / briefs under specs/ are dev-internal and must NOT appear in the
+// published nav. (Canvases are the exception that stays public.)
+describe('public nav excludes dev specs', () => {
   const curated = flattenLeaves(navTree);
+  const specMdFiles = Object.keys(import.meta.glob('../specs/**/*.md'));
 
-  it.each(specFiles)('curates %s (not relegated to More documents)', (key) => {
+  it('curates only home, README, and canvases (no spec markdown)', () => {
+    for (const leaf of Object.values(curated)) {
+      const ok = leaf.kind === 'home' || leaf.kind === 'canvas' || leaf.slug === 'README';
+      expect(ok, `${leaf.slug} (${leaf.kind}) should not be in the public nav`).toBe(true);
+    }
+  });
+
+  it.each(specMdFiles)('does not publish dev spec %s', (key) => {
     const slug = key.replace(/^\.\.\//, '').replace(/\.md$/, '');
-    expect(curated[slug], `${slug} is not in the curated navTree`).toBeDefined();
+    expect(curated[slug], `${slug} is a dev spec and must stay off the public nav`).toBeUndefined();
   });
 });
