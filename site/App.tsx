@@ -66,7 +66,18 @@ function searchHref(e: SearchEntry): string {
 
 function SearchBox({ onNavigate }: { onNavigate: () => void }) {
   const [q, setQ] = React.useState('');
-  const results = React.useMemo(() => filterEntries(searchIndex, q), [q]);
+  // Prefer the prerendered search.json (canvas bodies indexed full-text); fall
+  // back to the client-built index (specs full-text) when it's absent, e.g. dev.
+  const [index, setIndex] = React.useState<SearchEntry[]>(searchIndex);
+  React.useEffect(() => {
+    let alive = true;
+    fetch(`${import.meta.env.BASE_URL}search.json`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => { if (alive && Array.isArray(data) && data.length) setIndex(data as SearchEntry[]); })
+      .catch(() => { /* dev / offline: keep the client index */ });
+    return () => { alive = false; };
+  }, []);
+  const results = React.useMemo(() => filterEntries(index, q), [index, q]);
   const noMatch = q.trim().length >= 2 && results.length === 0;
   return (
     <div className="search">
@@ -242,10 +253,12 @@ function HomeView() {
           <div className="why-card">
             <h3>Global guidance has to fit local reality</h3>
             <p>
-              Guidelines — and the data most AI is trained on — are written for settings unlike a rural clinic.
-              Mirroring WHO's{' '}
+              Most clinical guidelines — and the data behind most AI — come from settings far better-resourced than
+              where this care happens; the conditions, drug formularies, and populations of low-resource clinics are{' '}
+              <strong>underrepresented in clinical research and guidelines</strong>. Mirroring WHO's{' '}
               <a href="https://www.who.int/teams/digital-health-and-innovation/smart-guidelines" target="_blank" rel="noreferrer">SMART Guidelines</a>,
-              we contextualize a knowledge base to each deployment's own concepts and medicines.
+              we contextualize a knowledge base to each deployment's own concepts and medicines, so the AI reflects the
+              patients actually in front of it.
             </p>
           </div>
           <div className="why-card">

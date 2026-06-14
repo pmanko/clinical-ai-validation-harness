@@ -124,3 +124,42 @@ describe('planOutputs', () => {
     expect(byPath()['llms-full.txt']).toContain('md source line');
   });
 });
+
+// Gap fixes: a client search index (canvas bodies indexed full-text), static
+// topic twins, and the global-health "why" + topics on the home/llms surfaces.
+describe('planOutputs extras', () => {
+  const leaves: NavLeaf[] = [home, { ...readme, blurb: 'the readme' }, canvas];
+  const rendered = {
+    README: { innerHtml: '<h1>readme body</h1>', raw: '# readme\nmd source line' },
+    'specs/roadmap': { innerHtml: '<svg><text>RoadmapNode</text></svg>' },
+  };
+  const topics = [
+    { id: 'data', title: 'The data', blurb: 'corpus stuff', links: [{ kind: 'canvas' as const, slug: 'specs/roadmap', label: 'Roadmap' }] },
+  ];
+  const byPath = () =>
+    Object.fromEntries(
+      planOutputs({ leaves, base: BASE, meta: { title: 'Harness', summary: 'one line' }, rendered, topics }).map(
+        (o) => [o.outPath, o.contents],
+      ),
+    );
+
+  it('emits a search index covering docs, canvas bodies (full text), and topics', () => {
+    const idx = JSON.parse(byPath()['search.json']) as Array<{ slug: string; kind: string; text: string }>;
+    const bySlug = Object.fromEntries(idx.map((e) => [e.slug, e]));
+    expect(bySlug['README'].text).toContain('readme');
+    expect(bySlug['specs/roadmap'].text).toContain('RoadmapNode'); // canvas indexed full-text
+    expect(bySlug['data'].kind).toBe('topic');
+  });
+
+  it('emits a static twin for each topic page, linking to real twins', () => {
+    expect(byPath()['topic/data.html']).toContain('The data');
+    expect(byPath()['topic/data.html']).toContain('canvas/specs/roadmap.html');
+  });
+
+  it('puts the "why" framing and topics on the welcome twin and llms.txt', () => {
+    expect(byPath()['welcome.html']).toContain('Why this matters');
+    expect(byPath()['welcome.html']).toContain('topic/data.html');
+    expect(byPath()['llms.txt']).toContain('## Topics');
+    expect(byPath()['llms.txt']).toContain('topic/data.html');
+  });
+});
