@@ -9,7 +9,7 @@ numbering honest — the code landed before the spec). **Started**: 2026-05-27.
 
 **Detailed design / provenance:**
 `specs/artifacts/planning/med-agent-hub-bridge-delta.md` (the as-built delta vs the A2A reboot),
-`specs/artifacts/planning/med-agent-team-poc-roadmap.md` (§2–§5, the settled team + KB scope),
+`specs/artifacts/planning/archive/med-agent-team-poc-roadmap.md` (§2–§5, the settled team + KB scope; archived snapshot),
 `specs/artifacts/planning/agentic-orchestration-a2a-research.md` (the in-process-ReAct decision),
 `specs/artifacts/planning/react-team-orchestration-design.md` (the prompt-driven KB→clinical→compose flow).
 

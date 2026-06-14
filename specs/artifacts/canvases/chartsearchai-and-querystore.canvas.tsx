@@ -43,7 +43,7 @@ import {
 // module's OOTB default per config.xml), engine=remote (harness default) hits an
 // OpenAI-compat endpoint; switch with `make chartsearch-engine ENGINE=local|remote`.
 // A sectioned model picker + per-request {endpointUrl,modelName} override ship in
-// the esm + module (chartsearchai pin now harness-integration @ 8cab949). The
+// the esm + module (chartsearchai pin now harness-integration @ 9af767e, 2026-06-12). The
 // "remote engine only / bundled llama-server out of scope" framing below is
 // SUPERSEDED. med-agent-hub (the Med Agent Team) runs as a picker endpoint both
 // locally and on the cloud VM.
@@ -87,7 +87,7 @@ const multiTurnPrRows = [
 ];
 
 const moduleStatusRows = [
-  ['chartsearchai', 'mature, shipping, hot iteration', 'harness-integration @ 8cab949 (2026-05-31)', '12 merged PRs (upstream, as of 2026-05-16)', 'Harness pins the fork harness-integration tip: per-request override, sectioned model picker, engine-aware override + both engines (local/remote) wired. Standalone capable; querystore integration off by default.'],
+  ['chartsearchai', 'mature, shipping, hot iteration', 'harness-integration @ 9af767e (2026-06-12)', '12 merged PRs (upstream, as of 2026-05-16); fork now 28 ahead / 27 behind upstream/main — reconcile is lane L4', 'Harness pins the fork harness-integration tip: per-request override, sectioned model picker, engine-aware override + both engines (local/remote) wired. Standalone capable; querystore integration off by default.'],
   ['querystore', 'pre-alpha, single-author iteration', 'ab371333 (2026-05-16)', '1 merged PR (scaffold)', '5 critical runtime bugs block any backend tier from starting cleanly'],
 ];
 
