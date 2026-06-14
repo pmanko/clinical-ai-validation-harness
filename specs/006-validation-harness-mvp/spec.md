@@ -1,9 +1,9 @@
 # Feature 006: Validation Harness MVP — scenario × backend comparison with human adjudication
 
-**Roadmap slot**: operationalizes 003 (validation spine) + 012 (answer/citation/abstention eval) + 014 (review/rubric) as a minimal, honest MVP.
+**Roadmap slot**: this IS the validation spine (roadmap M2, slug `006` — the earlier `003` slug was never created); operationalizes it + answer/citation/abstention eval (012) + review/rubric (014) as a minimal, honest MVP.
 **Scope of this PR**: an offline, file-first, deterministic-gated eval that runs authored multi-turn scenarios against multiple model backends through chartsearchai's own API, records results onto the existing run_manifest/events.jsonl spine, and presents a standalone TSX report with per-cell human adjudication.
 **Status**: in progress (core runner/client/report + feedback form shipped and live-run validated) | **Started**: 2026-05-28
-**Depends on**: the med-agent-hub bridge + endpoint-registry picker (shipped on branch `004`; see `specs/005-med-agent-hub-bridge/spec.md` and `specs/artifacts/planning/med-agent-team-poc-roadmap.md`) — the harness drives backends through chartsearchai's REST API and compares the `med-agent-team` endpoint that bridge stands up.
+**Depends on**: the med-agent-hub bridge + endpoint-registry picker (shipped on branch `004`; see `specs/005-med-agent-hub-bridge/spec.md` and `specs/artifacts/planning/archive/med-agent-team-poc-roadmap.md`) — the harness drives backends through chartsearchai's REST API and compares the `med-agent-team` endpoint that bridge stands up.
 
 ## Goal
 

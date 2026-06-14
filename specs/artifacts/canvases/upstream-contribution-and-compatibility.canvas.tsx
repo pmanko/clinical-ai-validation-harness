@@ -109,11 +109,13 @@ export default function UpstreamContributionAndCompatibility() {
       </Grid>
 
       <Callout tone="info" title="Topology — which fork is what">
-        <Code>harness-integration</Code> is an INTEGRATION branch (17 features + harness pins), not a single
-        upstream PR. Real contributions go to <Code>openmrs/*</Code> as focused feature branches cut from
-        current <Code>upstream/main</Code>, one coherent PR each. esm sits clean on upstream (0 behind);
-        the module is 35 behind, so its PRs need a rebase onto current upstream first. med-agent-hub is
-        pmanko&apos;s own service — no openmrs upstream — and is reviewed via harness PR&nbsp;#15.
+        <Code>harness-integration</Code> is an INTEGRATION branch (chartsearchai: 28 ahead / 27 behind{' '}
+        <Code>upstream/main</Code> as of 2026-06-12), not a single upstream PR. Real contributions go to{' '}
+        <Code>openmrs/*</Code> as focused feature branches cut from current <Code>upstream/main</Code>, one
+        coherent PR each. The module is 27 behind upstream, so its PRs need a rebase onto current upstream
+        first — that reconcile is lane L4. med-agent-hub is pmanko&apos;s own service — no openmrs upstream,
+        and since 2026-06-11 it pins <Code>main</Code> (its harness-integration buffer was retired), gated by
+        its own CI.
       </Callout>
 
       <Divider />
