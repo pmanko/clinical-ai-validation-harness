@@ -1,5 +1,6 @@
 import type { NavLeaf } from './nav';
 import type { Topic } from './topics';
+import { toPlainText } from './search';
 
 export type RenderedPage = { innerHtml: string; raw?: string };
 
@@ -71,13 +72,11 @@ export function buildSearchIndex(input: {
   topics?: Topic[];
 }): string {
   const { leaves, rendered, topics = [] } = input;
-  const strip = (s: string) =>
-    s.replace(/```[\s\S]*?```/g, ' ').replace(/<[^>]+>/g, ' ').replace(/[#*`>_|~]+/g, ' ').replace(/\s+/g, ' ').trim();
   const entries: Array<{ title: string; kind: string; slug: string; blurb: string; text: string }> = [];
   for (const l of leaves) {
     if (l.kind === 'home') continue;
     const r = rendered[l.slug];
-    const text = r ? strip(r.raw ?? r.innerHtml ?? '').slice(0, 4000) : '';
+    const text = r ? toPlainText(r.raw ?? r.innerHtml ?? '').slice(0, 4000) : '';
     entries.push({ title: l.title, kind: l.kind, slug: l.slug, blurb: l.blurb ?? '', text });
   }
   for (const t of topics) entries.push({ title: t.title, kind: 'topic', slug: t.id, blurb: t.blurb, text: '' });

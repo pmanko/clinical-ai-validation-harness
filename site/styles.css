@@ -295,7 +295,7 @@ body {
 /* why / surfaces / start-here (welcome tier-0) */
 .why-grid, .surface-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(280px, 100%), 1fr));
   gap: 12px;
 }
 .why-card {
