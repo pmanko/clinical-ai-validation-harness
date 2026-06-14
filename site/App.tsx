@@ -1,8 +1,10 @@
 import * as React from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
-import { isSection, navTree, neighbors, NavLeaf, NavSection } from './nav';
+import { isSection, leafSequence, navTree, neighbors, NavLeaf, NavSection } from './nav';
 import { completeNav } from './nav-auto';
 import { htmlHrefFor } from './prerender-lib';
+import { topics } from './topics';
+import { filterEntries, toPlainText, SearchEntry } from './search';
 
 // Link from the interactive view to its full-static-HTML twin (the LLM-readable
 // mirror emitted by the prerender pass). Same mirror-routes-minus-hash mapping.
@@ -38,6 +40,71 @@ function findSpecModule(slug: string) {
   // "README" maps to ../README.md; "specs/foo/bar" → ../specs/foo/bar.md
   const target = slug === 'README' ? '../README.md' : `../${slug}.md`;
   return specModules[target] ?? repoMd[target];
+}
+
+// Client-side search index, built once from the same globs the SPA already loads:
+// every curated/auto doc + canvas (spec bodies full-text, canvases by title/blurb)
+// plus the topic pages. Works in dev and prod with no fetch.
+const searchIndex: SearchEntry[] = (() => {
+  const out: SearchEntry[] = [];
+  for (const { leaf } of leafSequence(fullNavTree)) {
+    if (leaf.kind !== 'spec' && leaf.kind !== 'canvas') continue;
+    let text = '';
+    if (leaf.kind === 'spec') {
+      const mod = findSpecModule(leaf.slug);
+      text = toPlainText(mod?.default ?? '').slice(0, 4000);
+    }
+    out.push({ title: leaf.title, kind: leaf.kind, slug: leaf.slug, blurb: leaf.blurb ?? '', text });
+  }
+  for (const t of topics) out.push({ title: t.title, kind: 'topic', slug: t.id, blurb: t.blurb, text: '' });
+  return out;
+})();
+
+function searchHref(e: SearchEntry): string {
+  return e.kind === 'topic' ? `/topic/${e.slug}` : e.kind === 'canvas' ? `/canvas/${e.slug}` : `/spec/${e.slug}`;
+}
+
+function SearchBox({ onNavigate }: { onNavigate: () => void }) {
+  const [q, setQ] = React.useState('');
+  // Prefer the prerendered search.json (canvas bodies indexed full-text); fall
+  // back to the client-built index (specs full-text) when it's absent, e.g. dev.
+  const [index, setIndex] = React.useState<SearchEntry[]>(searchIndex);
+  React.useEffect(() => {
+    let alive = true;
+    fetch(`${import.meta.env.BASE_URL}search.json`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => { if (alive && Array.isArray(data) && data.length) setIndex(data as SearchEntry[]); })
+      .catch(() => { /* dev / offline: keep the client index */ });
+    return () => { alive = false; };
+  }, []);
+  const results = React.useMemo(() => filterEntries(index, q), [index, q]);
+  const noMatch = q.trim().length >= 2 && results.length === 0;
+  return (
+    <div className="search">
+      <input
+        className="search-input"
+        type="search"
+        placeholder="Search docs…"
+        value={q}
+        onChange={(e) => setQ(e.target.value)}
+        aria-label="Search documentation"
+      />
+      {results.length > 0 && (
+        <ul className="search-results">
+          {results.map((e) => (
+            <li key={`${e.kind}-${e.slug}`}>
+              <Link to={searchHref(e)} onClick={() => { setQ(''); onNavigate(); }}>
+                <span className="search-result-title">{e.title}</span>
+                <span className="search-result-kind">{e.kind}</span>
+                {e.blurb && <span className="search-result-blurb">{e.blurb}</span>}
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
+      {noMatch && <div className="search-empty">No matches.</div>}
+    </div>
+  );
 }
 
 // ---------- sidebar tree ----------------------------------------------------
@@ -97,7 +164,20 @@ function Sidebar({ onClose, onNavigate }: { onClose: () => void; onNavigate: () 
         <button type="button" className="sidebar-close" onClick={onClose} aria-label="Close navigation">Close</button>
       </div>
       <div className="sidebar-sub">Planning artifacts &amp; canvases</div>
+      <SearchBox onNavigate={onNavigate} />
       <nav className="sidebar-nav">
+        <div className="nav-section depth-0">
+          <div className="nav-section-header top nav-section-static">
+            <span className="caret">▾</span><span className="nav-section-title">Browse by topic</span>
+          </div>
+          <div className="nav-section-children">
+            {topics.map((t) => (
+              <NavLink key={t.id} to={`/topic/${t.id}`} end onClick={onNavigate} className={({ isActive }) => `nav-leaf${isActive ? ' active' : ''}`}>
+                <span className="nav-leaf-title">{t.title}</span>
+              </NavLink>
+            ))}
+          </div>
+        </div>
         {fullNavTree.map((s, i) => <SidebarSection key={`top-${i}-${s.title}`} section={s} depth={0} onNavigate={onNavigate} />)}
       </nav>
     </aside>
@@ -138,9 +218,8 @@ function HomeView() {
           Every validation claim traces back to specific clinical records, not just aggregate metrics.
         </p>
         <p className="landing-hero-sub">
-          This site organizes the specs, plans, and visual summaries ("canvases") produced during development.
-          Auto-deployed from <code>main</code>. Canvases render via a <code>cursor/canvas</code> polyfill
-          for collaborators outside Cursor; the authoritative rendering remains the in-Cursor view.
+          A plain-language tour of what we're building and why — with the full specs, research, and roadmap
+          underneath, a click away.
         </p>
         <div className="landing-stat-row">
           <div className="landing-stat"><span className="n">{featureCount}</span> <span className="l">feature folders</span></div>
@@ -149,9 +228,105 @@ function HomeView() {
         </div>
       </header>
 
+      <section className="landing-section why">
+        <h2>Why this matters</h2>
+        <p className="landing-section-sub">
+          Much of the world's primary care runs where the cloud doesn't reach. That shapes everything we build.
+        </p>
+        <div className="why-grid">
+          <div className="why-card">
+            <h3>Care happens where the cloud doesn't reach</h3>
+            <p>
+              Many clinics that run OpenMRS have little connectivity, no GPUs, and few IT staff — so the AI has to
+              run <strong>offline, on modest hardware</strong>. That's why we test a local "AI team" of small models
+              instead of one big cloud model.
+            </p>
+          </div>
+          <div className="why-card">
+            <h3>Patient data should stay where the patient is</h3>
+            <p>
+              Sending charts to a cloud API is a privacy and data-ownership problem. So{' '}
+              <strong>patient data never leaves the deployment</strong>, and validation runs against the real local
+              systems — not a copy in someone else's datacenter.
+            </p>
+          </div>
+          <div className="why-card">
+            <h3>Global guidance has to fit local reality</h3>
+            <p>
+              Most clinical guidelines — and the data behind most AI — come from settings far better-resourced than
+              where this care happens; the conditions, drug formularies, and populations of low-resource clinics are{' '}
+              <strong>underrepresented in clinical research and guidelines</strong>. Mirroring WHO's{' '}
+              <a href="https://www.who.int/teams/digital-health-and-innovation/smart-guidelines" target="_blank" rel="noreferrer">SMART Guidelines</a>,
+              we contextualize a knowledge base to each deployment's own concepts and medicines, so the AI reflects the
+              patients actually in front of it.
+            </p>
+          </div>
+          <div className="why-card">
+            <h3>"Looks right" isn't good enough in medicine</h3>
+            <p>
+              Low-resource settings can least afford a confidently wrong answer. Every validation claim is{' '}
+              <strong>traceable to a specific patient record</strong>, reviewed, and reproducible.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section className="landing-section">
+        <h2>What we're validating</h2>
+        <p className="landing-section-sub">Four clinical-AI surfaces, each tested through its real system.</p>
+        <div className="surface-grid">
+          <div className="surface"><strong>chartsearchai</strong> — the AI inside OpenMRS that searches a patient's chart and answers with citations.</div>
+          <div className="surface"><strong>med-agent-hub</strong> — a local "AI team" of small models (orchestrator, expert, synthesizer, validator) that can stand in for one big cloud model.</div>
+          <div className="surface"><strong>Catalyst</strong> — lab-result AI over the OpenELIS lab system.</div>
+          <div className="surface"><strong>the harness</strong> — the shared bench that runs real questions through these and grades the answers with evidence.</div>
+        </div>
+      </section>
+
+      <section className="landing-section start-here">
+        <h2>Start here</h2>
+        <p className="landing-section-sub">New to the project? Read these three, in order.</p>
+        <div className="start-steps">
+          <Link className="start-step" to="/canvas/specs/roadmap">
+            <span className="start-step-n">1</span>
+            <span className="start-step-body">
+              <span className="start-step-title">The roadmap, in plain terms</span>
+              <span className="start-step-blurb">What we're building and why, then the milestones and the work in flight.</span>
+            </span>
+          </Link>
+          <Link className="start-step" to="/canvas/specs/artifacts/canvases/validation-research">
+            <span className="start-step-n">2</span>
+            <span className="start-step-body">
+              <span className="start-step-title">How we judge an AI answer</span>
+              <span className="start-step-blurb">The evidence model and evaluation methodology behind every claim.</span>
+            </span>
+          </Link>
+          <Link className="start-step" to="/spec/README">
+            <span className="start-step-n">3</span>
+            <span className="start-step-body">
+              <span className="start-step-title">Project README</span>
+              <span className="start-step-blurb">What the harness is, who it's for, and how to run it.</span>
+            </span>
+          </Link>
+        </div>
+      </section>
+
+      <section className="landing-section">
+        <h2>Browse by topic</h2>
+        <p className="landing-section-sub">Prefer to explore by theme? Each gathers the specs, research, and canvases for one aspect of the project.</p>
+        <div className="card-grid">
+          {topics.map((t) => (
+            <Link key={t.id} to={`/topic/${t.id}`} className="dispatch-card">
+              <div className="dispatch-card-title">{t.title}</div>
+              <div className="dispatch-card-blurb">{t.blurb}</div>
+              <div className="dispatch-card-path">{t.links.length} page{t.links.length === 1 ? '' : 's'} →</div>
+            </Link>
+          ))}
+        </div>
+      </section>
+
       <section className="landing-section">
         <h2>Canvases</h2>
-        <p className="landing-section-sub">Topic-scoped visual summary pages. Each renders the same <code>.canvas.tsx</code> source as inside Cursor, via the polyfill.</p>
+        <p className="landing-section-sub">Topic-scoped visual summary pages — architecture, data profiles, comparisons, and research.</p>
         <div className="card-grid">
           {canvasLeaves.map(({ leaf, topSection, parentSection }) => (
             <Link key={leaf.slug} to={toFor(leaf)} className="dispatch-card">
@@ -247,6 +422,25 @@ function SpecView({ slug }: { slug: string }) {
   );
 }
 
+function TopicView({ id }: { id: string }) {
+  const topic = topics.find((t) => t.id === id);
+  if (!topic) return <NotFoundView what="topic" />;
+  return (
+    <div className="content-prose">
+      <p className="topic-eyebrow"><Link to="/">← all topics</Link></p>
+      <h1>{topic.title}</h1>
+      <p className="topic-blurb">{topic.blurb}</p>
+      <ul className="doc-list">
+        {topic.links.map((l) => (
+          <li key={`${l.kind}-${l.slug}`}>
+            <Link to={l.kind === 'canvas' ? `/canvas/${l.slug}` : `/spec/${l.slug}`}>{l.label}</Link>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 function PrevNext({ slug }: { slug: string }) {
   const { prev, next } = neighbors(slug, fullNavTree);
   if (!prev && !next) return null;
@@ -301,6 +495,7 @@ export default function App() {
   if (!kind || kind === 'welcome')      main = <HomeView />;
   else if (kind === 'canvas')           main = <CanvasView slug={slug} />;
   else if (kind === 'spec')             main = <SpecView slug={slug} />;
+  else if (kind === 'topic')            main = <TopicView id={slug} />;
   else                                  main = <HomeView />;
 
   return (

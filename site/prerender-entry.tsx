@@ -14,6 +14,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { leafSequence, navTree } from './nav';
 import { completeNav } from './nav-auto';
 import { planOutputs, type RenderedPage } from './prerender-lib';
+import { topics } from './topics';
 
 const canvasModules = import.meta.glob('../specs/**/*.canvas.tsx', { eager: true }) as Record<
   string,
@@ -69,5 +70,5 @@ export function plan(base: string, meta: { title: string; summary: string }) {
       rendered[leaf.slug] = { innerHtml: renderToStaticMarkup(React.createElement(mod.default)) };
     }
   }
-  return { outputs: planOutputs({ leaves, base, meta, rendered }), missing };
+  return { outputs: planOutputs({ leaves, base, meta, rendered, topics }), missing };
 }
