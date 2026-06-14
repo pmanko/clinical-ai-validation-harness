@@ -4,6 +4,10 @@ A validation harness for early clinical AI tools — helping teams test AI-power
 
 The harness currently focuses on OpenMRS-based clinical AI (chart search, query retrieval, clinical chat) and OpenELIS lab-system AI (Catalyst). Validation means real systems, real data, and decisions that can be traced back to specific clinical records — not just passing unit tests.
 
+## Why this matters
+
+Much of the world's primary care runs in settings with intermittent connectivity, modest hardware, few IT staff, and strong reasons to keep patient data local. Clinical AI for these settings has to run **offline and on less-powerful hardware**, keep **patient data on-site** (privacy and local data ownership), and **fit local clinical reality** — guidelines, and the data most AI is trained on, are written for settings that look little like a rural clinic. That shapes every choice here: a local "AI team" of small models instead of one big cloud model, a knowledge base contextualized to each deployment's own concepts and drugs, and validation against real local systems with every claim traceable to a specific record. The intent mirrors WHO's [SMART Guidelines](https://www.who.int/teams/digital-health-and-innovation/smart-guidelines) — let local programs benefit from global evidence while adapting it to their own context — applied to the question "can we trust this AI here?"
+
 ## Who this is for
 
 - **Clinical and program stakeholders** — understand how AI answers are evaluated, what evidence backs a validation claim, and where the governance guardrails are.
@@ -22,13 +26,11 @@ The harness coordinates validation across four clinical AI projects:
 | `openmrs_chatbot` | Python clinical chatbot with patient/doctor interfaces and agent workflow scaffolding | Future expansion: multi-turn grounding and role-aware answer evaluation |
 | `Catalyst` (OpenELIS) | Lab AI sidecar over OpenELIS Global 2: FHIR-grounded retrieval over HAPI and embedded FHIR providers, resource-cited answers, and a Scout-style lab report/analytics UI | M10 (Planning): FHIR-first sidecar POC — canonical question set, evidence cards, lab timeline, and embedded-FHIR parity probe |
 
-## Current priority: OpenMRS demo-data remap (Roadmap M1)
+## Current priority: the validation spine and active lanes
 
-The first major deliverable transforms the publicly available OpenMRS 2.7 demo corpus (`large-demo-data-2-7-0.sql`) into a Reference Application 3.x / Core 2.8-compatible database. This creates a realistic, importable clinical corpus that `chartsearchai` and other tools can be validated against.
+The OpenMRS demo-data remap (Roadmap M1 / feature 002) is **complete** — the public 2.7 demo corpus is transformed and imported as the canonical 5,284-patient 2.8 demo schema the harness validates against. (See the [Feature 002 spec](specs/002-openmrs-demo-data-2-8-remap/spec.md) and [quickstart](specs/002-openmrs-demo-data-2-8-remap/quickstart.md) for that work.)
 
-Work includes profiling the source corpus (schema, terminology, modules), mapping concepts onto the CIEL clinical terminology standard, running deterministic SQL transforms, validating the imported database against a live OpenMRS stack, and running chart search and coverage checks against real imported data.
-
-Status: actively in progress. See the [Feature 002 spec](specs/002-openmrs-demo-data-2-8-remap/spec.md) and [quickstart](specs/002-openmrs-demo-data-2-8-remap/quickstart.md) for step-by-step detail.
+Current work is the **validation spine** (Roadmap M2 / feature 006): run the same clinical questions across model backends through chartsearchai's real API, score the answers against the patient chart, and record reviewable, record-level evidence. Three lanes are in flight — the local "AI team" tool layer, human-feedback reports, and closing the first live-chartsearchai milestone. See the [development operating plan](docs/dev-roadmap.md) and the [roadmap canvas](specs/roadmap.canvas.tsx).
 
 ## How the docs fit together
 
