@@ -34,16 +34,23 @@ export function isSection(n: NavNode): n is NavSection {
   return (n as NavSection).items !== undefined;
 }
 
-// Canonical doc order within a feature folder.
-function featureDocs(feature: string): NavLeaf[] {
-  return [
-    { kind: 'spec', slug: `specs/${feature}/spec`,        title: 'Spec',         blurb: 'Feature specification: user stories, acceptance, scope.' },
-    { kind: 'spec', slug: `specs/${feature}/plan`,        title: 'Plan',         blurb: 'Implementation plan and milestone breakdown.' },
-    { kind: 'spec', slug: `specs/${feature}/research`,    title: 'Research',     blurb: 'Background research, references, prior art.' },
-    { kind: 'spec', slug: `specs/${feature}/data-model`,  title: 'Data model',   blurb: 'Entities, relationships, constraints.' },
-    { kind: 'spec', slug: `specs/${feature}/quickstart`,  title: 'Quickstart',   blurb: 'Get-started commands and operator flow.' },
-    { kind: 'spec', slug: `specs/${feature}/tasks`,       title: 'Tasks',        blurb: 'Task list — what is done, what is pending.' },
-  ];
+// Canonical doc order + human labels within a feature folder.
+const DOC_META: Record<string, { title: string; blurb: string }> = {
+  spec:         { title: 'Spec',       blurb: 'Feature specification: user stories, acceptance, scope.' },
+  plan:         { title: 'Plan',       blurb: 'Implementation plan and milestone breakdown.' },
+  research:     { title: 'Research',   blurb: 'Background research, references, prior art.' },
+  'data-model': { title: 'Data model', blurb: 'Entities, relationships, constraints.' },
+  quickstart:   { title: 'Quickstart', blurb: 'Get-started commands and operator flow.' },
+  tasks:        { title: 'Tasks',      blurb: 'Task list — what is done, what is pending.' },
+};
+
+// Build leaves for the docs that actually exist in a feature folder. Pass the
+// present doc kinds explicitly so we never link a file that isn't there.
+function featureDocs(
+  feature: string,
+  docs: Array<keyof typeof DOC_META> = ['spec', 'plan', 'research', 'data-model', 'quickstart', 'tasks'],
+): NavLeaf[] {
+  return docs.map((d) => ({ kind: 'spec', slug: `specs/${feature}/${d}`, title: DOC_META[d].title, blurb: DOC_META[d].blurb }));
 }
 
 export const navTree: NavSection[] = [
@@ -54,6 +61,7 @@ export const navTree: NavSection[] = [
       { kind: 'spec',   slug: 'README',                                        title: 'Project README',      blurb: 'What this harness is, who it is for, how to get started, and key terms.' },
       { kind: 'canvas', slug: 'specs/roadmap',                                 title: 'Validation roadmap',  blurb: 'Planned validation milestones, lanes, dependencies. Start here to understand sequencing.' },
       { kind: 'canvas', slug: 'specs/artifacts/canvases/validation-research',  title: 'Validation research', blurb: 'Evidence model, evaluation methodology, and the run-manifest traceability spine.' },
+      { kind: 'spec',   slug: 'docs/dev-roadmap',                              title: 'Development operating plan', blurb: 'Active lanes, gates, and launch sequence — the operating companion to the roadmap canvas.' },
     ],
   },
   {
@@ -81,7 +89,7 @@ export const navTree: NavSection[] = [
         ],
       },
       {
-        title: '002 — OpenMRS demo-data remap (in progress)',
+        title: '002 — OpenMRS demo-data remap (complete)',
         intro: 'Roadmap M1: legacy 2.7 → CIEL-bound 2.8 Ref App transform. Plus chartsearchai/OpenELIS cross-load analysis.',
         items: [
           ...featureDocs('002-openmrs-demo-data-2-8-remap'),
@@ -104,6 +112,26 @@ export const navTree: NavSection[] = [
           },
         ],
       },
+      {
+        title: '004 — Real adapter entrypoints (in progress)',
+        intro: 'Roadmap M3: executable contracts for the real production paths — chartsearchai, querystore, openmrs_chatbot, Catalyst.',
+        items: [...featureDocs('004-real-adapter-entrypoints', ['spec', 'plan', 'tasks'])],
+      },
+      {
+        title: '005 — med-agent-hub bridge (shipped)',
+        intro: 'Roadmap F005: an in-process "AI team" of small local models behind an OpenAI-compatible endpoint that chartsearchai talks to.',
+        items: [...featureDocs('005-med-agent-hub-bridge', ['spec'])],
+      },
+      {
+        title: '006 — Validation harness MVP (in progress)',
+        intro: 'Roadmap M2 (the validation spine): run the same clinical questions across model backends through chartsearchai’s real API, with human adjudication.',
+        items: [...featureDocs('006-validation-harness-mvp', ['spec'])],
+      },
+      {
+        title: '007 — File-based LLM config overrides (planned)',
+        intro: 'Roadmap F007: make the chartsearchai system prompt + inference params overridable via an operator-editable file pair — fast iteration without a rebuild.',
+        items: [...featureDocs('007-llm-config-overrides', ['spec', 'plan'])],
+      },
     ],
   },
   {
@@ -125,6 +153,11 @@ export const navTree: NavSection[] = [
       { kind: 'spec', slug: 'specs/artifacts/planning/data-remap-2.8',      title: 'Data remap 2.8',                  blurb: 'Demo-data remap plan for OpenMRS 2.8-compatible import work.' },
       { kind: 'spec', slug: 'specs/artifacts/planning/metadata-schema',     title: 'Metadata schema',                 blurb: 'Manifest and event schema notes for emitted validation metadata.' },
       { kind: 'spec', slug: 'specs/artifacts/planning/pccp-change-record-template', title: 'PCCP change record template', blurb: 'Governance template for material validation changes.' },
+      { kind: 'spec', slug: 'specs/artifacts/planning/harness-architecture-brief',       title: 'Harness architecture brief',     blurb: 'How the control-plane pieces fit together.' },
+      { kind: 'spec', slug: 'specs/artifacts/planning/eval-methodology-brief',           title: 'Evaluation methodology brief',   blurb: 'How validation quality is measured — the Scout-style rubric and metrics.' },
+      { kind: 'spec', slug: 'specs/artifacts/planning/clinical-kb-brief',                 title: 'Clinical KB brief (F009)',       blurb: 'A clinical knowledge base for low-power local models, contextualized per deployment.' },
+      { kind: 'spec', slug: 'specs/artifacts/planning/chartsearchai-model-gateway-brief', title: 'Model gateway brief (F008)',     blurb: 'A gateway letting chartsearchai reach many model providers behind one URL.' },
+      { kind: 'spec', slug: 'specs/artifacts/planning/catalyst-fhir-sidecar-brief',       title: 'Catalyst FHIR sidecar brief (M10)', blurb: 'FHIR-grounded lab AI over OpenELIS — source brief for the M10 POC.' },
     ],
   },
   {
