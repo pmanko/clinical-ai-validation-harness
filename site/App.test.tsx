@@ -42,3 +42,21 @@ describe('App full-HTML twin link', () => {
     expect(html).toContain('specs/004-real-adapter-entrypoints/spec');
   });
 });
+
+// The landing must read as a non-technical landscape: lead with WHY the project
+// matters (global-health framing), in plain words, and drop the dev-internal
+// jargon ("polyfill", auto-deploy plumbing) from the front door.
+describe('landing — non-technical entry', () => {
+  it('leads with a plain "Why this matters" and drops dev-internal jargon', () => {
+    const html = renderToStaticMarkup(
+      React.createElement(
+        MemoryRouter,
+        { initialEntries: ['/welcome'] },
+        React.createElement(App),
+      ),
+    );
+    expect(html).toContain('Why this matters');
+    expect(html).toContain('offline');
+    expect(html).not.toContain('polyfill');
+  });
+});

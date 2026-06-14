@@ -138,9 +138,8 @@ function HomeView() {
           Every validation claim traces back to specific clinical records, not just aggregate metrics.
         </p>
         <p className="landing-hero-sub">
-          This site organizes the specs, plans, and visual summaries ("canvases") produced during development.
-          Auto-deployed from <code>main</code>. Canvases render via a <code>cursor/canvas</code> polyfill
-          for collaborators outside Cursor; the authoritative rendering remains the in-Cursor view.
+          A plain-language tour of what we're building and why — with the full specs, research, and roadmap
+          underneath, a click away.
         </p>
         <div className="landing-stat-row">
           <div className="landing-stat"><span className="n">{featureCount}</span> <span className="l">feature folders</span></div>
@@ -149,9 +148,89 @@ function HomeView() {
         </div>
       </header>
 
+      <section className="landing-section why">
+        <h2>Why this matters</h2>
+        <p className="landing-section-sub">
+          Much of the world's primary care runs where the cloud doesn't reach. That shapes everything we build.
+        </p>
+        <div className="why-grid">
+          <div className="why-card">
+            <h3>Care happens where the cloud doesn't reach</h3>
+            <p>
+              Many clinics that run OpenMRS have little connectivity, no GPUs, and few IT staff — so the AI has to
+              run <strong>offline, on modest hardware</strong>. That's why we test a local "AI team" of small models
+              instead of one big cloud model.
+            </p>
+          </div>
+          <div className="why-card">
+            <h3>Patient data should stay where the patient is</h3>
+            <p>
+              Sending charts to a cloud API is a privacy and data-ownership problem. So{' '}
+              <strong>patient data never leaves the deployment</strong>, and validation runs against the real local
+              systems — not a copy in someone else's datacenter.
+            </p>
+          </div>
+          <div className="why-card">
+            <h3>Global guidance has to fit local reality</h3>
+            <p>
+              Guidelines — and the data most AI is trained on — are written for settings unlike a rural clinic.
+              Mirroring WHO's{' '}
+              <a href="https://www.who.int/teams/digital-health-and-innovation/smart-guidelines" target="_blank" rel="noreferrer">SMART Guidelines</a>,
+              we contextualize a knowledge base to each deployment's own concepts and medicines.
+            </p>
+          </div>
+          <div className="why-card">
+            <h3>"Looks right" isn't good enough in medicine</h3>
+            <p>
+              Low-resource settings can least afford a confidently wrong answer. Every validation claim is{' '}
+              <strong>traceable to a specific patient record</strong>, reviewed, and reproducible.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section className="landing-section">
+        <h2>What we're validating</h2>
+        <p className="landing-section-sub">Four clinical-AI surfaces, each tested through its real system.</p>
+        <div className="surface-grid">
+          <div className="surface"><strong>chartsearchai</strong> — the AI inside OpenMRS that searches a patient's chart and answers with citations.</div>
+          <div className="surface"><strong>med-agent-hub</strong> — a local "AI team" of small models (orchestrator, expert, synthesizer, validator) that can stand in for one big cloud model.</div>
+          <div className="surface"><strong>Catalyst</strong> — lab-result AI over the OpenELIS lab system.</div>
+          <div className="surface"><strong>the harness</strong> — the shared bench that runs real questions through these and grades the answers with evidence.</div>
+        </div>
+      </section>
+
+      <section className="landing-section start-here">
+        <h2>Start here</h2>
+        <p className="landing-section-sub">New to the project? Read these three, in order.</p>
+        <div className="start-steps">
+          <Link className="start-step" to="/canvas/specs/roadmap">
+            <span className="start-step-n">1</span>
+            <span className="start-step-body">
+              <span className="start-step-title">The roadmap, in plain terms</span>
+              <span className="start-step-blurb">What we're building and why, then the milestones and the work in flight.</span>
+            </span>
+          </Link>
+          <Link className="start-step" to="/canvas/specs/artifacts/canvases/validation-research">
+            <span className="start-step-n">2</span>
+            <span className="start-step-body">
+              <span className="start-step-title">How we judge an AI answer</span>
+              <span className="start-step-blurb">The evidence model and evaluation methodology behind every claim.</span>
+            </span>
+          </Link>
+          <Link className="start-step" to="/spec/README">
+            <span className="start-step-n">3</span>
+            <span className="start-step-body">
+              <span className="start-step-title">Project README</span>
+              <span className="start-step-blurb">What the harness is, who it's for, and how to run it.</span>
+            </span>
+          </Link>
+        </div>
+      </section>
+
       <section className="landing-section">
         <h2>Canvases</h2>
-        <p className="landing-section-sub">Topic-scoped visual summary pages. Each renders the same <code>.canvas.tsx</code> source as inside Cursor, via the polyfill.</p>
+        <p className="landing-section-sub">Topic-scoped visual summary pages — architecture, data profiles, comparisons, and research.</p>
         <div className="card-grid">
           {canvasLeaves.map(({ leaf, topSection, parentSection }) => (
             <Link key={leaf.slug} to={toFor(leaf)} className="dispatch-card">
