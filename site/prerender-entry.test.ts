@@ -17,4 +17,10 @@ describe('plan (prerender-entry)', () => {
     expect(byPath['canvas/specs/roadmap.html']).toContain('<svg');
     expect(byPath['canvas/specs/artifacts/canvases/validation-research.html']).toContain('<table');
   });
+
+  it('emits a static twin for the new cited background page', () => {
+    const twin = byPath['spec/specs/background/why-local-first-clinical-ai.html'] || '';
+    expect(twin.length).toBeGreaterThan(500);
+    expect(twin).toContain('Where most primary care actually happens');
+  });
 });

@@ -5,6 +5,7 @@ import { completeNav } from './nav-auto';
 import { htmlHrefFor } from './prerender-lib';
 import { topics } from './topics';
 import { filterEntries, toPlainText, SearchEntry } from './search';
+import { HERO, PROBLEM, APPROACH, PROOF, GO_DEEPER } from './landing-content';
 
 // Link from the interactive view to its full-static-HTML twin (the LLM-readable
 // mirror emitted by the prerender pass). Same mirror-routes-minus-hash mapping.
@@ -187,201 +188,63 @@ function Sidebar({ onClose, onNavigate }: { onClose: () => void; onNavigate: () 
 // ---------- views -----------------------------------------------------------
 
 function HomeView() {
-  // Pull a flat list of all leaves from the curated tree (so the welcome
-  // page stays in lockstep with the sidebar — single source of truth).
-  type LeafWithPath = { leaf: NavLeaf; topSection: NavSection; parentSection?: NavSection };
-  const allLeaves: LeafWithPath[] = [];
-  function walk(items: Array<NavLeaf | NavSection>, topSection: NavSection, parentSection?: NavSection) {
-    for (const it of items) {
-      if (isSection(it)) walk(it.items, topSection, it);
-      else allLeaves.push({ leaf: it, topSection, parentSection });
-    }
-  }
-  for (const top of fullNavTree) walk(top.items, top);
-
-  const canvasLeaves = allLeaves.filter((x) => x.leaf.kind === 'canvas');
-  const totalDocs = allLeaves.filter((x) => x.leaf.kind === 'spec').length;
-  const totalCanvases = canvasLeaves.length;
-  const featureCount = fullNavTree.find((s) => s.title === 'Active features')?.items.filter(isSection).length ?? 0;
-
-  const toFor = (leaf: NavLeaf) =>
-    leaf.kind === 'canvas' ? `/canvas/${leaf.slug}` : leaf.kind === 'home' ? '/' : `/spec/${leaf.slug}`;
-
   return (
     <div className="landing">
       <header className="landing-hero">
-        <div className="landing-hero-eyebrow">clinical-ai-validation-harness</div>
-        <h1>Validating early clinical AI — with traceable, reviewable evidence</h1>
-        <p>
-          A validation harness for clinical AI tools built on OpenMRS and OpenELIS. We test real systems
-          against realistic health data: chart search, query retrieval, clinical chat, and lab-system AI.
-          Every validation claim traces back to specific clinical records, not just aggregate metrics.
-        </p>
-        <p className="landing-hero-sub">
-          A plain-language tour of what we're building and why — with the full specs, research, and roadmap
-          underneath, a click away.
-        </p>
-        <div className="landing-stat-row">
-          <div className="landing-stat"><span className="n">{featureCount}</span> <span className="l">feature folders</span></div>
-          <div className="landing-stat"><span className="n">{totalCanvases}</span> <span className="l">canvases</span></div>
-          <div className="landing-stat"><span className="n">{totalDocs}</span> <span className="l">specs &amp; docs</span></div>
-        </div>
+        <div className="landing-hero-eyebrow">{HERO.eyebrow}</div>
+        <h1>{HERO.headline}</h1>
+        <p>{HERO.valueProp}</p>
       </header>
 
       <section className="landing-section why">
-        <h2>Why this matters</h2>
-        <p className="landing-section-sub">
-          Much of the world's primary care runs where the cloud doesn't reach. That shapes everything we build.
+        <h2>{PROBLEM.heading}</h2>
+        {PROBLEM.paragraphs.map((para, i) => (
+          <p className="landing-prose" key={i}>{para}</p>
+        ))}
+        <p className="landing-prose">
+          <Link className="landing-inline-link" to="/spec/specs/background/why-local-first-clinical-ai">
+            See the evidence behind these claims →
+          </Link>
         </p>
-        <div className="why-grid">
-          <div className="why-card">
-            <h3>Care happens where the cloud doesn't reach</h3>
-            <p>
-              Many clinics that run OpenMRS have little connectivity, no GPUs, and few IT staff — so the AI has to
-              run <strong>offline, on modest hardware</strong>. That's why we test a local "AI team" of small models
-              instead of one big cloud model.
-            </p>
-          </div>
-          <div className="why-card">
-            <h3>Patient data should stay where the patient is</h3>
-            <p>
-              Sending charts to a cloud API is a privacy and data-ownership problem. So{' '}
-              <strong>patient data never leaves the deployment</strong>, and validation runs against the real local
-              systems — not a copy in someone else's datacenter.
-            </p>
-          </div>
-          <div className="why-card">
-            <h3>Global guidance has to fit local reality</h3>
-            <p>
-              Most clinical guidelines — and the data behind most AI — come from settings far better-resourced than
-              where this care happens; the conditions, drug formularies, and populations of low-resource clinics are{' '}
-              <strong>underrepresented in clinical research and guidelines</strong>. Mirroring WHO's{' '}
-              <a href="https://www.who.int/teams/digital-health-and-innovation/smart-guidelines" target="_blank" rel="noreferrer">SMART Guidelines</a>,
-              we contextualize a knowledge base to each deployment's own concepts and medicines, so the AI reflects the
-              patients actually in front of it.
-            </p>
-          </div>
-          <div className="why-card">
-            <h3>"Looks right" isn't good enough in medicine</h3>
-            <p>
-              Low-resource settings can least afford a confidently wrong answer. Every validation claim is{' '}
-              <strong>traceable to a specific patient record</strong>, reviewed, and reproducible.
-            </p>
-          </div>
-        </div>
       </section>
 
-      <section className="landing-section">
-        <h2>What we're validating</h2>
-        <p className="landing-section-sub">Four clinical-AI surfaces, each tested through its real system.</p>
+      <section className="landing-section approach">
+        <h2>{APPROACH.heading}</h2>
+        <p className="landing-section-sub">{APPROACH.lead}</p>
         <div className="surface-grid">
-          <div className="surface"><strong>chartsearchai</strong> — the AI inside OpenMRS that searches a patient's chart and answers with citations.</div>
-          <div className="surface"><strong>med-agent-hub</strong> — a local "AI team" of small models (orchestrator, expert, synthesizer, validator) that can stand in for one big cloud model.</div>
-          <div className="surface"><strong>Catalyst</strong> — lab-result AI over the OpenELIS lab system.</div>
-          <div className="surface"><strong>the harness</strong> — the shared bench that runs real questions through these and grades the answers with evidence.</div>
-        </div>
-      </section>
-
-      <section className="landing-section start-here">
-        <h2>Start here</h2>
-        <p className="landing-section-sub">New to the project? Read these three, in order.</p>
-        <div className="start-steps">
-          <Link className="start-step" to="/canvas/specs/roadmap">
-            <span className="start-step-n">1</span>
-            <span className="start-step-body">
-              <span className="start-step-title">The roadmap, in plain terms</span>
-              <span className="start-step-blurb">What we're building and why, then the milestones and the work in flight.</span>
-            </span>
-          </Link>
-          <Link className="start-step" to="/canvas/specs/artifacts/canvases/validation-research">
-            <span className="start-step-n">2</span>
-            <span className="start-step-body">
-              <span className="start-step-title">How we judge an AI answer</span>
-              <span className="start-step-blurb">The evidence model and evaluation methodology behind every claim.</span>
-            </span>
-          </Link>
-          <Link className="start-step" to="/spec/README">
-            <span className="start-step-n">3</span>
-            <span className="start-step-body">
-              <span className="start-step-title">Project README</span>
-              <span className="start-step-blurb">What the harness is, who it's for, and how to run it.</span>
-            </span>
-          </Link>
-        </div>
-      </section>
-
-      <section className="landing-section">
-        <h2>Browse by topic</h2>
-        <p className="landing-section-sub">Prefer to explore by theme? Each gathers the specs, research, and canvases for one aspect of the project.</p>
-        <div className="card-grid">
-          {topics.map((t) => (
-            <Link key={t.id} to={`/topic/${t.id}`} className="dispatch-card">
-              <div className="dispatch-card-title">{t.title}</div>
-              <div className="dispatch-card-blurb">{t.blurb}</div>
-              <div className="dispatch-card-path">{t.links.length} page{t.links.length === 1 ? '' : 's'} →</div>
-            </Link>
-          ))}
-        </div>
-      </section>
-
-      <section className="landing-section">
-        <h2>Canvases</h2>
-        <p className="landing-section-sub">Topic-scoped visual summary pages — architecture, data profiles, comparisons, and research.</p>
-        <div className="card-grid">
-          {canvasLeaves.map(({ leaf, topSection, parentSection }) => (
-            <Link key={leaf.slug} to={toFor(leaf)} className="dispatch-card">
-              <div className="dispatch-card-pill">canvas</div>
-              <div className="dispatch-card-title">{leaf.title}</div>
-              {leaf.blurb && <div className="dispatch-card-blurb">{leaf.blurb}</div>}
-              <div className="dispatch-card-path">{parentSection?.title ?? topSection.title}</div>
-            </Link>
-          ))}
-        </div>
-      </section>
-
-      <section className="landing-section">
-        <h2>Specs &amp; docs</h2>
-        <p className="landing-section-sub">Markdown sources in sidebar navigation order. Click any to read; every page has prev/next links at the bottom.</p>
-        {fullNavTree.map((top) => {
-          // Group leaves by parent section within the top — preserving the curated order.
-          type Group = { label: string; leaves: NavLeaf[] };
-          const groups: Group[] = [];
-          function visit(items: Array<NavLeaf | NavSection>, label: string) {
-            const ownLeaves: NavLeaf[] = [];
-            for (const it of items) {
-              if (isSection(it)) visit(it.items, it.title);
-              else ownLeaves.push(it);
-            }
-            if (ownLeaves.length > 0) groups.push({ label, leaves: ownLeaves });
-          }
-          visit(top.items, top.title);
-
-          // Only include spec/home leaves in this section (canvases shown above).
-          const specGroups = groups
-            .map((g) => ({ ...g, leaves: g.leaves.filter((l) => l.kind !== 'canvas') }))
-            .filter((g) => g.leaves.length > 0);
-          if (specGroups.length === 0) return null;
-
-          return (
-            <div className="landing-section-block" key={top.title}>
-              <h3>{top.title}</h3>
-              {top.intro && <p className="landing-section-block-intro">{top.intro}</p>}
-              {specGroups.map((g) => (
-                <div key={g.label} className="doc-group">
-                  {g.label !== top.title && <h4>{g.label}</h4>}
-                  <ul className="doc-list">
-                    {g.leaves.map((leaf) => (
-                      <li key={leaf.slug}>
-                        <Link to={toFor(leaf)}>{leaf.title}</Link>
-                        {leaf.blurb && <span className="doc-blurb">{leaf.blurb}</span>}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ))}
+          {APPROACH.pillars.map((pillar) => (
+            <div className="surface" key={pillar.title}>
+              <strong>{pillar.title}</strong> — {pillar.body}
             </div>
-          );
-        })}
+          ))}
+        </div>
+      </section>
+
+      <section className="landing-section proof">
+        <h2>{PROOF.heading}</h2>
+        <p className="landing-prose">{PROOF.body}</p>
+        <div className="proof-actions">
+          <a className="proof-demo-cta" href={PROOF.demoUrl} target="_blank" rel="noreferrer">{PROOF.demoLabel} ↗</a>
+        </div>
+        <p className="proof-honesty">{PROOF.honesty}</p>
+      </section>
+
+      <section className="landing-section go-deeper">
+        <h2>Go deeper</h2>
+        <p className="landing-section-sub">Follow the path that fits what you came for.</p>
+        <div className="card-grid">
+          {GO_DEEPER.map((card) => (
+            <div className="go-deeper-card" key={card.title}>
+              <div className="go-deeper-card-title">{card.title}</div>
+              <div className="go-deeper-card-outcome">{card.outcome}</div>
+              <div className="go-deeper-card-links">
+                {card.links.map((l) => (
+                  <Link className="go-deeper-link" key={l.to} to={l.to}>{l.label} →</Link>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
       </section>
     </div>
   );

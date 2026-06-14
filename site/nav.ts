@@ -59,6 +59,7 @@ export const navTree: NavSection[] = [
     title: 'Start here',
     items: [
       { kind: 'home',   slug: 'welcome',                                       title: 'Welcome — overview',  blurb: 'Purpose, project overview, canvases, and all docs at a glance.' },
+      { kind: 'spec',   slug: 'specs/background/why-local-first-clinical-ai',  title: 'Why local-first clinical AI', blurb: 'The cited evidence behind the mission — offline realities, data sovereignty, right-sized open models, and WHO SMART Guidelines.' },
       { kind: 'spec',   slug: 'README',                                        title: 'Project README',      blurb: 'What this harness is, who it is for, how to get started, and key terms.' },
       { kind: 'canvas', slug: 'specs/roadmap',                                 title: 'Validation roadmap',  blurb: 'Planned validation milestones, lanes, dependencies. Start here to understand sequencing.' },
       { kind: 'canvas', slug: 'specs/artifacts/canvases/validation-research',  title: 'Validation research', blurb: 'Evidence model, evaluation methodology, and the run-manifest traceability spine.' },
@@ -144,6 +145,9 @@ export const navTree: NavSection[] = [
       { kind: 'canvas', slug: 'specs/artifacts/canvases/scout-comparative-analysis', title: 'Scout comparative analysis', blurb: 'Deep-dive analysis of Duke DIHI Scout and implications for chartsearchai, openmrs_chatbot, and Catalyst.' },
       { kind: 'canvas', slug: 'specs/artifacts/canvases/cross-project-comparison',    title: 'Cross-project comparison',    blurb: 'Side-by-side architecture of chartsearchai, openmrs_chatbot, Catalyst.' },
       { kind: 'canvas', slug: 'specs/artifacts/canvases/clinical-ai-research-guidance', title: 'Clinical-AI research guidance', blurb: 'Research vectors, evidence levels, maturity framing.' },
+      { kind: 'canvas', slug: 'specs/artifacts/canvases/chartsearchai-and-querystore', title: 'chartsearchai & querystore', blurb: 'How chart search and the read-optimized query store fit together.' },
+      { kind: 'canvas', slug: 'specs/artifacts/canvases/catalyst-fhir-sidecar',        title: 'Catalyst FHIR sidecar',     blurb: 'FHIR-grounded lab AI over OpenELIS — the canvas behind the M10 brief.' },
+      { kind: 'canvas', slug: 'specs/artifacts/canvases/validator-audit-framework',    title: 'Validator audit framework', blurb: 'Change-control and validator-audit discipline that keeps validation baselines reviewable.' },
     ],
   },
   {
@@ -156,6 +160,8 @@ export const navTree: NavSection[] = [
       { kind: 'spec', slug: 'specs/artifacts/planning/pccp-change-record-template', title: 'PCCP change record template', blurb: 'Governance template for material validation changes.' },
       { kind: 'spec', slug: 'specs/artifacts/planning/harness-architecture-brief',       title: 'Harness architecture brief',     blurb: 'How the control-plane pieces fit together.' },
       { kind: 'spec', slug: 'specs/artifacts/planning/eval-methodology-brief',           title: 'Evaluation methodology brief',   blurb: 'How validation quality is measured — the Scout-style rubric and metrics.' },
+      { kind: 'spec', slug: 'specs/artifacts/planning/guardrails-methodology-research',  title: 'Guardrails methodology (research)', blurb: 'Prompt-injection and unsafe-answer defenses — the safety research behind the harness.' },
+      { kind: 'spec', slug: 'specs/artifacts/planning/global-health-ai-background-research-2026-06-14', title: 'Background & evidence (research)', blurb: 'Cited global-health grounding for the mission: WHO SMART Guidelines, LMIC realities, data sovereignty, open-model right-sizing.' },
       { kind: 'spec', slug: 'specs/artifacts/planning/clinical-kb-brief',                 title: 'Clinical KB brief (F009)',       blurb: 'A clinical knowledge base for low-power local models, contextualized per deployment.' },
       { kind: 'spec', slug: 'specs/artifacts/planning/chartsearchai-model-gateway-brief', title: 'Model gateway brief (F008)',     blurb: 'A gateway letting chartsearchai reach many model providers behind one URL.' },
       { kind: 'spec', slug: 'specs/artifacts/planning/catalyst-fhir-sidecar-brief',       title: 'Catalyst FHIR sidecar brief (M10)', blurb: 'FHIR-grounded lab AI over OpenELIS — source brief for the M10 POC.' },

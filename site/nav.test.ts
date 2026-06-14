@@ -34,3 +34,23 @@ describe('curated nav coverage', () => {
     expect(curated[slug], `${slug} is not in the curated navTree`).toBeDefined();
   });
 });
+
+// The mission-first overhaul curates the cited background page into "Start here",
+// and promotes the topic-referenced items that were stranded in nav-auto's
+// collapsed "More documents" drawer into the real sidebar IA.
+describe('overhaul curation', () => {
+  const curated = flattenLeaves(navTree);
+
+  it('curates the background "why" page in Start here', () => {
+    expect(curated['specs/background/why-local-first-clinical-ai']).toBeDefined();
+  });
+
+  it.each([
+    'specs/artifacts/canvases/catalyst-fhir-sidecar',
+    'specs/artifacts/canvases/chartsearchai-and-querystore',
+    'specs/artifacts/canvases/validator-audit-framework',
+    'specs/artifacts/planning/guardrails-methodology-research',
+  ])('promotes %s out of the More-documents drawer', (slug) => {
+    expect(curated[slug], `${slug} should be curated in navTree`).toBeDefined();
+  });
+});
