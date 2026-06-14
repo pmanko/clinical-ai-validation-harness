@@ -20,8 +20,14 @@ const canvasModules = import.meta.glob('../specs/**/*.canvas.tsx', { eager: true
   string,
   { default: React.ComponentType }
 >;
-// Published site = README + canvases only; everything else under specs/ is dev-internal (mirror of App.tsx).
-const repoMd = import.meta.glob('../README.md', { eager: true }) as Record<
+// Published site = README + canvases + mission/background + research (allowlist); everything
+// else under specs/ is dev-internal (mirror of App.tsx).
+const repoMd = import.meta.glob([
+  '../README.md',
+  '../specs/background/**/*.md',
+  '../specs/artifacts/planning/global-health-ai-background-research-2026-06-14.md',
+  '../specs/artifacts/planning/guardrails-methodology-research.md',
+], { eager: true }) as Record<
   string,
   { html?: string; raw?: string; default: string }
 >;

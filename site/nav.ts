@@ -2,15 +2,15 @@
  * Hand-curated information architecture for the PUBLIC docs site.
  *
  * The public site is the non-technical, public-facing surface: the README, the
- * landing/topics, and the visual **canvases**. Everything else under `specs/`
- * (feature specs, plans, briefs, contracts, planning notes, handoffs, lanes) is
- * dev-internal — it lives in the repo but is NOT published (see the import.meta.glob
- * filter in App.tsx / prerender-entry.tsx). Canvases are the one thing under specs/
- * that stays public, because they're the visual story.
+ * landing, the visual **canvases**, and the mission/background + research pages.
+ * The implementation detail under `specs/` (feature specs, plans, briefs,
+ * contracts, planning notes, handoffs, lanes) is dev-internal — it lives in the
+ * repo but is NOT published (see the import.meta.glob allowlist in App.tsx /
+ * prerender-entry.tsx). Canvases are the one *.canvas.tsx surface that stays public.
  *
  * Each leaf points at an existing route slug:
  *   - home:    'welcome'
- *   - spec:    'README'  (the only published markdown page)
+ *   - spec:    'README', 'specs/background/<name>', and the published research pages
  *   - canvas:  'specs/roadmap', 'specs/artifacts/canvases/<name>'
  */
 
@@ -38,32 +38,41 @@ export const navTree: NavSection[] = [
   {
     title: 'Start here',
     items: [
-      { kind: 'home',   slug: 'welcome',     title: 'Welcome — overview',   blurb: 'What this project is, why it matters, and where to go next.' },
-      { kind: 'spec',   slug: 'README',      title: 'Project README',       blurb: 'What this harness is, who it is for, how to get started, and key terms.' },
-      { kind: 'canvas', slug: 'specs/roadmap', title: 'Validation roadmap', blurb: 'Milestones, lanes, and dependencies — start here to understand sequencing.' },
+      { kind: 'home',   slug: 'welcome',                                      title: 'Welcome — overview',         blurb: 'The mission in plain terms — the problem, the approach, and where to go deeper.' },
+      { kind: 'spec',   slug: 'specs/background/why-local-first-clinical-ai', title: 'Why local-first clinical AI', blurb: 'The cited evidence behind the mission — offline realities, data sovereignty, right-sized open models, and WHO SMART Guidelines.' },
+      { kind: 'spec',   slug: 'README',                                       title: 'Project README',             blurb: 'What this harness is, who it is for, how to get started, and key terms.' },
+      { kind: 'canvas', slug: 'specs/roadmap',                                title: 'Validation roadmap',         blurb: 'Milestones, lanes, and dependencies — start here to understand sequencing.' },
     ],
   },
   {
     title: 'Project overview',
     intro: 'Visual summaries of what we validate, how we judge it, and the data and research behind it.',
     items: [
-      { kind: 'canvas', slug: 'specs/artifacts/canvases/validation-research',        title: 'Validation research',          blurb: 'Evidence model, evaluation methodology, and the run-manifest traceability spine.' },
-      { kind: 'canvas', slug: 'specs/artifacts/canvases/demo-data-profile',          title: 'Demo-data profile & cohorts',  blurb: 'The loaded OpenMRS 2.8 demo corpus: landscape, completeness, and validation cohorts.' },
+      { kind: 'canvas', slug: 'specs/artifacts/canvases/validation-research',         title: 'Validation research',          blurb: 'Evidence model, evaluation methodology, and the run-manifest traceability spine.' },
+      { kind: 'canvas', slug: 'specs/artifacts/canvases/demo-data-profile',           title: 'Demo-data profile & cohorts',  blurb: 'The loaded OpenMRS 2.8 demo corpus: landscape, completeness, and validation cohorts.' },
       { kind: 'canvas', slug: 'specs/artifacts/canvases/clinical-ai-research-guidance', title: 'Clinical-AI research guidance', blurb: 'Research vectors, evidence levels, and maturity framing.' },
-      { kind: 'canvas', slug: 'specs/artifacts/canvases/scout-comparative-analysis', title: 'Scout comparative analysis',   blurb: 'Duke DIHI Scout and what it implies for chartsearchai, openmrs_chatbot, and Catalyst.' },
-      { kind: 'canvas', slug: 'specs/artifacts/canvases/catalyst-fhir-sidecar',      title: 'Catalyst FHIR sidecar',        blurb: 'FHIR-grounded lab AI over OpenELIS — the M10 design direction.' },
+      { kind: 'canvas', slug: 'specs/artifacts/canvases/scout-comparative-analysis',  title: 'Scout comparative analysis',   blurb: 'Duke DIHI Scout and what it implies for chartsearchai, openmrs_chatbot, and Catalyst.' },
+      { kind: 'canvas', slug: 'specs/artifacts/canvases/catalyst-fhir-sidecar',       title: 'Catalyst FHIR sidecar',        blurb: 'FHIR-grounded lab AI over OpenELIS — the M10 design direction.' },
     ],
   },
   {
     title: 'Development',
     intro: 'Architecture, data transformation, and upstream-contribution internals.',
     items: [
-      { kind: 'canvas', slug: 'specs/artifacts/canvases/concept-mapping-discovery',  title: 'Concept mapping & transformation', blurb: 'Bridge rule, promotion rules, blockers, open decisions.' },
-      { kind: 'canvas', slug: 'specs/artifacts/canvases/sqlmesh-transformation-flow', title: 'SQLMesh transformation flow',  blurb: 'How the deterministic OpenMRS 2.7 → 2.8 transform is materialized.' },
+      { kind: 'canvas', slug: 'specs/artifacts/canvases/concept-mapping-discovery',   title: 'Concept mapping & transformation', blurb: 'Bridge rule, promotion rules, blockers, open decisions.' },
+      { kind: 'canvas', slug: 'specs/artifacts/canvases/sqlmesh-transformation-flow',  title: 'SQLMesh transformation flow',  blurb: 'How the deterministic OpenMRS 2.7 → 2.8 transform is materialized.' },
       { kind: 'canvas', slug: 'specs/artifacts/canvases/chartsearchai-and-querystore', title: 'chartsearchai & querystore',  blurb: 'Architecture of the chart-search and query-retrieval integration.' },
-      { kind: 'canvas', slug: 'specs/artifacts/canvases/cross-project-comparison',    title: 'Cross-project comparison',     blurb: 'Side-by-side architecture of chartsearchai, openmrs_chatbot, and Catalyst.' },
+      { kind: 'canvas', slug: 'specs/artifacts/canvases/cross-project-comparison',     title: 'Cross-project comparison',     blurb: 'Side-by-side architecture of chartsearchai, openmrs_chatbot, and Catalyst.' },
       { kind: 'canvas', slug: 'specs/artifacts/canvases/upstream-contribution-and-compatibility', title: 'Upstream contribution & compatibility', blurb: 'The chartsearchai changes organized into reviewable OpenMRS PRs, with a bundled-LLM compatibility check.' },
-      { kind: 'canvas', slug: 'specs/artifacts/canvases/validator-audit-framework',  title: 'Validator audit framework',    blurb: 'How validator behavior is audited and kept reviewable.' },
+      { kind: 'canvas', slug: 'specs/artifacts/canvases/validator-audit-framework',   title: 'Validator audit framework',    blurb: 'How validator behavior is audited and kept reviewable.' },
+    ],
+  },
+  {
+    title: 'Background & research',
+    intro: 'The cited grounding behind the mission and the safety approach.',
+    items: [
+      { kind: 'spec', slug: 'specs/artifacts/planning/global-health-ai-background-research-2026-06-14', title: 'Background & evidence (research)', blurb: 'Cited global-health grounding: WHO SMART Guidelines, LMIC realities, data sovereignty, open-model right-sizing.' },
+      { kind: 'spec', slug: 'specs/artifacts/planning/guardrails-methodology-research', title: 'Guardrails methodology (research)', blurb: 'Prompt-injection and unsafe-answer defenses — the safety research behind the harness.' },
     ],
   },
 ];
