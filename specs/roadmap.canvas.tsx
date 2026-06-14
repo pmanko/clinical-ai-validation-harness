@@ -392,7 +392,7 @@ const features: Feature[] = [
     slug: "017-med-agent-hub-mcp-tools",
     lane: "foundation",
     purpose:
-      "Replace the hub's hand-rolled tool dispatch + the homegrown fake-'MCP' layer with one valid FastMCP server mounted at /mcp. kb_search becomes a real MCP tool; medical_expert stays an in-process role; the team consumes the server via an in-memory client. Extensible (FHIR/Spark drop in later) and a product surface other MCP clients can consume. Locked plan: ~/.claude/plans/keen-jingling-muffin.md; executing as lane L1.",
+      "Replace the hub's hand-rolled tool dispatch + the homegrown fake-'MCP' layer with one valid FastMCP server mounted at /mcp. kb_search becomes a real MCP tool; medical_expert stays an in-process role; the team consumes the server via an in-memory client. Extensible (FHIR/Spark drop in later) and a product surface other MCP clients can consume. Executing as lane L1.",
     scope: [
       "FastMCP server (server/mcp/ rebuilt) registering kb_search with @mcp.tool; team-facing in-memory client converts MCP tool schema → OpenAI tool defs.",
       "Delete the homegrown server/mcp/ base + the unwired A2A clinical tools (FHIR/Spark/appointments/medical_search) and dead modules (sdk_agents, agent_configs, llm_clients, explore_a2a.py, launch_a2a_agents.py).",
@@ -416,6 +416,7 @@ type ActiveLane = {
   repo: string;
   branch: string;
   worktree: string;
+  dossier: string;
   relatesTo: string;
   status: string;
   context: string;
@@ -431,15 +432,16 @@ const activeLanes: ActiveLane[] = [
     repo: "pmanko/med-agent-hub — our own repo (pins main; the harness-integration buffer was retired 2026-06-11)",
     branch: "feat/real-mcp-tools (off origin/main @ ebdbb43)",
     worktree: "~/code/hub-wt-mcp",
+    dossier: "docs/lanes/L1-hub-mcp.md",
     relatesTo:
-      "Extends F005 and realizes the real-MCP tool layer F008 anticipates. Locked plan: ~/.claude/plans/keen-jingling-muffin.md.",
+      "Extends F005 and realizes the real-MCP tool layer F008 anticipates. QA-locked architecture: specs/artifacts/planning/hub-mcp-tools-brief.md.",
     status: "Ready — worktree created; hub-ci (unit-and-contract + docker-build) green on main.",
     context:
       "Replace the hand-rolled tool dispatch and the homegrown fake-'MCP' layer with one valid FastMCP server mounted in the hub's FastAPI at /mcp. kb_search becomes a real MCP tool; medical_expert stays an in-process role (not a tool); the team consumes the server via an in-memory client (no network hop). Tool surface is hub-global — levels keep choosing only models/prompts/validator.",
     scope: [
       "FastMCP server mounted at /mcp (streamable-HTTP for external clients); team consumes it in-memory.",
       "kb_search → real MCP tool; delete the homegrown server/mcp/ + the unwired A2A clinical tools (FHIR/Spark/appointments/medical_search, all mock).",
-      "Delete legacy modules per the locked plan's deletion list: server/sdk_agents/, server/agent_configs/, server/llm_clients.py, explore_a2a.py, launch_a2a_agents.py.",
+      "Delete legacy modules per the brief's deletion list: server/sdk_agents/, server/agent_configs/, server/llm_clients.py, explore_a2a.py, launch_a2a_agents.py.",
       "Sweep 5 pre-reboot origin branches (a2a-updates, doc-cleanup-update, feature/agenta, multiagent, rag-augment): quick triage, default delete.",
     ],
     gate: [
@@ -447,7 +449,7 @@ const activeLanes: ActiveLane[] = [
       "Pin-bump gate (hub-boundary smoke): rebuild container → README /v1 curl with real local models + a -validated level returns the confidence block + trace.jsonl grows → THEN bump the harness pin (.gitmodules already tracks main).",
     ],
     kickoff:
-      "Execute the approved MCP plan at ~/.claude/plans/keen-jingling-muffin.md in this worktree (med-agent-hub, branch feat/real-mcp-tools off origin/main). Red-first tests for the new MCP tool surface; tests/test_bridge.py (/v1 contract) must stay green throughout; delete the legacy A2A/fake-MCP modules per the plan's deletion list. First, sweep the 5 legacy origin branches per the quick-triage-default-delete rule. PR to hub main gated by hub-ci; after merge, rebuild the container and run the hub-boundary smoke (README /v1 curl with real models + -validated confidence block + trace.jsonl growth) before pushing the harness pin bump.",
+      "Execute the approved MCP plan in specs/artifacts/planning/hub-mcp-tools-brief.md in this worktree (med-agent-hub, branch feat/real-mcp-tools off origin/main). Red-first tests for the new MCP tool surface; tests/test_bridge.py (/v1 contract) must stay green throughout; delete the legacy A2A/fake-MCP modules per the brief's deletion list. First, sweep the 5 legacy origin branches per the quick-triage-default-delete rule. PR to hub main gated by hub-ci; after merge, rebuild the container and run the hub-boundary smoke (README /v1 curl with real models + -validated confidence block + trace.jsonl growth) before pushing the harness pin bump.",
   },
   {
     id: "L2",
@@ -455,9 +457,10 @@ const activeLanes: ActiveLane[] = [
     repo: "clinical-ai-validation-harness",
     branch: "feat/report-human-feedback (off main)",
     worktree: "~/code/harness-wt-report",
+    dossier: "docs/lanes/L2-reports-human-feedback.md",
     relatesTo:
       "Amends feature 006 (validation-harness-mvp) report layer. Driven by reviewer (Ian) feedback; the human-feedback surface is the intake for the parked UCD work.",
-    status: "Ready — worktree created and synced.",
+    status: "Ready — worktree exists; rebase onto current main before work (cut from an earlier main).",
     context:
       "The 006 report ships 0-10 rubric scores, a per-cell adjudication form, and a feedback.jsonl export with an optional FEEDBACK_ENDPOINT POST seam. Evolve it for real reviewers: clearer numbers, judgement shown in context, an explainer of what the 'AI team' is, and a split between the machine deep-dive and the human-feedback surface.",
     scope: [
@@ -477,9 +480,10 @@ const activeLanes: ActiveLane[] = [
     repo: "clinical-ai-validation-harness",
     branch: "docs/006-validation-spine-asbuilt (off main)",
     worktree: "~/code/harness-wt-spine",
+    dossier: "docs/lanes/L3-validation-spine-asbuilt.md",
     relatesTo:
       "Feature 006 IS the validation spine (the canvas's phantom M2/003 never materialized — see audit). Closes M2-F.1 / SC-015 deferred from feature 002.",
-    status: "Ready — worktree created and synced.",
+    status: "Ready — worktree exists; rebase onto current main before work (cut from an earlier main).",
     context:
       "specs/006-validation-harness-mvp is 'in progress' since 2026-05-28 and stale: it defers an LLM-as-judge subsystem, but judge.jsonl + the clinical-answer-scoring skill shipped; validator confidence, the run-index, and the live dashboard all postdate it. Bring the spec to as-built and close the one substantive gap.",
     scope: [
@@ -1041,6 +1045,10 @@ function ActiveLaneCard({ lane }: { lane: ActiveLane }) {
               <Code>{lane.worktree}</Code>
             </Row>
             <Row gap={6} wrap>
+              <Text size="small" tone="tertiary">Dossier:</Text>
+              <Code>{lane.dossier}</Code>
+            </Row>
+            <Row gap={6} wrap>
               <Text size="small" tone="tertiary">Status:</Text>
               <Text size="small" tone="secondary">{lane.status}</Text>
             </Row>
@@ -1320,7 +1328,7 @@ export default function SpecRoadmap() {
         The three in-flight workstreams, each running in its own git worktree and Claude session. These carry more
         operational detail than the milestone cards above because each is meant to cold-start a lane: repo, branch,
         worktree, scope, the gate that lets it merge, and a verbatim kickoff prompt. Lanes have disjoint file sets and
-        merge independently. Source of truth for sequencing: the roadmap plan (squishy-bubbling-spindle).
+        merge independently. Source of truth for sequencing: docs/dev-roadmap.md.
       </Text>
       <Grid columns={1} gap={14}>
         {activeLanes.map((lane) => (
