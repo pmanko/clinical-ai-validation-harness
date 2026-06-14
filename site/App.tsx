@@ -17,14 +17,23 @@ function PlainHtmlLink({ kind, slug }: { kind: 'spec' | 'canvas'; slug: string }
 // ---------- raw module discovery (file presence; the IA lives in nav.ts) -----
 
 const canvasModules = import.meta.glob('../specs/**/*.canvas.tsx', { eager: true }) as Record<string, { default: React.ComponentType }>;
-const specModules   = import.meta.glob('../specs/**/*.md',        { eager: true }) as Record<string, { html?: string; default: string }>;
-const repoMd        = import.meta.glob(['../README.md', '../docs/**/*.md'], { eager: true }) as Record<string, { html?: string; default: string }>;
+// The published site is the public-facing surface: README + canvases + the mission/
+// background + research pages (the allowlist below). All other specs/ markdown (feature
+// specs, plans, briefs, contracts, planning notes, handoffs, lanes) is dev-internal —
+// in the repo, not published. Canvases (globbed above) stay public.
+const repoMd        = import.meta.glob([
+  '../README.md',
+  '../specs/background/**/*.md',
+  '../specs/artifacts/planning/global-health-ai-background-research-2026-06-14.md',
+  '../specs/artifacts/planning/guardrails-methodology-research.md',
+], { eager: true }) as Record<string, { html?: string; default: string }>;
 
-// The curated nav defines priority/order; every other doc and canvas on disk is
-// auto-discovered and appended into deep sections, so the SPA and the prerendered
-// twins surface the whole repo from one source of truth.
+// The published surface is the allowlisted markdown (README + background + research)
+// plus all canvases; the curated nav orders them. Dev-internal specs under specs/ are
+// not published. completeNav still merges any uncurated published page into a deep
+// section — but with the allowlist, that set is just the curated pages.
 const fullNavTree = completeNav(
-  [...Object.keys(specModules), ...Object.keys(repoMd)],
+  Object.keys(repoMd),
   Object.keys(canvasModules),
   navTree,
 );
@@ -38,9 +47,9 @@ function findCanvasModule(slug: string) {
   return key ? canvasModules[key] : undefined;
 }
 function findSpecModule(slug: string) {
-  // "README" maps to ../README.md; "specs/foo/bar" → ../specs/foo/bar.md
+  // README, the background page, and the research pages are the published markdown.
   const target = slug === 'README' ? '../README.md' : `../${slug}.md`;
-  return specModules[target] ?? repoMd[target];
+  return repoMd[target];
 }
 
 // Client-side search index, built once from the same globs the SPA already loads:
@@ -164,9 +173,10 @@ function Sidebar({ onClose, onNavigate }: { onClose: () => void; onNavigate: () 
         <Link to="/" className="sidebar-brand" onClick={onNavigate}>clinical-ai-validation-harness</Link>
         <button type="button" className="sidebar-close" onClick={onClose} aria-label="Close navigation">Close</button>
       </div>
-      <div className="sidebar-sub">Planning artifacts &amp; canvases</div>
+      <div className="sidebar-sub">Overview &amp; canvases</div>
       <SearchBox onNavigate={onNavigate} />
       <nav className="sidebar-nav">
+        {fullNavTree.map((s, i) => <SidebarSection key={`top-${i}-${s.title}`} section={s} depth={0} onNavigate={onNavigate} />)}
         <div className="nav-section depth-0">
           <div className="nav-section-header top nav-section-static">
             <span className="caret">▾</span><span className="nav-section-title">Browse by topic</span>
@@ -179,7 +189,6 @@ function Sidebar({ onClose, onNavigate }: { onClose: () => void; onNavigate: () 
             ))}
           </div>
         </div>
-        {fullNavTree.map((s, i) => <SidebarSection key={`top-${i}-${s.title}`} section={s} depth={0} onNavigate={onNavigate} />)}
       </nav>
     </aside>
   );

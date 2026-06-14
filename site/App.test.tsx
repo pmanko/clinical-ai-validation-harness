@@ -30,7 +30,7 @@ describe('App full-HTML twin link', () => {
     expect(html).toContain('canvas/specs/roadmap.html');
   });
 
-  it('surfaces auto-discovered (uncurated) repo pages in the nav', () => {
+  it('keeps dev specs off the public nav (no junk drawer, no feature specs)', () => {
     const html = renderToStaticMarkup(
       React.createElement(
         MemoryRouter,
@@ -38,8 +38,11 @@ describe('App full-HTML twin link', () => {
         React.createElement(App),
       ),
     );
-    expect(html).toContain('More documents');
-    expect(html).toContain('specs/004-real-adapter-entrypoints/spec');
+    expect(html).not.toContain('More documents');
+    expect(html).not.toContain('specs/004-real-adapter-entrypoints/spec');
+    // Canvases stay public, organized into sections.
+    expect(html).toContain('Project overview');
+    expect(html).toContain('Development');
   });
 });
 

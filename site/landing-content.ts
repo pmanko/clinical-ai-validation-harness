@@ -73,7 +73,6 @@ export const GO_DEEPER: GoDeeperCard[] = [
     outcome: 'The evidence model and scoring behind every result.',
     links: [
       { label: 'The evidence model', to: '/canvas/specs/artifacts/canvases/validation-research' },
-      { label: 'Evaluation methodology', to: '/spec/specs/artifacts/planning/eval-methodology-brief' },
       { label: 'Evidence & traceability', to: '/topic/evidence' },
     ],
   },
@@ -82,17 +81,15 @@ export const GO_DEEPER: GoDeeperCard[] = [
     outcome: 'Set it up, point it at real systems, and inspect a run.',
     links: [
       { label: 'Project README & setup', to: '/spec/README' },
-      { label: 'The validation harness (MVP)', to: '/spec/specs/006-validation-harness-mvp/spec' },
-      { label: 'Development operating plan', to: '/spec/docs/dev-roadmap' },
+      { label: 'The demo data & cohorts', to: '/canvas/specs/artifacts/canvases/demo-data-profile' },
     ],
   },
   {
     title: 'Bring this to a deployment',
-    outcome: 'How it contextualizes to a clinic and stays safe in real use.',
+    outcome: 'How it extends to the lab and stays safe in real use.',
     links: [
-      { label: 'Contextualized knowledge base', to: '/spec/specs/artifacts/planning/clinical-kb-brief' },
       { label: 'Safety & governance', to: '/topic/safety-governance' },
-      { label: 'The demo data & cohorts', to: '/canvas/specs/artifacts/canvases/demo-data-profile' },
+      { label: 'Lab AI — Catalyst / OpenELIS', to: '/topic/lab-ai' },
     ],
   },
 ];

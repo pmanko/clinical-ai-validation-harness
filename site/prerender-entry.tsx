@@ -20,11 +20,14 @@ const canvasModules = import.meta.glob('../specs/**/*.canvas.tsx', { eager: true
   string,
   { default: React.ComponentType }
 >;
-const specModules = import.meta.glob('../specs/**/*.md', { eager: true }) as Record<
-  string,
-  { html?: string; raw?: string; default: string }
->;
-const repoMd = import.meta.glob(['../README.md', '../docs/**/*.md'], { eager: true }) as Record<
+// Published site = README + canvases + mission/background + research (allowlist); everything
+// else under specs/ is dev-internal (mirror of App.tsx).
+const repoMd = import.meta.glob([
+  '../README.md',
+  '../specs/background/**/*.md',
+  '../specs/artifacts/planning/global-health-ai-background-research-2026-06-14.md',
+  '../specs/artifacts/planning/guardrails-methodology-research.md',
+], { eager: true }) as Record<
   string,
   { html?: string; raw?: string; default: string }
 >;
@@ -38,15 +41,15 @@ function findCanvas(slug: string) {
 }
 function findSpec(slug: string) {
   const target = slug === 'README' ? '../README.md' : `../${slug}.md`;
-  return specModules[target] ?? repoMd[target];
+  return repoMd[target];
 }
 
 /** Build the full output plan, with every doc/canvas body rendered via Vite. */
 export function plan(base: string, meta: { title: string; summary: string }) {
-  // Auto-discover every doc/canvas on disk and merge it into the curated nav, so
-  // the mirror covers the whole repo (priority pages curated, the rest deep).
+  // Build the nav from the published allowlist (README + background + research) plus
+  // all canvases. Dev-internal specs under specs/ are not published. (Mirrors App.tsx.)
   const fullTree = completeNav(
-    [...Object.keys(specModules), ...Object.keys(repoMd)],
+    Object.keys(repoMd),
     Object.keys(canvasModules),
     navTree,
   );
