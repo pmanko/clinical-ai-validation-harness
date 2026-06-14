@@ -46,8 +46,8 @@ function findSpec(slug: string) {
 
 /** Build the full output plan, with every doc/canvas body rendered via Vite. */
 export function plan(base: string, meta: { title: string; summary: string }) {
-  // Auto-discover every doc/canvas on disk and merge it into the curated nav, so
-  // the mirror covers the whole repo (priority pages curated, the rest deep).
+  // Build the nav from the published allowlist (README + background + research) plus
+  // all canvases. Dev-internal specs under specs/ are not published. (Mirrors App.tsx.)
   const fullTree = completeNav(
     Object.keys(repoMd),
     Object.keys(canvasModules),

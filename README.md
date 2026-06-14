@@ -28,22 +28,22 @@ The harness coordinates validation across four clinical AI projects:
 
 ## Current priority: the validation spine and active lanes
 
-The OpenMRS demo-data remap (Roadmap M1 / feature 002) is **complete** — the public 2.7 demo corpus is transformed and imported as the canonical 5,284-patient 2.8 demo schema the harness validates against. (See the [Feature 002 spec](specs/002-openmrs-demo-data-2-8-remap/spec.md) and [quickstart](specs/002-openmrs-demo-data-2-8-remap/quickstart.md) for that work.)
+The OpenMRS demo-data remap (Roadmap M1 / feature 002) is **complete** — the public 2.7 demo corpus is transformed and imported as the canonical 5,284-patient 2.8 demo schema the harness validates against. (See the [Feature 002 spec](https://github.com/pmanko/clinical-ai-validation-harness/blob/main/specs/002-openmrs-demo-data-2-8-remap/spec.md) and [quickstart](https://github.com/pmanko/clinical-ai-validation-harness/blob/main/specs/002-openmrs-demo-data-2-8-remap/quickstart.md) for that work.)
 
-Current work is the **validation spine** (Roadmap M2 / feature 006): run the same clinical questions across model backends through chartsearchai's real API, score the answers against the patient chart, and record reviewable, record-level evidence. Three lanes are in flight — the local "AI team" tool layer, human-feedback reports, and closing the first live-chartsearchai milestone. See the [roadmap canvas](specs/roadmap.canvas.tsx); the development operating plan and per-lane dossiers live in-repo under `specs/artifacts/lanes/`.
+Current work is the **validation spine** (Roadmap M2 / feature 006): run the same clinical questions across model backends through chartsearchai's real API, score the answers against the patient chart, and record reviewable, record-level evidence. Three lanes are in flight — the local "AI team" tool layer, human-feedback reports, and closing the first live-chartsearchai milestone. See the [roadmap canvas](https://pmanko.github.io/clinical-ai-validation-harness/#/canvas/specs/roadmap); the development operating plan and per-lane dossiers live in-repo under `specs/artifacts/lanes/`.
 
 ## How the docs fit together
 
 | What you need | Where to go |
 |---------------|-------------|
 | Visual project overview and navigation | [Public docs site](https://pmanko.github.io/clinical-ai-validation-harness/) |
-| Roadmap — what is planned, why, and in what order | [Feature roadmap canvas](specs/roadmap.canvas.tsx) |
+| Roadmap — what is planned, why, and in what order | [Feature roadmap canvas](https://pmanko.github.io/clinical-ai-validation-harness/#/canvas/specs/roadmap) |
 | Development operating plan — lanes, gates, launch sequence | `specs/artifacts/lanes/` (in-repo) |
-| Validation evidence model and evaluation methodology | [Validation research canvas](specs/artifacts/canvases/validation-research.canvas.tsx) |
-| Current priority operator walkthrough | [Feature 002 quickstart](specs/002-openmrs-demo-data-2-8-remap/quickstart.md) |
-| Harness foundation and control-plane detail | [Feature 001 spec](specs/001-harness-control-plane-foundation/spec.md) |
-| All planning artifacts, canvases, and research docs | [specs/artifacts/](specs/artifacts/) |
-| Cloud/GCE deploy guide | [docs/cloud-deploy.md](docs/cloud-deploy.md) |
+| Validation evidence model and evaluation methodology | [Validation research canvas](https://pmanko.github.io/clinical-ai-validation-harness/#/canvas/specs/artifacts/canvases/validation-research) |
+| Current priority operator walkthrough | [Feature 002 quickstart](https://github.com/pmanko/clinical-ai-validation-harness/blob/main/specs/002-openmrs-demo-data-2-8-remap/quickstart.md) |
+| Harness foundation and control-plane detail | [Feature 001 spec](https://github.com/pmanko/clinical-ai-validation-harness/blob/main/specs/001-harness-control-plane-foundation/spec.md) |
+| All planning artifacts, canvases, and research docs | [specs/artifacts/](https://github.com/pmanko/clinical-ai-validation-harness/tree/main/specs/artifacts) |
+| Cloud/GCE deploy guide | [docs/cloud-deploy.md](https://github.com/pmanko/clinical-ai-validation-harness/blob/main/docs/cloud-deploy.md) |
 
 The public docs site auto-deploys from `main` and publishes the public-facing surface — this README and the visual canvases. The detailed feature specs, plans, briefs, and per-lane dossiers are dev-internal: they live in the repo (under `specs/`), not on the published site. Browse the site locally with `cd site && npm install && npm run dev` (opens at `http://127.0.0.1:4321/clinical-ai-validation-harness/`).
 
@@ -60,10 +60,10 @@ Human-facing docs use plain names. IDs appear in parentheses on first use and in
 | med-agent-hub bridge | F005 | `005` | Shipped (model-switch + Carbon picker + model warmup + Tier-1 KB) |
 | LLM config overrides | F007 | `007` | Planned |
 | med-agent-hub MCP tools | F010 | `017` | In progress (lane L1) |
-| Chartsearchai model gateway | F008 | `008` | [Brief](specs/artifacts/planning/chartsearchai-model-gateway-brief.md) |
-| Clinical knowledge base | F009 | `009` | [Brief + research](specs/artifacts/planning/clinical-kb-brief.md) |
+| Chartsearchai model gateway | F008 | `008` | [Brief](https://github.com/pmanko/clinical-ai-validation-harness/blob/main/specs/artifacts/planning/chartsearchai-model-gateway-brief.md) |
+| Clinical knowledge base | F009 | `009` | [Brief + research](https://github.com/pmanko/clinical-ai-validation-harness/blob/main/specs/artifacts/planning/clinical-kb-brief.md) |
 | Retrieval evaluation | M4 | `010` | Planned |
-| Catalyst FHIR sidecar POC | M10 | `011` | [Brief](specs/artifacts/planning/catalyst-fhir-sidecar-brief.md) |
+| Catalyst FHIR sidecar POC | M10 | `011` | [Brief](https://github.com/pmanko/clinical-ai-validation-harness/blob/main/specs/artifacts/planning/catalyst-fhir-sidecar-brief.md) |
 | Answer, citation, and abstention | M5 | `012` | Planned |
 | Safety and red-team | M6 | `013` | Planned |
 | Clinician governance review | M7 | `014` | Planned |
@@ -72,9 +72,9 @@ Human-facing docs use plain names. IDs appear in parentheses on first use and in
 
 > **Note on feature 002 internal phases:** Work inside the OpenMRS demo-data remap (M1 / `002`) uses implementation sub-labels `M2-A` through `M2-Z` in detailed feature docs. These are internal planning labels for that feature's phases — not related to roadmap milestone M2 (Validation spine).
 
-> **Note on F-prefixed IDs and non-monotonic slugs:** F005, F007, F008, F009, F010 are features inserted into the roadmap after the M0–M10 sequence was authored. The validation spine (M2) shipped as slug `006` (validation-harness MVP) — the earlier `003` slug was never created. `007` is LLM config overrides (F007); `017` is the med-agent-hub MCP tools (F010). The Roadmap IDs (M0–M10, F005–F010) carry the semantic ordering anchor; folder slugs are filesystem identifiers and may be non-monotonic. See [`specs/roadmap.canvas.tsx`](specs/roadmap.canvas.tsx) for the dependency DAG.
+> **Note on F-prefixed IDs and non-monotonic slugs:** F005, F007, F008, F009, F010 are features inserted into the roadmap after the M0–M10 sequence was authored. The validation spine (M2) shipped as slug `006` (validation-harness MVP) — the earlier `003` slug was never created. `007` is LLM config overrides (F007); `017` is the med-agent-hub MCP tools (F010). The Roadmap IDs (M0–M10, F005–F010) carry the semantic ordering anchor; folder slugs are filesystem identifiers and may be non-monotonic. See [`specs/roadmap.canvas.tsx`](https://pmanko.github.io/clinical-ai-validation-harness/#/canvas/specs/roadmap) for the dependency DAG.
 
-> **Note on M10 and sibling checkouts:** The Catalyst FHIR sidecar POC (M10) consumes OpenELIS Global 2 as a **sibling checkout** at `../OpenELIS-Global-2/` (or `$OPENELIS_ROOT`). OE2 is not a submodule of this harness. Catalyst Python services live in `targets/catalyst` (submodule pinned to `DIGI-UW/openelis-catalyst`). The Spec Kit Phase 2 workflow (`/speckit-specify` through `/speckit-tasks`) runs against the [source brief](specs/artifacts/planning/catalyst-fhir-sidecar-brief.md) to produce `specs/011-catalyst-fhir-sidecar-poc/`.
+> **Note on M10 and sibling checkouts:** The Catalyst FHIR sidecar POC (M10) consumes OpenELIS Global 2 as a **sibling checkout** at `../OpenELIS-Global-2/` (or `$OPENELIS_ROOT`). OE2 is not a submodule of this harness. Catalyst Python services live in `targets/catalyst` (submodule pinned to `DIGI-UW/openelis-catalyst`). The Spec Kit Phase 2 workflow (`/speckit-specify` through `/speckit-tasks`) runs against the [source brief](https://github.com/pmanko/clinical-ai-validation-harness/blob/main/specs/artifacts/planning/catalyst-fhir-sidecar-brief.md) to produce `specs/011-catalyst-fhir-sidecar-poc/`.
 
 ## Principles
 
@@ -135,7 +135,7 @@ uv run pytest evals/dataset_import evals/metadata
 
 Python 3.11+ is required. The project tracks `.python-version = 3.11` and `requires-python = ">=3.11"` in `pyproject.toml`.
 
-For the full OpenMRS demo-data remap workflow, see [specs/002-openmrs-demo-data-2-8-remap/quickstart.md](specs/002-openmrs-demo-data-2-8-remap/quickstart.md).
+For the full OpenMRS demo-data remap workflow, see [specs/002-openmrs-demo-data-2-8-remap/quickstart.md](https://github.com/pmanko/clinical-ai-validation-harness/blob/main/specs/002-openmrs-demo-data-2-8-remap/quickstart.md).
 
 ## ChartSearch operations
 

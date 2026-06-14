@@ -28,9 +28,10 @@ const repoMd        = import.meta.glob([
   '../specs/artifacts/planning/guardrails-methodology-research.md',
 ], { eager: true }) as Record<string, { html?: string; default: string }>;
 
-// The curated nav defines priority/order; every other doc and canvas on disk is
-// auto-discovered and appended into deep sections, so the SPA and the prerendered
-// twins surface the whole repo from one source of truth.
+// The published surface is the allowlisted markdown (README + background + research)
+// plus all canvases; the curated nav orders them. Dev-internal specs under specs/ are
+// not published. completeNav still merges any uncurated published page into a deep
+// section — but with the allowlist, that set is just the curated pages.
 const fullNavTree = completeNav(
   Object.keys(repoMd),
   Object.keys(canvasModules),
