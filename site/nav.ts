@@ -35,14 +35,15 @@ export function isSection(n: NavNode): n is NavSection {
 }
 
 // Canonical doc order + human labels within a feature folder.
-const DOC_META: Record<string, { title: string; blurb: string }> = {
+type DocKind = 'spec' | 'plan' | 'research' | 'data-model' | 'quickstart' | 'tasks';
+const DOC_META = {
   spec:         { title: 'Spec',       blurb: 'Feature specification: user stories, acceptance, scope.' },
   plan:         { title: 'Plan',       blurb: 'Implementation plan and milestone breakdown.' },
   research:     { title: 'Research',   blurb: 'Background research, references, prior art.' },
   'data-model': { title: 'Data model', blurb: 'Entities, relationships, constraints.' },
   quickstart:   { title: 'Quickstart', blurb: 'Get-started commands and operator flow.' },
   tasks:        { title: 'Tasks',      blurb: 'Task list — what is done, what is pending.' },
-};
+} satisfies Record<DocKind, { title: string; blurb: string }>;
 
 // Build leaves for the docs that actually exist in a feature folder. Pass the
 // present doc kinds explicitly so we never link a file that isn't there.
