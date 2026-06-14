@@ -8,7 +8,7 @@ with sources. Where the underlying research is recent or qualified, that is note
 nothing here is stronger than what the sources actually support.
 
 > Sources, exact figures, and confidence notes are collected in the project's
-> research file: [Background & evidence (research)](/spec/specs/artifacts/planning/global-health-ai-background-research-2026-06-14).
+> research file: [Background & evidence (research)](#/spec/specs/artifacts/planning/global-health-ai-background-research-2026-06-14).
 
 ## Where most primary care actually happens
 

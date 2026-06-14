@@ -58,7 +58,7 @@ export const navTree: NavSection[] = [
   {
     title: 'Start here',
     items: [
-      { kind: 'home',   slug: 'welcome',                                       title: 'Welcome — overview',  blurb: 'Purpose, project overview, canvases, and all docs at a glance.' },
+      { kind: 'home',   slug: 'welcome',                                       title: 'Welcome — overview',  blurb: 'The mission in plain terms — the problem, the approach, and where to go deeper.' },
       { kind: 'spec',   slug: 'specs/background/why-local-first-clinical-ai',  title: 'Why local-first clinical AI', blurb: 'The cited evidence behind the mission — offline realities, data sovereignty, right-sized open models, and WHO SMART Guidelines.' },
       { kind: 'spec',   slug: 'README',                                        title: 'Project README',      blurb: 'What this harness is, who it is for, how to get started, and key terms.' },
       { kind: 'canvas', slug: 'specs/roadmap',                                 title: 'Validation roadmap',  blurb: 'Planned validation milestones, lanes, dependencies. Start here to understand sequencing.' },
