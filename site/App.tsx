@@ -3,6 +3,7 @@ import { Link, NavLink, useLocation } from 'react-router-dom';
 import { isSection, navTree, neighbors, NavLeaf, NavSection } from './nav';
 import { completeNav } from './nav-auto';
 import { htmlHrefFor } from './prerender-lib';
+import { topics } from './topics';
 
 // Link from the interactive view to its full-static-HTML twin (the LLM-readable
 // mirror emitted by the prerender pass). Same mirror-routes-minus-hash mapping.
@@ -98,6 +99,18 @@ function Sidebar({ onClose, onNavigate }: { onClose: () => void; onNavigate: () 
       </div>
       <div className="sidebar-sub">Planning artifacts &amp; canvases</div>
       <nav className="sidebar-nav">
+        <div className="nav-section depth-0">
+          <div className="nav-section-header top nav-section-static">
+            <span className="caret">▾</span><span className="nav-section-title">Browse by topic</span>
+          </div>
+          <div className="nav-section-children">
+            {topics.map((t) => (
+              <NavLink key={t.id} to={`/topic/${t.id}`} end onClick={onNavigate} className={({ isActive }) => `nav-leaf${isActive ? ' active' : ''}`}>
+                <span className="nav-leaf-title">{t.title}</span>
+              </NavLink>
+            ))}
+          </div>
+        </div>
         {fullNavTree.map((s, i) => <SidebarSection key={`top-${i}-${s.title}`} section={s} depth={0} onNavigate={onNavigate} />)}
       </nav>
     </aside>
@@ -229,6 +242,20 @@ function HomeView() {
       </section>
 
       <section className="landing-section">
+        <h2>Browse by topic</h2>
+        <p className="landing-section-sub">Prefer to explore by theme? Each gathers the specs, research, and canvases for one aspect of the project.</p>
+        <div className="card-grid">
+          {topics.map((t) => (
+            <Link key={t.id} to={`/topic/${t.id}`} className="dispatch-card">
+              <div className="dispatch-card-title">{t.title}</div>
+              <div className="dispatch-card-blurb">{t.blurb}</div>
+              <div className="dispatch-card-path">{t.links.length} page{t.links.length === 1 ? '' : 's'} →</div>
+            </Link>
+          ))}
+        </div>
+      </section>
+
+      <section className="landing-section">
         <h2>Canvases</h2>
         <p className="landing-section-sub">Topic-scoped visual summary pages — architecture, data profiles, comparisons, and research.</p>
         <div className="card-grid">
@@ -326,6 +353,25 @@ function SpecView({ slug }: { slug: string }) {
   );
 }
 
+function TopicView({ id }: { id: string }) {
+  const topic = topics.find((t) => t.id === id);
+  if (!topic) return <NotFoundView what="topic" />;
+  return (
+    <div className="content-prose">
+      <p className="topic-eyebrow"><Link to="/">← all topics</Link></p>
+      <h1>{topic.title}</h1>
+      <p className="topic-blurb">{topic.blurb}</p>
+      <ul className="doc-list">
+        {topic.links.map((l) => (
+          <li key={`${l.kind}-${l.slug}`}>
+            <Link to={l.kind === 'canvas' ? `/canvas/${l.slug}` : `/spec/${l.slug}`}>{l.label}</Link>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 function PrevNext({ slug }: { slug: string }) {
   const { prev, next } = neighbors(slug, fullNavTree);
   if (!prev && !next) return null;
@@ -380,6 +426,7 @@ export default function App() {
   if (!kind || kind === 'welcome')      main = <HomeView />;
   else if (kind === 'canvas')           main = <CanvasView slug={slug} />;
   else if (kind === 'spec')             main = <SpecView slug={slug} />;
+  else if (kind === 'topic')            main = <TopicView id={slug} />;
   else                                  main = <HomeView />;
 
   return (

@@ -341,6 +341,13 @@ body {
 .start-step-title { color: var(--text-primary); font-weight: 600; font-size: 14.5px; }
 .start-step-blurb { color: var(--text-tertiary); font-size: 12.5px; line-height: 1.45; }
 
+/* topic pages */
+.topic-eyebrow { font-size: 12.5px; margin: 0 0 4px; }
+.topic-eyebrow a { color: var(--text-tertiary); text-decoration: none; }
+.topic-eyebrow a:hover { color: var(--accent); }
+.topic-blurb { color: var(--text-secondary); font-size: 14.5px; line-height: 1.6; max-width: 760px; margin: 0 0 18px; }
+.nav-section-static { cursor: default; }
+
 /* ---------- prev/next ---------- */
 .prev-next {
   display: grid;
