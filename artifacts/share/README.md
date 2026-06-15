@@ -1,80 +1,75 @@
 # OpenMRS 2.8 RefApp Demo Data (5,284 patients)
 
-Drop-in demo data for **OpenMRS Platform 2.8 / Reference Application 3.6.0**. This is the 2.8/RefApp-compatible refresh of the well-known `large-demo-data-2-7-0.sql.zip` distributed via the [OpenMRS Demo Data wiki page](https://openmrs.atlassian.net/wiki/spaces/docs/pages/26273323/Demo+Data).
+Drop-in demo data for **OpenMRS Platform 2.8 / Reference Application 3.6.0**. This is the 2.8/RefApp-compatible refresh of the well-known `large-demo-data-2-7-0.sql.zip` distributed via the [OpenMRS Demo Data wiki page](https://openmrs.atlassian.net/wiki/spaces/docs/pages/26273323/Demo+Data). The source is **de-identified real AMPATH HIV/TB clinical data**.
 
 ## Current artifact
 
-**`openmrs-2.8-refapp-demo-5284-patients-2026-06-04.sql.gz`** (40.3 MB, sha256 `44c02628…`)
+**`openmrs-2.8-refapp-demo-5284-patients-2026-06-15.sql.gz`** (40.9 MB, sha256 `da136fcef0d37a16c7616bc396fdd8b16fced6016debc13e205eb402851bc5c3`)
 
-This build adds the **preferred-address normalization** (so the O3 patient chart renders addresses) on top of the #20 demo-data regeneration (referentially clean, fully preserved, promotable). It **supersedes** the `2026-06-03` and `2026-05-19` publishes. Clinical row counts are unchanged; the deltas are structural (per #20) plus the preferred-address flag.
+This build **supersedes** `2026-06-06` / `2026-06-04`. It adds two corrections on top of that lineage; clinical facts (obs/orders/conditions) are otherwise unchanged.
 
-- Loads into a database literally named **`openmrs`** (the dump embeds `CREATE DATABASE openmrs; USE openmrs;` so it is self-contained — no schema choice on the consumer side).
-- 232 tables, ~1.70M rows.
-- **Referentially clean**: the `harness.transform.orphan_fk --target openmrs` gate checked **868 FK constraints, 0 orphans** against this build.
-- Mapping remediation in this build:
-  - **Preferred address** (display normalization): the legacy 2.7 corpus marks no preferred address, so OpenMRS FHIR emits every address with `use="old"` and the O3 patient header shows a blank address. The transform now deterministically flags one non-voided address per person preferred (all **5,283**). FHIR then emits `use="home"` and O3 renders it — e.g. Zabella (`2428TU-4`) → *Maili Nne (Eld)*; Horatio Hornblower (`101`) → *1050 Wishard Blvd., Indianapolis, IN 46202, USA*. This is a demo-display normalization, not source-faithful for the `preferred` column. Guarded by `audit_person_address_one_preferred`.
-  - Concept FK resolution: drug-order parent concepts resolve through CIEL UUIDs to the correct concept instead of accidentally landing on unrelated target concepts. Verified on a known patient (Zabella Talai Halambe, `2428TU-4`): her drug-order concepts resolve to CIEL **Efavirenz** (`633…`), **Nevirapine** (`631…`), **Lamivudine** (`628…`), and **Stavudine** (`625…`).
-  - `drug_order.drug_inventory_id` is non-null for **all 43,412** promoted drug-order rows, backed by a deterministic synthetic concept-level drug catalog (`drug_id = 300000 + CIEL concept numeric`).
-  - Typed-table promotion writes only canonical promoted rows; no duplicate residual obs for P1/P2/P3 facts.
-  - Synthetic UUIDs on promoted rows are deterministic (UUIDv5-style, name-based), so byte-identical dumps are reproducible from identical source state.
+### What's new in this build
+
+1. **Visits reconstructed.** The upstream demo (and every prior build) had **0 visit rows** — every encounter was unlinked (`visit_id` NULL). The source itself never had visits, and modern OpenMRS auto-creates a visit for every encounter (`EmrApiVisitAssignmentHandler`). This build rebuilds that layer: **14,248 visits, one per patient per calendar day**, with every one of the 14,316 encounters now linked. This unblocks OMOP `visit_occurrence` and the O3 visit-centric chart.
+2. **Demographics reconciled (age + sex).** The de-identification scrambled **birthdate and sex independently of the clinical content**, producing impossible combinations (e.g. a 67 kg "3-year-old") and pediatric staging on adult-aged patients. Because the clinical data is authoritative (weights are 99.6% self-consistent per patient), age and sex are **re-derived from the clinical evidence**: age from **sex-neutral WHO weight-for-age** (pregnancy = adult floor), and sex set to **female for the 171 patients with a positive pregnancy signal**. **1,200 patients** were corrected (1,058 birthdates, 171 gender) — only those whose recorded values contradicted the evidence; the rest are untouched. Result: **0** patients with an impossible age/weight combination, **0** pregnant patients coded male, child population (<18) now **731**.
+
+- Loads into a database literally named **`openmrs`** (the dump embeds `CREATE DATABASE openmrs; USE openmrs;` — self-contained).
+- 232 tables, ~1.71M rows. Referentially clean: the orphan-FK gate checked **868 FK constraints, 0 orphans** (including the new `encounter.visit_id → visit` and `visit.*` constraints).
+
+## How the original maps to visits
+
+The source has flat encounters and no visit boundaries, so the visit grouping is a reviewed mapping rule (the same convention OpenMRS uses when retrofitting visits onto orphan encounters):
+
+- **Grouping:** one visit per `(patient_id, calendar day)`. 99.1% of patient-days already hold exactly one encounter, so visits are ~1:1 with encounters (14,248 visits vs 14,316 encounters); the few multi-encounter days collapse into a single visit (matching `allowOverlappingVisits=false`). The wrapped `encounter_id`s of a visit are recoverable by `(patient_id, DATE(date_started))`.
+- **visit_type** is derived from encounter type: *Adult Visit → OPD Visit (3)*; everything else → *Facility Visit (1)*. Result: 13,310 OPD + 938 Facility.
+- **date_started / date_stopped** = first / last encounter of that day (closed visits, so OMOP gets a visit end date). `location`/`creator` carried from the encounters.
+- **visit_id / uuid** are deterministic (row-number over the unique key; UUIDv5 over `feature-002:visit:<patient>:<day>`), so re-runs are byte-identical.
+
+## Conditions, drugs, procedures (representation notes)
+
+- **Conditions** are in the **`conditions` table** (4,451 rows, 171 distinct diagnoses), promoted 1:1 from the legacy `PROBLEM ADDED` obs. This is the correct O3 representation (the Conditions widget reads this table); diagnoses are intentionally **not** left as obs.
+- **Drugs** are in `drug_order` (43,412), synthesized from the ARV/TB treatment obs; the questionnaire obs are retained alongside.
+- **Procedures / radiology / surgical history are absent** (the source had none — only Drug + Test order types exist). Adding them is net-new synthetic content, out of scope for this build.
+
+## Data-fidelity note (important for ETL consumers)
+
+This is **de-identified real data**. Investigation established what is trustworthy:
+
+- **Authoritative (clinical content):** observations (weight/vitals, pregnancy/obstetric, diagnoses), medications, and their per-patient grouping are real and internally coherent.
+- **Reconstructed (de-identified demographics):** the de-identification scrambled **birthdate and sex** independently of the clinical content. They are now re-derived from clinical evidence — so **pediatric ages are physiologically grounded** (weight-for-age), **adult ages are plausible but synthetic** (assigned from the real adult-age distribution, since weight cannot pin an adult's exact age), and **sex is corrected only where clinically provable** (pregnancy → female; there are no male-specific signals, so most `gender` values are left as recorded and should be treated with caution). Patient **names are fake** (de-identified).
+
+All corrections are deterministic SQLMesh ETL stages — a fresh `transform → load → dump` reproduces this byte-for-byte.
 
 ## Contents
 
 | Table | Row count |
 |---|---|
 | `patient` (non-voided) | 5,284 |
-| `encounter` (non-voided) | 14,316 |
-| `obs` (total) | 428,013 |
-| `orders` (parent table) | 44,507 |
-| `drug_order` (child) | 43,412 — all with `drug_inventory_id` |
-| `test_order` (child) | 1,095 |
+| &nbsp;&nbsp;of which < 18 yrs | 731 |
+| `visit` | 14,248 — every patient has ≥1 |
+| `encounter` | 14,316 — all linked to a visit |
+| `obs` | 428,013 |
+| `orders` / `drug_order` / `test_order` | 44,507 / 43,412 / 1,095 |
 | `conditions` (non-voided) | 4,451 |
-| `allergy` (non-voided) | 2 |
-| **Total tables** | **232** (full OpenMRS Platform 2.8 schema; standard module tables included) |
+| **Total tables** | **232** |
 
-**Excluded** (consumer-side module tables — the consuming module recreates them empty on install):
-- `chartsearchai_audit_log`, `chartsearchai_chat_message`, `chartsearchai_chat_session`, `chartsearchai_embedding`
-- `querystore_bootstrap_progress`
+**Excluded** (consumer-side module tables, recreated empty on install): `chartsearchai_*`, `querystore_*`.
 
 ## Load
 
 ```bash
-# The dump self-creates the openmrs database, so the receiving instance just
-# needs an empty MariaDB / MySQL with a privileged user. No CREATE DATABASE
-# step on the consumer side.
-
-gunzip -c openmrs-2.8-refapp-demo-5284-patients-2026-06-04.sql.gz | mariadb -u root -p
+gunzip -c openmrs-2.8-refapp-demo-5284-patients-2026-06-15.sql.gz | mariadb -u root -p
 ```
 
-Takes ~20 seconds against an empty `mariadb:10.11.7` container (verified — see `verified_load` in the provenance).
+The dump self-creates the `openmrs` database and toggles `FOREIGN_KEY_CHECKS=0` for the load. Verified loading clean into an empty `mariadb:10.11.7` container (~6 s).
 
-The dump toggles `FOREIGN_KEY_CHECKS=0` + `UNIQUE_CHECKS=0` for the duration of the load so the order of `CREATE TABLE` within a single transaction is safe.
+## Source & reproducibility
 
-## Reproducibility
-
-Dump produced via [`scripts/dump-loaded.sh`](../../scripts/dump-loaded.sh) with deterministic flags (byte-identical for identical source state):
-
-```
---single-transaction --quick
---skip-comments --skip-dump-date --skip-tz-utc
---skip-add-locks --skip-disable-keys
---extended-insert --hex-blob
---default-character-set=utf8mb4
---databases openmrs
---ignore-pattern 'chartsearchai_%'   # consumer-side chartsearchai module tables
---ignore-pattern 'querystore_%'      # consumer-side querystore bootstrap marker
-```
-
-See `openmrs-2.8-refapp-demo-5284-patients-2026-06-04.sql.gz.provenance.json` for the exact `sha256`, row counts, remediation evidence (the orphan-FK gate result, drug-catalog coverage, the preferred-address normalization, and the known-patient CIEL concept resolution — each re-derived from this build), the pipeline provenance (regen + preferred-address commits), and the ephemeral clean-container load verification.
-
-## Source
-
-Produced by the [clinical-ai-validation-harness](https://github.com/pmanko/clinical-ai-validation-harness) feature 002 transformation pipeline (SQLMesh + dlt), which takes the original `large-demo-data-2-7-0.sql.zip` and applies:
+Produced by the [clinical-ai-validation-harness](https://github.com/pmanko/clinical-ai-validation-harness) feature 002 pipeline (SQLMesh + dlt) from `large-demo-data-2-7-0.sql.zip`:
 
 1. Concept identity bridge: legacy concept IDs → CIEL UUIDs → target local concept IDs.
-2. 2.7 → 2.8 schema diff (Liquibase changesets pre-staged in SQLMesh).
-3. Typed-table promotion rules (obs → drug_order / test_order / conditions / allergy with parent/child shape preserved).
-4. Drug catalog augmentation (concept-level deterministic synthetic drug rows for promoted medication orders).
-5. FK closure + orphan reconciliation; no duplicate canonical facts.
+2. 2.7 → 2.8 schema diff; typed-table promotion (obs → drug_order / test_order / conditions / allergy).
+3. Uniform date transplant to a recent window; preferred-address normalization.
+4. **Visit reconstruction** (`clin__visit` / `clin__encounter`) + **pediatric DOB correction** (`stg_peds_dob_correction`).
 
-Result is a deterministic, clinically-faithful 2.8/RefApp-compatible corpus suitable for development, testing, and demos. See the [feature 002 spec](https://github.com/pmanko/clinical-ai-validation-harness/tree/main/specs/002-openmrs-demo-data-2-8-remap) for details on the transformation.
+Dump via `scripts/dump-loaded.sh` with deterministic flags; see `*.provenance.json` for the exact sha256, row/table counts, and load command. See the [feature 002 spec](https://github.com/pmanko/clinical-ai-validation-harness/tree/main/specs/002-openmrs-demo-data-2-8-remap).

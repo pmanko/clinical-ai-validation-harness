@@ -98,7 +98,10 @@ LOAD_RESOURCES: tuple[LoadResource, ...] = (
     LoadResource("stg_patient",          "patient",          ("patient_id",),     "replace"),
     LoadResource("stg_patient_identifier", "patient_identifier", ("patient_identifier_id",), "replace"),
     LoadResource("stg_patient_identifier_type", "patient_identifier_type", ("patient_identifier_type_id",), "merge"),
-    LoadResource("stg_encounter",        "encounter",        ("encounter_id",),   "replace"),
+    # Visits are reconstructed (source had none); load before encounter so the
+    # encounter.visit_id FK resolves. clin__encounter = stg_encounter + visit_id.
+    LoadResource("clin__visit",          "visit",            ("visit_id",),       "replace"),
+    LoadResource("clin__encounter",      "encounter",        ("encounter_id",),   "replace"),
     LoadResource("stg_encounter_provider", "encounter_provider", ("encounter_provider_id",), "replace"),
     LoadResource("stg_concept_carryforward", "concept", ("concept_id",), "merge"),
     LoadResource("stg_concept_name_carryforward", "concept_name", ("concept_name_id",), "merge"),

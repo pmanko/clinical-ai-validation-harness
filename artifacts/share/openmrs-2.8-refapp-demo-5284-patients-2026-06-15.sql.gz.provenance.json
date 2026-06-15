@@ -1,0 +1,13 @@
+{
+  "source_schema": "openmrs",
+  "table_count": 232,
+  "approx_row_count": 1708372,
+  "excluded_tables": ["chartsearchai_audit_log", "chartsearchai_chat_message", "chartsearchai_chat_session", "chartsearchai_embedding"],
+  "output_path": "artifacts/share/openmrs-2.8-refapp-demo-5284-patients-2026-06-15.sql.gz",
+  "output_bytes": 42861060,
+  "output_sha256": "da136fcef0d37a16c7616bc396fdd8b16fced6016debc13e205eb402851bc5c3",
+  "gzipped": true,
+  "generated_at": "2026-06-15T16:49:11Z",
+  "generator": "scripts/dump-loaded.sh",
+  "load_into_command": "zcat artifacts/share/openmrs-2.8-refapp-demo-5284-patients-2026-06-15.sql.gz | mariadb -u root -p"
+}

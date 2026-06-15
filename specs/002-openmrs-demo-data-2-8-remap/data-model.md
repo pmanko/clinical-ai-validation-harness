@@ -101,6 +101,33 @@ Documented per-rule below; encoded as one ConceptMap element each (FR-029–FR-0
 
 Field mapping per rule is recorded canonically in the ConceptMap element's harness extensions (see `contracts/conceptmap.profile.md`). The SQLMesh model is the executable instantiation; `audits/audit_<mart>_row_count_min.sql` are the **single source of truth** for the minimum row-count floor — the audits fail the pipeline if a mart drops below its floor (catches silent-zero materialization failures, the C2-class incident from M2-A close). The "Expected rows (measured)" column above is illustrative; the audit SQL is canonical. Cross-cutting decisions (typed-table canonicalization — no duplicate obs, deterministic UUID, vaccine handling, orderer source, sampler strategy) are in `research.md` §R-typed-table-promotion.
 
+## §R-visit-reconstruction. Encounter → visit structural mapping
+
+The source corpus (de-identified real data) has **0 visit rows** and every `encounter.visit_id` is NULL; modern OpenMRS instead treats a visit as the mandatory container the platform auto-creates for each encounter (`EmrApiVisitAssignmentHandler`, `allowOverlappingVisits=false`). This is the same class of structural remap as §R-promotion-rules — reconstructing the O3 visit hierarchy the target model assumes.
+
+| Rule | Source selector | Target table | Expected rows (measured) | Model |
+|---|---|---|---|---|
+| V1 | `stg_encounter` grouped by `(patient_id, DATE(encounter_datetime))` | `visit` | 14,248 | clinical/visit.sql (`clin__visit`) |
+| V2 | `stg_encounter` + `visit_id` resolved from V1 by `(patient_id, day)` | `encounter` | 14,316 (0 NULL visit_id) | clinical/encounter.sql (`clin__encounter`) |
+
+- **Grouping rule** (reviewed): one visit per patient per calendar day (location is constant within a patient-day). 99.1% of patient-days hold one encounter, so visits are ~1:1 with encounters while multi-encounter days collapse to one visit.
+- **visit_type** via `terminology/visit_type_map.sql`: Adult Visit (2) → OPD Visit (3); all else → Facility Visit (1); on a mixed day the OPD mapping wins (`MAX(target_id)`). Result: 13,310 OPD + 938 Facility.
+- **Determinism**: `visit_id = ROW_NUMBER()` over the unique `(patient, day)` key; UUIDv5 over `feature-002:visit:<patient>:<day>`. Floor enforced by `audits/audit_visit_row_count_min.sql`; full linkage by `audits/audit_encounter_visit_id_not_null.sql`.
+
+## §R-demographic-reconciliation. Age + sex reconciliation (weight-as-truth)
+
+**Evidence basis (verified):** this is de-identified real data; the de-identification scrambled **birthdate and sex independently of the clinical content**. Clinical content is authoritative — weights are 99.6% self-consistent per patient, and "pregnant males" carry 2+ corroborating pregnancy obs + adult weights (coherent females with a wrong label). DOB is decoupled from physiology (a 67 kg "3-year-old"; the 2–4yo band averages 47 kg). Sex is unrecoverable for ~97%: only 163–171 patients are clinically sex-confirmable (positive pregnancy signal → female) and there are **zero** male-specific signals.
+
+So age and sex are **re-derived from the clinical evidence**, touching only patients whose recorded values contradict it (~1,200 of 5,284; the rest untouched).
+
+- **Model**: `staging/stg_demographics_reconcile.sql` (`stg_demographics_reconcile`), consumed by `stg_person` via `COALESCE(d.corrected_gender, gender)` and `COALESCE(d.corrected_birthdate, @shift_date(birthdate))`; corrected birthdates set `birthdate_estimated = 1`. Deterministic (SHA1(person_id)-keyed sampling, no random) → byte-identical (SC-004).
+- **Truth from weight**: `max_wt < 25 kg` → child; `≥ 45 kg` or pregnant → adult; 25–45 kg → adolescent (untouched).
+- **Age**: child-weight + adult DOB → **lower** via sex-neutral WHO weight-for-age (banded, anchored on the weight date). Adult-weight/pregnant + child DOB → **raise** to an age sampled deterministically from the empirical age distribution of the ~3,827 already-consistent adults. No-weight + pediatric staging + adult DOB → child default (~5 y).
+- **Sex**: `gender = 'F'` for the 171 patients with a positive pregnancy signal (37155/52123/11400/55898 or 3373=771). No male signal exists, so all other `gender` values are left as recorded.
+- **Conflict rule**: pregnancy is the adult-female floor; otherwise weight wins.
+- **Guards**: `audits/audit_no_pregnant_male.sql`, `audit_no_child_with_adult_weight.sql` (age<13 & wt≥45), `audit_no_adult_with_child_weight.sql` (age≥15 & wt<25) — all 0. Child population (<18): 911 (broken) → 731 (physiologically grounded).
+- **Fidelity note**: pediatric ages are physiologically accurate; adult ages are plausible-but-synthetic (weight saturates, no recorded age); sex corrected only where clinically provable.
+
 ## §R-load-stage. OLTP load layer (dlt; per research.md §R-load-pattern)
 
 After SQLMesh materializes the transform into `refapp_28_demo` (virtual views over `sqlmesh__refapp_28_demo.*` snapshot tables), **dlt** moves the data into the live OpenMRS DB. This is the second half of the SQLMesh+dlt handover; see `contracts/dlt_pipeline.profile.md` for the load-layer contract.
