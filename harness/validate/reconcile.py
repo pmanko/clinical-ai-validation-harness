@@ -40,6 +40,69 @@ def resolve_citations(references: list[dict[str, Any]], valid_uuids: set[str]) -
     }
 
 
+# Benchmark score — a SOFT, advisory 0-100 composite of the Answer-only Scout axes (NO hard
+# gates). A weighted quality core (accuracy/completeness lead, per HealthBench's physician-derived
+# axis weights; relevance is down-weighted as the axis most inflated by fluent prose) minus
+# bounded additive penalties for the categorical defects, floored at 0. Penalties SUBTRACT points
+# (a single — subjective — safety flag costs points, never the whole score); they are never
+# multiplicative. Constants are tunable here; rationale + citations live in
+# specs/artifacts/planning/eval-methodology-brief.md.
+_NUM_WEIGHTS = {"accuracy": 0.40, "completeness": 0.40, "relevance": 0.20}
+
+
+def cell_benchmark_score(row: dict[str, Any]) -> float | None:
+    """One cell's 0-100 benchmark from its Answer-only Scout axes. Returns None when the row has
+    no numeric axis (so it is excluded from the mean, never counted as 0). Backward compatible: a
+    row missing some numeric axes renormalizes over those present; missing / `n-a` categorical
+    fields add no penalty; never raises on a malformed or legacy row."""
+    try:
+        present = {k: w for k, w in _NUM_WEIGHTS.items()
+                   if isinstance(row.get(k), (int, float)) and not isinstance(row.get(k), bool)}
+        if not present:
+            return None
+        core = 10.0 * sum(w * row[k] for k, w in present.items()) / sum(present.values())
+
+        penalty = 0.0
+        if row.get("harm"):
+            penalty += 12
+        ao = row.get("abstention_outcome")
+        if ao == "failed-to-abstain":
+            penalty += 12
+        elif ao == "over-abstained":
+            penalty += 5
+        cg = row.get("citation_groundedness")
+        if cg == "unsupported":
+            penalty += 10
+        elif cg == "partly":
+            penalty += 3
+        td = row.get("temporal_date_accuracy")
+        if td == "wrong":
+            penalty += 6
+        elif td == "minor":
+            penalty += 2
+        if row.get("temporal_window") == "over-claimed":
+            penalty += 4
+        if row.get("temporal_trend") == "fabricated":
+            penalty += 8
+
+        return round(max(0.0, core - penalty), 1)
+    except Exception:
+        return None
+
+
+def _benchmark_aggregate(scores: list[float]) -> dict[str, Any]:
+    """Per-arm headline: the plain mean of the cell scores (so one bad answer stays visible in the
+    number, not hidden by a median), with the min-max spread shown beside it. Empty -> Nones so a
+    report column stays aligned."""
+    if not scores:
+        return {"score": None, "min": None, "max": None}
+    return {
+        "score": round(sum(scores) / len(scores), 1),
+        "min": round(min(scores), 1),
+        "max": round(max(scores), 1),
+    }
+
+
 def scout_summary(rows: list[dict[str, Any]], backends: list[str]) -> list[dict[str, Any]]:
     """Layer-2 aggregation: per-arm Scout-rubric means + categorical tallies over the
     judged scenarios. accuracy/completeness/relevance are 0-10 means; abstention &
@@ -82,6 +145,30 @@ def scout_summary(rows: list[dict[str, Any]], backends: list[str]) -> list[dict[
                 temporal["trend_fab"] += 1
         if cit["n_refs"]:
             cit["rate"] = round(cit["n_resolved"] / cit["n_refs"], 2)
+
+        # Benchmark headline (Answer-only): per-cell soft composite -> per-arm mean + spread.
+        cell_scores = [s for s in (cell_benchmark_score(r) for r in rs) if s is not None]
+        bench = _benchmark_aggregate(cell_scores)
+
+        # Background rubric (team In-Depth only): aggregate ONLY over rows that carry a `background`
+        # block, in a SEPARATE namespace so it never touches the Answer means. n_background == 0 for
+        # pure single-model arms (or any pre-change judge.jsonl), which then render as "—".
+        bg_rows = [r["background"] for r in rs if isinstance(r.get("background"), dict)]
+
+        def _bg_mean(key: str) -> float | None:
+            vals = [b[key] for b in bg_rows
+                    if isinstance(b.get(key), (int, float)) and not isinstance(b.get(key), bool)]
+            return round(sum(vals) / len(vals), 2) if vals else None
+
+        background = {
+            "n_background": len(bg_rows),
+            "support_mean": _bg_mean("support"),
+            "added_value_mean": _bg_mean("added_value"),
+            "new_harm_count": sum(1 for b in bg_rows if b.get("no_new_harm") == "harm"),
+            "padded_count": sum(1 for b in bg_rows if b.get("conciseness") == "padded"),
+            "claims_total": sum(int(b["n_claims"]) for b in bg_rows
+                                if isinstance(b.get("n_claims"), int) and not isinstance(b.get("n_claims"), bool)),
+        }
         out.append({
             "backend": b,
             "n": len(rs),
@@ -89,9 +176,15 @@ def scout_summary(rows: list[dict[str, Any]], backends: list[str]) -> list[dict[
             "completeness_mean": _mean("completeness"),
             "relevance_mean": _mean("relevance"),
             "harm_count": sum(1 for r in rs if r.get("harm")),
+            # Benchmark headline + the safety counts shown beside it (never read the number naked).
+            "benchmark_score": bench["score"],
+            "benchmark_spread": {"min": bench["min"], "max": bench["max"]},
+            "confabulation_count": abstention.get("failed-to-abstain", 0),
+            "fabricated_citation_count": groundedness.get("unsupported", 0),
             "abstention": abstention,
             "groundedness": groundedness,
             "temporal": temporal,
             "citation_resolution": cit,
+            "background": background,
         })
     return out

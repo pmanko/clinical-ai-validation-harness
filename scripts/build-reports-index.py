@@ -71,6 +71,10 @@ def human_arm(arm: str) -> tuple[str, str]:
         return ("Gemma 12B (single model)", detail)
     if "a4b" in a or "26b" in a:
         return ("Gemma 26B (single model)", detail)
+    if "lfm2-24b" in a:
+        return ("LFM2-24B (single model)", detail)
+    if "lfm2-1.2b" in a:
+        return ("LFM2 1.2B (single model)", detail)
     return (arm, detail)
 
 
@@ -119,7 +123,7 @@ def gather(slug: str) -> dict:
     judge = _load_judge(rdir)
     if judge:
         summ = [s for s in scout_summary(judge, arms) if s["n"]]
-        summ.sort(key=lambda s: (s["accuracy_mean"] or 0), reverse=True)
+        summ.sort(key=lambda s: (s.get("benchmark_score") or 0), reverse=True)
         out["scout"] = summ
     return out
 
@@ -127,13 +131,14 @@ def gather(slug: str) -> dict:
 def _scout_table(scout: list[dict]) -> str:
     if not scout:
         return '<div class="unscored">This run is an answer comparison only — not yet scored.</div>'
-    # best (max) per metric, to highlight the column winner
+    # best (max) per column, to highlight the winner. Benchmark is the headline.
     best = {}
-    for key in ("accuracy_mean", "completeness_mean", "relevance_mean"):
-        vals = [s[key] for s in scout if isinstance(s[key], (int, float))]
+    for key in ("benchmark_score", "accuracy_mean", "completeness_mean", "relevance_mean"):
+        vals = [s[key] for s in scout if isinstance(s.get(key), (int, float))]
         best[key] = max(vals) if vals else None
     head = ('<table class="scout"><thead><tr>'
             '<th class="arm">AI setup</th><th>Questions</th>'
+            '<th>Benchmark<br>/100</th>'
             '<th>Accuracy</th><th>Completeness</th><th>Relevance</th>'
             '<th>Unsafe<br>answers</th></tr></thead><tbody>')
     body = []
@@ -141,19 +146,41 @@ def _scout_table(scout: list[dict]) -> str:
         name, detail = human_arm(s["backend"])
 
         def cell(key):
-            v = s[key]
+            v = s.get(key)
             if not isinstance(v, (int, float)):
                 return "<td>—</td>"
             cls = ' class="best"' if best[key] is not None and abs(v - best[key]) < 1e-9 else ""
             return f"<td{cls}>{v:.1f}</td>"
-        harm = s["harm_count"]
-        harm_cell = f'<td class="harm">{harm}</td>' if harm else "<td>0</td>"
+        harm = s.get("harm_count", 0)
+        flags = (f'harm: {harm} · confabulations: {s.get("confabulation_count", 0)} · '
+                 f'fabricated citations: {s.get("fabricated_citation_count", 0)}')
+        harm_cls = ' class="harm"' if harm else ""
+        harm_cell = f'<td{harm_cls} title="{escape(flags)}">{harm}</td>'
         body.append(
             f'<tr><td class="arm" title="{escape(detail)}">{escape(name)}</td>'
-            f'<td>{s["n"]}</td>{cell("accuracy_mean")}{cell("completeness_mean")}'
-            f'{cell("relevance_mean")}{harm_cell}</tr>'
+            f'<td>{s["n"]}</td>{cell("benchmark_score")}{cell("accuracy_mean")}'
+            f'{cell("completeness_mean")}{cell("relevance_mean")}{harm_cell}</tr>'
         )
-    return head + "".join(body) + "</tbody></table>"
+    table = head + "".join(body) + "</tbody></table>"
+    # Background (AI-team In-Depth only) — a collapsible, clearly separate block so the elaboration
+    # scores never sit in the head-to-head grid above. Single-model arms have no In-Depth.
+    bg = [s for s in scout if (s.get("background") or {}).get("n_background")]
+    if bg:
+        rows = []
+        for s in bg:
+            name, _ = human_arm(s["backend"])
+            b = s["background"]
+            sup = "—" if b.get("support_mean") is None else f'{b["support_mean"]:.1f}'
+            val = "—" if b.get("added_value_mean") is None else f'{b["added_value_mean"]:.1f}'
+            rows.append(f'<tr><td class="arm">{escape(name)}</td><td>{b["n_background"]}</td>'
+                        f'<td>{sup}</td><td>{val}</td><td>{b.get("new_harm_count", 0)}</td>'
+                        f'<td>{b.get("padded_count", 0)}</td></tr>')
+        table += ('<details class="bg-extra"><summary>Background detail — AI-team elaboration, scored '
+                  'separately (not part of the Benchmark)</summary>'
+                  '<table class="scout"><thead><tr><th class="arm">AI setup</th><th>In-depth answers</th>'
+                  '<th>Support</th><th>Added value</th><th>Unsafe</th><th>Padded</th></tr></thead><tbody>'
+                  + "".join(rows) + '</tbody></table></details>')
+    return table
 
 
 def _card(entry: dict) -> str:

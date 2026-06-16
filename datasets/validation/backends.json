@@ -83,5 +83,15 @@
     "label": "Gemma 4-E4B (llama.cpp GGUF + DRY, via llama-server)",
     "endpointUrl": "http://host.docker.internal:8077/v1/chat/completions",
     "modelName": "gemma-e4b"
+  },
+  "lfm2-24b-baseline": {
+    "label": "LFM2-24B-A2B single LLM, direct chart (GGUF+DRY)",
+    "endpointUrl": "http://host.docker.internal:8077/v1/chat/completions",
+    "modelName": "lfm2-24b-a2b"
+  },
+  "lfm2-1.2b-baseline": {
+    "label": "LFM2.5-1.2B-Instruct single LLM, direct chart (GGUF+DRY)",
+    "endpointUrl": "http://host.docker.internal:8077/v1/chat/completions",
+    "modelName": "lfm2-1.2b"
   }
 }

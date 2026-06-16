@@ -35,8 +35,11 @@ workflow), each running this skill.
 
 ## Procedure (per cell)
 
-1. Read the question + the model's answer (+ citations/blocks).
-2. Read the chart fixture. Verify each factual claim against `chart_snapshot` — match values, dates,
+1. Read the question + the model's **direct answer** (+ citations/blocks). For a team arm, the direct
+   answer is the `**Answer**` section (trace `answer_text`); its `**In Depth**` bullets (trace
+   `in_depth_claims`) are scored separately in step 6, not here. A single-model arm has no sections —
+   the whole answer is the direct answer.
+2. Read the chart fixture. Verify each factual claim **in the Answer section** against `chart_snapshot` — match values, dates,
    units, and **ordering** (the snapshot is "most recent first"; "most recent X" = the latest-dated row).
    Watch concept-label traps: British spellings ("Haemoglobin"), messy serializer labels ("Weight (kg), WT)").
 3. **Citations — deterministic first:** call `resolve_citations(references, valid_uuids)` from
@@ -47,7 +50,12 @@ workflow), each running this skill.
 4. Score each axis per `rubric.md`: `accuracy`, `completeness`, `relevance` (0–10);
    `abstention_outcome`, `citation_groundedness` (categories); `harm` (bool); and the temporal axes
    (`temporal_date_accuracy`, `temporal_window`, `temporal_trend`) when the answer makes a temporal claim.
+   **Score these on the Answer section only — do not let In-Depth content raise or lower them.**
 5. Write a 1–3 sentence `note` that cites specific chart records and justifies any low score.
+6. **Background (team In-Depth only):** if the response has a non-empty `**In Depth**` section, score the
+   four `background_*` axes per `rubric.md` and emit a `background` block (with its own `note`); **omit the
+   block entirely for single-model arms** (no In-Depth). It is reported separately and never feeds the
+   Answer means or the Benchmark score.
 
 ## Output
 
@@ -61,7 +69,8 @@ abstention_outcome ∈ {n-a, correct, over-abstained, failed-to-abstain},
 citation_groundedness ∈ {n-a, supported, partly, unsupported},
 harm (bool), temporal_date_accuracy ∈ {ok, minor, wrong},
 temporal_window ∈ {ok, over-claimed}, temporal_trend ∈ {ok, fabricated},
-citation_resolution {n_refs, n_resolved, n_unresolved, unresolved, rate}, note
+citation_resolution {n_refs, n_resolved, n_unresolved, unresolved, rate}, note,
+background {support, added_value, no_new_harm, conciseness, n_claims, note} — OPTIONAL: team In-Depth only, omit for single-model arms
 ```
 
 (Omit a `temporal_*` field when there's no temporal claim.) Then re-render the report
