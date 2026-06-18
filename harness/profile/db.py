@@ -1,12 +1,12 @@
 """MariaDB query helper for harness.profile modules.
 
-Uses `docker exec ... mariadb -B -N` rather than a native client so we don't
-yet need to drag in the T001 PyMySQL/mariadb-connector dependency. Output is
-tab-separated; we parse it back into list[tuple[str, ...]]. NULLs come back
-as the literal string 'NULL' under -N (the no-tabs / batch mode); we
-normalize to Python None.
+Uses `docker exec ... mariadb -B -N` rather than a native client to avoid a
+PyMySQL/mariadb-connector dependency. Output is tab-separated; we parse it back
+into list[tuple[str, ...]]. NULLs come back as the literal string 'NULL' under
+-N (the no-tabs / batch mode); we normalize to Python None.
 
-If T001 lands later, swap _exec for a real client without changing callers.
+_exec is the only DB-touching boundary, so swapping in a native client later
+needs no caller changes.
 """
 
 from __future__ import annotations

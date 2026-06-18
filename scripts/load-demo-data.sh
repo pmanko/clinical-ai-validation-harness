@@ -2,9 +2,9 @@
 # scripts/load-demo-data.sh
 # Load the OpenMRS 2.7 demo data dump into a disposable `legacy_27_raw`
 # database on the harness MariaDB container, side-by-side with the running
-# RefApp 3.6.0 stack's `openmrs` database. Used by T021 (profile inventory)
-# and T024 (schema diff) — gives us the "before" half of the legacy→clean
-# diff without disturbing the live OpenMRS schema.
+# RefApp 3.6.0 stack's `openmrs` database. Feeds the profile inventory and
+# schema diff — the "before" half of the legacy→clean diff — without
+# disturbing the live OpenMRS schema.
 #
 # The 2.7 dump is portable (no USE / CREATE DATABASE statements), 143 tables,
 # full DDL + DML, MySQL 5.7 / utf8 origin. We load with --default-character-set

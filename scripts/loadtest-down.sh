@@ -7,7 +7,7 @@ set -euo pipefail
 DB_CONTAINER="${DB_CONTAINER:-harness-openmrs-db}"
 DB_ROOT_PASS="${MYSQL_ROOT_PASSWORD:-openmrs}"
 TARGET_DB="${TARGET_DB:-openmrs_test}"
-LEGACY_STAGING_DB="${TARGET_DB}_dlt"   # legacy dlt staging schema; no longer created, dropped as cleanup
+LEGACY_STAGING_DB="${TARGET_DB}_dlt"   # obsolete staging schema, dropped if a stale one lingers
 
 if ! docker exec "$DB_CONTAINER" sh -c 'true' 2>/dev/null; then
   echo "ERROR: container '${DB_CONTAINER}' not running." >&2

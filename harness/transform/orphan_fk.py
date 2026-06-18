@@ -1,9 +1,9 @@
-"""Detect orphan foreign keys in the loaded OpenMRS schema (FR-013 / T057).
+"""Detect orphan foreign keys in the loaded OpenMRS schema (FR-013).
 
-After the dlt loader populates ``openmrs_test`` (Phase 5D), the FK
-checks were bypassed with ``FOREIGN_KEY_CHECKS=0``. This module
-provides the post-load audit that surfaces any orphan rows so they
-can either be repaired or surfaced as known data-quality issues.
+The loader populates ``openmrs_test`` with ``FOREIGN_KEY_CHECKS=0``, so the DB
+itself enforces no referential integrity during load. This module is the
+post-load audit that surfaces any orphan rows so they can either be repaired
+or surfaced as known data-quality issues.
 
 Per FR-013: "The system MUST detect and report orphaned foreign keys
 created by mapping/dropping decisions before any database is offered

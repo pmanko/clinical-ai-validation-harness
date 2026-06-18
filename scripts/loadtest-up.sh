@@ -10,7 +10,7 @@
 # Strategy: mariadb-dump the live `openmrs` schema (Liquibase-applied
 # 2.8 schema + CIEL concepts + stock 50 patients) and stream-load it
 # into `openmrs_test`. ~1-2 min depending on data size. The stock 50
-# patients are overwritten by the dlt loader's `replace` disposition.
+# patients are overwritten by the loader's `replace` disposition.
 #
 # Usage:
 #   ./scripts/loadtest-up.sh                  # default
@@ -25,7 +25,7 @@ DB_ROOT_PASS="${MYSQL_ROOT_PASSWORD:-openmrs}"
 DB_USER="${OMRS_DB_USER:-openmrs}"
 SOURCE_DB="${SOURCE_DB:-openmrs}"
 TARGET_DB="${TARGET_DB:-openmrs_test}"
-LEGACY_STAGING_DB="${TARGET_DB}_dlt"   # legacy dlt staging schema; no longer created, dropped below as cleanup
+LEGACY_STAGING_DB="${TARGET_DB}_dlt"   # obsolete staging schema, dropped below if a stale one lingers
 FORCE=0
 
 while [[ $# -gt 0 ]]; do
@@ -101,7 +101,7 @@ time docker exec "$DB_CONTAINER" sh -c "
     '${TARGET_DB}'
 "
 
-# Clear the stock RefApp demo-patient clinical-detail tables that the dlt load
+# Clear the stock RefApp demo-patient clinical-detail tables that the load
 # does NOT replace. Their rows belong to the RefApp's stock ~50 demo patients
 # (seeded by referencedemodata), not our corpus, and would dangle once our
 # remapped patients overwrite person/encounter/obs. Emptying them here yields a

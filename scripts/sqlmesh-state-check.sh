@@ -10,8 +10,8 @@
 #   - refapp_28_demo has views pointing at sqlmesh__refapp_28_demo
 #     tables SQLMesh no longer tracks
 #
-# This was the silent failure mode behind the clin__obs 0-rows
-# incident. Recovery: ./scripts/reset-transform.sh
+# This drift fails silently: affected models read 0 rows with no error.
+# Recovery: ./scripts/reset-transform.sh
 #
 # Usage:
 #   ./scripts/sqlmesh-state-check.sh           # default

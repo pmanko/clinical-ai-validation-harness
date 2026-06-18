@@ -48,8 +48,8 @@ TOK=$(python3 -c "from harness.ocl import get_token; print(get_token())")
 EXPORT_URL="https://api.openconceptlab.org/orgs/CIEL/sources/CIEL/${VERSION}/export/"
 echo "Resolving signed download URL via ${EXPORT_URL}..."
 # Single HEAD-ish pass: capture the Location header *without* following the
-# redirect (no `-L`). Previously `-L -o /dev/null -w %{url_effective}` followed
-# the redirect AND streamed the full 60MB to /dev/null, doubling bandwidth.
+# redirect (no `-L`). Following it would stream the full ~60MB export to
+# /dev/null before the real download, doubling bandwidth.
 SIGNED_URL=$(curl -sS -o /dev/null -w "%{redirect_url}" \
   -H "Authorization: Token $TOK" \
   "$EXPORT_URL")
