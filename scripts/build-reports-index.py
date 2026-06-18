@@ -278,7 +278,7 @@ def main() -> None:
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>OpenClinAI — clinical AI validation runs</title>
-<script>(function(){{try{{var t=localStorage.getItem('oc-theme');if(t==='light'||t==='dark')document.documentElement.dataset.theme=t;}}catch(e){{}}}})();</script>
+<script>(function(){{try{{var t=localStorage.getItem('oc-theme-index');if(t==='light'||t==='dark')document.documentElement.dataset.theme=t;}}catch(e){{}}}})();</script>
 <style>{STYLE}</style>
 </head>
 <body>
@@ -292,7 +292,7 @@ def main() -> None:
 {cards}
   <footer class="page">Curated index — edit reports-index.json to change what appears. Hover an AI setup name for its exact model lineup.</footer>
 </div>
-<script>(function(){{var b=document.getElementById('theme-toggle');function s(){{b.textContent=document.documentElement.dataset.theme==='dark'?'☀':'☾';}}s();b.addEventListener('click',function(){{var n=document.documentElement.dataset.theme==='dark'?'light':'dark';document.documentElement.dataset.theme=n;try{{localStorage.setItem('oc-theme',n);}}catch(e){{}}s();}});}})();</script>
+<script>(function(){{var b=document.getElementById('theme-toggle');function s(){{b.textContent=document.documentElement.dataset.theme==='dark'?'☀':'☾';}}s();b.addEventListener('click',function(){{var n=document.documentElement.dataset.theme==='dark'?'light':'dark';document.documentElement.dataset.theme=n;try{{localStorage.setItem('oc-theme-index',n);}}catch(e){{}}s();}});}})();</script>
 </body>
 </html>
 """

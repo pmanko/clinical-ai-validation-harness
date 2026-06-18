@@ -306,7 +306,7 @@ table.btbl{border-collapse:collapse;font-size:11px;width:100%}
 .caveat.yellow{background:var(--cav-yel-bg);border:1px solid var(--cav-yel-bd);color:var(--cav-yel-fg)}
 .collapse summary{cursor:pointer;color:var(--muted);font-size:11px;padding:3px 0;list-style:revert}
 .idl{margin:2px 0 0 0;padding-left:18px}.idl li{margin:2px 0}
-</style><script>(function(){try{var t=localStorage.getItem('oc-theme');if(t==='light'||t==='dark')document.documentElement.dataset.theme=t;}catch(e){}})();</script></head><body>
+</style><script>(function(){try{var t=localStorage.getItem('oc-theme-dashboard');if(t==='light'||t==='dark')document.documentElement.dataset.theme=t;}catch(e){}})();</script></head><body>
 <button id=theme-toggle class=theme-toggle type=button aria-label="Toggle light or dark mode" title="Toggle light / dark"></button>
 <h1 id=hdr>validate run</h1>
 <div class=bar><div id=fill style=width:0%></div></div>
@@ -431,7 +431,7 @@ async function openD(s,b){
 function closeD(){modal.style.display='none'}
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeD()});
 tick();setInterval(tick,2000);
-(function(){var b=document.getElementById('theme-toggle');function s(){b.textContent=document.documentElement.dataset.theme==='dark'?'☀':'☾';}s();b.addEventListener('click',function(){var n=document.documentElement.dataset.theme==='dark'?'light':'dark';document.documentElement.dataset.theme=n;try{localStorage.setItem('oc-theme',n);}catch(e){}s();});})();
+(function(){var b=document.getElementById('theme-toggle');function s(){b.textContent=document.documentElement.dataset.theme==='dark'?'☀':'☾';}s();b.addEventListener('click',function(){var n=document.documentElement.dataset.theme==='dark'?'light':'dark';document.documentElement.dataset.theme=n;try{localStorage.setItem('oc-theme-dashboard',n);}catch(e){}s();});})();
 </script></body></html>"""
 
 

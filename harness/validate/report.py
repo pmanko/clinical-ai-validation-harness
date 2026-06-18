@@ -1117,7 +1117,7 @@ function boot(){
   if (activeRunId) renderRun(activeRunId);
 }
 boot();
-(function(){var b=document.getElementById('theme-toggle');if(!b)return;function s(){b.textContent=document.documentElement.dataset.theme==='dark'?'☀':'☾';}s();b.addEventListener('click',function(){var n=document.documentElement.dataset.theme==='dark'?'light':'dark';document.documentElement.dataset.theme=n;try{localStorage.setItem('oc-theme',n);}catch(e){}s();});})();
+(function(){var b=document.getElementById('theme-toggle');if(!b)return;function s(){b.textContent=document.documentElement.dataset.theme==='dark'?'☀':'☾';}s();b.addEventListener('click',function(){var n=document.documentElement.dataset.theme==='dark'?'light':'dark';document.documentElement.dataset.theme=n;try{localStorage.setItem('oc-theme-report',n);}catch(e){}s();});})();
 """
 
 
@@ -1142,7 +1142,7 @@ def _document(blob: dict[str, Any]) -> str:
     return (
         "<!doctype html><html data-theme='light'><head><meta charset='utf-8'>"
         f"<title>validation report · {_esc(title)}</title><style>{_STYLE}</style>"
-        "<script>(function(){try{var t=localStorage.getItem('oc-theme');if(t==='light'||t==='dark')document.documentElement.dataset.theme=t;}catch(e){}})();</script></head>"
+        "<script>(function(){try{var t=localStorage.getItem('oc-theme-report');if(t==='light'||t==='dark')document.documentElement.dataset.theme=t;}catch(e){}})();</script></head>"
         "<body>"
         "<header class='topbar'><h1>Validation report</h1>"
         "<div class='controls'>"
