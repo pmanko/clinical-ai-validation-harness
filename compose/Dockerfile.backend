@@ -19,6 +19,22 @@
 ARG OPENMRS_BACKEND_TAG=3.6.0
 FROM openmrs/openmrs-reference-application-3-backend:${OPENMRS_BACKEND_TAG} AS dist
 
+# The chartsearchai/querystore modules require OpenMRS platform 2.9.0; the base image ships an
+# older core. Fetch the 2.9.0-SNAPSHOT core war, resolving the current snapshot via maven-metadata.
+FROM eclipse-temurin:21-jre AS core-war
+ARG CACHE_BUST
+RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+RUN set -eu; \
+    REPO=https://openmrs.jfrog.io/artifactory/public/org/openmrs/web/openmrs-webapp/2.9.0-SNAPSHOT; \
+    curl -fsSL "$REPO/maven-metadata.xml" -o /tmp/md.xml; \
+    WAR_VER=$(grep -A4 '<extension>war</extension>' /tmp/md.xml | grep -m1 '<value>' \
+        | sed -E 's@.*<value>(.*)</value>.*@\1@'); \
+    test -n "$WAR_VER"; \
+    echo "Overlaying core war: openmrs-webapp-$WAR_VER.war"; \
+    curl -fSL "$REPO/openmrs-webapp-$WAR_VER.war" -o /openmrs.war; \
+    test -s /openmrs.war
+
 FROM eclipse-temurin:21-jre
 
 # curl + ca-certificates: backend-init.sh fetches the embedding model from
@@ -36,6 +52,8 @@ RUN groupadd -r openmrs && useradd -r -g openmrs -u 1001 openmrs
 WORKDIR /openmrs
 COPY --from=dist /openmrs /openmrs
 COPY --from=dist /usr/local/tomcat /usr/local/tomcat
+# Overlay the fetched core war; startup deploys /openmrs/distribution/openmrs_core/openmrs.war.
+COPY --from=core-war /openmrs.war /openmrs/distribution/openmrs_core/openmrs.war
 RUN chown -R 1001:1001 /openmrs /usr/local/tomcat
 
 COPY --chmod=755 backend-init.sh /usr/local/bin/backend-init.sh
