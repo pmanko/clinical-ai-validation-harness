@@ -346,7 +346,22 @@ The five cross-cutting decisions below are the project's defaults; documented he
 
 > **Status**: open questions tracked per-rule in `specs/artifacts/canvases/concept-mapping-discovery.canvas.tsx` (the B5 deep-dive panels). Defaults above are the M2-A acceptance baseline. **Demo-data validation posture**: deviations are reviewed iteratively with the project owner (consensus-guided), not gated through a heavyweight PCCP record. PCCP remains available for changes that materially affect downstream consumers; for per-rule tuning during M2-A iteration, recording the decision in the ConceptMap element's `comment` field is sufficient.
 
-## R-load-pattern. OLTP load layer (SQLMesh + dlt handover, M2-F entry)
+## R-load-pattern. OLTP load layer (SQLMesh → direct loader → dump-provision, M2-F entry)
+
+> **Updated decision (dlt retired).** dlt has been removed from the load layer. In practice none of
+> its differentiated features were exercised: the source is flat relational SQLMesh output (no nested
+> JSON to normalize, no schema to evolve), the destination is a fixed Hibernate schema we full-replace
+> each run (no incremental/state benefit), and the final copy re-implemented `merge` as `INSERT IGNORE`
+> rather than using dlt's. Meanwhile dlt's one non-suppressible side-effect — the `_dlt_id`/`_dlt_load_id`
+> columns — forced an entire parallel `<target>_dlt` staging schema plus a manual column-stripping
+> "promote" copy, and a separate in-place schema-clobber promote that desynced Liquibase + module state
+> (chartsearchai failing to boot). The load is now a **direct `INSERT … SELECT`** from each resolved
+> SQLMesh snapshot into the build schema (`harness/load/loader.py`), and instances are **provisioned
+> from a portable, module-clean dump** (`dump-loaded.sh` → `seed-local.sh`/`cloud-seed.sh`) into a fresh
+> DB — OpenMRS's native "the demo data IS the database" path, with the app owning Liquibase. The
+> original analysis below is retained as the record of why the split tool was chosen at the time; the
+> conclusion (SQLMesh owns the transform; a thin loader owns the OLTP copy) stands — only the loader's
+> implementation changed from dlt to direct SQL.
 
 **Decision**: SQLMesh terminates at the **transform spec** (legacy_27_raw → refapp_28_demo). The **load** into the live OLTP target (`openmrs` / `openmrs_test`) is handled by [**dlt**](https://dlthub.com/) with the SQLAlchemy destination. Two complementary tools, each operating at its design intent.
 

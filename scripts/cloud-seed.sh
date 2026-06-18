@@ -23,6 +23,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # mysqldump fail authentication against harness-openmrs-db.
 LOCAL_DB_USER="${OMRS_DB_USER:-openmrs}"
 LOCAL_DB_PASSWORD="${OMRS_DB_PASSWORD:-openmrs}"
+LOCAL_ROOT_PASSWORD="${MYSQL_ROOT_PASSWORD:-openmrs}"
 
 # Source the cloud env file so MYSQL_ROOT_PASSWORD / OMRS_DB_PASSWORD on
 # the target VM match what compose set there. Defaults to "openmrs" only
@@ -44,14 +45,13 @@ DUMP_LOCAL="${ROOT}/artifacts/cloud-seed/${SOURCE_DB}.sql.gz"
 
 mkdir -p "${ROOT}/artifacts/cloud-seed"
 
-echo "==> dumping ${SOURCE_DB} from local harness-openmrs-db"
-docker exec harness-openmrs-db \
-  mysqldump --user="${LOCAL_DB_USER}" \
-            --password="${LOCAL_DB_PASSWORD}" \
-            --single-transaction --quick --no-tablespaces \
-            --routines --triggers --events \
-            "${SOURCE_DB}" \
-  | gzip -c > "${DUMP_LOCAL}"
+# Use dump-loaded.sh so the cloud gets the SAME module-clean, target-neutral artifact
+# local provisioning uses: chartsearchai tables + changelog rows stripped, so the module
+# installs itself fresh on the VM (no Liquibase "table already exists"). Pass the LOCAL
+# root password explicitly — sourcing the cloud env above overwrote MYSQL_ROOT_PASSWORD.
+echo "==> dumping ${SOURCE_DB} from local harness-openmrs-db (module-clean, via dump-loaded.sh)"
+MYSQL_ROOT_PASSWORD="${LOCAL_ROOT_PASSWORD}" "${ROOT}/scripts/dump-loaded.sh" \
+  --source "${SOURCE_DB}" --out "${DUMP_LOCAL}"
 echo "    dump: ${DUMP_LOCAL} ($(du -h "${DUMP_LOCAL}" | cut -f1))"
 
 echo "==> rsync dump → VM"

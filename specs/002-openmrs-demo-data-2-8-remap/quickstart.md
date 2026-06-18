@@ -110,23 +110,24 @@ sqlmesh -p datasets/transforms/sqlmesh audit                   # acceptance gate
 
 Result: SQLMesh materializes the 64+ models into `refapp_28_demo` (views over physical snapshots in `sqlmesh__refapp_28_demo`). Audits enforce row-count floors, concept-translation coverage, FK closure, and policy-bucket coverage.
 
-## 9. Load via dlt + promote (Phase 5D — M2-F entry)
+## 9. Load + provision (Phase 5D — M2-F entry)
 
-The transform output lives in `refapp_28_demo` as SQLMesh views over physical snapshot tables. The dlt loader picks up from there and writes into `openmrs_test` via a two-schema architecture (`openmrs_test_dlt` is the dlt staging schema; the promote step copies clean rows to `openmrs_test`). See `contracts/dlt_pipeline.profile.md` + research.md §R-load-pattern.
+The transform output lives in `refapp_28_demo` as SQLMesh views over physical snapshot tables. The **direct loader** reads those snapshots and `INSERT … SELECT`s them into the `openmrs_test` build schema — no dlt, no staging schema. The build schema is then packaged as a portable, module-clean dump and instances are **provisioned from that dump** (never mutated in place). See `contracts/dlt_pipeline.profile.md` + research.md §R-load-pattern.
 
 ```bash
-make loadtest-up            # clones openmrs (CIEL canvas) → openmrs_test; creates openmrs_test_dlt
-make load-test              # dlt reads sqlmesh__refapp_28_demo snapshots → openmrs_test_dlt → promote → openmrs_test
+make loadtest-up            # clones openmrs (CIEL canvas) → openmrs_test (the build schema)
+make load-test              # direct loader: sqlmesh__refapp_28_demo snapshots → openmrs_test
+make orphan-fk-check        # FR-013 — emits artifacts/<run>/transform/orphan-fk-report.json
+make completeness-check     # FR-013 — fail if a non-empty source table is silently dropped
+make import-smoke           # REST + FHIR readback against a sample of legacy patients
 ```
 
-Then point the live RefApp backend at the loaded schema and verify:
+Then package the deliverable and provision a fresh instance from it (the native OpenMRS path — restore into a fresh DB, the backend boots, Liquibase reconciles, chartsearchai installs itself fresh):
 
 ```bash
-OMRS_DB_NAME=openmrs_test docker compose -f compose/openmrs-2.8-refapp.yml up -d backend
-# Wait for backend to come up (~30-60s after a recreate); Liquibase no-ops because the schema is already 2.8.
-
-make orphan-fk-check        # FR-013 — emits artifacts/<run>/transform/orphan-fk-report.json
-make import-smoke           # REST + FHIR readback against a sample of legacy patients
+make dump-loaded SOURCE=openmrs_test   # → artifacts/<run>/transform/refapp_28_demo.sql.gz (module-clean, target-neutral)
+make seed                              # restore the dump into a fresh `openmrs`, boot the backend, reindex
+# or dump-and-seed in one step:  make seed FROM_SCHEMA=openmrs_test
 ```
 
 `make import-smoke` reads `openmrs_test.patient`, picks N legacy patients, and asserts each resolves via `/ws/rest/v1/patient/<uuid>` + `/ws/fhir2/R4/Patient/<uuid>` with the right demographic shape. Report at `artifacts/<run>/import-smoke/report.json` per FR-016 record-level evidence.

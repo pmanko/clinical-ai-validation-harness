@@ -80,10 +80,11 @@ loadtest-down:
 
 # --- Phase 5D: load + verify + dump ---
 
-# Run the SQLMesh+dlt loader: refapp_28_demo snapshots → openmrs_test_dlt → <target>.
-# Default target `openmrs_test` is the HERMETIC iteration surface (drop+recreate
-# freely; live `openmrs` untouched). Promote the canonical load with TARGET=openmrs
-# — that is the proper deliverable (the corpus the backend + cloud-seed serve).
+# Run the direct loader: refapp_28_demo SQLMesh snapshots → <target> (default
+# openmrs_test, the build schema). No dlt, no staging schema — INSERT…SELECT
+# straight from the resolved snapshots. The build schema is packaged by
+# `make dump-loaded SOURCE=openmrs_test` and instances are provisioned FROM that
+# dump via `make seed` / `make cloud-seed` — never an in-place promote.
 load-test:
 	$(UV) run python -m harness.load run --target $(or $(TARGET),openmrs_test)
 
@@ -411,11 +412,13 @@ cloud-destroy:    ## tear down VM + firewall + static IP (FORCE=1 to skip prompt
 	  --project=$${GCP_PROJECT:-clinical-ai-harness} --quiet || true; \
 	gcloud compute addresses delete $${GCP_STATIC_IP_NAME:-harness-chartsearch-ip} \
 	  --region=$${GCP_REGION:-us-central1} --project=$${GCP_PROJECT:-clinical-ai-harness} --quiet || true
-# Promote the loaded, verified-clean openmrs_test into the live `openmrs` schema
-# the RefApp backend reads, then restart the backend. GATED on FR-013 (refuses
-# to promote a schema with orphan FKs). Override PROMOTE_SOURCE_DB/PROMOTE_TARGET_DB.
-promote:
-	./scripts/promote.sh
+# Provision the local `openmrs` instance FROM the portable demo-data dump — OpenMRS's
+# native path: restore into a fresh DB, the backend boots, Liquibase reconciles on
+# top, chartsearchai installs itself fresh. Replaces the retired in-place promote.
+# Defaults to the newest dump-loaded artifact; FROM_SCHEMA=openmrs_test dumps-then-seeds
+# in one step; DUMP=path for an explicit file; TARGET=schema to override `openmrs`.
+seed:
+	./scripts/seed-local.sh $(if $(FROM_SCHEMA),--from-schema $(FROM_SCHEMA)) $(if $(DUMP),--dump $(DUMP)) $(if $(TARGET),--target $(TARGET))
 
 
 setup:

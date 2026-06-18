@@ -2,8 +2,10 @@
 # scripts/dump-loaded.sh
 # Dump a loaded OpenMRS schema (default: openmrs_test) into a portable
 # SQL.gz file ready to ship — same shape as the original
-# data/large-demo-data-2-7-0.sql.zip we started with, so a downstream
-# consumer can `gunzip | mariadb` it into a fresh empty DB.
+# data/large-demo-data-2-7-0.sql.zip we started with: TARGET-NEUTRAL (no
+# CREATE DATABASE / USE), so a consumer NAMES the target DB on restore
+# (`gunzip | mariadb <target_db>`) and a dump built from openmrs_test can
+# provision openmrs (see scripts/seed-local.sh).
 #
 # The dump uses deterministic flags (no comments, no dump-date,
 # extended-inserts for speed, hex-blob for binary safety) so two runs
@@ -102,20 +104,25 @@ COMMON_FLAGS=(
   --single-transaction --quick --extended-insert --hex-blob --default-character-set=utf8mb4
 )
 
-# Stream the dump. When excluding a consumer module, do it in two parts: (1) everything except
-# liquibasechangelog (its tables already in IGNORE_TABLE_FLAGS), keeping --databases so the dump is
-# self-contained; (2) liquibasechangelog WITHOUT the module's rows, no --databases so it applies to
-# the schema part 1 USE'd. mariadb-dump can't row-filter inside a --databases dump, hence the split.
+# Stream the dump. Target-NEUTRAL: no `--databases`, so the dump carries no
+# CREATE DATABASE / USE statements (matching the original portable demo-data dump,
+# see load-demo-data.sh). The consumer names the target DB when restoring
+# (`mariadb <target> < dump`), so a dump built from `openmrs_test` provisions
+# `openmrs` (or any schema). When excluding a consumer module, dump in two parts:
+# (1) every table except liquibasechangelog (its tables already in IGNORE_TABLE_FLAGS);
+# (2) liquibasechangelog WITHOUT the module's rows. mariadb-dump can't row-filter and
+# table-filter in one pass, hence the split; neither part emits USE, so both apply to
+# whichever DB the restore pipes into.
 dump_stream() {
   if [[ "$EXCLUDE_MODULE" == "1" ]]; then
     docker exec "$DB_CONTAINER" mariadb-dump "${COMMON_FLAGS[@]}" "${IGNORE_TABLE_FLAGS[@]}" \
-      --ignore-table="${SOURCE_DB}.liquibasechangelog" --databases "$SOURCE_DB"
+      --ignore-table="${SOURCE_DB}.liquibasechangelog" "$SOURCE_DB"
     docker exec "$DB_CONTAINER" mariadb-dump "${COMMON_FLAGS[@]}" \
       --where="id NOT LIKE '${MODULE_PREFIX}%' AND filename NOT LIKE '%${MODULE_PREFIX}%'" \
       "$SOURCE_DB" liquibasechangelog
   else
     docker exec "$DB_CONTAINER" mariadb-dump "${COMMON_FLAGS[@]}" "${IGNORE_TABLE_FLAGS[@]}" \
-      --databases "$SOURCE_DB"
+      "$SOURCE_DB"
   fi
 }
 
@@ -146,7 +153,7 @@ cat > "${OUT}.provenance.json" <<EOF
   "gzipped": $([ "$GZIP" == "1" ] && echo "true" || echo "false"),
   "generated_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
   "generator": "scripts/dump-loaded.sh",
-  "load_into_command": "$([ "$GZIP" == "1" ] && echo "zcat ${OUT} | mariadb -u root -p" || echo "mariadb -u root -p < ${OUT}")"
+  "load_into_command": "$([ "$GZIP" == "1" ] && echo "zcat ${OUT} | mariadb -u root -p <target_db>" || echo "mariadb -u root -p <target_db> < ${OUT}")"
 }
 EOF
 
@@ -155,9 +162,9 @@ echo "✓ ${OUT} (${SIZE_HUMAN})"
 echo "  sha256: ${SHA}"
 echo "  provenance: ${OUT}.provenance.json"
 echo ""
-echo "Load into a fresh MariaDB elsewhere with:"
+echo "Load into a freshly-created target DB elsewhere (name the DB — the dump is target-neutral):"
 if [[ "$GZIP" == "1" ]]; then
-  echo "  zcat ${OUT} | mariadb -u root -p"
+  echo "  zcat ${OUT} | mariadb -u root -p <target_db>"
 else
-  echo "  mariadb -u root -p < ${OUT}"
+  echo "  mariadb -u root -p <target_db> < ${OUT}"
 fi
