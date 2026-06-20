@@ -29,7 +29,7 @@ from typing import Any
 
 from .hub_trace import load_traces, match_trace
 from .model_registry import arm_card
-from .reconcile import scout_summary
+from .reconcile import calibrated_summary, scout_summary
 
 # The med-agent-team bridge gracefully degrades to a schema-valid envelope when
 # its own LLM calls fail, so a degraded turn looks like a 200/json_valid/0-cites
@@ -283,6 +283,17 @@ def _load_judge(run_dir: Path) -> list[dict[str, Any]]:
     return _read_jsonl(path)
 
 
+def _load_adjudication(run_dir: Path) -> list[dict[str, Any]]:
+    """Optional HUMAN adjudications at run_dir/adjudication.jsonl (adjudicate.adjudication_record
+    shape: scenario_id/backend_id/reviewer_tier/axes/harm). These calibrate the LLM judge into a
+    clinician-anchored Benchmark with a CI. Absent file -> [] (the default report path stays
+    judge-only and renders exactly as before)."""
+    path = run_dir / "adjudication.jsonl"
+    if not path.exists():
+        return []
+    return _read_jsonl(path)
+
+
 def _summary_rows(results: list[dict[str, Any]], backends: list[str], labels: dict[str, str]) -> list[dict[str, Any]]:
     """Per-backend aggregates (the old summary table rows), precomputed so the JS
     renders a table without re-deriving any contract."""
@@ -413,6 +424,12 @@ def _run_blob(run_dir: Path) -> dict[str, Any]:
         "metrics": _metric_distributions(results, backends),
         "judge": scout_summary(_load_judge(run_dir), backends),
         "judge_rows": _load_judge(run_dir),
+        # WS4: adjudication-calibrated Benchmark. adjudication.jsonl is OPTIONAL — when
+        # absent (the default) every calibrated block is judge-only (no CI / no κ) and the
+        # judged-scores section renders exactly as before. When present, each reviewed arm
+        # gains a PPI point ± 95% CI + agreement κ + the reviewer-tier badge.
+        "calibrated": calibrated_summary(
+            _load_judge(run_dir), _load_adjudication(run_dir), backends),
         "patients": patients,
         # WS2: structured arm makeup (single vanilla-chartsearchai vs med-agent-hub team +
         # role->model lineup) so the report's "what this run compares" section + badges render
@@ -527,6 +544,18 @@ th { background: var(--surface2); font-weight: 600; font-size: 12px; }
 .bp-whisker, .bp-cap { stroke: var(--accent); stroke-width: 1; }
 .bp-out { fill: #d9730d; opacity: .75; }
 .judge-section { margin-top: 18px; }
+.th-sub { font-weight: 400; color: var(--mut); font-size: 10px; }
+.cal { margin-top: 5px; font-size: 11px; line-height: 1.5; display: flex; flex-wrap: wrap; gap: 4px 6px; align-items: baseline; justify-content: center; }
+.cal-pt { font-weight: 700; font-variant-numeric: tabular-nums; }
+.cal .ci { color: var(--mut); font-variant-numeric: tabular-nums; }
+.cal .kap { color: var(--accent); font-family: ui-monospace, monospace; }
+.cal .cal-n, .cal-run .cal-n { color: var(--mut); font-size: 10px; }
+.tier-badge { font-size: 9px; font-weight: 700; letter-spacing: .03em; padding: 1px 6px; border-radius: 10px; white-space: nowrap; border: 1px solid var(--line); }
+.tier-badge.owner { background: var(--surface2); color: var(--mut); }
+.tier-badge.domain { background: #fff3d6; color: #8a5a00; border-color: #f1c21b; }
+.tier-badge.clinical { background: #d6f0d8; color: #103d1a; border-color: #2f9e44; }
+.cal-run { margin: 10px 0 0; padding: 8px 12px; background: var(--note-bg); border: 1px solid var(--line); border-radius: 8px; font-size: 13px; }
+.cal-run .ci { color: var(--mut); }
 .jb-faith { fill: var(--accent); }
 .jb-corr { fill: #d9730d; }
 .jb-acc { fill: var(--accent); }
@@ -781,18 +810,37 @@ function judgeHeatmap(run){
   }
   return wrap;
 }
+// WS4 calibrated benchmark: map run.calibrated (per-arm + a "__run__" row) by backend.
+function calIndex(run){ var m={}, c=run.calibrated||[]; for(var i=0;i<c.length;i++){ m[c[i].backend]=c[i].calibrated||{}; } return m; }
+// The reviewer-tier badge: a clinician sign-off outranks a domain review outranks an owner spot-check.
+var TIER_BADGE={owner:{cls:'owner',txt:'owner-reviewed'}, domain:{cls:'domain',txt:'domain-reviewed'}, clinical:{cls:'clinical',txt:'✓ clinician-certified'}};
+function tierBadge(tier){ var t=TIER_BADGE[tier]; return t?("<span class='tier-badge "+t.cls+"'>"+htmlEsc(t.txt)+"</span>"):''; }
+// Per-cell calibrated render: judge-only -> nothing extra (default path, unchanged headline);
+// adjudicated -> the human-anchored point ± 95% CI, the agreement κ, and the tier badge.
+function calCell(cal){
+  if(!cal || !cal.adjudicated) return '';
+  var ci=(cal.ci_low==null||cal.ci_high==null)?'':(" <span class='ci'>95% CI "+fmt10(cal.ci_low)+"–"+fmt10(cal.ci_high)+"</span>");
+  var kap=(cal.kappa==null)?'':(" <span class='kap' title='judge↔human agreement (linearly-weighted κ)'>κ "+(Math.round(cal.kappa*100)/100)+"</span>");
+  return "<div class='cal'>"+tierBadge(cal.tier)+"<span class='cal-pt'>"+fmt10(cal.point)+"</span>"+ci+kap
+    +"<span class='cal-n'> · n="+(cal.n_labeled||0)+" reviewed</span></div>";
+}
 function renderJudge(run){
   var sec=el('section','judge-section'), j=run.judge||[], has=false;
   for(var i=0;i<j.length;i++){ if(j[i].n>0){ has=true; break; } }
   if(!has){ return null; }
+  var cal=calIndex(run);
+  var anyCal=false; for(var ck in cal){ if(cal[ck] && cal[ck].adjudicated){ anyCal=true; break; } }
   sec.innerHTML='<h2>quality — reviewer judgment (Scout rubric)</h2>'
-   +'<p class="intro">The headline: how good each setup’s answers actually were. A strong AI reviewer graded every answer against the patient’s chart for correctness, completeness, and safety. The <b>Benchmark</b> column is the single 0–100 score to compare setups by; the heatmap below shows it question-by-question. Treat it as directional (one patient, one judge), not a final grade.</p>'
-   +'<p class="metrics-legend">Each answer scored against the patient’s chart by a strong LLM reviewer (advisory). <b>Benchmark</b> = a soft 0–100 composite of the answer-only scores (accuracy/completeness weighted highest, minus bounded penalties for unsafe / abstention / citation / temporal flags — no hard gates); read it together with the harm, abstain ✗ and fab-refs counts in the same row, never alone. <b>accuracy</b> = stated facts correct · <b>completeness</b> = includes the needed info · <b>relevance</b> = on-question, no padding (each 0–10). <b>abstain ✓/✗</b> = correctly said "not documented" vs failed-to-abstain. <b>grounding s/p/u</b> = supported / partly / unsupported. <b>fab refs</b> = references that don’t resolve to a real chart record (deterministic). <b>temporal</b> — date ✗ = wrong date↔value or fabricated date · win-over = window claimed beyond the data span · trend-fab = trend asserted from too few points / wrong direction. <b>Drill down:</b> the heatmap is every scenario × arm (green=accurate, amber, red) — click a cell for the note. Caveat: small N, one patient, single judge — directional, not a benchmark. Note: arms are NOT prompt-harmonized — the single-model path uses chartsearchai’s default prompt while the team path uses the orchestrator + synthesis prompts, so differences here confound orchestration with prompt; the next run harmonizes prompts to separate the two.</p>';
+   +'<p class="intro">The headline: how good each setup’s answers actually were. A strong AI reviewer graded every answer against the patient’s chart for correctness, completeness, and safety. The <b>Benchmark</b> column is the single 0–100 score to compare setups by; the heatmap below shows it question-by-question. Treat it as directional (one patient, one judge), not a final grade.'
+   +(anyCal?' Where a human reviewer adjudicated cells, a <b>calibrated estimate ± 95% CI</b> sits under the judge number — the judge’s score corrected by the human-labeled subset, with the judge↔human agreement κ and a reviewer-tier badge.':'')+'</p>'
+   +'<p class="metrics-legend">Each answer scored against the patient’s chart by a strong LLM reviewer (advisory). <b>Benchmark</b> = a soft 0–100 composite of the answer-only scores (accuracy/completeness weighted highest, minus bounded penalties for unsafe / abstention / citation / temporal flags — no hard gates); read it together with the harm, abstain ✗ and fab-refs counts in the same row, never alone.'
+   +(anyCal?' <b>Calibrated estimate</b> = Prediction-Powered Inference: the judge’s cheap score on every cell, bias-corrected by the human-adjudicated subset, with a 95% confidence interval; <b>κ</b> = linearly-weighted judge↔human agreement on the ordinal axes; the <b>tier badge</b> names the most-trusted reviewer (owner → domain → clinician).':'')
+   +' <b>accuracy</b> = stated facts correct · <b>completeness</b> = includes the needed info · <b>relevance</b> = on-question, no padding (each 0–10). <b>abstain ✓/✗</b> = correctly said "not documented" vs failed-to-abstain. <b>grounding s/p/u</b> = supported / partly / unsupported. <b>fab refs</b> = references that don’t resolve to a real chart record (deterministic). <b>temporal</b> — date ✗ = wrong date↔value or fabricated date · win-over = window claimed beyond the data span · trend-fab = trend asserted from too few points / wrong direction. <b>Drill down:</b> the heatmap is every scenario × arm (green=accurate, amber, red) — click a cell for the note. Caveat: small N, one patient, single judge — directional, not a benchmark. Note: arms are NOT prompt-harmonized — the single-model path uses chartsearchai’s default prompt while the team path uses the orchestrator + synthesis prompts, so differences here confound orchestration with prompt; the next run harmonizes prompts to separate the two.</p>';
   var fab={}, jr=run.judge_rows||[];
   for(var x=0;x<jr.length;x++){ var cr=jr[x].citation_resolution||{}; fab[jr[x].backend_id]=(fab[jr[x].backend_id]||0)+(cr.n_unresolved||0); }
   var rows=j.map(function(s){ var ab=s.abstention||{}, gr=s.groundedness||{}, t=s.temporal||{}, sp=s.benchmark_spread||{};
     return "<tr><td class='b' title='"+htmlEsc(s.backend)+"'>"+htmlEsc(armTitle(s.backend))+"</td>"
-      +"<td><b>"+fmt10(s.benchmark_score)+"</b>"+(sp.min==null?'':"<span style='opacity:.55;font-size:.85em'> "+fmt10(sp.min)+"–"+fmt10(sp.max)+"</span>")+"</td>"
+      +"<td><b>"+fmt10(s.benchmark_score)+"</b>"+(sp.min==null?'':"<span style='opacity:.55;font-size:.85em'> "+fmt10(sp.min)+"–"+fmt10(sp.max)+"</span>")+calCell(cal[s.backend])+"</td>"
       +"<td>"+s.n+"</td>"
       +"<td>"+fmt10(s.accuracy_mean)+"</td><td>"+fmt10(s.completeness_mean)+"</td><td>"+fmt10(s.relevance_mean)+"</td>"
       +"<td>"+(ab['correct']||0)+" / "+(ab['failed-to-abstain']||0)+"</td>"
@@ -800,8 +848,17 @@ function renderJudge(run){
       +"<td>"+(s.harm_count||0)+"</td><td>"+(fab[s.backend]||0)+"</td>"
       +"<td>"+(t.date_wrong||0)+"</td><td>"+(t.window_over||0)+"</td><td>"+(t.trend_fab||0)+"</td></tr>"; }).join('');
   var tbl=el('table','summary');
-  tbl.innerHTML='<thead><tr><th>backend</th><th>benchmark</th><th>judged</th><th>acc</th><th>comp</th><th>rel</th><th>abstain ✓/✗</th><th>grounding s/p/u</th><th>harm</th><th>fab refs</th><th>date ✗</th><th>win over</th><th>trend fab</th></tr></thead><tbody>'+rows+'</tbody>';
+  tbl.innerHTML='<thead><tr><th>backend</th><th>benchmark'+(anyCal?' <span class="th-sub">+ calibrated ± CI</span>':'')+'</th><th>judged</th><th>acc</th><th>comp</th><th>rel</th><th>abstain ✓/✗</th><th>grounding s/p/u</th><th>harm</th><th>fab refs</th><th>date ✗</th><th>win over</th><th>trend fab</th></tr></thead><tbody>'+rows+'</tbody>';
   sec.appendChild(tbl);
+  // Run-level calibrated callout — only when at least one cell was adjudicated.
+  var rc=cal['__run__'];
+  if(rc && rc.adjudicated){
+    var note=el('p','cal-run');
+    note.innerHTML='<b>Run calibrated Benchmark:</b> '+fmt10(rc.point)
+      +(rc.ci_low==null?'':' <span class="ci">(95% CI '+fmt10(rc.ci_low)+'–'+fmt10(rc.ci_high)+')</span>')
+      +' '+tierBadge(rc.tier)+' <span class="cal-n">over '+(rc.n_labeled||0)+' human-reviewed cells of '+(rc.n_all||0)+'</span>';
+    sec.appendChild(note);
+  }
   var anyBg=false; for(var b=0;b<j.length;b++){ if((j[b].background||{}).n_background>0){ anyBg=true; break; } }
   if(anyBg){
     var bgRows=j.map(function(s){ var bg=s.background||{};

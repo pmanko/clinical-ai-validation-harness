@@ -188,3 +188,106 @@ def scout_summary(rows: list[dict[str, Any]], backends: list[str]) -> list[dict[
             "background": background,
         })
     return out
+
+
+# Trust ordering of the three-tier escalation ladder — the badge surfaces the
+# HIGHEST-trust reviewer who touched an arm (a clinician sign-off outranks an owner spot-check).
+_TIER_RANK = {"owner": 0, "domain": 1, "clinical": 2}
+
+
+def _highest_tier(adj_rows: list[dict[str, Any]]) -> str | None:
+    """The most-trusted reviewer tier present in `adj_rows` (clinical > domain > owner),
+    None when nothing was reviewed. Drives which badge the report shows for the arm."""
+    tiers = [a.get("reviewer_tier") for a in adj_rows if a.get("reviewer_tier") in _TIER_RANK]
+    return max(tiers, key=lambda t: _TIER_RANK[t]) if tiers else None
+
+
+def _calibrated_block(judge_rows: list[dict[str, Any]],
+                      adj_rows: list[dict[str, Any]]) -> dict[str, Any]:
+    """The adjudication-calibrated estimate for ONE scope (an arm, or the whole run).
+
+    When `adj_rows` carries ≥1 cell that matches a judged cell, this is the PPI point
+    estimate ± 95% CI (the judge's cheap score on every cell, bias-corrected by the small
+    human-labeled subset) plus the judge↔human agreement κ and the highest reviewer tier.
+    With no adjudication it degrades to the judge-only mean: a point, but ci_low/ci_high =
+    None and kappa = None so a caller can branch on `adjudicated`.
+
+    Pure + defensive: imports the stats core lazily (adjudicate imports reconcile, so a
+    top-level import would cycle), and never raises on empty / malformed input."""
+    from . import adjudicate  # lazy: adjudicate -> reconcile, avoid an import cycle
+
+    ppi = adjudicate.ppi_benchmark(judge_rows, adj_rows or [])
+    n_labeled = ppi.get("n_labeled") or 0
+    if n_labeled <= 0:
+        # Judge-only: keep the judge mean as the point, but withhold the interval + κ so
+        # the report renders this exactly as the pre-adjudication (advisory) headline.
+        return {
+            "adjudicated": False,
+            "point": ppi.get("point"),
+            "ci_low": None,
+            "ci_high": None,
+            "judge_only_mean": ppi.get("judge_only_mean"),
+            "rectifier": ppi.get("rectifier"),
+            "kappa": None,
+            "n_labeled": 0,
+            "n_all": ppi.get("n_all") or 0,
+            "tier": None,
+        }
+    agr = adjudicate.agreement(judge_rows, adj_rows)
+    return {
+        "adjudicated": True,
+        "point": ppi.get("point"),
+        "ci_low": ppi.get("ci_low"),
+        "ci_high": ppi.get("ci_high"),
+        "judge_only_mean": ppi.get("judge_only_mean"),
+        "rectifier": ppi.get("rectifier"),
+        "kappa": agr.get("overall"),
+        "kappa_by_axis": {ax: agr.get(ax) for ax in ("accuracy", "completeness", "relevance")},
+        "n_labeled": n_labeled,
+        "n_all": ppi.get("n_all") or 0,
+        "tier": _highest_tier(adj_rows),
+    }
+
+
+def calibrated_summary(judge_rows: list[dict[str, Any]],
+                       adj_rows: list[dict[str, Any]] | None,
+                       backends: list[str]) -> list[dict[str, Any]]:
+    """Per-arm (and run-level) adjudication-calibrated Benchmark.
+
+    For each arm: the judge Benchmark (`benchmark_score`, identical to scout_summary's)
+    PLUS a `calibrated` block — when that arm has ≥1 adjudicated cell, the PPI point
+    estimate ± 95% CI and the judge↔human agreement κ; otherwise judge-only (no CI / no
+    κ). A trailing row with backend "__run__" carries the run-level calibrated estimate
+    pooled over every adjudicated cell. Rows are filtered to each backend so an arm's
+    calibration leans only on its own cells.
+
+    `adj_rows` empty / None -> every block is judge-only (the default, pre-adjudication
+    report path). Pure + defensive: never raises on a malformed row."""
+    judge_rows = list(judge_rows or [])
+    adj_rows = list(adj_rows or [])
+
+    out: list[dict[str, Any]] = []
+    for b in backends:
+        j_b = [r for r in judge_rows if r.get("backend_id") == b]
+        a_b = [a for a in adj_rows if a.get("backend_id") == b]
+        cell_scores = [s for s in (cell_benchmark_score(r) for r in j_b) if s is not None]
+        bench = _benchmark_aggregate(cell_scores)
+        out.append({
+            "backend": b,
+            "n": len(j_b),
+            "benchmark_score": bench["score"],
+            "benchmark_spread": {"min": bench["min"], "max": bench["max"]},
+            "calibrated": _calibrated_block(j_b, a_b),
+        })
+
+    # Run-level: the calibrated estimate over the whole run (all arms pooled).
+    all_scores = [s for s in (cell_benchmark_score(r) for r in judge_rows) if s is not None]
+    run_bench = _benchmark_aggregate(all_scores)
+    out.append({
+        "backend": "__run__",
+        "n": len(judge_rows),
+        "benchmark_score": run_bench["score"],
+        "benchmark_spread": {"min": run_bench["min"], "max": run_bench["max"]},
+        "calibrated": _calibrated_block(judge_rows, adj_rows),
+    })
+    return out

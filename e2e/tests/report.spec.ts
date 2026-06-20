@@ -141,3 +141,20 @@ test('AC7 — arm/judge headers are human-readable titles, not dashed ids', asyn
   await page.locator('.arm-cards').screenshot({ path: path.join(SHOTS, 'AC7-readable-titles.png') });
   await page.locator('table.jheat').screenshot({ path: path.join(SHOTS, 'AC7-judge-titles.png') });
 });
+
+// AC8 — WS4 defensive: the default report (no adjudication.jsonl) renders the judged-scores
+// section judge-only — the benchmark numbers populate, and NO calibrated chrome (calibrated
+// point ± CI cell, tier badge, run-level callout) leaks when nothing was adjudicated.
+test('AC8 — no-adjudication report renders judge-only (no calibrated chrome)', async ({ page }) => {
+  const judge = page.locator('section.judge-section');
+  await expect(judge, 'judged-scores section present').toHaveCount(1);
+  // judge benchmark numbers populate (the existing headline must still render)
+  expect(await judge.locator('table.summary td b').count(), 'benchmark numbers populated').toBeGreaterThan(0);
+  // with no adjudication, none of the calibrated render paths fire
+  expect(await page.locator('.cal').count(), 'no per-arm calibrated cell without adjudication').toBe(0);
+  expect(await page.locator('.cal-run').count(), 'no run-level calibrated callout without adjudication').toBe(0);
+  expect(await page.locator('.tier-badge').count(), 'no reviewer-tier badge without adjudication').toBe(0);
+  const errs = (page as any)._errs as string[];
+  expect(errs, `page JS errors: ${errs.join(' | ')}`).toHaveLength(0);
+  await page.locator('section.judge-section').screenshot({ path: path.join(SHOTS, 'AC8-judge-only.png') });
+});
