@@ -69,12 +69,20 @@ class ComparisonSet:
 @dataclass(frozen=True)
 class Backend:
     """A concrete backend the runner can select: the {endpointUrl, modelName}
-    pair POST /endpoint writes, resolved from an abstract backend_id."""
+    pair POST /endpoint writes, resolved from an abstract backend_id.
+
+    Optionally carries a SECOND backend for the two-call architecture's In-Depth
+    leg (`indepthEndpointUrl`/`indepthModelName`): when set, the runner fires a
+    follow-up same-session call to it on the final turn (the answer is carried as a
+    prior assistant turn), and nests the In-Depth as its own artifact with its own
+    latency. Absent -> the arm is answer-only (one call per turn)."""
 
     id: str
     label: str
     endpoint_url: str
     model_name: str
+    indepth_endpoint: str | None = None
+    indepth_model: str | None = None
 
     @classmethod
     def from_dict(cls, backend_id: str, data: dict[str, Any]) -> "Backend":
@@ -84,6 +92,8 @@ class Backend:
             label=str(data.get("label", backend_id)),
             endpoint_url=str(data["endpointUrl"]),
             model_name=str(data["modelName"]),
+            indepth_endpoint=str(data["indepthEndpointUrl"]) if data.get("indepthEndpointUrl") else None,
+            indepth_model=str(data["indepthModelName"]) if data.get("indepthModelName") else None,
         )
 
 

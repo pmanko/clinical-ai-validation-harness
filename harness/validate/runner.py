@@ -295,26 +295,56 @@ def run_comparison(
                     http_status=res.status,
                     first_turn=first_turn,
                 )
-                repo.save(
-                    "results",
-                    {
-                        "run_id": run_id,
-                        "scenario_id": scenario.id,
-                        "backend_id": backend.id,
-                        "turn": turn.n,
-                        "request": {
-                            "patient": scenario.patient_ref,
-                            "session": session_sent,
-                            "question": turn.question,
-                        },
-                        "response": res.envelope,
-                        "metrics": metrics,
-                        "error": None if res.status == 200 else (res.raw_text or "")[:500],
-                        "started_at": started,
-                        "ended_at": ended,
-                        "reference_date": reference_date,
+                # Two-call architecture: on the FINAL turn, fire a same-session In-Depth call to the
+                # arm's in-depth-only backend. chartsearchai's session history carries this answer in as
+                # a prior assistant turn, so the in-depth-only level elaborates THIS answer. Nested as a
+                # separate artifact with its own latency; a failure degrades to no in-depth (never fatal),
+                # and the answer survey is unaffected for arms with no in-depth backend.
+                indepth_artifact = None
+                is_last_turn = turn is scenario.turns[-1]
+                if (is_last_turn and backend.indepth_model and backend.indepth_endpoint
+                        and res.status == 200 and res.envelope):
+                    id_kwargs = dict(chat_kwargs)
+                    id_kwargs["endpoint_url"] = backend.indepth_endpoint
+                    id_kwargs["model_name"] = backend.indepth_model
+                    try:
+                        ires = client.chat(
+                            scenario.patient_ref, session,
+                            "Now provide the in-depth clinical background for that answer.",
+                            **id_kwargs,
+                        )
+                    except Exception as exc:
+                        ires = ChatResult(status=0, envelope=None, latency_ms=0,
+                                          raw_text=f"in-depth request failed: {type(exc).__name__}: {exc}")
+                    if ires.envelope and ires.envelope.get("session"):
+                        session = ires.envelope["session"]
+                    indepth_artifact = {
+                        "response": ires.envelope,
+                        "latency_ms": ires.latency_ms,
+                        "http_status": ires.status,
+                        "model_name": backend.indepth_model,
+                        "error": None if ires.status == 200 else (ires.raw_text or "")[:500],
+                    }
+                row = {
+                    "run_id": run_id,
+                    "scenario_id": scenario.id,
+                    "backend_id": backend.id,
+                    "turn": turn.n,
+                    "request": {
+                        "patient": scenario.patient_ref,
+                        "session": session_sent,
+                        "question": turn.question,
                     },
-                )
+                    "response": res.envelope,
+                    "metrics": metrics,
+                    "error": None if res.status == 200 else (res.raw_text or "")[:500],
+                    "started_at": started,
+                    "ended_at": ended,
+                    "reference_date": reference_date,
+                }
+                if indepth_artifact is not None:
+                    row["indepth"] = indepth_artifact
+                repo.save("results", row)
                 append_event(
                     events_path,
                     {

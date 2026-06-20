@@ -138,5 +138,40 @@
     "label": "Med Agent Team — Parity + shared In-Depth (MED orch+expert, chartsearchai-prompt Answer, single shared In-Depth, validator OFF)",
     "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
     "modelName": "med-agent-team-parity-indepth"
+  },
+  "12b-2call": {
+    "label": "Gemma 4-12B — two-call (router Answer + separate hub In-Depth)",
+    "endpointUrl": "http://host.docker.internal:8077/v1/chat/completions",
+    "modelName": "gemma-4-12b",
+    "indepthEndpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
+    "indepthModelName": "indepth-only-gemma-4-12b"
+  },
+  "qwen2.5-14b-2call": {
+    "label": "Qwen2.5-14B — two-call (router Answer + separate hub In-Depth)",
+    "endpointUrl": "http://host.docker.internal:8077/v1/chat/completions",
+    "modelName": "qwen2.5-14b",
+    "indepthEndpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
+    "indepthModelName": "indepth-only-qwen2.5-14b"
+  },
+  "medgemma-27b-2call": {
+    "label": "MedGemma-27B — two-call (router Answer + separate hub In-Depth)",
+    "endpointUrl": "http://host.docker.internal:8077/v1/chat/completions",
+    "modelName": "medgemma-27b",
+    "indepthEndpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
+    "indepthModelName": "indepth-only-medgemma-27b"
+  },
+  "lfm2-24b-2call": {
+    "label": "LFM2-24B-A2B — two-call (router Answer + separate hub In-Depth)",
+    "endpointUrl": "http://host.docker.internal:8077/v1/chat/completions",
+    "modelName": "lfm2-24b-a2b",
+    "indepthEndpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
+    "indepthModelName": "indepth-only-lfm2-24b-a2b"
+  },
+  "parity-team-2call": {
+    "label": "Parity team — two-call (team Answer + separate hub In-Depth, qwen writer)",
+    "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
+    "modelName": "med-agent-team-parity",
+    "indepthEndpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
+    "indepthModelName": "indepth-only-qwen2.5-14b"
   }
 }
