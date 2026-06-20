@@ -143,7 +143,12 @@ def run_comparison(
     # client's chat() ONLY if that client accepts a reference_date kwarg — the stock
     # ChartSearchAiClient does not, so plumbing degrades gracefully to record-only.
     data_root = Path(data_root)
-    client_takes_ref_date = "reference_date" in inspect.signature(client.chat).parameters
+    try:
+        client_takes_ref_date = "reference_date" in inspect.signature(client.chat).parameters
+    except (ValueError, TypeError):
+        # Best-effort capability probe — a non-introspectable client.chat (C-extension,
+        # odd __call__) must NOT abort the run; degrade to record-only.
+        client_takes_ref_date = False
     cset = load_comparison_set(data_root / "comparison_sets" / f"{comparison_set_id}.json")
     scenarios = [load_scenario(data_root / "scenarios" / f"{sid}.json") for sid in cset.scenario_ids]
     backends = resolve_backends(cset.backend_ids, data_root / "backends.json")

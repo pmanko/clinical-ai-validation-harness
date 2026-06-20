@@ -34,6 +34,7 @@ SET_FILE="datasets/validation/comparison_sets/${SET}.json"
 
 # .env.chartsearch carries OPENMRS_REFAPP_TAG (nightly-chartsearch) + the proxy ports;
 # without it the frontend/gateway downgrade to stock and the SPA 404s.
+[ -f ./.env.chartsearch ] || { echo "ERROR: ./.env.chartsearch not found — provision it (see scripts/chartsearch-configure.sh) before running preflight." >&2; exit 1; }
 set -a; . ./.env.chartsearch; set +a
 PORT="${HARNESS_PROXY_HTTP_PORT:-8088}"
 AUTH="${CHARTSEARCH_ADMIN_USER:-admin}:${CHARTSEARCH_ADMIN_PASSWORD:-Admin123}"
@@ -42,8 +43,8 @@ BASE="http://localhost:${PORT}/openmrs"
 echo "==> [1/5] core stack (proxy/db/frontend/gateway/backend)"
 ./scripts/stack-up.sh --wait
 
-echo "==> [2/5] elasticsearch (querystore backend — profile-gated)"
-docker compose -f "${COMPOSE}" --profile elasticsearch up -d elasticsearch
+echo "==> [2/5] elasticsearch (querystore CQRS read store — part of the default stack)"
+docker compose -f "${COMPOSE}" up -d elasticsearch
 for i in $(seq 1 24); do
   curl -fsS --max-time 4 "http://localhost:${QUERYSTORE_ES_PORT:-9200}/_cluster/health" 2>/dev/null \
     | grep -qE '"status":"(green|yellow)"' && { echo "    ES ready"; break; }

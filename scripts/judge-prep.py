@@ -129,7 +129,8 @@ def main() -> None:
             "is_team": is_team,
             "patient": {k: p.get(k) for k in ("name", "gender", "birthdate", "slug")},
             "snapshot_file": str((snap_dir / f"{chart['_slug']}.snapshot.txt")),
-            "should_abstain": scen.get("should_abstain") or scen.get("expect_abstain") or False,
+            "should_abstain": ((scen.get("expectations") or {}).get("should_abstain")
+                               or scen.get("should_abstain") or scen.get("expect_abstain") or False),
             "n_turns": len(turns),
             "turns": turns,
             "answer_section": final["answer_section"],

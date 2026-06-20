@@ -26,6 +26,7 @@ ARG CACHE_BUST
 RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 RUN set -eu; \
+    echo "cache-bust: ${CACHE_BUST:-none}"; \
     REPO=https://openmrs.jfrog.io/artifactory/public/org/openmrs/web/openmrs-webapp/2.9.0-SNAPSHOT; \
     curl -fsSL "$REPO/maven-metadata.xml" -o /tmp/md.xml; \
     WAR_VER=$(grep -A4 '<extension>war</extension>' /tmp/md.xml | grep -m1 '<value>' \
