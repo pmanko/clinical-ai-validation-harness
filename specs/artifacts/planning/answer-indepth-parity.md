@@ -130,8 +130,8 @@ have **no In-Depth path** — they are only judged on the Answer.
 | Phase | What it delivers | Status |
 |---|---|---|
 | **P0** | Shared single-pass In-Depth in the hub → separate **judging** on the 2 hub in-depth arms | ✅ **done** (med-agent-hub PR #10 / harness PR #33) |
-| **P1** | Split the hub into an **answer-only** and an **in-depth-only** mode/level (in-depth-only takes question+chart [+answer] → in-depth claims). Reuses the existing `_synthesize_indepth`. | ⬜ blocked on decisions below |
-| **P2** | Harness **two-call** orchestration per cell: fire Answer + In-Depth as separate calls; record `latency_answer` + `latency_indepth`; results schema `{answer:{…}, indepth:{…}}`. **In-Depth routed the same way for single AND team** → vanilla singles finally get an in-depth. | ⬜ |
+| **P1** | Split the hub into an **answer-only** and an **in-depth-only** mode/level (in-depth-only takes question+chart [+answer] → in-depth claims). Reuses the existing `_synthesize_indepth`. | ✅ done (hub `indepth_only` mode + per-writer levels) |
+| **P2** | Harness **two-call** orchestration per cell: fire Answer + In-Depth as separate calls; record `latency_answer` + `latency_indepth`; results schema `{answer:{…}, indepth:{…}}`. **In-Depth routed the same way for single AND team** → vanilla singles finally get an in-depth. | ✅ done (Backend indepth fields + runner final-turn second call + two-call arms) |
 | **P3** | Judge + report consume two independent sub-cells: Answer→Benchmark+latency, In-Depth→Background+latency, for **all** arms; report shows both axes side by side. | ⬜ |
 | **P4** | Async delivery: the answer returns first, the In-Depth follows → "quick answer + slower in-depth". | ⬜ |
 
