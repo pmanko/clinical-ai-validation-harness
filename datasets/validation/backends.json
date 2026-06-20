@@ -118,5 +118,25 @@
     "label": "LFM2.5-1.2B-Instruct single LLM, direct chart (GGUF+DRY)",
     "endpointUrl": "http://host.docker.internal:8077/v1/chat/completions",
     "modelName": "lfm2-1.2b"
+  },
+  "qwen2.5-14b-baseline": {
+    "label": "Qwen2.5-14B single LLM, direct chart (GGUF+DRY)",
+    "endpointUrl": "http://host.docker.internal:8077/v1/chat/completions",
+    "modelName": "qwen2.5-14b"
+  },
+  "medgemma-27b-baseline": {
+    "label": "MedGemma-27B single LLM, direct chart (GGUF+DRY)",
+    "endpointUrl": "http://host.docker.internal:8077/v1/chat/completions",
+    "modelName": "medgemma-27b"
+  },
+  "single-12b-indepth": {
+    "label": "Single 12B + shared In-Depth — Gemma 4-12B Answer (chartsearchai prompt) plus one shared In-Depth pass",
+    "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
+    "modelName": "single-12b-indepth"
+  },
+  "med-agent-team-parity-indepth": {
+    "label": "Med Agent Team — Parity + shared In-Depth (MED orch+expert, chartsearchai-prompt Answer, single shared In-Depth, validator OFF)",
+    "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
+    "modelName": "med-agent-team-parity-indepth"
   }
 }
