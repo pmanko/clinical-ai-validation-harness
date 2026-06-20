@@ -143,8 +143,8 @@ const phaseNodes: ArchNode[] = [
   { title: 'P0 · shared In-Depth', detail: 'judging parity (2 hub arms) — done', x: 20, y: 30, tone: 'success' },
   { title: 'P1 · split hub modes', detail: 'in-depth-only mode — done', x: 280, y: 30, tone: 'success' },
   { title: 'P2 · harness two-call', detail: '2 latencies · 2 artifacts — done', x: 540, y: 30, tone: 'success' },
-  { title: 'P3 · judge + report', detail: '2 axes · ALL arms — next', x: 800, y: 30, tone: 'info' },
-  { title: 'P4 · async delivery', detail: 'answer first · in-depth follows', x: 1060, y: 30 },
+  { title: 'P3 · judge + report', detail: '2 axes · ALL arms — done', x: 800, y: 30, tone: 'success' },
+  { title: 'P4 · async delivery', detail: 'answer first · separate latency — done', x: 1060, y: 30, tone: 'success' },
 ];
 const phaseEdges: Array<[number, number]> = [[0, 1], [1, 2], [2, 3], [3, 4]];
 
@@ -170,8 +170,8 @@ const roadmapRows: ReactNode[][] = [
   ['P0', 'Shared single-pass In-Depth in the hub → separate judging on the 2 hub in-depth arms', done],
   ['P1', 'Hub in-depth-only mode + per-writer levels (no answer synthesis; elaborate the prior answer)', done],
   ['P2', 'Harness two-call: same-session In-Depth call on the final turn; nested artifact with its own latency. Two-call arms + multiclass-parity-2call set.', done],
-  ['P3', 'Judge + report consume two independent axes for ALL arms (quality + latency per axis)', next],
-  ['P4', 'Async delivery: answer returned first, in-depth follows → quick answer + slower in-depth', planned],
+  ['P3', 'Judge + report consume two independent axes for ALL arms — judge-prep reads the nested in-depth; both quality axes published', done],
+  ['P4', 'Async delivery: answer returned first, in-depth follows, each separately timed (ans ~2-33s, in-depth ~12-24s)', done],
 ];
 
 export default function AnswerInDepthParityCanvas() {
