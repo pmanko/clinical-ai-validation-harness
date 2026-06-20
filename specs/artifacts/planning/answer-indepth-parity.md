@@ -133,16 +133,14 @@ have **no In-Depth path** — they are only judged on the Answer.
 | **P1** | Split the hub into an **answer-only** and an **in-depth-only** mode/level (in-depth-only takes question+chart [+answer] → in-depth claims). Reuses the existing `_synthesize_indepth`. | ⬜ blocked on decisions below |
 | **P2** | Harness **two-call** orchestration per cell: fire Answer + In-Depth as separate calls; record `latency_answer` + `latency_indepth`; results schema `{answer:{…}, indepth:{…}}`. **In-Depth routed the same way for single AND team** → vanilla singles finally get an in-depth. | ⬜ |
 | **P3** | Judge + report consume two independent sub-cells: Answer→Benchmark+latency, In-Depth→Background+latency, for **all** arms; report shows both axes side by side. | ⬜ |
-| **P4** | Parallelize: answer ∥ in-depth (if independent) → genuinely async, "quick answer + slower in-depth" delivered concurrently. | ⬜ |
+| **P4** | Async delivery: the answer returns first, the In-Depth follows → "quick answer + slower in-depth". | ⬜ |
 
-### Open decisions (block P1/P2 design)
+### Decisions (resolved 2026-06-20)
 
-1. **In-Depth ↔ Answer coupling**
-   - **Independent / parallel** — in-depth = broad clinical background for the *question* (not the answer text); the two calls fire concurrently → truly async. Changes the Background "support" axis to "consistent with chart" rather than "supports the answer."
-   - **Sequential / elaborate** — in-depth elaborates the delivered answer (today's semantics); coupled, in-depth waits for the answer.
-2. **In-Depth model**
-   - **Per-arm** — each arm's own writer model does its in-depth → an in-depth *class survey* mirroring the answer survey ("is Gemma-12B's in-depth better than Qwen-14B's?").
-   - **Shared-fixed** — one model does every in-depth → isolates the in-depth prompt as the only variable (pure parity).
+1. **In-Depth ↔ Answer coupling → ROOTED IN ANSWER, ANSWER RETURNS FIRST.** The In-Depth elaborates the answer (it does not run blind), but the **answer is delivered first** (latency_A) and the In-Depth follows asynchronously (latency_I). Coupled in *content*, decoupled in *delivery + latency* → a quick answer, a slower in-depth. (Not fully parallel — the in-depth takes the answer as input.)
+2. **In-Depth model → PER-ARM.** Each arm's own writer model produces its In-Depth (the single model for a single arm; the team's writer for a team), so the in-depth axis is a class survey mirroring the answer survey. Parity = same in-depth treatment (prompt + a separate call), different model.
+3. **Current 224-cell run → FINISH + JUDGE THE ANSWERS.** The multi-class single Answer survey is architecture-independent; judge it. Skip the combined in-depth (superseded by the two-call rework).
+4. **Canvas → PUBLIC** (Development nav, alongside the other architecture canvases).
 
 ---
 
