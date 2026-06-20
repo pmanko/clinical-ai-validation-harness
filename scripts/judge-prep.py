@@ -101,12 +101,22 @@ def main() -> None:
                 try: resp = json.loads(resp)
                 except Exception: resp = {"answer": resp}
             ans, indepth = split_sections(resp.get("answer"))
+            # Two-call architecture: the In-Depth is a SEPARATE nested artifact (its own call +
+            # latency), not concatenated into the answer — use it as the in_depth_section so the
+            # arm is background-judged (and a single-model arm finally gets a background score).
+            nested = (r.get("indepth") or {}).get("response") or {}
+            if isinstance(nested, str):
+                try: nested = json.loads(nested)
+                except Exception: nested = {"answer": nested}
+            if nested.get("answer"):
+                indepth = nested["answer"]
             turns.append({
                 "n": r.get("turn", 1),
                 "question": next((t.get("question") for t in scen.get("turns", []) if t.get("n") == r.get("turn", 1)),
                                  (scen.get("turns") or [{}])[0].get("question")),
                 "answer_section": ans,
                 "in_depth_section": indepth,
+                "indepth_latency_ms": (r.get("indepth") or {}).get("latency_ms"),
                 "references": resp.get("references") or [],
             })
         final = turns[-1]
