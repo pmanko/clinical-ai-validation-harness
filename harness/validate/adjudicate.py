@@ -26,11 +26,14 @@ References:
 
 from __future__ import annotations
 
+import json
 import math
 import random
 import statistics
-from typing import Any
+from pathlib import Path
+from typing import Any, Callable
 
+from ..metadata import utc_now_iso
 from .reconcile import cell_benchmark_score
 
 __all__ = [
@@ -39,6 +42,9 @@ __all__ = [
     "agreement",
     "ppi_benchmark",
     "adjudication_record",
+    "run_adjudication",
+    "present_cell",
+    "read_jsonl",
 ]
 
 # Ordinal axes scored 0-10 by both judge and human; the axes kappa is computed over.
@@ -436,3 +442,190 @@ def adjudication_record(*, scenario_id: str, backend_id: str, reviewer_id: str,
 
 def _is_int(v: Any) -> bool:
     return isinstance(v, int) and not isinstance(v, bool)
+
+
+# --------------------------------------------------------------------------- #
+# 6. the review driver — load a run, present cells, write adjudication.jsonl
+# --------------------------------------------------------------------------- #
+def read_jsonl(path: Path | str) -> list[dict[str, Any]]:
+    """Parse a .jsonl file into a list of dicts; missing file -> []."""
+    p = Path(path)
+    if not p.exists():
+        return []
+    return [json.loads(ln) for ln in p.read_text(encoding="utf-8").splitlines() if ln.strip()]
+
+
+def _resolve_snapshot(snapshot_file: Any, run_dir: Path) -> str:
+    """Read the chart ground-truth snapshot text for a cell. The recorded
+    snapshot_file is an absolute path from the producing machine; fall back to
+    <run_dir>/charts/<basename> so a run reviewed on a different host still resolves."""
+    if not snapshot_file:
+        return ""
+    for cand in (Path(snapshot_file), run_dir / "charts" / Path(snapshot_file).name):
+        if cand.exists():
+            return cand.read_text(encoding="utf-8")
+    return ""
+
+
+def present_cell(cell: dict[str, Any], judge: dict[str, Any], run_dir: Path) -> str:
+    """The reviewer-facing rendering of one cell: the turn question(s), the model's
+    answer_section, the chart ground truth, and the judge's scores + note. Returned as
+    a single string so it can be printed (interactive) or captured (tests)."""
+    sid, bid = cell.get("scenario_id"), cell.get("backend_id")
+    lines = [
+        "=" * 72,
+        f"CELL  {sid}  x  {bid}",
+        "-" * 72,
+    ]
+    turns = cell.get("turns") or []
+    if turns:
+        lines.append("QUESTION(S):")
+        for t in turns:
+            lines.append(f"  [{t.get('n')}] {t.get('question', '')}")
+            ans = (t.get("answer_section") or "").strip()
+            if len(turns) > 1 and ans:
+                lines.append(f"       -> {ans}")
+    lines.append("")
+    lines.append("MODEL ANSWER:")
+    lines.append("  " + (cell.get("answer_section") or "").strip())
+    lines.append("")
+    lines.append("CHART GROUND TRUTH:")
+    snap = _resolve_snapshot(cell.get("snapshot_file"), run_dir)
+    lines.append(snap.rstrip() if snap else "  (snapshot unavailable)")
+    lines.append("")
+    lines.append("JUDGE:")
+    lines.append(
+        f"  accuracy={judge.get('accuracy')} completeness={judge.get('completeness')} "
+        f"relevance={judge.get('relevance')} harm={judge.get('harm')} "
+        f"benchmark={cell_benchmark_score(judge)}")
+    if judge.get("note"):
+        lines.append(f"  note: {judge['note']}")
+    lines.append("=" * 72)
+    return "\n".join(lines)
+
+
+def _prompt_adjudication(judge: dict[str, Any], present: str,
+                         input_fn: Callable[[str], str],
+                         print_fn: Callable[[str], None]) -> dict[str, Any]:
+    """Interactively grade one cell. Enter on the summary line ACCEPTS the judge's
+    scores wholesale; otherwise each axis is prompted with the judge's value as the
+    default (blank keeps it). Returns an answer dict in the same shape the
+    non-interactive `answers` map uses."""
+    print_fn(present)
+    resp = input_fn(
+        "ENTER to accept judge's scores, or 'e' to adjust per-axis: ").strip().lower()
+    if resp not in {"e", "edit", "a", "adjust"}:
+        return {
+            "accuracy": judge.get("accuracy"),
+            "completeness": judge.get("completeness"),
+            "relevance": judge.get("relevance"),
+            "harm": bool(judge.get("harm")),
+            "note": "",
+        }
+
+    def _ask_axis(name: str) -> Any:
+        default = judge.get(name)
+        raw = input_fn(f"  {name} (0-10) [{default}]: ").strip()
+        if not raw:
+            return default
+        try:
+            return max(0, min(10, int(raw)))
+        except ValueError:
+            return default
+
+    acc = _ask_axis("accuracy")
+    comp = _ask_axis("completeness")
+    rel = _ask_axis("relevance")
+    harm_default = bool(judge.get("harm"))
+    harm_raw = input_fn(f"  harm? (y/n) [{'y' if harm_default else 'n'}]: ").strip().lower()
+    harm = harm_default if not harm_raw else harm_raw.startswith("y")
+    note = input_fn("  note (optional): ").strip()
+    return {"accuracy": acc, "completeness": comp, "relevance": rel,
+            "harm": harm, "note": note}
+
+
+def _answer_to_record(cell: dict[str, Any], judge: dict[str, Any],
+                      answer: dict[str, Any], reviewer_id: str,
+                      reviewer_tier: str) -> dict[str, Any]:
+    """Build the adjudication_record for one cell, defaulting each axis/harm to the
+    judge's value when the answer omits it (an omitted axis == accept the judge)."""
+    def _axis(name: str) -> Any:
+        v = answer.get(name)
+        return v if v is not None else judge.get(name)
+
+    harm = answer.get("harm")
+    if harm is None:
+        harm = bool(judge.get("harm"))
+    return adjudication_record(
+        scenario_id=cell.get("scenario_id"),
+        backend_id=cell.get("backend_id"),
+        reviewer_id=reviewer_id,
+        reviewer_tier=reviewer_tier,
+        accuracy=_axis("accuracy"),
+        completeness=_axis("completeness"),
+        relevance=_axis("relevance"),
+        harm=bool(harm),
+        note=answer.get("note", "") or "",
+        judged_at=utc_now_iso(),
+    )
+
+
+def run_adjudication(*, run_dir: Path | str, mode: str, reviewer_id: str,
+                     reviewer_tier: str, n: int | None = None, seed: int = 0,
+                     answers: dict[str, dict[str, Any]] | None = None,
+                     judge_path: Path | str | None = None,
+                     input_fn: Callable[[str], str] = input,
+                     print_fn: Callable[[str], None] = print) -> int:
+    """Drive a guided-adjudication review over a completed run.
+
+    Loads judge.jsonl + judge-cells.jsonl, samples the cells to review via
+    sample_cells(mode, n, seed), and writes one adjudication_record per reviewed cell
+    to <run_dir>/adjudication.jsonl. RESUMABLE: cells already present in
+    adjudication.jsonl are skipped (their prior grades are kept).
+
+    Two modes of grading:
+      - NON-INTERACTIVE (answers given): a "scenario|backend" -> {accuracy, completeness,
+        relevance, harm, note} map is applied without prompting. An omitted axis/harm
+        defaults to the judge's value (== accept the judge). A cell with no matching
+        answer entry is skipped. This is the scripted/test entry.
+      - INTERACTIVE (answers is None): each not-yet-reviewed sampled cell is presented
+        and the reviewer accepts or adjusts via input_fn.
+
+    Returns the count of NEW adjudication records written this call.
+    """
+    run_dir = Path(run_dir)
+    jpath = Path(judge_path) if judge_path else run_dir / "judge.jsonl"
+    judge_rows = read_jsonl(jpath)
+    cell_rows = read_jsonl(run_dir / "judge-cells.jsonl")
+    judge_index = {(r.get("scenario_id"), r.get("backend_id")): r for r in judge_rows}
+    cell_index = {(r.get("scenario_id"), r.get("backend_id")): r for r in cell_rows}
+
+    adj_path = run_dir / "adjudication.jsonl"
+    already = {(r.get("scenario_id"), r.get("backend_id"))
+               for r in read_jsonl(adj_path)}
+
+    sampled = sample_cells(judge_rows, mode, n=n, seed=seed)
+
+    written = 0
+    with adj_path.open("a", encoding="utf-8") as fh:
+        for sample in sampled:
+            cid = (sample.get("scenario_id"), sample.get("backend_id"))
+            if cid in already:
+                continue  # resumable: don't re-review
+            judge = judge_index.get(cid, {})
+            cell = cell_index.get(cid) or {
+                "scenario_id": cid[0], "backend_id": cid[1]}
+
+            if answers is not None:
+                answer = answers.get(f"{cid[0]}|{cid[1]}")
+                if answer is None:
+                    continue  # no scripted grade for this cell -> skip
+            else:
+                present = present_cell(cell, judge, run_dir)
+                answer = _prompt_adjudication(judge, present, input_fn, print_fn)
+
+            record = _answer_to_record(cell, judge, answer, reviewer_id, reviewer_tier)
+            fh.write(json.dumps(record) + "\n")
+            already.add(cid)
+            written += 1
+    return written

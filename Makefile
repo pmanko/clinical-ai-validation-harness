@@ -475,6 +475,18 @@ validate-judge-finalize: setup
 validate-report: setup
 	$(UV) run harness-cli validate report $(RUN)
 
+# Guided human review of a judged run: sample cells (triage|standard|full|N), present each
+# against the chart, and record human scores to adjudication.jsonl (resumable). Interactive by
+# default; pass FROM=<answers.json> for the scripted/non-interactive path.
+#   make validate-adjudicate RUN=<id> [REVIEW=triage] [REVIEWER=<id>] [TIER=owner] [FROM=<answers.json>]
+.PHONY: validate-adjudicate
+REVIEW ?= triage
+REVIEWER ?= local
+ADJ_TIER ?= owner
+validate-adjudicate: setup
+	$(UV) run harness-cli validate adjudicate $(RUN) --review $(REVIEW) \
+		--reviewer $(REVIEWER) --tier $(ADJ_TIER) $(if $(FROM),--from $(FROM),)
+
 clean-venv:
 	rm -rf $(UV_PROJECT_ENVIRONMENT)
 

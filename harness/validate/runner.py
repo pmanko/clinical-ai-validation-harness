@@ -13,6 +13,7 @@ manifest's provenance fields (FR-006.3); provenance lives in run_manifest.json.
 
 from __future__ import annotations
 
+import inspect
 import json
 from dataclasses import dataclass
 from pathlib import Path
@@ -102,8 +103,15 @@ def run_comparison(
     schema_mapping_version: str = "openmrs-2.7-to-2.8@v0",
     gen_ai_provider_name: str = "lmstudio",
     resume_from: Path | str | None = None,
+    reference_date: str | None = None,
 ) -> RunResult:
+    # An explicit "now" for temporal scoring. Unset -> None, so every recorded row's
+    # reference_date is absent and downstream falls back to the data era (today's
+    # behavior). When set it is recorded on every result row, and passed to the
+    # client's chat() ONLY if that client accepts a reference_date kwarg — the stock
+    # ChartSearchAiClient does not, so plumbing degrades gracefully to record-only.
     data_root = Path(data_root)
+    client_takes_ref_date = "reference_date" in inspect.signature(client.chat).parameters
     cset = load_comparison_set(data_root / "comparison_sets" / f"{comparison_set_id}.json")
     scenarios = [load_scenario(data_root / "scenarios" / f"{sid}.json") for sid in cset.scenario_ids]
     backends = resolve_backends(cset.backend_ids, data_root / "backends.json")
@@ -147,6 +155,7 @@ def run_comparison(
             "comparison_set": comparison_set_id,
             "scenario_ids": cset.scenario_ids,
             "backend_ids": cset.backend_ids,
+            "reference_date": reference_date,
         },
     )
 
@@ -177,9 +186,10 @@ def run_comparison(
         for scenario in scenarios:
             pair = (backend.id, scenario.id)
             if pair in completed:
-                # Carry over the prior good rows, re-stamped with this run_id.
+                # Carry over the prior good rows, re-stamped with this run_id (and this
+                # run's reference_date, since temporal scoring is a property of THIS run).
                 for prior in completed[pair]:
-                    row = {**prior, "run_id": run_id}
+                    row = {**prior, "run_id": run_id, "reference_date": reference_date}
                     repo.save("results", row)
                     m = row.get("metrics") or {}
                     append_event(events_path, {
@@ -209,6 +219,7 @@ def run_comparison(
                         "response": None, "metrics": metrics,
                         "error": f"new_session failed: {type(exc).__name__}: {exc}"[:500],
                         "started_at": now, "ended_at": now,
+                        "reference_date": reference_date,
                     })
                     result_count += 1
                 continue
@@ -216,10 +227,15 @@ def run_comparison(
             for turn in scenario.turns:
                 session_sent = session
                 started = utc_now_iso()
+                chat_kwargs: dict[str, Any] = {
+                    "endpoint_url": backend.endpoint_url,
+                    "model_name": backend.model_name,
+                }
+                if client_takes_ref_date:
+                    chat_kwargs["reference_date"] = reference_date
                 try:
                     res = client.chat(
-                        scenario.patient_ref, session_sent, turn.question,
-                        endpoint_url=backend.endpoint_url, model_name=backend.model_name,
+                        scenario.patient_ref, session_sent, turn.question, **chat_kwargs,
                     )
                 except Exception as exc:
                     # A hung/failed request must NOT abort the whole run — record it
@@ -252,6 +268,7 @@ def run_comparison(
                         "error": None if res.status == 200 else (res.raw_text or "")[:500],
                         "started_at": started,
                         "ended_at": ended,
+                        "reference_date": reference_date,
                     },
                 )
                 append_event(
