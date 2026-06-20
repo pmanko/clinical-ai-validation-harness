@@ -16,6 +16,7 @@ from __future__ import annotations
 import inspect
 import json
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Protocol
 from uuid import uuid4
@@ -24,10 +25,41 @@ from ..metadata import RunManifest, append_event, utc_now_iso, write_manifest
 from ..submodules import read_harness_git_sha
 from .client import ChatResult
 from .metrics import compute_metrics
+from .model_registry import arm_card
 from .models import load_comparison_set, load_scenario
 from .report import build_report
 from .repository import JsonlRepository
 from .resolver import resolve_backends
+
+
+def write_run_meta(
+    run_dir: Path | str,
+    *,
+    run_id: str,
+    backend_ids: list[str],
+    reference_date: str | None,
+) -> Path:
+    """Freeze each arm's FULL resolved card (incl. config: knobs/prompts/retrieval) into
+    `<run_dir>/run_meta.json` at run time — the per-run capture layer so a report reflects
+    the config the run ACTUALLY used (provenance), not whatever the static config files say
+    at render time. Best-effort per arm: a resolve error on one backend never aborts the run
+    (that arm is simply omitted from the frozen cards). Returns the written path."""
+    cards: dict[str, Any] = {}
+    for b in backend_ids:
+        try:
+            cards[b] = arm_card(b)
+        except Exception:
+            continue
+    meta = {
+        "run_id": run_id,
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "reference_date": reference_date,
+        "arm_cards": cards,
+    }
+    path = Path(run_dir) / "run_meta.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(meta, indent=2), encoding="utf-8")
+    return path
 
 
 def _row_is_good(row: dict[str, Any]) -> bool:
@@ -146,6 +178,18 @@ def run_comparison(
     manifest_path = run_dir / "run_manifest.json"
     events_path = run_dir / "events.jsonl"
     write_manifest(manifest_path, manifest)
+    # Freeze each arm's resolved config (knobs/prompts/retrieval) into run_meta.json BEFORE
+    # any turn runs, so the report reflects what THIS run used even if the static config
+    # files change later. Best-effort — never abort the run on a resolve/write error.
+    try:
+        write_run_meta(
+            run_dir,
+            run_id=run_id,
+            backend_ids=[b.id for b in backends],
+            reference_date=reference_date,
+        )
+    except Exception:
+        pass
     append_event(
         events_path,
         {

@@ -344,6 +344,26 @@ def _cell_blob(r: dict[str, Any], traces: list[dict[str, Any]] | None = None) ->
     }
 
 
+def _arm_cards_for(run_dir: Path, backends: list[str]) -> dict[str, Any]:
+    """Resolve the per-arm cards for the blob, preferring the run's FROZEN provenance.
+
+    WS1: when `<run_dir>/run_meta.json` exists and carries `arm_cards`, use those — they were
+    captured at run time, so the report reflects the config the run ACTUALLY used (knobs /
+    prompts / retrieval), not whatever the static config files say now. A backend absent from
+    the frozen set still resolves live (best-effort). When run_meta.json is absent (every
+    existing run) this falls back to live `arm_card(b)` resolution byte-for-byte as before."""
+    frozen: dict[str, Any] = {}
+    meta_path = run_dir / "run_meta.json"
+    if meta_path.exists():
+        try:
+            meta = json.loads(meta_path.read_text(encoding="utf-8"))
+            if isinstance(meta, dict) and isinstance(meta.get("arm_cards"), dict):
+                frozen = meta["arm_cards"]
+        except Exception:
+            frozen = {}
+    return {b: (frozen[b] if b in frozen else arm_card(b)) for b in backends}
+
+
 def _run_blob(run_dir: Path) -> dict[str, Any]:
     """Assemble one run into the blob shape. Reads the same three files as before;
     a missing run_manifest.json still raises (contract), results/events tolerated."""
@@ -434,7 +454,9 @@ def _run_blob(run_dir: Path) -> dict[str, Any]:
         # WS2: structured arm makeup (single vanilla-chartsearchai vs med-agent-hub team +
         # role->model lineup) so the report's "what this run compares" section + badges render
         # from one resolver instead of parsing the label string. Best-effort: never blocks a render.
-        "arm_cards": {b: arm_card(b) for b in backends},
+        # WS1: prefer the run's FROZEN cards (run_meta.json) over re-resolving the current static
+        # files, so an old run renders the config it ACTUALLY used (see _arm_cards_for).
+        "arm_cards": _arm_cards_for(run_dir, backends),
     }
 
 
