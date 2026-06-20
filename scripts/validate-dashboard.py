@@ -18,10 +18,13 @@ import re
 import socketserver
 import subprocess
 import time
+import sys
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT))
+from harness.validate.model_registry import arm_card  # noqa: E402  (sys.path set above)
 DATA = ROOT / "datasets" / "validation"
 TRACE_FILE = ROOT / "artifacts" / "hub-trace" / "trace.jsonl"
 PORT = int(os.environ.get("DASH_PORT", "8099"))
@@ -206,8 +209,20 @@ def status():
                      "chars": m.get("answer_chars"),
                      "ans": _esc(((r.get("response") or {}).get("answer", "") or "")[:90])})
 
+    # Structured arm makeup + config (single vanilla-chartsearchai vs med-agent-hub team) —
+    # resolved by the shared resolver, REUSED from the report. Carries the real sampler knobs,
+    # per-role system prompts, and retrieval GPs so the dashboard can render the path badge,
+    # role->model makeup, and the "how this arm is configured" panel.
+    arm_cards = {}
+    for b in back_ids:
+        try:
+            arm_cards[b] = arm_card(b)
+        except Exception:
+            arm_cards[b] = {"backend_id": b, "label": b, "kind": "unknown",
+                            "path": None, "models": [], "roles": {}, "config": {}}
+
     return {"run": os.path.basename(run), "set": set_id, "done": len(results), "total": total,
-            "scenarios": scen_ids, "backends": back_ids, "arms": arms,
+            "scenarios": scen_ids, "backends": back_ids, "arms": arms, "arm_cards": arm_cards,
             "grid": grid_list, "feed": feed, "models": resident_models()}
 
 
@@ -306,6 +321,38 @@ table.btbl{border-collapse:collapse;font-size:11px;width:100%}
 .caveat.yellow{background:var(--cav-yel-bg);border:1px solid var(--cav-yel-bd);color:var(--cav-yel-fg)}
 .collapse summary{cursor:pointer;color:var(--muted);font-size:11px;padding:3px 0;list-style:revert}
 .idl{margin:2px 0 0 0;padding-left:18px}.idl li{margin:2px 0}
+.arm-cards{display:flex;flex-wrap:wrap;gap:10px}
+.arm-card{flex:1 1 240px;min-width:220px;border:1px solid var(--border);border-radius:8px;padding:10px 12px;background:var(--surface)}
+.arm-head{display:flex;align-items:center;gap:7px;margin-bottom:4px}
+.arm-name{font-weight:600;color:var(--accent);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.badge{display:inline-block;font-size:9px;font-weight:700;letter-spacing:.05em;padding:1px 6px;border-radius:9px;border:1px solid var(--border);color:var(--muted)}
+.badge.team{background:#3a2e08;border-color:#9e6a03;color:#ffe9b3}
+.badge.single{background:#13304a;border-color:#1f6feb;color:#cfe6ff}
+.arm-path{font-size:10px;color:var(--muted);margin-bottom:5px}
+.arm-stats{font-size:11px;color:var(--text);margin-bottom:6px}
+table.makeup{width:100%;font-size:11px;background:transparent;border-collapse:collapse}
+.makeup td{padding:2px 4px;border:none;text-align:left}
+.makeup .role{color:var(--muted);width:28%}
+.makeup .mdl{font-family:ui-monospace,Menlo,monospace}
+.makeup .mq{color:var(--muted)}
+.makeup-single{font-size:12px;color:var(--muted);font-family:ui-monospace,Menlo,monospace;margin-top:4px}
+details.arm-config{margin-top:8px;border-top:1px dashed var(--border);padding-top:6px}
+details.arm-config>summary{cursor:pointer;color:var(--accent);font-size:11px;font-weight:600;list-style:revert}
+.arm-config .ac-tease{color:var(--muted);font-weight:400;font-size:10px;font-family:ui-monospace,Menlo,monospace}
+.arm-config .ac-body{margin-top:8px}
+.arm-config .ac-h{font-size:11px;font-weight:700;color:var(--text);text-transform:uppercase;letter-spacing:.03em;margin:10px 0 4px}
+.arm-config .ac-h:first-child{margin-top:0}
+.arm-config .ac-sub,.arm-config .ac-src{font-weight:400;text-transform:none;color:var(--muted);font-size:10px;font-family:ui-monospace,Menlo,monospace;letter-spacing:0}
+table.ac-knobs{border-collapse:collapse;font-size:10.5px;margin-top:2px}
+.ac-knobs td,.ac-knobs th{border:1px solid var(--border2);padding:2px 7px;text-align:left}
+.ac-knobs th{color:var(--muted);font-weight:400;white-space:nowrap}
+.ac-knobs .ac-k{color:var(--muted)}
+.arm-config .ac-prompt{margin:4px 0 8px}
+.arm-config .ac-plabel{font-size:11px;font-weight:600}
+.arm-config .ac-psum{font-size:11px;color:var(--muted);margin:2px 0;max-width:60ch}
+.arm-config .ac-pfull>summary{cursor:pointer;color:var(--accent);font-size:10px;list-style:revert}
+.arm-config pre.ac-pre{white-space:pre-wrap;font:10.5px/1.45 ui-monospace,Menlo,monospace;background:var(--sunken);border:1px solid var(--border2);border-radius:6px;padding:8px 10px;margin:4px 0 0;max-height:16em;overflow:auto}
+.arm-config .ac-retr{font-size:11px;font-family:ui-monospace,Menlo,monospace;color:var(--text)}
 </style><script>(function(){try{var t=localStorage.getItem('oc-theme-dashboard');if(t==='light'||t==='dark')document.documentElement.dataset.theme=t;}catch(e){}})();</script></head><body>
 <button id=theme-toggle class=theme-toggle type=button aria-label="Toggle light or dark mode" title="Toggle light / dark"></button>
 <h1 id=hdr>validate run</h1>
@@ -320,7 +367,96 @@ table.btbl{border-collapse:collapse;font-size:11px;width:100%}
 const cls=s=>({done:'c200',err:'cerr',running:'crun',pending:'cpend'}[s]||'cpend');
 const sym=s=>({done:'✓',err:'×',running:'●',pending:'·'}[s]||'·');
 const shortB=b=>b.replace('med-agent-team-','').replace('-baseline','-base');
-const esc=s=>(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const esc=s=>(s==null?'':String(s)).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+// sampler-knob display order + labels (mirrors report.py's KNOB_ORDER/KNOB_LABELS).
+const KNOB_ORDER=['temp','top_p','top_k','ctx_size','seed','max_tokens','reasoning_budget','dry'];
+const KNOB_LABELS={temp:'temperature',top_p:'top-p',top_k:'top-k',ctx_size:'ctx-size',seed:'seed',max_tokens:'max-tokens',reasoning_budget:'reasoning-budget',dry:'DRY'};
+// "how this arm is configured" panel: sampling knobs + system prompt(s) + retrieval line.
+// Mirrors report.py::renderArmConfig — fed the REAL arm_card(b).config from the resolver.
+function renderArmConfig(cfg){
+ if(!cfg) return '';
+ const knobs=cfg.knobs||{};
+ const models=Object.keys(knobs);
+ const k0=(models.length?knobs[models[0]]:{})||{};
+ const tease=[];
+ if(k0.temp!=null)tease.push('temp '+k0.temp);
+ if(k0.seed!=null)tease.push('seed '+k0.seed);
+ if(k0.dry!=null)tease.push('DRY on');
+ if(k0.ctx_size!=null)tease.push('ctx '+k0.ctx_size);
+ const np=(cfg.prompts||[]).length;
+ if(np)tease.push(np+' system prompt'+(np>1?'s':''));
+ const teaseTxt=tease.length?(' — '+tease.join(' · ')):'';
+ let h="<details class=arm-config><summary>how this arm is configured<span class=ac-tease>"+esc(teaseTxt)+"</span></summary><div class=ac-body>";
+ if(models.length){
+  const present=KNOB_ORDER.filter(k=>models.some(m=>(knobs[m]||{})[k]!=null));
+  h+="<div class=ac-h>sampling knobs <span class=ac-sub>(llama-router.ini)</span></div>";
+  h+="<table class=ac-knobs><thead><tr><th>knob</th>";
+  models.forEach(m=>{h+="<th>"+esc(m)+"</th>";});
+  h+="</tr></thead><tbody>";
+  present.forEach(k=>{
+   h+="<tr><td class=ac-k>"+esc(KNOB_LABELS[k]||k)+"</td>";
+   models.forEach(m=>{const v=(knobs[m]||{})[k];h+="<td>"+(v==null?'—':esc(v))+"</td>";});
+   h+="</tr>";
+  });
+  h+="</tbody></table>";
+ }
+ const prompts=cfg.prompts||[];
+ if(prompts.length){
+  h+="<div class=ac-h>system prompt"+(prompts.length>1?'s':'')+"</div>";
+  prompts.forEach(p=>{
+   h+="<div class=ac-prompt>";
+   h+="<div class=ac-plabel>"+esc(p.label)+" <span class=ac-src>"+esc(p.source)+"</span></div>";
+   if(p.summary)h+="<div class=ac-psum>"+esc(p.summary)+"</div>";
+   h+="<details class=ac-pfull><summary>full prompt</summary><pre class=ac-pre>"+esc(p.text)+"</pre></details>";
+   h+="</div>";
+  });
+ }
+ const r=cfg.retrieval;
+ if(r){
+  h+="<div class=ac-h>retrieval <span class=ac-sub>(chartsearchai GPs)</span></div>";
+  h+="<div class=ac-retr>pipeline "+esc(r.pipeline)+" · embedding top-k "+esc(r.embedding_topk)+
+     " · querystore top-k "+esc(r.querystore_topk)+" · threshold "+esc(r.threshold)+"</div>";
+ }
+ h+="</div></details>";
+ return h;
+}
+// Per-arm card: single/team path badge + makeup (team role->model; single family·params·quant)
+// + the config panel. Mirrors report.py::renderArms. Fed status().arm_cards (REUSED resolver).
+function renderArmCards(d){
+ const cards=d.arm_cards||{};
+ const stats=d.arms||{};
+ let h="<div class=arm-cards>";
+ (d.backends||[]).forEach(b=>{
+  const c=cards[b]||{kind:'unknown',path:'',models:[],roles:{}};
+  const a=stats[b]||{};
+  const team=c.kind==='team';
+  const badge=team
+   ?"<span class='badge team'>TEAM</span>"
+   :(c.kind==='single'?"<span class='badge single'>SINGLE</span>":"<span class=badge>?</span>");
+  h+="<div class=arm-card>";
+  h+="<div class=arm-head>"+badge+"<span class=arm-name>"+esc(b)+"</span></div>";
+  if(c.path)h+="<div class=arm-path>"+esc(c.path)+"</div>";
+  h+="<div class=arm-stats>"+(a.rows||0)+" rows · <span class='"+(a.errors?'err':'ok')+"'>"+(a.errors||0)+" err</span>"
+    +" · <span class=muted>~"+(a.avg_latency_ms||0)+"ms · "+(a.avg_chars||0)+"c"+(a.last?(' · '+esc(a.last)):'')+"</span></div>";
+  if(team){
+   h+="<table class=makeup><tbody>";
+   Object.keys(c.roles||{}).forEach(role=>{
+    const m=c.roles[role]||{};
+    const mq=[m.family,m.params,m.quant].filter(Boolean).join(' · ');
+    h+="<tr><td class=role>"+esc(role)+"</td><td class=mdl>"+esc(m.id||'')+
+       "</td><td class=mq>"+esc(mq)+"</td></tr>";
+   });
+   h+="</tbody></table>";
+  }else{
+   const m=(c.models||[])[0]||{};
+   const mq=[m.id,m.family,m.params,m.quant].filter(Boolean).join(' · ');
+   h+="<div class=makeup-single>"+esc(mq)+"</div>";
+  }
+  h+=renderArmConfig(c.config);
+  h+="</div>";
+ });
+ return h+"</div>";
+}
 async function tick(){
  let d; try{d=await(await fetch('/api/status')).json()}catch(e){return}
  if(!d.run){hdr.textContent='waiting for a run...';return}
@@ -328,10 +464,7 @@ async function tick(){
  hdr.textContent='run '+d.run.slice(0,8)+'  ·  set '+(d.set||'')+'  ·  '+pct+'%';
  fill.style.width=pct+'%'; prog.textContent=d.done+' / '+d.total+' results';
  models.innerHTML=(d.models||[]).map(m=>'<span class=chip>'+m+'</span>').join('')||'<span class=muted>none resident</span>';
- arms.innerHTML=(d.backends||[]).map(b=>{const a=d.arms[b]||{};
-   return '<div class=card><b>'+b+'</b><br>'+(a.rows||0)+' rows · <span class="'+(a.errors?'err':'ok')+'">'+(a.errors||0)+' err</span>'
-   +'<br><span class=muted>~'+(a.avg_latency_ms||0)+'ms · '+(a.avg_chars||0)+' chars</span>'
-   +'<br><span class=muted>'+(a.last||'')+'</span></div>'}).join('');
+ arms.innerHTML=renderArmCards(d);
  const gm={};(d.grid||[]).forEach(g=>gm[g.scenario+'|'+g.backend]=g.state);
  let h='<table class=grid><tr><th></th>'+(d.backends||[]).map(b=>'<th>'+shortB(b)+'</th>').join('')+'</tr>';
  (d.scenarios||[]).forEach(s=>{h+='<tr><th>'+s+'</th>'+(d.backends||[]).map(b=>{const st=gm[s+'|'+b];

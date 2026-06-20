@@ -1,0 +1,32 @@
+{
+  "_comment": "Per-model metadata for report/dashboard/index 'arm cards'. Keyed by the llama-router section id (== the model id used in backends.json modelName for single arms, and in levels.yaml roles for team arms). family=vendor family, params=human param string, quant=GGUF quant, note=one-line best-use. Arm kind (single vs team) and team role-makeup are DERIVED at render time from backends.json (endpoint :8077=single router, :8080=hub team) + targets/med-agent-hub/server/levels.yaml (team roles) — not stored here. Grounded from scripts/llama-router.ini, the .lmstudio GGUF paths, and observed file sizes; verify quant against the actual GGUF if precision matters.",
+  "families": {
+    "Gemma 4": "Google general-purpose open model",
+    "MedGemma": "Google Gemma fine-tuned on medical data — the team's clinical specialist",
+    "Qwen2.5": "Alibaba general model",
+    "Qwen3": "Alibaba general model (newer)",
+    "Qwen3.6": "Alibaba thinking/reasoning MoE",
+    "Liquid LFM2": "Liquid AI on-device hybrid model — fast, agentic/tool-use, weak on knowledge-heavy tasks, no medical training",
+    "Liquid LFM2.5": "Liquid AI on-device hybrid model (newer) — instruction-following + tool-calling"
+  },
+  "models": {
+    "gemma-4-12b": {"family": "Gemma 4", "params": "12B", "quant": "Q8_0", "note": "strong + safe general single model"},
+    "gemma-e4b": {"family": "Gemma 4", "params": "4B (E4B)", "quant": "Q4_K_M", "note": "small general"},
+    "gemma-e4b-q8": {"family": "Gemma 4", "params": "4B (E4B)", "quant": "Q8_0", "note": "small general (8-bit)"},
+    "gemma-e2b-q2": {"family": "Gemma 4", "params": "2B (E2B)", "quant": "Q2_K", "note": "deliberately tiny 2-bit orchestrator"},
+    "gemma-e2b": {"family": "Gemma 4", "params": "2B (E2B)", "quant": "Q4_K_M", "note": "tiny general"},
+    "gemma-31b": {"family": "Gemma 4", "params": "31B", "quant": "Q4_K_M", "note": "large general (HIGH tier)"},
+    "gemma-26b": {"family": "Gemma 4", "params": "26B (A4B active, MoE)", "quant": "Q4_K_M", "note": "MoE general"},
+    "medgemma-1.5-4b": {"family": "MedGemma", "params": "4B", "quant": "Q4_K_S", "note": "clinical specialist (the team's medical expert)"},
+    "medgemma-1.5-4b-q8": {"family": "MedGemma", "params": "4B", "quant": "Q8_0", "note": "clinical specialist (8-bit)"},
+    "medgemma-27b": {"family": "MedGemma", "params": "27B", "quant": "Q4_K_M", "note": "large clinical specialist (HIGH tier)"},
+    "qwen3-4b": {"family": "Qwen3", "params": "4B", "quant": "Q4_K_M", "note": "small synthesizer"},
+    "qwen2.5-14b": {"family": "Qwen2.5", "params": "14B", "quant": "Q4_K_M", "note": "mid synthesizer (MED tier)"},
+    "qwen2.5-32b": {"family": "Qwen2.5", "params": "32B", "quant": "Q4_K_M", "note": "large synthesizer"},
+    "qwen3.6-35b-q6": {"family": "Qwen3.6", "params": "35B (3B active, MoE)", "quant": "Q6_K", "note": "thinking synthesizer (HIGH tier)"},
+    "lfm2-24b-a2b": {"family": "Liquid LFM2", "params": "24B (2.3B active, MoE)", "quant": "Q4_K_M", "note": "fast agentic writer; no medical/reasoning focus"},
+    "lfm2-8b-a1b": {"family": "Liquid LFM2.5", "params": "8B (1.5B active, MoE)", "quant": "Q4_K_M", "note": "most capable general Liquid; no medical training"},
+    "lfm2-2.6b": {"family": "Liquid LFM2", "params": "2.6B", "quant": "Q4_K_M", "note": "strong small dense; tool-use/instruction-following — robust coordinator"},
+    "lfm2-1.2b": {"family": "Liquid LFM2.5", "params": "1.2B", "quant": "Q8_0", "note": "on-device tool-caller; light validator"}
+  }
+}

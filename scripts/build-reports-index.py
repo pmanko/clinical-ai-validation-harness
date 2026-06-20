@@ -24,6 +24,7 @@ sys.path.insert(0, str(ROOT))
 
 from harness.validate.reconcile import scout_summary  # noqa: E402
 from harness.validate.report import _load_judge  # noqa: E402
+from harness.validate.model_registry import arm_card  # noqa: E402
 
 REPORTS = ROOT / "artifacts" / "reports"
 VALIDATE = ROOT / "artifacts" / "validate"
@@ -43,8 +44,16 @@ _RAW = _backend_labels()
 
 
 def human_arm(arm: str) -> tuple[str, str]:
-    """(plain-language name, hover detail). Detail = the backend's own engineering label."""
-    detail = _RAW.get(arm, arm)
+    """(plain-language name, hover detail). Detail = the arm's resolved makeup from the shared
+    resolver — a single model's family·size·quant, or a team's role→model lineup — so the index
+    hover matches the report; falls back to the backend's engineering label."""
+    card = arm_card(arm)
+    if card.get("kind") == "team":
+        makeup = " · ".join(f"{r}={m['id']}" for r, m in (card.get("roles") or {}).items())
+    else:
+        m = (card.get("models") or [{}])[0]
+        makeup = " · ".join(x for x in [m.get("id"), m.get("params"), m.get("quant")] if x)
+    detail = makeup or _RAW.get(arm, arm)
     a = arm.lower()
     if a.startswith("med-agent-team"):
         # match the tier token AFTER the prefix — "med-agent" itself contains "med".

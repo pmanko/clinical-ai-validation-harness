@@ -28,6 +28,7 @@ from pathlib import Path
 from typing import Any
 
 from .hub_trace import load_traces, match_trace
+from .model_registry import arm_card
 from .reconcile import scout_summary
 
 # The med-agent-team bridge gracefully degrades to a schema-valid envelope when
@@ -413,6 +414,10 @@ def _run_blob(run_dir: Path) -> dict[str, Any]:
         "judge": scout_summary(_load_judge(run_dir), backends),
         "judge_rows": _load_judge(run_dir),
         "patients": patients,
+        # WS2: structured arm makeup (single vanilla-chartsearchai vs med-agent-hub team +
+        # role->model lineup) so the report's "what this run compares" section + badges render
+        # from one resolver instead of parsing the label string. Best-effort: never blocks a render.
+        "arm_cards": {b: arm_card(b) for b in backends},
     }
 
 
@@ -464,6 +469,41 @@ body { font: 14px/1.5 -apple-system, system-ui, sans-serif; color: var(--fg); ma
 .meta { color: var(--mut); font-size: 12px; font-family: ui-monospace, monospace; }
 main { max-width: none; margin: 0 auto; padding: 16px 24px 120px; }
 h2 { font-size: 15px; margin: 28px 0 8px; font-family: ui-monospace, monospace; }
+.intro { color: var(--mut); font-size: 13px; margin: 4px 0 14px; max-width: 72ch; }
+section.intro-led > .intro:first-child { margin-top: 0; }
+.arms-section { margin: 8px 24px 0; }
+.arm-cards { display: flex; flex-wrap: wrap; gap: 10px; }
+.arm-card { flex: 1 1 240px; min-width: 220px; border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; background: var(--surface); }
+.arm-head { display: flex; align-items: center; gap: 8px; }
+.arm-name { font-family: ui-monospace, monospace; font-size: 13px; font-weight: 600; }
+.badge { font-size: 10px; font-weight: 700; letter-spacing: .04em; padding: 2px 6px; border-radius: 4px; border: 1px solid var(--accent-bd); background: var(--accent-bg); color: var(--accent); }
+.badge.single { background: var(--surface2); color: var(--mut); border-color: var(--line); }
+.arm-path { color: var(--mut); font-size: 11px; margin: 3px 0 6px; }
+.makeup { width: 100%; font-size: 11px; background: transparent; }
+.makeup td { padding: 2px 4px; border: none; }
+.makeup .role { color: var(--mut); width: 28%; }
+.makeup .mdl { font-family: ui-monospace, monospace; }
+.makeup .mq { color: var(--mut); }
+.makeup-single { font-size: 12px; color: var(--mut); font-family: ui-monospace, monospace; margin-top: 4px; }
+details.arm-config { margin-top: 8px; border-top: 1px dashed var(--line); padding-top: 6px; }
+details.arm-config > summary { cursor: pointer; color: var(--accent); font-size: 11px; font-weight: 600; }
+.arm-config .ac-tease { color: var(--mut); font-weight: 400; font-size: 10px; font-family: ui-monospace, monospace; }
+.arm-config .ac-body { margin-top: 8px; }
+.arm-config .ac-h { font-size: 11px; font-weight: 700; color: var(--fg); text-transform: uppercase; letter-spacing: .03em; margin: 10px 0 4px; }
+.arm-config .ac-h:first-child { margin-top: 0; }
+.arm-config .ac-sub, .arm-config .ac-src { font-weight: 400; text-transform: none; color: var(--mut); font-size: 10px; font-family: ui-monospace, monospace; letter-spacing: 0; }
+table.ac-knobs { width: 100%; font-size: 11px; border-collapse: collapse; }
+table.ac-knobs th, table.ac-knobs td { border: 1px solid var(--line); padding: 2px 6px; text-align: left; font-family: ui-monospace, monospace; }
+table.ac-knobs th { background: var(--surface2); font-weight: 600; }
+table.ac-knobs td.ac-k, table.ac-knobs th:first-child { color: var(--mut); font-family: inherit; }
+.arm-config .ac-prompt { margin: 4px 0 8px; }
+.arm-config .ac-plabel { font-size: 11px; font-weight: 600; }
+.arm-config .ac-psum { font-size: 11px; color: var(--mut); margin: 2px 0; max-width: 60ch; }
+.arm-config .ac-pfull > summary { cursor: pointer; color: var(--accent); font-size: 10px; }
+.arm-config pre.ac-pre { white-space: pre-wrap; font: 10.5px/1.45 ui-monospace, monospace; background: var(--surface2); border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; margin: 4px 0 0; max-height: 16em; overflow: auto; }
+.arm-config .ac-retr { font-size: 11px; font-family: ui-monospace, monospace; color: var(--fg); }
+details.eng { margin: 24px 24px 0; }
+details.eng > summary { cursor: pointer; color: var(--mut); font-size: 13px; font-family: ui-monospace, monospace; padding: 6px 0; }
 table { border-collapse: collapse; width: 100%; background: var(--surface); }
 th, td { border: 1px solid var(--line); padding: 8px 10px; text-align: left; vertical-align: top; }
 th { background: var(--surface2); font-weight: 600; font-size: 12px; }
@@ -624,7 +664,8 @@ function renderRunMeta(run){
 
 function renderSummary(run){
   const sec = el('section', 'summary-section');
-  sec.innerHTML = '<h2>comparison summary</h2>';
+  sec.innerHTML = '<h2>comparison summary</h2>' +
+    "<p class='intro'>One row per setup: how many questions it answered, how fast, and how often it cited the chart or fell back. These are operational counts (speed and volume), not a measure of whether the answers were right.</p>";
   const rows = run.summary.map(s =>
     "<tr><td class='b'>" + htmlEsc(s.backend_id) + "<span class='model'>" + htmlEsc(s.label) + "</span></td>" +
     '<td>' + s.turns + '</td><td>' + s.avg_latency_ms + ' ms</td><td>' + s.max_latency_ms + ' ms</td>' +
@@ -670,7 +711,7 @@ function boxPlotSVG(label, series){
 }
 function renderMetrics(run){
   var sec=el('section','metrics-section');
-  sec.innerHTML='<h2>metric distributions</h2><p class="metrics-legend"><b>What each is:</b> latency = end-to-end response time (ms) · chart references = citations per answer (a grounding-density proxy) · answer length = characters. <b>Reading a box:</b> the box spans the middle 50% of scenarios (q1–q3), the solid line is the median, the dashed line the mean, whiskers reach 1.5×IQR, dots are outliers. Successful turns only.</p>';
+  sec.innerHTML='<h2>metric distributions</h2><p class="intro">How each setup behaves across all the questions, shown as a spread rather than a single number — so you can see typical speed, citation count, and answer length, plus the outliers. Wider boxes mean more variable behaviour.</p><p class="metrics-legend"><b>What each is:</b> latency = end-to-end response time (ms) · chart references = citations per answer (a grounding-density proxy) · answer length = characters. <b>Reading a box:</b> the box spans the middle 50% of scenarios (q1–q3), the solid line is the median, the dashed line the mean, whiskers reach 1.5×IQR, dots are outliers. Successful turns only.</p>';
   var m=run.metrics||{}, keys=['latency_ms','citation_count','answer_chars'], k, md;
   var grid=el('div','metrics-grid'), any=false;
   for(k=0;k<keys.length;k++){ md=m[keys[k]]; if(md&&md.series&&md.series.length){ grid.appendChild(boxPlotSVG(md.label, md.series)); any=true; } }
@@ -735,8 +776,9 @@ function judgeHeatmap(run){
 function renderJudge(run){
   var sec=el('section','judge-section'), j=run.judge||[], has=false;
   for(var i=0;i<j.length;i++){ if(j[i].n>0){ has=true; break; } }
-  if(!has){ return sec; }
+  if(!has){ return null; }
   sec.innerHTML='<h2>quality — reviewer judgment (Scout rubric)</h2>'
+   +'<p class="intro">The headline: how good each setup’s answers actually were. A strong AI reviewer graded every answer against the patient’s chart for correctness, completeness, and safety. The <b>Benchmark</b> column is the single 0–100 score to compare setups by; the heatmap below shows it question-by-question. Treat it as directional (one patient, one judge), not a final grade.</p>'
    +'<p class="metrics-legend">Each answer scored against the patient’s chart by a strong LLM reviewer (advisory). <b>Benchmark</b> = a soft 0–100 composite of the answer-only scores (accuracy/completeness weighted highest, minus bounded penalties for unsafe / abstention / citation / temporal flags — no hard gates); read it together with the harm, abstain ✗ and fab-refs counts in the same row, never alone. <b>accuracy</b> = stated facts correct · <b>completeness</b> = includes the needed info · <b>relevance</b> = on-question, no padding (each 0–10). <b>abstain ✓/✗</b> = correctly said "not documented" vs failed-to-abstain. <b>grounding s/p/u</b> = supported / partly / unsupported. <b>fab refs</b> = references that don’t resolve to a real chart record (deterministic). <b>temporal</b> — date ✗ = wrong date↔value or fabricated date · win-over = window claimed beyond the data span · trend-fab = trend asserted from too few points / wrong direction. <b>Drill down:</b> the heatmap is every scenario × arm (green=accurate, amber, red) — click a cell for the note. Caveat: small N, one patient, single judge — directional, not a benchmark. Note: arms are NOT prompt-harmonized — the single-model path uses chartsearchai’s default prompt while the team path uses the orchestrator + synthesis prompts, so differences here confound orchestration with prompt; the next run harmonizes prompts to separate the two.</p>';
   var fab={}, jr=run.judge_rows||[];
   for(var x=0;x<jr.length;x++){ var cr=jr[x].citation_resolution||{}; fab[jr[x].backend_id]=(fab[jr[x].backend_id]||0)+(cr.n_unresolved||0); }
@@ -829,6 +871,111 @@ function buildTile(run, backend, cell, turn, scenarioId){
   return tile;
 }
 
+// The "how this arm is configured" panel: sampler knobs (per model), the system
+// prompt(s) (visible plain-language summary, full text behind a nested reveal), and the
+// retrieval line. All values come from the resolver's c.config (llama-router.ini knobs +
+// med-agent-hub prompt files / chartsearchai DEFAULT_SYSTEM_PROMPT + the chartsearchai
+// retrieval GPs) — nothing is computed here.
+const KNOB_LABELS = {temp:'temp', top_p:'top-p', top_k:'top-k', ctx_size:'ctx', seed:'seed',
+                     max_tokens:'max-tokens', reasoning_budget:'reasoning-budget', dry:'dry'};
+const KNOB_ORDER = ['temp','top_p','top_k','ctx_size','seed','max_tokens','reasoning_budget','dry'];
+function renderArmConfig(cfg){
+  if(!cfg) return '';
+  const knobs = cfg.knobs || {};
+  const models = Object.keys(knobs);
+  // The summary names what's inside AND surfaces the headline knobs (temp/seed/dry/ctx) +
+  // the prompt count, so the panel reads at a glance while collapsed (and the keywords are
+  // visible even before expanding). Values are pulled from the first model's resolved knobs.
+  const k0 = (models.length ? knobs[models[0]] : {}) || {};
+  const tease = [];
+  if(k0.temp != null) tease.push('temp ' + k0.temp);
+  if(k0.seed != null) tease.push('seed ' + k0.seed);
+  if(k0.dry != null) tease.push('DRY on');
+  if(k0.ctx_size != null) tease.push('ctx ' + k0.ctx_size);
+  const np = (cfg.prompts || []).length;
+  if(np) tease.push(np + ' system prompt' + (np>1?'s':''));
+  const teaseTxt = tease.length ? (' — ' + tease.join(' · ')) : '';
+  let h = "<details class='arm-config'><summary>how this arm is configured" +
+          "<span class='ac-tease'>" + htmlEsc(teaseTxt) + "</span></summary><div class='ac-body'>";
+
+  // 1) sampler knobs — one column per model, one row per knob (only knobs that exist).
+  if(models.length){
+    const present = KNOB_ORDER.filter(k => models.some(m => (knobs[m]||{})[k] != null));
+    h += "<div class='ac-h'>sampling knobs <span class='ac-sub'>(llama-router.ini)</span></div>";
+    h += "<table class='ac-knobs'><thead><tr><th>knob</th>";
+    models.forEach(m => { h += "<th>" + htmlEsc(m) + "</th>"; });
+    h += "</tr></thead><tbody>";
+    present.forEach(k => {
+      h += "<tr><td class='ac-k'>" + htmlEsc(KNOB_LABELS[k] || k) + "</td>";
+      models.forEach(m => { const v = (knobs[m]||{})[k]; h += "<td>" + (v==null?'—':htmlEsc(v)) + "</td>"; });
+      h += "</tr>";
+    });
+    h += "</tbody></table>";
+  }
+
+  // 2) system prompt(s) — digestible summary visible, full text behind a reveal.
+  const prompts = cfg.prompts || [];
+  if(prompts.length){
+    h += "<div class='ac-h'>system prompt" + (prompts.length>1?'s':'') + "</div>";
+    prompts.forEach(p => {
+      h += "<div class='ac-prompt'>";
+      h += "<div class='ac-plabel'>" + htmlEsc(p.label) + " <span class='ac-src'>" + htmlEsc(p.source) + "</span></div>";
+      if(p.summary) h += "<div class='ac-psum'>" + htmlEsc(p.summary) + "</div>";
+      h += "<details class='ac-pfull'><summary>full prompt</summary><pre class='ac-pre'>" + htmlEsc(p.text) + "</pre></details>";
+      h += "</div>";
+    });
+  }
+
+  // 3) retrieval line (chartsearchai retrieval GPs, shared across arms).
+  const r = cfg.retrieval;
+  if(r){
+    h += "<div class='ac-h'>retrieval <span class='ac-sub'>(chartsearchai GPs)</span></div>";
+    h += "<div class='ac-retr'>pipeline " + htmlEsc(r.pipeline) + " · embedding top-k " + htmlEsc(r.embedding_topk) +
+         " · querystore top-k " + htmlEsc(r.querystore_topk) + " · threshold " + htmlEsc(r.threshold) + "</div>";
+  }
+  h += "</div></details>";
+  return h;
+}
+
+function renderArms(run){
+  const sec = el('section', 'arms-section');
+  const cards = run.arm_cards || {};
+  let h = "<h2>what this run compares</h2>";
+  h += "<p class='intro'>Every setup answers the same questions, graded against the patient's chart. " +
+       "<b>Single</b> = one model reads the chart and answers (vanilla chartsearchAI); " +
+       "<b>Team</b> = a med-agent-hub pipeline whose models search, consult a specialist, and cross-check before answering.</p>";
+  h += "<div class='arm-cards'>";
+  run.backends.forEach(b => {
+    const c = cards[b] || {kind:'unknown', path:'', models:[], roles:{}};
+    const team = c.kind === 'team';
+    const badge = team
+      ? "<span class='badge team'>TEAM</span>"
+      : (c.kind === 'single' ? "<span class='badge single'>SINGLE</span>" : "<span class='badge'>?</span>");
+    h += "<div class='arm-card'>";
+    h += "<div class='arm-head'>" + badge + "<span class='arm-name'>" + htmlEsc(b) + "</span></div>";
+    if (c.path) h += "<div class='arm-path'>" + htmlEsc(c.path) + "</div>";
+    if (team){
+      h += "<table class='makeup'><tbody>";
+      Object.keys(c.roles || {}).forEach(role => {
+        const m = c.roles[role] || {};
+        const mq = [m.family, m.params, m.quant].filter(Boolean).join(' · ');
+        h += "<tr><td class='role'>" + htmlEsc(role) + "</td><td class='mdl'>" + htmlEsc(m.id || '') +
+             "</td><td class='mq'>" + htmlEsc(mq) + "</td></tr>";
+      });
+      h += "</tbody></table>";
+    } else {
+      const m = (c.models || [])[0] || {};
+      const mq = [m.id, m.family, m.params, m.quant].filter(Boolean).join(' · ');
+      h += "<div class='makeup-single'>" + htmlEsc(mq) + "</div>";
+    }
+    h += renderArmConfig(c.config);
+    h += "</div>";
+  });
+  h += "</div>";
+  sec.innerHTML = h;
+  return sec;
+}
+
 function renderRun(runId){
   const run = runById(runId);
   if (!run) return;
@@ -855,14 +1002,17 @@ function renderRun(runId){
   main.innerHTML = '';
   const pbanner = renderPatientBanner(run);
   if (pbanner) main.appendChild(pbanner);
-  main.appendChild(renderSummary(run));
-  main.appendChild(renderMetrics(run));
-  main.appendChild(renderJudge(run));
+  main.appendChild(renderArms(run));
+  const judge = renderJudge(run);
+  if (judge) main.appendChild(judge);
 
   run.scenarios.forEach(sc => {
     const sec = el('section', 'scenario');
     sec.dataset.scenario = sc.scenario_id;
     const h = el('h2'); h.textContent = sc.scenario_id; sec.appendChild(h);
+    const intro = el('p', 'intro');
+    intro.textContent = 'The actual answers for this scenario, one column per setup, lined up question-by-question so you can read them side by side. Drag a tile to rank the setups; click ⛶ to read one full-screen.';
+    sec.appendChild(intro);
 
     sc.turns.forEach(tn => {
       const band = el('div', 'qband');
@@ -896,6 +1046,14 @@ function renderRun(runId){
     });
     main.appendChild(sec);
   });
+
+  // Declutter: engineering metrics (latency, chart refs, errors) collapse to the bottom — they
+  // are operational, not answer-quality, so they don't lead.
+  const eng = el('details', 'eng');
+  eng.innerHTML = "<summary>engineering metrics — latency · chart refs · errors (operational, not answer quality)</summary>";
+  eng.appendChild(renderSummary(run));
+  eng.appendChild(renderMetrics(run));
+  main.appendChild(eng);
 
   applyFilters();
 }
