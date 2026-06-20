@@ -1,10 +1,13 @@
 #!/usr/bin/env bash
 # Publish a single validation run's report to the reports subdomain (reports.<domain>).
 #
-# Quick + selective: re-renders the chosen run's report.html (so it carries the latest report.py —
-# PDF button, feedback seam), stages it under artifacts/reports/<slug>/index.html, and rsyncs the
-# curated reports dir to the VM (NO --delete, so previously published reports survive). Caddy serves
-# it live at https://<CADDY_SITE_REPORTS>/<slug>/ (file_server, no restart needed).
+# One-step publish: re-renders the chosen run's report.html (latest report.py), stages it under
+# artifacts/reports/<slug>/index.html, FREEZES a self-contained interactive dashboard alongside it
+# (so the index's "Interactive dashboard" button appears), REBUILDS the curated index, and rsyncs
+# the whole reports dir to the VM (NO --delete, so previously published reports survive). Caddy
+# serves it live at https://<CADDY_SITE_REPORTS>/<slug>/ (file_server, no restart needed).
+#
+# Add the slug to reports-index.json first for it to appear in the listing (curation is intentional).
 #
 # Usage: scripts/validate-publish.sh <run_id> <slug>
 set -euo pipefail
@@ -52,6 +55,20 @@ Path(out).write_text(json.dumps(
     indent=2) + "\n")
 print(f"==> wrote {out} (run_dir={run_path.name}, set={cset})")
 PY
+
+# Freeze a self-contained interactive dashboard alongside the report. build-reports-index.py's
+# _card() only adds the "Interactive dashboard" button when <slug>/dashboard.html exists, so this
+# is what makes the button appear. Best-effort: a freeze hiccup must not block the report publish.
+echo "==> freezing interactive dashboard snapshot"
+( cd "${ROOT}" && uv run python scripts/validate-dashboard.py --freeze "${DEST}/dashboard.html" \
+    --run "${ROOT}/artifacts/validate/${RUN}" ) \
+  || echo "warn: dashboard freeze failed — the 'Interactive dashboard' button will be absent for ${SLUG}" >&2
+
+# Rebuild the curated index now (reads reports-index.json + this run's just-staged meta.json), so the
+# single rsync below pushes the report, the dashboard, AND the refreshed index together.
+echo "==> rebuilding reports index"
+( cd "${ROOT}" && uv run python scripts/build-reports-index.py ) \
+  || echo "warn: index rebuild failed" >&2
 
 if ! gcp_vm_exists || [ "$(gcp_vm_status)" != "RUNNING" ]; then
   echo "warn: VM ${GCP_VM_NAME} not RUNNING — staged locally only. Start it (make cloud-start) and re-run to publish." >&2

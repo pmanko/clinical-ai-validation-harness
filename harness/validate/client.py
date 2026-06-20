@@ -19,9 +19,11 @@ import requests
 
 _REST = "/ws/rest/v1/chartsearchai"
 
-# Transient HTTP statuses worth a limited retry: 429 (rate limit) plus the 5xx the
-# proxy emits while the backend is restarting / an upstream momentarily times out.
-_RETRYABLE = frozenset({429, 500, 502, 503, 504})
+# Transient HTTP statuses worth a limited retry: 429 (rate limit), the 5xx the proxy emits
+# while the backend is restarting / an upstream momentarily times out, and 401 — an
+# intermittent OpenMRS auth/session blip mid-run (the next request re-authenticates via the
+# Session's basic-auth), seen nicking multi-turn cells; without the retry the whole cell is lost.
+_RETRYABLE = frozenset({401, 429, 500, 502, 503, 504})
 
 
 def _default_base_url() -> str:

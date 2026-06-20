@@ -13,7 +13,7 @@ export UV_PROJECT_ENVIRONMENT
         chartsearch-esm-build chartsearch-esm-dev cloud-deploy-esm \
         llama-router-up llama-router-models \
         med-agent-hub-build med-agent-hub-up med-agent-hub-logs med-agent-hub-restart med-agent-hub-test \
-        validate-run validate-publish \
+        validate-preflight validate-run validate-judge-prep validate-judge-finalize validate-publish \
         cloud-init cloud-sync cloud-up cloud-down cloud-reset cloud-deploy cloud-seed \
         cloud-start cloud-stop cloud-ssh cloud-logs cloud-status cloud-destroy
 
@@ -256,8 +256,12 @@ chartsearch-backend:
 	  docker exec harness-openmrs-db mariadb -u"$${OMRS_DB_USER:-openmrs}" -p"$${OMRS_DB_PASSWORD:-openmrs}" "$${OMRS_DB_NAME:-openmrs}" \
 	    -e "INSERT INTO global_property (property,property_value,uuid) VALUES ('querystore.backend','$(BACKEND)',UUID()) ON DUPLICATE KEY UPDATE property_value='$(BACKEND)'"
 	@if [ "$(BACKEND)" = "elasticsearch" ]; then \
-	  echo "==> starting elasticsearch service (profile)"; \
-	  docker compose -f compose/openmrs-2.8-refapp.yml --profile elasticsearch up -d elasticsearch; \
+	  echo "==> elasticsearch backend: enabling querystore.bootstrap.autostart (self-index the whole corpus on boot)"; \
+	  set -a; [ -f .env.chartsearch ] && . ./.env.chartsearch; set +a; \
+	  docker exec harness-openmrs-db mariadb -u"$${OMRS_DB_USER:-openmrs}" -p"$${OMRS_DB_PASSWORD:-openmrs}" "$${OMRS_DB_NAME:-openmrs}" \
+	    -e "INSERT INTO global_property (property,property_value,uuid) VALUES ('querystore.bootstrap.autostart','true',UUID()) ON DUPLICATE KEY UPDATE property_value='true'"; \
+	  echo "==> starting elasticsearch service"; \
+	  docker compose -f compose/openmrs-2.8-refapp.yml up -d elasticsearch; \
 	fi
 	@echo "==> recreating backend (re-wires querystore at startup)"
 	@set -a; [ -f .env.chartsearch ] && . ./.env.chartsearch; set +a; \
@@ -442,8 +446,30 @@ validate-plan: setup
 # stack up (backend + DB + LM Studio + med-agent-hub). Override the set with
 # `make validate-run SET=<comparison-set-id>` (default: demo).
 SET ?= demo
+
+# Make the stack run-ready for a validate run, in one command: core stack + Elasticsearch +
+# med-agent-hub + llama-router up & verified, and the SET's patients projected into the querystore
+# (autostart=false → nothing indexes on boot). Surfaces a down/mis-indexed component as a clear
+# failure up front. `make validate-preflight SET=<set> [TIER=med]` (TIER picks the router co-residency cap).
+TIER ?= med
+validate-preflight: setup
+	$(UV) run ./scripts/validate-preflight.sh $(SET) $(TIER)
+
 validate-run: setup
 	$(UV) run harness-cli validate run $(SET)
+
+# Judge a completed run with the Claude-agent clinical-answer-scoring fan-out. The fan-out itself
+# (one Claude judge per cell) is a Claude Workflow, not shell-invocable; these two targets are its
+# deterministic halves, run either side of it:
+#   1. make validate-judge-prep RUN=<id>                       -> judge-cells.jsonl (section split + resolve_citations + chart snapshots)
+#   2. <run the clinical-answer-scoring fan-out over judge-cells.jsonl, save its rows to rows.json>
+#   3. make validate-judge-finalize RUN=<id> ROWS=<rows.json>  -> judge.jsonl (drops temporal-when-no-claim) + re-render report
+validate-judge-prep: setup
+	$(UV) run python scripts/judge-prep.py $(RUN)
+
+validate-judge-finalize: setup
+	$(UV) run python scripts/judge-finalize.py $(RUN) $(ROWS)
+	$(UV) run harness-cli validate report $(RUN)
 
 # Render report.html for a completed run: `make validate-report RUN=<run_id>`.
 validate-report: setup
