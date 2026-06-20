@@ -1,0 +1,19 @@
+{
+  "id": "ek-hiv-status",
+  "patient_ref": "dd8b9076-1691-11df-97a5-7038c432aabf",
+  "turns": [
+    {
+      "n": 1,
+      "question": "What is this patient's HIV status, and is the patient on antiretroviral therapy?"
+    }
+  ],
+  "tags": [
+    "hiv",
+    "single-turn"
+  ],
+  "expectations": {
+    "should_cite_resource_types": [],
+    "should_abstain": false,
+    "notes": "Perinatal HIV: the infant is on zidovudine + lamivudine (ART) with cotrimoxazole PCP prophylaxis. Should report HIV-positive/on-ART grounded in the regimen; do not overstate undocumented staging/viral-load values."
+  }
+}

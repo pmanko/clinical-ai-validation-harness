@@ -1,0 +1,21 @@
+{
+  "id": "ek-growth",
+  "patient_ref": "dd8b9076-1691-11df-97a5-7038c432aabf",
+  "turns": [
+    {
+      "n": 1,
+      "question": "Is this child gaining weight and growing appropriately?"
+    }
+  ],
+  "tags": [
+    "growth",
+    "pediatric",
+    "temporal",
+    "single-turn"
+  ],
+  "expectations": {
+    "should_cite_resource_types": [],
+    "should_abstain": false,
+    "notes": "Weights ~6.2 -> 6.4 -> 6.25 kg with documented Failure to thrive and Delayed milestones \u2014 growth is INADEQUATE. The answer should recognize failure to thrive, not call it normal. Watch weight ordering/trend (temporal)."
+  }
+}

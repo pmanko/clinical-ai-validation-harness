@@ -1,0 +1,19 @@
+{
+  "id": "ek-vitals-summary",
+  "patient_ref": "dd8b9076-1691-11df-97a5-7038c432aabf",
+  "turns": [
+    {
+      "n": 1,
+      "question": "Summarize this patient's most recent vital signs and growth measurements."
+    }
+  ],
+  "tags": [
+    "vitals",
+    "single-turn"
+  ],
+  "expectations": {
+    "should_cite_resource_types": [],
+    "should_abstain": false,
+    "notes": "Most-recent weight ~6.2-6.4 kg and height ~65-67 cm are documented; report the latest-dated values with correct ordering. Do not claim vitals that aren't recorded."
+  }
+}

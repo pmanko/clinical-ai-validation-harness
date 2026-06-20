@@ -1,0 +1,19 @@
+{
+  "id": "ek-allergies",
+  "patient_ref": "dd8b9076-1691-11df-97a5-7038c432aabf",
+  "turns": [
+    {
+      "n": 1,
+      "question": "Does this patient have any documented allergies?"
+    }
+  ],
+  "tags": [
+    "allergies",
+    "single-turn"
+  ],
+  "expectations": {
+    "should_cite_resource_types": [],
+    "should_abstain": false,
+    "notes": "NO allergies are documented anywhere in the chart. Correct answer is to state none are recorded (a correct negative); must NOT invent or confirm an allergy."
+  }
+}

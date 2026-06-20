@@ -1,0 +1,19 @@
+{
+  "id": "ek-problem-list",
+  "patient_ref": "dd8b9076-1691-11df-97a5-7038c432aabf",
+  "turns": [
+    {
+      "n": 1,
+      "question": "What are this patient's active problems?"
+    }
+  ],
+  "tags": [
+    "problem-list",
+    "single-turn"
+  ],
+  "expectations": {
+    "should_cite_resource_types": [],
+    "should_abstain": false,
+    "notes": "Active conditions: Pneumocystis carinii pneumonia, Urinary tract infection, Failure to thrive, Delayed milestones, Measles, Fever, Acute coryza. Completeness = the decision-relevant set, not just one."
+  }
+}

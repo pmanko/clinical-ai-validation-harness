@@ -3,6 +3,18 @@
   "scoring_note": "Each answer is graded 0–10, higher is better — <b>Accuracy</b>: are the stated facts correct? <b>Completeness</b>: did it cover what mattered? <b>Relevance</b>: did it actually answer the question? <b>Unsafe answers</b> counts responses with a potential safety problem (lower is better). <b>Questions</b> is how many were scored per setup, and the best value in each column is highlighted. <b>Benchmark /100</b> is the headline aggregate — it combines the dimensions (accuracy and completeness weighted most) minus soft penalties for safety and citation problems, so one number summarizes each setup. These come from a single automated judge on a small sample — they're directional, not a formal benchmark.",
   "runs": [
     {
+      "slug": "team-liquid-validated-2026-06-20",
+      "title": "Can a strong validator make a fast on-device AI team safe?",
+      "summary": "A follow-up to the Liquid-team run: same two patients, 16 clinical questions, four AI setups — our proper multi-agent team, a single strong model (Gemma 12B), and the fast on-device 'Liquid' team in two forms: as-is, and with a strong non-Liquid Gemma-12B 'validator' that independently re-checks each answer against the chart before it's returned. Every answer was graded against the full chart by an automated clinical rubric.",
+      "takeaway": "Adding a strong non-Liquid validator to the Liquid team helped — it eliminated the made-up 'I don't know' answers and removed one unsafe response, raising the headline score from 43 to 52 — but it did not make the team safe: the validated Liquid team still produced four unsafe answers (including a harmful regimen error the validator passed) and stayed far below both a proper model team (81) and a single strong model (74). A validator catches over-confident gaps, not the subtler clinical fabrications. These are directional results from a single automated judge on a small sample, not a formal benchmark."
+    },
+    {
+      "slug": "team-liquid-judged-2026-06-19",
+      "title": "Can a careful AI team rescue fast on-device models?",
+      "summary": "Two patients, 8 clinical questions, five AI setups: a strong single model (Gemma 12B), our proper multi-agent AI team, a stripped-down 'parity' team, and two teams built around fast on-device 'Liquid' (LFM2) models — one all-Liquid, one that keeps a medical-specialist model. Every answer was graded against the full patient chart by an automated clinical rubric.",
+      "takeaway": "Putting fast on-device 'Liquid' models inside a careful multi-agent team improved their sourcing — they now cite real chart records instead of nothing — but did not make them safe: both Liquid teams still fabricated medications, reversed a weight trend, and hid an AIDS-defining CD4 count, landing far below both the proper model team and a single strong model. Team scaffolding helped grounding, not clinical accuracy. These are directional results from a single automated judge on a small sample, not a formal benchmark."
+    },
+    {
       "slug": "liquid-5arm-judged-2026-06-18",
       "title": "Fast on-device models vs. a careful AI team — who reads a chart safely?",
       "summary": "Two patients, 8 clinical questions, five AI setups: Google's Gemma 12B and 4B single models, two brand-new on-device 'Liquid' (LFM2) single models (24B and 1.2B), and our multi-agent AI team. Every answer was graded against the full patient chart by an automated clinical rubric.",
@@ -12,7 +24,7 @@
       "slug": "temporal-ablation-7arm-2026-06-06",
       "title": "Temporal reasoning — can the AI get dates and trends right?",
       "summary": "Two patients, 16 questions that hinge on timing: the most-recent lab value, weight trends over months, what's changed recently, and whether a medication regimen is current. We compared plain single models (Gemma 4B → 12B → 26B) against our multi-agent AI team at four configurations.",
-      "takeaway": "The 12B single model was the most accurate (8.7/10), while the AI team gave the most complete answers (Advanced tier, 7.9/10) with no unsafe answers. Bigger isn't automatically better — and the team trades a little accuracy for more thorough, safer answers."
+      "takeaway": "Re-scored with our updated temporal rubric. The Gemma 12B single model led on the overall benchmark (80/100) and accuracy (8.7/10); the AI team's Advanced tier gave the most complete answers (7.8/10). The stricter date/trend scoring surfaced unsafe answers the first pass missed: a few setups fabricated dates or trends — the Basic AI team 3, and the Gemma 4B and 26B single models one each — while the Gemma 12B single and the Standard/Advanced/matched teams had none. Bigger isn't automatically better, and getting the timing right is where several setups slip."
     },
     {
       "slug": "priority-run-5arm-judged-2026-06-04",

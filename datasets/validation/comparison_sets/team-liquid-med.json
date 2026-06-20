@@ -1,0 +1,20 @@
+{
+  "id": "team-liquid-med",
+  "scenario_ids": [
+    "am-medications",
+    "am-vitals-summary",
+    "am-cd4-history",
+    "am-weight-trend",
+    "am-allergies",
+    "abstain-out-of-chart",
+    "meds-zabella",
+    "convo-regimen-review"
+  ],
+  "backend_ids": [
+    "med-agent-team-med",
+    "med-agent-team-parity",
+    "12b-baseline",
+    "med-agent-team-liquid",
+    "med-agent-team-med-liquid"
+  ]
+}
