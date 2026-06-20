@@ -475,7 +475,8 @@ section.intro-led > .intro:first-child { margin-top: 0; }
 .arm-cards { display: flex; flex-wrap: wrap; gap: 10px; }
 .arm-card { flex: 1 1 240px; min-width: 220px; border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; background: var(--surface); }
 .arm-head { display: flex; align-items: center; gap: 8px; }
-.arm-name { font-family: ui-monospace, monospace; font-size: 13px; font-weight: 600; }
+.arm-name { font-size: 13px; font-weight: 600; }
+.arm-id { font-family: ui-monospace, monospace; font-size: 10px; color: var(--mut); margin: 2px 0 0; }
 .badge { font-size: 10px; font-weight: 700; letter-spacing: .04em; padding: 2px 6px; border-radius: 4px; border: 1px solid var(--accent-bd); background: var(--accent-bg); color: var(--accent); }
 .badge.single { background: var(--surface2); color: var(--mut); border-color: var(--line); }
 .arm-path { color: var(--mut); font-size: 11px; margin: 3px 0 6px; }
@@ -552,8 +553,8 @@ table.jheat { border-collapse: collapse; font-size: 11px; }
 .tile.empty { color: var(--mut); align-items: center; justify-content: center; cursor: default; }
 .tile-head { display: flex; gap: 6px; align-items: baseline; margin-bottom: 6px; }
 .rank-badge { font: 11px ui-monospace, monospace; background: var(--accent-bg); color: var(--accent); border-radius: 4px; padding: 0 5px; }
-.tile-head .backend { font-family: ui-monospace, monospace; font-weight: 700; font-size: 12px; }
-.tile-head .label { color: var(--mut); font-size: 11px; }
+.tile-head .backend { font-weight: 700; font-size: 12px; }
+.tile-head .label { color: var(--mut); font-size: 11px; font-family: ui-monospace, monospace; }
 .expand { font: 600 11px/1.2 ui-monospace, monospace; color: var(--accent); cursor: pointer; background: var(--accent-bg); border: 1px solid var(--accent-bd); border-radius: 6px; padding: 4px 11px; align-self: flex-start; margin-top: 6px; }
 .expand:hover { background: var(--accent-hover); }
 .ans { white-space: pre-wrap; max-height: 20em; overflow: auto; }
@@ -667,7 +668,7 @@ function renderSummary(run){
   sec.innerHTML = '<h2>comparison summary</h2>' +
     "<p class='intro'>One row per setup: how many questions it answered, how fast, and how often it cited the chart or fell back. These are operational counts (speed and volume), not a measure of whether the answers were right.</p>";
   const rows = run.summary.map(s =>
-    "<tr><td class='b'>" + htmlEsc(s.backend_id) + "<span class='model'>" + htmlEsc(s.label) + "</span></td>" +
+    "<tr><td class='b'>" + htmlEsc(armTitle(s.backend_id)) + "<span class='model'>" + htmlEsc(s.backend_id) + "</span></td>" +
     '<td>' + s.turns + '</td><td>' + s.avg_latency_ms + ' ms</td><td>' + s.max_latency_ms + ' ms</td>' +
     '<td>' + s.total_chart_refs + '</td><td>' + s.degraded + '</td><td>' + s.errors + '</td></tr>'
   ).join('');
@@ -679,7 +680,14 @@ function renderSummary(run){
   return sec;
 }
 
-function bpShort(b){ return b.replace('med-agent-team-','').replace('-baseline','-base'); }
+// Human-readable arm titles for headers/labels — resolved from the active run's arm_cards
+// (the model_registry resolver), never the raw dashed backend id. `armTitle` = full title
+// ("Liquid coord · Qwen writer · validated"); `armShort` = the tight grid/SVG variant
+// (drops " · validated"/" · single"). Fall back to the raw id only if a card is missing.
+function armCardFor(b){ const r = runById(activeRunId); return (r && r.arm_cards && r.arm_cards[b]) || null; }
+function armTitle(b){ const c = armCardFor(b); return (c && c.title) || b; }
+function armShort(b){ const c = armCardFor(b); return (c && (c.short_title || c.title)) || b; }
+function bpShort(b){ return armShort(b); }
 function bpNiceCeil(v){ if(v<=0) return 1; var p=Math.pow(10,Math.floor(Math.log10(v))); var f=v/p; var nf=f<=1?1:(f<=2?2:(f<=5?5:10)); return nf*p; }
 function bpFmt(v){ v=Math.round(v); return v>=1000?((v/1000).toFixed(v>=10000?0:1)+'k'):String(v); }
 function boxPlotSVG(label, series){
@@ -746,7 +754,7 @@ function judgeHeatmap(run){
   var arms=run.backends||[];
   var h='<h3 class="jh-title">per-scenario evaluation — accuracy/completeness/relevance (click a cell for the note)</h3>';
   h+='<table class="jheat"><thead><tr><th>scenario</th>';
-  for(var a=0;a<arms.length;a++){ h+='<th>'+htmlEsc(bpShort(arms[a]))+'</th>'; }
+  for(var a=0;a<arms.length;a++){ h+='<th title="'+htmlEsc(arms[a])+'">'+htmlEsc(armTitle(arms[a]))+'</th>'; }
   h+='</tr></thead><tbody>';
   var scen=(run.scenarios||[]).map(function(s){return s.scenario_id;});
   for(var sI=0;sI<scen.length;sI++){
@@ -783,7 +791,7 @@ function renderJudge(run){
   var fab={}, jr=run.judge_rows||[];
   for(var x=0;x<jr.length;x++){ var cr=jr[x].citation_resolution||{}; fab[jr[x].backend_id]=(fab[jr[x].backend_id]||0)+(cr.n_unresolved||0); }
   var rows=j.map(function(s){ var ab=s.abstention||{}, gr=s.groundedness||{}, t=s.temporal||{}, sp=s.benchmark_spread||{};
-    return "<tr><td class='b'>"+htmlEsc(bpShort(s.backend))+"</td>"
+    return "<tr><td class='b' title='"+htmlEsc(s.backend)+"'>"+htmlEsc(armTitle(s.backend))+"</td>"
       +"<td><b>"+fmt10(s.benchmark_score)+"</b>"+(sp.min==null?'':"<span style='opacity:.55;font-size:.85em'> "+fmt10(sp.min)+"–"+fmt10(sp.max)+"</span>")+"</td>"
       +"<td>"+s.n+"</td>"
       +"<td>"+fmt10(s.accuracy_mean)+"</td><td>"+fmt10(s.completeness_mean)+"</td><td>"+fmt10(s.relevance_mean)+"</td>"
@@ -823,8 +831,8 @@ function buildTile(run, backend, cell, turn, scenarioId){
 
   const head = el('div', 'tile-head');
   head.innerHTML = "<span class='rank-badge'></span><span class='backend'></span><span class='label'></span>";
-  head.querySelector('.backend').textContent = backend;
-  head.querySelector('.label').textContent = run.labels[backend] || '';
+  head.querySelector('.backend').textContent = armShort(backend);
+  head.querySelector('.label').textContent = backend;
   tile.appendChild(head);
 
   if (!cell){
@@ -951,21 +959,25 @@ function renderArms(run){
     const badge = team
       ? "<span class='badge team'>TEAM</span>"
       : (c.kind === 'single' ? "<span class='badge single'>SINGLE</span>" : "<span class='badge'>?</span>");
+    // Headline = the human-readable title (resolver); the raw backend_id survives only as a
+    // tiny muted monospace sub-label under it, never as the headline.
+    const title = c.title || b;
     h += "<div class='arm-card'>";
-    h += "<div class='arm-head'>" + badge + "<span class='arm-name'>" + htmlEsc(b) + "</span></div>";
+    h += "<div class='arm-head'>" + badge + "<span class='arm-name'>" + htmlEsc(title) + "</span></div>";
+    h += "<div class='arm-id'>" + htmlEsc(b) + "</div>";
     if (c.path) h += "<div class='arm-path'>" + htmlEsc(c.path) + "</div>";
     if (team){
+      // Makeup = role → readable family·params·quant; the raw dashed model id column is dropped.
       h += "<table class='makeup'><tbody>";
       Object.keys(c.roles || {}).forEach(role => {
         const m = c.roles[role] || {};
         const mq = [m.family, m.params, m.quant].filter(Boolean).join(' · ');
-        h += "<tr><td class='role'>" + htmlEsc(role) + "</td><td class='mdl'>" + htmlEsc(m.id || '') +
-             "</td><td class='mq'>" + htmlEsc(mq) + "</td></tr>";
+        h += "<tr><td class='role'>" + htmlEsc(role) + "</td><td class='mq'>" + htmlEsc(mq) + "</td></tr>";
       });
       h += "</tbody></table>";
     } else {
       const m = (c.models || [])[0] || {};
-      const mq = [m.id, m.family, m.params, m.quant].filter(Boolean).join(' · ');
+      const mq = [m.family, m.params, m.quant].filter(Boolean).join(' · ');
       h += "<div class='makeup-single'>" + htmlEsc(mq) + "</div>";
     }
     h += renderArmConfig(c.config);

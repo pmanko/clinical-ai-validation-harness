@@ -37,7 +37,8 @@ test('AC2 — every arm shows its makeup', async ({ page }) => {
   const n = await cards.count();
   for (let i = 0; i < n; i++) {
     const card = cards.nth(i);
-    const team = await card.locator('.makeup .mdl').count();
+    // team makeup = role → readable family·params·quant (.mq cells); single = .makeup-single
+    const team = await card.locator('.makeup .mq').count();
     const single = await card.locator('.makeup-single').count();
     expect(team > 0 || single > 0, `arm ${i} has neither team makeup nor single makeup`).toBeTruthy();
   }
@@ -102,4 +103,41 @@ test('AC6 — report renders clean (no JS error, content populated)', async ({ p
   const errs = (page as any)._errs as string[];
   expect(errs, `page JS errors: ${errs.join(' | ')}`).toHaveLength(0);
   await page.screenshot({ path: path.join(SHOTS, 'AC6-rendered.png'), fullPage: true });
+});
+
+// A header is "human-readable" if it is NOT a raw backend/model id: no `med-agent-team-`
+// prefix, no raw dashed model id (e.g. gemma-e4b-q8 / lfm2-2.6b), and no token carrying 2+
+// hyphens (the dashed-id signature). It MUST read as the title shape: coord/writer/single.
+const RAW_ID = /med-agent-team-|gemma-e4b-q8|lfm2-2\.6b|\b\S*-\S*-\S*\b/;
+function assertReadable(label: string, txt: string) {
+  const t = txt.trim();
+  expect(t.length, `${label} empty`).toBeGreaterThan(0);
+  expect(t, `${label} still shows a raw backend id: "${t}"`).not.toMatch(/med-agent-team-/);
+  expect(t, `${label} still shows a raw model id: "${t}"`).not.toMatch(/gemma-e4b-q8|lfm2-2\.6b/);
+  // no token with 2+ hyphens (a dashed machine id like med-agent-team-med-liquid)
+  const dashed = t.split(/\s+/).find((w) => (w.match(/-/g) || []).length >= 2);
+  expect(dashed, `${label} contains a dashed-id token: "${dashed}" in "${t}"`).toBeUndefined();
+  expect(t, `${label} lacks the title shape (coord/writer/single): "${t}"`).toMatch(/coord|writer|single/);
+}
+
+// AC7 — every arm-card header AND every judge-grid column header is a human-readable title,
+// never a raw dashed machine id.
+test('AC7 — arm/judge headers are human-readable titles, not dashed ids', async ({ page }) => {
+  const heads = page.locator('.arm-card .arm-name');
+  const n = await heads.count();
+  expect(n, 'no arm-card headers rendered').toBeGreaterThan(0);
+  for (let i = 0; i < n; i++) {
+    assertReadable(`arm-card header ${i}`, await heads.nth(i).innerText());
+  }
+
+  // judge-grid (heatmap) column headers — every arm column except the leading "scenario" cell
+  const cols = page.locator('table.jheat thead th:not(:first-child)');
+  const c = await cols.count();
+  expect(c, 'no judge-grid column headers rendered').toBeGreaterThan(0);
+  for (let i = 0; i < c; i++) {
+    assertReadable(`judge-grid column header ${i}`, await cols.nth(i).innerText());
+  }
+
+  await page.locator('.arm-cards').screenshot({ path: path.join(SHOTS, 'AC7-readable-titles.png') });
+  await page.locator('table.jheat').screenshot({ path: path.join(SHOTS, 'AC7-judge-titles.png') });
 });

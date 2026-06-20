@@ -269,6 +269,54 @@ def _model_card(model_id: str, registry: dict) -> dict[str, Any]:
     }
 
 
+# Each vendor family collapses to ONE short name for the human-readable arm title — so the
+# title reads as roles/vendors ("Liquid coord · Qwen writer"), not dashed machine ids. Unmapped
+# families fall back to the raw family (see _short_family). Substring-matched so the size/variant
+# suffix doesn't have to be enumerated ("Liquid LFM2", "Liquid LFM2.5" -> "Liquid").
+_FAMILY_SHORT = (
+    ("Gemma 4", "Gemma"),
+    ("MedGemma", "MedGemma"),
+    ("Liquid LFM2", "Liquid"),
+    ("Qwen", "Qwen"),
+)
+
+
+def _short_family(family: str | None) -> str:
+    """Map a model's `family` to its SHORT title name (Gemma 4 -> Gemma, Liquid LFM2 -> Liquid,
+    Qwen2.5/Qwen3/Qwen3.6 -> Qwen, MedGemma -> MedGemma); unmapped -> the raw family."""
+    fam = (family or "").strip()
+    for prefix, short in _FAMILY_SHORT:
+        if fam.startswith(prefix):
+            return short
+    return fam
+
+
+def _team_title(roles: dict[str, dict[str, Any]]) -> tuple[str, str]:
+    """Human-readable team title from the role->model_card lineup. Shape:
+    "{orch} coord · {synth} writer" + " · validated" when a validator role exists. The expert is
+    omitted (it's the constant medgemma). Returns (title, short_title) — short drops " · validated"
+    for tight grid headers."""
+    orch = _short_family((roles.get("orchestrator") or {}).get("family"))
+    synth = _short_family((roles.get("synthesizer") or {}).get("family"))
+    parts = []
+    if orch:
+        parts.append(f"{orch} coord")
+    if synth:
+        parts.append(f"{synth} writer")
+    short = " · ".join(parts) if parts else "team"
+    title = short + (" · validated" if "validator" in roles else "")
+    return title, short
+
+
+def _single_title(card: dict[str, Any]) -> tuple[str, str]:
+    """Human-readable single-arm title: "{family} {params} · single" (e.g. "Gemma 4 12B · single").
+    Returns (title, short_title) — short is the family·params essence without the " · single" tag."""
+    fam = (card.get("family") or "").strip()
+    params = (card.get("params") or "").strip()
+    essence = " ".join(p for p in (fam, params) if p) or (card.get("id") or "model")
+    return f"{essence} · single", essence
+
+
 def arm_card(
     backend_id: str,
     *,
@@ -298,9 +346,12 @@ def arm_card(
         roles_map = _load_levels(levels_path).get(model_name, {})
         level = _load_levels_raw(levels_path).get(model_name, {})
         roles = {r: _model_card(roles_map[r], registry) for r in _ROLES if r in roles_map}
+        title, short_title = _team_title(roles)
         return {
             "backend_id": backend_id,
             "label": label,
+            "title": title,
+            "short_title": short_title,
             "kind": "team",
             "path": "med-agent-hub team",
             "roles": roles,
@@ -309,16 +360,20 @@ def arm_card(
             "config": _team_config(roles_map, level, ini),
         }
 
+    single_card = _model_card(model_name, registry)
+    title, short_title = _single_title(single_card)
     if ":8077" in endpoint or endpoint:
         return {
             "backend_id": backend_id,
             "label": label,
+            "title": title,
+            "short_title": short_title,
             "kind": "single",
             "path": "vanilla chartsearchai",
-            "models": [_model_card(model_name, registry)],
+            "models": [single_card],
             "config": _single_config(model_name, ini),
         }
 
-    return {"backend_id": backend_id, "label": label, "kind": "unknown",
-            "path": None, "models": [_model_card(model_name, registry)],
+    return {"backend_id": backend_id, "label": label, "title": title, "short_title": short_title,
+            "kind": "unknown", "path": None, "models": [single_card],
             "config": _single_config(model_name, ini)}

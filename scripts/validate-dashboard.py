@@ -277,9 +277,10 @@ h1{font-size:15px;margin:0 0 6px}.muted{color:var(--muted)}.ok{color:var(--ok)}.
 .chip{display:inline-block;background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:2px 11px;margin:3px;color:var(--accent)}
 table.grid{border-collapse:collapse;margin-top:6px;font-size:11px;table-layout:fixed}
 .grid td,.grid th{border:1px solid var(--border2);padding:3px 6px;text-align:center}
-.grid th{color:var(--muted);font-weight:400;white-space:nowrap}
+.grid th{color:var(--muted);font-weight:400}
 .grid th:first-child,.grid td:first-child{width:210px;text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.grid th:not(:first-child),.grid td:not(:first-child){width:84px;text-align:center}
+.grid th:not(:first-child){width:120px;text-align:center;white-space:normal;vertical-align:bottom;line-height:1.25;font-size:10.5px}
+.grid td:not(:first-child){width:120px;text-align:center}
 .grid td{cursor:pointer}.grid td:hover{outline:2px solid var(--accent2)}
 .c200{background:#196c2e;color:#e6ffe9}.cerr{background:#8b1a1a;color:#ffe9e9}.cpend{background:var(--pend-bg);color:var(--pend-fg);cursor:default}
 .crun{background:#9e6a03;color:#ffe9b3;animation:pulse 1.1s ease-in-out infinite}
@@ -325,6 +326,7 @@ table.btbl{border-collapse:collapse;font-size:11px;width:100%}
 .arm-card{flex:1 1 240px;min-width:220px;border:1px solid var(--border);border-radius:8px;padding:10px 12px;background:var(--surface)}
 .arm-head{display:flex;align-items:center;gap:7px;margin-bottom:4px}
 .arm-name{font-weight:600;color:var(--accent);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.arm-id{font-family:ui-monospace,Menlo,monospace;font-size:10px;color:var(--faint);margin:0 0 4px}
 .badge{display:inline-block;font-size:9px;font-weight:700;letter-spacing:.05em;padding:1px 6px;border-radius:9px;border:1px solid var(--border);color:var(--muted)}
 .badge.team{background:#3a2e08;border-color:#9e6a03;color:#ffe9b3}
 .badge.single{background:#13304a;border-color:#1f6feb;color:#cfe6ff}
@@ -366,14 +368,22 @@ table.ac-knobs{border-collapse:collapse;font-size:10.5px;margin-top:2px}
 <script>
 const cls=s=>({done:'c200',err:'cerr',running:'crun',pending:'cpend'}[s]||'cpend');
 const sym=s=>({done:'✓',err:'×',running:'●',pending:'·'}[s]||'·');
-const shortB=b=>b.replace('med-agent-team-','').replace('-baseline','-base');
+// Human-readable arm titles from the resolver's arm_cards (model_registry), never the raw dashed
+// backend id. Filled each tick from the latest /api/status. armTitle = full; armShort = tight
+// grid/column variant. Fall back to the raw id only if a card is missing.
+let ARM_CARDS={};
+const armTitle=b=>{const c=ARM_CARDS[b];return (c&&c.title)||b;};
+const armShort=b=>{const c=ARM_CARDS[b];return (c&&(c.short_title||c.title))||b;};
+const shortB=b=>armShort(b);
 const esc=s=>(s==null?'':String(s)).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 // sampler-knob display order + labels (mirrors report.py's KNOB_ORDER/KNOB_LABELS).
 const KNOB_ORDER=['temp','top_p','top_k','ctx_size','seed','max_tokens','reasoning_budget','dry'];
 const KNOB_LABELS={temp:'temperature',top_p:'top-p',top_k:'top-k',ctx_size:'ctx-size',seed:'seed',max_tokens:'max-tokens',reasoning_budget:'reasoning-budget',dry:'DRY'};
 // "how this arm is configured" panel: sampling knobs + system prompt(s) + retrieval line.
 // Mirrors report.py::renderArmConfig — fed the REAL arm_card(b).config from the resolver.
-function renderArmConfig(cfg){
+// `key` is a STABLE per-arm id (the backend_id) so OPEN_DETAILS can re-apply the open state
+// across the background re-render that would otherwise collapse the panel.
+function renderArmConfig(cfg,key){
  if(!cfg) return '';
  const knobs=cfg.knobs||{};
  const models=Object.keys(knobs);
@@ -386,7 +396,7 @@ function renderArmConfig(cfg){
  const np=(cfg.prompts||[]).length;
  if(np)tease.push(np+' system prompt'+(np>1?'s':''));
  const teaseTxt=tease.length?(' — '+tease.join(' · ')):'';
- let h="<details class=arm-config><summary>how this arm is configured<span class=ac-tease>"+esc(teaseTxt)+"</span></summary><div class=ac-body>";
+ let h="<details class=arm-config data-okey='cfg:"+esc(key)+"'><summary>how this arm is configured<span class=ac-tease>"+esc(teaseTxt)+"</span></summary><div class=ac-body>";
  if(models.length){
   const present=KNOB_ORDER.filter(k=>models.some(m=>(knobs[m]||{})[k]!=null));
   h+="<div class=ac-h>sampling knobs <span class=ac-sub>(llama-router.ini)</span></div>";
@@ -403,11 +413,11 @@ function renderArmConfig(cfg){
  const prompts=cfg.prompts||[];
  if(prompts.length){
   h+="<div class=ac-h>system prompt"+(prompts.length>1?'s':'')+"</div>";
-  prompts.forEach(p=>{
+  prompts.forEach((p,i)=>{
    h+="<div class=ac-prompt>";
    h+="<div class=ac-plabel>"+esc(p.label)+" <span class=ac-src>"+esc(p.source)+"</span></div>";
    if(p.summary)h+="<div class=ac-psum>"+esc(p.summary)+"</div>";
-   h+="<details class=ac-pfull><summary>full prompt</summary><pre class=ac-pre>"+esc(p.text)+"</pre></details>";
+   h+="<details class=ac-pfull data-okey='prompt:"+esc(key)+":"+i+"'><summary>full prompt</summary><pre class=ac-pre>"+esc(p.text)+"</pre></details>";
    h+="</div>";
   });
  }
@@ -433,40 +443,63 @@ function renderArmCards(d){
   const badge=team
    ?"<span class='badge team'>TEAM</span>"
    :(c.kind==='single'?"<span class='badge single'>SINGLE</span>":"<span class=badge>?</span>");
+  // Headline = the resolver's human-readable title; the raw backend_id survives only as a
+  // tiny muted monospace sub-label under it, never as the headline.
+  const title=c.title||b;
   h+="<div class=arm-card>";
-  h+="<div class=arm-head>"+badge+"<span class=arm-name>"+esc(b)+"</span></div>";
+  h+="<div class=arm-head>"+badge+"<span class=arm-name>"+esc(title)+"</span></div>";
+  h+="<div class=arm-id>"+esc(b)+"</div>";
   if(c.path)h+="<div class=arm-path>"+esc(c.path)+"</div>";
   h+="<div class=arm-stats>"+(a.rows||0)+" rows · <span class='"+(a.errors?'err':'ok')+"'>"+(a.errors||0)+" err</span>"
     +" · <span class=muted>~"+(a.avg_latency_ms||0)+"ms · "+(a.avg_chars||0)+"c"+(a.last?(' · '+esc(a.last)):'')+"</span></div>";
   if(team){
+   // Makeup = role → readable family·params·quant; the raw dashed model id column is dropped.
    h+="<table class=makeup><tbody>";
    Object.keys(c.roles||{}).forEach(role=>{
     const m=c.roles[role]||{};
     const mq=[m.family,m.params,m.quant].filter(Boolean).join(' · ');
-    h+="<tr><td class=role>"+esc(role)+"</td><td class=mdl>"+esc(m.id||'')+
-       "</td><td class=mq>"+esc(mq)+"</td></tr>";
+    h+="<tr><td class=role>"+esc(role)+"</td><td class=mq>"+esc(mq)+"</td></tr>";
    });
    h+="</tbody></table>";
   }else{
    const m=(c.models||[])[0]||{};
-   const mq=[m.id,m.family,m.params,m.quant].filter(Boolean).join(' · ');
+   const mq=[m.family,m.params,m.quant].filter(Boolean).join(' · ');
    h+="<div class=makeup-single>"+esc(mq)+"</div>";
   }
-  h+=renderArmConfig(c.config);
+  h+=renderArmConfig(c.config,b);
   h+="</div>";
  });
  return h+"</div>";
 }
+// The background poll re-renders #arms wholesale; that wipes the user's expanded <details>.
+// Track which panels are open by their STABLE data-okey (arm backend_id, NOT a DOM index),
+// updated on every toggle, and re-apply after each re-render so an open config / full-prompt
+// panel survives auto-refresh. Parallel: the data refresh no longer clobbers UI state.
+const OPEN_DETAILS=new Set();
+document.addEventListener('toggle',e=>{
+ const d=e.target;
+ if(!d||d.tagName!=='DETAILS')return;
+ const k=d.getAttribute&&d.getAttribute('data-okey');
+ if(!k)return;
+ if(d.open)OPEN_DETAILS.add(k);else OPEN_DETAILS.delete(k);
+},true);
+function restoreOpenDetails(root){
+ (root||document).querySelectorAll('details[data-okey]').forEach(d=>{
+  d.open=OPEN_DETAILS.has(d.getAttribute('data-okey'));
+ });
+}
 async function tick(){
  let d; try{d=await(await fetch('/api/status')).json()}catch(e){return}
  if(!d.run){hdr.textContent='waiting for a run...';return}
+ ARM_CARDS=d.arm_cards||{};
  const pct=d.total?Math.round(100*d.done/d.total):0;
  hdr.textContent='run '+d.run.slice(0,8)+'  ·  set '+(d.set||'')+'  ·  '+pct+'%';
  fill.style.width=pct+'%'; prog.textContent=d.done+' / '+d.total+' results';
  models.innerHTML=(d.models||[]).map(m=>'<span class=chip>'+m+'</span>').join('')||'<span class=muted>none resident</span>';
  arms.innerHTML=renderArmCards(d);
+ restoreOpenDetails(arms);   // re-apply the user's expanded config/full-prompt panels after the re-render
  const gm={};(d.grid||[]).forEach(g=>gm[g.scenario+'|'+g.backend]=g.state);
- let h='<table class=grid><tr><th></th>'+(d.backends||[]).map(b=>'<th>'+shortB(b)+'</th>').join('')+'</tr>';
+ let h='<table class=grid><tr><th></th>'+(d.backends||[]).map(b=>'<th title="'+esc(b)+'">'+esc(armTitle(b))+'</th>').join('')+'</tr>';
  (d.scenarios||[]).forEach(s=>{h+='<tr><th>'+s+'</th>'+(d.backends||[]).map(b=>{const st=gm[s+'|'+b];
    const oc=(st==null||st==='pending')?'':' onclick="openD(\''+s+'\',\''+b+'\')"';
    return '<td class='+cls(st)+oc+'>'+sym(st)+'</td>'}).join('')+'</tr>'});
