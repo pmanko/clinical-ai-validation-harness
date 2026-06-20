@@ -7,17 +7,23 @@
 # the whole reports dir to the VM (NO --delete, so previously published reports survive). Caddy
 # serves it live at https://<CADDY_SITE_REPORTS>/<slug>/ (file_server, no restart needed).
 #
-# Add the slug to reports-index.json first for it to appear in the listing (curation is intentional).
+# The slug is auto-upserted into reports-index.json so a published run is never left unlisted:
+# insert-if-absent (newest first), NEVER overwriting an existing entry, so curated title/summary
+# survive a re-publish. Pass [title] [summary] [takeaway] to seed the prose (else a placeholder
+# title you edit later); editing reports-index.json afterwards stays the source of curation.
 #
-# Usage: scripts/validate-publish.sh <run_id> <slug>
+# Usage: scripts/validate-publish.sh <run_id> <slug> [title] [summary] [takeaway]
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # shellcheck disable=SC1091
 . "${ROOT}/scripts/cloud-lib.sh"
 
-RUN="${1:?usage: validate-publish.sh <run_id> <slug>}"
-SLUG="${2:?usage: validate-publish.sh <run_id> <slug>}"
+RUN="${1:?usage: validate-publish.sh <run_id> <slug> [title] [summary] [takeaway]}"
+SLUG="${2:?usage: validate-publish.sh <run_id> <slug> [title] [summary] [takeaway]}"
+TITLE="${3:-}"
+SUMMARY="${4:-}"
+TAKEAWAY="${5:-}"
 
 echo "==> rendering report for run ${RUN} (picks up the latest report.py)"
 ( cd "${ROOT}" && uv run harness-cli validate report "${RUN}" )
@@ -63,6 +69,29 @@ echo "==> freezing interactive dashboard snapshot"
 ( cd "${ROOT}" && uv run python scripts/validate-dashboard.py --freeze "${DEST}/dashboard.html" \
     --run "${ROOT}/artifacts/validate/${RUN}" ) \
   || echo "warn: dashboard freeze failed — the 'Interactive dashboard' button will be absent for ${SLUG}" >&2
+
+# Upsert this run into the curated manifest BEFORE the index rebuild, so a published run is never
+# left deployed-but-unlisted. Insert-if-absent (newest first); NEVER overwrite an existing entry,
+# so curated prose survives a re-publish. New slugs get the passed TITLE/SUMMARY/TAKEAWAY or a
+# placeholder title to edit.
+echo "==> upserting ${SLUG} into reports-index.json"
+python3 - "${ROOT}/reports-index.json" "${SLUG}" "${TITLE}" "${SUMMARY}" "${TAKEAWAY}" <<'PY'
+import json, sys
+from pathlib import Path
+idx_path, slug, title, summary, takeaway = (
+    Path(sys.argv[1]), sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5])
+idx = json.loads(idx_path.read_text())
+runs = idx.setdefault("runs", [])
+if any(r.get("slug") == slug for r in runs):
+    print(f"==> {slug} already curated in reports-index.json — left as-is")
+else:
+    runs.insert(0, {"slug": slug,
+                    "title": title or f"{slug} (auto-added — edit title)",
+                    "summary": summary or "",
+                    "takeaway": takeaway or ""})
+    idx_path.write_text(json.dumps(idx, indent=2) + "\n")
+    print(f"==> inserted {slug} at the top of reports-index.json (edit title/summary to curate)")
+PY
 
 # Rebuild the curated index now (reads reports-index.json + this run's just-staged meta.json), so the
 # single rsync below pushes the report, the dashboard, AND the refreshed index together.

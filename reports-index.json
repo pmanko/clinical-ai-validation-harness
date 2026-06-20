@@ -3,6 +3,12 @@
   "scoring_note": "Each answer is graded 0–10, higher is better — <b>Accuracy</b>: are the stated facts correct? <b>Completeness</b>: did it cover what mattered? <b>Relevance</b>: did it actually answer the question? <b>Unsafe answers</b> counts responses with a potential safety problem (lower is better). <b>Questions</b> is how many were scored per setup, and the best value in each column is highlighted. <b>Benchmark /100</b> is the headline aggregate — it combines the dimensions (accuracy and completeness weighted most) minus soft penalties for safety and citation problems, so one number summarizes each setup. These come from a single automated judge on a small sample — they're directional, not a formal benchmark.",
   "runs": [
     {
+      "slug": "three-patient-ablation-2026-06-20",
+      "title": "Which model should write the answer? A 3-patient role ablation",
+      "summary": "Three patients — two adults with HIV/TB and a pediatric perinatal-HIV infant — 62 clinical questions, six AI setups. A 2×2 ablation swaps the AI team's coordinator and answer-writer between a Google (Gemma) and a fast on-device (Liquid LFM2) model — every team cross-checked by a strong non-Liquid validator — alongside two single-model anchors (Gemma 12B and Liquid 24B). Every answer was graded against the full patient chart by an automated clinical rubric.",
+      "takeaway": "The model that WRITES the answer decides clinical quality. Setups with a Qwen writer scored ~70; those with a Liquid writer ~43–51 — a ~25-point gap that tracks the writer alone, whichever model coordinates. A single strong general model (Gemma 12B, 71.4) matched or beat the full multi-agent team, and a strong non-Liquid validator did not rescue a Liquid writer (13–17 unsafe answers with it switched on). Pick a strong writer model before adding team scaffolding. Directional results from a single automated judge, not a formal benchmark."
+    },
+    {
       "slug": "team-liquid-validated-2026-06-20",
       "title": "Can a strong validator make a fast on-device AI team safe?",
       "summary": "A follow-up to the Liquid-team run: same two patients, 16 clinical questions, four AI setups — our proper multi-agent team, a single strong model (Gemma 12B), and the fast on-device 'Liquid' team in two forms: as-is, and with a strong non-Liquid Gemma-12B 'validator' that independently re-checks each answer against the chart before it's returned. Every answer was graded against the full chart by an automated clinical rubric.",

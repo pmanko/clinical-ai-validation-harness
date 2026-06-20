@@ -71,7 +71,16 @@ def human_arm(arm: str) -> tuple[str, str]:
         else:
             tier = "team"
         checker = " + checker" if "validated" in rest else ""
-        return (f"AI team — {tier}{checker}", detail)
+        indepth = " + in-depth" if "indepth" in rest else ""
+        return (f"AI team — {tier}{checker}{indepth}", detail)
+    # The In-Depth-parity single arm routes through the hub but is a single model emitting an
+    # In-Depth section; name it as such (before the generic "12b" single-model match below).
+    if "single-12b-indepth" in a:
+        return ("Gemma 12B (single + in-depth)", detail)
+    if "qwen2.5-14b" in a:
+        return ("Qwen 14B (single model)", detail)
+    if "medgemma-27b" in a:
+        return ("MedGemma 27B (single model)", detail)
     if "e2b" in a:
         return ("Gemma 2B (single model)", detail)
     if "e4b" in a:
@@ -280,6 +289,14 @@ STYLE = """
 def main() -> None:
     manifest = json.loads(MANIFEST.read_text())
     runs = manifest.get("runs", [])
+    # Loud, not silent: a run whose report is staged under artifacts/reports/ but absent from the
+    # curated manifest gets DEPLOYED (rsync, no --delete) yet never LISTED. Warn so a missed
+    # publish-time upsert is visible instead of quietly producing a deployed-but-unlisted run.
+    listed = {r.get("slug") for r in runs}
+    staged = {p.parent.name for p in REPORTS.glob("*/meta.json")}
+    for slug in sorted(staged - listed):
+        print(f"warn: {slug} is staged under artifacts/reports/ but NOT in reports-index.json "
+              f"(deployed but unlisted) — add it to the manifest to list it.", file=sys.stderr)
     cards = "\n".join(_card(r) for r in runs)
     html = f"""<!doctype html>
 <html lang="en" data-theme="light">
