@@ -86,13 +86,14 @@ say why in the note.
 
 ---
 
-## Background axes — team `**In Depth**` only (score the In-Depth section, NOT the Answer)
+## Background axes — ANY non-empty `**In Depth**` section (single-model two-call OR team)
 
-Apply these **only** when the response has a non-empty `**In Depth**` section (the team's elaboration;
-== the trace's `in_depth_claims`). Single-model answers have no In-Depth — omit the whole `background`
-block for them. These axes are reported separately and **never** feed the Answer means or the Benchmark
-score, so a team is neither rewarded nor penalized on the answer axes for shipping extra background.
-Score against the same chart + reference date.
+Apply these **whenever** the response has a non-empty `**In Depth**` section — **including single-model
+two-call arms**, which now ship a separate In-Depth pass exactly like a team. Judge every In-Depth
+identically, for parity. Omit the whole `background` block ONLY when there is no In-Depth section at all.
+These axes score the In-Depth's OWN purpose (clinical elaboration/background), are reported separately, and
+**never** feed the Answer means or the Answer Benchmark — so an arm is neither rewarded nor penalized on
+the answer axes for shipping background. Score against the same chart + reference date.
 
 ### background_support — does the elaboration substantiate the Answer without contradicting it? (0–10)
 - **9–10** every In-Depth claim is chart-grounded and supports/justifies the Answer; no contradiction.
@@ -137,8 +138,9 @@ Score against the same chart + reference date.
 }
 ```
 
-Omit a temporal_* field when the question has no temporal claim. **Omit the entire `background` block
-for single-model arms (no `**In Depth**`); it is present only for team arms that ship an In-Depth section.**
+Omit a temporal_* field when the question has no temporal claim. **Omit the entire `background` block ONLY
+when there is no `**In Depth**` section; it is present for ANY arm — single-model two-call OR team — that
+ships one. Judge all In-Depth sections identically, for parity.**
 `note` justifies the Answer scores; `background.note` justifies the background scores. Both are 1–3
 sentences that cite specific chart records — this is what a human reads to trust the score.
 

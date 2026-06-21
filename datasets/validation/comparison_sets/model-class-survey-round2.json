@@ -35,16 +35,16 @@
     "convo-safety-escalation"
   ],
   "backend_ids": [
-    "12b-baseline",
-    "mistral-nemo-12b-q8-baseline",
-    "qwen3-14b-q8-baseline",
-    "granite-3.3-8b-q8-baseline",
-    "qwen2.5-14b-q8-baseline",
-    "gemma-12b-q4-baseline",
-    "mistral-nemo-12b-baseline",
-    "qwen3-14b-baseline",
-    "granite-3.3-8b-baseline",
-    "qwen2.5-14b-baseline",
-    "qwen3.6-35b-baseline"
+    "12b-2call",
+    "mistral-nemo-12b-q8-2call",
+    "qwen3-14b-q8-2call",
+    "granite-3.3-8b-q8-2call",
+    "qwen2.5-14b-q8-2call",
+    "gemma-12b-q4-2call",
+    "mistral-nemo-12b-2call",
+    "qwen3-14b-2call",
+    "granite-3.3-8b-2call",
+    "qwen2.5-14b-2call",
+    "qwen3.6-35b-2call"
   ]
 }
