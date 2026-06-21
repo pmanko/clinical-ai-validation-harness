@@ -173,5 +173,30 @@
     "modelName": "med-agent-team-parity",
     "indepthEndpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
     "indepthModelName": "indepth-only-qwen2.5-14b"
+  },
+  "mistral-nemo-12b-baseline": {
+    "label": "Mistral NeMo 12B single LLM, direct chart (GGUF+DRY, Q4)",
+    "endpointUrl": "http://host.docker.internal:8077/v1/chat/completions",
+    "modelName": "mistral-nemo-12b"
+  },
+  "granite-3.3-8b-baseline": {
+    "label": "IBM Granite 3.3 8B single LLM, direct chart (GGUF+DRY, Q4)",
+    "endpointUrl": "http://host.docker.internal:8077/v1/chat/completions",
+    "modelName": "granite-3.3-8b"
+  },
+  "qwen3-14b-baseline": {
+    "label": "Qwen3-14B (non-thinking) single LLM, direct chart (GGUF+DRY, Q4)",
+    "endpointUrl": "http://host.docker.internal:8077/v1/chat/completions",
+    "modelName": "qwen3-14b"
+  },
+  "gemma-12b-q4-baseline": {
+    "label": "Gemma 4-12B at Q4 — quant control vs the Q8 12b-baseline",
+    "endpointUrl": "http://host.docker.internal:8077/v1/chat/completions",
+    "modelName": "gemma-4-12b-q4"
+  },
+  "qwen3.6-35b-baseline": {
+    "label": "Qwen3.6-35B-A3B thinking/reasoning MoE single LLM, direct chart (GGUF)",
+    "endpointUrl": "http://host.docker.internal:8077/v1/chat/completions",
+    "modelName": "qwen3.6-35b"
   }
 }
