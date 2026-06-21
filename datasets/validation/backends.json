@@ -198,5 +198,25 @@
     "label": "Qwen3.6-35B-A3B thinking/reasoning MoE single LLM, direct chart (GGUF)",
     "endpointUrl": "http://host.docker.internal:8077/v1/chat/completions",
     "modelName": "qwen3.6-35b"
+  },
+  "mistral-nemo-12b-q8-baseline": {
+    "label": "Mistral NeMo 12B single LLM, direct chart (GGUF+DRY, Q8)",
+    "endpointUrl": "http://host.docker.internal:8077/v1/chat/completions",
+    "modelName": "mistral-nemo-12b-q8"
+  },
+  "qwen3-14b-q8-baseline": {
+    "label": "Qwen3-14B (non-thinking) single LLM, direct chart (GGUF+DRY, Q8)",
+    "endpointUrl": "http://host.docker.internal:8077/v1/chat/completions",
+    "modelName": "qwen3-14b-q8"
+  },
+  "granite-3.3-8b-q8-baseline": {
+    "label": "IBM Granite 3.3 8B single LLM, direct chart (GGUF+DRY, Q8)",
+    "endpointUrl": "http://host.docker.internal:8077/v1/chat/completions",
+    "modelName": "granite-3.3-8b-q8"
+  },
+  "qwen2.5-14b-q8-baseline": {
+    "label": "Qwen2.5-14B single LLM, direct chart (GGUF+DRY, Q8)",
+    "endpointUrl": "http://host.docker.internal:8077/v1/chat/completions",
+    "modelName": "qwen2.5-14b-q8"
   }
 }
