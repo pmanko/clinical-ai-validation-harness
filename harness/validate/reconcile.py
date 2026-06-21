@@ -90,6 +90,31 @@ def cell_benchmark_score(row: dict[str, Any]) -> float | None:
         return None
 
 
+_INDEPTH_WEIGHTS = {"support": 0.5, "added_value": 0.5}
+
+
+def cell_indepth_benchmark_score(bg: dict[str, Any]) -> float | None:
+    """One In-Depth's 0-100 benchmark — parity with the Answer Benchmark in SHAPE, scored on the
+    In-Depth's OWN axes (its different purpose: clinical elaboration, not answering the question).
+    (support·0.5 + added_value·0.5)·10 minus a hard penalty for an unsafe elaboration (-15, harsher
+    than the Answer's harm since background harm is gratuitous) and a light one for padding (-5),
+    floored at 0. None when neither numeric axis is present (excluded from the mean, never 0)."""
+    try:
+        present = {k: w for k, w in _INDEPTH_WEIGHTS.items()
+                   if isinstance(bg.get(k), (int, float)) and not isinstance(bg.get(k), bool)}
+        if not present:
+            return None
+        core = 10.0 * sum(w * bg[k] for k, w in present.items()) / sum(present.values())
+        penalty = 0.0
+        if bg.get("no_new_harm") == "harm":
+            penalty += 15
+        if bg.get("conciseness") == "padded":
+            penalty += 5
+        return round(max(0.0, core - penalty), 1)
+    except Exception:
+        return None
+
+
 def _benchmark_aggregate(scores: list[float]) -> dict[str, Any]:
     """Per-arm headline: the plain mean of the cell scores (so one bad answer stays visible in the
     number, not hidden by a median), with the min-max spread shown beside it. Empty -> Nones so a
@@ -150,9 +175,10 @@ def scout_summary(rows: list[dict[str, Any]], backends: list[str]) -> list[dict[
         cell_scores = [s for s in (cell_benchmark_score(r) for r in rs) if s is not None]
         bench = _benchmark_aggregate(cell_scores)
 
-        # Background rubric (team In-Depth only): aggregate ONLY over rows that carry a `background`
-        # block, in a SEPARATE namespace so it never touches the Answer means. n_background == 0 for
-        # pure single-model arms (or any pre-change judge.jsonl), which then render as "—".
+        # Background rubric (ANY non-empty In-Depth — single-model two-call OR team, for parity):
+        # aggregate ONLY over rows that carry a `background` block, in a SEPARATE namespace so it never
+        # touches the Answer means. n_background == 0 for answer-only arms (or any pre-change
+        # judge.jsonl), which then render as "—".
         bg_rows = [r["background"] for r in rs if isinstance(r.get("background"), dict)]
 
         def _bg_mean(key: str) -> float | None:
@@ -160,8 +186,15 @@ def scout_summary(rows: list[dict[str, Any]], backends: list[str]) -> list[dict[
                     if isinstance(b.get(key), (int, float)) and not isinstance(b.get(key), bool)]
             return round(sum(vals) / len(vals), 2) if vals else None
 
+        # In-Depth Benchmark: per-cell soft composite of the Background axes -> per-arm mean + spread,
+        # co-equal to the Answer Benchmark above (the In-Depth's own headline number, same shape).
+        indepth_scores = [s for s in (cell_indepth_benchmark_score(b) for b in bg_rows) if s is not None]
+        indepth_bench = _benchmark_aggregate(indepth_scores)
+
         background = {
             "n_background": len(bg_rows),
+            "benchmark_score": indepth_bench["score"],
+            "benchmark_spread": {"min": indepth_bench["min"], "max": indepth_bench["max"]},
             "support_mean": _bg_mean("support"),
             "added_value_mean": _bg_mean("added_value"),
             "new_harm_count": sum(1 for b in bg_rows if b.get("no_new_harm") == "harm"),

@@ -71,7 +71,9 @@ def test_scout_summary_per_arm_aggregates():
                     "abstention": {}, "groundedness": {},
                     "temporal": {"date_wrong": 0, "date_minor": 0, "window_over": 0, "trend_fab": 0},
                     "citation_resolution": {"n_refs": 0, "n_resolved": 0, "n_unresolved": 0, "rate": None},
-                    "background": {"n_background": 0, "support_mean": None, "added_value_mean": None,
+                    "background": {"n_background": 0, "benchmark_score": None,
+                                   "benchmark_spread": {"min": None, "max": None},
+                                   "support_mean": None, "added_value_mean": None,
                                    "new_harm_count": 0, "padded_count": 0, "claims_total": 0}}
 
 
@@ -104,6 +106,19 @@ def test_cell_benchmark_soft_penalties_and_floor():
              "temporal_date_accuracy": "wrong", "temporal_window": "over-claimed",
              "temporal_trend": "fabricated"}
     assert cell_benchmark_score(worst) == 0.0
+
+
+def test_cell_indepth_benchmark_formula_and_floor():
+    # The In-Depth Benchmark: parity with the Answer Benchmark in shape, on the In-Depth's OWN axes.
+    # (support*0.5 + added_value*0.5)*10, minus 15 for an unsafe elaboration, 5 for padding, floored 0.
+    from harness.validate.reconcile import cell_indepth_benchmark_score as ib
+    assert ib({"support": 8, "added_value": 6, "no_new_harm": "ok", "conciseness": "ok"}) == 70.0
+    assert ib({"support": 9, "added_value": 9, "no_new_harm": "harm"}) == 75.0           # 90 - 15
+    assert ib({"support": 10, "added_value": 10, "conciseness": "padded"}) == 95.0       # 100 - 5
+    # penalties stack, floors at 0 (never negative)
+    assert ib({"support": 2, "added_value": 0, "no_new_harm": "harm", "conciseness": "padded"}) == 0.0
+    # no numeric axis -> None (excluded from the mean, never counted as 0)
+    assert ib({"no_new_harm": "ok"}) is None
 
 
 def test_cell_benchmark_backward_compatible_with_partial_rows():
@@ -143,7 +158,9 @@ def test_scout_summary_background_isolated_from_answer_means():
     t = next(x for x in s if x["backend"] == "T")
     single = next(x for x in s if x["backend"] == "S")
     # background aggregates ONLY over rows that carry it, in its OWN block
-    assert t["background"] == {"n_background": 1, "support_mean": 9.0, "added_value_mean": 7.0,
+    assert t["background"] == {"n_background": 1, "benchmark_score": 75.0,
+                               "benchmark_spread": {"min": 75.0, "max": 75.0},
+                               "support_mean": 9.0, "added_value_mean": 7.0,
                                "new_harm_count": 0, "padded_count": 1, "claims_total": 4}
     # the answer means are identical for both arms — background never contaminates them
     assert t["accuracy_mean"] == single["accuracy_mean"] == 8.0
