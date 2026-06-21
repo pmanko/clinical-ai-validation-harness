@@ -204,9 +204,18 @@ def status():
     feed = []
     for r in results[-14:]:
         m = r.get("metrics") or {}
+        ind = r.get("indepth") or {}
+        iresp = ind.get("response") or {}
+        if isinstance(iresp, str):
+            try:
+                iresp = json.loads(iresp)
+            except Exception:
+                iresp = {"answer": iresp}
         feed.append({"scenario": r.get("scenario_id"), "backend": r.get("backend_id"),
                      "turn": r.get("turn"), "status": m.get("http_status"),
                      "chars": m.get("answer_chars"),
+                     "indepth_status": ind.get("http_status"),
+                     "indepth_chars": len((iresp or {}).get("answer") or ""),
                      "ans": _esc(((r.get("response") or {}).get("answer", "") or "")[:90])})
 
     # Structured arm makeup + config (single vanilla-chartsearchai vs med-agent-hub team) —
@@ -245,9 +254,18 @@ def detail(scenario, backend):
         resp = r.get("response") or {}
         refs = resp.get("references") or resp.get("citations") or []
         tr = _match_trace(traces, backend, r.get("started_at"), r.get("ended_at"))
+        ind = r.get("indepth") or {}
+        iresp = ind.get("response") or {}
+        if isinstance(iresp, str):
+            try:
+                iresp = json.loads(iresp)
+            except Exception:
+                iresp = {"answer": iresp}
         turns.append({"turn": r.get("turn"),
                       "question": (r.get("request") or {}).get("question", ""),
                       "answer": resp.get("answer", ""),
+                      "indepth": ({"answer": iresp.get("answer") or "", "status": ind.get("http_status"),
+                                   "latency_ms": ind.get("latency_ms")} if ind else None),
                       "blocks": resp.get("blocks") or [],
                       "refs": refs,
                       "status": m.get("http_status"), "latency_ms": m.get("latency_ms"),
@@ -506,7 +524,9 @@ async function tick(){
  grid.innerHTML=h+'</table>';
  feed.innerHTML=(d.feed||[]).slice().reverse().map(f=>'<div onclick="openD(\''+f.scenario+'\',\''+f.backend+'\')"><span class="'
    +(f.status===200?'ok':'err')+'">'+f.status+'</span> '+f.scenario+'/'+shortB(f.backend)+' t'+f.turn
-   +' <span class=muted>'+f.chars+'c</span> '+f.ans+'</div>').join('');
+   +' <span class=muted>'+f.chars+'c</span>'
+   +(f.indepth_status!=null?' <span class="'+(f.indepth_status===200&&f.indepth_chars>0?'ok':'err')+'" title="In-Depth (separate call)">+ID '+f.indepth_chars+'c</span>':'')
+   +' '+f.ans+'</div>').join('');
 }
 function renderBlocks(blocks){
  if(!blocks||!blocks.length)return '';
@@ -585,7 +605,11 @@ async function openD(s,b){
    const idb=cl.length?'<ul class=idl>'+cl.map(c=>'<li>'+esc(c)+'</li>').join('')+'</ul>':'<span class=muted>(none)</span>';
    h+=confSection('In Depth', idb, tr.indepth_confidence);
   }else{
-   h+='<div class=ans>'+esc(t.answer)+'</div>';   // fallback: raw envelope (non-team backend / older run)
+   h+='<div class=ans>'+esc(t.answer)+'</div>';   // Answer (raw envelope / non-team backend)
+   if(t.indepth&&t.indepth.answer){               // two-call arms: the separate In-Depth call
+    h+='<div style="margin-top:8px;font-size:11px;font-weight:600;color:var(--accent)">In Depth <span class=muted>(separate call'+(t.indepth.latency_ms?', '+Math.round(t.indepth.latency_ms/1000)+'s':'')+')</span></div>';
+    h+='<div class=ans>'+esc(t.indepth.answer)+'</div>';
+   }
   }
   h+=renderBlocks(t.blocks);
   if(t.refs&&t.refs.length)h+='<div class=refs>refs: '+esc(t.refs.map(r=>typeof r==='object'?('['+(r.index!=null?r.index:'?')+'] '+(r.resourceType||'')):('['+r+']')).join('  '))+'</div>';
