@@ -77,23 +77,11 @@ def human_arm(arm: str) -> tuple[str, str]:
     # In-Depth section; name it as such (before the generic "12b" single-model match below).
     if "single-12b-indepth" in a:
         return ("Gemma 12B (single + in-depth)", detail)
-    if "qwen2.5-14b" in a:
-        return ("Qwen 14B (single model)", detail)
-    if "medgemma-27b" in a:
-        return ("MedGemma 27B (single model)", detail)
-    if "e2b" in a:
-        return ("Gemma 2B (single model)", detail)
-    if "e4b" in a:
-        return ("Gemma 4B (single model)", detail)
-    if "12b" in a:
-        return ("Gemma 12B (single model)", detail)
-    if "a4b" in a or "26b" in a:
-        return ("Gemma 26B (single model)", detail)
-    if "lfm2-24b" in a:
-        return ("LFM2-24B (single model)", detail)
-    if "lfm2-1.2b" in a:
-        return ("LFM2 1.2B (single model)", detail)
-    return (arm, detail)
+    # All other single arms: use the resolved card's short title (family · size · quant), so every
+    # size/quant variant is distinct AND correctly named — the old substring matching mislabeled new
+    # arms (e.g. mistral-nemo-12b matched "12b" and rendered as "Gemma 12B") and could not tell a Q8
+    # arm from its Q4 twin.
+    return (card.get("short_title") or _RAW.get(arm, arm), detail)
 
 
 def _run_dir_for(slug: str) -> Path | None:
@@ -182,24 +170,27 @@ def _scout_table(scout: list[dict]) -> str:
             f'{cell("completeness_mean")}{cell("relevance_mean")}{harm_cell}</tr>'
         )
     table = head + "".join(body) + "</tbody></table>"
-    # Background (AI-team In-Depth only) — a collapsible, clearly separate block so the elaboration
-    # scores never sit in the head-to-head grid above. Single-model arms have no In-Depth.
+    # In-Depth — its own parity Benchmark, shown (NOT hidden) for ANY arm that ships one (single-model
+    # two-call or team), in a clearly separate block so the elaboration scores never sit in the
+    # head-to-head Answer grid above. Sorted by the In-Depth Benchmark.
     bg = [s for s in scout if (s.get("background") or {}).get("n_background")]
     if bg:
+        bg.sort(key=lambda s: ((s.get("background") or {}).get("benchmark_score") or 0), reverse=True)
         rows = []
         for s in bg:
             name, _ = human_arm(s["backend"])
             b = s["background"]
+            ben = "—" if b.get("benchmark_score") is None else f'{b["benchmark_score"]:.1f}'
             sup = "—" if b.get("support_mean") is None else f'{b["support_mean"]:.1f}'
             val = "—" if b.get("added_value_mean") is None else f'{b["added_value_mean"]:.1f}'
-            rows.append(f'<tr><td class="arm">{escape(name)}</td><td>{b["n_background"]}</td>'
-                        f'<td>{sup}</td><td>{val}</td><td>{b.get("new_harm_count", 0)}</td>'
-                        f'<td>{b.get("padded_count", 0)}</td></tr>')
-        table += ('<details class="bg-extra"><summary>Background detail — AI-team elaboration, scored '
-                  'separately (not part of the Benchmark)</summary>'
-                  '<table class="scout"><thead><tr><th class="arm">AI setup</th><th>In-depth answers</th>'
-                  '<th>Support</th><th>Added value</th><th>Unsafe</th><th>Padded</th></tr></thead><tbody>'
-                  + "".join(rows) + '</tbody></table></details>')
+            rows.append(f'<tr><td class="arm">{escape(name)}</td><td class="bench">{ben}</td>'
+                        f'<td>{b["n_background"]}</td><td>{sup}</td><td>{val}</td>'
+                        f'<td>{b.get("new_harm_count", 0)}</td><td>{b.get("padded_count", 0)}</td></tr>')
+        table += ('<h3 style="margin:20px 0 6px;font-size:15px;font-weight:600">In-Depth — scored separately on '
+                  'its own axes (its own parity Benchmark)</h3>'
+                  '<table class="scout"><thead><tr><th class="arm">AI setup</th><th>In-Depth Benchmark</th>'
+                  '<th>In-depth answers</th><th>Support</th><th>Added value</th><th>Unsafe</th><th>Padded</th>'
+                  '</tr></thead><tbody>' + "".join(rows) + '</tbody></table>')
     return table
 
 

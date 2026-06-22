@@ -847,7 +847,7 @@ function calCell(cal){
     +"<span class='cal-n'> · n="+(cal.n_labeled||0)+" reviewed</span></div>";
 }
 function renderJudge(run){
-  var sec=el('section','judge-section'), j=run.judge||[], has=false;
+  var sec=el('section','judge-section'), j=(run.judge||[]).slice().sort(function(a,b){return (b.benchmark_score||0)-(a.benchmark_score||0);}), has=false;
   for(var i=0;i<j.length;i++){ if(j[i].n>0){ has=true; break; } }
   if(!has){ return null; }
   var cal=calIndex(run);
@@ -872,6 +872,25 @@ function renderJudge(run){
   var tbl=el('table','summary');
   tbl.innerHTML='<thead><tr><th>backend</th><th>benchmark'+(anyCal?' <span class="th-sub">+ calibrated ± CI</span>':'')+'</th><th>judged</th><th>acc</th><th>comp</th><th>rel</th><th>abstain ✓/✗</th><th>grounding s/p/u</th><th>harm</th><th>fab refs</th><th>date ✗</th><th>win over</th><th>trend fab</th></tr></thead><tbody>'+rows+'</tbody>';
   sec.appendChild(tbl);
+  // Click any column header to re-sort the table (numeric or text, toggles asc/desc). Defaults
+  // above are benchmark-descending; this is a lightweight inline sort (no external dependency).
+  function makeSortable(t){
+    var hs=t.querySelectorAll('thead th');
+    for(var i=0;i<hs.length;i++){ (function(th,ci){
+      th.style.cursor='pointer'; th.title='click to sort';
+      th.onclick=function(){
+        var tb=t.querySelector('tbody'), rs=Array.prototype.slice.call(tb.querySelectorAll('tr'));
+        th._asc=!th._asc; var asc=th._asc;
+        rs.sort(function(a,b){
+          var x=((a.children[ci]||{}).textContent||'').trim(), y=((b.children[ci]||{}).textContent||'').trim();
+          var nx=parseFloat(x), ny=parseFloat(y), num=!isNaN(nx)&&!isNaN(ny);
+          var r=num?(nx-ny):x.localeCompare(y); return asc?r:-r;
+        });
+        rs.forEach(function(r){tb.appendChild(r);});
+      };
+    })(hs[i],i); }
+  }
+  makeSortable(tbl);
   // Run-level calibrated callout — only when at least one cell was adjudicated.
   var rc=cal['__run__'];
   if(rc && rc.adjudicated){
@@ -883,7 +902,7 @@ function renderJudge(run){
   }
   var anyBg=false; for(var b=0;b<j.length;b++){ if((j[b].background||{}).n_background>0){ anyBg=true; break; } }
   if(anyBg){
-    var bgRows=j.map(function(s){ var bg=s.background||{}, bsp=bg.benchmark_spread||{};
+    var bgRows=j.slice().sort(function(a,b){return ((b.background||{}).benchmark_score||0)-((a.background||{}).benchmark_score||0);}).map(function(s){ var bg=s.background||{}, bsp=bg.benchmark_spread||{};
       if(!bg.n_background){ return "<tr><td class='b'>"+htmlEsc(bpShort(s.backend))+"</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>"; }
       return "<tr><td class='b'>"+htmlEsc(bpShort(s.backend))+"</td>"
         +"<td><b>"+fmt10(bg.benchmark_score)+"</b>"+(bsp.min==null?'':"<span style='opacity:.55;font-size:.85em'> "+fmt10(bsp.min)+"–"+fmt10(bsp.max)+"</span>")+"</td>"
@@ -895,7 +914,7 @@ function renderJudge(run){
     var bgleg=el('p','metrics-legend'); bgleg.innerHTML='Every arm’s separate <b>In Depth</b> elaboration — single-model two-call AND team — scored on its OWN axes so it never inflates or deflates the Answer scores above. <b>In-Depth Benchmark</b> = (support·0.5 + added-value·0.5)·10 minus 15 for an unsafe elaboration and 5 for padding — the In-Depth’s co-equal 0–100 headline. <b>support</b> = substantiates the answer & chart-grounded · <b>added value</b> = useful context beyond the answer (each 0–10) · <b>unsafe</b> = In-Depth introduced a harm absent from the answer · <b>padded</b> = bloated. An arm with no In-Depth shows “—”.';
     sec.appendChild(bgleg);
     var bgtbl=el('table','summary'); bgtbl.innerHTML='<thead><tr><th>backend</th><th>In-Depth Benchmark</th><th>In-Depth n</th><th>support</th><th>added value</th><th>unsafe</th><th>padded</th><th>claims</th></tr></thead><tbody>'+bgRows+'</tbody>';
-    sec.appendChild(bgtbl);
+    sec.appendChild(bgtbl); makeSortable(bgtbl);
   }
   sec.appendChild(judgeBarsSVG(j));
   var hm=judgeHeatmap(run); if(hm) sec.appendChild(hm);

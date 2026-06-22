@@ -309,11 +309,17 @@ def _team_title(roles: dict[str, dict[str, Any]]) -> tuple[str, str]:
 
 
 def _single_title(card: dict[str, Any]) -> tuple[str, str]:
-    """Human-readable single-arm title: "{family} {params} · single" (e.g. "Gemma 4 12B · single").
-    Returns (title, short_title) — short is the family·params essence without the " · single" tag."""
+    """Human-readable single-arm title: "{family} {params} · {quant} · single"
+    (e.g. "Gemma 4 12B · Q8 · single"). The quant token distinguishes same-size/family arms that
+    differ only by quantization (Gemma 4 12B at Q8 vs Q4). Returns (title, short_title) — short is
+    the family·params·quant essence without the " · single" tag."""
     fam = (card.get("family") or "").strip()
     params = (card.get("params") or "").strip()
+    quant = (card.get("quant") or "").strip()
+    q = quant.split("_")[0].strip()  # Q8_0 -> Q8, Q4_K_M -> Q4, "Q8_0 (QAT)" -> Q8
     essence = " ".join(p for p in (fam, params) if p) or (card.get("id") or "model")
+    if q:
+        essence = f"{essence} · {q}"
     return f"{essence} · single", essence
 
 
