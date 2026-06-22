@@ -4,6 +4,18 @@
 > `digging-in-research/06-amie-disease-management`. This is the *how, in detail*. Status: planning —
 > several design decisions flagged for sign-off (§Decisions) before Phase 1 implementation.
 
+## Framing: coordinates of the target domain — no single headline
+
+This plan is organized by **target-domain coordinate** (see `amie-management-axes-brief.md`):
+**A** = WHO-grounded management quality (Phase 1 below); **B** = medication grounding (Phase 3 / RxQA);
+**C** = multilingual + localization — the *most novel* candidate (localized chart+question variants and a
+raw-global-WHO-vs-localized-WHO-kb grounding ablation, scored on performance **and** in-language safety;
+detail to be added once build-scope picks it up); **D** = the on-device/cloud reference (the section
+below labelled "Phase 2 — model-scale experiment", now **de-headlined** to a reference coordinate). The
+harness *scores* the measurable parts of A–D and *reports* openness + privacy/PHI-egress as run
+properties. **There is no single-axis headline**; which coordinates this dissertation builds-and-validates
+vs characterizes is the **open build-scope decision**. Phase 1 (Coordinate A) is the unblocker regardless.
+
 ## The core design insight (must settle first)
 
 Our scenarios today are **extraction** ("what meds is the patient on?", `am-medications`). AMIE's
@@ -54,7 +66,7 @@ test** in `evals/validate/test_reconcile.py` (hand-computed expecteds, like the 
 (Answer · In-Depth · Management) + a management-axes table, reusing the In-Depth-block pattern we just
 built (sortable, un-hidden, definition-grid legend).
 
-## Phase 2 — The model-scale experiment *(item 1b, the headline)*
+## Phase 2 — A frontier cloud reference arm *(Coordinate D — de-headlined, formerly "the model-scale experiment")*
 
 **2a. Per-backend auth plumbing** (grounded; this is the real new code):
 - `harness/validate/models.py`: add `api_key: str | None = None` to `Backend` + `from_dict` (`apiKey`).
