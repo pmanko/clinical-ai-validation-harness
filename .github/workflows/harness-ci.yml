@@ -36,9 +36,13 @@ jobs:
         run: uv run playwright install --with-deps chromium
 
       - name: Run harness tests with coverage
+        # --cov scope must match what diff-cover gates: the gate counts changed lines in
+        # both harness/ AND scripts/, so instrument BOTH. Without --cov=scripts, changed
+        # scripts/*.py lines show 0% in diff-cover (they're absent from coverage.xml) and
+        # drag the changed-line total below the bar even when they ARE tested.
         run: |
           uv run pytest -m 'not slow' --ignore=targets \
-            --cov=harness --cov-report=xml --cov-report=term-missing
+            --cov=harness --cov=scripts --cov-report=xml --cov-report=term-missing
 
       - name: Enforce coverage on changed lines
         run: |

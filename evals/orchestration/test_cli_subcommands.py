@@ -7,7 +7,9 @@ the argument parsing and dispatch shape, not the future behavior.
 
 from __future__ import annotations
 
+import json
 import sys
+from pathlib import Path
 
 import pytest
 
@@ -101,6 +103,76 @@ def test_scaffolded_subcommands_return_exit_2_and_print_to_stderr(argv, label, c
     assert rc == 2
     assert label in err
     assert "not yet implemented" in err
+
+
+# --------------------------------------------------------------------------- #
+# validate adjudicate — the CLI branch (review-mode parsing + --from + dispatch)
+# --------------------------------------------------------------------------- #
+def _write_judged_run(out_dir: Path, run_id: str) -> Path:
+    """A minimal judged run dir the adjudicate CLI can drive non-interactively."""
+    rd = out_dir / run_id
+    rd.mkdir(parents=True)
+    judge = {"scenario_id": "s1", "backend_id": "b1", "accuracy": 8, "completeness": 7,
+             "relevance": 9, "harm": False, "abstention_outcome": "n-a",
+             "citation_groundedness": "supported", "note": "j"}
+    (rd / "judge.jsonl").write_text(json.dumps(judge) + "\n", encoding="utf-8")
+    cell = {"scenario_id": "s1", "backend_id": "b1", "answer_section": "70 kg.",
+            "turns": [{"n": 1, "question": "weight?", "answer_section": "70 kg."}]}
+    (rd / "judge-cells.jsonl").write_text(json.dumps(cell) + "\n", encoding="utf-8")
+    return rd
+
+
+def test_adjudicate_review_named_mode_parses():
+    p = _build_parser()
+    args = p.parse_args(["validate", "adjudicate", "run-7", "--review", "full",
+                         "--reviewer", "alice", "--tier", "clinical", "--seed", "3"])
+    assert args.validate_action == "adjudicate"
+    assert args.run_id == "run-7"
+    assert args.review == "full"
+    assert args.reviewer == "alice"
+    assert args.tier == "clinical"
+    assert args.seed == 3
+
+
+def test_adjudicate_numeric_review_is_a_budget(tmp_path, monkeypatch, capsys):
+    # --review 5 -> a bare integer means mode="budget", n=5 (the CLI's isdigit() branch).
+    out_dir = tmp_path / "art"
+    _write_judged_run(out_dir, "run-b")
+    answers = tmp_path / "answers.json"
+    answers.write_text(json.dumps(
+        {"s1|b1": {"accuracy": 6, "completeness": 6, "relevance": 6, "harm": False,
+                   "note": "scripted"}}), encoding="utf-8")
+    monkeypatch.setattr(sys, "argv", [
+        "harness-cli", "validate", "adjudicate", "run-b",
+        "--output-dir", str(out_dir), "--review", "5",
+        "--from", str(answers), "--reviewer", "rev", "--tier", "owner"])
+    rc = main()
+    assert rc == 0
+    # the adjudication was written to <run>/adjudication.jsonl with the scripted scores
+    adj = (out_dir / "run-b" / "adjudication.jsonl").read_text(encoding="utf-8").splitlines()
+    assert len(adj) == 1
+    rec = json.loads(adj[0])
+    assert (rec["scenario_id"], rec["backend_id"]) == ("s1", "b1")
+    assert rec["axes"]["accuracy"] == 6
+    assert "1 cell(s) reviewed" in capsys.readouterr().out
+
+
+def test_adjudicate_named_mode_from_answers_dispatches(tmp_path, monkeypatch):
+    # the non-digit --review path (mode=<name>, n=None) + --from answers loading.
+    out_dir = tmp_path / "art"
+    _write_judged_run(out_dir, "run-f")
+    answers = tmp_path / "a.json"
+    answers.write_text(json.dumps(
+        {"s1|b1": {"harm": True, "note": "human flagged harm"}}), encoding="utf-8")
+    monkeypatch.setattr(sys, "argv", [
+        "harness-cli", "validate", "adjudicate", "run-f",
+        "--output-dir", str(out_dir), "--review", "full", "--from", str(answers)])
+    assert main() == 0
+    rec = json.loads(
+        (out_dir / "run-f" / "adjudication.jsonl").read_text(encoding="utf-8").splitlines()[0])
+    # omitted axes fall back to the judge's; harm overridden to True
+    assert rec["axes"]["accuracy"] == 8  # judge value carried through
+    assert rec["harm"] is True
 
 
 def test_transform_run_dispatches_to_orchestrator(monkeypatch):

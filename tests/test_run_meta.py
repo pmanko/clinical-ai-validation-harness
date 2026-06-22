@@ -72,16 +72,19 @@ def test_run_meta_reference_date_none_when_unset(tmp_path):
     assert meta["reference_date"] is None
 
 
-def test_blob_prefers_frozen_arm_cards_when_run_meta_present(tmp_path):
-    """When run_meta.json exists, the report blob USES its frozen arm_cards rather than
-    re-resolving from the current static files."""
+def test_blob_prefers_frozen_config_but_refreshes_title_from_live(tmp_path):
+    """When run_meta.json exists, the report blob USES its frozen `config` block (the
+    provenance contract — knobs/prompts/retrieval the run ACTUALLY used) rather than
+    re-resolving from the current static files. The DISPLAY name (title/short_title/label)
+    is intentionally refreshed from live so renaming/quant fixes surface in already-run
+    reports (see report._arm_cards_for, commit 67584d8)."""
     run_dir = tmp_path / "frozen"
     _write_min_run(run_dir, "12b-baseline")
 
     frozen = {
         "12b-baseline": {
             "backend_id": "12b-baseline",
-            "title": "FROZEN TITLE",
+            "title": "FROZEN TITLE",  # a STALE title — must be overridden by live
             "config": {"knobs": {"frozen-marker": {"temp": "0.123"}},
                        "prompts": [], "retrieval": {"threshold": 0.99}},
         }
@@ -93,8 +96,14 @@ def test_blob_prefers_frozen_arm_cards_when_run_meta_present(tmp_path):
     )
 
     blob = report._run_blob(run_dir)
-    assert blob["arm_cards"]["12b-baseline"]["title"] == "FROZEN TITLE"
-    assert blob["arm_cards"]["12b-baseline"]["config"]["retrieval"]["threshold"] == 0.99
+    card = blob["arm_cards"]["12b-baseline"]
+    # config is FROZEN provenance — the run's actual knobs/retrieval survive verbatim
+    assert card["config"]["retrieval"]["threshold"] == 0.99
+    assert card["config"]["knobs"] == {"frozen-marker": {"temp": "0.123"}}
+    # but the display title is refreshed from live, NOT the stale frozen value
+    from harness.validate.model_registry import arm_card
+    assert card["title"] == arm_card("12b-baseline").get("title")
+    assert card["title"] != "FROZEN TITLE"
 
 
 def test_blob_falls_back_to_live_resolution_without_run_meta(tmp_path):

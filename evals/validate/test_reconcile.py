@@ -121,6 +121,24 @@ def test_cell_indepth_benchmark_formula_and_floor():
     assert ib({"no_new_harm": "ok"}) is None
 
 
+def test_cell_indepth_benchmark_malformed_input_returns_none_not_raises():
+    # Negative surface: a mapping whose item access blows up mid-computation (after the
+    # isinstance probe) must degrade to None, not propagate — the `except` guard. A plain
+    # dict can't trigger this, so use one whose __getitem__ raises on a real key.
+    from harness.validate.reconcile import cell_indepth_benchmark_score as ib
+
+    class _Hostile(dict):
+        def __getitem__(self, k):
+            raise RuntimeError(f"boom on {k}")
+
+    bad = _Hostile()
+    # .get() still reports a numeric axis (passes the isinstance filter) so the function
+    # proceeds to `bg[k]`, which raises -> the except returns None.
+    bad_with_get = _Hostile(support=8, added_value=8)
+    assert ib(bad_with_get) is None
+    assert ib(bad) is None  # empty hostile mapping: .get on missing key path also guarded
+
+
 def test_cell_benchmark_backward_compatible_with_partial_rows():
     # A legacy/partial row missing numeric axes RENORMALIZES over those present (does not treat an
     # absent axis as 0), and a row with no numeric axes at all returns None (excluded, not scored 0).
