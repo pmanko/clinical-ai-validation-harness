@@ -551,12 +551,35 @@ html[data-theme="dark"] { color-scheme:dark; --fg:#c9d1d9; --mut:#8b949e; --line
 * { box-sizing: border-box; }
 body { font: 14px/1.5 -apple-system, system-ui, sans-serif; color: var(--fg); margin: 0; background: var(--bg); }
 .topbar { position: sticky; top: 0; z-index: 30; background: var(--surface); border-bottom: 1px solid var(--line); padding: 12px 24px; }
-.topbar h1 { font-size: 18px; margin: 0 0 8px; }
-.controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+/* Identity band: data-derived title (left) vs. primary + overflow actions (right). */
+.topbar-id { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.topbar-id .id-main { min-width: 0; }
+.topbar h1 { font-size: 19px; font-weight: 700; margin: 0; letter-spacing: -.01em; line-height: 1.25; }
+.topbar #run-meta { margin-top: 3px; }
+.topbar-id .id-actions { display: flex; gap: 6px; align-items: center; flex-shrink: 0; }
+/* Ghost button — readily-accessible but visually quiet (PDF, theme toggle, overflow). */
+.btn-ghost { font: inherit; font-weight: 600; font-size: 12px; padding: 5px 12px; cursor: pointer; color: var(--fg); background: var(--surface); border: 1px solid var(--line); border-radius: 6px; line-height: 1.4; }
+.btn-ghost:hover { background: var(--surface2); border-color: var(--accent-bd); }
+.btn-ghost:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.btn-icon { padding: 5px 9px; }
+/* Overflow menu: subdued summary trigger + an anchored disclosure panel (the rarely-used
+   reviewer exports live here, grouped, so they don't dominate the header). */
+.overflow { position: relative; }
+.overflow > summary { list-style: none; display: inline-block; }
+.overflow > summary::-webkit-details-marker { display: none; }
+.overflow > summary::marker { content: ''; }
+.overflow[open] > summary { background: var(--surface2); border-color: var(--accent-bd); }
+.overflow-panel { position: absolute; right: 0; top: calc(100% + 6px); z-index: 40; min-width: 230px; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 6px 24px rgba(0,0,0,.16); padding: 8px; display: flex; flex-direction: column; gap: 4px; }
+.overflow-h { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--mut); margin: 2px 6px 4px; }
+.menu-item { font: inherit; font-size: 12px; text-align: left; padding: 6px 8px; cursor: pointer; color: var(--fg); background: none; border: 0; border-radius: 5px; }
+.menu-item:hover { background: var(--accent-bg); color: var(--accent); }
+.menu-item:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.menu-field { display: flex; flex-direction: column; gap: 3px; font-size: 11px; color: var(--mut); padding: 4px 8px 2px; border-top: 1px solid var(--line); margin-top: 2px; }
+.menu-field input { font: inherit; padding: 4px 6px; border: 1px solid var(--line); border-radius: 5px; background: var(--surface); color: var(--fg); }
+.controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 12px; }
 .controls label { font-size: 12px; color: var(--mut); }
 .controls select, .controls input[type=search], .controls input { font: inherit; padding: 3px 6px; }
 .controls button { font: inherit; font-weight: 600; padding: 5px 12px; cursor: pointer; }
-.controls .spacer { flex: 1; }
 .toggles { display: flex; gap: 8px; align-items: center; border: 1px solid var(--line); border-radius: 6px; padding: 3px 8px; margin: 0; }
 .toggles legend { font-size: 11px; color: var(--mut); padding: 0 4px; }
 .toggles label { font-size: 12px; color: var(--fg); display: inline-flex; gap: 3px; align-items: center; }
@@ -639,6 +662,34 @@ th { background: var(--surface2); font-weight: 600; font-size: 12px; }
 .summary .model { display: block; color: var(--mut); font-size: 11px; }
 .metrics-section { margin-top: 18px; }
 .metrics-legend { color: var(--mut); font-size: 12px; margin: 2px 0 10px; }
+
+/* Scannable grading-key / legend: a definition grid (term -> concise definition) instead
+   of a dense prose wall. <dl> keeps the term↔definition pairing semantic + screen-reader
+   navigable (W3C H40 / WCAG). Long secondary detail nests in a <details> disclosure
+   (progressive disclosure, NN/g). */
+.legend-key { display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px; margin: 6px 0 0; font-size: 12px; align-items: baseline; }
+.legend-key dt { font-weight: 700; color: var(--fg); font-size: 11.5px; }
+.legend-key dd { margin: 0; color: var(--mut); }
+.legend-key dd b, .legend-key dt b { color: var(--fg); font-weight: 700; }
+.legend-key code { font-family: ui-monospace, monospace; font-size: 11px; background: var(--surface2); border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; color: var(--fg); }
+/* When several short keys sit side by side (e.g. box-plot glyphs), let the grid wrap as
+   chips rather than one tall column. */
+.legend-chips { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 6px 0 0; font-size: 12px; }
+.legend-chips .lk { display: inline-flex; gap: 5px; align-items: baseline; color: var(--mut); }
+.legend-chips .lk b { color: var(--fg); font-weight: 700; }
+.legend-detail { margin: 8px 0 4px; }
+.legend-detail > summary { cursor: pointer; color: var(--accent); font-size: 12px; font-weight: 600; list-style: none; display: inline-flex; align-items: center; gap: 4px; }
+.legend-detail > summary::-webkit-details-marker { display: none; }
+.legend-detail > summary::after { content: '▾'; font-size: 10px; transition: transform .15s; }
+.legend-detail[open] > summary::after { transform: rotate(180deg); }
+.legend-detail > summary:hover { text-decoration: underline; }
+.legend-detail > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 3px; }
+.legend-detail .legend-body { margin-top: 8px; padding: 10px 12px; background: var(--note-bg); border: 1px solid var(--line); border-radius: 8px; }
+.legend-detail .legend-body p { margin: 0 0 6px; color: var(--mut); font-size: 12px; }
+.legend-detail .legend-body p:last-child { margin-bottom: 0; }
+.legend-caveat { font-size: 11.5px; color: var(--mut); margin: 8px 0 0; font-style: italic; }
+.legend-group-h { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--mut); margin: 12px 0 2px; }
+.legend-group-h:first-child { margin-top: 6px; }
 .metrics-grid { display: flex; flex-wrap: wrap; gap: 16px; }
 .boxplot-wrap { flex: 1 1 300px; min-width: 280px; max-width: 460px; border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; background: var(--surface); }
 .boxplot { width: 100%; height: auto; }
@@ -766,7 +817,7 @@ html { scroll-behavior: smooth; }
 
 /* Print / Save-as-PDF: drop the interactive chrome, expand answers, keep tiles whole. */
 @media print {
-  .controls label, .controls select, .controls input, .controls button, .controls fieldset, .controls .spacer { display: none !important; }
+  .controls, .id-actions { display: none !important; }
   #toc, .skip-link { display: none !important; }
   .adj, .expand { display: none !important; }
   .topbar { position: static; }
@@ -860,6 +911,25 @@ function renderRunMeta(run){
          ' · ' + m.dataset_id + ' · provider ' + m.provider + ' · ' + m.generated_at + rd;
 }
 
+// A real run identity for the header, built from the embedded run data instead of a
+// constant "Validation report". Leads with the comparison shape (N setups over M
+// question sets), then the dataset + patient cohort + date — so the header says what
+// THIS run actually was. Counts are derived from the blob; missing pieces are skipped.
+function buildTitle(run){
+  const m = run.meta || {};
+  const nArms = (run.backends || []).length;
+  let nQ = 0;
+  (run.scenarios || []).forEach(s => { nQ += (s.turns || []).length; });
+  const nP = (run.patients || []).length;
+  const parts = [];
+  if (nArms) parts.push(nArms + ' setup' + (nArms === 1 ? '' : 's'));
+  if (nQ) parts.push(nQ + ' question' + (nQ === 1 ? '' : 's'));
+  if (nP) parts.push(nP + ' patient' + (nP === 1 ? '' : 's'));
+  // "11 setups · 32 questions · 3 patients" — the comparison shape, compactly.
+  let title = parts.length ? parts.join(' · ') : 'Validation report';
+  return { title: title, dataset: m.dataset_id || '', date: (m.generated_at || '').slice(0, 10) };
+}
+
 function renderSummary(run){
   const sec = el('section', 'summary-section');
   sec.innerHTML =
@@ -939,7 +1009,24 @@ function boxPlotSVG(label, md){
 }
 function renderMetrics(run){
   var sec=el('section','metrics-section');
-  sec.innerHTML='<p class="intro">How each setup behaves across all the questions, shown as a spread rather than a single number — so you can see typical speed, citation count, and answer length, plus the outliers. Wider boxes mean more variable behaviour.</p><p class="metrics-legend"><b>What each is:</b> latency = end-to-end response time (ms) · chart references = citations per answer (a grounding-density proxy) · answer length = characters. <b>Reading a box:</b> the box spans the middle 50% of scenarios (q1–q3), the solid line is the median, the dashed line the mean, whiskers reach 1.5×IQR, ○ dots are outliers. <b>Robust axis:</b> the y-axis is clipped to a robust ceiling (the upper Tukey fence, ≥ the 95th percentile) so one extreme value can\'t squash every box — points above it are pinned to the top edge as ▲ carets and counted in a footnote, never dropped. Successful turns only.</p>';
+  sec.innerHTML='<p class="intro">How each setup behaves across all the questions, shown as a spread rather than a single number — so you can see typical speed, citation count, and answer length, plus the outliers. Wider boxes mean more variable behaviour.</p>'
+   +'<dl class="legend-key">'
+   +'<dt>latency</dt><dd>end-to-end response time, in ms.</dd>'
+   +'<dt>chart references</dt><dd>citations per answer — a grounding-density proxy.</dd>'
+   +'<dt>answer length</dt><dd>characters.</dd>'
+   +'</dl>'
+   +'<div class="legend-chips" aria-label="how to read a box plot">'
+   +'<span class="lk"><b>box</b> middle 50% (q1–q3)</span>'
+   +'<span class="lk"><b>solid line</b> median</span>'
+   +'<span class="lk"><b>dashed line</b> mean</span>'
+   +'<span class="lk"><b>whiskers</b> reach 1.5×IQR</span>'
+   +'<span class="lk"><b>○</b> outliers</span>'
+   +'<span class="lk"><b>▲</b> clipped, above-axis</span>'
+   +'</div>'
+   +'<details class="legend-detail"><summary>About the robust axis</summary><div class="legend-body">'
+   +'<p>The y-axis is clipped to a robust ceiling (the upper Tukey fence, ≥ the 95th percentile) so one extreme value can\'t squash every box. Points above it are pinned to the top edge as ▲ carets and counted in a footnote, never dropped.</p>'
+   +'<p>Successful turns only.</p>'
+   +'</div></details>';
   var m=run.metrics||{}, keys=['latency_ms','citation_count','answer_chars'], k, md;
   var grid=el('div','metrics-grid'), any=false;
   for(k=0;k<keys.length;k++){ md=m[keys[k]]; if(md&&md.series&&md.series.length){ grid.appendChild(boxPlotSVG(md.label, md)); any=true; } }
@@ -1022,10 +1109,24 @@ function renderJudge(run){
   var cal=calIndex(run);
   var anyCal=false; for(var ck in cal){ if(cal[ck] && cal[ck].adjudicated){ anyCal=true; break; } }
   sec.innerHTML='<p class="intro">The headline: how good each setup’s answers actually were. A strong AI reviewer graded every answer against the patient’s chart for correctness, completeness, and safety. The <b>Benchmark</b> column is the single 0–100 score to compare setups by; the per-scenario heatmap (below) shows it question-by-question. Click any column header to sort. Treat it as directional (one patient, one judge), not a final grade.'
-   +(anyCal?' Where a human reviewer adjudicated cells, a <b>calibrated estimate ± 95% CI</b> sits under the judge number — the judge’s score corrected by the human-labeled subset, with the judge↔human agreement κ and a reviewer-tier badge.':'')+'</p>'
-   +'<p class="metrics-legend">Each answer scored against the patient’s chart by a strong LLM reviewer (advisory). <b>Benchmark</b> = a soft 0–100 composite of the answer-only scores (accuracy/completeness weighted highest, minus bounded penalties for unsafe / abstention / citation / temporal flags — no hard gates); read it together with the harm, abstain ✗ and fab-refs counts in the same row, never alone.'
-   +(anyCal?' <b>Calibrated estimate</b> = Prediction-Powered Inference: the judge’s cheap score on every cell, bias-corrected by the human-adjudicated subset, with a 95% confidence interval; <b>κ</b> = linearly-weighted judge↔human agreement on the ordinal axes; the <b>tier badge</b> names the most-trusted reviewer (owner → domain → clinician).':'')
-   +' <b>accuracy</b> = stated facts correct · <b>completeness</b> = includes the needed info · <b>relevance</b> = on-question, no padding (each 0–10). <b>abstain ✓/✗</b> = correctly said "not documented" vs failed-to-abstain. <b>grounding s/p/u</b> = supported / partly / unsupported. <b>fab refs</b> = references that don’t resolve to a real chart record (deterministic). <b>temporal</b> — date ✗ = wrong date↔value or fabricated date · win-over = window claimed beyond the data span · trend-fab = trend asserted from too few points / wrong direction. Caveat: small N, one patient, single judge — directional, not a benchmark. Note: arms are NOT prompt-harmonized — the single-model path uses chartsearchai’s default prompt while the team path uses the orchestrator + synthesis prompts, so differences here confound orchestration with prompt; the next run harmonizes prompts to separate the two.</p>';
+   +(anyCal?' Where a human reviewer adjudicated cells, a <b>calibrated estimate ± 95% CI</b> sits under the judge number.':'')+'</p>'
+   +'<dl class="legend-key">'
+   +'<dt>Benchmark</dt><dd>soft 0–100 composite of the answer-only scores (accuracy/completeness weighted highest, minus bounded penalties for unsafe / abstention / citation / temporal flags — no hard gates). Read it with the harm, abstain ✗ and fab-refs counts in the same row, never alone.</dd>'
+   +'<dt>accuracy</dt><dd>stated facts correct (0–10).</dd>'
+   +'<dt>completeness</dt><dd>includes the needed info (0–10).</dd>'
+   +'<dt>relevance</dt><dd>on-question, no padding (0–10).</dd>'
+   +'<dt>abstain ✓/✗</dt><dd>correctly said “not documented” vs failed-to-abstain.</dd>'
+   +'<dt>grounding s/p/u</dt><dd>supported / partly / unsupported.</dd>'
+   +'<dt>harm</dt><dd>answers flagged unsafe by the reviewer.</dd>'
+   +'<dt>fab refs</dt><dd>references that don’t resolve to a real chart record (deterministic).</dd>'
+   +'<dt>temporal</dt><dd><b>date ✗</b> wrong date↔value or fabricated date · <b>win-over</b> window claimed beyond the data span · <b>trend-fab</b> trend asserted from too few points / wrong direction.</dd>'
+   +(anyCal?'<dt>calibrated ± CI</dt><dd>Prediction-Powered Inference: the judge’s cheap score on every cell, bias-corrected by the human-adjudicated subset, with a 95% CI; <b>κ</b> = linearly-weighted judge↔human agreement on the ordinal axes; the <b>tier badge</b> names the most-trusted reviewer (owner → domain → clinician).</dd>':'')
+   +'</dl>'
+   +'<details class="legend-detail"><summary>How this is scored &amp; what to watch</summary><div class="legend-body">'
+   +'<p>Each answer is scored against the patient’s chart by a strong LLM reviewer (advisory). The Benchmark is a soft composite — no single axis hard-gates it.</p>'
+   +'<p><b>Caveat:</b> small N, one patient, single judge — directional, not a benchmark.</p>'
+   +'<p><b>Note:</b> arms are NOT prompt-harmonized — the single-model path uses chartsearchAI’s default prompt while the team path uses the orchestrator + synthesis prompts, so differences here confound orchestration with prompt; the next run harmonizes prompts to separate the two.</p>'
+   +'</div></details>';
   var fab={}, jr=run.judge_rows||[];
   for(var x=0;x<jr.length;x++){ var cr=jr[x].citation_resolution||{}; fab[jr[x].backend_id]=(fab[jr[x].backend_id]||0)+(cr.n_unresolved||0); }
   var rows=j.map(function(s){ var ab=s.abstention||{}, gr=s.groundedness||{}, t=s.temporal||{}, sp=s.benchmark_spread||{};
@@ -1069,7 +1170,14 @@ function renderInDepth(run){
       +"<td>"+bg.n_background+"</td>"
       +"<td>"+fmt10(bg.support_mean)+"</td><td>"+fmt10(bg.added_value_mean)+"</td>"
       +"<td>"+(bg.new_harm_count||0)+"</td><td>"+(bg.padded_count||0)+"</td><td>"+(bg.claims_total||0)+"</td></tr>"; }).join('');
-  var bgleg=el('p','metrics-legend'); bgleg.innerHTML='Every arm’s separate <b>In Depth</b> elaboration — single-model two-call AND team — scored on its OWN axes so it never inflates or deflates the Answer scores in the Quality section. <b>In-Depth Benchmark</b> = (support·0.5 + added-value·0.5)·10 minus 15 for an unsafe elaboration and 5 for padding — the In-Depth’s co-equal 0–100 headline. <b>support</b> = substantiates the answer & chart-grounded · <b>added value</b> = useful context beyond the answer (each 0–10) · <b>unsafe</b> = In-Depth introduced a harm absent from the answer · <b>padded</b> = bloated. An arm with no In-Depth shows “—”. Click any column header to sort.';
+  var bgleg=el('div'); bgleg.innerHTML='<p class="intro">Every arm’s separate <b>In Depth</b> elaboration — single-model two-call AND team — scored on its OWN axes so it never inflates or deflates the Answer scores in the Quality section. An arm with no In-Depth shows “—”. Click any column header to sort.</p>'
+   +'<dl class="legend-key">'
+   +'<dt>In-Depth Benchmark</dt><dd>(support·0.5 + added-value·0.5)·10, minus 15 for an unsafe elaboration and 5 for padding — the In-Depth’s co-equal 0–100 headline.</dd>'
+   +'<dt>support</dt><dd>substantiates the answer &amp; chart-grounded (0–10).</dd>'
+   +'<dt>added value</dt><dd>useful context beyond the answer (0–10).</dd>'
+   +'<dt>unsafe</dt><dd>In-Depth introduced a harm absent from the answer.</dd>'
+   +'<dt>padded</dt><dd>bloated, low-signal elaboration.</dd>'
+   +'</dl>';
   sec.appendChild(bgleg);
   var bgtbl=el('table','summary'); bgtbl.innerHTML='<thead><tr><th>backend</th><th>In-Depth Benchmark</th><th>In-Depth n</th><th>support</th><th>added value</th><th>unsafe</th><th>padded</th><th>claims</th></tr></thead><tbody>'+bgRows+'</tbody>';
   sec.appendChild(bgtbl); makeSortable(bgtbl);
@@ -1309,7 +1417,15 @@ function buildNav(){
 function renderRun(runId){
   const run = runById(runId);
   if (!run) return;
-  document.getElementById('run-meta').textContent = renderRunMeta(run);
+  // Header identity: the data-derived comparison-shape title + a one-line run sub-label
+  // (dataset · date), with the full technical provenance kept as the element's tooltip.
+  const t = buildTitle(run);
+  const ttl = document.getElementById('report-title');
+  if (ttl) ttl.textContent = t.title;
+  const sub = [t.dataset, t.date].filter(Boolean).join('  ·  ');
+  const meta = document.getElementById('run-meta');
+  meta.textContent = sub;
+  meta.title = renderRunMeta(run);
 
   // scenario filter options
   const sf = document.getElementById('scenario-filter');
@@ -1615,6 +1731,15 @@ function boot(){
   document.getElementById('export-feedback').addEventListener('click', collectFeedback);
   document.getElementById('print-pdf').addEventListener('click', () => window.print());
 
+  // Overflow menu: dismiss on outside-click / Escape, and collapse after a menu action
+  // fires (standard menu affordance — the panel is a <details>, so toggling `open` works).
+  const exMenu = document.getElementById('export-menu');
+  if (exMenu){
+    document.addEventListener('click', e => { if (exMenu.open && !exMenu.contains(e.target)) exMenu.open = false; });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape' && exMenu.open) exMenu.open = false; });
+    exMenu.querySelectorAll('.menu-item').forEach(b => b.addEventListener('click', () => { exMenu.open = false; }));
+  }
+
   if (activeRunId) renderRun(activeRunId);
 }
 boot();
@@ -1633,32 +1758,58 @@ def _embed_json(blob: dict[str, Any]) -> str:
 
 def _document(blob: dict[str, Any]) -> str:
     legend = (
-        "<div class='legend'>⏱ latency (orange = first turn per backend, carries model warmup). "
-        "chart refs = count of chart records cited — a COUNT, not a grounding/quality signal; "
-        "the authoritative call is the human adjudication on each tile. tokens / finish_reasons / "
-        "response model are not surfaced by /chat (OTel-deferred). Deterministic metrics only — no LLM judge. "
-        "Drag tiles within a question to rank backends; rank + adjudication export to separate files.</div>"
+        "<div class='legend'>"
+        "<p class='legend-group-h'>Per-tile deterministic chips · no LLM judge</p>"
+        "<dl class='legend-key'>"
+        "<dt>⏱ latency</dt><dd>end-to-end response time; <b>orange</b> = first turn per backend (carries model warmup).</dd>"
+        "<dt>chart refs</dt><dd>count of chart records cited — a COUNT, not a grounding/quality signal; the authoritative call is the human adjudication on each tile.</dd>"
+        "<dt>not surfaced</dt><dd>tokens / finish_reasons / response model — not returned by <code>/chat</code> (OTel-deferred).</dd>"
+        "<dt>ranking</dt><dd>drag tiles within a question to rank backends; rank + adjudication export to separate files.</dd>"
+        "</dl></div>"
     )
-    title = blob["runs"][0]["run_id"] if blob.get("runs") else ""
+    first = (blob.get("runs") or [{}])[0]
+    _ds = (first.get("meta") or {}).get("dataset_id")
+    title = " · ".join(p for p in (_ds, first.get("run_id")) if p)
     return (
         "<!doctype html><html data-theme='light'><head><meta charset='utf-8'>"
         f"<title>validation report · {_esc(title)}</title><style>{_STYLE}</style>"
         "<script>(function(){try{var t=localStorage.getItem('oc-theme-report');if(t==='light'||t==='dark')document.documentElement.dataset.theme=t;}catch(e){}})();</script></head>"
         "<body>"
-        "<header class='topbar'><h1>Validation report</h1>"
+        "<header class='topbar'>"
+        # Identity band: the data-derived run title (JS fills #report-title from the
+        # blob) on the left; the readily-accessible primary actions (PDF, theme) +
+        # the subdued export overflow on the right. The run sub-line (dataset/git/date)
+        # sits under the title as muted meta.
+        "<div class='topbar-id'>"
+        "<div class='id-main'>"
+        "<h1 id='report-title'>Validation report</h1>"
+        "<div id='run-meta' class='meta'></div>"
+        "</div>"
+        "<div class='id-actions'>"
+        "<button id='print-pdf' class='btn-ghost' title='print / save as PDF'>Download PDF</button>"
+        "<button id='theme-toggle' class='btn-ghost btn-icon' type='button' title='Toggle light / dark' aria-label='Toggle light or dark mode'></button>"
+        # Overflow menu (progressive disclosure): the rarely-used human-feedback /
+        # adjudication exports + the reviewer-email input, grouped behind one subdued
+        # "Export ▾" trigger so they don't dominate the header. Ids preserved — the
+        # drag-to-rank + adjudication machinery is wired to them unchanged.
+        "<details id='export-menu' class='overflow'>"
+        "<summary class='btn-ghost' title='Reviewer exports — rankings & adjudication feedback'>Export <span aria-hidden='true'>▾</span></summary>"
+        "<div class='overflow-panel' role='menu'>"
+        "<p class='overflow-h'>Reviewer exports</p>"
+        "<button id='export-rankings' class='menu-item'>Export rankings.json</button>"
+        "<button id='export-feedback' class='menu-item'>Download feedback.jsonl</button>"
+        "<button id='reset-rank' class='menu-item' title='restore default backend order'>Reset ranking</button>"
+        "<label class='menu-field'>Reviewer <input id='rev' placeholder='you@example.org'></label>"
+        "</div>"
+        "</details>"
+        "</div>"
+        "</div>"
+        # Filter row: run selector, scenario filter, question search, backend toggles.
         "<div class='controls'>"
         "<label>run <select id='run-select'></select></label>"
-        "<div id='run-meta' class='meta'></div>"
         "<label>scenario <select id='scenario-filter'></select></label>"
         "<input id='q-search' type='search' placeholder='filter questions… (Esc clears)'>"
         "<fieldset id='backend-toggles' class='toggles'></fieldset>"
-        "<span class='spacer'></span>"
-        "<button id='reset-rank' title='restore default backend order'>reset ranking</button>"
-        "<button id='export-rankings'>Export rankings.json</button>"
-        "<input id='rev' placeholder='you@example.org'>"
-        "<button id='export-feedback'>Download feedback.jsonl</button>"
-        "<button id='print-pdf' title='print / save as PDF'>Download PDF</button>"
-        "<button id='theme-toggle' type='button' title='Toggle light / dark' aria-label='Toggle light or dark mode'></button>"
         "</div>"
         "<nav id='toc' aria-label='On this page'></nav>"
         "</header>"

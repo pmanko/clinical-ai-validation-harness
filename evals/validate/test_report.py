@@ -319,6 +319,81 @@ def test_report_embeds_multiple_runs_with_run_selector(tmp_path):
     assert "<select id='run-select'>" in html
 
 
+def test_report_topbar_has_data_derived_identity_not_generic_h1(tmp_path):
+    # The topbar must carry a run-identity title built from the embedded run data
+    # (dataset + date + arm/scenario/patient counts), not the generic literal
+    # "Validation report". The <h1> is a JS render target (#report-title) the shell
+    # fills from DATA, and a buildTitle() helper sources it from the run blob.
+    run_dir = tmp_path / "run"
+    _write_run(run_dir, [
+        _result("med-agent-team", "ans a", []),
+        _result("gemma-local", "ans b", []),
+    ])
+    html = build_report(run_dir).read_text(encoding="utf-8")
+
+    # The generic placeholder is gone from the header; a JS-filled title target exists.
+    assert "<h1>Validation report</h1>" not in html
+    assert "id='report-title'" in html
+    # A title builder pulls real run fields (dataset / arms / scenarios / patients) so
+    # the header identity reflects the actual run rather than a constant string.
+    assert "function buildTitle(" in html
+    assert "dataset_id" in html  # already present for run-meta; title reuses it
+    # The export/feedback actions are relocated into a single subdued overflow menu
+    # (progressive disclosure) — a labelled disclosure, not three top-row buttons.
+    assert "id='export-menu'" in html
+
+
+def test_report_export_actions_live_in_overflow_menu_and_stay_wired(tmp_path):
+    # De-emphasis: the rarely-used rankings/feedback exports + the reviewer-email input
+    # move OUT of the prominent control row into one overflow menu, but the wired ids
+    # (and their JS handlers) are preserved so the adjudication/ranking machinery works.
+    run_dir = tmp_path / "run"
+    _write_run(run_dir, [_result("gemma-local", "ans", [])])
+    html = build_report(run_dir).read_text(encoding="utf-8")
+
+    # The overflow menu container wraps the three secondary actions + the email input.
+    menu = re.search(r"id='export-menu'.*?</details>", html, re.DOTALL)
+    assert menu is not None, "expected an <details id='export-menu'> overflow menu"
+    menu_html = menu.group(0)
+    for wired in ("id='reset-rank'", "id='export-rankings'", "id='export-feedback'", "id='rev'"):
+        assert wired in menu_html, f"{wired} must live inside the overflow menu"
+    # The handlers are still wired (ids unchanged) — machinery intact.
+    assert "getElementById('reset-rank').addEventListener" in html
+    assert "getElementById('export-rankings').addEventListener" in html
+    assert "getElementById('export-feedback').addEventListener" in html
+    # Download PDF + theme toggle remain readily accessible (NOT inside the overflow menu).
+    assert "id='print-pdf'" in html
+    assert "id='print-pdf'" not in menu_html
+    assert "id='theme-toggle'" in html
+    assert "id='theme-toggle'" not in menu_html
+
+
+def test_report_dense_legends_are_structured_definition_lists(tmp_path):
+    # The Scout-rubric grading key + the box-plot reading guide are reformatted from
+    # dense <p class="metrics-legend"> walls into scannable <dl> definition grids
+    # (term -> concise definition) behind a "what these mean" disclosure — without
+    # losing the definitions. Assert the structured key markup + that the rubric terms
+    # survive as <dt> entries.
+    run_dir = tmp_path / "run"
+    _write_run(run_dir, [_result("gemma-local", "Lisinopril [1]",
+                                 [{"index": 1, "resourceType": "MedicationRequest"}])])
+    html = build_report(run_dir).read_text(encoding="utf-8")
+
+    # Definition-list scaffolding is present (replacing the prose legends).
+    assert "class='legend-key'" in html or 'class="legend-key"' in html
+    assert "<dl" in html and "<dt" in html and "<dd" in html
+    # A progressive-disclosure disclosure gates the longer secondary detail (label is
+    # contextual per section, e.g. "How this is scored…" / "About the robust axis").
+    assert "class='legend-detail'" in html or 'class="legend-detail"' in html
+    assert "<summary" in html
+    # The grading-key terms survive as definition terms, not deleted.
+    for term in ("accuracy", "completeness", "relevance", "grounding", "harm", "temporal"):
+        assert term in html, f"rubric term '{term}' must survive the restructure"
+    # The box-plot reading guide terms survive too.
+    for term in ("median", "mean", "whisker"):
+        assert term in html, f"box-plot term '{term}' must survive the restructure"
+
+
 def test_report_blob_is_embedding_safe_against_script_breakout(tmp_path):
     # A model answer containing </script> must not break out of the inert JSON
     # <script> element. The blob is emitted with < > & neutralised to \\uXXXX, so no
