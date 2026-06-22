@@ -252,24 +252,70 @@ _DIST_METRICS = [
 ]
 
 
+def _percentile(values: list[float], p: float) -> float:
+    """Linear-interpolated percentile of a non-empty sorted-able list (p in [0,1])."""
+    xs = sorted(values)
+    n = len(xs)
+    if n == 0:
+        return 0.0
+    if n == 1:
+        return float(xs[0])
+    idx = p * (n - 1)
+    lo = int(idx)
+    return xs[lo] + (xs[min(lo + 1, n - 1)] - xs[lo]) * (idx - lo)
+
+
+def _robust_axis_max(series: list[dict[str, Any]], all_values: list[float]) -> float:
+    """Robust y-axis ceiling so a lone extreme outlier (e.g. one 30s latency) can't
+    squish every box to a sliver. Principled bound (UX research — Observable,
+    Datawrapper, ggplot2): the upper Tukey fence (Q3 + 1.5·IQR) of the POOLED values,
+    which is the box plot's own outlier boundary, so clipping there is internally
+    consistent with what a box plot means. Falls back to the global p95 when the fence
+    is degenerate (IQR≈0 → an all-equal distribution). Floored at the widest arm's own
+    box top (max q3) so a per-arm box is never itself clipped, and at the global max
+    when nothing is extreme (so a tame distribution frames its full spread, no carets).
+    Points beyond the ceiling are clamped + flagged in the SVG, never silently dropped.
+    0 when there's nothing to chart."""
+    if not all_values:
+        return 0.0
+    q1 = _percentile(all_values, 0.25)
+    q3 = _percentile(all_values, 0.75)
+    iqr = q3 - q1
+    fence = q3 + 1.5 * iqr if iqr > 0 else _percentile(all_values, 0.95)
+    box_top = max((s.get("q3", 0) or 0) for s in series) if series else 0.0
+    data_max = max(all_values)
+    # never clip below the widest box; never clip above the data (no carets when nothing
+    # is actually beyond the fence — a tame chart uses its true max).
+    return float(min(data_max, max(fence, box_top)))
+
+
 def _metric_distributions(
     results: list[dict[str, Any]], backends: list[str]
 ) -> dict[str, Any]:
     """Per-arm box-and-whisker stats for each distribution metric, computed over the
-    successful turns only. Shape: {metric_key: {label, series:[{backend, ...stats}]}}."""
+    successful turns only. Shape: {metric_key: {label, axis_max, series:[{backend,
+    ...stats}]}}. axis_max is the robust (outlier-clipped) y-axis ceiling the SVG
+    clamps to — see _robust_axis_max."""
     out: dict[str, Any] = {}
     for key, label in _DIST_METRICS:
         series = []
+        all_values: list[float] = []
         for b in backends:
             vals = [
                 (r.get("metrics") or {}).get(key)
                 for r in results
                 if r.get("backend_id") == b and (r.get("metrics") or {}).get("http_status") == 200
             ]
-            stats = _box_stats([v for v in vals if isinstance(v, (int, float))])
+            nums = [v for v in vals if isinstance(v, (int, float))]
+            stats = _box_stats(nums)
             if stats:
                 series.append({"backend": b, **stats})
-        out[key] = {"label": label, "series": series}
+                all_values.extend(nums)
+        out[key] = {
+            "label": label,
+            "series": series,
+            "axis_max": round(_robust_axis_max(series, all_values), 2),
+        }
     return out
 
 
@@ -516,9 +562,43 @@ body { font: 14px/1.5 -apple-system, system-ui, sans-serif; color: var(--fg); ma
 .toggles label { font-size: 12px; color: var(--fg); display: inline-flex; gap: 3px; align-items: center; }
 .meta { color: var(--mut); font-size: 12px; font-family: ui-monospace, monospace; }
 main { max-width: none; margin: 0 auto; padding: 16px 24px 120px; }
-h2 { font-size: 15px; margin: 28px 0 8px; font-family: ui-monospace, monospace; }
-.intro { color: var(--mut); font-size: 13px; margin: 4px 0 14px; max-width: 72ch; }
+.intro { color: var(--mut); font-size: 13px; margin: 4px 0 14px; max-width: 84ch; }
 section.intro-led > .intro:first-child { margin-top: 0; }
+
+/* Skip-link + visually-hidden (screen-reader-only) helper (a11y). */
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+.skip-link { position: absolute; left: 8px; top: -48px; z-index: 60; background: var(--accent); color: #fff; padding: 8px 14px; border-radius: 0 0 8px 8px; font-weight: 600; transition: top .15s; }
+.skip-link:focus { top: 0; }
+
+/* Sticky in-page table of contents (scrollspy). Sits in the sticky topbar so the section
+   anchors are always one click away; the active link is highlighted as you scroll. */
+#toc { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 10px; border-top: 1px solid var(--line); padding-top: 8px; }
+#toc .toc-link { font-size: 12px; font-weight: 600; color: var(--mut); text-decoration: none; padding: 4px 10px; border-radius: 6px; border: 1px solid transparent; white-space: nowrap; }
+#toc .toc-link:hover { background: var(--accent-bg); color: var(--accent); }
+#toc .toc-link[aria-current="location"] { background: var(--accent-bg); color: var(--accent); border-color: var(--accent-bd); }
+
+/* Distinct, numbered, divider-led sections (UX research: numbered headings + dividers +
+   whitespace so stacked sections read as separate blocks). scroll-margin-top keeps an
+   anchored heading clear of the sticky header. */
+#report > section.rsec { counter-increment: rsec; border-top: 2px solid var(--line); margin-top: 34px; padding-top: 22px; scroll-margin-top: 128px; }
+#report > section.rsec:first-of-type { border-top: 0; margin-top: 8px; }
+#report > section.rsec > h2 { font-size: 17px; margin: 0 0 10px; font-family: -apple-system, system-ui, sans-serif; font-weight: 700; display: flex; align-items: baseline; gap: 10px; }
+#report > section.rsec > h2 .sec-h::before { content: counter(rsec, decimal-leading-zero) " "; color: var(--accent); font-family: ui-monospace, monospace; font-weight: 700; margin-right: 6px; }
+#report > section.rsec > h2 .sec-note { font-size: 11px; font-weight: 600; color: var(--mut); text-transform: uppercase; letter-spacing: .04em; background: var(--surface2); border: 1px solid var(--line); border-radius: 10px; padding: 2px 8px; }
+.scenario-h { font-size: 14px; margin: 22px 0 6px; font-family: ui-monospace, monospace; color: var(--fg); }
+/* Engineering = visible but de-emphasized (operational, not answer quality). */
+#sec-engineering { opacity: .92; }
+#sec-engineering > h2 .sec-h { color: var(--mut); }
+
+/* Sortable-table header affordances (UX research: W3C APG / Roselli). The label is a real
+   <button> (free keyboard); the active column shows aria-sort + a solid ▲/▼; the glyph is
+   aria-hidden (state lives in aria-sort). */
+th button.th-sort { font: inherit; font-weight: 600; color: inherit; background: none; border: 0; padding: 0; margin: 0; cursor: pointer; display: inline-flex; align-items: baseline; gap: 4px; width: 100%; text-align: inherit; }
+th button.th-sort:hover { color: var(--accent); }
+th button.th-sort:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+th .sort-ind { font-size: 9px; color: var(--accent); min-width: .8em; }
+th[aria-sort] { background: var(--accent-bg); }
+th[aria-sort] button.th-sort { color: var(--accent); }
 .arms-section { margin: 8px 24px 0; }
 .arm-cards { display: flex; flex-wrap: wrap; gap: 10px; }
 .arm-card { flex: 1 1 240px; min-width: 220px; border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; background: var(--surface); }
@@ -551,8 +631,6 @@ table.ac-knobs td.ac-k, table.ac-knobs th:first-child { color: var(--mut); font-
 .arm-config .ac-pfull > summary { cursor: pointer; color: var(--accent); font-size: 10px; }
 .arm-config pre.ac-pre { white-space: pre-wrap; font: 10.5px/1.45 ui-monospace, monospace; background: var(--surface2); border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; margin: 4px 0 0; max-height: 16em; overflow: auto; }
 .arm-config .ac-retr { font-size: 11px; font-family: ui-monospace, monospace; color: var(--fg); }
-details.eng { margin: 24px 24px 0; }
-details.eng > summary { cursor: pointer; color: var(--mut); font-size: 13px; font-family: ui-monospace, monospace; padding: 6px 0; }
 table { border-collapse: collapse; width: 100%; background: var(--surface); }
 th, td { border: 1px solid var(--line); padding: 8px 10px; text-align: left; vertical-align: top; }
 th { background: var(--surface2); font-weight: 600; font-size: 12px; }
@@ -573,7 +651,9 @@ th { background: var(--surface2); font-weight: 600; font-size: 12px; }
 .bp-median { stroke: var(--accent); stroke-width: 2.2; }
 .bp-mean { stroke: #d9730d; stroke-width: 1.4; stroke-dasharray: 3 2; }
 .bp-whisker, .bp-cap { stroke: var(--accent); stroke-width: 1; }
-.bp-out { fill: #d9730d; opacity: .75; }
+.bp-out { fill: none; stroke: #d9730d; stroke-width: 1; opacity: .85; }
+.bp-clip { fill: #d9730d; }
+.bp-clipnote { font-size: 8.5px; fill: #d9730d; }
 .judge-section { margin-top: 18px; }
 .th-sub { font-weight: 400; color: var(--mut); font-size: 10px; }
 .cal { margin-top: 5px; font-size: 11px; line-height: 1.5; display: flex; flex-wrap: wrap; gap: 4px 6px; align-items: baseline; justify-content: center; }
@@ -680,11 +760,17 @@ table.jheat { border-collapse: collapse; font-size: 11px; }
 .fs-body { clear: both; }
 .fs-body .ans { max-height: none; overflow: visible; font-size: 15px; line-height: 1.6; }
 
+/* Smooth in-page jumps, but honour reduced-motion. */
+html { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+
 /* Print / Save-as-PDF: drop the interactive chrome, expand answers, keep tiles whole. */
 @media print {
   .controls label, .controls select, .controls input, .controls button, .controls fieldset, .controls .spacer { display: none !important; }
+  #toc, .skip-link { display: none !important; }
   .adj, .expand { display: none !important; }
   .topbar { position: static; }
+  #report > section.rsec { scroll-margin-top: 0; break-inside: avoid-page; }
   .tiles { overflow: visible; }
   .tile { break-inside: avoid; }
   .ans { max-height: none !important; overflow: visible !important; }
@@ -708,6 +794,57 @@ let activeRunId = (DATA.runs[0] || {}).run_id;
 function runById(id){ return DATA.runs.find(r => r.run_id === id); }
 function el(tag, cls){ const e = document.createElement(tag); if(cls) e.className = cls; return e; }
 
+/* ---- sortable tables (every data table) ----
+   UX research (W3C APG sortable-table, Adrian Roselli, NN/g): each header label
+   wraps a real <button> (free keyboard + focus), aria-sort sits ONLY on the active
+   <th> (omit "none" — inconsistently announced), the ▲/▼ glyph is aria-hidden (state
+   lives in aria-sort), columns auto-detect numeric vs text, missing/"—"/"n/a" cells
+   always sink to the bottom regardless of direction, and a polite live-region
+   announces the new sort for the screen readers that don't auto-read aria-sort. */
+function sortAnnounce(msg){
+  var lr=document.getElementById('sort-live'); if(!lr) return;
+  lr.textContent=''; setTimeout(function(){ lr.textContent=msg; }, 30);
+}
+function cellSortVal(td){
+  var raw=((td&&td.textContent)||'').trim();
+  if(raw===''||raw==='—'||raw==='-'||raw==='n/a'||raw==='N/A') return {missing:true, num:NaN, txt:''};
+  // a leading number (handles "123 ms", "89.8", "1.2k" via the k-suffix) drives numeric sort
+  var m=raw.replace(/,/g,'').match(/^[+-]?\d*\.?\d+/);
+  var num=m?parseFloat(m[0])*(/\dk\b/i.test(raw)?1000:1):NaN;
+  return {missing:false, num:num, txt:raw.toLowerCase()};
+}
+function makeSortable(t){
+  var heads=t.querySelectorAll('thead th');
+  // Detect, per column, whether the body cells are predominantly numeric.
+  var bodyRows=Array.prototype.slice.call(t.querySelectorAll('tbody tr'));
+  for(var ci=0;ci<heads.length;ci++){ (function(th, col){
+    var label=th.textContent; th.innerHTML='';
+    var btn=document.createElement('button'); btn.type='button'; btn.className='th-sort';
+    btn.innerHTML=htmlEsc(label)+" <span class='sort-ind' aria-hidden='true'></span>";
+    th.appendChild(btn);
+    btn.addEventListener('click', function(){
+      var tb=t.querySelector('tbody'), rows=Array.prototype.slice.call(tb.querySelectorAll('tr'));
+      var asc=th.getAttribute('aria-sort')==='ascending' ? false : true;   // toggle; new column -> ascending
+      // numeric column if every present cell parses to a number
+      var numeric=rows.length>0 && rows.every(function(r){ var v=cellSortVal(r.children[col]); return v.missing||!isNaN(v.num); });
+      rows.sort(function(a,b){
+        var x=cellSortVal(a.children[col]), y=cellSortVal(b.children[col]);
+        if(x.missing&&y.missing) return 0;
+        if(x.missing) return 1;   // missing always sinks to the bottom...
+        if(y.missing) return -1;  // ...regardless of asc/desc
+        var r = numeric ? (x.num-y.num) : x.txt.localeCompare(y.txt, undefined, {numeric:true});
+        return asc?r:-r;
+      });
+      rows.forEach(function(r){ tb.appendChild(r); });
+      // clear every header's sort state, then mark only this one
+      for(var h=0;h<heads.length;h++){ heads[h].removeAttribute('aria-sort'); var si=heads[h].querySelector('.sort-ind'); if(si) si.textContent=''; }
+      th.setAttribute('aria-sort', asc?'ascending':'descending');
+      var ind=th.querySelector('.sort-ind'); if(ind) ind.textContent=asc?'▲':'▼';
+      sortAnnounce(label.trim()+', sorted '+(asc?'ascending':'descending'));
+    });
+  })(heads[ci], ci); }
+}
+
 function loadAllRanks(){ try { return JSON.parse(localStorage.getItem(RANK_KEY)) || {}; } catch(e) { return {}; } }
 function saveAllRanks(o){ localStorage.setItem(RANK_KEY, JSON.stringify(o)); }
 function savedRankFor(group){ return loadAllRanks()[group] || null; }
@@ -725,8 +862,8 @@ function renderRunMeta(run){
 
 function renderSummary(run){
   const sec = el('section', 'summary-section');
-  sec.innerHTML = '<h2>comparison summary</h2>' +
-    "<p class='intro'>One row per setup: how many questions it answered, how fast, and how often it cited the chart or fell back. These are operational counts (speed and volume), not a measure of whether the answers were right.</p>";
+  sec.innerHTML =
+    "<p class='intro'>One row per setup: how many questions it answered, how fast, and how often it cited the chart or fell back. These are operational counts (speed and volume), not a measure of whether the answers were right. Click any column header to sort.</p>";
   const rows = run.summary.map(s =>
     "<tr><td class='b'>" + htmlEsc(armTitle(s.backend_id)) + "<span class='model'>" + htmlEsc(s.backend_id) + "</span></td>" +
     '<td>' + s.turns + '</td><td>' + s.avg_latency_ms + ' ms</td><td>' + s.max_latency_ms + ' ms</td>' +
@@ -737,6 +874,7 @@ function renderSummary(run){
     '<th>max latency</th><th>total chart refs</th><th>degraded</th><th>errors</th></tr></thead>' +
     '<tbody>' + rows + '</tbody>';
   sec.appendChild(tbl);
+  makeSortable(tbl);
   return sec;
 }
 
@@ -750,17 +888,28 @@ function armShort(b){ const c = armCardFor(b); return (c && (c.short_title || c.
 function bpShort(b){ return armShort(b); }
 function bpNiceCeil(v){ if(v<=0) return 1; var p=Math.pow(10,Math.floor(Math.log10(v))); var f=v/p; var nf=f<=1?1:(f<=2?2:(f<=5?5:10)); return nf*p; }
 function bpFmt(v){ v=Math.round(v); return v>=1000?((v/1000).toFixed(v>=10000?0:1)+'k'):String(v); }
-function boxPlotSVG(label, series){
-  var W=Math.max(320, 70+series.length*92), H=232, padL=46, padR=12, padT=22, padB=40, plotH=H-padT-padB;
-  var maxV=0, i, s, o;
-  for(i=0;i<series.length;i++){ s=series[i]; maxV=Math.max(maxV, s.whisker_hi, s.max); for(o=0;o<(s.outliers||[]).length;o++) maxV=Math.max(maxV, s.outliers[o]); }
-  var nm=bpNiceCeil(maxV);
-  function Y(v){ return padT + plotH - (v/nm)*plotH; }
+// Box plot with a ROBUST, outlier-clipped y-axis (UX research: clip to the Tukey
+// fence / p95 so one extreme value can't squish every box — Observable/Datawrapper/
+// ggplot2). axisMax (precomputed server-side as the max upper-whisker, ≥ global p95)
+// is the clip ceiling; any point above it is CLAMPED to the top edge as a ▲ caret
+// (visually distinct from the in-range ○ outlier dots) and counted into a "N beyond X
+// not shown" footnote — clipped honestly, never silently dropped.
+function boxPlotSVG(label, md){
+  var series=md.series||[];
+  var H=232, padL=46, padR=12, padT=22, padB=52, plotH=H-padT-padB;
+  var W=Math.max(320, 70+series.length*92);
+  var i, s, o;
+  // Robust ceiling from the server, with safe fallbacks; round up to a nice tick value.
+  var rawMax=md.axis_max||0;
+  if(rawMax<=0){ for(i=0;i<series.length;i++){ s=series[i]; rawMax=Math.max(rawMax, s.whisker_hi||0, s.median||0); } }
+  var nm=bpNiceCeil(rawMax||1);
+  function Y(v){ var c=Math.min(v, nm); return padT + plotH - (c/nm)*plotH; }
   var step=(W-padL-padR)/series.length;
   var g='<svg viewBox="0 0 '+W+' '+H+'" class="boxplot" role="img" aria-label="'+htmlEsc(label)+'">';
   g+='<text x="'+padL+'" y="13" class="bp-title">'+htmlEsc(label)+'</text>';
   var ticks=[0,0.25,0.5,0.75,1], t, yy, val;
   for(t=0;t<ticks.length;t++){ val=nm*ticks[t]; yy=Y(val); g+='<line x1="'+padL+'" y1="'+yy+'" x2="'+(W-padR)+'" y2="'+yy+'" class="bp-grid"/>'; g+='<text x="'+(padL-5)+'" y="'+(yy+3)+'" class="bp-ytick">'+bpFmt(val)+'</text>'; }
+  var clipN=0, clipMax=0;   // count + furthest value clamped above the axis ceiling
   for(i=0;i<series.length;i++){
     s=series[i];
     var cx=padL+step*i+step/2, bw=Math.min(42, step*0.52), x0=cx-bw/2, x1=cx+bw/2;
@@ -770,19 +919,30 @@ function boxPlotSVG(label, series){
     g+='<rect x="'+x0+'" y="'+Y(s.q3)+'" width="'+bw+'" height="'+Math.max(1,Y(s.q1)-Y(s.q3))+'" class="bp-box"/>';
     g+='<line x1="'+x0+'" y1="'+Y(s.median)+'" x2="'+x1+'" y2="'+Y(s.median)+'" class="bp-median"/>';
     g+='<line x1="'+x0+'" y1="'+Y(s.mean)+'" x2="'+x1+'" y2="'+Y(s.mean)+'" class="bp-mean"/>';
-    for(o=0;o<(s.outliers||[]).length;o++){ g+='<circle cx="'+cx+'" cy="'+Y(s.outliers[o])+'" r="2.1" class="bp-out"/>'; }
-    g+='<text x="'+cx+'" y="'+(H-24)+'" class="bp-xtick">'+htmlEsc(bpShort(s.backend))+'</text>';
-    g+='<text x="'+cx+'" y="'+(H-13)+'" class="bp-xn">n'+s.n+' · md '+bpFmt(s.median)+'</text>';
+    for(o=0;o<(s.outliers||[]).length;o++){
+      var ov=s.outliers[o];
+      if(ov>nm){ clipN++; clipMax=Math.max(clipMax, ov);
+        // off-scale: a ▲ caret pinned just inside the top edge, distinct from the in-range dot
+        g+='<path d="M'+(cx-3.4)+' '+(padT+5)+' L'+(cx+3.4)+' '+(padT+5)+' L'+cx+' '+(padT-0.5)+' Z" class="bp-clip"><title>'+htmlEsc(bpShort(s.backend)+': '+bpFmt(ov)+' (off scale)')+'</title></path>';
+      } else {
+        g+='<circle cx="'+cx+'" cy="'+Y(ov)+'" r="2.1" class="bp-out"/>';
+      }
+    }
+    g+='<text x="'+cx+'" y="'+(H-26)+'" class="bp-xtick">'+htmlEsc(bpShort(s.backend))+'</text>';
+    g+='<text x="'+cx+'" y="'+(H-15)+'" class="bp-xn">n'+s.n+' · md '+bpFmt(s.median)+'</text>';
+  }
+  if(clipN>0){
+    g+='<text x="'+padL+'" y="'+(H-3)+'" class="bp-clipnote">▲ '+clipN+' outlier'+(clipN>1?'s':'')+' beyond '+bpFmt(nm)+' (max '+bpFmt(clipMax)+') — axis clipped, not shown to scale</text>';
   }
   g+='</svg>';
   var wrap=el('div','boxplot-wrap'); wrap.innerHTML=g; return wrap;
 }
 function renderMetrics(run){
   var sec=el('section','metrics-section');
-  sec.innerHTML='<h2>metric distributions</h2><p class="intro">How each setup behaves across all the questions, shown as a spread rather than a single number — so you can see typical speed, citation count, and answer length, plus the outliers. Wider boxes mean more variable behaviour.</p><p class="metrics-legend"><b>What each is:</b> latency = end-to-end response time (ms) · chart references = citations per answer (a grounding-density proxy) · answer length = characters. <b>Reading a box:</b> the box spans the middle 50% of scenarios (q1–q3), the solid line is the median, the dashed line the mean, whiskers reach 1.5×IQR, dots are outliers. Successful turns only.</p>';
+  sec.innerHTML='<p class="intro">How each setup behaves across all the questions, shown as a spread rather than a single number — so you can see typical speed, citation count, and answer length, plus the outliers. Wider boxes mean more variable behaviour.</p><p class="metrics-legend"><b>What each is:</b> latency = end-to-end response time (ms) · chart references = citations per answer (a grounding-density proxy) · answer length = characters. <b>Reading a box:</b> the box spans the middle 50% of scenarios (q1–q3), the solid line is the median, the dashed line the mean, whiskers reach 1.5×IQR, ○ dots are outliers. <b>Robust axis:</b> the y-axis is clipped to a robust ceiling (the upper Tukey fence, ≥ the 95th percentile) so one extreme value can\'t squash every box — points above it are pinned to the top edge as ▲ carets and counted in a footnote, never dropped. Successful turns only.</p>';
   var m=run.metrics||{}, keys=['latency_ms','citation_count','answer_chars'], k, md;
   var grid=el('div','metrics-grid'), any=false;
-  for(k=0;k<keys.length;k++){ md=m[keys[k]]; if(md&&md.series&&md.series.length){ grid.appendChild(boxPlotSVG(md.label, md.series)); any=true; } }
+  for(k=0;k<keys.length;k++){ md=m[keys[k]]; if(md&&md.series&&md.series.length){ grid.appendChild(boxPlotSVG(md.label, md)); any=true; } }
   if(!any){ sec.innerHTML+='<p class="muted">no successful turns to chart yet.</p>'; }
   sec.appendChild(grid);
   return sec;
@@ -861,12 +1021,11 @@ function renderJudge(run){
   if(!has){ return null; }
   var cal=calIndex(run);
   var anyCal=false; for(var ck in cal){ if(cal[ck] && cal[ck].adjudicated){ anyCal=true; break; } }
-  sec.innerHTML='<h2>quality — reviewer judgment (Scout rubric)</h2>'
-   +'<p class="intro">The headline: how good each setup’s answers actually were. A strong AI reviewer graded every answer against the patient’s chart for correctness, completeness, and safety. The <b>Benchmark</b> column is the single 0–100 score to compare setups by; the heatmap below shows it question-by-question. Treat it as directional (one patient, one judge), not a final grade.'
+  sec.innerHTML='<p class="intro">The headline: how good each setup’s answers actually were. A strong AI reviewer graded every answer against the patient’s chart for correctness, completeness, and safety. The <b>Benchmark</b> column is the single 0–100 score to compare setups by; the per-scenario heatmap (below) shows it question-by-question. Click any column header to sort. Treat it as directional (one patient, one judge), not a final grade.'
    +(anyCal?' Where a human reviewer adjudicated cells, a <b>calibrated estimate ± 95% CI</b> sits under the judge number — the judge’s score corrected by the human-labeled subset, with the judge↔human agreement κ and a reviewer-tier badge.':'')+'</p>'
    +'<p class="metrics-legend">Each answer scored against the patient’s chart by a strong LLM reviewer (advisory). <b>Benchmark</b> = a soft 0–100 composite of the answer-only scores (accuracy/completeness weighted highest, minus bounded penalties for unsafe / abstention / citation / temporal flags — no hard gates); read it together with the harm, abstain ✗ and fab-refs counts in the same row, never alone.'
    +(anyCal?' <b>Calibrated estimate</b> = Prediction-Powered Inference: the judge’s cheap score on every cell, bias-corrected by the human-adjudicated subset, with a 95% confidence interval; <b>κ</b> = linearly-weighted judge↔human agreement on the ordinal axes; the <b>tier badge</b> names the most-trusted reviewer (owner → domain → clinician).':'')
-   +' <b>accuracy</b> = stated facts correct · <b>completeness</b> = includes the needed info · <b>relevance</b> = on-question, no padding (each 0–10). <b>abstain ✓/✗</b> = correctly said "not documented" vs failed-to-abstain. <b>grounding s/p/u</b> = supported / partly / unsupported. <b>fab refs</b> = references that don’t resolve to a real chart record (deterministic). <b>temporal</b> — date ✗ = wrong date↔value or fabricated date · win-over = window claimed beyond the data span · trend-fab = trend asserted from too few points / wrong direction. <b>Drill down:</b> the heatmap is every scenario × arm (green=accurate, amber, red) — click a cell for the note. Caveat: small N, one patient, single judge — directional, not a benchmark. Note: arms are NOT prompt-harmonized — the single-model path uses chartsearchai’s default prompt while the team path uses the orchestrator + synthesis prompts, so differences here confound orchestration with prompt; the next run harmonizes prompts to separate the two.</p>';
+   +' <b>accuracy</b> = stated facts correct · <b>completeness</b> = includes the needed info · <b>relevance</b> = on-question, no padding (each 0–10). <b>abstain ✓/✗</b> = correctly said "not documented" vs failed-to-abstain. <b>grounding s/p/u</b> = supported / partly / unsupported. <b>fab refs</b> = references that don’t resolve to a real chart record (deterministic). <b>temporal</b> — date ✗ = wrong date↔value or fabricated date · win-over = window claimed beyond the data span · trend-fab = trend asserted from too few points / wrong direction. Caveat: small N, one patient, single judge — directional, not a benchmark. Note: arms are NOT prompt-harmonized — the single-model path uses chartsearchai’s default prompt while the team path uses the orchestrator + synthesis prompts, so differences here confound orchestration with prompt; the next run harmonizes prompts to separate the two.</p>';
   var fab={}, jr=run.judge_rows||[];
   for(var x=0;x<jr.length;x++){ var cr=jr[x].citation_resolution||{}; fab[jr[x].backend_id]=(fab[jr[x].backend_id]||0)+(cr.n_unresolved||0); }
   var rows=j.map(function(s){ var ab=s.abstention||{}, gr=s.groundedness||{}, t=s.temporal||{}, sp=s.benchmark_spread||{};
@@ -881,24 +1040,6 @@ function renderJudge(run){
   var tbl=el('table','summary');
   tbl.innerHTML='<thead><tr><th>backend</th><th>benchmark'+(anyCal?' <span class="th-sub">+ calibrated ± CI</span>':'')+'</th><th>judged</th><th>acc</th><th>comp</th><th>rel</th><th>abstain ✓/✗</th><th>grounding s/p/u</th><th>harm</th><th>fab refs</th><th>date ✗</th><th>win over</th><th>trend fab</th></tr></thead><tbody>'+rows+'</tbody>';
   sec.appendChild(tbl);
-  // Click any column header to re-sort the table (numeric or text, toggles asc/desc). Defaults
-  // above are benchmark-descending; this is a lightweight inline sort (no external dependency).
-  function makeSortable(t){
-    var hs=t.querySelectorAll('thead th');
-    for(var i=0;i<hs.length;i++){ (function(th,ci){
-      th.style.cursor='pointer'; th.title='click to sort';
-      th.onclick=function(){
-        var tb=t.querySelector('tbody'), rs=Array.prototype.slice.call(tb.querySelectorAll('tr'));
-        th._asc=!th._asc; var asc=th._asc;
-        rs.sort(function(a,b){
-          var x=((a.children[ci]||{}).textContent||'').trim(), y=((b.children[ci]||{}).textContent||'').trim();
-          var nx=parseFloat(x), ny=parseFloat(y), num=!isNaN(nx)&&!isNaN(ny);
-          var r=num?(nx-ny):x.localeCompare(y); return asc?r:-r;
-        });
-        rs.forEach(function(r){tb.appendChild(r);});
-      };
-    })(hs[i],i); }
-  }
   makeSortable(tbl);
   // Run-level calibrated callout — only when at least one cell was adjudicated.
   var rc=cal['__run__'];
@@ -909,24 +1050,29 @@ function renderJudge(run){
       +' '+tierBadge(rc.tier)+' <span class="cal-n">over '+(rc.n_labeled||0)+' human-reviewed cells of '+(rc.n_all||0)+'</span>';
     sec.appendChild(note);
   }
-  var anyBg=false; for(var b=0;b<j.length;b++){ if((j[b].background||{}).n_background>0){ anyBg=true; break; } }
-  if(anyBg){
-    var bgRows=j.slice().sort(function(a,b){return ((b.background||{}).benchmark_score||0)-((a.background||{}).benchmark_score||0);}).map(function(s){ var bg=s.background||{}, bsp=bg.benchmark_spread||{};
-      if(!bg.n_background){ return "<tr><td class='b'>"+htmlEsc(bpShort(s.backend))+"</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>"; }
-      return "<tr><td class='b'>"+htmlEsc(bpShort(s.backend))+"</td>"
-        +"<td><b>"+fmt10(bg.benchmark_score)+"</b>"+(bsp.min==null?'':"<span style='opacity:.55;font-size:.85em'> "+fmt10(bsp.min)+"–"+fmt10(bsp.max)+"</span>")+"</td>"
-        +"<td>"+bg.n_background+"</td>"
-        +"<td>"+fmt10(bg.support_mean)+"</td><td>"+fmt10(bg.added_value_mean)+"</td>"
-        +"<td>"+(bg.new_harm_count||0)+"</td><td>"+(bg.padded_count||0)+"</td><td>"+(bg.claims_total||0)+"</td></tr>"; }).join('');
-    var bgh=el('h3','jh-title'); bgh.textContent='In-Depth — its own parity Benchmark (any arm that ships one; scored separately from the Answer)';
-    sec.appendChild(bgh);
-    var bgleg=el('p','metrics-legend'); bgleg.innerHTML='Every arm’s separate <b>In Depth</b> elaboration — single-model two-call AND team — scored on its OWN axes so it never inflates or deflates the Answer scores above. <b>In-Depth Benchmark</b> = (support·0.5 + added-value·0.5)·10 minus 15 for an unsafe elaboration and 5 for padding — the In-Depth’s co-equal 0–100 headline. <b>support</b> = substantiates the answer & chart-grounded · <b>added value</b> = useful context beyond the answer (each 0–10) · <b>unsafe</b> = In-Depth introduced a harm absent from the answer · <b>padded</b> = bloated. An arm with no In-Depth shows “—”.';
-    sec.appendChild(bgleg);
-    var bgtbl=el('table','summary'); bgtbl.innerHTML='<thead><tr><th>backend</th><th>In-Depth Benchmark</th><th>In-Depth n</th><th>support</th><th>added value</th><th>unsafe</th><th>padded</th><th>claims</th></tr></thead><tbody>'+bgRows+'</tbody>';
-    sec.appendChild(bgtbl); makeSortable(bgtbl);
-  }
   sec.appendChild(judgeBarsSVG(j));
-  var hm=judgeHeatmap(run); if(hm) sec.appendChild(hm);
+  return sec;
+}
+
+// In-Depth — its own parity Benchmark, scored separately from the Answer. Split into
+// its own navigable section so the In-Depth axis is co-equal with the Answer headline,
+// not buried inside the Quality table. Returns null when no arm shipped an In-Depth.
+function renderInDepth(run){
+  var j=(run.judge||[]).slice();
+  var anyBg=false; for(var b=0;b<j.length;b++){ if((j[b].background||{}).n_background>0){ anyBg=true; break; } }
+  if(!anyBg) return null;
+  var sec=el('section','indepth-section');
+  var bgRows=j.slice().sort(function(a,b){return ((b.background||{}).benchmark_score||0)-((a.background||{}).benchmark_score||0);}).map(function(s){ var bg=s.background||{}, bsp=bg.benchmark_spread||{};
+    if(!bg.n_background){ return "<tr><td class='b'>"+htmlEsc(armTitle(s.backend))+"</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>"; }
+    return "<tr><td class='b'>"+htmlEsc(armTitle(s.backend))+"</td>"
+      +"<td><b>"+fmt10(bg.benchmark_score)+"</b>"+(bsp.min==null?'':"<span style='opacity:.55;font-size:.85em'> "+fmt10(bsp.min)+"–"+fmt10(bsp.max)+"</span>")+"</td>"
+      +"<td>"+bg.n_background+"</td>"
+      +"<td>"+fmt10(bg.support_mean)+"</td><td>"+fmt10(bg.added_value_mean)+"</td>"
+      +"<td>"+(bg.new_harm_count||0)+"</td><td>"+(bg.padded_count||0)+"</td><td>"+(bg.claims_total||0)+"</td></tr>"; }).join('');
+  var bgleg=el('p','metrics-legend'); bgleg.innerHTML='Every arm’s separate <b>In Depth</b> elaboration — single-model two-call AND team — scored on its OWN axes so it never inflates or deflates the Answer scores in the Quality section. <b>In-Depth Benchmark</b> = (support·0.5 + added-value·0.5)·10 minus 15 for an unsafe elaboration and 5 for padding — the In-Depth’s co-equal 0–100 headline. <b>support</b> = substantiates the answer & chart-grounded · <b>added value</b> = useful context beyond the answer (each 0–10) · <b>unsafe</b> = In-Depth introduced a harm absent from the answer · <b>padded</b> = bloated. An arm with no In-Depth shows “—”. Click any column header to sort.';
+  sec.appendChild(bgleg);
+  var bgtbl=el('table','summary'); bgtbl.innerHTML='<thead><tr><th>backend</th><th>In-Depth Benchmark</th><th>In-Depth n</th><th>support</th><th>added value</th><th>unsafe</th><th>padded</th><th>claims</th></tr></thead><tbody>'+bgRows+'</tbody>';
+  sec.appendChild(bgtbl); makeSortable(bgtbl);
   return sec;
 }
 
@@ -1057,8 +1203,7 @@ function renderArmConfig(cfg){
 function renderArms(run){
   const sec = el('section', 'arms-section');
   const cards = run.arm_cards || {};
-  let h = "<h2>what this run compares</h2>";
-  h += "<p class='intro'>Every setup answers the same questions, graded against the patient's chart. " +
+  let h = "<p class='intro'>Every setup answers the same questions, graded against the patient's chart. " +
        "<b>Single</b> = one model reads the chart and answers (vanilla chartsearchAI); " +
        "<b>Team</b> = a med-agent-hub pipeline whose models search, consult a specialist, and cross-check before answering.</p>";
   h += "<div class='arm-cards'>";
@@ -1097,6 +1242,70 @@ function renderArms(run){
   return sec;
 }
 
+// Wrap a render fn's <section> in the consistent, navigable shell: a stable id (the
+// scroll-anchor + scrollspy target), a data-nav label (the TOC builds itself from these,
+// so an absent section silently drops from the nav), and one consistent numbered <h2> at
+// the top. `note` = an optional small de-emphasis tag (e.g. engineering = "operational").
+function wrapSection(node, id, navLabel, heading, note){
+  if(!node) return null;
+  node.id = id;
+  node.dataset.nav = navLabel;
+  node.classList.add('rsec');
+  const h = el('h2');
+  h.innerHTML = "<span class='sec-h'>" + htmlEsc(heading) + "</span>" +
+    (note ? " <span class='sec-note'>" + htmlEsc(note) + "</span>" : "");
+  node.insertBefore(h, node.firstChild);
+  return node;
+}
+
+// Build the sticky in-page table of contents from the sections actually present, then
+// wire a scrollspy that highlights the active section (aria-current='location'). UX
+// research favours IntersectionObserver, but a thin trigger band can't account for this
+// report's VARIABLE sticky-header height (patient banner + per-run backend toggles), so we
+// use a deterministic header-aware position check (rAF-throttled), which also makes the
+// top and last-section edge cases trivial. Rebuilt each render (#report re-renders on run
+// switch). _spyScroll is kept so a prior listener is removed before re-wiring.
+let _spyScroll = null;
+function buildNav(){
+  const nav = document.getElementById('toc');
+  if(!nav) return;
+  const secs = [...document.querySelectorAll('#report > section.rsec[data-nav]')];
+  nav.innerHTML = '';
+  if(_spyScroll){ window.removeEventListener('scroll', _spyScroll); window.removeEventListener('resize', _spyScroll); _spyScroll = null; }
+  if(!secs.length){ nav.style.display = 'none'; return; }
+  nav.style.display = '';
+  const byId = new Map();
+  secs.forEach(s => {
+    const a = el('a', 'toc-link');
+    a.href = '#' + s.id;
+    a.textContent = s.dataset.nav;
+    a.addEventListener('click', e => {
+      e.preventDefault();
+      s.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      history.replaceState(null, '', '#' + s.id);
+    });
+    nav.appendChild(a);
+    byId.set(s.id, a);
+  });
+  function setActive(id){ byId.forEach(l => l.removeAttribute('aria-current')); var l=byId.get(id); if(l) l.setAttribute('aria-current','location'); }
+  function spy(){
+    // The trigger line = just below the live sticky header (measured, not assumed), so the
+    // active section flips as its heading clears the header.
+    const header = document.querySelector('.topbar');
+    const line = (header ? header.getBoundingClientRect().bottom : 0) + 12;
+    let active = secs[0].id;
+    for(let i=0;i<secs.length;i++){ if(secs[i].getBoundingClientRect().top <= line){ active = secs[i].id; } }
+    // bottom-of-page → the last section is "current" even if it never reached the line.
+    if(window.innerHeight + window.scrollY >= document.body.scrollHeight - 4){ active = secs[secs.length-1].id; }
+    setActive(active);
+  }
+  let ticking = false;
+  _spyScroll = function(){ if(ticking) return; ticking = true; requestAnimationFrame(function(){ spy(); ticking = false; }); };
+  window.addEventListener('scroll', _spyScroll, { passive: true });
+  window.addEventListener('resize', _spyScroll, { passive: true });
+  spy();
+}
+
 function renderRun(runId){
   const run = runById(runId);
   if (!run) return;
@@ -1123,17 +1332,26 @@ function renderRun(runId){
   main.innerHTML = '';
   const pbanner = renderPatientBanner(run);
   if (pbanner) main.appendChild(pbanner);
-  main.appendChild(renderArms(run));
-  const judge = renderJudge(run);
-  if (judge) main.appendChild(judge);
 
+  // 1) Arms — what this run compares
+  main.appendChild(wrapSection(renderArms(run), 'sec-arms', 'Arms', 'What this run compares'));
+  // 2) Quality — the headline judge scores
+  const judge = wrapSection(renderJudge(run), 'sec-quality', 'Quality', 'Quality — reviewer judgment (Scout rubric)');
+  if (judge) main.appendChild(judge);
+  // 3) In-Depth — its own co-equal Benchmark
+  const indepth = wrapSection(renderInDepth(run), 'sec-indepth', 'In-Depth', 'In-Depth — its own parity Benchmark');
+  if (indepth) main.appendChild(indepth);
+
+  // 4) Per-scenario — the heatmap + the side-by-side answer tiles, one navigable section
+  const scenSec = el('section', 'scenario-wrap');
+  const scenIntro = el('p', 'intro');
+  scenIntro.textContent = 'The actual answers, one column per setup, lined up question-by-question so you can read them side by side. The heatmap is every scenario × arm (green = accurate, amber, red) — click a cell for the reviewer’s note. Drag a tile to rank the setups; click ⛶ to read one full-screen. Use the scenario filter and question search up top to narrow.';
+  scenSec.appendChild(scenIntro);
+  const hm = judgeHeatmap(run); if (hm) scenSec.appendChild(hm);
   run.scenarios.forEach(sc => {
     const sec = el('section', 'scenario');
     sec.dataset.scenario = sc.scenario_id;
-    const h = el('h2'); h.textContent = sc.scenario_id; sec.appendChild(h);
-    const intro = el('p', 'intro');
-    intro.textContent = 'The actual answers for this scenario, one column per setup, lined up question-by-question so you can read them side by side. Drag a tile to rank the setups; click ⛶ to read one full-screen.';
-    sec.appendChild(intro);
+    const h = el('h3', 'scenario-h'); h.textContent = sc.scenario_id; sec.appendChild(h);
 
     sc.turns.forEach(tn => {
       const band = el('div', 'qband');
@@ -1165,17 +1383,21 @@ function renderRun(runId){
       band.appendChild(wrap);
       sec.appendChild(band);
     });
-    main.appendChild(sec);
+    scenSec.appendChild(sec);
   });
+  main.appendChild(wrapSection(scenSec, 'sec-scenario', 'Per-scenario', 'Per-scenario answers'));
 
-  // Declutter: engineering metrics (latency, chart refs, errors) collapse to the bottom — they
-  // are operational, not answer-quality, so they don't lead.
-  const eng = el('details', 'eng');
-  eng.innerHTML = "<summary>engineering metrics — latency · chart refs · errors (operational, not answer quality)</summary>";
+  // 5) Engineering metrics — UN-HIDDEN (was a <details> collapse). Operational, not answer
+  // quality, so it lives last and reads de-emphasized, but it's always visible + in the nav.
+  const eng = el('section', 'eng-section');
+  const engIntro = el('p', 'intro');
+  engIntro.innerHTML = 'Operational behaviour, <b>not</b> answer quality: how fast each setup responded, how many chart records it cited, and how often it errored or fell back. Useful for cost/latency trade-offs, but it does not say whether the answers were right — that’s the Quality section.';
+  eng.appendChild(engIntro);
   eng.appendChild(renderSummary(run));
   eng.appendChild(renderMetrics(run));
-  main.appendChild(eng);
+  main.appendChild(wrapSection(eng, 'sec-engineering', 'Engineering', 'Engineering metrics', 'operational, not answer quality'));
 
+  buildNav();
   applyFilters();
 }
 
@@ -1437,8 +1659,12 @@ def _document(blob: dict[str, Any]) -> str:
         "<button id='export-feedback'>Download feedback.jsonl</button>"
         "<button id='print-pdf' title='print / save as PDF'>Download PDF</button>"
         "<button id='theme-toggle' type='button' title='Toggle light / dark' aria-label='Toggle light or dark mode'></button>"
-        "</div></header>"
+        "</div>"
+        "<nav id='toc' aria-label='On this page'></nav>"
+        "</header>"
+        "<a class='skip-link' href='#report'>Skip to report</a>"
         "<main id='report'></main>"
+        "<div id='sort-live' class='sr-only' aria-live='polite'></div>"
         f"<template id='rubric-template'>{_RUBRIC_FORM}</template>"
         f"{legend}"
         f"<script type='application/json' id='report-data'>{_embed_json(blob)}</script>"
