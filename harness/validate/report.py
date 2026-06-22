@@ -577,13 +577,52 @@ body { font: 14px/1.5 -apple-system, system-ui, sans-serif; color: var(--fg); ma
 .menu-field { display: flex; flex-direction: column; gap: 3px; font-size: 11px; color: var(--mut); padding: 4px 8px 2px; border-top: 1px solid var(--line); margin-top: 2px; }
 .menu-field input { font: inherit; padding: 4px 6px; border: 1px solid var(--line); border-radius: 5px; background: var(--surface); color: var(--fg); }
 .controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 12px; }
+.controls:empty { display: none; }
 .controls label { font-size: 12px; color: var(--mut); }
 .controls select, .controls input[type=search], .controls input { font: inherit; padding: 3px 6px; }
 .controls button { font: inherit; font-weight: 600; padding: 5px 12px; cursor: pointer; }
+/* Topbar run-switcher: navigates to a SIBLING published run dir. Hidden by default —
+   shown only after the sibling reports-index.json successfully loads (graceful
+   degradation for a local file:// open / absent index). */
+.run-switcher { display: none; align-items: center; gap: 5px; }
+.run-switcher.ready { display: inline-flex; }
+.run-switcher label { font-size: 12px; color: var(--mut); }
+.run-switcher select { font: inherit; font-size: 12px; padding: 4px 8px; max-width: 360px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); color: var(--fg); }
 .toggles { display: flex; gap: 8px; align-items: center; border: 1px solid var(--line); border-radius: 6px; padding: 3px 8px; margin: 0; }
 .toggles legend { font-size: 11px; color: var(--mut); padding: 0 4px; }
 .toggles label { font-size: 12px; color: var(--fg); display: inline-flex; gap: 3px; align-items: center; }
 .meta { color: var(--mut); font-size: 12px; font-family: ui-monospace, monospace; }
+
+/* Section-local filter bar (UX research: filters live next to the data they affect —
+   Pencil&Paper / LogRocket / Aufait: component-level filters for discrepant sections;
+   only global dimensions belong in a page toolbar). Sits at the top of the Answers
+   section, sticky just under the topbar so it stays reachable while scrolling tiles. */
+.answers-filters { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; position: sticky; top: var(--topbar-h, 64px); z-index: 20; background: var(--bg); padding: 8px 0; margin: 0 0 6px; border-bottom: 1px solid var(--line); }
+.answers-filters label { font-size: 12px; color: var(--mut); }
+.answers-filters select, .answers-filters input[type=search] { font: inherit; padding: 4px 7px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); color: var(--fg); }
+.answers-filters input[type=search] { min-width: 220px; }
+
+/* Multi-select "Filter setups ▾" dropdown (UX research: NN/g listbox-vs-dropdown — a
+   checkbox listbox holds many options compactly; UX Patterns / Baymard — select-all +
+   clear-all + a count badge for reporting filters). A <details> disclosure anchors a
+   scrollable checkbox panel; the trigger shows an "N of M" badge. Scales to 11+ setups. */
+.setup-filter { position: relative; display: inline-block; }
+.setup-filter > summary { list-style: none; display: inline-flex; align-items: center; gap: 7px; cursor: pointer; font: inherit; font-weight: 600; font-size: 12px; padding: 5px 11px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); color: var(--fg); }
+.setup-filter > summary::-webkit-details-marker { display: none; }
+.setup-filter > summary::marker { content: ''; }
+.setup-filter > summary:hover { border-color: var(--accent-bd); background: var(--surface2); }
+.setup-filter[open] > summary { border-color: var(--accent-bd); background: var(--surface2); }
+.setup-filter > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.setup-count { font: 11px ui-monospace, monospace; background: var(--accent-bg); color: var(--accent); border: 1px solid var(--accent-bd); border-radius: 10px; padding: 0 7px; }
+.setup-count.count-badge.partial { background: #fff3d6; color: #8a5a00; border-color: #f1c21b; }
+.setup-panel { position: absolute; left: 0; top: calc(100% + 6px); z-index: 50; min-width: 260px; max-width: 380px; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 6px 24px rgba(0,0,0,.18); padding: 8px; }
+.setup-panel-acts { display: flex; gap: 6px; padding: 2px 2px 8px; border-bottom: 1px solid var(--line); margin-bottom: 6px; }
+.setup-panel-acts button { font: inherit; font-size: 11px; font-weight: 600; padding: 3px 9px; cursor: pointer; color: var(--accent); background: var(--accent-bg); border: 1px solid var(--accent-bd); border-radius: 5px; }
+.setup-panel-acts button:hover { background: var(--accent-hover); }
+.setup-list { max-height: 280px; overflow-y: auto; display: flex; flex-direction: column; gap: 1px; }
+.setup-list label { display: flex; gap: 7px; align-items: center; font-size: 12px; color: var(--fg); padding: 5px 6px; border-radius: 5px; cursor: pointer; }
+.setup-list label:hover { background: var(--accent-bg); }
+.setup-list input { margin: 0; flex-shrink: 0; }
 main { max-width: none; margin: 0 auto; padding: 16px 24px 120px; }
 .intro { color: var(--mut); font-size: 13px; margin: 4px 0 14px; max-width: 84ch; }
 section.intro-led > .intro:first-child { margin-top: 0; }
@@ -817,10 +856,11 @@ html { scroll-behavior: smooth; }
 
 /* Print / Save-as-PDF: drop the interactive chrome, expand answers, keep tiles whole. */
 @media print {
-  .controls, .id-actions { display: none !important; }
+  .controls, .id-actions, .answers-filters { display: none !important; }
   #toc, .skip-link { display: none !important; }
   .adj, .expand { display: none !important; }
   .topbar { position: static; }
+  .answers-filters { position: static; }
   #report > section.rsec { scroll-margin-top: 0; break-inside: avoid-page; }
   .tiles { overflow: visible; }
   .tile { break-inside: avoid; }
@@ -1414,6 +1454,81 @@ function buildNav(){
   spy();
 }
 
+// Section-local filter bar for the Answers section (UX research: filters sit next to
+// the data they affect — Pencil&Paper / LogRocket / Aufait). Holds the scenario <select>,
+// the question search, and the multi-select setup filter. Same ids the existing handlers
+// (#scenario-filter / #q-search / applyBackendToggle) are wired to — behaviour preserved.
+function buildAnswersFilters(run){
+  const bar = el('div', 'answers-filters');
+  // scenario <select>
+  const sLab = el('label'); sLab.htmlFor = 'scenario-filter'; sLab.textContent = 'scenario';
+  const sf = el('select'); sf.id = 'scenario-filter';
+  sf.innerHTML = "<option value=''>all scenarios</option>" + run.scenarios.map(() => "<option></option>").join('');
+  run.scenarios.forEach((s, i) => { const o = sf.options[i + 1]; o.value = s.scenario_id; o.textContent = s.scenario_id; });
+  sf.addEventListener('change', applyScenarioFilter);
+  bar.appendChild(sLab); bar.appendChild(sf);
+  // question search
+  const search = el('input'); search.id = 'q-search'; search.type = 'search';
+  search.placeholder = 'filter questions… (Esc clears)';
+  search.setAttribute('aria-label', 'filter questions');
+  search.addEventListener('input', applyQuestionSearch);
+  search.addEventListener('keydown', e => { if (e.key === 'Escape'){ search.value = ''; applyQuestionSearch(); } });
+  bar.appendChild(search);
+  // multi-select setup filter (the scalable replacement for the checkbox toggle list)
+  bar.appendChild(buildSetupFilter(run));
+  return bar;
+}
+
+// "Filter setups ▾" multi-select dropdown — the scalable replacement for the flat
+// horizontal checkbox list (UX research: NN/g listbox-vs-dropdown holds many options
+// compactly; UX Patterns / Baymard — select-all + clear-all + a count badge for
+// reporting filters). A <details> anchors a scrollable checkbox panel; the trigger shows
+// an "N of M" badge. Each checkbox drives the SAME applyBackendToggle show/hide as before.
+function buildSetupFilter(run){
+  const backends = run.backends || [];
+  const total = backends.length;
+  const wrap = el('details', 'setup-filter');
+  const sum = el('summary');
+  sum.innerHTML = "Filter setups <span aria-hidden='true'>▾</span> <span id='setup-count' class='setup-count count-badge'></span>";
+  wrap.appendChild(sum);
+  const panel = el('div', 'setup-panel'); panel.setAttribute('role', 'group'); panel.setAttribute('aria-label', 'Filter setups');
+  const acts = el('div', 'setup-panel-acts');
+  const allBtn = el('button'); allBtn.type = 'button'; allBtn.className = 'setup-all'; allBtn.textContent = 'Select all';
+  const clrBtn = el('button'); clrBtn.type = 'button'; clrBtn.className = 'setup-clear'; clrBtn.textContent = 'Clear all';
+  acts.appendChild(allBtn); acts.appendChild(clrBtn);
+  panel.appendChild(acts);
+  const list = el('div', 'setup-list');
+  backends.forEach(b => {
+    const lab = el('label');
+    const cb = el('input'); cb.type = 'checkbox'; cb.checked = true; cb.value = b; cb.className = 'setup-cb';
+    cb.addEventListener('change', () => { applyBackendToggle(b, cb.checked); updateSetupCount(wrap, total); });
+    const txt = el('span'); txt.textContent = armShort(b);
+    lab.appendChild(cb); lab.appendChild(txt); lab.title = b;
+    list.appendChild(lab);
+  });
+  panel.appendChild(list);
+  wrap.appendChild(panel);
+  // select-all / clear-all flip every checkbox + re-apply (the count badge follows).
+  function setAll(on){
+    list.querySelectorAll('input.setup-cb').forEach(cb => { cb.checked = on; applyBackendToggle(cb.value, on); });
+    updateSetupCount(wrap, total);
+  }
+  allBtn.addEventListener('click', () => setAll(true));
+  clrBtn.addEventListener('click', () => setAll(false));
+  // dismiss on outside-click / Escape (standard disclosure affordance). The document
+  // listener no-ops once this filter is detached (run switch re-renders the bar), so a
+  // stale closure from a prior render can't act on the live one.
+  document.addEventListener('click', e => { if (wrap.isConnected && wrap.open && !wrap.contains(e.target)) wrap.open = false; });
+  wrap.addEventListener('keydown', e => { if (e.key === 'Escape' && wrap.open){ wrap.open = false; sum.focus(); } });
+  updateSetupCount(wrap, total);
+  return wrap;
+}
+function updateSetupCount(wrap, total){
+  const on = wrap.querySelectorAll('input.setup-cb:checked').length;
+  const badge = wrap.querySelector('#setup-count');
+  if (badge){ badge.textContent = on + ' of ' + total; badge.classList.toggle('partial', on < total); }
+}
+
 function renderRun(runId){
   const run = runById(runId);
   if (!run) return;
@@ -1426,23 +1541,6 @@ function renderRun(runId){
   const meta = document.getElementById('run-meta');
   meta.textContent = sub;
   meta.title = renderRunMeta(run);
-
-  // scenario filter options
-  const sf = document.getElementById('scenario-filter');
-  sf.innerHTML = "<option value=''>all scenarios</option>" +
-    run.scenarios.map(s => "<option></option>").join('');
-  run.scenarios.forEach((s, i) => { const o = sf.options[i + 1]; o.value = s.scenario_id; o.textContent = s.scenario_id; });
-
-  // backend toggle checkboxes (all on)
-  const tg = document.getElementById('backend-toggles');
-  tg.innerHTML = '<legend>backends</legend>';
-  run.backends.forEach(b => {
-    const lab = el('label');
-    const cb = el('input'); cb.type = 'checkbox'; cb.checked = true; cb.value = b;
-    cb.addEventListener('change', () => applyBackendToggle(b, cb.checked));
-    lab.appendChild(cb); lab.appendChild(document.createTextNode(b));
-    tg.appendChild(lab);
-  });
 
   const main = document.getElementById('report');
   main.innerHTML = '';
@@ -1458,12 +1556,26 @@ function renderRun(runId){
   const indepth = wrapSection(renderInDepth(run), 'sec-indepth', 'In-Depth', 'In-Depth — its own parity Benchmark');
   if (indepth) main.appendChild(indepth);
 
-  // 4) Per-scenario — the heatmap + the side-by-side answer tiles, one navigable section
+  // 4) Per-scenario heatmap — the scenario × setup colour grid, now its OWN navigable
+  // section (split from the answer tiles so each is independently reachable in the nav).
+  const hm = judgeHeatmap(run);
+  if (hm){
+    const hmSec = el('section', 'heatmap-wrap');
+    const hmIntro = el('p', 'intro');
+    hmIntro.textContent = 'Every scenario × setup at a glance (green = accurate, amber, red) — click a cell to read the reviewer’s note. The full side-by-side answers are in the next section.';
+    hmSec.appendChild(hmIntro);
+    hmSec.appendChild(hm);
+    main.appendChild(wrapSection(hmSec, 'sec-heatmap', 'Heatmap', 'Per-scenario heatmap'));
+  }
+
+  // 5) Per-scenario answers — the side-by-side answer tiles, its own navigable section
+  // with a SECTION-LOCAL filter bar (scenario / question / setups) adjacent to the data
+  // it filters (UX research: component-level filters belong next to discrepant sections).
   const scenSec = el('section', 'scenario-wrap');
   const scenIntro = el('p', 'intro');
-  scenIntro.textContent = 'The actual answers, one column per setup, lined up question-by-question so you can read them side by side. The heatmap is every scenario × arm (green = accurate, amber, red) — click a cell for the reviewer’s note. Drag a tile to rank the setups; click ⛶ to read one full-screen. Use the scenario filter and question search up top to narrow.';
+  scenIntro.textContent = 'The actual answers, one column per setup, lined up question-by-question so you can read them side by side. Drag a tile to rank the setups; click ⛶ to read one full-screen. Use the filters below to narrow to a scenario, search questions, or hide setups.';
   scenSec.appendChild(scenIntro);
-  const hm = judgeHeatmap(run); if (hm) scenSec.appendChild(hm);
+  scenSec.appendChild(buildAnswersFilters(run));
   run.scenarios.forEach(sc => {
     const sec = el('section', 'scenario');
     sec.dataset.scenario = sc.scenario_id;
@@ -1501,7 +1613,7 @@ function renderRun(runId){
     });
     scenSec.appendChild(sec);
   });
-  main.appendChild(wrapSection(scenSec, 'sec-scenario', 'Per-scenario', 'Per-scenario answers'));
+  main.appendChild(wrapSection(scenSec, 'sec-answers', 'Answers', 'Per-scenario answers'));
 
   // 5) Engineering metrics — UN-HIDDEN (was a <details> collapse). Operational, not answer
   // quality, so it lives last and reads de-emphasized, but it's always visible + in the nav.
@@ -1517,15 +1629,19 @@ function renderRun(runId){
   applyFilters();
 }
 
-/* ---- filter + toggle (attribute flips, no re-render) ---- */
+/* ---- filter + toggle (attribute flips, no re-render) ----
+   The scenario / question controls now live in the section-local Answers filter bar
+   (rebuilt each render), so the lookups are null-guarded for the pre-render call. */
 function applyScenarioFilter(){
-  const v = document.getElementById('scenario-filter').value;
+  const sel = document.getElementById('scenario-filter'); if (!sel) return;
+  const v = sel.value;
   document.querySelectorAll('#report .scenario').forEach(sec => {
     sec.dataset.hidden = (v && sec.dataset.scenario !== v) ? '1' : '0';
   });
 }
 function applyQuestionSearch(){
-  const raw = document.getElementById('q-search').value.trim();
+  const inp = document.getElementById('q-search'); if (!inp) return;
+  const raw = inp.value.trim();
   let re = null;
   if (raw){ try { re = new RegExp(raw, 'i'); } catch(e) { re = null; } }
   document.querySelectorAll('#report .qband').forEach(band => {
@@ -1547,7 +1663,8 @@ function htmlEsc(s){ const d = document.createElement('div'); d.textContent = (s
 function applyFilters(){
   applyScenarioFilter();
   applyQuestionSearch();
-  document.querySelectorAll('#backend-toggles input[type=checkbox]').forEach(cb => applyBackendToggle(cb.value, cb.checked));
+  // Setup show/hide now driven by the section-local multi-select checkboxes.
+  document.querySelectorAll('.setup-filter input.setup-cb').forEach(cb => applyBackendToggle(cb.value, cb.checked));
 }
 
 /* ---- drag-rank (native DnD, constrained within one band) ---- */
@@ -1714,18 +1831,68 @@ function submit(text, name, mime){
     .catch(e => { alert('submit failed (' + e + ') — downloading instead'); download(text, name, mime); });
 }
 
-/* ---- boot ---- */
-function boot(){
-  const rs = document.getElementById('run-select');
-  rs.innerHTML = DATA.runs.map(() => '<option></option>').join('');
-  DATA.runs.forEach((r, i) => { const o = rs.options[i]; o.value = r.run_id; o.textContent = r.run_id; });
-  rs.value = activeRunId;
-  rs.addEventListener('change', () => { activeRunId = rs.value; renderRun(activeRunId); });
+/* ---- cross-run switcher ----
+   Swaps between PUBLISHED runs. A published report lives at <reports>/<slug>/index.html,
+   so its siblings + the curated reports-index.json are one level up. Fetch ../reports-index.json
+   at runtime, list each run (slug → title), mark the current one (its slug = this report's
+   parent dir), and navigate to ../<slug>/ on select. Graceful degradation: any fetch failure
+   (a local file:// open, or the index absent — e.g. an un-published render) leaves the control
+   hidden, so it is never a dead single-option select. */
+function currentSlug(){
+  // .../<slug>/  or  .../<slug>/index.html  → the slug is the parent dir of index.html
+  var parts = location.pathname.split('/').filter(Boolean);
+  if (!parts.length) return '';
+  var last = parts[parts.length - 1];
+  return (/\.html?$/i.test(last) || last === '') ? (parts[parts.length - 2] || '') : last;
+}
+function loadRunSwitcher(){
+  var box = document.getElementById('run-switcher');
+  var sel = document.getElementById('run-switcher-sel');
+  if (!box || !sel) return;
+  fetch('../reports-index.json', { cache: 'no-store' })
+    .then(function(r){ if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+    .then(function(idx){
+      var runs = (idx && idx.runs) || [];
+      if (!runs.length) throw new Error('no runs');
+      var here = currentSlug();
+      sel.innerHTML = '';
+      runs.forEach(function(run){
+        if (!run || !run.slug) return;
+        var o = document.createElement('option');
+        o.value = run.slug;
+        var current = run.slug === here;
+        o.textContent = (current ? '● ' : '') + (run.title || run.slug);
+        if (current) o.selected = true;
+        sel.appendChild(o);
+      });
+      if (!sel.options.length) throw new Error('no slugs');
+      sel.addEventListener('change', function(){ if (sel.value) location.href = '../' + sel.value + '/'; });
+      box.classList.add('ready');   // reveal only once it's a real, populated switcher
+      syncTopbarHeight();
+    })
+    .catch(function(){ /* graceful degradation — leave the control hidden */ });
+}
 
-  document.getElementById('scenario-filter').addEventListener('change', applyScenarioFilter);
-  const search = document.getElementById('q-search');
-  search.addEventListener('input', applyQuestionSearch);
-  search.addEventListener('keydown', e => { if (e.key === 'Escape'){ search.value = ''; applyQuestionSearch(); } });
+/* ---- boot ---- */
+// Keep the section-local sticky filter bar tucked just under the live topbar (its height
+// varies with the patient banner + toc), exposed as a CSS var the bar's `top` reads.
+function syncTopbarHeight(){
+  var tb = document.querySelector('.topbar');
+  if (tb) document.documentElement.style.setProperty('--topbar-h', tb.getBoundingClientRect().height + 'px');
+}
+function boot(){
+  // Embedded multi-run selector: only relevant (and only shown) when this single file
+  // carries more than one run. The cross-run switcher above handles the published case.
+  const rs = document.getElementById('run-select');
+  const rsWrap = document.getElementById('run-select-wrap');
+  if (rs){
+    rs.innerHTML = DATA.runs.map(() => '<option></option>').join('');
+    DATA.runs.forEach((r, i) => { const o = rs.options[i]; o.value = r.run_id; o.textContent = r.run_id; });
+    rs.value = activeRunId;
+    rs.addEventListener('change', () => { activeRunId = rs.value; renderRun(activeRunId); syncTopbarHeight(); });
+    if (rsWrap && DATA.runs.length > 1) rsWrap.hidden = false;
+  }
+
   document.getElementById('reset-rank').addEventListener('click', resetRanking);
   document.getElementById('export-rankings').addEventListener('click', exportRankings);
   document.getElementById('export-feedback').addEventListener('click', collectFeedback);
@@ -1740,7 +1907,10 @@ function boot(){
     exMenu.querySelectorAll('.menu-item').forEach(b => b.addEventListener('click', () => { exMenu.open = false; }));
   }
 
+  loadRunSwitcher();
   if (activeRunId) renderRun(activeRunId);
+  syncTopbarHeight();
+  window.addEventListener('resize', syncTopbarHeight);
 }
 boot();
 (function(){var b=document.getElementById('theme-toggle');if(!b)return;function s(){b.textContent=document.documentElement.dataset.theme==='dark'?'☀':'☾';}s();b.addEventListener('click',function(){var n=document.documentElement.dataset.theme==='dark'?'light':'dark';document.documentElement.dataset.theme=n;try{localStorage.setItem('oc-theme-report',n);}catch(e){}s();});})();
@@ -1786,6 +1956,14 @@ def _document(blob: dict[str, Any]) -> str:
         "<div id='run-meta' class='meta'></div>"
         "</div>"
         "<div class='id-actions'>"
+        # Run-switcher: swaps between PUBLISHED runs (fetched from the sibling
+        # reports-index.json at runtime → navigate to ../<slug>/). Hidden until that
+        # fetch succeeds (graceful degradation for a local file:// open / absent index)
+        # so it is never a dead control. The current run is marked in the option list.
+        "<span id='run-switcher' class='run-switcher'>"
+        "<label for='run-switcher-sel'>view run</label>"
+        "<select id='run-switcher-sel' aria-label='Switch to another published run'></select>"
+        "</span>"
         "<button id='print-pdf' class='btn-ghost' title='print / save as PDF'>Download PDF</button>"
         "<button id='theme-toggle' class='btn-ghost btn-icon' type='button' title='Toggle light / dark' aria-label='Toggle light or dark mode'></button>"
         # Overflow menu (progressive disclosure): the rarely-used human-feedback /
@@ -1804,12 +1982,12 @@ def _document(blob: dict[str, Any]) -> str:
         "</details>"
         "</div>"
         "</div>"
-        # Filter row: run selector, scenario filter, question search, backend toggles.
+        # Page-level controls row: ONLY the embedded multi-run selector (when this single
+        # file carries >1 run). The scenario / question / setup filters affect just the
+        # Answers section, so they moved there (see #answers-filters). `.controls:empty`
+        # hides this row entirely in the common single-run case.
         "<div class='controls'>"
-        "<label>run <select id='run-select'></select></label>"
-        "<label>scenario <select id='scenario-filter'></select></label>"
-        "<input id='q-search' type='search' placeholder='filter questions… (Esc clears)'>"
-        "<fieldset id='backend-toggles' class='toggles'></fieldset>"
+        "<label id='run-select-wrap' hidden>run <select id='run-select'></select></label>"
         "</div>"
         "<nav id='toc' aria-label='On this page'></nav>"
         "</header>"

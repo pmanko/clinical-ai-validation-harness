@@ -414,3 +414,97 @@ def test_report_blob_is_embedding_safe_against_script_breakout(tmp_path):
     # which the server-side escape-first render then neutralises into the answer.
     blob = json.loads(body)
     assert "&lt;/script&gt;" in blob["runs"][0]["scenarios"][0]["turns"][0]["cells"]["med-agent-team"]["answer_html"]
+
+
+def test_report_run_dropdown_is_a_published_run_switcher_that_degrades(tmp_path):
+    # The topbar "run" control swaps between PUBLISHED runs: it fetches the sibling
+    # reports-index.json (../reports-index.json) at runtime, lists each run's slug+title,
+    # marks the current one, and navigates to ../<slug>/ on select. It degrades
+    # gracefully (hidden) when the fetch fails (local file:// open / index absent) — so
+    # it is NEVER a dead single-option control.
+    run_dir = tmp_path / "run"
+    _write_run(run_dir, [_result("gemma-local", "ans", [])])
+    html = build_report(run_dir).read_text(encoding="utf-8")
+
+    # The switcher fetches the sibling published index and navigates to a sibling slug dir.
+    assert "../reports-index.json" in html
+    assert "function loadRunSwitcher(" in html
+    # Graceful degradation: the control is hidden when the index can't be fetched.
+    assert "run-switcher" in html
+    # On select it navigates to the sibling published run directory.
+    assert "../' + " in html or "'../'" in html  # builds ../<slug>/ target
+
+
+def test_report_scenario_and_question_filters_are_section_local(tmp_path):
+    # The scenario + question filters affect ONLY the per-scenario answers, so they
+    # are relocated out of the page-level topbar .controls row into a filter bar that
+    # is rendered adjacent to the answers section (#sec-answers), not the global header.
+    run_dir = tmp_path / "run"
+    _write_run(run_dir, [
+        _result("med-agent-team", "ans a", []),
+        _result("gemma-local", "ans b", []),
+    ])
+    html = build_report(run_dir).read_text(encoding="utf-8")
+
+    # The wired filter ids still exist (behavior preserved) — now assigned by the
+    # section-local builder rather than baked into the static topbar markup.
+    assert "scenario-filter" in html        # sf.id = 'scenario-filter'
+    assert "q-search" in html               # search.id = 'q-search'
+    assert "function buildAnswersFilters(" in html
+    # ... but they are NO LONGER inside the page-level topbar .controls row.
+    controls = re.search(r"class='controls'>(.*?)</div>\s*<nav", html, re.DOTALL)
+    assert controls is not None
+    assert "scenario-filter" not in controls.group(1)
+    assert "q-search" not in controls.group(1)
+    # A section-local filter bar is built adjacent to the answers section.
+    assert "answers-filters" in html
+
+
+def test_report_splits_heatmap_and_answers_into_two_nav_sections(tmp_path):
+    # The combined "Per-scenario answers" section is split into two distinct, numbered,
+    # nav-registered sections: a heatmap (scenario × setup color grid) and the
+    # side-by-side answer tiles. Both must register their own nav label + id.
+    run_dir = tmp_path / "run"
+    _write_run(run_dir, [
+        _result("med-agent-team", "ans a", []),
+        _result("gemma-local", "ans b", []),
+    ])
+    # judge.jsonl makes the heatmap render (it keys off judge_rows).
+    (run_dir / "judge.jsonl").write_text(
+        json.dumps({"scenario_id": "s", "backend_id": "gemma-local", "accuracy": 8,
+                    "completeness": 7, "relevance": 9, "abstention_outcome": "n-a",
+                    "citation_groundedness": "supported", "harm": False, "note": ""}) + "\n",
+        encoding="utf-8",
+    )
+    html = build_report(run_dir).read_text(encoding="utf-8")
+
+    # Two separate section ids exist (heatmap + answers), wrapped by wrapSection so they
+    # are numbered + appear in the nav.
+    assert "'sec-heatmap'" in html
+    assert "'sec-answers'" in html
+    # The old combined "Per-scenario" nav label is gone in favour of the two split labels.
+    assert "'Heatmap'" in html
+    assert "'Answers'" in html
+
+
+def test_report_setup_filter_is_a_multiselect_dropdown_not_a_checkbox_list(tmp_path):
+    # The backend/setup filter is redesigned from a flat horizontal checkbox list (which
+    # doesn't scale past ~11 setups) into a "Filter setups ▾" multi-select dropdown with
+    # select-all / clear-all and a count badge — still wired to the same show/hide-column
+    # behavior (applyBackendToggle).
+    run_dir = tmp_path / "run"
+    _write_run(run_dir, [
+        _result("med-agent-team", "ans a", []),
+        _result("gemma-local", "ans b", []),
+    ])
+    html = build_report(run_dir).read_text(encoding="utf-8")
+
+    # The new multi-select dropdown shell + its select-all / clear-all affordances.
+    assert "setup-filter" in html
+    assert "Filter setups" in html
+    assert "select-all" in html.replace("Select all", "select-all").replace("selectAll", "select-all")
+    assert "clear-all" in html.replace("Clear all", "clear-all").replace("clearAll", "clear-all")
+    # The count badge that summarises how many setups are shown.
+    assert "setup-count" in html or "count-badge" in html
+    # Still wired to the existing show/hide column behavior.
+    assert "applyBackendToggle" in html

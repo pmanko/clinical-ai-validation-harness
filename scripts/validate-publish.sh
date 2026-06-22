@@ -99,6 +99,13 @@ echo "==> rebuilding reports index"
 ( cd "${ROOT}" && uv run python scripts/build-reports-index.py ) \
   || echo "warn: index rebuild failed" >&2
 
+# Stage the curated manifest ALONGSIDE the reports so each report's in-page run-switcher can fetch
+# it at runtime (the report requests ../reports-index.json, which resolves to <reports>/reports-index.json
+# on the served subdomain). The single rsync below carries it up with everything else; without it the
+# switcher just degrades to hidden (graceful), so this is what turns the cross-run switcher ON in prod.
+cp "${ROOT}/reports-index.json" "${ROOT}/artifacts/reports/reports-index.json"
+echo "==> staged reports-index.json alongside the reports (for the in-report run-switcher)"
+
 if ! gcp_vm_exists || [ "$(gcp_vm_status)" != "RUNNING" ]; then
   echo "warn: VM ${GCP_VM_NAME} not RUNNING — staged locally only. Start it (make cloud-start) and re-run to publish." >&2
   exit 1
