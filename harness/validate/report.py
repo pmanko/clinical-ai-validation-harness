@@ -361,7 +361,16 @@ def _arm_cards_for(run_dir: Path, backends: list[str]) -> dict[str, Any]:
                 frozen = meta["arm_cards"]
         except Exception:
             frozen = {}
-    return {b: (frozen[b] if b in frozen else arm_card(b)) for b in backends}
+    def _resolve(b: str) -> dict[str, Any]:
+        live = arm_card(b)
+        if b in frozen:
+            # Config (knobs/prompts/models) stays FROZEN — what actually ran. But the display name
+            # (title/short_title/label) is refreshed from live so renaming/quant fixes show up in
+            # already-run reports (e.g. "Gemma 4 12B" -> "Gemma 4 12B · Q8").
+            return {**frozen[b], "title": live.get("title"),
+                    "short_title": live.get("short_title"), "label": live.get("label")}
+        return live
+    return {b: _resolve(b) for b in backends}
 
 
 def _run_blob(run_dir: Path) -> dict[str, Any]:
