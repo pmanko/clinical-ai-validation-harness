@@ -22,6 +22,26 @@ right?". We do **not** score **management** — "is the plan right?". This matte
 2. The dissertation's object is **WHO-SMART-Guidelines decision support** (management logic), so a
    management-axis layer is the eval that actually targets the thesis, not a proxy.
 
+## The headline contrast: frontier Gemini vs on-device Gemma 4 (controlled)
+
+AMIE's published number is *Gemini + its own bespoke scaffolding* (dual-agent, self-play,
+chain-of-reasoning, guideline retrieval) — the paper cannot separate the model from the machinery. The
+dissertation's load-bearing question is the **model-scale** one underneath it: **does AMIE-grade
+management reasoning survive the drop from frontier cloud Gemini to an on-device Gemma 4-class model?**
+
+This harness can answer the *controlled* version AMIE cannot: every arm runs through the **same**
+chartsearchai flow, grounding, and judge, so a **Gemini arm beside Gemma 4 isolates the base-model
+contribution with scaffolding and grounding held fixed.** Framed as a curve, not a point — with the
+scale ladder we already run (Gemini → Gemma 4 12B → smaller Gemmas / Liquid) and the quant control from
+the Q8/Q4 survey — the deliverable is a **management-quality-vs-model-scale curve, grounding on/off**:
+*the smallest model + grounding that approaches AMIE-Gemini-level management reasoning.* That is the
+dissertation's empirical core, more than the open/closed or WHO-vs-NICE framing.
+
+**Careful scope (don't overclaim).** This measures **base Gemini vs base Gemma under *our* scaffolding**
+— it is **not** a replication of AMIE's number (which bundles AMIE's own scaffolding), and it claims no
+result in advance: it is the experiment that *would* size the gap. It depends on the management axes
+(item 1) existing first.
+
 ## Work items (prioritized, grounded in current files)
 
 ### 1. Management axes on the rubric + the judge cell  *(highest value)*
@@ -33,6 +53,19 @@ right?". We do **not** score **management** — "is the plan right?". This matte
   same shape as `cell_benchmark_score` / `cell_indepth_benchmark_score`); `report.py` + the index
   (a third co-equal benchmark column). Red-first tests in `evals/validate/test_reconcile.py`.
 - This is the AMIE "management reasoning" axis made reproducible + LLM-judged.
+
+### 1b. Add a frontier Gemini arm — the headline experiment's to-do  *(depends on item 1)*
+- **Mechanics (grounded, not zero-plumbing):** a Gemini arm is a `backends.json` entry whose override
+  points chartsearchai at **Gemini's OpenAI-compatible endpoint** (`…/v1beta/openai/chat/completions`,
+  model e.g. `gemini-2.5-flash` / `-pro`). chartsearchai already calls a remote LLM with an API key —
+  but from a **global** property (`chartsearchai.llm.remote.api_key`), not per-request — and the
+  harness `Backend` override (`harness/validate/models.py`) carries `{endpointUrl, modelName}` only. So
+  the clean addition is a **per-backend `apiKey`** threaded `backends.json → Backend → the chartsearchai
+  override path`, so a Gemini arm can coexist with key-less local arms in one run. Small, real,
+  contained.
+- It is a **deliberate cloud arm** (cost, off-device) used purely as the frontier *reference point* —
+  it does not change the on-device thesis, it sizes the gap to it. Sweep the scale ladder
+  (Gemini → Gemma 4 12B → smaller Gemmas/Liquid) × grounding on/off on the item-1 axes to draw the curve.
 
 ### 2. RxQA-analog over the HIV/TB cohort  *(reproducible medication-reasoning benchmark)*
 - Our demonstrator patients are on **ARV + anti-TB** regimens → build medication-reasoning scenarios
@@ -64,9 +97,11 @@ right?". We do **not** score **management** — "is the plan right?". This matte
   automated raters are weakest — mirrors AMIE's blinded-specialist gold standard at our scale.
 
 ## Sequencing
-Item 1 unblocks everything (the axes + Management Benchmark). Then item 2 (RxQA-analog + open/closed
-ablation) is the highest-information single experiment. Items 3–5 build on the same axes; item 6 is
-the calibration backstop and can run alongside.
+Item 1 (axes + Management Benchmark) unblocks the headline experiment and everything else.
+**Item 1b — the controlled Gemini-vs-Gemma-4 model-scale curve on the management axes — is the single
+experiment that most directly answers the dissertation post-AMIE.** Item 2 (RxQA-analog + open/closed
+ablation) is the highest-information grounding ablation and supplies the curve's grounding-on/off axis.
+Items 3–5 build on the same axes; item 6 is the calibration backstop and can run alongside.
 
 ## What this is NOT
 Not a new agent (AMIE is an agent; we're the bench). Not history-taking/empathy (AMIE interviews the
