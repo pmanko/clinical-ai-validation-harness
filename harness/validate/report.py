@@ -883,16 +883,18 @@ function renderJudge(run){
   }
   var anyBg=false; for(var b=0;b<j.length;b++){ if((j[b].background||{}).n_background>0){ anyBg=true; break; } }
   if(anyBg){
-    var bgRows=j.map(function(s){ var bg=s.background||{};
-      if(!bg.n_background){ return "<tr><td class='b'>"+htmlEsc(bpShort(s.backend))+"</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>"; }
-      return "<tr><td class='b'>"+htmlEsc(bpShort(s.backend))+"</td><td>"+bg.n_background+"</td>"
+    var bgRows=j.map(function(s){ var bg=s.background||{}, bsp=bg.benchmark_spread||{};
+      if(!bg.n_background){ return "<tr><td class='b'>"+htmlEsc(bpShort(s.backend))+"</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>"; }
+      return "<tr><td class='b'>"+htmlEsc(bpShort(s.backend))+"</td>"
+        +"<td><b>"+fmt10(bg.benchmark_score)+"</b>"+(bsp.min==null?'':"<span style='opacity:.55;font-size:.85em'> "+fmt10(bsp.min)+"–"+fmt10(bsp.max)+"</span>")+"</td>"
+        +"<td>"+bg.n_background+"</td>"
         +"<td>"+fmt10(bg.support_mean)+"</td><td>"+fmt10(bg.added_value_mean)+"</td>"
         +"<td>"+(bg.new_harm_count||0)+"</td><td>"+(bg.padded_count||0)+"</td><td>"+(bg.claims_total||0)+"</td></tr>"; }).join('');
-    var bgh=el('h3','jh-title'); bgh.textContent='background — team In-Depth only (scored separately; NOT part of the benchmark)';
+    var bgh=el('h3','jh-title'); bgh.textContent='In-Depth — its own parity Benchmark (any arm that ships one; scored separately from the Answer)';
     sec.appendChild(bgh);
-    var bgleg=el('p','metrics-legend'); bgleg.innerHTML='The team’s <b>In Depth</b> elaboration, scored on its own axes so it never inflates or deflates the head-to-head answer scores above. <b>support</b> = substantiates the answer & chart-grounded · <b>added value</b> = useful context beyond the answer (each 0–10) · <b>unsafe</b> = In-Depth introduced a harm absent from the answer · <b>padded</b> = bloated. Single-model arms produce no In-Depth (—).';
+    var bgleg=el('p','metrics-legend'); bgleg.innerHTML='Every arm’s separate <b>In Depth</b> elaboration — single-model two-call AND team — scored on its OWN axes so it never inflates or deflates the Answer scores above. <b>In-Depth Benchmark</b> = (support·0.5 + added-value·0.5)·10 minus 15 for an unsafe elaboration and 5 for padding — the In-Depth’s co-equal 0–100 headline. <b>support</b> = substantiates the answer & chart-grounded · <b>added value</b> = useful context beyond the answer (each 0–10) · <b>unsafe</b> = In-Depth introduced a harm absent from the answer · <b>padded</b> = bloated. An arm with no In-Depth shows “—”.';
     sec.appendChild(bgleg);
-    var bgtbl=el('table','summary'); bgtbl.innerHTML='<thead><tr><th>backend</th><th>In-Depth n</th><th>support</th><th>added value</th><th>unsafe</th><th>padded</th><th>claims</th></tr></thead><tbody>'+bgRows+'</tbody>';
+    var bgtbl=el('table','summary'); bgtbl.innerHTML='<thead><tr><th>backend</th><th>In-Depth Benchmark</th><th>In-Depth n</th><th>support</th><th>added value</th><th>unsafe</th><th>padded</th><th>claims</th></tr></thead><tbody>'+bgRows+'</tbody>';
     sec.appendChild(bgtbl);
   }
   sec.appendChild(judgeBarsSVG(j));
