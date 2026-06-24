@@ -1,4 +1,11 @@
 {
+  "12b-answer-hub": {
+    "label": "Gemma 4-12B — Answer via hub (answer:gemma-4-12b, temporal context)",
+    "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
+    "modelName": "answer:gemma-4-12b",
+    "indepthEndpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
+    "indepthModelName": "indepth-only-gemma-4-12b"
+  },
   "gemma-local": {
     "label": "Gemma 4-E4B (LM Studio direct)",
     "endpointUrl": "http://host.docker.internal:1234/v1/chat/completions",
