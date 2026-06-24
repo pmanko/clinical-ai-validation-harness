@@ -348,6 +348,20 @@ def arm_card(
     model_name = arm.get("modelName") or backend_id
     label = arm.get("label") or backend_id
 
+    # Solo single-model legs through the hub (answer:<m> / indepth-only:<m> / single:<m>) — ONE model,
+    # no orchestrator/team — render as a SINGLE arm with the writer's family·size·quant, not "team".
+    _solo_w = next((model_name.split(":", 1)[1]
+                    for p in ("answer:", "indepth-only:", "single:", "single-indepth:")
+                    if model_name.startswith(p)), None)
+    if _solo_w:
+        single_card = _model_card(_solo_w, registry)
+        title, short_title = _single_title(single_card)
+        return {
+            "backend_id": backend_id, "label": label, "title": title, "short_title": short_title,
+            "kind": "single", "path": "med-agent-hub single",
+            "models": [single_card], "config": _single_config(_solo_w, ini),
+        }
+
     if ":8080" in endpoint or model_name.startswith("med-agent-team"):
         roles_map = _load_levels(levels_path).get(model_name, {})
         level = _load_levels_raw(levels_path).get(model_name, {})
