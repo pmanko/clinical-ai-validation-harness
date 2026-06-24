@@ -464,8 +464,12 @@ dashboard-ensure:
 validate-preflight: setup dashboard-ensure
 	$(UV) run ./scripts/validate-preflight.sh $(SET) $(TIER)
 
+# The run's simulated "now": ONE value drives the hub temporal anchor (HUB_ANCHOR = the model's "now")
+# AND the judge (--reference-date, recorded per row) so model == judge (P0b). Override per dataset/run.
+REFERENCE_DATE ?= 2026-06-20
 validate-run: setup dashboard-ensure
-	$(UV) run harness-cli validate run $(SET)
+	HUB_ANCHOR=$(REFERENCE_DATE) docker compose -f compose/openmrs-2.8-refapp.yml up -d med-agent-hub
+	$(UV) run harness-cli validate run $(SET) --reference-date $(REFERENCE_DATE)
 
 # Judge a completed run with the Claude-agent clinical-answer-scoring fan-out. The fan-out itself
 # (one Claude judge per cell) is a Claude Workflow, not shell-invocable; these two targets are its
