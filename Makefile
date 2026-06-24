@@ -452,10 +452,19 @@ SET ?= demo
 # (autostart=false → nothing indexes on boot). Surfaces a down/mis-indexed component as a clear
 # failure up front. `make validate-preflight SET=<set> [TIER=med]` (TIER picks the router co-residency cap).
 TIER ?= med
-validate-preflight: setup
+
+# Live dashboard (scripts/validate-dashboard.py, :8099) — auto-started by any validate run/preflight,
+# idempotent (skips if already up). It auto-tracks the newest run, so it always shows the run in
+# progress. No more manual launching.
+dashboard-ensure:
+	@curl -fsS -m2 http://localhost:8099/ >/dev/null 2>&1 \
+	  || { echo "==> starting validate-dashboard on :8099"; mkdir -p artifacts; \
+	       nohup $(UV) run python scripts/validate-dashboard.py >artifacts/dashboard.log 2>&1 & sleep 2; }
+
+validate-preflight: setup dashboard-ensure
 	$(UV) run ./scripts/validate-preflight.sh $(SET) $(TIER)
 
-validate-run: setup
+validate-run: setup dashboard-ensure
 	$(UV) run harness-cli validate run $(SET)
 
 # Judge a completed run with the Claude-agent clinical-answer-scoring fan-out. The fan-out itself

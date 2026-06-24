@@ -1,4 +1,46 @@
 {
+  "q-12b-q8": {
+    "label": "Gemma-12B Q8 (quant grid)",
+    "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
+    "modelName": "answer:gemma-4-12b",
+    "indepthEndpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
+    "indepthModelName": "indepth-only:gemma-4-12b"
+  },
+  "q-12b-q4": {
+    "label": "Gemma-12B Q4_K_M (quant grid)",
+    "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
+    "modelName": "answer:gemma-4-12b-q4",
+    "indepthEndpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
+    "indepthModelName": "indepth-only:gemma-4-12b-q4"
+  },
+  "q-31b-q4": {
+    "label": "Gemma-31B Q4_K_M (quant grid)",
+    "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
+    "modelName": "answer:gemma-31b",
+    "indepthEndpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
+    "indepthModelName": "indepth-only:gemma-31b"
+  },
+  "q-26b-q4": {
+    "label": "Gemma-26B-A4B Q4_K_M MoE (quant grid)",
+    "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
+    "modelName": "answer:gemma-26b",
+    "indepthEndpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
+    "indepthModelName": "indepth-only:gemma-26b"
+  },
+  "q-e4b-q8": {
+    "label": "Gemma-E4B Q8 (quant grid)",
+    "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
+    "modelName": "answer:gemma-e4b-q8",
+    "indepthEndpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
+    "indepthModelName": "indepth-only:gemma-e4b-q8"
+  },
+  "q-e4b-q4": {
+    "label": "Gemma-E4B Q4_K_M (quant grid)",
+    "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
+    "modelName": "answer:gemma-e4b",
+    "indepthEndpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
+    "indepthModelName": "indepth-only:gemma-e4b"
+  },
   "12b-answer-hub": {
     "label": "Gemma 4-12B — Answer via hub (answer:gemma-4-12b, temporal context)",
     "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
