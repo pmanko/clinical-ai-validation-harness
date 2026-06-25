@@ -85,9 +85,12 @@ def _render_section(label: str, body: str, conf: Any) -> str:
     yellow -> show the message + collapse the note behind "show review note"; green -> message."""
     if not body.strip():
         return ""
+    rendered = _render_answer(body)
+    # conf=None -> an unvalidated section (e.g. a two-call In-Depth, single pass): render chip-free.
+    if conf is None:
+        return f"<div class='csec'><div class='ctitle'>{_esc(label)}</div><div class='secbody'>{rendered}</div></div>"
     level = (conf.get("level") if isinstance(conf, dict) else None) or "green"
     note = (conf.get("note") if isinstance(conf, dict) else "") or ""
-    rendered = _render_answer(body)
     h = f"<div class='csec'><div class='ctitle'>{_esc(label)} {_conf_chip(level)}</div>"
     if level == "red":
         if note:
@@ -104,18 +107,27 @@ def _render_section(label: str, body: str, conf: Any) -> str:
     return h + "</div>"
 
 
-def _render_answer_sections(text: Any, trace: Any) -> str:
+def _render_answer_sections(text: Any, trace: Any, indepth: Any = None) -> str:
     """Render the answer split into its Answer / In-Depth sections, each headed by its validator
     confidence tag, with LOW sections withheld behind a reveal (parity with the OpenMRS chat).
-    Falls back to a single plain answer when there's no per-section confidence (direct single-LLM
-    arms / older runs carry no hub trace)."""
+    Two-call arms carry the In-Depth as a SEPARATE call (``indepth`` = row.indepth), NOT in the answer
+    text — render that chip-free (single pass, no validator). Falls back to a single plain answer when
+    there's no per-section confidence and no separate In-Depth (direct single-LLM arms / older runs)."""
     answer = "" if text is None else str(text)
     a_conf = trace.get("answer_confidence") if isinstance(trace, dict) else None
     d_conf = trace.get("indepth_confidence") if isinstance(trace, dict) else None
+    sep_indepth = ""
+    if isinstance(indepth, dict):
+        iresp = indepth.get("response")
+        ia = (iresp.get("answer") if isinstance(iresp, dict) else "") or ""
+        sep_indepth = re.sub(r"^\s*\*\*In ?Depth\*\*\s*", "", str(ia), flags=re.IGNORECASE).strip()
     has_conf = (isinstance(a_conf, dict) and a_conf.get("level")) or (
         isinstance(d_conf, dict) and d_conf.get("level"))
     if not has_conf:
-        return _render_answer(answer)
+        out = _render_answer(answer)
+        if sep_indepth:  # direct two-call arm: a separate In-Depth call, no validator chip
+            out += _render_section("In-Depth", sep_indepth, None)
+        return out
     m = _IN_DEPTH_RE.search(answer)
     strip_hdr = lambda s: re.sub(r"^\s*\*\*Answer\*\*\s*", "", s, flags=re.IGNORECASE).strip()  # noqa: E731
     if m:
@@ -123,8 +135,10 @@ def _render_answer_sections(text: Any, trace: Any) -> str:
     else:
         answer_body, indepth_body = strip_hdr(answer), ""
     out = _render_section("Answer", answer_body, a_conf)
-    if indepth_body:
+    if indepth_body:  # single-call combined In-Depth (in the answer text) -> its validator chip
         out += _render_section("In-Depth", indepth_body, d_conf)
+    elif sep_indepth:  # two-call: separate In-Depth call (row.indepth), single pass, chip-free
+        out += _render_section("In-Depth", sep_indepth, None)
     return out
 
 
@@ -376,7 +390,7 @@ def _cell_blob(r: dict[str, Any], traces: list[dict[str, Any]] | None = None) ->
         "error": r.get("error"),
         "http_status": m.get("http_status"),
         "conf_html": "",  # tags now head each answer section (see _render_answer_sections)
-        "answer_html": _render_answer_sections(resp.get("answer"), trace),
+        "answer_html": _render_answer_sections(resp.get("answer"), trace, r.get("indepth")),
         "refs_html": _render_refs(resp.get("references")),
         "blocks_html": _render_blocks(resp.get("blocks")),
         "chips_html": _render_chips(r),
