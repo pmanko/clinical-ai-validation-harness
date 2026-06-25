@@ -19,6 +19,7 @@ dist/
 build/
 coverage/
 *.log
+*.js.map
 
 # Local configuration and generated run output
 .env
