@@ -601,9 +601,17 @@ async function openD(s,b){
   }else if(tr&&(tr.answer_confidence||tr.indepth_confidence)){
    // structured render with the per-section confidence inversion (chips + collapse)
    h+=confSection('Answer', esc(tr.answer_text||''), tr.answer_confidence);
-   const cl=tr.in_depth_claims||[];
-   const idb=cl.length?'<ul class=idl>'+cl.map(c=>'<li>'+esc(c)+'</li>').join('')+'</ul>':'<span class=muted>(none)</span>';
-   h+=confSection('In Depth', idb, tr.indepth_confidence);
+   // In-Depth: two-call arms carry it as a SEPARATE call (row.indepth), single-pass, no validator —
+   // render THAT, not the Answer trace's empty in_depth_claims + the Answer's verdict as a stray chip.
+   if(t.indepth){
+    const ia=(t.indepth.answer||'').trim();
+    const body=ia?esc(ia):'<span class=muted>(no elaboration — e.g. an abstain)</span>';
+    h+='<div class=csec><div class=ctitle>In Depth <span class=muted>(separate call'+(t.indepth.latency_ms?', '+Math.round(t.indepth.latency_ms/1000)+'s':'')+')</span></div><div class=ans>'+body+'</div></div>';
+   }else{
+    const cl=tr.in_depth_claims||[];
+    const idb=cl.length?'<ul class=idl>'+cl.map(c=>'<li>'+esc(c)+'</li>').join('')+'</ul>':'<span class=muted>(none)</span>';
+    h+=confSection('In Depth', idb, tr.indepth_confidence);
+   }
   }else{
    h+='<div class=ans>'+esc(t.answer)+'</div>';   // Answer (raw envelope / non-team backend)
    if(t.indepth&&t.indepth.answer){               // two-call arms: the separate In-Depth call
