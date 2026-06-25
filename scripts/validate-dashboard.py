@@ -24,7 +24,7 @@ from urllib.parse import parse_qs, urlparse
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
-from harness.validate.model_registry import arm_card  # noqa: E402  (sys.path set above)
+from harness.validate.model_registry import arm_card, arm_model_name  # noqa: E402  (sys.path set above)
 DATA = ROOT / "datasets" / "validation"
 TRACE_FILE = ROOT / "artifacts" / "hub-trace" / "trace.jsonl"
 PORT = int(os.environ.get("DASH_PORT", "8099"))
@@ -253,7 +253,7 @@ def detail(scenario, backend):
         m = r.get("metrics") or {}
         resp = r.get("response") or {}
         refs = resp.get("references") or resp.get("citations") or []
-        tr = _match_trace(traces, backend, r.get("started_at"), r.get("ended_at"))
+        tr = _match_trace(traces, arm_model_name(backend), r.get("started_at"), r.get("ended_at"))
         ind = r.get("indepth") or {}
         iresp = ind.get("response") or {}
         if isinstance(iresp, str):

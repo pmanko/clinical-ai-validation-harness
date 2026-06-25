@@ -28,6 +28,7 @@ from pathlib import Path
 from typing import Any
 
 from .hub_trace import load_traces, match_trace
+from .model_registry import arm_model_name
 from .model_registry import arm_card
 from .reconcile import calibrated_summary, scout_summary
 
@@ -370,7 +371,7 @@ def _cell_blob(r: dict[str, Any], traces: list[dict[str, Any]] | None = None) ->
     precomputed degraded flag, plus the per-section confidence tags from the hub trace."""
     m = r.get("metrics") or {}
     resp = r.get("response") or {}
-    trace = match_trace(traces or [], r.get("backend_id"), r.get("started_at"), r.get("ended_at"))
+    trace = match_trace(traces or [], arm_model_name(r.get("backend_id")), r.get("started_at"), r.get("ended_at"))
     return {
         "error": r.get("error"),
         "http_status": m.get("http_status"),
@@ -474,7 +475,7 @@ def _run_blob(run_dir: Path) -> dict[str, Any]:
     # runs, so a whole-file scan would pick up stale anchors). A run is one time reality, so
     # collapse to one value; direct (non-hub) backends carry no trace -> excluded.
     _ref_dates = _ordered_unique([
-        (match_trace(traces, r.get("backend_id"), r.get("started_at"), r.get("ended_at")) or {}).get("reference_date")
+        (match_trace(traces, arm_model_name(r.get("backend_id")), r.get("started_at"), r.get("ended_at")) or {}).get("reference_date")
         for r in results
     ])
     _ref_dates = [d for d in _ref_dates if d]

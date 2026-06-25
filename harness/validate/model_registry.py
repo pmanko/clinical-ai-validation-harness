@@ -323,6 +323,16 @@ def _single_title(card: dict[str, Any]) -> tuple[str, str]:
     return f"{essence} · single", essence
 
 
+def arm_model_name(backend_id: str, *, backends_path: Path | str = _BACKENDS) -> str:
+    """The hub modelName an arm routes to (backends.json ``modelName``) — which is exactly what the hub
+    stamps as the trace ``level_id``. Falls back to the backend_id (legacy arms where the two coincide).
+    Lets the report/dashboard correlate a cell to its reasoning trace even when backend_id != modelName
+    (e.g. backend ``m-12b-team`` -> level_id ``med-agent-team-12b-qwenval``)."""
+    backends = _load_json(backends_path)
+    arm = (backends.get(backend_id) or {}) if isinstance(backends, dict) else {}
+    return (arm.get("modelName") or backend_id) if isinstance(arm, dict) else backend_id
+
+
 def arm_card(
     backend_id: str,
     *,
