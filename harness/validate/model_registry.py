@@ -365,6 +365,15 @@ def arm_card(
     if ":8080" in endpoint or model_name.startswith("med-agent-team"):
         roles_map = _load_levels(levels_path).get(model_name, {})
         level = _load_levels_raw(levels_path).get(model_name, {})
+        # A solo level (one model, no orchestrator/team) renders as a SINGLE arm with the writer's card,
+        # even though it's a hub (:8080) level — solo is orthogonal to scaffolding (P1).
+        if str(level.get("solo", "")).strip().lower() == "true":
+            _w = level.get("synthesizer") or model_name
+            _scard = _model_card(_w, registry)
+            _t, _st = _single_title(_scard)
+            return {"backend_id": backend_id, "label": label, "title": _t, "short_title": _st,
+                    "kind": "single", "path": "med-agent-hub single",
+                    "models": [_scard], "config": _single_config(_w, ini)}
         roles = {r: _model_card(roles_map[r], registry) for r in _ROLES if r in roles_map}
         title, short_title = _team_title(roles)
         return {

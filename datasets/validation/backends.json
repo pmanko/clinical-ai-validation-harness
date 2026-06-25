@@ -330,5 +330,40 @@
     "modelName": "qwen3.6-35b",
     "indepthEndpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
     "indepthModelName": "indepth-only:qwen3.6-35b"
+  },
+  "m-12b-solo": {
+    "label": "Method — Gemma 12B single (writer-only, chartsearchai prompt)",
+    "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
+    "modelName": "answer:gemma-4-12b",
+    "indepthEndpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
+    "indepthModelName": "indepth-only:gemma-4-12b"
+  },
+  "m-a4b-solo": {
+    "label": "Method — Gemma 26B-A4B single (writer-only, chartsearchai prompt)",
+    "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
+    "modelName": "answer:gemma-26b",
+    "indepthEndpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
+    "indepthModelName": "indepth-only:gemma-26b"
+  },
+  "m-12b-team": {
+    "label": "Method — 12B team (e4b orch + 12B writer + Qwen2.5-14B validator, same prompt)",
+    "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
+    "modelName": "med-agent-team-12b-qwenval",
+    "indepthEndpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
+    "indepthModelName": "indepth-only:gemma-4-12b"
+  },
+  "m-a4b-team": {
+    "label": "Method — A4B team (e4b orch + A4B writer + Qwen2.5-14B validator, same prompt)",
+    "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
+    "modelName": "med-agent-team-a4b-qwenval",
+    "indepthEndpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
+    "indepthModelName": "indepth-only:gemma-26b"
+  },
+  "m-12b-cite-abstain": {
+    "label": "Method — 12B single + cite-or-abstain prompt (prompt lever)",
+    "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
+    "modelName": "single-12b-cite-or-abstain",
+    "indepthEndpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
+    "indepthModelName": "indepth-only:gemma-4-12b"
   }
 }
