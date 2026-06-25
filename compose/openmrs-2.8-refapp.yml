@@ -34,8 +34,8 @@ services:
       # Optional subdomain that serves the SPA at its bare root for cleaner
       # URLs (defaults to a non-published port so the block is dormant locally).
       CADDY_SITE_OPENMRS: ${CADDY_SITE_OPENMRS:-:8090}
-      # Optional subdomain serving published validation reports (static files from
-      # artifacts/reports). Dormant locally on a non-published port; cloud sets the real subdomain.
+      # Optional subdomain serving the DB-backed validation reports app. Dormant
+      # locally on a non-published port; cloud sets the real subdomain.
       CADDY_SITE_REPORTS: ${CADDY_SITE_REPORTS:-:8091}
       CADDY_EMAIL: ${CADDY_EMAIL:-nobody@example.com}
     volumes:
@@ -48,11 +48,11 @@ services:
       # container without rebuilding that image. See (chartsearch_overrides)
       # in Caddyfile and `make chartsearch-esm-build` for the build step.
       - ../artifacts/openmrs/spa-custom:/srv/spa-custom:ro
-      # Published validation reports, static-served at the reports subdomain (see Caddyfile).
-      - ../artifacts/reports:/srv/reports:ro
     depends_on:
       gateway:
         condition: service_healthy
+      reports-app-api:
+        condition: service_started
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost/__proxy_health"]
       interval: 10s
@@ -267,9 +267,25 @@ services:
     volumes:
       - es-data:/usr/share/elasticsearch/data
 
+  reports-app-api:
+    image: node:20-bookworm-slim
+    container_name: harness-reports-app-api
+    restart: "unless-stopped"
+    working_dir: /workspace/reports-app
+    command: sh -c "npm install && npm run build && npm start -w @reports/api"
+    environment:
+      PORT: 3001
+      DATABASE_URL: file:/data/reports.db
+    volumes:
+      - ..:/workspace
+      - reports-data:/data
+    expose:
+      - "3001"
+
 volumes:
   openmrs-data:
   db-data:
   es-data:
   caddy-data:
   caddy-config:
+  reports-data:

@@ -1,0 +1,280 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model Run {
+  runId                String          @id
+  comparisonSetId      String
+  runDir               String
+  parentRunId          String?
+  gitSha               String?
+  datasetVersion       String?
+  schemaMappingVersion String?
+  evidenceStatus       String?
+  referenceDate        DateTime?
+  startedAt            DateTime?
+  completedAt          DateTime?
+  generatedAt          DateTime?
+  comparisonSet        ComparisonSet   @relation(fields: [comparisonSetId], references: [id])
+  parentRun            Run?            @relation("RunLineage", fields: [parentRunId], references: [runId])
+  childRuns            Run[]           @relation("RunLineage")
+  results              Result[]
+  judgeRows            JudgeRow[]
+  armAggregates        ArmAggregate[]
+  adjudications        Adjudication[]
+  publishedReports     PublishedReport[]
+}
+
+model ComparisonSet {
+  id        String                  @id
+  runs      Run[]
+  scenarios ComparisonSetScenario[]
+  arms      ComparisonSetArm[]
+}
+
+model ComparisonSetScenario {
+  comparisonSetId String
+  scenarioId      String
+  comparisonSet   ComparisonSet @relation(fields: [comparisonSetId], references: [id])
+  scenario        Scenario      @relation(fields: [scenarioId], references: [id])
+
+  @@id([comparisonSetId, scenarioId])
+}
+
+model ComparisonSetArm {
+  comparisonSetId String
+  armId           String
+  comparisonSet   ComparisonSet @relation(fields: [comparisonSetId], references: [id])
+  arm             Arm           @relation(fields: [armId], references: [backendId])
+
+  @@id([comparisonSetId, armId])
+}
+
+model Scenario {
+  id                      String                  @id
+  patientUuid             String?
+  shouldAbstain           Boolean                 @default(false)
+  shouldCiteResourceTypes Json?
+  tags                    Json?
+  patient                 Patient?                @relation(fields: [patientUuid], references: [uuid])
+  turns                   ScenarioTurn[]
+  results                 Result[]
+  judgeRows               JudgeRow[]
+  adjudications           Adjudication[]
+  comparisonSets          ComparisonSetScenario[]
+}
+
+model ScenarioTurn {
+  scenarioId String
+  n          Int
+  question   String
+  scenario   Scenario @relation(fields: [scenarioId], references: [id])
+
+  @@id([scenarioId, n])
+}
+
+model Arm {
+  backendId          String             @id
+  label              String
+  endpointUrl        String?
+  modelName          String
+  indepthEndpointUrl String?
+  indepthModelName   String?
+  kind               String
+  roles              ArmRole[]
+  results            Result[]
+  judgeRows          JudgeRow[]
+  armAggregates      ArmAggregate[]
+  adjudications      Adjudication[]
+  comparisonSets     ComparisonSetArm[]
+}
+
+model ArmRole {
+  armId   String
+  role    String
+  modelId String
+  arm     Arm   @relation(fields: [armId], references: [backendId])
+  model   Model @relation(fields: [modelId], references: [modelId])
+
+  @@id([armId, role])
+}
+
+model Model {
+  modelId String    @id
+  family  String?
+  params  String?
+  quant   String?
+  note    String?
+  roles   ArmRole[]
+}
+
+model Patient {
+  uuid      String     @id
+  display   String?
+  gender    String?
+  birthdate DateTime?
+  scenarios Scenario[]
+}
+
+model Result {
+  id             String            @id
+  runId          String
+  scenarioId     String
+  armId          String
+  turn           Int
+  answer         String
+  disclaimer     String?
+  responseModel  String?
+  blocks         Json?
+  error          String?
+  startedAt      DateTime?
+  endedAt        DateTime?
+  referenceDate  DateTime?
+  httpStatus     Int?
+  latencyMs      Int?
+  jsonValid      Boolean?
+  answerChars    Int?
+  citationCount  Int?
+  abstained      Boolean?
+  tokensIn       Int?
+  tokensOut      Int?
+  run            Run               @relation(fields: [runId], references: [runId])
+  scenario       Scenario          @relation(fields: [scenarioId], references: [id])
+  arm            Arm               @relation(fields: [armId], references: [backendId])
+  references     ResultReference[]
+  indepthResult  IndepthResult?
+  trace          Trace?
+
+  @@unique([runId, scenarioId, armId, turn])
+}
+
+model ResultReference {
+  resultId     String
+  idx          Int
+  resourceType String
+  resourceUuid String
+  date         DateTime?
+  result       Result @relation(fields: [resultId], references: [id])
+
+  @@id([resultId, idx])
+}
+
+model IndepthResult {
+  resultId   String  @id
+  answer     String
+  modelName  String?
+  latencyMs  Int?
+  httpStatus Int?
+  error      String?
+  result     Result  @relation(fields: [resultId], references: [id])
+}
+
+model Trace {
+  id                      String   @id
+  resultId                String   @unique
+  levelId                 String
+  steps                   Json
+  answerConfidenceLevel   String?
+  answerConfidenceNote    String?
+  indepthConfidenceLevel  String?
+  indepthConfidenceNote   String?
+  inDepthClaims           Json?
+  referenceDate           DateTime?
+  result                  Result   @relation(fields: [resultId], references: [id])
+}
+
+model JudgeRow {
+  id                    String           @id
+  runId                 String
+  scenarioId            String
+  armId                 String
+  accuracy              Float?
+  completeness          Float?
+  relevance             Float?
+  abstentionOutcome     String?
+  citationGroundedness  String?
+  harm                  Boolean?
+  temporalDateAccuracy  String?
+  temporalWindow        String?
+  temporalTrend         String?
+  citationResolution    Json?
+  note                  String?
+  run                   Run              @relation(fields: [runId], references: [runId])
+  scenario              Scenario         @relation(fields: [scenarioId], references: [id])
+  arm                   Arm              @relation(fields: [armId], references: [backendId])
+  background            JudgeBackground?
+
+  @@unique([runId, scenarioId, armId])
+}
+
+model JudgeBackground {
+  judgeRowId  String  @id
+  support     Float?
+  addedValue  Float?
+  noNewHarm   Boolean?
+  conciseness Float?
+  nClaims     Int?
+  note        String?
+  judgeRow    JudgeRow @relation(fields: [judgeRowId], references: [id])
+}
+
+model ArmAggregate {
+  runId        String
+  armId        String
+  benchmark    Float
+  answerMeans  Json
+  inDepthMeans Json?
+  harmCount    Int
+  confabCount  Int
+  run          Run    @relation(fields: [runId], references: [runId])
+  arm          Arm    @relation(fields: [armId], references: [backendId])
+
+  @@id([runId, armId])
+}
+
+model Reviewer {
+  id            String         @id
+  identity      String
+  tier          String
+  adjudications Adjudication[]
+}
+
+model Adjudication {
+  id         String   @id
+  runId      String
+  scenarioId String
+  armId      String
+  reviewerId String
+  axes       Json
+  harm       Boolean
+  note       String
+  judgedAt   DateTime
+  run        Run      @relation(fields: [runId], references: [runId])
+  scenario   Scenario @relation(fields: [scenarioId], references: [id])
+  arm        Arm      @relation(fields: [armId], references: [backendId])
+  reviewer   Reviewer @relation(fields: [reviewerId], references: [id])
+}
+
+model PublishedReport {
+  slug            String @id
+  runId           String
+  comparisonSetId String
+  title           String
+  summary         String?
+  takeaway        String?
+  sortOrder       Int
+  featured        Boolean @default(false)
+  hidden          Boolean @default(false)
+  hasLive         Boolean @default(false)
+  run             Run     @relation(fields: [runId], references: [runId])
+}
+
+model CatalogMeta {
+  id          Int    @id @default(1)
+  intro       String
+  scoringNote String
+}

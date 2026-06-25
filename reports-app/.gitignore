@@ -1,0 +1,15 @@
+node_modules/
+dist/
+build/
+coverage/
+*.log
+.env*
+!.env*.example
+api/dev.db
+api/test.db
+dev.db
+test.db
+reports.db
+api/prisma/*.db
+api/prisma/*.db-journal
+web/.vite/

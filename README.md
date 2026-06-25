@@ -30,7 +30,7 @@ The harness coordinates validation across four clinical AI projects:
 
 The OpenMRS demo-data remap (Roadmap M1 / feature 002) is **complete** — the public 2.7 demo corpus is transformed and imported as the canonical 5,284-patient 2.8 demo schema the harness validates against. (See the [Feature 002 spec](https://github.com/pmanko/clinical-ai-validation-harness/blob/main/specs/002-openmrs-demo-data-2-8-remap/spec.md) and [quickstart](https://github.com/pmanko/clinical-ai-validation-harness/blob/main/specs/002-openmrs-demo-data-2-8-remap/quickstart.md) for that work.)
 
-Current work is the **validation spine** (Roadmap M2 / feature 006): run the same clinical questions across model backends through chartsearchai's real API, score the answers against the patient chart, and record reviewable, record-level evidence. Three lanes are in flight — the local "AI team" tool layer, human-feedback reports, and closing the first live-chartsearchai milestone. See the [roadmap canvas](https://pmanko.github.io/clinical-ai-validation-harness/#/canvas/specs/roadmap); the development operating plan and per-lane dossiers live in-repo under `specs/artifacts/lanes/`.
+Current work is the **validation spine** (Roadmap M2 / feature 006): run the same clinical questions across model backends through chartsearchai's real API, score the answers against the patient chart, and record reviewable, record-level evidence. The DB-backed reports platform now lives under `reports-app/` and replaces per-run HTML/report-directory publishing with a queryable catalog, report, live, review, and machine-readable API surface. See the [roadmap canvas](https://pmanko.github.io/clinical-ai-validation-harness/#/canvas/specs/roadmap); the development operating plan and per-lane dossiers live in-repo under `specs/artifacts/lanes/`.
 
 ## How the docs fit together
 
@@ -97,6 +97,7 @@ specs/         Feature specs, plans, research docs, and canvases; specs/artifact
 compose/       Docker Compose files for the OpenMRS/MariaDB stack and optional services
 datasets/      Source pointers, mapping artifacts, deterministic transforms, and fixtures
 harness/       Python orchestration package and CLI (harness-cli)
+reports-app/   DB-backed validation reports platform (NestJS API, Vite/React SPA, shared DTOs)
 adapters/      Adapter contracts for invoking real project validation paths
 evals/         pytest suites for import, indexing, retrieval, and metadata checks
 artifacts/     Per-run outputs: manifests, events, reports (gitignored)

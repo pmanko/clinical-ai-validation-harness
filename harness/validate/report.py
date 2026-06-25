@@ -1155,10 +1155,59 @@ def _assemble(run_dirs: list[Path]) -> dict[str, Any]:
     }
 
 
+def write_summary_export(run_dir: Path | str) -> Path:
+    """Export producer-computed per-arm aggregates for the reports app ingest.
+
+    This is the durable scoring boundary: the TypeScript platform ingests these
+    values and must not recompute benchmark or per-arm Scout summaries.
+    """
+    run_dir = Path(run_dir)
+    results = _read_jsonl(run_dir / "results.jsonl")
+    backends = _ordered_unique([r.get("backend_id") for r in results])
+    judge_summary = scout_summary(_load_judge(run_dir), backends)
+    aggregates = []
+    for row in judge_summary:
+        means = {
+            "accuracy": row.get("accuracy_mean"),
+            "completeness": row.get("completeness_mean"),
+            "relevance": row.get("relevance_mean"),
+        }
+        numeric_means = [v for v in means.values() if isinstance(v, (int, float))]
+        benchmark = round(sum(numeric_means) / (10 * len(numeric_means)), 4) if numeric_means else None
+        citation_resolution = row.get("citation_resolution") or {}
+        aggregates.append(
+            {
+                "armId": row.get("backend"),
+                "benchmark": benchmark,
+                "answerMeans": means,
+                "harmCount": row.get("harm_count") or 0,
+                "confabCount": citation_resolution.get("n_unresolved") or 0,
+                "source": "harness.validate.reconcile.scout_summary",
+            }
+        )
+    out = run_dir / "summary.json"
+    out.write_text(
+        json.dumps(
+            {
+                "runId": run_dir.name,
+                "schemaVersion": 1,
+                "generatedAt": datetime.now(timezone.utc).isoformat(),
+                "aggregates": aggregates,
+            },
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    return out
+
+
 def build_report(run_dir: Path | str) -> Path:
     """Single-run report (N=1 case). Reads run_manifest.json + results.jsonl +
     events.jsonl from run_dir; writes run_dir/report.html. Unchanged signature."""
     run_dir = Path(run_dir)
+    write_summary_export(run_dir)
     blob = _assemble([run_dir])
     out = run_dir / "report.html"
     out.write_text(_document(blob), encoding="utf-8")

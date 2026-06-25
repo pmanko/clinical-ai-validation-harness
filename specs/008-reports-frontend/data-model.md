@@ -3,9 +3,10 @@
 **Feature**: 008-reports-frontend · **Date**: 2026-06-25
 
 Derived from the spec's Key Entities and the file-based data-model investigation. Entities map ~1:1 to
-Prisma models over SQLite (Postgres-ready). **Aggregations (benchmark, per-arm summary) are ingested as
-producer-computed values, not derived in the platform** (research Decision 5) — they are stored
-columns/rows, never computed views.
+Prisma models over SQLite (Postgres-ready target schema). The v1 runtime persists the report store to a
+SQLite file and carries this Prisma schema/migration as the normalized persistence contract to harden next.
+**Aggregations (benchmark, per-arm summary) are ingested as producer-computed values, not derived in the
+platform** (research Decision 5) — they are stored columns/rows, never computed views.
 
 ## Entities
 
@@ -55,7 +56,7 @@ One per validation execution OR judging pass.
 
 ### Adjudication — human review, the calibration reference
 - `id` (PK), `runId` (FK), `scenarioId` (FK), `armId` (FK), `reviewerId` (FK), `axes` (json), `harm` (bool), `note`, `judgedAt`.
-- **Rule**: multiple reviewers per cell allowed, no overwrite (FR-018); the calibrated headline is scoped to the reviewed subset (FR-019).
+- **Rule**: multiple reviewers per cell allowed, no overwrite (FR-018); the calibrated headline is scoped to the reviewed subset and labeled with reviewed-cell count, subset label, source tier(s), estimate, and uncertainty representation (FR-019).
 
 ### PublishedReport — catalog entry
 - `slug` (PK), `runId` (FK — `meta.run_dir`, may be a judged sibling), `comparisonSetId`, `title`, `summary`, `takeaway`, `sortOrder`, `featured` (bool), `hidden` (bool), `hasLive` (bool).

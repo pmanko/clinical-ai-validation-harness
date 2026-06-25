@@ -12,9 +12,9 @@ The Python harness is unchanged — it produces `artifacts/validate/<run>/`, whi
 
 ## Local development
 
-1. `cd reports-app/api && npm install && npx prisma migrate dev` — creates the SQLite DB + schema.
-2. `npm run dev` — the Nest API on `:3001`.
-3. `cd reports-app/web && npm install && npm run dev` — the Vite SPA on `:5173` (proxies `/api` → `:3001`).
+1. `cd reports-app && npm install` — installs the API, web, and shared workspaces.
+2. `DATABASE_URL="file:./reports.db" npm run dev -w @reports/api` — the Nest API on `:3001`, persisting the report store to SQLite.
+3. `npm run dev -w @reports/web` — the Vite SPA on `:5173` (proxies `/api` → `:3001`).
 4. Open `http://localhost:5173` — the catalog (empty until you ingest a run).
 
 ## Ingest a completed run
@@ -61,8 +61,24 @@ scores; once a reviewed subset exists, a calibrated headline with its uncertaint
   lineage, unscored-run rendering, multi-reviewer adjudication (no overwrite), and the calibrated
   headline over a reviewed subset.
 
+## Final polishing and validation
+
+After the story tests, polish tasks, and smoke run pass, use the `DIGI-UW/code-qa` skills as the final
+merge/release gate:
+
+- `spec-code-alignment`: confirm `spec.md`, `plan.md`, `tasks.md`, contracts, and `reports-app/`
+  implementation agree.
+- `meaningful-test-coverage`: prove the critical tests would fail against broken scoring-seam, trace,
+  lineage, unscored, review, live, and export behavior.
+- `simplicity-review`: remove avoidable indirection, duplicated presentation logic, dead code, and any
+  accidental TypeScript scoring logic.
+- `evidence-bundle`: preserve smoke-test screenshots/video/logs and a concise verification report.
+- `commit-pr-hygiene`: ensure comments, docs, evidence links, and PR summary are review-ready.
+
 ## Producer-side note (research Decision 5)
 
 The ingest reads a producer-computed `summary.json` (per-arm aggregates the harness writes at
-`judge-finalize`). Until that export lands, the ingest can fall back to a clearly-marked compatibility
-shim — but the durable design ingests producer-computed numbers; the platform holds no scoring logic.
+`judge-finalize`). Until that export lands, tests may use only a documented compatibility fixture that
+already contains producer-computed aggregate fields. The platform must not derive benchmark or per-arm
+aggregate semantics from raw judge rows; the durable design ingests producer-computed numbers and holds no
+scoring logic.

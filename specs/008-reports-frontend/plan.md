@@ -11,27 +11,32 @@ full-HTML republish / whole-directory-rsync model with one DB-backed application
 runs/artifacts/data and a single shared presentation. Per the scope decision, the unified app also owns
 catalog curation (was `feat/editable-reports-homepage`) and human review/adjudication (was
 `feat/report-human-feedback`). Stack: a NestJS API + a Vite/React SPA over SQLite-via-Prisma. The Python
-harness stays the sole producer of run artifacts; a one-way **idempotent ingest** loads its JSONL into
-the store. The load-bearing boundary (research Decision 5): **scoring stays in the harness — the platform
-ingests producer-computed numbers and never re-implements scoring in TypeScript**, so the refactor
-removes the current Python/JS presentation duplication rather than relocating it.
+harness stays the sole producer of run artifacts; a one-way **idempotent ingest** loads its JSONL plus the
+additive producer-computed `summary.json` aggregate export into the store. The load-bearing boundary
+(research Decision 5): **scoring stays in the harness — the platform ingests producer-computed numbers and
+never re-implements scoring in TypeScript**, so the refactor removes the current Python/JS presentation
+duplication rather than relocating it.
 
 ## Technical Context
 
 **Language/Version**: TypeScript on Node.js 20 LTS (API, ingest, frontend). The existing harness remains
 Python 3.11 — the unchanged producer of run artifacts.
 
-**Primary Dependencies**: NestJS (HTTP API + modular DI), Prisma (ORM + migrations), Vite + React 18
-(SPA), `recharts` (score charts — already proven in `site/`).
+**Primary Dependencies**: NestJS (HTTP API + modular DI), SQLite runtime persistence, Prisma schema +
+migrations for the normalized target model, Vite + React 18 (SPA), `recharts` (score charts — already
+proven in `site/`).
 
-**Storage**: SQLite (file) via Prisma for v1, Postgres-ready via a connection-string change. The store
-holds run **metadata + scores + traces + human reviews + curated prose**; it **references** (never
-re-stores) clinical chart records.
+**Storage**: SQLite (file) for v1. The shipped runtime persists the report store to SQLite and includes a
+Prisma schema/migration for the normalized target model; fully normalized Prisma repositories remain the
+next persistence-hardening step before a Postgres swap. The store holds run **metadata + scores + traces +
+human reviews + curated prose**; it **references** (never re-stores) clinical chart records.
 
 **Testing**: Vitest (frontend + shared types), the Nest test runner (API + ingest), red-first per
 Constitution V; optional Playwright for one end-to-end smoke. Priority targets: ingest mapping
 (judged-sibling lineage, trace correlation by served-model identity, partial/unscored runs), API
-contracts, human-review calibration, edge-case rendering.
+contracts, human-review calibration, edge-case rendering. Final merge/release readiness includes a
+`DIGI-UW/code-qa` polishing and validation gate for spec-code alignment, meaningful test coverage,
+simplicity review, evidence bundling, and commit/PR hygiene.
 
 **Target Platform**: a Node service (NestJS serving the API + the built SPA) behind Caddy on the GCE VM
 (reverse-proxy `reports.openclinai.org`, replacing the `file_server` over `/srv/reports`); local dev via
@@ -40,13 +45,17 @@ the Vite dev server + the Nest dev server.
 **Project Type**: web application — backend API + frontend SPA — plus a one-way ingest from the Python
 harness's file artifacts.
 
-**Performance Goals**: catalog and per-run report load in <1s for a typical run; publish/curate is O(1)
-(no whole-index rebuild, no whole-directory sync); ingest of a completed run in a few seconds.
+**Performance Goals**: catalog and per-run report load in <1s for a typical run; a reader can locate a
+run by model/arm, comparison set, or date and open its report in <30s without knowing run identifiers;
+publish/curate is O(1) (no whole-index rebuild, no whole-directory sync); ingest of a completed run in a
+few seconds; per-report payloads are materially smaller than today's 1–2 MB self-contained HTML.
 
 **Constraints**: the Python harness remains the SOLE producer of run artifacts AND the owner of
-scoring/aggregation — the platform ingests computed values and never re-implements scoring (the seam);
-clinical chart records are referenced, not re-stored; the LLM/agent-readable need is met by the JSON API
-(no separate static HTML twin required).
+scoring/aggregation — the platform ingests computed values from the producer `summary.json` aggregate
+export and never re-implements scoring (the seam); any temporary ingest compatibility path may only load
+already-computed producer fields and must not derive benchmark/per-arm scoring semantics; clinical chart
+records are referenced, not re-stored; the LLM/agent-readable need is met by the JSON API (no separate
+static HTML twin required).
 
 **Scale/Scope**: tens to low-hundreds of published runs; ~hundreds of cells per run; a handful of
 reviewers; four surfaces (catalog, report, live, review) rendered from one shared component set.
@@ -127,10 +136,10 @@ compose/Caddyfile                # reports.openclinai.org: file_server → rever
 ```
 
 **Structure Decision**: a new top-level `reports-app/` (sibling to `site/`), a small monorepo of
-`api/` (NestJS), `web/` (Vite + React), and `shared/` (DTOs). The Python harness and `artifacts/` are
-unchanged producers; the only producer-side touch is the `judge-finalize` aggregate export (research
-Decision 5), which lands in the harness repo's own flow. The Caddy `reports` site block flips from
-`file_server` to `reverse_proxy`.
+`api/` (NestJS), `web/` (Vite + React), and `shared/` (DTOs). The Python harness and `artifacts/` remain
+the producers; the required producer-side touch is the additive `judge-finalize` aggregate export
+(`summary.json`, research Decision 5), which lands in the harness repo's own flow before durable ingest
+validation. The Caddy `reports` site block flips from `file_server` to `reverse_proxy`.
 
 ## Complexity Tracking
 

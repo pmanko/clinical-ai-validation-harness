@@ -8,7 +8,7 @@ All read endpoints serve **producer-computed** scores (research Decision 5) — 
 
 ## Catalog (US1, US2, US5)
 
-- `GET /api/catalog` — published runs for the index. Each item: `{slug, title, summary, takeaway, arms[], nQuestions, date, headline: ArmAggregate[], featured, hidden, sortOrder, hasLive}`. Query filters: `?model=&comparisonSet=&from=&to=&sort=` (FR-002, FR-011). Hidden runs excluded unless `?includeHidden=true`.
+- `GET /api/catalog` — published runs for the index. Each item: `{slug, title, summary, takeaway, arms[], nQuestions, date, headline: ArmAggregate[], featured, hidden, sortOrder, hasLive}`. Query filters: `?model=&comparisonSet=&from=&to=&sort=` (FR-002, FR-011). Score filtering is deferred from v1 unless added explicitly to this contract and its tests. Hidden runs excluded unless `?includeHidden=true`.
 - `GET /api/catalog/meta` — `{intro, scoringNote}` (CatalogMeta).
 - `POST /api/catalog` — publish a run: body `{runId, slug, title?, summary?, takeaway?}` → creates a PublishedReport; does NOT re-render or touch any other run (FR-005). 409 if slug exists.
 - `PATCH /api/catalog/:slug` — curate: body any of `{title, summary, takeaway, sortOrder, featured, hidden}` → updates only this entry; scores stay data-derived (FR-006, FR-016).
@@ -22,7 +22,7 @@ All read endpoints serve **producer-computed** scores (research Decision 5) — 
 
 ## Human review (US3)
 
-- `GET /api/runs/:runId/reviews` — `{adjudications[], calibrated?: {subset, estimate, uncertainty}}`. The calibrated block is present only when a reviewed subset exists (FR-019).
+- `GET /api/runs/:runId/reviews` — `{adjudications[], calibrated?: {subset: {label, nCells, tiers[]}, estimate, uncertainty: {method, value?, interval?}}}`. The calibrated block is present only when a reviewed subset exists, is labeled to that subset, and does not claim calibration outside the reviewed cells (FR-019).
 - `POST /api/runs/:runId/reviews` — submit an adjudication: body `{scenarioId, armId, reviewerId, axes, harm, note}` → appends an Adjudication; never overwrites another reviewer's (FR-017, FR-018). Returns the stored record + the refreshed calibrated block.
 
 ## Live (US4)
@@ -38,9 +38,9 @@ All read endpoints serve **producer-computed** scores (research Decision 5) — 
 
 - `reports-ingest <run_dir>` — idempotent upsert of a completed run (Result/JudgeRow/ArmAggregate/Trace by unique keys). Trace correlation resolves `resultId` by `levelId == arm.modelName` + time window, NOT `backendId` (FR-008).
 - `reports-ingest --watch <run_dir>` — tail an active run; drives the live SSE (US4).
-- Reads `artifacts/validate/<run>/{results,judge,events}.jsonl`, the run manifests, `hub-trace/trace.jsonl`, and the producer-computed `summary.json` (the ArmAggregate export, research Decision 5). It never reaches into harness internals — the JSONL is the contract.
+- Reads `artifacts/validate/<run>/{results,judge,events}.jsonl`, the run manifests, `hub-trace/trace.jsonl`, and the required producer-computed `summary.json` (the ArmAggregate export, research Decision 5). It never reaches into harness internals — the artifacts are the contract. Until `summary.json` lands in the producer, tests may use only a documented compatibility fixture that already contains producer-computed aggregate fields; the ingest must not synthesize benchmark/per-arm aggregates from JudgeRows.
 
 ## Cross-cutting
 
-- All scores served are the ingested producer-computed values (Decision 5); the API holds no scoring logic.
+- All automated aggregate scores served are ingested producer-computed values (Decision 5); the API holds no benchmark/per-arm scoring logic.
 - Errors: 404 unknown run/slug; 409 duplicate slug; 422 invalid adjudication payload; partial/unscored runs are 200 with `scored:false` flags, not errors.

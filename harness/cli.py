@@ -81,6 +81,12 @@ def _build_parser() -> argparse.ArgumentParser:
     val_report.add_argument("run_id", nargs="?", help="Run id under <output-dir>/")
     val_report.add_argument("--run-dir", help="Explicit run directory (overrides run_id)")
     val_report.add_argument("--output-dir", default="artifacts/validate")
+    val_summary = val_sub.add_parser(
+        "summary", help="Export producer-computed summary.json from a completed judged run"
+    )
+    val_summary.add_argument("run_id", nargs="?", help="Run id under <output-dir>/")
+    val_summary.add_argument("--run-dir", help="Explicit run directory (overrides run_id)")
+    val_summary.add_argument("--output-dir", default="artifacts/validate")
 
     return parser
 
@@ -189,6 +195,13 @@ def main() -> int:
             run_dir = args.run_dir or str(Path(args.output_dir) / args.run_id)
             out = build_report(run_dir)
             print(f"report -> {out}")
+            return 0
+        if args.validate_action == "summary":
+            from .validate.report import write_summary_export
+
+            run_dir = args.run_dir or str(Path(args.output_dir) / args.run_id)
+            out = write_summary_export(run_dir)
+            print(f"summary -> {out}")
             return 0
         return _not_yet_implemented(f"validate {args.validate_action}")
 

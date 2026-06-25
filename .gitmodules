@@ -19,3 +19,6 @@
 	path = targets/med-agent-hub
 	url = https://github.com/pmanko/med-agent-hub.git
 	branch = main
+[submodule "tools/code-qa"]
+	path = tools/code-qa
+	url = https://github.com/DIGI-UW/code-qa
