@@ -300,14 +300,15 @@ def run_comparison(
                     http_status=res.status,
                     first_turn=first_turn,
                 )
-                # Two-call architecture: on the FINAL turn, fire a same-session In-Depth call to the
-                # arm's in-depth-only backend. chartsearchai's session history carries this answer in as
-                # a prior assistant turn, so the in-depth-only level elaborates THIS answer. Nested as a
-                # separate artifact with its own latency; a failure degrades to no in-depth (never fatal),
-                # and the answer survey is unaffected for arms with no in-depth backend.
+                # Two-call architecture: fire a same-session In-Depth call on the FIRST turn, elaborating
+                # that first answer (the session carries it as the prior assistant turn) — FORCED for every
+                # scenario so the In-Depth is always present and testable. The In-Depth is a SIDE artifact:
+                # its session is NOT propagated back (below), so it never contaminates later turns. Nested
+                # with its own latency; a failure degrades to no in-depth (never fatal); arms with no
+                # in-depth backend are unaffected.
                 indepth_artifact = None
-                is_last_turn = turn is scenario.turns[-1]
-                if (is_last_turn and backend.indepth_model and backend.indepth_endpoint
+                is_first_turn = turn is scenario.turns[0]
+                if (is_first_turn and backend.indepth_model and backend.indepth_endpoint
                         and res.status == 200 and res.envelope):
                     id_kwargs = dict(chat_kwargs)
                     id_kwargs["endpoint_url"] = backend.indepth_endpoint
@@ -321,8 +322,8 @@ def run_comparison(
                     except Exception as exc:
                         ires = ChatResult(status=0, envelope=None, latency_ms=0,
                                           raw_text=f"in-depth request failed: {type(exc).__name__}: {exc}")
-                    if ires.envelope and ires.envelope.get("session"):
-                        session = ires.envelope["session"]
+                    # Do NOT propagate the In-Depth's session — it is an evaluation artifact, not part of
+                    # the conversation; later turns continue from the answer's session (no contamination).
                     indepth_artifact = {
                         "response": ires.envelope,
                         "latency_ms": ires.latency_ms,
