@@ -323,6 +323,18 @@ def _single_title(card: dict[str, Any]) -> tuple[str, str]:
     return f"{essence} · single", essence
 
 
+def _prompt_lever(synthesis_prompt: Any) -> str:
+    """A short lever tag from a non-default solo synthesis prompt, so two solo arms that share a model
+    but differ only by prompt don't collide on title. ``synthesis-cite-or-abstain`` -> ``cite-or-abstain``;
+    the default ``synthesis-chartsearchai`` (or absent) -> ``""`` (plain solo title unchanged)."""
+    tag = str(synthesis_prompt or "").strip().split("/")[-1]
+    for pre in ("synthesis-", "synthesis_"):
+        if tag.startswith(pre):
+            tag = tag[len(pre):]
+            break
+    return "" if tag in ("", "chartsearchai", "default") else tag
+
+
 def arm_model_name(backend_id: str, *, backends_path: Path | str = _BACKENDS) -> str:
     """The hub modelName an arm routes to (backends.json ``modelName``) — which is exactly what the hub
     stamps as the trace ``level_id``. Falls back to the backend_id (legacy arms where the two coincide).
@@ -381,6 +393,9 @@ def arm_card(
             _w = level.get("synthesizer") or model_name
             _scard = _model_card(_w, registry)
             _t, _st = _single_title(_scard)
+            _lever = _prompt_lever(level.get("synthesis_prompt"))
+            if _lever:  # a prompt-lever solo (e.g. cite-or-abstain) must not collide with plain solo
+                _t, _st = f"{_t} ({_lever})", f"{_st} ({_lever})"
             return {"backend_id": backend_id, "label": label, "title": _t, "short_title": _st,
                     "kind": "single", "path": "med-agent-hub single",
                     "models": [_scard], "config": _single_config(_w, ini)}
