@@ -4,7 +4,8 @@
 	branch = harness-integration
 [submodule "targets/querystore"]
 	path = targets/querystore
-	url = https://github.com/openmrs/openmrs-module-querystore.git
+	url = https://github.com/pmanko/openmrs-module-querystore.git
+	branch = harness-integration
 [submodule "targets/openmrs_chatbot"]
 	path = targets/openmrs_chatbot
 	url = https://github.com/anichiti/openmrs_chatbot.git

@@ -210,6 +210,12 @@ services:
       # `wall_clock` so chart age and hub "now" both track today. Empty default =
       # per-request latest_record (the max date in the chart). A level's `anchor` overrides this.
       HUB_ANCHOR: ${HUB_ANCHOR:-}
+      # Querystore read API: when a request carries a `patient` ref, the hub retrieves that patient's
+      # chart from querystore over REST (ADR Decision 16) and serializes it itself. Points at the OpenMRS
+      # backend on the compose network; a chart already in `messages` is used as-is (chartsearchai parity).
+      QUERYSTORE_BASE_URL: ${QUERYSTORE_BASE_URL:-http://backend:8080/openmrs}
+      QUERYSTORE_USERNAME: ${QUERYSTORE_USERNAME:-admin}
+      QUERYSTORE_PASSWORD: ${QUERYSTORE_PASSWORD:-Admin123}
     extra_hosts:
       # Reach LM Studio on the host, same pattern as the backend.
       - "host.docker.internal:host-gateway"
