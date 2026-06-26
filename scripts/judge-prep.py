@@ -47,6 +47,46 @@ def load_charts() -> dict[str, dict]:
     return by_uuid
 
 
+def render_blocks(blocks: list) -> str:
+    """Flatten the envelope's structured `blocks` (tables) into readable text for the judge.
+
+    The synthesis prompts instruct the model to put enumerations (medications, labs, problems, orders)
+    in a `table` block and keep the prose `answer` a one-line summary — so for list questions the SUBSTANCE
+    lives in `blocks`, not the prose. Without this, the judge sees only the prose and scores completeness as
+    if the list were absent (the dominant completeness-deflation bug). Each row renders as
+    "col=value [refs]; ..." so the judge sees both the content AND its citations.
+    """
+    if not isinstance(blocks, list):
+        return ""
+    out = []
+    for b in blocks:
+        if not isinstance(b, dict) or b.get("kind") != "table":
+            continue
+        cols = b.get("columns") or []
+        labels = {c.get("key"): (c.get("label") or c.get("key")) for c in cols if isinstance(c, dict)}
+        keys = [c.get("key") for c in cols if isinstance(c, dict) and c.get("key")]
+        title = (b.get("title") or "Table").strip()
+        lines = [f"[Table: {title}]"]
+        for row in (b.get("rows") or []):
+            cells = (row or {}).get("cells") or {}
+            parts = []
+            for k in (keys or cells.keys()):
+                cell = cells.get(k) or {}
+                if not isinstance(cell, dict):
+                    continue
+                text = str(cell.get("text", "")).strip()
+                if not text:
+                    continue
+                refs = cell.get("refs") or []
+                ref_s = "".join(f"[{n}]" for n in refs) if refs else ""
+                parts.append(f"{labels.get(k, k)}: {text}{ref_s}")
+            if parts:
+                lines.append("- " + "; ".join(parts))
+        if len(lines) > 1:
+            out.append("\n".join(lines))
+    return "\n\n".join(out)
+
+
 def split_sections(answer: str) -> tuple[str, str]:
     """(answer_section, in_depth_section). Team format: **Answer** ... **In Depth** ...
     Single-model answers have no **In Depth** -> in_depth is ''."""
@@ -101,6 +141,11 @@ def main() -> None:
                 try: resp = json.loads(resp)
                 except Exception: resp = {"answer": resp}
             ans, indepth = split_sections(resp.get("answer"))
+            # Fold the structured table blocks into the answer the judge scores — for list questions the
+            # substance lives in `blocks`, and the judge must see it or completeness is scored as absent.
+            rendered = render_blocks(resp.get("blocks"))
+            if rendered:
+                ans = (ans + "\n\n" + rendered).strip() if ans else rendered
             # Two-call architecture: the In-Depth is a SEPARATE nested artifact (its own call +
             # latency), not concatenated into the answer — use it as the in_depth_section so the
             # arm is background-judged (and a single-model arm finally gets a background score).
