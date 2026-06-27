@@ -376,14 +376,20 @@ def _split_dynamic_prompt_model(model_name: str) -> dict[str, str] | None:
 
 
 def _prompt_file_entry(label: str, prompt_stem: str) -> dict[str, str] | None:
+    source = f"prompts/{prompt_stem}.txt"
     try:
         text = (_PROMPTS / f"{prompt_stem}.txt").read_text(encoding="utf-8").strip()
     except Exception:
-        return None
+        return {
+            "label": label,
+            "source": source,
+            "text": "",
+            "summary": "Prompt file is selected by the med-agent-hub companion PR.",
+        }
     summary = " ".join(text.split())
     if len(summary) > 160:
         summary = summary[:157].rstrip() + "…"
-    return {"label": label, "source": f"prompts/{prompt_stem}.txt", "text": text, "summary": summary}
+    return {"label": label, "source": source, "text": text, "summary": summary}
 
 
 def _hub_single_config(model_id: str, prompt_stem: str | None, ini: dict[str, dict[str, str]]) -> dict[str, Any]:
