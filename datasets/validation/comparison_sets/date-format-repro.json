@@ -1,0 +1,17 @@
+{
+  "id": "date-format-repro",
+  "scenario_ids": [
+    "single-weight-trend",
+    "am-orders-6mo"
+  ],
+  "backend_ids": [
+    "date-e4b-current-warn",
+    "date-e4b-contract-warn",
+    "date-12b-current-warn",
+    "date-12b-contract-warn",
+    "date-12b-contract-enforce",
+    "date-a4b-current-warn",
+    "date-a4b-contract-warn",
+    "date-a4b-contract-enforce"
+  ]
+}

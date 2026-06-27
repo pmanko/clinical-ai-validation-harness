@@ -61,6 +61,25 @@ def test_split_sections_non_string_input():
     assert jp.split_sections(123)[0] == "123"
 
 
+def test_render_blocks_uses_row_sources_without_repeating_cell_refs():
+    jp = _load()
+    blocks = [{
+        "kind": "table",
+        "title": "Weights",
+        "columns": [{"key": "date", "label": "Date"}, {"key": "weight", "label": "Weight"}],
+        "rows": [{"cells": {
+            "date": {"text": "2026-01-26", "refs": [1]},
+            "weight": {"text": "71 kg", "refs": [1]},
+        }}],
+    }]
+    sources = {"sources": [{"record_index": 1, "source_id": "S1"}]}
+    rendered = jp.render_blocks(blocks, sources)
+    assert "Date: 2026-01-26" in rendered
+    assert "Weight: 71 kg" in rendered
+    assert "Sources: S1" in rendered
+    assert "[1]" not in rendered
+
+
 # --------------------------------------------------------------------------- #
 # main — the full cell build (nested in-depth promotion + should_abstain)
 # --------------------------------------------------------------------------- #
@@ -119,6 +138,31 @@ def test_main_promotes_nested_indepth_into_in_depth_section(tmp_path, monkeypatc
     assert cell["should_abstain"] is True
     # the snapshot file was dumped under <run>/charts/
     assert (run_dir / "charts" / "p.snapshot.txt").read_text(encoding="utf-8").startswith("Patient: 40F")
+
+
+def test_main_includes_canonical_sources_in_judge_cell(tmp_path, monkeypatch):
+    jp = _load()
+    chart = {"patient": {"uuid": "u1", "slug": "p", "name": "Pat"},
+             "valid_uuids": ["ref-1"],
+             "chart_snapshot": "Patient: 40F\n[1] (2026-01-26) Finding — Weight: 70 kg",
+             "mappings": [{"index": 1, "resourceType": "obs", "resourceUuid": "ref-1"}]}
+    scenario = {"id": "s1", "patient_ref": "u1",
+                "turns": [{"n": 1, "question": "What is the weight?"}]}
+    results = [{
+        "scenario_id": "s1", "backend_id": "b1", "turn": 1, "error": None,
+        "response": {"answer": "Weight is 70 kg [1].",
+                     "references": [{"index": 1, "resourceUuid": "ref-1"}],
+                     "blocks": []},
+    }]
+    run_dir = _fixture_run(tmp_path, jp, monkeypatch, results=results,
+                           scenario=scenario, chart=chart)
+    monkeypatch.setattr("sys.argv", ["judge-prep.py", str(run_dir)])
+    jp.main()
+    cell = _read_cells(run_dir)[0]
+    assert cell["sources"][0]["source_id"] == "S1"
+    assert cell["source_diagnostics"]["answer_inline_refs"] == [1]
+    assert "[Evidence Used]" in cell["answer_section"]
+    assert "S1 = [1]" in cell["answer_section"]
 
 
 def test_main_should_abstain_false_when_unset(tmp_path, monkeypatch):
@@ -185,7 +229,8 @@ def test_main_parses_string_response_json(tmp_path, monkeypatch):
     monkeypatch.setattr("sys.argv", ["judge-prep.py", str(run_dir)])
     jp.main()
     cell = _read_cells(run_dir)[0]
-    assert cell["answer_section"] == "parsed answer text"
+    assert cell["answer_section"].startswith("parsed answer text")
+    assert "[Evidence Used]" in cell["answer_section"]
 
 
 def test_main_skips_error_rows(tmp_path, monkeypatch):

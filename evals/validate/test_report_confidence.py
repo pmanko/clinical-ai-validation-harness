@@ -151,6 +151,31 @@ def test_no_trace_falls_back_to_plain_answer(tmp_path):
     assert "<strong>Answer</strong>" in ans  # still markdown-rendered, just unsectioned
 
 
+def test_temporal_gate_metadata_reaches_cell_chip_and_summary(tmp_path):
+    run_dir = tmp_path / "validate" / "run"
+    tr = _trace({"level": "yellow", "note": "patched"}, None)
+    tr["temporal_gate"] = {
+        "schema_version": "temporal_gate.v1",
+        "mode": "enforce",
+        "status": "fail",
+        "checks": [{"id": "upcoming_date", "status": "fail"}],
+        "applied": "patch",
+    }
+    tr["temporal_facts_summary"] = {"reference_date": "2026-06-20"}
+    _write_run(run_dir, [_result("**Answer**\nNo upcoming appointment [1].")], traces=[tr])
+
+    html = build_report(run_dir).read_text(encoding="utf-8")
+    body = re.search(
+        r"<script type='application/json' id='report-data'>(.*?)</script>", html, re.DOTALL
+    ).group(1)
+    run = json.loads(body)["runs"][0]
+    cell = run["scenarios"][0]["turns"][0]["cells"]["med-agent-team"]
+    assert cell["temporal_gate"]["mode"] == "enforce"
+    assert "temporal gate enforce: fail patch" in cell["chips_html"]
+    assert run["summary"][0]["temporal_gate_fail"] == 1
+    assert run["summary"][0]["temporal_gate_applied"] == 1
+
+
 def test_judge_scores_are_loaded_when_present(tmp_path):
     run_dir = tmp_path / "validate" / "run"
     # A judge.jsonl present exercises the loader's read path (vs the absent -> [] branch).

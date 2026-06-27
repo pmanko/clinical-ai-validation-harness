@@ -15,8 +15,10 @@ import http.server
 import json
 import os
 import re
+import socket
 import socketserver
 import subprocess
+import threading
 import time
 import sys
 from pathlib import Path
@@ -25,6 +27,7 @@ from urllib.parse import parse_qs, urlparse
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 from harness.validate.model_registry import arm_card, arm_model_name  # noqa: E402  (sys.path set above)
+from harness.validate.sources import build_sources, load_scenario_chart  # noqa: E402
 DATA = ROOT / "datasets" / "validation"
 TRACE_FILE = ROOT / "artifacts" / "hub-trace" / "trace.jsonl"
 PORT = int(os.environ.get("DASH_PORT", "8099"))
@@ -247,12 +250,14 @@ def detail(scenario, backend):
         exp = json.load(open(DATA / "scenarios" / f"{scenario}.json")).get("expectations", {})
     except Exception:
         pass
+    chart_fixture = load_scenario_chart(scenario, DATA / "scenarios", DATA / "charts")
     traces = read_jsonl(TRACE_FILE)
     turns = []
     for r in rows:
         m = r.get("metrics") or {}
         resp = r.get("response") or {}
         refs = resp.get("references") or resp.get("citations") or []
+        sources_v1 = build_sources(resp, chart_fixture)
         tr = _match_trace(traces, arm_model_name(backend), r.get("started_at"), r.get("ended_at"))
         ind = r.get("indepth") or {}
         iresp = ind.get("response") or {}
@@ -267,6 +272,7 @@ def detail(scenario, backend):
                       "indepth": ({"answer": iresp.get("answer") or "", "status": ind.get("http_status"),
                                    "latency_ms": ind.get("latency_ms")} if ind else None),
                       "blocks": resp.get("blocks") or [],
+                      "sources": sources_v1,
                       "refs": refs,
                       "status": m.get("http_status"), "latency_ms": m.get("latency_ms"),
                       "chars": m.get("answer_chars"), "citations": m.get("citation_count"),
@@ -314,11 +320,24 @@ section{margin:18px 0}h2{font-size:12px;color:var(--muted);margin:0 0 4px;text-t
 .meta{font-size:11px;color:var(--muted);margin-bottom:6px}
 .ans{white-space:pre-wrap;background:var(--sunken);border:1px solid var(--border2);border-radius:6px;padding:10px}
 .refs{font-size:11px;color:var(--muted);margin-top:6px}
+.rawrefs{margin-top:7px;border:1px solid var(--border2);border-radius:6px;background:var(--sunken)}
+.rawrefs summary{cursor:pointer;color:var(--muted);font-size:11px;padding:5px 8px;list-style:none}
+.rawrefs div{padding:0 8px 7px}
 .block{margin-top:8px}.btitle{font-size:11px;color:var(--muted);margin-bottom:3px}
 table.btbl{border-collapse:collapse;font-size:11px;width:100%}
 .btbl td,.btbl th{border:1px solid var(--border2);padding:3px 7px;text-align:left;vertical-align:top}
 .btbl th{color:var(--muted);font-weight:400;white-space:nowrap}
-.btbl .cref{color:var(--faint);font-size:10px;margin-left:3px}
+.rowrefs{margin-top:2px;color:var(--muted);font-size:10px}
+.rowrefs span{display:inline-block;margin-left:3px;padding:0 4px;border-radius:7px;background:var(--surface2);color:var(--accent);font-family:Menlo,monospace}
+.sources{margin-top:9px;border-top:1px solid var(--border2);padding-top:7px}
+.stitle{font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px}
+.sgrid{display:grid;gap:6px}
+.scard{border:1px solid var(--border2);border-radius:7px;background:var(--sunken);padding:7px 8px}
+.shead{font-size:11px}.shead b{color:var(--accent);font-family:Menlo,monospace}.smeta{font-size:10px;color:var(--muted);margin-top:2px}
+.sstat{display:inline-block;margin-left:4px;padding:0 5px;border-radius:8px;background:var(--surface2);color:var(--muted)}
+.sstat.ok{color:var(--ok)}.sstat.bad{color:var(--err)}
+.scard ul{margin:4px 0 0 16px;padding:0;font-size:11px}.scard details{margin-top:4px;color:var(--muted)}.scard summary{cursor:pointer;font-size:10px}.scard pre{white-space:pre-wrap;font-size:10px;margin:4px 0 0;color:var(--muted)}
+.sdiag{margin-top:5px;color:var(--muted);font-size:10px}
 .tracebox{margin-top:8px;border:1px solid var(--border2);border-radius:6px;background:var(--sunken)}
 .tracebox summary{cursor:pointer;color:var(--muted);font-size:11px;padding:6px 10px;list-style:none}
 .tracebox summary::-webkit-details-marker{display:none}
@@ -528,24 +547,57 @@ async function tick(){
    +(f.indepth_status!=null?' <span class="'+(f.indepth_status===200&&f.indepth_chars>0?'ok':'err')+'" title="In-Depth (separate call)">+ID '+f.indepth_chars+'c</span>':'')
    +' '+f.ans+'</div>').join('');
 }
-function renderBlocks(blocks){
+function srcLabels(sources){
+ const out={}; ((sources&&sources.sources)||[]).forEach(s=>{ if(s.record_index!=null) out[s.record_index]=s.source_id; });
+ return out;
+}
+function rowRefLabels(row, labels){
+ const seen={}, out=[]; const cells=(row&&row.cells)||{};
+ Object.keys(cells).forEach(k=>((cells[k]&&cells[k].refs)||[]).forEach(r=>{ const x=labels[r]||('['+r+']'); if(!seen[x]){seen[x]=1;out.push(x);} }));
+ return out;
+}
+function renderBlocks(blocks,sources){
  if(!blocks||!blocks.length)return '';
+ const labels=srcLabels(sources);
  return blocks.map(bl=>{
   if(bl.kind!=='table')return '';
   const cols=bl.columns||[];
   const head=cols.map(c=>'<th>'+esc(c.label||c.key||'')+'</th>').join('');
   const body=(bl.rows||[]).map(row=>{
    const cells=row.cells||{};
-   return '<tr>'+cols.map(c=>{
+   const rr=rowRefLabels(row,labels);
+   const rf=rr.length?'<div class=rowrefs>sources '+rr.map(x=>'<span>'+esc(x)+'</span>').join('')+'</div>':'';
+   return '<tr>'+cols.map((c,i)=>{
     const cell=cells[c.key]||{};
     const txt=esc(cell.text!=null?String(cell.text):'');
-    const rf=(cell.refs&&cell.refs.length)?'<span class=cref>['+cell.refs.join('][')+']</span>':'';
-    return '<td>'+txt+rf+'</td>';
+    return '<td>'+txt+(i===0?rf:'')+'</td>';
    }).join('')+'</tr>';
   }).join('');
   const title=bl.title?'<div class=btitle>'+esc(bl.title)+'</div>':'';
   return '<div class=block>'+title+'<table class=btbl><thead><tr>'+head+'</tr></thead><tbody>'+body+'</tbody></table></div>';
  }).join('');
+}
+function renderSources(sources){
+ const ss=(sources&&sources.sources)||[], d=(sources&&sources.diagnostics)||{};
+ if(!ss.length&&!(d.malformed_tokens&&d.malformed_tokens.length))return '';
+ function card(s){
+  const meta=[s.resource_type,s.date].filter(Boolean).map(esc).join(' · ');
+  const facts=(s.facts_used&&s.facts_used.length?s.facts_used:[s.source_text||s.title||'']).slice(0,4);
+  const st=s.resolution_status||'unknown';
+  return '<div class=scard><div class=shead><b>'+esc(s.source_id||'')+'</b> ['+esc(s.record_index||'?')+'] '+esc(s.title||'')+'</div>'
+   +'<div class=smeta>'+meta+' <span class="sstat '+(st==='resolved'?'ok':(st==='unresolved'?'bad':''))+'">'+esc(st)+'</span></div>'
+   +'<ul>'+facts.map(f=>'<li>'+esc(f)+'</li>').join('')+'</ul>'
+   +'<details><summary>open source record</summary><pre>'+esc(s.source_text||'')+'</pre></details></div>';
+ }
+ let h='<div class=sources><div class=stitle>Evidence Used</div><div class=sgrid>'+ss.slice(0,5).map(card).join('')+'</div>';
+ if(ss.length>5)h+='<details><summary>show all sources</summary>'+ss.slice(5).map(card).join('')+'</details>';
+ const bits=[]; ['unresolved_refs','unused_top_refs','nested_only_refs','malformed_tokens'].forEach(k=>{ if(d[k]&&d[k].length)bits.push(k+': '+JSON.stringify(d[k])); });
+ if(bits.length)h+='<div class=sdiag>'+esc(bits.join(' · '))+'</div>';
+ return h+'</div>';
+}
+function renderRawRefs(refs){
+ if(!refs||!refs.length)return '';
+ return '<details class=rawrefs><summary>raw resolved refs</summary><div>'+esc(refs.map(r=>typeof r==='object'?('['+(r.index!=null?r.index:'?')+'] '+(r.resourceType||'')):('['+r+']')).join('  '))+'</div></details>';
 }
 const CONF={green:['High confidence','#196c2e'],yellow:['Medium confidence','#9e6a03'],red:['Low confidence','#8b1a1a']};
 function chip(level){const c=CONF[level]||['unrated','#30363d'];return '<span class=cchip style="background:'+c[1]+'">'+c[0]+'</span>';}
@@ -595,7 +647,7 @@ async function openD(s,b){
  (d.turns||[]).forEach(t=>{
   const tr=t.trace;
   h+='<div class=turn><div class=q>Turn '+t.turn+': '+esc(t.question)+'</div>';
-  h+='<div class=meta><span class="'+(t.status===200?'ok':'err')+'">status '+t.status+'</span> · '+(t.latency_ms||0)+'ms · '+(t.chars||0)+' chars · '+(t.citations||0)+' citations</div>';
+  h+='<div class=meta><span class="'+(t.status===200?'ok':'err')+'">status '+t.status+'</span> · '+(t.latency_ms||0)+'ms · '+(t.chars||0)+' chars · '+(t.citations||0)+' source refs</div>';
   if(t.error){
    h+='<div class="ans err">'+esc(t.error)+'</div>';
   }else if(tr&&(tr.answer_confidence||tr.indepth_confidence)){
@@ -619,8 +671,9 @@ async function openD(s,b){
     h+='<div class=ans>'+esc(t.indepth.answer)+'</div>';
    }
   }
-  h+=renderBlocks(t.blocks);
-  if(t.refs&&t.refs.length)h+='<div class=refs>refs: '+esc(t.refs.map(r=>typeof r==='object'?('['+(r.index!=null?r.index:'?')+'] '+(r.resourceType||'')):('['+r+']')).join('  '))+'</div>';
+  h+=renderBlocks(t.blocks,t.sources);
+  h+=renderSources(t.sources);
+  h+=renderRawRefs(t.refs);
   h+='<details class=tracebox><summary>▸ reasoning trace</summary>'+renderTrace(tr)+'</details>';
   h+='</div>';
  });
@@ -662,6 +715,29 @@ class _Server(socketserver.ThreadingTCPServer):
     # page look frozen / "down".
     allow_reuse_address = True
     daemon_threads = True
+
+
+class _ServerV6(_Server):
+    address_family = socket.AF_INET6
+
+
+def serve_dashboard():
+    servers = []
+    for cls, addr in ((_Server, "127.0.0.1"), (_ServerV6, "::1")):
+        try:
+            servers.append(cls((addr, PORT), H))
+        except OSError as exc:
+            print(f"warn: could not bind dashboard on {addr}:{PORT}: {exc}", file=sys.stderr)
+    if not servers:
+        raise SystemExit(f"could not bind dashboard on port {PORT}")
+    print(f"validate dashboard -> http://localhost:{PORT}   (Ctrl-C to stop)")
+    for srv in servers[1:]:
+        threading.Thread(target=srv.serve_forever, daemon=True).start()
+    try:
+        servers[0].serve_forever()
+    finally:
+        for srv in servers:
+            srv.server_close()
 
 
 def freeze(out_path):
@@ -706,5 +782,4 @@ if __name__ == "__main__":
             _RUN_OVERRIDE = os.path.abspath(sys.argv[j + 1])
         freeze(out)
     else:
-        print(f"validate dashboard -> http://localhost:{PORT}   (Ctrl-C to stop)")
-        _Server(("127.0.0.1", PORT), H).serve_forever()
+        serve_dashboard()

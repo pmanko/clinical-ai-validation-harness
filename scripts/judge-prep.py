@@ -20,6 +20,9 @@ import json, sys, pathlib, glob
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 from harness.validate.reconcile import resolve_citations  # noqa: E402
+from harness.validate.hub_trace import load_traces, match_trace  # noqa: E402
+from harness.validate.model_registry import arm_model_name  # noqa: E402
+from harness.validate.sources import build_sources, render_sources_for_judge, source_ref_labels  # noqa: E402
 
 SCEN_DIR = ROOT / "datasets/validation/scenarios"
 CHART_DIR = ROOT / "datasets/validation/charts"
@@ -47,17 +50,19 @@ def load_charts() -> dict[str, dict]:
     return by_uuid
 
 
-def render_blocks(blocks: list) -> str:
+def render_blocks(blocks: list, sources_v1: dict | None = None) -> str:
     """Flatten the envelope's structured `blocks` (tables) into readable text for the judge.
 
     The synthesis prompts instruct the model to put enumerations (medications, labs, problems, orders)
     in a `table` block and keep the prose `answer` a one-line summary — so for list questions the SUBSTANCE
     lives in `blocks`, not the prose. Without this, the judge sees only the prose and scores completeness as
     if the list were absent (the dominant completeness-deflation bug). Each row renders as
-    "col=value [refs]; ..." so the judge sees both the content AND its citations.
+    "col=value; ..." plus one row-level Sources field. The canonical Evidence
+    section carries source details separately, avoiding repeated per-cell refs.
     """
     if not isinstance(blocks, list):
         return ""
+    labels_by_ref = source_ref_labels(sources_v1)
     out = []
     for b in blocks:
         if not isinstance(b, dict) or b.get("kind") != "table":
@@ -70,6 +75,7 @@ def render_blocks(blocks: list) -> str:
         for row in (b.get("rows") or []):
             cells = (row or {}).get("cells") or {}
             parts = []
+            row_refs: list[int] = []
             for k in (keys or cells.keys()):
                 cell = cells.get(k) or {}
                 if not isinstance(cell, dict):
@@ -77,10 +83,18 @@ def render_blocks(blocks: list) -> str:
                 text = str(cell.get("text", "")).strip()
                 if not text:
                     continue
-                refs = cell.get("refs") or []
-                ref_s = "".join(f"[{n}]" for n in refs) if refs else ""
-                parts.append(f"{labels.get(k, k)}: {text}{ref_s}")
+                row_refs.extend(n for n in (cell.get("refs") or []) if isinstance(n, int))
+                parts.append(f"{labels.get(k, k)}: {text}")
             if parts:
+                source_labels = []
+                seen = set()
+                for ref in row_refs:
+                    label = labels_by_ref.get(ref, f"[{ref}]")
+                    if label not in seen:
+                        seen.add(label)
+                        source_labels.append(label)
+                if source_labels:
+                    parts.append("Sources: " + ", ".join(source_labels))
                 lines.append("- " + "; ".join(parts))
         if len(lines) > 1:
             out.append("\n".join(lines))
@@ -106,6 +120,7 @@ def split_sections(answer: str) -> tuple[str, str]:
 def main() -> None:
     rd = run_dir(sys.argv[1] if len(sys.argv) > 1 else sys.exit("usage: judge-prep.py <run>"))
     results = [json.loads(l) for l in open(rd / "results.jsonl")]
+    traces = load_traces(rd.parent.parent / "hub-trace" / "trace.jsonl")
     charts = load_charts()
 
     # dump the snapshots the judges read (once per patient slug)
@@ -141,11 +156,15 @@ def main() -> None:
                 try: resp = json.loads(resp)
                 except Exception: resp = {"answer": resp}
             ans, indepth = split_sections(resp.get("answer"))
+            sources_v1 = build_sources(resp, chart)
             # Fold the structured table blocks into the answer the judge scores — for list questions the
             # substance lives in `blocks`, and the judge must see it or completeness is scored as absent.
-            rendered = render_blocks(resp.get("blocks"))
+            rendered = render_blocks(resp.get("blocks"), sources_v1)
             if rendered:
                 ans = (ans + "\n\n" + rendered).strip() if ans else rendered
+            evidence = render_sources_for_judge(sources_v1)
+            if evidence:
+                ans = (ans + "\n\n" + evidence).strip() if ans else evidence
             # Two-call architecture: the In-Depth is a SEPARATE nested artifact (its own call +
             # latency), not concatenated into the answer — use it as the in_depth_section so the
             # arm is background-judged (and a single-model arm finally gets a background score).
@@ -163,15 +182,27 @@ def main() -> None:
                 "in_depth_section": indepth,
                 "indepth_latency_ms": (r.get("indepth") or {}).get("latency_ms"),
                 "references": resp.get("references") or [],
+                "sources": sources_v1.get("sources") or [],
+                "source_diagnostics": sources_v1.get("diagnostics") or {},
             })
         final = turns[-1]
+        final_row = rows[-1]
+        trace = match_trace(
+            traces,
+            arm_model_name(backend_id),
+            final_row.get("started_at"),
+            final_row.get("ended_at"),
+        ) or {}
         cres = resolve_citations(final["references"], valid)
-        is_team = bool(final["in_depth_section"]) or backend_id.startswith("med-agent-team")
+        has_in_depth = bool(final["in_depth_section"])
+        is_team = has_in_depth or backend_id.startswith("med-agent-team")  # legacy field name
         p = chart.get("patient") or {}
         out.append({
             "scenario_id": scenario_id,
             "backend_id": backend_id,
             "is_team": is_team,
+            "has_in_depth": has_in_depth,
+            "score_background": has_in_depth,
             "patient": {k: p.get(k) for k in ("name", "gender", "birthdate", "slug")},
             "snapshot_file": str((snap_dir / f"{chart['_slug']}.snapshot.txt")),
             "should_abstain": ((scen.get("expectations") or {}).get("should_abstain")
@@ -182,14 +213,18 @@ def main() -> None:
             "in_depth_section": final["in_depth_section"],
             "references": final["references"],
             "citation_resolution": cres,
+            "sources": final.get("sources") or [],
+            "source_diagnostics": final.get("source_diagnostics") or {},
+            "temporal_gate": trace.get("temporal_gate"),
+            "temporal_facts_summary": trace.get("temporal_facts_summary"),
         })
 
     cells_path = rd / "judge-cells.jsonl"
     with open(cells_path, "w") as fh:
         for c in out:
             fh.write(json.dumps(c) + "\n")
-    teams = sum(1 for c in out if c["is_team"])
-    print(f"wrote {len(out)} cells ({teams} team / {len(out)-teams} single) -> {cells_path}")
+    background = sum(1 for c in out if c.get("score_background"))
+    print(f"wrote {len(out)} cells ({background} with In-Depth / {len(out)-background} answer-only) -> {cells_path}")
     print(f"snapshots -> {snap_dir}/*.snapshot.txt")
 
 

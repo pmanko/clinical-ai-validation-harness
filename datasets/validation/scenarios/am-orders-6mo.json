@@ -14,10 +14,9 @@
   ],
   "expectations": {
     "should_cite_resource_types": [
-      "MedicationRequest",
-      "ServiceRequest"
+      "MedicationRequest"
     ],
     "should_abstain": false,
-    "notes": "Rich drug + lab orders Feb-May 2006 (ART, cotrimoxazole, RIPE, CBC/chemistry labs)."
+    "notes": "With reference date 2026-06-20, the six-month window starts 2025-12-20. Documented in-window orders are drug orders on 2025-12-31 and 2026-01-07; the 2025-12-14 X-ray/test order is outside this window."
   }
 }

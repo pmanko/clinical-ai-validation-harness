@@ -1,0 +1,24 @@
+{
+  "id": "date-zabella-weight-endpoints",
+  "patient_ref": "dd75c020-1691-11df-97a5-7038c432aabf",
+  "turns": [
+    {
+      "n": 1,
+      "question": "Give only the earliest and latest documented weight measurements in the available past-year data, with exact date, value, and citation."
+    }
+  ],
+  "tags": [
+    "date-format",
+    "temporal",
+    "date-value-binding",
+    "vitals",
+    "single-turn"
+  ],
+  "expectations": {
+    "should_cite_resource_types": [
+      "Observation"
+    ],
+    "should_abstain": false,
+    "notes": "Targets date-value binding and nearby-date drift. Expected endpoints are 74 kg on 2025-10-13 and 71 kg on 2026-01-26, with exact ISO dates and matching citations."
+  }
+}

@@ -414,5 +414,85 @@
   "modelName": "single-12b-cite-or-abstain",
   "indepthEndpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
   "indepthModelName": "indepth-only:gemma-4-12b"
+ },
+ "m-12b-temporal-off": {
+  "label": "Temporal dev — 12B single, temporal facts, gate OFF, anchor 2026-06-20",
+  "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
+  "modelName": "answer:gemma-4-12b@synthesis-chartsearchai~off",
+  "indepthEndpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
+  "indepthModelName": "indepth-only:gemma-4-12b"
+ },
+ "m-12b-temporal-warn": {
+  "label": "Temporal dev — 12B single, temporal facts, gate WARN, anchor 2026-06-20",
+  "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
+  "modelName": "answer:gemma-4-12b@synthesis-chartsearchai~warn",
+  "indepthEndpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
+  "indepthModelName": "indepth-only:gemma-4-12b"
+ },
+ "m-12b-temporal-enforce": {
+  "label": "Temporal dev — 12B single, temporal facts, gate ENFORCE, anchor 2026-06-20",
+  "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
+  "modelName": "answer:gemma-4-12b@synthesis-chartsearchai~enforce",
+  "indepthEndpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
+  "indepthModelName": "indepth-only:gemma-4-12b"
+ },
+ "m-a4b-temporal-off": {
+  "label": "Temporal dev — A4B single, temporal facts, gate OFF, anchor 2026-06-20",
+  "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
+  "modelName": "answer:gemma-26b@synthesis-chartsearchai~off",
+  "indepthEndpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
+  "indepthModelName": "indepth-only:gemma-26b"
+ },
+ "m-a4b-temporal-enforce": {
+  "label": "Temporal dev — A4B single, temporal facts, gate ENFORCE, anchor 2026-06-20",
+  "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
+  "modelName": "answer:gemma-26b@synthesis-chartsearchai~enforce",
+  "indepthEndpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
+  "indepthModelName": "indepth-only:gemma-26b"
+ },
+ "date-e4b-current-warn": {
+  "label": "Date format — E4B, current prompt, gate WARN",
+  "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
+  "modelName": "answer:gemma-e4b-q8@synthesis-chartsearchai~warn"
+ },
+ "date-e4b-contract-warn": {
+  "label": "Date format — E4B, date-output-contract prompt, gate WARN",
+  "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
+  "modelName": "answer:gemma-e4b-q8@synthesis-date-output-contract~warn"
+ },
+ "date-e4b-contract-enforce": {
+  "label": "Date format — E4B, date-output-contract prompt, gate ENFORCE",
+  "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
+  "modelName": "answer:gemma-e4b-q8@synthesis-date-output-contract~enforce"
+ },
+ "date-12b-current-warn": {
+  "label": "Date format — 12B, current prompt, gate WARN",
+  "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
+  "modelName": "answer:gemma-4-12b@synthesis-chartsearchai~warn"
+ },
+ "date-12b-contract-warn": {
+  "label": "Date format — 12B, date-output-contract prompt, gate WARN",
+  "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
+  "modelName": "answer:gemma-4-12b@synthesis-date-output-contract~warn"
+ },
+ "date-12b-contract-enforce": {
+  "label": "Date format — 12B, date-output-contract prompt, gate ENFORCE",
+  "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
+  "modelName": "answer:gemma-4-12b@synthesis-date-output-contract~enforce"
+ },
+ "date-a4b-current-warn": {
+  "label": "Date format — A4B, current prompt, gate WARN",
+  "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
+  "modelName": "answer:gemma-26b@synthesis-chartsearchai~warn"
+ },
+ "date-a4b-contract-warn": {
+  "label": "Date format — A4B, date-output-contract prompt, gate WARN",
+  "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
+  "modelName": "answer:gemma-26b@synthesis-date-output-contract~warn"
+ },
+ "date-a4b-contract-enforce": {
+  "label": "Date format — A4B, date-output-contract prompt, gate ENFORCE",
+  "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
+  "modelName": "answer:gemma-26b@synthesis-date-output-contract~enforce"
  }
 }

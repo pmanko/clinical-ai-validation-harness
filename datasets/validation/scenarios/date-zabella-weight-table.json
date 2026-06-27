@@ -1,0 +1,24 @@
+{
+  "id": "date-zabella-weight-table",
+  "patient_ref": "dd75c020-1691-11df-97a5-7038c432aabf",
+  "turns": [
+    {
+      "n": 1,
+      "question": "List this patient's weight measurements over the past year as a two-column table with exact dates and weights. Use exact YYYY-MM-DD dates."
+    }
+  ],
+  "tags": [
+    "date-format",
+    "temporal",
+    "vitals",
+    "table",
+    "single-turn"
+  ],
+  "expectations": {
+    "should_cite_resource_types": [
+      "Observation"
+    ],
+    "should_abstain": false,
+    "notes": "Targets malformed date strings in table cells. Dates must be exact chart/ledger ISO strings such as 2025-10-13, 2025-11-05, 2025-11-09, 2025-11-12, 2025-11-24, 2025-11-25, 2025-12-15, 2025-12-17, and 2026-01-26; no underscores, short years, translated digits, or DYYYY_MM_DD ids."
+  }
+}

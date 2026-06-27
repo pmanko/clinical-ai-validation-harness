@@ -15,6 +15,6 @@
   ],
   "expectations": {
     "should_abstain": true,
-    "notes": "Data is historical (~2004-2006) with no future-dated appointments \u2014 should say none / abstain, not invent one. [provisional - confirm against chart]"
+    "notes": "With reference date 2026-06-20, documented return-visit dates are historical; the latest known return date is 2026-02-23 and no future appointment is documented. Should say no upcoming appointment is documented after the reference date; do not invent one."
   }
 }

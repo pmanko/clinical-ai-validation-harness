@@ -31,12 +31,14 @@ from .hub_trace import load_traces, match_trace
 from .model_registry import arm_model_name
 from .model_registry import arm_card
 from .reconcile import calibrated_summary, scout_summary
+from .sources import build_sources, load_scenario_chart, source_ref_labels
 
 # The med-agent-team bridge gracefully degrades to a schema-valid envelope when
 # its own LLM calls fail, so a degraded turn looks like a 200/json_valid/0-cites
 # answer to the harness. Surface it from the answer text so a broken backend is
 # visible instead of silently passing as an empty answer.
 _FALLBACK_MARKER = "could not produce a complete answer"
+_DATA_DIR = Path(__file__).resolve().parents[2] / "datasets" / "validation"
 
 
 def _is_degraded(r: dict[str, Any]) -> bool:
@@ -142,13 +144,13 @@ def _render_answer_sections(text: Any, trace: Any, indepth: Any = None) -> str:
     return out
 
 
-def _render_blocks(blocks: Any) -> str:
+def _render_blocks(blocks: Any, sources_v1: Any = None) -> str:
     """Render the bridge's `blocks[]` (kind:"table" enumerations the chart-answer
-    envelope carries alongside the prose answer) as HTML tables, reusing the
-    existing `.ref` chip for each cell's chart-record indices. A missing column
-    key in a row -> empty cell rather than a KeyError, so a partial row can't
-    drop the whole report."""
+    envelope carries alongside the prose answer) as HTML tables. Cell refs are
+    preserved in the raw envelope but collapsed here to row-level source labels
+    so the default UX does not repeat citation chips in every cell."""
     out = []
+    labels = source_ref_labels(sources_v1 if isinstance(sources_v1, dict) else None)
     for b in blocks or []:
         if not isinstance(b, dict) or b.get("kind") != "table":
             continue
@@ -157,13 +159,23 @@ def _render_blocks(blocks: Any) -> str:
         rows_html = []
         for row in b.get("rows") or []:
             cells = row.get("cells") or {}
-            tds = []
-            for c in cols:
-                cell = cells.get(c.get("key")) or {}
-                refs = "".join(
-                    f"<span class='ref'>[{_esc(i)}]</span>" for i in (cell.get("refs") or [])
+            row_refs: list[int] = []
+            for cell in cells.values():
+                if isinstance(cell, dict):
+                    row_refs.extend(i for i in (cell.get("refs") or []) if isinstance(i, int))
+            row_source_html = ""
+            sids = _ordered_unique([labels.get(i, f"[{i}]") for i in row_refs])
+            if sids:
+                row_source_html = (
+                    "<div class='row-sources'>sources "
+                    + " ".join(f"<span>{_esc(s)}</span>" for s in sids)
+                    + "</div>"
                 )
-                tds.append(f"<td>{_esc(cell.get('text'))}{(' ' + refs) if refs else ''}</td>")
+            tds = []
+            for ci, c in enumerate(cols):
+                cell = cells.get(c.get("key")) or {}
+                source_html = row_source_html if ci == 0 else ""
+                tds.append(f"<td>{_esc(cell.get('text'))}{source_html}</td>")
             rows_html.append("<tr>" + "".join(tds) + "</tr>")
         title = f"<div class='block-title'>{_esc(b.get('title'))}</div>" if b.get("title") else ""
         out.append(
@@ -174,7 +186,7 @@ def _render_blocks(blocks: Any) -> str:
 
 
 def _render_refs(references: Any) -> str:
-    """The first-8 + overflow reference chips that sit under the answer."""
+    """Raw resolved references, kept as a debug disclosure instead of default evidence UX."""
     refs = references or []
     if not refs:
         return ""
@@ -183,7 +195,54 @@ def _render_refs(references: Any) -> str:
         for x in refs[:8]
     )
     more = f" <span class='more'>+{len(refs) - 8}</span>" if len(refs) > 8 else ""
-    return f"<div class='refs'>{shown}{more}</div>"
+    return f"<details class='raw-refs'><summary>raw resolved refs</summary><div class='refs'>{shown}{more}</div></details>"
+
+
+def _render_sources(sources_v1: Any) -> str:
+    """Render canonical sources as clinician-facing evidence tiles."""
+    if not isinstance(sources_v1, dict):
+        return ""
+    sources = sources_v1.get("sources") or []
+    diagnostics = sources_v1.get("diagnostics") or {}
+    if not sources and not diagnostics.get("malformed_tokens"):
+        return ""
+
+    def card(s: dict[str, Any]) -> str:
+        meta = " · ".join(_esc(x) for x in [s.get("resource_type"), s.get("date")] if x)
+        facts = "".join(f"<li>{_esc(f)}</li>" for f in (s.get("facts_used") or [])[:4])
+        if not facts and s.get("source_text"):
+            facts = f"<li>{_esc(s.get('source_text'))}</li>"
+        status = s.get("resolution_status") or "unknown"
+        status_cls = " ok" if status == "resolved" else (" bad" if status == "unresolved" else "")
+        return (
+            "<article class='source-card'>"
+            f"<div class='source-head'><b>{_esc(s.get('source_id'))}</b> "
+            f"<span>[{_esc(s.get('record_index'))}] {_esc(s.get('title'))}</span></div>"
+            f"<div class='source-meta'>{meta} <span class='source-status{status_cls}'>{_esc(status)}</span></div>"
+            f"<ul>{facts}</ul>"
+            f"<details><summary>open source record</summary><pre>{_esc(s.get('source_text'))}</pre></details>"
+            "</article>"
+        )
+
+    shown = "".join(card(s) for s in sources[:5])
+    more = ""
+    if len(sources) > 5:
+        more = (
+            "<details class='source-more'><summary>show all sources</summary>"
+            + "".join(card(s) for s in sources[5:])
+            + "</details>"
+        )
+    diag_bits = []
+    for key, label in (
+        ("unresolved_refs", "unresolved"),
+        ("unused_top_refs", "unused top-level"),
+        ("nested_only_refs", "nested only"),
+        ("malformed_tokens", "malformed tokens"),
+    ):
+        if diagnostics.get(key):
+            diag_bits.append(f"{label}: {_esc(diagnostics.get(key))}")
+    diag = f"<div class='source-diag'>{' · '.join(diag_bits)}</div>" if diag_bits else ""
+    return f"<section class='sources'><div class='sources-title'>Evidence Used</div><div class='source-grid'>{shown}</div>{more}{diag}</section>"
 
 
 def _render_chips(r: dict[str, Any]) -> str:
@@ -355,7 +414,24 @@ def _load_adjudication(run_dir: Path) -> list[dict[str, Any]]:
     return _read_jsonl(path)
 
 
-def _summary_rows(results: list[dict[str, Any]], backends: list[str], labels: dict[str, str]) -> list[dict[str, Any]]:
+def _trace_for_row(r: dict[str, Any], traces: list[dict[str, Any]] | None) -> dict[str, Any] | None:
+    return match_trace(
+        traces or [], arm_model_name(r.get("backend_id")), r.get("started_at"), r.get("ended_at")
+    )
+
+
+def _gate_for_row(r: dict[str, Any], traces: list[dict[str, Any]] | None) -> dict[str, Any] | None:
+    tr = _trace_for_row(r, traces)
+    gate = tr.get("temporal_gate") if isinstance(tr, dict) else None
+    return gate if isinstance(gate, dict) else None
+
+
+def _summary_rows(
+    results: list[dict[str, Any]],
+    backends: list[str],
+    labels: dict[str, str],
+    traces: list[dict[str, Any]] | None = None,
+) -> list[dict[str, Any]]:
     """Per-backend aggregates (the old summary table rows), precomputed so the JS
     renders a table without re-deriving any contract."""
     rows = []
@@ -363,6 +439,8 @@ def _summary_rows(results: list[dict[str, Any]], backends: list[str], labels: di
         rs = [r for r in results if r.get("backend_id") == b]
         lat = [r["metrics"]["latency_ms"] for r in rs if r.get("metrics")]
         cites = sum(r["metrics"].get("citation_count", 0) for r in rs if r.get("metrics"))
+        gates = [_gate_for_row(r, traces) for r in rs]
+        gates = [g for g in gates if g]
         rows.append(
             {
                 "backend_id": b,
@@ -373,27 +451,55 @@ def _summary_rows(results: list[dict[str, Any]], backends: list[str], labels: di
                 "total_chart_refs": cites,
                 "degraded": sum(1 for r in rs if _is_degraded(r)),
                 "errors": sum(1 for r in rs if r.get("error")),
+                "temporal_gate_warn": sum(1 for g in gates if g.get("status") == "warn"),
+                "temporal_gate_fail": sum(1 for g in gates if g.get("status") == "fail"),
+                "temporal_gate_applied": sum(1 for g in gates if g.get("applied") in {"patch", "fallback"}),
             }
         )
     return rows
 
 
-def _cell_blob(r: dict[str, Any], traces: list[dict[str, Any]] | None = None) -> dict[str, Any]:
+def _render_temporal_gate_chip(gate: Any) -> str:
+    if not isinstance(gate, dict):
+        return ""
+    mode = gate.get("mode") or "off"
+    status = gate.get("status") or "not_applicable"
+    if mode == "off" or status == "not_applicable":
+        return f"<span class='chip'>temporal gate {html.escape(str(mode))}</span>"
+    cls = " bad" if status == "fail" else " warm"
+    applied = gate.get("applied")
+    suffix = f" {html.escape(str(applied))}" if applied and applied != "none" else ""
+    return (
+        f"<span class='chip{cls}'>temporal gate {html.escape(str(mode))}: "
+        f"{html.escape(str(status))}{suffix}</span>"
+    )
+
+
+def _cell_blob(
+    r: dict[str, Any],
+    traces: list[dict[str, Any]] | None = None,
+    chart_fixture: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     """One rendered cell for the blob. Answer/block HTML is rendered in Python
     (escape-FIRST) so the injection contract is enforced and testable; the JS
     just injects the strings. Carries only the surfaced metric subset + the
     precomputed degraded flag, plus the per-section confidence tags from the hub trace."""
     m = r.get("metrics") or {}
     resp = r.get("response") or {}
-    trace = match_trace(traces or [], arm_model_name(r.get("backend_id")), r.get("started_at"), r.get("ended_at"))
+    trace = _trace_for_row(r, traces)
+    gate = trace.get("temporal_gate") if isinstance(trace, dict) else None
+    sources_v1 = build_sources(resp, chart_fixture)
     return {
         "error": r.get("error"),
         "http_status": m.get("http_status"),
         "conf_html": "",  # tags now head each answer section (see _render_answer_sections)
         "answer_html": _render_answer_sections(resp.get("answer"), trace, r.get("indepth")),
+        "sources": sources_v1,
+        "sources_html": _render_sources(sources_v1),
         "refs_html": _render_refs(resp.get("references")),
-        "blocks_html": _render_blocks(resp.get("blocks")),
-        "chips_html": _render_chips(r),
+        "blocks_html": _render_blocks(resp.get("blocks"), sources_v1),
+        "chips_html": _render_chips(r) + _render_temporal_gate_chip(gate),
+        "temporal_gate": gate,
         "degraded": _is_degraded(r),
         "metrics": {
             "latency_ms": m.get("latency_ms"),
@@ -453,6 +559,7 @@ def _run_blob(run_dir: Path) -> dict[str, Any]:
 
     scenarios = []
     for sid in scenario_ids:
+        chart_fixture = load_scenario_chart(sid, _DATA_DIR / "scenarios", _DATA_DIR / "charts")
         rs = [r for r in results if r.get("scenario_id") == sid]
         turns_seen = _ordered_unique([r.get("turn") for r in rs])
         index = {(r.get("turn"), r.get("backend_id")): r for r in rs}
@@ -463,7 +570,7 @@ def _run_blob(run_dir: Path) -> dict[str, Any]:
             for b in backends:
                 r = index.get((t, b))
                 if r is not None:
-                    cells[b] = _cell_blob(r, traces)
+                    cells[b] = _cell_blob(r, traces, chart_fixture)
             turns.append({"turn": t, "question": questions.get(t, ""), "cells": cells})
         scenarios.append({"scenario_id": sid, "turns": turns})
 
@@ -510,7 +617,7 @@ def _run_blob(run_dir: Path) -> dict[str, Any]:
         "backends": backends,
         "labels": {b: labels.get(b, "") for b in backends},
         "scenarios": scenarios,
-        "summary": _summary_rows(results, backends, labels),
+        "summary": _summary_rows(results, backends, labels, traces),
         "metrics": _metric_distributions(results, backends),
         "judge": scout_summary(_load_judge(run_dir), backends),
         "judge_rows": _load_judge(run_dir),
@@ -817,9 +924,28 @@ table.jheat { border-collapse: collapse; font-size: 11px; }
 .caveat.yellow { background: #fcf4d6; border: 1px solid #f1c21b; color: #684e00; }
 .collapse > summary { cursor: pointer; color: var(--accent); font-size: 11px; padding: 3px 0; }
 .secbody { margin-top: 4px; }
+.raw-refs { margin-top: 6px; color: var(--mut); font-size: 11px; }
+.raw-refs summary { cursor: pointer; color: var(--mut); }
 .refs { margin-top: 6px; }
 .ref { display: inline-block; font-size: 10px; font-family: ui-monospace, monospace; background: var(--accent-bg); color: var(--accent); padding: 1px 4px; border-radius: 3px; margin: 1px; }
 .more { color: var(--mut); font-size: 10px; }
+.sources { margin-top: 10px; border-top: 1px solid var(--line); padding-top: 8px; }
+.sources-title { font-size: 11px; font-weight: 700; color: var(--mut); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 5px; }
+.source-grid { display: grid; gap: 6px; }
+.source-card { border: 1px solid var(--line); background: var(--surface2); border-radius: 7px; padding: 7px 8px; }
+.source-head { display: flex; gap: 6px; align-items: baseline; font-size: 11px; }
+.source-head b { color: var(--accent); font-family: ui-monospace, monospace; }
+.source-meta { color: var(--mut); font-size: 10px; margin-top: 2px; }
+.source-status { display: inline-block; margin-left: 4px; padding: 0 5px; border-radius: 8px; background: var(--line); color: var(--mut); }
+.source-status.ok { background: #e6f5ea; color: #196c2e; }
+.source-status.bad { background: #fde8e8; color: #a01; }
+.source-card ul { margin: 4px 0 0 16px; padding: 0; color: var(--fg); font-size: 11px; }
+.source-card details { margin-top: 4px; color: var(--mut); }
+.source-card summary { cursor: pointer; font-size: 10px; }
+.source-card pre { white-space: pre-wrap; margin: 4px 0 0; font-size: 10px; color: var(--mut); }
+.source-more { margin-top: 6px; }
+.source-more > summary { cursor: pointer; color: var(--accent); font-size: 11px; }
+.source-diag { margin-top: 5px; color: var(--mut); font-size: 10px; }
 .err { color: var(--err); font-family: ui-monospace, monospace; font-size: 12px; }
 .chips { margin-top: 6px; }
 .chip { display: inline-block; font-size: 10px; font-family: ui-monospace, monospace; background: var(--surface2); color: var(--mut); padding: 1px 5px; border-radius: 3px; margin: 1px; }
@@ -838,6 +964,8 @@ table.jheat { border-collapse: collapse; font-size: 11px; }
 .block { margin-top: 8px; }
 .block-title { font-weight: 600; font-size: 12px; margin-bottom: 2px; }
 .block-tbl th, .block-tbl td { font-size: 12px; padding: 4px 6px; }
+.row-sources { margin-top: 3px; color: var(--mut); font-size: 10px; }
+.row-sources span { display: inline-block; margin-left: 3px; padding: 0 4px; border-radius: 6px; background: var(--accent-bg); color: var(--accent); font-family: ui-monospace, monospace; }
 .legend { color: var(--mut); font-size: 12px; margin-top: 24px; border-top: 1px solid var(--line); padding-top: 12px; }
 [data-hidden="1"] { display: none !important; }
 .patient-banner { background: var(--banner-bg); border: 1px solid var(--accent-bd); border-radius: 8px; padding: 8px 14px; margin: 0 0 14px; font-size: 13px; }
@@ -992,11 +1120,14 @@ function renderSummary(run){
   const rows = run.summary.map(s =>
     "<tr><td class='b'>" + htmlEsc(armTitle(s.backend_id)) + "<span class='model'>" + htmlEsc(s.backend_id) + "</span></td>" +
     '<td>' + s.turns + '</td><td>' + s.avg_latency_ms + ' ms</td><td>' + s.max_latency_ms + ' ms</td>' +
-    '<td>' + s.total_chart_refs + '</td><td>' + s.degraded + '</td><td>' + s.errors + '</td></tr>'
+    '<td>' + s.total_chart_refs + '</td><td>' + s.degraded + '</td><td>' + s.errors + '</td>' +
+    '<td>' + (s.temporal_gate_warn || 0) + '</td><td>' + (s.temporal_gate_fail || 0) + '</td>' +
+    '<td>' + (s.temporal_gate_applied || 0) + '</td></tr>'
   ).join('');
   const tbl = el('table', 'summary');
   tbl.innerHTML = '<thead><tr><th>backend</th><th>turns</th><th>avg latency</th>' +
-    '<th>max latency</th><th>total chart refs</th><th>degraded</th><th>errors</th></tr></thead>' +
+    '<th>max latency</th><th>total chart refs</th><th>degraded</th><th>errors</th>' +
+    '<th>gate warn</th><th>gate fail</th><th>gate applied</th></tr></thead>' +
     '<tbody>' + rows + '</tbody>';
   sec.appendChild(tbl);
   makeSortable(tbl);
@@ -1067,7 +1198,7 @@ function renderMetrics(run){
   sec.innerHTML='<p class="intro">How each setup behaves across all the questions, shown as a spread rather than a single number — so you can see typical speed, citation count, and answer length, plus the outliers. Wider boxes mean more variable behaviour.</p>'
    +'<dl class="legend-key">'
    +'<dt>latency</dt><dd>end-to-end response time, in ms.</dd>'
-   +'<dt>chart references</dt><dd>citations per answer — a grounding-density proxy.</dd>'
+   +'<dt>chart references</dt><dd>resolved chart-reference count per answer — volume metadata, not a quality score.</dd>'
    +'<dt>answer length</dt><dd>characters.</dd>'
    +'</dl>'
    +'<div class="legend-chips" aria-label="how to read a box plot">'
@@ -1266,7 +1397,8 @@ function buildTile(run, backend, cell, turn, scenarioId){
     body.querySelector('.err').textContent = 'HTTP ' + (cell.http_status == null ? '' : cell.http_status) +
                                              ': ' + String(cell.error).slice(0, 400);
   } else {
-    body.innerHTML = (cell.conf_html || '') + "<div class='ans'>" + cell.answer_html + '</div>' + cell.refs_html + cell.blocks_html;
+    body.innerHTML = (cell.conf_html || '') + "<div class='ans'>" + cell.answer_html + '</div>' +
+                     cell.blocks_html + (cell.sources_html || '') + cell.refs_html;
   }
   tile.appendChild(body);
 

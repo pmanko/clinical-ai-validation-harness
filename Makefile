@@ -477,12 +477,19 @@ validate-run: setup dashboard-ensure
 #   1. make validate-judge-prep RUN=<id>                       -> judge-cells.jsonl (section split + resolve_citations + chart snapshots)
 #   2. <run the clinical-answer-scoring fan-out over judge-cells.jsonl, save its rows to rows.json>
 #   3. make validate-judge-finalize RUN=<id> ROWS=<rows.json>  -> judge.jsonl (drops temporal-when-no-claim) + re-render report
+#      Optional independent passes: add JUDGE_ACTOR=<id> to write judges/<id>/judge.jsonl.
+#      Add JUDGE_PROMOTE=1 to also promote that actor pass to root judge.jsonl for the report.
 validate-judge-prep: setup
 	$(UV) run python scripts/judge-prep.py $(RUN)
 
 validate-judge-finalize: setup
-	$(UV) run python scripts/judge-finalize.py $(RUN) $(ROWS)
-	$(UV) run harness-cli validate report $(RUN)
+	$(UV) run python scripts/judge-finalize.py $(RUN) $(ROWS) \
+		$(if $(JUDGE_ACTOR),--actor $(JUDGE_ACTOR),) $(if $(JUDGE_PROMOTE),--promote,)
+	@if [ -z "$(JUDGE_ACTOR)" ] || [ -n "$(JUDGE_PROMOTE)" ]; then \
+	  $(UV) run harness-cli validate report $(RUN); \
+	else \
+	  echo "judge actor stored; root judge.jsonl unchanged; skipping report render (set JUDGE_PROMOTE=1 to promote)"; \
+	fi
 
 # Render report.html for a completed run: `make validate-report RUN=<run_id>`.
 validate-report: setup

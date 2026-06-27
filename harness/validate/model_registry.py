@@ -324,15 +324,75 @@ def _single_title(card: dict[str, Any]) -> tuple[str, str]:
 
 
 def _prompt_lever(synthesis_prompt: Any) -> str:
-    """A short lever tag from a non-default solo synthesis prompt, so two solo arms that share a model
-    but differ only by prompt don't collide on title. ``synthesis-cite-or-abstain`` -> ``cite-or-abstain``;
-    the default ``synthesis-chartsearchai`` (or absent) -> ``""`` (plain solo title unchanged)."""
+    """A human-readable lever tag from a non-default solo synthesis prompt.
+
+    This keeps experiment titles distinct without leaking prompt-file stems into
+    dashboard headlines. For example, ``synthesis-date-output-contract`` becomes
+    ``date contract``; the default ``synthesis-chartsearchai`` stays invisible.
+    """
     tag = str(synthesis_prompt or "").strip().split("/")[-1]
     for pre in ("synthesis-", "synthesis_"):
         if tag.startswith(pre):
             tag = tag[len(pre):]
             break
-    return "" if tag in ("", "chartsearchai", "default") else tag
+    if tag in ("", "chartsearchai", "default"):
+        return ""
+    readable = {
+        "date-output-contract": "date contract",
+        "cite-or-abstain": "cite/abstain",
+    }.get(tag, tag.replace("_", "-").replace("-", " "))
+    return readable
+
+
+def _split_dynamic_prompt_model(model_name: str) -> dict[str, str] | None:
+    """Parse hub dynamic prompt ids used for quick prompt iteration.
+
+    Supported forms mirror med-agent-hub's levels_loader:
+      answer:<writer>
+      answer:<writer>@<prompt>
+      answer:<writer>@<prompt>~<temporal_gate>
+      indepth-only:<writer>
+      indepth-only:<writer>@<prompt>
+    """
+    prefix = ""
+    for candidate in ("answer:", "indepth-only:"):
+        if model_name.startswith(candidate):
+            prefix = candidate
+            break
+    if not prefix:
+        return None
+    rest = model_name[len(prefix):]
+    writer_prompt, _, gate = rest.partition("~")
+    writer, at, prompt = writer_prompt.partition("@")
+    if not writer:
+        return None
+    default_prompt = "synthesis-indepth" if prefix == "indepth-only:" else "synthesis-chartsearchai"
+    return {
+        "mode": prefix[:-1],
+        "writer": writer,
+        "prompt": prompt if at and prompt else default_prompt,
+        "gate": gate or "",
+    }
+
+
+def _prompt_file_entry(label: str, prompt_stem: str) -> dict[str, str] | None:
+    try:
+        text = (_PROMPTS / f"{prompt_stem}.txt").read_text(encoding="utf-8").strip()
+    except Exception:
+        return None
+    summary = " ".join(text.split())
+    if len(summary) > 160:
+        summary = summary[:157].rstrip() + "…"
+    return {"label": label, "source": f"prompts/{prompt_stem}.txt", "text": text, "summary": summary}
+
+
+def _hub_single_config(model_id: str, prompt_stem: str | None, ini: dict[str, dict[str, str]]) -> dict[str, Any]:
+    entry = _prompt_file_entry("Synthesis prompt", prompt_stem or "synthesis-chartsearchai")
+    return {
+        "knobs": {model_id: _resolve_knobs(model_id, ini)},
+        "prompts": [entry] if entry else [],
+        "retrieval": _CHARTSEARCHAI_RETRIEVAL,
+    }
 
 
 def arm_model_name(backend_id: str, *, backends_path: Path | str = _BACKENDS) -> str:
@@ -370,6 +430,26 @@ def arm_card(
     model_name = arm.get("modelName") or backend_id
     label = arm.get("label") or backend_id
 
+    dyn = _split_dynamic_prompt_model(model_name)
+    if dyn:
+        single_card = _model_card(dyn["writer"], registry)
+        title, short_title = _single_title(single_card)
+        lever = _prompt_lever(dyn["prompt"])
+        suffix = []
+        if lever:
+            suffix.append(lever)
+        if dyn.get("gate"):
+            suffix.append(f"gate {dyn['gate']}")
+        if suffix:
+            joined = ", ".join(suffix)
+            title, short_title = f"{title} ({joined})", f"{short_title} ({joined})"
+        return {
+            "backend_id": backend_id, "label": label, "title": title, "short_title": short_title,
+            "kind": "single", "path": "med-agent-hub single",
+            "models": [single_card],
+            "config": _hub_single_config(dyn["writer"], dyn["prompt"], ini),
+        }
+
     # Solo single-model legs through the hub (answer:<m> / indepth-only:<m> / single:<m>) — ONE model,
     # no orchestrator/team — render as a SINGLE arm with the writer's family·size·quant, not "team".
     _solo_w = next((model_name.split(":", 1)[1]
@@ -398,7 +478,7 @@ def arm_card(
                 _t, _st = f"{_t} ({_lever})", f"{_st} ({_lever})"
             return {"backend_id": backend_id, "label": label, "title": _t, "short_title": _st,
                     "kind": "single", "path": "med-agent-hub single",
-                    "models": [_scard], "config": _single_config(_w, ini)}
+                    "models": [_scard], "config": _hub_single_config(_w, level.get("synthesis_prompt"), ini)}
         roles = {r: _model_card(roles_map[r], registry) for r in _ROLES if r in roles_map}
         title, short_title = _team_title(roles)
         return {

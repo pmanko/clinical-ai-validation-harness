@@ -161,6 +161,19 @@ def test_detail_indepth_is_none_when_arm_has_none(tmp_path, monkeypatch):
     assert t["indepth"] is None
 
 
+def test_detail_includes_canonical_sources_v1(tmp_path, monkeypatch):
+    vd = _load()
+    row = _answer_row("s1", "b1", 1)
+    row["response"]["answer"] = "Weight is documented [1]."
+    row["response"]["references"] = [{"index": 1, "resourceType": "obs", "resourceUuid": "u1"}]
+    row["metrics"]["citation_count"] = 1
+    _setup_run(tmp_path, vd, monkeypatch, results=[row])
+    t = vd.detail("s1", "b1")["turns"][0]
+    assert t["sources"]["schema_version"] == "sources.v1"
+    assert t["sources"]["sources"][0]["record_index"] == 1
+    assert t["sources"]["diagnostics"]["answer_inline_refs"] == [1]
+
+
 def test_detail_unknown_cell_is_empty(tmp_path, monkeypatch):
     vd = _load()
     _setup_run(tmp_path, vd, monkeypatch, results=[_answer_row("s1", "b1", 1)])

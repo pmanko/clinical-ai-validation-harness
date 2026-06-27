@@ -173,7 +173,7 @@ _MED_BLOCK = {
 }
 
 
-def test_report_renders_blocks_table_with_cells_and_refs(tmp_path):
+def test_report_renders_blocks_table_with_cells_and_row_sources(tmp_path):
     # The bridge returns enumerations (med lists, labs) as a blocks[] table that
     # report.py currently DROPS entirely (it reads only response.answer +
     # response.references). Render each table block as an HTML <table>.
@@ -197,8 +197,30 @@ def test_report_renders_blocks_table_with_cells_and_refs(tmp_path):
     assert ">Action</th>" in blocks
     assert "Lamivudine" in blocks
     assert "Nevirapine" in blocks
-    # Cell-level chart-record refs render as ref chips inside the table cell.
-    assert "<span class='ref'>[29]</span>" in blocks
+    # Cell-level chart-record refs no longer render as repeated chips in every table cell;
+    # the default table view collapses them into row-level source affordances.
+    assert "<span class='ref'>[29]</span>" not in blocks
+    assert "row-sources" in blocks
+    assert "sources" in blocks
+
+
+def test_report_renders_evidence_tiles_and_keeps_raw_refs_debug_only(tmp_path):
+    run_dir = tmp_path / "run"
+    r = _result("med-agent-team", "See medications table.",
+                [{"index": 29, "resourceType": "MedicationRequest"}])
+    r["response"]["blocks"] = [_MED_BLOCK]
+    _write_run(run_dir, [r])
+
+    html = build_report(run_dir).read_text(encoding="utf-8")
+    body = re.search(
+        r"<script type='application/json' id='report-data'>(.*?)</script>", html, re.DOTALL
+    ).group(1)
+    cell = json.loads(body)["runs"][0]["scenarios"][0]["turns"][0]["cells"]["med-agent-team"]
+
+    assert cell["sources"]["schema_version"] == "sources.v1"
+    assert "Evidence Used" in cell["sources_html"]
+    assert "source-card" in cell["sources_html"]
+    assert "raw resolved refs" in cell["refs_html"]
 
 
 def test_report_escapes_untrusted_text_in_answer_and_blocks(tmp_path):
