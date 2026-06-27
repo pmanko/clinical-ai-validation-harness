@@ -28,3 +28,27 @@ def test_am_upcoming_expectation_matches_fixed_temporal_anchor():
     assert scen.expectations["should_abstain"] is True
     assert "2026-06-20" in scen.expectations["notes"]
     assert "2026-01-07" in scen.expectations["notes"]
+
+
+def test_temporal_wide_31b_team_set_loads_and_covers_wider_surface():
+    cset = load_comparison_set(DATA / "comparison_sets" / "temporal-wide-31b-team.json")
+    assert cset.id == "temporal-wide-31b-team"
+    assert len(cset.scenario_ids) == 12
+    assert len(cset.backend_ids) == 7
+    assert {
+        "date-zabella-weight-table",
+        "am-upcoming-appointments",
+        "ek-growth",
+        "abstain-out-of-chart",
+    } <= set(cset.scenario_ids)
+
+    backends = resolve_backends(cset.backend_ids, DATA / "backends.json")
+    assert {b.model_name for b in backends} == {
+        "answer:gemma-4-12b@synthesis-chartsearchai~warn",
+        "answer:gemma-4-12b@synthesis-date-output-contract~warn",
+        "answer:gemma-26b@synthesis-date-output-contract~warn",
+        "answer:gemma-31b@synthesis-chartsearchai~warn",
+        "answer:gemma-31b@synthesis-date-output-contract~warn",
+        "med-agent-team-12b-date-warn",
+        "med-agent-team-high-date-warn",
+    }

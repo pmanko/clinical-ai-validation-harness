@@ -494,5 +494,29 @@
   "label": "Date format — A4B, date-output-contract prompt, gate ENFORCE",
   "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
   "modelName": "answer:gemma-26b@synthesis-date-output-contract~enforce"
+ },
+ "wide-31b-current-warn": {
+  "label": "Wide temporal/date — 31B, current prompt, gate WARN",
+  "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
+  "modelName": "answer:gemma-31b@synthesis-chartsearchai~warn"
+ },
+ "wide-31b-contract-warn": {
+  "label": "Wide temporal/date — 31B, date-output-contract prompt, gate WARN",
+  "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
+  "modelName": "answer:gemma-31b@synthesis-date-output-contract~warn"
+ },
+ "wide-team-12b-contract-warn": {
+  "label": "Wide temporal/date — 12B team, date-output-contract prompt, gate WARN",
+  "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
+  "modelName": "med-agent-team-12b-date-warn",
+  "indepthEndpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
+  "indepthModelName": "indepth-only:gemma-4-12b"
+ },
+ "wide-team-high-contract-warn": {
+  "label": "Wide temporal/date — HIGH team, date-output-contract prompt, gate WARN",
+  "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
+  "modelName": "med-agent-team-high-date-warn",
+  "indepthEndpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
+  "indepthModelName": "indepth-only:qwen3.6-35b-q6"
  }
 }

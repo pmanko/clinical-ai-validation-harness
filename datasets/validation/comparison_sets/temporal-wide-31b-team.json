@@ -1,0 +1,27 @@
+{
+  "id": "temporal-wide-31b-team",
+  "description": "Wider temporal/date contract check across date-format, temporal reasoning, coverage, abstention, and pediatric growth. Includes 31B and two team arms for comparison against 12B/A4B date-contract improvements.",
+  "scenario_ids": [
+    "date-zabella-weight-table",
+    "date-zabella-weight-endpoints",
+    "date-aloice-orders-table",
+    "date-aloice-last-visit-exact",
+    "single-upcoming-appointments",
+    "am-upcoming-appointments",
+    "am-last-visit",
+    "am-weight-trend",
+    "am-cd4-history",
+    "am-orders-6mo",
+    "ek-growth",
+    "abstain-out-of-chart"
+  ],
+  "backend_ids": [
+    "date-12b-current-warn",
+    "date-12b-contract-warn",
+    "date-a4b-contract-warn",
+    "wide-31b-current-warn",
+    "wide-31b-contract-warn",
+    "wide-team-12b-contract-warn",
+    "wide-team-high-contract-warn"
+  ]
+}
