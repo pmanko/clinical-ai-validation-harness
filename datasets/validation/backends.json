@@ -380,6 +380,27 @@
   "indepthEndpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
   "indepthModelName": "indepth-only:gemma-4-12b"
  },
+ "m-a4b-coverage": {
+  "label": "Dev — A4B single + coverage prompt",
+  "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
+  "modelName": "single-a4b-coverage",
+  "indepthEndpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
+  "indepthModelName": "indepth-only:gemma-26b"
+ },
+ "m-a4b-solo-rewriteval": {
+  "label": "Dev — A4B single + rewrite validator, NO orchestrator",
+  "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
+  "modelName": "single-a4b-rewriteval",
+  "indepthEndpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
+  "indepthModelName": "indepth-only:gemma-26b"
+ },
+ "m-a4b-coverage-rewrite": {
+  "label": "Dev — A4B single + coverage prompt + rewrite validator",
+  "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
+  "modelName": "single-a4b-coverage-rewrite",
+  "indepthEndpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
+  "indepthModelName": "indepth-only:gemma-26b"
+ },
  "m-a4b-team": {
   "label": "Method — A4B team (e4b orch + A4B writer + Qwen2.5-14B validator, same prompt)",
   "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",

@@ -3,6 +3,12 @@
   "scoring_note": "Each answer is graded 0\u201310, higher is better \u2014 <b>Accuracy</b>: are the stated facts correct? <b>Completeness</b>: did it cover what mattered? <b>Relevance</b>: did it actually answer the question? <b>Unsafe answers</b> counts responses with a potential safety problem (lower is better). <b>Questions</b> is how many were scored per setup, and the best value in each column is highlighted. <b>Benchmark /100</b> is the headline aggregate \u2014 it combines the dimensions (accuracy and completeness weighted most) minus soft penalties for safety and citation problems, so one number summarizes each setup. These come from a single automated judge on a small sample \u2014 they're directional, not a formal benchmark.",
   "runs": [
     {
+      "slug": "method-levers-dev-2026-06-26",
+      "title": "Lever sweep (dev): coverage prompt + rewrite-validator across a dense 12B and a cheap MoE (A4B)",
+      "summary": "A fast 12-scenario dev sweep, holding two writers (Gemma-12B dense, Gemma-26B-A4B MoE ~4B active) against {bare, +coverage prompt, +rewrite-validator, +both}. Judged AFTER fixing a scoring bug where the judge couldn't see table answers (which had been deflating completeness). N=12/arm \u2014 directional, not definitive.",
+      "takeaway": "Two findings. (1) A SCORING bug was capping the benchmark: the judge scored only the prose answer and never saw the structured table answers the prompts ask for, deflating completeness ~8pts; fixed. (2) The optimal config is WRITER-DEPENDENT: the dense 12B is best with coverage+rewrite-validator (83.5, 0 harm) vs bare 80.6, but the cheap A4B MoE is best BARE (83.7, 0 harm, highest completeness) and EVERY lever hurts it. Bare A4B edges the best scaffolded 12B \u2014 the cheap MoE alone is competitive, the on-device headline. The orchestrator hurts both (12B +rewrite: 72 w/ orch vs 78 w/o). Caveat: N=12, single judge, hard-weighted dev subset; needs full-run confirmation."
+    },
+    {
       "slug": "method-scaffolding-2026-06-25",
       "title": "Method scaffolding: validator-team vs the single writer (12B, A4B)",
       "summary": "Does a small-orchestrator + Qwen-2.5-14B-validator team beat the bare single writer on the two strong writers (Gemma-12B, Gemma-26B-A4B)? Plus a cite-or-abstain prompt lever. 297 cells, judged.",

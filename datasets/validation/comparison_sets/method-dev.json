@@ -20,6 +20,10 @@
   "m-12b-rewriteval",
   "m-12b-coverage",
   "m-12b-solo-rewriteval",
-  "m-12b-coverage-rewrite"
+  "m-12b-coverage-rewrite",
+  "m-a4b-solo",
+  "m-a4b-coverage",
+  "m-a4b-solo-rewriteval",
+  "m-a4b-coverage-rewrite"
  ]
 }
