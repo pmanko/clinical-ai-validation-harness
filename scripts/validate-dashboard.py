@@ -602,7 +602,7 @@ function renderRawRefs(refs){
  if(!refs||!refs.length)return '';
  return '<details class=rawrefs><summary>raw resolved refs</summary><div>'+esc(refs.map(r=>typeof r==='object'?('['+(r.index!=null?r.index:'?')+'] '+(r.resourceType||'')):('['+r+']')).join('  '))+'</div></details>';
 }
-const CONF={green:['High confidence','#196c2e'],yellow:['Medium confidence','#9e6a03'],red:['Low confidence','#8b1a1a']};
+const CONF={green:['Self-check high','#196c2e'],yellow:['Self-check medium','#9e6a03'],red:['Self-check low','#8b1a1a']};
 function chip(level){const c=CONF[level]||['unrated','#30363d'];return '<span class=cchip style="background:'+c[1]+'">'+c[0]+'</span>';}
 // Per-section render with the confidence inversion: red -> caveat shown, message collapsed;
 // yellow -> message shown, caveat collapsed; green -> message, no caveat.

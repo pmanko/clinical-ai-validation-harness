@@ -72,8 +72,8 @@ def _render_answer(text: Any) -> str:
 
 
 _IN_DEPTH_RE = re.compile(r"\*\*In ?Depth\*\*", re.IGNORECASE)
-_CONF = {"green": ("High confidence", "#196c2e"), "yellow": ("Medium confidence", "#9e6a03"),
-         "red": ("Low confidence", "#8b1a1a")}
+_CONF = {"green": ("Self-check high", "#196c2e"), "yellow": ("Self-check medium", "#9e6a03"),
+         "red": ("Self-check low", "#8b1a1a")}
 
 
 def _conf_chip(level: str) -> str:
