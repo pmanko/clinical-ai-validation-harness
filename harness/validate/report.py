@@ -214,11 +214,15 @@ def _render_sources(sources_v1: Any) -> str:
             facts = f"<li>{_esc(s.get('source_text'))}</li>"
         status = s.get("resolution_status") or "unknown"
         status_cls = " ok" if status == "resolved" else (" bad" if status == "unresolved" else "")
+        citation_index = s.get("citation_index") or s.get("record_index") or "?"
+        chart_index = s.get("chart_record_index") or s.get("record_index") or "?"
+        support = s.get("support_status") or "unchecked"
         return (
             "<article class='source-card'>"
             f"<div class='source-head'><b>{_esc(s.get('source_id'))}</b> "
-            f"<span>[{_esc(s.get('record_index'))}] {_esc(s.get('title'))}</span></div>"
-            f"<div class='source-meta'>{meta} <span class='source-status{status_cls}'>{_esc(status)}</span></div>"
+            f"<span>cite [{_esc(citation_index)}] · chart [{_esc(chart_index)}] {_esc(s.get('title'))}</span></div>"
+            f"<div class='source-meta'>{meta} <span class='source-status{status_cls}'>chart ref {_esc(status)}</span>"
+            f" <span class='source-status'>support {_esc(support)}</span></div>"
             f"<ul>{facts}</ul>"
             f"<details><summary>open source record</summary><pre>{_esc(s.get('source_text'))}</pre></details>"
             "</article>"

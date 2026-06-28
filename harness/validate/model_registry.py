@@ -291,21 +291,43 @@ def _short_family(family: str | None) -> str:
     return fam
 
 
+def _short_params(params: str | None) -> str:
+    p = (params or "").strip()
+    if not p:
+        return ""
+    # Keep the distinctive size and drop long parenthetical details in tight titles:
+    # "35B (3B active, MoE)" -> "35B".
+    return p.split("(", 1)[0].strip()
+
+
+def _role_model_label(card: dict[str, Any] | None) -> str:
+    card = card or {}
+    return " ".join(
+        x for x in (_short_family(card.get("family")), _short_params(card.get("params"))) if x
+    )
+
+
 def _team_title(roles: dict[str, dict[str, Any]]) -> tuple[str, str]:
-    """Human-readable team title from the role->model_card lineup. Shape:
-    "{orch} coord · {synth} writer" + " · validated" when a validator role exists. The expert is
-    omitted (it's the constant medgemma). Returns (title, short_title) — short drops " · validated"
-    for tight grid headers."""
-    orch = _short_family((roles.get("orchestrator") or {}).get("family"))
-    synth = _short_family((roles.get("synthesizer") or {}).get("family"))
+    """Human-readable team title from the role->model_card lineup.
+
+    Include model size by role so two Gemma-led teams do not collapse into
+    indistinguishable "Gemma coord · Gemma writer" labels.
+    """
+    orch = _role_model_label(roles.get("orchestrator"))
+    expert = _role_model_label(roles.get("expert"))
+    synth = _role_model_label(roles.get("synthesizer"))
+    validator = _role_model_label(roles.get("validator"))
     parts = []
     if orch:
         parts.append(f"{orch} coord")
+    if expert:
+        parts.append(f"{expert} expert")
     if synth:
         parts.append(f"{synth} writer")
+    if validator:
+        parts.append(f"{validator} val")
     short = " · ".join(parts) if parts else "team"
-    title = short + (" · validated" if "validator" in roles else "")
-    return title, short
+    return short, short
 
 
 def _single_title(card: dict[str, Any]) -> tuple[str, str]:

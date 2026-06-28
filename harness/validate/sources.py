@@ -102,6 +102,17 @@ def _chart_mappings(chart_fixture: dict[str, Any] | None) -> dict[int, dict[str,
     return out
 
 
+def _chart_mappings_by_uuid(chart_fixture: dict[str, Any] | None) -> dict[str, dict[str, Any]]:
+    out: dict[str, dict[str, Any]] = {}
+    for item in ((chart_fixture or {}).get("mappings") or []):
+        if not isinstance(item, dict):
+            continue
+        uuid = item.get("resourceUuid") or item.get("uuid")
+        if isinstance(uuid, str) and uuid:
+            out.setdefault(uuid, item)
+    return out
+
+
 def _reference_objects(response: dict[str, Any]) -> tuple[list[int], dict[int, dict[str, Any]]]:
     refs: list[int] = []
     by_index: dict[int, dict[str, Any]] = {}
@@ -214,6 +225,7 @@ def build_sources(response: dict[str, Any] | None, chart_fixture: dict[str, Any]
     response = response if isinstance(response, dict) else {}
     snapshot = parse_snapshot_records((chart_fixture or {}).get("chart_snapshot"))
     mappings = _chart_mappings(chart_fixture)
+    mappings_by_uuid = _chart_mappings_by_uuid(chart_fixture)
     valid_uuids = set((chart_fixture or {}).get("valid_uuids") or [])
 
     top_refs, ref_objects = _reference_objects(response)
@@ -232,14 +244,18 @@ def build_sources(response: dict[str, Any] | None, chart_fixture: dict[str, Any]
     sources = []
     for pos, idx in enumerate(order, start=1):
         ref_obj = ref_objects.get(idx) or {}
-        mapping = mappings.get(idx) or {}
+        mapping_by_index = mappings.get(idx) or {}
         snap = snapshot.get(idx) or {}
         uuid = (
             ref_obj.get("resourceUuid")
             or ref_obj.get("uuid")
-            or mapping.get("resourceUuid")
-            or mapping.get("uuid")
+            or mapping_by_index.get("resourceUuid")
+            or mapping_by_index.get("uuid")
         )
+        mapping_by_uuid = mappings_by_uuid.get(uuid) if isinstance(uuid, str) else None
+        mapping = mapping_by_uuid or mapping_by_index
+        chart_index = _int_ref(mapping.get("index")) or idx
+        snap = snapshot.get(chart_index) or snap
         rtype = ref_obj.get("resourceType") or mapping.get("resourceType")
         date = _normalize_date(ref_obj.get("date")) or _normalize_date(mapping.get("date")) or snap.get("date")
         if valid_uuids:
@@ -251,7 +267,9 @@ def build_sources(response: dict[str, Any] | None, chart_fixture: dict[str, Any]
         title = snap.get("title") or (f"{rtype} record" if rtype else f"Record {idx}")
         sources.append({
             "source_id": f"S{pos}",
+            "citation_index": idx,
             "record_index": idx,
+            "chart_record_index": chart_index,
             "resource_type": rtype,
             "resource_uuid": uuid,
             "date": date,
@@ -350,10 +368,13 @@ def render_sources_for_judge(sources_v1: dict[str, Any] | None) -> str:
         facts = "; ".join(s.get("facts_used") or [])
         if not facts:
             facts = s.get("source_text") or s.get("title") or ""
+        citation_index = s.get("citation_index") or s.get("record_index")
+        chart_index = s.get("chart_record_index") or s.get("record_index")
         lines.append(
-            f"- {s.get('source_id')} = [{s.get('record_index')}] {meta}: "
+            f"- {s.get('source_id')} = cite [{citation_index}] chart [{chart_index}] {meta}: "
             f"{s.get('title') or ''}. Facts used: {facts or '(not localized)'}; "
-            f"resolution: {s.get('resolution_status', 'unknown')}."
+            f"chart resolution: {s.get('resolution_status', 'unknown')}; "
+            f"semantic support: {s.get('support_status', 'unchecked')}."
         )
     flags = []
     for key in ("unresolved_refs", "unused_top_refs", "nested_only_refs", "malformed_tokens"):

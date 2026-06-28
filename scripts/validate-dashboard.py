@@ -362,7 +362,7 @@ table.btbl{border-collapse:collapse;font-size:11px;width:100%}
 .arm-cards{display:flex;flex-wrap:wrap;gap:10px}
 .arm-card{flex:1 1 240px;min-width:220px;border:1px solid var(--border);border-radius:8px;padding:10px 12px;background:var(--surface)}
 .arm-head{display:flex;align-items:center;gap:7px;margin-bottom:4px}
-.arm-name{font-weight:600;color:var(--accent);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.arm-name{font-weight:600;color:var(--accent);font-size:12px;line-height:1.25;white-space:normal}
 .arm-id{font-family:ui-monospace,Menlo,monospace;font-size:10px;color:var(--faint);margin:0 0 4px}
 .badge{display:inline-block;font-size:9px;font-weight:700;letter-spacing:.05em;padding:1px 6px;border-radius:9px;border:1px solid var(--border);color:var(--muted)}
 .badge.team{background:#3a2e08;border-color:#9e6a03;color:#ffe9b3}
@@ -584,8 +584,11 @@ function renderSources(sources){
   const meta=[s.resource_type,s.date].filter(Boolean).map(esc).join(' · ');
   const facts=(s.facts_used&&s.facts_used.length?s.facts_used:[s.source_text||s.title||'']).slice(0,4);
   const st=s.resolution_status||'unknown';
-  return '<div class=scard><div class=shead><b>'+esc(s.source_id||'')+'</b> ['+esc(s.record_index||'?')+'] '+esc(s.title||'')+'</div>'
-   +'<div class=smeta>'+meta+' <span class="sstat '+(st==='resolved'?'ok':(st==='unresolved'?'bad':''))+'">'+esc(st)+'</span></div>'
+  const cite=s.citation_index||s.record_index||'?';
+  const chart=s.chart_record_index||s.record_index||'?';
+  const support=s.support_status||'unchecked';
+  return '<div class=scard><div class=shead><b>'+esc(s.source_id||'')+'</b> cite ['+esc(cite)+'] · chart ['+esc(chart)+'] '+esc(s.title||'')+'</div>'
+   +'<div class=smeta>'+meta+' <span class="sstat '+(st==='resolved'?'ok':(st==='unresolved'?'bad':''))+'">chart ref '+esc(st)+'</span> <span class=sstat>support '+esc(support)+'</span></div>'
    +'<ul>'+facts.map(f=>'<li>'+esc(f)+'</li>').join('')+'</ul>'
    +'<details><summary>open source record</summary><pre>'+esc(s.source_text||'')+'</pre></details></div>';
  }
@@ -652,7 +655,8 @@ async function openD(s,b){
    h+='<div class="ans err">'+esc(t.error)+'</div>';
   }else if(tr&&(tr.answer_confidence||tr.indepth_confidence)){
    // structured render with the per-section confidence inversion (chips + collapse)
-   h+=confSection('Answer', esc(tr.answer_text||''), tr.answer_confidence);
+   const blocksHtml=renderBlocks(t.blocks,t.sources);
+   h+=confSection('Answer', esc(tr.answer_text||'')+blocksHtml, tr.answer_confidence);
    // In-Depth: two-call arms carry it as a SEPARATE call (row.indepth), single-pass, no validator —
    // render THAT, not the Answer trace's empty in_depth_claims + the Answer's verdict as a stray chip.
    if(t.indepth){
@@ -661,8 +665,12 @@ async function openD(s,b){
     h+='<div class=csec><div class=ctitle>In Depth <span class=muted>(separate call'+(t.indepth.latency_ms?', '+Math.round(t.indepth.latency_ms/1000)+'s':'')+')</span></div><div class=ans>'+body+'</div></div>';
    }else{
     const cl=tr.in_depth_claims||[];
-    const idb=cl.length?'<ul class=idl>'+cl.map(c=>'<li>'+esc(c)+'</li>').join('')+'</ul>':'<span class=muted>(none)</span>';
-    h+=confSection('In Depth', idb, tr.indepth_confidence);
+    const idConf=tr.indepth_confidence||{};
+    const showId=cl.length||idConf.note||(idConf.level&&idConf.level!=='green');
+    if(showId){
+     const idb=cl.length?'<ul class=idl>'+cl.map(c=>'<li>'+esc(c)+'</li>').join('')+'</ul>':'<span class=muted>(none)</span>';
+     h+=confSection('In Depth', idb, idConf);
+    }
    }
   }else{
    h+='<div class=ans>'+esc(t.answer)+'</div>';   // Answer (raw envelope / non-team backend)
@@ -670,8 +678,8 @@ async function openD(s,b){
     h+='<div style="margin-top:8px;font-size:11px;font-weight:600;color:var(--accent)">In Depth <span class=muted>(separate call'+(t.indepth.latency_ms?', '+Math.round(t.indepth.latency_ms/1000)+'s':'')+')</span></div>';
     h+='<div class=ans>'+esc(t.indepth.answer)+'</div>';
    }
+   h+=renderBlocks(t.blocks,t.sources);
   }
-  h+=renderBlocks(t.blocks,t.sources);
   h+=renderSources(t.sources);
   h+=renderRawRefs(t.refs);
   h+='<details class=tracebox><summary>▸ reasoning trace</summary>'+renderTrace(tr)+'</details>';
