@@ -223,6 +223,93 @@ def scout_summary(rows: list[dict[str, Any]], backends: list[str]) -> list[dict[
     return out
 
 
+def _cell_id(row: dict[str, Any]) -> tuple[str | None, str | None]:
+    return row.get("scenario_id"), row.get("backend_id")
+
+
+def _actor_backend_score(rows: list[dict[str, Any]], backend: str) -> float | None:
+    scores = [
+        s for s in (
+            cell_benchmark_score(r) for r in rows if r.get("backend_id") == backend
+        )
+        if s is not None
+    ]
+    return round(sum(scores) / len(scores), 1) if scores else None
+
+
+def combined_judge_summary(
+    actor_rows: dict[str, list[dict[str, Any]]],
+    backends: list[str],
+) -> list[dict[str, Any]]:
+    """Consensus score across independent judge actors.
+
+    Each actor scores the same cell once. For a cell judged by multiple actors,
+    compute the mean of those actors' cell Benchmark scores; then aggregate those
+    per-cell means per backend. This preserves the run's cell count (N scenarios),
+    while still exposing actor spread/disagreement so the combined number is not
+    mistaken for a new authoritative judge.
+    """
+    clean = {
+        actor: list(rows or [])
+        for actor, rows in sorted((actor_rows or {}).items())
+        if actor and rows
+    }
+    out: list[dict[str, Any]] = []
+    for b in backends:
+        actor_scores = {
+            actor: score
+            for actor, rows in clean.items()
+            if (score := _actor_backend_score(rows, b)) is not None
+        }
+        by_cell: dict[tuple[str | None, str | None], list[tuple[str, float]]] = {}
+        for actor, rows in clean.items():
+            for r in rows:
+                if r.get("backend_id") != b:
+                    continue
+                score = cell_benchmark_score(r)
+                if score is None:
+                    continue
+                by_cell.setdefault(_cell_id(r), []).append((actor, score))
+
+        cell_scores: list[float] = []
+        deltas: list[float] = []
+        max_delta: float | None = None
+        max_delta_cell: str | None = None
+        for (sid, _bid), values in by_cell.items():
+            nums = [v for _actor, v in values]
+            if not nums:
+                continue
+            cell_scores.append(round(sum(nums) / len(nums), 1))
+            if len(nums) >= 2:
+                delta = round(max(nums) - min(nums), 1)
+                deltas.append(delta)
+                if max_delta is None or delta > max_delta:
+                    max_delta = delta
+                    max_delta_cell = sid
+
+        bench = _benchmark_aggregate(cell_scores)
+        actor_vals = [v for v in actor_scores.values() if v is not None]
+        out.append({
+            "backend": b,
+            "n_cells": len(cell_scores),
+            "n_actors": len(actor_scores),
+            "actors": sorted(actor_scores.keys()),
+            "benchmark_score": bench["score"],
+            "benchmark_spread": {"min": bench["min"], "max": bench["max"]},
+            "actor_scores": actor_scores,
+            "actor_range": {
+                "min": round(min(actor_vals), 1) if actor_vals else None,
+                "max": round(max(actor_vals), 1) if actor_vals else None,
+            },
+            "mean_abs_delta": (
+                round(sum(deltas) / len(deltas), 1) if deltas else None
+            ),
+            "max_cell_delta": max_delta,
+            "max_cell_delta_scenario": max_delta_cell,
+        })
+    return out
+
+
 # Trust ordering of the three-tier escalation ladder — the badge surfaces the
 # HIGHEST-trust reviewer who touched an arm (a clinician sign-off outranks an owner spot-check).
 _TIER_RANK = {"owner": 0, "domain": 1, "clinical": 2}

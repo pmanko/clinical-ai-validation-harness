@@ -162,7 +162,7 @@ def test_main_includes_canonical_sources_in_judge_cell(tmp_path, monkeypatch):
     assert cell["sources"][0]["source_id"] == "S1"
     assert cell["source_diagnostics"]["answer_inline_refs"] == [1]
     assert "[Evidence Used]" in cell["answer_section"]
-    assert "S1 = [1]" in cell["answer_section"]
+    assert "S1 = cite [1] chart [1] obs" in cell["answer_section"]
 
 
 def test_main_should_abstain_false_when_unset(tmp_path, monkeypatch):

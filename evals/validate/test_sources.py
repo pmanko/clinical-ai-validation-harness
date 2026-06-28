@@ -94,7 +94,7 @@ def test_render_sources_for_judge_uses_canonical_sources_and_diagnostics():
     response = {"answer": "Orders are listed.", "citations": [2], "blocks": []}
     text = render_sources_for_judge(build_sources(response, _chart()))
     assert "[Evidence Used]" in text
-    assert "S1 = [2]" in text
+    assert "S1 = cite [2] chart [2] order" in text
     assert "Drug order: Efavirenz" in text
 
 

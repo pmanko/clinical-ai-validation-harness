@@ -30,7 +30,7 @@ from typing import Any
 from .hub_trace import load_traces, match_trace
 from .model_registry import arm_model_name
 from .model_registry import arm_card
-from .reconcile import calibrated_summary, scout_summary
+from .reconcile import calibrated_summary, combined_judge_summary, scout_summary
 from .sources import build_sources, load_scenario_chart, source_ref_labels
 
 # The med-agent-team bridge gracefully degrades to a schema-valid envelope when
@@ -407,6 +407,22 @@ def _load_judge(run_dir: Path) -> list[dict[str, Any]]:
     return _read_jsonl(path)
 
 
+def _load_judge_actors(run_dir: Path) -> dict[str, list[dict[str, Any]]]:
+    """Independent judge actor passes stored under run_dir/judges/<actor>/judge.jsonl."""
+    actors: dict[str, list[dict[str, Any]]] = {}
+    judges_dir = run_dir / "judges"
+    if judges_dir.exists():
+        for path in sorted(judges_dir.glob("*/judge.jsonl")):
+            rows = _read_jsonl(path)
+            if rows:
+                actors[path.parent.name] = rows
+    if not actors:
+        root_rows = _load_judge(run_dir)
+        if root_rows:
+            actors["canonical"] = root_rows
+    return actors
+
+
 def _load_adjudication(run_dir: Path) -> list[dict[str, Any]]:
     """Optional HUMAN adjudications at run_dir/adjudication.jsonl (adjudicate.adjudication_record
     shape: scenario_id/backend_id/reviewer_tier/axes/harm). These calibrate the LLM judge into a
@@ -493,6 +509,7 @@ def _cell_blob(
     trace = _trace_for_row(r, traces)
     gate = trace.get("temporal_gate") if isinstance(trace, dict) else None
     sources_v1 = build_sources(resp, chart_fixture)
+
     return {
         "error": r.get("error"),
         "http_status": m.get("http_status"),
@@ -606,6 +623,8 @@ def _run_blob(run_dir: Path) -> dict[str, Any]:
     _ref_dates = [d for d in _ref_dates if d]
     reference_date = (_ref_dates[0] if len(_ref_dates) == 1
                       else (", ".join(_ref_dates) if _ref_dates else None))
+    judge_rows = _load_judge(run_dir)
+    judge_actors = _load_judge_actors(run_dir)
 
     return {
         "run_id": run_id,
@@ -623,14 +642,16 @@ def _run_blob(run_dir: Path) -> dict[str, Any]:
         "scenarios": scenarios,
         "summary": _summary_rows(results, backends, labels, traces),
         "metrics": _metric_distributions(results, backends),
-        "judge": scout_summary(_load_judge(run_dir), backends),
-        "judge_rows": _load_judge(run_dir),
+        "judge": scout_summary(judge_rows, backends),
+        "judge_rows": judge_rows,
+        "judge_actors": sorted(judge_actors.keys()),
+        "judge_combined": combined_judge_summary(judge_actors, backends),
         # WS4: adjudication-calibrated Benchmark. adjudication.jsonl is OPTIONAL — when
         # absent (the default) every calibrated block is judge-only (no CI / no κ) and the
         # judged-scores section renders exactly as before. When present, each reviewed arm
         # gains a PPI point ± 95% CI + agreement κ + the reviewer-tier badge.
         "calibrated": calibrated_summary(
-            _load_judge(run_dir), _load_adjudication(run_dir), backends),
+            judge_rows, _load_adjudication(run_dir), backends),
         "patients": patients,
         # WS2: structured arm makeup (single vanilla-chartsearchai vs med-agent-hub team +
         # role->model lineup) so the report's "what this run compares" section + badges render
@@ -1226,6 +1247,29 @@ function renderMetrics(run){
 }
 
 function fmt10(v){ return v==null ? '—' : (Math.round(v*10)/10); }
+function renderJudgeCombined(run){
+  var rows=(run.judge_combined||[]).slice().filter(function(s){return (s.n_actors||0)>1 && s.benchmark_score!=null;});
+  if(!rows.length) return null;
+  rows.sort(function(a,b){return (b.benchmark_score||0)-(a.benchmark_score||0);});
+  var actorNames=(run.judge_actors||[]).join(', ');
+  var h='<div class="judge-consensus"><h3>Reviewer consensus</h3>'
+    +'<p class="intro">Combined score averages each scenario × setup across independent judge actors, then averages those cell means per setup. The range shows how far the actor-level arm scores spread; max Δ points to the cell with the largest judge disagreement.</p>'
+    +'<table class="summary"><thead><tr><th>backend</th><th>combined Benchmark</th><th>actors</th><th>actor range</th><th>mean Δ/cell</th><th>max Δ cell</th></tr></thead><tbody>';
+  h+=rows.map(function(s){
+    var ar=s.actor_range||{}, sp=s.benchmark_spread||{};
+    var maxCell=s.max_cell_delta_scenario?htmlEsc(s.max_cell_delta_scenario)+' · '+fmt10(s.max_cell_delta):'—';
+    return "<tr><td class='b' title='"+htmlEsc(s.backend)+"'>"+htmlEsc(armTitle(s.backend))+"</td>"
+      +"<td><b>"+fmt10(s.benchmark_score)+"</b>"+(sp.min==null?'':"<span style='opacity:.55;font-size:.85em'> "+fmt10(sp.min)+"–"+fmt10(sp.max)+"</span>")+"</td>"
+      +"<td title='"+htmlEsc(actorNames)+"'>"+(s.n_actors||0)+"</td>"
+      +"<td>"+(ar.min==null?'—':fmt10(ar.min)+'–'+fmt10(ar.max))+"</td>"
+      +"<td>"+fmt10(s.mean_abs_delta)+"</td>"
+      +"<td>"+maxCell+"</td></tr>";
+  }).join('');
+  h+='</tbody></table></div>';
+  var wrap=el('div'); wrap.innerHTML=h;
+  var tbl=wrap.querySelector('table'); if(tbl) makeSortable(tbl);
+  return wrap;
+}
 function judgeBarsSVG(series){
   var arms=[]; for(var k=0;k<series.length;k++){ if(series[k].n>0) arms.push(series[k]); }
   var W=Math.max(380, 60+arms.length*112), H=212, padL=30, padR=12, padT=20, padB=46, plotH=H-padT-padB;
@@ -1298,7 +1342,8 @@ function renderJudge(run){
   if(!has){ return null; }
   var cal=calIndex(run);
   var anyCal=false; for(var ck in cal){ if(cal[ck] && cal[ck].adjudicated){ anyCal=true; break; } }
-  sec.innerHTML='<p class="intro">The headline: how good each setup’s answers actually were. A strong AI reviewer graded every answer against the patient’s chart for correctness, completeness, and safety. The <b>Benchmark</b> column is the single 0–100 score to compare setups by; the per-scenario heatmap (below) shows it question-by-question. Click any column header to sort. Treat it as directional (one patient, one judge), not a final grade.'
+  var nActors=(run.judge_actors||[]).length;
+  sec.innerHTML='<p class="intro">The headline: how good each setup’s answers actually were. A strong AI reviewer graded every answer against the patient’s chart for correctness, completeness, and safety. The <b>Benchmark</b> column is the single 0–100 score to compare setups by; the per-scenario heatmap (below) shows it question-by-question. Click any column header to sort. Treat it as directional (one patient, '+(nActors>1?nActors+' judges':'one judge')+'), not a final grade.'
    +(anyCal?' Where a human reviewer adjudicated cells, a <b>calibrated estimate ± 95% CI</b> sits under the judge number.':'')+'</p>'
    +'<dl class="legend-key">'
    +'<dt>Benchmark</dt><dd>soft 0–100 composite of the answer-only scores (accuracy/completeness weighted highest, minus bounded penalties for unsafe / abstention / citation / temporal flags — no hard gates). Read it with the harm, abstain ✗ and fab-refs counts in the same row, never alone.</dd>'
@@ -1317,6 +1362,8 @@ function renderJudge(run){
    +'<p><b>Caveat:</b> small N, one patient, single judge — directional, not a benchmark.</p>'
    +'<p><b>Note:</b> arms are NOT prompt-harmonized — the single-model path uses chartsearchAI’s default prompt while the team path uses the orchestrator + synthesis prompts, so differences here confound orchestration with prompt; the next run harmonizes prompts to separate the two.</p>'
    +'</div></details>';
+  var consensus=renderJudgeCombined(run);
+  if(consensus) sec.appendChild(consensus);
   var fab={}, jr=run.judge_rows||[];
   for(var x=0;x<jr.length;x++){ var cr=jr[x].citation_resolution||{}; fab[jr[x].backend_id]=(fab[jr[x].backend_id]||0)+(cr.n_unresolved||0); }
   var rows=j.map(function(s){ var ab=s.abstention||{}, gr=s.groundedness||{}, t=s.temporal||{}, sp=s.benchmark_spread||{};
@@ -1329,7 +1376,7 @@ function renderJudge(run){
       +"<td>"+(s.harm_count||0)+"</td><td>"+(fab[s.backend]||0)+"</td>"
       +"<td>"+(t.date_wrong||0)+"</td><td>"+(t.window_over||0)+"</td><td>"+(t.trend_fab||0)+"</td></tr>"; }).join('');
   var tbl=el('table','summary');
-  tbl.innerHTML='<thead><tr><th>backend</th><th>benchmark'+(anyCal?' <span class="th-sub">+ calibrated ± CI</span>':'')+'</th><th>judged</th><th>acc</th><th>comp</th><th>rel</th><th>abstain ✓/✗</th><th>grounding s/p/u</th><th>harm</th><th>fab refs</th><th>date ✗</th><th>win over</th><th>trend fab</th></tr></thead><tbody>'+rows+'</tbody>';
+  tbl.innerHTML='<caption>Canonical judge pass'+(nActors>1?' (currently promoted actor)':'')+'</caption><thead><tr><th>backend</th><th>benchmark'+(anyCal?' <span class="th-sub">+ calibrated ± CI</span>':'')+'</th><th>judged</th><th>acc</th><th>comp</th><th>rel</th><th>abstain ✓/✗</th><th>grounding s/p/u</th><th>harm</th><th>fab refs</th><th>date ✗</th><th>win over</th><th>trend fab</th></tr></thead><tbody>'+rows+'</tbody>';
   sec.appendChild(tbl);
   makeSortable(tbl);
   // Run-level calibrated callout — only when at least one cell was adjudicated.

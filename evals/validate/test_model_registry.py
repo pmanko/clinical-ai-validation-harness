@@ -182,9 +182,8 @@ def test_team_title_coord_writer_and_validated_suffix():
         "validator": {"family": "Gemma 4"},
     }
     title, short = mr._team_title(roles)
-    assert title == "Liquid coord · Qwen writer · validated"
-    # short drops the " · validated" suffix for tight grid headers
-    assert short == "Liquid coord · Qwen writer"
+    assert title == "Liquid coord · Qwen writer · Gemma val"
+    assert short == title
 
 
 def test_team_title_without_validator_has_no_suffix():
@@ -301,7 +300,7 @@ def test_arm_card_team_from_8080_endpoint(tmp_path, registry_json, ini_file, pro
     assert card["n_models"] == 3
     assert set(card["roles"]) == {"orchestrator", "synthesizer", "validator"}
     assert card["roles"]["synthesizer"]["family"] == "Qwen2.5"
-    assert card["title"] == "Liquid coord · Qwen writer · validated"
+    assert card["title"] == "Liquid 2.6B coord · Qwen 32B writer · Gemma 12B val"
     # the synthesizer prompt OVERRIDE from levels.yaml is honored in the team config
     sources = {p["source"] for p in card["config"]["prompts"]}
     assert "prompts/synthesis-chartsearchai.txt" in sources

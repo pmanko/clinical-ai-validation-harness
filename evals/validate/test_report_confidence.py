@@ -87,13 +87,13 @@ def test_red_answer_section_collapses_body_behind_caveat(tmp_path):
     )
     ans = _answer_html(run_dir)
 
-    # Answer section: red -> Low-confidence chip, the note rendered as a caveat, and the
+    # Answer section: red -> low self-check chip, the note rendered as a caveat, and the
     # body withheld behind a "show answer" reveal.
-    assert "Low confidence" in ans
+    assert "Self-check low" in ans
     assert "<div class='caveat red'>claim unsupported by chart</div>" in ans
     assert "<summary>show answer</summary>" in ans
-    # In-Depth section: yellow -> Medium-confidence chip, body shown, note collapsed.
-    assert "Medium confidence" in ans
+    # In-Depth section: yellow -> medium self-check chip, body shown, note collapsed.
+    assert "Self-check medium" in ans
     assert "<summary>show review note</summary>" in ans
     assert "<div class='caveat yellow'>partly supported</div>" in ans
     assert "Stavudine-free per WHO" in ans
@@ -108,7 +108,7 @@ def test_green_answer_section_renders_body_plainly(tmp_path):
     )
     ans = _answer_html(run_dir)
 
-    assert "High confidence" in ans
+    assert "Self-check high" in ans
     assert "Regimen is current" in ans
     # green never caveats or collapses.
     assert "caveat" not in ans
@@ -138,7 +138,7 @@ def test_malformed_trace_line_is_tolerated(tmp_path):
                 _trace({"level": "red", "note": "bad"}, {"level": "green", "note": ""})],
     )
     ans = _answer_html(run_dir)
-    assert "Low confidence" in ans
+    assert "Self-check low" in ans
     assert "<div class='caveat red'>bad</div>" in ans
 
 

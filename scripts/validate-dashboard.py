@@ -27,6 +27,7 @@ from urllib.parse import parse_qs, urlparse
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 from harness.validate.model_registry import arm_card, arm_model_name  # noqa: E402  (sys.path set above)
+from harness.validate.reconcile import combined_judge_summary  # noqa: E402
 from harness.validate.sources import build_sources, load_scenario_chart  # noqa: E402
 DATA = ROOT / "datasets" / "validation"
 TRACE_FILE = ROOT / "artifacts" / "hub-trace" / "trace.jsonl"
@@ -108,6 +109,21 @@ def read_jsonl(p):
     except FileNotFoundError:
         pass
     return rows
+
+
+def read_judge_actors(run):
+    actors = {}
+    judges_dir = Path(run) / "judges"
+    if judges_dir.exists():
+        for path in sorted(judges_dir.glob("*/judge.jsonl")):
+            rows = read_jsonl(path)
+            if rows:
+                actors[path.parent.name] = rows
+    if not actors:
+        rows = read_jsonl(Path(run) / "judge.jsonl")
+        if rows:
+            actors["canonical"] = rows
+    return actors
 
 
 def _esc(s):
@@ -233,8 +249,12 @@ def status():
             arm_cards[b] = {"backend_id": b, "label": b, "kind": "unknown",
                             "path": None, "models": [], "roles": {}, "config": {}}
 
+    judge_actors = read_judge_actors(run)
+
     return {"run": os.path.basename(run), "set": set_id, "done": len(results), "total": total,
             "scenarios": scen_ids, "backends": back_ids, "arms": arms, "arm_cards": arm_cards,
+            "judge_actors": sorted(judge_actors.keys()),
+            "judge_combined": combined_judge_summary(judge_actors, back_ids),
             "grid": grid_list, "feed": feed, "models": resident_models()}
 
 
@@ -386,6 +406,11 @@ table.ac-knobs{border-collapse:collapse;font-size:10.5px;margin-top:2px}
 .ac-knobs td,.ac-knobs th{border:1px solid var(--border2);padding:2px 7px;text-align:left}
 .ac-knobs th{color:var(--muted);font-weight:400;white-space:nowrap}
 .ac-knobs .ac-k{color:var(--muted)}
+.judge-table{border-collapse:collapse;font-size:11px;background:var(--surface);border:1px solid var(--border);border-radius:8px;overflow:hidden;min-width:min(900px,100%)}
+.judge-table th,.judge-table td{border:1px solid var(--border2);padding:5px 8px;text-align:left;vertical-align:top}
+.judge-table th{color:var(--muted);font-weight:600;background:var(--sunken)}
+.judge-table .score{font-weight:700;color:var(--accent);font-size:12px}
+.judge-note{font-size:11px;color:var(--muted);margin:0 0 6px;max-width:88ch}
 .arm-config .ac-prompt{margin:4px 0 8px}
 .arm-config .ac-plabel{font-size:11px;font-weight:600}
 .arm-config .ac-psum{font-size:11px;color:var(--muted);margin:2px 0;max-width:60ch}
@@ -399,6 +424,7 @@ table.ac-knobs{border-collapse:collapse;font-size:10.5px;margin-top:2px}
 <div id=prog class=muted></div>
 <section><h2>Models resident (llama-router)</h2><div id=models></div></section>
 <section><h2>Arms</h2><div class=row id=arms></div></section>
+<section><h2>Combined judged scores</h2><div id=judges></div></section>
 <section><h2>Scenario &times; arm &nbsp;<span class=muted>(click a cell)</span></h2><div id=grid></div></section>
 <section><h2>Recent &nbsp;<span class=muted>(click a row)</span></h2><div class=feed id=feed></div></section>
 <div id=modal onclick="if(event.target===this)closeD()"><div id=mbody></div></div>
@@ -413,6 +439,7 @@ const armTitle=b=>{const c=ARM_CARDS[b];return (c&&c.title)||b;};
 const armShort=b=>{const c=ARM_CARDS[b];return (c&&(c.short_title||c.title))||b;};
 const shortB=b=>armShort(b);
 const esc=s=>(s==null?'':String(s)).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const fmt10=v=>v==null?'—':(Math.round(v*10)/10);
 // sampler-knob display order + labels (mirrors report.py's KNOB_ORDER/KNOB_LABELS).
 const KNOB_ORDER=['temp','top_p','top_k','ctx_size','seed','max_tokens','reasoning_budget','dry'];
 const KNOB_LABELS={temp:'temperature',top_p:'top-p',top_k:'top-k',ctx_size:'ctx-size',seed:'seed',max_tokens:'max-tokens',reasoning_budget:'reasoning-budget',dry:'DRY'};
@@ -508,6 +535,23 @@ function renderArmCards(d){
  });
  return h+"</div>";
 }
+function renderJudgeCombined(d){
+ const rows=(d.judge_combined||[]).filter(s=>(s.n_actors||0)>1&&s.benchmark_score!=null)
+  .sort((a,b)=>(b.benchmark_score||0)-(a.benchmark_score||0));
+ if(!rows.length)return '<span class=muted>no multi-judge score yet</span>';
+ const actors=(d.judge_actors||[]).join(', ');
+ let h='<p class=judge-note>Combined = each cell averaged across independent judges, then averaged per arm. Range and max Δ show judge disagreement. Actors: '+esc(actors)+'</p>';
+ h+='<table class=judge-table><thead><tr><th>setup</th><th>combined</th><th>actor range</th><th>mean Δ/cell</th><th>max Δ cell</th></tr></thead><tbody>';
+ rows.forEach(s=>{
+  const ar=s.actor_range||{}, sp=s.benchmark_spread||{};
+  const maxCell=s.max_cell_delta_scenario?(esc(s.max_cell_delta_scenario)+' · '+fmt10(s.max_cell_delta)):'—';
+  h+='<tr><td title="'+esc(s.backend)+'">'+esc(armTitle(s.backend))+'</td>'
+   +'<td><span class=score>'+fmt10(s.benchmark_score)+'</span> <span class=muted>'+fmt10(sp.min)+'–'+fmt10(sp.max)+'</span></td>'
+   +'<td>'+(ar.min==null?'—':fmt10(ar.min)+'–'+fmt10(ar.max))+'</td>'
+   +'<td>'+fmt10(s.mean_abs_delta)+'</td><td>'+maxCell+'</td></tr>';
+ });
+ return h+'</tbody></table>';
+}
 // The background poll re-renders #arms wholesale; that wipes the user's expanded <details>.
 // Track which panels are open by their STABLE data-okey (arm backend_id, NOT a DOM index),
 // updated on every toggle, and re-apply after each re-render so an open config / full-prompt
@@ -535,6 +579,7 @@ async function tick(){
  models.innerHTML=(d.models||[]).map(m=>'<span class=chip>'+m+'</span>').join('')||'<span class=muted>none resident</span>';
  arms.innerHTML=renderArmCards(d);
  restoreOpenDetails(arms);   // re-apply the user's expanded config/full-prompt panels after the re-render
+ judges.innerHTML=renderJudgeCombined(d);
  const gm={};(d.grid||[]).forEach(g=>gm[g.scenario+'|'+g.backend]=g.state);
  let h='<table class=grid><tr><th></th>'+(d.backends||[]).map(b=>'<th title="'+esc(b)+'">'+esc(armTitle(b))+'</th>').join('')+'</tr>';
  (d.scenarios||[]).forEach(s=>{h+='<tr><th>'+s+'</th>'+(d.backends||[]).map(b=>{const st=gm[s+'|'+b];
