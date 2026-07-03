@@ -7,11 +7,12 @@
     "date-aloice-last-visit-exact"
   ],
   "backend_ids": [
-    "date-e4b-current-warn",
-    "date-e4b-contract-warn",
-    "date-e4b-contract-enforce",
     "date-12b-current-warn",
     "date-12b-contract-warn",
-    "date-12b-contract-enforce"
+    "date-12b-contract-enforce-temp0",
+    "date-12b-contract-enforce-temp05",
+    "date-a4b-contract-warn",
+    "date-a4b-contract-enforce-temp0",
+    "date-a4b-contract-enforce-temp05"
   ]
 }

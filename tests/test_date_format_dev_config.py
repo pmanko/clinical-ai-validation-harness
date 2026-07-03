@@ -22,7 +22,7 @@ def test_date_format_smoke_and_dev_sets_load():
     assert len(smoke.scenario_ids) == 2
     assert len(smoke.backend_ids) == 4
     assert len(dev.scenario_ids) == 4
-    assert len(dev.backend_ids) == 6
+    assert len(dev.backend_ids) == 7
     assert repro.scenario_ids == ["single-weight-trend", "am-orders-6mo"]
     assert len(repro.backend_ids) == 8
     for sid in dev.scenario_ids:
@@ -56,6 +56,13 @@ def test_dynamic_prompt_arm_card_captures_prompt_file():
     assert "@synthesis" not in card["title"]
 
 
+def test_dynamic_prompt_arm_card_captures_temperature_suffix():
+    card = arm_card("date-12b-contract-enforce-temp0")
+    assert "gate enforce" in card["short_title"]
+    assert "temp 0" in card["short_title"]
+    assert card["config"]["knobs"]["gemma-4-12b"]["synth_temp_floor"] == "0"
+
+
 def test_date_format_analyzer_separates_malformed_dates_from_localized_citations():
     spec = importlib.util.spec_from_file_location(
         "analyze_date_format_run", ROOT / "scripts" / "analyze-date-format-run.py"
@@ -67,6 +74,14 @@ def test_date_format_analyzer_separates_malformed_dates_from_localized_citations
     text = "Good 2026-01-07, bad D2025_11_09 and 2025-11_12, citation [ ٣٦ ]."
     assert mod._bad_date_hits(text) == ["2025-11_12", "D2025_11_09"]
     assert mod.LOCALIZED_DIGIT_RE.findall(text) == ["٣٦"]
+
+    ugly = "bad 2025-10-//13, 2026-0-[59], 2026-02, 2006\u201105\u201118."
+    assert mod._bad_date_hits(ugly) == [
+        "2006\u201105\u201118",
+        "2025-10-//13",
+        "2026-0-[59]",
+        "2026-02",
+    ]
 
 
 def test_date_format_analyzer_main_reports_dates_and_gate(tmp_path, capsys):

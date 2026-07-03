@@ -53,6 +53,7 @@ rc() { if [ -n "${EXEC}" ]; then docker exec "${EXEC}" curl "$@"; else curl "$@"
 ENGINE="${CHARTSEARCH_LLM_ENGINE:-remote}"
 ENDPOINT="${CHARTSEARCH_REMOTE_ENDPOINT_URL:?must be set in .env.chartsearch}"
 MODEL="${CHARTSEARCH_REMOTE_MODEL_NAME:-}"
+TIMEOUT_SECONDS="${CHARTSEARCH_LLM_TIMEOUT_SECONDS:-2400}"
 
 # Auto-discover model if not set: derive the models endpoint from the chat
 # endpoint (replace /chat/completions with /models) and pick the first id.
@@ -101,6 +102,7 @@ echo "Configuring chartsearchai LLM globals at ${BASE_URL}:"
 set_property "chartsearchai.llm.engine"             "${ENGINE}"
 set_property "chartsearchai.llm.remote.endpointUrl" "${ENDPOINT}"
 set_property "chartsearchai.llm.remote.modelName"   "${MODEL}"
+set_property "chartsearchai.llm.timeoutSeconds"     "${TIMEOUT_SECONDS}"
 
 # Local (bundled llama-server) engine: point the module at the GGUF that
 # backend-init.sh downloads into /openmrs/data/chartsearchai (path relative to

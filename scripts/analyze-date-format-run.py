@@ -19,6 +19,10 @@ ROOT = Path(__file__).resolve().parent.parent
 BAD_DATE_PATTERNS = [
     re.compile(r"\bD\d{4}_\d{2}_\d{2}\b"),
     re.compile(r"\b(?:3025|205|25)-\d{1,2}-\d{1,2}\b"),
+    re.compile(r"\b\d{4}[\u2010\u2011\u2012\u2013\u2014\u2015\u2212\ufe58\ufe63\uff0d]\d{2}[\u2010\u2011\u2012\u2013\u2014\u2015\u2212\ufe58\ufe63\uff0d]\d{2}\b"),
+    re.compile(r"\b\d{4}\s*[-_/]\s*\d{1,2}\s*[-_/]{2,}\s*\d{1,4}\b"),
+    re.compile(r"\b\d{4}\s*[-_/]\s*\d{1,2}\s*[-_/]\s*\[[^\]\s]{1,8}\]"),
+    re.compile(r"\b\d{4}-\d{1,2}\b(?!-)"),
     re.compile(r"(?<!D)\b\d{4}[_/]\d{1,2}[-_/]\d{1,2}\b"),
     re.compile(r"\b\d{4}-\d{1,2}[_/\s]\d{1,2}\b"),
     re.compile(

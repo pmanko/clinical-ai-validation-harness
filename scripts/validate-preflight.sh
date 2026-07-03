@@ -28,6 +28,11 @@ cd "${ROOT}"
 
 SET="${1:?usage: validate-preflight.sh <comparison-set-id> [low|med|high]}"
 TIER="${2:-${LLAMA_ROUTER_TIER:-med}}"
+case "${TIER}" in
+  low|med) ROUTER_MODELS_MAX=4 ;;
+  high) ROUTER_MODELS_MAX=1 ;;
+  *) echo "ERROR: router tier must be low|med|high (got: ${TIER})" >&2; exit 1 ;;
+esac
 COMPOSE="compose/openmrs-2.8-refapp.yml"
 SET_FILE="datasets/validation/comparison_sets/${SET}.json"
 [ -f "${SET_FILE}" ] || { echo "ERROR: no comparison set ${SET_FILE}" >&2; exit 1; }
@@ -55,7 +60,7 @@ echo "==> [3/5] med-agent-hub + llama-router (tier ${TIER})"
 make med-agent-hub-up
 if ! curl -fsS --max-time 4 http://localhost:8077/v1/models >/dev/null 2>&1; then
   echo "    starting llama-router (background)"
-  LLAMA_ROUTER_TIER="${TIER}" nohup ./scripts/llama-router-up.sh > /tmp/llama-router.log 2>&1 &
+  LLAMA_ROUTER_MODELS_MAX="${ROUTER_MODELS_MAX}" nohup ./scripts/llama-router-up.sh > /tmp/llama-router.log 2>&1 &
   for i in $(seq 1 30); do
     curl -fsS --max-time 4 http://localhost:8077/v1/models >/dev/null 2>&1 && break; sleep 2
   done

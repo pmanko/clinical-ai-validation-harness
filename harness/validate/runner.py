@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import inspect
 import json
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -26,10 +27,14 @@ from ..submodules import read_harness_git_sha
 from .client import ChatResult
 from .metrics import compute_metrics
 from .model_registry import arm_card
+from .models import Backend
 from .models import load_comparison_set, load_scenario
 from .report import build_report
 from .repository import JsonlRepository
 from .resolver import resolve_backends
+from .router_policy import reconcile_llama_router_for_backend
+
+RouterPolicy = Callable[[Backend], dict[str, Any] | None]
 
 
 def write_run_meta(
@@ -71,6 +76,8 @@ def _row_is_good(row: dict[str, Any]) -> bool:
         return False
     ans = ((row.get("response") or {}).get("answer") or "").strip()
     if not ans:
+        return False
+    if not any(ch.isalnum() for ch in ans):
         return False
     return "could not produce a complete answer" not in ans
 
@@ -136,6 +143,7 @@ def run_comparison(
     gen_ai_provider_name: str = "lmstudio",
     resume_from: Path | str | None = None,
     reference_date: str | None = None,
+    router_policy: RouterPolicy | None = None,
 ) -> RunResult:
     # An explicit "now" for temporal scoring. Unset -> None, so every recorded row's
     # reference_date is absent and downstream falls back to the data era (today's
@@ -210,6 +218,11 @@ def run_comparison(
 
     repo = JsonlRepository(authored_root=data_root, run_dir=run_dir)
     result_count = 0
+    policy = router_policy if router_policy is not None else (
+        lambda backend: reconcile_llama_router_for_backend(
+            backend, project_root=project_root,
+        )
+    )
 
     # On resume, carry over every scenario×backend that already completed cleanly in a
     # prior run dir; only the missing/partial cells are re-run below.
@@ -221,6 +234,17 @@ def run_comparison(
     # The backend is selected per /chat request (a per-request override), so a run
     # never mutates chartsearchai's config-controlled global default.
     for backend in backends:
+        router_event = policy(backend)
+        if router_event:
+            append_event(
+                events_path,
+                {
+                    "event_type": "llama_router_policy",
+                    "run_id": run_id,
+                    "backend_id": backend.id,
+                    **router_event,
+                },
+            )
         append_event(
             events_path,
             {
@@ -230,6 +254,7 @@ def run_comparison(
                 "label": backend.label,
                 "endpointUrl": backend.endpoint_url,
                 "modelName": backend.model_name,
+                "llamaRouterModelsMax": backend.llama_router_models_max,
             },
         )
         for scenario in scenarios:

@@ -193,6 +193,19 @@ def _load_json(p: Path) -> dict:
         return {}
 
 
+def _runtime_config(arm: dict[str, Any]) -> dict[str, Any]:
+    out: dict[str, Any] = {}
+    raw = arm.get("llamaRouterModelsMax")
+    if raw is None:
+        raw = arm.get("routerModelsMax")
+    if raw is not None:
+        try:
+            out["llama_router_models_max"] = int(raw)
+        except (TypeError, ValueError):
+            out["llama_router_models_max"] = raw
+    return out
+
+
 def _load_levels(p: Path) -> dict[str, dict]:
     """Parse med-agent-hub levels.yaml -> {team_name: {role: model}}. A tiny indent-aware
     reader so the resolver doesn't hard-depend on PyYAML (the hub owns the real loader)."""
@@ -373,6 +386,8 @@ def _split_dynamic_prompt_model(model_name: str) -> dict[str, str] | None:
       answer:<writer>
       answer:<writer>@<prompt>
       answer:<writer>@<prompt>~<temporal_gate>
+      answer:<writer>@<prompt>~<temporal_gate>~temp0
+      answer:<writer>@<prompt>~<temporal_gate>~temp0.5
       indepth-only:<writer>
       indepth-only:<writer>@<prompt>
     """
@@ -384,16 +399,26 @@ def _split_dynamic_prompt_model(model_name: str) -> dict[str, str] | None:
     if not prefix:
         return None
     rest = model_name[len(prefix):]
-    writer_prompt, _, gate = rest.partition("~")
+    writer_prompt, *options = rest.split("~")
     writer, at, prompt = writer_prompt.partition("@")
     if not writer:
         return None
+    gate = ""
+    temp_floor = ""
+    for opt in options:
+        if opt in {"off", "warn", "enforce"} and not gate:
+            gate = opt
+        elif opt.startswith("temp") and opt[4:] and not temp_floor:
+            temp_floor = opt[4:]
+        else:
+            return None
     default_prompt = "synthesis-indepth" if prefix == "indepth-only:" else "synthesis-chartsearchai"
     return {
         "mode": prefix[:-1],
         "writer": writer,
         "prompt": prompt if at and prompt else default_prompt,
-        "gate": gate or "",
+        "gate": gate,
+        "temp_floor": temp_floor,
     }
 
 
@@ -414,10 +439,19 @@ def _prompt_file_entry(label: str, prompt_stem: str) -> dict[str, str] | None:
     return {"label": label, "source": source, "text": text, "summary": summary}
 
 
-def _hub_single_config(model_id: str, prompt_stem: str | None, ini: dict[str, dict[str, str]]) -> dict[str, Any]:
+def _hub_single_config(
+    model_id: str,
+    prompt_stem: str | None,
+    ini: dict[str, dict[str, str]],
+    temp_floor: str | None = None,
+) -> dict[str, Any]:
     entry = _prompt_file_entry("Synthesis prompt", prompt_stem or "synthesis-chartsearchai")
+    knobs = _resolve_knobs(model_id, ini)
+    if temp_floor:
+        knobs = dict(knobs)
+        knobs["synth_temp_floor"] = temp_floor
     return {
-        "knobs": {model_id: _resolve_knobs(model_id, ini)},
+        "knobs": {model_id: knobs},
         "prompts": [entry] if entry else [],
         "retrieval": _CHARTSEARCHAI_RETRIEVAL,
     }
@@ -457,6 +491,13 @@ def arm_card(
     endpoint = arm.get("endpointUrl") or ""
     model_name = arm.get("modelName") or backend_id
     label = arm.get("label") or backend_id
+    runtime = _runtime_config(arm)
+
+    def _with_runtime(card: dict[str, Any]) -> dict[str, Any]:
+        if runtime:
+            card = dict(card)
+            card["runtime"] = runtime
+        return card
 
     dyn = _split_dynamic_prompt_model(model_name)
     if dyn:
@@ -468,15 +509,17 @@ def arm_card(
             suffix.append(lever)
         if dyn.get("gate"):
             suffix.append(f"gate {dyn['gate']}")
+        if dyn.get("temp_floor"):
+            suffix.append(f"temp {dyn['temp_floor']}")
         if suffix:
             joined = ", ".join(suffix)
             title, short_title = f"{title} ({joined})", f"{short_title} ({joined})"
-        return {
+        return _with_runtime({
             "backend_id": backend_id, "label": label, "title": title, "short_title": short_title,
             "kind": "single", "path": "med-agent-hub single",
             "models": [single_card],
-            "config": _hub_single_config(dyn["writer"], dyn["prompt"], ini),
-        }
+            "config": _hub_single_config(dyn["writer"], dyn["prompt"], ini, dyn.get("temp_floor")),
+        })
 
     # Solo single-model legs through the hub (answer:<m> / indepth-only:<m> / single:<m>) — ONE model,
     # no orchestrator/team — render as a SINGLE arm with the writer's family·size·quant, not "team".
@@ -486,11 +529,11 @@ def arm_card(
     if _solo_w:
         single_card = _model_card(_solo_w, registry)
         title, short_title = _single_title(single_card)
-        return {
+        return _with_runtime({
             "backend_id": backend_id, "label": label, "title": title, "short_title": short_title,
             "kind": "single", "path": "med-agent-hub single",
             "models": [single_card], "config": _single_config(_solo_w, ini),
-        }
+        })
 
     if ":8080" in endpoint or model_name.startswith("med-agent-team"):
         roles_map = _load_levels(levels_path).get(model_name, {})
@@ -504,12 +547,12 @@ def arm_card(
             _lever = _prompt_lever(level.get("synthesis_prompt"))
             if _lever:  # a prompt-lever solo (e.g. cite-or-abstain) must not collide with plain solo
                 _t, _st = f"{_t} ({_lever})", f"{_st} ({_lever})"
-            return {"backend_id": backend_id, "label": label, "title": _t, "short_title": _st,
-                    "kind": "single", "path": "med-agent-hub single",
-                    "models": [_scard], "config": _hub_single_config(_w, level.get("synthesis_prompt"), ini)}
+            return _with_runtime({"backend_id": backend_id, "label": label, "title": _t, "short_title": _st,
+                                  "kind": "single", "path": "med-agent-hub single",
+                                  "models": [_scard], "config": _hub_single_config(_w, level.get("synthesis_prompt"), ini)})
         roles = {r: _model_card(roles_map[r], registry) for r in _ROLES if r in roles_map}
         title, short_title = _team_title(roles)
-        return {
+        return _with_runtime({
             "backend_id": backend_id,
             "label": label,
             "title": title,
@@ -520,12 +563,12 @@ def arm_card(
             "models": list(roles.values()),
             "n_models": len(roles),
             "config": _team_config(roles_map, level, ini),
-        }
+        })
 
     single_card = _model_card(model_name, registry)
     title, short_title = _single_title(single_card)
     if ":8077" in endpoint or endpoint:
-        return {
+        return _with_runtime({
             "backend_id": backend_id,
             "label": label,
             "title": title,
@@ -534,8 +577,8 @@ def arm_card(
             "path": "vanilla chartsearchai",
             "models": [single_card],
             "config": _single_config(model_name, ini),
-        }
+        })
 
-    return {"backend_id": backend_id, "label": label, "title": title, "short_title": short_title,
-            "kind": "unknown", "path": None, "models": [single_card],
-            "config": _single_config(model_name, ini)}
+    return _with_runtime({"backend_id": backend_id, "label": label, "title": title, "short_title": short_title,
+                          "kind": "unknown", "path": None, "models": [single_card],
+                          "config": _single_config(model_name, ini)})
