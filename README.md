@@ -149,24 +149,24 @@ to a configured remote endpoint. The default chat model is the fast checked sing
 (`single-e4b-checked`); larger singles and team profiles are picker choices for slower/deeper questions.
 
 ```bash
-# Build chartsearchai's .omod from the submodule and stage it for the backend
-make chartsearch-build
-
-# Canonical local LLM backend (foreground server, own terminal). TIER=low|med|high.
+# 1. Canonical local LLM backend (foreground server, own terminal — start this FIRST).
+#    TIER=low|med|high.
 make llama-router-up                 # serves the tier GGUFs on :8077
 make llama-router-models             # probe what :8077 is serving
 
-# Bring up / configure the stack
+# 2. One command brings up everything else: builds the .omod, brings up + configures
+#    med-agent-hub (when .env.chartsearch's endpoint targets it, the default), starts
+#    the OpenMRS stack, configures chartsearchai's LLM globals, and warms LM Studio
+#    models if configured. Ask a question through the picker's default model once
+#    both steps above are done.
 make chartsearch-up
-make med-agent-hub-up               # the agent team; routes to llama-router (:8077)
-make chartsearch-configure          # sets the chartsearchai.llm.* global properties from .env.chartsearch
 
-# LLM engine — chartsearchai has no bundled local LLM; recreate the backend against the
-# configured remote endpoint (Med Agent Hub / LM Studio / cloud), e.g. after editing .env.chartsearch
-make chartsearch-engine
-
-# LM Studio is an alternative remote endpoint; warm its models if you use it
-make chartsearch-warmup
+# Re-run individual steps as needed, e.g. after editing .env.chartsearch:
+make chartsearch-build               # rebuild + redeploy just the .omod
+make med-agent-hub-up                # (re)start the hub on its own
+make chartsearch-configure           # re-write the chartsearchai.llm.* global properties
+make chartsearch-engine              # recreate the backend against the configured remote endpoint
+make chartsearch-warmup              # LM Studio only — pre-load its models
 
 # Retrieval backend — querystore's CQRS read store tier
 make chartsearch-backend BACKEND=elasticsearch   # or lucene | mysql

@@ -314,6 +314,13 @@ chartsearch-up:
 	fi
 	@echo "==> chartsearch-build (mvn package + drop .omod)"
 	@$(MAKE) chartsearch-build
+	@set -a && . ./.env.chartsearch && set +a && \
+	  case "$${CHARTSEARCH_REMOTE_ENDPOINT_URL:-}" in \
+	    *med-agent-hub*) \
+	      echo "==> configured endpoint targets med-agent-hub — bringing it up (chartsearch-configure needs it reachable)"; \
+	      $(MAKE) med-agent-hub-up || exit 1 ;; \
+	    *) echo "==> configured endpoint ($${CHARTSEARCH_REMOTE_ENDPOINT_URL:-unset}) is not med-agent-hub — skipping it" ;; \
+	  esac
 	@echo "==> docker compose up (frontend+gateway on :nightly-chartsearch tag, backend env wired)"
 	@set -a && . ./.env.chartsearch && set +a && \
 	  docker compose -f compose/openmrs-2.8-refapp.yml up -d --force-recreate proxy db frontend gateway backend
@@ -329,6 +336,9 @@ chartsearch-up:
 	@echo "==> chartsearch-warmup (LM Studio model preload + persistent defaults)"
 	@$(MAKE) chartsearch-warmup
 	@echo "==> chartsearch-up complete"
+	@set -a && . ./.env.chartsearch && set +a && \
+	  curl -fsS -m 3 http://localhost:8077/v1/models >/dev/null 2>&1 || \
+	  echo "NOTE: llama-router (:8077) is not reachable — start it with 'make llama-router-up' before asking a question, or chat requests will fail."
 
 # Verify chartsearchai prerequisites: backend container can reach the LLM
 # endpoint (LM Studio / Anthropic / etc.), models are available, module is
