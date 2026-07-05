@@ -186,6 +186,16 @@ present_check "hub:/v1/models advertises staged capability" \
 present_check "csai:sync POST /chat relays remote models through the hub" \
   "hubRelayCompletionWire" "$CSAI/omod/src/main/java/org/openmrs/module/chartsearchai/web/rest/ChartSearchAiRestController.java" "11"
 
+# --- Gate 14: drug-safety port must exist and ride every chat surface before /search dies ---
+present_check "hub:drug_safety module exists" \
+  "^def validate_answer" "$HUB/server/drug_safety.py" "14"
+present_check "hub:safetyWarnings threaded through _stream_payload" \
+  "safety_warnings" "$HUB/server/team.py" "14"
+present_check "hub:run_team_stage_drain copies safetyWarnings" \
+  '"safetyWarnings"' "$HUB/server/team.py" "14"
+present_check "hub:Level.drug_safety config knob" \
+  "drug_safety" "$HUB/server/levels_loader.py" "14"
+
 echo
 echo "== Section B: suite runs (regression evidence — informational, not gate-tagged) =="
 
@@ -218,6 +228,12 @@ suite_run "hub:pytest test_chat_cancel_releases_router_lock" "6" "$HUB" \
 suite_run "hub:pytest team-scaffolding gathers via the engine" "13" "$HUB" \
   "${HUB_VENV}/bin/python" -m pytest tests/test_staged_stream.py -q \
   -k "team_scaffolding_gathers or derives_gather_from_the_stage_plan"
+
+# Gate 14: drug-safety parity suite (validator/injector algorithm) + wiring integration tests
+# (run_team/run_team_stream/run_team_stage_drain thread safetyWarnings through the right keys,
+# and leave every existing level's envelope byte-identical when the knob is off/default).
+suite_run "hub:pytest drug_safety parity + wiring" "14" "$HUB" \
+  "${HUB_VENV}/bin/python" -m pytest tests/test_drug_safety.py tests/test_drug_safety_integration.py -q
 
 # --- esm test suite ------------------------------------------------------------------
 if [[ -d "$ESM/node_modules" ]]; then
@@ -265,6 +281,7 @@ GATE_TITLE=(
   "11:Harness drains the same engine"
   "12:Acceptance matrix mandatory before done"
   "13:Team profiles stream via the engine's gather stage"
+  "14:Drug safety survives /search retirement (ported to the hub)"
 )
 
 echo
