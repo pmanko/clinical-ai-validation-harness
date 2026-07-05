@@ -8,9 +8,15 @@ const STEP_PAUSE_MS = Number.parseInt(process.env.E2E_STEP_PAUSE_MS ?? '900', 10
 const FAST_ANSWER_MAX_MS = Number.parseInt(process.env.E2E_FAST_ANSWER_MAX_MS ?? '60_000'.replace('_', ''), 10);
 const SHOTS = path.resolve(__dirname, '../evidence/e4b-multiturn-trivial');
 
+// Turn 2 must be answerable ONLY from turn-1's content, not from the chart itself.
+// A bare date-format check (an earlier version of this spec) is weak — dates are plausible things
+// a model could re-derive or hallucinate from the chart on ANY turn, so it doesn't prove history was
+// actually relayed. A codeword with zero relationship to the patient's clinical record can only be
+// echoed back correctly if the server actually threaded turn-1's prose answer into turn-2's request.
+const CODEWORD = 'PLATYPUS7742';
 const QUESTIONS = [
-  'In one short sentence, what was the most recent documented clinical visit?',
-  'Repeat just the ISO date from your previous answer.',
+  `In one short sentence, what was the most recent documented clinical visit? End your reply with the exact codeword "${CODEWORD}".`,
+  'What exact codeword did I ask you to end your previous answer with? Reply with only that codeword, nothing else.',
 ];
 
 fs.mkdirSync(SHOTS, { recursive: true });
@@ -104,7 +110,9 @@ test.describe('chartsearchai - Gemma E4B trivial multi-turn proof', () => {
 
     await expect(page.locator('[data-turn-phase]')).toHaveCount(2, { timeout: 30_000 });
     const secondTurnText = await page.locator('[data-turn-phase]').nth(1).innerText({ timeout: 30_000 });
-    expect(secondTurnText).toMatch(/20\d{2}-\d{2}-\d{2}/);
+    // The codeword has no relationship to this patient's chart — the only way it can appear in
+    // turn 2's answer is if the server actually relayed turn 1's prose answer as prior context.
+    expect(secondTurnText).toContain(CODEWORD);
 
     await expect(page.locator('[data-indepth-status]').last()).toHaveAttribute('data-indepth-status', 'complete', {
       timeout: 360_000,
