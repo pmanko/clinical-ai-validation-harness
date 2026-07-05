@@ -29,7 +29,26 @@ lifecycle — **that is the debt to pay down**, not a constraint to work around.
   **concurrent same-session turns are UNSAFE** (unsynchronized `getLastOrdinal()+1`,
   `ChatServiceImpl` ~L198). ⇒ keep answers single-flight; in-depth yields to the next question (preempt).
 
-## Frontend today (verify in code) — the debt to consolidate
+## The phase model (decided + being implemented this session)
+One field `phase: TurnPhase` on each `ChatMessage`, set explicitly by every SSE/stop/preempt handler,
+mirroring the backend events 1:1. All behavior + render + DOM derive from it via predicates in
+`src/hooks/turn-phase.ts` (no other lifecycle booleans — `isLoading`/`answerSettled`/`isAnyLoading` are gone).
+
+| phase | backend trigger | composer | notes |
+|---|---|---|---|
+| `answering` | created → `token`* | locked | direct answer streaming; raw text + indicator |
+| `validating` | `answer_done` | locked | answer text done; self-check running; sections split |
+| `settled` | `answer_validation` / `indepth_pending` | **unlocked** | answer available; preemptable |
+| `in-depth` | `indepth_token`* | unlocked | in-depth streaming in background |
+| `complete` | `done` / `indepth_done` / `indepth_error` / stop / preempt | unlocked | terminal; answer available |
+| `error` | `onError` | unlocked | terminal; answer generation itself failed |
+
+Predicates: `isAwaitingAnswer(phase)` = `answering|validating` (drives composer `disabled`, submit/speech/mic
+guards, Stop-vs-Send, focus-restore); `isAnswerSettled(phase)` = `settled|in-depth|complete` (preempt
+eligibility); `isTerminal(phase)` = `complete|error` (render actions/blocks/copy). DOM: `data-turn-phase`
+on the response container (coarse phase) + existing `data-indepth-status` (in-depth outcome) — both observable.
+
+## Frontend BEFORE this session (the debt now consolidated)
 Files: `targets/chartsearchai-esm/src/hooks/useChartSearchAi.ts`,
 `src/components/ai-chat-content.component.tsx`, `src/components/ai-response-panel.component.tsx`.
 - The hook receives every SSE event (`onToken`/`onAnswerDone`/`onAnswerValidation`/`onInDepth*`/`onDone`)
@@ -49,15 +68,16 @@ Files: `targets/chartsearchai-esm/src/hooks/useChartSearchAi.ts`,
   into a single derived `phase` per message, and drive behavior + render + DOM off it. Fold the flags below
   into that model rather than leaving them as separate signals.
 
-## Done this session (verify — hypotheses, not facts)
-- `answerSettled` + `isAwaitingAnswer` (answer-settled → composer unlocks; interactive-first + preempt),
-  unit-tested; `data-indepth-status` observability + tests; **203 esm tests green, typecheck clean**.
-- esm rebuilt + staged: `make chartsearch-esm-build` → `artifacts/openmrs/spa-custom/` (Caddy serves live,
-  no container recreate).
-- These are the **right direction, arrived at piecemeal** — the remediation should fold them INTO the
-  single phase model, not leave them scattered.
-- **NOT verified end-to-end:** whether preempt actually frees the router slot fast (client abort → hub →
-  router cancellation). The demo/E2E acceptance test **has not passed yet** — that is the open item.
+## Done (verified)
+- **The phase model is implemented and unit-tested** (esm commit `6ba52c8` on `harness-integration`).
+  The four flags are gone; `phase` (`src/hooks/turn-phase.ts`) is the single source of truth, set by
+  every SSE/stop/preempt handler. Composer + render + DOM derive from it. `data-turn-phase` (coarse) +
+  `data-indepth-status` (in-depth outcome) both on the response container. **206 esm tests green,
+  typecheck + lint clean.** Includes a red-first `tracks the turn phase through the staged lifecycle`
+  hook test (asserted RED before the refactor).
+- **NOT yet verified end-to-end:** the live recording/acceptance test has not been re-run against the
+  built bundle; whether preempt actually frees the single-slot router fast (client abort → hub → router
+  cancellation) is still unmeasured. Next: `make chartsearch-esm-build` → warm → record `chartsearchai-demo`.
 
 ## Acceptance test = definition of done
 `tests/e2e/specs/chartsearchai-demo.spec.ts` (warm first: `scripts/demo-warmup-chartsearchai.sh`) must

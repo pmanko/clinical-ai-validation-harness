@@ -144,7 +144,9 @@ wrap the build, the LLM engine, the retrieval backend, and the per-endpoint mode
 
 The **canonical LLM path** is chartsearchai → Med Agent Hub (`:8080`) → llama-router (`:8077`): a llama.cpp
 Router Mode server serving the tier GGUFs the hub maps its per-role models onto. LM Studio (`:1234`) and the
-module's bundled in-process `llama-server` remain configurable alternatives.
+module's bundled in-process `llama-server` remain configurable alternatives. The default chat model is the
+fast checked single profile (`single-e4b-checked`); larger singles and team profiles are picker choices for
+slower/deeper questions.
 
 ```bash
 # Build chartsearchai's .omod from the submodule and stage it for the backend
