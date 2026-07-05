@@ -110,10 +110,10 @@ services:
     # build locally from `targets/chartsearchai/` (which carries our multi-turn
     # work). So we build our OWN backend image: Dockerfile.backend rebases the
     # stock `:3.6.0` dist off Amazon Linux 2 (glibc 2.26) onto Ubuntu/temurin
-    # (glibc 2.39) so querystore's onnxruntime embedder and chartsearchai's
-    # bundled llama-server native libs load — but bakes NO module, so the
-    # bind-mounted omods below (chartsearchai + querystore) are the only ones,
-    # with no clobber. Only the base OS changes; the OpenMRS app stays at 3.6.0.
+    # (glibc 2.39) so querystore's onnxruntime embedder native libs load — but
+    # bakes NO module, so the bind-mounted omods below (chartsearchai +
+    # querystore) are the only ones, with no clobber. Only the base OS changes;
+    # the OpenMRS app stays at 3.6.0.
     image: harness-openmrs-backend:${OPENMRS_BACKEND_TAG:-3.6.0}-temurin
     build:
       context: .

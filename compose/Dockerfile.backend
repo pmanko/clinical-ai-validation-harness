@@ -2,11 +2,10 @@
 # Linux 2 (glibc 2.26) onto Ubuntu/temurin (glibc 2.39), running chartsearchai's
 # own backend-init.sh as the entrypoint.
 #
-# Why temurin: querystore's onnxruntime embedder (and chartsearchai's bundled
-# llama-server) ship native libs needing glibc >= 2.27; the official RefApp
-# backend is Amazon Linux 2 (glibc 2.26), so the embedder dies at load with
-# `GLIBC_2.27 not found`. chartsearchai's upstream Dockerfile.backend rebases the
-# same way for the same reason.
+# Why temurin: querystore's onnxruntime embedder ships native libs needing glibc >= 2.27; the
+# official RefApp backend is Amazon Linux 2 (glibc 2.26), so the embedder dies at load with
+# `GLIBC_2.27 not found`. chartsearchai's upstream Dockerfile.backend rebases the same way for the
+# same reason.
 #
 # Why backend-init.sh (not the bare stock entrypoint): we are running
 # chartsearch, so we use chartsearch's own runtime setup. It heals the data

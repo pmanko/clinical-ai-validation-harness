@@ -276,32 +276,27 @@ chartsearch-backend:
 	@$(MAKE) chartsearch-configure
 	@echo "==> querystore now on $(BACKEND); open a patient / run a search to (re)index into it"
 
-# Switch chartsearchai's LLM engine: `remote` (OpenAI-compat endpoint) or
-# `local` (the module's OWN bundled llama-server, in-process on the backend —
-# the out-of-the-box shape). Recreates the backend so backend-init.sh can pull
-# the ~5GB GGUF for local, then re-runs configure to set the engine GPs.
-#   make chartsearch-engine ENGINE=local     # bundled llama-server (downloads GGUF)
-#   make chartsearch-engine ENGINE=remote    # back to the configured endpoint
+# Recreate the backend against the OpenAI-compat endpoint configured in .env.chartsearch (Med
+# Agent Hub / LM Studio / cloud) and re-run configure. chartsearchai has no bundled local LLM —
+# the whole in-process llama-server subsystem was removed; `remote` is the only engine.
 chartsearch-engine:
-	@if [ -z "$(ENGINE)" ]; then echo "usage: make chartsearch-engine ENGINE=local|remote"; exit 1; fi
-	@case "$(ENGINE)" in local|remote) ;; *) echo "ENGINE must be local|remote (got: $(ENGINE))"; exit 1;; esac
-	@echo "==> chartsearchai.llm.engine -> $(ENGINE) (recreating backend)"
+	@if [ -n "$(ENGINE)" ] && [ "$(ENGINE)" != "remote" ]; then \
+	  echo "ENGINE=$(ENGINE) is not supported: chartsearchai has no bundled local LLM engine" >&2; \
+	  echo "(the in-process llama-server subsystem was removed) — only ENGINE=remote exists." >&2; \
+	  exit 1; \
+	fi
+	@echo "==> chartsearchai.llm.engine -> remote (recreating backend)"
 	@set -a; [ -f .env.chartsearch ] && . ./.env.chartsearch; set +a; \
-	  CHARTSEARCH_LLM_ENGINE=$(ENGINE) docker compose -f compose/openmrs-2.8-refapp.yml up -d --force-recreate backend
+	  CHARTSEARCH_LLM_ENGINE=remote docker compose -f compose/openmrs-2.8-refapp.yml up -d --force-recreate backend
 	@observed=0; for i in $$(seq 1 60); do \
 	  s=$$(docker inspect -f '{{.State.Health.Status}}' harness-openmrs-backend 2>/dev/null || echo starting); \
-	  if [ "$$s" = "healthy" ]; then echo "    healthy after $$((i*5))s on engine=$(ENGINE)"; observed=1; break; fi; \
+	  if [ "$$s" = "healthy" ]; then echo "    healthy after $$((i*5))s"; observed=1; break; fi; \
 	  sleep 5; \
 	done; \
 	if [ "$$observed" != "1" ]; then echo "ERROR: backend not healthy after 5 min" >&2; exit 1; fi
 	@echo "==> chartsearch-configure (engine + model GPs)"
-	@CHARTSEARCH_LLM_ENGINE=$(ENGINE) $(MAKE) chartsearch-configure
-	@if [ "$(ENGINE)" = "local" ]; then \
-	  echo "==> engine=local: the ~5GB GGUF downloads in the background on the backend;"; \
-	  echo "    chart search returns errors until it finishes. Watch: docker logs -f harness-openmrs-backend"; \
-	else \
-	  echo "==> engine=remote: using the configured OpenAI-compat endpoint"; \
-	fi
+	@CHARTSEARCH_LLM_ENGINE=remote $(MAKE) chartsearch-configure
+	@echo "==> using the configured OpenAI-compat endpoint"
 
 # Pre-load LM Studio models with the configured context length and write
 # persistent per-model defaults. Prevents JIT-reload-with-default-context

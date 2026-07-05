@@ -19,9 +19,8 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "${ROOT}"
 
-# Load env file if present. An explicitly-exported CHARTSEARCH_LLM_ENGINE (e.g.
-# from `make chartsearch-engine ENGINE=local`) must win over the file default,
-# so capture it before sourcing and restore it after.
+# Load env file if present. An explicitly-exported CHARTSEARCH_LLM_ENGINE must win over the
+# file default, so capture it before sourcing and restore it after.
 _OVERRIDE_ENGINE="${CHARTSEARCH_LLM_ENGINE:-}"
 if [ -f .env.chartsearch ]; then
   set -a
@@ -51,9 +50,15 @@ ADMIN_PASS="${CHARTSEARCH_ADMIN_PASSWORD:-Admin123}"
 rc() { if [ -n "${EXEC}" ]; then docker exec "${EXEC}" curl "$@"; else curl "$@"; fi; }
 
 ENGINE="${CHARTSEARCH_LLM_ENGINE:-remote}"
+if [ "${ENGINE}" != "remote" ]; then
+  echo "error: CHARTSEARCH_LLM_ENGINE=${ENGINE} is not supported." >&2
+  echo "  chartsearchai has no bundled local LLM engine (the in-process llama-server" >&2
+  echo "  subsystem was removed) — only 'remote' works. Unset CHARTSEARCH_LLM_ENGINE" >&2
+  echo "  or set it to 'remote' in .env.chartsearch." >&2
+  exit 1
+fi
 ENDPOINT="${CHARTSEARCH_REMOTE_ENDPOINT_URL:?must be set in .env.chartsearch}"
 MODEL="${CHARTSEARCH_REMOTE_MODEL_NAME:-}"
-TIMEOUT_SECONDS="${CHARTSEARCH_LLM_TIMEOUT_SECONDS:-2400}"
 
 # Auto-discover model if not set: derive the models endpoint from the chat
 # endpoint (replace /chat/completions with /models) and pick the first id.
@@ -102,16 +107,6 @@ echo "Configuring chartsearchai LLM globals at ${BASE_URL}:"
 set_property "chartsearchai.llm.engine"             "${ENGINE}"
 set_property "chartsearchai.llm.remote.endpointUrl" "${ENDPOINT}"
 set_property "chartsearchai.llm.remote.modelName"   "${MODEL}"
-set_property "chartsearchai.llm.timeoutSeconds"     "${TIMEOUT_SECONDS}"
-
-# Local (bundled llama-server) engine: point the module at the GGUF that
-# backend-init.sh downloads into /openmrs/data/chartsearchai (path relative to
-# the app data dir). Only meaningful when ENGINE=local; harmless otherwise, but
-# we only set it for local to avoid implying a local model exists under remote.
-if [ "${ENGINE}" = "local" ]; then
-  set_property "chartsearchai.llm.modelFilePath" \
-    "${CHARTSEARCH_LOCAL_MODEL_FILE:-chartsearchai/gemma-4-E4B-it-Q4_K_M.gguf}"
-fi
 
 # Optional endpoint registry for the picker's per-endpoint sections (LM Studio,
 # Med Agent Hub, ...). JSON array of {label,url}; single-quote it in
