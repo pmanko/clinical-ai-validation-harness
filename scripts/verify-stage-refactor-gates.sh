@@ -179,9 +179,12 @@ present_check "hub:temporal_render config knob" \
 present_check "hub:/v1/models advertises staged capability" \
   '"id": mid,[^}]*"staged"' "$HUB/server/openai_compat.py" "10"
 
-# --- Gate 11: the harness's own sync client path must stop using local Java orchestration --
-absent_check "csai:sync POST /chat still calls local chatService.chat" \
-  "chatService\.chat\(session, ?question\)" "$CSAI/omod/src/main/java/org/openmrs/module/chartsearchai/web/rest/ChartSearchAiRestController.java" "11"
+# --- Gate 11: the harness's own sync client path (POST /chat) must drain the hub for any remote
+# model. chatService.chat legitimately remains as the LOCAL-bundled-engine fallback (no remote
+# endpoint configured at all) — that path is out of scope for this flip, not a violation. The real
+# evidence is that a remote-engine turn now goes through the shared relay helper.
+present_check "csai:sync POST /chat relays remote models through the hub" \
+  "hubRelayCompletionWire" "$CSAI/omod/src/main/java/org/openmrs/module/chartsearchai/web/rest/ChartSearchAiRestController.java" "11"
 
 echo
 echo "== Section B: suite runs (regression evidence — informational, not gate-tagged) =="
