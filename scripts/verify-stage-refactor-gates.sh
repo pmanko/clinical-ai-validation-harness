@@ -125,8 +125,10 @@ absent_check "csai:populateChartSnapshot/ensureChartSnapshot deleted" \
   "(populateChartSnapshot|ensureChartSnapshot)" "$CSAI/api/src/main/java/org/openmrs/module/chartsearchai/api/impl/ChatServiceImpl.java" "9"
 
 # --- Gate 10: name-prefix routing (esm side) ----------------------------------------
+# Matches a function definition or a call/reference with parens — i.e. real code — not a bare
+# mention of the old name in a doc comment explaining what replaced it.
 absent_check "esm:shouldUseStagedInDepth deleted" \
-  "shouldUseStagedInDepth" "$ESM/src/api/chartsearchai.ts" "10"
+  "\\bshouldUseStagedInDepth\\s*\\(" "$ESM/src/api/chartsearchai.ts" "10"
 
 # --- /search family + Java grounding retirement (feeds Gate 1/9 scope + supports Gate 7) --
 absent_check "csai:/search mapping deleted" \
@@ -250,14 +252,17 @@ else
 fi
 
 # --- live e2e (opt-in; needs a warm deployed stack) -----------------------------------
+# chartsearchai-demo.spec.ts is a RECORDING spec (paced for video, no latency assertion) — it does
+# NOT count as Gate 6/13 evidence. chartsearchai-preempt.spec.ts is the CI-assertion counterpart:
+# it fails if a preempted leg's slot isn't actually freed, so it is the real check these gates need.
 if [[ "$RUN_E2E" == "1" ]]; then
   suite_run "e2e:multi-turn history" "5" "$ROOT/tests/e2e" \
     yarn playwright test chartsearchai-e4b-multiturn-trivial
-  suite_run "e2e:preempt/demo" "6 13" "$ROOT/tests/e2e" \
-    yarn playwright test chartsearchai-demo
+  suite_run "e2e:preempt frees router slot" "6 13" "$ROOT/tests/e2e" \
+    yarn playwright test chartsearchai-preempt
 else
   record "e2e:multi-turn history" "SKIP" "RUN_E2E=1 not set (needs a warm deployed stack)" "5"
-  record "e2e:preempt/demo" "SKIP" "RUN_E2E=1 not set (needs a warm deployed stack)" "6 13"
+  record "e2e:preempt frees router slot" "SKIP" "RUN_E2E=1 not set (needs a warm deployed stack)" "6 13"
 fi
 
 echo
@@ -294,6 +299,7 @@ for entry in "${GATE_TITLE[@]}"; do
   evidence=""
   any_fail=0
   any_pass=0
+  any_skip=0
   any_check=0
   for i in "${!CHECK_NAME[@]}"; do
     for g in ${CHECK_GATES[$i]}; do
@@ -302,6 +308,7 @@ for entry in "${GATE_TITLE[@]}"; do
         case "${CHECK_STATUS[$i]}" in
           FAIL) any_fail=1 ;;
           PASS) any_pass=1 ;;
+          SKIP) any_skip=1 ;;
         esac
         evidence+="${CHECK_NAME[$i]}=${CHECK_STATUS[$i]}; "
       fi
@@ -315,6 +322,10 @@ for entry in "${GATE_TITLE[@]}"; do
     evidence="no automated check wired yet — needs manual/live verification"
   elif [[ $any_fail -eq 1 ]]; then
     status="FAIL"
+  elif [[ $any_skip -eq 1 ]]; then
+    # A SKIPped check (e.g. RUN_E2E not set) is required evidence this gate has not actually seen —
+    # an unrelated check for the same gate reading PASS must NOT paper over that. PENDING, not PASS.
+    status="PENDING"
   elif [[ $any_pass -eq 1 ]]; then
     status="PASS"
   fi
