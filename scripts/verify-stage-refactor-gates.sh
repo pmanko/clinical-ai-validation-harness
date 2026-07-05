@@ -152,7 +152,15 @@ present_check "csai:hub relay threads prose priors" \
 
 # --- Gate 6: heartbeats (keep the leg abortable) + capability metadata must exist -----------
 present_check "hub:SSE heartbeat comment lines" \
-  "': hb'|\"\: hb\"|# heartbeat" "$HUB/server/openai_compat.py" "6"
+  ': hb\\n\\n' "$HUB/server/openai_compat.py" "6"
+
+# Heartbeats alone only wake the Java relay's blocking readLine() — Gate 6 also needs the relay to
+# actually USE that wake-up to detect a browser disconnect mid-leg (e.g. a benign write/flush to
+# the browser response on each line read, so an IOException surfaces well before the next real
+# hub event). Without this, readLine() waking up on a comment line is a no-op and the relay still
+# blocks the whole leg.
+present_check "csai:relay detects browser disconnect on comment/heartbeat lines" \
+  'startsWith\(":"\)' "$CSAI/omod/src/main/java/org/openmrs/module/chartsearchai/web/rest/ChartSearchAiRestController.java" "6"
 
 # --- Gate 7: hub-side entailment grounding must exist and replace the lexical heuristic ----
 present_check "hub:entailment-based grounding call" \
