@@ -206,6 +206,14 @@ suite_run "hub:pytest test_bridge.py (raw-leg byte shapes)" "4" "$HUB" \
 suite_run "hub:pytest test_chat_cancel_releases_router_lock" "6" "$HUB" \
   "${HUB_VENV}/bin/python" -m pytest tests/test_staged_stream.py -q -k cancel_releases_router_lock
 
+# Gate 13 (hub side): a team-scaffolded staged profile must gather via run_team_stream's
+# orchestrator tool loop, and the decision must come from executing stage_plan_for_level, not a
+# trusted flag. Still needs the Java relay to route ALL staged profiles (not just single-*) through
+# the one hub call before the gate as a whole is satisfied (see the streamStagedChat check above).
+suite_run "hub:pytest team-scaffolding gathers via the engine" "13" "$HUB" \
+  "${HUB_VENV}/bin/python" -m pytest tests/test_staged_stream.py -q \
+  -k "team_scaffolding_gathers or derives_gather_from_the_stage_plan"
+
 # --- esm test suite ------------------------------------------------------------------
 if [[ -d "$ESM/node_modules" ]]; then
   suite_run "esm:test suite (full regression)" "" "$ESM" yarn test --run
