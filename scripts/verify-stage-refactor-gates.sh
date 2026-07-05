@@ -147,8 +147,10 @@ present_check "hub:runtime consults stage_plan_for_level" \
   "(stage_plan_for_level|get_stage_plan)\(" "$HUB/server/team.py" "3"
 
 # --- Gate 5: Java relay must thread prior conversation turns to the hub, not just the question --
+# (priorsForLlm/extractProseAnswer live in ChatServiceImpl; the controller calls the interface
+# method that wraps them.)
 present_check "csai:hub relay threads prose priors" \
-  "priorsForLlm|extractProseAnswer" "$CSAI/omod/src/main/java/org/openmrs/module/chartsearchai/web/rest/ChartSearchAiRestController.java" "5"
+  "priorTurnsForRelay" "$CSAI/omod/src/main/java/org/openmrs/module/chartsearchai/web/rest/ChartSearchAiRestController.java" "5"
 
 # --- Gate 6: heartbeats (keep the leg abortable) + capability metadata must exist -----------
 present_check "hub:SSE heartbeat comment lines" \
