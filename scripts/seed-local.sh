@@ -15,7 +15,7 @@
 #   - reseed-in-place (fast iter) :  make seed        (against a running stack)
 #
 # Usage:
-#   ./scripts/seed-local.sh                      # newest artifacts/*/transform/refapp_28_demo.sql.gz → openmrs
+#   ./scripts/seed-local.sh                      # the canonical artifacts/demo-data/refapp_28_demo.sql.gz → openmrs
 #   ./scripts/seed-local.sh --dump PATH          # explicit dump file (.sql or .sql.gz)
 #   ./scripts/seed-local.sh --from-schema openmrs_test   # dump that schema now (module-clean), then load it
 #   ./scripts/seed-local.sh --target openmrs --no-reindex
@@ -56,11 +56,11 @@ if [[ -n "$FROM_SCHEMA" ]]; then
   mkdir -p "$(dirname "$DUMP")"
   SOURCE_DB="$FROM_SCHEMA" "${ROOT}/scripts/dump-loaded.sh" --source "$FROM_SCHEMA" --out "$DUMP"
 elif [[ -z "$DUMP" ]]; then
-  # newest dump-loaded.sh artifact
-  DUMP="$(ls -t "${ROOT}"/artifacts/*/transform/refapp_28_demo.sql.gz 2>/dev/null | head -1 || true)"
-  if [[ -z "$DUMP" ]]; then
-    echo "ERROR: no dump found under artifacts/*/transform/refapp_28_demo.sql.gz" >&2
-    echo "  Build one first:  make dump-loaded SOURCE=openmrs_test" >&2
+  # the one canonical dump-loaded.sh artifact — no "newest wins" guessing across old runs
+  DUMP="${ROOT}/artifacts/demo-data/refapp_28_demo.sql.gz"
+  if [[ ! -f "$DUMP" ]]; then
+    echo "ERROR: no dump found at ${DUMP}" >&2
+    echo "  Build it first:  make dump-loaded SOURCE=openmrs_test" >&2
     echo "  or dump-and-seed in one step:  make seed FROM_SCHEMA=openmrs_test" >&2
     exit 1
   fi
@@ -98,17 +98,50 @@ docker exec "$DB_CONTAINER" mariadb --user=root --password="$DB_ROOT_PASS" "$TAR
   UNION ALL SELECT 'obs', COUNT(*) FROM obs;" || true
 
 # --- start the backend; Liquibase reconciles core, chartsearchai installs fresh ---
+# On the very first boot against a just-restored (non-empty) schema, OpenMRS core's own
+# DatabaseUpdater can race into re-running its "empty database" snapshot changelog against
+# tables that already exist ("Table 'allergy' already exists"), then loop retrying that same
+# wrong decision forever within that one JVM. A plain container restart re-evaluates from
+# scratch and clears it — observed reliably, so it's handled here rather than left as a manual
+# step every seed would otherwise require.
 echo "==> starting backend '${BACKEND}' (Liquibase upgrade-in-place + module install)"
 docker start "$BACKEND" >/dev/null
-echo "    waiting for backend health (first boot runs Liquibase; can take minutes)..."
 UP=0
-for i in $(seq 1 100); do
-  code=$(curl -s -o /dev/null -w "%{http_code}" -u admin:Admin123 \
-    "http://localhost:${PROXY_PORT}/openmrs/ws/fhir2/R4/Patient?_count=1" || true)
-  [ "$code" = "200" ] && { echo "    backend up (~$((i*6))s)"; UP=1; break; }
-  sleep 6
+for attempt in 1 2 3; do
+  echo "    waiting for backend health (first boot runs Liquibase; can take minutes) [attempt ${attempt}/3]..."
+  for i in $(seq 1 100); do
+    code=$(curl -s -o /dev/null -w "%{http_code}" -u admin:Admin123 \
+      "http://localhost:${PROXY_PORT}/openmrs/ws/fhir2/R4/Patient?_count=1" || true)
+    [ "$code" = "200" ] && { echo "    backend up (~$((i*6))s)"; UP=1; break; }
+    sleep 6
+  done
+  [ "$UP" = "1" ] && break
+  if [ "$attempt" -lt 3 ]; then
+    echo "    backend stuck on the known first-boot snapshot race (never resolves within the same JVM); restarting to re-evaluate"
+    docker restart "$BACKEND" >/dev/null
+  fi
 done
 [ "$UP" = "1" ] || { echo "ERROR: backend did not become healthy; check 'make logs SERVICE=backend'." >&2; exit 1; }
+
+# --- module health: the backend can report healthy via FHIR while an OpenMRS module still failed
+#     to start (e.g. a Liquibase checksum mismatch) — checked here so a broken seed fails loudly at
+#     seed time instead of being discovered later during manual QA. ---
+echo "==> verifying every OpenMRS module started cleanly"
+FAILED_MODULES="$(curl -fsS -u admin:Admin123 \
+  "http://localhost:${PROXY_PORT}/openmrs/ws/rest/v1/module?v=custom:(name,started,startupErrorMessage)" \
+  | python3 -c "
+import json, sys
+data = json.load(sys.stdin)
+for m in data.get('results', []):
+    if not m.get('started'):
+        print(f\"  {m.get('name')}: {m.get('startupErrorMessage') or '(no error message)'}\")
+")"
+if [[ -n "$FAILED_MODULES" ]]; then
+  echo "ERROR: seed completed but the following module(s) did not start:" >&2
+  echo "$FAILED_MODULES" >&2
+  exit 1
+fi
+echo "    all modules started"
 
 # --- reindex: bulk INSERTs don't fire Hibernate Search listeners, so the Lucene
 #     index is empty until a full reindex. Synchronous; ~30-60s for 5K patients. ---

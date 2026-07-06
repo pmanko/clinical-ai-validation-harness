@@ -16,8 +16,17 @@
 # and the module installs itself fresh on boot (no checksum mismatch). Override the module prefix with
 # MODULE_PREFIX=, or keep all module state (full backup) with --include-module-state.
 #
+# The dump writes to ONE canonical path by default (artifacts/demo-data/refapp_28_demo.sql.gz),
+# overwritten each run — never a timestamped artifacts/<run>/ directory. A "pick the newest file"
+# selection over an ever-growing artifact tree can silently resurrect a dump built before this
+# script's own exclusion logic existed; one canonical, always-fresh path removes that question.
+#
+# The output is self-verified below by grepping the actual bytes for the module prefix — the
+# exclusion query can silently miss (wrong schema, module absent at dump time, etc.), so the dump's
+# own provenance is never trusted as proof of cleanliness on its own.
+#
 # Usage:
-#   ./scripts/dump-loaded.sh                                    # clean corpus, default openmrs_test → artifacts/<run>/transform/refapp_28_demo.sql.gz
+#   ./scripts/dump-loaded.sh                                    # clean corpus, default openmrs_test → artifacts/demo-data/refapp_28_demo.sql.gz
 #   ./scripts/dump-loaded.sh --source openmrs --out /tmp/x.sql.gz
 #   ./scripts/dump-loaded.sh --no-gzip                          # plain .sql
 #   ./scripts/dump-loaded.sh --include-module-state            # full backup (keep chartsearchai tables + changelog)
@@ -75,9 +84,8 @@ if ! docker exec "$DB_CONTAINER" sh -c 'true' 2>/dev/null; then
 fi
 
 if [[ -z "$OUT" ]]; then
-  RUN_ID="dev-$(date -u +%Y%m%d-%H%M%S)"
   EXT="sql.gz"; [[ "$GZIP" == "0" ]] && EXT="sql"
-  OUT="artifacts/${RUN_ID}/transform/refapp_28_demo.${EXT}"
+  OUT="artifacts/demo-data/refapp_28_demo.${EXT}"
 fi
 mkdir -p "$(dirname "$OUT")"
 
@@ -130,6 +138,20 @@ if [[ "$GZIP" == "1" ]]; then
   time dump_stream | gzip -9 > "$OUT"
 else
   time dump_stream > "$OUT"
+fi
+
+if [[ "$EXCLUDE_MODULE" == "1" ]]; then
+  READ_CMD=(cat "$OUT"); [[ "$GZIP" == "1" ]] && READ_CMD=(gunzip -c "$OUT")
+  LEFTOVER_TABLE="$("${READ_CMD[@]}" | grep -m1 -o "CREATE TABLE \`${MODULE_PREFIX}_[a-z_]*\`" || true)"
+  LEFTOVER_CHANGESET="$("${READ_CMD[@]}" | grep "INSERT INTO \`liquibasechangelog\`" | grep -m1 -o "'${MODULE_PREFIX}-[0-9]*'" || true)"
+  if [[ -n "$LEFTOVER_TABLE" || -n "$LEFTOVER_CHANGESET" ]]; then
+    echo "ERROR: dump claims to exclude module '${MODULE_PREFIX}' but its bytes say otherwise:" >&2
+    [[ -n "$LEFTOVER_TABLE" ]] && echo "  table survived: ${LEFTOVER_TABLE}" >&2
+    [[ -n "$LEFTOVER_CHANGESET" ]] && echo "  changelog row survived: ${LEFTOVER_CHANGESET}" >&2
+    echo "  refusing to publish a dump that fails its own cleanliness guarantee: ${OUT}" >&2
+    rm -f "$OUT"
+    exit 1
+  fi
 fi
 
 SIZE=$(wc -c < "$OUT" | tr -d ' ')

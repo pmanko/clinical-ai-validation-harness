@@ -125,7 +125,7 @@ make import-smoke           # REST + FHIR readback against a sample of legacy pa
 Then package the deliverable and provision a fresh instance from it (the native OpenMRS path — restore into a fresh DB, the backend boots, Liquibase reconciles, chartsearchai installs itself fresh):
 
 ```bash
-make dump-loaded SOURCE=openmrs_test   # → artifacts/<run>/transform/refapp_28_demo.sql.gz (module-clean, target-neutral)
+make dump-loaded SOURCE=openmrs_test   # → artifacts/demo-data/refapp_28_demo.sql.gz (module-clean, target-neutral; one canonical path, overwritten each run)
 make seed                              # restore the dump into a fresh `openmrs`, boot the backend, reindex
 # or dump-and-seed in one step:  make seed FROM_SCHEMA=openmrs_test
 ```
@@ -135,7 +135,7 @@ make seed                              # restore the dump into a fresh `openmrs`
 ### 9a. Produce a portable SQL dump (for sharing)
 
 ```bash
-make dump-loaded            # → artifacts/<run>/transform/refapp_28_demo.sql.gz (~39 MB)
+make dump-loaded            # → artifacts/demo-data/refapp_28_demo.sql.gz (~39 MB)
 ```
 
 Same shape as the original `data/large-demo-data-2-7-0.sql.zip` distribution. Load anywhere via `zcat refapp_28_demo.sql.gz | mariadb -u root -p` into a fresh empty MariaDB.
