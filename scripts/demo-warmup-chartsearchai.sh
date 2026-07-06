@@ -4,11 +4,9 @@
 # ChartSearchAI /chat) — then blanks the visible chat, so the recorded first answer
 # reflects the warm, steady-state experience instead of a cold JIT model load.
 #
-# Why the built-in warmup does not cover this: the UI's warmupPatient() -> ChartSearchAI
-# POST /warmup is a no-op for the demo. The active engine is RemoteLlmEngine, whose
-# supportsWarmup() returns false and whose warmup() does nothing
-# (targets/chartsearchai/api/.../impl/RemoteLlmEngine.java:151-161), so neither
-# med-agent-hub nor llama-router is ever touched. This script warms them explicitly
+# Why there is no module warmup here: chartsearchai no longer owns an embedded LLM
+# process or prompt cache, and the removed module warmup endpoint does not touch
+# med-agent-hub or llama-router. This script warms the serving side explicitly
 # through the real request path.
 #
 # Reachability (grounded):

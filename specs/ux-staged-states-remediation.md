@@ -53,7 +53,8 @@ on the response container (coarse phase) + existing `data-indepth-status` (in-de
 ## Frontend BEFORE this session (the debt now consolidated)
 Files: `targets/chartsearchai-esm/src/hooks/useChartSearchAi.ts`,
 `src/components/ai-chat-content.component.tsx`, `src/components/ai-response-panel.component.tsx`.
-- The hook receives every SSE event (`onToken`/`onAnswerDone`/`onAnswerValidation`/`onInDepth*`/`onDone`)
+- The hook receives every staged SSE event (`onAnswerDone`/`onAnswerValidation`/`onInDepthPending`/
+  `onInDepthDone`/`onInDepthError`/`onDone`)
   but exposes state as **scattered flags**, not one phase:
   - on `ChatMessage`: `isLoading` (true until terminal `done`), `answerSettled` (set on `answer_validation`),
     `inDepth.status` (`pending|complete|failed`), `answerValidation.status`.

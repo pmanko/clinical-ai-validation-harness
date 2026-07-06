@@ -42,12 +42,9 @@ _ROLE_OVERRIDE_KEY = {
     "validator": "validation_prompt",
 }
 
-# Mirror of chartsearchai's LlmProvider.DEFAULT_SYSTEM_PROMPT
-# (targets/chartsearchai/api/src/main/java/org/openmrs/module/chartsearchai/api/impl/LlmProvider.java:51).
-# The GP `chartsearchai.llm.systemPrompt` is NULL, so this constant is what the single
-# (vanilla chartsearchai) arm actually sends. Kept verbatim — if the Java constant changes,
-# update this string. The trailing FORMAT-DEMONSTRATION few-shot is elided for the panel
-# (the operative instructions are above it); the full demo lives in the Java source.
+# Legacy direct-chartsearchai arms used this default prompt before the hub-relay
+# architecture moved prompt/profile ownership into med-agent-hub. Keep the text
+# here only so old report metadata can render consistently.
 _CHARTSEARCHAI_DEFAULT_SYSTEM_PROMPT = (
     "You are a clinical assistant helping a clinician review a patient's chart. "
     "Answer ONLY the specific query. Use only the patient records below (sorted most recent first). "

@@ -5,6 +5,11 @@
 **Status**: planned | **Started**: 2026-05-28
 **Branch**: chartsearchai fork feature branch (per the paired-PR model: branch on `pmanko`, PR → `openmrs:main` + consolidate into `harness-integration`).
 
+> **Superseded by the hub-relay architecture (2026-07):** chartsearchai no longer owns `LlmProvider`,
+> `RemoteLlmEngine`, `LocalLlmEngine`, prompt assembly, or request-parameter construction. Prompt and
+> parameter iteration now belongs in med-agent-hub profiles/levels. This spec is retained as historical
+> planning context, not as current implementation guidance.
+
 ## Why
 
 For validation/iteration we need to rewrite the system prompt and tweak inference params (temperature, max_tokens, …) **fast** — edit a clear file, ask again, no rebuild/restart. Today (grounded in the code):

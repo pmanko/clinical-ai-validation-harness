@@ -52,8 +52,9 @@ rc() { if [ -n "${EXEC}" ]; then docker exec "${EXEC}" curl "$@"; else curl "$@"
 ENGINE="${CHARTSEARCH_LLM_ENGINE:-remote}"
 if [ "${ENGINE}" != "remote" ]; then
   echo "error: CHARTSEARCH_LLM_ENGINE=${ENGINE} is not supported." >&2
-  echo "  chartsearchai has no bundled local LLM engine (the in-process llama-server" >&2
-  echo "  subsystem was removed) — only 'remote' works. Unset CHARTSEARCH_LLM_ENGINE" >&2
+  echo "  chartsearchai now relays chat to an OpenAI-compatible endpoint;" >&2
+  echo "  local serving should run behind that endpoint, usually med-agent-hub." >&2
+  echo "  Unset CHARTSEARCH_LLM_ENGINE" >&2
   echo "  or set it to 'remote' in .env.chartsearch." >&2
   exit 1
 fi
@@ -117,25 +118,14 @@ if [ -n "${ENDPOINTS_JSON}" ]; then
   set_property "chartsearchai.llm.remote.endpoints" "${ENDPOINTS_JSON}"
 fi
 
-# Querystore (CQRS read-store) retrieval. On by default; set
-# CHARTSEARCH_QUERYSTORE_ENABLED=false to fall back to chartsearchai's in-process
-# retrieval. The embedding model + vocab are the files backend-init.sh downloads
-# into /openmrs/data/chartsearchai (paths relative to the app data dir); both are
-# read per-query, so setting them here (post-startup, after the backend is
-# healthy) takes effect on the next search with no restart.
-#
-# querystore.backend is intentionally NOT set here: QueryStoreActivator wires the
-# store once at module startup, so a post-startup change wouldn't take effect
-# without a restart. The single-step path therefore uses the module default
-# (mysql, wired at startup); it serves identically to lucene.
-QUERYSTORE_ENABLED="${CHARTSEARCH_QUERYSTORE_ENABLED:-true}"
+# Querystore (CQRS read-store) retrieval model. chartsearchai no longer has an
+# in-process retrieval fallback; querystore owns indexing and chart projection.
+# The embedding model + vocab are the files backend-init.sh downloads into
+# /openmrs/data/chartsearchai (paths relative to the app data dir).
 echo ""
-echo "Configuring querystore (enabled=${QUERYSTORE_ENABLED}):"
-set_property "chartsearchai.querystore.enabled"     "${QUERYSTORE_ENABLED}"
-if [ "${QUERYSTORE_ENABLED}" = "true" ]; then
-  set_property "querystore.embedding.modelFilePath" "chartsearchai/model.onnx"
-  set_property "querystore.embedding.vocabFilePath" "chartsearchai/vocab.txt"
-fi
+echo "Configuring querystore:"
+set_property "querystore.embedding.modelFilePath" "chartsearchai/model.onnx"
+set_property "querystore.embedding.vocabFilePath" "chartsearchai/vocab.txt"
 
 echo ""
 echo "Module status:"

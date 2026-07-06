@@ -8,6 +8,10 @@ settings** for the two AI surfaces in this harness:
 - **(B) chartsearchai direct** — the OpenMRS `chartsearchai` module that calls an LLM
   directly. Java/`.omod`, configured through OpenMRS global properties.
 
+> **Historical note (2026-07):** the chartsearchai-direct guidance predates the hub-relay refactor.
+> Current chartsearchai chat relays to a configured OpenAI-compatible endpoint; prompt/model
+> orchestration belongs in med-agent-hub profiles or the serving endpoint.
+
 For every knob you get: **what it controls**, **where it lives** (`file:line` / env var /
 global property), **how to change it**, and **how to apply it** (rebuild / restart /
 configure) as concrete numbered steps. A [Common tasks](#common-tasks-cheat-sheet)
