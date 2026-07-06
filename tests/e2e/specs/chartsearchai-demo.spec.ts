@@ -95,8 +95,8 @@ async function waitInDepthComplete(page: Page, timeout = INDEPTH_MAX_MS): Promis
 }
 
 /** Wait for the LATEST turn to reach a lifecycle phase. data-turn-phase is the coarse turn state
- *  (answering → validating → settled → in-depth → complete); 'in-depth' means tokens are actually
- *  streaming — i.e. there is a live deep-dive to preempt. */
+ *  (answering → validating → settled → in-depth → complete); 'in-depth' (entered on the hub's
+ *  indepth_pending) means the deep-dive is generating server-side — i.e. there is live work to preempt. */
 async function waitPhase(page: Page, phase: 'in-depth' | 'complete', timeout = INDEPTH_MAX_MS): Promise<void> {
   await expect(page.locator('[data-turn-phase]').last()).toHaveAttribute('data-turn-phase', phase, { timeout });
 }

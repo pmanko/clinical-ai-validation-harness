@@ -16,12 +16,14 @@ Frontend state has no reason to be implicit or scattered. Today it is four overl
 lifecycle — **that is the debt to pay down**, not a constraint to work around.
 
 ## Backend truth — the staged turn state machine (verify in code)
-- Endpoint `/chat/stream` → `ChartSearchAiRestController.streamStagedChat`
-  (`targets/chartsearchai/omod/src/main/java/org/openmrs/module/chartsearchai/web/rest/ChartSearchAiRestController.java`, ~L1710).
-- Per-turn SSE events (the phases to mirror): `token`* → `answer_done` → `answer_validation`
-  (validating → checked | edited | needs_review | unavailable) → `indepth_pending` → `indepth_token`* →
-  `indepth_done` → `done`; plus `indepth_error`.
-- Distilled phases: **streaming-answer → validating → answer-settled → in-depth-streaming → complete**
+- Endpoint `/chat/stream` → the hub relay `ChartSearchAiRestController.handleHubStagedEvent`
+  (`targets/chartsearchai/omod/src/main/java/org/openmrs/module/chartsearchai/web/rest/ChartSearchAiRestController.java`),
+  which forwards the hub's phase-boundary events verbatim.
+- Per-turn SSE events (the phases to mirror): `answer_done` → `answer_validation`
+  (validating → checked | edited | needs_review | unavailable) → `indepth_pending` →
+  `indepth_done` → `done`; plus `indepth_error`. The hub does **not** token-stream — the answer
+  arrives whole on `answer_done` and the in-depth whole on `indepth_done`.
+- Distilled phases: **answer → validating → answer-settled → in-depth (generating) → complete**
   (| failed | preempted).
 - Physical constraints: answer + in-depth both run on the **writer** model (gemma for
   `answer:gemma-4-12b`); validation on qwen. The llama-router is **single-slot per model**
@@ -36,10 +38,10 @@ mirroring the backend events 1:1. All behavior + render + DOM derive from it via
 
 | phase | backend trigger | composer | notes |
 |---|---|---|---|
-| `answering` | created → `token`* | locked | direct answer streaming; raw text + indicator |
+| `answering` | created | locked | answer generating; "Thinking..." indicator |
 | `validating` | `answer_done` | locked | answer text done; self-check running; sections split |
-| `settled` | `answer_validation` / `indepth_pending` | **unlocked** | answer available; preemptable |
-| `in-depth` | `indepth_token`* | unlocked | in-depth streaming in background |
+| `settled` | `answer_validation` | **unlocked** | answer available + checked; preemptable |
+| `in-depth` | `indepth_pending` | unlocked | in-depth generating in background (delivered whole on `indepth_done`); preemptable |
 | `complete` | `done` / `indepth_done` / `indepth_error` / stop / preempt | unlocked | terminal; answer available |
 | `error` | `onError` | unlocked | terminal; answer generation itself failed |
 
@@ -83,7 +85,7 @@ Files: `targets/chartsearchai-esm/src/hooks/useChartSearchAi.ts`,
 `tests/e2e/specs/chartsearchai-demo.spec.ts` (warm first: `scripts/demo-warmup-chartsearchai.sh`) must
 record **and assert**:
 - **Q1:** answer settles fast → in-depth **completes**.
-- **Q2:** answer settles → in-depth **streaming**.
+- **Q2:** answer settles → in-depth **generating** (phase `in-depth`, `data-indepth-status="pending"`).
 - **Q3:** sent while Q2's in-depth is pending → **preempts** it (Q3 accepted) → Q3 in-depth completes.
 - all three turns reach a terminal in-depth phase (asserted via `data-indepth-status`).
 Waits key off the phase signal (composer-enabled / `data-indepth-status`), **never blind timers**. Records

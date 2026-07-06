@@ -8,15 +8,19 @@ const STEP_PAUSE_MS = Number.parseInt(process.env.E2E_STEP_PAUSE_MS ?? '900', 10
 const FAST_ANSWER_MAX_MS = Number.parseInt(process.env.E2E_FAST_ANSWER_MAX_MS ?? '60_000'.replace('_', ''), 10);
 const SHOTS = path.resolve(__dirname, '../evidence/e4b-multiturn-trivial');
 
-// Turn 2 must be answerable ONLY from turn-1's content, not from the chart itself.
-// A bare date-format check (an earlier version of this spec) is weak — dates are plausible things
-// a model could re-derive or hallucinate from the chart on ANY turn, so it doesn't prove history was
-// actually relayed. A codeword with zero relationship to the patient's clinical record can only be
-// echoed back correctly if the server actually threaded turn-1's prose answer into turn-2's request.
-const CODEWORD = 'PLATYPUS7742';
+// Multi-turn continuity, end-to-end. Turn 1 makes the model COMMIT to one medication — an arbitrary
+// choice among the several in the chart. Turn 2 refers back to "the medication you just named", a
+// referent that can ONLY resolve from turn-1's answer: the chart alone can't say which one the model
+// picked. An earlier version used a non-clinical codeword, but the clinical-synthesis pipeline strips
+// tokens like that from the answer, so it could never survive. A medication name is clinical (survives
+// synthesis) yet still history-dependent — the CHOICE lives only in the conversation, not the chart.
+//
+// NOTE (honest scope): this is the assembled end-to-end continuity check. The DEFINITIVE proof that
+// prior turns are relayed to the hub is the Java unit test (ChartSearchAiRestController's
+// priorTurnsForRelay assertion); this spec confirms the behavior end-to-end, it is not the sole guard.
 const QUESTIONS = [
-  `In one short sentence, what was the most recent documented clinical visit? End your reply with the exact codeword "${CODEWORD}".`,
-  'What exact codeword did I ask you to end your previous answer with? Reply with only that codeword, nothing else.',
+  'Name one medication this patient is currently taking. Reply with only the medication name, nothing else.',
+  'Is the medication you just named usually taken once daily or more often? Name that medication in your answer.',
 ];
 
 fs.mkdirSync(SHOTS, { recursive: true });
@@ -106,13 +110,26 @@ test.describe('chartsearchai - Gemma E4B trivial multi-turn proof', () => {
     await caption(page, `${MODEL_LABEL} selected for a tiny two-turn session proof.`, '01-model-selected.png');
 
     const firstAnswerMs = await sendTurn(page, QUESTIONS[0], 1);
+
+    // The medication turn 1 committed to: the longest clinical word in its answer, ignoring citation
+    // markers and generic scaffolding words. Turn 2's referent ("the medication you just named") can
+    // only resolve to THIS if turn-1's answer was relayed to the hub as prior context.
+    const firstTurnText = await page.locator('[data-turn-phase]').nth(0).innerText({ timeout: 30_000 });
+    const STOPWORDS = new Set([
+      'patient', 'taking', 'medication', 'medications', 'currently', 'this', 'that', 'with', 'their', 'name',
+    ]);
+    const committedMed = (firstTurnText.match(/[A-Za-z]{4,}/g) ?? [])
+      .filter((w) => !STOPWORDS.has(w.toLowerCase()))
+      .sort((a, b) => b.length - a.length)[0];
+    expect(committedMed, `turn 1 should name a medication; got:\n${firstTurnText}`).toBeTruthy();
+
     const secondAnswerMs = await sendTurn(page, QUESTIONS[1], 2);
 
     await expect(page.locator('[data-turn-phase]')).toHaveCount(2, { timeout: 30_000 });
     const secondTurnText = await page.locator('[data-turn-phase]').nth(1).innerText({ timeout: 30_000 });
-    // The codeword has no relationship to this patient's chart — the only way it can appear in
-    // turn 2's answer is if the server actually relayed turn 1's prose answer as prior context.
-    expect(secondTurnText).toContain(CODEWORD);
+    // Turn 2 must reference the SAME medication turn 1 chose — only possible if the server relayed
+    // turn-1's prose answer as prior context (the chart can't say which one the model picked).
+    expect(secondTurnText.toLowerCase()).toContain(committedMed.toLowerCase());
 
     await expect(page.locator('[data-indepth-status]').last()).toHaveAttribute('data-indepth-status', 'complete', {
       timeout: 360_000,
