@@ -9,7 +9,7 @@ Execution state for `MAH-CONSOLIDATION-2026-07-09-v1`.
 | Roadmap | [`hub-consolidation-roadmap.md`](hub-consolidation-roadmap.md) |
 | Approval | Explicit user instruction to implement the roadmap on 2026-07-09 |
 | Approved roadmap SHA-256 | `5f625cb9f1ac4a1682001fb40fd3cc6852ceed16c96e9b54e435b4e591a64d3d` |
-| Current execution boundary | R0 and M0 authorized |
+| Current execution boundary | R0 and M0 complete; execution stopped at User Signoff A |
 | Next protected boundary | M1 requires User Signoff A |
 | Deviations | None |
 
@@ -107,12 +107,41 @@ because it conflicts with the approved architecture. The complete fetched deltas
 | `a5ea7a9` | Keep | Adds an OpenMRS module-review skill only; rebase with no runtime impact. |
 | `a10faa3` | Keep | Review-skill prose only; rebase with no runtime impact. |
 
+## M0 Verification
+
+| Check | Result |
+|---|---|
+| Parent local CI | Pass: 561 passed, 37 environment-dependent skips, 3 slow-test deselections; no failures |
+| Parent diff coverage | Pass: 93%, above the required 90% threshold; router policy is 97% covered |
+| Parent remote CI | Pass: PR #33 `pytest-and-diff-coverage` succeeded at `d658d9b`; branch is mergeable |
+| Hub local CI | Pass: 198 tests, including five byte-exact pre-refactor output contracts |
+| Hub remote CI | Pass: PR #12 unit/contract and Docker checks succeeded at `297208c`; branch is mergeable |
+| Pin reachability | Pass: every root submodule pin is contained by a fetched remote branch |
+| Documentation drift | Pass: all seven repositories scanned; 19 historical marked files allowed |
+| Red-first gate matrix | Pass: G01-G24 are emitted exactly once and any fail/pending result makes the script nonzero |
+| Scope boundary | Pass: M0 changed tests, controls, status, and one reviewed harness bug; no M1 hub architecture implementation began |
+
+The independent M0 review initially found that a remote endpoint carrying a hub-shaped model ID
+could manage the local llama router, that tests preserved that behavior, and that G03/test coverage
+could report stronger evidence than they actually checked. Commit `d658d9b` remediates those findings:
+
+- router management now depends on an explicitly local endpoint, and a remote endpoint ignores even
+  an explicit local-router residency cap;
+- G03 validates each incoming SHA inside its repository-specific disposition section across the
+  parent and all six submodules;
+- the gate test executes the real shell matrix instead of checking source text alone; and
+- the documentation-drift verifier explicitly recognizes architecture-verifier scripts as checks,
+  not current-architecture claims.
+
+The independent re-review found no remaining M0 blocker. It confirmed that batch/SSE convergence is
+M1 G04 work, while M0 G06 correctly freezes the existing raw-leg batch envelopes before refactoring.
+
 ## Milestones
 
 | Milestone | Status | Evidence or blocker |
 |---|---|---|
 | R0 Persist roadmap | Complete | Roadmap/status/index committed and pushed at `d734df9`; post-copy validation is recorded above |
-| M0 Stabilize baseline | In progress | Remotes fetched, ESM pin published, goldens captured, red-first gate script added, and local PR #33 coverage is 93%; CI confirmation remains |
+| M0 Stabilize baseline | Complete | All refreshed pins are reachable, upstream deltas are classified, PR #33 and hub #12 are green, raw-leg goldens are pinned, and the independent re-review has no blocker |
 | M1 Consolidate hub | Blocked by signoff | Requires User Signoff A |
 | M2 Reconcile OpenMRS integration | Blocked by signoff | Requires User Signoff B |
 | M3 Product/local proof | Pending | Requires M2 completion and User Signoff C |
@@ -123,28 +152,28 @@ because it conflicts with the approved architecture. The complete fetched deltas
 | Gate | Status | Current evidence |
 |---|---|---|
 | G01 Roadmap integrity | Pass | Structure/link validation passed; approved SHA-256 recorded above |
-| G02 Baseline integrity | Pending | ESM pin is reachable and local CI/diff coverage pass; PR #33 must confirm the pushed repair |
-| G03 Upstream reconciliation | Pass | Every fetched ChartSearchAI, ESM, and Querystore upstream commit has a keep/port/exclude disposition above |
-| G04 One engine | Pending | M1 work; current duplicate runtime paths remain |
-| G05 Profile correctness | Pending | M1 work |
+| G02 Baseline integrity | Pass | Parent and submodule trees are clean, all pins are remote-reachable, and PR #33 plus hub #12 CI are green |
+| G03 Upstream reconciliation | Pass | Every incoming commit across the parent and all six submodules is absent or has a repository-bound keep/port/exclude disposition |
+| G04 One engine | Fail | M1 work: current duplicate runtime paths and old topology flags remain |
+| G05 Profile correctness | Fail | M1 work: passthrough, fake topology, and incomplete profile metadata remain |
 | G06 Raw-leg compatibility | Pass | Five byte-exact pre-refactor envelopes, including all three raw legs, are pinned in hub `tests/goldens/`; hub commit `297208c` is pushed and 198 tests pass |
-| G07 Source independence | Pending | M1 work |
-| G08 Context budgeting | Pending | M1 work |
+| G07 Source independence | Fail | M1 work: provider-neutral context source registry/contract is not implemented |
+| G08 Context budgeting | Fail | M1 work: exact tokenizer-backed context budgeting is not implemented |
 | G09 Context quality | Pending | M1 and M4 work |
-| G10 Answer temporal safety | Pending | Existing partial coverage; product invariant remains to prove |
-| G11 In-Depth temporal safety | Pending | Current In-Depth claims are not deterministically gated |
+| G10 Answer temporal safety | Fail | Existing coverage is partial; every product Answer enforce invariant remains to prove in M1 |
+| G11 In-Depth temporal safety | Fail | Current In-Depth claims are not deterministically gated |
 | G12 Review ordering | Pass | Existing post-rewrite re-gate ordering tests pass; M1 must preserve this through the unified engine |
-| G13 Citation integrity | Pending | Product and multi-turn proof remains |
-| G14 Drug-safety parity | Pass | Curated JSON and WHO-ATC unit/integration tests pass in the 197-test hub baseline |
-| G15 Thin OpenMRS relay | Pending | Upstream reconciliation and deletion gates remain |
-| G16 Product discovery | Pending | LM Studio-specific discovery residue remains |
-| G17 Lifecycle UX | Pending | Existing staged UI is partial baseline evidence |
+| G13 Citation integrity | Fail | Prior-turn citation isolation and current-ledger product proof remain |
+| G14 Drug-safety parity | Pass | Curated JSON and WHO-ATC unit/integration tests pass in the 198-test hub baseline |
+| G15 Thin OpenMRS relay | Fail | Legacy Java inference/discovery/orchestration remains for M2 deletion after M1 |
+| G16 Product discovery | Fail | LM Studio/client-curated discovery residue and missing authoritative default metadata remain |
+| G17 Lifecycle UX | Fail | Complete Answer and In-Depth validation lifecycle UX is not implemented |
 | G18 Multi-turn and cancellation | Pending | Existing tests are baseline evidence; final live proof remains |
-| G19 Local setup | Pending | Canonical portable command does not yet exist |
+| G19 Local setup | Fail | Canonical portable `chartsearchai-local` command does not yet exist |
 | G20 Performance | Pending | Warm E4B benchmark not yet run |
 | G21 Evaluation | Pending | Deterministic QA and candidate run not yet run |
 | G22 Documentation | Pass | `scripts/verify-doc-drift.sh` passes on the M0 baseline; final alignment remains a release rerun |
-| G23 Independent QA | Pending | Runs at each milestone and final release |
+| G23 Independent QA | Pending | M0 independent review passed after remediation; complete DIGI-UW/code-qa evidence remains a release requirement |
 | G24 Release hygiene | Pending | Final CI, E2E, PR, pin, and clean-tree proof required |
 
 ## Signoffs
