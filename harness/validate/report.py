@@ -1535,12 +1535,15 @@ function renderArmConfig(cfg){
     });
   }
 
-  // 3) retrieval line (chartsearchai retrieval GPs, shared across arms).
+  // 3) context/retrieval ownership and policy.
   const r = cfg.retrieval;
   if(r){
-    h += "<div class='ac-h'>retrieval <span class='ac-sub'>(chartsearchai GPs)</span></div>";
-    h += "<div class='ac-retr'>pipeline " + htmlEsc(r.pipeline) + " · embedding top-k " + htmlEsc(r.embedding_topk) +
-         " · querystore top-k " + htmlEsc(r.querystore_topk) + " · threshold " + htmlEsc(r.threshold) + "</div>";
+    const owner = r.owner || 'historical ChartSearchAI path';
+    const fields = Object.entries(r).filter(([key]) => key !== 'owner').map(([key, value]) =>
+      key.replaceAll('_', ' ') + ' ' + value
+    );
+    h += "<div class='ac-h'>context <span class='ac-sub'>(" + htmlEsc(owner) + ")</span></div>";
+    h += "<div class='ac-retr'>" + fields.map(htmlEsc).join(' · ') + "</div>";
   }
   h += "</div></details>";
   return h;
@@ -1550,8 +1553,9 @@ function renderArms(run){
   const sec = el('section', 'arms-section');
   const cards = run.arm_cards || {};
   let h = "<p class='intro'>Every setup answers the same questions, graded against the patient's chart. " +
-       "<b>Single</b> = one model reads the chart and answers (vanilla chartsearchAI); " +
-       "<b>Team</b> = a med-agent-hub pipeline whose models search, consult a specialist, and cross-check before answering.</p>";
+       "A <b>single profile</b> uses one writer with configured checks, review, grounding, and In-Depth stages. " +
+       "A <b>team profile</b> adds an orchestrator/expert gather stage before the same checked answer path. " +
+       "Historical direct-router arms are labeled separately.</p>";
   h += "<div class='arm-cards'>";
   run.backends.forEach(b => {
     const c = cards[b] || {kind:'unknown', path:'', models:[], roles:{}};

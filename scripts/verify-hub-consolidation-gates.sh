@@ -137,11 +137,20 @@ else
 fi
 
 # G04/G05: final hub architecture and model resolution.
+hub_m1_suite_ok=0
+if [[ -x "${HUB_VENV}/bin/pytest" ]] \
+  && (cd "$HUB" && "${HUB_VENV}/bin/python" -m pytest -q >/tmp/hub-m1-suite.log 2>&1); then
+  hub_m1_suite_ok=1
+fi
+
 if missing_pattern '^async def run_team\(' "$HUB/server/team.py" \
   && missing_pattern '^async def run_team_stream\(' "$HUB/server/team.py" \
   && missing_pattern '\b(two_call|indepth_shared|indepth_only|answer_only|answer_review|solo)\b' "$HUB/server/levels_loader.py" \
-  && has_pattern 'class (StageEngine|ExecutionEngine)' "$HUB/server"; then
-  record G04 PASS "one stage engine; duplicate paths and old topology flags absent"
+  && [[ ! -f "$HUB/tests/profile_runner.py" ]] \
+  && has_pattern 'class (StageEngine|ExecutionEngine)' "$HUB/server" \
+  && has_pattern 'test_named_sse_resumes_all_events_in_one_task_context' "$HUB/tests" \
+  && [[ $hub_m1_suite_ok -eq 1 ]]; then
+  record G04 PASS "one stage engine, no flag bridge, and full hub suite passed"
 else
   record G04 FAIL "duplicate runtime paths or old topology flags remain"
 fi
@@ -149,8 +158,10 @@ fi
 if missing_pattern '_passthrough_content' "$HUB/server/openai_compat.py" \
   && missing_pattern 'solo -> unused|unused, but a required field' "$HUB/server/levels.yaml" \
   && has_pattern 'model_not_found' "$HUB/server" \
-  && has_pattern '(label|display_name)' "$HUB/server/levels.yaml"; then
-  record G05 PASS "profiles are explicit and unknown ids fail"
+  && has_pattern '(label|display_name)' "$HUB/server/levels.yaml" \
+  && has_pattern 'final_resolve_refs.*run after review' "$HUB/server/levels_loader.py" \
+  && [[ $hub_m1_suite_ok -eq 1 ]]; then
+  record G05 PASS "profiles, invalid-order rejection, and unknown-id behavior passed"
 else
   record G05 FAIL "passthrough, fake topology, or missing profile metadata remains"
 fi
@@ -165,53 +176,130 @@ fi
 
 # G07-G09: context-source and exact-budget implementation/evidence.
 if [[ -f "$HUB/server/context_sources.py" && -f "$HUB/tests/test_context_sources.py" ]] \
-  && missing_pattern 'from \.querystore_client import QueryStoreClient' "$HUB/server/team.py"; then
-  record G07 PASS "source registry is present and team runtime is provider-neutral"
+  && missing_pattern 'from \.querystore_client import QueryStoreClient' "$HUB/server/team.py" \
+  && has_pattern 'test_supplemental_source_uses_the_same_normalized_ledger' "$HUB/tests" \
+  && [[ $hub_m1_suite_ok -eq 1 ]]; then
+  record G07 PASS "source contracts, explicit failures, and provider independence passed"
 else
   record G07 FAIL "context source registry/contract is not implemented"
 fi
 
 if has_pattern 'class TokenCounter' "$HUB/server" \
   && missing_pattern '(len\([^)]*\)\s*/\s*4|chars_per_token|character estimate)' "$HUB/server" \
-  && [[ -f "$HUB/tests/test_context_budget.py" ]]; then
-  record G08 PASS "exact counter and context budget tests present"
+  && [[ -f "$HUB/tests/test_context_budget.py" ]] \
+  && has_pattern '/v1/chat/completions/input_tokens' "$HUB/server/context_sources.py" \
+  && has_pattern 'test_actual_chat_request_overflow_is_rejected_before_backend_call' "$HUB/tests/test_context_budget.py" \
+  && has_pattern 'test_product_envelope_requires_exact_budget_even_when_not_advertised' "$HUB/tests" \
+  && [[ $hub_m1_suite_ok -eq 1 ]] \
+  && "$ROOT/.venv/bin/python" - "$ROOT" <<'PY'
+import configparser
+import sys
+from pathlib import Path
+
+import yaml
+
+root = Path(sys.argv[1])
+router = configparser.ConfigParser()
+router.read(root / "scripts/llama-router.ini")
+router_window = int(router["*"]["ctx-size"])
+levels = yaml.safe_load((root / "targets/med-agent-hub/server/levels.yaml").read_text())
+product = [
+    spec for spec in levels["profiles"].values()
+    if spec.get("visibility") == "product"
+]
+assert product
+assert all(spec["context"]["window"] == router_window for spec in product)
+PY
+then
+  record G08 PASS "exact counter, budget tests, and router/profile windows agree"
 else
   record G08 FAIL "exact context budgeting is not implemented"
 fi
 
-if [[ -f "$ROOT/datasets/validation/comparison_sets/context-supply-dev.json" ]] \
-  && [[ -s "$ROOT/artifacts/roadmap/gates/G09-context-quality.json" ]]; then
-  record G09 PASS "context dev-set proof recorded"
+context_set="$ROOT/datasets/validation/comparison_sets/context-supply-dev.json"
+context_proof="$ROOT/artifacts/roadmap/gates/G09-context-quality.json"
+if [[ -f "$context_set" && -s "$context_proof" ]] \
+  && "$ROOT/.venv/bin/python" - "$context_set" "$context_proof" <<'PY'
+import hashlib
+import json
+import sys
+from pathlib import Path
+
+comparison_path, proof_path = map(Path, sys.argv[1:])
+root = comparison_path.parents[3]
+proof = json.loads(proof_path.read_text(encoding="utf-8"))
+current_hash = hashlib.sha256(comparison_path.read_bytes()).hexdigest()
+
+hub_inputs = (
+    root / "targets/med-agent-hub/server/context_sources.py",
+    root / "targets/med-agent-hub/server/engine.py",
+    root / "targets/med-agent-hub/server/levels_loader.py",
+    root / "targets/med-agent-hub/server/levels.yaml",
+    root / "targets/med-agent-hub/server/team.py",
+    root / "targets/med-agent-hub/server/temporal.py",
+)
+digest = hashlib.sha256()
+for path in sorted(hub_inputs):
+    digest.update(str(path.relative_to(root)).encode("utf-8"))
+    digest.update(b"\0")
+    digest.update(path.read_bytes())
+    digest.update(b"\0")
+assert proof["schema_version"] == "context_quality_gate.v1"
+assert proof["status"] == "pass"
+assert proof["comparison_set_sha256"] == current_hash
+assert proof["hub_code_sha256"] == digest.hexdigest()
+assert proof["router_config_sha256"] == hashlib.sha256(
+    (root / "scripts/llama-router.ini").read_bytes()
+).hexdigest()
+assert proof["required_source_recall"] == 1.0
+assert proof["cases"] == len(proof["results"]) and proof["cases"] > 0
+assert all(not row["missing_source_indices"] for row in proof["results"])
+assert all(row["input_tokens"] <= row["input_limit"] for row in proof["results"])
+PY
+then
+  record G09 PASS "current dev set has 100% required-source recall within exact budgets"
 else
-  record G09 PENDING "context quality dev set/proof missing"
+  record G09 PENDING "context quality proof is missing, stale, or failed"
 fi
 
 # G10-G12: deterministic temporal invariants and post-review ordering.
 if has_pattern 'test_product_profiles.*temporal.*enforce|test_temporal.*cannot.*weaken' "$HUB/tests" \
-  && has_pattern 'temporal_gate.*enforce' "$HUB/server/levels.yaml"; then
-  record G10 PASS "product Answer enforce invariant has executable tests"
+  && has_pattern 'temporal_gate.*enforce' "$HUB/server/levels.yaml" \
+  && has_pattern 'test_gate_rejects_malformed_and_nonledger_dates_when_ledger_is_empty' "$HUB/tests" \
+  && has_pattern 'test_post_review_punctuation_rewrite_preserves_usable_answer' "$HUB/tests" \
+  && has_pattern 'test_product_pipeline_fallback_records_enforced_temporal_gate' "$HUB/tests" \
+  && [[ $hub_m1_suite_ok -eq 1 ]]; then
+  record G10 PASS "Answer substance, malformed-date, rewrite, and enforce tests passed"
 else
   record G10 FAIL "product Answer temporal invariant is not proven"
 fi
 
 if has_pattern 'test_.*indepth.*temporal.*gate|test_.*temporal.*indepth' "$HUB/tests" \
-  && has_pattern '(indepth_temporal_gate|gate_indepth_claims)' "$HUB/server"; then
-  record G11 PASS "In-Depth claim gate is implemented and tested"
+  && has_pattern '(indepth_temporal_gate|gate_indepth_claims)' "$HUB/server" \
+  && has_pattern 'test_empty_indepth_cannot_report_checked_or_complete' "$HUB/tests" \
+  && [[ $hub_m1_suite_ok -eq 1 ]]; then
+  record G11 PASS "In-Depth per-claim, empty-output, and withholding tests passed"
 else
   record G11 FAIL "In-Depth temporal gate is absent"
 fi
 
 if has_pattern 'index\("review"\).*index\("ground_verdicts"\)|review.*final_resolve_refs.*ground_verdicts' "$HUB/tests" \
-  && has_pattern '_regate_after_rewrite' "$HUB/server/team.py"; then
-  record G12 PASS "review, re-gate, re-resolution, grounding order is tested"
+  && has_pattern '_regate_after_rewrite' "$HUB/server/team.py" \
+  && has_pattern 'test_final_reference_resolution_before_review_is_rejected' "$HUB/tests" \
+  && [[ $hub_m1_suite_ok -eq 1 ]]; then
+  record G12 PASS "review re-gate and final resolution/grounding order tests passed"
 else
   record G12 FAIL "final review/grounding order lacks executable proof"
 fi
 
-# G13/G14: current-patient citations and deterministic drug safety.
-if has_pattern 'strip.*citation|citation.*prior.*turn|prior.*\[N\]' "$CSAI/api/src/test" \
-  && has_pattern 'current.*patient|source.*ledger' "$HUB/tests"; then
-  record G13 PASS "prior-turn citation isolation and current-ledger resolution tested"
+# G13/G14: current-patient citations and deterministic drug safety. The hub owns
+# history fitting and source-ledger resolution; M2 adds a relay-level integration test.
+if has_pattern 'citation.*prior.*turn|prior.*citation' "$HUB/tests" \
+  && has_pattern 'current.*patient|current.*source.*ledger' "$HUB/tests" \
+  && has_pattern 'test_indepth_unresolved_citation_is_not_displayed' "$HUB/tests" \
+  && has_pattern 'test_indepth_citation_cannot_inherit_answer_verified_verdict' "$HUB/tests" \
+  && [[ $hub_m1_suite_ok -eq 1 ]]; then
+  record G13 PASS "Answer/In-Depth current-ledger and prior-turn isolation tests passed"
 else
   record G13 FAIL "citation replay/current-ledger invariant is not proven"
 fi

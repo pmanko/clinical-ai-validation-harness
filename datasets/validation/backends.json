@@ -610,6 +610,26 @@
   "indepthEndpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
   "indepthModelName": "indepth-only:gemma-4-12b"
  },
+ "product-e4b-checked": {
+  "label": "Fast checked answer (E4B profile)",
+  "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
+  "modelName": "single-e4b-checked"
+ },
+ "product-12b-checked": {
+  "label": "Checked answer (12B profile)",
+  "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
+  "modelName": "single-12b-checked"
+ },
+ "product-a4b-checked": {
+  "label": "Efficient checked answer (A4B profile)",
+  "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
+  "modelName": "single-a4b-checked"
+ },
+ "product-team-med-checked": {
+  "label": "Checked medical team profile",
+  "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
+  "modelName": "team-med-checked"
+ },
  "wide-team-high-contract-warn-2call": {
   "label": "Wide temporal/date — HIGH team, date-output-contract prompt, gate WARN + Gemma31 In-Depth",
   "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",

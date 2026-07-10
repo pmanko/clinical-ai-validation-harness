@@ -8,6 +8,7 @@ def _write_title_fixtures(tmp_path):
     registry.write_text(json.dumps({
         "models": {
             "gemma-e4b-q8": {"family": "Gemma 4", "params": "4B", "quant": "Q8_0"},
+            "gemma-e4b": {"family": "Gemma 4", "params": "4B (E4B)", "quant": "Q4_K_M"},
             "gemma-4-12b": {"family": "Gemma 4", "params": "12B", "quant": "Q8_0"},
             "qwen2.5-14b": {"family": "Qwen2.5", "params": "14B", "quant": "Q4_K_M"},
             "gemma-31b": {"family": "Gemma 4", "params": "31B", "quant": "Q4_K_M"},
@@ -22,16 +23,22 @@ def _write_title_fixtures(tmp_path):
 
     levels = tmp_path / "levels.yaml"
     levels.write_text(
-        "levels:\n"
+        "profiles:\n"
         "  med-agent-team-low:\n"
-        "    orchestrator: gemma-e4b-q8\n"
-        "    synthesizer: gemma-4-12b\n"
-        "    validator: qwen2.5-14b\n"
+        "    label: Low team\n"
+        "    topology: team\n"
+        "    stages: [context, gather, answer, gate, review, gate]\n"
+        "    models: {orchestrator: gemma-e4b-q8, answer: gemma-4-12b, review: qwen2.5-14b}\n"
         "  med-agent-team-high:\n"
-        "    orchestrator: gemma-31b\n"
-        "    expert: medgemma-27b\n"
-        "    synthesizer: qwen3.6-35b-q6\n"
-        "    validator: gemma-31b\n",
+        "    label: High team\n"
+        "    topology: team\n"
+        "    stages: [context, gather, answer, gate, review, gate]\n"
+        "    models: {orchestrator: gemma-31b, expert: medgemma-27b, answer: qwen3.6-35b-q6, review: gemma-31b}\n"
+        "  single-e4b-checked:\n"
+        "    label: Fast checked answer (E4B)\n"
+        "    topology: single\n"
+        "    stages: [context, answer, gate, review, gate, indepth]\n"
+        "    models: {answer: gemma-e4b, review: gemma-e4b, indepth: gemma-e4b}\n",
         encoding="utf-8",
     )
 
@@ -44,6 +51,11 @@ def _write_title_fixtures(tmp_path):
         "wide-team-high-contract-warn": {
             "endpointUrl": "http://host:8080/v1/chat/completions",
             "modelName": "med-agent-team-high",
+        },
+        "product-e4b-checked": {
+            "endpointUrl": "http://host:8080/v1/chat/completions",
+            "modelName": "single-e4b-checked",
+            "label": "Fast checked answer (E4B)",
         },
     }), encoding="utf-8")
 
@@ -70,3 +82,37 @@ def test_wide_team_titles_include_role_model_sizes(tmp_path):
         "Gemma 31B coord · MedGemma 27B expert · Qwen 35B writer · Gemma 31B val"
     )
     assert high["short_title"] == high["title"]
+
+
+def test_product_single_profile_uses_topology_not_endpoint_guess(tmp_path):
+    backends, registry, levels, ini = _write_title_fixtures(tmp_path)
+    card = arm_card(
+        "product-e4b-checked",
+        backends_path=backends,
+        registry_path=registry,
+        levels_path=levels,
+        llama_ini_path=ini,
+    )
+
+    assert card["kind"] == "single"
+    assert card["path"] == "med-agent-hub single"
+    assert card["models"][0]["id"] == "gemma-e4b"
+    assert card["title"].endswith("single")
+
+
+def test_configured_profile_is_recognized_on_nonstandard_hub_endpoint(tmp_path):
+    backends, registry, levels, ini = _write_title_fixtures(tmp_path)
+    body = json.loads(backends.read_text(encoding="utf-8"))
+    body["product-e4b-checked"]["endpointUrl"] = "http://host:9999/v1/chat/completions"
+    backends.write_text(json.dumps(body), encoding="utf-8")
+
+    card = arm_card(
+        "product-e4b-checked",
+        backends_path=backends,
+        registry_path=registry,
+        levels_path=levels,
+        llama_ini_path=ini,
+    )
+
+    assert card["kind"] == "single"
+    assert card["path"] == "med-agent-hub single"

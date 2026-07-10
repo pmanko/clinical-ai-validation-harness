@@ -1,12 +1,12 @@
 """Shared arm-makeup resolver for the report / dashboard / index surfaces.
 
-ONE place that turns a `backend_id` into a structured "arm card": its engine path
-(SINGLE vanilla-chartsearchai vs the med-agent-hub TEAM), and its model makeup
-(family·size·quant for a single arm; the role→model lineup for a team) — so the three
+ONE place that turns a `backend_id` into a structured "arm card": its execution path
+(direct router or a med-agent-hub profile) and model makeup (one writer or a team
+role lineup), so the three
 render surfaces stop string-parsing the label and agree on what each arm is.
 
-Derivation (not stored): kind comes from the backends.json endpoint (`:8077` llama-router
-= single, `:8080` med-agent-hub = team); team roles come from med-agent-hub levels.yaml;
+Derivation (not stored): direct router calls are single-model; hub profile topology and
+roles come from med-agent-hub levels.yaml;
 per-model family/params/quant/note come from datasets/validation/model_registry.json.
 """
 from __future__ import annotations
@@ -14,6 +14,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 from typing import Any
+
+import yaml
 
 _ROOT = Path(__file__).resolve().parent.parent.parent
 _BACKENDS = _ROOT / "datasets/validation/backends.json"
@@ -71,13 +73,19 @@ _CHARTSEARCHAI_DEFAULT_SYSTEM_PROMPT = (
     "[A FORMAT-DEMONSTRATION few-shot with fake non-medical data follows in the live prompt.]"
 )
 
-# Retrieval is owned by the querystore module; chartsearchai exposes these as runtime GPs.
-# Hardcoded to the current chartsearchai GP values (live capture is a later step).
-_CHARTSEARCHAI_RETRIEVAL = {
+# Historical direct arms retain their captured ChartSearchAI retrieval metadata.
+_LEGACY_CHARTSEARCHAI_RETRIEVAL = {
     "embedding_topk": 10,
     "querystore_topk": 30,
     "threshold": 0.47,
     "pipeline": "embedding",
+}
+
+_HUB_CONTEXT = {
+    "owner": "med-agent-hub",
+    "pipeline": "complete evidence ledger",
+    "selection": "full context when it fits; deterministic exact-token selection when oversized",
+    "temporal_checks": "computed from the complete ledger",
 }
 
 # Knob keys surfaced on the panel, in display order. The three dry-* keys collapse to one
@@ -164,7 +172,7 @@ def _team_config(
         entry = _prompt_entry(role, level, role_labels.get(role, role))
         if entry:
             prompts.append(entry)
-    return {"knobs": knobs, "prompts": prompts, "retrieval": _CHARTSEARCHAI_RETRIEVAL}
+    return {"knobs": knobs, "prompts": prompts, "retrieval": _HUB_CONTEXT}
 
 
 def _single_config(model_id: str, ini: dict[str, dict[str, str]]) -> dict[str, Any]:
@@ -179,7 +187,7 @@ def _single_config(model_id: str, ini: dict[str, dict[str, str]]) -> dict[str, A
             "text": _CHARTSEARCHAI_DEFAULT_SYSTEM_PROMPT,
             "summary": summary,
         }],
-        "retrieval": _CHARTSEARCHAI_RETRIEVAL,
+        "retrieval": _LEGACY_CHARTSEARCHAI_RETRIEVAL,
     }
 
 
@@ -203,69 +211,57 @@ def _runtime_config(arm: dict[str, Any]) -> dict[str, Any]:
     return out
 
 
+def _load_profile_specs(p: Path) -> dict[str, dict[str, Any]]:
+    """Parse the hub's profile document with the repository's YAML dependency."""
+    try:
+        document = yaml.safe_load(Path(p).read_text(encoding="utf-8")) or {}
+    except Exception:
+        return {}
+    raw = document.get("profiles") or document.get("levels") or {}
+    return raw if isinstance(raw, dict) else {}
+
+
+def _flatten_profile(spec: dict[str, Any]) -> dict[str, Any]:
+    """Expose current profile fields through stable report display-role names."""
+    if not isinstance(spec.get("models"), dict):
+        # Old report fixtures remain readable, but current runtime config uses profiles.
+        return dict(spec)
+    models = spec.get("models") or {}
+    prompts = spec.get("prompts") or {}
+    return {
+        "label": spec.get("label"),
+        "topology": spec.get("topology"),
+        "stages": spec.get("stages") or [],
+        "orchestrator": models.get("orchestrator"),
+        "expert": models.get("expert"),
+        "synthesizer": models.get("answer") or models.get("indepth"),
+        "validator": models.get("review"),
+        "grounding": models.get("grounding"),
+        "indepth": models.get("indepth"),
+        "orchestrator_prompt": prompts.get("orchestrator"),
+        "expert_prompt": prompts.get("expert"),
+        "synthesis_prompt": prompts.get("answer"),
+        "validation_prompt": prompts.get("review"),
+    }
+
+
 def _load_levels(p: Path) -> dict[str, dict]:
-    """Parse med-agent-hub levels.yaml -> {team_name: {role: model}}. A tiny indent-aware
-    reader so the resolver doesn't hard-depend on PyYAML (the hub owns the real loader)."""
-    out: dict[str, dict] = {}
-    cur: str | None = None
-    try:
-        lines = Path(p).read_text(encoding="utf-8").splitlines()
-    except Exception:
-        return out
-    in_levels = False
-    for raw in lines:
-        line = raw.split("#", 1)[0].rstrip()
-        if not line.strip():
-            continue
-        if not line.startswith(" "):
-            in_levels = line.strip() == "levels:"
-            continue
-        if not in_levels:
-            continue
-        indent = len(line) - len(line.lstrip())
-        stripped = line.strip()
-        if indent == 2 and stripped.endswith(":"):
-            cur = stripped[:-1]
-            out[cur] = {}
-        elif indent >= 4 and cur and ":" in stripped:
-            k, _, v = stripped.partition(":")
-            v = v.strip()
-            if k.strip() in _ROLES and v and v != "null":
-                out[cur][k.strip()] = v
+    out = {}
+    for profile_id, spec in _load_profile_specs(p).items():
+        level = _flatten_profile(spec or {})
+        out[profile_id] = {
+            role: level[role]
+            for role in _ROLES
+            if level.get(role)
+        }
     return out
 
 
-def _load_levels_raw(p: Path) -> dict[str, dict[str, str]]:
-    """Like _load_levels but captures EVERY scalar key per level (incl. the per-level
-    prompt overrides like `synthesis_prompt`/`orchestrator_prompt`), not just role->model —
-    so the config resolver can honor a prompt override. Same tiny indent-aware reader."""
-    out: dict[str, dict[str, str]] = {}
-    cur: str | None = None
-    try:
-        lines = Path(p).read_text(encoding="utf-8").splitlines()
-    except Exception:
-        return out
-    in_levels = False
-    for raw in lines:
-        line = raw.split("#", 1)[0].rstrip()
-        if not line.strip():
-            continue
-        if not line.startswith(" "):
-            in_levels = line.strip() == "levels:"
-            continue
-        if not in_levels:
-            continue
-        indent = len(line) - len(line.lstrip())
-        stripped = line.strip()
-        if indent == 2 and stripped.endswith(":"):
-            cur = stripped[:-1]
-            out[cur] = {}
-        elif indent >= 4 and cur and ":" in stripped:
-            k, _, v = stripped.partition(":")
-            v = v.strip()
-            if v and v != "null":
-                out[cur][k.strip()] = v
-    return out
+def _load_levels_raw(p: Path) -> dict[str, dict[str, Any]]:
+    return {
+        profile_id: _flatten_profile(spec or {})
+        for profile_id, spec in _load_profile_specs(p).items()
+    }
 
 
 def _model_card(model_id: str, registry: dict) -> dict[str, Any]:
@@ -367,7 +363,7 @@ def _prompt_lever(synthesis_prompt: Any) -> str:
         if tag.startswith(pre):
             tag = tag[len(pre):]
             break
-    if tag in ("", "chartsearchai", "default"):
+    if tag in ("", "answer", "chartsearchai", "default"):
         return ""
     readable = {
         "date-output-contract": "date contract",
@@ -450,7 +446,7 @@ def _hub_single_config(
     return {
         "knobs": {model_id: knobs},
         "prompts": [entry] if entry else [],
-        "retrieval": _CHARTSEARCHAI_RETRIEVAL,
+        "retrieval": _HUB_CONTEXT,
     }
 
 
@@ -532,12 +528,13 @@ def arm_card(
             "models": [single_card], "config": _single_config(_solo_w, ini),
         })
 
-    if ":8080" in endpoint or model_name.startswith("med-agent-team"):
-        roles_map = _load_levels(levels_path).get(model_name, {})
-        level = _load_levels_raw(levels_path).get(model_name, {})
-        # A solo level (one model, no orchestrator/team) renders as a SINGLE arm with the writer's card,
-        # even though it's a hub (:8080) level — solo is orthogonal to scaffolding (P1).
-        if str(level.get("solo", "")).strip().lower() == "true":
+    configured_roles = _load_levels(levels_path)
+    configured_profiles = _load_levels_raw(levels_path)
+    if model_name in configured_profiles or ":8080" in endpoint:
+        roles_map = configured_roles.get(model_name, {})
+        level = configured_profiles.get(model_name, {})
+        topology = str(level.get("topology") or "").strip().lower()
+        if topology in {"single", "leg"}:
             _w = level.get("synthesizer") or model_name
             _scard = _model_card(_w, registry)
             _t, _st = _single_title(_scard)
@@ -547,6 +544,17 @@ def arm_card(
             return _with_runtime({"backend_id": backend_id, "label": label, "title": _t, "short_title": _st,
                                   "kind": "single", "path": "med-agent-hub single",
                                   "models": [_scard], "config": _hub_single_config(_w, level.get("synthesis_prompt"), ini)})
+        if not level:
+            return _with_runtime({
+                "backend_id": backend_id,
+                "label": label,
+                "title": label,
+                "short_title": label,
+                "kind": "unknown",
+                "path": "med-agent-hub unknown profile",
+                "models": [],
+                "config": {},
+            })
         roles = {r: _model_card(roles_map[r], registry) for r in _ROLES if r in roles_map}
         title, short_title = _team_title(roles)
         return _with_runtime({

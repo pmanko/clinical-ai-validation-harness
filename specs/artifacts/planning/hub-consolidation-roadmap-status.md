@@ -9,7 +9,7 @@ Execution state for `MAH-CONSOLIDATION-2026-07-09-v1`.
 | Roadmap | [`hub-consolidation-roadmap.md`](hub-consolidation-roadmap.md) |
 | Approval | Explicit user instruction to implement the roadmap on 2026-07-09 |
 | Approved roadmap SHA-256 | `5f625cb9f1ac4a1682001fb40fd3cc6852ceed16c96e9b54e435b4e591a64d3d` |
-| Current execution boundary | M1 hub consolidation authorized on 2026-07-10 |
+| Current execution boundary | M1 hub consolidation complete; awaiting User Signoff B |
 | Next protected boundary | M2 OpenMRS reconciliation requires User Signoff B |
 | Deviations | None |
 
@@ -136,13 +136,40 @@ could report stronger evidence than they actually checked. Commit `d658d9b` reme
 The independent re-review found no remaining M0 blocker. It confirmed that batch/SSE convergence is
 M1 G04 work, while M0 G06 correctly freezes the existing raw-leg batch envelopes before refactoring.
 
+## M1 Verification
+
+med-agent-hub commit `1ca429b` is pushed on `origin/feat/hub-context-grounding`. It replaces the
+flag-driven runner matrix with compiled profiles and one stream-and-drain stage engine, adds the
+provider-neutral evidence ledger and exact context selector, enforces Answer and In-Depth safety,
+and deletes the unused A2A/MCP/SDK runtime. The commit removes 8,594 lines and adds 7,992, a net
+reduction of 602 lines while adding the required context and safety contracts.
+
+| Check | Result |
+|---|---|
+| Hub unit/contract/integration suite | Pass: 239 tests; one third-party Starlette/httpx deprecation warning |
+| Parent full suite | Pass: 563 passed, 37 environment-dependent skips, 3 slow-test deselections |
+| Raw-leg compatibility | Pass: bridge and byte-exact golden suites remain green |
+| Context quality | Pass: 12 cells, 48/48 required sources, 100% recall; 4 full and 8 selected contexts |
+| Exact token budgets | Pass: measured inputs 16,226-20,478 tokens against a 20,480-token input limit |
+| Proof integrity | Pass: artifact validates current comparison-set, hub-code, and router-config hashes |
+| Documentation drift | Pass: all seven repositories scanned; 19 marked historical files allowed |
+| Hub-scope acceptance gates | Pass: G04-G14 all green; G15 onward remain protected M2-M4 work |
+| Remote reachability | Pass: hub commit `1ca429b` is contained by `origin/feat/hub-context-grounding` |
+
+The first independent M1 review reproduced seven blockers that the original checks had missed:
+task-local budget loss between streamed events, inherited In-Depth grounding verdicts, a fallback
+without temporal metadata, hidden product envelopes without exact budgets, a parallel team KB path,
+a stale/weak context proof, and duplicated product/review-leg rewrite logic. All seven were converted
+into runtime fixes and regression tests. A fresh independent reviewer reran those repros and found no
+remaining blocker; its G04-G14 table is entirely green.
+
 ## Milestones
 
 | Milestone | Status | Evidence or blocker |
 |---|---|---|
 | R0 Persist roadmap | Complete | Roadmap/status/index committed and pushed at `d734df9`; post-copy validation is recorded above |
 | M0 Stabilize baseline | Complete | All refreshed pins are reachable, upstream deltas are classified, PR #33 and hub #12 are green, raw-leg goldens are pinned, and the independent re-review has no blocker |
-| M1 Consolidate hub | In progress | User Signoff A granted 2026-07-10; M2 remains blocked |
+| M1 Consolidate hub | Complete | Hub `1ca429b` is pushed; 239 hub tests, 563 parent tests, hash-bound context proof, and independent re-review pass. Awaiting User Signoff B. |
 | M2 Reconcile OpenMRS integration | Blocked by signoff | Requires User Signoff B |
 | M3 Product/local proof | Pending | Requires M2 completion and User Signoff C |
 | M4 Evaluation and release | Pending | Requires M3 completion and User Release Signoff D |
@@ -154,17 +181,17 @@ M1 G04 work, while M0 G06 correctly freezes the existing raw-leg batch envelopes
 | G01 Roadmap integrity | Pass | Structure/link validation passed; approved SHA-256 recorded above |
 | G02 Baseline integrity | Pass | Parent and submodule trees are clean, all pins are remote-reachable, and PR #33 plus hub #12 CI are green |
 | G03 Upstream reconciliation | Pass | Every incoming commit across the parent and all six submodules is absent or has a repository-bound keep/port/exclude disposition |
-| G04 One engine | Fail | M1 work: current duplicate runtime paths and old topology flags remain |
-| G05 Profile correctness | Fail | M1 work: passthrough, fake topology, and incomplete profile metadata remain |
-| G06 Raw-leg compatibility | Pass | Five byte-exact pre-refactor envelopes, including all three raw legs, are pinned in hub `tests/goldens/`; hub commit `297208c` is pushed and 198 tests pass |
-| G07 Source independence | Fail | M1 work: provider-neutral context source registry/contract is not implemented |
-| G08 Context budgeting | Fail | M1 work: exact tokenizer-backed context budgeting is not implemented |
-| G09 Context quality | Pending | M1 and M4 work |
-| G10 Answer temporal safety | Fail | Existing coverage is partial; every product Answer enforce invariant remains to prove in M1 |
-| G11 In-Depth temporal safety | Fail | Current In-Depth claims are not deterministically gated |
-| G12 Review ordering | Pass | Existing post-rewrite re-gate ordering tests pass; M1 must preserve this through the unified engine |
-| G13 Citation integrity | Fail | Prior-turn citation isolation and current-ledger product proof remain |
-| G14 Drug-safety parity | Pass | Curated JSON and WHO-ATC unit/integration tests pass in the 198-test hub baseline |
+| G04 One engine | Pass | Streaming and blocking drain one `StageEngine`; old runners/flag bridge are deleted; cancellation and budget context tests pass |
+| G05 Profile correctness | Pass | Profiles compile immutable stage plans, invalid order fails, unknown IDs return `model_not_found`, and metadata is authoritative |
+| G06 Raw-leg compatibility | Pass | Five byte-exact pre-refactor envelopes, including all three raw legs, remain green at pushed hub commit `1ca429b`; the complete 239-test suite passes |
+| G07 Source independence | Pass | Inline, optional Querystore, static KB, and mock alternate adapters share one normalized source contract; hub starts without Querystore |
+| G08 Context budgeting | Pass | Every product envelope requires exact tokenizer-backed budgeting; actual chat payloads are counted and capped before backend calls |
+| G09 Context quality | Pass | Hash-bound proof retains 48/48 required sources over 12 E4B/12B cells within exact budgets |
+| G10 Answer temporal safety | Pass | Every product Answer and fallback records enforce-gate metadata; malformed/non-ledger dates and non-substantive output cannot ship checked |
+| G11 In-Depth temporal safety | Pass | Every displayed claim is gated; rejected or empty claim sets cannot report complete |
+| G12 Review ordering | Pass | Product and review legs share one conservative review implementation; rewrites are re-gated and final Answer refs are re-resolved before grounding |
+| G13 Citation integrity | Pass | Prior-turn markers are stripped; Answer and In-Depth citations resolve to the current ledger and receive separate grounding checks |
+| G14 Drug-safety parity | Pass | Curated JSON and WHO-ATC contract/integration suites pass in the 239-test hub suite |
 | G15 Thin OpenMRS relay | Fail | Legacy Java inference/discovery/orchestration remains for M2 deletion after M1 |
 | G16 Product discovery | Fail | LM Studio/client-curated discovery residue and missing authoritative default metadata remain |
 | G17 Lifecycle UX | Fail | Complete Answer and In-Depth validation lifecycle UX is not implemented |
