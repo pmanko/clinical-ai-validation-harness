@@ -147,7 +147,7 @@ reduction of 602 lines while adding the required context and safety contracts.
 | Check | Result |
 |---|---|
 | Hub unit/contract/integration suite | Pass: 239 tests; one third-party Starlette/httpx deprecation warning |
-| Parent full suite | Pass: 563 passed, 37 environment-dependent skips, 3 slow-test deselections |
+| Parent full suite | Pass: 567 passed, 37 environment-dependent skips, 3 slow-test deselections |
 | Raw-leg compatibility | Pass: bridge and byte-exact golden suites remain green |
 | Context quality | Pass: 12 cells, 48/48 required sources, 100% recall; 4 full and 8 selected contexts |
 | Exact token budgets | Pass: measured inputs 16,226-20,478 tokens against a 20,480-token input limit |
@@ -163,13 +163,21 @@ a stale/weak context proof, and duplicated product/review-leg rewrite logic. All
 into runtime fixes and regression tests. A fresh independent reviewer reran those repros and found no
 remaining blocker; its G04-G14 table is entirely green.
 
+The first refreshed parent PR #33 run after M1 failed because GitHub Actions checked out the parent
+without submodules while run metadata now resolves authoritative profile configuration from the
+pinned hub. The production behavior and local submodule-backed test passed; the submodule-free CI
+copy emitted an empty frozen arm configuration. The follow-up makes checkout recursive while keeping
+test execution scoped to the parent with `--ignore=targets`, and adds direct tests for the context
+quality proof command. Local CI-equivalent results are 567 passed, 37 skipped, and 3 deselected, with
+93% changed-line coverage. The refreshed GitHub check remains required before Signoff B.
+
 ## Milestones
 
 | Milestone | Status | Evidence or blocker |
 |---|---|---|
 | R0 Persist roadmap | Complete | Roadmap/status/index committed and pushed at `d734df9`; post-copy validation is recorded above |
-| M0 Stabilize baseline | Complete | All refreshed pins are reachable, upstream deltas are classified, PR #33 and hub #12 are green, raw-leg goldens are pinned, and the independent re-review has no blocker |
-| M1 Consolidate hub | Complete | Hub `1ca429b` is pushed; 239 hub tests, 563 parent tests, hash-bound context proof, and independent re-review pass. Awaiting User Signoff B. |
+| M0 Stabilize baseline | Complete | All refreshed pins are reachable, upstream deltas are classified, raw-leg goldens are pinned, and the independent re-review has no blocker |
+| M1 Consolidate hub | Verification pending | Hub `1ca429b` is pushed; 239 hub tests, 567 parent tests, hash-bound context proof, and independent re-review pass. Parent PR #33 must return green after the recursive-submodule checkout fix before User Signoff B. |
 | M2 Reconcile OpenMRS integration | Blocked by signoff | Requires User Signoff B |
 | M3 Product/local proof | Pending | Requires M2 completion and User Signoff C |
 | M4 Evaluation and release | Pending | Requires M3 completion and User Release Signoff D |
@@ -179,7 +187,7 @@ remaining blocker; its G04-G14 table is entirely green.
 | Gate | Status | Current evidence |
 |---|---|---|
 | G01 Roadmap integrity | Pass | Structure/link validation passed; approved SHA-256 recorded above |
-| G02 Baseline integrity | Pass | Parent and submodule trees are clean, all pins are remote-reachable, and PR #33 plus hub #12 CI are green |
+| G02 Baseline integrity | Pending | Hub #12 is green and pins are remote-reachable; parent PR #33 follow-up CI must pass after the recursive-submodule checkout fix |
 | G03 Upstream reconciliation | Pass | Every incoming commit across the parent and all six submodules is absent or has a repository-bound keep/port/exclude disposition |
 | G04 One engine | Pass | Streaming and blocking drain one `StageEngine`; old runners/flag bridge are deleted; cancellation and budget context tests pass |
 | G05 Profile correctness | Pass | Profiles compile immutable stage plans, invalid order fails, unknown IDs return `model_not_found`, and metadata is authoritative |

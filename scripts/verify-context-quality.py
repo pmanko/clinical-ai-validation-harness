@@ -30,18 +30,49 @@ HUB_PROOF_INPUTS = (
     HUB / "server" / "team.py",
     HUB / "server" / "temporal.py",
 )
-if importlib.util.find_spec("httpx") is None and not os.environ.get(
-    "CONTEXT_QUALITY_BOOTSTRAPPED"
-):
-    for python in (HUB / ".venv-test" / "bin" / "python", HUB / ".venv" / "bin" / "python"):
-        if python.exists():
-            os.environ["CONTEXT_QUALITY_BOOTSTRAPPED"] = "1"
-            os.execv(str(python), [str(python), *sys.argv])
-sys.path.insert(0, str(HUB))
 
-from server.context_sources import RouterTokenCounter  # noqa: E402
-from server.engine import ExecutionRequest, _State, _prepare_context  # noqa: E402
-from server.levels_loader import get_profile  # noqa: E402
+RouterTokenCounter = None
+ExecutionRequest = None
+_State = None
+_prepare_context = None
+get_profile = None
+
+
+def _load_hub_runtime() -> None:
+    global RouterTokenCounter, ExecutionRequest, _State, _prepare_context, get_profile
+    if all(
+        value is not None
+        for value in (
+            RouterTokenCounter,
+            ExecutionRequest,
+            _State,
+            _prepare_context,
+            get_profile,
+        )
+    ):
+        return
+    if importlib.util.find_spec("httpx") is None and not os.environ.get(
+        "CONTEXT_QUALITY_BOOTSTRAPPED"
+    ):
+        for python in (
+            HUB / ".venv-test" / "bin" / "python",
+            HUB / ".venv" / "bin" / "python",
+        ):
+            if python.exists():
+                os.environ["CONTEXT_QUALITY_BOOTSTRAPPED"] = "1"
+                os.execv(str(python), [str(python), *sys.argv])
+    sys.path.insert(0, str(HUB))
+    from server.context_sources import RouterTokenCounter as Counter
+    from server.engine import ExecutionRequest as Request
+    from server.engine import _State as State
+    from server.engine import _prepare_context as prepare
+    from server.levels_loader import get_profile as load_profile
+
+    RouterTokenCounter = Counter
+    ExecutionRequest = Request
+    _State = State
+    _prepare_context = prepare
+    get_profile = load_profile
 
 
 def _sha256(path: Path) -> str:
@@ -104,6 +135,7 @@ def _iter_cases(comparison_set: dict[str, Any]) -> Iterable[tuple[str, str, list
 
 
 async def _evaluate(args: argparse.Namespace) -> dict[str, Any]:
+    _load_hub_runtime()
     comparison_path = ROOT / args.comparison_set
     comparison_set = _load_json(comparison_path)
     backends_path = ROOT / "datasets/validation/backends.json"
