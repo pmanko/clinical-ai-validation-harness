@@ -50,6 +50,8 @@ ALWAYS_ALLOW = {
     "scripts/verify-doc-drift.sh",
     "scripts/verify-stage-refactor-gates.sh",
     "scripts/verify-hub-consolidation-gates.sh",
+    "tests/test_hub_consolidation_gate_script.py",
+    "targets/chartsearchai/api/src/test/java/org/openmrs/module/chartsearchai/api/impl/ArchitectureGuardTest.java",
 }
 
 HISTORICAL_PATH_HINTS = (

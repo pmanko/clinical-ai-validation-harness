@@ -308,32 +308,45 @@ else
 fi
 
 if [[ -x "${HUB_VENV}/bin/pytest" ]] \
-  && (cd "$HUB" && "${HUB_VENV}/bin/python" -m pytest tests/test_drug_safety.py tests/test_drug_safety_integration.py -q >/tmp/hub-g14.log 2>&1); then
-  record G14 PASS "hub drug-safety parity/integration tests passed"
+  && [[ -s "$HUB/server/drug_data/cross-reactivity-groups.json" ]] \
+  && (cd "$HUB" && "${HUB_VENV}/bin/python" -m pytest \
+    tests/test_drug_safety.py tests/test_drug_safety_atc.py \
+    tests/test_drug_safety_followthrough.py tests/test_drug_safety_integration.py \
+    -q >/tmp/hub-g14.log 2>&1); then
+  record G14 PASS "complete hub drug-safety parity/integration suite passed"
 else
-  record G14 FAIL "hub drug-safety tests failed"
+  record G14 FAIL "hub drug-safety parity data or tests failed"
 fi
 
 # G15-G17: thin relay, hub-owned discovery, and complete staged UX.
-legacy_java='LocalLlmEngine|CitationGroundingVerifier|ModelSwitchService|LlmInferenceService|/warmup|value = "/search"|chartSnapshot|chartMappingsJson|progressive.*preview'
+legacy_java='LocalLlmEngine|CitationGroundingVerifier|ModelSwitchService|LlmInferenceService|value = "/warmup"|value = "/search"|value = "/endpoints"|value = "/model/load"|chartSnapshot|chartMappingsJson|progressive.*preview|LM Studio'
 if missing_pattern "$legacy_java" "$CSAI/api/src/main" "$CSAI/omod/src/main" \
+  && missing_pattern 'querystore-api' "$CSAI/api/pom.xml" \
+  && missing_pattern 'require_module[^>]*>org.openmrs.module.querystore' "$CSAI/omod/src/main/resources/config.xml" \
+  && missing_pattern 'GGUF_MODEL_URL|gguf_model_url' "$CSAI/.github/workflows/build-standalone.yml" \
   && has_pattern 'hubRelay' "$CSAI/omod/src/main"; then
-  record G15 PASS "Java is a thin hub relay"
+  record G15 PASS "Java is a thin hub relay with no Querystore or bundled-model dependency"
 else
-  record G15 FAIL "legacy Java inference/discovery/orchestration remains"
+  record G15 FAIL "legacy inference, discovery, bundled model, or Querystore coupling remains"
 fi
 
 if missing_pattern 'LM Studio|parseLmStudio|loadModel' "$CSAI/api/src/main" "$ESM/src" \
   && has_pattern 'single-e4b-checked' "$HUB/server/levels.yaml" \
-  && has_pattern '(default|is_default)' "$HUB/server/openai_compat.py"; then
+  && has_pattern '"default": profile\.default' "$HUB/server/levels_loader.py" \
+  && has_pattern "visibility === 'product'" "$ESM/src/components/model-picker.component.tsx" \
+  && has_pattern 'selectedProfileId.*team-med-checked' "$ESM/src/components/model-picker.test.tsx"; then
   record G16 PASS "hub metadata owns picker and default"
 else
   record G16 FAIL "LM Studio/client-curated discovery or missing default metadata remains"
 fi
 
 if has_pattern 'answerValidation' "$ESM/src" \
-  && has_pattern 'inDepth.*validation|validation.*inDepth' "$ESM/src" \
-  && has_pattern 'originalAnswer' "$ESM/src"; then
+  && has_pattern 'originalAnswer' "$ESM/src" \
+  && has_pattern 'onAnswerDone:[^\n]*answerDone' "$ESM/src/hooks/useChartSearchAi.ts" \
+  && has_pattern 'onAnswerValidation:[^\n]*answerValidation' "$ESM/src/hooks/useChartSearchAi.ts" \
+  && has_pattern 'onInDepthPending:[^\n]*inDepthPending' "$ESM/src/hooks/useChartSearchAi.ts" \
+  && has_pattern 'tracks the turn phase through the staged lifecycle' "$ESM/src/hooks/useChartSearchAi.test.ts" \
+  && has_pattern 'answer-validation lifecycle' "$ESM/src/components/ai-response-panel.test.tsx"; then
   record G17 PASS "Answer and In-Depth validation lifecycle is rendered"
 else
   record G17 FAIL "complete staged lifecycle UX is not implemented"

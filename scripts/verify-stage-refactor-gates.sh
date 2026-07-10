@@ -144,9 +144,11 @@ absent_check "csai:CitationGroundingVerifier deleted" \
 absent_check "csai:non-staged local chatStreaming deleted" \
   "public ChartAnswer chatStreaming" "$CSAI/api/src/main/java/org/openmrs/module/chartsearchai/api/impl/LlmInferenceService.java" "1"
 
-# --- Gate 3: hub RUNTIME must execute stage_plan_for_level, not just describe it in tests --
-present_check "hub:runtime consults stage_plan_for_level" \
-  "(stage_plan_for_level|get_stage_plan)\(" "$HUB/server/team.py" "3"
+# --- Gate 3: one runtime executes the compiled profile stage list -------------------
+present_check "hub:runtime owns one StageEngine" \
+  "class StageEngine" "$HUB/server/engine.py" "3"
+present_check "hub:runtime executes compiled profile stages" \
+  "for stage in request\.profile\.stages" "$HUB/server/engine.py" "3"
 
 # --- Gate 5: Java relay must thread prior conversation turns to the hub, not just the question --
 # (priorsForLlm/extractProseAnswer live in ChatServiceImpl; the controller calls the interface
@@ -175,16 +177,14 @@ present_check "hub:temporal_render config knob" \
   "temporal_render" "$HUB/server/levels_loader.py" "8"
 
 # --- Gate 10: hub /v1/models must advertise a staged capability field ----------------------
-# Precise on purpose: "staged" alone false-positives on the unrelated `getattr(level, "staged",
-# False)` routing checks already in this file. The gate needs the field IN the /v1/models
-# response dict itself, i.e. a "staged": key inside the {"id": mid, "object": "model", ...} literal.
+# The API delegates model rows to profile_metadata; require the capability and default fields in
+# that authoritative serializer rather than an obsolete hand-built response literal.
 present_check "hub:/v1/models advertises staged capability" \
-  '"id": mid,[^}]*"staged"' "$HUB/server/openai_compat.py" "10"
+  '"staged": profile\.staged' "$HUB/server/levels_loader.py" "10"
+present_check "hub:/v1/models advertises authoritative default" \
+  '"default": profile\.default' "$HUB/server/levels_loader.py" "10"
 
-# --- Gate 11: the harness's own sync client path (POST /chat) must drain the hub for any remote
-# model. chatService.chat legitimately remains as the LOCAL-bundled-engine fallback (no remote
-# endpoint configured at all) — that path is out of scope for this flip, not a violation. The real
-# evidence is that a remote-engine turn now goes through the shared relay helper.
+# --- Gate 11: the sync product path drains the same hub engine. No Java-local fallback is allowed.
 present_check "csai:sync POST /chat relays remote models through the hub" \
   "hubRelayCompletionWire" "$CSAI/omod/src/main/java/org/openmrs/module/chartsearchai/web/rest/ChartSearchAiRestController.java" "11"
 
@@ -192,10 +192,10 @@ present_check "csai:sync POST /chat relays remote models through the hub" \
 present_check "hub:drug_safety module exists" \
   "^def validate_answer" "$HUB/server/drug_safety.py" "14"
 present_check "hub:safetyWarnings threaded through _stream_payload" \
-  "safety_warnings" "$HUB/server/team.py" "14"
-present_check "hub:run_team_stage_drain copies safetyWarnings" \
-  '"safetyWarnings"' "$HUB/server/team.py" "14"
-present_check "hub:Level.drug_safety config knob" \
+  "_compute_safety_warnings" "$HUB/server/engine.py" "14"
+present_check "hub:StageEngine drain copies safetyWarnings" \
+  '"safetyWarnings"' "$HUB/server/engine.py" "14"
+present_check "hub:Profile drug_safety config knob" \
   "drug_safety" "$HUB/server/levels_loader.py" "14"
 
 echo
@@ -223,19 +223,16 @@ suite_run "hub:pytest test_bridge.py (raw-leg byte shapes)" "4" "$HUB" \
 suite_run "hub:pytest test_chat_cancel_releases_router_lock" "6" "$HUB" \
   "${HUB_VENV}/bin/python" -m pytest tests/test_staged_stream.py -q -k cancel_releases_router_lock
 
-# Gate 13 (hub side): a team-scaffolded staged profile must gather via run_team_stream's
-# orchestrator tool loop, and the decision must come from executing stage_plan_for_level, not a
-# trusted flag. Still needs the Java relay to route ALL staged profiles (not just single-*) through
-# the one hub call before the gate as a whole is satisfied (see the streamStagedChat check above).
+# Gate 13 (hub side): a team profile must execute its declared gather stage through StageEngine.
+# Java still must relay every product profile through one hub call.
 suite_run "hub:pytest team-scaffolding gathers via the engine" "13" "$HUB" \
   "${HUB_VENV}/bin/python" -m pytest tests/test_staged_stream.py -q \
-  -k "team_scaffolding_gathers or derives_gather_from_the_stage_plan"
+  -k "team_profile_stream_gathers or profile_stream_executes_gather"
 
-# Gate 14: drug-safety parity suite (validator/injector algorithm) + wiring integration tests
-# (run_team/run_team_stream/run_team_stage_drain thread safetyWarnings through the right keys,
-# and leave every existing level's envelope byte-identical when the knob is off/default).
+# Gate 14: complete drug-safety parity and profile wiring, including the upstream follow-through.
 suite_run "hub:pytest drug_safety parity + wiring" "14" "$HUB" \
-  "${HUB_VENV}/bin/python" -m pytest tests/test_drug_safety.py tests/test_drug_safety_integration.py -q
+  "${HUB_VENV}/bin/python" -m pytest tests/test_drug_safety.py tests/test_drug_safety_atc.py \
+  tests/test_drug_safety_followthrough.py tests/test_drug_safety_integration.py -q
 
 # --- esm test suite ------------------------------------------------------------------
 if [[ -d "$ESM/node_modules" ]]; then
@@ -244,11 +241,13 @@ else
   record "esm:test suite (full regression)" "SKIP" "node_modules not installed — run 'yarn install' in $ESM first" ""
 fi
 
-# --- chartsearchai maven build+test ---------------------------------------------------
+# --- chartsearchai packaged build+test ------------------------------------------------
 if command -v mvn >/dev/null 2>&1; then
-  suite_run "csai:mvn test (full regression)" "" "$CSAI" mvn -q -B test
+  mkdir -p /tmp/chartsearchai-gate-appdata
+  suite_run "csai:mvn package (full regression)" "" "$CSAI" \
+    mvn -q -B -DOPENMRS_APPLICATION_DATA_DIRECTORY=/tmp/chartsearchai-gate-appdata package
 else
-  record "csai:mvn test (full regression)" "SKIP" "mvn not on PATH" ""
+  record "csai:mvn package (full regression)" "SKIP" "mvn not on PATH" ""
 fi
 
 # --- live e2e (opt-in; needs a warm deployed stack) -----------------------------------
@@ -275,7 +274,7 @@ done
 GATE_TITLE=(
   "1:Legacy Java staged decomposition deleted"
   "2:chartsearchai relay-only for chat"
-  "3:Hub owns stage composition (stage_plan_for_level executed)"
+  "3:Hub owns stage composition (compiled profiles execute in StageEngine)"
   "4:Low-level legs remain valid primitives; product UI never client-composes them"
   "5:Multi-turn context preserved"
   "6:Abort/preempt frees the slot mid-leg"
