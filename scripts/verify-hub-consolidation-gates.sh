@@ -178,10 +178,13 @@ fi
 if [[ -f "$HUB/server/context_sources.py" && -f "$HUB/tests/test_context_sources.py" ]] \
   && missing_pattern 'from \.querystore_client import QueryStoreClient' "$HUB/server/team.py" \
   && has_pattern 'test_supplemental_source_uses_the_same_normalized_ledger' "$HUB/tests" \
+  && has_pattern 'test_service_startup_does_not_invent_querystore_credentials' "$HUB/tests" \
+  && missing_pattern 'QUERYSTORE_USERNAME[^\n]*admin|QUERYSTORE_PASSWORD[^\n]*Admin123' \
+    "$HUB/server/config.py" "$ROOT/compose/openmrs-2.8-refapp.yml" \
   && [[ $hub_m1_suite_ok -eq 1 ]]; then
-  record G07 PASS "source contracts, explicit failures, and provider independence passed"
+  record G07 PASS "source contracts, explicit failures, provider independence, and explicit credentials passed"
 else
-  record G07 FAIL "context source registry/contract is not implemented"
+  record G07 FAIL "context source registry, failure, or credential contract is incomplete"
 fi
 
 if has_pattern 'class TokenCounter' "$HUB/server" \

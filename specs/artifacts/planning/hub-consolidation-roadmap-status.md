@@ -138,7 +138,8 @@ M1 G04 work, while M0 G06 correctly freezes the existing raw-leg batch envelopes
 
 ## M1 Verification
 
-med-agent-hub commit `1ca429b` is pushed on `origin/feat/hub-context-grounding`. It replaces the
+med-agent-hub consolidation commit `1ca429b`, plus review remediation `31e6037`, is pushed on
+`origin/feat/hub-context-grounding`. It replaces the
 flag-driven runner matrix with compiled profiles and one stream-and-drain stage engine, adds the
 provider-neutral evidence ledger and exact context selector, enforces Answer and In-Depth safety,
 and deletes the unused A2A/MCP/SDK runtime. The commit removes 8,594 lines and adds 7,992, a net
@@ -146,15 +147,15 @@ reduction of 602 lines while adding the required context and safety contracts.
 
 | Check | Result |
 |---|---|
-| Hub unit/contract/integration suite | Pass: 239 tests; one third-party Starlette/httpx deprecation warning |
-| Parent full suite | Pass: 567 passed, 37 environment-dependent skips, 3 slow-test deselections |
+| Hub unit/contract/integration suite | Pass: 246 tests; one third-party Starlette/httpx deprecation warning |
+| Parent full suite | Pass: 569 passed, 37 environment-dependent skips, 3 slow-test deselections |
 | Raw-leg compatibility | Pass: bridge and byte-exact golden suites remain green |
 | Context quality | Pass: 12 cells, 48/48 required sources, 100% recall; 4 full and 8 selected contexts |
 | Exact token budgets | Pass: measured inputs 16,226-20,478 tokens against a 20,480-token input limit |
 | Proof integrity | Pass: artifact validates current comparison-set, hub-code, and router-config hashes |
 | Documentation drift | Pass: all seven repositories scanned; 19 marked historical files allowed |
 | Hub-scope acceptance gates | Pass: G04-G14 all green; G15 onward remain protected M2-M4 work |
-| Remote reachability | Pass: hub commit `1ca429b` is contained by `origin/feat/hub-context-grounding` |
+| Remote reachability | Pass: hub commit `31e6037` is contained by `origin/feat/hub-context-grounding` |
 
 The first independent M1 review reproduced seven blockers that the original checks had missed:
 task-local budget loss between streamed events, inherited In-Depth grounding verdicts, a fallback
@@ -162,6 +163,13 @@ without temporal metadata, hidden product envelopes without exact budgets, a par
 a stale/weak context proof, and duplicated product/review-leg rewrite logic. All seven were converted
 into runtime fixes and regression tests. A fresh independent reviewer reran those repros and found no
 remaining blocker; its G04-G14 table is entirely green.
+
+Copilot's merge review then identified four configuration-edge findings. Commit `31e6037` sends
+backend bearer authentication during profile discovery, removes invented OpenMRS administrator
+credentials, rejects partial Querystore configuration at startup, preserves explicit source
+failures, and corrects the stale empty-chart docstring. The paired parent change removes Compose
+credential defaults and requires a least-privileged `Get Patients` service account. Local hub and
+parent suites pass; refreshed companion CI is required before this remediation is complete.
 
 The first refreshed parent PR #33 run after M1 failed because GitHub Actions checked out the parent
 without submodules while run metadata now resolves authoritative profile configuration from the
@@ -179,7 +187,7 @@ Node 20-based action runtimes; GitHub currently forces those actions to Node 24.
 |---|---|---|
 | R0 Persist roadmap | Complete | Roadmap/status/index committed and pushed at `d734df9`; post-copy validation is recorded above |
 | M0 Stabilize baseline | Complete | All refreshed pins are reachable, upstream deltas are classified, raw-leg goldens are pinned, and the independent re-review has no blocker |
-| M1 Consolidate hub | Complete | Hub `1ca429b` is pushed; 239 hub tests, 567 parent tests, hash-bound context proof, independent re-review, and parent PR #33 CI pass. Awaiting User Signoff B. |
+| M1 Consolidate hub | Verification pending | Hub `31e6037` is pushed; 246 hub tests, 569 parent tests, hash-bound context proof, and independent re-review pass. Refreshed companion CI must pass after review remediation. |
 | M2 Reconcile OpenMRS integration | Blocked by signoff | Requires User Signoff B |
 | M3 Product/local proof | Pending | Requires M2 completion and User Signoff C |
 | M4 Evaluation and release | Pending | Requires M3 completion and User Release Signoff D |
@@ -189,11 +197,11 @@ Node 20-based action runtimes; GitHub currently forces those actions to Node 24.
 | Gate | Status | Current evidence |
 |---|---|---|
 | G01 Roadmap integrity | Pass | Structure/link validation passed; approved SHA-256 recorded above |
-| G02 Baseline integrity | Pass | Hub #12 and parent PR #33 are green; all pins are remote-reachable; final clean-tree verification follows the status commit |
+| G02 Baseline integrity | Pending | Review remediation is pushed to hub #12; refreshed hub and parent CI must pass on the updated companion heads |
 | G03 Upstream reconciliation | Pass | Every incoming commit across the parent and all six submodules is absent or has a repository-bound keep/port/exclude disposition |
 | G04 One engine | Pass | Streaming and blocking drain one `StageEngine`; old runners/flag bridge are deleted; cancellation and budget context tests pass |
 | G05 Profile correctness | Pass | Profiles compile immutable stage plans, invalid order fails, unknown IDs return `model_not_found`, and metadata is authoritative |
-| G06 Raw-leg compatibility | Pass | Five byte-exact pre-refactor envelopes, including all three raw legs, remain green at pushed hub commit `1ca429b`; the complete 239-test suite passes |
+| G06 Raw-leg compatibility | Pass | Five byte-exact pre-refactor envelopes, including all three raw legs, remain green at pushed hub commit `31e6037`; the complete 246-test suite passes |
 | G07 Source independence | Pass | Inline, optional Querystore, static KB, and mock alternate adapters share one normalized source contract; hub starts without Querystore |
 | G08 Context budgeting | Pass | Every product envelope requires exact tokenizer-backed budgeting; actual chat payloads are counted and capped before backend calls |
 | G09 Context quality | Pass | Hash-bound proof retains 48/48 required sources over 12 E4B/12B cells within exact budgets |
