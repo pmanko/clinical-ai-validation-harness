@@ -9,8 +9,8 @@ Execution state for `MAH-CONSOLIDATION-2026-07-09-v1`.
 | Roadmap | [`hub-consolidation-roadmap.md`](hub-consolidation-roadmap.md) |
 | Approval | Explicit user instruction to implement the roadmap on 2026-07-09 |
 | Approved roadmap SHA-256 | `5f625cb9f1ac4a1682001fb40fd3cc6852ceed16c96e9b54e435b4e591a64d3d` |
-| Current execution boundary | M1 hub consolidation complete; awaiting User Signoff B |
-| Next protected boundary | M2 OpenMRS reconciliation requires User Signoff B |
+| Current execution boundary | M2 OpenMRS reconciliation in progress; User Signoff B granted 2026-07-10 |
+| Next protected boundary | M3 product/local proof requires User Signoff C |
 | Deviations | None |
 
 The roadmap intentionally preserves the exact approved Plan Mode body, including its
@@ -45,6 +45,17 @@ rebased during M0.
 | querystore | `de2ba8c` | `origin/harness-integration` | `upstream/main` at `a10faa3` | 2 ahead, 9 behind |
 | catalyst | `3c1f1aa` | `origin/main` | `origin/main` at `3c1f1aa` | 0 ahead, 0 behind; no incoming delta |
 | openmrs_chatbot | `2e723f8` | `origin/main` | `origin/main` at `2e723f8` | 0 ahead, 0 behind; no incoming delta |
+
+### M2 Post-Merge Refresh
+
+The merged M1 parent baseline is `d08c12e`; hub PR #12 is merged on `main` at `7869c62`.
+All active OpenMRS remotes were fetched with pruning before M2 edits.
+
+| Repository | M2 local baseline | Refreshed upstream | Divergence and PR state |
+|---|---|---|---|
+| chartsearchai | `d315500` | `upstream/main` at `5223f92` | 54 ahead, 14 behind; PR #26 open, mergeability indeterminate |
+| chartsearchai-esm | `58ed478` | `upstream/main` at `3003cd2` | 39 ahead, 2 behind; PR #12 open and conflicting |
+| querystore | `de2ba8c` | `upstream/main` at `a10faa3` | 2 ahead, 9 behind; PR #63 head `fb50dd9` clean before rebase |
 
 ## Roadmap Validation
 
@@ -85,6 +96,7 @@ because it conflicts with the approved architecture. The complete fetched deltas
 | `e4dcf81` | Port | Translate bundled/custom KB wording to the hub's curated JSON and WHO-ATC sources. |
 | `5678a36` | Port | Preserve the useful KB entry-schema reference against the hub schema. |
 | `0abbd61` | Port | Move the demo override fixture to the hub/harness only if it passes the hub drug-safety contract. |
+| `5223f92` | Port | Preserve its current-Core activator-test repair on the Java baseline; port weight-aware dosing, curated cross-branch reactivity groups, prose warnings, and null/fail-safe hardening to med-agent-hub before keeping Java drug ownership deleted. |
 
 ### ChartSearchAI ESM (`58ed478..upstream/main`)
 
@@ -189,8 +201,8 @@ Node 20-based action runtimes; GitHub currently forces those actions to Node 24.
 |---|---|---|
 | R0 Persist roadmap | Complete | Roadmap/status/index committed and pushed at `d734df9`; post-copy validation is recorded above |
 | M0 Stabilize baseline | Complete | All refreshed pins are reachable, upstream deltas are classified, raw-leg goldens are pinned, and the independent re-review has no blocker |
-| M1 Consolidate hub | Complete | Hub PR #12 is merged at `7869c62`; 246 hub tests, 569 parent tests, hash-bound context proof, independent re-review, review remediation, and companion CI pass. Awaiting User Signoff B. |
-| M2 Reconcile OpenMRS integration | Blocked by signoff | Requires User Signoff B |
+| M1 Consolidate hub | Complete | Hub PR #12 is merged at `7869c62`; 246 hub tests, 569 parent tests, hash-bound context proof, independent re-review, review remediation, and companion CI pass. User Signoff B granted. |
+| M2 Reconcile OpenMRS integration | In progress | Fresh parent branch `codex/m2-openmrs-relay-reconciliation`; refreshed upstream inventory complete before runtime edits |
 | M3 Product/local proof | Pending | Requires M2 completion and User Signoff C |
 | M4 Evaluation and release | Pending | Requires M3 completion and User Release Signoff D |
 
@@ -199,7 +211,7 @@ Node 20-based action runtimes; GitHub currently forces those actions to Node 24.
 | Gate | Status | Current evidence |
 |---|---|---|
 | G01 Roadmap integrity | Pass | Structure/link validation passed; approved SHA-256 recorded above |
-| G02 Baseline integrity | Pass | Hub #12 is merged, parent PR #33 checks are green, and pins are default-branch-reachable |
+| G02 Baseline integrity | Pass | Hub #12 and parent #33 are merged; the fresh M2 parent branch starts at `d08c12e` with clean, default-branch-reachable M1 pins |
 | G03 Upstream reconciliation | Pass | Every incoming commit across the parent and all six submodules is absent or has a repository-bound keep/port/exclude disposition |
 | G04 One engine | Pass | Streaming and blocking drain one `StageEngine`; old runners/flag bridge are deleted; cancellation and budget context tests pass |
 | G05 Profile correctness | Pass | Profiles compile immutable stage plans, invalid order fails, unknown IDs return `model_not_found`, and metadata is authoritative |
@@ -211,7 +223,7 @@ Node 20-based action runtimes; GitHub currently forces those actions to Node 24.
 | G11 In-Depth temporal safety | Pass | Every displayed claim is gated; rejected or empty claim sets cannot report complete |
 | G12 Review ordering | Pass | Product and review legs share one conservative review implementation; rewrites are re-gated and final Answer refs are re-resolved before grounding |
 | G13 Citation integrity | Pass | Prior-turn markers are stripped; Answer and In-Depth citations resolve to the current ledger and receive separate grounding checks |
-| G14 Drug-safety parity | Pass | Curated JSON and WHO-ATC contract/integration suites pass in the 239-test hub suite |
+| G14 Drug-safety parity | In progress | Existing curated JSON and WHO-ATC contracts pass in the 246-test hub suite; upstream `5223f92` parity additions are classified for port before Java deletion |
 | G15 Thin OpenMRS relay | Fail | Legacy Java inference/discovery/orchestration remains for M2 deletion after M1 |
 | G16 Product discovery | Fail | LM Studio/client-curated discovery residue and missing authoritative default metadata remain |
 | G17 Lifecycle UX | Fail | Complete Answer and In-Depth validation lifecycle UX is not implemented |
@@ -229,7 +241,7 @@ Node 20-based action runtimes; GitHub currently forces those actions to Node 24.
 |---|---|---|
 | Roadmap approval | Granted 2026-07-09 | R0 and M0 |
 | User Signoff A | Granted 2026-07-10 | M1 hub consolidation |
-| User Signoff B | Pending | M2 OpenMRS integration reconciliation |
+| User Signoff B | Granted 2026-07-10 | M2 OpenMRS integration reconciliation |
 | User Signoff C | Pending | M3 product/local proof completion and release preparation |
 | User Release Signoff D | Pending | Merge, publication, obsolete-PR closure, and release completion |
 
