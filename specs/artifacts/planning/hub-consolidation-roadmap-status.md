@@ -61,9 +61,9 @@ All active OpenMRS remotes were fetched with pruning before M2 edits.
 
 | Repository | Tested head | Reconciliation result |
 |---|---|---|
-| med-agent-hub | `f81734e` | PR #13 ports the classified drug-safety follow-through onto merged hub main `7869c62`; review remediation requires explicit kilogram units |
-| chartsearchai | `3d4a742` | PR #26 rebuilt from upstream `5223f92` as a fixed-endpoint hub relay; now mergeable |
-| chartsearchai-esm | `0b6f73a` | PR #12 rebuilt from upstream `3003cd2`; progressive preview excluded, all validation lifecycle states covered, and extracted translations synchronized |
+| med-agent-hub | `bbb369c` | PR #13 ports drug-safety follow-through, requires explicit kilogram units, enforces every product envelope, and selects available defaults in the hub |
+| chartsearchai | `ea1f763` | PR #26 is a fixed-endpoint hub relay and persists interrupted In-Depth plus safety warnings for reload |
+| chartsearchai-esm | `38a8ce3` | PR #12 excludes progressive preview, uses only hub-authoritative defaults, and prevents interrupted In-Depth from hydrating as pending |
 | querystore | `3f54b8b` | PR #63 rebased onto upstream `a10faa3` without a feature-tree change |
 
 ## Roadmap Validation
@@ -87,6 +87,22 @@ Disposition status: Complete
 `Keep` means replay the upstream change during M2. `Port` means preserve only the durable behavior
 or documentation in its new owner and verify it there. `Exclude` means do not replay the change
 because it conflicts with the approved architecture. The complete fetched deltas are listed below.
+
+### Classified Upstream Snapshot
+
+The gate binds each disposition inventory to a fixed baseline and classified upstream head. It
+fails if any tracked upstream ref advances until the new commits are classified and this snapshot
+is explicitly updated.
+
+| Repository | Upstream ref | Baseline | Classified head | Inventory |
+|---|---|---|---|---|
+| Harness | `origin/main` | `d08c12e` | `d08c12e` | No incoming delta after the merged M1 baseline |
+| med-agent-hub | `origin/main` | `7869c62` | `7869c62` | No incoming delta after merged hub PR #12 |
+| ChartSearchAI | `upstream/main` | `d315500` | `5223f92` | Disposition table below |
+| chartsearchai-esm | `upstream/main` | `58ed478` | `3003cd2` | Disposition table below |
+| Querystore | `upstream/main` | `de2ba8c` | `a10faa3` | Disposition table below |
+| Catalyst | `origin/main` | `3c1f1aa` | `3c1f1aa` | No incoming delta |
+| openmrs_chatbot | `origin/main` | `2e723f8` | `2e723f8` | No incoming delta |
 
 ### ChartSearchAI (`d315500..upstream/main`)
 
@@ -212,17 +228,17 @@ existing PR heads were updated with exact force-with-lease checks.
 
 | Check | Result |
 |---|---|
-| Hub drug-safety follow-through | Pass: 261 tests; weight observations require explicit kilogram units; per-dose ceilings, curated cross-branch groups, prose warnings, and malformed-data fail-safe behavior remain green |
-| ChartSearchAI module | Pass: clean packaged OMOD; 80 current tests with no failures, errors, or skips |
+| Hub drug-safety follow-through | Pass: 263 tests; weight observations require explicit kilogram units; every product envelope enforces temporal checks; authoritative available-default selection passes |
+| ChartSearchAI module | Pass: clean packaged OMOD; 82 current tests with no failures, errors, or skips; interruption persistence and safety-warning reload are covered |
 | Thin relay boundary | Pass: no bundled inference, Java stage decomposition, Java grounding/safety/context pipeline, Querystore dependency, client endpoint switching, or bundled serving weights |
-| ESM contracts | Pass: TypeScript and lint clean; 171 tests; production build succeeds with the existing asset-size warning only |
+| ESM contracts | Pass: TypeScript and lint clean; 173 tests; production build succeeds with the existing asset-size warning only |
 | Profile discovery | Pass: product-only metadata, authoritative labels/default, unavailable-state handling, and profile-only request tests |
 | Lifecycle persistence | Pass: fast Answer, validation update, In-Depth, same-message update, hydration, multi-turn, and cancellation unit/contract tests |
 | Querystore PR #63 | Pass: rebased onto all nine classified upstream commits; 471 tests with no failures/errors and two optional-model eval skips |
 | Documentation drift | Pass: all seven repositories scanned; 19 marked historical files allowed |
-| Remote PR CI | Pass: hub `f81734e`, ChartSearchAI `3d4a742`, ESM `0b6f73a`, and Querystore `3f54b8b` are mergeable with required build/test checks green; deploy/release and OWASP jobs skipped only where their workflows intentionally do not run on these PRs |
+| Remote PR CI | In progress: refreshed checks are running for hub `bbb369c`, ChartSearchAI `ea1f763`, and ESM `38a8ce3`; Querystore `3f54b8b` remains green |
 | Stage-refactor matrix | Pass for all M2-owned checks at the reconciled heads; only the live multi-turn/preempt checks reserved for M3 are pending because `RUN_E2E=1` was not set |
-| Independent review | In progress: ESM translation drift and two hub Copilot findings were reproduced and remediated; the final read-only cross-repository review is still running |
+| Independent review | Remediated; re-review pending: all five reproduced findings now have runtime fixes or fixed-range controls plus regression tests |
 
 ## Milestones
 
@@ -231,7 +247,7 @@ existing PR heads were updated with exact force-with-lease checks.
 | R0 Persist roadmap | Complete | Roadmap/status/index committed and pushed at `d734df9`; post-copy validation is recorded above |
 | M0 Stabilize baseline | Complete | All refreshed pins are reachable, upstream deltas are classified, raw-leg goldens are pinned, and the independent re-review has no blocker |
 | M1 Consolidate hub | Complete | Hub PR #12 is merged at `7869c62`; 246 hub tests, 569 parent tests, hash-bound context proof, independent re-review, review remediation, and companion CI pass. User Signoff B granted. |
-| M2 Reconcile OpenMRS integration | In progress | Four tested heads are pushed and existing PRs updated; parent gates, remote CI, and independent review remain before Signoff C |
+| M2 Reconcile OpenMRS integration | In progress | Five independent-review findings are remediated; refreshed remote CI and independent re-review remain before Signoff C |
 | M3 Product/local proof | Pending | Requires M2 completion and User Signoff C |
 | M4 Evaluation and release | Pending | Requires M3 completion and User Release Signoff D |
 
@@ -241,21 +257,21 @@ existing PR heads were updated with exact force-with-lease checks.
 |---|---|---|
 | G01 Roadmap integrity | Pass | Structure/link validation passed; approved SHA-256 recorded above |
 | G02 Baseline integrity | Pass | Hub #12 and parent #33 are merged; the fresh M2 parent branch starts at `d08c12e` with clean, default-branch-reachable M1 pins |
-| G03 Upstream reconciliation | Pass | Every incoming commit across the parent and all six submodules is absent or has a repository-bound keep/port/exclude disposition |
+| G03 Upstream reconciliation | Pass | Fixed baseline-to-classified-head ranges cover every disposition, and the gate fails if a tracked upstream ref advances |
 | G04 One engine | Pass | Streaming and blocking drain one `StageEngine`; old runners/flag bridge are deleted; cancellation and budget context tests pass |
 | G05 Profile correctness | Pass | Profiles compile immutable stage plans, invalid order fails, unknown IDs return `model_not_found`, and metadata is authoritative |
 | G06 Raw-leg compatibility | Pass | Five byte-exact pre-refactor envelopes remain green; merged hub `7869c62` is tree-identical to tested head `31e6037`, where the complete 246-test suite passed |
 | G07 Source independence | Pass | Inline, optional Querystore, static KB, and mock alternate adapters share one normalized source contract; hub starts without Querystore |
 | G08 Context budgeting | Pass | Every product envelope requires exact tokenizer-backed budgeting; actual chat payloads are counted and capped before backend calls |
 | G09 Context quality | Pass | Hash-bound proof retains 48/48 required sources over 12 E4B/12B cells within exact budgets |
-| G10 Answer temporal safety | Pass | Every product Answer and fallback records enforce-gate metadata; malformed/non-ledger dates and non-substantive output cannot ship checked |
+| G10 Answer temporal safety | Pass | Every `output: product` profile ignores request attempts to disable temporal facts or weaken enforce, regardless of discovery visibility |
 | G11 In-Depth temporal safety | Pass | Every displayed claim is gated; rejected or empty claim sets cannot report complete |
 | G12 Review ordering | Pass | Product and review legs share one conservative review implementation; rewrites are re-gated and final Answer refs are re-resolved before grounding |
 | G13 Citation integrity | Pass | Prior-turn markers are stripped; Answer and In-Depth citations resolve to the current ledger and receive separate grounding checks |
-| G14 Drug-safety parity | Pass | Hub `f81734e` passes 261 curated JSON, WHO-ATC, unit-safe weight-aware, cross-branch group, prose-warning, and integration tests |
+| G14 Drug-safety parity | Pass | Hub parity, unit-safe weight, Java assistant-wire persistence, and history rehydration contracts pass |
 | G15 Thin OpenMRS relay | Pass | Java has one fixed hub endpoint and one profile request; legacy inference/discovery/grounding/context code and the Querystore dependency are deleted |
-| G16 Product discovery | Pass | Hub metadata owns labels, visibility, availability, and default; ESM sends only the selected product profile id |
-| G17 Lifecycle UX | Pass | Fast Answer, checking/edited/review states, whole In-Depth, evidence verdicts, tables, warnings, and hydration have passing ESM/Java tests |
+| G16 Product discovery | Pass | Hub availability plus explicit `selection_priority` produces at most one available default; ESM never invents a list-order fallback |
+| G17 Lifecycle UX | Pass | Java persists interrupted In-Depth as failed, ESM mirrors it locally, and legacy hydrated pending rows are rendered as interrupted rather than spinning forever |
 | G18 Multi-turn and cancellation | Pending | Java and ESM unit/contract tests pass; final deployed preempt/disconnect proof remains in M3 |
 | G19 Local setup | Fail | Canonical portable `chartsearchai-local` command does not yet exist |
 | G20 Performance | Pending | Warm E4B benchmark not yet run |

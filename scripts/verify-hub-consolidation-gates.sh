@@ -75,9 +75,21 @@ proof_file() {
 }
 
 all_upstream_commits_classified() {
-  local repo="$1" upstream_ref="$2" section_prefix="$3" sha short section_text
-  git -C "$repo" rev-parse --verify --quiet "${upstream_ref}^{commit}" >/dev/null || return 1
-  section_text="$(awk -v prefix="### ${section_prefix}" '
+	local repo="$1" upstream_ref="$2" base_ref="$3" classified_ref="$4" label="$5" section_prefix="$6"
+	local sha short section_text base_short classified_short classified_head snapshot_row
+	git -C "$repo" rev-parse --verify --quiet "${upstream_ref}^{commit}" >/dev/null || return 1
+	git -C "$repo" rev-parse --verify --quiet "${base_ref}^{commit}" >/dev/null || return 1
+	classified_head="$(git -C "$repo" rev-parse "${classified_ref}^{commit}")" || return 1
+	[[ "$(git -C "$repo" rev-parse "$upstream_ref")" == "$classified_head" ]] || return 1
+	base_short="$(git -C "$repo" rev-parse --short=7 "$base_ref")"
+	classified_short="$(git -C "$repo" rev-parse --short=7 "$classified_head")"
+	printf -v snapshot_row '| %s | `%s` | `%s` | `%s` |' \
+		"$label" "$upstream_ref" "$base_short" "$classified_short"
+	rg -Fq -- "$snapshot_row" "$STATUS_DOC" || return 1
+	if [[ "$(git -C "$repo" rev-parse "$base_ref")" == "$classified_head" ]]; then
+		return 0
+	fi
+	section_text="$(awk -v prefix="### ${section_prefix}" '
     index($0, prefix) == 1 { inside = 1; next }
     inside && /^### / { exit }
     inside { print }
@@ -88,7 +100,7 @@ all_upstream_commits_classified() {
     printf '%s\n' "$section_text" \
       | rg -q "^\\| \`${short}\` \\| (Keep|Port|Exclude) \\|" \
       || return 1
-  done < <(git -C "$repo" rev-list --reverse "HEAD..${upstream_ref}")
+	done < <(git -C "$repo" rev-list --reverse "${base_ref}..${classified_head}")
 }
 
 # G01: immutable approved roadmap body.
@@ -124,13 +136,13 @@ fi
 if has_pattern '^## Upstream Disposition$' "$STATUS_DOC" \
   && has_pattern '^Disposition status: Complete$' "$STATUS_DOC" \
   && missing_pattern '\| Unclassified \|' "$STATUS_DOC" \
-  && all_upstream_commits_classified "$ROOT" origin/main 'Harness (' \
-  && all_upstream_commits_classified "$HUB" origin/main 'med-agent-hub (' \
-  && all_upstream_commits_classified "$CSAI" upstream/main 'ChartSearchAI (' \
-  && all_upstream_commits_classified "$ESM" upstream/main 'ChartSearchAI ESM (' \
-  && all_upstream_commits_classified "$QUERYSTORE" upstream/main 'Querystore (' \
-  && all_upstream_commits_classified "$CATALYST" origin/main 'Catalyst (' \
-  && all_upstream_commits_classified "$CHATBOT" origin/main 'openmrs_chatbot ('; then
+	&& all_upstream_commits_classified "$ROOT" origin/main d08c12e d08c12e Harness '-' \
+	&& all_upstream_commits_classified "$HUB" origin/main 7869c62 7869c62 med-agent-hub '-' \
+	&& all_upstream_commits_classified "$CSAI" upstream/main d315500 5223f92 ChartSearchAI 'ChartSearchAI (' \
+	&& all_upstream_commits_classified "$ESM" upstream/main 58ed478 3003cd2 chartsearchai-esm 'ChartSearchAI ESM (' \
+	&& all_upstream_commits_classified "$QUERYSTORE" upstream/main de2ba8c a10faa3 Querystore 'Querystore (' \
+	&& all_upstream_commits_classified "$CATALYST" origin/main 3c1f1aa 3c1f1aa Catalyst '-' \
+	&& all_upstream_commits_classified "$CHATBOT" origin/main 2e723f8 2e723f8 openmrs_chatbot '-'; then
   record G03 PASS "upstream disposition table is complete"
 else
   record G03 PENDING "upstream keep/port/exclude table incomplete"
@@ -267,6 +279,7 @@ fi
 
 # G10-G12: deterministic temporal invariants and post-review ordering.
 if has_pattern 'test_product_profiles.*temporal.*enforce|test_temporal.*cannot.*weaken' "$HUB/tests" \
+  && has_pattern 'test_non_advertised_product_envelope_temporal_cannot_weaken_enforce' "$HUB/tests" \
   && has_pattern 'temporal_gate.*enforce' "$HUB/server/levels.yaml" \
   && has_pattern 'test_gate_rejects_malformed_and_nonledger_dates_when_ledger_is_empty' "$HUB/tests" \
   && has_pattern 'test_post_review_punctuation_rewrite_preserves_usable_answer' "$HUB/tests" \
@@ -307,15 +320,37 @@ else
   record G13 FAIL "citation replay/current-ledger invariant is not proven"
 fi
 
+java_m2_contracts_ok=0
+if [[ $hub_m1_suite_ok -eq 1 ]] && command -v mvn >/dev/null 2>&1; then
+  mkdir -p /tmp/chartsearchai-gate-appdata
+  if (cd "$CSAI" && mvn -q -B \
+    -DOPENMRS_APPLICATION_DATA_DIRECTORY=/tmp/chartsearchai-gate-appdata \
+    -Dtest=ChatServiceHubWireTest,ChartSearchAiStreamingTest \
+    -Dsurefire.failIfNoSpecifiedTests=false test >/tmp/hub-m2-java-contracts.log 2>&1); then
+    java_m2_contracts_ok=1
+  fi
+fi
+
+esm_m2_contracts_ok=0
+if [[ $hub_m1_suite_ok -eq 1 ]] && [[ -d "$ESM/node_modules" ]] \
+  && (cd "$ESM" && yarn test --run \
+    src/components/model-picker.test.tsx src/hooks/useChartSearchAi.test.ts \
+    src/components/ai-response-panel.test.tsx >/tmp/hub-m2-esm-contracts.log 2>&1); then
+  esm_m2_contracts_ok=1
+fi
+
 if [[ -x "${HUB_VENV}/bin/pytest" ]] \
   && [[ -s "$HUB/server/drug_data/cross-reactivity-groups.json" ]] \
+  && [[ $java_m2_contracts_ok -eq 1 ]] \
+  && has_pattern 'persistHubStagedAnswer_preservesSafetyWarningsInAssistantWire' "$CSAI/api/src/test" \
+  && has_pattern 'chatHistory_rehydratesSafetyWarningsAndInterruptedInDepth' "$CSAI/omod/src/test" \
   && (cd "$HUB" && "${HUB_VENV}/bin/python" -m pytest \
     tests/test_drug_safety.py tests/test_drug_safety_atc.py \
     tests/test_drug_safety_followthrough.py tests/test_drug_safety_integration.py \
     -q >/tmp/hub-g14.log 2>&1); then
-  record G14 PASS "complete hub drug-safety parity/integration suite passed"
+  record G14 PASS "hub parity plus Java persistence/history safety-warning contracts passed"
 else
-  record G14 FAIL "hub drug-safety parity data or tests failed"
+  record G14 FAIL "drug-safety parity or Java persistence/history contracts failed"
 fi
 
 # G15-G17: thin relay, hub-owned discovery, and complete staged UX.
@@ -332,9 +367,11 @@ fi
 
 if missing_pattern 'LM Studio|parseLmStudio|loadModel' "$CSAI/api/src/main" "$ESM/src" \
   && has_pattern 'single-e4b-checked' "$HUB/server/levels.yaml" \
-  && has_pattern '"default": profile\.default' "$HUB/server/levels_loader.py" \
+  && has_pattern 'selection_priority' "$HUB/server/levels_loader.py" "$HUB/server/levels.yaml" \
+  && has_pattern 'effective_default' "$HUB/server/openai_compat.py" \
   && has_pattern "visibility === 'product'" "$ESM/src/components/model-picker.component.tsx" \
-  && has_pattern 'selectedProfileId.*team-med-checked' "$ESM/src/components/model-picker.test.tsx"; then
+  && has_pattern 'does not invent a fallback when the hub advertises no available default' "$ESM/src/components/model-picker.test.tsx" \
+  && [[ $esm_m2_contracts_ok -eq 1 ]]; then
   record G16 PASS "hub metadata owns picker and default"
 else
   record G16 FAIL "LM Studio/client-curated discovery or missing default metadata remains"
@@ -346,7 +383,11 @@ if has_pattern 'answerValidation' "$ESM/src" \
   && has_pattern 'onAnswerValidation:[^\n]*answerValidation' "$ESM/src/hooks/useChartSearchAi.ts" \
   && has_pattern 'onInDepthPending:[^\n]*inDepthPending' "$ESM/src/hooks/useChartSearchAi.ts" \
   && has_pattern 'tracks the turn phase through the staged lifecycle' "$ESM/src/hooks/useChartSearchAi.test.ts" \
-  && has_pattern 'answer-validation lifecycle' "$ESM/src/components/ai-response-panel.test.tsx"; then
+  && has_pattern 'answer-validation lifecycle' "$ESM/src/components/ai-response-panel.test.tsx" \
+  && has_pattern 'hydrates a stale pending In-Depth as failed' "$ESM/src/hooks/useChartSearchAi.test.ts" \
+  && has_pattern 'persistInterruptedInDepth' "$CSAI/omod/src/main" \
+  && [[ $esm_m2_contracts_ok -eq 1 ]] \
+  && [[ $java_m2_contracts_ok -eq 1 ]]; then
   record G17 PASS "Answer and In-Depth validation lifecycle is rendered"
 else
   record G17 FAIL "complete staged lifecycle UX is not implemented"

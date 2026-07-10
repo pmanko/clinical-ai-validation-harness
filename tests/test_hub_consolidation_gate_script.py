@@ -31,7 +31,9 @@ def test_consolidation_gate_script_checks_untracked_trees_and_raw_leg_goldens():
     assert "status --porcelain --untracked-files=all" in text
     assert "tests/test_output_goldens.py" in text
     assert "all_upstream_commits_classified" in text
-    assert 'rev-list --reverse "HEAD..${upstream_ref}"' in text
+    assert 'rev-list --reverse "${base_ref}..${classified_head}"' in text
+    assert '"$(git -C "$repo" rev-parse "$upstream_ref")" == "$classified_head"' in text
+    assert 'rev-list --reverse "HEAD..${upstream_ref}"' not in text
 
 
 def test_gate_scripts_describe_the_current_stage_engine_and_no_java_fallback():
