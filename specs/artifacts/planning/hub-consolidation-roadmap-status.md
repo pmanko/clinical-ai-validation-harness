@@ -9,8 +9,8 @@ Execution state for `MAH-CONSOLIDATION-2026-07-09-v1`.
 | Roadmap | [`hub-consolidation-roadmap.md`](hub-consolidation-roadmap.md) |
 | Approval | Explicit user instruction to implement the roadmap on 2026-07-09 |
 | Approved roadmap SHA-256 | `5f625cb9f1ac4a1682001fb40fd3cc6852ceed16c96e9b54e435b4e591a64d3d` |
-| Current execution boundary | R0 and M0 complete; execution stopped at User Signoff A |
-| Next protected boundary | M1 requires User Signoff A |
+| Current execution boundary | M1 hub consolidation authorized on 2026-07-10 |
+| Next protected boundary | M2 OpenMRS reconciliation requires User Signoff B |
 | Deviations | None |
 
 The roadmap intentionally preserves the exact approved Plan Mode body, including its
@@ -142,7 +142,7 @@ M1 G04 work, while M0 G06 correctly freezes the existing raw-leg batch envelopes
 |---|---|---|
 | R0 Persist roadmap | Complete | Roadmap/status/index committed and pushed at `d734df9`; post-copy validation is recorded above |
 | M0 Stabilize baseline | Complete | All refreshed pins are reachable, upstream deltas are classified, PR #33 and hub #12 are green, raw-leg goldens are pinned, and the independent re-review has no blocker |
-| M1 Consolidate hub | Blocked by signoff | Requires User Signoff A |
+| M1 Consolidate hub | In progress | User Signoff A granted 2026-07-10; M2 remains blocked |
 | M2 Reconcile OpenMRS integration | Blocked by signoff | Requires User Signoff B |
 | M3 Product/local proof | Pending | Requires M2 completion and User Signoff C |
 | M4 Evaluation and release | Pending | Requires M3 completion and User Release Signoff D |
@@ -181,7 +181,7 @@ M1 G04 work, while M0 G06 correctly freezes the existing raw-leg batch envelopes
 | Signoff | Status | Scope unlocked |
 |---|---|---|
 | Roadmap approval | Granted 2026-07-09 | R0 and M0 |
-| User Signoff A | Pending | M1 hub consolidation |
+| User Signoff A | Granted 2026-07-10 | M1 hub consolidation |
 | User Signoff B | Pending | M2 OpenMRS integration reconciliation |
 | User Signoff C | Pending | M3 product/local proof completion and release preparation |
 | User Release Signoff D | Pending | Merge, publication, obsolete-PR closure, and release completion |
