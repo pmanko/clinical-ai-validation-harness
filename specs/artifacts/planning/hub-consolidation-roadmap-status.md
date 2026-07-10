@@ -9,7 +9,7 @@ Execution state for `MAH-CONSOLIDATION-2026-07-09-v1`.
 | Roadmap | [`hub-consolidation-roadmap.md`](hub-consolidation-roadmap.md) |
 | Approval | Explicit user instruction to implement the roadmap on 2026-07-09 |
 | Approved roadmap SHA-256 | `5f625cb9f1ac4a1682001fb40fd3cc6852ceed16c96e9b54e435b4e591a64d3d` |
-| Current execution boundary | M2 OpenMRS reconciliation in progress; User Signoff B granted 2026-07-10 |
+| Current execution boundary | M2 OpenMRS reconciliation complete; awaiting User Signoff C before M3 |
 | Next protected boundary | M3 product/local proof requires User Signoff C |
 | Deviations | None |
 
@@ -236,9 +236,9 @@ existing PR heads were updated with exact force-with-lease checks.
 | Lifecycle persistence | Pass: fast Answer, validation update, In-Depth, same-message update, hydration, multi-turn, and cancellation unit/contract tests |
 | Querystore PR #63 | Pass: rebased onto all nine classified upstream commits; 471 tests with no failures/errors and two optional-model eval skips |
 | Documentation drift | Pass: all seven repositories scanned; 19 marked historical files allowed |
-| Remote PR CI | In progress: hub `bbb369c` and ESM `38a8ce3` are green; refreshed checks are running for ChartSearchAI `e6bb4de`; Querystore `3f54b8b` remains green |
+| Remote PR CI | Pass at exact heads: parent `f54442a`, hub `bbb369c`, ChartSearchAI `e6bb4de`, ESM `38a8ce3`, and Querystore `3f54b8b`; all required checks are green |
 | Stage-refactor matrix | Pass for all M2-owned checks at the reconciled heads; only the live multi-turn/preempt checks reserved for M3 are pending because `RUN_E2E=1` was not set |
-| Independent review | Remediated; final targeted re-review pending: the first re-review confirmed four fixes and found terminal In-Depth could be overwritten on EOF; `e6bb4de` adds a separate terminal-state guard and red-first regression |
+| Independent review | Pass after remediation: the targeted re-review found no blocker, reran 11 focused Java tests, and confirmed pending interruption plus `indepth_done`/`indepth_error` EOF semantics; the exact-head fix is `e6bb4de` |
 
 ## Milestones
 
@@ -247,7 +247,7 @@ existing PR heads were updated with exact force-with-lease checks.
 | R0 Persist roadmap | Complete | Roadmap/status/index committed and pushed at `d734df9`; post-copy validation is recorded above |
 | M0 Stabilize baseline | Complete | All refreshed pins are reachable, upstream deltas are classified, raw-leg goldens are pinned, and the independent re-review has no blocker |
 | M1 Consolidate hub | Complete | Hub PR #12 is merged at `7869c62`; 246 hub tests, 569 parent tests, hash-bound context proof, independent re-review, review remediation, and companion CI pass. User Signoff B granted. |
-| M2 Reconcile OpenMRS integration | In progress | Five independent-review findings are remediated; refreshed remote CI and independent re-review remain before Signoff C |
+| M2 Reconcile OpenMRS integration | Complete | Five independent-review findings and the terminal EOF follow-up are remediated; exact-head local suites, companion CI, architecture gates, documentation drift, and final independent review pass. Awaiting User Signoff C. |
 | M3 Product/local proof | Pending | Requires M2 completion and User Signoff C |
 | M4 Evaluation and release | Pending | Requires M3 completion and User Release Signoff D |
 
