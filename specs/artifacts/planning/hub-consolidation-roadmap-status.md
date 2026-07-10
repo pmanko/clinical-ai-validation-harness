@@ -169,7 +169,9 @@ pinned hub. The production behavior and local submodule-backed test passed; the 
 copy emitted an empty frozen arm configuration. The follow-up makes checkout recursive while keeping
 test execution scoped to the parent with `--ignore=targets`, and adds direct tests for the context
 quality proof command. Local CI-equivalent results are 567 passed, 37 skipped, and 3 deselected, with
-93% changed-line coverage. The refreshed GitHub check remains required before Signoff B.
+93% changed-line coverage. GitHub Actions run `29119406818` passed both the full harness suite and
+changed-line coverage on commit `a2af5fa`. The run reported a non-blocking deprecation annotation for
+Node 20-based action runtimes; GitHub currently forces those actions to Node 24.
 
 ## Milestones
 
@@ -177,7 +179,7 @@ quality proof command. Local CI-equivalent results are 567 passed, 37 skipped, a
 |---|---|---|
 | R0 Persist roadmap | Complete | Roadmap/status/index committed and pushed at `d734df9`; post-copy validation is recorded above |
 | M0 Stabilize baseline | Complete | All refreshed pins are reachable, upstream deltas are classified, raw-leg goldens are pinned, and the independent re-review has no blocker |
-| M1 Consolidate hub | Verification pending | Hub `1ca429b` is pushed; 239 hub tests, 567 parent tests, hash-bound context proof, and independent re-review pass. Parent PR #33 must return green after the recursive-submodule checkout fix before User Signoff B. |
+| M1 Consolidate hub | Complete | Hub `1ca429b` is pushed; 239 hub tests, 567 parent tests, hash-bound context proof, independent re-review, and parent PR #33 CI pass. Awaiting User Signoff B. |
 | M2 Reconcile OpenMRS integration | Blocked by signoff | Requires User Signoff B |
 | M3 Product/local proof | Pending | Requires M2 completion and User Signoff C |
 | M4 Evaluation and release | Pending | Requires M3 completion and User Release Signoff D |
@@ -187,7 +189,7 @@ quality proof command. Local CI-equivalent results are 567 passed, 37 skipped, a
 | Gate | Status | Current evidence |
 |---|---|---|
 | G01 Roadmap integrity | Pass | Structure/link validation passed; approved SHA-256 recorded above |
-| G02 Baseline integrity | Pending | Hub #12 is green and pins are remote-reachable; parent PR #33 follow-up CI must pass after the recursive-submodule checkout fix |
+| G02 Baseline integrity | Pass | Hub #12 and parent PR #33 are green; all pins are remote-reachable; final clean-tree verification follows the status commit |
 | G03 Upstream reconciliation | Pass | Every incoming commit across the parent and all six submodules is absent or has a repository-bound keep/port/exclude disposition |
 | G04 One engine | Pass | Streaming and blocking drain one `StageEngine`; old runners/flag bridge are deleted; cancellation and budget context tests pass |
 | G05 Profile correctness | Pass | Profiles compile immutable stage plans, invalid order fails, unknown IDs return `model_not_found`, and metadata is authoritative |
