@@ -16,6 +16,7 @@ import time
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 
 import requests
 
@@ -44,11 +45,11 @@ def effective_llama_router_models_max(backend: Backend) -> int | None:
     arms without an explicit value use the local default of 4, which matters when
     a normal arm follows a high-memory arm in the same sequential run.
     """
+    if not _uses_local_llama_router(backend):
+        return None
     if backend.llama_router_models_max is not None:
         return backend.llama_router_models_max
-    if _uses_local_llama_router(backend):
-        return _DEFAULT_MODELS_MAX
-    return None
+    return _DEFAULT_MODELS_MAX
 
 
 def reconcile_llama_router_for_backend(
@@ -109,19 +110,21 @@ def reconcile_llama_router_for_backend(
 
 
 def _uses_local_llama_router(backend: Backend) -> bool:
-    urls = " ".join(
-        u for u in (backend.endpoint_url, backend.indepth_endpoint or "") if u
-    )
-    model_names = " ".join(
-        m for m in (backend.model_name, backend.indepth_model or "") if m
-    )
-    if ":8077" in urls:
-        return True
-    # In this harness, med-agent-hub levels route their role calls to the canonical
-    # host llama-router on :8077.
-    if "med-agent-hub:8080" in urls:
-        return True
-    return model_names.startswith(("answer:", "indepth-only:", "med-agent-team"))
+    local_hosts = {"localhost", "127.0.0.1", "::1", "host.docker.internal"}
+    for endpoint in (backend.endpoint_url, backend.indepth_endpoint or ""):
+        if not endpoint:
+            continue
+        parsed = urlparse(endpoint)
+        host = (parsed.hostname or "").lower()
+        try:
+            port = parsed.port
+        except ValueError:
+            continue
+        if host == "med-agent-hub":
+            return True
+        if host in local_hosts and port in {_DEFAULT_PORT, 8080}:
+            return True
+    return False
 
 
 def _router_reachable(port: int) -> bool:

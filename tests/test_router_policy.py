@@ -44,8 +44,8 @@ def test_llama_backed_backend_defaults_to_warm_cache_cap():
 
 def _backend(
     *,
-    endpoint: str = "https://models.example/v1/chat/completions",
-    model: str = "remote-model",
+    endpoint: str = "http://med-agent-hub:8080/v1/chat/completions",
+    model: str = "single-e4b-checked",
     models_max: int | None = None,
 ) -> Backend:
     return Backend(
@@ -58,7 +58,11 @@ def _backend(
 
 
 def test_remote_backend_does_not_manage_the_local_router(tmp_path):
-    backend = _backend()
+    backend = _backend(
+        endpoint="https://models.example/v1/chat/completions",
+        model="answer:gemma-4-12b",
+        models_max=1,
+    )
 
     assert effective_llama_router_models_max(backend) is None
     assert router_policy.reconcile_llama_router_for_backend(
@@ -70,10 +74,13 @@ def test_remote_backend_does_not_manage_the_local_router(tmp_path):
     ("endpoint", "model", "expected"),
     [
         ("http://localhost:8077/v1/chat/completions", "model", True),
+        ("http://localhost:8080/v1/chat/completions", "single-e4b-checked", True),
         ("http://med-agent-hub:8080/v1/chat/completions", "profile", True),
-        ("https://models.example/v1", "answer:gemma-4-12b", True),
-        ("https://models.example/v1", "indepth-only:gemma-e4b", True),
-        ("https://models.example/v1", "med-agent-team-high", True),
+        ("https://models.example/v1", "answer:gemma-4-12b", False),
+        ("https://models.example/v1", "indepth-only:gemma-e4b", False),
+        ("https://models.example/v1", "med-agent-team-high", False),
+        ("https://models.example:8077/v1", "answer:gemma-4-12b", False),
+        ("http://localhost:not-a-port/v1", "answer:gemma-4-12b", False),
         ("https://models.example/v1", "remote-model", False),
     ],
 )

@@ -49,6 +49,7 @@ SKIP_DIR_PARTS = {
 ALWAYS_ALLOW = {
     "scripts/verify-doc-drift.sh",
     "scripts/verify-stage-refactor-gates.sh",
+    "scripts/verify-hub-consolidation-gates.sh",
 }
 
 HISTORICAL_PATH_HINTS = (

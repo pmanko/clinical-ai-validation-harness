@@ -41,10 +41,10 @@ rebased during M0.
 | harness | `d734df9` | `origin/feat/simple-5arm-benchmark` | `origin/main` at `a6f32b0` | integration branch contains the approved R0 artifact |
 | med-agent-hub | `297208c` | `origin/feat/hub-context-grounding` | `origin/main` at `1c5d836` | 33 ahead, 0 behind after M0 goldens |
 | chartsearchai | `d315500` | `origin/harness-integration` | `upstream/main` at `0abbd61` | 54 ahead, 13 behind |
-| chartsearchai-esm | `58ed478` | `origin/harness-integration` | `origin/main` at `3003cd2` | 39 ahead, 2 behind; local pin is now remote-reachable |
+| chartsearchai-esm | `58ed478` | `origin/harness-integration` | `upstream/main` at `3003cd2` | 39 ahead, 2 behind; local pin is now remote-reachable |
 | querystore | `de2ba8c` | `origin/harness-integration` | `upstream/main` at `a10faa3` | 2 ahead, 9 behind |
-| catalyst | `3c1f1aa` | checked-out remote branch | fetched remote head | no integration delta classified for this roadmap |
-| openmrs_chatbot | `2e723f8` | checked-out remote branch | fetched remote head | no integration delta classified for this roadmap |
+| catalyst | `3c1f1aa` | `origin/main` | `origin/main` at `3c1f1aa` | 0 ahead, 0 behind; no incoming delta |
+| openmrs_chatbot | `2e723f8` | `origin/main` | `origin/main` at `2e723f8` | 0 ahead, 0 behind; no incoming delta |
 
 ## Roadmap Validation
 
@@ -86,7 +86,7 @@ because it conflicts with the approved architecture. The complete fetched deltas
 | `5678a36` | Port | Preserve the useful KB entry-schema reference against the hub schema. |
 | `0abbd61` | Port | Move the demo override fixture to the hub/harness only if it passes the hub drug-safety contract. |
 
-### ChartSearchAI ESM (`58ed478..origin/main`)
+### ChartSearchAI ESM (`58ed478..upstream/main`)
 
 | Commit | Disposition | Target and verification |
 |---|---|---|

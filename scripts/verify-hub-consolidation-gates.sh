@@ -11,6 +11,9 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 HUB="${ROOT}/targets/med-agent-hub"
 CSAI="${ROOT}/targets/chartsearchai"
 ESM="${ROOT}/targets/chartsearchai-esm"
+QUERYSTORE="${ROOT}/targets/querystore"
+CATALYST="${ROOT}/targets/catalyst"
+CHATBOT="${ROOT}/targets/openmrs_chatbot"
 ROADMAP="${ROOT}/specs/artifacts/planning/hub-consolidation-roadmap.md"
 STATUS_DOC="${ROOT}/specs/artifacts/planning/hub-consolidation-roadmap-status.md"
 HUB_VENV="${HUB_VENV:-${ROOT}/.gates-hub-venv}"
@@ -72,11 +75,19 @@ proof_file() {
 }
 
 all_upstream_commits_classified() {
-  local repo="$1" upstream_ref="$2" sha short
+  local repo="$1" upstream_ref="$2" section_prefix="$3" sha short section_text
+  git -C "$repo" rev-parse --verify --quiet "${upstream_ref}^{commit}" >/dev/null || return 1
+  section_text="$(awk -v prefix="### ${section_prefix}" '
+    index($0, prefix) == 1 { inside = 1; next }
+    inside && /^### / { exit }
+    inside { print }
+  ' "$STATUS_DOC")"
   while read -r sha; do
     [[ -n "$sha" ]] || continue
     short="$(git -C "$repo" rev-parse --short=7 "$sha")"
-    has_pattern "^\\| \`${short}\` \\| (Keep|Port|Exclude) \\|" "$STATUS_DOC" || return 1
+    printf '%s\n' "$section_text" \
+      | rg -q "^\\| \`${short}\` \\| (Keep|Port|Exclude) \\|" \
+      || return 1
   done < <(git -C "$repo" rev-list --reverse "HEAD..${upstream_ref}")
 }
 
@@ -113,9 +124,13 @@ fi
 if has_pattern '^## Upstream Disposition$' "$STATUS_DOC" \
   && has_pattern '^Disposition status: Complete$' "$STATUS_DOC" \
   && missing_pattern '\| Unclassified \|' "$STATUS_DOC" \
-  && all_upstream_commits_classified "$CSAI" upstream/main \
-  && all_upstream_commits_classified "$ESM" origin/main \
-  && all_upstream_commits_classified "$ROOT/targets/querystore" upstream/main; then
+  && all_upstream_commits_classified "$ROOT" origin/main 'Harness (' \
+  && all_upstream_commits_classified "$HUB" origin/main 'med-agent-hub (' \
+  && all_upstream_commits_classified "$CSAI" upstream/main 'ChartSearchAI (' \
+  && all_upstream_commits_classified "$ESM" upstream/main 'ChartSearchAI ESM (' \
+  && all_upstream_commits_classified "$QUERYSTORE" upstream/main 'Querystore (' \
+  && all_upstream_commits_classified "$CATALYST" origin/main 'Catalyst (' \
+  && all_upstream_commits_classified "$CHATBOT" origin/main 'openmrs_chatbot ('; then
   record G03 PASS "upstream disposition table is complete"
 else
   record G03 PENDING "upstream keep/port/exclude table incomplete"
