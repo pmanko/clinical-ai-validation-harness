@@ -169,7 +169,8 @@ backend bearer authentication during profile discovery, removes invented OpenMRS
 credentials, rejects partial Querystore configuration at startup, preserves explicit source
 failures, and corrects the stale empty-chart docstring. The paired parent change removes Compose
 credential defaults and requires a least-privileged `Get Patients` service account. Local hub and
-parent suites pass; refreshed companion CI is required before this remediation is complete.
+parent suites pass. Hub unit/contract and Docker checks are green on `31e6037`; parent GitHub
+Actions run `29121901758` passed the full harness suite and changed-line coverage on `59c2df4`.
 
 The first refreshed parent PR #33 run after M1 failed because GitHub Actions checked out the parent
 without submodules while run metadata now resolves authoritative profile configuration from the
@@ -187,7 +188,7 @@ Node 20-based action runtimes; GitHub currently forces those actions to Node 24.
 |---|---|---|
 | R0 Persist roadmap | Complete | Roadmap/status/index committed and pushed at `d734df9`; post-copy validation is recorded above |
 | M0 Stabilize baseline | Complete | All refreshed pins are reachable, upstream deltas are classified, raw-leg goldens are pinned, and the independent re-review has no blocker |
-| M1 Consolidate hub | Verification pending | Hub `31e6037` is pushed; 246 hub tests, 569 parent tests, hash-bound context proof, and independent re-review pass. Refreshed companion CI must pass after review remediation. |
+| M1 Consolidate hub | Complete | Hub `31e6037` is pushed; 246 hub tests, 569 parent tests, hash-bound context proof, independent re-review, review remediation, and companion CI pass. Awaiting User Signoff B. |
 | M2 Reconcile OpenMRS integration | Blocked by signoff | Requires User Signoff B |
 | M3 Product/local proof | Pending | Requires M2 completion and User Signoff C |
 | M4 Evaluation and release | Pending | Requires M3 completion and User Release Signoff D |
@@ -197,7 +198,7 @@ Node 20-based action runtimes; GitHub currently forces those actions to Node 24.
 | Gate | Status | Current evidence |
 |---|---|---|
 | G01 Roadmap integrity | Pass | Structure/link validation passed; approved SHA-256 recorded above |
-| G02 Baseline integrity | Pending | Review remediation is pushed to hub #12; refreshed hub and parent CI must pass on the updated companion heads |
+| G02 Baseline integrity | Pass | Hub #12 and parent PR #33 checks are green on the remediated companion heads; pins are remote-reachable |
 | G03 Upstream reconciliation | Pass | Every incoming commit across the parent and all six submodules is absent or has a repository-bound keep/port/exclude disposition |
 | G04 One engine | Pass | Streaming and blocking drain one `StageEngine`; old runners/flag bridge are deleted; cancellation and budget context tests pass |
 | G05 Profile correctness | Pass | Profiles compile immutable stage plans, invalid order fails, unknown IDs return `model_not_found`, and metadata is authoritative |
