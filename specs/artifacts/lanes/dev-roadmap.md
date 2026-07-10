@@ -1,9 +1,14 @@
-# Development Roadmap — program index
+# Historical Development Roadmap - June program index
 
-The consolidated index for the development program: north-star goals, the current state, the
-**lane table** (status + gates + links into per-lane detail), the launch sequence, and the
-remediation record. This doc is the single operating source of truth; each lane drills down into
-its own dossier and (where it has one) a technical brief.
+> **Superseded for current execution (2026-07-09).** This file preserves the June lane snapshot,
+> but its LM Studio, MCP, branch, pin, and launch guidance is not the current operating plan. The
+> approved source of truth is the [Med-Agent-Hub Consolidation and Reliable Clinical Answer
+> Roadmap](../planning/hub-consolidation-roadmap.md), with progress tracked in its
+> [status record](../planning/hub-consolidation-roadmap-status.md).
+
+The consolidated historical index for the June development program: north-star goals, its state at
+that time, the lane table, launch sequence, and remediation record. Each lane drills down into its
+own dossier and, where present, a technical brief.
 
 **How the planning surfaces fit together:**
 
