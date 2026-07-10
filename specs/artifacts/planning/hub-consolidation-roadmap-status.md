@@ -62,7 +62,7 @@ All active OpenMRS remotes were fetched with pruning before M2 edits.
 | Repository | Tested head | Reconciliation result |
 |---|---|---|
 | med-agent-hub | `bbb369c` | PR #13 ports drug-safety follow-through, requires explicit kilogram units, enforces every product envelope, and selects available defaults in the hub |
-| chartsearchai | `ea1f763` | PR #26 is a fixed-endpoint hub relay and persists interrupted In-Depth plus safety warnings for reload |
+| chartsearchai | `e6bb4de` | PR #26 is a fixed-endpoint hub relay, persists interrupted In-Depth and safety warnings, and preserves terminal In-Depth across a missing final envelope |
 | chartsearchai-esm | `38a8ce3` | PR #12 excludes progressive preview, uses only hub-authoritative defaults, and prevents interrupted In-Depth from hydrating as pending |
 | querystore | `3f54b8b` | PR #63 rebased onto upstream `a10faa3` without a feature-tree change |
 
@@ -229,16 +229,16 @@ existing PR heads were updated with exact force-with-lease checks.
 | Check | Result |
 |---|---|
 | Hub drug-safety follow-through | Pass: 263 tests; weight observations require explicit kilogram units; every product envelope enforces temporal checks; authoritative available-default selection passes |
-| ChartSearchAI module | Pass: clean packaged OMOD; 82 current tests with no failures, errors, or skips; interruption persistence and safety-warning reload are covered |
+| ChartSearchAI module | Pass: clean packaged OMOD; 83 current tests with no failures, errors, or skips; pending interruption, terminal EOF, and safety-warning reload are covered |
 | Thin relay boundary | Pass: no bundled inference, Java stage decomposition, Java grounding/safety/context pipeline, Querystore dependency, client endpoint switching, or bundled serving weights |
 | ESM contracts | Pass: TypeScript and lint clean; 173 tests; production build succeeds with the existing asset-size warning only |
 | Profile discovery | Pass: product-only metadata, authoritative labels/default, unavailable-state handling, and profile-only request tests |
 | Lifecycle persistence | Pass: fast Answer, validation update, In-Depth, same-message update, hydration, multi-turn, and cancellation unit/contract tests |
 | Querystore PR #63 | Pass: rebased onto all nine classified upstream commits; 471 tests with no failures/errors and two optional-model eval skips |
 | Documentation drift | Pass: all seven repositories scanned; 19 marked historical files allowed |
-| Remote PR CI | In progress: refreshed checks are running for hub `bbb369c`, ChartSearchAI `ea1f763`, and ESM `38a8ce3`; Querystore `3f54b8b` remains green |
+| Remote PR CI | In progress: hub `bbb369c` and ESM `38a8ce3` are green; refreshed checks are running for ChartSearchAI `e6bb4de`; Querystore `3f54b8b` remains green |
 | Stage-refactor matrix | Pass for all M2-owned checks at the reconciled heads; only the live multi-turn/preempt checks reserved for M3 are pending because `RUN_E2E=1` was not set |
-| Independent review | Remediated; re-review pending: all five reproduced findings now have runtime fixes or fixed-range controls plus regression tests |
+| Independent review | Remediated; final targeted re-review pending: the first re-review confirmed four fixes and found terminal In-Depth could be overwritten on EOF; `e6bb4de` adds a separate terminal-state guard and red-first regression |
 
 ## Milestones
 
@@ -271,7 +271,7 @@ existing PR heads were updated with exact force-with-lease checks.
 | G14 Drug-safety parity | Pass | Hub parity, unit-safe weight, Java assistant-wire persistence, and history rehydration contracts pass |
 | G15 Thin OpenMRS relay | Pass | Java has one fixed hub endpoint and one profile request; legacy inference/discovery/grounding/context code and the Querystore dependency are deleted |
 | G16 Product discovery | Pass | Hub availability plus explicit `selection_priority` produces at most one available default; ESM never invents a list-order fallback |
-| G17 Lifecycle UX | Pass | Java persists interrupted In-Depth as failed, ESM mirrors it locally, and legacy hydrated pending rows are rendered as interrupted rather than spinning forever |
+| G17 Lifecycle UX | Pass | Java fails only genuinely pending In-Depth, preserves terminal results across EOF, ESM mirrors interruption locally, and legacy hydrated pending rows cannot spin forever |
 | G18 Multi-turn and cancellation | Pending | Java and ESM unit/contract tests pass; final deployed preempt/disconnect proof remains in M3 |
 | G19 Local setup | Fail | Canonical portable `chartsearchai-local` command does not yet exist |
 | G20 Performance | Pending | Warm E4B benchmark not yet run |
