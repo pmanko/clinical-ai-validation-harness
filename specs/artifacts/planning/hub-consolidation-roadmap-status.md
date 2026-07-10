@@ -138,8 +138,8 @@ M1 G04 work, while M0 G06 correctly freezes the existing raw-leg batch envelopes
 
 ## M1 Verification
 
-med-agent-hub consolidation commit `1ca429b`, plus review remediation `31e6037`, is pushed on
-`origin/feat/hub-context-grounding`. It replaces the
+med-agent-hub PR #12 was squash-merged to `main` as `7869c62`. Its tree is byte-identical to the
+tested consolidation/review head `31e6037`. It replaces the
 flag-driven runner matrix with compiled profiles and one stream-and-drain stage engine, adds the
 provider-neutral evidence ledger and exact context selector, enforces Answer and In-Depth safety,
 and deletes the unused A2A/MCP/SDK runtime. The commit removes 8,594 lines and adds 7,992, a net
@@ -155,7 +155,7 @@ reduction of 602 lines while adding the required context and safety contracts.
 | Proof integrity | Pass: artifact validates current comparison-set, hub-code, and router-config hashes |
 | Documentation drift | Pass: all seven repositories scanned; 19 marked historical files allowed |
 | Hub-scope acceptance gates | Pass: G04-G14 all green; G15 onward remain protected M2-M4 work |
-| Remote reachability | Pass: hub commit `31e6037` is contained by `origin/feat/hub-context-grounding` |
+| Remote reachability | Pass: hub merge commit `7869c62` is the head of `origin/main` |
 
 The first independent M1 review reproduced seven blockers that the original checks had missed:
 task-local budget loss between streamed events, inherited In-Depth grounding verdicts, a fallback
@@ -169,8 +169,9 @@ backend bearer authentication during profile discovery, removes invented OpenMRS
 credentials, rejects partial Querystore configuration at startup, preserves explicit source
 failures, and corrects the stale empty-chart docstring. The paired parent change removes Compose
 credential defaults and requires a least-privileged `Get Patients` service account. Local hub and
-parent suites pass. Hub unit/contract and Docker checks are green on `31e6037`; parent GitHub
-Actions run `29121901758` passed the full harness suite and changed-line coverage on `59c2df4`.
+parent suites pass. Hub unit/contract and Docker checks are green on the tree-identical tested head
+`31e6037`; parent GitHub Actions run `29121901758` passed the full harness suite and changed-line
+coverage on `59c2df4`. PR #12 was then squash-merged as `7869c62` with no tree delta.
 
 The first refreshed parent PR #33 run after M1 failed because GitHub Actions checked out the parent
 without submodules while run metadata now resolves authoritative profile configuration from the
@@ -188,7 +189,7 @@ Node 20-based action runtimes; GitHub currently forces those actions to Node 24.
 |---|---|---|
 | R0 Persist roadmap | Complete | Roadmap/status/index committed and pushed at `d734df9`; post-copy validation is recorded above |
 | M0 Stabilize baseline | Complete | All refreshed pins are reachable, upstream deltas are classified, raw-leg goldens are pinned, and the independent re-review has no blocker |
-| M1 Consolidate hub | Complete | Hub `31e6037` is pushed; 246 hub tests, 569 parent tests, hash-bound context proof, independent re-review, review remediation, and companion CI pass. Awaiting User Signoff B. |
+| M1 Consolidate hub | Complete | Hub PR #12 is merged at `7869c62`; 246 hub tests, 569 parent tests, hash-bound context proof, independent re-review, review remediation, and companion CI pass. Awaiting User Signoff B. |
 | M2 Reconcile OpenMRS integration | Blocked by signoff | Requires User Signoff B |
 | M3 Product/local proof | Pending | Requires M2 completion and User Signoff C |
 | M4 Evaluation and release | Pending | Requires M3 completion and User Release Signoff D |
@@ -198,11 +199,11 @@ Node 20-based action runtimes; GitHub currently forces those actions to Node 24.
 | Gate | Status | Current evidence |
 |---|---|---|
 | G01 Roadmap integrity | Pass | Structure/link validation passed; approved SHA-256 recorded above |
-| G02 Baseline integrity | Pass | Hub #12 and parent PR #33 checks are green on the remediated companion heads; pins are remote-reachable |
+| G02 Baseline integrity | Pass | Hub #12 is merged, parent PR #33 checks are green, and pins are default-branch-reachable |
 | G03 Upstream reconciliation | Pass | Every incoming commit across the parent and all six submodules is absent or has a repository-bound keep/port/exclude disposition |
 | G04 One engine | Pass | Streaming and blocking drain one `StageEngine`; old runners/flag bridge are deleted; cancellation and budget context tests pass |
 | G05 Profile correctness | Pass | Profiles compile immutable stage plans, invalid order fails, unknown IDs return `model_not_found`, and metadata is authoritative |
-| G06 Raw-leg compatibility | Pass | Five byte-exact pre-refactor envelopes, including all three raw legs, remain green at pushed hub commit `31e6037`; the complete 246-test suite passes |
+| G06 Raw-leg compatibility | Pass | Five byte-exact pre-refactor envelopes remain green; merged hub `7869c62` is tree-identical to tested head `31e6037`, where the complete 246-test suite passed |
 | G07 Source independence | Pass | Inline, optional Querystore, static KB, and mock alternate adapters share one normalized source contract; hub starts without Querystore |
 | G08 Context budgeting | Pass | Every product envelope requires exact tokenizer-backed budgeting; actual chat payloads are counted and capped before backend calls |
 | G09 Context quality | Pass | Hash-bound proof retains 48/48 required sources over 12 E4B/12B cells within exact budgets |
