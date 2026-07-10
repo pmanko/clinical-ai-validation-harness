@@ -2,7 +2,7 @@
 # scripts/loadtest-up.sh
 # Bring up the hermetic loadback test surface: an `openmrs_test` schema
 # that's a clone of the live CIEL-loaded `openmrs` schema. This is the
-# canvas the dlt loader writes into during Phase 5 iteration. Keeping
+# canvas the direct loader writes into during iteration. Keeping
 # loadback against `openmrs_test` instead of the live `openmrs` means
 # bad iterations don't destroy the clean CIEL baseline (recovery via
 # `make ciel-baseline` is ~30 min).
@@ -10,7 +10,7 @@
 # Strategy: mariadb-dump the live `openmrs` schema (Liquibase-applied
 # 2.8 schema + CIEL concepts + stock 50 patients) and stream-load it
 # into `openmrs_test`. ~1-2 min depending on data size. The stock 50
-# patients are overwritten by the dlt loader's `replace` disposition.
+# patients are overwritten by the loader's `replace` disposition.
 #
 # Usage:
 #   ./scripts/loadtest-up.sh                  # default
@@ -25,7 +25,7 @@ DB_ROOT_PASS="${MYSQL_ROOT_PASSWORD:-openmrs}"
 DB_USER="${OMRS_DB_USER:-openmrs}"
 SOURCE_DB="${SOURCE_DB:-openmrs}"
 TARGET_DB="${TARGET_DB:-openmrs_test}"
-STAGING_DB="${STAGING_DB:-${TARGET_DB}_dlt}"
+LEGACY_STAGING_DB="${TARGET_DB}_dlt"   # obsolete staging schema, dropped below if a stale one lingers
 FORCE=0
 
 while [[ $# -gt 0 ]]; do
@@ -63,15 +63,13 @@ if [[ "$TARGET_EXISTS" == "1" ]] && [[ "$FORCE" != "1" ]]; then
   [[ ! "$REPLY" =~ ^[Yy]$ ]] && { echo "Aborted."; exit 1; }
 fi
 
-echo "Dropping + recreating '${TARGET_DB}' and '${STAGING_DB}'..."
+echo "Dropping + recreating '${TARGET_DB}' (+ dropping legacy '${LEGACY_STAGING_DB}')..."
 docker exec "$DB_CONTAINER" mariadb \
   --user=root --password="$DB_ROOT_PASS" \
   -e "DROP SCHEMA IF EXISTS \`${TARGET_DB}\`;
-      DROP SCHEMA IF EXISTS \`${STAGING_DB}\`;
+      DROP SCHEMA IF EXISTS \`${LEGACY_STAGING_DB}\`;
       CREATE SCHEMA \`${TARGET_DB}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
-      CREATE SCHEMA \`${STAGING_DB}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
       GRANT ALL PRIVILEGES ON \`${TARGET_DB}\`.* TO '${DB_USER}'@'%';
-      GRANT ALL PRIVILEGES ON \`${STAGING_DB}\`.* TO '${DB_USER}'@'%';
       FLUSH PRIVILEGES;"
 
 # Get rough source size for progress feedback.
@@ -103,7 +101,7 @@ time docker exec "$DB_CONTAINER" sh -c "
     '${TARGET_DB}'
 "
 
-# Clear the stock RefApp demo-patient clinical-detail tables that the dlt load
+# Clear the stock RefApp demo-patient clinical-detail tables that the load
 # does NOT replace. Their rows belong to the RefApp's stock ~50 demo patients
 # (seeded by referencedemodata), not our corpus, and would dangle once our
 # remapped patients overwrite person/encounter/obs. Emptying them here yields a
@@ -134,5 +132,5 @@ SELECT
 \G"
 
 echo ""
-echo "OK. Next: run dlt loader to overwrite the stock clinical data with the transformed legacy corpus."
+echo "OK. Next: run the direct loader to overwrite the stock clinical data with the transformed legacy corpus."
 echo "  make load-test"

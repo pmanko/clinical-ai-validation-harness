@@ -1,9 +1,9 @@
 """Idempotency: re-running the loader without input changes produces stable
 row counts and stable promoted clinical table content in openmrs_test.
 
-Per /speckit-analyze H3. Per research.md §R-load-pattern, the dlt
-``write_disposition='replace'`` semantics guarantee that re-running on
-identical staging input yields identical row counts. Promoted-row UUIDs
+Per /speckit-analyze H3. Per research.md §R-load-pattern, the loader's
+``replace`` (TRUNCATE+INSERT) semantics guarantee that re-running on
+identical snapshot input yields identical row counts. Promoted-row UUIDs
 are deterministic name-based UUIDs (research.md §R-typed-table-promotion
 Q2), so this test also checks content fingerprints for the promoted
 clinical tables rather than tolerating UUID drift.
@@ -141,12 +141,12 @@ def test_loaded_row_counts_match_audit_floors():
 
 
 def test_rerun_loader_produces_stable_row_counts():
-    """Run the dlt+promote pipeline twice; assert row counts and promoted content are identical."""
+    """Run the loader twice; assert row counts and promoted content are identical."""
     pre_counts = {t: _row_count(t) for t in CLINICAL_TABLES_MIN_ROWS}
     pre_checksums = {t: _content_checksum(t) for t in PROMOTED_TABLE_CHECKSUM_SQL}
 
-    # Re-run: dlt pipeline picks up its prior state; replace-disposition
-    # tables get TRUNCATE+INSERT cycle, merge tables get INSERT IGNORE (no-op).
+    # Re-run: replace-disposition tables get a TRUNCATE+INSERT cycle, merge
+    # tables get INSERT IGNORE (no-op) — deterministic on identical snapshots.
     proc = subprocess.run(
         [sys.executable, "-m", "harness.load", "run",
          "--target", "openmrs_test"],

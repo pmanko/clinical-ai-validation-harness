@@ -1,0 +1,12 @@
+{
+  "id": "temporal-verify",
+  "scenario_ids": [
+    "am-last-visit",
+    "am-last-visit-detail",
+    "am-weight-trend",
+    "am-cd4-history"
+  ],
+  "backend_ids": [
+    "12b-answer-hub"
+  ]
+}

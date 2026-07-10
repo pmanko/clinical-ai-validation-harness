@@ -13,7 +13,7 @@ export UV_PROJECT_ENVIRONMENT
         chartsearch-esm-build chartsearch-esm-dev cloud-deploy-esm \
         llama-router-up llama-router-models \
         med-agent-hub-build med-agent-hub-up med-agent-hub-logs med-agent-hub-restart med-agent-hub-test \
-        validate-run validate-publish \
+        validate-preflight validate-run validate-judge-prep validate-judge-finalize validate-publish \
         cloud-init cloud-sync cloud-up cloud-down cloud-reset cloud-deploy cloud-seed \
         cloud-start cloud-stop cloud-ssh cloud-logs cloud-status cloud-destroy
 
@@ -80,10 +80,11 @@ loadtest-down:
 
 # --- Phase 5D: load + verify + dump ---
 
-# Run the SQLMesh+dlt loader: refapp_28_demo snapshots → openmrs_test_dlt → <target>.
-# Default target `openmrs_test` is the HERMETIC iteration surface (drop+recreate
-# freely; live `openmrs` untouched). Promote the canonical load with TARGET=openmrs
-# — that is the proper deliverable (the corpus the backend + cloud-seed serve).
+# Run the direct loader: refapp_28_demo SQLMesh snapshots → <target> (default
+# openmrs_test, the build schema). No dlt, no staging schema — INSERT…SELECT
+# straight from the resolved snapshots. The build schema is packaged by
+# `make dump-loaded SOURCE=openmrs_test` and instances are provisioned FROM that
+# dump via `make seed` / `make cloud-seed` — never an in-place promote.
 load-test:
 	$(UV) run python -m harness.load run --target $(or $(TARGET),openmrs_test)
 
@@ -255,8 +256,12 @@ chartsearch-backend:
 	  docker exec harness-openmrs-db mariadb -u"$${OMRS_DB_USER:-openmrs}" -p"$${OMRS_DB_PASSWORD:-openmrs}" "$${OMRS_DB_NAME:-openmrs}" \
 	    -e "INSERT INTO global_property (property,property_value,uuid) VALUES ('querystore.backend','$(BACKEND)',UUID()) ON DUPLICATE KEY UPDATE property_value='$(BACKEND)'"
 	@if [ "$(BACKEND)" = "elasticsearch" ]; then \
-	  echo "==> starting elasticsearch service (profile)"; \
-	  docker compose -f compose/openmrs-2.8-refapp.yml --profile elasticsearch up -d elasticsearch; \
+	  echo "==> elasticsearch backend: enabling querystore.bootstrap.autostart (self-index the whole corpus on boot)"; \
+	  set -a; [ -f .env.chartsearch ] && . ./.env.chartsearch; set +a; \
+	  docker exec harness-openmrs-db mariadb -u"$${OMRS_DB_USER:-openmrs}" -p"$${OMRS_DB_PASSWORD:-openmrs}" "$${OMRS_DB_NAME:-openmrs}" \
+	    -e "INSERT INTO global_property (property,property_value,uuid) VALUES ('querystore.bootstrap.autostart','true',UUID()) ON DUPLICATE KEY UPDATE property_value='true'"; \
+	  echo "==> starting elasticsearch service"; \
+	  docker compose -f compose/openmrs-2.8-refapp.yml up -d elasticsearch; \
 	fi
 	@echo "==> recreating backend (re-wires querystore at startup)"
 	@set -a; [ -f .env.chartsearch ] && . ./.env.chartsearch; set +a; \
@@ -271,32 +276,27 @@ chartsearch-backend:
 	@$(MAKE) chartsearch-configure
 	@echo "==> querystore now on $(BACKEND); open a patient / run a search to (re)index into it"
 
-# Switch chartsearchai's LLM engine: `remote` (OpenAI-compat endpoint) or
-# `local` (the module's OWN bundled llama-server, in-process on the backend —
-# the out-of-the-box shape). Recreates the backend so backend-init.sh can pull
-# the ~5GB GGUF for local, then re-runs configure to set the engine GPs.
-#   make chartsearch-engine ENGINE=local     # bundled llama-server (downloads GGUF)
-#   make chartsearch-engine ENGINE=remote    # back to the configured endpoint
+# Recreate the backend against the OpenAI-compat endpoint configured in .env.chartsearch (Med
+# Agent Hub / LM Studio / cloud) and re-run configure. chartsearchai has no bundled local LLM —
+# the whole in-process llama-server subsystem was removed; `remote` is the only engine.
 chartsearch-engine:
-	@if [ -z "$(ENGINE)" ]; then echo "usage: make chartsearch-engine ENGINE=local|remote"; exit 1; fi
-	@case "$(ENGINE)" in local|remote) ;; *) echo "ENGINE must be local|remote (got: $(ENGINE))"; exit 1;; esac
-	@echo "==> chartsearchai.llm.engine -> $(ENGINE) (recreating backend)"
+	@if [ -n "$(ENGINE)" ] && [ "$(ENGINE)" != "remote" ]; then \
+	  echo "ENGINE=$(ENGINE) is not supported: chartsearchai has no bundled local LLM engine" >&2; \
+	  echo "(the in-process llama-server subsystem was removed) — only ENGINE=remote exists." >&2; \
+	  exit 1; \
+	fi
+	@echo "==> chartsearchai.llm.engine -> remote (recreating backend)"
 	@set -a; [ -f .env.chartsearch ] && . ./.env.chartsearch; set +a; \
-	  CHARTSEARCH_LLM_ENGINE=$(ENGINE) docker compose -f compose/openmrs-2.8-refapp.yml up -d --force-recreate backend
+	  CHARTSEARCH_LLM_ENGINE=remote docker compose -f compose/openmrs-2.8-refapp.yml up -d --force-recreate backend
 	@observed=0; for i in $$(seq 1 60); do \
 	  s=$$(docker inspect -f '{{.State.Health.Status}}' harness-openmrs-backend 2>/dev/null || echo starting); \
-	  if [ "$$s" = "healthy" ]; then echo "    healthy after $$((i*5))s on engine=$(ENGINE)"; observed=1; break; fi; \
+	  if [ "$$s" = "healthy" ]; then echo "    healthy after $$((i*5))s"; observed=1; break; fi; \
 	  sleep 5; \
 	done; \
 	if [ "$$observed" != "1" ]; then echo "ERROR: backend not healthy after 5 min" >&2; exit 1; fi
 	@echo "==> chartsearch-configure (engine + model GPs)"
-	@CHARTSEARCH_LLM_ENGINE=$(ENGINE) $(MAKE) chartsearch-configure
-	@if [ "$(ENGINE)" = "local" ]; then \
-	  echo "==> engine=local: the ~5GB GGUF downloads in the background on the backend;"; \
-	  echo "    chart search returns errors until it finishes. Watch: docker logs -f harness-openmrs-backend"; \
-	else \
-	  echo "==> engine=remote: using the configured OpenAI-compat endpoint"; \
-	fi
+	@CHARTSEARCH_LLM_ENGINE=remote $(MAKE) chartsearch-configure
+	@echo "==> using the configured OpenAI-compat endpoint"
 
 # Pre-load LM Studio models with the configured context length and write
 # persistent per-model defaults. Prevents JIT-reload-with-default-context
@@ -314,6 +314,13 @@ chartsearch-up:
 	fi
 	@echo "==> chartsearch-build (mvn package + drop .omod)"
 	@$(MAKE) chartsearch-build
+	@set -a && . ./.env.chartsearch && set +a && \
+	  case "$${CHARTSEARCH_REMOTE_ENDPOINT_URL:-}" in \
+	    *med-agent-hub*) \
+	      echo "==> configured endpoint targets med-agent-hub — bringing it up (chartsearch-configure needs it reachable)"; \
+	      $(MAKE) med-agent-hub-up || exit 1 ;; \
+	    *) echo "==> configured endpoint ($${CHARTSEARCH_REMOTE_ENDPOINT_URL:-unset}) is not med-agent-hub — skipping it" ;; \
+	  esac
 	@echo "==> docker compose up (frontend+gateway on :nightly-chartsearch tag, backend env wired)"
 	@set -a && . ./.env.chartsearch && set +a && \
 	  docker compose -f compose/openmrs-2.8-refapp.yml up -d --force-recreate proxy db frontend gateway backend
@@ -329,6 +336,9 @@ chartsearch-up:
 	@echo "==> chartsearch-warmup (LM Studio model preload + persistent defaults)"
 	@$(MAKE) chartsearch-warmup
 	@echo "==> chartsearch-up complete"
+	@set -a && . ./.env.chartsearch && set +a && \
+	  curl -fsS -m 3 http://localhost:8077/v1/models >/dev/null 2>&1 || \
+	  echo "NOTE: llama-router (:8077) is not reachable — start it with 'make llama-router-up' before asking a question, or chat requests will fail."
 
 # Verify chartsearchai prerequisites: backend container can reach the LLM
 # endpoint (LM Studio / Anthropic / etc.), models are available, module is
@@ -411,11 +421,13 @@ cloud-destroy:    ## tear down VM + firewall + static IP (FORCE=1 to skip prompt
 	  --project=$${GCP_PROJECT:-clinical-ai-harness} --quiet || true; \
 	gcloud compute addresses delete $${GCP_STATIC_IP_NAME:-harness-chartsearch-ip} \
 	  --region=$${GCP_REGION:-us-central1} --project=$${GCP_PROJECT:-clinical-ai-harness} --quiet || true
-# Promote the loaded, verified-clean openmrs_test into the live `openmrs` schema
-# the RefApp backend reads, then restart the backend. GATED on FR-013 (refuses
-# to promote a schema with orphan FKs). Override PROMOTE_SOURCE_DB/PROMOTE_TARGET_DB.
-promote:
-	./scripts/promote.sh
+# Provision the local `openmrs` instance FROM the portable demo-data dump — OpenMRS's
+# native path: restore into a fresh DB, the backend boots, Liquibase reconciles on
+# top, chartsearchai installs itself fresh. Replaces the retired in-place promote.
+# Defaults to the newest dump-loaded artifact; FROM_SCHEMA=openmrs_test dumps-then-seeds
+# in one step; DUMP=path for an explicit file; TARGET=schema to override `openmrs`.
+seed:
+	./scripts/seed-local.sh $(if $(FROM_SCHEMA),--from-schema $(FROM_SCHEMA)) $(if $(DUMP),--dump $(DUMP)) $(if $(TARGET),--target $(TARGET))
 
 
 setup:
@@ -439,12 +451,66 @@ validate-plan: setup
 # stack up (backend + DB + LM Studio + med-agent-hub). Override the set with
 # `make validate-run SET=<comparison-set-id>` (default: demo).
 SET ?= demo
-validate-run: setup
-	$(UV) run harness-cli validate run $(SET)
+
+# Make the stack run-ready for a validate run, in one command: core stack + Elasticsearch +
+# med-agent-hub + llama-router up & verified, and the SET's patients projected into the querystore
+# (autostart=false → nothing indexes on boot). Surfaces a down/mis-indexed component as a clear
+# failure up front. `make validate-preflight SET=<set> [TIER=med]` (TIER picks the router co-residency cap).
+TIER ?= med
+
+# Live dashboard (scripts/validate-dashboard.py, :8099) — auto-started by any validate run/preflight,
+# idempotent (skips if already up). It auto-tracks the newest run, so it always shows the run in
+# progress. No more manual launching.
+dashboard-ensure:
+	@curl -fsS -m2 http://localhost:8099/ >/dev/null 2>&1 \
+	  || { echo "==> starting validate-dashboard on :8099"; mkdir -p artifacts; \
+	       nohup $(UV) run python scripts/validate-dashboard.py >artifacts/dashboard.log 2>&1 & sleep 2; }
+
+validate-preflight: setup dashboard-ensure
+	$(UV) run ./scripts/validate-preflight.sh $(SET) $(TIER)
+
+# The run's simulated "now": ONE value drives the hub temporal anchor (HUB_ANCHOR = the model's "now")
+# AND the judge (--reference-date, recorded per row) so model == judge (P0b). Override per dataset/run.
+REFERENCE_DATE ?= 2026-06-20
+validate-run: setup dashboard-ensure
+	HUB_ANCHOR=$(REFERENCE_DATE) docker compose -f compose/openmrs-2.8-refapp.yml up -d med-agent-hub
+	$(UV) run harness-cli validate run $(SET) --reference-date $(REFERENCE_DATE)
+
+# Judge a completed run with the Claude-agent clinical-answer-scoring fan-out. The fan-out itself
+# (one Claude judge per cell) is a Claude Workflow, not shell-invocable; these two targets are its
+# deterministic halves, run either side of it:
+#   1. make validate-judge-prep RUN=<id>                       -> judge-cells.jsonl (section split + resolve_citations + chart snapshots)
+#   2. <run the clinical-answer-scoring fan-out over judge-cells.jsonl, save its rows to rows.json>
+#   3. make validate-judge-finalize RUN=<id> ROWS=<rows.json>  -> judge.jsonl (drops temporal-when-no-claim) + re-render report
+#      Optional independent passes: add JUDGE_ACTOR=<id> to write judges/<id>/judge.jsonl.
+#      Add JUDGE_PROMOTE=1 to also promote that actor pass to root judge.jsonl for the report.
+validate-judge-prep: setup
+	$(UV) run python scripts/judge-prep.py $(RUN)
+
+validate-judge-finalize: setup
+	$(UV) run python scripts/judge-finalize.py $(RUN) $(ROWS) \
+		$(if $(JUDGE_ACTOR),--actor $(JUDGE_ACTOR),) $(if $(JUDGE_PROMOTE),--promote,)
+	@if [ -z "$(JUDGE_ACTOR)" ] || [ -n "$(JUDGE_PROMOTE)" ]; then \
+	  $(UV) run harness-cli validate report $(RUN); \
+	else \
+	  echo "judge actor stored; root judge.jsonl unchanged; skipping report render (set JUDGE_PROMOTE=1 to promote)"; \
+	fi
 
 # Render report.html for a completed run: `make validate-report RUN=<run_id>`.
 validate-report: setup
 	$(UV) run harness-cli validate report $(RUN)
+
+# Guided human review of a judged run: sample cells (triage|standard|full|N), present each
+# against the chart, and record human scores to adjudication.jsonl (resumable). Interactive by
+# default; pass FROM=<answers.json> for the scripted/non-interactive path.
+#   make validate-adjudicate RUN=<id> [REVIEW=triage] [REVIEWER=<id>] [TIER=owner] [FROM=<answers.json>]
+.PHONY: validate-adjudicate
+REVIEW ?= triage
+REVIEWER ?= local
+ADJ_TIER ?= owner
+validate-adjudicate: setup
+	$(UV) run harness-cli validate adjudicate $(RUN) --review $(REVIEW) \
+		--reviewer $(REVIEWER) --tier $(ADJ_TIER) $(if $(FROM),--from $(FROM),)
 
 clean-venv:
 	rm -rf $(UV_PROJECT_ENVIRONMENT)

@@ -19,9 +19,8 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "${ROOT}"
 
-# Load env file if present. An explicitly-exported CHARTSEARCH_LLM_ENGINE (e.g.
-# from `make chartsearch-engine ENGINE=local`) must win over the file default,
-# so capture it before sourcing and restore it after.
+# Load env file if present. An explicitly-exported CHARTSEARCH_LLM_ENGINE must win over the
+# file default, so capture it before sourcing and restore it after.
 _OVERRIDE_ENGINE="${CHARTSEARCH_LLM_ENGINE:-}"
 if [ -f .env.chartsearch ]; then
   set -a
@@ -51,6 +50,14 @@ ADMIN_PASS="${CHARTSEARCH_ADMIN_PASSWORD:-Admin123}"
 rc() { if [ -n "${EXEC}" ]; then docker exec "${EXEC}" curl "$@"; else curl "$@"; fi; }
 
 ENGINE="${CHARTSEARCH_LLM_ENGINE:-remote}"
+if [ "${ENGINE}" != "remote" ]; then
+  echo "error: CHARTSEARCH_LLM_ENGINE=${ENGINE} is not supported." >&2
+  echo "  chartsearchai now relays chat to an OpenAI-compatible endpoint;" >&2
+  echo "  local serving should run behind that endpoint, usually med-agent-hub." >&2
+  echo "  Unset CHARTSEARCH_LLM_ENGINE" >&2
+  echo "  or set it to 'remote' in .env.chartsearch." >&2
+  exit 1
+fi
 ENDPOINT="${CHARTSEARCH_REMOTE_ENDPOINT_URL:?must be set in .env.chartsearch}"
 MODEL="${CHARTSEARCH_REMOTE_MODEL_NAME:-}"
 
@@ -102,15 +109,6 @@ set_property "chartsearchai.llm.engine"             "${ENGINE}"
 set_property "chartsearchai.llm.remote.endpointUrl" "${ENDPOINT}"
 set_property "chartsearchai.llm.remote.modelName"   "${MODEL}"
 
-# Local (bundled llama-server) engine: point the module at the GGUF that
-# backend-init.sh downloads into /openmrs/data/chartsearchai (path relative to
-# the app data dir). Only meaningful when ENGINE=local; harmless otherwise, but
-# we only set it for local to avoid implying a local model exists under remote.
-if [ "${ENGINE}" = "local" ]; then
-  set_property "chartsearchai.llm.modelFilePath" \
-    "${CHARTSEARCH_LOCAL_MODEL_FILE:-chartsearchai/gemma-4-E4B-it-Q4_K_M.gguf}"
-fi
-
 # Optional endpoint registry for the picker's per-endpoint sections (LM Studio,
 # Med Agent Hub, ...). JSON array of {label,url}; single-quote it in
 # .env.chartsearch so the shell preserves the inner quotes. Unset -> the picker
@@ -120,25 +118,14 @@ if [ -n "${ENDPOINTS_JSON}" ]; then
   set_property "chartsearchai.llm.remote.endpoints" "${ENDPOINTS_JSON}"
 fi
 
-# Querystore (CQRS read-store) retrieval. On by default; set
-# CHARTSEARCH_QUERYSTORE_ENABLED=false to fall back to chartsearchai's in-process
-# retrieval. The embedding model + vocab are the files backend-init.sh downloads
-# into /openmrs/data/chartsearchai (paths relative to the app data dir); both are
-# read per-query, so setting them here (post-startup, after the backend is
-# healthy) takes effect on the next search with no restart.
-#
-# querystore.backend is intentionally NOT set here: QueryStoreActivator wires the
-# store once at module startup, so a post-startup change wouldn't take effect
-# without a restart. The single-step path therefore uses the module default
-# (mysql, wired at startup); it serves identically to lucene.
-QUERYSTORE_ENABLED="${CHARTSEARCH_QUERYSTORE_ENABLED:-true}"
+# Querystore (CQRS read-store) retrieval model. chartsearchai no longer has an
+# in-process retrieval fallback; querystore owns indexing and chart projection.
+# The embedding model + vocab are the files backend-init.sh downloads into
+# /openmrs/data/chartsearchai (paths relative to the app data dir).
 echo ""
-echo "Configuring querystore (enabled=${QUERYSTORE_ENABLED}):"
-set_property "chartsearchai.querystore.enabled"     "${QUERYSTORE_ENABLED}"
-if [ "${QUERYSTORE_ENABLED}" = "true" ]; then
-  set_property "querystore.embedding.modelFilePath" "chartsearchai/model.onnx"
-  set_property "querystore.embedding.vocabFilePath" "chartsearchai/vocab.txt"
-fi
+echo "Configuring querystore:"
+set_property "querystore.embedding.modelFilePath" "chartsearchai/model.onnx"
+set_property "querystore.embedding.vocabFilePath" "chartsearchai/vocab.txt"
 
 echo ""
 echo "Module status:"

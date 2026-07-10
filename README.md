@@ -143,28 +143,30 @@ The chartsearchai adapter (feature 004) and its Med Agent Hub team are operated 
 wrap the build, the LLM engine, the retrieval backend, and the per-endpoint model picker:
 
 The **canonical LLM path** is chartsearchai → Med Agent Hub (`:8080`) → llama-router (`:8077`): a llama.cpp
-Router Mode server serving the tier GGUFs the hub maps its per-role models onto. LM Studio (`:1234`) and the
-module's bundled in-process `llama-server` remain configurable alternatives.
+Router Mode server serving the tier GGUFs the hub maps its per-role models onto. LM Studio (`:1234`) is a
+configurable alternative remote endpoint. chartsearchai has no bundled local LLM — every chat request relays
+to a configured remote endpoint. The default chat model is the fast checked single profile
+(`single-e4b-checked`); larger singles and team profiles are picker choices for slower/deeper questions.
 
 ```bash
-# Build chartsearchai's .omod from the submodule and stage it for the backend
-make chartsearch-build
-
-# Canonical local LLM backend (foreground server, own terminal). TIER=low|med|high.
+# 1. Canonical local LLM backend (foreground server, own terminal — start this FIRST).
+#    TIER=low|med|high.
 make llama-router-up                 # serves the tier GGUFs on :8077
 make llama-router-models             # probe what :8077 is serving
 
-# Bring up / configure the stack
+# 2. One command brings up everything else: builds the .omod, brings up + configures
+#    med-agent-hub (when .env.chartsearch's endpoint targets it, the default), starts
+#    the OpenMRS stack, configures chartsearchai's LLM globals, and warms LM Studio
+#    models if configured. Ask a question through the picker's default model once
+#    both steps above are done.
 make chartsearch-up
-make med-agent-hub-up               # the agent team; routes to llama-router (:8077)
-make chartsearch-configure          # sets the chartsearchai.llm.* global properties from .env.chartsearch
 
-# LLM engine — switch between the bundled local model and a remote endpoint
-make chartsearch-engine ENGINE=local     # chartsearchai's own bundled llama-server, in-process (module OOTB default)
-make chartsearch-engine ENGINE=remote    # OpenAI-compatible endpoint (Med Agent Hub / LM Studio / cloud) — harness default
-
-# LM Studio is an alternative remote endpoint; warm its models if you use it
-make chartsearch-warmup
+# Re-run individual steps as needed, e.g. after editing .env.chartsearch:
+make chartsearch-build               # rebuild + redeploy just the .omod
+make med-agent-hub-up                # (re)start the hub on its own
+make chartsearch-configure           # re-write the chartsearchai.llm.* global properties
+make chartsearch-engine              # recreate the backend against the configured remote endpoint
+make chartsearch-warmup              # LM Studio only — pre-load its models
 
 # Retrieval backend — querystore's CQRS read store tier
 make chartsearch-backend BACKEND=elasticsearch   # or lucene | mysql

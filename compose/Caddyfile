@@ -93,8 +93,8 @@
     handle @chartsearch_chat {
         reverse_proxy backend:8080 {
             transport http {
-                read_timeout 1200s
-                write_timeout 1200s
+                read_timeout 2700s
+                write_timeout 2700s
             }
         }
     }

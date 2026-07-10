@@ -5,8 +5,8 @@ name: harness-ci
 # Runs the harness test suite and enforces that changed production lines are
 # actually covered by a test. Mark this check "required" in branch protection.
 #
-# Scope: the harness repo only — `--ignore=targets` excludes the openmrs
-# submodules (they carry their own upstream CI).
+# Scope: tests execute the harness only (`--ignore=targets`), while checkout still
+# includes submodules because profile/config metadata is part of the parent contract.
 
 on:
   pull_request:
@@ -20,6 +20,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0 # diff-cover needs history to compare against the base
+          submodules: recursive
 
       - name: Install uv
         uses: astral-sh/setup-uv@v5
@@ -36,9 +37,13 @@ jobs:
         run: uv run playwright install --with-deps chromium
 
       - name: Run harness tests with coverage
+        # --cov scope must match what diff-cover gates: the gate counts changed lines in
+        # both harness/ AND scripts/, so instrument BOTH. Without --cov=scripts, changed
+        # scripts/*.py lines show 0% in diff-cover (they're absent from coverage.xml) and
+        # drag the changed-line total below the bar even when they ARE tested.
         run: |
           uv run pytest -m 'not slow' --ignore=targets \
-            --cov=harness --cov-report=xml --cov-report=term-missing
+            --cov=harness --cov=scripts --cov-report=xml --cov-report=term-missing
 
       - name: Enforce coverage on changed lines
         run: |

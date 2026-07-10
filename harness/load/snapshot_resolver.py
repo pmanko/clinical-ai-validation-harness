@@ -8,9 +8,9 @@ as views over versioned snapshot tables in a parallel schema (e.g.
   refapp_28_demo.clin__obs (VIEW)
       └── refapp_28_demo__clin__obs__3649557428 (TABLE, in sqlmesh__refapp_28_demo)
 
-For the dlt load step, we read directly from the physical snapshot tables.
-This module bridges the indirection: given a user-facing view name, return
-the underlying snapshot table name.
+The load step reads directly from the physical snapshot tables. This module
+bridges the indirection: given a user-facing view name, return the underlying
+snapshot table name.
 
 Why query view definitions rather than infer:
 - SQLMesh's snapshot fingerprint changes on every model edit, so the

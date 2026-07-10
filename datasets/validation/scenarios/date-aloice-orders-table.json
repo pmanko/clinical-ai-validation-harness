@@ -1,0 +1,24 @@
+{
+  "id": "date-aloice-orders-table",
+  "patient_ref": "dd5558ed-1691-11df-97a5-7038c432aabf",
+  "turns": [
+    {
+      "n": 1,
+      "question": "Show this patient's medication orders in the past 6 months as a table with medication name and exact order dates."
+    }
+  ],
+  "tags": [
+    "date-format",
+    "temporal",
+    "orders",
+    "table",
+    "single-turn"
+  ],
+  "expectations": {
+    "should_cite_resource_types": [
+      "MedicationRequest"
+    ],
+    "should_abstain": false,
+    "notes": "Targets order-date table corruption. With reference date 2026-06-20, in-window medication order dates include 2025-12-31 and 2026-01-07. Date cells must not become 205-12-31, 25-12-31, 2015-12-31, or underscore variants."
+  }
+}

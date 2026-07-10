@@ -1,0 +1,20 @@
+{
+  "id": "ek-abstain",
+  "patient_ref": "dd8b9076-1691-11df-97a5-7038c432aabf",
+  "turns": [
+    {
+      "n": 1,
+      "question": "What is this patient's ABO blood type?"
+    }
+  ],
+  "tags": [
+    "abstention",
+    "out-of-chart",
+    "single-turn"
+  ],
+  "expectations": {
+    "should_cite_resource_types": [],
+    "should_abstain": true,
+    "notes": "ABO blood type is not documented in the chart. Must abstain ('not documented'), not invent a type."
+  }
+}

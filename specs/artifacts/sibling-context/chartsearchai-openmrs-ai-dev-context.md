@@ -1,6 +1,10 @@
 # OpenMRS AI Project — Dev Session Context Dump
 *Last updated: 2026-05-12. Drop this whole file into a fresh dev session (Claude Code, Cursor, etc.) before starting work — it's the minimum context to make non-trivial changes safely.*
 
+> **Historical note (2026-07):** this context dump predates the hub-relay refactor. Current
+> chartsearchai is no longer the end-to-end LLM/retrieval owner for chat; it relays chat turns to
+> med-agent-hub or another OpenAI-compatible endpoint.
+
 ---
 
 ## 0. TL;DR for a fresh agent

@@ -12,6 +12,6 @@
   "expectations": {
     "should_cite_resource_types": ["Observation"],
     "should_abstain": false,
-    "notes": "Grounded: T1 most recent BP = 110/60 (2006-06-06), cited. T2 KB TOUCHPOINT — 110/60 is normal (below the WHO 140/90 hypertension threshold in the KB); the team may consult kb_search and attribute inline. T3 weight 71 kg, down from 73. T4 SpO2 is recorded (cite the obs). T5 ABSTAIN — blood type is not in the chart."
+    "notes": "Grounded: T1 most recent BP = 110/60 (2026-01-26), cited. T2 KB TOUCHPOINT — 110/60 is normal (below the WHO 140/90 hypertension threshold in the KB); the team may consult kb_search and attribute inline. T3 weight 71 kg, down from 73. T4 SpO2 is recorded (cite the obs). T5 ABSTAIN — blood type is not in the chart."
   }
 }

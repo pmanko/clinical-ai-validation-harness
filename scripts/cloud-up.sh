@@ -77,9 +77,9 @@ fi
 
 backend_preset=0
 if docker exec harness-openmrs-db mariadb -u"${OMRS_DB_USER:-openmrs}" -p"${OMRS_DB_PASSWORD:-openmrs}" "${OMRS_DB_NAME:-openmrs}" \
-     -e "INSERT INTO global_property (property,property_value,uuid) VALUES ('querystore.backend','${QUERYSTORE_BACKEND}',UUID()) ON DUPLICATE KEY UPDATE property_value='${QUERYSTORE_BACKEND}'" 2>/dev/null; then
+     -e "INSERT INTO global_property (property,property_value,uuid) VALUES ('querystore.backend','${QUERYSTORE_BACKEND}',UUID()) ON DUPLICATE KEY UPDATE property_value='${QUERYSTORE_BACKEND}'; INSERT INTO global_property (property,property_value,uuid) VALUES ('querystore.bootstrap.autostart','true',UUID()) ON DUPLICATE KEY UPDATE property_value='true'" 2>/dev/null; then
   backend_preset=1
-  echo "==> querystore.backend pre-set to ${QUERYSTORE_BACKEND}"
+  echo "==> querystore.backend pre-set to ${QUERYSTORE_BACKEND} + bootstrap.autostart=true (self-index the whole corpus on boot)"
 fi
 
 # --build so Dockerfile / backend-init.sh changes are picked up on the VM.
@@ -126,9 +126,9 @@ CHARTSEARCH_EXEC=harness-openmrs-backend ./scripts/chartsearch-configure.sh
 # so the backend booted on the default store. Set it now and restart once to wire
 # the selected backend. (Re-deploys hit the pre-set path above and skip this.)
 if [ "${backend_preset}" != "1" ]; then
-  echo "==> setting querystore.backend=${QUERYSTORE_BACKEND} + restarting backend to wire it"
+  echo "==> setting querystore.backend=${QUERYSTORE_BACKEND} + bootstrap.autostart=true + restarting backend to wire it (self-indexes the whole corpus on boot)"
   docker exec harness-openmrs-db mariadb -u"${OMRS_DB_USER:-openmrs}" -p"${OMRS_DB_PASSWORD:-openmrs}" "${OMRS_DB_NAME:-openmrs}" \
-    -e "INSERT INTO global_property (property,property_value,uuid) VALUES ('querystore.backend','${QUERYSTORE_BACKEND}',UUID()) ON DUPLICATE KEY UPDATE property_value='${QUERYSTORE_BACKEND}'"
+    -e "INSERT INTO global_property (property,property_value,uuid) VALUES ('querystore.backend','${QUERYSTORE_BACKEND}',UUID()) ON DUPLICATE KEY UPDATE property_value='${QUERYSTORE_BACKEND}'; INSERT INTO global_property (property,property_value,uuid) VALUES ('querystore.bootstrap.autostart','true',UUID()) ON DUPLICATE KEY UPDATE property_value='true'"
   docker compose -f compose/openmrs-2.8-refapp.yml restart backend
   for i in $(seq 1 120); do
     s=$(docker inspect -f '{{.State.Health.Status}}' harness-openmrs-backend 2>/dev/null || echo starting)

@@ -1,0 +1,19 @@
+{
+  "id": "ek-opportunistic",
+  "patient_ref": "dd8b9076-1691-11df-97a5-7038c432aabf",
+  "turns": [
+    {
+      "n": 1,
+      "question": "Does this patient have any opportunistic infections documented?"
+    }
+  ],
+  "tags": [
+    "oi",
+    "single-turn"
+  ],
+  "expectations": {
+    "should_cite_resource_types": [],
+    "should_abstain": false,
+    "notes": "Pneumocystis carinii pneumonia (PCP) is an active, AIDS-defining opportunistic infection in the chart. Should identify PCP; do not miss it (a missed OI is a safety-relevant omission)."
+  }
+}

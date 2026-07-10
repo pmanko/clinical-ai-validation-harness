@@ -1,0 +1,27 @@
+{
+  "id": "team-liquid-qwensynth",
+  "scenario_ids": [
+    "am-medications",
+    "am-vitals-summary",
+    "am-cd4-history",
+    "am-weight-trend",
+    "am-allergies",
+    "am-hiv-labs",
+    "am-problem-list",
+    "am-convo-safety-escalation",
+    "abstain-out-of-chart",
+    "meds-zabella",
+    "convo-regimen-review",
+    "single-hiv-status",
+    "single-cd4-history",
+    "single-problem-list",
+    "convo-safety-escalation",
+    "convo-abstention-honesty"
+  ],
+  "backend_ids": [
+    "med-agent-team-med",
+    "12b-baseline",
+    "med-agent-team-med-liquid",
+    "med-agent-team-med-liquid-qwensynth"
+  ]
+}

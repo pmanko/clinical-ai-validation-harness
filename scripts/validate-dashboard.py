@@ -15,13 +15,20 @@ import http.server
 import json
 import os
 import re
+import socket
 import socketserver
 import subprocess
+import threading
 import time
+import sys
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT))
+from harness.validate.model_registry import arm_card, arm_model_name  # noqa: E402  (sys.path set above)
+from harness.validate.reconcile import combined_judge_summary  # noqa: E402
+from harness.validate.sources import build_sources, load_scenario_chart  # noqa: E402
 DATA = ROOT / "datasets" / "validation"
 TRACE_FILE = ROOT / "artifacts" / "hub-trace" / "trace.jsonl"
 PORT = int(os.environ.get("DASH_PORT", "8099"))
@@ -102,6 +109,21 @@ def read_jsonl(p):
     except FileNotFoundError:
         pass
     return rows
+
+
+def read_judge_actors(run):
+    actors = {}
+    judges_dir = Path(run) / "judges"
+    if judges_dir.exists():
+        for path in sorted(judges_dir.glob("*/judge.jsonl")):
+            rows = read_jsonl(path)
+            if rows:
+                actors[path.parent.name] = rows
+    if not actors:
+        rows = read_jsonl(Path(run) / "judge.jsonl")
+        if rows:
+            actors["canonical"] = rows
+    return actors
 
 
 def _esc(s):
@@ -201,13 +223,38 @@ def status():
     feed = []
     for r in results[-14:]:
         m = r.get("metrics") or {}
+        ind = r.get("indepth") or {}
+        iresp = ind.get("response") or {}
+        if isinstance(iresp, str):
+            try:
+                iresp = json.loads(iresp)
+            except Exception:
+                iresp = {"answer": iresp}
         feed.append({"scenario": r.get("scenario_id"), "backend": r.get("backend_id"),
                      "turn": r.get("turn"), "status": m.get("http_status"),
                      "chars": m.get("answer_chars"),
+                     "indepth_status": ind.get("http_status"),
+                     "indepth_chars": len((iresp or {}).get("answer") or ""),
                      "ans": _esc(((r.get("response") or {}).get("answer", "") or "")[:90])})
 
+    # Structured arm makeup + config (single vanilla-chartsearchai vs med-agent-hub team) —
+    # resolved by the shared resolver, REUSED from the report. Carries the real sampler knobs,
+    # per-role system prompts, and retrieval GPs so the dashboard can render the path badge,
+    # role->model makeup, and the "how this arm is configured" panel.
+    arm_cards = {}
+    for b in back_ids:
+        try:
+            arm_cards[b] = arm_card(b)
+        except Exception:
+            arm_cards[b] = {"backend_id": b, "label": b, "kind": "unknown",
+                            "path": None, "models": [], "roles": {}, "config": {}}
+
+    judge_actors = read_judge_actors(run)
+
     return {"run": os.path.basename(run), "set": set_id, "done": len(results), "total": total,
-            "scenarios": scen_ids, "backends": back_ids, "arms": arms,
+            "scenarios": scen_ids, "backends": back_ids, "arms": arms, "arm_cards": arm_cards,
+            "judge_actors": sorted(judge_actors.keys()),
+            "judge_combined": combined_judge_summary(judge_actors, back_ids),
             "grid": grid_list, "feed": feed, "models": resident_models()}
 
 
@@ -223,17 +270,29 @@ def detail(scenario, backend):
         exp = json.load(open(DATA / "scenarios" / f"{scenario}.json")).get("expectations", {})
     except Exception:
         pass
+    chart_fixture = load_scenario_chart(scenario, DATA / "scenarios", DATA / "charts")
     traces = read_jsonl(TRACE_FILE)
     turns = []
     for r in rows:
         m = r.get("metrics") or {}
         resp = r.get("response") or {}
         refs = resp.get("references") or resp.get("citations") or []
-        tr = _match_trace(traces, backend, r.get("started_at"), r.get("ended_at"))
+        sources_v1 = build_sources(resp, chart_fixture)
+        tr = _match_trace(traces, arm_model_name(backend), r.get("started_at"), r.get("ended_at"))
+        ind = r.get("indepth") or {}
+        iresp = ind.get("response") or {}
+        if isinstance(iresp, str):
+            try:
+                iresp = json.loads(iresp)
+            except Exception:
+                iresp = {"answer": iresp}
         turns.append({"turn": r.get("turn"),
                       "question": (r.get("request") or {}).get("question", ""),
                       "answer": resp.get("answer", ""),
+                      "indepth": ({"answer": iresp.get("answer") or "", "status": ind.get("http_status"),
+                                   "latency_ms": ind.get("latency_ms")} if ind else None),
                       "blocks": resp.get("blocks") or [],
+                      "sources": sources_v1,
                       "refs": refs,
                       "status": m.get("http_status"), "latency_ms": m.get("latency_ms"),
                       "chars": m.get("answer_chars"), "citations": m.get("citation_count"),
@@ -247,116 +306,348 @@ def detail(scenario, backend):
     return {"scenario": scenario, "backend": backend, "expectations": exp, "turns": turns}
 
 
-PAGE = r"""<!doctype html><html><head><meta charset=utf-8><title>validate run</title><style>
-body{background:#0d1117;color:#c9d1d9;font:13px/1.5 -apple-system,BlinkMacSystemFont,Menlo,monospace;margin:0;padding:18px}
-h1{font-size:15px;margin:0 0 6px}.muted{color:#8b949e}.ok{color:#3fb950}.err{color:#f85149}
-.bar{height:20px;background:#161b22;border-radius:10px;overflow:hidden;margin:8px 0}
+PAGE = r"""<!doctype html><html data-theme="dark"><head><meta charset=utf-8><title>validate run</title><style>
+html[data-theme="dark"]{color-scheme:dark;--bg:#0d1117;--surface:#161b22;--surface2:#1f2937;--sunken:#0b0f14;--text:#c9d1d9;--muted:#8b949e;--faint:#586069;--border:#30363d;--border2:#21262d;--accent:#79c0ff;--accent2:#58a6ff;--purple:#d2a8ff;--ok:#3fb950;--err:#f85149;--flag:#f0883e;--pend-bg:#1a1f27;--pend-fg:#484f58;--cav-red-bg:#3d1416;--cav-red-bd:#8b1a1a;--cav-red-fg:#ffd0d0;--cav-yel-bg:#3a2e08;--cav-yel-bd:#9e6a03;--cav-yel-fg:#ffe9b3}
+html[data-theme="light"]{color-scheme:light;--bg:#f6f8fa;--surface:#ffffff;--surface2:#eef1f5;--sunken:#f0f2f5;--text:#1f2328;--muted:#656d76;--faint:#8c959f;--border:#d0d7de;--border2:#e2e6ea;--accent:#0969da;--accent2:#0969da;--purple:#8250df;--ok:#1a7f37;--err:#cf222e;--flag:#bc4c00;--pend-bg:#eef1f5;--pend-fg:#8c959f;--cav-red-bg:#fff1f1;--cav-red-bd:#cf222e;--cav-red-fg:#a2191f;--cav-yel-bg:#fcf4d6;--cav-yel-bd:#d4a72c;--cav-yel-fg:#684e00}
+.theme-toggle{position:fixed;top:14px;right:16px;z-index:50;width:32px;height:32px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;font-size:14px;line-height:1;display:flex;align-items:center;justify-content:center}
+.theme-toggle:hover{border-color:var(--accent)}
+body{background:var(--bg);color:var(--text);font:13px/1.5 -apple-system,BlinkMacSystemFont,Menlo,monospace;margin:0;padding:18px}
+h1{font-size:15px;margin:0 0 6px}.muted{color:var(--muted)}.ok{color:var(--ok)}.err{color:var(--err)}
+.bar{height:20px;background:var(--surface);border-radius:10px;overflow:hidden;margin:8px 0}
 .bar>div{height:100%;background:linear-gradient(90deg,#1f6feb,#388bfd);transition:width .4s}
 .row{display:flex;gap:12px;flex-wrap:wrap;margin:10px 0}
-.card{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:10px 12px;min-width:160px}
-.card b{font-size:13px;color:#79c0ff}
-.chip{display:inline-block;background:#1f2937;border:1px solid #30363d;border-radius:12px;padding:2px 11px;margin:3px;color:#79c0ff}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 12px;min-width:160px}
+.card b{font-size:13px;color:var(--accent)}
+.chip{display:inline-block;background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:2px 11px;margin:3px;color:var(--accent)}
 table.grid{border-collapse:collapse;margin-top:6px;font-size:11px;table-layout:fixed}
-.grid td,.grid th{border:1px solid #21262d;padding:3px 6px;text-align:center}
-.grid th{color:#8b949e;font-weight:400;white-space:nowrap}
+.grid td,.grid th{border:1px solid var(--border2);padding:3px 6px;text-align:center}
+.grid th{color:var(--muted);font-weight:400}
 .grid th:first-child,.grid td:first-child{width:210px;text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.grid th:not(:first-child),.grid td:not(:first-child){width:84px;text-align:center}
-.grid td{cursor:pointer}.grid td:hover{outline:2px solid #58a6ff}
-.c200{background:#196c2e;color:#e6ffe9}.cerr{background:#8b1a1a;color:#ffe9e9}.cpend{background:#1a1f27;color:#484f58;cursor:default}
+.grid th:not(:first-child){width:120px;text-align:center;white-space:normal;vertical-align:bottom;line-height:1.25;font-size:10.5px}
+.grid td:not(:first-child){width:120px;text-align:center}
+.grid td{cursor:pointer}.grid td:hover{outline:2px solid var(--accent2)}
+.c200{background:#196c2e;color:#e6ffe9}.cerr{background:#8b1a1a;color:#ffe9e9}.cpend{background:var(--pend-bg);color:var(--pend-fg);cursor:default}
 .crun{background:#9e6a03;color:#ffe9b3;animation:pulse 1.1s ease-in-out infinite}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
-.feed div{padding:2px 0;border-bottom:1px solid #161b22;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
-.feed div:hover{background:#161b22}
-section{margin:18px 0}h2{font-size:12px;color:#8b949e;margin:0 0 4px;text-transform:uppercase;letter-spacing:.05em}
+.feed div{padding:2px 0;border-bottom:1px solid var(--border2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
+.feed div:hover{background:var(--surface)}
+section{margin:18px 0}h2{font-size:12px;color:var(--muted);margin:0 0 4px;text-transform:uppercase;letter-spacing:.05em}
 #modal{display:none;position:fixed;inset:0;background:rgba(1,4,9,.7);z-index:10;align-items:flex-start;justify-content:center}
-#mbody{background:#0d1117;border:1px solid #30363d;border-radius:10px;max-width:820px;width:92%;max-height:88vh;overflow:auto;padding:18px;margin-top:3vh}
-.mhead{font-size:14px;margin-bottom:8px}.mhead .x{float:right;cursor:pointer;color:#8b949e;font-size:16px}
-.exp{background:#161b22;border:1px solid #30363d;border-radius:6px;padding:8px 10px;margin-bottom:10px;color:#d2a8ff}
-.turn{border-top:1px solid #21262d;padding:10px 0}.q{color:#79c0ff;margin-bottom:4px}
-.meta{font-size:11px;color:#8b949e;margin-bottom:6px}
-.ans{white-space:pre-wrap;background:#0b0f14;border:1px solid #21262d;border-radius:6px;padding:10px}
-.refs{font-size:11px;color:#8b949e;margin-top:6px}
-.block{margin-top:8px}.btitle{font-size:11px;color:#8b949e;margin-bottom:3px}
+#mbody{background:var(--surface);border:1px solid var(--border);border-radius:10px;max-width:820px;width:92%;max-height:88vh;overflow:auto;padding:18px;margin-top:3vh}
+.mhead{font-size:14px;margin-bottom:8px}.mhead .x{float:right;cursor:pointer;color:var(--muted);font-size:16px}
+.exp{background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px 10px;margin-bottom:10px;color:var(--purple)}
+.turn{border-top:1px solid var(--border2);padding:10px 0}.q{color:var(--accent);margin-bottom:4px}
+.meta{font-size:11px;color:var(--muted);margin-bottom:6px}
+.ans{white-space:pre-wrap;background:var(--sunken);border:1px solid var(--border2);border-radius:6px;padding:10px}
+.refs{font-size:11px;color:var(--muted);margin-top:6px}
+.rawrefs{margin-top:7px;border:1px solid var(--border2);border-radius:6px;background:var(--sunken)}
+.rawrefs summary{cursor:pointer;color:var(--muted);font-size:11px;padding:5px 8px;list-style:none}
+.rawrefs div{padding:0 8px 7px}
+.block{margin-top:8px}.btitle{font-size:11px;color:var(--muted);margin-bottom:3px}
 table.btbl{border-collapse:collapse;font-size:11px;width:100%}
-.btbl td,.btbl th{border:1px solid #21262d;padding:3px 7px;text-align:left;vertical-align:top}
-.btbl th{color:#8b949e;font-weight:400;white-space:nowrap}
-.btbl .cref{color:#586069;font-size:10px;margin-left:3px}
-.tracebox{margin-top:8px;border:1px solid #21262d;border-radius:6px;background:#0b0f14}
-.tracebox summary{cursor:pointer;color:#8b949e;font-size:11px;padding:6px 10px;list-style:none}
+.btbl td,.btbl th{border:1px solid var(--border2);padding:3px 7px;text-align:left;vertical-align:top}
+.btbl th{color:var(--muted);font-weight:400;white-space:nowrap}
+.rowrefs{margin-top:2px;color:var(--muted);font-size:10px}
+.rowrefs span{display:inline-block;margin-left:3px;padding:0 4px;border-radius:7px;background:var(--surface2);color:var(--accent);font-family:Menlo,monospace}
+.sources{margin-top:9px;border-top:1px solid var(--border2);padding-top:7px}
+.stitle{font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px}
+.sgrid{display:grid;gap:6px}
+.scard{border:1px solid var(--border2);border-radius:7px;background:var(--sunken);padding:7px 8px}
+.shead{font-size:11px}.shead b{color:var(--accent);font-family:Menlo,monospace}.smeta{font-size:10px;color:var(--muted);margin-top:2px}
+.sstat{display:inline-block;margin-left:4px;padding:0 5px;border-radius:8px;background:var(--surface2);color:var(--muted)}
+.sstat.ok{color:var(--ok)}.sstat.bad{color:var(--err)}
+.scard ul{margin:4px 0 0 16px;padding:0;font-size:11px}.scard details{margin-top:4px;color:var(--muted)}.scard summary{cursor:pointer;font-size:10px}.scard pre{white-space:pre-wrap;font-size:10px;margin:4px 0 0;color:var(--muted)}
+.sdiag{margin-top:5px;color:var(--muted);font-size:10px}
+.tracebox{margin-top:8px;border:1px solid var(--border2);border-radius:6px;background:var(--sunken)}
+.tracebox summary{cursor:pointer;color:var(--muted);font-size:11px;padding:6px 10px;list-style:none}
 .tracebox summary::-webkit-details-marker{display:none}
-.tracebox[open] summary{border-bottom:1px solid #21262d}
+.tracebox[open] summary{border-bottom:1px solid var(--border2)}
 .trace{padding:8px 10px}
-.tdisp{font-size:11px;color:#d2a8ff;margin-bottom:6px}
-.tstep{border:1px solid #21262d;border-radius:6px;padding:6px 8px;background:#0d1117}
-.trole{font-size:10px;color:#79c0ff;text-transform:uppercase;letter-spacing:.04em;margin-bottom:3px}
-.trole.flag{color:#f0883e}.trole.ok{color:#3fb950}
-.tmodel{color:#586069;text-transform:none;letter-spacing:0;margin-left:5px}
-.tbody{font-size:11px;white-space:pre-wrap;color:#c9d1d9}
-.tarrow{text-align:center;color:#30363d;font-size:11px;line-height:1.1;margin:1px 0}
-.notrace{font-size:11px;color:#586069;padding:8px 10px}
+.tdisp{font-size:11px;color:var(--purple);margin-bottom:6px}
+.tstep{border:1px solid var(--border2);border-radius:6px;padding:6px 8px;background:var(--bg)}
+.trole{font-size:10px;color:var(--accent);text-transform:uppercase;letter-spacing:.04em;margin-bottom:3px}
+.trole.flag{color:var(--flag)}.trole.ok{color:var(--ok)}
+.tmodel{color:var(--faint);text-transform:none;letter-spacing:0;margin-left:5px}
+.tbody{font-size:11px;white-space:pre-wrap;color:var(--text)}
+.tarrow{text-align:center;color:var(--border);font-size:11px;line-height:1.1;margin:1px 0}
+.notrace{font-size:11px;color:var(--faint);padding:8px 10px}
 .cchip{display:inline-block;padding:1px 7px;border-radius:10px;color:#fff;font-size:10px;margin-left:6px;vertical-align:middle}
 .csec{margin-top:8px}
-.ctitle{font-size:11px;color:#8b949e;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px}
+.ctitle{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px}
 .caveat{border-radius:6px;padding:8px 10px;font-size:12px;margin:4px 0}
-.caveat.red{background:#3d1416;border:1px solid #8b1a1a;color:#ffd0d0}
-.caveat.yellow{background:#3a2e08;border:1px solid #9e6a03;color:#ffe9b3}
-.collapse summary{cursor:pointer;color:#8b949e;font-size:11px;padding:3px 0;list-style:revert}
+.caveat.red{background:var(--cav-red-bg);border:1px solid var(--cav-red-bd);color:var(--cav-red-fg)}
+.caveat.yellow{background:var(--cav-yel-bg);border:1px solid var(--cav-yel-bd);color:var(--cav-yel-fg)}
+.collapse summary{cursor:pointer;color:var(--muted);font-size:11px;padding:3px 0;list-style:revert}
 .idl{margin:2px 0 0 0;padding-left:18px}.idl li{margin:2px 0}
-</style></head><body>
+.arm-cards{display:flex;flex-wrap:wrap;gap:10px}
+.arm-card{flex:1 1 240px;min-width:220px;border:1px solid var(--border);border-radius:8px;padding:10px 12px;background:var(--surface)}
+.arm-head{display:flex;align-items:center;gap:7px;margin-bottom:4px}
+.arm-name{font-weight:600;color:var(--accent);font-size:12px;line-height:1.25;white-space:normal}
+.arm-id{font-family:ui-monospace,Menlo,monospace;font-size:10px;color:var(--faint);margin:0 0 4px}
+.badge{display:inline-block;font-size:9px;font-weight:700;letter-spacing:.05em;padding:1px 6px;border-radius:9px;border:1px solid var(--border);color:var(--muted)}
+.badge.team{background:#3a2e08;border-color:#9e6a03;color:#ffe9b3}
+.badge.single{background:#13304a;border-color:#1f6feb;color:#cfe6ff}
+.arm-path{font-size:10px;color:var(--muted);margin-bottom:5px}
+.arm-stats{font-size:11px;color:var(--text);margin-bottom:6px}
+table.makeup{width:100%;font-size:11px;background:transparent;border-collapse:collapse}
+.makeup td{padding:2px 4px;border:none;text-align:left}
+.makeup .role{color:var(--muted);width:28%}
+.makeup .mdl{font-family:ui-monospace,Menlo,monospace}
+.makeup .mq{color:var(--muted)}
+.makeup-single{font-size:12px;color:var(--muted);font-family:ui-monospace,Menlo,monospace;margin-top:4px}
+details.arm-config{margin-top:8px;border-top:1px dashed var(--border);padding-top:6px}
+details.arm-config>summary{cursor:pointer;color:var(--accent);font-size:11px;font-weight:600;list-style:revert}
+.arm-config .ac-tease{color:var(--muted);font-weight:400;font-size:10px;font-family:ui-monospace,Menlo,monospace}
+.arm-config .ac-body{margin-top:8px}
+.arm-config .ac-h{font-size:11px;font-weight:700;color:var(--text);text-transform:uppercase;letter-spacing:.03em;margin:10px 0 4px}
+.arm-config .ac-h:first-child{margin-top:0}
+.arm-config .ac-sub,.arm-config .ac-src{font-weight:400;text-transform:none;color:var(--muted);font-size:10px;font-family:ui-monospace,Menlo,monospace;letter-spacing:0}
+table.ac-knobs{border-collapse:collapse;font-size:10.5px;margin-top:2px}
+.ac-knobs td,.ac-knobs th{border:1px solid var(--border2);padding:2px 7px;text-align:left}
+.ac-knobs th{color:var(--muted);font-weight:400;white-space:nowrap}
+.ac-knobs .ac-k{color:var(--muted)}
+.judge-table{border-collapse:collapse;font-size:11px;background:var(--surface);border:1px solid var(--border);border-radius:8px;overflow:hidden;min-width:min(900px,100%)}
+.judge-table th,.judge-table td{border:1px solid var(--border2);padding:5px 8px;text-align:left;vertical-align:top}
+.judge-table th{color:var(--muted);font-weight:600;background:var(--sunken)}
+.judge-table .score{font-weight:700;color:var(--accent);font-size:12px}
+.judge-note{font-size:11px;color:var(--muted);margin:0 0 6px;max-width:88ch}
+.arm-config .ac-prompt{margin:4px 0 8px}
+.arm-config .ac-plabel{font-size:11px;font-weight:600}
+.arm-config .ac-psum{font-size:11px;color:var(--muted);margin:2px 0;max-width:60ch}
+.arm-config .ac-pfull>summary{cursor:pointer;color:var(--accent);font-size:10px;list-style:revert}
+.arm-config pre.ac-pre{white-space:pre-wrap;font:10.5px/1.45 ui-monospace,Menlo,monospace;background:var(--sunken);border:1px solid var(--border2);border-radius:6px;padding:8px 10px;margin:4px 0 0;max-height:16em;overflow:auto}
+.arm-config .ac-retr{font-size:11px;font-family:ui-monospace,Menlo,monospace;color:var(--text)}
+</style><script>(function(){try{var t=localStorage.getItem('oc-theme-dashboard');if(t==='light'||t==='dark')document.documentElement.dataset.theme=t;}catch(e){}})();</script></head><body>
+<button id=theme-toggle class=theme-toggle type=button aria-label="Toggle light or dark mode" title="Toggle light / dark"></button>
 <h1 id=hdr>validate run</h1>
 <div class=bar><div id=fill style=width:0%></div></div>
 <div id=prog class=muted></div>
 <section><h2>Models resident (llama-router)</h2><div id=models></div></section>
 <section><h2>Arms</h2><div class=row id=arms></div></section>
+<section><h2>Combined judged scores</h2><div id=judges></div></section>
 <section><h2>Scenario &times; arm &nbsp;<span class=muted>(click a cell)</span></h2><div id=grid></div></section>
 <section><h2>Recent &nbsp;<span class=muted>(click a row)</span></h2><div class=feed id=feed></div></section>
 <div id=modal onclick="if(event.target===this)closeD()"><div id=mbody></div></div>
 <script>
 const cls=s=>({done:'c200',err:'cerr',running:'crun',pending:'cpend'}[s]||'cpend');
 const sym=s=>({done:'✓',err:'×',running:'●',pending:'·'}[s]||'·');
-const shortB=b=>b.replace('med-agent-team-','').replace('-baseline','-base');
-const esc=s=>(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+// Human-readable arm titles from the resolver's arm_cards (model_registry), never the raw dashed
+// backend id. Filled each tick from the latest /api/status. armTitle = full; armShort = tight
+// grid/column variant. Fall back to the raw id only if a card is missing.
+let ARM_CARDS={};
+const armTitle=b=>{const c=ARM_CARDS[b];return (c&&c.title)||b;};
+const armShort=b=>{const c=ARM_CARDS[b];return (c&&(c.short_title||c.title))||b;};
+const shortB=b=>armShort(b);
+const esc=s=>(s==null?'':String(s)).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const fmt10=v=>v==null?'—':(Math.round(v*10)/10);
+// sampler-knob display order + labels (mirrors report.py's KNOB_ORDER/KNOB_LABELS).
+const KNOB_ORDER=['temp','top_p','top_k','ctx_size','seed','max_tokens','reasoning_budget','dry'];
+const KNOB_LABELS={temp:'temperature',top_p:'top-p',top_k:'top-k',ctx_size:'ctx-size',seed:'seed',max_tokens:'max-tokens',reasoning_budget:'reasoning-budget',dry:'DRY'};
+// "how this arm is configured" panel: sampling knobs + system prompt(s) + retrieval line.
+// Mirrors report.py::renderArmConfig — fed the REAL arm_card(b).config from the resolver.
+// `key` is a STABLE per-arm id (the backend_id) so OPEN_DETAILS can re-apply the open state
+// across the background re-render that would otherwise collapse the panel.
+function renderArmConfig(cfg,key){
+ if(!cfg) return '';
+ const knobs=cfg.knobs||{};
+ const models=Object.keys(knobs);
+ const k0=(models.length?knobs[models[0]]:{})||{};
+ const tease=[];
+ if(k0.temp!=null)tease.push('temp '+k0.temp);
+ if(k0.seed!=null)tease.push('seed '+k0.seed);
+ if(k0.dry!=null)tease.push('DRY on');
+ if(k0.ctx_size!=null)tease.push('ctx '+k0.ctx_size);
+ const np=(cfg.prompts||[]).length;
+ if(np)tease.push(np+' system prompt'+(np>1?'s':''));
+ const teaseTxt=tease.length?(' — '+tease.join(' · ')):'';
+ let h="<details class=arm-config data-okey='cfg:"+esc(key)+"'><summary>how this arm is configured<span class=ac-tease>"+esc(teaseTxt)+"</span></summary><div class=ac-body>";
+ if(models.length){
+  const present=KNOB_ORDER.filter(k=>models.some(m=>(knobs[m]||{})[k]!=null));
+  h+="<div class=ac-h>sampling knobs <span class=ac-sub>(llama-router.ini)</span></div>";
+  h+="<table class=ac-knobs><thead><tr><th>knob</th>";
+  models.forEach(m=>{h+="<th>"+esc(m)+"</th>";});
+  h+="</tr></thead><tbody>";
+  present.forEach(k=>{
+   h+="<tr><td class=ac-k>"+esc(KNOB_LABELS[k]||k)+"</td>";
+   models.forEach(m=>{const v=(knobs[m]||{})[k];h+="<td>"+(v==null?'—':esc(v))+"</td>";});
+   h+="</tr>";
+  });
+  h+="</tbody></table>";
+ }
+ const prompts=cfg.prompts||[];
+ if(prompts.length){
+  h+="<div class=ac-h>system prompt"+(prompts.length>1?'s':'')+"</div>";
+  prompts.forEach((p,i)=>{
+   h+="<div class=ac-prompt>";
+   h+="<div class=ac-plabel>"+esc(p.label)+" <span class=ac-src>"+esc(p.source)+"</span></div>";
+   if(p.summary)h+="<div class=ac-psum>"+esc(p.summary)+"</div>";
+   h+="<details class=ac-pfull data-okey='prompt:"+esc(key)+":"+i+"'><summary>full prompt</summary><pre class=ac-pre>"+esc(p.text)+"</pre></details>";
+   h+="</div>";
+  });
+ }
+ const r=cfg.retrieval;
+ if(r){
+  h+="<div class=ac-h>retrieval <span class=ac-sub>(chartsearchai GPs)</span></div>";
+  h+="<div class=ac-retr>pipeline "+esc(r.pipeline)+" · embedding top-k "+esc(r.embedding_topk)+
+     " · querystore top-k "+esc(r.querystore_topk)+" · threshold "+esc(r.threshold)+"</div>";
+ }
+ h+="</div></details>";
+ return h;
+}
+// Per-arm card: single/team path badge + makeup (team role->model; single family·params·quant)
+// + the config panel. Mirrors report.py::renderArms. Fed status().arm_cards (REUSED resolver).
+function renderArmCards(d){
+ const cards=d.arm_cards||{};
+ const stats=d.arms||{};
+ let h="<div class=arm-cards>";
+ (d.backends||[]).forEach(b=>{
+  const c=cards[b]||{kind:'unknown',path:'',models:[],roles:{}};
+  const a=stats[b]||{};
+  const team=c.kind==='team';
+  const badge=team
+   ?"<span class='badge team'>TEAM</span>"
+   :(c.kind==='single'?"<span class='badge single'>SINGLE</span>":"<span class=badge>?</span>");
+  // Headline = the resolver's human-readable title; the raw backend_id survives only as a
+  // tiny muted monospace sub-label under it, never as the headline.
+  const title=c.title||b;
+  h+="<div class=arm-card>";
+  h+="<div class=arm-head>"+badge+"<span class=arm-name>"+esc(title)+"</span></div>";
+  h+="<div class=arm-id>"+esc(b)+"</div>";
+  if(c.path)h+="<div class=arm-path>"+esc(c.path)+"</div>";
+  h+="<div class=arm-stats>"+(a.rows||0)+" rows · <span class='"+(a.errors?'err':'ok')+"'>"+(a.errors||0)+" err</span>"
+    +" · <span class=muted>~"+(a.avg_latency_ms||0)+"ms · "+(a.avg_chars||0)+"c"+(a.last?(' · '+esc(a.last)):'')+"</span></div>";
+  if(team){
+   // Makeup = role → readable family·params·quant; the raw dashed model id column is dropped.
+   h+="<table class=makeup><tbody>";
+   Object.keys(c.roles||{}).forEach(role=>{
+    const m=c.roles[role]||{};
+    const mq=[m.family,m.params,m.quant].filter(Boolean).join(' · ');
+    h+="<tr><td class=role>"+esc(role)+"</td><td class=mq>"+esc(mq)+"</td></tr>";
+   });
+   h+="</tbody></table>";
+  }else{
+   const m=(c.models||[])[0]||{};
+   const mq=[m.family,m.params,m.quant].filter(Boolean).join(' · ');
+   h+="<div class=makeup-single>"+esc(mq)+"</div>";
+  }
+  h+=renderArmConfig(c.config,b);
+  h+="</div>";
+ });
+ return h+"</div>";
+}
+function renderJudgeCombined(d){
+ const rows=(d.judge_combined||[]).filter(s=>(s.n_actors||0)>1&&s.benchmark_score!=null)
+  .sort((a,b)=>(b.benchmark_score||0)-(a.benchmark_score||0));
+ if(!rows.length)return '<span class=muted>no multi-judge score yet</span>';
+ const actors=(d.judge_actors||[]).join(', ');
+ let h='<p class=judge-note>Combined = each cell averaged across independent judges, then averaged per arm. Range and max Δ show judge disagreement. Actors: '+esc(actors)+'</p>';
+ h+='<table class=judge-table><thead><tr><th>setup</th><th>combined</th><th>actor range</th><th>mean Δ/cell</th><th>max Δ cell</th></tr></thead><tbody>';
+ rows.forEach(s=>{
+  const ar=s.actor_range||{}, sp=s.benchmark_spread||{};
+  const maxCell=s.max_cell_delta_scenario?(esc(s.max_cell_delta_scenario)+' · '+fmt10(s.max_cell_delta)):'—';
+  h+='<tr><td title="'+esc(s.backend)+'">'+esc(armTitle(s.backend))+'</td>'
+   +'<td><span class=score>'+fmt10(s.benchmark_score)+'</span> <span class=muted>'+fmt10(sp.min)+'–'+fmt10(sp.max)+'</span></td>'
+   +'<td>'+(ar.min==null?'—':fmt10(ar.min)+'–'+fmt10(ar.max))+'</td>'
+   +'<td>'+fmt10(s.mean_abs_delta)+'</td><td>'+maxCell+'</td></tr>';
+ });
+ return h+'</tbody></table>';
+}
+// The background poll re-renders #arms wholesale; that wipes the user's expanded <details>.
+// Track which panels are open by their STABLE data-okey (arm backend_id, NOT a DOM index),
+// updated on every toggle, and re-apply after each re-render so an open config / full-prompt
+// panel survives auto-refresh. Parallel: the data refresh no longer clobbers UI state.
+const OPEN_DETAILS=new Set();
+document.addEventListener('toggle',e=>{
+ const d=e.target;
+ if(!d||d.tagName!=='DETAILS')return;
+ const k=d.getAttribute&&d.getAttribute('data-okey');
+ if(!k)return;
+ if(d.open)OPEN_DETAILS.add(k);else OPEN_DETAILS.delete(k);
+},true);
+function restoreOpenDetails(root){
+ (root||document).querySelectorAll('details[data-okey]').forEach(d=>{
+  d.open=OPEN_DETAILS.has(d.getAttribute('data-okey'));
+ });
+}
 async function tick(){
  let d; try{d=await(await fetch('/api/status')).json()}catch(e){return}
  if(!d.run){hdr.textContent='waiting for a run...';return}
+ ARM_CARDS=d.arm_cards||{};
  const pct=d.total?Math.round(100*d.done/d.total):0;
  hdr.textContent='run '+d.run.slice(0,8)+'  ·  set '+(d.set||'')+'  ·  '+pct+'%';
  fill.style.width=pct+'%'; prog.textContent=d.done+' / '+d.total+' results';
  models.innerHTML=(d.models||[]).map(m=>'<span class=chip>'+m+'</span>').join('')||'<span class=muted>none resident</span>';
- arms.innerHTML=(d.backends||[]).map(b=>{const a=d.arms[b]||{};
-   return '<div class=card><b>'+b+'</b><br>'+(a.rows||0)+' rows · <span class="'+(a.errors?'err':'ok')+'">'+(a.errors||0)+' err</span>'
-   +'<br><span class=muted>~'+(a.avg_latency_ms||0)+'ms · '+(a.avg_chars||0)+' chars</span>'
-   +'<br><span class=muted>'+(a.last||'')+'</span></div>'}).join('');
+ arms.innerHTML=renderArmCards(d);
+ restoreOpenDetails(arms);   // re-apply the user's expanded config/full-prompt panels after the re-render
+ judges.innerHTML=renderJudgeCombined(d);
  const gm={};(d.grid||[]).forEach(g=>gm[g.scenario+'|'+g.backend]=g.state);
- let h='<table class=grid><tr><th></th>'+(d.backends||[]).map(b=>'<th>'+shortB(b)+'</th>').join('')+'</tr>';
+ let h='<table class=grid><tr><th></th>'+(d.backends||[]).map(b=>'<th title="'+esc(b)+'">'+esc(armTitle(b))+'</th>').join('')+'</tr>';
  (d.scenarios||[]).forEach(s=>{h+='<tr><th>'+s+'</th>'+(d.backends||[]).map(b=>{const st=gm[s+'|'+b];
    const oc=(st==null||st==='pending')?'':' onclick="openD(\''+s+'\',\''+b+'\')"';
    return '<td class='+cls(st)+oc+'>'+sym(st)+'</td>'}).join('')+'</tr>'});
  grid.innerHTML=h+'</table>';
  feed.innerHTML=(d.feed||[]).slice().reverse().map(f=>'<div onclick="openD(\''+f.scenario+'\',\''+f.backend+'\')"><span class="'
    +(f.status===200?'ok':'err')+'">'+f.status+'</span> '+f.scenario+'/'+shortB(f.backend)+' t'+f.turn
-   +' <span class=muted>'+f.chars+'c</span> '+f.ans+'</div>').join('');
+   +' <span class=muted>'+f.chars+'c</span>'
+   +(f.indepth_status!=null?' <span class="'+(f.indepth_status===200&&f.indepth_chars>0?'ok':'err')+'" title="In-Depth (separate call)">+ID '+f.indepth_chars+'c</span>':'')
+   +' '+f.ans+'</div>').join('');
 }
-function renderBlocks(blocks){
+function srcLabels(sources){
+ const out={}; ((sources&&sources.sources)||[]).forEach(s=>{ if(s.record_index!=null) out[s.record_index]=s.source_id; });
+ return out;
+}
+function rowRefLabels(row, labels){
+ const seen={}, out=[]; const cells=(row&&row.cells)||{};
+ Object.keys(cells).forEach(k=>((cells[k]&&cells[k].refs)||[]).forEach(r=>{ const x=labels[r]||('['+r+']'); if(!seen[x]){seen[x]=1;out.push(x);} }));
+ return out;
+}
+function renderBlocks(blocks,sources){
  if(!blocks||!blocks.length)return '';
+ const labels=srcLabels(sources);
  return blocks.map(bl=>{
   if(bl.kind!=='table')return '';
   const cols=bl.columns||[];
   const head=cols.map(c=>'<th>'+esc(c.label||c.key||'')+'</th>').join('');
   const body=(bl.rows||[]).map(row=>{
    const cells=row.cells||{};
-   return '<tr>'+cols.map(c=>{
+   const rr=rowRefLabels(row,labels);
+   const rf=rr.length?'<div class=rowrefs>sources '+rr.map(x=>'<span>'+esc(x)+'</span>').join('')+'</div>':'';
+   return '<tr>'+cols.map((c,i)=>{
     const cell=cells[c.key]||{};
     const txt=esc(cell.text!=null?String(cell.text):'');
-    const rf=(cell.refs&&cell.refs.length)?'<span class=cref>['+cell.refs.join('][')+']</span>':'';
-    return '<td>'+txt+rf+'</td>';
+    return '<td>'+txt+(i===0?rf:'')+'</td>';
    }).join('')+'</tr>';
   }).join('');
   const title=bl.title?'<div class=btitle>'+esc(bl.title)+'</div>':'';
   return '<div class=block>'+title+'<table class=btbl><thead><tr>'+head+'</tr></thead><tbody>'+body+'</tbody></table></div>';
  }).join('');
 }
-const CONF={green:['High confidence','#196c2e'],yellow:['Medium confidence','#9e6a03'],red:['Low confidence','#8b1a1a']};
+function renderSources(sources){
+ const ss=(sources&&sources.sources)||[], d=(sources&&sources.diagnostics)||{};
+ if(!ss.length&&!(d.malformed_tokens&&d.malformed_tokens.length))return '';
+ function card(s){
+  const meta=[s.resource_type,s.date].filter(Boolean).map(esc).join(' · ');
+  const facts=(s.facts_used&&s.facts_used.length?s.facts_used:[s.source_text||s.title||'']).slice(0,4);
+  const st=s.resolution_status||'unknown';
+  const cite=s.citation_index||s.record_index||'?';
+  const chart=s.chart_record_index||s.record_index||'?';
+  const support=s.support_status||'unchecked';
+  return '<div class=scard><div class=shead><b>'+esc(s.source_id||'')+'</b> cite ['+esc(cite)+'] · chart ['+esc(chart)+'] '+esc(s.title||'')+'</div>'
+   +'<div class=smeta>'+meta+' <span class="sstat '+(st==='resolved'?'ok':(st==='unresolved'?'bad':''))+'">chart ref '+esc(st)+'</span> <span class=sstat>support '+esc(support)+'</span></div>'
+   +'<ul>'+facts.map(f=>'<li>'+esc(f)+'</li>').join('')+'</ul>'
+   +'<details><summary>open source record</summary><pre>'+esc(s.source_text||'')+'</pre></details></div>';
+ }
+ let h='<div class=sources><div class=stitle>Evidence Used</div><div class=sgrid>'+ss.slice(0,5).map(card).join('')+'</div>';
+ if(ss.length>5)h+='<details><summary>show all sources</summary>'+ss.slice(5).map(card).join('')+'</details>';
+ const bits=[]; ['unresolved_refs','unused_top_refs','nested_only_refs','malformed_tokens'].forEach(k=>{ if(d[k]&&d[k].length)bits.push(k+': '+JSON.stringify(d[k])); });
+ if(bits.length)h+='<div class=sdiag>'+esc(bits.join(' · '))+'</div>';
+ return h+'</div>';
+}
+function renderRawRefs(refs){
+ if(!refs||!refs.length)return '';
+ return '<details class=rawrefs><summary>raw resolved refs</summary><div>'+esc(refs.map(r=>typeof r==='object'?('['+(r.index!=null?r.index:'?')+'] '+(r.resourceType||'')):('['+r+']')).join('  '))+'</div></details>';
+}
+const CONF={green:['Self-check high','#196c2e'],yellow:['Self-check medium','#9e6a03'],red:['Self-check low','#8b1a1a']};
 function chip(level){const c=CONF[level]||['unrated','#30363d'];return '<span class=cchip style="background:'+c[1]+'">'+c[0]+'</span>';}
 // Per-section render with the confidence inversion: red -> caveat shown, message collapsed;
 // yellow -> message shown, caveat collapsed; green -> message, no caveat.
@@ -404,20 +695,38 @@ async function openD(s,b){
  (d.turns||[]).forEach(t=>{
   const tr=t.trace;
   h+='<div class=turn><div class=q>Turn '+t.turn+': '+esc(t.question)+'</div>';
-  h+='<div class=meta><span class="'+(t.status===200?'ok':'err')+'">status '+t.status+'</span> · '+(t.latency_ms||0)+'ms · '+(t.chars||0)+' chars · '+(t.citations||0)+' citations</div>';
+  h+='<div class=meta><span class="'+(t.status===200?'ok':'err')+'">status '+t.status+'</span> · '+(t.latency_ms||0)+'ms · '+(t.chars||0)+' chars · '+(t.citations||0)+' source refs</div>';
   if(t.error){
    h+='<div class="ans err">'+esc(t.error)+'</div>';
   }else if(tr&&(tr.answer_confidence||tr.indepth_confidence)){
    // structured render with the per-section confidence inversion (chips + collapse)
-   h+=confSection('Answer', esc(tr.answer_text||''), tr.answer_confidence);
-   const cl=tr.in_depth_claims||[];
-   const idb=cl.length?'<ul class=idl>'+cl.map(c=>'<li>'+esc(c)+'</li>').join('')+'</ul>':'<span class=muted>(none)</span>';
-   h+=confSection('In Depth', idb, tr.indepth_confidence);
+   const blocksHtml=renderBlocks(t.blocks,t.sources);
+   h+=confSection('Answer', esc(tr.answer_text||'')+blocksHtml, tr.answer_confidence);
+   // In-Depth: two-call arms carry it as a SEPARATE call (row.indepth), single-pass, no validator —
+   // render THAT, not the Answer trace's empty in_depth_claims + the Answer's verdict as a stray chip.
+   if(t.indepth){
+    const ia=(t.indepth.answer||'').trim();
+    const body=ia?esc(ia):'<span class=muted>(no elaboration — e.g. an abstain)</span>';
+    h+='<div class=csec><div class=ctitle>In Depth <span class=muted>(separate call'+(t.indepth.latency_ms?', '+Math.round(t.indepth.latency_ms/1000)+'s':'')+')</span></div><div class=ans>'+body+'</div></div>';
+   }else{
+    const cl=tr.in_depth_claims||[];
+    const idConf=tr.indepth_confidence||{};
+    const showId=cl.length||idConf.note||(idConf.level&&idConf.level!=='green');
+    if(showId){
+     const idb=cl.length?'<ul class=idl>'+cl.map(c=>'<li>'+esc(c)+'</li>').join('')+'</ul>':'<span class=muted>(none)</span>';
+     h+=confSection('In Depth', idb, idConf);
+    }
+   }
   }else{
-   h+='<div class=ans>'+esc(t.answer)+'</div>';   // fallback: raw envelope (non-team backend / older run)
+   h+='<div class=ans>'+esc(t.answer)+'</div>';   // Answer (raw envelope / non-team backend)
+   if(t.indepth&&t.indepth.answer){               // two-call arms: the separate In-Depth call
+    h+='<div style="margin-top:8px;font-size:11px;font-weight:600;color:var(--accent)">In Depth <span class=muted>(separate call'+(t.indepth.latency_ms?', '+Math.round(t.indepth.latency_ms/1000)+'s':'')+')</span></div>';
+    h+='<div class=ans>'+esc(t.indepth.answer)+'</div>';
+   }
+   h+=renderBlocks(t.blocks,t.sources);
   }
-  h+=renderBlocks(t.blocks);
-  if(t.refs&&t.refs.length)h+='<div class=refs>refs: '+esc(t.refs.map(r=>typeof r==='object'?('['+(r.index!=null?r.index:'?')+'] '+(r.resourceType||'')):('['+r+']')).join('  '))+'</div>';
+  h+=renderSources(t.sources);
+  h+=renderRawRefs(t.refs);
   h+='<details class=tracebox><summary>▸ reasoning trace</summary>'+renderTrace(tr)+'</details>';
   h+='</div>';
  });
@@ -426,6 +735,7 @@ async function openD(s,b){
 function closeD(){modal.style.display='none'}
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeD()});
 tick();setInterval(tick,2000);
+(function(){var b=document.getElementById('theme-toggle');function s(){b.textContent=document.documentElement.dataset.theme==='dark'?'☀':'☾';}s();b.addEventListener('click',function(){var n=document.documentElement.dataset.theme==='dark'?'light':'dark';document.documentElement.dataset.theme=n;try{localStorage.setItem('oc-theme-dashboard',n);}catch(e){}s();});})();
 </script></body></html>"""
 
 
@@ -458,6 +768,29 @@ class _Server(socketserver.ThreadingTCPServer):
     # page look frozen / "down".
     allow_reuse_address = True
     daemon_threads = True
+
+
+class _ServerV6(_Server):
+    address_family = socket.AF_INET6
+
+
+def serve_dashboard():
+    servers = []
+    for cls, addr in ((_Server, "127.0.0.1"), (_ServerV6, "::1")):
+        try:
+            servers.append(cls((addr, PORT), H))
+        except OSError as exc:
+            print(f"warn: could not bind dashboard on {addr}:{PORT}: {exc}", file=sys.stderr)
+    if not servers:
+        raise SystemExit(f"could not bind dashboard on port {PORT}")
+    print(f"validate dashboard -> http://localhost:{PORT}   (Ctrl-C to stop)")
+    for srv in servers[1:]:
+        threading.Thread(target=srv.serve_forever, daemon=True).start()
+    try:
+        servers[0].serve_forever()
+    finally:
+        for srv in servers:
+            srv.server_close()
 
 
 def freeze(out_path):
@@ -502,5 +835,4 @@ if __name__ == "__main__":
             _RUN_OVERRIDE = os.path.abspath(sys.argv[j + 1])
         freeze(out)
     else:
-        print(f"validate dashboard -> http://localhost:{PORT}   (Ctrl-C to stop)")
-        _Server(("127.0.0.1", PORT), H).serve_forever()
+        serve_dashboard()

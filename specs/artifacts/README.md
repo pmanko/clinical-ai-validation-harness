@@ -2,6 +2,12 @@
 
 Durable planning and research artifacts that support the feature roadmap:
 
+- `planning/hub-consolidation-roadmap.md`
+  - Approved execution roadmap for the med-agent-hub-centered clinical answer path, including
+    architecture, milestones, acceptance gates, code targets, and research grounding.
+- `planning/hub-consolidation-roadmap-status.md`
+  - Mutable execution record for the approved roadmap: baseline SHAs, milestone state, gate
+    evidence, signoffs, and amendments.
 - `canvases/validation-research.canvas.tsx`
   - Validation roadmap, architecture, validation flow, and demo-data remap plan.
 - `canvases/cross-project-comparison.canvas.tsx`

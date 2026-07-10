@@ -6,6 +6,11 @@ chartsearchai single-LLM arm, and optimal/fair sampling for both the single-LLM 
 med-agent-hub team arm, across a MIX of GGUF (llama.cpp) and MLX (mlx-lm) backends served
 through LM Studio's OpenAI-compatible API.
 
+> **Historical note (2026-07):** this memo analyzed the pre-refactor chartsearchai local/remote
+> engine split. Current product chat relays through med-agent-hub or another OpenAI-compatible
+> endpoint; use this memo only for model-serving/sampling background, not current chartsearchai
+> module wiring.
+
 > **Provenance note.** Every code claim below was verified against the checked-out source
 > at the cited file:line. The one cross-finding contradiction (which anti-repetition wire
 > field is honored on MLX) was settled by a live probe, recorded under "The decisive MLX

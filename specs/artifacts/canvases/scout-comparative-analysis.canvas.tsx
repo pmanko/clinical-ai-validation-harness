@@ -1,3 +1,5 @@
+// Historical artifact snapshot: this comparison predates the hub-relay
+// refactor and preserves then-current ChartSearchAI architecture notes.
 import {
   Callout,
   Card,

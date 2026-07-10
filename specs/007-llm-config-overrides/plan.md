@@ -2,6 +2,10 @@
 
 Backend change on the chartsearchai module (Java) + small harness wiring. Branch on the `pmanko` fork; PR → `openmrs:main`; consolidate into `harness-integration`.
 
+> **Superseded by the hub-relay architecture (2026-07):** chartsearchai no longer owns the Java LLM
+> engines or prompt assembly described below. Treat this plan as historical context only; implement prompt
+> and parameter iteration in med-agent-hub profiles/levels.
+
 ## Architectural decisions
 
 ### D1 — Zero-dep JSON config + separate prompt `.md`

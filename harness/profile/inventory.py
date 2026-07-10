@@ -1,4 +1,4 @@
-"""T021: source-corpus profile inventory.
+"""Source-corpus profile inventory.
 
 Enumerates every table in the legacy schema (default: `legacy_27_raw`) and
 produces a JSON document matching `contracts/profile_inventory.schema.yaml`:
@@ -7,9 +7,9 @@ produces a JSON document matching `contracts/profile_inventory.schema.yaml`:
               foreign_keys_out[]
   - source_dump_path / source_dump_checksum / generated_at
 
-T022 (terminology — reference_sources, locales) and T023 (modules) are
-separate modules that augment the same JSON; this file is responsible for
-the `tables[]` core and the orchestrator entrypoint.
+Terminology (reference_sources, locales) and modules are augmented onto the
+same JSON by separate modules; this file owns the `tables[]` core and the
+orchestrator entrypoint.
 
 Performance note: `information_schema.tables.table_rows` is approximate on
 InnoDB and can drift wildly. We use `COUNT(*)` per table for accurate row

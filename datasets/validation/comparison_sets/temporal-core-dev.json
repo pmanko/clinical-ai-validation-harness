@@ -1,0 +1,20 @@
+{
+  "id": "temporal-core-dev",
+  "scenario_ids": [
+    "single-upcoming-appointments",
+    "am-upcoming-appointments",
+    "am-last-visit",
+    "am-weight-trend",
+    "single-weight-trend",
+    "am-cd4-history",
+    "am-orders-6mo",
+    "ek-growth"
+  ],
+  "backend_ids": [
+    "m-12b-temporal-off",
+    "m-12b-temporal-warn",
+    "m-12b-temporal-enforce",
+    "m-a4b-temporal-off",
+    "m-a4b-temporal-enforce"
+  ]
+}

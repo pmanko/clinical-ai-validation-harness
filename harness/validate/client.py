@@ -19,9 +19,11 @@ import requests
 
 _REST = "/ws/rest/v1/chartsearchai"
 
-# Transient HTTP statuses worth a limited retry: 429 (rate limit) plus the 5xx the
-# proxy emits while the backend is restarting / an upstream momentarily times out.
-_RETRYABLE = frozenset({429, 500, 502, 503, 504})
+# Transient HTTP statuses worth a limited retry: 429 (rate limit), the 5xx the proxy emits
+# while the backend is restarting / an upstream momentarily times out, and 401 — an
+# intermittent OpenMRS auth/session blip mid-run (the next request re-authenticates via the
+# Session's basic-auth), seen nicking multi-turn cells; without the retry the whole cell is lost.
+_RETRYABLE = frozenset({401, 429, 500, 502, 503, 504})
 
 
 def _default_base_url() -> str:
@@ -43,8 +45,7 @@ class ChartSearchAiClient:
         base_url: str | None = None,
         user: str | None = None,
         password: str | None = None,
-        timeout: float = 2400.0,  # > chartsearchai.llm.timeoutSeconds (1800) so its timeout governs;
-                                   # HIGH tier serial-loads 3-4 big GGUFs/turn (~17 min) at router models-max=1
+        timeout: float = 2400.0,  # HIGH tier serial-loads 3-4 big GGUFs/turn (~17 min) at router models-max=1
         min_interval_s: float | None = None,
         max_retries: int | None = None,
         retry_wait_s: float | None = None,

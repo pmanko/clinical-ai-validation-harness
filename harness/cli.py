@@ -77,10 +77,41 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Prior run dir to resume from: scenario×backend cells that completed cleanly "
         "are carried over; only missing/partial cells are re-run.",
     )
+    val_run.add_argument(
+        "--reference-date",
+        metavar="YYYY-MM-DD",
+        help="Explicit 'now' for downstream temporal scoring, recorded on every result "
+        "row (and passed to the chat client if it accepts a date field). Unset -> "
+        "today's behavior (temporal scoring falls back to the data era).",
+    )
     val_report = val_sub.add_parser("report", help="Render report.html from a completed run")
     val_report.add_argument("run_id", nargs="?", help="Run id under <output-dir>/")
     val_report.add_argument("--run-dir", help="Explicit run directory (overrides run_id)")
     val_report.add_argument("--output-dir", default="artifacts/validate")
+
+    val_adj = val_sub.add_parser(
+        "adjudicate",
+        help="Guided human review of a judged run: sample cells, present each against "
+        "the chart, record human scores to adjudication.jsonl (resumable).",
+    )
+    val_adj.add_argument("run_id", help="Run id under <output-dir>/")
+    val_adj.add_argument("--output-dir", default="artifacts/validate")
+    val_adj.add_argument(
+        "--review", default="triage",
+        help="Which cells to review: triage | standard | full | <N> (a budget of N "
+        "most-informative cells). Default: triage.",
+    )
+    val_adj.add_argument("--reviewer", default="local", help="Reviewer id recorded on each record")
+    val_adj.add_argument(
+        "--tier", default="owner", choices=["owner", "domain", "clinical"],
+        help="Reviewer escalation tier (default: owner).",
+    )
+    val_adj.add_argument("--seed", type=int, default=0, help="Seed for the random calibration draw")
+    val_adj.add_argument(
+        "--from", dest="from_answers", metavar="answers.json",
+        help="Non-interactive: apply a {'scenario|backend': {accuracy,completeness,"
+        "relevance,harm,note}} map without prompting (scripted/test use).",
+    )
 
     return parser
 
@@ -177,6 +208,7 @@ def main() -> int:
                 output_dir=args.output_dir,
                 project_root=config.project_root,
                 resume_from=Path(args.resume) if args.resume else None,
+                reference_date=args.reference_date,
             )
             print(
                 f"validate run {args.comparison_set}: {result.result_count} results -> "
@@ -189,6 +221,28 @@ def main() -> int:
             run_dir = args.run_dir or str(Path(args.output_dir) / args.run_id)
             out = build_report(run_dir)
             print(f"report -> {out}")
+            return 0
+        if args.validate_action == "adjudicate":
+            from .validate.adjudicate import run_adjudication
+
+            run_dir = Path(args.output_dir) / args.run_id
+            # --review is triage|standard|full or a bare integer budget (N).
+            if args.review.isdigit():
+                mode, n = "budget", int(args.review)
+            else:
+                mode, n = args.review, None
+            answers = None
+            if args.from_answers:
+                answers = __import__("json").loads(
+                    Path(args.from_answers).read_text(encoding="utf-8"))
+            written = run_adjudication(
+                run_dir=run_dir, mode=mode, n=n, reviewer_id=args.reviewer,
+                reviewer_tier=args.tier, seed=args.seed, answers=answers,
+            )
+            print(
+                f"adjudicate {args.run_id}: {written} cell(s) reviewed -> "
+                f"{run_dir / 'adjudication.jsonl'}"
+            )
             return 0
         return _not_yet_implemented(f"validate {args.validate_action}")
 

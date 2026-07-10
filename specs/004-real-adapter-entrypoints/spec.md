@@ -4,6 +4,10 @@
 **Scope of this PR**: chartsearchai adapter only — proof of concept against the feature-002 corpus (now promoted to `openmrs`; see 2026-05-29 update)
 **Status**: in progress | **Started**: 2026-05-16
 
+> **Historical note (2026-07):** this PoC spec predates the hub-relay refactor. Current chartsearchai
+> chat requires `chartsearchai.llm.engine=remote` and relays through a configured OpenAI-compatible
+> endpoint; the bundled local engine path described below is no longer current.
+
 ## Goal
 
 Drop the chartsearchai OpenMRS module (built from our `targets/chartsearchai/` submodule) into the existing harness backend, swap the harness frontend + gateway to the chartsearch-flavored images, point chartsearchai at LM Studio (or any OpenAI-compat endpoint) for remote LLM inference, and verify in a browser that a clinician question against a real demo patient (Zabella Halambe, 303 obs / 39 orders from feature 002) returns a grounded answer with citations.

@@ -1,0 +1,19 @@
+{
+  "id": "ek-recent-labs",
+  "patient_ref": "dd8b9076-1691-11df-97a5-7038c432aabf",
+  "turns": [
+    {
+      "n": 1,
+      "question": "What are this patient's most recent laboratory results?"
+    }
+  ],
+  "tags": [
+    "labs",
+    "single-turn"
+  ],
+  "expectations": {
+    "should_cite_resource_types": [],
+    "should_abstain": false,
+    "notes": "Report the most-recent documented results; growth measurements (weight ~6.2-6.4 kg, height ~65-67 cm) are present. Do not fabricate values (e.g. a CD4 not in the chart)."
+  }
+}

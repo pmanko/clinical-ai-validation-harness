@@ -1,0 +1,13 @@
+{
+  "name": "harness-e2e",
+  "private": true,
+  "description": "Playwright e2e acceptance tests for the validation report + dashboard UX (user stories, with screenshots).",
+  "scripts": {
+    "test": "playwright test",
+    "report": "playwright test report.spec.ts",
+    "dashboard": "playwright test dashboard.spec.ts"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.48.0"
+  }
+}

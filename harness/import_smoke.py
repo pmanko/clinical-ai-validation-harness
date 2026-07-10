@@ -1,4 +1,4 @@
-"""Real import-smoke for Phase 5E.
+"""Real import-smoke for the loaded target.
 
 After ``harness/load/`` lands transformed data into the target OpenMRS
 DB (``openmrs_test`` for iteration, ``openmrs`` for promotion), this
@@ -13,9 +13,8 @@ module verifies:
 Emits ``artifacts/<run>/import-smoke/report.json`` with per-record
 evidence (constitution III).
 
-The stub (kept as ``run_import_smoke_stub``) is preserved for backward
-compatibility with the M0 entry point but should not be used for
-release evidence.
+The stub (kept as ``run_import_smoke_stub``) is a placeholder entry point and
+must not be used for release evidence.
 """
 
 from __future__ import annotations
@@ -58,7 +57,7 @@ class ImportSmokeResult:
 
 
 def run_import_smoke_stub() -> ImportSmokeResult:
-    """Placeholder for backward compat with M0 callers; do not use for release."""
+    """Placeholder result; do not use for release evidence."""
     checks = {"patient": True, "person": True, "encounter": True, "obs": True, "concept": True}
     return ImportSmokeResult(startup_ok=True, api_read_ok=True, table_checks=checks)
 

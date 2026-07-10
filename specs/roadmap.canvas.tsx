@@ -351,13 +351,13 @@ const features: Feature[] = [
     slug: "009-clinical-knowledge-base",
     lane: "foundation",
     purpose:
-      "Dedicated host-agnostic Python service (REST + MCP) providing general clinical KB plus a DB-curated contextualized layer for lower-power local models. Orthogonal to chartsearchai's per-patient retrieval; stacks at the prompt.",
+      "Dedicated host-agnostic Python service (REST + MCP) providing general clinical KB plus a DB-curated contextualized layer for lower-power local models. Orthogonal to med-agent-hub's per-patient chart retrieval; stacks into the hub prompt/profile path.",
     scope: [
       "Hybrid sparse+dense retrieval (BM25 + RRF, cross-encoder rerank, section-aware chunking, explicit abstention) per MedRAG/MIRAGE methodology.",
       "Openly-licensed reference corpus (WHO IMCI/EML/ANC, MSF, RxNorm essentials, immunization schedules).",
       "Separable curation worker that reads deployment OpenMRS DB as aggregates only; LLM-assisted concept-set selection (CUICurate-inspired); YAML curation artifact for mandatory human review.",
-      "First consumer: chartsearchai's LlmProvider.search via one optional kbContext parameter.",
-      "Second consumer (once F008 lands): gateway-injected KB-augmented provider class.",
+      "First consumer: med-agent-hub profile/prompt composition via an optional KB context package.",
+      "Second consumer: direct REST/MCP use by evaluation and operations tooling.",
     ],
     evidence: [
       "Citation/grounding eval: ≥10 pp accuracy lift over no-KB baseline at unchanged refusal-on-unanswerable rate, on a held-out MIRAGE-style subset.",
@@ -369,15 +369,15 @@ const features: Feature[] = [
   {
     id: "F007",
     num: "F007",
-    title: "File-based LLM config overrides",
+    title: "Superseded file-based LLM config overrides",
     slug: "007-llm-config-overrides",
     lane: "foundation",
     purpose:
-      "Make chartsearchai's LLM system prompt + request params (temperature, max_tokens, …) overridable via an optional operator-editable file pair (JSON config + prompt .md), read at call-time, layered over today's defaults, no rebuild/restart. Enabler for rapid validation iteration; feeds the 006 MVP (M2).",
+      "Historical chartsearchai-module prompt/config proposal. Superseded by med-agent-hub profiles, prompt files, and level knobs, which now own prompt and request-parameter iteration.",
     scope: [
-      "Optional file pair read at call-time; works unchanged when absent (today: system prompt is a DB-string GP, params are hardcoded in RemoteLlmEngine/LocalLlmEngine.buildRequestBody).",
-      "JSON via Jackson (already on the classpath); no new YAML parser.",
-      "chartsearchai backend change — ships via the paired-PR fork model (branch on pmanko → PR openmrs:main → consolidate into harness-integration).",
+      "No current implementation work planned in chartsearchai.",
+      "Use med-agent-hub level YAML, prompt files, and dynamic low-level ids for iteration.",
+      "Retained only as historical roadmap context.",
     ],
     evidence: [
       "Override file present → prompt/params change with no restart; absent → byte-identical to current defaults.",

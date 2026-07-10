@@ -1,0 +1,20 @@
+{
+  "id": "ek-immunizations",
+  "patient_ref": "dd8b9076-1691-11df-97a5-7038c432aabf",
+  "turns": [
+    {
+      "n": 1,
+      "question": "Which vaccines has this child received or been ordered?"
+    }
+  ],
+  "tags": [
+    "immunizations",
+    "pediatric",
+    "single-turn"
+  ],
+  "expectations": {
+    "should_cite_resource_types": [],
+    "should_abstain": false,
+    "notes": "BCG was previously administered; DTP, Haemophilus influenzae B, Hepatitis B and measles vaccinations are ordered. Pediatric-specific recall; don't fabricate doses/dates not in the chart."
+  }
+}

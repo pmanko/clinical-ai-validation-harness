@@ -1,0 +1,19 @@
+{
+  "id": "ek-medications",
+  "patient_ref": "dd8b9076-1691-11df-97a5-7038c432aabf",
+  "turns": [
+    {
+      "n": 1,
+      "question": "What medications is this patient currently on?"
+    }
+  ],
+  "tags": [
+    "medications",
+    "single-turn"
+  ],
+  "expectations": {
+    "should_cite_resource_types": [],
+    "should_abstain": false,
+    "notes": "Current drug orders are cotrimoxazole (trimethoprim/sulfamethoxazole, PCP prophylaxis), zidovudine (Retrovir) and lamivudine (ART); childhood vaccines (DTP, Hib, HepB, measles) are also ordered. Must not invent or substitute drugs."
+  }
+}

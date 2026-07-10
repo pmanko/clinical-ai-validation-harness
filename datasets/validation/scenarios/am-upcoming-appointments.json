@@ -14,7 +14,7 @@
   ],
   "expectations": {
     "should_cite_resource_types": [],
-    "should_abstain": false,
-    "notes": "Return-visit / scheduled-visit observations are recorded - should surface the scheduled follow-up."
+    "should_abstain": true,
+    "notes": "With reference date 2026-06-20, the latest recorded return-visit date is 2026-01-07 and no future appointment is documented. Should say no upcoming appointment is documented after the reference date; do not call the historical return visit upcoming."
   }
 }

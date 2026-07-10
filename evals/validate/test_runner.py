@@ -258,6 +258,55 @@ def test_runner_resume_reruns_incomplete_scenario(tmp_path):
     assert len(client.chat_calls) == 2
 
 
+def _write_twocall_fixtures(root: Path):
+    (root / "scenarios").mkdir(parents=True)
+    (root / "comparison_sets").mkdir(parents=True)
+    (root / "scenarios" / "sc.json").write_text(
+        json.dumps({"id": "sc", "patient_ref": "pat", "turns": [{"n": 1, "question": "q1"}]}),
+        encoding="utf-8")
+    (root / "comparison_sets" / "cs.json").write_text(
+        json.dumps({"id": "cs", "scenario_ids": ["sc"], "backend_ids": ["arm"]}), encoding="utf-8")
+    (root / "backends.json").write_text(json.dumps({"arm": {
+        "label": "Arm", "endpointUrl": "http://router/v1/chat/completions", "modelName": "mm",
+        "indepthEndpointUrl": "http://hub/v1/chat/completions", "indepthModelName": "indepth-mm"}}),
+        encoding="utf-8")
+
+
+def test_runner_fires_indepth_call_on_final_turn_and_nests_it(tmp_path):
+    # Two-call architecture: an arm with in-depth config gets a SECOND same-session chat call on the
+    # final turn (the in-depth-only backend), nested on the answer row as its own artifact with its
+    # own latency — so the Answer and the In-Depth are judged + timed independently.
+    data = tmp_path / "data"
+    _write_twocall_fixtures(data)
+    client = FakeClient()
+    out = run_comparison(comparison_set_id="cs", client=client, data_root=data,
+                         output_dir=tmp_path / "art", git_sha="test-sha")
+    assert len(client.chat_calls) == 2  # answer call + in-depth call
+    answer_call, indepth_call = client.chat_calls
+    assert answer_call["model_name"] == "mm"
+    assert answer_call["endpoint_url"] == "http://router/v1/chat/completions"
+    assert indepth_call["model_name"] == "indepth-mm"
+    assert indepth_call["endpoint_url"] == "http://hub/v1/chat/completions"
+    assert indepth_call["session"] == "sess-server"  # same session -> answer carried as a prior turn
+    row = json.loads(out.results_path.read_text(encoding="utf-8").splitlines()[0])
+    assert row["indepth"]["response"]["answer"]                 # in-depth artifact present
+    assert isinstance(row["indepth"]["latency_ms"], int)        # its own latency
+    assert row["response"]["answer"]                            # the Answer is unchanged
+
+
+def test_runner_no_indepth_call_when_arm_has_no_indepth_backend(tmp_path):
+    # Regression: an ordinary arm (no in-depth config) makes exactly one call per turn and no
+    # `indepth` artifact — the two-call path is strictly opt-in.
+    data = tmp_path / "data"
+    _write_fixtures(data)  # backend 'only' has no indepth config; 2-turn scenario
+    client = FakeClient()
+    out = run_comparison(comparison_set_id="cs", client=client, data_root=data,
+                         output_dir=tmp_path / "art", git_sha="test-sha")
+    assert len(client.chat_calls) == 2  # one per turn, no extra in-depth call
+    for ln in out.results_path.read_text(encoding="utf-8").splitlines():
+        assert "indepth" not in json.loads(ln)
+
+
 def test_runner_records_a_failed_request_and_keeps_going(tmp_path):
     # A request that raises (e.g. a ReadTimeout on a slow backend) must NOT abort the
     # whole run -- it is recorded as an error result (status != 200) and the run

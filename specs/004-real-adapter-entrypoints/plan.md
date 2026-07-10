@@ -3,6 +3,10 @@
 **Branch**: `004-chartsearchai-adapter`, cut from `main` after PR #10 (feature 002) merged.
 **Source of truth**: see also the approved plan file at `~/.claude/plans/streamed-watching-stream.md` from the planning session.
 
+> **Historical note (2026-07):** this plan predates the hub-relay refactor. Current chartsearchai
+> no longer runs a bundled local LLM engine; it relays chat to a configured remote/OpenAI-compatible
+> endpoint such as med-agent-hub.
+
 ## Architectural decisions
 
 ### D1 — Use chartsearchai upstream patterns; minimize harness wrappers

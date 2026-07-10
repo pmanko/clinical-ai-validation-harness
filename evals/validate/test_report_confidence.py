@@ -87,13 +87,13 @@ def test_red_answer_section_collapses_body_behind_caveat(tmp_path):
     )
     ans = _answer_html(run_dir)
 
-    # Answer section: red -> Low-confidence chip, the note rendered as a caveat, and the
+    # Answer section: red -> low self-check chip, the note rendered as a caveat, and the
     # body withheld behind a "show answer" reveal.
-    assert "Low confidence" in ans
+    assert "Self-check low" in ans
     assert "<div class='caveat red'>claim unsupported by chart</div>" in ans
     assert "<summary>show answer</summary>" in ans
-    # In-Depth section: yellow -> Medium-confidence chip, body shown, note collapsed.
-    assert "Medium confidence" in ans
+    # In-Depth section: yellow -> medium self-check chip, body shown, note collapsed.
+    assert "Self-check medium" in ans
     assert "<summary>show review note</summary>" in ans
     assert "<div class='caveat yellow'>partly supported</div>" in ans
     assert "Stavudine-free per WHO" in ans
@@ -108,7 +108,7 @@ def test_green_answer_section_renders_body_plainly(tmp_path):
     )
     ans = _answer_html(run_dir)
 
-    assert "High confidence" in ans
+    assert "Self-check high" in ans
     assert "Regimen is current" in ans
     # green never caveats or collapses.
     assert "caveat" not in ans
@@ -138,7 +138,7 @@ def test_malformed_trace_line_is_tolerated(tmp_path):
                 _trace({"level": "red", "note": "bad"}, {"level": "green", "note": ""})],
     )
     ans = _answer_html(run_dir)
-    assert "Low confidence" in ans
+    assert "Self-check low" in ans
     assert "<div class='caveat red'>bad</div>" in ans
 
 
@@ -149,6 +149,31 @@ def test_no_trace_falls_back_to_plain_answer(tmp_path):
     ans = _answer_html(run_dir)
     assert "confidence" not in ans.lower()
     assert "<strong>Answer</strong>" in ans  # still markdown-rendered, just unsectioned
+
+
+def test_temporal_gate_metadata_reaches_cell_chip_and_summary(tmp_path):
+    run_dir = tmp_path / "validate" / "run"
+    tr = _trace({"level": "yellow", "note": "patched"}, None)
+    tr["temporal_gate"] = {
+        "schema_version": "temporal_gate.v1",
+        "mode": "enforce",
+        "status": "fail",
+        "checks": [{"id": "upcoming_date", "status": "fail"}],
+        "applied": "patch",
+    }
+    tr["temporal_facts_summary"] = {"reference_date": "2026-06-20"}
+    _write_run(run_dir, [_result("**Answer**\nNo upcoming appointment [1].")], traces=[tr])
+
+    html = build_report(run_dir).read_text(encoding="utf-8")
+    body = re.search(
+        r"<script type='application/json' id='report-data'>(.*?)</script>", html, re.DOTALL
+    ).group(1)
+    run = json.loads(body)["runs"][0]
+    cell = run["scenarios"][0]["turns"][0]["cells"]["med-agent-team"]
+    assert cell["temporal_gate"]["mode"] == "enforce"
+    assert "temporal gate enforce: fail patch" in cell["chips_html"]
+    assert run["summary"][0]["temporal_gate_fail"] == 1
+    assert run["summary"][0]["temporal_gate_applied"] == 1
 
 
 def test_judge_scores_are_loaded_when_present(tmp_path):

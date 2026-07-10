@@ -9,11 +9,11 @@ version URL, hashed URL).
 
 Asserts the error rate is <= 0.1% of total items in the import; the function
 returns a payload dict whose `gate_passed` field reports the result. The CLI
-exits non-zero when the gate fails so it can wire directly into M2-A.
+exits non-zero when the gate fails so it can gate a pipeline step.
 
-Satisfies T024c (constitution Principle III — record-level evidence) for the
-CIEL load. Uses the HTTP helpers in `harness.ocl.bootstrap` rather than
-re-implementing auth + retries.
+Provides record-level evidence (constitution Principle III) for the CIEL load.
+Uses the HTTP helpers in `harness.ocl.bootstrap` rather than re-implementing
+auth + retries.
 """
 
 from __future__ import annotations

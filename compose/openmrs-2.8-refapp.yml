@@ -110,10 +110,10 @@ services:
     # build locally from `targets/chartsearchai/` (which carries our multi-turn
     # work). So we build our OWN backend image: Dockerfile.backend rebases the
     # stock `:3.6.0` dist off Amazon Linux 2 (glibc 2.26) onto Ubuntu/temurin
-    # (glibc 2.39) so querystore's onnxruntime embedder and chartsearchai's
-    # bundled llama-server native libs load — but bakes NO module, so the
-    # bind-mounted omods below (chartsearchai + querystore) are the only ones,
-    # with no clobber. Only the base OS changes; the OpenMRS app stays at 3.6.0.
+    # (glibc 2.39) so querystore's onnxruntime embedder native libs load — but
+    # bakes NO module, so the bind-mounted omods below (chartsearchai +
+    # querystore) are the only ones, with no clobber. Only the base OS changes;
+    # the OpenMRS app stays at 3.6.0.
     image: harness-openmrs-backend:${OPENMRS_BACKEND_TAG:-3.6.0}-temurin
     build:
       context: .
@@ -124,6 +124,10 @@ services:
     restart: "unless-stopped"
     depends_on:
       db:
+        condition: service_healthy
+      # The real CQRS read store: querystore.backend=elasticsearch + autostart=true means the
+      # module self-bootstraps the whole corpus into ES on boot, so ES must be healthy first.
+      elasticsearch:
         condition: service_healthy
     environment:
       OMRS_CONFIG_MODULE_WEB_ADMIN: "true"
@@ -147,10 +151,9 @@ services:
       # `elasticsearch` service; only consulted when querystore.backend=elasticsearch,
       # harmless otherwise. Start ES with: docker compose --profile elasticsearch up -d
       OMRS_EXTRA_QUERYSTORE_ELASTICSEARCH_URI: ${QUERYSTORE_ELASTICSEARCH_URI:-http://elasticsearch:9200}
-      # Selects the chartsearchai LLM engine for backend-init.sh: `local` triggers
-      # the bundled-llama GGUF download (~5GB) so LocalLlmEngine can spawn its
-      # llama-server child process; `remote` (default) skips it. The matching
-      # chartsearchai.llm.engine GP is set by chartsearch-configure.sh.
+      # Selects the chartsearchai LLM engine for backend-init.sh. Current
+      # harness builds support only `remote`: chartsearchai relays to the
+      # configured OpenAI-compatible endpoint, typically med-agent-hub.
       CHARTSEARCH_LLM_ENGINE: ${CHARTSEARCH_LLM_ENGINE:-remote}
     extra_hosts:
       # Linux: docker doesn't resolve host.docker.internal automatically; this maps
@@ -206,6 +209,11 @@ services:
       # `wall_clock` so chart age and hub "now" both track today. Empty default =
       # per-request latest_record (the max date in the chart). A level's `anchor` overrides this.
       HUB_ANCHOR: ${HUB_ANCHOR:-}
+      # Optional Querystore patient source. Supply all three values explicitly with a least-privileged
+      # OpenMRS service account; leaving all three empty keeps inline chart context available.
+      QUERYSTORE_BASE_URL: ${QUERYSTORE_BASE_URL:-}
+      QUERYSTORE_USERNAME: ${QUERYSTORE_USERNAME:-}
+      QUERYSTORE_PASSWORD: ${QUERYSTORE_PASSWORD:-}
     extra_hosts:
       # Reach LM Studio on the host, same pattern as the backend.
       - "host.docker.internal:host-gateway"
@@ -245,12 +253,12 @@ services:
     # querystore's "large"/production tier — the real CQRS read store, running as
     # a SEPARATE service from core's MariaDB (clinical OLTP), which is the whole
     # point of CQRS: get the read store off the transactional clinical DB. Matches
-    # querystore's elasticsearch-java 8.13.4 client. Opt-in via the `elasticsearch`
-    # compose profile so mysql/lucene runs don't pay its ~1GB. Single-node,
+    # querystore's elasticsearch-java 8.13.4 client. Part of the DEFAULT stack: the real
+    # setup is querystore.backend=elasticsearch and chartsearchai is querystore-only for
+    # retrieval, so a proper instance always has ES up (no longer profile-gated). Single-node,
     # security disabled — dev/validation harness only, never a public deployment.
     image: docker.elastic.co/elasticsearch/elasticsearch:8.13.4
     container_name: harness-querystore-es
-    profiles: ["elasticsearch"]
     restart: "unless-stopped"
     environment:
       - discovery.type=single-node

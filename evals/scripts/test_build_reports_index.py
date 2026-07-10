@@ -1,0 +1,202 @@
+"""Tests for scripts/build-reports-index.py — the curated index renderer's pure logic.
+
+Two behaviors with real bugs worth pinning:
+  - human_arm's tier-token matching AFTER the `med-agent-team` prefix (the prefix itself
+    contains "med", so a naive `"med" in arm` mislabels every team as Standard), plus the
+    +checker/+in-depth flags and the single-12b-indepth special case;
+  - _scout_table's In-Depth-Benchmark block (shown, NOT hidden, for any arm shipping a
+    background score) + the best-cell highlight + harm flagging + the unscored fallback.
+
+Loaded by path via importlib (hyphenated filename). human_arm reaches the live
+arm_card resolver for the hover DETAIL, but the NAME assertions are deterministic on the
+arm-id string. _scout_table is tested with human_arm stubbed so the table logic is isolated.
+"""
+
+from __future__ import annotations
+
+import importlib.util
+import json
+from pathlib import Path
+
+import pytest
+
+_MOD_PATH = Path(__file__).resolve().parents[2] / "scripts" / "build-reports-index.py"
+
+
+def _load():
+    assert _MOD_PATH.exists(), "scripts/build-reports-index.py missing"
+    spec = importlib.util.spec_from_file_location("build_reports_index", _MOD_PATH)
+    mod = importlib.util.module_from_spec(spec)
+    assert spec and spec.loader
+    spec.loader.exec_module(mod)
+    return mod
+
+
+# --------------------------------------------------------------------------- #
+# human_arm — tier-token-after-prefix + flags
+# --------------------------------------------------------------------------- #
+@pytest.mark.parametrize("arm,expected_name", [
+    ("med-agent-team-low", "AI team — Basic"),
+    ("med-agent-team-med", "AI team — Standard"),
+    ("med-agent-team-high", "AI team — Advanced"),
+    ("med-agent-team-parity", "AI team — matched to baseline"),
+    ("med-agent-team-12b", "AI team — 12B"),
+])
+def test_human_arm_team_tier_tokens(arm, expected_name):
+    bri = _load()
+    name, _detail = bri.human_arm(arm)
+    assert name == expected_name
+
+
+def test_human_arm_team_validated_and_indepth_flags():
+    bri = _load()
+    name, _ = bri.human_arm("med-agent-team-high-validated-indepth")
+    # the tier is still Advanced (token after the prefix), with both flags appended
+    assert name == "AI team — Advanced + checker + in-depth"
+
+
+def test_human_arm_prefix_does_not_self_match_med():
+    bri = _load()
+    # 'med-agent-team' literally contains 'med'; a tier with no recognizable token after
+    # the prefix must fall to the generic "team", NOT be mislabeled "Standard".
+    name, _ = bri.human_arm("med-agent-team-zzz")
+    assert name == "AI team — team"
+
+
+def test_human_arm_single_12b_indepth_special_case():
+    bri = _load()
+    name, _ = bri.human_arm("single-12b-indepth")
+    assert name == "Gemma 12B (single + in-depth)"
+
+
+def test_human_arm_single_makeup_and_short_title(monkeypatch):
+    bri = _load()
+    # a SINGLE arm: detail is the model's id·params·quant; name is the card's short_title
+    monkeypatch.setattr(bri, "arm_card", lambda arm: {
+        "kind": "single", "short_title": "Gemma 4 12B · Q8",
+        "models": [{"id": "gemma-4-12b", "params": "12B", "quant": "Q8_0"}]})
+    name, detail = bri.human_arm("some-single")
+    assert name == "Gemma 4 12B · Q8"
+    assert detail == "gemma-4-12b · 12B · Q8_0"
+
+
+def test_human_arm_team_makeup_detail(monkeypatch):
+    bri = _load()
+    monkeypatch.setattr(bri, "arm_card", lambda arm: {
+        "kind": "team",
+        "roles": {"orchestrator": {"id": "lfm2-2.6b"}, "synthesizer": {"id": "qwen2.5-32b"}}})
+    name, detail = bri.human_arm("med-agent-team-low")
+    assert name == "AI team — Basic"
+    # the hover detail is the role=model lineup
+    assert detail == "orchestrator=lfm2-2.6b · synthesizer=qwen2.5-32b"
+
+
+def test_human_arm_short_title_falls_back_to_raw_label(monkeypatch):
+    bri = _load()
+    # a single card with NO short_title -> name falls back to the backends.json label (_RAW)
+    monkeypatch.setattr(bri, "arm_card", lambda arm: {"kind": "single", "models": [{}]})
+    monkeypatch.setattr(bri, "_RAW", {"weird-arm": "Weird Arm Label"})
+    name, detail = bri.human_arm("weird-arm")
+    assert name == "Weird Arm Label"
+    assert detail == "Weird Arm Label"
+
+
+# --------------------------------------------------------------------------- #
+# _scout_table — rendering, In-Depth block, best/harm classes, unscored fallback
+# --------------------------------------------------------------------------- #
+def _stub_human_arm(monkeypatch, bri):
+    # isolate _scout_table from the live arm_card resolver (plain names — the renderer
+    # html-escapes, so avoid characters that would be entity-encoded in the assertions)
+    monkeypatch.setattr(bri, "human_arm", lambda arm: (f"Name {arm}", f"detail {arm}"))
+
+
+def test_scout_table_unscored_fallback():
+    bri = _load()
+    html = bri._scout_table([])
+    assert "not yet scored" in html
+    assert "<table" not in html
+
+
+def test_scout_table_marks_best_and_harm(monkeypatch):
+    bri = _load()
+    _stub_human_arm(monkeypatch, bri)
+    scout = [
+        {"backend": "a", "n": 5, "benchmark_score": 80.0, "accuracy_mean": 8.0,
+         "completeness_mean": 7.0, "relevance_mean": 9.0, "harm_count": 0,
+         "confabulation_count": 0, "fabricated_citation_count": 0},
+        {"backend": "b", "n": 5, "benchmark_score": 60.0, "accuracy_mean": 6.0,
+         "completeness_mean": 6.0, "relevance_mean": 6.0, "harm_count": 2,
+         "confabulation_count": 1, "fabricated_citation_count": 0},
+    ]
+    html = bri._scout_table(scout)
+    # the higher benchmark (80) is flagged best
+    assert 'class="bench best">80.0' in html
+    # the arm with harm gets the harm class on its harm cell (count rendered)
+    assert 'class="harm"' in html
+    # both arms are rendered in the answer grid
+    assert "Name a" in html and "Name b" in html
+
+
+def test_scout_table_renders_indepth_block_for_arms_with_background(monkeypatch):
+    bri = _load()
+    _stub_human_arm(monkeypatch, bri)
+    scout = [
+        # an arm that shipped an In-Depth (a background block with n_background)
+        {"backend": "team", "n": 4, "benchmark_score": 70.0, "accuracy_mean": 7.0,
+         "completeness_mean": 7.0, "relevance_mean": 7.0, "harm_count": 0,
+         "confabulation_count": 0, "fabricated_citation_count": 0,
+         "background": {"n_background": 4, "benchmark_score": 88.5, "support_mean": 9.0,
+                        "added_value_mean": 8.0, "new_harm_count": 0, "padded_count": 1}},
+        # an arm with NO in-depth -> excluded from the In-Depth block
+        {"backend": "single", "n": 4, "benchmark_score": 65.0, "accuracy_mean": 6.5,
+         "completeness_mean": 6.5, "relevance_mean": 6.5, "harm_count": 0,
+         "confabulation_count": 0, "fabricated_citation_count": 0, "background": {}},
+    ]
+    html = bri._scout_table(scout)
+    # the separate In-Depth Benchmark section is rendered (shown, not hidden)...
+    assert "In-Depth Benchmark" in html
+    assert "scored separately on" in html
+    assert "88.5" in html  # the In-Depth benchmark value
+    # ...and the answer grid still carries BOTH arms above it
+    assert "70.0" in html and "65.0" in html
+
+
+def test_scout_table_no_indepth_block_when_no_background(monkeypatch):
+    bri = _load()
+    _stub_human_arm(monkeypatch, bri)
+    scout = [{"backend": "x", "n": 3, "benchmark_score": 50.0, "accuracy_mean": 5.0,
+              "completeness_mean": 5.0, "relevance_mean": 5.0, "harm_count": 0,
+              "confabulation_count": 0, "fabricated_citation_count": 0}]
+    html = bri._scout_table(scout)
+    # no arm has a background -> the In-Depth block is absent
+    assert "In-Depth Benchmark" not in html
+
+
+# --------------------------------------------------------------------------- #
+# main — index.html render + the staged-but-unlisted warning
+# --------------------------------------------------------------------------- #
+def test_main_writes_index_and_warns_on_staged_but_unlisted(tmp_path, monkeypatch, capsys):
+    bri = _load()
+    reports = tmp_path / "reports"
+    (reports / "listed-run").mkdir(parents=True)
+    (reports / "listed-run" / "meta.json").write_text("{}", encoding="utf-8")
+    # a report STAGED under reports/ but absent from the curated manifest -> should warn
+    (reports / "ghost-run").mkdir()
+    (reports / "ghost-run" / "meta.json").write_text("{}", encoding="utf-8")
+
+    manifest = tmp_path / "reports-index.json"
+    manifest.write_text(json.dumps({
+        "intro": "hello", "scoring_note": "note",
+        "runs": [{"slug": "listed-run", "title": "Listed Run",
+                  "summary": "s", "takeaway": "t"}]}), encoding="utf-8")
+
+    monkeypatch.setattr(bri, "REPORTS", reports)
+    monkeypatch.setattr(bri, "MANIFEST", manifest)
+    monkeypatch.setattr(bri, "VALIDATE", tmp_path / "validate")
+    bri.main()
+
+    out_html = (reports / "index.html").read_text(encoding="utf-8")
+    assert "Listed Run" in out_html
+    assert "hello" in out_html  # the intro copy
+    # the staged-but-unlisted run is flagged on stderr
+    assert "ghost-run is staged" in capsys.readouterr().err

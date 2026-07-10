@@ -1,0 +1,23 @@
+{
+  "id": "date-aloice-last-visit-exact",
+  "patient_ref": "dd5558ed-1691-11df-97a5-7038c432aabf",
+  "turns": [
+    {
+      "n": 1,
+      "question": "What exact date was this patient's most recent clinical encounter? Answer with the exact YYYY-MM-DD date, visit type, and citation."
+    }
+  ],
+  "tags": [
+    "date-format",
+    "temporal",
+    "last-visit",
+    "single-turn"
+  ],
+  "expectations": {
+    "should_cite_resource_types": [
+      "Encounter"
+    ],
+    "should_abstain": false,
+    "notes": "Targets nearby-date substitution. The most recent clinical encounter is 2026-01-07; answers such as 2026-01-01 or non-ledger ISO dates should fail the temporal gate."
+  }
+}

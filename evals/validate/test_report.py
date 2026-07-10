@@ -173,7 +173,7 @@ _MED_BLOCK = {
 }
 
 
-def test_report_renders_blocks_table_with_cells_and_refs(tmp_path):
+def test_report_renders_blocks_table_with_cells_and_row_sources(tmp_path):
     # The bridge returns enumerations (med lists, labs) as a blocks[] table that
     # report.py currently DROPS entirely (it reads only response.answer +
     # response.references). Render each table block as an HTML <table>.
@@ -197,8 +197,30 @@ def test_report_renders_blocks_table_with_cells_and_refs(tmp_path):
     assert ">Action</th>" in blocks
     assert "Lamivudine" in blocks
     assert "Nevirapine" in blocks
-    # Cell-level chart-record refs render as ref chips inside the table cell.
-    assert "<span class='ref'>[29]</span>" in blocks
+    # Cell-level chart-record refs no longer render as repeated chips in every table cell;
+    # the default table view collapses them into row-level source affordances.
+    assert "<span class='ref'>[29]</span>" not in blocks
+    assert "row-sources" in blocks
+    assert "sources" in blocks
+
+
+def test_report_renders_evidence_tiles_and_keeps_raw_refs_debug_only(tmp_path):
+    run_dir = tmp_path / "run"
+    r = _result("med-agent-team", "See medications table.",
+                [{"index": 29, "resourceType": "MedicationRequest"}])
+    r["response"]["blocks"] = [_MED_BLOCK]
+    _write_run(run_dir, [r])
+
+    html = build_report(run_dir).read_text(encoding="utf-8")
+    body = re.search(
+        r"<script type='application/json' id='report-data'>(.*?)</script>", html, re.DOTALL
+    ).group(1)
+    cell = json.loads(body)["runs"][0]["scenarios"][0]["turns"][0]["cells"]["med-agent-team"]
+
+    assert cell["sources"]["schema_version"] == "sources.v1"
+    assert "Evidence Used" in cell["sources_html"]
+    assert "source-card" in cell["sources_html"]
+    assert "raw resolved refs" in cell["refs_html"]
 
 
 def test_report_escapes_untrusted_text_in_answer_and_blocks(tmp_path):
@@ -319,6 +341,81 @@ def test_report_embeds_multiple_runs_with_run_selector(tmp_path):
     assert "<select id='run-select'>" in html
 
 
+def test_report_topbar_has_data_derived_identity_not_generic_h1(tmp_path):
+    # The topbar must carry a run-identity title built from the embedded run data
+    # (dataset + date + arm/scenario/patient counts), not the generic literal
+    # "Validation report". The <h1> is a JS render target (#report-title) the shell
+    # fills from DATA, and a buildTitle() helper sources it from the run blob.
+    run_dir = tmp_path / "run"
+    _write_run(run_dir, [
+        _result("med-agent-team", "ans a", []),
+        _result("gemma-local", "ans b", []),
+    ])
+    html = build_report(run_dir).read_text(encoding="utf-8")
+
+    # The generic placeholder is gone from the header; a JS-filled title target exists.
+    assert "<h1>Validation report</h1>" not in html
+    assert "id='report-title'" in html
+    # A title builder pulls real run fields (dataset / arms / scenarios / patients) so
+    # the header identity reflects the actual run rather than a constant string.
+    assert "function buildTitle(" in html
+    assert "dataset_id" in html  # already present for run-meta; title reuses it
+    # The export/feedback actions are relocated into a single subdued overflow menu
+    # (progressive disclosure) — a labelled disclosure, not three top-row buttons.
+    assert "id='export-menu'" in html
+
+
+def test_report_export_actions_live_in_overflow_menu_and_stay_wired(tmp_path):
+    # De-emphasis: the rarely-used rankings/feedback exports + the reviewer-email input
+    # move OUT of the prominent control row into one overflow menu, but the wired ids
+    # (and their JS handlers) are preserved so the adjudication/ranking machinery works.
+    run_dir = tmp_path / "run"
+    _write_run(run_dir, [_result("gemma-local", "ans", [])])
+    html = build_report(run_dir).read_text(encoding="utf-8")
+
+    # The overflow menu container wraps the three secondary actions + the email input.
+    menu = re.search(r"id='export-menu'.*?</details>", html, re.DOTALL)
+    assert menu is not None, "expected an <details id='export-menu'> overflow menu"
+    menu_html = menu.group(0)
+    for wired in ("id='reset-rank'", "id='export-rankings'", "id='export-feedback'", "id='rev'"):
+        assert wired in menu_html, f"{wired} must live inside the overflow menu"
+    # The handlers are still wired (ids unchanged) — machinery intact.
+    assert "getElementById('reset-rank').addEventListener" in html
+    assert "getElementById('export-rankings').addEventListener" in html
+    assert "getElementById('export-feedback').addEventListener" in html
+    # Download PDF + theme toggle remain readily accessible (NOT inside the overflow menu).
+    assert "id='print-pdf'" in html
+    assert "id='print-pdf'" not in menu_html
+    assert "id='theme-toggle'" in html
+    assert "id='theme-toggle'" not in menu_html
+
+
+def test_report_dense_legends_are_structured_definition_lists(tmp_path):
+    # The Scout-rubric grading key + the box-plot reading guide are reformatted from
+    # dense <p class="metrics-legend"> walls into scannable <dl> definition grids
+    # (term -> concise definition) behind a "what these mean" disclosure — without
+    # losing the definitions. Assert the structured key markup + that the rubric terms
+    # survive as <dt> entries.
+    run_dir = tmp_path / "run"
+    _write_run(run_dir, [_result("gemma-local", "Lisinopril [1]",
+                                 [{"index": 1, "resourceType": "MedicationRequest"}])])
+    html = build_report(run_dir).read_text(encoding="utf-8")
+
+    # Definition-list scaffolding is present (replacing the prose legends).
+    assert "class='legend-key'" in html or 'class="legend-key"' in html
+    assert "<dl" in html and "<dt" in html and "<dd" in html
+    # A progressive-disclosure disclosure gates the longer secondary detail (label is
+    # contextual per section, e.g. "How this is scored…" / "About the robust axis").
+    assert "class='legend-detail'" in html or 'class="legend-detail"' in html
+    assert "<summary" in html
+    # The grading-key terms survive as definition terms, not deleted.
+    for term in ("accuracy", "completeness", "relevance", "grounding", "harm", "temporal"):
+        assert term in html, f"rubric term '{term}' must survive the restructure"
+    # The box-plot reading guide terms survive too.
+    for term in ("median", "mean", "whisker"):
+        assert term in html, f"box-plot term '{term}' must survive the restructure"
+
+
 def test_report_blob_is_embedding_safe_against_script_breakout(tmp_path):
     # A model answer containing </script> must not break out of the inert JSON
     # <script> element. The blob is emitted with < > & neutralised to \\uXXXX, so no
@@ -339,3 +436,97 @@ def test_report_blob_is_embedding_safe_against_script_breakout(tmp_path):
     # which the server-side escape-first render then neutralises into the answer.
     blob = json.loads(body)
     assert "&lt;/script&gt;" in blob["runs"][0]["scenarios"][0]["turns"][0]["cells"]["med-agent-team"]["answer_html"]
+
+
+def test_report_run_dropdown_is_a_published_run_switcher_that_degrades(tmp_path):
+    # The topbar "run" control swaps between PUBLISHED runs: it fetches the sibling
+    # reports-index.json (../reports-index.json) at runtime, lists each run's slug+title,
+    # marks the current one, and navigates to ../<slug>/ on select. It degrades
+    # gracefully (hidden) when the fetch fails (local file:// open / index absent) — so
+    # it is NEVER a dead single-option control.
+    run_dir = tmp_path / "run"
+    _write_run(run_dir, [_result("gemma-local", "ans", [])])
+    html = build_report(run_dir).read_text(encoding="utf-8")
+
+    # The switcher fetches the sibling published index and navigates to a sibling slug dir.
+    assert "../reports-index.json" in html
+    assert "function loadRunSwitcher(" in html
+    # Graceful degradation: the control is hidden when the index can't be fetched.
+    assert "run-switcher" in html
+    # On select it navigates to the sibling published run directory.
+    assert "../' + " in html or "'../'" in html  # builds ../<slug>/ target
+
+
+def test_report_scenario_and_question_filters_are_section_local(tmp_path):
+    # The scenario + question filters affect ONLY the per-scenario answers, so they
+    # are relocated out of the page-level topbar .controls row into a filter bar that
+    # is rendered adjacent to the answers section (#sec-answers), not the global header.
+    run_dir = tmp_path / "run"
+    _write_run(run_dir, [
+        _result("med-agent-team", "ans a", []),
+        _result("gemma-local", "ans b", []),
+    ])
+    html = build_report(run_dir).read_text(encoding="utf-8")
+
+    # The wired filter ids still exist (behavior preserved) — now assigned by the
+    # section-local builder rather than baked into the static topbar markup.
+    assert "scenario-filter" in html        # sf.id = 'scenario-filter'
+    assert "q-search" in html               # search.id = 'q-search'
+    assert "function buildAnswersFilters(" in html
+    # ... but they are NO LONGER inside the page-level topbar .controls row.
+    controls = re.search(r"class='controls'>(.*?)</div>\s*<nav", html, re.DOTALL)
+    assert controls is not None
+    assert "scenario-filter" not in controls.group(1)
+    assert "q-search" not in controls.group(1)
+    # A section-local filter bar is built adjacent to the answers section.
+    assert "answers-filters" in html
+
+
+def test_report_splits_heatmap_and_answers_into_two_nav_sections(tmp_path):
+    # The combined "Per-scenario answers" section is split into two distinct, numbered,
+    # nav-registered sections: a heatmap (scenario × setup color grid) and the
+    # side-by-side answer tiles. Both must register their own nav label + id.
+    run_dir = tmp_path / "run"
+    _write_run(run_dir, [
+        _result("med-agent-team", "ans a", []),
+        _result("gemma-local", "ans b", []),
+    ])
+    # judge.jsonl makes the heatmap render (it keys off judge_rows).
+    (run_dir / "judge.jsonl").write_text(
+        json.dumps({"scenario_id": "s", "backend_id": "gemma-local", "accuracy": 8,
+                    "completeness": 7, "relevance": 9, "abstention_outcome": "n-a",
+                    "citation_groundedness": "supported", "harm": False, "note": ""}) + "\n",
+        encoding="utf-8",
+    )
+    html = build_report(run_dir).read_text(encoding="utf-8")
+
+    # Two separate section ids exist (heatmap + answers), wrapped by wrapSection so they
+    # are numbered + appear in the nav.
+    assert "'sec-heatmap'" in html
+    assert "'sec-answers'" in html
+    # The old combined "Per-scenario" nav label is gone in favour of the two split labels.
+    assert "'Heatmap'" in html
+    assert "'Answers'" in html
+
+
+def test_report_setup_filter_is_a_multiselect_dropdown_not_a_checkbox_list(tmp_path):
+    # The backend/setup filter is redesigned from a flat horizontal checkbox list (which
+    # doesn't scale past ~11 setups) into a "Filter setups ▾" multi-select dropdown with
+    # select-all / clear-all and a count badge — still wired to the same show/hide-column
+    # behavior (applyBackendToggle).
+    run_dir = tmp_path / "run"
+    _write_run(run_dir, [
+        _result("med-agent-team", "ans a", []),
+        _result("gemma-local", "ans b", []),
+    ])
+    html = build_report(run_dir).read_text(encoding="utf-8")
+
+    # The new multi-select dropdown shell + its select-all / clear-all affordances.
+    assert "setup-filter" in html
+    assert "Filter setups" in html
+    assert "select-all" in html.replace("Select all", "select-all").replace("selectAll", "select-all")
+    assert "clear-all" in html.replace("Clear all", "clear-all").replace("clearAll", "clear-all")
+    # The count badge that summarises how many setups are shown.
+    assert "setup-count" in html or "count-badge" in html
+    # Still wired to the existing show/hide column behavior.
+    assert "applyBackendToggle" in html
