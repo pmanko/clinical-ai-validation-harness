@@ -43,7 +43,7 @@ Current work is the **validation spine** (Roadmap M2 / feature 006): run the sam
 | Current priority operator walkthrough | [Feature 002 quickstart](https://github.com/pmanko/clinical-ai-validation-harness/blob/main/specs/002-openmrs-demo-data-2-8-remap/quickstart.md) |
 | Harness foundation and control-plane detail | [Feature 001 spec](https://github.com/pmanko/clinical-ai-validation-harness/blob/main/specs/001-harness-control-plane-foundation/spec.md) |
 | All planning artifacts, canvases, and research docs | [specs/artifacts/](https://github.com/pmanko/clinical-ai-validation-harness/tree/main/specs/artifacts) |
-| Cloud/GCE deploy guide | [docs/cloud-deploy.md](https://github.com/pmanko/clinical-ai-validation-harness/blob/main/docs/cloud-deploy.md) |
+| Superseded pre-hub cloud guide | [docs/cloud-deploy.md](https://github.com/pmanko/clinical-ai-validation-harness/blob/main/docs/cloud-deploy.md) |
 
 The public docs site auto-deploys from `main` and publishes the public-facing surface — this README and the visual canvases. The detailed feature specs, plans, briefs, and per-lane dossiers are dev-internal: they live in the repo (under `specs/`), not on the published site. Browse the site locally with `cd site && npm install && npm run dev` (opens at `http://127.0.0.1:4321/clinical-ai-validation-harness/`).
 
@@ -57,10 +57,10 @@ Human-facing docs use plain names. IDs appear in parentheses on first use and in
 | OpenMRS demo-data remap | M1 | `002` | Complete |
 | Validation spine | M2 | `006` | In progress (validation-harness MVP; runner/report/feedback shipped — see lane L3) |
 | Real adapter entrypoints | M3 | `004` | In progress |
-| med-agent-hub bridge | F005 | `005` | Shipped (model-switch + Carbon picker + model warmup + Tier-1 KB) |
-| LLM config overrides | F007 | `007` | Planned |
-| med-agent-hub MCP tools | F010 | `017` | In progress (lane L1) |
-| Chartsearchai model gateway | F008 | `008` | [Brief](https://github.com/pmanko/clinical-ai-validation-harness/blob/main/specs/artifacts/planning/chartsearchai-model-gateway-brief.md) |
+| med-agent-hub service | F005 | `005` | Shipped; profile-driven answer/review/In-Depth path under consolidation roadmap |
+| LLM config overrides | F007 | `007` | Superseded by hub profiles and low-level legs |
+| med-agent-hub MCP tools | F010 | `017` | Superseded; dead MCP/A2A runtime removed |
+| ChartSearchAI model gateway | F008 | `008` | Superseded by hub-owned profile discovery |
 | Clinical knowledge base | F009 | `009` | [Brief + research](https://github.com/pmanko/clinical-ai-validation-harness/blob/main/specs/artifacts/planning/clinical-kb-brief.md) |
 | Retrieval evaluation | M4 | `010` | Planned |
 | Catalyst FHIR sidecar POC | M10 | `011` | [Brief](https://github.com/pmanko/clinical-ai-validation-harness/blob/main/specs/artifacts/planning/catalyst-fhir-sidecar-brief.md) |
@@ -139,48 +139,36 @@ For the full OpenMRS demo-data remap workflow, see [specs/002-openmrs-demo-data-
 
 ## ChartSearch operations
 
-The chartsearchai adapter (feature 004) and its Med Agent Hub team are operated through `make` targets that
-wrap the build, the LLM engine, the retrieval backend, and the per-endpoint model picker:
-
-The **canonical LLM path** is chartsearchai → Med Agent Hub (`:8080`) → llama-router (`:8077`): a llama.cpp
-Router Mode server serving the tier GGUFs the hub maps its per-role models onto. LM Studio (`:1234`) is a
-configurable alternative remote endpoint. chartsearchai has no bundled local LLM — every chat request relays
-to a configured remote endpoint. The default chat model is the fast checked single profile
-(`single-e4b-checked`); larger singles and team profiles are picker choices for slower/deeper questions.
+The **canonical product path** is ChartSearchAI -> med-agent-hub -> llama.cpp. ChartSearchAI has one hub
+endpoint and relays one profile request per turn; it does not discover raw models or compose answer/review/
+In-Depth calls. The hub owns patient context, temporal enforcement, review, grounding, and In-Depth. Its
+default product profile is the fast checked E4B single (`single-e4b-checked`); larger singles and team profiles
+remain available for deliberate comparisons.
 
 ```bash
-# 1. Canonical local LLM backend (foreground server, own terminal — start this FIRST).
-#    TIER=low|med|high.
-make llama-router-up                 # serves the tier GGUFs on :8077
-make llama-router-models             # probe what :8077 is serving
+# One command checks prerequisites, starts/verifies host-native llama.cpp, builds
+# stale module/UI artifacts, starts OpenMRS and the hub, provisions a least-privileged
+# patient reader, configures the relay, and exercises the default E4B profile.
+make chartsearchai-local
 
-# 2. One command brings up everything else: builds the .omod, brings up + configures
-#    med-agent-hub (when .env.chartsearch's endpoint targets it, the default), starts
-#    the OpenMRS stack, configures chartsearchai's LLM globals, and warms LM Studio
-#    models if configured. Ask a question through the picker's default model once
-#    both steps above are done.
-make chartsearch-up
-
-# Re-run individual steps as needed, e.g. after editing .env.chartsearch:
+# Useful focused operations:
+./scripts/chartsearchai-local.sh --check  # validate prerequisites without starting services
+make llama-router-models             # inspect raw models behind the hub
 make chartsearch-build               # rebuild + redeploy just the .omod
 make med-agent-hub-up                # (re)start the hub on its own
-make chartsearch-configure           # re-write the chartsearchai.llm.* global properties
-make chartsearch-engine              # recreate the backend against the configured remote endpoint
-make chartsearch-warmup              # LM Studio only — pre-load its models
+make chartsearch-configure           # write the fixed hub endpoint + product profile
+make chartsearch-doctor              # verify router, hub profile metadata, and module status
 
 # Retrieval backend — querystore's CQRS read store tier
 make chartsearch-backend BACKEND=elasticsearch   # or lucene | mysql
 ```
 
-**Model picker.** When `CHARTSEARCH_REMOTE_ENDPOINTS` (a JSON array of `{label, url}`) is set in
-`.env.chartsearch`, the chat panel shows a sectioned picker — one section per endpoint (e.g. *Med Agent Hub*,
-*llama-server*, *LM Studio*). Selecting a model sends it as a per-request `{endpointUrl, modelName}` override on
-that chat only; it does not change the config-controlled global default (shown with a faded "default" tag). With
-no registry set, the picker collapses to the single configured endpoint.
+**Profile picker.** The ESM renders only the human-readable product profiles advertised by med-agent-hub. The
+hub marks one available profile as default; ChartSearchAI persists the selected profile but never invents raw
+model choices or endpoint-specific fallbacks.
 
-**Cloud.** `make cloud-deploy` ships the backend (`.omod`) and `make cloud-deploy-esm` ships the frontend
-bundle; `make cloud-status` / `cloud-ssh` inspect the VM. The cloud runs the same engine + picker + Med Agent
-Hub setup as local (it reaches the operator's LM Studio over the LM Link).
+**Cloud.** The older GCE/LM Link workflow predates the hub-only product boundary and is not the canonical M3
+proof path. Use the local workflow above while the cloud scripts are reconciled with the same hub profile API.
 
 ## Key terms
 

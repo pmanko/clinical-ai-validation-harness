@@ -9,7 +9,17 @@
 // latency here is unreliable: a fresh answer alone can take ~60-70s on the writer model, which
 // swamps any preempt signal. The hub owns that proof; this e2e owns the assembled UI behavior.
 import { test, expect, type Page } from '@playwright/test';
-import { login, openAiChatPanel, openPatientChart, resetChatSession, selectSingle12BModel } from '../support/openmrs';
+import {
+  hubCancellationsSince,
+  hubCancellationTraceOffset,
+  hubTraceOffset,
+  hubTraceQuestionsSince,
+  login,
+  openAiChatPanel,
+  openPatientChart,
+  resetChatSession,
+  selectFastE4BModel,
+} from '../support/openmrs';
 
 const QUESTIONS = [
   'In one short sentence, what was the most recent documented clinical visit?',
@@ -47,11 +57,13 @@ test.describe('chartsearchai — preempt frees the router slot mid-leg', () => {
     test.setTimeout(600_000);
     const errors: string[] = [];
     page.on('pageerror', (e) => errors.push(String(e)));
+    const traceOffset = hubTraceOffset();
+    const cancellationOffset = hubCancellationTraceOffset();
 
     await login(page);
     await openPatientChart(page);
     await openAiChatPanel(page);
-    await selectSingle12BModel(page);
+    await selectFastE4BModel(page);
 
     // Q1 — a normal turn allowed to finish completely, establishing the session is healthy before
     // the actual preempt assertion (isolates "preempt is broken" from "the session itself is broken").
@@ -77,12 +89,24 @@ test.describe('chartsearchai — preempt frees the router slot mid-leg', () => {
 
     // Q2's row must land terminal — not dangle mid-stream forever — once preempted.
     await waitTurnPhase(page, 1, 'complete', 60_000);
-    await expect(page.locator('[data-indepth-status]').nth(1)).toHaveAttribute('data-indepth-status', 'complete', {
+    await expect(page.locator('[data-indepth-status]').nth(1)).toHaveAttribute('data-indepth-status', 'failed', {
       timeout: 60_000,
     });
 
     // All three turns present — Q3 was accepted, not blocked or dropped.
     await expect(page.locator('[data-turn-phase]')).toHaveCount(3, { timeout: 30_000 });
+
+    // The hub records both sides of the preempt: Q2 positively reports cancellation after its
+    // router slot is released, and Q3 reaches the normal completed-turn trace.
+    await expect
+      .poll(() =>
+        hubCancellationsSince(cancellationOffset).some(
+          (entry) => entry.question === QUESTIONS[1] && entry.router_lock_released === true,
+        ),
+      )
+      .toBe(true);
+    await expect.poll(() => hubTraceQuestionsSince(traceOffset).includes(QUESTIONS[2])).toBe(true);
+    expect(hubTraceQuestionsSince(traceOffset)).not.toContain(QUESTIONS[1]);
 
     expect(errors, `page JS errors: ${errors.join(' | ')}`).toHaveLength(0);
   });

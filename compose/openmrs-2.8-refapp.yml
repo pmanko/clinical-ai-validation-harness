@@ -140,26 +140,20 @@ services:
       OMRS_CONFIG_CONNECTION_DATABASE: ${OMRS_DB_NAME:-openmrs}
       OMRS_CONFIG_CONNECTION_USERNAME: ${OMRS_DB_USER:-openmrs}
       OMRS_CONFIG_CONNECTION_PASSWORD: ${OMRS_DB_PASSWORD:-openmrs}
-      # chartsearchai (feature 004 PoC) reads its LLM API key from
+      # ChartSearchAI reads its hub API key from
       # openmrs-runtime.properties (NOT a DB global property) for security.
       # OpenMRS's OMRS_EXTRA_<NAME> mechanism translates this into
-      # `chartsearchai.llm.remote.apikey=<value>` in runtime properties at boot.
-      # Empty default keeps base RefApp behavior unchanged when CHARTSEARCH_REMOTE_API_KEY is unset.
-      OMRS_EXTRA_CHARTSEARCHAI_LLM_REMOTE_APIKEY: ${CHARTSEARCH_REMOTE_API_KEY:-}
+      # `chartsearchai.hub.apikey=<value>` in runtime properties at boot.
+      # Empty default keeps local unauthenticated hub operation simple.
+      OMRS_EXTRA_CHARTSEARCHAI_HUB_APIKEY: ${CHARTSEARCH_HUB_API_KEY:-}
       # querystore's Elasticsearch backend reads its endpoint from a runtime
       # property (not a DB global), wired via OMRS_EXTRA_*. Points at the
       # `elasticsearch` service; only consulted when querystore.backend=elasticsearch,
       # harmless otherwise. Start ES with: docker compose --profile elasticsearch up -d
       OMRS_EXTRA_QUERYSTORE_ELASTICSEARCH_URI: ${QUERYSTORE_ELASTICSEARCH_URI:-http://elasticsearch:9200}
-      # Selects the chartsearchai LLM engine for backend-init.sh. Current
-      # harness builds support only `remote`: chartsearchai relays to the
-      # configured OpenAI-compatible endpoint, typically med-agent-hub.
-      CHARTSEARCH_LLM_ENGINE: ${CHARTSEARCH_LLM_ENGINE:-remote}
     extra_hosts:
-      # Linux: docker doesn't resolve host.docker.internal automatically; this maps
-      # it to the host gateway so the chartsearchai backend can reach LM Studio
-      # (or any host-bound OpenAI-compat server) at http://host.docker.internal:1234.
-      # No-op on Docker Desktop (Mac/Win) where the alias is already provided.
+      # Keep the standard host gateway available for local infrastructure access.
+      # ChartSearchAI itself calls only med-agent-hub on the compose network.
       - "host.docker.internal:host-gateway"
     healthcheck:
       # First-boot Liquibase migrations on the RefApp 3.x stack take 5-10 min
@@ -181,41 +175,49 @@ services:
       - ../artifacts/openmrs/backend-logs:/usr/local/tomcat/logs
 
   med-agent-hub:
-    # The "Med Agent Team" — an OpenAI-compat endpoint that runs an in-process
-    # ReAct team (orchestrator + synthesizer + medgemma expert) and returns
-    # chartsearchai's strict {answer,citations,blocks} envelope. The OpenMRS
-    # backend selects it by pointing chartsearchai.llm.remote.endpointUrl at
+    # The client-facing med-agent-hub service. Profiles may be single-model or
+    # team-shaped and return ChartSearchAI's staged answer envelope. The OpenMRS
+    # backend selects it by pointing chartsearchai.hub.endpointUrl at
     # http://med-agent-hub:8080/v1/chat/completions (service name on the default
-    # network). Internal-only: no host port, no Caddy route.
+    # network). A loopback-only host port supports local readiness checks and
+    # direct hub clients without publishing the service on the LAN.
     #
-    # One instance serves every team config: the OpenAI `model` id is a preset
-    # (med-agent-team-low / -med / -high) that selects the per-role models at
-    # request time — no reboot, no second service. The prompts dir is bind-mounted
+    # One instance serves every configured product profile and low-level leg.
+    # The OpenAI `model` id selects behavior at request time without a reboot.
+    # The prompts directory is bind-mounted
     # so the loader's per-request read picks up .txt edits with no rebuild/restart.
     image: med-agent-hub:dev
     build:
       context: ../targets/med-agent-hub
+      args:
+        HUB_BUILD_REVISION: ${HUB_BUILD_REVISION:-unknown}
     container_name: harness-med-agent-hub
     restart: "unless-stopped"
+    ports:
+      - "127.0.0.1:${MED_AGENT_HUB_PORT:-18081}:8080"
     environment:
-      # Team tiers (per-role models per level) live in server/levels.yaml,
-      # bind-mounted below + resolved per request — no per-level model env here.
-      # LLM_BASE_URL points every role at the llama-router (:8077) for GGUF + DRY.
+      # Profiles live in server/levels.yaml and resolve per request. LLM_BASE_URL
+      # points configured model roles at the llama.cpp router on the host.
       LLM_BASE_URL: ${MED_AGENT_LLM_BASE_URL:-http://host.docker.internal:8077}
       LLM_TEMPERATURE: ${MED_AGENT_TEMPERATURE:-0.0}
+      HUB_SSE_HEARTBEAT_SECONDS: ${HUB_SSE_HEARTBEAT_SECONDS:-0.5}
       # Run-wide reference-date anchor for the hub's temporal grounding (the "now" for
       # "most recent"/recency/series). Since the demo data is date-transplanted to land
       # at a recent window, the backend runs at the REAL clock and this is set to
-      # `wall_clock` so chart age and hub "now" both track today. Empty default =
-      # per-request latest_record (the max date in the chart). A level's `anchor` overrides this.
+      # `wall_clock` so chart age and hub "now" both track today. An empty value lets the engine
+      # choose wall_clock for product profiles and latest_record for low-level experimental legs.
+      # A fixed evaluation value or profile policy overrides those defaults.
       HUB_ANCHOR: ${HUB_ANCHOR:-}
+      # IANA timezone for product wall-clock anchors. The canonical local launcher derives the
+      # host timezone; other deployments should configure this explicitly. UTC is the safe default.
+      HUB_TIMEZONE: ${HUB_TIMEZONE:-UTC}
       # Optional Querystore patient source. Supply all three values explicitly with a least-privileged
       # OpenMRS service account; leaving all three empty keeps inline chart context available.
       QUERYSTORE_BASE_URL: ${QUERYSTORE_BASE_URL:-}
       QUERYSTORE_USERNAME: ${QUERYSTORE_USERNAME:-}
       QUERYSTORE_PASSWORD: ${QUERYSTORE_PASSWORD:-}
     extra_hosts:
-      # Reach LM Studio on the host, same pattern as the backend.
+      # Reach the host-native llama.cpp router (Metal on macOS).
       - "host.docker.internal:host-gateway"
     volumes:
       - ../targets/med-agent-hub/server/prompts:/app/server/prompts:ro

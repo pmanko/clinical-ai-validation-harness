@@ -4,10 +4,58 @@
 // submitting credentials on a cold SPA render — see the git history of this file).
 
 import { expect, type APIRequestContext, type Page } from '@playwright/test';
+import fs from 'node:fs';
+import path from 'node:path';
 
 export const ADMIN_USER = process.env.E2E_USER ?? 'admin';
 export const ADMIN_PASSWORD = process.env.E2E_PASSWORD ?? 'Admin123';
 export const PATIENT_UUID = process.env.E2E_PATIENT_UUID ?? 'dd75c020-1691-11df-97a5-7038c432aabf';
+
+const HUB_TRACE_PATH =
+  process.env.E2E_HUB_TRACE_PATH ?? path.resolve(process.cwd(), '../../artifacts/hub-trace/trace.jsonl');
+const HUB_CANCELLATION_TRACE_PATH =
+  process.env.E2E_HUB_CANCELLATION_TRACE_PATH ??
+  path.resolve(process.cwd(), '../../artifacts/hub-trace/cancellations.jsonl');
+
+function fileOffset(file: string): number {
+  return fs.existsSync(file) ? fs.statSync(file).size : 0;
+}
+
+function jsonLinesSince<T>(file: string, offset: number): T[] {
+  if (!fs.existsSync(file)) return [];
+  return fs
+    .readFileSync(file)
+    .subarray(offset)
+    .toString('utf8')
+    .split('\n')
+    .filter(Boolean)
+    .map((line) => JSON.parse(line) as T);
+}
+
+export function hubTraceOffset(): number {
+  return fileOffset(HUB_TRACE_PATH);
+}
+
+export function hubTraceQuestionsSince(offset: number): string[] {
+  return jsonLinesSince<{ question?: string }>(HUB_TRACE_PATH, offset).map(
+    (entry) => entry.question ?? '',
+  );
+}
+
+export type HubCancellation = {
+  event?: string;
+  level_id?: string;
+  question?: string;
+  router_lock_released?: boolean;
+};
+
+export function hubCancellationTraceOffset(): number {
+  return fileOffset(HUB_CANCELLATION_TRACE_PATH);
+}
+
+export function hubCancellationsSince(offset: number): HubCancellation[] {
+  return jsonLinesSince<HubCancellation>(HUB_CANCELLATION_TRACE_PATH, offset);
+}
 
 /** Reset the server-side chat session for the demo patient (independent of the browser session). */
 export async function resetChatSession(request: APIRequestContext): Promise<void> {
@@ -78,10 +126,7 @@ export async function openAiChatPanel(page: Page): Promise<void> {
 }
 
 export async function selectCheckedModel(page: Page, labelPattern: RegExp = /Gemma 12B/i): Promise<void> {
-  const modelButton = page
-    .getByRole('button')
-    .filter({ hasText: /AI Team|Single models|Gemma|No model|validated/i })
-    .last();
+  const modelButton = page.getByTestId('chartsearchai-profile-picker');
   await expect(modelButton).toBeVisible({ timeout: 30_000 });
   await modelButton.click();
   const modelOption = page
@@ -96,4 +141,9 @@ export async function selectCheckedModel(page: Page, labelPattern: RegExp = /Gem
 /** Select the staged single Gemma 12B model so requests route through med-agent-hub validation. */
 export async function selectSingle12BModel(page: Page): Promise<void> {
   await selectCheckedModel(page, /Gemma 12B/i);
+}
+
+/** Select the default fast checked E4B product profile. */
+export async function selectFastE4BModel(page: Page): Promise<void> {
+  await selectCheckedModel(page, /Fast checked answer \(E4B\)|E4B/i);
 }

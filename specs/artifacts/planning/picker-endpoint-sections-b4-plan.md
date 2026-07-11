@@ -1,5 +1,7 @@
 # B4 — Endpoint-switching picker (LM Studio + Med Agent Hub as sections)
 
+> **Historical / superseded.** This pre-hub-relay plan is retained as a decision record only. Current product discovery comes exclusively from med-agent-hub profile metadata.
+
 > Granular plan. The roadmap (§4) only specs the picker minimally for P1 (model round-trip within one endpoint). This is the expansion: the picker switches **endpoints**, each a **section** with its own models. Built on 004; chartsearchai + chartsearchai-esm forks.
 
 ## Goal (confirmed with user — scoped down 2026-05-30)

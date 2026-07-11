@@ -6,13 +6,30 @@
 # EVERY model in the HF cache as an extra preset on top of scripts/llama-router.ini
 # (with default/untuned settings — no DRY, no seed), and there is no flag to disable
 # it. All INI sections use local model= paths (stable symlinks under
-# ~/.cache/llama-router-models -> the real HF blobs), so pointing HF_HOME at an empty
-# dir costs nothing at runtime and makes /v1/models == exactly the INI's sections.
+# LLAMA_MODEL_DIR -> the real GGUF files), so pointing HF_HOME at an empty dir costs
+# nothing at runtime and makes /v1/models == exactly the INI's sections.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 EMPTY_HF="${HOME}/.cache/llama-router-emptyhf"
-mkdir -p "${EMPTY_HF}"
+MODEL_DIR="${LLAMA_MODEL_DIR:-${HOME}/.cache/llama-router-models}"
+RUNTIME_DIR="${ROOT}/artifacts/llama-router"
+RUNTIME_MODELS="${RUNTIME_DIR}/models"
+
+if [ ! -d "${MODEL_DIR}" ]; then
+  echo "ERROR: LLAMA_MODEL_DIR does not exist: ${MODEL_DIR}" >&2
+  echo "Place GGUF files there using the filenames in scripts/llama-router.ini," >&2
+  echo "or set LLAMA_MODEL_DIR to an existing model directory." >&2
+  exit 1
+fi
+
+mkdir -p "${EMPTY_HF}" "${RUNTIME_DIR}"
+if [ -e "${RUNTIME_MODELS}" ] && [ ! -L "${RUNTIME_MODELS}" ]; then
+  echo "ERROR: ${RUNTIME_MODELS} exists and is not a symlink." >&2
+  exit 1
+fi
+ln -sfn "${MODEL_DIR}" "${RUNTIME_MODELS}"
+cd "${ROOT}"
 
 # LLAMA_ROUTER_MODELS_MAX caps how many model instances stay co-resident, and it MUST be
 # set per-workload — the tiers have wildly different footprints on this 64G host (Metal

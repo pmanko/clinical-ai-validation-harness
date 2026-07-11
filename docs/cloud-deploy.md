@@ -1,4 +1,10 @@
-# Cloud deploy target (GCE)
+# Superseded Cloud Deploy Target (GCE)
+
+> **Historical, not a current operating path (2026-07).** This guide predates the hub-only
+> ChartSearchAI boundary and still documents direct LM Studio/LM Link configuration. Do not use
+> these commands for the consolidated product. The current tested path is `make chartsearchai-local`,
+> where ChartSearchAI calls only med-agent-hub and med-agent-hub owns model/profile orchestration.
+> A future cloud deployment must preserve that same boundary before this guide is reactivated.
 
 Push the chartsearch harness stack to a GCE VM in the `clinical-ai-harness`
 GCP project so you can iterate on chartsearchai changes with a one-command

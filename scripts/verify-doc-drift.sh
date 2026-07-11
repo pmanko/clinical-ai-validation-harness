@@ -24,7 +24,7 @@ FORBIDDEN = [
     (re.compile(r"\b(?:embedded|bundled|in-process) llama-server\b", re.I), "bundled llama-server"),
     (re.compile(r"\btoken-by-token\b|\btoken chunks\b", re.I), "token streaming wording"),
     (re.compile(r"\bindepth_token\b|\bonInDepthToken\b|\bonToken\b"), "removed token event/callback"),
-    (re.compile(r"/warmup\b|\bwarmupEnabled\b"), "removed ChartSearchAI warmup path"),
+    (re.compile(r"(?:ws/rest/v1/)?chartsearchai/warmup\b|value\s*=\s*[\"']/warmup[\"']|\bwarmupEnabled\b", re.I), "removed ChartSearchAI warmup path"),
     (re.compile(r"\bchartSnapshot\b|\bchartMappingsJson\b|\brefresh-chart\b"), "removed session chart snapshot path"),
     (re.compile(r"\bCitationGroundingVerifier\b"), "removed Java citation grounding"),
     (re.compile(r"chartsearchai\.grounding\."), "removed ChartSearchAI grounding GP"),
@@ -32,6 +32,8 @@ FORBIDDEN = [
     (re.compile(r"chartsearchai\.embedding\.preFilter|chartsearchai\.querystore\.topK"), "old ChartSearchAI retrieval ownership"),
     (re.compile(r"chartsearchai\.llm\.systemPrompt|chartsearchai\.llm\.modelFilePath"), "old ChartSearchAI prompt/model ownership"),
     (re.compile(r"chartsearchai\.cacheTtlMinutes|chartsearchai\.llm\.timeoutSeconds"), "old ChartSearchAI LLM/cache ownership"),
+    (re.compile(r"CHARTSEARCH_REMOTE_(?:ENDPOINT_URL|MODEL_NAME|ENDPOINTS)|CHARTSEARCH_LLM_ENGINE"), "old direct-provider ChartSearchAI configuration"),
+    (re.compile(r"GCP_FIREWALL_DENY_LMS|GCP_LMS_PORT"), "retired cloud model-server firewall"),
     (re.compile(r"value\s*=\s*\"/search\"|/search/stream|chartsearchai/search/stream"), "removed search stream path"),
 ]
 
@@ -39,7 +41,7 @@ TEXT_SUFFIXES = {
     ".md", ".txt", ".rst", ".adoc", ".sh", ".bash", ".zsh", ".py", ".java",
     ".ts", ".tsx", ".js", ".jsx", ".yml", ".yaml", ".json", ".properties",
 }
-TEXT_NAMES = {"README", "README.md", "Dockerfile", "Dockerfile.gateway", "CLAUDE.md", "AGENTS.md"}
+TEXT_NAMES = {"README", "README.md", "Makefile", "Dockerfile", "Dockerfile.gateway", "CLAUDE.md", "AGENTS.md"}
 
 SKIP_DIR_PARTS = {
     ".git", "node_modules", "target", "dist", "build", ".pytest_cache", ".mypy_cache",
@@ -51,6 +53,7 @@ ALWAYS_ALLOW = {
     "scripts/verify-stage-refactor-gates.sh",
     "scripts/verify-hub-consolidation-gates.sh",
     "tests/test_hub_consolidation_gate_script.py",
+    "tests/test_chartsearchai_local.py",
     "targets/chartsearchai/api/src/test/java/org/openmrs/module/chartsearchai/api/impl/ArchitectureGuardTest.java",
 }
 
@@ -61,6 +64,8 @@ HISTORICAL_PATH_HINTS = (
     "specs/research/",
     "specs/004-real-adapter-entrypoints/",
     "specs/007-llm-config-overrides/",
+    ".env.chartsearch.cloud.example",
+    "scripts/cloud-up.sh",
 )
 HISTORICAL_MARKER = re.compile(
     r"historical|superseded|pre[- ]?refactor|predates|archive|snapshot",
@@ -86,7 +91,10 @@ def submodule_paths() -> list[Path]:
 
 
 def tracked_files(repo: Path) -> list[Path]:
-    raw = subprocess.check_output(["git", "ls-files", "-z"], cwd=repo)
+    raw = subprocess.check_output(
+        ["git", "ls-files", "-z", "--cached", "--others", "--exclude-standard"],
+        cwd=repo,
+    )
     files = []
     for part in raw.split(b"\0"):
         if not part:
@@ -99,7 +107,12 @@ def tracked_files(repo: Path) -> list[Path]:
 
 
 def should_scan(rel: Path) -> bool:
-    return rel.name in TEXT_NAMES or rel.suffix in TEXT_SUFFIXES or rel.name.startswith("Dockerfile")
+    return (
+        rel.name in TEXT_NAMES
+        or rel.suffix in TEXT_SUFFIXES
+        or rel.name.startswith("Dockerfile")
+        or (rel.name.startswith(".env.") and rel.name.endswith(".example"))
+    )
 
 
 def is_historical(rel_key: str) -> bool:
