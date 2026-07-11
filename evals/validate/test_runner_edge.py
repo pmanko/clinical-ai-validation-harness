@@ -107,7 +107,7 @@ class _OkClient:
     def new_session(self, patient):
         return "sess-initial"
 
-    def chat(self, patient, session, question, *, endpoint_url=None, model_name=None,
+    def chat(self, patient, session, question, *, profile=None,
              reference_date=None):
         self.calls.append(question)
         return ChatResult(status=200, envelope=_envelope(len(self.calls)), latency_ms=5)
@@ -140,10 +140,10 @@ class _IndepthRaisesClient:
     def new_session(self, patient):
         return "sess-initial"
 
-    def chat(self, patient, session, question, *, endpoint_url=None, model_name=None,
+    def chat(self, patient, session, question, *, profile=None,
              reference_date=None):
-        self.calls.append(model_name)
-        if model_name == "indepth-mm":
+        self.calls.append(profile)
+        if profile == "indepth-mm":
             raise RuntimeError("in-depth backend 503")
         return ChatResult(status=200, envelope=_envelope(1), latency_ms=5)
 

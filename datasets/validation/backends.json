@@ -46,7 +46,7 @@
   "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
   "modelName": "answer:gemma-4-12b",
   "indepthEndpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
-  "indepthModelName": "indepth-only-gemma-4-12b"
+  "indepthModelName": "indepth-only:gemma-4-12b"
  },
  "gemma-local": {
   "label": "Gemma 4-E4B (LM Studio direct)",
@@ -195,35 +195,35 @@
   "endpointUrl": "http://host.docker.internal:8077/v1/chat/completions",
   "modelName": "gemma-4-12b",
   "indepthEndpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
-  "indepthModelName": "indepth-only-gemma-4-12b"
+  "indepthModelName": "indepth-only:gemma-4-12b"
  },
  "qwen2.5-14b-2call": {
   "label": "Qwen2.5-14B — two-call (router Answer + separate hub In-Depth)",
   "endpointUrl": "http://host.docker.internal:8077/v1/chat/completions",
   "modelName": "qwen2.5-14b",
   "indepthEndpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
-  "indepthModelName": "indepth-only-qwen2.5-14b"
+  "indepthModelName": "indepth-only:qwen2.5-14b"
  },
  "medgemma-27b-2call": {
   "label": "MedGemma-27B — two-call (router Answer + separate hub In-Depth)",
   "endpointUrl": "http://host.docker.internal:8077/v1/chat/completions",
   "modelName": "medgemma-27b",
   "indepthEndpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
-  "indepthModelName": "indepth-only-medgemma-27b"
+  "indepthModelName": "indepth-only:medgemma-27b"
  },
  "lfm2-24b-2call": {
   "label": "LFM2-24B-A2B — two-call (router Answer + separate hub In-Depth)",
   "endpointUrl": "http://host.docker.internal:8077/v1/chat/completions",
   "modelName": "lfm2-24b-a2b",
   "indepthEndpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
-  "indepthModelName": "indepth-only-lfm2-24b-a2b"
+  "indepthModelName": "indepth-only:lfm2-24b-a2b"
  },
  "parity-team-2call": {
   "label": "Parity team — two-call (team Answer + separate hub In-Depth, qwen writer)",
   "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
   "modelName": "med-agent-team-parity",
   "indepthEndpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
-  "indepthModelName": "indepth-only-qwen2.5-14b"
+  "indepthModelName": "indepth-only:qwen2.5-14b"
  },
  "mistral-nemo-12b-baseline": {
   "label": "Mistral NeMo 12B single LLM, direct chart (GGUF+DRY, Q4)",

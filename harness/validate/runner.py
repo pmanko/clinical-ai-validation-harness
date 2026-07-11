@@ -1,9 +1,9 @@
 """Replay a comparison set against each backend and write results over the
 run-manifest spine.
 
-Backends are iterated SEQUENTIALLY: the backend is selected per /chat request via
-a per-request {endpointUrl, modelName} override, so a run never mutates
-chartsearchai's config-controlled global default. Sequencing is for determinism
+Backends are iterated SEQUENTIALLY: each registry ``modelName`` selects a
+hub-advertised product profile in the ``/chat`` request; the configured hub endpoint
+is never client-overridden. Sequencing is for determinism
 and session isolation — a chat session is per (patient, user) and opening a new
 one closes the prior, so concurrent backends would cross-contaminate sessions.
 
@@ -114,8 +114,7 @@ class _Client(Protocol):
         session: str | None,
         question: str,
         *,
-        endpoint_url: str | None = None,
-        model_name: str | None = None,
+        profile: str | None = None,
     ) -> ChatResult: ...
 
 
@@ -301,10 +300,7 @@ def run_comparison(
             for turn in scenario.turns:
                 session_sent = session
                 started = utc_now_iso()
-                chat_kwargs: dict[str, Any] = {
-                    "endpoint_url": backend.endpoint_url,
-                    "model_name": backend.model_name,
-                }
+                chat_kwargs: dict[str, Any] = {"profile": backend.model_name}
                 if client_takes_ref_date:
                     chat_kwargs["reference_date"] = reference_date
                 try:
@@ -335,9 +331,7 @@ def run_comparison(
                 is_first_turn = turn is scenario.turns[0]
                 if (is_first_turn and backend.indepth_model and backend.indepth_endpoint
                         and res.status == 200 and res.envelope):
-                    id_kwargs = dict(chat_kwargs)
-                    id_kwargs["endpoint_url"] = backend.indepth_endpoint
-                    id_kwargs["model_name"] = backend.indepth_model
+                    id_kwargs = {"profile": backend.indepth_model}
                     try:
                         ires = client.chat(
                             scenario.patient_ref, session,

@@ -49,16 +49,19 @@ _SYNTHETIC_CHART = (
 def _via_chartsearchai(
     base_url: str | None, patient: str, endpoint_url: str, model_name: str
 ) -> list[dict[str, Any]]:
-    """Faithful path: real chart + schema assembled by chartsearchai; the
-    downstream LLM is overridden to (endpoint_url, model_name) per request. Opens
-    one session and threads the returned session id across the three turns."""
+    """Faithful path: real chart through a hub product profile.
+
+    ``endpoint_url`` remains a CLI argument for symmetry with raw direct mode, but
+    ChartSearchAI uses its server-configured hub endpoint. One session is opened
+    and threaded across all turns.
+    """
     client = ChartSearchAiClient(base_url=base_url)
     session = client.new_session(patient)
     out: list[dict[str, Any]] = []
     for label, question in QUESTIONS:
         res = client.chat(
             patient, session, question,
-            endpoint_url=endpoint_url, model_name=model_name,
+            profile=model_name,
         )
         if res.envelope and res.envelope.get("session"):
             session = res.envelope["session"]  # adopt the server's session id
@@ -128,19 +131,19 @@ def _via_openai_compat(endpoint_url: str, model_name: str) -> list[dict[str, Any
 
 
 def _select_mode(url: str, direct: bool) -> str:
-    """Dispatch on the --direct FLAG, not the URL. The positional endpoint_url is
-    ALWAYS the downstream LLM target (LM Studio or med-agent-hub /v1/chat/completions);
-    by default it is forwarded to chartsearchai as the per-request override (the
-    faithful path the validation runner uses, with a real chart + the chart_answer
-    schema chartsearchai assembles). --direct POSTs straight at it with a synthetic
+    """Dispatch on the --direct FLAG, not the URL. The positional endpoint URL is
+    used only by the raw direct probe. The default ChartSearchAI path selects
+    ``model_name`` as a hub product profile against the server-configured endpoint;
+    ``--direct`` POSTs straight to the supplied endpoint with a synthetic
     chart — a structure-only probe that skips chartsearchai. `url` is unused here on
     purpose: the endpoint is the LLM, never chartsearchai, so it can't disambiguate."""
     return "raw-openai-compat" if direct else "chartsearchai"
 
 
 def _chart_answer_response_format() -> dict[str, Any]:
-    """The exact chart_answer json_schema chartsearchai injects downstream
-    (mirrors ChartAnswerResponseFormat.java). Sent on the raw direct path so
+    """The hub's chart_answer JSON-schema contract for the raw direct probe.
+
+    The product profile supplies this contract itself. The direct probe sends it so
     synthesis is schema-constrained there too — otherwise 'envelope valid'
     would fail for a missing-schema reason rather than a prompt reason."""
     cell = {

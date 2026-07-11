@@ -39,7 +39,7 @@ def test_chat_retries_on_429_then_succeeds():
     assert calls["n"] == 2  # retried once after the 429
 
 
-def test_chat_sends_per_request_backend_override_in_body():
+def test_chat_sends_per_request_product_profile_in_body():
     c = _client()
     captured = {}
 
@@ -50,15 +50,14 @@ def test_chat_sends_per_request_backend_override_in_body():
 
     c._session.post = fake_post
 
-    c.chat("pat", "sess", "q",
-           endpoint_url="http://hub:8080/v1/chat/completions", model_name="med-agent-team")
-    assert captured["endpointUrl"] == "http://hub:8080/v1/chat/completions"
-    assert captured["modelName"] == "med-agent-team"
+    c.chat("pat", "sess", "q", profile="single-e4b-checked")
+    assert captured["profile"] == "single-e4b-checked"
+    assert "endpointUrl" not in captured and "modelName" not in captured
 
     # Without an override, the body carries no backend keys (the server uses its
     # config-controlled global default).
     c.chat("pat", "sess", "q")
-    assert "endpointUrl" not in captured and "modelName" not in captured
+    assert "profile" not in captured
 
 
 def test_chat_records_429_after_exhausting_retries():

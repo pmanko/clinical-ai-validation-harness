@@ -238,6 +238,7 @@ if [[ -f "$context_set" && -s "$context_proof" ]] \
 import hashlib
 import json
 import sys
+import urllib.request
 from pathlib import Path
 
 comparison_path, proof_path = map(Path, sys.argv[1:])
@@ -284,6 +285,10 @@ if has_pattern 'test_product_profiles.*temporal.*enforce|test_temporal.*cannot.*
   && has_pattern 'test_gate_rejects_malformed_and_nonledger_dates_when_ledger_is_empty' "$HUB/tests" \
   && has_pattern 'test_post_review_punctuation_rewrite_preserves_usable_answer' "$HUB/tests" \
   && has_pattern 'test_product_pipeline_fallback_records_enforced_temporal_gate' "$HUB/tests" \
+  && has_pattern 'test_product_profile_defaults_temporal_anchor_to_wall_clock' "$HUB/tests" \
+  && has_pattern 'test_fixed_evaluation_anchor_overrides_product_wall_clock_default' "$HUB/tests" \
+  && has_pattern 'test_product_client_rejects_low_level_leg_before_execution' "$HUB/tests" \
+  && has_pattern 'test_direct_hub_client_can_still_use_low_level_leg' "$HUB/tests" \
   && [[ $hub_m1_suite_ok -eq 1 ]]; then
   record G10 PASS "Answer substance, malformed-date, rewrite, and enforce tests passed"
 else
@@ -293,6 +298,8 @@ fi
 if has_pattern 'test_.*indepth.*temporal.*gate|test_.*temporal.*indepth' "$HUB/tests" \
   && has_pattern '(indepth_temporal_gate|gate_indepth_claims)' "$HUB/server" \
   && has_pattern 'test_empty_indepth_cannot_report_checked_or_complete' "$HUB/tests" \
+  && has_pattern 'test_unavailable_indepth_reviewer_cannot_ship_complete' "$HUB/tests" \
+  && has_pattern 'test_unavailable_indepth_reviewer_is_withheld_in_product_envelope' "$HUB/tests" \
   && [[ $hub_m1_suite_ok -eq 1 ]]; then
   record G11 PASS "In-Depth per-claim, empty-output, and withholding tests passed"
 else
@@ -314,6 +321,8 @@ if has_pattern 'citation.*prior.*turn|prior.*citation' "$HUB/tests" \
   && has_pattern 'current.*patient|current.*source.*ledger' "$HUB/tests" \
   && has_pattern 'test_indepth_unresolved_citation_is_not_displayed' "$HUB/tests" \
   && has_pattern 'test_indepth_citation_cannot_inherit_answer_verified_verdict' "$HUB/tests" \
+  && has_pattern 'test_final_mixed_grounding_cannot_leave_answer_checked' "$HUB/tests" \
+  && has_pattern 'test_answer_and_indepth_grounding_checks_merge_for_shared_reference' "$HUB/tests" \
   && [[ $hub_m1_suite_ok -eq 1 ]]; then
   record G13 PASS "Answer/In-Depth current-ledger and prior-turn isolation tests passed"
 else
@@ -356,13 +365,16 @@ fi
 # G15-G17: thin relay, hub-owned discovery, and complete staged UX.
 legacy_java='LocalLlmEngine|CitationGroundingVerifier|ModelSwitchService|LlmInferenceService|value = "/warmup"|value = "/search"|value = "/endpoints"|value = "/model/load"|chartSnapshot|chartMappingsJson|progressive.*preview|LM Studio'
 if missing_pattern "$legacy_java" "$CSAI/api/src/main" "$CSAI/omod/src/main" \
+  && missing_pattern 'response_format|chartAnswerResponseFormat' "$CSAI/api/src/main" "$CSAI/omod/src/main" \
   && missing_pattern 'querystore-api' "$CSAI/api/pom.xml" \
   && missing_pattern 'require_module[^>]*>org.openmrs.module.querystore' "$CSAI/omod/src/main/resources/config.xml" \
   && missing_pattern 'GGUF_MODEL_URL|gguf_model_url' "$CSAI/.github/workflows/build-standalone.yml" \
-  && has_pattern 'hubRelay' "$CSAI/omod/src/main"; then
-  record G15 PASS "Java is a thin hub relay with no Querystore or bundled-model dependency"
+  && has_pattern 'hubRelay' "$CSAI/omod/src/main" \
+  && has_pattern 'require_product_profile' "$CSAI/omod/src/main" "$CSAI/omod/src/test" \
+  && has_pattern 'the hub product profile, not the Java relay, owns the answer schema' "$CSAI/omod/src/test"; then
+  record G15 PASS "Java is a thin hub relay; the hub owns prompts, output schema, and inference"
 else
-  record G15 FAIL "legacy inference, discovery, bundled model, or Querystore coupling remains"
+  record G15 FAIL "legacy inference, schema ownership, discovery, bundled model, or Querystore coupling remains"
 fi
 
 if missing_pattern 'LM Studio|parseLmStudio|loadModel' "$CSAI/api/src/main" "$ESM/src" \
@@ -384,6 +396,7 @@ if has_pattern 'answerValidation' "$ESM/src" \
   && has_pattern 'onInDepthPending:[^\n]*inDepthPending' "$ESM/src/hooks/useChartSearchAi.ts" \
   && has_pattern 'tracks the turn phase through the staged lifecycle' "$ESM/src/hooks/useChartSearchAi.test.ts" \
   && has_pattern 'answer-validation lifecycle' "$ESM/src/components/ai-response-panel.test.tsx" \
+  && has_pattern 'does not collapse mixed claim-level support' "$ESM/src/components/ai-response-panel.test.tsx" \
   && has_pattern 'hydrates a stale pending In-Depth as failed' "$ESM/src/hooks/useChartSearchAi.test.ts" \
   && has_pattern 'persistInterruptedInDepth' "$CSAI/omod/src/main" \
   && [[ $esm_m2_contracts_ok -eq 1 ]] \
@@ -393,13 +406,19 @@ else
   record G17 FAIL "complete staged lifecycle UX is not implemented"
 fi
 
-# G18: unit proof always required; live proof required for final PASS.
-if [[ "$RUN_E2E" == "1" ]]; then
+# G18: positive cancellation evidence and unit proof are always required; live proof is required
+# for final PASS.
+if has_pattern 'test_profile_stream_client_disconnect_mid_indepth_frees_router_lock' "$HUB/tests" \
+  && has_pattern '_write_cancellation_trace' "$HUB/server/engine.py" "$HUB/server/team.py" \
+  && has_pattern 'hubCancellationsSince' "$ROOT/tests/e2e/specs/chartsearchai-preempt.spec.ts" \
+  && [[ "$RUN_E2E" == "1" ]]; then
   if (cd "$ROOT/tests/e2e" && yarn playwright test chartsearchai-e4b-multiturn-trivial chartsearchai-preempt >/tmp/hub-g18.log 2>&1); then
     record G18 PASS "live multi-turn and preempt E2E passed"
   else
     record G18 FAIL "live multi-turn/preempt E2E failed"
   fi
+elif [[ "$RUN_E2E" == "1" ]]; then
+  record G18 FAIL "positive cancellation/slot-release proof is missing"
 else
   record G18 PENDING "rerun with RUN_E2E=1 for live proof"
 fi
@@ -413,8 +432,260 @@ else
   record G19 FAIL "portable chartsearchai-local path is incomplete"
 fi
 
-proof_file G20 "$ROOT/artifacts/roadmap/gates/G20-performance.json"
-proof_file G21 "$ROOT/artifacts/roadmap/gates/G21-evaluation.json"
+performance_proof="$ROOT/artifacts/roadmap/gates/G20-performance.json"
+performance_trace_rel="$(jq -r '.runtime.trace_path // empty' "$performance_proof" 2>/dev/null)"
+performance_collection="$ROOT/artifacts/roadmap/gates/G20-collection.json"
+if [[ -s "$performance_proof" ]] \
+  && [[ "$performance_trace_rel" == "artifacts/roadmap/gates/G20-selected-trace.jsonl" ]] \
+  && [[ -s "$ROOT/$performance_trace_rel" ]] \
+  && [[ -s "$performance_collection" ]] \
+  && jq -e '
+    .schema_version == "local_performance.v1"
+    and .status == "observed"
+    and .acceptance_model == "relative_observation"
+    and .fixed_latency_threshold == null
+    and .measurement_scope == "warm_answer_done"
+    and (.cold_start_measured | not)
+    and (.host.os | type == "string" and length > 0)
+    and (.runtime.profile | type == "string" and length > 0)
+    and .runtime.context_source == "querystore"
+    and (.provenance.trace_snapshot_sha256 | test("^[0-9a-f]{64}$"))
+    and (.provenance.selected_runs_sha256 | test("^[0-9a-f]{64}$"))
+    and (.provenance.collection_manifest_sha256 | test("^[0-9a-f]{64}$"))
+    and .provenance.warmup.last_event == "answer_done"
+    and (.provenance.harness.commit | test("^[0-9a-f]{40}$"))
+    and (.provenance.med_agent_hub.commit | test("^[0-9a-f]{40}$"))
+    and .provenance.med_agent_hub.tree_clean == true
+    and (.provenance.deployment.container_id | test("^[0-9a-f]{64}$"))
+    and (.provenance.deployment.image_id | test("^sha256:[0-9a-f]{64}$"))
+    and (.provenance.deployment.revision | test("^[0-9a-f]{40}$"))
+    and .provenance.deployment.revision == .provenance.med_agent_hub.commit
+    and (.provenance.profile_config_sha256 | test("^[0-9a-f]{64}$"))
+    and (.provenance.router_config_sha256 | test("^[0-9a-f]{64}$"))
+    and (.provenance.router_version | type == "string" and length > 0 and . != "unavailable")
+    and (.provenance.model_artifact.sha256 | test("^[0-9a-f]{64}$"))
+    and (.provenance.model_artifact.size_bytes | type == "number" and . > 0)
+    and (.runs | type == "array" and length >= 2)
+    and (.summary.answer_to_done_ms.median | type == "number")
+    and (.summary.answer_stage_ms.median | type == "number")
+    and (.summary.pipeline_overhead_ms.median | type == "number")
+    and (.summary.pipeline_overhead_ratio.median | type == "number")
+  ' "$performance_proof" >/dev/null 2>&1 \
+  && [[ "$(jq -r '.provenance.collection_manifest_sha256' "$performance_proof")" == "$(shasum -a 256 "$performance_collection" | awk '{print $1}')" ]] \
+  && [[ "$(jq -r '.selected_trace_sha256' "$performance_collection")" == "$(shasum -a 256 "$ROOT/$performance_trace_rel" | awk '{print $1}')" ]] \
+  && [[ "$(jq -r '.provenance.med_agent_hub.commit' "$performance_proof")" == "$(git -C "$HUB" rev-parse HEAD)" ]] \
+  && [[ "$(jq -r '.provenance.deployment.image_id' "$performance_proof")" == "$(docker inspect -f '{{.Image}}' harness-med-agent-hub 2>/dev/null)" ]] \
+  && [[ "$(jq -r '.provenance.deployment.revision' "$performance_proof")" == "$(docker image inspect -f '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$(docker inspect -f '{{.Image}}' harness-med-agent-hub 2>/dev/null)" 2>/dev/null)" ]] \
+  && "$ROOT/.venv/bin/python" - "$performance_proof" "$ROOT/$performance_trace_rel" <<'PY'
+import collections
+import hashlib
+import json
+import sys
+import urllib.request
+from pathlib import Path
+
+proof = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+selected = proof["runs"]
+encoded = json.dumps(selected, sort_keys=True, separators=(",", ":")).encode("utf-8")
+assert hashlib.sha256(encoded).hexdigest() == proof["provenance"]["selected_runs_sha256"]
+
+available = []
+for line in Path(sys.argv[2]).read_text(encoding="utf-8").splitlines():
+    if not line.strip():
+        continue
+    entry = json.loads(line)
+    timing = next(
+        (step for step in entry.get("steps", []) if step.get("role") == "answer_timing"),
+        None,
+    )
+    if timing is None:
+        continue
+    available.append(
+        {
+            "timestamp": entry.get("ts"),
+            "question": entry.get("question"),
+            "context_sources": (entry.get("context") or {}).get("sources") or [],
+            "answer_to_done_ms": timing["answer_to_done_ms"],
+            "answer_stage_ms": timing["answer_stage_ms"],
+            "pipeline_overhead_ms": timing["pipeline_overhead_ms"],
+            "pipeline_overhead_ratio": timing["pipeline_overhead_ratio"],
+        }
+    )
+canonical = lambda row: json.dumps(row, sort_keys=True, separators=(",", ":"))
+current_counts = collections.Counter(canonical(row) for row in available)
+selected_counts = collections.Counter(canonical(row) for row in selected)
+assert not (selected_counts - current_counts)
+PY
+then
+  record G20 PASS "relative warm-run performance proof with no fixed latency threshold"
+else
+  record G20 PENDING "missing or invalid relative performance proof: ${performance_proof#${ROOT}/}"
+fi
+evaluation_proof="$ROOT/artifacts/roadmap/gates/G21-evaluation.json"
+if [[ -s "$evaluation_proof" ]] \
+  && "$ROOT/.venv/bin/python" - "$ROOT" "$evaluation_proof" <<'PY'
+import hashlib
+import json
+import sys
+from pathlib import Path
+
+root = Path(sys.argv[1]).resolve()
+proof = json.loads(Path(sys.argv[2]).read_text(encoding="utf-8"))
+sys.path.insert(0, str(root))
+from harness.validate.reconcile import cell_benchmark_score, combined_judge_summary
+
+def artifact(entry):
+    path = (root / entry["path"]).resolve()
+    assert path.is_relative_to(root) and path.is_file() and path.stat().st_size > 0
+    assert hashlib.sha256(path.read_bytes()).hexdigest() == entry["sha256"]
+    return path
+
+assert proof["schema_version"] == "hub_consolidation_evaluation.v1"
+assert proof["status"] == "pass"
+assert proof["comparison_set"] == "hub-profile-candidate"
+assert proof["reference_date"] == "2026-06-20"
+assert proof["expected_cells"] == proof["completed_cells"] == 24
+assert proof["backends"] == ["product-e4b-checked", "product-12b-checked"]
+run_id = proof["run_id"]
+run_dir = root / "artifacts" / "validate" / run_id
+assert run_dir.is_dir()
+comparison = json.loads(
+    (root / "datasets/validation/comparison_sets/hub-profile-candidate.json").read_text()
+)
+expected = {
+    (scenario, backend)
+    for scenario in comparison["scenario_ids"]
+    for backend in comparison["backend_ids"]
+}
+assert len(expected) == 24
+
+results_path = artifact(proof["results"])
+assert results_path == run_dir / "results.jsonl"
+results = [json.loads(line) for line in results_path.read_text().splitlines() if line]
+assert {(row["scenario_id"], row["backend_id"]) for row in results} == expected
+assert len(results) == 24 and all(row.get("reference_date") == "2026-06-20" for row in results)
+assert all(not row.get("error") and (row.get("metrics") or {}).get("http_status") == 200 for row in results)
+
+traces = [
+    json.loads(line)
+    for line in artifact(proof["selected_traces"]).read_text().splitlines()
+    if line
+]
+assert {(row["scenario_id"], row["backend_id"]) for row in traces} == expected
+assert len(traces) == 24
+assert all((row.get("trace") or {}).get("reference_date") == "2026-06-20" for row in traces)
+
+audit = json.loads(artifact(proof["deterministic_audit"]).read_text())
+assert audit["schema_version"] == "product_run_deterministic_audit.v1"
+assert audit["status"] == "pass" and audit["blockers"] == []
+assert {(row["scenario_id"], row["backend_id"]) for row in audit["cells"]} == expected
+
+judgments = proof["judgments"]
+assert len(judgments) >= 2
+assert len({row["actor"] for row in judgments}) == len(judgments)
+assert len({row["path"] for row in judgments}) == len(judgments)
+assert len({row["sha256"] for row in judgments}) == len(judgments)
+rubric = {
+    "scenario_id", "backend_id", "accuracy", "completeness", "relevance",
+    "abstention_outcome", "citation_groundedness", "harm", "note",
+}
+actor_rows = {}
+for judgment in judgments:
+    path = artifact(judgment)
+    assert judgment["rows"] == 24
+    rows = [json.loads(line) for line in path.read_text().splitlines() if line]
+    assert len(rows) == 24 and all(rubric <= row.keys() for row in rows)
+    assert {(row["scenario_id"], row["backend_id"]) for row in rows} == expected
+    assert all(
+        isinstance(row[axis], (int, float)) and not isinstance(row[axis], bool)
+        and 0 <= row[axis] <= 10
+        for row in rows for axis in ("accuracy", "completeness", "relevance")
+    )
+    assert all(row["abstention_outcome"] in {"n-a", "correct", "over-abstained", "failed-to-abstain"} for row in rows)
+    assert all(row["citation_groundedness"] in {"n-a", "supported", "partly", "unsupported"} for row in rows)
+    assert all(isinstance(row["harm"], bool) and str(row["note"]).strip() for row in rows)
+    manifest = json.loads(artifact(judgment["manifest"]).read_text())
+    assert manifest["schema_version"] == "judge_actor.v1"
+    assert manifest["actor_id"] == judgment["actor"]
+    assert manifest["actor_type"] in {"llm-judge", "human"}
+    assert manifest["model"] and manifest["method"] and manifest["created_at"]
+    assert manifest["run_id"] == run_id and manifest["n_rows"] == 24
+    assert manifest["output_sha256"] == judgment["sha256"]
+    actor_rows[judgment["actor"]] = rows
+
+combined = json.loads(artifact(proof["combined_judgment"]).read_text())
+assert combined["schema_version"] == "combined_judgment.v1"
+assert combined["actors"] == sorted(actor_rows)
+assert len(combined["cells"]) == 24
+assert {(row["scenario_id"], row["backend_id"]) for row in combined["cells"]} == expected
+actor_index = {
+    actor: {(row["scenario_id"], row["backend_id"]): row for row in rows}
+    for actor, rows in actor_rows.items()
+}
+for cell in combined["cells"]:
+    key = (cell["scenario_id"], cell["backend_id"])
+    scores = {actor: cell_benchmark_score(rows[key]) for actor, rows in actor_index.items()}
+    assert cell["actor_scores"] == scores
+    values = [float(score) for score in scores.values()]
+    assert cell["consensus_score"] == round(sum(values) / len(values), 1)
+    assert cell["actor_range"] == round(max(values) - min(values), 1)
+assert combined["backend_summary"] == combined_judge_summary(
+    actor_rows, sorted({backend for _scenario, backend in expected})
+)
+
+review = json.loads(artifact(proof["per_cell_review"]).read_text())
+assert review["schema_version"] == "product_run_per_cell_review.v1"
+assert review["completed"] is True and len(review["cells"]) == 24
+assert {(row["scenario_id"], row["backend_id"]) for row in review["cells"]} == expected
+assert review["baseline"]["run_id"] and review["baseline"]["comparison_set"]
+consensus = {
+    (row["scenario_id"], row["backend_id"]): row["consensus_score"]
+    for row in combined["cells"]
+}
+derived_regressions = set()
+for row in review["cells"]:
+    key = (row["scenario_id"], row["backend_id"])
+    assert row["baseline_status"] in {"compared", "not_comparable"}
+    assert row["disposition"] and row["evidence"]
+    assert row["current_score"] == consensus[key]
+    if row["baseline_status"] == "compared":
+        assert isinstance(row["baseline_score"], (int, float))
+        assert row["delta"] == round(row["current_score"] - row["baseline_score"], 1)
+        if row["delta"] < -10:
+            derived_regressions.add(key)
+    else:
+        assert row["baseline_score"] is None and row["delta"] is None
+        assert row["not_comparable_reason"]
+assert isinstance(review["regressions"], list)
+assert all(item.get("disposition") and item.get("evidence") for item in review["regressions"])
+assert {
+    (item["scenario_id"], item["backend_id"]) for item in review["regressions"]
+} == derived_regressions
+
+report = proof["report"]
+local_report = artifact(report)
+assert report["published"] is True and report["http_status"] == 200
+assert report["url"] == f"https://reports.openclinai.org/{report['slug']}/"
+assert report["checked_at"]
+assert local_report.name == "index.html"
+meta_path = artifact(report["meta"])
+meta = json.loads(meta_path.read_text())
+assert meta["slug"] == report["slug"] and meta["run_dir"] == run_id
+assert meta["comparison_set"] == "hub-profile-candidate"
+with urllib.request.urlopen(report["url"], timeout=30) as response:
+    remote_report = response.read()
+    assert response.status == 200
+with urllib.request.urlopen(report["url"] + "meta.json", timeout=30) as response:
+    remote_meta = response.read()
+    assert response.status == 200
+assert hashlib.sha256(remote_report).hexdigest() == report["sha256"]
+assert hashlib.sha256(remote_meta).hexdigest() == report["meta"]["sha256"]
+PY
+then
+  record G21 PASS "24-cell product-profile run, independent judgments, per-cell review, and published report are hash-bound"
+else
+  record G21 PENDING "missing or invalid judged publication proof: ${evaluation_proof#${ROOT}/}"
+fi
 
 # G22: active documentation alignment across root and every submodule.
 if "$ROOT/scripts/verify-doc-drift.sh" >/tmp/hub-g22.log 2>&1; then
@@ -423,16 +694,54 @@ else
   record G22 FAIL "verify-doc-drift.sh failed"
 fi
 
-# G23: code-qa outputs are explicit release artifacts.
+# G23: code-qa outputs are hash-bound reviews of the exact release heads, not presence checks.
 qa_dir="$ROOT/artifacts/roadmap/code-qa"
-if [[ -s "$qa_dir/meaningful-test-coverage.md" \
-  && -s "$qa_dir/simplicity-review.md" \
-  && -s "$qa_dir/spec-code-alignment.md" \
-  && -s "$qa_dir/cross-repo-companion-pr.md" \
-  && -s "$qa_dir/evidence-bundle.md" ]]; then
-  record G23 PASS "all required DIGI-UW/code-qa reports present"
+qa_result="$qa_dir/result.json"
+if [[ -s "$qa_result" ]] \
+  && "$ROOT/.venv/bin/python" - "$ROOT" "$qa_result" <<'PY'
+import hashlib
+import json
+import subprocess
+import sys
+from pathlib import Path
+
+root = Path(sys.argv[1]).resolve()
+result = json.loads(Path(sys.argv[2]).read_text(encoding="utf-8"))
+assert result["schema_version"] == "code_qa_result.v1"
+assert result["status"] == "pass"
+assert result["blockers"] == []
+heads = result["reviewed_shas"]
+assert heads["root"] == subprocess.check_output(
+    ["git", "-C", str(root), "rev-parse", "HEAD"], text=True
+).strip()
+for path, expected_sha in heads["submodules"].items():
+    target = (root / path).resolve()
+    assert target.is_relative_to(root) and (target / ".git").exists()
+    actual_sha = subprocess.check_output(
+        ["git", "-C", str(target), "rev-parse", "HEAD"], text=True
+    ).strip()
+    assert actual_sha == expected_sha
+
+required = {
+    "meaningful-test-coverage",
+    "simplicity-review",
+    "spec-code-alignment",
+    "cross-repo-companion-review",
+    "evidence-bundle",
+}
+reviews = result["reviews"]
+assert {review["id"] for review in reviews} == required
+for review in reviews:
+    assert review["status"] == "pass" and review["blockers"] == []
+    report = review["report"]
+    path = (root / report["path"]).resolve()
+    assert path.is_relative_to(root) and path.is_file() and path.stat().st_size > 0
+    assert hashlib.sha256(path.read_bytes()).hexdigest() == report["sha256"]
+PY
+then
+  record G23 PASS "DIGI-UW/code-qa reports pass with zero blockers and match the exact reviewed heads"
 else
-  record G23 PENDING "one or more required code-qa reports are missing"
+  record G23 PENDING "missing, stale, or blocking DIGI-UW/code-qa result: ${qa_result#${ROOT}/}"
 fi
 
 # G24 is derived from G01-G23 plus final clean-tree state.

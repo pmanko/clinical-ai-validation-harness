@@ -314,12 +314,11 @@ class _StubClient:
         session: str | None,
         question: str,
         *,
-        endpoint_url: str | None = None,
-        model_name: str | None = None,
+        profile: str | None = None,
     ) -> ChatResult:
         return ChatResult(
             status=200,
-            envelope={"answer": f"answer from {model_name}", "session": session},
+            envelope={"answer": f"answer from {profile}", "session": session},
             latency_ms=1,
             raw_text="ok",
         )

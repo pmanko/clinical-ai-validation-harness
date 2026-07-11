@@ -1,8 +1,8 @@
-"""HTTP client that drives chartsearchai's real REST API (spec 006 FR-006.1): the
-backend is selected PER REQUEST — `{endpointUrl, modelName}` are sent in each
-`POST /chat` body as a per-request override (chartsearchai's `RequestLlmOverride`;
-used for that request only, the config-global default untouched) — replaying turns
-in one session. No bypass of chartsearchai.
+"""HTTP client that drives chartsearchai's real REST API (spec 006 FR-006.1).
+
+Each ``POST /chat`` selects one hub product profile. ChartSearchAI owns patient
+authorization/session persistence and relays that profile id to med-agent-hub; the
+client cannot override the configured hub endpoint or compose low-level stages.
 
 Base URL + Basic-auth credentials reuse the same env vars as
 scripts/chartsearch-configure.sh so the two agree.
@@ -79,20 +79,6 @@ class ChartSearchAiClient:
     def _url(self, path: str) -> str:
         return f"{self.base_url}{_REST}{path}"
 
-    def set_endpoint(self, endpoint_url: str, model_name: str) -> dict[str, Any]:
-        """Switch the active backend (endpoint + model) in one atomic call."""
-        resp = self._session.post(
-            self._url("/endpoint"),
-            json={"endpointUrl": endpoint_url, "modelName": model_name},
-            timeout=self.timeout,
-        )
-        if resp.status_code != 200:
-            raise RuntimeError(
-                f"set_endpoint({endpoint_url!r}, {model_name!r}) failed "
-                f"[{resp.status_code}]: {resp.text[:300]}"
-            )
-        return resp.json()
-
     def new_session(self, patient: str) -> str:
         """Close the active session for this patient and open a fresh one. Retries a
         transient gateway/rate-limit status (the backend may be restarting) up to
@@ -122,24 +108,20 @@ class ChartSearchAiClient:
         session: str | None,
         question: str,
         *,
-        endpoint_url: str | None = None,
-        model_name: str | None = None,
+        profile: str | None = None,
     ) -> ChatResult:
         """One chat turn. Never raises on a non-200 — the turn is recorded with
         its status so a failed turn still produces a result line. Paces to stay
         under the rate limit and retries on 429 (the recorded latency_ms is the
         final attempt's, not the wait).
 
-        When endpoint_url + model_name are given they are sent as a per-request
-        backend override — chartsearchai uses that backend for THIS request only,
-        leaving its config-controlled global default untouched (so a run can't
-        collide with the UI or another run)."""
+        When ``profile`` is given it selects that hub-advertised product profile for
+        this request. Without it, ChartSearchAI uses its configured default."""
         body: dict[str, str] = {"patient": patient, "question": question}
         if session:
             body["session"] = session
-        if endpoint_url and model_name:
-            body["endpointUrl"] = endpoint_url
-            body["modelName"] = model_name
+        if profile:
+            body["profile"] = profile
         attempt = 0
         while True:
             self._throttle()

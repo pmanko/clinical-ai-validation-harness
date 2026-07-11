@@ -9,8 +9,8 @@ Execution state for `MAH-CONSOLIDATION-2026-07-09-v1`.
 | Roadmap | [`hub-consolidation-roadmap.md`](hub-consolidation-roadmap.md) |
 | Approval | Explicit user instruction to implement the roadmap on 2026-07-09 |
 | Approved roadmap SHA-256 | `5f625cb9f1ac4a1682001fb40fd3cc6852ceed16c96e9b54e435b4e591a64d3d` |
-| Current execution boundary | M2 OpenMRS reconciliation complete; awaiting User Signoff C before M3 |
-| Next protected boundary | M3 product/local proof requires User Signoff C |
+| Current execution boundary | M3 product/local proof in progress; User Signoff C granted 2026-07-10 |
+| Next protected boundary | M4 evaluation and release requires successful M3 proof and User Release Signoff D |
 | Deviations | None |
 
 The roadmap intentionally preserves the exact approved Plan Mode body, including its
@@ -240,6 +240,29 @@ existing PR heads were updated with exact force-with-lease checks.
 | Stage-refactor matrix | Pass for all M2-owned checks at the reconciled heads; only the live multi-turn/preempt checks reserved for M3 are pending because `RUN_E2E=1` was not set |
 | Independent review | Pass after remediation: the targeted re-review found no blocker, reran 11 focused Java tests, and confirmed pending interruption plus `indepth_done`/`indepth_error` EOF semantics; the exact-head fix is `e6bb4de` |
 
+## M3 Verification
+
+| Check | Result |
+|---|---|
+| Canonical local startup | Pass: `scripts/chartsearchai-local.sh` preserves unchanged warm services, starts/verifies host-native llama.cpp, provisions a least-privileged patient reader, starts the hub, verifies profile metadata, configures the Java relay, and exercises E4B |
+| Local patient source | Pass: the generated `med-agent-hub` OpenMRS user has only the `Get Patients` privilege and returned records through the Querystore adapter |
+| Default profile discovery | Pass: `single-e4b-checked` is available, authoritative, human-readable, and marked default; the ESM picker renders hub profile metadata |
+| Deterministic local checks | Pass at the current code heads: 289 hub tests; 176 ESM tests plus lint/build; the complete Java Maven suite; and 617 parent tests with 35 expected skips and 3 deselections |
+| Product Answer contract | Pass in code at hub `6584f5a`: product profiles always apply the hub-owned strict `chart_answer` schema, including when a caller supplies a conflicting `response_format`; raw low-level legs remain caller-controlled. ChartSearchAI marks every product request with `require_product_profile`, and the hub rejects internal/experimental legs on that path while preserving direct low-level hub clients. Exact accounting uses the same model/messages/tools payload; llama.cpp applies `response_format` as an out-of-band generation grammar with zero prompt tokens, and the supported apply-template fallback is tested to preserve that boundary. ChartSearchAI `6b8284b` removes its duplicate schema builder and preserves the full hub wire for synchronous clients. A real E4B request on the preceding deployed head returned a substantive schema-valid Answer; exact-head deployment proof remains below. |
+| Compiled execution plan | Pass with a simpler implementation: immutable `Profile.stages` is the validated compiled plan consumed by runtime. The unused `StagePlan` copy and its test-only accessor were removed rather than preserving a ceremonial wrapper. |
+| Product temporal anchor | Pass in code and live product trace: product profiles default to wall-clock today in the configured clinical/site timezone (`2026-07-10` for the Honolulu host while the container was on UTC July 11), a fixed `HUB_ANCHOR=2026-06-20` remains authoritative for evaluation, and low-level experimental legs retain latest-record behavior when no anchor is supplied. The engine resolves this date once and shares the same ISO value with drug safety and temporal facts. |
+| Temporal/In-Depth remediation | Pass: visual proof exposed an unsafe uncited CD4-to-lymphocyte patch and fallback-derived In-Depth; generic count matching is removed, patches must stay within original citations, unsafe claims are removed, and non-substantive Answers deterministically withhold In-Depth |
+| Citation-set grounding | Pass: claims supported by multiple citations are checked against a bounded combined source set; claim/path-level checks are retained; mixed, unchecked, and unsupported In-Depth support cannot report complete; and positive/negative source-set UI wording does not imply an individual-record verdict |
+| Grounding-before-preemption | Pass: `indepth_pending` carries and persists the final post-review Answer envelope, so a preempted In-Depth cannot strand Answer citations at `checking`; the ESM updates that same message before entering the preemptable phase |
+| Atomic In-Depth evidence | Pass: `indepth_done`/`indepth_error` carry the full final envelope while preserving their legacy top-level fields; Java persists final references and verdicts with the terminal In-Depth state, and EOF coverage requires them |
+| Warm performance observation | Pending recollection: the previous identity-bound distribution described hub `de8614e`; product behavior now includes the hub-owned output contract at `7175118`, so G20 must be recollected against that final labeled image. The criterion remains relative with `fixed_latency_threshold: null`. A non-authoritative post-deploy smoke check observed `answer_done` at 1.1-1.2 seconds for the trivial inline question. |
+| Live multi-turn/preemption | Pending final-head rerun: the focused proof on `de8614e` observed a positive Q2 cancellation marker with `router_lock_released=true` and a completed Q3 trace, but the final product head is now `7175118`. |
+| Video proof | Stale: the 2026-07-10 video predates the final temporal/reviewer remediation and is retained only as a prior artifact. A new paced video is required against the final labeled image. |
+| M3 independent review | Latest review findings were remediated in code: product wall-clock default with fixed-eval override, accurate reviewer-unavailable product state, source-set scope/group assertions, positive image/cancellation proof, and a schema-validated G21 publication contract. Fresh re-review is pending. |
+| Release-proof hardening | Pass in code: the 24-cell audit has positive and failure-injection coverage; complete In-Depth now requires substantive text plus an enforce-gate terminal result; independent judge manifests require actor/model/method and source/output hashes; combined scores are deterministically recomputed; per-cell review requires an explicit comparable baseline or a reason it is not comparable; DIGI-UW/code-qa must report zero blockers against exact reviewed SHAs. |
+| Source indexing | Complete for candidate readiness: Elasticsearch contains 427,890 observation documents against 427,897 active source rows and all other Querystore clinical indexes are populated. The remaining seven-row difference must not affect the fixed candidate patients; preflight verifies each scenario before launch. |
+| Remaining proof | Exact-head hub deployment, preflight, the 24-cell run/judging/publication, final-head performance/live/video reruns, fresh independent review, companion pushes, and exact clean-tree gate evidence remain pending. |
+
 ## Milestones
 
 | Milestone | Status | Evidence or blocker |
@@ -247,37 +270,37 @@ existing PR heads were updated with exact force-with-lease checks.
 | R0 Persist roadmap | Complete | Roadmap/status/index committed and pushed at `d734df9`; post-copy validation is recorded above |
 | M0 Stabilize baseline | Complete | All refreshed pins are reachable, upstream deltas are classified, raw-leg goldens are pinned, and the independent re-review has no blocker |
 | M1 Consolidate hub | Complete | Hub PR #12 is merged at `7869c62`; 246 hub tests, 569 parent tests, hash-bound context proof, independent re-review, review remediation, and companion CI pass. User Signoff B granted. |
-| M2 Reconcile OpenMRS integration | Complete | Five independent-review findings and the terminal EOF follow-up are remediated; exact-head local suites, companion CI, architecture gates, documentation drift, and final independent review pass. Awaiting User Signoff C. |
-| M3 Product/local proof | Pending | Requires M2 completion and User Signoff C |
-| M4 Evaluation and release | Pending | Requires M3 completion and User Release Signoff D |
+| M2 Reconcile OpenMRS integration | Complete | Five independent-review findings and the terminal EOF follow-up are remediated; exact-head local suites, companion CI, architecture gates, documentation drift, and final independent review pass. User Signoff C granted. |
+| M3 Product/local proof | In progress | User Signoff C granted 2026-07-10; portable startup, readiness, live E2E, performance, and video proof are underway |
+| M4 Evaluation and release | Pending | After M3 correctness and deterministic QA are clean, run, judge, and publish a fresh profile-based candidate report before final validation; final release still requires User Release Signoff D |
 
 ## Acceptance Gates
 
 | Gate | Status | Current evidence |
 |---|---|---|
 | G01 Roadmap integrity | Pass | Structure/link validation passed; approved SHA-256 recorded above |
-| G02 Baseline integrity | Pass | Hub #12 and parent #33 are merged; the fresh M2 parent branch starts at `d08c12e` with clean, default-branch-reachable M1 pins |
+| G02 Baseline integrity | In progress | Hub #12 and parent #33 are merged, but current M3 companion heads remain ahead of their remotes and the parent integration tree is intentionally dirty until final proof and review complete |
 | G03 Upstream reconciliation | Pass | Fixed baseline-to-classified-head ranges cover every disposition, and the gate fails if a tracked upstream ref advances |
 | G04 One engine | Pass | Streaming and blocking drain one `StageEngine`; old runners/flag bridge are deleted; cancellation and budget context tests pass |
 | G05 Profile correctness | Pass | Profiles compile immutable stage plans, invalid order fails, unknown IDs return `model_not_found`, and metadata is authoritative |
 | G06 Raw-leg compatibility | Pass | Five byte-exact pre-refactor envelopes remain green; merged hub `7869c62` is tree-identical to tested head `31e6037`, where the complete 246-test suite passed |
 | G07 Source independence | Pass | Inline, optional Querystore, static KB, and mock alternate adapters share one normalized source contract; hub starts without Querystore |
-| G08 Context budgeting | Pass | Every product envelope requires exact tokenizer-backed budgeting; actual chat payloads are counted and capped before backend calls |
-| G09 Context quality | Pass | Hash-bound proof retains 48/48 required sources over 12 E4B/12B cells within exact budgets |
-| G10 Answer temporal safety | Pass | Every `output: product` profile ignores request attempts to disable temporal facts or weaken enforce, regardless of discovery visibility |
-| G11 In-Depth temporal safety | Pass | Every displayed claim is gated; rejected or empty claim sets cannot report complete |
+| G08 Context budgeting | Pass | Every product envelope requires exact tokenizer-backed budgeting; the exact rendered model/messages/tools prompt is counted and capped before backend calls, while llama.cpp's output schema remains a zero-input-token generation grammar |
+| G09 Context quality | Pass | Final-head hash-bound proof retains 48/48 required sources over 12 E4B/12B cells within exact budgets |
+| G10 Answer temporal safety | Pass | Every `output: product` profile ignores attempts to disable temporal facts or weaken enforce; ChartSearchAI marks product requests and the hub rejects low-level/internal profile ids on that path |
+| G11 In-Depth temporal safety | Pass | Every displayed claim is deterministically temporally gated; cited claims are separately resolved and grounded, while uncited general guidance remains subject to LLM review rather than being mislabeled citation-checked; rejected, mixed, unchecked, unsupported, reviewer-unavailable, or empty claim sets cannot incorrectly report complete |
 | G12 Review ordering | Pass | Product and review legs share one conservative review implementation; rewrites are re-gated and final Answer refs are re-resolved before grounding |
-| G13 Citation integrity | Pass | Prior-turn markers are stripped; Answer and In-Depth citations resolve to the current ledger and receive separate grounding checks |
+| G13 Citation integrity | Pass | Prior-turn markers are stripped; Answer and In-Depth citations resolve to the current ledger; claim/path checks and source sets survive the wire and terminal persistence |
 | G14 Drug-safety parity | Pass | Hub parity, unit-safe weight, Java assistant-wire persistence, and history rehydration contracts pass |
-| G15 Thin OpenMRS relay | Pass | Java has one fixed hub endpoint and one profile request; legacy inference/discovery/grounding/context code and the Querystore dependency are deleted |
+| G15 Thin OpenMRS relay | Pass | Java has one fixed hub endpoint and one profile request; it no longer supplies prompts or an answer schema, preserves the complete hub wire for sync and staged clients, maps structured `insufficient_context`, and has deleted the dead local chart-size exception plus legacy inference/discovery/grounding/context code |
 | G16 Product discovery | Pass | Hub availability plus explicit `selection_priority` produces at most one available default; ESM never invents a list-order fallback |
-| G17 Lifecycle UX | Pass | Java fails only genuinely pending In-Depth, preserves terminal results across EOF, ESM mirrors interruption locally, and legacy hydrated pending rows cannot spin forever |
-| G18 Multi-turn and cancellation | Pending | Java and ESM unit/contract tests pass; final deployed preempt/disconnect proof remains in M3 |
-| G19 Local setup | Fail | Canonical portable `chartsearchai-local` command does not yet exist |
-| G20 Performance | Pending | Warm E4B benchmark not yet run |
-| G21 Evaluation | Pending | Deterministic QA and candidate run not yet run |
+| G17 Lifecycle UX | Pass | Java persists final Answer grounding at `indepth_pending` and final In-Depth evidence atomically at its terminal event; EOF, interruption, ESM, and hydration paths cannot leave evidence or phases spinning |
+| G18 Multi-turn and cancellation | In progress | Positive cancellation and slot-release evidence passed on `de8614e`; rerun is required on the final product head before this gate returns to Pass |
+| G19 Local setup | Pass | Canonical `make chartsearchai-local` completed against the real stack with portable model paths, hub-only configuration, least-privileged patient-source provisioning, authoritative E4B discovery, and warm-preserving repeat startup |
+| G20 Performance | In progress | The collector now binds the deployed image revision as well as source/config/model identity; the 10-turn distribution must be recollected on final hub head `7175118` |
+| G21 Evaluation | In progress | The exact 24-cell E4B/12B candidate, deterministic audit, independent-actor provenance, recomputed consensus, and per-cell baseline contract are executable; source indexing is complete and exact-head deployment/preflight are next |
 | G22 Documentation | Pass | Current READMEs, contributor rules, workflow comments, API docs, and all submodules pass the seven-repository drift scan |
-| G23 Independent QA | Pending | M0 independent review passed after remediation; complete DIGI-UW/code-qa evidence remains a release requirement |
+| G23 Independent QA | Pending | The gate now requires all five DIGI-UW/code-qa reviews to pass with zero blockers, hash-bound reports, and exact root/submodule SHAs; final-head review execution remains pending |
 | G24 Release hygiene | Pending | Final CI, E2E, PR, pin, and clean-tree proof required |
 
 ## Signoffs
@@ -287,9 +310,13 @@ existing PR heads were updated with exact force-with-lease checks.
 | Roadmap approval | Granted 2026-07-09 | R0 and M0 |
 | User Signoff A | Granted 2026-07-10 | M1 hub consolidation |
 | User Signoff B | Granted 2026-07-10 | M2 OpenMRS integration reconciliation |
-| User Signoff C | Pending | M3 product/local proof completion and release preparation |
+| User Signoff C | Granted 2026-07-10 | M3 product/local proof completion and release preparation |
+| Pre-final report authorization | Granted 2026-07-10 | Run, judge, and publish one fresh profile-based candidate report after deterministic QA and before final validation; this does not authorize final release, merges, or obsolete-PR closure |
 | User Release Signoff D | Pending | Merge, publication, obsolete-PR closure, and release completion |
 
 ## Amendments
 
-None.
+| Date | Approved change | Reason and replacement evidence |
+|---|---|---|
+| 2026-07-10 | G20 no longer uses the roadmap's fixed 30-second local Answer threshold as a pass/fail criterion. | User clarified that local-machine performance is variable and the absolute limit is arbitrary. M3 discloses cold/warm state, records host/runtime provenance and warm-run distributions, and separates pre-display pipeline overhead from the underlying answer-stage work. Browser tests require eventual lifecycle completion but do not fail on an absolute latency number. |
+| 2026-07-10 | A fresh judged report must be run and published before final validation. | After the known M3 correctness blockers are fixed and deterministic QA is clean, create a new candidate set that exercises the product profiles rather than the obsolete two-call experimental arms. Run `single-e4b-checked` as the default product path and `single-12b-checked` as the quality comparison across the 12 temporal/date scenarios, exclude high-team, preserve independent judgments, publish the report, and inspect per-cell regressions before the final validation/release pass. This is limited publication authorization for that report, not User Release Signoff D. |

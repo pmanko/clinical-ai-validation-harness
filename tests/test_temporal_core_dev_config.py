@@ -83,3 +83,18 @@ def test_temporal_simple_candidate_2call_quarantines_high_team():
         "answer:gemma-26b@synthesis-date-output-contract~enforce~temp0.5",
     }
     assert all(b.indepth_model for b in backends)
+
+
+def test_hub_profile_candidate_uses_only_real_checked_product_profiles():
+    cset = load_comparison_set(DATA / "comparison_sets" / "hub-profile-candidate.json")
+    assert cset.id == "hub-profile-candidate"
+    assert len(cset.scenario_ids) == 12
+    assert cset.backend_ids == ["product-e4b-checked", "product-12b-checked"]
+
+    backends = resolve_backends(cset.backend_ids, DATA / "backends.json")
+    assert {backend.model_name for backend in backends} == {
+        "single-e4b-checked",
+        "single-12b-checked",
+    }
+    assert all(backend.indepth_model is None for backend in backends)
+    assert not any("team" in backend.id or "2call" in backend.id for backend in backends)

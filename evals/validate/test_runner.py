@@ -10,23 +10,18 @@ class FakeClient:
     session 'sess-server', so turn 2 must send it back (proves threading)."""
 
     def __init__(self):
-        self.endpoint_calls = []
         self.new_session_calls = []
         self.chat_calls = []
         self._n = 0
-
-    def set_endpoint(self, endpoint_url, model_name):
-        self.endpoint_calls.append((endpoint_url, model_name))
-        return {"endpointUrl": endpoint_url, "current": model_name}
 
     def new_session(self, patient):
         self.new_session_calls.append(patient)
         return "sess-initial"
 
-    def chat(self, patient, session, question, *, endpoint_url=None, model_name=None):
+    def chat(self, patient, session, question, *, profile=None):
         self.chat_calls.append({
             "patient": patient, "session": session, "question": question,
-            "endpoint_url": endpoint_url, "model_name": model_name,
+            "profile": profile,
         })
         self._n += 1
         return ChatResult(
@@ -75,15 +70,9 @@ def test_runner_threads_session_and_writes_projected_results(tmp_path):
         git_sha="test-sha",
     )
 
-    # The runner selects the backend PER REQUEST — it never calls set_endpoint, so
-    # a run never mutates chartsearchai's config-controlled global default.
-    assert client.endpoint_calls == []
     assert client.new_session_calls == ["pat"]
-    # Every chat turn carries the backend as a per-request override.
-    assert all(
-        c["endpoint_url"] == "http://e/v1/chat/completions" and c["model_name"] == "mm"
-        for c in client.chat_calls
-    )
+    # Every chat turn carries the selected hub profile; the endpoint is server-owned.
+    assert all(c["profile"] == "mm" for c in client.chat_calls)
 
     # Session threading: turn 1 sends the fresh session; turn 2 sends what the
     # server returned on turn 1.
@@ -168,7 +157,7 @@ class FakeClientThatRaises(FakeClient):
     """chat() raises (simulating a hung / timed-out request) so we can assert the
     runner records it and continues rather than aborting the whole run."""
 
-    def chat(self, patient, session, question, *, endpoint_url=None, model_name=None):
+    def chat(self, patient, session, question, *, profile=None):
         raise RuntimeError("simulated request hang")
 
 
@@ -283,10 +272,8 @@ def test_runner_fires_indepth_call_on_final_turn_and_nests_it(tmp_path):
                          output_dir=tmp_path / "art", git_sha="test-sha")
     assert len(client.chat_calls) == 2  # answer call + in-depth call
     answer_call, indepth_call = client.chat_calls
-    assert answer_call["model_name"] == "mm"
-    assert answer_call["endpoint_url"] == "http://router/v1/chat/completions"
-    assert indepth_call["model_name"] == "indepth-mm"
-    assert indepth_call["endpoint_url"] == "http://hub/v1/chat/completions"
+    assert answer_call["profile"] == "mm"
+    assert indepth_call["profile"] == "indepth-mm"
     assert indepth_call["session"] == "sess-server"  # same session -> answer carried as a prior turn
     row = json.loads(out.results_path.read_text(encoding="utf-8").splitlines()[0])
     assert row["indepth"]["response"]["answer"]                 # in-depth artifact present

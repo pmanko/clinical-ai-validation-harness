@@ -1,0 +1,22 @@
+{
+  "id": "hub-profile-candidate",
+  "description": "Pre-final publish candidate: the default E4B checked product profile versus the 12B checked quality comparison across the 12 temporal/date scenarios. High-team and legacy two-call composition are excluded.",
+  "scenario_ids": [
+    "date-zabella-weight-table",
+    "date-zabella-weight-endpoints",
+    "date-aloice-orders-table",
+    "date-aloice-last-visit-exact",
+    "single-upcoming-appointments",
+    "am-upcoming-appointments",
+    "am-last-visit",
+    "am-weight-trend",
+    "am-cd4-history",
+    "am-orders-6mo",
+    "ek-growth",
+    "abstain-out-of-chart"
+  ],
+  "backend_ids": [
+    "product-e4b-checked",
+    "product-12b-checked"
+  ]
+}
