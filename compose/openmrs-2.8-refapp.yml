@@ -50,6 +50,8 @@ services:
       - ../artifacts/openmrs/spa-custom:/srv/spa-custom:ro
       # Published validation reports, static-served at the reports subdomain (see Caddyfile).
       - ../artifacts/reports:/srv/reports:ro
+      # Public project landing page served at CADDY_SITE (openclinai.org in cloud).
+      - ../landing:/srv/landing:ro
     depends_on:
       gateway:
         condition: service_healthy

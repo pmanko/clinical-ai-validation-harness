@@ -1,0 +1,281 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="Open Clinical AI is an open-source proving ground for local, evidence-linked clinical AI in real OpenMRS workflows."
+    />
+    <meta name="theme-color" content="#4b2e83" />
+    <meta property="og:title" content="Open Clinical AI" />
+    <meta
+      property="og:description"
+      content="Local-first clinical assistance, grounded in the patient record and tested in real OpenMRS workflows."
+    />
+    <meta property="og:image" content="https://openclinai.org/media/openmrs-evidence-poster.png" />
+    <title>Open Clinical AI</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <a class="skip-link" href="#main-content">Skip to content</a>
+
+    <header class="site-header">
+      <a class="brand" href="/" aria-label="Open Clinical AI home">
+        <span class="brand-mark" aria-hidden="true"><span></span></span>
+        <span>Open Clinical AI</span>
+      </a>
+      <nav class="primary-nav" aria-label="Primary navigation">
+        <a href="#project">Project</a>
+        <a href="#hub">Med Agent Hub</a>
+        <a href="#openmrs">OpenMRS</a>
+        <a href="#evidence">Evidence</a>
+      </nav>
+      <div class="header-actions">
+        <a class="button button-secondary" href="https://reports.openclinai.org/">Reports</a>
+        <a class="button button-primary" href="https://openmrs.openclinai.org/">Open demo <span aria-hidden="true">&#8599;</span></a>
+      </div>
+    </header>
+
+    <main id="main-content">
+      <section class="hero" aria-labelledby="hero-title">
+        <div class="hero-media" aria-hidden="true">
+          <img src="/media/openmrs-evidence-poster.png" alt="" />
+        </div>
+        <div class="hero-shade" aria-hidden="true"></div>
+        <div class="hero-content page-width">
+          <p class="eyebrow">Open-source clinical AI research</p>
+          <h1 id="hero-title">Open Clinical AI</h1>
+          <p class="hero-lead">
+            Local-first clinical assistance, grounded in the patient record and tested in real OpenMRS workflows.
+          </p>
+          <div class="hero-actions">
+            <a class="button button-gold" href="https://openmrs.openclinai.org/">Explore the OpenMRS demo <span aria-hidden="true">&#8599;</span></a>
+            <a class="text-link light" href="#openmrs">See how it works <span aria-hidden="true">&#8595;</span></a>
+          </div>
+          <p class="hero-note">Research demonstrator. Clinician in the loop. Not a medical device.</p>
+        </div>
+      </section>
+
+      <section class="destination-bar" aria-label="Project destinations">
+        <div class="page-width destination-grid">
+          <a href="https://openmrs.openclinai.org/">
+            <span class="destination-label">Working integration</span>
+            <strong>Open the OpenMRS demo</strong>
+            <span aria-hidden="true">&#8599;</span>
+          </a>
+          <a href="https://reports.openclinai.org/">
+            <span class="destination-label">Evaluation evidence</span>
+            <strong>Explore published reports</strong>
+            <span aria-hidden="true">&#8599;</span>
+          </a>
+        </div>
+      </section>
+
+      <section id="project" class="section section-intro">
+        <div class="page-width intro-grid">
+          <div>
+            <p class="section-kicker">The project</p>
+            <h2>Build clinical AI that can be inspected, tested, and run close to care.</h2>
+          </div>
+          <div class="intro-copy">
+            <p>
+              Open Clinical AI connects small, locally runnable language models to real clinical systems, then checks their answers against the same source evidence a clinician can inspect.
+            </p>
+            <p>
+              The project is not a claim that a model is ready to practice medicine. It is a practical environment for learning what works, where it fails, and which safeguards make a measurable difference.
+            </p>
+          </div>
+        </div>
+        <div class="page-width principle-row" aria-label="Project principles">
+          <article>
+            <span class="principle-number">01</span>
+            <h3>Local by design</h3>
+            <p>Models and patient context can remain within the deployment instead of depending on a remote AI service.</p>
+          </article>
+          <article>
+            <span class="principle-number">02</span>
+            <h3>Evidence before confidence</h3>
+            <p>Answers expose the chart records used, while deterministic checks catch high-confidence temporal and formatting errors.</p>
+          </article>
+          <article>
+            <span class="principle-number">03</span>
+            <h3>Measured in context</h3>
+            <p>Real clinical questions run through the actual integration and are reviewed cell by cell, not reduced to one opaque score.</p>
+          </article>
+        </div>
+      </section>
+
+      <section id="hub" class="section hub-section">
+        <div class="page-width hub-heading">
+          <div>
+            <p class="section-kicker light-kicker">Med Agent Hub</p>
+            <h2>One service coordinates the clinical answer path.</h2>
+          </div>
+          <p>
+            Med Agent Hub is the model-facing service behind the demo. It retrieves clinical context, builds structured temporal facts, runs the selected model profile, checks the output, resolves evidence, and prepares an in-depth response.
+          </p>
+        </div>
+        <div class="page-width stage-flow" aria-label="Med Agent Hub answer stages">
+          <div class="stage">
+            <span>1</span>
+            <strong>Context</strong>
+            <p>Gather patient records and source provenance.</p>
+          </div>
+          <div class="stage">
+            <span>2</span>
+            <strong>Answer</strong>
+            <p>Return a focused answer from the configured model profile.</p>
+          </div>
+          <div class="stage">
+            <span>3</span>
+            <strong>Check</strong>
+            <p>Apply deterministic temporal and answer-quality rules.</p>
+          </div>
+          <div class="stage">
+            <span>4</span>
+            <strong>Evidence</strong>
+            <p>Resolve citations and attach final grounding status.</p>
+          </div>
+          <div class="stage">
+            <span>5</span>
+            <strong>In-Depth</strong>
+            <p>Expand from the final checked answer when requested.</p>
+          </div>
+        </div>
+        <div class="page-width hub-links">
+          <a class="text-link light" href="https://github.com/pmanko/med-agent-hub">View Med Agent Hub on GitHub <span aria-hidden="true">&#8599;</span></a>
+        </div>
+      </section>
+
+      <section id="openmrs" class="section openmrs-section">
+        <div class="page-width section-heading-row">
+          <div>
+            <p class="section-kicker">Current integration</p>
+            <h2>Clinical answers inside the OpenMRS patient chart.</h2>
+          </div>
+          <p>
+            ChartSearchAI keeps the experience inside the clinician's existing workflow. A fast answer appears first, its check status updates in place, and the final response links back to the chart evidence used.
+          </p>
+        </div>
+        <div class="page-width feature-media">
+          <video
+            controls
+            playsinline
+            preload="metadata"
+            poster="/media/openmrs-evidence-poster.png"
+            aria-label="OpenMRS demonstration of a checked E4B answer, evidence records, and in-depth response"
+          >
+            <source src="/media/openmrs-e4b-staged-demo.mp4" type="video/mp4" />
+            Your browser does not support embedded video.
+          </video>
+          <div class="media-caption">
+            <div>
+              <strong>Fast checked answer with a small local model</strong>
+              <span>E4B profile, staged answer lifecycle, evidence display, and multi-turn preemption.</span>
+            </div>
+            <span>2:47</span>
+          </div>
+        </div>
+        <div class="page-width lifecycle-row" aria-label="Answer lifecycle">
+          <div><span>01</span><strong>Answer visible</strong><p>The short answer arrives without waiting for the deeper analysis.</p></div>
+          <div><span>02</span><strong>Check updates</strong><p>The same message shows whether it was checked, edited, or needs review.</p></div>
+          <div><span>03</span><strong>Evidence resolves</strong><p>References expose the records and facts used in the final answer.</p></div>
+        </div>
+      </section>
+
+      <section class="section demo-section" aria-labelledby="demo-heading">
+        <div class="page-width demo-heading">
+          <div>
+            <p class="section-kicker">Product walkthroughs</p>
+            <h2 id="demo-heading">See the staged workflow in motion.</h2>
+          </div>
+          <p>Recorded against the real local OpenMRS integration. On-screen descriptions call out each lifecycle transition.</p>
+        </div>
+        <div class="page-width video-grid">
+          <article class="video-item">
+            <video
+              controls
+              playsinline
+              preload="metadata"
+              poster="/media/openmrs-answer-poster.png"
+              aria-label="OpenMRS multi-turn demonstration using the checked 12B model profile"
+            >
+              <source src="/media/openmrs-12b-multiturn-demo.mp4" type="video/mp4" />
+              Your browser does not support embedded video.
+            </video>
+            <div>
+              <p class="video-meta">12B checked profile <span>7:09</span></p>
+              <h3>Ask the next question while In-Depth continues</h3>
+              <p>A multi-turn session showing the answer, review lifecycle, evidence, and preemption behavior.</p>
+            </div>
+          </article>
+          <article class="video-item screenshot-item">
+            <img
+              src="/media/openmrs-evidence-poster.png"
+              alt="OpenMRS chart with the AI Chart Search panel showing verified evidence records for a weight trend answer"
+            />
+            <div>
+              <p class="video-meta">Evidence in context <span>OpenMRS</span></p>
+              <h3>Follow the answer back to the chart</h3>
+              <p>Resolved evidence tiles expose the dated record, source type, value used, and source identifier.</p>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section id="evidence" class="section evidence-section">
+        <div class="page-width evidence-grid">
+          <div class="evidence-copy">
+            <p class="section-kicker light-kicker">Validation harness</p>
+            <h2>Claims are published with the evidence needed to challenge them.</h2>
+            <p>
+              The harness compares model profiles across realistic chart questions, preserves configuration and source traces, supports independent judges, and publishes cell-level results for review.
+            </p>
+            <a class="button button-gold" href="https://reports.openclinai.org/">Explore the reports <span aria-hidden="true">&#8599;</span></a>
+          </div>
+          <figure class="report-figure">
+            <img
+              src="/media/validation-reports-index.png"
+              alt="OpenClinAI validation reports index showing a published model comparison and its clinical scoring table"
+            />
+            <figcaption>Published reports retain per-answer detail alongside aggregate comparisons.</figcaption>
+          </figure>
+        </div>
+      </section>
+
+      <section class="section final-section">
+        <div class="page-width final-grid">
+          <div>
+            <p class="section-kicker">Open work, visible evidence</p>
+            <h2>Try the integration, then inspect the results.</h2>
+          </div>
+          <div class="final-actions">
+            <a class="button button-primary" href="https://openmrs.openclinai.org/">Open the clinical demo <span aria-hidden="true">&#8599;</span></a>
+            <a class="button button-outline" href="https://reports.openclinai.org/">Browse evaluation reports <span aria-hidden="true">&#8599;</span></a>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div class="page-width footer-grid">
+        <div>
+          <a class="brand footer-brand" href="/">
+            <span class="brand-mark" aria-hidden="true"><span></span></span>
+            <span>Open Clinical AI</span>
+          </a>
+          <p>An open-source research demonstrator for evidence-linked clinical AI.</p>
+        </div>
+        <nav aria-label="Project links">
+          <a href="https://github.com/pmanko/clinical-ai-validation-harness">Validation harness</a>
+          <a href="https://github.com/pmanko/med-agent-hub">Med Agent Hub</a>
+          <a href="https://openmrs.org/">OpenMRS</a>
+          <a href="https://digi.uw.edu/">DIGI at UW</a>
+        </nav>
+        <p class="footer-disclaimer">For research and demonstration only. AI output may be inaccurate and is not a substitute for clinical judgment.</p>
+      </div>
+    </footer>
+  </body>
+</html>

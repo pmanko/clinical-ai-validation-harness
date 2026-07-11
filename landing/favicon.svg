@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Open Clinical AI">
+  <rect width="64" height="64" rx="8" fill="#4b2e83"/>
+  <circle cx="32" cy="32" r="18" fill="none" stroke="#ffffff" stroke-width="10"/>
+  <path fill="#f2c75c" d="M27 4h10v18H27zM27 42h10v18H27zM4 27h18v10H4zM42 27h18v10H42z"/>
+</svg>
