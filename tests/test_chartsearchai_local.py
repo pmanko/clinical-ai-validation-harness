@@ -74,6 +74,9 @@ def test_local_hub_is_loopback_addressable_and_has_no_privileged_defaults():
     assert "QUERYSTORE_USERNAME:-admin" not in compose
     assert "QUERYSTORE_PASSWORD:-Admin123" not in compose
     assert "HUB_TIMEZONE: ${HUB_TIMEZONE:-UTC}" in compose
+    assert 'user: "${MED_AGENT_HUB_UID:-65532}:${MED_AGENT_HUB_GID:-65532}"' in compose
+    hub_service = compose.split("  med-agent-hub:", 1)[1].split("\n  db:", 1)[0]
+    assert 'test: ["CMD", "curl"' not in hub_service
 
 
 def test_local_hub_image_is_labeled_with_the_exact_source_revision():
@@ -105,6 +108,17 @@ def test_focused_hub_start_reuses_saved_least_privileged_source_credentials():
     assert "override_source_set=$${QUERYSTORE_BASE_URL+x}" in target
     assert 'QUERYSTORE_BASE_URL="$$override_source"' in target
     assert 'HUB_ANCHOR="$$override_anchor"' in target
+    assert "MED_AGENT_HUB_UID=$$(id -u) MED_AGENT_HUB_GID=$$(id -g)" in target
+    assert "Path('/app/trace/.write-probe')" in target
+    assert 'if [ "$$(id -u)" = "0" ]' in target
+
+
+def test_shared_stack_start_maps_hub_trace_writes_to_the_host_user():
+    script = _read("scripts/stack-up.sh")
+
+    assert 'export MED_AGENT_HUB_UID="${MED_AGENT_HUB_UID:-$(id -u)}"' in script
+    assert 'export MED_AGENT_HUB_GID="${MED_AGENT_HUB_GID:-$(id -g)}"' in script
+    assert 'if [[ "$(id -u)" == "0" ]]' in script
 
 
 def test_validation_run_reuses_the_credential_aware_hub_target():

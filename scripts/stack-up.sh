@@ -11,6 +11,13 @@
 # Idempotent: re-running with the stack already up is a no-op (docker compose's behavior).
 set -euo pipefail
 COMPOSE_FILE="${COMPOSE_FILE:-compose/openmrs-2.8-refapp.yml}"
+if [[ "$(id -u)" == "0" ]]; then
+  echo "ERROR: stack-up must run as a non-root host user." >&2
+  echo "Root would map UID 0 into the med-agent-hub container." >&2
+  exit 1
+fi
+export MED_AGENT_HUB_UID="${MED_AGENT_HUB_UID:-$(id -u)}"
+export MED_AGENT_HUB_GID="${MED_AGENT_HUB_GID:-$(id -g)}"
 WAIT=0
 SVCS=()
 for arg in "$@"; do

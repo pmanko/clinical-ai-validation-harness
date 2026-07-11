@@ -195,6 +195,9 @@ services:
         HUB_BUILD_REVISION: ${HUB_BUILD_REVISION:-unknown}
     container_name: harness-med-agent-hub
     restart: "unless-stopped"
+    # Local launchers set these to the invoking host user so bind-mounted trace artifacts remain
+    # writable. Direct image users retain the Dockerfile's unprivileged 65532:65532 default.
+    user: "${MED_AGENT_HUB_UID:-65532}:${MED_AGENT_HUB_GID:-65532}"
     ports:
       - "127.0.0.1:${MED_AGENT_HUB_PORT:-18081}:8080"
     environment:
@@ -226,13 +229,6 @@ services:
       - ../targets/med-agent-hub/server/levels.yaml:/app/server/levels.yaml:ro
       # Writable: per-turn reasoning-trace JSONL the live dashboard renders (team._write_trace).
       - ../artifacts/hub-trace:/app/trace:rw
-    healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://localhost:8080/health"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 20s
-
   db:
     image: mariadb:10.11.7
     container_name: harness-openmrs-db

@@ -206,6 +206,11 @@ med-agent-hub-build:
 # Soft-warn when the canonical llama-router (:8077) isn't reachable — the hub
 # starts but every inference call fails until the router is up.
 med-agent-hub-up:
+	@if [ "$$(id -u)" = "0" ]; then \
+	  echo "ERROR: med-agent-hub-up must run as a non-root host user." >&2; \
+	  echo "  Root would map UID 0 into the container and defeat its non-root runtime." >&2; \
+	  exit 1; \
+	fi
 	@if [ ! -f targets/med-agent-hub/server/levels.yaml ]; then \
 	  echo "ERROR: targets/med-agent-hub/server/levels.yaml is missing."; \
 	  echo "  The hub bind-mounts it read-only; without it the hub 500s on every request."; \
@@ -229,6 +234,7 @@ med-agent-hub-up:
 	  [ -z "$$override_anchor_set" ] || HUB_ANCHOR="$$override_anchor"; \
 	  set +a; \
 	  HUB_BUILD_REVISION=$$(git -C targets/med-agent-hub rev-parse HEAD) \
+	  MED_AGENT_HUB_UID=$$(id -u) MED_AGENT_HUB_GID=$$(id -g) \
 	  docker compose -f compose/openmrs-2.8-refapp.yml up -d --build med-agent-hub
 	@ready=0; for i in $$(seq 1 60); do \
 	  status=$$(docker inspect -f '{{.State.Health.Status}}' harness-med-agent-hub 2>/dev/null || echo missing); \
@@ -240,6 +246,7 @@ med-agent-hub-up:
 	  docker compose -f compose/openmrs-2.8-refapp.yml logs --tail=80 med-agent-hub >&2; \
 	  exit 1; \
 	fi
+	@docker exec harness-med-agent-hub python -c "from pathlib import Path; p=Path('/app/trace/.write-probe'); p.write_text('ok'); p.unlink()"
 
 med-agent-hub-logs:
 	docker compose -f compose/openmrs-2.8-refapp.yml logs -f --tail=200 med-agent-hub
