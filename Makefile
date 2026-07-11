@@ -401,7 +401,7 @@ validate-preflight: setup dashboard-ensure
 # AND the judge (--reference-date, recorded per row) so model == judge (P0b). Override per dataset/run.
 REFERENCE_DATE ?= 2026-06-20
 validate-run: setup dashboard-ensure
-	HUB_ANCHOR=$(REFERENCE_DATE) docker compose -f compose/openmrs-2.8-refapp.yml up -d med-agent-hub
+	HUB_ANCHOR=$(REFERENCE_DATE) $(MAKE) med-agent-hub-up
 	$(UV) run harness-cli validate run $(SET) --reference-date $(REFERENCE_DATE)
 
 # Judge a completed run with the Claude-agent clinical-answer-scoring fan-out. The fan-out itself

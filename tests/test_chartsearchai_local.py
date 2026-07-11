@@ -104,6 +104,22 @@ def test_focused_hub_start_reuses_saved_least_privileged_source_credentials():
     assert "med-agent-hub did not become healthy within 60s" in target
 
 
+def test_validation_run_reuses_the_credential_aware_hub_target():
+    makefile = _read("Makefile")
+    target = makefile.split("validate-run:", 1)[1].split("validate-judge-prep:", 1)[0]
+
+    assert "HUB_ANCHOR=$(REFERENCE_DATE) $(MAKE) med-agent-hub-up" in target
+    assert "docker compose" not in target
+
+
+def test_preflight_probes_the_context_source_from_inside_the_hub():
+    preflight = _read("scripts/validate-preflight.sh")
+
+    assert 'docker exec -e SOURCE_PROBE_PATIENT="${SOURCE_PROBE_PATIENT}" harness-med-agent-hub' in preflight
+    assert 'test -n "$QUERYSTORE_BASE_URL"' in preflight
+    assert 'chk "hub context source" "authenticated patient record" ok' in preflight
+
+
 def test_local_startup_provisions_source_before_starting_and_warming_hub():
     script = _read("scripts/chartsearchai-local.sh")
 

@@ -158,6 +158,20 @@ rcount=$(curl -s --max-time 6 http://localhost:8077/v1/models | python3 -c 'impo
 chk "llama-router :8077" "${rcount} models" "$([ "${rcount:-0}" -gt 0 ] && echo ok)"
 hub=$(docker inspect -f '{{.State.Health.Status}}' harness-med-agent-hub 2>/dev/null || echo missing)
 chk "med-agent-hub" "${hub}" "$([ "$hub" = healthy ] && echo ok)"
+SOURCE_PROBE_PATIENT="$(python3 - "${SET_FILE}" <<'PY'
+import json, pathlib, sys
+root = pathlib.Path("datasets/validation")
+comparison = json.loads(pathlib.Path(sys.argv[1]).read_text())
+scenario = json.loads((root / "scenarios" / f"{comparison['scenario_ids'][0]}.json").read_text())
+print(scenario["patient_ref"])
+PY
+)"
+if docker exec -e SOURCE_PROBE_PATIENT="${SOURCE_PROBE_PATIENT}" harness-med-agent-hub \
+    sh -c 'test -n "$QUERYSTORE_BASE_URL" && test -n "$QUERYSTORE_USERNAME" && test -n "$QUERYSTORE_PASSWORD" && curl -fsS --max-time 30 -u "$QUERYSTORE_USERNAME:$QUERYSTORE_PASSWORD" "$QUERYSTORE_BASE_URL/ws/rest/v1/querystore/patientrecord?patient=$SOURCE_PROBE_PATIENT&limit=1" | grep -q '"'"'"results"'"'"''; then
+  chk "hub context source" "authenticated patient record" ok
+else
+  chk "hub context source" "missing config, auth failure, or empty response" fail
+fi
 qs=$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 -u "${AUTH}" "${BASE}/ws/rest/v1/querystore/drift" || true)
 chk "querystore /drift" "HTTP ${qs}" "$([ "$qs" = 200 ] && echo ok)"
 # corpus index already validated per-type in [4/5] (drift-gated) — not re-checked here.
