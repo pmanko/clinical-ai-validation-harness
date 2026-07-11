@@ -110,20 +110,16 @@
     }
 }
 
-# Main site: legacy URL shape `<host>/openmrs/spa` (bare root redirects to it).
-# Local dev uses ":80" catch-all; cloud sets CADDY_SITE="openclinai.org".
+# Main project site. Local dev uses the ":80" catch-all; cloud sets
+# CADDY_SITE="openclinai.org". OpenMRS remains available at /openmrs/* and at
+# its dedicated subdomain, while all other root paths are static landing assets.
 {$CADDY_SITE::80} {
     import chartsearch_overrides
     import openmrs_routes
 
-    # Bare root: redirect to the OpenMRS SPA at its canonical path.
-    handle / {
-        redir /openmrs/spa 302
-    }
-
-    # Anything unrecognised: 404 with a hint
     handle {
-        respond "harness proxy: no route configured for {http.request.uri.path}. See compose/Caddyfile." 404
+        root * /srv/landing
+        file_server
     }
 }
 
