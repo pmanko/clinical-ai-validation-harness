@@ -100,6 +100,8 @@ def test_focused_hub_start_reuses_saved_least_privileged_source_credentials():
 
     assert "artifacts/chartsearchai-local/querystore-service.env" in target
     assert "docker compose -f compose/openmrs-2.8-refapp.yml up -d --build med-agent-hub" in target
+    assert "State.Health.Status" in target
+    assert "med-agent-hub did not become healthy within 60s" in target
 
 
 def test_local_startup_provisions_source_before_starting_and_warming_hub():

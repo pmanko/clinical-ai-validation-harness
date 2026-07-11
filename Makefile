@@ -211,6 +211,16 @@ med-agent-hub-up:
 	  set +a; \
 	  HUB_BUILD_REVISION=$$(git -C targets/med-agent-hub rev-parse HEAD) \
 	  docker compose -f compose/openmrs-2.8-refapp.yml up -d --build med-agent-hub
+	@ready=0; for i in $$(seq 1 60); do \
+	  status=$$(docker inspect -f '{{.State.Health.Status}}' harness-med-agent-hub 2>/dev/null || echo missing); \
+	  if [ "$$status" = healthy ]; then echo "    med-agent-hub healthy after $$i s"; ready=1; break; fi; \
+	  sleep 1; \
+	done; \
+	if [ "$$ready" != 1 ]; then \
+	  echo "ERROR: med-agent-hub did not become healthy within 60s" >&2; \
+	  docker compose -f compose/openmrs-2.8-refapp.yml logs --tail=80 med-agent-hub >&2; \
+	  exit 1; \
+	fi
 
 med-agent-hub-logs:
 	docker compose -f compose/openmrs-2.8-refapp.yml logs -f --tail=200 med-agent-hub
