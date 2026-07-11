@@ -215,7 +215,7 @@ async def _evaluate(args: argparse.Namespace) -> dict[str, Any]:
         "schema_version": "context_quality_gate.v1",
         "roadmap_id": "MAH-CONSOLIDATION-2026-07-09-v1",
         "generated_at": datetime.now(timezone.utc).isoformat(),
-        "method": "actual hub _prepare_context path with llama.cpp /tokenize; recall is measured over selected chart records plus complete-ledger temporal_facts.v1.1 indices",
+        "method": "actual hub _prepare_context path with llama.cpp /tokenize; recall is measured over selected chart records plus complete-ledger temporal_facts.v1.2 indices",
         "router_url": args.router_url,
         "comparison_set": str(comparison_path.relative_to(ROOT)),
         "comparison_set_sha256": _sha256(comparison_path),

@@ -22,6 +22,6 @@
       "ek-growth": [24, 75, 118, 131, 132, 160, 218, 257],
       "ek-medications": [2, 3, 47]
     },
-    "label_basis": "Record indices are clinician-verifiable facts named by each scenario expectation. Temporal-series records may be supplied through temporal_facts.v1.1 because that sidecar is built from the complete evidence ledger."
+    "label_basis": "Record indices are clinician-verifiable facts named by each scenario expectation. Temporal-series records may be supplied through temporal_facts.v1.2 because that sidecar is built from the complete evidence ledger."
   }
 }
