@@ -70,6 +70,7 @@ def _valid_candidate_fixture(tmp_path):
                 "metrics": {"http_status": 200},
                 "response": {
                     "answer": "The documented result is 500 on 2006-04-24.",
+                    "answerValidation": {"status": "checked"},
                     "references": [
                         {
                             "index": 1,
@@ -90,7 +91,7 @@ def _valid_candidate_fixture(tmp_path):
                 "level_id": MODULE.arm_model_name(backend),
                 "reference_date": MODULE.EXPECTED_REFERENCE_DATE,
                 "temporal_gate": {"mode": "enforce", "status": "pass"},
-                "indepth_temporal_gate": {"mode": "enforce", "status": "pass"},
+                "indepth_temporal_gate": {"mode": "enforce", "status": "checked"},
             }
         )
     results_path = run / "results.jsonl"
@@ -139,6 +140,18 @@ def test_evidence_builder_blocks_every_release_safety_failure(tmp_path):
     traces[4]["temporal_gate"] = {"mode": "warn", "status": "pass"}
     traces[5]["temporal_gate"] = {"mode": "enforce", "status": "fail"}
     traces[6]["indepth_temporal_gate"] = {"mode": "warn", "status": "pass"}
+    results[7]["response"]["answerValidation"] = {"status": "needs_review"}
+    results[8]["response"]["references"][0]["groundingStatus"] = "unsupported"
+    results[9]["response"]["inDepth"]["answer"] = "The follow-up was 2026-0-[59]."
+    results[10]["response"]["inDepth"] = {
+        "status": "needs_review",
+        "answer": "This text must not remain visible.",
+    }
+    traces[10]["indepth_temporal_gate"] = {
+        "mode": "enforce",
+        "status": "needs_review",
+    }
+    traces[11]["temporal_gate"] = {"mode": "enforce"}
 
     audit = _build_and_read(tmp_path, results, traces)
 
@@ -152,7 +165,30 @@ def test_evidence_builder_blocks_every_release_safety_failure(tmp_path):
         "answer_temporal_enforce",
         "answer_gate_terminal",
         "indepth_temporal_enforce",
+        "answer_validation_terminal",
+        "grounding_supported",
+        "indepth_withheld_empty",
     } <= blocker_ids
+    assert any(
+        row["id"] == "malformed_dates" and "2026-0-[59]" in str(row["evidence"])
+        for row in audit["blockers"]
+    )
+
+
+def test_malformed_date_audit_ignores_safely_withheld_diagnostic_claims(tmp_path):
+    run, trace_path, results, _traces = _valid_candidate_fixture(tmp_path)
+    results[0]["response"]["inDepth"]["validation"] = {
+        "status": "edited",
+        "checks": [{"claim": "Rejected malformed date 2026-0-[59]."}],
+    }
+    (run / "results.jsonl").write_text(
+        "".join(json.dumps(row) + "\n" for row in results), encoding="utf-8"
+    )
+
+    _, audit_path = MODULE.build_evidence(run, trace_path, tmp_path / "out")
+
+    audit = json.loads(audit_path.read_text())
+    assert audit["status"] == "pass"
 
 
 def test_evidence_builder_blocks_missing_trace_and_nonterminal_indepth(tmp_path):

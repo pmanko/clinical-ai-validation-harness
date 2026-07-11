@@ -59,6 +59,14 @@ WARM_MODE="${CHARTSEARCH_LOCAL_WARM:-answer}"
 SOURCE_ENV="${ROOT}/artifacts/chartsearchai-local/querystore-service.env"
 DEFAULT_PATIENT="${CHARTSEARCH_LOCAL_PATIENT_UUID:-dd75c020-1691-11df-97a5-7038c432aabf}"
 MODULES_CHANGED=0
+CHARTSEARCH_OMOD="artifacts/openmrs/modules/chartsearchai-1.0.0-SNAPSHOT.omod"
+CHARTSEARCH_OMOD_PROVENANCE="${CHARTSEARCH_OMOD}.provenance.json"
+QUERYSTORE_OMOD="artifacts/openmrs/modules/querystore-1.0.0-SNAPSHOT.omod"
+QUERYSTORE_OMOD_PROVENANCE="${QUERYSTORE_OMOD}.provenance.json"
+CHARTSEARCH_ESM="artifacts/openmrs/spa-custom"
+CHARTSEARCH_ESM_PROVENANCE="artifacts/openmrs/chartsearchai-esm.provenance.json"
+DEPLOYED_CHARTSEARCH_PROVENANCE="artifacts/chartsearchai-local/deployed-chartsearchai-omod.json"
+DEPLOYED_QUERYSTORE_PROVENANCE="artifacts/chartsearchai-local/deployed-querystore-omod.json"
 
 say() { printf '%s\n' "$*"; }
 fail() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
@@ -101,14 +109,14 @@ wait_container() {
 artifact_stale() {
   local artifact="$1"
   shift
-  [ ! -f "${artifact}" ] && return 0
+  [ ! -e "${artifact}" ] && return 0
   find "$@" -type f -newer "${artifact}" -print -quit 2>/dev/null | grep -q .
 }
 
 build_if_needed() {
-  local label="$1" artifact="$2" target="$3"
+  local label="$1" artifact="$2" target="$3" repo="$4" manifest="$5"
   local did_build=0
-  shift 3
+  shift 5
   case "${BUILD_MODE}" in
     always)
       say "==> build ${label} (requested)"
@@ -116,7 +124,10 @@ build_if_needed() {
       did_build=1
       ;;
     auto)
-      if artifact_stale "${artifact}" "$@"; then
+      if ! python3 scripts/artifact-provenance.py verify \
+          --repo "${repo}" --artifact "${artifact}" --manifest "${manifest}" \
+          >/dev/null 2>&1 \
+        || artifact_stale "${artifact}" "$@"; then
         say "==> build ${label} (missing or stale)"
         make "${target}"
         did_build=1
@@ -125,7 +136,10 @@ build_if_needed() {
       fi
       ;;
     never)
-      [ -f "${artifact}" ] || fail "${label} artifact is missing and CHARTSEARCH_LOCAL_BUILD=never"
+      python3 scripts/artifact-provenance.py verify \
+        --repo "${repo}" --artifact "${artifact}" --manifest "${manifest}" \
+        >/dev/null 2>&1 \
+        || fail "${label} artifact provenance does not match the current clean source tree"
       say "==> ${label}: build skipped"
       ;;
     *) fail "CHARTSEARCH_LOCAL_BUILD must be auto, always, or never" ;;
@@ -153,7 +167,7 @@ if [ "${CHECK_ONLY}" = "1" ]; then
   say "ChartSearchAI local prerequisites are present."
   say "  model directory: ${MODEL_DIR}"
   say "  router: $([ "${ROUTER_REACHABLE}" = "1" ] && echo existing || echo host-native prerequisites)"
-  say "  default profile: ${CHARTSEARCH_HUB_PROFILE_ID}"
+  say "  selected profile: ${CHARTSEARCH_HUB_PROFILE_ID}"
   say "  temporal timezone: ${HUB_TIMEZONE}"
   exit 0
 fi
@@ -162,16 +176,25 @@ mkdir -p artifacts/chartsearchai-local artifacts/llama-router
 
 build_if_needed \
   "ChartSearchAI module" \
-  "artifacts/openmrs/modules/chartsearchai-1.0.0-SNAPSHOT.omod" \
+  "${CHARTSEARCH_OMOD}" \
   chartsearch-build \
+  targets/chartsearchai \
+  "${CHARTSEARCH_OMOD_PROVENANCE}" \
   targets/chartsearchai/api/src targets/chartsearchai/omod/src \
   targets/chartsearchai/pom.xml targets/chartsearchai/api/pom.xml targets/chartsearchai/omod/pom.xml
 build_if_needed \
   "Querystore module" \
-  "artifacts/openmrs/modules/querystore-1.0.0-SNAPSHOT.omod" \
+  "${QUERYSTORE_OMOD}" \
   querystore-build \
+  targets/querystore \
+  "${QUERYSTORE_OMOD_PROVENANCE}" \
   targets/querystore/api/src targets/querystore/omod/src \
   targets/querystore/pom.xml targets/querystore/api/pom.xml targets/querystore/omod/pom.xml
+
+if ! cmp -s "${CHARTSEARCH_OMOD_PROVENANCE}" "${DEPLOYED_CHARTSEARCH_PROVENANCE}" \
+  || ! cmp -s "${QUERYSTORE_OMOD_PROVENANCE}" "${DEPLOYED_QUERYSTORE_PROVENANCE}"; then
+  MODULES_CHANGED=1
+fi
 
 say "==> llama.cpp router"
 if [ "${ROUTER_REACHABLE}" = "1" ]; then
@@ -198,11 +221,17 @@ if [ "${MODULES_CHANGED}" = "1" ]; then
 fi
 wait_container "OpenMRS backend" harness-openmrs-backend 600
 wait_http "OpenMRS proxy" "http://127.0.0.1:${HARNESS_PROXY_HTTP_PORT:-8088}/__proxy_health" 120
+if [ "${MODULES_CHANGED}" = "1" ]; then
+  cp "${CHARTSEARCH_OMOD_PROVENANCE}" "${DEPLOYED_CHARTSEARCH_PROVENANCE}"
+  cp "${QUERYSTORE_OMOD_PROVENANCE}" "${DEPLOYED_QUERYSTORE_PROVENANCE}"
+fi
 
 build_if_needed \
   "ChartSearchAI ESM" \
-  "artifacts/openmrs/spa-custom/openmrs-esm-chartsearchai-app-multiturn/openmrs-esm-chartsearchai-app.js" \
+  "${CHARTSEARCH_ESM}" \
   chartsearch-esm-build \
+  targets/chartsearchai-esm \
+  "${CHARTSEARCH_ESM_PROVENANCE}" \
   targets/chartsearchai-esm/src targets/chartsearchai-esm/package.json targets/chartsearchai-esm/yarn.lock
 
 if [ -n "${QUERYSTORE_BASE_URL:-}" ] || [ -n "${QUERYSTORE_USERNAME:-}" ] || [ -n "${QUERYSTORE_PASSWORD:-}" ]; then
@@ -229,10 +258,10 @@ fi
 export QUERYSTORE_BASE_URL QUERYSTORE_USERNAME QUERYSTORE_PASSWORD
 
 say "==> med-agent-hub"
-"${COMPOSE[@]}" up -d --build med-agent-hub
+make med-agent-hub-up
 wait_http "med-agent-hub" "${HUB_URL}/health" 120
 curl -fsS "${HUB_URL}/v1/models" \
-  | python3 -c "import json,sys; p={x['id']:x for x in json.load(sys.stdin).get('data',[])}; x=p.get('${CHARTSEARCH_HUB_PROFILE_ID}'); assert x and x.get('available') and x.get('default'), x"
+  | python3 -c "import json,sys; p={x['id']:x for x in json.load(sys.stdin).get('data',[]) if x.get('visibility') == 'product'}; x=p.get('${CHARTSEARCH_HUB_PROFILE_ID}'); defaults=[v for v in p.values() if v.get('available') and v.get('default')]; assert x and x.get('available'), x; assert len(defaults) == 1, defaults"
 
 say "==> verify patient source"
 curl -fsS --max-time 60 \
@@ -254,6 +283,16 @@ if [ "${WARM_MODE}" != "off" ]; then
     --mode "${WARM_MODE}" \
     --output artifacts/chartsearchai-local/warmup.json
 fi
+
+say "==> prove OpenMRS staged relay and persistence"
+python3 scripts/probe-chartsearchai-relay.py \
+  --openmrs-url "${OPENMRS_URL}" \
+  --patient "${DEFAULT_PATIENT}" \
+  --profile "${CHARTSEARCH_HUB_PROFILE_ID}" \
+  --username "${CHARTSEARCH_ADMIN_USER:-admin}" \
+  --password "${CHARTSEARCH_ADMIN_PASSWORD:-Admin123}" \
+  --clear-after \
+  --output artifacts/chartsearchai-local/relay-probe.json
 
 say ""
 say "ChartSearchAI is ready: http://localhost:${HARNESS_PROXY_HTTP_PORT:-8088}/openmrs/spa"

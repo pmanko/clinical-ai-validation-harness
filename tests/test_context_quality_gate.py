@@ -68,6 +68,8 @@ def test_evaluate_binds_current_inputs_and_measures_all_cells(monkeypatch):
             mode="full",
             input_tokens=100,
             input_limit=200,
+            included=(SimpleNamespace(stable_id="record-1", reason="full_context"),),
+            excluded=(),
         )
         state.temporal_facts = {}
 
@@ -103,6 +105,7 @@ def test_evaluate_binds_current_inputs_and_measures_all_cells(monkeypatch):
     assert len(result["hub_code_sha256"]) == 64
     assert len(result["router_config_sha256"]) == 64
     assert all(row["input_tokens"] <= row["input_limit"] for row in result["results"])
+    assert all(row["included"] == [{"source_id": "record-1", "reason": "full_context"}] for row in result["results"])
 
 
 def test_main_writes_requested_artifact_and_returns_gate_status(tmp_path, monkeypatch):

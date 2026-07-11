@@ -95,6 +95,7 @@ def build_evidence(
         selected.append({**pair, "trace": trace})
         response = row.get("response") or {}
         answer = str(response.get("answer") or "")
+        answer_validation = response.get("answerValidation") or {}
         temporal_gate = (trace or {}).get("temporal_gate") or {}
         indepth = response.get("inDepth") or {}
         indepth_gate = (trace or {}).get("indepth_temporal_gate") or {}
@@ -109,30 +110,62 @@ def build_evidence(
 
         check("transport", not row.get("error") and (row.get("metrics") or {}).get("http_status") == 200, row.get("error") or (row.get("metrics") or {}).get("http_status"))
         check("substantive_answer", _is_substantive(answer), answer[:160])
+        check(
+            "answer_validation_terminal",
+            answer_validation.get("status") in {"checked", "edited"},
+            answer_validation,
+        )
         bad_dates = DATE_ANALYZER._bad_date_hits(DATE_ANALYZER._answer_text(row))
         check("malformed_dates", not bad_dates, bad_dates)
         check("trace_resolved", trace is not None, None if trace is None else trace.get("ts"))
         check("fixed_trace_anchor", (trace or {}).get("reference_date") == EXPECTED_REFERENCE_DATE, (trace or {}).get("reference_date"))
-        check("answer_temporal_enforce", temporal_gate.get("mode") == "enforce", temporal_gate)
+        check(
+            "answer_temporal_enforce",
+            temporal_gate.get("mode") == "enforce"
+            and temporal_gate.get("status") in {"pass", "warn", "fail", "not_applicable"},
+            temporal_gate,
+        )
         unsafe_gate = temporal_gate.get("status") == "fail" and temporal_gate.get("applied") != "patch"
         check("answer_gate_terminal", not unsafe_gate, temporal_gate)
         unresolved = [ref.get("index") for ref in references if ref.get("resolutionStatus") == "unresolved"]
-        checking = [ref.get("index") for ref in references if ref.get("groundingStatus") == "checking"]
+        checking = [ref.get("index") for ref in references if ref.get("groundingStatus") in {"checking", "unchecked"}]
+        unsupported = [ref.get("index") for ref in references if ref.get("groundingStatus") in {"unsupported", "mixed"}]
         check("references_resolved", not unresolved, unresolved)
         check("grounding_terminal", not checking, checking)
+        check("grounding_supported", not unsupported, unsupported)
         if indepth.get("status") == "complete":
             check(
                 "indepth_substantive",
                 _is_substantive(str(indepth.get("answer") or "")),
                 str(indepth.get("answer") or "")[:160],
             )
-            check("indepth_temporal_enforce", indepth_gate.get("mode") == "enforce", indepth_gate)
-            check("indepth_gate_terminal", indepth_gate.get("status") not in {"fail", "needs_review"}, indepth_gate)
+            check(
+                "indepth_temporal_enforce",
+                indepth_gate.get("mode") == "enforce"
+                and indepth_gate.get("status") in {"checked", "edited"},
+                indepth_gate,
+            )
+            check(
+                "indepth_gate_terminal",
+                indepth_gate.get("status") in {"checked", "edited"},
+                indepth_gate,
+            )
         else:
             check(
                 "indepth_terminal_status",
                 indepth.get("status") in {"failed", "needs_review"},
                 indepth.get("status"),
+            )
+            check(
+                "indepth_withheld_empty",
+                not str(indepth.get("answer") or "").strip(),
+                str(indepth.get("answer") or "")[:160],
+            )
+            check(
+                "indepth_withheld_gate_terminal",
+                indepth_gate.get("mode") == "enforce"
+                and indepth_gate.get("status") == "needs_review",
+                indepth_gate,
             )
 
         audit_cells.append({**pair, "checks": cell_checks})

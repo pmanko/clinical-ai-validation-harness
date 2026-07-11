@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 from harness.validate.models import load_comparison_set, load_scenario
@@ -98,3 +99,8 @@ def test_hub_profile_candidate_uses_only_real_checked_product_profiles():
     }
     assert all(backend.indepth_model is None for backend in backends)
     assert not any("team" in backend.id or "2call" in backend.id for backend in backends)
+    raw = json.loads(
+        (DATA / "comparison_sets" / "hub-profile-candidate.json").read_text()
+    )
+    assert len(raw["temporal_scenario_ids"]) == 11
+    assert set(raw["temporal_scenario_ids"]) < set(cset.scenario_ids)

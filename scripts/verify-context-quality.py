@@ -192,6 +192,14 @@ async def _evaluate(args: argparse.Namespace) -> dict[str, Any]:
                     "selection_mode": state.view.mode if state.view else "none",
                     "ledger_records": len(state.ledger.records),
                     "selected_records": len(selected),
+                    "included": [
+                        {"source_id": item.stable_id, "reason": item.reason}
+                        for item in (state.view.included if state.view else ())
+                    ],
+                    "excluded": [
+                        {"source_id": item.stable_id, "reason": item.reason}
+                        for item in (state.view.excluded if state.view else ())
+                    ],
                     "temporal_source_indices": len(temporal),
                     "input_tokens": state.view.input_tokens if state.view else None,
                     "input_limit": state.view.input_limit if state.view else None,

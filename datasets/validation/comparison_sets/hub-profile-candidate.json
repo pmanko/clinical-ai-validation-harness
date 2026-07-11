@@ -15,6 +15,19 @@
     "ek-growth",
     "abstain-out-of-chart"
   ],
+  "temporal_scenario_ids": [
+    "date-zabella-weight-table",
+    "date-zabella-weight-endpoints",
+    "date-aloice-orders-table",
+    "date-aloice-last-visit-exact",
+    "single-upcoming-appointments",
+    "am-upcoming-appointments",
+    "am-last-visit",
+    "am-weight-trend",
+    "am-cd4-history",
+    "am-orders-6mo",
+    "ek-growth"
+  ],
   "backend_ids": [
     "product-e4b-checked",
     "product-12b-checked"

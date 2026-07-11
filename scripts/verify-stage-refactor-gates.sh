@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Acceptance-gate matrix for the "stage-driven hub engine + chartsearchai thin relay"
-# remediation program (see /Users/pmanko/.claude/plans/eager-conjuring-raven.md).
+# Acceptance-gate subset retained from the stage-driven refactor and governed by
+# specs/artifacts/planning/hub-consolidation-roadmap.md.
 #
 # This script is the Gate-12 evidence emitter: it does NOT decide the plan is "done" by
 # itself finishing green — it prints a per-gate PASS/FAIL/PENDING line with the command
@@ -244,10 +244,10 @@ fi
 # --- chartsearchai packaged build+test ------------------------------------------------
 if command -v mvn >/dev/null 2>&1; then
   mkdir -p /tmp/chartsearchai-gate-appdata
-  suite_run "csai:mvn package (full regression)" "" "$CSAI" \
-    mvn -q -B -DOPENMRS_APPLICATION_DATA_DIRECTORY=/tmp/chartsearchai-gate-appdata package
+  suite_run "csai:mvn clean install (full regression)" "" "$CSAI" \
+    mvn -q -B -DOPENMRS_APPLICATION_DATA_DIRECTORY=/tmp/chartsearchai-gate-appdata clean install
 else
-  record "csai:mvn package (full regression)" "SKIP" "mvn not on PATH" ""
+  record "csai:mvn clean install (full regression)" "SKIP" "mvn not on PATH" ""
 fi
 
 # --- live e2e (opt-in; needs a warm deployed stack) -----------------------------------

@@ -120,6 +120,9 @@ chartsearch-build:
 	cd targets/chartsearchai && mvn -DskipTests -B package
 	mkdir -p artifacts/openmrs/modules
 	cp targets/chartsearchai/omod/target/chartsearchai-*.omod artifacts/openmrs/modules/
+	./scripts/artifact-provenance.py write --repo targets/chartsearchai \
+	  --artifact artifacts/openmrs/modules/chartsearchai-1.0.0-SNAPSHOT.omod \
+	  --manifest artifacts/openmrs/modules/chartsearchai-1.0.0-SNAPSHOT.omod.provenance.json
 	@ls -la artifacts/openmrs/modules/chartsearchai-*.omod
 
 # Build the pinned patient-record source module used by the hub's optional
@@ -128,6 +131,9 @@ querystore-build:
 	cd targets/querystore && mvn -DskipTests -B package
 	mkdir -p artifacts/openmrs/modules
 	cp targets/querystore/omod/target/querystore-*.omod artifacts/openmrs/modules/
+	./scripts/artifact-provenance.py write --repo targets/querystore \
+	  --artifact artifacts/openmrs/modules/querystore-1.0.0-SNAPSHOT.omod \
+	  --manifest artifacts/openmrs/modules/querystore-1.0.0-SNAPSHOT.omod.provenance.json
 	@ls -la artifacts/openmrs/modules/querystore-*.omod
 
 # Build the chartsearchai frontend ESM from the pinned submodule and stage
@@ -139,6 +145,9 @@ querystore-build:
 # so they always match the upstream nightly the rest of the SPA is using.
 chartsearch-esm-build:
 	@./scripts/chartsearch-esm-build.sh
+	@./scripts/artifact-provenance.py write --repo targets/chartsearchai-esm \
+	  --artifact artifacts/openmrs/spa-custom \
+	  --manifest artifacts/openmrs/chartsearchai-esm.provenance.json
 
 # Day-to-day ESM dev loop. Spins up `openmrs develop` (Express + HMR) on
 # port 8080 and proxies API to the local docker backend. Edits in
@@ -205,9 +214,19 @@ med-agent-hub-up:
 	fi
 	@curl -fsS -m 3 http://localhost:8077/v1/models >/dev/null 2>&1 \
 	  || echo "WARN: llama-router (:8077) not reachable — start it with 'make llama-router-up' or the hub's inference calls will fail."
-	@set -a; . ./.env.chartsearch.example; \
+	@override_source_set=$${QUERYSTORE_BASE_URL+x}; override_source=$${QUERYSTORE_BASE_URL-}; \
+	  override_user_set=$${QUERYSTORE_USERNAME+x}; override_user=$${QUERYSTORE_USERNAME-}; \
+	  override_password_set=$${QUERYSTORE_PASSWORD+x}; override_password=$${QUERYSTORE_PASSWORD-}; \
+	  override_timezone_set=$${HUB_TIMEZONE+x}; override_timezone=$${HUB_TIMEZONE-}; \
+	  override_anchor_set=$${HUB_ANCHOR+x}; override_anchor=$${HUB_ANCHOR-}; \
+	  set -a; . ./.env.chartsearch.example; \
 	  [ ! -f .env.chartsearch ] || . ./.env.chartsearch; \
 	  [ ! -f artifacts/chartsearchai-local/querystore-service.env ] || . artifacts/chartsearchai-local/querystore-service.env; \
+	  [ -z "$$override_source_set" ] || QUERYSTORE_BASE_URL="$$override_source"; \
+	  [ -z "$$override_user_set" ] || QUERYSTORE_USERNAME="$$override_user"; \
+	  [ -z "$$override_password_set" ] || QUERYSTORE_PASSWORD="$$override_password"; \
+	  [ -z "$$override_timezone_set" ] || HUB_TIMEZONE="$$override_timezone"; \
+	  [ -z "$$override_anchor_set" ] || HUB_ANCHOR="$$override_anchor"; \
 	  set +a; \
 	  HUB_BUILD_REVISION=$$(git -C targets/med-agent-hub rev-parse HEAD) \
 	  docker compose -f compose/openmrs-2.8-refapp.yml up -d --build med-agent-hub

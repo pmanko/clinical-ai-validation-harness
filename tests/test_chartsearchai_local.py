@@ -102,6 +102,9 @@ def test_focused_hub_start_reuses_saved_least_privileged_source_credentials():
     assert "docker compose -f compose/openmrs-2.8-refapp.yml up -d --build med-agent-hub" in target
     assert "State.Health.Status" in target
     assert "med-agent-hub did not become healthy within 60s" in target
+    assert "override_source_set=$${QUERYSTORE_BASE_URL+x}" in target
+    assert 'QUERYSTORE_BASE_URL="$$override_source"' in target
+    assert 'HUB_ANCHOR="$$override_anchor"' in target
 
 
 def test_validation_run_reuses_the_credential_aware_hub_target():
@@ -124,12 +127,52 @@ def test_local_startup_provisions_source_before_starting_and_warming_hub():
     script = _read("scripts/chartsearchai-local.sh")
 
     provision = script.index("provision-querystore-service-account.py")
-    hub_start = script.index("up -d --build med-agent-hub")
+    hub_start = script.index("make med-agent-hub-up")
     configure = script.index("chartsearch-configure.sh")
     warm = script.index("warm-hub-profile.py")
+    relay_probe = script.index("probe-chartsearchai-relay.py")
 
-    assert provision < hub_start < configure < warm
+    assert provision < hub_start < configure < warm < relay_probe
     assert "QUERYSTORE_BASE_URL=http://backend:8080/openmrs" in script
+
+
+def test_local_startup_proves_the_real_openmrs_relay_and_persistence():
+    script = _read("scripts/chartsearchai-local.sh")
+    probe = _read("scripts/probe-chartsearchai-relay.py")
+
+    assert "--output artifacts/chartsearchai-local/relay-probe.json" in script
+    assert "--clear-after" in script
+    assert 'f"{api}/chat/stream"' in probe
+    assert 'f"{api}/chat?' in probe
+    assert 'row.get("messageId") == streamed["message_id"]' in probe
+    assert 'row.get("auditLogId") == streamed["audit_log_id"]' in probe
+    assert 'hydrated_envelope_sha256 == streamed["final_envelope_sha256"]' in probe
+    assert 'event == "done"' in probe
+    assert '"chartsearchai_relay_probe.v2"' in probe
+    assert 'f"{api}/chat/new"' in probe
+    assert '"runtime_identity"' in probe
+    assert '"deployment"' in probe
+
+
+def test_local_builds_require_source_bound_artifact_provenance():
+    makefile = _read("Makefile")
+    local = _read("scripts/chartsearchai-local.sh")
+    probe = _read("scripts/probe-chartsearchai-relay.py")
+
+    assert makefile.count("artifact-provenance.py write") >= 3
+    assert "artifact-provenance.py verify" in local
+    assert "DEPLOYED_CHARTSEARCH_PROVENANCE" in local
+    assert '"mounted_sha256"' in probe
+    assert '"served_files"' in probe
+    assert '"import_map_target"' in probe
+
+
+def test_explicit_local_profile_must_be_available_but_need_not_be_default():
+    script = _read("scripts/chartsearchai-local.sh")
+
+    assert "assert x and x.get('available')" in script
+    assert "x.get('available') and x.get('default')" not in script
+    assert "assert len(defaults) == 1" in script
 
 
 def test_repeat_start_preserves_warm_services_and_refreshes_only_changed_module_caches():
@@ -193,7 +236,7 @@ def test_check_reuses_existing_router_and_preserves_explicit_profile(tmp_path):
 
     assert result.returncode == 0, result.stderr
     assert "router: existing" in result.stdout
-    assert "default profile: explicit-profile" in result.stdout
+    assert "selected profile: explicit-profile" in result.stdout
 
 
 def test_external_patient_source_uses_its_configured_verification_url():

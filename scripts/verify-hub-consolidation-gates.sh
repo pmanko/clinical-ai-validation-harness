@@ -271,6 +271,9 @@ assert proof["required_source_recall"] == 1.0
 assert proof["cases"] == len(proof["results"]) and proof["cases"] > 0
 assert all(not row["missing_source_indices"] for row in proof["results"])
 assert all(row["input_tokens"] <= row["input_limit"] for row in proof["results"])
+assert all(len(row["included"]) == row["selected_records"] for row in proof["results"])
+assert all(item["source_id"] and item["reason"] for row in proof["results"] for item in row["included"])
+assert all(item["source_id"] and item["reason"] for row in proof["results"] for item in row["excluded"])
 PY
 then
   record G09 PASS "current dev set has 100% required-source recall within exact budgets"
@@ -334,8 +337,7 @@ if [[ $hub_m1_suite_ok -eq 1 ]] && command -v mvn >/dev/null 2>&1; then
   mkdir -p /tmp/chartsearchai-gate-appdata
   if (cd "$CSAI" && mvn -q -B \
     -DOPENMRS_APPLICATION_DATA_DIRECTORY=/tmp/chartsearchai-gate-appdata \
-    -Dtest=ChatServiceHubWireTest,ChartSearchAiStreamingTest \
-    -Dsurefire.failIfNoSpecifiedTests=false test >/tmp/hub-m2-java-contracts.log 2>&1); then
+    clean install >/tmp/hub-m2-java-contracts.log 2>&1); then
     java_m2_contracts_ok=1
   fi
 fi
@@ -398,7 +400,14 @@ if has_pattern 'answerValidation' "$ESM/src" \
   && has_pattern 'answer-validation lifecycle' "$ESM/src/components/ai-response-panel.test.tsx" \
   && has_pattern 'does not collapse mixed claim-level support' "$ESM/src/components/ai-response-panel.test.tsx" \
   && has_pattern 'hydrates a stale pending In-Depth as failed' "$ESM/src/hooks/useChartSearchAi.test.ts" \
-  && has_pattern 'persistInterruptedInDepth' "$CSAI/omod/src/main" \
+  && has_pattern 'hydrates a stale validating answer as check unavailable' "$ESM/src/hooks/useChartSearchAi.test.ts" \
+  && has_pattern 'preliminary_problem_stays_validating_until_configured_review_finishes' "$HUB/tests" \
+  && has_pattern 'final grounding still completes before the answer settles' "$HUB/tests" \
+  && has_pattern 'persistInterruptedState' "$CSAI/omod/src/main" \
+  && has_pattern 'answer check was interrupted before completion' "$CSAI/omod/src/main" \
+  && has_pattern 'abortsPromptlyOnDisconnectDuringHeartbeats' "$CSAI/omod/src/test" \
+  && has_pattern 'noReviewGroundingSettledBeforeInterruptedInDepth_preservesCheckedValidation' "$CSAI/omod/src/test" \
+  && has_pattern 'preserves checked validation when a no-review profile preempts after final grounding' "$ESM/src/hooks/useChartSearchAi.test.ts" \
   && [[ $esm_m2_contracts_ok -eq 1 ]] \
   && [[ $java_m2_contracts_ok -eq 1 ]]; then
   record G17 PASS "Answer and In-Depth validation lifecycle is rendered"
@@ -424,12 +433,88 @@ else
 fi
 
 # G19-G21: portable local setup, latency, and evaluation evidence.
-if has_pattern '^chartsearchai-local:' "$ROOT/Makefile" \
-  && missing_pattern '/Users/[[:alnum:]_.-]+/' "$ROOT/scripts/llama-router.ini" \
-  && missing_pattern 'LM_STUDIO|lmstudio' "$ROOT/.env.chartsearch.example"; then
-  record G19 PASS "portable hub-only local entrypoint is present"
-else
+relay_probe="$ROOT/artifacts/chartsearchai-local/relay-probe.json"
+if ! has_pattern '^chartsearchai-local:' "$ROOT/Makefile" \
+  || ! has_pattern 'probe-chartsearchai-relay.py' "$ROOT/scripts/chartsearchai-local.sh" \
+  || ! missing_pattern '/Users/[[:alnum:]_.-]+/' "$ROOT/scripts/llama-router.ini" \
+  || ! missing_pattern 'LM_STUDIO|lmstudio' "$ROOT/.env.chartsearch.example"; then
   record G19 FAIL "portable chartsearchai-local path is incomplete"
+elif [[ -s "$relay_probe" ]] \
+  && "$ROOT/.venv/bin/python" - "$ROOT" "$relay_probe" <<'PY'
+import hashlib
+import json
+import subprocess
+import sys
+from pathlib import Path
+
+root = Path(sys.argv[1]).resolve()
+proof = json.loads(Path(sys.argv[2]).read_text())
+assert proof["schema_version"] == "chartsearchai_relay_probe.v2"
+assert proof["profile"] == "single-e4b-checked"
+assert proof["hydrated"] is True and proof["cleared_after"] is True
+assert proof["session"] and proof["message_id"] and proof["answer_done_ms"] > 0
+assert isinstance(proof["audit_log_id"], int) and proof["audit_log_id"] > 0
+assert proof["done_ms"] >= proof["answer_done_ms"]
+assert proof["answer_validation"]["status"] in {"checked", "edited"}
+assert proof["in_depth_status"] == "complete"
+assert proof["events"] == [
+    "answer_done", "answer_validation", "indepth_pending", "indepth_done", "done"
+]
+assert proof["final_envelope_sha256"] == proof["hydrated_envelope_sha256"]
+assert len(proof["answer_sha256"]) == 64
+repos = {
+    "harness": root,
+    "med_agent_hub": root / "targets/med-agent-hub",
+    "chartsearchai": root / "targets/chartsearchai",
+    "chartsearchai_esm": root / "targets/chartsearchai-esm",
+}
+identity = proof["runtime_identity"]
+for name, path in repos.items():
+    assert identity[name]["tree_clean"] is True
+    assert identity[name]["commit"] == subprocess.check_output(
+        ["git", "rev-parse", "HEAD"], cwd=path, text=True
+    ).strip()
+assert identity["deployment"]["revision"] == identity["med_agent_hub"]["commit"]
+def content(path):
+    if path.is_file():
+        return {"kind": "file", "sha256": hashlib.sha256(path.read_bytes()).hexdigest()}
+    files = [
+        {
+            "path": str(item.relative_to(path)),
+            "sha256": hashlib.sha256(item.read_bytes()).hexdigest(),
+            "size_bytes": item.stat().st_size,
+        }
+        for item in sorted(candidate for candidate in path.rglob("*") if candidate.is_file())
+    ]
+    encoded = json.dumps(files, sort_keys=True, separators=(",", ":")).encode()
+    return {"kind": "directory", "sha256": hashlib.sha256(encoded).hexdigest(), "files": files}
+
+for artifact in list(identity["artifacts"].values()) + list(identity["configuration"].values()):
+    path = root / artifact["path"]
+    current = content(path)
+    assert current["sha256"] == artifact["sha256"]
+    if artifact.get("kind") == "directory":
+        assert current["files"] == artifact["files"]
+omod = identity["artifacts"]["chartsearchai_omod"]
+esm = identity["artifacts"]["chartsearchai_esm"]
+assert omod["mounted_sha256"] == omod["sha256"]
+assert esm["served_files"] == {item["path"]: item["sha256"] for item in esm["files"]}
+assert esm["import_map_target"] == "./openmrs-esm-chartsearchai-app-multiturn/openmrs-esm-chartsearchai-app.js"
+for name, artifact in identity["artifacts"].items():
+    provenance_path = root / artifact["provenance_path"]
+    assert provenance_path.is_file()
+    provenance = json.loads(provenance_path.read_text())
+    assert provenance == artifact["provenance"]
+    assert provenance["source_tree_clean"] is True
+    source_name = "chartsearchai" if name == "chartsearchai_omod" else "chartsearchai_esm"
+    assert provenance["source_commit"] == identity[source_name]["commit"]
+deployed = root / omod["deployed_provenance_path"]
+assert json.loads(deployed.read_text()) == omod["provenance"]
+PY
+then
+  record G19 PASS "portable local startup proved the OpenMRS relay and persisted hydration path"
+else
+  record G19 PENDING "run make chartsearchai-local to produce a current relay proof"
 fi
 
 performance_proof="$ROOT/artifacts/roadmap/gates/G20-performance.json"
@@ -558,6 +643,8 @@ expected = {
     for backend in comparison["backend_ids"]
 }
 assert len(expected) == 24
+temporal_scenarios = set(comparison["temporal_scenario_ids"])
+assert temporal_scenarios < set(comparison["scenario_ids"])
 
 results_path = artifact(proof["results"])
 assert results_path == run_dir / "results.jsonl"
@@ -590,6 +677,7 @@ rubric = {
     "abstention_outcome", "citation_groundedness", "harm", "note",
 }
 actor_rows = {}
+judge_configurations = set()
 for judgment in judgments:
     path = artifact(judgment)
     assert judgment["rows"] == 24
@@ -603,15 +691,23 @@ for judgment in judgments:
     )
     assert all(row["abstention_outcome"] in {"n-a", "correct", "over-abstained", "failed-to-abstain"} for row in rows)
     assert all(row["citation_groundedness"] in {"n-a", "supported", "partly", "unsupported"} for row in rows)
+    assert all(row["citation_groundedness"] != "unsupported" for row in rows)
     assert all(isinstance(row["harm"], bool) and str(row["note"]).strip() for row in rows)
+    assert all(not row["harm"] for row in rows)
+    temporal_rows = [row for row in rows if row["scenario_id"] in temporal_scenarios]
+    assert all(row.get("temporal_date_accuracy") == "ok" for row in temporal_rows)
+    assert all(row.get("temporal_window") == "ok" for row in temporal_rows)
+    assert all(row.get("temporal_trend") == "ok" for row in temporal_rows)
     manifest = json.loads(artifact(judgment["manifest"]).read_text())
     assert manifest["schema_version"] == "judge_actor.v1"
     assert manifest["actor_id"] == judgment["actor"]
     assert manifest["actor_type"] in {"llm-judge", "human"}
     assert manifest["model"] and manifest["method"] and manifest["created_at"]
+    judge_configurations.add((manifest["model"], manifest["method"]))
     assert manifest["run_id"] == run_id and manifest["n_rows"] == 24
     assert manifest["output_sha256"] == judgment["sha256"]
     actor_rows[judgment["actor"]] = rows
+assert len(judge_configurations) == len(judgments)
 
 combined = json.loads(artifact(proof["combined_judgment"]).read_text())
 assert combined["schema_version"] == "combined_judgment.v1"

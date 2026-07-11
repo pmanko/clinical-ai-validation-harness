@@ -43,9 +43,50 @@ def test_evaluation_gate_requires_the_judged_published_profile_report():
     assert 'product_run_deterministic_audit.v1' in gate
     assert 'len(judgments) >= 2' in gate
     assert 'all(rubric <= row.keys() for row in rows)' in gate
+    assert 'assert all(not row["harm"] for row in rows)' in gate
+    assert 'row.get("temporal_date_accuracy") == "ok"' in gate
+    assert 'row.get("temporal_window") == "ok"' in gate
+    assert 'row.get("temporal_trend") == "ok"' in gate
     assert 'product_run_per_cell_review.v1' in gate
     assert 'report["published"] is True and report["http_status"] == 200' in gate
     assert 'urllib.request.urlopen(report["url"]' in gate
+
+
+def test_local_setup_gate_requires_a_real_relay_and_hydration_proof():
+    gate = (ROOT / "scripts" / "verify-hub-consolidation-gates.sh").read_text(
+        encoding="utf-8"
+    )
+
+    assert 'relay_probe="$ROOT/artifacts/chartsearchai-local/relay-probe.json"' in gate
+    assert 'proof["schema_version"] == "chartsearchai_relay_probe.v2"' in gate
+    assert 'identity["deployment"]["revision"] == identity["med_agent_hub"]["commit"]' in gate
+    assert 'identity[name]["tree_clean"] is True' in gate
+    assert 'omod["mounted_sha256"] == omod["sha256"]' in gate
+    assert 'proof["final_envelope_sha256"] == proof["hydrated_envelope_sha256"]' in gate
+    assert 'esm["served_files"]' in gate
+    assert 'esm["import_map_target"]' in gate
+    assert 'record G19 PENDING "run make chartsearchai-local' in gate
+
+
+def test_architecture_gates_use_the_reactor_valid_java_lifecycle():
+    consolidation = (
+        ROOT / "scripts" / "verify-hub-consolidation-gates.sh"
+    ).read_text(encoding="utf-8")
+    stage = (ROOT / "scripts" / "verify-stage-refactor-gates.sh").read_text(
+        encoding="utf-8"
+    )
+
+    assert (
+        "-DOPENMRS_APPLICATION_DATA_DIRECTORY=/tmp/chartsearchai-gate-appdata"
+        in consolidation
+    )
+    assert "clean install >/tmp/hub-m2-java-contracts.log" in consolidation
+    assert "-Dtest=ChatServiceHubWireTest,ChartSearchAiStreamingTest" not in consolidation
+    assert "csai:mvn clean install (full regression)" in stage
+    assert (
+        "OPENMRS_APPLICATION_DATA_DIRECTORY=/tmp/chartsearchai-gate-appdata clean install"
+        in stage
+    )
 
 
 def test_code_qa_gate_is_hash_bound_and_rejects_blockers():
