@@ -14,8 +14,10 @@ Two contracts pinned here:
 from __future__ import annotations
 
 import json
+import inspect
 from pathlib import Path
 
+from harness import cli
 from harness.validate import report, runner
 
 
@@ -70,6 +72,37 @@ def test_run_meta_reference_date_none_when_unset(tmp_path):
         run_dir, run_id="run-N", backend_ids=["12b-baseline"], reference_date=None)
     meta = json.loads((run_dir / "run_meta.json").read_text(encoding="utf-8"))
     assert meta["reference_date"] is None
+
+
+def test_run_defaults_record_med_agent_hub_as_provider(tmp_path):
+    assert (
+        inspect.signature(runner.run_comparison)
+        .parameters["gen_ai_provider_name"]
+        .default
+        is None
+    )
+    manifest_path, _ = cli._start_run(tmp_path, "validate", Path(__file__).parents[1])
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    assert manifest["otel"]["gen_ai.provider.name"] == "med-agent-hub"
+
+
+def test_comparison_provider_is_derived_from_all_arm_endpoints():
+    class Backend:
+        def __init__(self, endpoint_url):
+            self.endpoint_url = endpoint_url
+
+    assert runner._provider_name(
+        [Backend("http://med-agent-hub:8080/v1/chat/completions")]
+    ) == "med-agent-hub"
+    assert runner._provider_name(
+        [Backend("http://host.docker.internal:8077/v1/chat/completions")]
+    ) == "llama.cpp"
+    assert runner._provider_name(
+        [
+            Backend("http://med-agent-hub:8080/v1/chat/completions"),
+            Backend("http://host.docker.internal:8077/v1/chat/completions"),
+        ]
+    ) == "mixed"
 
 
 def test_blob_prefers_frozen_config_but_refreshes_title_from_live(tmp_path):

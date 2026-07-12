@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Live monitor for a validate run: progress + which GGUF models the llama-router
-# has resident right now (the LM-Studio-style "loaded models" view).
+# has resident right now.
 #
 #   watch -n 3 scripts/validate-monitor.sh      # live, refreshes every 3s
 #   scripts/validate-monitor.sh                 # one-shot

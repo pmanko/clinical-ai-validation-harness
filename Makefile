@@ -12,8 +12,8 @@ export UV_PROJECT_ENVIRONMENT
         chartsearch-build querystore-build chartsearch-configure querystore-configure chartsearch-backend chartsearch-doctor chartsearchai-local \
         chartsearch-esm-build chartsearch-esm-dev \
         llama-router-up llama-router-models \
-        med-agent-hub-build med-agent-hub-up med-agent-hub-logs med-agent-hub-restart med-agent-hub-test \
-        validate-preflight validate-run validate-judge-prep validate-judge-finalize validate-publish \
+        med-agent-hub-build med-agent-hub-up med-agent-hub-logs med-agent-hub-restart med-agent-hub-test querystore-reindex \
+        dashboard-ensure dashboard-restart validate-preflight validate-run validate-judge-prep validate-judge-finalize validate-publish \
         cloud-init cloud-sync cloud-down cloud-seed \
         cloud-start cloud-stop cloud-ssh cloud-logs cloud-status cloud-destroy
 
@@ -271,6 +271,9 @@ chartsearch-configure:
 querystore-configure:
 	@./scripts/querystore-configure.sh
 
+querystore-reindex:
+	@./scripts/querystore-reindex.sh
+
 # Switch querystore's storage backend and re-test it. The backend is wired at
 # module startup (QueryStoreActivator), so this sets the querystore.backend GP,
 # brings up Elasticsearch when selected, recreates the backend, and re-runs
@@ -419,6 +422,11 @@ dashboard-ensure:
 	@curl -fsS -m2 http://localhost:8099/ >/dev/null 2>&1 \
 	  || { echo "==> starting validate-dashboard on :8099"; mkdir -p artifacts; \
 	       nohup $(UV) run python scripts/validate-dashboard.py >artifacts/dashboard.log 2>&1 & sleep 2; }
+
+dashboard-restart:
+	@pid=$$(lsof -tiTCP:8099 -sTCP:LISTEN 2>/dev/null || true); \
+	  if [ -n "$$pid" ]; then echo "==> stopping validate-dashboard ($$pid)"; kill $$pid; sleep 1; fi
+	@$(MAKE) dashboard-ensure
 
 validate-preflight: setup dashboard-ensure
 	$(UV) run ./scripts/validate-preflight.sh $(SET) $(TIER)

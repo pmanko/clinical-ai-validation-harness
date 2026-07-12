@@ -471,7 +471,7 @@ def arm_card(
     """Resolve one backend_id to a structured arm card.
 
     Returns: {backend_id, label, kind ('single'|'team'|'unknown'), path
-    ('vanilla chartsearchai'|'med-agent-hub team'), models [model cards], roles
+    ('med-agent-hub single'|'med-agent-hub team'), models [model cards], roles
     {role: model_card} (team only), config {knobs, prompts, retrieval}}. The config
     carries the REAL sampler knobs (merged from scripts/llama-router.ini), the per-role
     system prompts (med-agent-hub prompt files / chartsearchai DEFAULT_SYSTEM_PROMPT), and
@@ -543,7 +543,8 @@ def arm_card(
                 _t, _st = f"{_t} ({_lever})", f"{_st} ({_lever})"
             return _with_runtime({"backend_id": backend_id, "label": label, "title": _t, "short_title": _st,
                                   "kind": "single", "path": "med-agent-hub single",
-                                  "models": [_scard], "config": _hub_single_config(_w, level.get("synthesis_prompt"), ini)})
+                                  "models": [_scard], "stages": list(level.get("stages") or []),
+                                  "config": _hub_single_config(_w, level.get("synthesis_prompt"), ini)})
         if not level:
             return _with_runtime({
                 "backend_id": backend_id,
@@ -557,6 +558,8 @@ def arm_card(
             })
         roles = {r: _model_card(roles_map[r], registry) for r in _ROLES if r in roles_map}
         title, short_title = _team_title(roles)
+        if title == "team":
+            title = short_title = str(level.get("label") or label or model_name)
         return _with_runtime({
             "backend_id": backend_id,
             "label": label,
@@ -567,6 +570,7 @@ def arm_card(
             "roles": roles,
             "models": list(roles.values()),
             "n_models": len(roles),
+            "stages": list(level.get("stages") or []),
             "config": _team_config(roles_map, level, ini),
         })
 
@@ -579,7 +583,7 @@ def arm_card(
             "title": title,
             "short_title": short_title,
             "kind": "single",
-            "path": "vanilla chartsearchai",
+            "path": "direct model endpoint",
             "models": [single_card],
             "config": _single_config(model_name, ini),
         })

@@ -1,97 +1,164 @@
 #!/usr/bin/env python3
-"""Refresh a committed chart ground-truth fixture from the live OpenMRS DB.
+"""Refresh judge fixtures from the same live evidence path med-agent-hub uses."""
 
-The judge (clinical-answer-scoring) scores answers against the committed
-``datasets/validation/charts/<slug>.json`` fixture's ``chart_snapshot`` +
-``mappings`` + ``valid_uuids`` as the closed-context ground truth. Those are a
-point-in-time capture of chartsearchai's serialized PatientChart (stored in
-``chartsearchai_chat_session.chart_snapshot`` / ``chart_mappings_json``). When
-the underlying data changes (e.g. the date-transplant shifting 2006 -> 2025/26),
-the fixture goes stale and the judge mis-scores correct answers as fabricated.
-
-This refreshes a fixture IN PLACE from the patient's LATEST chat session:
-swaps chart_snapshot / mappings / valid_uuids / counts / birthdate + stamps
-provenance, while preserving curated fields (slug, canvas_role, name, etc.).
-
-Usage:
-  .venv/bin/python scripts/capture-chart-fixture.py --fixture datasets/validation/charts/aloice-mukangu.json --patient-id 39
-"""
 from __future__ import annotations
 
 import argparse
 import json
 import os
+import subprocess
 import sys
+from collections import Counter
+from copy import deepcopy
+from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
 
-import pymysql
+ROOT = Path(__file__).resolve().parent.parent
+HUB_ROOT = ROOT / "targets" / "med-agent-hub"
+sys.path.insert(0, str(ROOT))
+sys.path.insert(0, str(HUB_ROOT))
+
+from harness.validate.corpus_alignment import live_records  # noqa: E402
+from server.chart_serializer import render_chart  # noqa: E402
 
 
-def _latest_session(cur, patient_id: int):
-    cur.execute(
-        "SELECT chart_snapshot, chart_mappings_json, chart_built_at "
-        "FROM chartsearchai_chat_session WHERE patient_id=%s AND chart_snapshot IS NOT NULL "
-        "ORDER BY chart_built_at DESC LIMIT 1",
-        (patient_id,),
+def _hub_commit() -> str:
+    dirty = subprocess.run(
+        ["git", "status", "--porcelain"],
+        cwd=HUB_ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    if dirty:
+        raise RuntimeError("med-agent-hub must be clean before capturing judge fixtures")
+    return subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=HUB_ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+
+
+def updated_fixture(
+    fixture: dict[str, Any],
+    records: list[dict[str, Any]],
+    *,
+    captured_at: str,
+    hub_commit: str,
+) -> dict[str, Any]:
+    """Return a refreshed fixture while preserving its curated identity fields."""
+    updated = deepcopy(fixture)
+    chart_snapshot, mappings = render_chart(records)
+    valid_uuids = sorted(
+        {mapping["resourceUuid"] for mapping in mappings if mapping.get("resourceUuid")}
     )
-    return cur.fetchone()
-
-
-def _birthdate(cur, patient_id: int):
-    cur.execute("SELECT birthdate FROM person WHERE person_id=%s", (patient_id,))
-    row = cur.fetchone()
-    return str(row[0]) if row and row[0] is not None else None
-
-
-def main(argv=None) -> int:
-    p = argparse.ArgumentParser()
-    p.add_argument("--fixture", required=True, help="path to the fixture JSON to refresh in place")
-    p.add_argument("--patient-id", required=True, type=int)
-    p.add_argument("--host", default=os.environ.get("MARIADB_HOST", "127.0.0.1"))
-    p.add_argument("--port", default=int(os.environ.get("MARIADB_PORT", "3307")), type=int)
-    p.add_argument("--user", default=os.environ.get("MARIADB_USER", "openmrs"))
-    p.add_argument("--password", default=os.environ.get("MARIADB_PASSWORD", "openmrs"))
-    p.add_argument("--database", default=os.environ.get("MARIADB_DB", "openmrs"))
-    args = p.parse_args(argv)
-
-    fixture_path = Path(args.fixture)
-    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
-
-    conn = pymysql.connect(host=args.host, port=args.port, user=args.user,
-                           password=args.password, database=args.database)
-    try:
-        with conn.cursor() as cur:
-            sess = _latest_session(cur, args.patient_id)
-            if not sess:
-                print(f"ERROR: no chat session with a chart_snapshot for patient_id={args.patient_id}", file=sys.stderr)
-                return 1
-            snapshot, mappings_json, built_at = sess
-            birthdate = _birthdate(cur, args.patient_id)
-    finally:
-        conn.close()
-
-    mappings = json.loads(mappings_json) if mappings_json else []
-    valid_uuids = sorted({m["resourceUuid"] for m in mappings if m.get("resourceUuid")})
-
-    fixture["chart_snapshot"] = snapshot
-    fixture["mappings"] = mappings
-    fixture["valid_uuids"] = valid_uuids
-    fixture["n_records"] = len(mappings)
-    fixture["n_valid_uuids"] = len(valid_uuids)
-    if birthdate and isinstance(fixture.get("patient"), dict):
-        fixture["patient"]["birthdate"] = birthdate
-    fixture["provenance"] = {
-        "source": "chartsearchai_chat_session.chart_snapshot / chart_mappings_json (latest session)",
-        "patient_id": args.patient_id,
-        "chart_built_at": str(built_at),
-        "note": "Refreshed post date-transplant; records are date-shifted to the recent window (real clock). "
-                "Record VALUES are the scoring ground truth; dates reflect the transplanted era.",
+    updated["chart_snapshot"] = chart_snapshot
+    updated["mappings"] = mappings
+    updated["valid_uuids"] = valid_uuids
+    updated["n_records"] = len(mappings)
+    updated["n_valid_uuids"] = len(valid_uuids)
+    updated["provenance"] = {
+        "source": "Querystore patientrecord rendered by med-agent-hub chart_serializer",
+        "captured_at": captured_at,
+        "med_agent_hub_commit": hub_commit,
+        "resource_types": dict(
+            sorted(Counter(mapping["resourceType"] for mapping in mappings).items())
+        ),
+        "note": (
+            "Closed-context scoring fixture captured from the same complete evidence ledger "
+            "and serializer used by med-agent-hub."
+        ),
     }
+    return updated
 
-    fixture_path.write_text(json.dumps(fixture, indent=2) + "\n", encoding="utf-8")
-    print(f"refreshed {fixture_path}: {len(mappings)} records, {len(valid_uuids)} uuids, built_at={built_at}, birthdate={birthdate}")
+
+def _fixture_paths(path: str | None, all_fixtures: bool) -> list[Path]:
+    if all_fixtures:
+        return sorted((ROOT / "datasets" / "validation" / "charts").glob("*.json"))
+    assert path is not None
+    candidate = Path(path)
+    return [candidate if candidate.is_absolute() else ROOT / candidate]
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser()
+    selected = parser.add_mutually_exclusive_group(required=True)
+    selected.add_argument("--fixture", help="fixture JSON to refresh in place")
+    selected.add_argument("--all", action="store_true", help="refresh every committed chart fixture")
+    port = os.environ.get("HARNESS_PROXY_HTTP_PORT", "8088")
+    parser.add_argument(
+        "--endpoint",
+        default=f"http://localhost:{port}/openmrs/ws/rest/v1/querystore/patientrecord",
+    )
+    parser.add_argument("--username", default=os.environ.get("QUERYSTORE_USERNAME", ""))
+    parser.add_argument("--password", default=os.environ.get("QUERYSTORE_PASSWORD", ""))
+    args = parser.parse_args(argv)
+
+    if not args.username or not args.password:
+        print(
+            "ERROR: set QUERYSTORE_USERNAME and QUERYSTORE_PASSWORD for the read-only fixture capture",
+            file=sys.stderr,
+        )
+        return 1
+
+    captured_at = datetime.now(timezone.utc).isoformat()
+    try:
+        hub_commit = _hub_commit()
+    except (subprocess.CalledProcessError, RuntimeError) as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 1
+    prepared: list[tuple[Path, dict[str, Any]]] = []
+    try:
+        for fixture_path in _fixture_paths(args.fixture, args.all):
+            fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+            patient_uuid = str((fixture.get("patient") or {}).get("uuid") or "").strip()
+            if not patient_uuid:
+                raise ValueError(f"{fixture_path} has no patient.uuid")
+            records = live_records(
+                args.endpoint,
+                patient_uuid,
+                args.username,
+                args.password,
+            )
+            if not records:
+                raise ValueError(f"no live records for {patient_uuid}")
+            prepared.append(
+                (
+                    fixture_path,
+                    updated_fixture(
+                        fixture,
+                        records,
+                        captured_at=captured_at,
+                        hub_commit=hub_commit,
+                    ),
+                )
+            )
+    except Exception as exc:
+        print(f"ERROR: fixture capture aborted before writing: {exc}", file=sys.stderr)
+        return 1
+
+    staged: list[tuple[Path, Path, dict[str, Any]]] = []
+    try:
+        for fixture_path, refreshed in prepared:
+            temp_path = fixture_path.with_name(f".{fixture_path.name}.tmp")
+            temp_path.write_text(
+                json.dumps(refreshed, indent=2) + "\n", encoding="utf-8"
+            )
+            staged.append((fixture_path, temp_path, refreshed))
+        for fixture_path, temp_path, refreshed in staged:
+            os.replace(temp_path, fixture_path)
+            print(
+                f"refreshed {fixture_path.relative_to(ROOT)}: "
+                f"{refreshed['n_records']} records"
+            )
+    finally:
+        for _, temp_path, _ in staged:
+            temp_path.unlink(missing_ok=True)
     return 0
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    raise SystemExit(main())

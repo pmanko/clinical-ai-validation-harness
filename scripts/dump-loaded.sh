@@ -12,9 +12,9 @@
 # against identical state produce byte-identical output (SC-004).
 #
 # By DEFAULT the dump is a clean portable CORPUS: OpenMRS-core + clinical only, with the consumer
-# chartsearchai module's tables AND its liquibasechangelog rows excluded, so it loads onto any RefApp
-# and the module installs itself fresh on boot (no checksum mismatch). Override the module prefix with
-# MODULE_PREFIX=, or keep all module state (full backup) with --include-module-state.
+# consumer-module tables AND their liquibasechangelog rows excluded, so it loads onto any RefApp
+# and ChartSearchAI/Querystore install themselves fresh on boot (no checksum mismatch). Override the
+# space-separated prefixes with MODULE_PREFIXES=, or keep all module state with --include-module-state.
 #
 # The dump writes to ONE canonical path by default (artifacts/demo-data/refapp_28_demo.sql.gz),
 # overwritten each run — never a timestamped artifacts/<run>/ directory. A "pick the newest file"
@@ -44,7 +44,7 @@ IGNORE_PATTERNS=()
 # rows carry version-specific checksums, so shipping them makes the module fail to start under a
 # different omod version (liquibase checksum mismatch). With them absent, the module's own
 # liquibase installs it fresh on boot. --include-module-state keeps everything (a full backup).
-MODULE_PREFIX="${MODULE_PREFIX:-chartsearchai}"
+read -r -a MODULE_PREFIX_LIST <<< "${MODULE_PREFIXES:-chartsearchai querystore}"
 EXCLUDE_MODULE=1
 
 while [[ $# -gt 0 ]]; do
@@ -60,7 +60,11 @@ while [[ $# -gt 0 ]]; do
 done
 # Exclude the consumer module's TABLES via the existing ignore mechanism (its changelog rows are
 # stripped separately in the dump below, since mariadb-dump can't row-filter within --databases).
-[[ "$EXCLUDE_MODULE" == "1" ]] && IGNORE_PATTERNS+=("${MODULE_PREFIX}_%")
+if [[ "$EXCLUDE_MODULE" == "1" ]]; then
+  for prefix in "${MODULE_PREFIX_LIST[@]}"; do
+    IGNORE_PATTERNS+=("${prefix}_%")
+  done
+fi
 
 # Resolve --ignore-pattern globs to concrete --ignore-table flags by querying
 # information_schema. mariadb-dump itself doesn't accept LIKE patterns.
@@ -123,10 +127,14 @@ COMMON_FLAGS=(
 # whichever DB the restore pipes into.
 dump_stream() {
   if [[ "$EXCLUDE_MODULE" == "1" ]]; then
+    where="1=1"
+    for prefix in "${MODULE_PREFIX_LIST[@]}"; do
+      where+=" AND id NOT LIKE '${prefix}%' AND filename NOT LIKE '%${prefix}%'"
+    done
     docker exec "$DB_CONTAINER" mariadb-dump "${COMMON_FLAGS[@]}" "${IGNORE_TABLE_FLAGS[@]}" \
       --ignore-table="${SOURCE_DB}.liquibasechangelog" "$SOURCE_DB"
     docker exec "$DB_CONTAINER" mariadb-dump "${COMMON_FLAGS[@]}" \
-      --where="id NOT LIKE '${MODULE_PREFIX}%' AND filename NOT LIKE '%${MODULE_PREFIX}%'" \
+      --where="$where" \
       "$SOURCE_DB" liquibasechangelog
   else
     docker exec "$DB_CONTAINER" mariadb-dump "${COMMON_FLAGS[@]}" "${IGNORE_TABLE_FLAGS[@]}" \
@@ -142,16 +150,18 @@ fi
 
 if [[ "$EXCLUDE_MODULE" == "1" ]]; then
   READ_CMD=(cat "$OUT"); [[ "$GZIP" == "1" ]] && READ_CMD=(gunzip -c "$OUT")
-  LEFTOVER_TABLE="$("${READ_CMD[@]}" | grep -m1 -o "CREATE TABLE \`${MODULE_PREFIX}_[a-z_]*\`" || true)"
-  LEFTOVER_CHANGESET="$("${READ_CMD[@]}" | grep "INSERT INTO \`liquibasechangelog\`" | grep -m1 -o "'${MODULE_PREFIX}-[0-9]*'" || true)"
-  if [[ -n "$LEFTOVER_TABLE" || -n "$LEFTOVER_CHANGESET" ]]; then
-    echo "ERROR: dump claims to exclude module '${MODULE_PREFIX}' but its bytes say otherwise:" >&2
-    [[ -n "$LEFTOVER_TABLE" ]] && echo "  table survived: ${LEFTOVER_TABLE}" >&2
-    [[ -n "$LEFTOVER_CHANGESET" ]] && echo "  changelog row survived: ${LEFTOVER_CHANGESET}" >&2
-    echo "  refusing to publish a dump that fails its own cleanliness guarantee: ${OUT}" >&2
-    rm -f "$OUT"
-    exit 1
-  fi
+  for prefix in "${MODULE_PREFIX_LIST[@]}"; do
+    LEFTOVER_TABLE="$("${READ_CMD[@]}" | grep -m1 -o "CREATE TABLE \`${prefix}_[a-z_]*\`" || true)"
+    LEFTOVER_CHANGESET="$("${READ_CMD[@]}" | grep "INSERT INTO \`liquibasechangelog\`" | grep -m1 -o "'${prefix}[^']*'" || true)"
+    if [[ -n "$LEFTOVER_TABLE" || -n "$LEFTOVER_CHANGESET" ]]; then
+      echo "ERROR: dump claims to exclude module '${prefix}' but its bytes say otherwise:" >&2
+      [[ -n "$LEFTOVER_TABLE" ]] && echo "  table survived: ${LEFTOVER_TABLE}" >&2
+      [[ -n "$LEFTOVER_CHANGESET" ]] && echo "  changelog row survived: ${LEFTOVER_CHANGESET}" >&2
+      echo "  refusing to publish a dump that fails its own cleanliness guarantee: ${OUT}" >&2
+      rm -f "$OUT"
+      exit 1
+    fi
+  done
 fi
 
 SIZE=$(wc -c < "$OUT" | tr -d ' ')

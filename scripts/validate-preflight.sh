@@ -143,13 +143,22 @@ PY
 if [ "${DRIFT_RC}" -ne 0 ]; then
   echo "ERROR: querystore not bootstrapped / under-indexed (see types flagged FAIL above)." >&2
   echo "       A run on '${SET}' would get EMPTY/partial charts. Fix the corpus index, do NOT" >&2
-  echo "       proceed: restart the backend so it re-bootstraps (autostart), or run the fallback" >&2
-  echo "       reindex {scope:all}:" >&2
-  echo "         curl -u \"\${CHARTSEARCH_ADMIN_USER}:\${CHARTSEARCH_ADMIN_PASSWORD}\" -H 'Content-Type: application/json' \\" >&2
-  echo "           -X POST ${BASE}/ws/rest/v1/querystore/reindex -d '{\"scope\":\"all\"}'" >&2
+  echo "       proceed: restart the backend so it re-bootstraps (autostart), or run:" >&2
+  echo "         make querystore-reindex" >&2
   exit 1
 fi
 echo "    corpus index OK — every type indexed within drift threshold (>${DRIFT_PCT}% & >${DRIFT_ABS} docs)"
+
+echo "==> [4b/5] verify live ledger dates match committed validation fixtures"
+if [ -z "${QUERYSTORE_USERNAME:-}" ] || [ -z "${QUERYSTORE_PASSWORD:-}" ]; then
+  echo "ERROR: QUERYSTORE_USERNAME and QUERYSTORE_PASSWORD are required for corpus alignment" >&2
+  exit 1
+fi
+python3 scripts/verify-validation-corpus.py \
+  --set "${SET}" \
+  --endpoint "${BASE}/ws/rest/v1/querystore/patientrecord" \
+  --username "${QUERYSTORE_USERNAME}" \
+  --password "${QUERYSTORE_PASSWORD}"
 
 echo "==> [5/5] verify everything answers"
 fail=0

@@ -100,6 +100,38 @@ def test_product_single_profile_uses_topology_not_endpoint_guess(tmp_path):
     assert card["title"].endswith("single")
 
 
+def test_team_with_unknown_model_metadata_uses_profile_label(tmp_path):
+    backends, registry, levels, ini = _write_title_fixtures(tmp_path)
+    levels.write_text(
+        levels.read_text(encoding="utf-8")
+        + "  custom-team:\n"
+        + "    label: Focused clinical team\n"
+        + "    topology: team\n"
+        + "    stages: [context, gather, answer, gate]\n"
+        + "    models: {orchestrator: custom-coordinator, answer: custom-writer}\n",
+        encoding="utf-8",
+    )
+    body = json.loads(backends.read_text(encoding="utf-8"))
+    body["custom-team-arm"] = {
+        "endpointUrl": "http://host:8080/v1/chat/completions",
+        "modelName": "custom-team",
+        "label": "Focused clinical team setup",
+    }
+    backends.write_text(json.dumps(body), encoding="utf-8")
+
+    card = arm_card(
+        "custom-team-arm",
+        backends_path=backends,
+        registry_path=registry,
+        levels_path=levels,
+        llama_ini_path=ini,
+    )
+
+    assert card["kind"] == "team"
+    assert card["title"] == "Focused clinical team"
+    assert card["short_title"] == "Focused clinical team"
+
+
 def test_configured_profile_is_recognized_on_nonstandard_hub_endpoint(tmp_path):
     backends, registry, levels, ini = _write_title_fixtures(tmp_path)
     body = json.loads(backends.read_text(encoding="utf-8"))

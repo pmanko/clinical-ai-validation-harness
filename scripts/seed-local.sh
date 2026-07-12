@@ -97,6 +97,20 @@ docker exec "$DB_CONTAINER" mariadb --user=root --password="$DB_ROOT_PASS" "$TAR
   UNION ALL SELECT 'encounter', COUNT(*) FROM encounter
   UNION ALL SELECT 'obs', COUNT(*) FROM obs;" || true
 
+# Older portable dumps removed consumer-module tables but accidentally retained their
+# Liquibase rows. Strip those rows only when the corresponding tables are absent, so
+# ChartSearchAI and Querystore can recreate their own state on the next boot.
+echo "==> reconciling consumer-module Liquibase state"
+for prefix in chartsearchai querystore; do
+  table_count="$(docker exec "$DB_CONTAINER" mariadb --user=root --password="$DB_ROOT_PASS" \
+    -N -B -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='${TARGET_DB}' AND table_name LIKE '${prefix}_%';")"
+  if [[ "$table_count" == "0" ]]; then
+    docker exec "$DB_CONTAINER" mariadb --user=root --password="$DB_ROOT_PASS" "$TARGET_DB" \
+      -e "DELETE FROM liquibasechangelog WHERE id LIKE '${prefix}%' OR filename LIKE '%${prefix}%';" >/dev/null
+    echo "    ${prefix}: module tables absent; stale changelog rows removed"
+  fi
+done
+
 # --- start the backend; Liquibase reconciles core, chartsearchai installs fresh ---
 # On the very first boot against a just-restored (non-empty) schema, OpenMRS core's own
 # DatabaseUpdater can race into re-running its "empty database" snapshot changelog against
@@ -155,4 +169,4 @@ fi
 
 echo ""
 echo "✓ seeded '${TARGET_DB}' from ${DUMP}."
-echo "  chartsearchai reads the querystore index — if chat looks stale, rebuild it (querystore reindex)."
+echo "  ChartSearchAI reads the Querystore index — rebuild it with: make querystore-reindex"

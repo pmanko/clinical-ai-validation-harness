@@ -1,0 +1,17 @@
+{
+  "id": "hub-profile-team-focus",
+  "description": "Focused product comparison of the E4B and 12B checked single profiles against one checked medical-team profile on six scenarios that exercise tables, temporal reasoning, evidence breadth, and abstention.",
+  "scenario_ids": [
+    "date-zabella-weight-table",
+    "date-aloice-orders-table",
+    "single-upcoming-appointments",
+    "am-weight-trend",
+    "am-orders-6mo",
+    "abstain-out-of-chart"
+  ],
+  "backend_ids": [
+    "product-e4b-checked",
+    "product-12b-checked",
+    "product-team-med-checked"
+  ]
+}

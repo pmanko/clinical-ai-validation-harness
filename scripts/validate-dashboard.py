@@ -4,7 +4,7 @@
     python3 scripts/validate-dashboard.py        # then open http://localhost:8099
 
 Auto-refreshes every 2s: overall progress, per-arm stats, the GGUF models the
-llama-router has resident right now (lsof — the LM-Studio-style view), a
+llama-router has resident right now, a
 scenario x arm status grid, and a recent feed. Click any grid cell or feed row to
 drill into that (scenario, arm): the expected behaviour + every turn's question,
 full answer, citations, and metrics. Reads the newest artifacts/validate run.
@@ -29,6 +29,7 @@ sys.path.insert(0, str(ROOT))
 from harness.validate.model_registry import arm_card, arm_model_name  # noqa: E402  (sys.path set above)
 from harness.validate.reconcile import combined_judge_summary  # noqa: E402
 from harness.validate.sources import build_sources, load_scenario_chart  # noqa: E402
+from harness.validate.stage_timings import extract_stage_timings  # noqa: E402
 DATA = ROOT / "datasets" / "validation"
 TRACE_FILE = ROOT / "artifacts" / "hub-trace" / "trace.jsonl"
 PORT = int(os.environ.get("DASH_PORT", "8099"))
@@ -237,7 +238,7 @@ def status():
                      "indepth_chars": len((iresp or {}).get("answer") or ""),
                      "ans": _esc(((r.get("response") or {}).get("answer", "") or "")[:90])})
 
-    # Structured arm makeup + config (single vanilla-chartsearchai vs med-agent-hub team) —
+    # Structured arm makeup + config (single and team med-agent-hub profiles) —
     # resolved by the shared resolver, REUSED from the report. Carries the real sampler knobs,
     # per-role system prompts, and retrieval GPs so the dashboard can render the path badge,
     # role->model makeup, and the "how this arm is configured" panel.
@@ -302,6 +303,7 @@ def detail(scenario, backend):
                                 "answer_text": tr.get("answer_text", ""),
                                 "in_depth_claims": tr.get("in_depth_claims") or [],
                                 "steps": tr.get("steps") or [],
+                                "stage_timings": extract_stage_timings(tr),
                                 "models": tr.get("models") or {}} if tr else None})
     return {"scenario": scenario, "backend": backend, "expectations": exp, "turns": turns}
 
@@ -371,6 +373,10 @@ table.btbl{border-collapse:collapse;font-size:11px;width:100%}
 .tbody{font-size:11px;white-space:pre-wrap;color:var(--text)}
 .tarrow{text-align:center;color:var(--border);font-size:11px;line-height:1.1;margin:1px 0}
 .notrace{font-size:11px;color:var(--faint);padding:8px 10px}
+.stage-timings{margin:7px 0;border:1px solid var(--border2);border-radius:6px;background:var(--sunken)}
+.stage-timings summary{cursor:pointer;color:var(--accent);font-size:11px;padding:5px 8px}
+.stage-timings table{width:100%;border-collapse:collapse;font-size:11px}
+.stage-timings td,.stage-timings th{padding:3px 8px;border-top:1px solid var(--border2);text-align:left}
 .cchip{display:inline-block;padding:1px 7px;border-radius:10px;color:#fff;font-size:10px;margin-left:6px;vertical-align:middle}
 .csec{margin-top:8px}
 .ctitle{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px}
@@ -679,13 +685,18 @@ function renderTrace(tr){
   if(s.role==='indepth_validator') return ['in-depth validator'+(s.attempt?' #'+s.attempt:''),'drop '+JSON.stringify(s.drop||[])+' of '+(s.claims_in||0)+(s.issues?' · '+esc(s.issues):''),(s.drop&&s.drop.length)?'flag':'ok'];
   return [s.role,esc(JSON.stringify(s))];
  };
- const steps=(tr.steps||[]).map(s=>{
+ const steps=(tr.steps||[]).filter(s=>s.role!=='stage_timing').map(s=>{
   const [label,body,tone]=fmt(s);
   const cls='trole'+(tone==='flag'?' flag':(tone==='ok'?' ok':''));
   const m=s.model?'<span class=tmodel>'+esc(s.model)+'</span>':'';
   return '<div class=tstep><div class="'+cls+'">'+esc(label)+m+'</div><div class=tbody>'+body+'</div></div>';
  }).join('<div class=tarrow>↓</div>');
  return '<div class=trace>'+(steps||'<div class=notrace>no steps</div>')+'</div>';
+}
+function renderStageTimings(rows){
+ if(!rows||!rows.length) return '';
+ const body=rows.map(r=>'<tr><td>'+esc(String(r.stage||'').replaceAll('_',' ')+(r.occurrence>1?' '+r.occurrence:''))+'</td><td>'+r.duration_ms+' ms</td><td>'+esc(r.status||'completed')+'</td></tr>').join('');
+ return '<details class=stage-timings open><summary>stage timing breakdown</summary><table><thead><tr><th>stage</th><th>elapsed</th><th>status</th></tr></thead><tbody>'+body+'</tbody></table></details>';
 }
 async function openD(s,b){
  const d=await(await fetch('/api/detail?scenario='+encodeURIComponent(s)+'&backend='+encodeURIComponent(b))).json();
@@ -696,6 +707,7 @@ async function openD(s,b){
   const tr=t.trace;
   h+='<div class=turn><div class=q>Turn '+t.turn+': '+esc(t.question)+'</div>';
   h+='<div class=meta><span class="'+(t.status===200?'ok':'err')+'">status '+t.status+'</span> · '+(t.latency_ms||0)+'ms · '+(t.chars||0)+' chars · '+(t.citations||0)+' source refs</div>';
+  h+=renderStageTimings(tr&&tr.stage_timings);
   if(t.error){
    h+='<div class="ans err">'+esc(t.error)+'</div>';
   }else if(tr&&(tr.answer_confidence||tr.indepth_confidence)){

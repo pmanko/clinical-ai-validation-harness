@@ -49,19 +49,19 @@
   "indepthModelName": "indepth-only:gemma-4-12b"
  },
  "gemma-local": {
-  "label": "Gemma 4-E4B (LM Studio direct)",
-  "endpointUrl": "http://host.docker.internal:1234/v1/chat/completions",
-  "modelName": "google/gemma-4-e4b"
+  "label": "Gemma 4-E4B (llama-router direct)",
+  "endpointUrl": "http://host.docker.internal:8077/v1/chat/completions",
+  "modelName": "gemma-e4b"
  },
  "medgemma-local": {
-  "label": "MedGemma (LM Studio direct)",
-  "endpointUrl": "http://host.docker.internal:1234/v1/chat/completions",
-  "modelName": "medgemma-1.5-4b-it"
+  "label": "MedGemma (llama-router direct)",
+  "endpointUrl": "http://host.docker.internal:8077/v1/chat/completions",
+  "modelName": "medgemma-1.5-4b-q8"
  },
  "gemma-a4b-pure": {
-  "label": "Gemma 4-26B-A4B (LM Studio direct, no team)",
-  "endpointUrl": "http://host.docker.internal:1234/v1/chat/completions",
-  "modelName": "google/gemma-4-26b-a4b"
+  "label": "Gemma 4-26B-A4B (llama-router direct, no team)",
+  "endpointUrl": "http://host.docker.internal:8077/v1/chat/completions",
+  "modelName": "gemma-26b"
  },
  "a4b-baseline": {
   "label": "A4B baseline — Gemma 4-26B-A4B single LLM, direct chart (GGUF+DRY)",

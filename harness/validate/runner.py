@@ -1,11 +1,11 @@
 """Replay a comparison set against each backend and write results over the
 run-manifest spine.
 
-Backends are iterated SEQUENTIALLY: each registry ``modelName`` selects a
-hub-advertised product profile in the ``/chat`` request; the configured hub endpoint
-is never client-overridden. Sequencing is for determinism
-and session isolation — a chat session is per (patient, user) and opening a new
-one closes the prior, so concurrent backends would cross-contaminate sessions.
+Backends are iterated SEQUENTIALLY. Product arms select hub-advertised profiles;
+explicit low-level experiments may target the local llama.cpp router directly.
+Sequencing is for determinism and session isolation — a chat session is per
+(patient, user) and opening a new one closes the prior, so concurrent backends
+would cross-contaminate sessions.
 
 A result line is a projection referencing run_id — it does NOT re-declare the
 manifest's provenance fields (FR-006.3); provenance lives in run_manifest.json.
@@ -128,6 +128,21 @@ class RunResult:
     result_count: int
 
 
+def _provider_name(backends: list[Any]) -> str:
+    providers: set[str] = set()
+    for backend in backends:
+        endpoint = str(getattr(backend, "endpoint_url", "") or "").lower()
+        if "med-agent-hub" in endpoint or ":8080/" in endpoint:
+            providers.add("med-agent-hub")
+        elif ":8077/" in endpoint:
+            providers.add("llama.cpp")
+        else:
+            providers.add("openai-compatible")
+    if len(providers) == 1:
+        return next(iter(providers))
+    return "mixed" if providers else "unknown"
+
+
 def run_comparison(
     *,
     comparison_set_id: str,
@@ -139,7 +154,7 @@ def run_comparison(
     dataset_id: str = "large-demo-data-2-7-0",
     dataset_version: str = "2.7.0",
     schema_mapping_version: str = "openmrs-2.7-to-2.8@v0",
-    gen_ai_provider_name: str = "lmstudio",
+    gen_ai_provider_name: str | None = None,
     resume_from: Path | str | None = None,
     reference_date: str | None = None,
     router_policy: RouterPolicy | None = None,
@@ -184,7 +199,7 @@ def run_comparison(
         dataset_id=dataset_id,
         dataset_version=dataset_version,
         schema_mapping_version=schema_mapping_version,
-        gen_ai_provider_name=gen_ai_provider_name,
+        gen_ai_provider_name=gen_ai_provider_name or _provider_name(backends),
         patients=patients,
     )
     manifest_path = run_dir / "run_manifest.json"

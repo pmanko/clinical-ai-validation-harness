@@ -32,6 +32,7 @@ from .model_registry import arm_model_name
 from .model_registry import arm_card
 from .reconcile import calibrated_summary, combined_judge_summary, scout_summary
 from .sources import build_sources, load_scenario_chart, source_ref_labels
+from .stage_timings import expected_stage_labels, extract_stage_timings, stage_timing_label
 
 # The med-agent-team bridge gracefully degrades to a schema-valid envelope when
 # its own LLM calls fail, so a degraded turn looks like a 200/json_valid/0-cites
@@ -451,6 +452,7 @@ def _summary_rows(
     backends: list[str],
     labels: dict[str, str],
     traces: list[dict[str, Any]] | None = None,
+    arm_cards: dict[str, dict[str, Any]] | None = None,
 ) -> list[dict[str, Any]]:
     """Per-backend aggregates (the old summary table rows), precomputed so the JS
     renders a table without re-deriving any contract."""
@@ -461,6 +463,39 @@ def _summary_rows(
         cites = sum(r["metrics"].get("citation_count", 0) for r in rs if r.get("metrics"))
         gates = [_gate_for_row(r, traces) for r in rs]
         gates = [g for g in gates if g]
+        expected_labels = expected_stage_labels(
+            ((arm_cards or {}).get(b) or {}).get("stages")
+        )
+        stage_stats: dict[str, dict[str, Any]] = {
+            label: {
+                "completed_values": [],
+                "failed_values": [],
+                "cancelled_values": [],
+                "observed": 0,
+            }
+            for label in expected_labels
+        }
+        for result in rs:
+            trace = _trace_for_row(result, traces)
+            for timing in extract_stage_timings(trace):
+                label = stage_timing_label(timing)
+                stats = stage_stats.setdefault(
+                    label,
+                    {
+                        "completed_values": [],
+                        "failed_values": [],
+                        "cancelled_values": [],
+                        "observed": 0,
+                    },
+                )
+                stats["observed"] += 1
+                status = timing["status"]
+                if status == "completed":
+                    stats["completed_values"].append(timing["duration_ms"])
+                elif status == "cancelled":
+                    stats["cancelled_values"].append(timing["duration_ms"])
+                else:
+                    stats["failed_values"].append(timing["duration_ms"])
         rows.append(
             {
                 "backend_id": b,
@@ -474,6 +509,31 @@ def _summary_rows(
                 "temporal_gate_warn": sum(1 for g in gates if g.get("status") == "warn"),
                 "temporal_gate_fail": sum(1 for g in gates if g.get("status") == "fail"),
                 "temporal_gate_applied": sum(1 for g in gates if g.get("applied") in {"patch", "fallback"}),
+                "stage_latency_ms": {
+                    stage: {
+                        "avg_ms": (
+                            _avg(stats["completed_values"])
+                            if stats["completed_values"]
+                            else None
+                        ),
+                        "completed": len(stats["completed_values"]),
+                        "failed": len(stats["failed_values"]),
+                        "avg_failed_ms": (
+                            _avg(stats["failed_values"])
+                            if stats["failed_values"]
+                            else None
+                        ),
+                        "cancelled": len(stats["cancelled_values"]),
+                        "avg_cancelled_ms": (
+                            _avg(stats["cancelled_values"])
+                            if stats["cancelled_values"]
+                            else None
+                        ),
+                        "observed": stats["observed"],
+                        "expected": len(rs),
+                    }
+                    for stage, stats in stage_stats.items()
+                },
             }
         )
     return rows
@@ -521,6 +581,7 @@ def _cell_blob(
         "blocks_html": _render_blocks(resp.get("blocks"), sources_v1),
         "chips_html": _render_chips(r) + _render_temporal_gate_chip(gate),
         "temporal_gate": gate,
+        "stage_timings": extract_stage_timings(trace),
         "degraded": _is_degraded(r),
         "metrics": {
             "latency_ms": m.get("latency_ms"),
@@ -625,6 +686,7 @@ def _run_blob(run_dir: Path) -> dict[str, Any]:
                       else (", ".join(_ref_dates) if _ref_dates else None))
     judge_rows = _load_judge(run_dir)
     judge_actors = _load_judge_actors(run_dir)
+    arm_cards = _arm_cards_for(run_dir, backends)
 
     return {
         "run_id": run_id,
@@ -640,7 +702,7 @@ def _run_blob(run_dir: Path) -> dict[str, Any]:
         "backends": backends,
         "labels": {b: labels.get(b, "") for b in backends},
         "scenarios": scenarios,
-        "summary": _summary_rows(results, backends, labels, traces),
+        "summary": _summary_rows(results, backends, labels, traces, arm_cards),
         "metrics": _metric_distributions(results, backends),
         "judge": scout_summary(judge_rows, backends),
         "judge_rows": judge_rows,
@@ -653,12 +715,12 @@ def _run_blob(run_dir: Path) -> dict[str, Any]:
         "calibrated": calibrated_summary(
             judge_rows, _load_adjudication(run_dir), backends),
         "patients": patients,
-        # WS2: structured arm makeup (single vanilla-chartsearchai vs med-agent-hub team +
+        # WS2: structured arm makeup (single and team med-agent-hub profiles +
         # role->model lineup) so the report's "what this run compares" section + badges render
         # from one resolver instead of parsing the label string. Best-effort: never blocks a render.
         # WS1: prefer the run's FROZEN cards (run_meta.json) over re-resolving the current static
         # files, so an old run renders the config it ACTUALLY used (see _arm_cards_for).
-        "arm_cards": _arm_cards_for(run_dir, backends),
+        "arm_cards": arm_cards,
     }
 
 
@@ -1156,7 +1218,32 @@ function renderSummary(run){
     '<tbody>' + rows + '</tbody>';
   sec.appendChild(tbl);
   makeSortable(tbl);
+  const stages=[];
+  run.summary.forEach(s => Object.keys(s.stage_latency_ms||{}).forEach(k => {
+    if(!stages.includes(k)) stages.push(k);
+  }));
+  if(stages.length){
+    const sh=el('h3'); sh.textContent='Average latency by stage'; sec.appendChild(sh);
+    const st=el('table','summary');
+    st.innerHTML='<thead><tr><th>backend</th>'+stages.map(k=>'<th>'+htmlEsc(k)+'</th>').join('')+'</tr></thead>'+
+      '<tbody>'+run.summary.map(s=>'<tr><td class="b">'+htmlEsc(armTitle(s.backend_id))+'</td>'+stages.map(k=>{
+        const v=(s.stage_latency_ms||{})[k];
+        if(!v) return '<td>—</td>';
+        const flags=[];
+        if(v.failed) flags.push(v.failed+' failed @ '+v.avg_failed_ms+' ms');
+        if(v.cancelled) flags.push(v.cancelled+' cancelled @ '+v.avg_cancelled_ms+' ms');
+        const avg=v.avg_ms==null?'—':v.avg_ms+' ms';
+        return '<td>'+avg+' ('+v.observed+'/'+v.expected+(flags.length?' · '+flags.join(', '):'')+')</td>';
+      }).join('')+'</tr>').join('')+'</tbody>';
+    sec.appendChild(st); makeSortable(st);
+  }
   return sec;
+}
+
+function renderStageTimings(rows){
+  if(!rows||!rows.length) return '';
+  const body=rows.map(r=>'<tr><td>'+htmlEsc(String(r.stage||'').replaceAll('_',' ')+(r.occurrence>1?' '+r.occurrence:''))+'</td><td>'+r.duration_ms+' ms</td><td>'+htmlEsc(r.status||'completed')+'</td></tr>').join('');
+  return '<details class="stage-timings"><summary>stage timing</summary><table class="summary"><thead><tr><th>stage</th><th>elapsed</th><th>status</th></tr></thead><tbody>'+body+'</tbody></table></details>';
 }
 
 // Human-readable arm titles for headers/labels — resolved from the active run's arm_cards
@@ -1470,6 +1557,9 @@ function buildTile(run, backend, cell, turn, scenarioId){
   const chips = el('div', 'chips');
   chips.innerHTML = cell.chips_html;
   tile.appendChild(chips);
+  const timing = el('div');
+  timing.innerHTML = renderStageTimings(cell.stage_timings);
+  tile.appendChild(timing);
 
   const tmpl = document.getElementById('rubric-template');
   tile.appendChild(tmpl.content.cloneNode(true));

@@ -134,7 +134,7 @@ def _start_run(output_dir: Path, component: str, project_root: Path) -> tuple[Pa
         dataset_id="large-demo-data-2-7-0",
         dataset_version="2.7.0",
         schema_mapping_version="openmrs-2.7-to-2.8@v0",
-        gen_ai_provider_name="lmstudio",
+        gen_ai_provider_name="med-agent-hub",
         evidence_status="development",
         decision_rationale=None,
         target_provenance=[],
