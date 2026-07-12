@@ -9,12 +9,16 @@ import importlib.util
 import json
 import platform
 import subprocess
+import sys
 import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from harness.validate.performance_timing import derive_answer_timing
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
+
+from harness.validate.performance_timing import derive_answer_timing  # noqa: E402
 
 
 def _load_module(name: str, path: Path):

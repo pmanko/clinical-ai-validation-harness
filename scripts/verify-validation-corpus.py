@@ -7,9 +7,16 @@ import argparse
 import sys
 from pathlib import Path
 
-from harness.validate.corpus_alignment import alignment_issues, expected_ledgers, live_records
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
 
-HUB_ROOT = Path(__file__).resolve().parents[1] / "targets" / "med-agent-hub"
+from harness.validate.corpus_alignment import (  # noqa: E402
+    alignment_issues,
+    expected_ledgers,
+    live_records,
+)
+
+HUB_ROOT = ROOT / "targets" / "med-agent-hub"
 sys.path.insert(0, str(HUB_ROOT))
 
 from server.chart_serializer import render_chart  # noqa: E402  (hub package path above)

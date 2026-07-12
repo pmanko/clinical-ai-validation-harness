@@ -90,6 +90,7 @@ INSERT INTO liquibasechangelog VALUES
             "DB_CONTAINER": container,
             "MYSQL_ROOT_PASSWORD": "openmrs",
         }
+        env.pop("PYTHONPATH", None)
         subprocess.run(
             [
                 "bash",

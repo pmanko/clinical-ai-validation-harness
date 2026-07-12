@@ -10,11 +10,15 @@ import os
 import platform
 import statistics
 import subprocess
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from harness.validate.performance_timing import derive_answer_timing
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
+
+from harness.validate.performance_timing import derive_answer_timing  # noqa: E402
 
 
 def _sha256(path: Path) -> str:

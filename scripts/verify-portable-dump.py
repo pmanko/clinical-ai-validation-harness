@@ -4,9 +4,13 @@
 from __future__ import annotations
 
 import argparse
+import sys
 from pathlib import Path
 
-from harness.validate.dump_provenance import verify_dump
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
+
+from harness.validate.dump_provenance import verify_dump  # noqa: E402
 
 
 def main() -> int:
