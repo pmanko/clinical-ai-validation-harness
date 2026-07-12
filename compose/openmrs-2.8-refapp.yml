@@ -192,7 +192,7 @@ services:
     build:
       context: ../targets/med-agent-hub
       args:
-        HUB_BUILD_REVISION: ${HUB_BUILD_REVISION:-unknown}
+        HUB_BUILD_REVISION: ${HUB_BUILD_REVISION:?set HUB_BUILD_REVISION to the med-agent-hub commit}
     container_name: harness-med-agent-hub
     restart: "unless-stopped"
     # Local launchers set these to the invoking host user so bind-mounted trace artifacts remain

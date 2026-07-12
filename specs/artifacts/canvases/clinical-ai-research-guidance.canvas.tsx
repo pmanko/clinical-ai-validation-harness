@@ -1,3 +1,5 @@
+// Historical artifact snapshot. Current implementation guidance lives in the approved hub
+// consolidation roadmap and its status amendments.
 import {
   Callout,
   Card,

@@ -30,7 +30,7 @@ const heroStats = [
 // The answer-quality layers, in call order (team.py::_synthesize_and_validate 1165-1202).
 const layerRows = [
   ['1 · Synthesize answer', '_synthesize_answer :657', 'writer (synth model)', 'produce {answer, citations, blocks}', '—'],
-  ['2 · Temporal gate', '_apply_temporal_gate :602 → temporal.run_temporal_gate', 'deterministic + facts', 'patch/flag temporal claims vs temporal_facts.v1 (off/warn/enforce)', 'overlaps the validator’s temporal check'],
+  ['2 · Temporal gate', '_apply_temporal_gate :602 → temporal.run_temporal_gate', 'deterministic + facts', 'patch/flag temporal claims vs temporal_facts (off/warn/enforce)', 'overlaps the validator’s temporal check'],
   ['3 · Validate + refine', '_validate_and_refine_answer :983', 'validator LLM (cross-family)', 'flag factual/temporal contradiction → regenerate OR rewrite', 'two impls; temporal overlaps layer 2'],
   ['4 · Merge confidence', '_merge_temporal_gate_conf :571', 'deterministic', 'combine gate + validator → green/yellow/red', 'reconciles two overlapping signals'],
   ['5 · In-Depth synth + validate', '_gen_indepth :897 → _validate_indepth_verdict :810', 'writer + validator LLM', 'elaborate → drop/keep claims → re-synth → strip', 'separate validation subsystem'],

@@ -35,6 +35,7 @@ FORBIDDEN = [
     (re.compile(r"CHARTSEARCH_REMOTE_(?:ENDPOINT_URL|MODEL_NAME|ENDPOINTS)|CHARTSEARCH_LLM_ENGINE"), "old direct-provider ChartSearchAI configuration"),
     (re.compile(r"GCP_FIREWALL_DENY_LMS|GCP_LMS_PORT"), "retired cloud model-server firewall"),
     (re.compile(r"value\s*=\s*\"/search\"|/search/stream|chartsearchai/search/stream"), "removed search stream path"),
+    (re.compile(r"\btemporal_facts\.v\d"), "versioned internal temporal-facts contract"),
 ]
 
 TEXT_SUFFIXES = {
@@ -60,7 +61,21 @@ ALWAYS_ALLOW = {
 HISTORICAL_PATH_HINTS = (
     "docs/adr.md",
     "docs/migration-querystore-plan.md",
-    "specs/artifacts/",
+    "specs/artifacts/handoffs/",
+    "specs/artifacts/lanes/",
+    "specs/artifacts/planning/archive/",
+    "specs/artifacts/sibling-context/",
+    "specs/artifacts/canvases/chartsearchai-and-querystore.canvas.tsx",
+    "specs/artifacts/canvases/clinical-ai-research-guidance.canvas.tsx",
+    "specs/artifacts/canvases/cross-project-comparison.canvas.tsx",
+    "specs/artifacts/canvases/scout-comparative-analysis.canvas.tsx",
+    "specs/artifacts/canvases/upstream-contribution-and-compatibility.canvas.tsx",
+    "specs/artifacts/planning/chartsearchai-model-gateway-brief.md",
+    "specs/artifacts/planning/config-guide-prompts-and-models.md",
+    "specs/artifacts/planning/hub-consolidation-roadmap.md",
+    "specs/artifacts/planning/lm-studio-api-reference.md",
+    "specs/artifacts/planning/picker-endpoint-sections-b4-plan.md",
+    "specs/artifacts/planning/upstream-sync-2026-06-13.md",
     "specs/research/",
     "specs/004-real-adapter-entrypoints/",
     "specs/007-llm-config-overrides/",

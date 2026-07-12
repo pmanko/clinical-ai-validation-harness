@@ -1,5 +1,8 @@
 # chartsearchai Model Gateway — Source Brief
 
+> **Historical / superseded.** This source brief predates the med-agent-hub relay architecture.
+> The approved hub consolidation roadmap and status amendments govern current implementation.
+
 **Status**: Source brief — feeds `/speckit-specify` for feature 008.
 **Roadmap entry**: M3/M4 follow-on — `008-chartsearchai-model-gateway` (lane `foundation`; first consumer is chartsearchai).
 **Recommended spec number**: **008**. 006 and 007 are reserved by 005's explicit deferrals (frontend "Answered by" pill; MCP/Spark/FHIR tooling). 003 is a numbering gap that is deliberately not backfilled (the chartsearchai lineage is sequential on disk: 004 → 005 → 006 → 007 → 008).
