@@ -38,6 +38,14 @@ _prepare_context = None
 get_profile = None
 
 
+def _bootstrap_pythons() -> tuple[Path, ...]:
+    return (
+        ROOT / ".gates-hub-venv" / "bin" / "python",
+        HUB / ".venv-test" / "bin" / "python",
+        HUB / ".venv" / "bin" / "python",
+    )
+
+
 def _load_hub_runtime() -> None:
     global RouterTokenCounter, ExecutionRequest, _State, _prepare_context, get_profile
     if all(
@@ -54,10 +62,7 @@ def _load_hub_runtime() -> None:
     if importlib.util.find_spec("httpx") is None and not os.environ.get(
         "CONTEXT_QUALITY_BOOTSTRAPPED"
     ):
-        for python in (
-            HUB / ".venv-test" / "bin" / "python",
-            HUB / ".venv" / "bin" / "python",
-        ):
+        for python in _bootstrap_pythons():
             if python.exists():
                 os.environ["CONTEXT_QUALITY_BOOTSTRAPPED"] = "1"
                 os.execv(str(python), [str(python), *sys.argv])

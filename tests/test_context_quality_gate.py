@@ -34,6 +34,12 @@ def test_source_indices_walks_nested_temporal_fact_shapes():
     ) == {3, 4, 5, 6}
 
 
+def test_bootstrap_prefers_the_parent_gate_environment():
+    module = _load_module()
+
+    assert module._bootstrap_pythons()[0] == ROOT / ".gates-hub-venv/bin/python"
+
+
 def test_context_cases_require_explicit_nonempty_labels():
     module = _load_module()
     comparison = {
