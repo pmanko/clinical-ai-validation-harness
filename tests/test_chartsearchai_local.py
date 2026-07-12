@@ -132,6 +132,8 @@ def test_validation_run_reuses_the_credential_aware_hub_target():
 def test_preflight_probes_the_context_source_from_inside_the_hub():
     preflight = _read("scripts/validate-preflight.sh")
 
+    assert 'HUB_BUILD_REVISION="$(git -C targets/med-agent-hub rev-parse HEAD)"' in preflight
+    assert "export HUB_BUILD_REVISION" in preflight
     assert 'docker exec -e SOURCE_PROBE_PATIENT="${SOURCE_PROBE_PATIENT}" harness-med-agent-hub' in preflight
     assert 'test -n "$QUERYSTORE_BASE_URL"' in preflight
     assert 'chk "hub context source" "authenticated patient record" ok' in preflight

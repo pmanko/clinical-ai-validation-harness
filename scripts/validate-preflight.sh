@@ -41,6 +41,8 @@ SET_FILE="datasets/validation/comparison_sets/${SET}.json"
 # without it the frontend/gateway downgrade to stock and the SPA 404s.
 [ -f ./.env.chartsearch ] || { echo "ERROR: ./.env.chartsearch not found — provision it (see scripts/chartsearch-configure.sh) before running preflight." >&2; exit 1; }
 set -a; . ./.env.chartsearch; set +a
+HUB_BUILD_REVISION="$(git -C targets/med-agent-hub rev-parse HEAD)"
+export HUB_BUILD_REVISION
 PORT="${HARNESS_PROXY_HTTP_PORT:-8088}"
 AUTH="${CHARTSEARCH_ADMIN_USER:-admin}:${CHARTSEARCH_ADMIN_PASSWORD:-Admin123}"
 BASE="http://localhost:${PORT}/openmrs"
