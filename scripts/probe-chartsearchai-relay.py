@@ -67,6 +67,55 @@ def _canonical_sha256(payload: dict[str, Any], *, hydrated: bool = False) -> str
     return hashlib.sha256(encoded).hexdigest()
 
 
+def _terminal_reference_state(reference: dict[str, Any]) -> tuple[int, str, str]:
+    index = reference.get("index")
+    if type(index) is not int or index <= 0:
+        raise RuntimeError("reference does not have a positive integer index")
+    resolution = reference.get("resolutionStatus")
+    grounding = reference.get("groundingStatus")
+    if resolution == "resolved" and grounding not in {
+        "verified",
+        "unsupported",
+        "mixed",
+    }:
+        raise RuntimeError("resolved reference lacked a terminal grounding verdict")
+    if resolution == "unresolved" and grounding != "unchecked":
+        raise RuntimeError("unresolved reference lacked terminal unchecked grounding")
+    if resolution not in {"resolved", "unresolved"}:
+        raise RuntimeError("reference did not have terminal resolution")
+    return index, resolution, grounding
+
+
+def _answer_side(payload: dict[str, Any]) -> dict[str, Any]:
+    confidence = payload.get("confidence") or {}
+    return {
+        "answer": payload.get("answer") or "",
+        "blocks": payload.get("blocks") or [],
+        "safetyWarnings": payload.get("safetyWarnings") or [],
+        "answerValidation": payload.get("answerValidation"),
+        "answerConfidence": confidence.get("answer") if isinstance(confidence, dict) else None,
+    }
+
+
+def _answer_reference_states(payload: dict[str, Any]) -> list[tuple[int, str, str]]:
+    references = payload.get("references") or []
+    has_usage = any(reference.get("usage") for reference in references if isinstance(reference, dict))
+    answer_references = (
+        [
+            reference
+            for reference in references
+            if any(
+                usage.get("location") in {"answer", "block"}
+                for usage in (reference.get("usage") or [])
+                if isinstance(usage, dict)
+            )
+        ]
+        if has_usage
+        else references
+    )
+    return [_terminal_reference_state(reference) for reference in answer_references]
+
+
 def _git_identity(path: Path) -> dict[str, Any]:
     return {
         "commit": subprocess.check_output(
@@ -252,6 +301,7 @@ def _stream_turn(
     answer_done: dict[str, Any] | None = None
     final: dict[str, Any] | None = None
     event_names: list[str] = []
+    phase_payloads: dict[str, dict[str, Any]] = {}
     with urllib.request.urlopen(request, timeout=timeout) as response:
         session = response.headers.get("X-ChartSearchAi-Session")
         for raw in response:
@@ -267,6 +317,7 @@ def _stream_turn(
                     raise RuntimeError(f"ChartSearchAI relay returned an error: {data}")
                 payload = json.loads(data)
                 event_names.append(event)
+                phase_payloads[event] = payload
                 if event == "answer_done":
                     if not payload.get("answer"):
                         raise RuntimeError("answer_done did not contain an answer")
@@ -306,33 +357,91 @@ def _stream_turn(
         raise RuntimeError("answer_done and done used different assistant rows")
     if final.get("auditLogId") != answer_done["audit_log_id"]:
         raise RuntimeError("answer_done and done used different audit rows")
-    expected_events = [
-        "answer_done",
-        "answer_validation",
-        "indepth_pending",
-        "indepth_done",
-        "done",
-    ]
-    if event_names != expected_events:
+    valid_event_sequences = {
+        (
+            "answer_done",
+            "answer_validation",
+            "indepth_pending",
+            "indepth_done",
+            "done",
+        ),
+        (
+            "answer_done",
+            "answer_validation",
+            "indepth_pending",
+            "indepth_error",
+            "done",
+        ),
+    }
+    if tuple(event_names) not in valid_event_sequences:
         raise RuntimeError(f"reviewed staged lifecycle was incomplete: {event_names!r}")
+    for phase in ("answer_validation", "indepth_pending", event_names[-2]):
+        payload = phase_payloads.get(phase) or {}
+        if payload.get("messageId") != answer_done["message_id"]:
+            raise RuntimeError(f"{phase} updated a different assistant row")
+        if payload.get("auditLogId") != answer_done["audit_log_id"]:
+            raise RuntimeError(f"{phase} updated a different audit row")
     validation = final.get("answerValidation") or {}
-    if validation.get("status") not in {"checked", "edited"}:
-        raise RuntimeError("healthy proof did not finish with a checked or edited answer")
+    validation_status = validation.get("status")
+    if validation_status not in {"checked", "edited", "needs_review"}:
+        raise RuntimeError("relay proof did not finish with a terminal answer check")
+    if validation_status == "needs_review":
+        issues = validation.get("issues")
+        if (
+            not isinstance(issues, list)
+            or not issues
+            or any(
+                not isinstance(issue, dict)
+                or not any(
+                    str(issue.get(key) or "").strip()
+                    for key in ("reason", "wrong", "fix", "claim", "summary")
+                )
+                for issue in issues
+            )
+        ):
+            raise RuntimeError("needs-review answer did not contain descriptive issues")
+    final_answer_side = _answer_side(final)
+    final_answer_references = _answer_reference_states(final)
+    for phase in ("answer_validation", "indepth_pending"):
+        payload = phase_payloads[phase]
+        if _answer_side(payload) != final_answer_side:
+            raise RuntimeError(f"{phase} did not carry the final Answer-side envelope")
+        if _answer_reference_states(payload) != final_answer_references:
+            raise RuntimeError(f"{phase} did not carry the final Answer references")
+    pending = phase_payloads["indepth_pending"].get("inDepth") or {}
+    if pending.get("status") != "pending":
+        raise RuntimeError("indepth_pending did not carry pending In-Depth state")
     references = final.get("references") or []
     for reference in references:
         if not isinstance(reference, dict):
             raise RuntimeError("done contained a malformed reference")
-        resolution = reference.get("resolutionStatus")
-        if resolution not in {"resolved", "unresolved"}:
-            raise RuntimeError("done contained a reference without terminal resolution")
-        if resolution == "resolved" and reference.get("groundingStatus") not in {
-            "verified",
-            "unsupported",
-        }:
-            raise RuntimeError("resolved reference lacked a terminal grounding verdict")
+        _terminal_reference_state(reference)
+    if validation_status in {"checked", "edited"} and any(
+        reference.get("resolutionStatus") != "resolved"
+        or reference.get("groundingStatus") != "verified"
+        for reference in references
+    ):
+        raise RuntimeError("checked answer retained unresolved or unsupported evidence")
     in_depth = final.get("inDepth") or {}
-    if in_depth.get("status") != "complete" or not str(in_depth.get("answer") or "").strip():
-        raise RuntimeError("healthy proof did not finish with complete substantive In-Depth")
+    terminal_event = event_names[-2]
+    terminal_payload = phase_payloads[terminal_event]
+    if _canonical_sha256(terminal_payload) != _canonical_sha256(final):
+        raise RuntimeError(f"{terminal_event} did not carry the final assistant envelope")
+    if terminal_event == "indepth_done":
+        if in_depth.get("status") != "complete" or not str(
+            in_depth.get("answer") or ""
+        ).strip():
+            raise RuntimeError("indepth_done did not contain complete substantive In-Depth")
+    else:
+        indepth_validation = in_depth.get("validation") or {}
+        if in_depth.get("status") != "needs_review" or not str(
+            in_depth.get("error") or ""
+        ).strip():
+            raise RuntimeError("indepth_error did not contain a reasoned safety withholding")
+        if indepth_validation.get("status") != "needs_review":
+            raise RuntimeError("indepth_error lost needs-review validation metadata")
+        if indepth_validation.get("review_status") == "unavailable":
+            raise RuntimeError("In-Depth review was unavailable")
     return {
         **answer_done,
         "event_names": event_names,
@@ -340,6 +449,7 @@ def _stream_turn(
         "final_answer_validation": validation,
         "final_reference_count": len(references),
         "final_in_depth": in_depth,
+        "in_depth_terminal_event": terminal_event,
         "final_envelope_sha256": _canonical_sha256(final),
         "done_ms": round((time.monotonic() - started) * 1000),
     }
@@ -439,6 +549,7 @@ def probe_relay(
         "answer_validation": streamed["final_answer_validation"],
         "reference_count": streamed["final_reference_count"],
         "in_depth_status": streamed["final_in_depth"].get("status"),
+        "in_depth_terminal_event": streamed["in_depth_terminal_event"],
         "events": streamed["event_names"],
         "hydrated": True,
         "cleared_after": clear_after,

@@ -455,10 +455,19 @@ assert proof["hydrated"] is True and proof["cleared_after"] is True
 assert proof["session"] and proof["message_id"] and proof["answer_done_ms"] > 0
 assert isinstance(proof["audit_log_id"], int) and proof["audit_log_id"] > 0
 assert proof["done_ms"] >= proof["answer_done_ms"]
-assert proof["answer_validation"]["status"] in {"checked", "edited"}
-assert proof["in_depth_status"] == "complete"
+assert proof["answer_validation"]["status"] in {"checked", "edited", "needs_review"}
+if proof["answer_validation"]["status"] == "needs_review":
+    assert proof["answer_validation"].get("issues")
+assert proof["in_depth_terminal_event"] in {"indepth_done", "indepth_error"}
+assert proof["in_depth_status"] == (
+    "complete" if proof["in_depth_terminal_event"] == "indepth_done" else "needs_review"
+)
 assert proof["events"] == [
-    "answer_done", "answer_validation", "indepth_pending", "indepth_done", "done"
+    "answer_done",
+    "answer_validation",
+    "indepth_pending",
+    proof["in_depth_terminal_event"],
+    "done",
 ]
 assert proof["final_envelope_sha256"] == proof["hydrated_envelope_sha256"]
 assert len(proof["answer_sha256"]) == 64
