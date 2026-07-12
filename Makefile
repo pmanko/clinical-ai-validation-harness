@@ -9,7 +9,7 @@ export UV_PROJECT_ENVIRONMENT
         reset-transform sqlmesh-status \
         loadtest-up loadtest-down \
         load-test orphan-fk-check import-smoke dump-loaded promote \
-        chartsearch-build querystore-build chartsearch-configure querystore-configure chartsearch-backend chartsearch-doctor chartsearchai-local \
+        chartsearch-build querystore-build querystore-recreate-index chartsearch-configure querystore-configure chartsearch-backend chartsearch-doctor chartsearchai-local \
         chartsearch-esm-build chartsearch-esm-dev \
         llama-router-up llama-router-models \
         med-agent-hub-build med-agent-hub-up med-agent-hub-logs med-agent-hub-restart med-agent-hub-test querystore-reindex \
@@ -273,6 +273,11 @@ querystore-configure:
 
 querystore-reindex:
 	@./scripts/querystore-reindex.sh
+
+# Destructive only to the local Querystore read model, never to OpenMRS clinical tables.
+# Explicit opt-in prevents an accidental invocation. Rebuilds the pinned module first.
+querystore-recreate-index: querystore-build
+	@ALLOW_QUERYSTORE_INDEX_RESET=$(ALLOW_QUERYSTORE_INDEX_RESET) ./scripts/querystore-recreate-index.sh
 
 # Switch querystore's storage backend and re-test it. The backend is wired at
 # module startup (QueryStoreActivator), so this sets the querystore.backend GP,

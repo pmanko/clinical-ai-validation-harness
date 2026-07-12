@@ -156,6 +156,23 @@ def test_seed_rejects_unverified_dump_before_database_mutation():
     assert "artifacts/chartsearchai-local/corpus-provenance.json" in seed
 
 
+def test_querystore_recreate_is_explicit_and_read_store_scoped():
+    makefile = _read("Makefile")
+    script = _read("scripts/querystore-recreate-index.sh")
+
+    target = makefile.split("querystore-recreate-index:", 1)[1].split(
+        "chartsearch-configure:", 1
+    )[0]
+    assert "querystore-build" in target
+    assert "ALLOW_QUERYSTORE_INDEX_RESET" in target
+    assert '[[ "${ALLOW_QUERYSTORE_INDEX_RESET:-}" != "1" ]]' in script
+    assert "_cat/indices/querystore_*" in script
+    assert "DELETE FROM querystore_bootstrap_progress" in script
+    assert "DELETE FROM patient" not in script
+    assert "DELETE FROM obs" not in script
+    assert "scripts/check-querystore-drift.py" in script
+
+
 def test_local_startup_provisions_source_before_starting_and_warming_hub():
     script = _read("scripts/chartsearchai-local.sh")
 
