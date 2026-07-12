@@ -168,8 +168,36 @@ scenario = json.loads((root / "scenarios" / f"{comparison['scenario_ids'][0]}.js
 print(scenario["patient_ref"])
 PY
 )"
-if docker exec -e SOURCE_PROBE_PATIENT="${SOURCE_PROBE_PATIENT}" harness-med-agent-hub \
-    sh -c 'test -n "$QUERYSTORE_BASE_URL" && test -n "$QUERYSTORE_USERNAME" && test -n "$QUERYSTORE_PASSWORD" && curl -fsS --max-time 30 -u "$QUERYSTORE_USERNAME:$QUERYSTORE_PASSWORD" "$QUERYSTORE_BASE_URL/ws/rest/v1/querystore/patientrecord?patient=$SOURCE_PROBE_PATIENT&limit=1" | grep -q '"'"'"results"'"'"''; then
+if docker exec -i -e SOURCE_PROBE_PATIENT="${SOURCE_PROBE_PATIENT}" harness-med-agent-hub \
+    python - <<'PY'
+import base64
+import json
+import os
+import urllib.parse
+import urllib.request
+
+required = ("QUERYSTORE_BASE_URL", "QUERYSTORE_USERNAME", "QUERYSTORE_PASSWORD")
+assert all(os.environ.get(name) for name in required)
+query = urllib.parse.urlencode(
+    {"patient": os.environ["SOURCE_PROBE_PATIENT"], "limit": 1}
+)
+url = (
+    os.environ["QUERYSTORE_BASE_URL"].rstrip("/")
+    + "/ws/rest/v1/querystore/patientrecord?"
+    + query
+)
+credentials = (
+    os.environ["QUERYSTORE_USERNAME"] + ":" + os.environ["QUERYSTORE_PASSWORD"]
+).encode()
+request = urllib.request.Request(
+    url,
+    headers={"Authorization": "Basic " + base64.b64encode(credentials).decode()},
+)
+with urllib.request.urlopen(request, timeout=30) as response:
+    payload = json.load(response)
+assert isinstance(payload.get("results"), list)
+PY
+then
   chk "hub context source" "authenticated patient record" ok
 else
   chk "hub context source" "missing config, auth failure, or empty response" fail

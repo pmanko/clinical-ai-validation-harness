@@ -134,8 +134,10 @@ def test_preflight_probes_the_context_source_from_inside_the_hub():
 
     assert 'HUB_BUILD_REVISION="$(git -C targets/med-agent-hub rev-parse HEAD)"' in preflight
     assert "export HUB_BUILD_REVISION" in preflight
-    assert 'docker exec -e SOURCE_PROBE_PATIENT="${SOURCE_PROBE_PATIENT}" harness-med-agent-hub' in preflight
-    assert 'test -n "$QUERYSTORE_BASE_URL"' in preflight
+    assert 'docker exec -i -e SOURCE_PROBE_PATIENT="${SOURCE_PROBE_PATIENT}" harness-med-agent-hub' in preflight
+    assert 'required = ("QUERYSTORE_BASE_URL", "QUERYSTORE_USERNAME", "QUERYSTORE_PASSWORD")' in preflight
+    assert "urllib.request.urlopen(request, timeout=30)" in preflight
+    assert 'assert isinstance(payload.get("results"), list)' in preflight
     assert 'chk "hub context source" "authenticated patient record" ok' in preflight
 
 
