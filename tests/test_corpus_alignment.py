@@ -4,7 +4,11 @@ from pathlib import Path
 
 import pytest
 
-from harness.validate.corpus_alignment import alignment_issues, expected_record_dates
+from harness.validate.corpus_alignment import (
+    alignment_issues,
+    expected_ledgers,
+    live_records,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 SPEC = importlib.util.spec_from_file_location(
@@ -15,7 +19,7 @@ assert SPEC and SPEC.loader
 SPEC.loader.exec_module(CAPTURE)
 
 
-def test_expected_record_dates_are_derived_from_fixture_mappings(tmp_path):
+def test_expected_ledger_and_alignment_compare_complete_rendered_content(tmp_path):
     root = tmp_path
     (root / "comparison_sets").mkdir()
     (root / "scenarios").mkdir()
@@ -28,28 +32,25 @@ def test_expected_record_dates_are_derived_from_fixture_mappings(tmp_path):
         json.dumps(
             {
                 "patient": {"uuid": "p"},
-                "mappings": [
-                    {"resourceUuid": "a", "date": "2025-01-01"},
-                    {"resourceUuid": "b", "date": 1767312000000},
-                ],
+                "chart_snapshot": "[1] (2025-01-01) Finding -- Weight: 71 kg\n",
+                "mappings": [{"index": 1, "resourceType": "obs", "resourceUuid": "a", "date": "2025-01-01", "text": "(2025-01-01) Finding -- Weight: 71 kg"}],
             }
         )
     )
 
-    assert expected_record_dates(root, "set") == {
-        "p": {"a": "2025-01-01", "b": "2026-01-02"}
-    }
-    assert alignment_issues(
-        {"p": {"a": "2025-01-01", "b": "2026-01-02"}},
-        {"p": {"a": "2006-06-06", "c": "2026-01-02"}},
-    ) == [
-        "p: 1 fixture record(s) missing live; sample ['b']",
-        "p: 1 unexpected live record(s); sample ['c']",
-        "p: 1 record date mismatch(es); sample ['a fixture=2025-01-01 live=2006-06-06']",
-    ]
+    expected = expected_ledgers(root, "set")
+    assert alignment_issues(expected, expected) == []
+
+    changed = json.loads(json.dumps(expected))
+    changed["p"]["mappings"][0]["text"] = "(2025-01-01) Finding -- Weight: 17 kg"
+    changed["p"]["chart_snapshot"] = "[1] (2025-01-01) Finding -- Weight: 17 kg\n"
+    issues = alignment_issues(expected, changed)
+    assert "p: mapping content/order differs at index 1" in issues
+    assert "p: rendered chart text differs" in issues
+    assert any("ledger sha fixture=" in issue for issue in issues)
 
 
-def test_expected_latest_dates_fails_without_patient_fixture(tmp_path):
+def test_expected_ledgers_fails_without_patient_fixture(tmp_path):
     root = tmp_path
     (root / "comparison_sets").mkdir()
     (root / "scenarios").mkdir()
@@ -59,8 +60,42 @@ def test_expected_latest_dates_fails_without_patient_fixture(tmp_path):
     )
     (root / "scenarios" / "s.json").write_text(json.dumps({"patient_ref": "p"}))
 
-    with pytest.raises(ValueError, match="no dated chart fixture"):
-        expected_record_dates(root, "set")
+    with pytest.raises(ValueError, match="no complete chart fixture"):
+        expected_ledgers(root, "set")
+
+
+def test_live_records_pages_until_total_count(monkeypatch):
+    pages = [
+        {"results": [{"resourceUuid": "a"}], "totalCount": 2},
+        {"results": [{"resourceUuid": "b"}], "totalCount": 2},
+    ]
+    urls = []
+
+    class Response:
+        def __init__(self, payload):
+            self.payload = payload
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def read(self):
+            return json.dumps(self.payload).encode()
+
+    def urlopen(request, timeout):
+        urls.append(request.full_url)
+        return Response(pages.pop(0))
+
+    monkeypatch.setattr("urllib.request.urlopen", urlopen)
+
+    assert live_records("http://example/records", "p", "u", "pw", page_size=1) == [
+        {"resourceUuid": "a"},
+        {"resourceUuid": "b"},
+    ]
+    assert "startIndex=0" in urls[0]
+    assert "startIndex=1" in urls[1]
 
 
 def test_fixture_refresh_uses_hub_serializer_and_preserves_curated_identity():
@@ -144,3 +179,31 @@ def test_all_fixture_capture_fetches_every_patient_before_writing(tmp_path, monk
 
     assert CAPTURE.main(["--all", "--username", "reader", "--password", "secret"]) == 1
     assert [path.read_text(encoding="utf-8") for path in fixtures] == before
+
+
+def test_successful_fixture_capture_replaces_staged_file_atomically(tmp_path, monkeypatch):
+    fixture = tmp_path / "p1.json"
+    fixture.write_text(
+        json.dumps({"patient": {"uuid": "p1"}, "chart_snapshot": "old", "mappings": []}),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(CAPTURE, "ROOT", tmp_path)
+    monkeypatch.setattr(CAPTURE, "_fixture_paths", lambda *_args: [fixture])
+    monkeypatch.setattr(CAPTURE, "_hub_commit", lambda: "a" * 40)
+    monkeypatch.setattr(
+        CAPTURE,
+        "live_records",
+        lambda *_args: [{"resourceType": "obs", "resourceUuid": "o1", "date": "2026-01-01", "text": "Finding -- Weight: 71 kg"}],
+    )
+    replacements = []
+    real_replace = CAPTURE.os.replace
+
+    def replace(source, destination):
+        replacements.append((Path(source), Path(destination)))
+        real_replace(source, destination)
+
+    monkeypatch.setattr(CAPTURE.os, "replace", replace)
+
+    assert CAPTURE.main(["--all", "--username", "reader", "--password", "secret"]) == 0
+    assert replacements == [(tmp_path / ".p1.json.tmp", fixture)]
+    assert json.loads(fixture.read_text())["valid_uuids"] == ["o1"]

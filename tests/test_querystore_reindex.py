@@ -23,7 +23,7 @@ if [[ "$*" == *"/drift"* ]]; then
   if [[ "${FAKE_STALE_EXTRA:-0}" == '1' && "$n" -gt 1 ]]; then
     printf '%s' '{"types":[{"resourceType":"obs","coreCount":1,"indexedCount":2,"drift":-1}]}'
   else
-    printf '%s' '{"types":[{"resourceType":"obs","coreCount":2}]}'
+    printf '%s' '{"types":[{"resourceType":"obs","coreCount":2,"indexedCount":2,"drift":0}]}'
   fi
 elif [[ "$*" == *"/indexingstatus"* ]]; then
   n=$(grep -c '/indexingstatus' "$FAKE_CURL_LOG")
@@ -57,7 +57,6 @@ fi
     env = os.environ.copy()
     env["PATH"] = f"{fake_bin}:{env['PATH']}"
     env["FAKE_CURL_LOG"] = str(log)
-    env["QUERYSTORE_REINDEX_LOCK_DIR"] = str(tmp_path / "reindex.lock")
     env["FAKE_STALE_EXTRA"] = "1" if stale_extra else "0"
     result = subprocess.run(
         ["/bin/bash", "scripts/querystore-reindex.sh"],
@@ -70,12 +69,12 @@ fi
 
     assert result.returncode == (1 if stale_extra else 0), result.stderr
     calls = log.read_text(encoding="utf-8")
-    assert calls.count("/indexingstatus") == 6
+    assert calls.count("/indexingstatus") == 4
     assert '\"scope\":\"type\"' in calls
     assert '\"resourceType\":\"obs\"' in calls
-    assert "obs: complete and settled (2 documents)" in result.stdout
+    assert "obs: complete (2 documents)" in result.stdout
     if stale_extra:
         assert "stale extra document" in result.stderr
-        assert "cannot delete stale extras" in result.stderr
+        assert "Stale extras require" in result.stderr
     else:
-        assert "no stale-extra drift detected" in result.stdout
+        assert "validation drift policy passes" in result.stdout

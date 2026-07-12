@@ -11,8 +11,8 @@
 # extended-inserts for speed, hex-blob for binary safety) so two runs
 # against identical state produce byte-identical output (SC-004).
 #
-# By DEFAULT the dump is a clean portable CORPUS: OpenMRS-core + clinical only, with the consumer
-# consumer-module tables AND their liquibasechangelog rows excluded, so it loads onto any RefApp
+# By DEFAULT the dump is a clean portable CORPUS: OpenMRS-core + clinical only, with consumer
+# module tables AND their liquibasechangelog rows excluded, so it loads onto any RefApp
 # and ChartSearchAI/Querystore install themselves fresh on boot (no checksum mismatch). Override the
 # space-separated prefixes with MODULE_PREFIXES=, or keep all module state with --include-module-state.
 #
@@ -21,9 +21,8 @@
 # selection over an ever-growing artifact tree can silently resurrect a dump built before this
 # script's own exclusion logic existed; one canonical, always-fresh path removes that question.
 #
-# The output is self-verified below by grepping the actual bytes for the module prefix — the
-# exclusion query can silently miss (wrong schema, module absent at dump time, etc.), so the dump's
-# own provenance is never trusted as proof of cleanliness on its own.
+# The output is verified by the shared provenance verifier that seed-local also runs before restore.
+# The exclusion query can silently miss, so provenance declarations alone are not proof of cleanliness.
 #
 # Usage:
 #   ./scripts/dump-loaded.sh                                    # clean corpus, default openmrs_test → artifacts/demo-data/refapp_28_demo.sql.gz
@@ -148,22 +147,6 @@ else
   time dump_stream > "$OUT"
 fi
 
-if [[ "$EXCLUDE_MODULE" == "1" ]]; then
-  READ_CMD=(cat "$OUT"); [[ "$GZIP" == "1" ]] && READ_CMD=(gunzip -c "$OUT")
-  for prefix in "${MODULE_PREFIX_LIST[@]}"; do
-    LEFTOVER_TABLE="$("${READ_CMD[@]}" | grep -m1 -o "CREATE TABLE \`${prefix}_[a-z_]*\`" || true)"
-    LEFTOVER_CHANGESET="$("${READ_CMD[@]}" | grep "INSERT INTO \`liquibasechangelog\`" | grep -m1 -o "'${prefix}[^']*'" || true)"
-    if [[ -n "$LEFTOVER_TABLE" || -n "$LEFTOVER_CHANGESET" ]]; then
-      echo "ERROR: dump claims to exclude module '${prefix}' but its bytes say otherwise:" >&2
-      [[ -n "$LEFTOVER_TABLE" ]] && echo "  table survived: ${LEFTOVER_TABLE}" >&2
-      [[ -n "$LEFTOVER_CHANGESET" ]] && echo "  changelog row survived: ${LEFTOVER_CHANGESET}" >&2
-      echo "  refusing to publish a dump that fails its own cleanliness guarantee: ${OUT}" >&2
-      rm -f "$OUT"
-      exit 1
-    fi
-  done
-fi
-
 SIZE=$(wc -c < "$OUT" | tr -d ' ')
 SIZE_HUMAN=$(awk -v b="$SIZE" 'BEGIN { split("B KB MB GB", u); i=1; while (b>=1024 && i<4) { b/=1024; i++ } printf("%.1f %s", b, u[i]) }')
 SHA=$(shasum -a 256 "$OUT" | awk '{print $1}')
@@ -172,6 +155,7 @@ EXCLUDED_JSON="[]"
 if (( ${#EXCLUDED_TABLES[@]} > 0 )); then
   EXCLUDED_JSON=$(printf '%s\n' "${EXCLUDED_TABLES[@]}" | python3 -c 'import json,sys; print(json.dumps([l.strip() for l in sys.stdin if l.strip()]))')
 fi
+PREFIXES_JSON=$(printf '%s\n' "${MODULE_PREFIX_LIST[@]}" | python3 -c 'import json,sys; print(json.dumps([l.strip() for l in sys.stdin if l.strip()]))')
 
 cat > "${OUT}.provenance.json" <<EOF
 {
@@ -179,6 +163,8 @@ cat > "${OUT}.provenance.json" <<EOF
   "table_count": ${TABLE_COUNT},
   "approx_row_count": ${ROW_COUNT:-0},
   "excluded_tables": ${EXCLUDED_JSON},
+  "excluded_module_prefixes": ${PREFIXES_JSON},
+  "module_state_included": $([ "$EXCLUDE_MODULE" == "1" ] && echo "false" || echo "true"),
   "output_path": "${OUT}",
   "output_bytes": ${SIZE},
   "output_sha256": "${SHA}",
@@ -188,6 +174,11 @@ cat > "${OUT}.provenance.json" <<EOF
   "load_into_command": "$([ "$GZIP" == "1" ] && echo "zcat ${OUT} | mariadb -u root -p <target_db>" || echo "mariadb -u root -p <target_db> < ${OUT}")"
 }
 EOF
+
+if ! python3 scripts/verify-portable-dump.py --dump "$OUT"; then
+  rm -f "$OUT" "${OUT}.provenance.json"
+  exit 1
+fi
 
 echo ""
 echo "✓ ${OUT} (${SIZE_HUMAN})"

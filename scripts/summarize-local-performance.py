@@ -14,6 +14,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from harness.validate.performance_timing import derive_answer_timing
+
 
 def _sha256(path: Path) -> str:
     digest = hashlib.sha256()
@@ -103,10 +105,7 @@ def _timing_rows(
         sources = (entry.get("context") or {}).get("sources") or []
         if source and source not in sources:
             continue
-        timing = next(
-            (step for step in entry.get("steps", []) if step.get("role") == "answer_timing"),
-            None,
-        )
+        timing = derive_answer_timing(entry.get("steps", []))
         if timing is None:
             continue
         rows.append(

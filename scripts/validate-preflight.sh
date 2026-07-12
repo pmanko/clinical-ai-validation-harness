@@ -78,8 +78,6 @@ echo "==> [4/5] validate querystore corpus index (read-only GET /querystore/drif
 # FAIL when a type is empty-but-expected (indexedCount==0 while coreCount>0) or badly
 # under-indexed (drift > 5% of coreCount AND > 50 absolute) — that means the corpus
 # is un-bootstrapped / broken and a run would get empty charts. Surfaced, never masked.
-DRIFT_PCT="${QUERYSTORE_DRIFT_PCT:-5}"     # generous: warn-then-fail above 5% of coreCount …
-DRIFT_ABS="${QUERYSTORE_DRIFT_ABS:-50}"    # … AND more than 50 docs missing (ignore tiny stable drift)
 # Fetch /drift, retrying a few times: right after the backend/hub come up it can return a
 # transient empty / non-JSON body (proxy blip, GC pause) before settling. We accept only a
 # well-formed {"types":...} payload; persistent failure across all tries → querystore/ES not up.
@@ -97,47 +95,8 @@ if [ -z "${DRIFT_JSON}" ]; then
   echo "       script's [1]+[2]) before a run." >&2
   exit 1
 fi
-DRIFT_REPORT="$(DRIFT_PCT="${DRIFT_PCT}" DRIFT_ABS="${DRIFT_ABS}" DRIFT_JSON="${DRIFT_JSON}" python3 - <<'PY'
-import json, os, sys
-pct_thr = float(os.environ["DRIFT_PCT"])
-abs_thr = int(os.environ["DRIFT_ABS"])
-try:
-    types = json.loads(os.environ["DRIFT_JSON"]).get("types", [])
-except Exception as e:
-    print(f"!! could not parse /drift response: {e}", file=sys.stderr)
-    sys.exit(2)
-if not types:
-    print("!! /drift returned no types — querystore not reporting an index", file=sys.stderr)
-    sys.exit(2)
-
-hdr = f"    {'resourceType':<20} {'core':>10} {'indexed':>10} {'drift':>9}   status"
-print(hdr)
-print(f"    {'-'*20} {'-'*10} {'-'*10} {'-'*9}   ------")
-bad = []
-for t in types:
-    rt    = str(t.get("resourceType", "?"))
-    core  = int(t.get("coreCount", 0))
-    idx   = int(t.get("indexedCount", 0))
-    drift = int(t.get("drift", core - idx))
-    if core == 0:
-        status = "ok (empty)"                       # legitimately-absent type
-    elif idx == 0:
-        status = "FAIL: indexed=0"                   # expected docs, none indexed
-        bad.append((rt, core, idx, drift, "empty (indexedCount==0 while coreCount>0)"))
-    elif drift > abs_thr and drift > core * pct_thr / 100.0:
-        status = f"FAIL: drift {drift} (>{pct_thr:g}% & >{abs_thr})"
-        bad.append((rt, core, idx, drift, f"under-indexed (drift {drift} > {pct_thr:g}% of {core} and > {abs_thr})"))
-    else:
-        status = "ok"                                # exact, or small stable drift
-    print(f"    {rt:<20} {core:>10} {idx:>10} {drift:>9}   {status}")
-
-if bad:
-    print("!!FAIL", file=sys.stderr)
-    for rt, core, idx, drift, why in bad:
-        print(f"!! type={rt} core={core} indexed={idx} drift={drift} :: {why}", file=sys.stderr)
-    sys.exit(1)
-PY
-)" && DRIFT_RC=0 || DRIFT_RC=$?
+DRIFT_REPORT="$(printf '%s' "${DRIFT_JSON}" | python3 scripts/check-querystore-drift.py)" \
+  && DRIFT_RC=0 || DRIFT_RC=$?
 # Always print the per-type table (no truncation), pass or fail.
 [ -n "${DRIFT_REPORT}" ] && printf '%s\n' "${DRIFT_REPORT}"
 if [ "${DRIFT_RC}" -ne 0 ]; then
@@ -147,7 +106,7 @@ if [ "${DRIFT_RC}" -ne 0 ]; then
   echo "         make querystore-reindex" >&2
   exit 1
 fi
-echo "    corpus index OK — every type indexed within drift threshold (>${DRIFT_PCT}% & >${DRIFT_ABS} docs)"
+echo "    corpus index OK — every type satisfies the shared validation drift policy"
 
 echo "==> [4b/5] verify live ledger dates match committed validation fixtures"
 if [ -z "${QUERYSTORE_USERNAME:-}" ] || [ -z "${QUERYSTORE_PASSWORD:-}" ]; then

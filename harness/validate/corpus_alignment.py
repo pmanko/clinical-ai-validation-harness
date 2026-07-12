@@ -1,30 +1,35 @@
-"""Verify that live patient ledgers and committed judge fixtures share a date era."""
+"""Compare committed judge fixtures with the complete live hub evidence ledger."""
 
 from __future__ import annotations
 
 import base64
+import hashlib
 import json
 import urllib.parse
 import urllib.request
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 
-def _normalise_date(value: Any) -> str | None:
-    if isinstance(value, (int, float)) or (
-        isinstance(value, str) and value.strip().isdigit()
-    ):
-        number = float(value)
-        if number > 10_000_000_000:
-            return datetime.fromtimestamp(number / 1000, timezone.utc).date().isoformat()
-    text = str(value or "").strip()
-    return text[:10] if len(text) >= 10 else None
+def canonical_ledger(
+    chart_snapshot: str, mappings: list[dict[str, Any]]
+) -> dict[str, Any]:
+    return {
+        "chart_snapshot": chart_snapshot,
+        "mappings": mappings,
+    }
 
 
-def expected_record_dates(
+def ledger_sha256(ledger: dict[str, Any]) -> str:
+    payload = json.dumps(
+        ledger, sort_keys=True, separators=(",", ":"), ensure_ascii=True
+    ).encode()
+    return hashlib.sha256(payload).hexdigest()
+
+
+def expected_ledgers(
     data_root: Path, comparison_set: str
-) -> dict[str, dict[str, str | None]]:
+) -> dict[str, dict[str, Any]]:
     comparison = json.loads(
         (data_root / "comparison_sets" / f"{comparison_set}.json").read_text()
     )
@@ -34,43 +39,18 @@ def expected_record_dates(
         ]
         for scenario in comparison["scenario_ids"]
     }
-    fixtures: dict[str, dict[str, str | None]] = {}
+    fixtures: dict[str, dict[str, Any]] = {}
     for path in (data_root / "charts").glob("*.json"):
         fixture = json.loads(path.read_text())
-        patient = fixture.get("patient") or {}
-        patient_id = patient.get("uuid")
-        records = {
-            str(mapping["resourceUuid"]): _normalise_date(mapping.get("date"))
-            for mapping in fixture.get("mappings") or []
-            if mapping.get("resourceUuid")
-        }
-        if patient_id in patient_ids and records:
-            fixtures[patient_id] = records
+        patient_id = (fixture.get("patient") or {}).get("uuid")
+        snapshot = fixture.get("chart_snapshot")
+        mappings = fixture.get("mappings")
+        if patient_id in patient_ids and isinstance(snapshot, str) and isinstance(mappings, list):
+            fixtures[patient_id] = canonical_ledger(snapshot, mappings)
     missing = sorted(patient_ids - fixtures.keys())
     if missing:
-        raise ValueError(f"no dated chart fixture for patient(s): {', '.join(missing)}")
+        raise ValueError(f"no complete chart fixture for patient(s): {', '.join(missing)}")
     return fixtures
-
-
-def live_record_dates(
-    endpoint: str,
-    patient: str,
-    username: str,
-    password: str,
-    *,
-    page_size: int = 500,
-) -> dict[str, str | None]:
-    return {
-        str(record["resourceUuid"]): _normalise_date(record.get("date"))
-        for record in live_records(
-            endpoint,
-            patient,
-            username,
-            password,
-            page_size=page_size,
-        )
-        if record.get("resourceUuid")
-    }
 
 
 def live_records(
@@ -105,19 +85,27 @@ def live_records(
 
 
 def alignment_issues(
-    expected: dict[str, dict[str, str | None]],
-    live: dict[str, dict[str, str | None]],
+    expected: dict[str, dict[str, Any]],
+    live: dict[str, dict[str, Any]],
 ) -> list[str]:
     issues: list[str] = []
-    for patient, fixture_records in sorted(expected.items()):
-        live_records = live.get(patient) or {}
-        missing = sorted(fixture_records.keys() - live_records.keys())
-        unexpected = sorted(live_records.keys() - fixture_records.keys())
-        changed = sorted(
-            uuid
-            for uuid in fixture_records.keys() & live_records.keys()
-            if fixture_records[uuid] != live_records[uuid]
-        )
+    for patient, fixture_ledger in sorted(expected.items()):
+        live_ledger = live.get(patient)
+        if live_ledger is None:
+            issues.append(f"{patient}: live ledger missing")
+            continue
+        if ledger_sha256(fixture_ledger) == ledger_sha256(live_ledger):
+            continue
+        fixture_mappings = fixture_ledger.get("mappings") or []
+        live_mappings = live_ledger.get("mappings") or []
+        fixture_ids = {
+            row.get("resourceUuid") for row in fixture_mappings if row.get("resourceUuid")
+        }
+        live_ids = {
+            row.get("resourceUuid") for row in live_mappings if row.get("resourceUuid")
+        }
+        missing = sorted(fixture_ids - live_ids)
+        unexpected = sorted(live_ids - fixture_ids)
         if missing:
             issues.append(
                 f"{patient}: {len(missing)} fixture record(s) missing live; sample {missing[:3]}"
@@ -126,12 +114,26 @@ def alignment_issues(
             issues.append(
                 f"{patient}: {len(unexpected)} unexpected live record(s); sample {unexpected[:3]}"
             )
-        if changed:
-            sample = [
-                f"{uuid} fixture={fixture_records[uuid]} live={live_records[uuid]}"
-                for uuid in changed[:3]
-            ]
+        first_difference = next(
+            (
+                index
+                for index, (fixture_row, live_row) in enumerate(
+                    zip(fixture_mappings, live_mappings), start=1
+                )
+                if fixture_row != live_row
+            ),
+            None,
+        )
+        if len(fixture_mappings) != len(live_mappings):
             issues.append(
-                f"{patient}: {len(changed)} record date mismatch(es); sample {sample}"
+                f"{patient}: mapping count fixture={len(fixture_mappings)} live={len(live_mappings)}"
             )
+        elif first_difference is not None:
+            issues.append(f"{patient}: mapping content/order differs at index {first_difference}")
+        if fixture_ledger.get("chart_snapshot") != live_ledger.get("chart_snapshot"):
+            issues.append(f"{patient}: rendered chart text differs")
+        issues.append(
+            f"{patient}: ledger sha fixture={ledger_sha256(fixture_ledger)} "
+            f"live={ledger_sha256(live_ledger)}"
+        )
     return issues

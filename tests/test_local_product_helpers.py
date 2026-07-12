@@ -319,18 +319,16 @@ class FakeStream:
 
 
 def test_performance_collector_isolates_only_new_matching_product_rows():
-    timing = {
-        "role": "answer_timing",
-        "answer_to_done_ms": 100,
-        "answer_stage_ms": 80,
-        "pipeline_overhead_ms": 20,
-        "pipeline_overhead_ratio": 0.2,
-    }
+    timing = [
+        {"role": "stage_timing", "stage": "context", "occurrence": 1, "duration_ms": 20, "status": "completed"},
+        {"role": "stage_timing", "stage": "answer", "occurrence": 1, "duration_ms": 80, "status": "completed"},
+        {"role": "stage_timing", "stage": "resolve_refs", "occurrence": 1, "duration_ms": 0, "status": "completed"},
+    ]
     matching = {
         "level_id": "single-e4b-checked",
         "question": "Q",
         "context": {"sources": ["querystore"]},
-        "steps": [timing],
+        "steps": timing,
     }
     unrelated = {**matching, "question": "other"}
 

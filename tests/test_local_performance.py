@@ -13,13 +13,18 @@ build_proof = MODULE.build_proof
 
 
 def _trace_line(timestamp, profile, timing):
+    overhead = timing["answer_to_done_ms"] - timing["answer_stage_ms"]
     return json.dumps(
         {
             "ts": timestamp,
             "level_id": profile,
             "question": "When was the latest visit?",
             "context": {"sources": ["querystore"]},
-            "steps": [{"role": "answer_timing", **timing}],
+            "steps": [
+                {"role": "stage_timing", "stage": "context", "occurrence": 1, "duration_ms": overhead, "status": "completed"},
+                {"role": "stage_timing", "stage": "answer", "occurrence": 1, "duration_ms": timing["answer_stage_ms"], "status": "completed"},
+                {"role": "stage_timing", "stage": "resolve_refs", "occurrence": 1, "duration_ms": 0, "status": "completed"},
+            ],
         }
     )
 

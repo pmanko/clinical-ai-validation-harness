@@ -12,12 +12,6 @@ PORT="${HARNESS_PROXY_HTTP_PORT:-8088}"
 BASE="http://localhost:${PORT}/openmrs"
 USER="${CHARTSEARCH_ADMIN_USER:-admin}"
 PASSWORD="${CHARTSEARCH_ADMIN_PASSWORD:-Admin123}"
-LOCK_DIR="${QUERYSTORE_REINDEX_LOCK_DIR:-${TMPDIR:-/tmp}/clinical-ai-validation-harness-querystore-reindex.lock}"
-
-if ! mkdir "${LOCK_DIR}" 2>/dev/null; then
-  echo "ERROR: another local Querystore resync is already running (${LOCK_DIR})" >&2
-  exit 1
-fi
 
 echo "==> force-resyncing every current Querystore resource type"
 drift="$(curl -fsS --max-time 60 -u "${USER}:${PASSWORD}" \
@@ -54,7 +48,6 @@ PY
 response="$(mktemp)"
 cleanup() {
   rm -f "${response}"
-  rmdir "${LOCK_DIR}" 2>/dev/null || true
 }
 trap cleanup EXIT
 for resource_type in "${resource_types[@]}"; do
@@ -76,7 +69,6 @@ for resource_type in "${resource_types[@]}"; do
   echo "    ${resource_type}: accepted; waiting for a new completed generation"
   last_state=""
   stalled_polls=0
-  settled_polls=0
   attempt=0
   while true; do
     attempt=$((attempt + 1))
@@ -87,17 +79,8 @@ for resource_type in "${resource_types[@]}"; do
       exit 1
     fi
     if [[ "${state}" == "COMPLETED" && -n "${started}" && "${started}" != "${baseline_started}" ]]; then
-      if [[ "${signature}" == "${last_state}" ]]; then
-        settled_polls=$((settled_polls + 1))
-      else
-        settled_polls=1
-      fi
-      if (( settled_polls >= 3 )); then
-        echo "    ${resource_type}: complete and settled (${indexed} documents)"
-        break
-      fi
-    else
-      settled_polls=0
+      echo "    ${resource_type}: complete (${indexed} documents)"
+      break
     fi
     if [[ "${signature}" == "${last_state}" ]]; then
       stalled_polls=$((stalled_polls + 1))
@@ -119,25 +102,10 @@ done
 echo "==> checking post-resync drift"
 post_drift="$(curl -fsS --max-time 60 -u "${USER}:${PASSWORD}" \
   "${BASE}/ws/rest/v1/querystore/drift")"
-if ! DRIFT="${post_drift}" python3 - <<'PY'
-import json, os, sys
-negative = []
-positive = []
-for row in json.loads(os.environ["DRIFT"]).get("types") or []:
-    drift = int(row.get("drift", int(row.get("coreCount") or 0) - int(row.get("indexedCount") or 0)))
-    if drift < 0:
-        negative.append((row.get("resourceType"), drift))
-    elif drift > 0:
-        positive.append((row.get("resourceType"), drift))
-for resource_type, drift in positive:
-    print(f"    warning: {resource_type} remains under-indexed by {drift}")
-for resource_type, drift in negative:
-    print(f"    ERROR: {resource_type} has {-drift} stale extra document(s)", file=sys.stderr)
-if negative:
-    print("    A type resync cannot delete stale extras; restore the intended corpus and recreate the Querystore index before evaluation.", file=sys.stderr)
-    sys.exit(1)
-PY
+if ! printf '%s' "${post_drift}" | python3 scripts/check-querystore-drift.py
 then
+  echo "ERROR: the rebuilt index does not satisfy validation preflight." >&2
+  echo "       Stale extras require recreating the Querystore index from the intended corpus." >&2
   exit 1
 fi
-echo "    all populated resource types rewalked; no stale-extra drift detected"
+echo "    all populated resource types rewalked; validation drift policy passes"

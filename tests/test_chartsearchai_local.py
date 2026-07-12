@@ -139,6 +139,21 @@ def test_preflight_probes_the_context_source_from_inside_the_hub():
     assert "urllib.request.urlopen(request, timeout=30)" in preflight
     assert 'assert isinstance(payload.get("results"), list)' in preflight
     assert 'chk "hub context source" "authenticated patient record" ok' in preflight
+    assert "python3 scripts/check-querystore-drift.py" in preflight
+    assert "python3 scripts/verify-validation-corpus.py" in preflight
+
+
+def test_seed_rejects_unverified_dump_before_database_mutation():
+    seed = _read("scripts/seed-local.sh")
+
+    verify = seed.index('scripts/verify-portable-dump.py')
+    stop_backend = seed.index('docker stop "$BACKEND"')
+    drop_database = seed.index("DROP DATABASE IF EXISTS")
+    assert verify < stop_backend < drop_database
+    assert "--require-portable" in seed
+    assert "reconciling consumer-module Liquibase state" not in seed
+    assert "DELETE FROM liquibasechangelog" not in seed
+    assert "artifacts/chartsearchai-local/corpus-provenance.json" in seed
 
 
 def test_local_startup_provisions_source_before_starting_and_warming_hub():

@@ -126,3 +126,71 @@ def test_failed_stage_duration_is_not_reported_as_completed_latency(monkeypatch)
         "observed": 1,
         "expected": 1,
     }
+
+
+def test_cancelled_stage_duration_is_reported_separately(monkeypatch):
+    trace = {
+        "steps": [
+            {
+                "role": "stage_timing",
+                "stage": "indepth",
+                "occurrence": 1,
+                "duration_ms": 47,
+                "status": "cancelled",
+            }
+        ]
+    }
+    monkeypatch.setattr(report, "_trace_for_row", lambda _row, _traces: trace)
+
+    rows = report._summary_rows(
+        [{"backend_id": "b", "metrics": {"latency_ms": 47, "citation_count": 0}}],
+        ["b"],
+        {"b": "Backend"},
+        [trace],
+        {"b": {"stages": ["indepth"]}},
+    )
+
+    assert rows[0]["stage_latency_ms"]["indepth"] == {
+        "avg_ms": None,
+        "completed": 0,
+        "failed": 0,
+        "avg_failed_ms": None,
+        "cancelled": 1,
+        "avg_cancelled_ms": 47,
+        "observed": 1,
+        "expected": 1,
+    }
+
+
+def test_cell_blob_exposes_stage_timings_for_detail_renderer(monkeypatch):
+    trace = {
+        "steps": [
+            {
+                "role": "stage_timing",
+                "stage": "gather",
+                "occurrence": 1,
+                "duration_ms": 321,
+                "status": "completed",
+            }
+        ]
+    }
+    monkeypatch.setattr(report, "_trace_for_row", lambda _row, _traces: trace)
+
+    cell = report._cell_blob(
+        {
+            "response": {"answer": "Answer", "references": [], "blocks": []},
+            "metrics": {"latency_ms": 400, "http_status": 200},
+        },
+        [trace],
+    )
+
+    assert cell["stage_timings"] == [
+        {
+            "stage": "gather",
+            "occurrence": 1,
+            "duration_ms": 321,
+            "status": "completed",
+        }
+    ]
+    assert "Average latency by stage" in report._SCRIPT
+    assert "renderStageTimings(cell.stage_timings)" in report._SCRIPT

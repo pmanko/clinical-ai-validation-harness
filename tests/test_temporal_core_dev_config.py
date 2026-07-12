@@ -2,6 +2,7 @@ import json
 from pathlib import Path
 
 from harness.validate.models import load_comparison_set, load_scenario
+from harness.validate.model_registry import arm_card
 from harness.validate.resolver import resolve_backends
 
 
@@ -110,7 +111,14 @@ def test_hub_profile_team_focus_has_one_team_and_two_single_profiles():
     cset = load_comparison_set(
         DATA / "comparison_sets" / "hub-profile-team-focus.json"
     )
-    assert len(cset.scenario_ids) == 6
+    assert cset.scenario_ids == [
+        "date-zabella-weight-table",
+        "date-aloice-orders-table",
+        "single-upcoming-appointments",
+        "am-weight-trend",
+        "am-orders-6mo",
+        "abstain-out-of-chart",
+    ]
     assert cset.backend_ids == [
         "product-e4b-checked",
         "product-12b-checked",
@@ -124,3 +132,24 @@ def test_hub_profile_team_focus_has_one_team_and_two_single_profiles():
         "team-med-checked",
     ]
     assert all(backend.indepth_model is None for backend in backends)
+    cards = {backend.id: arm_card(backend.id) for backend in backends}
+    assert cards["product-e4b-checked"]["kind"] == "single"
+    assert cards["product-12b-checked"]["kind"] == "single"
+    team = cards["product-team-med-checked"]
+    assert team["kind"] == "team"
+    assert team["title"] == (
+        "Gemma 4B coord · MedGemma 4B expert · Qwen 14B writer · Gemma 12B val"
+    )
+    assert team["stages"] == [
+        "context",
+        "gather",
+        "answer",
+        "gate",
+        "resolve_refs",
+        "review",
+        "gate",
+        "final_resolve_refs",
+        "ground_verdicts",
+        "indepth",
+        "indepth_gate",
+    ]

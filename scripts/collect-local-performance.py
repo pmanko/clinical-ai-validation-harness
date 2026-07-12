@@ -14,6 +14,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from harness.validate.performance_timing import derive_answer_timing
+
 
 def _load_module(name: str, path: Path):
     spec = importlib.util.spec_from_file_location(name, path)
@@ -129,9 +131,7 @@ def select_entries(
             continue
         entry = json.loads(line)
         sources = (entry.get("context") or {}).get("sources") or []
-        has_timing = any(
-            step.get("role") == "answer_timing" for step in entry.get("steps", [])
-        )
+        has_timing = derive_answer_timing(entry.get("steps", [])) is not None
         if (
             entry.get("level_id") == profile
             and entry.get("question") == question

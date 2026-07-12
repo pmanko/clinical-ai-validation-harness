@@ -1447,7 +1447,7 @@ function renderJudge(run){
    +'<details class="legend-detail"><summary>How this is scored &amp; what to watch</summary><div class="legend-body">'
    +'<p>Each answer is scored against the patient’s chart by a strong LLM reviewer (advisory). The Benchmark is a soft composite — no single axis hard-gates it.</p>'
    +'<p><b>Caveat:</b> small N, one patient, single judge — directional, not a benchmark.</p>'
-   +'<p><b>Note:</b> arms are NOT prompt-harmonized — the single-model path uses chartsearchAI’s default prompt while the team path uses the orchestrator + synthesis prompts, so differences here confound orchestration with prompt; the next run harmonizes prompts to separate the two.</p>'
+   +'<p><b>Note:</b> product arms are complete med-agent-hub profiles. Differences may include model roles and whether a gather stage is configured; inspect each arm’s configuration before attributing score changes to one factor.</p>'
    +'</div></details>';
   var consensus=renderJudgeCombined(run);
   if(consensus) sec.appendChild(consensus);

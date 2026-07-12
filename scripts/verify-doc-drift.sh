@@ -33,6 +33,8 @@ FORBIDDEN = [
     (re.compile(r"chartsearchai\.llm\.systemPrompt|chartsearchai\.llm\.modelFilePath"), "old ChartSearchAI prompt/model ownership"),
     (re.compile(r"chartsearchai\.cacheTtlMinutes|chartsearchai\.llm\.timeoutSeconds"), "old ChartSearchAI LLM/cache ownership"),
     (re.compile(r"CHARTSEARCH_REMOTE_(?:ENDPOINT_URL|MODEL_NAME|ENDPOINTS)|CHARTSEARCH_LLM_ENGINE"), "old direct-provider ChartSearchAI configuration"),
+    (re.compile(r"MED_AGENT_(?:ORCHESTRATOR_MODEL|MED_MODEL)"), "removed environment-driven profile role models"),
+    (re.compile(r"single-model path uses chartsearchAI|chartsearchai.*generates cited answers", re.I), "old ChartSearchAI answer ownership"),
     (re.compile(r"GCP_FIREWALL_DENY_LMS|GCP_LMS_PORT"), "retired cloud model-server firewall"),
     (re.compile(r"value\s*=\s*\"/search\"|/search/stream|chartsearchai/search/stream"), "removed search stream path"),
     (re.compile(r"\btemporal_facts\.v\d"), "versioned internal temporal-facts contract"),
@@ -42,7 +44,7 @@ TEXT_SUFFIXES = {
     ".md", ".txt", ".rst", ".adoc", ".sh", ".bash", ".zsh", ".py", ".java",
     ".ts", ".tsx", ".js", ".jsx", ".yml", ".yaml", ".json", ".properties",
 }
-TEXT_NAMES = {"README", "README.md", "Makefile", "Dockerfile", "Dockerfile.gateway", "CLAUDE.md", "AGENTS.md"}
+TEXT_NAMES = {"README", "README.md", "Makefile", "Dockerfile", "Dockerfile.gateway", "CLAUDE.md", "AGENTS.md", ".env.med-agent-hub.example", ".env.chartsearch.example"}
 
 SKIP_DIR_PARTS = {
     ".git", "node_modules", "target", "dist", "build", ".pytest_cache", ".mypy_cache",

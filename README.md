@@ -6,7 +6,7 @@ The harness currently focuses on OpenMRS-based clinical AI (chart search, query 
 
 ## Why this matters
 
-Much of the world's primary care runs in settings with intermittent connectivity, modest hardware, few IT staff, and strong reasons to keep patient data local. Clinical AI for these settings has to run **offline and on less-powerful hardware**, keep **patient data on-site** (privacy and local data ownership), and **fit local clinical reality** — guidelines, and the data most AI is trained on, come from better-resourced settings, leaving the conditions, formularies, and populations of low-resource clinics underrepresented in clinical research and guidelines. That shapes every choice here: a local "AI team" of small models instead of one big cloud model, a knowledge base contextualized to each deployment's own concepts and drugs, and validation against real local systems with every claim traceable to a specific record. The intent mirrors WHO's [SMART Guidelines](https://www.who.int/teams/digital-health-and-innovation/smart-guidelines) — let local programs benefit from global evidence while adapting it to their own context — applied to the question "can we trust this AI here?"
+Much of the world's primary care runs in settings with intermittent connectivity, modest hardware, few IT staff, and strong reasons to keep patient data local. Clinical AI for these settings has to run **offline and on less-powerful hardware**, keep **patient data on-site** (privacy and local data ownership), and **fit local clinical reality** — guidelines, and the data most AI is trained on, come from better-resourced settings, leaving the conditions, formularies, and populations of low-resource clinics underrepresented in clinical research and guidelines. That shapes every choice here: local small-model profiles, including both fast single-model and deliberate team configurations, a knowledge base contextualized to each deployment's own concepts and drugs, and validation against real local systems with every claim traceable to a specific record. The intent mirrors WHO's [SMART Guidelines](https://www.who.int/teams/digital-health-and-innovation/smart-guidelines) — let local programs benefit from global evidence while adapting it to their own context — applied to the question "can we trust this AI here?"
 
 ## Who this is for
 
@@ -21,8 +21,8 @@ The harness coordinates validation across four clinical AI projects:
 
 | Project | What it does | Role here |
 |---------|-------------|-----------|
-| `chartsearchai` | Embedded OpenMRS module: searches patient chart records using embeddings and lexical retrieval, then generates cited answers | Primary validation target: retrieval quality, answer grounding, citation, abstention, and security |
-| `querystore` | Emerging read-optimized store that will back `chartsearchai` retrieval | Parity testbed: compare retrieval behavior before and after migration |
+| `chartsearchai` | Thin OpenMRS authorization, session, persistence, and SSE relay for med-agent-hub profiles | Product integration target: lifecycle UX, persistence, citation display, cancellation, and security |
+| `querystore` | Optional read-optimized clinical-record source consumed by med-agent-hub | Context-source validation: complete patient ledgers, indexing integrity, and future retrieval experiments |
 | `openmrs_chatbot` | Python clinical chatbot with patient/doctor interfaces and agent workflow scaffolding | Future expansion: multi-turn grounding and role-aware answer evaluation |
 | `Catalyst` (OpenELIS) | Lab AI sidecar over OpenELIS Global 2: FHIR-grounded retrieval over HAPI and embedded FHIR providers, resource-cited answers, and a Scout-style lab report/analytics UI | M10 (Planning): FHIR-first sidecar POC — canonical question set, evidence cards, lab timeline, and embedded-FHIR parity probe |
 
@@ -30,7 +30,7 @@ The harness coordinates validation across four clinical AI projects:
 
 The OpenMRS demo-data remap (Roadmap M1 / feature 002) is **complete** — the public 2.7 demo corpus is transformed and imported as the canonical 5,284-patient 2.8 demo schema the harness validates against. (See the [Feature 002 spec](https://github.com/pmanko/clinical-ai-validation-harness/blob/main/specs/002-openmrs-demo-data-2-8-remap/spec.md) and [quickstart](https://github.com/pmanko/clinical-ai-validation-harness/blob/main/specs/002-openmrs-demo-data-2-8-remap/quickstart.md) for that work.)
 
-Current work is the **validation spine** (Roadmap M2 / feature 006): run the same clinical questions across model backends through chartsearchai's real API, score the answers against the patient chart, and record reviewable, record-level evidence. Three lanes are in flight — the local "AI team" tool layer, human-feedback reports, and closing the first live-chartsearchai milestone. See the [roadmap canvas](https://pmanko.github.io/clinical-ai-validation-harness/#/canvas/specs/roadmap); the development operating plan and per-lane dossiers live in-repo under `specs/artifacts/lanes/`.
+Current work is the **validation spine** (Roadmap M2 / feature 006): run the same clinical questions across med-agent-hub product profiles through ChartSearchAI's real API, score the answers against the exact patient evidence ledger, and record reviewable, record-level evidence. Current work centers on the checked single-model default, explicit team comparisons, human-feedback reports, and live OpenMRS proof. See the [roadmap canvas](https://pmanko.github.io/clinical-ai-validation-harness/#/canvas/specs/roadmap); the approved consolidation roadmap and status live under `specs/artifacts/planning/`.
 
 ## How the docs fit together
 

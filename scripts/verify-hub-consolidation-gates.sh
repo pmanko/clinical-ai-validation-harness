@@ -578,6 +578,8 @@ import sys
 import urllib.request
 from pathlib import Path
 
+from harness.validate.performance_timing import derive_answer_timing
+
 proof = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
 selected = proof["runs"]
 encoded = json.dumps(selected, sort_keys=True, separators=(",", ":")).encode("utf-8")
@@ -588,10 +590,7 @@ for line in Path(sys.argv[2]).read_text(encoding="utf-8").splitlines():
     if not line.strip():
         continue
     entry = json.loads(line)
-    timing = next(
-        (step for step in entry.get("steps", []) if step.get("role") == "answer_timing"),
-        None,
-    )
+    timing = derive_answer_timing(entry.get("steps", []))
     if timing is None:
         continue
     available.append(

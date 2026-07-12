@@ -6,9 +6,10 @@
 # mutate a running backend's schema in place (that desynced module/Liquibase state
 # and broke chartsearchai — the reason promote.sh was retired).
 #
-# The dump is TARGET-NEUTRAL and module-clean (chartsearchai tables + changelog
-# rows stripped by dump-loaded.sh), so the chartsearchai module installs itself
-# fresh on boot — no "table already exists" Liquibase race.
+# The dump is TARGET-NEUTRAL and module-clean (ChartSearchAI and Querystore tables
+# plus changelog rows stripped by dump-loaded.sh), so both consumer modules install
+# themselves fresh on boot. The dump and provenance sidecar are verified before the
+# target database is touched; seed-local never repairs an invalid dump after restore.
 #
 # Serves BOTH provisioning modes:
 #   - reset-provision (canonical):  make reset && make up && make seed
@@ -44,11 +45,6 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-if ! docker exec "$DB_CONTAINER" sh -c 'true' 2>/dev/null; then
-  echo "ERROR: container '${DB_CONTAINER}' not running. Run 'make up' first." >&2
-  exit 1
-fi
-
 # --- resolve the dump to restore ---
 if [[ -n "$FROM_SCHEMA" ]]; then
   echo "==> building a module-clean dump from '${FROM_SCHEMA}' (dump-loaded.sh)"
@@ -70,6 +66,16 @@ if [[ ! -f "$DUMP" ]]; then
   exit 1
 fi
 echo "==> dump: ${DUMP} ($(du -h "$DUMP" | cut -f1))"
+
+PROVENANCE="${DUMP}.provenance.json"
+echo "==> verifying portable corpus provenance before database mutation"
+python3 "${ROOT}/scripts/verify-portable-dump.py" \
+  --dump "${DUMP}" --provenance "${PROVENANCE}" --require-portable
+
+if ! docker exec "$DB_CONTAINER" sh -c 'true' 2>/dev/null; then
+  echo "ERROR: container '${DB_CONTAINER}' not running. Run 'make up' first." >&2
+  exit 1
+fi
 
 # --- stop the backend so the schema swap doesn't race a live Hibernate/Liquibase ---
 echo "==> stopping backend '${BACKEND}' (provision into a quiescent DB)"
@@ -97,21 +103,7 @@ docker exec "$DB_CONTAINER" mariadb --user=root --password="$DB_ROOT_PASS" "$TAR
   UNION ALL SELECT 'encounter', COUNT(*) FROM encounter
   UNION ALL SELECT 'obs', COUNT(*) FROM obs;" || true
 
-# Older portable dumps removed consumer-module tables but accidentally retained their
-# Liquibase rows. Strip those rows only when the corresponding tables are absent, so
-# ChartSearchAI and Querystore can recreate their own state on the next boot.
-echo "==> reconciling consumer-module Liquibase state"
-for prefix in chartsearchai querystore; do
-  table_count="$(docker exec "$DB_CONTAINER" mariadb --user=root --password="$DB_ROOT_PASS" \
-    -N -B -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='${TARGET_DB}' AND table_name LIKE '${prefix}_%';")"
-  if [[ "$table_count" == "0" ]]; then
-    docker exec "$DB_CONTAINER" mariadb --user=root --password="$DB_ROOT_PASS" "$TARGET_DB" \
-      -e "DELETE FROM liquibasechangelog WHERE id LIKE '${prefix}%' OR filename LIKE '%${prefix}%';" >/dev/null
-    echo "    ${prefix}: module tables absent; stale changelog rows removed"
-  fi
-done
-
-# --- start the backend; Liquibase reconciles core, chartsearchai installs fresh ---
+# --- start the backend; Liquibase reconciles core and both consumer modules install fresh ---
 # On the very first boot against a just-restored (non-empty) schema, OpenMRS core's own
 # DatabaseUpdater can race into re-running its "empty database" snapshot changelog against
 # tables that already exist ("Table 'allergy' already exists"), then loop retrying that same
@@ -156,6 +148,37 @@ if [[ -n "$FAILED_MODULES" ]]; then
   exit 1
 fi
 echo "    all modules started"
+
+# Persist the exact corpus identity consumed by the running local stack. Validation
+# manifests copy this receipt so a published run can be traced back to the dump bytes.
+CORPUS_RECEIPT="${ROOT}/artifacts/chartsearchai-local/corpus-provenance.json"
+mkdir -p "$(dirname "${CORPUS_RECEIPT}")"
+python3 - "${DUMP}" "${PROVENANCE}" "${CORPUS_RECEIPT}" "${TARGET_DB}" <<'PY'
+import json
+import os
+import sys
+from datetime import datetime, timezone
+from pathlib import Path
+
+dump_path = Path(sys.argv[1])
+provenance_path = Path(sys.argv[2])
+receipt_path = Path(sys.argv[3])
+target = sys.argv[4]
+provenance = json.loads(provenance_path.read_text(encoding="utf-8"))
+receipt = {
+    "schema_version": "validation_corpus.v1",
+    "target_database": target,
+    "dump_path": str(dump_path.resolve()),
+    "dump_sha256": provenance["output_sha256"],
+    "dump_bytes": provenance["output_bytes"],
+    "source_schema": provenance.get("source_schema"),
+    "restored_at": datetime.now(timezone.utc).isoformat(),
+}
+tmp = receipt_path.with_suffix(receipt_path.suffix + ".tmp")
+tmp.write_text(json.dumps(receipt, indent=2) + "\n", encoding="utf-8")
+os.replace(tmp, receipt_path)
+PY
+echo "    corpus receipt: ${CORPUS_RECEIPT}"
 
 # --- reindex: bulk INSERTs don't fire Hibernate Search listeners, so the Lucene
 #     index is empty until a full reindex. Synchronous; ~30-60s for 5K patients. ---

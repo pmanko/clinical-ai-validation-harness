@@ -25,6 +25,7 @@ from uuid import uuid4
 from ..metadata import RunManifest, append_event, utc_now_iso, write_manifest
 from ..submodules import read_harness_git_sha
 from .client import ChatResult
+from .dataset_provenance import build_dataset_provenance
 from .metrics import compute_metrics
 from .model_registry import arm_card
 from .models import Backend
@@ -174,6 +175,10 @@ def run_comparison(
     cset = load_comparison_set(data_root / "comparison_sets" / f"{comparison_set_id}.json")
     scenarios = [load_scenario(data_root / "scenarios" / f"{sid}.json") for sid in cset.scenario_ids]
     backends = resolve_backends(cset.backend_ids, data_root / "backends.json")
+    project_root = Path(project_root)
+    dataset_provenance = build_dataset_provenance(
+        data_root, comparison_set_id, project_root=project_root
+    )
 
     # Capture a rich patient profile (demographics + clinical snapshot) for each unique
     # patient the run touches, so the report grounds the comparison in the real chart.
@@ -201,6 +206,7 @@ def run_comparison(
         schema_mapping_version=schema_mapping_version,
         gen_ai_provider_name=gen_ai_provider_name or _provider_name(backends),
         patients=patients,
+        dataset_provenance=dataset_provenance,
     )
     manifest_path = run_dir / "run_manifest.json"
     events_path = run_dir / "events.jsonl"

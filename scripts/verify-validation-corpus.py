@@ -4,13 +4,15 @@
 from __future__ import annotations
 
 import argparse
+import sys
 from pathlib import Path
 
-from harness.validate.corpus_alignment import (
-    alignment_issues,
-    expected_record_dates,
-    live_record_dates,
-)
+from harness.validate.corpus_alignment import alignment_issues, expected_ledgers, live_records
+
+HUB_ROOT = Path(__file__).resolve().parents[1] / "targets" / "med-agent-hub"
+sys.path.insert(0, str(HUB_ROOT))
+
+from server.chart_serializer import render_chart  # noqa: E402  (hub package path above)
 
 
 def main() -> int:
@@ -24,13 +26,13 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    expected = expected_record_dates(args.data_root, args.set)
-    live = {
-        patient: live_record_dates(
-            args.endpoint, patient, args.username, args.password
+    expected = expected_ledgers(args.data_root, args.set)
+    live = {}
+    for patient in expected:
+        snapshot, mappings = render_chart(
+            live_records(args.endpoint, patient, args.username, args.password)
         )
-        for patient in expected
-    }
+        live[patient] = {"chart_snapshot": snapshot, "mappings": mappings}
     issues = alignment_issues(expected, live)
     if issues:
         print("ERROR: live validation corpus does not match committed chart fixtures:")
@@ -38,12 +40,8 @@ def main() -> int:
             print(f"  - {issue}")
         print("Restore/reindex the intended corpus before running an evaluation.")
         return 1
-    for patient, records in sorted(expected.items()):
-        dated = [date for date in records.values() if date]
-        print(
-            f"    {patient}: {len(records)} fixture/live records; "
-            f"latest {max(dated) if dated else 'undated'}"
-        )
+    for patient, ledger in sorted(expected.items()):
+        print(f"    {patient}: {len(ledger['mappings'])} exact fixture/live records")
     return 0
 
 

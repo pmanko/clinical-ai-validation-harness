@@ -74,7 +74,7 @@ def test_run_meta_reference_date_none_when_unset(tmp_path):
     assert meta["reference_date"] is None
 
 
-def test_run_defaults_record_med_agent_hub_as_provider(tmp_path):
+def test_non_llm_run_omits_gen_ai_provider(tmp_path):
     assert (
         inspect.signature(runner.run_comparison)
         .parameters["gen_ai_provider_name"]
@@ -83,7 +83,7 @@ def test_run_defaults_record_med_agent_hub_as_provider(tmp_path):
     )
     manifest_path, _ = cli._start_run(tmp_path, "validate", Path(__file__).parents[1])
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    assert manifest["otel"]["gen_ai.provider.name"] == "med-agent-hub"
+    assert "gen_ai.provider.name" not in manifest["otel"]
 
 
 def test_comparison_provider_is_derived_from_all_arm_endpoints():
