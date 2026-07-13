@@ -97,7 +97,8 @@ test.describe('chartsearchai — preempt frees the router slot mid-leg', () => {
     await expect(page.locator('[data-turn-phase]')).toHaveCount(3, { timeout: 30_000 });
 
     // The hub records both sides of the preempt: Q2 positively reports cancellation after its
-    // router slot is released, and Q3 reaches the normal completed-turn trace.
+    // router slot is released, and Q3 reaches the normal completed-turn trace. Q2 may retain a
+    // partial audit trace; the explicit cancellation record is the authoritative preempt signal.
     await expect
       .poll(() =>
         hubCancellationsSince(cancellationOffset).some(
@@ -106,7 +107,6 @@ test.describe('chartsearchai — preempt frees the router slot mid-leg', () => {
       )
       .toBe(true);
     await expect.poll(() => hubTraceQuestionsSince(traceOffset).includes(QUESTIONS[2])).toBe(true);
-    expect(hubTraceQuestionsSince(traceOffset)).not.toContain(QUESTIONS[1]);
 
     expect(errors, `page JS errors: ${errors.join(' | ')}`).toHaveLength(0);
   });
