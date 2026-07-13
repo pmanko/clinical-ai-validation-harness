@@ -241,6 +241,32 @@ def test_malformed_date_audit_ignores_safely_withheld_diagnostic_claims(tmp_path
     assert audit["status"] == "pass"
 
 
+def test_safe_temporal_fallback_is_a_terminal_gate_but_not_a_substantive_answer(
+    tmp_path,
+):
+    _run, _trace_path, results, traces = _valid_candidate_fixture(tmp_path)
+    results[0]["response"]["answer"] = MODULE.TEMPORAL_FALLBACK_ANSWER
+    results[0]["response"]["answerValidation"] = {"status": "needs_review"}
+    traces[0]["temporal_gate"] = {
+        "mode": "enforce",
+        "status": "fail",
+        "applied": "fallback",
+    }
+
+    audit = _build_and_read(tmp_path, results, traces)
+
+    first = [
+        row
+        for row in audit["blockers"]
+        if row["scenario_id"] == results[0]["scenario_id"]
+        and row["backend_id"] == results[0]["backend_id"]
+    ]
+    assert {row["id"] for row in first} == {
+        "substantive_answer",
+        "answer_validation_terminal",
+    }
+
+
 def test_evidence_builder_blocks_missing_trace_and_nonterminal_indepth(tmp_path):
     _run, _trace_path, results, traces = _valid_candidate_fixture(tmp_path)
     traces.pop(0)

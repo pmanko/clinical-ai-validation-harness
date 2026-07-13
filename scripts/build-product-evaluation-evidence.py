@@ -23,6 +23,10 @@ ROOT = Path(__file__).resolve().parents[1]
 EXPECTED_SET = "hub-profile-candidate"
 EXPECTED_REFERENCE_DATE = "2026-06-20"
 FALLBACK_ANSWER = "I could not produce a complete answer for this turn. Please try again."
+TEMPORAL_FALLBACK_ANSWER = (
+    "I cannot safely answer this temporal question because deterministic temporal validation "
+    "found a contradiction in the draft answer. Please verify against the chart."
+)
 
 
 def _load_date_analyzer():
@@ -102,7 +106,10 @@ def _run_contract(
 
 def _is_substantive(answer: str) -> bool:
     text = (answer or "").strip()
-    return bool(re.search(r"[A-Za-z0-9]", text)) and text != FALLBACK_ANSWER
+    return bool(re.search(r"[A-Za-z0-9]", text)) and text not in {
+        FALLBACK_ANSWER,
+        TEMPORAL_FALLBACK_ANSWER,
+    }
 
 
 def build_evidence(
@@ -181,7 +188,9 @@ def build_evidence(
             and temporal_gate.get("status") in {"pass", "warn", "fail", "not_applicable"},
             temporal_gate,
         )
-        unsafe_gate = temporal_gate.get("status") == "fail" and temporal_gate.get("applied") != "patch"
+        unsafe_gate = temporal_gate.get("status") == "fail" and temporal_gate.get(
+            "applied"
+        ) not in {"patch", "fallback"}
         check("answer_gate_terminal", not unsafe_gate, temporal_gate)
         unresolved = [ref.get("index") for ref in references if ref.get("resolutionStatus") == "unresolved"]
         checking = [ref.get("index") for ref in references if ref.get("groundingStatus") in {"checking", "unchecked"}]
