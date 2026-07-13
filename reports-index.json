@@ -3,6 +3,12 @@
   "scoring_note": "Each answer is graded 0\u201310, higher is better \u2014 <b>Accuracy</b>: are the stated facts correct? <b>Completeness</b>: did it cover what mattered? <b>Relevance</b>: did it actually answer the question? <b>Unsafe answers</b> counts responses with a potential safety problem (lower is better). <b>Questions</b> is how many were scored per setup, and the best value in each column is highlighted. <b>Benchmark /100</b> is the headline aggregate \u2014 it combines the dimensions (accuracy and completeness weighted most) minus soft penalties for safety and citation problems, so one number summarizes each setup. These come from a single automated judge on a small sample \u2014 they're directional, not a formal benchmark.",
   "runs": [
     {
+      "slug": "hub-profile-12b-checked-candidate-2026-07-13",
+      "title": "Checked 12B profile: temporal and date candidate",
+      "summary": "A 12-scenario product-path evaluation of the checked 12B profile. All cells completed, the implemented deterministic audit reported no blockers, and an independent Scout judge scored the answers 88.4/100 with no harm and 66/66 references resolved. The judge nevertheless found two strict six-month-window errors that the deterministic gate did not detect.",
+      "takeaway": "The checked 12B path is strong on exact dates, visit ordering, appointments, and weight trends, but it is not release-clean: one answer included an X-ray six days before the requested cutoff, while another included 10 out-of-window orders and omitted a qualifying order. This report demonstrates why deterministic checks and independent judging must remain separate, visible layers; the next correction is a generic dated-row window gate, not prompt tuning to these cells."
+    },
+    {
       "slug": "hub-profile-team-focus-diagnostic-2026-07-13",
       "title": "Hub profile and team-path diagnostic",
       "summary": "An 18-cell product-path diagnostic across the E4B single, 12B single, and medical-team profiles. All cells completed and stage timing was captured, but deterministic QA found answer-contract and grounding issues. This run is unjudged and is not a model-quality comparison.",

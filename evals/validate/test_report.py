@@ -223,6 +223,33 @@ def test_report_renders_evidence_tiles_and_keeps_raw_refs_debug_only(tmp_path):
     assert "raw resolved refs" in cell["refs_html"]
 
 
+def test_report_uses_final_grounding_verdict_and_data_derived_review_scope(tmp_path):
+    run_dir = tmp_path / "run"
+    r = _result(
+        "med-agent-team",
+        "The latest weight is 71 kg [29]; another claim is unsupported [30].",
+        [
+            {"index": 29, "resourceType": "obs", "groundingStatus": "verified", "grounded": True},
+            {"index": 30, "resourceType": "obs", "groundingStatus": "unsupported", "grounded": False},
+        ],
+    )
+    _write_run(run_dir, [r])
+
+    html = build_report(run_dir).read_text(encoding="utf-8")
+    body = re.search(
+        r"<script type='application/json' id='report-data'>(.*?)</script>", html, re.DOTALL
+    ).group(1)
+    cell = json.loads(body)["runs"][0]["scenarios"][0]["turns"][0]["cells"]["med-agent-team"]
+
+    assert "source-status ok" in cell["sources_html"]
+    assert "hub grounding verified" in cell["sources_html"]
+    assert "source-status bad" in cell["sources_html"]
+    assert "hub grounding unsupported" in cell["sources_html"]
+    assert "not a whole-answer quality verdict" in cell["sources_html"]
+    assert "var patientScope=nPatients===1?'one patient':nPatients+' patients';" in html
+    assert "small N, one patient, single judge" not in html
+
+
 def test_report_escapes_untrusted_text_in_answer_and_blocks(tmp_path):
     # The renderer escapes FIRST then upgrades markdown, so model text can never
     # inject markup. Guards against a future reorder to format-before-escape, which

@@ -2,8 +2,9 @@
 
 This module derives a stable ``sources.v1`` object from the response envelope we
 already have: resolved top-level references, inline answer citations, and nested
-table refs. It is intentionally deterministic and display-oriented; semantic
-claim support remains a judge/Scout-rubric concern.
+table refs. It is intentionally deterministic and display-oriented. Final hub
+grounding states are preserved for transparency, while whole-answer semantic
+support remains a separate judge/Scout-rubric concern.
 """
 
 from __future__ import annotations
@@ -18,6 +19,7 @@ _SNAPSHOT_LINE_RE = re.compile(r"^\[(\d+)\]\s*(.+)$", re.MULTILINE)
 _DATE_PREFIX_RE = re.compile(r"^\((\d{4}-\d{2}-\d{2})\)\s*(.+)$")
 _BRACKET_TOKEN_RE = re.compile(r"\[([^\]\n]{1,40})\]")
 _BROKEN_OPEN_RE = re.compile(r"\[[^\]\n]{0,40}(?:>|$)")
+_GROUNDING_STATUSES = {"checking", "verified", "unsupported", "unchecked", "mixed"}
 
 
 def _int_ref(value: Any) -> int | None:
@@ -130,6 +132,20 @@ def _reference_objects(response: dict[str, Any]) -> tuple[list[int], dict[int, d
             refs.append(idx)
             by_index.setdefault(idx, {"index": idx})
     return _ordered_unique(refs), by_index
+
+
+def _support_status(reference: dict[str, Any]) -> str:
+    """Return the final hub grounding state without inventing a verdict."""
+    status = reference.get("groundingStatus")
+    if isinstance(status, str):
+        status = status.strip().lower()
+        if status in _GROUNDING_STATUSES:
+            return status
+    if reference.get("grounded") is True:
+        return "verified"
+    if reference.get("grounded") is False:
+        return "unsupported"
+    return "unchecked"
 
 
 def _answer_usages(answer: Any) -> tuple[list[int], list[dict[str, Any]], list[str]]:
@@ -278,7 +294,7 @@ def build_sources(response: dict[str, Any] | None, chart_fixture: dict[str, Any]
             "facts_used": _compact(facts_by_ref.get(idx, []), limit=8),
             "used_by": usage_by_ref.get(idx, []),
             "resolution_status": resolution_status,
-            "support_status": "unchecked",
+            "support_status": _support_status(ref_obj),
         })
 
     top_set = set(top_refs)
@@ -374,7 +390,7 @@ def render_sources_for_judge(sources_v1: dict[str, Any] | None) -> str:
             f"- {s.get('source_id')} = cite [{citation_index}] chart [{chart_index}] {meta}: "
             f"{s.get('title') or ''}. Facts used: {facts or '(not localized)'}; "
             f"chart resolution: {s.get('resolution_status', 'unknown')}; "
-            f"semantic support: {s.get('support_status', 'unchecked')}."
+            f"hub grounding: {s.get('support_status', 'unchecked')}."
         )
     flags = []
     for key in ("unresolved_refs", "unused_top_refs", "nested_only_refs", "malformed_tokens"):

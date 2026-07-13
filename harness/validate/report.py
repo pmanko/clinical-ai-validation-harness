@@ -262,12 +262,13 @@ def _render_sources(sources_v1: Any) -> str:
         citation_index = s.get("citation_index") or s.get("record_index") or "?"
         chart_index = s.get("chart_record_index") or s.get("record_index") or "?"
         support = s.get("support_status") or "unchecked"
+        support_cls = " ok" if support == "verified" else (" bad" if support in {"unsupported", "mixed"} else "")
         return (
             "<article class='source-card'>"
             f"<div class='source-head'><b>{_esc(s.get('source_id'))}</b> "
             f"<span>cite [{_esc(citation_index)}] · chart [{_esc(chart_index)}] {_esc(s.get('title'))}</span></div>"
             f"<div class='source-meta'>{meta} <span class='source-status{status_cls}'>chart ref {_esc(status)}</span>"
-            f" <span class='source-status'>support {_esc(support)}</span></div>"
+            f" <span class='source-status{support_cls}' title='Hub record-to-claim grounding result; not a whole-answer quality verdict'>hub grounding {_esc(support)}</span></div>"
             f"<ul>{facts}</ul>"
             f"<details><summary>open source record</summary><pre>{_esc(s.get('source_text'))}</pre></details>"
             "</article>"
@@ -1479,7 +1480,10 @@ function renderJudge(run){
   var cal=calIndex(run);
   var anyCal=false; for(var ck in cal){ if(cal[ck] && cal[ck].adjudicated){ anyCal=true; break; } }
   var nActors=(run.judge_actors||[]).length;
-  sec.innerHTML='<p class="intro">The headline: how good each setup’s answers actually were. A strong AI reviewer graded every answer against the patient’s chart for correctness, completeness, and safety. The <b>Benchmark</b> column is the single 0–100 score to compare setups by; the per-scenario heatmap (below) shows it question-by-question. Click any column header to sort. Treat it as directional (one patient, '+(nActors>1?nActors+' judges':'one judge')+'), not a final grade.'
+  var nPatients=(run.patients||[]).length;
+  var patientScope=nPatients===1?'one patient':nPatients+' patients';
+  var judgeScope=nActors>1?nActors+' judges':'one judge';
+  sec.innerHTML='<p class="intro">The headline: how good each setup’s answers actually were. A strong AI reviewer graded every answer against the patient’s chart for correctness, completeness, and safety. The <b>Benchmark</b> column is the single 0–100 score to compare setups by; the per-scenario heatmap (below) shows it question-by-question. Click any column header to sort. Treat it as directional ('+patientScope+', '+judgeScope+'), not a final grade.'
    +(anyCal?' Where a human reviewer adjudicated cells, a <b>calibrated estimate ± 95% CI</b> sits under the judge number.':'')+'</p>'
    +'<dl class="legend-key">'
    +'<dt>Benchmark</dt><dd>soft 0–100 composite of the answer-only scores (accuracy/completeness weighted highest, minus bounded penalties for unsafe / abstention / citation / temporal flags — no hard gates). Read it with the harm, abstain ✗ and fab-refs counts in the same row, never alone.</dd>'
@@ -1495,7 +1499,7 @@ function renderJudge(run){
    +'</dl>'
    +'<details class="legend-detail"><summary>How this is scored &amp; what to watch</summary><div class="legend-body">'
    +'<p>Each answer is scored against the patient’s chart by a strong LLM reviewer (advisory). The Benchmark is a soft composite — no single axis hard-gates it.</p>'
-   +'<p><b>Caveat:</b> small N, one patient, single judge — directional, not a benchmark.</p>'
+   +'<p><b>Caveat:</b> small N, '+patientScope+', '+judgeScope+' — directional, not a benchmark.</p>'
    +'<p><b>Note:</b> product arms are complete med-agent-hub profiles. Differences may include model roles and whether a gather stage is configured; inspect each arm’s configuration before attributing score changes to one factor.</p>'
    +'</div></details>';
   var consensus=renderJudgeCombined(run);
