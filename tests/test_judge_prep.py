@@ -26,7 +26,11 @@ def test_in_depth_artifact_reads_hub_native_product_envelope():
         "answer": "A checked background claim [2].",
         "status": "complete",
         "validation": {"mode": "enforce", "status": "checked"},
+        "error": None,
         "latency_ms": None,
+        "references": [],
+        "citations": [],
+        "source": "response.inDepth",
     }
 
 
@@ -61,5 +65,9 @@ def test_in_depth_artifact_retains_legacy_separate_call_compatibility():
         "answer": "Legacy background [3].",
         "status": None,
         "validation": None,
+        "error": None,
         "latency_ms": 1234,
+        "references": [],
+        "citations": [],
+        "source": "row.indepth",
     }

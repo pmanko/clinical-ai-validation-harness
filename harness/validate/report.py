@@ -31,6 +31,11 @@ from .hub_trace import load_traces, match_trace
 from .model_registry import arm_model_name
 from .model_registry import arm_card
 from .reconcile import calibrated_summary, combined_judge_summary, scout_summary
+from .response_artifacts import (
+    in_depth_artifact,
+    response_for_displayed_evidence,
+    split_answer_sections,
+)
 from .sources import build_sources, load_scenario_chart, source_ref_labels
 from .stage_timings import expected_stage_labels, extract_stage_timings, stage_timing_label
 
@@ -72,7 +77,6 @@ def _render_answer(text: Any) -> str:
     return s
 
 
-_IN_DEPTH_RE = re.compile(r"\*\*In ?Depth\*\*", re.IGNORECASE)
 _CONF = {"green": ("Self-check high", "#196c2e"), "yellow": ("Self-check medium", "#9e6a03"),
          "red": ("Self-check low", "#8b1a1a")}
 
@@ -110,38 +114,78 @@ def _render_section(label: str, body: str, conf: Any) -> str:
     return h + "</div>"
 
 
+def _indepth_state(indepth: Any) -> tuple[str, str]:
+    if not isinstance(indepth, dict):
+        return "", ""
+    status = indepth.get("status")
+    validation = indepth.get("validation") or {}
+    check_status = validation.get("status") if isinstance(validation, dict) else None
+    effective = check_status or status
+    labels = {
+        "checked": "Checked",
+        "edited": "Updated after check",
+        "complete": "Complete",
+        "needs_review": "Needs review",
+        "failed": "Failed",
+        "unavailable": "Check unavailable",
+        "pending": "Pending",
+    }
+    label = labels.get(effective, str(effective or ""))
+    cls = " bad" if effective in {"needs_review", "failed"} else (
+        " warm" if effective in {"edited", "unavailable", "pending"} else ""
+    )
+    return label, cls
+
+
+def _render_indepth_artifact(indepth: Any, conf: Any = None) -> str:
+    if not isinstance(indepth, dict):
+        return ""
+    body = indepth.get("answer") or ""
+    label, cls = _indepth_state(indepth)
+    state = f"<span class='chip{cls}'>{_esc(label)}</span>" if label else ""
+    if str(body).strip():
+        if indepth.get("source") == "answer" and conf is None:
+            return _render_answer(f"**In Depth**\n{body}")
+        return state + _render_section("In-Depth", str(body), conf)
+    if not label:
+        return ""
+    error = indepth.get("error") or "No In-Depth content was displayed."
+    return (
+        "<div class='csec'><div class='ctitle'>In-Depth "
+        f"{state}</div><div class='caveat{' red' if cls == ' bad' else ' yellow'}'>"
+        f"{_esc(error)}</div></div>"
+    )
+
+
 def _render_answer_sections(text: Any, trace: Any, indepth: Any = None) -> str:
-    """Render the answer split into its Answer / In-Depth sections, each headed by its validator
+    """Render normalized Answer / In-Depth sections, each headed by its validator
     confidence tag, with LOW sections withheld behind a reveal (parity with the OpenMRS chat).
-    Two-call arms carry the In-Depth as a SEPARATE call (``indepth`` = row.indepth), NOT in the answer
-    text — render that chip-free (single pass, no validator). Falls back to a single plain answer when
-    there's no per-section confidence and no separate In-Depth (direct single-LLM arms / older runs)."""
+    ``indepth`` is the normalized artifact from response_artifacts, covering the
+    current hub envelope and historical separate-call runs. Falls back to a
+    single plain answer for direct single-LLM arms and older combined answers."""
     answer = "" if text is None else str(text)
     a_conf = trace.get("answer_confidence") if isinstance(trace, dict) else None
     d_conf = trace.get("indepth_confidence") if isinstance(trace, dict) else None
     sep_indepth = ""
     if isinstance(indepth, dict):
-        iresp = indepth.get("response")
-        ia = (iresp.get("answer") if isinstance(iresp, dict) else "") or ""
+        ia = indepth.get("answer") or ""
         sep_indepth = re.sub(r"^\s*\*\*In ?Depth\*\*\s*", "", str(ia), flags=re.IGNORECASE).strip()
     has_conf = (isinstance(a_conf, dict) and a_conf.get("level")) or (
         isinstance(d_conf, dict) and d_conf.get("level"))
     if not has_conf:
         out = _render_answer(answer)
-        if sep_indepth:  # direct two-call arm: a separate In-Depth call, no validator chip
-            out += _render_section("In-Depth", sep_indepth, None)
+        if sep_indepth:
+            out += _render_indepth_artifact({**indepth, "answer": sep_indepth}, None)
+        elif isinstance(indepth, dict) and indepth.get("status"):
+            out += _render_indepth_artifact(indepth, None)
         return out
-    m = _IN_DEPTH_RE.search(answer)
     strip_hdr = lambda s: re.sub(r"^\s*\*\*Answer\*\*\s*", "", s, flags=re.IGNORECASE).strip()  # noqa: E731
-    if m:
-        answer_body, indepth_body = strip_hdr(answer[: m.start()]), answer[m.end():].strip()
-    else:
-        answer_body, indepth_body = strip_hdr(answer), ""
+    answer_body = strip_hdr(answer)
     out = _render_section("Answer", answer_body, a_conf)
-    if indepth_body:  # single-call combined In-Depth (in the answer text) -> its validator chip
-        out += _render_section("In-Depth", indepth_body, d_conf)
-    elif sep_indepth:  # two-call: separate In-Depth call (row.indepth), single pass, chip-free
-        out += _render_section("In-Depth", sep_indepth, None)
+    if sep_indepth:
+        out += _render_indepth_artifact({**indepth, "answer": sep_indepth}, d_conf)
+    elif isinstance(indepth, dict) and indepth.get("status"):
+        out += _render_indepth_artifact(indepth, d_conf)
     return out
 
 
@@ -568,16 +612,21 @@ def _cell_blob(
     resp = r.get("response") or {}
     trace = _trace_for_row(r, traces)
     gate = trace.get("temporal_gate") if isinstance(trace, dict) else None
-    sources_v1 = build_sources(resp, chart_fixture)
+    answer, embedded_indepth = split_answer_sections(resp.get("answer"))
+    indepth = in_depth_artifact(r, resp, embedded_indepth)
+    evidence_response = response_for_displayed_evidence(
+        resp, answer, indepth, embedded_indepth
+    )
+    sources_v1 = build_sources(evidence_response, chart_fixture)
 
     return {
         "error": r.get("error"),
         "http_status": m.get("http_status"),
         "conf_html": "",  # tags now head each answer section (see _render_answer_sections)
-        "answer_html": _render_answer_sections(resp.get("answer"), trace, r.get("indepth")),
+        "answer_html": _render_answer_sections(answer, trace, indepth),
         "sources": sources_v1,
         "sources_html": _render_sources(sources_v1),
-        "refs_html": _render_refs(resp.get("references")),
+        "refs_html": _render_refs(evidence_response.get("references")),
         "blocks_html": _render_blocks(resp.get("blocks"), sources_v1),
         "chips_html": _render_chips(r) + _render_temporal_gate_chip(gate),
         "temporal_gate": gate,

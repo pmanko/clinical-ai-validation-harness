@@ -23,6 +23,17 @@ from harness.validate.reconcile import resolve_citations  # noqa: E402
 from harness.validate.hub_trace import load_traces, match_trace  # noqa: E402
 from harness.validate.model_registry import arm_model_name  # noqa: E402
 from harness.validate.sources import build_sources, render_sources_for_judge, source_ref_labels  # noqa: E402
+from harness.validate.response_artifacts import (  # noqa: E402
+    in_depth_artifact,
+    response_for_displayed_evidence,
+    split_answer_sections,
+)
+
+
+def split_sections(answer: str) -> tuple[str, str]:
+    """Historical script API; new consumers use ``split_answer_sections``."""
+    direct, background = split_answer_sections(answer)
+    return direct, (f"**In Depth**\n{background}" if background else "")
 
 SCEN_DIR = ROOT / "datasets/validation/scenarios"
 CHART_DIR = ROOT / "datasets/validation/charts"
@@ -101,50 +112,6 @@ def render_blocks(blocks: list, sources_v1: dict | None = None) -> str:
     return "\n\n".join(out)
 
 
-def split_sections(answer: str) -> tuple[str, str]:
-    """(answer_section, in_depth_section). Team format: **Answer** ... **In Depth** ...
-    Single-model answers have no **In Depth** -> in_depth is ''."""
-    if not isinstance(answer, str):
-        answer = "" if answer is None else str(answer)
-    low = answer.lower()
-    i = low.find("**in depth**")
-    if i == -1:
-        i = low.find("in depth")
-        if i != -1 and "**" not in answer[max(0, i - 3):i]:
-            i = -1  # only split on a real heading
-    if i == -1:
-        return answer.strip(), ""
-    return answer[:i].strip(), answer[i:].strip()
-
-
-def in_depth_artifact(row: dict, response: dict, embedded_answer: str) -> dict:
-    """Normalize current hub-native and historical separate-call In-Depth storage."""
-    product = response.get("inDepth")
-    if isinstance(product, dict):
-        answer = product.get("answer")
-        return {
-            "answer": answer.strip() if isinstance(answer, str) else embedded_answer,
-            "status": product.get("status"),
-            "validation": product.get("validation"),
-            "latency_ms": product.get("latency_ms"),
-        }
-
-    separate = row.get("indepth") or {}
-    nested = separate.get("response") or {}
-    if isinstance(nested, str):
-        try:
-            nested = json.loads(nested)
-        except Exception:
-            nested = {"answer": nested}
-    answer = nested.get("answer") if isinstance(nested, dict) else ""
-    return {
-        "answer": answer.strip() if isinstance(answer, str) and answer else embedded_answer,
-        "status": nested.get("status") if isinstance(nested, dict) else None,
-        "validation": nested.get("validation") if isinstance(nested, dict) else None,
-        "latency_ms": separate.get("latency_ms"),
-    }
-
-
 def main() -> None:
     rd = run_dir(sys.argv[1] if len(sys.argv) > 1 else sys.exit("usage: judge-prep.py <run>"))
     results = [json.loads(l) for l in open(rd / "results.jsonl")]
@@ -183,8 +150,12 @@ def main() -> None:
             if isinstance(resp, str):
                 try: resp = json.loads(resp)
                 except Exception: resp = {"answer": resp}
-            ans, indepth = split_sections(resp.get("answer"))
-            sources_v1 = build_sources(resp, chart)
+            ans, indepth = split_answer_sections(resp.get("answer"))
+            indepth_artifact = in_depth_artifact(r, resp, indepth)
+            evidence_response = response_for_displayed_evidence(
+                resp, ans, indepth_artifact, indepth
+            )
+            sources_v1 = build_sources(evidence_response, chart)
             # Fold the structured table blocks into the answer the judge scores — for list questions the
             # substance lives in `blocks`, and the judge must see it or completeness is scored as absent.
             rendered = render_blocks(resp.get("blocks"), sources_v1)
@@ -193,9 +164,6 @@ def main() -> None:
             evidence = render_sources_for_judge(sources_v1)
             if evidence:
                 ans = (ans + "\n\n" + evidence).strip() if ans else evidence
-            # Product profiles store the staged tail in response.inDepth. Historical two-call
-            # runs stored it separately at row.indepth.response; preserve both on read.
-            indepth_artifact = in_depth_artifact(r, resp, indepth)
             indepth = indepth_artifact["answer"]
             turns.append({
                 "n": r.get("turn", 1),
@@ -207,7 +175,7 @@ def main() -> None:
                 "in_depth_status": indepth_artifact["status"],
                 "in_depth_validation": indepth_artifact["validation"],
                 "indepth_latency_ms": indepth_artifact["latency_ms"],
-                "references": resp.get("references") or [],
+                "references": evidence_response.get("references") or [],
                 "sources": sources_v1.get("sources") or [],
                 "source_diagnostics": sources_v1.get("diagnostics") or {},
             })
