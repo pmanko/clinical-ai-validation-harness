@@ -371,10 +371,12 @@ if missing_pattern "$legacy_java" "$CSAI/api/src/main" "$CSAI/omod/src/main" \
   && missing_pattern 'querystore-api' "$CSAI/api/pom.xml" \
   && missing_pattern 'require_module[^>]*>org.openmrs.module.querystore' "$CSAI/omod/src/main/resources/config.xml" \
   && missing_pattern 'GGUF_MODEL_URL|gguf_model_url' "$CSAI/.github/workflows/build-standalone.yml" \
+  && missing_pattern 'timeout\(Duration\.ofSeconds\([0-9]+\)\)' "$CSAI/omod/src/main/java/org/openmrs/module/chartsearchai/web/rest/ChartSearchAiRestController.java" \
   && has_pattern 'hubRelay' "$CSAI/omod/src/main" \
+  && has_pattern 'buildHubRelayHttpRequest_shouldNotImposeAWholeProfileTimeout' "$CSAI/omod/src/test" \
   && has_pattern 'require_product_profile' "$CSAI/omod/src/main" "$CSAI/omod/src/test" \
   && has_pattern 'the hub product profile, not the Java relay, owns the answer schema' "$CSAI/omod/src/test"; then
-  record G15 PASS "Java is a thin hub relay; the hub owns prompts, output schema, and inference"
+  record G15 PASS "Java is a thin hub relay without a whole-profile timeout; the hub owns prompts, output schema, and inference"
 else
   record G15 FAIL "legacy inference, schema ownership, discovery, bundled model, or Querystore coupling remains"
 fi
