@@ -132,6 +132,8 @@ def test_validation_run_reuses_the_credential_aware_hub_target():
 def test_preflight_probes_the_context_source_from_inside_the_hub():
     preflight = _read("scripts/validate-preflight.sh")
 
+    assert 'artifacts/chartsearchai-local/querystore-service.env' in preflight
+    assert "make chartsearchai-local" in preflight
     assert 'HUB_BUILD_REVISION="$(git -C targets/med-agent-hub rev-parse HEAD)"' in preflight
     assert "export HUB_BUILD_REVISION" in preflight
     assert 'docker exec -i -e SOURCE_PROBE_PATIENT="${SOURCE_PROBE_PATIENT}" harness-med-agent-hub' in preflight
@@ -171,6 +173,8 @@ def test_querystore_recreate_is_explicit_and_read_store_scoped():
     assert "DELETE FROM patient" not in script
     assert "DELETE FROM obs" not in script
     assert "scripts/check-querystore-drift.py" in script
+    assert 'payload.get("complete") is True' in script
+    assert '[[ "${generation_state}" == "complete" ]]' in script
 
 
 def test_local_startup_provisions_source_before_starting_and_warming_hub():

@@ -41,6 +41,12 @@ SET_FILE="datasets/validation/comparison_sets/${SET}.json"
 # without it the frontend/gateway downgrade to stock and the SPA 404s.
 [ -f ./.env.chartsearch ] || { echo "ERROR: ./.env.chartsearch not found — provision it (see scripts/chartsearch-configure.sh) before running preflight." >&2; exit 1; }
 set -a; . ./.env.chartsearch; set +a
+SOURCE_ENV="${ROOT}/artifacts/chartsearchai-local/querystore-service.env"
+if [ ! -s "${SOURCE_ENV}" ]; then
+  echo "ERROR: ${SOURCE_ENV} is missing — run 'make chartsearchai-local' to provision the least-privileged patient source" >&2
+  exit 1
+fi
+set -a; . "${SOURCE_ENV}"; set +a
 HUB_BUILD_REVISION="$(git -C targets/med-agent-hub rev-parse HEAD)"
 export HUB_BUILD_REVISION
 PORT="${HARNESS_PROXY_HTTP_PORT:-8088}"

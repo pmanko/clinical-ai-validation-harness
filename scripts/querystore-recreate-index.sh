@@ -76,12 +76,13 @@ for attempt in $(seq 1 1440); do
   status_json="$(curl -fsS --max-time 30 -u "${AUTH}" \
     "${BASE}/ws/rest/v1/querystore/indexingstatus" 2>/dev/null || true)"
   if [[ -n "${status_json}" ]]; then
-    if ! STATUS_JSON="${status_json}" python3 - <<'PY'
+    if ! generation_state="$(STATUS_JSON="${status_json}" python3 - <<'PY'
 import json
 import os
 import sys
 
-rows = json.loads(os.environ["STATUS_JSON"]).get("types") or []
+payload = json.loads(os.environ["STATUS_JSON"])
+rows = payload.get("types") or []
 failed = [row for row in rows if row.get("status") == "FAILED"]
 if failed:
     for row in failed:
@@ -91,19 +92,22 @@ if failed:
             file=sys.stderr,
         )
     raise SystemExit(1)
+print("complete" if payload.get("complete") is True else "running")
 PY
-    then
+    )"; then
       exit 1
     fi
-    drift_json="$(curl -fsS --max-time 60 -u "${AUTH}" \
-      "${BASE}/ws/rest/v1/querystore/drift" 2>/dev/null || true)"
-    if [[ -n "${drift_json}" ]] \
-      && printf '%s' "${drift_json}" \
-        | python3 scripts/check-querystore-drift.py >"${drift_report}" 2>&1
-    then
-      cat "${drift_report}"
-      echo "    clean Querystore generation complete"
-      exit 0
+    if [[ "${generation_state}" == "complete" ]]; then
+      drift_json="$(curl -fsS --max-time 60 -u "${AUTH}" \
+        "${BASE}/ws/rest/v1/querystore/drift" 2>/dev/null || true)"
+      if [[ -n "${drift_json}" ]] \
+        && printf '%s' "${drift_json}" \
+          | python3 scripts/check-querystore-drift.py >"${drift_report}" 2>&1
+      then
+        cat "${drift_report}"
+        echo "    clean Querystore generation complete"
+        exit 0
+      fi
     fi
   fi
   if (( attempt % 6 == 0 )); then
