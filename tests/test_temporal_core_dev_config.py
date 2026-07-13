@@ -107,6 +107,24 @@ def test_hub_profile_candidate_uses_only_real_checked_product_profiles():
     assert set(raw["temporal_scenario_ids"]) < set(cset.scenario_ids)
 
 
+def test_hub_profile_12b_candidate_is_the_approved_quality_baseline():
+    cset = load_comparison_set(
+        DATA / "comparison_sets" / "hub-profile-12b-candidate.json"
+    )
+    assert cset.id == "hub-profile-12b-candidate"
+    assert len(cset.scenario_ids) == 12
+    assert cset.backend_ids == ["product-12b-checked"]
+
+    backends = resolve_backends(cset.backend_ids, DATA / "backends.json")
+    assert [backend.model_name for backend in backends] == ["single-12b-checked"]
+    assert backends[0].indepth_model is None
+    raw = json.loads(
+        (DATA / "comparison_sets" / "hub-profile-12b-candidate.json").read_text()
+    )
+    assert len(raw["temporal_scenario_ids"]) == 11
+    assert set(raw["temporal_scenario_ids"]) < set(cset.scenario_ids)
+
+
 def test_hub_profile_appointment_smoke_targets_two_product_paths():
     cset = load_comparison_set(
         DATA / "comparison_sets" / "hub-profile-appointment-smoke.json"

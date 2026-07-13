@@ -11,7 +11,7 @@ Execution state for `MAH-CONSOLIDATION-2026-07-09-v1`.
 | Approved roadmap SHA-256 | `5f625cb9f1ac4a1682001fb40fd3cc6852ceed16c96e9b54e435b4e591a64d3d` |
 | Current execution boundary | M3 product/local proof in progress; User Signoff C granted 2026-07-10 |
 | Next protected boundary | M4 evaluation and release requires successful M3 proof and User Release Signoff D |
-| Approved amendments | A1: Git-owned temporal-facts provenance, approved by the user on 2026-07-11 |
+| Approved amendments | A1: Git-owned temporal-facts provenance, approved 2026-07-11; A2: 12B-first publish candidate, approved 2026-07-13 |
 
 The roadmap intentionally preserves the exact approved Plan Mode body, including its
 pre-approval status line. This companion file is the authoritative execution-status record.
@@ -51,6 +51,20 @@ hub commit, the full hub and parent suites pass, and an independent re-review re
 Amendment result: **Pass** at med-agent-hub `4dee5a3`. The hub emits one unversioned internal
 `temporal_facts` object, traces require an exact hub commit, 392 hub tests pass, 34 focused parent
 tests pass, the seven-repository drift scan passes, and the independent re-review reports no blocker.
+
+## Approved Amendment A2: 12B-First Publish Candidate
+
+The user approved a 12B-only quality-baseline report before further E4B or medical-team iteration on
+2026-07-13. This changes only the pre-final candidate composition: the established 12 scenarios,
+fixtures, reference date, deterministic audit, independent judging, and publication requirements are
+unchanged. E4B remains the intended fast product candidate and the medical-team profile remains an
+experimental comparison, but their known structural-output failures are not hidden inside the 12B
+quality-baseline report.
+
+Amendment exit criteria: the 12B run completes all 12 cells on exact committed heads, passes the
+deterministic audit with no blocker, receives an independent hash-bound judgment, and is published
+with its model/profile scope stated explicitly. This is pre-final report authorization, not release
+signoff.
 
 ## Baseline Snapshot
 
@@ -316,7 +330,7 @@ existing PR heads were updated with exact force-with-lease checks.
 | First remediated rerun | Run `e914eb8a-79fb-4736-bc94-4b36fc3ae620` completed 18/18 against hub `7fd5bc7` and parent `96cecc3`, with zero transport errors and 11 deterministic blockers. It remains diagnostic and unjudged. |
 | Second remediated rerun | Run `e52e56de-048c-42ac-af71-e52bf85d0a6b` completed 18/18 against hub `bc20034` and parent `8e3d637`, with zero transport errors and 10 deterministic blockers. It confirmed the reviewer-localization fix, exposed one missed present-tense scheduling grammar and collective temporal grounding mismatch now fixed in `021e305`, and showed genuine model-output failures in E4B weight structure and team medication/weight citation structure. It remains diagnostic and unjudged. |
 | Exact-head appointment smoke | Run `da340047-5b9c-4ebc-b436-a8d6a3a50287` completed 2/2 against hub `021e305` and parent `a2b5d30`, with zero transport errors and zero deterministic blockers. E4B shipped the safe historical-return-date answer as checked with one evidence-type warning and no unsupported references; 12B shipped the collective 11-source no-upcoming claim as checked with zero Answer issues and no unsupported references. The deterministic audit passed. |
-| Remaining proof | Choose the next publish candidate arms from the measured product behavior rather than weakening deterministic checks. The approved 12-scenario candidate still names both E4B and 12B, but the focused diagnostics show one remaining E4B structural weight-answer failure while 12B is the clean quality baseline; changing the publish candidate to 12B-only requires explicit steering rather than a silent roadmap deviation. The medical-team profile also requires model/prompt iteration for medication and weight citation structure. Refresh exact-head UI/video proof afterward; performance tuning remains deferred. Final DIGI-UW/code-qa and release hygiene remain pending. |
+| Remaining proof | User approval now authorizes the 12B-only 12-scenario quality baseline. Run it on exact committed heads, require a zero-blocker deterministic audit, independently judge it, and publish the report with explicit scope. E4B and medical-team structural-output remediation remain separate workstreams. Refresh exact-head UI/video proof afterward; performance tuning remains deferred. Final DIGI-UW/code-qa and release hygiene remain pending. |
 
 ## Milestones
 
@@ -353,7 +367,7 @@ existing PR heads were updated with exact force-with-lease checks.
 | G18 Multi-turn and cancellation | In progress | Positive cancellation and slot-release evidence passed on `de8614e`; rerun is required on the final product head before this gate returns to Pass |
 | G19 Local setup | In progress | Prior exact-head proof passed on hub `1307f0b`; canonical startup and relay/hydration proof must be regenerated for `7fd5bc7`. |
 | G20 Performance | Deferred | Performance tuning and relative measurement are intentionally after UI proof, evaluation, judging, and publication. |
-| G21 Evaluation | In progress | Run `b63702b3-c9d4-4631-a545-826f2521278b` completed the aligned 18-cell single-versus-team set with full stage timing but failed deterministic QA (21 checks across 10 cells). It is published as an unjudged diagnostic, not candidate evidence. A remediated rerun must pass deterministic QA before independent judging or candidate publication. |
+| G21 Evaluation | In progress | The published 18-cell run remains an explicitly failed, unjudged diagnostic. Exact-head appointment smoke `da340047-5b9c-4ebc-b436-a8d6a3a50287` passed with zero blockers on hub `021e305`; the approved 12B-only 12-scenario quality baseline is next and must pass deterministic QA before judging/publication. |
 | G22 Documentation | Pass | Current READMEs, contributor rules, workflow comments, API docs, and all submodules pass the seven-repository drift scan |
 | G23 Independent QA | Pending | The gate now requires all five DIGI-UW/code-qa reviews to pass with zero blockers, hash-bound reports, and exact root/submodule SHAs; final-head review execution remains pending |
 | G24 Release hygiene | Pending | Final CI, E2E, PR, pin, and clean-tree proof required |
@@ -377,3 +391,4 @@ existing PR heads were updated with exact force-with-lease checks.
 | 2026-07-10 | A fresh judged report must be run and published before final validation. | After the known M3 correctness blockers are fixed and deterministic QA is clean, create a new candidate set that exercises the product profiles rather than the obsolete two-call experimental arms. Run `single-e4b-checked` as the default product path and `single-12b-checked` as the quality comparison across the 12 temporal/date scenarios, exclude high-team, preserve independent judgments, publish the report, and inspect per-cell regressions before the final validation/release pass. This is limited publication authorization for that report, not User Release Signoff D. |
 | 2026-07-12 | Add one checked medical-team arm to the next focused comparison and expose stage timing. | The next iteration uses six representative scenarios across E4B single, 12B single, and `team-med-checked` (18 cells). This is a focused readiness comparison before any broader candidate; it does not re-admit the quarantined high-team configurations. Dashboard cell details and static reports show per-stage elapsed time and status, while report summaries disclose observed/expected timing coverage. |
 | 2026-07-13 | Publish the failed 18-cell run as a diagnostic before remediation continues. | The user explicitly authorized publication before continuing. The public title, summary, and takeaway state that the run is unjudged, failed deterministic QA, and is not a model-quality comparison. This does not satisfy G21, replace the required clean judged candidate, or grant release signoff. |
+| 2026-07-13 | Run the 12B-only 12-scenario quality baseline before further E4B/team iteration. | Focused diagnostics and the clean appointment smoke show 12B as the current quality baseline while E4B and the medical-team profile retain separate structural-output failures. Scenario scope, deterministic gates, independent judging, and publication criteria remain unchanged. |
