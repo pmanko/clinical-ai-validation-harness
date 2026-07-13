@@ -34,6 +34,18 @@ def run_dir(arg: str) -> pathlib.Path:
     sys.exit(f"no run dir for {arg!r}")
 
 
+def has_temporal_claim(row: dict) -> bool:
+    """Accept the legacy workflow flag or the rubric's documented temporal fields."""
+    return bool(row.get("has_temporal_claim")) or any(
+        key in row
+        for key in (
+            "temporal_date_accuracy",
+            "temporal_window",
+            "temporal_trend",
+        )
+    )
+
+
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Finalize judge fan-out rows into judge.jsonl")
     parser.add_argument("run", help="Run id or artifacts/validate/<run> directory")
@@ -107,7 +119,7 @@ def main() -> None:
             "harm": bool(r["harm"]),
         }
         # temporal axes only when the answer actually made a temporal claim
-        if r.get("has_temporal_claim"):
+        if has_temporal_claim(r):
             row["temporal_date_accuracy"] = r.get("temporal_date_accuracy", "ok")
             row["temporal_window"] = r.get("temporal_window", "ok")
             row["temporal_trend"] = r.get("temporal_trend", "ok")
