@@ -117,6 +117,34 @@ def split_sections(answer: str) -> tuple[str, str]:
     return answer[:i].strip(), answer[i:].strip()
 
 
+def in_depth_artifact(row: dict, response: dict, embedded_answer: str) -> dict:
+    """Normalize current hub-native and historical separate-call In-Depth storage."""
+    product = response.get("inDepth")
+    if isinstance(product, dict):
+        answer = product.get("answer")
+        return {
+            "answer": answer.strip() if isinstance(answer, str) else embedded_answer,
+            "status": product.get("status"),
+            "validation": product.get("validation"),
+            "latency_ms": product.get("latency_ms"),
+        }
+
+    separate = row.get("indepth") or {}
+    nested = separate.get("response") or {}
+    if isinstance(nested, str):
+        try:
+            nested = json.loads(nested)
+        except Exception:
+            nested = {"answer": nested}
+    answer = nested.get("answer") if isinstance(nested, dict) else ""
+    return {
+        "answer": answer.strip() if isinstance(answer, str) and answer else embedded_answer,
+        "status": nested.get("status") if isinstance(nested, dict) else None,
+        "validation": nested.get("validation") if isinstance(nested, dict) else None,
+        "latency_ms": separate.get("latency_ms"),
+    }
+
+
 def main() -> None:
     rd = run_dir(sys.argv[1] if len(sys.argv) > 1 else sys.exit("usage: judge-prep.py <run>"))
     results = [json.loads(l) for l in open(rd / "results.jsonl")]
@@ -165,22 +193,20 @@ def main() -> None:
             evidence = render_sources_for_judge(sources_v1)
             if evidence:
                 ans = (ans + "\n\n" + evidence).strip() if ans else evidence
-            # Two-call architecture: the In-Depth is a SEPARATE nested artifact (its own call +
-            # latency), not concatenated into the answer — use it as the in_depth_section so the
-            # arm is background-judged (and a single-model arm finally gets a background score).
-            nested = (r.get("indepth") or {}).get("response") or {}
-            if isinstance(nested, str):
-                try: nested = json.loads(nested)
-                except Exception: nested = {"answer": nested}
-            if nested.get("answer"):
-                indepth = nested["answer"]
+            # Product profiles store the staged tail in response.inDepth. Historical two-call
+            # runs stored it separately at row.indepth.response; preserve both on read.
+            indepth_artifact = in_depth_artifact(r, resp, indepth)
+            indepth = indepth_artifact["answer"]
             turns.append({
                 "n": r.get("turn", 1),
                 "question": next((t.get("question") for t in scen.get("turns", []) if t.get("n") == r.get("turn", 1)),
                                  (scen.get("turns") or [{}])[0].get("question")),
                 "answer_section": ans,
                 "in_depth_section": indepth,
-                "indepth_latency_ms": (r.get("indepth") or {}).get("latency_ms"),
+                "answer_validation": resp.get("answerValidation"),
+                "in_depth_status": indepth_artifact["status"],
+                "in_depth_validation": indepth_artifact["validation"],
+                "indepth_latency_ms": indepth_artifact["latency_ms"],
                 "references": resp.get("references") or [],
                 "sources": sources_v1.get("sources") or [],
                 "source_diagnostics": sources_v1.get("diagnostics") or {},
@@ -211,6 +237,9 @@ def main() -> None:
             "turns": turns,
             "answer_section": final["answer_section"],
             "in_depth_section": final["in_depth_section"],
+            "answer_validation": final.get("answer_validation"),
+            "in_depth_status": final.get("in_depth_status"),
+            "in_depth_validation": final.get("in_depth_validation"),
             "references": final["references"],
             "citation_resolution": cres,
             "sources": final.get("sources") or [],
