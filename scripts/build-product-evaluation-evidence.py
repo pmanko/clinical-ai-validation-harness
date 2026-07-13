@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build deterministic, hashable evidence for the product-profile candidate run."""
+"""Build deterministic, hashable evidence for a product-profile validation run."""
 
 from __future__ import annotations
 
@@ -12,6 +12,11 @@ from typing import Any
 
 from harness.validate.hub_trace import load_traces, match_trace
 from harness.validate.model_registry import arm_model_name
+from harness.validate.stage_timings import (
+    expected_stage_labels,
+    extract_stage_timings,
+    stage_timing_label,
+)
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -41,14 +46,14 @@ def _jsonl(path: Path) -> list[dict[str, Any]]:
     ]
 
 
-def _expected_pairs() -> set[tuple[str, str]]:
+def _expected_pairs(comparison_set: str = EXPECTED_SET) -> set[tuple[str, str]]:
     comparison = json.loads(
         (
             ROOT
             / "datasets"
             / "validation"
             / "comparison_sets"
-            / f"{EXPECTED_SET}.json"
+            / f"{comparison_set}.json"
         ).read_text(encoding="utf-8")
     )
     return {
@@ -56,6 +61,43 @@ def _expected_pairs() -> set[tuple[str, str]]:
         for scenario in comparison["scenario_ids"]
         for backend in comparison["backend_ids"]
     }
+
+
+def _run_contract(
+    run_dir: Path,
+) -> tuple[str, str, set[tuple[str, str]], dict[str, list[str]]]:
+    run_event = next(
+        (
+            event
+            for event in _jsonl(run_dir / "events.jsonl")
+            if event.get("event_type") == "run"
+        ),
+        None,
+    )
+    if not run_event:
+        raise RuntimeError("Run event is missing from events.jsonl.")
+    comparison_set = str(run_event.get("comparison_set") or "").strip()
+    reference_date = str(run_event.get("reference_date") or "").strip()
+    scenario_ids = run_event.get("scenario_ids") or []
+    backend_ids = run_event.get("backend_ids") or []
+    if not comparison_set or not reference_date or not scenario_ids or not backend_ids:
+        raise RuntimeError("Run event does not contain a complete evaluation contract.")
+    expected = {
+        (str(scenario), str(backend))
+        for scenario in scenario_ids
+        for backend in backend_ids
+    }
+    authored = _expected_pairs(comparison_set)
+    if expected != authored:
+        raise RuntimeError(
+            f"Recorded run matrix does not match comparison set {comparison_set!r}."
+        )
+    meta = json.loads((run_dir / "run_meta.json").read_text(encoding="utf-8"))
+    stages_by_backend = {
+        str(backend): list((meta.get("arm_cards") or {}).get(backend, {}).get("stages") or [])
+        for backend in backend_ids
+    }
+    return comparison_set, reference_date, expected, stages_by_backend
 
 
 def _is_substantive(answer: str) -> bool:
@@ -69,13 +111,13 @@ def build_evidence(
     output_dir: Path,
 ) -> tuple[Path, Path]:
     rows = _jsonl(run_dir / "results.jsonl")
-    expected = _expected_pairs()
+    comparison_set, reference_date, expected, stages_by_backend = _run_contract(run_dir)
     actual = {(row["scenario_id"], row["backend_id"]) for row in rows}
     if len(rows) != len(expected) or actual != expected:
         raise RuntimeError(
             f"Run matrix mismatch: expected {len(expected)} cells, found {len(rows)} / {actual ^ expected}"
         )
-    if any(row.get("reference_date") != EXPECTED_REFERENCE_DATE for row in rows):
+    if any(row.get("reference_date") != reference_date for row in rows):
         raise RuntimeError("Result rows do not all carry the fixed evaluation reference date.")
 
     traces = load_traces(trace_path)
@@ -118,7 +160,21 @@ def build_evidence(
         bad_dates = DATE_ANALYZER._bad_date_hits(DATE_ANALYZER._answer_text(row))
         check("malformed_dates", not bad_dates, bad_dates)
         check("trace_resolved", trace is not None, None if trace is None else trace.get("ts"))
-        check("fixed_trace_anchor", (trace or {}).get("reference_date") == EXPECTED_REFERENCE_DATE, (trace or {}).get("reference_date"))
+        check("fixed_trace_anchor", (trace or {}).get("reference_date") == reference_date, (trace or {}).get("reference_date"))
+        timings = extract_stage_timings(trace)
+        observed_stages = [stage_timing_label(timing) for timing in timings]
+        expected_stages = expected_stage_labels(stages_by_backend.get(backend))
+        check(
+            "stage_timing_coverage",
+            bool(expected_stages) and set(expected_stages) <= set(observed_stages),
+            {"expected": expected_stages, "observed": observed_stages},
+        )
+        check(
+            "stage_timing_terminal",
+            bool(timings)
+            and all(timing.get("status") in {"completed", "failed", "cancelled"} for timing in timings),
+            timings,
+        )
         check(
             "answer_temporal_enforce",
             temporal_gate.get("mode") == "enforce"
@@ -182,8 +238,8 @@ def build_evidence(
             {
                 "schema_version": "product_run_deterministic_audit.v1",
                 "status": "pass" if not blockers else "fail",
-                "comparison_set": EXPECTED_SET,
-                "reference_date": EXPECTED_REFERENCE_DATE,
+                "comparison_set": comparison_set,
+                "reference_date": reference_date,
                 "run_id": run_dir.name,
                 "cells": audit_cells,
                 "blockers": blockers,

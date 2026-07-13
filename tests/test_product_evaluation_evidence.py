@@ -30,6 +30,22 @@ def test_expected_candidate_matrix_is_exactly_24_cells():
 def test_evidence_builder_rejects_an_incomplete_run(tmp_path):
     run = tmp_path / "run"
     run.mkdir()
+    (run / "events.jsonl").write_text(
+        json.dumps(
+            {
+                "event_type": "run",
+                "comparison_set": MODULE.EXPECTED_SET,
+                "reference_date": MODULE.EXPECTED_REFERENCE_DATE,
+                "scenario_ids": [scenario for scenario, _ in sorted(MODULE._expected_pairs())],
+                "backend_ids": ["product-e4b-checked", "product-12b-checked"],
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (run / "run_meta.json").write_text(
+        json.dumps({"arm_cards": {}}) + "\n", encoding="utf-8"
+    )
     (run / "results.jsonl").write_text(
         json.dumps(
             {
@@ -57,8 +73,32 @@ def _valid_candidate_fixture(tmp_path):
     run.mkdir()
     traces = []
     results = []
+    pairs = sorted(MODULE._expected_pairs())
+    scenario_ids = list(dict.fromkeys(scenario for scenario, _ in pairs))
+    backend_ids = list(dict.fromkeys(backend for _, backend in pairs))
+    stages = ["context", "answer", "gate", "resolve_refs"]
+    (run / "events.jsonl").write_text(
+        json.dumps(
+            {
+                "event_type": "run",
+                "comparison_set": MODULE.EXPECTED_SET,
+                "reference_date": MODULE.EXPECTED_REFERENCE_DATE,
+                "scenario_ids": scenario_ids,
+                "backend_ids": backend_ids,
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (run / "run_meta.json").write_text(
+        json.dumps(
+            {"arm_cards": {backend: {"stages": stages} for backend in backend_ids}}
+        )
+        + "\n",
+        encoding="utf-8",
+    )
     start = datetime(2026, 7, 11, tzinfo=timezone.utc)
-    for offset, (scenario, backend) in enumerate(sorted(MODULE._expected_pairs())):
+    for offset, (scenario, backend) in enumerate(pairs):
         ts = start + timedelta(minutes=offset)
         results.append(
             {
@@ -92,6 +132,16 @@ def _valid_candidate_fixture(tmp_path):
                 "reference_date": MODULE.EXPECTED_REFERENCE_DATE,
                 "temporal_gate": {"mode": "enforce", "status": "pass"},
                 "indepth_temporal_gate": {"mode": "enforce", "status": "checked"},
+                "steps": [
+                    {
+                        "role": "stage_timing",
+                        "stage": stage,
+                        "occurrence": 1,
+                        "duration_ms": 10,
+                        "status": "completed",
+                    }
+                    for stage in stages
+                ],
             }
         )
     results_path = run / "results.jsonl"
