@@ -107,6 +107,21 @@ def test_hub_profile_candidate_uses_only_real_checked_product_profiles():
     assert set(raw["temporal_scenario_ids"]) < set(cset.scenario_ids)
 
 
+def test_hub_profile_appointment_smoke_targets_two_product_paths():
+    cset = load_comparison_set(
+        DATA / "comparison_sets" / "hub-profile-appointment-smoke.json"
+    )
+    assert cset.scenario_ids == ["single-upcoming-appointments"]
+    assert cset.backend_ids == ["product-e4b-checked", "product-12b-checked"]
+
+    backends = resolve_backends(cset.backend_ids, DATA / "backends.json")
+    assert [backend.model_name for backend in backends] == [
+        "single-e4b-checked",
+        "single-12b-checked",
+    ]
+    assert all(backend.indepth_model is None for backend in backends)
+
+
 def test_hub_profile_team_focus_has_one_team_and_two_single_profiles():
     cset = load_comparison_set(
         DATA / "comparison_sets" / "hub-profile-team-focus.json"
