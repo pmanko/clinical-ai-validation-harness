@@ -140,6 +140,21 @@ def test_hub_profile_appointment_smoke_targets_two_product_paths():
     assert all(backend.indepth_model is None for backend in backends)
 
 
+def test_hub_profile_12b_appointment_smoke_targets_collective_source_case():
+    cset = load_comparison_set(
+        DATA / "comparison_sets" / "hub-profile-12b-appointment-smoke.json"
+    )
+    assert cset.scenario_ids == ["am-upcoming-appointments"]
+    assert cset.backend_ids == ["product-12b-checked"]
+    path = DATA / "comparison_sets" / "hub-profile-12b-appointment-smoke.json"
+    raw = json.loads(path.read_text())
+    assert raw["temporal_scenario_ids"] == ["am-upcoming-appointments"]
+
+    backends = resolve_backends(cset.backend_ids, DATA / "backends.json")
+    assert [backend.model_name for backend in backends] == ["single-12b-checked"]
+    assert backends[0].indepth_model is None
+
+
 def test_hub_profile_team_focus_has_one_team_and_two_single_profiles():
     cset = load_comparison_set(
         DATA / "comparison_sets" / "hub-profile-team-focus.json"
