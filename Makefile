@@ -439,9 +439,11 @@ validate-preflight: setup dashboard-ensure
 # The run's simulated "now": ONE value drives the hub temporal anchor (HUB_ANCHOR = the model's "now")
 # AND the judge (--reference-date, recorded per row) so model == judge (P0b). Override per dataset/run.
 REFERENCE_DATE ?= 2026-06-20
+RESUME ?=
 validate-run: setup dashboard-ensure
 	HUB_ANCHOR=$(REFERENCE_DATE) $(MAKE) med-agent-hub-up
-	$(UV) run harness-cli validate run $(SET) --reference-date $(REFERENCE_DATE)
+	$(UV) run harness-cli validate run $(SET) --reference-date $(REFERENCE_DATE) \
+		$(if $(RESUME),--resume $(RESUME),)
 
 # Judge a completed run with the Claude-agent clinical-answer-scoring fan-out. The fan-out itself
 # (one Claude judge per cell) is a Claude Workflow, not shell-invocable; these two targets are its

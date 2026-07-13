@@ -126,6 +126,7 @@ def test_validation_run_reuses_the_credential_aware_hub_target():
     target = makefile.split("validate-run:", 1)[1].split("validate-judge-prep:", 1)[0]
 
     assert "HUB_ANCHOR=$(REFERENCE_DATE) $(MAKE) med-agent-hub-up" in target
+    assert "$(if $(RESUME),--resume $(RESUME),)" in target
     assert "docker compose" not in target
 
 
