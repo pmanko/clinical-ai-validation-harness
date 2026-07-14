@@ -1,5 +1,6 @@
 {
   "id": "small-model-answer-paths",
+  "transport": "med-agent-hub",
   "description": "E4B versus the published 12B baseline across matched answer-only, deterministic temporal enforcement, and fully checked product paths. Uses the same 12 scenarios and temporal anchor as hub-profile-candidate so quality and per-stage latency remain directly comparable.",
   "scenario_ids": [
     "date-zabella-weight-table",

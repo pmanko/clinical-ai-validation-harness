@@ -230,6 +230,7 @@ def run_comparison(
             "run_id": run_id,
             "component": "validate",
             "comparison_set": comparison_set_id,
+            "transport": cset.transport,
             "scenario_ids": cset.scenario_ids,
             "backend_ids": cset.backend_ids,
             "reference_date": reference_date,
@@ -274,6 +275,7 @@ def run_comparison(
                 "label": backend.label,
                 "endpointUrl": backend.endpoint_url,
                 "modelName": backend.model_name,
+                "transport": cset.transport,
                 "llamaRouterModelsMax": backend.llama_router_models_max,
             },
         )

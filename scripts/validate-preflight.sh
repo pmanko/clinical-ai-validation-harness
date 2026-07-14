@@ -37,6 +37,9 @@ COMPOSE="compose/openmrs-2.8-refapp.yml"
 SET_FILE="datasets/validation/comparison_sets/${SET}.json"
 [ -f "${SET_FILE}" ] || { echo "ERROR: no comparison set ${SET_FILE}" >&2; exit 1; }
 
+echo "==> [0/5] validate comparison execution contract"
+uv run harness-cli validate check "${SET}" --data-root datasets/validation
+
 # .env.chartsearch carries OPENMRS_REFAPP_TAG (nightly-chartsearch) + the proxy ports;
 # without it the frontend/gateway downgrade to stock and the SPA 404s.
 [ -f ./.env.chartsearch ] || { echo "ERROR: ./.env.chartsearch not found — provision it (see scripts/chartsearch-configure.sh) before running preflight." >&2; exit 1; }

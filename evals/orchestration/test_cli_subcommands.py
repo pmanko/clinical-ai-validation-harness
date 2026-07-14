@@ -47,6 +47,11 @@ def test_validate_run_accepts_resume_dir():
 def test_validate_run_passes_resume_to_run_comparison(monkeypatch):
     captured = {}
 
+    class _Comparison:
+        id = "cs"
+        transport = "chartsearchai"
+        backend_ids = []
+
     class _Result:
         result_count = 0
         results_path = "r.jsonl"
@@ -56,6 +61,16 @@ def test_validate_run_passes_resume_to_run_comparison(monkeypatch):
         captured.update(kw)
         return _Result()
 
+    monkeypatch.setattr(
+        "harness.validate.models.load_comparison_set", lambda _path: _Comparison()
+    )
+    monkeypatch.setattr(
+        "harness.validate.resolver.resolve_backends", lambda _ids, _path: []
+    )
+    monkeypatch.setattr(
+        "harness.validate.execution.validate_execution_contract",
+        lambda _comparison, _backends: None,
+    )
     monkeypatch.setattr("harness.validate.runner.run_comparison", fake_run_comparison)
     monkeypatch.setattr("harness.validate.client.ChartSearchAiClient", lambda *a, **k: object())
     monkeypatch.setattr(

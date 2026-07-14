@@ -228,10 +228,21 @@ def _flatten_profile(spec: dict[str, Any]) -> dict[str, Any]:
         return dict(spec)
     models = spec.get("models") or {}
     prompts = spec.get("prompts") or {}
+    policies = spec.get("policies") or {}
+    context = spec.get("context") or {}
+    knobs = spec.get("knobs") or {}
+    answer_knobs = knobs.get("answer") or {}
     return {
         "label": spec.get("label"),
         "topology": spec.get("topology"),
         "stages": spec.get("stages") or [],
+        "visibility": spec.get("visibility"),
+        "output": policies.get("output"),
+        "temporal_gate": policies.get("temporal_gate"),
+        "context_window": context.get("window"),
+        "reserved_output_tokens": context.get("reserved_output_tokens"),
+        "exact_tokenizer": context.get("exact_tokenizer"),
+        "answer_temperature": answer_knobs.get("temperature"),
         "orchestrator": models.get("orchestrator"),
         "expert": models.get("expert"),
         "synthesizer": models.get("answer") or models.get("indepth"),
@@ -437,12 +448,16 @@ def _hub_single_config(
     prompt_stem: str | None,
     ini: dict[str, dict[str, str]],
     temp_floor: str | None = None,
+    answer_temperature: Any = None,
 ) -> dict[str, Any]:
     entry = _prompt_file_entry("Synthesis prompt", prompt_stem or "synthesis-chartsearchai")
     knobs = _resolve_knobs(model_id, ini)
     if temp_floor:
         knobs = dict(knobs)
         knobs["synth_temp_floor"] = temp_floor
+    if answer_temperature is not None:
+        knobs = dict(knobs)
+        knobs["answer_temperature"] = answer_temperature
     return {
         "knobs": {model_id: knobs},
         "prompts": [entry] if entry else [],
@@ -544,10 +559,22 @@ def arm_card(
             _stages = list(level.get("stages") or [])
             if "review" in _stages and "ground_verdicts" in _stages:
                 _t, _st = f"{_t} · fully checked", f"{_st} · fully checked"
+            elif _stages == ["context", "answer", "gate"]:
+                depth = (
+                    "deterministic check"
+                    if level.get("temporal_gate") == "enforce"
+                    else "answer only"
+                )
+                _t, _st = f"{_t} · {depth}", f"{_st} · {depth}"
             return _with_runtime({"backend_id": backend_id, "label": label, "title": _t, "short_title": _st,
                                   "kind": "single", "path": "med-agent-hub single",
                                   "models": [_scard], "stages": _stages,
-                                  "config": _hub_single_config(_w, level.get("synthesis_prompt"), ini)})
+                                  "config": _hub_single_config(
+                                      _w,
+                                      level.get("synthesis_prompt"),
+                                      ini,
+                                      answer_temperature=level.get("answer_temperature"),
+                                  )})
         if not level:
             return _with_runtime({
                 "backend_id": backend_id,

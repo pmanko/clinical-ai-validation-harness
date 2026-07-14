@@ -564,12 +564,12 @@
  "speed-e4b-answer-only": {
   "label": "E4B answer only (no temporal enforcement or review)",
   "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
-  "modelName": "answer:gemma-e4b@synthesis-answer~off~temp0"
+  "modelName": "eval-e4b-answer-only"
  },
  "speed-e4b-deterministic-check": {
   "label": "E4B answer with deterministic temporal enforcement",
   "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
-  "modelName": "answer:gemma-e4b@synthesis-answer~enforce~temp0"
+  "modelName": "eval-e4b-temporal-enforce"
  },
  "single-12b-checked": {
   "label": "Checked answer (12B profile)",
@@ -580,12 +580,12 @@
  "speed-12b-answer-only": {
   "label": "12B answer only (no temporal enforcement or review)",
   "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
-  "modelName": "answer:gemma-4-12b@synthesis-answer~off~temp0"
+  "modelName": "eval-12b-answer-only"
  },
  "speed-12b-deterministic-check": {
   "label": "12B answer with deterministic temporal enforcement",
   "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
-  "modelName": "answer:gemma-4-12b@synthesis-answer~enforce~temp0"
+  "modelName": "eval-12b-temporal-enforce"
  },
  "team-med-checked": {
   "label": "Checked medical team profile",

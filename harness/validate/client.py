@@ -10,10 +10,12 @@ scripts/chartsearch-configure.sh so the two agree.
 
 from __future__ import annotations
 
+import json
 import os
 import time
 from dataclasses import dataclass
 from typing import Any
+from uuid import uuid4
 
 import requests
 
@@ -234,3 +236,153 @@ class ChartSearchAiClient:
             if vitals:
                 out["vitals"] = vitals
         return out
+
+
+class MedAgentHubClient:
+    """Direct client for controlled profile/leg experiments through the hub.
+
+    Product evaluation continues to use :class:`ChartSearchAiClient`. This client
+    intentionally omits ``require_product_profile`` so checked-in comparison sets
+    can exercise the hub's low-level legs without weakening the OpenMRS product
+    boundary. Conversation history is maintained locally for multi-turn scenarios.
+    """
+
+    _RETRYABLE = frozenset({429, 500, 502, 503, 504})
+
+    def __init__(
+        self,
+        base_url: str | None = None,
+        timeout: float = 2400.0,
+        min_interval_s: float | None = None,
+        max_retries: int | None = None,
+        retry_wait_s: float | None = None,
+        session: requests.Session | None = None,
+        chart_client: ChartSearchAiClient | None = None,
+    ) -> None:
+        self.base_url = (
+            base_url
+            or os.environ.get(
+                "MED_AGENT_HUB_URL",
+                "http://127.0.0.1:18081/v1/chat/completions",
+            )
+        ).rstrip("/")
+        self.timeout = timeout
+        self.min_interval_s = (
+            min_interval_s
+            if min_interval_s is not None
+            else float(os.environ.get("VALIDATE_HUB_MIN_INTERVAL_S", "0"))
+        )
+        self.max_retries = (
+            max_retries
+            if max_retries is not None
+            else int(os.environ.get("VALIDATE_MAX_RETRIES", "3"))
+        )
+        self.retry_wait_s = (
+            retry_wait_s
+            if retry_wait_s is not None
+            else float(os.environ.get("VALIDATE_RETRY_WAIT_S", "7.0"))
+        )
+        self._last_call = 0.0
+        self._session = session or requests.Session()
+        self._session.headers.update({"Content-Type": "application/json"})
+        api_key = os.environ.get("MED_AGENT_HUB_API_KEY")
+        if api_key:
+            self._session.headers.update({"Authorization": f"Bearer {api_key}"})
+        self._conversations: dict[str, dict[str, Any]] = {}
+        self._chart_client = chart_client or ChartSearchAiClient()
+
+    def new_session(self, patient: str) -> str:
+        session = str(uuid4())
+        self._conversations[session] = {"patient": patient, "messages": []}
+        return session
+
+    def _throttle(self) -> None:
+        if self.min_interval_s > 0:
+            wait = self.min_interval_s - (time.monotonic() - self._last_call)
+            if wait > 0:
+                time.sleep(wait)
+
+    def chat(
+        self,
+        patient: str,
+        session: str | None,
+        question: str,
+        *,
+        profile: str | None = None,
+    ) -> ChatResult:
+        if not profile:
+            raise ValueError("Med Agent Hub comparisons require an explicit profile")
+        if not session:
+            session = self.new_session(patient)
+        conversation = self._conversations.setdefault(
+            session, {"patient": patient, "messages": []}
+        )
+        if conversation["patient"] != patient:
+            raise ValueError("hub session cannot be reused for a different patient")
+
+        messages = [*conversation["messages"], {"role": "user", "content": question}]
+        body = {
+            "model": profile,
+            "stream": False,
+            "patient": patient,
+            "messages": messages,
+        }
+        attempt = 0
+        started = time.monotonic()
+        while True:
+            self._throttle()
+            try:
+                response = self._session.post(
+                    self.base_url, json=body, timeout=self.timeout
+                )
+            except requests.RequestException:
+                self._last_call = time.monotonic()
+                if attempt < self.max_retries:
+                    attempt += 1
+                    time.sleep(self.retry_wait_s)
+                    continue
+                raise
+            self._last_call = time.monotonic()
+            if response.status_code in self._RETRYABLE and attempt < self.max_retries:
+                attempt += 1
+                time.sleep(self.retry_wait_s)
+                continue
+            latency_ms = int((time.monotonic() - started) * 1000)
+            if response.status_code != 200:
+                return ChatResult(
+                    status=response.status_code,
+                    envelope=None,
+                    latency_ms=latency_ms,
+                    raw_text=response.text,
+                )
+            try:
+                completion = response.json()
+                content = completion["choices"][0]["message"]["content"]
+                envelope = json.loads(content) if isinstance(content, str) else content
+                if not isinstance(envelope, dict):
+                    raise ValueError("completion content is not an object")
+            except (KeyError, IndexError, TypeError, ValueError) as exc:
+                return ChatResult(
+                    status=502,
+                    envelope=None,
+                    latency_ms=latency_ms,
+                    raw_text=f"invalid hub completion: {exc}: {response.text[:500]}",
+                )
+
+            envelope = dict(envelope)
+            envelope["session"] = session
+            if completion.get("model") and not envelope.get("model"):
+                envelope["model"] = completion["model"]
+            conversation["messages"] = [
+                *messages,
+                {"role": "assistant", "content": str(envelope.get("answer") or "")},
+            ]
+            return ChatResult(
+                status=200,
+                envelope=envelope,
+                latency_ms=latency_ms,
+                raw_text=response.text,
+            )
+
+    def get_patient_profile(self, patient: str) -> dict[str, Any]:
+        return self._chart_client.get_patient_profile(patient)
