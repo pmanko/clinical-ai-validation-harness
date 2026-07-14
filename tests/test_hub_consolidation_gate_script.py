@@ -10,6 +10,7 @@ ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts" / "verify-hub-consolidation-gates.sh"
 STAGE_SCRIPT = ROOT / "scripts" / "verify-stage-refactor-gates.sh"
 DOC_SCRIPT = ROOT / "scripts" / "verify-doc-drift.sh"
+CI_WORKFLOW = ROOT / ".github" / "workflows" / "harness-ci.yml"
 
 
 def test_consolidation_gate_script_declares_every_roadmap_gate_once():
@@ -17,6 +18,12 @@ def test_consolidation_gate_script_declares_every_roadmap_gate_once():
     declared = re.findall(r'^GATE_TITLES\[(G\d{2})\]="', text, re.MULTILINE)
 
     assert declared == [f"G{i:02d}" for i in range(1, 25)]
+
+
+def test_ci_installs_the_consolidation_gate_search_tool():
+    workflow = CI_WORKFLOW.read_text(encoding="utf-8")
+
+    assert "sudo apt-get install --yes ripgrep" in workflow
 
 
 def test_consolidation_gate_script_allows_only_approved_g20_deferral():
