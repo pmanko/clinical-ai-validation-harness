@@ -541,9 +541,12 @@ def arm_card(
             _lever = _prompt_lever(level.get("synthesis_prompt"))
             if _lever:  # a prompt-lever solo (e.g. cite-or-abstain) must not collide with plain solo
                 _t, _st = f"{_t} ({_lever})", f"{_st} ({_lever})"
+            _stages = list(level.get("stages") or [])
+            if "review" in _stages and "ground_verdicts" in _stages:
+                _t, _st = f"{_t} · fully checked", f"{_st} · fully checked"
             return _with_runtime({"backend_id": backend_id, "label": label, "title": _t, "short_title": _st,
                                   "kind": "single", "path": "med-agent-hub single",
-                                  "models": [_scard], "stages": list(level.get("stages") or []),
+                                  "models": [_scard], "stages": _stages,
                                   "config": _hub_single_config(_w, level.get("synthesis_prompt"), ini)})
         if not level:
             return _with_runtime({

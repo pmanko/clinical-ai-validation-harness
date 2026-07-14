@@ -41,8 +41,8 @@ def _write_title_fixtures(tmp_path):
         "  single-e4b-checked:\n"
         "    label: Fast checked answer (E4B)\n"
         "    topology: single\n"
-        "    stages: [context, answer, gate, review, gate, indepth]\n"
-        "    models: {answer: gemma-e4b, review: gemma-e4b, indepth: gemma-e4b}\n",
+        "    stages: [context, answer, gate, resolve_refs, review, gate, final_resolve_refs, ground_verdicts, indepth, indepth_gate]\n"
+        "    models: {answer: gemma-e4b, review: gemma-e4b, grounding: gemma-e4b, indepth: gemma-e4b}\n",
         encoding="utf-8",
     )
 
@@ -101,7 +101,8 @@ def test_product_single_profile_uses_topology_not_endpoint_guess(tmp_path):
     assert card["kind"] == "single"
     assert card["path"] == "med-agent-hub single"
     assert card["models"][0]["id"] == "gemma-e4b"
-    assert card["title"].endswith("single")
+    assert card["title"].endswith("single · fully checked")
+    assert card["short_title"].endswith("fully checked")
 
 
 def test_team_with_unknown_model_metadata_uses_profile_label(tmp_path):
