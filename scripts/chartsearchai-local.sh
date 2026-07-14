@@ -31,7 +31,7 @@ load_config_value() {
 
 for config_name in \
   OMRS_DB_NAME OPENMRS_REFAPP_TAG HARNESS_PROXY_HTTP_PORT HARNESS_PROXY_HTTPS_PORT \
-  CHARTSEARCH_HUB_ENDPOINT_URL CHARTSEARCH_HUB_PROFILE_ID CHARTSEARCH_HUB_API_KEY \
+  CHARTSEARCH_HUB_ENDPOINT_URL CHARTSEARCH_HUB_API_KEY \
   MED_AGENT_HUB_PORT MED_AGENT_LLM_BASE_URL LLAMA_MODEL_DIR LLAMA_ROUTER_MODELS_MAX \
   HUB_TIMEZONE \
   CHARTSEARCH_LOCAL_BUILD CHARTSEARCH_LOCAL_WARM CHARTSEARCH_ADMIN_USER \
@@ -199,7 +199,6 @@ if [ "${CHECK_ONLY}" = "1" ]; then
   say "ChartSearchAI local prerequisites are present."
   say "  model directory: ${MODEL_DIR}"
   say "  router: $([ "${ROUTER_REACHABLE}" = "1" ] && echo existing || echo host-native prerequisites)"
-  say "  selected profile: ${CHARTSEARCH_HUB_PROFILE_ID}"
   say "  temporal timezone: ${HUB_TIMEZONE}"
   exit 0
 fi
@@ -292,8 +291,9 @@ export QUERYSTORE_BASE_URL QUERYSTORE_USERNAME QUERYSTORE_PASSWORD
 say "==> med-agent-hub"
 make med-agent-hub-up
 wait_http "med-agent-hub" "${HUB_URL}/health" 120
-curl -fsS "${HUB_URL}/v1/models" \
-  | python3 -c "import json,sys; p={x['id']:x for x in json.load(sys.stdin).get('data',[]) if x.get('visibility') == 'product'}; x=p.get('${CHARTSEARCH_HUB_PROFILE_ID}'); defaults=[v for v in p.values() if v.get('available') and v.get('default')]; assert x and x.get('available'), x; assert len(defaults) == 1, defaults"
+HUB_PROFILE="$(curl -fsS "${HUB_URL}/v1/models" \
+  | python3 -c "import json,sys; defaults=[x for x in json.load(sys.stdin).get('data',[]) if x.get('visibility') == 'product' and x.get('available') and x.get('default')]; assert len(defaults) == 1, defaults; print(defaults[0]['id'])")"
+say "  default product profile: ${HUB_PROFILE}"
 
 say "==> verify patient source"
 curl -fsS --max-time 60 \
@@ -304,14 +304,13 @@ curl -fsS --max-time 60 \
 say "==> configure ChartSearchAI relay"
 ./scripts/querystore-configure.sh
 CHARTSEARCH_HUB_ENDPOINT_URL="${CHARTSEARCH_HUB_ENDPOINT_URL}" \
-CHARTSEARCH_HUB_PROFILE_ID="${CHARTSEARCH_HUB_PROFILE_ID}" \
   ./scripts/chartsearch-configure.sh
 
 if [ "${WARM_MODE}" != "off" ]; then
-  say "==> exercise ${CHARTSEARCH_HUB_PROFILE_ID} (${WARM_MODE})"
+  say "==> exercise ${HUB_PROFILE} (${WARM_MODE})"
   python3 scripts/warm-hub-profile.py \
     --hub-url "${HUB_URL}/v1/chat/completions" \
-    --profile "${CHARTSEARCH_HUB_PROFILE_ID}" \
+    --profile "${HUB_PROFILE}" \
     --mode "${WARM_MODE}" \
     --output artifacts/chartsearchai-local/warmup.json
 fi
@@ -320,7 +319,7 @@ say "==> prove OpenMRS staged relay and persistence"
 python3 scripts/probe-chartsearchai-relay.py \
   --openmrs-url "${OPENMRS_URL}" \
   --patient "${DEFAULT_PATIENT}" \
-  --profile "${CHARTSEARCH_HUB_PROFILE_ID}" \
+  --profile "${HUB_PROFILE}" \
   --username "${CHARTSEARCH_ADMIN_USER:-admin}" \
   --password "${CHARTSEARCH_ADMIN_PASSWORD:-Admin123}" \
   --clear-after \
@@ -328,4 +327,4 @@ python3 scripts/probe-chartsearchai-relay.py \
 
 say ""
 say "ChartSearchAI is ready: http://localhost:${HARNESS_PROXY_HTTP_PORT:-8088}/openmrs/spa"
-say "med-agent-hub: ${HUB_URL} (${CHARTSEARCH_HUB_PROFILE_ID})"
+say "med-agent-hub: ${HUB_URL} (${HUB_PROFILE})"

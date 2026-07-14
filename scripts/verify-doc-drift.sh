@@ -31,12 +31,17 @@ FORBIDDEN = [
     (re.compile(r"chartsearchai\.drugReference|chartsearchai\.drugSafety"), "removed ChartSearchAI drug safety GP"),
     (re.compile(r"chartsearchai\.embedding\.preFilter|chartsearchai\.querystore\.topK"), "old ChartSearchAI retrieval ownership"),
     (re.compile(r"chartsearchai\.llm\.systemPrompt|chartsearchai\.llm\.modelFilePath"), "old ChartSearchAI prompt/model ownership"),
+    (re.compile(r"chartsearchai\.llm\.(?:remote\.)?(?:endpointUrl|modelName)"), "old direct-provider ChartSearchAI configuration"),
+    (re.compile(r"chartsearchai\.hub\.profileId"), "duplicate ChartSearchAI profile default"),
     (re.compile(r"chartsearchai\.cacheTtlMinutes|chartsearchai\.llm\.timeoutSeconds"), "old ChartSearchAI LLM/cache ownership"),
     (re.compile(r"CHARTSEARCH_REMOTE_(?:ENDPOINT_URL|MODEL_NAME|ENDPOINTS)|CHARTSEARCH_LLM_ENGINE"), "old direct-provider ChartSearchAI configuration"),
     (re.compile(r"MED_AGENT_(?:ORCHESTRATOR_MODEL|MED_MODEL)"), "removed environment-driven profile role models"),
     (re.compile(r"single-model path uses chartsearchAI|chartsearchai.*generates cited answers", re.I), "old ChartSearchAI answer ownership"),
     (re.compile(r"GCP_FIREWALL_DENY_LMS|GCP_LMS_PORT"), "retired cloud model-server firewall"),
     (re.compile(r"value\s*=\s*\"/search\"|/search/stream|chartsearchai/search/stream"), "removed search stream path"),
+    (re.compile(r"\bRemoteLlmEngine\b"), "removed direct-provider Java engine"),
+    (re.compile(r"\bLlmProvider\.search\b"), "removed Java answer orchestration"),
+    (re.compile(r"\bModelSwitchService\b"), "removed Java model switching"),
     (re.compile(r"\btemporal_facts\.v\d"), "versioned internal temporal-facts contract"),
 ]
 
@@ -60,30 +65,6 @@ ALWAYS_ALLOW = {
     "targets/chartsearchai/api/src/test/java/org/openmrs/module/chartsearchai/api/impl/ArchitectureGuardTest.java",
 }
 
-HISTORICAL_PATH_HINTS = (
-    "docs/adr.md",
-    "docs/migration-querystore-plan.md",
-    "specs/artifacts/handoffs/",
-    "specs/artifacts/lanes/",
-    "specs/artifacts/planning/archive/",
-    "specs/artifacts/sibling-context/",
-    "specs/artifacts/canvases/chartsearchai-and-querystore.canvas.tsx",
-    "specs/artifacts/canvases/clinical-ai-research-guidance.canvas.tsx",
-    "specs/artifacts/canvases/cross-project-comparison.canvas.tsx",
-    "specs/artifacts/canvases/scout-comparative-analysis.canvas.tsx",
-    "specs/artifacts/canvases/upstream-contribution-and-compatibility.canvas.tsx",
-    "specs/artifacts/planning/chartsearchai-model-gateway-brief.md",
-    "specs/artifacts/planning/config-guide-prompts-and-models.md",
-    "specs/artifacts/planning/hub-consolidation-roadmap.md",
-    "specs/artifacts/planning/lm-studio-api-reference.md",
-    "specs/artifacts/planning/picker-endpoint-sections-b4-plan.md",
-    "specs/artifacts/planning/upstream-sync-2026-06-13.md",
-    "specs/research/",
-    "specs/004-real-adapter-entrypoints/",
-    "specs/007-llm-config-overrides/",
-    ".env.chartsearch.cloud.example",
-    "scripts/cloud-up.sh",
-)
 HISTORICAL_MARKER = re.compile(
     r"historical|superseded|pre[- ]?refactor|predates|archive|snapshot",
     re.I,
@@ -105,6 +86,7 @@ REQUIRED_CURRENT = {
     "specs/006-validation-harness-mvp/spec.md": (
         r"hub product `profile` through ChartSearchAI",
         r"low-level leg experiments",
+        r"separately attributed Scout judgments",
     ),
     "targets/chartsearchai/README.md": (
         r"authorizes the patient request",
@@ -120,6 +102,8 @@ REQUIRED_CURRENT = {
         r"Every product In-Depth claim receives deterministic",
     ),
     "targets/querystore/docs/rest-api.md": (
+        r"GET `/ws/rest/v1/querystore/patientrecord`",
+        r"external services such as med-agent-hub",
         r"A Querystore reindex is already running",
         r"use the REST `scope:\"type\"` trigger",
     ),
@@ -168,10 +152,6 @@ def should_scan(rel: Path) -> bool:
     )
 
 
-def is_historical(rel_key: str) -> bool:
-    return any(hint in rel_key for hint in HISTORICAL_PATH_HINTS)
-
-
 def header_is_historical(text: str) -> bool:
     return bool(HISTORICAL_MARKER.search("\n".join(text.splitlines()[:40])))
 
@@ -206,7 +186,7 @@ for repo in repos:
         if not matches:
             continue
 
-        if (is_historical(rel_key) or header_is_historical(text)) and HISTORICAL_MARKER.search(text):
+        if header_is_historical(text):
             historical_hits += 1
             continue
 

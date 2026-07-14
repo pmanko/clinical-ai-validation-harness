@@ -14,7 +14,10 @@
 
 Let an operator (manually or in batch) run the same clinical question(s) against several hub profiles and labeled experimental arms, see the answers side-by-side with deterministic metrics, then adjudicate each with a clinical rubric and record the outcome in a consistent, provenance-linked form. Product comparisons exercise the real ChartSearchAI relay and med-agent-hub profile used by the UI.
 
-This is deliberately **not** a clinician RCT. NASA-TLX, non-inferiority margins, randomized crossover, an automated citation resolver, an LLM-as-judge subsystem, and Krippendorff/Gwet inter-rater statistics are explicit deferrals.
+This is deliberately **not** a clinician RCT. NASA-TLX, non-inferiority margins, randomized
+crossover, and Krippendorff/Gwet inter-rater statistics remain explicit deferrals. Canonical source
+resolution and separately attributed Scout judgments are now shipped; deterministic findings remain
+distinct from advisory semantic judgments.
 
 ## Success criteria
 
@@ -31,7 +34,8 @@ This is deliberately **not** a clinician RCT. NASA-TLX, non-inferiority margins,
 - **FR-006.1**: Product runs MUST send a hub product `profile` through ChartSearchAI's real `/chat` path and replay turns in one persisted session. Low-level leg experiments MAY call med-agent-hub directly, but their configuration and reports MUST identify them as experiments rather than product behavior.
 - **FR-006.2**: Scenarios MUST be multi-turn (a `turns[]` sequence replayed in one chat session per backend). Single-turn is just a one-element `turns[]`.
 - **FR-006.3**: The runner MUST reuse the existing metadata spine (`harness/metadata.py`: `RunManifest`, `append_event`). A `result` is a projection over the run's events for one `(scenario, backend, turn)` referencing `run_id`; it MUST NOT re-declare provenance fields. Use canonical `gen_ai.provider.name` (the control-plane schema forbids `gen_ai.system`).
-- **FR-006.4**: Deterministic metrics MUST be computed without any LLM call. No LLM-as-judge in v1. The pass/fail and safe/unsafe decision is human-only.
+- **FR-006.4**: Deterministic metrics MUST be computed without any LLM call. Optional Scout judges
+  run afterward as separately attributed actors and cannot override deterministic safety findings.
 - **FR-006.5**: The rubric MUST be Scout's three axes at native 0–10 (accuracy, completeness, relevance) + categorical abstention outcome (`correct`/`over-abstained`/`failed-to-abstain`/`n-a`) + a single citation-groundedness judgement for the answer (`supported`/`partly`/`unsupported`, or `n-a`) + a harm hard-fail flag. *(v1 ships one scalar `citation_groundedness`; per-citation groundedness keyed by citation index is v2 — see the data model below.)*
 - **FR-006.6**: Persistence MUST sit behind a `save(collection, doc)` / `find(collection, query)` repository interface. Collections: `scenarios`, `comparison_sets`, `results`, `feedback`. The file implementation maps each to JSONL (results/feedback under `artifacts/<run_id>/`; scenarios/comparison_sets as checked-in JSON). The Mongo implementation is a stub with the same interface.
 - **FR-006.7**: The report MUST be a standalone TSX app reading run artifacts (not an in-ESM page) and MUST reimplement the citation display format (`[index] resourceType — date`) rather than importing the ESM renderer (which hard-depends on chart-nav DOM).
@@ -87,7 +91,7 @@ Plus 2–3 abstention probes (e.g. a question about data not in the chart — ab
 ## Out of scope (deferred, not MVP)
 
 - MongoDB implementation wiring + container; remote deployment of the report (compose service + Caddy). Build deployable, run local-only.
-- LLM-as-judge (advisory or gating) — schema leaves room; ship later behind a flag, advisory-only.
+- Clinician-outcome validation and automated adjudication of judge disagreement.
 - Automated `citations_resolve` (do `resourceId`s resolve against the patient's real records) → v2; v1 uses `citation_count` + human groundedness.
 - NASA-TLX, non-inferiority margins, randomized crossover, blind pairwise comparison, Krippendorff α / Gwet AC2.
 - Persisting a per-user profile preference. The hub advertises the available effective default; the picker retains only a valid advertised selection.

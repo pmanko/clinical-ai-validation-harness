@@ -1,5 +1,8 @@
 # L4 — chartsearchai/esm: upstream split + reconcile + integrated smoke
 
+> **SUPERSEDED HISTORICAL LANE (2026-07):** This queued lane predates the med-agent-hub relay
+> architecture and the approved consolidation roadmap. It is retained only as planning history.
+
 **Status**: Queued (later lane) — no worktree yet.
 **Repos**: the `pmanko` forks `openmrs-module-chartsearchai` (Java) + `openmrs-esm-chartsearchai` (React). Branch model: feature branch → upstream PR → consolidate into `harness-integration` → harness pin bump.
 **Branch / worktree**: per-PR branches on the forks → upstream PRs; harness pin bump only when `harness-integration` moves. (No standing worktree until kicked off.)

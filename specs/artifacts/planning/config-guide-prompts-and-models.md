@@ -14,8 +14,8 @@ or compose answer/review/In-Depth calls.
 | Router model files, aliases, context windows, and serving knobs | `scripts/llama-router.ini` | restart the router through the supported local workflow |
 | Hub-to-router endpoint | `MED_AGENT_LLM_BASE_URL` in `.env.med-agent-hub` | `make med-agent-hub-up` |
 | Optional Querystore source | `QUERYSTORE_BASE_URL`, `QUERYSTORE_USERNAME`, and `QUERYSTORE_PASSWORD` | `make med-agent-hub-up` |
-| ChartSearchAI hub endpoint and selected profile | ChartSearchAI module settings, configured by `make chartsearch-configure` | next request |
-| ESM model picker | Hub `/v1/models` profile metadata | automatic |
+| ChartSearchAI hub endpoint | ChartSearchAI module setting, configured by `make chartsearch-configure` | next request |
+| Product profile selection and default | Hub `/v1/models` profile metadata consumed by the ESM | automatic |
 
 There are no host environment variables for choosing the orchestrator or medical-expert
 model. Role models are profile data. This prevents one process-wide override from silently
@@ -142,10 +142,10 @@ For normal local work:
 
 For the full OpenMRS product path, use `make chartsearchai-local`. That workflow starts or
 verifies the router, hub, OpenMRS, and ESM, configures ChartSearchAI as a hub relay, and warms
-the default model profile. It does not start a bundled Java inference engine.
+the default model profile. It does not start a native inference engine inside Java.
 
 ## Historical configuration
 
-Older artifacts may describe Java-owned prompts, an embedded llama-server, LM Studio
+Older artifacts may describe Java-owned prompts, a native model server inside OpenMRS, LM Studio
 discovery, process-wide team model variables, or ChartSearchAI-composed answer/review/In-Depth
 calls. Those are superseded designs and must not be used as current operating instructions.

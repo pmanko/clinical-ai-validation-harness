@@ -1,18 +1,16 @@
 #!/usr/bin/env bash
 # Configure the running ChartSearchAI module to relay through one med-agent-hub
-# endpoint and select one product profile. Profile discovery remains owned by the
-# hub; this script does not register raw model providers or compose stages.
+# endpoint. Product-profile selection comes from hub discovery in the ESM; this
+# script does not register raw model providers, choose a default, or compose stages.
 
 set -euo pipefail
 
 # shellcheck source=scripts/openmrs-settings-lib.sh
 . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/openmrs-settings-lib.sh"
 HUB_ENDPOINT="${CHARTSEARCH_HUB_ENDPOINT_URL:?set CHARTSEARCH_HUB_ENDPOINT_URL}"
-HUB_PROFILE="${CHARTSEARCH_HUB_PROFILE_ID:?set CHARTSEARCH_HUB_PROFILE_ID}"
 
 echo "Configuring ChartSearchAI hub relay at ${OPENMRS_SETTINGS_BASE_URL}:"
 set_openmrs_property "chartsearchai.hub.endpointUrl" "${HUB_ENDPOINT}"
-set_openmrs_property "chartsearchai.hub.profileId" "${HUB_PROFILE}"
 
 echo ""
 echo "Module status:"

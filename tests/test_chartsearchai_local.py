@@ -24,7 +24,7 @@ def test_local_default_configures_only_the_hub_product_service():
     example = _read(".env.chartsearch.example")
 
     assert "CHARTSEARCH_HUB_ENDPOINT_URL=http://med-agent-hub:8080/v1/chat/completions" in example
-    assert "CHARTSEARCH_HUB_PROFILE_ID=single-e4b-checked" in example
+    assert "CHARTSEARCH_HUB_PROFILE_ID" not in example
     assert "CHARTSEARCH_REMOTE_ENDPOINTS" not in example
     assert "LM Studio" not in example
     assert "lmstudio" not in example.lower()
@@ -34,7 +34,7 @@ def test_chartsearch_configure_writes_only_current_hub_properties():
     configure = _read("scripts/chartsearch-configure.sh")
 
     assert 'set_openmrs_property "chartsearchai.hub.endpointUrl"' in configure
-    assert 'set_openmrs_property "chartsearchai.hub.profileId"' in configure
+    assert "chartsearchai.hub.profileId" not in configure
     assert "querystore.embedding" not in configure
     assert "chartsearchai.llm.remote.endpointUrl" not in configure
     assert "chartsearchai.llm.remote.modelName" not in configure
@@ -218,12 +218,13 @@ def test_local_builds_require_source_bound_artifact_provenance():
     assert '"import_map_target"' in probe
 
 
-def test_explicit_local_profile_must_be_available_but_need_not_be_default():
+def test_local_start_uses_the_single_available_hub_advertised_default():
     script = _read("scripts/chartsearchai-local.sh")
 
-    assert "assert x and x.get('available')" in script
-    assert "x.get('available') and x.get('default')" not in script
+    assert "x.get('available') and x.get('default')" in script
     assert "assert len(defaults) == 1" in script
+    assert "print(defaults[0]['id'])" in script
+    assert 'HUB_PROFILE="$(curl' in script
 
 
 def test_repeat_start_preserves_warm_services_and_refreshes_only_changed_module_caches():
@@ -239,7 +240,7 @@ def test_explicit_environment_values_override_dotenv_defaults():
     script = _read("scripts/chartsearchai-local.sh")
 
     assert 'printenv "${name}" >/dev/null 2>&1 && return' in script
-    assert "CHARTSEARCH_HUB_PROFILE_ID" in script
+    assert "CHARTSEARCH_HUB_PROFILE_ID" not in script
     assert "LLAMA_MODEL_DIR" in script
     assert "CHARTSEARCH_LOCAL_WARM" in script
     assert "HUB_TIMEZONE" in script
@@ -262,7 +263,7 @@ def test_existing_router_is_checked_before_local_binary_and_model_requirements()
     assert router_probe < binary_requirement
 
 
-def test_check_reuses_existing_router_and_preserves_explicit_profile(tmp_path):
+def test_check_reuses_existing_router_without_selecting_a_profile(tmp_path):
     fake_bin = tmp_path / "bin"
     fake_bin.mkdir()
     for name in ("curl", "docker"):
@@ -272,7 +273,6 @@ def test_check_reuses_existing_router_and_preserves_explicit_profile(tmp_path):
     env = {
         **os.environ,
         "PATH": f"{fake_bin}:/usr/bin:/bin",
-        "CHARTSEARCH_HUB_PROFILE_ID": "explicit-profile",
         "LLAMA_MODEL_DIR": "/definitely/not/a/model/directory",
         "CHARTSEARCH_LOCAL_BUILD": "never",
     }
@@ -288,7 +288,7 @@ def test_check_reuses_existing_router_and_preserves_explicit_profile(tmp_path):
 
     assert result.returncode == 0, result.stderr
     assert "router: existing" in result.stdout
-    assert "selected profile: explicit-profile" in result.stdout
+    assert "selected profile" not in result.stdout
 
 
 def test_local_preflight_checks_artifact_specific_build_tools():

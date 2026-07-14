@@ -1,4 +1,7 @@
 # Clinical Knowledge Base — Research Document
+> **HISTORICAL RESEARCH SNAPSHOT (2026-05-19):** The literature findings remain reference material,
+> but implementation examples and ownership claims below predate the stage-driven hub architecture.
+
 **Audience**: harness maintainers, spec author for the clinical-KB feature
 **Date**: 2026-05-19
 **Status**: research artifact feeding the spec brief in `clinical-kb-brief.md`

@@ -427,7 +427,8 @@ fi
 # for final PASS.
 if has_pattern 'test_profile_stream_client_disconnect_mid_indepth_frees_router_lock' "$HUB/tests" \
   && has_pattern '_write_cancellation_trace' "$HUB/server/engine.py" "$HUB/server/team.py" \
-  && has_pattern 'conversation_history.*prior_message_count|prior_message_count.*conversation_history' "$HUB/tests" \
+  && has_pattern 'test_conversation_history_summary_proves_priors_without_plaintext' "$HUB/tests" \
+  && has_pattern 'prior_message_count' "$HUB/tests/test_stage_engine_v2.py" \
   && has_pattern 'hubTraceEntriesSince' "$ROOT/tests/e2e/specs/chartsearchai-e4b-multiturn-trivial.spec.ts" \
   && has_pattern 'hubCancellationsSince' "$ROOT/tests/e2e/specs/chartsearchai-preempt.spec.ts" \
   && [[ "$RUN_E2E" == "1" ]]; then
@@ -546,7 +547,10 @@ if [[ -s "$evaluation_proof" ]] \
   && "$ROOT/.venv/bin/python" - "$ROOT" "$evaluation_proof" <<'PY'
 import hashlib
 import json
+import re
+import subprocess
 import sys
+import urllib.request
 from pathlib import Path
 
 root = Path(sys.argv[1]).resolve()
@@ -562,16 +566,59 @@ def artifact(entry):
 
 assert proof["schema_version"] == "hub_consolidation_evaluation.v1"
 assert proof["status"] == "pass"
-assert proof["comparison_set"] == "hub-profile-candidate"
 assert proof["reference_date"] == "2026-06-20"
 assert proof["expected_cells"] == proof["completed_cells"] == 12
-assert proof["backends"] == ["single-12b-checked"]
 run_id = proof["run_id"]
 run_dir = root / "artifacts" / "validate" / run_id
 assert run_dir.is_dir()
-comparison = json.loads(
-    (root / "datasets/validation/comparison_sets/hub-profile-candidate.json").read_text()
+
+manifest = json.loads((run_dir / "run_manifest.json").read_text())
+run_sha = str(manifest.get("git_sha") or "")
+assert re.fullmatch(r"[0-9a-f]{40}", run_sha)
+
+def run_json(relative):
+    return json.loads(subprocess.check_output(
+        ["git", "show", f"{run_sha}:{relative}"], cwd=root, text=True
+    ))
+
+run_event = next(
+    event
+    for event in (
+        json.loads(line)
+        for line in (run_dir / "events.jsonl").read_text().splitlines()
+        if line
+    )
+    if event.get("event_type") == "run"
 )
+comparison_set = run_event["comparison_set"]
+assert proof["comparison_set"] == comparison_set
+comparison = run_json(
+    f"datasets/validation/comparison_sets/{comparison_set}.json"
+)
+assert comparison["scenario_ids"] == run_event["scenario_ids"]
+assert comparison["backend_ids"] == run_event["backend_ids"]
+required_scenarios = {
+    "date-zabella-weight-table",
+    "date-zabella-weight-endpoints",
+    "date-aloice-orders-table",
+    "date-aloice-last-visit-exact",
+    "single-upcoming-appointments",
+    "am-upcoming-appointments",
+    "am-last-visit",
+    "am-weight-trend",
+    "am-cd4-history",
+    "am-orders-6mo",
+    "ek-growth",
+    "abstain-out-of-chart",
+}
+assert set(comparison["scenario_ids"]) == required_scenarios
+backend_registry = run_json("datasets/validation/backends.json")
+profiles_by_backend = {
+    backend: backend_registry[backend]["modelName"]
+    for backend in comparison["backend_ids"]
+}
+assert set(profiles_by_backend.values()) == {"single-12b-checked"}
+assert proof["backends"] == comparison["backend_ids"]
 expected = {
     (scenario, backend)
     for scenario in comparison["scenario_ids"]
@@ -600,6 +647,7 @@ assert all((row.get("trace") or {}).get("reference_date") == "2026-06-20" for ro
 audit = json.loads(artifact(proof["deterministic_audit"]).read_text())
 assert audit["schema_version"] == "product_run_deterministic_audit.v1"
 assert audit["status"] == "pass" and audit["blockers"] == []
+assert audit["profiles_by_backend"] == profiles_by_backend
 assert {(row["scenario_id"], row["backend_id"]) for row in audit["cells"]} == expected
 
 judgments = proof["judgments"]
@@ -702,7 +750,7 @@ assert local_report.name == "index.html"
 meta_path = artifact(report["meta"])
 meta = json.loads(meta_path.read_text())
 assert meta["slug"] == report["slug"] and meta["run_dir"] == run_id
-assert meta["comparison_set"] == "hub-profile-candidate"
+assert meta["comparison_set"] == comparison_set
 with urllib.request.urlopen(report["url"], timeout=30) as response:
     remote_report = response.read()
     assert response.status == 200

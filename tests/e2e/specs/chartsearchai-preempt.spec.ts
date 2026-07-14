@@ -21,11 +21,13 @@ import {
   selectFastE4BModel,
 } from '../support/openmrs';
 
-const QUESTIONS = [
-  'In one short sentence, what was the most recent documented clinical visit?',
-  'What medications is this patient currently taking?',
-  'Has this patient’s weight changed recently?',
+const HEALTH_QUESTION = 'In one short sentence, what was the most recent documented clinical visit?';
+const PREEMPT_CANDIDATES = [
+  'What was documented at the most recent clinical visit?',
+  'What is the latest recorded weight?',
+  'Summarize the documented CD4 history.',
 ];
+const REPLACEMENT_QUESTION = 'Has this patient’s weight changed recently?';
 
 async function typeAndSend(page: Page, question: string): Promise<void> {
   const input = page.getByPlaceholder(/ask|question|search/i).first();
@@ -46,6 +48,24 @@ async function waitTurnPhase(
   });
 }
 
+async function findPreemptibleTurn(page: Page): Promise<{ question: string; turnIndex: number }> {
+  for (const question of PREEMPT_CANDIDATES) {
+    const turnIndex = await page.locator('[data-turn-phase]').count();
+    await typeAndSend(page, question);
+    await expect
+      .poll(() => page.locator('[data-turn-phase]').nth(turnIndex).getAttribute('data-turn-phase'), {
+        timeout: 360_000,
+      })
+      .toMatch(/^(in-depth|complete)$/);
+    const phase = await page.locator('[data-turn-phase]').nth(turnIndex).getAttribute('data-turn-phase');
+    if (phase === 'in-depth') {
+      return { question, turnIndex };
+    }
+    await expect(page.getByPlaceholder(/ask|question|search/i).first()).toBeEnabled({ timeout: 30_000 });
+  }
+  throw new Error('No candidate turn reached the cancellable In-Depth phase.');
+}
+
 test.describe('chartsearchai — preempt frees the router slot mid-leg', () => {
   test.beforeEach(async ({ request }) => {
     await resetChatSession(request);
@@ -54,7 +74,7 @@ test.describe('chartsearchai — preempt frees the router slot mid-leg', () => {
   test('sending a new question while the previous in-depth is generating is accepted and answered, and the preempted turn lands terminal', async ({
     page,
   }) => {
-    test.setTimeout(600_000);
+    test.setTimeout(900_000);
     const errors: string[] = [];
     page.on('pageerror', (e) => errors.push(String(e)));
     const traceOffset = hubTraceOffset();
@@ -67,34 +87,32 @@ test.describe('chartsearchai — preempt frees the router slot mid-leg', () => {
 
     // Q1 — a normal turn allowed to finish completely, establishing the session is healthy before
     // the actual preempt assertion (isolates "preempt is broken" from "the session itself is broken").
-    await typeAndSend(page, QUESTIONS[0]);
+    await typeAndSend(page, HEALTH_QUESTION);
     await waitTurnPhase(page, 0, 'complete');
     await expect(page.locator('[data-indepth-status]').nth(0)).toHaveAttribute('data-indepth-status', 'complete', {
       timeout: 360_000,
     });
 
-    // Q2 — sent, then we wait for its in-depth to be GENERATING (phase 'in-depth', driven by the
-    // hub's indepth_pending) before preempting it, so the test preempts a turn whose in-depth leg is
-    // actually running server-side, not a request that hadn't started yet.
-    await typeAndSend(page, QUESTIONS[1]);
-    await waitTurnPhase(page, 1, 'in-depth');
+    // Review can withhold In-Depth, so try a small fixed set instead of relying on one draft.
+    const preempted = await findPreemptibleTurn(page);
 
-    // Q3 — sent while Q2's in-depth is generating. The composer is already enabled here
+    // The replacement is sent while the selected turn's in-depth is generating. The composer is already enabled here
     // (isAnswerSettled is true once a turn reaches 'in-depth'), so this is the actual preempt path.
-    await typeAndSend(page, QUESTIONS[2]);
+    await typeAndSend(page, REPLACEMENT_QUESTION);
+    const replacementIndex = preempted.turnIndex + 1;
 
     // Q3 must be accepted and produce its OWN answer end-to-end (reach a terminal phase), proving it
     // was not blocked or dropped. (The slot-frees-mid-leg timing invariant is proven at the hub.)
-    await waitTurnPhase(page, 2, 'complete');
+    await waitTurnPhase(page, replacementIndex, 'complete');
 
     // Q2's row must land terminal — not dangle mid-stream forever — once preempted.
-    await waitTurnPhase(page, 1, 'complete', 60_000);
-    await expect(page.locator('[data-indepth-status]').nth(1)).toHaveAttribute('data-indepth-status', 'failed', {
+    await waitTurnPhase(page, preempted.turnIndex, 'complete', 60_000);
+    await expect(page.locator('[data-indepth-status]').nth(preempted.turnIndex)).toHaveAttribute('data-indepth-status', 'failed', {
       timeout: 60_000,
     });
 
-    // All three turns present — Q3 was accepted, not blocked or dropped.
-    await expect(page.locator('[data-turn-phase]')).toHaveCount(3, { timeout: 30_000 });
+    // Every attempted turn plus the replacement is present; the replacement was not blocked or dropped.
+    await expect(page.locator('[data-turn-phase]')).toHaveCount(replacementIndex + 1, { timeout: 30_000 });
 
     // The hub records both sides of the preempt: Q2 positively reports cancellation after its
     // router slot is released, and Q3 reaches the normal completed-turn trace. Q2 may retain a
@@ -102,11 +120,11 @@ test.describe('chartsearchai — preempt frees the router slot mid-leg', () => {
     await expect
       .poll(() =>
         hubCancellationsSince(cancellationOffset).some(
-          (entry) => entry.question === QUESTIONS[1] && entry.router_lock_released === true,
+          (entry) => entry.question === preempted.question && entry.router_lock_released === true,
         ),
       )
       .toBe(true);
-    await expect.poll(() => hubTraceQuestionsSince(traceOffset).includes(QUESTIONS[2])).toBe(true);
+    await expect.poll(() => hubTraceQuestionsSince(traceOffset).includes(REPLACEMENT_QUESTION)).toBe(true);
 
     expect(errors, `page JS errors: ${errors.join(' | ')}`).toHaveLength(0);
   });

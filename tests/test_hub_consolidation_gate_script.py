@@ -50,6 +50,14 @@ def test_consolidation_gate_script_checks_untracked_trees_and_raw_leg_goldens():
     assert 'rev-list --reverse "HEAD..${upstream_ref}"' not in text
 
 
+def test_multi_turn_gate_names_the_real_positive_history_test():
+    text = SCRIPT.read_text(encoding="utf-8")
+
+    assert "test_conversation_history_summary_proves_priors_without_plaintext" in text
+    assert 'has_pattern \'prior_message_count\' "$HUB/tests/test_stage_engine_v2.py"' in text
+    assert "conversation_history.*prior_message_count" not in text
+
+
 def test_gate_scripts_describe_the_current_stage_engine_and_no_java_fallback():
     consolidation = SCRIPT.read_text(encoding="utf-8")
     stage = STAGE_SCRIPT.read_text(encoding="utf-8")

@@ -12,7 +12,6 @@ from pathlib import Path
 from typing import Any
 
 from harness.validate.hub_trace import load_traces, match_trace
-from harness.validate.model_registry import arm_model_name
 from harness.validate.stage_timings import (
     expected_stage_labels,
     extract_stage_timings,
@@ -23,6 +22,7 @@ from harness.validate.stage_timings import (
 ROOT = Path(__file__).resolve().parents[1]
 EXPECTED_SET = "hub-profile-candidate"
 EXPECTED_REFERENCE_DATE = "2026-06-20"
+EXPECTED_PRODUCT_PROFILE = "single-12b-checked"
 FALLBACK_ANSWER = "I could not produce a complete answer for this turn. Please try again."
 TEMPORAL_FALLBACK_ANSWER = (
     "I cannot safely answer this temporal question because deterministic temporal validation "
@@ -51,18 +51,20 @@ def _jsonl(path: Path) -> list[dict[str, Any]]:
     ]
 
 
-def _comparison_definition(
-    comparison_set: str, run_dir: Path | None = None
-) -> dict[str, Any]:
-    relative = Path(
-        f"datasets/validation/comparison_sets/{comparison_set}.json"
-    )
+def _run_git_sha(run_dir: Path | None) -> str | None:
     manifest_path = run_dir / "run_manifest.json" if run_dir is not None else None
     if manifest_path is not None and manifest_path.is_file():
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
         git_sha = str(manifest.get("git_sha") or "").strip()
         if not re.fullmatch(r"[0-9a-f]{40}", git_sha):
             raise RuntimeError("Run manifest does not contain a valid harness Git SHA.")
+        return git_sha
+    return None
+
+
+def _repository_json(relative: Path, run_dir: Path | None = None) -> Any:
+    git_sha = _run_git_sha(run_dir)
+    if git_sha:
         try:
             text = subprocess.check_output(
                 ["git", "show", f"{git_sha}:{relative.as_posix()}"],
@@ -72,10 +74,35 @@ def _comparison_definition(
             )
         except subprocess.CalledProcessError as error:
             raise RuntimeError(
-                f"Comparison set {comparison_set!r} is not available at run commit {git_sha}."
+                f"{relative.as_posix()} is not available at run commit {git_sha}."
             ) from error
         return json.loads(text)
     return json.loads((ROOT / relative).read_text(encoding="utf-8"))
+
+
+def _comparison_definition(
+    comparison_set: str, run_dir: Path | None = None
+) -> dict[str, Any]:
+    return _repository_json(
+        Path(f"datasets/validation/comparison_sets/{comparison_set}.json"),
+        run_dir,
+    )
+
+
+def _backend_profiles(
+    backend_ids: list[str], run_dir: Path | None = None
+) -> dict[str, str]:
+    registry = _repository_json(Path("datasets/validation/backends.json"), run_dir)
+    profiles: dict[str, str] = {}
+    for backend_id in backend_ids:
+        backend = registry.get(backend_id)
+        if not isinstance(backend, dict):
+            raise RuntimeError(f"Backend {backend_id!r} is missing from the run registry.")
+        profile = str(backend.get("modelName") or "").strip()
+        if not profile:
+            raise RuntimeError(f"Backend {backend_id!r} has no modelName in the run registry.")
+        profiles[backend_id] = profile
+    return profiles
 
 
 def _expected_pairs(
@@ -91,7 +118,13 @@ def _expected_pairs(
 
 def _run_contract(
     run_dir: Path,
-) -> tuple[str, str, set[tuple[str, str]], dict[str, list[str]]]:
+) -> tuple[
+    str,
+    str,
+    set[tuple[str, str]],
+    dict[str, list[str]],
+    dict[str, str],
+]:
     run_event = next(
         (
             event
@@ -123,7 +156,16 @@ def _run_contract(
         str(backend): list((meta.get("arm_cards") or {}).get(backend, {}).get("stages") or [])
         for backend in backend_ids
     }
-    return comparison_set, reference_date, expected, stages_by_backend
+    profiles_by_backend = _backend_profiles(
+        [str(backend) for backend in backend_ids], run_dir
+    )
+    return (
+        comparison_set,
+        reference_date,
+        expected,
+        stages_by_backend,
+        profiles_by_backend,
+    )
 
 
 def _is_substantive(answer: str) -> bool:
@@ -140,7 +182,13 @@ def build_evidence(
     output_dir: Path,
 ) -> tuple[Path, Path]:
     rows = _jsonl(run_dir / "results.jsonl")
-    comparison_set, reference_date, expected, stages_by_backend = _run_contract(run_dir)
+    (
+        comparison_set,
+        reference_date,
+        expected,
+        stages_by_backend,
+        profiles_by_backend,
+    ) = _run_contract(run_dir)
     actual = {(row["scenario_id"], row["backend_id"]) for row in rows}
     if len(rows) != len(expected) or actual != expected:
         raise RuntimeError(
@@ -159,7 +207,7 @@ def build_evidence(
         pair = {"scenario_id": scenario, "backend_id": backend}
         trace = match_trace(
             traces,
-            arm_model_name(backend),
+            profiles_by_backend[backend],
             row.get("started_at"),
             row.get("ended_at"),
         )
@@ -271,6 +319,7 @@ def build_evidence(
                 "status": "pass" if not blockers else "fail",
                 "comparison_set": comparison_set,
                 "reference_date": reference_date,
+                "profiles_by_backend": profiles_by_backend,
                 "run_id": run_dir.name,
                 "cells": audit_cells,
                 "blockers": blockers,

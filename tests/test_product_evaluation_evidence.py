@@ -51,8 +51,16 @@ def test_run_contract_resolves_historical_comparison_set_at_recorded_git_sha(
     )
     calls = []
 
-    def check_output(args, **kwargs):
+    def repository_output(args, **kwargs):
         calls.append((args, kwargs))
+        if args[-1].endswith("datasets/validation/backends.json"):
+            return json.dumps(
+                {
+                    "retired-backend-name": {
+                        "modelName": MODULE.EXPECTED_PRODUCT_PROFILE
+                    }
+                }
+            )
         return json.dumps(
             {
                 "id": "retired-candidate-name",
@@ -61,19 +69,25 @@ def test_run_contract_resolves_historical_comparison_set_at_recorded_git_sha(
             }
         )
 
-    monkeypatch.setattr(MODULE.subprocess, "check_output", check_output)
+    monkeypatch.setattr(MODULE.subprocess, "check_output", repository_output)
 
-    comparison, reference_date, expected, stages = MODULE._run_contract(run)
+    comparison, reference_date, expected, stages, profiles = MODULE._run_contract(run)
 
     assert comparison == "retired-candidate-name"
     assert reference_date == "2026-06-20"
     assert expected == {("scenario-a", "retired-backend-name")}
     assert stages == {"retired-backend-name": ["answer"]}
+    assert profiles == {"retired-backend-name": MODULE.EXPECTED_PRODUCT_PROFILE}
     assert calls[0][0] == [
         "git",
         "show",
         ("a" * 40)
         + ":datasets/validation/comparison_sets/retired-candidate-name.json",
+    ]
+    assert calls[1][0] == [
+        "git",
+        "show",
+        ("a" * 40) + ":datasets/validation/backends.json",
     ]
 
 
@@ -178,7 +192,7 @@ def _valid_candidate_fixture(tmp_path):
         traces.append(
             {
                 "ts": (ts + timedelta(seconds=1)).isoformat(),
-                "level_id": MODULE.arm_model_name(backend),
+                "level_id": MODULE.EXPECTED_PRODUCT_PROFILE,
                 "reference_date": MODULE.EXPECTED_REFERENCE_DATE,
                 "temporal_gate": {"mode": "enforce", "status": "pass"},
                 "indepth_temporal_gate": {"mode": "enforce", "status": "checked"},
@@ -229,6 +243,9 @@ def test_evidence_builder_accepts_the_complete_12_cell_contract(tmp_path):
     audit = json.loads(audit_path.read_text())
     assert audit["status"] == "pass"
     assert audit["blockers"] == []
+    assert audit["profiles_by_backend"] == {
+        "single-12b-checked": MODULE.EXPECTED_PRODUCT_PROFILE
+    }
 
 
 def test_evidence_builder_blocks_every_release_safety_failure(tmp_path):

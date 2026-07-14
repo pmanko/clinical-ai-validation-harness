@@ -135,6 +135,9 @@ test.describe('chartsearchai - Gemma E4B trivial multi-turn proof', () => {
     // Turn 2 must repeat the date named in turn 1 when resolving "the date you just gave."
     expect(secondTurnText).toContain(committedDate!);
 
+    await expect(page.locator('[data-indepth-status]').last()).toHaveAttribute('data-indepth-status', 'complete', {
+      timeout: 360_000,
+    });
     await expect
       .poll(() => {
         const followUp = hubTraceEntriesSince(traceOffset).find((entry) => entry.question === QUESTIONS[1]);
@@ -146,10 +149,6 @@ test.describe('chartsearchai - Gemma E4B trivial multi-turn proof', () => {
         prior_roles: ['user', 'assistant'],
         prior_messages_sha256: expect.stringMatching(/^[0-9a-f]{64}$/),
       });
-
-    await expect(page.locator('[data-indepth-status]').last()).toHaveAttribute('data-indepth-status', 'complete', {
-      timeout: 360_000,
-    });
     await caption(
       page,
       `Two turns completed. Fast answer timings: ${(firstAnswerMs / 1000).toFixed(1)}s, ${(secondAnswerMs / 1000).toFixed(1)}s; median ${(medianAnswerMs / 1000).toFixed(1)}s.`,

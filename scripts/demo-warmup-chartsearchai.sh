@@ -18,7 +18,7 @@ set +a
 ROUTER_URL="${DEMO_ROUTER_URL:-http://127.0.0.1:8077}"
 HUB_URL="${DEMO_HUB_URL:-http://127.0.0.1:${MED_AGENT_HUB_PORT:-18081}}"
 OPENMRS_URL="${DEMO_OPENMRS_URL:-http://127.0.0.1:${HARNESS_PROXY_HTTP_PORT:-8088}/openmrs}"
-PROFILE="${DEMO_PROFILE_ID:-${CHARTSEARCH_HUB_PROFILE_ID:-single-e4b-checked}}"
+PROFILE="${DEMO_PROFILE_ID:-}"
 PATIENT="${E2E_PATIENT_UUID:-dd75c020-1691-11df-97a5-7038c432aabf}"
 USER="${E2E_USER:-admin}"
 PASSWORD="${E2E_PASSWORD:-Admin123}"
@@ -27,6 +27,11 @@ curl -fsS --max-time 5 "${ROUTER_URL}/v1/models" >/dev/null
 curl -fsS --max-time 5 "${HUB_URL}/health" >/dev/null
 curl -fsS --max-time 10 -u "${USER}:${PASSWORD}" \
   "${OPENMRS_URL}/ws/rest/v1/session" >/dev/null
+
+if [ -z "${PROFILE}" ]; then
+  PROFILE="$(curl -fsS "${HUB_URL}/v1/models" \
+    | python3 -c "import json,sys; defaults=[x for x in json.load(sys.stdin).get('data',[]) if x.get('visibility') == 'product' and x.get('available') and x.get('default')]; assert len(defaults) == 1, defaults; print(defaults[0]['id'])")"
+fi
 
 echo "Warming ${PROFILE} through med-agent-hub to answer_done..."
 python3 scripts/warm-hub-profile.py \
