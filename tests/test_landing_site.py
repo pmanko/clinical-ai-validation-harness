@@ -53,18 +53,36 @@ def test_landing_has_one_clear_h1_and_required_project_sections():
     assert page.h1_count == 1
     assert {"main-content", "project", "hub", "openmrs", "evidence"} <= page.ids
     assert "Med Agent Hub" in html
-    assert "Current integration" in html
-    assert "Validation harness" in html
-    assert "Research demonstrator" in html
+    assert "OpenMRS integration" in html
+    assert "Published validation runs." in html
+    assert "Experimental software" in html
+
+
+def test_landing_uses_plain_project_language_instead_of_advertising_copy():
+    html, _ = parsed_landing()
+
+    assert "A test environment for local clinical AI." in html
+    assert "How a request is processed." in html
+    assert "Recorded OpenMRS sessions." in html
+    for phrase in (
+        "Build clinical AI that can be inspected",
+        "Evidence before confidence",
+        "See the staged workflow in motion",
+        "Claims are published with the evidence needed to challenge them",
+        "Try the integration, then inspect the results",
+        "Explore the OpenMRS demo",
+        "Explore published reports",
+    ):
+        assert phrase not in html
 
 
 def test_primary_destinations_are_first_party_and_prominent():
     html, page = parsed_landing()
 
-    assert page.links.count("https://openmrs.openclinai.org/") >= 3
-    assert page.links.count("https://reports.openclinai.org/") >= 3
-    assert "Open the OpenMRS demo" in html
-    assert "Explore published reports" in html
+    assert 1 <= page.links.count("https://openmrs.openclinai.org/") <= 2
+    assert 1 <= page.links.count("https://reports.openclinai.org/") <= 3
+    assert "OpenMRS demo" in html
+    assert "Evaluation reports" in html
 
     first_party_hosts = {
         urlparse(link).hostname
