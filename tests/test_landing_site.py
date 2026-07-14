@@ -136,8 +136,11 @@ def test_stable_publish_entrypoint_verifies_the_live_page():
     assert "CONFIG_CHANGES=" in publish
     assert 'if [ -n "${CONFIG_CHANGES}" ]' in publish
     assert "proxy config unchanged; no service restart needed" in publish
+    assert 'HUB_BUILD_REVISION="$(git -C "${ROOT}/targets/med-agent-hub" rev-parse HEAD)"' in publish
+    assert 'export HUB_BUILD_REVISION=' in publish
     assert "docker compose -f compose/openmrs-2.8-refapp.yml up -d --no-deps --force-recreate proxy" in publish
     assert "backend" not in publish
     assert "gateway" not in publish
     assert "frontend" not in publish
     assert "https://${SITE}/media/openmrs-evidence-poster.png" in publish
+    assert "https://${SITE}/media/openmrs-e4b-staged-demo.mp4" in publish

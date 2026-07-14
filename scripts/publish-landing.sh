@@ -24,6 +24,7 @@ if [ ! -f "${ROOT}/.env.chartsearch.cloud" ]; then
 fi
 
 IP="$(gcp_vm_ip)"
+HUB_BUILD_REVISION="$(git -C "${ROOT}/targets/med-agent-hub" rev-parse HEAD)"
 gcp_ssh_keygen_once
 gcp_ssh "mkdir -p ${GCP_REMOTE_REPO}/landing ${GCP_REMOTE_REPO}/compose"
 
@@ -40,7 +41,7 @@ CONFIG_CHANGES="$(rsync -az --itemize-changes -e "${SSH_TRANSPORT}" \
 if [ -n "${CONFIG_CHANGES}" ]; then
   echo "==> proxy config changed; recreating only the proxy"
   printf '%s\n' "${CONFIG_CHANGES}"
-  gcp_ssh "cd ${GCP_REMOTE_REPO} && set -a && . ./.env.chartsearch.cloud && set +a && docker compose -f compose/openmrs-2.8-refapp.yml up -d --no-deps --force-recreate proxy"
+  gcp_ssh "cd ${GCP_REMOTE_REPO} && export HUB_BUILD_REVISION='${HUB_BUILD_REVISION}' && set -a && . ./.env.chartsearch.cloud && set +a && docker compose -f compose/openmrs-2.8-refapp.yml up -d --no-deps --force-recreate proxy"
 else
   echo "==> proxy config unchanged; no service restart needed"
 fi
@@ -51,7 +52,11 @@ SITE="${SITE:-openclinai.org}"
 echo "==> verifying https://${SITE}/"
 curl -fsS --retry 8 --retry-delay 2 --max-time 20 "https://${SITE}/" \
   | grep -q '<h1 id="hero-title">Open Clinical AI</h1>'
+curl -fsS --retry 8 --retry-delay 2 --max-time 20 "https://${SITE}/" \
+  | grep -q '2:10 · 2×'
 curl -fsS --retry 8 --retry-delay 2 --max-time 20 "https://${SITE}/media/openmrs-evidence-poster.png" \
+  -o /dev/null
+curl -fsS --retry 8 --retry-delay 2 --max-time 20 "https://${SITE}/media/openmrs-e4b-staged-demo.mp4" \
   -o /dev/null
 
 echo "==> published: https://${SITE}/"
