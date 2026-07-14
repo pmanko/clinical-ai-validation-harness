@@ -100,6 +100,7 @@ def test_architecture_gates_use_the_reactor_valid_java_lifecycle():
     assert "mvn" not in stage
     assert "hubRequestCount\\.incrementAndGet" in consolidation
     assert "assertEquals\\(1, hubRequestCount\\.get" in consolidation
+    assert "test_streaming_and_blocking_adapters_use_the_same_stage_engine" in consolidation
 
 
 def test_source_gate_requires_the_real_querystore_mysql_adapter():

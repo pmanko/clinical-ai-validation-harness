@@ -2,7 +2,7 @@
 
 **Roadmap:** `MAH-CONSOLIDATION-2026-07-09-v1`  
 **Date:** 2026-07-13  
-**ChartSearchAI commit:** `0190b74a` (`test: enforce one-call hub relay`)
+**ChartSearchAI commit:** `0190b74c72e77932be2df41ec752a271c587dc3b` (`test: enforce one-call hub relay`)
 
 ## Guard
 
@@ -49,4 +49,4 @@ BUILD SUCCESS
 ```
 
 The production relay source has no residual mutation. Only the request-count assertion is included
-in commit `0190b74a`.
+in commit `0190b74c72e77932be2df41ec752a271c587dc3b`.

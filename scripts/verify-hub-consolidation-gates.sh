@@ -161,6 +161,7 @@ if missing_pattern '^async def run_team\(' "$HUB/server/team.py" \
   && missing_pattern '\b(two_call|indepth_shared|indepth_only|answer_only|answer_review|solo)\b' "$HUB/server/levels_loader.py" \
   && [[ ! -f "$HUB/tests/profile_runner.py" ]] \
   && has_pattern 'class (StageEngine|ExecutionEngine)' "$HUB/server" \
+  && has_pattern 'test_streaming_and_blocking_adapters_use_the_same_stage_engine' "$HUB/tests/test_stage_engine_v2.py" \
   && has_pattern 'test_named_sse_resumes_all_events_in_one_task_context' "$HUB/tests" \
   && [[ $hub_m1_suite_ok -eq 1 ]]; then
   record G04 PASS "one stage engine, no flag bridge, and full hub suite passed"
