@@ -91,13 +91,10 @@ def test_hub_profile_candidate_uses_only_real_checked_product_profiles():
     cset = load_comparison_set(DATA / "comparison_sets" / "hub-profile-candidate.json")
     assert cset.id == "hub-profile-candidate"
     assert len(cset.scenario_ids) == 12
-    assert cset.backend_ids == ["product-e4b-checked", "product-12b-checked"]
+    assert cset.backend_ids == ["single-12b-checked"]
 
     backends = resolve_backends(cset.backend_ids, DATA / "backends.json")
-    assert {backend.model_name for backend in backends} == {
-        "single-e4b-checked",
-        "single-12b-checked",
-    }
+    assert [backend.model_name for backend in backends] == ["single-12b-checked"]
     assert all(backend.indepth_model is None for backend in backends)
     assert not any("team" in backend.id or "2call" in backend.id for backend in backends)
     raw = json.loads(
@@ -107,48 +104,15 @@ def test_hub_profile_candidate_uses_only_real_checked_product_profiles():
     assert set(raw["temporal_scenario_ids"]) < set(cset.scenario_ids)
 
 
-def test_hub_profile_12b_candidate_is_the_approved_quality_baseline():
-    cset = load_comparison_set(
-        DATA / "comparison_sets" / "hub-profile-12b-candidate.json"
-    )
-    assert cset.id == "hub-profile-12b-candidate"
-    assert len(cset.scenario_ids) == 12
-    assert cset.backend_ids == ["product-12b-checked"]
-
-    backends = resolve_backends(cset.backend_ids, DATA / "backends.json")
-    assert [backend.model_name for backend in backends] == ["single-12b-checked"]
-    assert backends[0].indepth_model is None
-    raw = json.loads(
-        (DATA / "comparison_sets" / "hub-profile-12b-candidate.json").read_text()
-    )
-    assert len(raw["temporal_scenario_ids"]) == 11
-    assert set(raw["temporal_scenario_ids"]) < set(cset.scenario_ids)
-
-
-def test_hub_profile_appointment_smoke_targets_two_product_paths():
+def test_hub_profile_appointment_smoke_targets_both_appointment_cases():
     cset = load_comparison_set(
         DATA / "comparison_sets" / "hub-profile-appointment-smoke.json"
     )
-    assert cset.scenario_ids == ["single-upcoming-appointments"]
-    assert cset.backend_ids == ["product-e4b-checked", "product-12b-checked"]
-
-    backends = resolve_backends(cset.backend_ids, DATA / "backends.json")
-    assert [backend.model_name for backend in backends] == [
-        "single-e4b-checked",
-        "single-12b-checked",
+    assert cset.scenario_ids == [
+        "single-upcoming-appointments",
+        "am-upcoming-appointments",
     ]
-    assert all(backend.indepth_model is None for backend in backends)
-
-
-def test_hub_profile_12b_appointment_smoke_targets_collective_source_case():
-    cset = load_comparison_set(
-        DATA / "comparison_sets" / "hub-profile-12b-appointment-smoke.json"
-    )
-    assert cset.scenario_ids == ["am-upcoming-appointments"]
-    assert cset.backend_ids == ["product-12b-checked"]
-    path = DATA / "comparison_sets" / "hub-profile-12b-appointment-smoke.json"
-    raw = json.loads(path.read_text())
-    assert raw["temporal_scenario_ids"] == ["am-upcoming-appointments"]
+    assert cset.backend_ids == ["single-12b-checked"]
 
     backends = resolve_backends(cset.backend_ids, DATA / "backends.json")
     assert [backend.model_name for backend in backends] == ["single-12b-checked"]
@@ -168,9 +132,9 @@ def test_hub_profile_team_focus_has_one_team_and_two_single_profiles():
         "abstain-out-of-chart",
     ]
     assert cset.backend_ids == [
-        "product-e4b-checked",
-        "product-12b-checked",
-        "product-team-med-checked",
+        "single-e4b-checked",
+        "single-12b-checked",
+        "team-med-checked",
     ]
 
     backends = resolve_backends(cset.backend_ids, DATA / "backends.json")
@@ -181,9 +145,9 @@ def test_hub_profile_team_focus_has_one_team_and_two_single_profiles():
     ]
     assert all(backend.indepth_model is None for backend in backends)
     cards = {backend.id: arm_card(backend.id) for backend in backends}
-    assert cards["product-e4b-checked"]["kind"] == "single"
-    assert cards["product-12b-checked"]["kind"] == "single"
-    team = cards["product-team-med-checked"]
+    assert cards["single-e4b-checked"]["kind"] == "single"
+    assert cards["single-12b-checked"]["kind"] == "single"
+    team = cards["team-med-checked"]
     assert team["kind"] == "team"
     assert team["title"] == (
         "Gemma 4B coord · MedGemma 4B expert · Qwen 14B writer · Gemma 12B val"
@@ -201,3 +165,40 @@ def test_hub_profile_team_focus_has_one_team_and_two_single_profiles():
         "indepth",
         "indepth_gate",
     ]
+
+
+def test_backend_registry_has_no_orphans_and_product_ids_are_hub_ids():
+    registry = json.loads((DATA / "backends.json").read_text(encoding="utf-8"))
+    used = set()
+    for path in (DATA / "comparison_sets").glob("*.json"):
+        used.update(json.loads(path.read_text(encoding="utf-8")).get("backend_ids", []))
+
+    assert set(registry) == used
+    products = {
+        backend_id: config
+        for backend_id, config in registry.items()
+        if config.get("kind") == "product_profile"
+    }
+    assert set(products) == {
+        "single-e4b-checked",
+        "single-12b-checked",
+        "team-med-checked",
+    }
+    for backend_id, config in products.items():
+        assert config["modelName"] == backend_id
+        assert config["endpointUrl"] == (
+            "http://med-agent-hub:8080/v1/chat/completions"
+        )
+        assert "indepthEndpointUrl" not in config
+        assert "indepthModelName" not in config
+
+
+def test_product_comparison_sets_only_use_product_profiles():
+    registry = json.loads((DATA / "backends.json").read_text(encoding="utf-8"))
+    for path in (DATA / "comparison_sets").glob("hub-profile-*.json"):
+        comparison = json.loads(path.read_text(encoding="utf-8"))
+        assert comparison["backend_ids"]
+        assert all(
+            registry[backend_id].get("kind") == "product_profile"
+            for backend_id in comparison["backend_ids"]
+        ), path.name

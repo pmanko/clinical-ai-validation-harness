@@ -1,7 +1,15 @@
 import { test, expect, type Page } from '@playwright/test';
 import * as fs from 'fs';
 import * as path from 'path';
-import { login, openAiChatPanel, openPatientChart, resetChatSession, selectCheckedModel } from '../support/openmrs';
+import {
+  hubTraceEntriesSince,
+  hubTraceOffset,
+  login,
+  openAiChatPanel,
+  openPatientChart,
+  resetChatSession,
+  selectCheckedModel,
+} from '../support/openmrs';
 
 const MODEL_LABEL = process.env.E2E_MODEL_LABEL ?? 'Fast checked answer (E4B)';
 const MODEL_PATTERN = new RegExp(MODEL_LABEL.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
@@ -10,12 +18,8 @@ const SHOTS = path.resolve(__dirname, '../evidence/e4b-multiturn-trivial');
 
 // Multi-turn continuity, end-to-end. Turn 1 asks for one deterministic temporal fact. Turn 2 refers
 // to "the date you just gave" and must carry that exact date forward. This keeps the live smoke small
-// and clinically meaningful; the definitive proof that arbitrary prior prose is relayed remains the
-// Java priorTurnsForRelay contract below.
-//
-// NOTE (honest scope): this is the assembled end-to-end continuity check. The DEFINITIVE proof that
-// prior turns are relayed to the hub is the Java unit test (ChartSearchAiRestController's
-// priorTurnsForRelay assertion); this spec confirms the behavior end-to-end, it is not the sole guard.
+// and clinically meaningful. The final trace assertion proves that the assembled Java-to-hub request
+// carried one complete prior turn without writing clinical plaintext into the trace.
 const QUESTIONS = [
   'What is the most recent documented clinical visit date? Reply with the date in YYYY-MM-DD format.',
   'What was documented on the visit date you just gave? Include that same date in your answer.',
@@ -106,6 +110,7 @@ test.describe('chartsearchai - Gemma E4B trivial multi-turn proof', () => {
     await selectCheckedModel(page, MODEL_PATTERN);
     await caption(page, `${MODEL_LABEL} selected for a tiny two-turn session proof.`, '01-model-selected.png');
 
+    const traceOffset = hubTraceOffset();
     const firstAnswerMs = await sendTurn(page, QUESTIONS[0], 1);
 
     // Scope to the Answer section, excluding In-Depth and evidence text.
@@ -129,6 +134,18 @@ test.describe('chartsearchai - Gemma E4B trivial multi-turn proof', () => {
       .innerText({ timeout: 30_000 });
     // Turn 2 must repeat the date named in turn 1 when resolving "the date you just gave."
     expect(secondTurnText).toContain(committedDate!);
+
+    await expect
+      .poll(() => {
+        const followUp = hubTraceEntriesSince(traceOffset).find((entry) => entry.question === QUESTIONS[1]);
+        return followUp?.steps?.find((step) => step.role === 'conversation_history');
+      })
+      .toMatchObject({
+        prior_message_count: 2,
+        prior_turn_count: 1,
+        prior_roles: ['user', 'assistant'],
+        prior_messages_sha256: expect.stringMatching(/^[0-9a-f]{64}$/),
+      });
 
     await expect(page.locator('[data-indepth-status]').last()).toHaveAttribute('data-indepth-status', 'complete', {
       timeout: 360_000,

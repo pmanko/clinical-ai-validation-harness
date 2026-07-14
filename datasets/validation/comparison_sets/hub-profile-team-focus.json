@@ -10,8 +10,8 @@
     "abstain-out-of-chart"
   ],
   "backend_ids": [
-    "product-e4b-checked",
-    "product-12b-checked",
-    "product-team-med-checked"
+    "single-e4b-checked",
+    "single-12b-checked",
+    "team-med-checked"
   ]
 }

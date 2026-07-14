@@ -7,6 +7,7 @@ import argparse
 import importlib.util
 import json
 import re
+import subprocess
 from pathlib import Path
 from typing import Any
 
@@ -50,16 +51,37 @@ def _jsonl(path: Path) -> list[dict[str, Any]]:
     ]
 
 
-def _expected_pairs(comparison_set: str = EXPECTED_SET) -> set[tuple[str, str]]:
-    comparison = json.loads(
-        (
-            ROOT
-            / "datasets"
-            / "validation"
-            / "comparison_sets"
-            / f"{comparison_set}.json"
-        ).read_text(encoding="utf-8")
+def _comparison_definition(
+    comparison_set: str, run_dir: Path | None = None
+) -> dict[str, Any]:
+    relative = Path(
+        f"datasets/validation/comparison_sets/{comparison_set}.json"
     )
+    manifest_path = run_dir / "run_manifest.json" if run_dir is not None else None
+    if manifest_path is not None and manifest_path.is_file():
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        git_sha = str(manifest.get("git_sha") or "").strip()
+        if not re.fullmatch(r"[0-9a-f]{40}", git_sha):
+            raise RuntimeError("Run manifest does not contain a valid harness Git SHA.")
+        try:
+            text = subprocess.check_output(
+                ["git", "show", f"{git_sha}:{relative.as_posix()}"],
+                cwd=ROOT,
+                text=True,
+                stderr=subprocess.STDOUT,
+            )
+        except subprocess.CalledProcessError as error:
+            raise RuntimeError(
+                f"Comparison set {comparison_set!r} is not available at run commit {git_sha}."
+            ) from error
+        return json.loads(text)
+    return json.loads((ROOT / relative).read_text(encoding="utf-8"))
+
+
+def _expected_pairs(
+    comparison_set: str = EXPECTED_SET, run_dir: Path | None = None
+) -> set[tuple[str, str]]:
+    comparison = _comparison_definition(comparison_set, run_dir)
     return {
         (scenario, backend)
         for scenario in comparison["scenario_ids"]
@@ -91,7 +113,7 @@ def _run_contract(
         for scenario in scenario_ids
         for backend in backend_ids
     }
-    authored = _expected_pairs(comparison_set)
+    authored = _expected_pairs(comparison_set, run_dir)
     if expected != authored:
         raise RuntimeError(
             f"Recorded run matrix does not match comparison set {comparison_set!r}."

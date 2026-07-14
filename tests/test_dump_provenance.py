@@ -1,10 +1,20 @@
 from __future__ import annotations
 
 import gzip
+import importlib.util
 import json
 from pathlib import Path
 
 from harness.validate.dump_provenance import sha256_file, verify_dump
+
+
+ROOT = Path(__file__).resolve().parents[1]
+SPEC = importlib.util.spec_from_file_location(
+    "verify_portable_dump", ROOT / "scripts" / "verify-portable-dump.py"
+)
+assert SPEC and SPEC.loader
+VERIFY_DUMP = importlib.util.module_from_spec(SPEC)
+SPEC.loader.exec_module(VERIFY_DUMP)
 
 
 def _write_dump(
@@ -109,3 +119,43 @@ def test_portable_corpus_may_exclude_additional_module_prefixes(tmp_path: Path) 
     _, issues = verify_dump(dump, provenance)
 
     assert issues == []
+
+
+def test_verify_dump_cli_reports_success(tmp_path: Path, monkeypatch, capsys) -> None:
+    dump, provenance = _write_dump(tmp_path, b"SELECT 1;\n")
+    monkeypatch.setattr(
+        VERIFY_DUMP.sys,
+        "argv",
+        [
+            "verify-portable-dump.py",
+            "--dump",
+            str(dump),
+            "--provenance",
+            str(provenance),
+            "--require-portable",
+        ],
+    )
+
+    assert VERIFY_DUMP.main() == 0
+    assert "verified dump sha256" in capsys.readouterr().out
+
+
+def test_verify_dump_cli_reports_all_issues(tmp_path: Path, monkeypatch, capsys) -> None:
+    dump, provenance = _write_dump(tmp_path, b"SELECT 1;\n")
+    metadata = json.loads(provenance.read_text(encoding="utf-8"))
+    metadata["output_sha256"] = "0" * 64
+    provenance.write_text(json.dumps(metadata), encoding="utf-8")
+    monkeypatch.setattr(
+        VERIFY_DUMP.sys,
+        "argv",
+        [
+            "verify-portable-dump.py",
+            "--dump",
+            str(dump),
+            "--provenance",
+            str(provenance),
+        ],
+    )
+
+    assert VERIFY_DUMP.main() == 1
+    assert "ERROR: dump sha256 mismatch" in capsys.readouterr().out

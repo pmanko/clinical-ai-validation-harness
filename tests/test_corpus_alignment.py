@@ -17,6 +17,12 @@ SPEC = importlib.util.spec_from_file_location(
 CAPTURE = importlib.util.module_from_spec(SPEC)
 assert SPEC and SPEC.loader
 SPEC.loader.exec_module(CAPTURE)
+VERIFY_SPEC = importlib.util.spec_from_file_location(
+    "verify_validation_corpus", ROOT / "scripts" / "verify-validation-corpus.py"
+)
+VERIFY_CORPUS = importlib.util.module_from_spec(VERIFY_SPEC)
+assert VERIFY_SPEC and VERIFY_SPEC.loader
+VERIFY_SPEC.loader.exec_module(VERIFY_CORPUS)
 
 
 def test_expected_ledger_and_alignment_compare_complete_rendered_content(tmp_path):
@@ -207,3 +213,70 @@ def test_successful_fixture_capture_replaces_staged_file_atomically(tmp_path, mo
     assert CAPTURE.main(["--all", "--username", "reader", "--password", "secret"]) == 0
     assert replacements == [(tmp_path / ".p1.json.tmp", fixture)]
     assert json.loads(fixture.read_text())["valid_uuids"] == ["o1"]
+
+
+def test_verify_corpus_cli_reports_matching_live_ledger(monkeypatch, capsys):
+    expected = {
+        "p1": {
+            "chart_snapshot": "[1] (2026-01-01) Finding -- Weight: 71 kg\n",
+            "mappings": [{"index": 1, "resourceUuid": "o1"}],
+        }
+    }
+    monkeypatch.setattr(VERIFY_CORPUS, "expected_ledgers", lambda *_args: expected)
+    monkeypatch.setattr(VERIFY_CORPUS, "live_records", lambda *_args: [{"uuid": "o1"}])
+    monkeypatch.setattr(
+        VERIFY_CORPUS,
+        "render_chart",
+        lambda _records: (expected["p1"]["chart_snapshot"], expected["p1"]["mappings"]),
+    )
+    monkeypatch.setattr(VERIFY_CORPUS, "alignment_issues", lambda *_args: [])
+    monkeypatch.setattr(
+        VERIFY_CORPUS.sys,
+        "argv",
+        [
+            "verify-validation-corpus.py",
+            "--set",
+            "set",
+            "--endpoint",
+            "http://querystore",
+            "--username",
+            "reader",
+            "--password",
+            "secret",
+        ],
+    )
+
+    assert VERIFY_CORPUS.main() == 0
+    assert "p1: 1 exact fixture/live records" in capsys.readouterr().out
+
+
+def test_verify_corpus_cli_reports_alignment_issues(monkeypatch, capsys):
+    expected = {"p1": {"chart_snapshot": "fixture", "mappings": []}}
+    monkeypatch.setattr(VERIFY_CORPUS, "expected_ledgers", lambda *_args: expected)
+    monkeypatch.setattr(VERIFY_CORPUS, "live_records", lambda *_args: [])
+    monkeypatch.setattr(VERIFY_CORPUS, "render_chart", lambda _records: ("live", []))
+    monkeypatch.setattr(
+        VERIFY_CORPUS,
+        "alignment_issues",
+        lambda *_args: ["p1: rendered chart text differs"],
+    )
+    monkeypatch.setattr(
+        VERIFY_CORPUS.sys,
+        "argv",
+        [
+            "verify-validation-corpus.py",
+            "--set",
+            "set",
+            "--endpoint",
+            "http://querystore",
+            "--username",
+            "reader",
+            "--password",
+            "secret",
+        ],
+    )
+
+    assert VERIFY_CORPUS.main() == 1
+    output = capsys.readouterr().out
+    assert "p1: rendered chart text differs" in output
+    assert "Restore/reindex" in output

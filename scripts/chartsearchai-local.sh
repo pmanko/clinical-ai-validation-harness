@@ -113,6 +113,22 @@ artifact_stale() {
   find "$@" -type f -newer "${artifact}" -print -quit 2>/dev/null | grep -q .
 }
 
+artifact_needs_build() {
+  local artifact="$1" repo="$2" manifest="$3"
+  shift 3
+  case "${BUILD_MODE}" in
+    always) return 0 ;;
+    never) return 1 ;;
+    auto)
+      ! python3 scripts/artifact-provenance.py verify \
+          --repo "${repo}" --artifact "${artifact}" --manifest "${manifest}" \
+          >/dev/null 2>&1 \
+        || artifact_stale "${artifact}" "$@"
+      ;;
+    *) fail "CHARTSEARCH_LOCAL_BUILD must be auto, always, or never" ;;
+  esac
+}
+
 build_if_needed() {
   local label="$1" artifact="$2" target="$3" repo="$4" manifest="$5"
   local did_build=0
@@ -124,10 +140,7 @@ build_if_needed() {
       did_build=1
       ;;
     auto)
-      if ! python3 scripts/artifact-provenance.py verify \
-          --repo "${repo}" --artifact "${artifact}" --manifest "${manifest}" \
-          >/dev/null 2>&1 \
-        || artifact_stale "${artifact}" "$@"; then
+      if artifact_needs_build "${artifact}" "${repo}" "${manifest}" "$@"; then
         say "==> build ${label} (missing or stale)"
         make "${target}"
         did_build=1
@@ -152,6 +165,25 @@ build_if_needed() {
 require_command curl
 require_command docker
 require_command python3
+if artifact_needs_build \
+    "${CHARTSEARCH_OMOD}" targets/chartsearchai "${CHARTSEARCH_OMOD_PROVENANCE}" \
+    targets/chartsearchai/api/src targets/chartsearchai/omod/src \
+    targets/chartsearchai/pom.xml targets/chartsearchai/api/pom.xml targets/chartsearchai/omod/pom.xml \
+  || artifact_needs_build \
+    "${QUERYSTORE_OMOD}" targets/querystore "${QUERYSTORE_OMOD_PROVENANCE}" \
+    targets/querystore/api/src targets/querystore/omod/src \
+    targets/querystore/pom.xml targets/querystore/api/pom.xml targets/querystore/omod/pom.xml; then
+  require_command make
+  require_command mvn
+fi
+if artifact_needs_build \
+    "${CHARTSEARCH_ESM}" targets/chartsearchai-esm "${CHARTSEARCH_ESM_PROVENANCE}" \
+    targets/chartsearchai-esm/src targets/chartsearchai-esm/package.json targets/chartsearchai-esm/yarn.lock; then
+  require_command make
+  require_command node
+  require_command yarn
+  require_command rsync
+fi
 "${COMPOSE[@]}" config --quiet
 
 ROUTER_REACHABLE=0

@@ -1,9 +1,10 @@
-# chartsearchai adapter contract
+# ChartSearchAI adapter contract
 
-Initial command plan:
+ChartSearchAI is the OpenMRS authorization, session, persistence, and streaming
+relay for med-agent-hub product profiles. Its stable repository-level check is:
 
-- `mvn -pl api test -Dtest=LlmInferenceServiceTest`
-- `mvn -pl api test -Dtest=EnrichedRetrievalEvalTest`
-- `mvn -pl api test -Dtest=EnrichedRetrievalEvalTest -Dchartsearchai.eval.model=medcpt`
+- `make chartsearch-test`
 
-All runs should emit harness run metadata and per-run JSONL events.
+Live product validation uses `make chartsearchai-local` and the Playwright relay,
+multi-turn, and cancellation gates. The deleted Java inference/retrieval tests are
+not adapter entrypoints; answer quality is evaluated through the hub profile path.

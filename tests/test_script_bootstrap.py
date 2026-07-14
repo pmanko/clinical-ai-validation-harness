@@ -16,8 +16,6 @@ ROOT = Path(__file__).resolve().parents[1]
         "check-querystore-drift.py",
         "verify-portable-dump.py",
         "verify-validation-corpus.py",
-        "collect-local-performance.py",
-        "summarize-local-performance.py",
     ],
 )
 def test_cli_bootstraps_repo_imports_without_pythonpath(tmp_path: Path, script_name: str) -> None:

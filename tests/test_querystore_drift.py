@@ -1,3 +1,5 @@
+import importlib.util
+import io
 import json
 import os
 import subprocess
@@ -7,6 +9,12 @@ from harness.validate.querystore_drift import evaluate_drift
 
 
 ROOT = Path(__file__).resolve().parents[1]
+SPEC = importlib.util.spec_from_file_location(
+    "check_querystore_drift", ROOT / "scripts" / "check-querystore-drift.py"
+)
+assert SPEC and SPEC.loader
+CHECK_DRIFT = importlib.util.module_from_spec(SPEC)
+SPEC.loader.exec_module(CHECK_DRIFT)
 
 
 def test_drift_policy_allows_only_small_positive_baseline():
@@ -76,3 +84,67 @@ def test_preflight_and_reindex_use_the_same_cli_defaults():
     )
     assert result.returncode == 1
     assert "under-indexed by 60 (>5% and >50)" in result.stderr
+
+
+def test_drift_cli_reports_clean_payload(monkeypatch, capsys):
+    monkeypatch.setattr(
+        CHECK_DRIFT.sys,
+        "stdin",
+        io.StringIO(
+            json.dumps(
+                {
+                    "types": [
+                        {
+                            "resourceType": "obs",
+                            "coreCount": 100,
+                            "indexedCount": 100,
+                            "drift": 0,
+                        }
+                    ]
+                }
+            )
+        ),
+    )
+    monkeypatch.setattr(CHECK_DRIFT.sys, "argv", ["check-querystore-drift.py"])
+
+    assert CHECK_DRIFT.main() == 0
+    captured = capsys.readouterr()
+    assert "obs" in captured.out
+    assert captured.err == ""
+
+
+def test_drift_cli_reports_policy_issue(monkeypatch, capsys):
+    monkeypatch.setattr(
+        CHECK_DRIFT.sys,
+        "stdin",
+        io.StringIO(
+            json.dumps(
+                {
+                    "types": [
+                        {
+                            "resourceType": "obs",
+                            "coreCount": 1000,
+                            "indexedCount": 940,
+                            "drift": 60,
+                        }
+                    ]
+                }
+            )
+        ),
+    )
+    monkeypatch.setattr(
+        CHECK_DRIFT.sys,
+        "argv",
+        ["check-querystore-drift.py", "--percent", "5", "--absolute", "50"],
+    )
+
+    assert CHECK_DRIFT.main() == 1
+    assert "under-indexed by 60" in capsys.readouterr().err
+
+
+def test_drift_cli_rejects_invalid_json(monkeypatch, capsys):
+    monkeypatch.setattr(CHECK_DRIFT.sys, "stdin", io.StringIO("{"))
+    monkeypatch.setattr(CHECK_DRIFT.sys, "argv", ["check-querystore-drift.py"])
+
+    assert CHECK_DRIFT.main() == 2
+    assert "invalid Querystore drift response" in capsys.readouterr().err

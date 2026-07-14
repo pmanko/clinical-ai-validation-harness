@@ -84,7 +84,6 @@ def test_local_hub_image_is_labeled_with_the_exact_source_revision():
     compose = _read("compose/openmrs-2.8-refapp.yml")
     local = _read("scripts/chartsearchai-local.sh")
     makefile = _read("Makefile")
-    collector = _read("scripts/collect-local-performance.py")
 
     assert "ARG HUB_BUILD_REVISION" in dockerfile
     assert "org.opencontainers.image.revision" in dockerfile
@@ -92,9 +91,6 @@ def test_local_hub_image_is_labeled_with_the_exact_source_revision():
     assert 'HUB_BUILD_REVISION="$(git -C targets/med-agent-hub rev-parse HEAD)"' in local
     assert "export HUB_BUILD_REVISION" in local
     assert "HUB_BUILD_REVISION=$$(git -C targets/med-agent-hub rev-parse HEAD)" in makefile
-    assert "docker inspect" in collector
-    assert "org.opencontainers.image.revision" in collector
-    assert "deployed hub revision" in collector
 
 
 def test_focused_hub_start_reuses_saved_least_privileged_source_credentials():
@@ -278,6 +274,7 @@ def test_check_reuses_existing_router_and_preserves_explicit_profile(tmp_path):
         "PATH": f"{fake_bin}:/usr/bin:/bin",
         "CHARTSEARCH_HUB_PROFILE_ID": "explicit-profile",
         "LLAMA_MODEL_DIR": "/definitely/not/a/model/directory",
+        "CHARTSEARCH_LOCAL_BUILD": "never",
     }
 
     result = subprocess.run(
@@ -292,6 +289,16 @@ def test_check_reuses_existing_router_and_preserves_explicit_profile(tmp_path):
     assert result.returncode == 0, result.stderr
     assert "router: existing" in result.stdout
     assert "selected profile: explicit-profile" in result.stdout
+
+
+def test_local_preflight_checks_artifact_specific_build_tools():
+    script = _read("scripts/chartsearchai-local.sh")
+
+    assert "artifact_needs_build" in script
+    for command in ("make", "mvn", "node", "yarn", "rsync"):
+        assert f"require_command {command}" in script
+    assert script.index("require_command mvn") < script.index('"${COMPOSE[@]}" config --quiet')
+    assert script.index("require_command yarn") < script.index('"${COMPOSE[@]}" config --quiet')
 
 
 def test_external_patient_source_uses_its_configured_verification_url():

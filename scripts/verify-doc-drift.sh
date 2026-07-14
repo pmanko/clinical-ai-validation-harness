@@ -89,6 +89,42 @@ HISTORICAL_MARKER = re.compile(
     re.I,
 )
 
+REQUIRED_CURRENT = {
+    "README.md": (
+        r"med-agent-hub",
+        r"single-e4b-checked",
+    ),
+    "adapters/chartsearchai/README.md": (
+        r"authorization, session, persistence, and streaming",
+        r"make chartsearch-test",
+    ),
+    "adapters/querystore/README.md": (
+        r"optional med-agent-hub patient-context source",
+        r"make querystore-test-integration",
+    ),
+    "specs/006-validation-harness-mvp/spec.md": (
+        r"hub product `profile` through ChartSearchAI",
+        r"low-level leg experiments",
+    ),
+    "targets/chartsearchai/README.md": (
+        r"authorizes the patient request",
+        r"relays exactly one request to med-agent-hub",
+    ),
+    "targets/chartsearchai-esm/README.md": (
+        r"does not choose provider endpoints",
+        r"answer_done.*answer_validation.*indepth_pending",
+    ),
+    "targets/med-agent-hub/README.md": (
+        r"client-facing clinical answer service",
+        r"Every product Answer receives deterministic",
+        r"Every product In-Depth claim receives deterministic",
+    ),
+    "targets/querystore/docs/rest-api.md": (
+        r"A Querystore reindex is already running",
+        r"use the REST `scope:\"type\"` trigger",
+    ),
+}
+
 
 def run(args: list[str], cwd: Path = ROOT) -> str:
     return subprocess.check_output(args, cwd=cwd, text=True)
@@ -136,6 +172,10 @@ def is_historical(rel_key: str) -> bool:
     return any(hint in rel_key for hint in HISTORICAL_PATH_HINTS)
 
 
+def header_is_historical(text: str) -> bool:
+    return bool(HISTORICAL_MARKER.search("\n".join(text.splitlines()[:40])))
+
+
 repos = [ROOT] + submodule_paths()
 repo_names = [str(p.relative_to(ROOT)) if p != ROOT else "." for p in repos]
 print("Scanning repos:")
@@ -166,7 +206,7 @@ for repo in repos:
         if not matches:
             continue
 
-        if is_historical(rel_key) and HISTORICAL_MARKER.search(text):
+        if (is_historical(rel_key) or header_is_historical(text)) and HISTORICAL_MARKER.search(text):
             historical_hits += 1
             continue
 
@@ -177,6 +217,23 @@ if violations:
     for violation in violations:
         print(f"  - {violation}")
     print("\nFix current-path language, or move/mark genuinely historical material.")
+    sys.exit(1)
+
+required_violations = []
+for rel_key, patterns in REQUIRED_CURRENT.items():
+    path = ROOT / rel_key
+    if not path.is_file():
+        required_violations.append(f"{rel_key}: required current document is missing")
+        continue
+    text = path.read_text(encoding="utf-8")
+    for pattern in patterns:
+        if not re.search(pattern, text, re.I | re.S):
+            required_violations.append(f"{rel_key}: missing current-architecture statement /{pattern}/")
+
+if required_violations:
+    print("\nRequired current-architecture statements missing:")
+    for violation in required_violations:
+        print(f"  - {violation}")
     sys.exit(1)
 
 print(f"PASS: scanned {len(repos)} repos; historical marked files allowed: {historical_hits}")

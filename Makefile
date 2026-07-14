@@ -12,7 +12,7 @@ export UV_PROJECT_ENVIRONMENT
         chartsearch-build querystore-build querystore-recreate-index chartsearch-configure querystore-configure chartsearch-backend chartsearch-doctor chartsearchai-local \
         chartsearch-esm-build chartsearch-esm-dev \
         llama-router-up llama-router-models \
-        med-agent-hub-build med-agent-hub-up med-agent-hub-logs med-agent-hub-restart med-agent-hub-test querystore-reindex \
+        med-agent-hub-build med-agent-hub-up med-agent-hub-logs med-agent-hub-restart med-agent-hub-test chartsearch-test querystore-test querystore-test-integration querystore-reindex \
         dashboard-ensure dashboard-restart validate-preflight validate-run validate-judge-prep validate-judge-finalize validate-publish \
         cloud-init cloud-sync cloud-down cloud-seed \
         cloud-start cloud-stop cloud-ssh cloud-logs cloud-status cloud-destroy
@@ -262,6 +262,15 @@ med-agent-hub-restart:
 med-agent-hub-test:
 	docker run --rm -v $(CURDIR)/targets/med-agent-hub:/app -w /app python:3.11-slim \
 		sh -c "pip install --quiet --root-user-action=ignore fastapi httpx psutil python-dotenv pyyaml pytest && python -m pytest -q tests/test_bridge.py tests/test_kb.py"
+
+chartsearch-test:
+	@./scripts/test-chartsearchai.sh
+
+querystore-test:
+	@./scripts/test-querystore.sh unit
+
+querystore-test-integration:
+	@./scripts/test-querystore.sh mysql-integration
 
 # Configure ChartSearchAI's fixed hub endpoint and default product profile.
 chartsearch-configure:

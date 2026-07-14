@@ -38,7 +38,7 @@ async function typeAndSend(page: Page, question: string): Promise<void> {
 async function waitTurnPhase(
   page: Page,
   turnIndex: number,
-  phase: 'in-depth' | 'validating' | 'complete',
+  phase: 'in-depth' | 'checking' | 'complete',
   timeout = 360_000,
 ): Promise<void> {
   await expect(page.locator('[data-turn-phase]').nth(turnIndex)).toHaveAttribute('data-turn-phase', phase, {

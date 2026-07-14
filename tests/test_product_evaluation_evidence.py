@@ -18,13 +18,63 @@ def test_substantive_answer_rejects_product_fallback():
     assert not MODULE._is_substantive(MODULE.FALLBACK_ANSWER)
 
 
-def test_expected_candidate_matrix_is_exactly_24_cells():
+def test_expected_candidate_matrix_is_exactly_12_cells():
     pairs = MODULE._expected_pairs()
-    assert len(pairs) == 24
-    assert {backend for _scenario, backend in pairs} == {
-        "product-e4b-checked",
-        "product-12b-checked",
-    }
+    assert len(pairs) == 12
+    assert {backend for _scenario, backend in pairs} == {"single-12b-checked"}
+
+
+def test_run_contract_resolves_historical_comparison_set_at_recorded_git_sha(
+    tmp_path, monkeypatch
+):
+    run = tmp_path / "historical-run"
+    run.mkdir()
+    (run / "run_manifest.json").write_text(
+        json.dumps({"git_sha": "a" * 40}), encoding="utf-8"
+    )
+    (run / "events.jsonl").write_text(
+        json.dumps(
+            {
+                "event_type": "run",
+                "comparison_set": "retired-candidate-name",
+                "reference_date": "2026-06-20",
+                "scenario_ids": ["scenario-a"],
+                "backend_ids": ["retired-backend-name"],
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (run / "run_meta.json").write_text(
+        json.dumps({"arm_cards": {"retired-backend-name": {"stages": ["answer"]}}}),
+        encoding="utf-8",
+    )
+    calls = []
+
+    def check_output(args, **kwargs):
+        calls.append((args, kwargs))
+        return json.dumps(
+            {
+                "id": "retired-candidate-name",
+                "scenario_ids": ["scenario-a"],
+                "backend_ids": ["retired-backend-name"],
+            }
+        )
+
+    monkeypatch.setattr(MODULE.subprocess, "check_output", check_output)
+
+    comparison, reference_date, expected, stages = MODULE._run_contract(run)
+
+    assert comparison == "retired-candidate-name"
+    assert reference_date == "2026-06-20"
+    assert expected == {("scenario-a", "retired-backend-name")}
+    assert stages == {"retired-backend-name": ["answer"]}
+    assert calls[0][0] == [
+        "git",
+        "show",
+        ("a" * 40)
+        + ":datasets/validation/comparison_sets/retired-candidate-name.json",
+    ]
 
 
 def test_evidence_builder_rejects_an_incomplete_run(tmp_path):
@@ -37,7 +87,7 @@ def test_evidence_builder_rejects_an_incomplete_run(tmp_path):
                 "comparison_set": MODULE.EXPECTED_SET,
                 "reference_date": MODULE.EXPECTED_REFERENCE_DATE,
                 "scenario_ids": [scenario for scenario, _ in sorted(MODULE._expected_pairs())],
-                "backend_ids": ["product-e4b-checked", "product-12b-checked"],
+                "backend_ids": ["single-12b-checked"],
             }
         )
         + "\n",
@@ -50,7 +100,7 @@ def test_evidence_builder_rejects_an_incomplete_run(tmp_path):
         json.dumps(
             {
                 "scenario_id": "date-zabella-weight-table",
-                "backend_id": "product-e4b-checked",
+                "backend_id": "single-12b-checked",
                 "reference_date": "2026-06-20",
             }
         )
@@ -168,14 +218,14 @@ def _build_and_read(tmp_path, results, traces):
     return json.loads(audit_path.read_text(encoding="utf-8"))
 
 
-def test_evidence_builder_accepts_the_complete_24_cell_contract(tmp_path):
+def test_evidence_builder_accepts_the_complete_12_cell_contract(tmp_path):
     run, trace_path, _results, _traces = _valid_candidate_fixture(tmp_path)
 
     selected_path, audit_path = MODULE.build_evidence(
         run, trace_path, tmp_path / "out"
     )
 
-    assert len(selected_path.read_text().splitlines()) == 24
+    assert len(selected_path.read_text().splitlines()) == 12
     audit = json.loads(audit_path.read_text())
     assert audit["status"] == "pass"
     assert audit["blockers"] == []

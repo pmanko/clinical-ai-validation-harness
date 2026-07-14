@@ -115,8 +115,8 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 # 2. Set up the Python environment and install all dev dependencies
 make setup
 
-# 3. Bring up the OpenMRS Reference Application stack (MariaDB + backend + frontend)
-docker compose -f compose/openmrs-2.8-refapp.yml up -d
+# 3. Bring up the OpenMRS Reference Application stack through its stable launcher
+make up
 
 # 4. Run a schema diff between the legacy 2.7 source and the clean 2.8 baseline
 uv run harness-cli schema-diff --output-dir artifacts/schema-diff

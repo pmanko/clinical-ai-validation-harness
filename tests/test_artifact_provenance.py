@@ -3,7 +3,10 @@ from __future__ import annotations
 import importlib.util
 import json
 import subprocess
+import sys
 from pathlib import Path
+
+import pytest
 
 
 ROOT = Path(__file__).parents[1]
@@ -91,3 +94,59 @@ def test_directory_provenance_binds_every_staged_asset(tmp_path, monkeypatch):
 
     (artifact / "chunk.js").write_text("changed", encoding="utf-8")
     assert not MODULE.verify_provenance(repo, artifact, manifest)
+
+
+def test_artifact_identity_rejects_missing_path(tmp_path):
+    with pytest.raises(FileNotFoundError):
+        MODULE.artifact_identity(tmp_path / "missing")
+
+
+def test_provenance_cli_writes_and_verifies_relative_paths(tmp_path, monkeypatch, capsys):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    _git(repo, "init", "-q")
+    _git(repo, "config", "user.email", "test@example.com")
+    _git(repo, "config", "user.name", "Test")
+    (repo / "source.txt").write_text("source\n", encoding="utf-8")
+    _git(repo, "add", "source.txt")
+    _git(repo, "commit", "-qm", "initial")
+    artifact = tmp_path / "artifact.bin"
+    artifact.write_bytes(b"built output")
+    manifest = tmp_path / "artifacts" / "artifact.provenance.json"
+    monkeypatch.setattr(MODULE, "ROOT", tmp_path)
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "artifact-provenance.py",
+            "write",
+            "--repo",
+            "repo",
+            "--artifact",
+            "artifact.bin",
+            "--manifest",
+            "artifacts/artifact.provenance.json",
+        ],
+    )
+    assert MODULE.main() == 0
+    assert manifest.is_file()
+    assert "wrote" in capsys.readouterr().out
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "artifact-provenance.py",
+            "verify",
+            "--repo",
+            "repo",
+            "--artifact",
+            "artifact.bin",
+            "--manifest",
+            "artifacts/artifact.provenance.json",
+        ],
+    )
+    assert MODULE.main() == 0
+    artifact.write_bytes(b"changed")
+    assert MODULE.main() == 1

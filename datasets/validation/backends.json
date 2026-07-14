@@ -225,51 +225,6 @@
   "indepthEndpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
   "indepthModelName": "indepth-only:qwen2.5-14b"
  },
- "mistral-nemo-12b-baseline": {
-  "label": "Mistral NeMo 12B single LLM, direct chart (GGUF+DRY, Q4)",
-  "endpointUrl": "http://host.docker.internal:8077/v1/chat/completions",
-  "modelName": "mistral-nemo-12b"
- },
- "granite-3.3-8b-baseline": {
-  "label": "IBM Granite 3.3 8B single LLM, direct chart (GGUF+DRY, Q4)",
-  "endpointUrl": "http://host.docker.internal:8077/v1/chat/completions",
-  "modelName": "granite-3.3-8b"
- },
- "qwen3-14b-baseline": {
-  "label": "Qwen3-14B (non-thinking) single LLM, direct chart (GGUF+DRY, Q4)",
-  "endpointUrl": "http://host.docker.internal:8077/v1/chat/completions",
-  "modelName": "qwen3-14b"
- },
- "gemma-12b-q4-baseline": {
-  "label": "Gemma 4-12B at Q4 — quant control vs the Q8 12b-baseline",
-  "endpointUrl": "http://host.docker.internal:8077/v1/chat/completions",
-  "modelName": "gemma-4-12b-q4"
- },
- "qwen3.6-35b-baseline": {
-  "label": "Qwen3.6-35B-A3B thinking/reasoning MoE single LLM, direct chart (GGUF)",
-  "endpointUrl": "http://host.docker.internal:8077/v1/chat/completions",
-  "modelName": "qwen3.6-35b"
- },
- "mistral-nemo-12b-q8-baseline": {
-  "label": "Mistral NeMo 12B single LLM, direct chart (GGUF+DRY, Q8)",
-  "endpointUrl": "http://host.docker.internal:8077/v1/chat/completions",
-  "modelName": "mistral-nemo-12b-q8"
- },
- "qwen3-14b-q8-baseline": {
-  "label": "Qwen3-14B (non-thinking) single LLM, direct chart (GGUF+DRY, Q8)",
-  "endpointUrl": "http://host.docker.internal:8077/v1/chat/completions",
-  "modelName": "qwen3-14b-q8"
- },
- "granite-3.3-8b-q8-baseline": {
-  "label": "IBM Granite 3.3 8B single LLM, direct chart (GGUF+DRY, Q8)",
-  "endpointUrl": "http://host.docker.internal:8077/v1/chat/completions",
-  "modelName": "granite-3.3-8b-q8"
- },
- "qwen2.5-14b-q8-baseline": {
-  "label": "Qwen2.5-14B single LLM, direct chart (GGUF+DRY, Q8)",
-  "endpointUrl": "http://host.docker.internal:8077/v1/chat/completions",
-  "modelName": "qwen2.5-14b-q8"
- },
  "gemma-12b-q4-2call": {
   "label": "Gemma 4 12B @Q4 — two-call (router Answer + separate parity In-Depth)",
   "endpointUrl": "http://host.docker.internal:8077/v1/chat/completions",
@@ -462,20 +417,10 @@
   "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
   "modelName": "answer:gemma-e4b-q8@synthesis-date-output-contract~warn"
  },
- "date-e4b-contract-enforce": {
-  "label": "Date format — E4B, date-output-contract prompt, gate ENFORCE",
-  "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
-  "modelName": "answer:gemma-e4b-q8@synthesis-date-output-contract~enforce"
- },
  "date-12b-current-warn": {
   "label": "Date format — 12B, current prompt, gate WARN",
   "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
   "modelName": "answer:gemma-4-12b@synthesis-chartsearchai~warn"
- },
- "date-12b-current-enforce": {
-  "label": "Date format — 12B, current prompt, gate ENFORCE",
-  "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
-  "modelName": "answer:gemma-4-12b@synthesis-chartsearchai~enforce"
  },
  "date-12b-contract-warn": {
   "label": "Date format — 12B, date-output-contract prompt, gate WARN",
@@ -610,23 +555,21 @@
   "indepthEndpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
   "indepthModelName": "indepth-only:gemma-4-12b"
  },
- "product-e4b-checked": {
+ "single-e4b-checked": {
   "label": "Fast checked answer (E4B profile)",
+  "kind": "product_profile",
   "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
   "modelName": "single-e4b-checked"
  },
- "product-12b-checked": {
+ "single-12b-checked": {
   "label": "Checked answer (12B profile)",
+  "kind": "product_profile",
   "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
   "modelName": "single-12b-checked"
  },
- "product-a4b-checked": {
-  "label": "Efficient checked answer (A4B profile)",
-  "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
-  "modelName": "single-a4b-checked"
- },
- "product-team-med-checked": {
+ "team-med-checked": {
   "label": "Checked medical team profile",
+  "kind": "product_profile",
   "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
   "modelName": "team-med-checked"
  },

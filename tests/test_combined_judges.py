@@ -1,5 +1,6 @@
 import importlib.util
 import json
+import sys
 from pathlib import Path
 
 import pytest
@@ -76,3 +77,30 @@ def test_combined_actor_artifact_rejects_different_cell_matrices(tmp_path):
 
     with pytest.raises(ValueError, match="same cell matrix"):
         COMBINER.build({"a": a, "b": b})
+
+
+def test_combined_actor_cli_writes_consensus(tmp_path, monkeypatch, capsys):
+    actor_paths = []
+    for actor, score in (("judge-a", 10), ("judge-b", 8)):
+        path = tmp_path / f"{actor}.jsonl"
+        path.write_text(json.dumps(jrow("s1", "b1", score)) + "\n")
+        actor_paths.append((actor, path))
+    output = tmp_path / "combined.json"
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "combine-judge-actors.py",
+            "--actor",
+            f"{actor_paths[0][0]}={actor_paths[0][1]}",
+            "--actor",
+            f"{actor_paths[1][0]}={actor_paths[1][1]}",
+            "--output",
+            str(output),
+        ],
+    )
+
+    assert COMBINER.main() == 0
+    artifact = json.loads(output.read_text(encoding="utf-8"))
+    assert artifact["cells"][0]["consensus_score"] == 90.0
+    assert capsys.readouterr().out.strip() == str(output)

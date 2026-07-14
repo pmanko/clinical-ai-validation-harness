@@ -42,6 +42,21 @@ export function hubTraceQuestionsSince(offset: number): string[] {
   );
 }
 
+export type HubTraceEntry = {
+  question?: string;
+  steps?: Array<{
+    role?: string;
+    prior_message_count?: number;
+    prior_turn_count?: number;
+    prior_roles?: string[];
+    prior_messages_sha256?: string;
+  }>;
+};
+
+export function hubTraceEntriesSince(offset: number): HubTraceEntry[] {
+  return jsonLinesSince<HubTraceEntry>(HUB_TRACE_PATH, offset);
+}
+
 export type HubCancellation = {
   event?: string;
   level_id?: string;

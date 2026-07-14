@@ -52,7 +52,7 @@ def _write_title_fixtures(tmp_path):
             "endpointUrl": "http://host:8080/v1/chat/completions",
             "modelName": "med-agent-team-high",
         },
-        "product-e4b-checked": {
+        "single-e4b-checked": {
             "endpointUrl": "http://host:8080/v1/chat/completions",
             "modelName": "single-e4b-checked",
             "label": "Fast checked answer (E4B)",
@@ -87,7 +87,7 @@ def test_wide_team_titles_include_role_model_sizes(tmp_path):
 def test_product_single_profile_uses_topology_not_endpoint_guess(tmp_path):
     backends, registry, levels, ini = _write_title_fixtures(tmp_path)
     card = arm_card(
-        "product-e4b-checked",
+        "single-e4b-checked",
         backends_path=backends,
         registry_path=registry,
         levels_path=levels,
@@ -135,11 +135,11 @@ def test_team_with_unknown_model_metadata_uses_profile_label(tmp_path):
 def test_configured_profile_is_recognized_on_nonstandard_hub_endpoint(tmp_path):
     backends, registry, levels, ini = _write_title_fixtures(tmp_path)
     body = json.loads(backends.read_text(encoding="utf-8"))
-    body["product-e4b-checked"]["endpointUrl"] = "http://host:9999/v1/chat/completions"
+    body["single-e4b-checked"]["endpointUrl"] = "http://host:9999/v1/chat/completions"
     backends.write_text(json.dumps(body), encoding="utf-8")
 
     card = arm_card(
-        "product-e4b-checked",
+        "single-e4b-checked",
         backends_path=backends,
         registry_path=registry,
         levels_path=levels,

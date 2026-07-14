@@ -3,6 +3,8 @@ from __future__ import annotations
 import importlib.util
 import json
 import stat
+import subprocess
+import sys
 from pathlib import Path
 from types import ModuleType
 
@@ -25,9 +27,25 @@ provisioner = _load(
     "scripts/provision-querystore-service-account.py",
 )
 warmer = _load("warm_hub_profile", "scripts/warm-hub-profile.py")
-performance_collector = _load(
-    "collect_local_performance", "scripts/collect-local-performance.py"
-)
+
+
+def test_companion_test_entrypoints_are_executable_and_parse():
+    for relative in ("scripts/test-chartsearchai.sh", "scripts/test-querystore.sh"):
+        script = ROOT / relative
+        assert script.stat().st_mode & stat.S_IXUSR
+        subprocess.run(["bash", "-n", str(script)], check=True)
+
+
+def test_querystore_test_entrypoint_rejects_unknown_mode_before_maven():
+    result = subprocess.run(
+        ["bash", str(ROOT / "scripts/test-querystore.sh"), "unknown"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 2
+    assert "unit|mysql-integration" in result.stderr
 
 
 def test_evaluation_gate_requires_the_judged_published_profile_report():
@@ -37,7 +55,7 @@ def test_evaluation_gate_requires_the_judged_published_profile_report():
 
     assert 'proof_file G21' not in gate
     assert 'hub_consolidation_evaluation.v1' in gate
-    assert 'proof["expected_cells"] == proof["completed_cells"] == 24' in gate
+    assert 'proof["expected_cells"] == proof["completed_cells"] == 12' in gate
     assert 'row.get("reference_date") == "2026-06-20"' in gate
     assert '(row.get("trace") or {}).get("reference_date") == "2026-06-20"' in gate
     assert 'product_run_deterministic_audit.v1' in gate
@@ -76,17 +94,19 @@ def test_architecture_gates_use_the_reactor_valid_java_lifecycle():
         encoding="utf-8"
     )
 
-    assert (
-        "-DOPENMRS_APPLICATION_DATA_DIRECTORY=/tmp/chartsearchai-gate-appdata"
-        in consolidation
-    )
-    assert "clean install >/tmp/hub-m2-java-contracts.log" in consolidation
+    assert '"$ROOT/scripts/test-chartsearchai.sh"' in consolidation
     assert "-Dtest=ChatServiceHubWireTest,ChartSearchAiStreamingTest" not in consolidation
-    assert "csai:mvn clean install (full regression)" in stage
-    assert (
-        "OPENMRS_APPLICATION_DATA_DIRECTORY=/tmp/chartsearchai-gate-appdata clean install"
-        in stage
+    assert 'exec "${ROOT}/scripts/verify-hub-consolidation-gates.sh" "$@"' in stage
+    assert "mvn" not in stage
+
+
+def test_source_gate_requires_the_real_querystore_mysql_adapter():
+    gate = (ROOT / "scripts" / "verify-hub-consolidation-gates.sh").read_text(
+        encoding="utf-8"
     )
+
+    assert '"$ROOT/scripts/test-querystore.sh" mysql-integration' in gate
+    assert "RUN_E2E=1 is required for the MySQL Querystore adapter proof" in gate
 
 
 def test_code_qa_gate_is_hash_bound_and_rejects_blockers():
@@ -304,6 +324,87 @@ def test_openmrs_exact_falls_back_to_paged_collection_when_q_is_unsupported(monk
     assert any("startIndex=0" in path for path in calls)
 
 
+def test_openmrs_client_posts_json_with_basic_auth(monkeypatch):
+    requests = []
+
+    class Response:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def read(self):
+            return b'{"uuid":"role-1"}'
+
+    def urlopen(request, timeout):
+        requests.append((request, timeout))
+        return Response()
+
+    monkeypatch.setattr(provisioner.urllib.request, "urlopen", urlopen)
+    client = provisioner.OpenMrsClient("http://openmrs/", "admin", "secret")
+
+    assert client.request("POST", "/role", {"name": "Reader"}) == {
+        "uuid": "role-1"
+    }
+    request, timeout = requests[0]
+    assert request.full_url == "http://openmrs/ws/rest/v1/role"
+    assert request.get_method() == "POST"
+    assert request.get_header("Authorization").startswith("Basic ")
+    assert request.get_header("Content-type") == "application/json"
+    assert json.loads(request.data) == {"name": "Reader"}
+    assert timeout == 30
+
+
+def test_provisioner_cli_uses_declared_endpoints(tmp_path, monkeypatch, capsys):
+    client = object()
+    calls = []
+    result = {
+        "username": "med-agent-hub",
+        "role": provisioner.ROLE_NAME,
+        "privilege": provisioner.REQUIRED_PRIVILEGE,
+        "output": str(tmp_path / "service.env"),
+    }
+    monkeypatch.setattr(
+        provisioner,
+        "OpenMrsClient",
+        lambda base_url, username, password: (
+            calls.append((base_url, username, password)) or client
+        ),
+    )
+    monkeypatch.setattr(
+        provisioner,
+        "provision",
+        lambda actual_client, output, *, internal_base_url: (
+            calls.append((actual_client, output, internal_base_url)) or result
+        ),
+    )
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "provision-querystore-service-account.py",
+            "--base-url",
+            "http://openmrs",
+            "--internal-base-url",
+            "http://backend:8080/openmrs",
+            "--admin-user",
+            "admin",
+            "--admin-password",
+            "secret",
+            "--output",
+            str(tmp_path / "service.env"),
+        ],
+    )
+
+    assert provisioner.main() == 0
+    assert calls == [
+        ("http://openmrs", "admin", "secret"),
+        (client, tmp_path / "service.env", "http://backend:8080/openmrs"),
+    ]
+    assert json.loads(capsys.readouterr().out) == result
+
+
 class FakeStream:
     def __init__(self, lines: list[bytes]) -> None:
         self.lines = lines
@@ -316,30 +417,6 @@ class FakeStream:
 
     def __iter__(self):
         return iter(self.lines)
-
-
-def test_performance_collector_isolates_only_new_matching_product_rows():
-    timing = [
-        {"role": "stage_timing", "stage": "context", "occurrence": 1, "duration_ms": 20, "status": "completed"},
-        {"role": "stage_timing", "stage": "answer", "occurrence": 1, "duration_ms": 80, "status": "completed"},
-        {"role": "stage_timing", "stage": "resolve_refs", "occurrence": 1, "duration_ms": 0, "status": "completed"},
-    ]
-    matching = {
-        "level_id": "single-e4b-checked",
-        "question": "Q",
-        "context": {"sources": ["querystore"]},
-        "steps": timing,
-    }
-    unrelated = {**matching, "question": "other"}
-
-    selected = performance_collector.select_entries(
-        [json.dumps(matching), json.dumps(unrelated), json.dumps(matching)],
-        "single-e4b-checked",
-        "Q",
-        2,
-    )
-
-    assert selected == [matching, matching]
 
 
 def test_warmup_stops_at_fast_answer_and_records_latency(monkeypatch):
@@ -390,3 +467,76 @@ def test_warmup_requires_answer_done(monkeypatch):
             stop_after_answer=True,
             timeout=5,
         )
+
+
+def test_warmup_full_mode_reaches_done(monkeypatch):
+    monkeypatch.setattr(
+        warmer.urllib.request,
+        "urlopen",
+        lambda *_args, **_kwargs: FakeStream(
+            [
+                b"comment: keepalive\n",
+                b"event: answer_done\n",
+                b"data: {\"answer\": \"2026-07-10\"}\n",
+                b"event: done\n",
+                b"data: {}\n",
+            ]
+        ),
+    )
+    times = iter([10.0, 10.125])
+    monkeypatch.setattr(warmer.time, "monotonic", lambda: next(times))
+
+    result = warmer.warm_profile(
+        "http://hub/v1/chat/completions",
+        "single-e4b-checked",
+        stop_after_answer=False,
+        timeout=5,
+    )
+
+    assert result["stop_after"] == "done"
+    assert result["last_event"] == "done"
+
+
+def test_warmup_surfaces_hub_error(monkeypatch):
+    monkeypatch.setattr(
+        warmer.urllib.request,
+        "urlopen",
+        lambda *_args, **_kwargs: FakeStream(
+            [b"event: error\n", b"data: model unavailable\n"]
+        ),
+    )
+
+    with pytest.raises(RuntimeError, match="model unavailable"):
+        warmer.warm_profile(
+            "http://hub/v1/chat/completions",
+            "single-e4b-checked",
+            stop_after_answer=True,
+            timeout=5,
+        )
+
+
+def test_warmup_cli_writes_output(tmp_path, monkeypatch, capsys):
+    result = {
+        "schema_version": "chartsearchai_local_warmup.v1",
+        "profile": "single-e4b-checked",
+        "answer_done_ms": 125,
+        "stop_after": "done",
+        "last_event": "done",
+    }
+    monkeypatch.setattr(warmer, "warm_profile", lambda *_args, **_kwargs: result)
+    output = tmp_path / "warmup.json"
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "warm-hub-profile.py",
+            "--mode",
+            "full",
+            "--output",
+            str(output),
+        ],
+    )
+
+    assert warmer.main() == 0
+    assert json.loads(output.read_text(encoding="utf-8")) == result
+    assert json.loads(capsys.readouterr().out) == result

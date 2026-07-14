@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import sys
+import urllib.parse
 from email.message import Message
 from pathlib import Path
 
@@ -46,7 +48,7 @@ def test_probe_requires_answer_done_and_hydrated_same_row(monkeypatch):
         "auditLogId": 42,
         "answer": "The latest visit was 2026-07-10 [1].",
         "model": "single-e4b-checked",
-        "answerValidation": {"status": "validating"},
+        "answerValidation": {"status": "checking"},
         "references": [{"index": 1}],
     }
     final = {
@@ -195,7 +197,7 @@ def test_stream_probe_rejects_incomplete_review_sequence(monkeypatch):
         "auditLogId": 42,
         "answer": "Answer [1].",
         "model": "single-e4b-checked",
-        "answerValidation": {"status": "validating"},
+        "answerValidation": {"status": "checking"},
         "references": [{"index": 1}],
     }
     final = {
@@ -248,7 +250,7 @@ def test_stream_probe_rejects_resolved_reference_without_grounding(monkeypatch):
         "auditLogId": 42,
         "answer": "Answer [1].",
         "model": "single-e4b-checked",
-        "answerValidation": {"status": "validating"},
+        "answerValidation": {"status": "checking"},
         "references": [{"index": 1}],
     }
     final = {
@@ -298,7 +300,7 @@ def test_stream_probe_accepts_reasoned_terminal_safety_withholding(monkeypatch):
         "auditLogId": 42,
         "answer": "The model answer needs review.",
         "model": "single-e4b-checked",
-        "answerValidation": {"status": "validating"},
+        "answerValidation": {"status": "checking"},
         "references": [],
     }
     final = {
@@ -359,7 +361,7 @@ def test_stream_probe_rejects_unavailable_indepth_review(monkeypatch):
         "auditLogId": 42,
         "answer": "Answer [1].",
         "model": "single-e4b-checked",
-        "answerValidation": {"status": "validating"},
+        "answerValidation": {"status": "checking"},
         "references": [{"index": 1}],
     }
     final = {
@@ -441,7 +443,7 @@ def _answer_and_final(*, grounding_status="verified", include_index=True):
         "auditLogId": 42,
         "answer": "Answer [1].",
         "model": "single-e4b-checked",
-        "answerValidation": {"status": "validating"},
+        "answerValidation": {"status": "checking"},
         "references": [{"index": 1}],
     }
     reference = {
@@ -718,3 +720,138 @@ def test_stream_probe_rejects_missing_block_reference_during_validation(monkeypa
             password="secret",
             timeout=30,
         )
+
+
+def test_artifact_content_rejects_missing_path(tmp_path):
+    with pytest.raises(RuntimeError, match="artifact does not exist"):
+        probe._artifact_content(tmp_path / "missing")
+
+
+def test_runtime_identity_binds_built_and_deployed_artifacts(tmp_path, monkeypatch):
+    monkeypatch.setattr(probe, "ROOT", tmp_path)
+    chartsearchai = tmp_path / "targets" / "chartsearchai"
+    esm_repo = tmp_path / "targets" / "chartsearchai-esm"
+    hub_repo = tmp_path / "targets" / "med-agent-hub"
+    for repo in (chartsearchai, esm_repo, hub_repo):
+        repo.mkdir(parents=True)
+
+    omod = tmp_path / "artifacts/openmrs/modules/chartsearchai-1.0.0-SNAPSHOT.omod"
+    omod.parent.mkdir(parents=True)
+    omod.write_bytes(b"omod")
+    esm = tmp_path / "artifacts/openmrs/spa-custom"
+    esm.mkdir(parents=True)
+    (esm / "app.js").write_bytes(b"esm")
+
+    def write_provenance(repo, artifact, path):
+        content = probe._artifact_content(artifact)
+        payload = {
+            "source_commit": f"{repo.name}-commit",
+            "source_tree": "tree-sha",
+            "source_tree_clean": True,
+            "artifact_kind": content["kind"],
+            "artifact_sha256": content["sha256"],
+            "artifact_size_bytes": content["size_bytes"],
+            "artifact_files": content.get("files"),
+        }
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(payload), encoding="utf-8")
+        return payload
+
+    omod_manifest = Path(f"{omod}.provenance.json")
+    omod_provenance = write_provenance(chartsearchai, omod, omod_manifest)
+    deployed_manifest = (
+        tmp_path / "artifacts/chartsearchai-local/deployed-chartsearchai-omod.json"
+    )
+    deployed_manifest.parent.mkdir(parents=True)
+    deployed_manifest.write_text(json.dumps(omod_provenance), encoding="utf-8")
+    (esm / "importmap.json").write_text(
+        json.dumps(
+            {
+                "imports": {
+                    "@openmrs/esm-chartsearchai-app": (
+                        "./openmrs-esm-chartsearchai-app-multiturn/"
+                        "openmrs-esm-chartsearchai-app.js"
+                    )
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    esm_manifest = tmp_path / "artifacts/openmrs/chartsearchai-esm.provenance.json"
+    write_provenance(esm_repo, esm, esm_manifest)
+    (hub_repo / "server").mkdir()
+    (hub_repo / "server/levels.yaml").write_text("profiles: {}\n", encoding="utf-8")
+    (tmp_path / "compose").mkdir()
+    (tmp_path / "compose/openmrs-2.8-refapp.yml").write_text("services: {}\n")
+    (tmp_path / "scripts").mkdir()
+    (tmp_path / "scripts/chartsearch-configure.sh").write_text("#!/bin/sh\n")
+
+    monkeypatch.setattr(
+        probe,
+        "_git_identity",
+        lambda repo: {"commit": f"{repo.name}-commit", "tree_clean": True},
+    )
+
+    def check_output(args, **_kwargs):
+        if args[:3] == ["git", "rev-parse", "HEAD^{tree}"]:
+            return "tree-sha\n"
+        if args[:2] == ["docker", "inspect"]:
+            return json.dumps([{"Id": "container-id", "Image": "sha256:image"}])
+        if args[:3] == ["docker", "image", "inspect"]:
+            return json.dumps(
+                [
+                    {
+                        "Config": {
+                            "Labels": {
+                                "org.opencontainers.image.revision": (
+                                    "med-agent-hub-commit"
+                                )
+                            }
+                        }
+                    }
+                ]
+            )
+        if args[:2] == ["docker", "exec"]:
+            return f"{probe._sha256(omod)}  chartsearchai.omod\n"
+        raise AssertionError(args)
+
+    monkeypatch.setattr(probe.subprocess, "check_output", check_output)
+    def urlopen(url, **_kwargs):
+        relative = urllib.parse.unquote(url.rsplit("/spa/", 1)[1])
+        return FakeResponse((esm / relative).read_bytes())
+
+    monkeypatch.setattr(probe.urllib.request, "urlopen", urlopen)
+
+    identity = probe._runtime_identity("http://openmrs/openmrs")
+
+    assert identity["deployment"] == {
+        "container_id": "container-id",
+        "image_id": "sha256:image",
+        "revision": "med-agent-hub-commit",
+    }
+    assert identity["artifacts"]["chartsearchai_omod"]["mounted_sha256"] == probe._sha256(omod)
+    assert identity["artifacts"]["chartsearchai_esm"]["served_files"] == {
+        "app.js": probe._sha256(esm / "app.js"),
+        "importmap.json": probe._sha256(esm / "importmap.json"),
+    }
+
+
+def test_probe_cli_writes_requested_output(tmp_path, monkeypatch, capsys):
+    result = {"schema_version": "chartsearchai_relay_probe.v2", "hydrated": True}
+    monkeypatch.setattr(probe, "probe_relay", lambda *_args, **_kwargs: result)
+    output = tmp_path / "probe.json"
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "probe-chartsearchai-relay.py",
+            "--patient",
+            "patient-1",
+            "--output",
+            str(output),
+        ],
+    )
+
+    assert probe.main() == 0
+    assert json.loads(output.read_text(encoding="utf-8")) == result
+    assert json.loads(capsys.readouterr().out) == result
