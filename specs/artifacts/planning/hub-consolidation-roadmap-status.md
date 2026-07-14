@@ -9,7 +9,7 @@ Execution state for `MAH-CONSOLIDATION-2026-07-09-v1`.
 | Roadmap | [`hub-consolidation-roadmap.md`](hub-consolidation-roadmap.md) |
 | Approval | Explicit user instruction to implement the roadmap on 2026-07-09 |
 | Approved roadmap SHA-256 | `5f625cb9f1ac4a1682001fb40fd3cc6852ceed16c96e9b54e435b4e591a64d3d` |
-| Current execution boundary | M4 evaluation and release in progress; M3 product/local proof completed 2026-07-13 |
+| Current execution boundary | M3 exact-head product proof reopened; M4 evaluation and release QA continues |
 | Next protected boundary | User Release Signoff D is required before release completion |
 | Approved amendments | A1: Git-owned temporal-facts provenance, approved 2026-07-11; A2: 12B-first publish candidate, approved 2026-07-13; A3: stable evaluation IDs with Git-owned history, approved 2026-07-13 |
 
@@ -143,6 +143,25 @@ All active OpenMRS remotes were fetched with pruning before M2 edits.
 | chartsearchai | `550acd0` | Dead relay services removed; authoritative hub wire, audit identity, interruption state, and no-review grounding persistence covered; 88 tests pass |
 | chartsearchai-esm | `b3ad02d` | Validation interruption, feedback retry, no-review preemption, and resolved/unresolved evidence UX corrected; 182 tests plus lint/build pass |
 | querystore | `37b64ae` | One shared guard serializes global and type-scoped maintenance generations; overlapping requests return `409`, the helper trusts the server's terminal generation once, and preflight/reindex consume the same drift policy. The full 512-test suite passes with two optional model-eval skips. |
+
+### M4 Release-Simplification Heads
+
+| Repository | Exact committed head | Result |
+|---|---|---|
+| harness | `0ea333f` | Removes the parent profile default, reconstructs historical comparison and backend definitions from each run's Git SHA, tightens documentation drift, and repairs the live proof specifications. |
+| med-agent-hub | `0580a09` | Existing profile/stage engine and canonical nested phase wire; no M4 runtime change required. |
+| chartsearchai | `7ca4a23` | Removes the Java profile fallback, requires an explicitly selected hub profile, and rejects retired flat In-Depth events. Upstream PR #26 is fast-forwarded to this head. |
+| chartsearchai-esm | `4fc317a` | Always discovers the hub default even when the picker is hidden, fails chat closed until discovery succeeds, and accepts only nested In-Depth events. Upstream PR #12 is fast-forwarded to this head. |
+| querystore | `6637ad4` | Documents the already-shipped external patient-record read contract. Upstream PR #63 is at this head. |
+
+The companion set is deployed in one reviewed order: med-agent-hub wire/profile release,
+ChartSearchAI relay, ESM consumer, then parent pins/configuration. This avoids an indefinite
+mixed-version compatibility layer while ensuring each consumer lands after its provider contract.
+
+Local validation on these heads: parent 734 passed with 35 environment-dependent skips and four
+deselections; ChartSearchAI 92 passed; ESM 185 passed plus typecheck, lint, and production build;
+the seven-repository documentation scan passed with 30 explicitly marked historical files. Parent
+PR #35 CI was green at `d9c6af9`; the new exact-head CI and live product proof are pending.
 
 ## Roadmap Validation
 
@@ -359,7 +378,7 @@ existing PR heads were updated with exact force-with-lease checks.
 | Fresh judged 12B candidate | Run `8e1291c4-6598-4d8d-8979-2e7247fcf0f2` completed 12/12 against parent `a539e9d` and hub `733214d`, with zero transport errors and a passing implemented deterministic audit. All 12 Answers reached `checked`; six In-Depth sections completed and six unsafe/unsupported drafts were withheld as `needs_review`. Independent actor `codex-candidate-2026-07-13` judged the immutable run with the Scout rubric: Benchmark 88.4/100, accuracy 9.17, completeness 8.67, relevance 9.0, zero harm/confabulation/fabricated citations, and all 66 references resolved. The judge nevertheless found two real strict-window failures that the deterministic audit missed: one X-ray six days before the cutoff, and one order table with 10 out-of-window rows plus one omitted qualifying order. |
 | Judged report compatibility and publication | Pass at parent commits `a032074` and `bf30fd9`: current hub-native In-Depth is authoritative for judge/report output; withheld content cannot leak into Evidence Used; final hub grounding states reach canonical source tiles but are explicitly labeled as hub grounding rather than whole-answer support; cohort/reviewer caveats are data-derived. The complete parent suite passes 719 tests with 35 expected skips and four deselections, and independent review found no P0-P2 issue. The curated report is published at `https://reports.openclinai.org/hub-profile-12b-checked-candidate-2026-07-13/` with the deterministic/judge disagreement disclosed. |
 | Strict-window follow-up disposition | Deferred by explicit user approval on 2026-07-13. A red-first experiment confirmed that inferring arbitrary temporal windows and exhaustive category intent from free-text regexes becomes brittle and benchmark-shaped; it was discarded before commit. The durable future direction is a typed temporal-query contract whose proposed interval/category/exhaustiveness is validated before deterministic enforcement. That language-understanding layer is not part of this first consolidation iteration. The two judged strict-window failures remain disclosed known limitations and G21 remains partial rather than being waived. |
-| Remaining proof | Run final DIGI-UW/code-qa and release-hygiene checks. E4B and medical-team structural-output remediation remain separate workstreams, strict-window interpretation remains deferred to the typed temporal-query workstream, and performance tuning remains deferred. |
+| Remaining proof | Deploy the exact release-simplification heads, rerun corrected multi-turn/preemption/local-start proof and video, then run final DIGI-UW/code-qa and release-hygiene checks. E4B and medical-team structural-output remediation remain separate workstreams, strict-window interpretation remains deferred to the typed temporal-query workstream, and performance tuning remains deferred. |
 
 ## Milestones
 
@@ -369,7 +388,7 @@ existing PR heads were updated with exact force-with-lease checks.
 | M0 Stabilize baseline | Complete | All refreshed pins are reachable, upstream deltas are classified, raw-leg goldens are pinned, and the independent re-review has no blocker |
 | M1 Consolidate hub | Complete | Hub PR #12 is merged at `7869c62`; 246 hub tests, 569 parent tests, hash-bound context proof, independent re-review, review remediation, and companion CI pass. User Signoff B granted. |
 | M2 Reconcile OpenMRS integration | Complete | Five independent-review findings and the terminal EOF follow-up are remediated; exact-head local suites, companion CI, architecture gates, documentation drift, and final independent review pass. User Signoff C granted. |
-| M3 Product/local proof | Complete | Canonical startup, exact-head relay/hydration, lifecycle UI, paced video, multi-turn continuity, cancellation, and 48/48 exact-budget context recall pass on hub `733214d`. |
+| M3 Product/local proof | In progress | Earlier relay/UI evidence remains useful, but independent review found the multi-turn trace assertion raced terminal completion and the preemption prompt could finish without exercising cancellation. Both tests are repaired; exact-head deployment, rerun, and replacement video remain. |
 | M4 Evaluation and release | In progress | The fresh 12B candidate is independently judged and published, but the judge exposed two strict-window failures outside the implemented deterministic audit. General free-text window extraction is deferred to a future typed temporal-query workstream; G21 remains partial. Final independent QA and User Release Signoff D remain. |
 
 ## Acceptance Gates
@@ -377,7 +396,7 @@ existing PR heads were updated with exact force-with-lease checks.
 | Gate | Status | Current evidence |
 |---|---|---|
 | G01 Roadmap integrity | Pass | Structure/link validation passed; approved SHA-256 recorded above |
-| G02 Baseline integrity | Pass | Hub #12 and parent #33 are merged; current harness, hub, ChartSearchAI, and ESM companion heads are pushed and remote-reachable; exact product trees were clean for the canonical proof |
+| G02 Baseline integrity | In progress | Companion heads are committed, pushed, and remote-reachable; parent `0ea333f` still needs its status follow-up commit, push, and clean-tree verification. |
 | G03 Upstream reconciliation | Pass | Fixed baseline-to-classified-head ranges cover every disposition, and the gate fails if a tracked upstream ref advances |
 | G04 One engine | Pass | Streaming and blocking drain one `StageEngine`; old runners/flag bridge are deleted; cancellation and budget context tests pass |
 | G05 Profile correctness | Pass | Profiles compile immutable stage plans, invalid order fails, unknown IDs return `model_not_found`, and metadata is authoritative |
@@ -392,9 +411,9 @@ existing PR heads were updated with exact force-with-lease checks.
 | G14 Drug-safety parity | Pass | Hub parity, unit-safe weight, Java assistant-wire persistence, and history rehydration contracts pass |
 | G15 Thin OpenMRS relay | Pass | Java has one fixed hub endpoint and one profile request; it no longer supplies prompts or an answer schema, preserves the complete hub wire for sync and staged clients, maps structured `insufficient_context`, and has deleted the dead local chart-size exception plus legacy inference/discovery/grounding/context code |
 | G16 Product discovery | Pass | Hub availability plus explicit `selection_priority` produces at most one available default; ESM never invents a list-order fallback |
-| G17 Lifecycle UX | Pass | Exact-head Playwright proof shows Answer first, Checking/Checked lifecycle, separate whole In-Depth, verified evidence tiles, honest `needs_review` withholding, and final state persistence; Java/ESM contract suites remain green |
-| G18 Multi-turn and cancellation | Pass | Exact-head E4B Playwright checks passed: two-turn date continuity, replacement-turn acceptance, persisted failed state for the interrupted In-Depth, explicit cancellation, and router-slot release |
-| G19 Local setup | Pass | `make chartsearchai-local` completed from the current clean heads and the identity-bound relay probe proved one hub endpoint, default E4B discovery, staged events, final grounding, six references, exact final/hydrated envelope equality, and cleanup |
+| G17 Lifecycle UX | In progress | Java and ESM contract suites are green on the new nested wire and hub-only default authority; exact-head browser lifecycle and reload proof must be regenerated. |
+| G18 Multi-turn and cancellation | In progress | Deterministic hub cancellation remains green. The gate's false-negative source check and both live-spec defects are fixed, but the corrected exact-head Playwright run is pending. |
+| G19 Local setup | In progress | Stable startup now discovers the sole available hub default and configures only the hub endpoint. The identity-bound relay probe must be regenerated from the new clean heads. |
 | G20 Performance | Deferred | Performance tuning and relative measurement are intentionally after UI proof, evaluation, judging, and publication. |
 | G21 Evaluation | In progress | Fresh run `8e1291c4-6598-4d8d-8979-2e7247fcf0f2` completed 12/12, passed the implemented deterministic audit, was independently judged, and is published. It does not pass G21: Scout review found two strict six-month-window failures that the deterministic gate missed. The report records 88.4/100, zero harm, 66/66 resolved references, and the exact failures. User-approved scope keeps this gate partial; it is not reclassified as a pass. Robust remediation requires a future typed temporal-query contract rather than free-text regex tuning. |
 | G22 Documentation | Pass | Current READMEs, contributor rules, workflow comments, API docs, and all submodules pass the seven-repository drift scan |
