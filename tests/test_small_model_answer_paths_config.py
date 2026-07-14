@@ -105,6 +105,7 @@ def test_small_model_evaluation_profiles_share_the_product_context_budget():
         assert profile["stages"] == ["context", "answer", "gate"]
         assert profile["models"] == {"answer": model}
         assert profile["prompts"] == {"answer": "synthesis-answer"}
+        assert profile["policies"]["answer_contract"] == "chart_answer"
         assert profile["policies"]["temporal_gate"] == gate
         assert profile["context"] == product_context
         assert profile["knobs"]["answer"]["temperature"] == 0
