@@ -391,6 +391,8 @@ else
 fi
 
 if missing_pattern 'LM Studio|parseLmStudio|loadModel' "$CSAI/api/src/main" "$ESM/src" \
+  && missing_pattern 'default_profile' "$HUB/server/main.py" \
+  && missing_pattern 'profileId\?:' "$ESM/src/api/chartsearchai.ts" \
   && has_pattern 'single-e4b-checked' "$HUB/server/levels.yaml" \
   && has_pattern 'selection_priority' "$HUB/server/levels_loader.py" "$HUB/server/levels.yaml" \
   && has_pattern 'effective_default' "$HUB/server/openai_compat.py" \
