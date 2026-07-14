@@ -64,7 +64,7 @@ export const navTree: NavSection[] = [
       { kind: 'canvas', slug: 'specs/artifacts/canvases/chartsearchai-and-querystore', title: 'chartsearchai & querystore',  blurb: 'Architecture of the chart-search and query-retrieval integration.' },
       { kind: 'canvas', slug: 'specs/artifacts/canvases/answer-indepth-parity',        title: 'Answer / In-Depth parity',    blurb: 'Evolving Answer and In-Depth into two truly separate, independently-measured responses — current architecture (both setups) and the roadmap.' },
       { kind: 'canvas', slug: 'specs/artifacts/canvases/cross-project-comparison',     title: 'Cross-project comparison',     blurb: 'Side-by-side architecture of chartsearchai, openmrs_chatbot, and Catalyst.' },
-      { kind: 'canvas', slug: 'specs/artifacts/canvases/upstream-contribution-and-compatibility', title: 'Upstream contribution & compatibility', blurb: 'The chartsearchai changes organized into reviewable OpenMRS PRs, with a bundled-LLM compatibility check.' },
+      { kind: 'canvas', slug: 'specs/artifacts/canvases/upstream-contribution-and-compatibility', title: 'Upstream contribution & compatibility', blurb: 'The ChartSearchAI relay and med-agent-hub profile integration organized into reviewable OpenMRS contributions.' },
       { kind: 'canvas', slug: 'specs/artifacts/canvases/validator-audit-framework',   title: 'Validator audit framework',    blurb: 'How validator behavior is audited and kept reviewable.' },
     ],
   },

@@ -518,6 +518,94 @@ def test_warmup_surfaces_hub_error(monkeypatch):
         )
 
 
+def test_warmup_discovers_the_single_available_product_default(monkeypatch):
+    class JsonResponse:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def read(self):
+            return json.dumps(
+                {
+                    "data": [
+                        {
+                            "id": "experimental-profile",
+                            "visibility": "experimental",
+                            "available": True,
+                            "default": True,
+                        },
+                        {
+                            "id": "hub-default",
+                            "visibility": "product",
+                            "available": True,
+                            "default": True,
+                        },
+                    ]
+                }
+            ).encode()
+
+    requests = []
+
+    def urlopen(request, timeout):
+        requests.append((request, timeout))
+        return JsonResponse()
+
+    monkeypatch.setattr(warmer.urllib.request, "urlopen", urlopen)
+
+    assert (
+        warmer.discover_default_profile(
+            "http://hub/v1/chat/completions", timeout=7
+        )
+        == "hub-default"
+    )
+    assert requests[0][0] == "http://hub/v1/models"
+    assert requests[0][1] == 7
+
+
+@pytest.mark.parametrize(
+    "profiles",
+    [
+        [],
+        [
+            {
+                "id": "unavailable-default",
+                "visibility": "product",
+                "available": False,
+                "default": True,
+            }
+        ],
+        [
+            {
+                "id": profile,
+                "visibility": "product",
+                "available": True,
+                "default": True,
+            }
+            for profile in ("one", "two")
+        ],
+    ],
+)
+def test_warmup_rejects_missing_or_ambiguous_product_defaults(monkeypatch, profiles):
+    class JsonResponse:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def read(self):
+            return json.dumps({"data": profiles}).encode()
+
+    monkeypatch.setattr(
+        warmer.urllib.request, "urlopen", lambda *_args, **_kwargs: JsonResponse()
+    )
+
+    with pytest.raises(RuntimeError, match="exactly one available default product profile"):
+        warmer.discover_default_profile("http://hub/v1/chat/completions", timeout=5)
+
+
 def test_warmup_cli_writes_output(tmp_path, monkeypatch, capsys):
     result = {
         "schema_version": "chartsearchai_local_warmup.v1",
@@ -526,7 +614,21 @@ def test_warmup_cli_writes_output(tmp_path, monkeypatch, capsys):
         "stop_after": "done",
         "last_event": "done",
     }
-    monkeypatch.setattr(warmer, "warm_profile", lambda *_args, **_kwargs: result)
+    calls = []
+    monkeypatch.setattr(
+        warmer,
+        "discover_default_profile",
+        lambda hub_url, *, timeout: calls.append(("discover", hub_url, timeout))
+        or "single-e4b-checked",
+    )
+    monkeypatch.setattr(
+        warmer,
+        "warm_profile",
+        lambda hub_url, profile, **kwargs: calls.append(
+            ("warm", hub_url, profile, kwargs)
+        )
+        or result,
+    )
     output = tmp_path / "warmup.json"
     monkeypatch.setattr(
         sys,
@@ -541,5 +643,14 @@ def test_warmup_cli_writes_output(tmp_path, monkeypatch, capsys):
     )
 
     assert warmer.main() == 0
+    assert calls == [
+        ("discover", "http://127.0.0.1:18081/v1/chat/completions", 300),
+        (
+            "warm",
+            "http://127.0.0.1:18081/v1/chat/completions",
+            "single-e4b-checked",
+            {"stop_after_answer": False, "timeout": 300},
+        ),
+    ]
     assert json.loads(output.read_text(encoding="utf-8")) == result
     assert json.loads(capsys.readouterr().out) == result

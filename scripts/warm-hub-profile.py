@@ -10,6 +10,31 @@ import urllib.request
 from pathlib import Path
 
 
+def discover_default_profile(hub_url: str, *, timeout: int) -> str:
+    suffix = "/v1/chat/completions"
+    normalized = hub_url.rstrip("/")
+    if not normalized.endswith(suffix):
+        raise RuntimeError(
+            f"hub URL must end with {suffix!r} to discover its product profiles"
+        )
+    models_url = f"{normalized[:-len(suffix)]}/v1/models"
+    with urllib.request.urlopen(models_url, timeout=timeout) as response:
+        payload = json.loads(response.read())
+    defaults = [
+        item
+        for item in payload.get("data", [])
+        if item.get("visibility") == "product"
+        and item.get("available") is True
+        and item.get("default") is True
+    ]
+    if len(defaults) != 1 or not str(defaults[0].get("id") or "").strip():
+        raise RuntimeError(
+            "hub must advertise exactly one available default product profile; "
+            f"found {defaults!r}"
+        )
+    return str(defaults[0]["id"])
+
+
 def warm_profile(hub_url: str, profile: str, *, stop_after_answer: bool, timeout: int) -> dict:
     payload = {
         "model": profile,
@@ -67,15 +92,16 @@ def warm_profile(hub_url: str, profile: str, *, stop_after_answer: bool, timeout
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--hub-url", default="http://127.0.0.1:18081/v1/chat/completions")
-    parser.add_argument("--profile", default="single-e4b-checked")
+    parser.add_argument("--profile")
     parser.add_argument("--mode", choices=("answer", "full"), default="answer")
     parser.add_argument("--timeout", type=int, default=300)
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
 
+    profile = args.profile or discover_default_profile(args.hub_url, timeout=args.timeout)
     result = warm_profile(
         args.hub_url,
-        args.profile,
+        profile,
         stop_after_answer=args.mode == "answer",
         timeout=args.timeout,
     )

@@ -42,6 +42,10 @@ FORBIDDEN = [
     (re.compile(r"\bRemoteLlmEngine\b"), "removed direct-provider Java engine"),
     (re.compile(r"\bLlmProvider\.search\b"), "removed Java answer orchestration"),
     (re.compile(r"\bModelSwitchService\b"), "removed Java model switching"),
+    (re.compile(r"\bPROMPT_INJECTION\b"), "removed Java prompt-content blocklist"),
+    (re.compile(r"\b(?:ORCHESTRATOR_MODEL|SYNTHESIZER_MODEL|MED_MODEL)\b"), "removed global role-model setting"),
+    (re.compile(r"\bbundled-LLM compatibility\b", re.I), "old bundled-LLM compatibility wording"),
+    (re.compile(r"\borchestrator-as-validator\b", re.I), "stale role-model label"),
     (re.compile(r"\btemporal_facts\.v\d"), "versioned internal temporal-facts contract"),
 ]
 

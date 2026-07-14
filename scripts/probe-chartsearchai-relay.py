@@ -479,6 +479,35 @@ def _post_json(
     return json.loads(body) if body else {}
 
 
+def discover_default_profile(
+    openmrs_url: str,
+    *,
+    username: str,
+    password: str,
+    timeout: int,
+) -> str:
+    api = f"{openmrs_url.rstrip('/')}/ws/rest/v1/chartsearchai"
+    payload = _get_json(
+        f"{api}/models",
+        username=username,
+        password=password,
+        timeout=timeout,
+    )
+    defaults = [
+        item
+        for item in payload.get("data", [])
+        if item.get("visibility") == "product"
+        and item.get("available") is True
+        and item.get("default") is True
+    ]
+    if len(defaults) != 1 or not str(defaults[0].get("id") or "").strip():
+        raise RuntimeError(
+            "hub must advertise exactly one available default product profile; "
+            f"found {defaults!r}"
+        )
+    return str(defaults[0]["id"])
+
+
 def probe_relay(
     openmrs_url: str,
     *,
@@ -577,7 +606,7 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--openmrs-url", default="http://127.0.0.1:8088/openmrs")
     parser.add_argument("--patient", required=True)
-    parser.add_argument("--profile", default="single-e4b-checked")
+    parser.add_argument("--profile")
     parser.add_argument(
         "--question",
         default="In one short sentence, what was the most recent documented clinical visit?",
@@ -589,10 +618,16 @@ def main() -> int:
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
 
+    profile = args.profile or discover_default_profile(
+        args.openmrs_url,
+        username=args.username,
+        password=args.password,
+        timeout=args.timeout,
+    )
     result = probe_relay(
         args.openmrs_url,
         patient=args.patient,
-        profile=args.profile,
+        profile=profile,
         question=args.question,
         username=args.username,
         password=args.password,

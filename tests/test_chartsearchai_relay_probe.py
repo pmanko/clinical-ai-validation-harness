@@ -838,7 +838,19 @@ def test_runtime_identity_binds_built_and_deployed_artifacts(tmp_path, monkeypat
 
 def test_probe_cli_writes_requested_output(tmp_path, monkeypatch, capsys):
     result = {"schema_version": "chartsearchai_relay_probe.v2", "hydrated": True}
-    monkeypatch.setattr(probe, "probe_relay", lambda *_args, **_kwargs: result)
+    calls = []
+    monkeypatch.setattr(
+        probe,
+        "discover_default_profile",
+        lambda openmrs_url, **kwargs: calls.append(("discover", openmrs_url, kwargs))
+        or "single-e4b-checked",
+    )
+    monkeypatch.setattr(
+        probe,
+        "probe_relay",
+        lambda openmrs_url, **kwargs: calls.append(("probe", openmrs_url, kwargs))
+        or result,
+    )
     output = tmp_path / "probe.json"
     monkeypatch.setattr(
         sys,
@@ -853,5 +865,73 @@ def test_probe_cli_writes_requested_output(tmp_path, monkeypatch, capsys):
     )
 
     assert probe.main() == 0
+    assert calls[0] == (
+        "discover",
+        "http://127.0.0.1:8088/openmrs",
+        {"username": "admin", "password": "Admin123", "timeout": 300},
+    )
+    assert calls[1][0:2] == ("probe", "http://127.0.0.1:8088/openmrs")
+    assert calls[1][2]["profile"] == "single-e4b-checked"
     assert json.loads(output.read_text(encoding="utf-8")) == result
     assert json.loads(capsys.readouterr().out) == result
+
+
+def test_probe_discovers_the_openmrs_relayed_product_default(monkeypatch):
+    calls = []
+
+    def get_json(url, **kwargs):
+        calls.append((url, kwargs))
+        return {
+            "data": [
+                {
+                    "id": "hub-default",
+                    "visibility": "product",
+                    "available": True,
+                    "default": True,
+                }
+            ]
+        }
+
+    monkeypatch.setattr(probe, "_get_json", get_json)
+
+    assert (
+        probe.discover_default_profile(
+            "http://openmrs/openmrs",
+            username="admin",
+            password="secret",
+            timeout=9,
+        )
+        == "hub-default"
+    )
+    assert calls == [
+        (
+            "http://openmrs/openmrs/ws/rest/v1/chartsearchai/models",
+            {"username": "admin", "password": "secret", "timeout": 9},
+        )
+    ]
+
+
+def test_probe_rejects_ambiguous_openmrs_product_defaults(monkeypatch):
+    monkeypatch.setattr(
+        probe,
+        "_get_json",
+        lambda *_args, **_kwargs: {
+            "data": [
+                {
+                    "id": profile,
+                    "visibility": "product",
+                    "available": True,
+                    "default": True,
+                }
+                for profile in ("one", "two")
+            ]
+        },
+    )
+
+    with pytest.raises(RuntimeError, match="exactly one available default product profile"):
+        probe.discover_default_profile(
+            "http://openmrs/openmrs",
+            username="admin",
+            password="secret",
+            timeout=9,
+        )

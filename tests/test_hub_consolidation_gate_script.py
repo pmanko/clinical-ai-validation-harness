@@ -105,6 +105,20 @@ def test_documentation_gate_requires_positive_current_architecture_statements():
     assert "header_is_historical" in text
 
 
+def test_documentation_gate_rejects_removed_role_and_relay_configuration():
+    text = DOC_SCRIPT.read_text(encoding="utf-8")
+
+    for stale_surface in (
+        "PROMPT_INJECTION",
+        "ORCHESTRATOR_MODEL",
+        "SYNTHESIZER_MODEL",
+        "MED_MODEL",
+        "bundled-LLM compatibility",
+        "orchestrator-as-validator",
+    ):
+        assert stale_surface in text
+
+
 def test_consolidation_gate_script_executes_the_red_baseline(tmp_path):
     env = dict(os.environ)
     env["HUB_VENV"] = str(tmp_path / "missing-hub-venv")

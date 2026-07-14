@@ -74,63 +74,63 @@
   "modelName": "gemma-e2b"
  },
  "med-agent-team-low": {
-  "label": "Med Agent Team — LOW (e2b-2bit orch · medgemma-1.5 expert · qwen3-4b synth)",
+  "label": "Team — low-capacity baseline",
   "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
   "modelName": "med-agent-team-low"
  },
  "med-agent-team-low-validated": {
-  "label": "Med Agent Team — LOW + validator gemma-e4b-q8 (floor candidate, goal-framed)",
+  "label": "Team — low-capacity checked",
   "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
   "modelName": "med-agent-team-low-validated"
  },
  "med-agent-team-low-validated-12b": {
-  "label": "Med Agent Team — LOW + validator gemma-4-12b (floor comparison, goal-framed)",
+  "label": "Team — low-capacity checked comparison",
   "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
   "modelName": "med-agent-team-low-validated-12b"
  },
  "med-agent-team-med-validated": {
-  "label": "Med Agent Team — MED + validator (gemma-e4b-q8 orchestrator-as-validator)",
+  "label": "Team — medium checked",
   "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
   "modelName": "med-agent-team-med-validated"
  },
  "med-agent-team-high-validated": {
-  "label": "Med Agent Team — HIGH + validator (gemma-31b orchestrator-as-validator)",
+  "label": "Team — high-capacity checked",
   "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
   "modelName": "med-agent-team-high-validated",
   "llamaRouterModelsMax": 1
  },
  "med-agent-team-med": {
-  "label": "Med Agent Team — MED (e4b-q8 orch · medgemma-1.5-q8 expert · qwen2.5-14b synth)",
+  "label": "Team — medium baseline",
   "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
   "modelName": "med-agent-team-med"
  },
  "med-agent-team-liquid": {
-  "label": "Med Agent Team — all-Liquid (lfm2-2.6b orch · lfm2-8b-a1b expert · lfm2-24b-a2b synth)",
+  "label": "Team — Liquid baseline",
   "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
   "modelName": "med-agent-team-liquid"
  },
  "med-agent-team-med-liquid": {
-  "label": "Med Agent Team — MED-Liquid (lfm2-2.6b orch · medgemma-1.5-q8 expert · lfm2-24b-a2b synth)",
+  "label": "Team — medium Liquid writer",
   "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
   "modelName": "med-agent-team-med-liquid"
  },
  "med-agent-team-med-liquid-validated": {
-  "label": "Med Agent Team — MED-Liquid + 12B validator (lfm2-2.6b orch · medgemma-1.5-q8 expert · lfm2-24b-a2b synth · gemma-4-12b validator)",
+  "label": "Team — medium Liquid writer checked",
   "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
   "modelName": "med-agent-team-med-liquid-validated"
  },
  "med-agent-team-med-liquid-qwensynth": {
-  "label": "Med Agent Team — MED-Liquid + qwen synth (lfm2-2.6b orch · medgemma-1.5-q8 expert · qwen2.5-14b synth · gemma-4-12b validator)",
+  "label": "Team — medium Qwen writer",
   "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
   "modelName": "med-agent-team-med-liquid-qwensynth"
  },
  "med-agent-team-med-liquidwriter-validated": {
-  "label": "Med Agent Team — Liquid writer only (gemma-e4b orch · medgemma-1.5-q8 expert · lfm2-24b-a2b synth · gemma-4-12b validator)",
+  "label": "Team — Liquid writer checked",
   "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
   "modelName": "med-agent-team-med-liquidwriter-validated"
  },
  "med-agent-team-high": {
-  "label": "Med Agent Team — HIGH (gemma-31b orch · medgemma-27b expert · qwen3.6-35b-q6 synth)",
+  "label": "Team — high-capacity baseline",
   "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
   "modelName": "med-agent-team-high",
   "llamaRouterModelsMax": 1
@@ -141,12 +141,12 @@
   "modelName": "gemma-4-12b"
  },
  "med-agent-team-12b": {
-  "label": "Med Agent Team — 12B (gemma-4-12b orch · medgemma-1.5-q8 expert · qwen2.5-14b synth)",
+  "label": "Team — 12B baseline",
   "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
   "modelName": "med-agent-team-12b"
  },
  "med-agent-team-parity": {
-  "label": "Med Agent Team — Parity (MED orch+expert, chartsearchai prompt, single synth, validator OFF)",
+  "label": "Team — Answer parity baseline",
   "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
   "modelName": "med-agent-team-parity"
  },
@@ -186,7 +186,7 @@
   "modelName": "single-12b-indepth"
  },
  "med-agent-team-parity-indepth": {
-  "label": "Med Agent Team — Parity + shared In-Depth (MED orch+expert, chartsearchai-prompt Answer, single shared In-Depth, validator OFF)",
+  "label": "Team — Answer and In-Depth parity",
   "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
   "modelName": "med-agent-team-parity-indepth"
  },

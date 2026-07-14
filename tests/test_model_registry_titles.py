@@ -1,6 +1,10 @@
 import json
+from pathlib import Path
 
 from harness.validate.model_registry import arm_card
+
+
+ROOT = Path(__file__).resolve().parents[1]
 
 
 def _write_title_fixtures(tmp_path):
@@ -148,3 +152,28 @@ def test_configured_profile_is_recognized_on_nonstandard_hub_endpoint(tmp_path):
 
     assert card["kind"] == "single"
     assert card["path"] == "med-agent-hub single"
+
+
+def test_legacy_team_backend_labels_describe_experiments_not_role_models():
+    backends = json.loads(
+        (ROOT / "datasets/validation/backends.json").read_text(encoding="utf-8")
+    )
+    expected = {
+        "med-agent-team-low": "Team — low-capacity baseline",
+        "med-agent-team-low-validated": "Team — low-capacity checked",
+        "med-agent-team-low-validated-12b": "Team — low-capacity checked comparison",
+        "med-agent-team-med-validated": "Team — medium checked",
+        "med-agent-team-high-validated": "Team — high-capacity checked",
+        "med-agent-team-med": "Team — medium baseline",
+        "med-agent-team-liquid": "Team — Liquid baseline",
+        "med-agent-team-med-liquid": "Team — medium Liquid writer",
+        "med-agent-team-med-liquid-validated": "Team — medium Liquid writer checked",
+        "med-agent-team-med-liquid-qwensynth": "Team — medium Qwen writer",
+        "med-agent-team-med-liquidwriter-validated": "Team — Liquid writer checked",
+        "med-agent-team-high": "Team — high-capacity baseline",
+        "med-agent-team-12b": "Team — 12B baseline",
+        "med-agent-team-parity": "Team — Answer parity baseline",
+        "med-agent-team-parity-indepth": "Team — Answer and In-Depth parity",
+    }
+
+    assert {key: backends[key]["label"] for key in expected} == expected
