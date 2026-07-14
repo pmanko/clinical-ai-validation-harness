@@ -116,6 +116,7 @@ class _Client(Protocol):
         question: str,
         *,
         profile: str | None = None,
+        request_id: str | None = None,
     ) -> ChatResult: ...
 
 
@@ -167,11 +168,14 @@ def run_comparison(
     # ChartSearchAiClient does not, so plumbing degrades gracefully to record-only.
     data_root = Path(data_root)
     try:
-        client_takes_ref_date = "reference_date" in inspect.signature(client.chat).parameters
+        client_chat_parameters = inspect.signature(client.chat).parameters
+        client_takes_ref_date = "reference_date" in client_chat_parameters
+        client_takes_request_id = "request_id" in client_chat_parameters
     except (ValueError, TypeError):
         # Best-effort capability probe — a non-introspectable client.chat (C-extension,
         # odd __call__) must NOT abort the run; degrade to record-only.
         client_takes_ref_date = False
+        client_takes_request_id = False
     cset = load_comparison_set(data_root / "comparison_sets" / f"{comparison_set_id}.json")
     scenarios = [load_scenario(data_root / "scenarios" / f"{sid}.json") for sid in cset.scenario_ids]
     backends = resolve_backends(cset.backend_ids, data_root / "backends.json")
@@ -322,10 +326,13 @@ def run_comparison(
             first_turn = True
             for turn in scenario.turns:
                 session_sent = session
+                request_id = str(uuid4()) if client_takes_request_id else None
                 started = utc_now_iso()
                 chat_kwargs: dict[str, Any] = {"profile": backend.model_name}
                 if client_takes_ref_date:
                     chat_kwargs["reference_date"] = reference_date
+                if client_takes_request_id:
+                    chat_kwargs["request_id"] = request_id
                 try:
                     res = client.chat(
                         scenario.patient_ref, session_sent, turn.question, **chat_kwargs,
@@ -355,6 +362,11 @@ def run_comparison(
                 if (is_first_turn and backend.indepth_model and backend.indepth_endpoint
                         and res.status == 200 and res.envelope):
                     id_kwargs = {"profile": backend.indepth_model}
+                    indepth_request_id = (
+                        str(uuid4()) if client_takes_request_id else None
+                    )
+                    if client_takes_request_id:
+                        id_kwargs["request_id"] = indepth_request_id
                     try:
                         ires = client.chat(
                             scenario.patient_ref, session,
@@ -372,6 +384,11 @@ def run_comparison(
                         "http_status": ires.status,
                         "model_name": backend.indepth_model,
                         "error": None if ires.status == 200 else (ires.raw_text or "")[:500],
+                        **(
+                            {"request_id": indepth_request_id}
+                            if indepth_request_id
+                            else {}
+                        ),
                     }
                 row = {
                     "run_id": run_id,
@@ -382,6 +399,7 @@ def run_comparison(
                         "patient": scenario.patient_ref,
                         "session": session_sent,
                         "question": turn.question,
+                        **({"request_id": request_id} if request_id else {}),
                     },
                     "response": res.envelope,
                     "metrics": metrics,

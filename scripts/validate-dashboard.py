@@ -9,7 +9,6 @@ scenario x arm status grid, and a recent feed. Click any grid cell or feed row t
 drill into that (scenario, arm): the expected behaviour + every turn's question,
 full answer, citations, and metrics. Reads the newest artifacts/validate run.
 """
-import datetime as _datetime
 import glob
 import http.server
 import json
@@ -27,38 +26,26 @@ from urllib.parse import parse_qs, urlparse
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 from harness.validate.model_registry import arm_card, arm_model_name  # noqa: E402  (sys.path set above)
+from harness.validate.hub_trace import match_trace  # noqa: E402
 from harness.validate.reconcile import combined_judge_summary  # noqa: E402
+from harness.validate.review_presentation import (  # noqa: E402
+    indepth_validation_display,
+    score_formatter_js,
+    section_confidence_displays,
+    validation_display,
+)
+from harness.validate.response_artifacts import (  # noqa: E402
+    in_depth_artifact,
+    prepare_answer_review,
+    prepare_indepth_review,
+    response_for_displayed_evidence,
+    split_answer_sections,
+)
 from harness.validate.sources import build_sources, load_scenario_chart  # noqa: E402
 from harness.validate.stage_timings import extract_stage_timings  # noqa: E402
 DATA = ROOT / "datasets" / "validation"
 TRACE_FILE = ROOT / "artifacts" / "hub-trace" / "trace.jsonl"
 PORT = int(os.environ.get("DASH_PORT", "8099"))
-
-
-def _parse_iso(s):
-    try:
-        return _datetime.datetime.fromisoformat(s)
-    except (ValueError, TypeError):
-        return None
-
-
-def _match_trace(traces, backend, started_at, ended_at):
-    """Correlate a results cell to its hub reasoning-trace: same level_id (== backend id) and the
-    trace ts inside the cell's [started_at, ended_at] window (the runner is strictly sequential).
-    A few seconds of slack absorbs container/host clock rounding. Returns the latest match, or None."""
-    st, en = _parse_iso(started_at), _parse_iso(ended_at)
-    if not st or not en:
-        return None
-    slack = _datetime.timedelta(seconds=5)
-    lo, hi = st - slack, en + slack
-    best = None
-    for tr in traces:
-        if tr.get("level_id") != backend:
-            continue
-        ts = _parse_iso(tr.get("ts", ""))
-        if ts and lo <= ts <= hi:
-            best = tr  # keep the latest match within the window
-    return best
 
 
 # When set (by --freeze --run), pin the dashboard to one run instead of "newest".
@@ -277,9 +264,34 @@ def detail(scenario, backend):
     for r in rows:
         m = r.get("metrics") or {}
         resp = r.get("response") or {}
-        refs = resp.get("references") or resp.get("citations") or []
-        sources_v1 = build_sources(resp, chart_fixture)
-        tr = _match_trace(traces, arm_model_name(backend), r.get("started_at"), r.get("ended_at"))
+        request = r.get("request") or {}
+        tr = match_trace(
+            traces,
+            arm_model_name(backend),
+            r.get("started_at"),
+            r.get("ended_at"),
+            question=request.get("question"),
+            session=request.get("session"),
+            request_id=request.get("request_id"),
+        )
+        direct_answer, embedded_indepth = split_answer_sections(resp.get("answer"))
+        review_artifact = prepare_indepth_review(
+            in_depth_artifact(r, resp, embedded_indepth), tr, chart_fixture
+        )
+        answer_validation = prepare_answer_review(
+            resp.get("answerValidation"),
+            direct_answer,
+            tr,
+            chart_fixture,
+        )
+        evidence_response = response_for_displayed_evidence(
+            resp, direct_answer, review_artifact, embedded_indepth
+        )
+        sources_v1 = build_sources(evidence_response, chart_fixture)
+        refs = evidence_response.get("references") or evidence_response.get("citations") or []
+        answer_confidence_display, indepth_confidence_display = section_confidence_displays(
+            tr, resp.get("confidence")
+        )
         ind = r.get("indepth") or {}
         iresp = ind.get("response") or {}
         if isinstance(iresp, str):
@@ -289,7 +301,18 @@ def detail(scenario, backend):
                 iresp = {"answer": iresp}
         turns.append({"turn": r.get("turn"),
                       "question": (r.get("request") or {}).get("question", ""),
-                      "answer": resp.get("answer", ""),
+                      "answer": direct_answer,
+                      "confidence": resp.get("confidence"),
+                      "answer_validation": answer_validation,
+                      "answer_confidence_display": answer_confidence_display,
+                      "indepth_confidence_display": indepth_confidence_display,
+                      "answer_validation_display": validation_display(answer_validation),
+                      "indepth_validation_display": indepth_validation_display(review_artifact),
+                      "product_in_depth": (
+                          review_artifact if isinstance(resp.get("inDepth"), dict) else None
+                      ),
+                      "review_draft": review_artifact.get("reviewDraft") or "",
+                      "review_sources": review_artifact.get("reviewSources") or {},
                       "indepth": ({"answer": iresp.get("answer") or "", "status": ind.get("http_status"),
                                    "latency_ms": ind.get("latency_ms")} if ind else None),
                       "blocks": resp.get("blocks") or [],
@@ -360,6 +383,12 @@ table.btbl{border-collapse:collapse;font-size:11px;width:100%}
 .sstat.ok{color:var(--ok)}.sstat.bad{color:var(--err)}
 .scard ul{margin:4px 0 0 16px;padding:0;font-size:11px}.scard details{margin-top:4px;color:var(--muted)}.scard summary{cursor:pointer;font-size:10px}.scard pre{white-space:pre-wrap;font-size:10px;margin:4px 0 0;color:var(--muted)}
 .sdiag{margin-top:5px;color:var(--muted);font-size:10px}
+.reviewdraft{margin-top:8px;border-left:3px solid var(--err);padding-left:10px}
+.reviewdraft>summary{cursor:pointer;color:var(--text);font-size:11px;font-weight:700;padding:4px 0}
+.reviewdraft-note{background:var(--cav-red-bg);color:var(--cav-red-fg);padding:7px 9px;margin:4px 0;font-size:11px}
+.reviewdraft.edited{border-left-color:var(--flag)}
+.reviewdraft.edited .reviewdraft-note{background:var(--cav-yel-bg);color:var(--cav-yel-fg)}
+.reviewrefs{margin-top:7px;color:var(--muted);font-size:10px}.reviewrefs ul{margin:4px 0 0 16px;padding:0}.reviewrefs li{margin:4px 0}.reviewrefs details{margin-top:2px}.reviewrefs summary{cursor:pointer;color:var(--accent)}.reviewrefs pre{white-space:pre-wrap;margin:3px 0 6px}
 .tracebox{margin-top:8px;border:1px solid var(--border2);border-radius:6px;background:var(--sunken)}
 .tracebox summary{cursor:pointer;color:var(--muted);font-size:11px;padding:6px 10px;list-style:none}
 .tracebox summary::-webkit-details-marker{display:none}
@@ -445,7 +474,7 @@ const armTitle=b=>{const c=ARM_CARDS[b];return (c&&c.title)||b;};
 const armShort=b=>{const c=ARM_CARDS[b];return (c&&(c.short_title||c.title))||b;};
 const shortB=b=>armShort(b);
 const esc=s=>(s==null?'':String(s)).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-const fmt10=v=>v==null?'—':(Math.round(v*10)/10);
+__SHARED_SCORE_FORMATTER__
 // sampler-knob display order + labels (mirrors report.py's KNOB_ORDER/KNOB_LABELS).
 const KNOB_ORDER=['temp','top_p','top_k','ctx_size','seed','max_tokens','reasoning_budget','dry'];
 const KNOB_LABELS={temp:'temperature',top_p:'top-p',top_k:'top-k',ctx_size:'ctx-size',seed:'seed',max_tokens:'max-tokens',reasoning_budget:'reasoning-budget',dry:'DRY'};
@@ -659,23 +688,68 @@ function renderRawRefs(refs){
  if(!refs||!refs.length)return '';
  return '<details class=rawrefs><summary>raw resolved refs</summary><div>'+esc(refs.map(r=>typeof r==='object'?('['+(r.index!=null?r.index:'?')+'] '+(r.resourceType||'')):('['+r+']')).join('  '))+'</div></details>';
 }
-const CONF={green:['Self-check high','#196c2e'],yellow:['Self-check medium','#9e6a03'],red:['Self-check low','#8b1a1a']};
-function chip(level){const c=CONF[level]||['unrated','#30363d'];return '<span class=cchip style="background:'+c[1]+'">'+c[0]+'</span>';}
-// Per-section render with the confidence inversion: red -> caveat shown, message collapsed;
-// yellow -> message shown, caveat collapsed; green -> message, no caveat.
-function confSection(title, bodyHtml, conf){
- const level=(conf&&conf.level)||'green', note=(conf&&conf.note)||'';
- let h='<div class=csec><div class=ctitle>'+title+' '+chip(level)+'</div>';
- if(level==='red'){
+const CONF_COLORS={green:'#196c2e',yellow:'#9e6a03',red:'#8b1a1a'};
+function chip(display){
+ if(!display) return '';
+ const color=CONF_COLORS[display.level]||'#30363d';
+ return '<span class=cchip style="background:'+color+'">'+esc(display.label||'Unrated')+'</span>';
+}
+function validationChip(display){
+ if(!display) return '';
+ const cls=display.tone==='danger'?' bad':(display.tone==='warning'?' warm':'');
+ return '<span class="chip'+cls+'">'+esc(display.label||display.status||'')+'</span>';
+}
+// A confidence flag adds context but never hides the model output a reviewer needs to inspect.
+function confSection(title, bodyHtml, display, lifecycle){
+ const note=(display&&display.note)||'', treatment=(display&&display.note_treatment)||'none';
+ let h='<div class=csec><div class=ctitle>'+title+' '+chip(display)+' '+validationChip(lifecycle)+'</div>';
+ if(treatment==='prominent'){
   if(note) h+='<div class="caveat red">'+esc(note)+'</div>';
-  h+='<details class=collapse><summary>show '+title.toLowerCase()+'</summary><div class=ans>'+bodyHtml+'</div></details>';
- }else if(level==='yellow'){
+  h+='<div class=ans>'+bodyHtml+'</div>';
+ }else if(treatment==='collapsible'){
   h+='<div class=ans>'+bodyHtml+'</div>';
   if(note) h+='<details class=collapse><summary>show review note</summary><div class="caveat yellow">'+esc(note)+'</div></details>';
  }else{
   h+='<div class=ans>'+bodyHtml+'</div>';
  }
  return h+'</div>';
+}
+function renderReviewDraft(draft, sourcesV1){
+ if(!draft) return '';
+ const sources=(sourcesV1&&sourcesV1.sources)||[];
+ const sourceRows=sources.map(s=>{
+  const idx=s.citation_index!=null?s.citation_index:(s.record_index!=null?s.record_index:'?');
+  const label=[s.date,s.resource_type,s.title,s.resolution_status].filter(Boolean).join(' · ');
+  const record=s.source_text?'<details><summary>open draft source</summary><pre>'+esc(s.source_text)+'</pre></details>':'';
+  return '<li><b>['+esc(String(idx))+']</b> '+esc(label)+record+'</li>';
+ }).join('');
+ const sourceHtml=sourceRows?'<div class=reviewrefs><b>Draft sources for review (not final evidence)</b><ul>'+sourceRows+'</ul></div>':'';
+ return '<details open class=reviewdraft><summary>Model draft for review</summary>'
+  +'<div class=reviewdraft-note>This is the model\'s pre-check output. It was changed or withheld and is not approved clinical output.</div>'
+  +'<div class=ans>'+esc(draft)+'</div>'+sourceHtml+'</details>';
+}
+function renderOriginalAnswer(validation,currentAnswer){
+ const originalBlocks=(validation&&validation.originalBlocks)||[];
+ const hasOriginalReferenceArtifact=!!validation&&(
+  Object.prototype.hasOwnProperty.call(validation,'originalReferences')||
+  Object.prototype.hasOwnProperty.call(validation,'originalSources')
+ );
+ if(!validation||!validation.originalAnswer||(validation.originalAnswer.trim()===(currentAnswer||'').trim()&&!originalBlocks.length&&!hasOriginalReferenceArtifact)) return '';
+ const edited=validation.status==='edited';
+ const notice=edited
+  ?'This answer or its supporting citations was changed by the answer check. The checked answer above is the current result.'
+  :'This was the model output before checking. The current answer above remains flagged for review.';
+ const sources=((validation.originalSources||{}).sources)||[];
+ const sourceRows=sources.map(s=>{
+  const idx=s.citation_index!=null?s.citation_index:(s.record_index!=null?s.record_index:'?');
+  const label=[s.date,s.resource_type,s.title,s.resolution_status].filter(Boolean).join(' · ');
+  const record=s.source_text?'<details><summary>open original source</summary><pre>'+esc(s.source_text)+'</pre></details>':'';
+  return '<li><b>['+esc(String(idx))+']</b> '+esc(label)+record+'</li>';
+ }).join('');
+ const sourceHtml=sourceRows?'<div class=reviewrefs><b>Original-answer sources (not final evidence)</b><ul>'+sourceRows+'</ul></div>':'';
+ return '<details open class="reviewdraft'+(edited?' edited':'')+'"><summary>Original model answer</summary>'
+  +'<div class=reviewdraft-note>'+notice+'</div>'
+  +'<div class=ans>'+esc(validation.originalAnswer)+renderBlocks(originalBlocks,validation.originalSources||{})+'</div>'+sourceHtml+'</details>';
 }
 function renderTrace(tr){
  if(!tr) return '<div class=notrace>no reasoning trace captured for this turn (hub trace off, or older run)</div>';
@@ -711,32 +785,55 @@ async function openD(s,b){
  h+='<div class=exp><b>Expected:</b> '+(e.should_abstain?'ABSTAIN':'retrieve')+(e.should_cite_resource_types?' ['+e.should_cite_resource_types.join(', ')+']':'')+'<br>'+esc(e.notes||'')+'</div>';
  (d.turns||[]).forEach(t=>{
   const tr=t.trace;
+  const answerConf=t.answer_confidence_display;
+  const indepthConf=t.indepth_confidence_display;
+  const answerLifecycle=t.answer_validation_display;
+  const indepthLifecycle=t.indepth_validation_display;
   h+='<div class=turn><div class=q>Turn '+t.turn+': '+esc(t.question)+'</div>';
   h+='<div class=meta><span class="'+(t.status===200?'ok':'err')+'">status '+t.status+'</span> · '+(t.latency_ms||0)+'ms · '+(t.chars||0)+' chars · '+(t.citations||0)+' source refs</div>';
   h+=renderStageTimings(tr&&tr.stage_timings);
   if(t.error){
    h+='<div class="ans err">'+esc(t.error)+'</div>';
-  }else if(tr&&(tr.answer_confidence||tr.indepth_confidence)){
-   // structured render with the per-section confidence inversion (chips + collapse)
+  }else if(answerConf||indepthConf||answerLifecycle||indepthLifecycle){
+   // Structured render with confidence and lifecycle details kept adjacent to visible output.
    const blocksHtml=renderBlocks(t.blocks,t.sources);
-   h+=confSection('Answer', esc(tr.answer_text||'')+blocksHtml, tr.answer_confidence);
+   h+=confSection('Answer', esc(t.answer||(tr&&tr.answer_text)||'')+blocksHtml, answerConf, answerLifecycle);
+   h+=renderOriginalAnswer(t.answer_validation,t.answer||(tr&&tr.answer_text)||'');
    // In-Depth: two-call arms carry it as a SEPARATE call (row.indepth), single-pass, no validator —
    // render THAT, not the Answer trace's empty in_depth_claims + the Answer's verdict as a stray chip.
    if(t.indepth){
     const ia=(t.indepth.answer||'').trim();
     const body=ia?esc(ia):'<span class=muted>(no elaboration — e.g. an abstain)</span>';
     h+='<div class=csec><div class=ctitle>In Depth <span class=muted>(separate call'+(t.indepth.latency_ms?', '+Math.round(t.indepth.latency_ms/1000)+'s':'')+')</span></div><div class=ans>'+body+'</div></div>';
+   }else if(t.product_in_depth){
+    const native=t.product_in_depth, finalDraft=(native.answer||'').trim();
+    if(finalDraft){
+     h+=confSection('In Depth',esc(finalDraft),indepthConf,indepthLifecycle);
+    }else if(native.status){
+     h+='<div class=csec><div class=ctitle>In Depth '+validationChip(indepthLifecycle)+'</div>'
+      +'<div class="caveat red">'+esc(native.error||'No In-Depth content was displayed.')+'</div></div>';
+    }
+    const draft=(t.review_draft||'').trim();
+    if(draft&&draft!==finalDraft) h+=renderReviewDraft(draft,t.review_sources);
    }else{
-    const cl=tr.in_depth_claims||[];
-    const idConf=tr.indepth_confidence||{};
+    const cl=(tr&&tr.in_depth_claims)||[];
+    const idConf=indepthConf||{};
     const showId=cl.length||idConf.note||(idConf.level&&idConf.level!=='green');
     if(showId){
      const idb=cl.length?'<ul class=idl>'+cl.map(c=>'<li>'+esc(c)+'</li>').join('')+'</ul>':'<span class=muted>(none)</span>';
-     h+=confSection('In Depth', idb, idConf);
+     h+=confSection('In Depth', idb, indepthConf, indepthLifecycle);
     }
    }
   }else{
    h+='<div class=ans>'+esc(t.answer)+'</div>';   // Answer (raw envelope / non-team backend)
+   h+=renderOriginalAnswer(t.answer_validation,t.answer||'');
+   if(t.product_in_depth){
+    const native=t.product_in_depth, finalDraft=(native.answer||'').trim();
+    if(finalDraft) h+='<div class=csec><div class=ctitle>In Depth</div><div class=ans>'+esc(finalDraft)+'</div></div>';
+    else if(native.status) h+='<div class=csec><div class=ctitle>In Depth</div><div class="caveat red">'+esc(native.error||native.status)+'</div></div>';
+    const draft=(t.review_draft||'').trim();
+    if(draft&&draft!==finalDraft) h+=renderReviewDraft(draft,t.review_sources);
+   }
    if(t.indepth&&t.indepth.answer){               // two-call arms: the separate In-Depth call
     h+='<div style="margin-top:8px;font-size:11px;font-weight:600;color:var(--accent)">In Depth <span class=muted>(separate call'+(t.indepth.latency_ms?', '+Math.round(t.indepth.latency_ms/1000)+'s':'')+')</span></div>';
     h+='<div class=ans>'+esc(t.indepth.answer)+'</div>';
@@ -755,6 +852,7 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape')closeD()});
 tick();setInterval(tick,2000);
 (function(){var b=document.getElementById('theme-toggle');function s(){b.textContent=document.documentElement.dataset.theme==='dark'?'☀':'☾';}s();b.addEventListener('click',function(){var n=document.documentElement.dataset.theme==='dark'?'light':'dark';document.documentElement.dataset.theme=n;try{localStorage.setItem('oc-theme-dashboard',n);}catch(e){}s();});})();
 </script></body></html>"""
+PAGE = PAGE.replace("__SHARED_SCORE_FORMATTER__", score_formatter_js())
 
 
 class H(http.server.BaseHTTPRequestHandler):

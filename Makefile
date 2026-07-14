@@ -12,7 +12,7 @@ export UV_PROJECT_ENVIRONMENT
         chartsearch-build querystore-build querystore-recreate-index chartsearch-configure querystore-configure chartsearch-backend chartsearch-doctor chartsearchai-local \
         chartsearch-esm-build chartsearch-esm-dev \
         llama-router-up llama-router-models \
-        med-agent-hub-build med-agent-hub-up med-agent-hub-logs med-agent-hub-restart med-agent-hub-test chartsearch-test querystore-test querystore-test-integration querystore-reindex \
+        med-agent-hub-build med-agent-hub-up med-agent-hub-logs med-agent-hub-restart med-agent-hub-test chartsearch-test chartsearch-e2e-low-confidence querystore-test querystore-test-integration querystore-reindex \
         dashboard-ensure dashboard-restart validate-preflight validate-run validate-judge-prep validate-judge-finalize validate-publish \
         cloud-init cloud-sync cloud-down cloud-seed \
         cloud-start cloud-stop cloud-ssh cloud-logs cloud-status cloud-destroy
@@ -265,6 +265,9 @@ med-agent-hub-test:
 
 chartsearch-test:
 	@./scripts/test-chartsearchai.sh
+
+chartsearch-e2e-low-confidence:
+	@cd tests/e2e && yarn playwright test chartsearchai-low-confidence-review
 
 querystore-test:
 	@./scripts/test-querystore.sh unit

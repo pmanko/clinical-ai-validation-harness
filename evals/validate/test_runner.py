@@ -39,6 +39,15 @@ class FakeClient:
         )
 
 
+class FakeClientWithRequestId(FakeClient):
+    def chat(self, patient, session, question, *, profile=None, request_id=None):
+        result = super().chat(
+            patient, session, question, profile=profile
+        )
+        self.chat_calls[-1]["request_id"] = request_id
+        return result
+
+
 def _write_fixtures(root: Path):
     (root / "scenarios").mkdir(parents=True)
     (root / "comparison_sets").mkdir(parents=True)
@@ -86,6 +95,7 @@ def test_runner_threads_session_and_writes_projected_results(tmp_path):
     assert r0["run_id"] == out.run_id
     assert (r0["scenario_id"], r0["backend_id"], r0["turn"]) == ("sc", "only", 1)
     assert r0["metrics"]["citation_count"] == 1
+    assert "request_id" not in r0["request"]
     # A result is a projection — it must NOT re-declare manifest provenance.
     for provenance_field in ("project", "git_sha", "dataset_id", "schema_mapping_version"):
         assert provenance_field not in r0
@@ -93,6 +103,30 @@ def test_runner_threads_session_and_writes_projected_results(tmp_path):
     # first_turn flag set on turn 1 only (warmup-latency marker).
     assert json.loads(lines[0])["metrics"]["first_turn"] is True
     assert json.loads(lines[1])["metrics"]["first_turn"] is False
+
+
+def test_runner_records_only_the_request_id_it_sent(tmp_path):
+    data = tmp_path / "data"
+    _write_fixtures(data)
+    client = FakeClientWithRequestId()
+
+    out = run_comparison(
+        comparison_set_id="cs",
+        client=client,
+        data_root=data,
+        output_dir=tmp_path / "art",
+        git_sha="test-sha",
+    )
+
+    rows = [
+        json.loads(line)
+        for line in out.results_path.read_text(encoding="utf-8").splitlines()
+    ]
+    sent_ids = [call["request_id"] for call in client.chat_calls]
+    recorded_ids = [row["request"]["request_id"] for row in rows]
+
+    assert all(sent_ids)
+    assert recorded_ids == sent_ids
 
     # Manifest owns provenance; component is 'validate'.
     manifest = json.loads(out.manifest_path.read_text(encoding="utf-8"))

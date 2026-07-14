@@ -6,7 +6,7 @@
 > legs directly. See `specs/artifacts/planning/hub-consolidation-roadmap.md`.
 
 **Roadmap slot**: this IS the validation spine (roadmap M2, slug `006` — the earlier `003` slug was never created); operationalizes it + answer/citation/abstention eval (012) + review/rubric (014) as a minimal, honest MVP.
-**Scope of this PR**: an offline, file-first, deterministic-gated eval that runs authored multi-turn scenarios against multiple model backends through chartsearchai's own API, records results onto the existing run_manifest/events.jsonl spine, and presents a standalone TSX report with per-cell human adjudication.
+**Scope of this PR**: an offline, file-first, deterministic-gated eval that runs authored multi-turn scenarios against multiple model backends through chartsearchai's own API, records results onto the existing run_manifest/events.jsonl spine, and presents a standalone static HTML report with per-cell human adjudication.
 **Status**: shipped validation spine; transport superseded by hub profiles | **Started**: 2026-05-28
 **Depends on**: ChartSearchAI's hub relay and med-agent-hub product profiles. The harness drives product comparisons through ChartSearchAI and reserves direct hub legs for labeled low-level experiments.
 
@@ -23,11 +23,13 @@ distinct from advisory semantic judgments.
 
 - **SC-006.1**: A scenario is authored as checked-in JSON (`{id, patient_ref, turns[], tags, expectations}`); a comparison set references scenarios + backend configs. Both validate against a documented schema.
 - **SC-006.2**: `harness validate run <comparison-set>` replays each scenario's turns in one ChatSearchAI session per product profile and writes one `results.jsonl` line per `(scenario, backend, turn)` under `artifacts/<run_id>/`, alongside a `run_manifest.json` that reuses the existing spine. Explicit low-level arms are labeled as experiments and call med-agent-hub directly.
-- **SC-006.3**: Each result carries deterministic, no-LLM metrics. Client-derivable from chartsearchai's `/chat` response alone: `latency_ms`, `json_valid`, `citation_count`, `abstained`. NOT surfaced by chartsearchai's `/chat` response (which returns only `answer`/`disclaimer`/`references`/`blocks`/`session`/`messageId`): `tokens_in/out`, `finish_reasons`, and the OTel GenAI fields (`gen_ai.response.model`, `gen_ai.provider.name`) — mark these `null` in v1 (OTel-deferred; to be back-filled from the OTel span when wired).
-- **SC-006.4**: A standalone TSX report (runs locally; built deployable but remote-deploy deferred) renders scenarios down the left, one column per backend, with the answer + citations + table blocks + metric chips, and a per-cell feedback form.
+- **SC-006.3**: Each result carries deterministic, no-LLM metrics. Client-derivable from ChartSearchAI's `/chat` response include `latency_ms`, `json_valid`, `citation_count`, and `abstained`. The response also preserves the hub's `confidence`, `answerValidation`, `inDepth`, references, blocks, and safety metadata. Backend-only token/finish-reason and OTel fields remain nullable until their trace/span is joined explicitly.
+- **SC-006.4**: A standalone static HTML report renders scenarios down the left, one column per backend, with the answer, citations, table blocks, metric chips, validation state, and a per-cell feedback form.
 - **SC-006.5**: The feedback form captures the Scout 0–10 rubric (accuracy/completeness/relevance), an abstention outcome, a citation-groundedness judgement, a harm hard-fail, a pass/fail decision, reviewer id, and free text — appending one `feedback` doc per adjudication.
 - **SC-006.6**: Persistence goes through one repository interface; the JSONL-file implementation is wired, the MongoDB implementation is a documented stub.
 - **SC-006.7**: A candidate comparison set includes the default checked product profile plus a justified quality or topology comparison and 2–3 abstention probes. Direct-model and low-level legs are separate experimental sets.
+- **SC-006.8**: A flagged final Answer or In-Depth result remains directly visible with its caveat in both the static report and live dashboard. A changed or rejected pre-check artifact is separately labeled, retains its own references and blocks, and is excluded from final evidence and judge content.
+- **SC-006.9**: The static report and live dashboard derive confidence and validation lifecycle labels/treatment from one shared semantic module. A parity test feeds the same flagged fixture through both renderers and asserts equivalent display objects and visible-output behavior.
 
 ## Functional requirements
 
@@ -38,9 +40,12 @@ distinct from advisory semantic judgments.
   run afterward as separately attributed actors and cannot override deterministic safety findings.
 - **FR-006.5**: The rubric MUST be Scout's three axes at native 0–10 (accuracy, completeness, relevance) + categorical abstention outcome (`correct`/`over-abstained`/`failed-to-abstain`/`n-a`) + a single citation-groundedness judgement for the answer (`supported`/`partly`/`unsupported`, or `n-a`) + a harm hard-fail flag. *(v1 ships one scalar `citation_groundedness`; per-citation groundedness keyed by citation index is v2 — see the data model below.)*
 - **FR-006.6**: Persistence MUST sit behind a `save(collection, doc)` / `find(collection, query)` repository interface. Collections: `scenarios`, `comparison_sets`, `results`, `feedback`. The file implementation maps each to JSONL (results/feedback under `artifacts/<run_id>/`; scenarios/comparison_sets as checked-in JSON). The Mongo implementation is a stub with the same interface.
-- **FR-006.7**: The report MUST be a standalone TSX app reading run artifacts (not an in-ESM page) and MUST reimplement the citation display format (`[index] resourceType — date`) rather than importing the ESM renderer (which hard-depends on chart-nav DOM).
+- **FR-006.7**: The report MUST be standalone static HTML generated from run artifacts (not an in-ESM page) and MUST implement the citation display format without importing the ESM renderer, which depends on chart navigation and OpenMRS runtime state.
 - **FR-006.8**: The harness MUST support multiple reviewers; when ≥2 feedback docs exist for a cell, report raw % agreement (and Cohen's κ if exactly 2). It MUST NOT block a run on agreement.
 - **FR-006.9**: The harness MUST distinguish its evaluator `feedback` doc from chartsearchai's existing end-user thumbs feedback (`AiFeedback`); they are separate surfaces.
+- **FR-006.10**: Confidence is presentation metadata, not a redaction control. Red and yellow output MUST remain visible for manual review; red notes are prominent, yellow notes are collapsible, and green output is plain.
+- **FR-006.11**: `answerValidation.originalAnswer`/`originalReferences`/`originalBlocks` and `inDepth.reviewDraft`/`reviewReferences` are review-only artifacts. They MUST survive persistence and reload, MUST render separately from the shipped result, and MUST NOT enter canonical final evidence or LLM judge content.
+- **FR-006.12**: Result-to-trace correlation MUST prefer a per-turn request ID and reject explicit request/session/question mismatches. Historical traces without newer keys MAY use the bounded exact-question/time fallback, but one cell MUST NOT borrow an adjacent turn's trace.
 
 ## Demo anchor
 
@@ -103,3 +108,4 @@ Plus 2–3 abstention probes (e.g. a question about data not in the chart — ab
 3. Standalone report renders the comparison grid; submitting the feedback form appends a well-formed `feedback` doc.
 4. Repository interface: same `find("results", …)` returns identical data from the file impl; Mongo impl raises a clear "not implemented" stub.
 5. Multi-reviewer: two feedback docs on one cell → report shows raw % agreement.
+6. A deterministic flagged fixture produces the same confidence/lifecycle display objects in the report and dashboard, keeps the final and review-only output visible, excludes review-only sources from final evidence/judge input, and survives ChartSearchAI reload hydration.

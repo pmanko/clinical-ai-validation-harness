@@ -111,6 +111,7 @@ class ChartSearchAiClient:
         question: str,
         *,
         profile: str | None = None,
+        request_id: str | None = None,
     ) -> ChatResult:
         """One chat turn. Never raises on a non-200 — the turn is recorded with
         its status so a failed turn still produces a result line. Paces to stay
@@ -119,7 +120,12 @@ class ChartSearchAiClient:
 
         When ``profile`` is given it selects that hub-advertised product profile for
         this request. Without it, ChartSearchAI uses its configured default."""
-        body: dict[str, str] = {"patient": patient, "question": question}
+        request_id = request_id or str(uuid4())
+        body: dict[str, str] = {
+            "patient": patient,
+            "question": question,
+            "requestId": request_id,
+        }
         if session:
             body["session"] = session
         if profile:
@@ -309,6 +315,7 @@ class MedAgentHubClient:
         question: str,
         *,
         profile: str | None = None,
+        request_id: str | None = None,
     ) -> ChatResult:
         if not profile:
             raise ValueError("Med Agent Hub comparisons require an explicit profile")
@@ -320,12 +327,14 @@ class MedAgentHubClient:
         if conversation["patient"] != patient:
             raise ValueError("hub session cannot be reused for a different patient")
 
+        request_id = request_id or str(uuid4())
         messages = [*conversation["messages"], {"role": "user", "content": question}]
         body = {
             "model": profile,
             "stream": False,
             "patient": patient,
             "messages": messages,
+            "context": {"session": session, "request_id": request_id},
         }
         attempt = 0
         started = time.monotonic()

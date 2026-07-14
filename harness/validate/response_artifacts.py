@@ -12,6 +12,8 @@ import json
 import re
 from typing import Any
 
+from .sources import build_sources
+
 
 _IN_DEPTH_HEADING = re.compile(r"\*\*In\s*Depth\*\*", re.IGNORECASE)
 _CITATION = re.compile(r"\[(\d+)\]")
@@ -39,6 +41,82 @@ def _block_reference_indices(blocks: Any) -> set[int]:
                     if isinstance(ref, int) and not isinstance(ref, bool) and ref > 0:
                         found.add(ref)
     return found
+
+
+def review_draft_from_trace(trace: Any) -> str:
+    """Recover the earliest In-Depth draft that later checks could change."""
+    if not isinstance(trace, dict):
+        return ""
+    for step in trace.get("steps") or []:
+        if not isinstance(step, dict) or step.get("role") not in {
+            "indepth",
+            "indepth_synth",
+            "indepth_resynth",
+        }:
+            continue
+        claims = step.get("original_claims") or step.get("claims") or []
+        if isinstance(claims, list):
+            return "\n".join(f"- {claim}" for claim in claims if str(claim).strip())
+    return ""
+
+
+def prepare_answer_review(
+    validation: Any,
+    current_answer: Any,
+    trace: Any,
+    chart_fixture: dict[str, Any] | None,
+) -> Any:
+    """Attach an original Answer and its separate canonical sources for display only."""
+    prepared = dict(validation) if isinstance(validation, dict) else {}
+    original = str(prepared.get("originalAnswer") or "").strip()
+    original_blocks = prepared.get("originalBlocks") or []
+    if not original and isinstance(trace, dict):
+        original = str(trace.get("original_answer_text") or "").strip()
+        if original:
+            prepared["originalAnswer"] = original
+    current = str(current_answer or "").strip()
+    has_original_reference_artifact = "originalReferences" in prepared
+    if not original or (
+        original == current
+        and not original_blocks
+        and not has_original_reference_artifact
+    ):
+        return prepared
+    prepared["originalSources"] = build_sources(
+        {
+            "answer": original,
+            "references": prepared.get("originalReferences") or [],
+            "blocks": original_blocks,
+        },
+        chart_fixture,
+    )
+    return prepared
+
+
+def prepare_indepth_review(
+    indepth: Any,
+    trace: Any,
+    chart_fixture: dict[str, Any] | None,
+) -> Any:
+    """Attach review draft text and its separate canonical sources for display only."""
+    if not isinstance(indepth, dict):
+        return indepth
+    prepared = dict(indepth)
+    if not prepared.get("reviewDraft"):
+        historical_draft = review_draft_from_trace(trace)
+        final_draft = str(prepared.get("answer") or "").strip()
+        if historical_draft and historical_draft.strip() != final_draft:
+            prepared["reviewDraft"] = historical_draft
+    draft = str(prepared.get("reviewDraft") or "").strip()
+    if draft:
+        prepared["reviewSources"] = build_sources(
+            {
+                "answer": draft,
+                "references": prepared.get("reviewReferences") or [],
+            },
+            chart_fixture,
+        )
+    return prepared
 
 
 def response_for_displayed_evidence(
@@ -105,7 +183,7 @@ def in_depth_artifact(
     product = response.get("inDepth")
     if isinstance(product, dict):
         answer = product.get("answer")
-        return {
+        artifact = {
             "answer": answer.strip() if isinstance(answer, str) else "",
             "status": product.get("status"),
             "validation": product.get("validation"),
@@ -115,6 +193,10 @@ def in_depth_artifact(
             "citations": product.get("citations") or [],
             "source": "response.inDepth",
         }
+        if product.get("reviewDraft"):
+            artifact["reviewDraft"] = product["reviewDraft"]
+            artifact["reviewReferences"] = product.get("reviewReferences") or []
+        return artifact
 
     separate = row.get("indepth") or {}
     nested = separate.get("response") or {}

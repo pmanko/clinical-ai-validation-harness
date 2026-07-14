@@ -406,6 +406,12 @@ fi
 
 if has_pattern 'answerValidation' "$ESM/src" \
   && has_pattern 'originalAnswer' "$ESM/src" \
+  && has_pattern 'originalBlocks' "$ESM/src" \
+  && has_pattern 'reviewDraft' "$ESM/src" \
+  && has_pattern 'RED \(low\): shows both the caveat and the flagged message' "$ESM/src/components/ai-response-panel.test.tsx" \
+  && has_pattern 'test_report_and_dashboard_share_flagged_output_semantics' "$ROOT/evals/validate/test_report_confidence.py" \
+  && has_pattern 'section_confidence_displays' "$ROOT/harness/validate/review_presentation.py" \
+  && has_pattern 'flagged Answer and review-only artifacts stay visible through reload' "$ROOT/tests/e2e/specs/chartsearchai-low-confidence-review.spec.ts" \
   && has_pattern 'onAnswerDone:[^\n]*answerDone' "$ESM/src/hooks/useChartSearchAi.ts" \
   && has_pattern 'onAnswerValidation:[^\n]*answerValidation' "$ESM/src/hooks/useChartSearchAi.ts" \
   && has_pattern 'onInDepthPending:[^\n]*inDepthPending' "$ESM/src/hooks/useChartSearchAi.ts" \

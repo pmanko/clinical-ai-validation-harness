@@ -56,6 +56,8 @@ def test_hub_client_posts_patient_profile_and_preserves_local_history():
     assert second.envelope["answer"] == "Second"
     assert session.requests[0][1]["patient"] == "patient-1"
     assert session.requests[0][1]["model"] == "answer:model@prompt~off"
+    assert session.requests[0][1]["context"]["session"] == chat_session
+    assert session.requests[0][1]["context"]["request_id"]
     assert session.requests[0][1]["messages"] == [
         {"role": "user", "content": "Question one"}
     ]

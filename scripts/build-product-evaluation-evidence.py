@@ -210,6 +210,9 @@ def build_evidence(
             profiles_by_backend[backend],
             row.get("started_at"),
             row.get("ended_at"),
+            question=(row.get("request") or {}).get("question"),
+            session=(row.get("request") or {}).get("session"),
+            request_id=(row.get("request") or {}).get("request_id"),
         )
         selected.append({**pair, "trace": trace})
         response = row.get("response") or {}

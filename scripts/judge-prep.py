@@ -35,6 +35,65 @@ def split_sections(answer: str) -> tuple[str, str]:
     direct, background = split_answer_sections(answer)
     return direct, (f"**In Depth**\n{background}" if background else "")
 
+
+_SAFE_VALIDATION_KEYS = {
+    "schema_version",
+    "mode",
+    "status",
+    "applied",
+    "id",
+    "severity",
+    "source_indices",
+    "claim_index",
+    "removed",
+    "review_status",
+    "review_removed",
+    "review_attempts",
+    "issues",
+    "checks",
+    "citation_checks",
+    "gate",
+}
+
+
+def validation_metadata(value):
+    """Keep deterministic lifecycle facts without exposing rejected model text."""
+    if isinstance(value, list):
+        return [
+            sanitized
+            for item in value
+            if (sanitized := validation_metadata(item)) not in (None, {}, [])
+        ]
+    if not isinstance(value, dict):
+        return value if isinstance(value, (bool, int, float)) else None
+    sanitized = {}
+    for key, item in value.items():
+        if key not in _SAFE_VALIDATION_KEYS:
+            continue
+        if key in {"issues", "checks", "citation_checks"}:
+            nested = validation_metadata(item)
+            if nested:
+                sanitized[key] = nested
+        elif key == "gate":
+            nested = validation_metadata(item)
+            if nested:
+                sanitized[key] = nested
+        elif key in {"source_indices", "removed"}:
+            sanitized[key] = [
+                entry
+                for entry in (item if isinstance(item, list) else [])
+                if isinstance(entry, int) and not isinstance(entry, bool)
+            ]
+        elif isinstance(item, (str, bool, int, float)) or item is None:
+            sanitized[key] = item
+    return sanitized
+
+
+def answer_validation_metadata(validation):
+    """Compatibility name for the sanitized answer-validation metadata view."""
+    return validation_metadata(validation)
+
+
 SCEN_DIR = ROOT / "datasets/validation/scenarios"
 CHART_DIR = ROOT / "datasets/validation/charts"
 
@@ -171,9 +230,13 @@ def main() -> None:
                                  (scen.get("turns") or [{}])[0].get("question")),
                 "answer_section": ans,
                 "in_depth_section": indepth,
-                "answer_validation": resp.get("answerValidation"),
+                "answer_validation": answer_validation_metadata(
+                    resp.get("answerValidation")
+                ),
                 "in_depth_status": indepth_artifact["status"],
-                "in_depth_validation": indepth_artifact["validation"],
+                "in_depth_validation": validation_metadata(
+                    indepth_artifact["validation"]
+                ),
                 "indepth_latency_ms": indepth_artifact["latency_ms"],
                 "references": evidence_response.get("references") or [],
                 "sources": sources_v1.get("sources") or [],
@@ -186,6 +249,9 @@ def main() -> None:
             arm_model_name(backend_id),
             final_row.get("started_at"),
             final_row.get("ended_at"),
+            question=(final_row.get("request") or {}).get("question"),
+            session=(final_row.get("request") or {}).get("session"),
+            request_id=(final_row.get("request") or {}).get("request_id"),
         ) or {}
         cres = resolve_citations(final["references"], valid)
         has_in_depth = bool(final["in_depth_section"])
@@ -212,7 +278,7 @@ def main() -> None:
             "citation_resolution": cres,
             "sources": final.get("sources") or [],
             "source_diagnostics": final.get("source_diagnostics") or {},
-            "temporal_gate": trace.get("temporal_gate"),
+            "temporal_gate": validation_metadata(trace.get("temporal_gate")),
             "temporal_facts_summary": trace.get("temporal_facts_summary"),
         })
 
