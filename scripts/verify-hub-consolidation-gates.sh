@@ -380,6 +380,8 @@ if missing_pattern "$legacy_java" "$CSAI/api/src/main" "$CSAI/omod/src/main" \
   && missing_pattern 'timeout\(Duration\.ofSeconds\([0-9]+\)\)' "$CSAI/omod/src/main/java/org/openmrs/module/chartsearchai/web/rest/ChartSearchAiRestController.java" \
   && has_pattern 'hubRelay' "$CSAI/omod/src/main" \
   && has_pattern 'buildHubRelayHttpRequest_shouldNotImposeAWholeProfileTimeout' "$CSAI/omod/src/test" \
+  && has_pattern 'hubRequestCount\.incrementAndGet' "$CSAI/omod/src/test" \
+  && has_pattern 'assertEquals\(1, hubRequestCount\.get' "$CSAI/omod/src/test" \
   && has_pattern 'require_product_profile' "$CSAI/omod/src/main" "$CSAI/omod/src/test" \
   && has_pattern 'the hub product profile, not the Java relay, owns the answer schema' "$CSAI/omod/src/test"; then
   record G15 PASS "Java is a thin hub relay without a whole-profile timeout; the hub owns prompts, output schema, and inference"

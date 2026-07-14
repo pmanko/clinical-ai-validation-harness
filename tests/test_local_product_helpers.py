@@ -98,6 +98,8 @@ def test_architecture_gates_use_the_reactor_valid_java_lifecycle():
     assert "-Dtest=ChatServiceHubWireTest,ChartSearchAiStreamingTest" not in consolidation
     assert 'exec "${ROOT}/scripts/verify-hub-consolidation-gates.sh" "$@"' in stage
     assert "mvn" not in stage
+    assert "hubRequestCount\\.incrementAndGet" in consolidation
+    assert "assertEquals\\(1, hubRequestCount\\.get" in consolidation
 
 
 def test_source_gate_requires_the_real_querystore_mysql_adapter():
