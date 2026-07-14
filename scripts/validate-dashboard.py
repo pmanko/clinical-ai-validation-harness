@@ -430,7 +430,7 @@ table.ac-knobs{border-collapse:collapse;font-size:10.5px;margin-top:2px}
 <div id=prog class=muted></div>
 <section><h2>Models resident (llama-router)</h2><div id=models></div></section>
 <section><h2>Arms</h2><div class=row id=arms></div></section>
-<section><h2>Combined judged scores</h2><div id=judges></div></section>
+<section><h2>Judged scores</h2><div id=judges></div></section>
 <section><h2>Scenario &times; arm &nbsp;<span class=muted>(click a cell)</span></h2><div id=grid></div></section>
 <section><h2>Recent &nbsp;<span class=muted>(click a row)</span></h2><div class=feed id=feed></div></section>
 <div id=modal onclick="if(event.target===this)closeD()"><div id=mbody></div></div>
@@ -541,18 +541,24 @@ function renderArmCards(d){
  });
  return h+"</div>";
 }
-function renderJudgeCombined(d){
- const rows=(d.judge_combined||[]).filter(s=>(s.n_actors||0)>1&&s.benchmark_score!=null)
+function renderJudgeScores(d){
+ const rows=(d.judge_combined||[]).filter(s=>(s.n_actors||0)>=1&&s.benchmark_score!=null)
   .sort((a,b)=>(b.benchmark_score||0)-(a.benchmark_score||0));
- if(!rows.length)return '<span class=muted>no multi-judge score yet</span>';
+ if(!rows.length)return '<span class=muted>no judged score yet</span>';
  const actors=(d.judge_actors||[]).join(', ');
- let h='<p class=judge-note>Combined = each cell averaged across independent judges, then averaged per arm. Range and max Δ show judge disagreement. Actors: '+esc(actors)+'</p>';
- h+='<table class=judge-table><thead><tr><th>setup</th><th>combined</th><th>actor range</th><th>mean Δ/cell</th><th>max Δ cell</th></tr></thead><tbody>';
+ const multi=rows.some(s=>(s.n_actors||0)>1);
+ let note=multi
+  ?'Combined = each cell averaged across independent judges, then averaged per arm. Range and max Δ show judge disagreement.'
+  :'Score from one independent judge. Add another judge to show disagreement ranges.';
+ let h='<p class=judge-note>'+note+' Actors: '+esc(actors)+'</p>';
+ h+='<table class=judge-table><thead><tr><th>setup</th><th>score</th><th>actors</th><th>cell range</th><th>actor range</th><th>mean Δ/cell</th><th>max Δ cell</th></tr></thead><tbody>';
  rows.forEach(s=>{
   const ar=s.actor_range||{}, sp=s.benchmark_spread||{};
   const maxCell=s.max_cell_delta_scenario?(esc(s.max_cell_delta_scenario)+' · '+fmt10(s.max_cell_delta)):'—';
   h+='<tr><td title="'+esc(s.backend)+'">'+esc(armTitle(s.backend))+'</td>'
-   +'<td><span class=score>'+fmt10(s.benchmark_score)+'</span> <span class=muted>'+fmt10(sp.min)+'–'+fmt10(sp.max)+'</span></td>'
+   +'<td><span class=score>'+fmt10(s.benchmark_score)+'</span></td>'
+   +'<td>'+(s.n_actors||0)+'</td>'
+   +'<td>'+(sp.min==null?'—':fmt10(sp.min)+'–'+fmt10(sp.max))+'</td>'
    +'<td>'+(ar.min==null?'—':fmt10(ar.min)+'–'+fmt10(ar.max))+'</td>'
    +'<td>'+fmt10(s.mean_abs_delta)+'</td><td>'+maxCell+'</td></tr>';
  });
@@ -585,7 +591,7 @@ async function tick(){
  models.innerHTML=(d.models||[]).map(m=>'<span class=chip>'+m+'</span>').join('')||'<span class=muted>none resident</span>';
  arms.innerHTML=renderArmCards(d);
  restoreOpenDetails(arms);   // re-apply the user's expanded config/full-prompt panels after the re-render
- judges.innerHTML=renderJudgeCombined(d);
+ judges.innerHTML=renderJudgeScores(d);
  const gm={};(d.grid||[]).forEach(g=>gm[g.scenario+'|'+g.backend]=g.state);
  let h='<table class=grid><tr><th></th>'+(d.backends||[]).map(b=>'<th title="'+esc(b)+'">'+esc(armTitle(b))+'</th>').join('')+'</tr>';
  (d.scenarios||[]).forEach(s=>{h+='<tr><th>'+s+'</th>'+(d.backends||[]).map(b=>{const st=gm[s+'|'+b];
