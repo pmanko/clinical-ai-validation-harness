@@ -58,6 +58,7 @@ def test_probe_requires_answer_done_and_hydrated_same_row(monkeypatch):
         "references": [
             {
                 "index": 1,
+                "source": "querystore",
                 "resolutionStatus": "resolved",
                 "groundingStatus": "verified",
             }
@@ -147,6 +148,8 @@ def test_probe_requires_answer_done_and_hydrated_same_row(monkeypatch):
     assert result["audit_log_id"] == 42
     assert result["answer_validation"] == {"status": "checked", "label": "Checked"}
     assert result["reference_count"] == 1
+    assert result["reference_sources"] == ["querystore"]
+    assert result["querystore_reference_count"] == 1
     assert result["in_depth_status"] == "complete"
     assert result["in_depth_terminal_event"] == "indepth_done"
     assert result["final_envelope_sha256"] == result["hydrated_envelope_sha256"]
@@ -188,6 +191,26 @@ def test_stream_probe_rejects_error_event(monkeypatch):
         assert "context source unavailable" in str(exc)
     else:
         raise AssertionError("expected relay error")
+
+
+def test_probe_rejects_turn_without_live_querystore_evidence(monkeypatch):
+    monkeypatch.setattr(
+        probe,
+        "_stream_turn",
+        lambda *_args, **_kwargs: {"querystore_reference_count": 0},
+    )
+
+    with pytest.raises(RuntimeError, match="live Querystore patient source"):
+        probe.probe_relay(
+            "http://openmrs/openmrs",
+            patient="patient-1",
+            profile="single-e4b-checked",
+            question="Latest visit?",
+            username="admin",
+            password="secret",
+            timeout=30,
+            clear_after=False,
+        )
 
 
 def test_stream_probe_rejects_incomplete_review_sequence(monkeypatch):
@@ -730,14 +753,19 @@ def test_artifact_content_rejects_missing_path(tmp_path):
 def test_runtime_identity_binds_built_and_deployed_artifacts(tmp_path, monkeypatch):
     monkeypatch.setattr(probe, "ROOT", tmp_path)
     chartsearchai = tmp_path / "targets" / "chartsearchai"
+    querystore = tmp_path / "targets" / "querystore"
     esm_repo = tmp_path / "targets" / "chartsearchai-esm"
     hub_repo = tmp_path / "targets" / "med-agent-hub"
-    for repo in (chartsearchai, esm_repo, hub_repo):
+    for repo in (chartsearchai, querystore, esm_repo, hub_repo):
         repo.mkdir(parents=True)
 
     omod = tmp_path / "artifacts/openmrs/modules/chartsearchai-1.0.0-SNAPSHOT.omod"
     omod.parent.mkdir(parents=True)
     omod.write_bytes(b"omod")
+    querystore_omod = (
+        tmp_path / "artifacts/openmrs/modules/querystore-1.0.0-SNAPSHOT.omod"
+    )
+    querystore_omod.write_bytes(b"querystore-omod")
     esm = tmp_path / "artifacts/openmrs/spa-custom"
     esm.mkdir(parents=True)
     (esm / "app.js").write_bytes(b"esm")
@@ -764,6 +792,16 @@ def test_runtime_identity_binds_built_and_deployed_artifacts(tmp_path, monkeypat
     )
     deployed_manifest.parent.mkdir(parents=True)
     deployed_manifest.write_text(json.dumps(omod_provenance), encoding="utf-8")
+    querystore_manifest = Path(f"{querystore_omod}.provenance.json")
+    querystore_provenance = write_provenance(
+        querystore, querystore_omod, querystore_manifest
+    )
+    deployed_querystore_manifest = (
+        tmp_path / "artifacts/chartsearchai-local/deployed-querystore-omod.json"
+    )
+    deployed_querystore_manifest.write_text(
+        json.dumps(querystore_provenance), encoding="utf-8"
+    )
     (esm / "importmap.json").write_text(
         json.dumps(
             {
@@ -812,7 +850,8 @@ def test_runtime_identity_binds_built_and_deployed_artifacts(tmp_path, monkeypat
                 ]
             )
         if args[:2] == ["docker", "exec"]:
-            return f"{probe._sha256(omod)}  chartsearchai.omod\n"
+            mounted = querystore_omod if "querystore" in args[-1] else omod
+            return f"{probe._sha256(mounted)}  {mounted.name}\n"
         raise AssertionError(args)
 
     monkeypatch.setattr(probe.subprocess, "check_output", check_output)
@@ -830,6 +869,16 @@ def test_runtime_identity_binds_built_and_deployed_artifacts(tmp_path, monkeypat
         "revision": "med-agent-hub-commit",
     }
     assert identity["artifacts"]["chartsearchai_omod"]["mounted_sha256"] == probe._sha256(omod)
+    assert identity["querystore"] == {
+        "commit": "querystore-commit",
+        "tree_clean": True,
+    }
+    assert identity["artifacts"]["querystore_omod"]["mounted_sha256"] == probe._sha256(
+        querystore_omod
+    )
+    assert identity["artifacts"]["querystore_omod"]["deployed_provenance_path"] == (
+        "artifacts/chartsearchai-local/deployed-querystore-omod.json"
+    )
     assert identity["artifacts"]["chartsearchai_esm"]["served_files"] == {
         "app.js": probe._sha256(esm / "app.js"),
         "importmap.json": probe._sha256(esm / "importmap.json"),

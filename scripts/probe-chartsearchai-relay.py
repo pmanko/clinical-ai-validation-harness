@@ -186,6 +186,12 @@ def _runtime_identity(openmrs_url: str) -> dict[str, Any]:
             ROOT
             / "artifacts/openmrs/modules/chartsearchai-1.0.0-SNAPSHOT.omod.provenance.json",
         ),
+        "querystore_omod": (
+            ROOT / "targets/querystore",
+            ROOT / "artifacts/openmrs/modules/querystore-1.0.0-SNAPSHOT.omod",
+            ROOT
+            / "artifacts/openmrs/modules/querystore-1.0.0-SNAPSHOT.omod.provenance.json",
+        ),
         "chartsearchai_esm": (
             ROOT / "targets/chartsearchai-esm",
             ROOT / "artifacts/openmrs/spa-custom",
@@ -196,23 +202,37 @@ def _runtime_identity(openmrs_url: str) -> dict[str, Any]:
         name: _artifact_identity(name, repo, artifact, manifest)
         for name, (repo, artifact, manifest) in artifact_specs.items()
     }
-    deployed_manifest = ROOT / "artifacts/chartsearchai-local/deployed-chartsearchai-omod.json"
-    if not deployed_manifest.is_file():
-        raise RuntimeError("deployed ChartSearchAI module provenance is missing")
-    if json.loads(deployed_manifest.read_text()) != artifacts["chartsearchai_omod"][
-        "provenance"
-    ]:
-        raise RuntimeError("deployed ChartSearchAI module provenance is stale")
-    mounted_omod_sha256 = subprocess.check_output(
-        [
-            "docker",
-            "exec",
-            "harness-openmrs-backend",
-            "sha256sum",
+    module_specs = {
+        "chartsearchai_omod": (
+            ROOT / "artifacts/chartsearchai-local/deployed-chartsearchai-omod.json",
             "/openmrs/data/modules/chartsearchai-1.0.0-SNAPSHOT.omod",
-        ],
-        text=True,
-    ).split()[0]
+        ),
+        "querystore_omod": (
+            ROOT / "artifacts/chartsearchai-local/deployed-querystore-omod.json",
+            "/openmrs/data/modules/querystore-1.0.0-SNAPSHOT.omod",
+        ),
+    }
+    for name, (deployed_manifest, mounted_path) in module_specs.items():
+        if not deployed_manifest.is_file():
+            raise RuntimeError(f"deployed {name} provenance is missing")
+        if json.loads(deployed_manifest.read_text()) != artifacts[name]["provenance"]:
+            raise RuntimeError(f"deployed {name} provenance is stale")
+        mounted_sha256 = subprocess.check_output(
+            [
+                "docker",
+                "exec",
+                "harness-openmrs-backend",
+                "sha256sum",
+                mounted_path,
+            ],
+            text=True,
+        ).split()[0]
+        if mounted_sha256 != artifacts[name]["sha256"]:
+            raise RuntimeError(f"mounted {name} differs from the staged artifact")
+        artifacts[name]["mounted_sha256"] = mounted_sha256
+        artifacts[name]["deployed_provenance_path"] = str(
+            deployed_manifest.relative_to(ROOT)
+        )
     esm = artifacts["chartsearchai_esm"]
     served_files: dict[str, str] = {}
     for item in esm.get("files") or []:
@@ -229,12 +249,6 @@ def _runtime_identity(openmrs_url: str) -> dict[str, Any]:
     expected_target = "./openmrs-esm-chartsearchai-app-multiturn/openmrs-esm-chartsearchai-app.js"
     if import_target != expected_target:
         raise RuntimeError("served ChartSearchAI import-map target is not the staged bundle")
-    if mounted_omod_sha256 != artifacts["chartsearchai_omod"]["sha256"]:
-        raise RuntimeError("mounted ChartSearchAI module differs from the staged artifact")
-    artifacts["chartsearchai_omod"]["mounted_sha256"] = mounted_omod_sha256
-    artifacts["chartsearchai_omod"]["deployed_provenance_path"] = str(
-        deployed_manifest.relative_to(ROOT)
-    )
     artifacts["chartsearchai_esm"]["import_map_target"] = import_target
     artifacts["chartsearchai_esm"]["served_files"] = served_files
     return {
@@ -242,6 +256,7 @@ def _runtime_identity(openmrs_url: str) -> dict[str, Any]:
         "med_agent_hub": _git_identity(ROOT / "targets/med-agent-hub"),
         "chartsearchai": _git_identity(ROOT / "targets/chartsearchai"),
         "chartsearchai_esm": _git_identity(ROOT / "targets/chartsearchai-esm"),
+        "querystore": _git_identity(ROOT / "targets/querystore"),
         "deployment": {
             "container_id": container["Id"],
             "image_id": image_id,
@@ -422,6 +437,16 @@ def _stream_turn(
         for reference in references
     ):
         raise RuntimeError("checked answer retained unresolved or unsupported evidence")
+    reference_sources = sorted(
+        {
+            str(reference.get("source"))
+            for reference in references
+            if str(reference.get("source") or "").strip()
+        }
+    )
+    querystore_reference_count = sum(
+        reference.get("source") == "querystore" for reference in references
+    )
     in_depth = final.get("inDepth") or {}
     terminal_event = event_names[-2]
     terminal_payload = phase_payloads[terminal_event]
@@ -448,6 +473,8 @@ def _stream_turn(
         "final_answer": final.get("answer") or "",
         "final_answer_validation": validation,
         "final_reference_count": len(references),
+        "reference_sources": reference_sources,
+        "querystore_reference_count": querystore_reference_count,
         "final_in_depth": in_depth,
         "in_depth_terminal_event": terminal_event,
         "final_envelope_sha256": _canonical_sha256(final),
@@ -529,6 +556,8 @@ def probe_relay(
         password=password,
         timeout=timeout,
     )
+    if streamed["querystore_reference_count"] <= 0:
+        raise RuntimeError("relay proof did not use the live Querystore patient source")
 
     history_url = f"{api}/chat?{urllib.parse.urlencode({'patient': patient})}"
     history: dict[str, Any] | None = None
@@ -577,6 +606,8 @@ def probe_relay(
         "done_ms": streamed["done_ms"],
         "answer_validation": streamed["final_answer_validation"],
         "reference_count": streamed["final_reference_count"],
+        "reference_sources": streamed["reference_sources"],
+        "querystore_reference_count": streamed["querystore_reference_count"],
         "in_depth_status": streamed["final_in_depth"].get("status"),
         "in_depth_terminal_event": streamed["in_depth_terminal_event"],
         "events": streamed["event_names"],

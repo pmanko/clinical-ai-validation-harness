@@ -31,7 +31,7 @@ def test_local_default_configures_only_the_hub_product_service():
     assert "CHARTSEARCH_LOCAL_WARM=off" in example
 
 
-def test_local_router_keeps_the_two_small_product_models_resident():
+def test_local_default_declares_two_router_slots_and_live_residency_proof():
     example = _read(".env.chartsearch.example")
     local = _read("scripts/chartsearchai-local.sh")
     makefile = _read("Makefile")
@@ -40,6 +40,53 @@ def test_local_router_keeps_the_two_small_product_models_resident():
     assert 'LLAMA_ROUTER_MODELS_MAX="${LLAMA_ROUTER_MODELS_MAX:-2}"' in local
     assert "llama-router-small-model-proof:" in makefile
     assert "verify-small-model-residency.py" in makefile
+
+
+def test_router_launcher_forwards_configured_small_model_limit(tmp_path):
+    example = _read(".env.chartsearch.example")
+    configured = next(
+        line.split("=", 1)[1]
+        for line in example.splitlines()
+        if line.startswith("LLAMA_ROUTER_MODELS_MAX=")
+    )
+    fake_bin = tmp_path / "bin"
+    fake_bin.mkdir()
+    capture = tmp_path / "llama-server-args.txt"
+    llama_server = fake_bin / "llama-server"
+    llama_server.write_text(
+        '#!/bin/sh\nprintf "%s\\n" "$@" > "$LLAMA_ARGS_CAPTURE"\n',
+        encoding="utf-8",
+    )
+    llama_server.chmod(0o755)
+    model_dir = tmp_path / "models"
+    model_dir.mkdir()
+    home = tmp_path / "home"
+    home.mkdir()
+    env = os.environ.copy()
+    env.update(
+        {
+            "HOME": str(home),
+            "PATH": f"{fake_bin}{os.pathsep}{env['PATH']}",
+            "LLAMA_ARGS_CAPTURE": str(capture),
+            "LLAMA_MODEL_DIR": str(model_dir),
+            "LLAMA_ROUTER_MODELS_MAX": configured,
+        }
+    )
+
+    subprocess.run(
+        ["bash", str(ROOT / "scripts/llama-router-up.sh")],
+        cwd=ROOT,
+        env=env,
+        check=True,
+    )
+
+    args = capture.read_text(encoding="utf-8").splitlines()
+    assert configured == "2"
+    assert args[args.index("--models-max") + 1] == configured
+    assert args[args.index("--port") + 1] == "8077"
+    assert args[args.index("--models-preset") + 1] == str(
+        ROOT / "scripts/llama-router.ini"
+    )
 
 
 def test_chartsearch_configure_writes_only_current_hub_properties():

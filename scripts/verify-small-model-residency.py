@@ -26,6 +26,15 @@ def _sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def _configured_default_models_max() -> int:
+    path = ROOT / ".env.chartsearch.example"
+    for raw_line in path.read_text(encoding="utf-8").splitlines():
+        key, separator, value = raw_line.partition("=")
+        if separator and key.strip() == "LLAMA_ROUTER_MODELS_MAX":
+            return int(value.strip().strip("\"'"))
+    raise RuntimeError(".env.chartsearch.example lacks LLAMA_ROUTER_MODELS_MAX")
+
+
 def _request_json(
     url: str,
     *,
@@ -101,11 +110,29 @@ def verify_residency(
     ]
     after = _model_states(normalized_url, timeout=timeout)
     observed = {model: after.get(model, "missing") for model in models}
-    passed = all(status == "loaded" for status in observed.values())
+    configured_max = _configured_default_models_max()
+    co_resident = all(status == "loaded" for status in observed.values())
+    configured_for_models = configured_max >= len(models)
+    passed = co_resident and configured_for_models
+    failure = None
+    if not configured_for_models:
+        failure = (
+            f"The local default allows {configured_max} resident model(s), "
+            f"but this proof requires {len(models)}."
+        )
+    elif not co_resident:
+        failure = "Both small models were not resident after sequential invocation."
     return {
         "schema_version": "llama_router_small_model_residency.v1",
         "created_at": datetime.now(timezone.utc).isoformat(),
         "router_url": normalized_url,
+        "configured_default_models_max": configured_max,
+        "proof_scope": {
+            "configured_default": "fresh chartsearchai-local launch",
+            "observed_runtime": (
+                "co-residency; an existing compatible router may have a larger limit"
+            ),
+        },
         "inputs": {
             "script": {
                 "path": "scripts/verify-small-model-residency.py",
@@ -115,15 +142,25 @@ def verify_residency(
                 "path": "scripts/llama-router.ini",
                 "sha256": _sha256(ROOT / "scripts/llama-router.ini"),
             },
+            "router_launcher": {
+                "path": "scripts/llama-router-up.sh",
+                "sha256": _sha256(ROOT / "scripts/llama-router-up.sh"),
+            },
+            "local_launcher": {
+                "path": "scripts/chartsearchai-local.sh",
+                "sha256": _sha256(ROOT / "scripts/chartsearchai-local.sh"),
+            },
+            "local_defaults": {
+                "path": ".env.chartsearch.example",
+                "sha256": _sha256(ROOT / ".env.chartsearch.example"),
+            },
         },
         "models": list(models),
         "before": {model: before[model] for model in models},
         "calls": calls,
         "after": observed,
         "passed": passed,
-        "failure": None
-        if passed
-        else "Both small models were not resident after sequential invocation.",
+        "failure": failure,
     }
 
 

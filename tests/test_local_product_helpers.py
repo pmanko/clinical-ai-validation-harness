@@ -77,6 +77,18 @@ def test_small_model_residency_invokes_both_models_and_proves_loaded(monkeypatch
 
     assert result["passed"] is True
     assert result["after"] == {"gemma-e2b": "loaded", "gemma-e4b": "loaded"}
+    assert result["configured_default_models_max"] == 2
+    assert result["proof_scope"] == {
+        "configured_default": "fresh chartsearchai-local launch",
+        "observed_runtime": "co-residency; an existing compatible router may have a larger limit",
+    }
+    assert set(result["inputs"]) == {
+        "script",
+        "router_preset",
+        "router_launcher",
+        "local_launcher",
+        "local_defaults",
+    }
     assert [json.loads(request.data)["model"] for request in requests if request.data] == [
         "gemma-e2b",
         "gemma-e4b",
@@ -112,6 +124,41 @@ def test_small_model_residency_fails_if_second_load_evicts_first(monkeypatch):
 
     assert result["passed"] is False
     assert result["failure"]
+
+
+def test_small_model_residency_fails_if_fresh_launch_default_is_too_small(
+    monkeypatch,
+):
+    responses = iter(
+        [
+            {
+                "data": [
+                    {"id": "gemma-e2b", "status": {"value": "loaded"}},
+                    {"id": "gemma-e4b", "status": {"value": "loaded"}},
+                ]
+            },
+            {"id": "e2", "model": "gemma-e2b", "choices": [{}]},
+            {"id": "e4", "model": "gemma-e4b", "choices": [{}]},
+            {
+                "data": [
+                    {"id": "gemma-e2b", "status": {"value": "loaded"}},
+                    {"id": "gemma-e4b", "status": {"value": "loaded"}},
+                ]
+            },
+        ]
+    )
+    monkeypatch.setattr(
+        residency.urllib.request,
+        "urlopen",
+        lambda *_args, **_kwargs: _JsonResponse(next(responses)),
+    )
+    monkeypatch.setattr(residency, "_configured_default_models_max", lambda: 1)
+
+    result = residency.verify_residency("http://router")
+
+    assert result["after"] == {"gemma-e2b": "loaded", "gemma-e4b": "loaded"}
+    assert result["passed"] is False
+    assert "allows 1 resident model" in result["failure"]
 
 
 def test_companion_test_entrypoints_are_executable_and_parse():
@@ -167,7 +214,9 @@ def test_local_setup_gate_requires_a_real_relay_and_hydration_proof():
     assert 'residency["after"] == {"gemma-e2b": "loaded", "gemma-e4b": "loaded"}' in gate
     assert 'identity["deployment"]["revision"] == identity["med_agent_hub"]["commit"]' in gate
     assert 'identity[name]["tree_clean"] is True' in gate
-    assert 'omod["mounted_sha256"] == omod["sha256"]' in gate
+    assert 'module["mounted_sha256"] == module["sha256"]' in gate
+    assert 'querystore["commit"]' in gate
+    assert 'proof["querystore_reference_count"] > 0' in gate
     assert 'proof["final_envelope_sha256"] == proof["hydrated_envelope_sha256"]' in gate
     assert 'esm["served_files"]' in gate
     assert 'esm["import_map_target"]' in gate
@@ -191,13 +240,15 @@ def test_architecture_gates_use_the_reactor_valid_java_lifecycle():
     assert "test_streaming_and_blocking_adapters_use_the_same_stage_engine" in consolidation
 
 
-def test_source_gate_requires_the_real_querystore_mysql_adapter():
+def test_source_gate_requires_the_exact_live_querystore_adapter_path():
     gate = (ROOT / "scripts" / "verify-hub-consolidation-gates.sh").read_text(
         encoding="utf-8"
     )
 
-    assert '"$ROOT/scripts/test-querystore.sh" mysql-integration' in gate
-    assert "RUN_E2E=1 is required for the MySQL Querystore adapter proof" in gate
+    assert 'proof["querystore_reference_count"] > 0' in gate
+    assert '"querystore" in proof["reference_sources"]' in gate
+    assert 'querystore["commit"]' in gate
+    assert "exact deployed Querystore adapter proof" in gate
 
 
 def test_code_qa_gate_is_hash_bound_and_rejects_blockers():

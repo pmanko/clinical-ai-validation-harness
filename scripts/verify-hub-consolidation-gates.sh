@@ -189,6 +189,7 @@ else
 fi
 
 # G07-G09: context-source and exact-budget implementation/evidence.
+relay_probe="$ROOT/artifacts/chartsearchai-local/relay-probe.json"
 source_contracts_ok=0
 if [[ -f "$HUB/server/context_sources.py" && -f "$HUB/tests/test_context_sources.py" ]] \
   && missing_pattern 'from \.querystore_client import QueryStoreClient' "$HUB/server/team.py" \
@@ -202,11 +203,32 @@ fi
 if [[ $source_contracts_ok -ne 1 ]]; then
   record G07 FAIL "context source registry, failure, or credential contract is incomplete"
 elif [[ "$RUN_E2E" != "1" ]]; then
-  record G07 PENDING "source contracts passed; RUN_E2E=1 is required for the MySQL Querystore adapter proof"
-elif "$ROOT/scripts/test-querystore.sh" mysql-integration >/tmp/hub-g07-querystore-integration.log 2>&1; then
-  record G07 PASS "source contracts and real MySQL Querystore adapter test passed"
+  record G07 PENDING "source contracts passed; RUN_E2E=1 is required for the exact deployed Querystore adapter proof"
+elif [[ -s "$relay_probe" ]] \
+  && "$ROOT/.venv/bin/python" - "$ROOT" "$relay_probe" <<'PY'
+import json
+import subprocess
+import sys
+from pathlib import Path
+
+root = Path(sys.argv[1]).resolve()
+proof = json.loads(Path(sys.argv[2]).read_text())
+identity = proof["runtime_identity"]
+querystore = identity["querystore"]
+assert querystore["tree_clean"] is True
+assert querystore["commit"] == subprocess.check_output(
+    ["git", "rev-parse", "HEAD"], cwd=root / "targets/querystore", text=True
+).strip()
+assert proof["querystore_reference_count"] > 0
+assert "querystore" in proof["reference_sources"]
+module = identity["artifacts"]["querystore_omod"]
+assert module["provenance"]["source_commit"] == querystore["commit"]
+assert module["mounted_sha256"] == module["sha256"]
+PY
+then
+  record G07 PASS "source contracts and exact deployed Querystore adapter proof passed"
 else
-  record G07 FAIL "real MySQL Querystore adapter test failed"
+  record G07 FAIL "exact deployed Querystore adapter proof failed"
 fi
 
 if has_pattern 'class TokenCounter' "$HUB/server" \
@@ -456,7 +478,6 @@ else
 fi
 
 # G19-G21: portable local setup, latency, and evaluation evidence.
-relay_probe="$ROOT/artifacts/chartsearchai-local/relay-probe.json"
 residency_probe="$ROOT/artifacts/chartsearchai-local/small-model-residency.json"
 if ! has_pattern '^chartsearchai-local:' "$ROOT/Makefile" \
   || ! has_pattern 'probe-chartsearchai-relay.py' "$ROOT/scripts/chartsearchai-local.sh" \
@@ -476,6 +497,8 @@ proof = json.loads(Path(sys.argv[2]).read_text())
 residency = json.loads(Path(sys.argv[3]).read_text())
 assert residency["schema_version"] == "llama_router_small_model_residency.v1"
 assert residency["models"] == ["gemma-e2b", "gemma-e4b"]
+assert residency["configured_default_models_max"] >= len(residency["models"])
+assert residency["proof_scope"]["configured_default"] == "fresh chartsearchai-local launch"
 assert residency["passed"] is True and residency["failure"] is None
 assert residency["after"] == {"gemma-e2b": "loaded", "gemma-e4b": "loaded"}
 assert [call["model"] for call in residency["calls"]] == residency["models"]
@@ -485,6 +508,8 @@ for item in residency["inputs"].values():
     assert hashlib.sha256(path.read_bytes()).hexdigest() == item["sha256"]
 assert proof["schema_version"] == "chartsearchai_relay_probe.v2"
 assert proof["profile"] == "single-e4b-checked"
+assert proof["querystore_reference_count"] > 0
+assert "querystore" in proof["reference_sources"]
 assert proof["hydrated"] is True and proof["cleared_after"] is True
 assert proof["session"] and proof["message_id"] and proof["answer_done_ms"] > 0
 assert isinstance(proof["audit_log_id"], int) and proof["audit_log_id"] > 0
@@ -510,6 +535,7 @@ repos = {
     "med_agent_hub": root / "targets/med-agent-hub",
     "chartsearchai": root / "targets/chartsearchai",
     "chartsearchai_esm": root / "targets/chartsearchai-esm",
+    "querystore": root / "targets/querystore",
 }
 identity = proof["runtime_identity"]
 for name, path in repos.items():
@@ -538,21 +564,29 @@ for artifact in list(identity["artifacts"].values()) + list(identity["configurat
     assert current["sha256"] == artifact["sha256"]
     if artifact.get("kind") == "directory":
         assert current["files"] == artifact["files"]
-omod = identity["artifacts"]["chartsearchai_omod"]
 esm = identity["artifacts"]["chartsearchai_esm"]
-assert omod["mounted_sha256"] == omod["sha256"]
+for module_name in ("chartsearchai_omod", "querystore_omod"):
+    module = identity["artifacts"][module_name]
+    assert module["mounted_sha256"] == module["sha256"]
 assert esm["served_files"] == {item["path"]: item["sha256"] for item in esm["files"]}
 assert esm["import_map_target"] == "./openmrs-esm-chartsearchai-app-multiturn/openmrs-esm-chartsearchai-app.js"
+artifact_sources = {
+    "chartsearchai_omod": "chartsearchai",
+    "querystore_omod": "querystore",
+    "chartsearchai_esm": "chartsearchai_esm",
+}
 for name, artifact in identity["artifacts"].items():
     provenance_path = root / artifact["provenance_path"]
     assert provenance_path.is_file()
     provenance = json.loads(provenance_path.read_text())
     assert provenance == artifact["provenance"]
     assert provenance["source_tree_clean"] is True
-    source_name = "chartsearchai" if name == "chartsearchai_omod" else "chartsearchai_esm"
+    source_name = artifact_sources[name]
     assert provenance["source_commit"] == identity[source_name]["commit"]
-deployed = root / omod["deployed_provenance_path"]
-assert json.loads(deployed.read_text()) == omod["provenance"]
+for module_name in ("chartsearchai_omod", "querystore_omod"):
+    module = identity["artifacts"][module_name]
+    deployed = root / module["deployed_provenance_path"]
+    assert json.loads(deployed.read_text()) == module["provenance"]
 PY
 then
   record G19 PASS "portable local startup proved relay hydration and E2B/E4B co-residency"
