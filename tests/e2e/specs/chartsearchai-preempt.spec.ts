@@ -85,13 +85,15 @@ test.describe('chartsearchai — preempt frees the router slot mid-leg', () => {
     await openAiChatPanel(page);
     await selectFastE4BModel(page);
 
-    // Q1 — a normal turn allowed to finish completely, establishing the session is healthy before
-    // the actual preempt assertion (isolates "preempt is broken" from "the session itself is broken").
+    // Q1 reaches a healthy terminal state before the actual preempt assertion. A safety-withheld
+    // In-Depth is valid here; a transport/runtime failure is not.
     await typeAndSend(page, HEALTH_QUESTION);
     await waitTurnPhase(page, 0, 'complete');
-    await expect(page.locator('[data-indepth-status]').nth(0)).toHaveAttribute('data-indepth-status', 'complete', {
-      timeout: 360_000,
-    });
+    await expect(page.locator('[data-indepth-status]').nth(0)).toHaveAttribute(
+      'data-indepth-status',
+      /^(complete|needs_review)$/,
+      { timeout: 360_000 },
+    );
 
     // Review can withhold In-Depth, so try a small fixed set instead of relying on one draft.
     const preempted = await findPreemptibleTurn(page);
