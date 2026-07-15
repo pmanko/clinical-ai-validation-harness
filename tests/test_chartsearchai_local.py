@@ -28,14 +28,18 @@ def test_local_default_configures_only_the_hub_product_service():
     assert "CHARTSEARCH_REMOTE_ENDPOINTS" not in example
     assert "LM Studio" not in example
     assert "lmstudio" not in example.lower()
+    assert "CHARTSEARCH_LOCAL_WARM=off" in example
 
 
 def test_local_router_keeps_the_two_small_product_models_resident():
     example = _read(".env.chartsearch.example")
     local = _read("scripts/chartsearchai-local.sh")
+    makefile = _read("Makefile")
 
     assert "LLAMA_ROUTER_MODELS_MAX=2" in example
     assert 'LLAMA_ROUTER_MODELS_MAX="${LLAMA_ROUTER_MODELS_MAX:-2}"' in local
+    assert "llama-router-small-model-proof:" in makefile
+    assert "verify-small-model-residency.py" in makefile
 
 
 def test_chartsearch_configure_writes_only_current_hub_properties():
@@ -182,7 +186,7 @@ def test_querystore_recreate_is_explicit_and_read_store_scoped():
     assert '[[ "${generation_state}" == "complete" ]]' in script
 
 
-def test_local_startup_provisions_source_before_starting_and_warming_hub():
+def test_local_startup_keeps_optional_test_warmup_before_relay_proof():
     script = _read("scripts/chartsearchai-local.sh")
 
     provision = script.index("provision-querystore-service-account.py")
@@ -196,6 +200,8 @@ def test_local_startup_provisions_source_before_starting_and_warming_hub():
     assert '--patient "${DEFAULT_PATIENT}"' in script
     assert '--question "${WARM_QUESTION}"' in script
     assert 'WARM_QUESTION="${CHARTSEARCH_LOCAL_WARM_QUESTION:-' in script
+    assert 'WARM_MODE="${CHARTSEARCH_LOCAL_WARM:-off}"' in script
+    assert 'if [ "${WARM_MODE}" != "off" ]; then' in script
 
 
 def test_demo_warmup_primes_the_real_patient_and_exact_first_question():

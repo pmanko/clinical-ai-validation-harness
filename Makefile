@@ -190,6 +190,11 @@ llama-router-models:
 	  | python3 -c "import sys,json; d=json.load(sys.stdin); ms=d.get('data',[]); print('models on :8077:' if ms else 'no models loaded'); [print(f'  - {m[\"id\"]}') for m in ms]" \
 	  || { echo "llama-router not reachable on :8077 — start it: make llama-router-up"; exit 1; }
 
+# Explicit test/demo proof that the E2B writer and E4B checking model remain
+# loaded together. This is deliberately separate from normal local startup.
+llama-router-small-model-proof:
+	@python3 scripts/verify-small-model-residency.py
+
 # --- med-agent-hub ---
 # Builds/runs the profile-driven inference service from targets/med-agent-hub.
 # OpenMRS reaches it at http://med-agent-hub:8080 and direct local clients use
@@ -275,7 +280,7 @@ querystore-test:
 querystore-test-integration:
 	@./scripts/test-querystore.sh mysql-integration
 
-# Configure ChartSearchAI's fixed hub endpoint and default product profile.
+# Configure ChartSearchAI's fixed hub endpoint; the available default comes from hub discovery.
 chartsearch-configure:
 	@./scripts/chartsearch-configure.sh
 

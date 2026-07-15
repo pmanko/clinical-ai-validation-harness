@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Launch the llama.cpp Router Mode server backing the harness chat picker's
-# "llama-server" section (GGUF + DRY, OpenAI-compatible, on :8077).
+# Launch the llama.cpp Router Mode server behind med-agent-hub profiles
+# (GGUF + OpenAI-compatible API on :8077). Product clients never call it directly.
 #
 # Why HF_HOME is redirected to an empty dir: build 9430's router auto-publishes
 # EVERY model in the HF cache as an extra preset on top of scripts/llama-router.ini

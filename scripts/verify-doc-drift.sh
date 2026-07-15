@@ -37,6 +37,8 @@ FORBIDDEN = [
     (re.compile(r"CHARTSEARCH_REMOTE_(?:ENDPOINT_URL|MODEL_NAME|ENDPOINTS)|CHARTSEARCH_LLM_ENGINE"), "old direct-provider ChartSearchAI configuration"),
     (re.compile(r"MED_AGENT_(?:ORCHESTRATOR_MODEL|MED_MODEL)"), "removed environment-driven profile role models"),
     (re.compile(r"single-model path uses chartsearchAI|chartsearchai.*generates cited answers", re.I), "old ChartSearchAI answer ownership"),
+    (re.compile(r"LLM inference.*stays in chartsearchai|quality layer stays in chartsearchai|All query-time logic stays where it is", re.I), "old ChartSearchAI inference/context ownership"),
+    (re.compile(r"model sees the whole chart|whole chart.*unfiltered", re.I), "stale unbounded full-chart claim"),
     (re.compile(r"GCP_FIREWALL_DENY_LMS|GCP_LMS_PORT"), "retired cloud model-server firewall"),
     (re.compile(r"value\s*=\s*\"/search\"|/search/stream|chartsearchai/search/stream"), "removed search stream path"),
     (re.compile(r"\bRemoteLlmEngine\b"), "removed direct-provider Java engine"),
@@ -66,12 +68,14 @@ ALWAYS_ALLOW = {
     "scripts/verify-hub-consolidation-gates.sh",
     "tests/test_hub_consolidation_gate_script.py",
     "tests/test_chartsearchai_local.py",
+    "specs/artifacts/planning/hub-consolidation-roadmap.md",
     "targets/chartsearchai/api/src/test/java/org/openmrs/module/chartsearchai/api/impl/ArchitectureGuardTest.java",
 }
 
 HISTORICAL_MARKER = re.compile(
-    r"historical|superseded|pre[- ]?refactor|predates|archive|snapshot",
-    re.I,
+    r"^\s*(?:(?:>|//|/\*+|\*)\s*)?(?:#+\s*)?(?:\*\*)?(?:(?:status\s*:\s*)?"
+    r"(?:historical|superseded|archived|pre[- ]?refactor))\b",
+    re.I | re.M,
 )
 
 REQUIRED_CURRENT = {
@@ -110,6 +114,18 @@ REQUIRED_CURRENT = {
         r"external services such as med-agent-hub",
         r"A Querystore reindex is already running",
         r"use the REST `scope:\"type\"` trigger",
+    ),
+    "targets/querystore/docs/chartsearchai-port-map.md": (
+        r"Status: historical and superseded",
+        r"med-agent-hub owns clinical context\s*(?:>\s*)?assembly",
+    ),
+    "targets/querystore/docs/migration-chartsearchai.md": (
+        r"Status: historical and superseded",
+        r"ChartSearchAI is a thin OpenMRS",
+    ),
+    "targets/chartsearchai/docs/embedding-improvement-plan.md": (
+        r"complete evidence ledger",
+        r"Oversized charts are reduced by the\s+hub's deterministic selector",
     ),
 }
 
@@ -157,7 +173,7 @@ def should_scan(rel: Path) -> bool:
 
 
 def header_is_historical(text: str) -> bool:
-    return bool(HISTORICAL_MARKER.search("\n".join(text.splitlines()[:40])))
+    return bool(HISTORICAL_MARKER.search("\n".join(text.splitlines()[:12])))
 
 
 repos = [ROOT] + submodule_paths()

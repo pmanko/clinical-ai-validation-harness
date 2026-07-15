@@ -1,8 +1,8 @@
 // Demo RECORDING spec (not a CI assertion test). Drives a multi-prompt conversation through the
 // staged E4B path, paced for viewing, and showcases the interactive-first UX:
-//   - Q1: the quick answer appears + self-checks, then the in-depth analysis fills in (we let it finish).
+//   - Q1: the quick answer appears + self-checks, then In-Depth completes or is visibly withheld.
 //   - Q2: you ask a simple follow-up, then sending Q3 preempts Q2's unfinished in-depth.
-//   - Q3: the final answer checks and its in-depth completes.
+//   - Q3: the final answer checks and its In-Depth reaches a safe terminal state.
 //
 // Records at 1280x720 for legible answer text. Run after warming the path:
 //   scripts/demo-warmup-chartsearchai.sh
@@ -105,12 +105,14 @@ async function typeAndSend(
   await expect(input).toBeEnabled({ timeout: 360_000 }); // answer + validation settled → composer unlocks
 }
 
-/** Wait for the LATEST turn's In-Depth to actually FINISH — data-indepth-status flips to 'complete'
- *  only on indepth_done (not the pending/generating states). Robust to model speed — no blind timer. */
-async function waitInDepthComplete(page: Page, timeout = INDEPTH_MAX_MS): Promise<void> {
-  await expect(page.locator('[data-indepth-status]').last()).toHaveAttribute('data-indepth-status', 'complete', {
-    timeout,
-  });
+/** Wait for the latest In-Depth to settle successfully or be withheld by a safety check. Technical
+ *  failures remain failures; model-dependent safety withholding is an intended visible outcome. */
+async function waitInDepthTerminal(page: Page, timeout = INDEPTH_MAX_MS): Promise<void> {
+  await expect(page.locator('[data-indepth-status]').last()).toHaveAttribute(
+    'data-indepth-status',
+    /^(complete|needs_review)$/,
+    { timeout },
+  );
 }
 
 /** Wait for the LATEST turn to reach a lifecycle phase. data-turn-phase is the coarse turn state
@@ -140,7 +142,7 @@ test.describe('chartsearchai — demo recording', () => {
       2600,
     );
 
-    // Q1 — let the in-depth analysis finish (proves in-depth completes end-to-end).
+    // Q1 — let In-Depth reach a safe terminal state, including visible safety withholding.
     await caption(page, 'Question 1 — the quick answer appears first, then it self-checks against the chart.');
     await typeAndSend(page, QUESTIONS[0], 'The fast Answer is visible while its check is still settling.');
     await caption(
@@ -148,7 +150,7 @@ test.describe('chartsearchai — demo recording', () => {
       'The check settles visibly as Checked, Updated, or Needs review. In-Depth is a separate phase below…',
       1200,
     );
-    await waitInDepthComplete(page);
+    await waitInDepthTerminal(page);
     await page.waitForTimeout(READ_PAUSE_MS);
 
     // Q2 — a trivial follow-up that proves the prior answer is available as turn context.
@@ -172,8 +174,8 @@ test.describe('chartsearchai — demo recording', () => {
     await expect(answerSections.last()).toBeVisible();
     await caption(page, 'The new fast Answer is visible; its check continues asynchronously.', 1800);
     await expect(input).toBeEnabled({ timeout: 360_000 });
-    await caption(page, 'The final answer shows its check outcome, and its In-Depth completes.', 1200);
-    await waitInDepthComplete(page);
+    await caption(page, 'The final answer shows its check outcome, and its In-Depth decision settles.', 1200);
+    await waitInDepthTerminal(page);
     await page.waitForTimeout(READ_PAUSE_MS);
 
     // Proof the preempt worked: Q2 lands terminal/failed and all three turns were accepted.

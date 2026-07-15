@@ -141,7 +141,7 @@ if has_pattern '^## Upstream Disposition$' "$STATUS_DOC" \
 	&& all_upstream_commits_classified "$HUB" origin/main 7869c62 7869c62 med-agent-hub '-' \
 	&& all_upstream_commits_classified "$CSAI" upstream/main d315500 5223f92 ChartSearchAI 'ChartSearchAI (' \
 	&& all_upstream_commits_classified "$ESM" upstream/main 58ed478 3003cd2 chartsearchai-esm 'ChartSearchAI ESM (' \
-	&& all_upstream_commits_classified "$QUERYSTORE" upstream/main de2ba8c a10faa3 Querystore 'Querystore (' \
+	&& all_upstream_commits_classified "$QUERYSTORE" upstream/main de2ba8c 577db52 Querystore 'Querystore (' \
 	&& all_upstream_commits_classified "$CATALYST" origin/main 3c1f1aa 3c1f1aa Catalyst '-' \
 	&& all_upstream_commits_classified "$CHATBOT" origin/main 2e723f8 2e723f8 openmrs_chatbot '-'; then
   record G03 PASS "upstream disposition table is complete"
@@ -422,6 +422,7 @@ if has_pattern 'answerValidation' "$ESM/src" \
   && has_pattern 'hydrates a stale checking answer as check unavailable' "$ESM/src/hooks/useChartSearchAi.test.ts" \
   && has_pattern 'preliminary_problem_stays_checking_until_configured_review_finishes' "$HUB/tests" \
   && has_pattern 'final grounding still completes before the answer settles' "$HUB/tests" \
+  && has_pattern 'test_final_unsupported_grounding_marks_answer_needs_review' "$HUB/tests/test_staged_stream.py" \
   && has_pattern 'persistInterruptedState' "$CSAI/omod/src/main" \
   && has_pattern 'answer check was interrupted before completion' "$CSAI/omod/src/main" \
   && has_pattern 'abortsPromptlyOnDisconnectDuringHeartbeats' "$CSAI/omod/src/test" \
@@ -456,13 +457,14 @@ fi
 
 # G19-G21: portable local setup, latency, and evaluation evidence.
 relay_probe="$ROOT/artifacts/chartsearchai-local/relay-probe.json"
+residency_probe="$ROOT/artifacts/chartsearchai-local/small-model-residency.json"
 if ! has_pattern '^chartsearchai-local:' "$ROOT/Makefile" \
   || ! has_pattern 'probe-chartsearchai-relay.py' "$ROOT/scripts/chartsearchai-local.sh" \
   || ! missing_pattern '/Users/[[:alnum:]_.-]+/' "$ROOT/scripts/llama-router.ini" \
   || ! missing_pattern 'LM_STUDIO|lmstudio' "$ROOT/.env.chartsearch.example"; then
   record G19 FAIL "portable chartsearchai-local path is incomplete"
-elif [[ -s "$relay_probe" ]] \
-  && "$ROOT/.venv/bin/python" - "$ROOT" "$relay_probe" <<'PY'
+elif [[ -s "$relay_probe" && -s "$residency_probe" ]] \
+  && "$ROOT/.venv/bin/python" - "$ROOT" "$relay_probe" "$residency_probe" <<'PY'
 import hashlib
 import json
 import subprocess
@@ -471,6 +473,16 @@ from pathlib import Path
 
 root = Path(sys.argv[1]).resolve()
 proof = json.loads(Path(sys.argv[2]).read_text())
+residency = json.loads(Path(sys.argv[3]).read_text())
+assert residency["schema_version"] == "llama_router_small_model_residency.v1"
+assert residency["models"] == ["gemma-e2b", "gemma-e4b"]
+assert residency["passed"] is True and residency["failure"] is None
+assert residency["after"] == {"gemma-e2b": "loaded", "gemma-e4b": "loaded"}
+assert [call["model"] for call in residency["calls"]] == residency["models"]
+for item in residency["inputs"].values():
+    path = (root / item["path"]).resolve()
+    assert path.is_relative_to(root) and path.is_file()
+    assert hashlib.sha256(path.read_bytes()).hexdigest() == item["sha256"]
 assert proof["schema_version"] == "chartsearchai_relay_probe.v2"
 assert proof["profile"] == "single-e4b-checked"
 assert proof["hydrated"] is True and proof["cleared_after"] is True
@@ -543,9 +555,9 @@ deployed = root / omod["deployed_provenance_path"]
 assert json.loads(deployed.read_text()) == omod["provenance"]
 PY
 then
-  record G19 PASS "portable local startup proved the OpenMRS relay and persisted hydration path"
+  record G19 PASS "portable local startup proved relay hydration and E2B/E4B co-residency"
 else
-  record G19 PENDING "run make chartsearchai-local to produce a current relay proof"
+  record G19 PENDING "run make chartsearchai-local and make llama-router-small-model-proof"
 fi
 
 if has_pattern '\| G20 Performance \| Deferred \|' "$STATUS_DOC"; then

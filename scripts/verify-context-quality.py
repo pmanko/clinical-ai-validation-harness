@@ -94,20 +94,37 @@ def _combined_sha256(paths: Iterable[Path]) -> str:
     return digest.hexdigest()
 
 
-def _source_indices(value: Any) -> set[int]:
+def _entry_indices(entries: Any) -> set[int]:
+    if not isinstance(entries, list):
+        return set()
+    return {
+        index
+        for entry in entries
+        if isinstance(entry, dict)
+        for index in (entry.get("index"),)
+        if isinstance(index, int)
+    }
+
+
+def _temporal_evidence_indices(facts: Any) -> set[int]:
+    """Return only records whose clinical fact is present in the sidecar.
+
+    Date summaries contain broad provenance indices but no corresponding record
+    content. Counting those indices as supplied evidence can hide a clinically
+    relevant record that the context selector excluded. Numeric points and
+    date-valued observations carry the actual concept/value/date tuple and can
+    legitimately satisfy a required-source label.
+    """
+    if not isinstance(facts, dict):
+        return set()
     found: set[int] = set()
-    if isinstance(value, dict):
-        index = value.get("index")
-        if isinstance(index, int):
-            found.add(index)
-        indices = value.get("indices")
-        if isinstance(indices, list):
-            found.update(item for item in indices if isinstance(item, int))
-        for nested in value.values():
-            found.update(_source_indices(nested))
-    elif isinstance(value, list):
-        for nested in value:
-            found.update(_source_indices(nested))
+    for series in facts.get("numeric_series") or []:
+        if isinstance(series, dict):
+            found.update(_entry_indices(series.get("points")))
+    found.update(_entry_indices(facts.get("return_visit_dates")))
+    appointments = facts.get("appointment_candidates") or {}
+    if isinstance(appointments, dict):
+        found.update(_entry_indices(appointments.get("all")))
     return found
 
 
@@ -182,9 +199,10 @@ async def _evaluate(args: argparse.Namespace) -> dict[str, Any]:
             )
             await _prepare_context(request, state)
             selected = set(state.view.record_indices if state.view else ())
-            temporal = _source_indices(state.temporal_facts or {})
+            temporal = _temporal_evidence_indices(state.temporal_facts or {})
             available = selected | temporal
-            missing = sorted(set(required) - available)
+            required_set = set(required)
+            missing = sorted(required_set - available)
             results.append(
                 {
                     "backend_id": backend_id,
@@ -205,7 +223,11 @@ async def _evaluate(args: argparse.Namespace) -> dict[str, Any]:
                         {"source_id": item.stable_id, "reason": item.reason}
                         for item in (state.view.excluded if state.view else ())
                     ],
-                    "temporal_source_indices": len(temporal),
+                    "required_selected_indices": sorted(required_set & selected),
+                    "required_temporal_evidence_indices": sorted(
+                        required_set & temporal
+                    ),
+                    "temporal_evidence_records": len(temporal),
                     "input_tokens": state.view.input_tokens if state.view else None,
                     "input_limit": state.view.input_limit if state.view else None,
                     "required_source_indices": required,
@@ -220,7 +242,7 @@ async def _evaluate(args: argparse.Namespace) -> dict[str, Any]:
         "schema_version": "context_quality_gate.v1",
         "roadmap_id": "MAH-CONSOLIDATION-2026-07-09-v1",
         "generated_at": datetime.now(timezone.utc).isoformat(),
-        "method": "actual hub _prepare_context path with llama.cpp /tokenize; recall is measured over selected chart records plus complete-ledger temporal_facts indices",
+        "method": "actual hub _prepare_context path with llama.cpp /tokenize; recall is measured over selected chart records plus fact-bearing numeric/date-observation entries in complete-ledger temporal_facts",
         "router_url": args.router_url,
         "comparison_set": str(comparison_path.relative_to(ROOT)),
         "comparison_set_sha256": _sha256(comparison_path),

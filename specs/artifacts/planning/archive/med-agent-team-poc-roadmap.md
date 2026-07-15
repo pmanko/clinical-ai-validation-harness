@@ -1,5 +1,7 @@
 # Plan: med-agent-hub as the "Med Agent Team" — chartsearchai-selectable agent endpoint + dogfooded KB (POC)
 
+> **Status: historical and superseded.** Retained as the record of the original POC.
+
 > Review draft (workflow `wab20szmm`, 7 agents). Grounded in live source; cites file:line + primary sources. Not yet committed scope — for critique. Once approved it graduates to a numbered feature spec.
 
 ## 0. Status — as-built (2026-05-30)

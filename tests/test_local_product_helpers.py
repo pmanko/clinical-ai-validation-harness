@@ -27,6 +27,91 @@ provisioner = _load(
     "scripts/provision-querystore-service-account.py",
 )
 warmer = _load("warm_hub_profile", "scripts/warm-hub-profile.py")
+residency = _load(
+    "verify_small_model_residency",
+    "scripts/verify-small-model-residency.py",
+)
+
+
+class _JsonResponse:
+    def __init__(self, body: dict):
+        self._body = body
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_args):
+        return None
+
+    def read(self) -> bytes:
+        return json.dumps(self._body).encode("utf-8")
+
+
+def test_small_model_residency_invokes_both_models_and_proves_loaded(monkeypatch):
+    requests = []
+    responses = iter(
+        [
+            {
+                "data": [
+                    {"id": "gemma-e2b", "status": {"value": "unloaded"}},
+                    {"id": "gemma-e4b", "status": {"value": "loaded"}},
+                ]
+            },
+            {"id": "e2", "model": "gemma-e2b", "choices": [{}]},
+            {"id": "e4", "model": "gemma-e4b", "choices": [{}]},
+            {
+                "data": [
+                    {"id": "gemma-e2b", "status": {"value": "loaded"}},
+                    {"id": "gemma-e4b", "status": {"value": "loaded"}},
+                ]
+            },
+        ]
+    )
+
+    def fake_urlopen(request, **_kwargs):
+        requests.append(request)
+        return _JsonResponse(next(responses))
+
+    monkeypatch.setattr(residency.urllib.request, "urlopen", fake_urlopen)
+    result = residency.verify_residency("http://router/")
+
+    assert result["passed"] is True
+    assert result["after"] == {"gemma-e2b": "loaded", "gemma-e4b": "loaded"}
+    assert [json.loads(request.data)["model"] for request in requests if request.data] == [
+        "gemma-e2b",
+        "gemma-e4b",
+    ]
+
+
+def test_small_model_residency_fails_if_second_load_evicts_first(monkeypatch):
+    responses = iter(
+        [
+            {
+                "data": [
+                    {"id": "gemma-e2b", "status": {"value": "unloaded"}},
+                    {"id": "gemma-e4b", "status": {"value": "unloaded"}},
+                ]
+            },
+            {"id": "e2", "model": "gemma-e2b", "choices": [{}]},
+            {"id": "e4", "model": "gemma-e4b", "choices": [{}]},
+            {
+                "data": [
+                    {"id": "gemma-e2b", "status": {"value": "unloaded"}},
+                    {"id": "gemma-e4b", "status": {"value": "loaded"}},
+                ]
+            },
+        ]
+    )
+    monkeypatch.setattr(
+        residency.urllib.request,
+        "urlopen",
+        lambda *_args, **_kwargs: _JsonResponse(next(responses)),
+    )
+
+    result = residency.verify_residency("http://router")
+
+    assert result["passed"] is False
+    assert result["failure"]
 
 
 def test_companion_test_entrypoints_are_executable_and_parse():
@@ -76,14 +161,17 @@ def test_local_setup_gate_requires_a_real_relay_and_hydration_proof():
     )
 
     assert 'relay_probe="$ROOT/artifacts/chartsearchai-local/relay-probe.json"' in gate
+    assert 'residency_probe="$ROOT/artifacts/chartsearchai-local/small-model-residency.json"' in gate
     assert 'proof["schema_version"] == "chartsearchai_relay_probe.v2"' in gate
+    assert 'residency["schema_version"] == "llama_router_small_model_residency.v1"' in gate
+    assert 'residency["after"] == {"gemma-e2b": "loaded", "gemma-e4b": "loaded"}' in gate
     assert 'identity["deployment"]["revision"] == identity["med_agent_hub"]["commit"]' in gate
     assert 'identity[name]["tree_clean"] is True' in gate
     assert 'omod["mounted_sha256"] == omod["sha256"]' in gate
     assert 'proof["final_envelope_sha256"] == proof["hydrated_envelope_sha256"]' in gate
     assert 'esm["served_files"]' in gate
     assert 'esm["import_map_target"]' in gate
-    assert 'record G19 PENDING "run make chartsearchai-local' in gate
+    assert 'record G19 PENDING "run make chartsearchai-local and make llama-router-small-model-proof"' in gate
 
 
 def test_architecture_gates_use_the_reactor_valid_java_lifecycle():

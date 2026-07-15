@@ -46,7 +46,7 @@ def test_runner_writes_run_meta_with_frozen_arm_cards(tmp_path):
     run_meta.json at run time."""
     run_dir = tmp_path / "run-A"
     run_dir.mkdir()
-    backends = ["12b-baseline", "med-agent-team-med-liquid"]
+    backends = ["single-e4b-checked", "team-med-checked"]
 
     runner.write_run_meta(
         run_dir, run_id="run-A", backend_ids=backends, reference_date="2026-01-01")
@@ -69,7 +69,7 @@ def test_run_meta_reference_date_none_when_unset(tmp_path):
     run_dir = tmp_path / "run-N"
     run_dir.mkdir()
     runner.write_run_meta(
-        run_dir, run_id="run-N", backend_ids=["12b-baseline"], reference_date=None)
+        run_dir, run_id="run-N", backend_ids=["single-e4b-checked"], reference_date=None)
     meta = json.loads((run_dir / "run_meta.json").read_text(encoding="utf-8"))
     assert meta["reference_date"] is None
 

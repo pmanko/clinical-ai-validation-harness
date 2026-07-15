@@ -100,9 +100,13 @@ def test_documentation_gate_requires_positive_current_architecture_statements():
         '"targets/chartsearchai-esm/README.md"',
         '"targets/med-agent-hub/README.md"',
         '"targets/querystore/docs/rest-api.md"',
+        '"targets/querystore/docs/chartsearchai-port-map.md"',
+        '"targets/querystore/docs/migration-chartsearchai.md"',
+        '"targets/chartsearchai/docs/embedding-improvement-plan.md"',
     ):
         assert current_surface in text
     assert "header_is_historical" in text
+    assert "text.splitlines()[:12]" in text
 
 
 def test_documentation_gate_rejects_removed_role_and_relay_configuration():

@@ -15,10 +15,10 @@
   "context_quality": {
     "schema_version": "context_quality_labels.v1",
     "required_source_indices": {
-      "date-zabella-weight-endpoints": [15, 327],
-      "am-allergies": [297],
-      "am-cd4-history": [218, 219, 220],
-      "am-weight-trend": [15, 47, 79, 120, 172, 202, 270],
+      "date-zabella-weight-endpoints": [19, 350],
+      "am-allergies": [233],
+      "am-cd4-history": [311, 312, 313],
+      "am-weight-trend": [21, 56, 89, 132, 184, 217, 287],
       "ek-growth": [24, 75, 118, 131, 132, 160, 218, 257],
       "ek-medications": [2, 3, 47]
     },

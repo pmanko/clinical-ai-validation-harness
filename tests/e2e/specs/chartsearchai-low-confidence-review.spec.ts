@@ -75,6 +75,7 @@ function stagedSse(): string {
   return [
     ['answer_done', checking],
     ['answer_validation', { ...finalEnvelope, inDepth: { status: 'pending', answer: '' } }],
+    ['indepth_pending', { ...finalEnvelope, inDepth: { status: 'pending', answer: '' } }],
     ['indepth_error', finalEnvelope],
     ['done', finalEnvelope],
   ]
