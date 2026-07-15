@@ -30,6 +30,14 @@ def test_local_default_configures_only_the_hub_product_service():
     assert "lmstudio" not in example.lower()
 
 
+def test_local_router_keeps_the_two_small_product_models_resident():
+    example = _read(".env.chartsearch.example")
+    local = _read("scripts/chartsearchai-local.sh")
+
+    assert "LLAMA_ROUTER_MODELS_MAX=2" in example
+    assert 'LLAMA_ROUTER_MODELS_MAX="${LLAMA_ROUTER_MODELS_MAX:-2}"' in local
+
+
 def test_chartsearch_configure_writes_only_current_hub_properties():
     configure = _read("scripts/chartsearch-configure.sh")
 

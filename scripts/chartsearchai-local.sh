@@ -235,7 +235,7 @@ if [ "${ROUTER_REACHABLE}" = "1" ]; then
 else
   nohup env \
     LLAMA_MODEL_DIR="${MODEL_DIR}" \
-    LLAMA_ROUTER_MODELS_MAX="${LLAMA_ROUTER_MODELS_MAX:-1}" \
+    LLAMA_ROUTER_MODELS_MAX="${LLAMA_ROUTER_MODELS_MAX:-2}" \
     ./scripts/llama-router-up.sh \
     >artifacts/llama-router/router.log 2>&1 &
   echo "$!" >artifacts/llama-router/router.pid

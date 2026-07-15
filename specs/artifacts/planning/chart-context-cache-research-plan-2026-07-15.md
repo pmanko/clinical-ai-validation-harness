@@ -38,13 +38,14 @@ optimization and is not evidence that chart retrieval or arbitrary future prompt
 | Selection performs an exact full-request token count for each trial record. | `select_context` calls `input_measure` in its greedy loop; `RouterTokenCounter.count_chat` calls the router | A 365-record chart can trigger hundreds of repeated large tokenization requests before generation starts. |
 | The chart is inserted near the start of the answer messages. | `targets/med-agent-hub/server/engine.py`, `_replace_chart_message` | A stable full chart is cache-friendly, but a question-conditioned selected chart changes the early prefix. |
 | llama.cpp prompt caching is enabled by default and exposes reused/processed token counts. | Local router uses llama.cpp; official server docs define `cache_n`, `prompt_n`, `prompt_ms`, and prompt-cache controls | The current hub does not retain these fields in its stage trace, so prefix reuse is not measurable per role. |
-| Local routing currently limits residency to one model by default. | `.env.chartsearch.example`, `LLAMA_ROUTER_MODELS_MAX=1`; llama.cpp defines `--models-max` | E4B can serve every role without a model swap, but the E2B writer plus E4B tail can evict each other. A smaller writer is therefore not automatically a faster product profile. |
+| The local product launcher unnecessarily limited fresh router starts to one resident model. | `.env.chartsearch.example` and `scripts/chartsearchai-local.sh` previously set `LLAMA_ROUTER_MODELS_MAX=1`; llama.cpp defines `--models-max` | E2B and E4B are only 3.2 GiB and 4.6 GiB on disk and can remain resident together on the reference machine. The local default is corrected to two; the explicit one-model policy remains only for large-model workloads. |
 
 Observed on the current 365-record demo chart, context preparation was roughly 10 seconds and the
 selected request used 20,475 of a 20,480-token input limit. The live two-turn comparison exposed E4B
 Answers in 11.6 and 15.8 seconds; E2B took 24.4 and 21.5 seconds and produced weaker structured output.
-These are full-profile diagnostic observations, not universal model benchmarks: the current
-one-model residency limit can add model-switch cost to the mixed E2B-writer/E4B-tail profile.
+These are full-profile diagnostic observations, not universal model benchmarks. Inspection of the
+actual comparison router confirmed `--models-max 4` with both E2B and E4B loaded, so eviction did not
+explain E2B's slower result in this run.
 
 ## Research Findings
 
@@ -92,13 +93,14 @@ than chosen to fit one benchmark.
 
 llama.cpp router mode can cap simultaneously loaded models with `--models-max`. An idle sleep unloads
 both model memory and KV cache. Model residency is therefore a separate source of latency from prompt
-processing. With the current one-model limit, a mixed E2B-writer/E4B-review profile may load and evict
-models between stages or turns. The all-E4B profile avoids that class of switch.
+processing, but it was not a confound in the recorded E2B/E4B comparison: the router allowed four
+resident models and reported both small models loaded. Fresh local product starts should allow at
+least the two models declared by the mixed small-model profile. Larger profiles still require a
+deterministic free-memory preflight and may need explicit eviction.
 
-A fair writer-speed comparison must separate answer-only model generation from the full checked
-profile, record model load/unload events, and test a two-model resident configuration only when a
-deterministic free-memory preflight says it fits. The default must remain the simplest profile that is
-both fast and clinically usable.
+A fair writer-speed comparison must still separate answer-only model generation from the full checked
+profile and record model load/unload events. The default must remain the simplest profile that is both
+fast and clinically usable.
 
 ## Planned Work
 
@@ -180,11 +182,11 @@ improvement. If the stable core cannot meet those conditions, retain the current
 
 ### C5: Evaluate model residency and role-specific reasoning
 
-Run answer-only E2B/E4B controls before full profiles. Then compare the current one-model resident
-limit with a two-model resident E2B-writer/E4B-tail setup only when memory preflight passes. Record
-load time, prompt-cache retention, first-Answer latency, tail latency, output quality, and memory high
-water mark. Separately test bounded reasoning only for review, In-Depth, grounding, or specialist roles;
-the fast Answer remains the no-reasoning control.
+Run answer-only E2B/E4B controls before full profiles, with both small models resident. Record load
+time, prompt-cache retention, first-Answer latency, tail latency, output quality, and memory high-water
+mark. For larger mixed-role profiles, compare resident sets only after memory preflight. Separately
+test bounded reasoning only for review, In-Depth, grounding, or specialist roles; the fast Answer
+remains the no-reasoning control.
 
 Checkpoint: any residency/default change must improve a distribution of relative warm measurements
 without increasing malformed output, temporal/citation failures, unsafe edits, or memory-pressure
@@ -216,7 +218,7 @@ failures. Hidden reasoning is never displayed or persisted as clinical evidence.
 - serving stale patient data when a source is unavailable;
 - learned retrieval or learned cache admission in this iteration;
 - assuming a warmup request proves a reusable prefix without `cache_n`/`prompt_n` evidence;
-- increasing resident model count without deterministic memory checks.
+- increasing residency beyond the two known-small product models without deterministic memory checks.
 
 ## References
 
