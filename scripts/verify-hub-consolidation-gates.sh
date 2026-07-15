@@ -142,7 +142,7 @@ if has_pattern '^## Upstream Disposition$' "$STATUS_DOC" \
 	&& all_upstream_commits_classified "$CSAI" upstream/main d315500 5223f92 ChartSearchAI 'ChartSearchAI (' \
 	&& all_upstream_commits_classified "$ESM" upstream/main 58ed478 3003cd2 chartsearchai-esm 'ChartSearchAI ESM (' \
 	&& all_upstream_commits_classified "$QUERYSTORE" upstream/main de2ba8c 577db52 Querystore 'Querystore (' \
-	&& all_upstream_commits_classified "$CATALYST" origin/main 3c1f1aa 3c1f1aa Catalyst '-' \
+	&& all_upstream_commits_classified "$CATALYST" origin/main 3c1f1aa 27ad2aa Catalyst 'Catalyst (' \
 	&& all_upstream_commits_classified "$CHATBOT" origin/main 2e723f8 2e723f8 openmrs_chatbot '-'; then
   record G03 PASS "upstream disposition table is complete"
 else

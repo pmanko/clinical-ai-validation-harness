@@ -198,7 +198,7 @@ is explicitly updated.
 | ChartSearchAI | `upstream/main` | `d315500` | `5223f92` | Disposition table below |
 | chartsearchai-esm | `upstream/main` | `58ed478` | `3003cd2` | Disposition table below |
 | Querystore | `upstream/main` | `de2ba8c` | `577db52` | Disposition table below |
-| Catalyst | `origin/main` | `3c1f1aa` | `3c1f1aa` | No incoming delta |
+| Catalyst | `origin/main` | `3c1f1aa` | `27ad2aa` | Disposition table below |
 | openmrs_chatbot | `origin/main` | `2e723f8` | `2e723f8` | No incoming delta |
 
 ### ChartSearchAI (`d315500..upstream/main`)
@@ -242,6 +242,15 @@ is explicitly updated.
 | `a10faa3` | Keep | Review-skill prose only; rebase with no runtime impact. |
 | `4f7b347` | Keep | Review-skill workflow update only; rebase with no runtime impact. |
 | `577db52` | Keep | Review-skill hardening only; rebase with no runtime impact. |
+
+### Catalyst (`3c1f1aa..origin/main`)
+
+| Commit | Disposition | Target and verification |
+|---|---|---|
+| `2422cfa` | Keep | Contributor/environment instructions only; no runtime integration behavior. |
+| `04a58dd` | Port | Preserve the one-command OpenELIS + Catalyst + med-agent-hub goal, but do not advance the tested pin: the compose build omits the required 40-character `HUB_BUILD_REVISION`, so the current hub fails startup validation. A follow-up must pin the hub source, pass its exact revision as a build argument, and prove profile readiness rather than health alone. |
+| `66bc007` | Port | Preserve optional Querystore configuration and a single hub endpoint, but replace the floating `MED_AGENT_HUB_REF=main` checkout and document that the current scripts merely co-locate the service; they do not yet connect Catalyst report requests to a hub profile. |
+| `27ad2aa` | Port | Merge commit for the two full-stack changes above. Keep the current Catalyst submodule pin until the provenance/readiness fixes are reviewed and tested in Catalyst rather than importing a known-broken startup path into this release. |
 
 ## M0 Verification
 
