@@ -98,7 +98,7 @@ def test_every_local_media_reference_exists_and_has_accessible_context():
     assert len(page.videos) == 2
     assert len(page.sources) == 2
     assert len(page.images) >= 3
-    assert "2:10 · 2×" in html
+    assert "1:45 · 2×" in html
 
     for image in page.images:
         assert image.get("src")

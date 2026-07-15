@@ -51,6 +51,8 @@ SITE="${SITE:-openclinai.org}"
 echo "==> verifying https://${SITE}/"
 curl -fsS --retry 8 --retry-delay 2 --max-time 20 "https://${SITE}/" \
   | grep -q '<h1 id="hero-title">Open Clinical AI</h1>'
+curl -fsS --retry 8 --retry-delay 2 --max-time 20 "https://${SITE}/" \
+  | grep -q '1:45 · 2×'
 curl -fsS --retry 8 --retry-delay 2 --max-time 20 "https://${SITE}/media/openmrs-evidence-poster.png" \
   -o /dev/null
 
