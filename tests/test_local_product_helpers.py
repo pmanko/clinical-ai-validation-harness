@@ -449,6 +449,7 @@ def test_warmup_stops_at_fast_answer_and_records_latency(monkeypatch):
     assert result == {
         "schema_version": "chartsearchai_local_warmup.v1",
         "profile": "single-e4b-checked",
+        "context_mode": "inline",
         "answer_done_ms": 125,
         "stop_after": "answer_done",
         "last_event": "answer_done",
@@ -470,6 +471,40 @@ def test_warmup_requires_answer_done(monkeypatch):
             stop_after_answer=True,
             timeout=5,
         )
+
+
+def test_warmup_can_prime_the_real_patient_chart_prefix(monkeypatch):
+    captured = {}
+
+    def fake_urlopen(request, **_kwargs):
+        captured.update(json.loads(request.data))
+        return FakeStream(
+            [
+                b"event: answer_done\n",
+                b"data: {}\n",
+            ]
+        )
+
+    monkeypatch.setattr(warmer.urllib.request, "urlopen", fake_urlopen)
+    monkeypatch.setattr(warmer.time, "monotonic", lambda: 1.0)
+
+    result = warmer.warm_profile(
+        "http://hub/v1/chat/completions",
+        "single-e4b-checked",
+        stop_after_answer=True,
+        timeout=5,
+        patient="patient-1",
+        question="What medications are active?",
+    )
+
+    assert captured == {
+        "model": "single-e4b-checked",
+        "stream": True,
+        "messages": [{"role": "user", "content": "What medications are active?"}],
+        "context": {"require_product_profile": True},
+        "patient": "patient-1",
+    }
+    assert result["context_mode"] == "patient"
 
 
 def test_warmup_full_mode_reaches_done(monkeypatch):
@@ -610,6 +645,7 @@ def test_warmup_cli_writes_output(tmp_path, monkeypatch, capsys):
     result = {
         "schema_version": "chartsearchai_local_warmup.v1",
         "profile": "single-e4b-checked",
+        "context_mode": "inline",
         "answer_done_ms": 125,
         "stop_after": "done",
         "last_event": "done",
@@ -649,7 +685,12 @@ def test_warmup_cli_writes_output(tmp_path, monkeypatch, capsys):
             "warm",
             "http://127.0.0.1:18081/v1/chat/completions",
             "single-e4b-checked",
-            {"stop_after_answer": False, "timeout": 300},
+            {
+                "stop_after_answer": False,
+                "timeout": 300,
+                "patient": None,
+                "question": "What was the latest visit date?",
+            },
         ),
     ]
     assert json.loads(output.read_text(encoding="utf-8")) == result

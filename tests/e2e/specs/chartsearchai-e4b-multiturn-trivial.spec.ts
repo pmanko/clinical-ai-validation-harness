@@ -2,6 +2,7 @@ import { test, expect, type Page } from '@playwright/test';
 import * as fs from 'fs';
 import * as path from 'path';
 import {
+  expandAiChatPanel,
   hubTraceEntriesSince,
   hubTraceOffset,
   login,
@@ -14,7 +15,8 @@ import {
 const MODEL_LABEL = process.env.E2E_MODEL_LABEL ?? 'Fast checked answer (E4B)';
 const MODEL_PATTERN = new RegExp(MODEL_LABEL.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
 const STEP_PAUSE_MS = Number.parseInt(process.env.E2E_STEP_PAUSE_MS ?? '900', 10) || 0;
-const SHOTS = path.resolve(__dirname, '../evidence/e4b-multiturn-trivial');
+const EVIDENCE_SLUG = process.env.E2E_EVIDENCE_SLUG ?? 'e4b-multiturn-trivial';
+const SHOTS = path.resolve(__dirname, `../evidence/${EVIDENCE_SLUG}`);
 
 // Multi-turn continuity, end-to-end. Turn 1 asks for one deterministic temporal fact. Turn 2 refers
 // to "the date you just gave" and must carry that exact date forward. This keeps the live smoke small
@@ -90,7 +92,7 @@ async function sendTurn(page: Page, question: string, turnNumber: number): Promi
   return answerMs;
 }
 
-test.describe('chartsearchai - Gemma E4B trivial multi-turn proof', () => {
+test.describe('chartsearchai - fast single-model trivial multi-turn proof', () => {
   test.beforeEach(async ({ request }) => {
     await resetChatSession(request);
   });
@@ -106,9 +108,10 @@ test.describe('chartsearchai - Gemma E4B trivial multi-turn proof', () => {
     await openPatientChart(page);
     await openAiChatPanel(page);
     await caption(page, 'AI panel opened on the patient chart.', '00-panel-open.png');
-
     await selectCheckedModel(page, MODEL_PATTERN);
     await caption(page, `${MODEL_LABEL} selected for a tiny two-turn session proof.`, '01-model-selected.png');
+    await expandAiChatPanel(page);
+    await caption(page, 'Chat expanded for readable Answer and evidence review.', '01-panel-expanded.png');
 
     const traceOffset = hubTraceOffset();
     const firstAnswerMs = await sendTurn(page, QUESTIONS[0], 1);

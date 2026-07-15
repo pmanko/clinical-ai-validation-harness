@@ -1,5 +1,11 @@
 import { expect, test, type Page, type Route } from '@playwright/test';
-import { login, openAiChatPanel, openPatientChart, selectFastE4BModel } from '../support/openmrs';
+import {
+  expandAiChatPanel,
+  login,
+  openAiChatPanel,
+  openPatientChart,
+  selectFastE4BModel,
+} from '../support/openmrs';
 
 const QUESTION = 'Show the flagged review fixture.';
 
@@ -146,6 +152,9 @@ test('flagged Answer and review-only artifacts stay visible through reload', asy
   await openPatientChart(page);
   await openAiChatPanel(page);
   await selectFastE4BModel(page);
+  await test.step('Expand the chat for readable answer and evidence review', async () => {
+    await expandAiChatPanel(page);
+  });
 
   const input = page.getByPlaceholder(/ask|question|search/i).first();
   await input.fill(QUESTION);
@@ -154,5 +163,6 @@ test('flagged Answer and review-only artifacts stay visible through reload', asy
 
   await page.reload({ waitUntil: 'load' });
   await openAiChatPanel(page);
+  await expandAiChatPanel(page);
   await assertReviewArtifacts(page);
 });

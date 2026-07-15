@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
-# Prepare the canonical E4B product profile for a steady-state UI recording.
+# Prepare a configured product profile and demo patient's chart prefix for a
+# steady-state UI recording. The canonical default remains E4B; DEMO_PROFILE_ID
+# selects an explicit comparison profile without changing product defaults.
 
 set -euo pipefail
 
@@ -20,6 +22,7 @@ HUB_URL="${DEMO_HUB_URL:-http://127.0.0.1:${MED_AGENT_HUB_PORT:-18081}}"
 OPENMRS_URL="${DEMO_OPENMRS_URL:-http://127.0.0.1:${HARNESS_PROXY_HTTP_PORT:-8088}/openmrs}"
 PROFILE="${DEMO_PROFILE_ID:-}"
 PATIENT="${E2E_PATIENT_UUID:-dd75c020-1691-11df-97a5-7038c432aabf}"
+QUESTION="${DEMO_WARMUP_QUESTION:-In one short sentence, what was the most recent documented clinical visit?}"
 USER="${E2E_USER:-admin}"
 PASSWORD="${E2E_PASSWORD:-Admin123}"
 
@@ -33,10 +36,12 @@ if [ -z "${PROFILE}" ]; then
     | python3 -c "import json,sys; defaults=[x for x in json.load(sys.stdin).get('data',[]) if x.get('visibility') == 'product' and x.get('available') and x.get('default')]; assert len(defaults) == 1, defaults; print(defaults[0]['id'])")"
 fi
 
-echo "Warming ${PROFILE} through med-agent-hub to answer_done..."
+echo "Warming ${PROFILE} with patient ${PATIENT} through med-agent-hub to answer_done..."
 python3 scripts/warm-hub-profile.py \
   --hub-url "${HUB_URL}/v1/chat/completions" \
   --profile "${PROFILE}" \
+  --patient "${PATIENT}" \
+  --question "${QUESTION}" \
   --mode answer \
   --output artifacts/chartsearchai-local/demo-warmup.json
 

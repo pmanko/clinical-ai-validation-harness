@@ -185,6 +185,18 @@ def test_local_startup_provisions_source_before_starting_and_warming_hub():
 
     assert provision < hub_start < configure < warm < relay_probe
     assert "QUERYSTORE_BASE_URL=http://backend:8080/openmrs" in script
+    assert '--patient "${DEFAULT_PATIENT}"' in script
+    assert '--question "${WARM_QUESTION}"' in script
+    assert 'WARM_QUESTION="${CHARTSEARCH_LOCAL_WARM_QUESTION:-' in script
+
+
+def test_demo_warmup_primes_the_real_patient_and_exact_first_question():
+    script = _read("scripts/demo-warmup-chartsearchai.sh")
+
+    assert 'PATIENT="${E2E_PATIENT_UUID:-' in script
+    assert 'QUESTION="${DEMO_WARMUP_QUESTION:-' in script
+    assert '--patient "${PATIENT}"' in script
+    assert '--question "${QUESTION}"' in script
 
 
 def test_local_startup_proves_the_real_openmrs_relay_and_persistence():

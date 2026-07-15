@@ -35,11 +35,21 @@ def discover_default_profile(hub_url: str, *, timeout: int) -> str:
     return str(defaults[0]["id"])
 
 
-def warm_profile(hub_url: str, profile: str, *, stop_after_answer: bool, timeout: int) -> dict:
-    payload = {
-        "model": profile,
-        "stream": True,
-        "messages": [
+def warm_profile(
+    hub_url: str,
+    profile: str,
+    *,
+    stop_after_answer: bool,
+    timeout: int,
+    patient: str | None = None,
+    question: str = "What was the latest visit date?",
+) -> dict:
+    if patient:
+        messages = [{"role": "user", "content": question}]
+        context = {"require_product_profile": True}
+        context_mode = "patient"
+    else:
+        messages = [
             {
                 "role": "user",
                 "content": (
@@ -47,10 +57,19 @@ def warm_profile(hub_url: str, profile: str, *, stop_after_answer: bool, timeout
                     "[1] (2026-07-10) Encounter: routine follow-up.\n"
                 ),
             },
-            {"role": "user", "content": "What was the latest visit date?"},
-        ],
-        "context": {"source": "inline"},
+            {"role": "user", "content": question},
+        ]
+        context = {"source": "inline", "require_product_profile": True}
+        context_mode = "inline"
+
+    payload = {
+        "model": profile,
+        "stream": True,
+        "messages": messages,
+        "context": context,
     }
+    if patient:
+        payload["patient"] = patient
     request = urllib.request.Request(
         hub_url,
         data=json.dumps(payload).encode(),
@@ -83,6 +102,7 @@ def warm_profile(hub_url: str, profile: str, *, stop_after_answer: bool, timeout
     return {
         "schema_version": "chartsearchai_local_warmup.v1",
         "profile": profile,
+        "context_mode": context_mode,
         "answer_done_ms": answer_ms,
         "stop_after": "answer_done" if stop_after_answer else "done",
         "last_event": final_event,
@@ -94,6 +114,8 @@ def main() -> int:
     parser.add_argument("--hub-url", default="http://127.0.0.1:18081/v1/chat/completions")
     parser.add_argument("--profile")
     parser.add_argument("--mode", choices=("answer", "full"), default="answer")
+    parser.add_argument("--patient")
+    parser.add_argument("--question", default="What was the latest visit date?")
     parser.add_argument("--timeout", type=int, default=300)
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
@@ -104,6 +126,8 @@ def main() -> int:
         profile,
         stop_after_answer=args.mode == "answer",
         timeout=args.timeout,
+        patient=args.patient,
+        question=args.question,
     )
     if args.output:
         args.output.parent.mkdir(parents=True, exist_ok=True)

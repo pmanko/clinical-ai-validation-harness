@@ -18,6 +18,7 @@ import {
   hubCancellationTraceOffset,
   hubTraceOffset,
   hubTraceQuestionsSince,
+  expandAiChatPanel,
   login,
   openAiChatPanel,
   openPatientChart,
@@ -129,14 +130,15 @@ test.describe('chartsearchai — demo recording', () => {
     await login(page);
     await openPatientChart(page);
     await openAiChatPanel(page);
+    await selectFastE4BModel(page);
+    await caption(page, 'Profile: fast checked E4B, routed through med-agent-hub with staged validation.', 2400);
+    await caption(page, 'Expanding the chat so the Answer, checks, and evidence are easy to inspect.', 1200);
+    await expandAiChatPanel(page);
     await caption(
       page,
       'ChartSearchAI — ask questions about a patient chart; answers are checked against chart, temporal, and citation rules.',
       2600,
     );
-
-    await selectFastE4BModel(page);
-    await caption(page, 'Profile: fast checked E4B, routed through med-agent-hub with staged validation.', 2400);
 
     // Q1 — let the in-depth analysis finish (proves in-depth completes end-to-end).
     await caption(page, 'Question 1 — the quick answer appears first, then it self-checks against the chart.');

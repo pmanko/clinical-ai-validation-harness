@@ -140,6 +140,14 @@ export async function openAiChatPanel(page: Page): Promise<void> {
   await expect(page.getByPlaceholder(/ask|question|search/i).first()).toBeVisible({ timeout: 15_000 });
 }
 
+/** Maximize the floating chat so answers, tables, and evidence are readable in proof recordings. */
+export async function expandAiChatPanel(page: Page): Promise<void> {
+  const maximize = page.getByRole('button', { name: /maximize/i }).first();
+  await expect(maximize, 'chat maximize control never appeared').toBeVisible({ timeout: 15_000 });
+  await maximize.click();
+  await expect(page.getByRole('button', { name: /restore/i }).first()).toBeVisible({ timeout: 15_000 });
+}
+
 export async function selectCheckedModel(page: Page, labelPattern: RegExp = /Gemma 12B/i): Promise<void> {
   const modelButton = page.getByTestId('chartsearchai-profile-picker');
   await expect(modelButton).toBeVisible({ timeout: 30_000 });
