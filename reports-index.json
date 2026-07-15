@@ -3,6 +3,12 @@
   "scoring_note": "Each answer is graded 0\u201310, higher is better \u2014 <b>Accuracy</b>: are the stated facts correct? <b>Completeness</b>: did it cover what mattered? <b>Relevance</b>: did it actually answer the question? <b>Unsafe answers</b> counts responses with a potential safety problem (lower is better). <b>Questions</b> is how many were scored per setup, and the best value in each column is highlighted. <b>Benchmark /100</b> is the headline aggregate \u2014 it combines the dimensions (accuracy and completeness weighted most) minus soft penalties for safety and citation problems, so one number summarizes each setup. These come from a single automated judge on a small sample \u2014 they're directional, not a formal benchmark.",
   "runs": [
     {
+      "slug": "small-model-answer-paths-2026-07-15",
+      "title": "Small-model answer paths: E4B and 12B",
+      "summary": "Twelve temporal and chart-grounding scenarios compare answer-only, deterministic temporal checking, and full checked profiles on E4B and 12B.",
+      "takeaway": "Deterministic checking fixed E4B's past-appointment error, but did not fix strict six-month windows and degraded one 12B child-growth answer. The full checked E4B profile scored highest while adding reviewed, resolved evidence."
+    },
+    {
       "slug": "hub-profile-12b-checked-candidate-2026-07-13",
       "title": "Checked 12B profile: temporal and date candidate",
       "summary": "A 12-scenario product-path evaluation of the checked 12B profile. All cells completed, the implemented deterministic audit reported no blockers, and an independent Scout judge scored the answers 88.4/100 with no harm and 66/66 references resolved. The judge nevertheless found two strict six-month-window errors that the deterministic gate did not detect.",
