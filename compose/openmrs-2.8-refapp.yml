@@ -254,8 +254,8 @@ services:
     # a SEPARATE service from core's MariaDB (clinical OLTP), which is the whole
     # point of CQRS: get the read store off the transactional clinical DB. Matches
     # querystore's elasticsearch-java 8.13.4 client. Part of the DEFAULT stack: the real
-    # setup is querystore.backend=elasticsearch and chartsearchai is querystore-only for
-    # retrieval, so a proper instance always has ES up (no longer profile-gated). Single-node,
+    # local setup uses querystore.backend=elasticsearch and med-agent-hub may consume its
+    # patientrecord REST adapter. ChartSearchAI does not retrieve from it directly. Single-node,
     # security disabled — dev/validation harness only, never a public deployment.
     image: docker.elastic.co/elasticsearch/elasticsearch:8.13.4
     container_name: harness-querystore-es

@@ -191,17 +191,44 @@ fi
 # G07-G09: context-source and exact-budget implementation/evidence.
 relay_probe="$ROOT/artifacts/chartsearchai-local/relay-probe.json"
 source_contracts_ok=0
+querystore_unit_ok=0
+querystore_es_ok=1
+querystore_mysql_ok=1
+if "$ROOT/scripts/test-querystore.sh" unit >/tmp/querystore-g07-unit.log 2>&1; then
+  querystore_unit_ok=1
+fi
+if [[ "$RUN_E2E" == "1" ]]; then
+  querystore_es_ok=0
+  querystore_mysql_ok=0
+  if "$ROOT/scripts/test-querystore.sh" elasticsearch-integration >/tmp/querystore-g07-es.log 2>&1; then
+    querystore_es_ok=1
+  fi
+  if "$ROOT/scripts/test-querystore.sh" mysql-integration >/tmp/querystore-g07-mysql.log 2>&1; then
+    querystore_mysql_ok=1
+  fi
+fi
 if [[ -f "$HUB/server/context_sources.py" && -f "$HUB/tests/test_context_sources.py" ]] \
   && missing_pattern 'from \.querystore_client import QueryStoreClient' "$HUB/server/team.py" \
   && has_pattern 'test_supplemental_source_uses_the_same_normalized_ledger' "$HUB/tests" \
   && has_pattern 'test_service_startup_does_not_invent_querystore_credentials' "$HUB/tests" \
+  && has_pattern 'PatientChartReadException' "$ROOT/targets/querystore/api/src/main" \
+  && has_pattern 'complete.*patient chart' "$HUB/tests/test_querystore_client.py" \
+  && has_pattern 'openPointInTime' "$ROOT/targets/querystore/api/src/main/java/org/openmrs/module/querystore/backend/elasticsearch/ElasticsearchBackendStore.java" \
+  && has_pattern 'searchAfter' "$ROOT/targets/querystore/api/src/main/java/org/openmrs/module/querystore/backend/elasticsearch/ElasticsearchBackendStore.java" \
+  && missing_pattern 'FULL_CHART_MAX_HITS' "$ROOT/targets/querystore" \
+  && has_pattern 'elasticsearch-integration' "$ROOT/scripts/test-querystore.sh" \
+  && has_pattern 'ensureIndexedComplete' "$ROOT/targets/querystore/api/src/main" \
+  && has_pattern 'snapshotId' "$HUB/server/querystore_client.py" \
   && missing_pattern 'QUERYSTORE_USERNAME[^\n]*admin|QUERYSTORE_PASSWORD[^\n]*Admin123' \
     "$HUB/server/config.py" "$ROOT/compose/openmrs-2.8-refapp.yml" \
-  && [[ $hub_m1_suite_ok -eq 1 ]]; then
+  && [[ $hub_m1_suite_ok -eq 1 ]] \
+  && [[ $querystore_unit_ok -eq 1 ]] \
+  && [[ $querystore_es_ok -eq 1 ]] \
+  && [[ $querystore_mysql_ok -eq 1 ]]; then
   source_contracts_ok=1
 fi
 if [[ $source_contracts_ok -ne 1 ]]; then
-  record G07 FAIL "context source registry, failure, or credential contract is incomplete"
+  record G07 FAIL "context source registry, completeness, Querystore tests, pagination, failure, or credential contract is incomplete"
 elif [[ "$RUN_E2E" != "1" ]]; then
   record G07 PENDING "source contracts passed; RUN_E2E=1 is required for the exact deployed Querystore adapter proof"
 elif [[ -s "$relay_probe" ]] \

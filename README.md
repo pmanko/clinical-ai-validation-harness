@@ -156,7 +156,7 @@ make chartsearchai-local
 make llama-router-models             # inspect raw models behind the hub
 make chartsearch-build               # rebuild + redeploy just the .omod
 make med-agent-hub-up                # (re)start the hub on its own
-make chartsearch-configure           # write the fixed hub endpoint + product profile
+make chartsearch-configure           # write the fixed hub endpoint; profile discovery supplies the default
 make chartsearch-doctor              # verify router, hub profile metadata, and module status
 
 # Retrieval backend — querystore's CQRS read store tier

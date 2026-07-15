@@ -23,8 +23,14 @@ case "$MODE" in
       -Dtest=MysqlBackendStoreIntegrationTest \
       test "$@"
     ;;
+  elasticsearch-integration)
+    exec mvn -q -B -pl api -Pintegration \
+      -DOPENMRS_APPLICATION_DATA_DIRECTORY="$APPDATA" \
+      -Dtest=ElasticsearchBackendStoreIntegrationTest \
+      test "$@"
+    ;;
   *)
-    echo "Usage: $0 [unit|mysql-integration] [maven arguments...]" >&2
+    echo "Usage: $0 [unit|mysql-integration|elasticsearch-integration] [maven arguments...]" >&2
     exit 2
     ;;
 esac
