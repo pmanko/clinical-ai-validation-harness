@@ -381,6 +381,17 @@ def test_external_patient_source_uses_its_configured_verification_url():
     assert '"${SOURCE_VERIFY_BASE_URL%/}/ws/rest/v1/querystore/patientrecord' in script
 
 
+def test_local_start_requires_stable_repeated_complete_patient_source_reads():
+    script = _read("scripts/chartsearchai-local.sh")
+
+    assert 'SOURCE_FIRST="$(curl' in script
+    assert 'SOURCE_SECOND="$(curl' in script
+    assert script.count("patientrecord?patient=${DEFAULT_PATIENT}&limit=1") == 2
+    assert 'payload.get("complete") is True' in script
+    assert 'first["totalCount"] == second["totalCount"]' in script
+    assert 'first.get("snapshotId") == second.get("snapshotId")' in script
+
+
 def test_module_freshness_includes_nested_maven_build_files():
     script = _read("scripts/chartsearchai-local.sh")
 

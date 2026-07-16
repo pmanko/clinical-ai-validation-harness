@@ -298,10 +298,26 @@ HUB_PROFILE="$(curl -fsS "${HUB_URL}/v1/models" \
 say "  default product profile: ${HUB_PROFILE}"
 
 say "==> verify patient source"
-curl -fsS --max-time 60 \
+SOURCE_FIRST="$(curl -fsS --max-time 60 \
   -u "${QUERYSTORE_USERNAME}:${QUERYSTORE_PASSWORD}" \
-  "${SOURCE_VERIFY_BASE_URL%/}/ws/rest/v1/querystore/patientrecord?patient=${DEFAULT_PATIENT}&limit=1" \
-  | python3 -c "import json,sys; d=json.load(sys.stdin); assert d.get('results'), 'patient source returned no records'"
+  "${SOURCE_VERIFY_BASE_URL%/}/ws/rest/v1/querystore/patientrecord?patient=${DEFAULT_PATIENT}&limit=1")"
+SOURCE_SECOND="$(curl -fsS --max-time 60 \
+  -u "${QUERYSTORE_USERNAME}:${QUERYSTORE_PASSWORD}" \
+  "${SOURCE_VERIFY_BASE_URL%/}/ws/rest/v1/querystore/patientrecord?patient=${DEFAULT_PATIENT}&limit=1")"
+SOURCE_FIRST="${SOURCE_FIRST}" SOURCE_SECOND="${SOURCE_SECOND}" python3 - <<'PY'
+import json
+import os
+
+first = json.loads(os.environ["SOURCE_FIRST"])
+second = json.loads(os.environ["SOURCE_SECOND"])
+for position, payload in (("first", first), ("second", second)):
+    assert payload.get("complete") is True, f"{position} patient source read was not complete"
+    assert payload.get("results"), f"{position} patient source read returned no records"
+    assert int(payload.get("totalCount") or 0) > 0, f"{position} patient source count was zero"
+assert first["totalCount"] == second["totalCount"], "patient source count changed across repeated reads"
+assert first.get("snapshotId") == second.get("snapshotId"), "patient source snapshot changed across repeated reads"
+print(f"  patient source: {first['totalCount']} records; repeated snapshot stable")
+PY
 
 say "==> configure ChartSearchAI relay"
 ./scripts/querystore-configure.sh
