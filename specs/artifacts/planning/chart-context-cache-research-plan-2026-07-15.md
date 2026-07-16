@@ -121,6 +121,12 @@ clinical ledger cache until this breakdown is available.
 
 ### C1: Remove repeated deterministic computation
 
+The 2026-07-16 eligibility correction is now the baseline for this work. Hub `7bb9371` stops after
+mandatory, exact, bounded clinical-core, and meaningfully overlapping evidence is exhausted instead
+of filling the model window with zero-relevance records. The exact 12-cell gate retains 48/48
+required sources while using 13,455-17,493 of the 20,480-token ceiling and selecting 35-80 records.
+This fixes which records are eligible; it does not yet remove the repeated token-count calls below.
+
 Keep selection deterministic while replacing the current record-by-record full-prompt tokenization
 loop. Rank once, cache tokenizer results by model plus exact record rendering, select a candidate
 prefix using additive counts or bounded search, and perform one final exact full-request count. If the
