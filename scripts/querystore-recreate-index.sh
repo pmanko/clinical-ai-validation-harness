@@ -17,6 +17,7 @@ set -a
 set +a
 
 BACKEND="${OPENMRS_BACKEND:-harness-openmrs-backend}"
+PROXY="${OPENMRS_PROXY:-harness-proxy}"
 DB_CONTAINER="${DB_CONTAINER:-harness-openmrs-db}"
 DB_USER="${OMRS_DB_USER:-openmrs}"
 DB_PASSWORD="${OMRS_DB_PASSWORD:-openmrs}"
@@ -66,6 +67,26 @@ for attempt in $(seq 1 120); do
 done
 if [[ "${healthy}" != "1" ]]; then
   echo "ERROR: OpenMRS did not become healthy after the Querystore restart" >&2
+  exit 1
+fi
+
+echo "==> starting the local proxy used by Querystore verification"
+if ! docker inspect "${PROXY}" >/dev/null 2>&1; then
+  echo "ERROR: ${PROXY} does not exist; run 'make chartsearchai-local' once before recreating the index" >&2
+  exit 1
+fi
+docker start "${PROXY}" >/dev/null
+proxy_ready=0
+for attempt in $(seq 1 60); do
+  if curl -fsS --max-time 3 "http://localhost:${PORT}/__proxy_health" >/dev/null 2>&1; then
+    proxy_ready=1
+    echo "    proxy ready"
+    break
+  fi
+  sleep 2
+done
+if [[ "${proxy_ready}" != "1" ]]; then
+  echo "ERROR: local proxy did not become ready on port ${PORT}" >&2
   exit 1
 fi
 
