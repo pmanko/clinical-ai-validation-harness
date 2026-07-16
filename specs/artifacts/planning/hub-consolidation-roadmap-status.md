@@ -9,9 +9,9 @@ Execution state for `MAH-CONSOLIDATION-2026-07-09-v1`.
 | Roadmap | [`hub-consolidation-roadmap.md`](hub-consolidation-roadmap.md) |
 | Approval | Explicit user instruction to implement the roadmap on 2026-07-09 |
 | Approved roadmap SHA-256 | `5f625cb9f1ac4a1682001fb40fd3cc6852ceed16c96e9b54e435b4e591a64d3d` |
-| Current execution boundary | M3 product proof is complete; M4 release QA and hygiene continue |
-| Next protected boundary | User Release Signoff D is required before release completion |
-| Approved amendments | A1: Git-owned temporal-facts provenance, approved 2026-07-11; A2: 12B-first publish candidate, approved 2026-07-13; A3: stable evaluation IDs with Git-owned history, approved 2026-07-13 |
+| Current execution boundary | Approved Amendment A4 pre-merge safety remediation on med-agent-hub PR #13; M4 release QA remains open |
+| Next protected boundary | Explicit user signoff is required before merging PR #13; User Release Signoff D remains required before release completion |
+| Approved amendments | A1: Git-owned temporal-facts provenance, approved 2026-07-11; A2: 12B-first publish candidate, approved 2026-07-13; A3: stable evaluation IDs with Git-owned history, approved 2026-07-13; A4: shared medication knowledge graph and honest safety boundary, approved 2026-07-16 |
 
 The roadmap intentionally preserves the exact approved Plan Mode body, including its
 pre-approval status line. This companion file is the authoritative execution-status record.
@@ -84,6 +84,93 @@ Amendment exit criteria: product backend IDs equal their hub `modelName`; produc
 contain product profiles only; the live registry has no missing or orphaned definition; a test proves
 a deleted historical comparison-set name resolves from the recorded run commit; and current config,
 runner, evidence, and documentation checks pass.
+
+## Approved Amendment A4: Shared Medication Knowledge Graph and Honest Safety Boundary
+
+**Amendment ID:** `MAH-MEDICATION-KG-2026-07-16-v1`
+**Approval:** Explicit user approval on 2026-07-16 after the research and steering session.
+
+The hub will expose one source-neutral medication knowledge and safety capability. In the current
+iteration it serves agentic ChartSearchAI knowledge and deterministic product checks. A later CDS
+Hooks adapter may project the same evaluator into actual clinical decision support; CDS Hooks is not
+the hub's internal data model or execution engine.
+
+Locked decisions:
+
+1. This is a research/noncommercial MVP. Every imported evidence item carries its own source,
+   version, retrieval date, content digest, licence identifier/URL, and permitted-use metadata.
+2. Initial content covers the current HIV, TB, paediatric, combination-product, and vaccine fixture
+   surface plus a reviewed candidate set of common high-priority interactions.
+3. Rule review states are `proposed`, `evidence_curated`, `clinically_approved`, and `retired`.
+   Only `clinically_approved` rules may produce deterministic warnings or future CDS cards.
+   Earlier states may appear only as explicitly labelled informational research knowledge.
+4. The canonical representation is a typed property graph. Interaction rules are reified entities
+   carrying participants, clinical consequence, seriousness, operational classification,
+   recommended action, mechanism, modifying factors, evidence, applicability, and review state.
+5. The deployable artifact is a schema-validated, checksum-bound graph package loaded into indexed,
+   read-only SQLite tables inside med-agent-hub. There is no separately operated graph service.
+6. Medication identity resolution and medication-exposure resolution are separate from graph query
+   and rule evaluation. Fixed-dose products decompose into ingredients; vaccines and non-medication
+   order concepts retain distinct types; exposure resolves to `active`, `inactive`, or `uncertain`.
+7. CIEL/OpenMRS mappings include code system, code, display, map type/direction, source version, and
+   local concept/drug UUIDs. Name-only matching is a disclosed low-confidence fallback. Querystore is
+   one optional producer of this normalized source contract, not a hub dependency.
+8. Evaluation returns `checked`, `limited`, or `unavailable`, plus package identity, coverage,
+   identity confidence, issues, findings, and evidence. Missing data, ambiguous identity, uncertain
+   exposure, an unavailable package, or an internal failure cannot masquerade as a clean check.
+
+Pre-merge correction required on med-agent-hub PR #13:
+
+- The bundled seed rules are unreviewed. Their current WHO attribution does not substantiate the
+  detailed dose, interaction, contraindication, or cross-reactivity claims, and the WHO children's
+  essential-medicines list is not public domain. Existing seed rules therefore remain informational
+  candidates and cannot trigger product safety warnings.
+- ATC remains medication classification and candidate-discovery evidence. Shared ATC hierarchy or
+  curated class membership alone cannot activate a deterministic interaction, duplicate-therapy,
+  contraindication, or cross-reactivity warning.
+- Product envelopes preserve `safetyWarnings` for compatibility and add an explicit safety result.
+  Disabled experimental legs may omit it; enabled product paths must report an honest terminal state.
+- Dataset load, context construction, and validation failures report `limited` or `unavailable`
+  instead of returning an indistinguishable empty-warning success.
+- Hub, Java relay/persistence, ESM hydration/rendering, tests, README, environment examples, and the
+  root acceptance gate must agree on these semantics.
+
+Successor implementation after explicit PR #13 merge signoff:
+
+1. Add manifest, node, reified-rule, evidence, terminology-mapping, and JSON Schema files plus a
+   deterministic package compiler/loader and read-only SQLite query layer.
+2. Add medication identity and exposure resolvers, including structured CIEL mappings, ingredient
+   expansion, duplicate-order handling, and explicit uncertainty.
+3. Add source-neutral `knowledge/search`, `safety/evaluate`, and `safety/manifest` capabilities and
+   integrate them into product profiles without coupling the core service to ChartSearchAI.
+4. Curate evidence from publication-specific WHO guidance, NIH guidance, and FDA/openFDA material.
+   DDInter and the published high-priority list are discovery inputs only; Liverpool content remains
+   link-only absent reuse permission; WHO SMART trial/demo artifacts cannot directly activate rules.
+5. Add a later, separately approved CDS Hooks `order-select`/`order-sign` adapter over the same
+   evaluator. Learned retrieval, a network graph database, and production/commercial licensing are
+   out of scope for this amendment.
+
+Executable exit criteria:
+
+| Control | Required proof |
+|---|---|
+| A4.01 Review boundary | A non-approved rule cannot emit a deterministic warning or CDS finding. |
+| A4.02 Honest state | Package, mapping, exposure, and runtime failures produce `limited` or `unavailable`, never an empty checked result. |
+| A4.03 ATC boundary | ATC-only same-class and cross-branch examples do not emit deterministic interaction or contraindication warnings. |
+| A4.04 Wire lifecycle | Safety result and warning evidence survive stream, final envelope, Java persistence, ESM hydration, and reload. |
+| A4.05 Package integrity | Invalid schemas, checksums, duplicate IDs, dangling edges, and unsupported package formats fail clearly. |
+| A4.06 Identity | Code-first CIEL mappings are deterministic; ambiguous name-only matches are limited. |
+| A4.07 Exposure | Stopped, renewed, duplicate, missing-date, combination, vaccine, and uncertain orders have reviewed outcomes. |
+| A4.08 Evidence | Every approved finding includes rule ID, medications, seriousness, action, source, evidence, applicability, and package identity. |
+| A4.09 Source independence | Inline and mock alternate sources pass without Querystore running. |
+| A4.10 Fixture coverage | Reviewed HIV/TB/paediatric outcomes cover the fixture combinations without treating vaccines as ordinary DDI pairs. |
+| A4.11 Documentation | Hub, harness, Querystore, ChartSearchAI, ESM, PR descriptions, and active specifications describe the same boundary. |
+| A4.12 Independent QA | Full suites, executable gates, DIGI-UW/code-qa, and an independent clinical-content review have no unresolved blocker. |
+
+PR boundary: PR #13 is the existing 48-commit hub-consolidation integration branch, not a narrow
+drug-safety PR. It receives only the bounded pre-merge correction above. The graph package and APIs
+begin on one successor hub branch after explicit merge signoff, paired with one harness integration
+branch/pin update; they are not folded into PR #13 and do not require one PR per internal milestone.
 
 ## Baseline Snapshot
 
