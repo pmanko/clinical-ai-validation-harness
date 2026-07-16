@@ -152,6 +152,13 @@ def test_local_hub_image_is_labeled_with_the_exact_source_revision():
     assert "HUB_BUILD_REVISION=$$(git -C targets/med-agent-hub rev-parse HEAD)" in makefile
 
 
+def test_stack_status_supplies_the_exact_hub_revision_to_compose():
+    status = _read("scripts/stack-status.sh")
+
+    assert 'HUB_BUILD_REVISION="${HUB_BUILD_REVISION:-$(git -C targets/med-agent-hub rev-parse HEAD)}"' in status
+    assert "export HUB_BUILD_REVISION" in status
+
+
 def test_focused_hub_start_reuses_saved_least_privileged_source_credentials():
     makefile = _read("Makefile")
     target = makefile.split("med-agent-hub-up:", 1)[1].split("med-agent-hub-logs:", 1)[0]
