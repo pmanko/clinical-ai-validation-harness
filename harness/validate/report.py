@@ -585,9 +585,13 @@ def _load_adjudication(run_dir: Path) -> list[dict[str, Any]]:
 
 def _trace_for_row(r: dict[str, Any], traces: list[dict[str, Any]] | None) -> dict[str, Any] | None:
     request = r.get("request") or {}
+    # The response records the exact profile/model requested for this historical cell. Prefer it
+    # over today's registry lookup: current configuration may legitimately delete or rename a
+    # benchmark backend alias, but that must not break trace-backed review evidence in old runs.
+    response_model = str((r.get("response") or {}).get("model") or "").strip()
     return match_trace(
         traces or [],
-        arm_model_name(r.get("backend_id")),
+        response_model or arm_model_name(r.get("backend_id")),
         r.get("started_at"),
         r.get("ended_at"),
         question=request.get("question"),

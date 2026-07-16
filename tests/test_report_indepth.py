@@ -14,6 +14,26 @@ def _row(in_depth):
     }
 
 
+def test_report_trace_correlation_uses_model_frozen_in_result(monkeypatch):
+    monkeypatch.setattr(
+        report, "arm_model_name", lambda _backend_id: "current-registry-id"
+    )
+    row = {
+        "backend_id": "historical-backend-alias",
+        "started_at": "2026-07-13T20:00:00+00:00",
+        "ended_at": "2026-07-13T20:00:10+00:00",
+        "request": {"question": "What happened?"},
+        "response": {"model": "frozen-product-profile"},
+    }
+    trace = {
+        "level_id": "frozen-product-profile",
+        "question": "What happened?",
+        "ts": "2026-07-13T20:00:09+00:00",
+    }
+
+    assert report._trace_for_row(row, [trace]) == trace
+
+
 def test_report_renders_hub_native_indepth_content(monkeypatch):
     monkeypatch.setattr(report, "_trace_for_row", lambda _row, _traces: {})
 
