@@ -146,6 +146,8 @@ if running:
         f"{running.get('resourceType')}: "
         f"{running.get('documentsIndexed') or 0} documents"
     )
+elif not rows:
+    print("status endpoint busy; indexing continues")
 else:
     print("waiting for next resource type")
 PY

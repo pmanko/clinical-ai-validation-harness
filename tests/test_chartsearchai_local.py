@@ -233,6 +233,7 @@ def test_querystore_recreate_is_explicit_and_read_store_scoped():
     assert '[[ "${generation_state}" == "complete" ]]' in script
     assert 'docker start "${PROXY}"' in script
     assert '"http://localhost:${PORT}/__proxy_health"' in script
+    assert 'status endpoint busy; indexing continues' in script
     assert script.index('docker start "${PROXY}"') < script.index(
         'echo "==> waiting for the clean autostart generation'
     )
