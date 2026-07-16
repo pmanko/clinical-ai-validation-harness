@@ -12,6 +12,16 @@ from pathlib import Path
 from typing import Any
 
 
+def trace_model_for_result(result: dict[str, Any], fallback_model: str) -> str:
+    """Return the model/profile identity recorded with a result, if available.
+
+    Historical reports must not depend on today's backend registry: aliases may be
+    renamed or deleted after a run while its trace still uses the original profile.
+    """
+    response_model = str((result.get("response") or {}).get("model") or "").strip()
+    return response_model or fallback_model
+
+
 def load_traces(trace_file: Path) -> list[dict[str, Any]]:
     """Parse the trace JSONL; tolerant of partial/malformed lines; [] if absent."""
     p = Path(trace_file)

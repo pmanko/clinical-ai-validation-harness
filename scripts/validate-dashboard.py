@@ -26,7 +26,7 @@ from urllib.parse import parse_qs, urlparse
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 from harness.validate.model_registry import arm_card, arm_model_name  # noqa: E402  (sys.path set above)
-from harness.validate.hub_trace import match_trace  # noqa: E402
+from harness.validate.hub_trace import match_trace, trace_model_for_result  # noqa: E402
 from harness.validate.reconcile import combined_judge_summary  # noqa: E402
 from harness.validate.review_presentation import (  # noqa: E402
     indepth_validation_display,
@@ -267,7 +267,7 @@ def detail(scenario, backend):
         request = r.get("request") or {}
         tr = match_trace(
             traces,
-            arm_model_name(backend),
+            trace_model_for_result(r, arm_model_name(backend)),
             r.get("started_at"),
             r.get("ended_at"),
             question=request.get("question"),
