@@ -1,0 +1,13 @@
+{
+  "id": "single-model-kb-compare",
+  "transport": "med-agent-hub",
+  "description": "Matched E4B and 12B checked single-model profiles on two multi-turn HIV regimen conversations that require patient-chart evidence plus WHO knowledge-base evidence. Compare answer quality, KB use, lifecycle outcomes, and per-stage latency.",
+  "scenario_ids": [
+    "convo-regimen-currency",
+    "convo-regimen-review"
+  ],
+  "backend_ids": [
+    "single-e4b-checked",
+    "single-12b-checked"
+  ]
+}

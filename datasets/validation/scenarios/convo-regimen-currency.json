@@ -10,6 +10,6 @@
   "expectations": {
     "should_cite_resource_types": ["MedicationRequest", "Observation"],
     "should_abstain": false,
-    "notes": "THE KB-differentiator demo. T1: the 4 ARVs (stavudine/lamivudine/nevirapine/efavirenz), cited. T2: the team should call kb_search (d4T phase-out) and reason her stavudine-based regimen is OUTDATED per WHO — citing the chart regimen record by integer AND attributing the WHO phase-out guidance INLINE in prose (never in citations). T3: preferred = dolutegravir-based (TLD), per the KB. The bare Gemma single-model backend has no KB and is told to use only the chart, so it can at best restate the regimen — it cannot flag it as outdated with sourced guidance. That delta is the demo."
+    "notes": "KB-differentiator scenario. T1: identify the documented ARVs and cite the patient chart. T2: use the selected WHO knowledge reference for the stavudine (d4T) phase-out and explain that the documented regimen is outdated, while keeping patient facts bound to chart evidence. T3: identify a dolutegravir-based regimen such as TLD as preferred using WHO knowledge evidence. Checked product profiles are expected to combine chart and knowledge-base sources; judge the support actually returned rather than assuming a topology has or lacks KB access."
   }
 }
