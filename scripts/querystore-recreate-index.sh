@@ -26,6 +26,8 @@ PORT="${HARNESS_PROXY_HTTP_PORT:-8088}"
 BASE="http://localhost:${PORT}/openmrs"
 AUTH="${CHARTSEARCH_ADMIN_USER:-admin}:${CHARTSEARCH_ADMIN_PASSWORD:-Admin123}"
 ES_URL="${QUERYSTORE_ES_URL:-http://localhost:${QUERYSTORE_ES_PORT:-9200}}"
+QUERYSTORE_OMOD_PROVENANCE="${ROOT}/artifacts/openmrs/modules/querystore-1.0.0-SNAPSHOT.omod.provenance.json"
+DEPLOYED_QUERYSTORE_PROVENANCE="${ROOT}/artifacts/chartsearchai-local/deployed-querystore-omod.json"
 
 echo "==> clearing cached Querystore module files before restart"
 docker exec "${BACKEND}" sh -c \
@@ -69,6 +71,13 @@ if [[ "${healthy}" != "1" ]]; then
   echo "ERROR: OpenMRS did not become healthy after the Querystore restart" >&2
   exit 1
 fi
+if [[ ! -s "${QUERYSTORE_OMOD_PROVENANCE}" ]]; then
+  echo "ERROR: missing built Querystore provenance: ${QUERYSTORE_OMOD_PROVENANCE}" >&2
+  exit 1
+fi
+mkdir -p "$(dirname "${DEPLOYED_QUERYSTORE_PROVENANCE}")"
+cp "${QUERYSTORE_OMOD_PROVENANCE}" "${DEPLOYED_QUERYSTORE_PROVENANCE}"
+echo "    deployed Querystore provenance recorded"
 
 echo "==> starting the local proxy used by Querystore verification"
 if ! docker inspect "${PROXY}" >/dev/null 2>&1; then
