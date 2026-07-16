@@ -194,7 +194,8 @@ source_contracts_ok=0
 querystore_unit_ok=0
 querystore_es_ok=1
 querystore_mysql_ok=1
-if "$ROOT/scripts/test-querystore.sh" unit >/tmp/querystore-g07-unit.log 2>&1; then
+if [[ $hub_m1_suite_ok -eq 1 ]] \
+  && "$ROOT/scripts/test-querystore.sh" unit >/tmp/querystore-g07-unit.log 2>&1; then
   querystore_unit_ok=1
 fi
 if [[ "$RUN_E2E" == "1" ]]; then

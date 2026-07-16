@@ -1,5 +1,0 @@
-{
-  "id": "shakedown",
-  "scenario_ids": ["convo-medications-adherence"],
-  "backend_ids": ["gemma-local"]
-}

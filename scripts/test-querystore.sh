@@ -19,12 +19,14 @@ case "$MODE" in
     ;;
   mysql-integration)
     exec mvn -q -B -pl api -Pintegration \
+      -Dintegration=true \
       -DOPENMRS_APPLICATION_DATA_DIRECTORY="$APPDATA" \
       -Dtest=MysqlBackendStoreIntegrationTest \
       test "$@"
     ;;
   elasticsearch-integration)
     exec mvn -q -B -pl api -Pintegration \
+      -Dintegration=true \
       -DOPENMRS_APPLICATION_DATA_DIRECTORY="$APPDATA" \
       -Dtest=ElasticsearchBackendStoreIntegrationTest \
       test "$@"

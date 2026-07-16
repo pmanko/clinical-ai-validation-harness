@@ -150,8 +150,8 @@ services:
       OMRS_EXTRA_CHARTSEARCHAI_HUB_APIKEY: ${CHARTSEARCH_HUB_API_KEY:-}
       # querystore's Elasticsearch backend reads its endpoint from a runtime
       # property (not a DB global), wired via OMRS_EXTRA_*. Points at the
-      # `elasticsearch` service; only consulted when querystore.backend=elasticsearch,
-      # harmless otherwise. Start ES with: docker compose --profile elasticsearch up -d
+      # default-stack `elasticsearch` service; only consulted when
+      # querystore.backend=elasticsearch and harmless otherwise.
       OMRS_EXTRA_QUERYSTORE_ELASTICSEARCH_URI: ${QUERYSTORE_ELASTICSEARCH_URI:-http://elasticsearch:9200}
     extra_hosts:
       # Keep the standard host gateway available for local infrastructure access.
