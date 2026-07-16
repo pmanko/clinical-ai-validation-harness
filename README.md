@@ -24,7 +24,7 @@ The harness coordinates validation across four clinical AI projects:
 | `chartsearchai` | Embedded OpenMRS module: searches patient chart records using embeddings and lexical retrieval, then generates cited answers | Primary validation target: retrieval quality, answer grounding, citation, abstention, and security |
 | `querystore` | Emerging read-optimized store that will back `chartsearchai` retrieval | Parity testbed: compare retrieval behavior before and after migration |
 | `openmrs_chatbot` | Python clinical chatbot with patient/doctor interfaces and agent workflow scaffolding | Future expansion: multi-turn grounding and role-aware answer evaluation |
-| `Catalyst` (OpenELIS) | Lab AI sidecar over OpenELIS Global 2: FHIR-grounded retrieval over HAPI and embedded FHIR providers, resource-cited answers, and a Scout-style lab report/analytics UI | M10 (Planning): FHIR-first sidecar POC — canonical question set, evidence cards, lab timeline, and embedded-FHIR parity probe |
+| `Catalyst` (OpenELIS) | Lab query-to-table sidecar: OpenELIS → HAPI FHIR → FHIR Data Pipes → governed analytics view → reviewed, read-only Catalyst execution | MVP complete; the next step is harness-owned engineering evaluation of the real Gateway path |
 
 ## Current priority: the validation spine and active lanes
 
@@ -63,7 +63,7 @@ Human-facing docs use plain names. IDs appear in parentheses on first use and in
 | Chartsearchai model gateway | F008 | `008` | [Brief](https://github.com/pmanko/clinical-ai-validation-harness/blob/main/specs/artifacts/planning/chartsearchai-model-gateway-brief.md) |
 | Clinical knowledge base | F009 | `009` | [Brief + research](https://github.com/pmanko/clinical-ai-validation-harness/blob/main/specs/artifacts/planning/clinical-kb-brief.md) |
 | Retrieval evaluation | M4 | `010` | Planned |
-| Catalyst FHIR sidecar POC | M10 | `011` | [Brief](https://github.com/pmanko/clinical-ai-validation-harness/blob/main/specs/artifacts/planning/catalyst-fhir-sidecar-brief.md) |
+| Catalyst query-to-table evaluation | M10 | `011` | MVP assembly complete; harness adapter and evaluation corpus next |
 | Answer, citation, and abstention | M5 | `012` | Planned |
 | Safety and red-team | M6 | `013` | Planned |
 | Clinician governance review | M7 | `014` | Planned |
@@ -74,7 +74,7 @@ Human-facing docs use plain names. IDs appear in parentheses on first use and in
 
 > **Note on F-prefixed IDs and non-monotonic slugs:** F005, F007, F008, F009, F010 are features inserted into the roadmap after the M0–M10 sequence was authored. The validation spine (M2) shipped as slug `006` (validation-harness MVP) — the earlier `003` slug was never created. `007` is LLM config overrides (F007); `017` is the med-agent-hub MCP tools (F010). The Roadmap IDs (M0–M10, F005–F010) carry the semantic ordering anchor; folder slugs are filesystem identifiers and may be non-monotonic. See [`specs/roadmap.canvas.tsx`](https://pmanko.github.io/clinical-ai-validation-harness/#/canvas/specs/roadmap) for the dependency DAG.
 
-> **Note on M10 and sibling checkouts:** The Catalyst FHIR sidecar POC (M10) consumes OpenELIS Global 2 as a **sibling checkout** at `../OpenELIS-Global-2/` (or `$OPENELIS_ROOT`). OE2 is not a submodule of this harness. Catalyst Python services live in `targets/catalyst` (submodule pinned to `DIGI-UW/openelis-catalyst`). The Spec Kit Phase 2 workflow (`/speckit-specify` through `/speckit-tasks`) runs against the [source brief](https://github.com/pmanko/clinical-ai-validation-harness/blob/main/specs/artifacts/planning/catalyst-fhir-sidecar-brief.md) to produce `specs/011-catalyst-fhir-sidecar-poc/`.
+> **Note on M10 and repository ownership:** The harness is the umbrella repository. Catalyst and med-agent-hub are sibling, top-level submodules under `targets/`; Catalyst contains no nested Git submodules. Its local MVP bootstrap creates disposable, pinned runtime checkouts for OpenELIS, FHIR Data Pipes, and the patched hub profile, but those checkouts are not submodules and are never recorded by this repository.
 
 ## Principles
 
@@ -107,6 +107,27 @@ targets/       Pinned submodule checkouts of the four target projects
 ## Quickstart
 
 **Requirements:** Python 3.11+, `uv`, Docker / Docker Compose, Git.
+
+## Catalyst query-to-table MVP
+
+Initialize the two sibling target pins without `--recursive`:
+
+```bash
+git submodule update --init targets/catalyst targets/med-agent-hub
+```
+
+The deterministic local MVP brings up OpenELIS, HAPI FHIR, FHIR Data Pipes, the
+analytics database, Catalyst Gateway, the patched hub query profile, and the
+sidecar UI; it then seeds and verifies the three-row viral-load fixture.
+
+```bash
+make catalyst-mvp-fake
+```
+
+Open `http://localhost:3000` after the health gate succeeds. Use `make
+catalyst-mvp-up`, `make catalyst-mvp-seed`, and `make catalyst-mvp-health` for
+the live local-model path; the first run downloads the pinned local model. The
+MVP is demo-data engineering evidence, not a clinical-quality claim.
 
 ```bash
 # 1. Install uv (Python environment manager) if not already installed

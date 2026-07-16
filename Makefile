@@ -15,7 +15,8 @@ export UV_PROJECT_ENVIRONMENT
         med-agent-hub-build med-agent-hub-up med-agent-hub-logs med-agent-hub-restart med-agent-hub-test \
         validate-preflight validate-run validate-judge-prep validate-judge-finalize validate-publish \
         cloud-init cloud-sync cloud-up cloud-down cloud-reset cloud-deploy cloud-seed \
-        cloud-start cloud-stop cloud-ssh cloud-logs cloud-status cloud-destroy
+        cloud-start cloud-stop cloud-ssh cloud-logs cloud-status cloud-destroy \
+        catalyst-mvp-up catalyst-mvp-fake catalyst-mvp-seed catalyst-mvp-health catalyst-mvp-down catalyst-mvp-reset
 
 # --- compose lifecycle ---
 up:
@@ -34,6 +35,28 @@ status:
 
 logs:
 	docker compose -f compose/openmrs-2.8-refapp.yml logs -f --tail=200
+
+# --- Catalyst query-to-table MVP ---
+# Catalyst and med-agent-hub remain sibling harness submodules. Catalyst's MVP
+# performs its own versioned runtime bootstrap; it is never initialized as a
+# nested Git submodule.
+catalyst-mvp-up:
+	./scripts/catalyst-mvp.sh up
+
+catalyst-mvp-fake:
+	./scripts/catalyst-mvp.sh --fake boot
+
+catalyst-mvp-seed:
+	./scripts/catalyst-mvp.sh seed
+
+catalyst-mvp-health:
+	./scripts/catalyst-mvp.sh health
+
+catalyst-mvp-down:
+	./scripts/catalyst-mvp.sh down
+
+catalyst-mvp-reset:
+	./scripts/catalyst-mvp.sh reset
 
 # --- CIEL baseline ---
 CIEL_VERSION ?= v2026-04-28

@@ -81,16 +81,17 @@ targets:
       evidence_mode: scaffolding_only
 
   - id: catalyst
-    display_name: OpenELIS Catalyst (standalone target)
+    display_name: OpenELIS Catalyst query-to-table MVP
     submodule_path: targets/catalyst
     environment_override: HARNESS_TARGET_CATALYST
-    evidence_status: scaffolding
+    evidence_status: development
     supported_profiles: [local, vm]
     shared_profiles: []
     validation_surface:
-      kind: unavailable
+      kind: workflow
       description: >-
-        Submodule pinned at https://github.com/DIGI-UW/openelis-catalyst (extracted
-        from OpenELIS-Global-2 projects/catalyst). Specific validation commands
-        will be declared by a future feature that exercises Catalyst's real path.
-      evidence_mode: scaffolding_only
+        Deterministic fake-backend boot, seed, and health gate for the pinned
+        OpenELIS-to-FHIR-to-analytics-to-Catalyst path. This is engineering
+        validation only; clinical answer scoring remains out of scope.
+      evidence_mode: real_path_required
+      command: [./scripts/catalyst-mvp.sh, --fake, boot]
