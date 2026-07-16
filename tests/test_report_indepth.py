@@ -49,9 +49,11 @@ def test_report_renders_withheld_hub_native_indepth_status(monkeypatch):
 
     assert "Needs review" in cell["answer_html"]
     assert "In-Depth was withheld because every claim failed checks." in cell["answer_html"]
-    assert "Model draft for review" in cell["answer_html"]
+    assert "Removed In-Depth claims" in cell["answer_html"]
     assert "Rejected model claim [2]." in cell["answer_html"]
-    assert "not approved clinical output" in cell["answer_html"]
+    assert "not part of the final clinical response" in cell["answer_html"]
+    assert "<details open class='reviewdraft'>" not in cell["answer_html"]
+    assert "<details class='reviewdraft'>" in cell["answer_html"]
     assert "Draft sources for review (not final evidence)" in cell["answer_html"]
     assert all(
         source["citation_index"] != 2 for source in cell["sources"]["sources"]

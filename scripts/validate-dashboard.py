@@ -385,6 +385,7 @@ table.btbl{border-collapse:collapse;font-size:11px;width:100%}
 .sdiag{margin-top:5px;color:var(--muted);font-size:10px}
 .reviewdraft{margin-top:8px;border-left:3px solid var(--err);padding-left:10px}
 .reviewdraft>summary{cursor:pointer;color:var(--text);font-size:11px;font-weight:700;padding:4px 0}
+.reviewdraft>summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .reviewdraft-note{background:var(--cav-red-bg);color:var(--cav-red-fg);padding:7px 9px;margin:4px 0;font-size:11px}
 .reviewdraft.edited{border-left-color:var(--flag)}
 .reviewdraft.edited .reviewdraft-note{background:var(--cav-yel-bg);color:var(--cav-yel-fg)}
@@ -724,8 +725,8 @@ function renderReviewDraft(draft, sourcesV1){
   return '<li><b>['+esc(String(idx))+']</b> '+esc(label)+record+'</li>';
  }).join('');
  const sourceHtml=sourceRows?'<div class=reviewrefs><b>Draft sources for review (not final evidence)</b><ul>'+sourceRows+'</ul></div>':'';
- return '<details open class=reviewdraft><summary>Model draft for review</summary>'
-  +'<div class=reviewdraft-note>This is the model\'s pre-check output. It was changed or withheld and is not approved clinical output.</div>'
+ return '<details class=reviewdraft><summary>Removed In-Depth claims</summary>'
+  +'<div class=reviewdraft-note>These model-generated claims were removed or withheld by checks. They are shown only for manual review and are not part of the final clinical response.</div>'
   +'<div class=ans>'+esc(draft)+'</div>'+sourceHtml+'</details>';
 }
 function renderOriginalAnswer(validation,currentAnswer){

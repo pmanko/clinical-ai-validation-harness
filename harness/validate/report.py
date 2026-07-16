@@ -164,9 +164,10 @@ def _render_review_draft(indepth: Any) -> str:
         else ""
     )
     return (
-        "<details open class='reviewdraft'><summary>Model draft for review</summary>"
-        "<div class='reviewdraft-note'>This is the model's pre-check output. It was changed "
-        "or withheld and is not approved clinical output.</div>"
+        "<details class='reviewdraft'><summary>Removed In-Depth claims</summary>"
+        "<div class='reviewdraft-note'>These model-generated claims were removed or withheld "
+        "by checks. They are shown only for manual review and are not part of the final "
+        "clinical response.</div>"
         f"<div class='secbody'>{_render_answer(draft)}</div>{sources}</details>"
     )
 
@@ -1174,6 +1175,7 @@ table.jheat { border-collapse: collapse; font-size: 11px; }
 .expand:hover { background: var(--accent-hover); }
 .ans { white-space: pre-wrap; max-height: 20em; overflow: auto; }
 .tile.expanded .ans { max-height: none; }
+.tile:has(.reviewdraft[open]) .ans { max-height: none; }
 .ctags { margin: 0 0 6px; display: flex; flex-wrap: wrap; gap: 4px; }
 .ctag { display: inline-block; font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 10px; color: #fff; cursor: default; }
 .ctag.green { background: #196c2e; }
@@ -1188,6 +1190,7 @@ table.jheat { border-collapse: collapse; font-size: 11px; }
 .collapse > summary { cursor: pointer; color: var(--accent); font-size: 11px; padding: 3px 0; }
 .reviewdraft { margin-top: 8px; border-left: 3px solid #da1e28; padding-left: 10px; }
 .reviewdraft > summary { cursor: pointer; color: var(--fg); font-size: 12px; font-weight: 650; padding: 4px 0; }
+.reviewdraft > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .reviewdraft-note { background: #fff1f1; color: #a2191f; font-size: 12px; padding: 7px 9px; margin: 4px 0; }
 .reviewdraft.edited { border-left-color: #f1c21b; }
 .reviewdraft.edited .reviewdraft-note { background: #fcf4d6; color: #684e00; }

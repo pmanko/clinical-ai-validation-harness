@@ -20,8 +20,9 @@ def test_dashboard_shows_single_and_multi_actor_judgments_honestly():
 
 def test_dashboard_keeps_flagged_model_output_visible_for_manual_review():
     assert "confidence inversion" not in DASHBOARD_SOURCE
-    assert "Model draft for review" in DASHBOARD_SOURCE
-    assert "not approved clinical output" in DASHBOARD_SOURCE
+    assert "Removed In-Depth claims" in DASHBOARD_SOURCE
+    assert "not part of the final clinical response" in DASHBOARD_SOURCE
+    assert "<details open class=reviewdraft>" not in DASHBOARD_SOURCE
     assert "function indepthReviewDraft" not in DASHBOARD_SOURCE
     assert "const draft=(t.review_draft||'').trim()" in DASHBOARD_SOURCE
     assert "renderOriginalAnswer(validation,currentAnswer)" in DASHBOARD_SOURCE
