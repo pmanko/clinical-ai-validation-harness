@@ -16,7 +16,7 @@ export UV_PROJECT_ENVIRONMENT
         validate-preflight validate-run validate-judge-prep validate-judge-finalize validate-publish \
         cloud-init cloud-sync cloud-up cloud-down cloud-reset cloud-deploy cloud-seed \
         cloud-start cloud-stop cloud-ssh cloud-logs cloud-status cloud-destroy \
-        catalyst-mvp-up catalyst-mvp-fake catalyst-mvp-seed catalyst-mvp-health catalyst-mvp-down catalyst-mvp-reset
+        catalyst-mvp-up catalyst-mvp-external catalyst-mvp-fake catalyst-mvp-seed catalyst-mvp-health catalyst-mvp-down catalyst-mvp-reset
 
 # --- compose lifecycle ---
 up:
@@ -37,11 +37,13 @@ logs:
 	docker compose -f compose/openmrs-2.8-refapp.yml logs -f --tail=200
 
 # --- Catalyst query-to-table MVP ---
-# Catalyst and med-agent-hub remain sibling harness submodules. Catalyst's MVP
-# performs its own versioned runtime bootstrap; it is never initialized as a
-# nested Git submodule.
+# Catalyst is a harness target submodule. Its MVP performs a versioned runtime
+# bootstrap; Hub is never initialized as a nested Catalyst submodule.
 catalyst-mvp-up:
 	./scripts/catalyst-mvp.sh up
+
+catalyst-mvp-external:
+	MVP_MODEL_BACKEND=external ./scripts/catalyst-mvp.sh boot
 
 catalyst-mvp-fake:
 	./scripts/catalyst-mvp.sh --fake boot

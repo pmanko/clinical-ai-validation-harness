@@ -90,8 +90,12 @@ targets:
     validation_surface:
       kind: workflow
       description: >-
-        Deterministic fake-backend boot, seed, and health gate for the pinned
-        OpenELIS-to-FHIR-to-analytics-to-Catalyst path. This is engineering
-        validation only; clinical answer scoring remains out of scope.
+        Repeatable real-path Catalyst and Med-Agent Hub text-to-SQL experiments
+        with deterministic lint, execution assertions, and record-level evidence.
+        Clinical answer scoring remains out of scope for this query-to-table suite.
       evidence_mode: real_path_required
-      command: [./scripts/catalyst-mvp.sh, --fake, boot]
+      command:
+        - python3
+        - scripts/run-catalyst-validation.py
+        - --suite
+        - datasets/validation/catalyst/catalyst-mvp-v1.json

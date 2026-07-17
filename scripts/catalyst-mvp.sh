@@ -36,7 +36,7 @@ fi
 
 if ! git -C "${CATALYST_DIR}" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   echo "ERROR: Catalyst is not initialized at ${CATALYST_DIR}." >&2
-  echo "Run: git submodule update --init targets/catalyst targets/med-agent-hub" >&2
+  echo "Run: git submodule update --init targets/catalyst" >&2
   exit 1
 fi
 
