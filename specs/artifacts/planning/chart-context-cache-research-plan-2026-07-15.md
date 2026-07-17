@@ -35,17 +35,21 @@ optimization and is not evidence that chart retrieval or arbitrary future prompt
 | The source registry and Querystore client are rebuilt for each context preparation. | `targets/med-agent-hub/server/engine.py`, `_prepare_context`; `SourceRegistry.default` in `context_sources.py` | There is no process-level source cache or persistent HTTP connection owner at this boundary. |
 | The current Querystore patient-record endpoint has no validator contract. | `targets/querystore/omod/src/main/java/org/openmrs/module/querystore/web/rest/QueryStoreRestController.java`, `getPatientRecords` | The hub cannot issue a conditional request with `If-None-Match` or prove that a cached ledger is current. |
 | Oversized context selection depends on the latest question. | `targets/med-agent-hub/server/context_sources.py`, `_ranked_records` and `select_context` | Different questions can change records near the beginning of the model prompt and destroy most exact-prefix reuse. |
-| Selection performs an exact full-request token count for each trial record. | `select_context` calls `input_measure` in its greedy loop; `RouterTokenCounter.count_chat` calls the router | A 365-record chart can trigger hundreds of repeated large tokenization requests before generation starts. |
+| Oversized fitting now batches rendered-record token costs and exact-checks only bounded assembled candidates. | `targets/med-agent-hub/server/context_sources.py`, `RouterTokenCounter.count_records` and `select_context` | Hub `dad07e6` removes the record-by-record full-prompt recount. One model-specific `/tokenize` request maps token pieces to record ranges; every proposed assembled prompt is still exact-counted before use. |
 | The chart is inserted near the start of the answer messages. | `targets/med-agent-hub/server/engine.py`, `_replace_chart_message` | A stable full chart is cache-friendly, but a question-conditioned selected chart changes the early prefix. |
 | llama.cpp prompt caching is enabled by default and exposes reused/processed token counts. | Local router uses llama.cpp; official server docs define `cache_n`, `prompt_n`, `prompt_ms`, and prompt-cache controls | The current hub does not retain these fields in its stage trace, so prefix reuse is not measurable per role. |
 | The local product launcher unnecessarily limited fresh router starts to one resident model. | `.env.chartsearch.example` and `scripts/chartsearchai-local.sh` previously set `LLAMA_ROUTER_MODELS_MAX=1`; llama.cpp defines `--models-max` | E2B and E4B are only 3.2 GiB and 4.6 GiB on disk and can remain resident together on the reference machine. The local default is corrected to two; the explicit one-model policy remains only for large-model workloads. |
 
-Observed on the current 365-record demo chart, context preparation was roughly 10 seconds and the
-selected request used 20,475 of a 20,480-token input limit. The live two-turn comparison exposed E4B
-Answers in 11.6 and 15.8 seconds; E2B took 24.4 and 21.5 seconds and produced weaker structured output.
-These are full-profile diagnostic observations, not universal model benchmarks. Inspection of the
-actual comparison router confirmed `--models-max 4` with both E2B and E4B loaded, so eviction did not
-explain E2B's slower result in this run.
+The original 365-record diagnostic observed roughly 10 seconds of context preparation and used
+20,475 of a 20,480-token input limit. After eligibility correction but before batched fitting, run
+`20a08ef1-6829-4bea-843e-ae523ee11b02` stopped filling the window but still averaged about 9.7 seconds
+for E4B and 10.0 seconds for 12B context preparation because the sequential recount remained. Its
+end-to-end E4B latency averaged 71.2 seconds versus 98.3 seconds for the packed baseline; 12B averaged
+164.9 versus 172.6 seconds. These are diagnostic observations on one local machine, not model-quality
+or universal latency claims. The separate two-turn comparison exposed E4B Answers in 11.6 and 15.8
+seconds; E2B took 24.4 and 21.5 seconds and produced weaker structured output. Inspection of that
+comparison router confirmed `--models-max 4` with both E2B and E4B loaded, so eviction did not explain
+E2B's slower result.
 
 ## Research Findings
 
@@ -119,23 +123,25 @@ Checkpoint: reproduce the same two-turn scenario three times and account for con
 I/O, deterministic preparation, router prefill, model load, and generation. Do not implement a
 clinical ledger cache until this breakdown is available.
 
-### C1: Remove repeated deterministic computation
+### C1: Remove repeated deterministic computation — implemented
 
-The 2026-07-16 eligibility correction is now the baseline for this work. Hub `7bb9371` stops after
-mandatory, exact, bounded clinical-core, and meaningfully overlapping evidence is exhausted instead
-of filling the model window with zero-relevance records. The exact 12-cell gate retains 48/48
-required sources while using 13,455-17,493 of the 20,480-token ceiling and selecting 35-80 records.
-This fixes which records are eligible; it does not yet remove the repeated token-count calls below.
+Hub `7bb9371` first corrected eligibility: mandatory, exact, bounded clinical-core, and meaningfully
+overlapping evidence is eligible, while zero-relevance records are not admitted merely to fill the
+window. Hub `dad07e6` then removes the sequential full-prompt recount. The selector ranks once,
+tokenizes every eligible rendered record in one model-specific request, maps returned token pieces to
+record byte ranges, greedily skips individually oversized records, and exact-counts each bounded
+assembled candidate. A boundary-sensitive underestimated first candidate is checked alone and
+excluded when it cannot fit. Mandatory overflow still fails closed.
 
-Keep selection deterministic while replacing the current record-by-record full-prompt tokenization
-loop. Rank once, cache tokenizer results by model plus exact record rendering, select a candidate
-prefix using additive counts or bounded search, and perform one final exact full-request count. If the
-exact count is over budget, remove records deterministically and recheck. Mandatory-context overflow
-continues to fail closed.
-
-Checkpoint: selected record IDs and reasons remain identical for the current context fixtures, exact
-final input remains within budget, required-source recall remains 100%, and token-count round trips
-fall substantially. Any selection change requires a separately reviewed context-quality comparison.
+The current exact 12-cell gate retains all 48 required sources while using 13,484-17,569 of the
+20,480-token ceiling and selecting 35-84 records; all 3,182 exclusions are explicitly
+`zero_relevance`, with no budget exclusion needed in that fixture set. The live router returned
+separate `(6, 14)` costs for two records from one batched request. The focused selector/complete-ledger
+suite passes 79 tests and the full hub suite passes 549 tests. Independent reviews found and drove
+red-first fixes for demographic aliases, relevance-before-recency ordering, numeric and compact
+duration collisions, explicit-identifier scoping, canonical-rendering recounts, and oversized-record
+blocking. A final review worker did not return before timeout; that missing confirmation is not
+represented as a clean independent pass.
 
 ### C2: Add a source-neutral evidence cache seam
 
