@@ -35,7 +35,7 @@ optimization and is not evidence that chart retrieval or arbitrary future prompt
 | The source registry and Querystore client are rebuilt for each context preparation. | `targets/med-agent-hub/server/engine.py`, `_prepare_context`; `SourceRegistry.default` in `context_sources.py` | There is no process-level source cache or persistent HTTP connection owner at this boundary. |
 | The current Querystore patient-record endpoint has no validator contract. | `targets/querystore/omod/src/main/java/org/openmrs/module/querystore/web/rest/QueryStoreRestController.java`, `getPatientRecords` | The hub cannot issue a conditional request with `If-None-Match` or prove that a cached ledger is current. |
 | Oversized context selection depends on the latest question. | `targets/med-agent-hub/server/context_sources.py`, `_ranked_records` and `select_context` | Different questions can change records near the beginning of the model prompt and destroy most exact-prefix reuse. |
-| Oversized fitting now batches rendered-record token costs and exact-checks only bounded assembled candidates. | `targets/med-agent-hub/server/context_sources.py`, `RouterTokenCounter.count_records` and `select_context` | Hub `dad07e6` removes the record-by-record full-prompt recount. One model-specific `/tokenize` request maps token pieces to record ranges; every proposed assembled prompt is still exact-counted before use. |
+| Oversized fitting now batches rendered-record token costs and exact-checks only bounded assembled candidates. | `targets/med-agent-hub/server/context_sources.py`, `RouterTokenCounter.count_records` and `select_context` | Hub `dad07e6` removes the record-by-record full-prompt recount; `becdebe` is its formatter-only successor. One model-specific `/tokenize` request maps token pieces to record ranges; every proposed assembled prompt is still exact-counted before use. |
 | The chart is inserted near the start of the answer messages. | `targets/med-agent-hub/server/engine.py`, `_replace_chart_message` | A stable full chart is cache-friendly, but a question-conditioned selected chart changes the early prefix. |
 | llama.cpp prompt caching is enabled by default and exposes reused/processed token counts. | Local router uses llama.cpp; official server docs define `cache_n`, `prompt_n`, `prompt_ms`, and prompt-cache controls | The current hub does not retain these fields in its stage trace, so prefix reuse is not measurable per role. |
 | The local product launcher unnecessarily limited fresh router starts to one resident model. | `.env.chartsearch.example` and `scripts/chartsearchai-local.sh` previously set `LLAMA_ROUTER_MODELS_MAX=1`; llama.cpp defines `--models-max` | E2B and E4B are only 3.2 GiB and 4.6 GiB on disk and can remain resident together on the reference machine. The local default is corrected to two; the explicit one-model policy remains only for large-model workloads. |
@@ -50,6 +50,17 @@ or universal latency claims. The separate two-turn comparison exposed E4B Answer
 seconds; E2B took 24.4 and 21.5 seconds and produced weaker structured output. Inspection of that
 comparison router confirmed `--models-max 4` with both E2B and E4B loaded, so eviction did not explain
 E2B's slower result.
+
+The post-implementation product proof `d6c28766-643a-4c23-b56a-7ea90e029864` completed 14/14
+multi-turn E4B/12B cells with exact inputs of 16,977-19,480 against the 20,480 ceiling. Each cell
+stopped with 1,000-3,503 tokens unused because all remaining records were `zero_relevance`; no
+eligible record was excluded for budget. Context preparation still averaged 13.6 seconds for E4B
+and 14.7 seconds for 12B. The batched fitter therefore removes the pathological per-record recount
+and proves the intended selection policy, but it does not close the broader context-latency
+workstream: exact history fitting, assembled-prompt confirmation, source I/O, and stage-specific
+refitting still need sub-stage measurement. A stale original harness process briefly contended with
+the supported resume for the 12B worker, so this run's 12B end-to-end latency is not a valid
+performance comparison.
 
 ## Research Findings
 
@@ -127,7 +138,8 @@ clinical ledger cache until this breakdown is available.
 
 Hub `7bb9371` first corrected eligibility: mandatory, exact, bounded clinical-core, and meaningfully
 overlapping evidence is eligible, while zero-relevance records are not admitted merely to fill the
-window. Hub `dad07e6` then removes the sequential full-prompt recount. The selector ranks once,
+window. Hub `dad07e6` then removes the sequential full-prompt recount, with formatter-only successor
+`becdebe`. The selector ranks once,
 tokenizes every eligible rendered record in one model-specific request, maps returned token pieces to
 record byte ranges, greedily skips individually oversized records, and exact-counts each bounded
 assembled candidate. A boundary-sensitive underestimated first candidate is checked alone and
