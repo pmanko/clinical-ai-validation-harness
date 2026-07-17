@@ -212,14 +212,12 @@ if [[ -f "$HUB/server/context_sources.py" && -f "$HUB/tests/test_context_sources
   && missing_pattern 'from \.querystore_client import QueryStoreClient' "$HUB/server/team.py" \
   && has_pattern 'test_supplemental_source_uses_the_same_normalized_ledger' "$HUB/tests" \
   && has_pattern 'test_service_startup_does_not_invent_querystore_credentials' "$HUB/tests" \
-  && has_pattern 'PatientChartReadException' "$ROOT/targets/querystore/api/src/main" \
-  && has_pattern 'complete.*patient chart' "$HUB/tests/test_querystore_client.py" \
-  && has_pattern 'openPointInTime' "$ROOT/targets/querystore/api/src/main/java/org/openmrs/module/querystore/backend/elasticsearch/ElasticsearchBackendStore.java" \
-  && has_pattern 'searchAfter' "$ROOT/targets/querystore/api/src/main/java/org/openmrs/module/querystore/backend/elasticsearch/ElasticsearchBackendStore.java" \
-  && missing_pattern 'FULL_CHART_MAX_HITS' "$ROOT/targets/querystore" \
+  && has_pattern 'queryStoreService\(\)\.getPatientChart' "$ROOT/targets/querystore/omod/src/main/java/org/openmrs/module/querystore/web/rest/QueryStoreRestController.java" \
+  && has_pattern 'test_full_chart_accepts_thin_endpoint_envelope' "$HUB/tests/test_querystore_client.py" \
+  && has_pattern 'test_full_chart_rejects_duplicate_record_across_pages' "$HUB/tests/test_querystore_client.py" \
   && has_pattern 'elasticsearch-integration' "$ROOT/scripts/test-querystore.sh" \
-  && has_pattern 'ensureIndexedComplete' "$ROOT/targets/querystore/api/src/main" \
-  && has_pattern 'snapshotId' "$HUB/server/querystore_client.py" \
+  && missing_pattern 'ensureIndexedComplete|PatientChartReadException' "$ROOT/targets/querystore/api/src/main" \
+  && missing_pattern 'snapshotId|complete.*patient chart' "$HUB/server/querystore_client.py" \
   && missing_pattern 'QUERYSTORE_USERNAME[^\n]*admin|QUERYSTORE_PASSWORD[^\n]*Admin123' \
     "$HUB/server/config.py" "$ROOT/compose/openmrs-2.8-refapp.yml" \
   && [[ $hub_m1_suite_ok -eq 1 ]] \
@@ -229,7 +227,7 @@ if [[ -f "$HUB/server/context_sources.py" && -f "$HUB/tests/test_context_sources
   source_contracts_ok=1
 fi
 if [[ $source_contracts_ok -ne 1 ]]; then
-  record G07 FAIL "context source registry, completeness, Querystore tests, pagination, failure, or credential contract is incomplete"
+  record G07 FAIL "context source registry, thin Querystore adapter, paging, failure, or credential contract is incomplete"
 elif [[ "$RUN_E2E" != "1" ]]; then
   record G07 PENDING "source contracts passed; RUN_E2E=1 is required for the exact deployed Querystore adapter proof"
 elif [[ -s "$relay_probe" ]] \

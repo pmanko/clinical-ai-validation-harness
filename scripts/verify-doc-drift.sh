@@ -42,7 +42,6 @@ FORBIDDEN = [
     (re.compile(r"whole chart per turn|every query retrieves the patient chart from querystore", re.I), "stale universal Querystore claim"),
     (re.compile(r"per-level [`']?drug_safety[`']? knob|drug_safety.*default off", re.I), "stale product drug-safety policy"),
     (re.compile(r"let the hub manage its llama\.cpp", re.I), "ambiguous local process ownership"),
-    (re.compile(r"10[ ,]?000[- ]hit.*cap|FULL_CHART_MAX_HITS", re.I), "retired Elasticsearch full-chart cap"),
     (re.compile(r"GCP_FIREWALL_DENY_LMS|GCP_LMS_PORT"), "retired cloud model-server firewall"),
     (re.compile(r"value\s*=\s*\"/search\"|/search/stream|chartsearchai/search/stream"), "removed search stream path"),
     (re.compile(r"\bRemoteLlmEngine\b"), "removed direct-provider Java engine"),

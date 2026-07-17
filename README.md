@@ -22,7 +22,7 @@ The harness coordinates validation across four clinical AI projects:
 | Project | What it does | Role here |
 |---------|-------------|-----------|
 | `chartsearchai` | Thin OpenMRS authorization, session, persistence, and SSE relay for med-agent-hub profiles | Product integration target: lifecycle UX, persistence, citation display, cancellation, and security |
-| `querystore` | Optional read-optimized clinical-record source consumed by med-agent-hub | Context-source validation: complete patient ledgers, indexing integrity, and future retrieval experiments |
+| `querystore` | Optional read-optimized clinical-record source consumed by med-agent-hub | Context-source validation: materialized patient records, indexing integrity, and future retrieval experiments |
 | `openmrs_chatbot` | Python clinical chatbot with patient/doctor interfaces and agent workflow scaffolding | Future expansion: multi-turn grounding and role-aware answer evaluation |
 | `Catalyst` (OpenELIS) | Lab AI sidecar over OpenELIS Global 2: FHIR-grounded retrieval over HAPI and embedded FHIR providers, resource-cited answers, and a Scout-style lab report/analytics UI | M10 (Planning): FHIR-first sidecar POC — canonical question set, evidence cards, lab timeline, and embedded-FHIR parity probe |
 
