@@ -47,6 +47,10 @@ different validation scopes.
 3. Create a workbench session from a natural-language question.
 4. Verify the generated SQL, typed parameters, model/profile provenance, and
    all findings are visible even when validation fails.
+   If only one parseable raw JSON object survived, verify it appears as an
+   unresolved editor buffer with blank missing names while the raw output stays
+   separately visible; refresh must restore that buffer without another model
+   call.
 5. Verify PostgreSQL highlighting and logical line numbers; wrapping starts on,
    the toggle is keyboard operable, and its session preference survives refresh
    without changing the query digest.

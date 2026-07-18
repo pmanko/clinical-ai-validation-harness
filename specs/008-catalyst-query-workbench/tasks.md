@@ -65,6 +65,12 @@
 - [X] T061 Implement localized generation patch contracts/application and regenerate the durable Hub patch in `targets/catalyst/.med-agent-hub/server/catalyst_query.py`, `targets/catalyst/.med-agent-hub/server/contracts/`, and `targets/catalyst/patches/med-agent-hub/catalyst-query-profile.patch`
 - [X] T062 Rebuild the isolated Hub and repeat the exact E4B/12B question, proving physical model identity, frozen-unit integrity, full revalidation, best/raw retention, and manual Validate/Run behavior in `specs/008-catalyst-query-workbench/roadmap.md`
 
+## Phase 4.7 — Corrective G2.4: unresolved raw-draft hydration
+
+- [X] T063 Record the raw-visible/editor-empty boundary, minimal unresolved-seed contract, acceptance cases, and N23 in `specs/008-catalyst-query-workbench/`
+- [X] T064 [P] Add failing gateway contract/route tests and UI create/refresh tests proving exact raw preservation, unresolved SQL/parameter hydration with blank missing names, immutable-version precedence, and evidence-only fallback for malformed or non-object output in `targets/catalyst/catalyst-gateway/tests/` and `targets/catalyst/catalyst-ui/src/App.test.tsx`
+- [X] T065 Implement a response-derived unresolved draft seed and hydrate the editor from it only when no immutable current version exists in `targets/catalyst/catalyst-gateway/src/catalyst/service.py`, `targets/catalyst/docs/contracts/`, and `targets/catalyst/catalyst-ui/src/features/query/`; then rebuild the isolated stack and verify the retained 12B session before continuing G3
+
 ## Phase 6 — W1 integrated validation
 
 - [ ] T022 Add invalid-edit-run-refresh-rerun browser coverage in `targets/catalyst/catalyst-ui/e2e/workbench.spec.ts`
@@ -97,11 +103,11 @@
 G0 (T001–T002) blocks all product code. T003–T007 block US1/US3/US4. T053 and
 T008 block T056, and T057 blocks T058. T056 and T058 must complete before the
 G2.2 record in T054; T054 blocks T011–T013 editor wiring. T059 blocks T060,
-T060 blocks T061, and T061 blocks the real-profile revalidation in T062 before
-G3. US1 and US3 share
+T060 blocks T061, and T061 blocks the real-profile revalidation in T062. T063
+blocks T064, and T064 blocks T065 before G3. US1 and US3 share
 session/version state; US4 can proceed after that
 foundation. T018 and T027 are mandatory user pauses, and T055 is required G3
 manual evidence before T027. The narrow generation retry integrity work in
-T059–T062 does not authorize the broader W2 remediation workflow. US2 and harness integration do not start until
+T059–T065 does not authorize the broader W2 remediation workflow. US2 and harness integration do not start until
 their preceding user gates. W1 MVP includes T003–T027 and the corrective G2.1,
-G2.2, and G2.3 phases (T039–T062); W2/W3 remain separate decisions.
+G2.2, G2.3, and G2.4 phases (T039–T065); W2/W3 remain separate decisions.

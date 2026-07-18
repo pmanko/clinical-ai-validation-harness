@@ -29,7 +29,7 @@ contract, test strategy, and staged harness integration are recorded here.
 
 ## W1 — Manual workbench MVP
 
-**Status:** G2.1–G2.3 passed; G3 evidence preparation is in progress and broader
+**Status:** G2.1–G2.4 passed; G3 evidence preparation is in progress and broader
 W2 remediation has not started
 
 - Collapse detailed dataset context while retaining state.
@@ -61,6 +61,11 @@ and rerun across a refresh without losing lineage.
   acceptance tests before editor implementation.
 - **G2.3 corrective internal:** replace the observed whole-candidate retry with
   strict localized patch operations and repeat the same E4B/12B real-stack case.
+- **G2.4 corrective internal:** hydrate one structurally parseable raw JSON
+  response into a separately labelled unresolved editor seed without changing
+  the retained raw evidence or creating a model query version. Prove blank
+  missing names, refresh restoration, immutable-version precedence, and
+  evidence-only handling for malformed/prose output before closing G3.
 - **G3 user:** integrated browser/manual acceptance and refresh retest; pause
   before W2.
 
@@ -385,6 +390,46 @@ W1 closure.
   5,335,289,664 bytes on disk and has the SHA-256 above. The post-G2.3 comparison
   is now physically pinned, but do not combine earlier and current E4B sessions
   as one model revision until the deployment-cache history is reconciled.
+- **N23 resolved at G2.4:** session `902bd844-e8f1-403d-90ee-8fccd9417f99`
+  preserves a syntactically valid raw JSON object, but the editor was empty
+  because the Hub correctly withheld a contract-invalid candidate and the UI
+  initializes only from an immutable current version. The correction must not
+  promote raw output to a model version or guess multiple parameter names. It
+  will derive an explicitly unresolved manual seed from the persisted raw
+  evidence, leaving missing names blank and the original raw string unchanged.
+
+### G2.4 unresolved raw-draft hydration — PASS (2026-07-17)
+
+- The gateway now derives an optional `draftSeed` from persisted raw evidence
+  only when no immutable current version exists. It accepts one exact JSON
+  object with a non-empty SQL string and representable typed parameters; invalid
+  JSON, arrays, fenced output, missing values, and unsupported types remain
+  evidence-only. No workbench database migration or Hub behavior change was
+  introduced.
+- The seed is explicitly `status: unresolved` and
+  `source: raw_model_output`. Missing or invalid parameter names remain blank;
+  missing parameter source is represented as `human` for the future manual
+  version and its original path remains listed in `unresolvedPaths`. No
+  placeholder-order inference or SQL correction occurs.
+- The original raw string remains unchanged under
+  `provenance.generationRawOutput` and the generation outcome. Once a human
+  creates an immutable version, the response suppresses the seed and the
+  immutable current version is authoritative.
+- Gateway red tests failed on the absent response field before implementation.
+  Focused green coverage is `3 passed`; the full gateway suite is `89 passed`
+  with Ruff lint/format clean. UI tests cover create, refresh, editable blank
+  names/typed values, parentless manual persistence, raw evidence, and current-
+  version precedence; the full suite is `63 passed` with ESLint, typecheck, and
+  production build green. The existing N18 chunk-size warning remains.
+- The gateway and UI were rebuilt without restarting the Hub or model router.
+  A read-only GET of retained 12B session
+  `902bd844-e8f1-403d-90ee-8fccd9417f99` returned no current version, the exact
+  persisted raw response, and an unresolved seed containing its original SQL,
+  `Viral Load` string value, `1000` integer value, and two blank names. Browser
+  refresh restored the same editor buffer and selected Gemma 4 12B profile;
+  the warning, raw evidence, and all three attempt failures remained visible,
+  while Validate and Run were enabled. No new model call or session mutation was
+  made, and the page was left open for evaluator edits.
 
 ## W2 — Targeted remediation
 

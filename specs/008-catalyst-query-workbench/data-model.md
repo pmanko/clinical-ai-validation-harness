@@ -8,11 +8,19 @@ carry explicit contract versions. Query versions and events are append-only.
 - `session_id`, original `question`, and selected `profile_id`
 - `dataset_id`, `dataset_version`, and `catalog_version`
 - `current_version_id`
+- response-derived `draft_seed`, only while no immutable version exists: exact
+  recoverable SQL, editable typed parameter rows, unresolved JSON paths, and
+  `raw_model_output` source; it is derived from persisted raw provenance rather
+  than stored as accepted query state
 - `browser_state`: expanded flag, filters, limit, and offset
 - `status`, `created_at`, and `updated_at`
 
 Creating a session invokes the real Hub generation path. A malformed or rejected
 candidate is still persisted whenever SQL/parameters can be recovered.
+If the Hub withholds a contract-invalid candidate but preserves one parseable raw
+JSON object, the response may expose an unresolved editor seed without creating
+a QueryVersion or changing the raw evidence. A later immutable version always
+supersedes that seed.
 
 ## QueryVersion
 

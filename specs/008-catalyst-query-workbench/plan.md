@@ -197,14 +197,20 @@ issues are appended to `roadmap.md`; product-code work pauses at the user gates.
    patch-contract red tests, then prove retry output cannot replace the complete
    candidate or mutate unaffected parameter/SQL/metadata fields. Re-run the
    same question through both real profiles before closing G3.
-8. **G4 — Targeted-remediation design validation (user gate)**: Re-run artifact
+8. **G2.4 — Unresolved raw-draft hydration (corrective internal gate)**: Before
+   G3, add a response-derived editor seed for one structurally parseable raw JSON
+   object when no immutable version exists. Preserve the raw string exactly,
+   leave missing names blank, label the buffer unresolved, reject malformed or
+   unrepresentable shapes, restore it after refresh, and prove a later immutable
+   version always wins.
+9. **G4 — Targeted-remediation design validation (user gate)**: Re-run artifact
    analysis after incorporating W1 evidence; review repair-unit coverage,
    nondeterministic model behavior, and deterministic fallback cases with the
    user before enabling model-authored patches.
-9. **G5 — W2 remediation evidence (user gate)**: Report frozen-unit integrity,
+10. **G5 — W2 remediation evidence (user gate)**: Report frozen-unit integrity,
    stale/out-of-scope rejection, and the seeded 90% single-finding metric. Decide
    with the user whether results justify W3 harness export or more repair work.
-10. **G6 — Harness experiment readiness (user gate)**: Validate artifact schemas,
+11. **G6 — Harness experiment readiness (user gate)**: Validate artifact schemas,
    provenance, scenario diversity, and profile/model identity before making any
    comparative model claim.
 
@@ -328,6 +334,14 @@ The following items must remain visible until evidence resolves them:
   `3f72a20a06f626c78e6c475ae07a64c88b2663149c0f6197b56bf7cf1f37585c`;
   do not aggregate earlier and current E4B outcomes until cache history explains
   the revision change.
+- **N23 — Raw evidence/editor hydration gap (resolved at G2.4)**: The post-G2.3 12B
+  response is valid JSON with SQL and typed values but is not a valid Hub
+  candidate because multiple parameters omit required names. The raw string is
+  correctly persisted, yet the editor initializes only from a QueryVersion and
+  is therefore blank. Derive a separate unresolved manual seed without guessing
+  names or treating raw evidence as accepted model output. The gateway now
+  derives that seed from persisted raw provenance on both create and restore;
+  live refresh proves it hydrates while any immutable version takes precedence.
 
 ## Complexity Tracking
 

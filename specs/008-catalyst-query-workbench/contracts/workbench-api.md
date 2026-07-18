@@ -33,8 +33,15 @@ For current Hub `catalyst.query.v1` responses, recovery is deterministic:
 - a rejected response may contribute both
   `diagnosticCandidate.candidate.sql`/`parameters` and
   `diagnosticCandidate.rawOutput`, plus every ordered attempt finding;
-- raw output is retained whether or not a recoverable candidate exists, but raw
-  evidence alone never fabricates an executable query version.
+- raw output is retained byte-for-byte whether or not a recoverable candidate
+  exists, and raw evidence alone never fabricates an executable query version;
+- when no immutable version exists, one exact raw JSON object containing a SQL
+  string and representable typed parameter objects may also produce a separate
+  `draftSeed` with `status: unresolved` and `source: raw_model_output`.
+  Missing parameter names remain blank, unsupported/malformed shapes produce no
+  seed, and fields are never inferred from placeholder order. The seed is
+  derived from persisted evidence on create and restore, so it survives refresh;
+  any immutable current version takes precedence and suppresses the seed.
 
 Hub transport failures remain session-level generation failures; they are not
 misrepresented as validator findings.

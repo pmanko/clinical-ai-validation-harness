@@ -311,7 +311,11 @@ and reopen the browser with its filters and page preserved.
   message, and profile/model/prompt/schema provenance. Any deterministic repair
   of a missing parameter name MUST be proven against one unambiguous remaining
   SQL placeholder; otherwise the draft remains explicitly unresolved for manual
-  correction.
+  correction. When the only retained candidate is one parseable raw JSON object,
+  the editor MUST hydrate its representable SQL and typed values as a separate
+  unresolved manual buffer, leave missing names blank, preserve the raw evidence
+  exactly, and MUST NOT create a model query version until a human submits a
+  contract-valid draft.
 - **FR-032**: After generation yields a structurally parseable draft, correction
   retries MUST use a strict patch-only response contract localized to the
   reported failing paths. SQL text changes MUST be anchored to one exact source
