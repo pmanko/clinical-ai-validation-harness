@@ -1,11 +1,17 @@
 from __future__ import annotations
 
 import json
+import runpy
+import sys
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import ANY
 
 import pytest
 
+from harness.catalyst import validation as catalyst_validation
 from harness.catalyst.validation import (
+    CatalystHttpClient,
     CatalystScenario,
     evaluate_result,
     load_suite,
@@ -104,6 +110,37 @@ class FakeClient:
         return 200, _table()
 
 
+class FakeHttpResponse:
+    def __init__(self, status_code: int, payload: dict) -> None:
+        self.status_code = status_code
+        self.payload = payload
+        self.raise_calls = 0
+
+    def raise_for_status(self) -> None:
+        self.raise_calls += 1
+
+    def json(self) -> dict:
+        return self.payload
+
+
+class FakeHttpSession:
+    def __init__(self) -> None:
+        self.calls: list[tuple[str, str, dict]] = []
+        self.profile_response = FakeHttpResponse(200, {"profiles": []})
+        self.submit_response = FakeHttpResponse(201, _preview())
+        self.execute_response = FakeHttpResponse(200, _table())
+
+    def get(self, url: str, **kwargs) -> FakeHttpResponse:
+        self.calls.append(("GET", url, kwargs))
+        return self.profile_response
+
+    def post(self, url: str, **kwargs) -> FakeHttpResponse:
+        self.calls.append(("POST", url, kwargs))
+        if "/queries" in url:
+            return self.submit_response
+        return self.execute_response
+
+
 def _write_suite(path: Path) -> None:
     path.write_text(
         json.dumps(
@@ -148,6 +185,117 @@ def test_load_suite_rejects_duplicate_scenarios(tmp_path: Path) -> None:
 
     with pytest.raises(ValueError, match="duplicate"):
         load_suite(suite_path)
+
+
+def test_http_client_uses_gateway_contracts(monkeypatch: pytest.MonkeyPatch) -> None:
+    session = FakeHttpSession()
+    monkeypatch.setattr(catalyst_validation.requests, "Session", lambda: session)
+
+    client = CatalystHttpClient("http://gateway.example///", timeout_seconds=17)
+
+    assert client.profiles() == {"profiles": []}
+    query_status, query = client.submit("Show viral load results", "profile-1")
+    table_status, table = client.execute(_preview())
+
+    assert client.base_url == "http://gateway.example"
+    assert query_status == 201
+    assert query == _preview()
+    assert table_status == 200
+    assert table == _table()
+    assert session.profile_response.raise_calls == 1
+    assert session.calls[0] == (
+        "GET",
+        "http://gateway.example/v1/catalyst/query-options",
+        {"timeout": 17},
+    )
+    assert session.calls[1] == (
+        "POST",
+        "http://gateway.example/v1/catalyst/queries",
+        {
+            "json": {
+                "contractVersion": "catalyst.question.request.v1",
+                "deploymentMode": "demo",
+                "profileId": "profile-1",
+                "question": "Show viral load results",
+            },
+            "timeout": 17,
+        },
+    )
+    method, url, kwargs = session.calls[2]
+    assert method == "POST"
+    assert url == "http://gateway.example/v1/catalyst/previews/preview-1/execute"
+    assert kwargs["timeout"] == 17
+    assert kwargs["json"] == {
+        "contractVersion": "catalyst.execute.request.v1",
+        "previewId": "preview-1",
+        "queryDigest": "digest-1",
+        "accept": True,
+        "idempotencyKey": kwargs["json"]["idempotencyKey"],
+    }
+    assert kwargs["json"]["idempotencyKey"].startswith("harness-")
+
+
+def test_validation_cli_runs_selected_scenarios(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    captured: dict = {}
+
+    class CliClient:
+        def __init__(self, base_url: str) -> None:
+            captured["base_url"] = base_url
+
+    def fake_run_suite(**kwargs):
+        captured["kwargs"] = kwargs
+        return SimpleNamespace(
+            run_id="run-1",
+            run_dir=tmp_path / "run-1",
+            passed_count=1,
+            result_count=1,
+        )
+
+    monkeypatch.setattr(catalyst_validation, "CatalystHttpClient", CliClient)
+    monkeypatch.setattr(catalyst_validation, "run_suite", fake_run_suite)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "run-catalyst-validation.py",
+            "--suite",
+            "suite.json",
+            "--gateway-url",
+            "http://gateway.example",
+            "--output-dir",
+            str(tmp_path),
+            "--scenario",
+            "viral",
+            "--scenario",
+            "turnaround",
+            "--repetitions",
+            "2",
+        ],
+    )
+
+    script_path = Path(__file__).parents[2] / "scripts" / "run-catalyst-validation.py"
+    with pytest.raises(SystemExit) as exit_info:
+        runpy.run_path(str(script_path), run_name="__main__")
+
+    assert exit_info.value.code == 0
+    assert captured["base_url"] == "http://gateway.example"
+    assert captured["kwargs"] == {
+        "suite_path": Path("suite.json"),
+        "client": ANY,
+        "output_dir": tmp_path,
+        "scenario_ids": {"viral", "turnaround"},
+        "repetitions": 2,
+    }
+    assert json.loads(capsys.readouterr().out) == {
+        "run_id": "run-1",
+        "run_dir": str(tmp_path / "run-1"),
+        "passed": 1,
+        "total": 1,
+    }
 
 
 def test_evaluate_result_requires_final_clean_lint() -> None:
