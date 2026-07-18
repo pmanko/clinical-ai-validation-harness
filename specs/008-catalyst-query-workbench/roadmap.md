@@ -29,16 +29,22 @@ contract, test strategy, and staged harness integration are recorded here.
 
 ## W1 — Manual workbench MVP
 
-**Status:** G2.1 passed — paused at the requested user checkpoint before the
-full editable workbench UI slice
+**Status:** G2.1–G2.3 passed; G3 evidence preparation is in progress and broader
+W2 remediation has not started
 
 - Collapse detailed dataset context while retaining state.
 - Persist sessions and immutable query versions in the gateway.
 - Show full SQL, typed parameters, and validator findings together.
+- Preserve the best parsed draft and latest malformed raw generation response
+  when structured-output retries fail.
+- Provide PostgreSQL highlighting, line numbers, wrap control, catalog/keyword
+  completion, deterministic Format, and immutable editor-version transitions.
 - Validate edits without resubmitting the natural-language question.
 - Run the exact displayed draft regardless of findings.
 - Return typed rows, empty/truncated states, or useful PostgreSQL diagnostics.
 - Restore the active session after refresh.
+- Make post-parse generation retries patch-only: apply typed operations only to
+  reported failing paths, freeze unaffected fields, and fully revalidate.
 - Cover the flow with gateway, UI, Playwright, and live-stack tests.
 
 **Exit:** An evaluator can generate, edit, validate, run, inspect failure, revise,
@@ -50,13 +56,18 @@ and rerun across a refresh without losing lineage.
 - **G2 user:** real-stack exact-query success and failure demonstrated; pause.
 - **G2.1 corrective:** prove canonical Gemma identity and preview-free workbench
   generation through the real stack before any UI work.
+- **G2.2 internal:** resolve the reproduced unnamed-parameter contract boundary,
+  prove failed drafts/raw output remain inspectable, and land failing SQL-editor
+  acceptance tests before editor implementation.
+- **G2.3 corrective internal:** replace the observed whole-candidate retry with
+  strict localized patch operations and repeat the same E4B/12B real-stack case.
 - **G3 user:** integrated browser/manual acceptance and refresh retest; pause
   before W2.
 
 ### G1 evidence — PASS (2026-07-17)
 
 - Added published, versioned request, session-response, and advisory-finding
-  schemas; the registry now loads and validates 14 normative contracts.
+  schemas; the registry now loads and validates 15 normative contracts.
 - Store tests prove append-only query versions, validations, findings,
   executions, and events; stale-parent rejection; immutable-row triggers;
   additive migration of an existing preview database; and refresh restoration.
@@ -192,10 +203,11 @@ The user reviewed G2 and approved the G2.1 correction on 2026-07-17.
   with its Hub label and role-model alias, and no unavailable option.
 
 The annotation-driven shell was completed during G2.1 because the user added it
-to the approved checkpoint. This is not the full manual workbench UI: SQL and
-typed-parameter editing, version history, exact Run controls, and refresh restore
-(T008, T011–T013, T017, T021–T027) remain the next large slice. Work pauses here
-for the requested user check-in before that slice.
+to the approved checkpoint. SQL and typed-parameter editing, version history,
+exact Run controls, retained failed-generation evidence, and refresh restore are
+now integrated and manually proven. Dataset-browser session persistence plus the
+browser/live-smoke/documentation/pinning/user-gate tasks T021–T027 remain before
+W1 closure.
 
 ### G2.1 issue disposition
 
@@ -219,6 +231,161 @@ for the requested user check-in before that slice.
 - **N13 open:** validator digest does not yet identify the complete parser,
   catalog, policy, and implementation configuration.
 
+### G2.2 pre-implementation evidence — PASS (2026-07-17)
+
+- The question “how many patients had viral load tests above 1000 count/ml?”
+  reached real query generation in two profiles and exposed the same structured-
+  output failure. Gemma E4B failed attempts 2–3 at 02:56 UTC and Gemma 4 12B
+  failed attempts 1–3 at 02:58 UTC, each at
+  `parameters.1: 'name' is required`.
+- E4B evidence is session `2bed91de-fa7d-4ffa-b4ae-0a454a883930`, Hub trace
+  `07740499-387c-40b4-97c3-2bf7c4e08b7e`. The workbench preserved editable
+  version `d801dc1d-fc94-435b-bee6-2b45c3173af1` from schema-valid attempt 1,
+  including SQL literals and an advisory unbound-literal finding. Best-draft
+  retention is proven.
+- The missing field belongs to the second query-generation parameter object. It
+  is not the Hub profile name and not a query-review field. Every executor-bound
+  parameter requires a name matching its SQL `:placeholder`.
+- **N14 resolved at the reproduced boundary:** the shared Hub normalizer handles
+  analytes, dates, and turnaround thresholds but not a sole remaining question-
+  grounded unnamed parameter and sole remaining placeholder. The approved fix
+  is limited to that deterministic 1:1 join. Ambiguous or ungrounded cases remain
+  invalid findings; `name` stays required. The focused red run failed three tests
+  for the intended reasons; the new five-test boundary, 63 focused Hub tests,
+  the full 312-test Hub suite, and the same 63 tests after applying the durable
+  patch to a fresh clone now pass.
+- **N15 resolved through the UI:** Hub diagnostics previously chose a parsed candidate OR `rawOutput`.
+  Because attempt 1 yielded a candidate, malformed raw responses from attempts
+  2–3 were not preserved. The response now retains both independently, with the
+  ordered per-attempt findings and existing profile/model/prompt/schema/config
+  provenance; the live UI displays both simultaneously with attempt and
+  provenance evidence.
+- **N16 open, non-blocking:** the question says `count/ml`, while the catalog and
+  live records use `copies/ml`; the retained candidate copied the ungrounded unit
+  literal and current validators did not flag it. Add a catalog-grounded unit
+  warning in the next validation iteration without rewriting the question or
+  gating manual Run.
+- **N17 open, non-blocking for the reproduced no-date case:** the older
+  single-date normalizer still assumes that a sole placeholder in a one-date
+  question is the date placeholder. A malformed response containing one numeric
+  placeholder plus one date mentioned only in the question could therefore be
+  misbound before the new conservative 1:1 normalization runs. Add a focused red
+  regression at the next validation iteration before changing that older helper.
+- Direct CodeMirror 6 with `@codemirror/lang-sql` and `sql-formatter` is selected
+  for PostgreSQL parsing/completion, line numbers, wrapping, and deterministic
+  manual Format. Monaco's worker/provider overhead and unsupported mobile-browser
+  target do not fit this focused workbench.
+- Cross-artifact analysis found one implementation gap: the UI had no typed path
+  to the gateway's approved catalog. The roadmap now requires a read-only
+  `catalyst.workbench.editor-catalog.v1` route sourced from that same catalog;
+  catalog failure removes identifier suggestions only and never blocks editing.
+- The catalog contract/route red run failed for the intended missing-contract and
+  404 reasons. Its focused four tests, 77 affected gateway tests, full 86-test
+  gateway suite, Ruff checks, and deterministic repeated-response checks pass.
+- The SQL editor red run failed because the component did not yet exist. Direct
+  CodeMirror integration now passes six focused tests and the then-current 45 UI
+  tests plus lint, typecheck, and production build. App-level immutable-version,
+  invalid-but-runnable, and evidence-display tests are recorded red before the
+  QueryWorkspace integration.
+- Reviewed dependency inputs are pinned in `package-lock.json`:
+  `codemirror@6.0.2`, `@codemirror/lang-sql@6.10.0`,
+  `@codemirror/state@6.7.1`, and `sql-formatter@15.8.2`.
+- The workbench API contract was corrected to the implemented
+  `catalyst.workbench.version.request.v1`; `authorType` is assigned by the
+  gateway and is not accepted from the browser. No CRITICAL/HIGH consistency
+  findings remain. G2.2 is closed and editor integration may proceed.
+
+### G2.3 correction decision — PASS (2026-07-17)
+
+- Live E4B session `24b27aca-c2f5-4977-8560-679448db2052` used
+  `catalyst-query-gemma-e4b` / `gemma-e4b`. Attempt 1 produced a recoverable
+  candidate; the conservative one-to-one normalizer supplied
+  `threshold_value`. The candidate still had an unbound unit literal and an
+  expected-column mismatch, so the current Hub requested another complete
+  candidate. Attempts 2–3 regressed by omitting parameter names.
+- The evaluator changed the threshold type from `string` to `number`, bound the
+  catalog's `copies/ml` unit, validated immutable version
+  `10f8b6b3-ebac-4816-83f2-5c7d79144cab` with no findings, and ran immutable
+  version `80622451-b67d-4a34-abc3-e8a89bb69c31`; PostgreSQL returned one typed
+  row with `patient_count=72` in 10 ms. Refresh restored the exact session.
+- The same session then proved findings are advisory: invalid version
+  `95228981-0880-446c-9445-04589bc202c0` retained
+  `gateway_sql_policy.unbound_literal` yet executed unchanged and returned the
+  same `patient_count=72` in 9 ms.
+- Live 12B session `708a11bc-bf1e-448d-bee8-6fe63ab090b7` used
+  `catalyst-query-gemma-4-12b` / `gemma-4-12b`. All three responses omitted
+  required parameter names; the latest raw response also referenced
+  unapproved `analytics.lab_test_fact_v1`. Raw output and ordered failures
+  remained visible, but no unambiguous model version could be recovered.
+- **Approved correction:** after a response is structurally parseable, the Hub
+  asks only for typed operations on finding-derived JSON Pointer paths. SQL
+  changes use an exact old fragment that must occur once; unaffected candidate
+  fields are frozen. Full replacements, duplicate/out-of-scope paths,
+  ambiguous text patches, and frozen-field mutations are rejected. The rebuilt
+  candidate is fully revalidated after every patch; exhaustion still returns
+  the best editable candidate and latest raw response.
+- The G2.3 red run added seven focused cases for anchored SQL text replacement,
+  exact parameter-name leaves, frozen valid parameters, ambiguous text,
+  duplicate/overlapping paths, target metadata, and full-candidate retries.
+  All seven failed against the old whole-object loop for the intended reasons
+  (`7 failed, 53 deselected`) before production changes.
+- The green implementation adds strict private patch schemas, finding-derived
+  paths, exact SQL-fragment anchoring, JSON Pointer leaf application, frozen
+  unaffected fields, conservative single-name recovery, and full reconstructed
+  candidate validation. It reuses the existing question-grounded 1:1 name
+  normalizer after patch application; multiple or ambiguous missing names remain
+  unresolved. Fourteen parametrized retry/name cases across 11 test functions
+  and the full 323-test Hub suite pass.
+- Post-fix E4B session `11c585d8-c8ab-4fa6-a421-d6435b81845d` used profile
+  `catalyst-query-gemma-e4b` and physical model `gemma-e4b`. The Hub retained the
+  unit patch, then localized the last retry to the remaining threshold/column
+  findings. Workbench version `ff6f4fcd-6a6e-48c9-9dd3-9a694861a674` passed the
+  gateway validator; immutable execution version
+  `d2928614-02ec-4529-9ef9-c99b549bf904` returned one row (`count=0`) in 7 ms.
+  Zero is consistent with the model preserving the question's `count/mL` while
+  the loaded records use `copies/ml`; it is evidence, not a correctness claim.
+- The E4B run retained both its best parseable model candidate and the latest raw
+  patch after exhausting its generation budget, with all three ordered attempt
+  findings visible. This directly proves the post-fix best-plus-raw behavior.
+- Post-fix 12B session `902bd844-e8f1-403d-90ee-8fccd9417f99` used profile
+  `catalyst-query-gemma-4-12b` and physical model `gemma-4-12b`. Attempts 1–3
+  omitted multiple parameter names at indices 1, 0, and 1. The Hub correctly did
+  not guess among ambiguous bindings; the latest raw response, exact failure
+  paths, and 12B provenance remain visible for manual work. Refresh restored both
+  the 12B session and 12B picker selection.
+- Router `18077` identified the loaded E4B file as
+  `gemma-4-E4B-it-Q4_K_M.gguf` (7,518,069,290 parameters; 5,335,289,664 bytes on
+  disk; SHA-256 `3f72a20a06f626c78e6c475ae07a64c88b2663149c0f6197b56bf7cf1f37585c`)
+  and the loaded 12B file as `gemma-4-12b.gguf` (11,907,350,576 parameters;
+  12,669,646,240 bytes on disk; SHA-256
+  `e38d4060b562a1772cb4367ff6677a46d641763d0069f5024ae5b62d172fb535`).
+  Both runs used context 24,576, temperature 0, and seed 42.
+- This is a narrow generation-loop integrity correction in W1, not the broader
+  user-reviewed remediation workflow planned for W2.
+
+### G3 observed issues added during integrated manual testing
+
+- **N18 open, non-blocking:** the production UI build succeeds but reports a
+  roughly 1.06 MB JavaScript bundle (324.9 KB gzip), above Vite's 500 KB warning
+  threshold. Evaluate code splitting before production.
+- **N19 open, manually correctable:** E4B emitted numeric threshold `1000` as a
+  string. The editor change to `number` validated and executed; add a grounded
+  type warning in the next validation iteration rather than silently coercing.
+- **N20 resolved at G2.3:** once a parseable base exists, retries now accept only
+  finding-scoped patches and preserve unaffected fields. E4B live evidence shows
+  the unit patch surviving later threshold/column correction; full-candidate and
+  ambiguous repairs remain rejected.
+- **N21 open, manually inspectable:** Hub candidate validation and gateway SQL
+  validation cover different contracts. The final E4B draft still had a Hub
+  `expectedColumns` projection finding while the same SQL/parameters passed the
+  gateway validator and executed. Keep both statuses visible; align or label the
+  scopes before comparative harness scoring.
+- **N22 open provenance variance:** the earlier G2.1 record captured an E4B
+  router-reported size of 4,961,343,656 bytes, while the post-G2.3 loaded file is
+  5,335,289,664 bytes on disk and has the SHA-256 above. The post-G2.3 comparison
+  is now physically pinned, but do not combine earlier and current E4B sessions
+  as one model revision until the deployment-cache history is reconciled.
+
 ## W2 — Targeted remediation
 
 **Status:** Planned
@@ -226,7 +393,8 @@ for the requested user check-in before that slice.
 - Normalize current lint output into stable findings.
 - Derive AST repair units and freeze unaffected-unit digests.
 - Apply deterministic substitutions where unambiguous.
-- Add a med-agent-hub stage that returns only typed patch operations.
+- Add a user-initiated med-agent-hub proposal stage for only the selected AST
+  units; this is separate from G2.3's internal generation-correction patches.
 - Show before/after units and require explicit acceptance.
 - Reject stale, full-replacement, or out-of-scope proposals.
 
@@ -240,7 +408,7 @@ least 90% of cases and every accepted repair passes full revalidation.
 
 ## W3 — Harness experiment integration
 
-**Status:** Planned after W1
+**Status:** Planned only after G5 user approval
 
 - Materialize a session as `run_manifest.json` and `events.jsonl`.
 - Validate bundles against versioned contracts in the umbrella harness.

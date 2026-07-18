@@ -31,13 +31,118 @@ The short design-system and accessibility review, implementation recommendation,
 and manual validation checklist are recorded in
 [`ux-composer-research.md`](ux-composer-research.md).
 
-## Full expert editor in the first slice
+## PostgreSQL-aware expert editor in the first slice
 
-Use existing Carbon controls: a monospace SQL text area and structured parameter
-rows for name, logical type, and value. Create a new immutable version on
-Validate or Run rather than autosaving each keystroke. Guided fixes alone cannot
-express arbitrary corrections, while a new Monaco/CodeMirror dependency adds
-packaging and accessibility work without changing the experiment contract.
+Use a reviewed code-editor integration rather than a plain text area because the
+required interaction includes PostgreSQL syntax highlighting, logical line
+numbers, keyboard completion, and wrap control. Default wrapping to on for the
+narrow workbench, retain the toggle as session presentation state, and source
+completion from a stable PostgreSQL keyword set plus the active approved catalog.
+Sort suggestions deterministically and remain fully editable if catalog loading
+fails; the UI must not carry a second schema mapping.
+
+Keep deterministic formatting separate from model behavior and version it as an
+accepted implementation input. Formatting updates only the working buffer,
+returns a useful no-change failure when semantic preservation cannot be proven,
+and must produce byte-identical output for the same SQL and formatter revision.
+Validate or Run persists that exact buffer as a new immutable child before the
+operation; keystrokes, completion, wrapping, and Format never rewrite an earlier
+version.
+
+The selected implementation is direct CodeMirror 6 with the official
+`@codemirror/lang-sql` PostgreSQL dialect and `sql-formatter`. CodeMirror's
+`basicSetup` supplies line numbers and completion, `SQLConfig.schema` accepts the
+gateway catalog as a nested schema/view/column namespace, and
+`EditorView.lineWrapping` provides wrapping without a second text buffer. A
+small React lifecycle adapter avoids another wrapper dependency. Format is a
+manual `formatDialect` action configured for PostgreSQL and Catalyst's `:name`
+parameters. The dependency graph remains pinned by `package-lock.json`.
+
+Expose completion identifiers through a small read-only workbench catalog route
+derived from the gateway's already-loaded approved catalog. This keeps the Hub
+prompt, deterministic validator, and editor on one vocabulary; when the route is
+unavailable, CodeMirror retains PostgreSQL dialect completion and ordinary
+editing without inventing identifiers.
+
+Monaco was rejected for this focused browser workbench because its schema
+completion and formatting require custom providers, Vite requires worker
+configuration, and its official README does not support mobile browsers. The
+CodeMirror choice must still pass keyboard, accessible naming, 200%-zoom,
+narrow-layout, and build review.
+
+Sources: [CodeMirror reference](https://codemirror.net/docs/ref/),
+[CodeMirror SQL API](https://github.com/codemirror/lang-sql#api-reference),
+[sql-formatter dialect API](https://github.com/sql-formatter-org/sql-formatter/blob/master/docs/dialect.md),
+[sql-formatter parameter configuration](https://github.com/sql-formatter-org/sql-formatter/blob/master/docs/paramTypes.md),
+[Monaco FAQ](https://github.com/microsoft/monaco-editor#faq).
+
+A plain Carbon text area was rejected because it cannot natively satisfy the
+highlighting, line-number, and completion requirements. A model-driven formatter
+was rejected because it is neither deterministic nor limited to presentation.
+
+## Recurring missing `name` contract failure
+
+The failure is now localized. For “how many patients had viral load tests above
+1000 count/ml?”, Gemma E4B failed query-generation attempts 2–3 at
+`parameters.1: 'name' is required` at 02:56 UTC; Gemma 4 12B failed attempts
+1–3 at the same path at 02:58 UTC. It is not a profile-name or review-stage
+field. The executor requires each generated parameter name to bind a SQL
+`:placeholder`. The owning defect is the shared Hub normalizer: it handles
+catalog-grounded analytes, question dates, and turnaround thresholds, but not a
+sole remaining question-grounded unnamed parameter and sole remaining SQL
+placeholder.
+
+The E4B evidence is session `2bed91de-fa7d-4ffa-b4ae-0a454a883930`, trace
+`07740499-387c-40b4-97c3-2bf7c4e08b7e`. The workbench preserved editable
+version `d801dc1d-fc94-435b-bee6-2b45c3173af1` from schema-valid attempt 1,
+including SQL literals and an advisory unbound-literal finding. Draft retention
+is therefore proven. At this historical pre-fix checkpoint, raw malformed retry
+retention was not yet proven because Hub diagnostics used a candidate-or-
+`rawOutput` branch. G2.2 subsequently changed the diagnostic to preserve both;
+post-G2.3 E4B session `11c585d8-c8ab-4fa6-a421-d6435b81845d` visibly retains
+the best candidate and latest raw patch together after budget exhaustion.
+
+Only a sole remaining parameter with a supported type, `source: question`, and
+a value grounded in the question may receive the sole remaining placeholder
+name. This joins two already-generated artifacts; it does not invent SQL, type,
+value, or ordering. Zero, multiple, or ungrounded matches remain visible invalid
+findings. The workbench must preserve both the latest raw failed response and the
+best parsed draft/parameters, together with all per-attempt schema findings,
+response-schema revision, profile/model roles, prompt/config digests, router
+identity, seed, and timestamps. Write regressions at both the Hub normalization
+and diagnostic-retention boundaries before either fix.
+
+Supplying a fabricated `name`, dropping the candidate, or handling it only in
+the UI would hide the defect and corrupt cross-model comparison. Cross-profile
+agreement at the same object path is evidence of a shared contract/normalization
+problem, while the different failed-attempt ranges remain variance to capture.
+
+The same case exposed a separate semantic gap: the question uses `count/ml`, but
+the connected catalog and records use `copies/ml`. This should become a catalog-
+grounded advisory unit finding in a later validation iteration, not a silent
+rewrite and not an editor gate.
+
+## Post-G2.3 comparative observation
+
+The same prompt now demonstrates the intended difference between deterministic
+correction integrity and model quality. E4B session
+`11c585d8-c8ab-4fa6-a421-d6435b81845d` retained earlier patch work and produced
+executable SQL; immutable execution returned `count=0` in 7 ms because the model
+kept the question-grounded `count/mL` value rather than the catalog's
+`copies/ml`. Its final threshold binding was also typed as string. Those are
+model/semantic-quality findings, not retry-integrity failures.
+
+Gemma 4 12B session `902bd844-e8f1-403d-90ee-8fccd9417f99` omitted multiple
+parameter names in every full candidate. Multiple unresolved bindings are not a
+safe 1:1 repair, so the Hub retained raw output and exact paths without guessing.
+The picker and provenance both restored to 12B after refresh. Logs identify the
+physical calls as `gemma-e4b` and `gemma-4-12b`, respectively.
+
+The comparison also shows that Hub candidate validation and gateway workbench
+validation are complementary, not interchangeable: the E4B draft retained a
+Hub `expectedColumns` finding while its SQL/parameters passed gateway validation
+and executed. Experiment metadata must retain both until their scopes are
+explicitly aligned.
 
 ## Advisory workbench versus governed previews
 

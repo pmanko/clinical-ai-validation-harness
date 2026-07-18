@@ -4,6 +4,20 @@ Base path: `/v1/catalyst/workbench`. All successful and error payloads carry a
 `contractVersion`. Workbench validation is advisory; only request-shape errors,
 unknown/stale entity references, or database behavior can prevent a Run.
 
+## Editor catalog
+
+`GET /catalog`
+
+Returns the currently loaded, approved editor vocabulary from the same gateway
+catalog used to build Hub requests and deterministic validation. The response
+contains `contractVersion: catalyst.workbench.editor-catalog.v1`, catalog and
+schema versions, dialect, and ordered approved schemas/views/columns with their
+logical types. It contains no independent UI mapping and no unapproved relation.
+
+The UI uses this response only for completion and editor labels. Failure to load
+it disables catalog-identifier suggestions but never disables editing,
+formatting, validation, or Run; PostgreSQL dialect completion remains available.
+
 ## Create and restore sessions
 
 `POST /sessions`
@@ -16,11 +30,11 @@ For current Hub `catalyst.query.v1` responses, recovery is deterministic:
 
 - a ready response contributes its top-level SQL, parameters, validation, and
   provenance;
-- a rejected response contributes
-  `diagnosticCandidate.candidate.sql`/`parameters` plus every ordered attempt
-  finding;
-- raw output with no recoverable candidate is retained as evidence but does not
-  fabricate an executable query version.
+- a rejected response may contribute both
+  `diagnosticCandidate.candidate.sql`/`parameters` and
+  `diagnosticCandidate.rawOutput`, plus every ordered attempt finding;
+- raw output is retained whether or not a recoverable candidate exists, but raw
+  evidence alone never fabricates an executable query version.
 
 Hub transport failures remain session-level generation failures; they are not
 misrepresented as validator findings.
@@ -41,12 +55,14 @@ query version.
 
 Request fields:
 
-- `contractVersion: catalyst.workbench.version-create.v1`
+- `contractVersion: catalyst.workbench.version.request.v1`
 - `parentVersionId` and `parentQueryDigest`
 - complete `sql`
 - complete ordered typed `parameters`
 - optional `expectedColumns`
-- `authorType: human`
+
+`authorType` is not accepted from the browser. The gateway assigns
+`authorType: human` to every successfully created manual version.
 
 Creates an immutable version and runs deterministic validation. Returns 409 if
 the parent ID/digest is stale. Validator findings return with 201 and never turn

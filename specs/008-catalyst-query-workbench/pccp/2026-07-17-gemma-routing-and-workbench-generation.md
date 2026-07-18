@@ -1,6 +1,6 @@
 # PCCP-style Change Record: Gemma Routing and Workbench Generation Boundary
 
-**Status:** Approved for G2.1 validation
+**Status:** Approved and validated through the G2.3 correction
 
 **Date:** 2026-07-17
 **Reviewer decision:** The project owner explicitly approved the corrective
@@ -126,3 +126,32 @@ session `4f76bfca-5a28-4321-9bf6-a8923b9911ee` produced valid version
 `1f89476d-2113-4a85-b658-5464244d4826` returned 10 typed rows. Preview count
 remained `22`, proving the extended profile runs retained the preview-free
 workbench boundary.
+
+## G2.3 localized-retry addendum
+
+The approved correction replaces whole-candidate generation retries with typed,
+finding-scoped patch operations after a parseable base exists. Unaffected fields
+are frozen, SQL edits require one exact anchor, and every reconstructed candidate
+is fully revalidated. The existing question-grounded name normalizer is reused
+only for one unmatched parameter and one unmatched placeholder; ambiguous
+multi-name outputs remain invalid.
+
+Real-stack comparison used E4B session
+`11c585d8-c8ab-4fa6-a421-d6435b81845d` and 12B session
+`902bd844-e8f1-403d-90ee-8fccd9417f99`. Logs show physical calls to
+`gemma-e4b` and `gemma-4-12b`. E4B retained localized patch work and executed the
+exact displayed SQL; 12B continued to omit multiple parameter names, so raw
+output and failure paths were retained without guessing. This change improves
+correction integrity but does not assert semantic correctness or cross-model
+superiority.
+
+The loaded files for this comparison are pinned as:
+
+- E4B Q4_K_M: 5,335,289,664 bytes on disk, SHA-256
+  `3f72a20a06f626c78e6c475ae07a64c88b2663149c0f6197b56bf7cf1f37585c`;
+- Gemma 4 12B: 12,669,646,240 bytes on disk, SHA-256
+  `e38d4060b562a1772cb4367ff6677a46d641763d0069f5024ae5b62d172fb535`.
+
+The earlier G2.1 E4B size record differs from the current file, so those
+historical and current sessions are not treated as one physical revision until
+the deployment-cache history is reconciled.

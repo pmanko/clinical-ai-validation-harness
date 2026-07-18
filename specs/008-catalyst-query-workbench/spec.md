@@ -4,7 +4,7 @@
 
 **Created**: 2026-07-17
 
-**Status**: In implementation — G2.1 user checkpoint
+**Status**: In implementation — G2.3 passed; G3 evidence preparation in progress
 
 **Input**: Refine the Catalyst query experience with manageable dataset context,
 targeted query remediation, complete validator feedback, editable SQL,
@@ -67,6 +67,31 @@ question, prior draft, findings, and edit provenance.
    resulting validation-harness artifacts validate against their versioned
    metadata contracts and preserve every query version, finding, repair, manual
    edit, and execution outcome.
+6. **Given** a generated or human-edited draft, **When** it is opened for
+   editing, **Then** PostgreSQL syntax is highlighted, logical lines are
+   numbered, and wrapping is on by default with an explicit wrap toggle.
+7. **Given** the approved catalog is available, **When** the user requests
+   completion, **Then** PostgreSQL keywords/functions and catalog-backed schemas,
+   views, and columns are suggested without a hard-coded UI vocabulary.
+8. **Given** an unformatted draft, **When** the user chooses Format twice on
+   the same content, **Then** both operations produce identical SQL without a
+   model call or a semantic query change.
+9. **Given** a persisted query version, **When** editing, completion, wrapping,
+   or formatting changes the working buffer, **Then** the persisted version is
+   unchanged and Validate or Run creates a new immutable child containing the
+   exact submitted SQL and typed parameters.
+10. **Given** query generation returns a partially parseable draft whose
+    parameter object is missing required `name`, **When** contract validation
+    fails, **Then** the workbench retains the raw output, best parsed draft,
+    per-attempt contract findings, and complete generation provenance for manual
+    diagnosis and correction.
+11. **Given** a parseable generation draft with localized contract or lint
+    findings, **When** the Hub requests a correction retry, **Then** the model
+    returns only typed patch operations for those failing paths, the Hub freezes
+    every unaffected field, applies each operation deterministically, and reruns
+    the complete contract and lint suite. A full replacement, stale path,
+    ambiguous text replacement, or out-of-scope operation is rejected while the
+    best editable draft and latest raw response remain visible.
 
 ---
 
@@ -169,6 +194,12 @@ and reopen the browser with its filters and page preserved.
 - A human edit changes placeholders without updating typed values, or vice versa.
 - A draft parses but references a missing field, incompatible type, or stale
   catalog version.
+- A structured Hub response repeatedly or intermittently omits a required
+  parameter `name`; only a sole question-grounded unnamed parameter and sole
+  remaining SQL placeholder may be joined deterministically. All other cases
+  remain visible for manual correction.
+- A question names a result unit that differs from the active catalog's unit;
+  validation warns without rewriting the question or disabling manual Run.
 - Execution succeeds but produces zero rows, an unexpected column shape,
   truncation, or a semantically suspicious result.
 - Execution fails with a database error code and message that must remain useful
@@ -244,7 +275,8 @@ and reopen the browser with its filters and page preserved.
   findings, execution outcomes, dataset-browser state, and current-version
   pointer after a browser refresh.
 - **FR-022**: The system MUST preserve exact model/profile/prompt/catalog/dataset,
-  validator, query-version, manual-run, and execution provenance.
+  validator, editor/formatter revision, query-version, manual-run, and execution
+  provenance.
 - **FR-023**: The system MUST cover diverse validation cases, including malformed
   output, syntax errors, binding errors, semantic errors, unsafe operations,
   empty results, execution failures, and successful warning-bearing execution.
@@ -252,6 +284,43 @@ and reopen the browser with its filters and page preserved.
   workbench session as versioned validation-harness `run_manifest.json` and
   `events.jsonl` artifacts covering every query version, validator finding,
   repair proposal, manual edit, manual Run action, and execution outcome.
+- **FR-025**: The SQL editing surface MUST provide PostgreSQL syntax
+  highlighting and logical line numbers while retaining a labelled,
+  keyboard-operable editing control.
+- **FR-026**: SQL line wrapping MUST be user-toggleable, MUST default to on for
+  a new workbench session, and MUST retain the active session's preference
+  without changing query content or version digests.
+- **FR-027**: Completion MUST include PostgreSQL keywords/functions plus schema,
+  view, and column identifiers derived from the active approved catalog. Completion ordering MUST
+  be deterministic for the same catalog and prefix, and the UI MUST NOT maintain
+  a separate schema-name mapping.
+- **FR-028**: Format MUST be an explicit deterministic action: the same SQL and
+  formatter revision MUST produce byte-identical output, MUST NOT call a model,
+  and MUST preserve the parsed query's meaning or return a useful no-change
+  failure.
+- **FR-029**: Editor keystrokes, completion, wrap changes, and formatting MUST
+  NOT overwrite an immutable query version. Validate and Run MUST persist the
+  exact SQL and typed parameters as a new child version before operating on it;
+  earlier versions remain inspectable and unchanged.
+- **FR-030**: Editor behavior MUST remain usable when catalog completion is
+  unavailable: editing, formatting, validation, and manual Run continue, and
+  the missing completion source is reported without inventing identifiers.
+- **FR-031**: A generation or structured-contract failure MUST NOT discard
+  research evidence. The workbench MUST persist and display the raw model output,
+  best parseable draft/parameters, attempt number, exact failing object path and
+  message, and profile/model/prompt/schema provenance. Any deterministic repair
+  of a missing parameter name MUST be proven against one unambiguous remaining
+  SQL placeholder; otherwise the draft remains explicitly unresolved for manual
+  correction.
+- **FR-032**: After generation yields a structurally parseable draft, correction
+  retries MUST use a strict patch-only response contract localized to the
+  reported failing paths. SQL text changes MUST be anchored to one exact source
+  fragment; parameter and expected-column changes MUST address explicit JSON
+  Pointer paths. The Hub MUST reject full replacements, duplicate or
+  out-of-scope paths, ambiguous text matches, and any mutation of unaffected
+  fields, then revalidate the reconstructed complete candidate from the
+  beginning. This generation-internal correction boundary does not enable the
+  broader user-accepted remediation workflow in User Story 2.
 
 ### Key Entities
 
@@ -259,7 +328,8 @@ and reopen the browser with its filters and page preserved.
   selected profile, dataset and catalog versions, current draft pointer,
   dataset-browser state, and ordered history of user and system actions.
 - **Query Version**: An immutable query draft with SQL, typed values, expected
-  columns, parent version, author type, content digest, and timestamps.
+  columns, parent version, author type, content digest, applicable format action
+  and formatter revision, and timestamps.
 - **Validation Run**: The validator revision, ordered checks, findings, status,
   timing, and query version evaluated.
 - **Finding**: A stable advisory validator observation with classification,
@@ -288,9 +358,10 @@ and reopen the browser with its filters and page preserved.
   authoritative.
 - **Operating metadata**: Session lineage, query versions, validation runs,
   repair proposals, execution attempts, profile/prompt/catalog/dataset
-  provenance, and harness-compatible run events.
+  provenance, editor/formatter revision, and harness-compatible run events.
 - **Accepted deterministic inputs**: Versioned validator rules, repair templates,
-  approved catalog, execution policy, and reviewed query-patch contract.
+  SQL formatter and PostgreSQL keyword source, approved catalog, execution
+  policy, and reviewed query-patch contract.
 - **Advisory inputs**: Model-generated repair proposals, suggested updates, and
   human comments remain proposals until explicitly applied and revalidated.
 - **PCCP/change record needs**: Material changes to query prompts, profile roles,
@@ -332,6 +403,13 @@ and reopen the browser with its filters and page preserved.
 - **SC-010**: Manual sessions used in model comparison preserve enough structured
   evidence to reproduce each version, finding, repair, manual Run action, and
   execution outcome in the validation harness.
+- **SC-011**: Automated and manual checks prove PostgreSQL highlighting, logical
+  line numbers, default-on wrap and toggle retention, keyboard completion from
+  keywords plus the approved catalog, and graceful no-catalog behavior at
+  desktop, narrow viewport, and 200% zoom.
+- **SC-012**: Repeating Format on the same input produces identical SQL, and
+  tests prove editing or formatting never mutates a stored version while
+  Validate and Run each operate on a newly persisted exact child version.
 
 ## Assumptions
 
@@ -350,6 +428,9 @@ and reopen the browser with its filters and page preserved.
 - Query structure rather than arbitrary character offsets is the stable unit for
   freezing and remediation; locations may still highlight exact substrings in
   the editor.
+- Line wrapping begins enabled to avoid mandatory horizontal scrolling in the
+  narrow research workspace; the session preference is presentation state and
+  never query content.
 - A model repair is advisory until it satisfies scope integrity and complete
   revalidation.
 - Validator findings are advisory to a technical evaluator during manual
