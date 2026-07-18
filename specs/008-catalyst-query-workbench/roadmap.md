@@ -29,8 +29,8 @@ contract, test strategy, and staged harness integration are recorded here.
 
 ## W1 — Manual workbench MVP
 
-**Status:** G2.1–G2.4 passed; G3 evidence preparation is in progress and broader
-W2 remediation has not started
+**Status:** G2.1–G2.6 passed; G3 integrated acceptance remains before broader
+W2 remediation, which has not started
 
 - Collapse detailed dataset context while retaining state.
 - Persist sessions and immutable query versions in the gateway.
@@ -43,8 +43,11 @@ W2 remediation has not started
 - Run the exact displayed draft regardless of findings.
 - Return typed rows, empty/truncated states, or useful PostgreSQL diagnostics.
 - Restore the active session after refresh.
-- Make post-parse generation retries patch-only: apply typed operations only to
-  reported failing paths, freeze unaffected fields, and fully revalidate.
+- Route one complete writer query through deterministic lint, then give the
+  complete query and findings to a different reviewer model for one complete
+  correction; deterministically lint the reviewer's result.
+- Persist and display both model-authored query versions and their role/model/
+  finding trace when the reviewer changes the query.
 - Cover the flow with gateway, UI, Playwright, and live-stack tests.
 
 **Exit:** An evaluator can generate, edit, validate, run, inspect failure, revise,
@@ -66,6 +69,16 @@ and rerun across a refresh without losing lineage.
   the retained raw evidence or creating a model query version. Prove blank
   missing names, refresh restoration, immutable-version precedence, and
   evidence-only handling for malformed/prose output before closing G3.
+- **G2.5 corrective internal:** relax only the model-facing generation schema so
+  `name` and `source` may be omitted. Pair unnamed parameter values with SQL
+  placeholders in their existing order, without an LLM retry whose only purpose
+  is adding names. If counts do not line up, retain the editable draft. Repeat
+  the real 12B query through execution before closing G3.
+- **G2.6 corrective internal:** replace generator self-patching with one complete
+  writer candidate, deterministic findings, one complete correction from a
+  different reviewer-model family, and deterministic re-lint. Persist the writer
+  and reviewer queries as linked immutable versions and expose their model/stage
+  evidence before closing G3.
 - **G3 user:** integrated browser/manual acceptance and refresh retest; pause
   before W2.
 
@@ -430,6 +443,118 @@ W1 closure.
   the warning, raw evidence, and all three attempt failures remained visible,
   while Validate and Run were enabled. No new model call or session mutation was
   made, and the page was left open for evaluator edits.
+
+### G2.5 decision — APPROVED FOR IMPLEMENTATION (2026-07-17)
+
+- The repeated missing-`name` failures are an output-shape problem, not useful
+  evidence about whether the SQL targets the right data. Rejecting before SQL
+  lint hides material problems such as the 12B response's misspelled analytics
+  view and prevents the deterministic/patch loop from addressing them.
+- The model-facing generation parameter shape will require only `type` and
+  `value`; `name` and `source` remain preferred, especially for longer queries.
+  The final `catalyst.query.v1` parameter contract remains unchanged and still
+  requires `name`, `type`, `source`, and `value` before review or execution.
+- When a generated parameter omits a name, pair it with the SQL placeholder at
+  the same position and default a missing source to `question`. This is plumbing
+  for the current named-parameter executor, not an additional semantic policy.
+  Do not use an LLM retry solely to add names.
+- If the placeholder and parameter counts do not line up, retain the unresolved
+  draft for editing rather than inventing or dropping bindings. Normal final
+  schema and SQL/catalog validation still run after successful pairing.
+- **N24 open at G2.5:** relaxing only generation may expose later SQL/catalog,
+  type, unit, or projection failures that the old contract error masked. Those
+  downstream findings are desired evidence and must not be misreported as a
+  binding-normalization regression. The real 12B rerun must distinguish SQL
+  validity, execution success, and result correctness rather than equating any
+  one of them.
+
+### G2.5 evidence — PASS; exposed orchestration defect (2026-07-17)
+
+- Real session `1422a1d8-19b2-4c0a-8b9d-4d24a5ec87a2`, Hub trace
+  `7f6c8a23-d168-4243-bcbf-0d6bb0de45b7`, used the physically loaded
+  `gemma-4-12b` model. Its two unnamed values were paired with `:test_name` and
+  `:threshold` without a name-only model call.
+- Deterministic lint then reached the material issue
+  `output.projection_mismatch`: `COUNT(DISTINCT patient_id)` lacked the declared
+  `AS count` alias. This proves optional generated names no longer mask SQL
+  findings.
+- Attempts 2–3 sent patch-only corrections back to the same Gemma writer. Both
+  patches referenced SQL not present in the retained candidate and were rejected
+  as `generation.patch_ambiguous`. The gateway retained the complete writer query
+  as version `3fa95d41-fcd2-47cd-8972-a5a7e3776a57`; its narrower validator
+  reported valid. This is the input evidence for G2.6, not a binding regression.
+
+### G2.6 decision — APPROVED FOR IMPLEMENTATION (2026-07-17)
+
+- The writer produces exactly one complete candidate. Deterministic lint records
+  specific findings but does not ask the writer to patch itself.
+- A reviewer from a different model family receives the original question,
+  catalog, complete writer candidate, and deterministic findings. For the 12B
+  MVP profile, `gemma-4-12b` writes and `qwen2.5-14b` reviews/corrects.
+- When findings exist, the reviewer returns one complete corrected candidate,
+  not text/JSON-pointer patches. The Hub validates its strict contract and reruns
+  all deterministic lint. A remaining finding rejects the collaboration result;
+  lint-clean output proceeds to finalization without asking the reviewer to
+  approve its own correction in a second model call.
+- The Hub result and trace retain writer candidate/findings and reviewer
+  candidate/decision/checks. The gateway persists the writer as `model` and the
+  corrected query as a child `model_repair` version. The workbench displays both
+  SQL/parameter sets with role and model provenance.
+- **N25 resolved at G2.6:** the collaborative profile performs one writer call;
+  `_generate` returns the complete parsed candidate and its findings directly to
+  the reviewer rather than invoking writer self-patches.
+- **N26 resolved at G2.6:** the advertised and traced roles use physically loaded
+  `gemma-4-12b` and `qwen2.5-14b` aliases with different architectures and model
+  files.
+
+### G2.6 evidence — PASS; two follow-up inconsistencies recorded (2026-07-18)
+
+- The first post-implementation live session
+  `364d5dbb-9172-4fb4-85d8-142c06261a26` correctly routed Gemma to Qwen, but
+  Qwen repeated the same two unnamed parameter objects twice. Strict validation
+  rejected that response before a reviewer version was created. The structured
+  boundary now drops exact duplicate objects only when the deduplicated count
+  exactly equals the SQL placeholder count, then performs the existing ordered
+  name pairing. It does not infer values, predicates, or SQL meaning. Hub tests
+  cover that observed shape and all 327 Hub tests pass.
+- Successful API session `39f71423-1a3b-4dde-9996-943c6985ddd6`, Hub trace
+  `86b6f495-45b4-4afd-a9ef-71240ce5e820`, used one physically loaded
+  `gemma-4-12b` writer call and one physically loaded `qwen2.5-14b` reviewer
+  call. The advertised profile configuration digest was
+  `sha256:a73b62aa2a470dd93cb8d997b84ec07792c142ba03e9de61516449e5846cce65`;
+  router metadata reported 11,907,350,576 and 14,770,033,664 parameters,
+  respectively, with temperature 0 and seed 42.
+- Gemma writer version `b625a2ba-aec6-4a50-9757-d5303807563e` (digest
+  `7e75a31233aeee5076df9c2b812318bef040c59a6cdc0692863c2542292bdd75`)
+  produced `COUNT(DISTINCT patient_id)` without an alias. Deterministic lint sent
+  `output.projection_mismatch` plus the complete candidate to Qwen. Reviewer
+  version `12b07a96-a800-4d9c-8135-ff52a13ff2b5` (digest
+  `b7b3db7e51cf4f06a24c8e21b367d181ba922ba9f39ec811d8c20a1e21e0d3c4`)
+  returned the complete query with `AS count`; deterministic re-lint was clean.
+  Refresh restored both linked versions, models, roles, current version, and the
+  execution without another model call.
+- Exact gateway execution `f5ccb870-f90d-4b1f-9f08-4c347b6ec703` succeeded in
+  8 ms and returned one typed integer row with `count = 72`. An independent
+  direct PostgreSQL count over the same view and predicates also returned 72.
+  SQL syntax, execution, and the selected database rows are therefore proven;
+  N24 remains open because the question said `count/ml` while the catalog unit is
+  `copies/ml`, and the current semantic layer does not explicitly normalize or
+  reject that unit wording.
+- The browser-created session `50ef0f16-1e7b-4a9a-b362-17bf6bf3335d` visibly
+  showed both complete SQL/parameter artifacts, Gemma's finding, Qwen's decision
+  and checks, linked model roles, valid status, and a successful `count = 72`
+  table. It was left open for manual evaluation.
+- **N27 open after G2.6 (non-blocking):** clicking Run in the UI appended an
+  ordinal-3 `human` version with the same digest as the current reviewer version
+  even though the editor content was unchanged. Direct execution of an existing
+  version does not do this. Decide at G3 whether unchanged runs should reuse the
+  current immutable version instead of adding duplicate lineage.
+- **N28 open after G2.6 (non-blocking nondeterminism):** two temperature-zero,
+  seed-42 runs produced identical writer/reviewer SQL, parameters, and result 72,
+  but differed on `expectedColumns[0].nullable` (`false` versus `true`), yielding
+  different query digests. Model and/or GPU inference remains nondeterministic;
+  comparisons must retain full candidates and digests rather than assuming the
+  configured seed makes runs byte-identical.
 
 ## W2 — Targeted remediation
 

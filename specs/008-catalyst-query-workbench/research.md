@@ -144,6 +144,47 @@ Hub `expectedColumns` finding while its SQL/parameters passed gateway validation
 and executed. Experiment metadata must retain both until their scopes are
 explicitly aligned.
 
+## Generator-facing optional names, strict final bindings
+
+The 12B raw response demonstrates that requiring every model parameter to name
+itself can reject before the more meaningful SQL/catalog checks run. Relax the
+structured schema only at the initial model boundary: `type` and `value` remain
+required, while `name` and `source` are optional. Before candidate validation,
+the Hub may assign the ordered SQL placeholder at the same array position and
+`source: question`. If parameter and placeholder counts differ, it keeps the
+draft unresolved for manual editing. The final contract, review input, gateway
+version, and executor remain fully named.
+
+This is deterministic canonicalization, not model repair. It avoids spending an
+inference retry on redundant binding metadata and allows lint to focus retries
+on material SQL/catalog defects. Named output remains preferred—especially for
+longer queries. Database execution remains evidence of operational validity,
+not proof that the result semantically answers the question.
+
+## Complete writer–reviewer collaboration for the MVP
+
+The post-binding 12B run shows that finding-scoped generator patches are the
+wrong internal collaboration unit. Deterministic lint correctly identified a
+missing aggregate alias, but the same writer model produced two patches anchored
+to SQL that was not the retained candidate. The nominal reviewer never ran
+because `_generate` owned the entire retry budget, and the profile assigned the
+same Gemma model to both roles.
+
+Use one complete candidate at each model boundary. Gemma 4 12B writes once;
+deterministic lint emits structured findings; Qwen 2.5 14B receives the complete
+writer query plus those findings and returns one complete corrected candidate.
+The Hub applies strict candidate validation and deterministic re-lint. This makes
+the two model roles genuinely collaborative while keeping accepted execution
+behavior reproducible. Model diversity reduces correlated failure modes but is
+not treated as proof of correctness.
+
+Preserve the writer and reviewer candidates as linked immutable workbench
+versions (`model` then `model_repair`) and expose the collaboration trace. The
+reviewer's full replacement is acceptable inside this internal generation flow
+because neither model version is hidden and deterministic lint checks the final
+candidate. This does not change the later user-initiated W2 repair contract,
+which remains explicitly scoped and acceptance-based.
+
 ## Advisory workbench versus governed previews
 
 Keep `/v1/catalyst/queries` and preview execution unchanged for policy-gated

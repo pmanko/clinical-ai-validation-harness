@@ -195,9 +195,8 @@ and reopen the browser with its filters and page preserved.
 - A draft parses but references a missing field, incompatible type, or stale
   catalog version.
 - A structured Hub response repeatedly or intermittently omits a required
-  parameter `name`; only a sole question-grounded unnamed parameter and sole
-  remaining SQL placeholder may be joined deterministically. All other cases
-  remain visible for manual correction.
+  parameter `name`; unnamed parameter values are paired with SQL placeholders
+  in their existing order. A count mismatch remains visible for manual correction.
 - A question names a result unit that differs from the active catalog's unit;
   validation warns without rewriting the question or disabling manual Run.
 - Execution succeeds but produces zero rows, an unexpected column shape,
@@ -309,22 +308,28 @@ and reopen the browser with its filters and page preserved.
   research evidence. The workbench MUST persist and display the raw model output,
   best parseable draft/parameters, attempt number, exact failing object path and
   message, and profile/model/prompt/schema provenance. Any deterministic repair
-  of a missing parameter name MUST be proven against one unambiguous remaining
-  SQL placeholder; otherwise the draft remains explicitly unresolved for manual
-  correction. When the only retained candidate is one parseable raw JSON object,
+  of missing parameter names MUST pair the existing parameter array with ordered
+  unique SQL placeholders and MUST NOT invoke a model solely to add names. The
+  model-facing generation schema MAY omit names/source, but the final executable
+  contract MUST remain fully named. A count mismatch leaves the draft explicitly
+  unresolved for manual correction. When the only retained candidate is one parseable raw JSON object,
   the editor MUST hydrate its representable SQL and typed values as a separate
   unresolved manual buffer, leave missing names blank, preserve the raw evidence
   exactly, and MUST NOT create a model query version until a human submits a
   contract-valid draft.
-- **FR-032**: After generation yields a structurally parseable draft, correction
-  retries MUST use a strict patch-only response contract localized to the
-  reported failing paths. SQL text changes MUST be anchored to one exact source
-  fragment; parameter and expected-column changes MUST address explicit JSON
-  Pointer paths. The Hub MUST reject full replacements, duplicate or
-  out-of-scope paths, ambiguous text matches, and any mutation of unaffected
-  fields, then revalidate the reconstructed complete candidate from the
-  beginning. This generation-internal correction boundary does not enable the
-  broader user-accepted remediation workflow in User Story 2.
+- **FR-032**: The MVP query profile MUST obtain one complete writer candidate,
+  run deterministic lint, and give the complete candidate plus specific findings
+  to a different reviewer-model family. When findings exist, the reviewer MUST
+  return one complete corrected candidate rather than a text or JSON-pointer
+  patch. The Hub MUST validate the correction contract and rerun every
+  deterministic check before finalization.
+- **FR-033**: When the reviewer changes a structurally valid writer query, the
+  workbench MUST persist the writer query as an immutable `model` version and the
+  corrected query as its immutable `model_repair` child. Both SQL/parameter sets,
+  role/model identities, lint findings, reviewer decision/checks, prompt/config
+  digests, and shared trace ID MUST remain inspectable after refresh. This
+  generation-internal collaboration does not enable the broader user-accepted
+  remediation workflow in User Story 2.
 
 ### Key Entities
 

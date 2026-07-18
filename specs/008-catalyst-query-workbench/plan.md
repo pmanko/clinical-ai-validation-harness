@@ -138,9 +138,10 @@ separate API so advisory manual execution cannot weaken governed behavior.
    immutable query versions, PostgreSQL-aware SQL/parameter editing with line
    numbers, wrap control, catalog/keyword completion and deterministic Format,
    advisory validation, exact-draft execution, database diagnostics, and refresh
-   restoration. Generation correction retries are patch-only once a response is
-   structurally parseable: exact JSON Pointer leaves and uniquely anchored SQL
-   fragments may change, while unaffected candidate fields remain frozen.
+   restoration. One complete writer candidate is linted deterministically and,
+   when findings exist, passed with those findings to a different reviewer-model
+   family for one complete corrected candidate. The correction is linted again
+   and both model-authored versions remain immutable and inspectable.
 2. **Targeted remediation**: AST repair units, deterministic fixes, typed Hub
    patch contract, frozen-unit verification, before/after review, and full
    revalidation.
@@ -203,14 +204,27 @@ issues are appended to `roadmap.md`; product-code work pauses at the user gates.
    leave missing names blank, label the buffer unresolved, reject malformed or
    unrepresentable shapes, restore it after refresh, and prove a later immutable
    version always wins.
-9. **G4 — Targeted-remediation design validation (user gate)**: Re-run artifact
+9. **G2.5 — Generator binding normalization (corrective internal gate)**:
+   Relax only the model-facing parameter-name/source requirement. Deterministic
+   post-processing pairs unnamed parameter values with SQL placeholders in their
+   existing order and defaults missing source metadata, without a name-only LLM
+   retry. A count mismatch remains an editable unresolved draft. Re-run the exact
+   12B case through the real database and report SQL, execution, and result
+   correctness separately.
+10. **G2.6 — Writer–reviewer collaboration (corrective internal gate)**: Replace
+   generator self-patching with one complete writer candidate, deterministic
+   findings, a complete corrected candidate from a different reviewer-model
+   family, and deterministic re-lint. Persist both linked query versions and
+   expose role/model/finding traces in the workbench. Re-run the exact 12B case
+   with Gemma 4 12B writing and Qwen 2.5 14B reviewing.
+11. **G4 — Targeted-remediation design validation (user gate)**: Re-run artifact
    analysis after incorporating W1 evidence; review repair-unit coverage,
    nondeterministic model behavior, and deterministic fallback cases with the
    user before enabling model-authored patches.
-10. **G5 — W2 remediation evidence (user gate)**: Report frozen-unit integrity,
+12. **G5 — W2 remediation evidence (user gate)**: Report frozen-unit integrity,
    stale/out-of-scope rejection, and the seeded 90% single-finding metric. Decide
    with the user whether results justify W3 harness export or more repair work.
-11. **G6 — Harness experiment readiness (user gate)**: Validate artifact schemas,
+13. **G6 — Harness experiment readiness (user gate)**: Validate artifact schemas,
    provenance, scenario diversity, and profile/model identity before making any
    comparative model claim.
 
@@ -342,6 +356,20 @@ The following items must remain visible until evidence resolves them:
   names or treating raw evidence as accepted model output. The gateway now
   derives that seed from persisted raw provenance on both create and restore;
   live refresh proves it hydrates while any immutable version takes precedence.
+- **N24 — Binding validity versus query correctness (open at G2.5)**: Missing
+  generated names currently prevent catalog/SQL lint from evaluating the
+  candidate. Generator-facing optional names plus ordered pairing should expose
+  downstream errors, but a schema-valid or executable query is
+  not automatically the right query. Real validation must report catalog/view
+  correctness, execution outcome, and returned-data semantics separately.
+- **N25 — Reviewer starvation (open at G2.6)**: The generator currently owns
+  deterministic-lint retries and exhausts its budget before `query_review`, so
+  the nominal reviewer cannot collaborate on the failing candidate. Route the
+  complete candidate and findings directly to review instead.
+- **N26 — Correlated query roles (open at G2.6)**: Gemma query profiles currently
+  assign the same physical model to generation and review. Use Gemma 4 12B as
+  writer and Qwen 2.5 14B as reviewer for the MVP evidence and preserve both
+  router-advertised identities.
 
 ## Complexity Tracking
 
