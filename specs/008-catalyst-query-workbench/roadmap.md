@@ -556,6 +556,30 @@ W1 closure.
   comparisons must retain full candidates and digests rather than assuming the
   configured seed makes runs byte-identical.
 
+### G2.7 manual reset controls — PASS (2026-07-18)
+
+- Add an unobtrusive **New session** action to the active workbench. It clears
+  the browser's active-session pointer and all in-memory question, draft, and
+  result state, but does not delete the retained server session or its evidence.
+  The selected available model profile remains selected and focus returns to
+  the Ask OpenELIS question input for the next experiment.
+- Add a separate **Clear draft** action for resetting only the editable SQL and
+  parameters inside the current session. The question, immutable versions,
+  model evidence, validations, executions, and provenance remain available.
+- Do not add a delete-session API, confirmation workflow, or new persistence
+  contract for this proof-of-concept control. Validate with focused UI tests,
+  the full UI quality gates, and one live browser iteration.
+- Focused integration tests prove both boundaries, and the full UI suite is 66
+  passing tests with ESLint, typecheck, and production build green. The existing
+  bundle-size warning remains unchanged.
+- In the live browser, **Clear draft** emptied SQL and parameters and disabled
+  Validate/Run while retaining session `2b34b590-94db-4dc4-a75e-73cb60db3fe2`,
+  its two model versions, validation, writer/reviewer evidence, and provenance.
+  **New session** then removed the workbench, cleared the question, retained the
+  mixed Gemma/Qwen profile selection, and focused `catalyst-question`. A direct
+  read afterward confirmed the detached server session remained active with two
+  immutable versions.
+
 ## W2 — Targeted remediation
 
 **Status:** Planned
