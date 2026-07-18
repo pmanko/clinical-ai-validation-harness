@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Launch the llama.cpp Router Mode server backing the harness chat picker's
-# "llama-server" section (GGUF + DRY, OpenAI-compatible, on :8077).
+# "llama-server" section (GGUF + DRY, OpenAI-compatible, on :8077 by default).
 #
 # Why HF_HOME is redirected to an empty dir: build 9430's router auto-publishes
 # EVERY model in the HF cache as an extra preset on top of scripts/llama-router.ini
@@ -12,7 +12,9 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 EMPTY_HF="${HOME}/.cache/llama-router-emptyhf"
+ROUTER_PORT="${LLAMA_ROUTER_PORT:-8077}"
 mkdir -p "${EMPTY_HF}"
+cd "${ROOT}"
 
 # LLAMA_ROUTER_MODELS_MAX caps how many model instances stay co-resident, and it MUST be
 # set per-workload — the tiers have wildly different footprints on this 64G host (Metal
@@ -33,4 +35,4 @@ mkdir -p "${EMPTY_HF}"
 # (LOW+MED weights ~41G + one HIGH model ~29G > 64G) — pick the workload, restart to switch.
 exec env HF_HOME="${EMPTY_HF}" llama-server \
   --models-preset "${ROOT}/scripts/llama-router.ini" \
-  --models-max "${LLAMA_ROUTER_MODELS_MAX:-4}" --port 8077 --host 0.0.0.0
+  --models-max "${LLAMA_ROUTER_MODELS_MAX:-4}" --port "${ROUTER_PORT}" --host 0.0.0.0
