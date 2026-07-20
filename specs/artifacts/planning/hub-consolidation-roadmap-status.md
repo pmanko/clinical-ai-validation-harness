@@ -2,6 +2,12 @@
 
 Execution state for `MAH-CONSOLIDATION-2026-07-09-v1`.
 
+**Status: Historical and superseded by `OPENMRS-DUAL-PROVIDER-PARITY-2026-07-20`**
+
+> **Supersession note:** This status record remains immutable evidence for completed hub work and
+> approved amendments. Current execution status is maintained in
+> [`openmrs-dual-provider-parity-roadmap-status.md`](openmrs-dual-provider-parity-roadmap-status.md).
+
 ## Control Record
 
 | Field | Value |

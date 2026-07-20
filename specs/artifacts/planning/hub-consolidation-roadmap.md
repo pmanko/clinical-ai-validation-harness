@@ -1,8 +1,13 @@
 # Med-Agent-Hub Consolidation and Reliable Clinical Answer Roadmap
 
 **Roadmap ID:** `MAH-CONSOLIDATION-2026-07-09-v1`  
-**Status:** Proposed; not authorized for execution  
+**Status: Historical and superseded by `OPENMRS-DUAL-PROVIDER-PARITY-2026-07-20`**
 **Validated:** 2026-07-09 against the checked-out code, submodule history, open PRs, and references below
+
+> **Supersession note:** This roadmap required removal of bundled Java inference. The approved
+> dual-provider roadmap reverses that architectural premise while preserving completed work and
+> still-valid safety, temporal, evidence, provenance, and medication-knowledge decisions. Active
+> execution authority is [`openmrs-dual-provider-parity-roadmap.md`](openmrs-dual-provider-parity-roadmap.md).
 
 ## 1. Goal
 

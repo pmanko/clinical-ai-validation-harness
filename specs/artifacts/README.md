@@ -2,12 +2,17 @@
 
 Durable planning and research artifacts that support the feature roadmap:
 
+- `planning/openmrs-dual-provider-parity-roadmap.md`
+  - Approved canonical roadmap for preserving bundled ChartSearchAI and med-agent-hub behind one
+    capability-driven OpenMRS interface. It supersedes the hub-only architecture roadmap.
+- `planning/openmrs-dual-provider-parity-roadmap-status.md`
+  - Mutable execution record for the dual-provider roadmap: baseline heads, gate evidence,
+    signoffs, upstream dispositions, and approved deviations.
 - `planning/hub-consolidation-roadmap.md`
-  - Approved execution roadmap for the med-agent-hub-centered clinical answer path, including
-    architecture, milestones, acceptance gates, code targets, and research grounding.
+  - Historical superseded roadmap for the prior hub-only clinical answer architecture. Completed
+    evidence and still-valid decisions are preserved by reference from the dual-provider roadmap.
 - `planning/hub-consolidation-roadmap-status.md`
-  - Mutable execution record for the approved roadmap: baseline SHAs, milestone state, gate
-    evidence, signoffs, and amendments.
+  - Historical execution record for the superseded hub-only roadmap.
 - `planning/chart-context-cache-research-plan-2026-07-15.md`
   - Tracked post-release research and implementation plan for model residency, prompt-prefix reuse,
     source-neutral patient-ledger caching, deterministic selection efficiency, freshness, and
