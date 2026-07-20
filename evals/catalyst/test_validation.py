@@ -253,6 +253,53 @@ def test_load_suite_rejects_duplicate_scenarios(tmp_path: Path) -> None:
         load_suite(suite_path)
 
 
+@pytest.mark.parametrize(
+    ("case", "message"),
+    [
+        ("missing_required", "Catalyst suite is missing: providerName"),
+        ("zero_repetitions", "repetitions must be at least one"),
+        ("overview_not_object", "datasetOverview must be an object"),
+        ("overview_missing_field", "datasetOverview is missing: patients"),
+        ("overview_count_not_integer", "datasetOverview.patients must be an integer"),
+        ("overview_date_invalid", "datasetOverview.firstObservedDate must be YYYY-MM-DD"),
+        ("invalid_outcome", "invalid expected outcome"),
+        ("no_scenarios", "must contain scenarios"),
+    ],
+)
+def test_load_suite_rejects_invalid_contracts(
+    tmp_path: Path,
+    case: str,
+    message: str,
+) -> None:
+    suite_path = tmp_path / "suite.json"
+    _write_suite(suite_path)
+    payload = json.loads(suite_path.read_text(encoding="utf-8"))
+
+    if case == "missing_required":
+        del payload["providerName"]
+    elif case == "zero_repetitions":
+        payload["repetitions"] = 0
+    elif case == "overview_not_object":
+        payload["datasetOverview"] = []
+    elif case == "overview_missing_field":
+        del payload["datasetOverview"]["patients"]
+    elif case == "overview_count_not_integer":
+        payload["datasetOverview"]["patients"] = "2"
+    elif case == "overview_date_invalid":
+        payload["datasetOverview"]["firstObservedDate"] = "2026/04/01"
+    elif case == "invalid_outcome":
+        payload["scenarios"][0]["expectedOutcome"] = "maybe"
+    elif case == "no_scenarios":
+        payload["scenarios"] = []
+    else:  # pragma: no cover - the parameter table is exhaustive
+        raise AssertionError(f"unknown case {case}")
+
+    suite_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(ValueError, match=message):
+        load_suite(suite_path)
+
+
 def test_http_client_uses_gateway_contracts(monkeypatch: pytest.MonkeyPatch) -> None:
     session = FakeHttpSession()
     monkeypatch.setattr(catalyst_validation.requests, "Session", lambda: session)

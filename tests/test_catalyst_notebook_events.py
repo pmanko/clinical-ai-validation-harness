@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import json
 
+import pytest
+
 from harness.catalyst.events import workbench_event_envelope
 from harness.metadata import append_event
 
@@ -76,3 +78,19 @@ def test_notebook_records_round_trip_through_events_jsonl_without_loss(
     assert restored["payload"]["turn"] == turn
     assert restored["payload"]["editorSnapshot"] == snapshot
     assert restored["payload"]["generationEvidence"] == evidence
+
+
+@pytest.mark.parametrize(
+    ("run_id", "event", "message"),
+    [
+        ("", {}, "run_id must not be empty"),
+        ("run-008", {}, "workbench event is missing required fields"),
+    ],
+)
+def test_notebook_event_envelope_rejects_incomplete_identity(
+    run_id: str,
+    event: dict,
+    message: str,
+) -> None:
+    with pytest.raises(ValueError, match=message):
+        workbench_event_envelope(run_id, event)
