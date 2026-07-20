@@ -106,10 +106,9 @@ class FakeClient:
                         "query_generate": "google/gemma-4-e4b",
                         "query_review": "google/gemma-4-e4b",
                     },
-                    "profileEvidence": {
+                    "provenance": {
                         "profileId": "catalyst-query-gemma-e4b",
-                        "writer": {"providerId": "test-provider"},
-                        "reviewer": {"providerId": "test-provider"},
+                        "backend": {"provider": "test-provider"},
                     },
                 }
             ]
@@ -774,10 +773,25 @@ def test_profile_provider_must_match_suite_evidence(tmp_path: Path) -> None:
     _write_suite(suite_path)
     suite = load_suite(suite_path)
     profile = FakeClient().profiles()["profiles"][0]
-    profile["profileEvidence"]["reviewer"]["providerId"] = "other-provider"
+    profile["provenance"]["backend"]["provider"] = "other-provider"
 
-    with pytest.raises(ValueError, match="one provider"):
+    with pytest.raises(ValueError, match="expected provider"):
         catalyst_validation._profile_provider(profile, suite)
+
+
+def test_profile_provider_accepts_legacy_exact_evidence(tmp_path: Path) -> None:
+    suite_path = tmp_path / "suite.json"
+    _write_suite(suite_path)
+    suite = load_suite(suite_path)
+    profile = FakeClient().profiles()["profiles"][0]
+    profile.pop("provenance")
+    profile["profileEvidence"] = {
+        "profileId": "catalyst-query-gemma-e4b",
+        "writer": {"providerId": "test-provider"},
+        "reviewer": {"providerId": "test-provider"},
+    }
+
+    assert catalyst_validation._profile_provider(profile, suite) == "test-provider"
 
 
 def test_runtime_identity_mismatch_fails_before_query_submission(

@@ -276,29 +276,44 @@ def _target_provenance(project_root: Path) -> list[dict[str, Any]]:
 
 def _profile_provider(profile: dict[str, Any], suite: CatalystSuite) -> str:
     evidence = profile.get("profileEvidence")
-    if not isinstance(evidence, dict):
-        raise ValueError(
-            f"Catalyst profile {suite.profile_id!r} has no profileEvidence"
+    if isinstance(evidence, dict):
+        if evidence.get("profileId") != suite.profile_id:
+            raise ValueError(
+                "Discovered profileEvidence.profileId does not match the suite"
+            )
+        providers = set()
+        for role in ("writer", "reviewer"):
+            role_evidence = evidence.get(role)
+            provider = (
+                role_evidence.get("providerId")
+                if isinstance(role_evidence, dict)
+                else None
+            )
+            if not isinstance(provider, str) or not provider:
+                raise ValueError(
+                    f"Discovered profileEvidence.{role}.providerId is missing"
+                )
+            providers.add(provider)
+        if len(providers) != 1:
+            raise ValueError(
+                "Catalyst validation currently requires one provider across writer and "
+                "reviewer roles"
+            )
+        provider_name = providers.pop()
+    else:
+        provenance = profile.get("provenance")
+        if not isinstance(provenance, dict):
+            raise ValueError(
+                f"Catalyst profile {suite.profile_id!r} has no provenance"
+            )
+        if provenance.get("profileId") != suite.profile_id:
+            raise ValueError("Discovered provenance.profileId does not match the suite")
+        backend = provenance.get("backend")
+        provider_name = (
+            backend.get("provider") if isinstance(backend, dict) else None
         )
-    if evidence.get("profileId") != suite.profile_id:
-        raise ValueError(
-            "Discovered profileEvidence.profileId does not match the suite"
-        )
-    providers = set()
-    for role in ("writer", "reviewer"):
-        role_evidence = evidence.get(role)
-        provider = (
-            role_evidence.get("providerId") if isinstance(role_evidence, dict) else None
-        )
-        if not isinstance(provider, str) or not provider:
-            raise ValueError(f"Discovered profileEvidence.{role}.providerId is missing")
-        providers.add(provider)
-    if len(providers) != 1:
-        raise ValueError(
-            "Catalyst validation currently requires one provider across writer and "
-            "reviewer roles"
-        )
-    provider_name = providers.pop()
+        if not isinstance(provider_name, str) or not provider_name:
+            raise ValueError("Discovered provenance.backend.provider is missing")
     if provider_name != suite.provider_name:
         raise ValueError(
             f"Suite expected provider {suite.provider_name!r}, but profile discovery "
