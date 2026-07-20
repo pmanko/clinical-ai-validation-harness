@@ -974,10 +974,30 @@ Observation and ServiceRequest rows is coded and named. The fixture mapping
 basis, including explicitly identified inference, is test provenance rather
 than production terminology governance.
 
-This fake-mode pass proves deterministic assembly and is recorded as simulated;
-it does not complete T094/T095 or T111. The clean-pin Gemma 4 12B writer / Qwen
-2.5 14B reviewer workflow, independent PostgreSQL result verification, model
-nondeterminism evidence, and the user acceptance pause remain open.
+The functional stack was then rebuilt in external mode at Harness `1118858`,
+Catalyst `428b9c7`, and Hub `57d916b`. The same health/provenance gates passed
+against loaded `gemma-4-12b` and `qwen2.5-14b`. A fresh notebook session
+`283df3f4-3cc8-4449-9a2f-3f294dab9d86` generated and ran the baseline viral-load
+query, then selected a complete successor adding only
+`ORDER BY t1.observed_at DESC` in turn
+`0fe5cccd-3ee3-497d-8204-8af1edc6efa8`. Both persisted invocations record
+temperature and DRY multiplier zero. Successor execution
+`0edea8b7-bfbe-47e1-a770-7652058730af` returned the bounded first 100 rows; an
+independent PostgreSQL check found 194 matching rows across 96 patients, values
+30–9000, one `copies/ml` unit, and the same latest timestamp. Harness run
+`50cd5c25-8dc4-42d1-af4d-da12c872da58` passed its one selected real-model
+scenario with exact clean target provenance.
+
+The repeated-token corruption observed earlier was traced to the router-wide
+DRY repetition penalty (`0.8`) reaching SQL roles. Hub query profiles now
+require and forward `dry: 0`; effective per-invocation configuration survives
+Catalyst persistence and Harness event export. Deterministic lint was not
+weakened. The focused live path is functional, but this does not complete the
+full T094/T095 matrix, accessibility sweep, nondeterminism repetitions, or the
+user acceptance pause required by T111.
+
+The final downstream PR heads add documentation-only alignment and pin Catalyst
+`24cef7f` with Hub `d4c09ee`; their contract schemas remain byte-identical.
 
 Squash order is a dependency invariant, not a preference: Hub must merge first;
 Catalyst must then pin and validate the resulting Hub `main` commit before it is

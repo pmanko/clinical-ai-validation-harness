@@ -348,10 +348,11 @@ issues are appended to `roadmap.md`; product-code work pauses at the user gates.
 The following items must remain visible until evidence resolves them:
 
 - **N1 — Model sampling (bounded, still open for experiments)**: The canonical
-  router now advertises temperature 0, seed 42, context 24,576, and its full
-  launch preset; the Hub records profile knobs and config/prompt digests. A
-  single successful run is not repeatability evidence, so comparative runs still
-  require repetitions and variance reporting.
+  router advertises temperature 0, seed 42, context 24,576, and its full launch
+  preset; Catalyst query roles override the router-wide DRY repetition penalty
+  to zero. The Hub records both declared role knobs and effective invocation
+  configuration. A single successful run is not repeatability evidence, so
+  comparative runs still require repetitions and variance reporting.
 - **N2 — Advertised versus physical model (resolved for Gemma and bundled
   fallback)**: `gemma-e4b` maps to the loaded Gemma 4 E4B IT Q4_K_M artifact;
   the bundled Qwen fallback is truthfully named as a 1.5B Q4_K_M model. The Hub
@@ -622,20 +623,23 @@ The following items must remain visible until evidence resolves them:
   manual executor marked a complete 25-row `LIMIT 25` result as truncated even
   though the Gateway cap was 100. Manual execution now reports truncation only
   when the configured fetch cap actually omits rows; legacy behavior is unchanged.
-- **N52 — Model identifier corruption on contextual edits (open; measured)**:
-  Gemma 4 12B changed approved identifiers while asked to delete one LIMIT line;
-  Qwen 2.5 14B repaired most defects but introduced
-  `analytics.lab_result Fact_v1`. Deterministic lint correctly rejected it, the
-  writer Query v4 remained inspectable/unselected, and a human Query v5 completed
-  the intended edit. This is model-quality evidence, not a reason to weaken lint.
+- **N52 — Model identifier corruption on contextual edits (resolved for the
+  query profile; continue monitoring)**: The failing runs inherited the
+  router-wide DRY repetition penalty (`0.8`), which is suitable for prose but
+  penalized exact repeated SQL tokens such as `t1.` and `_v1`. Hub query roles
+  now require and forward `dry: 0`; deterministic lint remains unchanged. A
+  fresh Gemma 4 12B/Qwen 2.5 14B run preserved the full base query and selected
+  the requested `ORDER BY t1.observed_at DESC` successor. Model outputs remain
+  nondeterministic evidence, so broader scenario coverage stays open.
 - **N53 — Per-turn profile choice has one revision-capable option (open)**: The
   initial composer truthfully shows every loaded available profile, but the
   follow-up composer offers only the cross-family 12B/Qwen profile because the
   other loaded profiles are not declared revision-capable. The selector and
   provenance path work, but real per-turn switching needs at least one additional
   revision-capable profile or an explicit decision to defer that experiment.
-- **N54 — Standalone fallback contract drift (resolved)**: The native Hub query
-  implementation is published at `bcbfa74e8af9b2171eefe00cfc3a97b2926b4312`.
+- **N54 — Standalone fallback contract drift (resolved)**: The reviewed native
+  Hub query implementation is published at
+  `d4c09eeb80323e16a2d310f7a002eb5da0cffc68`.
   Catalyst's standalone fallback pins that exact unmodified commit, the umbrella
   pins it as a sibling submodule, and the disposable patch/duplicated runtime
   source is retired. Hub, Catalyst, and canonical harness contract copies are
