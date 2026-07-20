@@ -36,7 +36,7 @@ The refreshed repository state, upstream dispositions, and rollback refs are rec
 | Gate | Status | Evidence |
 |---|---|---|
 | G01 Roadmap integrity | Passed | `8bc9caa`; `scripts/verify-dual-provider-parity-gates.sh --phase foundation` verifies the immutable SHA, supersession, index, and per-gate status rows. |
-| G02 Baseline integrity | In progress | All remotes fetched; every checked-out head is remote-reachable; local rollback refs exist for #26 and #12; final foundation gate runs after this inventory commit. |
+| G02 Baseline integrity | Passed | After `ef95ee2` was pushed, `scripts/verify-dual-provider-parity-gates.sh --phase foundation` confirmed every root/submodule tree is clean, every head is remote-reachable, both rollback refs exist, and the inventory is present. |
 | G03 Contract first | Prepared | Versioned provider, context, temporal, freshness, and safety fixtures are checked in. Owning-language tests must be added red-first after Signoff 1. |
 | G04 Provider isolation | Pending | No runtime implementation has begun. |
 | G05 Provider selection | Pending | No runtime implementation has begun. |
