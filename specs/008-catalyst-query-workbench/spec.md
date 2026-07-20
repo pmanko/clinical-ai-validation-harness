@@ -4,12 +4,14 @@
 
 **Created**: 2026-07-17
 
-**Status**: In implementation — G2.3 passed; G3 evidence preparation in progress
+**Status**: In implementation — exploratory G2.8c manual loop functional;
+G2.9 UX/schema audit ready for user acceptance
 
 **Input**: Refine the Catalyst query experience with manageable dataset context,
 targeted query remediation, complete validator feedback, editable SQL,
 frictionless manual execution of imperfect drafts, execution-error feedback,
-and iterative human correction.
+iterative human correction, and contextual follow-up generation from the exact
+current editor state.
 
 ## Clarifications
 
@@ -31,6 +33,34 @@ and iterative human correction.
   `run_manifest.json` and `events.jsonl` materialization after manual editing,
   advisory validation, execution feedback, and refresh restoration work end to
   end.
+
+### Session 2026-07-18
+
+- Q: How should an evaluator continue after generating, editing, validating, or
+  running a query? → A: Keep one linear notebook-style session. A follow-up
+  instruction derives one complete successor query from the exact current
+  editor state; `New session` remains the path for unrelated work.
+- Q: Which editor state becomes the follow-up base? → A: Reuse the current
+  immutable version when unchanged, first preserve a dirty contract-valid
+  buffer as a human version, and retain a dirty unresolved buffer as explicit
+  turn input evidence without promoting it to a query version.
+- Q: How much prior context should models receive? → A: The exact base editor
+  snapshot, initial question, at most five most-recent follow-up instructions,
+  and only matching validation/execution summaries. Do not send result rows,
+  credentials, hidden reasoning, or an undifferentiated transcript.
+- Q: How many active query inputs should an evaluator see? → A: One canonical
+  SQL editor plus one reusable natural-language composer. The composer handles
+  the initial Ask before a session and every Refine instruction afterward; the
+  original question remains in history instead of a disabled duplicate form.
+- Q: What should “Know what to ask” describe? → A: The reviewed supported query
+  catalog—exact relation names, columns, types, nullability, meanings, and
+  truthful runtime capabilities—from the same versioned source used for model
+  grounding and editor completion. Broad database grants are not implicit
+  product support.
+- Q: Does “based on execution results” include returned row values? → A: The
+  current approved boundary includes exact-digest status, schema, row count,
+  timing, and diagnostics. Value-level context is pending the G2.9 user decision
+  on an explicit bounded result attachment; it must not happen silently.
 
 ## User Scenarios & Testing
 
@@ -76,10 +106,11 @@ question, prior draft, findings, and edit provenance.
 8. **Given** an unformatted draft, **When** the user chooses Format twice on
    the same content, **Then** both operations produce identical SQL without a
    model call or a semantic query change.
-9. **Given** a persisted query version, **When** editing, completion, wrapping,
-   or formatting changes the working buffer, **Then** the persisted version is
-   unchanged and Validate or Run creates a new immutable child containing the
-   exact submitted SQL and typed parameters.
+9. **Given** a persisted query version, **When** the evaluator chooses Validate
+   or Run, **Then** a dirty contract-valid buffer creates exactly one immutable
+   human child containing the exact submitted SQL and typed parameters, while
+   an unchanged buffer reuses the existing version and presentation-only changes
+   create no version.
 10. **Given** query generation returns a partially parseable draft whose
     parameter object is missing required `name`, **When** contract validation
     fails, **Then** the workbench retains the raw output, best parsed draft,
@@ -186,6 +217,99 @@ and reopen the browser with its filters and page preserved.
    usable without obscuring the query editor or introducing nested horizontal
    scrolling.
 
+---
+
+### User Story 5 - Continue from the current query (Priority: P1)
+
+As a technical evaluator, I can give a follow-up instruction based on the exact
+query I am viewing or editing, receive a complete successor query, and retain a
+compact chronological record of how the question, manual edits, model roles,
+validation, and results evolved.
+
+**Why this priority**: A standalone generation followed by manual editing is not
+an iterative experiment. The evaluator needs an obvious continuation path that
+uses the work already completed without turning the workbench into a chat
+transcript or losing query-level evidence.
+
+**Independent Test**: Generate an initial query, edit it, validate or run it,
+submit a related follow-up with another available profile, and confirm the new
+complete query is linked to the exact submitted editor snapshot while the
+base/current anchor, results, failure evidence, and profile/model provenance remain
+inspectable after refresh.
+
+**Acceptance Scenarios**:
+
+1. **Given** an active immutable query version whose editor is unchanged,
+   **When** the evaluator submits a follow-up, **Then** that version is reused as
+   the exact base and no duplicate human version is created.
+2. **Given** a contract-valid editor buffer that differs from the observed
+   current version or a session with no immutable version, **When** the evaluator
+   submits a follow-up, **Then** the exact buffer is first preserved as exactly
+   one human-authored version and that non-null version is the effective base.
+3. **Given** an editor buffer whose SQL or parameter structure remains
+   unresolved, **When** the evaluator submits a follow-up, **Then** the exact
+   unresolved snapshot is retained and sent as correction context without being
+   represented as an accepted query version.
+4. **Given** a current query and related follow-up instruction, **When**
+   generation succeeds, **Then** one complete writer query and any complete
+   reviewer correction are linked in order to the effective base and exact
+   editor snapshot, and neither query executes automatically.
+5. **Given** a follow-up generation failure, **When** the failure is displayed,
+   **Then** the failed turn, raw response evidence, model/profile provenance,
+   and base snapshot remain inspectable while the base/current anchor stays
+   current and editable: the effective base when non-null, otherwise the
+   observed version when one exists, otherwise no current version.
+6. **Given** an active session, **When** the evaluator reviews its history,
+   **Then** compact ordered turns identify each instruction, base query version,
+   selected profile and writer/reviewer models, produced versions, validation,
+   execution, and failure state; earlier turns are collapsed and read-only.
+7. **Given** results from Query vN, **When** the editor changes or a successor is
+   generated, **Then** those results remain visible as `Results from Query vN`
+   and are marked stale rather than relabeled or hidden.
+8. **Given** an active session and a nonempty editor, **When** the evaluator
+   traverses long dataset or result content, **Then** a persistent,
+   non-obscuring action focuses the follow-up composer and identifies the query
+   version on which it will operate.
+9. **Given** an active session, **When** the evaluator clears the draft, **Then**
+   refinement is disabled only while the editor is empty and `Restore Query vN`
+   restores the current immutable version without creating another version.
+10. **Given** multiple turns, profiles, manual edits, or a failed turn, **When**
+    the browser refreshes, **Then** the same active session, turn timeline,
+    current version, editable state, results labels, and profile selection are
+    restored.
+11. **Given** an active iterative session, **When** the evaluator selects `New
+    session`, **Then** the next question starts without instructions, query
+    content, validation, execution, or model context from the prior session.
+12. **Given** two follow-up requests with the same observed current-version ID
+    and digest, **When** they arrive concurrently, **Then** exactly one request
+    atomically claims generation and makes one Hub call, while the other receives
+    `409 turn_generation_in_progress` and appends no event or version and changes
+    no current-version or current-turn pointer.
+13. **Given** a follow-up or a newly created session, **When** its writer and
+    reviewer request evidence is inspected, **Then** it contains only the
+    permitted bounded context and contains no result rows, credentials, hidden
+    reasoning, raw traces, unrelated-session history, or historical SQL copies
+    other than the exact submitted editor snapshot.
+14. **Given** a contract-valid writer candidate followed by reviewer transport,
+    contract, or deterministic-validation failure, **When** the turn fails,
+    **Then** the writer candidate remains an immutable but unselected output
+    version, invalid reviewer candidates remain evidence only, and the
+    base/current anchor remains selected and current when non-null. If the
+    unresolved input had no observed version, the current pointer remains null;
+    if valid editor input created a human effective base, that version remains
+    current.
+15. **Given** a session created before turn events existed, **When** its timeline
+    is restored, **Then** one stable legacy initial turn is synthesized from
+    persisted session, version, draft-seed, and generation-provenance references
+    without appending events, fabricating a valid query, or making a model call;
+    its output/selection references include only initial `model`/`model_repair`
+    versions while the timeline separately restores the actual persisted current
+    version, including a later human version.
+16. **Given** an initial question for a newly created session, **When** its
+    generation begins and terminates, **Then** recorded requested and exactly one
+    completed or failed turn event are emitted; synthesis is reserved for
+    sessions that predate recorded turn events.
+
 ### Edge Cases
 
 - A finding points to a query unit that no longer exists in the current version.
@@ -208,6 +332,23 @@ and reopen the browser with its filters and page preserved.
 - Dataset context fails to load while query generation and editing remain usable.
 - Page refresh, browser back/forward navigation, or multiple tabs encounter an
   unfinished editing session.
+- Another tab or request advances the current version after a follow-up captures
+  its base version or digest.
+- Two follow-up generations are requested for the same session before the first
+  reaches a terminal state.
+- The local editor is empty, contains valid SQL with unresolved parameters, or
+  differs from its current version only in presentation state; an empty editor
+  is disabled locally and is never submitted as an Editor Snapshot.
+- The latest validation or database diagnostic belongs to a different query
+  digest than the editor snapshot selected for refinement.
+- A session contains more prior instructions than the bounded context window or
+  a prior instruction conflicts with the current one.
+- A follow-up writer produces a contract-valid output but the reviewer fails,
+  rejects it, or returns an invalid correction; the valid writer output remains
+  inspectable but must not silently become selected.
+- A model returns the same SQL for a follow-up whose requested change is
+  meaningful, or returns different content across nominally identical
+  temperature-zero runs.
 
 ## Requirements
 
@@ -231,9 +372,10 @@ and reopen the browser with its filters and page preserved.
 - **FR-006**: Users MUST be able to directly edit the current SQL and its typed
   parameters and request full revalidation without resubmitting the original
   question.
-- **FR-007**: Every generated, automatically remediated, or human-edited draft
-  MUST be an immutable version linked to its parent, author type, profile,
-  source findings, validation outcome, and execution outcome.
+- **FR-007**: Every contract-valid generated, automatically remediated, or
+  human-edited draft MUST be an immutable version linked to its parent, author
+  type, profile, source findings, validation outcome, and execution outcome.
+  Contract-invalid candidates remain diagnostic evidence rather than versions.
 - **FR-008**: Automatic remediation MUST identify the smallest meaningful
   repair unit that contains each correctable finding and freeze unaffected units.
 - **FR-009**: A remediation proposal MUST identify its source version and
@@ -299,8 +441,10 @@ and reopen the browser with its filters and page preserved.
   failure.
 - **FR-029**: Editor keystrokes, completion, wrap changes, and formatting MUST
   NOT overwrite an immutable query version. Validate and Run MUST persist the
-  exact SQL and typed parameters as a new child version before operating on it;
-  earlier versions remain inspectable and unchanged.
+  exact SQL and typed parameters as a new child version before operating on a
+  dirty contract-valid buffer; when the buffer is unchanged, they MUST reuse
+  the matching immutable version. Earlier versions remain inspectable and
+  unchanged.
 - **FR-030**: Editor behavior MUST remain usable when catalog completion is
   unavailable: editing, formatting, validation, and manual Run continue, and
   the missing completion source is reported without inventing identifiers.
@@ -330,6 +474,165 @@ and reopen the browser with its filters and page preserved.
   digests, and shared trace ID MUST remain inspectable after refresh. This
   generation-internal collaboration does not enable the broader user-accepted
   remediation workflow in User Story 2.
+- **FR-034**: An active workbench session MUST support a linear sequence of
+  initial and follow-up turns. Each follow-up MUST derive from the current
+  editor state; branching from an arbitrary historical version is out of scope.
+- **FR-035**: The workspace MUST present turns in chronological order, keep
+  earlier turns collapsed and read-only by default, and give only the latest
+  turn the active SQL editor, validation controls, and result workspace.
+- **FR-036**: The follow-up composer MUST identify the exact base query version
+  and its author/model, allow selection of any currently available profile, show
+  that profile's writer and reviewer models, and expose one explicit action that
+  generates the next complete query.
+- **FR-037**: When the editor matches the current immutable version, follow-up,
+  Validate, and Run MUST reuse that version instead of creating a duplicate.
+  When a submitted editor buffer differs and is contract-valid, or is
+  contract-valid when no immutable version exists, the system MUST preserve it
+  as exactly one new human-authored version before taking the requested action.
+- **FR-038**: An unresolved editor buffer MUST be retained as an exact,
+  digest-addressed turn input snapshot and MAY be supplied for model correction,
+  but MUST NOT become an immutable Query Version until it satisfies the
+  executable query contract.
+- **FR-039**: A follow-up request MUST identify its observed CAS base—the
+  current immutable version ID/digest seen by the client—and the exact nonempty
+  submitted editor snapshot/digest. The observed CAS base is nullable only when
+  the session has no immutable version. If stored lineage has advanced, the
+  request MUST fail as stale without generation or mutation; only one follow-up
+  generation may be active per session.
+- **FR-040**: A successful follow-up MUST return a complete successor query,
+  preserve `base → writer → reviewer correction` lineage, and require a separate
+  explicit Run action. Chat-only answers, textual patches, and automatic
+  execution are out of scope.
+- **FR-041**: A failed follow-up MUST create a terminal failed turn containing
+  its observed CAS base, effective base, exact editor snapshot, raw response or
+  error evidence, stage, output-version dispositions, and profile/model/prompt
+  provenance. It MUST leave the base/current anchor current and editable: the
+  effective base when non-null, otherwise the observed version when one exists,
+  otherwise null. When a human version was promoted, the base/current anchor is
+  that human version.
+- **FR-042**: Each execution result MUST remain labelled with its exact query
+  version and digest. Any later editor-content change or successor version MUST
+  mark that result stale without deleting, hiding, or reassigning it.
+- **FR-043**: Clearing the editor MUST provide a one-action restore of the
+  current immutable query, disable follow-up only while the editor is empty, and
+  create no version. Starting a new session MUST exclude all prior-session
+  question, query, validation, execution, turn, and model context.
+- **FR-044**: Follow-up model context MUST contain the current instruction,
+  exact editor snapshot and parameters, observed/effective base identifiers and
+  digests, original question, at most the five most-recent preceding follow-up
+  instructions, active catalog/policy/profile, and only validation findings or
+  an execution diagnostic/shape summary that matches the exact editor digest.
+- **FR-045**: Follow-up model context MUST NOT contain returned result rows,
+  credentials, hidden reasoning, raw traces, unrelated-session history,
+  historical SQL copies other than the exact submitted editor snapshot, or an
+  undifferentiated full transcript. Context selection and truncation MUST be
+  deterministic and its included and explicitly omitted entity references and
+  digests MUST remain inspectable as generation evidence.
+- **FR-046**: The writer MUST return one complete successor candidate. The
+  different-family reviewer MUST receive that complete candidate, the same
+  bounded revision context, and deterministic findings, and MUST either approve
+  it or return one complete correction even when structural lint is clean.
+- **FR-047**: Deterministic intent-sensitive validation MUST evaluate the active
+  turn instruction supplied independently from the candidate query contract.
+  Every writer or reviewer correction MUST be checked against the complete
+  executable contract and full deterministic suite before it can become current.
+- **FR-048**: Profile selection MAY change per turn. Each turn and produced
+  version MUST preserve the selected profile snapshot, writer/reviewer role and
+  model identities, model configuration, prompt/schema digests, correlation
+  identifiers, and candidate/output digests.
+- **FR-049**: The ordered turn history MUST persist requested, completed, and
+  failed states and remain reconstructable from append-only session evidence.
+  Human versions MUST inherit their active turn identifier; generated versions
+  MUST additionally identify their exact base version and editor snapshot.
+- **FR-050**: Refresh MUST restore the turn timeline, current-version pointer,
+  saved editor state, profile selection, validations, executions, and result
+  staleness. A persistent non-obscuring jump action MUST focus the initial
+  question when no session exists and the latest follow-up composer otherwise.
+- **FR-051**: The effective base MUST be derived after the observed CAS check:
+  it equals the observed version for an unchanged snapshot, equals the one newly
+  created human version for any contract-valid changed snapshot or valid
+  snapshot submitted without an immutable version, and is null only for an
+  unresolved snapshot. The exact nonempty editor snapshot remains required and
+  authoritative in every accepted follow-up. The base/current anchor is the
+  effective base when non-null, otherwise the observed version when present,
+  otherwise null.
+- **FR-052**: Acceptance of a follow-up MUST atomically verify the observed CAS
+  base, claim the session's single generation slot, preserve any promoted-human
+  human effective base, and append the requested turn. Of concurrent requests
+  against the same observed base, exactly one MAY call the Hub; every rejected
+  request MUST return a conflict and make no event, version, or pointer change.
+  An active-generation conflict MUST take precedence over stale-base evaluation
+  so the concurrent loser receives `turn_generation_in_progress` even when the
+  accepted request has already advanced to a promoted-human effective base.
+- **FR-053**: Query selection MUST occur only after the full writer/reviewer
+  pipeline succeeds. If the writer candidate is contract-valid but the reviewer
+  or its correction fails, the writer MUST remain an immutable unselected output
+  version and the base/current anchor MUST remain current when non-null. For
+  unresolved input with no observed version, the current pointer MUST remain
+  null. Contract-invalid writer or reviewer candidates MUST remain diagnostic
+  evidence and MUST NOT become Query Versions.
+- **FR-054**: Every turn MUST preserve normative request evidence identifying
+  observed and effective bases, exact editor snapshot, context-selection policy
+  and membership, instruction ancestry and truncation, selected profile and
+  role/model configuration, prompt/schema/catalog/policy/dataset digests,
+  correlation identifiers, Hub request/response/candidate digests, raw evidence
+  references, candidate dispositions, event references, failure stage, and final
+  selection decision. The public turn representation MUST expose this as typed
+  detail or a typed resolvable reference and MUST expose no hidden reasoning,
+  result rows, or credentials. The detail MUST contain every inference
+  invocation, including failed calls, with role, stage, attempt, model,
+  start/end timestamps, duration, and request and response-or-failure digests.
+  Recorded turns MUST populate all required evidence fields with an empty typed
+  omissions list; unavailable legacy facts MUST be explicit nulls with typed
+  omission reasons and MUST NOT be inferred. Timeline rows carry only compact
+  profile and prompt references/digests; full role-specific prompt content is
+  available only in evidence detail.
+- **FR-055**: A session without recorded turn events MUST expose one
+  deterministic, read-only synthesized initial turn with stable identity and
+  explicit legacy-recovery references to the persisted session, ordered
+  initial-generation `model`/`model_repair` versions, actual current pointer,
+  draft seed, and raw generation provenance. Synthetic ID, owner, and timestamps
+  MUST derive deterministically from those references. Turn output and selection
+  MUST exclude later human versions even while the timeline restores one as its
+  current version. Failed, draft-only, and raw-only cases MUST remain failed or
+  unresolved. Its terminal timestamp MUST be the selected initial output time,
+  otherwise the raw/generation-outcome time, otherwise session creation time.
+  All unavailable evidence MUST be null with typed recovery omissions. Synthesis
+  MUST append no event, call no model, and never infer executable content or
+  provenance absent from persisted evidence.
+- **FR-056**: Every newly created session MUST record its initial question as an
+  initial requested turn followed by exactly one completed or failed terminal
+  turn event. `synthesized_legacy` origin MUST be used only when restoring a
+  session whose persisted evidence predates turn events. A recorded requested
+  turn found without a terminal event during recovery MUST use failure stage
+  `orphan_recovery` and code `generation_interrupted`.
+- **FR-057**: The workspace MUST render exactly one reusable natural-language
+  Ask/Refine composer and one canonical SQL editor. Once a session exists, the
+  initial composer MUST NOT remain as a disabled duplicate; its question MUST
+  remain available through the chronological turn history.
+- **FR-058**: An active session MUST expose a compact bottom workbench dock that
+  remains reachable while browsing editor, validation, and results content. The
+  dock MUST identify the current query/editor state, validation state, matching
+  execution or stale/unexecuted state, and the available Edit, Validate, Run,
+  and Refine actions. It MUST expand the existing editor or composer rather than
+  create a duplicate floating input.
+- **FR-059**: Format, Validate, and Run MUST remain adjacent to the canonical SQL
+  editor. Results MUST use a bounded labelled scroll area, remain linked to the
+  exact executed version, and preserve the stale state. Chronological history
+  MUST summarize initial/follow-up instructions, generated/manual versions,
+  execution row counts, and failures while keeping technical IDs and raw model
+  evidence behind an explicit details action.
+- **FR-060**: The queryable-data guide, editor completion, deterministic
+  validation, and model grounding MUST derive from the same versioned runtime
+  catalog. The guide MUST show every reviewed supported relation and column with
+  qualified name, type, nullability, description, grain, and unit relationship
+  where applicable. It MUST distinguish the supported catalog from relations
+  merely reachable through database-role permissions.
+- **FR-061**: The Refine composer MUST visibly state whether its exact base has a
+  matching execution summary, stale displayed results, or no execution. Until a
+  bounded result-row attachment is explicitly approved and versioned, it MUST
+  describe attached context as an execution summary and MUST NOT imply that row
+  values are supplied to either model.
 
 ### Key Entities
 
@@ -352,6 +655,32 @@ and reopen the browser with its filters and page preserved.
   duration, and truncation facts.
 - **Dataset Browser State**: Disclosure state, active filters, pagination, and
   loaded context associated with the workbench session.
+- **Iteration Turn**: One initial question or follow-up instruction with a
+  stable order, exact base/editor snapshot, selected profile, lifecycle state,
+  produced query versions, validation/execution references, and failure
+  evidence.
+- **Editor Snapshot**: The exact SQL and ordered typed-parameter buffer submitted
+  for an action, its digest and relationship to the current immutable version,
+  and its persisted reconciliation state: reused, promoted-human, or unresolved.
+- **Observed CAS Base**: The immutable version ID/digest the client observed as
+  current before submitting a follow-up; it is absent only when no immutable
+  version exists and is used solely to reject stale or concurrent mutation.
+- **Effective Base**: The immutable lineage and current-selection anchor after
+  editor reconciliation: the observed version when unchanged, one new human
+  version for any contract-valid changed or no-version input, or no version when
+  the submitted input remains unresolved.
+- **Base/Current Anchor**: The version that remains current if generation fails:
+  the effective base when non-null, otherwise the observed CAS base when one
+  exists, otherwise no current version.
+- **Revision Context**: The bounded, digest-addressed set of question history,
+  editor/base query, matching findings or diagnostic summary, catalog, policy,
+  profile, and correlation evidence supplied to writer and reviewer roles.
+- **Generation Evidence**: Public typed detail, or a typed resolvable reference,
+  containing exact provenance, full role prompts, candidate dispositions, and
+  one timing/digest record for every writer/reviewer invocation; legacy gaps are
+  explicit typed omissions, never inferred values.
+- **Result View State**: The execution/version relationship and derived current
+  or stale presentation state retained while later edits and turns occur.
 
 ### Evidence, Provenance & Data Boundaries
 
@@ -364,15 +693,21 @@ and reopen the browser with its filters and page preserved.
 - **Decision rationale**: Each validation and repair-scope decision records the
   applicable rule and why it warned or proposed a repair; each execution records
   that manual Run bypassed validator gating and the database outcome was
-  authoritative.
+  authoritative. Each turn records why its snapshot reused or created an
+  effective base and why every produced candidate was selected, unselected, or
+  retained only as invalid evidence.
 - **Operating metadata**: Session lineage, query versions, validation runs,
-  repair proposals, execution attempts, profile/prompt/catalog/dataset
-  provenance, editor/formatter revision, and harness-compatible run events.
+  repair proposals, execution attempts, iteration turns, editor snapshots,
+  bounded revision-context membership, result staleness, profile/prompt/catalog/
+  dataset provenance, editor/formatter revision, and harness-compatible run
+  events.
 - **Accepted deterministic inputs**: Versioned validator rules, repair templates,
   SQL formatter and PostgreSQL keyword source, approved catalog, execution
   policy, and reviewed query-patch contract.
 - **Advisory inputs**: Model-generated repair proposals, suggested updates, and
   human comments remain proposals until explicitly applied and revalidated.
+  Follow-up instructions guide a successor candidate but do not themselves
+  attest that its result set answers the intended question.
 - **PCCP/change record needs**: Material changes to query prompts, profile roles,
   validator classification, repair policy, manual-run policy, or execution policy
   require old/new behavior, evaluation protocol, rollback conditions, and
@@ -418,7 +753,77 @@ and reopen the browser with its filters and page preserved.
   desktop, narrow viewport, and 200% zoom.
 - **SC-012**: Repeating Format on the same input produces identical SQL, and
   tests prove editing or formatting never mutates a stored version while
-  Validate and Run each operate on a newly persisted exact child version.
+  Validate and Run operate on one newly persisted exact child for dirty-valid
+  content or reuse the matching version for unchanged content.
+- **SC-013**: From initial-question submission until the successor query is
+  visible, a technical evaluator can complete `initial query → manual edit →
+  follow-up` in under three minutes after subtracting only the recorded initial
+  and follow-up writer/reviewer inference durations recorded in the per-
+  invocation evidence fields, without copying SQL between surfaces. No other
+  stage is subtracted. The total wall-clock duration is also recorded; an
+  explicit Run and its database duration are reported separately as a secondary
+  measure.
+- **SC-014**: In 100% of seeded follow-up cases, recorded generation evidence
+  identifies the exact base/editor digests and selected profile/models; no model
+  input contains result rows, credentials, hidden reasoning, raw traces,
+  unrelated-session history, or historical SQL copies beyond the exact editor
+  snapshot, including the first request after `New session`.
+- **SC-015**: Automated acceptance checks cover reused, promoted-human,
+  unresolved, locally empty, and stale editor states; failed generation; reviewer
+  correction of lint-clean SQL; bounded-history truncation; profile switching;
+  stale results; refresh; and New Session isolation.
+- **SC-016**: In every seeded generation failure, the base/current anchor remains
+  current and editable when non-null, and the failed turn retains enough raw
+  evidence and provenance to identify the failing stage and reproduce the
+  request context.
+- **SC-017**: Refresh restoration reproduces the same ordered turn count,
+  current query/editor digests, selected profile, validation/execution links,
+  and result-currentness state in 100% of acceptance scenarios.
+- **SC-018**: Every stale request and every losing concurrent request is rejected
+  before its own model call with zero event, version, or pointer mutation
+  attributable to that rejected request; the accepted concurrent winner may
+  create its turn, effective base, output versions, and current pointer.
+- **SC-019**: When nominally identical model runs produce different outputs,
+  including at temperature zero, their candidate and output digests record those
+  differences; no run is labelled reproducible solely from configured sampling
+  values.
+- **SC-020**: Keyboard-only evaluation can reach the applicable initial or
+  follow-up input with one persistent jump action, identify its base version and
+  profile models, submit it, and return to the produced query at desktop,
+  narrow viewport, and 200% zoom.
+- **SC-021**: Deterministic paired-concurrency automated coverage proves exactly
+  one request per pair makes one Hub call and reaches a terminal turn; every
+  losing request returns a conflict with zero event, version, or pointer
+  mutations.
+- **SC-022**: Automated recovery checks produce byte-identical synthesized
+  legacy-turn projections for the same persisted evidence, including stable
+  origin, ID, owner, timestamps, and recovery references; initial-turn outputs
+  contain only initial model/model-repair versions, the timeline restores the
+  actual current version, and recovery makes zero model calls or mutations.
+  Unavailable legacy facts are explicit nulls with stable typed omission reasons,
+  while newly recorded turn evidence is complete with an empty omissions list.
+- **SC-023**: Failure-path tests prove that 100% of contract-valid writer outputs
+  survive reviewer failure as unselected immutable evidence, 100% of invalid
+  candidates remain non-version evidence, and the base/current anchor remains
+  the current editable version or null for unresolved input with no observed
+  version.
+- **SC-024**: Active-session accessibility snapshots contain exactly one SQL
+  editor and one editable Ask/Refine composer, with the initial question present
+  in history and no disabled duplicate question form.
+- **SC-025**: Live desktop, 390 × 844, 320 CSS px reflow, and 200%-text checks
+  prove the compact dock remains keyboard reachable, never obscures focused
+  controls, and introduces no document-level horizontal overflow.
+- **SC-026**: The seeded `edit → stale results → Run → matching execution →
+  Refine` flow exposes the same version/execution references in the dock,
+  result label, request evidence, and restored session; dirty and unexecuted
+  states never claim matching execution context.
+- **SC-027**: The runtime schema guide, SQL completion vocabulary, deterministic
+  validator, and model request reference the same catalog version, and automated
+  plus live information-schema checks prove that every reviewed physical
+  fact-view column appears exactly once with the correct name and type.
+- **SC-028**: A 100-row execution keeps the document workflow bounded through a
+  labelled result scroll region while its exact query-version label, stale
+  status, row count, and keyboard navigation remain visible.
 
 ## Assumptions
 
@@ -446,6 +851,26 @@ and reopen the browser with its filters and page preserved.
   execution; a successful database execution does not erase those findings.
 - Hidden chain-of-thought is out of scope; the UI exposes structured stages,
   findings, diffs, decisions, and provenance only.
+- Iteration is linear for the MVP. Selecting an earlier turn is for inspection,
+  not for branching or silently changing the current query.
+- A follow-up is always an instruction to produce one complete successor query;
+  conversational answers are deferred. Matching execution summaries are valid
+  context; value-level result references require the separately approved,
+  explicit bounded attachment described by the G2.9 decision.
+- The exact visible editor buffer is authoritative for follow-up input. A dirty
+  valid buffer becomes a human version, an unchanged buffer reuses its version,
+  and an unresolved buffer remains evidence rather than accepted query state.
+- The initial question plus the five most-recent prior follow-up instructions
+  provide sufficient conversational context for this proof of concept. Matching
+  diagnostics and result schema/count summaries may be included. Result rows
+  remain excluded unless the G2.9 checkpoint explicitly replaces this boundary
+  with a versioned, user-visible bounded attachment.
+- Profile changes are allowed per turn and recorded rather than treated as a
+  new session. `New session` is reserved for unrelated work and begins with no
+  inherited model context.
+- Model outputs are nondeterministic evidence even when sampling temperature is
+  zero; comparison relies on captured inputs, configuration, and output digests
+  rather than assumed repeatability.
 - Full production authorization, facility scoping, PHI routing, and durable
   multi-user audit are deferred to the production-security roadmap.
 
@@ -464,3 +889,11 @@ and reopen the browser with its filters and page preserved.
 - The existing Catalyst research establishes full revalidation, immutable
   catalog/policy boundaries, stable finding codes, bounded attempts, and result-
   level evaluation as non-negotiable controls.
+- Notebook and database-assistant interaction patterns support keeping the
+  editable query as the primary artifact, deriving follow-ups from the active
+  editor, and retaining compact version history rather than presenting a
+  conversational transcript as the main workspace.
+- Context-dependent text-to-SQL research supports carrying prior intent and the
+  preceding SQL into a follow-up while returning a complete revised query; long,
+  unbounded conversation histories and prior result rows are unnecessary for
+  this linear proof of concept.

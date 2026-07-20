@@ -74,7 +74,7 @@ Human-facing docs use plain names. IDs appear in parentheses on first use and in
 
 > **Note on F-prefixed IDs and non-monotonic slugs:** F005, F007, F008, F009, F010 are features inserted into the roadmap after the M0–M10 sequence was authored. The validation spine (M2) shipped as slug `006` (validation-harness MVP) — the earlier `003` slug was never created. `007` is LLM config overrides (F007); `017` is the med-agent-hub MCP tools (F010). The Roadmap IDs (M0–M10, F005–F010) carry the semantic ordering anchor; folder slugs are filesystem identifiers and may be non-monotonic. See [`specs/roadmap.canvas.tsx`](https://pmanko.github.io/clinical-ai-validation-harness/#/canvas/specs/roadmap) for the dependency DAG.
 
-> **Note on M10 and repository ownership:** The harness is the umbrella repository. Catalyst is pinned under `targets/catalyst` and contains no nested Git submodules. Its local MVP bootstrap creates disposable, pinned runtime checkouts for OpenELIS, FHIR Data Pipes, and the patched Hub profile; those checkouts are not submodules and are never recorded by Catalyst.
+> **Note on M10 and repository ownership:** The harness is the umbrella repository. Catalyst and Med-Agent Hub are pinned as sibling submodules under `targets/`; Catalyst contains no nested Git submodules. The umbrella runner builds the pinned Hub sibling directly. Standalone Catalyst may clone the same unmodified Hub commit as a disposable fallback, alongside its disposable OpenELIS and FHIR Data Pipes checkouts.
 
 ## Principles
 
@@ -110,14 +110,14 @@ targets/       Pinned submodule checkouts of the four target projects
 
 ## Catalyst query-to-table MVP
 
-Initialize the Catalyst target without `--recursive`:
+Initialize the two sibling targets without `--recursive`:
 
 ```bash
-git submodule update --init targets/catalyst
+git submodule update --init targets/catalyst targets/med-agent-hub
 ```
 
 The local sandbox brings up OpenELIS, HAPI FHIR, FHIR Data Pipes, the analytics
-database, Catalyst Gateway, the patched Hub query profiles, and the sidecar UI;
+database, Catalyst Gateway, the pinned sibling Hub query profiles, and the sidecar UI;
 it then seeds the synthetic multi-analyte cohort.
 
 ```bash

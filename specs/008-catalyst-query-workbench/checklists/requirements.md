@@ -36,4 +36,7 @@
 - Four clarification decisions are integrated: validator findings never gate
   manual Run; SQL and typed parameters are directly editable; sessions persist
   across refresh; and sessions export as versioned validation-harness artifacts.
+- G2.8 adds a linear follow-up turn, exact editor-snapshot lineage, bounded
+  revision context, failure recovery, per-turn profiles, and explicit
+  non-branching/non-chat scope with measurable acceptance scenarios.
 - The specification is ready for implementation planning.

@@ -1,5 +1,18 @@
 # Research: Catalyst Query Workbench
 
+## Iterative query notebook
+
+Use a linear, artifact-first notebook for contextual follow-ups: the current SQL
+editor is the primary artifact, earlier question/query turns are compact history,
+and one `Refine Query vN` composer creates a complete successor query from the
+exact visible editor snapshot. This is not a chat transcript and does not expose
+branching in the MVP.
+
+The current-state audit, research rationale, bounded model-context decision,
+failure/recovery behavior, runtime ownership inconsistency, and validation
+checkpoint are recorded in
+[`followup-notebook-research.md`](followup-notebook-research.md).
+
 ## Progressive disclosure for dataset context
 
 Use a compact, always-visible dataset identity/scale summary followed by one
@@ -45,9 +58,10 @@ Keep deterministic formatting separate from model behavior and version it as an
 accepted implementation input. Formatting updates only the working buffer,
 returns a useful no-change failure when semantic preservation cannot be proven,
 and must produce byte-identical output for the same SQL and formatter revision.
-Validate or Run persists that exact buffer as a new immutable child before the
-operation; keystrokes, completion, wrapping, and Format never rewrite an earlier
-version.
+Validate and Run use the same server-owned editor resolver as follow-up. An
+unchanged exact buffer reuses its matching immutable version; a dirty contract-
+valid buffer creates exactly one immutable human child before the operation.
+Keystrokes, completion, wrapping, and Format never rewrite an earlier version.
 
 The selected implementation is direct CodeMirror 6 with the official
 `@codemirror/lang-sql` PostgreSQL dialect and `sql-formatter`. CodeMirror's

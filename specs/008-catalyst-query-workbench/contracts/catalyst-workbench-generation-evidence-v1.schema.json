@@ -1,0 +1,806 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openelis-global.org/contracts/catalyst-workbench-generation-evidence-v1.schema.json",
+  "title": "Catalyst workbench generation evidence v1",
+  "description": "Inspectable, reproducible generation evidence for one initial or follow-up turn. It excludes database result rows, credentials, and hidden reasoning.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contractVersion",
+    "evidenceId",
+    "evidenceDigest",
+    "sessionId",
+    "turnId",
+    "turnKind",
+    "origin",
+    "status",
+    "instruction",
+    "instructionDigest",
+    "editorSnapshot",
+    "observedBase",
+    "effectiveBaseVersion",
+    "manualVersion",
+    "revisionContext",
+    "dataset",
+    "catalog",
+    "policy",
+    "outputSchema",
+    "profile",
+    "correlation",
+    "selectionPolicy",
+    "history",
+    "hubRequest",
+    "hubResponse",
+    "invocations",
+    "totalInvocationDurationMs",
+    "candidates",
+    "finalSelection",
+    "omissions",
+    "prohibitedClasses",
+    "createdAt",
+    "updatedAt"
+  ],
+  "properties": {
+    "contractVersion": {
+      "const": "catalyst.workbench.generation-evidence.v1"
+    },
+    "evidenceId": {"type": "string", "format": "uuid"},
+    "evidenceDigest": {
+      "$ref": "catalyst-workbench-editor-snapshot-v1.schema.json#/$defs/digest"
+    },
+    "sessionId": {"type": "string", "format": "uuid"},
+    "turnId": {"type": "string", "format": "uuid"},
+    "turnKind": {"enum": ["initial", "followup"]},
+    "origin": {"enum": ["recorded", "synthesized_legacy"]},
+    "status": {"enum": ["requested", "completed", "failed"]},
+    "instruction": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100000
+    },
+    "instructionDigest": {
+      "$ref": "catalyst-workbench-editor-snapshot-v1.schema.json#/$defs/digest"
+    },
+    "editorSnapshot": {
+      "oneOf": [
+        {"type": "null"},
+        {"$ref": "catalyst-workbench-editor-snapshot-record-v1.schema.json"}
+      ]
+    },
+    "observedBase": {
+      "oneOf": [
+        {"type": "null"},
+        {"$ref": "catalyst-workbench-turn-request-v1.schema.json#/$defs/versionRef"}
+      ]
+    },
+    "effectiveBaseVersion": {
+      "oneOf": [
+        {"type": "null"},
+        {"$ref": "catalyst-workbench-turn-request-v1.schema.json#/$defs/versionRef"}
+      ]
+    },
+    "manualVersion": {
+      "oneOf": [
+        {"type": "null"},
+        {"$ref": "catalyst-workbench-turn-request-v1.schema.json#/$defs/versionRef"}
+      ]
+    },
+    "revisionContext": {
+      "oneOf": [
+        {"type": "null"},
+        {"$ref": "catalyst-query-revision-context-v1.schema.json"}
+      ]
+    },
+    "dataset": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/artifactDescriptor"}]},
+    "catalog": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/artifactDescriptor"}]},
+    "policy": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/artifactDescriptor"}]},
+    "outputSchema": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/artifactDescriptor"}]},
+    "profile": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/profileDescriptor"}]},
+    "correlation": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/correlation"}]},
+    "selectionPolicy": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/selectionPolicy"}]},
+    "history": {"$ref": "#/$defs/historyEvidence"},
+    "hubRequest": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/rawArtifact"}]},
+    "hubResponse": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/rawArtifact"}]},
+    "invocations": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {"$ref": "#/$defs/invocation"}
+    },
+    "totalInvocationDurationMs": {
+      "type": ["integer", "null"],
+      "minimum": 0
+    },
+    "candidates": {
+      "type": "array",
+      "maxItems": 32,
+      "items": {"$ref": "#/$defs/candidateEvidence"}
+    },
+    "finalSelection": {"$ref": "#/$defs/finalSelection"},
+    "omissions": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "dataset_unavailable",
+          "catalog_unavailable",
+          "policy_unavailable",
+          "output_schema_unavailable",
+          "profile_unavailable",
+          "profile_detail_unavailable",
+          "correlation_unavailable",
+          "selection_policy_unavailable",
+          "hub_request_unavailable",
+          "hub_response_unavailable",
+          "invocation_timing_unavailable"
+        ]
+      }
+    },
+    "prohibitedClasses": {
+      "const": [
+        "database_credentials",
+        "database_connection_details",
+        "database_dsn",
+        "execution_result_rows",
+        "hidden_reasoning",
+        "historical_sql_copies",
+        "raw_chat_transcript",
+        "raw_model_outputs",
+        "raw_reasoning_traces",
+        "unrelated_session_history",
+        "unrelated_historical_sql"
+      ]
+    },
+    "createdAt": {"type": "string", "format": "date-time"},
+    "updatedAt": {"type": "string", "format": "date-time"}
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {"turnKind": {"const": "followup"}},
+        "required": ["turnKind"]
+      },
+      "then": {
+        "properties": {"instruction": {"maxLength": 8000}}
+      }
+    },
+    {
+      "if": {
+        "properties": {"origin": {"const": "recorded"}},
+        "required": ["origin"]
+      },
+      "then": {
+        "properties": {
+          "dataset": {"$ref": "#/$defs/artifactDescriptor"},
+          "catalog": {"$ref": "#/$defs/artifactDescriptor"},
+          "policy": {"$ref": "#/$defs/artifactDescriptor"},
+          "outputSchema": {"$ref": "#/$defs/artifactDescriptor"},
+          "profile": {
+            "allOf": [
+              {"$ref": "#/$defs/profileDescriptor"},
+              {"properties": {"detail": {"$ref": "#/$defs/profileDetail"}}}
+            ]
+          },
+          "correlation": {"$ref": "#/$defs/correlation"},
+          "selectionPolicy": {"$ref": "#/$defs/selectionPolicy"},
+          "hubRequest": {"$ref": "#/$defs/rawArtifact"},
+          "hubResponse": {"$ref": "#/$defs/rawArtifact"},
+          "omissions": {"maxItems": 0}
+        }
+      },
+      "else": {
+        "properties": {"omissions": {"minItems": 1}}
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "origin": {"const": "recorded"},
+          "invocations": {"maxItems": 0}
+        },
+        "required": ["origin", "invocations"]
+      },
+      "then": {
+        "properties": {
+          "totalInvocationDurationMs": {"const": 0},
+          "finalSelection": {
+            "type": "object",
+            "properties": {
+              "failure": {
+                "type": "object",
+                "properties": {
+                  "stage": {
+                    "enum": [
+                      "orphan_recovery",
+                      "writer_transport",
+                      "writer_output_contract",
+                      "gateway_persistence"
+                    ]
+                  }
+                },
+                "required": ["stage"]
+              }
+            },
+            "required": ["failure"]
+          }
+        }
+      },
+      "else": {
+        "if": {
+          "properties": {"origin": {"const": "recorded"}},
+          "required": ["origin"]
+        },
+        "then": {
+          "properties": {"invocations": {"minItems": 1}}
+        }
+      }
+    },
+    {
+      "if": {"properties": {"status": {"const": "requested"}}, "required": ["status"]},
+      "then": {
+        "properties": {
+          "totalInvocationDurationMs": {"type": "null"},
+          "finalSelection": {
+            "allOf": [
+              {"$ref": "#/$defs/finalSelection"},
+              {"properties": {"status": {"const": "requested"}}}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {"properties": {"status": {"const": "completed"}}, "required": ["status"]},
+      "then": {
+        "properties": {
+          "totalInvocationDurationMs": {"type": "integer", "minimum": 0},
+          "invocations": {
+            "items": {
+              "allOf": [
+                {"$ref": "#/$defs/invocation"},
+                {"properties": {"outcome": {"not": {"const": "in_progress"}}}}
+              ]
+            }
+          },
+          "finalSelection": {
+            "allOf": [
+              {"$ref": "#/$defs/finalSelection"},
+              {"properties": {"status": {"const": "completed"}}}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {"properties": {"status": {"const": "failed"}}, "required": ["status"]},
+      "then": {
+        "properties": {
+          "totalInvocationDurationMs": {"type": "integer", "minimum": 0},
+          "invocations": {
+            "items": {
+              "allOf": [
+                {"$ref": "#/$defs/invocation"},
+                {"properties": {"outcome": {"not": {"const": "in_progress"}}}}
+              ]
+            }
+          },
+          "finalSelection": {
+            "allOf": [
+              {"$ref": "#/$defs/finalSelection"},
+              {"properties": {"status": {"const": "failed"}}}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {"properties": {"origin": {"const": "synthesized_legacy"}, "dataset": {"type": "null"}}, "required": ["origin", "dataset"]},
+      "then": {"properties": {"omissions": {"contains": {"const": "dataset_unavailable"}}}}
+    },
+    {
+      "if": {"properties": {"origin": {"const": "synthesized_legacy"}, "catalog": {"type": "null"}}, "required": ["origin", "catalog"]},
+      "then": {"properties": {"omissions": {"contains": {"const": "catalog_unavailable"}}}}
+    },
+    {
+      "if": {"properties": {"origin": {"const": "synthesized_legacy"}, "policy": {"type": "null"}}, "required": ["origin", "policy"]},
+      "then": {"properties": {"omissions": {"contains": {"const": "policy_unavailable"}}}}
+    },
+    {
+      "if": {"properties": {"origin": {"const": "synthesized_legacy"}, "outputSchema": {"type": "null"}}, "required": ["origin", "outputSchema"]},
+      "then": {"properties": {"omissions": {"contains": {"const": "output_schema_unavailable"}}}}
+    },
+    {
+      "if": {"properties": {"origin": {"const": "synthesized_legacy"}, "profile": {"type": "null"}}, "required": ["origin", "profile"]},
+      "then": {"properties": {"omissions": {"contains": {"const": "profile_unavailable"}}}}
+    },
+    {
+      "if": {
+        "properties": {
+          "origin": {"const": "synthesized_legacy"},
+          "profile": {"type": "object", "properties": {"detail": {"type": "null"}}, "required": ["detail"]}
+        },
+        "required": ["origin", "profile"]
+      },
+      "then": {"properties": {"omissions": {"contains": {"const": "profile_detail_unavailable"}}}}
+    },
+    {
+      "if": {"properties": {"origin": {"const": "synthesized_legacy"}, "correlation": {"type": "null"}}, "required": ["origin", "correlation"]},
+      "then": {"properties": {"omissions": {"contains": {"const": "correlation_unavailable"}}}}
+    },
+    {
+      "if": {"properties": {"origin": {"const": "synthesized_legacy"}, "selectionPolicy": {"type": "null"}}, "required": ["origin", "selectionPolicy"]},
+      "then": {"properties": {"omissions": {"contains": {"const": "selection_policy_unavailable"}}}}
+    },
+    {
+      "if": {"properties": {"origin": {"const": "synthesized_legacy"}, "hubRequest": {"type": "null"}}, "required": ["origin", "hubRequest"]},
+      "then": {"properties": {"omissions": {"contains": {"const": "hub_request_unavailable"}}}}
+    },
+    {
+      "if": {"properties": {"origin": {"const": "synthesized_legacy"}, "hubResponse": {"type": "null"}}, "required": ["origin", "hubResponse"]},
+      "then": {"properties": {"omissions": {"contains": {"const": "hub_response_unavailable"}}}}
+    },
+    {
+      "if": {"properties": {"origin": {"const": "synthesized_legacy"}, "invocations": {"maxItems": 0}}, "required": ["origin", "invocations"]},
+      "then": {"properties": {"omissions": {"contains": {"const": "invocation_timing_unavailable"}}}}
+    }
+  ],
+  "$defs": {
+    "artifactDescriptor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["artifactId", "artifactVersion", "artifactRef", "artifactDigest"],
+      "properties": {
+        "artifactId": {"type": "string", "minLength": 1, "maxLength": 500},
+        "artifactVersion": {"type": "string", "minLength": 1, "maxLength": 500},
+        "artifactRef": {"type": "string", "minLength": 1, "maxLength": 4000},
+        "artifactDigest": {
+          "$ref": "catalyst-workbench-editor-snapshot-v1.schema.json#/$defs/digest"
+        }
+      }
+    },
+    "profileDescriptor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["profileId", "profileRef", "profileDigest", "detail"],
+      "properties": {
+        "profileId": {"type": "string", "minLength": 1, "maxLength": 500},
+        "profileRef": {"type": "string", "minLength": 1, "maxLength": 4000},
+        "profileDigest": {
+          "$ref": "catalyst-workbench-editor-snapshot-v1.schema.json#/$defs/digest"
+        },
+        "detail": {
+          "oneOf": [
+            {"type": "null"},
+            {"$ref": "#/$defs/profileDetail"}
+          ]
+        }
+      }
+    },
+    "configScalar": {
+      "type": ["string", "number", "integer", "boolean", "null"]
+    },
+    "configValue": {
+      "oneOf": [
+        {"$ref": "#/$defs/configScalar"},
+        {
+          "type": "array",
+          "maxItems": 32,
+          "items": {"$ref": "#/$defs/configScalar"}
+        }
+      ]
+    },
+    "fullPrompt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["promptId", "version", "promptRef", "promptDigest", "text"],
+      "properties": {
+        "promptId": {"type": "string", "minLength": 1, "maxLength": 500},
+        "version": {"type": "string", "minLength": 1, "maxLength": 500},
+        "promptRef": {"type": "string", "minLength": 1, "maxLength": 4000},
+        "promptDigest": {
+          "$ref": "catalyst-workbench-editor-snapshot-v1.schema.json#/$defs/digest"
+        },
+        "text": {"type": "string", "minLength": 1, "maxLength": 100000}
+      }
+    },
+    "fullRoleProfile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["role", "providerId", "modelClass", "modelId", "config", "systemPrompt"],
+      "properties": {
+        "role": {"enum": ["writer", "reviewer"]},
+        "providerId": {"type": "string", "minLength": 1, "maxLength": 500},
+        "modelClass": {"type": "string", "minLength": 1, "maxLength": 500},
+        "modelId": {"type": "string", "minLength": 1, "maxLength": 500},
+        "config": {
+          "type": "object",
+          "maxProperties": 32,
+          "additionalProperties": {"$ref": "#/$defs/configValue"}
+        },
+        "systemPrompt": {"$ref": "#/$defs/fullPrompt"}
+      }
+    },
+    "profileDetail": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["profileName", "writer", "reviewer"],
+      "properties": {
+        "profileName": {"type": "string", "minLength": 1, "maxLength": 500},
+        "writer": {
+          "allOf": [
+            {"$ref": "#/$defs/fullRoleProfile"},
+            {"properties": {"role": {"const": "writer"}}}
+          ]
+        },
+        "reviewer": {
+          "allOf": [
+            {"$ref": "#/$defs/fullRoleProfile"},
+            {"properties": {"role": {"const": "reviewer"}}}
+          ]
+        }
+      }
+    },
+    "correlation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "requestId",
+        "catalystTraceId",
+        "hubTraceId",
+        "correlationRef",
+        "correlationDigest"
+      ],
+      "properties": {
+        "requestId": {"type": "string", "minLength": 1, "maxLength": 500},
+        "catalystTraceId": {"type": "string", "minLength": 1, "maxLength": 500},
+        "hubTraceId": {"type": ["string", "null"], "minLength": 1, "maxLength": 500},
+        "correlationRef": {"type": "string", "minLength": 1, "maxLength": 4000},
+        "correlationDigest": {
+          "$ref": "catalyst-workbench-editor-snapshot-v1.schema.json#/$defs/digest"
+        }
+      }
+    },
+    "selectionPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["revision", "policyRef", "policyDigest"],
+      "properties": {
+        "revision": {"type": "string", "minLength": 1, "maxLength": 500},
+        "policyRef": {"type": "string", "minLength": 1, "maxLength": 4000},
+        "policyDigest": {
+          "$ref": "catalyst-workbench-editor-snapshot-v1.schema.json#/$defs/digest"
+        }
+      }
+    },
+    "historyReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["turnId", "ordinal", "kind", "instructionDigest"],
+      "properties": {
+        "turnId": {"type": "string", "format": "uuid"},
+        "ordinal": {"type": "integer", "minimum": 1},
+        "kind": {"enum": ["initial", "followup"]},
+        "instructionDigest": {
+          "$ref": "catalyst-workbench-editor-snapshot-v1.schema.json#/$defs/digest"
+        }
+      }
+    },
+    "historyEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["included", "includedDigest", "omitted", "omittedDigest"],
+      "properties": {
+        "included": {
+          "type": "array",
+          "maxItems": 6,
+          "items": {"$ref": "#/$defs/historyReference"}
+        },
+        "includedDigest": {
+          "$ref": "catalyst-workbench-editor-snapshot-v1.schema.json#/$defs/digest"
+        },
+        "omitted": {
+          "type": "array",
+          "maxItems": 1000,
+          "items": {"$ref": "#/$defs/historyReference"}
+        },
+        "omittedDigest": {
+          "$ref": "catalyst-workbench-editor-snapshot-v1.schema.json#/$defs/digest"
+        }
+      }
+    },
+    "inspectablePayload": {
+      "oneOf": [
+        {"type": "string", "maxLength": 2000000},
+        {"type": "number"},
+        {"type": "boolean"},
+        {"type": "array", "maxItems": 512},
+        {"type": "object", "maxProperties": 512}
+      ]
+    },
+    "rawArtifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "available",
+        "inspectable",
+        "evidenceRef",
+        "payloadDigest",
+        "contentType",
+        "exactPayload",
+        "omissionReason"
+      ],
+      "properties": {
+        "available": {"type": "boolean"},
+        "inspectable": {"type": "boolean"},
+        "evidenceRef": {"type": ["string", "null"], "minLength": 1, "maxLength": 4000},
+        "payloadDigest": {
+          "oneOf": [
+            {"type": "null"},
+            {"$ref": "catalyst-workbench-editor-snapshot-v1.schema.json#/$defs/digest"}
+          ]
+        },
+        "contentType": {"type": ["string", "null"], "minLength": 1, "maxLength": 200},
+        "exactPayload": {},
+        "omissionReason": {"type": ["string", "null"], "minLength": 1, "maxLength": 1000}
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {"available": {"const": true}},
+            "required": ["available"]
+          },
+          "then": {
+            "properties": {
+              "evidenceRef": {"type": "string", "minLength": 1},
+              "payloadDigest": {
+                "$ref": "catalyst-workbench-editor-snapshot-v1.schema.json#/$defs/digest"
+              },
+              "contentType": {"type": "string", "minLength": 1}
+            }
+          },
+          "else": {
+            "properties": {
+              "inspectable": {"const": false},
+              "evidenceRef": {"type": "null"},
+              "payloadDigest": {"type": "null"},
+              "contentType": {"type": "null"},
+              "exactPayload": {"type": "null"},
+              "omissionReason": {"type": "string", "minLength": 1}
+            }
+      }
+    },
+    {
+      "if": {
+            "properties": {"inspectable": {"const": true}},
+            "required": ["inspectable"]
+          },
+          "then": {
+            "properties": {
+              "available": {"const": true},
+              "exactPayload": {"$ref": "#/$defs/inspectablePayload"},
+              "omissionReason": {"type": "null"}
+            }
+          },
+          "else": {
+            "properties": {
+              "exactPayload": {"type": "null"},
+              "omissionReason": {"type": "string", "minLength": 1}
+            }
+          }
+        }
+      ]
+    },
+    "validationRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["validationId", "versionId", "queryDigest"],
+      "properties": {
+        "validationId": {"type": "string", "format": "uuid"},
+        "versionId": {"type": "string", "format": "uuid"},
+        "queryDigest": {
+          "$ref": "catalyst-workbench-editor-snapshot-v1.schema.json#/$defs/digest"
+        }
+      }
+    },
+    "invocation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "invocationId",
+        "role",
+        "stage",
+        "attempt",
+        "providerId",
+        "modelId",
+        "startedAt",
+        "endedAt",
+        "durationMs",
+        "requestDigest",
+        "responseDigest",
+        "failureDigest",
+        "outcome"
+      ],
+      "properties": {
+        "invocationId": {"type": "string", "format": "uuid"},
+        "role": {"enum": ["writer", "reviewer"]},
+        "stage": {"enum": ["initial_generation", "followup_generation", "review"]},
+        "attempt": {"type": "integer", "minimum": 1, "maximum": 32},
+        "providerId": {"type": "string", "minLength": 1, "maxLength": 500},
+        "modelId": {"type": "string", "minLength": 1, "maxLength": 500},
+        "startedAt": {"type": "string", "format": "date-time"},
+        "endedAt": {"type": ["string", "null"], "format": "date-time"},
+        "durationMs": {"type": ["integer", "null"], "minimum": 0},
+        "requestDigest": {
+          "$ref": "catalyst-workbench-editor-snapshot-v1.schema.json#/$defs/digest"
+        },
+        "responseDigest": {
+          "oneOf": [
+            {"type": "null"},
+            {"$ref": "catalyst-workbench-editor-snapshot-v1.schema.json#/$defs/digest"}
+          ]
+        },
+        "failureDigest": {
+          "oneOf": [
+            {"type": "null"},
+            {"$ref": "catalyst-workbench-editor-snapshot-v1.schema.json#/$defs/digest"}
+          ]
+        },
+        "outcome": {
+          "enum": [
+            "in_progress",
+            "succeeded",
+            "transport_failed",
+            "contract_failed",
+            "validation_failed",
+            "timed_out",
+            "cancelled"
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {"outcome": {"const": "in_progress"}},
+            "required": ["outcome"]
+          },
+          "then": {
+            "properties": {
+              "endedAt": {"type": "null"},
+              "durationMs": {"type": "null"},
+              "responseDigest": {"type": "null"},
+              "failureDigest": {"type": "null"}
+            }
+          },
+          "else": {
+            "properties": {
+              "endedAt": {"type": "string", "format": "date-time"},
+              "durationMs": {"type": "integer", "minimum": 0}
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "outcome": {"enum": ["succeeded", "contract_failed", "validation_failed"]}
+            },
+            "required": ["outcome"]
+          },
+          "then": {
+            "properties": {
+              "responseDigest": {
+                "$ref": "catalyst-workbench-editor-snapshot-v1.schema.json#/$defs/digest"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {"outcome": {"const": "succeeded"}},
+            "required": ["outcome"]
+          },
+          "then": {"properties": {"failureDigest": {"type": "null"}}},
+          "else": {
+            "if": {
+              "properties": {"outcome": {"not": {"const": "in_progress"}}},
+              "required": ["outcome"]
+            },
+            "then": {
+              "properties": {
+                "failureDigest": {
+                  "$ref": "catalyst-workbench-editor-snapshot-v1.schema.json#/$defs/digest"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "candidateEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "candidateId",
+        "attemptOrdinal",
+        "role",
+        "candidateDigest",
+        "disposition",
+        "versionRef",
+        "validationRef",
+        "rawEvidence"
+      ],
+      "properties": {
+        "candidateId": {"type": "string", "format": "uuid"},
+        "attemptOrdinal": {"type": "integer", "minimum": 1},
+        "role": {"enum": ["writer", "reviewer"]},
+        "candidateDigest": {
+          "oneOf": [
+            {"type": "null"},
+            {"$ref": "catalyst-workbench-editor-snapshot-v1.schema.json#/$defs/digest"}
+          ]
+        },
+        "disposition": {
+          "enum": [
+            "selected",
+            "retained_unselected",
+            "superseded",
+            "diagnostic_only",
+            "approved_writer_without_new_version"
+          ]
+        },
+        "versionRef": {
+          "oneOf": [
+            {"type": "null"},
+            {"$ref": "catalyst-workbench-turn-request-v1.schema.json#/$defs/versionRef"}
+          ]
+        },
+        "validationRef": {
+          "oneOf": [
+            {"type": "null"},
+            {"$ref": "#/$defs/validationRef"}
+          ]
+        },
+        "rawEvidence": {"$ref": "#/$defs/rawArtifact"}
+      }
+    },
+    "failureSelection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["stage", "code", "evidenceRef"],
+      "properties": {
+        "stage": {"type": "string", "minLength": 1, "maxLength": 200},
+        "code": {"type": "string", "minLength": 1, "maxLength": 500},
+        "evidenceRef": {"type": ["string", "null"], "minLength": 1, "maxLength": 4000}
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {"stage": {"const": "orphan_recovery"}},
+            "required": ["stage"]
+          },
+          "then": {
+            "properties": {"code": {"const": "generation_interrupted"}}
+          }
+        }
+      ]
+    },
+    "finalSelection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "selectedVersion", "failure"],
+      "properties": {
+        "status": {"enum": ["requested", "completed", "failed"]},
+        "selectedVersion": {
+          "oneOf": [
+            {"type": "null"},
+            {"$ref": "catalyst-workbench-turn-request-v1.schema.json#/$defs/versionRef"}
+          ]
+        },
+        "failure": {
+          "oneOf": [
+            {"type": "null"},
+            {"$ref": "#/$defs/failureSelection"}
+          ]
+        }
+      }
+    }
+  }
+}

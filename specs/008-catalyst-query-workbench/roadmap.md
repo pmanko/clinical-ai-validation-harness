@@ -29,8 +29,9 @@ contract, test strategy, and staged harness integration are recorded here.
 
 ## W1 — Manual workbench MVP
 
-**Status:** G2.1–G2.6 passed; G3 integrated acceptance remains before broader
-W2 remediation, which has not started
+**Status:** G2.1–G2.7 passed; G2.8a accepted; G2.8b backend/runtime checkpoint
+passed; the exploratory G2.8c manual loop is functional; G2.9 UX consolidation
+is at its written-plan user checkpoint; G3 and W2 have not started
 
 - Collapse detailed dataset context while retaining state.
 - Persist sessions and immutable query versions in the gateway.
@@ -48,6 +49,11 @@ W2 remediation, which has not started
   correction; deterministically lint the reviewer's result.
 - Persist and display both model-authored query versions and their role/model/
   finding trace when the reviewer changes the query.
+- Retain one linear sequence of natural-language turns inside a workbench
+  session. Ground every follow-up in the exact visible editor snapshot and
+  produce a complete successor query without replaying a raw chat transcript.
+- Keep prior turns compact and read-only, attach validation/execution evidence
+  to exact versions, label stale results, and restore the complete timeline.
 - Cover the flow with gateway, UI, Playwright, and live-stack tests.
 
 **Exit:** An evaluator can generate, edit, validate, run, inspect failure, revise,
@@ -79,6 +85,65 @@ and rerun across a refresh without losing lineage.
   different reviewer-model family, and deterministic re-lint. Persist the writer
   and reviewer queries as linked immutable versions and expose their model/stage
   evidence before closing G3.
+- **G2.7 corrective internal:** add separate New session and Clear draft controls
+  while preserving retained server evidence and selected profile.
+- **G2.8a user:** write and cross-check the iterative-notebook research,
+  requirements, turn/context contracts, task order, sibling-Hub ownership, and
+  issue register; pause before product code.
+- **G2.8b internal:** prove the revision/turn contracts, exact snapshot and
+  lineage rules, atomic concurrent claim/orphan recovery, bounded context and
+  exclusions, shared follow-up/Validate/Run resolution, recorded/legacy initial
+  evidence, typed evidence detail and schema registries, terminal execution
+  diagnostics, explicit lint instruction, semantic reviewer correction,
+  selected output, sibling-Hub runtime source, and event-envelope compatibility
+  before UI implementation.
+- **G2.8c user:** prove the full initial → manual edit → Validate/Run →
+  follow-up → successor Run → refresh path across the required scenario matrix
+  through real Gemma 4 12B/Qwen 2.5 14B inference and PostgreSQL; include
+  record-level rationale, initial-submit-to-successor-visible adjusted timing,
+  wall/Run secondary timing, and complete keyboard/narrow/200%-zoom evidence;
+  pause before G3/W2/W3.
+- **G2.9a user:** review the measured UX/catalog audit, one-composer/one-editor
+  workbench-dock architecture, supported-versus-database-accessible schema
+  boundary, execution-summary disclosure, responsive rules, and acceptance
+  cases; pause before product-code changes.
+- **G2.9b internal:** publish the truthful catalog contract and physical-view
+  drift tests, then implement the single active-session workspace, bounded
+  result area, compact chronology, adjacent editor actions, bottom dock, and
+  grounding labels; pass UI/Gateway/contract/accessibility checks.
+- **G2.9c user:** demonstrate edit → stale results → Run → execution-grounded
+  Refine through the isolated browser, plus exact 16-column schema discovery,
+  refresh, keyboard, narrow, and 200%-text behavior; pause before resuming the
+  broader G2.8c model matrix or final documentation/pinning.
+- **G2.9d corrective internal:** replace the optional-only Patient display-name
+  projection with an explicit-text-then-given/family fallback; distinguish zero
+  rows from rows whose projected columns are entirely blank/NULL; retain the
+  successful table with actionable feedback; and include only that bounded,
+  exact-digest diagnostic in follow-up context. Re-run the reproduced viral-load
+  patient query against PostgreSQL and the isolated browser.
+
+### G2.9d evidence — PASS (2026-07-19)
+
+- The defect was projection loss, not an empty source cohort: all 96 Patient
+  resources carried structured `given`/`family` names while the original
+  `name_display` expression read only optional `HumanName.text`. The repaired
+  FHIRPath preserves explicit text and otherwise composes the available given
+  and family values; focused tests cover full, text-only, and one-sided names.
+- A full Data Pipes refresh materialized 96/96 populated display names. Direct
+  PostgreSQL reproduction of the reported query returned 191 qualifying lab
+  result rows across 72 distinct patients and zero blank display names.
+- The isolated browser retained the historical successful run as inspectable
+  evidence, visibly labelled every blank string, and showed the deterministic
+  all-blank-column warning. Re-running the unchanged query produced Run 2 with
+  100 named rows, normal configured-limit truncation, and no blank warning.
+- Gateway results now carry non-blocking warnings, legacy stored results derive
+  the same warning on hydration, and only the bounded warning for an exact base
+  digest enters follow-up context; result values remain excluded. Zero-row
+  results receive separate filter/join guidance.
+- Validation passed: 124 Gateway tests, 365 Hub tests, 105 UI tests plus UI
+  typecheck/lint/production build, 26 analytics tests, contract-copy equality,
+  diff checks, and the live isolated MVP health/provenance gate using Gemma 4
+  12B as writer and Qwen 2.5 14B as reviewer.
 - **G3 user:** integrated browser/manual acceptance and refresh retest; pause
   before W2.
 
@@ -579,6 +644,347 @@ W1 closure.
   mixed Gemma/Qwen profile selection, and focused `catalyst-question`. A direct
   read afterward confirmed the detached server session remained active with two
   immutable versions.
+
+### G2.8a iterative-query notebook — WRITTEN REMEDIATION; USER CHECKPOINT PENDING (2026-07-18)
+
+#### Current-state and model-context audit
+
+- The gateway already persists the original question, selected profile,
+  immutable query versions, validations, executions, and append-only events.
+  Refresh restores the current stored version, but unsaved editor changes remain
+  browser-local until Validate or Run.
+- Every question submission currently creates a new unrelated workbench session.
+  The Hub receives only that standalone question plus target/catalog/policy;
+  current SQL, parameters, prior instructions, validation, execution feedback,
+  and workbench history are absent. There is no follow-up endpoint.
+- The Hub trace records generation/review evidence but is not model input for a
+  subsequent request. Existing strict request validation intentionally permits
+  one user message, so G2.8 adds typed revision context instead of overloading a
+  chat array or concatenating SQL into the question.
+
+#### Approved interaction and lineage
+
+- A workbench session is one linear notebook. Turn 1 is the initial question;
+  each later turn is a query-refinement instruction grounded in the exact active
+  editor buffer. Unrelated work uses New session. There is no chat-only response,
+  arbitrary-old-version branching, automatic execution, or result-row reference
+  mode in this MVP.
+- The current turn owns the editable SQL, parameters, validation, and results.
+  Earlier turns collapse to read-only summaries and may be expanded for
+  inspection without becoming the active base.
+- The follow-up composer is labelled `Refine Query vN`, names the exact base and
+  selected profile plus writer/reviewer models, and submits `Generate next
+  query`. The existing sticky jump targets the initial composer when no session
+  exists and the follow-up composer while a session is active.
+- A changed contract-valid editor buffer becomes one immutable human version
+  before generation. Identical content reuses the current version, resolving
+  N27. An unresolved buffer is retained byte-for-byte in the requested-turn
+  event and used as revision context without being promoted to a valid
+  QueryVersion. The request separately records the client's observed CAS base,
+  the exact snapshot, and the reconciled effective base: observed for unchanged,
+  the new current human version for dirty-valid, and null for unresolved. Empty
+  Clear-draft state exposes Restore Query and disables refinement until SQL is
+  restored or entered.
+- A failed turn retains raw/parsed model evidence and the exact input snapshot
+  while leaving the base/current anchor current and editable: effective when
+  non-null, otherwise observed when present, otherwise null. A contract-valid
+  writer survives reviewer failure as an immutable but unselected output;
+  invalid or merely parseable candidates remain diagnostic evidence. Successful
+  output appends `effective base → writer → reviewer correction` as applicable.
+  Results remain labelled by their executed Query version and become visibly
+  stale after edits or successor generation.
+
+#### Contracts and bounded model context
+
+- Add `POST /v1/catalyst/workbench/sessions/{sessionId}/turns` and matching GET
+  timeline projection. Requests carry the new instruction, per-turn profile,
+  observed CAS base ID/digest, and exact editor snapshot/digest. The gateway
+  atomically claims generation, checks the observation, and reconciles the
+  effective base before recording the requested turn. It reuses the existing
+  409 stale-query behavior and permits one in-flight turn per session.
+- Fold `query_turn.requested|completed|failed` events into a versioned timeline;
+  store `turnId` in version provenance rather than adding a parallel history
+  table. New sessions record initial requested/terminal events and generation
+  evidence. Only pre-event sessions synthesize Turn 1; deterministic fixtures
+  cover model-current, later-human-current, draft-only, and raw-only evidence
+  without changing the actual current pointer or mutating storage.
+- One store-owned editor resolver classifies the same buffer for follow-up,
+  Validate, and Run. Unchanged content reuses its version; dirty-valid content
+  creates one current human version with active-turn provenance. Compact turns
+  resolve typed provenance through
+  `GET /sessions/{sessionId}/turns/{turnId}/generation-evidence`.
+- Hub `catalyst.query.request.v2` carries the exact editor snapshot and
+  observed/effective base evidence, initial question plus the five most recent
+  follow-up instructions, and only
+  validation/execution summaries whose query digest matches the exact editor
+  snapshot. It never
+  carries prior result rows, credentials, raw traces, or every historical SQL
+  copy. Truncation and supplied entity IDs/digests are recorded as provenance.
+- The writer returns one complete successor candidate. Deterministic lint
+  receives the effective instruction explicitly. The different-family reviewer
+  may approve, reject, or return one complete correction even when initial lint
+  is clean; every correction passes strict validation and deterministic re-lint.
+- The Hub publishes/registers the v2 request/revision schemas; the gateway does
+  the same for turn, snapshot, timeline, and generation-evidence contracts.
+  Failed, timed-out, and cancelled execution contexts retain bounded sanitized
+  diagnostics only when their query digest matches the editor snapshot.
+
+#### Runtime ownership correction
+
+- The harness pins Catalyst and med-agent-hub as siblings, but the current MVP
+  runner delegates to Catalyst's disposable `.med-agent-hub` clone and 6,484-line
+  patch. The harness sibling is therefore not the actual runtime source.
+- G2.8 lands the existing query profile plus revision behavior in the real Hub
+  sibling, pins that commit in the harness, and passes the sibling build context
+  into Catalyst. Catalyst keeps only an unpatched clone-at-the-same-commit
+  fallback for standalone development; it does not contain Hub as a submodule.
+
+#### Checkpoint boundary
+
+- G2.8a changes documentation/contracts only. Read-only Spec Kit analysis must
+  find no unresolved CRITICAL/HIGH inconsistency before this checkpoint is
+  presented to the user.
+- No Hub, gateway, UI, runtime, submodule pin, or model-prompt implementation may
+  begin until the user accepts this written checkpoint. G2.8b and G2.8c remain
+  separately testable gates.
+
+#### Cross-artifact analysis and remediation — FINAL RERUN CLEAN; USER ACCEPTANCE PENDING
+
+The first G2.8 Spec Kit consistency/coverage pass found the following blocking
+written-plan gaps. Documentation remediation is complete; no product code,
+runtime wiring, prompt/profile change, or submodule pin was authorized.
+
+- **CRITICAL — pre-change governance:** The plan promised PCCP-style tracking
+  but did not require a record before changing the Hub prompt, profile, or
+  collaboration pipeline. Remediation: establish
+  `pccp/2026-07-18-iterative-query-notebook.md` now, make it a completed written
+  prerequisite, and leave its implementation evidence pending.
+- **HIGH — test-first ordering:** Hub, store/gateway, runtime, and UI work was
+  grouped too coarsely for red tests to block its implementation. Remediation:
+  split each red-test task from the implementing task and encode explicit
+  dependencies through the deterministic, real-path, live, documentation, and
+  pin gates.
+- **HIGH — state/recovery coverage:** Concurrent claims, interrupted requested
+  turns, selected-output/current-pointer agreement, dirty/unchanged/unresolved
+  bases, and the complete prohibited-context negative set were not all assigned
+  to blocking tests. Remediation: require atomic one-active-turn tests, terminal
+  `generation_interrupted` recovery without retry, explicit observed CAS base →
+  reconciled effective base → exact snapshot evidence, valid-but-unselected
+  writer retention on reviewer failure, selected-output invariants, digest-bound
+  context, deterministic truncation, and every negative before implementation.
+- **HIGH — runtime ownership proof:** The sibling-Hub decision lacked a root
+  failing runtime test and ordered the user-facing documentation together with
+  pinning. Remediation: require the root harness test before runtime wiring,
+  separately retire the Catalyst patch/fallback, update root `README.md` only
+  after accepted live evidence, and make that update block both sibling pins.
+- **HIGH — real-path evidence depth:** One happy-path follow-up did not satisfy
+  diverse-scenario or record-level constitution requirements. Remediation: the
+  live gate now covers narrowing, aggregation/output-shape change, unresolved
+  correction, lint-clean semantic correction, and Hub/tool failure; it records
+  reproducible PostgreSQL SQL, dataset/query/version IDs, inspected records and
+  rationale, conditional temperature-zero digest differences when outputs
+  differ, precisely adjusted initial-submit-to-successor timing, and keyboard/
+  narrow/200%-zoom results.
+- **HIGH — contract publication and evidence detail:** The Hub v2/revision and
+  workbench turn/snapshot/evidence schemas were not assigned to their runtime
+  registries, and the compact timeline lacked a typed detail route. Remediation:
+  T081 owns Hub publication; T086 owns workbench publication plus the typed
+  generation-evidence GET; the pre-UI backend gate detects drift.
+- **HIGH — lineage resolver ownership:** Follow-up had exact snapshot rules, but
+  unchanged/dirty Validate and Run could still diverge or lose active-turn
+  provenance. Remediation: blocking store and route tests plus one shared
+  resolver owned by T084/T086 cover all three actions.
+- **HIGH — recorded versus legacy initial evidence:** New sessions and restored
+  pre-event sessions were not sharply separated, and initial output selection
+  could be confused with a later human current version. Remediation: new sessions
+  record requested/terminal events; deterministic model-current, human-current,
+  draft-only, and raw-only fixtures prove read-only legacy projection.
+- **HIGH — gate/provenance completeness:** The former full gate occurred after
+  UI work, timed-out/cancelled diagnostics were not assigned, and new events had
+  no compatibility assertion. Remediation: T092 is now a pre-UI Hub/backend/
+  store/root contract gate with schema registries, all terminal diagnostics, and
+  lightweight `events.jsonl` mapping; T093 is the separate post-UI full gate.
+
+The final read-only Spec Kit consistency, constitution, and coverage reruns are
+**clean**:
+
+- **0 unresolved CRITICAL and 0 unresolved HIGH findings**;
+- **34/34** scoped G2.8 requirements have concrete test, implementation, and
+  evidence owners;
+- **16/16** iterative-notebook acceptance scenarios have assigned coverage;
+- all **9/9** feature JSON Schemas parse, pass Draft 2020-12 meta-validation,
+  and resolve their registered references; and
+- `git diff --check`, schema examples, task-ID uniqueness, and the documentation-
+  only scope check pass.
+
+The last blockers resolved before this clean rerun were typed per-invocation
+model timing, explicit omissions for unavailable legacy provenance, an offline-
+resolvable Hub schema dependency bundle, removal of stale Validate/Run and
+conditional-review guidance, and retargeting deferred W2 work away from the
+retired Catalyst-owned Hub patch.
+
+G2.8a was accepted by the user before product implementation began.
+
+### G2.8b backend/runtime gate — PASS (2026-07-18)
+
+- The real sibling Hub passes its complete suite (`356 passed`), including the
+  offline v1/v2 contract bundle, exact revision context, Gemma 4 12B writer and
+  Qwen 2.5 14B reviewer roles, complete-candidate review, deterministic re-lint,
+  selected/unselected output invariants, and per-invocation timing/digests.
+- The Gateway passes its complete suite (`106 passed`) and focused notebook/
+  route matrix (`35 passed`). Atomic turn claims, dirty/unchanged/unresolved
+  editor resolution, four deterministic legacy projections, orphan recovery,
+  exact-digest context, failure evidence, refresh, and no-auto-Run behavior are
+  covered. Ruff and diff checks pass.
+- Umbrella runtime/event checks pass (`4 passed`) and Catalyst sibling-Hub
+  assembly checks pass (`14 passed`). Recorded initial/follow-up turn, snapshot,
+  and generation-evidence events map losslessly into the existing versioned
+  `events.jsonl` envelope without implementing the deferred W3 exporter.
+- Contract drift detected during the gate was resolved before UI work: legacy
+  turns now carry a null trace plus a typed omission instead of invented
+  provenance, and recorded pre-dispatch/orphan failures may truthfully contain
+  zero model invocations while failures with Hub-supplied invocation evidence
+  retain it. Root and Gateway schema copies now have identical digests.
+- Remaining warnings are non-functional: an upstream FastAPI test-client
+  deprecation and a disabled pytest-cache write in the isolated test command.
+
+T091 UI implementation is complete. G2.8c real-model/browser acceptance remains
+pending; the explicitly user-directed draft publication checkpoint is recorded
+below and does not waive T094–T096 as merge gates.
+
+### G2.8c exploratory manual run — FUNCTIONAL MANUAL LOOP; MODEL-SUCCESSOR ACCEPTANCE PENDING (2026-07-18)
+
+The isolated notebook is available at `http://localhost:13000/` with Gemma 4
+12B as writer and Qwen 2.5 14B as reviewer. Session
+`f51b08c7-7cd1-4955-ac92-51f5baa3a1af` proved the core manual loop:
+
+- initial model Query v1 → human Query v2 → Validate/Run → failed contextual
+  follow-up with retained evidence → successful reviewer-selected Query v5 →
+  stale prior results → explicit rerun → refresh restoration;
+- Query v2 execution `1b184fee-c2b2-4a8a-bf17-fe0c6bb2262d` returned 25 rows
+  in 17 ms, and every displayed value/order matched an independent PostgreSQL
+  execution of the exact SQL and parameters;
+- Query v5 returned 100 rows in 22 ms from 194 matches, with its top values and
+  row-100 boundary independently matched against PostgreSQL; ordering inside
+  equal-key groups is not deterministic because the SQL has no final unique
+  tiebreaker;
+- exact revision requests contained the active human SQL/parameters/digest,
+  initial and follow-up instructions, matching validation and execution summary,
+  and excluded result rows and credentials;
+- the refreshed browser restored three turns, the selected Query v5 editor,
+  parameters, validation, execution, profile, and the stale-result label.
+
+A fresh uninterrupted session `038c4207-3df2-426c-a61a-c14f29f6aa80`
+revalidated the current build and exposed the remaining model-quality boundary:
+
+- the initial turn `7628f3a7-e3b5-4a0d-ba59-a6225a59401f` completed in
+  70,328.495 ms of event-wall time: Gemma writer 34,556 ms, Qwen reviewer
+  34,997 ms, and 775.495 ms reconciled non-model overhead. Gemma's malformed
+  `observed at` was rejected; Qwen produced selected Query v2;
+- human Query v3 `ba3cb28f-7faa-4a51-97d6-fde9d673a4f6` added stable output
+  ordering plus `LIMIT 25`, validated, and execution
+  `8017417f-dcca-44c5-a375-d620396234f8` returned 25 rows in 18 ms. All 25
+  displayed rows matched independent PostgreSQL output exactly; PostgreSQL
+  reported 49 total matching latest-per-patient rows;
+- the first aggregation follow-up exposed a Hub rejected-response serialization
+  defect: the models ran, but location-bearing lint findings violated the Hub's
+  own response schema and surfaced as HTTP 500. N50 fixes this path and a focused
+  regression now proves structured HTTP-200 `rejected` evidence instead;
+- the post-fix one-line refinement turn
+  `2288ddaf-1a52-4487-95c0-c0f16efc0ece` recorded 80,185.101 ms event-wall,
+  79,399 ms model time, and 786.101 ms non-model overhead. Gemma corrupted three
+  identifiers while deleting `LIMIT 25`; Qwen repaired two but introduced
+  `analytics.lab_result Fact_v1`. Deterministic lint correctly rejected the
+  repair, retained writer Query v4 unselected, and preserved both invocation
+  timestamps/request-response-failure digests and full structured evidence;
+- the evaluator then applied the intended edit manually as Query v5
+  `2df486c4-dc95-4612-a137-caae3884bce3`; execution
+  `318989fb-e4f6-44ad-96dc-cd1bd18f9ec4` returned all 49 rows in 20 ms with no
+  false truncation label. Refresh restored Query v5, results, all three turns,
+  and the failed-turn evidence;
+- the exact follow-up request reused Query v3's SQL/parameters/digest, included
+  matching validation and execution summaries plus bounded instruction history,
+  and omitted result rows, credentials, raw traces, and historical SQL copies.
+
+The responsive blocker found during this run is fixed: at 390 × 844 the sticky
+`Refine Query v5` control is visible/tabbable, the document has no horizontal
+overflow, and activation focuses the canonical follow-up textarea. Deterministic
+keyboard/narrow/200%-text coverage passes.
+
+The post-UI automated gate is green after replacing the retired preview
+Playwright flow: Hub `363`, Gateway `113`, root harness `582` passed/`36`
+skipped/`3` deselected, Catalyst contract/assembly `25` plus `20` subtests, UI
+`98`, and Playwright `2` projects pass. Lint/format on changed files, type checks,
+production build, all 23 normative schemas, live Hub/Gateway contract copies,
+shell syntax, and diff checks pass. Remaining warnings are the existing Vite
+chunk-size advisory, one Starlette/httpx deprecation, root Pydantic deprecations,
+and React test `act(...)` warnings in sticky-navigation tests.
+
+This is an exploratory manual build, not yet full G2.8c acceptance. Infrastructure
+and manual recovery are functional, but N52 shows that the configured 12B/Qwen
+pair did not select a valid successor even for a one-line contextual edit. N53
+also leaves only one revision-capable choice in the follow-up selector. A diverse
+T094 scenario matrix, at least one successful model-selected successor, and the
+user checkpoint remain required by T095. Evidence-backed final documentation and
+ready-for-review acceptance remain pending. Draft publication and sibling pins
+were completed later under explicit user direction; they do not start W2/W3.
+
+### Draft publication checkpoint — COMPLETE (2026-07-20; user-directed)
+
+- Med-Agent Hub commit `bcbfa74e8af9b2171eefe00cfc3a97b2926b4312`
+  is published in draft PR `pmanko/med-agent-hub#14`; its complete test suite
+  passed (`365 passed`). Generated `uv.lock` was excluded because the repository
+  uses Poetry and the file contained no dependency graph.
+- Catalyst commit `964a0fd39b39863a6a2aba7e910b634ceccff5b2` is published in draft PR
+  `DIGI-UW/openelis-catalyst#4`; the disposable Hub patch is retired and the
+  standalone fallback pins the same native Hub commit. A clean disposable clone
+  verified that the exact pin contains the query implementation, contracts, and
+  checked/Gemma 4 12B profiles.
+- Umbrella PR `pmanko/clinical-ai-validation-harness#37` pins both sibling
+  commits. The canonical revision-context schema was synchronized before the
+  pin; generated Catalyst `.claude/tdd-guard` data was excluded.
+- This checkpoint publishes reviewable drafts because the user explicitly
+  requested commits and pushes. It does not claim full G2.8c acceptance:
+  T094–T096 remain open and block marking the PRs ready or merging them.
+
+### G2.9a UX and schema audit — USER REVIEW (2026-07-18)
+
+The measured audit is recorded in
+`ux-audit-2026-07-18.md`. The restored active session was approximately 7,859
+CSS pixels tall: the follow-up composer, SQL editor, Run controls, results,
+evidence, and version history were separated by several viewport heights. The
+sticky jump reaches only the composer and does not create a continuous
+edit/Run/inspect/refine workflow. An active session also retains a disabled copy
+of the initial question alongside the follow-up input and SQL editor.
+
+The proposed G2.9 product shape is deliberately small:
+
+- one reusable natural-language Ask/Refine composer and one canonical SQL
+  editor;
+- one compact chronological history, with technical evidence under Details;
+- adjacent Format/Validate/Run controls and a bounded results viewport;
+- one responsive bottom workbench dock showing exact query, validation,
+  execution/staleness, and model-grounding state; and
+- one runtime-backed schema guide replacing record counts as the primary answer
+  to “what can I query?”
+
+The audit also found catalog drift. The supported model/editor catalog lists 8
+columns for `analytics.lab_result_fact_v1`; the live view has 16. The read-only
+database role can technically SELECT seven business relations, but the six
+low-level/pipeline relations do not yet have reviewed product descriptions. The
+recommended boundary is to present the completed 16-column fact view as the
+supported query surface and treat broader manual SQL access as database-role
+governed, not as implicit product support.
+
+The existing follow-up context includes matching execution status, row count,
+column schema, timing, and database diagnostics, but no row values. G2.9 makes
+that boundary visible. Sending actual result values remains a separate explicit
+attachment decision because it reverses G2.8's approved exclusion; the UI must
+not imply value-level context until that decision is made.
+
+Product-code changes are paused at T098. T099–T104 remain pending until the user
+accepts the architecture and decides whether G2.9 should include bounded result
+row attachments or execution summaries only.
 
 ## W2 — Targeted remediation
 
