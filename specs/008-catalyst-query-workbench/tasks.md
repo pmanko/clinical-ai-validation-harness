@@ -132,7 +132,7 @@
 - [X] T107 Resolve the Hub follow-up-prompt, parameter-normalization, analyte-detection, table/column lint, CTE-relation, metadata-redaction, timing-contract, and reviewer-decision findings with focused and full regression tests
 - [X] T108 Resolve the Catalyst active-instruction, profile-binding, catalog-lineage, execution-idempotency, current-version provenance, stale expected-column, and complete iterative-browser-flow findings; add UI and analytics/assembly jobs to CI
 - [X] T109 Make the tracked umbrella boot reproducible from a clean recommended environment: correct fake-mode/port propagation, enforce clean matching sibling pins, tolerate an empty successful OpenELIS backfill response, pin OpenELIS deployment source/images, and rerun the health/provenance gate
-- [ ] T110 Align `docs/specification.md`, `docs/roadmap.md`, `docs/med-agent-hub.md`, root README/quickstart, Harness provider/component/profile provenance, real-suite model IDs, and PR descriptions with the tested implementation
+- [X] T110 Align `docs/specification.md`, `docs/roadmap.md`, `docs/med-agent-hub.md`, root README/quickstart, Harness provider/component/profile provenance, real-suite model IDs, and PR descriptions with the tested implementation
 - [ ] T111 Rerun the complete Hub/Catalyst/harness automated gates plus the T094/T095 live iterative workflow on clean pins; record independent PostgreSQL evidence and pause for user acceptance
 - [ ] T112 After T111 acceptance, squash Hub first, repin/validate/squash Catalyst, repin both resulting `main` commits in the harness, obtain the required harness approval, and squash harness last
 
