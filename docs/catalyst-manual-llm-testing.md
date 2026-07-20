@@ -9,24 +9,20 @@ Med-Agent Hub owns the model configuration. Catalyst sends only a profile ID,
 the question, the approved catalog, and policy context. The UI discovers the
 profiles from Hub and disables a profile when its required model is not served.
 
-The current patch provides two query profiles:
-
-| Hub profile | Generation model | Review model | Temperature |
-| --- | --- | --- | --- |
-| `catalyst-query-gemma-e4b` | `google/gemma-4-e4b` | `google/gemma-4-e4b` | 0 |
-| `catalyst-query-checked` | `qwen2.5-coder-14b` | `qwen2.5-coder-14b` | 0 |
-
-The external OpenAI-compatible server must advertise the exact model ID used by
-the profile. A profile becomes selectable after that model appears in the
-server's `/v1/models` response.
+Treat the UI picker (backed by the Gateway's Hub-discovered query options) as
+the source of truth for available profiles, writer models, and reviewer models.
+Do not rely on a copied profile list: it changes as the pinned Hub revision
+changes. The external OpenAI-compatible server must advertise every exact
+runtime model ID required by a profile in its `/v1/models` response.
 
 ## Start with an external model server
 
-Initialize only the Catalyst target. Catalyst bootstraps a disposable pinned Hub
-checkout and applies its reviewed patch; Hub is not a nested Catalyst submodule.
+Initialize both harness-owned sibling targets. The harness runner builds the
+pinned Med-Agent Hub checkout directly and supplies it to Catalyst as the Hub
+build context.
 
 ```bash
-git submodule update --init targets/catalyst
+git submodule update --init targets/catalyst targets/med-agent-hub
 cp targets/catalyst/env.recommended targets/catalyst/.env
 ```
 
@@ -34,7 +30,7 @@ Set these values in `targets/catalyst/.env`:
 
 ```dotenv
 MVP_MODEL_BACKEND=external
-MVP_HUB_LLM_BASE_URL=http://host.docker.internal:1234
+MVP_EXTERNAL_ROUTER_URL=http://host.docker.internal:1234
 ```
 
 The URL is the OpenAI-compatible server root, without a trailing `/v1`. Then:
@@ -43,8 +39,10 @@ The URL is the OpenAI-compatible server root, without a trailing `/v1`. Then:
 make catalyst-mvp-external
 ```
 
-Open `http://localhost:3000`. The first boot initializes the synthetic OpenELIS
-cohort and the governed analytics view, so it takes longer than later boots.
+Open `http://localhost:3000` with the recommended configuration, or use the
+port set by `CATALYST_UI_PORT`. The first boot initializes the synthetic
+OpenELIS cohort and the governed analytics view, so it takes longer than later
+boots.
 
 ## Compare models manually
 
@@ -75,7 +73,7 @@ acceptance—the actual rows returned.
 ## Add another Hub-owned profile
 
 For a local experiment, add a profile beside the existing Catalyst profiles in
-`targets/catalyst/.med-agent-hub/server/levels.yaml`. Keep the profile ID stable,
+`targets/med-agent-hub/server/levels.yaml`. Keep the profile ID stable,
 set both role models to the exact server model ID, and keep temperature zero:
 
 ```yaml
@@ -92,17 +90,16 @@ catalyst-query-my-model:
   knobs: {query_generate: {temperature: 0}, query_review: {temperature: 0}}
 ```
 
-Rebuild the Hub after editing the disposable checkout:
+Rebuild the sibling Hub through the harness runner:
 
 ```bash
-docker compose --env-file targets/catalyst/.env \
-  -f targets/catalyst/docker-compose.mvp.yml \
-  up -d --build med-agent-hub
+make catalyst-mvp-external
 ```
 
 Refresh the UI. The profile will remain disabled until its exact model ID is
-served. Promote profiles into the Catalyst Hub patch only after the experiment is
-worth preserving.
+served. Preserve a useful profile through review in the Med-Agent Hub repository,
+then update the Hub pin in the harness and Catalyst's same-commit standalone
+fallback.
 
 ## Stop or reset
 

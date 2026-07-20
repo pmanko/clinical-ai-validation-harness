@@ -125,10 +125,12 @@ make catalyst-mvp-fake
 ```
 
 For a real external OpenAI-compatible model server, set
-`MVP_MODEL_BACKEND=external` and `MVP_HUB_LLM_BASE_URL` in
+`MVP_MODEL_BACKEND=external` and `MVP_EXTERNAL_ROUTER_URL` in
 `targets/catalyst/.env`, then run `make catalyst-mvp-external`. Open
-`http://localhost:3000` after the health gate succeeds. The profile picker lets
-you compare Hub-owned model configurations; see
+`http://localhost:3000` after the health gate succeeds when using the recommended
+configuration. `CATALYST_UI_PORT` controls that host port; the recorded isolated
+workbench evidence uses `13000`. The profile picker lets you compare Hub-owned
+model configurations; see
 [Catalyst manual LLM testing](docs/catalyst-manual-llm-testing.md). This is
 demo-data engineering evidence, not a clinical-quality claim.
 

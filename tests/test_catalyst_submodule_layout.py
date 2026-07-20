@@ -94,3 +94,21 @@ def test_harness_runner_defaults_to_a_tracked_isolated_compose_override() -> Non
     assert '"127.0.0.1:28443:8443"' in rendered
     assert '"127.0.0.1:28444:8443"' in rendered
     assert "subnet: 172.20.1.0/24" not in rendered
+
+
+def test_manual_guide_uses_the_sibling_hub_and_current_external_router_setting() -> None:
+    guide = (ROOT / "docs/catalyst-manual-llm-testing.md").read_text(
+        encoding="utf-8"
+    )
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+
+    assert (
+        "git submodule update --init targets/catalyst targets/med-agent-hub" in guide
+    )
+    assert "targets/med-agent-hub/server/levels.yaml" in guide
+    assert "MVP_EXTERNAL_ROUTER_URL" in guide
+    assert "MVP_EXTERNAL_ROUTER_URL" in readme
+    assert "targets/catalyst/.med-agent-hub" not in guide
+    assert "MVP_HUB_LLM_BASE_URL" not in guide
+    assert "MVP_HUB_LLM_BASE_URL" not in readme
+    assert "applies its reviewed patch" not in guide

@@ -111,15 +111,27 @@ class FakeClient:
 
 
 class FakeHttpResponse:
-    def __init__(self, status_code: int, payload: dict) -> None:
+    def __init__(
+        self,
+        status_code: int,
+        payload: dict | None,
+        *,
+        text: str = "",
+        json_error: ValueError | None = None,
+    ) -> None:
         self.status_code = status_code
         self.payload = payload
+        self.text = text
+        self.json_error = json_error
         self.raise_calls = 0
 
     def raise_for_status(self) -> None:
         self.raise_calls += 1
 
     def json(self) -> dict:
+        if self.json_error is not None:
+            raise self.json_error
+        assert self.payload is not None
         return self.payload
 
 
@@ -233,6 +245,77 @@ def test_http_client_uses_gateway_contracts(monkeypatch: pytest.MonkeyPatch) -> 
         "idempotencyKey": kwargs["json"]["idempotencyKey"],
     }
     assert kwargs["json"]["idempotencyKey"].startswith("harness-")
+
+
+def test_http_client_preserves_non_json_gateway_errors(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    session = FakeHttpSession()
+    long_body = "upstream unavailable: " + ("x" * 2_100)
+    session.submit_response = FakeHttpResponse(
+        502,
+        None,
+        text=long_body,
+        json_error=ValueError("not JSON"),
+    )
+    session.execute_response = FakeHttpResponse(
+        503,
+        None,
+        text="maintenance",
+        json_error=ValueError("not JSON"),
+    )
+    monkeypatch.setattr(catalyst_validation.requests, "Session", lambda: session)
+
+    client = CatalystHttpClient("http://gateway.example")
+    query_status, query = client.submit("Show viral load results", "profile-1")
+    table_status, table = client.execute(_preview())
+
+    assert query_status == 502
+    assert query == {
+        "contractVersion": "harness.http-response-error.v1",
+        "status": "http_error",
+        "httpStatus": 502,
+        "message": "Gateway returned a non-JSON object response.",
+        "bodySnippet": long_body[:2_000],
+        "bodyTruncated": True,
+    }
+    assert table_status == 503
+    assert table == {
+        "contractVersion": "harness.http-response-error.v1",
+        "status": "http_error",
+        "httpStatus": 503,
+        "message": "Gateway returned a non-JSON object response.",
+        "bodySnippet": "maintenance",
+        "bodyTruncated": False,
+    }
+
+
+def test_evaluate_result_stops_after_invalid_execution_contract() -> None:
+    scenario = CatalystScenario(
+        id="viral",
+        question="Show viral load results",
+        expected_outcome="ready",
+        execute=True,
+        assertions={"expectedUnits": ["copies/ml"]},
+        tags=(),
+    )
+    table = {
+        "contractVersion": "harness.http-response-error.v1",
+        "status": "http_error",
+        "httpStatus": 503,
+    }
+
+    assertions = evaluate_result(
+        scenario,
+        _preview(),
+        table,
+        query_status=201,
+        table_status=503,
+    )
+
+    by_name = {item["name"]: item for item in assertions}
+    assert by_name["execution_contract"]["passed"] is False
+    assert "expected_units" not in by_name
 
 
 def test_validation_cli_runs_selected_scenarios(

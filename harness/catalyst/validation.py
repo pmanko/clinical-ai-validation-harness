@@ -16,6 +16,9 @@ from ..metadata import RunManifest, append_event, write_manifest
 from ..submodules import read_harness_git_sha
 
 
+_MAX_ERROR_BODY_CHARS = 2_000
+
+
 @dataclass(frozen=True)
 class CatalystScenario:
     id: str
@@ -78,7 +81,7 @@ class CatalystHttpClient:
             },
             timeout=self.timeout_seconds,
         )
-        return response.status_code, response.json()
+        return response.status_code, _response_payload(response)
 
     def execute(self, preview: dict[str, Any]) -> tuple[int, dict[str, Any]]:
         preview_id = preview["previewId"]
@@ -93,7 +96,27 @@ class CatalystHttpClient:
             },
             timeout=self.timeout_seconds,
         )
-        return response.status_code, response.json()
+        return response.status_code, _response_payload(response)
+
+
+def _response_payload(response: requests.Response) -> dict[str, Any]:
+    """Decode a Gateway response without discarding its real HTTP status."""
+    try:
+        payload = response.json()
+    except ValueError:
+        payload = None
+    if isinstance(payload, dict):
+        return payload
+
+    body = response.text
+    return {
+        "contractVersion": "harness.http-response-error.v1",
+        "status": "http_error" if response.status_code >= 400 else "invalid_response",
+        "httpStatus": response.status_code,
+        "message": "Gateway returned a non-JSON object response.",
+        "bodySnippet": body[:_MAX_ERROR_BODY_CHARS],
+        "bodyTruncated": len(body) > _MAX_ERROR_BODY_CHARS,
+    }
 
 
 def load_suite(path: Path | str) -> CatalystSuite:
@@ -249,15 +272,20 @@ def evaluate_result(
                 len(lint_checks),
             )
     if table is not None:
+        execution_contract_valid = (
+            table_status == 200
+            and table.get("contractVersion") == "catalyst.table.v1"
+        )
         check(
             "execution_contract",
-            table_status == 200
-            and table.get("contractVersion") == "catalyst.table.v1",
+            execution_contract_valid,
             {
                 "http_status": table_status,
                 "contract_version": table.get("contractVersion"),
             },
         )
+        if not execution_contract_valid:
+            return assertions
         row_count = table.get("table", {}).get("rowCount", {})
         returned = int(row_count.get("returned", 0))
         if "minReturned" in expected:
