@@ -3,7 +3,15 @@
   "datasetId": "catalyst-cohort-v1",
   "datasetVersion": "1",
   "catalogVersion": "analytics-catalog-v1",
-  "profileId": "catalyst-query-gemma-e4b",
+  "profileId": "catalyst-query-gemma-4-12b",
+  "providerName": "llama.cpp",
+  "datasetOverview": {
+    "patients": 96,
+    "results": 1152,
+    "testTypes": 9,
+    "firstObservedDate": "2025-07-15",
+    "lastObservedDate": "2026-04-27"
+  },
   "repetitions": 3,
   "scenarios": [
     {
@@ -16,11 +24,13 @@
         "requiredColumns": ["patient_id", "result_value", "result_unit", "observed_at"],
         "requiredStages": ["context", "query_generate", "query_lint", "query_review", "query_finalize"],
         "roleModels": {
-          "query_generate": "google/gemma-4-e4b",
-          "query_review": "google/gemma-4-e4b"
+          "query_generate": "gemma-4-12b",
+          "query_review": "qwen2.5-14b"
         },
         "minReturned": 1,
         "maxReturned": 100,
+        "expectedReturned": 100,
+        "expectedTruncated": true,
         "expectedUnits": ["copies/ml"]
       }
     },
@@ -35,6 +45,8 @@
         "requiredStages": ["query_lint", "query_review"],
         "minReturned": 96,
         "maxReturned": 96,
+        "expectedReturned": 96,
+        "expectedTruncated": false,
         "expectedUnits": ["Cell/µl"]
       }
     },
@@ -49,6 +61,8 @@
         "distinctColumnCount": {"patient_id": 96},
         "minReturned": 96,
         "maxReturned": 96,
+        "expectedReturned": 96,
+        "expectedTruncated": false,
         "expectedUnits": ["mg/l"]
       }
     },
@@ -63,6 +77,8 @@
         "distinctColumnCount": {"patient_id": 96},
         "minReturned": 96,
         "maxReturned": 96,
+        "expectedReturned": 96,
+        "expectedTruncated": false,
         "expectedUnits": ["copies/ml"]
       }
     },
@@ -76,7 +92,9 @@
         "requiredColumns": ["receipt_to_release_minutes"],
         "numericColumnMinExclusive": {"receipt_to_release_minutes": 1440},
         "minReturned": 1,
-        "maxReturned": 100
+        "maxReturned": 100,
+        "expectedReturned": 32,
+        "expectedTruncated": false
       }
     },
     {

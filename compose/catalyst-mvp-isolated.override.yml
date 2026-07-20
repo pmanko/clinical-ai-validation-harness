@@ -16,7 +16,7 @@ services:
     container_name: catalyst-mvp-isolated-openelis-app
     ports: !override
       - "127.0.0.1:28080:8080"
-      - "127.0.0.1:28443:8443"
+      - "127.0.0.1:${OPENELIS_HTTPS_PORT:-28443}:8443"
     networks:
       openelis-network:
         ipv4_address: 192.168.166.121
@@ -25,7 +25,7 @@ services:
     container_name: catalyst-mvp-isolated-hapi-fhir
     ports: !override
       - "127.0.0.1:28081:8080"
-      - "127.0.0.1:28444:8443"
+      - "127.0.0.1:${HAPI_HTTPS_PORT:-28444}:8443"
 
 networks:
   openelis-network:

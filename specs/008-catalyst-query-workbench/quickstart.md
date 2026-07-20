@@ -5,12 +5,19 @@
 Use the dedicated harness worktree and Catalyst submodule checkout. Do not run
 this feature from the user's primary harness checkout.
 
-The current isolated demo is composed with:
+From an isolated harness worktree, initialize the two pinned sibling targets:
 
-- compose file: `/private/tmp/catalyst-mvp-harness/isolated.compose.yml`
-- environment: `/private/tmp/catalyst-mvp-harness/isolated.env`
-- project: `catalyst-mvp-isolated`
-- browser: `http://localhost:13000/`
+```bash
+git submodule update --init targets/catalyst targets/med-agent-hub
+make catalyst-mvp-fake
+```
+
+The tracked umbrella runner uses
+`compose/catalyst-mvp-isolated.override.yml`, project
+`catalyst-mvp-isolated`, Gateway `http://127.0.0.1:18000`, and browser
+`http://localhost:13000/`. For real local models, configure the external
+OpenAI-compatible router in `targets/catalyst/.env` and run
+`make catalyst-mvp-external`.
 
 ## Historical G2.2 checkpoint used before editor implementation
 

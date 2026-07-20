@@ -7,7 +7,8 @@ engineering sandbox, not a claim that every question produces correct SQL.
 
 Med-Agent Hub owns the model configuration. Catalyst sends only a profile ID,
 the question, the approved catalog, and policy context. The UI discovers the
-profiles from Hub and disables a profile when its required model is not served.
+profiles from Hub and lists a profile only when all of its required models are
+served.
 
 Treat the UI picker (backed by the Gateway's Hub-discovered query options) as
 the source of truth for available profiles, writer models, and reviewer models.

@@ -947,6 +947,19 @@ were completed later under explicit user direction; they do not start W2/W3.
   requested commits and pushes. It does not claim full G2.8c acceptance:
   T094–T096 remain open and block marking the PRs ready or merging them.
 
+### Merge-readiness checkpoint — IN PROGRESS (2026-07-20)
+
+The three-PR review found substantive blockers despite green existing checks:
+follow-up instruction/profile/catalog lineage, Hub revision prompting and SQL
+lint correctness, concurrent execution idempotency, incomplete Catalyst CI,
+clean umbrella boot drift, stale canonical docs/PR descriptions, and incomplete
+Harness provenance. T106–T112 track the bounded remediation.
+
+Squash order is a dependency invariant, not a preference: Hub must merge first;
+Catalyst must then pin and validate the resulting Hub `main` commit before it is
+squashed; the harness must finally pin both resulting `main` commits and rerun
+its gates. No PR-head SHA may remain as the final umbrella pin.
+
 ### G2.9a UX and schema audit — USER REVIEW (2026-07-18)
 
 The measured audit is recorded in

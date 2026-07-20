@@ -84,6 +84,23 @@ def test_harness_runner_defaults_to_a_tracked_isolated_compose_override() -> Non
     ) in runner
     assert 'MVP_COMPOSE_OVERRIDE_FILE="${MVP_COMPOSE_OVERRIDE_FILE:-' in runner
     assert "export MVP_COMPOSE_OVERRIDE_FILE" in runner
+    assert 'export OPENELIS_HTTPS_PORT="${OPENELIS_HTTPS_PORT:-28443}"' in runner
+    assert 'export HAPI_HTTPS_PORT="${HAPI_HTTPS_PORT:-28444}"' in runner
+    assert 'export GATEWAY_PORT="${GATEWAY_PORT:-18000}"' in runner
+    assert 'export CATALYST_UI_PORT="${CATALYST_UI_PORT:-13000}"' in runner
+    assert 'export ANALYTICS_DB_PORT="${ANALYTICS_DB_PORT:-15443}"' in runner
+    assert 'export DATA_PIPES_PORT="${DATA_PIPES_PORT:-18090}"' in runner
+    assert 'export MED_AGENT_HUB_PORT="${MED_AGENT_HUB_PORT:-18082}"' in runner
+    assert "export MVP_MODEL_BACKEND=fake" in runner
+    assert "catalyst-query-gemma-4-12b" in runner
+    assert "qwen2.5-14b" in runner
+    assert "MVP_FAKE_BACKEND" not in runner
+    assert 'require_pinned_clean_target "Catalyst" "targets/catalyst"' in runner
+    assert (
+        'require_pinned_clean_target "med-agent-hub" "targets/med-agent-hub"' in runner
+    )
+    assert 'rev-parse "HEAD:${relative_path}"' in runner
+    assert "status --porcelain" in runner
 
     rendered = override.read_text(encoding="utf-8")
     assert "name: catalyst-mvp-isolated" in rendered
@@ -91,20 +108,18 @@ def test_harness_runner_defaults_to_a_tracked_isolated_compose_override() -> Non
     assert "subnet: 192.168.166.0/24" in rendered
     assert "ipv4_address: 192.168.166.121" in rendered
     assert '"127.0.0.1:25432:5432"' in rendered
-    assert '"127.0.0.1:28443:8443"' in rendered
-    assert '"127.0.0.1:28444:8443"' in rendered
+    assert '"127.0.0.1:${OPENELIS_HTTPS_PORT:-28443}:8443"' in rendered
+    assert '"127.0.0.1:${HAPI_HTTPS_PORT:-28444}:8443"' in rendered
     assert "subnet: 172.20.1.0/24" not in rendered
 
 
-def test_manual_guide_uses_the_sibling_hub_and_current_external_router_setting() -> None:
-    guide = (ROOT / "docs/catalyst-manual-llm-testing.md").read_text(
-        encoding="utf-8"
-    )
+def test_manual_guide_uses_the_sibling_hub_and_current_external_router_setting() -> (
+    None
+):
+    guide = (ROOT / "docs/catalyst-manual-llm-testing.md").read_text(encoding="utf-8")
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
 
-    assert (
-        "git submodule update --init targets/catalyst targets/med-agent-hub" in guide
-    )
+    assert "git submodule update --init targets/catalyst targets/med-agent-hub" in guide
     assert "targets/med-agent-hub/server/levels.yaml" in guide
     assert "MVP_EXTERNAL_ROUTER_URL" in guide
     assert "MVP_EXTERNAL_ROUTER_URL" in readme

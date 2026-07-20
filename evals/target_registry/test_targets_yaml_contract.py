@@ -17,7 +17,9 @@ def test_harness_targets_yaml_matches_contract() -> None:
     assert catalyst.validation_surface.kind == "workflow"
     assert catalyst.validation_surface.evidence_mode == "real_path_required"
     assert catalyst.validation_surface.command == (
-        "python3",
+        "uv",
+        "run",
+        "python",
         "scripts/run-catalyst-validation.py",
         "--suite",
         "datasets/validation/catalyst/catalyst-mvp-v1.json",

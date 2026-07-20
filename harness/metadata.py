@@ -21,6 +21,7 @@ class RunManifest:
     dataset_version: str
     schema_mapping_version: str
     gen_ai_provider_name: str
+    gen_ai_operation_name: str | None = None
     generated_at: str = field(default_factory=utc_now_iso)
     evidence_status: str = "development"
     decision_rationale: str | None = None
@@ -30,6 +31,14 @@ class RunManifest:
     patients: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
+        otel: dict[str, Any] = {
+            "semconv_status": self.otel_semconv_status,
+            "semconv_stability_opt_in": self.otel_semconv_stability_opt_in,
+            "gen_ai.provider.name": self.gen_ai_provider_name,
+        }
+        if self.gen_ai_operation_name is not None:
+            otel["gen_ai.operation.name"] = self.gen_ai_operation_name
+
         payload: dict[str, Any] = {
             "run_id": self.run_id,
             "project": self.project,
@@ -41,11 +50,7 @@ class RunManifest:
             "generated_at": self.generated_at,
             "evidence_status": self.evidence_status,
             "target_provenance": list(self.target_provenance),
-            "otel": {
-                "semconv_status": self.otel_semconv_status,
-                "semconv_stability_opt_in": self.otel_semconv_stability_opt_in,
-                "gen_ai.provider.name": self.gen_ai_provider_name,
-            },
+            "otel": otel,
         }
         if self.decision_rationale is not None:
             payload["decision_rationale"] = self.decision_rationale

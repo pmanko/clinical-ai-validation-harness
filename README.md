@@ -60,10 +60,10 @@ Human-facing docs use plain names. IDs appear in parentheses on first use and in
 | med-agent-hub bridge | F005 | `005` | Shipped (model-switch + Carbon picker + model warmup + Tier-1 KB) |
 | LLM config overrides | F007 | `007` | Planned |
 | med-agent-hub MCP tools | F010 | `017` | In progress (lane L1) |
-| Chartsearchai model gateway | F008 | `008` | [Brief](https://github.com/pmanko/clinical-ai-validation-harness/blob/main/specs/artifacts/planning/chartsearchai-model-gateway-brief.md) |
+| Chartsearchai model gateway | F008 | planning brief | [Brief](https://github.com/pmanko/clinical-ai-validation-harness/blob/main/specs/artifacts/planning/chartsearchai-model-gateway-brief.md) |
 | Clinical knowledge base | F009 | `009` | [Brief + research](https://github.com/pmanko/clinical-ai-validation-harness/blob/main/specs/artifacts/planning/clinical-kb-brief.md) |
 | Retrieval evaluation | M4 | `010` | Planned |
-| Catalyst query-to-table evaluation | M10 | `011` | Manual profile comparison, rich synthetic cohort, and initial harness corpus in progress |
+| Catalyst query workbench | M10 | `008` | Iterative manual workbench and initial real-path harness corpus in progress |
 | Answer, citation, and abstention | M5 | `012` | Planned |
 | Safety and red-team | M6 | `013` | Planned |
 | Clinician governance review | M7 | `014` | Planned |
@@ -133,6 +133,18 @@ workbench evidence uses `13000`. The profile picker lets you compare Hub-owned
 model configurations; see
 [Catalyst manual LLM testing](docs/catalyst-manual-llm-testing.md). This is
 demo-data engineering evidence, not a clinical-quality claim.
+
+After the real-model health gate passes, run the versioned validation suite
+against that live Gateway. The selected Hub profile must advertise the Gemma 4
+12B writer and Qwen 2.5 14B reviewer configured by the suite.
+
+```bash
+uv run python scripts/run-catalyst-validation.py \
+  --suite datasets/validation/catalyst/catalyst-mvp-v1.json \
+  --gateway-url http://127.0.0.1:18000
+```
+
+Run evidence is written under `artifacts/catalyst-validation/<run-id>/`.
 
 ```bash
 # 1. Install uv (Python environment manager) if not already installed
