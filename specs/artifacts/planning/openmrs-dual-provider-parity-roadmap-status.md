@@ -58,6 +58,17 @@ The refreshed repository state, upstream dispositions, and rollback refs are rec
 | G21 QA and hygiene | Pending | No runtime implementation has begun. |
 | G22 Next-stage readiness | Pending | No runtime implementation has begun. |
 
+## Foundation Closeout
+
+- The five companion PR descriptions were verified after update on 2026-07-20. Each now states its
+  actual branch scope, the dual-provider target, and whether it is amend-in-place (#13/#63) or a
+  draft requiring a post-signoff rebuild (#26/#12).
+- `scripts/verify-dual-provider-parity-gates.sh --phase full` is intentionally red at this point:
+  it reports G03-G22 as unimplemented rather than allowing the roadmap or fixture files to stand in
+  for product behavior. This is the recorded red baseline for the red-first implementation stage.
+- No runtime code, submodule pin, branch rewrite, reset, rebase, force-push, report publication, or
+  evaluation change has been made under this roadmap. The next mutation requires Signoff 1.
+
 ## Amendments and Deviations
 
 None. Material changes require explicit user approval and a dated entry here with rationale, safer alternative, residual risk, and changed gates.
