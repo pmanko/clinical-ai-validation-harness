@@ -8,6 +8,12 @@ Durable planning and research artifacts that support the feature roadmap:
 - `planning/openmrs-dual-provider-parity-roadmap-status.md`
   - Mutable execution record for the dual-provider roadmap: baseline heads, gate evidence,
     signoffs, upstream dispositions, and approved deviations.
+- `planning/openmrs-dual-provider-upstream-inventory.md`
+  - Refreshed repository baseline plus the required keep/port/replace disposition for upstream
+    and companion-branch changes before the ChartSearchAI and ESM rebuilds.
+- `planning/openmrs-dual-provider-conformance-contract.md`
+  - Provider-neutral lifecycle, context, QueryStore freshness, temporal, and safety contract that
+    maps the versioned fixtures to their Java, Python, TypeScript, and harness test owners.
 - `planning/hub-consolidation-roadmap.md`
   - Historical superseded roadmap for the prior hub-only clinical answer architecture. Completed
     evidence and still-valid decisions are preserved by reference from the dual-provider roadmap.

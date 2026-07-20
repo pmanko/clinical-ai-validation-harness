@@ -21,8 +21,8 @@ The harness coordinates validation across four clinical AI projects:
 
 | Project | What it does | Role here |
 |---------|-------------|-----------|
-| `chartsearchai` | Thin OpenMRS authorization, session, persistence, and SSE relay for med-agent-hub profiles | Product integration target: lifecycle UX, persistence, citation display, cancellation, and security |
-| `querystore` | Optional read-optimized clinical-record source consumed by med-agent-hub | Context-source validation: materialized patient records, indexing integrity, and future retrieval experiments |
+| `chartsearchai` | OpenMRS clinical-chat module with bundled and med-agent-hub provider paths | Product integration target: shared lifecycle UX, persistence, evidence display, cancellation, and security |
+| `querystore` | Read-optimized OpenMRS clinical-record projection and optional med-agent-hub source | Context-source validation: materialized records, indexing integrity, date/freshness semantics, and retrieval experiments |
 | `openmrs_chatbot` | Python clinical chatbot with patient/doctor interfaces and agent workflow scaffolding | Future expansion: multi-turn grounding and role-aware answer evaluation |
 | `Catalyst` (OpenELIS) | Lab AI sidecar over OpenELIS Global 2: FHIR-grounded retrieval over HAPI and embedded FHIR providers, resource-cited answers, and a Scout-style lab report/analytics UI | M10 (Planning): FHIR-first sidecar POC — canonical question set, evidence cards, lab timeline, and embedded-FHIR parity probe |
 
@@ -30,7 +30,11 @@ The harness coordinates validation across four clinical AI projects:
 
 The OpenMRS demo-data remap (Roadmap M1 / feature 002) is **complete** — the public 2.7 demo corpus is transformed and imported as the canonical 5,284-patient 2.8 demo schema the harness validates against. (See the [Feature 002 spec](https://github.com/pmanko/clinical-ai-validation-harness/blob/main/specs/002-openmrs-demo-data-2-8-remap/spec.md) and [quickstart](https://github.com/pmanko/clinical-ai-validation-harness/blob/main/specs/002-openmrs-demo-data-2-8-remap/quickstart.md) for that work.)
 
-Current work is the **validation spine** (Roadmap M2 / feature 006): run the same clinical questions across med-agent-hub product profiles through ChartSearchAI's real API, score the answers against the exact patient evidence ledger, and record reviewable, record-level evidence. Current work centers on the checked single-model default, explicit team comparisons, human-feedback reports, and live OpenMRS proof. See the [roadmap canvas](https://pmanko.github.io/clinical-ai-validation-harness/#/canvas/specs/roadmap); the approved consolidation roadmap and status live under `specs/artifacts/planning/`.
+Current work is the **dual-provider foundational-parity roadmap**: preserve bundled ChartSearchAI
+inference as the fresh-install default while allowing a configured med-agent-hub provider through
+the same OpenMRS conversation, evidence, persistence, and cancellation contract. QueryStore remains
+an OpenMRS projection with an optional hub adapter, not a hub dependency. The current integration
+branches are being rebuilt around that contract; see the checked-in [roadmap](specs/artifacts/planning/openmrs-dual-provider-parity-roadmap.md), [status](specs/artifacts/planning/openmrs-dual-provider-parity-roadmap-status.md), and [upstream inventory](specs/artifacts/planning/openmrs-dual-provider-upstream-inventory.md).
 
 ## How the docs fit together
 
@@ -139,16 +143,19 @@ For the full OpenMRS demo-data remap workflow, see [specs/002-openmrs-demo-data-
 
 ## ChartSearch operations
 
-The **canonical product path** is ChartSearchAI -> med-agent-hub -> llama.cpp. ChartSearchAI has one hub
-endpoint and relays one profile request per turn; it does not discover raw models or compose answer/review/
-In-Depth calls. The hub owns patient context, temporal enforcement, review, grounding, and In-Depth. Its
-default product profile is the fast checked E4B single (`single-e4b-checked`); larger singles and team profiles
-remain available for deliberate comparisons.
+The approved product shape is **two providers behind one ChartSearchAI experience**. A standard
+OpenMRS installation defaults to bundled ChartSearchAI inference. Deployments that configure
+med-agent-hub may expose it as an additional provider; changing provider begins a new conversation.
+The hub remains a supported direct service and owns its own profile/stage, temporal, review,
+grounding, and In-Depth behavior. It is not a required dependency for bundled operation.
+
+The existing hub-relay integration and local commands remain useful for development while the
+dual-provider rebuild is in progress, but they do not define the final provider configuration.
+Use the roadmap's product-proof gates before treating either path as the released canonical UI.
 
 ```bash
-# One command checks prerequisites, starts/verifies host-native llama.cpp, builds
-# stale module/UI artifacts, starts OpenMRS and the hub, provisions a least-privileged
-# patient reader, configures the relay, and exercises the default E4B profile.
+# Development helper for the hub path. It does not replace bundled inference or
+# declare the hub the default provider in a fresh OpenMRS installation.
 make chartsearchai-local
 
 # Useful focused operations:
@@ -163,9 +170,10 @@ make chartsearch-doctor              # verify router, hub profile metadata, and 
 make chartsearch-backend BACKEND=elasticsearch   # or lucene | mysql
 ```
 
-**Profile picker.** The ESM renders only the human-readable product profiles advertised by med-agent-hub. The
-hub marks one available profile as default; ChartSearchAI persists the selected profile but never invents raw
-model choices or endpoint-specific fallbacks.
+**Provider and profile selection.** The final ESM shows no picker with bundled-only configuration.
+With hub configured, it shows a provider choice first and the provider's supported profile/mode choices
+second. Unready configured providers remain visibly disabled; the UI never invents raw model choices or
+silently falls back to another provider.
 
 **Cloud.** The older GCE/LM Link workflow predates the hub-only product boundary and is not the canonical M3
 proof path. Use the local workflow above while the cloud scripts are reconciled with the same hub profile API.
