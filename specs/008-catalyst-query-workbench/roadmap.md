@@ -955,6 +955,30 @@ lint correctness, concurrent execution idempotency, incomplete Catalyst CI,
 clean umbrella boot drift, stale canonical docs/PR descriptions, and incomplete
 Harness provenance. T106–T112 track the bounded remediation.
 
+The tracked clean-boot remediation is complete at Harness `921220e`, Catalyst
+`8b7c110`, and Hub `099d233`. Starting from reset disposable volumes,
+`./scripts/catalyst-mvp.sh --fake boot` completed with the pinned OpenELIS
+3.2.1.11 deployment, 96 patients, 1,152 Observations, 1,152 ServiceRequests,
+1,152 Specimens, 1,152 DiagnosticReports, nine analytes, the exact analytics
+mart row count, and passing Hub profile/router, Gateway, UI, health, and
+provenance gates. Readiness probes are now bounded, an empty successful
+OpenELIS backfill response is accepted, and clean matching sibling pins are
+enforced.
+
+That run also caught a count-only false success: all Observation and
+ServiceRequest code/name fields were initially blank because the selected
+OpenELIS tests had neither active terminology mappings nor `test.loinc` values.
+Catalyst now seeds the reviewed fixture mappings deterministically, rejects
+conflicting nonblank mappings, and fails boot unless every one of the 1,152
+Observation and ServiceRequest rows is coded and named. The fixture mapping
+basis, including explicitly identified inference, is test provenance rather
+than production terminology governance.
+
+This fake-mode pass proves deterministic assembly and is recorded as simulated;
+it does not complete T094/T095 or T111. The clean-pin Gemma 4 12B writer / Qwen
+2.5 14B reviewer workflow, independent PostgreSQL result verification, model
+nondeterminism evidence, and the user acceptance pause remain open.
+
 Squash order is a dependency invariant, not a preference: Hub must merge first;
 Catalyst must then pin and validate the resulting Hub `main` commit before it is
 squashed; the harness must finally pin both resulting `main` commits and rerun

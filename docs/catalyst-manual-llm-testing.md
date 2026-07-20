@@ -32,6 +32,9 @@ Set these values in `targets/catalyst/.env`:
 ```dotenv
 MVP_MODEL_BACKEND=external
 MVP_EXTERNAL_ROUTER_URL=http://host.docker.internal:1234
+MVP_EXTERNAL_PROFILE_ID=catalyst-query-gemma-4-12b
+MVP_EXTERNAL_MODEL_ID=gemma-4-12b
+MVP_EXTERNAL_EXPECTED_ROLE_MODELS_JSON='{"query_generate":"gemma-4-12b","query_review":"qwen2.5-14b"}'
 ```
 
 The URL is the OpenAI-compatible server root, without a trailing `/v1`. Then:
@@ -49,7 +52,7 @@ boots.
 
 1. Load or serve a model whose ID matches one of the Hub profiles.
 2. Refresh the Catalyst UI and select **Med-Agent Hub profile**.
-3. Choose an example from the dataset browser or enter a question.
+3. Enter a question using the runtime catalog as the available-data reference.
 4. Inspect the generated SQL, parameters, profile/model roles, and lint attempts.
 5. Accept only the queries you want to execute; compare the returned table and
    truncation notice with the dataset browser.
@@ -74,21 +77,28 @@ acceptance—the actual rows returned.
 ## Add another Hub-owned profile
 
 For a local experiment, add a profile beside the existing Catalyst profiles in
-`targets/med-agent-hub/server/levels.yaml`. Keep the profile ID stable,
-set both role models to the exact server model ID, and keep temperature zero:
+`targets/med-agent-hub/server/levels.yaml`. Keep the profile ID stable, set each
+role to its exact served model ID, and disable stochastic sampling and the DRY
+repetition penalty for SQL (`temperature: 0`, `dry: 0`):
 
 ```yaml
 catalyst-query-my-model:
   label: Catalyst governed query — My model
   topology: single
   stages: *catalyst_query
-  models: {query_generate: exact/model-id, query_review: exact/model-id}
+  models: {query_generate: exact/writer-model-id, query_review: exact/reviewer-model-id}
   prompts: {query_generate: catalyst-query-generate, query_review: catalyst-query-review}
-  policies: {output: query, temporal_gate: "off", allowed_operation: select, require_preview: true, generation_attempts: 3}
+  policies:
+    output: query
+    temporal_gate: "off"
+    allowed_operation: select
+    generation_attempts: 1
+    collaborative_review: true
+    model_classes: {query_generate: writer-family, query_review: reviewer-family}
   capabilities: {staged: false, validation: true}
   outputContracts: [catalyst.query.v1]
   visibility: product
-  knobs: {query_generate: {temperature: 0}, query_review: {temperature: 0}}
+  knobs: {query_generate: {temperature: 0, dry: 0}, query_review: {temperature: 0, dry: 0}}
 ```
 
 Rebuild the sibling Hub through the harness runner:
@@ -97,10 +107,9 @@ Rebuild the sibling Hub through the harness runner:
 make catalyst-mvp-external
 ```
 
-Refresh the UI. The profile will remain disabled until its exact model ID is
-served. Preserve a useful profile through review in the Med-Agent Hub repository,
-then update the Hub pin in the harness and Catalyst's same-commit standalone
-fallback.
+Refresh the UI. The profile is omitted until every exact role model is served.
+Preserve a useful profile through review in the Med-Agent Hub repository, then
+update the Hub pin in the harness and Catalyst's same-commit standalone fallback.
 
 ## Stop or reset
 

@@ -273,8 +273,9 @@ and final selection or failure.
 `invocations` contains one record for every attempted initial/follow-up writer
 or reviewer model call, including transport failure, timeout, and cancellation.
 Each record binds invocation ID, role, stage, attempt, provider/model IDs,
-start/end, Hub-measured duration, request digest, nullable response digest,
-failure digest, and outcome. Hub measures `durationMs` around its provider call
+effective configuration (`temperature`, optional `dryMultiplier`, `maxTokens`,
+and `responseFormat`), start/end, Hub-measured duration, request digest,
+nullable response digest, failure digest, and outcome. Hub measures `durationMs` around its provider call
 with a monotonic clock; wall-clock timestamps are correlation evidence, not the
 duration source. Requested/in-progress calls have null end/duration and null
 response/failure digests, while `requestDigest` is always present; every

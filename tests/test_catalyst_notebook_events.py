@@ -40,6 +40,12 @@ def test_notebook_records_round_trip_through_events_jsonl_without_loss(
             {
                 "role": "writer",
                 "modelId": "gemma-4-12b",
+                "configuration": {
+                    "temperature": 0,
+                    "dryMultiplier": 0,
+                    "maxTokens": None,
+                    "responseFormat": "catalyst_query_candidate_v1",
+                },
                 "durationMs": 17,
                 "requestDigest": "a" * 64,
                 "responseDigest": "b" * 64,

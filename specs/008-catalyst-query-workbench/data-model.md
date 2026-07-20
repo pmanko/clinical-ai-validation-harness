@@ -143,7 +143,8 @@ separately recorded.
   and candidate digests; and raw-output evidence references/digests for each
   stage
 - ordered inference invocations, including failures: role, stage, attempt, model,
-  start/end timestamps, duration milliseconds, request digest, and response or
+  effective temperature/DRY/max-token/response-format configuration, start/end
+  timestamps, duration milliseconds, request digest, and response or
   normalized-failure-envelope digest
 - candidate contract/lint disposition, omitted evidence references/reasons, and
   immutable output-version ID when valid

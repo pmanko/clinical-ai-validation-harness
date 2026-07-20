@@ -580,8 +580,9 @@ inspectable after refresh.
   selection decision. The public turn representation MUST expose this as typed
   detail or a typed resolvable reference and MUST expose no hidden reasoning,
   result rows, or credentials. The detail MUST contain every inference
-  invocation, including failed calls, with role, stage, attempt, model,
-  start/end timestamps, duration, and request and response-or-failure digests.
+  invocation, including failed calls, with role, stage, attempt, model, effective
+  sampling/output configuration, start/end timestamps, duration, and request
+  and response-or-failure digests.
   Recorded turns MUST populate all required evidence fields with an empty typed
   omissions list; unavailable legacy facts MUST be explicit nulls with typed
   omission reasons and MUST NOT be inferred. Timeline rows carry only compact
@@ -784,9 +785,9 @@ inspectable after refresh.
   attributable to that rejected request; the accepted concurrent winner may
   create its turn, effective base, output versions, and current pointer.
 - **SC-019**: When nominally identical model runs produce different outputs,
-  including at temperature zero, their candidate and output digests record those
-  differences; no run is labelled reproducible solely from configured sampling
-  values.
+  including with temperature zero and the DRY repetition penalty disabled,
+  their candidate and output digests record those differences; no run is
+  labelled reproducible solely from configured sampling values.
 - **SC-020**: Keyboard-only evaluation can reach the applicable initial or
   follow-up input with one persistent jump action, identify its base version and
   profile models, submit it, and return to the produced query at desktop,

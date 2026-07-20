@@ -218,10 +218,11 @@ phrasing rather than hard-coding an assumed cohort.
    editor, selected profile, validation/results and staleness. Clear Draft offers
    `Restore Query vN`; New Session excludes every prior instruction, SQL,
    finding, execution, and model-context reference.
-10. Repeat the same snapshot/instruction in isolated fresh sessions at
-    temperature zero. Retain every candidate and query digest. Report differing
-    digests only if outputs actually differ; neither equality nor divergence is
-    required, and seed/temperature is never reproducibility proof.
+10. Repeat the same snapshot/instruction in isolated fresh sessions with
+    temperature zero and the DRY repetition penalty disabled. Retain every
+    candidate and query digest. Report differing digests only if outputs actually
+    differ; neither equality nor divergence is required, and seed/sampling
+    configuration is never reproducibility proof.
 11. Start timing at initial-question submission and stop when the successor
     query becomes visible. The primary adjusted duration is wall time minus all
     exact recorded `durationMs` values for every initial and follow-up writer/
