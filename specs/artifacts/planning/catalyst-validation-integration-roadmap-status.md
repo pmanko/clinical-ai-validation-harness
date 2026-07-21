@@ -8,18 +8,19 @@ Execution state for the Catalyst validation integration remediation roadmap.
 |---|---|
 | Roadmap | [`catalyst-validation-integration-roadmap.md`](catalyst-validation-integration-roadmap.md) |
 | Authorization | Explicit user instruction to implement the approved plan on 2026-07-21 |
-| Approved roadmap SHA-256 | `b00a063bf2b78494a3a719436d4609127eb2e845153d1ab2f9153d1e018e6ef8` |
-| Current execution boundary | P0–P3 implementation complete; P4/P5 hard-blocked on 008 gates; Signoffs A–C await user |
-| Next protected boundary | P4 requires recorded **008-G5** (active roadmap **G5 user**); P5 requires **008-G6** (**G6 user**) + **T094/T095/T111** |
-| Deviations | None |
+| Approved roadmap SHA-256 (pre-A1) | `b00a063bf2b78494a3a719436d4609127eb2e845153d1ab2f9153d1e018e6ef8` |
+| Approved roadmap SHA-256 (A1, current) | `37c13c468d274b985a0f48e0e6e5cfb2e3e9eaf3b0fb0fd1ace6e73fca1cf1e7` |
+| Current execution boundary | P0–P3 implementation complete; P4/P5 entry-gated on T094/T095/T111 acceptance (A1); Signoffs A–C await user |
+| Next protected boundary | P4 and P5 require recorded **T094/T095/T111** user acceptance (Amendment A1, 2026-07-21) |
+| Deviations | None. Amendment A1 (2026-07-21, user-authorized): P4/P5 entry gates re-mapped from 008-G5/008-G6 to T094/T095/T111 acceptance — see roadmap §1.2 |
 
 ## Active-feature gate mapping
 
 | Roadmap id | Active 008 checkpoint | Status at latest update |
 |---|---|---|
-| **008-G5** | `specs/008-catalyst-query-workbench/roadmap.md` W2 **G5 user** | Not accepted |
-| **008-G6** | `specs/008-catalyst-query-workbench/roadmap.md` W3 **G6 user** | Not accepted |
-| **T094** | Diverse real-path notebook validation | In progress / open |
+| **008-G5** | `specs/008-catalyst-query-workbench/roadmap.md` W2 **G5 user** | Not accepted — no longer a CVR entry gate (A1) |
+| **008-G6** | `specs/008-catalyst-query-workbench/roadmap.md` W3 **G6 user** | Not accepted — no longer a CVR entry gate (A1) |
+| **T094** | Diverse real-path notebook validation | In progress — gold matrix 18/18 PASS (run `5794eb05`, 2026-07-21); open: bounded Hub/tool-failure live run, accessibility matrix, digest-variance analysis |
 | **T095** | G2.8c acceptance pause | Open |
 | **T111** | Clean-pin rerun + user acceptance | Open |
 
@@ -87,12 +88,12 @@ Execution state for the Catalyst validation integration remediation roadmap.
 | CVR-G10 | PENDING | Fixture three-pass + `judge.jsonl`/`judge_manifest.json` present and tests green; **MS-B user signoff required** |
 | CVR-G11 | PASS | Offline `harness.catalyst.report.build_report` with socket blocked |
 | CVR-G12 | PENDING | Import-boundary + no-judge tests green; **MS-C user signoff required** |
-| CVR-G13 | BLOCKED | Waiting on 008-G5 |
-| CVR-G14 | BLOCKED | Waiting on 008-G5 |
-| CVR-G15 | BLOCKED | Waiting on 008-G5 |
-| CVR-G16 | BLOCKED | Waiting on 008-G6 + T094/T095/T111 |
-| CVR-G17 | BLOCKED | Waiting on 008-G6 + T094/T095/T111 |
-| CVR-G18 | BLOCKED | Waiting on 008-G6 + T094/T095/T111 |
+| CVR-G13 | BLOCKED | Waiting on T094/T095/T111 acceptance (A1) |
+| CVR-G14 | BLOCKED | Waiting on T094/T095/T111 acceptance (A1) |
+| CVR-G15 | BLOCKED | Waiting on T094/T095/T111 acceptance (A1) |
+| CVR-G16 | BLOCKED | Waiting on T094/T095/T111 acceptance (A1) |
+| CVR-G17 | BLOCKED | Waiting on T094/T095/T111 acceptance (A1) |
+| CVR-G18 | BLOCKED | Waiting on T094/T095/T111 acceptance (A1) |
 
 ## Signoffs
 
@@ -118,7 +119,7 @@ PCCP, skill, schemas, `harness/catalyst/reconcile.py`, `scripts/catalyst-judge-f
 `harness/catalyst/report.py` offline report on shell; socket-blocked tests. Run MS-C to clear CVR-G12.
 
 ### P4 — not started (entry gate)
-`scripts/verify-catalyst-validation-roadmap-gates.sh blocked` → CVR-G13–G15 BLOCKED until 008-G5 is recorded PASS in this status artifact.
+`scripts/verify-catalyst-validation-roadmap-gates.sh blocked` → CVR-G13–G15 BLOCKED until T094/T095/T111 are recorded PASS in this status artifact (Amendment A1).
 
 ### P5 — not started (entry gate)
-CVR-G16–G18 BLOCKED until 008-G6 + T094/T095/T111 are recorded PASS here.
+CVR-G16–G18 BLOCKED until T094/T095/T111 are recorded PASS here (Amendment A1).

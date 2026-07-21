@@ -15,7 +15,11 @@ Out of scope (explicitly excluded, section 8): rewriting `scripts/validate-dashb
 - Constitution V (tests): each behavioral task is red-first except the explicitly green-before-green baseline golden tests; diverse scenario, failure, no-judge, and gold-fail/judge-pass cases are mandatory.
 - Governance: P2 creates a PCCP-style change record before the rubric is accepted; P5 includes independent code-qa evidence.
 
-This roadmap does not silently supersede `specs/008-catalyst-query-workbench/roadmap.md`. P0–P3 are preparatory refactor/rubric/report work and may proceed using development fixtures. P4 is W3 harness integration and MUST NOT start until **008-G5** (the active roadmap's W2 checkpoint **G5 user**) is recorded PASS in the status artifact. P5 comparative/release claims MUST NOT start until **008-G6** (the active roadmap's **G6 user**) and tasks **T094, T095, and T111** are recorded PASS. These dependencies are hard phase-entry gates.
+This roadmap does not silently supersede `specs/008-catalyst-query-workbench/roadmap.md`. P0–P3 are preparatory refactor/rubric/report work and may proceed using development fixtures. Per Amendment A1, P4 harness-integration work MUST NOT start until tasks **T094, T095, and T111** (the active roadmap's real-path acceptance gates) are recorded PASS in the status artifact, and P5 comparative/release claims require the same recorded acceptance. The active roadmap's **G5 user**/**G6 user** checkpoints (W2/W3 exits) remain product-feature checkpoints on the 008 track but no longer gate this roadmap's phases. These dependencies are hard phase-entry gates.
+
+### 1.2 Amendments
+
+**A1 (2026-07-21, user-authorized):** P4's entry gate changed from 008-G5 (W2 exit checkpoint "G5 user") to recorded T094/T095/T111 user acceptance; P5's entry gate changed from 008-G6 + T094/T095/T111 to recorded T094/T095/T111 user acceptance. Rationale: G5 and G6 are exit checkpoints of the unstarted W2 (lint remediation) and W3 (session export) product phases, which are orthogonal to validating and publishing real-path evidence; T094/T095/T111 are the actual user-acceptance gates for the real-path run this roadmap reports and publishes. The pre-amendment wording is preserved in git history at the original approved SHA-256 `b00a063bf2b78494a3a719436d4609127eb2e845153d1ab2f9153d1e018e6ef8`.
 
 ## 2. Baseline facts (verified in-repo)
 
@@ -76,7 +80,7 @@ Tasks:
 1. Create and approve the D13 PCCP and JSON Schema before rubric implementation.
 2. Author the D6 skill, `harness/catalyst/reconcile.py`, and `scripts/catalyst-judge-finalize.py`.
 3. Run three manual-skill repetitions on the committed Catalyst fixture; finalize them and pass CVR-G08–G10.
-4. Signoff B executes MS-B. Fixture scoring remains development evidence and does not cross 008-G5.
+4. Signoff B executes MS-B. Fixture scoring remains development evidence and does not cross the P4 entry gate.
 
 ### P3 — Offline Catalyst report on the shell (User Signoff C; CVR-G11–G12)
 
@@ -87,21 +91,21 @@ Tasks:
 2. Call `build_report()` directly in tests/manual review; the CLI does not exist until P4.
 3. Pass CVR-G11–G12, then Signoff C executes MS-C.
 
-### P4 — Artifact contracts, CLI, publish, and index integration (starts only after 008-G5; CVR-G13–G15)
+### P4 — Artifact contracts, CLI, publish, and index integration (starts only after T094/T095/T111 acceptance, per A1; CVR-G13–G15)
 
 Red-first tests: extend `tests/test_catalyst_notebook_events.py` and add notebook integration contract tests under `evals/metadata/` (manifest + emitted `events.jsonl`, evidence resolution, report-family/suite fields); `evals/catalyst/test_cli.py`; `evals/scripts/test_publish_report.py` using `PUBLISH_DRY_RUN=1`; mixed-family index tests using `report_family` and family-specific result loaders.
 
 Tasks:
-1. Verify 008-G5 acceptance in the status artifact; otherwise stop.
+1. Verify T094/T095/T111 acceptance in the status artifact (A1); otherwise stop.
 2. Reconcile with 008 T035–T038 by declaring this roadmap authoritative for notebook validation (`harness/catalyst/notebook_validation.py`, `scripts/run-catalyst-notebook-validation.py`, `harness/catalyst/events.py`): emit the notebook manifest/events contract here and land integration contracts in `evals/metadata/`, superseding T035's placeholder `tests/test_metadata.py`. Governed-preview export (T036) and UI one-click export (T037) remain exclusively on the active 008 track; T038 remains part of 008-G6 evidence, not a P4 entry gate. Update `specs/artifacts/planning/metadata-schema.md`, including the deferred N6 `otel.gen_ai.system` versus `otel.gen_ai.provider.name` disposition, and validate evidence references against `harness/catalyst/events.py`.
 3. Add `harness-cli catalyst run|report`; convert the existing runner script into a thin compatibility wrapper.
 4. Implement D10/D11 family-aware publish/index behavior and back-compat wrapper.
 5. Dry-run-stage one committed ChartSearchAI fixture and one Catalyst fixture; pass CVR-G13–G15.
 
-### P5 — Independent QA and release (starts only after 008-G6 + T094/T095/T111; CVR-G16–G18; User Signoff D)
+### P5 — Independent QA and release (starts only after T094/T095/T111 acceptance, per A1; CVR-G16–G18; User Signoff D)
 
 Tasks:
-1. Verify existing 008-G6 and T094/T095/T111 acceptance in the status artifact; otherwise stop.
+1. Verify existing T094/T095/T111 acceptance in the status artifact (A1); otherwise stop.
 2. Run DIGI-UW/code-qa per D13; remediate every BLOCKER and regenerate affected reports.
 3. Run the complete committed `catalyst-notebook-t094-v1` suite through the real clean-pin Catalyst/Hub/PostgreSQL path; apply three manual judge repetitions; finalize, report, and publish.
 4. Update `README.md`, `specs/artifacts/planning/metadata-schema.md`, active 008 status/tasks, PCCP residual-risk disposition, and roadmap status.
@@ -124,11 +128,11 @@ Tasks:
 | **CVR-G10 Fixture judge evidence** | The committed Catalyst fixture has three valid raw passes per executed version, deterministic finalized `judge.jsonl`/`judge_manifest.json`, evidence links that resolve inside the fixture, and Signoff B recorded PASS. |
 | **CVR-G11 Offline report** | With `socket.socket` patched to raise, `build_report(evals/fixtures/catalyst-notebook-golden)` succeeds and HTML contains every scenario id, every distinct `assertions[].name`, all gold-fail rationales/evidence links, judge medians/rationales, and expected SQL diff hunks. |
 | **CVR-G12 Report boundary/signoff** | Import-boundary/no-judge tests pass and MS-C is recorded PASS; fixture output remains labelled development evidence. |
-| **CVR-G13 Metadata contract** | After recorded 008-G5 acceptance: (a) a notebook run emits schema-valid `run_manifest.json` (`report_family`, `suite_id`, `suite_sha256`, `evidence_status: "development"`) and `events.jsonl` with run/scenario/turn/version/execution records and resolvable evidence references but no judge events; (b) after three manual judge passes and finalization, appended evaluation events carry judge provider/model/version, rubric digest, and links to `judge.jsonl`/`judge_manifest.json` without regenerating the run-start manifest. |
+| **CVR-G13 Metadata contract** | After recorded T094/T095/T111 acceptance (A1): (a) a notebook run emits schema-valid `run_manifest.json` (`report_family`, `suite_id`, `suite_sha256`, `evidence_status: "development"`) and `events.jsonl` with run/scenario/turn/version/execution records and resolvable evidence references but no judge events; (b) after three manual judge passes and finalization, appended evaluation events carry judge provider/model/version, rubric digest, and links to `judge.jsonl`/`judge_manifest.json` without regenerating the run-start manifest. |
 | **CVR-G14 CLI parity** | CLI tests prove `harness-cli catalyst run` invokes the runner with every existing script default/flag (including Postgres and gold checkers) and `catalyst report` invokes `build_report`; compatibility script tests pass. |
 | **CVR-G15 Mixed-family publish** | With `PUBLISH_DRY_RUN=1 REPORTS_ROOT=<pytest tmp_path>`, explicit fixture run dirs stage two reports only under `REPORTS_ROOT`; index shows correct family badges and family metrics; Catalyst never enters Scout code; metadata uses `comparison_set` only for ChartSearchAI and `suite_id`/digest only for Catalyst; `run_path` is root-relative/traversal-safe; republish preserves curated prose. |
 | **CVR-G16 Independent QA** | All five D13 code-qa files exist and are non-empty; status artifact lists zero unresolved BLOCKER findings. |
-| **CVR-G17 Live release evidence** | After recorded 008-G6 + T094/T095/T111 acceptance, the complete T094 suite runs through real Catalyst/Hub/PostgreSQL on clean pins, all deterministic required assertions pass, three-pass judge output finalizes, and the live URL serves the report with record-level evidence links. |
+| **CVR-G17 Live release evidence** | After recorded T094/T095/T111 acceptance (A1), the complete T094 suite runs through real Catalyst/Hub/PostgreSQL on clean pins, all deterministic required assertions pass, three-pass judge output finalizes, and the live URL serves the report with record-level evidence links. |
 | **CVR-G18 Release hygiene/docs** | Required CI is green at the recorded release SHA; root and recursive submodule status are clean; tested/pushed pins match manifests; README, metadata schema, 008 roadmap/tasks, PCCP, and roadmap status describe the same released behavior; MS-D is recorded PASS. |
 
 ## 6. Manual test scripts (user signoffs)
@@ -151,7 +155,7 @@ Expected: PASS only when all records validate, hand calculations equal finalized
 Expected: an evaluator can trace any verdict from the table to its evidence file without leaving the report.
 
 **MS-D (Signoff D, after P5):**
-0. Confirm the status artifact records PASS for 008-G6, T094, T095, and T111; confirm documented environment prerequisites are configured.
+0. Confirm the status artifact records PASS for T094, T095, and T111 (A1); confirm documented environment prerequisites are configured.
 1. From a clean checkout run `make catalyst-mvp-up && make catalyst-mvp-seed && make catalyst-mvp-health`, then `uv run harness-cli catalyst run --suite datasets/validation/catalyst/catalyst-notebook-t094-v1.json --output-dir artifacts/catalyst-notebook-validation --include-manual`; perform the bounded Hub/tool-failure checkpoint and record the emitted run directory in the status artifact.
 2. Apply the D6 skill exactly three times using the recorded release judge model; finalize it; run `uv run harness-cli catalyst report <recorded-run-dir>`; publish with `scripts/publish-report.sh catalyst <recorded-run-dir> catalyst-t094-release "Catalyst T094 validation"`.
 3. Rebuild/open the live index and verify at least one existing ChartSearchAI card plus `catalyst-t094-release`, correct family badges/metrics, and the Catalyst live URL. Trace one scenario from each T094 family plus every gold FAIL to SQL, parameters, independent reference result, bounded row evidence, and rationale.

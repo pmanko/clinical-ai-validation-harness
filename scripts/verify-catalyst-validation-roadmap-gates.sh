@@ -103,20 +103,17 @@ case "${cmd}" in
     exit 1
     ;;
   blocked)
-    if rg -q '008-G5.*\| PASS' specs/artifacts/planning/catalyst-validation-integration-roadmap-status.md
+    # Amendment A1 (2026-07-21): P4 and P5 both entry-gate on recorded
+    # T094/T095/T111 user acceptance; 008-G5/008-G6 no longer gate CVR phases.
+    if rg -q 'T094.*\| PASS' "${STATUS}" \
+      && rg -q 'T095.*\| PASS' "${STATUS}" \
+      && rg -q 'T111.*\| PASS' "${STATUS}"
     then
-      record G13-G15 READY "008-G5 recorded PASS — P4 may start"
+      record G13-G15 READY "T094/T095/T111 recorded PASS — P4 may start (A1)"
+      record G16-G18 READY "T094/T095/T111 recorded PASS — P5 may start (A1)"
     else
-      record G13-G15 BLOCKED "008-G5 (G5 user) not accepted"
-    fi
-    if rg -q '008-G6.*\| PASS' specs/artifacts/planning/catalyst-validation-integration-roadmap-status.md \
-      && rg -q 'T094.*\| PASS' specs/artifacts/planning/catalyst-validation-integration-roadmap-status.md \
-      && rg -q 'T095.*\| PASS' specs/artifacts/planning/catalyst-validation-integration-roadmap-status.md \
-      && rg -q 'T111.*\| PASS' specs/artifacts/planning/catalyst-validation-integration-roadmap-status.md
-    then
-      record G16-G18 READY "008-G6 + T094/T095/T111 recorded PASS — P5 may start"
-    else
-      record G16-G18 BLOCKED "008-G6 + T094/T095/T111 not accepted"
+      record G13-G15 BLOCKED "T094/T095/T111 not accepted (A1)"
+      record G16-G18 BLOCKED "T094/T095/T111 not accepted (A1)"
     fi
     ;;
   *)
