@@ -16,6 +16,7 @@ if str(ROOT_DIR) not in sys.path:
 
 from harness.catalyst.notebook_validation import (  # noqa: E402
     NotebookHttpClient,
+    PostgresGoldExecutionChecker,
     PostgresReadOnlyChecker,
     run_notebook_suite,
 )
@@ -55,8 +56,10 @@ def main() -> int:
     args = parser.parse_args()
 
     checker = None
+    gold_checker = None
     if not args.no_postgres_cross_check:
         checker = PostgresReadOnlyChecker(args.postgres_dsn)
+        gold_checker = PostgresGoldExecutionChecker(args.postgres_dsn)
 
     def manual_checkpoint(scenario, session_id: str) -> None:
         print(
@@ -77,6 +80,7 @@ def main() -> int:
         repetitions=args.repetitions,
         include_manual=args.include_manual,
         postgres_checker=checker,
+        gold_checker=gold_checker,
         manual_checkpoint=manual_checkpoint if args.include_manual else None,
     )
     print(

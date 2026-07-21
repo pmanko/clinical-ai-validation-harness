@@ -40,7 +40,17 @@
       "validateBase": true,
       "executeBase": true,
       "validateSuccessor": true,
-      "executeSuccessor": true
+      "executeSuccessor": true,
+      "baseGoldCheck": {
+        "mode": "row_set",
+        "referenceSql": "SELECT observation_id FROM analytics.lab_result_fact_v1 WHERE observed_at >= '2026-01-01'",
+        "matchColumns": ["observation_id"]
+      },
+      "successorGoldCheck": {
+        "mode": "row_set",
+        "referenceSql": "SELECT observation_id FROM analytics.lab_result_fact_v1 WHERE observed_at >= '2026-01-01' AND test_name = 'Viral Load' AND result_status = 'final'",
+        "matchColumns": ["observation_id"]
+      }
     },
     {
       "id": "aggregation-dirty-base-profile-switch",
@@ -66,7 +76,17 @@
       "validateBase": true,
       "executeBase": true,
       "validateSuccessor": true,
-      "executeSuccessor": true
+      "executeSuccessor": true,
+      "successorGoldCheck": {
+        "mode": "aggregate_by_key",
+        "referenceSql": "SELECT date_trunc('month', observed_at) AS observed_month, count(*) AS result_count, count(DISTINCT patient_id) AS distinct_patient_count, percentile_cont(0.5) WITHIN GROUP (ORDER BY result_value) AS median_result_value FROM analytics.lab_result_fact_v1 WHERE observed_at >= '2026-01-01' AND result_value IS NOT NULL GROUP BY 1",
+        "keyColumns": ["observed_month"],
+        "valueColumns": {
+          "result_count": {"tolerance": 0},
+          "distinct_patient_count": {"tolerance": 0},
+          "median_result_value": {"tolerance": 0.01}
+        }
+      }
     },
     {
       "id": "unresolved-parameter-correction",
@@ -92,7 +112,12 @@
       "validateBase": true,
       "executeBase": true,
       "validateSuccessor": true,
-      "executeSuccessor": true
+      "executeSuccessor": true,
+      "successorGoldCheck": {
+        "mode": "row_set",
+        "referenceSql": "SELECT observation_id FROM analytics.lab_result_fact_v1 WHERE test_name = 'Viral Load'",
+        "matchColumns": ["observation_id"]
+      }
     },
     {
       "id": "semantic-distinct-patient-review",
@@ -119,7 +144,17 @@
       "executeBase": true,
       "validateSuccessor": true,
       "executeSuccessor": true,
-      "requireReviewerCorrection": false
+      "requireReviewerCorrection": false,
+      "baseGoldCheck": {
+        "mode": "row_set",
+        "referenceSql": "SELECT patient_id FROM analytics.lab_result_fact_v1 WHERE observed_at >= '2026-01-01'",
+        "matchColumns": ["patient_id"]
+      },
+      "successorGoldCheck": {
+        "mode": "scalar",
+        "referenceSql": "SELECT count(DISTINCT patient_id) AS patient_count FROM analytics.lab_result_fact_v1 WHERE observed_at >= '2026-01-01'",
+        "valueColumn": "patient_count"
+      }
     },
     {
       "id": "bounded-hub-tool-failure",
@@ -148,7 +183,12 @@
       "validateSuccessor": false,
       "executeSuccessor": false,
       "manualOnly": true,
-      "repetitions": 1
+      "repetitions": 1,
+      "baseGoldCheck": {
+        "mode": "row_set",
+        "referenceSql": "SELECT observation_id FROM analytics.lab_result_fact_v1 WHERE observed_at >= '2026-01-01'",
+        "matchColumns": ["observation_id"]
+      }
     }
   ]
 }

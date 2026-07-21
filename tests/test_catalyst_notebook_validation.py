@@ -19,6 +19,7 @@ from harness.catalyst.notebook_validation import (
     HttpExchange,
     NotebookHttpClient,
     NotebookQuery,
+    PostgresGoldExecutionChecker,
     PostgresReadOnlyChecker,
     _binding_value,
     _driver_sql,
@@ -412,6 +413,142 @@ def test_real_http_client_runs_notebook_path_and_hashes_evidence(
     assert ("POST", "/v1/catalyst/workbench/sessions/session-1/turns") in state.requests
     assert any(path.endswith("generation-evidence") for _, path in state.requests)
 
+
+class _PassingGoldChecker:
+    def __init__(self) -> None:
+        self.calls: list[tuple[str, str]] = []
+
+    def check(self, version: dict[str, Any], gold_check: Any) -> dict[str, Any]:
+        self.calls.append((version["versionId"], gold_check.mode))
+        return {
+            "contractVersion": "harness.catalyst-notebook.gold-execution-match.v1",
+            "mode": gold_check.mode,
+            "versionId": version["versionId"],
+            "passed": True,
+        }
+
+
+def test_gold_check_wiring_adds_assertion_and_evidence_when_configured(
+    tmp_path: Path,
+) -> None:
+    scenario = dict(_suite_payload()["scenarios"][0])
+    scenario["persistEditorQuery"] = True
+    scenario["editorQuery"] = {
+        "sql": "SELECT patient_id FROM analytics.lab_result_fact_v1",
+        "parameters": [],
+        "expectedColumns": [],
+    }
+    scenario["successorGoldCheck"] = {
+        "mode": "count",
+        "referenceSql": "SELECT patient_id FROM analytics.lab_result_fact_v1",
+        "referenceParameters": [],
+    }
+    suite_path = _write_suite(tmp_path, _suite_payload(scenarios=[scenario]))
+    state = _WorkbenchState()
+    server = ThreadingHTTPServer(("127.0.0.1", 0), _handler(state))
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    gold_checker = _PassingGoldChecker()
+    try:
+        result = run_notebook_suite(
+            suite_path=suite_path,
+            client=NotebookHttpClient(f"http://127.0.0.1:{server.server_port}"),
+            output_dir=tmp_path / "artifacts",
+            project_root=ROOT,
+            gold_checker=gold_checker,
+            provenance_loader=lambda _: [],
+        )
+    finally:
+        server.shutdown()
+        thread.join(timeout=5)
+        server.server_close()
+
+    assert result.passed_count == result.result_count == 1
+    assert gold_checker.calls == [("version-3", "count")]
+    evidence_path = (
+        result.run_dir
+        / "scenarios/unchanged/repetition-01/16-gold-execution-match-successor.json"
+    )
+    assert evidence_path.exists()
+    evidence = json.loads(evidence_path.read_text())
+    assert evidence["passed"] is True
+    results = json.loads((result.run_dir / "results.json").read_text())
+    names = {item["name"] for item in results["results"][0]["assertions"]}
+    assert "successor_gold_execution_match" in names
+
+
+def test_base_gold_check_wiring_adds_assertion_and_evidence_when_configured(
+    tmp_path: Path,
+) -> None:
+    scenario = dict(_suite_payload()["scenarios"][0])
+    scenario["persistEditorQuery"] = True
+    scenario["editorQuery"] = {
+        "sql": "SELECT patient_id FROM analytics.lab_result_fact_v1",
+        "parameters": [],
+        "expectedColumns": [],
+    }
+    scenario["baseGoldCheck"] = {
+        "mode": "count",
+        "referenceSql": "SELECT patient_id FROM analytics.lab_result_fact_v1",
+    }
+    suite_path = _write_suite(tmp_path, _suite_payload(scenarios=[scenario]))
+    state = _WorkbenchState()
+    server = ThreadingHTTPServer(("127.0.0.1", 0), _handler(state))
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    gold_checker = _PassingGoldChecker()
+    try:
+        result = run_notebook_suite(
+            suite_path=suite_path,
+            client=NotebookHttpClient(f"http://127.0.0.1:{server.server_port}"),
+            output_dir=tmp_path / "artifacts",
+            project_root=ROOT,
+            gold_checker=gold_checker,
+            provenance_loader=lambda _: [],
+        )
+    finally:
+        server.shutdown()
+        thread.join(timeout=5)
+        server.server_close()
+
+    assert ("version-2", "count") in gold_checker.calls
+    evidence_path = (
+        result.run_dir
+        / "scenarios/unchanged/repetition-01/15-gold-execution-match-base.json"
+    )
+    assert evidence_path.exists()
+    results = json.loads((result.run_dir / "results.json").read_text())
+    names = {item["name"] for item in results["results"][0]["assertions"]}
+    assert "base_gold_execution_match" in names
+
+
+def test_gold_check_absent_by_default_when_not_configured(tmp_path: Path) -> None:
+    suite_path = _write_suite(tmp_path, _suite_payload())
+    state = _WorkbenchState()
+    server = ThreadingHTTPServer(("127.0.0.1", 0), _handler(state))
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    gold_checker = _PassingGoldChecker()
+    try:
+        result = run_notebook_suite(
+            suite_path=suite_path,
+            client=NotebookHttpClient(f"http://127.0.0.1:{server.server_port}"),
+            output_dir=tmp_path / "artifacts",
+            project_root=ROOT,
+            gold_checker=gold_checker,
+            provenance_loader=lambda _: [],
+        )
+    finally:
+        server.shutdown()
+        thread.join(timeout=5)
+        server.server_close()
+
+    assert gold_checker.calls == []
+    results = json.loads((result.run_dir / "results.json").read_text())
+    names = {item["name"] for item in results["results"][0]["assertions"]}
+    assert "successor_gold_execution_match" not in names
+    assert "base_gold_execution_match" not in names
+
     index_path = result.run_dir / "evidence-index.json"
     index = json.loads(index_path.read_text(encoding="utf-8"))
     for entry in index["entries"]:
@@ -500,6 +637,431 @@ def test_postgres_crosscheck_uses_read_only_transaction_and_record_digests(
     assert statements[0] == ("SET TRANSACTION READ ONLY", None)
     assert "%(test_name)s" in statements[2][0]
     assert statements[2][1] == {"test_name": "Viral Load"}
+
+
+class _GoldCheckCursor:
+    """Stub cursor returning canned rows keyed by a marker substring in the
+    executed SQL, so a single instance can serve the model + reference
+    queries a gold-execution-match check issues in sequence."""
+
+    def __init__(
+        self, rows_by_marker: dict[str, tuple[list[str], list[tuple]]]
+    ) -> None:
+        self.rows_by_marker = rows_by_marker
+        self.statements: list[tuple[str, object]] = []
+        self._columns: list[str] = []
+        self._rows: list[tuple] = []
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args: object) -> None:
+        return None
+
+    def execute(self, statement: str, parameters: object = None) -> None:
+        self.statements.append((statement, parameters))
+        for marker, (columns, rows) in self.rows_by_marker.items():
+            if marker in statement:
+                self._columns, self._rows = columns, rows
+                return
+
+    @property
+    def description(self):
+        class Column:
+            def __init__(self, name: str) -> None:
+                self.name = name
+
+        return [Column(name) for name in self._columns]
+
+    def fetchmany(self, count: int) -> list[tuple]:
+        return self._rows
+
+
+def _gold_check_connection(
+    monkeypatch, rows_by_marker: dict[str, tuple[list[str], list[tuple]]]
+):
+    import psycopg
+
+    cursor = _GoldCheckCursor(rows_by_marker)
+
+    class Connection:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args: object) -> None:
+            return None
+
+        def cursor(self):
+            return cursor
+
+    monkeypatch.setattr(psycopg, "connect", lambda *args, **kwargs: Connection())
+    return cursor
+
+
+def test_gold_execution_checker_count_mode_compares_row_counts(monkeypatch) -> None:
+    from harness.catalyst.notebook_validation import (
+        PostgresGoldExecutionChecker,
+        NotebookGoldCheck,
+    )
+
+    cursor = _gold_check_connection(
+        monkeypatch,
+        {
+            "model_table": (["patient_id"], [("p1",), ("p2",), ("p3",)]),
+            "reference_table": (["patient_id"], [("p1",), ("p2",), ("p3",)]),
+        },
+    )
+    version = {
+        "versionId": "version-1",
+        "queryDigest": "a" * 64,
+        "sql": "SELECT patient_id FROM model_table",
+        "parameters": [],
+    }
+    gold_check = NotebookGoldCheck(
+        mode="count", reference_sql="SELECT patient_id FROM reference_table"
+    )
+
+    result = PostgresGoldExecutionChecker(
+        "postgresql://readonly:secret@127.0.0.1:15443/catalyst_analytics"
+    ).check(version, gold_check)
+
+    assert result["passed"] is True
+    assert result["mode"] == "count"
+    assert result["modelRowCount"] == 3
+    assert result["referenceRowCount"] == 3
+    assert "secret" not in json.dumps(result)
+    assert cursor.statements[0] == ("SET TRANSACTION READ ONLY", None)
+
+
+def test_gold_execution_checker_count_mode_detects_mismatch(monkeypatch) -> None:
+    from harness.catalyst.notebook_validation import (
+        PostgresGoldExecutionChecker,
+        NotebookGoldCheck,
+    )
+
+    _gold_check_connection(
+        monkeypatch,
+        {
+            "model_table": (["patient_id"], [("p1",), ("p2",)]),
+            "reference_table": (["patient_id"], [("p1",), ("p2",), ("p3",)]),
+        },
+    )
+    version = {
+        "versionId": "version-1",
+        "queryDigest": "a" * 64,
+        "sql": "SELECT patient_id FROM model_table",
+        "parameters": [],
+    }
+    gold_check = NotebookGoldCheck(
+        mode="count", reference_sql="SELECT patient_id FROM reference_table"
+    )
+
+    result = PostgresGoldExecutionChecker(
+        "postgresql://readonly:secret@127.0.0.1:15443/catalyst_analytics"
+    ).check(version, gold_check)
+
+    assert result["passed"] is False
+    assert result["modelRowCount"] == 2
+    assert result["referenceRowCount"] == 3
+
+
+def test_gold_execution_checker_row_set_mode_detects_wrong_predicate(
+    monkeypatch,
+) -> None:
+    from harness.catalyst.notebook_validation import (
+        PostgresGoldExecutionChecker,
+        NotebookGoldCheck,
+    )
+
+    # The model's rows agree in COUNT with the reference (3 each) but include a
+    # row the reference predicate excludes — a wrong-predicate bug a count-only
+    # check would miss entirely.
+    _gold_check_connection(
+        monkeypatch,
+        {
+            "model_table": (["observation_id"], [("o1",), ("o2",), ("o4",)]),
+            "reference_table": (["observation_id"], [("o1",), ("o2",), ("o3",)]),
+        },
+    )
+    version = {
+        "versionId": "version-1",
+        "queryDigest": "a" * 64,
+        "sql": "SELECT observation_id FROM model_table",
+        "parameters": [],
+    }
+    gold_check = NotebookGoldCheck(
+        mode="row_set",
+        reference_sql="SELECT observation_id FROM reference_table",
+        match_columns=("observation_id",),
+    )
+
+    result = PostgresGoldExecutionChecker(
+        "postgresql://readonly:secret@127.0.0.1:15443/catalyst_analytics"
+    ).check(version, gold_check)
+
+    assert result["passed"] is False
+    assert result["missingFromModelSample"] == [["o3"]]
+    assert result["extraInModelSample"] == [["o4"]]
+
+
+def test_gold_execution_checker_row_set_mode_passes_on_exact_match(monkeypatch) -> None:
+    from harness.catalyst.notebook_validation import (
+        PostgresGoldExecutionChecker,
+        NotebookGoldCheck,
+    )
+
+    _gold_check_connection(
+        monkeypatch,
+        {
+            "model_table": (["observation_id"], [("o2",), ("o1",)]),
+            "reference_table": (["observation_id"], [("o1",), ("o2",)]),
+        },
+    )
+    version = {
+        "versionId": "v",
+        "queryDigest": "a" * 64,
+        "sql": "SELECT observation_id FROM model_table",
+        "parameters": [],
+    }
+    gold_check = NotebookGoldCheck(
+        mode="row_set",
+        reference_sql="SELECT observation_id FROM reference_table",
+        match_columns=("observation_id",),
+    )
+
+    result = PostgresGoldExecutionChecker(
+        "postgresql://readonly:secret@127.0.0.1:15443/catalyst_analytics"
+    ).check(version, gold_check)
+
+    assert result["passed"] is True
+
+
+def test_gold_execution_checker_aggregate_by_key_mode_detects_value_mismatch(
+    monkeypatch,
+) -> None:
+    from harness.catalyst.notebook_validation import (
+        PostgresGoldExecutionChecker,
+        NotebookGoldCheck,
+    )
+
+    _gold_check_connection(
+        monkeypatch,
+        {
+            "model_table": (
+                ["observed_month", "result_count", "median_result_value"],
+                [("2026-01", 10, 5.0), ("2026-02", 20, 6.0)],
+            ),
+            "reference_table": (
+                ["observed_month", "result_count", "median_result_value"],
+                [("2026-01", 10, 5.0), ("2026-02", 21, 6.005)],
+            ),
+        },
+    )
+    version = {
+        "versionId": "v",
+        "queryDigest": "a" * 64,
+        "sql": "SELECT observed_month, result_count, median_result_value FROM model_table",
+        "parameters": [],
+    }
+    gold_check = NotebookGoldCheck(
+        mode="aggregate_by_key",
+        reference_sql=(
+            "SELECT observed_month, result_count, median_result_value FROM reference_table"
+        ),
+        key_columns=("observed_month",),
+        value_columns={
+            "result_count": {"tolerance": 0},
+            "median_result_value": {"tolerance": 0.01},
+        },
+    )
+
+    result = PostgresGoldExecutionChecker(
+        "postgresql://readonly:secret@127.0.0.1:15443/catalyst_analytics"
+    ).check(version, gold_check)
+
+    # median_result_value is within tolerance (0.005 <= 0.01) so only the
+    # exact-tolerance result_count column should be flagged.
+    assert result["passed"] is False
+    assert len(result["valueMismatches"]) == 1
+    assert result["valueMismatches"][0]["column"] == "result_count"
+    assert result["valueMismatches"][0]["key"] == ["2026-02"]
+
+
+def test_gold_execution_checker_aggregate_by_key_mode_detects_missing_key(
+    monkeypatch,
+) -> None:
+    from harness.catalyst.notebook_validation import (
+        PostgresGoldExecutionChecker,
+        NotebookGoldCheck,
+    )
+
+    _gold_check_connection(
+        monkeypatch,
+        {
+            "model_table": (["observed_month", "result_count"], [("2026-01", 10)]),
+            "reference_table": (
+                ["observed_month", "result_count"],
+                [("2026-01", 10), ("2026-02", 20)],
+            ),
+        },
+    )
+    version = {
+        "versionId": "v",
+        "queryDigest": "a" * 64,
+        "sql": "SELECT observed_month, result_count FROM model_table",
+        "parameters": [],
+    }
+    gold_check = NotebookGoldCheck(
+        mode="aggregate_by_key",
+        reference_sql="SELECT observed_month, result_count FROM reference_table",
+        key_columns=("observed_month",),
+        value_columns={"result_count": {"tolerance": 0}},
+    )
+
+    result = PostgresGoldExecutionChecker(
+        "postgresql://readonly:secret@127.0.0.1:15443/catalyst_analytics"
+    ).check(version, gold_check)
+
+    assert result["passed"] is False
+    assert result["missingKeys"] == [["2026-02"]]
+    assert result["extraKeys"] == []
+
+
+def test_gold_execution_checker_scalar_mode_compares_single_value(monkeypatch) -> None:
+    from harness.catalyst.notebook_validation import (
+        PostgresGoldExecutionChecker,
+        NotebookGoldCheck,
+    )
+
+    _gold_check_connection(
+        monkeypatch,
+        {
+            "model_table": (["patient_count"], [(96,)]),
+            "reference_table": (["patient_count"], [(96,)]),
+        },
+    )
+    version = {
+        "versionId": "v",
+        "queryDigest": "a" * 64,
+        "sql": "SELECT patient_count FROM model_table",
+        "parameters": [],
+    }
+    gold_check = NotebookGoldCheck(
+        mode="scalar",
+        reference_sql="SELECT patient_count FROM reference_table",
+        value_column="patient_count",
+    )
+
+    result = PostgresGoldExecutionChecker(
+        "postgresql://readonly:secret@127.0.0.1:15443/catalyst_analytics"
+    ).check(version, gold_check)
+
+    assert result["passed"] is True
+    assert result["modelValue"] == 96
+    assert result["referenceValue"] == 96
+
+
+def test_gold_execution_checker_scalar_mode_detects_wrong_value(monkeypatch) -> None:
+    from harness.catalyst.notebook_validation import (
+        PostgresGoldExecutionChecker,
+        NotebookGoldCheck,
+    )
+
+    _gold_check_connection(
+        monkeypatch,
+        {
+            "model_table": (["patient_count"], [(90,)]),
+            "reference_table": (["patient_count"], [(96,)]),
+        },
+    )
+    version = {
+        "versionId": "v",
+        "queryDigest": "a" * 64,
+        "sql": "SELECT patient_count FROM model_table",
+        "parameters": [],
+    }
+    gold_check = NotebookGoldCheck(
+        mode="scalar",
+        reference_sql="SELECT patient_count FROM reference_table",
+        value_column="patient_count",
+    )
+
+    result = PostgresGoldExecutionChecker(
+        "postgresql://readonly:secret@127.0.0.1:15443/catalyst_analytics"
+    ).check(version, gold_check)
+
+    assert result["passed"] is False
+    assert result["modelValue"] == 90
+    assert result["referenceValue"] == 96
+
+
+def test_values_match_handles_none_and_non_numeric_fallback() -> None:
+    from harness.catalyst.notebook_validation import _values_match
+
+    assert _values_match(None, None, 0) is True
+    assert _values_match(None, 1, 0) is False
+    assert _values_match(1, None, 0) is False
+    assert _values_match("a", "a", 0) is True
+    assert _values_match("a", "b", 0) is False
+    assert _values_match(1.0, 1.0000001, 0.001) is True
+
+
+def test_gold_execution_checker_rejects_unsupported_mode(monkeypatch) -> None:
+    from harness.catalyst.notebook_validation import (
+        PostgresGoldExecutionChecker,
+        NotebookGoldCheck,
+    )
+
+    _gold_check_connection(
+        monkeypatch,
+        {
+            "model_table": (["x"], [(1,)]),
+            "reference_table": (["x"], [(1,)]),
+        },
+    )
+    version = {
+        "versionId": "v",
+        "queryDigest": "a" * 64,
+        "sql": "SELECT x FROM model_table",
+        "parameters": [],
+    }
+    # Constructed directly (bypassing the loader's mode validation) to exercise
+    # the checker's own defense-in-depth guard against an unsupported mode.
+    gold_check = NotebookGoldCheck(
+        mode="unsupported", reference_sql="SELECT x FROM reference_table"
+    )
+
+    with pytest.raises(ValueError, match="unsupported gold check mode"):
+        PostgresGoldExecutionChecker(
+            "postgresql://readonly:secret@127.0.0.1:15443/catalyst_analytics"
+        ).check(version, gold_check)
+
+
+def test_gold_execution_checker_enforces_max_rows_safety_cap(monkeypatch) -> None:
+    from harness.catalyst.notebook_validation import (
+        PostgresGoldExecutionChecker,
+        NotebookGoldCheck,
+    )
+
+    _gold_check_connection(
+        monkeypatch,
+        {"model_table": (["x"], [(i,) for i in range(5)])},
+    )
+    version = {
+        "versionId": "v",
+        "queryDigest": "a" * 64,
+        "sql": "SELECT x FROM model_table",
+        "parameters": [],
+    }
+    gold_check = NotebookGoldCheck(
+        mode="count", reference_sql="SELECT x FROM model_table"
+    )
+
+    with pytest.raises(ValueError, match="safety cap"):
+        PostgresGoldExecutionChecker(
+            "postgresql://readonly:secret@127.0.0.1:15443/catalyst_analytics",
+            max_rows=2,
+        ).check(version, gold_check)
 
 
 def test_manual_failure_family_is_explicitly_skipped_by_default(tmp_path: Path) -> None:
@@ -629,6 +1191,122 @@ def test_suite_loader_rejects_invalid_scenario_fields(tmp_path: Path) -> None:
     )
     with pytest.raises(ValueError, match="unknown profile"):
         load_notebook_suite(_write_suite(tmp_path, unknown_profile))
+
+
+def _gold_check_payload(**overrides: Any) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "mode": "count",
+        "referenceSql": "SELECT patient_id FROM analytics.lab_result_fact_v1",
+        "referenceParameters": [],
+    }
+    payload.update(overrides)
+    return payload
+
+
+def test_suite_loader_parses_gold_checks_by_mode(tmp_path: Path) -> None:
+    base = _suite_payload()["scenarios"][0]
+
+    count_scenario = {**base, "successorGoldCheck": _gold_check_payload()}
+    suite = load_notebook_suite(
+        _write_suite(tmp_path, _suite_payload(scenarios=[count_scenario]))
+    )
+    check = suite.scenarios[0].successor_gold_check
+    assert check is not None
+    assert check.mode == "count"
+    assert check.reference_sql == "SELECT patient_id FROM analytics.lab_result_fact_v1"
+    assert suite.scenarios[0].base_gold_check is None
+
+    row_set_scenario = {
+        **base,
+        "baseGoldCheck": _gold_check_payload(
+            mode="row_set", matchColumns=["observation_id"]
+        ),
+    }
+    suite = load_notebook_suite(
+        _write_suite(tmp_path, _suite_payload(scenarios=[row_set_scenario]))
+    )
+    check = suite.scenarios[0].base_gold_check
+    assert check.mode == "row_set"
+    assert check.match_columns == ("observation_id",)
+
+    aggregate_scenario = {
+        **base,
+        "successorGoldCheck": _gold_check_payload(
+            mode="aggregate_by_key",
+            keyColumns=["observed_month"],
+            valueColumns={"result_count": {"tolerance": 0}},
+        ),
+    }
+    suite = load_notebook_suite(
+        _write_suite(tmp_path, _suite_payload(scenarios=[aggregate_scenario]))
+    )
+    check = suite.scenarios[0].successor_gold_check
+    assert check.mode == "aggregate_by_key"
+    assert check.key_columns == ("observed_month",)
+    assert check.value_columns == {"result_count": {"tolerance": 0}}
+
+    scalar_scenario = {
+        **base,
+        "successorGoldCheck": _gold_check_payload(
+            mode="scalar", valueColumn="patient_count"
+        ),
+    }
+    suite = load_notebook_suite(
+        _write_suite(tmp_path, _suite_payload(scenarios=[scalar_scenario]))
+    )
+    check = suite.scenarios[0].successor_gold_check
+    assert check.mode == "scalar"
+    assert check.value_column == "patient_count"
+
+
+def test_suite_loader_rejects_invalid_gold_checks(tmp_path: Path) -> None:
+    base = _suite_payload()["scenarios"][0]
+
+    bad_mode = {**base, "successorGoldCheck": _gold_check_payload(mode="guessed")}
+    with pytest.raises(ValueError, match="unknown gold check mode"):
+        load_notebook_suite(
+            _write_suite(tmp_path, _suite_payload(scenarios=[bad_mode]))
+        )
+
+    row_set_missing_columns = {
+        **base,
+        "successorGoldCheck": _gold_check_payload(mode="row_set"),
+    }
+    with pytest.raises(ValueError, match="row_set gold check requires matchColumns"):
+        load_notebook_suite(
+            _write_suite(tmp_path, _suite_payload(scenarios=[row_set_missing_columns]))
+        )
+
+    aggregate_missing_keys = {
+        **base,
+        "successorGoldCheck": _gold_check_payload(mode="aggregate_by_key"),
+    }
+    with pytest.raises(
+        ValueError, match="aggregate_by_key gold check requires keyColumns"
+    ):
+        load_notebook_suite(
+            _write_suite(tmp_path, _suite_payload(scenarios=[aggregate_missing_keys]))
+        )
+
+    scalar_missing_column = {
+        **base,
+        "successorGoldCheck": _gold_check_payload(mode="scalar"),
+    }
+    with pytest.raises(ValueError, match="scalar gold check requires valueColumn"):
+        load_notebook_suite(
+            _write_suite(tmp_path, _suite_payload(scenarios=[scalar_missing_column]))
+        )
+
+    write_verb_reference = {
+        **base,
+        "successorGoldCheck": _gold_check_payload(
+            referenceSql="DELETE FROM analytics.lab_result_fact_v1"
+        ),
+    }
+    with pytest.raises(ValueError, match="must be read-only"):
+        load_notebook_suite(
+            _write_suite(tmp_path, _suite_payload(scenarios=[write_verb_reference]))
+        )
 
 
 def test_run_suite_rejects_empty_selection_and_bad_repetitions(
@@ -1075,6 +1753,7 @@ def test_notebook_cli_wires_arguments_into_the_runner(
     assert captured["include_manual"] is False
     assert captured["manual_checkpoint"] is None
     assert isinstance(captured["postgres_checker"], PostgresReadOnlyChecker)
+    assert isinstance(captured["gold_checker"], PostgresGoldExecutionChecker)
     assert json.loads(capsys.readouterr().out) == {
         "run_id": "run-1",
         "run_dir": str(tmp_path / "run-1"),
@@ -1123,4 +1802,5 @@ def test_notebook_cli_can_skip_the_postgres_cross_check(
 
     assert exit_info.value.code == 1
     assert captured["postgres_checker"] is None
+    assert captured["gold_checker"] is None
     capsys.readouterr()

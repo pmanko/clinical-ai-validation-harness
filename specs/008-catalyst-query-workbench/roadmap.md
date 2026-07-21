@@ -1052,6 +1052,78 @@ pass, the evidence is appended to this roadmap and the G2.8 PCCP, T094/T095/T111
 are updated, and work pauses for user acceptance before the squash/repin
 sequence.
 
+#### Gold execution-match layer (2026-07-21)
+
+The T094 runner previously proved a generated turn was well-formed (lineage,
+digests, profile/config identity) and that its *visible* page agreed between
+the Gateway and a direct read-only Postgres connection. Neither check proved
+the SQL's `WHERE`/`GROUP BY` actually answered the question: the Gateway caps
+every UI-visible result at 100 rows, so a predicate matching 962 real rows and
+one matching 200 would both read back as `returned: 100, truncated: true`.
+
+`PostgresGoldExecutionChecker` closes this gap: it executes the model's own
+generated SQL directly against the analytics database, unbounded (no UI row
+cap), and compares it against a hand-authored reference query for the same
+intent — the standard text-to-SQL "execution accuracy" pattern. Four
+comparison modes cover the suite's scenario shapes:
+
+- `count` — row-count equality
+- `row_set` — multiset equality on key columns (catches a wrong predicate even
+  when the count coincidentally matches)
+- `aggregate_by_key` — match rows by key column(s), compare value columns with
+  a numeric tolerance (for the monthly-aggregation scenario)
+- `scalar` — exact single-value comparison (for the distinct-patient-count
+  scenario)
+
+Reference SQL is hand-authored per scenario as `baseGoldCheck` /
+`successorGoldCheck` in the suite JSON, defense-in-depth guarded against
+write/DDL verbs, and executed in the same read-only, statement-timeout-bounded
+transaction the existing Postgres cross-check already uses.
+
+Gold values were independently verified against the live seeded dataset
+before authoring the suite (not guessed):
+
+| Predicate | True count |
+|---|---|
+| `observed_at >= '2026-01-01'` (narrowing/aggregation base) | 962 |
+| `+ test_name='Viral Load' AND result_status='final'` | 194 |
+| `test_name='Viral Load'` (all-time, unresolved-correction successor) | 384 |
+| Distinct months in the aggregation window | 4 (Jan 96/Feb 1/Mar 349/Apr 516, summing to 962) |
+| Distinct patients since 2026-01-01 | 96 |
+
+A single-scenario smoke against the live stack (real Gemma 4 12B writer / Qwen
+2.5 14B reviewer) confirmed the design works against real, non-deterministic
+model output, not just the mock server: the model's own base SQL, executed
+unbounded, returned exactly 962 rows against the reference's 962 (0
+missing/extra), and its successor SQL returned exactly 194 against 194 — proof
+the model's predicate is correct, not merely that its visible page is
+self-consistent.
+
+The full automatic matrix (4 families x 3 repetitions, run
+`5794eb05-5c63-48c9-9aa2-c04b914a3712` under
+`artifacts/catalyst-validation/t094-t095-20260721T143955Z/notebook-gold/`) then
+confirmed this at scale: all 18 applicable gold-execution-match checks passed
+against real model output, across all four comparison modes —
+
+- `narrowing-unchanged-base`: base 962/962, successor 194/194 (`row_set`), x3
+- `aggregation-dirty-base-profile-switch`: successor 4/4 months, no key or
+  value mismatches (`aggregate_by_key`, writer/reviewer profile-switched), x3
+- `unresolved-parameter-correction`: successor 384/384 (`row_set`, model's own
+  free-form base plus a repaired binding), x3
+- `semantic-distinct-patient-review`: base 962/962 (`row_set`), successor
+  scalar 96 == 96 (`scalar`), x3
+
+No mismatch was observed in this pass. The full 12/12-run matrix (1 skip: the
+manual bounded-failure family) is otherwise unchanged from the prior
+structural-only pass.
+
+This closes gap "A" from the deterministic-vs-LLM-judge fork the user
+confirmed (execution-match over static gold counts). It does not by itself
+close T094/T095/T111 — the bounded Hub/tool-failure live run, the
+accessibility matrix, and the three-repetition digest-variance analysis
+remain open. A Catalyst-specific LLM-judge rubric (gap "B", for cases a fixed
+predicate can't adjudicate) remains a deliberate follow-up, not started.
+
 ### G2.9a UX and schema audit — USER REVIEW (2026-07-18)
 
 The measured audit is recorded in

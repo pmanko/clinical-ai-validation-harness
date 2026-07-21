@@ -11,8 +11,10 @@ import base64
 import hashlib
 import json
 import math
+import re
 import time
-from dataclasses import dataclass
+from collections import Counter
+from dataclasses import dataclass, field
 from datetime import date, datetime, time as datetime_time, timezone
 from decimal import Decimal
 from pathlib import Path
@@ -42,6 +44,87 @@ class NotebookQuery:
         }
 
 
+_GOLD_CHECK_MODES = frozenset({"count", "row_set", "aggregate_by_key", "scalar"})
+
+# Reference SQL for a gold execution-match check runs directly against the
+# analytics database outside the Gateway's write-blocking policy layer, so it
+# gets its own defense-in-depth guard against write/DDL verbs.
+_DISALLOWED_SQL_KEYWORDS = (
+    "insert",
+    "update",
+    "delete",
+    "drop",
+    "alter",
+    "truncate",
+    "grant",
+    "revoke",
+    "create",
+    "copy",
+    "call",
+    "merge",
+)
+
+
+def _guard_reference_sql(sql: str) -> None:
+    lowered = sql.lower()
+    for keyword in _DISALLOWED_SQL_KEYWORDS:
+        if re.search(rf"\b{keyword}\b", lowered):
+            raise ValueError(
+                "gold check reference SQL must be read-only; found disallowed "
+                f"keyword {keyword!r}"
+            )
+
+
+@dataclass(frozen=True)
+class NotebookGoldCheck:
+    """Proves a model's own SQL — executed directly and unbounded, bypassing
+    the Gateway's UI row cap — matches a hand-authored reference query's
+    intent, rather than merely matching its own (possibly truncated) page."""
+
+    mode: str
+    reference_sql: str
+    reference_parameters: tuple[dict[str, Any], ...] = ()
+    match_columns: tuple[str, ...] = ()
+    key_columns: tuple[str, ...] = ()
+    value_columns: dict[str, dict[str, Any]] = field(default_factory=dict)
+    value_column: str | None = None
+
+
+def _load_gold_check(payload: dict[str, Any] | None) -> NotebookGoldCheck | None:
+    if payload is None:
+        return None
+    mode = str(payload["mode"])
+    if mode not in _GOLD_CHECK_MODES:
+        raise ValueError(f"unknown gold check mode {mode!r}")
+    reference_sql = str(payload["referenceSql"])
+    _guard_reference_sql(reference_sql)
+    match_columns = tuple(str(c) for c in payload.get("matchColumns", []))
+    key_columns = tuple(str(c) for c in payload.get("keyColumns", []))
+    value_columns = {
+        str(k): dict(v) for k, v in payload.get("valueColumns", {}).items()
+    }
+    value_column = payload.get("valueColumn")
+    if mode == "row_set" and not match_columns:
+        raise ValueError("row_set gold check requires matchColumns")
+    if mode == "aggregate_by_key" and (not key_columns or not value_columns):
+        raise ValueError(
+            "aggregate_by_key gold check requires keyColumns and valueColumns"
+        )
+    if mode == "scalar" and not value_column:
+        raise ValueError("scalar gold check requires valueColumn")
+    return NotebookGoldCheck(
+        mode=mode,
+        reference_sql=reference_sql,
+        reference_parameters=tuple(
+            dict(p) for p in payload.get("referenceParameters", [])
+        ),
+        match_columns=match_columns,
+        key_columns=key_columns,
+        value_columns=value_columns,
+        value_column=str(value_column) if value_column else None,
+    )
+
+
 @dataclass(frozen=True)
 class NotebookScenario:
     id: str
@@ -61,6 +144,8 @@ class NotebookScenario:
     repetitions: int | None
     manual_only: bool
     require_reviewer_correction: bool
+    base_gold_check: NotebookGoldCheck | None = None
+    successor_gold_check: NotebookGoldCheck | None = None
 
 
 @dataclass(frozen=True)
@@ -151,6 +236,14 @@ class PostgresChecker(Protocol):
         self,
         version: dict[str, Any],
         execution: dict[str, Any],
+    ) -> dict[str, Any]: ...
+
+
+class GoldChecker(Protocol):
+    def check(
+        self,
+        version: dict[str, Any],
+        gold_check: "NotebookGoldCheck",
     ) -> dict[str, Any]: ...
 
 
@@ -367,6 +460,192 @@ class PostgresReadOnlyChecker:
         }
 
 
+def _fetch_all_rows(
+    cursor: Any,
+    sql: str,
+    parameters: list[dict[str, Any]],
+    *,
+    max_rows: int,
+) -> list[dict[str, Any]]:
+    bindings = {
+        str(parameter["name"]): _binding_value(parameter) for parameter in parameters
+    }
+    driver_sql = _driver_sql(sql, set(bindings))
+    cursor.execute(driver_sql, bindings)
+    rows = list(cursor.fetchmany(max_rows + 1))
+    if len(rows) > max_rows:
+        raise ValueError(
+            f"gold execution match exceeded the {max_rows}-row safety cap; "
+            "raise max_rows or narrow the scenario"
+        )
+    columns = [item.name for item in (cursor.description or ())]
+    return [
+        {column: _json_safe_value(value) for column, value in zip(columns, row)}
+        for row in rows
+    ]
+
+
+class PostgresGoldExecutionChecker:
+    """Prove a model's own SQL — executed directly and unbounded, bypassing the
+    Gateway's UI row cap — matches a hand-authored reference query's intent,
+    rather than merely matching its own (possibly truncated) visible page."""
+
+    def __init__(
+        self, dsn: str, *, statement_timeout_ms: int = 30_000, max_rows: int = 5_000
+    ) -> None:
+        self.dsn = dsn
+        self.statement_timeout_ms = statement_timeout_ms
+        self.max_rows = max_rows
+
+    def check(
+        self,
+        version: dict[str, Any],
+        gold_check: "NotebookGoldCheck",
+    ) -> dict[str, Any]:
+        import psycopg
+
+        with psycopg.connect(self.dsn, connect_timeout=10) as connection:
+            with connection.cursor() as cursor:
+                cursor.execute("SET TRANSACTION READ ONLY")
+                cursor.execute(
+                    "SELECT set_config('statement_timeout', %s, true)",
+                    (f"{self.statement_timeout_ms}ms",),
+                )
+                model_rows = _fetch_all_rows(
+                    cursor,
+                    str(version["sql"]),
+                    list(version.get("parameters") or []),
+                    max_rows=self.max_rows,
+                )
+                reference_rows = _fetch_all_rows(
+                    cursor,
+                    gold_check.reference_sql,
+                    list(gold_check.reference_parameters),
+                    max_rows=self.max_rows,
+                )
+
+        result: dict[str, Any] = {
+            "contractVersion": "harness.catalyst-notebook.gold-execution-match.v1",
+            "mode": gold_check.mode,
+            "versionId": version.get("versionId"),
+            "queryDigest": version.get("queryDigest"),
+            "modelRowCount": len(model_rows),
+            "referenceRowCount": len(reference_rows),
+        }
+        if gold_check.mode == "count":
+            result["passed"] = len(model_rows) == len(reference_rows)
+        elif gold_check.mode == "row_set":
+            result.update(
+                _compare_row_sets(model_rows, reference_rows, gold_check.match_columns)
+            )
+        elif gold_check.mode == "aggregate_by_key":
+            result.update(
+                _compare_aggregates(
+                    model_rows,
+                    reference_rows,
+                    gold_check.key_columns,
+                    gold_check.value_columns,
+                )
+            )
+        elif gold_check.mode == "scalar":
+            result.update(
+                _compare_scalars(model_rows, reference_rows, gold_check.value_column)
+            )
+        else:
+            raise ValueError(f"unsupported gold check mode {gold_check.mode!r}")
+        return result
+
+
+def _compare_row_sets(
+    model_rows: list[dict[str, Any]],
+    reference_rows: list[dict[str, Any]],
+    match_columns: tuple[str, ...],
+) -> dict[str, Any]:
+    def _key(row: dict[str, Any]) -> tuple[Any, ...]:
+        return tuple(row.get(column) for column in match_columns)
+
+    model_counter = Counter(_key(row) for row in model_rows)
+    reference_counter = Counter(_key(row) for row in reference_rows)
+    missing = list((reference_counter - model_counter).elements())
+    extra = list((model_counter - reference_counter).elements())
+    return {
+        "matchColumns": list(match_columns),
+        "missingFromModelCount": len(missing),
+        "extraInModelCount": len(extra),
+        "missingFromModelSample": [list(item) for item in missing[:20]],
+        "extraInModelSample": [list(item) for item in extra[:20]],
+        "passed": not missing and not extra,
+    }
+
+
+def _values_match(model_value: Any, reference_value: Any, tolerance: float) -> bool:
+    if model_value is None or reference_value is None:
+        return model_value == reference_value
+    try:
+        return abs(float(model_value) - float(reference_value)) <= tolerance
+    except (TypeError, ValueError):
+        return model_value == reference_value
+
+
+def _compare_aggregates(
+    model_rows: list[dict[str, Any]],
+    reference_rows: list[dict[str, Any]],
+    key_columns: tuple[str, ...],
+    value_columns: dict[str, dict[str, Any]],
+) -> dict[str, Any]:
+    def _key(row: dict[str, Any]) -> tuple[Any, ...]:
+        return tuple(row.get(column) for column in key_columns)
+
+    model_by_key = {_key(row): row for row in model_rows}
+    reference_by_key = {_key(row): row for row in reference_rows}
+    missing_keys = sorted(set(reference_by_key) - set(model_by_key), key=str)
+    extra_keys = sorted(set(model_by_key) - set(reference_by_key), key=str)
+    mismatches: list[dict[str, Any]] = []
+    for key in sorted(set(model_by_key) & set(reference_by_key), key=str):
+        model_row, reference_row = model_by_key[key], reference_by_key[key]
+        for column, spec in value_columns.items():
+            model_value, reference_value = (
+                model_row.get(column),
+                reference_row.get(column),
+            )
+            tolerance = float(spec.get("tolerance", 0))
+            if not _values_match(model_value, reference_value, tolerance):
+                mismatches.append(
+                    {
+                        "key": list(key),
+                        "column": column,
+                        "modelValue": model_value,
+                        "referenceValue": reference_value,
+                        "tolerance": tolerance,
+                    }
+                )
+    return {
+        "keyColumns": list(key_columns),
+        "valueColumns": value_columns,
+        "missingKeys": [list(key) for key in missing_keys],
+        "extraKeys": [list(key) for key in extra_keys],
+        "valueMismatches": mismatches,
+        "passed": not missing_keys and not extra_keys and not mismatches,
+    }
+
+
+def _compare_scalars(
+    model_rows: list[dict[str, Any]],
+    reference_rows: list[dict[str, Any]],
+    value_column: str | None,
+) -> dict[str, Any]:
+    model_value = model_rows[0].get(value_column) if model_rows else None
+    reference_value = reference_rows[0].get(value_column) if reference_rows else None
+    return {
+        "valueColumn": value_column,
+        "modelValue": model_value,
+        "referenceValue": reference_value,
+        "passed": bool(model_rows)
+        and bool(reference_rows)
+        and model_value == reference_value,
+    }
+
+
 class _EvidenceRecorder:
     def __init__(self, run_dir: Path, run_id: str) -> None:
         self.run_dir = run_dir
@@ -485,6 +764,8 @@ def load_notebook_suite(path: Path | str) -> NotebookSuite:
                 require_reviewer_correction=bool(
                     item.get("requireReviewerCorrection", False)
                 ),
+                base_gold_check=_load_gold_check(item.get("baseGoldCheck")),
+                successor_gold_check=_load_gold_check(item.get("successorGoldCheck")),
             )
         )
     if not scenarios:
@@ -540,6 +821,7 @@ def run_notebook_suite(
     repetitions: int | None = None,
     include_manual: bool = False,
     postgres_checker: PostgresChecker | None = None,
+    gold_checker: GoldChecker | None = None,
     manual_checkpoint: Callable[[NotebookScenario, str], None] | None = None,
     provenance_loader: Callable[[Path], list[dict[str, Any]]] = _target_provenance,
 ) -> NotebookRunResult:
@@ -625,6 +907,7 @@ def run_notebook_suite(
                 recorder=recorder,
                 prefix=prefix,
                 postgres_checker=postgres_checker,
+                gold_checker=gold_checker,
                 manual_checkpoint=manual_checkpoint,
             )
             session_id = result.get("sessionId")
@@ -676,6 +959,7 @@ def _run_scenario(
     recorder: _EvidenceRecorder,
     prefix: str,
     postgres_checker: PostgresChecker | None,
+    gold_checker: GoldChecker | None,
     manual_checkpoint: Callable[[NotebookScenario, str], None] | None,
 ) -> dict[str, Any]:
     assertions: list[dict[str, Any]] = []
@@ -811,6 +1095,19 @@ def _run_scenario(
                 kind="postgres_crosscheck",
             )
             check("base_postgres_crosscheck", crosscheck["passed"], crosscheck)
+        if (
+            gold_checker is not None
+            and scenario.base_gold_check is not None
+            and executed.status_code == 200
+            and base_execution.get("status") == "succeeded"
+        ):
+            gold_result = gold_checker.check(base_version, scenario.base_gold_check)
+            recorder.json(
+                f"{prefix}/15-gold-execution-match-base.json",
+                gold_result,
+                kind="gold_execution_match",
+            )
+            check("base_gold_execution_match", gold_result["passed"], gold_result)
 
     editor_query = scenario.editor_query or NotebookQuery(
         sql=str(base_version["sql"]),
@@ -1007,6 +1304,19 @@ def _run_scenario(
                 kind="postgres_crosscheck",
             )
             check("successor_postgres_crosscheck", crosscheck["passed"], crosscheck)
+        if (
+            gold_checker is not None
+            and scenario.successor_gold_check is not None
+            and executed.status_code == 200
+            and successor_execution.get("status") == "succeeded"
+        ):
+            gold_result = gold_checker.check(selected, scenario.successor_gold_check)
+            recorder.json(
+                f"{prefix}/16-gold-execution-match-successor.json",
+                gold_result,
+                kind="gold_execution_match",
+            )
+            check("successor_gold_execution_match", gold_result["passed"], gold_result)
 
     invocation_ms = int(initial_evidence.get("totalInvocationDurationMs") or 0) + int(
         followup_evidence.get("totalInvocationDurationMs") or 0
