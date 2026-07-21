@@ -77,15 +77,15 @@ Verified against live repository tips on 2026-07-21:
 
 | Repository | Branch | Tip | State |
 |---|---|---|---|
-| chartsearchai | `codex/dual-provider-rebuild` | `e2bd0db` | 8 commits ahead of `upstream/main` (`58c0daf`); **not yet pushed**. Provider boundary, bundled + hub adapters, provider-neutral conversation/audit persistence, and the REST provider/chat lifecycle have landed. |
+| chartsearchai | `codex/dual-provider-rebuild` | `e2bd0db` | 8 commits ahead of `upstream/main` (`58c0daf`); pushed to fork `origin/codex/dual-provider-rebuild`. Provider boundary, bundled + hub adapters, provider-neutral conversation/audit persistence, and the REST provider/chat lifecycle have landed. |
 | querystore | `feat/patientrecord-read-api` | `856bdda` | Clean. Explicit clinical/admin date semantics, complete-chart snapshot identity, and conditional full-chart reads have landed. |
-| med-agent-hub | `codex/drug-safety-parity-followthrough` | `32783bc` | Ledger-cache and ranked-candidate follow-through work is uncommitted (working tree dirty). |
+| med-agent-hub | `codex/drug-safety-parity-followthrough` | `faa0232` | Pushed. Revalidating patient-ledger cache and ledger-checked ranked search landed as disposable engine state (606 tests pass). |
 | chartsearchai-esm | `codex/m2-hub-profile-rebuild` | `30e94e7` | Old draft branch; canonical-lifecycle rebuild not started. |
 | harness | `codex/m2-openmrs-relay-reconciliation` | `8110091` | Submodule pins are not yet updated to the tips above. |
 
 ChartSearchAI test suite (`mvn test`, 2026-07-21): **684 tests run, 0 failures, 0 errors, 34 skipped** (baseline before rebuild: 635).
 
-Outstanding before Signoff 2: ESM rebuild on the canonical lifecycle and conditional picker; med-agent-hub follow-through commit; harness submodule pin updates; push of `codex/dual-provider-rebuild` and a fresh PR (not amending the abandoned #26); and assembled-product runtime proof for G04, G06, G07, G08 and the remaining gates G09–G22.
+Outstanding before Signoff 2: ESM rebuild on the canonical lifecycle and conditional picker; harness submodule pin updates; a fresh ChartSearchAI PR from `codex/dual-provider-rebuild` (not amending the abandoned #26); and assembled-product runtime proof for G04, G06, G07, G08 and the remaining gates G09–G22.
 
 ## Amendments and Deviations
 
