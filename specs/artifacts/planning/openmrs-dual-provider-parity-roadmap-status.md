@@ -38,12 +38,12 @@ The refreshed repository state, upstream dispositions, and rollback refs are rec
 |---|---|---|
 | G01 Roadmap integrity | Passed | `8bc9caa`; `scripts/verify-dual-provider-parity-gates.sh --phase foundation` verifies the immutable SHA, supersession, index, and per-gate status rows. |
 | G02 Baseline integrity | Passed | After `ef95ee2` was pushed, `scripts/verify-dual-provider-parity-gates.sh --phase foundation` confirmed every root/submodule tree is clean, every head is remote-reachable, both rollback refs exist, and the inventory is present. |
-| G03 Contract first | In progress | Versioned fixtures are checked in; ChartSearchAI now consumes the provider lifecycle and capability fixture families in red-first Java conformance tests on `codex/dual-provider-rebuild`. Remaining owning-language adapters are still required. |
-| G04 Provider isolation | In progress | ChartSearchAI commits `9adce8e`, `b2d8dbc`, and `8124ca7` add the canonical lifecycle, provider-neutral boundary, bundled adapter, and AnswerEnvelope. Provider-neutral conversation/audit persistence is implemented on `codex/dual-provider-rebuild`; hub-provider execution and REST wiring remain. |
-| G05 Provider selection | In progress | ChartSearchAI commit `5129dc8` adds configuration-driven discovery/default/readiness with bundled as the fresh-install default and no implicit fallback. REST metadata and ESM picker work remain. |
-| G06 Bundled preservation | In progress | Rebuild branch `codex/dual-provider-rebuild` starts from upstream `58c0daf`; the upstream 635-test baseline passed before changes and 662 tests passed after the first three provider slices. REST wiring and assembled-product proof remain. |
-| G07 QueryStore semantics | Pending | No runtime implementation has begun. |
-| G08 Freshness | Pending | No runtime implementation has begun. |
+| G03 Contract first | In progress | Versioned fixtures are checked in; ChartSearchAI consumes the provider lifecycle, capability, event, and error fixture families in red-first Java conformance tests (`TurnLifecycleConformanceTest`, `AnswerEnvelopeTest`, provider tests) on `codex/dual-provider-rebuild`. QueryStore clinical/admin-date fixtures are covered by serializer unit tests on `feat/patientrecord-read-api` (`856bdda`). Remaining owning-language adapters (Python hub, TypeScript ESM) are still required. |
+| G04 Provider isolation | In progress | ChartSearchAI commits `9adce8e`–`e2bd0db` add the canonical lifecycle, provider-neutral boundary, bundled and hub adapters (`BundledClinicalAnswerProvider`, `HubClinicalAnswerProvider`, `HttpHubStreamTransport`), the `AnswerEnvelope`, provider-neutral conversation/audit persistence (`ClinicalConversation`/`ClinicalConversationTurn`, Liquibase `chartsearchai-010`), and REST wiring (`/providers`, `/chat/*`). The registry (`ClinicalAnswerProviderRegistry`) never substitutes providers. Runtime isolation proof — bundled answers with hub absent, hub answers without bundled model files on the assembled product — remains for Signoff 2. |
+| G05 Provider selection | In progress | ChartSearchAI commit `5129dc8` adds configuration-driven discovery/default/readiness (`chartsearchai.providers.enabled`/`.default`) with bundled as the fresh-install default and no implicit fallback. REST metadata is wired: `GET /rest/v1/chartsearchai/providers` returns descriptors with `pickerVisible`/`defaultProvider` (`e2bd0db`), and `ConversationService.startNew` closes the active conversation and opens a new one on provider/mode switch. ESM picker UI remains. |
+| G06 Bundled preservation | In progress | Rebuild branch `codex/dual-provider-rebuild` starts from upstream `58c0daf`; the upstream 635-test baseline passed before changes and the full suite now runs 684 tests, 0 failures, 0 errors, 34 skipped (`mvn test`, verified 2026-07-21) after all provider and REST slices. Legacy bundled wire (`POST /search`, `/search/stream`) is retained for ESM compatibility. Assembled-product no-regression proof (engines, modes, streaming, grounding, safety, caching, warmup at runtime) remains for Signoff 2. |
+| G07 QueryStore semantics | In progress | QueryStore `feat/patientrecord-read-api` (`856bdda`) implements per-resource `getClinicalDate`/`getDateKind` across all record serializers (`clinical_event`/`administrative`/`unknown` semantics) plus `lastModified`, backed by serializer unit tests; the full-chart read API (`fd8a00c`) shares serializer/service behavior with ranked reads. End-to-end harness exercise across resource fixtures remains for Signoff 2. |
+| G08 Freshness | In progress | QueryStore `856bdda` adds a stable complete-chart `snapshotId`, a strong page-specific ETag with `private, must-revalidate` caching, `304 Not Modified` on `If-None-Match` (`QueryStoreRestController`), and rejection of mixed-snapshot multi-page reads, covered by `PatientRecordEndpointTest`. End-to-end freshness/invalidation proof remains for Signoff 2. |
 | G09 Source independence | Pending | No runtime implementation has begun. |
 | G10 Context policy | Pending | No runtime implementation has begun. |
 | G11 Context ceiling | Pending | No runtime implementation has begun. |
@@ -70,6 +70,22 @@ The refreshed repository state, upstream dispositions, and rollback refs are rec
 - No runtime code, submodule pin, branch rewrite, reset, rebase, force-push, report publication, or
   evaluation change had been made under this roadmap before Signoff 1. Runtime implementation is now
   authorized, subject to the recorded gates and later signoff boundaries.
+
+## Execution Progress — 2026-07-21
+
+Verified against live repository tips on 2026-07-21:
+
+| Repository | Branch | Tip | State |
+|---|---|---|---|
+| chartsearchai | `codex/dual-provider-rebuild` | `e2bd0db` | 8 commits ahead of `upstream/main` (`58c0daf`); **not yet pushed**. Provider boundary, bundled + hub adapters, provider-neutral conversation/audit persistence, and the REST provider/chat lifecycle have landed. |
+| querystore | `feat/patientrecord-read-api` | `856bdda` | Clean. Explicit clinical/admin date semantics, complete-chart snapshot identity, and conditional full-chart reads have landed. |
+| med-agent-hub | `codex/drug-safety-parity-followthrough` | `32783bc` | Ledger-cache and ranked-candidate follow-through work is uncommitted (working tree dirty). |
+| chartsearchai-esm | `codex/m2-hub-profile-rebuild` | `30e94e7` | Old draft branch; canonical-lifecycle rebuild not started. |
+| harness | `codex/m2-openmrs-relay-reconciliation` | `8110091` | Submodule pins are not yet updated to the tips above. |
+
+ChartSearchAI test suite (`mvn test`, 2026-07-21): **684 tests run, 0 failures, 0 errors, 34 skipped** (baseline before rebuild: 635).
+
+Outstanding before Signoff 2: ESM rebuild on the canonical lifecycle and conditional picker; med-agent-hub follow-through commit; harness submodule pin updates; push of `codex/dual-provider-rebuild` and a fresh PR (not amending the abandoned #26); and assembled-product runtime proof for G04, G06, G07, G08 and the remaining gates G09–G22.
 
 ## Amendments and Deviations
 
