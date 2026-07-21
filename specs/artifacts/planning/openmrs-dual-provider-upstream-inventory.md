@@ -29,9 +29,13 @@ local rollback points only; no active PR branch was rewritten.
 
 ## Refreshed ChartSearchAI Upstream
 
-The current integration head is **7 commits behind** and **20 commits ahead** of
-`upstream/main` at `577d818`. The branch rebuild begins only after Signoff 1. Until then,
-these dispositions prevent accidental loss or reintroduction of behavior.
+The current integration head was **7 commits behind** and **20 commits ahead** of
+`upstream/main` at `577d818` when this inventory was first captured (2026-07-20). Re-fetched
+2026-07-21 before rebuild execution: upstream gained one more commit (`58c0daf`, disposed below),
+so the integration head is now **8 commits behind**. ChartSearchAI ESM's upstream is unchanged
+(`upstream/main` remains fully contained in the current branch; still 0 upstream-only). The branch
+rebuild begins only after Signoff 1 (granted). Until the rebuild lands, these dispositions prevent
+accidental loss or reintroduction of behavior.
 
 | Upstream commit | Change | Disposition | Required verification when rebuilding |
 |---|---|---|---|
@@ -42,6 +46,7 @@ these dispositions prevent accidental loss or reintroduction of behavior.
 | `3b6a95a` | Removes structured citations when no inline citation exists | **Keep.** This is a bundled citation-correctness fix, and the common evidence envelope must preserve its meaning. | Citation conformance test covers no-inline-citation answers. |
 | `244bb40` | Widens the drift-metric gold corpus | **Keep.** Preserve the upstream evaluation material; do not use it as a substitute for the new cross-provider fixtures. | Existing upstream drift suite still runs. |
 | `577d818` | Tunes query-scoped default top-K from 30 to 12 | **Keep.** Treat 12 as a provider policy default, not a universal guarantee or a token fill target. | Context trace shows explicit cap and reasons; mandatory evidence is never dropped. |
+| `58c0daf` (#75, merged 2026-07-21, after initial capture) | Adds a `QueryScopeContributor` Spring SPI: any module can claim additional querystore resource types to include COMPLETE in a `queryScoped` slice for questions it recognizes. Additive/fail-safe by construction — byte-identical output with zero contributors, a throwing/null contributor is skipped with a WARN, live-resolved per call (no stale singleton snapshot). ADR Decisions 28/29. | **Keep.** Purely bundled-provider chart-assembly infrastructure inside `QueryStoreChartBuilder.buildScoped`; unrelated to the provider boundary or to hub's independent source-neutral selector — no hub-side counterpart is required. | `QueryStoreChartBuilderScopedTest` (contributor union, negative control, throwing-contributor degradation) passes unmodified after rebuild; zero-contributor bundled output stays byte-identical. |
 
 ### Current ChartSearchAI PR #26 Replay Inventory
 

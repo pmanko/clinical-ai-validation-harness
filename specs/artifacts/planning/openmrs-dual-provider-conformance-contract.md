@@ -64,6 +64,32 @@ Rules:
 4. The browser consumes one event shape and one reducer. It does not make provider-specific model
    calls or infer an unavailable capability.
 
+## Context Surface and State Ownership
+
+QueryStore is the canonical **OpenMRS patient-context surface**. OpenMRS-hosted clinical record
+sources are exposed through its serializer/provider SPIs and its authorized full-ledger and
+ranked-search contracts. Bundled ChartSearchAI may consume that surface in-process; external
+engines consume the same record, temporal, identity, and freshness semantics through the API.
+
+This context boundary does not turn QueryStore into a prompt composer or a mandatory dependency of
+med-agent-hub. The hub remains source-neutral: inline charts, static knowledge, and alternate
+adapters remain valid sources. Each answer engine owns prompt composition, context selection,
+reasoning, deterministic gates, evidence processing, and provider-specific output semantics.
+
+The common OpenMRS layer owns the authoritative conversation and audit record:
+
+- conversation identity, patient/user authorization, provider and mode attribution;
+- durable user/assistant turn history, retention, feedback, and rate-limit accounting;
+- lifecycle persistence and normalized terminal status; and
+- provider output stored content-agnostically, without Java reinterpreting hub validation,
+  evidence, temporal, safety, or In-Depth content.
+
+Providers may keep bounded, memory-only conversation-keyed prefix/KV caches, patient-ledger caches,
+and similar execution state. Such state is disposable optimization only: it is never the
+authoritative conversation or audit record, never persists PHI-bearing ledgers to disk, and never
+makes correctness depend on cache survival. A stateless engine receives the prior clinical turns
+needed for each request from the common layer.
+
 ## QueryStore Record and Freshness Contract
 
 `GET /ws/rest/v1/querystore/patientrecord` preserves existing full-chart and `patient + q` behavior.

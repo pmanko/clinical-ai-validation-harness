@@ -54,8 +54,8 @@
       "last_modified": "2026-01-16T12:00:00Z"
     },
     {
-      "id": "querystore.record.program-administrative-date",
-      "resource_type": "program",
+      "id": "querystore.record.patient-administrative-date",
+      "resource_type": "patient",
       "date": "2026-01-15",
       "clinical_date": null,
       "date_kind": "administrative",
