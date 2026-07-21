@@ -16,6 +16,8 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any
 
+from harness.common.jsonl import read_jsonl
+
 _AUTHORED = ("scenarios", "comparison_sets")
 _RUN = ("results", "feedback")
 _COLLECTIONS = _AUTHORED + _RUN
@@ -53,7 +55,7 @@ class JsonlRepository(Repository):
         if collection in _AUTHORED:
             docs = self._read_authored(collection)
         elif collection in _RUN:
-            docs = self._read_jsonl(self.run_dir / f"{collection}.jsonl")
+            docs = read_jsonl(self.run_dir / f"{collection}.jsonl")
         else:
             raise ValueError(f"unknown collection {collection!r}; expected one of {_COLLECTIONS}")
         return [d for d in docs if _matches(d, query)]
@@ -63,16 +65,6 @@ class JsonlRepository(Repository):
         if not directory.is_dir():
             return []
         return [json.loads(p.read_text(encoding="utf-8")) for p in sorted(directory.glob("*.json"))]
-
-    @staticmethod
-    def _read_jsonl(path: Path) -> list[dict[str, Any]]:
-        if not path.exists():
-            return []
-        return [
-            json.loads(line)
-            for line in path.read_text(encoding="utf-8").splitlines()
-            if line.strip()
-        ]
 
 
 class MongoRepository(Repository):

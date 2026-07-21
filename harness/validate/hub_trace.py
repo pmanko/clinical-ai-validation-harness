@@ -9,26 +9,15 @@ window (the runner is strictly sequential, so the window maps to exactly one tur
 """
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from typing import Any
+
+from harness.common.jsonl import read_jsonl
 
 
 def load_traces(trace_file: Path) -> list[dict[str, Any]]:
     """Parse the trace JSONL; tolerant of partial/malformed lines; [] if absent."""
-    p = Path(trace_file)
-    if not p.exists():
-        return []
-    out: list[dict[str, Any]] = []
-    for line in p.read_text(encoding="utf-8").splitlines():
-        line = line.strip()
-        if not line:
-            continue
-        try:
-            out.append(json.loads(line))
-        except json.JSONDecodeError:
-            continue
-    return out
+    return read_jsonl(trace_file, strict=False)
 
 
 def match_trace(traces, backend, started_at, ended_at):

@@ -1,0 +1,6 @@
+{
+  "evidence_status": "development",
+  "phi_free": true,
+  "release_evidence": false,
+  "description": "Synthetic ChartSearchAI 2x2 fixture for report shell golden tests."
+}

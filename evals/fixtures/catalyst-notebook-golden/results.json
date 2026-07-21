@@ -1,0 +1,535 @@
+{
+  "contractVersion": "harness.catalyst-notebook.validation-run.v1",
+  "runId": "catalyst-notebook-golden-v1",
+  "suiteId": "catalyst-notebook-golden-v1",
+  "dataset": {
+    "contractVersion": "catalyst.dataset-overview.v1",
+    "datasetId": "fixture-demo",
+    "dataSource": "openelis-fhir-postgresql",
+    "pipelineRunId": "fixture-demo",
+    "patients": 2,
+    "results": 10,
+    "testTypes": 2
+  },
+  "catalogVersion": "analytics-catalog-v1",
+  "resultCount": 8,
+  "passedCount": 7,
+  "skippedCount": 0,
+  "nondeterminism": {},
+  "results": [
+    {
+      "scenarioId": "narrowing-unchanged-base",
+      "family": "narrowing",
+      "repetition": 1,
+      "status": "completed",
+      "sessionId": "session-0",
+      "initialTurnId": "turn-init-0",
+      "followupTurnId": "turn-follow-0",
+      "baseVersionId": "ver-base-0",
+      "selectedVersionId": "ver-sel-0",
+      "baseExecutionId": "exec-base-0",
+      "successorExecutionId": "exec-succ-0",
+      "initialCandidateDigests": [
+        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      ],
+      "followupCandidateDigests": [
+        "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      ],
+      "selectedQueryDigest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "followupEvidenceDigest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "timing": {
+        "initialGenerationWallMs": 1000,
+        "followupGenerationWallMs": 2000,
+        "unadjustedGenerationWallMs": 3000,
+        "recordedInvocationDurationMs": 2800,
+        "generationWallMinusRecordedInvocationsMs": 200,
+        "baseExecutionWallMs": 10,
+        "successorExecutionWallMs": 12
+      },
+      "assertions": [
+        {
+          "name": "session_created",
+          "passed": true,
+          "evidence": true
+        },
+        {
+          "name": "initial_turn_recorded",
+          "passed": true,
+          "evidence": true
+        },
+        {
+          "name": "base_gold_execution_match",
+          "passed": true,
+          "evidence": {
+            "mode": "row_set",
+            "passed": true
+          }
+        },
+        {
+          "name": "successor_gold_execution_match",
+          "passed": true,
+          "evidence": {
+            "mode": "row_set",
+            "passed": true
+          }
+        },
+        {
+          "name": "base_execution_succeeded",
+          "passed": true,
+          "evidence": true
+        },
+        {
+          "name": "successor_execution_succeeded",
+          "passed": true,
+          "evidence": true
+        }
+      ],
+      "passed": true
+    },
+    {
+      "scenarioId": "aggregation-dirty-base-profile-switch",
+      "family": "aggregation-output-shape",
+      "repetition": 1,
+      "status": "completed",
+      "sessionId": "session-1",
+      "initialTurnId": "turn-init-1",
+      "followupTurnId": "turn-follow-1",
+      "baseVersionId": "ver-base-1",
+      "selectedVersionId": "ver-sel-1",
+      "baseExecutionId": "exec-base-1",
+      "successorExecutionId": "exec-succ-1",
+      "initialCandidateDigests": [
+        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      ],
+      "followupCandidateDigests": [
+        "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      ],
+      "selectedQueryDigest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "followupEvidenceDigest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "timing": {
+        "initialGenerationWallMs": 1000,
+        "followupGenerationWallMs": 2000,
+        "unadjustedGenerationWallMs": 3000,
+        "recordedInvocationDurationMs": 2800,
+        "generationWallMinusRecordedInvocationsMs": 200,
+        "baseExecutionWallMs": 10,
+        "successorExecutionWallMs": 12
+      },
+      "assertions": [
+        {
+          "name": "session_created",
+          "passed": true,
+          "evidence": true
+        },
+        {
+          "name": "initial_turn_recorded",
+          "passed": true,
+          "evidence": true
+        },
+        {
+          "name": "base_gold_execution_match",
+          "passed": true,
+          "evidence": {
+            "mode": "row_set",
+            "passed": true
+          }
+        },
+        {
+          "name": "successor_gold_execution_match",
+          "passed": true,
+          "evidence": {
+            "mode": "row_set",
+            "passed": true
+          }
+        },
+        {
+          "name": "base_execution_succeeded",
+          "passed": true,
+          "evidence": true
+        },
+        {
+          "name": "successor_execution_succeeded",
+          "passed": true,
+          "evidence": true
+        }
+      ],
+      "passed": true
+    },
+    {
+      "scenarioId": "unresolved-parameter-correction",
+      "family": "unresolved-correction",
+      "repetition": 1,
+      "status": "completed",
+      "sessionId": "session-2",
+      "initialTurnId": "turn-init-2",
+      "followupTurnId": "turn-follow-2",
+      "baseVersionId": "ver-base-2",
+      "selectedVersionId": "ver-sel-2",
+      "baseExecutionId": "exec-base-2",
+      "successorExecutionId": "exec-succ-2",
+      "initialCandidateDigests": [
+        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      ],
+      "followupCandidateDigests": [
+        "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      ],
+      "selectedQueryDigest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "followupEvidenceDigest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "timing": {
+        "initialGenerationWallMs": 1000,
+        "followupGenerationWallMs": 2000,
+        "unadjustedGenerationWallMs": 3000,
+        "recordedInvocationDurationMs": 2800,
+        "generationWallMinusRecordedInvocationsMs": 200,
+        "baseExecutionWallMs": 10,
+        "successorExecutionWallMs": 12
+      },
+      "assertions": [
+        {
+          "name": "session_created",
+          "passed": true,
+          "evidence": true
+        },
+        {
+          "name": "initial_turn_recorded",
+          "passed": true,
+          "evidence": true
+        },
+        {
+          "name": "base_gold_execution_match",
+          "passed": true,
+          "evidence": {
+            "mode": "row_set",
+            "passed": true
+          }
+        },
+        {
+          "name": "successor_gold_execution_match",
+          "passed": true,
+          "evidence": {
+            "mode": "row_set",
+            "passed": true
+          }
+        },
+        {
+          "name": "base_execution_succeeded",
+          "passed": true,
+          "evidence": true
+        },
+        {
+          "name": "successor_execution_succeeded",
+          "passed": true,
+          "evidence": true
+        }
+      ],
+      "passed": true
+    },
+    {
+      "scenarioId": "semantic-distinct-patient-review",
+      "family": "lint-clean-semantic-reviewer-correction",
+      "repetition": 1,
+      "status": "completed",
+      "sessionId": "session-3",
+      "initialTurnId": "turn-init-3",
+      "followupTurnId": "turn-follow-3",
+      "baseVersionId": "ver-base-3",
+      "selectedVersionId": "ver-sel-3",
+      "baseExecutionId": "exec-base-3",
+      "successorExecutionId": "exec-succ-3",
+      "initialCandidateDigests": [
+        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      ],
+      "followupCandidateDigests": [
+        "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      ],
+      "selectedQueryDigest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "followupEvidenceDigest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "timing": {
+        "initialGenerationWallMs": 1000,
+        "followupGenerationWallMs": 2000,
+        "unadjustedGenerationWallMs": 3000,
+        "recordedInvocationDurationMs": 2800,
+        "generationWallMinusRecordedInvocationsMs": 200,
+        "baseExecutionWallMs": 10,
+        "successorExecutionWallMs": 12
+      },
+      "assertions": [
+        {
+          "name": "session_created",
+          "passed": true,
+          "evidence": true
+        },
+        {
+          "name": "initial_turn_recorded",
+          "passed": true,
+          "evidence": true
+        },
+        {
+          "name": "base_gold_execution_match",
+          "passed": true,
+          "evidence": {
+            "mode": "row_set",
+            "passed": true
+          }
+        },
+        {
+          "name": "successor_gold_execution_match",
+          "passed": true,
+          "evidence": {
+            "mode": "row_set",
+            "passed": true
+          }
+        },
+        {
+          "name": "base_execution_succeeded",
+          "passed": true,
+          "evidence": true
+        },
+        {
+          "name": "successor_execution_succeeded",
+          "passed": true,
+          "evidence": true
+        }
+      ],
+      "passed": true
+    },
+    {
+      "scenarioId": "bounded-hub-tool-failure",
+      "family": "hub-tool-failure",
+      "repetition": 1,
+      "status": "failed",
+      "sessionId": "session-4",
+      "initialTurnId": "turn-init-4",
+      "followupTurnId": "turn-follow-4",
+      "baseVersionId": "ver-base-4",
+      "selectedVersionId": "ver-sel-4",
+      "baseExecutionId": "exec-base-4",
+      "successorExecutionId": "exec-succ-4",
+      "initialCandidateDigests": [
+        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      ],
+      "followupCandidateDigests": [
+        "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      ],
+      "selectedQueryDigest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "followupEvidenceDigest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "timing": {
+        "initialGenerationWallMs": 1000,
+        "followupGenerationWallMs": 2000,
+        "unadjustedGenerationWallMs": 3000,
+        "recordedInvocationDurationMs": 2800,
+        "generationWallMinusRecordedInvocationsMs": 200,
+        "baseExecutionWallMs": 10,
+        "successorExecutionWallMs": 12
+      },
+      "assertions": [
+        {
+          "name": "session_created",
+          "passed": true,
+          "evidence": true
+        },
+        {
+          "name": "followup_terminal_status",
+          "passed": true,
+          "evidence": "failed"
+        }
+      ],
+      "passed": true
+    },
+    {
+      "scenarioId": "narrowing-no-judge-variant",
+      "family": "narrowing",
+      "repetition": 1,
+      "status": "completed",
+      "sessionId": "session-noj",
+      "initialTurnId": "turn-init-noj",
+      "followupTurnId": "turn-follow-noj",
+      "baseVersionId": "ver-base-noj",
+      "selectedVersionId": "ver-sel-noj",
+      "baseExecutionId": "exec-base-noj",
+      "successorExecutionId": "exec-succ-noj",
+      "initialCandidateDigests": [
+        "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+      ],
+      "followupCandidateDigests": [
+        "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+      ],
+      "selectedQueryDigest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "followupEvidenceDigest": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "timing": {
+        "initialGenerationWallMs": 1,
+        "followupGenerationWallMs": 1,
+        "unadjustedGenerationWallMs": 2,
+        "recordedInvocationDurationMs": 2,
+        "generationWallMinusRecordedInvocationsMs": 0,
+        "baseExecutionWallMs": 1,
+        "successorExecutionWallMs": 1
+      },
+      "assertions": [
+        {
+          "name": "session_created",
+          "passed": true,
+          "evidence": true
+        },
+        {
+          "name": "base_gold_execution_match",
+          "passed": true,
+          "evidence": true
+        }
+      ],
+      "passed": true,
+      "judgeSkipped": true
+    },
+    {
+      "scenarioId": "gold-fail-high-judge",
+      "family": "narrowing",
+      "repetition": 1,
+      "status": "completed",
+      "sessionId": "session-gold-fail-high-judge",
+      "initialTurnId": "turn-init-gold-fail-high-judge",
+      "followupTurnId": "turn-follow-gold-fail-high-judge",
+      "baseVersionId": "ver-base-gold-fail-high-judge",
+      "selectedVersionId": "ver-sel-gold-fail-high-judge",
+      "baseExecutionId": "exec-base-gold-fail-high-judge",
+      "successorExecutionId": "exec-succ-gold-fail-high-judge",
+      "initialCandidateDigests": [
+        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      ],
+      "followupCandidateDigests": [
+        "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      ],
+      "selectedQueryDigest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "followupEvidenceDigest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "timing": {
+        "initialGenerationWallMs": 1000,
+        "followupGenerationWallMs": 2000,
+        "unadjustedGenerationWallMs": 3000,
+        "recordedInvocationDurationMs": 2800,
+        "generationWallMinusRecordedInvocationsMs": 200,
+        "baseExecutionWallMs": 10,
+        "successorExecutionWallMs": 12
+      },
+      "assertions": [
+        {
+          "name": "session_created",
+          "passed": true,
+          "evidence": true
+        },
+        {
+          "name": "initial_turn_recorded",
+          "passed": true,
+          "evidence": true
+        },
+        {
+          "name": "base_gold_execution_match",
+          "passed": false,
+          "evidence": {
+            "mode": "row_set",
+            "passed": false,
+            "mismatch_rationale": "row_set mismatch: model returned one extra observation_id not present in the independent reference result",
+            "path": "scenarios/gold-fail-high-judge/repetition-01/15-gold-execution-match-base.json"
+          }
+        },
+        {
+          "name": "successor_gold_execution_match",
+          "passed": true,
+          "evidence": {
+            "mode": "row_set",
+            "passed": true
+          }
+        },
+        {
+          "name": "base_execution_succeeded",
+          "passed": true,
+          "evidence": true
+        },
+        {
+          "name": "successor_execution_succeeded",
+          "passed": true,
+          "evidence": true
+        }
+      ],
+      "passed": false
+    },
+    {
+      "scenarioId": "multi-version-successor",
+      "family": "narrowing",
+      "repetition": 1,
+      "status": "completed",
+      "sessionId": "session-multi-version-successor",
+      "initialTurnId": "turn-init-multi-version-successor",
+      "followupTurnId": "turn-follow-multi-version-successor",
+      "baseVersionId": "ver-base-multi-version-successor",
+      "selectedVersionId": "ver-sel-multi-version-successor",
+      "baseExecutionId": "exec-base-multi-version-successor",
+      "successorExecutionId": "exec-succ-multi-version-successor",
+      "initialCandidateDigests": [
+        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      ],
+      "followupCandidateDigests": [
+        "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      ],
+      "selectedQueryDigest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "followupEvidenceDigest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "timing": {
+        "initialGenerationWallMs": 1000,
+        "followupGenerationWallMs": 2000,
+        "unadjustedGenerationWallMs": 3000,
+        "recordedInvocationDurationMs": 2800,
+        "generationWallMinusRecordedInvocationsMs": 200,
+        "baseExecutionWallMs": 10,
+        "successorExecutionWallMs": 12
+      },
+      "assertions": [
+        {
+          "name": "session_created",
+          "passed": true,
+          "evidence": true
+        },
+        {
+          "name": "initial_turn_recorded",
+          "passed": true,
+          "evidence": true
+        },
+        {
+          "name": "base_gold_execution_match",
+          "passed": true,
+          "evidence": {
+            "mode": "row_set",
+            "passed": true
+          }
+        },
+        {
+          "name": "successor_gold_execution_match",
+          "passed": true,
+          "evidence": {
+            "mode": "row_set",
+            "passed": true
+          }
+        },
+        {
+          "name": "base_execution_succeeded",
+          "passed": true,
+          "evidence": true
+        },
+        {
+          "name": "successor_execution_succeeded",
+          "passed": true,
+          "evidence": true
+        },
+        {
+          "name": "multi_version_chain_recorded",
+          "passed": true,
+          "evidence": {
+            "versions": [
+              "scenarios/multi-version-successor/repetition-01/04-save-base-version.json",
+              "scenarios/multi-version-successor/repetition-01/version-01.json",
+              "scenarios/multi-version-successor/repetition-01/version-02.json"
+            ]
+          }
+        }
+      ],
+      "passed": true
+    }
+  ]
+}

@@ -1,0 +1,3 @@
+{"event_type": "run", "comparison_set": "demo", "scenario_ids": ["s-vitals", "s-meds"], "backend_ids": ["gemma-local", "med-agent-team"]}
+{"event_type": "backend_selected", "backend_id": "gemma-local", "modelName": "gemma-fixture", "label": "Gemma fixture"}
+{"event_type": "backend_selected", "backend_id": "med-agent-team", "modelName": "team-fixture", "label": "Team fixture"}

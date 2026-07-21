@@ -1,0 +1,16 @@
+{
+  "run_id": "catalyst-notebook-golden-v1",
+  "project": "clinical-ai-validation-harness",
+  "component": "catalyst-iterative-query-notebook-validation",
+  "git_sha": "deadbeef02",
+  "dataset_id": "catalyst-cohort-v1",
+  "dataset_version": "1",
+  "schema_mapping_version": "analytics-catalog-v1",
+  "generated_at": "2026-07-21T00:00:00+00:00",
+  "evidence_status": "development",
+  "otel": {
+    "gen_ai.provider.name": "fixture",
+    "gen_ai.operation.name": "chat"
+  },
+  "decision_rationale": "Development fixture for Catalyst report/judge scaffolding."
+}

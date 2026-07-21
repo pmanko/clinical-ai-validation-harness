@@ -8,6 +8,12 @@ Durable planning and research artifacts that support the feature roadmap:
 - `planning/hub-consolidation-roadmap-status.md`
   - Mutable execution record for the approved roadmap: baseline SHAs, milestone state, gate
     evidence, signoffs, and amendments.
+- `planning/catalyst-validation-integration-roadmap.md`
+  - Approved remediation roadmap for Catalyst rubric/report/publish integration plus shared
+    report-shell extraction: decisions D1–D14, phases P0–P5, and gates CVR-G00–CVR-G18.
+- `planning/catalyst-validation-integration-roadmap-status.md`
+  - Mutable execution record for the Catalyst validation integration roadmap: baselines,
+    constitution check, gate board, signoffs, and 008-G5/G6 entry dependencies.
 - `canvases/validation-research.canvas.tsx`
   - Validation roadmap, architecture, validation flow, and demo-data remap plan.
 - `canvases/cross-project-comparison.canvas.tsx`

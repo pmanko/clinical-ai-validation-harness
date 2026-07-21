@@ -27,6 +27,20 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from harness.common.jsonl import read_jsonl as _read_jsonl
+from harness.common.text import esc as _esc
+from harness.report_shell.assets import (
+    BOXPLOT_CSS,
+    BOXPLOT_JS,
+    CHIP_CSS,
+    SORTABLE_TABLE_CSS,
+    SORTABLE_TABLE_JS,
+    THEME_CSS_VARS,
+    theme_toggle_js,
+)
+from harness.report_shell.document import render_document
+from harness.report_shell.stats import avg, box_stats, ordered_unique, percentile, robust_axis_max
+
 from .hub_trace import load_traces, match_trace
 from .model_registry import arm_model_name
 from .model_registry import arm_card
@@ -44,16 +58,6 @@ _DATA_DIR = Path(__file__).resolve().parents[2] / "datasets" / "validation"
 def _is_degraded(r: dict[str, Any]) -> bool:
     answer = (r.get("response") or {}).get("answer")
     return isinstance(answer, str) and _FALLBACK_MARKER in answer.lower()
-
-
-def _read_jsonl(path: Path) -> list[dict[str, Any]]:
-    if not path.exists():
-        return []
-    return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
-
-
-def _esc(value: Any) -> str:
-    return html.escape("" if value is None else str(value))
 
 
 def _render_answer(text: Any) -> str:
@@ -265,11 +269,12 @@ def _render_chips(r: dict[str, Any]) -> str:
     return "".join(chips)
 
 
-def _ordered_unique(values: list[Any]) -> list[Any]:
-    seen: dict[Any, None] = {}
-    for v in values:
-        seen.setdefault(v, None)
-    return list(seen)
+# Private aliases — public implementations live in harness.report_shell.stats.
+_ordered_unique = ordered_unique
+_avg = avg
+_box_stats = box_stats
+_percentile = percentile
+_robust_axis_max = robust_axis_max
 
 
 def _backend_labels(events: list[dict[str, Any]]) -> dict[str, str]:
@@ -283,44 +288,6 @@ def _backend_labels(events: list[dict[str, Any]]) -> dict[str, str]:
     }
 
 
-def _avg(nums: list[int]) -> int:
-    return round(sum(nums) / len(nums)) if nums else 0
-
-
-def _box_stats(values: list[float]) -> dict[str, Any] | None:
-    """Five-number summary + Tukey whiskers/outliers + mean for a box-and-whisker
-    plot. Quartiles use linear interpolation. Returns None for an empty series."""
-    xs = sorted(v for v in values if v is not None)
-    n = len(xs)
-    if n == 0:
-        return None
-
-    def _q(p: float) -> float:
-        if n == 1:
-            return float(xs[0])
-        idx = p * (n - 1)
-        lo = int(idx)
-        frac = idx - lo
-        return xs[lo] + (xs[min(lo + 1, n - 1)] - xs[lo]) * frac
-
-    q1, med, q3 = _q(0.25), _q(0.5), _q(0.75)
-    iqr = q3 - q1
-    lo_fence, hi_fence = q1 - 1.5 * iqr, q3 + 1.5 * iqr
-    inliers = [x for x in xs if lo_fence <= x <= hi_fence]
-    return {
-        "n": n,
-        "min": xs[0],
-        "max": xs[-1],
-        "q1": round(q1, 2),
-        "median": round(med, 2),
-        "q3": round(q3, 2),
-        "whisker_lo": min(inliers) if inliers else xs[0],
-        "whisker_hi": max(inliers) if inliers else xs[-1],
-        "outliers": [x for x in xs if x < lo_fence or x > hi_fence],
-        "mean": round(sum(xs) / n, 1),
-    }
-
-
 # Numeric metrics worth a per-arm distribution (box-and-whisker). Only successful
 # (HTTP 200) turns count — an errored turn is not a real measurement of speed/length.
 _DIST_METRICS = [
@@ -328,43 +295,6 @@ _DIST_METRICS = [
     ("citation_count", "chart references"),
     ("answer_chars", "answer length (chars)"),
 ]
-
-
-def _percentile(values: list[float], p: float) -> float:
-    """Linear-interpolated percentile of a non-empty sorted-able list (p in [0,1])."""
-    xs = sorted(values)
-    n = len(xs)
-    if n == 0:
-        return 0.0
-    if n == 1:
-        return float(xs[0])
-    idx = p * (n - 1)
-    lo = int(idx)
-    return xs[lo] + (xs[min(lo + 1, n - 1)] - xs[lo]) * (idx - lo)
-
-
-def _robust_axis_max(series: list[dict[str, Any]], all_values: list[float]) -> float:
-    """Robust y-axis ceiling so a lone extreme outlier (e.g. one 30s latency) can't
-    squish every box to a sliver. Principled bound (UX research — Observable,
-    Datawrapper, ggplot2): the upper Tukey fence (Q3 + 1.5·IQR) of the POOLED values,
-    which is the box plot's own outlier boundary, so clipping there is internally
-    consistent with what a box plot means. Falls back to the global p95 when the fence
-    is degenerate (IQR≈0 → an all-equal distribution). Floored at the widest arm's own
-    box top (max q3) so a per-arm box is never itself clipped, and at the global max
-    when nothing is extreme (so a tame distribution frames its full spread, no carets).
-    Points beyond the ceiling are clamped + flagged in the SVG, never silently dropped.
-    0 when there's nothing to chart."""
-    if not all_values:
-        return 0.0
-    q1 = _percentile(all_values, 0.25)
-    q3 = _percentile(all_values, 0.75)
-    iqr = q3 - q1
-    fence = q3 + 1.5 * iqr if iqr > 0 else _percentile(all_values, 0.95)
-    box_top = max((s.get("q3", 0) or 0) for s in series) if series else 0.0
-    data_max = max(all_values)
-    # never clip below the widest box; never clip above the data (no carets when nothing
-    # is actually beyond the fence — a tame chart uses its true max).
-    return float(min(data_max, max(fence, box_top)))
 
 
 def _metric_distributions(
@@ -692,10 +622,8 @@ _RUBRIC_FORM = (
 )
 
 
-_STYLE = """
-html[data-theme="light"] { color-scheme:light; --fg:#1a1a1a; --mut:#666; --line:#e2e2e2; --bg:#fafafa; --surface:#fff; --surface2:#f3f3f3; --accent:#2748a0; --accent-bg:#eef3ff; --accent-bd:#c7d6f5; --accent-hover:#dce6fb; --banner-bg:#f0f6ff; --note-bg:#f6f8fa; --arrow-bg:rgba(255,255,255,.9); --bp-fill:rgba(39,72,160,.14); --bp-grid:#eef0f3; --err:#a01; }
-html[data-theme="dark"] { color-scheme:dark; --fg:#c9d1d9; --mut:#8b949e; --line:#30363d; --bg:#0d1117; --surface:#161b22; --surface2:#1c2230; --accent:#79c0ff; --accent-bg:rgba(56,139,253,.13); --accent-bd:#30466b; --accent-hover:rgba(56,139,253,.22); --banner-bg:#11233f; --note-bg:#1c2230; --arrow-bg:rgba(22,27,34,.9); --bp-fill:rgba(121,192,255,.18); --bp-grid:#21262d; --err:#f85149; }
-* { box-sizing: border-box; }
+# ChartSearchAI report CSS: shared shell pieces + domain layout.
+_STYLE_BEFORE_SORT = """* { box-sizing: border-box; }
 body { font: 14px/1.5 -apple-system, system-ui, sans-serif; color: var(--fg); margin: 0; background: var(--bg); }
 .topbar { position: sticky; top: 0; z-index: 30; background: var(--surface); border-bottom: 1px solid var(--line); padding: 12px 24px; }
 /* Identity band: data-derived title (left) vs. primary + overflow actions (right). */
@@ -799,16 +727,8 @@ section.intro-led > .intro:first-child { margin-top: 0; }
 #sec-engineering { opacity: .92; }
 #sec-engineering > h2 .sec-h { color: var(--mut); }
 
-/* Sortable-table header affordances (UX research: W3C APG / Roselli). The label is a real
-   <button> (free keyboard); the active column shows aria-sort + a solid ▲/▼; the glyph is
-   aria-hidden (state lives in aria-sort). */
-th button.th-sort { font: inherit; font-weight: 600; color: inherit; background: none; border: 0; padding: 0; margin: 0; cursor: pointer; display: inline-flex; align-items: baseline; gap: 4px; width: 100%; text-align: inherit; }
-th button.th-sort:hover { color: var(--accent); }
-th button.th-sort:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
-th .sort-ind { font-size: 9px; color: var(--accent); min-width: .8em; }
-th[aria-sort] { background: var(--accent-bg); }
-th[aria-sort] button.th-sort { color: var(--accent); }
-.arms-section { margin: 8px 24px 0; }
+"""
+_STYLE_BEFORE_BP = """.arms-section { margin: 8px 24px 0; }
 .arm-cards { display: flex; flex-wrap: wrap; gap: 10px; }
 .arm-card { flex: 1 1 240px; min-width: 220px; border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; background: var(--surface); }
 .arm-head { display: flex; align-items: center; gap: 8px; }
@@ -877,21 +797,8 @@ th { background: var(--surface2); font-weight: 600; font-size: 12px; }
 .legend-group-h { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--mut); margin: 12px 0 2px; }
 .legend-group-h:first-child { margin-top: 6px; }
 .metrics-grid { display: flex; flex-wrap: wrap; gap: 16px; }
-.boxplot-wrap { flex: 1 1 300px; min-width: 280px; max-width: 460px; border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; background: var(--surface); }
-.boxplot { width: 100%; height: auto; }
-.bp-title { font-size: 12px; font-weight: 600; fill: var(--fg); }
-.bp-grid { stroke: var(--bp-grid); stroke-width: 1; }
-.bp-ytick { font-size: 9px; fill: var(--mut); text-anchor: end; }
-.bp-xtick { font-size: 10px; fill: var(--fg); text-anchor: middle; }
-.bp-xn { font-size: 8.5px; fill: var(--mut); text-anchor: middle; }
-.bp-box { fill: var(--bp-fill); stroke: var(--accent); stroke-width: 1.3; }
-.bp-median { stroke: var(--accent); stroke-width: 2.2; }
-.bp-mean { stroke: #d9730d; stroke-width: 1.4; stroke-dasharray: 3 2; }
-.bp-whisker, .bp-cap { stroke: var(--accent); stroke-width: 1; }
-.bp-out { fill: none; stroke: #d9730d; stroke-width: 1; opacity: .85; }
-.bp-clip { fill: #d9730d; }
-.bp-clipnote { font-size: 8.5px; fill: #d9730d; }
-.judge-section { margin-top: 18px; }
+"""
+_STYLE_BEFORE_CHIP = """.judge-section { margin-top: 18px; }
 .th-sub { font-weight: 400; color: var(--mut); font-size: 10px; }
 .cal { margin-top: 5px; font-size: 11px; line-height: 1.5; display: flex; flex-wrap: wrap; gap: 4px 6px; align-items: baseline; justify-content: center; }
 .cal-pt { font-weight: 700; font-variant-numeric: tabular-nums; }
@@ -972,12 +879,8 @@ table.jheat { border-collapse: collapse; font-size: 11px; }
 .source-more > summary { cursor: pointer; color: var(--accent); font-size: 11px; }
 .source-diag { margin-top: 5px; color: var(--mut); font-size: 10px; }
 .err { color: var(--err); font-family: ui-monospace, monospace; font-size: 12px; }
-.chips { margin-top: 6px; }
-.chip { display: inline-block; font-size: 10px; font-family: ui-monospace, monospace; background: var(--surface2); color: var(--mut); padding: 1px 5px; border-radius: 3px; margin: 1px; }
-.chip.warm { background: #fff3d6; color: #8a5a00; }
-.chip.none { background: #fde8e8; color: #a01; }
-.chip.bad { background: #a01; color: #fff; }
-.adj { margin-top: 8px; font-size: 12px; }
+"""
+_STYLE_AFTER_CHIP = """.adj { margin-top: 8px; font-size: 12px; }
 .adj summary { cursor: pointer; color: var(--accent); font-size: 11px; }
 .cell-form { margin-top: 6px; display: flex; flex-direction: column; gap: 4px; }
 .cell-form .scores { display: flex; gap: 6px; }
@@ -1036,12 +939,23 @@ html { scroll-behavior: smooth; }
   body { background: #fff; }
 }
 """
+_STYLE = (
+    THEME_CSS_VARS
+    + _STYLE_BEFORE_SORT
+    + SORTABLE_TABLE_CSS
+    + _STYLE_BEFORE_BP
+    + BOXPLOT_CSS
+    + _STYLE_BEFORE_CHIP
+    + CHIP_CSS
+    + _STYLE_AFTER_CHIP
+)
 
 
 # Vanilla-JS shell. Reads the inert JSON blob, renders the active run (run select
 # swaps the whole <main>), and wires filter/toggle/drag/localStorage/export.
 # Markdown/escaping already happened server-side; the JS injects the rendered HTML.
-_SCRIPT = r"""
+# ChartSearchAI report JS: shared sortable/boxplot + domain shell + theme toggle.
+_SCRIPT_PREFIX = r"""
 const DATA = JSON.parse(document.getElementById('report-data').textContent);
 const RANK_KEY = 'validate-rankings';
 // Optional feedback-capture endpoint. Empty = client-side download (default, never blocks). Set this
@@ -1053,58 +967,8 @@ let activeRunId = (DATA.runs[0] || {}).run_id;
 function runById(id){ return DATA.runs.find(r => r.run_id === id); }
 function el(tag, cls){ const e = document.createElement(tag); if(cls) e.className = cls; return e; }
 
-/* ---- sortable tables (every data table) ----
-   UX research (W3C APG sortable-table, Adrian Roselli, NN/g): each header label
-   wraps a real <button> (free keyboard + focus), aria-sort sits ONLY on the active
-   <th> (omit "none" — inconsistently announced), the ▲/▼ glyph is aria-hidden (state
-   lives in aria-sort), columns auto-detect numeric vs text, missing/"—"/"n/a" cells
-   always sink to the bottom regardless of direction, and a polite live-region
-   announces the new sort for the screen readers that don't auto-read aria-sort. */
-function sortAnnounce(msg){
-  var lr=document.getElementById('sort-live'); if(!lr) return;
-  lr.textContent=''; setTimeout(function(){ lr.textContent=msg; }, 30);
-}
-function cellSortVal(td){
-  var raw=((td&&td.textContent)||'').trim();
-  if(raw===''||raw==='—'||raw==='-'||raw==='n/a'||raw==='N/A') return {missing:true, num:NaN, txt:''};
-  // a leading number (handles "123 ms", "89.8", "1.2k" via the k-suffix) drives numeric sort
-  var m=raw.replace(/,/g,'').match(/^[+-]?\d*\.?\d+/);
-  var num=m?parseFloat(m[0])*(/\dk\b/i.test(raw)?1000:1):NaN;
-  return {missing:false, num:num, txt:raw.toLowerCase()};
-}
-function makeSortable(t){
-  var heads=t.querySelectorAll('thead th');
-  // Detect, per column, whether the body cells are predominantly numeric.
-  var bodyRows=Array.prototype.slice.call(t.querySelectorAll('tbody tr'));
-  for(var ci=0;ci<heads.length;ci++){ (function(th, col){
-    var label=th.textContent; th.innerHTML='';
-    var btn=document.createElement('button'); btn.type='button'; btn.className='th-sort';
-    btn.innerHTML=htmlEsc(label)+" <span class='sort-ind' aria-hidden='true'></span>";
-    th.appendChild(btn);
-    btn.addEventListener('click', function(){
-      var tb=t.querySelector('tbody'), rows=Array.prototype.slice.call(tb.querySelectorAll('tr'));
-      var asc=th.getAttribute('aria-sort')==='ascending' ? false : true;   // toggle; new column -> ascending
-      // numeric column if every present cell parses to a number
-      var numeric=rows.length>0 && rows.every(function(r){ var v=cellSortVal(r.children[col]); return v.missing||!isNaN(v.num); });
-      rows.sort(function(a,b){
-        var x=cellSortVal(a.children[col]), y=cellSortVal(b.children[col]);
-        if(x.missing&&y.missing) return 0;
-        if(x.missing) return 1;   // missing always sinks to the bottom...
-        if(y.missing) return -1;  // ...regardless of asc/desc
-        var r = numeric ? (x.num-y.num) : x.txt.localeCompare(y.txt, undefined, {numeric:true});
-        return asc?r:-r;
-      });
-      rows.forEach(function(r){ tb.appendChild(r); });
-      // clear every header's sort state, then mark only this one
-      for(var h=0;h<heads.length;h++){ heads[h].removeAttribute('aria-sort'); var si=heads[h].querySelector('.sort-ind'); if(si) si.textContent=''; }
-      th.setAttribute('aria-sort', asc?'ascending':'descending');
-      var ind=th.querySelector('.sort-ind'); if(ind) ind.textContent=asc?'▲':'▼';
-      sortAnnounce(label.trim()+', sorted '+(asc?'ascending':'descending'));
-    });
-  })(heads[ci], ci); }
-}
-
-function loadAllRanks(){ try { return JSON.parse(localStorage.getItem(RANK_KEY)) || {}; } catch(e) { return {}; } }
+"""
+_SCRIPT_MIDDLE = r"""function loadAllRanks(){ try { return JSON.parse(localStorage.getItem(RANK_KEY)) || {}; } catch(e) { return {}; } }
 function saveAllRanks(o){ localStorage.setItem(RANK_KEY, JSON.stringify(o)); }
 function savedRankFor(group){ return loadAllRanks()[group] || null; }
 function saveRanking(tilesEl){
@@ -1167,58 +1031,8 @@ function armCardFor(b){ const r = runById(activeRunId); return (r && r.arm_cards
 function armTitle(b){ const c = armCardFor(b); return (c && c.title) || b; }
 function armShort(b){ const c = armCardFor(b); return (c && (c.short_title || c.title)) || b; }
 function bpShort(b){ return armShort(b); }
-function bpNiceCeil(v){ if(v<=0) return 1; var p=Math.pow(10,Math.floor(Math.log10(v))); var f=v/p; var nf=f<=1?1:(f<=2?2:(f<=5?5:10)); return nf*p; }
-function bpFmt(v){ v=Math.round(v); return v>=1000?((v/1000).toFixed(v>=10000?0:1)+'k'):String(v); }
-// Box plot with a ROBUST, outlier-clipped y-axis (UX research: clip to the Tukey
-// fence / p95 so one extreme value can't squish every box — Observable/Datawrapper/
-// ggplot2). axisMax (precomputed server-side as the max upper-whisker, ≥ global p95)
-// is the clip ceiling; any point above it is CLAMPED to the top edge as a ▲ caret
-// (visually distinct from the in-range ○ outlier dots) and counted into a "N beyond X
-// not shown" footnote — clipped honestly, never silently dropped.
-function boxPlotSVG(label, md){
-  var series=md.series||[];
-  var H=232, padL=46, padR=12, padT=22, padB=52, plotH=H-padT-padB;
-  var W=Math.max(320, 70+series.length*92);
-  var i, s, o;
-  // Robust ceiling from the server, with safe fallbacks; round up to a nice tick value.
-  var rawMax=md.axis_max||0;
-  if(rawMax<=0){ for(i=0;i<series.length;i++){ s=series[i]; rawMax=Math.max(rawMax, s.whisker_hi||0, s.median||0); } }
-  var nm=bpNiceCeil(rawMax||1);
-  function Y(v){ var c=Math.min(v, nm); return padT + plotH - (c/nm)*plotH; }
-  var step=(W-padL-padR)/series.length;
-  var g='<svg viewBox="0 0 '+W+' '+H+'" class="boxplot" role="img" aria-label="'+htmlEsc(label)+'">';
-  g+='<text x="'+padL+'" y="13" class="bp-title">'+htmlEsc(label)+'</text>';
-  var ticks=[0,0.25,0.5,0.75,1], t, yy, val;
-  for(t=0;t<ticks.length;t++){ val=nm*ticks[t]; yy=Y(val); g+='<line x1="'+padL+'" y1="'+yy+'" x2="'+(W-padR)+'" y2="'+yy+'" class="bp-grid"/>'; g+='<text x="'+(padL-5)+'" y="'+(yy+3)+'" class="bp-ytick">'+bpFmt(val)+'</text>'; }
-  var clipN=0, clipMax=0;   // count + furthest value clamped above the axis ceiling
-  for(i=0;i<series.length;i++){
-    s=series[i];
-    var cx=padL+step*i+step/2, bw=Math.min(42, step*0.52), x0=cx-bw/2, x1=cx+bw/2;
-    g+='<line x1="'+cx+'" y1="'+Y(s.whisker_lo)+'" x2="'+cx+'" y2="'+Y(s.whisker_hi)+'" class="bp-whisker"/>';
-    g+='<line x1="'+(x0+7)+'" y1="'+Y(s.whisker_hi)+'" x2="'+(x1-7)+'" y2="'+Y(s.whisker_hi)+'" class="bp-cap"/>';
-    g+='<line x1="'+(x0+7)+'" y1="'+Y(s.whisker_lo)+'" x2="'+(x1-7)+'" y2="'+Y(s.whisker_lo)+'" class="bp-cap"/>';
-    g+='<rect x="'+x0+'" y="'+Y(s.q3)+'" width="'+bw+'" height="'+Math.max(1,Y(s.q1)-Y(s.q3))+'" class="bp-box"/>';
-    g+='<line x1="'+x0+'" y1="'+Y(s.median)+'" x2="'+x1+'" y2="'+Y(s.median)+'" class="bp-median"/>';
-    g+='<line x1="'+x0+'" y1="'+Y(s.mean)+'" x2="'+x1+'" y2="'+Y(s.mean)+'" class="bp-mean"/>';
-    for(o=0;o<(s.outliers||[]).length;o++){
-      var ov=s.outliers[o];
-      if(ov>nm){ clipN++; clipMax=Math.max(clipMax, ov);
-        // off-scale: a ▲ caret pinned just inside the top edge, distinct from the in-range dot
-        g+='<path d="M'+(cx-3.4)+' '+(padT+5)+' L'+(cx+3.4)+' '+(padT+5)+' L'+cx+' '+(padT-0.5)+' Z" class="bp-clip"><title>'+htmlEsc(bpShort(s.backend)+': '+bpFmt(ov)+' (off scale)')+'</title></path>';
-      } else {
-        g+='<circle cx="'+cx+'" cy="'+Y(ov)+'" r="2.1" class="bp-out"/>';
-      }
-    }
-    g+='<text x="'+cx+'" y="'+(H-26)+'" class="bp-xtick">'+htmlEsc(bpShort(s.backend))+'</text>';
-    g+='<text x="'+cx+'" y="'+(H-15)+'" class="bp-xn">n'+s.n+' · md '+bpFmt(s.median)+'</text>';
-  }
-  if(clipN>0){
-    g+='<text x="'+padL+'" y="'+(H-3)+'" class="bp-clipnote">▲ '+clipN+' outlier'+(clipN>1?'s':'')+' beyond '+bpFmt(nm)+' (max '+bpFmt(clipMax)+') — axis clipped, not shown to scale</text>';
-  }
-  g+='</svg>';
-  var wrap=el('div','boxplot-wrap'); wrap.innerHTML=g; return wrap;
-}
-function renderMetrics(run){
+"""
+_SCRIPT_REST = r"""function renderMetrics(run){
   var sec=el('section','metrics-section');
   sec.innerHTML='<p class="intro">How each setup behaves across all the questions, shown as a spread rather than a single number — so you can see typical speed, citation count, and answer length, plus the outliers. Wider boxes mean more variable behaviour.</p>'
    +'<dl class="legend-key">'
@@ -2115,17 +1929,16 @@ function boot(){
   window.addEventListener('resize', syncTopbarHeight);
 }
 boot();
-(function(){var b=document.getElementById('theme-toggle');if(!b)return;function s(){b.textContent=document.documentElement.dataset.theme==='dark'?'☀':'☾';}s();b.addEventListener('click',function(){var n=document.documentElement.dataset.theme==='dark'?'light':'dark';document.documentElement.dataset.theme=n;try{localStorage.setItem('oc-theme-report',n);}catch(e){}s();});})();
 """
-
-
-def _embed_json(blob: dict[str, Any]) -> str:
-    """Serialise the blob and neutralise the three chars that could break out of
-    the <script type="application/json"> element (a model answer containing
-    </script> must not escape). \\uXXXX escapes are JSON-valid, so JSON.parse
-    reverses them transparently."""
-    s = json.dumps(blob, ensure_ascii=False)
-    return s.replace("<", "\\u003c").replace(">", "\\u003e").replace("&", "\\u0026")
+_SCRIPT = (
+    _SCRIPT_PREFIX
+    + SORTABLE_TABLE_JS
+    + _SCRIPT_MIDDLE
+    + BOXPLOT_JS
+    + _SCRIPT_REST
+    + theme_toggle_js("oc-theme-report")
+    + "\n"
+)
 
 
 def _document(blob: dict[str, Any]) -> str:
@@ -2142,11 +1955,7 @@ def _document(blob: dict[str, Any]) -> str:
     first = (blob.get("runs") or [{}])[0]
     _ds = (first.get("meta") or {}).get("dataset_id")
     title = " · ".join(p for p in (_ds, first.get("run_id")) if p)
-    return (
-        "<!doctype html><html data-theme='light'><head><meta charset='utf-8'>"
-        f"<title>validation report · {_esc(title)}</title><style>{_STYLE}</style>"
-        "<script>(function(){try{var t=localStorage.getItem('oc-theme-report');if(t==='light'||t==='dark')document.documentElement.dataset.theme=t;}catch(e){}})();</script></head>"
-        "<body>"
+    body = (
         "<header class='topbar'>"
         # Identity band: the data-derived run title (JS fills #report-title from the
         # blob) on the left; the readily-accessible primary actions (PDF, theme) +
@@ -2198,10 +2007,17 @@ def _document(blob: dict[str, Any]) -> str:
         "<div id='sort-live' class='sr-only' aria-live='polite'></div>"
         f"<template id='rubric-template'>{_RUBRIC_FORM}</template>"
         f"{legend}"
-        f"<script type='application/json' id='report-data'>{_embed_json(blob)}</script>"
-        f"<script>{_SCRIPT}</script>"
-        "</body></html>"
     )
+    return render_document(
+        title=f"validation report · {_esc(title)}",
+        body_html=body,
+        embedded_data=blob,
+        style=_STYLE,
+        script=_SCRIPT,
+    )
+
+
+
 
 
 def _assemble(run_dirs: list[Path]) -> dict[str, Any]:

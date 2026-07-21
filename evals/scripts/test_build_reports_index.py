@@ -200,3 +200,56 @@ def test_main_writes_index_and_warns_on_staged_but_unlisted(tmp_path, monkeypatc
     assert "hello" in out_html  # the intro copy
     # the staged-but-unlisted run is flagged on stderr
     assert "ghost-run is staged" in capsys.readouterr().err
+
+
+def test_card_includes_gather_facts_and_dashboard_link(tmp_path, monkeypatch) -> None:
+    bri = _load()
+    reports = tmp_path / "reports"
+    slug_dir = reports / "fact-run"
+    slug_dir.mkdir(parents=True)
+    (slug_dir / "dashboard.html").write_text("<html></html>", encoding="utf-8")
+    monkeypatch.setattr(bri, "REPORTS", reports)
+    monkeypatch.setattr(
+        bri,
+        "gather",
+        lambda slug: {
+            "patients": "12 patients",
+            "cells": 24,
+            "date": "2026-07-21",
+            "scout": [],
+        },
+    )
+    html = bri._card(
+        {
+            "slug": "fact-run",
+            "title": "Fact Run",
+            "summary": "summary",
+            "takeaway": "take",
+        }
+    )
+    assert "12 patients" in html
+    assert "24 graded answers" in html
+    assert "2026-07-21" in html
+    assert 'href="fact-run/dashboard.html"' in html
+
+
+def test_index_html_uses_shared_theme_toggle_assets(tmp_path, monkeypatch) -> None:
+    from harness.report_shell import assets as shell_assets
+
+    bri = _load()
+    reports = tmp_path / "reports"
+    reports.mkdir()
+    manifest = tmp_path / "reports-index.json"
+    manifest.write_text(
+        json.dumps({"intro": "i", "scoring_note": "n", "runs": []}),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(bri, "REPORTS", reports)
+    monkeypatch.setattr(bri, "MANIFEST", manifest)
+    monkeypatch.setattr(bri, "VALIDATE", tmp_path / "validate")
+    bri.main()
+    html = (reports / "index.html").read_text(encoding="utf-8")
+    assert shell_assets.THEME_TOGGLE_BUTTON_HTML in html
+    assert shell_assets.THEME_TOGGLE_CSS in html
+    assert shell_assets.theme_bootstrap_js("oc-theme-index") in html
+    assert shell_assets.theme_toggle_js("oc-theme-index") in html

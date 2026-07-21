@@ -1,0 +1,43 @@
+{
+  "contractVersion": "harness.catalyst-notebook.http-exchange.v1",
+  "request": {
+    "method": "POST",
+    "path": "/v1/catalyst/workbench/sessions/session-semantic-distinct-patient-review/turns",
+    "body": {
+      "instruction": "Follow-up for lint-clean-semantic-reviewer-correction"
+    }
+  },
+  "response": {
+    "httpStatus": 201,
+    "body": {
+      "contractVersion": "catalyst.workbench.turn.v1",
+      "turnId": "turn-followup-semantic-distinct-patient-review",
+      "kind": "followup",
+      "status": "completed",
+      "selectedVersion": {
+        "contractVersion": "catalyst.workbench.query-version.v1",
+        "versionId": "version-succ-semantic-distinct-patient-review",
+        "sessionId": "session-fixture",
+        "ordinal": 2,
+        "parentVersionId": "version-base-semantic-distinct-patient-review",
+        "authorType": "model",
+        "sql": "SELECT count(DISTINCT patient_id) AS patient_count FROM analytics.lab_result_fact_v1 WHERE observed_at >= :start_date",
+        "parameters": [
+          {
+            "name": "start_date",
+            "type": "date",
+            "source": "human",
+            "value": "2026-01-01"
+          }
+        ],
+        "expectedColumns": [],
+        "queryDigest": "a07d7848b1513667b656bf1ff965abe904e0a2b7fcb2bed7d4936ab4592fdbf4",
+        "provenance": {
+          "fixture": true
+        },
+        "createdAt": "2026-07-21T20:00:00+00:00"
+      }
+    }
+  },
+  "elapsedMs": 5
+}

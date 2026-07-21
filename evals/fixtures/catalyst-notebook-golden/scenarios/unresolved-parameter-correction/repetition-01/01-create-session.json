@@ -1,0 +1,99 @@
+{
+  "contractVersion": "harness.catalyst-notebook.http-exchange.v1",
+  "request": {
+    "method": "POST",
+    "path": "/v1/catalyst/workbench/sessions",
+    "body": {
+      "question": "Fixture question for unresolved-correction",
+      "profileId": "catalyst-query-gemma-4-12b"
+    }
+  },
+  "response": {
+    "httpStatus": 201,
+    "body": {
+      "contractVersion": "catalyst.workbench.session.v1",
+      "sessionId": "session-unresolved-parameter-correction",
+      "question": "Fixture question for unresolved-correction",
+      "profileId": "catalyst-query-gemma-4-12b",
+      "datasetId": "catalyst-cohort-v1",
+      "datasetVersion": "1",
+      "catalogVersion": "analytics-catalog-v1",
+      "currentVersionId": "version-succ-unresolved-parameter-correction",
+      "versions": [
+        {
+          "contractVersion": "catalyst.workbench.query-version.v1",
+          "versionId": "version-base-unresolved-parameter-correction",
+          "sessionId": "session-fixture",
+          "ordinal": 1,
+          "parentVersionId": null,
+          "authorType": "model",
+          "sql": "SELECT observation_id, patient_id, test_name FROM analytics.lab_result_fact_v1 WHERE test_name = :test_name",
+          "parameters": [
+            {
+              "name": "start_date",
+              "type": "date",
+              "source": "human",
+              "value": "2026-01-01"
+            }
+          ],
+          "expectedColumns": [],
+          "queryDigest": "b1b7bb294419219223e528a1b836dd9e09f8590cbe0b1403587bb932d48187e0",
+          "provenance": {
+            "fixture": true
+          },
+          "createdAt": "2026-07-21T20:00:00+00:00"
+        },
+        {
+          "contractVersion": "catalyst.workbench.query-version.v1",
+          "versionId": "version-succ-unresolved-parameter-correction",
+          "sessionId": "session-fixture",
+          "ordinal": 2,
+          "parentVersionId": "version-base-unresolved-parameter-correction",
+          "authorType": "model",
+          "sql": "SELECT observation_id, patient_id, test_name FROM analytics.lab_result_fact_v1 WHERE test_name = :test_name",
+          "parameters": [
+            {
+              "name": "start_date",
+              "type": "date",
+              "source": "human",
+              "value": "2026-01-01"
+            }
+          ],
+          "expectedColumns": [],
+          "queryDigest": "b1b7bb294419219223e528a1b836dd9e09f8590cbe0b1403587bb932d48187e0",
+          "provenance": {
+            "fixture": true
+          },
+          "createdAt": "2026-07-21T20:00:00+00:00"
+        }
+      ],
+      "currentVersion": {
+        "contractVersion": "catalyst.workbench.query-version.v1",
+        "versionId": "version-succ-unresolved-parameter-correction",
+        "sessionId": "session-fixture",
+        "ordinal": 2,
+        "parentVersionId": "version-base-unresolved-parameter-correction",
+        "authorType": "model",
+        "sql": "SELECT observation_id, patient_id, test_name FROM analytics.lab_result_fact_v1 WHERE test_name = :test_name",
+        "parameters": [
+          {
+            "name": "start_date",
+            "type": "date",
+            "source": "human",
+            "value": "2026-01-01"
+          }
+        ],
+        "expectedColumns": [],
+        "queryDigest": "b1b7bb294419219223e528a1b836dd9e09f8590cbe0b1403587bb932d48187e0",
+        "provenance": {
+          "fixture": true
+        },
+        "createdAt": "2026-07-21T20:00:00+00:00"
+      },
+      "status": "ready",
+      "createdAt": "2026-07-21T20:00:00+00:00",
+      "updatedAt": "2026-07-21T20:00:00+00:00"
+    }
+  },
+  "elapsedMs": 5
+}

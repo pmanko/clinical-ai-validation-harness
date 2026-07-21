@@ -1,0 +1,43 @@
+{
+  "contractVersion": "harness.catalyst-notebook.http-exchange.v1",
+  "request": {
+    "method": "POST",
+    "path": "/v1/catalyst/workbench/sessions/session-no-judge-variant/turns",
+    "body": {
+      "instruction": "Follow-up for aggregation-output-shape"
+    }
+  },
+  "response": {
+    "httpStatus": 201,
+    "body": {
+      "contractVersion": "catalyst.workbench.turn.v1",
+      "turnId": "turn-followup-no-judge-variant",
+      "kind": "followup",
+      "status": "completed",
+      "selectedVersion": {
+        "contractVersion": "catalyst.workbench.query-version.v1",
+        "versionId": "version-succ-no-judge-variant",
+        "sessionId": "session-fixture",
+        "ordinal": 2,
+        "parentVersionId": "version-base-no-judge-variant",
+        "authorType": "model",
+        "sql": "SELECT date_trunc('month', observed_at) AS observed_month, count(*) AS result_count FROM analytics.lab_result_fact_v1 WHERE observed_at >= :start_date GROUP BY 1",
+        "parameters": [
+          {
+            "name": "start_date",
+            "type": "date",
+            "source": "human",
+            "value": "2026-01-01"
+          }
+        ],
+        "expectedColumns": [],
+        "queryDigest": "799a059419bf21af03ff24b052a1574904d0a51034f490561a9a2d934eac0600",
+        "provenance": {
+          "fixture": true
+        },
+        "createdAt": "2026-07-21T20:00:00+00:00"
+      }
+    }
+  },
+  "elapsedMs": 5
+}

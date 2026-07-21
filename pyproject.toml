@@ -21,6 +21,7 @@ dependencies = [
   "psycopg[binary]>=3.2,<4",
   "rfc8785>=0.1.4,<0.2",
   "requests>=2.32",
+  "jsonschema>=4.20",
 ]
 
 [project.optional-dependencies]

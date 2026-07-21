@@ -1,0 +1,58 @@
+{
+  "contractVersion": "harness.catalyst-notebook.http-exchange.v1",
+  "request": {
+    "method": "GET",
+    "path": "/v1/catalyst/workbench/sessions/session-multi-version-successor/turns/turn-followup/generation-evidence",
+    "body": null
+  },
+  "response": {
+    "httpStatus": 200,
+    "body": {
+      "contractVersion": "catalyst.workbench.generation-evidence.v1",
+      "evidenceId": "evidence-followup-multi-version-successor",
+      "evidenceDigest": "ade93e83f3ae700a6a1b11c650ecae348009f7d86d2c55de50e4746a53dc5475",
+      "sessionId": "session-multi-version-successor",
+      "turnId": "turn-followup-multi-version-successor",
+      "turnKind": "followup",
+      "status": "completed",
+      "instruction": "Follow-up for narrowing",
+      "candidates": [],
+      "finalSelection": {
+        "status": "completed",
+        "selectedCandidateDigest": "7e1a02ec29fdaefd0eeab3711afaee29e62a62a2141bc0689f6615541f7a773d",
+        "selectedVersionId": "version-succ-multi-version-successor"
+      },
+      "invocations": [
+        {
+          "invocationId": "inv-writer-multi-version-successor",
+          "role": "writer",
+          "stage": "followup_generation",
+          "attempt": 1,
+          "providerId": "llama.cpp",
+          "modelId": "gemma-4-12b",
+          "startedAt": "2026-07-21T20:00:00+00:00",
+          "endedAt": "2026-07-21T20:00:00+00:00",
+          "durationMs": 12,
+          "requestDigest": "f51736f519ab88ce75d79a453f42959f404cca56da0096e106045c50893ce072",
+          "responseDigest": "7bbf3e55c5e0420d624d7c5bd6db777f9d1268335eb4dccfc39659d3059f0359",
+          "outcome": "succeeded"
+        },
+        {
+          "invocationId": "inv-reviewer-multi-version-successor",
+          "role": "reviewer",
+          "stage": "followup_generation",
+          "attempt": 1,
+          "providerId": "llama.cpp",
+          "modelId": "qwen2.5-14b",
+          "startedAt": "2026-07-21T20:00:00+00:00",
+          "endedAt": "2026-07-21T20:00:00+00:00",
+          "durationMs": 15,
+          "requestDigest": "1e1861b51c2b3d340e8b4c7b12fb8d0b7fd5befbcf8dd40976eeb017285e5404",
+          "responseDigest": "088616a9b5bfbfa1c6e71db168e2c676b21e381203936d439b83d4d6169b053a",
+          "outcome": "succeeded"
+        }
+      ]
+    }
+  },
+  "elapsedMs": 5
+}

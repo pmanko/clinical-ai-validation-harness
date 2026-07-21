@@ -16,12 +16,18 @@ from __future__ import annotations
 import json
 import sys
 from datetime import datetime, timezone
-from html import escape
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
+from harness.common.text import esc  # noqa: E402
+from harness.report_shell.assets import (  # noqa: E402
+    THEME_TOGGLE_BUTTON_HTML,
+    THEME_TOGGLE_CSS,
+    theme_bootstrap_js,
+    theme_toggle_js,
+)
 from harness.validate.reconcile import scout_summary  # noqa: E402
 from harness.validate.report import _load_judge  # noqa: E402
 from harness.validate.model_registry import arm_card  # noqa: E402
@@ -163,9 +169,9 @@ def _scout_table(scout: list[dict]) -> str:
         flags = (f'harm: {harm} · confabulations: {s.get("confabulation_count", 0)} · '
                  f'fabricated citations: {s.get("fabricated_citation_count", 0)}')
         harm_cls = ' class="harm"' if harm else ""
-        harm_cell = f'<td{harm_cls} title="{escape(flags)}">{harm}</td>'
+        harm_cell = f'<td{harm_cls} title="{esc(flags)}">{harm}</td>'
         body.append(
-            f'<tr><td class="arm" title="{escape(detail)}">{escape(name)}</td>'
+            f'<tr><td class="arm" title="{esc(detail)}">{esc(name)}</td>'
             f'<td>{s["n"]}</td>{cell("benchmark_score")}{cell("accuracy_mean")}'
             f'{cell("completeness_mean")}{cell("relevance_mean")}{harm_cell}</tr>'
         )
@@ -183,7 +189,7 @@ def _scout_table(scout: list[dict]) -> str:
             ben = "—" if b.get("benchmark_score") is None else f'{b["benchmark_score"]:.1f}'
             sup = "—" if b.get("support_mean") is None else f'{b["support_mean"]:.1f}'
             val = "—" if b.get("added_value_mean") is None else f'{b["added_value_mean"]:.1f}'
-            rows.append(f'<tr><td class="arm">{escape(name)}</td><td class="bench">{ben}</td>'
+            rows.append(f'<tr><td class="arm">{esc(name)}</td><td class="bench">{ben}</td>'
                         f'<td>{b["n_background"]}</td><td>{sup}</td><td>{val}</td>'
                         f'<td>{b.get("new_harm_count", 0)}</td><td>{b.get("padded_count", 0)}</td></tr>')
         table += ('<h3 style="margin:20px 0 6px;font-size:15px;font-weight:600">In-Depth — scored separately on '
@@ -199,29 +205,29 @@ def _card(entry: dict) -> str:
     g = gather(slug)
     facts = []
     if g["patients"]:
-        facts.append(escape(g["patients"]))
+        facts.append(esc(g["patients"]))
     if g["cells"] is not None:
         facts.append(f'{g["cells"]} graded answers')
     if g["date"]:
-        facts.append(escape(g["date"]))
+        facts.append(esc(g["date"]))
     subtitle = " · ".join(facts)
-    links = [f'<a class="btn" href="{escape(slug)}/index.html">Full report</a>']
+    links = [f'<a class="btn" href="{esc(slug)}/index.html">Full report</a>']
     if (REPORTS / slug / "dashboard.html").exists():
-        links.append(f'<a class="btn ghost" href="{escape(slug)}/dashboard.html">Interactive dashboard</a>')
-    takeaway = (f'<p class="takeaway"><span class="tk">Takeaway</span>{escape(entry["takeaway"])}</p>'
+        links.append(f'<a class="btn ghost" href="{esc(slug)}/dashboard.html">Interactive dashboard</a>')
+    takeaway = (f'<p class="takeaway"><span class="tk">Takeaway</span>{esc(entry["takeaway"])}</p>'
                 if entry.get("takeaway") else "")
     return f"""  <article class="card">
   <header class="card-head">
-    <div class="titles"><h2>{escape(entry["title"])}</h2><div class="slug">{subtitle}</div></div>
+    <div class="titles"><h2>{esc(entry["title"])}</h2><div class="slug">{subtitle}</div></div>
     <div class="links">{"".join(links)}</div>
   </header>
-  <p class="summary">{escape(entry.get("summary", ""))}</p>
+  <p class="summary">{esc(entry.get("summary", ""))}</p>
   {_scout_table(g["scout"])}
   {takeaway}
   </article>"""
 
 
-STYLE = """
+_STYLE_CORE = """
   html[data-theme="light"]{color-scheme:light;--bg:#f6f8fa;--panel:#ffffff;--panel2:#ffffff;--text:#1f2328;--muted:#656d76;
     --accent:#0969da;--border:#d0d7de;--harm:#cf222e;--best:#1a7f37;
     --ink:#1f2328;--btn-fg:#ffffff;--th-bg:#f6f8fa;--bench-bg:rgba(9,105,218,.08);--takeaway-bg:rgba(9,105,218,.06);}
@@ -231,10 +237,6 @@ STYLE = """
   *{box-sizing:border-box;} body{margin:0;background:var(--bg);color:var(--text);
     font:15px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;padding:36px 24px 72px;}
   .wrap{max-width:960px;margin:0 auto;}
-  .theme-toggle{position:fixed;top:14px;right:16px;z-index:50;width:34px;height:34px;border-radius:8px;
-    border:1px solid var(--border);background:var(--panel);color:var(--text);cursor:pointer;font-size:15px;
-    line-height:1;display:flex;align-items:center;justify-content:center;}
-  .theme-toggle:hover{border-color:var(--accent);}
   header.page h1{font-size:27px;margin:0 0 10px;color:var(--ink);font-weight:600;}
   .intro{color:var(--text);font-size:15px;margin:0 0 20px;max-width:760px;}
   .intro b{color:var(--ink);}
@@ -276,6 +278,8 @@ STYLE = """
   footer.page{color:var(--muted);font-size:12px;margin-top:36px;text-align:center;}
 """
 
+STYLE = _STYLE_CORE + THEME_TOGGLE_CSS
+
 
 def main() -> None:
     manifest = json.loads(MANIFEST.read_text())
@@ -295,11 +299,11 @@ def main() -> None:
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>OpenClinAI — clinical AI validation runs</title>
-<script>(function(){{try{{var t=localStorage.getItem('oc-theme-index');if(t==='light'||t==='dark')document.documentElement.dataset.theme=t;}}catch(e){{}}}})();</script>
+<script>{theme_bootstrap_js("oc-theme-index")}</script>
 <style>{STYLE}</style>
 </head>
 <body>
-<button id="theme-toggle" class="theme-toggle" type="button" aria-label="Toggle light or dark mode" title="Toggle light / dark"></button>
+{THEME_TOGGLE_BUTTON_HTML}
 <div class="wrap">
   <header class="page">
     <h1>Clinical AI validation runs</h1>
@@ -309,7 +313,7 @@ def main() -> None:
 {cards}
   <footer class="page">Curated index — edit reports-index.json to change what appears. Hover an AI setup name for its exact model lineup.</footer>
 </div>
-<script>(function(){{var b=document.getElementById('theme-toggle');function s(){{b.textContent=document.documentElement.dataset.theme==='dark'?'☀':'☾';}}s();b.addEventListener('click',function(){{var n=document.documentElement.dataset.theme==='dark'?'light':'dark';document.documentElement.dataset.theme=n;try{{localStorage.setItem('oc-theme-index',n);}}catch(e){{}}s();}});}})();</script>
+<script>{theme_toggle_js("oc-theme-index")}</script>
 </body>
 </html>
 """

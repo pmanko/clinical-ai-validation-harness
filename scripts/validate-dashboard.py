@@ -9,7 +9,6 @@ scenario x arm status grid, and a recent feed. Click any grid cell or feed row t
 drill into that (scenario, arm): the expected behaviour + every turn's question,
 full answer, citations, and metrics. Reads the newest artifacts/validate run.
 """
-import datetime as _datetime
 import glob
 import http.server
 import json
@@ -26,38 +25,21 @@ from urllib.parse import parse_qs, urlparse
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
+from harness.common.jsonl import read_jsonl as _read_jsonl  # noqa: E402
+from harness.common.text import esc_inline  # noqa: E402
+from harness.report_shell.assets import (  # noqa: E402
+    THEME_TOGGLE_BUTTON_HTML,
+    THEME_TOGGLE_CSS,
+    theme_bootstrap_js,
+    theme_toggle_js,
+)
+from harness.validate.hub_trace import match_trace  # noqa: E402
 from harness.validate.model_registry import arm_card, arm_model_name  # noqa: E402  (sys.path set above)
 from harness.validate.reconcile import combined_judge_summary  # noqa: E402
 from harness.validate.sources import build_sources, load_scenario_chart  # noqa: E402
 DATA = ROOT / "datasets" / "validation"
 TRACE_FILE = ROOT / "artifacts" / "hub-trace" / "trace.jsonl"
 PORT = int(os.environ.get("DASH_PORT", "8099"))
-
-
-def _parse_iso(s):
-    try:
-        return _datetime.datetime.fromisoformat(s)
-    except (ValueError, TypeError):
-        return None
-
-
-def _match_trace(traces, backend, started_at, ended_at):
-    """Correlate a results cell to its hub reasoning-trace: same level_id (== backend id) and the
-    trace ts inside the cell's [started_at, ended_at] window (the runner is strictly sequential).
-    A few seconds of slack absorbs container/host clock rounding. Returns the latest match, or None."""
-    st, en = _parse_iso(started_at), _parse_iso(ended_at)
-    if not st or not en:
-        return None
-    slack = _datetime.timedelta(seconds=5)
-    lo, hi = st - slack, en + slack
-    best = None
-    for tr in traces:
-        if tr.get("level_id") != backend:
-            continue
-        ts = _parse_iso(tr.get("ts", ""))
-        if ts and lo <= ts <= hi:
-            best = tr  # keep the latest match within the window
-    return best
 
 
 # When set (by --freeze --run), pin the dashboard to one run instead of "newest".
@@ -95,46 +77,26 @@ def resident_models():
     return sorted(set(re.findall(r"[A-Za-z0-9._-]+\.gguf", out)))
 
 
-def read_jsonl(p):
-    rows = []
-    try:
-        with open(p) as f:
-            for line in f:
-                line = line.strip()
-                if line:
-                    try:
-                        rows.append(json.loads(line))
-                    except json.JSONDecodeError:
-                        pass
-    except FileNotFoundError:
-        pass
-    return rows
-
-
 def read_judge_actors(run):
     actors = {}
     judges_dir = Path(run) / "judges"
     if judges_dir.exists():
         for path in sorted(judges_dir.glob("*/judge.jsonl")):
-            rows = read_jsonl(path)
+            rows = _read_jsonl(path, strict=False)
             if rows:
                 actors[path.parent.name] = rows
     if not actors:
-        rows = read_jsonl(Path(run) / "judge.jsonl")
+        rows = _read_jsonl(Path(run) / "judge.jsonl", strict=False)
         if rows:
             actors["canonical"] = rows
     return actors
-
-
-def _esc(s):
-    return (s or "").replace("\n", " ").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 
 def status():
     run = newest_run()
     if not run:
         return {"run": None}
-    events = read_jsonl(Path(run) / "events.jsonl")
+    events = _read_jsonl(Path(run) / "events.jsonl", strict=False)
     run_ev = next((e for e in events if e.get("event_type") == "run"), {})
     set_id = run_ev.get("comparison_set")
     scen_ids = run_ev.get("scenario_ids", [])
@@ -150,7 +112,7 @@ def status():
             turns[sid] = 1
     total = sum(turns.values()) * len(back_ids) if back_ids else 0
 
-    results = read_jsonl(Path(run) / "results.jsonl")
+    results = _read_jsonl(Path(run) / "results.jsonl", strict=False)
     # "Active" = results written recently OR the runner process is still alive. The mtime check
     # alone misses slow tiers — a HIGH cell runs ~17 min writing NOTHING, so results.jsonl looks
     # stale and the run appears dead with no running cell. The process check keeps the frontier
@@ -235,7 +197,7 @@ def status():
                      "chars": m.get("answer_chars"),
                      "indepth_status": ind.get("http_status"),
                      "indepth_chars": len((iresp or {}).get("answer") or ""),
-                     "ans": _esc(((r.get("response") or {}).get("answer", "") or "")[:90])})
+                     "ans": esc_inline(((r.get("response") or {}).get("answer", "") or "")[:90])})
 
     # Structured arm makeup + config (single vanilla-chartsearchai vs med-agent-hub team) —
     # resolved by the shared resolver, REUSED from the report. Carries the real sampler knobs,
@@ -262,7 +224,7 @@ def detail(scenario, backend):
     run = newest_run()
     if not run or not scenario or not backend:
         return {"turns": []}
-    rows = [r for r in read_jsonl(Path(run) / "results.jsonl")
+    rows = [r for r in _read_jsonl(Path(run) / "results.jsonl", strict=False)
             if r.get("scenario_id") == scenario and r.get("backend_id") == backend]
     rows.sort(key=lambda r: r.get("turn", 0))
     exp = {}
@@ -271,14 +233,14 @@ def detail(scenario, backend):
     except Exception:
         pass
     chart_fixture = load_scenario_chart(scenario, DATA / "scenarios", DATA / "charts")
-    traces = read_jsonl(TRACE_FILE)
+    traces = _read_jsonl(TRACE_FILE, strict=False)
     turns = []
     for r in rows:
         m = r.get("metrics") or {}
         resp = r.get("response") or {}
         refs = resp.get("references") or resp.get("citations") or []
         sources_v1 = build_sources(resp, chart_fixture)
-        tr = _match_trace(traces, arm_model_name(backend), r.get("started_at"), r.get("ended_at"))
+        tr = match_trace(traces, arm_model_name(backend), r.get("started_at"), r.get("ended_at"))
         ind = r.get("indepth") or {}
         iresp = ind.get("response") or {}
         if isinstance(iresp, str):
@@ -306,11 +268,13 @@ def detail(scenario, backend):
     return {"scenario": scenario, "backend": backend, "expectations": exp, "turns": turns}
 
 
-PAGE = r"""<!doctype html><html data-theme="dark"><head><meta charset=utf-8><title>validate run</title><style>
+PAGE = (
+    r"""<!doctype html><html data-theme="dark"><head><meta charset=utf-8><title>validate run</title><style>
 html[data-theme="dark"]{color-scheme:dark;--bg:#0d1117;--surface:#161b22;--surface2:#1f2937;--sunken:#0b0f14;--text:#c9d1d9;--muted:#8b949e;--faint:#586069;--border:#30363d;--border2:#21262d;--accent:#79c0ff;--accent2:#58a6ff;--purple:#d2a8ff;--ok:#3fb950;--err:#f85149;--flag:#f0883e;--pend-bg:#1a1f27;--pend-fg:#484f58;--cav-red-bg:#3d1416;--cav-red-bd:#8b1a1a;--cav-red-fg:#ffd0d0;--cav-yel-bg:#3a2e08;--cav-yel-bd:#9e6a03;--cav-yel-fg:#ffe9b3}
 html[data-theme="light"]{color-scheme:light;--bg:#f6f8fa;--surface:#ffffff;--surface2:#eef1f5;--sunken:#f0f2f5;--text:#1f2328;--muted:#656d76;--faint:#8c959f;--border:#d0d7de;--border2:#e2e6ea;--accent:#0969da;--accent2:#0969da;--purple:#8250df;--ok:#1a7f37;--err:#cf222e;--flag:#bc4c00;--pend-bg:#eef1f5;--pend-fg:#8c959f;--cav-red-bg:#fff1f1;--cav-red-bd:#cf222e;--cav-red-fg:#a2191f;--cav-yel-bg:#fcf4d6;--cav-yel-bd:#d4a72c;--cav-yel-fg:#684e00}
-.theme-toggle{position:fixed;top:14px;right:16px;z-index:50;width:32px;height:32px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;font-size:14px;line-height:1;display:flex;align-items:center;justify-content:center}
-.theme-toggle:hover{border-color:var(--accent)}
+"""
+    + THEME_TOGGLE_CSS
+    + r"""
 body{background:var(--bg);color:var(--text);font:13px/1.5 -apple-system,BlinkMacSystemFont,Menlo,monospace;margin:0;padding:18px}
 h1{font-size:15px;margin:0 0 6px}.muted{color:var(--muted)}.ok{color:var(--ok)}.err{color:var(--err)}
 .bar{height:20px;background:var(--surface);border-radius:10px;overflow:hidden;margin:8px 0}
@@ -417,8 +381,12 @@ table.ac-knobs{border-collapse:collapse;font-size:10.5px;margin-top:2px}
 .arm-config .ac-pfull>summary{cursor:pointer;color:var(--accent);font-size:10px;list-style:revert}
 .arm-config pre.ac-pre{white-space:pre-wrap;font:10.5px/1.45 ui-monospace,Menlo,monospace;background:var(--sunken);border:1px solid var(--border2);border-radius:6px;padding:8px 10px;margin:4px 0 0;max-height:16em;overflow:auto}
 .arm-config .ac-retr{font-size:11px;font-family:ui-monospace,Menlo,monospace;color:var(--text)}
-</style><script>(function(){try{var t=localStorage.getItem('oc-theme-dashboard');if(t==='light'||t==='dark')document.documentElement.dataset.theme=t;}catch(e){}})();</script></head><body>
-<button id=theme-toggle class=theme-toggle type=button aria-label="Toggle light or dark mode" title="Toggle light / dark"></button>
+</style><script>"""
+    + theme_bootstrap_js("oc-theme-dashboard")
+    + r"""</script></head><body>
+"""
+    + THEME_TOGGLE_BUTTON_HTML
+    + r"""
 <h1 id=hdr>validate run</h1>
 <div class=bar><div id=fill style=width:0%></div></div>
 <div id=prog class=muted></div>
@@ -735,8 +703,11 @@ async function openD(s,b){
 function closeD(){modal.style.display='none'}
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeD()});
 tick();setInterval(tick,2000);
-(function(){var b=document.getElementById('theme-toggle');function s(){b.textContent=document.documentElement.dataset.theme==='dark'?'☀':'☾';}s();b.addEventListener('click',function(){var n=document.documentElement.dataset.theme==='dark'?'light':'dark';document.documentElement.dataset.theme=n;try{localStorage.setItem('oc-theme-dashboard',n);}catch(e){}s();});})();
+"""
+    + theme_toggle_js("oc-theme-dashboard")
+    + r"""
 </script></body></html>"""
+)
 
 
 class H(http.server.BaseHTTPRequestHandler):

@@ -1,0 +1,16 @@
+{
+  "contractVersion": "harness.catalyst-notebook.gold-execution-match.v1",
+  "mode": "row_set",
+  "versionId": "version-base-semantic-distinct-patient-review",
+  "queryDigest": "bb0704503358cb846eaf267828ce221ab3757d36e5a9f1caa17cd72d5523810b",
+  "modelRowCount": 2,
+  "referenceRowCount": 2,
+  "matchColumns": [
+    "observation_id"
+  ],
+  "missingFromModelCount": 0,
+  "extraInModelCount": 0,
+  "missingFromModelSample": [],
+  "extraInModelSample": [],
+  "passed": true
+}

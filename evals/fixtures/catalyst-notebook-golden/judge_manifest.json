@@ -1,0 +1,95 @@
+{
+  "axis_medians": {
+    "aggregation-dirty-base-profile-switch:0:version-base-aggregation-dirty-base-profile-switch": {
+      "intent_fidelity": 3,
+      "schema_discipline": 3,
+      "sql_quality": 3
+    },
+    "aggregation-dirty-base-profile-switch:1:version-succ-aggregation-dirty-base-profile-switch": {
+      "followup_coherence": 3,
+      "intent_fidelity": 3,
+      "schema_discipline": 3,
+      "sql_quality": 3
+    },
+    "gold-fail-high-judge:0:version-base-gold-fail-high-judge": {
+      "intent_fidelity": 3,
+      "schema_discipline": 3,
+      "sql_quality": 3
+    },
+    "gold-fail-high-judge:1:version-succ-gold-fail-high-judge": {
+      "followup_coherence": 3,
+      "intent_fidelity": 3,
+      "schema_discipline": 3,
+      "sql_quality": 3
+    },
+    "multi-version-successor:0:version-base-multi-version-successor": {
+      "intent_fidelity": 3,
+      "schema_discipline": 3,
+      "sql_quality": 3
+    },
+    "multi-version-successor:1:version-succ-multi-version-successor": {
+      "followup_coherence": 3,
+      "intent_fidelity": 3,
+      "schema_discipline": 3,
+      "sql_quality": 3
+    },
+    "narrowing-unchanged-base:0:version-base-narrowing-unchanged-base": {
+      "intent_fidelity": 3,
+      "schema_discipline": 3,
+      "sql_quality": 3
+    },
+    "narrowing-unchanged-base:1:version-succ-narrowing-unchanged-base": {
+      "followup_coherence": 3,
+      "intent_fidelity": 3,
+      "schema_discipline": 3,
+      "sql_quality": 3
+    },
+    "semantic-distinct-patient-review:0:version-base-semantic-distinct-patient-review": {
+      "intent_fidelity": 3,
+      "schema_discipline": 3,
+      "sql_quality": 3
+    },
+    "semantic-distinct-patient-review:1:version-succ-semantic-distinct-patient-review": {
+      "followup_coherence": 3,
+      "intent_fidelity": 3,
+      "schema_discipline": 3,
+      "sql_quality": 3
+    },
+    "unresolved-parameter-correction:0:version-base-unresolved-parameter-correction": {
+      "intent_fidelity": 3,
+      "schema_discipline": 3,
+      "sql_quality": 3
+    },
+    "unresolved-parameter-correction:1:version-succ-unresolved-parameter-correction": {
+      "followup_coherence": 3,
+      "intent_fidelity": 3,
+      "schema_discipline": 3,
+      "sql_quality": 3
+    }
+  },
+  "composites": {
+    "aggregation-dirty-base-profile-switch:0:version-base-aggregation-dirty-base-profile-switch": 100,
+    "aggregation-dirty-base-profile-switch:1:version-succ-aggregation-dirty-base-profile-switch": 100,
+    "gold-fail-high-judge:0:version-base-gold-fail-high-judge": 100,
+    "gold-fail-high-judge:1:version-succ-gold-fail-high-judge": 100,
+    "multi-version-successor:0:version-base-multi-version-successor": 100,
+    "multi-version-successor:1:version-succ-multi-version-successor": 100,
+    "narrowing-unchanged-base:0:version-base-narrowing-unchanged-base": 100,
+    "narrowing-unchanged-base:1:version-succ-narrowing-unchanged-base": 100,
+    "semantic-distinct-patient-review:0:version-base-semantic-distinct-patient-review": 100,
+    "semantic-distinct-patient-review:1:version-succ-semantic-distinct-patient-review": 100,
+    "unresolved-parameter-correction:0:version-base-unresolved-parameter-correction": 100,
+    "unresolved-parameter-correction:1:version-succ-unresolved-parameter-correction": 100
+  },
+  "finalized_at": "2026-07-21T21:08:12.648881+00:00",
+  "model": "fixture-judge",
+  "model_version": "p2",
+  "pass_paths": [
+    "judge.pass-1.jsonl",
+    "judge.pass-2.jsonl",
+    "judge.pass-3.jsonl"
+  ],
+  "provider": "fixture",
+  "rubric_sha256": "5dc94bbd30424f6f5f87b708a15a9f8615617d9e91180170f7c72df9c6e8f483",
+  "schema": "catalyst-judge-manifest-v1"
+}

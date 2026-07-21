@@ -1,0 +1,25 @@
+{
+  "contractVersion": "harness.catalyst-notebook.http-exchange.v1",
+  "request": {
+    "method": "GET",
+    "path": "/v1/catalyst/query-options",
+    "body": null
+  },
+  "response": {
+    "httpStatus": 200,
+    "body": {
+      "profiles": [
+        {
+          "id": "catalyst-query-gemma-4-12b",
+          "available": true,
+          "revisionCapable": true,
+          "role_models": {
+            "query_generate": "gemma-4-12b",
+            "query_review": "qwen2.5-14b"
+          }
+        }
+      ]
+    }
+  },
+  "elapsedMs": 5
+}
