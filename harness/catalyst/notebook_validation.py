@@ -1,0 +1,1411 @@
+"""Real-path validation for the Catalyst iterative query notebook.
+
+The older Catalyst runner exercises the governed-preview API.  This module is
+deliberately separate: it follows the workbench session, immutable-version,
+turn, validation, execution, and generation-evidence contracts used by the UI.
+"""
+
+from __future__ import annotations
+
+import base64
+import hashlib
+import json
+import math
+import time
+from dataclasses import dataclass
+from datetime import date, datetime, time as datetime_time, timezone
+from decimal import Decimal
+from pathlib import Path
+from typing import Any, Callable, Protocol
+from urllib.parse import urlparse
+from uuid import UUID, uuid4
+
+import requests
+import rfc8785
+
+from ..metadata import RunManifest
+from ..submodules import read_harness_git_sha
+from .validation import _response_payload, _target_provenance
+
+
+@dataclass(frozen=True)
+class NotebookQuery:
+    sql: str
+    parameters: tuple[dict[str, Any], ...] = ()
+    expected_columns: tuple[dict[str, Any], ...] = ()
+
+    def content(self) -> dict[str, Any]:
+        return {
+            "sql": self.sql,
+            "parameters": [dict(item) for item in self.parameters],
+            "expectedColumns": [dict(item) for item in self.expected_columns],
+        }
+
+
+@dataclass(frozen=True)
+class NotebookScenario:
+    id: str
+    family: str
+    initial_question: str
+    initial_profile_id: str
+    followup_instruction: str
+    followup_profile_id: str
+    editor_query: NotebookQuery | None
+    persist_editor_query: bool
+    expected_base_classification: str
+    expected_turn_status: str
+    validate_base: bool
+    execute_base: bool
+    validate_successor: bool
+    execute_successor: bool
+    repetitions: int | None
+    manual_only: bool
+    require_reviewer_correction: bool
+
+
+@dataclass(frozen=True)
+class NotebookSuite:
+    id: str
+    dataset_id: str
+    dataset_version: str
+    catalog_version: str
+    provider_name: str
+    repetitions: int
+    profiles: dict[str, dict[str, str]]
+    scenarios: tuple[NotebookScenario, ...]
+
+
+@dataclass(frozen=True)
+class HttpExchange:
+    method: str
+    path: str
+    status_code: int
+    request_body: dict[str, Any] | None
+    response_body: dict[str, Any]
+    elapsed_ms: int
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "contractVersion": "harness.catalyst-notebook.http-exchange.v1",
+            "request": {
+                "method": self.method,
+                "path": self.path,
+                "body": self.request_body,
+            },
+            "response": {
+                "httpStatus": self.status_code,
+                "body": self.response_body,
+            },
+            "elapsedMs": self.elapsed_ms,
+        }
+
+
+@dataclass(frozen=True)
+class NotebookRunResult:
+    run_id: str
+    run_dir: Path
+    result_count: int
+    passed_count: int
+    skipped_count: int
+
+
+class NotebookTransport(Protocol):
+    def profiles(self) -> HttpExchange: ...
+
+    def dataset_overview(self) -> HttpExchange: ...
+
+    def catalog(self) -> HttpExchange: ...
+
+    def create_session(self, question: str, profile_id: str) -> HttpExchange: ...
+
+    def get_session(self, session_id: str) -> HttpExchange: ...
+
+    def get_turns(self, session_id: str) -> HttpExchange: ...
+
+    def generation_evidence(self, session_id: str, turn_id: str) -> HttpExchange: ...
+
+    def save_version(
+        self,
+        session_id: str,
+        query: NotebookQuery,
+        parent: dict[str, Any] | None,
+    ) -> HttpExchange: ...
+
+    def validate_version(self, version_id: str) -> HttpExchange: ...
+
+    def execute_version(self, version: dict[str, Any]) -> HttpExchange: ...
+
+    def create_turn(
+        self,
+        session_id: str,
+        *,
+        instruction: str,
+        profile_id: str,
+        observed_base: dict[str, str] | None,
+        editor_snapshot: dict[str, Any],
+    ) -> HttpExchange: ...
+
+
+class PostgresChecker(Protocol):
+    def check(
+        self,
+        version: dict[str, Any],
+        execution: dict[str, Any],
+    ) -> dict[str, Any]: ...
+
+
+class NotebookHttpClient:
+    def __init__(self, base_url: str, *, timeout_seconds: int = 240) -> None:
+        self.base_url = base_url.rstrip("/")
+        self.timeout_seconds = timeout_seconds
+        self.session = requests.Session()
+
+    def _request(
+        self,
+        method: str,
+        path: str,
+        body: dict[str, Any] | None = None,
+    ) -> HttpExchange:
+        started = time.monotonic()
+        response = self.session.request(
+            method,
+            f"{self.base_url}{path}",
+            json=body,
+            timeout=self.timeout_seconds,
+        )
+        elapsed_ms = round((time.monotonic() - started) * 1000)
+        return HttpExchange(
+            method=method,
+            path=path,
+            status_code=response.status_code,
+            request_body=body,
+            response_body=_response_payload(response),
+            elapsed_ms=elapsed_ms,
+        )
+
+    def profiles(self) -> HttpExchange:
+        return self._request("GET", "/v1/catalyst/query-options")
+
+    def dataset_overview(self) -> HttpExchange:
+        return self._request("GET", "/v1/catalyst/dataset")
+
+    def catalog(self) -> HttpExchange:
+        return self._request("GET", "/v1/catalyst/workbench/catalog")
+
+    def create_session(self, question: str, profile_id: str) -> HttpExchange:
+        return self._request(
+            "POST",
+            "/v1/catalyst/workbench/sessions",
+            {
+                "contractVersion": "catalyst.workbench.session.request.v1",
+                "deploymentMode": "demo",
+                "question": question,
+                "profileId": profile_id,
+            },
+        )
+
+    def get_session(self, session_id: str) -> HttpExchange:
+        return self._request("GET", f"/v1/catalyst/workbench/sessions/{session_id}")
+
+    def get_turns(self, session_id: str) -> HttpExchange:
+        return self._request(
+            "GET", f"/v1/catalyst/workbench/sessions/{session_id}/turns"
+        )
+
+    def generation_evidence(self, session_id: str, turn_id: str) -> HttpExchange:
+        return self._request(
+            "GET",
+            f"/v1/catalyst/workbench/sessions/{session_id}/turns/"
+            f"{turn_id}/generation-evidence",
+        )
+
+    def save_version(
+        self,
+        session_id: str,
+        query: NotebookQuery,
+        parent: dict[str, Any] | None,
+    ) -> HttpExchange:
+        body: dict[str, Any] = {
+            "contractVersion": "catalyst.workbench.version.request.v1",
+            **query.content(),
+        }
+        if parent is not None:
+            body.update(
+                {
+                    "parentVersionId": parent["versionId"],
+                    "parentQueryDigest": parent["queryDigest"],
+                }
+            )
+        return self._request(
+            "POST",
+            f"/v1/catalyst/workbench/sessions/{session_id}/versions",
+            body,
+        )
+
+    def validate_version(self, version_id: str) -> HttpExchange:
+        return self._request(
+            "POST", f"/v1/catalyst/workbench/versions/{version_id}/validate"
+        )
+
+    def execute_version(self, version: dict[str, Any]) -> HttpExchange:
+        version_id = str(version["versionId"])
+        return self._request(
+            "POST",
+            f"/v1/catalyst/workbench/versions/{version_id}/execute",
+            {
+                "contractVersion": "catalyst.workbench.execute.request.v1",
+                "versionId": version_id,
+                "queryDigest": version["queryDigest"],
+                "idempotencyKey": f"harness-notebook-{uuid4()}",
+            },
+        )
+
+    def create_turn(
+        self,
+        session_id: str,
+        *,
+        instruction: str,
+        profile_id: str,
+        observed_base: dict[str, str] | None,
+        editor_snapshot: dict[str, Any],
+    ) -> HttpExchange:
+        return self._request(
+            "POST",
+            f"/v1/catalyst/workbench/sessions/{session_id}/turns",
+            {
+                "contractVersion": "catalyst.workbench.turn.request.v1",
+                "instruction": instruction,
+                "profileId": profile_id,
+                "observedBase": observed_base,
+                "editorSnapshot": editor_snapshot,
+            },
+        )
+
+
+class PostgresReadOnlyChecker:
+    """Execute the selected immutable version through a separate DB connection."""
+
+    def __init__(
+        self,
+        dsn: str,
+        *,
+        statement_timeout_ms: int = 30_000,
+        max_rows: int = 100,
+    ) -> None:
+        self.dsn = dsn
+        self.statement_timeout_ms = statement_timeout_ms
+        self.max_rows = max_rows
+
+    def check(
+        self,
+        version: dict[str, Any],
+        execution: dict[str, Any],
+    ) -> dict[str, Any]:
+        import psycopg
+
+        parameters = list(version.get("parameters") or [])
+        bindings = {
+            str(parameter["name"]): _binding_value(parameter)
+            for parameter in parameters
+        }
+        driver_sql = _driver_sql(str(version["sql"]), set(bindings))
+        with psycopg.connect(self.dsn, connect_timeout=10) as connection:
+            with connection.cursor() as cursor:
+                cursor.execute("SET TRANSACTION READ ONLY")
+                cursor.execute(
+                    "SELECT set_config('statement_timeout', %s, true)",
+                    (f"{self.statement_timeout_ms}ms",),
+                )
+                cursor.execute(driver_sql, bindings)
+                direct_rows = list(cursor.fetchmany(self.max_rows + 1))
+                direct_columns = [item.name for item in (cursor.description or ())]
+
+        direct_truncated = len(direct_rows) > self.max_rows
+        direct_rows = direct_rows[: self.max_rows]
+        normalized_direct = [
+            [_json_safe_value(value) for value in row] for row in direct_rows
+        ]
+        result = execution.get("result") if isinstance(execution, dict) else None
+        gateway_columns = [
+            item.get("name") for item in (result or {}).get("columns", [])
+        ]
+        gateway_rows = [
+            [_gateway_cell_value(cell) for cell in row]
+            for row in (result or {}).get("rows", [])
+        ]
+        row_count = (result or {}).get("rowCount", {})
+        comparisons = {
+            "columns": gateway_columns == direct_columns,
+            "returnedRows": row_count.get("returned") == len(direct_rows),
+            "truncated": row_count.get("truncated") is direct_truncated,
+            "recordDigests": _row_digests(gateway_rows)
+            == _row_digests(normalized_direct),
+        }
+        parsed = urlparse(self.dsn)
+        return {
+            "contractVersion": "harness.catalyst-notebook.postgres-crosscheck.v1",
+            "readOnlyTransaction": True,
+            "database": parsed.path.lstrip("/") or None,
+            "versionId": version.get("versionId"),
+            "queryDigest": version.get("queryDigest"),
+            "gatewayExecutionId": execution.get("executionId"),
+            "maxRows": self.max_rows,
+            "comparisons": comparisons,
+            "passed": all(comparisons.values()),
+            "gateway": {
+                "columns": gateway_columns,
+                "returned": row_count.get("returned"),
+                "truncated": row_count.get("truncated"),
+                "recordDigests": _row_digests(gateway_rows),
+            },
+            "postgres": {
+                "columns": direct_columns,
+                "returned": len(direct_rows),
+                "truncated": direct_truncated,
+                "recordDigests": _row_digests(normalized_direct),
+            },
+        }
+
+
+class _EvidenceRecorder:
+    def __init__(self, run_dir: Path, run_id: str) -> None:
+        self.run_dir = run_dir
+        self.run_id = run_id
+        self.entries: list[dict[str, Any]] = []
+
+    def json(
+        self,
+        relative_path: str,
+        payload: Any,
+        *,
+        kind: str,
+        metadata: dict[str, Any] | None = None,
+    ) -> Path:
+        path = self.run_dir / relative_path
+        if not path.resolve().is_relative_to(self.run_dir.resolve()):
+            raise ValueError("Evidence path must stay within the run directory")
+        path.parent.mkdir(parents=True, exist_ok=True)
+        encoded = (
+            json.dumps(payload, indent=2, ensure_ascii=False, allow_nan=False) + "\n"
+        ).encode("utf-8")
+        path.write_bytes(encoded)
+        entry = {
+            "path": relative_path,
+            "kind": kind,
+            "mediaType": "application/json",
+            "bytes": len(encoded),
+            "sha256": hashlib.sha256(encoded).hexdigest(),
+        }
+        if metadata:
+            entry["metadata"] = metadata
+        self.entries.append(entry)
+        return path
+
+    def exchange(
+        self,
+        relative_path: str,
+        exchange: HttpExchange,
+        *,
+        kind: str,
+    ) -> dict[str, Any]:
+        self.json(relative_path, exchange.as_dict(), kind=kind)
+        return exchange.response_body
+
+    def finish(self) -> None:
+        index = {
+            "contractVersion": "harness.catalyst-notebook.evidence-index.v1",
+            "runId": self.run_id,
+            "hashAlgorithm": "sha256",
+            "entries": sorted(self.entries, key=lambda item: item["path"]),
+        }
+        encoded = (
+            json.dumps(index, indent=2, ensure_ascii=False, allow_nan=False) + "\n"
+        ).encode("utf-8")
+        index_path = self.run_dir / "evidence-index.json"
+        index_path.write_bytes(encoded)
+        (self.run_dir / "evidence-index.sha256").write_text(
+            f"{hashlib.sha256(encoded).hexdigest()}  evidence-index.json\n",
+            encoding="utf-8",
+        )
+
+
+def load_notebook_suite(path: Path | str) -> NotebookSuite:
+    payload = json.loads(Path(path).read_text(encoding="utf-8"))
+    repetitions = int(payload["repetitions"])
+    if repetitions < 1:
+        raise ValueError("Notebook suite repetitions must be at least one")
+    scenarios: list[NotebookScenario] = []
+    seen: set[str] = set()
+    for item in payload["scenarios"]:
+        scenario_id = str(item["id"])
+        if scenario_id in seen:
+            raise ValueError(f"duplicate notebook scenario id {scenario_id!r}")
+        seen.add(scenario_id)
+        editor_payload = item.get("editorQuery")
+        editor_query = None
+        if editor_payload is not None:
+            editor_query = NotebookQuery(
+                sql=str(editor_payload["sql"]),
+                parameters=tuple(dict(value) for value in editor_payload["parameters"]),
+                expected_columns=tuple(
+                    dict(value) for value in editor_payload.get("expectedColumns", [])
+                ),
+            )
+        scenario_repetitions = item.get("repetitions")
+        if scenario_repetitions is not None and int(scenario_repetitions) < 1:
+            raise ValueError(f"scenario {scenario_id!r} repetitions must be positive")
+        classification = str(item["expectedBaseClassification"])
+        if classification not in {"reused", "promoted_human", "unresolved"}:
+            raise ValueError(f"scenario {scenario_id!r} has invalid classification")
+        status = str(item.get("expectedTurnStatus", "completed"))
+        if status not in {"completed", "failed"}:
+            raise ValueError(f"scenario {scenario_id!r} has invalid turn status")
+        scenarios.append(
+            NotebookScenario(
+                id=scenario_id,
+                family=str(item["family"]),
+                initial_question=str(item["initialQuestion"]),
+                initial_profile_id=str(item["initialProfileId"]),
+                followup_instruction=str(item["followupInstruction"]),
+                followup_profile_id=str(item["followupProfileId"]),
+                editor_query=editor_query,
+                persist_editor_query=bool(item.get("persistEditorQuery", False)),
+                expected_base_classification=classification,
+                expected_turn_status=status,
+                validate_base=bool(item.get("validateBase", True)),
+                execute_base=bool(item.get("executeBase", True)),
+                validate_successor=bool(item.get("validateSuccessor", True)),
+                execute_successor=bool(item.get("executeSuccessor", True)),
+                repetitions=(
+                    int(scenario_repetitions)
+                    if scenario_repetitions is not None
+                    else None
+                ),
+                manual_only=bool(item.get("manualOnly", False)),
+                require_reviewer_correction=bool(
+                    item.get("requireReviewerCorrection", False)
+                ),
+            )
+        )
+    if not scenarios:
+        raise ValueError("Notebook suite must contain scenarios")
+    profiles = {
+        str(profile_id): {
+            "writerModelId": str(detail["writerModelId"]),
+            "reviewerModelId": str(detail["reviewerModelId"]),
+        }
+        for profile_id, detail in payload["profiles"].items()
+    }
+    for scenario in scenarios:
+        for profile_id in (
+            scenario.initial_profile_id,
+            scenario.followup_profile_id,
+        ):
+            if profile_id not in profiles:
+                raise ValueError(
+                    f"scenario {scenario.id!r} references unknown profile "
+                    f"{profile_id!r}"
+                )
+    return NotebookSuite(
+        id=str(payload["id"]),
+        dataset_id=str(payload["datasetId"]),
+        dataset_version=str(payload["datasetVersion"]),
+        catalog_version=str(payload["catalogVersion"]),
+        provider_name=str(payload["providerName"]),
+        repetitions=repetitions,
+        profiles=profiles,
+        scenarios=tuple(scenarios),
+    )
+
+
+def query_digest(query: NotebookQuery | dict[str, Any]) -> str:
+    if isinstance(query, NotebookQuery):
+        content = query.content()
+    else:
+        content = {
+            "sql": query["sql"],
+            "parameters": list(query.get("parameters") or []),
+            "expectedColumns": list(query.get("expectedColumns") or []),
+        }
+    return hashlib.sha256(rfc8785.dumps(content)).hexdigest()
+
+
+def run_notebook_suite(
+    *,
+    suite_path: Path | str,
+    client: NotebookTransport,
+    output_dir: Path | str = "artifacts/catalyst-notebook-validation",
+    project_root: Path | str = ".",
+    scenario_ids: set[str] | None = None,
+    repetitions: int | None = None,
+    include_manual: bool = False,
+    postgres_checker: PostgresChecker | None = None,
+    manual_checkpoint: Callable[[NotebookScenario, str], None] | None = None,
+    provenance_loader: Callable[[Path], list[dict[str, Any]]] = _target_provenance,
+) -> NotebookRunResult:
+    suite_path = Path(suite_path)
+    suite = load_notebook_suite(suite_path)
+    selected = [
+        scenario
+        for scenario in suite.scenarios
+        if scenario_ids is None or scenario.id in scenario_ids
+    ]
+    if not selected:
+        raise ValueError("no notebook scenarios selected")
+    if repetitions is not None and repetitions < 1:
+        raise ValueError("repetitions must be at least one")
+
+    run_id = str(uuid4())
+    run_dir = Path(output_dir) / run_id
+    recorder = _EvidenceRecorder(run_dir, run_id)
+    root = Path(project_root).resolve()
+    target_provenance = provenance_loader(root)
+    manifest = RunManifest(
+        run_id=run_id,
+        project="clinical-ai-validation-harness",
+        component="catalyst-iterative-query-notebook-validation",
+        git_sha=read_harness_git_sha(root),
+        dataset_id=suite.dataset_id,
+        dataset_version=suite.dataset_version,
+        schema_mapping_version=suite.catalog_version,
+        gen_ai_provider_name=suite.provider_name,
+        gen_ai_operation_name="chat",
+        decision_rationale=(
+            "Exercise the real Catalyst workbench session/turn/version path, retain "
+            "typed model evidence, and compare selected executions through a separate "
+            "read-only PostgreSQL connection."
+        ),
+        target_provenance=target_provenance,
+    )
+    recorder.json("run_manifest.json", manifest.to_dict(), kind="run_manifest")
+    recorder.json(
+        "suite.json",
+        json.loads(suite_path.read_text(encoding="utf-8")),
+        kind="suite_definition",
+        metadata={"sourceSha256": hashlib.sha256(suite_path.read_bytes()).hexdigest()},
+    )
+
+    profiles_exchange = client.profiles()
+    dataset_exchange = client.dataset_overview()
+    catalog_exchange = client.catalog()
+    recorder.exchange(
+        "discovery/query-options.json", profiles_exchange, kind="profile_discovery"
+    )
+    dataset = recorder.exchange(
+        "discovery/dataset.json", dataset_exchange, kind="dataset_discovery"
+    )
+    catalog = recorder.exchange(
+        "discovery/catalog.json", catalog_exchange, kind="catalog_discovery"
+    )
+    _require_discovery(suite, profiles_exchange, dataset_exchange, catalog_exchange)
+
+    results: list[dict[str, Any]] = []
+    seen_sessions: set[str] = set()
+    skipped = 0
+    for scenario in selected:
+        if scenario.manual_only and not include_manual:
+            skipped += 1
+            results.append(
+                {
+                    "scenarioId": scenario.id,
+                    "family": scenario.family,
+                    "status": "skipped",
+                    "reason": "manual-only bounded failure scenario was not enabled",
+                }
+            )
+            continue
+        repeat_count = repetitions or scenario.repetitions or suite.repetitions
+        for repetition in range(1, repeat_count + 1):
+            prefix = f"scenarios/{scenario.id}/repetition-{repetition:02d}"
+            result = _run_scenario(
+                suite=suite,
+                scenario=scenario,
+                repetition=repetition,
+                client=client,
+                recorder=recorder,
+                prefix=prefix,
+                postgres_checker=postgres_checker,
+                manual_checkpoint=manual_checkpoint,
+            )
+            session_id = result.get("sessionId")
+            isolated = isinstance(session_id, str) and session_id not in seen_sessions
+            if isinstance(session_id, str):
+                seen_sessions.add(session_id)
+            result["assertions"].append(
+                {
+                    "name": "new_session_isolation",
+                    "passed": isolated,
+                    "evidence": session_id,
+                }
+            )
+            result["passed"] = all(item["passed"] for item in result["assertions"])
+            results.append(result)
+
+    passed_count = sum(result.get("passed") is True for result in results)
+    result_count = sum(result.get("status") != "skipped" for result in results)
+    nondeterminism = _nondeterminism_summary(results)
+    summary = {
+        "contractVersion": "harness.catalyst-notebook.validation-run.v1",
+        "runId": run_id,
+        "suiteId": suite.id,
+        "dataset": dataset,
+        "catalogVersion": catalog.get("catalogVersion"),
+        "resultCount": result_count,
+        "passedCount": passed_count,
+        "skippedCount": skipped,
+        "nondeterminism": nondeterminism,
+        "results": results,
+    }
+    recorder.json("results.json", summary, kind="validation_results")
+    recorder.finish()
+    return NotebookRunResult(
+        run_id=run_id,
+        run_dir=run_dir,
+        result_count=result_count,
+        passed_count=passed_count,
+        skipped_count=skipped,
+    )
+
+
+def _run_scenario(
+    *,
+    suite: NotebookSuite,
+    scenario: NotebookScenario,
+    repetition: int,
+    client: NotebookTransport,
+    recorder: _EvidenceRecorder,
+    prefix: str,
+    postgres_checker: PostgresChecker | None,
+    manual_checkpoint: Callable[[NotebookScenario, str], None] | None,
+) -> dict[str, Any]:
+    assertions: list[dict[str, Any]] = []
+
+    def check(name: str, passed: bool, evidence: Any) -> None:
+        assertions.append({"name": name, "passed": bool(passed), "evidence": evidence})
+
+    create = client.create_session(
+        scenario.initial_question, scenario.initial_profile_id
+    )
+    session = recorder.exchange(
+        f"{prefix}/01-create-session.json", create, kind="session_create"
+    )
+    check("session_created", create.status_code == 201, create.status_code)
+    if create.status_code != 201 or not isinstance(session.get("sessionId"), str):
+        return {
+            "scenarioId": scenario.id,
+            "family": scenario.family,
+            "repetition": repetition,
+            "status": "failed_before_turn",
+            "sessionId": session.get("sessionId"),
+            "assertions": assertions,
+            "passed": False,
+        }
+    session_id = str(session["sessionId"])
+    current = session.get("currentVersion")
+
+    initial_timeline_exchange = client.get_turns(session_id)
+    initial_timeline = recorder.exchange(
+        f"{prefix}/02-initial-turns.json",
+        initial_timeline_exchange,
+        kind="turn_timeline",
+    )
+    initial_turn = next(
+        (
+            item
+            for item in initial_timeline.get("turns", [])
+            if item.get("kind") == "initial"
+        ),
+        None,
+    )
+    check("initial_turn_recorded", isinstance(initial_turn, dict), initial_turn)
+    initial_evidence: dict[str, Any] = {}
+    if isinstance(initial_turn, dict):
+        evidence_exchange = client.generation_evidence(
+            session_id, str(initial_turn["turnId"])
+        )
+        initial_evidence = recorder.exchange(
+            f"{prefix}/03-initial-generation-evidence.json",
+            evidence_exchange,
+            kind="generation_evidence",
+        )
+        check(
+            "initial_evidence_available",
+            evidence_exchange.status_code == 200,
+            evidence_exchange.status_code,
+        )
+
+    if scenario.persist_editor_query:
+        if scenario.editor_query is None:
+            raise ValueError(
+                f"scenario {scenario.id!r} persists an absent editor query"
+            )
+        saved_exchange = client.save_version(
+            session_id,
+            scenario.editor_query,
+            current if isinstance(current, dict) else None,
+        )
+        session = recorder.exchange(
+            f"{prefix}/04-save-base-version.json",
+            saved_exchange,
+            kind="query_version_create",
+        )
+        check(
+            "base_version_saved",
+            saved_exchange.status_code == 201,
+            saved_exchange.status_code,
+        )
+        current = session.get("currentVersion")
+
+    base_version = current if isinstance(current, dict) else None
+    if base_version is None:
+        check("base_version_available", False, None)
+        return {
+            "scenarioId": scenario.id,
+            "family": scenario.family,
+            "repetition": repetition,
+            "status": "failed_before_turn",
+            "sessionId": session_id,
+            "assertions": assertions,
+            "passed": False,
+        }
+    check("base_version_available", True, base_version.get("versionId"))
+
+    if scenario.validate_base:
+        validated = client.validate_version(str(base_version["versionId"]))
+        recorder.exchange(
+            f"{prefix}/05-validate-base.json",
+            validated,
+            kind="query_validation",
+        )
+        check(
+            "base_validation_recorded",
+            validated.status_code == 201,
+            validated.status_code,
+        )
+
+    base_execution: dict[str, Any] | None = None
+    base_execution_wall_ms = 0
+    if scenario.execute_base:
+        executed = client.execute_version(base_version)
+        base_execution_wall_ms = executed.elapsed_ms
+        base_execution = recorder.exchange(
+            f"{prefix}/06-execute-base.json", executed, kind="query_execution"
+        )
+        check(
+            "base_execution_succeeded",
+            executed.status_code == 200 and base_execution.get("status") == "succeeded",
+            {
+                "httpStatus": executed.status_code,
+                "status": base_execution.get("status"),
+            },
+        )
+        if (
+            postgres_checker is not None
+            and executed.status_code == 200
+            and base_execution.get("status") == "succeeded"
+        ):
+            crosscheck = postgres_checker.check(base_version, base_execution)
+            recorder.json(
+                f"{prefix}/07-postgres-base.json",
+                crosscheck,
+                kind="postgres_crosscheck",
+            )
+            check("base_postgres_crosscheck", crosscheck["passed"], crosscheck)
+
+    editor_query = scenario.editor_query or NotebookQuery(
+        sql=str(base_version["sql"]),
+        parameters=tuple(dict(item) for item in base_version.get("parameters", [])),
+        expected_columns=tuple(
+            dict(item) for item in base_version.get("expectedColumns", [])
+        ),
+    )
+    snapshot = {
+        "contractVersion": "catalyst.workbench.editor-snapshot.v1",
+        **editor_query.content(),
+        "editorDigest": query_digest(editor_query),
+    }
+    observed_base = {
+        "versionId": str(base_version["versionId"]),
+        "queryDigest": str(base_version["queryDigest"]),
+    }
+    if scenario.manual_only:
+        if manual_checkpoint is None:
+            raise ValueError(
+                f"scenario {scenario.id!r} requires an operator checkpoint"
+            )
+        manual_checkpoint(scenario, session_id)
+    followup = client.create_turn(
+        session_id,
+        instruction=scenario.followup_instruction,
+        profile_id=scenario.followup_profile_id,
+        observed_base=observed_base,
+        editor_snapshot=snapshot,
+    )
+    turn = recorder.exchange(
+        f"{prefix}/08-create-followup.json", followup, kind="turn_create"
+    )
+    check("followup_http_created", followup.status_code == 201, followup.status_code)
+    check(
+        "followup_terminal_status",
+        turn.get("status") == scenario.expected_turn_status,
+        turn.get("status"),
+    )
+    check(
+        "base_classification",
+        turn.get("snapshotClassification") == scenario.expected_base_classification,
+        turn.get("snapshotClassification"),
+    )
+    manual_version = turn.get("manualVersion")
+    check(
+        "manual_version_classification",
+        (manual_version is not None)
+        is (scenario.expected_base_classification == "promoted_human"),
+        manual_version,
+    )
+    check(
+        "followup_profile",
+        turn.get("profileSnapshot", {}).get("profileId")
+        == scenario.followup_profile_id,
+        turn.get("profileSnapshot", {}).get("profileId"),
+    )
+
+    refreshed_exchange = client.get_session(session_id)
+    refreshed = recorder.exchange(
+        f"{prefix}/09-refreshed-session.json",
+        refreshed_exchange,
+        kind="session_restore",
+    )
+    timeline_exchange = client.get_turns(session_id)
+    timeline = recorder.exchange(
+        f"{prefix}/10-final-turns.json",
+        timeline_exchange,
+        kind="turn_timeline",
+    )
+    check(
+        "refresh_restored",
+        refreshed_exchange.status_code == 200,
+        refreshed_exchange.status_code,
+    )
+    check(
+        "timeline_current_turn",
+        timeline.get("currentTurnId") == turn.get("turnId"),
+        timeline.get("currentTurnId"),
+    )
+
+    followup_evidence: dict[str, Any] = {}
+    if isinstance(turn.get("turnId"), str):
+        evidence_exchange = client.generation_evidence(session_id, turn["turnId"])
+        followup_evidence = recorder.exchange(
+            f"{prefix}/11-followup-generation-evidence.json",
+            evidence_exchange,
+            kind="generation_evidence",
+        )
+        check(
+            "followup_evidence_available",
+            evidence_exchange.status_code == 200,
+            evidence_exchange.status_code,
+        )
+        evidence_checks = _evidence_checks(
+            followup_evidence,
+            expected_profile=suite.profiles[scenario.followup_profile_id],
+        )
+        for name, passed, evidence in evidence_checks:
+            check(name, passed, evidence)
+
+    selected = None
+    if scenario.expected_turn_status == "completed":
+        outputs = list(turn.get("outputVersions") or [])
+        selected_outputs = [item for item in outputs if item.get("selected") is True]
+        if len(selected_outputs) == 1:
+            selected = refreshed.get("currentVersion")
+        exact_selection = (
+            len(selected_outputs) == 1
+            and turn.get("selectedVersionId") == selected_outputs[0].get("versionId")
+            and turn.get("resultingCurrentVersion", {}).get("versionId")
+            == selected_outputs[0].get("versionId")
+            and refreshed.get("currentVersionId")
+            == selected_outputs[0].get("versionId")
+        )
+        check("exact_selected_output", exact_selection, selected_outputs)
+        reviewer_corrected = bool(
+            selected_outputs and selected_outputs[0].get("role") == "reviewer"
+        )
+        check(
+            "semantic_reviewer_correction",
+            reviewer_corrected or not scenario.require_reviewer_correction,
+            {
+                "observed": reviewer_corrected,
+                "required": scenario.require_reviewer_correction,
+            },
+        )
+        if base_execution is not None:
+            check(
+                "prior_results_stale_after_successor",
+                refreshed.get("currentVersionId") != base_version.get("versionId")
+                and any(
+                    item.get("versionId") == base_version.get("versionId")
+                    for item in refreshed.get("executions", [])
+                ),
+                {
+                    "baseVersionId": base_version.get("versionId"),
+                    "currentVersionId": refreshed.get("currentVersionId"),
+                },
+            )
+    else:
+        check(
+            "failed_turn_preserved_base",
+            turn.get("selectedVersionId") is None
+            and refreshed.get("currentVersionId")
+            == turn.get("resultingCurrentVersion", {}).get("versionId"),
+            {
+                "failure": turn.get("failure"),
+                "currentVersionId": refreshed.get("currentVersionId"),
+            },
+        )
+
+    successor_execution: dict[str, Any] | None = None
+    successor_execution_wall_ms = 0
+    if isinstance(selected, dict) and scenario.validate_successor:
+        validated = client.validate_version(str(selected["versionId"]))
+        recorder.exchange(
+            f"{prefix}/12-validate-successor.json",
+            validated,
+            kind="query_validation",
+        )
+        check(
+            "successor_validation_recorded",
+            validated.status_code == 201,
+            validated.status_code,
+        )
+    if isinstance(selected, dict) and scenario.execute_successor:
+        executed = client.execute_version(selected)
+        successor_execution_wall_ms = executed.elapsed_ms
+        successor_execution = recorder.exchange(
+            f"{prefix}/13-execute-successor.json",
+            executed,
+            kind="query_execution",
+        )
+        check(
+            "successor_execution_succeeded",
+            executed.status_code == 200
+            and successor_execution.get("status") == "succeeded",
+            {
+                "httpStatus": executed.status_code,
+                "status": successor_execution.get("status"),
+                "diagnostic": successor_execution.get("databaseDiagnostic"),
+            },
+        )
+        if (
+            postgres_checker is not None
+            and executed.status_code == 200
+            and successor_execution.get("status") == "succeeded"
+        ):
+            crosscheck = postgres_checker.check(selected, successor_execution)
+            recorder.json(
+                f"{prefix}/14-postgres-successor.json",
+                crosscheck,
+                kind="postgres_crosscheck",
+            )
+            check("successor_postgres_crosscheck", crosscheck["passed"], crosscheck)
+
+    invocation_ms = int(initial_evidence.get("totalInvocationDurationMs") or 0) + int(
+        followup_evidence.get("totalInvocationDurationMs") or 0
+    )
+    generation_wall_ms = create.elapsed_ms + followup.elapsed_ms
+    timing = {
+        "initialGenerationWallMs": create.elapsed_ms,
+        "followupGenerationWallMs": followup.elapsed_ms,
+        "unadjustedGenerationWallMs": generation_wall_ms,
+        "recordedInvocationDurationMs": invocation_ms,
+        "generationWallMinusRecordedInvocationsMs": generation_wall_ms - invocation_ms,
+        "baseExecutionWallMs": base_execution_wall_ms,
+        "successorExecutionWallMs": successor_execution_wall_ms,
+    }
+    check(
+        "successor_visible_under_three_minutes",
+        generation_wall_ms - invocation_ms < 180_000,
+        timing,
+    )
+
+    return {
+        "scenarioId": scenario.id,
+        "family": scenario.family,
+        "repetition": repetition,
+        "status": turn.get("status"),
+        "sessionId": session_id,
+        "initialTurnId": initial_turn.get("turnId")
+        if isinstance(initial_turn, dict)
+        else None,
+        "followupTurnId": turn.get("turnId"),
+        "baseVersionId": base_version.get("versionId"),
+        "selectedVersionId": turn.get("selectedVersionId"),
+        "baseExecutionId": (base_execution or {}).get("executionId"),
+        "successorExecutionId": (successor_execution or {}).get("executionId"),
+        "initialCandidateDigests": [
+            item.get("candidateDigest")
+            for item in initial_evidence.get("candidates", [])
+            if item.get("candidateDigest") is not None
+        ],
+        "followupCandidateDigests": [
+            item.get("candidateDigest")
+            for item in followup_evidence.get("candidates", [])
+            if item.get("candidateDigest") is not None
+        ],
+        "selectedQueryDigest": (
+            selected.get("queryDigest") if isinstance(selected, dict) else None
+        ),
+        "followupEvidenceDigest": followup_evidence.get("evidenceDigest"),
+        "timing": timing,
+        "assertions": assertions,
+        "passed": all(item["passed"] for item in assertions),
+    }
+
+
+def _nondeterminism_summary(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    scenario_ids = sorted(
+        {str(item["scenarioId"]) for item in results if item.get("status") != "skipped"}
+    )
+    summary: list[dict[str, Any]] = []
+    for scenario_id in scenario_ids:
+        repetitions = [
+            item for item in results if item.get("scenarioId") == scenario_id
+        ]
+        candidate_sequences = [
+            list(item.get("followupCandidateDigests") or []) for item in repetitions
+        ]
+        output_digests = sorted(
+            {
+                str(item["selectedQueryDigest"])
+                for item in repetitions
+                if item.get("selectedQueryDigest") is not None
+            }
+        )
+        summary.append(
+            {
+                "scenarioId": scenario_id,
+                "repetitions": len(repetitions),
+                "candidateDigestSequences": candidate_sequences,
+                "selectedQueryDigests": output_digests,
+                "candidateDifferenceObserved": len(
+                    {tuple(sequence) for sequence in candidate_sequences}
+                )
+                > 1,
+                "selectedOutputDifferenceObserved": len(output_digests) > 1,
+            }
+        )
+    return summary
+
+
+def _require_discovery(
+    suite: NotebookSuite,
+    profiles_exchange: HttpExchange,
+    dataset_exchange: HttpExchange,
+    catalog_exchange: HttpExchange,
+) -> None:
+    for label, exchange in (
+        ("profile", profiles_exchange),
+        ("dataset", dataset_exchange),
+        ("catalog", catalog_exchange),
+    ):
+        if exchange.status_code != 200:
+            raise ValueError(f"{label} discovery returned HTTP {exchange.status_code}")
+    advertised = {
+        item.get("id"): item
+        for item in profiles_exchange.response_body.get("profiles", [])
+    }
+    for profile_id, expected in suite.profiles.items():
+        profile = advertised.get(profile_id)
+        if not isinstance(profile, dict) or profile.get("available") is not True:
+            raise ValueError(f"required profile {profile_id!r} is unavailable")
+        if profile.get("revisionCapable") is not True:
+            raise ValueError(f"required profile {profile_id!r} is not revision-capable")
+        roles = profile.get("role_models") or profile.get("roleModels") or {}
+        if roles.get("query_generate") != expected["writerModelId"]:
+            raise ValueError(f"profile {profile_id!r} writer model drifted")
+        if roles.get("query_review") != expected["reviewerModelId"]:
+            raise ValueError(f"profile {profile_id!r} reviewer model drifted")
+    dataset = dataset_exchange.response_body
+    if dataset.get("contractVersion") != "catalyst.dataset-overview.v1":
+        raise ValueError("runtime dataset overview contract is unsupported")
+    runtime_dataset_id = dataset.get("datasetId")
+    pipeline_run_id = dataset.get("pipelineRunId")
+    if (
+        not isinstance(runtime_dataset_id, str)
+        or not runtime_dataset_id
+        or runtime_dataset_id != pipeline_run_id
+    ):
+        raise ValueError("runtime dataset is not bound to its pipeline run")
+    catalog_version = catalog_exchange.response_body.get("catalogVersion")
+    if not isinstance(catalog_version, str) or not catalog_version.startswith(
+        suite.catalog_version
+    ):
+        raise ValueError("runtime catalog does not derive from the notebook suite")
+
+
+def _evidence_checks(
+    evidence: dict[str, Any],
+    *,
+    expected_profile: dict[str, str],
+) -> list[tuple[str, bool, Any]]:
+    invocations = list(evidence.get("invocations") or [])
+    duration_sum = sum(
+        int(item.get("durationMs") or 0)
+        for item in invocations
+        if item.get("durationMs") is not None
+    )
+    terminal_digests = all(
+        isinstance(item.get("requestDigest"), str)
+        and len(item["requestDigest"]) == 64
+        and (
+            isinstance(item.get("responseDigest"), str)
+            or isinstance(item.get("failureDigest"), str)
+        )
+        for item in invocations
+        if item.get("outcome") != "in_progress"
+    )
+    timestamp_reconciliation: list[dict[str, Any]] = []
+    for item in invocations:
+        started = _parse_timestamp(item.get("startedAt"))
+        ended = _parse_timestamp(item.get("endedAt"))
+        duration = item.get("durationMs")
+        if started is not None and ended is not None and duration is not None:
+            wall_ms = round((ended - started).total_seconds() * 1000)
+            timestamp_reconciliation.append(
+                {
+                    "invocationId": item.get("invocationId"),
+                    "recordedDurationMs": duration,
+                    "timestampDeltaMs": wall_ms,
+                    "differenceMs": wall_ms - int(duration),
+                }
+            )
+    role_models = {
+        item.get("role"): item.get("modelId")
+        for item in invocations
+        if item.get("role") in {"writer", "reviewer"}
+    }
+    configurations = [item.get("configuration") or {} for item in invocations]
+    config_ok = bool(configurations) and all(
+        item.get("temperature") == 0 and item.get("dryMultiplier") == 0
+        for item in configurations
+    )
+    forbidden = _find_forbidden_keys(evidence.get("revisionContext"))
+    reviewer_model = role_models.get("reviewer")
+    reviewer_expected_or_not_reached = reviewer_model == expected_profile[
+        "reviewerModelId"
+    ] or (evidence.get("status") == "failed" and reviewer_model is None)
+    return [
+        (
+            "invocation_duration_sum",
+            duration_sum == evidence.get("totalInvocationDurationMs"),
+            {
+                "computed": duration_sum,
+                "recorded": evidence.get("totalInvocationDurationMs"),
+            },
+        ),
+        ("invocation_digests", terminal_digests, invocations),
+        (
+            "invocation_timestamp_reconciliation",
+            len(timestamp_reconciliation) == len(invocations),
+            timestamp_reconciliation,
+        ),
+        (
+            "writer_model",
+            role_models.get("writer") == expected_profile["writerModelId"],
+            role_models,
+        ),
+        (
+            "reviewer_model",
+            reviewer_expected_or_not_reached,
+            {
+                "roleModels": role_models,
+                "notReachedAfterFailure": (
+                    evidence.get("status") == "failed" and reviewer_model is None
+                ),
+            },
+        ),
+        ("effective_temperature_and_dry", config_ok, configurations),
+        ("revision_context_exclusions", not forbidden, forbidden),
+    ]
+
+
+def _find_forbidden_keys(value: Any, path: str = "$") -> list[str]:
+    forbidden_names = {
+        "credentials",
+        "dsn",
+        "password",
+        "previousresultrows",
+        "resultrows",
+        "reasoningtrace",
+        "rawtrace",
+    }
+    found: list[str] = []
+    if isinstance(value, dict):
+        for key, item in value.items():
+            child = f"{path}.{key}"
+            if str(key).replace("_", "").lower() in forbidden_names:
+                found.append(child)
+            found.extend(_find_forbidden_keys(item, child))
+    elif isinstance(value, list):
+        for index, item in enumerate(value):
+            found.extend(_find_forbidden_keys(item, f"{path}[{index}]"))
+    return found
+
+
+def _parse_timestamp(value: Any) -> datetime | None:
+    if not isinstance(value, str):
+        return None
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+
+
+def _row_digests(rows: list[list[Any]]) -> list[str]:
+    return [hashlib.sha256(rfc8785.dumps(row)).hexdigest() for row in rows]
+
+
+def _gateway_cell_value(cell: dict[str, Any]) -> Any:
+    return None if cell.get("type") == "null" else cell.get("value")
+
+
+def _json_safe_value(value: Any) -> Any:
+    if value is None or isinstance(value, (str, bool, int)):
+        return value
+    if isinstance(value, Decimal):
+        return format(value, "f")
+    if isinstance(value, float):
+        if math.isnan(value):
+            return "NaN"
+        if math.isinf(value):
+            return "Infinity" if value > 0 else "-Infinity"
+        return repr(value)
+    if isinstance(value, datetime):
+        if value.tzinfo is not None:
+            return value.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+        return value.isoformat()
+    if isinstance(value, (date, datetime_time)):
+        return value.isoformat()
+    if isinstance(value, UUID):
+        return str(value)
+    if isinstance(value, (bytes, bytearray, memoryview)):
+        return base64.b64encode(bytes(value)).decode("ascii")
+    if isinstance(value, dict):
+        return {
+            str(key): _json_safe_value(item)
+            for key, item in sorted(value.items(), key=lambda pair: str(pair[0]))
+        }
+    if isinstance(value, (list, tuple)):
+        return [_json_safe_value(item) for item in value]
+    return str(value)
+
+
+def _binding_value(parameter: dict[str, Any]) -> Any:
+    value = parameter["value"]
+    parameter_type = parameter["type"]
+    if parameter_type == "date":
+        return date.fromisoformat(value)
+    if parameter_type == "date-time":
+        return datetime.fromisoformat(value.replace("Z", "+00:00"))
+    if parameter_type == "integer":
+        if isinstance(value, bool):
+            raise ValueError("Boolean values cannot be bound as integers.")
+        return int(value)
+    if parameter_type == "number":
+        return Decimal(str(value))
+    if parameter_type == "integer-list":
+        if any(isinstance(item, bool) for item in value):
+            raise ValueError("Boolean values cannot be bound as integers.")
+        return [int(item) for item in value]
+    if parameter_type == "string-list":
+        return [str(item) for item in value]
+    return value
+
+
+def _driver_sql(sql: str, parameter_names: set[str]) -> str:
+    """Convert named placeholders outside PostgreSQL strings/comments/casts."""
+
+    output: list[str] = []
+    index = 0
+    quote: str | None = None
+    dollar_quote: str | None = None
+    line_comment = False
+    block_comment = False
+    while index < len(sql):
+        char = sql[index]
+        following = sql[index + 1] if index + 1 < len(sql) else ""
+        if line_comment:
+            output.append(char)
+            index += 1
+            if char == "\n":
+                line_comment = False
+            continue
+        if block_comment:
+            output.append(char)
+            index += 1
+            if char == "*" and following == "/":
+                output.append(following)
+                index += 1
+                block_comment = False
+            continue
+        if quote:
+            output.append(char)
+            index += 1
+            if char == quote:
+                if following == quote:
+                    output.append(following)
+                    index += 1
+                else:
+                    quote = None
+            continue
+        if dollar_quote:
+            if sql.startswith(dollar_quote, index):
+                output.append(dollar_quote)
+                index += len(dollar_quote)
+                dollar_quote = None
+            else:
+                output.append(char)
+                index += 1
+            continue
+        if char == "-" and following == "-":
+            output.extend((char, following))
+            index += 2
+            line_comment = True
+            continue
+        if char == "/" and following == "*":
+            output.extend((char, following))
+            index += 2
+            block_comment = True
+            continue
+        if char in {"'", '"'}:
+            quote = char
+            output.append(char)
+            index += 1
+            continue
+        if char == "$":
+            delimiter_end = sql.find("$", index + 1)
+            if delimiter_end != -1:
+                tag = sql[index + 1 : delimiter_end]
+                if not tag or (
+                    (tag[0].isalpha() or tag[0] == "_")
+                    and all(part.isalnum() or part == "_" for part in tag)
+                ):
+                    dollar_quote = sql[index : delimiter_end + 1]
+                    output.append(dollar_quote)
+                    index = delimiter_end + 1
+                    continue
+        if (
+            char == ":"
+            and following != ":"
+            and (following.isalpha() or following == "_")
+        ):
+            end = index + 2
+            while end < len(sql) and (sql[end].isalnum() or sql[end] == "_"):
+                end += 1
+            name = sql[index + 1 : end]
+            if name in parameter_names:
+                output.append(f"%({name})s")
+                index = end
+                continue
+        output.append(char)
+        index += 1
+    return "".join(output)

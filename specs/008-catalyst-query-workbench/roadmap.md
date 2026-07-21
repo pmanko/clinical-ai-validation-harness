@@ -1004,6 +1004,54 @@ Catalyst must then pin and validate the resulting Hub `main` commit before it is
 squashed; the harness must finally pin both resulting `main` commits and rerun
 its gates. No PR-head SHA may remain as the final umbrella pin.
 
+### T094/T095 acceptance execution — IN PROGRESS (2026-07-20)
+
+The merge-readiness review has entered the complete G2.8c acceptance pass on the
+clean PR pins. This pass does not reuse the focused sort-order smoke as evidence
+for scenario families it did not exercise, and no task is marked complete until
+the corresponding durable evidence and user checkpoint exist.
+
+1. Reconfirm the external sibling-Hub stack, dataset/catalog identity, exact
+   Catalyst and Hub pins, loaded Gemma 4 12B writer/Qwen 2.5 14B reviewer, and
+   effective `temperature: 0`/`dryMultiplier: 0` invocation configuration.
+2. Run the five required real-path families: predicate narrowing,
+   aggregation/output-shape change, unresolved-snapshot correction, a
+   structurally lint-clean semantic reviewer correction, and a bounded Hub/tool
+   failure followed by successful recovery. Exercise unchanged, dirty-valid,
+   and unresolved bases; selected/unselected outputs; stale results; refresh;
+   and New Session isolation. Independently cross-check every successful data
+   claim in PostgreSQL with record identifiers, values, and a correctness
+   rationale rather than counts alone.
+3. Verify exact-digest context membership/exclusions, timed-out and cancelled
+   diagnostic presentation, stale/concurrent rejection, orphan recovery, and
+   the initial-submit-to-successor latency calculation using every recorded
+   invocation timestamp, duration, model, request digest, and response-or-
+   failure digest. Run three fresh-session repetitions of the same input and
+   report candidate/query digest equality or variance without assuming
+   reproducibility.
+4. Complete the live keyboard-only desktop flow plus 390 x 844, 320 CSS-pixel
+   reflow, and 200%-text checks for jump focus, timeline, profile selection,
+   editor/completion/wrap/Format, Restore, Validate/Run, results, and New
+   Session. Automated accessibility assertions support but do not replace this
+   live pass.
+
+Two issues are explicit before the run. N53 currently leaves only one
+revision-capable profile, so live per-turn switching requires the smallest
+truthful second revision profile or an explicit user-approved deferral. A
+lint-clean semantic reviewer correction is model-observed evidence, not a
+deterministically forceable outcome; the run may reveal that this case needs a
+reviewed fixture/fault-control seam rather than repeated prompting. Likewise,
+Hub/tool failure injection must be bounded to this isolated stack and preserve
+the exact failed-turn evidence; it must not rely on or disrupt another running
+environment.
+
+Any reproducible code defect found here receives a focused regression and an
+affected-gate rerun. Model-output variance is recorded as evidence rather than
+patched to match an expected string. After the matrix and final clean-pin gates
+pass, the evidence is appended to this roadmap and the G2.8 PCCP, T094/T095/T111
+are updated, and work pauses for user acceptance before the squash/repin
+sequence.
+
 ### G2.9a UX and schema audit — USER REVIEW (2026-07-18)
 
 The measured audit is recorded in
