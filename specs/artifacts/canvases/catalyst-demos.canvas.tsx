@@ -17,7 +17,11 @@ import {
   Text,
 } from 'cursor/canvas';
 
-const VIDEO_BASE = 'https://reports.openclinai.org/demos/videos';
+// Bundled with the site build (site/public/demos/videos/), not a separate
+// host — these are small (~350-475 KB), so there is no reason to split them
+// off onto the reports.openclinai.org evidence archive, which exists for a
+// different purpose (growing, append-only validation-run output).
+const VIDEO_BASE = `${import.meta.env.BASE_URL}demos/videos`;
 
 type DemoClip = {
   id: string;
