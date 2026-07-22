@@ -5,7 +5,7 @@ fhirdata:
   fhirServerUserName: "admin"
   fhirServerPassword: "Admin123"
   checkPatientEndpoint: true
-  resourceList: "Patient,Observation,Encounter,MedicationRequest,Condition"
+  resourceList: "Patient,Observation,Encounter,MedicationRequest,Medication,Condition"
   fhirVersion: "R4"
   structureDefinitionsPath: "classpath:/r4-us-core-definitions"
 

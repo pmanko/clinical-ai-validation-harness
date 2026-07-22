@@ -1,0 +1,102 @@
+{
+  "resourceType": "http://hl7.org/fhir/uv/sql-on-fhir/StructureDefinition/ViewDefinition",
+  "text": "Upstream fhir-data-pipes default (docker/config/views/observation_flat_view.json) PLUS harness-local additive columns val_string/val_boolean/val_datetime — keep that delta when syncing from upstream.",
+  "fhirVersion": [
+    "4.0"
+  ],
+  "select": [
+    {
+      "column": [
+        {
+          "path": "getResourceKey()",
+          "name": "id"
+        },
+        {
+          "path": "subject.getReferenceKey(Patient)",
+          "name": "patient_id"
+        },
+        {
+          "path": "encounter.getReferenceKey(Encounter)",
+          "name": "encounter_id"
+        },
+        {
+          "path": "status",
+          "name": "status"
+        },
+        {
+          "path": "effective.ofType(dateTime)",
+          "name": "obs_date",
+          "type": "dateTime"
+        },
+        {
+          "path": "value.ofType(Quantity).value",
+          "name": "val_quantity",
+          "type": "decimal"
+        },
+        {
+          "path": "value.ofType(Quantity).unit",
+          "name": "val_quantity_unit"
+        },
+        {
+          "path": "value.ofType(Quantity).system",
+          "name": "val_quantity_system"
+        },
+        {
+          "path": "value.ofType(Quantity).code",
+          "name": "val_quantity_code"
+        },
+        {
+          "path": "value.ofType(string)",
+          "name": "val_string"
+        },
+        {
+          "path": "value.ofType(boolean)",
+          "name": "val_boolean",
+          "type": "boolean"
+        },
+        {
+          "path": "value.ofType(dateTime)",
+          "name": "val_datetime",
+          "type": "dateTime"
+        }
+      ]
+    },
+    {
+      "forEachOrNull": "code.coding",
+      "column": [
+        {
+          "path": "code",
+          "name": "code_code"
+        },
+        {
+          "path": "system",
+          "name": "code_sys"
+        },
+        {
+          "path": "display",
+          "name": "code_display"
+        }
+      ]
+    },
+    {
+      "forEachOrNull": "value.ofType(CodeableConcept).coding",
+      "column": [
+        {
+          "path": "code",
+          "name": "value_code"
+        },
+        {
+          "path": "system",
+          "name": "value_sys"
+        },
+        {
+          "path": "display",
+          "name": "value_display"
+        }
+      ]
+    }
+  ],
+  "name": "observation_flat",
+  "status": "draft",
+  "resource": "Observation"
+}

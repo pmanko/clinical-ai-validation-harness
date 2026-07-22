@@ -1,0 +1,353 @@
+{
+  "contractVersion": "catalyst.analytics.catalog.v1",
+  "catalogVersion": "openmrs-hiv-catalog-v3",
+  "deploymentMode": "demo",
+  "dataSource": "openmrs-hiv-fhir-postgresql",
+  "dialect": "postgresql",
+  "schemaVersion": "analytics-v1",
+  "description": "GENERATED FILE - do not edit. Derived from the analytics database (view/column comments) plus catalog-overlay.json by scripts/generate-catalyst-source-catalog.py.",
+  "views": [
+    {
+      "name": "analytics.hiv_observation_fact_v1",
+      "version": "2",
+      "approved": true,
+      "grain": "Demo-only HIV care observation fact at exactly one row per FHIR Observation, pivoting each coding system (CIEL / SNOMED / WHO-ANC) into its own column from the lossless observation_flat base. concept_name comes from the OpenMRS-native coding's display. A row carries a numeric, coded, text, boolean, or datetime value depending on the concept. Dataset notes: HIV viral load has only 3 recorded results in this instance (CD4 count and CD4% are the well-populated quantitative markers), and HIV status is not recorded as a Condition \u2014 questions about patients with HIV or on treatment must use the Antiretroviral plan/use or Current WHO HIV stage concepts.",
+      "columns": [
+        {
+          "name": "observation_id",
+          "logicalType": "string",
+          "nullable": true,
+          "description": "FHIR Observation resource identifier and stable row identity."
+        },
+        {
+          "name": "patient_id",
+          "logicalType": "string",
+          "nullable": true,
+          "description": "FHIR Patient resource identifier referenced by the observation."
+        },
+        {
+          "name": "encounter_id",
+          "logicalType": "string",
+          "nullable": true,
+          "description": "FHIR Encounter resource identifier the observation was recorded within."
+        },
+        {
+          "name": "patient_gender",
+          "logicalType": "string",
+          "nullable": true,
+          "description": "FHIR Patient.gender."
+        },
+        {
+          "name": "patient_birth_date",
+          "logicalType": "date",
+          "nullable": true,
+          "description": "FHIR Patient.birthDate. Compute age at observation as (observed_at - patient_birth_date) rather than assuming a stored age column."
+        },
+        {
+          "name": "obs_status",
+          "logicalType": "string",
+          "nullable": true,
+          "description": "FHIR Observation.status."
+        },
+        {
+          "name": "observed_at",
+          "logicalType": "timestamp",
+          "nullable": true,
+          "description": "FHIR Observation effective dateTime."
+        },
+        {
+          "name": "concept_name",
+          "logicalType": "string",
+          "nullable": true,
+          "description": "Human-readable concept display name from the OpenMRS-native coding; populated on every row regardless of which terminology mappings exist. This is the reliable way to select a concept: a question naming a marker must constrain this field."
+        },
+        {
+          "name": "concept_code_ciel",
+          "logicalType": "string",
+          "nullable": true,
+          "description": "CIEL numeric code for the observed concept (e.g. 5497 for CD4 count). Coverage verified against the complete dataset: 99.9% of observations carry a CIEL coding; a small residue does not, so concept_name (which is populated on every row and carries the semantic aliases) remains the primary way to select a concept, with this column for terminology filtering and cross-reference."
+        },
+        {
+          "name": "concept_code_snomed",
+          "logicalType": "string",
+          "nullable": true,
+          "description": "SNOMED CT code for the observed concept when the source carries a SNOMED coding. Cross-reference/terminology column; coverage is partial, as with CIEL."
+        },
+        {
+          "name": "concept_code_who_anc",
+          "logicalType": "string",
+          "nullable": true,
+          "description": "WHO ANC custom code (http://fhir.org/guides/who/anc-cds) for the observed concept when present. Cross-reference/terminology column; sparse."
+        },
+        {
+          "name": "value_numeric",
+          "logicalType": "decimal",
+          "nullable": true,
+          "description": "Populated only for numeric-valued concepts (e.g. CD4 count, CD4%, CD8 count). Null for coded, text, boolean, or datetime observations; do not aggregate across unlike concepts or units.",
+          "unitColumn": "value_unit"
+        },
+        {
+          "name": "value_unit",
+          "logicalType": "string",
+          "nullable": true,
+          "description": "Unit for value_numeric, when the source Observation carries one."
+        },
+        {
+          "name": "value_coded_name",
+          "logicalType": "string",
+          "nullable": true,
+          "description": "Human-readable label for a coded answer (e.g. Yes/No/Unknown for antiretroviral use, a WHO stage, an adherence category), from the OpenMRS-native coding; populated for every coded-valued observation."
+        },
+        {
+          "name": "value_coded_code_ciel",
+          "logicalType": "string",
+          "nullable": true,
+          "description": "CIEL numeric code for the coded answer when the source carries one; near-complete coverage, same residue caveat as concept_code_ciel. value_coded_name is populated on every coded row."
+        },
+        {
+          "name": "value_coded_code_snomed",
+          "logicalType": "string",
+          "nullable": true,
+          "description": "SNOMED CT code for the coded answer when the source carries one; cross-reference column."
+        },
+        {
+          "name": "value_text",
+          "logicalType": "string",
+          "nullable": true,
+          "description": "Free-text value, for the small number of concepts recorded as plain text."
+        },
+        {
+          "name": "value_boolean",
+          "logicalType": "boolean",
+          "nullable": true,
+          "description": "Boolean value, for yes/no concepts recorded as FHIR valueBoolean (e.g. screening flags)."
+        },
+        {
+          "name": "value_datetime",
+          "logicalType": "timestamp",
+          "nullable": true,
+          "description": "Datetime value, for concepts recorded as FHIR valueDateTime (e.g. return-visit or event dates)."
+        }
+      ],
+      "semanticDimensions": [
+        {
+          "field": "concept_name",
+          "semanticType": "analyte",
+          "values": [
+            {
+              "canonical": "CD4 count",
+              "aliases": [
+                "CD4 absolute count",
+                "CD4 absolute",
+                "CD4"
+              ]
+            },
+            {
+              "canonical": "CD4%",
+              "aliases": [
+                "CD4 percent",
+                "CD4 percentage",
+                "CD4 % by flow cytometry"
+              ]
+            },
+            {
+              "canonical": "CD8 count",
+              "aliases": [
+                "CD8",
+                "CD8 absolute count"
+              ]
+            },
+            {
+              "canonical": "HIV viral load",
+              "aliases": [
+                "viral load",
+                "HIV viral load, quantitative",
+                "VL"
+              ]
+            },
+            {
+              "canonical": "Antiretroviral plan",
+              "aliases": [
+                "ARV plan",
+                "antiretroviral plan"
+              ]
+            },
+            {
+              "canonical": "Antiretroviral use",
+              "aliases": [
+                "ARV use",
+                "on ARVs",
+                "antiretroviral use"
+              ]
+            },
+            {
+              "canonical": "Current WHO HIV stage",
+              "aliases": [
+                "WHO stage",
+                "WHO clinical stage",
+                "HIV stage"
+              ]
+            },
+            {
+              "canonical": "Tuberculosis prophylaxis plan",
+              "aliases": [
+                "TB prophylaxis plan",
+                "TB prophylaxis",
+                "TB prevention plan"
+              ]
+            },
+            {
+              "canonical": "Tuberculosis treatment plan",
+              "aliases": [
+                "TB treatment plan",
+                "TB treatment"
+              ]
+            },
+            {
+              "canonical": "PCP prophylaxis plan",
+              "aliases": [
+                "PCP prophylaxis"
+              ]
+            },
+            {
+              "canonical": "Overall drug adherence in last month",
+              "aliases": [
+                "overall adherence in the past month",
+                "drug adherence",
+                "overall adherence",
+                "adherence last month"
+              ]
+            },
+            {
+              "canonical": "Antiretroviral adherence in past week",
+              "aliases": [
+                "ARV adherence in the past week",
+                "ARV adherence",
+                "adherence past week"
+              ]
+            },
+            {
+              "canonical": "Primary regimen",
+              "aliases": [
+                "primary regimen",
+                "ARV regimen"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "analytics.hiv_visit_fact_v1",
+      "version": "2",
+      "approved": true,
+      "grain": "Demo-only HIV care visit fact at exactly one row per FHIR Encounter (collapsing the type/participant/location coding cross product). days_since_prior_visit is computed across this view's own 2020-2035 window, so a query that further narrows started_at still sees the real gap; it is null only for a patient's first encounter inside the window.",
+      "columns": [
+        {
+          "name": "encounter_id",
+          "logicalType": "string",
+          "nullable": true,
+          "description": "FHIR Encounter resource identifier and stable row identity."
+        },
+        {
+          "name": "patient_id",
+          "logicalType": "string",
+          "nullable": true,
+          "description": "FHIR Patient resource identifier referenced by the encounter."
+        },
+        {
+          "name": "patient_gender",
+          "logicalType": "string",
+          "nullable": true,
+          "description": "FHIR Patient.gender."
+        },
+        {
+          "name": "patient_birth_date",
+          "logicalType": "date",
+          "nullable": true,
+          "description": "FHIR Patient.birthDate."
+        },
+        {
+          "name": "encounter_status",
+          "logicalType": "string",
+          "nullable": true,
+          "description": "FHIR Encounter.status."
+        },
+        {
+          "name": "encounter_type",
+          "logicalType": "string",
+          "nullable": true,
+          "description": "FHIR Encounter type display name; almost all encounters in this demo instance are OPD Visit."
+        },
+        {
+          "name": "started_at",
+          "logicalType": "timestamp",
+          "nullable": true,
+          "description": "FHIR Encounter.period.start."
+        },
+        {
+          "name": "ended_at",
+          "logicalType": "timestamp",
+          "nullable": true,
+          "description": "FHIR Encounter.period.end."
+        },
+        {
+          "name": "prior_visit_started_at",
+          "logicalType": "timestamp",
+          "nullable": true,
+          "description": "started_at of this patient's immediately preceding visit in this view; null for a patient's first visit in the 2020-2035 window."
+        },
+        {
+          "name": "days_since_prior_visit",
+          "logicalType": "decimal",
+          "nullable": true,
+          "description": "Days between this visit and the patient's immediately preceding visit. Real, patient-specific spacing (some patients visit monthly with gaps, some have single-day visit pairs); it is not a fixed or uniform interval. Null for a patient's first visit."
+        }
+      ]
+    },
+    {
+      "name": "analytics.hiv_concept_mapping_v1",
+      "version": "1",
+      "approved": true,
+      "grain": "Terminology-mapping coverage observed in the data: one row per distinct (concept, OpenMRS/CIEL/SNOMED/WHO-ANC code) combination with the number of observations carrying it. Null in a code column means that observation batch carried no coding from that system.",
+      "columns": [
+        {
+          "name": "concept_name",
+          "logicalType": "string",
+          "nullable": true,
+          "description": "Human-readable concept display name from the OpenMRS-native coding."
+        },
+        {
+          "name": "openmrs_concept_code",
+          "logicalType": "string",
+          "nullable": true,
+          "description": "OpenMRS-native concept code (UUID-form, no system URI in the source)."
+        },
+        {
+          "name": "ciel_code",
+          "logicalType": "string",
+          "nullable": true,
+          "description": "CIEL numeric code mapped to this concept, when the observations carried one; null means those observations had no CIEL mapping."
+        },
+        {
+          "name": "snomed_code",
+          "logicalType": "string",
+          "nullable": true,
+          "description": "SNOMED CT code mapped to this concept, when present."
+        },
+        {
+          "name": "who_anc_code",
+          "logicalType": "string",
+          "nullable": true,
+          "description": "WHO ANC custom code mapped to this concept, when present."
+        },
+        {
+          "name": "observation_count",
+          "logicalType": "integer",
+          "nullable": true,
+          "description": "Number of observations carrying exactly this mapping combination."
+        }
+      ]
+    }
+  ]
+}

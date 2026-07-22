@@ -4,7 +4,7 @@
       "id": "openmrs-hiv",
       "label": "OpenMRS HIV/ART program",
       "analyticsDsn": "postgresql://catalyst_readonly:demo-readonly-change-me@analytics-db:5432/catalyst_analytics_hiv",
-      "catalogPath": "/app/config/openmrs-hiv-catalog-v1.json"
+      "catalogPath": "/app/config/openmrs-hiv-catalog.json"
     }
   ]
 }
