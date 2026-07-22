@@ -126,15 +126,28 @@ COMMON_FLAGS=(
 # whichever DB the restore pipes into.
 dump_stream() {
   if [[ "$EXCLUDE_MODULE" == "1" ]]; then
-    where="1=1"
+    changelog_where="1=1"
+    gp_where="1=1"
     for prefix in "${MODULE_PREFIX_LIST[@]}"; do
-      where+=" AND id NOT LIKE '${prefix}%' AND filename NOT LIKE '%${prefix}%'"
+      changelog_where+=" AND id NOT LIKE '${prefix}%' AND filename NOT LIKE '%${prefix}%'"
+      gp_where+=" AND property NOT LIKE '${prefix}%'"
     done
+    # (1) The body: everything except liquibasechangelog and global_property (module tables
+    #     are already dropped via IGNORE_TABLE_FLAGS).
     docker exec "$DB_CONTAINER" mariadb-dump "${COMMON_FLAGS[@]}" "${IGNORE_TABLE_FLAGS[@]}" \
-      --ignore-table="${SOURCE_DB}.liquibasechangelog" "$SOURCE_DB"
+      --ignore-table="${SOURCE_DB}.liquibasechangelog" \
+      --ignore-table="${SOURCE_DB}.global_property" "$SOURCE_DB"
+    # (2) liquibasechangelog WITHOUT the module's rows.
     docker exec "$DB_CONTAINER" mariadb-dump "${COMMON_FLAGS[@]}" \
-      --where="$where" \
+      --where="$changelog_where" \
       "$SOURCE_DB" liquibasechangelog
+    # (3) global_property WITHOUT the module's rows. Critical: a retained `<module>.started`
+    #     (and the module's config rows) makes OpenMRS treat the module as already-installed and
+    #     SKIP its fresh setup on boot, so its Liquibase never runs and its schema is never
+    #     created. Stripping these lets both consumer modules install themselves fresh.
+    docker exec "$DB_CONTAINER" mariadb-dump "${COMMON_FLAGS[@]}" \
+      --where="$gp_where" \
+      "$SOURCE_DB" global_property
   else
     docker exec "$DB_CONTAINER" mariadb-dump "${COMMON_FLAGS[@]}" "${IGNORE_TABLE_FLAGS[@]}" \
       "$SOURCE_DB"
