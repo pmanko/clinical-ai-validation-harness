@@ -1,0 +1,36 @@
+{
+  "schema_version": "engine_parity.v1",
+  "description": "Parity ledger contract for the bundled-vs-hub answer-leg engine request (specs/artifacts/planning/engine-parity-instrument.md AC-3). Every JSON-path difference between the two captured requests must be listed here with a reason, or the diff fails. Shrinking this list is the refactoring driver.",
+  "must_match": [
+    "model",
+    "temperature",
+    "max_tokens",
+    "response_format.type"
+  ],
+  "documented_divergences": [
+    {
+      "path": "stream",
+      "reason": "bundled streams answer tokens to the UI (RemoteLlmEngine inferStreaming); the hub's inner writer call is buffered"
+    },
+    {
+      "path": "stream_options",
+      "reason": "accompanies bundled's stream:true (include_usage for token accounting)"
+    },
+    {
+      "path": "repeat_penalty",
+      "reason": "hub decodes with explicit anti-repetition settings; bundled relies on server defaults"
+    },
+    {
+      "path": "dry_multiplier",
+      "reason": "hub decodes with explicit anti-repetition settings; bundled relies on server defaults"
+    },
+    {
+      "path": "messages",
+      "reason": "prompt composition is the path under test: bundled sends system(instructions)+user(records+question); hub sends user(records)+user(question)+user(format instructions) with no system role"
+    },
+    {
+      "path": "response_format.json_schema",
+      "reason": "answer schema family: bundled constrains {answer, citations, reasoning}; hub constrains {answer, blocks, citations}"
+    }
+  ]
+}
