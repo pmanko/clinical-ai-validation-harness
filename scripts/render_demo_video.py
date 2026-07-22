@@ -27,8 +27,18 @@ def final_duration(timeline: dict) -> float:
     return total
 
 
-def build_filtergraph(timeline: dict) -> str:
-    """Build the ffmpeg -filter_complex graph for the whole timeline."""
+def build_filtergraph(timeline: dict, tmp_dir: "Path | None" = None) -> str:
+    """Build the ffmpeg -filter_complex graph for the whole timeline.
+
+    Human-authored text is written to plain UTF-8 files under `tmp_dir`
+    (a fresh temp directory by default) and referenced via ffmpeg's
+    `textfile=` rather than embedded inline — see drawtext_escape's
+    docstring for why inline text is unsafe.
+    """
+    if tmp_dir is None:
+        import tempfile
+
+        tmp_dir = Path(tempfile.mkdtemp())
     filters = []
     labels = []
     for i, segment in enumerate(timeline["segments"]):
@@ -40,19 +50,25 @@ def build_filtergraph(timeline: dict) -> str:
                 f":rate={timeline.get('fps', 25)}:duration={segment['duration']}"
             )
             if segment.get("kicker"):
+                kicker_path = Path(tmp_dir) / f"{label}-kicker.txt"
+                kicker_path.write_text(segment["kicker"], encoding="utf-8")
                 chain += (
-                    f",drawtext=text='{drawtext_escape(segment['kicker'])}'"
+                    f",drawtext=textfile={drawtext_escape(str(kicker_path))}"
                     f":fontcolor=0xF2C75C:fontsize={int(h * 0.032)}"
                     f":x=(w-text_w)/2:y=(h/2)-{int(h * 0.11)}"
                 )
+            heading_path = Path(tmp_dir) / f"{label}-heading.txt"
+            heading_path.write_text(segment["heading"], encoding="utf-8")
             chain += (
-                f",drawtext=text='{drawtext_escape(segment['heading'])}'"
+                f",drawtext=textfile={drawtext_escape(str(heading_path))}"
                 f":fontcolor=white:fontsize={int(h * 0.055)}"
                 f":x=(w-text_w)/2:y=(h-text_h)/2"
             )
             for j, line in enumerate(segment.get("lines", ())):
+                line_path = Path(tmp_dir) / f"{label}-line{j}.txt"
+                line_path.write_text(line, encoding="utf-8")
                 chain += (
-                    f",drawtext=text='{drawtext_escape(line)}'"
+                    f",drawtext=textfile={drawtext_escape(str(line_path))}"
                     f":fontcolor=0xCFC6E0:fontsize={int(h * 0.032)}"
                     f":x=(w-text_w)/2:y=(h/2)+{int(h * (0.1 + j * 0.06))}"
                 )
@@ -68,8 +84,10 @@ def build_filtergraph(timeline: dict) -> str:
             if segment.get("hold"):
                 chain += f",tpad=stop_mode=clone:stop_duration={segment['hold']}"
             if segment.get("caption"):
+                caption_path = Path(tmp_dir) / f"{label}-caption.txt"
+                caption_path.write_text(segment["caption"], encoding="utf-8")
                 chain += (
-                    f",drawtext=text='{drawtext_escape(segment['caption'])}'"
+                    f",drawtext=textfile={drawtext_escape(str(caption_path))}"
                     f":fontcolor=white:box=1:boxcolor=0x24133F:x=36:y=h-text_h-36"
                 )
         filters.append(f"{chain}[{label}]")
@@ -92,10 +110,21 @@ def build_command(timeline: dict, *, source: str, output: str) -> list[str]:
     ]
 
 
-def drawtext_escape(text: str) -> str:
-    """Escape ffmpeg drawtext metacharacters in literal text."""
-    escaped = text.replace("\\", "\\\\")
-    for ch in "':,;[]%":
+def drawtext_escape(path: str) -> str:
+    """Escape ffmpeg filter-option metacharacters in a plain path string.
+
+    Human-authored text (headings, captions, ...) is never embedded inline
+    in the filtergraph — a quoted ffmpeg option value has its own fragile,
+    multi-layered escaping grammar (colons split key=value pairs, commas
+    split filter options, semicolons split chains, and a literal single
+    quote cannot simply be backslash-escaped inside a '...'-quoted value).
+    Text instead goes into a `textfile=` referencing a plain temp file,
+    sidestepping that grammar entirely. This escape runs only on the
+    resulting (unquoted) file path, so it escapes ffmpeg's structural
+    metacharacters but not quotes.
+    """
+    escaped = path.replace("\\", "\\\\")
+    for ch in ":,;[]%":
         escaped = escaped.replace(ch, "\\" + ch)
     return escaped
 

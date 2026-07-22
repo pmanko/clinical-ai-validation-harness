@@ -7,6 +7,7 @@ per-segment speed control, and burned-in caption pills.
 
 import importlib.util
 import json
+import os
 import shutil
 import subprocess
 from pathlib import Path
@@ -70,8 +71,15 @@ def test_final_duration_includes_clip_hold_time():
     assert rdv.final_duration(timeline) == pytest.approx(15.5)
 
 
-def test_filtergraph_trims_speeds_concatenates_and_burns_text():
-    graph = rdv.build_filtergraph(minimal_timeline())
+def test_card_heading_is_written_to_a_textfile_and_referenced(tmp_path):
+    graph = rdv.build_filtergraph(minimal_timeline(), tmp_path)
+    assert "textfile=" in graph
+    written = [p.read_text(encoding="utf-8") for p in tmp_path.glob("*.txt")]
+    assert "OpenELIS laboratory data" in written
+
+
+def test_filtergraph_trims_speeds_concatenates_and_burns_text(tmp_path):
+    graph = rdv.build_filtergraph(minimal_timeline(), tmp_path)
 
     # Footage windows are trimmed and speed-adjusted.
     assert "trim=start=0.0:end=8.0" in graph
@@ -81,10 +89,12 @@ def test_filtergraph_trims_speeds_concatenates_and_burns_text():
     assert "(PTS-STARTPTS)/4.0" in graph
     # Every segment (2 clips + 1 card) joins one concat.
     assert "concat=n=3:v=1:a=0" in graph
-    # Card text and the clip caption are burned in, caption as the
-    # house-styled purple pill.
-    assert "OpenELIS laboratory data" in graph
-    assert rdv.drawtext_escape("The question is typed in plain language.") in graph
+    # The card heading is written to a plain textfile, not embedded inline.
+    written = {p.read_text(encoding="utf-8") for p in tmp_path.glob("*.txt")}
+    assert "OpenELIS laboratory data" in written
+    # The clip caption is burned in as the house-styled purple pill, its
+    # text written to a plain textfile like the card text above.
+    assert "The question is typed in plain language." in written
     assert "box=1" in graph
     assert "boxcolor=0x24133F" in graph
 
@@ -102,10 +112,11 @@ def test_clip_is_scaled_and_padded_to_the_timeline_canvas_size():
     assert "pad=1280:720" in graph
 
 
-def test_card_renders_kicker_and_supporting_lines_below_heading():
-    graph = rdv.build_filtergraph(minimal_timeline())
-    assert rdv.drawtext_escape("CATALYST DEMO") in graph
-    assert rdv.drawtext_escape("Plain-language question to checked SQL.") in graph
+def test_card_kicker_and_lines_are_written_to_textfiles_too(tmp_path):
+    rdv.build_filtergraph(minimal_timeline(), tmp_path)
+    written = {p.read_text(encoding="utf-8") for p in tmp_path.glob("*.txt")}
+    assert "CATALYST DEMO" in written
+    assert "Plain-language question to checked SQL." in written
 
 
 def test_build_command_uses_ffmpeg_bin_env_override(monkeypatch):
@@ -114,7 +125,8 @@ def test_build_command_uses_ffmpeg_bin_env_override(monkeypatch):
     assert cmd[0] == "/opt/homebrew/opt/ffmpeg-full/bin/ffmpeg"
 
 
-def test_build_command_produces_publishable_encode_settings():
+def test_build_command_produces_publishable_encode_settings(monkeypatch):
+    monkeypatch.delenv("FFMPEG_BIN", raising=False)
     timeline = minimal_timeline()
     cmd = rdv.build_command(timeline, source="raw.webm", output="out.mp4")
 
@@ -129,10 +141,11 @@ def test_build_command_produces_publishable_encode_settings():
 
 
 def _ffmpeg_has_drawtext() -> bool:
-    if shutil.which("ffmpeg") is None:
+    binary = os.environ.get("FFMPEG_BIN", "ffmpeg")
+    if shutil.which(binary) is None:
         return False
     listing = subprocess.run(
-        ["ffmpeg", "-hide_banner", "-filters"], capture_output=True, text=True
+        [binary, "-hide_banner", "-filters"], capture_output=True, text=True
     ).stdout
     return "drawtext" in listing
 
@@ -189,9 +202,43 @@ def test_smoke_render_produces_expected_duration_and_poster(tmp_path):
     assert float(probe.stdout.strip()) == pytest.approx(3.5, abs=0.4)
 
 
+@pytest.mark.skipif(
+    not _ffmpeg_has_drawtext(),
+    reason="ffmpeg lacks drawtext (needs a libfreetype build, e.g. ffmpeg-full)",
+)
+def test_smoke_render_survives_an_apostrophe_followed_by_another_segment(tmp_path):
+    # A regression case: a card whose text contains an apostrophe, followed
+    # by another chain in the same -filter_complex graph. A naive backslash
+    # escape parses fine in isolation but corrupts ffmpeg's quote-nesting
+    # state, breaking every chain that follows it.
+    source = tmp_path / "raw.mp4"
+    subprocess.run(
+        [
+            "ffmpeg", "-v", "error", "-f", "lavfi",
+            "-i", "testsrc=duration=2:size=320x180:rate=25",
+            "-pix_fmt", "yuv420p", str(source),
+        ],
+        check=True,
+    )
+    timeline = {
+        "width": 320,
+        "height": 180,
+        "fps": 25,
+        "segments": [
+            {"type": "card", "duration": 1.0, "heading": "The patient's chart"},
+            {"type": "card", "duration": 1.0, "heading": "A second card after it"},
+        ],
+    }
+    output = tmp_path / "out.mp4"
+    subprocess.run(rdv.build_command(timeline, source=str(source), output=str(output)), check=True)
+    assert output.is_file()
+
+
 def test_drawtext_escape_neutralizes_ffmpeg_metacharacters():
-    escaped = rdv.drawtext_escape("it's 100%: a,b[c];\\d")
-    assert "\\'" in escaped
+    # drawtext_escape only ever runs on a plain (unquoted) textfile path, so
+    # it needs no quote handling — only the ffmpeg filtergraph
+    # metacharacters that are special regardless of quoting.
+    escaped = rdv.drawtext_escape("100%: a,b[c];\\d")
     assert "\\:" in escaped
     assert "\\%" in escaped
     assert "\\," in escaped
