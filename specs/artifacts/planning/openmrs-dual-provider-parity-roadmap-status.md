@@ -77,15 +77,25 @@ Verified against live repository tips on 2026-07-21:
 
 | Repository | Branch | Tip | State |
 |---|---|---|---|
-| chartsearchai | `codex/dual-provider-rebuild` | `e2bd0db` | 8 commits ahead of `upstream/main` (`58c0daf`); pushed to fork `origin/codex/dual-provider-rebuild`. Provider boundary, bundled + hub adapters, provider-neutral conversation/audit persistence, and the REST provider/chat lifecycle have landed. |
+| chartsearchai | `codex/dual-provider-rebuild` | `6904d49` | Pushed to fork `origin/codex/dual-provider-rebuild`. Provider boundary, bundled + hub adapters, provider-neutral conversation/audit persistence, the REST provider/chat lifecycle, and the restored `GET /models` hub profile relay have landed. |
 | querystore | `feat/patientrecord-read-api` | `856bdda` | Clean. Explicit clinical/admin date semantics, complete-chart snapshot identity, and conditional full-chart reads have landed. |
 | med-agent-hub | `codex/drug-safety-parity-followthrough` | `faa0232` | Pushed. Revalidating patient-ledger cache and ledger-checked ranked search landed as disposable engine state (606 tests pass). |
 | chartsearchai-esm | `codex/m2-hub-profile-rebuild` | `e602faf` | Pushed. Chat stream aligned to the canonical turn lifecycle (`turn_started`/`turn_done`/`turn_error`) and a provider picker added (appears on `pickerVisible`, new conversation on switch, no fallback); 203 tests pass. |
-| harness | `codex/m2-openmrs-relay-reconciliation` | `8110091` | Submodule pins are not yet updated to the tips above. |
+| harness | `codex/m2-openmrs-relay-reconciliation` | `74dcb5b` | Submodule pins updated to the tips above. |
 
-ChartSearchAI test suite (`mvn test`, 2026-07-21): **684 tests run, 0 failures, 0 errors, 34 skipped** (baseline before rebuild: 635).
+ChartSearchAI test suite (`mvn test`, 2026-07-22): **686 tests run, 0 failures, 0 errors, 34 skipped** (baseline before rebuild: 635).
 
-Outstanding before Signoff 2: harness submodule pin updates; a fresh ChartSearchAI PR from `codex/dual-provider-rebuild` (not amending the abandoned #26); and assembled-product runtime proof for G04, G05, G06, G07, G08 and the remaining gates G09–G22.
+### Assembled-product runtime proof (2026-07-22)
+
+New artifacts (chartsearchai `6904d49`, querystore `856bdda`, ESM `e602faf`, hub `faa0232`) were built, deployed onto the running OpenMRS 2.8 stack, and exercised against a real patient over the live REST API:
+
+- `GET /providers` → both providers, `pickerVisible: true`, `defaultProvider: bundled`; `GET /models` → all 5 hub product profiles.
+- Hub `/chat/stream` → full staged lifecycle (`turn_started → answer_done → answer_validation → indepth_* → turn_done`), real clinical answer, conversation + turn persisted with the provider envelope stored content-agnostically.
+- Bundled `/chat/stream` → token-streaming lifecycle (`reasoning_delta`/`answer_delta` → `answer_done` → `turn_done`).
+
+Two deploy-time findings: (1) redeploying a same-version `1.0.0-SNAPSHOT` omod over an existing install makes OpenMRS skip new Liquibase changesets (`chartsearchai-010`); a fresh DB runs it normally. (2) the rebuild had dropped `GET /models`, blocking the ESM profile picker; restored in `6904d49`.
+
+Outstanding before Signoff 2: a fresh ChartSearchAI draft PR from `codex/dual-provider-rebuild` (permission-gated push to upstream, not amending the abandoned #26); a clean-DB (`make seed`) rerun confirming Liquibase applies `chartsearchai-010` automatically; and the remaining gates G09–G22.
 
 ## Amendments and Deviations
 
