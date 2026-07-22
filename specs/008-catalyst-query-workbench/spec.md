@@ -62,6 +62,56 @@ current editor state.
   timing, and diagnostics. Value-level context is pending the G2.9 user decision
   on an explicit bounded result attachment; it must not happen silently.
 
+### Session 2026-07-22 — multi-source and lossless ingestion
+
+- Q: Should Catalyst support more than one data source? → A: Yes. A
+  data-source registry (`GET /v1/catalyst/data-sources`) lists every
+  registered source (own analytics database, own catalog); a workbench
+  session is source-agnostic — any turn may target a `dataSourceId`, and an
+  untargeted turn inherits the session's most-recently-targeted source
+  (falling back to the session's initial source). This lets a follow-up
+  literally "adapt this query to the other data source" mid-session instead
+  of requiring a new session per source. A source registered but not yet
+  provisioned (its catalog file absent) lists `available: false` and cannot
+  be targeted.
+- Q: How is catalog staleness (`409 stale_catalog_version`) judged when a
+  session can target multiple sources? → A: Per source, against the
+  baseline that source was last seen at in this session. Switching to a
+  source the session hasn't used yet has no baseline and never trips a
+  false conflict.
+- Q: How should ingestion for a new data source be authored — hand-written
+  projections, or something else? → A: Never hand-write ingestion
+  projections. The ingestion layer is the upstream fhir-data-pipes default
+  ViewDefinitions used essentially verbatim (lossless: one row per resource
+  per coding, via `forEachOrNull`), plus documented additive extensions and
+  gap-fill views only for resources upstream ships none for. ALL curation —
+  collapsing the per-coding cross product to one row per resource, picking a
+  canonical display, pivoting known coding systems into typed columns —
+  happens afterward in SQL (`sql/NNN_analytics_*.sql`), where a mistake costs
+  a `CREATE OR REPLACE VIEW` instead of a full FHIR re-fetch. This
+  supersedes the original G2.x hand-written single-select projection
+  approach (see plan.md N59); no ingestion-layer information loss (e.g. a
+  `.first()` over multiple codings) is acceptable when the resource can
+  legitimately carry more than one.
+- Q: How is the catalog kept in sync with the ingestion/curation layer
+  across every data source, without hand-updating it per source? → A: The
+  catalog is GENERATED, never hand-maintained. A harness script
+  (`scripts/generate-catalyst-source-catalog.py`) introspects the curated
+  SQL's `COMMENT ON VIEW` (grain) and `COMMENT ON COLUMN` (descriptions,
+  authored alongside the views) plus one small hand-maintained
+  `catalog-overlay.json` per source (identity, approved views, semantic
+  canonical values — validated against live data at generation time, so a
+  guessed display string that matches zero rows fails generation instead of
+  silently producing empty results). Only the sections the gateway actually
+  reads are emitted (approval, name, version, grain, typed columns/units,
+  semantic dimensions) — allowed-filters, terminology notes, freshness, and
+  example-query sections some earlier hand-written catalogs carried are
+  inert and are not part of the generated shape.
+- Q: What's the readiness-check scope with multiple sources registered? → A:
+  `readiness()` intentionally reflects the default data source only; full
+  per-source readiness across the registry is not yet implemented and is
+  tracked as follow-up work, not a gap in the current check.
+
 ## User Scenarios & Testing
 
 ### User Story 1 - Understand and refine a generated query (Priority: P1)

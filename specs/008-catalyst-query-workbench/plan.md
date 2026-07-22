@@ -668,11 +668,17 @@ The following items must remain visible until evidence resolves them:
   the completed 16-column fact view as the supported surface and labels manual
   execution as database-role governed. Advertising all seven relations requires
   a separate reviewed catalog decision.
-- **N59 — Optional Patient display text erased structured names (resolved)**:
-  `patient_flat_v1.name_display` read only optional FHIR `HumanName.text`, while
-  OpenELIS populated `given` and `family`. The projection now preserves explicit
-  text and falls back to the structured components; 96/96 refreshed patients
-  have nonblank display names, and the reproduced query has zero blank names.
+- **N59 — Optional Patient display text erased structured names (resolved;
+  superseded)**: `patient_flat_v1.name_display` read only optional FHIR
+  `HumanName.text`, while OpenELIS populated `given` and `family`. The
+  projection preserved explicit text and fell back to the structured
+  components; 96/96 refreshed patients had nonblank display names. This
+  hand-written single-select projection approach was later superseded
+  entirely by the lossless-defaults-plus-SQL-curation architecture (see the
+  spec's multi-source Clarifications session, 2026-07-22): `patient_flat` is
+  now the upstream default view verbatim, with no `name_display` column —
+  curation happens in `analytics/sql/001_analytics_v1.sql` instead of in the
+  ingestion projection.
 - **N60 — Full seed wrapper assumes a JSON backfill body (open; bounded)**: The
   OpenELIS seed completed, but its wrapper stopped when an otherwise successful
   backfill endpoint returned an empty body and the wrapper attempted JSON

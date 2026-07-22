@@ -59,6 +59,22 @@ boots.
 6. Swap the served model, refresh, select the other profile, and repeat the same
    questions.
 
+## Compare across data sources
+
+The stack registers a second data source (OpenMRS HIV/ART) alongside
+OpenELIS once `catalyst-sources/openmrs-hiv/` is provisioned (see its
+`run-ingestion.sh`). When more than one source is registered, a **Data
+source** selector appears next to the model-profile picker:
+
+1. Ask a question against the default source (OpenELIS Laboratory) as above.
+2. Switch the **Data source** selector to the other source mid-session.
+3. Enter a follow-up instruction referencing that source's schema (or ask
+   Catalyst to adapt the current query to it); the generated SQL should
+   target that source's catalog, and the turn timeline should show which
+   source each turn used.
+4. Validate and run — execution routes to that source's own analytics
+   database, distinct from the default source's.
+
 Useful starting questions include:
 
 - `Show viral load results since 2026-01-01 with patient, value, unit, and observed date`
