@@ -46,8 +46,8 @@ const clips: DemoClip[] = [
     factView: 'analytics.lab_result_fact_v1',
     file: 'openelis-lab-demo.mp4',
     poster: 'openelis-lab-demo-poster.jpg',
-    sizeLabel: '~350 KB',
-    durationLabel: '~75s',
+    sizeLabel: '~660 KB',
+    durationLabel: '~29s',
   },
   {
     id: 'openmrs-hiv-demo',
@@ -58,8 +58,8 @@ const clips: DemoClip[] = [
     factView: 'analytics.hiv_observation_fact_v1',
     file: 'openmrs-hiv-demo.mp4',
     poster: 'openmrs-hiv-demo-poster.jpg',
-    sizeLabel: '~475 KB',
-    durationLabel: '~2m',
+    sizeLabel: '~790 KB',
+    durationLabel: '~32s',
   },
 ];
 
