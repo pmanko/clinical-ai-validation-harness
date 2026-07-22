@@ -12,6 +12,13 @@
   "unitColumns": {
     "analytics.hiv_observation_fact_v1.value_numeric": "value_unit"
   },
+  "nonNullableColumns": [
+    "analytics.hiv_observation_fact_v1.observation_id",
+    "analytics.hiv_observation_fact_v1.patient_id",
+    "analytics.hiv_visit_fact_v1.encounter_id",
+    "analytics.hiv_visit_fact_v1.patient_id",
+    "analytics.hiv_concept_mapping_v1.observation_count"
+  ],
   "semanticDimensions": {
     "analytics.hiv_observation_fact_v1": [
       {

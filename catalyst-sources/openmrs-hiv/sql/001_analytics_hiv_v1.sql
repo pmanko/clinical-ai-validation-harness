@@ -157,7 +157,7 @@ WHERE f.observed_at >= '2020-01-01'
     AND f.observed_at < '2035-01-01';
 
 COMMENT ON VIEW analytics.hiv_observation_fact_v1 IS
-    'Demo-only HIV care observation fact at exactly one row per FHIR Observation, pivoting each coding system (CIEL / SNOMED / WHO-ANC) into its own column from the lossless observation_flat base. concept_name comes from the OpenMRS-native coding''s display. A row carries a numeric, coded, text, boolean, or datetime value depending on the concept. Dataset notes: HIV viral load has only 3 recorded results in this instance (CD4 count and CD4% are the well-populated quantitative markers), and HIV status is not recorded as a Condition — questions about patients with HIV or on treatment must use the Antiretroviral plan/use or Current WHO HIV stage concepts.';
+    'Demo-only HIV care observation fact at exactly one row per FHIR Observation, pivoting each coding system (CIEL / SNOMED / WHO-ANC) into its own column from the lossless observation_flat base. concept_name comes from the OpenMRS-native coding''s display. A row carries a numeric, coded, text, boolean, or datetime value depending on the concept. Only observations whose subject resolves to an ingested Patient appear (subject-less rows are excluded by the patient join). Dataset notes: HIV viral load has only 3 recorded results in this instance (CD4 count and CD4% are the well-populated quantitative markers), and HIV status is not recorded as a Condition — questions about patients with HIV or on treatment must use the Antiretroviral plan/use or Current WHO HIV stage concepts.';
 
 CREATE VIEW analytics.hiv_visit_fact_v1 AS
 WITH per_encounter AS (
@@ -200,7 +200,7 @@ WHERE f.started_at >= '2020-01-01'
     AND f.started_at < '2035-01-01';
 
 COMMENT ON VIEW analytics.hiv_visit_fact_v1 IS
-    'Demo-only HIV care visit fact at exactly one row per FHIR Encounter (collapsing the type/participant/location coding cross product). days_since_prior_visit is computed across this view''s own 2020-2035 window, so a query that further narrows started_at still sees the real gap; it is null only for a patient''s first encounter inside the window.';
+    'Demo-only HIV care visit fact at exactly one row per FHIR Encounter (collapsing the type/participant/location coding cross product; encounters without a resolvable Patient subject are excluded by the patient join). days_since_prior_visit is computed across this view''s own 2020-2035 window, so a query that further narrows started_at still sees the real gap; it is null only for a patient''s first encounter inside the window.';
 
 -- Terminology-mapping coverage: one row per distinct concept mapping
 -- combination observed in the data, with usage counts. Directly answers

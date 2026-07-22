@@ -33,6 +33,7 @@ import sys
 from pathlib import Path
 
 import psycopg
+from psycopg import sql
 
 TYPE_MAP = {
     "text": "string",
@@ -89,6 +90,9 @@ def main() -> None:
     overlay = json.loads(args.overlay.read_text())
     unit_columns: dict[str, str] = overlay.get("unitColumns", {})
     semantic_dimensions = overlay.get("semanticDimensions", {})
+    # Postgres cannot express NOT NULL through views, so identity columns the
+    # curated SQL guarantees are declared in the overlay instead of guessed.
+    non_nullable = set(overlay.get("nonNullableColumns", []))
 
     views = []
     with psycopg.connect(args.dsn) as connection:
@@ -125,7 +129,7 @@ def main() -> None:
                     column = {
                         "name": column_name,
                         "logicalType": logical_type,
-                        "nullable": True,
+                        "nullable": f"{qualified}.{column_name}" not in non_nullable,
                         "description": description.strip(),
                     }
                     unit_column = unit_columns.get(f"{qualified}.{column_name}")
@@ -152,8 +156,14 @@ def main() -> None:
                                 "is not a column of the view."
                             )
                         cursor.execute(
-                            f"SELECT DISTINCT {field} FROM {qualified} "  # noqa: S608
-                            f"WHERE {field} IS NOT NULL"
+                            sql.SQL(
+                                "SELECT DISTINCT {field} FROM {schema}.{rel} "
+                                "WHERE {field} IS NOT NULL"
+                            ).format(
+                                field=sql.Identifier(field),
+                                schema=sql.Identifier(schema),
+                                rel=sql.Identifier(relname),
+                            )
                         )
                         observed = {r[0] for r in cursor.fetchall()}
                         for value in dimension["values"]:
