@@ -21,6 +21,16 @@ cd "${ROOT}"
 COMPOSE="compose/openmrs-2.8-refapp.yml"
 SNAP_DIR="${QUERYSTORE_SNAPSHOT_DIR:-${HOME}/.cache/querystore-snapshots}"
 ES_SERVICE="elasticsearch"
+# The ES index alone is NOT "query-ready": querystore gauges completion from the
+# querystore_bootstrap_progress table (in MySQL), which a DB reseed wipes. If that table is
+# empty, querystore treats the deployment as un-indexed (reads unavailable / lazy per-patient
+# re-embed) even when the ES index is fully restored. So the snapshot captures + restores that
+# readiness state alongside the ES volume — a restore is then complete and never re-embeds.
+DB_CONTAINER="${OPENMRS_DB_CONTAINER:-harness-openmrs-db}"
+DB_USER="${OMRS_DB_USER:-openmrs}"
+DB_PASS="${OMRS_DB_PASSWORD:-openmrs}"
+DB_NAME="${OMRS_DB_NAME:-openmrs}"
+PROGRESS_TABLE="querystore_bootstrap_progress"
 
 # Resolve the es-data volume name (compose prefixes it with the project dir name, e.g. compose_es-data).
 es_volume() {
@@ -51,8 +61,12 @@ case "${cmd}" in
       tar czf /out/es-data.tar.gz -C /data .
     docker compose -f "${COMPOSE}" start "${ES_SERVICE}"
     wait_es_healthy || true
+    echo "    dumping ${PROGRESS_TABLE} (bootstrap readiness) -> ${DEST}/bootstrap_progress.sql"
+    docker exec "${DB_CONTAINER}" mariadb-dump -u"${DB_USER}" -p"${DB_PASS}" \
+      --no-create-info --skip-comments --skip-dump-date "${DB_NAME}" "${PROGRESS_TABLE}" \
+      > "${DEST}/bootstrap_progress.sql"
     sz=$(du -h "${DEST}/es-data.tar.gz" | cut -f1)
-    echo "✅ snapshot ${VERSION} (${sz}) -> ${DEST}/es-data.tar.gz"
+    echo "✅ snapshot ${VERSION} (${sz} ES + readiness) -> ${DEST}/"
     ;;
   restore)
     VERSION="${2:?usage: querystore-snapshot.sh restore <version>}"
@@ -65,9 +79,18 @@ case "${cmd}" in
       sh -c 'rm -rf /data/* /data/..?* 2>/dev/null; tar xzf /in/es-data.tar.gz -C /data'
     docker compose -f "${COMPOSE}" start "${ES_SERVICE}"
     wait_es_healthy || true
+    if [ -f "${SNAP_DIR}/${VERSION}/bootstrap_progress.sql" ]; then
+      echo "    restoring ${PROGRESS_TABLE} readiness (so querystore reports COMPLETED, no re-embed)"
+      docker exec "${DB_CONTAINER}" mariadb -u"${DB_USER}" -p"${DB_PASS}" "${DB_NAME}" \
+        -e "TRUNCATE TABLE ${PROGRESS_TABLE}" 2>/dev/null || true
+      docker exec -i "${DB_CONTAINER}" mariadb -u"${DB_USER}" -p"${DB_PASS}" "${DB_NAME}" \
+        < "${SNAP_DIR}/${VERSION}/bootstrap_progress.sql"
+    else
+      echo "    WARNING: snapshot has no bootstrap_progress.sql — querystore may lazy re-index on read"
+    fi
     n=$(curl -fsS --max-time 8 "http://localhost:${QUERYSTORE_ES_PORT:-9200}/querystore_*/_count" 2>/dev/null \
         | python3 -c 'import sys,json;print(json.load(sys.stdin).get("count",0))' 2>/dev/null || echo 0)
-    echo "✅ restored ${VERSION}: ${n} querystore docs"
+    echo "✅ restored ${VERSION}: ${n} querystore docs + bootstrap readiness"
     ;;
   list)
     echo "snapshots in ${SNAP_DIR}:"
