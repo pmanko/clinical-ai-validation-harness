@@ -338,7 +338,7 @@ body {
 .start-step-blurb { color: var(--text-tertiary); font-size: 12.5px; line-height: 1.45; }
 
 /* proof / live-demo CTA */
-.proof-actions { margin: 4px 0 10px; }
+.proof-actions { margin: 4px 0 10px; display: flex; flex-wrap: wrap; gap: 10px; }
 .proof-demo-cta {
   display: inline-block;
   background: var(--accent); color: #fff;
@@ -347,6 +347,11 @@ body {
   transition: filter 120ms, transform 120ms;
 }
 .proof-demo-cta:hover { filter: brightness(1.08); transform: translateY(-1px); }
+.proof-demo-cta-secondary {
+  background: transparent; color: var(--accent);
+  border: 1.5px solid var(--accent);
+}
+.proof-demo-cta-secondary:hover { filter: none; background: var(--accent); color: #fff; }
 .proof-honesty { color: var(--text-tertiary); font-size: 12.5px; line-height: 1.5; margin: 0; max-width: 760px; }
 
 /* go-deeper — task-routed cards (each holds several deep-links) */
