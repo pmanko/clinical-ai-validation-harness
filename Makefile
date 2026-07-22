@@ -9,7 +9,7 @@ export UV_PROJECT_ENVIRONMENT
         reset-transform sqlmesh-status \
         loadtest-up loadtest-down \
         load-test orphan-fk-check import-smoke dump-loaded promote \
-        chartsearch-build querystore-build querystore-recreate-index chartsearch-configure querystore-configure chartsearch-backend chartsearch-doctor chartsearchai-local \
+        chartsearch-build querystore-build querystore-recreate-index chartsearch-configure querystore-configure chartsearch-backend chartsearch-doctor chartsearchai-local dual-provider-up \
         chartsearch-esm-build chartsearch-esm-dev \
         llama-router-up llama-router-models \
         med-agent-hub-build med-agent-hub-up med-agent-hub-logs med-agent-hub-restart med-agent-hub-test chartsearch-test chartsearch-e2e-low-confidence querystore-test querystore-test-integration querystore-reindex \
@@ -334,6 +334,12 @@ chartsearch-backend:
 # patient source, configures the relay, and exercises the default E4B profile.
 chartsearchai-local:
 	@./scripts/chartsearchai-local.sh
+
+# One command: fresh reset -> working DUAL-provider stack (bundled + hub), restoring the cached
+# Elasticsearch querystore index instead of re-embedding the static demo corpus. Build the cache
+# once with `scripts/querystore-snapshot.sh snapshot <ver>`; thereafter every reset is minutes.
+dual-provider-up:
+	@./scripts/dual-provider-up.sh
 
 # Verify the hub-only product path: raw router, hub profile metadata, and module.
 chartsearch-doctor:

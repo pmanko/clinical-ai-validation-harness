@@ -33,8 +33,11 @@ DB_NAME="${OMRS_DB_NAME:-openmrs}"
 PROGRESS_TABLE="querystore_bootstrap_progress"
 
 # Resolve the es-data volume name (compose prefixes it with the project dir name, e.g. compose_es-data).
+# The `grep | head -1` closes the pipe early, so under `set -euo pipefail` the pipeline can report a
+# non-zero status (head done → grep SIGPIPE); `|| true` keeps `VOL="$(es_volume)"` from aborting the
+# whole script under set -e when the volume actually resolved fine.
 es_volume() {
-  docker volume ls --format '{{.Name}}' | grep -E '(^|_)es-data$' | head -1
+  docker volume ls --format '{{.Name}}' | grep -E '(^|_)es-data$' | head -1 || true
 }
 
 wait_es_healthy() {
