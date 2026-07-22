@@ -20,7 +20,7 @@ Execution state for the Catalyst validation integration remediation roadmap.
 |---|---|---|
 | **008-G5** | `specs/008-catalyst-query-workbench/roadmap.md` W2 **G5 user** | Not accepted — no longer a CVR entry gate (A1) |
 | **008-G6** | `specs/008-catalyst-query-workbench/roadmap.md` W3 **G6 user** | Not accepted — no longer a CVR entry gate (A1) |
-| **T094** | Diverse real-path notebook validation | In progress — gold matrix 18/18 PASS (run `5794eb05`, 2026-07-21); open: bounded Hub/tool-failure live run, accessibility matrix, digest-variance analysis |
+| **T094** | Diverse real-path notebook validation | In progress — gold matrix 18/18 PASS (run `5794eb05`); bounded-hub-tool-failure live run PASS 27/27 assertions (run `1f124e24`, sustained fault-proxy on followup generation → `followup_terminal_status: failed`, base preserved; 2026-07-21); digest-variance analysis complete; **open: accessibility matrix** |
 | **T095** | G2.8c acceptance pause | Open |
 | **T111** | Clean-pin rerun + user acceptance | Open |
 
