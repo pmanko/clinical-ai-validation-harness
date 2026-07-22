@@ -126,23 +126,58 @@ def replay(body: bytes, endpoint: str, timeout: float = 600.0) -> str:
     return parse_completion(resp.headers.get("Content-Type", ""), resp.content)
 
 
+def parse_turn_stream(raw: str) -> dict[str, Any]:
+    """Collapse a canonical /chat/stream SSE body into {events, answer, provider}.
+    Raises on turn_error (the provider surfaced a failure — no silent fallback) and
+    when the stream ends without an answer_done."""
+    events: list[str] = []
+    answer = ""
+    provider = None
+    event = ""
+    for line in raw.splitlines():
+        if line.startswith("event:"):
+            event = line.split(":", 1)[1].strip()
+        elif line.startswith("data:") and event:
+            data = line.split(":", 1)[1].strip()
+            try:
+                payload = json.loads(data) if data else {}
+            except ValueError:
+                payload = {}
+            events.append(event)
+            if event in ("turn_error", "error"):
+                raise RuntimeError(
+                    f"turn_error: {payload.get('message') or payload.get('error') or data}"
+                )
+            if event == "turn_started":
+                provider = payload.get("provider")
+            if event == "answer_done":
+                answer = str(payload.get("answer") or "")
+            event = ""
+    if "answer_done" not in events:
+        raise RuntimeError(f"stream ended before answer_done (events: {events})")
+    return {"events": events, "answer": answer, "provider": provider}
+
+
 def run_turn(
     base_url: str, auth: tuple[str, str], patient: str, question: str, provider: str,
     timeout: float = 2400.0,
 ) -> dict[str, Any]:
-    """One product turn via the real REST boundary, bound to `provider`."""
+    """One product turn via the canonical SSE boundary, bound to `provider`. The
+    rebuilt module is stream-only (POST /chat/stream; there is no buffered /chat)."""
     session_obj = requests.Session()
     session_obj.auth = auth
-    session_obj.headers.update({"Content-Type": "application/json"})
     rest = f"{base_url.rstrip('/')}/ws/rest/v1/chartsearchai"
     resp = session_obj.post(
-        f"{rest}/chat/new", json={"patient": patient, "provider": provider}, timeout=timeout
+        f"{rest}/chat/new",
+        json={"patient": patient, "provider": provider},
+        headers={"Content-Type": "application/json"},
+        timeout=timeout,
     )
     if resp.status_code != 200:
         raise RuntimeError(f"[{provider}] /chat/new -> HTTP {resp.status_code}: {resp.text[:300]}")
     session = resp.json().get("session")
     resp = session_obj.post(
-        f"{rest}/chat",
+        f"{rest}/chat/stream",
         json={
             "patient": patient,
             "question": question,
@@ -150,11 +185,13 @@ def run_turn(
             "provider": provider,
             "requestId": str(uuid4()),
         },
+        headers={"Content-Type": "application/json", "Accept": "text/event-stream"},
+        stream=True,
         timeout=timeout,
     )
     if resp.status_code != 200:
-        raise RuntimeError(f"[{provider}] /chat -> HTTP {resp.status_code}: {resp.text[:300]}")
-    return resp.json()
+        raise RuntimeError(f"[{provider}] /chat/stream -> HTTP {resp.status_code}: {resp.text[:300]}")
+    return parse_turn_stream(resp.content.decode("utf-8", errors="replace"))
 
 
 def main() -> int:
@@ -198,6 +235,7 @@ def main() -> int:
             envelope = run_turn(args.base_url, auth, args.patient, args.question, arm)
             entry["answer_chars"] = len(str(envelope.get("answer") or ""))
             entry["provider"] = envelope.get("provider")
+            entry["lifecycle"] = envelope.get("events")
             captures = new_captures(args.capture_dir, arm, since_ns)
             entry["engine_calls"] = [c.meta | {"bytes": c.body_path.stat().st_size} for c in captures]
             chosen = select_answer_leg(captures, args.question)

@@ -130,3 +130,43 @@ def test_parse_completion_empty_is_an_error():
             "application/json",
             json.dumps({"choices": [{"message": {"content": ""}}]}).encode(),
         )
+
+
+def test_parse_turn_stream_collects_lifecycle_and_answer():
+    mod = _load()
+    raw = (
+        "event: turn_started\n"
+        'data: {"provider": "hub"}\n'
+        "\n"
+        "event: answer_done\n"
+        'data: {"answer": "Weight was 70 kg on 2026-01-28.", "messageId": "m-1"}\n'
+        "\n"
+        "event: turn_done\n"
+        'data: {}\n'
+        "\n"
+    )
+    turn = mod.parse_turn_stream(raw)
+    assert turn["events"] == ["turn_started", "answer_done", "turn_done"]
+    assert turn["answer"] == "Weight was 70 kg on 2026-01-28."
+    assert turn["provider"] == "hub"
+
+
+def test_parse_turn_stream_raises_on_turn_error():
+    mod = _load()
+    raw = (
+        "event: turn_started\n"
+        'data: {"provider": "bundled"}\n'
+        "\n"
+        "event: turn_error\n"
+        'data: {"error": "provider_failure", "message": "engine unreachable"}\n'
+        "\n"
+    )
+    with pytest.raises(RuntimeError, match="engine unreachable"):
+        mod.parse_turn_stream(raw)
+
+
+def test_parse_turn_stream_requires_answer_done():
+    mod = _load()
+    raw = "event: turn_started\ndata: {}\n\n"
+    with pytest.raises(RuntimeError, match="ended before answer_done"):
+        mod.parse_turn_stream(raw)

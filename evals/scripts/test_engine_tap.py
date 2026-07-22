@@ -165,18 +165,22 @@ def test_sse_stream_passes_through_and_request_is_captured(tmp_path):
 
 def test_upstream_down_returns_502_and_still_captures(tmp_path):
     mod = _load()
-    dead_port = _free_port()  # nothing listening here
-    tap, tap_port = _start_tap(mod, "bundled", dead_port, tmp_path)
-    try:
-        body = b'{"model": "gemma-e4b", "messages": []}'
-        resp = requests.post(
-            f"http://127.0.0.1:{tap_port}/v1/chat/completions", data=body, timeout=10
-        )
-        assert resp.status_code == 502
-        captured = sorted(tmp_path.glob("*.body.json"))
-        assert len(captured) == 1 and captured[0].read_bytes() == body
-    finally:
-        tap.shutdown()
+    # Reserve the port bound-but-never-listening: connections are refused
+    # deterministically AND nothing else can grab the port mid-test.
+    with socket.socket() as reserved:
+        reserved.bind(("127.0.0.1", 0))
+        dead_port = reserved.getsockname()[1]
+        tap, tap_port = _start_tap(mod, "bundled", dead_port, tmp_path)
+        try:
+            body = b'{"model": "gemma-e4b", "messages": []}'
+            resp = requests.post(
+                f"http://127.0.0.1:{tap_port}/v1/chat/completions", data=body, timeout=10
+            )
+            assert resp.status_code == 502
+            captured = sorted(tmp_path.glob("*.body.json"))
+            assert len(captured) == 1 and captured[0].read_bytes() == body
+        finally:
+            tap.shutdown()
 
 
 def test_get_passthrough_is_not_captured(tmp_path):
