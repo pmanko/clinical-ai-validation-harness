@@ -5,13 +5,35 @@ stacks?" while making Catalyst first-class on the openclinai.org homepage.
 Audit performed against this worktree; file references are current as of the
 `codex/catalyst-mvp-umbrella` branch.
 
+> **CORRECTION (2026-07-22, same day).** The original audit below understated
+> the fragmentation: it assumed the `site/` React SPA is what serves
+> `openclinai.org`. It is not. Verified: `openclinai.org` (apex) resolves to
+> the GCP VM, whose Caddy serves a **fourth surface** — `landing/`, a
+> hand-written static HTML homepage whose source lives only on the
+> `codex/m2-openmrs-relay-reconciliation` branch (never merged to `main`),
+> deployed by rsyncing a *working tree* to the VM (`make cloud-sync`; the VM
+> copy is not a git checkout). The Pages-deployed `site/` SPA has **no custom
+> domain** (`gh api .../pages` → `cname: null`) and is published only at
+> `pmanko.github.io/clinical-ai-validation-harness/`. Consequences: (a) four
+> frontend surfaces and four design systems, not three; (b) the homepage's
+> source of truth is an unmerged feature branch plus VM disk state; (c) an
+> audit from any single branch cannot see the whole public surface — this
+> correction exists because exactly that blind spot caused a wrong "merging
+> the PR deploys the homepage" claim. The consolidation end-state below gains
+> a step: fold `landing/` into the one frontend (or make the Pages site the
+> apex via a custom domain + DNS change, which additionally breaks
+> `openclinai.org/openmrs/*` legacy paths — `openmrs.openclinai.org` is the
+> canonical demo URL and is unaffected).
+
 ## What exists today (and why it smells)
 
-Two user-facing frontends, three design systems:
+Two harness-repo frontends, three design systems (see the correction above:
+plus `landing/` on the m2 branch, the count is four and four):
 
-1. **openclinai.org** — the React/Vite SPA in `site/`, auto-deployed to GitHub
-   Pages on every push to `main` (`.github/workflows/pages.yml`). Design
-   system #1: `site/styles.css`.
+1. **The `site/` React/Vite SPA** — auto-deployed to GitHub Pages on every
+   push to `main` (`.github/workflows/pages.yml`), published at
+   `pmanko.github.io/clinical-ai-validation-harness/` (no custom domain).
+   Design system #1: `site/styles.css`.
 2. **reports.openclinai.org** — Python-generated static HTML
    (`harness/validate/report.py`, `harness/catalyst/report.py`,
    `scripts/build-reports-index.py`) rsynced by `scripts/validate-publish.sh`
