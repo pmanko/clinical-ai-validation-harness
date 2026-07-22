@@ -41,6 +41,45 @@ class ChatResult:
     raw_text: str = ""
 
 
+def collapse_turn_stream(raw: str) -> dict[str, Any]:
+    """Collapse a canonical /chat/stream SSE body into the classic /chat envelope.
+
+    The answer_done payload IS the envelope (the module hydrates the full answer —
+    answer/references/blocks/session/messageId — into it). In-Depth results nest
+    under ``inDepth``; the lifecycle (minus per-token ``*_delta`` noise) is recorded
+    under ``events``. A turn_error before any answer yields its payload verbatim,
+    with no ``answer`` key — downstream completeness checks treat that as not-done."""
+    envelope: dict[str, Any] = {}
+    indepth: dict[str, Any] | None = None
+    events: list[str] = []
+    event = ""
+    for line in raw.splitlines():
+        if line.startswith("event:"):
+            event = line.split(":", 1)[1].strip()
+        elif line.startswith("data:") and event:
+            data = line.split(":", 1)[1].strip()
+            try:
+                payload = json.loads(data) if data else {}
+            except ValueError:
+                payload = {}
+            if not event.endswith("_delta"):
+                events.append(event)
+            if event == "answer_done":
+                envelope.update(payload)
+            elif event == "indepth_done":
+                indepth = payload
+            elif event == "indepth_error":
+                indepth = payload if "error" in payload else {"error": payload.get("message") or "in-depth failed", **payload}
+            elif event in ("turn_error", "error") and "answer" not in envelope:
+                envelope.update(payload)
+            event = ""
+    out = dict(envelope)
+    if indepth is not None:
+        out["inDepth"] = indepth
+    out["events"] = events
+    return out
+
+
 class ChartSearchAiClient:
     def __init__(
         self,
@@ -81,14 +120,18 @@ class ChartSearchAiClient:
     def _url(self, path: str) -> str:
         return f"{self.base_url}{_REST}{path}"
 
-    def new_session(self, patient: str) -> str:
-        """Close the active session for this patient and open a fresh one. Retries a
-        transient gateway/rate-limit status (the backend may be restarting) up to
+    def new_session(self, patient: str, provider: str | None = None) -> str:
+        """Close the active session for this patient and open a fresh one — bound to
+        `provider` when pinned (engine-parity arms). Retries a transient
+        gateway/rate-limit status (the backend may be restarting) up to
         max_retries before raising, so a single blip doesn't abort the whole run."""
+        body: dict[str, str] = {"patient": patient}
+        if provider:
+            body["provider"] = provider
         attempt = 0
         while True:
             resp = self._session.post(
-                self._url("/chat/new"), json={"patient": patient}, timeout=self.timeout
+                self._url("/chat/new"), json=body, timeout=self.timeout
             )
             if resp.status_code in _RETRYABLE and attempt < self.max_retries:
                 attempt += 1
@@ -111,15 +154,19 @@ class ChartSearchAiClient:
         question: str,
         *,
         profile: str | None = None,
+        provider: str | None = None,
         request_id: str | None = None,
     ) -> ChatResult:
-        """One chat turn. Never raises on a non-200 — the turn is recorded with
-        its status so a failed turn still produces a result line. Paces to stay
-        under the rate limit and retries on 429 (the recorded latency_ms is the
-        final attempt's, not the wait).
+        """One chat turn over the canonical SSE boundary (the rebuilt module is
+        stream-only: POST /chat/stream; there is no buffered /chat). The stream is
+        collapsed into the classic envelope via :func:`collapse_turn_stream`. Never
+        raises on a non-200 — the turn is recorded with its status so a failed turn
+        still produces a result line. Paces to stay under the rate limit and retries
+        on 429 (the recorded latency_ms is the final attempt's, not the wait).
 
-        When ``profile`` is given it selects that hub-advertised product profile for
-        this request. Without it, ChartSearchAI uses its configured default."""
+        ``profile`` selects a hub-advertised product profile; ``provider`` pins the
+        ChartSearchAI provider (bundled|hub) for engine-parity arms. Without either,
+        ChartSearchAI uses its configured defaults."""
         request_id = request_id or str(uuid4())
         body: dict[str, str] = {
             "patient": patient,
@@ -130,12 +177,20 @@ class ChartSearchAiClient:
             body["session"] = session
         if profile:
             body["profile"] = profile
+        if provider:
+            body["provider"] = provider
         attempt = 0
         while True:
             self._throttle()
             start = time.monotonic()
             try:
-                resp = self._session.post(self._url("/chat"), json=body, timeout=self.timeout)
+                resp = self._session.post(
+                    self._url("/chat/stream"),
+                    json=body,
+                    timeout=self.timeout,
+                    headers={"Accept": "text/event-stream"},
+                    stream=True,
+                )
             except requests.RequestException:
                 # Dropped connection / read timeout: retry the transient, then let it
                 # propagate (the runner records it and moves on).
@@ -145,21 +200,27 @@ class ChartSearchAiClient:
                     time.sleep(self.retry_wait_s)
                     continue
                 raise
+            # Drain the stream fully (the turn runs to turn_done server-side) before
+            # stamping latency — the answer isn't done until the stream is.
+            raw = resp.content
             latency_ms = int((time.monotonic() - start) * 1000)
             self._last_call = time.monotonic()
             if resp.status_code in _RETRYABLE and attempt < self.max_retries:
                 attempt += 1
                 time.sleep(self.retry_wait_s)
                 continue
-            try:
-                payload = resp.json()
-            except ValueError:
-                payload = None
+            if resp.status_code != 200:
+                return ChatResult(
+                    status=resp.status_code,
+                    envelope=None,
+                    latency_ms=latency_ms,
+                    raw_text=resp.text,
+                )
             return ChatResult(
-                status=resp.status_code,
-                envelope=payload if isinstance(payload, dict) else None,
+                status=200,
+                envelope=collapse_turn_stream(raw.decode("utf-8", errors="replace")),
                 latency_ms=latency_ms,
-                raw_text=resp.text,
+                raw_text="",
             )
 
     def get_patient_profile(self, patient: str) -> dict[str, Any]:

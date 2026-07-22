@@ -171,14 +171,29 @@ def run_comparison(
         client_chat_parameters = inspect.signature(client.chat).parameters
         client_takes_ref_date = "reference_date" in client_chat_parameters
         client_takes_request_id = "request_id" in client_chat_parameters
+        client_takes_provider = "provider" in client_chat_parameters
     except (ValueError, TypeError):
         # Best-effort capability probe — a non-introspectable client.chat (C-extension,
         # odd __call__) must NOT abort the run; degrade to record-only.
         client_takes_ref_date = False
         client_takes_request_id = False
+        client_takes_provider = False
+    try:
+        session_takes_provider = "provider" in inspect.signature(client.new_session).parameters
+    except (ValueError, TypeError):
+        session_takes_provider = False
     cset = load_comparison_set(data_root / "comparison_sets" / f"{comparison_set_id}.json")
     scenarios = [load_scenario(data_root / "scenarios" / f"{sid}.json") for sid in cset.scenario_ids]
     backends = resolve_backends(cset.backend_ids, data_root / "backends.json")
+    # Provider arms are routing REQUIREMENTS, not preferences: a client that cannot
+    # pin the provider would silently run every arm on the server default — refuse
+    # before any artifact is created (no silent fallback).
+    provider_arms = [b.id for b in backends if b.provider]
+    if provider_arms and not (client_takes_provider and session_takes_provider):
+        raise ValueError(
+            f"backend(s) {', '.join(provider_arms)} pin a provider but the client "
+            "cannot route providers (chat/new_session lack a provider kwarg)"
+        )
     project_root = Path(project_root)
     dataset_provenance = build_dataset_provenance(
         data_root, comparison_set_id, project_root=project_root
@@ -302,7 +317,12 @@ def run_comparison(
                     result_count += 1
                 continue
             try:
-                session = client.new_session(scenario.patient_ref)
+                if backend.provider and session_takes_provider:
+                    session = client.new_session(
+                        scenario.patient_ref, provider=backend.provider
+                    )
+                else:
+                    session = client.new_session(scenario.patient_ref)
             except Exception as exc:
                 # Couldn't open a session (e.g. backend restarting) even after the
                 # client's retries: record each turn as an error and move on — never
@@ -328,7 +348,13 @@ def run_comparison(
                 session_sent = session
                 request_id = str(uuid4()) if client_takes_request_id else None
                 started = utc_now_iso()
-                chat_kwargs: dict[str, Any] = {"profile": backend.model_name}
+                # The bundled provider has no product profiles — its modelName is
+                # informative (run_meta/router policy), never sent as a profile.
+                chat_kwargs: dict[str, Any] = (
+                    {} if backend.provider == "bundled" else {"profile": backend.model_name}
+                )
+                if backend.provider:
+                    chat_kwargs["provider"] = backend.provider
                 if client_takes_ref_date:
                     chat_kwargs["reference_date"] = reference_date
                 if client_takes_request_id:

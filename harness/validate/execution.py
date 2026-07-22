@@ -11,10 +11,24 @@ def validate_execution_contract(
     if comparison.transport == "med-agent-hub":
         return
 
-    invalid = [backend.id for backend in backends if backend.kind != "product_profile"]
+    invalid = [
+        backend.id
+        for backend in backends
+        if backend.kind not in ("product_profile", "provider_arm")
+    ]
     if invalid:
         names = ", ".join(invalid)
         raise ValueError(
-            "ChartSearchAI comparisons accept kind=product_profile arms only; "
-            f"use transport=med-agent-hub for low-level experiments: {names}"
+            "ChartSearchAI comparisons accept kind=product_profile or kind=provider_arm "
+            f"arms only; use transport=med-agent-hub for low-level experiments: {names}"
+        )
+    unrouted = [
+        backend.id
+        for backend in backends
+        if backend.kind == "provider_arm" and not backend.provider
+    ]
+    if unrouted:
+        names = ", ".join(unrouted)
+        raise ValueError(
+            f"provider_arm backends must pin a provider (bundled|hub): {names}"
         )

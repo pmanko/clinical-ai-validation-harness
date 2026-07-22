@@ -1,16 +1,49 @@
+import json
+
 from harness.validate.client import ChartSearchAiClient
 
 
+def _sse(events):
+    out = []
+    for name, payload in events:
+        out.append(f"event: {name}\ndata: {json.dumps(payload)}\n\n")
+    return "".join(out).encode()
+
+
+_OK_STREAM = _sse([
+    ("turn_started", {"provider": "bundled"}),
+    ("answer_done", {"answer": "ok", "references": [], "session": "sess-server", "messageId": "m1"}),
+    ("turn_done", {}),
+])
+
+
 class FakeResp:
+    """Non-200 or JSON response (new_session, retry paths)."""
+
     def __init__(self, status, payload=None, text=""):
         self.status_code = status
         self._payload = payload
         self.text = text
+        self.content = text.encode()
+        self.headers = {"Content-Type": "application/json"}
 
     def json(self):
         if self._payload is None:
             raise ValueError("no json")
         return self._payload
+
+
+class FakeStreamResp:
+    """A 200 SSE response from POST /chat/stream."""
+
+    def __init__(self, body=_OK_STREAM):
+        self.status_code = 200
+        self.content = body
+        self.text = body.decode()
+        self.headers = {"Content-Type": "text/event-stream"}
+
+    def json(self):
+        raise ValueError("SSE body is not JSON")
 
 
 def _client():
@@ -20,15 +53,59 @@ def _client():
     )
 
 
+def test_chat_posts_the_stream_endpoint_and_collapses_the_lifecycle():
+    c = _client()
+    captured = {}
+
+    def fake_post(url, json=None, timeout=None, headers=None, stream=None):
+        captured["url"] = url
+        captured["body"] = json
+        return FakeStreamResp(_sse([
+            ("turn_started", {"provider": "hub"}),
+            ("answer_delta", {"delta": "ok"}),
+            ("answer_done", {"answer": "ok", "references": [{"index": 1}],
+                             "session": "sess-server", "messageId": "m1"}),
+            ("indepth_done", {"content": "background", "messageId": "m1"}),
+            ("turn_done", {}),
+        ]))
+
+    c._session.post = fake_post
+    res = c.chat("p", "s", "q")
+    assert captured["url"].endswith("/chat/stream")
+    assert res.status == 200
+    assert res.envelope["answer"] == "ok"
+    assert res.envelope["references"] == [{"index": 1}]
+    assert res.envelope["session"] == "sess-server"
+    assert res.envelope["inDepth"] == {"content": "background", "messageId": "m1"}
+    # lifecycle recorded without the per-token delta noise
+    assert res.envelope["events"] == ["turn_started", "answer_done", "indepth_done", "turn_done"]
+
+
+def test_chat_turn_error_yields_envelope_without_answer():
+    c = _client()
+
+    def fake_post(url, json=None, timeout=None, headers=None, stream=None):
+        return FakeStreamResp(_sse([
+            ("turn_started", {"provider": "hub"}),
+            ("turn_error", {"problemCode": "provider_failure"}),
+        ]))
+
+    c._session.post = fake_post
+    res = c.chat("p", "s", "q")
+    assert res.status == 200
+    assert "answer" not in res.envelope  # _row_is_good must treat this as not-done
+    assert res.envelope["problemCode"] == "provider_failure"
+
+
 def test_chat_retries_on_429_then_succeeds():
     c = _client()
     seq = [
         FakeResp(429, {"error": "Rate limit exceeded"}, '{"error":"Rate limit exceeded"}'),
-        FakeResp(200, {"answer": "ok", "references": []}, "{}"),
+        FakeStreamResp(),
     ]
     calls = {"n": 0}
 
-    def fake_post(url, json=None, timeout=None):
+    def fake_post(url, json=None, timeout=None, headers=None, stream=None):
         resp = seq[calls["n"]]
         calls["n"] += 1
         return resp
@@ -43,10 +120,10 @@ def test_chat_sends_per_request_product_profile_in_body():
     c = _client()
     captured = {}
 
-    def fake_post(url, json=None, timeout=None):
+    def fake_post(url, json=None, timeout=None, headers=None, stream=None):
         captured.clear()
         captured.update(json or {})
-        return FakeResp(200, {"answer": "ok", "references": []}, "{}")
+        return FakeStreamResp()
 
     c._session.post = fake_post
 
@@ -60,10 +137,46 @@ def test_chat_sends_per_request_product_profile_in_body():
     assert "profile" not in captured
 
 
+def test_chat_sends_provider_in_body_only_when_pinned():
+    c = _client()
+    captured = {}
+
+    def fake_post(url, json=None, timeout=None, headers=None, stream=None):
+        captured.clear()
+        captured.update(json or {})
+        return FakeStreamResp()
+
+    c._session.post = fake_post
+
+    c.chat("pat", "sess", "q", provider="bundled")
+    assert captured["provider"] == "bundled"
+
+    c.chat("pat", "sess", "q")
+    assert "provider" not in captured
+
+
+def test_new_session_sends_provider_only_when_pinned():
+    c = _client()
+    captured = {}
+
+    def fake_post(url, json=None, timeout=None, headers=None, stream=None):
+        captured.clear()
+        captured.update(json or {})
+        return FakeResp(200, {"session": "sess-1"}, "{}")
+
+    c._session.post = fake_post
+
+    assert c.new_session("pat", provider="hub") == "sess-1"
+    assert captured["provider"] == "hub"
+
+    c.new_session("pat")
+    assert "provider" not in captured
+
+
 def test_chat_records_429_after_exhausting_retries():
     c = ChartSearchAiClient(base_url="http://x/openmrs", min_interval_s=0, max_retries=2, retry_wait_s=0)
 
-    def fake_post(url, json=None, timeout=None):
+    def fake_post(url, json=None, timeout=None, headers=None, stream=None):
         return FakeResp(429, {"error": "Rate limit exceeded"}, '{"error":"Rate limit exceeded"}')
 
     c._session.post = fake_post
@@ -75,10 +188,10 @@ def test_chat_retries_on_502_then_succeeds():
     # A transient gateway error (backend restarting) must be retried, not surfaced as
     # a failed turn on the first hit.
     c = _client()
-    seq = [FakeResp(502, None, ""), FakeResp(200, {"answer": "ok", "references": []}, "{}")]
+    seq = [FakeResp(502, None, ""), FakeStreamResp()]
     calls = {"n": 0}
 
-    def fake_post(url, json=None, timeout=None):
+    def fake_post(url, json=None, timeout=None, headers=None, stream=None):
         resp = seq[calls["n"]]
         calls["n"] += 1
         return resp
@@ -95,7 +208,7 @@ def test_new_session_retries_on_502_then_succeeds():
     seq = [FakeResp(502, None, ""), FakeResp(200, {"session": "sess-1"}, "{}")]
     calls = {"n": 0}
 
-    def fake_post(url, json=None, timeout=None):
+    def fake_post(url, json=None, timeout=None, headers=None, stream=None):
         resp = seq[calls["n"]]
         calls["n"] += 1
         return resp
@@ -112,11 +225,11 @@ def test_chat_retries_on_connection_error_then_succeeds():
     c = _client()
     state = {"n": 0}
 
-    def fake_post(url, json=None, timeout=None):
+    def fake_post(url, json=None, timeout=None, headers=None, stream=None):
         state["n"] += 1
         if state["n"] == 1:
             raise requests.ConnectionError("connection refused")
-        return FakeResp(200, {"answer": "ok", "references": []}, "{}")
+        return FakeStreamResp()
 
     c._session.post = fake_post
     res = c.chat("p", "s", "q")
