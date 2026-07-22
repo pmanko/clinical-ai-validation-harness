@@ -10,7 +10,7 @@ Execution state for the Catalyst validation integration remediation roadmap.
 | Authorization | Explicit user instruction to implement the approved plan on 2026-07-21 |
 | Approved roadmap SHA-256 (pre-A1) | `b00a063bf2b78494a3a719436d4609127eb2e845153d1ab2f9153d1e018e6ef8` |
 | Approved roadmap SHA-256 (A1, current) | `37c13c468d274b985a0f48e0e6e5cfb2e3e9eaf3b0fb0fd1ace6e73fca1cf1e7` |
-| Current execution boundary | P0–P3 implementation complete; P4/P5 entry-gated on T094/T095/T111 acceptance (A1); Signoffs A–C await user |
+| Current execution boundary | P0–P3 complete and signed off (MS-A/B/C PASS 2026-07-21); P4/P5 entry-gated on T094/T095/T111 acceptance (A1) |
 | Next protected boundary | P4 and P5 require recorded **T094/T095/T111** user acceptance (Amendment A1, 2026-07-21) |
 | Deviations | None. Amendment A1 (2026-07-21, user-authorized): P4/P5 entry gates re-mapped from 008-G5/008-G6 to T094/T095/T111 acceptance — see roadmap §1.2 |
 
@@ -82,12 +82,12 @@ Execution state for the Catalyst validation integration remediation roadmap.
 | CVR-G04 | PASS | byte-identical ChartSearchAI golden with frozen clock |
 | CVR-G05 | PASS | `harness/report_shell/` four modules; ownership/import tests green |
 | CVR-G06 | PASS | DOM canon + golden semantic parity + dashboard/index theme marker tests green |
-| CVR-G07 | PENDING | G03/G05/G06 green; **MS-A user signoff required** |
+| CVR-G07 | PASS | G03/G05/G06 green; MS-A signed off 2026-07-21 (Piotr Mankowski) |
 | CVR-G08 | PASS | PCCP + `catalyst-judge-v1` schemas + skill + reconcile/schema tests |
 | CVR-G09 | PASS | finalize + gold-fail/perfect-judge precedence tests |
-| CVR-G10 | PENDING | Fixture three-pass + `judge.jsonl`/`judge_manifest.json` present and tests green; **MS-B user signoff required** |
+| CVR-G10 | PASS | Fixture three-pass + `judge.jsonl`/`judge_manifest.json` present and tests green; MS-B signed off 2026-07-21 (Piotr Mankowski) |
 | CVR-G11 | PASS | Offline `harness.catalyst.report.build_report` with socket blocked |
-| CVR-G12 | PENDING | Import-boundary + no-judge tests green; **MS-C user signoff required** |
+| CVR-G12 | PASS | Import-boundary + no-judge tests green; MS-C signed off 2026-07-21 (Piotr Mankowski) |
 | CVR-G13 | BLOCKED | Waiting on T094/T095/T111 acceptance (A1) |
 | CVR-G14 | BLOCKED | Waiting on T094/T095/T111 acceptance (A1) |
 | CVR-G15 | BLOCKED | Waiting on T094/T095/T111 acceptance (A1) |
@@ -99,9 +99,9 @@ Execution state for the Catalyst validation integration remediation roadmap.
 
 | Signoff | Status | Reviewer | Date |
 |---|---|---|---|
-| MS-A (Signoff A) | PENDING | | |
-| MS-B (Signoff B) | PENDING | | |
-| MS-C (Signoff C) | PENDING | | |
+| MS-A (Signoff A) | PASS | Piotr Mankowski | 2026-07-21 |
+| MS-B (Signoff B) | PASS | Piotr Mankowski | 2026-07-21 |
+| MS-C (Signoff C) | PASS | Piotr Mankowski | 2026-07-21 |
 | MS-D (Signoff D) | BLOCKED | | |
 
 ## Phase completion notes
@@ -109,14 +109,14 @@ Execution state for the Catalyst validation integration remediation roadmap.
 ### P0 — complete
 Shared `harness/common/{jsonl,text}.py`; dashboard `_match_trace` removed; committed PHI-free fixtures.
 
-### P1 — implementation complete; Signoff A pending
-`harness/report_shell/` extracted; ChartSearchAI `report.py` consumes shell; dashboard/index theme assets migrated; CVR-G05/G06 green. Run MS-A from the roadmap §6 script to clear CVR-G07.
+### P1 — complete; Signoff A PASS (2026-07-21)
+`harness/report_shell/` extracted; ChartSearchAI `report.py` consumes shell; dashboard/index theme assets migrated; CVR-G05/G06 green. MS-A signed off → CVR-G07 PASS.
 
-### P2 — implementation complete; Signoff B pending
-PCCP, skill, schemas, `harness/catalyst/reconcile.py`, `scripts/catalyst-judge-finalize.py`, fixture three-pass judge artifacts. Run MS-B to clear CVR-G10.
+### P2 — complete; Signoff B PASS (2026-07-21)
+PCCP, skill, schemas, `harness/catalyst/reconcile.py`, `scripts/catalyst-judge-finalize.py`, fixture three-pass judge artifacts. MS-B signed off → CVR-G10 PASS.
 
-### P3 — implementation complete; Signoff C pending
-`harness/catalyst/report.py` offline report on shell; socket-blocked tests. Run MS-C to clear CVR-G12.
+### P3 — complete; Signoff C PASS (2026-07-21)
+`harness/catalyst/report.py` offline report on shell; socket-blocked tests. MS-C signed off → CVR-G12 PASS.
 
 ### P4 — not started (entry gate)
 `scripts/verify-catalyst-validation-roadmap-gates.sh blocked` → CVR-G13–G15 BLOCKED until T094/T095/T111 are recorded PASS in this status artifact (Amendment A1).
