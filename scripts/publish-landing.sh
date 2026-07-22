@@ -4,8 +4,8 @@
 # the landing and the two proxy config files; a public-site release must not
 # mirror unrelated source trees, ignored caches, or other deployment artifacts.
 #
-# CAUTION (until sources converge on main — see
-# specs/artifacts/planning/reports-frontend-consolidation-roadmap.md Phase 0):
+# CAUTION (until sources converge on main — see Phase 0 of the consolidation
+# roadmap under specs/artifacts/planning/):
 # the two proxy config files sync from THIS checkout. Publishing from a branch
 # whose compose/Caddyfile differs from the lane that owns the VM's running
 # stack overwrites that lane's config on the VM (observed 2026-07-22: a
