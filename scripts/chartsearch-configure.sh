@@ -1,16 +1,27 @@
 #!/usr/bin/env bash
-# Configure the running ChartSearchAI module to relay through one med-agent-hub
-# endpoint. Product-profile selection comes from hub discovery in the ESM; this
-# script does not register raw model providers, choose a default, or compose stages.
+# Configure the running ChartSearchAI module for the dual-provider contract:
+#   - the med-agent-hub relay endpoint (hub provider), and
+#   - the provider registry: which providers are enabled and which is the default.
+# Product-profile selection still comes from hub discovery in the ESM. Every value
+# is written through the REST settings API so the module's global-property cache is
+# invalidated immediately (no backend restart needed).
+#
+# Overrides (env): CHARTSEARCH_HUB_ENDPOINT_URL (required),
+#   CHARTSEARCH_PROVIDERS_ENABLED (default "bundled,hub" — the dual-provider default;
+#   set "bundled" for a hub-less install), CHARTSEARCH_PROVIDERS_DEFAULT (default "bundled").
 
 set -euo pipefail
 
 # shellcheck source=scripts/openmrs-settings-lib.sh
 . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/openmrs-settings-lib.sh"
 HUB_ENDPOINT="${CHARTSEARCH_HUB_ENDPOINT_URL:?set CHARTSEARCH_HUB_ENDPOINT_URL}"
+PROVIDERS_ENABLED="${CHARTSEARCH_PROVIDERS_ENABLED:-bundled,hub}"
+PROVIDERS_DEFAULT="${CHARTSEARCH_PROVIDERS_DEFAULT:-bundled}"
 
-echo "Configuring ChartSearchAI hub relay at ${OPENMRS_SETTINGS_BASE_URL}:"
+echo "Configuring ChartSearchAI at ${OPENMRS_SETTINGS_BASE_URL}:"
 set_openmrs_property "chartsearchai.hub.endpointUrl" "${HUB_ENDPOINT}"
+set_openmrs_property "chartsearchai.providers.enabled" "${PROVIDERS_ENABLED}"
+set_openmrs_property "chartsearchai.providers.default" "${PROVIDERS_DEFAULT}"
 
 echo ""
 echo "Module status:"
