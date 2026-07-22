@@ -1,5 +1,15 @@
 # Publishing ChartSearchAI Demo Videos — Implementation Plan
 
+> **SUPERSEDED (2026-07-22).** The hosting recommendation below (videos on the
+> `reports.openclinai.org` host, page on the Pages site) was overruled when the
+> Catalyst demos shipped: demo videos are small enough to bundle directly into
+> the site build (`site/public/demos/videos/`, referenced via `BASE_URL`), so
+> demos live entirely on ONE user-facing stack with no rsync/VM dependency —
+> see `specs/artifacts/canvases/catalyst-demos.canvas.tsx`. The ChartSearchAI
+> videos this plan curated should follow the same pattern when featured (cut
+> selection/captions remain the open questions at the bottom). The
+> reports host stays scoped to validation-run evidence only.
+
 ## Recommendation
 
 **Primary: self-host the mp4s and publish a "Demos" page as a canvas on the existing GitHub Pages docs site** (`pmanko.github.io/clinical-ai-validation-harness/`), with the videos served from the **already-live `reports.openclinai.org` static host** (Caddy `file_server` over `artifacts/reports/`) rather than committed into the `site/` source tree. This reuses two mechanisms that already exist and deploy on their own — the site's `*.canvas.tsx` allowlist (auto-published on push to `main`) and `scripts/validate-publish.sh`'s rsync of `artifacts/reports/` to the VM — so no new subdomain, DNS record, or TLS cert is required. The files are tiny (740 KB–1.3 MB, well-encoded H.264), the audience is LMIC/low-bandwidth, and the project is open-source/mission-driven — all of which favor a lightweight self-hosted `<video>` over the heavy, cookie-setting YouTube player. **Fallback:** if you'd rather isolate demos from reports, stand up a dedicated `demos.openclinai.org` subdomain (one Caddyfile block + one env var + one DNS record) — described below.
