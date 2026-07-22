@@ -1,0 +1,44 @@
+{
+  "resourceType": "http://hl7.org/fhir/uv/sql-on-fhir/StructureDefinition/ViewDefinition",
+  "name": "medication_request_flat_v1",
+  "status": "active",
+  "resource": "MedicationRequest",
+  "fhirVersion": [
+    "4.0"
+  ],
+  "select": [
+    {
+      "column": [
+        {
+          "path": "getResourceKey()",
+          "name": "id"
+        },
+        {
+          "path": "subject.getReferenceKey(Patient)",
+          "name": "patient_id"
+        },
+        {
+          "path": "encounter.getReferenceKey(Encounter)",
+          "name": "encounter_id"
+        },
+        {
+          "path": "status",
+          "name": "request_status"
+        },
+        {
+          "path": "intent",
+          "name": "intent"
+        },
+        {
+          "path": "authoredOn",
+          "name": "authored_at",
+          "type": "dateTime"
+        },
+        {
+          "path": "medication.ofType(Reference).display",
+          "name": "medication_name"
+        }
+      ]
+    }
+  ]
+}

@@ -27,6 +27,18 @@ services:
       - "127.0.0.1:28081:8080"
       - "127.0.0.1:${HAPI_HTTPS_PORT:-28444}:8443"
 
+  # Registers the second (OpenMRS HIV/ART program) data source alongside the
+  # base OpenELIS one. CATALYST_HIV_SOURCE_DIR must point at the harness-level
+  # catalyst-sources/openmrs-hiv directory; its own ingestion pipeline
+  # (fhir-data-pipes against the OpenMRS FHIR2 R4 endpoint) is run separately
+  # and writes to the sibling catalyst_analytics_hiv database.
+  catalyst-gateway:
+    environment:
+      CATALYST_DATA_SOURCES_PATH: "/app/config/data-sources.json"
+    volumes:
+      - "${CATALYST_HIV_SOURCE_DIR:?set to the openmrs-hiv source directory}/catalog/openmrs-hiv-catalog-v1.json:/app/config/openmrs-hiv-catalog-v1.json:ro"
+      - "${CATALYST_HIV_SOURCE_DIR:?set to the openmrs-hiv source directory}/data-sources.json:/app/config/data-sources.json:ro"
+
 networks:
   openelis-network:
     name: catalyst-mvp-isolated-network

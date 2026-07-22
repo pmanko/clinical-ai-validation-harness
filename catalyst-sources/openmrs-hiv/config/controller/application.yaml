@@ -1,0 +1,32 @@
+fhirdata:
+  fhirFetchMode: "FHIR_SEARCH"
+  # OpenMRS RefApp FHIR2 R4 endpoint on the host (harness-proxy at :8088).
+  fhirServerUrl: "http://host.docker.internal:8088/openmrs/ws/fhir2/R4"
+  fhirServerUserName: "admin"
+  fhirServerPassword: "Admin123"
+  checkPatientEndpoint: true
+  resourceList: "Patient,Observation,Encounter,MedicationRequest,Condition"
+  fhirVersion: "R4"
+  structureDefinitionsPath: "classpath:/r4-us-core-definitions"
+
+  numThreads: 1
+  # A cron is required by the pinned controller. Sink-only refreshes are
+  # operator-triggered FULL runs; this far-future cadence is not an SLA.
+  incrementalSchedule: "0 0 0 1 1 *"
+  purgeSchedule: "0 30 * * * *"
+  numOfDwhSnapshotsToRetain: 2
+  recursiveDepth: 1
+
+  generateParquetFiles: false
+  dwhRootPrefix: "dwh/catalyst_hiv_DWH"
+  createHiveResourceTables: false
+  createParquetViews: false
+
+  viewDefinitionsDir: "config/views"
+  sinkDbConfigPath: "config/postgres-sink.json"
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "health,info,metrics,prometheus,pipeline-metrics"
