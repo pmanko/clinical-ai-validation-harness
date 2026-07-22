@@ -3,9 +3,10 @@ PostgreSQL to guard its fail-fast contracts: every column must have a
 COMMENT ON COLUMN, every view a COMMENT ON VIEW, every SQL type must be in
 TYPE_MAP, and every semantic canonical value must match at least one live
 row. The generator has no unit-testable seams (a single inline main()), so
-this drives it the same way real usage does: as a subprocess against a
-scratch database, mirroring tests/analytics/test_fact_view_semantics.py's
-real-Postgres pattern rather than stubbing psycopg.
+this drives it the same way real usage does — against a scratch database,
+mirroring tests/analytics/test_fact_view_semantics.py's real-Postgres
+pattern rather than stubbing psycopg. Loaded in-process via importlib (not
+subprocess) so coverage instrumentation and diff-cover see it exercised.
 
 Needs a reachable PostgreSQL (skips otherwise): set
 CATALYST_GENERATOR_TEST_DSN, or have the catalyst-mvp analytics-db
@@ -15,15 +16,28 @@ around the run.
 
 from __future__ import annotations
 
+import contextlib
+import importlib.util
+import io
 import json
 import os
-import subprocess
 import sys
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 
 ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = ROOT / "scripts" / "generate-catalyst-source-catalog.py"
+
+
+def _load_module():
+    spec = importlib.util.spec_from_file_location(
+        "generate_catalyst_source_catalog", SCRIPT
+    )
+    module = importlib.util.module_from_spec(spec)
+    assert spec and spec.loader
+    spec.loader.exec_module(module)
+    return module
 
 DEFAULT_DSN = (
     "postgresql://catalyst_analytics_writer:demo-only-change-me"
@@ -91,20 +105,29 @@ class GenerateSourceCatalogTests(unittest.TestCase):
     def _run(self, overlay: dict, out_path: Path, tmp_path: Path):
         overlay_path = tmp_path / "overlay.json"
         overlay_path.write_text(json.dumps(overlay))
-        return subprocess.run(
-            [
-                sys.executable,
-                str(SCRIPT),
-                "--dsn",
-                self.scratch_dsn,
-                "--overlay",
-                str(overlay_path),
-                "--out",
-                str(out_path),
-            ],
-            capture_output=True,
-            text=True,
-        )
+        argv = [
+            "generate-catalyst-source-catalog.py",
+            "--dsn",
+            self.scratch_dsn,
+            "--overlay",
+            str(overlay_path),
+            "--out",
+            str(out_path),
+        ]
+        module = _load_module()
+        stderr = io.StringIO()
+        old_argv = sys.argv
+        sys.argv = argv
+        try:
+            with contextlib.redirect_stderr(stderr):
+                try:
+                    module.main()
+                    returncode = 0
+                except SystemExit as exc:
+                    returncode = exc.code or 0
+        finally:
+            sys.argv = old_argv
+        return SimpleNamespace(returncode=returncode, stderr=stderr.getvalue())
 
     def test_generates_catalog_with_types_nullability_and_unit_column(self):
         import tempfile
