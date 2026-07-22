@@ -229,6 +229,7 @@ med-agent-hub-up:
 	  override_password_set=$${QUERYSTORE_PASSWORD+x}; override_password=$${QUERYSTORE_PASSWORD-}; \
 	  override_timezone_set=$${HUB_TIMEZONE+x}; override_timezone=$${HUB_TIMEZONE-}; \
 	  override_anchor_set=$${HUB_ANCHOR+x}; override_anchor=$${HUB_ANCHOR-}; \
+	  override_llm_set=$${MED_AGENT_LLM_BASE_URL+x}; override_llm=$${MED_AGENT_LLM_BASE_URL-}; \
 	  set -a; . ./.env.chartsearch.example; \
 	  [ ! -f .env.chartsearch ] || . ./.env.chartsearch; \
 	  [ ! -f artifacts/chartsearchai-local/querystore-service.env ] || . artifacts/chartsearchai-local/querystore-service.env; \
@@ -237,6 +238,7 @@ med-agent-hub-up:
 	  [ -z "$$override_password_set" ] || QUERYSTORE_PASSWORD="$$override_password"; \
 	  [ -z "$$override_timezone_set" ] || HUB_TIMEZONE="$$override_timezone"; \
 	  [ -z "$$override_anchor_set" ] || HUB_ANCHOR="$$override_anchor"; \
+	  [ -z "$$override_llm_set" ] || MED_AGENT_LLM_BASE_URL="$$override_llm"; \
 	  set +a; \
 	  HUB_BUILD_REVISION=$$(git -C targets/med-agent-hub rev-parse HEAD) \
 	  MED_AGENT_HUB_UID=$$(id -u) MED_AGENT_HUB_GID=$$(id -g) \
@@ -340,6 +342,18 @@ chartsearchai-local:
 # once with `scripts/querystore-snapshot.sh snapshot <ver>`; thereafter every reset is minutes.
 dual-provider-up:
 	@./scripts/dual-provider-up.sh
+
+# Engine-parity instrument (specs/artifacts/planning/engine-parity-instrument.md):
+# route BOTH providers through per-arm tap ingresses onto ONE shared llama-router
+# model, verify the shared-engine claim (AC-1), then probe one identical turn per
+# arm and replay the captured engine requests verbatim (AC-2).
+parity-engine-up:
+	@./scripts/parity-engine-up.sh
+
+PATIENT ?= dd553355-1691-11df-97a5-7038c432aabf
+QUESTION ?= What was the patient's most recent weight, and when was it recorded?
+parity-engine-probe:
+	@$(UV) run scripts/parity-engine-probe.py --patient "$(PATIENT)" --question "$(QUESTION)"
 
 # Verify the hub-only product path: raw router, hub profile metadata, and module.
 chartsearch-doctor:
