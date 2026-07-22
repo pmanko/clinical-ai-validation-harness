@@ -82,60 +82,90 @@ Also already decided (2026-07-22): demo videos bundle into `site/public/`
 and ship with the Pages build. The reports host's scope question is therefore
 *only* about validation-run reports.
 
-## Roadmap
+## Sync & consolidation roadmap: clear scope, clear deploy, landing-first
 
-### Phase 1 — durability + linkage (hours; do before anything else)
+Owner ruling (2026-07-22): **`landing/` is the front-facing page** — a clean,
+fast, hand-authored homepage at the apex — and **the Pages site is the
+documentation visualization** (a rendered view of the repo's specs, canvases,
+and README), not a competing homepage. Consolidation means giving every
+surface a declared scope and a declared deploy mechanism, and getting every
+source of truth onto the mainline — not collapsing everything into one app.
 
-- Commit the published corpus: track `artifacts/reports/**` in git (HTML/JSON
-  compress well; measure first, but expect low single-digit MB for ~13 runs).
-  This makes the VM a cache instead of the only copy, and makes every later
-  phase reversible.
-- Pull the VM's current `artifacts/reports/` down first (reverse rsync) so
-  the repo becomes the source of truth including historical runs.
-- Drop `browse` from the reports Caddy block (curated index only).
-- Add the missing link: the site's landing should link to the reports index
-  (whatever its URL is at the time) — the audit showed it never has.
+### Target architecture
 
-### Phase 2 — one domain, one deploy path (~1-2 days)
+| Surface | Scope (what it is FOR) | Source of truth | Deploy mechanism |
+|---|---|---|---|
+| `openclinai.org` — `landing/` | THE front door: mission, the products (Catalyst first-class, chart search, live demo), demo videos, and links out to docs/reports/demo | `landing/` on the mainline (today: unmerged m2 branch — must move) | a single documented publish step from the mainline (`make landing-publish` → rsync `landing/` only); optionally CI later |
+| Pages site (`pmanko.github.io/...`) | Documentation visualization: specs, canvases, README, research — the codebase's own docs, browsable | `site/` + `specs/**` on `main` | CI: push to `main` → Pages (already true) |
+| `reports.openclinai.org` | Validation-run evidence archive (generated reports + curated index) | run data + `reports-index.json` in git; rendered corpus committed (today: VM-only — must sync down) | `scripts/validate-publish.sh` (existing), simplified over time |
+| `openmrs.openclinai.org` | The live clinical demo (needs a server) | compose stack on the mainline | `make cloud-*` (deploys the STACK; never website content) |
 
-- Publish reports as part of the Pages build: copy rendered
-  `artifacts/reports/**` into the Pages artifact (e.g. served at
-  `openclinai.org/reports/<slug>/`) in `.github/workflows/pages.yml`.
-  `validate-publish.sh` shrinks to "render, commit, push" — no VM, no rsync,
-  no firewall/SSH in the publish path. Reports publishing becomes the same
-  motion as every other site change (a commit), and CI redeploys.
-- Repoint or retire the `reports.openclinai.org` DNS record (registrar access
-  is the operator's; a Caddy `redir` block can bridge old URLs during the
-  transition).
-- Move the two inline heredocs in `validate-publish.sh` into tested Python
-  (or delete them — `meta.json` writing belongs next to the renderer).
+Consistency rule: every surface links to the others by role — the landing
+links to docs, reports, and the live demo; the docs site and reports index
+link back to the landing as home. Shared identity (name, favicon, tone), not
+necessarily shared CSS: the landing and the docs site may keep their own
+styling as long as branding and cross-links are coherent. Palette #3 (the
+reports index's private CSS) has no such excuse — fold it into
+`report_shell`'s.
 
-### Phase 3 — one index, one design system for chrome (~2-3 days)
+### Phase 0 — sync the sources to the mainline (hours; unblocks everything)
 
-- Replace `build-reports-index.py`'s generated index with a React route in
-  `site/` that reads `reports-index.json` directly (it is already the curated
-  data source) and renders cards in the site's design system. Delete the
-  generator (−329 LOC) and palette #3.
-- Replace `human_arm()` with lookups against `harness.validate.model_registry`.
-- Fold the ChartSearchAI demo videos into the site-bundled demos surface
-  (same pattern as the Catalyst videos; cut/caption selection is the open
-  question recorded in `specs/demos-publishing-plan.md`).
+The fragmentation is first a *source-control* problem: public content lives
+on two branches plus a VM disk.
 
-### Phase 4 (optional, largest) — restyle the report bodies
+- Bring `landing/` from `codex/m2-openmrs-relay-reconciliation` onto the
+  mainline (this umbrella branch, then `main` via PR #37), along with the
+  m2 branch's newer apex Caddyfile block (`root * /srv/landing`) that this
+  branch lacks.
+- Reverse-rsync the VM's `artifacts/reports/` down and commit it — the
+  published evidence corpus must be reproducible from git; the VM becomes a
+  cache, not the only copy.
+- Document in `cloud-sync` that it deploys the demo stack, and in
+  `make landing-publish` (new, trivial) that IT is how the homepage ships.
 
-The rendered `report.html` pages themselves (~2000 LOC of inline CSS/JS in
-`harness/validate/report.py`) keep design system #2 through Phases 1-3.
-Unifying them with the site's look is a separate, larger effort with the
-least user-facing payoff (the pages are self-consistent artifacts). Defer
-until something else forces a touch of `report.py`; `report_shell` stays the
-shared shell for the Python-rendered family in the meantime.
+### Phase 1 — landing as the flagship (the immediate payoff)
 
-## End state
+- Add the Catalyst section to `landing/`: what it is, the two per-dataset
+  demo videos, and links to the published validation report, the docs site's
+  Catalyst pages, and the live demo. (This completes the "make Catalyst
+  first-class on the published homepage" goal on the page that is actually
+  published.)
+- Cross-link the constellation from the landing: Docs (Pages site), Evidence
+  (reports index), Live demo (openmrs subdomain) — and add the reciprocal
+  "home" links on the docs site and reports index.
+- Deploy via the new `make landing-publish`; verify live.
 
-One domain (`openclinai.org`), one deploy mechanism (push to `main` →
-Pages), one design system for all navigation/index chrome, the VM scoped to
-the one thing that genuinely needs a server (the live clinical demo), and
-every published byte reproducible from git. The reports *renderers* stay in
-Python — generated evidence pages are fine; the smell was never "Python
-makes HTML," it was two publish paths, three palettes, and a corpus that
-lived only on a VM disk.
+### Phase 2 — deploy + hosting hygiene (hours)
+
+- Drop `browse` from the reports Caddy block (stops leaking unlisted slugs).
+- Move `validate-publish.sh`'s two inline Python heredocs into tested code
+  next to the renderer.
+- Reports index drops palette #3 for `report_shell`'s shared styling.
+- Optional: a CI job that rsyncs `landing/` on push to `main` (needs a VM
+  SSH secret in Actions) — replaces the manual make target if wanted.
+
+### Phase R (optional, unscheduled) — restyle report bodies
+
+`harness/validate/report.py` (~2000 LOC inline CSS/JS) keeps `report_shell`
+styling through all phases above. Unify only when something else forces a
+touch of `report.py`; least payoff, largest surface.
+
+### Explicitly out of scope
+
+- Pointing the apex at GitHub Pages / making the docs site the homepage —
+  rejected: the landing is deliberately the front door; the docs site is
+  documentation.
+- Retiring the VM (it hosts the live OpenMRS/chartsearchai demo — Tomcat,
+  long-timeout chat backends; genuinely needs a server).
+- Rewriting the Python report renderers (generated evidence pages are fine;
+  the smell was the publish paths and palettes, not "Python makes HTML").
+- Any change to validation-run *data* formats or the run-manifest spine.
+
+### End state
+
+Four surfaces, each with one declared job and one declared deploy path, all
+reproducible from the mainline: the landing (front door, `make
+landing-publish`), the docs site (documentation, CI Pages), the reports
+archive (evidence, `validate-publish.sh`), and the live demo (the only
+server). No public byte whose source lives on a side branch or only on a VM
+disk, and no working-tree rsync masquerading as a release process.
