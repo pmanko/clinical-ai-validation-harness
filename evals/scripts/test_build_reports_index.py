@@ -253,3 +253,22 @@ def test_index_html_uses_shared_theme_toggle_assets(tmp_path, monkeypatch) -> No
     assert shell_assets.THEME_TOGGLE_CSS in html
     assert shell_assets.theme_bootstrap_js("oc-theme-index") in html
     assert shell_assets.theme_toggle_js("oc-theme-index") in html
+
+
+def test_card_renders_meta_scoreline_instead_of_unscored_disclaimer(tmp_path, monkeypatch):
+    """A run family without judge scores (e.g. the Catalyst notebook
+    acceptance suite) declares a meta.json scoreline; the card renders it in
+    place of the misleading 'not yet scored' disclaimer."""
+    bri = _load()
+    reports = tmp_path / "reports"
+    slug_dir = reports / "catalyst-run"
+    slug_dir.mkdir(parents=True)
+    (slug_dir / "meta.json").write_text(json.dumps({
+        "run_dir": "does-not-resolve",
+        "scoreline": "12/12 scenario repetitions passed - 384 assertions",
+    }), encoding="utf-8")
+    monkeypatch.setattr(bri, "REPORTS", reports)
+    monkeypatch.setattr(bri, "VALIDATE", tmp_path / "validate")
+    html = bri._card({"slug": "catalyst-run", "title": "T", "summary": "S"})
+    assert "384 assertions" in html
+    assert "not yet scored" not in html

@@ -121,7 +121,16 @@ def _patient_names(run_dir: Path, uuids: set[str]) -> str:
 
 def gather(slug: str) -> dict:
     """Pull the score table + subtitle facts for one curated run from its data."""
-    out: dict = {"cells": None, "patients": "", "date": None, "scout": []}
+    out: dict = {"cells": None, "patients": "", "date": None, "scout": [], "scoreline": ""}
+    meta = REPORTS / slug / "meta.json"
+    if meta.exists():
+        try:
+            # Pass/fail run families (e.g. the Catalyst notebook acceptance
+            # suite) have no judge scores; their meta.json declares a scoreline
+            # rendered in place of the judge score table.
+            out["scoreline"] = str(json.loads(meta.read_text()).get("scoreline") or "")
+        except (json.JSONDecodeError, OSError):
+            pass
     rdir = _run_dir_for(slug)
     if not rdir:
         return out
@@ -222,7 +231,7 @@ def _card(entry: dict) -> str:
     <div class="links">{"".join(links)}</div>
   </header>
   <p class="summary">{esc(entry.get("summary", ""))}</p>
-  {_scout_table(g["scout"])}
+  {f'<div class="unscored">{esc(g.get("scoreline", ""))}</div>' if (g.get("scoreline") and not g["scout"]) else _scout_table(g["scout"])}
   {takeaway}
   </article>"""
 
