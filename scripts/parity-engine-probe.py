@@ -160,10 +160,11 @@ def parse_turn_stream(raw: str) -> dict[str, Any]:
 
 def run_turn(
     base_url: str, auth: tuple[str, str], patient: str, question: str, provider: str,
-    timeout: float = 2400.0,
+    profile: str | None = None, timeout: float = 2400.0,
 ) -> dict[str, Any]:
     """One product turn via the canonical SSE boundary, bound to `provider`. The
-    rebuilt module is stream-only (POST /chat/stream; there is no buffered /chat)."""
+    rebuilt module is stream-only (POST /chat/stream; there is no buffered /chat).
+    The hub provider requires a product profile; bundled takes none."""
     session_obj = requests.Session()
     session_obj.auth = auth
     rest = f"{base_url.rstrip('/')}/ws/rest/v1/chartsearchai"
@@ -176,15 +177,18 @@ def run_turn(
     if resp.status_code != 200:
         raise RuntimeError(f"[{provider}] /chat/new -> HTTP {resp.status_code}: {resp.text[:300]}")
     session = resp.json().get("session")
+    body: dict[str, Any] = {
+        "patient": patient,
+        "question": question,
+        "session": session,
+        "provider": provider,
+        "requestId": str(uuid4()),
+    }
+    if profile:
+        body["profile"] = profile
     resp = session_obj.post(
         f"{rest}/chat/stream",
-        json={
-            "patient": patient,
-            "question": question,
-            "session": session,
-            "provider": provider,
-            "requestId": str(uuid4()),
-        },
+        json=body,
         headers={"Content-Type": "application/json", "Accept": "text/event-stream"},
         stream=True,
         timeout=timeout,
@@ -205,6 +209,11 @@ def main() -> int:
     parser.add_argument("--user", default=os.environ.get("CHARTSEARCH_ADMIN_USER", "admin"))
     parser.add_argument("--password", default=os.environ.get("CHARTSEARCH_ADMIN_PASSWORD", "Admin123"))
     parser.add_argument("--arms", default="bundled,hub")
+    parser.add_argument(
+        "--hub-profile",
+        default=os.environ.get("PARITY_HUB_PROFILE", "single-e4b-checked"),
+        help="product profile for the hub arm (must resolve to the shared engine model)",
+    )
     parser.add_argument("--capture-dir", default="artifacts/parity-engine/captures")
     parser.add_argument("--out-dir", default="artifacts/parity-engine")
     parser.add_argument(
@@ -232,7 +241,10 @@ def main() -> int:
         entry: dict[str, Any] = {"since_ns": since_ns}
         manifest["arms"][arm] = entry
         try:
-            envelope = run_turn(args.base_url, auth, args.patient, args.question, arm)
+            envelope = run_turn(
+                args.base_url, auth, args.patient, args.question, arm,
+                profile=args.hub_profile if arm == "hub" else None,
+            )
             entry["answer_chars"] = len(str(envelope.get("answer") or ""))
             entry["provider"] = envelope.get("provider")
             entry["lifecycle"] = envelope.get("events")
