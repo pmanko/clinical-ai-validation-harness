@@ -130,7 +130,12 @@ dump_stream() {
     gp_where="1=1"
     for prefix in "${MODULE_PREFIX_LIST[@]}"; do
       changelog_where+=" AND id NOT LIKE '${prefix}%' AND filename NOT LIKE '%${prefix}%'"
-      gp_where+=" AND property NOT LIKE '${prefix}%'"
+      # Drop the module's own GPs (chartsearchai.*) AND OpenMRS's installed-version
+      # marker for it (module.chartsearchai.version). The version marker is the real
+      # one that matters: if it survives, OpenMRS reads it on boot, sees the module
+      # version unchanged, and SKIPS the module's Liquibase — so the schema is never
+      # created on a fresh restore.
+      gp_where+=" AND property NOT LIKE '${prefix}%' AND property NOT LIKE 'module.${prefix}.%'"
     done
     # (1) The body: everything except liquibasechangelog and global_property (module tables
     #     are already dropped via IGNORE_TABLE_FLAGS).
