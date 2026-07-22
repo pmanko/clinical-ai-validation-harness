@@ -51,7 +51,7 @@ def test_landing_has_one_clear_h1_and_required_project_sections():
     html, page = parsed_landing()
 
     assert page.h1_count == 1
-    assert {"main-content", "project", "hub", "openmrs", "evidence"} <= page.ids
+    assert {"main-content", "project", "hub", "openmrs", "catalyst", "evidence"} <= page.ids
     assert "Med Agent Hub" in html
     assert "OpenMRS integration" in html
     assert "Published validation runs." in html
@@ -84,6 +84,20 @@ def test_primary_destinations_are_first_party_and_prominent():
     assert "OpenMRS demo" in html
     assert "Evaluation reports" in html
 
+    # Catalyst is a first-class product section: laboratory + HIV program
+    # demos, the published acceptance run, and the project documentation.
+    assert "Catalyst" in html
+    assert "OpenELIS" in html
+    assert "HIV" in html
+    assert (
+        "https://reports.openclinai.org/catalyst-notebook-t094-2026-07-22/"
+        in page.links
+    )
+    assert any(
+        link.startswith("https://pmanko.github.io/clinical-ai-validation-harness/")
+        for link in page.links
+    )
+
     first_party_hosts = {
         urlparse(link).hostname
         for link in page.links
@@ -95,8 +109,8 @@ def test_primary_destinations_are_first_party_and_prominent():
 def test_every_local_media_reference_exists_and_has_accessible_context():
     html, page = parsed_landing()
 
-    assert len(page.videos) == 2
-    assert len(page.sources) == 2
+    assert len(page.videos) == 4
+    assert len(page.sources) == 4
     assert len(page.images) >= 3
     assert "1:45 · 2×" in html
 

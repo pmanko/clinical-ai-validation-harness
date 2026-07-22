@@ -30,6 +30,7 @@
         <a href="#project">Overview</a>
         <a href="#hub">Processing</a>
         <a href="#openmrs">Integration</a>
+        <a href="#catalyst">Catalyst</a>
         <a href="#evidence">Evaluation</a>
       </nav>
       <div class="header-actions">
@@ -206,6 +207,64 @@
         </div>
       </section>
 
+      <section id="catalyst" class="section openmrs-section">
+        <div class="page-width section-heading-row">
+          <div>
+            <p class="section-kicker">Catalyst</p>
+            <h2>Plain-language questions over laboratory and program data.</h2>
+          </div>
+          <p>
+            Catalyst turns a question into SQL against a catalog generated from the database itself. A writer model drafts the query, a reviewer model checks it, and a deterministic policy allows only read-only execution. Results are typed tables, and a follow-up instruction refines the exact current query.
+          </p>
+        </div>
+        <div class="page-width video-grid">
+          <article class="video-item">
+            <video
+              controls
+              playsinline
+              preload="metadata"
+              poster="/media/catalyst-openelis-poster.jpg"
+              aria-label="Catalyst demonstration on OpenELIS laboratory data: a viral load question, execution, and a follow-up adding specimen turnaround detail"
+            >
+              <source src="/media/catalyst-openelis-demo.mp4" type="video/mp4" />
+              Your browser does not support embedded video.
+            </video>
+            <div>
+              <p class="video-meta">OpenELIS laboratory <span>1:14</span></p>
+              <h3>Laboratory results, then turnaround detail</h3>
+              <p>A viral load question generates and runs, then a follow-up adds the result unit and specimen receipt-to-release time to the same query.</p>
+            </div>
+          </article>
+          <article class="video-item">
+            <video
+              controls
+              playsinline
+              preload="metadata"
+              poster="/media/catalyst-openmrs-hiv-poster.jpg"
+              aria-label="Catalyst demonstration on OpenMRS HIV program data: a CD4 count question, execution, and a follow-up adding patient demographics"
+            >
+              <source src="/media/catalyst-openmrs-hiv-demo.mp4" type="video/mp4" />
+              Your browser does not support embedded video.
+            </video>
+            <div>
+              <p class="video-meta">OpenMRS HIV/ART program <span>2:00</span></p>
+              <h3>Program data on a second source</h3>
+              <p>The same workbench targets a separate HIV program database: a CD4 count question, then a follow-up adding gender and birth date.</p>
+            </div>
+          </article>
+        </div>
+        <div class="page-width lifecycle-row" aria-label="Catalyst validation summary">
+          <div><span>01</span><strong>Two data sources</strong><p>OpenELIS laboratory and OpenMRS HIV/ART program data, each with its own database and generated catalog.</p></div>
+          <div><span>02</span><strong>Checked execution</strong><p>Generated SQL is validated, executed read-only, and compared against independently authored gold queries.</p></div>
+          <div><span>03</span><strong>Published acceptance run</strong><p>12 of 12 live scenario repetitions passed, 384 assertions, on real models and PostgreSQL.</p></div>
+        </div>
+        <div class="page-width hub-links">
+          <a class="text-link" href="https://reports.openclinai.org/catalyst-notebook-t094-2026-07-22/">Acceptance run report <span aria-hidden="true">&#8599;</span></a>
+          <a class="text-link" href="https://pmanko.github.io/clinical-ai-validation-harness/#/canvas/specs/artifacts/canvases/catalyst-demos">Documentation <span aria-hidden="true">&#8599;</span></a>
+          <a class="text-link" href="https://github.com/DIGI-UW/openelis-catalyst">Source code <span aria-hidden="true">&#8599;</span></a>
+        </div>
+      </section>
+
       <section id="evidence" class="section evidence-section">
         <div class="page-width evidence-grid">
           <div class="evidence-copy">
@@ -237,6 +296,7 @@
           <p>Open-source tools for clinical AI integration and evaluation.</p>
         </div>
         <nav aria-label="Project links">
+          <a href="https://pmanko.github.io/clinical-ai-validation-harness/">Documentation</a>
           <a href="https://github.com/pmanko/clinical-ai-validation-harness">Validation harness</a>
           <a href="https://github.com/pmanko/med-agent-hub">Med Agent Hub</a>
           <a href="https://openmrs.org/">OpenMRS</a>
