@@ -88,3 +88,46 @@ def test_import_boundary_rejects_harness_validate() -> None:
             ):
                 bad.append(node.module)
     assert bad == [], bad
+
+
+def test_report_carries_narrative_context_not_just_the_gate_matrix(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The published report must read as evidence a human can follow — a
+    headline verdict, what each scenario actually asked (question + follow-up
+    instruction), and the executed row counts — not only the internal
+    assertion matrix."""
+    _block_network(monkeypatch)
+    from harness.catalyst.report import build_report
+
+    html = build_report(FIXTURE).read_text(encoding="utf-8")
+
+    results = json.loads((FIXTURE / "results.json").read_text(encoding="utf-8"))
+    suite = json.loads((FIXTURE / "suite.json").read_text(encoding="utf-8"))
+
+    # Headline verdict from the run's own counts.
+    assert f"{results['passedCount']}/{results['resultCount']}" in html
+    # Dataset facts ground the run.
+    assert str(results["dataset"]["patients"]) in html
+
+    # Every scenario's question and follow-up instruction appear as narrative.
+    for scenario in suite["scenarios"]:
+        assert scenario["initialQuestion"] in html
+        if scenario.get("followupInstruction"):
+            assert scenario["followupInstruction"] in html
+
+    # Executed row counts from the execution artifacts are surfaced.
+    execute = json.loads(
+        (
+            FIXTURE
+            / "scenarios/narrowing-unchanged-base/repetition-01/06-execute-base.json"
+        ).read_text(encoding="utf-8")
+    )
+    body = (execute.get("response") or {}).get("body") or execute
+    result = body.get("result") or body
+    row_count = result.get("rowCount") or len(result.get("rows") or [])
+    assert f"{row_count} rows" in html
+
+    # The assertion-name dump collapses behind a pass-count summary instead of
+    # dominating the matrix (names stay in the HTML for the marker tests).
+    assert "passed</summary>" in html

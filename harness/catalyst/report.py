@@ -219,6 +219,144 @@ def _render_judge_block(row: dict[str, Any] | None) -> str:
     return "".join(bits)
 
 
+def _execution_row_count(run_dir: Path, scenario_id: str, stem: str) -> int | None:
+    """rowCount from the first repetition's execution artifact, if present."""
+    for candidate in (
+        run_dir / "scenarios" / scenario_id / "repetition-01" / stem,
+        run_dir / "scenarios" / scenario_id / stem,
+    ):
+        if not candidate.exists():
+            continue
+        blob = _load_json(candidate)
+        body = ((blob.get("response") or {}).get("body")) or blob
+        # Live runs nest under result; older fixture exchanges keep
+        # rows/rowCount at the body top level.
+        result = body.get("result") or body
+        if isinstance(result.get("rowCount"), int):
+            return result["rowCount"]
+        rows = result.get("rows")
+        if isinstance(rows, list):
+            return len(rows)
+    return None
+
+
+def _headline_section(suite: dict[str, Any], results: dict[str, Any]) -> str:
+    """Verdict + dataset + model-lineup summary a reader can take in at a glance."""
+    passed = results.get("passedCount")
+    total = results.get("resultCount")
+    skipped = results.get("skippedCount") or 0
+    assertion_total = sum(
+        len(row.get("assertions") or []) for row in results.get("results") or []
+    )
+    verdict_cls = "pass" if passed == total else "fail"
+    bits = [
+        "<section>",
+        "<h2>Result</h2>",
+        f"<p class='headline'><span class='{verdict_cls}'>{esc(passed)}/{esc(total)}"
+        " scenario repetitions passed</span>"
+        f" · {assertion_total} assertions"
+        + (f" · {esc(skipped)} manual-only scenario skipped" if skipped else "")
+        + "</p>",
+        "<p class='adv'>Each repetition is a full live conversation: a question"
+        " generates SQL (writer model drafted, reviewer model checked), the query"
+        " is validated and executed against PostgreSQL, then a follow-up"
+        " instruction refines the exact current query and the successor is"
+        " validated and executed again. Executed results are re-checked against"
+        " an independently-authored gold query (byte-level row-set match) and an"
+        " independent read-only PostgreSQL cross-check.</p>",
+    ]
+    dataset = results.get("dataset") or {}
+    if dataset:
+        facts = []
+        for label, key in (
+            ("patients", "patients"),
+            ("results", "results"),
+            ("test types", "testTypes"),
+        ):
+            if dataset.get(key) is not None:
+                facts.append(f"{esc(dataset[key])} {label}")
+        window = " – ".join(
+            str(dataset[k])[:10] for k in ("firstObservedAt", "lastObservedAt")
+            if dataset.get(k)
+        )
+        if window:
+            facts.append(esc(window))
+        if facts:
+            bits.append(
+                f"<p class='adv'>Dataset <code>{esc(dataset.get('datasetId'))}</code>"
+                f" ({esc(dataset.get('dataSource'))}): " + " · ".join(facts) + "</p>"
+            )
+    profiles = suite.get("profiles") or {}
+    if profiles:
+        rows = "".join(
+            f"<tr><td><code>{esc(pid)}</code></td>"
+            f"<td>{esc(cfg.get('writerModelId'))}</td>"
+            f"<td>{esc(cfg.get('reviewerModelId'))}</td></tr>"
+            for pid, cfg in sorted(profiles.items())
+        )
+        bits.append(
+            "<table class='data'><thead><tr><th>profile</th><th>writer model</th>"
+            f"<th>reviewer model</th></tr></thead><tbody>{rows}</tbody></table>"
+        )
+    bits.append("</section>")
+    return "".join(bits)
+
+
+def _scenario_narrative_section(
+    run_dir: Path, suite: dict[str, Any], results: dict[str, Any]
+) -> str:
+    """One card per scenario: what was asked, how it was refined, what ran."""
+    by_scenario: dict[str, list[dict[str, Any]]] = {}
+    for row in results.get("results") or []:
+        by_scenario.setdefault(str(row["scenarioId"]), []).append(row)
+    cards: list[str] = []
+    for scenario in suite.get("scenarios") or []:
+        sid = str(scenario.get("id"))
+        rows = by_scenario.get(sid) or []
+        completed = [r for r in rows if r.get("status") != "skipped"]
+        if rows and not completed:
+            cards.append(
+                f"<div class='note'><h3><code>{esc(sid)}</code></h3>"
+                "<p class='adv'>Skipped — manual-only scenario (requires an"
+                " operator-controlled external failure).</p></div>"
+            )
+            continue
+        chunks = [f"<div class='note'><h3><code>{esc(sid)}</code></h3>"]
+        chunks.append(
+            f"<p><b>Question</b> — {esc(scenario.get('initialQuestion'))}</p>"
+        )
+        if scenario.get("followupInstruction"):
+            chunks.append(
+                f"<p><b>Follow-up</b> — {esc(scenario.get('followupInstruction'))}</p>"
+            )
+        facts: list[str] = []
+        if completed:
+            reps = len(completed)
+            all_ok = all(
+                all(a.get("passed") for a in (r.get("assertions") or []))
+                for r in completed
+            )
+            facts.append(
+                f"{reps} repetition{'s' if reps != 1 else ''} — "
+                + ("all passed" if all_ok else "FAILURES present")
+            )
+        base_rows = _execution_row_count(run_dir, sid, "06-execute-base.json")
+        succ_rows = _execution_row_count(run_dir, sid, "13-execute-successor.json")
+        if base_rows is not None:
+            facts.append(f"base query returned {base_rows} rows")
+        if succ_rows is not None:
+            facts.append(f"refined query returned {succ_rows} rows")
+        if facts:
+            chunks.append(f"<p class='adv'>{esc(' · '.join(facts))}</p>")
+        chunks.append("</div>")
+        cards.append("".join(chunks))
+    if not cards:
+        return ""
+    return (
+        "<section><h2>What each scenario does</h2>" + "".join(cards) + "</section>"
+    )
+
+
 def _build_body(run_dir: Path, blob: dict[str, Any]) -> str:
     manifest = blob["manifest"]
     suite = blob["suite"]
@@ -258,6 +396,13 @@ def _build_body(run_dir: Path, blob: dict[str, Any]) -> str:
                 f"<div><span class='chip-fail'>{esc(a.get('name'))}</span> {detail}</div>"
             )
         assertion_names = ", ".join(esc(a.get("name")) for a in assertions)
+        passed_n = sum(1 for a in assertions if a.get("passed"))
+        assertions_cell = (
+            f"<details><summary>{passed_n}/{len(assertions)} passed</summary>"
+            f"<div class='adv'>{assertion_names}</div></details>"
+            if assertions
+            else "—"
+        )
         rows_html.append(
             "<tr>"
             f"<td><code>{esc(sid)}</code><div class='adv'>{esc(row.get('family'))}</div></td>"
@@ -265,7 +410,7 @@ def _build_body(run_dir: Path, blob: dict[str, Any]) -> str:
             f"<td>{'yes' if gold_ok else 'no'}</td>"
             f"<td class='adv'>{esc((judge0 or {}).get('composite', '—'))}"
             f" / {esc((judge1 or {}).get('composite', '—'))}<div>advisory</div></td>"
-            f"<td>{assertion_names}</td>"
+            f"<td>{assertions_cell}</td>"
             f"<td>{''.join(fail_bits) if fail_bits else '—'}</td>"
             "</tr>"
         )
@@ -330,6 +475,8 @@ def _build_body(run_dir: Path, blob: dict[str, Any]) -> str:
         f"{THEME_TOGGLE_BUTTON_HTML}"
         "</header>"
         "<main id='report'>"
+        f"{_headline_section(suite, results)}"
+        f"{_scenario_narrative_section(run_dir, suite, results)}"
         "<section>"
         "<h2>Scenario matrix</h2>"
         "<table class='data'>"
