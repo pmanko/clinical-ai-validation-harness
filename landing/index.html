@@ -14,8 +14,12 @@
       content="An open framework for orchestrating and evaluating open-weight language models against clinical, administrative, and surveillance workflows."
     />
     <meta property="og:image" content="https://openclinai.org/media/openmrs-evidence-poster.png" />
+    <meta property="og:url" content="https://openclinai.org/" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="canonical" href="https://openclinai.org/" />
     <title>Open Clinical AI</title>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="preload" as="image" href="/media/openmrs-evidence-poster.webp" />
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
@@ -51,7 +55,7 @@
     <main id="main-content">
       <section class="hero" aria-labelledby="hero-title">
         <div class="hero-media" aria-hidden="true">
-          <img src="/media/openmrs-evidence-poster.png" alt="" />
+          <img src="/media/openmrs-evidence-poster.webp" alt="" width="1280" height="720" />
         </div>
         <div class="hero-shade" aria-hidden="true"></div>
         <div class="hero-content page-width">
@@ -115,7 +119,7 @@
             controls
             playsinline
             preload="metadata"
-            poster="/media/openmrs-evidence-poster.png"
+            poster="/media/openmrs-evidence-poster.webp"
             aria-label="Two-times-speed OpenMRS demonstration of a checked E4B answer, evidence records, and in-depth response"
           >
             <source src="/media/openmrs-e4b-staged-demo.mp4" type="video/mp4" />
@@ -198,7 +202,7 @@
               controls
               playsinline
               preload="metadata"
-              poster="/media/openmrs-answer-poster.png"
+              poster="/media/openmrs-answer-poster.webp"
               aria-label="OpenMRS multi-turn demonstration using the checked 12B model profile"
             >
               <source src="/media/openmrs-12b-multiturn-demo.mp4" type="video/mp4" />
@@ -222,8 +226,11 @@
           </article>
           <article class="video-item screenshot-item">
             <img
-              src="/media/openmrs-evidence-poster.png"
+              src="/media/openmrs-evidence-poster.webp"
               alt="OpenMRS chart with the AI Chart Search panel showing verified evidence records for a weight trend answer"
+              width="1280"
+              height="720"
+              loading="lazy"
             />
             <div>
               <p class="video-meta">Evidence tiles <span>OpenMRS</span></p>
@@ -234,7 +241,7 @@
         </div>
       </section>
 
-      <section id="catalyst" class="section openmrs-section">
+      <section id="catalyst" class="section catalyst-section">
         <div class="page-width section-heading-row">
           <div>
             <p class="section-kicker">Catalyst</p>
@@ -324,8 +331,11 @@
           </div>
           <figure class="report-figure">
             <img
-              src="/media/validation-reports-index.png"
+              src="/media/validation-reports-index.webp"
               alt="OpenClinAI validation reports index showing a published model comparison and its clinical scoring table"
+              width="1440"
+              height="900"
+              loading="lazy"
             />
             <figcaption>The report index links to aggregate results and individual run details.</figcaption>
           </figure>

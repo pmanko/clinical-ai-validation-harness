@@ -404,7 +404,8 @@ video:focus-visible {
   margin-top: 30px;
 }
 
-.openmrs-section {
+.openmrs-section,
+.catalyst-section {
   background: var(--soft);
 }
 
