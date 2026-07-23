@@ -62,8 +62,7 @@ def test_landing_uses_plain_project_language_instead_of_advertising_copy():
     html, _ = parsed_landing()
 
     assert "A framework for orchestrating and evaluating open models in clinical workflows." in html
-    assert "How a request is processed." in html
-    assert "Recorded OpenMRS sessions." in html
+    assert "How each answer is produced." in html
     for phrase in (
         "Build clinical AI that can be inspected",
         "Evidence before confidence",
@@ -80,7 +79,7 @@ def test_primary_destinations_are_first_party_and_prominent():
     html, page = parsed_landing()
 
     assert 1 <= page.links.count("https://openmrs.openclinai.org/") <= 2
-    assert 1 <= page.links.count("https://reports.openclinai.org/") <= 3
+    assert 1 <= page.links.count("https://reports.openclinai.org/") <= 4
     assert "OpenMRS demo" in html
     assert "Evaluation reports" in html
 

@@ -278,9 +278,7 @@ video:focus-visible {
 }
 
 .intro-grid,
-.section-heading-row,
-.demo-heading,
-.hub-heading {
+.section-heading-row {
   display: grid;
   grid-template-columns: minmax(0, 1.1fr) minmax(320px, 0.9fr);
   gap: 80px;
@@ -297,10 +295,23 @@ video:focus-visible {
   letter-spacing: 0;
 }
 
+.hub-fold {
+  margin-top: 64px;
+  padding-top: 56px;
+  border-top: 1px solid var(--line);
+}
+
+.hub-fold h3 {
+  margin: 0;
+  color: var(--purple-ink);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1.15;
+}
+
 .intro-copy p,
 .section-heading-row > p,
-.demo-heading > p,
-.hub-heading > p,
 .evidence-copy > p {
   margin: 0 0 18px;
   color: var(--muted);
@@ -345,12 +356,6 @@ video:focus-visible {
   font-size: 15px;
 }
 
-.hub-section {
-  color: #fff;
-  background: var(--purple-dark);
-}
-
-.hub-section h2,
 .evidence-section h2 {
   color: #fff;
 }
@@ -359,16 +364,12 @@ video:focus-visible {
   color: var(--gold);
 }
 
-.hub-heading > p {
-  color: #d9d5df;
-}
-
 .stage-flow {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
   margin-top: 48px;
-  border-top: 1px solid rgba(255, 255, 255, 0.3);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
 }
 
 .stage {
@@ -378,22 +379,19 @@ video:focus-visible {
 
 .stage + .stage {
   padding-left: 22px;
-  border-left: 1px solid rgba(255, 255, 255, 0.3);
-}
-
-.stage > span {
-  color: var(--gold);
+  border-left: 1px solid var(--line);
 }
 
 .stage strong {
   display: block;
   margin: 28px 0 7px;
+  color: var(--purple-ink);
   font-size: 18px;
 }
 
 .stage p {
   margin: 0;
-  color: #cfc9d8;
+  color: var(--muted);
   font-size: 14px;
 }
 
@@ -464,10 +462,6 @@ video:focus-visible {
   margin: 0;
   color: var(--muted);
   font-size: 14px;
-}
-
-.demo-section {
-  background: #fff;
 }
 
 .video-grid {
@@ -604,9 +598,7 @@ video:focus-visible {
   }
 
   .intro-grid,
-  .section-heading-row,
-  .demo-heading,
-  .hub-heading {
+  .section-heading-row {
     grid-template-columns: 1fr;
     gap: 28px;
   }
@@ -620,7 +612,7 @@ video:focus-visible {
   }
 
   .stage:nth-child(n + 4) {
-    border-top: 1px solid rgba(255, 255, 255, 0.3);
+    border-top: 1px solid var(--line);
   }
 
   .evidence-grid {
@@ -695,8 +687,6 @@ video:focus-visible {
 
   .intro-copy p,
   .section-heading-row > p,
-  .demo-heading > p,
-  .hub-heading > p,
   .evidence-copy > p {
     font-size: 16px;
   }
@@ -729,7 +719,7 @@ video:focus-visible {
   .stage:nth-child(4) {
     min-height: 0;
     padding: 20px 0;
-    border-top: 1px solid rgba(255, 255, 255, 0.3);
+    border-top: 1px solid var(--line);
     border-left: 0;
   }
 
@@ -748,6 +738,11 @@ video:focus-visible {
   .feature-media,
   .video-grid {
     margin-top: 34px;
+  }
+
+  .hub-fold {
+    margin-top: 44px;
+    padding-top: 36px;
   }
 
   .evidence-grid {
