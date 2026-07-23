@@ -18,6 +18,11 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "${ROOT}"
+# compose interpolates the WHOLE file for any service command, so the med-agent-hub build args
+# must be set even though this script never touches that service (bit us twice).
+export HUB_BUILD_REVISION="${HUB_BUILD_REVISION:-$(git -C targets/med-agent-hub rev-parse HEAD 2>/dev/null || echo unknown)}"
+export MED_AGENT_HUB_UID="${MED_AGENT_HUB_UID:-$(id -u)}"
+export MED_AGENT_HUB_GID="${MED_AGENT_HUB_GID:-$(id -g)}"
 COMPOSE="compose/openmrs-2.8-refapp.yml"
 SNAP_DIR="${QUERYSTORE_SNAPSHOT_DIR:-${HOME}/.cache/querystore-snapshots}"
 ES_SERVICE="elasticsearch"
