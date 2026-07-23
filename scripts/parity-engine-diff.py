@@ -118,6 +118,38 @@ def compare_record_sets(a: dict[str, Any], b: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+_MANDATORY_LINE_RE = re.compile(
+    r"^\[\d+\] (?:\(\d{4}-\d{2}-\d{2}\) )?(Allergy: .*?|Condition: .*?ACTIVE.*?)\s*$",
+    re.MULTILINE,
+)
+
+
+def mandatory_core_parity(a: dict[str, Any], b: dict[str, Any]) -> dict[str, Any]:
+    """HARD invariant (post context-slice consolidation): the mandatory clinical core —
+    allergies + active conditions — must appear in BOTH answer-leg prompts. Compared on
+    record TEXT, date-agnostic: bundled renders allergies undated by design, the hub dates
+    them. Unlike the overlap metric this can never be excused by a documented divergence."""
+
+    def core(body: dict[str, Any]) -> set[str]:
+        found: set[str] = set()
+        for message in body.get("messages", []):
+            if message.get("role") == "system":
+                continue
+            for match in _MANDATORY_LINE_RE.finditer(str(message.get("content", ""))):
+                found.add(match.group(1).strip())
+        return found
+
+    core_a = core(a)
+    core_b = core(b)
+    return {
+        "equal": core_a == core_b,
+        "core_a": sorted(core_a),
+        "core_b": sorted(core_b),
+        "only_a": sorted(core_a - core_b),
+        "only_b": sorted(core_b - core_a),
+    }
+
+
 def evaluate_retrieval(
     a: dict[str, Any], b: dict[str, Any], contract: dict[str, Any]
 ) -> dict[str, Any]:
@@ -153,12 +185,14 @@ def main() -> int:
 
     ledger = classify(a, b, contract)
     retrieval = evaluate_retrieval(a, b, contract)
+    mandatory = mandatory_core_parity(a, b)
     report = {
         "contract": contract.get("schema_version"),
         "artifact_a": args.artifact_a,
         "artifact_b": args.artifact_b,
         "ledger": ledger,
         "retrieval": retrieval,
+        "mandatory_core": mandatory,
     }
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -182,15 +216,26 @@ def main() -> int:
         print(f"  > only in B: {record}")
     print(f"report -> {out}")
 
+    print(f"mandatory core:       equal={mandatory['equal']} "
+          f"(a={len(mandatory['core_a'])}, b={len(mandatory['core_b'])})")
+    for record in mandatory["only_a"]:
+        print(f"  ! core only in A: {record}")
+    for record in mandatory["only_b"]:
+        print(f"  ! core only in B: {record}")
+
     if ledger["violations"]:
         print("FAIL: undocumented engine-request divergence")
+        return 1
+    if not mandatory["equal"]:
+        print("FAIL: mandatory clinical core differs between the arms — the shared slice "
+              "guarantees it in both; never excusable by a documented divergence")
         return 1
     if retrieval["status"] == "violation":
         print("FAIL: retrieval record sets differ with no explicit contract entry (AC-4)")
         return 1
-    print("PASS: zero violations; retrieval "
-          + ("parity holds" if retrieval["status"] == "identical"
-             else "divergence is explicitly documented (delete the entry once context policies align)"))
+    print("PASS: zero violations; mandatory core parity holds; retrieval "
+          + ("sets identical" if retrieval["status"] == "identical"
+             else "residual divergence is the documented similarity-input drift + hub lexical union"))
     return 0
 
 

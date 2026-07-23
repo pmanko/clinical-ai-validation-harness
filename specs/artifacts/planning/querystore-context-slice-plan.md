@@ -84,11 +84,18 @@ The measured safety gap, fixed at today's architecture so it does not wait for t
   fixture passes; source-neutral paths (inline chart) untouched by construction.
 
 ### CP4 — Parity gate tightening (instrument closes the loop)
-- Delete `documented_retrieval_divergence` from `engine-parity.v1`; the diff enforces
-  record-set equality for querystore-sourced runs again (plus the invariant checks).
+- AMENDED after CP3 measurement: strict record-set equality is structurally out of reach in
+  v1 by design — two deliberate residuals remain (caller-side similarity-input drift, and the
+  hub's additive lexical-union tiers, which the roadmap protects: "ranked candidates are
+  additive, never a replacement"). The honest tightening instead:
+  - the diff gains a HARD `mandatory_core_parity` gate (allergies + active conditions must be
+    text-equal across both prompts — the shared slice guarantees it) that no documented
+    divergence can excuse;
+  - `documented_retrieval_divergence` is narrowed to exactly the two named residual sources
+    and their post-CP3 measurements, shrinking further if v2 centralizes interpretation.
 - Re-run the scenario sweep (probe + diff ×3) and `make validate-run SET=engine-parity-e4b`.
-- Done when: sweep passes with retrieval `identical`; scored run 6/6 good cells; G10/G11
-  status rows updated with the live evidence.
+- Done when: sweep passes with mandatory-core parity holding on every question; scored run
+  6/6 good cells; G10/G11 status rows updated with the live evidence.
 
 ## Gate mapping and estimates
 

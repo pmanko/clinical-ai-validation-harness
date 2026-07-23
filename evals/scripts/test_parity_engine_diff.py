@@ -193,3 +193,41 @@ def test_system_prompt_format_examples_are_not_chart_records(tmp_path):
     result = mod.compare_record_sets(a, b)
     assert result["equal"] is True
     assert result["count_a"] == 3
+
+
+MANDATORY_A = (
+    "Patient records (most recent first):\n"
+    "[1] (2026-01-28) Weight (kg): 72 kg\n"
+    "[2] (2026-01-28) Condition: Acute Coryza. Status: ACTIVE. Onset: 2026-01-28\n"
+    "[3] Allergy: Penicillins (drug allergen)\n"  # bundled renders allergies undated
+)
+MANDATORY_B_SAME = (
+    "Patient records (most recent first):\n"
+    "[1] (2025-10-22) Allergy: Penicillins (drug allergen)\n"  # hub dates them
+    "[2] (2026-01-28) Condition: Acute Coryza. Status: ACTIVE. Onset: 2026-01-28\n"
+)
+MANDATORY_B_MISSING_ALLERGY = (
+    "Patient records (most recent first):\n"
+    "[1] (2026-01-28) Condition: Acute Coryza. Status: ACTIVE. Onset: 2026-01-28\n"
+)
+
+
+def test_mandatory_core_parity_is_date_agnostic_and_holds():
+    """The shared slice guarantees the mandatory clinical core in BOTH prompts; the check
+    compares TEXT (bundled renders allergies undated by design, the hub dates them)."""
+    mod = _load()
+    a = {"messages": [{"role": "user", "content": MANDATORY_A}]}
+    b = {"messages": [{"role": "user", "content": MANDATORY_B_SAME}]}
+    result = mod.mandatory_core_parity(a, b)
+    assert result["equal"] is True
+    assert "Allergy: Penicillins (drug allergen)" in result["core_a"]
+    assert any("Condition: Acute Coryza" in x for x in result["core_a"])
+
+
+def test_missing_mandatory_core_on_either_side_is_a_hard_violation():
+    mod = _load()
+    a = {"messages": [{"role": "user", "content": MANDATORY_A}]}
+    b = {"messages": [{"role": "user", "content": MANDATORY_B_MISSING_ALLERGY}]}
+    result = mod.mandatory_core_parity(a, b)
+    assert result["equal"] is False
+    assert result["only_a"] == ["Allergy: Penicillins (drug allergen)"]
