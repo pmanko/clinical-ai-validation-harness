@@ -137,3 +137,24 @@ def test_runner_rejects_provider_arm_when_client_cannot_route(tmp_path):
         )
     # No silent fallback: the failure happened before any turn ran.
     assert client.chat_calls == []
+
+
+def test_run_meta_freezes_each_arms_engine_endpoint_and_model(tmp_path):
+    """AC-1/AC-5: the per-run capture layer must prove which engine each arm used —
+    endpoint, model, and pinned provider — independent of the static registry."""
+    data = tmp_path / "data"
+    _write_provider_fixtures(data)
+    client = ProviderAwareClient()
+
+    out = run_comparison(
+        comparison_set_id="cs", client=client, data_root=data,
+        output_dir=tmp_path / "art", git_sha="t", router_policy=lambda backend: None,
+    )
+
+    meta = json.loads((out.run_dir / "run_meta.json").read_text(encoding="utf-8"))
+    backends = meta["backends"]
+    assert backends["arm-bundled"]["endpointUrl"] == "http://tap:8078/v1/chat/completions"
+    assert backends["arm-bundled"]["modelName"] == "gemma-e4b"
+    assert backends["arm-bundled"]["provider"] == "bundled"
+    assert backends["arm-hub"]["modelName"] == "single-e4b-checked"
+    assert backends["arm-hub"]["provider"] == "hub"

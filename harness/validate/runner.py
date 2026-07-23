@@ -44,22 +44,35 @@ def write_run_meta(
     run_id: str,
     backend_ids: list[str],
     reference_date: str | None,
+    backends: list[Any] | None = None,
 ) -> Path:
     """Freeze each arm's FULL resolved card (incl. config: knobs/prompts/retrieval) into
     `<run_dir>/run_meta.json` at run time — the per-run capture layer so a report reflects
     the config the run ACTUALLY used (provenance), not whatever the static config files say
     at render time. Best-effort per arm: a resolve error on one backend never aborts the run
-    (that arm is simply omitted from the frozen cards). Returns the written path."""
+    (that arm is simply omitted from the frozen cards). When the resolved ``backends`` are
+    given, their engine config (endpoint, model, pinned provider) is frozen under
+    ``backends`` — the engine-parity proof that AC-1 held for the whole run. Returns the
+    written path."""
     cards: dict[str, Any] = {}
     for b in backend_ids:
         try:
             cards[b] = arm_card(b)
         except Exception:
             continue
+    frozen_backends: dict[str, Any] = {}
+    for backend in backends or []:
+        frozen_backends[backend.id] = {
+            "endpointUrl": backend.endpoint_url,
+            "modelName": backend.model_name,
+            "provider": backend.provider,
+            "kind": backend.kind,
+        }
     meta = {
         "run_id": run_id,
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "reference_date": reference_date,
+        "backends": frozen_backends,
         "arm_cards": cards,
     }
     path = Path(run_dir) / "run_meta.json"
@@ -239,6 +252,7 @@ def run_comparison(
             run_id=run_id,
             backend_ids=[b.id for b in backends],
             reference_date=reference_date,
+            backends=backends,
         )
     except Exception:
         pass
