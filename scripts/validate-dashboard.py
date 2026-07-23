@@ -46,6 +46,12 @@ PORT = int(os.environ.get("DASH_PORT", "8099"))
 _RUN_OVERRIDE = None
 
 
+def _catalyst_runs_dir():
+    # NOT a module-level constant: computed from the (test-patchable) ROOT
+    # global on every call, so monkeypatching vd.ROOT in tests works.
+    return ROOT / "artifacts" / "catalyst-notebook-validation"
+
+
 def newest_run():
     if _RUN_OVERRIDE:
         return _RUN_OVERRIDE
@@ -53,17 +59,27 @@ def newest_run():
     # so side runs (1-cell verifies) don't hijack the view away from the real run being watched.
     pin = os.environ.get("DASH_RUN")
     if pin:
-        p = pin if os.path.isabs(pin) or os.path.sep in pin else str(ROOT / "artifacts" / "validate" / pin)
-        if os.path.isdir(p):
-            return p
-    # Rank by when results were last WRITTEN (results.jsonl mtime), not the dir mtime —
-    # rebuilding a report.html into an old run dir bumps the dir mtime and would otherwise
-    # hijack the live view.
+        for base in (ROOT / "artifacts" / "validate", _catalyst_runs_dir()):
+            p = pin if os.path.isabs(pin) or os.path.sep in pin else str(base / pin)
+            if os.path.isdir(p):
+                return p
+    # Rank by when results were last WRITTEN, not the dir mtime — rebuilding a report.html
+    # into an old run dir bumps the dir mtime and would otherwise hijack the live view.
+    # Catalyst notebook runs stream the same results.jsonl (see
+    # harness/catalyst/notebook_validation.py); older run dirs recorded before that only
+    # have per-turn evidence files, so fall back to the newest one of those.
     dirs = [d for d in glob.glob(str(ROOT / "artifacts" / "validate" / "*")) if os.path.isdir(d)]
+    dirs += [d for d in glob.glob(str(_catalyst_runs_dir() / "*")) if os.path.isdir(d)]
 
     def _activity(d):
         rp = os.path.join(d, "results.jsonl")
-        return os.path.getmtime(rp) if os.path.exists(rp) else os.path.getmtime(d)
+        if os.path.exists(rp):
+            return os.path.getmtime(rp)
+        newest = max(
+            (os.path.getmtime(p) for p in glob.glob(os.path.join(d, "**", "*.json"), recursive=True)),
+            default=0,
+        )
+        return newest if newest else os.path.getmtime(d)
 
     return max(dirs, key=_activity) if dirs else None
 
@@ -104,13 +120,26 @@ def status():
     labels = {e["backend_id"]: e.get("label", "")
               for e in events if e.get("event_type") == "backend_selected"}
 
-    turns = {}
-    for sid in scen_ids:
-        try:
-            turns[sid] = len(json.load(open(DATA / "scenarios" / f"{sid}.json"))["turns"])
-        except Exception:
-            turns[sid] = 1
-    total = sum(turns.values()) * len(back_ids) if back_ids else 0
+    # `cells` (an explicit [{scenario_id, backend_id, turns}] list) is emitted by
+    # harness/catalyst/notebook_validation.py, whose scenarios are pinned to one profile
+    # each rather than cross-producted against every backend like a validate comparison
+    # set. When present, it — not a scenario x backend cross product — is the source of
+    # truth for grid membership, per-cell expected turns, and total progress.
+    cells = run_ev.get("cells")
+    if cells:
+        expected_cells = [(c["scenario_id"], c["backend_id"]) for c in cells]
+        exp_turns = {(c["scenario_id"], c["backend_id"]): c["turns"] for c in cells}
+        total = sum(c["turns"] for c in cells)
+    else:
+        turns = {}
+        for sid in scen_ids:
+            try:
+                turns[sid] = len(json.load(open(DATA / "scenarios" / f"{sid}.json"))["turns"])
+            except Exception:
+                turns[sid] = 1
+        expected_cells = [(s, b) for s in scen_ids for b in back_ids]
+        exp_turns = {(s, b): turns.get(s, 1) for (s, b) in expected_cells}
+        total = sum(turns.values()) * len(back_ids) if back_ids else 0
 
     results = _read_jsonl(Path(run) / "results.jsonl", strict=False)
     # "Active" = results written recently OR the runner process is still alive. The mtime check
@@ -121,9 +150,12 @@ def status():
     try:
         _runner_alive = subprocess.run(
             ["pgrep", "-f", "harness-cli validate run"], capture_output=True).returncode == 0
+        _catalyst_alive = subprocess.run(
+            ["pgrep", "-f", "run-catalyst-notebook-validation"], capture_output=True
+        ).returncode == 0
     except Exception:
-        _runner_alive = False
-    active = _runner_alive or (_rp.exists() and (time.time() - _rp.stat().st_mtime) < 120)
+        _runner_alive = _catalyst_alive = False
+    active = _runner_alive or _catalyst_alive or (_rp.exists() and (time.time() - _rp.stat().st_mtime) < 120)
     arms = {}
     for b in back_ids:
         rs = [r for r in results if r.get("backend_id") == b]
@@ -136,7 +168,7 @@ def status():
                    "last": rs[-1]["scenario_id"] if rs else ""}
 
     # Cell state per (scenario, backend), aggregating ALL turns of a (multi-turn) scenario:
-    #   done    = every expected turn answered (200 + non-empty)  -> green
+    #   done    = every expected turn answered (deterministic pass, or 200 + non-empty) -> green
     #   err     = a turn failed or came back empty                -> red
     #   running = the cell the runner is currently on (active frontier, or a partially
     #             completed multi-turn)                           -> yellow
@@ -147,40 +179,50 @@ def status():
 
     def _good(r):
         m = r.get("metrics") or {}
+        # A rubric that scores deterministic pass/fail (Catalyst) stamps `passed`
+        # directly; ChartSearchAI rows never carry it, so this is additive.
+        if "passed" in m:
+            return bool(m["passed"])
         return m.get("http_status") == 200 and (m.get("answer_chars") or 0) > 0
 
     states = {}
-    for s in scen_ids:
-        exp = turns.get(s, 1)
-        for b in back_ids:
-            rs = cell_rows.get((s, b), [])
-            good = sum(1 for r in rs if _good(r))
-            bad = sum(1 for r in rs if (r.get("metrics") or {}).get("http_status") not in (200, None))
-            if good >= exp:
-                st = "done"
-            elif bad > 0 or len(rs) >= exp:
-                st = "err"          # a failure, or all turns present but some empty
-            elif len(rs) > 0:
-                st = "running" if active else "err"   # partial: in-flight if active, else abandoned
-            else:
-                st = "pending"
-            states[(s, b)] = st
+    for (s, b) in expected_cells:
+        exp = exp_turns.get((s, b), 1)
+        rs = cell_rows.get((s, b), [])
+        good = sum(1 for r in rs if _good(r))
+        bad = sum(1 for r in rs if (r.get("metrics") or {}).get("http_status") not in (200, None))
+        if good >= exp:
+            st = "done"
+        elif bad > 0 or len(rs) >= exp:
+            st = "err"          # a failure, or all turns present but some empty
+        elif len(rs) > 0:
+            st = "running" if active else "err"   # partial: in-flight if active, else abandoned
+        else:
+            st = "pending"
+        states[(s, b)] = st
 
-    # While the run is in progress, the single active cell is the first incomplete one in
-    # backend-major order (mirrors the runner) — show it yellow even before its first row lands.
+    # While the run is in progress, the single active cell is the first incomplete one, in
+    # the order the runner actually visits cells: cells-order for Catalyst (scenario-major),
+    # backend-major scenario x backend for a validate comparison set (mirrors that runner).
     if total and len(results) < total and active:
-        marked = False
-        for b in back_ids:
-            for s in scen_ids:
+        if cells:
+            for (s, b) in expected_cells:
                 if states[(s, b)] in ("pending", "running"):
                     states[(s, b)] = "running"
-                    marked = True
                     break
-            if marked:
-                break
+        else:
+            marked = False
+            for b in back_ids:
+                for s in scen_ids:
+                    if states[(s, b)] in ("pending", "running"):
+                        states[(s, b)] = "running"
+                        marked = True
+                        break
+                if marked:
+                    break
 
     grid_list = [{"scenario": s, "backend": b, "state": states[(s, b)]}
-                 for s in scen_ids for b in back_ids]
+                 for (s, b) in expected_cells]
 
     feed = []
     for r in results[-14:]:

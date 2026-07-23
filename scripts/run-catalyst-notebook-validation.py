@@ -52,7 +52,7 @@ def main() -> int:
         action="store_true",
         help="skip independent DB comparison (not valid for T094 acceptance)",
     )
-    parser.add_argument("--timeout-seconds", type=int, default=240)
+    parser.add_argument("--timeout-seconds", type=int, default=600)
     args = parser.parse_args()
 
     checker = None

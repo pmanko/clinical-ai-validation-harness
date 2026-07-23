@@ -31,6 +31,7 @@ from harness.catalyst.notebook_validation import (
     query_digest,
     run_notebook_suite,
 )
+from harness.common.jsonl import read_jsonl
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -412,6 +413,40 @@ def test_real_http_client_runs_notebook_path_and_hashes_evidence(
     assert checker.version_ids == ["version-2", "version-3"]
     assert ("POST", "/v1/catalyst/workbench/sessions/session-1/turns") in state.requests
     assert any(path.endswith("generation-evidence") for _, path in state.requests)
+
+    # Streamed run/results files (harness/validate-shaped) let the shared
+    # dashboard track a Catalyst run live; see run_notebook_suite's comment.
+    events = read_jsonl(result.run_dir / "events.jsonl")
+    result_rows = read_jsonl(result.run_dir / "results.jsonl")
+    assert [e["event_type"] for e in events] == [
+        "run",
+        "backend_selected",
+        "evaluation",
+    ]
+    assert events[0]["cells"] == [
+        {"scenario_id": "unchanged", "backend_id": PROFILE_ID, "turns": 1}
+    ]
+    assert events[0]["backend_ids"] == [PROFILE_ID]
+    assert events[1]["backend_id"] == PROFILE_ID
+    assert events[1]["label"] == "gemma-4-12b + qwen2.5-14b"
+    assert len(result_rows) == 1
+    row = result_rows[0]
+    assert row["scenario_id"] == "unchanged"
+    assert row["backend_id"] == PROFILE_ID
+    assert row["turn"] == 1
+    assert row["response"]["answer"] == (
+        "SELECT DISTINCT patient_id FROM analytics.lab_result_fact_v1"
+    )
+    assert row["metrics"]["passed"] is True
+    assert row["metrics"]["http_status"] == 200
+    assert row["metrics"]["answer_chars"] == len(row["response"]["answer"])
+    assert row["metrics"]["first_turn"] is True
+    assert row["error"] is None
+
+    index = json.loads((result.run_dir / "evidence-index.json").read_text())
+    indexed_paths = {entry["path"] for entry in index["entries"]}
+    assert "events.jsonl" not in indexed_paths
+    assert "results.jsonl" not in indexed_paths
 
 
 class _PassingGoldChecker:
@@ -1429,6 +1464,78 @@ def test_missing_base_version_short_circuits_the_scenario(tmp_path: Path) -> Non
         item["name"]: item["passed"] for item in results["results"][0]["assertions"]
     }
     assert assertions["base_version_available"] is False
+
+
+class _CrashingClient(_StubClient):
+    """Raises on the Nth call to create_session, simulating a hard crash
+    (e.g. a dropped connection) partway through a multi-scenario run."""
+
+    def __init__(self, *, crash_on_call: int, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+        self._create_session_calls = 0
+        self._crash_on_call = crash_on_call
+
+    def create_session(self, question: str, profile_id: str) -> HttpExchange:
+        self._create_session_calls += 1
+        if self._create_session_calls == self._crash_on_call:
+            raise RuntimeError("simulated transport failure")
+        return super().create_session(question, profile_id)
+
+
+def test_results_jsonl_streams_incrementally_and_survives_a_mid_run_crash(
+    tmp_path: Path,
+) -> None:
+    """The whole point of streaming: a crash mid-run must not erase evidence
+    for scenarios that already completed. results.json/evidence-index.json
+    are written once at the very end (recorder.finish()), so a crash means
+    neither exists — but the streamed .jsonl rows for the first scenario
+    must already be on disk."""
+    suite_path = _write_suite(
+        tmp_path,
+        _suite_payload(
+            scenarios=[
+                {**_suite_payload()["scenarios"][0], "id": "first"},
+                {**_suite_payload()["scenarios"][0], "id": "second"},
+            ]
+        ),
+    )
+    client = _CrashingClient(crash_on_call=2, session_status=503, session_body={})
+
+    with pytest.raises(RuntimeError, match="simulated transport failure"):
+        run_notebook_suite(
+            suite_path=suite_path,
+            client=client,
+            output_dir=tmp_path / "artifacts",
+            project_root=ROOT,
+            provenance_loader=lambda _: [],
+        )
+
+    run_dirs = list((tmp_path / "artifacts").iterdir())
+    assert len(run_dirs) == 1
+    run_dir = run_dirs[0]
+
+    assert not (run_dir / "results.json").exists()
+    assert not (run_dir / "evidence-index.json").exists()
+
+    events = read_jsonl(run_dir / "events.jsonl")
+    result_rows = read_jsonl(run_dir / "results.jsonl")
+
+    assert events[0]["event_type"] == "run"
+    assert events[0]["cells"] == [
+        {"scenario_id": "first", "backend_id": PROFILE_ID, "turns": 1},
+        {"scenario_id": "second", "backend_id": PROFILE_ID, "turns": 1},
+    ]
+    evaluation_events = [e for e in events if e["event_type"] == "evaluation"]
+    assert [e["scenario_id"] for e in evaluation_events] == ["first"]
+
+    assert [row["scenario_id"] for row in result_rows] == ["first"]
+    row = result_rows[0]
+    assert row["backend_id"] == PROFILE_ID
+    assert row["turn"] == 1
+    assert row["metrics"]["passed"] is False
+    assert row["metrics"]["http_status"] == 503
+    assert row["metrics"]["latency_ms"] is None
+    assert row["error"] is not None
 
 
 def test_persisting_an_absent_editor_query_is_a_configuration_error(

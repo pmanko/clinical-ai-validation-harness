@@ -25,7 +25,8 @@ from uuid import UUID, uuid4
 import requests
 import rfc8785
 
-from ..metadata import RunManifest
+from ..common.jsonl import append_jsonl
+from ..metadata import RunManifest, append_event
 from ..submodules import read_harness_git_sha
 from .validation import _response_payload, _target_provenance
 
@@ -811,6 +812,80 @@ def query_digest(query: NotebookQuery | dict[str, Any]) -> str:
     return hashlib.sha256(rfc8785.dumps(content)).hexdigest()
 
 
+# Numbered evidence-file stems that carry a real HTTP exchange (contract:
+# _EvidenceRecorder.exchange writes HttpExchange.as_dict(), which nests the
+# response under response.httpStatus). 07/14 (postgres) and 15/16 (gold) are
+# recorder.json payloads with no httpStatus field, so they're excluded.
+_HTTP_STEP_STEMS = (
+    "01-create-session",
+    "02-initial-turns",
+    "03-initial-generation-evidence",
+    "04-save-base-version",
+    "05-validate-base",
+    "06-execute-base",
+    "08-create-followup",
+    "09-refreshed-session",
+    "10-final-turns",
+    "11-followup-generation-evidence",
+    "12-validate-successor",
+    "13-execute-successor",
+)
+
+
+def _normalized_http_status(run_dir: Path, prefix: str) -> int:
+    """200 iff every HTTP step in this repetition succeeded, else the first
+    failing status code.
+
+    Catalyst's own successes are 200/201, and a repetition can fail on
+    semantic grounds (wrong turn status, wrong selection) with every
+    underlying HTTP call at 2xx. Stamping raw codes either way would make
+    the shared dashboard's non-`_good()` panels (which key on a plain
+    ``status == 200``) misrender passing runs as all-errors. ``passed`` is
+    the semantic authority; this is only for those legacy panels.
+    """
+    for stem in _HTTP_STEP_STEMS:
+        path = run_dir / prefix / f"{stem}.json"
+        if not path.exists():
+            continue
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        status = (data.get("response") or {}).get("httpStatus")
+        if isinstance(status, int) and not 200 <= status < 300:
+            return status
+    return 200
+
+
+def _selected_answer_sql(run_dir: Path, prefix: str) -> str | None:
+    """Re-read the successor SQL from the already-recorded session-restore
+    evidence file, instead of extending ``_run_scenario``'s return value
+    (which feeds ``results.json``, an indexed/hashed evidence entry)."""
+    path = run_dir / prefix / "09-refreshed-session.json"
+    if not path.exists():
+        return None
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    body = (data.get("response") or {}).get("body") or {}
+    current = body.get("currentVersion")
+    return current.get("sql") if isinstance(current, dict) else None
+
+
+def _first_failed_assertion(assertions: list[dict[str, Any]]) -> str | None:
+    for item in assertions:
+        if not item.get("passed"):
+            return f"{item['name']}: {item.get('evidence')!r}"
+    return None
+
+
+def _effective_repetitions(
+    suite: NotebookSuite, scenario: NotebookScenario, repetitions: int | None
+) -> int:
+    return repetitions or scenario.repetitions or suite.repetitions
+
+
 def run_notebook_suite(
     *,
     suite_path: Path | str,
@@ -867,6 +942,54 @@ def run_notebook_suite(
         metadata={"sourceSha256": hashlib.sha256(suite_path.read_bytes()).hexdigest()},
     )
 
+    # Additive run-stream files (events.jsonl / results.jsonl): NOT registered
+    # in the evidence index, so evidence-index.json/.sha256 and results.json
+    # stay byte-identical to today. This is the same run/backend_selected/
+    # evaluation + results-row contract harness/validate/runner.py streams,
+    # so scripts/validate-dashboard.py tracks a Catalyst run live instead of
+    # only ChartSearchAI's "validate" family — one harness architecture, only
+    # the scenarios and rubric differ.
+    #
+    # harness/catalyst/events.py::workbench_event_envelope is a separate,
+    # tested bridge for typed Gateway *session* events (a different
+    # granularity than this run/scenario spine) and stays unused here.
+    events_path = run_dir / "events.jsonl"
+    results_path = run_dir / "results.jsonl"
+    cells = [
+        {
+            "scenario_id": scenario.id,
+            "backend_id": scenario.followup_profile_id,
+            "turns": _effective_repetitions(suite, scenario, repetitions),
+        }
+        for scenario in selected
+        if not (scenario.manual_only and not include_manual)
+    ]
+    append_event(
+        events_path,
+        {
+            "event_type": "run",
+            "run_id": run_id,
+            "component": "catalyst-notebook-validation",
+            "comparison_set": suite.id,
+            "scenario_ids": [cell["scenario_id"] for cell in cells],
+            "backend_ids": sorted({cell["backend_id"] for cell in cells}),
+            "cells": cells,
+        },
+    )
+    for profile_id, profile in suite.profiles.items():
+        writer = profile.get("writerModelId", profile_id)
+        reviewer = profile.get("reviewerModelId", profile_id)
+        label = writer if writer == reviewer else f"{writer} + {reviewer}"
+        append_event(
+            events_path,
+            {
+                "event_type": "backend_selected",
+                "run_id": run_id,
+                "backend_id": profile_id,
+                "label": label,
+            },
+        )
+
     profiles_exchange = client.profiles()
     dataset_exchange = client.dataset_overview()
     catalog_exchange = client.catalog()
@@ -896,9 +1019,10 @@ def run_notebook_suite(
                 }
             )
             continue
-        repeat_count = repetitions or scenario.repetitions or suite.repetitions
+        repeat_count = _effective_repetitions(suite, scenario, repetitions)
         for repetition in range(1, repeat_count + 1):
             prefix = f"scenarios/{scenario.id}/repetition-{repetition:02d}"
+            started_at = datetime.now(timezone.utc).isoformat()
             result = _run_scenario(
                 suite=suite,
                 scenario=scenario,
@@ -923,6 +1047,52 @@ def run_notebook_suite(
             )
             result["passed"] = all(item["passed"] for item in result["assertions"])
             results.append(result)
+            ended_at = datetime.now(timezone.utc).isoformat()
+
+            http_status = _normalized_http_status(run_dir, prefix)
+            answer = _selected_answer_sql(run_dir, prefix) or str(result.get("status"))
+            backend_id = scenario.followup_profile_id
+            append_jsonl(
+                results_path,
+                {
+                    "run_id": run_id,
+                    "scenario_id": scenario.id,
+                    "backend_id": backend_id,
+                    "turn": repetition,
+                    "request": {
+                        "question": (
+                            f"{scenario.initial_question} ⇒ "
+                            f"{scenario.followup_instruction}"
+                        )
+                    },
+                    "response": {"answer": answer},
+                    "metrics": {
+                        "http_status": http_status,
+                        "latency_ms": (result.get("timing") or {}).get(
+                            "unadjustedGenerationWallMs"
+                        ),
+                        "answer_chars": len(answer) if isinstance(answer, str) else 0,
+                        "passed": result["passed"],
+                        "first_turn": repetition == 1,
+                    },
+                    "error": _first_failed_assertion(result["assertions"]),
+                    "started_at": started_at,
+                    "ended_at": ended_at,
+                },
+            )
+            append_event(
+                events_path,
+                {
+                    "event_type": "evaluation",
+                    "check": "notebook_scenario",
+                    "run_id": run_id,
+                    "scenario_id": scenario.id,
+                    "backend_id": backend_id,
+                    "turn": repetition,
+                    "http_status": http_status,
+                    "passed": result["passed"],
+                },
+            )
 
     passed_count = sum(result.get("passed") is True for result in results)
     result_count = sum(result.get("status") != "skipped" for result in results)

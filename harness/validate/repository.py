@@ -16,7 +16,7 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any
 
-from harness.common.jsonl import read_jsonl
+from harness.common.jsonl import append_jsonl, read_jsonl
 
 _AUTHORED = ("scenarios", "comparison_sets")
 _RUN = ("results", "feedback")
@@ -45,10 +45,7 @@ class JsonlRepository(Repository):
             raise ValueError(
                 f"save supports run collections {_RUN}; {collection!r} is authored/checked-in"
             )
-        path = self.run_dir / f"{collection}.jsonl"
-        path.parent.mkdir(parents=True, exist_ok=True)
-        with path.open("a", encoding="utf-8") as handle:
-            handle.write(json.dumps(doc, separators=(",", ":")) + "\n")
+        append_jsonl(self.run_dir / f"{collection}.jsonl", doc)
 
     def find(self, collection: str, query: dict[str, Any] | None = None) -> list[dict[str, Any]]:
         query = query or {}

@@ -13,6 +13,7 @@ from uuid import uuid4
 
 import requests
 
+from ..common.jsonl import append_jsonl
 from ..metadata import RunManifest, append_event, write_manifest
 from ..submodules import (
     read_harness_git_sha,
@@ -652,9 +653,7 @@ def evaluate_result(
 
 
 def _append_jsonl(path: Path, payload: dict[str, Any]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("a", encoding="utf-8") as handle:
-        handle.write(json.dumps(payload, separators=(",", ":")) + "\n")
+    append_jsonl(path, payload)
 
 
 def run_suite(

@@ -5,6 +5,18 @@ from pathlib import Path
 from typing import Any
 
 
+def append_jsonl(path: Path | str, row: dict[str, Any]) -> None:
+    """Append one compact JSON line to a JSONL file, creating parent dirs.
+
+    The single writer for every run-stream file across validation families
+    (harness/validate + harness/catalyst) — one plumbing, not one per family.
+    """
+    p = Path(path)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    with p.open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(row, separators=(",", ":")) + "\n")
+
+
 def read_jsonl(path: Path | str, *, strict: bool = True) -> list[dict[str, Any]]:
     """Read a JSONL file into a list of objects.
 

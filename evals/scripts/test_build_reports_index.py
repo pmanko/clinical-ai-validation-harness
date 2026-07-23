@@ -272,3 +272,31 @@ def test_card_renders_meta_scoreline_instead_of_unscored_disclaimer(tmp_path, mo
     html = bri._card({"slug": "catalyst-run", "title": "T", "summary": "S"})
     assert "384 assertions" in html
     assert "not yet scored" not in html
+
+
+def test_run_dir_for_rejects_a_traversal_path_outside_validate(tmp_path, monkeypatch):
+    """A Catalyst run dir (a different family, referenced via a "../" run_dir —
+    see the scoreline path above) now also streams results.jsonl. _run_dir_for
+    must not resolve outside VALIDATE just because that sentinel file now
+    exists there too, or gather() would misparse Catalyst rows as scored
+    validate rows."""
+    bri = _load()
+    root = tmp_path
+    reports = root / "artifacts" / "reports"
+    validate = root / "artifacts" / "validate"
+    other_family = root / "artifacts" / "catalyst-notebook-validation" / "some-run-id"
+    other_family.mkdir(parents=True)
+    (other_family / "results.jsonl").write_text(
+        json.dumps({"scenario_id": "s", "backend_id": "b", "turn": 1}) + "\n",
+        encoding="utf-8",
+    )
+    slug_dir = reports / "catalyst-run"
+    slug_dir.mkdir(parents=True)
+    (slug_dir / "meta.json").write_text(
+        json.dumps({"run_dir": "../catalyst-notebook-validation/some-run-id"}),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(bri, "REPORTS", reports)
+    monkeypatch.setattr(bri, "VALIDATE", validate)
+
+    assert bri._run_dir_for("catalyst-run") is None

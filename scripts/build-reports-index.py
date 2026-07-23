@@ -91,14 +91,27 @@ def human_arm(arm: str) -> tuple[str, str]:
 
 
 def _run_dir_for(slug: str) -> Path | None:
-    """meta.run_dir is authoritative (a judged sibling reuses another run's results)."""
+    """meta.run_dir is authoritative (a judged sibling reuses another run's results).
+
+    Other run families (e.g. the Catalyst notebook suite, whose meta.json
+    references its run dir as "../catalyst-notebook-validation/<id>" — see
+    the scoreline path in gather()) now also stream a results.jsonl. Reject
+    any run_dir that resolves outside VALIDATE so those don't get parsed as
+    scored validate rows just because the sentinel file now exists there too.
+    """
     meta = REPORTS / slug / "meta.json"
     if meta.exists():
         try:
             m = json.loads(meta.read_text())
             rd = m.get("run_dir") or m.get("run_id")
-            if rd and (VALIDATE / rd / "results.jsonl").exists():
-                return VALIDATE / rd
+            if not rd:
+                return None
+            candidate = (VALIDATE / rd).resolve()
+            if (
+                candidate.is_relative_to(VALIDATE.resolve())
+                and (candidate / "results.jsonl").exists()
+            ):
+                return candidate
         except Exception:
             pass
     return None

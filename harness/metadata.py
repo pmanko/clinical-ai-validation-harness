@@ -6,6 +6,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from harness.common.jsonl import append_jsonl
+
 
 def utc_now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -65,10 +67,8 @@ def write_manifest(path: Path, manifest: RunManifest) -> None:
 
 
 def append_event(path: Path, event: dict[str, Any]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
     event.setdefault("timestamp", utc_now_iso())
-    with path.open("a", encoding="utf-8") as handle:
-        handle.write(json.dumps(event, separators=(",", ":")) + "\n")
+    append_jsonl(path, event)
 
 
 @dataclass
