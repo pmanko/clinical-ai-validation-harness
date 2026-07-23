@@ -137,3 +137,41 @@ def test_record_numbering_differences_do_not_break_equality():
     b = {"messages": [{"role": "user", "content": renumbered}]}
     result = mod.compare_record_sets(a, b)
     assert result["equal"] is True
+
+
+def test_documented_retrieval_divergence_downgrades_mismatch_to_documented(tmp_path):
+    """AC-4's explicit-contract path: a record-set mismatch is only acceptable when the
+    contract carries an explicit, reasoned retrieval-divergence entry — and the diff must
+    still measure and report the overlap so the divergence never goes dark."""
+    mod = _load()
+    contract = json.loads(json.dumps(CONTRACT))
+    contract["documented_retrieval_divergence"] = {
+        "reason": "bundled ranks by similarity only; hub adds a recency anchor",
+    }
+    a = {"messages": [{"role": "user", "content": RECORDS_A}]}
+    b = {"messages": [{"role": "user", "content": RECORDS_B_EXTRA}]}
+    result = mod.evaluate_retrieval(a, b, contract)
+    assert result["equal"] is False
+    assert result["status"] == "documented_divergence"
+    assert result["reason"].startswith("bundled ranks by similarity")
+    assert result["only_b"] == ["(2025-11-15) Height: 175 cm"]
+
+
+def test_undocumented_retrieval_mismatch_fails(tmp_path):
+    mod = _load()
+    a = {"messages": [{"role": "user", "content": RECORDS_A}]}
+    b = {"messages": [{"role": "user", "content": RECORDS_B_EXTRA}]}
+    result = mod.evaluate_retrieval(a, b, CONTRACT)
+    assert result["equal"] is False
+    assert result["status"] == "violation"
+
+
+def test_equal_record_sets_are_identical_regardless_of_contract(tmp_path):
+    mod = _load()
+    contract = json.loads(json.dumps(CONTRACT))
+    contract["documented_retrieval_divergence"] = {"reason": "should not matter"}
+    a = {"messages": [{"role": "user", "content": RECORDS_A}]}
+    b = {"messages": [{"role": "user", "content": RECORDS_B_SAME}]}
+    result = mod.evaluate_retrieval(a, b, contract)
+    assert result["equal"] is True
+    assert result["status"] == "identical"

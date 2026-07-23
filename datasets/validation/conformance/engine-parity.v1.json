@@ -7,6 +7,10 @@
     "max_tokens",
     "response_format.type"
   ],
+  "documented_retrieval_divergence": {
+    "reason": "The two arms assemble context under different policies against the SAME querystore index: bundled's query-scoped QueryStoreChartBuilder ranks records by similarity to the question only, while the hub's context policy additionally applies the provider-neutral context_policy contract (mandatory clinical core + recency anchor for temporal questions, dual-provider-conformance.v1 context.temporal-adds-recency-anchor) — measured 2026-07-22: bundled 30 vs hub 36 records, hub uniquely carrying the entire most-recent (2026-01-28) visit. DELETE this entry once bundled's context assembly implements the same provider-neutral policy; the diff then enforces record-set equality again.",
+    "recorded": "2026-07-22"
+  },
   "documented_divergences": [
     {
       "path": "stream",

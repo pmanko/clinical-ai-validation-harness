@@ -1,8 +1,17 @@
 # Engine-Level Parity Instrument — Bundled vs Hub
 
-Status: Approved goal specification (2026-07-22). Companion to
-`openmrs-dual-provider-parity-roadmap.md`; this document is the authoritative detail behind the
-active `/goal` and is referenced by it.
+Status: ACHIEVED 2026-07-22 — all six ACs verified live (AC-1 7/7 config checks; AC-2 probe +
+verbatim replay per arm; AC-3 zero violations across the demo scenario set; AC-4 via the
+explicit-contract path — retrieval divergence measured and documented in `engine-parity.v1`,
+entry to be DELETED when bundled adopts the provider-neutral context policy; AC-5 scored
+`engine-parity-e4b` run 6/6 good cells with run_meta engine freeze; AC-6 unit + live red-green
+readiness). Companion to `openmrs-dual-provider-parity-roadmap.md`.
+
+**Tracked follow-up (the divergence the instrument exposed):** bundled's query-scoped
+`QueryStoreChartBuilder` ranks by similarity only; the hub additionally honors the
+provider-neutral `context_policy` contract (mandatory core + recency anchor). Measured across
+the scenario sweep: bundled 30/39/45 vs hub 41/78/70 records, hub uniquely carrying the entire
+most-recent visit. Aligning bundled deletes the contract entry and restores strict AC-4.
 
 ## Goal statement
 

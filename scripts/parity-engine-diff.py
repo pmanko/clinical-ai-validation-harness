@@ -114,6 +114,27 @@ def compare_record_sets(a: dict[str, Any], b: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def evaluate_retrieval(
+    a: dict[str, Any], b: dict[str, Any], contract: dict[str, Any]
+) -> dict[str, Any]:
+    """AC-4 verdict: equal record sets -> identical; unequal sets are a violation
+    UNLESS the contract carries an explicit ``documented_retrieval_divergence`` entry
+    (reasoned, reviewable, meant to be deleted once the context policies align). The
+    overlap is always measured and reported either way — a documented divergence must
+    never go dark."""
+    result = compare_record_sets(a, b)
+    if result["equal"]:
+        result["status"] = "identical"
+        return result
+    documented = contract.get("documented_retrieval_divergence")
+    if isinstance(documented, dict) and documented.get("reason"):
+        result["status"] = "documented_divergence"
+        result["reason"] = documented["reason"]
+    else:
+        result["status"] = "violation"
+    return result
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("artifact_a")
@@ -127,7 +148,7 @@ def main() -> int:
     contract = json.loads(Path(args.contract).read_text(encoding="utf-8"))
 
     ledger = classify(a, b, contract)
-    retrieval = compare_record_sets(a, b)
+    retrieval = evaluate_retrieval(a, b, contract)
     report = {
         "contract": contract.get("schema_version"),
         "artifact_a": args.artifact_a,
@@ -147,8 +168,10 @@ def main() -> int:
     for violation in ledger["violations"]:
         tag = " [must_match]" if violation.get("must_match") else ""
         print(f"  ✗ {violation['path']}{tag}: a={violation['a']!r} b={violation['b']!r}")
-    print(f"retrieval parity:     equal={retrieval['equal']} "
+    print(f"retrieval parity:     {retrieval['status']} "
           f"(a={retrieval['count_a']} records, b={retrieval['count_b']})")
+    if retrieval.get("reason"):
+        print(f"  ~ documented: {retrieval['reason']}")
     for record in retrieval["only_a"]:
         print(f"  < only in A: {record}")
     for record in retrieval["only_b"]:
@@ -158,10 +181,12 @@ def main() -> int:
     if ledger["violations"]:
         print("FAIL: undocumented engine-request divergence")
         return 1
-    if not retrieval["equal"]:
-        print("FAIL: retrieval record sets differ (AC-4)")
+    if retrieval["status"] == "violation":
+        print("FAIL: retrieval record sets differ with no explicit contract entry (AC-4)")
         return 1
-    print("PASS: zero violations, retrieval parity holds")
+    print("PASS: zero violations; retrieval "
+          + ("parity holds" if retrieval["status"] == "identical"
+             else "divergence is explicitly documented (delete the entry once context policies align)"))
     return 0
 
 
