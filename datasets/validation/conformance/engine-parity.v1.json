@@ -8,7 +8,7 @@
     "response_format.type"
   ],
   "documented_retrieval_divergence": {
-    "reason": "The two arms assemble context under different policies against the SAME querystore index: bundled's query-scoped QueryStoreChartBuilder ranks records by similarity to the question only, while the hub's context policy additionally applies the provider-neutral context_policy contract (mandatory clinical core + recency anchor for temporal questions, dual-provider-conformance.v1 context.temporal-adds-recency-anchor) — measured 2026-07-22: bundled 30 vs hub 36 records, hub uniquely carrying the entire most-recent (2026-01-28) visit. DELETE this entry once bundled's context assembly implements the same provider-neutral policy; the diff then enforces record-set equality again.",
+    "reason": "Both arms implement the contracted context_policy concepts against the SAME querystore index, with different mechanisms (bundled buildScoped: typed-complete slices + similarity top-K + 15-record temporal-gated recency anchor; hub: mandatory core + exact/overlap ranking + 32-record always-on clinical-date recency core + token budget). Measured 2026-07-22 (system-prompt format examples excluded): 27v36, 27v41, 36v78, 42v70 records. The one invariant gap: hub always includes the mandatory clinical core (allergies + active conditions, fixture context.enumerated-medications-are-complete mandatory_ids) — bundled includes it only when the intent scopes it. DELETE this entry when the bundled context_policy conformance adapter lands and buildScoped satisfies the shared fixtures (mandatory inclusion + recency anchor); the retrieval gate then becomes invariant-based.",
     "recorded": "2026-07-22"
   },
   "documented_divergences": [

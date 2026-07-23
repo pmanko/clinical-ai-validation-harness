@@ -175,3 +175,21 @@ def test_equal_record_sets_are_identical_regardless_of_contract(tmp_path):
     result = mod.evaluate_retrieval(a, b, contract)
     assert result["equal"] is True
     assert result["status"] == "identical"
+
+
+def test_system_prompt_format_examples_are_not_chart_records(tmp_path):
+    """bundled's system prompt carries a FORMAT DEMONSTRATION with fake record lines
+    ("[1] (2024-03-10) Fruit delivery: 12 apples") — extraction must skip system-role
+    messages or the AC-4 measurement counts fake examples as retrieval divergence."""
+    mod = _load()
+    a = {"messages": [
+        {"role": "system", "content": (
+            "FORMAT DEMONSTRATION ONLY:\nRecords:\n"
+            "[1] (2024-03-10) Fruit delivery: 12 apples\n"
+            "[2] (2024-02-15) Fruit delivery: 8 oranges\n")},
+        {"role": "user", "content": RECORDS_A},
+    ]}
+    b = {"messages": [{"role": "user", "content": RECORDS_B_SAME}]}
+    result = mod.compare_record_sets(a, b)
+    assert result["equal"] is True
+    assert result["count_a"] == 3

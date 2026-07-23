@@ -95,6 +95,10 @@ def classify(a: dict[str, Any], b: dict[str, Any], contract: dict[str, Any]) -> 
 def _records(body: dict[str, Any]) -> set[str]:
     found: set[str] = set()
     for message in body.get("messages", []):
+        # System prompts carry FORMAT DEMONSTRATION record lines (fake non-medical
+        # data) — chart records only ever ride in non-system messages.
+        if message.get("role") == "system":
+            continue
         content = str(message.get("content", ""))
         for match in _RECORD_RE.finditer(content):
             found.add(match.group(1).strip())
