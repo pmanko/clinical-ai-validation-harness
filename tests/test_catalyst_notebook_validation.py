@@ -34,7 +34,7 @@ from harness.catalyst.notebook_validation import (
 
 
 ROOT = Path(__file__).resolve().parents[1]
-PROFILE_ID = "catalyst-query-gemma-4-12b-coder"
+PROFILE_ID = "catalyst-query-gemma-4-12b"
 
 
 def _version(version_id: str, sql: str, *, parent: str | None = None) -> dict[str, Any]:

@@ -56,7 +56,7 @@ fi
 
 if [[ "${fake_backend}" == true ]]; then
   export MVP_MODEL_BACKEND=fake
-  export MVP_PROFILE_ID="${MVP_PROFILE_ID:-catalyst-query-gemma-4-12b-coder}"
+  export MVP_PROFILE_ID="${MVP_PROFILE_ID:-catalyst-query-gemma-4-12b}"
   export MVP_EXPECTED_ROLE_MODELS_JSON="${MVP_EXPECTED_ROLE_MODELS_JSON:-{\"query_generate\":\"gemma-4-12b\",\"query_review\":\"qwen2.5-coder-1.5b-instruct-q4_k_m\"}}"
 fi
 

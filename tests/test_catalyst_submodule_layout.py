@@ -92,7 +92,7 @@ def test_harness_runner_defaults_to_a_tracked_isolated_compose_override() -> Non
     assert 'export DATA_PIPES_PORT="${DATA_PIPES_PORT:-18090}"' in runner
     assert 'export MED_AGENT_HUB_PORT="${MED_AGENT_HUB_PORT:-18082}"' in runner
     assert "export MVP_MODEL_BACKEND=fake" in runner
-    assert "catalyst-query-gemma-4-12b-coder" in runner
+    assert "catalyst-query-gemma-4-12b" in runner
     assert "qwen2.5-coder-1.5b-instruct-q4_k_m" in runner
     assert "MVP_FAKE_BACKEND" not in runner
     assert 'require_pinned_clean_target "Catalyst" "targets/catalyst"' in runner
