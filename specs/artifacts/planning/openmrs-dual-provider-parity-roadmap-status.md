@@ -2,6 +2,13 @@
 
 Execution record for `OPENMRS-DUAL-PROVIDER-PARITY-2026-07-20`.
 
+**Reading order:** the roadmap file is hash-pinned and immutable post-approval, so it must be read
+TOGETHER with the Amendments section below — in particular, the 2026-07-21 context-surface and
+2026-07-22 shared-context-slice amendments re-scope roadmap §5 (Context Modes) and the §12
+non-goal "No model-context policy inside QueryStore": context selection invariants are now
+implemented once in QueryStore (`getContextSlice`, its ADR Decisions 17–18) with engines as thin
+adapters. The roadmap file alone under-describes context ownership.
+
 ## Control Record
 
 | Field | Value |
