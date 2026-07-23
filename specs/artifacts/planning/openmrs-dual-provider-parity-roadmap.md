@@ -3,7 +3,9 @@
 **Roadmap ID:** `OPENMRS-DUAL-PROVIDER-PARITY-2026-07-20`  
 **Revision:** 2 (2026-07-23) — folds the two approved amendments (context surface 2026-07-21;
 shared context slice 2026-07-22) into the body, records the executed context-slice consolidation,
-and re-sequences the remaining work toward Signoff 2. Authorized by explicit user direction to
+and re-sequences the remaining work toward Signoff 2; §8's merge model updated same day to the
+user-directed integration-branch flow (prove on `harness-integration`, cut upstream PRs from it
+when ready). Authorized by explicit user direction to
 update the roadmap as the foundation of the remaining work. Revision 1 is preserved in git history
 (`8bc9caa`); the status document re-pins the SHA-256.  
 **Status:** Approved for execution  
@@ -271,10 +273,14 @@ document's Gate Evidence table is the per-gate ledger.
 
 ### Remaining Work toward Signoff 2 (dependency order)
 
-1. Merge QueryStore #63 and publish the snapshot — the single dependency turning
-   ChartSearchAI #90's upstream CI green (user merge decision).
-2. Rebuild the ESM PR: fresh upstream draft from `codex/m2-hub-profile-rebuild`, closing #12
-   (the #26→#90 pattern).
+1. Integration-branch model (user-directed 2026-07-23): proven work lands on each fork's
+   `harness-integration` branch — the harness pins and proves against those, gated on nothing
+   upstream. The open upstream PRs (#63, #90, #22; hub #13 in its own repo) are curated
+   artifacts cut or refreshed from integration when ready, and may be split at that point.
+   Upstream CI red caused only by unpublished cross-repo snapshots (e.g. #90 awaiting #63)
+   is expected and non-blocking under this model.
+2. ESM PR rebuilt: upstream draft #22 from `codex/m2-hub-profile-rebuild`; #12 closed
+   (the #26→#90 pattern). DONE 2026-07-23.
 3. Product-proof evidence runs: G04(b) hub-only install; G06 runtime no-regression sweep
    (engines × chart modes × grounding — the local-engine leg needs its GGUF provisioned and may
    be recorded as a follow-up); G07/G08 end-to-end freshness (chart change → new snapshot

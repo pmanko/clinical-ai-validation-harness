@@ -15,7 +15,7 @@ adapters. The roadmap file alone under-describes context ownership.
 |---|---|
 | Roadmap | [`openmrs-dual-provider-parity-roadmap.md`](openmrs-dual-provider-parity-roadmap.md) |
 | Approval | Explicit user instruction to implement the roadmap on 2026-07-20 |
-| Approved roadmap SHA-256 | `f9f6d2170030a11400e446ba477a1f5eee2f174f1c378ba85ce588c91a803526` (Revision 2, 2026-07-23; Revision 1 was `cf2c8b33c81ab69ece6150d0171ea3e940f89edfa3968e02c6bd9bf8abc274f5`, preserved at `8bc9caa`) |
+| Approved roadmap SHA-256 | `a3948d648ba21303639b55e65226455a088e2fb61f693a16a2e769276f20bd72` (Revision 2, 2026-07-23; Revision 1 was `cf2c8b33c81ab69ece6150d0171ea3e940f89edfa3968e02c6bd9bf8abc274f5`, preserved at `8bc9caa`) |
 | Current boundary | Signoff 1 granted; context-surface / authoritative-state amendment approved 2026-07-21; shared context-selection (QueryStore context slice) amendment approved 2026-07-22 with checkpoint plan `querystore-context-slice-plan.md`; ChartSearchAI rebuild and remaining roadmap runtime work authorized to proceed; Signoff 2 remains required before release/evaluation work |
 | Supersedes | `MAH-CONSOLIDATION-2026-07-09-v1` for active architecture and execution authority |
 | Preserved prior decisions | Temporal-facts Git provenance, stable evaluation IDs, and medication-knowledge safety boundary remain active unless this roadmap explicitly changes them |
@@ -116,6 +116,17 @@ implementation pointers and its genuinely-remaining evidence. Still honestly Pen
 closeout gates G19/G20/G21, which cannot precede the work they audit.
 
 ## Amendments and Deviations
+
+### 2026-07-23 — Integration-branch merge model (user-directed)
+
+Work is no longer gated on upstream merges: each fork's `harness-integration` branch is the
+proven integration line (querystore → `41105d1`, chartsearchai → `a34b78b`, ESM → `e602faf`;
+prior tips backed up: `codex/backup/harness-integration-20260723` on querystore; chartsearchai's
+old tip was already `codex/backup/chartsearchai-pr-26-20260720`; ESM fast-forwarded). The
+harness `.gitmodules` now names `harness-integration` for the three fork-model submodules.
+Upstream PRs #63/#90/#22 remain open as curated artifacts to be refreshed or split from
+integration when the user chooses to engage upstream review. Roadmap §8 step 1 updated; hash
+re-pinned above.
 
 ### 2026-07-23 — Roadmap Revision 2 (amendments folded into the canonical body)
 

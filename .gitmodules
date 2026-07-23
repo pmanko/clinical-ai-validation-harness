@@ -1,9 +1,11 @@
 [submodule "targets/chartsearchai"]
 	path = targets/chartsearchai
 	url = https://github.com/pmanko/openmrs-module-chartsearchai.git
+	branch = harness-integration
 [submodule "targets/querystore"]
 	path = targets/querystore
 	url = https://github.com/pmanko/openmrs-module-querystore.git
+	branch = harness-integration
 [submodule "targets/openmrs_chatbot"]
 	path = targets/openmrs_chatbot
 	url = https://github.com/anichiti/openmrs_chatbot.git
@@ -13,6 +15,7 @@
 [submodule "targets/chartsearchai-esm"]
 	path = targets/chartsearchai-esm
 	url = https://github.com/pmanko/openmrs-esm-chartsearchai.git
+	branch = harness-integration
 [submodule "targets/med-agent-hub"]
 	path = targets/med-agent-hub
 	url = https://github.com/pmanko/med-agent-hub.git
