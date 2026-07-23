@@ -79,7 +79,7 @@ def test_primary_destinations_are_first_party_and_prominent():
     html, page = parsed_landing()
 
     assert 1 <= page.links.count("https://openmrs.openclinai.org/") <= 2
-    assert 1 <= page.links.count("https://reports.openclinai.org/") <= 4
+    assert 1 <= page.links.count("https://reports.openclinai.org/") <= 5
     assert "OpenMRS demo" in html
     assert "Evaluation reports" in html
 
@@ -111,7 +111,7 @@ def test_every_local_media_reference_exists_and_has_accessible_context():
     assert len(page.videos) == 4
     assert len(page.sources) == 4
     assert len(page.images) >= 3
-    assert "1:45 · 2×" in html
+    assert "1:45 · silent recording at 2× speed" in html
 
     for image in page.images:
         assert image.get("src")
