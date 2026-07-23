@@ -1,6 +1,11 @@
 # OpenMRS Dual-Provider Foundational Parity Roadmap
 
 **Roadmap ID:** `OPENMRS-DUAL-PROVIDER-PARITY-2026-07-20`  
+**Revision:** 2 (2026-07-23) — folds the two approved amendments (context surface 2026-07-21;
+shared context slice 2026-07-22) into the body, records the executed context-slice consolidation,
+and re-sequences the remaining work toward Signoff 2. Authorized by explicit user direction to
+update the roadmap as the foundation of the remaining work. Revision 1 is preserved in git history
+(`8bc9caa`); the status document re-pins the SHA-256.  
 **Status:** Approved for execution  
 **Relationship:** Replaces `MAH-CONSOLIDATION-2026-07-09-v1`
 
@@ -15,8 +20,14 @@ Locked decisions:
 - Bundled remains the default for a fresh OpenMRS distribution.
 - When hub is configured, the OpenMRS UI offers both providers.
 - Changing provider starts a new conversation.
-- QueryStore owns OpenMRS record projection, search, metadata, dates, and freshness, but not LLM prompt policy.
-- Providers compose context against shared conformance fixtures.
+- QueryStore owns OpenMRS record projection, search, metadata, dates, freshness, and — per the
+  2026-07-22 amendment — the shared tiered context-slice selection and opt-in question
+  interpretation (its ADR Decisions 17–18). It still owns no prompt composition and no
+  model/token-aware policy; those stay engine-side.
+- Providers consume QueryStore's context slice as thin adapters (raw question +
+  module-contributed scopes in; tier-tagged records out) and are held to the shared
+  conformance fixtures; the harness engine-parity instrument measures residual divergence
+  per run.
 - `query_scoped` and `full_chart_stable` are explicit modes; small-model defaults use `query_scoped`.
 - No automatic context-mode switching in this stage.
 - Hub gains revalidated chart caching and RAM prompt-prefix reuse.
@@ -40,7 +51,11 @@ The first execution change must:
 
 The approved roadmap body is immutable. Material architecture, safety, interface, caching, scope, or acceptance changes require a recorded amendment and user approval. Failed, skipped, or pending required gates mean "partial," never "done."
 
-## 3. Validated Baseline
+## 3. Validated Baseline (at approval, 2026-07-20)
+
+Historical record — current tips, pins, and PR states live in the status document's
+Execution Progress and the workstream audit. Notably: ChartSearchAI PR #26 was closed as
+unrebuildable and superseded by upstream draft PR #90 from `codex/dual-provider-rebuild`.
 
 | Repository | Current integration head | Current state |
 |---|---:|---|
@@ -119,6 +134,14 @@ Extend PR #63 without turning QueryStore into an AI prompt service:
 - Use `Cache-Control: private, no-cache, must-revalidate`.
 - Require every page in one acquisition to carry the same snapshot ID.
 - Keep embeddings private and preserve OpenMRS authorization.
+- **Landed (amendment 2026-07-22, QueryStore ADR Decisions 17–18):** the tiered context-slice
+  read — `getContextSlice(patient, question, {types, temporal, interpretQuestion})` and REST
+  `patientrecord?mode=context` — returning records tagged
+  `mandatory | recency_anchor | typed | similarity | panel` in chart order, with the effective
+  interpretation traced (`effectiveTypes`, `temporalApplied`) and backend chart-cap truncation
+  surfaced explicitly. Retrieval preprocessing (panel-abbreviation expansion, stopword
+  stripping) runs server-side; interpretation cues are conservative word-boundary matching,
+  not NLU.
 
 `clinicalDate` and `dateKind` originate in QueryStore serializers, where the underlying OpenMRS object is known. Shared fixtures cover observations, visits, encounters, orders, conditions/onset, programs/enrollment, dispenses/hand-over, allergies, and patient records.
 
@@ -147,16 +170,20 @@ Ranked results must resolve to the cached ledger by stable identity and content 
 
 ### Context Modes
 
-`query_scoped`:
+`query_scoped` (selection invariants implemented ONCE in QueryStore's context slice; engines are
+thin adapters — executed as CP0–CP4 + v2 of `querystore-context-slice-plan.md`):
 
-- Always include patient demographics, mandatory safety evidence, and exact ID/date/quoted-phrase matches.
+- Always include patient demographics, mandatory safety evidence (allergies + active
+  conditions), and exact ID/date/quoted-phrase matches.
 - Include every record for matched medication, allergy, program, condition, visit, or order enumeration intents.
 - Union QueryStore ranked candidates.
 - Add a recency anchor only for temporal questions.
 - Complete observation/lab panel families.
 - Deduplicate and order deterministically.
-- Treat the token budget as a ceiling, not a target; do not add irrelevant records to fill it.
-- Fail `insufficient_context` if mandatory or typed-complete evidence cannot fit.
+- Treat the token budget as a ceiling, not a target; do not add irrelevant records to fill it
+  (budget trimming is engine-side, over the slice tiers; `mandatory` is never droppable).
+- Fail `insufficient_context` if mandatory or typed-complete evidence cannot fit; bundled
+  additionally surfaces engine context overflow as `chart_too_large` on BOTH engines.
 
 `full_chart_stable`:
 
@@ -232,15 +259,37 @@ Equivalent approved DDI content, CIEL mappings, exposure resolution, the medicat
 - Do not create a PR per internal phase.
 - Do not force-push rebuilt upstream PR branches before Signoff 1.
 
-### Foundational Product Proof
+### Position at Revision 2 (2026-07-23)
 
-- Demonstrate bundled with hub absent.
-- Demonstrate hub without bundled model files.
-- Demonstrate both configured, provider switching via a new conversation, persistence, reload, evidence, flagged output, cancellation, and provider failure.
-- Demonstrate unchanged-chart revalidation and full-chart prefix reuse.
-- Demonstrate changed-chart invalidation.
-- Record paced Playwright proof for both providers using the same OpenMRS UI.
-- Run full repository suites, cross-repo documentation checks, and DIGI-UW/code-qa.
+Signoff 1 granted; runtime implementation is well advanced. Executed under the amendments: the
+context-slice consolidation (CP0–CP4 + v2 — shared selection, interpretation, and preprocessing
+in QueryStore; both engines as thin adapters), honest bundled readiness, explicit context
+overflow on both engines, and the engine-parity instrument (tap/probe/diff + hard mandatory-core
+gate + scored `engine-parity-e4b` runs) as standing proof machinery. Sixteen gates are In
+progress, two Passed; genuinely un-started: G13 and the closeout gates G19–G21. The status
+document's Gate Evidence table is the per-gate ledger.
+
+### Remaining Work toward Signoff 2 (dependency order)
+
+1. Merge QueryStore #63 and publish the snapshot — the single dependency turning
+   ChartSearchAI #90's upstream CI green (user merge decision).
+2. Rebuild the ESM PR: fresh upstream draft from `codex/m2-hub-profile-rebuild`, closing #12
+   (the #26→#90 pattern).
+3. Product-proof evidence runs: G04(b) hub-only install; G06 runtime no-regression sweep
+   (engines × chart modes × grounding — the local-engine leg needs its GGUF provisioned and may
+   be recorded as a follow-up); G07/G08 end-to-end freshness (chart change → new snapshot
+   identity; `304` reuse under the harness); cancellation settle-one-row proof (G18).
+4. Playwright paced proof: provider switch creates a new conversation; reload survival (G05/G17).
+5. Shared-fixture parity: the hub consumes the versioned conformance fixture families
+   (context/temporal/drug-safety), completing G03 and evidencing G14–G16.
+6. **G13 decision point:** full-chart prompt-prefix reuse (`cache_prompt` + recorded backend
+   timings) is the one unstarted build item. At Signoff-2 prep it is a conscious GO / DEFER
+   call — query-scoped is the operating default and the parity configuration runs the remote
+   engine, so its value depends on whether `full_chart_stable` is a near-term deployment target.
+   Deferring requires recording the decision here; it does not block Signoff 2 if deferred.
+7. Closeout: G19 honest-demo review, G20 documentation sweep, G21 QA/hygiene (including a
+   status-doc resync against the repos — a standing pre-signoff step as of the 2026-07-23
+   audit), G22 run-metadata completeness.
 
 **User Signoff 2:** Marks the current foundational implementation complete and authorizes the next validation-harness stage.
 
@@ -253,6 +302,10 @@ Run deterministic audits before judging, preserve separate judgments, report per
 **User Signoff 3:** Approves final demo release, companion merges, curated publication, and PR cleanup.
 
 ## 9. Executable Acceptance Matrix
+
+Gate IDs and pass conditions are stable across revisions. The 2026-07-22 amendment moved
+G10/G11's implementation locus into QueryStore's shared context slice without changing what
+they must prove.
 
 | Gate | Pass condition |
 |---|---|
@@ -281,11 +334,20 @@ Run deterministic audits before judging, preserve separate judgments, report per
 
 ## 10. Primary Code Targets
 
-- QueryStore: [`QueryDocument.java`](../../../targets/querystore/api/src/main/java/org/openmrs/module/querystore/model/QueryDocument.java), serializers, [`QueryStoreRestController.java`](../../../targets/querystore/omod/src/main/java/org/openmrs/module/querystore/web/rest/QueryStoreRestController.java), and [`PatientRecordView.java`](../../../targets/querystore/omod/src/main/java/org/openmrs/module/querystore/web/rest/PatientRecordView.java).
-- med-agent-hub: [`context_sources.py`](../../../targets/med-agent-hub/server/context_sources.py), [`querystore_client.py`](../../../targets/med-agent-hub/server/querystore_client.py), [`chart_serializer.py`](../../../targets/med-agent-hub/server/chart_serializer.py), [`temporal.py`](../../../targets/med-agent-hub/server/temporal.py), and stage/trace assembly.
-- ChartSearchAI: upstream `QueryStoreChartBuilder`, `QueryScopeRouter`, `LocalLlmEngine`, current session/persistence code, REST controller, and the new provider boundary.
-- ESM: API parser, turn reducer, session store, provider/model picker, response panel, evidence UI, and configuration schema.
-- Harness: canonical roadmap/status, dual-provider gate script, metadata schema, local deployment scripts, future comparison sets, and report/judge preparation.
+- QueryStore: `QueryStoreServiceImpl.getContextSlice` + `ContextQuestionInterpreter` (ADR
+  Decisions 17–18), serializers, `QueryStoreRestController` (`mode=context`, `interpret`), and
+  `PatientRecordView` (tiered slice envelope).
+- med-agent-hub: `context_sources.py` (slice consumption, tier-aware ranking, ledger cache),
+  `querystore_client.py` (`fetch_context_slice`), `temporal.py`, and stage/trace assembly.
+- ChartSearchAI: the provider boundary (`ClinicalAnswerProvider`, registry, bundled + hub
+  adapters, `CancellationSignal`), `QueryStoreChartBuilder` as thin slice adapter, both
+  `LlmEngine`s with explicit overflow, honest readiness in the bundled descriptor.
+- ESM: canonical-lifecycle turn reducer, provider picker, session store, response/evidence UI
+  (`codex/m2-hub-profile-rebuild`).
+- Harness: roadmap/status + gate script, the engine-parity instrument
+  (`engine-tap.py`, `parity-engine-probe.py`, `parity-engine-diff.py`, `engine-parity.v1`),
+  provider-arm scored runs (`Backend.provider`, `/chat/stream` client), and the stable
+  no-reindex ES reset (`dual-provider-up.sh`, `querystore-snapshot.sh`).
 
 ## 11. Research Basis
 
@@ -303,7 +365,9 @@ Run deterministic audits before judging, preserve separate judgments, report per
 
 - No automatic provider failover.
 - No identical-output requirement.
-- No model-context policy inside QueryStore.
+- No prompt composition and no model/token-aware policy inside QueryStore (re-scoped by the
+  2026-07-22 amendment: tiered record selection and opt-in question interpretation are
+  retrieval semantics and in scope).
 - No QueryStore dependency for generic hub operation.
 - No final-answer cache.
 - No disk KV persistence.

@@ -15,7 +15,7 @@ adapters. The roadmap file alone under-describes context ownership.
 |---|---|
 | Roadmap | [`openmrs-dual-provider-parity-roadmap.md`](openmrs-dual-provider-parity-roadmap.md) |
 | Approval | Explicit user instruction to implement the roadmap on 2026-07-20 |
-| Approved roadmap SHA-256 | `cf2c8b33c81ab69ece6150d0171ea3e940f89edfa3968e02c6bd9bf8abc274f5` |
+| Approved roadmap SHA-256 | `f9f6d2170030a11400e446ba477a1f5eee2f174f1c378ba85ce588c91a803526` (Revision 2, 2026-07-23; Revision 1 was `cf2c8b33c81ab69ece6150d0171ea3e940f89edfa3968e02c6bd9bf8abc274f5`, preserved at `8bc9caa`) |
 | Current boundary | Signoff 1 granted; context-surface / authoritative-state amendment approved 2026-07-21; shared context-selection (QueryStore context slice) amendment approved 2026-07-22 with checkpoint plan `querystore-context-slice-plan.md`; ChartSearchAI rebuild and remaining roadmap runtime work authorized to proceed; Signoff 2 remains required before release/evaluation work |
 | Supersedes | `MAH-CONSOLIDATION-2026-07-09-v1` for active architecture and execution authority |
 | Preserved prior decisions | Temporal-facts Git provenance, stable evaluation IDs, and medication-knowledge safety boundary remain active unless this roadmap explicitly changes them |
@@ -116,6 +116,18 @@ implementation pointers and its genuinely-remaining evidence. Still honestly Pen
 closeout gates G19/G20/G21, which cannot precede the work they audit.
 
 ## Amendments and Deviations
+
+### 2026-07-23 — Roadmap Revision 2 (amendments folded into the canonical body)
+
+**Approval:** Explicit user direction to "update the roadmap properly so it can be used as the
+foundation of the remaining work, and then carefully execute it."
+
+**Changes:** the 2026-07-21 and 2026-07-22 amendments are folded into the body (§1 locked
+decisions, §5 context contract and modes, §12 non-goal re-scope); §3 is labeled as the
+at-approval baseline; §8 records the position at Revision 2 and the dependency-ordered remaining
+work toward Signoff 2, including the explicit G13 GO/DEFER decision point and the standing
+status-resync step; §10 code targets refreshed to the shipped classes and instruments. Gate IDs
+and pass conditions are unchanged. Hash re-pinned above; Revision 1 preserved in git history.
 
 ### 2026-07-21 — OpenMRS context surface and authoritative-state ownership
 
