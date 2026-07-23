@@ -5,13 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta
       name="description"
-      content="Open Clinical AI is an open-source research project for testing local clinical AI in OpenMRS with temporal checks and source-linked answers."
+      content="Open Clinical AI is an open framework for orchestrating and evaluating open-weight language models against clinical, administrative, and surveillance workflows — with example implementations in OpenMRS and OpenELIS, deterministic checks, and published validation runs."
     />
     <meta name="theme-color" content="#4b2e83" />
     <meta property="og:title" content="Open Clinical AI" />
     <meta
       property="og:description"
-      content="Tools and evaluation for local clinical AI in OpenMRS."
+      content="An open framework for orchestrating and evaluating open-weight language models against clinical, administrative, and surveillance workflows."
     />
     <meta property="og:image" content="https://openclinai.org/media/openmrs-evidence-poster.png" />
     <title>Open Clinical AI</title>
@@ -46,12 +46,14 @@
         </div>
         <div class="hero-shade" aria-hidden="true"></div>
         <div class="hero-content page-width">
-          <p class="eyebrow">Open-source research project</p>
+          <p class="eyebrow">Open-source research project · DIGI at the University of Washington</p>
           <h1 id="hero-title">Open Clinical AI</h1>
           <p class="hero-lead">
-            Tools for running local language models against OpenMRS patient records, with temporal checks and source-linked answers.
+            An open framework for orchestrating and evaluating open-weight language models against clinical, administrative, and surveillance workflows — proven through ChartSearchAI and Catalyst, its example implementations in OpenMRS and OpenELIS.
           </p>
           <div class="hero-actions">
+            <a class="button button-primary" href="https://openmrs.openclinai.org/">OpenMRS demo <span aria-hidden="true">&#8599;</span></a>
+            <a class="button button-secondary" href="https://reports.openclinai.org/">Evaluation reports <span aria-hidden="true">&#8599;</span></a>
             <a class="text-link light" href="#project">Project overview <span aria-hidden="true">&#8595;</span></a>
           </div>
           <p class="hero-note">Experimental software. Outputs require clinical review. Not a medical device.</p>
@@ -62,29 +64,29 @@
         <div class="page-width intro-grid">
           <div>
             <p class="section-kicker">Project overview</p>
-            <h2>A test environment for local clinical AI.</h2>
+            <h2>A framework for orchestrating and evaluating open models in clinical workflows.</h2>
           </div>
           <div class="intro-copy">
             <p>
-              Open Clinical AI connects locally runnable language models to OpenMRS through Med Agent Hub. It records the answer, source records, validation results, and stage timings.
+              Open Clinical AI is an open framework for orchestrating small, open-weight language models against clinical, administrative, and surveillance workflows, and for evaluating whether the result is dependable enough to trust. The thesis: small models become dependable not through scale, but through staged orchestration — deterministic checks, citation grounding, and read-only execution policy — with every validation run published. ChartSearchAI and Catalyst are its example implementations, in OpenMRS and OpenELIS.
             </p>
             <p>
-              The current work is experimental. Model output may be incomplete or wrong and requires clinical review.
+              Because the models run locally via llama.cpp — no cloud APIs — the same framework fits health systems where connectivity, compute, cost, or data-privacy rules make cloud AI unavailable, without changing the architecture.
             </p>
           </div>
         </div>
         <div class="page-width scope-row" aria-label="Current project scope">
           <article>
-            <h3>Local operation</h3>
-            <p>Models can run on local hardware, and patient records can remain within the deployment.</p>
+            <h3>Local by design</h3>
+            <p>Runs entirely on local hardware via llama.cpp — no cloud APIs. Patient data never leaves the deployment.</p>
           </article>
           <article>
             <h3>Answer checks</h3>
-            <p>Deterministic rules check temporal claims, output structure, and citation resolution.</p>
+            <p>Small models are made dependable by orchestration: staged pipelines, deterministic temporal and structure rules, citation resolution, and read-only SQL policy.</p>
           </article>
           <article>
-            <h3>Recorded evaluation</h3>
-            <p>Comparison runs retain individual answers, source traces, judge results, and aggregate scores.</p>
+            <h3>Published evidence</h3>
+            <p>Comparison runs retain individual answers, source traces, judge results, and aggregate scores. Latest acceptance run: 12 of 12 live scenario repetitions passed, 384 assertions, on real models and PostgreSQL.</p>
           </article>
         </div>
       </section>
@@ -138,7 +140,7 @@
             <h2>ChartSearchAI in the patient chart.</h2>
           </div>
           <p>
-            The ChartSearchAI module sends a patient question to Med Agent Hub and stores each stage in one chat message. The initial Answer is displayed before validation and In-Depth finish.
+            ChartSearchAI is the framework's example implementation for point-of-care chart search. The module sends a patient question to Med Agent Hub and stores each stage in one chat message. The initial Answer is displayed before validation and In-Depth finish.
           </p>
         </div>
         <div class="page-width feature-media">
@@ -214,7 +216,7 @@
             <h2>Plain-language questions over laboratory and program data.</h2>
           </div>
           <p>
-            Catalyst turns a question into SQL against a catalog generated from the database itself. A writer model drafts the query, a reviewer model checks it, and a deterministic policy allows only read-only execution. Results are typed tables, and a follow-up instruction refines the exact current query.
+            Catalyst is the framework's example implementation for program-monitoring and reporting questions — viral load coverage, CD4 counts, specimen turnaround — directly from laboratory (OpenELIS) and HIV program (OpenMRS) databases. It turns a question into SQL against a catalog generated from the database itself. A writer model drafts the query, a reviewer model checks it, and a deterministic policy allows only read-only execution. Results are typed tables, and a follow-up instruction refines the exact current query.
           </p>
         </div>
         <div class="page-width video-grid">

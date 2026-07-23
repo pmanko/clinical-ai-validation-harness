@@ -61,7 +61,7 @@ def test_landing_has_one_clear_h1_and_required_project_sections():
 def test_landing_uses_plain_project_language_instead_of_advertising_copy():
     html, _ = parsed_landing()
 
-    assert "A test environment for local clinical AI." in html
+    assert "A framework for orchestrating and evaluating open models in clinical workflows." in html
     assert "How a request is processed." in html
     assert "Recorded OpenMRS sessions." in html
     for phrase in (
