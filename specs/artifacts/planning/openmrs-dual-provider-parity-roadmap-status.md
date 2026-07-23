@@ -9,7 +9,7 @@ Execution record for `OPENMRS-DUAL-PROVIDER-PARITY-2026-07-20`.
 | Roadmap | [`openmrs-dual-provider-parity-roadmap.md`](openmrs-dual-provider-parity-roadmap.md) |
 | Approval | Explicit user instruction to implement the roadmap on 2026-07-20 |
 | Approved roadmap SHA-256 | `cf2c8b33c81ab69ece6150d0171ea3e940f89edfa3968e02c6bd9bf8abc274f5` |
-| Current boundary | Signoff 1 granted; context-surface / authoritative-state amendment approved 2026-07-21; ChartSearchAI rebuild and remaining roadmap runtime work authorized to proceed; Signoff 2 remains required before release/evaluation work |
+| Current boundary | Signoff 1 granted; context-surface / authoritative-state amendment approved 2026-07-21; shared context-selection (QueryStore context slice) amendment approved 2026-07-22 with checkpoint plan `querystore-context-slice-plan.md`; ChartSearchAI rebuild and remaining roadmap runtime work authorized to proceed; Signoff 2 remains required before release/evaluation work |
 | Supersedes | `MAH-CONSOLIDATION-2026-07-09-v1` for active architecture and execution authority |
 | Preserved prior decisions | Temporal-facts Git provenance, stable evaluation IDs, and medication-knowledge safety boundary remain active unless this roadmap explicitly changes them |
 | Signoff 1 | Granted by user on 2026-07-20: baseline, contracts, upstream dispositions, and branch-rebuild procedure approved |
@@ -45,8 +45,8 @@ The refreshed repository state, upstream dispositions, and rollback refs are rec
 | G07 QueryStore semantics | In progress | QueryStore `856bdda` implements per-resource `getClinicalDate`/`getDateKind` (`clinical_event`/`administrative`/`unknown`) + `lastModified`, with serializer unit tests; the full-chart read API (`fd8a00c`) shares serializer/service behavior with ranked reads. **Live 2026-07-22:** the hub consumes the querystore chart end to end (grounding cites querystore records; a dateKind-rendering regression was found and fixed against the live path — see progress note). **Remaining:** explicit full-vs-ranked service-behavior parity and clinical/admin-date correctness exercised across resource fixtures through the harness. |
 | G08 Freshness | In progress | QueryStore `856bdda` adds a stable complete-chart `snapshotId`, a strong page-specific ETag with `private, must-revalidate` caching, `304 Not Modified` on `If-None-Match` (`QueryStoreRestController`), and rejection of mixed-snapshot multi-page reads, all covered by `PatientRecordEndpointTest`. **Remaining:** these are unit-verified only — end-to-end proof that a chart change alters snapshot identity and that `304` reuse holds under the harness has not been run. |
 | G09 Source independence | Pending | No runtime implementation has begun. |
-| G10 Context policy | Pending | No runtime implementation has begun. |
-| G11 Context ceiling | Pending | No runtime implementation has begun. |
+| G10 Context policy | In progress | Engine-parity instrument (2026-07-22, `engine-parity-instrument.md`) measured both implementations against identical questions on one index: bundled has typed-complete + similarity + panel completion + temporal recency anchor but NO mandatory clinical core; hub has mandatory core + always-on clinical-date recency + budget but NO panel completion. Execution path: `querystore-context-slice-plan.md` CP0 (bundled mandatory core) → CP1 (QueryStore `getContextSlice` implementing the §5 invariants once, fixture-driven) → CP2/CP3 (thin adapters) → CP4 (parity gate re-tightened). |
+| G11 Context ceiling | In progress | Bundled fullChart fails loud (`ChartTooLargeException`); bundled scoped slices have no budget; hub applies a token budget hub-side. Consolidation target: tiered slice (mandatory never droppable) + engine-side ceiling-not-target trimming with explicit `insufficient_context` — `querystore-context-slice-plan.md` CP3. |
 | G12 Cache isolation | Pending | No runtime implementation has begun. |
 | G13 Prefix proof | Pending | No runtime implementation has begun. |
 | G14 Temporal safety | Pending | No runtime implementation has begun. |
@@ -141,3 +141,44 @@ but cannot become a correctness dependency.
 
 **Affected gates:** Clarifies implementation evidence for G04, G09, G12, G13, G17, G20, and G21;
 it does not relax any acceptance criterion or authorize Signoff 2/3 work.
+
+### 2026-07-22 — Shared context-selection contract (QueryStore context slice)
+
+**Approval:** Explicit user direction on 2026-07-22 ("this could be a higher level querystore or in
+general OpenMRS service that's provided both for the local and remote engines"), after the
+engine-parity instrument (see `engine-parity-instrument.md`) measured the two per-engine
+context-policy implementations drifting symmetrically: bundled lacks the mandatory clinical core
+(allergies + active conditions; fixture `context.enumerated-medications-are-complete` pins them),
+the hub lacks obs-group/panel completion, and each re-derives semantics QueryStore already owns
+(clinical-date kinds, group metadata). Record-set divergence on identical questions against one
+index: 27v36, 27v41, 36v78, 42v70.
+
+**Decision:**
+
+- QueryStore's context surface is extended with a **tiered record-selection contract**:
+  `getContextSlice(patientUuid, question, {types[], temporal})` (Java API + REST twin) returning
+  records tagged `mandatory | recency_anchor | typed | similarity`, implementing the roadmap §5
+  `query_scoped` selection invariants exactly once, at the owner of the index, date semantics,
+  and group metadata. The shared `context_policy` fixtures become QueryStore's own red-first
+  tests.
+- Engines become thin adapters for QueryStore-sourced context and retain: prompt composition,
+  serialization, token budgets (trimming over tiers; `mandatory` never droppable; explicit
+  `insufficient_context` on overflow), question interpretation (intents/temporal flags,
+  caller-side in v1), and all selection for non-QueryStore sources. The hub remains
+  source-neutral and fully operational without QueryStore.
+- Roadmap §12 non-goal "No model-context policy inside QueryStore" is **re-scoped to its
+  intent**: no prompt composition and no model/token-aware policy inside QueryStore. Tiered
+  record selection is model-agnostic retrieval semantics, consistent with the 2026-07-21
+  context-surface amendment ("ranked-search contracts") and with ChartSearchAI's standing rule
+  that retrieval logic belongs to the querystore module.
+
+**Execution:** [`querystore-context-slice-plan.md`](querystore-context-slice-plan.md) — CP0
+(bundled mandatory-core safety fix, immediate) → CP1 (slice contract, fixture-driven) → CP2
+(bundled adapter) → CP3 (hub adapter) → CP4 (parity gate re-tightened to record-set equality for
+QueryStore-sourced runs). Checkpoints are sequential; each is red-first and live-verified with
+the engine-parity instrument.
+
+**Affected gates:** G10 and G11 (implementation path), G03 (context fixtures gain their
+single-implementation owner), G06 (bundled preservation guards CP0/CP2), G09 (source-neutrality
+preserved by construction). No acceptance criterion is relaxed; record-set equality for
+QueryStore-sourced runs becomes provable rather than aspirational.

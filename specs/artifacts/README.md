@@ -18,6 +18,10 @@ Durable planning and research artifacts that support the feature roadmap:
   - Approved goal spec for engine-level bundled-vs-hub parity: shared-engine design decisions,
     verbatim request capture/replay, the `engine-parity.v1` contract diff, and acceptance
     criteria AC-1..AC-6 for the scored parity run.
+- `planning/querystore-context-slice-plan.md`
+  - Approved checkpoint plan (CP0–CP4) implementing gates G10/G11 under the 2026-07-22 shared
+    context-selection amendment: QueryStore tiered `getContextSlice` contract, bundled/hub thin
+    adapters, and the re-tightened parity retrieval gate.
 - `planning/hub-consolidation-roadmap.md`
   - Historical superseded roadmap for the prior hub-only clinical answer architecture. Completed
     evidence and still-valid decisions are preserved by reference from the dual-provider roadmap.

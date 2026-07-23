@@ -30,7 +30,7 @@ Java, Python, TypeScript, and harness tests can report the same failing case.
 | `provider_lifecycle` | Required `answer_done` and one terminal event; optional events follow advertised capabilities; a provider change starts a new conversation | ChartSearchAI API tests; ESM reducer tests; hub stream tests |
 | `provider_capabilities` | Bundled is default when configured; picker is absent for one provider; unavailable configured provider remains disabled; no implicit fallback | ChartSearchAI provider/config tests; ESM picker tests |
 | `querystore_records` | Existing `date` is preserved; `clinicalDate`, `dateKind`, and `lastModified` are explicit; full pages share a snapshot ID | QueryStore REST/unit tests; hub client tests |
-| `context_policy` | Typed-complete evidence, temporal recency, panel completion, mandatory inclusion, stable ordering, ceiling-not-target, and explicit overflow | Bundled and hub conformance adapters; harness trace tests |
+| `context_policy` | Typed-complete evidence, temporal recency, panel completion, mandatory inclusion, stable ordering, ceiling-not-target, and explicit overflow | QueryStore context-slice tests (selection invariants, per the 2026-07-22 amendment); bundled and hub thin-adapter conformance; harness trace tests |
 | `temporal_gate` | Checked output cannot contain a malformed/non-ledger date, wrong date/value association, false appointment status, wrong last visit, or unsupported trend | Shared Java/Python fixture adapters; existing hub temporal tests |
 | `drug_safety_status` | `checked`, `limited`, and `unavailable` are honest states; incomplete mapping/data/exposure cannot look checked | Java provider tests; hub safety tests; ESM rendering tests |
 
@@ -73,8 +73,13 @@ engines consume the same record, temporal, identity, and freshness semantics thr
 
 This context boundary does not turn QueryStore into a prompt composer or a mandatory dependency of
 med-agent-hub. The hub remains source-neutral: inline charts, static knowledge, and alternate
-adapters remain valid sources. Each answer engine owns prompt composition, context selection,
-reasoning, deterministic gates, evidence processing, and provider-specific output semantics.
+adapters remain valid sources. Per the 2026-07-22 shared context-selection amendment
+(`openmrs-dual-provider-parity-roadmap-status.md`), QueryStore additionally serves the tiered
+record-selection contract (`getContextSlice`: mandatory | recency_anchor | typed | similarity) for
+QueryStore-sourced context, so the `context_policy` selection invariants are implemented once at
+the data owner. Each answer engine owns prompt composition, token budgeting over the tiers,
+question interpretation, context selection for non-QueryStore sources, reasoning, deterministic
+gates, evidence processing, and provider-specific output semantics.
 
 The common OpenMRS layer owns the authoritative conversation and audit record:
 
