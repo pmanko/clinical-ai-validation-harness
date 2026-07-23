@@ -33,8 +33,11 @@ getContextSlice(patientUuid, question, ContextSliceRequest{types[], temporal})
 ```
 plus a REST twin (extending `patientrecord`). It implements, once, at the owner of the index,
 dates, and group metadata: mandatory clinical core (patient + allergies + active conditions),
-always-on clinical-date recency anchor, typed-complete slices for caller-declared types,
-similarity union, obs-group/panel family completion, deduplication, deterministic order.
+temporal-gated clinical-date recency anchor, typed-complete slices for caller-declared types,
+similarity union, obs-group/panel family completion, deduplication, deterministic order. The
+recency anchor is temporal-gated (roadmap §5: "recency anchor only for temporal questions" —
+bundled's measured enumeration-bait failure rules out always-on), clinical-date semantics owned
+by querystore. A fifth tier `panel` tags family-completion joins honestly.
 
 Engines keep: prompt composition, serialization, system prompts, token budgets (trimming over
 tiers; `mandatory` is never droppable; overflow fails explicit `insufficient_context`), question
