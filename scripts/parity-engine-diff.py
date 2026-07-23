@@ -235,7 +235,7 @@ def main() -> int:
         return 1
     print("PASS: zero violations; mandatory core parity holds; retrieval "
           + ("sets identical" if retrieval["status"] == "identical"
-             else "residual divergence is the documented similarity-input drift + hub lexical union"))
+             else "residual divergence is the documented hub budget ceiling + lexical union"))
     return 0
 
 
