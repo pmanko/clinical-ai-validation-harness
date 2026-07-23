@@ -6,9 +6,9 @@
   "providerName": "llama.cpp",
   "repetitions": 3,
   "profiles": {
-    "catalyst-query-qwen-coder-1.5b-14b": {
+    "catalyst-query-qwen-coder-1.5b-e4b": {
       "writerModelId": "qwen2.5-coder-1.5b-instruct-q4_k_m",
-      "reviewerModelId": "qwen2.5-14b"
+      "reviewerModelId": "gemma-e4b"
     }
   },
   "scenarios": [
@@ -16,9 +16,9 @@
       "id": "narrowing-unchanged-base",
       "family": "narrowing",
       "initialQuestion": "Show laboratory results since 2026-01-01 with patient, test, status, value, unit, and observed date.",
-      "initialProfileId": "catalyst-query-qwen-coder-1.5b-14b",
+      "initialProfileId": "catalyst-query-qwen-coder-1.5b-e4b",
       "followupInstruction": "Restrict the current query to final Viral Load results, preserving all selected columns, the existing date filter, and ordering.",
-      "followupProfileId": "catalyst-query-qwen-coder-1.5b-14b",
+      "followupProfileId": "catalyst-query-qwen-coder-1.5b-e4b",
       "editorQuery": {
         "sql": "SELECT\n  observation_id,\n  patient_id,\n  test_name,\n  result_status,\n  result_value,\n  result_unit,\n  observed_at\nFROM analytics.lab_result_fact_v1\nWHERE observed_at >= :start_date\nORDER BY observed_at DESC, observation_id",
         "parameters": [
@@ -56,9 +56,9 @@
       "id": "aggregation-dirty-base",
       "family": "aggregation-output-shape",
       "initialQuestion": "Show numeric laboratory results since 2026-01-01 with patient, test, value, and observed date.",
-      "initialProfileId": "catalyst-query-qwen-coder-1.5b-14b",
+      "initialProfileId": "catalyst-query-qwen-coder-1.5b-e4b",
       "followupInstruction": "Replace the current row output with one row per calendar month. Return observed_month, result_count, distinct_patient_count, and median_result_value; preserve all filters and order chronologically.",
-      "followupProfileId": "catalyst-query-qwen-coder-1.5b-14b",
+      "followupProfileId": "catalyst-query-qwen-coder-1.5b-e4b",
       "editorQuery": {
         "sql": "SELECT\n  observation_id,\n  patient_id,\n  test_name,\n  result_value,\n  result_unit,\n  observed_at\nFROM analytics.lab_result_fact_v1\nWHERE observed_at >= :start_date\n  AND result_value IS NOT NULL\nORDER BY observed_at, observation_id",
         "parameters": [
@@ -100,9 +100,9 @@
       "id": "unresolved-parameter-correction",
       "family": "unresolved-correction",
       "initialQuestion": "Show recent laboratory results.",
-      "initialProfileId": "catalyst-query-qwen-coder-1.5b-14b",
+      "initialProfileId": "catalyst-query-qwen-coder-1.5b-e4b",
       "followupInstruction": "Repair the unresolved parameter binding without changing columns, table, predicate values, or ordering.",
-      "followupProfileId": "catalyst-query-qwen-coder-1.5b-14b",
+      "followupProfileId": "catalyst-query-qwen-coder-1.5b-e4b",
       "editorQuery": {
         "sql": "SELECT\n  observation_id,\n  patient_id,\n  test_name,\n  result_value,\n  result_unit,\n  observed_at\nFROM analytics.lab_result_fact_v1\nWHERE test_name = :test_name\nORDER BY observed_at DESC, observation_id",
         "parameters": [
@@ -133,9 +133,9 @@
       "id": "semantic-distinct-patient-review",
       "family": "lint-clean-semantic-reviewer-correction",
       "initialQuestion": "Show patient identifiers represented in laboratory results since 2026-01-01.",
-      "initialProfileId": "catalyst-query-qwen-coder-1.5b-14b",
+      "initialProfileId": "catalyst-query-qwen-coder-1.5b-e4b",
       "followupInstruction": "Return one column named patient_count containing the number of distinct patients represented by these rows; do not count result rows.",
-      "followupProfileId": "catalyst-query-qwen-coder-1.5b-14b",
+      "followupProfileId": "catalyst-query-qwen-coder-1.5b-e4b",
       "editorQuery": {
         "sql": "SELECT patient_id\nFROM analytics.lab_result_fact_v1\nWHERE observed_at >= :start_date\nORDER BY patient_id",
         "parameters": [

@@ -36,8 +36,8 @@ ENTRIES = [
     },
     {
         "run_dir": None,
-        "profile_id": "catalyst-query-qwen-coder-1.5b-14b",
-        "profile_label": "Qwen Coder 1.5B writer",
+        "profile_id": "catalyst-query-qwen-coder-1.5b-e4b",
+        "profile_label": "Qwen Coder 1.5B + Gemma E4B (small-only)",
     },
     {
         "run_dir": None,
@@ -95,10 +95,10 @@ def main() -> None:
         "summary": (
             "The same notebook-validation suite (4 scenario families x 3 repetitions, "
             "gold execution-match + independent PostgreSQL cross-checks) run once per "
-            "candidate query profile: three writers (Gemma 12B — the shipped default, "
-            "Gemma E4B, and Qwen 2.5 Coder 1.5B) each paired with the same Qwen 2.5 "
-            "14B reviewer, plus two self-checked baselines (Gemma 12B and Qwen 14B, "
-            "each reviewing its own output)."
+            "candidate query profile: Gemma 12B (the shipped default) and Gemma E4B "
+            "writers each reviewed by Qwen 2.5 14B, a small-only pairing (Qwen 2.5 "
+            "Coder 1.5B writer reviewed by Gemma E4B), and two self-checked baselines "
+            "(Gemma 12B and Qwen 14B, each reviewing its own output)."
         ),
         "takeaway": scoreline,
     }
