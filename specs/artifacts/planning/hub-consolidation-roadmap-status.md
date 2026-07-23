@@ -14,7 +14,7 @@ Execution state for `MAH-CONSOLIDATION-2026-07-09-v1`.
 |---|---|
 | Roadmap | [`hub-consolidation-roadmap.md`](hub-consolidation-roadmap.md) |
 | Approval | Explicit user instruction to implement the roadmap on 2026-07-09 |
-| Approved roadmap SHA-256 | `5f625cb9f1ac4a1682001fb40fd3cc6852ceed16c96e9b54e435b4e591a64d3d` |
+| Approved roadmap SHA-256 | `a120a24e06cae895d0547ee7b9ec4e3ee0def1431b584152876103b5b8f963c1` (re-pinned 2026-07-23: commit 8bc9caa added the user-approved supersession markers to the historical roadmap body, which is exactly what the successor roadmap's G01 verifies; the pre-supersession hash was `5f625cb9f1ac4a1682001fb40fd3cc6852ceed16c96e9b54e435b4e591a64d3d`) |
 | Current execution boundary | Approved Amendment A4 pre-merge safety remediation on med-agent-hub PR #13; M4 release QA remains open |
 | Next protected boundary | Explicit user signoff is required before merging PR #13; User Release Signoff D remains required before release completion |
 | Approved amendments | A1: Git-owned temporal-facts provenance, approved 2026-07-11; A2: 12B-first publish candidate, approved 2026-07-13; A3: stable evaluation IDs with Git-owned history, approved 2026-07-13; A4: shared medication knowledge graph and honest safety boundary, approved 2026-07-16 |
@@ -267,7 +267,7 @@ Validation was run after the approved body was copied and before implementation 
 
 | Check | Result |
 |---|---|
-| Approved-body integrity | Pass: SHA-256 is `5f625cb9f1ac4a1682001fb40fd3cc6852ceed16c96e9b54e435b4e591a64d3d` |
+| Approved-body integrity | Pass: SHA-256 is `a120a24e06cae895d0547ee7b9ec4e3ee0def1431b584152876103b5b8f963c1` (post-supersession-marker; see Control Record note) |
 | Required structure | Pass: 10 numbered sections, 24 acceptance gates, and 6 execution milestones |
 | Local references | Pass: all 21 checked local links resolve from the roadmap location |
 | Wrapper contamination | Pass: no `<proposed_plan>` wrapper tags were copied |
