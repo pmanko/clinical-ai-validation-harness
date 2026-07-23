@@ -107,7 +107,7 @@
       <section id="openmrs" class="section openmrs-section">
         <div class="page-width section-heading-row">
           <div>
-            <p class="section-kicker">OpenMRS integration</p>
+            <p class="section-kicker">Example implementation 1 of 2 · OpenMRS integration</p>
             <h2>ChartSearchAI in the patient chart.</h2>
           </div>
           <p>
@@ -147,46 +147,6 @@
           <div role="listitem"><span>01</span><strong>Initial Answer</strong><p>Displayed when the answer stage finishes.</p></div>
           <div role="listitem"><span>02</span><strong>Validation result</strong><p>The same message records checked, edited, needs review, or unavailable.</p></div>
           <div role="listitem"><span>03</span><strong>Source records</strong><p>References show the chart entries used by the final answer.</p></div>
-        </div>
-
-        <div id="hub" class="page-width section-heading-row hub-fold">
-          <div>
-            <p class="section-kicker">Med Agent Hub</p>
-            <h3>How each answer is produced.</h3>
-          </div>
-          <p>
-            ChartSearchAI is the OpenMRS module; Med Agent Hub is the orchestration pipeline behind it. The five stages below are the same lifecycle shown in the demo above.
-          </p>
-        </div>
-        <div class="page-width stage-flow" role="list" aria-label="Med Agent Hub answer stages">
-          <div class="stage" role="listitem">
-            <span>1</span>
-            <strong>Context</strong>
-            <p>Load patient records and source provenance.</p>
-          </div>
-          <div class="stage" role="listitem">
-            <span>2</span>
-            <strong>Answer</strong>
-            <p>Generate the initial answer with the selected profile.</p>
-          </div>
-          <div class="stage" role="listitem">
-            <span>3</span>
-            <strong>Check</strong>
-            <p>Apply deterministic temporal and output rules.</p>
-          </div>
-          <div class="stage" role="listitem">
-            <span>4</span>
-            <strong>Evidence</strong>
-            <p>Resolve citations and record grounding results.</p>
-          </div>
-          <div class="stage" role="listitem">
-            <span>5</span>
-            <strong>In-Depth</strong>
-            <p>Generate additional detail from the checked answer.</p>
-          </div>
-        </div>
-        <div class="page-width hub-links">
-          <a class="text-link" href="https://github.com/pmanko/med-agent-hub">Med Agent Hub source (GitHub) <span aria-hidden="true">&#8599;</span></a>
         </div>
 
         <div class="page-width section-heading-row hub-fold">
@@ -239,13 +199,53 @@
             </div>
           </article>
         </div>
+
+        <div id="hub" class="page-width section-heading-row hub-fold">
+          <div>
+            <p class="section-kicker">Med Agent Hub</p>
+            <h3>How each answer is produced.</h3>
+          </div>
+          <p>
+            ChartSearchAI is the OpenMRS module; Med Agent Hub is the orchestration pipeline behind it. The five stages below are the same lifecycle shown in the demo above.
+          </p>
+        </div>
+        <div class="page-width stage-flow" role="list" aria-label="Med Agent Hub answer stages">
+          <div class="stage" role="listitem">
+            <span>1</span>
+            <strong>Context</strong>
+            <p>Load patient records and source provenance.</p>
+          </div>
+          <div class="stage" role="listitem">
+            <span>2</span>
+            <strong>Answer</strong>
+            <p>Generate the initial answer with the selected profile.</p>
+          </div>
+          <div class="stage" role="listitem">
+            <span>3</span>
+            <strong>Check</strong>
+            <p>Apply deterministic temporal and output rules.</p>
+          </div>
+          <div class="stage" role="listitem">
+            <span>4</span>
+            <strong>Evidence</strong>
+            <p>Resolve citations and record grounding results.</p>
+          </div>
+          <div class="stage" role="listitem">
+            <span>5</span>
+            <strong>In-Depth</strong>
+            <p>Generate additional detail from the checked answer.</p>
+          </div>
+        </div>
+        <div class="page-width hub-links">
+          <a class="text-link" href="https://github.com/pmanko/med-agent-hub">Med Agent Hub source (GitHub) <span aria-hidden="true">&#8599;</span></a>
+        </div>
       </section>
 
       <section id="catalyst" class="section catalyst-section">
         <div class="page-width section-heading-row">
           <div>
-            <p class="section-kicker">Catalyst</p>
-            <h2>Plain-language questions over laboratory and program data.</h2>
+            <p class="section-kicker">Example implementation 2 of 2 · Catalyst</p>
+            <h2>Catalyst: plain-language questions over laboratory and program data.</h2>
           </div>
           <p>
             Catalyst is the framework's example implementation for program-monitoring and reporting questions — viral load coverage, CD4 counts, specimen turnaround — directly from laboratory (OpenELIS) and HIV program (OpenMRS) databases. It turns a question into SQL against a catalog generated from the database itself. A writer model drafts the query, a reviewer model checks it, and a deterministic policy allows only read-only execution. Results are typed tables, and a follow-up instruction refines the exact current query.
@@ -311,6 +311,38 @@
           <div role="listitem"><span>01</span><strong>Two data sources</strong><p>OpenELIS laboratory and OpenMRS HIV/ART program data, each with its own database and generated catalog.</p></div>
           <div role="listitem"><span>02</span><strong>Checked execution</strong><p>Generated SQL is validated, executed read-only, and compared against independently authored gold queries.</p></div>
           <div role="listitem"><span>03</span><strong>Published acceptance run</strong><p>12 of 12 live scenario repetitions passed, 384 assertions, on real models and PostgreSQL.</p></div>
+        </div>
+
+        <div class="page-width section-heading-row hub-fold">
+          <div>
+            <p class="section-kicker">Catalyst pipeline</p>
+            <h3>How each query is produced.</h3>
+          </div>
+          <p>
+            Catalyst uses the same staged-orchestration pattern Med Agent Hub uses for ChartSearchAI. The four stages below are the same lifecycle shown in the demos above.
+          </p>
+        </div>
+        <div class="page-width stage-flow" role="list" aria-label="Catalyst query stages">
+          <div class="stage" role="listitem">
+            <span>1</span>
+            <strong>Draft</strong>
+            <p>A writer model drafts SQL against the generated catalog.</p>
+          </div>
+          <div class="stage" role="listitem">
+            <span>2</span>
+            <strong>Review</strong>
+            <p>A reviewer model checks the draft query against the catalog and the question.</p>
+          </div>
+          <div class="stage" role="listitem">
+            <span>3</span>
+            <strong>Validate</strong>
+            <p>The query is checked for read-only policy compliance before it can run.</p>
+          </div>
+          <div class="stage" role="listitem">
+            <span>4</span>
+            <strong>Execute</strong>
+            <p>The validated query runs read-only against the analytics database.</p>
+          </div>
         </div>
         <div class="page-width hub-links">
           <a class="text-link" href="https://reports.openclinai.org/catalyst-notebook-t094-2026-07-22/">Acceptance run report <span aria-hidden="true">&#8599;</span></a>
