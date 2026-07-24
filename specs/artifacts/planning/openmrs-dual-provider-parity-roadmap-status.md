@@ -163,18 +163,32 @@ persisted history (see G17/G18 rows above).
   didn't include an expected table column) — response variance or a prompt regression, not a
   reload/persistence issue despite the test's name.
 
-**Structural finding, not yet acted on:** both `targets/chartsearchai` (`codex/dual-provider-rebuild`)
-and `targets/chartsearchai-esm` (`codex/m2-hub-profile-rebuild`) — the branches this session's work
-(and all prior dual-provider work) actually landed on — have **diverged significantly** from
-`harness-integration`, the branch `.gitmodules` pins and the integration-branch model designates as
-the proven line: chartsearchai is ~20 commits ahead (the dual-provider provider-boundary work) and
-~20 commits behind (an upstream-sync migration on `harness-integration` that deleted `/search` and
-the local-inference subsystem entirely); chartsearchai-esm is 39 ahead / 26 behind on the same
-shape. The live stack has been building directly from the checked-out working branch throughout,
-so none of this session's testing was affected — but reconciling these two lines (rebase or merge,
-likely with real conflicts given both touch chat/relay code extensively) is real, undecided work the
-integration-branch model anticipated in principle but does not yet resolve in practice. Flagged for
-explicit direction rather than attempted unprompted.
+**CORRECTED 2026-07-24** (superseding the "structural finding" below): the claimed divergence was a
+false positive caused by comparing against LOCAL `harness-integration` branch refs that had not been
+fetched since 2026-07-06 — three weeks stale, predating essentially all of the dual-provider work,
+which made an old, since-superseded `harness-integration` history (the /search-deletion commits
+described below) look current. After `git fetch origin harness-integration` on both submodules, the
+real `origin/harness-integration` was found to be at the EXACT SAME commit as each working branch's
+pre-this-session tip: chartsearchai's `origin/harness-integration` = `b302622` = `codex/dual-provider-rebuild`'s
+tip before this session's commits; chartsearchai-esm's `origin/harness-integration` = `e602faf` =
+the merge-base with `codex/m2-hub-profile-rebuild` (0 commits behind). `harness-integration` has been
+kept in exact lockstep with the dual-provider working branches all along — it is not a separate or
+older lineage, and fast-forwarding it to include this session's new commits is a clean,
+conflict-free operation (no rebase/merge needed). Not yet pushed: pushing directly to a shared
+branch (`harness-integration`) requires explicit user confirmation per this session's operating
+rules; flagged for that confirmation rather than pushed unprompted.
+
+Original (superseded) claim, kept for the record: "both `targets/chartsearchai`
+(`codex/dual-provider-rebuild`) and `targets/chartsearchai-esm` (`codex/m2-hub-profile-rebuild`) —
+the branches this session's work (and all prior dual-provider work) actually landed on — have
+diverged significantly from `harness-integration`, the branch `.gitmodules` pins and the
+integration-branch model designates as the proven line: chartsearchai is ~20 commits ahead (the
+dual-provider provider-boundary work) and ~20 commits behind (an upstream-sync migration on
+`harness-integration` that deleted `/search` and the local-inference subsystem entirely);
+chartsearchai-esm is 39 ahead / 26 behind on the same shape. [...] reconciling these two lines
+(rebase or merge, likely with real conflicts given both touch chat/relay code extensively) is real,
+undecided work the integration-branch model anticipated in principle but does not yet resolve in
+practice."
 
 ## Amendments and Deviations
 
