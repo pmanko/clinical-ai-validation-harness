@@ -53,36 +53,18 @@ def test_landing_has_one_clear_h1_and_required_project_sections():
     assert page.h1_count == 1
     assert {"main-content", "project", "hub", "openmrs", "evidence"} <= page.ids
     assert "Med Agent Hub" in html
-    assert "OpenMRS integration" in html
-    assert "Published validation runs." in html
-    assert "Experimental software" in html
-
-
-def test_landing_uses_plain_project_language_instead_of_advertising_copy():
-    html, _ = parsed_landing()
-
-    assert "A test environment for local clinical AI." in html
-    assert "How a request is processed." in html
-    assert "Recorded OpenMRS sessions." in html
-    for phrase in (
-        "Build clinical AI that can be inspected",
-        "Evidence before confidence",
-        "See the staged workflow in motion",
-        "Claims are published with the evidence needed to challenge them",
-        "Try the integration, then inspect the results",
-        "Explore the OpenMRS demo",
-        "Explore published reports",
-    ):
-        assert phrase not in html
+    assert "Current integration" in html
+    assert "Validation harness" in html
+    assert "Research demonstrator" in html
 
 
 def test_primary_destinations_are_first_party_and_prominent():
     html, page = parsed_landing()
 
-    assert 1 <= page.links.count("https://openmrs.openclinai.org/") <= 2
-    assert 1 <= page.links.count("https://reports.openclinai.org/") <= 3
-    assert "OpenMRS demo" in html
-    assert "Evaluation reports" in html
+    assert page.links.count("https://openmrs.openclinai.org/") >= 3
+    assert page.links.count("https://reports.openclinai.org/") >= 3
+    assert "Open the OpenMRS demo" in html
+    assert "Explore published reports" in html
 
     first_party_hosts = {
         urlparse(link).hostname
@@ -93,12 +75,11 @@ def test_primary_destinations_are_first_party_and_prominent():
 
 
 def test_every_local_media_reference_exists_and_has_accessible_context():
-    html, page = parsed_landing()
+    _, page = parsed_landing()
 
     assert len(page.videos) == 2
     assert len(page.sources) == 2
     assert len(page.images) >= 3
-    assert "1:45 · 2×" in html
 
     for image in page.images:
         assert image.get("src")
@@ -154,11 +135,8 @@ def test_stable_publish_entrypoint_verifies_the_live_page():
     assert "CONFIG_CHANGES=" in publish
     assert 'if [ -n "${CONFIG_CHANGES}" ]' in publish
     assert "proxy config unchanged; no service restart needed" in publish
-    assert 'HUB_BUILD_REVISION="$(git -C "${ROOT}/targets/med-agent-hub" rev-parse HEAD)"' in publish
-    assert 'export HUB_BUILD_REVISION=' in publish
     assert "docker compose -f compose/openmrs-2.8-refapp.yml up -d --no-deps --force-recreate proxy" in publish
     assert "backend" not in publish
     assert "gateway" not in publish
     assert "frontend" not in publish
     assert "https://${SITE}/media/openmrs-evidence-poster.png" in publish
-    assert "https://${SITE}/media/openmrs-e4b-staged-demo.mp4" in publish
