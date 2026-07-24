@@ -36,6 +36,16 @@
 # so unrelated module versions stay aligned with whatever upstream
 # nightly the SPA shell expects.
 (chartsearch_overrides) {
+    # These files are rewritten in place on every `make chartsearch-esm-build`
+    # (no content-hashed filenames), so browsers must always revalidate. Without
+    # this, a client that loaded a chunk hours into a dev session computes a long
+    # RFC 7234 heuristic freshness lifetime from that old Last-Modified and then
+    # silently serves the pre-rebuild bytes from disk cache with zero network
+    # activity — a rebuild lands on disk but the browser never sees it.
+    header /openmrs/spa/importmap.json Cache-Control "no-cache, must-revalidate"
+    header /openmrs/spa/routes.registry.json Cache-Control "no-cache, must-revalidate"
+    header /openmrs/spa/openmrs-esm-chartsearchai-app-multiturn/* Cache-Control "no-cache, must-revalidate"
+
     handle /openmrs/spa/importmap.json {
         # `handle` matches but does NOT strip the URL prefix; `root` is a
         # filesystem path. `rewrite` re-targets the URL to the bare filename

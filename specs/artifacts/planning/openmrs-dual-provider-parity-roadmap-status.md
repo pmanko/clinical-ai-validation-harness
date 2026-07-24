@@ -59,8 +59,8 @@ The refreshed repository state, upstream dispositions, and rollback refs are rec
 | G14 Temporal safety | In progress | The hub's deterministic temporal gate suite is implemented and heavily tested (`temporal.py`; 78 temporal test cases) and drove the published eval findings. **Remaining:** the shared language-neutral fixture corpus consumed by BOTH Java and Python (the G03 remainder), and recorded parity evidence. |
 | G15 Final-answer integrity | In progress | Hub review rewrites are re-gated and grounding binds to the final answer (the `b2bef83` grounding-source fix + rewrite-validator work are on #13). **Remaining:** recorded evidence that references are recomputed post-rewrite and prior-turn citation numbers cannot bind to current-turn evidence. |
 | G16 Drug-safety honesty | In progress | The checked/limited/unavailable result contract is implemented hub-side (`team.py`/`drug_safety.py`; 41 drug-safety test references — PR #13's title is the drug-safety parity follow-through) and the ESM renders warnings. **Remaining:** the shared `drug_safety_status` fixture family exercised by both providers + recorded evidence that incomplete mapping/exposure cannot look checked. |
-| G17 Canonical UI | In progress | The ESM rebuild (`e602faf`, 203 tests) implements the canonical lifecycle reducer, conditional provider picker, and new-conversation-on-switch. **Remaining:** fold the rebuild into PR #12's branch (stale head — see audit), and recorded reload-survival evidence for validation/evidence/terminal states. |
-| G18 Cancellation | In progress | `CancellationSignal` is a first-class provider-boundary contract (bundled emits `cancelled`; the hub withholds in-depth only on preemption — `e44ee89`, `engine.py:1834`). **Remaining:** recorded disconnect/new-turn evidence that exactly one assistant row settles and provider/model work is released. |
+| G17 Canonical UI | In progress | The ESM rebuild (`e602faf`, 203 tests) implements the canonical lifecycle reducer, conditional provider picker, and new-conversation-on-switch. **PR-fold item is obsolete** under the 2026-07-23 integration-branch model (proven work lands on `harness-integration` directly; a PR is a curated artifact cut later, not a gate). **Reload-survival evidence recorded and FIXED 2026-07-24:** `GET /chat` required a client-supplied `session` unconditionally (`MissingServletRequestParameterException` on every call, surfaced to the caller as a bare 500) — the ESM's `fetchChatHistory` has no session to send on a fresh page load by construction, so every reload silently rehydrated to an empty, default-provider panel; live-confirmed via three independent e2e specs failing on this exact exception. `session` is now optional; when omitted, `ConversationService.getLatestActiveConversation(patient)` (new) resolves the caller's own active conversation, and each restored assistant turn now carries its FULL persisted answer envelope (references, blocks, safety warnings, confidence, answer validation, In-Depth) via `turn.getProviderPayload()`, not just bare text — previously reload would have lost all evidence/validation/In-Depth state even had the session bug not existed. Red-first: `ChatHistoryEndpointTest` (5 new tests). **Live-verified:** `chartsearchai-demo.spec.ts`'s persisted-history assertion, which reads the reload/history endpoint directly, now returns the full rich envelope (previously a bare 500). chartsearchai `4e4c7ae`/`bd45105`. |
+| G18 Cancellation | In progress | `CancellationSignal` was a first-class TYPE in the provider boundary but was never actually wired: the REST layer passed `CancellationSignal.NONE` (a signal that never cancels) for every turn, and `HubStreamTransport`'s interface had no way to interrupt a blocking hub read even if it had been real — a preempted turn ran to the hub's own completion, silently holding the router slot. **Fixed and proven live 2026-07-24 (chartsearchai `4e4c7ae`):** `TurnCancellation` binds the open hub response body so `cancel()` force-closes it from another thread (proven against a real local HTTP server: cancel unblocks an in-flight read in under 0.5s, not just asserted); `TurnPreemptionRegistry` cancels whichever turn currently holds a conversation's slot when a new one starts — the only preempt signal there is, since a conversation never runs two turns on purpose. A turn cancelled after it already produced a real answer (only In-Depth still generating) now completes as done with that answer, persisted with a dangling `inDepth.status: pending` rewritten to `failed` rather than being silently discarded; the REST sink swallows the trailing write once cancelled so a dead browser connection can't block persistence. **Live evidence:** the hub's own `cancellations.jsonl` trace, which recorded ZERO entries for any real preempt before this fix, now records `router_lock_released: true` for a genuine preempted turn; the existing `chartsearchai-preempt.spec.ts` e2e spec went from a 6-minute hang (`data-indepth-status` stuck at `pending`) to passing in ~25s with no code changes to the test itself. Exactly one assistant row settles per preempted turn — proven via `ProviderRestContractTest#aPreemptedTurnsTrailingEventIsSwallowedSoItsAnswerStillPersists` and confirmed live via `chartsearchai-demo.spec.ts`'s 3-turn persisted-history assertion. |
 | G19 Honest demo | Pending | No runtime implementation has begun. |
 | G20 Documentation | Pending | No runtime implementation has begun. |
 | G21 QA and hygiene | Pending | No runtime implementation has begun. |
@@ -114,6 +114,67 @@ work that in fact implemented much of them. Each is now recorded as In progress 
 implementation pointers and its genuinely-remaining evidence. Still honestly Pending: G13 (no
 `cache_prompt` prefix-reuse implementation or recorded backend timings anywhere yet) and the
 closeout gates G19/G20/G21, which cannot precede the work they audit.
+
+### G05/G17/G18 live e2e sweep — 2026-07-24
+
+Running the project's own pre-existing Playwright suite (`tests/e2e/specs/*.spec.ts` — not a
+newly-written harness, it already existed and covers preempt, demo, staged-validation,
+low-confidence-review, table, and e4b-multiturn-trivial) surfaced two real, previously-undetected
+regressions, both now fixed and covered above:
+
+1. **ModelPicker never routed to the hub provider** — a regression from THIS session's own
+   `be85909` (provider picker, 2026-07-21): `ProviderPicker` was bolted on for dual-provider work
+   but never wired to `ModelPicker` (the hub product-profile picker), so selecting any hub profile
+   — including the picker's own auto-selected default on mount — left the active provider on
+   `bundled` (the config default), which silently ignores profile selection and has no In-Depth
+   capability. This is why `chartsearchai-preempt.spec.ts` was failing with `data-indepth-status`
+   stuck at `pending` for the full 6-minute timeout: it was exercising bundled, not hub. Fixed
+   (chartsearchai-esm `986dbaf`) by routing to hub from an effect keyed on the picker's effective
+   profile (covers both explicit clicks and the passive default-selection Carbon's radio group
+   never fires `onChange` for).
+2. **The local dev-loop's Caddy override served pre-rebuild ESM bundles indefinitely** —
+   `compose/Caddyfile`'s `chartsearch_overrides` block sent no `Cache-Control` for the
+   non-content-hashed chunk files `make chartsearch-esm-build` rewrites in place, so a browser that
+   first loaded a chunk hours into a session computed a long RFC 7234 heuristic freshness lifetime
+   and silently kept serving it from disk cache with zero network activity on every subsequent
+   `make chartsearch-esm-build` — a rebuild landed on disk but the browser never saw it. This would
+   have silently defeated verification for any future dual-provider ESM iteration, not just this
+   one. Fixed (harness Caddyfile) with `Cache-Control: no-cache, must-revalidate` on those routes.
+
+Both fixes are proven via the project's own real e2e suite, not new assertions written to match the
+fix: `chartsearchai-preempt.spec.ts` went from a 6-minute hang to a 25s pass, and
+`chartsearchai-demo.spec.ts` went from a bare-500 history endpoint to a fully-populated 3-turn
+persisted history (see G17/G18 rows above).
+
+**Two DISTINCT, pre-existing issues found by the same sweep, NOT caused by this session's changes
+(confirmed by isolating each to a code path this session never touched) — left open:**
+
+- `chartsearchai-staged-validation.spec.ts` expects a profile labeled "Gemma 12B"; the hub's live
+  `/models` response labels it `"Checked answer (12B)"` — a stale test expectation vs. current hub
+  profile metadata, unrelated to routing/reload/cancellation.
+- `chartsearchai-e4b-multiturn-trivial.spec.ts` expects the second of two plain sequential turns
+  (no preemption involved at all) to carry 1 prior turn in the hub trace; it observes 0. Not
+  reachable from any code this session touched — a distinct multi-turn session-continuity gap,
+  uninvestigated.
+- `chartsearchai-low-confidence-review.spec.ts` fully mocks both `chat/stream` and `GET /chat` via
+  `page.route(...)`, so it never reaches real backend code at all; its failure ("Model draft for
+  review" text not found) is purely a frontend-rendering question, orthogonal to this sweep.
+- `chartsearchai-table.spec.ts` fails on its PRE-reload assertion (the model's first-turn answer
+  didn't include an expected table column) — response variance or a prompt regression, not a
+  reload/persistence issue despite the test's name.
+
+**Structural finding, not yet acted on:** both `targets/chartsearchai` (`codex/dual-provider-rebuild`)
+and `targets/chartsearchai-esm` (`codex/m2-hub-profile-rebuild`) — the branches this session's work
+(and all prior dual-provider work) actually landed on — have **diverged significantly** from
+`harness-integration`, the branch `.gitmodules` pins and the integration-branch model designates as
+the proven line: chartsearchai is ~20 commits ahead (the dual-provider provider-boundary work) and
+~20 commits behind (an upstream-sync migration on `harness-integration` that deleted `/search` and
+the local-inference subsystem entirely); chartsearchai-esm is 39 ahead / 26 behind on the same
+shape. The live stack has been building directly from the checked-out working branch throughout,
+so none of this session's testing was affected — but reconciling these two lines (rebase or merge,
+likely with real conflicts given both touch chat/relay code extensively) is real, undecided work the
+integration-branch model anticipated in principle but does not yet resolve in practice. Flagged for
+explicit direction rather than attempted unprompted.
 
 ## Amendments and Deviations
 
