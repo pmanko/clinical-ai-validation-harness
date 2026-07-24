@@ -146,22 +146,59 @@ fix: `chartsearchai-preempt.spec.ts` went from a 6-minute hang to a 25s pass, an
 `chartsearchai-demo.spec.ts` went from a bare-500 history endpoint to a fully-populated 3-turn
 persisted history (see G17/G18 rows above).
 
-**Two DISTINCT, pre-existing issues found by the same sweep, NOT caused by this session's changes
-(confirmed by isolating each to a code path this session never touched) — left open:**
+**Four DISTINCT, pre-existing issues found by the same sweep — three root-caused and fixed same day
+(2026-07-24), one partially fixed with a real, deeper gap remaining:**
 
-- `chartsearchai-staged-validation.spec.ts` expects a profile labeled "Gemma 12B"; the hub's live
-  `/models` response labels it `"Checked answer (12B)"` — a stale test expectation vs. current hub
-  profile metadata, unrelated to routing/reload/cancellation.
-- `chartsearchai-e4b-multiturn-trivial.spec.ts` expects the second of two plain sequential turns
-  (no preemption involved at all) to carry 1 prior turn in the hub trace; it observes 0. Not
-  reachable from any code this session touched — a distinct multi-turn session-continuity gap,
-  uninvestigated.
-- `chartsearchai-low-confidence-review.spec.ts` fully mocks both `chat/stream` and `GET /chat` via
-  `page.route(...)`, so it never reaches real backend code at all; its failure ("Model draft for
-  review" text not found) is purely a frontend-rendering question, orthogonal to this sweep.
-- `chartsearchai-table.spec.ts` fails on its PRE-reload assertion (the model's first-turn answer
-  didn't include an expected table column) — response variance or a prompt regression, not a
-  reload/persistence issue despite the test's name.
+- `chartsearchai-staged-validation.spec.ts` expected a profile labeled "Gemma 12B"; the hub's live
+  `/models` response labels it `"Checked answer (12B)"` (`server/levels.yaml:52`) — a stale test
+  default from before a label rename, unrelated to routing/reload/cancellation. **Fixed**
+  (harness `a6ea154`): updated the spec's and `support/openmrs.ts`'s defaults to the live label.
+  Live-verified passing.
+- `chartsearchai-e4b-multiturn-trivial.spec.ts` expected the second of two plain sequential turns
+  to carry 1 prior turn in the hub trace; observed 0, intermittently. **Root-caused via live
+  diagnostic instrumentation on `resolveConversation`, then reverted**: a genuine race in the ESM's
+  `useChartSearchAi` hook — the mount-time chat-history hydration fetch (fast, no LLM) could resolve
+  AFTER the first real turn's own `onSession` callback had already corrected the session (e.g. after
+  the reload fix made hydration return an old-provider conversation), silently overwriting the
+  correct value with the stale one before the second turn read it. **Fixed** (chartsearchai-esm
+  `b7d2129`): the hydration effect now only applies its response if nothing has updated the session
+  since the fetch began. Red-first test (`useChartSearchAi.test.ts`), full suite 207/0, live-verified
+  passing (also passed once before the fix by luck — the failure is a race, not deterministic, which
+  is exactly why the guard is needed regardless of any single run's outcome).
+- `chartsearchai-low-confidence-review.spec.ts` fully mocks the backend via `page.route(...)`, so its
+  failure was purely a frontend-rendering question. Git-blamed to a genuine, deliberate ESM commit
+  (`30e94e7`, "expose removed in-depth claims clearly") that renamed "Model draft for review" to
+  "Removed In-Depth claims" and intentionally made the section collapsed-by-default (proven by that
+  commit's own accompanying unit test asserting `not.toHaveAttribute('open')`) — the e2e spec was
+  simply never updated to match. **Fixed** (harness `a6ea154`): spec now uses the current label and
+  clicks to expand before checking the withheld content. Live-verified passing.
+- `chartsearchai-table.spec.ts` expects a medications question to render a structured Carbon table.
+  Live curl reproduction showed BOTH providers returning `blocks:[]`. Two independent causes found:
+  (1) the **bundled** provider has no table-block support in its schema/prompt/domain model at all
+  (`ChartAnswerResponseFormat.java:69-83`, `ChartSearchService.java` `ChartAnswer`) — a real feature
+  gap, not a bug, out of scope for a same-day fix. (2) The **hub**'s `single-e4b-checked` profile DOES
+  request tables (`synthesis-answer.txt`: "emit exactly ONE table block" for enumerated lists), but
+  `team.py`'s flat-cell repair path (`_normalize_product_blocks`/`cell_matches_column`) only ever
+  recognized `date`/`weight` column formats — every other column type (Medication, Dose, Route, ...)
+  silently failed validation and the whole table was dropped, a regression from commit `7fd5bc7`
+  ("harden product table and grounding checks", 2026-07-13) whose own tests only covered date/weight
+  columns. **Fixed** (med-agent-hub `c0eaad6`): unrecognized column types now defer to the
+  citation-consistency check (every cell in a repaired group shares the same non-empty refs) instead
+  of failing outright; recognized types keep their stricter check (the existing
+  reversed-cell-order-rejection test still passes unchanged). Full hub suite 611/611. **Remaining,
+  NOT fixed:** even after this fix, the E4B model consistently (3/3 live retries) does not attempt a
+  table block at all for "List the medications this patient is on." despite the prompt's explicit
+  instruction — the repair-path regression was real and is fixed, but is not sufficient on its own;
+  the E4B model's own prompt-compliance for table emission needs dedicated prompt-engineering/eval
+  work this session did not attempt, to avoid guessing at a fix for small-model behavior without a
+  proper evaluation harness.
+
+A genuinely separate, transient infrastructure issue surfaced mid-sweep and is noted for the record,
+not because it needed a code fix: recreating `med-agent-hub` via a raw `docker compose ... up
+--force-recreate` (bypassing `make med-agent-hub-up`) skips sourcing
+`artifacts/chartsearchai-local/querystore-service.env`, leaving `QUERYSTORE_BASE_URL` empty and every
+hub turn failing `context_source_unavailable`. Always use `make med-agent-hub-up` (or `make
+med-agent-hub-restart` for a lighter restart) to recreate this container, never a raw compose command.
 
 **CORRECTED 2026-07-24** (superseding the "structural finding" below): the claimed divergence was a
 false positive caused by comparing against LOCAL `harness-integration` branch refs that had not been
