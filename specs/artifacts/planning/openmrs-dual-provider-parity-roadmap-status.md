@@ -211,9 +211,11 @@ tip before this session's commits; chartsearchai-esm's `origin/harness-integrati
 the merge-base with `codex/m2-hub-profile-rebuild` (0 commits behind). `harness-integration` has been
 kept in exact lockstep with the dual-provider working branches all along — it is not a separate or
 older lineage, and fast-forwarding it to include this session's new commits is a clean,
-conflict-free operation (no rebase/merge needed). Not yet pushed: pushing directly to a shared
-branch (`harness-integration`) requires explicit user confirmation per this session's operating
-rules; flagged for that confirmation rather than pushed unprompted.
+conflict-free operation (no rebase/merge needed). **Fast-forwarded 2026-07-24 (user-confirmed):**
+`origin/harness-integration` now points at chartsearchai `bd45105` and chartsearchai-esm `b7d2129` —
+both plain fast-forwards, zero conflicts, exactly as predicted. `harness-integration` and each
+fork's active working branch are back in lockstep, carrying this session's full G17/G18 fix set plus
+the e2e test-gap sweep.
 
 Original (superseded) claim, kept for the record: "both `targets/chartsearchai`
 (`codex/dual-provider-rebuild`) and `targets/chartsearchai-esm` (`codex/m2-hub-profile-rebuild`) —
