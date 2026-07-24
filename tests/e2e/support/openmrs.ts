@@ -148,7 +148,7 @@ export async function expandAiChatPanel(page: Page): Promise<void> {
   await expect(page.getByRole('button', { name: /restore/i }).first()).toBeVisible({ timeout: 15_000 });
 }
 
-export async function selectCheckedModel(page: Page, labelPattern: RegExp = /Gemma 12B/i): Promise<void> {
+export async function selectCheckedModel(page: Page, labelPattern: RegExp = /Checked answer \(12B\)/i): Promise<void> {
   const modelButton = page.getByTestId('chartsearchai-profile-picker');
   await expect(modelButton).toBeVisible({ timeout: 30_000 });
   await modelButton.click();
@@ -161,9 +161,9 @@ export async function selectCheckedModel(page: Page, labelPattern: RegExp = /Gem
   await expect(modelButton).toContainText(labelPattern, { timeout: 10_000 });
 }
 
-/** Select the staged single Gemma 12B model so requests route through med-agent-hub validation. */
+/** Select the staged single "Checked answer (12B)" profile so requests route through med-agent-hub validation. */
 export async function selectSingle12BModel(page: Page): Promise<void> {
-  await selectCheckedModel(page, /Gemma 12B/i);
+  await selectCheckedModel(page, /Checked answer \(12B\)/i);
 }
 
 /** Select the default fast checked E4B product profile. */

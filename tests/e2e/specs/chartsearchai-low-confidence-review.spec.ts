@@ -142,7 +142,12 @@ async function assertReviewArtifacts(page: Page): Promise<void> {
   await expect(original).toContainText('Pre-check weight table');
   await expect(original).toContainText('6.2 kg');
 
-  await expect(page.getByText('Model draft for review').last()).toBeVisible();
+  // "Removed In-Depth claims" is collapsed by default (deliberate — see ai-response-panel
+  // commit "expose removed in-depth claims clearly", which intentionally keeps withheld content
+  // out of the way until the user opts in) — click its summary to reveal the body text.
+  const removedClaimsSummary = page.getByText('Removed In-Depth claims').last();
+  await expect(removedClaimsSummary).toBeVisible();
+  await removedClaimsSummary.click();
   await expect(page.getByText(/Rejected In-Depth claim/).last()).toBeVisible();
   await expect(page.getByText('Final reviewed observation').last()).toBeVisible();
 }
