@@ -57,3 +57,10 @@ def test_validation_labels_are_shared_for_answer_and_indepth():
         "label": "Needs review",
         "tone": "danger",
     }
+
+
+def test_indepth_validation_display_is_none_for_a_non_dict_indepth():
+    """A turn with no In-Depth section at all (None, or a bare string status) must
+    resolve to no validation display rather than raising on dict-style access."""
+    assert indepth_validation_display(None) is None
+    assert indepth_validation_display("pending") is None

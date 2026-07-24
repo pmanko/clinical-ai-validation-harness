@@ -29,6 +29,9 @@ def test_extract_stage_timings_ignores_non_timing_and_malformed_steps():
         "review",
         "gate 2",
     ]
+    # A blank/None stage entry (e.g. an unfilled slot in a partial trace) must be
+    # skipped, not rendered as an empty label.
+    assert expected_stage_labels(["context", "", None, "gate"]) == ["context", "gate"]
 
 
 def test_report_aggregates_stage_latency_by_backend(monkeypatch):

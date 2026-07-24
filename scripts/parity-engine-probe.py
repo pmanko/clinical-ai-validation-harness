@@ -116,8 +116,11 @@ def parse_completion(content_type: str, body: bytes) -> str:
     return text
 
 
-def replay(body: bytes, endpoint: str, timeout: float = 600.0) -> str:
-    resp = requests.post(
+def replay(body: bytes, endpoint: str, timeout: float = 600.0, *, http: Any = requests) -> str:
+    """`http` defaults to the real `requests` module; tests inject a fake with the same
+    `.post()` surface so the request-building/response-parsing logic itself is exercised
+    without a live engine (same pattern as harness.validate.client.MedAgentHubClient)."""
+    resp = http.post(
         endpoint, data=body, headers={"Content-Type": "application/json"},
         timeout=timeout, stream=True,
     )
@@ -161,11 +164,15 @@ def parse_turn_stream(raw: str) -> dict[str, Any]:
 def run_turn(
     base_url: str, auth: tuple[str, str], patient: str, question: str, provider: str,
     profile: str | None = None, timeout: float = 2400.0,
+    *, session_factory: Any = requests.Session,
 ) -> dict[str, Any]:
     """One product turn via the canonical SSE boundary, bound to `provider`. The
     rebuilt module is stream-only (POST /chat/stream; there is no buffered /chat).
-    The hub provider requires a product profile; bundled takes none."""
-    session_obj = requests.Session()
+    The hub provider requires a product profile; bundled takes none.
+
+    `session_factory` defaults to the real `requests.Session`; tests inject a fake
+    with the same `.post()` surface (same pattern as `replay`/`MedAgentHubClient`)."""
+    session_obj = session_factory()
     session_obj.auth = auth
     rest = f"{base_url.rstrip('/')}/ws/rest/v1/chartsearchai"
     resp = session_obj.post(
