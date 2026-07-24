@@ -1,7 +1,11 @@
 #!/bin/sh
 # Backend runtime init for the harness — chartsearchai's own backend-init.sh, minus the local-LLM
-# GGUF download: chartsearchai has no bundled local engine (chartsearchai.llm.engine is remote-only),
-# so only Querystore's ONNX embedding model is needed here.
+# GGUF download. chartsearchai DOES retain a bundled local engine (chartsearchai.llm.engine can be
+# "local" or "remote"; the harness's operating default is "remote", pointed at LM Studio/llama-router
+# — see the dual-provider parity roadmap's G06 evidence), but this backend image does not
+# auto-provision the multi-GB GGUF weights it would need, so only Querystore's ONNX embedding model
+# is fetched here. Exercising the local engine requires manually placing a GGUF file at
+# /openmrs/data/chartsearchai/<chartsearchai.llm.modelFilePath> before flipping the GP.
 # Everything else mirrors targets/chartsearchai/backend-init.sh.
 #
 # When started as root (no separate init container chowns the volume), heal
