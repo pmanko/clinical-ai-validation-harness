@@ -163,7 +163,10 @@ def test_stable_publish_entrypoint_verifies_the_live_page():
     assert '"${ROOT}/landing/"' in publish
     assert '"${ROOT}/compose/Caddyfile"' in publish
     assert '"${ROOT}/compose/openmrs-2.8-refapp.yml"' in publish
-    assert "rsync -avz --delete" in publish
+    # -L dereferences symlinks (landing/media/*.mp4 symlink into
+    # site/public/demos/videos/ to avoid duplicate committed binaries); the
+    # deployed landing/ must still receive real files, not dangling symlinks.
+    assert "rsync -avzL --delete" in publish
     assert "CONFIG_CHANGES=" in publish
     assert 'if [ -n "${CONFIG_CHANGES}" ]' in publish
     assert "proxy config unchanged; no service restart needed" in publish

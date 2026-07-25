@@ -39,7 +39,9 @@ gcp_ssh "mkdir -p ${GCP_REMOTE_REPO}/landing ${GCP_REMOTE_REPO}/compose"
 
 SSH_TRANSPORT="ssh -i ${GCP_SSH_KEY} -o StrictHostKeyChecking=accept-new"
 echo "==> syncing tested landing files only"
-rsync -avz --delete -e "${SSH_TRANSPORT}" \
+# -L: dereference symlinks (landing/media/*.mp4 symlinks into site/public/demos/videos/
+# to avoid committing duplicate binaries; the deployed landing/ must still get real files).
+rsync -avzL --delete -e "${SSH_TRANSPORT}" \
   "${ROOT}/landing/" \
   "${GCP_SSH_USER}@${IP}:${GCP_REMOTE_REPO}/landing/"
 CONFIG_CHANGES="$(rsync -az --itemize-changes -e "${SSH_TRANSPORT}" \
