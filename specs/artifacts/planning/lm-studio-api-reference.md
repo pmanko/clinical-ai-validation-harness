@@ -1,8 +1,11 @@
 # LM Studio API Reference (harness)
 
-**Status**: Operating reference for the harness. Cited by feature 004 (chartsearchai PoC), F008 (chartsearchai model gateway brief), and any future work that integrates with LM Studio.
+> **Historical / superseded for ChartSearchAI.** Retained as provider research only. ChartSearchAI no
+> longer discovers or talks to LM Studio; med-agent-hub is its one inference endpoint.
+
+**Status**: Historical provider reference.
 **Last verified**: 2026-05-28 against [lmstudio.ai/docs](https://lmstudio.ai/docs).
-**Why this exists**: LM Studio runs THREE concurrent API surfaces on the same port. Our internal docs and earlier briefs were inconsistent about which surface returns what (loaded-only vs downloaded). This file is the single source of truth for the harness.
+**Why this exists**: This records the three LM Studio API surfaces investigated before the hub-relay consolidation.
 
 ---
 

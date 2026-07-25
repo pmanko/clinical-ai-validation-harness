@@ -10,6 +10,7 @@ from harness.validate.models import (
     load_scenario,
     load_backends,
 )
+from harness.validate.execution import validate_execution_contract
 
 DATA = Path("datasets/validation")
 
@@ -60,18 +61,24 @@ def test_backend_from_dict_requires_url_and_model():
 
 
 def test_all_shipped_fixtures_are_valid_and_consistent():
-    # Every checked-in comparison set must reference scenarios + backends that
-    # actually exist and validate — catches a malformed/dangling fixture.
+    # Current configuration is executable configuration, not manual history.
+    # Historical runs recover retired sets/backends from their recorded Git SHA.
     backends = load_backends(DATA / "backends.json")
     comparison_sets = sorted((DATA / "comparison_sets").glob("*.json"))
     assert comparison_sets, "no comparison sets found"
+    used_backends = set()
     for cs_path in comparison_sets:
         cset = load_comparison_set(cs_path)
+        resolved = []
         for bid in cset.backend_ids:
             assert bid in backends, f"{cs_path.name} references unknown backend {bid!r}"
+            resolved.append(backends[bid])
+            used_backends.add(bid)
+        validate_execution_contract(cset, resolved)
         for sid in cset.scenario_ids:
             scenario = load_scenario(DATA / "scenarios" / f"{sid}.json")
             assert scenario.turns, f"scenario {sid!r} has no turns"
+    assert set(backends) == used_backends
 
 
 def test_every_scenario_file_loads():

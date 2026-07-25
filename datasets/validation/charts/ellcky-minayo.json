@@ -10,1670 +10,1956 @@
     "canvas_role": "pediatric (infant) \u2014 PCP, failure to thrive, delayed milestones, measles; growth + perinatal-HIV reasoning"
   },
   "provenance": {
-    "source": "chartsearchai_chat_session.chart_snapshot / chart_mappings_json (latest session)",
-    "patient_id": 5283,
-    "chart_built_at": "2026-06-20 02:56:59",
-    "note": "Refreshed post date-transplant; records are date-shifted to the recent window (real clock). Record VALUES are the scoring ground truth; dates reflect the transplanted era."
+    "source": "Querystore patientrecord rendered by med-agent-hub chart_serializer",
+    "captured_at": "2026-07-13T00:56:00.549155+00:00",
+    "med_agent_hub_commit": "4f8ea2f4dcae9220923608a4d6adde580a422960",
+    "resource_types": {
+      "condition": 8,
+      "drug_order": 33,
+      "encounter": 6,
+      "obs": 216,
+      "patient": 1,
+      "program": 1,
+      "test_order": 5,
+      "visit": 6
+    },
+    "note": "Closed-context scoring fixture captured from the same complete evidence ledger and serializer used by med-agent-hub."
   },
   "n_records": 276,
   "n_valid_uuids": 276,
-  "chart_snapshot": "Patient records (most recent first):\n[1] (2026-02-02) Condition: Acute coryza. Status: ACTIVE. Onset: 2026-02-02\n[2] Drug order: Trimethoprim and sulfamethoxazole. Action: NEW. Urgency: ROUTINE\n[3] Drug order: Retrovir. Action: NEW. Urgency: ROUTINE\n[4] Encounter: Check In at Unknown Location. Provider: Horatio L Hornblower (Unknown)\n[5] Father deceased: No\n[6] Mother deceased: No\n[7] Scheduled visit: Yes\n[8] Pay category: Pilot\n[9] Family member accompanying patient: Mother\n[10] Infant feeding method: Weaned\n[11] Childs current HIV status: HIV infected\n[12] Hospitalized since last visit: Yes\n[13] Antiretroviral use: Yes\n[14] Primary regimen: Yes\n[15] Overall drug adherence in last month: No\n[16] Antiretroviral adherence in past week: All\n[17] PCP prophylaxis adherence in past week: All\n[18] Arterial blood oxygen saturation (pulse oximeter): 93 %\n[19] Body surface area: 45.5\n[20] Height (cm): 67 cm\n[21] Pulse: 147 beats/min\n[22] Respiratory rate: 30\n[23] Temperature (C): 36.9 C\n[24] Weight (kg): 6.2 kg\n[25] Abdominal exam findings: Normal\n[26] Cardiac exam findings: Normal\n[27] Chest exam findings: Normal\n[28] HEENT exam findings: Normal\n[29] Musculoskeletal exam findings: Normal\n[30] Neurologic exam findings: Normal\n[31] Peds CDC category query: CDC category b\n[32] Peds WHO category query: WHO stage 2 peds\n[33] Return visit date: 2026-02-09\n[34] Feeding plan: Weaned\n[35] Patient reported current tuberculosis prophylaxis: None\n[36] Patient reported current tuberculosis treatment: None\n[37] Patient reported current cryptococcus treatment: None\n[38] Antiretroviral plan: Continue regimen\n[39] PCP prophylaxis plan: Continue regimen\n[40] Tuberculosis prophylaxis plan: None\n[41] Tuberculosis treatment plan: None\n[42] Referrals ordered: None\n[43] Test order: Immunizations. Action: NEW. Urgency: ROUTINE\n[44] Visit: Facility Visit at Unknown Location\n[45] (2026-01-26) Drug order: Retrovir. Action: NEW. Urgency: ROUTINE\n[46] Drug order: Diphtheria tetanus and pertussis vaccination. Action: NEW. Urgency: ROUTINE\n[47] Drug order: Lamivudine. Action: NEW. Urgency: ROUTINE\n[48] Drug order: Trimethoprim and sulfamethoxazole. Action: NEW. Urgency: ROUTINE\n[49] Drug order: Hemophilus influenza B vaccine. Action: NEW. Urgency: ROUTINE\n[50] Drug order: Hepatitis B vaccination. Action: NEW. Urgency: ROUTINE\n[51] Drug order: Polio vaccination, oral. Action: NEW. Urgency: ROUTINE\n[52] Drug order: Nevirapine. Action: NEW. Urgency: ROUTINE\n[53] Drug order: Measles vaccination. Action: NEW. Urgency: ROUTINE\n[54] Encounter: Check In at Unknown Location. Provider: Horatio L Hornblower (Unknown)\n[55] Father deceased: No\n[56] Mother deceased: No\n[57] Scheduled visit: No\n[58] Pay category: Pilot\n[59] Family member accompanying patient: Mother\n[60] Infant feeding method: Weaned\n[61] Previous immunizations administered: Bacillus Calmette\u2013Gu\u00e9rin vaccine\n[62] Childs current HIV status: HIV infected\n[63] Hospitalized since last visit: Yes\n[64] Primary regimen: Yes\n[65] Family member that administers medications: Mother\n[66] Overall drug adherence in last month: No\n[67] Antiretroviral adherence in past week: All\n[68] PCP prophylaxis adherence in past week: All\n[69] Arterial blood oxygen saturation (pulse oximeter): 90 %\n[70] Head circumference: 45 cm\n[71] Height (cm): 67 cm\n[72] Pulse: 144 beats/min\n[73] Respiratory rate: 30\n[74] Temperature (C): 37 C\n[75] Weight (kg): 6.4 kg\n[76] Peds CDC category query: CDC category c\n[77] Peds WHO category query: WHO stage 4 peds\n[78] Return visit date: 2026-02-02\n[79] Feeding plan: Weaned\n[80] Patient reported current tuberculosis treatment: None\n[81] Patient reported current cryptococcus treatment: None\n[82] Antiretroviral plan: Continue regimen\n[83] PCP prophylaxis plan: Continue regimen\n[84] Tuberculosis prophylaxis plan: None\n[85] Tuberculosis treatment plan: None\n[86] Referrals ordered: None\n[87] Visit: Facility Visit at Unknown Location\n[88] (2026-01-19) Condition: Pneumocystis carinii pneumonia. Status: ACTIVE. Onset: 2026-01-19\n[89] Condition: Urinary tract infection. Status: ACTIVE. Onset: 2026-01-19\n[90] Drug order: Measles vaccination. Action: NEW. Urgency: ROUTINE\n[91] Drug order: Retrovir. Action: NEW. Urgency: ROUTINE\n[92] Drug order: Lamivudine. Action: NEW. Urgency: ROUTINE\n[93] Drug order: Hepatitis B vaccination. Action: NEW. Urgency: ROUTINE\n[94] Drug order: Diphtheria tetanus and pertussis vaccination. Action: NEW. Urgency: ROUTINE\n[95] Drug order: Trimethoprim and sulfamethoxazole. Action: NEW. Urgency: ROUTINE\n[96] Drug order: Polio vaccination, oral. Action: NEW. Urgency: ROUTINE\n[97] Drug order: Nevirapine. Action: NEW. Urgency: ROUTINE\n[98] Drug order: Hemophilus influenza B vaccine. Action: NEW. Urgency: ROUTINE\n[99] Encounter: Check In at Unknown Location. Provider: Horatio L Hornblower (Unknown)\n[100] Mother deceased: No\n[101] Scheduled visit: Yes\n[102] Pay category: Pilot\n[103] Family member accompanying patient: Mother\n[104] Infant feeding method: Weaned\n[105] Previous immunizations administered: Bacillus Calmette\u2013Gu\u00e9rin vaccine\n[106] Childs current HIV status: HIV infected\n[107] Hospitalized since last visit: No\n[108] Antiretroviral use: No\n[109] Family member that administers medications: Mother\n[110] PCP prophylaxis adherence in past week: All\n[111] Arterial blood oxygen saturation (pulse oximeter): 85 %\n[112] Body surface area: 0.33\n[113] Head circumference: 44.5 cm\n[114] Height (cm): 65.5 cm\n[115] Pulse: 158 beats/min\n[116] Respiratory rate: 68\n[117] Temperature (C): 37.3 C\n[118] Weight (kg): 6.25 kg\n[119] Peds CDC category query: CDC category c\n[120] Peds WHO category query: WHO stage 4 peds\n[121] Return visit date: 2026-01-26\n[122] Patient reported current tuberculosis treatment: None\n[123] Patient reported current cryptococcus treatment: None\n[124] Antiretroviral plan: Start drugs\n[125] PCP prophylaxis plan: Continue regimen\n[126] Tuberculosis prophylaxis plan: None\n[127] Tuberculosis treatment plan: None\n[128] Referrals ordered: None\n[129] Test order: Immunizations. Action: NEW. Urgency: ROUTINE\n[130] Visit: Facility Visit at Unknown Location\n[131] (2026-01-12) Condition: Failure to thrive. Status: ACTIVE. Onset: 2026-01-12\n[132] Condition: Delayed milestones. Status: ACTIVE. Onset: 2026-01-12\n[133] Drug order: Trimethoprim and sulfamethoxazole. Action: NEW. Urgency: ROUTINE\n[134] Drug order: Polio vaccination, oral. Action: NEW. Urgency: ROUTINE\n[135] Drug order: Hepatitis B vaccination. Action: NEW. Urgency: ROUTINE\n[136] Drug order: Diphtheria tetanus and pertussis vaccination. Action: NEW. Urgency: ROUTINE\n[137] Drug order: Measles vaccination. Action: NEW. Urgency: ROUTINE\n[138] Drug order: Hemophilus influenza B vaccine. Action: NEW. Urgency: ROUTINE\n[139] Encounter: Check In at Unknown Location. Provider: Horatio L Hornblower (Unknown)\n[140] Father deceased: No\n[141] Mother deceased: No\n[142] Scheduled visit: Yes\n[143] Pay category: Pilot\n[144] Family member accompanying patient: Mother\n[145] Infant feeding method: Weaned\n[146] Previous immunizations administered: Bacillus Calmette\u2013Gu\u00e9rin vaccine\n[147] Childs current HIV status: HIV infected\n[148] Hospitalized since last visit: No\n[149] Antiretroviral use: No\n[150] Family member that administers medications: Mother\n[151] Overall drug adherence in last month: No\n[152] PCP prophylaxis adherence in past week: All\n[153] New complaints: Yes\n[154] Arterial blood oxygen saturation (pulse oximeter): 98 %\n[155] Head circumference: 45 cm\n[156] Height (cm): 66 cm\n[157] Pulse: 166 beats/min\n[158] Respiratory rate: 32\n[159] Temperature (C): 37.9 C\n[160] Weight (kg): 6.3 kg\n[161] Abdominal exam findings: Abnormal\n[162] Cardiac exam findings: Abnormal\n[163] Chest exam findings: Abnormal\n[164] HEENT exam findings: Normal\n[165] Musculoskeletal exam findings: Abnormal\n[166] Neurologic exam findings: Abnormal\n[167] Peds CDC category query: CDC category c\n[168] Peds WHO category query: WHO stage 4 peds\n[169] Return visit date: 2026-01-19\n[170] Patient reported current tuberculosis prophylaxis: None\n[171] Patient reported current tuberculosis treatment: None\n[172] Patient reported current cryptococcus treatment: None\n[173] Antiretroviral plan: None\n[174] PCP prophylaxis plan: Continue regimen\n[175] Tuberculosis prophylaxis plan: None\n[176] Tuberculosis treatment plan: None\n[177] Tests ordered: Complete blood count\n[178] Tests ordered: Serum glutamic-pyruvic transaminase\n[179] Tests ordered: Serum creatinine (umol/L)\n[180] Absolute lymphocyte count: 7740 10^3/uL\n[181] Haemoglobin: 13.2 g/dL\n[182] Mean corpuscular volume: 75 fL\n[183] Platelets: 182000 10^3/mL\n[184] Serum creatinine (umol/L): 21.95 umol/L\n[185] Serum glutamic-pyruvic transaminase: 21.2 IU/L\n[186] White blood cells: 11700 10^3/uL\n[187] Test order: Immunizations. Action: NEW. Urgency: ROUTINE\n[188] Visit: Facility Visit at Unknown Location\n[189] (2026-01-08) Condition: Fever. Status: ACTIVE. Onset: 2026-01-08\n[190] Condition: Measles. Status: ACTIVE. Onset: 2026-01-08\n[191] Drug order: Hemophilus influenza B vaccine. Action: NEW. Urgency: ROUTINE\n[192] Drug order: Hepatitis B vaccination. Action: NEW. Urgency: ROUTINE\n[193] Drug order: Trimethoprim and sulfamethoxazole. Action: NEW. Urgency: ROUTINE\n[194] Drug order: Polio vaccination, oral. Action: NEW. Urgency: ROUTINE\n[195] Drug order: Measles vaccination. Action: NEW. Urgency: ROUTINE\n[196] Drug order: Diphtheria tetanus and pertussis vaccination. Action: NEW. Urgency: ROUTINE\n[197] Encounter: Check In at Unknown Location. Provider: Horatio L Hornblower (Unknown)\n[198] Father deceased: No\n[199] Mother deceased: No\n[200] Scheduled visit: No\n[201] Pay category: Pilot\n[202] Family member accompanying patient: Mother\n[203] Infant feeding method: Weaned\n[204] Previous immunizations administered: Bacillus Calmette\u2013Gu\u00e9rin vaccine\n[205] Childs current HIV status: HIV infected\n[206] Hospitalized since last visit: No\n[207] Antiretroviral use: No\n[208] Family member that administers medications: Mother\n[209] Overall drug adherence in last month: No\n[210] PCP prophylaxis adherence in past week: All\n[211] New complaints: Yes\n[212] Arterial blood oxygen saturation (pulse oximeter): 81 %\n[213] Head circumference: 44.5 cm\n[214] Height (cm): 65.5 cm\n[215] Pulse: 179 beats/min\n[216] Respiratory rate: 40\n[217] Temperature (C): 37.6 C\n[218] Weight (kg): 6.1 kg\n[219] Abdominal exam findings: Abnormal\n[220] Cardiac exam findings: Abnormal\n[221] Chest exam findings: Abnormal\n[222] HEENT exam findings: Abnormal\n[223] Musculoskeletal exam findings: Normal\n[224] Neurologic exam findings: Abnormal\n[225] Peds CDC category query: CDC category b\n[226] Peds WHO category query: WHO stage 2 peds\n[227] Reason feeding method changed: Other\n[228] Patient reported current tuberculosis prophylaxis: None\n[229] Patient reported current tuberculosis treatment: None\n[230] Patient reported current cryptococcus treatment: None\n[231] Antiretroviral plan: None\n[232] PCP prophylaxis plan: Continue regimen\n[233] Tuberculosis prophylaxis plan: None\n[234] Tuberculosis treatment plan: None\n[235] Referrals ordered: None\n[236] Return visit date: 2026-01-12\n[237] Test order: Immunizations. Action: NEW. Urgency: ROUTINE\n[238] Visit: Facility Visit at Unknown Location\n[239] (2026-01-04) Condition: Acute coryza. Status: ACTIVE. Onset: 2026-01-04\n[240] Drug order: Trimethoprim and sulfamethoxazole. Action: NEW. Urgency: ROUTINE\n[241] Encounter: Check In at Unknown Location. Provider: Horatio L Hornblower (Unknown)\n[242] Father deceased: No\n[243] Mother deceased: No\n[244] Scheduled visit: No\n[245] Pay category: Pilot\n[246] Family member accompanying patient: Mother\n[247] Infant feeding method: Weaned\n[248] Antiretroviral use: No\n[249] PCP prophylaxis adherence in past week: All\n[250] New complaints: Yes\n[251] Arterial blood oxygen saturation (pulse oximeter): 95 %\n[252] Head circumference: 44.5 cm\n[253] Height (cm): 65.5 cm\n[254] Pulse: 167 beats/min\n[255] Respiratory rate: 34\n[256] Temperature (C): 37.2 C\n[257] Weight (kg): 6.2 kg\n[258] Abdominal exam findings: Normal\n[259] Cardiac exam findings: Normal\n[260] Chest exam findings: Normal\n[261] HEENT exam findings: Normal\n[262] Musculoskeletal exam findings: Normal\n[263] Neurologic exam findings: Normal\n[264] Peds WHO category query: WHO stage 3 peds\n[265] Return visit date: 2026-02-01\n[266] Patient reported current tuberculosis treatment: None\n[267] Patient reported current cryptococcus treatment: None\n[268] Antiretroviral plan: None\n[269] PCP prophylaxis plan: Continue regimen\n[270] Tuberculosis prophylaxis plan: None\n[271] Tuberculosis treatment plan: None\n[272] Referrals ordered: None\n[273] Test order: Immunizations. Action: NEW. Urgency: ROUTINE\n[274] Visit: Facility Visit at Unknown Location\n[275] (2025-09-09) Patient: Ellcky Ikatwa Minayo. Male. Born 2025-08-04. Address: East Kabras. Identifiers: OpenMRS Identification Number 5282MP-0 (0 years old)\n[276] (2025-03-05) Program: Human immunodeficiency virus (HIV) disease. Enrolled: 2025-03-05. Status: Active. Current state: GROUP 4",
+  "chart_snapshot": "[1] (2026-02-02) Condition: Acute coryza. Status: ACTIVE. Onset: 2026-02-02\n[2] (2026-02-02) Drug order: Trimethoprim and sulfamethoxazole. Action: NEW. Urgency: ROUTINE\n[3] (2026-02-02) Drug order: Retrovir. Action: NEW. Urgency: ROUTINE\n[4] (2026-02-02) Encounter: Check In at Unknown Location. Provider: Horatio L Hornblower (Unknown)\n[5] (2026-02-02) Father deceased: No\n[6] (2026-02-02) Mother deceased: No\n[7] (2026-02-02) Scheduled visit: Yes\n[8] (2026-02-02) Pay category: Pilot\n[9] (2026-02-02) Family member accompanying patient: Mother\n[10] (2026-02-02) Infant feeding method: Weaned\n[11] (2026-02-02) Childs current HIV status: HIV infected\n[12] (2026-02-02) Hospitalized since last visit: Yes\n[13] (2026-02-02) Antiretroviral use: Yes\n[14] (2026-02-02) Primary regimen: Yes\n[15] (2026-02-02) Overall drug adherence in last month: No\n[16] (2026-02-02) Antiretroviral adherence in past week: All\n[17] (2026-02-02) PCP prophylaxis adherence in past week: All\n[18] (2026-02-02) Arterial blood oxygen saturation (pulse oximeter): 93 %\n[19] (2026-02-02) Body surface area: 45.5\n[20] (2026-02-02) Height (cm): 67 cm\n[21] (2026-02-02) Pulse: 147 beats/min\n[22] (2026-02-02) Respiratory rate: 30\n[23] (2026-02-02) Temperature (C): 36.9 C\n[24] (2026-02-02) Weight (kg): 6.2 kg\n[25] (2026-02-02) Abdominal exam findings: Normal\n[26] (2026-02-02) Cardiac exam findings: Normal\n[27] (2026-02-02) Chest exam findings: Normal\n[28] (2026-02-02) HEENT exam findings: Normal\n[29] (2026-02-02) Musculoskeletal exam findings: Normal\n[30] (2026-02-02) Neurologic exam findings: Normal\n[31] (2026-02-02) Peds CDC category query: CDC category b\n[32] (2026-02-02) Peds WHO category query: WHO stage 2 peds\n[33] (2026-02-02) Return visit date: 2026-02-09\n[34] (2026-02-02) Feeding plan: Weaned\n[35] (2026-02-02) Patient reported current tuberculosis prophylaxis: None\n[36] (2026-02-02) Patient reported current tuberculosis treatment: None\n[37] (2026-02-02) Patient reported current cryptococcus treatment: None\n[38] (2026-02-02) Antiretroviral plan: Continue regimen\n[39] (2026-02-02) PCP prophylaxis plan: Continue regimen\n[40] (2026-02-02) Tuberculosis prophylaxis plan: None\n[41] (2026-02-02) Tuberculosis treatment plan: None\n[42] (2026-02-02) Referrals ordered: None\n[43] (2026-02-02) Test order: Immunizations. Action: NEW. Urgency: ROUTINE\n[44] (2026-02-02) Visit: Facility Visit at Unknown Location\n[45] (2026-01-26) Drug order: Retrovir. Action: NEW. Urgency: ROUTINE\n[46] (2026-01-26) Drug order: Diphtheria tetanus and pertussis vaccination. Action: NEW. Urgency: ROUTINE\n[47] (2026-01-26) Drug order: Lamivudine. Action: NEW. Urgency: ROUTINE\n[48] (2026-01-26) Drug order: Trimethoprim and sulfamethoxazole. Action: NEW. Urgency: ROUTINE\n[49] (2026-01-26) Drug order: Hemophilus influenza B vaccine. Action: NEW. Urgency: ROUTINE\n[50] (2026-01-26) Drug order: Hepatitis B vaccination. Action: NEW. Urgency: ROUTINE\n[51] (2026-01-26) Drug order: Polio vaccination, oral. Action: NEW. Urgency: ROUTINE\n[52] (2026-01-26) Drug order: Nevirapine. Action: NEW. Urgency: ROUTINE\n[53] (2026-01-26) Drug order: Measles vaccination. Action: NEW. Urgency: ROUTINE\n[54] (2026-01-26) Encounter: Check In at Unknown Location. Provider: Horatio L Hornblower (Unknown)\n[55] (2026-01-26) Father deceased: No\n[56] (2026-01-26) Mother deceased: No\n[57] (2026-01-26) Scheduled visit: No\n[58] (2026-01-26) Pay category: Pilot\n[59] (2026-01-26) Family member accompanying patient: Mother\n[60] (2026-01-26) Infant feeding method: Weaned\n[61] (2026-01-26) Previous immunizations administered: Bacillus Calmette\u2013Gu\u00e9rin vaccine\n[62] (2026-01-26) Childs current HIV status: HIV infected\n[63] (2026-01-26) Hospitalized since last visit: Yes\n[64] (2026-01-26) Primary regimen: Yes\n[65] (2026-01-26) Family member that administers medications: Mother\n[66] (2026-01-26) Overall drug adherence in last month: No\n[67] (2026-01-26) Antiretroviral adherence in past week: All\n[68] (2026-01-26) PCP prophylaxis adherence in past week: All\n[69] (2026-01-26) Arterial blood oxygen saturation (pulse oximeter): 90 %\n[70] (2026-01-26) Head circumference: 45 cm\n[71] (2026-01-26) Height (cm): 67 cm\n[72] (2026-01-26) Pulse: 144 beats/min\n[73] (2026-01-26) Respiratory rate: 30\n[74] (2026-01-26) Temperature (C): 37 C\n[75] (2026-01-26) Weight (kg): 6.4 kg\n[76] (2026-01-26) Peds CDC category query: CDC category c\n[77] (2026-01-26) Peds WHO category query: WHO stage 4 peds\n[78] (2026-01-26) Return visit date: 2026-02-02\n[79] (2026-01-26) Feeding plan: Weaned\n[80] (2026-01-26) Patient reported current tuberculosis treatment: None\n[81] (2026-01-26) Patient reported current cryptococcus treatment: None\n[82] (2026-01-26) Antiretroviral plan: Continue regimen\n[83] (2026-01-26) PCP prophylaxis plan: Continue regimen\n[84] (2026-01-26) Tuberculosis prophylaxis plan: None\n[85] (2026-01-26) Tuberculosis treatment plan: None\n[86] (2026-01-26) Referrals ordered: None\n[87] (2026-01-26) Visit: Facility Visit at Unknown Location\n[88] (2026-01-19) Condition: Pneumocystis carinii pneumonia. Status: ACTIVE. Onset: 2026-01-19\n[89] (2026-01-19) Condition: Urinary tract infection. Status: ACTIVE. Onset: 2026-01-19\n[90] (2026-01-19) Drug order: Measles vaccination. Action: NEW. Urgency: ROUTINE\n[91] (2026-01-19) Drug order: Retrovir. Action: NEW. Urgency: ROUTINE\n[92] (2026-01-19) Drug order: Lamivudine. Action: NEW. Urgency: ROUTINE\n[93] (2026-01-19) Drug order: Hepatitis B vaccination. Action: NEW. Urgency: ROUTINE\n[94] (2026-01-19) Drug order: Diphtheria tetanus and pertussis vaccination. Action: NEW. Urgency: ROUTINE\n[95] (2026-01-19) Drug order: Trimethoprim and sulfamethoxazole. Action: NEW. Urgency: ROUTINE\n[96] (2026-01-19) Drug order: Polio vaccination, oral. Action: NEW. Urgency: ROUTINE\n[97] (2026-01-19) Drug order: Nevirapine. Action: NEW. Urgency: ROUTINE\n[98] (2026-01-19) Drug order: Hemophilus influenza B vaccine. Action: NEW. Urgency: ROUTINE\n[99] (2026-01-19) Encounter: Check In at Unknown Location. Provider: Horatio L Hornblower (Unknown)\n[100] (2026-01-19) Mother deceased: No\n[101] (2026-01-19) Scheduled visit: Yes\n[102] (2026-01-19) Pay category: Pilot\n[103] (2026-01-19) Family member accompanying patient: Mother\n[104] (2026-01-19) Infant feeding method: Weaned\n[105] (2026-01-19) Previous immunizations administered: Bacillus Calmette\u2013Gu\u00e9rin vaccine\n[106] (2026-01-19) Childs current HIV status: HIV infected\n[107] (2026-01-19) Hospitalized since last visit: No\n[108] (2026-01-19) Antiretroviral use: No\n[109] (2026-01-19) Family member that administers medications: Mother\n[110] (2026-01-19) PCP prophylaxis adherence in past week: All\n[111] (2026-01-19) Arterial blood oxygen saturation (pulse oximeter): 85 %\n[112] (2026-01-19) Body surface area: 0.33\n[113] (2026-01-19) Head circumference: 44.5 cm\n[114] (2026-01-19) Height (cm): 65.5 cm\n[115] (2026-01-19) Pulse: 158 beats/min\n[116] (2026-01-19) Respiratory rate: 68\n[117] (2026-01-19) Temperature (C): 37.3 C\n[118] (2026-01-19) Weight (kg): 6.25 kg\n[119] (2026-01-19) Peds CDC category query: CDC category c\n[120] (2026-01-19) Peds WHO category query: WHO stage 4 peds\n[121] (2026-01-19) Return visit date: 2026-01-26\n[122] (2026-01-19) Patient reported current tuberculosis treatment: None\n[123] (2026-01-19) Patient reported current cryptococcus treatment: None\n[124] (2026-01-19) Antiretroviral plan: Start drugs\n[125] (2026-01-19) PCP prophylaxis plan: Continue regimen\n[126] (2026-01-19) Tuberculosis prophylaxis plan: None\n[127] (2026-01-19) Tuberculosis treatment plan: None\n[128] (2026-01-19) Referrals ordered: None\n[129] (2026-01-19) Test order: Immunizations. Action: NEW. Urgency: ROUTINE\n[130] (2026-01-19) Visit: Facility Visit at Unknown Location\n[131] (2026-01-12) Condition: Failure to thrive. Status: ACTIVE. Onset: 2026-01-12\n[132] (2026-01-12) Condition: Delayed milestones. Status: ACTIVE. Onset: 2026-01-12\n[133] (2026-01-12) Drug order: Trimethoprim and sulfamethoxazole. Action: NEW. Urgency: ROUTINE\n[134] (2026-01-12) Drug order: Polio vaccination, oral. Action: NEW. Urgency: ROUTINE\n[135] (2026-01-12) Drug order: Hepatitis B vaccination. Action: NEW. Urgency: ROUTINE\n[136] (2026-01-12) Drug order: Diphtheria tetanus and pertussis vaccination. Action: NEW. Urgency: ROUTINE\n[137] (2026-01-12) Drug order: Measles vaccination. Action: NEW. Urgency: ROUTINE\n[138] (2026-01-12) Drug order: Hemophilus influenza B vaccine. Action: NEW. Urgency: ROUTINE\n[139] (2026-01-12) Encounter: Check In at Unknown Location. Provider: Horatio L Hornblower (Unknown)\n[140] (2026-01-12) Father deceased: No\n[141] (2026-01-12) Mother deceased: No\n[142] (2026-01-12) Scheduled visit: Yes\n[143] (2026-01-12) Pay category: Pilot\n[144] (2026-01-12) Family member accompanying patient: Mother\n[145] (2026-01-12) Infant feeding method: Weaned\n[146] (2026-01-12) Previous immunizations administered: Bacillus Calmette\u2013Gu\u00e9rin vaccine\n[147] (2026-01-12) Childs current HIV status: HIV infected\n[148] (2026-01-12) Hospitalized since last visit: No\n[149] (2026-01-12) Antiretroviral use: No\n[150] (2026-01-12) Family member that administers medications: Mother\n[151] (2026-01-12) Overall drug adherence in last month: No\n[152] (2026-01-12) PCP prophylaxis adherence in past week: All\n[153] (2026-01-12) New complaints: Yes\n[154] (2026-01-12) Arterial blood oxygen saturation (pulse oximeter): 98 %\n[155] (2026-01-12) Head circumference: 45 cm\n[156] (2026-01-12) Height (cm): 66 cm\n[157] (2026-01-12) Pulse: 166 beats/min\n[158] (2026-01-12) Respiratory rate: 32\n[159] (2026-01-12) Temperature (C): 37.9 C\n[160] (2026-01-12) Weight (kg): 6.3 kg\n[161] (2026-01-12) Abdominal exam findings: Abnormal\n[162] (2026-01-12) Cardiac exam findings: Abnormal\n[163] (2026-01-12) Chest exam findings: Abnormal\n[164] (2026-01-12) HEENT exam findings: Normal\n[165] (2026-01-12) Musculoskeletal exam findings: Abnormal\n[166] (2026-01-12) Neurologic exam findings: Abnormal\n[167] (2026-01-12) Peds CDC category query: CDC category c\n[168] (2026-01-12) Peds WHO category query: WHO stage 4 peds\n[169] (2026-01-12) Return visit date: 2026-01-19\n[170] (2026-01-12) Patient reported current tuberculosis prophylaxis: None\n[171] (2026-01-12) Patient reported current tuberculosis treatment: None\n[172] (2026-01-12) Patient reported current cryptococcus treatment: None\n[173] (2026-01-12) Antiretroviral plan: None\n[174] (2026-01-12) PCP prophylaxis plan: Continue regimen\n[175] (2026-01-12) Tuberculosis prophylaxis plan: None\n[176] (2026-01-12) Tuberculosis treatment plan: None\n[177] (2026-01-12) Tests ordered: Complete blood count\n[178] (2026-01-12) Tests ordered: Serum glutamic-pyruvic transaminase\n[179] (2026-01-12) Tests ordered: Serum creatinine (umol/L)\n[180] (2026-01-12) Absolute lymphocyte count: 7740 10^3/uL\n[181] (2026-01-12) Haemoglobin: 13.2 g/dL\n[182] (2026-01-12) Mean corpuscular volume: 75 fL\n[183] (2026-01-12) Platelets: 182000 10^3/mL\n[184] (2026-01-12) Serum creatinine (umol/L): 21.95 umol/L\n[185] (2026-01-12) Serum glutamic-pyruvic transaminase: 21.2 IU/L\n[186] (2026-01-12) White blood cells: 11700 10^3/uL\n[187] (2026-01-12) Test order: Immunizations. Action: NEW. Urgency: ROUTINE\n[188] (2026-01-12) Visit: Facility Visit at Unknown Location\n[189] (2026-01-08) Condition: Fever. Status: ACTIVE. Onset: 2026-01-08\n[190] (2026-01-08) Condition: Measles. Status: ACTIVE. Onset: 2026-01-08\n[191] (2026-01-08) Drug order: Hemophilus influenza B vaccine. Action: NEW. Urgency: ROUTINE\n[192] (2026-01-08) Drug order: Hepatitis B vaccination. Action: NEW. Urgency: ROUTINE\n[193] (2026-01-08) Drug order: Trimethoprim and sulfamethoxazole. Action: NEW. Urgency: ROUTINE\n[194] (2026-01-08) Drug order: Polio vaccination, oral. Action: NEW. Urgency: ROUTINE\n[195] (2026-01-08) Drug order: Measles vaccination. Action: NEW. Urgency: ROUTINE\n[196] (2026-01-08) Drug order: Diphtheria tetanus and pertussis vaccination. Action: NEW. Urgency: ROUTINE\n[197] (2026-01-08) Encounter: Check In at Unknown Location. Provider: Horatio L Hornblower (Unknown)\n[198] (2026-01-08) Father deceased: No\n[199] (2026-01-08) Mother deceased: No\n[200] (2026-01-08) Scheduled visit: No\n[201] (2026-01-08) Pay category: Pilot\n[202] (2026-01-08) Family member accompanying patient: Mother\n[203] (2026-01-08) Infant feeding method: Weaned\n[204] (2026-01-08) Previous immunizations administered: Bacillus Calmette\u2013Gu\u00e9rin vaccine\n[205] (2026-01-08) Childs current HIV status: HIV infected\n[206] (2026-01-08) Hospitalized since last visit: No\n[207] (2026-01-08) Antiretroviral use: No\n[208] (2026-01-08) Family member that administers medications: Mother\n[209] (2026-01-08) Overall drug adherence in last month: No\n[210] (2026-01-08) PCP prophylaxis adherence in past week: All\n[211] (2026-01-08) New complaints: Yes\n[212] (2026-01-08) Arterial blood oxygen saturation (pulse oximeter): 81 %\n[213] (2026-01-08) Head circumference: 44.5 cm\n[214] (2026-01-08) Height (cm): 65.5 cm\n[215] (2026-01-08) Pulse: 179 beats/min\n[216] (2026-01-08) Respiratory rate: 40\n[217] (2026-01-08) Temperature (C): 37.6 C\n[218] (2026-01-08) Weight (kg): 6.1 kg\n[219] (2026-01-08) Abdominal exam findings: Abnormal\n[220] (2026-01-08) Cardiac exam findings: Abnormal\n[221] (2026-01-08) Chest exam findings: Abnormal\n[222] (2026-01-08) HEENT exam findings: Abnormal\n[223] (2026-01-08) Musculoskeletal exam findings: Normal\n[224] (2026-01-08) Neurologic exam findings: Abnormal\n[225] (2026-01-08) Peds CDC category query: CDC category b\n[226] (2026-01-08) Peds WHO category query: WHO stage 2 peds\n[227] (2026-01-08) Reason feeding method changed: Other\n[228] (2026-01-08) Patient reported current tuberculosis prophylaxis: None\n[229] (2026-01-08) Patient reported current tuberculosis treatment: None\n[230] (2026-01-08) Patient reported current cryptococcus treatment: None\n[231] (2026-01-08) Antiretroviral plan: None\n[232] (2026-01-08) PCP prophylaxis plan: Continue regimen\n[233] (2026-01-08) Tuberculosis prophylaxis plan: None\n[234] (2026-01-08) Tuberculosis treatment plan: None\n[235] (2026-01-08) Referrals ordered: None\n[236] (2026-01-08) Return visit date: 2026-01-12\n[237] (2026-01-08) Test order: Immunizations. Action: NEW. Urgency: ROUTINE\n[238] (2026-01-08) Visit: Facility Visit at Unknown Location\n[239] (2026-01-04) Condition: Acute coryza. Status: ACTIVE. Onset: 2026-01-04\n[240] (2026-01-04) Drug order: Trimethoprim and sulfamethoxazole. Action: NEW. Urgency: ROUTINE\n[241] (2026-01-04) Encounter: Check In at Unknown Location. Provider: Horatio L Hornblower (Unknown)\n[242] (2026-01-04) Father deceased: No\n[243] (2026-01-04) Mother deceased: No\n[244] (2026-01-04) Scheduled visit: No\n[245] (2026-01-04) Pay category: Pilot\n[246] (2026-01-04) Family member accompanying patient: Mother\n[247] (2026-01-04) Infant feeding method: Weaned\n[248] (2026-01-04) Antiretroviral use: No\n[249] (2026-01-04) PCP prophylaxis adherence in past week: All\n[250] (2026-01-04) New complaints: Yes\n[251] (2026-01-04) Arterial blood oxygen saturation (pulse oximeter): 95 %\n[252] (2026-01-04) Head circumference: 44.5 cm\n[253] (2026-01-04) Height (cm): 65.5 cm\n[254] (2026-01-04) Pulse: 167 beats/min\n[255] (2026-01-04) Respiratory rate: 34\n[256] (2026-01-04) Temperature (C): 37.2 C\n[257] (2026-01-04) Weight (kg): 6.2 kg\n[258] (2026-01-04) Abdominal exam findings: Normal\n[259] (2026-01-04) Cardiac exam findings: Normal\n[260] (2026-01-04) Chest exam findings: Normal\n[261] (2026-01-04) HEENT exam findings: Normal\n[262] (2026-01-04) Musculoskeletal exam findings: Normal\n[263] (2026-01-04) Neurologic exam findings: Normal\n[264] (2026-01-04) Peds WHO category query: WHO stage 3 peds\n[265] (2026-01-04) Return visit date: 2026-02-01\n[266] (2026-01-04) Patient reported current tuberculosis treatment: None\n[267] (2026-01-04) Patient reported current cryptococcus treatment: None\n[268] (2026-01-04) Antiretroviral plan: None\n[269] (2026-01-04) PCP prophylaxis plan: Continue regimen\n[270] (2026-01-04) Tuberculosis prophylaxis plan: None\n[271] (2026-01-04) Tuberculosis treatment plan: None\n[272] (2026-01-04) Referrals ordered: None\n[273] (2026-01-04) Test order: Immunizations. Action: NEW. Urgency: ROUTINE\n[274] (2026-01-04) Visit: Facility Visit at Unknown Location\n[275] (2025-09-09) Patient: Ellcky Ikatwa Minayo. Male. Born 2025-08-04. Address: East Kabras. Identifiers: OpenMRS Identification Number 5282MP-0\n[276] (2025-03-05) Program: Human immunodeficiency virus (HIV) disease. Enrolled: 2025-03-05. Status: Active. Current state: GROUP 4\n",
   "mappings": [
     {
       "index": 1,
       "resourceType": "condition",
       "resourceUuid": "5f31e780-109e-5cad-b373-1d1fcf4e45b9",
-      "date": 1769990400000
+      "date": "2026-02-02",
+      "text": "(2026-02-02) Condition: Acute coryza. Status: ACTIVE. Onset: 2026-02-02"
     },
     {
       "index": 2,
       "resourceType": "drug_order",
       "resourceUuid": "295d383b-74ed-5962-96ac-9d498c883122",
-      "date": 1769990400000
+      "date": "2026-02-02",
+      "text": "(2026-02-02) Drug order: Trimethoprim and sulfamethoxazole. Action: NEW. Urgency: ROUTINE"
     },
     {
       "index": 3,
       "resourceType": "drug_order",
       "resourceUuid": "a03b99d7-16b8-5873-a101-1c7eab19907e",
-      "date": 1769990400000
+      "date": "2026-02-02",
+      "text": "(2026-02-02) Drug order: Retrovir. Action: NEW. Urgency: ROUTINE"
     },
     {
       "index": 4,
       "resourceType": "encounter",
       "resourceUuid": "bfce69f5-1691-11df-97a5-7038c432aabf",
-      "date": 1769990400000
+      "date": "2026-02-02",
+      "text": "(2026-02-02) Encounter: Check In at Unknown Location. Provider: Horatio L Hornblower (Unknown)"
     },
     {
       "index": 5,
       "resourceType": "obs",
       "resourceUuid": "db6a2cef-1691-11df-97a5-7038c432aabf",
-      "date": 1769990400000
+      "date": "2026-02-02",
+      "text": "(2026-02-02) Father deceased: No"
     },
     {
       "index": 6,
       "resourceType": "obs",
       "resourceUuid": "db6a2e6c-1691-11df-97a5-7038c432aabf",
-      "date": 1769990400000
+      "date": "2026-02-02",
+      "text": "(2026-02-02) Mother deceased: No"
     },
     {
       "index": 7,
       "resourceType": "obs",
       "resourceUuid": "db6a2fe8-1691-11df-97a5-7038c432aabf",
-      "date": 1769990400000
+      "date": "2026-02-02",
+      "text": "(2026-02-02) Scheduled visit: Yes"
     },
     {
       "index": 8,
       "resourceType": "obs",
       "resourceUuid": "db6a3169-1691-11df-97a5-7038c432aabf",
-      "date": 1769990400000
+      "date": "2026-02-02",
+      "text": "(2026-02-02) Pay category: Pilot"
     },
     {
       "index": 9,
       "resourceType": "obs",
       "resourceUuid": "db6a32e6-1691-11df-97a5-7038c432aabf",
-      "date": 1769990400000
+      "date": "2026-02-02",
+      "text": "(2026-02-02) Family member accompanying patient: Mother"
     },
     {
       "index": 10,
       "resourceType": "obs",
       "resourceUuid": "db6a3463-1691-11df-97a5-7038c432aabf",
-      "date": 1769990400000
+      "date": "2026-02-02",
+      "text": "(2026-02-02) Infant feeding method: Weaned"
     },
     {
       "index": 11,
       "resourceType": "obs",
       "resourceUuid": "db6a35df-1691-11df-97a5-7038c432aabf",
-      "date": 1769990400000
+      "date": "2026-02-02",
+      "text": "(2026-02-02) Childs current HIV status: HIV infected"
     },
     {
       "index": 12,
       "resourceType": "obs",
       "resourceUuid": "db6a376d-1691-11df-97a5-7038c432aabf",
-      "date": 1769990400000
+      "date": "2026-02-02",
+      "text": "(2026-02-02) Hospitalized since last visit: Yes"
     },
     {
       "index": 13,
       "resourceType": "obs",
       "resourceUuid": "db6a3ae7-1691-11df-97a5-7038c432aabf",
-      "date": 1769990400000
+      "date": "2026-02-02",
+      "text": "(2026-02-02) Antiretroviral use: Yes"
     },
     {
       "index": 14,
       "resourceType": "obs",
       "resourceUuid": "db6a3d86-1691-11df-97a5-7038c432aabf",
-      "date": 1769990400000
+      "date": "2026-02-02",
+      "text": "(2026-02-02) Primary regimen: Yes"
     },
     {
       "index": 15,
       "resourceType": "obs",
       "resourceUuid": "db6a4021-1691-11df-97a5-7038c432aabf",
-      "date": 1769990400000
+      "date": "2026-02-02",
+      "text": "(2026-02-02) Overall drug adherence in last month: No"
     },
     {
       "index": 16,
       "resourceType": "obs",
       "resourceUuid": "db6a43f9-1691-11df-97a5-7038c432aabf",
-      "date": 1769990400000
+      "date": "2026-02-02",
+      "text": "(2026-02-02) Antiretroviral adherence in past week: All"
     },
     {
       "index": 17,
       "resourceType": "obs",
       "resourceUuid": "db6a4694-1691-11df-97a5-7038c432aabf",
-      "date": 1769990400000
+      "date": "2026-02-02",
+      "text": "(2026-02-02) PCP prophylaxis adherence in past week: All"
     },
     {
       "index": 18,
       "resourceType": "obs",
       "resourceUuid": "db6a4927-1691-11df-97a5-7038c432aabf",
-      "date": 1769990400000
+      "date": "2026-02-02",
+      "text": "(2026-02-02) Arterial blood oxygen saturation (pulse oximeter): 93 %"
     },
     {
       "index": 19,
       "resourceType": "obs",
       "resourceUuid": "db6a4bb6-1691-11df-97a5-7038c432aabf",
-      "date": 1769990400000
+      "date": "2026-02-02",
+      "text": "(2026-02-02) Body surface area: 45.5"
     },
     {
       "index": 20,
       "resourceType": "obs",
       "resourceUuid": "db6a4e40-1691-11df-97a5-7038c432aabf",
-      "date": 1769990400000
+      "date": "2026-02-02",
+      "text": "(2026-02-02) Height (cm): 67 cm"
     },
     {
       "index": 21,
       "resourceType": "obs",
       "resourceUuid": "db6a50ca-1691-11df-97a5-7038c432aabf",
-      "date": 1769990400000
+      "date": "2026-02-02",
+      "text": "(2026-02-02) Pulse: 147 beats/min"
     },
     {
       "index": 22,
       "resourceType": "obs",
       "resourceUuid": "db6a5358-1691-11df-97a5-7038c432aabf",
-      "date": 1769990400000
+      "date": "2026-02-02",
+      "text": "(2026-02-02) Respiratory rate: 30"
     },
     {
       "index": 23,
       "resourceType": "obs",
       "resourceUuid": "db6a55de-1691-11df-97a5-7038c432aabf",
-      "date": 1769990400000
+      "date": "2026-02-02",
+      "text": "(2026-02-02) Temperature (C): 36.9 C"
     },
     {
       "index": 24,
       "resourceType": "obs",
       "resourceUuid": "db6a586d-1691-11df-97a5-7038c432aabf",
-      "date": 1769990400000
+      "date": "2026-02-02",
+      "text": "(2026-02-02) Weight (kg): 6.2 kg"
     },
     {
       "index": 25,
       "resourceType": "obs",
       "resourceUuid": "db6a5af7-1691-11df-97a5-7038c432aabf",
-      "date": 1769990400000
+      "date": "2026-02-02",
+      "text": "(2026-02-02) Abdominal exam findings: Normal"
     },
     {
       "index": 26,
       "resourceType": "obs",
       "resourceUuid": "db6a5d85-1691-11df-97a5-7038c432aabf",
-      "date": 1769990400000
+      "date": "2026-02-02",
+      "text": "(2026-02-02) Cardiac exam findings: Normal"
     },
     {
       "index": 27,
       "resourceType": "obs",
       "resourceUuid": "db6a60b6-1691-11df-97a5-7038c432aabf",
-      "date": 1769990400000
+      "date": "2026-02-02",
+      "text": "(2026-02-02) Chest exam findings: Normal"
     },
     {
       "index": 28,
       "resourceType": "obs",
       "resourceUuid": "db6a6367-1691-11df-97a5-7038c432aabf",
-      "date": 1769990400000
+      "date": "2026-02-02",
+      "text": "(2026-02-02) HEENT exam findings: Normal"
     },
     {
       "index": 29,
       "resourceType": "obs",
       "resourceUuid": "db6a6617-1691-11df-97a5-7038c432aabf",
-      "date": 1769990400000
+      "date": "2026-02-02",
+      "text": "(2026-02-02) Musculoskeletal exam findings: Normal"
     },
     {
       "index": 30,
       "resourceType": "obs",
       "resourceUuid": "db6a67e5-1691-11df-97a5-7038c432aabf",
-      "date": 1769990400000
+      "date": "2026-02-02",
+      "text": "(2026-02-02) Neurologic exam findings: Normal"
     },
     {
       "index": 31,
       "resourceType": "obs",
       "resourceUuid": "db6a6966-1691-11df-97a5-7038c432aabf",
-      "date": 1769990400000
+      "date": "2026-02-02",
+      "text": "(2026-02-02) Peds CDC category query: CDC category b"
     },
     {
       "index": 32,
       "resourceType": "obs",
       "resourceUuid": "db6a6ae7-1691-11df-97a5-7038c432aabf",
-      "date": 1769990400000
+      "date": "2026-02-02",
+      "text": "(2026-02-02) Peds WHO category query: WHO stage 2 peds"
     },
     {
       "index": 33,
       "resourceType": "obs",
       "resourceUuid": "db6a6c68-1691-11df-97a5-7038c432aabf",
-      "date": 1769990400000
+      "date": "2026-02-02",
+      "text": "(2026-02-02) Return visit date: 2026-02-09"
     },
     {
       "index": 34,
       "resourceType": "obs",
       "resourceUuid": "db6a6de9-1691-11df-97a5-7038c432aabf",
-      "date": 1769990400000
+      "date": "2026-02-02",
+      "text": "(2026-02-02) Feeding plan: Weaned"
     },
     {
       "index": 35,
       "resourceType": "obs",
       "resourceUuid": "db6a73ed-1691-11df-97a5-7038c432aabf",
-      "date": 1769990400000
+      "date": "2026-02-02",
+      "text": "(2026-02-02) Patient reported current tuberculosis prophylaxis: None"
     },
     {
       "index": 36,
       "resourceType": "obs",
       "resourceUuid": "db6a7572-1691-11df-97a5-7038c432aabf",
-      "date": 1769990400000
+      "date": "2026-02-02",
+      "text": "(2026-02-02) Patient reported current tuberculosis treatment: None"
     },
     {
       "index": 37,
       "resourceType": "obs",
       "resourceUuid": "db6a76ef-1691-11df-97a5-7038c432aabf",
-      "date": 1769990400000
+      "date": "2026-02-02",
+      "text": "(2026-02-02) Patient reported current cryptococcus treatment: None"
     },
     {
       "index": 38,
       "resourceType": "obs",
       "resourceUuid": "db6a7874-1691-11df-97a5-7038c432aabf",
-      "date": 1769990400000
+      "date": "2026-02-02",
+      "text": "(2026-02-02) Antiretroviral plan: Continue regimen"
     },
     {
       "index": 39,
       "resourceType": "obs",
       "resourceUuid": "db6a79f1-1691-11df-97a5-7038c432aabf",
-      "date": 1769990400000
+      "date": "2026-02-02",
+      "text": "(2026-02-02) PCP prophylaxis plan: Continue regimen"
     },
     {
       "index": 40,
       "resourceType": "obs",
       "resourceUuid": "db6a7b76-1691-11df-97a5-7038c432aabf",
-      "date": 1769990400000
+      "date": "2026-02-02",
+      "text": "(2026-02-02) Tuberculosis prophylaxis plan: None"
     },
     {
       "index": 41,
       "resourceType": "obs",
       "resourceUuid": "db6a7cf7-1691-11df-97a5-7038c432aabf",
-      "date": 1769990400000
+      "date": "2026-02-02",
+      "text": "(2026-02-02) Tuberculosis treatment plan: None"
     },
     {
       "index": 42,
       "resourceType": "obs",
       "resourceUuid": "db6a7ff9-1691-11df-97a5-7038c432aabf",
-      "date": 1769990400000
+      "date": "2026-02-02",
+      "text": "(2026-02-02) Referrals ordered: None"
     },
     {
       "index": 43,
       "resourceType": "test_order",
       "resourceUuid": "9a695f91-e44b-5475-b6ea-70c422f53742",
-      "date": 1769990400000
+      "date": "2026-02-02",
+      "text": "(2026-02-02) Test order: Immunizations. Action: NEW. Urgency: ROUTINE"
     },
     {
       "index": 44,
       "resourceType": "visit",
       "resourceUuid": "547ef835-a746-5a60-808a-ecb7ad7d9798",
-      "date": 1769990400000
+      "date": "2026-02-02",
+      "text": "(2026-02-02) Visit: Facility Visit at Unknown Location"
     },
     {
       "index": 45,
       "resourceType": "drug_order",
       "resourceUuid": "0c1e736f-e6fa-5d2e-9b01-3dca8d66b424",
-      "date": 1769385600000
+      "date": "2026-01-26",
+      "text": "(2026-01-26) Drug order: Retrovir. Action: NEW. Urgency: ROUTINE"
     },
     {
       "index": 46,
       "resourceType": "drug_order",
       "resourceUuid": "4666c475-6eb8-5263-99b3-cc0d963d7058",
-      "date": 1769385600000
+      "date": "2026-01-26",
+      "text": "(2026-01-26) Drug order: Diphtheria tetanus and pertussis vaccination. Action: NEW. Urgency: ROUTINE"
     },
     {
       "index": 47,
       "resourceType": "drug_order",
       "resourceUuid": "4874ac03-2bad-52dc-a3d7-c2b823915a51",
-      "date": 1769385600000
+      "date": "2026-01-26",
+      "text": "(2026-01-26) Drug order: Lamivudine. Action: NEW. Urgency: ROUTINE"
     },
     {
       "index": 48,
       "resourceType": "drug_order",
       "resourceUuid": "754f2a08-08e2-53bd-af2d-08bc02b879c6",
-      "date": 1769385600000
+      "date": "2026-01-26",
+      "text": "(2026-01-26) Drug order: Trimethoprim and sulfamethoxazole. Action: NEW. Urgency: ROUTINE"
     },
     {
       "index": 49,
       "resourceType": "drug_order",
       "resourceUuid": "ad9493a0-f4f1-52f4-811b-d9c966eeafdf",
-      "date": 1769385600000
+      "date": "2026-01-26",
+      "text": "(2026-01-26) Drug order: Hemophilus influenza B vaccine. Action: NEW. Urgency: ROUTINE"
     },
     {
       "index": 50,
       "resourceType": "drug_order",
       "resourceUuid": "b8748fec-0d46-5d5c-ae0f-c405644d068e",
-      "date": 1769385600000
+      "date": "2026-01-26",
+      "text": "(2026-01-26) Drug order: Hepatitis B vaccination. Action: NEW. Urgency: ROUTINE"
     },
     {
       "index": 51,
       "resourceType": "drug_order",
       "resourceUuid": "cfb4798b-6c1c-5276-ad62-31fbe381f596",
-      "date": 1769385600000
+      "date": "2026-01-26",
+      "text": "(2026-01-26) Drug order: Polio vaccination, oral. Action: NEW. Urgency: ROUTINE"
     },
     {
       "index": 52,
       "resourceType": "drug_order",
       "resourceUuid": "ee7df0d8-d370-5b1b-af48-292deae7cf0c",
-      "date": 1769385600000
+      "date": "2026-01-26",
+      "text": "(2026-01-26) Drug order: Nevirapine. Action: NEW. Urgency: ROUTINE"
     },
     {
       "index": 53,
       "resourceType": "drug_order",
       "resourceUuid": "ff112433-8855-54c4-943c-94d5c84e658d",
-      "date": 1769385600000
+      "date": "2026-01-26",
+      "text": "(2026-01-26) Drug order: Measles vaccination. Action: NEW. Urgency: ROUTINE"
     },
     {
       "index": 54,
       "resourceType": "encounter",
       "resourceUuid": "bfc44312-1691-11df-97a5-7038c432aabf",
-      "date": 1769385600000
+      "date": "2026-01-26",
+      "text": "(2026-01-26) Encounter: Check In at Unknown Location. Provider: Horatio L Hornblower (Unknown)"
     },
     {
       "index": 55,
       "resourceType": "obs",
       "resourceUuid": "d8ce65fd-1691-11df-97a5-7038c432aabf",
-      "date": 1769385600000
+      "date": "2026-01-26",
+      "text": "(2026-01-26) Father deceased: No"
     },
     {
       "index": 56,
       "resourceType": "obs",
       "resourceUuid": "d8ce678b-1691-11df-97a5-7038c432aabf",
-      "date": 1769385600000
+      "date": "2026-01-26",
+      "text": "(2026-01-26) Mother deceased: No"
     },
     {
       "index": 57,
       "resourceType": "obs",
       "resourceUuid": "d8ce690c-1691-11df-97a5-7038c432aabf",
-      "date": 1769385600000
+      "date": "2026-01-26",
+      "text": "(2026-01-26) Scheduled visit: No"
     },
     {
       "index": 58,
       "resourceType": "obs",
       "resourceUuid": "d8ce6a91-1691-11df-97a5-7038c432aabf",
-      "date": 1769385600000
+      "date": "2026-01-26",
+      "text": "(2026-01-26) Pay category: Pilot"
     },
     {
       "index": 59,
       "resourceType": "obs",
       "resourceUuid": "d8ce6c16-1691-11df-97a5-7038c432aabf",
-      "date": 1769385600000
+      "date": "2026-01-26",
+      "text": "(2026-01-26) Family member accompanying patient: Mother"
     },
     {
       "index": 60,
       "resourceType": "obs",
       "resourceUuid": "d8ce6d97-1691-11df-97a5-7038c432aabf",
-      "date": 1769385600000
+      "date": "2026-01-26",
+      "text": "(2026-01-26) Infant feeding method: Weaned"
     },
     {
       "index": 61,
       "resourceType": "obs",
       "resourceUuid": "d8ce771d-1691-11df-97a5-7038c432aabf",
-      "date": 1769385600000
+      "date": "2026-01-26",
+      "text": "(2026-01-26) Previous immunizations administered: Bacillus Calmette\u2013Gu\u00e9rin vaccine"
     },
     {
       "index": 62,
       "resourceType": "obs",
       "resourceUuid": "d8ce78b3-1691-11df-97a5-7038c432aabf",
-      "date": 1769385600000
+      "date": "2026-01-26",
+      "text": "(2026-01-26) Childs current HIV status: HIV infected"
     },
     {
       "index": 63,
       "resourceType": "obs",
       "resourceUuid": "d8ce7a52-1691-11df-97a5-7038c432aabf",
-      "date": 1769385600000
+      "date": "2026-01-26",
+      "text": "(2026-01-26) Hospitalized since last visit: Yes"
     },
     {
       "index": 64,
       "resourceType": "obs",
       "resourceUuid": "d8ce7bed-1691-11df-97a5-7038c432aabf",
-      "date": 1769385600000
+      "date": "2026-01-26",
+      "text": "(2026-01-26) Primary regimen: Yes"
     },
     {
       "index": 65,
       "resourceType": "obs",
       "resourceUuid": "d8ce7d8c-1691-11df-97a5-7038c432aabf",
-      "date": 1769385600000
+      "date": "2026-01-26",
+      "text": "(2026-01-26) Family member that administers medications: Mother"
     },
     {
       "index": 66,
       "resourceType": "obs",
       "resourceUuid": "d8ce7f2b-1691-11df-97a5-7038c432aabf",
-      "date": 1769385600000
+      "date": "2026-01-26",
+      "text": "(2026-01-26) Overall drug adherence in last month: No"
     },
     {
       "index": 67,
       "resourceType": "obs",
       "resourceUuid": "d8ce80c1-1691-11df-97a5-7038c432aabf",
-      "date": 1769385600000
+      "date": "2026-01-26",
+      "text": "(2026-01-26) Antiretroviral adherence in past week: All"
     },
     {
       "index": 68,
       "resourceType": "obs",
       "resourceUuid": "d8ce8260-1691-11df-97a5-7038c432aabf",
-      "date": 1769385600000
+      "date": "2026-01-26",
+      "text": "(2026-01-26) PCP prophylaxis adherence in past week: All"
     },
     {
       "index": 69,
       "resourceType": "obs",
       "resourceUuid": "d8ce83fb-1691-11df-97a5-7038c432aabf",
-      "date": 1769385600000
+      "date": "2026-01-26",
+      "text": "(2026-01-26) Arterial blood oxygen saturation (pulse oximeter): 90 %"
     },
     {
       "index": 70,
       "resourceType": "obs",
       "resourceUuid": "d8ce859a-1691-11df-97a5-7038c432aabf",
-      "date": 1769385600000
+      "date": "2026-01-26",
+      "text": "(2026-01-26) Head circumference: 45 cm"
     },
     {
       "index": 71,
       "resourceType": "obs",
       "resourceUuid": "d8ce8738-1691-11df-97a5-7038c432aabf",
-      "date": 1769385600000
+      "date": "2026-01-26",
+      "text": "(2026-01-26) Height (cm): 67 cm"
     },
     {
       "index": 72,
       "resourceType": "obs",
       "resourceUuid": "d8ce88cf-1691-11df-97a5-7038c432aabf",
-      "date": 1769385600000
+      "date": "2026-01-26",
+      "text": "(2026-01-26) Pulse: 144 beats/min"
     },
     {
       "index": 73,
       "resourceType": "obs",
       "resourceUuid": "d8ce8a72-1691-11df-97a5-7038c432aabf",
-      "date": 1769385600000
+      "date": "2026-01-26",
+      "text": "(2026-01-26) Respiratory rate: 30"
     },
     {
       "index": 74,
       "resourceType": "obs",
       "resourceUuid": "d8ce8c04-1691-11df-97a5-7038c432aabf",
-      "date": 1769385600000
+      "date": "2026-01-26",
+      "text": "(2026-01-26) Temperature (C): 37 C"
     },
     {
       "index": 75,
       "resourceType": "obs",
       "resourceUuid": "d8ce8d9f-1691-11df-97a5-7038c432aabf",
-      "date": 1769385600000
+      "date": "2026-01-26",
+      "text": "(2026-01-26) Weight (kg): 6.4 kg"
     },
     {
       "index": 76,
       "resourceType": "obs",
       "resourceUuid": "d8ce8f68-1691-11df-97a5-7038c432aabf",
-      "date": 1769385600000
+      "date": "2026-01-26",
+      "text": "(2026-01-26) Peds CDC category query: CDC category c"
     },
     {
       "index": 77,
       "resourceType": "obs",
       "resourceUuid": "d8ce90e9-1691-11df-97a5-7038c432aabf",
-      "date": 1769385600000
+      "date": "2026-01-26",
+      "text": "(2026-01-26) Peds WHO category query: WHO stage 4 peds"
     },
     {
       "index": 78,
       "resourceType": "obs",
       "resourceUuid": "d8ce926a-1691-11df-97a5-7038c432aabf",
-      "date": 1769385600000
+      "date": "2026-01-26",
+      "text": "(2026-01-26) Return visit date: 2026-02-02"
     },
     {
       "index": 79,
       "resourceType": "obs",
       "resourceUuid": "d8ce93ef-1691-11df-97a5-7038c432aabf",
-      "date": 1769385600000
+      "date": "2026-01-26",
+      "text": "(2026-01-26) Feeding plan: Weaned"
     },
     {
       "index": 80,
       "resourceType": "obs",
       "resourceUuid": "d8ce9b70-1691-11df-97a5-7038c432aabf",
-      "date": 1769385600000
+      "date": "2026-01-26",
+      "text": "(2026-01-26) Patient reported current tuberculosis treatment: None"
     },
     {
       "index": 81,
       "resourceType": "obs",
       "resourceUuid": "d8ce9d58-1691-11df-97a5-7038c432aabf",
-      "date": 1769385600000
+      "date": "2026-01-26",
+      "text": "(2026-01-26) Patient reported current cryptococcus treatment: None"
     },
     {
       "index": 82,
       "resourceType": "obs",
       "resourceUuid": "d8ce9ef2-1691-11df-97a5-7038c432aabf",
-      "date": 1769385600000
+      "date": "2026-01-26",
+      "text": "(2026-01-26) Antiretroviral plan: Continue regimen"
     },
     {
       "index": 83,
       "resourceType": "obs",
       "resourceUuid": "d8cea08d-1691-11df-97a5-7038c432aabf",
-      "date": 1769385600000
+      "date": "2026-01-26",
+      "text": "(2026-01-26) PCP prophylaxis plan: Continue regimen"
     },
     {
       "index": 84,
       "resourceType": "obs",
       "resourceUuid": "d8ceab3a-1691-11df-97a5-7038c432aabf",
-      "date": 1769385600000
+      "date": "2026-01-26",
+      "text": "(2026-01-26) Tuberculosis prophylaxis plan: None"
     },
     {
       "index": 85,
       "resourceType": "obs",
       "resourceUuid": "d8cead37-1691-11df-97a5-7038c432aabf",
-      "date": 1769385600000
+      "date": "2026-01-26",
+      "text": "(2026-01-26) Tuberculosis treatment plan: None"
     },
     {
       "index": 86,
       "resourceType": "obs",
       "resourceUuid": "d8ceaec9-1691-11df-97a5-7038c432aabf",
-      "date": 1769385600000
+      "date": "2026-01-26",
+      "text": "(2026-01-26) Referrals ordered: None"
     },
     {
       "index": 87,
       "resourceType": "visit",
       "resourceUuid": "24d1c440-98e4-5766-bccc-1f9bf87f38a1",
-      "date": 1769385600000
+      "date": "2026-01-26",
+      "text": "(2026-01-26) Visit: Facility Visit at Unknown Location"
     },
     {
       "index": 88,
       "resourceType": "condition",
       "resourceUuid": "1e9a1867-6826-5407-b753-11d099be253c",
-      "date": 1768780800000
+      "date": "2026-01-19",
+      "text": "(2026-01-19) Condition: Pneumocystis carinii pneumonia. Status: ACTIVE. Onset: 2026-01-19"
     },
     {
       "index": 89,
       "resourceType": "condition",
       "resourceUuid": "bbc2bd6b-7dad-5afc-998d-a3c5fc6e66d5",
-      "date": 1768780800000
+      "date": "2026-01-19",
+      "text": "(2026-01-19) Condition: Urinary tract infection. Status: ACTIVE. Onset: 2026-01-19"
     },
     {
       "index": 90,
       "resourceType": "drug_order",
       "resourceUuid": "0571ead1-d504-5568-a643-880173146469",
-      "date": 1768780800000
+      "date": "2026-01-19",
+      "text": "(2026-01-19) Drug order: Measles vaccination. Action: NEW. Urgency: ROUTINE"
     },
     {
       "index": 91,
       "resourceType": "drug_order",
       "resourceUuid": "0c145d62-1cdd-5ff1-ba4a-4a72e9f836b2",
-      "date": 1768780800000
+      "date": "2026-01-19",
+      "text": "(2026-01-19) Drug order: Retrovir. Action: NEW. Urgency: ROUTINE"
     },
     {
       "index": 92,
       "resourceType": "drug_order",
       "resourceUuid": "395da945-9884-5b97-ae6f-7adfa90d2ebb",
-      "date": 1768780800000
+      "date": "2026-01-19",
+      "text": "(2026-01-19) Drug order: Lamivudine. Action: NEW. Urgency: ROUTINE"
     },
     {
       "index": 93,
       "resourceType": "drug_order",
       "resourceUuid": "44190c00-3097-5214-b1f2-427b3bf17d98",
-      "date": 1768780800000
+      "date": "2026-01-19",
+      "text": "(2026-01-19) Drug order: Hepatitis B vaccination. Action: NEW. Urgency: ROUTINE"
     },
     {
       "index": 94,
       "resourceType": "drug_order",
       "resourceUuid": "7de1e255-064a-5a42-97fe-00408b9496aa",
-      "date": 1768780800000
+      "date": "2026-01-19",
+      "text": "(2026-01-19) Drug order: Diphtheria tetanus and pertussis vaccination. Action: NEW. Urgency: ROUTINE"
     },
     {
       "index": 95,
       "resourceType": "drug_order",
       "resourceUuid": "9809be4d-d8fa-5123-96a8-722c53fa235f",
-      "date": 1768780800000
+      "date": "2026-01-19",
+      "text": "(2026-01-19) Drug order: Trimethoprim and sulfamethoxazole. Action: NEW. Urgency: ROUTINE"
     },
     {
       "index": 96,
       "resourceType": "drug_order",
       "resourceUuid": "9e6eb85b-bcce-5af5-bd24-0ce35ba01238",
-      "date": 1768780800000
+      "date": "2026-01-19",
+      "text": "(2026-01-19) Drug order: Polio vaccination, oral. Action: NEW. Urgency: ROUTINE"
     },
     {
       "index": 97,
       "resourceType": "drug_order",
       "resourceUuid": "c97ac8e4-c318-5df8-bf9b-a79dee6d7a80",
-      "date": 1768780800000
+      "date": "2026-01-19",
+      "text": "(2026-01-19) Drug order: Nevirapine. Action: NEW. Urgency: ROUTINE"
     },
     {
       "index": 98,
       "resourceType": "drug_order",
       "resourceUuid": "ff663566-d8bf-59a7-98fa-ca4966d7fd07",
-      "date": 1768780800000
+      "date": "2026-01-19",
+      "text": "(2026-01-19) Drug order: Hemophilus influenza B vaccine. Action: NEW. Urgency: ROUTINE"
     },
     {
       "index": 99,
       "resourceType": "encounter",
       "resourceUuid": "bfbc09b9-1691-11df-97a5-7038c432aabf",
-      "date": 1768780800000
+      "date": "2026-01-19",
+      "text": "(2026-01-19) Encounter: Check In at Unknown Location. Provider: Horatio L Hornblower (Unknown)"
     },
     {
       "index": 100,
       "resourceType": "obs",
       "resourceUuid": "d69d1a69-1691-11df-97a5-7038c432aabf",
-      "date": 1768780800000
+      "date": "2026-01-19",
+      "text": "(2026-01-19) Mother deceased: No"
     },
     {
       "index": 101,
       "resourceType": "obs",
       "resourceUuid": "d69d1c04-1691-11df-97a5-7038c432aabf",
-      "date": 1768780800000
+      "date": "2026-01-19",
+      "text": "(2026-01-19) Scheduled visit: Yes"
     },
     {
       "index": 102,
       "resourceType": "obs",
       "resourceUuid": "d69d1d96-1691-11df-97a5-7038c432aabf",
-      "date": 1768780800000
+      "date": "2026-01-19",
+      "text": "(2026-01-19) Pay category: Pilot"
     },
     {
       "index": 103,
       "resourceType": "obs",
       "resourceUuid": "d69d1f2c-1691-11df-97a5-7038c432aabf",
-      "date": 1768780800000
+      "date": "2026-01-19",
+      "text": "(2026-01-19) Family member accompanying patient: Mother"
     },
     {
       "index": 104,
       "resourceType": "obs",
       "resourceUuid": "d69d20bf-1691-11df-97a5-7038c432aabf",
-      "date": 1768780800000
+      "date": "2026-01-19",
+      "text": "(2026-01-19) Infant feeding method: Weaned"
     },
     {
       "index": 105,
       "resourceType": "obs",
       "resourceUuid": "d69d2a4d-1691-11df-97a5-7038c432aabf",
-      "date": 1768780800000
+      "date": "2026-01-19",
+      "text": "(2026-01-19) Previous immunizations administered: Bacillus Calmette\u2013Gu\u00e9rin vaccine"
     },
     {
       "index": 106,
       "resourceType": "obs",
       "resourceUuid": "d69d2bdb-1691-11df-97a5-7038c432aabf",
-      "date": 1768780800000
+      "date": "2026-01-19",
+      "text": "(2026-01-19) Childs current HIV status: HIV infected"
     },
     {
       "index": 107,
       "resourceType": "obs",
       "resourceUuid": "d69d2d71-1691-11df-97a5-7038c432aabf",
-      "date": 1768780800000
+      "date": "2026-01-19",
+      "text": "(2026-01-19) Hospitalized since last visit: No"
     },
     {
       "index": 108,
       "resourceType": "obs",
       "resourceUuid": "d69d2f0c-1691-11df-97a5-7038c432aabf",
-      "date": 1768780800000
+      "date": "2026-01-19",
+      "text": "(2026-01-19) Antiretroviral use: No"
     },
     {
       "index": 109,
       "resourceType": "obs",
       "resourceUuid": "d69d309a-1691-11df-97a5-7038c432aabf",
-      "date": 1768780800000
+      "date": "2026-01-19",
+      "text": "(2026-01-19) Family member that administers medications: Mother"
     },
     {
       "index": 110,
       "resourceType": "obs",
       "resourceUuid": "d69d3230-1691-11df-97a5-7038c432aabf",
-      "date": 1768780800000
+      "date": "2026-01-19",
+      "text": "(2026-01-19) PCP prophylaxis adherence in past week: All"
     },
     {
       "index": 111,
       "resourceType": "obs",
       "resourceUuid": "d69d33c2-1691-11df-97a5-7038c432aabf",
-      "date": 1768780800000
+      "date": "2026-01-19",
+      "text": "(2026-01-19) Arterial blood oxygen saturation (pulse oximeter): 85 %"
     },
     {
       "index": 112,
       "resourceType": "obs",
       "resourceUuid": "d69d3561-1691-11df-97a5-7038c432aabf",
-      "date": 1768780800000
+      "date": "2026-01-19",
+      "text": "(2026-01-19) Body surface area: 0.33"
     },
     {
       "index": 113,
       "resourceType": "obs",
       "resourceUuid": "d69d36f7-1691-11df-97a5-7038c432aabf",
-      "date": 1768780800000
+      "date": "2026-01-19",
+      "text": "(2026-01-19) Head circumference: 44.5 cm"
     },
     {
       "index": 114,
       "resourceType": "obs",
       "resourceUuid": "d69d3889-1691-11df-97a5-7038c432aabf",
-      "date": 1768780800000
+      "date": "2026-01-19",
+      "text": "(2026-01-19) Height (cm): 65.5 cm"
     },
     {
       "index": 115,
       "resourceType": "obs",
       "resourceUuid": "d69d3a20-1691-11df-97a5-7038c432aabf",
-      "date": 1768780800000
+      "date": "2026-01-19",
+      "text": "(2026-01-19) Pulse: 158 beats/min"
     },
     {
       "index": 116,
       "resourceType": "obs",
       "resourceUuid": "d69d3bae-1691-11df-97a5-7038c432aabf",
-      "date": 1768780800000
+      "date": "2026-01-19",
+      "text": "(2026-01-19) Respiratory rate: 68"
     },
     {
       "index": 117,
       "resourceType": "obs",
       "resourceUuid": "d69d3d40-1691-11df-97a5-7038c432aabf",
-      "date": 1768780800000
+      "date": "2026-01-19",
+      "text": "(2026-01-19) Temperature (C): 37.3 C"
     },
     {
       "index": 118,
       "resourceType": "obs",
       "resourceUuid": "d69d3ed2-1691-11df-97a5-7038c432aabf",
-      "date": 1768780800000
+      "date": "2026-01-19",
+      "text": "(2026-01-19) Weight (kg): 6.25 kg"
     },
     {
       "index": 119,
       "resourceType": "obs",
       "resourceUuid": "d69d4064-1691-11df-97a5-7038c432aabf",
-      "date": 1768780800000
+      "date": "2026-01-19",
+      "text": "(2026-01-19) Peds CDC category query: CDC category c"
     },
     {
       "index": 120,
       "resourceType": "obs",
       "resourceUuid": "d69d41fa-1691-11df-97a5-7038c432aabf",
-      "date": 1768780800000
+      "date": "2026-01-19",
+      "text": "(2026-01-19) Peds WHO category query: WHO stage 4 peds"
     },
     {
       "index": 121,
       "resourceType": "obs",
       "resourceUuid": "d69d4e86-1691-11df-97a5-7038c432aabf",
-      "date": 1768780800000
+      "date": "2026-01-19",
+      "text": "(2026-01-19) Return visit date: 2026-01-26"
     },
     {
       "index": 122,
       "resourceType": "obs",
       "resourceUuid": "d69d54e0-1691-11df-97a5-7038c432aabf",
-      "date": 1768780800000
+      "date": "2026-01-19",
+      "text": "(2026-01-19) Patient reported current tuberculosis treatment: None"
     },
     {
       "index": 123,
       "resourceType": "obs",
       "resourceUuid": "d69d5672-1691-11df-97a5-7038c432aabf",
-      "date": 1768780800000
+      "date": "2026-01-19",
+      "text": "(2026-01-19) Patient reported current cryptococcus treatment: None"
     },
     {
       "index": 124,
       "resourceType": "obs",
       "resourceUuid": "d69d5808-1691-11df-97a5-7038c432aabf",
-      "date": 1768780800000
+      "date": "2026-01-19",
+      "text": "(2026-01-19) Antiretroviral plan: Start drugs"
     },
     {
       "index": 125,
       "resourceType": "obs",
       "resourceUuid": "d69d5e66-1691-11df-97a5-7038c432aabf",
-      "date": 1768780800000
+      "date": "2026-01-19",
+      "text": "(2026-01-19) PCP prophylaxis plan: Continue regimen"
     },
     {
       "index": 126,
       "resourceType": "obs",
       "resourceUuid": "d69d5ffc-1691-11df-97a5-7038c432aabf",
-      "date": 1768780800000
+      "date": "2026-01-19",
+      "text": "(2026-01-19) Tuberculosis prophylaxis plan: None"
     },
     {
       "index": 127,
       "resourceType": "obs",
       "resourceUuid": "d69d618e-1691-11df-97a5-7038c432aabf",
-      "date": 1768780800000
+      "date": "2026-01-19",
+      "text": "(2026-01-19) Tuberculosis treatment plan: None"
     },
     {
       "index": 128,
       "resourceType": "obs",
       "resourceUuid": "d69d6f4a-1691-11df-97a5-7038c432aabf",
-      "date": 1768780800000
+      "date": "2026-01-19",
+      "text": "(2026-01-19) Referrals ordered: None"
     },
     {
       "index": 129,
       "resourceType": "test_order",
       "resourceUuid": "22a9738d-751d-56ac-9d22-dbad34cab122",
-      "date": 1768780800000
+      "date": "2026-01-19",
+      "text": "(2026-01-19) Test order: Immunizations. Action: NEW. Urgency: ROUTINE"
     },
     {
       "index": 130,
       "resourceType": "visit",
       "resourceUuid": "2706063a-a798-5b7c-9f78-cc98da0716d2",
-      "date": 1768780800000
+      "date": "2026-01-19",
+      "text": "(2026-01-19) Visit: Facility Visit at Unknown Location"
     },
     {
       "index": 131,
       "resourceType": "condition",
       "resourceUuid": "29d70771-feb1-5369-b65d-5b1a69ef0389",
-      "date": 1768176000000
+      "date": "2026-01-12",
+      "text": "(2026-01-12) Condition: Failure to thrive. Status: ACTIVE. Onset: 2026-01-12"
     },
     {
       "index": 132,
       "resourceType": "condition",
       "resourceUuid": "a94beba1-1bf9-5b86-9b51-873a7339bd6f",
-      "date": 1768176000000
+      "date": "2026-01-12",
+      "text": "(2026-01-12) Condition: Delayed milestones. Status: ACTIVE. Onset: 2026-01-12"
     },
     {
       "index": 133,
       "resourceType": "drug_order",
       "resourceUuid": "3b857836-a3d9-513a-bf83-5e56b746b3c3",
-      "date": 1768176000000
+      "date": "2026-01-12",
+      "text": "(2026-01-12) Drug order: Trimethoprim and sulfamethoxazole. Action: NEW. Urgency: ROUTINE"
     },
     {
       "index": 134,
       "resourceType": "drug_order",
       "resourceUuid": "6e46f704-3d7a-575a-be95-3ef64b4066e0",
-      "date": 1768176000000
+      "date": "2026-01-12",
+      "text": "(2026-01-12) Drug order: Polio vaccination, oral. Action: NEW. Urgency: ROUTINE"
     },
     {
       "index": 135,
       "resourceType": "drug_order",
       "resourceUuid": "72914e25-850e-5e6f-8879-aefa0f528c47",
-      "date": 1768176000000
+      "date": "2026-01-12",
+      "text": "(2026-01-12) Drug order: Hepatitis B vaccination. Action: NEW. Urgency: ROUTINE"
     },
     {
       "index": 136,
       "resourceType": "drug_order",
       "resourceUuid": "7a06bd25-5c01-5067-b445-210cf204c4e7",
-      "date": 1768176000000
+      "date": "2026-01-12",
+      "text": "(2026-01-12) Drug order: Diphtheria tetanus and pertussis vaccination. Action: NEW. Urgency: ROUTINE"
     },
     {
       "index": 137,
       "resourceType": "drug_order",
       "resourceUuid": "7cfd8377-3dac-5395-b954-6d4ba624a612",
-      "date": 1768176000000
+      "date": "2026-01-12",
+      "text": "(2026-01-12) Drug order: Measles vaccination. Action: NEW. Urgency: ROUTINE"
     },
     {
       "index": 138,
       "resourceType": "drug_order",
       "resourceUuid": "99dc5f0c-0a98-5774-aa7e-7db67cbc55a5",
-      "date": 1768176000000
+      "date": "2026-01-12",
+      "text": "(2026-01-12) Drug order: Hemophilus influenza B vaccine. Action: NEW. Urgency: ROUTINE"
     },
     {
       "index": 139,
       "resourceType": "encounter",
       "resourceUuid": "bfb27197-1691-11df-97a5-7038c432aabf",
-      "date": 1768176000000
+      "date": "2026-01-12",
+      "text": "(2026-01-12) Encounter: Check In at Unknown Location. Provider: Horatio L Hornblower (Unknown)"
     },
     {
       "index": 140,
       "resourceType": "obs",
       "resourceUuid": "d456b478-1691-11df-97a5-7038c432aabf",
-      "date": 1768176000000
+      "date": "2026-01-12",
+      "text": "(2026-01-12) Father deceased: No"
     },
     {
       "index": 141,
       "resourceType": "obs",
       "resourceUuid": "d456c7e2-1691-11df-97a5-7038c432aabf",
-      "date": 1768176000000
+      "date": "2026-01-12",
+      "text": "(2026-01-12) Mother deceased: No"
     },
     {
       "index": 142,
       "resourceType": "obs",
       "resourceUuid": "d456ca35-1691-11df-97a5-7038c432aabf",
-      "date": 1768176000000
+      "date": "2026-01-12",
+      "text": "(2026-01-12) Scheduled visit: Yes"
     },
     {
       "index": 143,
       "resourceType": "obs",
       "resourceUuid": "d456ccc3-1691-11df-97a5-7038c432aabf",
-      "date": 1768176000000
+      "date": "2026-01-12",
+      "text": "(2026-01-12) Pay category: Pilot"
     },
     {
       "index": 144,
       "resourceType": "obs",
       "resourceUuid": "d456cf2f-1691-11df-97a5-7038c432aabf",
-      "date": 1768176000000
+      "date": "2026-01-12",
+      "text": "(2026-01-12) Family member accompanying patient: Mother"
     },
     {
       "index": 145,
       "resourceType": "obs",
       "resourceUuid": "d456e2c0-1691-11df-97a5-7038c432aabf",
-      "date": 1768176000000
+      "date": "2026-01-12",
+      "text": "(2026-01-12) Infant feeding method: Weaned"
     },
     {
       "index": 146,
       "resourceType": "obs",
       "resourceUuid": "d457239c-1691-11df-97a5-7038c432aabf",
-      "date": 1768176000000
+      "date": "2026-01-12",
+      "text": "(2026-01-12) Previous immunizations administered: Bacillus Calmette\u2013Gu\u00e9rin vaccine"
     },
     {
       "index": 147,
       "resourceType": "obs",
       "resourceUuid": "d4573427-1691-11df-97a5-7038c432aabf",
-      "date": 1768176000000
+      "date": "2026-01-12",
+      "text": "(2026-01-12) Childs current HIV status: HIV infected"
     },
     {
       "index": 148,
       "resourceType": "obs",
       "resourceUuid": "d45757f1-1691-11df-97a5-7038c432aabf",
-      "date": 1768176000000
+      "date": "2026-01-12",
+      "text": "(2026-01-12) Hospitalized since last visit: No"
     },
     {
       "index": 149,
       "resourceType": "obs",
       "resourceUuid": "d457597f-1691-11df-97a5-7038c432aabf",
-      "date": 1768176000000
+      "date": "2026-01-12",
+      "text": "(2026-01-12) Antiretroviral use: No"
     },
     {
       "index": 150,
       "resourceType": "obs",
       "resourceUuid": "d4575c4d-1691-11df-97a5-7038c432aabf",
-      "date": 1768176000000
+      "date": "2026-01-12",
+      "text": "(2026-01-12) Family member that administers medications: Mother"
     },
     {
       "index": 151,
       "resourceType": "obs",
       "resourceUuid": "d4575df5-1691-11df-97a5-7038c432aabf",
-      "date": 1768176000000
+      "date": "2026-01-12",
+      "text": "(2026-01-12) Overall drug adherence in last month: No"
     },
     {
       "index": 152,
       "resourceType": "obs",
       "resourceUuid": "d4575f94-1691-11df-97a5-7038c432aabf",
-      "date": 1768176000000
+      "date": "2026-01-12",
+      "text": "(2026-01-12) PCP prophylaxis adherence in past week: All"
     },
     {
       "index": 153,
       "resourceType": "obs",
       "resourceUuid": "d457612a-1691-11df-97a5-7038c432aabf",
-      "date": 1768176000000
+      "date": "2026-01-12",
+      "text": "(2026-01-12) New complaints: Yes"
     },
     {
       "index": 154,
       "resourceType": "obs",
       "resourceUuid": "d45762c5-1691-11df-97a5-7038c432aabf",
-      "date": 1768176000000
+      "date": "2026-01-12",
+      "text": "(2026-01-12) Arterial blood oxygen saturation (pulse oximeter): 98 %"
     },
     {
       "index": 155,
       "resourceType": "obs",
       "resourceUuid": "d457648a-1691-11df-97a5-7038c432aabf",
-      "date": 1768176000000
+      "date": "2026-01-12",
+      "text": "(2026-01-12) Head circumference: 45 cm"
     },
     {
       "index": 156,
       "resourceType": "obs",
       "resourceUuid": "d457660f-1691-11df-97a5-7038c432aabf",
-      "date": 1768176000000
+      "date": "2026-01-12",
+      "text": "(2026-01-12) Height (cm): 66 cm"
     },
     {
       "index": 157,
       "resourceType": "obs",
       "resourceUuid": "d4576790-1691-11df-97a5-7038c432aabf",
-      "date": 1768176000000
+      "date": "2026-01-12",
+      "text": "(2026-01-12) Pulse: 166 beats/min"
     },
     {
       "index": 158,
       "resourceType": "obs",
       "resourceUuid": "d457690d-1691-11df-97a5-7038c432aabf",
-      "date": 1768176000000
+      "date": "2026-01-12",
+      "text": "(2026-01-12) Respiratory rate: 32"
     },
     {
       "index": 159,
       "resourceType": "obs",
       "resourceUuid": "d4576a92-1691-11df-97a5-7038c432aabf",
-      "date": 1768176000000
+      "date": "2026-01-12",
+      "text": "(2026-01-12) Temperature (C): 37.9 C"
     },
     {
       "index": 160,
       "resourceType": "obs",
       "resourceUuid": "d4576c13-1691-11df-97a5-7038c432aabf",
-      "date": 1768176000000
+      "date": "2026-01-12",
+      "text": "(2026-01-12) Weight (kg): 6.3 kg"
     },
     {
       "index": 161,
       "resourceType": "obs",
       "resourceUuid": "d4576d98-1691-11df-97a5-7038c432aabf",
-      "date": 1768176000000
+      "date": "2026-01-12",
+      "text": "(2026-01-12) Abdominal exam findings: Abnormal"
     },
     {
       "index": 162,
       "resourceType": "obs",
       "resourceUuid": "d4576f1d-1691-11df-97a5-7038c432aabf",
-      "date": 1768176000000
+      "date": "2026-01-12",
+      "text": "(2026-01-12) Cardiac exam findings: Abnormal"
     },
     {
       "index": 163,
       "resourceType": "obs",
       "resourceUuid": "d457709a-1691-11df-97a5-7038c432aabf",
-      "date": 1768176000000
+      "date": "2026-01-12",
+      "text": "(2026-01-12) Chest exam findings: Abnormal"
     },
     {
       "index": 164,
       "resourceType": "obs",
       "resourceUuid": "d457721f-1691-11df-97a5-7038c432aabf",
-      "date": 1768176000000
+      "date": "2026-01-12",
+      "text": "(2026-01-12) HEENT exam findings: Normal"
     },
     {
       "index": 165,
       "resourceType": "obs",
       "resourceUuid": "d45773a0-1691-11df-97a5-7038c432aabf",
-      "date": 1768176000000
+      "date": "2026-01-12",
+      "text": "(2026-01-12) Musculoskeletal exam findings: Abnormal"
     },
     {
       "index": 166,
       "resourceType": "obs",
       "resourceUuid": "d4577526-1691-11df-97a5-7038c432aabf",
-      "date": 1768176000000
+      "date": "2026-01-12",
+      "text": "(2026-01-12) Neurologic exam findings: Abnormal"
     },
     {
       "index": 167,
       "resourceType": "obs",
       "resourceUuid": "d45776a6-1691-11df-97a5-7038c432aabf",
-      "date": 1768176000000
+      "date": "2026-01-12",
+      "text": "(2026-01-12) Peds CDC category query: CDC category c"
     },
     {
       "index": 168,
       "resourceType": "obs",
       "resourceUuid": "d457782c-1691-11df-97a5-7038c432aabf",
-      "date": 1768176000000
+      "date": "2026-01-12",
+      "text": "(2026-01-12) Peds WHO category query: WHO stage 4 peds"
     },
     {
       "index": 169,
       "resourceType": "obs",
       "resourceUuid": "d45779b1-1691-11df-97a5-7038c432aabf",
-      "date": 1768176000000
+      "date": "2026-01-12",
+      "text": "(2026-01-12) Return visit date: 2026-01-19"
     },
     {
       "index": 170,
       "resourceType": "obs",
       "resourceUuid": "d4577fb1-1691-11df-97a5-7038c432aabf",
-      "date": 1768176000000
+      "date": "2026-01-12",
+      "text": "(2026-01-12) Patient reported current tuberculosis prophylaxis: None"
     },
     {
       "index": 171,
       "resourceType": "obs",
       "resourceUuid": "d4578136-1691-11df-97a5-7038c432aabf",
-      "date": 1768176000000
+      "date": "2026-01-12",
+      "text": "(2026-01-12) Patient reported current tuberculosis treatment: None"
     },
     {
       "index": 172,
       "resourceType": "obs",
       "resourceUuid": "d457830c-1691-11df-97a5-7038c432aabf",
-      "date": 1768176000000
+      "date": "2026-01-12",
+      "text": "(2026-01-12) Patient reported current cryptococcus treatment: None"
     },
     {
       "index": 173,
       "resourceType": "obs",
       "resourceUuid": "d45784a3-1691-11df-97a5-7038c432aabf",
-      "date": 1768176000000
+      "date": "2026-01-12",
+      "text": "(2026-01-12) Antiretroviral plan: None"
     },
     {
       "index": 174,
       "resourceType": "obs",
       "resourceUuid": "d4578630-1691-11df-97a5-7038c432aabf",
-      "date": 1768176000000
+      "date": "2026-01-12",
+      "text": "(2026-01-12) PCP prophylaxis plan: Continue regimen"
     },
     {
       "index": 175,
       "resourceType": "obs",
       "resourceUuid": "d45787cb-1691-11df-97a5-7038c432aabf",
-      "date": 1768176000000
+      "date": "2026-01-12",
+      "text": "(2026-01-12) Tuberculosis prophylaxis plan: None"
     },
     {
       "index": 176,
       "resourceType": "obs",
       "resourceUuid": "d4578961-1691-11df-97a5-7038c432aabf",
-      "date": 1768176000000
+      "date": "2026-01-12",
+      "text": "(2026-01-12) Tuberculosis treatment plan: None"
     },
     {
       "index": 177,
       "resourceType": "obs",
       "resourceUuid": "d4578cac-1691-11df-97a5-7038c432aabf",
-      "date": 1768176000000
+      "date": "2026-01-12",
+      "text": "(2026-01-12) Tests ordered: Complete blood count"
     },
     {
       "index": 178,
       "resourceType": "obs",
       "resourceUuid": "d4578e29-1691-11df-97a5-7038c432aabf",
-      "date": 1768176000000
+      "date": "2026-01-12",
+      "text": "(2026-01-12) Tests ordered: Serum glutamic-pyruvic transaminase"
     },
     {
       "index": 179,
       "resourceType": "obs",
       "resourceUuid": "d4578fae-1691-11df-97a5-7038c432aabf",
-      "date": 1768176000000
+      "date": "2026-01-12",
+      "text": "(2026-01-12) Tests ordered: Serum creatinine (umol/L)"
     },
     {
       "index": 180,
       "resourceType": "obs",
       "resourceUuid": "d69d4388-1691-11df-97a5-7038c432aabf",
-      "date": 1768176000000
+      "date": "2026-01-12",
+      "text": "(2026-01-12) Absolute lymphocyte count: 7740 10^3/uL"
     },
     {
       "index": 181,
       "resourceType": "obs",
       "resourceUuid": "d69d451e-1691-11df-97a5-7038c432aabf",
-      "date": 1768176000000
+      "date": "2026-01-12",
+      "text": "(2026-01-12) Haemoglobin: 13.2 g/dL"
     },
     {
       "index": 182,
       "resourceType": "obs",
       "resourceUuid": "d69d46a8-1691-11df-97a5-7038c432aabf",
-      "date": 1768176000000
+      "date": "2026-01-12",
+      "text": "(2026-01-12) Mean corpuscular volume: 75 fL"
     },
     {
       "index": 183,
       "resourceType": "obs",
       "resourceUuid": "d69d483e-1691-11df-97a5-7038c432aabf",
-      "date": 1768176000000
+      "date": "2026-01-12",
+      "text": "(2026-01-12) Platelets: 182000 10^3/mL"
     },
     {
       "index": 184,
       "resourceType": "obs",
       "resourceUuid": "d69d49d4-1691-11df-97a5-7038c432aabf",
-      "date": 1768176000000
+      "date": "2026-01-12",
+      "text": "(2026-01-12) Serum creatinine (umol/L): 21.95 umol/L"
     },
     {
       "index": 185,
       "resourceType": "obs",
       "resourceUuid": "d69d4b62-1691-11df-97a5-7038c432aabf",
-      "date": 1768176000000
+      "date": "2026-01-12",
+      "text": "(2026-01-12) Serum glutamic-pyruvic transaminase: 21.2 IU/L"
     },
     {
       "index": 186,
       "resourceType": "obs",
       "resourceUuid": "d69d4cf8-1691-11df-97a5-7038c432aabf",
-      "date": 1768176000000
+      "date": "2026-01-12",
+      "text": "(2026-01-12) White blood cells: 11700 10^3/uL"
     },
     {
       "index": 187,
       "resourceType": "test_order",
       "resourceUuid": "68787358-6b2e-5713-941f-78c707bd4740",
-      "date": 1768176000000
+      "date": "2026-01-12",
+      "text": "(2026-01-12) Test order: Immunizations. Action: NEW. Urgency: ROUTINE"
     },
     {
       "index": 188,
       "resourceType": "visit",
       "resourceUuid": "0b262ba5-94e0-5909-898a-9c7a491146e0",
-      "date": 1768176000000
+      "date": "2026-01-12",
+      "text": "(2026-01-12) Visit: Facility Visit at Unknown Location"
     },
     {
       "index": 189,
       "resourceType": "condition",
       "resourceUuid": "6d0f2c5d-cd6f-5308-a549-9d70101be3ce",
-      "date": 1767830400000
+      "date": "2026-01-08",
+      "text": "(2026-01-08) Condition: Fever. Status: ACTIVE. Onset: 2026-01-08"
     },
     {
       "index": 190,
       "resourceType": "condition",
       "resourceUuid": "cd1a0e31-c53e-5347-a48b-efbd2b1abb3b",
-      "date": 1767830400000
+      "date": "2026-01-08",
+      "text": "(2026-01-08) Condition: Measles. Status: ACTIVE. Onset: 2026-01-08"
     },
     {
       "index": 191,
       "resourceType": "drug_order",
       "resourceUuid": "21f08615-1e36-5583-bb5e-f96c8e348a84",
-      "date": 1767830400000
+      "date": "2026-01-08",
+      "text": "(2026-01-08) Drug order: Hemophilus influenza B vaccine. Action: NEW. Urgency: ROUTINE"
     },
     {
       "index": 192,
       "resourceType": "drug_order",
       "resourceUuid": "2e125bae-710a-5deb-b74d-225cc21dbaca",
-      "date": 1767830400000
+      "date": "2026-01-08",
+      "text": "(2026-01-08) Drug order: Hepatitis B vaccination. Action: NEW. Urgency: ROUTINE"
     },
     {
       "index": 193,
       "resourceType": "drug_order",
       "resourceUuid": "6580af77-afab-538a-9e16-d6bb9f518d6b",
-      "date": 1767830400000
+      "date": "2026-01-08",
+      "text": "(2026-01-08) Drug order: Trimethoprim and sulfamethoxazole. Action: NEW. Urgency: ROUTINE"
     },
     {
       "index": 194,
       "resourceType": "drug_order",
       "resourceUuid": "85bfcae3-d0ec-5363-a56e-d69f2cde3134",
-      "date": 1767830400000
+      "date": "2026-01-08",
+      "text": "(2026-01-08) Drug order: Polio vaccination, oral. Action: NEW. Urgency: ROUTINE"
     },
     {
       "index": 195,
       "resourceType": "drug_order",
       "resourceUuid": "b018ff88-5cf2-516e-95cc-003ab32a4569",
-      "date": 1767830400000
+      "date": "2026-01-08",
+      "text": "(2026-01-08) Drug order: Measles vaccination. Action: NEW. Urgency: ROUTINE"
     },
     {
       "index": 196,
       "resourceType": "drug_order",
       "resourceUuid": "c9ed3108-e291-520f-803a-1f7bf7d82480",
-      "date": 1767830400000
+      "date": "2026-01-08",
+      "text": "(2026-01-08) Drug order: Diphtheria tetanus and pertussis vaccination. Action: NEW. Urgency: ROUTINE"
     },
     {
       "index": 197,
       "resourceType": "encounter",
       "resourceUuid": "bfb2561b-1691-11df-97a5-7038c432aabf",
-      "date": 1767830400000
+      "date": "2026-01-08",
+      "text": "(2026-01-08) Encounter: Check In at Unknown Location. Provider: Horatio L Hornblower (Unknown)"
     },
     {
       "index": 198,
       "resourceType": "obs",
       "resourceUuid": "d440f12e-1691-11df-97a5-7038c432aabf",
-      "date": 1767830400000
+      "date": "2026-01-08",
+      "text": "(2026-01-08) Father deceased: No"
     },
     {
       "index": 199,
       "resourceType": "obs",
       "resourceUuid": "d440f2de-1691-11df-97a5-7038c432aabf",
-      "date": 1767830400000
+      "date": "2026-01-08",
+      "text": "(2026-01-08) Mother deceased: No"
     },
     {
       "index": 200,
       "resourceType": "obs",
       "resourceUuid": "d440f475-1691-11df-97a5-7038c432aabf",
-      "date": 1767830400000
+      "date": "2026-01-08",
+      "text": "(2026-01-08) Scheduled visit: No"
     },
     {
       "index": 201,
       "resourceType": "obs",
       "resourceUuid": "d440f614-1691-11df-97a5-7038c432aabf",
-      "date": 1767830400000
+      "date": "2026-01-08",
+      "text": "(2026-01-08) Pay category: Pilot"
     },
     {
       "index": 202,
       "resourceType": "obs",
       "resourceUuid": "d440f7ae-1691-11df-97a5-7038c432aabf",
-      "date": 1767830400000
+      "date": "2026-01-08",
+      "text": "(2026-01-08) Family member accompanying patient: Mother"
     },
     {
       "index": 203,
       "resourceType": "obs",
       "resourceUuid": "d440f94d-1691-11df-97a5-7038c432aabf",
-      "date": 1767830400000
+      "date": "2026-01-08",
+      "text": "(2026-01-08) Infant feeding method: Weaned"
     },
     {
       "index": 204,
       "resourceType": "obs",
       "resourceUuid": "d441128c-1691-11df-97a5-7038c432aabf",
-      "date": 1767830400000
+      "date": "2026-01-08",
+      "text": "(2026-01-08) Previous immunizations administered: Bacillus Calmette\u2013Gu\u00e9rin vaccine"
     },
     {
       "index": 205,
       "resourceType": "obs",
       "resourceUuid": "d441146b-1691-11df-97a5-7038c432aabf",
-      "date": 1767830400000
+      "date": "2026-01-08",
+      "text": "(2026-01-08) Childs current HIV status: HIV infected"
     },
     {
       "index": 206,
       "resourceType": "obs",
       "resourceUuid": "d441160a-1691-11df-97a5-7038c432aabf",
-      "date": 1767830400000
+      "date": "2026-01-08",
+      "text": "(2026-01-08) Hospitalized since last visit: No"
     },
     {
       "index": 207,
       "resourceType": "obs",
       "resourceUuid": "d441179c-1691-11df-97a5-7038c432aabf",
-      "date": 1767830400000
+      "date": "2026-01-08",
+      "text": "(2026-01-08) Antiretroviral use: No"
     },
     {
       "index": 208,
       "resourceType": "obs",
       "resourceUuid": "d4411932-1691-11df-97a5-7038c432aabf",
-      "date": 1767830400000
+      "date": "2026-01-08",
+      "text": "(2026-01-08) Family member that administers medications: Mother"
     },
     {
       "index": 209,
       "resourceType": "obs",
       "resourceUuid": "d4411ac9-1691-11df-97a5-7038c432aabf",
-      "date": 1767830400000
+      "date": "2026-01-08",
+      "text": "(2026-01-08) Overall drug adherence in last month: No"
     },
     {
       "index": 210,
       "resourceType": "obs",
       "resourceUuid": "d4411c97-1691-11df-97a5-7038c432aabf",
-      "date": 1767830400000
+      "date": "2026-01-08",
+      "text": "(2026-01-08) PCP prophylaxis adherence in past week: All"
     },
     {
       "index": 211,
       "resourceType": "obs",
       "resourceUuid": "d4411e1c-1691-11df-97a5-7038c432aabf",
-      "date": 1767830400000
+      "date": "2026-01-08",
+      "text": "(2026-01-08) New complaints: Yes"
     },
     {
       "index": 212,
       "resourceType": "obs",
       "resourceUuid": "d4411f9d-1691-11df-97a5-7038c432aabf",
-      "date": 1767830400000
+      "date": "2026-01-08",
+      "text": "(2026-01-08) Arterial blood oxygen saturation (pulse oximeter): 81 %"
     },
     {
       "index": 213,
       "resourceType": "obs",
       "resourceUuid": "d4412122-1691-11df-97a5-7038c432aabf",
-      "date": 1767830400000
+      "date": "2026-01-08",
+      "text": "(2026-01-08) Head circumference: 44.5 cm"
     },
     {
       "index": 214,
       "resourceType": "obs",
       "resourceUuid": "d44122a3-1691-11df-97a5-7038c432aabf",
-      "date": 1767830400000
+      "date": "2026-01-08",
+      "text": "(2026-01-08) Height (cm): 65.5 cm"
     },
     {
       "index": 215,
       "resourceType": "obs",
       "resourceUuid": "d4412428-1691-11df-97a5-7038c432aabf",
-      "date": 1767830400000
+      "date": "2026-01-08",
+      "text": "(2026-01-08) Pulse: 179 beats/min"
     },
     {
       "index": 216,
       "resourceType": "obs",
       "resourceUuid": "d44125a5-1691-11df-97a5-7038c432aabf",
-      "date": 1767830400000
+      "date": "2026-01-08",
+      "text": "(2026-01-08) Respiratory rate: 40"
     },
     {
       "index": 217,
       "resourceType": "obs",
       "resourceUuid": "d441272a-1691-11df-97a5-7038c432aabf",
-      "date": 1767830400000
+      "date": "2026-01-08",
+      "text": "(2026-01-08) Temperature (C): 37.6 C"
     },
     {
       "index": 218,
       "resourceType": "obs",
       "resourceUuid": "d44128b4-1691-11df-97a5-7038c432aabf",
-      "date": 1767830400000
+      "date": "2026-01-08",
+      "text": "(2026-01-08) Weight (kg): 6.1 kg"
     },
     {
       "index": 219,
       "resourceType": "obs",
       "resourceUuid": "d4412a30-1691-11df-97a5-7038c432aabf",
-      "date": 1767830400000
+      "date": "2026-01-08",
+      "text": "(2026-01-08) Abdominal exam findings: Abnormal"
     },
     {
       "index": 220,
       "resourceType": "obs",
       "resourceUuid": "d4412bbe-1691-11df-97a5-7038c432aabf",
-      "date": 1767830400000
+      "date": "2026-01-08",
+      "text": "(2026-01-08) Cardiac exam findings: Abnormal"
     },
     {
       "index": 221,
       "resourceType": "obs",
       "resourceUuid": "d4412d3f-1691-11df-97a5-7038c432aabf",
-      "date": 1767830400000
+      "date": "2026-01-08",
+      "text": "(2026-01-08) Chest exam findings: Abnormal"
     },
     {
       "index": 222,
       "resourceType": "obs",
       "resourceUuid": "d4412ec4-1691-11df-97a5-7038c432aabf",
-      "date": 1767830400000
+      "date": "2026-01-08",
+      "text": "(2026-01-08) HEENT exam findings: Abnormal"
     },
     {
       "index": 223,
       "resourceType": "obs",
       "resourceUuid": "d441304a-1691-11df-97a5-7038c432aabf",
-      "date": 1767830400000
+      "date": "2026-01-08",
+      "text": "(2026-01-08) Musculoskeletal exam findings: Normal"
     },
     {
       "index": 224,
       "resourceType": "obs",
       "resourceUuid": "d44131cb-1691-11df-97a5-7038c432aabf",
-      "date": 1767830400000
+      "date": "2026-01-08",
+      "text": "(2026-01-08) Neurologic exam findings: Abnormal"
     },
     {
       "index": 225,
       "resourceType": "obs",
       "resourceUuid": "d4413350-1691-11df-97a5-7038c432aabf",
-      "date": 1767830400000
+      "date": "2026-01-08",
+      "text": "(2026-01-08) Peds CDC category query: CDC category b"
     },
     {
       "index": 226,
       "resourceType": "obs",
       "resourceUuid": "d44134d1-1691-11df-97a5-7038c432aabf",
-      "date": 1767830400000
+      "date": "2026-01-08",
+      "text": "(2026-01-08) Peds WHO category query: WHO stage 2 peds"
     },
     {
       "index": 227,
       "resourceType": "obs",
       "resourceUuid": "d4413667-1691-11df-97a5-7038c432aabf",
-      "date": 1767830400000
+      "date": "2026-01-08",
+      "text": "(2026-01-08) Reason feeding method changed: Other"
     },
     {
       "index": 228,
       "resourceType": "obs",
       "resourceUuid": "d4413c9a-1691-11df-97a5-7038c432aabf",
-      "date": 1767830400000
+      "date": "2026-01-08",
+      "text": "(2026-01-08) Patient reported current tuberculosis prophylaxis: None"
     },
     {
       "index": 229,
       "resourceType": "obs",
       "resourceUuid": "d4413e1b-1691-11df-97a5-7038c432aabf",
-      "date": 1767830400000
+      "date": "2026-01-08",
+      "text": "(2026-01-08) Patient reported current tuberculosis treatment: None"
     },
     {
       "index": 230,
       "resourceType": "obs",
       "resourceUuid": "d4413f98-1691-11df-97a5-7038c432aabf",
-      "date": 1767830400000
+      "date": "2026-01-08",
+      "text": "(2026-01-08) Patient reported current cryptococcus treatment: None"
     },
     {
       "index": 231,
       "resourceType": "obs",
       "resourceUuid": "d441411d-1691-11df-97a5-7038c432aabf",
-      "date": 1767830400000
+      "date": "2026-01-08",
+      "text": "(2026-01-08) Antiretroviral plan: None"
     },
     {
       "index": 232,
       "resourceType": "obs",
       "resourceUuid": "d4414295-1691-11df-97a5-7038c432aabf",
-      "date": 1767830400000
+      "date": "2026-01-08",
+      "text": "(2026-01-08) PCP prophylaxis plan: Continue regimen"
     },
     {
       "index": 233,
       "resourceType": "obs",
       "resourceUuid": "d4414441-1691-11df-97a5-7038c432aabf",
-      "date": 1767830400000
+      "date": "2026-01-08",
+      "text": "(2026-01-08) Tuberculosis prophylaxis plan: None"
     },
     {
       "index": 234,
       "resourceType": "obs",
       "resourceUuid": "d44153d3-1691-11df-97a5-7038c432aabf",
-      "date": 1767830400000
+      "date": "2026-01-08",
+      "text": "(2026-01-08) Tuberculosis treatment plan: None"
     },
     {
       "index": 235,
       "resourceType": "obs",
       "resourceUuid": "d44156ab-1691-11df-97a5-7038c432aabf",
-      "date": 1767830400000
+      "date": "2026-01-08",
+      "text": "(2026-01-08) Referrals ordered: None"
     },
     {
       "index": 236,
       "resourceType": "obs",
       "resourceUuid": "d5ea92c5-1691-11df-97a5-7038c432aabf",
-      "date": 1767830400000
+      "date": "2026-01-08",
+      "text": "(2026-01-08) Return visit date: 2026-01-12"
     },
     {
       "index": 237,
       "resourceType": "test_order",
       "resourceUuid": "510cd3ee-22c8-56a6-b7b6-ee99314031b9",
-      "date": 1767830400000
+      "date": "2026-01-08",
+      "text": "(2026-01-08) Test order: Immunizations. Action: NEW. Urgency: ROUTINE"
     },
     {
       "index": 238,
       "resourceType": "visit",
       "resourceUuid": "4ef620c3-68d4-5096-aa0c-356df485f9d2",
-      "date": 1767830400000
+      "date": "2026-01-08",
+      "text": "(2026-01-08) Visit: Facility Visit at Unknown Location"
     },
     {
       "index": 239,
       "resourceType": "condition",
       "resourceUuid": "a45deed8-f7b4-5f65-a7a7-05f807464cbb",
-      "date": 1767484800000
+      "date": "2026-01-04",
+      "text": "(2026-01-04) Condition: Acute coryza. Status: ACTIVE. Onset: 2026-01-04"
     },
     {
       "index": 240,
       "resourceType": "drug_order",
       "resourceUuid": "7a4427bd-2d50-5335-b9fd-4ab4344af77f",
-      "date": 1767484800000
+      "date": "2026-01-04",
+      "text": "(2026-01-04) Drug order: Trimethoprim and sulfamethoxazole. Action: NEW. Urgency: ROUTINE"
     },
     {
       "index": 241,
       "resourceType": "encounter",
       "resourceUuid": "bfa0ef9c-1691-11df-97a5-7038c432aabf",
-      "date": 1767484800000
+      "date": "2026-01-04",
+      "text": "(2026-01-04) Encounter: Check In at Unknown Location. Provider: Horatio L Hornblower (Unknown)"
     },
     {
       "index": 242,
       "resourceType": "obs",
       "resourceUuid": "d12912b4-1691-11df-97a5-7038c432aabf",
-      "date": 1767484800000
+      "date": "2026-01-04",
+      "text": "(2026-01-04) Father deceased: No"
     },
     {
       "index": 243,
       "resourceType": "obs",
       "resourceUuid": "d12914e5-1691-11df-97a5-7038c432aabf",
-      "date": 1767484800000
+      "date": "2026-01-04",
+      "text": "(2026-01-04) Mother deceased: No"
     },
     {
       "index": 244,
       "resourceType": "obs",
       "resourceUuid": "d1291719-1691-11df-97a5-7038c432aabf",
-      "date": 1767484800000
+      "date": "2026-01-04",
+      "text": "(2026-01-04) Scheduled visit: No"
     },
     {
       "index": 245,
       "resourceType": "obs",
       "resourceUuid": "d1292835-1691-11df-97a5-7038c432aabf",
-      "date": 1767484800000
+      "date": "2026-01-04",
+      "text": "(2026-01-04) Pay category: Pilot"
     },
     {
       "index": 246,
       "resourceType": "obs",
       "resourceUuid": "d1292c22-1691-11df-97a5-7038c432aabf",
-      "date": 1767484800000
+      "date": "2026-01-04",
+      "text": "(2026-01-04) Family member accompanying patient: Mother"
     },
     {
       "index": 247,
       "resourceType": "obs",
       "resourceUuid": "d1292e71-1691-11df-97a5-7038c432aabf",
-      "date": 1767484800000
+      "date": "2026-01-04",
+      "text": "(2026-01-04) Infant feeding method: Weaned"
     },
     {
       "index": 248,
       "resourceType": "obs",
       "resourceUuid": "d12941b9-1691-11df-97a5-7038c432aabf",
-      "date": 1767484800000
+      "date": "2026-01-04",
+      "text": "(2026-01-04) Antiretroviral use: No"
     },
     {
       "index": 249,
       "resourceType": "obs",
       "resourceUuid": "d1294414-1691-11df-97a5-7038c432aabf",
-      "date": 1767484800000
+      "date": "2026-01-04",
+      "text": "(2026-01-04) PCP prophylaxis adherence in past week: All"
     },
     {
       "index": 250,
       "resourceType": "obs",
       "resourceUuid": "d12954d1-1691-11df-97a5-7038c432aabf",
-      "date": 1767484800000
+      "date": "2026-01-04",
+      "text": "(2026-01-04) New complaints: Yes"
     },
     {
       "index": 251,
       "resourceType": "obs",
       "resourceUuid": "d1296502-1691-11df-97a5-7038c432aabf",
-      "date": 1767484800000
+      "date": "2026-01-04",
+      "text": "(2026-01-04) Arterial blood oxygen saturation (pulse oximeter): 95 %"
     },
     {
       "index": 252,
       "resourceType": "obs",
       "resourceUuid": "d1298973-1691-11df-97a5-7038c432aabf",
-      "date": 1767484800000
+      "date": "2026-01-04",
+      "text": "(2026-01-04) Head circumference: 44.5 cm"
     },
     {
       "index": 253,
       "resourceType": "obs",
       "resourceUuid": "d1298af4-1691-11df-97a5-7038c432aabf",
-      "date": 1767484800000
+      "date": "2026-01-04",
+      "text": "(2026-01-04) Height (cm): 65.5 cm"
     },
     {
       "index": 254,
       "resourceType": "obs",
       "resourceUuid": "d1298c64-1691-11df-97a5-7038c432aabf",
-      "date": 1767484800000
+      "date": "2026-01-04",
+      "text": "(2026-01-04) Pulse: 167 beats/min"
     },
     {
       "index": 255,
       "resourceType": "obs",
       "resourceUuid": "d1298de0-1691-11df-97a5-7038c432aabf",
-      "date": 1767484800000
+      "date": "2026-01-04",
+      "text": "(2026-01-04) Respiratory rate: 34"
     },
     {
       "index": 256,
       "resourceType": "obs",
       "resourceUuid": "d1298fb3-1691-11df-97a5-7038c432aabf",
-      "date": 1767484800000
+      "date": "2026-01-04",
+      "text": "(2026-01-04) Temperature (C): 37.2 C"
     },
     {
       "index": 257,
       "resourceType": "obs",
       "resourceUuid": "d1299140-1691-11df-97a5-7038c432aabf",
-      "date": 1767484800000
+      "date": "2026-01-04",
+      "text": "(2026-01-04) Weight (kg): 6.2 kg"
     },
     {
       "index": 258,
       "resourceType": "obs",
       "resourceUuid": "d12992ce-1691-11df-97a5-7038c432aabf",
-      "date": 1767484800000
+      "date": "2026-01-04",
+      "text": "(2026-01-04) Abdominal exam findings: Normal"
     },
     {
       "index": 259,
       "resourceType": "obs",
       "resourceUuid": "d1299465-1691-11df-97a5-7038c432aabf",
-      "date": 1767484800000
+      "date": "2026-01-04",
+      "text": "(2026-01-04) Cardiac exam findings: Normal"
     },
     {
       "index": 260,
       "resourceType": "obs",
       "resourceUuid": "d12995f7-1691-11df-97a5-7038c432aabf",
-      "date": 1767484800000
+      "date": "2026-01-04",
+      "text": "(2026-01-04) Chest exam findings: Normal"
     },
     {
       "index": 261,
       "resourceType": "obs",
       "resourceUuid": "d12997b3-1691-11df-97a5-7038c432aabf",
-      "date": 1767484800000
+      "date": "2026-01-04",
+      "text": "(2026-01-04) HEENT exam findings: Normal"
     },
     {
       "index": 262,
       "resourceType": "obs",
       "resourceUuid": "d1299930-1691-11df-97a5-7038c432aabf",
-      "date": 1767484800000
+      "date": "2026-01-04",
+      "text": "(2026-01-04) Musculoskeletal exam findings: Normal"
     },
     {
       "index": 263,
       "resourceType": "obs",
       "resourceUuid": "d1299aa9-1691-11df-97a5-7038c432aabf",
-      "date": 1767484800000
+      "date": "2026-01-04",
+      "text": "(2026-01-04) Neurologic exam findings: Normal"
     },
     {
       "index": 264,
       "resourceType": "obs",
       "resourceUuid": "d1299c25-1691-11df-97a5-7038c432aabf",
-      "date": 1767484800000
+      "date": "2026-01-04",
+      "text": "(2026-01-04) Peds WHO category query: WHO stage 3 peds"
     },
     {
       "index": 265,
       "resourceType": "obs",
       "resourceUuid": "d1299da2-1691-11df-97a5-7038c432aabf",
-      "date": 1767484800000
+      "date": "2026-01-04",
+      "text": "(2026-01-04) Return visit date: 2026-02-01"
     },
     {
       "index": 266,
       "resourceType": "obs",
       "resourceUuid": "d129a218-1691-11df-97a5-7038c432aabf",
-      "date": 1767484800000
+      "date": "2026-01-04",
+      "text": "(2026-01-04) Patient reported current tuberculosis treatment: None"
     },
     {
       "index": 267,
       "resourceType": "obs",
       "resourceUuid": "d129a395-1691-11df-97a5-7038c432aabf",
-      "date": 1767484800000
+      "date": "2026-01-04",
+      "text": "(2026-01-04) Patient reported current cryptococcus treatment: None"
     },
     {
       "index": 268,
       "resourceType": "obs",
       "resourceUuid": "d129a50d-1691-11df-97a5-7038c432aabf",
-      "date": 1767484800000
+      "date": "2026-01-04",
+      "text": "(2026-01-04) Antiretroviral plan: None"
     },
     {
       "index": 269,
       "resourceType": "obs",
       "resourceUuid": "d129a68a-1691-11df-97a5-7038c432aabf",
-      "date": 1767484800000
+      "date": "2026-01-04",
+      "text": "(2026-01-04) PCP prophylaxis plan: Continue regimen"
     },
     {
       "index": 270,
       "resourceType": "obs",
       "resourceUuid": "d129a80b-1691-11df-97a5-7038c432aabf",
-      "date": 1767484800000
+      "date": "2026-01-04",
+      "text": "(2026-01-04) Tuberculosis prophylaxis plan: None"
     },
     {
       "index": 271,
       "resourceType": "obs",
       "resourceUuid": "d129a97b-1691-11df-97a5-7038c432aabf",
-      "date": 1767484800000
+      "date": "2026-01-04",
+      "text": "(2026-01-04) Tuberculosis treatment plan: None"
     },
     {
       "index": 272,
       "resourceType": "obs",
       "resourceUuid": "d129ac6b-1691-11df-97a5-7038c432aabf",
-      "date": 1767484800000
+      "date": "2026-01-04",
+      "text": "(2026-01-04) Referrals ordered: None"
     },
     {
       "index": 273,
       "resourceType": "test_order",
       "resourceUuid": "9c2e1d66-7acc-589f-bee7-f4a3765c8648",
-      "date": 1767484800000
+      "date": "2026-01-04",
+      "text": "(2026-01-04) Test order: Immunizations. Action: NEW. Urgency: ROUTINE"
     },
     {
       "index": 274,
       "resourceType": "visit",
       "resourceUuid": "0ff01ec6-fd79-5bbe-9b8d-2786e4ca0b38",
-      "date": 1767484800000
+      "date": "2026-01-04",
+      "text": "(2026-01-04) Visit: Facility Visit at Unknown Location"
     },
     {
       "index": 275,
       "resourceType": "patient",
       "resourceUuid": "dd8b9076-1691-11df-97a5-7038c432aabf",
-      "date": 1757376000000
+      "date": "2025-09-09",
+      "text": "(2025-09-09) Patient: Ellcky Ikatwa Minayo. Male. Born 2025-08-04. Address: East Kabras. Identifiers: OpenMRS Identification Number 5282MP-0"
     },
     {
       "index": 276,
       "resourceType": "program",
       "resourceUuid": "13ade486-15f5-102d-96e4-000c29c2a5d7",
-      "date": 1741132800000
+      "date": "2025-03-05",
+      "text": "(2025-03-05) Program: Human immunodeficiency virus (HIV) disease. Enrolled: 2025-03-05. Status: Active. Current state: GROUP 4"
     }
   ],
   "valid_uuids": [

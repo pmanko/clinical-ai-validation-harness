@@ -4,7 +4,13 @@
 **Roadmap entry**: amends the feature 006 (validation-harness-mvp) report layer; driven by reviewer feedback.
 **Repo**: `clinical-ai-validation-harness` (feature branch → PR → harness-ci → `main`, squash-only).
 **Companion dossier**: [`L2-reports-human-feedback.md`](L2-reports-human-feedback.md).
-**Last updated**: 2026-06-14.
+**Last updated**: 2026-07-14.
+
+**Implementation note:** `harness/validate/review_presentation.py` now owns the shared
+confidence/lifecycle labels and treatment plus the current score formatter. The static report and
+live dashboard consume those semantics, and one fixture is exercised through both renderers. The
+brief's proposed conversion from native 0-10 scores to percentages remains unresolved by open
+question 1; this work does not silently choose a conversion.
 
 This is the architectural brief for evolving the validation report into something real human reviewers
 can use, and for ending the report/dashboard parity problem structurally. It is the input to Spec Kit;
@@ -28,7 +34,7 @@ Two problems to solve:
    should actually rank/annotate on.
 2. **Report ↔ dashboard parity is enforced by discipline, and discipline has failed.** `report.py`
    (static report) and `scripts/validate-dashboard.py` (the live `:8099` dashboard) are separate
-   renderers that have **diverged before** — most painfully on per-section confidence inversion. This
+   renderers that have **diverged before** — most painfully on the treatment of flagged output. This
    is the structural fix the lane must not skip.
 
 ---
@@ -56,7 +62,8 @@ Two problems to solve:
 ### 2.4 Parity mechanism (decided — non-negotiable in the spec)
 Two parts:
 1. **Extract the shared semantics into ONE module** under `harness/validate/` that both renderers import:
-   the confidence-inversion rules (red→caveat+collapse, yellow→note-collapse, green→plain), the
+   the confidence-display rules (red→prominent caveat with output still visible,
+   yellow→visible output with a collapsible note, green→plain), the
    score→percentage formatting, and the label strings.
 2. **Parity tests** that feed the same fixture run through **both** `report.py` and `validate-dashboard.py`
    and assert identical confidence treatment and score strings (extend the pattern in
@@ -70,8 +77,9 @@ Discipline-based parity is over; the shared module + parity tests are the mechan
 - **Static hosting only** (GitHub Pages compatible) — no required backend. The POST seam is opt-in.
 - This **amends feature 006** — generated spec/plan/tasks update `specs/006-validation-harness-mvp/`;
   it is not a new numbered feature.
-- The dashboard's `confSection` is the current source of truth for per-section confidence inversion;
-  the shared module must reproduce its behavior exactly (parity tests prove it).
+- Flagged model output must remain visible for manual review in both renderers. Rejected or edited
+  drafts must be labeled as review artifacts and excluded from the shipped answer and judge score.
+  Parity tests must prove the report and dashboard apply that behavior identically.
 - Trace/role schema (`kb_search` / `medical_expert` step roles) must not be renamed — the dashboard
   correlates on it.
 
@@ -89,8 +97,7 @@ Discipline-based parity is over; the shared module + parity tests are the mechan
 
 ## 5. References
 - `harness/validate/report.py` — the static report renderer (legend, `fmt10`, confidence handling).
-- `scripts/validate-dashboard.py` — the live `:8099` dashboard (`confSection` is the confidence-inversion
-  source of truth).
-- `evals/validate/test_report_confidence.py` — the confidence-inversion tests to extend for parity.
+- `scripts/validate-dashboard.py` — the live `:8099` dashboard and its visible flagged-output treatment.
+- `evals/validate/test_report_confidence.py` — the confidence-display tests to extend for parity.
 - `specs/artifacts/planning/eval-methodology-brief.md` — what validation feedback to capture (Scout rubric).
 - `specs/006-validation-harness-mvp/spec.md` — the feature this amends (SC-006.5 adjudication form).

@@ -5,7 +5,7 @@ import { login, openAiChatPanel, openPatientChart, resetChatSession, selectCheck
 
 const QUESTION = 'In one short sentence, what was the most recent documented clinical visit?';
 const SHOTS = path.resolve(__dirname, '../evidence/staged-validation');
-const MODEL_LABEL = process.env.E2E_MODEL_LABEL ?? 'Gemma 12B';
+const MODEL_LABEL = process.env.E2E_MODEL_LABEL ?? 'Checked answer \\(12B\\)';
 const STEP_PAUSE_MS = Number.parseInt(process.env.E2E_STEP_PAUSE_MS ?? '900', 10) || 0;
 const FAST_ANSWER_MAX_MS = process.env.E2E_FAST_ANSWER_MAX_MS
   ? Number.parseInt(process.env.E2E_FAST_ANSWER_MAX_MS, 10)

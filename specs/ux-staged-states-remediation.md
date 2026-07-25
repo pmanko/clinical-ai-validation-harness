@@ -20,10 +20,10 @@ lifecycle — **that is the debt to pay down**, not a constraint to work around.
   (`targets/chartsearchai/omod/src/main/java/org/openmrs/module/chartsearchai/web/rest/ChartSearchAiRestController.java`),
   which forwards the hub's phase-boundary events verbatim.
 - Per-turn SSE events (the phases to mirror): `answer_done` → `answer_validation`
-  (validating → checked | edited | needs_review | unavailable) → `indepth_pending` →
+  (checking → checked | edited | needs_review | unavailable) → `indepth_pending` →
   `indepth_done` → `done`; plus `indepth_error`. The hub does **not** token-stream — the answer
   arrives whole on `answer_done` and the in-depth whole on `indepth_done`.
-- Distilled phases: **answer → validating → answer-settled → in-depth (generating) → complete**
+- Distilled phases: **answer → checking → answer-settled → in-depth (generating) → complete**
   (| failed | preempted).
 - Physical constraints: answer + in-depth both run on the **writer** model (gemma for
   `answer:gemma-4-12b`); validation on qwen. The llama-router is **single-slot per model**
@@ -39,13 +39,13 @@ mirroring the backend events 1:1. All behavior + render + DOM derive from it via
 | phase | backend trigger | composer | notes |
 |---|---|---|---|
 | `answering` | created | locked | answer generating; "Thinking..." indicator |
-| `validating` | `answer_done` | locked | answer text done; self-check running; sections split |
+| `checking` | `answer_done` | locked | answer text done; self-check running; sections split |
 | `settled` | `answer_validation` | **unlocked** | answer available + checked; preemptable |
 | `in-depth` | `indepth_pending` | unlocked | in-depth generating in background (delivered whole on `indepth_done`); preemptable |
 | `complete` | `done` / `indepth_done` / `indepth_error` / stop / preempt | unlocked | terminal; answer available |
 | `error` | `onError` | unlocked | terminal; answer generation itself failed |
 
-Predicates: `isAwaitingAnswer(phase)` = `answering|validating` (drives composer `disabled`, submit/speech/mic
+Predicates: `isAwaitingAnswer(phase)` = `answering|checking` (drives composer `disabled`, submit/speech/mic
 guards, Stop-vs-Send, focus-restore); `isAnswerSettled(phase)` = `settled|in-depth|complete` (preempt
 eligibility); `isTerminal(phase)` = `complete|error` (render actions/blocks/copy). DOM: `data-turn-phase`
 on the response container (coarse phase) + existing `data-indepth-status` (in-depth outcome) — both observable.

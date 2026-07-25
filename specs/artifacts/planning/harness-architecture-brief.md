@@ -1,5 +1,8 @@
 # Harness Architecture Brief — Where We Are, Where We Should Be
 
+> **Historical / superseded.** This predates hub product profiles and the thin ChartSearchAI relay.
+> Current product-run architecture is defined by `hub-consolidation-roadmap.md`.
+
 **Scope:** how a validation run is configured, executed, and made reproducible.
 **Audience:** anyone extending the harness to compare runs across models, prompts, or
 chartsearchai versions.

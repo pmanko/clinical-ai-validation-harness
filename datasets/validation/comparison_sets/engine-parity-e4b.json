@@ -1,0 +1,6 @@
+{
+  "id": "engine-parity-e4b",
+  "scenario_ids": ["am-weight-trend", "am-medications", "am-last-visit"],
+  "backend_ids": ["engine-parity-bundled", "engine-parity-hub"],
+  "transport": "chartsearchai"
+}

@@ -61,6 +61,7 @@ def _answer_text(row: dict[str, Any]) -> str:
     return "\n".join(_walk_strings({
         "answer": resp.get("answer") or "",
         "blocks": resp.get("blocks") or [],
+        "inDepth": (resp.get("inDepth") or {}).get("answer") or "",
     }))
 
 

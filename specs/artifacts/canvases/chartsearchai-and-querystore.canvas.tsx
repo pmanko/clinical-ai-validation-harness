@@ -1,3 +1,5 @@
+// Historical artifact snapshot. Current integration ownership is documented by the approved hub
+// consolidation roadmap and its status amendments.
 import {
   Callout,
   Card,

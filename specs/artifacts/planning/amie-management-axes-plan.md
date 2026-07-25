@@ -1,5 +1,8 @@
 # AMIE management-evaluation layer: detailed implementation plan
 
+> **Historical architecture note:** model-provider and ChartSearchAI integration details in this
+> research plan predate the hub-profile relay. Its clinical-evaluation research remains background.
+
 > The *why/what* is in `amie-management-axes-brief.md`; the full literature read is in
 > `digging-in-research/06-amie-disease-management`. This is the *how, in detail*. Status: planning —
 > several design decisions flagged for sign-off (§Decisions) before Phase 1 implementation.

@@ -1,3 +1,5 @@
+// Historical artifact snapshot. Current architecture is documented by the hub consolidation
+// roadmap and its status amendments.
 import {
   Callout,
   Card,

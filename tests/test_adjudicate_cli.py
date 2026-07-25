@@ -175,8 +175,8 @@ class _StubClient:
     def new_session(self, patient):
         return "sess-1"
 
-    def chat(self, patient, session, question, *, endpoint_url=None,
-             model_name=None, reference_date=None):
+    def chat(self, patient, session, question, *, profile=None,
+             reference_date=None):
         self.chat_calls.append({"reference_date": reference_date})
         return _Result()
 

@@ -26,11 +26,25 @@ if [ ! -d "${ESM_DIR}" ]; then
   exit 1
 fi
 
-echo "==> yarn install ($(cd "${ESM_DIR}" && pwd))"
-(cd "${ESM_DIR}" && yarn install)
+EXPECTED_YARN="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["packageManager"].split("@", 1)[1])' "${ESM_DIR}/package.json")"
+YARN_CMD=(yarn)
+if [ "$(yarn --version)" != "${EXPECTED_YARN}" ]; then
+  COREPACK_HOME="${COREPACK_HOME:-${XDG_CACHE_HOME:-${HOME}/.cache}/node/corepack}"
+  CACHED_YARN="${COREPACK_HOME}/v1/yarn/${EXPECTED_YARN}/yarn.js"
+  if [ -f "${CACHED_YARN}" ]; then
+    YARN_CMD=(node "${CACHED_YARN}")
+  else
+    echo "error: package.json requires Yarn ${EXPECTED_YARN}, but PATH provides $(yarn --version)" >&2
+    echo "  enable Corepack or install the declared Yarn version before building" >&2
+    exit 1
+  fi
+fi
+
+echo "==> yarn ${EXPECTED_YARN} install --immutable ($(cd "${ESM_DIR}" && pwd))"
+(cd "${ESM_DIR}" && "${YARN_CMD[@]}" install --immutable)
 
 echo "==> yarn build"
-(cd "${ESM_DIR}" && yarn build)
+(cd "${ESM_DIR}" && "${YARN_CMD[@]}" build)
 
 echo "==> stage dist/ → artifacts/openmrs/spa-custom/${TARGET_NAME}/"
 mkdir -p "${ARTIFACT_DIR}/${TARGET_NAME}"

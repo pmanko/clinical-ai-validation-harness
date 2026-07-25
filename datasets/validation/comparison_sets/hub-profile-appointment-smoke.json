@@ -1,0 +1,15 @@
+{
+  "id": "hub-profile-appointment-smoke",
+  "description": "Two-cell 12B product smoke for past return-visit framing and deterministic source-set grounding after temporal validation remediation.",
+  "scenario_ids": [
+    "single-upcoming-appointments",
+    "am-upcoming-appointments"
+  ],
+  "temporal_scenario_ids": [
+    "single-upcoming-appointments",
+    "am-upcoming-appointments"
+  ],
+  "backend_ids": [
+    "single-12b-checked"
+  ]
+}

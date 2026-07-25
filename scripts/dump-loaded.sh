@@ -11,19 +11,18 @@
 # extended-inserts for speed, hex-blob for binary safety) so two runs
 # against identical state produce byte-identical output (SC-004).
 #
-# By DEFAULT the dump is a clean portable CORPUS: OpenMRS-core + clinical only, with the consumer
-# chartsearchai module's tables AND its liquibasechangelog rows excluded, so it loads onto any RefApp
-# and the module installs itself fresh on boot (no checksum mismatch). Override the module prefix with
-# MODULE_PREFIX=, or keep all module state (full backup) with --include-module-state.
+# By DEFAULT the dump is a clean portable CORPUS: OpenMRS-core + clinical only, with consumer
+# module tables AND their liquibasechangelog rows excluded, so it loads onto any RefApp
+# and ChartSearchAI/Querystore install themselves fresh on boot (no checksum mismatch). Override the
+# space-separated prefixes with MODULE_PREFIXES=, or keep all module state with --include-module-state.
 #
 # The dump writes to ONE canonical path by default (artifacts/demo-data/refapp_28_demo.sql.gz),
 # overwritten each run — never a timestamped artifacts/<run>/ directory. A "pick the newest file"
 # selection over an ever-growing artifact tree can silently resurrect a dump built before this
 # script's own exclusion logic existed; one canonical, always-fresh path removes that question.
 #
-# The output is self-verified below by grepping the actual bytes for the module prefix — the
-# exclusion query can silently miss (wrong schema, module absent at dump time, etc.), so the dump's
-# own provenance is never trusted as proof of cleanliness on its own.
+# The output is verified by the shared provenance verifier that seed-local also runs before restore.
+# The exclusion query can silently miss, so provenance declarations alone are not proof of cleanliness.
 #
 # Usage:
 #   ./scripts/dump-loaded.sh                                    # clean corpus, default openmrs_test → artifacts/demo-data/refapp_28_demo.sql.gz
@@ -44,7 +43,7 @@ IGNORE_PATTERNS=()
 # rows carry version-specific checksums, so shipping them makes the module fail to start under a
 # different omod version (liquibase checksum mismatch). With them absent, the module's own
 # liquibase installs it fresh on boot. --include-module-state keeps everything (a full backup).
-MODULE_PREFIX="${MODULE_PREFIX:-chartsearchai}"
+read -r -a MODULE_PREFIX_LIST <<< "${MODULE_PREFIXES:-chartsearchai querystore}"
 EXCLUDE_MODULE=1
 
 while [[ $# -gt 0 ]]; do
@@ -60,7 +59,11 @@ while [[ $# -gt 0 ]]; do
 done
 # Exclude the consumer module's TABLES via the existing ignore mechanism (its changelog rows are
 # stripped separately in the dump below, since mariadb-dump can't row-filter within --databases).
-[[ "$EXCLUDE_MODULE" == "1" ]] && IGNORE_PATTERNS+=("${MODULE_PREFIX}_%")
+if [[ "$EXCLUDE_MODULE" == "1" ]]; then
+  for prefix in "${MODULE_PREFIX_LIST[@]}"; do
+    IGNORE_PATTERNS+=("${prefix}_%")
+  done
+fi
 
 # Resolve --ignore-pattern globs to concrete --ignore-table flags by querying
 # information_schema. mariadb-dump itself doesn't accept LIKE patterns.
@@ -123,11 +126,33 @@ COMMON_FLAGS=(
 # whichever DB the restore pipes into.
 dump_stream() {
   if [[ "$EXCLUDE_MODULE" == "1" ]]; then
+    changelog_where="1=1"
+    gp_where="1=1"
+    for prefix in "${MODULE_PREFIX_LIST[@]}"; do
+      changelog_where+=" AND id NOT LIKE '${prefix}%' AND filename NOT LIKE '%${prefix}%'"
+      # Drop the module's own GPs (chartsearchai.*) AND OpenMRS's installed-version
+      # marker for it (module.chartsearchai.version). The version marker is the real
+      # one that matters: if it survives, OpenMRS reads it on boot, sees the module
+      # version unchanged, and SKIPS the module's Liquibase — so the schema is never
+      # created on a fresh restore.
+      gp_where+=" AND property NOT LIKE '${prefix}%' AND property NOT LIKE 'module.${prefix}.%'"
+    done
+    # (1) The body: everything except liquibasechangelog and global_property (module tables
+    #     are already dropped via IGNORE_TABLE_FLAGS).
     docker exec "$DB_CONTAINER" mariadb-dump "${COMMON_FLAGS[@]}" "${IGNORE_TABLE_FLAGS[@]}" \
-      --ignore-table="${SOURCE_DB}.liquibasechangelog" "$SOURCE_DB"
+      --ignore-table="${SOURCE_DB}.liquibasechangelog" \
+      --ignore-table="${SOURCE_DB}.global_property" "$SOURCE_DB"
+    # (2) liquibasechangelog WITHOUT the module's rows.
     docker exec "$DB_CONTAINER" mariadb-dump "${COMMON_FLAGS[@]}" \
-      --where="id NOT LIKE '${MODULE_PREFIX}%' AND filename NOT LIKE '%${MODULE_PREFIX}%'" \
+      --where="$changelog_where" \
       "$SOURCE_DB" liquibasechangelog
+    # (3) global_property WITHOUT the module's rows. Critical: a retained `<module>.started`
+    #     (and the module's config rows) makes OpenMRS treat the module as already-installed and
+    #     SKIP its fresh setup on boot, so its Liquibase never runs and its schema is never
+    #     created. Stripping these lets both consumer modules install themselves fresh.
+    docker exec "$DB_CONTAINER" mariadb-dump "${COMMON_FLAGS[@]}" \
+      --where="$gp_where" \
+      "$SOURCE_DB" global_property
   else
     docker exec "$DB_CONTAINER" mariadb-dump "${COMMON_FLAGS[@]}" "${IGNORE_TABLE_FLAGS[@]}" \
       "$SOURCE_DB"
@@ -140,20 +165,6 @@ else
   time dump_stream > "$OUT"
 fi
 
-if [[ "$EXCLUDE_MODULE" == "1" ]]; then
-  READ_CMD=(cat "$OUT"); [[ "$GZIP" == "1" ]] && READ_CMD=(gunzip -c "$OUT")
-  LEFTOVER_TABLE="$("${READ_CMD[@]}" | grep -m1 -o "CREATE TABLE \`${MODULE_PREFIX}_[a-z_]*\`" || true)"
-  LEFTOVER_CHANGESET="$("${READ_CMD[@]}" | grep "INSERT INTO \`liquibasechangelog\`" | grep -m1 -o "'${MODULE_PREFIX}-[0-9]*'" || true)"
-  if [[ -n "$LEFTOVER_TABLE" || -n "$LEFTOVER_CHANGESET" ]]; then
-    echo "ERROR: dump claims to exclude module '${MODULE_PREFIX}' but its bytes say otherwise:" >&2
-    [[ -n "$LEFTOVER_TABLE" ]] && echo "  table survived: ${LEFTOVER_TABLE}" >&2
-    [[ -n "$LEFTOVER_CHANGESET" ]] && echo "  changelog row survived: ${LEFTOVER_CHANGESET}" >&2
-    echo "  refusing to publish a dump that fails its own cleanliness guarantee: ${OUT}" >&2
-    rm -f "$OUT"
-    exit 1
-  fi
-fi
-
 SIZE=$(wc -c < "$OUT" | tr -d ' ')
 SIZE_HUMAN=$(awk -v b="$SIZE" 'BEGIN { split("B KB MB GB", u); i=1; while (b>=1024 && i<4) { b/=1024; i++ } printf("%.1f %s", b, u[i]) }')
 SHA=$(shasum -a 256 "$OUT" | awk '{print $1}')
@@ -162,6 +173,7 @@ EXCLUDED_JSON="[]"
 if (( ${#EXCLUDED_TABLES[@]} > 0 )); then
   EXCLUDED_JSON=$(printf '%s\n' "${EXCLUDED_TABLES[@]}" | python3 -c 'import json,sys; print(json.dumps([l.strip() for l in sys.stdin if l.strip()]))')
 fi
+PREFIXES_JSON=$(printf '%s\n' "${MODULE_PREFIX_LIST[@]}" | python3 -c 'import json,sys; print(json.dumps([l.strip() for l in sys.stdin if l.strip()]))')
 
 cat > "${OUT}.provenance.json" <<EOF
 {
@@ -169,6 +181,8 @@ cat > "${OUT}.provenance.json" <<EOF
   "table_count": ${TABLE_COUNT},
   "approx_row_count": ${ROW_COUNT:-0},
   "excluded_tables": ${EXCLUDED_JSON},
+  "excluded_module_prefixes": ${PREFIXES_JSON},
+  "module_state_included": $([ "$EXCLUDE_MODULE" == "1" ] && echo "false" || echo "true"),
   "output_path": "${OUT}",
   "output_bytes": ${SIZE},
   "output_sha256": "${SHA}",
@@ -178,6 +192,11 @@ cat > "${OUT}.provenance.json" <<EOF
   "load_into_command": "$([ "$GZIP" == "1" ] && echo "zcat ${OUT} | mariadb -u root -p <target_db>" || echo "mariadb -u root -p <target_db> < ${OUT}")"
 }
 EOF
+
+if ! python3 scripts/verify-portable-dump.py --dump "$OUT"; then
+  rm -f "$OUT" "${OUT}.provenance.json"
+  exit 1
+fi
 
 echo ""
 echo "✓ ${OUT} (${SIZE_HUMAN})"

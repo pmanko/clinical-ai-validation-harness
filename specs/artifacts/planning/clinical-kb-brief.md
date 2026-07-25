@@ -1,5 +1,8 @@
 # Clinical Knowledge Base Service — Source Brief
 
+> **Status: historical and superseded.** Current knowledge sources are composed by med-agent-hub;
+> this pre-consolidation brief remains as planning history.
+
 **Status**: Source brief — feeds `/speckit-specify` for feature 009.
 **Roadmap entry**: F009 — `009-clinical-knowledge-base` (lane: foundation).
 **Recommended spec number**: 009 (sibling of F008 gateway; reconciles with the roadmap canvas and README milestone table).

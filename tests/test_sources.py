@@ -60,7 +60,7 @@ def test_source_tile_uses_uuid_resolved_chart_row_when_citation_index_differs():
 
     judge_text = render_sources_for_judge(sources)
     assert "cite [2] chart [28]" in judge_text
-    assert "semantic support: unchecked" in judge_text
+    assert "hub grounding: unchecked" in judge_text
 
 
 def test_source_tile_falls_back_to_chart_index_when_no_uuid_mapping_exists():
@@ -93,3 +93,32 @@ def test_source_tile_falls_back_to_chart_index_when_no_uuid_mapping_exists():
     assert source["citation_index"] == 7
     assert source["chart_record_index"] == 7
     assert source["title"] == "Finding -- Weight: 41 kg"
+
+
+def test_source_tiles_preserve_final_grounding_verdicts_and_legacy_default():
+    response = {
+        "answer": "Grounding examples [7][8][9][10][11][12][13][14].",
+        "references": [
+            {"index": 7, "groundingStatus": "verified", "grounded": False},
+            {"index": 8, "groundingStatus": "unsupported", "grounded": True},
+            {"index": 9, "groundingStatus": "checking", "grounded": True},
+            {"index": 10, "groundingStatus": "mixed", "grounded": False},
+            {"index": 11, "grounded": True},
+            {"index": 12, "grounded": False},
+            {"index": 13, "groundingStatus": "unchecked", "grounded": True},
+            {"index": 14},
+        ],
+    }
+
+    sources = build_sources(response, None)["sources"]
+
+    assert {source["record_index"]: source["support_status"] for source in sources} == {
+        7: "verified",
+        8: "unsupported",
+        9: "checking",
+        10: "mixed",
+        11: "verified",
+        12: "unsupported",
+        13: "unchecked",
+        14: "unchecked",
+    }

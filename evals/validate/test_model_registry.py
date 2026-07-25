@@ -278,7 +278,7 @@ def test_arm_card_single_from_8077_endpoint(tmp_path, registry_json, ini_file):
     card = mr.arm_card("g12", backends_path=backends, registry_path=registry_json,
                        levels_path=tmp_path / "no-levels.yaml", llama_ini_path=ini_file)
     assert card["kind"] == "single"
-    assert card["path"] == "vanilla chartsearchai"
+    assert card["path"] == "direct model endpoint"
     assert card["title"] == "Gemma 4 12B · Q8 · single"
     assert card["models"][0]["family"] == "Gemma 4"
     # the single config carries the chartsearchai DEFAULT_SYSTEM_PROMPT + merged knobs

@@ -37,8 +37,8 @@ def _write_title_fixtures(tmp_path):
         "  single-e4b-checked:\n"
         "    label: Fast checked answer (E4B)\n"
         "    topology: single\n"
-        "    stages: [context, answer, gate, review, gate, indepth]\n"
-        "    models: {answer: gemma-e4b, review: gemma-e4b, indepth: gemma-e4b}\n",
+        "    stages: [context, answer, gate, resolve_refs, review, gate, final_resolve_refs, ground_verdicts, indepth, indepth_gate]\n"
+        "    models: {answer: gemma-e4b, review: gemma-e4b, grounding: gemma-e4b, indepth: gemma-e4b}\n",
         encoding="utf-8",
     )
 
@@ -52,7 +52,7 @@ def _write_title_fixtures(tmp_path):
             "endpointUrl": "http://host:8080/v1/chat/completions",
             "modelName": "med-agent-team-high",
         },
-        "product-e4b-checked": {
+        "single-e4b-checked": {
             "endpointUrl": "http://host:8080/v1/chat/completions",
             "modelName": "single-e4b-checked",
             "label": "Fast checked answer (E4B)",
@@ -87,7 +87,7 @@ def test_wide_team_titles_include_role_model_sizes(tmp_path):
 def test_product_single_profile_uses_topology_not_endpoint_guess(tmp_path):
     backends, registry, levels, ini = _write_title_fixtures(tmp_path)
     card = arm_card(
-        "product-e4b-checked",
+        "single-e4b-checked",
         backends_path=backends,
         registry_path=registry,
         levels_path=levels,
@@ -97,17 +97,50 @@ def test_product_single_profile_uses_topology_not_endpoint_guess(tmp_path):
     assert card["kind"] == "single"
     assert card["path"] == "med-agent-hub single"
     assert card["models"][0]["id"] == "gemma-e4b"
-    assert card["title"].endswith("single")
+    assert card["title"].endswith("single · fully checked")
+    assert card["short_title"].endswith("fully checked")
+
+
+def test_team_with_unknown_model_metadata_uses_profile_label(tmp_path):
+    backends, registry, levels, ini = _write_title_fixtures(tmp_path)
+    levels.write_text(
+        levels.read_text(encoding="utf-8")
+        + "  custom-team:\n"
+        + "    label: Focused clinical team\n"
+        + "    topology: team\n"
+        + "    stages: [context, gather, answer, gate]\n"
+        + "    models: {orchestrator: custom-coordinator, answer: custom-writer}\n",
+        encoding="utf-8",
+    )
+    body = json.loads(backends.read_text(encoding="utf-8"))
+    body["custom-team-arm"] = {
+        "endpointUrl": "http://host:8080/v1/chat/completions",
+        "modelName": "custom-team",
+        "label": "Focused clinical team setup",
+    }
+    backends.write_text(json.dumps(body), encoding="utf-8")
+
+    card = arm_card(
+        "custom-team-arm",
+        backends_path=backends,
+        registry_path=registry,
+        levels_path=levels,
+        llama_ini_path=ini,
+    )
+
+    assert card["kind"] == "team"
+    assert card["title"] == "Focused clinical team"
+    assert card["short_title"] == "Focused clinical team"
 
 
 def test_configured_profile_is_recognized_on_nonstandard_hub_endpoint(tmp_path):
     backends, registry, levels, ini = _write_title_fixtures(tmp_path)
     body = json.loads(backends.read_text(encoding="utf-8"))
-    body["product-e4b-checked"]["endpointUrl"] = "http://host:9999/v1/chat/completions"
+    body["single-e4b-checked"]["endpointUrl"] = "http://host:9999/v1/chat/completions"
     backends.write_text(json.dumps(body), encoding="utf-8")
 
     card = arm_card(
-        "product-e4b-checked",
+        "single-e4b-checked",
         backends_path=backends,
         registry_path=registry,
         levels_path=levels,

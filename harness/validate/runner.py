@@ -1,11 +1,11 @@
 """Replay a comparison set against each backend and write results over the
 run-manifest spine.
 
-Backends are iterated SEQUENTIALLY: the backend is selected per /chat request via
-a per-request {endpointUrl, modelName} override, so a run never mutates
-chartsearchai's config-controlled global default. Sequencing is for determinism
-and session isolation — a chat session is per (patient, user) and opening a new
-one closes the prior, so concurrent backends would cross-contaminate sessions.
+Backends are iterated SEQUENTIALLY. Product arms select hub-advertised profiles;
+explicit low-level experiments may target the local llama.cpp router directly.
+Sequencing is for determinism and session isolation — a chat session is per
+(patient, user) and opening a new one closes the prior, so concurrent backends
+would cross-contaminate sessions.
 
 A result line is a projection referencing run_id — it does NOT re-declare the
 manifest's provenance fields (FR-006.3); provenance lives in run_manifest.json.
@@ -25,6 +25,7 @@ from uuid import uuid4
 from ..metadata import RunManifest, append_event, utc_now_iso, write_manifest
 from ..submodules import read_harness_git_sha
 from .client import ChatResult
+from .dataset_provenance import build_dataset_provenance
 from .metrics import compute_metrics
 from .model_registry import arm_card
 from .models import Backend
@@ -43,22 +44,35 @@ def write_run_meta(
     run_id: str,
     backend_ids: list[str],
     reference_date: str | None,
+    backends: list[Any] | None = None,
 ) -> Path:
     """Freeze each arm's FULL resolved card (incl. config: knobs/prompts/retrieval) into
     `<run_dir>/run_meta.json` at run time — the per-run capture layer so a report reflects
     the config the run ACTUALLY used (provenance), not whatever the static config files say
     at render time. Best-effort per arm: a resolve error on one backend never aborts the run
-    (that arm is simply omitted from the frozen cards). Returns the written path."""
+    (that arm is simply omitted from the frozen cards). When the resolved ``backends`` are
+    given, their engine config (endpoint, model, pinned provider) is frozen under
+    ``backends`` — the engine-parity proof that AC-1 held for the whole run. Returns the
+    written path."""
     cards: dict[str, Any] = {}
     for b in backend_ids:
         try:
             cards[b] = arm_card(b)
         except Exception:
             continue
+    frozen_backends: dict[str, Any] = {}
+    for backend in backends or []:
+        frozen_backends[backend.id] = {
+            "endpointUrl": backend.endpoint_url,
+            "modelName": backend.model_name,
+            "provider": backend.provider,
+            "kind": backend.kind,
+        }
     meta = {
         "run_id": run_id,
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "reference_date": reference_date,
+        "backends": frozen_backends,
         "arm_cards": cards,
     }
     path = Path(run_dir) / "run_meta.json"
@@ -114,8 +128,8 @@ class _Client(Protocol):
         session: str | None,
         question: str,
         *,
-        endpoint_url: str | None = None,
-        model_name: str | None = None,
+        profile: str | None = None,
+        request_id: str | None = None,
     ) -> ChatResult: ...
 
 
@@ -129,6 +143,21 @@ class RunResult:
     result_count: int
 
 
+def _provider_name(backends: list[Any]) -> str:
+    providers: set[str] = set()
+    for backend in backends:
+        endpoint = str(getattr(backend, "endpoint_url", "") or "").lower()
+        if "med-agent-hub" in endpoint or ":8080/" in endpoint:
+            providers.add("med-agent-hub")
+        elif ":8077/" in endpoint:
+            providers.add("llama.cpp")
+        else:
+            providers.add("openai-compatible")
+    if len(providers) == 1:
+        return next(iter(providers))
+    return "mixed" if providers else "unknown"
+
+
 def run_comparison(
     *,
     comparison_set_id: str,
@@ -140,7 +169,7 @@ def run_comparison(
     dataset_id: str = "large-demo-data-2-7-0",
     dataset_version: str = "2.7.0",
     schema_mapping_version: str = "openmrs-2.7-to-2.8@v0",
-    gen_ai_provider_name: str = "lmstudio",
+    gen_ai_provider_name: str | None = None,
     resume_from: Path | str | None = None,
     reference_date: str | None = None,
     router_policy: RouterPolicy | None = None,
@@ -152,14 +181,36 @@ def run_comparison(
     # ChartSearchAiClient does not, so plumbing degrades gracefully to record-only.
     data_root = Path(data_root)
     try:
-        client_takes_ref_date = "reference_date" in inspect.signature(client.chat).parameters
+        client_chat_parameters = inspect.signature(client.chat).parameters
+        client_takes_ref_date = "reference_date" in client_chat_parameters
+        client_takes_request_id = "request_id" in client_chat_parameters
+        client_takes_provider = "provider" in client_chat_parameters
     except (ValueError, TypeError):
         # Best-effort capability probe — a non-introspectable client.chat (C-extension,
         # odd __call__) must NOT abort the run; degrade to record-only.
         client_takes_ref_date = False
+        client_takes_request_id = False
+        client_takes_provider = False
+    try:
+        session_takes_provider = "provider" in inspect.signature(client.new_session).parameters
+    except (ValueError, TypeError):
+        session_takes_provider = False
     cset = load_comparison_set(data_root / "comparison_sets" / f"{comparison_set_id}.json")
     scenarios = [load_scenario(data_root / "scenarios" / f"{sid}.json") for sid in cset.scenario_ids]
     backends = resolve_backends(cset.backend_ids, data_root / "backends.json")
+    # Provider arms are routing REQUIREMENTS, not preferences: a client that cannot
+    # pin the provider would silently run every arm on the server default — refuse
+    # before any artifact is created (no silent fallback).
+    provider_arms = [b.id for b in backends if b.provider]
+    if provider_arms and not (client_takes_provider and session_takes_provider):
+        raise ValueError(
+            f"backend(s) {', '.join(provider_arms)} pin a provider but the client "
+            "cannot route providers (chat/new_session lack a provider kwarg)"
+        )
+    project_root = Path(project_root)
+    dataset_provenance = build_dataset_provenance(
+        data_root, comparison_set_id, project_root=project_root
+    )
 
     # Capture a rich patient profile (demographics + clinical snapshot) for each unique
     # patient the run touches, so the report grounds the comparison in the real chart.
@@ -185,8 +236,9 @@ def run_comparison(
         dataset_id=dataset_id,
         dataset_version=dataset_version,
         schema_mapping_version=schema_mapping_version,
-        gen_ai_provider_name=gen_ai_provider_name,
+        gen_ai_provider_name=gen_ai_provider_name or _provider_name(backends),
         patients=patients,
+        dataset_provenance=dataset_provenance,
     )
     manifest_path = run_dir / "run_manifest.json"
     events_path = run_dir / "events.jsonl"
@@ -200,6 +252,7 @@ def run_comparison(
             run_id=run_id,
             backend_ids=[b.id for b in backends],
             reference_date=reference_date,
+            backends=backends,
         )
     except Exception:
         pass
@@ -210,6 +263,7 @@ def run_comparison(
             "run_id": run_id,
             "component": "validate",
             "comparison_set": comparison_set_id,
+            "transport": cset.transport,
             "scenario_ids": cset.scenario_ids,
             "backend_ids": cset.backend_ids,
             "reference_date": reference_date,
@@ -254,6 +308,7 @@ def run_comparison(
                 "label": backend.label,
                 "endpointUrl": backend.endpoint_url,
                 "modelName": backend.model_name,
+                "transport": cset.transport,
                 "llamaRouterModelsMax": backend.llama_router_models_max,
             },
         )
@@ -276,7 +331,12 @@ def run_comparison(
                     result_count += 1
                 continue
             try:
-                session = client.new_session(scenario.patient_ref)
+                if backend.provider and session_takes_provider:
+                    session = client.new_session(
+                        scenario.patient_ref, provider=backend.provider
+                    )
+                else:
+                    session = client.new_session(scenario.patient_ref)
             except Exception as exc:
                 # Couldn't open a session (e.g. backend restarting) even after the
                 # client's retries: record each turn as an error and move on — never
@@ -300,13 +360,19 @@ def run_comparison(
             first_turn = True
             for turn in scenario.turns:
                 session_sent = session
+                request_id = str(uuid4()) if client_takes_request_id else None
                 started = utc_now_iso()
-                chat_kwargs: dict[str, Any] = {
-                    "endpoint_url": backend.endpoint_url,
-                    "model_name": backend.model_name,
-                }
+                # The bundled provider has no product profiles — its modelName is
+                # informative (run_meta/router policy), never sent as a profile.
+                chat_kwargs: dict[str, Any] = (
+                    {} if backend.provider == "bundled" else {"profile": backend.model_name}
+                )
+                if backend.provider:
+                    chat_kwargs["provider"] = backend.provider
                 if client_takes_ref_date:
                     chat_kwargs["reference_date"] = reference_date
+                if client_takes_request_id:
+                    chat_kwargs["request_id"] = request_id
                 try:
                     res = client.chat(
                         scenario.patient_ref, session_sent, turn.question, **chat_kwargs,
@@ -335,9 +401,12 @@ def run_comparison(
                 is_first_turn = turn is scenario.turns[0]
                 if (is_first_turn and backend.indepth_model and backend.indepth_endpoint
                         and res.status == 200 and res.envelope):
-                    id_kwargs = dict(chat_kwargs)
-                    id_kwargs["endpoint_url"] = backend.indepth_endpoint
-                    id_kwargs["model_name"] = backend.indepth_model
+                    id_kwargs = {"profile": backend.indepth_model}
+                    indepth_request_id = (
+                        str(uuid4()) if client_takes_request_id else None
+                    )
+                    if client_takes_request_id:
+                        id_kwargs["request_id"] = indepth_request_id
                     try:
                         ires = client.chat(
                             scenario.patient_ref, session,
@@ -355,6 +424,11 @@ def run_comparison(
                         "http_status": ires.status,
                         "model_name": backend.indepth_model,
                         "error": None if ires.status == 200 else (ires.raw_text or "")[:500],
+                        **(
+                            {"request_id": indepth_request_id}
+                            if indepth_request_id
+                            else {}
+                        ),
                     }
                 row = {
                     "run_id": run_id,
@@ -365,6 +439,7 @@ def run_comparison(
                         "patient": scenario.patient_ref,
                         "session": session_sent,
                         "question": turn.question,
+                        **({"request_id": request_id} if request_id else {}),
                     },
                     "response": res.envelope,
                     "metrics": metrics,

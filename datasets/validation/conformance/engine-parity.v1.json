@@ -1,0 +1,40 @@
+{
+  "schema_version": "engine_parity.v1",
+  "description": "Parity ledger contract for the bundled-vs-hub answer-leg engine request (specs/artifacts/planning/engine-parity-instrument.md AC-3). Every JSON-path difference between the two captured requests must be listed here with a reason, or the diff fails. Shrinking this list is the refactoring driver.",
+  "must_match": [
+    "model",
+    "temperature",
+    "max_tokens",
+    "response_format.type"
+  ],
+  "documented_retrieval_divergence": {
+    "reason": "POST-D18 residuals only (both arms select AND interpret via querystore getContextSlice with interpret=true \u2014 ADR Decisions 17+18; verified 2026-07-22: identical 51-record slices at source for the same question). The mandatory clinical core is a HARD equality gate in the diff, never excusable here. Two named, deliberate hub-side residuals remain: (1) token-budget ceiling \u2014 the hub trims tail-priority slice records to its input limit (ceiling-not-target; mandatory never dropped), while bundled renders the full slice and relies on the engine's explicit chart_too_large overflow; (2) lexical union \u2014 the hub's exact/overlap tiers may add records beyond the slice (roadmap: ranked candidates are additive, never a replacement). Measured post-D18: 49v48, 52v85, 57v77.",
+    "recorded": "2026-07-22"
+  },
+  "documented_divergences": [
+    {
+      "path": "stream",
+      "reason": "bundled streams answer tokens to the UI (RemoteLlmEngine inferStreaming); the hub's inner writer call is buffered"
+    },
+    {
+      "path": "stream_options",
+      "reason": "accompanies bundled's stream:true (include_usage for token accounting)"
+    },
+    {
+      "path": "repeat_penalty",
+      "reason": "hub decodes with explicit anti-repetition settings; bundled relies on server defaults"
+    },
+    {
+      "path": "dry_multiplier",
+      "reason": "hub decodes with explicit anti-repetition settings; bundled relies on server defaults"
+    },
+    {
+      "path": "messages",
+      "reason": "prompt composition is the path under test: bundled sends system(instructions)+user(records+question); hub sends user(records)+user(question)+user(format instructions) with no system role"
+    },
+    {
+      "path": "response_format.json_schema",
+      "reason": "answer schema family: bundled constrains {answer, citations, reasoning}; hub constrains {answer, blocks, citations}"
+    }
+  ]
+}

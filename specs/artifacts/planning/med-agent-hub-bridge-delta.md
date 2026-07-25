@@ -1,5 +1,8 @@
 # med-agent-hub bridge — survey + delta note (MAH.A1)
 
+> **Historical / superseded.** This records the pre-profile bridge transition and is not current
+> ChartSearchAI or med-agent-hub operating guidance.
+
 Grounded in the actual code: med-agent-hub `harness-integration` (server/) + chartsearchai backend (RemoteLlmEngine, ChartAnswerResponseFormat) + advisor review.
 
 ## What exists in med-agent-hub today (post-reboot @5cac078)

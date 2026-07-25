@@ -6,6 +6,13 @@ Guidance for AI agents and contributors working in this repository.
 
 This is a standalone validation harness for early clinical AI prototypes across OpenMRS and OpenELIS work. The first milestone is a deterministic OpenMRS 2.8 Ref App-compatible remap/import path for `large-demo-data-2-7-0.sql`, followed by validation through real `chartsearchai` and `querystore` paths.
 
+The active OpenMRS architecture is governed by
+`specs/artifacts/planning/openmrs-dual-provider-parity-roadmap.md`: bundled ChartSearchAI inference
+and configured med-agent-hub inference are separate providers behind one OpenMRS contract. Do not
+remove bundled behavior, introduce silent provider fallback, or make Querystore a mandatory hub
+dependency without an approved roadmap amendment. Consult the matching status, upstream inventory,
+and conformance contract before changing provider, context, temporal, safety, or evidence behavior.
+
 ## Operating Principles
 
 - Treat `.specify/memory/constitution.md` as the canonical governance source;

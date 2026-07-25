@@ -59,8 +59,13 @@ def _build_parser() -> argparse.ArgumentParser:
     mf_sub.add_parser("finalize", help="Close out a run manifest with reviewer signoffs")
 
     # validate
-    val = sub.add_parser("validate", help="Scenario × backend comparison through chartsearchai")
+    val = sub.add_parser("validate", help="Scenario × backend clinical-answer comparison")
     val_sub = val.add_subparsers(dest="validate_action", required=True)
+    val_check = val_sub.add_parser(
+        "check", help="Validate a comparison set's execution transport before a run"
+    )
+    val_check.add_argument("comparison_set")
+    val_check.add_argument("--data-root", default="datasets/validation")
     val_run = val_sub.add_parser(
         "run", help="Replay a comparison set against each backend; write results.jsonl"
     )
@@ -134,7 +139,7 @@ def _start_run(output_dir: Path, component: str, project_root: Path) -> tuple[Pa
         dataset_id="large-demo-data-2-7-0",
         dataset_version="2.7.0",
         schema_mapping_version="openmrs-2.7-to-2.8@v0",
-        gen_ai_provider_name="lmstudio",
+        gen_ai_provider_name=None,
         evidence_status="development",
         decision_rationale=None,
         target_provenance=[],
@@ -197,13 +202,37 @@ def main() -> int:
         return _not_yet_implemented(f"manifest {args.manifest_action}")
 
     if args.command == "validate":
+        if args.validate_action in {"check", "run"}:
+            from .validate.execution import validate_execution_contract
+            from .validate.models import load_comparison_set
+            from .validate.resolver import resolve_backends
+
+            data_root = Path(args.data_root)
+            comparison = load_comparison_set(
+                data_root / "comparison_sets" / f"{args.comparison_set}.json"
+            )
+            backends = resolve_backends(
+                comparison.backend_ids, data_root / "backends.json"
+            )
+            validate_execution_contract(comparison, backends)
+            if args.validate_action == "check":
+                print(
+                    f"validate check {comparison.id}: {comparison.transport} transport, "
+                    f"{len(backends)} compatible arms"
+                )
+                return 0
         if args.validate_action == "run":
-            from .validate.client import ChartSearchAiClient
+            from .validate.client import ChartSearchAiClient, MedAgentHubClient
             from .validate.runner import run_comparison
 
+            client = (
+                MedAgentHubClient()
+                if comparison.transport == "med-agent-hub"
+                else ChartSearchAiClient()
+            )
             result = run_comparison(
                 comparison_set_id=args.comparison_set,
-                client=ChartSearchAiClient(),
+                client=client,
                 data_root=args.data_root,
                 output_dir=args.output_dir,
                 project_root=config.project_root,

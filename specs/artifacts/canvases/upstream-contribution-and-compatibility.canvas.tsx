@@ -1,3 +1,5 @@
+// Historical artifact snapshot. Current upstream dispositions are recorded in the hub
+// consolidation roadmap status.
 import {
   Callout,
   Code,
