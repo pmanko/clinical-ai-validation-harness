@@ -13,7 +13,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 EMPTY_HF="${HOME}/.cache/llama-router-emptyhf"
 MODEL_DIR="${LLAMA_MODEL_DIR:-${HOME}/.cache/llama-router-models}"
-RUNTIME_DIR="${ROOT}/artifacts/llama-router"
+RUNTIME_DIR="${LLAMA_ROUTER_RUNTIME_DIR:-${ROOT}/artifacts/llama-router}"
 RUNTIME_MODELS="${RUNTIME_DIR}/models"
 
 if [ ! -d "${MODEL_DIR}" ]; then

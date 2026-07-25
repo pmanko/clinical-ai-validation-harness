@@ -62,6 +62,7 @@ def test_router_launcher_forwards_configured_small_model_limit(tmp_path):
     model_dir.mkdir()
     home = tmp_path / "home"
     home.mkdir()
+    runtime_dir = tmp_path / "runtime"
     env = os.environ.copy()
     env.update(
         {
@@ -70,6 +71,7 @@ def test_router_launcher_forwards_configured_small_model_limit(tmp_path):
             "LLAMA_ARGS_CAPTURE": str(capture),
             "LLAMA_MODEL_DIR": str(model_dir),
             "LLAMA_ROUTER_MODELS_MAX": configured,
+            "LLAMA_ROUTER_RUNTIME_DIR": str(runtime_dir),
         }
     )
 
@@ -87,6 +89,53 @@ def test_router_launcher_forwards_configured_small_model_limit(tmp_path):
     assert args[args.index("--models-preset") + 1] == str(
         ROOT / "scripts/llama-router.ini"
     )
+
+
+def test_router_launcher_does_not_mutate_the_real_runtime_symlink(tmp_path):
+    """A prior version of this script hardcoded its runtime symlink to
+    `${ROOT}/artifacts/llama-router/models` with no override, so any test that ran the
+    real script against the real ROOT (as the test above does, to observe the argv it
+    forwards) repointed the LIVE repo's runtime symlink at the test's disposable
+    tmp_path. Once pytest cleaned that tmp_path up, every subsequent JIT model load
+    through the real router failed with "failed to load" for any model not already
+    resident in a running llama-server. LLAMA_ROUTER_RUNTIME_DIR must isolate the
+    runtime symlink from the real repo without needing a full ROOT copy."""
+    real_runtime_models = ROOT / "artifacts/llama-router/models"
+    assert real_runtime_models.is_symlink(), "expected the real runtime symlink to pre-exist"
+    before = real_runtime_models.resolve()
+
+    fake_bin = tmp_path / "bin"
+    fake_bin.mkdir()
+    llama_server = fake_bin / "llama-server"
+    llama_server.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+    llama_server.chmod(0o755)
+    model_dir = tmp_path / "models"
+    model_dir.mkdir()
+    home = tmp_path / "home"
+    home.mkdir()
+    runtime_dir = tmp_path / "runtime"
+    env = os.environ.copy()
+    env.update(
+        {
+            "HOME": str(home),
+            "PATH": f"{fake_bin}{os.pathsep}{env['PATH']}",
+            "LLAMA_MODEL_DIR": str(model_dir),
+            "LLAMA_ROUTER_RUNTIME_DIR": str(runtime_dir),
+        }
+    )
+
+    subprocess.run(
+        ["bash", str(ROOT / "scripts/llama-router-up.sh")],
+        cwd=ROOT,
+        env=env,
+        check=True,
+    )
+
+    assert real_runtime_models.resolve() == before, (
+        "scripts/llama-router-up.sh mutated the real runtime symlink instead of "
+        "honoring LLAMA_ROUTER_RUNTIME_DIR"
+    )
+    assert (runtime_dir / "models").resolve() == model_dir.resolve()
 
 
 def test_chartsearch_configure_writes_only_current_hub_properties():

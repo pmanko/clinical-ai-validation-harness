@@ -13,6 +13,20 @@
     "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
     "modelName": "single-e4b-checked"
   },
+  "engine-parity-bundled-12b": {
+    "label": "Bundled provider (remote engine via parity tap, gemma-4-12b)",
+    "kind": "provider_arm",
+    "provider": "bundled",
+    "endpointUrl": "http://host.docker.internal:8078/v1/chat/completions",
+    "modelName": "gemma-4-12b"
+  },
+  "engine-parity-hub-12b": {
+    "label": "Hub provider (single-12b-checked via parity tap)",
+    "kind": "provider_arm",
+    "provider": "hub",
+    "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
+    "modelName": "single-12b-checked"
+  },
   "single-e4b-checked": {
     "label": "Fast checked answer (E4B profile)",
     "kind": "product_profile",
