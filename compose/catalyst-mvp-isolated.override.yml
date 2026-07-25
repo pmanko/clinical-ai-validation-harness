@@ -36,10 +36,13 @@ services:
   # sibling catalyst_analytics_hiv database.
   catalyst-gateway:
     environment:
-      CATALYST_DATA_SOURCES_PATH: "/app/config/data-sources.json"
+      CATALYST_DATA_SOURCES_PATH: "/app/config/extra/data-sources.json"
     volumes:
-      - "${CATALYST_HIV_SOURCE_DIR:-../../catalyst-sources/openmrs-hiv}/catalog/openmrs-hiv-catalog.json:/app/config/openmrs-hiv-catalog.json:ro"
-      - "${CATALYST_HIV_SOURCE_DIR:-../../catalyst-sources/openmrs-hiv}/data-sources.json:/app/config/data-sources.json:ro"
+      # Mount the source directory whole at /app/config/extra, so the registry
+      # and every catalog it names keep their relative layout inside the
+      # container. data-sources.json addresses catalogs as
+      # /app/config/extra/<path-within-this-directory>.
+      - "${CATALYST_HIV_SOURCE_DIR:-../../catalyst-sources/openmrs-hiv}:/app/config/extra:ro"
 
 networks:
   openelis-network:
