@@ -8,13 +8,27 @@ from typing import Any
 def evaluate_drift(
     payload: dict[str, Any], *, percent_threshold: float, absolute_threshold: int
 ) -> tuple[list[dict[str, Any]], list[str]]:
+    """Raises ValueError (never a bare AttributeError/TypeError from an internal
+    `.get()`/`int()`) on a malformed payload shape, so a caller can surface one
+    readable message instead of a raw traceback pointing at this function's
+    internals."""
+    if not isinstance(payload, dict):
+        raise ValueError(f"Querystore drift payload is not a JSON object: {type(payload).__name__}")
+    types = payload.get("types")
+    if types is not None and not isinstance(types, list):
+        raise ValueError(f"Querystore drift payload's 'types' field is not a list: {type(types).__name__}")
     rows: list[dict[str, Any]] = []
     issues: list[str] = []
-    for item in payload.get("types") or []:
+    for item in types or []:
+        if not isinstance(item, dict):
+            raise ValueError(f"Querystore drift type entry is not a JSON object: {item!r}")
         resource_type = str(item.get("resourceType") or "?")
-        core = int(item.get("coreCount") or 0)
-        indexed = int(item.get("indexedCount") or 0)
-        drift = int(item.get("drift", core - indexed))
+        try:
+            core = int(item.get("coreCount") or 0)
+            indexed = int(item.get("indexedCount") or 0)
+            drift = int(item.get("drift", core - indexed))
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"{resource_type}: non-numeric drift field(s): {exc}") from exc
         if drift < 0:
             status = f"FAIL: {-drift} stale extra"
             issues.append(f"{resource_type}: {-drift} stale extra document(s)")

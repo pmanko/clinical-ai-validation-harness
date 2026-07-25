@@ -7,7 +7,9 @@ from harness.validate.execution import validate_execution_contract
 from harness.validate.models import load_backends, load_comparison_set
 
 
-def _write_inputs(tmp_path: Path, *, transport: str, kind: str | None, model: str):
+def _write_inputs(
+    tmp_path: Path, *, transport: str, kind: str | None, model: str, provider: str | None = None
+):
     data = tmp_path / "validation"
     (data / "comparison_sets").mkdir(parents=True)
     comparison = {
@@ -23,6 +25,8 @@ def _write_inputs(tmp_path: Path, *, transport: str, kind: str | None, model: st
     }
     if kind is not None:
         backend["kind"] = kind
+    if provider is not None:
+        backend["provider"] = provider
     (data / "comparison_sets" / "mini.json").write_text(
         json.dumps(comparison), encoding="utf-8"
     )
@@ -70,6 +74,26 @@ def test_hub_transport_accepts_low_level_leg(tmp_path):
     backends = load_backends(data / "backends.json")
 
     validate_execution_contract(comparison, [backends["arm"]])
+
+
+def test_hub_transport_rejects_a_provider_pinned_backend(tmp_path):
+    """MedAgentHubClient.chat() has no `provider` kwarg — a provider_arm backend on
+    med-agent-hub transport would only fail later, inside run_comparison, once the
+    runner's own client-capability check trips. The upfront `validate check` gate
+    exists specifically to catch exactly this kind of misconfiguration before that
+    point, so it must reject here too, not just for chartsearchai transport."""
+    data = _write_inputs(
+        tmp_path,
+        transport="med-agent-hub",
+        kind="provider_arm",
+        provider="hub",
+        model="single-e4b-checked",
+    )
+    comparison = load_comparison_set(data / "comparison_sets" / "mini.json")
+    backends = load_backends(data / "backends.json")
+
+    with pytest.raises(ValueError, match="provider"):
+        validate_execution_contract(comparison, [backends["arm"]])
 
 
 def test_comparison_rejects_unknown_transport(tmp_path):

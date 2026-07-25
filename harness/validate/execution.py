@@ -9,6 +9,18 @@ def validate_execution_contract(
     comparison: ComparisonSet, backends: list[Backend]
 ) -> None:
     if comparison.transport == "med-agent-hub":
+        # MedAgentHubClient.chat() has no `provider` kwarg — a provider-pinned backend
+        # here would only fail later, inside run_comparison, once the runner's own
+        # client-capability check trips. Catch it here so `validate check` (the
+        # upfront gate) never reports a misconfigured comparison set as compatible.
+        pinned = [backend.id for backend in backends if backend.provider]
+        if pinned:
+            names = ", ".join(pinned)
+            raise ValueError(
+                "med-agent-hub transport cannot route a pinned provider (no provider "
+                f"kwarg on MedAgentHubClient.chat); use transport=chartsearchai for "
+                f"provider_arm backends: {names}"
+            )
         return
 
     invalid = [

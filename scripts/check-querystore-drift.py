@@ -33,11 +33,15 @@ def main() -> int:
     except Exception as exc:
         print(f"ERROR: invalid Querystore drift response: {exc}", file=sys.stderr)
         return 2
-    rows, issues = evaluate_drift(
-        payload,
-        percent_threshold=args.percent,
-        absolute_threshold=args.absolute,
-    )
+    try:
+        rows, issues = evaluate_drift(
+            payload,
+            percent_threshold=args.percent,
+            absolute_threshold=args.absolute,
+        )
+    except ValueError as exc:
+        print(f"ERROR: invalid Querystore drift response: {exc}", file=sys.stderr)
+        return 2
     print(render_drift(rows))
     if issues:
         for issue in issues:
