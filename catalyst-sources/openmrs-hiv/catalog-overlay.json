@@ -41,5 +41,20 @@
         ]
       }
     ]
+  },
+  "datasetBrowser": {
+    "factView": "analytics.hiv_observation_fact_v1",
+    "identityColumn": "observation_id",
+    "subjectColumn": "patient_id",
+    "categoryColumn": "concept_name",
+    "observedAtColumn": "observed_at",
+    "valueColumn": "value_numeric",
+    "unitColumn": "value_unit",
+    "valueFallbackColumns": [
+      "value_coded_name",
+      "value_text",
+      "value_datetime",
+      "value_boolean"
+    ]
   }
 }

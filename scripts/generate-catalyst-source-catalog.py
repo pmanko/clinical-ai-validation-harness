@@ -192,6 +192,11 @@ def main() -> None:
         ),
         "views": views,
     }
+    # Which relation/columns the dataset browser reads is a curation decision,
+    # not something derivable from the database: every source spells the
+    # subject/category/value columns differently. Carry it through verbatim.
+    if "datasetBrowser" in overlay:
+        catalog["datasetBrowser"] = overlay["datasetBrowser"]
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(catalog, indent=2) + "\n")
     print(
