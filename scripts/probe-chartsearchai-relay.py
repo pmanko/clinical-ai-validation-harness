@@ -302,20 +302,24 @@ def _stream_turn(
     provider: str = "hub",
     profile: str,
     question: str,
+    session: str | None = None,
     username: str,
     password: str,
     timeout: int,
 ) -> dict[str, Any]:
+    payload = {
+        "patient": patient,
+        "provider": provider,
+        "profile": profile,
+        "question": question,
+    }
+    if session:
+        payload["session"] = session
     request = _request(
         stream_url,
         username=username,
         password=password,
-        payload={
-            "patient": patient,
-            "provider": provider,
-            "profile": profile,
-            "question": question,
-        },
+        payload=payload,
         accept="text/event-stream",
     )
     started = time.monotonic()
@@ -340,7 +344,7 @@ def _stream_turn(
         stream_audit_log_id = audit_log_id
 
     with urllib.request.urlopen(request, timeout=timeout) as response:
-        session = response.headers.get("X-ChartSearchAi-Session")
+        header_session = response.headers.get("X-ChartSearchAi-Session")
         for raw in response:
             line = raw.decode(errors="replace").rstrip("\r\n")
             if line.startswith("event:"):
@@ -357,6 +361,12 @@ def _stream_turn(
                 if event == "error":
                     raise RuntimeError(f"ChartSearchAI relay returned an error: {data}")
                 payload = json.loads(data)
+                if event == "turn_error":
+                    problem_code = str(payload.get("problemCode") or "unknown_error")
+                    message = str(payload.get("error") or payload.get("message") or data)
+                    raise RuntimeError(
+                        f"ChartSearchAI relay turn_error [{problem_code}]: {message}"
+                    )
                 event_names.append(event)
                 phase_payloads[event] = payload
                 if event == "answer_done":
@@ -373,9 +383,11 @@ def _stream_turn(
                             "answer_done returned an unexpected profile: "
                             f"{returned_profile!r} != {profile!r}"
                         )
-                    resolved_session = payload.get("session") or session
+                    resolved_session = payload.get("session") or header_session
                     if not resolved_session:
                         raise RuntimeError("relay did not expose a session id")
+                    if session and resolved_session != session:
+                        raise RuntimeError("relay used a different session than requested")
                     answer_done = {
                         "session": resolved_session,
                         "message_id": payload["messageId"],
@@ -398,6 +410,8 @@ def _stream_turn(
         raise RuntimeError("answer_done and turn_done used different assistant rows")
     if turn_done.get("provider") != provider:
         raise RuntimeError("turn_done returned an unexpected provider")
+    if turn_done.get("session") not in {None, answer_done["session"]}:
+        raise RuntimeError("answer_done and turn_done used different sessions")
     observe_stream_audit_log_id(turn_done, "turn_done")
     valid_event_sequences = {
         (
@@ -578,20 +592,33 @@ def probe_relay(
     clear_after: bool,
 ) -> dict[str, Any]:
     api = f"{openmrs_url.rstrip('/')}/ws/rest/v1/chartsearchai"
+    fresh = _post_json(
+        f"{api}/chat/new",
+        {"patient": patient, "provider": provider},
+        username=username,
+        password=password,
+        timeout=timeout,
+    )
+    session = str(fresh.get("session") or "").strip()
+    if not session or fresh.get("provider") != provider:
+        raise RuntimeError("new-session response did not create the requested provider session")
     streamed = _stream_turn(
         f"{api}/chat/stream",
         patient=patient,
         provider=provider,
         profile=profile,
         question=question,
+        session=session,
         username=username,
         password=password,
         timeout=timeout,
     )
+    if streamed["session"] != session:
+        raise RuntimeError("fresh session and streamed turn returned different session ids")
     if streamed["querystore_reference_count"] <= 0:
         raise RuntimeError("relay proof did not use the live Querystore patient source")
 
-    history_url = f"{api}/chat?{urllib.parse.urlencode({'patient': patient})}"
+    history_url = f"{api}/chat?{urllib.parse.urlencode({'patient': patient, 'session': session})}"
     history: dict[str, Any] | None = None
     hydrated_envelope_sha256 = None
     hydrated_audit_log_id: int | None = None
@@ -658,15 +685,27 @@ def probe_relay(
     if clear_after:
         cleared = _post_json(
             f"{api}/chat/new",
-            {"patient": patient},
+            {"patient": patient, "provider": provider},
             username=username,
             password=password,
             timeout=timeout,
         )
-        cleared_history = _get_json(
-            history_url, username=username, password=password, timeout=timeout
+        cleared_session = str(cleared.get("session") or "").strip()
+        if not cleared_session or cleared.get("provider") != provider:
+            raise RuntimeError(
+                "new-session response did not create the requested provider session"
+            )
+        cleared_history_url = (
+            f"{api}/chat?"
+            f"{urllib.parse.urlencode({'patient': patient, 'session': cleared_session})}"
         )
-        if not cleared.get("session") or cleared_history.get("session") != cleared.get("session"):
+        cleared_history = _get_json(
+            cleared_history_url,
+            username=username,
+            password=password,
+            timeout=timeout,
+        )
+        if cleared_history.get("session") != cleared_session:
             raise RuntimeError("new-session response did not match hydrated session")
         if cleared_history.get("messages"):
             raise RuntimeError("new-session hydration was not empty")

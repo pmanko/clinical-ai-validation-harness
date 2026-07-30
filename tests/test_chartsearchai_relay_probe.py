@@ -89,6 +89,16 @@ def test_probe_correlates_fast_stream_by_message_and_persistence_by_audit_row(mo
     responses = iter(
         [
             FakeResponse(
+                json.dumps(
+                    {
+                        "session": "session-1",
+                        "provider": "hub",
+                        "mode": "default",
+                        "messages": [],
+                    }
+                ).encode()
+            ),
+            FakeResponse(
                 [
                     b"event: turn_started\n",
                     b"data: {}\n",
@@ -115,7 +125,9 @@ def test_probe_correlates_fast_stream_by_message_and_persistence_by_audit_row(mo
                 {"X-ChartSearchAi-Session": "session-1"},
             ),
             FakeResponse(json.dumps(history).encode()),
-            FakeResponse(json.dumps({"session": "session-2"}).encode()),
+            FakeResponse(
+                json.dumps({"session": "session-2", "provider": "hub"}).encode()
+            ),
             FakeResponse(json.dumps({"session": "session-2", "messages": []}).encode()),
         ]
     )
@@ -171,17 +183,29 @@ def test_probe_correlates_fast_stream_by_message_and_persistence_by_audit_row(mo
     assert result["cleared_after"] is True
     assert result["runtime_identity"]["harness"]["commit"] == "harness-sha"
     assert [request.full_url for request, _ in requests] == [
-        "http://openmrs/openmrs/ws/rest/v1/chartsearchai/chat/stream",
-        "http://openmrs/openmrs/ws/rest/v1/chartsearchai/chat?patient=patient-1",
         "http://openmrs/openmrs/ws/rest/v1/chartsearchai/chat/new",
-        "http://openmrs/openmrs/ws/rest/v1/chartsearchai/chat?patient=patient-1",
+        "http://openmrs/openmrs/ws/rest/v1/chartsearchai/chat/stream",
+        "http://openmrs/openmrs/ws/rest/v1/chartsearchai/chat?"
+        "patient=patient-1&session=session-1",
+        "http://openmrs/openmrs/ws/rest/v1/chartsearchai/chat/new",
+        "http://openmrs/openmrs/ws/rest/v1/chartsearchai/chat?"
+        "patient=patient-1&session=session-2",
     ]
     assert all(request.get_header("Authorization") for request, _ in requests)
     assert json.loads(requests[0][0].data) == {
         "patient": "patient-1",
         "provider": "hub",
+    }
+    assert json.loads(requests[1][0].data) == {
+        "patient": "patient-1",
+        "provider": "hub",
         "profile": "single-e4b-checked",
         "question": "Latest visit?",
+        "session": "session-1",
+    }
+    assert json.loads(requests[3][0].data) == {
+        "patient": "patient-1",
+        "provider": "hub",
     }
 
 
@@ -207,11 +231,114 @@ def test_stream_probe_rejects_error_event(monkeypatch):
         raise AssertionError("expected relay error")
 
 
+def test_stream_probe_surfaces_turn_error_problem_code(monkeypatch):
+    response = FakeResponse(
+        [
+            b"event: turn_started\n",
+            b"data: {}\n",
+            b"\n",
+            b"event: turn_error\n",
+            b'data: {"error":"Patient context failed","problemCode":"context_unavailable"}\n',
+            b"\n",
+        ]
+    )
+    monkeypatch.setattr(probe.urllib.request, "urlopen", lambda *_args, **_kwargs: response)
+
+    with pytest.raises(
+        RuntimeError,
+        match=r"context_unavailable.*Patient context failed",
+    ):
+        probe._stream_turn(
+            "http://openmrs/chat/stream",
+            patient="patient-1",
+            profile="single-e4b-checked",
+            question="Latest visit?",
+            username="admin",
+            password="secret",
+            timeout=30,
+        )
+
+
+@pytest.mark.parametrize(
+    ("answer_session", "done_session", "message"),
+    [
+        ("session-2", "session-2", "different session than requested"),
+        ("session-1", "session-2", "different sessions"),
+    ],
+)
+def test_stream_probe_rejects_session_substitution(
+    monkeypatch, answer_session, done_session, message
+):
+    answer = {
+        "session": answer_session,
+        "messageId": "message-1",
+        "provider": "hub",
+        "model": "single-e4b-checked",
+        "answer": "Latest visit [1].",
+    }
+    done = {
+        "session": done_session,
+        "messageId": "message-1",
+        "provider": "hub",
+    }
+    response = FakeResponse(
+        [
+            b"event: answer_done\n",
+            f"data: {json.dumps(answer)}\n".encode(),
+            b"\n",
+            b"event: turn_done\n",
+            f"data: {json.dumps(done)}\n".encode(),
+            b"\n",
+        ]
+    )
+    monkeypatch.setattr(probe.urllib.request, "urlopen", lambda *_args, **_kwargs: response)
+
+    with pytest.raises(RuntimeError, match=message):
+        probe._stream_turn(
+            "http://openmrs/chat/stream",
+            patient="patient-1",
+            profile="single-e4b-checked",
+            question="Latest visit?",
+            session="session-1",
+            username="admin",
+            password="secret",
+            timeout=30,
+        )
+
+
+def test_probe_rejects_new_session_for_the_wrong_provider(monkeypatch):
+    monkeypatch.setattr(
+        probe,
+        "_post_json",
+        lambda *_args, **_kwargs: {"session": "session-1", "provider": "bundled"},
+    )
+
+    with pytest.raises(RuntimeError, match="requested provider session"):
+        probe.probe_relay(
+            "http://openmrs/openmrs",
+            patient="patient-1",
+            profile="single-e4b-checked",
+            question="Latest visit?",
+            username="admin",
+            password="secret",
+            timeout=30,
+            clear_after=False,
+        )
+
+
 def test_probe_rejects_turn_without_live_querystore_evidence(monkeypatch):
     monkeypatch.setattr(
         probe,
+        "_post_json",
+        lambda *_args, **_kwargs: {"session": "session-1", "provider": "hub"},
+    )
+    monkeypatch.setattr(
+        probe,
         "_stream_turn",
-        lambda *_args, **_kwargs: {"querystore_reference_count": 0},
+        lambda *_args, **_kwargs: {
+            "session": "session-1",
+            "querystore_reference_count": 0,
+        },
     )
 
     with pytest.raises(RuntimeError, match="live Querystore patient source"):

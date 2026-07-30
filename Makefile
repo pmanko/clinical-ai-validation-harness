@@ -9,7 +9,7 @@ export UV_PROJECT_ENVIRONMENT
         reset-transform sqlmesh-status \
         loadtest-up loadtest-down \
         load-test orphan-fk-check import-smoke dump-loaded promote \
-        chartsearch-build querystore-build openmrs-source-pair-test querystore-recreate-index chartsearch-configure querystore-configure chartsearch-backend chartsearch-doctor chartsearchai-local dual-provider-up \
+        chartsearch-build querystore-build openmrs-source-pair-build openmrs-source-pair-test querystore-recreate-index chartsearch-configure querystore-configure chartsearch-backend chartsearch-doctor chartsearchai-local dual-provider-up \
         chartsearch-esm-build chartsearch-esm-dev \
         llama-router-up llama-router-models \
         med-agent-hub-build med-agent-hub-up med-agent-hub-logs med-agent-hub-restart med-agent-hub-test chartsearch-test chartsearch-e2e-low-confidence querystore-test querystore-test-integration querystore-reindex \
@@ -116,7 +116,7 @@ dump-loaded:
 # restart. The submodule URL points at the harness fork's
 # `harness-integration` branch; the parent records the exact SHA so
 # `git submodule update --init` gives a buildable state.
-chartsearch-build:
+chartsearch-build: querystore-build
 	cd targets/chartsearchai && mvn -DskipTests -B package
 	mkdir -p artifacts/openmrs/modules artifacts/chartsearchai-local/module-provenance
 	cp targets/chartsearchai/omod/target/chartsearchai-*.omod artifacts/openmrs/modules/
@@ -128,13 +128,17 @@ chartsearch-build:
 # Build the pinned patient-record source module used by the hub's optional
 # Querystore adapter. The local entrypoint invokes this only when missing/stale.
 querystore-build:
-	cd targets/querystore && mvn -DskipTests -B package
+	cd targets/querystore && mvn -DskipTests -B install
 	mkdir -p artifacts/openmrs/modules artifacts/chartsearchai-local/module-provenance
 	cp targets/querystore/omod/target/querystore-*.omod artifacts/openmrs/modules/
 	./scripts/artifact-provenance.py write --repo targets/querystore \
 	  --artifact artifacts/openmrs/modules/querystore-1.0.0-SNAPSHOT.omod \
 	  --manifest artifacts/chartsearchai-local/module-provenance/querystore-1.0.0-SNAPSHOT.omod.provenance.json
 	@ls -la artifacts/openmrs/modules/querystore-*.omod
+
+# Build and stage the current development pair in dependency order. Unlike the
+# strict test target below, this supports intentional dirty-tree local work.
+openmrs-source-pair-build: chartsearch-build
 
 # Prove the exact pinned integration pair from source. Querystore is installed
 # first so ChartSearchAI cannot pass against an older cached snapshot API.

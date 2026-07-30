@@ -49,8 +49,8 @@ The PR branches were refreshed with immutable fork backups before force-with-lea
 
 | PR | New head/base | Preserved fork backup | Source-pair result |
 |---|---|---|---|
-| QueryStore #63 | `e2cb359` on `bbd6e80` | `codex/backup/querystore-pr63-pre-recut-20260730` → `f8eccd3` | Full `mvn -q -B clean install` passed after the external-read safety follow-up. |
-| ChartSearchAI #90 | `209e7cb` on `83cc33e` | `codex/backup/dual-provider-rebuild-pre-recut-20260730` → `c85a323` | Fresh source-pair `mvn -q -B clean package` passed against local QueryStore `e2cb359`. Follow-up `209e7cb` adds reviewed-answer persistence during an In-Depth tail; live two-turn hub E2E is valid integration-head evidence and is independent of upstream PR publication. |
+| QueryStore #63 | `6197e4b` on `bbd6e80` | `codex/backup/querystore-pr63-pre-recut-20260730` → `f8eccd3` | Full stable unit script passed after adding complete context-slice paging identity and metadata. |
+| ChartSearchAI #90 | `5025d77` on `83cc33e` | `codex/backup/dual-provider-rebuild-pre-recut-20260730` → `c85a323` | Full stable Maven suite passed against the installed QueryStore source. Follow-up `209e7cb` adds reviewed-answer persistence, `962b29f` aligns fresh-conversation mode, and `5025d77` resolves an unavailable configured default to an enabled provider without cross-provider fallback. Harness evidence remains independent of upstream PR publication. |
 
 ## Integration Branch Realignment — 2026-07-29
 
@@ -60,13 +60,18 @@ branch was moved:
 
 | Repository | `origin/harness-integration` | Preserved previous tip |
 |---|---:|---:|
-| QueryStore | `e2cb359` | `codex/backup/harness-integration-pre-realign-20260729` → `f8eccd3` |
-| ChartSearchAI | `209e7cb` | `codex/backup/harness-integration-pre-realign-20260729` → `4006c24` |
-| ChartSearchAI ESM | `5fdfaa1` | `codex/backup/harness-integration-pre-realign-20260729` → `e54bb03` |
+| QueryStore | `6197e4b` | `codex/backup/harness-integration-pre-realign-20260729` → `f8eccd3` |
+| ChartSearchAI | `5025d77` | `codex/backup/harness-integration-pre-realign-20260729` → `4006c24` |
+| ChartSearchAI ESM | `ea1bcef` | `codex/backup/harness-integration-pre-realign-20260729` → `e54bb03` |
 
 The root pins match these exact commits. `make openmrs-source-pair-test` verifies the branch
 identity and installs QueryStore from the pinned source before building ChartSearchAI, preventing
-an older local Maven snapshot from satisfying the integration check.
+an older local Maven snapshot from satisfying the integration check. med-agent-hub is not an
+OpenMRS upstream-reconciliation branch and therefore has no `harness-integration` alias; the
+source-tested companion candidate is
+`2eb981560db7ac0a56c2e006d6aafbc4cfe4a425` on
+`codex/dual-provider-context-slice`. The last live-proven hub remains `04d2cea`; the new candidate
+must complete the live product checks before replacing that evidence.
 
 ## Refreshed ChartSearchAI Upstream
 
