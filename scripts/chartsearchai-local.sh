@@ -62,9 +62,9 @@ DEFAULT_PATIENT="${CHARTSEARCH_LOCAL_PATIENT_UUID:-dd75c020-1691-11df-97a5-7038c
 WARM_QUESTION="${CHARTSEARCH_LOCAL_WARM_QUESTION:-What was the latest visit date?}"
 MODULES_CHANGED=0
 CHARTSEARCH_OMOD="artifacts/openmrs/modules/chartsearchai-1.0.0-SNAPSHOT.omod"
-CHARTSEARCH_OMOD_PROVENANCE="${CHARTSEARCH_OMOD}.provenance.json"
+CHARTSEARCH_OMOD_PROVENANCE="artifacts/chartsearchai-local/module-provenance/chartsearchai-1.0.0-SNAPSHOT.omod.provenance.json"
 QUERYSTORE_OMOD="artifacts/openmrs/modules/querystore-1.0.0-SNAPSHOT.omod"
-QUERYSTORE_OMOD_PROVENANCE="${QUERYSTORE_OMOD}.provenance.json"
+QUERYSTORE_OMOD_PROVENANCE="artifacts/chartsearchai-local/module-provenance/querystore-1.0.0-SNAPSHOT.omod.provenance.json"
 CHARTSEARCH_ESM="artifacts/openmrs/spa-custom"
 CHARTSEARCH_ESM_PROVENANCE="artifacts/openmrs/chartsearchai-esm.provenance.json"
 DEPLOYED_CHARTSEARCH_PROVENANCE="artifacts/chartsearchai-local/deployed-chartsearchai-omod.json"
@@ -164,6 +164,14 @@ build_if_needed() {
   fi
 }
 
+remove_legacy_module_manifests() {
+  # OpenMRS scans every file in this bind-mounted directory as a candidate module.
+  # Provenance belongs outside it; these are stale copies from the prior layout.
+  rm -f \
+    artifacts/openmrs/modules/chartsearchai-1.0.0-SNAPSHOT.omod.provenance.json \
+    artifacts/openmrs/modules/querystore-1.0.0-SNAPSHOT.omod.provenance.json
+}
+
 require_command curl
 require_command docker
 require_command python3
@@ -223,6 +231,8 @@ build_if_needed \
   "${QUERYSTORE_OMOD_PROVENANCE}" \
   targets/querystore/api/src targets/querystore/omod/src \
   targets/querystore/pom.xml targets/querystore/api/pom.xml targets/querystore/omod/pom.xml
+
+remove_legacy_module_manifests
 
 if ! cmp -s "${CHARTSEARCH_OMOD_PROVENANCE}" "${DEPLOYED_CHARTSEARCH_PROVENANCE}" \
   || ! cmp -s "${QUERYSTORE_OMOD_PROVENANCE}" "${DEPLOYED_QUERYSTORE_PROVENANCE}"; then

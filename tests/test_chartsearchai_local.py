@@ -332,9 +332,9 @@ def test_local_startup_proves_the_real_openmrs_relay_and_persistence():
     assert 'f"{api}/chat/stream"' in probe
     assert 'f"{api}/chat?' in probe
     assert 'row.get("messageId") == streamed["message_id"]' in probe
-    assert 'row.get("auditLogId") == streamed["audit_log_id"]' in probe
+    assert 'hydrated_audit_log_id != streamed["stream_audit_log_id"]' in probe
     assert 'hydrated_envelope_sha256 == streamed["final_envelope_sha256"]' in probe
-    assert 'event == "done"' in probe
+    assert 'event == "turn_done"' in probe
     assert '"chartsearchai_relay_probe.v2"' in probe
     assert 'f"{api}/chat/new"' in probe
     assert '"runtime_identity"' in probe
@@ -347,6 +347,11 @@ def test_local_builds_require_source_bound_artifact_provenance():
     probe = _read("scripts/probe-chartsearchai-relay.py")
 
     assert makefile.count("artifact-provenance.py write") >= 3
+    assert "artifacts/chartsearchai-local/module-provenance" in makefile
+    assert 'CHARTSEARCH_OMOD_PROVENANCE="artifacts/chartsearchai-local/module-provenance/chartsearchai-1.0.0-SNAPSHOT.omod.provenance.json"' in local
+    assert 'QUERYSTORE_OMOD_PROVENANCE="artifacts/chartsearchai-local/module-provenance/querystore-1.0.0-SNAPSHOT.omod.provenance.json"' in local
+    assert "artifacts/chartsearchai-local/module-provenance" in probe
+    assert "remove_legacy_module_manifests" in local
     assert "artifact-provenance.py verify" in local
     assert "DEPLOYED_CHARTSEARCH_PROVENANCE" in local
     assert '"mounted_sha256"' in probe

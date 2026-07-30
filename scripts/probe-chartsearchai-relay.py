@@ -184,13 +184,15 @@ def _runtime_identity(openmrs_url: str) -> dict[str, Any]:
             ROOT / "targets/chartsearchai",
             ROOT / "artifacts/openmrs/modules/chartsearchai-1.0.0-SNAPSHOT.omod",
             ROOT
-            / "artifacts/openmrs/modules/chartsearchai-1.0.0-SNAPSHOT.omod.provenance.json",
+            / "artifacts/chartsearchai-local/module-provenance/"
+            "chartsearchai-1.0.0-SNAPSHOT.omod.provenance.json",
         ),
         "querystore_omod": (
             ROOT / "targets/querystore",
             ROOT / "artifacts/openmrs/modules/querystore-1.0.0-SNAPSHOT.omod",
             ROOT
-            / "artifacts/openmrs/modules/querystore-1.0.0-SNAPSHOT.omod.provenance.json",
+            / "artifacts/chartsearchai-local/module-provenance/"
+            "querystore-1.0.0-SNAPSHOT.omod.provenance.json",
         ),
         "chartsearchai_esm": (
             ROOT / "targets/chartsearchai-esm",

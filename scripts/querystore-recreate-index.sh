@@ -26,7 +26,7 @@ PORT="${HARNESS_PROXY_HTTP_PORT:-8088}"
 BASE="http://localhost:${PORT}/openmrs"
 AUTH="${CHARTSEARCH_ADMIN_USER:-admin}:${CHARTSEARCH_ADMIN_PASSWORD:-Admin123}"
 ES_URL="${QUERYSTORE_ES_URL:-http://localhost:${QUERYSTORE_ES_PORT:-9200}}"
-QUERYSTORE_OMOD_PROVENANCE="${ROOT}/artifacts/openmrs/modules/querystore-1.0.0-SNAPSHOT.omod.provenance.json"
+QUERYSTORE_OMOD_PROVENANCE="${ROOT}/artifacts/chartsearchai-local/module-provenance/querystore-1.0.0-SNAPSHOT.omod.provenance.json"
 DEPLOYED_QUERYSTORE_PROVENANCE="${ROOT}/artifacts/chartsearchai-local/deployed-querystore-omod.json"
 
 echo "==> clearing cached Querystore module files before restart"
