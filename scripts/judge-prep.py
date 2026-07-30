@@ -23,6 +23,76 @@ from harness.validate.reconcile import resolve_citations  # noqa: E402
 from harness.validate.hub_trace import load_traces, match_trace  # noqa: E402
 from harness.validate.model_registry import arm_model_name  # noqa: E402
 from harness.validate.sources import build_sources, render_sources_for_judge, source_ref_labels  # noqa: E402
+from harness.validate.response_artifacts import (  # noqa: E402
+    in_depth_artifact,
+    response_for_displayed_evidence,
+    split_answer_sections,
+)
+
+
+def split_sections(answer: str) -> tuple[str, str]:
+    """Historical script API; new consumers use ``split_answer_sections``."""
+    direct, background = split_answer_sections(answer)
+    return direct, (f"**In Depth**\n{background}" if background else "")
+
+
+_SAFE_VALIDATION_KEYS = {
+    "schema_version",
+    "mode",
+    "status",
+    "applied",
+    "id",
+    "severity",
+    "source_indices",
+    "claim_index",
+    "removed",
+    "review_status",
+    "review_removed",
+    "review_attempts",
+    "issues",
+    "checks",
+    "citation_checks",
+    "gate",
+}
+
+
+def validation_metadata(value):
+    """Keep deterministic lifecycle facts without exposing rejected model text."""
+    if isinstance(value, list):
+        return [
+            sanitized
+            for item in value
+            if (sanitized := validation_metadata(item)) not in (None, {}, [])
+        ]
+    if not isinstance(value, dict):
+        return value if isinstance(value, (bool, int, float)) else None
+    sanitized = {}
+    for key, item in value.items():
+        if key not in _SAFE_VALIDATION_KEYS:
+            continue
+        if key in {"issues", "checks", "citation_checks"}:
+            nested = validation_metadata(item)
+            if nested:
+                sanitized[key] = nested
+        elif key == "gate":
+            nested = validation_metadata(item)
+            if nested:
+                sanitized[key] = nested
+        elif key in {"source_indices", "removed"}:
+            sanitized[key] = [
+                entry
+                for entry in (item if isinstance(item, list) else [])
+                if isinstance(entry, int) and not isinstance(entry, bool)
+            ]
+        elif isinstance(item, (str, bool, int, float)) or item is None:
+            sanitized[key] = item
+    return sanitized
+
+
+def answer_validation_metadata(validation):
+    """Compatibility name for the sanitized answer-validation metadata view."""
+    return validation_metadata(validation)
+
 
 SCEN_DIR = ROOT / "datasets/validation/scenarios"
 CHART_DIR = ROOT / "datasets/validation/charts"
@@ -101,22 +171,6 @@ def render_blocks(blocks: list, sources_v1: dict | None = None) -> str:
     return "\n\n".join(out)
 
 
-def split_sections(answer: str) -> tuple[str, str]:
-    """(answer_section, in_depth_section). Team format: **Answer** ... **In Depth** ...
-    Single-model answers have no **In Depth** -> in_depth is ''."""
-    if not isinstance(answer, str):
-        answer = "" if answer is None else str(answer)
-    low = answer.lower()
-    i = low.find("**in depth**")
-    if i == -1:
-        i = low.find("in depth")
-        if i != -1 and "**" not in answer[max(0, i - 3):i]:
-            i = -1  # only split on a real heading
-    if i == -1:
-        return answer.strip(), ""
-    return answer[:i].strip(), answer[i:].strip()
-
-
 def main() -> None:
     rd = run_dir(sys.argv[1] if len(sys.argv) > 1 else sys.exit("usage: judge-prep.py <run>"))
     results = [json.loads(l) for l in open(rd / "results.jsonl")]
@@ -155,8 +209,12 @@ def main() -> None:
             if isinstance(resp, str):
                 try: resp = json.loads(resp)
                 except Exception: resp = {"answer": resp}
-            ans, indepth = split_sections(resp.get("answer"))
-            sources_v1 = build_sources(resp, chart)
+            ans, indepth = split_answer_sections(resp.get("answer"))
+            indepth_artifact = in_depth_artifact(r, resp, indepth)
+            evidence_response = response_for_displayed_evidence(
+                resp, ans, indepth_artifact, indepth
+            )
+            sources_v1 = build_sources(evidence_response, chart)
             # Fold the structured table blocks into the answer the judge scores — for list questions the
             # substance lives in `blocks`, and the judge must see it or completeness is scored as absent.
             rendered = render_blocks(resp.get("blocks"), sources_v1)
@@ -165,23 +223,22 @@ def main() -> None:
             evidence = render_sources_for_judge(sources_v1)
             if evidence:
                 ans = (ans + "\n\n" + evidence).strip() if ans else evidence
-            # Two-call architecture: the In-Depth is a SEPARATE nested artifact (its own call +
-            # latency), not concatenated into the answer — use it as the in_depth_section so the
-            # arm is background-judged (and a single-model arm finally gets a background score).
-            nested = (r.get("indepth") or {}).get("response") or {}
-            if isinstance(nested, str):
-                try: nested = json.loads(nested)
-                except Exception: nested = {"answer": nested}
-            if nested.get("answer"):
-                indepth = nested["answer"]
+            indepth = indepth_artifact["answer"]
             turns.append({
                 "n": r.get("turn", 1),
                 "question": next((t.get("question") for t in scen.get("turns", []) if t.get("n") == r.get("turn", 1)),
                                  (scen.get("turns") or [{}])[0].get("question")),
                 "answer_section": ans,
                 "in_depth_section": indepth,
-                "indepth_latency_ms": (r.get("indepth") or {}).get("latency_ms"),
-                "references": resp.get("references") or [],
+                "answer_validation": answer_validation_metadata(
+                    resp.get("answerValidation")
+                ),
+                "in_depth_status": indepth_artifact["status"],
+                "in_depth_validation": validation_metadata(
+                    indepth_artifact["validation"]
+                ),
+                "indepth_latency_ms": indepth_artifact["latency_ms"],
+                "references": evidence_response.get("references") or [],
                 "sources": sources_v1.get("sources") or [],
                 "source_diagnostics": sources_v1.get("diagnostics") or {},
             })
@@ -192,6 +249,9 @@ def main() -> None:
             arm_model_name(backend_id),
             final_row.get("started_at"),
             final_row.get("ended_at"),
+            question=(final_row.get("request") or {}).get("question"),
+            session=(final_row.get("request") or {}).get("session"),
+            request_id=(final_row.get("request") or {}).get("request_id"),
         ) or {}
         cres = resolve_citations(final["references"], valid)
         has_in_depth = bool(final["in_depth_section"])
@@ -211,11 +271,14 @@ def main() -> None:
             "turns": turns,
             "answer_section": final["answer_section"],
             "in_depth_section": final["in_depth_section"],
+            "answer_validation": final.get("answer_validation"),
+            "in_depth_status": final.get("in_depth_status"),
+            "in_depth_validation": final.get("in_depth_validation"),
             "references": final["references"],
             "citation_resolution": cres,
             "sources": final.get("sources") or [],
             "source_diagnostics": final.get("source_diagnostics") or {},
-            "temporal_gate": trace.get("temporal_gate"),
+            "temporal_gate": validation_metadata(trace.get("temporal_gate")),
             "temporal_facts_summary": trace.get("temporal_facts_summary"),
         })
 

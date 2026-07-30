@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# HISTORICAL / SUPERSEDED: this pre-hub-relay cloud bootstrap is retained only
+# as migration reference and is not exposed by the Makefile product workflow.
 # Bring up the chartsearch compose stack on the VM. Mirrors `make chartsearch-up`
 # from the local Makefile but runs over SSH against the rsync'd copy. Loads
 # .env.chartsearch.cloud (operator's cloud-specific env) before compose up.
@@ -119,7 +121,8 @@ for i in $(seq 1 80); do
   sleep 3
 done
 
-echo "==> chartsearch-configure (LLM + querystore globals — REST via docker exec into the backend)"
+echo "==> configure optional Querystore assets and the ChartSearchAI hub relay"
+CHARTSEARCH_EXEC=harness-openmrs-backend ./scripts/querystore-configure.sh
 CHARTSEARCH_EXEC=harness-openmrs-backend ./scripts/chartsearch-configure.sh
 
 # Fresh-DB path: the schema didn't exist when we tried to pre-set querystore.backend,

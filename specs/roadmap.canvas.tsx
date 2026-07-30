@@ -1,3 +1,5 @@
+// HISTORICAL / SUPERSEDED architecture canvas. Retained as a planning snapshot;
+// current execution is governed by hub-consolidation-roadmap.md.
 import {
   Callout,
   Card,

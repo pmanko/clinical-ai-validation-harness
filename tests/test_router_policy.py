@@ -332,12 +332,11 @@ class _StubClient:
         session: str | None,
         question: str,
         *,
-        endpoint_url: str | None = None,
-        model_name: str | None = None,
+        profile: str | None = None,
     ) -> ChatResult:
         return ChatResult(
             status=200,
-            envelope={"answer": f"answer from {model_name}", "session": session},
+            envelope={"answer": f"answer from {profile}", "session": session},
             latency_ms=1,
             raw_text="ok",
         )
@@ -414,3 +413,69 @@ def test_runner_records_router_policy_event_per_backend(tmp_path):
         ("normal", 4),
         ("high", 1),
     ]
+    manifest = json.loads(res.manifest_path.read_text(encoding="utf-8"))
+    assert manifest["otel"]["gen_ai.provider.name"] == "med-agent-hub"
+    assert manifest["dataset_provenance"]["comparison_set"]["id"] == "mini"
+
+
+@pytest.mark.parametrize(
+    ("endpoints", "expected_provider"),
+    [
+        (["http://host.docker.internal:8077/v1/chat/completions"], "llama.cpp"),
+        (
+            [
+                "http://med-agent-hub:8080/v1/chat/completions",
+                "http://host.docker.internal:8077/v1/chat/completions",
+            ],
+            "mixed",
+        ),
+    ],
+)
+def test_runner_manifest_provider_matches_actual_endpoints(
+    tmp_path, endpoints, expected_provider
+):
+    from harness.validate.runner import run_comparison
+
+    data = tmp_path / "data"
+    (data / "comparison_sets").mkdir(parents=True)
+    (data / "scenarios").mkdir()
+    backend_ids = [f"b{i}" for i in range(len(endpoints))]
+    (data / "comparison_sets/mini.json").write_text(
+        json.dumps(
+            {"id": "mini", "scenario_ids": ["s1"], "backend_ids": backend_ids}
+        ),
+        encoding="utf-8",
+    )
+    (data / "scenarios/s1.json").write_text(
+        json.dumps(
+            {
+                "id": "s1",
+                "patient_ref": "patient-1",
+                "turns": [{"n": 1, "question": "What happened?"}],
+            }
+        ),
+        encoding="utf-8",
+    )
+    (data / "backends.json").write_text(
+        json.dumps(
+            {
+                backend_id: {
+                    "endpointUrl": endpoint,
+                    "modelName": "single-e4b-checked",
+                }
+                for backend_id, endpoint in zip(backend_ids, endpoints)
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    result = run_comparison(
+        comparison_set_id="mini",
+        client=_StubClient(),
+        data_root=data,
+        output_dir=tmp_path / "runs",
+        router_policy=lambda _backend: None,
+    )
+
+    manifest = json.loads(result.manifest_path.read_text(encoding="utf-8"))
+    assert manifest["otel"]["gen_ai.provider.name"] == expected_provider

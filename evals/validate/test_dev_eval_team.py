@@ -170,9 +170,9 @@ def test_via_openai_compat_parses_envelope_from_content(monkeypatch):
     assert "not json" in out[1]["raw_text"]
 
 
-def test_via_chartsearchai_threads_session_and_override(monkeypatch):
+def test_via_chartsearchai_threads_session_and_profile(monkeypatch):
     """The faithful path opens one session, sends each question with the
-    (endpoint_url, model_name) override, and threads the returned session forward
+    product profile, and threads the returned session forward
     (so turn 2+ continue the same chat). It must pass the override on every turn,
     not just the first."""
     mod = _load()
@@ -195,10 +195,10 @@ def test_via_chartsearchai_threads_session_and_override(monkeypatch):
             seen["new"].append(patient)
             return "S0"
 
-        def chat(self, patient, session, question, *, endpoint_url=None, model_name=None):
+        def chat(self, patient, session, question, *, profile=None):
             seen["chat"].append(
                 {"patient": patient, "session": session, "question": question,
-                 "endpoint_url": endpoint_url, "model_name": model_name}
+                 "profile": profile}
             )
             # server hands back a new session id each turn; the caller must adopt it
             return _FakeResult(session="S1")
@@ -211,10 +211,9 @@ def test_via_chartsearchai_threads_session_and_override(monkeypatch):
     assert seen["base_url"] == "http://base/openmrs"
     assert seen["new"] == ["PT-1"]                       # exactly one session opened
     assert len(seen["chat"]) == len(mod.QUESTIONS)       # one chat per question
-    # every turn carries the override pair
+    # Every turn carries the product profile; the endpoint remains server-owned.
     for c in seen["chat"]:
-        assert c["endpoint_url"] == "http://med-agent-hub:8080/v1/chat/completions"
-        assert c["model_name"] == "med-agent-team"
+        assert c["profile"] == "med-agent-team"
     # session is threaded: first turn uses S0, later turns use the adopted S1
     assert seen["chat"][0]["session"] == "S0"
     assert seen["chat"][1]["session"] == "S1"
@@ -223,9 +222,8 @@ def test_via_chartsearchai_threads_session_and_override(monkeypatch):
 
 
 def test_main_dispatches_to_the_selected_path(monkeypatch, capsys):
-    """main routes the default (no --direct) to the faithful path — forwarding the
-    LLM endpoint_url as chartsearchai's per-request override + the --chartsearch-base-url
-    base — and --direct to the raw probe. endpoint_url is the LLM in BOTH paths."""
+    """main routes the default to ChartSearchAI profile selection and ``--direct``
+    to the explicitly supplied raw OpenAI-compatible endpoint."""
     mod = _load()
     assert mod is not None
     called = {"cs": None, "raw": None}

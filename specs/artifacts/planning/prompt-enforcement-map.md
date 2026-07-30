@@ -1,5 +1,9 @@
 # Prompt & guardrail enforcement map — chartsearchai-direct vs med-agent-hub
 
+> **SUPERSEDED HISTORICAL SNAPSHOT (2026-06-04):** The direct Java answer path mapped below was
+> removed. Current product requests select a med-agent-hub profile and execute its stage plan; see
+> `hub-consolidation-roadmap.md` and `config-guide-prompts-and-models.md`.
+
 > Purpose: the two answer paths the harness compares are *not* prompt/guardrail-comparable, and where each rule is enforced is convoluted. This traces every system prompt + guardrail to its file:line, for both paths, so we can (a) reason about results and (b) design the "harmonized" variant. All references verified against the code on 2026-06-04.
 
 ## The two paths share ONE front door

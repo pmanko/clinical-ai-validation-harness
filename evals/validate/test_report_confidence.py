@@ -1,19 +1,20 @@
-"""Per-section confidence inversion in the validate report (parity with the dashboard).
+"""Per-section confidence presentation in the validate report (parity with the dashboard).
 
 The med-agent-hub writes a per-turn reasoning trace (answer/in-depth confidence
 {level, note}) to a sibling ``artifacts/.../hub-trace/trace.jsonl``; the report
 correlates it to a cell by ``level_id == backend_id`` within the cell's
 ``[started_at, ended_at]`` window and heads each answer section with a confidence
-chip, inverting the body per level:
+chip and review state per level:
 
-- red    -> show the validator note as a caveat + COLLAPSE the body behind "show <section>"
+- red    -> show the validator note as a caveat + keep the flagged body visible
 - yellow -> show the body + collapse the note behind "show review note"
 - green  -> show the body plainly
 
 These assert the rendered ``answer_html`` (pulled from the inert JSON blob the
-report embeds), not source strings — red-when-broken if the inversion regresses.
+report embeds), not source strings.
 """
 
+import importlib.util
 import json
 import re
 from pathlib import Path
@@ -70,15 +71,27 @@ def _trace(answer_conf, indepth_conf, backend="med-agent-team"):
             "answer_confidence": answer_conf, "indepth_confidence": indepth_conf}
 
 
-def _answer_html(run_dir: Path) -> str:
+def _report_cell(run_dir: Path) -> dict:
     html = build_report(run_dir).read_text(encoding="utf-8")
     body = re.search(
         r"<script type='application/json' id='report-data'>(.*?)</script>", html, re.DOTALL
     ).group(1)
-    return json.loads(body)["runs"][0]["scenarios"][0]["turns"][0]["cells"]["med-agent-team"]["answer_html"]
+    return json.loads(body)["runs"][0]["scenarios"][0]["turns"][0]["cells"]["med-agent-team"]
 
 
-def test_red_answer_section_collapses_body_behind_caveat(tmp_path):
+def _answer_html(run_dir: Path) -> str:
+    return _report_cell(run_dir)["answer_html"]
+
+
+def _dashboard_module():
+    path = Path(__file__).resolve().parents[2] / "scripts" / "validate-dashboard.py"
+    spec = importlib.util.spec_from_file_location("validate_dashboard_for_parity", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_red_answer_section_keeps_body_visible_with_caveat(tmp_path):
     run_dir = tmp_path / "validate" / "run"
     _write_run(
         run_dir, [_result(_ANSWER)],
@@ -88,10 +101,11 @@ def test_red_answer_section_collapses_body_behind_caveat(tmp_path):
     ans = _answer_html(run_dir)
 
     # Answer section: red -> low self-check chip, the note rendered as a caveat, and the
-    # body withheld behind a "show answer" reveal.
+    # flagged body remains visible so a reviewer can inspect it.
     assert "Self-check low" in ans
     assert "<div class='caveat red'>claim unsupported by chart</div>" in ans
-    assert "<summary>show answer</summary>" in ans
+    assert "Regimen is current" in ans
+    assert "<summary>show answer</summary>" not in ans
     # In-Depth section: yellow -> medium self-check chip, body shown, note collapsed.
     assert "Self-check medium" in ans
     assert "<summary>show review note</summary>" in ans
@@ -149,6 +163,49 @@ def test_no_trace_falls_back_to_plain_answer(tmp_path):
     ans = _answer_html(run_dir)
     assert "confidence" not in ans.lower()
     assert "<strong>Answer</strong>" in ans  # still markdown-rendered, just unsectioned
+
+
+def test_report_and_dashboard_share_flagged_output_semantics(tmp_path):
+    run_dir = tmp_path / "validate" / "run"
+    result = _result("**Answer**\nFlagged answer [1].")
+    result["request"] = {
+        "question": "q",
+        "session": "session-1",
+        "request_id": "turn-1",
+    }
+    result["response"]["answerValidation"] = {"status": "needs_review"}
+    result["response"]["inDepth"] = {
+        "status": "needs_review",
+        "answer": "",
+        "error": "In-Depth was withheld.",
+    }
+    trace = _trace(
+        {"level": "red", "note": "Check the chart date."},
+        {"level": "red", "note": "In-Depth was withheld."},
+    )
+    trace["question"] = "q"
+    trace["correlation"] = {"session": "session-1", "request_id": "turn-1"}
+    _write_run(run_dir, [result], traces=[trace])
+
+    report_cell = _report_cell(run_dir)
+    dashboard = _dashboard_module()
+    dashboard._RUN_OVERRIDE = str(run_dir)
+    dashboard.TRACE_FILE = run_dir.parent.parent / "hub-trace" / "trace.jsonl"
+    dashboard.DATA = tmp_path / "missing-validation-data"
+    dashboard_turn = dashboard.detail("s", "med-agent-team")["turns"][0]
+
+    for key in (
+        "answer_confidence_display",
+        "indepth_confidence_display",
+        "answer_validation_display",
+        "indepth_validation_display",
+    ):
+        assert report_cell[key] == dashboard_turn[key]
+    assert report_cell["answer_confidence_display"]["show_output"] is True
+    assert "Flagged answer [1]." in report_cell["answer_html"]
+    assert "show answer" not in report_cell["answer_html"]
+    assert "function fmt10(v)" in dashboard.PAGE
+    assert "function fmt10(v)" in build_report(run_dir).read_text(encoding="utf-8")
 
 
 def test_temporal_gate_metadata_reaches_cell_chip_and_summary(tmp_path):

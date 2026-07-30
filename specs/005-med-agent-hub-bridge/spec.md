@@ -1,6 +1,10 @@
 # Feature 005: med-agent-hub bridge — a chartsearchai-selectable in-process agent team
 
-**Status**: shipped (on branch `004-chartsearchai-adapter`; this spec is retro-authored to make the
+> **HISTORICAL / SUPERSEDED:** This records the first bridge implementation. The current service is
+> profile-driven, owns context/validation/grounding/In-Depth, and is consumed through one ChartSearchAI
+> hub relay. See `specs/artifacts/planning/hub-consolidation-roadmap.md` for the active architecture.
+
+**Historical status**: shipped (on branch `004-chartsearchai-adapter`; this spec is retro-authored to make the
 numbering honest — the code landed before the spec). **Started**: 2026-05-27.
 
 > Retro-note: feature-005 work shipped under the `004` branch/PR rather than a separate `005` branch (the

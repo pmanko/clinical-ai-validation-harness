@@ -52,6 +52,7 @@ class ComparisonSet:
     id: str
     scenario_ids: list[str]
     backend_ids: list[str]
+    transport: str = "chartsearchai"
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "ComparisonSet":
@@ -59,10 +60,16 @@ class ComparisonSet:
         for key in ("scenario_ids", "backend_ids"):
             if not isinstance(data[key], list) or not data[key]:
                 raise ValueError(f"comparison_set {data.get('id')!r}: '{key}' must be a non-empty list")
+        transport = str(data.get("transport") or "chartsearchai")
+        if transport not in {"chartsearchai", "med-agent-hub"}:
+            raise ValueError(
+                f"comparison_set {data.get('id')!r}: unsupported transport {transport!r}"
+            )
         return cls(
             id=str(data["id"]),
             scenario_ids=[str(s) for s in data["scenario_ids"]],
             backend_ids=[str(b) for b in data["backend_ids"]],
+            transport=transport,
         )
 
 
@@ -84,6 +91,11 @@ class Backend:
     indepth_endpoint: str | None = None
     indepth_model: str | None = None
     llama_router_models_max: int | None = None
+    kind: str = ""
+    # Engine-parity provider arms (kind=provider_arm): pins the ChartSearchAI
+    # provider (bundled|hub) per request; the bundled provider takes no product
+    # profile, so the runner omits modelName from the chat body for it.
+    provider: str = ""
 
     @classmethod
     def from_dict(cls, backend_id: str, data: dict[str, Any]) -> "Backend":
@@ -106,6 +118,8 @@ class Backend:
             indepth_endpoint=str(data["indepthEndpointUrl"]) if data.get("indepthEndpointUrl") else None,
             indepth_model=str(data["indepthModelName"]) if data.get("indepthModelName") else None,
             llama_router_models_max=models_max,
+            kind=str(data.get("kind") or ""),
+            provider=str(data.get("provider") or ""),
         )
 
 

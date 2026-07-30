@@ -153,6 +153,31 @@ def test_detail_nests_indepth_block(tmp_path, monkeypatch):
     assert t["answer"].startswith("A")  # the Answer is preserved alongside
 
 
+def test_detail_uses_model_frozen_in_result_for_historical_trace(tmp_path, monkeypatch):
+    vd = _load()
+    row = _answer_row("s1", "historical-alias", 1)
+    row["response"]["model"] = "frozen-product-profile"
+    _setup_run(
+        tmp_path,
+        vd,
+        monkeypatch,
+        results=[row],
+        backends=("historical-alias",),
+    )
+    captured = {}
+
+    def capture_model(_traces, model, *_args, **_kwargs):
+        captured["model"] = model
+        return None
+
+    monkeypatch.setattr(vd, "arm_model_name", lambda _backend: "current-registry-id")
+    monkeypatch.setattr(vd, "match_trace", capture_model)
+
+    vd.detail("s1", "historical-alias")
+
+    assert captured["model"] == "frozen-product-profile"
+
+
 def test_detail_indepth_is_none_when_arm_has_none(tmp_path, monkeypatch):
     vd = _load()
     _setup_run(tmp_path, vd, monkeypatch,

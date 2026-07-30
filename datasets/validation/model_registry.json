@@ -1,5 +1,5 @@
 {
-  "_comment": "Per-model metadata for report/dashboard/index 'arm cards'. Keyed by the llama-router section id (== the model id used in backends.json modelName for single arms, and in levels.yaml roles for team arms). family=vendor family, params=human param string, quant=GGUF quant, note=one-line best-use. Arm kind (single vs team) and team role-makeup are DERIVED at render time from backends.json (endpoint :8077=single router, :8080=hub team) + targets/med-agent-hub/server/levels.yaml (team roles) — not stored here. Grounded from scripts/llama-router.ini, the .lmstudio GGUF paths, and observed file sizes; verify quant against the actual GGUF if precision matters.",
+  "_comment": "Per-model metadata for report/dashboard/index arm cards. Keys match llama-router model ids referenced by med-agent-hub profiles. Family, parameter count, quantization, and notes describe the actual local GGUF artifacts; profile topology and role composition are derived from the pinned med-agent-hub levels.yaml.",
   "families": {
     "Gemma 4": "Google general-purpose open model — Unified encoder-free multimodal, 256K context, reasoning + tool-use",
     "Mistral": "Mistral AI general open model",

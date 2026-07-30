@@ -1,5 +1,8 @@
 # Med Agent Team — Prompt-Driven ReAct Orchestration (KB → clinical → synthesize)
 
+> **Historical / superseded implementation design.** Retained for experiment provenance; current
+> profile/stage composition is defined in med-agent-hub `levels.yaml` and `engine.py`.
+
 > Decision-ready implementation spec. Grounds the prompt + minimal code changes that evolve
 > `targets/med-agent-hub/server/team.py` so the clinical reasoner (MedGemma) reasons **GIVEN** the
 > KB context, while the orchestrator (Gemma-4-E4B) is *strongly suggested* — not hardcoded — to run

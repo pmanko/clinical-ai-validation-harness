@@ -14,8 +14,10 @@ Two contracts pinned here:
 from __future__ import annotations
 
 import json
+import inspect
 from pathlib import Path
 
+from harness import cli
 from harness.validate import report, runner
 
 
@@ -44,7 +46,7 @@ def test_runner_writes_run_meta_with_frozen_arm_cards(tmp_path):
     run_meta.json at run time."""
     run_dir = tmp_path / "run-A"
     run_dir.mkdir()
-    backends = ["12b-baseline", "med-agent-team-med-liquid"]
+    backends = ["single-e4b-checked", "team-med-checked"]
 
     runner.write_run_meta(
         run_dir, run_id="run-A", backend_ids=backends, reference_date="2026-01-01")
@@ -67,9 +69,40 @@ def test_run_meta_reference_date_none_when_unset(tmp_path):
     run_dir = tmp_path / "run-N"
     run_dir.mkdir()
     runner.write_run_meta(
-        run_dir, run_id="run-N", backend_ids=["12b-baseline"], reference_date=None)
+        run_dir, run_id="run-N", backend_ids=["single-e4b-checked"], reference_date=None)
     meta = json.loads((run_dir / "run_meta.json").read_text(encoding="utf-8"))
     assert meta["reference_date"] is None
+
+
+def test_non_llm_run_omits_gen_ai_provider(tmp_path):
+    assert (
+        inspect.signature(runner.run_comparison)
+        .parameters["gen_ai_provider_name"]
+        .default
+        is None
+    )
+    manifest_path, _ = cli._start_run(tmp_path, "validate", Path(__file__).parents[1])
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    assert "gen_ai.provider.name" not in manifest["otel"]
+
+
+def test_comparison_provider_is_derived_from_all_arm_endpoints():
+    class Backend:
+        def __init__(self, endpoint_url):
+            self.endpoint_url = endpoint_url
+
+    assert runner._provider_name(
+        [Backend("http://med-agent-hub:8080/v1/chat/completions")]
+    ) == "med-agent-hub"
+    assert runner._provider_name(
+        [Backend("http://host.docker.internal:8077/v1/chat/completions")]
+    ) == "llama.cpp"
+    assert runner._provider_name(
+        [
+            Backend("http://med-agent-hub:8080/v1/chat/completions"),
+            Backend("http://host.docker.internal:8077/v1/chat/completions"),
+        ]
+    ) == "mixed"
 
 
 def test_blob_prefers_frozen_config_but_refreshes_title_from_live(tmp_path):

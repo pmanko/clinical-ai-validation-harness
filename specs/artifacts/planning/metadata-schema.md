@@ -18,7 +18,7 @@ Each run emits:
 - `dataset_version`
 - `schema_mapping_version`
 - `generated_at`
-- `otel.gen_ai.provider.name`
+- `otel.gen_ai.provider.name` for runs that invoke an LLM; non-LLM runs omit it
 - `otel.gen_ai.operation.name`
 - `target_provenance`
 
@@ -33,6 +33,20 @@ must agree, and the resulting provider becomes `otel.gen_ai.provider.name`; the
 suite's provider is an expected value, not the evidence source. A run that fails
 before profile discovery records the provider as unresolved. Catalyst model
 operations use `otel.gen_ai.operation.name = chat`.
+
+Validation comparison runs also emit `dataset_provenance` with:
+
+- the selected comparison-set file and SHA-256;
+- every selected scenario file and SHA-256;
+- every patient chart fixture and both file and canonical-ledger SHA-256;
+- any missing patient fixtures;
+- the locally restored corpus receipt and source-dump SHA-256 when available; and
+- one combined SHA-256 over that complete run input identity.
+
+The corpus receipt is created by `scripts/seed-local.sh` only after the portable dump
+and its provenance sidecar pass `scripts/verify-portable-dump.py`. Fixture/live ledger
+equality is still enforced immediately before a run; manifest hashes make that checked
+input identity auditable afterward.
 
 ## Event Types
 

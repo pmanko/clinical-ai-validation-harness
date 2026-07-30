@@ -1,5 +1,8 @@
 # Upstream Submodule Sync — 2026-06-13
 
+> **Historical snapshot.** Current upstream dispositions and integration heads are recorded in the
+> hub consolidation roadmap status.
+
 Combined report for the Chart Search restore + upstream submodule sync. Covers the
 two OpenMRS forks rebased onto their upstreams (`chartsearchai`, `chartsearchai-esm`),
 the origin-tip bumps for the other targets, and the harness hub-hardening changes.

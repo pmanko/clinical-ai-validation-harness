@@ -228,10 +228,21 @@ def _flatten_profile(spec: dict[str, Any]) -> dict[str, Any]:
         return dict(spec)
     models = spec.get("models") or {}
     prompts = spec.get("prompts") or {}
+    policies = spec.get("policies") or {}
+    context = spec.get("context") or {}
+    knobs = spec.get("knobs") or {}
+    answer_knobs = knobs.get("answer") or {}
     return {
         "label": spec.get("label"),
         "topology": spec.get("topology"),
         "stages": spec.get("stages") or [],
+        "visibility": spec.get("visibility"),
+        "output": policies.get("output"),
+        "temporal_gate": policies.get("temporal_gate"),
+        "context_window": context.get("window"),
+        "reserved_output_tokens": context.get("reserved_output_tokens"),
+        "exact_tokenizer": context.get("exact_tokenizer"),
+        "answer_temperature": answer_knobs.get("temperature"),
         "orchestrator": models.get("orchestrator"),
         "expert": models.get("expert"),
         "synthesizer": models.get("answer") or models.get("indepth"),
@@ -437,12 +448,16 @@ def _hub_single_config(
     prompt_stem: str | None,
     ini: dict[str, dict[str, str]],
     temp_floor: str | None = None,
+    answer_temperature: Any = None,
 ) -> dict[str, Any]:
     entry = _prompt_file_entry("Synthesis prompt", prompt_stem or "synthesis-chartsearchai")
     knobs = _resolve_knobs(model_id, ini)
     if temp_floor:
         knobs = dict(knobs)
         knobs["synth_temp_floor"] = temp_floor
+    if answer_temperature is not None:
+        knobs = dict(knobs)
+        knobs["answer_temperature"] = answer_temperature
     return {
         "knobs": {model_id: knobs},
         "prompts": [entry] if entry else [],
@@ -471,7 +486,7 @@ def arm_card(
     """Resolve one backend_id to a structured arm card.
 
     Returns: {backend_id, label, kind ('single'|'team'|'unknown'), path
-    ('vanilla chartsearchai'|'med-agent-hub team'), models [model cards], roles
+    ('med-agent-hub single'|'med-agent-hub team'), models [model cards], roles
     {role: model_card} (team only), config {knobs, prompts, retrieval}}. The config
     carries the REAL sampler knobs (merged from scripts/llama-router.ini), the per-role
     system prompts (med-agent-hub prompt files / chartsearchai DEFAULT_SYSTEM_PROMPT), and
@@ -541,9 +556,25 @@ def arm_card(
             _lever = _prompt_lever(level.get("synthesis_prompt"))
             if _lever:  # a prompt-lever solo (e.g. cite-or-abstain) must not collide with plain solo
                 _t, _st = f"{_t} ({_lever})", f"{_st} ({_lever})"
+            _stages = list(level.get("stages") or [])
+            if "review" in _stages and "ground_verdicts" in _stages:
+                _t, _st = f"{_t} · fully checked", f"{_st} · fully checked"
+            elif _stages == ["context", "answer", "gate"]:
+                depth = (
+                    "deterministic check"
+                    if level.get("temporal_gate") == "enforce"
+                    else "answer only"
+                )
+                _t, _st = f"{_t} · {depth}", f"{_st} · {depth}"
             return _with_runtime({"backend_id": backend_id, "label": label, "title": _t, "short_title": _st,
                                   "kind": "single", "path": "med-agent-hub single",
-                                  "models": [_scard], "config": _hub_single_config(_w, level.get("synthesis_prompt"), ini)})
+                                  "models": [_scard], "stages": _stages,
+                                  "config": _hub_single_config(
+                                      _w,
+                                      level.get("synthesis_prompt"),
+                                      ini,
+                                      answer_temperature=level.get("answer_temperature"),
+                                  )})
         if not level:
             return _with_runtime({
                 "backend_id": backend_id,
@@ -557,6 +588,8 @@ def arm_card(
             })
         roles = {r: _model_card(roles_map[r], registry) for r in _ROLES if r in roles_map}
         title, short_title = _team_title(roles)
+        if title == "team":
+            title = short_title = str(level.get("label") or label or model_name)
         return _with_runtime({
             "backend_id": backend_id,
             "label": label,
@@ -567,6 +600,7 @@ def arm_card(
             "roles": roles,
             "models": list(roles.values()),
             "n_models": len(roles),
+            "stages": list(level.get("stages") or []),
             "config": _team_config(roles_map, level, ini),
         })
 
@@ -579,7 +613,7 @@ def arm_card(
             "title": title,
             "short_title": short_title,
             "kind": "single",
-            "path": "vanilla chartsearchai",
+            "path": "direct model endpoint",
             "models": [single_card],
             "config": _single_config(model_name, ini),
         })

@@ -1,11 +1,12 @@
-# querystore adapter contract
+# Querystore adapter contract
 
-Initial command plan:
+Querystore is an optional med-agent-hub patient-context source. The hub must also
+start and answer with inline context when Querystore is absent.
 
-- `mvn -pl api install`
+Stable checks:
 
-Future adapter responsibilities:
+- `make querystore-test` runs the complete default reactor suite.
+- `make querystore-test-integration` runs the real MySQL Testcontainers backend contract.
 
-- index/query imported corpus through real read-store paths,
-- compare evidence parity with chartsearchai known-answer cases,
-- emit shared run metadata/events.
+Live corpus checks use the existing configure, drift, reindex, and patient-record
+read paths. The module remains one possible evidence source, not a hub dependency.

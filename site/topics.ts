@@ -48,7 +48,7 @@ export const topics: Topic[] = [
   {
     id: 'upstream',
     title: 'Upstream & compatibility',
-    blurb: 'How the harness’s changes to chartsearchai and querystore are organized into reviewable OpenMRS upstream contributions, and how they stay compatible with the out-of-the-box bundled-LLM shape.',
+    blurb: 'How the ChartSearchAI relay, med-agent-hub profiles, and optional Querystore source are organized into reviewable OpenMRS upstream contributions.',
     links: [
       { kind: 'canvas', slug: 'specs/artifacts/canvases/upstream-contribution-and-compatibility', label: 'Upstream contribution & compatibility (canvas)' },
       { kind: 'canvas', slug: 'specs/artifacts/canvases/chartsearchai-and-querystore', label: 'chartsearchai & querystore (canvas)' },

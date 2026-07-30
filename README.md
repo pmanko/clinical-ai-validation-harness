@@ -6,7 +6,7 @@ The harness currently focuses on OpenMRS-based clinical AI (chart search, query 
 
 ## Why this matters
 
-Much of the world's primary care runs in settings with intermittent connectivity, modest hardware, few IT staff, and strong reasons to keep patient data local. Clinical AI for these settings has to run **offline and on less-powerful hardware**, keep **patient data on-site** (privacy and local data ownership), and **fit local clinical reality** — guidelines, and the data most AI is trained on, come from better-resourced settings, leaving the conditions, formularies, and populations of low-resource clinics underrepresented in clinical research and guidelines. That shapes every choice here: a local "AI team" of small models instead of one big cloud model, a knowledge base contextualized to each deployment's own concepts and drugs, and validation against real local systems with every claim traceable to a specific record. The intent mirrors WHO's [SMART Guidelines](https://www.who.int/teams/digital-health-and-innovation/smart-guidelines) — let local programs benefit from global evidence while adapting it to their own context — applied to the question "can we trust this AI here?"
+Much of the world's primary care runs in settings with intermittent connectivity, modest hardware, few IT staff, and strong reasons to keep patient data local. Clinical AI for these settings has to run **offline and on less-powerful hardware**, keep **patient data on-site** (privacy and local data ownership), and **fit local clinical reality** — guidelines, and the data most AI is trained on, come from better-resourced settings, leaving the conditions, formularies, and populations of low-resource clinics underrepresented in clinical research and guidelines. That shapes every choice here: local small-model profiles, including both fast single-model and deliberate team configurations, a knowledge base contextualized to each deployment's own concepts and drugs, and validation against real local systems with every claim traceable to a specific record. The intent mirrors WHO's [SMART Guidelines](https://www.who.int/teams/digital-health-and-innovation/smart-guidelines) — let local programs benefit from global evidence while adapting it to their own context — applied to the question "can we trust this AI here?"
 
 ## Who this is for
 
@@ -21,8 +21,8 @@ The harness coordinates validation across four clinical AI projects:
 
 | Project | What it does | Role here |
 |---------|-------------|-----------|
-| `chartsearchai` | Embedded OpenMRS module: searches patient chart records using embeddings and lexical retrieval, then generates cited answers | Primary validation target: retrieval quality, answer grounding, citation, abstention, and security |
-| `querystore` | Emerging read-optimized store that will back `chartsearchai` retrieval | Parity testbed: compare retrieval behavior before and after migration |
+| `chartsearchai` | OpenMRS clinical-chat module with bundled and med-agent-hub provider paths | Product integration target: shared lifecycle UX, persistence, evidence display, cancellation, and security |
+| `querystore` | Read-optimized OpenMRS clinical-record projection and optional med-agent-hub source | Context-source validation: materialized records, indexing integrity, date/freshness semantics, and retrieval experiments |
 | `openmrs_chatbot` | Python clinical chatbot with patient/doctor interfaces and agent workflow scaffolding | Future expansion: multi-turn grounding and role-aware answer evaluation |
 | `Catalyst` (OpenELIS) | Lab query-to-table sidecar: OpenELIS → HAPI FHIR → FHIR Data Pipes → governed analytics view → reviewed, read-only Catalyst execution | Manual multi-LLM sandbox available; harness experiments are under active development |
 
@@ -30,7 +30,11 @@ The harness coordinates validation across four clinical AI projects:
 
 The OpenMRS demo-data remap (Roadmap M1 / feature 002) is **complete** — the public 2.7 demo corpus is transformed and imported as the canonical 5,284-patient 2.8 demo schema the harness validates against. (See the [Feature 002 spec](https://github.com/pmanko/clinical-ai-validation-harness/blob/main/specs/002-openmrs-demo-data-2-8-remap/spec.md) and [quickstart](https://github.com/pmanko/clinical-ai-validation-harness/blob/main/specs/002-openmrs-demo-data-2-8-remap/quickstart.md) for that work.)
 
-Current work is the **validation spine** (Roadmap M2 / feature 006): run the same clinical questions across model backends through chartsearchai's real API, score the answers against the patient chart, and record reviewable, record-level evidence. Three lanes are in flight — the local "AI team" tool layer, human-feedback reports, and closing the first live-chartsearchai milestone. See the [roadmap canvas](https://pmanko.github.io/clinical-ai-validation-harness/#/canvas/specs/roadmap); the development operating plan and per-lane dossiers live in-repo under `specs/artifacts/lanes/`.
+Current work is the **dual-provider foundational-parity roadmap**: preserve bundled ChartSearchAI
+inference as the fresh-install default while allowing a configured med-agent-hub provider through
+the same OpenMRS conversation, evidence, persistence, and cancellation contract. QueryStore remains
+an OpenMRS projection with an optional hub adapter, not a hub dependency. The current integration
+branches are being rebuilt around that contract; see the checked-in [roadmap](specs/artifacts/planning/openmrs-dual-provider-parity-roadmap.md), [status](specs/artifacts/planning/openmrs-dual-provider-parity-roadmap-status.md), and [upstream inventory](specs/artifacts/planning/openmrs-dual-provider-upstream-inventory.md).
 
 ## How the docs fit together
 
@@ -43,7 +47,7 @@ Current work is the **validation spine** (Roadmap M2 / feature 006): run the sam
 | Current priority operator walkthrough | [Feature 002 quickstart](https://github.com/pmanko/clinical-ai-validation-harness/blob/main/specs/002-openmrs-demo-data-2-8-remap/quickstart.md) |
 | Harness foundation and control-plane detail | [Feature 001 spec](https://github.com/pmanko/clinical-ai-validation-harness/blob/main/specs/001-harness-control-plane-foundation/spec.md) |
 | All planning artifacts, canvases, and research docs | [specs/artifacts/](https://github.com/pmanko/clinical-ai-validation-harness/tree/main/specs/artifacts) |
-| Cloud/GCE deploy guide | [docs/cloud-deploy.md](https://github.com/pmanko/clinical-ai-validation-harness/blob/main/docs/cloud-deploy.md) |
+| Superseded pre-hub cloud guide | [docs/cloud-deploy.md](https://github.com/pmanko/clinical-ai-validation-harness/blob/main/docs/cloud-deploy.md) |
 
 The public docs site auto-deploys from `main` and publishes the public-facing surface — this README and the visual canvases. The detailed feature specs, plans, briefs, and per-lane dossiers are dev-internal: they live in the repo (under `specs/`), not on the published site. Browse the site locally with `cd site && npm install && npm run dev` (opens at `http://127.0.0.1:4321/clinical-ai-validation-harness/`).
 
@@ -57,10 +61,10 @@ Human-facing docs use plain names. IDs appear in parentheses on first use and in
 | OpenMRS demo-data remap | M1 | `002` | Complete |
 | Validation spine | M2 | `006` | In progress (validation-harness MVP; runner/report/feedback shipped — see lane L3) |
 | Real adapter entrypoints | M3 | `004` | In progress |
-| med-agent-hub bridge | F005 | `005` | Shipped (model-switch + Carbon picker + model warmup + Tier-1 KB) |
-| LLM config overrides | F007 | `007` | Planned |
-| med-agent-hub MCP tools | F010 | `017` | In progress (lane L1) |
-| Chartsearchai model gateway | F008 | planning brief | [Brief](https://github.com/pmanko/clinical-ai-validation-harness/blob/main/specs/artifacts/planning/chartsearchai-model-gateway-brief.md) |
+| med-agent-hub service | F005 | `005` | Shipped as the configured profile-driven provider; Catalyst also uses its generic role executor |
+| LLM config overrides | F007 | `007` | Superseded by explicit provider/profile configuration |
+| med-agent-hub MCP tools | F010 | `017` | Superseded; dead MCP/A2A runtime removed |
+| ChartSearchAI model gateway | F008 | `008` | Bundled and configured-Hub providers preserved behind the [dual-provider roadmap](specs/artifacts/planning/openmrs-dual-provider-parity-roadmap.md) |
 | Clinical knowledge base | F009 | `009` | [Brief + research](https://github.com/pmanko/clinical-ai-validation-harness/blob/main/specs/artifacts/planning/clinical-kb-brief.md) |
 | Retrieval evaluation | M4 | `010` | Planned |
 | Catalyst query workbench | M10 | `008` | Iterative manual workbench and initial real-path harness corpus in progress |
@@ -153,8 +157,8 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 # 2. Set up the Python environment and install all dev dependencies
 make setup
 
-# 3. Bring up the OpenMRS Reference Application stack (MariaDB + backend + frontend)
-docker compose -f compose/openmrs-2.8-refapp.yml up -d
+# 3. Bring up the OpenMRS Reference Application stack through its stable launcher
+make up
 
 # 4. Run a schema diff between the legacy 2.7 source and the clean 2.8 baseline
 uv run harness-cli schema-diff --output-dir artifacts/schema-diff
@@ -177,48 +181,40 @@ For the full OpenMRS demo-data remap workflow, see [specs/002-openmrs-demo-data-
 
 ## ChartSearch operations
 
-The chartsearchai adapter (feature 004) and its Med Agent Hub team are operated through `make` targets that
-wrap the build, the LLM engine, the retrieval backend, and the per-endpoint model picker:
+The approved product shape is **two providers behind one ChartSearchAI experience**. A standard
+OpenMRS installation defaults to bundled ChartSearchAI inference. Deployments that configure
+med-agent-hub may expose it as an additional provider; changing provider begins a new conversation.
+The hub remains a supported direct service and owns its own profile/stage, temporal, review,
+grounding, and In-Depth behavior. It is not a required dependency for bundled operation.
 
-The **canonical LLM path** is chartsearchai → Med Agent Hub (`:8080`) → llama-router (`:8077`): a llama.cpp
-Router Mode server serving the tier GGUFs the hub maps its per-role models onto. LM Studio (`:1234`) is a
-configurable alternative remote endpoint. chartsearchai has no bundled local LLM — every chat request relays
-to a configured remote endpoint. The default chat model is the fast checked single profile
-(`single-e4b-checked`); larger singles and team profiles are picker choices for slower/deeper questions.
+The existing hub-relay integration and local commands remain useful for development while the
+dual-provider rebuild is in progress, but they do not define the final provider configuration.
+Use the roadmap's product-proof gates before treating either path as the released canonical UI.
 
 ```bash
-# 1. Canonical local LLM backend (foreground server, own terminal — start this FIRST).
-#    TIER=low|med|high.
-make llama-router-up                 # serves the tier GGUFs on :8077
-make llama-router-models             # probe what :8077 is serving
+# Development helper for the hub path. It does not replace bundled inference or
+# declare the hub the default provider in a fresh OpenMRS installation.
+make chartsearchai-local
 
-# 2. One command brings up everything else: builds the .omod, brings up + configures
-#    med-agent-hub (when .env.chartsearch's endpoint targets it, the default), starts
-#    the OpenMRS stack, configures chartsearchai's LLM globals, and warms LM Studio
-#    models if configured. Ask a question through the picker's default model once
-#    both steps above are done.
-make chartsearch-up
-
-# Re-run individual steps as needed, e.g. after editing .env.chartsearch:
+# Useful focused operations:
+./scripts/chartsearchai-local.sh --check  # validate prerequisites without starting services
+make llama-router-models             # inspect raw models behind the hub
 make chartsearch-build               # rebuild + redeploy just the .omod
 make med-agent-hub-up                # (re)start the hub on its own
-make chartsearch-configure           # re-write the chartsearchai.llm.* global properties
-make chartsearch-engine              # recreate the backend against the configured remote endpoint
-make chartsearch-warmup              # LM Studio only — pre-load its models
+make chartsearch-configure           # write the fixed hub endpoint; profile discovery supplies the default
+make chartsearch-doctor              # verify router, hub profile metadata, and module status
 
 # Retrieval backend — querystore's CQRS read store tier
 make chartsearch-backend BACKEND=elasticsearch   # or lucene | mysql
 ```
 
-**Model picker.** When `CHARTSEARCH_REMOTE_ENDPOINTS` (a JSON array of `{label, url}`) is set in
-`.env.chartsearch`, the chat panel shows a sectioned picker — one section per endpoint (e.g. *Med Agent Hub*,
-*llama-server*, *LM Studio*). Selecting a model sends it as a per-request `{endpointUrl, modelName}` override on
-that chat only; it does not change the config-controlled global default (shown with a faded "default" tag). With
-no registry set, the picker collapses to the single configured endpoint.
+**Provider and profile selection.** The final ESM shows no picker with bundled-only configuration.
+With hub configured, it shows a provider choice first and the provider's supported profile/mode choices
+second. Unready configured providers remain visibly disabled; the UI never invents raw model choices or
+silently falls back to another provider.
 
-**Cloud.** `make cloud-deploy` ships the backend (`.omod`) and `make cloud-deploy-esm` ships the frontend
-bundle; `make cloud-status` / `cloud-ssh` inspect the VM. The cloud runs the same engine + picker + Med Agent
-Hub setup as local (it reaches the operator's LM Studio over the LM Link).
+**Cloud.** The older GCE/LM Link workflow predates the hub-only product boundary and is not the canonical M3
+proof path. Use the local workflow above while the cloud scripts are reconciled with the same hub profile API.
 
 ## Key terms
 

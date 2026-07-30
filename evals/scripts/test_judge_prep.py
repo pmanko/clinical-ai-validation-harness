@@ -165,6 +165,108 @@ def test_main_includes_canonical_sources_in_judge_cell(tmp_path, monkeypatch):
     assert "S1 = cite [1] chart [1] obs" in cell["answer_section"]
 
 
+def test_main_excludes_review_only_model_text_from_judge_cell(tmp_path, monkeypatch):
+    jp = _load()
+    chart = {
+        "patient": {"uuid": "u1", "slug": "p", "name": "Pat"},
+        "valid_uuids": ["ref-1"],
+        "chart_snapshot": "Patient: 40F\n[1] (2026-01-26) Weight: 70 kg",
+        "mappings": [
+            {"index": 1, "resourceType": "obs", "resourceUuid": "ref-1"}
+        ],
+    }
+    scenario = {
+        "id": "s1",
+        "patient_ref": "u1",
+        "turns": [{"n": 1, "question": "What is the weight?"}],
+    }
+    results = [
+        {
+            "scenario_id": "s1",
+            "backend_id": "b1",
+            "turn": 1,
+            "error": None,
+            "response": {
+                "answer": "Checked answer [1].",
+                "references": [{"index": 1, "resourceUuid": "ref-1"}],
+                "answerValidation": {
+                    "status": "edited",
+                    "summary": "LEAKED ANSWER SUMMARY",
+                    "originalAnswer": "Discarded original answer [99].",
+                    "issues": [
+                        {
+                            "id": "date_value_binding",
+                            "status": "fail",
+                            "severity": "block",
+                            "claim": "LEAKED ANSWER CLAIM",
+                            "reason": "LEAKED REJECTED REASON 2026-02-02 6.2 kg",
+                            "source_indices": [99],
+                            "chart": "LEAKED REVIEW CHART TEXT",
+                            "fix": "LEAKED REVIEW FIX",
+                        }
+                    ],
+                },
+                "inDepth": {
+                    "status": "needs_review",
+                    "answer": "",
+                    "reviewDraft": "Rejected In-Depth draft [99].",
+                    "reviewReferences": [{"index": 99}],
+                    "validation": {
+                        "schema_version": "indepth_temporal_gate.v1",
+                        "status": "needs_review",
+                        "claims": ["LEAKED REJECTED CLAIM"],
+                        "checks": [
+                            {
+                                "claim": "LEAKED NESTED CLAIM",
+                                "claim_index": 1,
+                                "gate": {
+                                    "status": "fail",
+                                    "patch_answer": "LEAKED PATCH ANSWER",
+                                    "checks": [
+                                        {
+                                            "id": "upcoming_date",
+                                            "status": "fail",
+                                            "reason": "The date is historical.",
+                                            "source_indices": [99],
+                                            "claim": "LEAKED DEEP CLAIM",
+                                        }
+                                    ],
+                                },
+                            }
+                        ],
+                    },
+                },
+            },
+        }
+    ]
+    run_dir = _fixture_run(
+        tmp_path, jp, monkeypatch, results=results, scenario=scenario, chart=chart
+    )
+    monkeypatch.setattr("sys.argv", ["judge-prep.py", str(run_dir)])
+    jp.main()
+
+    cell = _read_cells(run_dir)[0]
+    serialized = json.dumps(cell)
+    assert "Checked answer" in cell["answer_section"]
+    assert cell["in_depth_section"] == ""
+    assert cell["answer_validation"] == {
+        "status": "edited",
+        "issues": [
+            {
+                "id": "date_value_binding",
+                "status": "fail",
+                "severity": "block",
+                "source_indices": [99],
+            }
+        ],
+    }
+    assert "Discarded original answer" not in serialized
+    assert "Rejected In-Depth draft" not in serialized
+    assert "LEAKED" not in serialized
+    assert cell["in_depth_validation"]["checks"][0]["gate"]["status"] == "fail"
+    assert [reference["index"] for reference in cell["references"]] == [1]
+
+
 def test_main_should_abstain_false_when_unset(tmp_path, monkeypatch):
     jp = _load()
     chart = {"patient": {"uuid": "u1", "slug": "p"}, "valid_uuids": [],

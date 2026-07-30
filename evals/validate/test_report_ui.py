@@ -172,6 +172,56 @@ def test_patient_banner_links_to_openmrs_chart(tmp_path):
         f"recent vitals missing from banner: {banner_text!r}")
 
 
+def test_judge_caveat_renders_actual_patient_and_judge_counts(tmp_path):
+    sync_api = pytest.importorskip("playwright.sync_api")
+    run_dir = tmp_path / "run"
+    _write_run(run_dir, ["a"])
+    manifest_path = run_dir / "run_manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    patient = next(iter(manifest["patients"].values()))
+    patient_ids = [PATIENT_UUID, "patient-2", "patient-3"]
+    manifest["patients"] = {
+        patient_id: {**patient, "identifier": patient_id}
+        for patient_id in patient_ids
+    }
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    results_path = run_dir / "results.jsonl"
+    rows = [json.loads(line) for line in results_path.read_text(encoding="utf-8").splitlines()]
+    for turn, patient_id in enumerate(patient_ids[1:], start=2):
+        row = json.loads(json.dumps(rows[0]))
+        row["turn"] = turn
+        row["request"]["patient"] = patient_id
+        rows.append(row)
+    results_path.write_text("".join(json.dumps(row) + "\n" for row in rows), encoding="utf-8")
+    judge = {
+        "scenario_id": "single-vitals-summary",
+        "backend_id": "a",
+        "accuracy": 8,
+        "completeness": 8,
+        "relevance": 8,
+        "abstention_outcome": "n-a",
+        "citation_groundedness": "supported",
+        "harm": False,
+        "note": "",
+    }
+    (run_dir / "judge.jsonl").write_text(json.dumps(judge) + "\n", encoding="utf-8")
+    for actor in ("actor-a", "actor-b"):
+        actor_dir = run_dir / "judges" / actor
+        actor_dir.mkdir(parents=True)
+        (actor_dir / "judge.jsonl").write_text(json.dumps(judge) + "\n", encoding="utf-8")
+
+    uri = build_report(run_dir).resolve().as_uri()
+    with sync_api.sync_playwright() as p:
+        b = p.chromium.launch()
+        try:
+            page = _page(b, uri)
+            caveat = page.text_content(".judge-section .legend-body") or ""
+        finally:
+            b.close()
+
+    assert "small N, 3 patients, 2 judges" in caveat
+
+
 def test_summary_label_is_escaped_not_injected(tmp_path):
     """A backend label is attacker-influenced config text; the summary must escape it into
     text, not inject it as live markup (the renderSummary innerHTML surface)."""

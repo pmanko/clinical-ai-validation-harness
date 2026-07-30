@@ -23,15 +23,44 @@ def _load_module():
     return module
 
 
-def test_source_indices_walks_nested_temporal_fact_shapes():
+def test_temporal_evidence_indices_include_only_fact_bearing_records():
     module = _load_module()
 
-    assert module._source_indices(
+    assert module._temporal_evidence_indices(
         {
-            "index": 3,
-            "nested": [{"indices": [4, "bad", 5]}, {"index": 6}],
+            "clinical_dates": [{"indices": [1, 2, 3], "date": "2026-01-01"}],
+            "last_clinical_encounter": {"indices": [4], "date": "2026-01-01"},
+            "numeric_series": [
+                {
+                    "concept": "Weight (kg)",
+                    "points": [
+                        {"index": 5, "date": "2026-01-01", "value": 50},
+                        {"index": 6, "date": "2026-02-01", "value": 51},
+                    ],
+                }
+            ],
+            "return_visit_dates": [
+                {"index": 7, "concept": "Return visit date", "value_date": "2026-03-01"}
+            ],
+            "appointment_candidates": {
+                "future": [{"index": 8, "concept": "Appointment", "date": "2026-04-01"}],
+                "all": [{"index": 8, "concept": "Appointment", "date": "2026-04-01"}],
+            },
         }
-    ) == {3, 4, 5, 6}
+    ) == {5, 6, 7, 8}
+
+
+def test_date_only_temporal_metadata_cannot_hide_missing_clinical_record():
+    module = _load_module()
+    facts = {"clinical_dates": [{"indices": [233], "date": "2025-10-22"}]}
+
+    assert 233 not in module._temporal_evidence_indices(facts)
+
+
+def test_bootstrap_prefers_the_parent_gate_environment():
+    module = _load_module()
+
+    assert module._bootstrap_pythons()[0] == ROOT / ".gates-hub-venv/bin/python"
 
 
 def test_context_cases_require_explicit_nonempty_labels():
@@ -68,6 +97,8 @@ def test_evaluate_binds_current_inputs_and_measures_all_cells(monkeypatch):
             mode="full",
             input_tokens=100,
             input_limit=200,
+            included=(SimpleNamespace(stable_id="record-1", reason="full_context"),),
+            excluded=(),
         )
         state.temporal_facts = {}
 
@@ -103,6 +134,7 @@ def test_evaluate_binds_current_inputs_and_measures_all_cells(monkeypatch):
     assert len(result["hub_code_sha256"]) == 64
     assert len(result["router_config_sha256"]) == 64
     assert all(row["input_tokens"] <= row["input_limit"] for row in result["results"])
+    assert all(row["included"] == [{"source_id": "record-1", "reason": "full_context"}] for row in result["results"])
 
 
 def test_main_writes_requested_artifact_and_returns_gate_status(tmp_path, monkeypatch):

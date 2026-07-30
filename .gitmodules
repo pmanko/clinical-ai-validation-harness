@@ -19,4 +19,3 @@
 [submodule "targets/med-agent-hub"]
 	path = targets/med-agent-hub
 	url = https://github.com/pmanko/med-agent-hub.git
-	branch = main

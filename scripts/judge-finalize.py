@@ -15,6 +15,7 @@ Usage: scripts/judge-finalize.py <run_dir-or-id> <workflow_rows.json> [--actor <
 """
 from __future__ import annotations
 import argparse
+import hashlib
 import json
 import pathlib
 import sys
@@ -33,6 +34,18 @@ def run_dir(arg: str) -> pathlib.Path:
     sys.exit(f"no run dir for {arg!r}")
 
 
+def has_temporal_claim(row: dict) -> bool:
+    """Accept the legacy workflow flag or the rubric's documented temporal fields."""
+    return bool(row.get("has_temporal_claim")) or any(
+        key in row
+        for key in (
+            "temporal_date_accuracy",
+            "temporal_window",
+            "temporal_trend",
+        )
+    )
+
+
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Finalize judge fan-out rows into judge.jsonl")
     parser.add_argument("run", help="Run id or artifacts/validate/<run> directory")
@@ -40,6 +53,21 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--actor",
         help="Optional independent judge actor id; writes judges/<actor>/judge.jsonl",
+    )
+    parser.add_argument(
+        "--actor-type",
+        choices=("llm-judge", "human"),
+        default="llm-judge",
+        help="Actor provenance stored with an independent pass.",
+    )
+    parser.add_argument(
+        "--model",
+        help="Judge model/version, or the human reviewer role for a human pass.",
+    )
+    parser.add_argument(
+        "--method",
+        default="clinical-answer-scoring",
+        help="Review method or workflow identifier.",
     )
     parser.add_argument(
         "--promote",
@@ -57,6 +85,8 @@ def _parse_args() -> argparse.Namespace:
 def main() -> None:
     args = _parse_args()
     rd = run_dir(args.run)
+    if args.actor and not args.model:
+        sys.exit("--model is required with --actor so independent judgments have provenance")
     rows = json.load(open(args.rows))
     if isinstance(rows, dict):  # tolerate {result:[...]} or similar wrappers
         rows = rows.get("result") or rows.get("rows") or rows.get("return") or list(rows.values())
@@ -89,7 +119,7 @@ def main() -> None:
             "harm": bool(r["harm"]),
         }
         # temporal axes only when the answer actually made a temporal claim
-        if r.get("has_temporal_claim"):
+        if has_temporal_claim(r):
             row["temporal_date_accuracy"] = r.get("temporal_date_accuracy", "ok")
             row["temporal_window"] = r.get("temporal_window", "ok")
             row["temporal_trend"] = r.get("temporal_trend", "ok")
@@ -128,7 +158,9 @@ def main() -> None:
             manifest = {
                 "schema_version": "judge_actor.v1",
                 "actor_id": args.actor,
-                "actor_type": "llm-judge",
+                "actor_type": args.actor_type,
+                "model": args.model,
+                "method": args.method,
                 "run_id": rd.name,
                 "source_cells": "judge-cells.jsonl",
                 "source_rows": str(pathlib.Path(args.rows)),
@@ -137,6 +169,13 @@ def main() -> None:
                 "n_rows": len(out),
                 "created_at": datetime.now(timezone.utc).isoformat(),
                 "rubric": "clinical-answer-scoring/rubric.md",
+                "source_cells_sha256": hashlib.sha256(
+                    (rd / "judge-cells.jsonl").read_bytes()
+                ).hexdigest(),
+                "source_rows_sha256": hashlib.sha256(
+                    pathlib.Path(args.rows).read_bytes()
+                ).hexdigest(),
+                "output_sha256": hashlib.sha256(jpath.read_bytes()).hexdigest(),
             }
             (jpath.parent / "manifest.json").write_text(
                 json.dumps(manifest, indent=2, sort_keys=True) + "\n",

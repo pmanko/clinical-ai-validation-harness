@@ -1,5 +1,8 @@
 # Landscape & Sync — Today (2026-05-30)
 
+> **HISTORICAL SNAPSHOT:** This inventory describes the repository on 2026-05-30 and is not a
+> current architecture guide. See `../hub-consolidation-roadmap.md` and its status artifact.
+
 Synthesis of a six-surface project recon, driving two goals:
 - **GOAL A** — a demoable **006 validation-harness MVP** (simple evaluation workflow) in ~a couple of days.
 - **GOAL B** — a **clean PR + GitHub history** across all repos, ready for a reviewer.

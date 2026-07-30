@@ -4,9 +4,9 @@
 **Scope of this PR**: chartsearchai adapter only — proof of concept against the feature-002 corpus (now promoted to `openmrs`; see 2026-05-29 update)
 **Status**: in progress | **Started**: 2026-05-16
 
-> **Historical note (2026-07):** this PoC spec predates the hub-relay refactor. Current chartsearchai
-> chat requires `chartsearchai.llm.engine=remote` and relays through a configured OpenAI-compatible
-> endpoint; the bundled local engine path described below is no longer current.
+> **SUPERSEDED HISTORICAL SPEC (2026-07):** this entire PoC body predates the hub-relay refactor.
+> Current ChartSearchAI authorizes and persists chat while relaying one request to med-agent-hub;
+> the direct-provider and bundled-local paths described below are no longer current.
 
 ## Goal
 

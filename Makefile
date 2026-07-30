@@ -9,12 +9,12 @@ export UV_PROJECT_ENVIRONMENT
         reset-transform sqlmesh-status \
         loadtest-up loadtest-down \
         load-test orphan-fk-check import-smoke dump-loaded promote \
-        chartsearch-build chartsearch-configure chartsearch-backend chartsearch-doctor chartsearch-warmup chartsearch-up \
-        chartsearch-esm-build chartsearch-esm-dev cloud-deploy-esm \
+        chartsearch-build querystore-build querystore-recreate-index chartsearch-configure querystore-configure chartsearch-backend chartsearch-doctor chartsearchai-local dual-provider-up \
+        chartsearch-esm-build chartsearch-esm-dev \
         llama-router-up llama-router-models \
-        med-agent-hub-build med-agent-hub-up med-agent-hub-logs med-agent-hub-restart med-agent-hub-test \
-        validate-preflight validate-run validate-judge-prep validate-judge-finalize validate-publish \
-        cloud-init cloud-sync cloud-up cloud-down cloud-reset cloud-deploy cloud-seed \
+        med-agent-hub-build med-agent-hub-up med-agent-hub-logs med-agent-hub-restart med-agent-hub-test chartsearch-test chartsearch-e2e-low-confidence querystore-test querystore-test-integration querystore-reindex \
+        dashboard-ensure dashboard-restart validate-preflight validate-run validate-judge-prep validate-judge-finalize validate-publish \
+        cloud-init cloud-sync cloud-down cloud-seed \
         cloud-start cloud-stop cloud-ssh cloud-logs cloud-status cloud-destroy \
         catalyst-mvp-up catalyst-mvp-external catalyst-mvp-fake catalyst-mvp-seed catalyst-mvp-health catalyst-mvp-down catalyst-mvp-reset
 
@@ -145,7 +145,21 @@ chartsearch-build:
 	cd targets/chartsearchai && mvn -DskipTests -B package
 	mkdir -p artifacts/openmrs/modules
 	cp targets/chartsearchai/omod/target/chartsearchai-*.omod artifacts/openmrs/modules/
+	./scripts/artifact-provenance.py write --repo targets/chartsearchai \
+	  --artifact artifacts/openmrs/modules/chartsearchai-1.0.0-SNAPSHOT.omod \
+	  --manifest artifacts/openmrs/modules/chartsearchai-1.0.0-SNAPSHOT.omod.provenance.json
 	@ls -la artifacts/openmrs/modules/chartsearchai-*.omod
+
+# Build the pinned patient-record source module used by the hub's optional
+# Querystore adapter. The local entrypoint invokes this only when missing/stale.
+querystore-build:
+	cd targets/querystore && mvn -DskipTests -B package
+	mkdir -p artifacts/openmrs/modules
+	cp targets/querystore/omod/target/querystore-*.omod artifacts/openmrs/modules/
+	./scripts/artifact-provenance.py write --repo targets/querystore \
+	  --artifact artifacts/openmrs/modules/querystore-1.0.0-SNAPSHOT.omod \
+	  --manifest artifacts/openmrs/modules/querystore-1.0.0-SNAPSHOT.omod.provenance.json
+	@ls -la artifacts/openmrs/modules/querystore-*.omod
 
 # Build the chartsearchai frontend ESM from the pinned submodule and stage
 # it under artifacts/openmrs/spa-custom/. Caddy serves both the bundle
@@ -156,6 +170,9 @@ chartsearch-build:
 # so they always match the upstream nightly the rest of the SPA is using.
 chartsearch-esm-build:
 	@./scripts/chartsearch-esm-build.sh
+	@./scripts/artifact-provenance.py write --repo targets/chartsearchai-esm \
+	  --artifact artifacts/openmrs/spa-custom \
+	  --manifest artifacts/openmrs/chartsearchai-esm.provenance.json
 
 # Day-to-day ESM dev loop. Spins up `openmrs develop` (Express + HMR) on
 # port 8080 and proxies API to the local docker backend. Edits in
@@ -171,32 +188,9 @@ chartsearch-esm-dev:
 	fi
 	@cd targets/chartsearchai-esm && yarn start --backend=http://localhost:8088 --spa-path=/openmrs/spa --api-url=/openmrs
 
-# Fast cloud iteration for ESM changes only — rebuild the bundle, rsync
-# the artifacts dir to the VM. Caddy serves the new files immediately
-# (artifacts/openmrs/spa-custom is bind-mounted into the proxy container
-# per compose/openmrs-2.8-refapp.yml → /srv/spa-custom:ro). No reload
-# needed for ESM changes.
-#
-# Reload would only be needed if compose/Caddyfile itself changed. The
-# Caddyfile sets `admin off` for security, so `caddy reload` (which
-# requires the admin API on localhost:2019) does NOT work here — earlier
-# versions of this target chained two reload paths that both failed
-# silently and broke the deploy step. For Caddyfile edits, the right
-# move is:
-#   ./scripts/cloud-ssh.sh "cd ~/$${GCP_REMOTE_REPO:-clinical-ai-validation-harness} && \
-#       docker compose -f compose/openmrs-2.8-refapp.yml restart proxy"
-cloud-deploy-esm:
-	@./scripts/chartsearch-esm-build.sh
-	@./scripts/cloud-sync.sh
-	@CLOUD=1 ./scripts/chartsearch-importmap-gen.sh
-	@./scripts/cloud-sync.sh
-	@echo "==> cloud-deploy-esm complete (bind-mounted spa-custom updated; Caddy serves new files on next request)"
-
 # --- llama-router (CANONICAL local LLM backend) ---
-# The canonical local LLM path for the harness: a llama.cpp Router Mode server on
-# :8077 serving the tier GGUFs (DRY, OpenAI-compatible) that med-agent-hub maps
-# its per-role models onto. LM Studio (:1234) is a CONFIGURABLE ALTERNATIVE, not
-# the default. Long-lived foreground server — run in its own terminal.
+# The canonical local model-serving layer: a llama.cpp Router Mode server on
+# :8077 serving the GGUF aliases that med-agent-hub profiles reference.
 #
 # LLAMA_ROUTER_TIER picks the co-residency cap (see scripts/llama-router-up.sh):
 #   med (default) / low -> models-max 4 (interactive LOW/MED tiers co-resident)
@@ -221,10 +215,15 @@ llama-router-models:
 	  | python3 -c "import sys,json; d=json.load(sys.stdin); ms=d.get('data',[]); print('models on :8077:' if ms else 'no models loaded'); [print(f'  - {m[\"id\"]}') for m in ms]" \
 	  || { echo "llama-router not reachable on :8077 — start it: make llama-router-up"; exit 1; }
 
-# --- med-agent-hub ("Med Agent Team" bridge) ---
-# Builds/runs the in-process agent-team endpoint from targets/med-agent-hub.
-# Internal-only service (no host port); the OpenMRS backend reaches it at
-# http://med-agent-hub:8080. The hub's roles reach the canonical llama-router on
+# Explicit test/demo proof that the E2B writer and E4B checking model remain
+# loaded together. This is deliberately separate from normal local startup.
+llama-router-small-model-proof:
+	@python3 scripts/verify-small-model-residency.py
+
+# --- med-agent-hub ---
+# Builds/runs the profile-driven inference service from targets/med-agent-hub.
+# OpenMRS reaches it at http://med-agent-hub:8080 and direct local clients use
+# the loopback-only host port :18081. Hub role models reach llama-router on
 # the host (:8077); start that first with `make llama-router-up`. Point
 # chartsearchai at the hub with `make chartsearch-configure` after setting the
 # endpoint in .env.chartsearch.
@@ -237,6 +236,11 @@ med-agent-hub-build:
 # Soft-warn when the canonical llama-router (:8077) isn't reachable — the hub
 # starts but every inference call fails until the router is up.
 med-agent-hub-up:
+	@if [ "$$(id -u)" = "0" ]; then \
+	  echo "ERROR: med-agent-hub-up must run as a non-root host user." >&2; \
+	  echo "  Root would map UID 0 into the container and defeat its non-root runtime." >&2; \
+	  exit 1; \
+	fi
 	@if [ ! -f targets/med-agent-hub/server/levels.yaml ]; then \
 	  echo "ERROR: targets/med-agent-hub/server/levels.yaml is missing."; \
 	  echo "  The hub bind-mounts it read-only; without it the hub 500s on every request."; \
@@ -245,7 +249,36 @@ med-agent-hub-up:
 	fi
 	@curl -fsS -m 3 http://localhost:8077/v1/models >/dev/null 2>&1 \
 	  || echo "WARN: llama-router (:8077) not reachable — start it with 'make llama-router-up' or the hub's inference calls will fail."
-	docker compose -f compose/openmrs-2.8-refapp.yml up -d med-agent-hub
+	@override_source_set=$${QUERYSTORE_BASE_URL+x}; override_source=$${QUERYSTORE_BASE_URL-}; \
+	  override_user_set=$${QUERYSTORE_USERNAME+x}; override_user=$${QUERYSTORE_USERNAME-}; \
+	  override_password_set=$${QUERYSTORE_PASSWORD+x}; override_password=$${QUERYSTORE_PASSWORD-}; \
+	  override_timezone_set=$${HUB_TIMEZONE+x}; override_timezone=$${HUB_TIMEZONE-}; \
+	  override_anchor_set=$${HUB_ANCHOR+x}; override_anchor=$${HUB_ANCHOR-}; \
+	  override_llm_set=$${MED_AGENT_LLM_BASE_URL+x}; override_llm=$${MED_AGENT_LLM_BASE_URL-}; \
+	  set -a; . ./.env.chartsearch.example; \
+	  [ ! -f .env.chartsearch ] || . ./.env.chartsearch; \
+	  [ ! -f artifacts/chartsearchai-local/querystore-service.env ] || . artifacts/chartsearchai-local/querystore-service.env; \
+	  [ -z "$$override_source_set" ] || QUERYSTORE_BASE_URL="$$override_source"; \
+	  [ -z "$$override_user_set" ] || QUERYSTORE_USERNAME="$$override_user"; \
+	  [ -z "$$override_password_set" ] || QUERYSTORE_PASSWORD="$$override_password"; \
+	  [ -z "$$override_timezone_set" ] || HUB_TIMEZONE="$$override_timezone"; \
+	  [ -z "$$override_anchor_set" ] || HUB_ANCHOR="$$override_anchor"; \
+	  [ -z "$$override_llm_set" ] || MED_AGENT_LLM_BASE_URL="$$override_llm"; \
+	  set +a; \
+	  HUB_BUILD_REVISION=$$(git -C targets/med-agent-hub rev-parse HEAD) \
+	  MED_AGENT_HUB_UID=$$(id -u) MED_AGENT_HUB_GID=$$(id -g) \
+	  docker compose -f compose/openmrs-2.8-refapp.yml up -d --build med-agent-hub
+	@ready=0; for i in $$(seq 1 60); do \
+	  status=$$(docker inspect -f '{{.State.Health.Status}}' harness-med-agent-hub 2>/dev/null || echo missing); \
+	  if [ "$$status" = healthy ]; then echo "    med-agent-hub healthy after $$i s"; ready=1; break; fi; \
+	  sleep 1; \
+	done; \
+	if [ "$$ready" != 1 ]; then \
+	  echo "ERROR: med-agent-hub did not become healthy within 60s" >&2; \
+	  docker compose -f compose/openmrs-2.8-refapp.yml logs --tail=80 med-agent-hub >&2; \
+	  exit 1; \
+	fi
+	@docker exec harness-med-agent-hub python -c "from pathlib import Path; p=Path('/app/trace/.write-probe'); p.write_text('ok'); p.unlink()"
 
 med-agent-hub-logs:
 	docker compose -f compose/openmrs-2.8-refapp.yml logs -f --tail=200 med-agent-hub
@@ -262,11 +295,33 @@ med-agent-hub-test:
 	docker run --rm -v $(CURDIR)/targets/med-agent-hub:/app -w /app python:3.11-slim \
 		sh -c "pip install --quiet --root-user-action=ignore fastapi httpx psutil python-dotenv pyyaml pytest && python -m pytest -q tests/test_bridge.py tests/test_kb.py"
 
-# Configure chartsearchai LLM global properties via REST. Reads .env.chartsearch
-# for endpoint + model + engine. The API key goes via the backend env var
-# OMRS_EXTRA_CHARTSEARCHAI_LLM_REMOTE_APIKEY, not via REST.
+chartsearch-test:
+	@./scripts/test-chartsearchai.sh
+
+chartsearch-e2e-low-confidence:
+	@cd tests/e2e && yarn playwright test chartsearchai-low-confidence-review
+
+querystore-test:
+	@./scripts/test-querystore.sh unit
+
+querystore-test-integration:
+	@./scripts/test-querystore.sh mysql-integration
+
+# Configure ChartSearchAI's fixed hub endpoint; the available default comes from hub discovery.
 chartsearch-configure:
 	@./scripts/chartsearch-configure.sh
+
+# Configure the optional Querystore context source independently of the chat relay.
+querystore-configure:
+	@./scripts/querystore-configure.sh
+
+querystore-reindex:
+	@./scripts/querystore-reindex.sh
+
+# Destructive only to the local Querystore read model, never to OpenMRS clinical tables.
+# Explicit opt-in prevents an accidental invocation. Rebuilds the pinned module first.
+querystore-recreate-index: querystore-build
+	@ALLOW_QUERYSTORE_INDEX_RESET=$(ALLOW_QUERYSTORE_INDEX_RESET) ./scripts/querystore-recreate-index.sh
 
 # Switch querystore's storage backend and re-test it. The backend is wired at
 # module startup (QueryStoreActivator), so this sets the querystore.backend GP,
@@ -297,84 +352,43 @@ chartsearch-backend:
 	  sleep 5; \
 	done; \
 	if [ "$$observed" != "1" ]; then echo "ERROR: backend not healthy after 5 min" >&2; exit 1; fi
-	@echo "==> chartsearch-configure (querystore embedding GPs + LLM globals)"
-	@$(MAKE) chartsearch-configure
+	@echo "==> configure Querystore assets and ChartSearchAI hub relay"
+	@$(MAKE) querystore-configure chartsearch-configure
 	@echo "==> querystore now on $(BACKEND); open a patient / run a search to (re)index into it"
 
-# Recreate the backend against the OpenAI-compat endpoint configured in .env.chartsearch (Med
-# Agent Hub / LM Studio / cloud) and re-run configure. chartsearchai has no bundled local LLM —
-# the whole in-process llama-server subsystem was removed; `remote` is the only engine.
-chartsearch-engine:
-	@if [ -n "$(ENGINE)" ] && [ "$(ENGINE)" != "remote" ]; then \
-	  echo "ENGINE=$(ENGINE) is not supported: chartsearchai has no bundled local LLM engine" >&2; \
-	  echo "(the in-process llama-server subsystem was removed) — only ENGINE=remote exists." >&2; \
-	  exit 1; \
-	fi
-	@echo "==> chartsearchai.llm.engine -> remote (recreating backend)"
-	@set -a; [ -f .env.chartsearch ] && . ./.env.chartsearch; set +a; \
-	  CHARTSEARCH_LLM_ENGINE=remote docker compose -f compose/openmrs-2.8-refapp.yml up -d --force-recreate backend
-	@observed=0; for i in $$(seq 1 60); do \
-	  s=$$(docker inspect -f '{{.State.Health.Status}}' harness-openmrs-backend 2>/dev/null || echo starting); \
-	  if [ "$$s" = "healthy" ]; then echo "    healthy after $$((i*5))s"; observed=1; break; fi; \
-	  sleep 5; \
-	done; \
-	if [ "$$observed" != "1" ]; then echo "ERROR: backend not healthy after 5 min" >&2; exit 1; fi
-	@echo "==> chartsearch-configure (engine + model GPs)"
-	@CHARTSEARCH_LLM_ENGINE=remote $(MAKE) chartsearch-configure
-	@echo "==> using the configured OpenAI-compat endpoint"
+# Canonical local product path. Starts or verifies host-native llama.cpp, builds
+# stale artifacts, starts OpenMRS and med-agent-hub, provisions a least-privileged
+# patient source, configures the relay, and exercises the default E4B profile.
+chartsearchai-local:
+	@./scripts/chartsearchai-local.sh
 
-# Pre-load LM Studio models with the configured context length and write
-# persistent per-model defaults. Prevents JIT-reload-with-default-context
-# (which silently reverts to 4K and breaks chartsearchai's full-chart prompt).
-# Reads CHARTSEARCH_WARMUP_MODELS + CHARTSEARCH_CONTEXT_LENGTH from .env.chartsearch.
-chartsearch-warmup:
-	@./scripts/chartsearch-warmup.sh
+# One command: fresh reset -> working DUAL-provider stack (bundled + hub), restoring the cached
+# Elasticsearch querystore index instead of re-embedding the static demo corpus. Build the cache
+# once with `scripts/querystore-snapshot.sh snapshot <ver>`; thereafter every reset is minutes.
+dual-provider-up:
+	@./scripts/dual-provider-up.sh
 
-# End-to-end chartsearch bring-up: build .omod, recreate compose with
-# chartsearch tags, wait for backend healthy, configure LLM globals,
-# warm up LM Studio models. Idempotent — safe to re-run.
-chartsearch-up:
-	@if [ ! -f .env.chartsearch ]; then \
-	  echo "error: .env.chartsearch not found. Copy .env.chartsearch.example and edit."; exit 1; \
-	fi
-	@echo "==> chartsearch-build (mvn package + drop .omod)"
-	@$(MAKE) chartsearch-build
-	@set -a && . ./.env.chartsearch && set +a && \
-	  case "$${CHARTSEARCH_REMOTE_ENDPOINT_URL:-}" in \
-	    *med-agent-hub*) \
-	      echo "==> configured endpoint targets med-agent-hub — bringing it up (chartsearch-configure needs it reachable)"; \
-	      $(MAKE) med-agent-hub-up || exit 1 ;; \
-	    *) echo "==> configured endpoint ($${CHARTSEARCH_REMOTE_ENDPOINT_URL:-unset}) is not med-agent-hub — skipping it" ;; \
-	  esac
-	@echo "==> docker compose up (frontend+gateway on :nightly-chartsearch tag, backend env wired)"
-	@set -a && . ./.env.chartsearch && set +a && \
-	  docker compose -f compose/openmrs-2.8-refapp.yml up -d --force-recreate proxy db frontend gateway backend
-	@echo "==> wait for backend healthy (Liquibase + module init can take 5-10 min cold)"
-	@observed=0; for i in $$(seq 1 60); do \
-	  s=$$(docker inspect -f '{{.State.Health.Status}}' harness-openmrs-backend 2>/dev/null || echo starting); \
-	  if [ "$$s" = "healthy" ]; then echo "    healthy after $$((i*5))s"; observed=1; break; fi; \
-	  sleep 5; \
-	done; \
-	if [ "$$observed" != "1" ]; then echo "ERROR: backend not healthy after 5 min" >&2; exit 1; fi
-	@echo "==> chartsearch-configure (LLM globals via REST)"
-	@$(MAKE) chartsearch-configure
-	@echo "==> chartsearch-warmup (LM Studio model preload + persistent defaults)"
-	@$(MAKE) chartsearch-warmup
-	@echo "==> chartsearch-up complete"
-	@set -a && . ./.env.chartsearch && set +a && \
-	  curl -fsS -m 3 http://localhost:8077/v1/models >/dev/null 2>&1 || \
-	  echo "NOTE: llama-router (:8077) is not reachable — start it with 'make llama-router-up' before asking a question, or chat requests will fail."
+# Engine-parity instrument (specs/artifacts/planning/engine-parity-instrument.md):
+# route BOTH providers through per-arm tap ingresses onto ONE shared llama-router
+# model, verify the shared-engine claim (AC-1), then probe one identical turn per
+# arm and replay the captured engine requests verbatim (AC-2).
+parity-engine-up:
+	@./scripts/parity-engine-up.sh
 
-# Verify chartsearchai prerequisites: backend container can reach the LLM
-# endpoint (LM Studio / Anthropic / etc.), models are available, module is
-# loaded. Useful before chartsearch-configure or when debugging.
+PATIENT ?= dd553355-1691-11df-97a5-7038c432aabf
+QUESTION ?= What was the patient's most recent weight, and when was it recorded?
+parity-engine-probe:
+	@$(UV) run scripts/parity-engine-probe.py --patient "$(PATIENT)" --question "$(QUESTION)"
+
+# Verify the hub-only product path: raw router, hub profile metadata, and module.
 chartsearch-doctor:
-	@set -a; . .env.chartsearch 2>/dev/null || true; set +a; \
-	URL="$${CHARTSEARCH_REMOTE_ENDPOINT_URL%/chat/completions}/models"; \
-	echo "Probing LLM endpoint from inside backend container: $$URL"; \
-	docker exec harness-openmrs-backend curl -fsS -m 5 "$$URL" \
-	  | python3 -c "import sys,json; d=json.load(sys.stdin); ms=d.get('data',[]); print('  models available:' if ms else '  no models loaded'); [print(f'    - {m[\"id\"]}') for m in ms]" \
-	  || echo "  endpoint unreachable from container (check LM Studio: Serve on Local Network must be enabled)"; \
+	@set -a; . ./.env.chartsearch.example; [ ! -f .env.chartsearch ] || . ./.env.chartsearch; set +a; \
+	echo "Raw llama.cpp models:"; \
+	curl -fsS -m 5 http://127.0.0.1:8077/v1/models \
+	  | python3 -c "import sys,json; [print(f'  - {m[\"id\"]}') for m in json.load(sys.stdin).get('data',[])]"; \
+	echo "Hub product profiles:"; \
+	curl -fsS -m 5 "http://127.0.0.1:$${MED_AGENT_HUB_PORT:-18081}/v1/models" \
+	  | python3 -c "import sys,json; [print(f'  - {m.get(\"label\", m[\"id\"])} ({m[\"id\"]}): available={m.get(\"available\")} default={m.get(\"default\")}') for m in json.load(sys.stdin).get('data',[]) if m.get('visibility') == 'product']"; \
 	echo ""; \
 	echo "Module status:"; \
 	curl -fsS -u admin:Admin123 \
@@ -385,15 +399,9 @@ chartsearch-doctor:
 
 # --- Cloud deploy target (local-driven push to GCE) ---
 #
-# Deploy the chartsearch stack to a GCE VM in the clinical-ai-harness project
-# for browser testing without saturating the laptop. Iteration loop is:
-#   1. edit chartsearchai code locally
-#   2. `make cloud-deploy`  (builds .omod, rsyncs diff, restarts backend on VM)
-#   3. test at http://<vm-ip>:8088/openmrs/spa
-# The cloud backend reaches your LOCAL LM Studio over LM Link — VM runs
-# headless llmster, signed in to your account, paired with the Mac. The
-# inference HTTP call lands on the VM's localhost:1234 and llmster routes
-# it across the encrypted LM Link tunnel. See docs/cloud-deploy.md.
+# VM lifecycle, synchronization, and report/data helpers remain available.
+# Chat-stack bring-up/deploy targets are intentionally absent until the cloud
+# path is rebuilt around the same med-agent-hub profile boundary as local use.
 
 cloud-init:       ## one-time: reserve IP, firewall, VM, docker install
 	@./scripts/cloud-init.sh
@@ -401,22 +409,13 @@ cloud-init:       ## one-time: reserve IP, firewall, VM, docker install
 cloud-sync:       ## rsync repo to VM (excludes .git, .venv, build caches, secrets)
 	@./scripts/cloud-sync.sh
 
-cloud-up:         ## first compose up on VM (waits for backend healthy, runs configure)
-	@./scripts/cloud-up.sh
-
 cloud-down:       ## compose down on VM; pass ARGS=--volumes to nuke data too
 	@./scripts/cloud-down.sh $(ARGS)
-
-cloud-reset:      ## DESTRUCTIVE: down --volumes + clear binds + resync + cloud-up. FORCE=1 to skip prompt
-	@FORCE=$(FORCE) ./scripts/cloud-reset.sh
-
-cloud-deploy:     ## fast iteration: rebuild .omod + rsync + restart backend on VM
-	@./scripts/cloud-deploy.sh
 
 cloud-seed:       ## one-time: dump the canonical openmrs corpus locally + restore on VM
 	@./scripts/cloud-seed.sh
 
-cloud-start:      ## start the VM (no compose changes; pair with cloud-up after)
+cloud-start:      ## start the VM (infrastructure only; no supported chat-stack bring-up)
 	@gcloud compute instances start $${GCP_VM_NAME:-harness-chartsearch} \
 	  --zone=$${GCP_ZONE:-us-central1-a} --project=$${GCP_PROJECT:-clinical-ai-harness}
 
@@ -473,7 +472,7 @@ validate-plan: setup
 
 # Run a scenario × backend comparison through chartsearchai's real REST API and
 # write results.jsonl under artifacts/validate/<run_id>/. Needs the full local
-# stack up (backend + DB + LM Studio + med-agent-hub). Override the set with
+# stack up (backend + DB + llama.cpp + med-agent-hub). Override the set with
 # `make validate-run SET=<comparison-set-id>` (default: demo).
 SET ?= demo
 
@@ -491,15 +490,22 @@ dashboard-ensure:
 	  || { echo "==> starting validate-dashboard on :8099"; mkdir -p artifacts; \
 	       nohup $(UV) run python scripts/validate-dashboard.py >artifacts/dashboard.log 2>&1 & sleep 2; }
 
+dashboard-restart:
+	@pid=$$(lsof -tiTCP:8099 -sTCP:LISTEN 2>/dev/null || true); \
+	  if [ -n "$$pid" ]; then echo "==> stopping validate-dashboard ($$pid)"; kill $$pid; sleep 1; fi
+	@$(MAKE) dashboard-ensure
+
 validate-preflight: setup dashboard-ensure
 	$(UV) run ./scripts/validate-preflight.sh $(SET) $(TIER)
 
 # The run's simulated "now": ONE value drives the hub temporal anchor (HUB_ANCHOR = the model's "now")
 # AND the judge (--reference-date, recorded per row) so model == judge (P0b). Override per dataset/run.
 REFERENCE_DATE ?= 2026-06-20
+RESUME ?=
 validate-run: setup dashboard-ensure
-	HUB_ANCHOR=$(REFERENCE_DATE) docker compose -f compose/openmrs-2.8-refapp.yml up -d med-agent-hub
-	$(UV) run harness-cli validate run $(SET) --reference-date $(REFERENCE_DATE)
+	HUB_ANCHOR=$(REFERENCE_DATE) $(MAKE) med-agent-hub-up
+	$(UV) run harness-cli validate run $(SET) --reference-date $(REFERENCE_DATE) \
+		$(if $(RESUME),--resume $(RESUME),)
 
 # Judge a completed run with the Claude-agent clinical-answer-scoring fan-out. The fan-out itself
 # (one Claude judge per cell) is a Claude Workflow, not shell-invocable; these two targets are its
@@ -507,14 +513,19 @@ validate-run: setup dashboard-ensure
 #   1. make validate-judge-prep RUN=<id>                       -> judge-cells.jsonl (section split + resolve_citations + chart snapshots)
 #   2. <run the clinical-answer-scoring fan-out over judge-cells.jsonl, save its rows to rows.json>
 #   3. make validate-judge-finalize RUN=<id> ROWS=<rows.json>  -> judge.jsonl (drops temporal-when-no-claim) + re-render report
-#      Optional independent passes: add JUDGE_ACTOR=<id> to write judges/<id>/judge.jsonl.
+#      Optional independent passes: add JUDGE_ACTOR=<id> JUDGE_MODEL=<model> to write
+#      judges/<id>/judge.jsonl with model/method provenance.
 #      Add JUDGE_PROMOTE=1 to also promote that actor pass to root judge.jsonl for the report.
 validate-judge-prep: setup
 	$(UV) run python scripts/judge-prep.py $(RUN)
 
+JUDGE_ACTOR_TYPE ?= llm-judge
+JUDGE_MODEL ?=
+JUDGE_METHOD ?= clinical-answer-scoring
 validate-judge-finalize: setup
 	$(UV) run python scripts/judge-finalize.py $(RUN) $(ROWS) \
-		$(if $(JUDGE_ACTOR),--actor $(JUDGE_ACTOR),) $(if $(JUDGE_PROMOTE),--promote,)
+		$(if $(JUDGE_ACTOR),--actor $(JUDGE_ACTOR) --actor-type $(JUDGE_ACTOR_TYPE) --model "$(JUDGE_MODEL)" --method "$(JUDGE_METHOD)",) \
+		$(if $(JUDGE_PROMOTE),--promote,)
 	@if [ -z "$(JUDGE_ACTOR)" ] || [ -n "$(JUDGE_PROMOTE)" ]; then \
 	  $(UV) run harness-cli validate report $(RUN); \
 	else \

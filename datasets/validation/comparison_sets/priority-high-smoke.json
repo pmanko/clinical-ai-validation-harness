@@ -1,5 +1,0 @@
-{
-  "id": "priority-high-smoke",
-  "scenario_ids": ["single-hiv-status"],
-  "backend_ids": ["med-agent-team-high"]
-}

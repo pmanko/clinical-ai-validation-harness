@@ -9,6 +9,24 @@
       "takeaway": "All 12 scenario repetitions passed \u2014 384/384 assertions, including every gold execution-match: the SQL the models produced returned exactly the rows an independently-authored gold query returns, on every repetition. This is an acceptance gate on one synthetic 96-patient laboratory cohort, not a benchmark \u2014 it demonstrates the governed notebook loop (draft \u2192 review \u2192 validate \u2192 execute \u2192 refine) is reliable end-to-end on real infrastructure, not that the models never err (the advisory validator and deterministic policy exist precisely because they do)."
     },
     {
+      "slug": "small-model-answer-paths-2026-07-15",
+      "title": "Small-model answer paths: E4B and 12B",
+      "summary": "Twelve temporal and chart-grounding scenarios compare answer-only, deterministic temporal checking, and full checked profiles on E4B and 12B.",
+      "takeaway": "Deterministic checking fixed E4B's past-appointment error, but did not fix strict six-month windows and degraded one 12B child-growth answer. The full checked E4B profile scored highest while adding reviewed, resolved evidence."
+    },
+    {
+      "slug": "hub-profile-12b-checked-candidate-2026-07-13",
+      "title": "Checked 12B profile: temporal and date candidate",
+      "summary": "A 12-scenario product-path evaluation of the checked 12B profile. All cells completed, the implemented deterministic audit reported no blockers, and an independent Scout judge scored the answers 88.4/100 with no harm and 66/66 references resolved. The judge nevertheless found two strict six-month-window errors that the deterministic gate did not detect.",
+      "takeaway": "The checked 12B path is strong on exact dates, visit ordering, appointments, and weight trends, but it is not release-clean: one answer included an X-ray six days before the requested cutoff, while another included 10 out-of-window orders and omitted a qualifying order. This report demonstrates why deterministic checks and independent judging must remain separate, visible layers; the next correction is a generic dated-row window gate, not prompt tuning to these cells."
+    },
+    {
+      "slug": "hub-profile-team-focus-diagnostic-2026-07-13",
+      "title": "Hub profile and team-path diagnostic",
+      "summary": "An 18-cell product-path diagnostic across the E4B single, 12B single, and medical-team profiles. All cells completed and stage timing was captured, but deterministic QA found answer-contract and grounding issues. This run is unjudged and is not a model-quality comparison.",
+      "takeaway": "The consolidated hub path, readable team metadata, and stage observability worked end to end. The run exposed table-shape, exact-fact grounding, citation-set, temporal-fallback reporting, and team context-budget issues that are being remediated before the judged candidate run."
+    },
+    {
       "slug": "method-levers-dev-2026-06-26",
       "title": "Lever sweep (dev): coverage prompt + rewrite-validator across a dense 12B and a cheap MoE (A4B)",
       "summary": "A fast 12-scenario dev sweep, holding two writers (Gemma-12B dense, Gemma-26B-A4B MoE ~4B active) against {bare, +coverage prompt, +rewrite-validator, +both}. Judged AFTER fixing a scoring bug where the judge couldn't see table answers (which had been deflating completeness). N=12/arm \u2014 directional, not definitive.",

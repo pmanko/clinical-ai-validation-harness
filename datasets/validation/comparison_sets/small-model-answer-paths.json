@@ -1,0 +1,40 @@
+{
+  "id": "small-model-answer-paths",
+  "transport": "med-agent-hub",
+  "description": "E4B versus the published 12B baseline across matched answer-only, deterministic temporal enforcement, and fully checked product paths. Uses the same 12 scenarios and temporal anchor as hub-profile-candidate so quality and per-stage latency remain directly comparable.",
+  "scenario_ids": [
+    "date-zabella-weight-table",
+    "date-zabella-weight-endpoints",
+    "date-aloice-orders-table",
+    "date-aloice-last-visit-exact",
+    "single-upcoming-appointments",
+    "am-upcoming-appointments",
+    "am-last-visit",
+    "am-weight-trend",
+    "am-cd4-history",
+    "am-orders-6mo",
+    "ek-growth",
+    "abstain-out-of-chart"
+  ],
+  "temporal_scenario_ids": [
+    "date-zabella-weight-table",
+    "date-zabella-weight-endpoints",
+    "date-aloice-orders-table",
+    "date-aloice-last-visit-exact",
+    "single-upcoming-appointments",
+    "am-upcoming-appointments",
+    "am-last-visit",
+    "am-weight-trend",
+    "am-cd4-history",
+    "am-orders-6mo",
+    "ek-growth"
+  ],
+  "backend_ids": [
+    "speed-e4b-answer-only",
+    "speed-e4b-deterministic-check",
+    "single-e4b-checked",
+    "speed-12b-answer-only",
+    "speed-12b-deterministic-check",
+    "single-12b-checked"
+  ]
+}

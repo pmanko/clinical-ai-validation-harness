@@ -99,7 +99,7 @@
           </article>
           <article role="listitem">
             <h3>Published evidence</h3>
-            <p>Comparison runs retain individual answers, source traces, judge results, and aggregate scores. Latest acceptance run: 12 of 12 live scenario repetitions passed, 384 assertions, on real models and PostgreSQL.</p>
+            <p>Comparison runs retain individual answers, source traces, judge results, and aggregate scores. A published pre-refactor Catalyst run passed 12 of 12 live scenario repetitions and 384 assertions on real models and PostgreSQL; the current architecture is undergoing a clean-pin rerun.</p>
           </article>
         </div>
       </section>
@@ -111,7 +111,7 @@
             <h2>ChartSearchAI in the patient chart.</h2>
           </div>
           <p>
-            ChartSearchAI is the framework's example implementation for point-of-care chart search. The module sends a patient question to Med Agent Hub and stores each stage in one chat message. The initial Answer is displayed before validation and In-Depth finish.
+            ChartSearchAI is the framework's example implementation for point-of-care chart search. Fresh installations retain the bundled provider; deployments may configure the same lifecycle through Med Agent Hub. The recording uses that configured Hub provider and stores each stage in one chat message. The initial Answer is displayed before validation and In-Depth finish.
           </p>
         </div>
         <div class="page-width feature-media">
@@ -154,7 +154,7 @@
             <p class="section-kicker">More recorded examples</p>
             <h3>Additional OpenMRS sessions.</h3>
           </div>
-          <p>These recordings use the local OpenMRS stack and Med Agent Hub. Captions identify the stage shown.</p>
+          <p>These recordings use the local OpenMRS stack with the configured Med Agent Hub provider. Captions identify the stage shown; the bundled provider remains a supported separate path.</p>
         </div>
         <div class="page-width video-grid">
           <article class="video-item">
@@ -206,7 +206,7 @@
             <h3>How each answer is produced.</h3>
           </div>
           <p>
-            ChartSearchAI is the OpenMRS module; Med Agent Hub is the orchestration pipeline behind it. The five stages below are the same lifecycle shown in the demo above.
+            ChartSearchAI owns the OpenMRS workflow and can execute it through either its bundled provider or a configured Med Agent Hub provider. The recording uses Hub; the five stages below are the shared lifecycle shown in the demo above.
           </p>
         </div>
         <div class="page-width stage-flow" role="list" aria-label="Med Agent Hub answer stages">
@@ -248,7 +248,7 @@
             <h2>Catalyst: plain-language questions over laboratory and program data.</h2>
           </div>
           <p>
-            Catalyst is the framework's example implementation for program-monitoring and reporting questions — viral load coverage, CD4 counts, specimen turnaround — directly from laboratory (OpenELIS) and HIV program (OpenMRS) databases. It turns a question into SQL against a catalog generated from the database itself. A writer model drafts the query, a reviewer model checks it, and a deterministic policy allows only read-only execution. Results are typed tables, and a follow-up instruction refines the exact current query.
+            Catalyst is the framework's example implementation for program-monitoring and reporting questions — viral load coverage, CD4 counts, specimen turnaround — directly from laboratory (OpenELIS) and HIV program (OpenMRS) databases. It turns a question into SQL against a catalog generated from the database itself. A writer model drafts the query, a selected profile may add a reviewer, and a deterministic policy allows only read-only execution. Results are typed tables, and a follow-up instruction refines the exact current query.
           </p>
         </div>
         <div class="page-width video-grid">
@@ -310,7 +310,7 @@
         <div class="page-width lifecycle-row" role="list" aria-label="Catalyst validation summary">
           <div role="listitem"><span>01</span><strong>Two data sources</strong><p>OpenELIS laboratory and OpenMRS HIV/ART program data, each with its own database and generated catalog.</p></div>
           <div role="listitem"><span>02</span><strong>Checked execution</strong><p>Generated SQL is validated, executed read-only, and compared against independently authored gold queries.</p></div>
-          <div role="listitem"><span>03</span><strong>Published acceptance run</strong><p>12 of 12 live scenario repetitions passed, 384 assertions, on real models and PostgreSQL.</p></div>
+          <div role="listitem"><span>03</span><strong>Published pre-refactor run</strong><p>12 of 12 live scenario repetitions passed, 384 assertions, on real models and PostgreSQL; current-pin acceptance remains open.</p></div>
         </div>
 
         <div class="page-width section-heading-row hub-fold">
@@ -319,7 +319,7 @@
             <h3>How each query is produced.</h3>
           </div>
           <p>
-            Catalyst uses the same staged-orchestration pattern Med Agent Hub uses for ChartSearchAI. The four stages below are the same lifecycle shown in the demos above.
+            Catalyst Gateway owns the query profiles, prompts, lint, review composition, SQL policy, and evidence. It calls Med Agent Hub only as a generic single-role model executor. The four stages below are the lifecycle shown in the demos above.
           </p>
         </div>
         <div class="page-width stage-flow" role="list" aria-label="Catalyst query stages">
@@ -392,7 +392,7 @@
           </article>
           <article role="listitem">
             <h3>Reproduce a run</h3>
-            <p>The validation harness and Med Agent Hub are both open source, with the run manifest needed to reproduce a published result.</p>
+            <p>Catalyst, the validation harness, and Med Agent Hub are open source, with the run manifest needed to reproduce a published result.</p>
             <a class="text-link" href="https://github.com/pmanko/clinical-ai-validation-harness">Validation harness (GitHub) <span aria-hidden="true">&#8599;</span></a>
           </article>
         </div>

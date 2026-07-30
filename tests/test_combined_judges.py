@@ -1,4 +1,20 @@
+import importlib.util
+import json
+import sys
+from pathlib import Path
+
+import pytest
+
 from harness.validate.reconcile import combined_judge_summary
+
+
+ROOT = Path(__file__).parents[1]
+SPEC = importlib.util.spec_from_file_location(
+    "combine_judge_actors", ROOT / "scripts" / "combine-judge-actors.py"
+)
+assert SPEC and SPEC.loader
+COMBINER = importlib.util.module_from_spec(SPEC)
+SPEC.loader.exec_module(COMBINER)
 
 
 def jrow(scenario, backend, accuracy, completeness=None, relevance=None):
@@ -29,3 +45,62 @@ def test_combined_judge_summary_averages_per_cell_and_keeps_cell_n():
     assert row["actor_range"] == {"min": 50.0, "max": 80.0}
     assert row["mean_abs_delta"] == 30.0
     assert row["max_cell_delta_scenario"] == "s2"
+
+
+def test_combined_actor_artifact_is_recomputed_per_cell(tmp_path):
+    paths = {}
+    for actor, rows in {
+        "judge-a": [jrow("s1", "b1", 10), jrow("s2", "b1", 6)],
+        "judge-b": [jrow("s1", "b1", 8), jrow("s2", "b1", 2)],
+    }.items():
+        path = tmp_path / f"{actor}.jsonl"
+        path.write_text("".join(json.dumps(row) + "\n" for row in rows))
+        paths[actor] = path
+
+    result = COMBINER.build(paths)
+
+    assert result["schema_version"] == "combined_judgment.v1"
+    assert result["actors"] == ["judge-a", "judge-b"]
+    assert result["cells"][0]["actor_scores"] == {
+        "judge-a": 100.0,
+        "judge-b": 80.0,
+    }
+    assert result["cells"][0]["consensus_score"] == 90.0
+    assert result["backend_summary"][0]["benchmark_score"] == 65.0
+
+
+def test_combined_actor_artifact_rejects_different_cell_matrices(tmp_path):
+    a = tmp_path / "a.jsonl"
+    b = tmp_path / "b.jsonl"
+    a.write_text(json.dumps(jrow("s1", "b1", 10)) + "\n")
+    b.write_text(json.dumps(jrow("s2", "b1", 10)) + "\n")
+
+    with pytest.raises(ValueError, match="same cell matrix"):
+        COMBINER.build({"a": a, "b": b})
+
+
+def test_combined_actor_cli_writes_consensus(tmp_path, monkeypatch, capsys):
+    actor_paths = []
+    for actor, score in (("judge-a", 10), ("judge-b", 8)):
+        path = tmp_path / f"{actor}.jsonl"
+        path.write_text(json.dumps(jrow("s1", "b1", score)) + "\n")
+        actor_paths.append((actor, path))
+    output = tmp_path / "combined.json"
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "combine-judge-actors.py",
+            "--actor",
+            f"{actor_paths[0][0]}={actor_paths[0][1]}",
+            "--actor",
+            f"{actor_paths[1][0]}={actor_paths[1][1]}",
+            "--output",
+            str(output),
+        ],
+    )
+
+    assert COMBINER.main() == 0
+    artifact = json.loads(output.read_text(encoding="utf-8"))
+    assert artifact["cells"][0]["consensus_score"] == 90.0
+    assert capsys.readouterr().out.strip() == str(output)

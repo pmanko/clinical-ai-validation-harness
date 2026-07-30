@@ -11,6 +11,6 @@
   "expectations": {
     "should_cite_resource_types": ["MedicationRequest", "Observation"],
     "should_abstain": false,
-    "notes": "T1 meds (chart-only); T2 regimen->diagnosis inference; T3 adherence (abstain if the chart lacks adherence data); T4 WHO guideline alignment (the KB differentiator — vanilla/no-KB backends can only restate the regimen)."
+    "notes": "T1 medications from chart evidence; T2 regimen-to-diagnosis inference grounded in the chart; T3 adherence from chart evidence, with abstention if absent; T4 WHO guideline alignment using both patient-chart and selected knowledge-base evidence. Judge the evidence actually returned rather than assuming a model topology has or lacks KB access."
   }
 }
