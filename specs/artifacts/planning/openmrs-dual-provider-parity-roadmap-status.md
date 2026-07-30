@@ -16,7 +16,7 @@ adapters. The roadmap file alone under-describes context ownership.
 | Roadmap | [`openmrs-dual-provider-parity-roadmap.md`](openmrs-dual-provider-parity-roadmap.md) |
 | Approval | Explicit user instruction to implement the roadmap on 2026-07-20 |
 | Approved roadmap SHA-256 | `a3948d648ba21303639b55e65226455a088e2fb61f693a16a2e769276f20bd72` (Revision 2, 2026-07-23; Revision 1 was `cf2c8b33c81ab69ece6150d0171ea3e940f89edfa3968e02c6bd9bf8abc274f5`, preserved at `8bc9caa`) |
-| Current boundary | Signoff 1 granted; context-surface / authoritative-state amendment approved 2026-07-21; shared context-selection (QueryStore context slice) amendment approved 2026-07-22 with checkpoint plan `querystore-context-slice-plan.md`; ChartSearchAI rebuild and remaining roadmap runtime work authorized to proceed. ESM PR #22 is at `5fdfaa1` with its public translation-inclusive build green. QueryStore PR #63 is at `78c6741` from upstream `bbd6e80`; ChartSearchAI PR #90 is at `209e7cb` on upstream `83cc33e`, source-pair-tested against that exact QueryStore artifact and live-proven for a checked-answer follow-up during its In-Depth tail. Its public build remains blocked only until #63's API artifact is published. Signoff 2 remains required before release/evaluation work. |
+| Current boundary | Signoff 1 granted; context-surface / authoritative-state amendment approved 2026-07-21; shared context-selection (QueryStore context slice) amendment approved 2026-07-22 with checkpoint plan `querystore-context-slice-plan.md`; ChartSearchAI rebuild and remaining roadmap runtime work authorized to proceed. ESM PR #22 is at `5fdfaa1` with its public translation-inclusive build green. QueryStore PR #63 is at `e2cb359` from upstream `bbd6e80`; ChartSearchAI PR #90 is at `209e7cb` on upstream `83cc33e`, source-pair-tested against that exact QueryStore artifact. Its public build remains blocked only until #63's API artifact is published. Signoff 2 remains required before release/evaluation work. |
 | Supersedes | `MAH-CONSOLIDATION-2026-07-09-v1` for active architecture and execution authority |
 | Preserved prior decisions | Temporal-facts Git provenance, stable evaluation IDs, and medication-knowledge safety boundary remain active unless this roadmap explicitly changes them |
 | Signoff 1 | Granted by user on 2026-07-20: baseline, contracts, upstream dispositions, and branch-rebuild procedure approved |
@@ -430,6 +430,24 @@ This is current-head, pre-publication evidence only. After QueryStore #63 is mer
 snapshot is independently verified, ChartSearchAI #90 must be re-cut from then-current upstream and
 the source-pair build, public JDK matrix, live product evidence, companion-PR review, and evidence
 bundle must all be regenerated before G21 can be marked passed.
+
+### Current-session — QueryStore #63 review remediation and fresh source-pair proof
+
+QueryStore #63 now points to `e2cb359` on upstream `bbd6e80`. It closes the actionable external
+read-safety review findings with red-first coverage: ranked reads clamp to the OpenMRS configured
+result maximum and reject offsets beyond that bounded window; full/context pages use overflow-safe
+arithmetic; `chartTruncated` now comes from a backend read result rather than inferring loss from a
+10,000-record count; and panel expansion is idempotent. Direct interpreter cue, stopword fallback,
+and controller `interpret=true` plumbing tests cover the anti-drift contract. The complete
+QueryStore `mvn -q -B clean install` reactor passed at that commit.
+
+ChartSearchAI `209e7cb` then completed `mvn -q -B clean package` against the locally installed
+`e2cb359` artifact. Its package artifacts were produced and all local surefire reports contain zero
+failures/errors. Expected test-log warnings are exercised failure/degradation paths, not build
+failures. This is source-pair evidence only: the public Java matrix, deployed product proof,
+browser evidence, code-QA bundle, and any Signoff-2 claim remain invalid until #63 merges, the
+upstream snapshot is independently resolvable, and #90 is freshly re-cut from the then-current
+upstream head.
 
 ### 2026-07-30 — checked-answer follow-up proof and companion-PR publication order
 
