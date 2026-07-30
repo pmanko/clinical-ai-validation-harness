@@ -16,7 +16,7 @@ adapters. The roadmap file alone under-describes context ownership.
 | Roadmap | [`openmrs-dual-provider-parity-roadmap.md`](openmrs-dual-provider-parity-roadmap.md) |
 | Approval | Explicit user instruction to implement the roadmap on 2026-07-20 |
 | Approved roadmap SHA-256 | `a3948d648ba21303639b55e65226455a088e2fb61f693a16a2e769276f20bd72` (Revision 2, 2026-07-23; Revision 1 was `cf2c8b33c81ab69ece6150d0171ea3e940f89edfa3968e02c6bd9bf8abc274f5`, preserved at `8bc9caa`) |
-| Current boundary | Signoff 1 granted; context-surface / authoritative-state amendment approved 2026-07-21; shared context-selection (QueryStore context slice) amendment approved 2026-07-22 with checkpoint plan `querystore-context-slice-plan.md`; ChartSearchAI rebuild and remaining roadmap runtime work authorized to proceed. ESM PR #22 is at `5fdfaa1` with its public translation-inclusive build green. QueryStore PR #63 is at `e2cb359` from upstream `bbd6e80`; ChartSearchAI PR #90 is at `209e7cb` on upstream `83cc33e`, source-pair-tested against that exact QueryStore artifact. Its public build remains blocked only until #63's API artifact is published. Signoff 2 remains required before release/evaluation work. |
+| Current boundary | Signoff 1 granted; context-surface / authoritative-state amendment approved 2026-07-21; shared context-selection (QueryStore context slice) amendment approved 2026-07-22 with checkpoint plan `querystore-context-slice-plan.md`; ChartSearchAI rebuild and remaining roadmap runtime work authorized to proceed. The harness pins and proves the fork integration line directly: QueryStore `harness-integration` is `e2cb359`, ChartSearchAI `harness-integration` is `209e7cb`, and ESM `harness-integration` is `5fdfaa1`. `make openmrs-source-pair-test` passed against those exact heads. Upstream PR artifact publication is a later standalone-PR concern and does not gate harness execution or Signoff 2 evidence. Signoff 2 remains required before release/evaluation work. |
 | Supersedes | `MAH-CONSOLIDATION-2026-07-09-v1` for active architecture and execution authority |
 | Preserved prior decisions | Temporal-facts Git provenance, stable evaluation IDs, and medication-knowledge safety boundary remain active unless this roadmap explicitly changes them |
 | Signoff 1 | Granted by user on 2026-07-20: baseline, contracts, upstream dispositions, and branch-rebuild procedure approved |
@@ -63,7 +63,7 @@ The refreshed repository state, upstream dispositions, and rollback refs are rec
 | G18 Cancellation | In progress | `CancellationSignal` was a first-class TYPE in the provider boundary but was never actually wired: the REST layer passed `CancellationSignal.NONE` (a signal that never cancels) for every turn, and `HubStreamTransport`'s interface had no way to interrupt a blocking hub read even if it had been real — a preempted turn ran to the hub's own completion, silently holding the router slot. **Fixed and proven live 2026-07-24 (chartsearchai `4e4c7ae`):** `TurnCancellation` binds the open hub response body so `cancel()` force-closes it from another thread (proven against a real local HTTP server: cancel unblocks an in-flight read in under 0.5s, not just asserted); `TurnPreemptionRegistry` cancels whichever turn currently holds a conversation's slot when a new one starts — the only preempt signal there is, since a conversation never runs two turns on purpose. A turn cancelled after it already produced a real answer (only In-Depth still generating) now completes as done with that answer, persisted with a dangling `inDepth.status: pending` rewritten to `failed` rather than being silently discarded; the REST sink swallows the trailing write once cancelled so a dead browser connection can't block persistence. **Live evidence:** the hub's own `cancellations.jsonl` trace, which recorded ZERO entries for any real preempt before this fix, now records `router_lock_released: true` for a genuine preempted turn; the existing `chartsearchai-preempt.spec.ts` e2e spec went from a 6-minute hang (`data-indepth-status` stuck at `pending`) to passing in ~25s with no code changes to the test itself. Exactly one assistant row settles per preempted turn — proven via `ProviderRestContractTest#aPreemptedTurnsTrailingEventIsSwallowedSoItsAnswerStillPersists` and confirmed live via `chartsearchai-demo.spec.ts`'s 3-turn persisted-history assertion. |
 | G19 Honest demo | In progress | The documented local product path now completes against the real configured hub provider: `make chartsearchai-local` builds/stages the current ESM, verifies the live QueryStore source, configures `bundled,hub` with bundled as default, then runs `probe-chartsearchai-relay.py --provider hub`. The probe records the canonical relay lifecycle, fast answer, final answer-review state, deterministic temporal-gate payload, QueryStore-backed references, terminal In-Depth outcome, persisted-row envelope hash, and session cleanup in `artifacts/chartsearchai-local/relay-probe.json`. **Current clean-source relay proof (2026-07-30, ChartSearchAI `209e7cb`):** answer_done 1.353 s, terminal turn 3.756 s, final envelope rehydrated byte-identically, with QueryStore references and an honestly withheld `needs_review` In-Depth. The same deployed revision passed the two-turn Playwright proof with screenshots and video (`tests/e2e/evidence/e4b-multiturn-trivial/`; Playwright `video.webm`), including checked-answer history during the first turn's In-Depth tail. The run also closed a deployment-hygiene bug: `61b0153` moves generated `*.omod.provenance.json` manifests outside the bind-mounted OpenMRS module directory; after redeploy, the mount contained only `.omod` files and the post-restart log window contained no provenance/module-extension errors. The paced three-turn/preemption demo and final evidence bundle remain required. |
 | G20 Documentation | Passed 2026-07-29 | `scripts/verify-doc-drift.sh` now scans all seven repositories against the approved dual-provider contract rather than the superseded hub-only removal list. It requires current root, adapter, ChartSearchAI, ESM, hub, and QueryStore statements; permits supported bundled local/remote engines, streaming, warming, grounding, and QueryStore behavior; and still rejects removed shared session state, obsolete hub profile defaults, retired global role settings, unbounded-context claims, and hub-only/provider-removal claims. Root `642629f`, ChartSearchAI `eeb1b54`, and ESM `5fdfaa1` add the missing provider-boundary documentation and direct regression coverage; the gate passes with seven explicitly marked historical files. |
-| G21 QA and hygiene | In progress | A fresh current-head pass completed: foundation and seven-repository documentation gates pass; the focused checked-answer fix has service, REST-contract, and real browser coverage; the current Playwright preemption and paced demo runs pass; and a non-repository MP4/screenshot evidence bundle was generated. The companion-PR review still requires the QueryStore #63 merge/publication sequence, then a re-cut ChartSearchAI #90 and a final repeat against those new heads. No pre-publication artifact may be counted as release evidence. |
+| G21 QA and hygiene | In progress | A fresh current-head pass completed: foundation and seven-repository documentation gates pass; the focused checked-answer fix has service, REST-contract, and real browser coverage; the current Playwright preemption and paced demo runs pass; and a non-repository MP4/screenshot evidence bundle was generated. The exact tested heads now also equal each fork's `origin/harness-integration`, and the stable root source-pair gate passes. Remaining integration evidence is the final deployed product, Playwright, and code-QA repeat against those exact heads. Upstream PR publication and standalone PR CI are tracked separately and do not gate this evidence. |
 | G22 Next-stage readiness | In progress | Run metadata already identifies provider/mode/endpoint/model per arm (`run_meta.json` `backends` freeze), stage timings and hub traces have dedicated harness modules (`stage_timings.py`, `hub_trace.py`), and the parity instrument records selected evidence per run. **Remaining:** snapshot identity + cache state + gate results carried per run row. |
 
 ## Foundation Closeout
@@ -426,10 +426,10 @@ the method did not exist, and the full ChartSearchAI `clean package` plus ESM pu
 The focused fix introduces no new profile, provider, configuration flag, or fallback path; it is a
 small extension of existing conversation persistence. The specification/code drift gate is green.
 
-This is current-head, pre-publication evidence only. After QueryStore #63 is merged and its API
-snapshot is independently verified, ChartSearchAI #90 must be re-cut from then-current upstream and
-the source-pair build, public JDK matrix, live product evidence, companion-PR review, and evidence
-bundle must all be regenerated before G21 can be marked passed.
+This was current-head evidence before the integration refs were realigned. The source-pair, live
+product, companion-review, and evidence-bundle checks are valid when repeated against the exact
+fork `harness-integration` heads pinned by the harness. QueryStore artifact publication is required
+only for ChartSearchAI's standalone upstream PR matrix; it is not a harness or Signoff-2 gate.
 
 ### Current-session — QueryStore #63 review remediation and fresh source-pair proof
 
@@ -441,13 +441,15 @@ arithmetic; `chartTruncated` now comes from a backend read result rather than in
 and controller `interpret=true` plumbing tests cover the anti-drift contract. The complete
 QueryStore `mvn -q -B clean install` reactor passed at that commit.
 
-ChartSearchAI `209e7cb` then completed `mvn -q -B clean package` against the locally installed
-`e2cb359` artifact. Its package artifacts were produced and all local surefire reports contain zero
-failures/errors. Expected test-log warnings are exercised failure/degradation paths, not build
-failures. This is source-pair evidence only: the public Java matrix, deployed product proof,
-browser evidence, code-QA bundle, and any Signoff-2 claim remain invalid until #63 merges, the
-upstream snapshot is independently resolvable, and #90 is freshly re-cut from the then-current
-upstream head.
+The remote integration refs were then aligned to the exact tested heads, with their previous tips
+preserved as `codex/backup/harness-integration-pre-realign-20260729`: QueryStore `e2cb359`,
+ChartSearchAI `209e7cb`, and ESM `5fdfaa1`. The new stable root command
+`make openmrs-source-pair-test` verifies those exact refs, runs QueryStore
+`mvn -q -B clean install`, and only then runs ChartSearchAI `mvn -q -B clean package`.
+It passed. All local surefire reports contain zero failures/errors; expected test-log warnings are
+exercised failure/degradation paths. This is the authoritative source-integration proof. The
+remaining deployed product, browser, and code-QA evidence can proceed against this integration
+line without an upstream merge.
 
 ### 2026-07-30 — checked-answer follow-up proof and companion-PR publication order
 
@@ -465,15 +467,15 @@ new API persistence test was red first; the complete Maven `clean package` suite
 `chartsearchai-e4b-multiturn-trivial` browser test pass. The latter's trace assertion confirms
 `prior_turn_count: 1`, `prior_message_count: 2`, and user/assistant roles on the second request.
 
-**QueryStore → ChartSearchAI sequence:** QueryStore #63 remains the only public-CI dependency for
-ChartSearchAI #90. The required order is: (1) merge #63; (2) wait for the upstream main build to
-publish `querystore-api:1.0.0-SNAPSHOT` containing `ContextSlice`, `ContextSliceRecord`, and
+**Standalone upstream PR sequence:** QueryStore #63 remains a public-CI dependency for
+ChartSearchAI #90 only when those independent upstream PRs are being prepared for merge. At that
+point the order is: (1) merge #63; (2) wait for upstream main to publish
+`querystore-api:1.0.0-SNAPSHOT` containing `ContextSlice`, `ContextSliceRecord`, and
 `ContextSliceRequest`; (3) verify that artifact independently; (4) fetch the then-current
-ChartSearchAI upstream head, add every new upstream disposition to the inventory, and re-cut #90
-from that head with the current integration commits including `209e7cb`; (5) rerun #90's public JDK
-matrix and regenerate its local source-pair/product proof. No bridge or duplicate copy of the API
-is permitted. This is blocked only on the external upstream merge/publication event; it is not a
-source or ESM CI failure.
+ChartSearchAI upstream head, add every new upstream disposition to the inventory, and refresh #90
+from the proven integration work; (5) rerun #90's public JDK matrix. No bridge or duplicate copy of
+the API is permitted. This sequence does not block harness integration, product proof, Signoff 2,
+or code-QA evidence.
 
 ### 2026-07-30 — upstream-current companion PR refresh
 

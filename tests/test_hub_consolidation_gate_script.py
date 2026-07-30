@@ -10,6 +10,7 @@ ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts" / "verify-hub-consolidation-gates.sh"
 STAGE_SCRIPT = ROOT / "scripts" / "verify-stage-refactor-gates.sh"
 DOC_SCRIPT = ROOT / "scripts" / "verify-doc-drift.sh"
+SOURCE_PAIR_SCRIPT = ROOT / "scripts" / "openmrs-source-pair-test.sh"
 CI_WORKFLOW = ROOT / ".github" / "workflows" / "harness-ci.yml"
 
 
@@ -73,6 +74,21 @@ def test_gate_scripts_keep_the_historical_consolidation_matrix_separate_from_dua
         ROOT / "specs/artifacts/planning/openmrs-dual-provider-parity-roadmap-status.md"
     ).read_text(encoding="utf-8")
     assert "ChartSearchAI PR #26 rollback ref exists" in dual
+
+
+def test_openmrs_source_pair_gate_builds_exact_integration_heads_in_dependency_order():
+    script = SOURCE_PAIR_SCRIPT.read_text(encoding="utf-8")
+    makefile = (ROOT / "Makefile").read_text(encoding="utf-8")
+
+    assert "openmrs-source-pair-test:" in makefile
+    assert "./scripts/openmrs-source-pair-test.sh" in makefile
+    assert script.count("origin/harness-integration") >= 2
+    assert 'verify_integration_head "${ROOT}/targets/querystore"' in script
+    assert 'verify_integration_head "${ROOT}/targets/chartsearchai"' in script
+    assert 'verify_integration_head "${ROOT}/targets/chartsearchai-esm"' in script
+    assert script.index('"${MVN_BIN}" -q -B clean install') < script.index(
+        '"${MVN_BIN}" -q -B clean package'
+    )
 
 
 def test_active_docs_gate_preserves_bundled_and_hub_provider_contracts():

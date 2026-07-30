@@ -34,7 +34,10 @@ Current work is the **dual-provider foundational-parity roadmap**: preserve bund
 inference as the fresh-install default while allowing a configured med-agent-hub provider through
 the same OpenMRS conversation, evidence, persistence, and cancellation contract. QueryStore remains
 an OpenMRS projection with an optional hub adapter, not a hub dependency. The current integration
-branches are being rebuilt around that contract; see the checked-in [roadmap](specs/artifacts/planning/openmrs-dual-provider-parity-roadmap.md), [status](specs/artifacts/planning/openmrs-dual-provider-parity-roadmap-status.md), and [upstream inventory](specs/artifacts/planning/openmrs-dual-provider-upstream-inventory.md).
+branches carry that contract and are the source of truth for harness proof; upstream PR merge state
+does not gate local integration. See the checked-in [roadmap](specs/artifacts/planning/openmrs-dual-provider-parity-roadmap.md),
+[status](specs/artifacts/planning/openmrs-dual-provider-parity-roadmap-status.md), and
+[upstream inventory](specs/artifacts/planning/openmrs-dual-provider-upstream-inventory.md).
 
 ## How the docs fit together
 
@@ -160,6 +163,7 @@ make chartsearchai-local
 
 # Useful focused operations:
 ./scripts/chartsearchai-local.sh --check  # validate prerequisites without starting services
+make openmrs-source-pair-test         # install pinned Querystore, then test/build pinned ChartSearchAI
 make llama-router-models             # inspect raw models behind the hub
 make chartsearch-build               # rebuild + redeploy just the .omod
 make med-agent-hub-up                # (re)start the hub on its own
