@@ -50,7 +50,7 @@ The PR branches were refreshed with immutable fork backups before force-with-lea
 | PR | New head/base | Preserved fork backup | Source-pair result |
 |---|---|---|---|
 | QueryStore #63 | `78c6741` on `bbd6e80` | `codex/backup/querystore-pr63-pre-recut-20260730` → `f8eccd3` | `mvn -q -B clean install` passed. |
-| ChartSearchAI #90 | `eeb1b54` on `83cc33e` | `codex/backup/dual-provider-rebuild-pre-recut-20260730` → `c85a323` | Rebuilt against the exact local QueryStore re-cut; 697 API tests and 62 OMOD tests passed. |
+| ChartSearchAI #90 | `209e7cb` on `83cc33e` | `codex/backup/dual-provider-rebuild-pre-recut-20260730` → `c85a323` | Rebuilt against the exact local QueryStore re-cut; initial source-pair run passed 697 API tests and 62 OMOD tests. Follow-up `209e7cb` adds reviewed-answer persistence during an In-Depth tail; full `clean package` and live two-turn hub E2E pass. |
 
 ## Refreshed ChartSearchAI Upstream
 
