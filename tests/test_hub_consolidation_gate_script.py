@@ -58,33 +58,31 @@ def test_multi_turn_gate_names_the_real_positive_history_test():
     assert "conversation_history.*prior_message_count" not in text
 
 
-def test_gate_scripts_describe_the_current_stage_engine_and_no_java_fallback():
+def test_gate_scripts_keep_the_historical_consolidation_matrix_separate_from_dual_provider_governance():
     consolidation = SCRIPT.read_text(encoding="utf-8")
     stage = STAGE_SCRIPT.read_text(encoding="utf-8")
+    dual = (ROOT / "scripts" / "verify-dual-provider-parity-gates.sh").read_text(
+        encoding="utf-8"
+    )
 
     assert "tests/test_drug_safety_followthrough.py" in consolidation
     assert 'exec "${ROOT}/scripts/verify-hub-consolidation-gates.sh" "$@"' in stage
     assert "Gate matrix" not in stage
     assert "suite_run" not in stage
+    assert "Bundled and hub use fully separate inference backends" in (
+        ROOT / "specs/artifacts/planning/openmrs-dual-provider-parity-roadmap-status.md"
+    ).read_text(encoding="utf-8")
+    assert "ChartSearchAI PR #26 rollback ref exists" in dual
 
 
-def test_thin_relay_gate_names_every_removed_product_surface():
-    text = SCRIPT.read_text(encoding="utf-8")
+def test_active_docs_gate_preserves_bundled_and_hub_provider_contracts():
+    text = DOC_SCRIPT.read_text(encoding="utf-8")
 
-    for stale_surface in (
-        "ModelSwitchService",
-        'value = "/endpoints"',
-        'value = "/model/load"',
-        "LM Studio",
-        "CitationGroundingVerifier",
-        "chartSnapshot",
-        'value = "/search"',
-        'value = "/warmup"',
-        "querystore-api",
-        "require_module[^>]*>org.openmrs.module.querystore",
-        "GGUF_MODEL_URL|gguf_model_url",
-    ):
-        assert stale_surface in text
+    assert "approved dual-provider" in text
+    assert "hub-only provider claim" in text
+    assert "removed bundled-provider claim" in text
+    assert "LocalLlmEngine" not in text
+    assert "CitationGroundingVerifier" not in text
 
 
 def test_documentation_gate_requires_positive_current_architecture_statements():
@@ -105,22 +103,42 @@ def test_documentation_gate_requires_positive_current_architecture_statements():
         '"targets/chartsearchai/docs/embedding-improvement-plan.md"',
     ):
         assert current_surface in text
+    for required_dual_provider_statement in (
+        'r"bundled provider"',
+        'r"med-agent-hub provider"',
+        'r"no automatic fallback"',
+    ):
+        assert required_dual_provider_statement in text
     assert "header_is_historical" in text
     assert "text.splitlines()[:12]" in text
 
 
-def test_documentation_gate_rejects_removed_role_and_relay_configuration():
+def test_documentation_gate_rejects_removed_shared_state_and_hub_only_configuration():
     text = DOC_SCRIPT.read_text(encoding="utf-8")
 
     for stale_surface in (
-        "PROMPT_INJECTION",
-        "ORCHESTRATOR_MODEL",
-        "SYNTHESIZER_MODEL",
-        "MED_MODEL",
-        "bundled-LLM compatibility",
-        "orchestrator-as-validator",
+        "chartSnapshot",
+        "chartMappingsJson",
+        "indepth_token",
+        "MED_AGENT_(?:ORCHESTRATOR_MODEL|MED_MODEL)",
+        "hub-only provider claim",
+        "removed bundled-provider claim",
     ):
         assert stale_surface in text
+
+
+def test_documentation_gate_passes_the_current_dual_provider_docs():
+    result = subprocess.run(
+        ["bash", str(DOC_SCRIPT)],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        timeout=30,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "PASS: scanned 7 repos" in result.stdout
 
 
 def test_consolidation_gate_script_executes_the_red_baseline(tmp_path):

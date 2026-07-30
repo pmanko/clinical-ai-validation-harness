@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Verify that current docs/comments/scripts do not describe removed ChartSearchAI
-# architecture as current behavior. Historical planning artifacts may keep old
-# details only when they are clearly marked historical/superseded.
+# Verify that current docs/comments/scripts describe the approved dual-provider
+# ChartSearchAI architecture. Historical planning artifacts may retain superseded
+# designs only when they are clearly marked historical/superseded.
 
 set -euo pipefail
 
@@ -19,39 +19,19 @@ from pathlib import Path
 ROOT = Path.cwd()
 
 FORBIDDEN = [
-    (re.compile(r"\bLocalLlmEngine\b"), "embedded local LLM engine"),
-    (re.compile(r"\bllama-server-natives\b"), "bundled llama-server native module"),
-    (re.compile(r"\b(?:embedded|bundled|in-process) llama-server\b", re.I), "bundled llama-server"),
-    (re.compile(r"\btoken-by-token\b|\btoken chunks\b", re.I), "token streaming wording"),
-    (re.compile(r"\bindepth_token\b|\bonInDepthToken\b|\bonToken\b"), "removed token event/callback"),
-    (re.compile(r"(?:ws/rest/v1/)?chartsearchai/warmup\b|value\s*=\s*[\"']/warmup[\"']|\bwarmupEnabled\b", re.I), "removed ChartSearchAI warmup path"),
+    (re.compile(r"\bindepth_token\b|\bonInDepthToken\b"), "removed In-Depth token event/callback"),
     (re.compile(r"\bchartSnapshot\b|\bchartMappingsJson\b|\brefresh-chart\b"), "removed session chart snapshot path"),
-    (re.compile(r"\bCitationGroundingVerifier\b"), "removed Java citation grounding"),
-    (re.compile(r"chartsearchai\.grounding\."), "removed ChartSearchAI grounding GP"),
-    (re.compile(r"chartsearchai\.drugReference|chartsearchai\.drugSafety"), "removed ChartSearchAI drug safety GP"),
-    (re.compile(r"chartsearchai\.embedding\.preFilter|chartsearchai\.querystore\.topK"), "old ChartSearchAI retrieval ownership"),
-    (re.compile(r"chartsearchai\.llm\.systemPrompt|chartsearchai\.llm\.modelFilePath"), "old ChartSearchAI prompt/model ownership"),
-    (re.compile(r"chartsearchai\.llm\.(?:remote\.)?(?:endpointUrl|modelName)"), "old direct-provider ChartSearchAI configuration"),
     (re.compile(r"chartsearchai\.hub\.profileId"), "duplicate ChartSearchAI profile default"),
-    (re.compile(r"chartsearchai\.cacheTtlMinutes|chartsearchai\.llm\.timeoutSeconds"), "old ChartSearchAI LLM/cache ownership"),
-    (re.compile(r"CHARTSEARCH_REMOTE_(?:ENDPOINT_URL|MODEL_NAME|ENDPOINTS)|CHARTSEARCH_LLM_ENGINE"), "old direct-provider ChartSearchAI configuration"),
     (re.compile(r"MED_AGENT_(?:ORCHESTRATOR_MODEL|MED_MODEL)"), "removed environment-driven profile role models"),
-    (re.compile(r"single-model path uses chartsearchAI|chartsearchai.*generates cited answers", re.I), "old ChartSearchAI answer ownership"),
-    (re.compile(r"LLM inference.*stays in chartsearchai|quality layer stays in chartsearchai|All query-time logic stays where it is", re.I), "old ChartSearchAI inference/context ownership"),
     (re.compile(r"model sees the whole chart|whole chart.*unfiltered", re.I), "stale unbounded full-chart claim"),
     (re.compile(r"whole chart per turn|every query retrieves the patient chart from querystore", re.I), "stale universal Querystore claim"),
-    (re.compile(r"per-level [`']?drug_safety[`']? knob|drug_safety.*default off", re.I), "stale product drug-safety policy"),
-    (re.compile(r"let the hub manage its llama\.cpp", re.I), "ambiguous local process ownership"),
     (re.compile(r"GCP_FIREWALL_DENY_LMS|GCP_LMS_PORT"), "retired cloud model-server firewall"),
-    (re.compile(r"value\s*=\s*\"/search\"|/search/stream|chartsearchai/search/stream"), "removed search stream path"),
-    (re.compile(r"\bRemoteLlmEngine\b"), "removed direct-provider Java engine"),
-    (re.compile(r"\bLlmProvider\.search\b"), "removed Java answer orchestration"),
     (re.compile(r"\bModelSwitchService\b"), "removed Java model switching"),
-    (re.compile(r"\bPROMPT_INJECTION\b"), "removed Java prompt-content blocklist"),
     (re.compile(r"\b(?:ORCHESTRATOR_MODEL|SYNTHESIZER_MODEL|MED_MODEL)\b"), "removed global role-model setting"),
-    (re.compile(r"\bbundled-LLM compatibility\b", re.I), "old bundled-LLM compatibility wording"),
     (re.compile(r"\borchestrator-as-validator\b", re.I), "stale role-model label"),
-    (re.compile(r"\btemporal_facts\.v\d"), "versioned internal temporal-facts contract"),
+    (re.compile(r"only\s+med-agent-hub\s+(?:is|remains)\s+(?:the\s+)?(?:provider|inference)", re.I), "hub-only provider claim"),
+    (re.compile(r"ChartSearchAI\s+(?:always\s+)?relays\s+exactly\s+one\s+request\s+to\s+med-agent-hub", re.I), "unconditional hub-relay claim"),
+    (re.compile(r"bundled\s+(?:provider|inference|engine).{0,80}(?:removed|deleted|unsupported)", re.I), "removed bundled-provider claim"),
 ]
 
 TEXT_SUFFIXES = {
@@ -83,11 +63,16 @@ HISTORICAL_MARKER = re.compile(
 
 REQUIRED_CURRENT = {
     "README.md": (
-        r"med-agent-hub",
-        r"single-e4b-checked",
+        r"dual-provider foundational-parity roadmap",
+        r"bundled ChartSearchAI",
+        r"configured med-agent-hub",
+        r"no.*silently.*fall",
     ),
     "adapters/chartsearchai/README.md": (
-        r"authorization, session, persistence, and streaming",
+        r"two providers",
+        r"bundled",
+        r"med-agent-hub",
+        r"no automatic fallback",
         r"make chartsearch-test",
     ),
     "adapters/querystore/README.md": (
@@ -101,16 +86,20 @@ REQUIRED_CURRENT = {
     ),
     "targets/chartsearchai/README.md": (
         r"authorizes the patient request",
-        r"relays exactly one request to med-agent-hub",
+        r"bundled provider",
+        r"med-agent-hub provider",
+        r"No automatic fallback",
     ),
     "targets/chartsearchai-esm/README.md": (
+        r"provider-neutral",
+        r"bundled provider",
+        r"med-agent-hub provider",
         r"does not choose provider endpoints",
-        r"answer_done.*answer_validation.*indepth_pending",
     ),
     "targets/med-agent-hub/README.md": (
         r"client-facing clinical answer service",
-        r"Every product Answer receives deterministic",
-        r"Every product In-Depth claim receives deterministic",
+        r"optional.*Querystore",
+        r"temporal",
     ),
     "targets/querystore/docs/rest-api.md": (
         r"GET `/ws/rest/v1/querystore/patientrecord`",
@@ -127,8 +116,7 @@ REQUIRED_CURRENT = {
         r"ChartSearchAI is a thin OpenMRS",
     ),
     "targets/chartsearchai/docs/embedding-improvement-plan.md": (
-        r"complete evidence ledger",
-        r"Oversized charts are reduced by the\s+hub's deterministic selector",
+        r"Status: historical and superseded",
     ),
 }
 
