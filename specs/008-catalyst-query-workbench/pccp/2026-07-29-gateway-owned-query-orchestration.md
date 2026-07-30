@@ -35,8 +35,9 @@ Gateway:
 5. Hub's clinical-answer/report profiles remain a separate product surface and
    are not used as Catalyst query-profile discovery.
 
-The candidate component revisions are Catalyst `9fa31c2` (PR #5) and Hub
-`946afa9` (PR #15). The umbrella PR must commit those exact pins before T111.
+The candidate component revisions are Catalyst `bb36126` (PR #5) and Hub
+`946afa9` (PR #15). Harness `2320bee` pins those exact revisions for the
+current T111 evidence.
 
 ## Controlled behavior and invariants
 
@@ -125,7 +126,24 @@ No database migration rollback or clinical-data rewrite is required.
 
 ## Evidence
 
-Pending T111. Append exact committed component and harness SHAs, automated test
-results, model identities/configuration, scenario repetitions, accessibility
-evidence, record-level PostgreSQL comparisons, observed nondeterminism, and the
-user decision here before merge.
+Current-pin runtime evidence is partially complete:
+
+- Harness `2320bee` pins clean Catalyst `bb36126` and Hub `946afa9`.
+- Run `85fadc7a-370c-4ec0-af0e-81ecc68d2115` passed 12/12 live repetitions
+  across narrowing, dirty-base aggregation/profile switching, unresolved
+  correction, and distinct-patient semantics. Every successful data claim
+  matched independent PostgreSQL/gold execution.
+- All role records retain `temperature: 0`, `dryMultiplier: 0`, and
+  `maxTokens: 1024`. Aggregation produced one semantically equivalent
+  `COUNT(observation_id)` variant among two `COUNT(*)` outputs.
+- Run `5bf746e1-0f7f-4f67-8053-db994bfffdee` passed the bounded one-shot Hub
+  transport failure; same-session recovery turn
+  `c535bc2d-08b6-428c-ac2f-4e9e99538b6e` then completed without importing the
+  failure payload.
+- Component PR checks are green at these pins: Catalyst #5, Hub #15, and
+  harness #37 are mergeable; harness approval and the documented final
+  squash/repin order remain required.
+
+T111 is still pending the current-pin live keyboard/narrow/200%-text
+accessibility matrix and the explicit user decision. Do not merge from this
+partial evidence.

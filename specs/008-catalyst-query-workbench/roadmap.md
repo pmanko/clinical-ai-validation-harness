@@ -15,14 +15,10 @@ Med-Agent Hub exposes a generic `POST /v1/hub/generate` role executor and does
 not own Catalyst query profiles or their orchestration. Hub's separate
 clinical-answer/report profile engine is unchanged. The candidate umbrella pins
 are Catalyst `bb36126` (active #5 head) and Hub `946afa9` (active #15 head).
-They still require an umbrella commit, clean-pin T111 validation, and user
-acceptance before merge.
-
-The strongest recorded live matrix predates this ownership refactor. It remains
-valuable historical evidence but cannot close T111 for the current pins.
-T094's gold, bounded-failure, and digest-variance work is recorded; the live
-accessibility matrix, current-pin full rerun, and explicit user acceptance remain
-open. No merge occurs before that pause.
+The harness pins those exact revisions at `2320bee`. The current-pin
+T094/T095/T111 model/PostgreSQL matrix and bounded-failure recovery now pass.
+The live accessibility matrix and explicit user acceptance remain open, so no
+merge occurs before that pause.
 
 The 2026-07-29 lightweight cross-artifact rerun found no unresolved
 CRITICAL/HIGH inconsistency after aligning the exact component revisions,
@@ -61,11 +57,11 @@ contract, test strategy, and staged harness integration are recorded here.
 ## W1 — Manual workbench MVP
 
 **Status:** G2.1–G2.7 passed; G2.8a accepted; historical G2.8b backend/runtime
-and post-UI checkpoints passed; the exploratory G2.8c loop and later automatic
-matrix are functional. The current Gateway-owned refactor still awaits T111,
-the live accessibility matrix, and user acceptance. G2.9 remains at its written
-user checkpoint; G2.10 multi-source/lossless acceptance is newly traced and open;
-G3 and W2 have not started.
+and post-UI checkpoints passed; the current-pin G2.8c model/PostgreSQL matrix
+and bounded-failure recovery pass. The Gateway-owned refactor still awaits the
+live accessibility matrix and user acceptance before T094/T095/T111 close.
+G2.9 remains at its written user checkpoint; G2.10 multi-source/lossless
+acceptance is newly traced and open; G3 and W2 have not started.
 
 - Collapse detailed dataset context while retaining state.
 - Persist sessions and immutable query versions in the gateway.
@@ -1274,6 +1270,69 @@ candidate. T126 therefore also restores the active instruction/revision context
 for review and derives the diagnostic raw-evidence role from the terminal model
 invocation/failure stage. These are contract-alignment fixes, not new repair
 rules or retries.
+
+At Catalyst `bb36126`, the identical aggregation/profile-switch smoke passed.
+The active instruction and exact dirty editor snapshot are present in revision
+context digest `f7cb6e07…`; Gemma wrote candidate/query digest `8ca32d51…`,
+Qwen review request digest `c4dd4da9…` returned successful response digest
+`e38065a9…`, and the writer version was selected after approval. The selected
+query returned four monthly rows with columns `observed_month`,
+`result_count`, `distinct_patient_count`, and `median_result_value`; Gateway and
+an independent read-only PostgreSQL execution produced identical row digests.
+Initial plus follow-up model wall time was 83,406 ms, reconciling to 83,087 ms
+of recorded invocations plus 319 ms. Both live role records retain
+`maxTokens: 1024`. T126 is complete; the complete repetition/failure matrix
+below closes T125, while T111 remains open for accessibility and the user
+checkpoint.
+
+The definitive current-pin repetition run is
+`artifacts/catalyst-notebook-validation/t111-owned-router-final-20260730/`
+`85fadc7a-370c-4ec0-af0e-81ecc68d2115`. Its manifest records harness
+`2320bee`, clean Catalyst `bb36126`, clean Hub `946afa9`, dataset/pipeline
+`full-20260730T041145Z`, and catalog
+`analytics-catalog-v1+schema.665109d58952e881`. All 12/12 repetitions passed
+through the real Gateway → sibling Hub → llama.cpp path with independent
+read-only PostgreSQL and gold-query checks:
+
+- unchanged-base narrowing: 3/3, 75,143/68,217/67,842 ms, one identical
+  selected SQL;
+- dirty-base aggregation plus per-turn switch to the Gemma/Qwen reviewed
+  profile: 3/3, 87,651/75,175/74,164 ms;
+- unresolved editor correction: 3/3, 65,793/54,207/54,597 ms, with the
+  unresolved snapshot not promoted and one identical complete successor;
+- lint-clean distinct-patient semantics: 3/3, 49,900/43,746/43,864 ms, with
+  `COUNT(DISTINCT patient_id)` and exact PostgreSQL agreement.
+
+Every live writer/reviewer invocation retained `temperature: 0`,
+`dryMultiplier: 0`, and `maxTokens: 1024`; no candidate was truncated or
+timed out. The only observed output variance was aggregation repetition 2 using
+`COUNT(observation_id)` where repetitions 1 and 3 used `COUNT(*)`. Both
+executed to the same independently verified dataset, so this is recorded as
+bounded syntactic/digest nondeterminism rather than hidden or rewritten.
+
+The bounded failure run is
+`artifacts/catalyst-notebook-validation/t111-bounded-failure-20260730/`
+`5bf746e1-0f7f-4f67-8053-db994bfffdee` (1/1 passed). A worktree-local proxy
+forwarded discovery and injected exactly one typed HTTP 502 for the next
+`POST /v1/chat/completions`. Turn
+`7c26a4f5-c889-40f8-b420-9ec4092b24c1` terminated once as
+`writer_transport` / `writer_transport_failed`, selected no version, retained
+request/failure digests and an 8 ms failed invocation, and left human base
+`c3013e01-6d40-46f8-b778-3c1b5ef2c5d3` current. After immediately restoring
+the real router, same-session turn
+`c535bc2d-08b6-428c-ac2f-4e9e99538b6e` completed in one 36,262 ms writer
+invocation and selected version `78dda6ac-c60b-4d3f-9dc6-de50d9f59bf9`.
+Its bounded revision context contains only prior instructions plus
+digest-matched validation/execution summaries; it contains no transport-failure
+payload or prohibited raw evidence.
+
+T125 is complete. T094/T095/T111 remain open because the in-app browser could
+not attach to or navigate a localhost tab during this exact-pin run. Earlier
+desktop/narrow responsive evidence and current automated UI/CI checks remain
+valid supporting evidence, and no UI source changed in the T125/T126 Gateway
+fixes, but they do not replace the required current-pin keyboard-only,
+390x844/320-CSS-pixel, and 200%-text live pass. That limitation and explicit
+user acceptance are the remaining G2.8c blockers.
 
 ### G2.10 multi-source/lossless onboarding — WRITTEN TRACE COMPLETE; EVIDENCE OPEN
 

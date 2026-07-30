@@ -84,15 +84,15 @@ single-user research artifacts, not multi-tenant production records
 
 *The original W1 and G2.8a written gates passed. G2.8b and the post-UI automated
 gate passed for the earlier Hub-owned query engine. The later Gateway-ownership
-refactor is implemented in the active PR chain but still requires the current-pin
-T111 rerun, accessibility matrix, and user acceptance. Multi-source/lossless
-acceptance remains separately open.*
+refactor and current-pin model/PostgreSQL matrix pass in the active PR chain,
+but T111 still requires the live accessibility matrix and user acceptance.
+Multi-source/lossless acceptance remains separately open.*
 
 - **Real production paths — PASS**: The browser calls the deployed Catalyst
   Gateway, which composes the query flow, calls the real generic Hub role
   executor, and uses the selected PostgreSQL analytics database. Fixtures are
   scaffolding, not behavior evidence. Final claims remain gated on the clean-pin
-  live rerun.
+  live accessibility/user checkpoint.
 - **Deterministic reviewed transforms — PASS**: SQL parsing, finding
   classification, patch scopes, patch application, frozen-unit verification, and
   version digests live in reviewed code/contracts. Model patches remain proposals.
@@ -565,8 +565,11 @@ The following items must remain visible until evidence resolves them:
   unchanged and snapshot only actual changes.
 - **N28 — Seeded inference variance (open, bounded)**: Repeated temperature-zero,
   seed-42 runs produced identical SQL/results but different nullable metadata.
-  Every turn retains full candidates and digests; live acceptance reports
-  semantic/result agreement separately from byte identity.
+  The current-pin 2026-07-30 matrix added one concrete SQL spelling variance:
+  two aggregation repetitions used `COUNT(*)` and one used
+  `COUNT(observation_id)`. Independent PostgreSQL checks proved identical
+  result semantics. Every turn retains full candidates and digests; acceptance
+  reports semantic/result agreement separately from byte identity.
 - **N29 — Follow-up context discontinuity (resolved by G2.8b)**: Bounded current
   SQL, prior instructions, and exact-digest validation/execution summaries reach
   later query roles; prohibited context remains excluded.
