@@ -118,22 +118,22 @@ dump-loaded:
 # `git submodule update --init` gives a buildable state.
 chartsearch-build:
 	cd targets/chartsearchai && mvn -DskipTests -B package
-	mkdir -p artifacts/openmrs/modules
+	mkdir -p artifacts/openmrs/modules artifacts/chartsearchai-local/module-provenance
 	cp targets/chartsearchai/omod/target/chartsearchai-*.omod artifacts/openmrs/modules/
 	./scripts/artifact-provenance.py write --repo targets/chartsearchai \
 	  --artifact artifacts/openmrs/modules/chartsearchai-1.0.0-SNAPSHOT.omod \
-	  --manifest artifacts/openmrs/modules/chartsearchai-1.0.0-SNAPSHOT.omod.provenance.json
+	  --manifest artifacts/chartsearchai-local/module-provenance/chartsearchai-1.0.0-SNAPSHOT.omod.provenance.json
 	@ls -la artifacts/openmrs/modules/chartsearchai-*.omod
 
 # Build the pinned patient-record source module used by the hub's optional
 # Querystore adapter. The local entrypoint invokes this only when missing/stale.
 querystore-build:
 	cd targets/querystore && mvn -DskipTests -B package
-	mkdir -p artifacts/openmrs/modules
+	mkdir -p artifacts/openmrs/modules artifacts/chartsearchai-local/module-provenance
 	cp targets/querystore/omod/target/querystore-*.omod artifacts/openmrs/modules/
 	./scripts/artifact-provenance.py write --repo targets/querystore \
 	  --artifact artifacts/openmrs/modules/querystore-1.0.0-SNAPSHOT.omod \
-	  --manifest artifacts/openmrs/modules/querystore-1.0.0-SNAPSHOT.omod.provenance.json
+	  --manifest artifacts/chartsearchai-local/module-provenance/querystore-1.0.0-SNAPSHOT.omod.provenance.json
 	@ls -la artifacts/openmrs/modules/querystore-*.omod
 
 # Build the chartsearchai frontend ESM from the pinned submodule and stage

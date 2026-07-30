@@ -839,14 +839,22 @@ def test_runtime_identity_binds_built_and_deployed_artifacts(tmp_path, monkeypat
         path.write_text(json.dumps(payload), encoding="utf-8")
         return payload
 
-    omod_manifest = Path(f"{omod}.provenance.json")
+    omod_manifest = (
+        tmp_path
+        / "artifacts/chartsearchai-local/module-provenance/"
+        "chartsearchai-1.0.0-SNAPSHOT.omod.provenance.json"
+    )
     omod_provenance = write_provenance(chartsearchai, omod, omod_manifest)
     deployed_manifest = (
         tmp_path / "artifacts/chartsearchai-local/deployed-chartsearchai-omod.json"
     )
-    deployed_manifest.parent.mkdir(parents=True)
+    deployed_manifest.parent.mkdir(parents=True, exist_ok=True)
     deployed_manifest.write_text(json.dumps(omod_provenance), encoding="utf-8")
-    querystore_manifest = Path(f"{querystore_omod}.provenance.json")
+    querystore_manifest = (
+        tmp_path
+        / "artifacts/chartsearchai-local/module-provenance/"
+        "querystore-1.0.0-SNAPSHOT.omod.provenance.json"
+    )
     querystore_provenance = write_provenance(
         querystore, querystore_omod, querystore_manifest
     )
