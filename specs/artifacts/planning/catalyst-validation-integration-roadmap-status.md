@@ -20,11 +20,11 @@ Execution state for the Catalyst validation integration remediation roadmap.
 |---|---|---|
 | **008-G5** | `specs/008-catalyst-query-workbench/roadmap.md` W2 **G5 user** | Not accepted — no longer a CVR entry gate (A1) |
 | **008-G6** | `specs/008-catalyst-query-workbench/roadmap.md` W3 **G6 user** | Not accepted — no longer a CVR entry gate (A1) |
-| **T094** | Diverse real-path notebook validation | In progress — gold matrix 18/18 PASS (run `5794eb05`); bounded-hub-tool-failure live run PASS 27/27 assertions (run `1f124e24`, sustained fault-proxy on followup generation → `followup_terminal_status: failed`, base preserved; 2026-07-21); digest-variance analysis complete; **open: accessibility matrix** |
+| **T094** | Diverse real-path notebook validation | In progress — exact-current-pin model/PostgreSQL matrix 12/12 PASS (run `cbc41bcd`); one-shot transport failure and same-session recovery PASS (run `68da21db`); responsive 390/320 and 200%-layout-equivalent checks PASS; **open: actual keyboard-only/zoom confirmation** |
 | **T095** | G2.8c acceptance pause | Open |
 | **T111** | Clean-pin rerun + user acceptance | Open |
 
-## Current architecture and candidate pins (2026-07-29)
+## Current architecture and candidate pins (2026-07-30)
 
 The current implementation no longer uses Hub-owned Catalyst query profiles.
 Catalyst Gateway owns the query-profile registry, prompts, writer/reviewer
@@ -34,26 +34,38 @@ boundary and retains a separate clinical-answer/report profile system.
 
 | Component | Candidate revision | State |
 |---|---|---|
-| Catalyst | `bb36126` (PR #5) | All component CI green |
-| Med-Agent Hub | `198d5f6` (PR #15) | Full local suite green; PR checks running after review-only fixes |
-| Harness | `codex/catalyst-mvp-umbrella` (PR #37) | Hub repin, exact-pin acceptance rerun, and T111 remain open |
+| Catalyst | `95515a2` (PR #5) | Standalone fallback Hub SHA aligned; focused umbrella pin/layout coverage 57/57; current-head CI/smoke pending |
+| Med-Agent Hub | `198d5f6` (PR #15) | Focused 28/28 and full local 633/633 suites green; all Copilot threads resolved |
+| Harness | `codex/catalyst-mvp-umbrella` (PR #37) | Pending repin from Catalyst `bb36126` to `95515a2`; parent-pin runtime evidence passed; current-head smoke and keyboard/user acceptance remain open |
 
-The 2026-07-21 live matrix ran on pre-refactor Catalyst/Hub revisions. Its 12/12
-scenario and 18/18 independent PostgreSQL results remain historical evidence,
-but do not prove the current ownership boundary. T111 therefore repeats the
-automated and live notebook gates on the exact committed pins, completes the
-accessibility matrix, and pauses for explicit user acceptance.
+The current authoritative run
+`cbc41bcd-56f7-4074-931f-98ed42fea202` passed 12/12 scenario repetitions on
+harness `e475d7a`, Catalyst `bb36126`, and Hub `198d5f6`, with every result
+independently checked against PostgreSQL/gold SQL. Current-pin run
+`68da21db-2178-4010-9fd4-5c73fd477261` also proved a one-shot typed Hub
+transport failure leaves the human base current; same-session turn
+`bbd77610-2660-4ae8-84fa-6dffe57d760e` then recovered using matching
+validation/execution context. Responsive checks passed at 390 and 320 CSS px,
+plus a 200%-zoom layout-equivalent viewport. Actual Tab traversal and actual
+browser zoom remain unverified, so T094/T095/T111 remain open pending that
+manual accessibility check and explicit user acceptance.
+
+Focused pin/layout coverage then exposed a stale standalone fallback SHA in
+Catalyst. Candidate `95515a2` changes only that fallback default from Hub
+`946afa9` to current Hub `198d5f6`; the umbrella runtime supplies the sibling
+Hub context. Focused coverage passes 57/57, but the complete live evidence
+remains attributed to parent `bb36126` until a clean candidate-head smoke is
+recorded.
 
 The deterministic T111 preflight drift is resolved by T123: the committed suite
 now uses the real Gateway writer-only and Gemma/Qwen reviewed IDs, retains a
 per-turn profile switch, and represents reviewer identity as optional only for
 writer-only profiles. No live result is inferred from that repair.
 
-T124 repairs the runtime-availability boundary: Hub publishes a versioned
+T124 repaired the runtime-availability boundary: Hub publishes a versioned
 backend model inventory, `LocalHub` requires every exact writer/reviewer alias,
 and unavailable profiles fail closed before state or model calls. Component
-coverage is green; the isolated stack still requires a clean-pin rebuild and
-live T111 proof.
+coverage and the isolated exact-pin live proof are green.
 
 ## Baseline Snapshot (CVR-G00)
 

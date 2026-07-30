@@ -14,12 +14,14 @@ composition, deterministic lint/repair/finalization, and query evidence.
 Med-Agent Hub exposes a generic `POST /v1/hub/generate` role executor and does
 not own Catalyst query profiles or their orchestration. Hub's separate
 clinical-answer/report profile engine is unchanged. The candidate umbrella pins
-are Catalyst `bb36126` (active #5 head) and Hub `198d5f6` (active #15 head).
-The 12/12 model/PostgreSQL matrix and bounded-failure recovery passed on the
-immediately preceding Hub pin `946afa9`; Hub `198d5f6` only addresses two
-review findings (verbatim generic-role output and complete profile digests).
-The exact-current-pin rerun, live accessibility matrix, and explicit user
-acceptance remain open, so no merge occurs before that pause.
+are Catalyst `95515a2` (active #5 head) and Hub `198d5f6` (active #15 head).
+The 12/12 model/PostgreSQL matrix and bounded-failure recovery passed on
+Catalyst parent `bb36126` with the current Hub pin. Catalyst `95515a2` changes
+only the standalone fallback Hub SHA from `946afa9` to `198d5f6`; the umbrella
+runtime supplies the sibling Hub context and does not execute that fallback
+clone path. Focused pin/layout coverage passes, but the current-head smoke,
+manual keyboard/zoom checks, and explicit user acceptance remain open, so no
+merge occurs before that pause.
 
 The 2026-07-29 lightweight cross-artifact rerun found no unresolved
 CRITICAL/HIGH inconsistency after aligning the exact component revisions,
@@ -1286,7 +1288,8 @@ of recorded invocations plus 319 ms. Both live role records retain
 below closes T125, while T111 remains open for accessibility and the user
 checkpoint.
 
-The definitive pre-review-fix repetition run is
+The definitive pre-review-fix repetition run remains historical supporting
+evidence at
 `artifacts/catalyst-notebook-validation/t111-owned-router-final-20260730/`
 `85fadc7a-370c-4ec0-af0e-81ecc68d2115`. Its manifest records harness
 `2320bee`, clean Catalyst `bb36126`, clean Hub `946afa9`, dataset/pipeline
@@ -1327,16 +1330,71 @@ Its bounded revision context contains only prior instructions plus
 digest-matched validation/execution summaries; it contains no transport-failure
 payload or prohibited raw evidence.
 
-T125 is complete. After that run, Hub advanced from `946afa9` to `198d5f6` to
-address two valid suppressed Copilot findings, so exact-current-pin model and
-failure smoke evidence must be refreshed. T094/T095/T111 also remain open
-because the in-app browser could
-not attach to or navigate a localhost tab during this exact-pin run. Earlier
-desktop/narrow responsive evidence and current automated UI/CI checks remain
-valid supporting evidence, and no UI source changed in the T125/T126 Gateway
-fixes, but they do not replace the required current-pin keyboard-only,
-390x844/320-CSS-pixel, and 200%-text live pass. That limitation and explicit
-user acceptance are the remaining G2.8c blockers.
+T125 is complete. Hub then advanced from `946afa9` to `198d5f6` to address two
+valid suppressed Copilot findings: the generic role executor now returns the
+provider content verbatim, and profile digests include `selection_priority` and
+`supplemental_sources`. Hub's focused 28-test slice and full 633-test suite
+passed before `198d5f6` was pinned in the umbrella at `e475d7a`.
+
+The authoritative exact-current-pin repetition run is
+`artifacts/catalyst-notebook-validation/t111-review-fix-final-rerun-20260730/`
+`cbc41bcd-56f7-4074-931f-98ed42fea202`. Its manifest records harness
+`e475d7a`, clean Catalyst `bb36126`, clean Hub `198d5f6`,
+dataset/pipeline `full-20260730T041145Z`, and catalog
+`analytics-catalog-v1+schema.665109d58952e881`. All 12/12 repetitions again
+passed through the real Gateway → sibling Hub → llama.cpp path and independently
+matched PostgreSQL/gold execution:
+
+- unchanged-base narrowing: 3/3, 81,724/74,498/75,063 ms, identical selected
+  SQL;
+- dirty-base aggregation plus profile switching: 3/3,
+  109,032/87,123/87,654 ms; repetitions 1 and 2 used `COUNT(*)`, while
+  repetition 3 used semantically equivalent `COUNT(observation_id)`;
+- unresolved editor correction: 3/3, 75,177/60,267/59,530 ms, identical
+  complete successor and no promotion of the unresolved snapshot;
+- lint-clean distinct-patient semantics: 3/3, 62,234/54,267/53,568 ms, all
+  selected `COUNT(DISTINCT patient_id)`.
+
+The current-pin bounded-failure proof is
+`artifacts/catalyst-notebook-validation/`
+`t111-review-fix-bounded-failure-final-20260730/`
+`68da21db-2178-4010-9fd4-5c73fd477261` (1/1 passed). In session
+`b24956c1-4b9a-4038-9f8f-17e311579418`, a fresh worktree-local proxy injected
+one typed HTTP 502 on the first follow-up model call. Turn
+`856d88bf-c03f-408b-8867-04239925d191` failed once as
+`writer_transport` / `writer_transport_failed` in 161 ms, selected no output,
+and preserved human base version `a8dee8ed-d347-4f6f-978d-1973798b4fdf`.
+After restoring the direct router, same-session turn
+`bbd77610-2660-4ae8-84fa-6dffe57d760e` completed and selected successor
+`b5021739-a0fa-4540-a6fa-1ab001b3c031`. Its revision context contains the
+failed instruction plus validation and execution summaries that match the exact
+base digest; it does not promote the failure or include raw failure content.
+
+Two non-product interruptions are retained rather than hidden. Run
+`699fa9fc-bf98-4445-8d7e-76e1e7c33a7a` stopped after 2/2 passing narrowing
+repetitions when the local OrbStack engine exited and Docker clients blocked.
+Run `7302b5dc-527f-4ad9-ba93-a302d50f2b53` injected the fault on the second
+overall model call, which was still part of initial contract repair, so it is a
+fault-targeting procedure failure rather than follow-up failure evidence.
+
+Current-pin responsive inspection passed at 390 × 844 and 320 × 844 CSS
+viewports with no horizontal overflow, one contained textarea, and the composer
+fixed to the viewport bottom. A 640 × 720 CSS viewport provided the
+layout-equivalent 200%-zoom reflow check with the same no-overflow and
+focusable-composer geometry. Browser automation could directly focus the data
+source control, and DOM inspection preserved the intended focusable order, but
+the automation surface did not advance focus for Tab key events. Therefore an
+actual keyboard-only Tab traversal and an actual browser-zoom interaction
+remain explicitly unverified. T094/T095/T111 stay open for that manual
+accessibility confirmation and explicit user acceptance; no merge is
+authorized by the model/PostgreSQL or responsive evidence alone.
+
+The focused umbrella pin test then exposed that Catalyst's standalone fallback
+bootstrap still named Hub `946afa9` even though the umbrella sibling pin was
+`198d5f6`. Catalyst `95515a2` corrects that single default SHA; focused harness
+coverage is 57/57. The completed live matrix remains attributable to its direct
+parent `bb36126` until a clean `95515a2` smoke is recorded. This is a pin
+consistency correction, not a query-orchestration behavior change.
 
 ### G2.10 multi-source/lossless onboarding — WRITTEN TRACE COMPLETE; EVIDENCE OPEN
 

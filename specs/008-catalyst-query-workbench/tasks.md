@@ -140,6 +140,15 @@ Gateway-ownership refactor is tracked separately in Phase 4.14.
 - [ ] T111 Rerun the complete Hub/Catalyst/harness automated gates plus the T094/T095 live iterative workflow on clean pins; prove the versioned Hub backend inventory, exact required model aliases, available-profile subset, unavailable initial/governed/follow-up rejection before state or model calls, writer-only and reviewed provenance, independent PostgreSQL evidence, and pause for user acceptance
 - [ ] T112 After T111 acceptance, squash Hub first, repin/validate/squash Catalyst, repin both resulting `main` commits in the harness, obtain the required harness approval, and squash harness last
 
+T111 execution note (2026-07-30): the exact-current-pin 12/12 model/PostgreSQL
+matrix and bounded-failure/same-session recovery passed on harness `e475d7a`,
+Catalyst `bb36126`, and Hub `198d5f6`. Responsive 390/320 CSS-pixel and
+200%-layout-equivalent checks passed. Catalyst candidate `95515a2` subsequently
+aligned the standalone fallback Hub SHA with `198d5f6`; focused umbrella
+pin/layout coverage passes 57/57, and a clean candidate-head smoke remains
+required. T111 remains unchecked because that smoke, actual keyboard-only Tab
+traversal, actual browser zoom, and explicit user acceptance remain open.
+
 ## Phase 4.14 — Gateway-owned query orchestration reconciliation
 
 - [X] T113 Record the current Catalyst Gateway-owned query profile/prompt/writer-reviewer/lint architecture, generic Hub role-executor boundary, active PR chain (#37/#5/#15), and pre-refactor evidence limitation in the feature spec/plan/roadmap/status artifacts without rewriting historical G2.8 results

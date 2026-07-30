@@ -35,10 +35,11 @@ Gateway:
 5. Hub's clinical-answer/report profiles remain a separate product surface and
    are not used as Catalyst query-profile discovery.
 
-The candidate component revisions are Catalyst `bb36126` (PR #5) and Hub
-`198d5f6` (PR #15). Harness revision `2320bee` pinned the immediately preceding
-Hub `946afa9` for the recorded T111 model/PostgreSQL evidence; the final
-acceptance evidence must use the updated Hub pin.
+The candidate component revisions are Catalyst `95515a2` (PR #5) and Hub
+`198d5f6` (PR #15). Harness revision `e475d7a` pinned Catalyst parent
+`bb36126` and Hub `198d5f6` for the recorded T111 model/PostgreSQL evidence.
+Catalyst `95515a2` changes only the standalone fallback Hub SHA to match
+`198d5f6`; the umbrella sibling-Hub runtime does not execute that clone path.
 
 ## Controlled behavior and invariants
 
@@ -127,26 +128,31 @@ No database migration rollback or clinical-data rewrite is required.
 
 ## Evidence
 
-Runtime evidence is partially complete:
+Runtime evidence is complete except for the manual accessibility/user
+checkpoint:
 
-- Harness `2320bee` pins clean Catalyst `bb36126` and the immediately preceding
-  Hub `946afa9`; Hub #15 now advances to `198d5f6` for review-only corrections.
-- Run `85fadc7a-370c-4ec0-af0e-81ecc68d2115` passed 12/12 live repetitions
-  across narrowing, dirty-base aggregation/profile switching, unresolved
-  correction, and distinct-patient semantics. Every successful data claim
-  matched independent PostgreSQL/gold execution.
+- Harness `e475d7a` pins clean Catalyst `bb36126` and Hub `198d5f6` for the
+  complete live matrix. Catalyst candidate `95515a2` subsequently aligns the
+  standalone fallback Hub SHA; focused umbrella pin/layout coverage passes
+  57/57, and a clean current-head smoke remains required.
+- Run `cbc41bcd-56f7-4074-931f-98ed42fea202` passed 12/12 exact-current-pin
+  live repetitions across narrowing, dirty-base aggregation/profile switching,
+  unresolved correction, and distinct-patient semantics. Every successful data
+  claim matched independent PostgreSQL/gold execution.
 - All role records retain `temperature: 0`, `dryMultiplier: 0`, and
   `maxTokens: 1024`. Aggregation produced one semantically equivalent
   `COUNT(observation_id)` variant among two `COUNT(*)` outputs.
-- Run `5bf746e1-0f7f-4f67-8053-db994bfffdee` passed the bounded one-shot Hub
-  transport failure; same-session recovery turn
-  `c535bc2d-08b6-428c-ac2f-4e9e99538b6e` then completed without importing the
-  failure payload.
-- Component PR checks were green at those recorded pins. The updated Hub,
-  umbrella pin, and affected exact-pin runtime smoke must become green before
-  acceptance; harness approval and the documented final squash/repin order
-  remain required.
+- Run `68da21db-2178-4010-9fd4-5c73fd477261` passed the exact-current-pin
+  bounded one-shot Hub transport failure. Failed turn
+  `856d88bf-c03f-408b-8867-04239925d191` preserved the current human base;
+  same-session recovery turn `bbd77610-2660-4ae8-84fa-6dffe57d760e` then
+  completed without importing the failure payload.
+- Responsive inspection passed at 390 × 844 and 320 × 844 with no horizontal
+  overflow. A 640 × 720 CSS layout-equivalent check covered 200%-zoom reflow
+  geometry. Actual Tab traversal and actual browser zoom remain unverified
+  because the automation surface did not advance keyboard focus or browser zoom.
 
-T111 is still pending the current-pin live keyboard/narrow/200%-text
-accessibility matrix and the explicit user decision. Do not merge from this
-partial evidence.
+T111 is still pending the manual keyboard/zoom confirmation and the explicit
+user decision. Harness approval and the documented Hub → Catalyst → harness
+squash/repin order also remain required. Do not merge from this partial
+acceptance evidence.
