@@ -51,7 +51,7 @@ def test_harness_runner_builds_the_sibling_hub_without_catalyst_patch_source() -
     assert 'HUB_DIR="${ROOT_DIR}/targets/med-agent-hub"' in runner
     assert 'export MED_AGENT_HUB_CONTEXT="${HUB_DIR}"' in runner
     assert 'context: "${MED_AGENT_HUB_CONTEXT:-./.med-agent-hub}"' in compose
-    assert 'HUB_BUILD_REVISION: "${HUB_BUILD_REVISION:?' in compose
+    assert 'HUB_BUILD_REVISION: "${HUB_BUILD_REVISION:-unknown}"' in compose
     assert 'if [ -n "${MED_AGENT_HUB_CONTEXT:-}" ]; then' in up_script
     assert (
         'hub_context="${MED_AGENT_HUB_CONTEXT:-${ROOT_DIR}/.med-agent-hub}"'
