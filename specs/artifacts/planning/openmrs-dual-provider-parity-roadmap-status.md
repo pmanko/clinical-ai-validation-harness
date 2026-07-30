@@ -63,7 +63,7 @@ The refreshed repository state, upstream dispositions, and rollback refs are rec
 | G18 Cancellation | In progress | `CancellationSignal` was a first-class TYPE in the provider boundary but was never actually wired: the REST layer passed `CancellationSignal.NONE` (a signal that never cancels) for every turn, and `HubStreamTransport`'s interface had no way to interrupt a blocking hub read even if it had been real — a preempted turn ran to the hub's own completion, silently holding the router slot. **Fixed and proven live 2026-07-24 (chartsearchai `4e4c7ae`):** `TurnCancellation` binds the open hub response body so `cancel()` force-closes it from another thread (proven against a real local HTTP server: cancel unblocks an in-flight read in under 0.5s, not just asserted); `TurnPreemptionRegistry` cancels whichever turn currently holds a conversation's slot when a new one starts — the only preempt signal there is, since a conversation never runs two turns on purpose. A turn cancelled after it already produced a real answer (only In-Depth still generating) now completes as done with that answer, persisted with a dangling `inDepth.status: pending` rewritten to `failed` rather than being silently discarded; the REST sink swallows the trailing write once cancelled so a dead browser connection can't block persistence. **Live evidence:** the hub's own `cancellations.jsonl` trace, which recorded ZERO entries for any real preempt before this fix, now records `router_lock_released: true` for a genuine preempted turn; the existing `chartsearchai-preempt.spec.ts` e2e spec went from a 6-minute hang (`data-indepth-status` stuck at `pending`) to passing in ~25s with no code changes to the test itself. Exactly one assistant row settles per preempted turn — proven via `ProviderRestContractTest#aPreemptedTurnsTrailingEventIsSwallowedSoItsAnswerStillPersists` and confirmed live via `chartsearchai-demo.spec.ts`'s 3-turn persisted-history assertion. |
 | G19 Honest demo | In progress | The documented local product path now completes against the real configured hub provider: `make chartsearchai-local` builds/stages the current ESM, verifies the live QueryStore source, configures `bundled,hub` with bundled as default, then runs `probe-chartsearchai-relay.py --provider hub`. The probe records the canonical relay lifecycle, fast answer, final answer-review state, deterministic temporal-gate payload, QueryStore-backed references, terminal In-Depth outcome, persisted-row envelope hash, and session cleanup in `artifacts/chartsearchai-local/relay-probe.json`. **Current clean-source relay proof (2026-07-30, ChartSearchAI `209e7cb`):** answer_done 1.353 s, terminal turn 3.756 s, final envelope rehydrated byte-identically, with QueryStore references and an honestly withheld `needs_review` In-Depth. The same deployed revision passed the two-turn Playwright proof with screenshots and video (`tests/e2e/evidence/e4b-multiturn-trivial/`; Playwright `video.webm`), including checked-answer history during the first turn's In-Depth tail. The run also closed a deployment-hygiene bug: `61b0153` moves generated `*.omod.provenance.json` manifests outside the bind-mounted OpenMRS module directory; after redeploy, the mount contained only `.omod` files and the post-restart log window contained no provenance/module-extension errors. The paced three-turn/preemption demo and final evidence bundle remain required. |
 | G20 Documentation | Passed 2026-07-29 | `scripts/verify-doc-drift.sh` now scans all seven repositories against the approved dual-provider contract rather than the superseded hub-only removal list. It requires current root, adapter, ChartSearchAI, ESM, hub, and QueryStore statements; permits supported bundled local/remote engines, streaming, warming, grounding, and QueryStore behavior; and still rejects removed shared session state, obsolete hub profile defaults, retired global role settings, unbounded-context claims, and hub-only/provider-removal claims. Root `642629f`, ChartSearchAI `eeb1b54`, and ESM `5fdfaa1` add the missing provider-boundary documentation and direct regression coverage; the gate passes with seven explicitly marked historical files. |
-| G21 QA and hygiene | Pending | Runtime implementation and focused test evidence exist, but the prior code-qa evidence bundle predates the refreshed current heads. Re-run meaningful-test-coverage, simplicity, spec-code-alignment, cross-repository companion review, and evidence-bundle checks against the final current heads; no stale artifact may be counted as release evidence. |
+| G21 QA and hygiene | In progress | A fresh current-head pass completed: foundation and seven-repository documentation gates pass; the focused checked-answer fix has service, REST-contract, and real browser coverage; the current Playwright preemption and paced demo runs pass; and a non-repository MP4/screenshot evidence bundle was generated. The companion-PR review still requires the QueryStore #63 merge/publication sequence, then a re-cut ChartSearchAI #90 and a final repeat against those new heads. No pre-publication artifact may be counted as release evidence. |
 | G22 Next-stage readiness | In progress | Run metadata already identifies provider/mode/endpoint/model per arm (`run_meta.json` `backends` freeze), stage timings and hub traces have dedicated harness modules (`stage_timings.py`, `hub_trace.py`), and the parity instrument records selected evidence per run. **Remaining:** snapshot identity + cache state + gate results carried per run row. |
 
 ## Foundation Closeout
@@ -401,6 +401,35 @@ G04(b)/G09. No source-code changes were needed in chartsearchai itself — this 
 local provisioning gap in the harness's own deployment, not a product defect.
 
 ## Amendments and Deviations
+
+### Current-session product proof and pre-publication QA
+
+The local stack was verified at root `7e45cce`, ChartSearchAI `209e7cb`, ESM `5fdfaa1`,
+med-agent-hub `a279a56`, and QueryStore `78c6741`, with every root/submodule worktree clean and
+remote-reachable. `scripts/verify-dual-provider-parity-gates.sh --phase foundation` passed G01--G03
+and `scripts/verify-doc-drift.sh` passed across all seven repositories.
+
+**Live product evidence:** the warmed `single-e4b-checked` profile reached `answer_done` in
+1.459 seconds. Fresh Playwright runs then passed the real preemption behavior in 1.9 minutes and
+the paced three-turn expanded-chat demo in 2.1 minutes. The demo shows a fast Answer, its visible
+check lifecycle, a date-dependent follow-up, and preemption of unfinished In-Depth work. The
+preemption proof also requires the hub cancellation trace to report `router_lock_released: true`.
+A non-source evidence bundle was generated at
+`/private/tmp/chartsearchai-dual-provider-evidence-20260730/` (including a 1280x720 H.264 MP4 and
+manifest); its reproducible media and zip are intentionally not committed.
+
+**Current-head code-QA pass:** meaningful coverage is provided at the layer where the recent bug
+lived (`ConversationServicePersistenceTest` persists only checked/edited nonterminal answers),
+the REST contract asserts the `answer_validation` persistence point, and the browser test proves a
+real follow-up sees the checked prior turn during the In-Depth tail. The tests were red-first when
+the method did not exist, and the full ChartSearchAI `clean package` plus ESM public build pass.
+The focused fix introduces no new profile, provider, configuration flag, or fallback path; it is a
+small extension of existing conversation persistence. The specification/code drift gate is green.
+
+This is current-head, pre-publication evidence only. After QueryStore #63 is merged and its API
+snapshot is independently verified, ChartSearchAI #90 must be re-cut from then-current upstream and
+the source-pair build, public JDK matrix, live product evidence, companion-PR review, and evidence
+bundle must all be regenerated before G21 can be marked passed.
 
 ### 2026-07-30 — checked-answer follow-up proof and companion-PR publication order
 
