@@ -66,6 +66,7 @@ def test_harness_runner_builds_the_sibling_hub_without_catalyst_patch_source() -
         "urllib.request.urlopen('http://localhost:8080/health', timeout=3)"
         in compose
     )
+    assert 'CATALYST_QUERY_PROFILE_ID: "${MVP_RESOLVED_PROFILE_ID' in compose
     assert (
         'hub_context="${MED_AGENT_HUB_CONTEXT:-${ROOT_DIR}/.med-agent-hub}"'
         in health_script
