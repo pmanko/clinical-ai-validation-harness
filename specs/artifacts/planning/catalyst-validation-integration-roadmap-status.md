@@ -34,9 +34,9 @@ boundary and retains a separate clinical-answer/report profile system.
 
 | Component | Candidate revision | State |
 |---|---|---|
-| Catalyst | `be3f95c` (PR #5) | Standalone fallback Hub SHA aligned; redundant literal-SHA test removed; exact 38-test assembly command green with one expected local driver skip |
+| Catalyst | `be3f95c` (PR #5) | Standalone fallback Hub SHA aligned; redundant literal-SHA test removed; all five PR CI jobs green |
 | Med-Agent Hub | `198d5f6` (PR #15) | Focused 28/28 and full local 633/633 suites green; all Copilot threads resolved |
-| Harness | `codex/catalyst-mvp-umbrella` (PR #37) | Pending repin from Catalyst `95515a2` to test-only head `be3f95c`; scoped runtime smoke passed; keyboard/user acceptance remains open |
+| Harness | `codex/catalyst-mvp-umbrella` (PR #37) | Pins Catalyst `be3f95c`/Hub `198d5f6`; CI and GitGuardian green/neutral; keyboard/user acceptance remains open |
 
 The current authoritative run
 `cbc41bcd-56f7-4074-931f-98ed42fea202` passed 12/12 scenario repetitions on

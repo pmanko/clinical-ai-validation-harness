@@ -1403,7 +1403,9 @@ establishes the one-line fallback-pin delta without relabelling that evidence.
 Catalyst `be3f95c` then removed the stale literal-SHA assertion rather than
 replacing it with another duplicated pin. The bootstrap behavior did not change,
 and the exact CI assembly command completes 38 tests with one expected local
-`psycopg` skip.
+`psycopg` skip. Catalyst PR #5's Gateway, Agents, MCP, UI, and MVP assembly jobs
+are all green at that head. Harness PR #37's test/diff-coverage job is green and
+GitGuardian is neutral after the `be3f95c` repin.
 
 ### G2.10 multi-source/lossless onboarding — WRITTEN TRACE COMPLETE; EVIDENCE OPEN
 
