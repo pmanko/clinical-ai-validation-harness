@@ -14,11 +14,12 @@ composition, deterministic lint/repair/finalization, and query evidence.
 Med-Agent Hub exposes a generic `POST /v1/hub/generate` role executor and does
 not own Catalyst query profiles or their orchestration. Hub's separate
 clinical-answer/report profile engine is unchanged. The candidate umbrella pins
-are Catalyst `bb36126` (active #5 head) and Hub `946afa9` (active #15 head).
-The harness pins those exact revisions at `2320bee`. The current-pin
-T094/T095/T111 model/PostgreSQL matrix and bounded-failure recovery now pass.
-The live accessibility matrix and explicit user acceptance remain open, so no
-merge occurs before that pause.
+are Catalyst `bb36126` (active #5 head) and Hub `198d5f6` (active #15 head).
+The 12/12 model/PostgreSQL matrix and bounded-failure recovery passed on the
+immediately preceding Hub pin `946afa9`; Hub `198d5f6` only addresses two
+review findings (verbatim generic-role output and complete profile digests).
+The exact-current-pin rerun, live accessibility matrix, and explicit user
+acceptance remain open, so no merge occurs before that pause.
 
 The 2026-07-29 lightweight cross-artifact rerun found no unresolved
 CRITICAL/HIGH inconsistency after aligning the exact component revisions,
@@ -1285,7 +1286,7 @@ of recorded invocations plus 319 ms. Both live role records retain
 below closes T125, while T111 remains open for accessibility and the user
 checkpoint.
 
-The definitive current-pin repetition run is
+The definitive pre-review-fix repetition run is
 `artifacts/catalyst-notebook-validation/t111-owned-router-final-20260730/`
 `85fadc7a-370c-4ec0-af0e-81ecc68d2115`. Its manifest records harness
 `2320bee`, clean Catalyst `bb36126`, clean Hub `946afa9`, dataset/pipeline
@@ -1326,7 +1327,10 @@ Its bounded revision context contains only prior instructions plus
 digest-matched validation/execution summaries; it contains no transport-failure
 payload or prohibited raw evidence.
 
-T125 is complete. T094/T095/T111 remain open because the in-app browser could
+T125 is complete. After that run, Hub advanced from `946afa9` to `198d5f6` to
+address two valid suppressed Copilot findings, so exact-current-pin model and
+failure smoke evidence must be refreshed. T094/T095/T111 also remain open
+because the in-app browser could
 not attach to or navigate a localhost tab during this exact-pin run. Earlier
 desktop/narrow responsive evidence and current automated UI/CI checks remain
 valid supporting evidence, and no UI source changed in the T125/T126 Gateway

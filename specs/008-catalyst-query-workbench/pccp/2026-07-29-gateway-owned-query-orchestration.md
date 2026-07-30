@@ -36,8 +36,9 @@ Gateway:
    are not used as Catalyst query-profile discovery.
 
 The candidate component revisions are Catalyst `bb36126` (PR #5) and Hub
-`946afa9` (PR #15). Harness `2320bee` pins those exact revisions for the
-current T111 evidence.
+`198d5f6` (PR #15). Harness revision `2320bee` pinned the immediately preceding
+Hub `946afa9` for the recorded T111 model/PostgreSQL evidence; the final
+acceptance evidence must use the updated Hub pin.
 
 ## Controlled behavior and invariants
 
@@ -126,9 +127,10 @@ No database migration rollback or clinical-data rewrite is required.
 
 ## Evidence
 
-Current-pin runtime evidence is partially complete:
+Runtime evidence is partially complete:
 
-- Harness `2320bee` pins clean Catalyst `bb36126` and Hub `946afa9`.
+- Harness `2320bee` pins clean Catalyst `bb36126` and the immediately preceding
+  Hub `946afa9`; Hub #15 now advances to `198d5f6` for review-only corrections.
 - Run `85fadc7a-370c-4ec0-af0e-81ecc68d2115` passed 12/12 live repetitions
   across narrowing, dirty-base aggregation/profile switching, unresolved
   correction, and distinct-patient semantics. Every successful data claim
@@ -140,9 +142,10 @@ Current-pin runtime evidence is partially complete:
   transport failure; same-session recovery turn
   `c535bc2d-08b6-428c-ac2f-4e9e99538b6e` then completed without importing the
   failure payload.
-- Component PR checks are green at these pins: Catalyst #5, Hub #15, and
-  harness #37 are mergeable; harness approval and the documented final
-  squash/repin order remain required.
+- Component PR checks were green at those recorded pins. The updated Hub,
+  umbrella pin, and affected exact-pin runtime smoke must become green before
+  acceptance; harness approval and the documented final squash/repin order
+  remain required.
 
 T111 is still pending the current-pin live keyboard/narrow/200%-text
 accessibility matrix and the explicit user decision. Do not merge from this

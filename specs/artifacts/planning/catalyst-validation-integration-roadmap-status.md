@@ -34,9 +34,9 @@ boundary and retains a separate clinical-answer/report profile system.
 
 | Component | Candidate revision | State |
 |---|---|---|
-| Catalyst | `9fa31c2` (PR #5) | All component CI green; umbrella pin pending commit |
-| Med-Agent Hub | `946afa9` (PR #15) | Full suite and PR checks green; umbrella pin pending commit |
-| Harness | `codex/catalyst-mvp-umbrella` (PR #37) | Main reconciliation and T111 remain open |
+| Catalyst | `bb36126` (PR #5) | All component CI green |
+| Med-Agent Hub | `198d5f6` (PR #15) | Full local suite green; PR checks running after review-only fixes |
+| Harness | `codex/catalyst-mvp-umbrella` (PR #37) | Hub repin, exact-pin acceptance rerun, and T111 remain open |
 
 The 2026-07-21 live matrix ran on pre-refactor Catalyst/Hub revisions. Its 12/12
 scenario and 18/18 independent PostgreSQL results remain historical evidence,
