@@ -134,7 +134,9 @@ checkpoint:
 - Harness `e475d7a` pins clean Catalyst `bb36126` and Hub `198d5f6` for the
   complete live matrix. Catalyst candidate `95515a2` subsequently aligns the
   standalone fallback Hub SHA; focused umbrella pin/layout coverage passes
-  57/57, and a clean current-head smoke remains required.
+  57/57. Clean umbrella `93689d5` run
+  `4dd70443-ba23-4415-b0cd-d393d2352061` passed a scoped 1/1 real-model/
+  PostgreSQL narrowing smoke at Catalyst `95515a2` and Hub `198d5f6`.
 - Run `cbc41bcd-56f7-4074-931f-98ed42fea202` passed 12/12 exact-current-pin
   live repetitions across narrowing, dirty-base aggregation/profile switching,
   unresolved correction, and distinct-patient semantics. Every successful data

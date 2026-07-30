@@ -34,9 +34,9 @@ boundary and retains a separate clinical-answer/report profile system.
 
 | Component | Candidate revision | State |
 |---|---|---|
-| Catalyst | `95515a2` (PR #5) | Standalone fallback Hub SHA aligned; focused umbrella pin/layout coverage 57/57; current-head CI/smoke pending |
+| Catalyst | `95515a2` (PR #5) | Standalone fallback Hub SHA aligned; focused umbrella pin/layout coverage 57/57; clean candidate-head real-model/PostgreSQL smoke 1/1 |
 | Med-Agent Hub | `198d5f6` (PR #15) | Focused 28/28 and full local 633/633 suites green; all Copilot threads resolved |
-| Harness | `codex/catalyst-mvp-umbrella` (PR #37) | Pending repin from Catalyst `bb36126` to `95515a2`; parent-pin runtime evidence passed; current-head smoke and keyboard/user acceptance remain open |
+| Harness | `93689d5` on `codex/catalyst-mvp-umbrella` (PR #37) | Pins Catalyst `95515a2`/Hub `198d5f6`; scoped current-head smoke passed; keyboard/user acceptance remains open |
 
 The current authoritative run
 `cbc41bcd-56f7-4074-931f-98ed42fea202` passed 12/12 scenario repetitions on
@@ -53,9 +53,10 @@ manual accessibility check and explicit user acceptance.
 Focused pin/layout coverage then exposed a stale standalone fallback SHA in
 Catalyst. Candidate `95515a2` changes only that fallback default from Hub
 `946afa9` to current Hub `198d5f6`; the umbrella runtime supplies the sibling
-Hub context. Focused coverage passes 57/57, but the complete live evidence
-remains attributed to parent `bb36126` until a clean candidate-head smoke is
-recorded.
+Hub context. Focused coverage passes 57/57. Clean umbrella `93689d5` run
+`4dd70443-ba23-4415-b0cd-d393d2352061` passed 1/1 real-model/PostgreSQL
+narrowing at Catalyst `95515a2` and Hub `198d5f6`; the complete 12/12 live
+matrix remains correctly attributed to parent `bb36126`.
 
 The deterministic T111 preflight drift is resolved by T123: the committed suite
 now uses the real Gateway writer-only and Gemma/Qwen reviewed IDs, retains a

@@ -19,9 +19,9 @@ The 12/12 model/PostgreSQL matrix and bounded-failure recovery passed on
 Catalyst parent `bb36126` with the current Hub pin. Catalyst `95515a2` changes
 only the standalone fallback Hub SHA from `946afa9` to `198d5f6`; the umbrella
 runtime supplies the sibling Hub context and does not execute that fallback
-clone path. Focused pin/layout coverage passes, but the current-head smoke,
-manual keyboard/zoom checks, and explicit user acceptance remain open, so no
-merge occurs before that pause.
+clone path. Focused pin/layout coverage and a clean candidate-head real-model/
+PostgreSQL smoke pass. Manual keyboard/zoom checks and explicit user acceptance
+remain open, so no merge occurs before that pause.
 
 The 2026-07-29 lightweight cross-artifact rerun found no unresolved
 CRITICAL/HIGH inconsistency after aligning the exact component revisions,
@@ -1392,9 +1392,12 @@ authorized by the model/PostgreSQL or responsive evidence alone.
 The focused umbrella pin test then exposed that Catalyst's standalone fallback
 bootstrap still named Hub `946afa9` even though the umbrella sibling pin was
 `198d5f6`. Catalyst `95515a2` corrects that single default SHA; focused harness
-coverage is 57/57. The completed live matrix remains attributable to its direct
-parent `bb36126` until a clean `95515a2` smoke is recorded. This is a pin
-consistency correction, not a query-orchestration behavior change.
+coverage is 57/57. Clean umbrella `93689d5` smoke
+`4dd70443-ba23-4415-b0cd-d393d2352061` then passed 1/1 unchanged-base
+narrowing through the real model path and independent PostgreSQL/gold checks
+with Catalyst `95515a2` and Hub `198d5f6`. The completed 12/12 repetition matrix
+remains correctly attributed to direct parent `bb36126`; this scoped smoke
+establishes the one-line fallback-pin delta without relabelling that evidence.
 
 ### G2.10 multi-source/lossless onboarding — WRITTEN TRACE COMPLETE; EVIDENCE OPEN
 
