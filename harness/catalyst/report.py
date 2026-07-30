@@ -258,7 +258,8 @@ def _headline_section(suite: dict[str, Any], results: dict[str, Any]) -> str:
         + (f" · {esc(skipped)} manual-only scenario skipped" if skipped else "")
         + "</p>",
         "<p class='adv'>Each repetition is a full live conversation: a question"
-        " generates SQL (writer model drafted, reviewer model checked), the query"
+        " generates SQL (a writer model drafts it; reviewed profiles also invoke"
+        " their configured reviewer), the query"
         " is validated and executed against PostgreSQL, then a follow-up"
         " instruction refines the exact current query and the successor is"
         " validated and executed again. Executed results are re-checked against"
@@ -291,7 +292,7 @@ def _headline_section(suite: dict[str, Any], results: dict[str, Any]) -> str:
         rows = "".join(
             f"<tr><td><code>{esc(pid)}</code></td>"
             f"<td>{esc(cfg.get('writerModelId'))}</td>"
-            f"<td>{esc(cfg.get('reviewerModelId'))}</td></tr>"
+            f"<td>{esc(cfg.get('reviewerModelId') or '— (writer only)')}</td></tr>"
             for pid, cfg in sorted(profiles.items())
         )
         bits.append(

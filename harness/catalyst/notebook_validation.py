@@ -157,7 +157,7 @@ class NotebookSuite:
     catalog_version: str
     provider_name: str
     repetitions: int
-    profiles: dict[str, dict[str, str]]
+    profiles: dict[str, dict[str, str | None]]
     scenarios: tuple[NotebookScenario, ...]
 
 
@@ -771,13 +771,15 @@ def load_notebook_suite(path: Path | str) -> NotebookSuite:
         )
     if not scenarios:
         raise ValueError("Notebook suite must contain scenarios")
-    profiles = {
-        str(profile_id): {
+    profiles = {}
+    for profile_id, detail in payload["profiles"].items():
+        reviewer_model_id = detail.get("reviewerModelId")
+        profiles[str(profile_id)] = {
             "writerModelId": str(detail["writerModelId"]),
-            "reviewerModelId": str(detail["reviewerModelId"]),
+            "reviewerModelId": (
+                str(reviewer_model_id) if reviewer_model_id is not None else None
+            ),
         }
-        for profile_id, detail in payload["profiles"].items()
-    }
     for scenario in scenarios:
         for profile_id in (
             scenario.initial_profile_id,
@@ -978,8 +980,12 @@ def run_notebook_suite(
     )
     for profile_id, profile in suite.profiles.items():
         writer = profile.get("writerModelId", profile_id)
-        reviewer = profile.get("reviewerModelId", profile_id)
-        label = writer if writer == reviewer else f"{writer} + {reviewer}"
+        reviewer = profile.get("reviewerModelId")
+        label = (
+            writer
+            if reviewer is None or writer == reviewer
+            else f"{writer} + {reviewer}"
+        )
         append_event(
             events_path,
             {
@@ -1602,7 +1608,7 @@ def _require_discovery(
         roles = profile.get("role_models") or profile.get("roleModels") or {}
         if roles.get("query_generate") != expected["writerModelId"]:
             raise ValueError(f"profile {profile_id!r} writer model drifted")
-        if roles.get("query_review") != expected["reviewerModelId"]:
+        if roles.get("query_review") != expected.get("reviewerModelId"):
             raise ValueError(f"profile {profile_id!r} reviewer model drifted")
     dataset = dataset_exchange.response_body
     if dataset.get("contractVersion") != "catalyst.dataset-overview.v1":
@@ -1625,7 +1631,7 @@ def _require_discovery(
 def _evidence_checks(
     evidence: dict[str, Any],
     *,
-    expected_profile: dict[str, str],
+    expected_profile: dict[str, str | None],
 ) -> list[tuple[str, bool, Any]]:
     invocations = list(evidence.get("invocations") or [])
     duration_sum = sum(
@@ -1670,9 +1676,16 @@ def _evidence_checks(
     )
     forbidden = _find_forbidden_keys(evidence.get("revisionContext"))
     reviewer_model = role_models.get("reviewer")
-    reviewer_expected_or_not_reached = reviewer_model == expected_profile[
-        "reviewerModelId"
-    ] or (evidence.get("status") == "failed" and reviewer_model is None)
+    expected_reviewer_model = expected_profile.get("reviewerModelId")
+    reviewer_not_reached_after_failure = (
+        expected_reviewer_model is not None
+        and evidence.get("status") == "failed"
+        and reviewer_model is None
+    )
+    reviewer_matches_profile = (
+        reviewer_model == expected_reviewer_model
+        or reviewer_not_reached_after_failure
+    )
     return [
         (
             "invocation_duration_sum",
@@ -1695,12 +1708,12 @@ def _evidence_checks(
         ),
         (
             "reviewer_model",
-            reviewer_expected_or_not_reached,
+            reviewer_matches_profile,
             {
                 "roleModels": role_models,
-                "notReachedAfterFailure": (
-                    evidence.get("status") == "failed" and reviewer_model is None
-                ),
+                "expectedReviewerModelId": expected_reviewer_model,
+                "writerOnly": expected_reviewer_model is None,
+                "notReachedAfterFailure": reviewer_not_reached_after_failure,
             },
         ),
         ("effective_temperature_and_dry", config_ok, configurations),

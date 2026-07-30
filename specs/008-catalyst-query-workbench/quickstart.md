@@ -19,6 +19,28 @@ The tracked umbrella runner uses
 OpenAI-compatible router in `targets/catalyst/.env` and run
 `make catalyst-mvp-external`.
 
+Current query ownership is Catalyst Gateway → Hub generic role executor → model
+router. Before relying on a stack, verify:
+
+```bash
+test -f targets/catalyst/catalyst-gateway/src/catalyst/query_profiles.py
+test -f targets/catalyst/catalyst-gateway/src/catalyst/query_engine.py
+test -f targets/med-agent-hub/server/generic_role.py
+rg -n 'POST /v1/hub/generate|/v1/hub/generate' \
+  targets/catalyst/catalyst-gateway/src/catalyst \
+  targets/med-agent-hub/server
+```
+
+Gateway owns the query profile IDs, prompts, writer/reviewer flow, and required
+model aliases. Catalyst does not use the Hub profile objects in
+`GET /v1/models` `data[]` as query-profile discovery; those remain Hub's own
+clinical-answer/report profiles. `LocalHub` does consume that response's
+versioned top-level `backend` inventory to determine whether every exact model
+alias required by a Gateway profile is currently advertised. A missing,
+malformed, or unreachable inventory makes affected profiles unavailable without
+substitution. Historical G2.8 steps below refer to the earlier Hub-owned query
+engine and are retained only to explain the evidence produced then.
+
 ## Historical G2.2 checkpoint used before editor implementation
 
 1. Re-run “how many patients had viral load tests above 1000 count/ml?” through
@@ -50,7 +72,9 @@ different validation scopes.
 
 1. Start or rebuild the isolated gateway and UI while retaining the existing
    Hub, model router, seeded analytics database, and SQLite volume.
-2. Confirm health reports the selected Hub query profile and model roles.
+2. Confirm health reports the selected Gateway query profile and role models
+   while independently confirming the generic Hub executor/model-router path is
+   ready.
 3. Create a workbench session from a natural-language question.
 4. Verify the generated SQL, typed parameters, model/profile provenance, and
    all findings are visible even when validation fails.
@@ -168,10 +192,10 @@ phrasing rather than hard-coding an assumed cohort.
 
 ### Execution sequence and evidence
 
-1. Confirm Hub discovery reports Gemma 4 12B as writer and Qwen 2.5 14B as
-   reviewer, including actual loaded identities, profile/prompt/configuration
-   digests, and that the compose build source is sibling
-   `targets/med-agent-hub` rather than Catalyst's disposable patched clone.
+1. Confirm Gateway profile discovery reports the selected Gemma 4 12B writer
+   and Qwen 2.5 14B reviewer, including profile/prompt/configuration digests.
+   Confirm each role reaches sibling `targets/med-agent-hub` only through the
+   generic executor and that no disposable patched clone is used.
 2. Confirm the new session's initial recorded events and retrieve typed
    generation evidence for the initial and follow-up turns. For each scenario,
    record dataset ID/version, catalog version, session and turn IDs, observed CAS
@@ -239,5 +263,30 @@ phrasing rather than hard-coding an assumed cohort.
     mismatch with automated tests.
 
 After the user accepts this evidence, update the root `README.md`, Catalyst user
-docs, roadmap, quickstart, and PCCP evidence. Only then commit/push and pin the
-sibling Hub and Catalyst revisions in the umbrella PR.
+docs, roadmap, quickstart, and PCCP evidence. Draft component commits and PR pins
+already exist under the 2026-07-20 publication exception; acceptance still
+precedes ready-for-review/merge and the final Hub → Catalyst → harness
+squash/repin sequence.
+
+## G2.10 multi-source/lossless checkpoint
+
+Implementation plumbing is not acceptance evidence. Before closing G2.10:
+
+1. Inventory every registered source and prove an absent catalog yields
+   `available: false` and rejection before any model or database call.
+2. Pin or record each base ViewDefinition's upstream provenance. Use a
+   multi-coding/repeated-element fixture to prove the raw projection retains the
+   full `forEachOrNull` multiplicity before SQL curation.
+3. Reapply curated SQL from a clean baseline, verify every approved view/column
+   comment, then run `scripts/generate-catalyst-source-catalog.py` twice and
+   compare bytes. Also prove missing comments and a zero-match canonical overlay
+   value fail generation.
+4. Compare each generated catalog with live information schema and confirm the
+   schema guide, completion, validator, model request, versions, and executions
+   carry the same `dataSourceId` and catalog version.
+5. In one new session, execute A → B → inherited B → A. Exercise first-use
+   baselines, a real per-source stale-catalog conflict, refresh, and an
+   unavailable source. Independently verify every successful query in the
+   corresponding PostgreSQL database with record-level evidence.
+6. Confirm readiness documents and reports only the default source. Record the
+   G2.10b evidence and pause at G2.10c for explicit user acceptance.

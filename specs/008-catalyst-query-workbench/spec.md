@@ -4,14 +4,25 @@
 
 **Created**: 2026-07-17
 
-**Status**: In implementation — exploratory G2.8c manual loop functional;
-G2.9 UX/schema audit ready for user acceptance
+**Status**: Implemented through the iterative-query notebook and Gateway-owned
+query-orchestration refactor; final clean-pin validation, accessibility evidence,
+and user acceptance remain open
 
 **Input**: Refine the Catalyst query experience with manageable dataset context,
 targeted query remediation, complete validator feedback, editable SQL,
 frictionless manual execution of imperfect drafts, execution-error feedback,
 iterative human correction, and contextual follow-up generation from the exact
 current editor state.
+
+**Current architecture (2026-07-29)**: Catalyst Gateway owns the governed-query
+profile registry, role prompts, writer/reviewer composition, deterministic lint,
+repair, finalization, and query evidence. Med-Agent Hub remains the shared model
+transport/provider boundary and exposes one generic structured role-execution
+primitive (`POST /v1/hub/generate`) per Gateway-selected role. Hub continues to
+own its separate clinical-answer/report profiles; those profiles are not the
+Catalyst query engine. Historical G2.1–G2.8 evidence below may describe the
+earlier Hub-owned query-profile implementation and is retained as evidence of
+the path that was tested at that time, not as current ownership guidance.
 
 ## Clarifications
 
@@ -332,9 +343,11 @@ inspectable after refresh.
     content, validation, execution, or model context from the prior session.
 12. **Given** two follow-up requests with the same observed current-version ID
     and digest, **When** they arrive concurrently, **Then** exactly one request
-    atomically claims generation and makes one Hub call, while the other receives
-    `409 turn_generation_in_progress` and appends no event or version and changes
-    no current-version or current-turn pointer.
+    atomically claims generation and enters Gateway query orchestration, making
+    only the Hub role calls declared by the selected Gateway profile, while the
+    other receives `409 turn_generation_in_progress`, makes no Hub role call,
+    appends no event or version, and changes no current-version or current-turn
+    pointer.
 13. **Given** a follow-up or a newly created session, **When** its writer and
     reviewer request evidence is inspected, **Then** it contains only the
     permitted bounded context and contains no result rows, credentials, hidden
@@ -359,6 +372,57 @@ inspectable after refresh.
     generation begins and terminates, **Then** recorded requested and exactly one
     completed or failed turn event are emitted; synthesis is reserved for
     sessions that predate recorded turn events.
+
+---
+
+### User Story 6 - Query more than one losslessly ingested source (Priority: P1)
+
+As a technical evaluator, I can select any provisioned analytics source for an
+initial or follow-up turn, adapt a query to another source inside the same
+session, and trust that its generated catalog describes losslessly ingested data
+rather than a hand-maintained or information-dropping projection.
+
+**Why this priority**: A source switch changes the analytics database, catalog,
+schema semantics, and evidence boundary. Treating it as a cosmetic selector can
+silently apply stale catalog assumptions or erase valid repeated codings during
+ingestion.
+
+**Independent Test**: Register two independently provisioned sources plus one
+unprovisioned source, generate and execute a query against the first, adapt it to
+the second in a follow-up turn, refresh the session, and prove per-source catalog
+baselines, query/version provenance, lossless projection multiplicity, generated
+catalog agreement, and independent PostgreSQL results.
+
+**Acceptance Scenarios**:
+
+1. **Given** multiple registered sources, **When** the registry is requested,
+   **Then** every source has a stable ID, label, and availability state, the
+   default is explicit, and an unprovisioned source remains visible but cannot be
+   targeted.
+2. **Given** a session that last targeted source A, **When** a turn explicitly
+   targets source B, **Then** that turn uses B's database and catalog and the next
+   untargeted turn inherits B without rewriting earlier A-bound evidence.
+3. **Given** a session has not previously used source B, **When** it first
+   switches to B, **Then** B has no stale-catalog baseline and no false conflict;
+   later B turns compare only against the last B catalog version observed by that
+   session.
+4. **Given** a FHIR resource with multiple codings or repeated elements, **When**
+   ingestion runs, **Then** the raw projection preserves every applicable row
+   through upstream `forEachOrNull` semantics and performs no `.first()`-style
+   lossy selection.
+5. **Given** curated analytics views with complete view/column comments and a
+   reviewed source overlay, **When** the catalog generator runs against the live
+   database, **Then** it emits only the Gateway-consumed catalog shape and fails
+   on missing metadata, unknown relations, or canonical semantic values that
+   match no live row.
+6. **Given** a generated source catalog, **When** the schema guide, completion,
+   deterministic validator, and model request are inspected, **Then** all four
+   use the same source ID and catalog version and preserve that binding in
+   session, turn, version, execution, and harness evidence.
+7. **Given** more than one registered source, **When** default readiness is
+   requested, **Then** it reports only the documented default-source boundary;
+   the UI and documentation do not imply that every registered source was
+   checked. Full registry readiness remains a separately tracked follow-up.
 
 ### Edge Cases
 
@@ -399,6 +463,14 @@ inspectable after refresh.
 - A model returns the same SQL for a follow-up whose requested change is
   meaningful, or returns different content across nominally identical
   temperature-zero runs.
+- A registered source exists but its catalog file is absent, its analytics
+  database is unreachable, or its source ID conflicts with the default source.
+- A session alternates A → B → A while either source changes catalog version;
+  stale checks must use the last baseline for the targeted source only.
+- An upstream FHIR ViewDefinition changes, contains a lossy selector, or produces
+  a different repeated-coding cross product than the reviewed input.
+- A curated view lacks a grain or column comment, or its overlay names a
+  canonical semantic value that is absent from live data.
 
 ## Requirements
 
@@ -511,12 +583,15 @@ inspectable after refresh.
   unresolved manual buffer, leave missing names blank, preserve the raw evidence
   exactly, and MUST NOT create a model query version until a human submits a
   contract-valid draft.
-- **FR-032**: The MVP query profile MUST obtain one complete writer candidate,
-  run deterministic lint, and give the complete candidate plus specific findings
-  to a different reviewer-model family. When findings exist, the reviewer MUST
-  return one complete corrected candidate rather than a text or JSON-pointer
-  patch. The Hub MUST validate the correction contract and rerun every
-  deterministic check before finalization.
+- **FR-032**: A reviewed Gateway query profile MUST obtain one complete writer
+  candidate, run deterministic lint, and give the complete candidate plus
+  specific findings to its declared reviewer role. For the comparative
+  cross-family profile, the reviewer MUST be a different model family. When
+  correction is required, the reviewer MUST return one complete corrected
+  candidate rather than a text or JSON-pointer patch. The Gateway MUST validate
+  the correction contract and rerun every deterministic check before
+  finalization. Each model role is executed through one generic Hub role request;
+  Hub MUST NOT select the Catalyst profile or compose its roles.
 - **FR-033**: When the reviewer changes a structurally valid writer query, the
   workbench MUST persist the writer query as an immutable `model` version and the
   corrected query as its immutable `model_repair` child. Both SQL/parameter sets,
@@ -532,8 +607,8 @@ inspectable after refresh.
   turn the active SQL editor, validation controls, and result workspace.
 - **FR-036**: The follow-up composer MUST identify the exact base query version
   and its author/model, allow selection of any currently available profile, show
-  that profile's writer and reviewer models, and expose one explicit action that
-  generates the next complete query.
+  that profile's writer model and its reviewer model only when one is configured,
+  and expose one explicit action that generates the next complete query.
 - **FR-037**: When the editor matches the current immutable version, follow-up,
   Validate, and Run MUST reuse that version instead of creating a duplicate.
   When a submitted editor buffer differs and is contract-valid, or is
@@ -684,12 +759,62 @@ inspectable after refresh.
   bounded result-row attachment is explicitly approved and versioned, it MUST
   describe attached context as an execution summary and MUST NOT imply that row
   values are supplied to either model.
+- **FR-062**: Catalyst Gateway MUST own the governed-query profile registry,
+  model-role mapping, role prompts, sampling/output knobs, deterministic
+  writer/reviewer orchestration, correction policy, and query-profile evidence.
+  The registry MUST distinguish writer-only, self-reviewed, and cross-family
+  reviewed profiles. Runtime availability MUST require Hub's exact versioned
+  backend inventory and every unique required writer/reviewer model alias.
+  Unknown profiles, missing aliases, an unreachable router catalog, and
+  missing/malformed inventory MUST fail closed before events, previews, or model
+  calls without silent profile or model substitution.
+- **FR-063**: Med-Agent Hub MUST expose a generic structured single-role
+  execution boundary that accepts the Gateway-selected model, messages,
+  response format, and bounded invocation configuration and returns assistant
+  content without Catalyst-specific profile selection, query lint, review
+  orchestration, database access, or SQL execution.
+- **FR-064**: `GET /v1/catalyst/data-sources` MUST list the default source and
+  every registered source with stable identity, label, and availability. A
+  registered source whose required catalog is absent MUST remain discoverable as
+  unavailable and MUST fail closed when targeted.
+- **FR-065**: A workbench session MUST remain source-agnostic. Every initial or
+  follow-up turn MAY explicitly target one `dataSourceId`; an untargeted turn
+  MUST inherit the most recently targeted source in that session, falling back
+  to the session's initial source. Source identity MUST persist on all produced
+  versions, validations, executions, and generation evidence.
+- **FR-066**: Catalog staleness MUST be evaluated independently per source using
+  the last catalog version that source contributed to the session. First use of
+  a source MUST establish its baseline without a false stale conflict, and a
+  stale result for one source MUST NOT be inferred from another source's
+  baseline.
+- **FR-067**: Base FHIR ingestion MUST use reviewed upstream FHIR Data Pipes
+  default ViewDefinitions essentially verbatim and preserve repeated resources,
+  codings, and nested elements through `forEachOrNull`-equivalent semantics.
+  Additive extensions MUST be documented; gap-fill projections are allowed only
+  for resources with no upstream default. Ingestion MUST NOT collapse legitimate
+  multiplicity or select an arbitrary first coding.
+- **FR-068**: Source-specific curation MUST occur after lossless ingestion in
+  deterministic, repeatable SQL. Curated views MUST declare their grain and each
+  exposed column's meaning through database comments, with tests that relate
+  source rows, raw projection multiplicity, and curated output.
+- **FR-069**: Each source catalog MUST be generated from live curated
+  view/column metadata plus one reviewed source overlay. Generation MUST validate
+  approved relations, types, grain, semantic dimensions, and configured
+  canonical values against the live source and MUST fail rather than publish a
+  guessed or zero-match semantic value. Hand-edited generated catalogs are
+  prohibited.
+- **FR-070**: Current readiness MUST explicitly describe its default-source-only
+  scope. Full per-source readiness and live two-source acceptance MUST remain
+  open until dedicated tasks and evidence prove every registered source; the
+  presence of implementation plumbing or unit tests alone MUST NOT close that
+  checkpoint.
 
 ### Key Entities
 
 - **Workbench Session**: A persistent identity covering the original question,
-  selected profile, dataset and catalog versions, current draft pointer,
-  dataset-browser state, and ordered history of user and system actions.
+  selected Gateway profile, initial and most-recently targeted data sources,
+  per-source catalog baselines, current draft pointer, dataset-browser state, and
+  ordered history of user and system actions.
 - **Query Version**: An immutable query draft with SQL, typed values, expected
   columns, parent version, author type, content digest, applicable format action
   and formatter revision, and timestamps.
@@ -732,6 +857,20 @@ inspectable after refresh.
   explicit typed omissions, never inferred values.
 - **Result View State**: The execution/version relationship and derived current
   or stale presentation state retained while later edits and turns occur.
+- **Data Source Registration**: A stable source ID and label plus its analytics
+  database, generated catalog location, default/availability state, and
+  credential-free provenance.
+- **Source Catalog Baseline**: The last catalog version observed for one source
+  in one session, used only for that source's stale-catalog comparison.
+- **Lossless Projection**: A reviewed upstream-default or documented additive
+  FHIR ViewDefinition that preserves legitimate repeated elements/codings before
+  any semantic curation.
+- **Curated Analytics View**: A deterministic SQL view over lossless projections
+  with an explicit grain, described typed columns, tests, and live metadata used
+  to generate the source catalog.
+- **Catalog Overlay**: The small reviewed source-specific input containing
+  identity, approved views, and semantic canonical values that cannot be derived
+  from PostgreSQL metadata alone.
 
 ### Evidence, Provenance & Data Boundaries
 
@@ -754,15 +893,19 @@ inspectable after refresh.
   events.
 - **Accepted deterministic inputs**: Versioned validator rules, repair templates,
   SQL formatter and PostgreSQL keyword source, approved catalog, execution
-  policy, and reviewed query-patch contract.
+  policy, Gateway query-profile registry/prompts, reviewed lossless
+  ViewDefinitions, curated SQL/comments, catalog overlays/generator, and reviewed
+  query-patch contract.
 - **Advisory inputs**: Model-generated repair proposals, suggested updates, and
   human comments remain proposals until explicitly applied and revalidated.
   Follow-up instructions guide a successor candidate but do not themselves
   attest that its result set answers the intended question.
 - **PCCP/change record needs**: Material changes to query prompts, profile roles,
-  validator classification, repair policy, manual-run policy, or execution policy
-  require old/new behavior, evaluation protocol, rollback conditions, and
-  residual-risk documentation.
+  provider transport, orchestration ownership, ingestion projections, source
+  overlays, curated analytics, catalog generation, validator classification,
+  repair policy, manual-run policy, or execution policy require old/new
+  behavior, evaluation protocol, rollback conditions, and residual-risk
+  documentation.
 
 ## Success Criteria
 
@@ -875,6 +1018,33 @@ inspectable after refresh.
 - **SC-028**: A 100-row execution keeps the document workflow bounded through a
   labelled result scroll region while its exact query-version label, stale
   status, row count, and keyboard navigation remain visible.
+- **SC-029**: Contract and integration tests prove every advertised Catalyst
+  query profile is Gateway-owned, produces a digest-bound prompt/model/config
+  snapshot, and invokes Hub only through the generic role endpoint; Hub contains
+  no Catalyst query profile, query prompt, lint, correction, or orchestration
+  implementation. Tests also prove the exact versioned Hub backend inventory,
+  every required model alias, unavailable-profile omission, and rejection of an
+  unavailable initial, governed-preview, or follow-up selection before state
+  mutation or a model call.
+- **SC-030**: A two-source session can execute A → B → inherited B → A across
+  refresh with the same source IDs, per-source catalog baselines, version
+  lineage, and independent PostgreSQL evidence, while an unavailable registered
+  source is listed and rejected without model or database execution.
+- **SC-031**: Lossless-projection tests include at least one resource carrying
+  multiple codings/repeated elements and prove every expected projected row is
+  retained before SQL curation; no upstream-default modification or additive
+  projection is accepted without a reviewed provenance/diff record.
+- **SC-032**: Catalog generation is byte-stable for unchanged live metadata and
+  overlay inputs, rejects missing view/column comments and zero-match canonical
+  values, and matches live information-schema names/types for every approved
+  relation in every acceptance source.
+- **SC-033**: For each accepted source, schema guide, completion vocabulary,
+  validator request, model request, query version, execution, and harness event
+  carry one matching source ID and catalog version; cross-source leakage is zero
+  in the seeded matrix.
+- **SC-034**: The live two-source and default-readiness matrix is recorded as a
+  separate user checkpoint. Until it passes, documentation labels multi-source
+  implementation as present but not formally accepted.
 
 ## Assumptions
 
@@ -919,6 +1089,13 @@ inspectable after refresh.
 - Profile changes are allowed per turn and recorded rather than treated as a
   new session. `New session` is reserved for unrelated work and begins with no
   inherited model context.
+- Query profiles, role prompts, review composition, and deterministic query
+  checks are owned by Catalyst Gateway. Med-Agent Hub is a generic model
+  execution/provider boundary for those roles; its clinical-answer/report
+  profile engine remains a separate product surface.
+- Multi-source implementation is present in the active change set, but
+  requirements FR-064–FR-070 and success criteria SC-030–SC-034 remain
+  unaccepted until their dedicated task/checkpoint evidence is recorded.
 - Model outputs are nondeterministic evidence even when sampling temperature is
   zero; comparison relies on captured inputs, configuration, and output digests
   rather than assumed repeatability.

@@ -23,6 +23,7 @@ from harness.catalyst.notebook_validation import (
     PostgresReadOnlyChecker,
     _binding_value,
     _driver_sql,
+    _evidence_checks,
     _find_forbidden_keys,
     _json_safe_value,
     _parse_timestamp,
@@ -35,7 +36,8 @@ from harness.common.jsonl import read_jsonl
 
 
 ROOT = Path(__file__).resolve().parents[1]
-PROFILE_ID = "catalyst-query-gemma-4-12b"
+PROFILE_ID = "catalyst-query-gemma-4-12b-qwen2.5-14b-checked"
+WRITER_ONLY_PROFILE_ID = "catalyst-query-gemma-4-12b"
 
 
 def _version(version_id: str, sql: str, *, parent: str | None = None) -> dict[str, Any]:
@@ -1201,6 +1203,88 @@ def test_suite_loader_rejects_invalid_suite_level_fields(
         load_notebook_suite(_write_suite(tmp_path, _suite_payload(**overrides)))
 
 
+def test_suite_loader_allows_omitted_or_null_writer_only_reviewer(
+    tmp_path: Path,
+) -> None:
+    base = _suite_payload()["scenarios"][0]
+    null_reviewer_profile_id = "writer-only-with-explicit-null"
+    suite = load_notebook_suite(
+        _write_suite(
+            tmp_path,
+            _suite_payload(
+                profiles={
+                    WRITER_ONLY_PROFILE_ID: {"writerModelId": "gemma-4-12b"},
+                    null_reviewer_profile_id: {
+                        "writerModelId": "gemma-4-12b",
+                        "reviewerModelId": None,
+                    },
+                },
+                scenarios=[
+                    {
+                        **base,
+                        "initialProfileId": WRITER_ONLY_PROFILE_ID,
+                        "followupProfileId": null_reviewer_profile_id,
+                    }
+                ],
+            ),
+        )
+    )
+
+    assert suite.profiles[WRITER_ONLY_PROFILE_ID]["reviewerModelId"] is None
+    assert suite.profiles[null_reviewer_profile_id]["reviewerModelId"] is None
+
+
+def test_committed_t094_suite_uses_current_profiles_and_switches_per_turn() -> None:
+    suite = load_notebook_suite(
+        ROOT
+        / "datasets/validation/catalyst/catalyst-notebook-t094-v1.json"
+    )
+
+    assert suite.profiles == {
+        WRITER_ONLY_PROFILE_ID: {
+            "writerModelId": "gemma-4-12b",
+            "reviewerModelId": None,
+        },
+        PROFILE_ID: {
+            "writerModelId": "gemma-4-12b",
+            "reviewerModelId": "qwen2.5-14b",
+        },
+    }
+    aggregation = next(
+        scenario
+        for scenario in suite.scenarios
+        if scenario.id == "aggregation-dirty-base-profile-switch"
+    )
+    assert aggregation.initial_profile_id == WRITER_ONLY_PROFILE_ID
+    assert aggregation.followup_profile_id == PROFILE_ID
+
+
+def test_report_labels_writer_only_profile_without_inventing_a_reviewer() -> None:
+    from harness.catalyst.report import _headline_section
+
+    html = _headline_section(
+        {
+            "profiles": {
+                WRITER_ONLY_PROFILE_ID: {"writerModelId": "gemma-4-12b"},
+                PROFILE_ID: {
+                    "writerModelId": "gemma-4-12b",
+                    "reviewerModelId": "qwen2.5-14b",
+                },
+            }
+        },
+        {
+            "passedCount": 1,
+            "resultCount": 1,
+            "skippedCount": 0,
+            "results": [],
+        },
+    )
+
+    assert "— (writer only)" in html
+    assert "reviewed profiles also invoke their configured reviewer" in html
+    assert ">None<" not in html
+
+
 def test_suite_loader_rejects_invalid_scenario_fields(tmp_path: Path) -> None:
     base = _suite_payload()["scenarios"][0]
     duplicated = _suite_payload(scenarios=[dict(base), dict(base)])
@@ -1623,6 +1707,127 @@ def _discovery_profile(**overrides: Any) -> dict[str, Any]:
     }
     profile.update(overrides)
     return profile
+
+
+def test_discovery_gate_requires_writer_only_profile_to_have_no_reviewer(
+    tmp_path: Path,
+) -> None:
+    base = _suite_payload()["scenarios"][0]
+    suite = load_notebook_suite(
+        _write_suite(
+            tmp_path,
+            _suite_payload(
+                profiles={
+                    WRITER_ONLY_PROFILE_ID: {"writerModelId": "gemma-4-12b"}
+                },
+                scenarios=[
+                    {
+                        **base,
+                        "initialProfileId": WRITER_ONLY_PROFILE_ID,
+                        "followupProfileId": WRITER_ONLY_PROFILE_ID,
+                    }
+                ],
+            ),
+        )
+    )
+    dataset = _exchange(
+        {
+            "contractVersion": "catalyst.dataset-overview.v1",
+            "datasetId": "pipeline-1",
+            "pipelineRunId": "pipeline-1",
+        }
+    )
+    catalog = _exchange({"catalogVersion": "analytics-catalog-v1+schema.abc"})
+    writer_only = _discovery_profile(
+        id=WRITER_ONLY_PROFILE_ID,
+        role_models={"query_generate": "gemma-4-12b"},
+    )
+
+    _require_discovery(
+        suite,
+        _exchange({"profiles": [writer_only]}),
+        dataset,
+        catalog,
+    )
+
+    writer_only["role_models"]["query_review"] = "qwen2.5-14b"
+    with pytest.raises(ValueError, match="reviewer model drifted"):
+        _require_discovery(
+            suite,
+            _exchange({"profiles": [writer_only]}),
+            dataset,
+            catalog,
+        )
+
+
+def test_evidence_reviewer_invocation_exactly_matches_profile() -> None:
+    reviewed_evidence = _evidence("turn-followup", "Refine the current query.")
+    writer_only_evidence = json.loads(json.dumps(reviewed_evidence))
+    writer_only_evidence["invocations"] = [
+        item
+        for item in writer_only_evidence["invocations"]
+        if item["role"] != "reviewer"
+    ]
+    writer_only_evidence["totalInvocationDurationMs"] = 5
+    failed_before_review_evidence = json.loads(json.dumps(writer_only_evidence))
+    failed_before_review_evidence["status"] = "failed"
+
+    writer_only_checks = {
+        name: passed
+        for name, passed, _ in _evidence_checks(
+            writer_only_evidence,
+            expected_profile={
+                "writerModelId": "gemma-4-12b",
+                "reviewerModelId": None,
+            },
+        )
+    }
+    unexpected_reviewer_checks = {
+        name: passed
+        for name, passed, _ in _evidence_checks(
+            reviewed_evidence,
+            expected_profile={
+                "writerModelId": "gemma-4-12b",
+                "reviewerModelId": None,
+            },
+        )
+    }
+    reviewed_checks = {
+        name: passed
+        for name, passed, _ in _evidence_checks(
+            reviewed_evidence,
+            expected_profile={
+                "writerModelId": "gemma-4-12b",
+                "reviewerModelId": "qwen2.5-14b",
+            },
+        )
+    }
+    missing_reviewer_checks = {
+        name: passed
+        for name, passed, _ in _evidence_checks(
+            writer_only_evidence,
+            expected_profile={
+                "writerModelId": "gemma-4-12b",
+                "reviewerModelId": "qwen2.5-14b",
+            },
+        )
+    }
+    failed_before_review_checks = {
+        name: passed
+        for name, passed, _ in _evidence_checks(
+            failed_before_review_evidence,
+            expected_profile={
+                "writerModelId": "gemma-4-12b",
+                "reviewerModelId": "qwen2.5-14b",
+            },
+        )
+    }
+
+    assert writer_only_checks["reviewer_model"] is True
+    assert unexpected_reviewer_checks["reviewer_model"] is False
+    assert reviewed_checks["reviewer_model"] is True
+    assert missing_reviewer_checks["reviewer_model"] is False
+    assert failed_before_review_checks["reviewer_model"] is True
 
 
 def test_discovery_gate_rejects_runtime_drift(tmp_path: Path) -> None:

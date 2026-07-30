@@ -1,5 +1,36 @@
 # Catalyst Query Workbench Roadmap
 
+## Current architecture and PR topology (2026-07-29)
+
+**Status:** Current implementation is in the active draft chain Harness
+[#37](https://github.com/pmanko/clinical-ai-validation-harness/pull/37) →
+Catalyst [#5](https://github.com/DIGI-UW/openelis-catalyst/pull/5) → Med-Agent Hub
+[#15](https://github.com/pmanko/med-agent-hub/pull/15). Catalyst #4 and Hub #14
+are closed, unmerged, and superseded; references to them below are historical
+publication evidence only.
+
+Catalyst Gateway now owns governed-query profiles, prompts, writer/reviewer
+composition, deterministic lint/repair/finalization, and query evidence.
+Med-Agent Hub exposes a generic `POST /v1/hub/generate` role executor and does
+not own Catalyst query profiles or their orchestration. Hub's separate
+clinical-answer/report profile engine is unchanged. The candidate umbrella pins
+are Catalyst `9fa31c2` (active #5 head) and Hub `946afa9` (active #15 head).
+They still require an umbrella commit, clean-pin T111 validation, and user
+acceptance before merge.
+
+The strongest recorded live matrix predates this ownership refactor. It remains
+valuable historical evidence but cannot close T111 for the current pins.
+T094's gold, bounded-failure, and digest-variance work is recorded; the live
+accessibility matrix, current-pin full rerun, and explicit user acceptance remain
+open. No merge occurs before that pause.
+
+The 2026-07-29 lightweight cross-artifact rerun found no unresolved
+CRITICAL/HIGH inconsistency after aligning the exact component revisions,
+optional reviewer language, runtime inventory ownership, unavailable-profile
+negative paths, and the discovery/invocation race. Task and requirement IDs are
+unique, and T123/T124 explicitly block T111. This written result does not replace
+the clean-pin runtime evidence.
+
 ## W0 — Durable specification and research
 
 **Status:** Complete; W1 approved 2026-07-17
@@ -29,9 +60,12 @@ contract, test strategy, and staged harness integration are recorded here.
 
 ## W1 — Manual workbench MVP
 
-**Status:** G2.1–G2.7 passed; G2.8a accepted; G2.8b backend/runtime checkpoint
-passed; the exploratory G2.8c manual loop is functional; G2.9 UX consolidation
-is at its written-plan user checkpoint; G3 and W2 have not started
+**Status:** G2.1–G2.7 passed; G2.8a accepted; historical G2.8b backend/runtime
+and post-UI checkpoints passed; the exploratory G2.8c loop and later automatic
+matrix are functional. The current Gateway-owned refactor still awaits T111,
+the live accessibility matrix, and user acceptance. G2.9 remains at its written
+user checkpoint; G2.10 multi-source/lossless acceptance is newly traced and open;
+G3 and W2 have not started.
 
 - Collapse detailed dataset context while retaining state.
 - Persist sessions and immutable query versions in the gateway.
@@ -44,9 +78,10 @@ is at its written-plan user checkpoint; G3 and W2 have not started
 - Run the exact displayed draft regardless of findings.
 - Return typed rows, empty/truncated states, or useful PostgreSQL diagnostics.
 - Restore the active session after refresh.
-- Route one complete writer query through deterministic lint, then give the
-  complete query and findings to a different reviewer model for one complete
-  correction; deterministically lint the reviewer's result.
+- Route one complete writer query through Gateway-owned deterministic lint.
+  Writer-only profiles may finalize it; reviewed profiles give the complete
+  query and findings to their declared reviewer, with the comparative profile
+  using a different model family, then deterministically lint any correction.
 - Persist and display both model-authored query versions and their role/model/
   finding trace when the reviewer changes the query.
 - Retain one linear sequence of natural-language turns inside a workbench
@@ -87,10 +122,12 @@ and rerun across a refresh without losing lineage.
   evidence before closing G3.
 - **G2.7 corrective internal:** add separate New session and Clear draft controls
   while preserving retained server evidence and selected profile.
-- **G2.8a user:** write and cross-check the iterative-notebook research,
-  requirements, turn/context contracts, task order, sibling-Hub ownership, and
-  issue register; pause before product code.
-- **G2.8b internal:** prove the revision/turn contracts, exact snapshot and
+- **G2.8a user (historical, accepted):** write and cross-check the
+  iterative-notebook research, requirements, turn/context contracts, task order,
+  then-current sibling-Hub ownership, and issue register; pause before product
+  code.
+- **G2.8b internal (historical architecture):** prove the revision/turn
+  contracts, exact snapshot and
   lineage rules, atomic concurrent claim/orphan recovery, bounded context and
   exclusions, shared follow-up/Validate/Run resolution, recorded/legacy initial
   evidence, typed evidence detail and schema registries, terminal execution
@@ -645,7 +682,7 @@ W1 closure.
   read afterward confirmed the detached server session remained active with two
   immutable versions.
 
-### G2.8a iterative-query notebook — WRITTEN REMEDIATION; USER CHECKPOINT PENDING (2026-07-18)
+### G2.8a iterative-query notebook — WRITTEN REMEDIATION; ACCEPTED (2026-07-18)
 
 #### Current-state and model-context audit
 
@@ -748,7 +785,7 @@ W1 closure.
   begin until the user accepts this written checkpoint. G2.8b and G2.8c remain
   separately testable gates.
 
-#### Cross-artifact analysis and remediation — FINAL RERUN CLEAN; USER ACCEPTANCE PENDING
+#### Cross-artifact analysis and remediation — FINAL RERUN CLEAN; HISTORICAL GATE ACCEPTED
 
 The first G2.8 Spec Kit consistency/coverage pass found the following blocking
 written-plan gaps. Documentation remediation is complete; no product code,
@@ -1035,9 +1072,9 @@ the corresponding durable evidence and user checkpoint exist.
    Session. Automated accessibility assertions support but do not replace this
    live pass.
 
-Two issues are explicit before the run. N53 currently leaves only one
-revision-capable profile, so live per-turn switching requires the smallest
-truthful second revision profile or an explicit user-approved deferral. A
+Two issues were explicit before the run. At that time N53 left only one
+revision-capable profile. The current Gateway registry now has two reviewed
+choices, but current-pin switching/provenance still requires T111 evidence. A
 lint-clean semantic reviewer correction is model-observed evidence, not a
 deterministically forceable outcome; the run may reveal that this case needs a
 reviewed fixture/fault-control seam rather than repeated prompting. Likewise,
@@ -1119,10 +1156,12 @@ structural-only pass.
 
 This closes gap "A" from the deterministic-vs-LLM-judge fork the user
 confirmed (execution-match over static gold counts). It does not by itself
-close T094/T095/T111 — the bounded Hub/tool-failure live run, the
-accessibility matrix, and the three-repetition digest-variance analysis
-remain open. A Catalyst-specific LLM-judge rubric (gap "B", for cases a fixed
-predicate can't adjudicate) remains a deliberate follow-up, not started.
+close T094/T095/T111. The bounded Hub/tool-failure run and three-repetition
+digest-variance analysis were completed later and are indexed in
+`specs/artifacts/planning/catalyst-validation-integration-roadmap-status.md`;
+the live accessibility matrix and current-refactor clean-pin acceptance remain
+open. A Catalyst-specific LLM-judge rubric (gap "B", for cases a fixed predicate
+can't adjudicate) remains a deliberate follow-up, not started.
 
 ### G2.9a UX and schema audit — USER REVIEW (2026-07-18)
 
@@ -1162,6 +1201,63 @@ not imply value-level context until that decision is made.
 Product-code changes are paused at T098. T099–T104 remain pending until the user
 accepts the architecture and decides whether G2.9 should include bounded result
 row attachments or execution summaries only.
+
+### Gateway-owned query-orchestration refactor — IMPLEMENTED; CURRENT-PIN ACCEPTANCE OPEN
+
+The active Catalyst #5 / Hub #15 design supersedes the Hub-owned Catalyst query
+profile architecture used by the historical G2.8 evidence:
+
+- Catalyst Gateway's `query_profiles.py` owns five configured revision-capable
+  query profiles and their exact required model aliases, including writer-only,
+  self-reviewed, bundled-Qwen, and cross-family reviewed variants. The runtime
+  subset is not fixed: `LocalHub` derives point-in-time availability from Hub's
+  versioned backend model inventory and fails closed when that inventory cannot
+  be verified.
+- Gateway's `query_engine.py` owns request construction, role prompts,
+  writer/lint/reviewer/repair/finalize control flow, contract checks, and
+  invocation/query evidence.
+- Hub's `POST /v1/hub/generate` performs one generic structured completion using
+  the Gateway-selected model/messages/output settings. It has no Catalyst query
+  profile, catalog, lint, review policy, or SQL execution authority.
+- Existing typed turn/version/execution evidence contracts remain the Catalyst
+  public boundary. Writer-only profiles omit reviewer evidence; reviewed profiles
+  preserve every role call and deterministic disposition.
+
+The refactor is not accepted merely because component tests exist. T111 must run
+the full Hub/Catalyst/harness gates and live notebook matrix on exact current
+pins, including profile discovery/switching, writer-only and reviewed evidence,
+PostgreSQL checks, the accessibility matrix, and the user pause. T114 records the
+ownership-refactor PCCP; its evidence remains pending T111.
+
+The first current-pin runbook audit found the committed T094 suite still named a
+removed Hub-era profile and required every profile to have a reviewer. T123
+replaced that input with the real Gateway writer-only and Gemma 4 12B/Qwen 2.5
+14B reviewed profiles, preserved a real per-turn switch, and made discovery,
+evidence, and report checks distinguish an absent reviewer from missing
+provenance. This removes the deterministic preflight blocker; it does not count
+as the live T111 run.
+
+### G2.10 multi-source/lossless onboarding — WRITTEN TRACE COMPLETE; EVIDENCE OPEN
+
+The 2026-07-22 clarification is now traced to User Story 6, FR-064–FR-070,
+SC-030–SC-034, plan gates G2.10a–c, and T116–T122. The active change set contains
+registry, per-turn `dataSourceId`, two-source UI/test plumbing, upstream-style
+lossless ViewDefinitions, deterministic SQL curation/comments, and generated
+catalog code. Those facts establish an implementation candidate, not acceptance.
+
+- **G2.10a written gate — PASS:** ownership, data boundaries, requirements,
+  entities, success criteria, task order, quickstart checks, and residual risks
+  are recorded without predeclaring the live result.
+- **G2.10b internal gate — OPEN:** inventory/close contract gaps; prove
+  unavailable-source behavior and per-source stale baselines; prove
+  ViewDefinition provenance and repeated-coding multiplicity; prove curated
+  SQL/comment metadata, catalog-generation failure modes/byte stability, live
+  information-schema agreement, and default-only readiness disclosure.
+- **G2.10c user gate — OPEN:** recreate two independently provisioned analytics
+  sources and run A → B → inherited B → A plus unavailable-source rejection,
+  refresh, exact query execution, and record-level PostgreSQL evidence. Pause for
+  explicit acceptance before describing multi-source/lossless onboarding as
+  complete or using it in release evidence.
 
 ## W2 — Targeted remediation
 

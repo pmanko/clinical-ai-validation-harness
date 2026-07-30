@@ -24,6 +24,37 @@ Execution state for the Catalyst validation integration remediation roadmap.
 | **T095** | G2.8c acceptance pause | Open |
 | **T111** | Clean-pin rerun + user acceptance | Open |
 
+## Current architecture and candidate pins (2026-07-29)
+
+The current implementation no longer uses Hub-owned Catalyst query profiles.
+Catalyst Gateway owns the query-profile registry, prompts, writer/reviewer
+composition, deterministic lint/re-lint, finalization, and query evidence.
+Med-Agent Hub provides the generic `POST /v1/hub/generate` single-role model
+boundary and retains a separate clinical-answer/report profile system.
+
+| Component | Candidate revision | State |
+|---|---|---|
+| Catalyst | `9fa31c2` (PR #5) | All component CI green; umbrella pin pending commit |
+| Med-Agent Hub | `946afa9` (PR #15) | Full suite and PR checks green; umbrella pin pending commit |
+| Harness | `codex/catalyst-mvp-umbrella` (PR #37) | Main reconciliation and T111 remain open |
+
+The 2026-07-21 live matrix ran on pre-refactor Catalyst/Hub revisions. Its 12/12
+scenario and 18/18 independent PostgreSQL results remain historical evidence,
+but do not prove the current ownership boundary. T111 therefore repeats the
+automated and live notebook gates on the exact committed pins, completes the
+accessibility matrix, and pauses for explicit user acceptance.
+
+The deterministic T111 preflight drift is resolved by T123: the committed suite
+now uses the real Gateway writer-only and Gemma/Qwen reviewed IDs, retains a
+per-turn profile switch, and represents reviewer identity as optional only for
+writer-only profiles. No live result is inferred from that repair.
+
+T124 repairs the runtime-availability boundary: Hub publishes a versioned
+backend model inventory, `LocalHub` requires every exact writer/reviewer alias,
+and unavailable profiles fail closed before state or model calls. Component
+coverage is green; the isolated stack still requires a clean-pin rebuild and
+live T111 proof.
+
 ## Baseline Snapshot (CVR-G00)
 
 | Field | Value |

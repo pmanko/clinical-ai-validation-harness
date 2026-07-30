@@ -6,8 +6,12 @@
 
 ## Summary
 
-Build a persistent manual query workbench around the real Catalyst → med-agent-hub
-→ PostgreSQL path. The first delivery slice makes the complete generated SQL and
+Build a persistent manual query workbench around the real Catalyst Gateway →
+generic Med-Agent Hub role executor → model router path, with exact execution
+through Catalyst → PostgreSQL. Catalyst Gateway owns the governed-query profile
+registry, prompts, writer/reviewer composition, deterministic lint/repair, and
+query evidence; Hub supplies one structured model completion per requested role.
+The first delivery slice makes the complete generated SQL and
 typed parameters editable, keeps deterministic validator findings visible but
 advisory, executes the exact displayed draft under the database role, returns
 useful database errors, restores the session after refresh, and collapses detailed
@@ -21,10 +25,16 @@ lineage needed for that export.
 
 Before G3 closes, add a linear iterative-query notebook inside the same
 workbench session. A follow-up instruction is grounded in the exact visible SQL
-and parameter buffer, produces a complete successor query through the existing
-writer–lint–reviewer–lint path, and retains a compact turn timeline. The model
-receives bounded, typed revision context rather than an undifferentiated chat
-transcript or returned result rows.
+and parameter buffer, produces a complete successor query through the
+Gateway-owned writer → lint → optional reviewer → lint path, and retains a
+compact turn timeline. Each model role receives bounded, typed revision context
+through Hub's generic executor rather than an undifferentiated chat transcript or
+returned result rows.
+
+The active change set also contains multi-source workbench plumbing and a
+lossless-ingestion/generated-catalog architecture. Its formal acceptance is a
+separate checkpoint: implementation presence and unit tests do not establish
+lossless live ingestion, per-source provenance, or two-source correctness.
 
 ## Technical Context
 
@@ -32,7 +42,7 @@ transcript or returned result rows.
 
 **Primary Dependencies**: FastAPI, psycopg 3, SQLGlot, jsonschema, Carbon React,
 direct CodeMirror 6 with `@codemirror/lang-sql`, `sql-formatter`, and the
-med-agent-hub OpenAI-compatible profile API
+med-agent-hub generic structured role-execution API
 
 **Storage**: Existing gateway SQLite store for workbench operating metadata;
 existing read-only PostgreSQL analytics database for query execution
@@ -55,27 +65,34 @@ request digest, and response-or-failure digest. Record unadjusted wall time and
 explicit Run/database duration separately as secondary measures.
 
 **Constraints**: The isolated validation stack may use a documented demo fixture,
-while the product reads whichever connected OpenELIS-to-FHIR analytics
-projection is loaded; synthetic/real classification comes only from
-authoritative dataset provenance and is otherwise unknown. Model inference remains in
-med-agent-hub; manual execution is never gated by validator status; database
+while the product reads whichever registered analytics source is selected;
+synthetic/real classification comes only from authoritative dataset provenance
+and is otherwise unknown. Catalyst owns query profiles/orchestration but never
+serves model weights; model inference crosses the generic Hub role-execution
+boundary. Manual execution is never gated by validator status; database
 permissions and a read-only transaction remain authoritative; statement timeout
 and fetch bounds must not rewrite SQL; no preview expiry; editor dependencies
 must pass keyboard, screen-reader naming, narrow-layout, deterministic-format,
-and bundle/build review
+and bundle/build review. Base ingestion preserves upstream FHIR Data Pipes
+multiplicity; semantic curation occurs in repeatable SQL and catalogs are
+generated from live metadata plus reviewed overlays.
 
 **Scale/Scope**: One evaluator and a small number of local sessions; queries are
 single-user research artifacts, not multi-tenant production records
 
 ## Constitution Check
 
-*The original W1 gate passed before Phase 0 and was re-checked after Phase 1.
-The G2.8 addendum has remediated its initial governance/coverage findings but
-remains blocked on the final cross-artifact reanalysis and G2.8a user gate.*
+*The original W1 and G2.8a written gates passed. G2.8b and the post-UI automated
+gate passed for the earlier Hub-owned query engine. The later Gateway-ownership
+refactor is implemented in the active PR chain but still requires the current-pin
+T111 rerun, accessibility matrix, and user acceptance. Multi-source/lossless
+acceptance remains separately open.*
 
 - **Real production paths — PASS**: The browser calls the deployed Catalyst
-  gateway, which calls the real med-agent-hub profile and the seeded PostgreSQL
-  analytics database. Fixtures are scaffolding, not behavior evidence.
+  Gateway, which composes the query flow, calls the real generic Hub role
+  executor, and uses the selected PostgreSQL analytics database. Fixtures are
+  scaffolding, not behavior evidence. Final claims remain gated on the clean-pin
+  live rerun.
 - **Deterministic reviewed transforms — PASS**: SQL parsing, finding
   classification, patch scopes, patch application, frozen-unit verification, and
   version digests live in reviewed code/contracts. Model patches remain proposals.
@@ -90,8 +107,9 @@ remains blocked on the final cross-artifact reanalysis and G2.8a user gate.*
   evidence retains full role prompts and one timing/digest record for every
   successful or failed invocation. The harness-integration slice materializes
   the same lineage as versioned `run_manifest.json` and `events.jsonl` artifacts.
-- **Tests define behavior — PASS**: Hub, store/gateway, root-runtime, and UI red
-  tests are separate prerequisites for their implementation tasks. Coverage
+- **Tests define behavior — PASS for implemented slices; acceptance open**:
+  Hub, store/gateway, root-runtime, and UI red tests are separate prerequisites
+  for their implementation tasks. Coverage
   includes atomic concurrent claims, crash-orphan recovery, non-mutating legacy
   timeline synthesis across model-current/human-current/draft-only/raw-only
   fixtures, newly recorded initial turns, shared follow-up/Validate/Run editor
@@ -99,12 +117,17 @@ remains blocked on the final cross-artifact reanalysis and G2.8a user gate.*
   current-pointer integrity, stale and out-of-scope changes, successful/failed/
   timed-out/cancelled execution context, refresh, context-exclusion negatives,
   warning-bearing success, complete recorded invocation timings, and legacy
-  null-plus-typed-omission behavior without invented provenance.
-- **Data boundaries and governance — PASS**: PostgreSQL remains the clinical
+  null-plus-typed-omission behavior without invented provenance. The
+  Gateway-owned refactor and multi-source path require their current clean-pin
+  and live acceptance gates before release claims.
+- **Data boundaries and governance — PASS for the single-source notebook;
+  multi-source gate open**: PostgreSQL remains the clinical
   evidence source; SQLite stores only operating metadata and bounded execution
-  evidence for the isolated demo. The G2.8 PCCP change record exists before any
-  prompt, profile, pipeline, or runtime product change, and its evidence section
-  remains pending until the real checkpoint passes.
+  evidence for the isolated demo. The G2.8 PCCP preserves the earlier
+  Hub-owned implementation history. The Gateway-ownership refactor requires its
+  own change record before T111 acceptance, and source onboarding requires a
+  PCCP amendment before a new projection, overlay, curation, or generated
+  catalog can be accepted.
 - **Why this is sufficient — PASS**: Exact-version lineage plus real database
   outcomes makes manual behavior inspectable, while AST integrity tests prove
   targeted repairs do not silently modify frozen query units. Diverse real-path
@@ -148,6 +171,9 @@ harness/
 targets/catalyst/                 # pinned Catalyst submodule
 ├── catalyst-gateway/src/catalyst/
 │   ├── analytics.py              # exact SQL execution + DB diagnostics
+│   ├── query_profiles.py         # Gateway-owned query profile registry
+│   ├── query_engine.py           # writer/lint/reviewer/finalize orchestration
+│   ├── local_hub.py              # local engine/profile discovery adapter
 │   ├── routes.py                 # workbench endpoints
 │   ├── service.py                # governed path remains unchanged
 │   ├── storage.py                # persistent session/version/event store
@@ -163,18 +189,24 @@ targets/catalyst/                 # pinned Catalyst submodule
 ├── catalyst-ui/e2e/
 └── docs/roadmap.md
 
-targets/med-agent-hub/            # pinned sibling Hub and runtime build source
-├── server/contracts/           # offline-resolvable v1/v2/revision dependency bundle
-└── tests/                      # Hub contract, flow, timing, and W2 proposal checks
+targets/med-agent-hub/            # pinned sibling generic model runtime
+├── server/generic_role.py        # POST /v1/hub/generate
+└── tests/                        # generic-role transport/error contract checks
+
+scripts/generate-catalyst-source-catalog.py
+                                  # live metadata + reviewed overlay → catalog
 ```
 
-**Structure Decision**: Keep inference/profile behavior in the Hub, workbench
-state and execution in the Catalyst gateway, presentation in Catalyst UI, and
-experiment orchestration/artifact validation in the umbrella harness. The
-existing governed preview endpoints remain compatible; the workbench receives a
-separate API so advisory manual execution cannot weaken governed behavior. The
-umbrella runtime builds its pinned sibling Hub checkout; Catalyst may bootstrap
-an unpatched clone at the identical pinned commit only as a standalone fallback.
+**Structure Decision**: Keep Catalyst query profiles, prompts, deterministic
+query logic, writer/reviewer composition, workbench state, and execution in
+Catalyst Gateway; keep provider/model transport and single-call serialization in
+Hub; keep presentation in Catalyst UI; and keep experiment orchestration/artifact
+validation in the umbrella harness. Hub's clinical-answer/report profile engine
+remains separate. The existing governed preview endpoints remain compatible; the
+workbench receives a separate API so advisory manual execution cannot weaken
+governed behavior. The umbrella runtime builds its pinned sibling Hub checkout;
+Catalyst may bootstrap an unmodified clone at the identical pinned commit only as
+a standalone fallback.
 
 ## Delivery Slices
 
@@ -182,11 +214,12 @@ an unpatched clone at the identical pinned commit only as a standalone fallback.
    immutable query versions, PostgreSQL-aware SQL/parameter editing with line
    numbers, wrap control, catalog/keyword completion and deterministic Format,
    advisory validation, exact-draft execution, database diagnostics, and refresh
-   restoration. One complete writer candidate is linted deterministically and
-   always passed, with the possibly empty finding set, to a different reviewer-
-   model family. The reviewer either approves that complete candidate or returns
-   one complete correction; any correction is linted again, and both valid
-   model-authored versions remain immutable and inspectable.
+   restoration. A selected Gateway profile produces one complete writer
+   candidate and deterministic lint. Writer-only profiles finalize that candidate
+   when it passes; reviewed profiles pass the complete candidate and findings to
+   their declared reviewer. The comparative profile uses a different model
+   family. Any correction is linted again, and both valid model-authored versions
+   remain immutable and inspectable.
 2. **Iterative query notebook**: append-only turns, exact editor snapshots,
    contextual complete-query generation, compact prior-turn inspection,
    per-turn profile selection, stale-base rejection, failure recovery, and
@@ -198,14 +231,38 @@ an unpatched clone at the identical pinned commit only as a standalone fallback.
    active-turn provenance to follow-up, Validate, and Run. The compact timeline
    links to typed generation detail at
    `GET /sessions/{sessionId}/turns/{turnId}/generation-evidence`.
-3. **Targeted remediation**: AST repair units, deterministic fixes, a typed Hub
-   proposal contract in sibling `targets/med-agent-hub`, frozen-unit
-   verification, before/after review, full revalidation, and sibling contract/
-   runtime verification without restoring the retired Catalyst Hub patch.
+3. **Targeted remediation**: AST repair units, deterministic fixes, a
+   Gateway-owned typed proposal/orchestration contract using Hub only for a
+   generic role call, frozen-unit verification, before/after review, full
+   revalidation, and sibling runtime verification.
 4. **Harness integration**: one-click `run_manifest.json`/`events.jsonl`
    materialization, importer/contract tests, and expanded repeatable suites.
-5. **Experiment iteration**: richer datasets and scenario matrices across Hub
-   profiles/models. Agent teams remain explicitly deferred.
+5. **Experiment iteration**: richer datasets and scenario matrices across
+   Gateway query profiles/models. Agent teams remain explicitly deferred.
+6. **Multi-source/lossless onboarding**: source registry and per-turn selection,
+   per-source catalog baselines, upstream-default lossless projections,
+   deterministic SQL curation, generated catalogs, default-readiness disclosure,
+   and real two-source acceptance. Existing code is an implementation candidate,
+   not accepted evidence.
+
+### Current ownership-refactor and source-onboarding order
+
+1. Keep the historical G2.8 plan and evidence intact; record the ownership
+   change in a separate PCCP rather than rewriting the earlier run as if it used
+   the current architecture.
+2. Prove Hub's generic role endpoint and absence of Catalyst query logic in Hub;
+   prove Gateway profile discovery, prompt/config digests, writer-only behavior,
+   reviewed behavior, and deterministic re-lint.
+3. Run the full Catalyst/Hub/harness gates and T094/T095/T111 live workflow on
+   exact current pins. Complete the accessibility matrix and pause for acceptance.
+4. Separately audit every registered source's ViewDefinition provenance,
+   multiplicity, curated SQL/comments, overlay, generated catalog, and live
+   information-schema agreement.
+5. Exercise one session across two real analytics sources, including A → B →
+   inherited B → A, unavailable-source rejection, per-source stale baselines,
+   refresh, exact query execution, and record-level PostgreSQL checks. Pause at
+   the new source-onboarding user checkpoint before declaring multi-source
+   acceptance.
 
 ### G2.8 test-first implementation order
 
@@ -307,7 +364,8 @@ issues are appended to `roadmap.md`; product-code work pauses at the user gates.
    before product code. The final clean reanalysis is recorded in `roadmap.md`;
    user acceptance remains the only open G2.8a gate.
 13. **G2.8b — Turn contract and deterministic foundation (internal gate)**:
-   Land subsystem-specific red tests and then the atomic append-only turn
+   Historical gate for the then-current Hub-owned query engine. It landed
+   subsystem-specific red tests and then the atomic append-only turn
    projection, recorded initial turns, four-fixture legacy synthesis, shared
    follow-up/Validate/Run resolver with active-turn provenance,
    one-active-generation claim, orphan recovery, stale-base and exact snapshot/
@@ -332,14 +390,30 @@ issues are appended to `roadmap.md`; product-code work pauses at the user gates.
    up invocation and reconciling them to the typed timestamps and digests; report
    wall time and Run/database time separately. Pause before closing G3 or
    beginning W2/W3.
-15. **G4 — Targeted-remediation design validation (user gate)**: Re-run artifact
+15. **G2.10a — Multi-source/lossless written gate (internal)**: Trace the
+   multi-source amendment to user scenarios, FR-064–FR-070, SC-030–SC-034,
+   source/catalog entities, tasks, quickstart checks, PCCP scope, and roadmap
+   checkpoints. Inventory existing implementation without marking acceptance.
+16. **G2.10b — Source implementation and real-path gate (internal)**: Prove
+   source-registry and per-turn inheritance contracts; per-source stale
+   baselines; unavailable-source failure before model/database calls; upstream
+   ViewDefinition provenance and repeated-coding losslessness; deterministic SQL
+   curation/comments; catalog-generation failure modes and byte stability; live
+   information-schema agreement; and default-readiness scope.
+17. **G2.10c — Two-source acceptance (user gate)**: Run A → B → inherited B → A
+   in one clean session across two independently provisioned analytics
+   databases, retain source/catalog/version/turn/execution provenance, compare
+   each successful query independently in PostgreSQL with record-level evidence,
+   refresh the session, and pause for user acceptance. Do not infer this pass
+   from existing plumbing or unit tests.
+18. **G4 — Targeted-remediation design validation (user gate)**: Re-run artifact
    analysis after incorporating W1 evidence; review repair-unit coverage,
    nondeterministic model behavior, and deterministic fallback cases with the
    user before enabling model-authored patches.
-16. **G5 — W2 remediation evidence (user gate)**: Report frozen-unit integrity,
+19. **G5 — W2 remediation evidence (user gate)**: Report frozen-unit integrity,
    stale/out-of-scope rejection, and the seeded 90% single-finding metric. Decide
    with the user whether results justify W3 harness export or more repair work.
-17. **G6 — Harness experiment readiness (user gate)**: Validate artifact schemas,
+20. **G6 — Harness experiment readiness (user gate)**: Validate artifact schemas,
    provenance, scenario diversity, and profile/model identity before making any
    comparative model claim.
 
@@ -350,8 +424,9 @@ The following items must remain visible until evidence resolves them:
 - **N1 — Model sampling (bounded, still open for experiments)**: The canonical
   router advertises temperature 0, seed 42, context 24,576, and its full launch
   preset; Catalyst query roles override the router-wide DRY repetition penalty
-  to zero. The Hub records both declared role knobs and effective invocation
-  configuration. A single successful run is not repeatability evidence, so
+  to zero. Gateway profile and invocation evidence records declared/effective
+  role configuration around each generic Hub call. A single successful run is
+  not repeatability evidence, so
   comparative runs still require repetitions and variance reporting.
 - **N2 — Advertised versus physical model (resolved for Gemma and bundled
   fallback)**: `gemma-e4b` maps to the loaded Gemma 4 E4B IT Q4_K_M artifact;
@@ -372,9 +447,11 @@ The following items must remain visible until evidence resolves them:
 - **N6 — Metadata terminology**: The planning doc mentions
   `otel.gen_ai.system`, while the current writer emits
   `otel.gen_ai.provider.name`. W3 must reconcile this before contract validation.
-- **N7 — Documentation drift**: Catalyst's roadmap still describes the earlier
-  expiry/one-time preview baseline and deferred harness state. It must be updated
-  only after the corresponding behavior/evidence gate, not predeclared complete.
+- **N7 — Documentation drift (partly resolved; target docs still open)**: The
+  feature artifacts now distinguish current Gateway-owned query orchestration
+  from historical Hub-owned evidence. Catalyst's submodule README/specification/
+  roadmap/client-contract still describe Hub-owned query profiles and must be
+  updated in Catalyst PR #5 without rewriting historical validation claims.
 - **N8 — Database authority boundary**: The workbench intentionally relies on
   the configured role and read-only transaction rather than application policy.
   Any database permission or function-side-effect concern discovered in manual
@@ -391,10 +468,9 @@ The following items must remain visible until evidence resolves them:
   session records the latest successful FHIR Data Pipes run ID and live counts,
   but there is no reviewed load manifest, content digest, or authoritative
   synthetic/real classification. Do not treat `pipelineRunId` as a content hash.
-- **N12 — Concurrent execution idempotency (open, non-blocking for one-user
-  manual POC)**: Workbench idempotency is currently check-then-execute rather
-  than one atomic claim. Concurrent retries with the same key could reach the
-  database twice; parallel experiment runners need an atomic lease/claim first.
+- **N12 — Concurrent execution idempotency (resolved by T108)**: Workbench
+  execution uses an atomic lease/claim and focused concurrency tests; retain this
+  item as the historical reason the merge-readiness remediation was required.
 - **N13 — Validator identity (open before comparative experiments)**: The
   validator digest is deterministic but currently hashes a static definition,
   not the complete parser, catalog, policy, and implementation configuration.
@@ -484,45 +560,41 @@ The following items must remain visible until evidence resolves them:
 - **N26 — Correlated query roles (resolved at G2.6)**: The checked profile uses
   physically distinct Gemma 4 12B writer and Qwen 2.5 14B reviewer artifacts
   and preserves both router-advertised identities.
-- **N27 — Duplicate unchanged versions (open for G2.8)**: Validate and Run can
-  append a human version whose digest is identical to the current reviewer
-  version. G2.8 reuses the current version whenever the exact editor content is
-  unchanged and snapshots only actual changes.
+- **N27 — Duplicate unchanged versions (resolved by G2.8b)**: Validate, Run, and
+  follow-up reuse the current version whenever the exact editor content is
+  unchanged and snapshot only actual changes.
 - **N28 — Seeded inference variance (open, bounded)**: Repeated temperature-zero,
   seed-42 runs produced identical SQL/results but different nullable metadata.
   Every turn retains full candidates and digests; live acceptance reports
   semantic/result agreement separately from byte identity.
-- **N29 — Follow-up context discontinuity (confirmed; assigned to G2.8)**:
-  Workbench history is persisted but no current SQL, prior instruction,
-  validation, or execution diagnostic reaches a later Hub request. The current
-  question form silently creates an unrelated session.
-- **N30 — Duplicate Hub runtime ownership (confirmed; assigned to G2.8)**: The
-  umbrella pins `targets/med-agent-hub`, while Catalyst currently builds a
-  disposable patched `.med-agent-hub` clone. G2.8 lands the profile/revision
-  implementation in the Hub sibling, makes the harness use that build context,
-  and leaves only an unpatched pinned-clone fallback for standalone Catalyst.
+- **N29 — Follow-up context discontinuity (resolved by G2.8b)**: Bounded current
+  SQL, prior instructions, and exact-digest validation/execution summaries reach
+  later query roles; prohibited context remains excluded.
+- **N30 — Duplicate Hub runtime ownership (resolved; architecture later
+  superseded)**: G2.8 retired the disposable patched Hub and made the harness
+  sibling the runtime source. The later refactor moved Catalyst query profiles
+  and orchestration into Gateway while retaining the sibling Hub as the generic
+  role executor.
 - **N31 — Context growth and truncation (bounded by contract)**: Revision
   context includes the initial question plus at most five most recent follow-up
   instructions, exact current editor state, and exact-digest feedback. The turn
   records the supplied IDs and deterministic omissions; raw result rows and
   historical SQL copies are excluded.
-- **N32 — Lint-clean semantic review restriction (confirmed; assigned to
-  G2.8)**: The current reviewer contract can only approve a lint-clean candidate.
-  Revision review is always invoked, even when structural lint is clean, and
-  must permit either approval or one complete corrected candidate followed by
-  strict contract validation and deterministic re-lint.
-- **N33 — Intent-sensitive lint input gap (confirmed; assigned to G2.8)**:
-  turnaround/latest-per-patient checks read a forbidden `candidate.question`
-  field and therefore see an empty question. Lint receives the effective turn
-  instruction explicitly and tests both initial and revision behavior.
-- **N34 — Interrupted requested turns (open for G2.8)**: A process can stop
+- **N32 — Lint-clean semantic review restriction (resolved by G2.8b)**:
+  Reviewed Gateway profiles invoke their reviewer even when structural lint is
+  clean and permit approval or a complete correction followed by deterministic
+  re-lint.
+- **N33 — Intent-sensitive lint input gap (resolved by G2.8b)**: Lint receives
+  the effective turn instruction explicitly and tests both initial and revision
+  behavior.
+- **N34 — Interrupted requested turns (resolved by G2.8b)**: A process can stop
   after `query_turn.requested` but before a terminal event. On recovery the store
   appends one terminal failure with stage `orphan_recovery` and code
   `generation_interrupted`, releases the atomic claim, preserves the base/current
   anchor—effective when non-null, otherwise observed when present, otherwise
   null—and never retries inference automatically.
-- **N35 — Selected output/current pointer drift (open for G2.8)**: A completed
-  Hub collaboration may contain writer and reviewer artifacts. Contract tests
+- **N35 — Selected output/current pointer drift (resolved by G2.8b)**: A
+  completed reviewed profile may contain writer and reviewer artifacts. Contract tests
   require a recorded completed turn's `selectedVersionId` to name exactly one
   produced version and the session current pointer to match it. A synthesized
   legacy completed turn instead selects only its last attributable initial model
@@ -541,31 +613,28 @@ The following items must remain visible until evidence resolves them:
   `startedAt`/`endedAt`, and request/response-or-failure digests, and also retains
   unadjusted wall time; explicit Run and database time are secondary and not part
   of the primary threshold.
-- **N38 — Editor-resolution divergence (confirmed; assigned to G2.8)**:
+- **N38 — Editor-resolution divergence (resolved by G2.8b)**:
   Follow-up, Validate, and Run can otherwise disagree about unchanged versus
   dirty content and append duplicate human versions. One store-owned resolver
   applies the same classification/current-pointer rules and attaches the active
   turn ID to every promoted human version.
-- **N39 — Initial versus legacy turn provenance (confirmed; assigned to G2.8)**:
+- **N39 — Initial versus legacy turn provenance (resolved by G2.8b)**:
   New sessions need recorded initial requested/terminal events; synthesis is only
   for pre-event sessions. Deterministic fixtures cover model-current, later-human-
   current, draft-only, and raw-only evidence without mutating state, inventing
   prompt/model/config/timing/digest provenance, or confusing initial selection
   with the actual current pointer. Legacy terminal time is the selected initial
   output time, otherwise raw/generation-outcome time, otherwise session creation.
-- **N40 — Public generation-evidence and schema drift (confirmed; assigned to
-  G2.8)**: Compact timeline fields are insufficient to reproduce context and
-  selection. Hub v2/revision and workbench turn/snapshot/evidence schemas must be
-  published and registered, the Hub registry must carry its complete offline-
-  resolvable request-v1/v2/revision/editor-snapshot/turn-request dependency
-  bundle, compact turns carry only prompt references/digests, and each turn
-  exposes full prompts and typed invocation evidence through a stable GET route
-  before UI integration.
-- **N41 — Execution diagnostic status coverage (confirmed; assigned to G2.8)**:
+- **N40 — Public generation-evidence and schema drift (resolved for G2.8;
+  refactor compatibility rechecked at T111)**: Gateway publishes the workbench
+  turn/snapshot/evidence schemas; compact turns carry prompt references/digests
+  and each turn exposes full typed invocation evidence through a stable GET
+  route. The current Gateway-owned engine must preserve that contract at T111.
+- **N41 — Execution diagnostic status coverage (resolved by G2.8b)**:
   Revision context describes failed, timed-out, and cancelled executions, but
   planning previously tested only generic failure. The bounded sanitized
   diagnostic and no-row invariant now cover all three terminal statuses.
-- **N42 — Event export compatibility (open but bounded at G2.8b)**: W3 export
+- **N42 — Event export compatibility (bounded by G2.8b; W3 still open)**: W3 export
   remains deferred, but new initial/follow-up turn, snapshot, and generation-
   evidence events must map without loss into the existing versioned
   `events.jsonl` envelope. A lightweight backend assertion catches drift without
@@ -624,26 +693,27 @@ The following items must remain visible until evidence resolves them:
   though the Gateway cap was 100. Manual execution now reports truncation only
   when the configured fetch cap actually omits rows; legacy behavior is unchanged.
 - **N52 — Model identifier corruption on contextual edits (resolved for the
-  query profile; continue monitoring)**: The failing runs inherited the
+  query profiles; continue monitoring)**: The failing runs inherited the
   router-wide DRY repetition penalty (`0.8`), which is suitable for prose but
-  penalized exact repeated SQL tokens such as `t1.` and `_v1`. Hub query roles
-  now require and forward `dry: 0`; deterministic lint remains unchanged. A
+  penalized exact repeated SQL tokens such as `t1.` and `_v1`. Gateway query
+  profiles now require `dry: 0`, and Hub forwards that generic invocation
+  setting; deterministic lint remains unchanged. A
   fresh Gemma 4 12B/Qwen 2.5 14B run preserved the full base query and selected
   the requested `ORDER BY t1.observed_at DESC` successor. Model outputs remain
   nondeterministic evidence, so broader scenario coverage stays open.
-- **N53 — Per-turn profile choice has one revision-capable option (open)**: The
-  initial composer truthfully shows every loaded available profile, but the
-  follow-up composer offers only the cross-family 12B/Qwen profile because the
-  other loaded profiles are not declared revision-capable. The selector and
-  provenance path work, but real per-turn switching needs at least one additional
-  revision-capable profile or an explicit decision to defer that experiment.
-- **N54 — Standalone fallback contract drift (resolved)**: The reviewed native
-  Hub query implementation is published at
-  `d4c09eeb80323e16a2d310f7a002eb5da0cffc68`.
-  Catalyst's standalone fallback pins that exact unmodified commit, the umbrella
-  pins it as a sibling submodule, and the disposable patch/duplicated runtime
-  source is retired. Hub, Catalyst, and canonical harness contract copies are
-  byte-identical.
+- **N53 — Per-turn profile choice (implementation resolved; live refactor
+  acceptance open)**: Gateway now defines five configured revision-capable query
+  profiles, including three writer-only choices and two reviewed choices
+  (self-reviewed Q4 and cross-family 12B/Qwen). `LocalHub` derives the available
+  subset from Hub's versioned router inventory; a configured profile is not
+  presented as runnable unless every exact required alias is advertised. T111
+  must prove discovery, switching, negative unavailable selection, and
+  provenance on current pins before this is treated as accepted live behavior.
+- **N54 — Standalone fallback contract drift (resolved; architecture
+  superseded)**: The disposable patch/duplicated runtime source remains retired.
+  Current Catalyst owns its query contracts and orchestration, while both the
+  umbrella runtime and Catalyst's standalone fallback use the same unmodified
+  generic Hub revision. T111 rechecks exact committed pins before acceptance.
 - **N55 — Active-session surfaces are vertically fragmented (open; G2.9)**: The
   live page is about 7,859 CSS pixels tall and separates the follow-up composer,
   editor, actions, results, evidence, and history by several viewports. The
@@ -679,12 +749,29 @@ The following items must remain visible until evidence resolves them:
   now the upstream default view verbatim, with no `name_display` column —
   curation happens in `analytics/sql/001_analytics_v1.sql` instead of in the
   ingestion projection.
-- **N60 — Full seed wrapper assumes a JSON backfill body (open; bounded)**: The
-  OpenELIS seed completed, but its wrapper stopped when an otherwise successful
-  backfill endpoint returned an empty body and the wrapper attempted JSON
-  decoding. A direct supported Data Pipes full run and the complete health gate
-  succeeded, so the live dataset is repaired; the wrapper response handling
-  still needs a small independent hardening change.
+- **N60 — Full seed wrapper assumed a JSON backfill body (resolved by T109)**:
+  The wrapper now accepts an empty body from an otherwise successful backfill
+  endpoint, while the supported Data Pipes run and complete health/provenance
+  gate remain authoritative.
+- **N61 — Query-orchestration ownership changed after strongest live run
+  (open at T111)**: The strongest 12/12 and 18/18 live evidence used pre-refactor
+  Catalyst/Hub commits. Current code moves query profiles, prompts, and
+  writer/reviewer orchestration into Gateway and reduces Hub to a generic role
+  executor. Component tests are necessary but cannot substitute for the
+  current-pin live and accessibility rerun.
+- **N62 — Multi-source/lossless acceptance gap (open at G2.10)**: Registry,
+  two-source UI, lossless projections, SQL curation, and generated-catalog code
+  exist in the active change set, but the feature amendment previously had no
+  traced requirements/tasks/checkpoint. FR-064–FR-070, SC-030–SC-034, and
+  T116–T122 now define the missing proof; no acceptance is inferred from code
+  presence.
+- **N63 — Model inventory discovery/invocation race (bounded; monitor at
+  T111)**: Router aliases may be advertised but load on demand, and availability
+  can change after discovery. Gateway fails closed when the versioned inventory
+  cannot be verified and never substitutes a missing model; an invocation-time
+  change remains a truthful bounded transport failure recorded in generation
+  evidence. T111 records any observed race rather than treating discovery as a
+  reservation.
 
 ## Complexity Tracking
 

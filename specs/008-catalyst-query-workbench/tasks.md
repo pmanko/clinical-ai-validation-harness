@@ -92,6 +92,10 @@
 
 ## Phase 4.11 — Corrective G2.8: iterative query notebook
 
+The tasks in this phase record the then-current Hub-owned query-profile
+implementation and its evidence. They remain completed historical work; the
+Gateway-ownership refactor is tracked separately in Phase 4.14.
+
 - [X] T076 Record the approved artifact-first linear notebook, current-state/Hub audit, UX research, turn/data/context contracts, sibling-Hub ownership decision, G2.8a–c checkpoints, and N27–N42 across `specs/008-catalyst-query-workbench/`
 - [X] T077 Record the initial Spec Kit analysis findings and remediate the written PCCP timing, test-order, runtime-ownership, failure-recovery, and live-evidence gaps in `specs/008-catalyst-query-workbench/`; leave the final reanalysis result pending
 - [X] T078 Create the preimplementation PCCP change record for all G2.8 Hub prompt/profile/pipeline, gateway, UI, and runtime changes in `specs/008-catalyst-query-workbench/pccp/2026-07-18-iterative-query-notebook.md`
@@ -112,7 +116,7 @@
 - [X] T093 Pass the post-UI full Hub, gateway/store, root harness, UI, Playwright, accessibility, lint, typecheck, build, contract-registry, and diff gate; record any contract drift or conditional model-output digest difference before real-path validation
 - [ ] T094 Add and run diverse real-path validation for narrowing, aggregation/output-shape change, unresolved correction, lint-clean semantic reviewer correction, and Hub/tool failure; include dirty/unchanged bases, profile switching, stale results, New Session isolation, exact selected output, timed-out/cancelled diagnostic presentation, and record-level PostgreSQL cross-check fixtures/evidence
 - [ ] T095 Rebuild the isolated sibling-Hub stack and complete G2.8c with Gemma 4 12B writing/Qwen 2.5 14B reviewing at temperature zero with the DRY repetition penalty disabled: run the T094 scenario families, inspect typed generation evidence and exact context/trace/model/effective-configuration provenance, conditionally report candidate/output digest differences when observed under that configuration, verify initial-question submit through successor-query visible in under 3 minutes after subtracting only the exact recorded durations of every initial/follow-up writer/reviewer invocation and reconcile those durations to their start/end timestamps and request/response-or-failure digests, report unadjusted wall time and explicit Run/database time separately, complete keyboard-only/narrow/200%-zoom checks, record reproducible SQL/parameters plus dataset/session/turn/query/version/execution IDs and inspected-record rationale, then pause for user acceptance
-- [ ] T096 After G2.8c user acceptance, update the root `README.md`, Catalyst user docs/status, final quickstart, roadmap, and this PCCP's evidence/rollback/residual-risk dispositions; documentation follows evidence and precedes pinning
+- [ ] T096 After G2.8c/T111 user acceptance, update the root `README.md`, Catalyst user docs/status, final quickstart, roadmap, and applicable PCCP evidence/rollback/residual-risk dispositions; documentation follows evidence and precedes ready-for-review/merge acceptance
 - [X] T097 Commit/push the companion Hub and Catalyst changes, pin both sibling submodules in harness PR #37, rerun root pin/provenance checks, and update the PR without starting W2/W3. Published as drafts under explicit 2026-07-20 user direction; T094–T096 still block ready-for-review/merge acceptance
 
 ## Phase 4.12 — Corrective G2.9: unified workbench UX and queryable schema
@@ -133,8 +137,32 @@
 - [X] T108 Resolve the Catalyst active-instruction, profile-binding, catalog-lineage, execution-idempotency, current-version provenance, stale expected-column, and complete iterative-browser-flow findings; add UI and analytics/assembly jobs to CI
 - [X] T109 Make the tracked umbrella boot reproducible from a clean recommended environment: correct fake-mode/port propagation, enforce clean matching sibling pins, tolerate an empty successful OpenELIS backfill response, pin OpenELIS deployment source/images, and rerun the health/provenance gate
 - [X] T110 Align `docs/specification.md`, `docs/roadmap.md`, `docs/med-agent-hub.md`, root README/quickstart, Harness provider/component/profile provenance, real-suite model IDs, and PR descriptions with the tested implementation
-- [ ] T111 Rerun the complete Hub/Catalyst/harness automated gates plus the T094/T095 live iterative workflow on clean pins; record independent PostgreSQL evidence and pause for user acceptance
+- [ ] T111 Rerun the complete Hub/Catalyst/harness automated gates plus the T094/T095 live iterative workflow on clean pins; prove the versioned Hub backend inventory, exact required model aliases, available-profile subset, unavailable initial/governed/follow-up rejection before state or model calls, writer-only and reviewed provenance, independent PostgreSQL evidence, and pause for user acceptance
 - [ ] T112 After T111 acceptance, squash Hub first, repin/validate/squash Catalyst, repin both resulting `main` commits in the harness, obtain the required harness approval, and squash harness last
+
+## Phase 4.14 — Gateway-owned query orchestration reconciliation
+
+- [X] T113 Record the current Catalyst Gateway-owned query profile/prompt/writer-reviewer/lint architecture, generic Hub role-executor boundary, active PR chain (#37/#5/#15), and pre-refactor evidence limitation in the feature spec/plan/roadmap/status artifacts without rewriting historical G2.8 results
+- [X] T114 Add a PCCP change record for the query-orchestration ownership change with validation protocol, rollback boundary, current pin state, and residual risk; leave final evidence pending T111
+- [X] T115 Update Catalyst and Hub submodule user docs plus active PR descriptions in their owning PRs so no current claim assigns Catalyst query profiles/orchestration to Hub; preserve explicitly labelled historical design records
+
+## Phase 4.15 — G2.10 multi-source and lossless source onboarding
+
+- [X] T116 Trace the 2026-07-22 amendment into User Story 6, FR-064–FR-070, SC-030–SC-034, source/catalog entities and boundaries, plan gates G2.10a–c, this task phase, roadmap checkpoints, and quickstart checks without claiming implementation acceptance
+- [ ] T117 Inventory existing source-registry, per-turn source inheritance, unavailable-source, refresh, and per-source stale-catalog tests against FR-064–FR-066; add failing contract tests for any uncovered behavior before changing implementation
+- [ ] T118 Verify every accepted base ViewDefinition against its pinned upstream default or documented additive/gap-fill provenance; add multiplicity fixtures proving repeated resources/codings survive lossless `forEachOrNull` projection with no `.first()`-style selection
+- [ ] T119 Verify deterministic curated SQL grain and column comments, generator byte stability, missing-metadata/unknown-relation/zero-match failures, overlay validation, and live information-schema agreement for each acceptance source
+- [ ] T120 Preserve `dataSourceId`, per-source catalog baseline/version, projection/curation/catalog digests, and source readiness scope across session, turn, query version, validation, execution, generation evidence, `run_manifest.json`, and `events.jsonl` contracts
+- [ ] T121 Recreate a clean two-source stack and run A → B → inherited B → A plus unavailable-source rejection, per-source stale conflicts, refresh, exact query execution, and independent record-level PostgreSQL checks; explicitly verify default-only readiness does not claim full-registry health
+- [ ] T122 Record G2.10b evidence, run the G2.10c user checkpoint, and pause for explicit acceptance before describing multi-source/lossless onboarding as complete or using it in release evidence
+
+## Phase 4.16 — T111 current-profile validation repair
+
+- [X] T123 Align the committed T094 suite and notebook-validation runner with the Gateway's current revision-capable writer-only and Gemma 4 12B/Qwen 2.5 14B reviewed profiles; preserve a real per-turn profile switch, require exact optional-reviewer discovery/evidence, and label writer-only reports without inventing reviewer provenance
+
+## Phase 4.17 — Runtime profile availability and provenance repair
+
+- [X] T124 Publish Hub's versioned backend model inventory; derive Catalyst availability from exact advertised writer/reviewer aliases; fail closed on missing, malformed, unreachable, or incomplete inventory; omit unavailable UI choices; reject unavailable initial, governed-preview, and follow-up selections before mutation/model calls; preserve truthful transport evidence; and use Gateway-owned profile/prompt references with focused and full component coverage
 
 ## Phase 6 — W1 integrated validation
 
@@ -151,8 +179,8 @@
 - [ ] T028 [US2] Revalidate repair scope from W1 findings and pause at G4 in `specs/008-catalyst-query-workbench/roadmap.md`
 - [ ] T029 [P] [US2] Add AST unit/frozen-digest/patch-integrity tests in `targets/catalyst/catalyst-gateway/tests/test_query_repairs.py`
 - [ ] T030 [US2] Implement repair scopes and deterministic patching in `targets/catalyst/catalyst-gateway/src/catalyst/repairs.py`
-- [ ] T031 [US2] Implement user-initiated typed Hub proposals limited to selected AST units and frozen digests in the real sibling `targets/med-agent-hub/server/catalyst_query.py` and its versioned contracts; do not reuse the internal G2.3 retry as an accept/decline workflow
-- [ ] T032 [US2] Verify the typed proposal contract and real runtime path in sibling `targets/med-agent-hub`, including the umbrella sibling build/pin and Catalyst's unpatched same-commit standalone fallback; do not regenerate or restore the retired Catalyst Hub patch
+- [ ] T031 [US2] Implement a user-initiated typed repair-proposal contract in Catalyst Gateway, limited to selected AST units and frozen digests; execute any model proposal role only through Hub's generic role endpoint, and do not reuse the internal G2.3 retry as an accept/decline workflow
+- [ ] T032 [US2] Verify the Gateway-owned proposal contract and generic Hub runtime path through the pinned sibling `targets/med-agent-hub`, including the umbrella sibling build/pin and Catalyst's unmodified same-commit standalone fallback; do not add Catalyst query logic to Hub or restore the retired patch
 - [ ] T033 [US2] Add before/after accept/decline repair UI in `targets/catalyst/catalyst-ui/src/features/query/QueryWorkspace.tsx`
 - [ ] T034 [US2] Run repair integrity/scenario metrics and pause at G5 in `specs/008-catalyst-query-workbench/roadmap.md`
 
@@ -186,5 +214,13 @@ T088 blocks T089. UI red tests T090 may be written in parallel, but T090 and the
 backend/Hub/store/root contract-drift checkpoint T092 both block UI implementation
 T091. T081 and T084–T089 block T092. T091 blocks the post-UI full gate T093;
 T093 blocks diverse real-path validation T094, which blocks the G2.8c/user pause
-T095. User acceptance at T095 blocks the evidence-backed documentation update
-T096; T096 explicitly blocks commits and sibling pins in T097.
+T095. The user-directed draft publication in T097 was an explicit exception to
+the original T096-before-pinning order; T096 still blocks ready-for-review/merge
+acceptance, not the already-completed draft publication. T123 and T124 block the
+live T111 run; T111 blocks T112. T113
+documents the post-G2.8 ownership refactor; T114 and T115 must land before T111
+acceptance, with T115 applied in the owning component PRs. T116 is the written
+G2.10a traceability gate. T117–T120 block the clean two-source run T121, which
+blocks the G2.10c
+user pause T122. G2.10 acceptance is separate from and does not silently close
+T094/T095/T111, W2, or W3.

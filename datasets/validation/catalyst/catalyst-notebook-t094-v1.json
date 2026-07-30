@@ -7,12 +7,11 @@
   "repetitions": 3,
   "profiles": {
     "catalyst-query-gemma-4-12b": {
+      "writerModelId": "gemma-4-12b"
+    },
+    "catalyst-query-gemma-4-12b-qwen2.5-14b-checked": {
       "writerModelId": "gemma-4-12b",
       "reviewerModelId": "qwen2.5-14b"
-    },
-    "catalyst-query-qwen-2.5-14b": {
-      "writerModelId": "qwen2.5-14b",
-      "reviewerModelId": "gemma-4-12b"
     }
   },
   "scenarios": [
@@ -58,7 +57,7 @@
       "initialQuestion": "Show numeric laboratory results since 2026-01-01 with patient, test, value, and observed date.",
       "initialProfileId": "catalyst-query-gemma-4-12b",
       "followupInstruction": "Replace the current row output with one row per calendar month. Return observed_month, result_count, distinct_patient_count, and median_result_value; preserve all filters and order chronologically.",
-      "followupProfileId": "catalyst-query-qwen-2.5-14b",
+      "followupProfileId": "catalyst-query-gemma-4-12b-qwen2.5-14b-checked",
       "editorQuery": {
         "sql": "SELECT\n  observation_id,\n  patient_id,\n  test_name,\n  result_value,\n  result_unit,\n  observed_at\nFROM analytics.lab_result_fact_v1\nWHERE observed_at >= :start_date\n  AND result_value IS NOT NULL\nORDER BY observed_at, observation_id",
         "parameters": [
@@ -125,7 +124,7 @@
       "initialQuestion": "Show patient identifiers represented in laboratory results since 2026-01-01.",
       "initialProfileId": "catalyst-query-gemma-4-12b",
       "followupInstruction": "Return one column named patient_count containing the number of distinct patients represented by these rows; do not count result rows.",
-      "followupProfileId": "catalyst-query-gemma-4-12b",
+      "followupProfileId": "catalyst-query-gemma-4-12b-qwen2.5-14b-checked",
       "editorQuery": {
         "sql": "SELECT patient_id\nFROM analytics.lab_result_fact_v1\nWHERE observed_at >= :start_date\nORDER BY patient_id",
         "parameters": [
