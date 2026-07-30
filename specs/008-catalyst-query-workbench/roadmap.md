@@ -1237,6 +1237,20 @@ evidence, and report checks distinguish an absent reviewer from missing
 provenance. This removes the deterministic preflight blocker; it does not count
 as the live T111 run.
 
+The 2026-07-30 clean-pin run exposed a further runtime blocker before T111 could
+be accepted. Query profiles recorded `maxTokens: null`; a Qwen 2.5 14B reviewer
+request timed out at the Gateway but continued decoding inside llama.cpp,
+eventually reaching 20,226 decoded tokens and the 24,575-token context boundary.
+That orphaned generation contended with later Gemma calls and inflated a
+writer-only invocation to 314,177 ms. The Gateway correctly classified the
+terminal record as `reviewer_transport` / `reviewer_timeout` and preserved the
+human base, but the profile is not fit for manual testing while structured
+output is unbounded. T125 therefore blocks the definitive T111 rerun: set and
+prove an explicit output-token limit for each query role, reset the router to
+clear pre-fix work, retain exact configuration provenance, and rerun the full
+matrix. Increasing the harness HTTP observation window merely allows sequential
+role evidence to be collected; it does not relax the product's model timeout.
+
 ### G2.10 multi-source/lossless onboarding — WRITTEN TRACE COMPLETE; EVIDENCE OPEN
 
 The 2026-07-22 clarification is now traced to User Story 6, FR-064–FR-070,

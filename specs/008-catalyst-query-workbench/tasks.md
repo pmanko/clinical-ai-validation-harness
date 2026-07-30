@@ -164,6 +164,10 @@ Gateway-ownership refactor is tracked separately in Phase 4.14.
 
 - [X] T124 Publish Hub's versioned backend model inventory; derive Catalyst availability from exact advertised writer/reviewer aliases; fail closed on missing, malformed, unreachable, or incomplete inventory; omit unavailable UI choices; reject unavailable initial, governed-preview, and follow-up selections before mutation/model calls; preserve truthful transport evidence; and use Gateway-owned profile/prompt references with focused and full component coverage
 
+## Phase 4.18 — Bounded structured-output generation
+
+- [ ] T125 Bound every Catalyst query-profile writer/reviewer completion to an explicit output-token budget; prove the limit is sent to Hub/router and retained in invocation provenance; reset the external router after the pre-fix runaway request; rerun focused component gates and the complete clean-pin T094/T095/T111 matrix without treating a truncated or timed-out candidate as success
+
 ## Phase 6 — W1 integrated validation
 
 - [ ] T022 Add invalid-edit-run-refresh-rerun browser coverage in `targets/catalyst/catalyst-ui/e2e/workbench.spec.ts`
