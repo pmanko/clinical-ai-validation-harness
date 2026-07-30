@@ -27,6 +27,31 @@ Local rollback branches preserve the two branches that must be rebuilt after Sig
 The remote PR heads remain independently reachable at the recorded origin branches. The backups are
 local rollback points only; no active PR branch was rewritten.
 
+## Upstream Refresh — 2026-07-30
+
+The current upstream heads were fetched before re-cutting the active companion PRs. The following
+dispositions extend the initial inventory; every newly observed upstream commit is classified here
+before it is included in an active rebuilt branch.
+
+| Repository | Upstream commit | Change | Disposition | Verification |
+|---|---|---|---|---|
+| ChartSearchAI | `60c1aff` | Verdict-lead prompt work and value-safe, corroborated compact citation normalization | **Keep.** It supersedes the branch's older broad multi-index matcher, which could reinterpret `[120, 80]` as citation indices. | Re-cut keeps this code; clean source-pair package passed `ChartSearchAiUtilsTest`, citation tests, and the full API/OMOD reactor. |
+| ChartSearchAI | `094d885` | On-demand Claude PR-review workflow | **Keep.** CI/review tooling only; no provider behavior changes. | Workflow remains present on the re-cut. |
+| ChartSearchAI | `83cc33e` | DDInter-backed drug-reference source | **Keep.** This extends bundled medication-reference coverage without changing the dual-provider boundary. | Re-cut full package passed `DdiDrugReferenceSourceTest` and all API/OMOD tests. |
+| QueryStore | `c0bda79` | Add frontend-change verification skill | **Keep.** Tooling only. | Rebase of #63 was conflict-free; full `clean install` passed. |
+| QueryStore | `3a4709f` | Repair verification-skill front matter | **Keep.** Tooling only. | Rebase of #63 was conflict-free; full `clean install` passed. |
+| QueryStore | `f52341d` | Add an adversarial PR-review gate | **Keep.** Tooling only. | Rebase of #63 was conflict-free; full `clean install` passed. |
+| QueryStore | `955d961` | Revert the prior PR-review skill revision | **Keep.** Tooling only. | Rebase of #63 was conflict-free; full `clean install` passed. |
+| QueryStore | `59c21c6` | Document PR-review verification conditions | **Keep.** Tooling only. | Rebase of #63 was conflict-free; full `clean install` passed. |
+| QueryStore | `bbd6e80` | Update PR-review skill version | **Keep.** Tooling only. | Rebase of #63 was conflict-free; full `clean install` passed. |
+
+The PR branches were refreshed with immutable fork backups before force-with-lease updates:
+
+| PR | New head/base | Preserved fork backup | Source-pair result |
+|---|---|---|---|
+| QueryStore #63 | `78c6741` on `bbd6e80` | `codex/backup/querystore-pr63-pre-recut-20260730` → `f8eccd3` | `mvn -q -B clean install` passed. |
+| ChartSearchAI #90 | `eeb1b54` on `83cc33e` | `codex/backup/dual-provider-rebuild-pre-recut-20260730` → `c85a323` | Rebuilt against the exact local QueryStore re-cut; 697 API tests and 62 OMOD tests passed. |
+
 ## Refreshed ChartSearchAI Upstream
 
 The current integration head was **7 commits behind** and **20 commits ahead** of
