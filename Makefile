@@ -9,7 +9,7 @@ export UV_PROJECT_ENVIRONMENT
         reset-transform sqlmesh-status \
         loadtest-up loadtest-down \
         load-test orphan-fk-check import-smoke dump-loaded promote \
-        chartsearch-build querystore-build querystore-recreate-index chartsearch-configure querystore-configure chartsearch-backend chartsearch-doctor chartsearchai-local dual-provider-up \
+        chartsearch-build querystore-build openmrs-source-pair-test querystore-recreate-index chartsearch-configure querystore-configure chartsearch-backend chartsearch-doctor chartsearchai-local dual-provider-up \
         chartsearch-esm-build chartsearch-esm-dev \
         llama-router-up llama-router-models \
         med-agent-hub-build med-agent-hub-up med-agent-hub-logs med-agent-hub-restart med-agent-hub-test chartsearch-test chartsearch-e2e-low-confidence querystore-test querystore-test-integration querystore-reindex \
@@ -135,6 +135,11 @@ querystore-build:
 	  --artifact artifacts/openmrs/modules/querystore-1.0.0-SNAPSHOT.omod \
 	  --manifest artifacts/chartsearchai-local/module-provenance/querystore-1.0.0-SNAPSHOT.omod.provenance.json
 	@ls -la artifacts/openmrs/modules/querystore-*.omod
+
+# Prove the exact pinned integration pair from source. Querystore is installed
+# first so ChartSearchAI cannot pass against an older cached snapshot API.
+openmrs-source-pair-test:
+	./scripts/openmrs-source-pair-test.sh
 
 # Build the chartsearchai frontend ESM from the pinned submodule and stage
 # it under artifacts/openmrs/spa-custom/. Caddy serves both the bundle
