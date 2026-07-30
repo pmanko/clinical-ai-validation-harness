@@ -41,11 +41,11 @@ class FakeResponse:
         return self._body
 
 
-def test_probe_requires_answer_done_and_hydrated_same_row(monkeypatch):
+def test_probe_correlates_fast_stream_by_message_and_persistence_by_audit_row(monkeypatch):
     answer = {
         "session": "session-1",
         "messageId": "message-1",
-        "auditLogId": 42,
+        "provider": "hub",
         "answer": "The latest visit was 2026-07-10 [1].",
         "model": "single-e4b-checked",
         "answerValidation": {"status": "checking"},
@@ -90,8 +90,14 @@ def test_probe_requires_answer_done_and_hydrated_same_row(monkeypatch):
         [
             FakeResponse(
                 [
+                    b"event: turn_started\n",
+                    b"data: {}\n",
+                    b"\n",
                     b"event: answer_done\n",
                     f"data: {json.dumps(answer)}\n".encode(),
+                    b"\n",
+                    b"event: ping\n",
+                    b"data:\n",
                     b"\n",
                     b"event: answer_validation\n",
                     f"data: {json.dumps(final)}\n".encode(),
@@ -102,8 +108,8 @@ def test_probe_requires_answer_done_and_hydrated_same_row(monkeypatch):
                     b"event: indepth_done\n",
                     f"data: {json.dumps(final)}\n".encode(),
                     b"\n",
-                    b"event: done\n",
-                    f"data: {json.dumps(final)}\n".encode(),
+                    b"event: turn_done\n",
+                    b'data: {"session":"session-1","messageId":"message-1","provider":"hub"}\n',
                     b"\n",
                 ],
                 {"X-ChartSearchAi-Session": "session-1"},
@@ -144,6 +150,7 @@ def test_probe_requires_answer_done_and_hydrated_same_row(monkeypatch):
     assert result["schema_version"] == "chartsearchai_relay_probe.v2"
     assert result["session"] == "session-1"
     assert result["message_id"] == "message-1"
+    assert result["provider"] == "hub"
     assert result["profile"] == "single-e4b-checked"
     assert result["audit_log_id"] == 42
     assert result["answer_validation"] == {"status": "checked", "label": "Checked"}
@@ -154,11 +161,12 @@ def test_probe_requires_answer_done_and_hydrated_same_row(monkeypatch):
     assert result["in_depth_terminal_event"] == "indepth_done"
     assert result["final_envelope_sha256"] == result["hydrated_envelope_sha256"]
     assert result["events"] == [
+        "turn_started",
         "answer_done",
         "answer_validation",
         "indepth_pending",
         "indepth_done",
-        "done",
+        "turn_done",
     ]
     assert result["cleared_after"] is True
     assert result["runtime_identity"]["harness"]["commit"] == "harness-sha"
@@ -169,6 +177,12 @@ def test_probe_requires_answer_done_and_hydrated_same_row(monkeypatch):
         "http://openmrs/openmrs/ws/rest/v1/chartsearchai/chat?patient=patient-1",
     ]
     assert all(request.get_header("Authorization") for request, _ in requests)
+    assert json.loads(requests[0][0].data) == {
+        "patient": "patient-1",
+        "provider": "hub",
+        "profile": "single-e4b-checked",
+        "question": "Latest visit?",
+    }
 
 
 def test_stream_probe_rejects_error_event(monkeypatch):
@@ -217,6 +231,7 @@ def test_stream_probe_rejects_incomplete_review_sequence(monkeypatch):
     answer = {
         "session": "session-1",
         "messageId": "message-1",
+        "provider": "hub",
         "auditLogId": 42,
         "answer": "Answer [1].",
         "model": "single-e4b-checked",
@@ -238,6 +253,9 @@ def test_stream_probe_rejects_incomplete_review_sequence(monkeypatch):
     pending = {**final, "inDepth": {"status": "pending", "answer": ""}}
     response = FakeResponse(
         [
+            b"event: turn_started\n",
+            b"data: {}\n",
+            b"\n",
             b"event: answer_done\n",
             f"data: {json.dumps(answer)}\n".encode(),
             b"\n",
@@ -247,7 +265,7 @@ def test_stream_probe_rejects_incomplete_review_sequence(monkeypatch):
             b"event: indepth_done\n",
             f"data: {json.dumps(final)}\n".encode(),
             b"\n",
-            b"event: done\n",
+                b"event: turn_done\n",
             f"data: {json.dumps(final)}\n".encode(),
             b"\n",
         ]
@@ -270,6 +288,7 @@ def test_stream_probe_rejects_resolved_reference_without_grounding(monkeypatch):
     answer = {
         "session": "session-1",
         "messageId": "message-1",
+        "provider": "hub",
         "auditLogId": 42,
         "answer": "Answer [1].",
         "model": "single-e4b-checked",
@@ -285,11 +304,12 @@ def test_stream_probe_rejects_resolved_reference_without_grounding(monkeypatch):
     pending = {**final, "inDepth": {"status": "pending", "answer": ""}}
     chunks: list[bytes] = []
     for event, payload in [
+        ("turn_started", {}),
         ("answer_done", answer),
         ("answer_validation", final),
         ("indepth_pending", pending),
         ("indepth_done", final),
-        ("done", final),
+        ("turn_done", final),
     ]:
         chunks.extend(
             [
@@ -320,6 +340,7 @@ def test_stream_probe_accepts_reasoned_terminal_safety_withholding(monkeypatch):
     answer = {
         "session": "session-1",
         "messageId": "message-1",
+        "provider": "hub",
         "auditLogId": 42,
         "answer": "The model answer needs review.",
         "model": "single-e4b-checked",
@@ -343,11 +364,12 @@ def test_stream_probe_accepts_reasoned_terminal_safety_withholding(monkeypatch):
     pending = {**final, "inDepth": {"status": "pending", "answer": ""}}
     chunks: list[bytes] = []
     for event, payload in [
+        ("turn_started", {}),
         ("answer_done", answer),
         ("answer_validation", final),
         ("indepth_pending", pending),
         ("indepth_error", final),
-        ("done", final),
+            ("turn_done", final),
     ]:
         chunks.extend(
             [
@@ -381,6 +403,7 @@ def test_stream_probe_rejects_unavailable_indepth_review(monkeypatch):
     answer = {
         "session": "session-1",
         "messageId": "message-1",
+        "provider": "hub",
         "auditLogId": 42,
         "answer": "Answer [1].",
         "model": "single-e4b-checked",
@@ -407,11 +430,12 @@ def test_stream_probe_rejects_unavailable_indepth_review(monkeypatch):
     pending = {**final, "inDepth": {"status": "pending", "answer": ""}}
     chunks: list[bytes] = []
     for event, payload in [
+        ("turn_started", {}),
         ("answer_done", answer),
         ("answer_validation", final),
         ("indepth_pending", pending),
         ("indepth_error", final),
-        ("done", final),
+            ("turn_done", final),
     ]:
         chunks.extend(
             [
@@ -441,11 +465,19 @@ def test_stream_probe_rejects_unavailable_indepth_review(monkeypatch):
 def _terminal_chunks(answer, final, *, terminal_event="indepth_done", phase=None):
     pending = {**final, "inDepth": {"status": "pending", "answer": ""}}
     events = [
+        ("turn_started", {}),
         ("answer_done", answer),
         ("answer_validation", phase or final),
         ("indepth_pending", pending),
         (terminal_event, final),
-        ("done", final),
+        (
+            "turn_done",
+            {
+                "session": answer["session"],
+                "messageId": answer["messageId"],
+                "provider": "hub",
+            },
+        ),
     ]
     chunks: list[bytes] = []
     for event, payload in events:
@@ -463,6 +495,7 @@ def _answer_and_final(*, grounding_status="verified", include_index=True):
     answer = {
         "session": "session-1",
         "messageId": "message-1",
+        "provider": "hub",
         "auditLogId": 42,
         "answer": "Answer [1].",
         "model": "single-e4b-checked",
@@ -516,6 +549,27 @@ def test_stream_probe_rejects_phase_update_to_different_row(monkeypatch):
     )
 
     with pytest.raises(RuntimeError, match="different assistant row"):
+        probe._stream_turn(
+            "http://openmrs/chat/stream",
+            patient="patient-1",
+            profile="single-e4b-checked",
+            question="Latest visit?",
+            username="admin",
+            password="secret",
+            timeout=30,
+        )
+
+
+def test_stream_probe_rejects_inconsistent_optional_stream_audit_ids(monkeypatch):
+    answer, final = _answer_and_final()
+    final["auditLogId"] = 43
+    monkeypatch.setattr(
+        probe.urllib.request,
+        "urlopen",
+        lambda *_args, **_kwargs: FakeResponse(_terminal_chunks(answer, final)),
+    )
+
+    with pytest.raises(RuntimeError, match="different audit row"):
         probe._stream_turn(
             "http://openmrs/chat/stream",
             patient="patient-1",
@@ -920,6 +974,7 @@ def test_probe_cli_writes_requested_output(tmp_path, monkeypatch, capsys):
         {"username": "admin", "password": "Admin123", "timeout": 300},
     )
     assert calls[1][0:2] == ("probe", "http://127.0.0.1:8088/openmrs")
+    assert calls[1][2]["provider"] == "hub"
     assert calls[1][2]["profile"] == "single-e4b-checked"
     assert json.loads(output.read_text(encoding="utf-8")) == result
     assert json.loads(capsys.readouterr().out) == result

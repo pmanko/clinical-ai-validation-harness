@@ -338,6 +338,7 @@ say "==> prove OpenMRS staged relay and persistence"
 python3 scripts/probe-chartsearchai-relay.py \
   --openmrs-url "${OPENMRS_URL}" \
   --patient "${DEFAULT_PATIENT}" \
+  --provider hub \
   --profile "${HUB_PROFILE}" \
   --username "${CHARTSEARCH_ADMIN_USER:-admin}" \
   --password "${CHARTSEARCH_ADMIN_PASSWORD:-Admin123}" \
