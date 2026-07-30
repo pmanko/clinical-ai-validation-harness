@@ -86,6 +86,8 @@ def test_openmrs_source_pair_gate_builds_exact_integration_heads_in_dependency_o
     assert 'verify_integration_head "${ROOT}/targets/querystore"' in script
     assert 'verify_integration_head "${ROOT}/targets/chartsearchai"' in script
     assert 'verify_integration_head "${ROOT}/targets/chartsearchai-esm"' in script
+    assert 'rev-parse "HEAD:${gitlink_path}"' in script
+    assert "status --porcelain --untracked-files=all" in script
     assert script.index('"${MVN_BIN}" -q -B clean install') < script.index(
         '"${MVN_BIN}" -q -B clean package'
     )

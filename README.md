@@ -163,9 +163,10 @@ make chartsearchai-local
 
 # Useful focused operations:
 ./scripts/chartsearchai-local.sh --check  # validate prerequisites without starting services
+make openmrs-source-pair-build        # build/stage current Querystore, then ChartSearchAI
 make openmrs-source-pair-test         # install pinned Querystore, then test/build pinned ChartSearchAI
 make llama-router-models             # inspect raw models behind the hub
-make chartsearch-build               # rebuild + redeploy just the .omod
+make chartsearch-build               # same ordered pair build; ChartSearchAI depends on current Querystore API
 make med-agent-hub-up                # (re)start the hub on its own
 make chartsearch-configure           # write the fixed hub endpoint; profile discovery supplies the default
 make chartsearch-doctor              # verify router, hub profile metadata, and module status
