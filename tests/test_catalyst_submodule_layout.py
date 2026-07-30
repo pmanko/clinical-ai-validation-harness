@@ -63,6 +63,10 @@ def test_harness_runner_builds_the_sibling_hub_without_catalyst_patch_source() -
     )
     assert 'export HUB_BUILD_REVISION="${hub_build_revision}"' in up_script
     assert (
+        "urllib.request.urlopen('http://localhost:8080/health', timeout=3)"
+        in compose
+    )
+    assert (
         'hub_context="${MED_AGENT_HUB_CONTEXT:-${ROOT_DIR}/.med-agent-hub}"'
         in health_script
     )
