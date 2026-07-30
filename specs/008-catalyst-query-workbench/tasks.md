@@ -168,6 +168,10 @@ Gateway-ownership refactor is tracked separately in Phase 4.14.
 
 - [ ] T125 Bound every Catalyst query-profile writer/reviewer completion to an explicit output-token budget; prove the limit is sent to Hub/router and retained in invocation provenance; reset the external router after the pre-fix runaway request; rerun focused component gates and the complete clean-pin T094/T095/T111 matrix without treating a truncated or timed-out candidate as success
 
+## Phase 4.19 — Current-profile collaboration evidence repair
+
+- [ ] T126 Restore the comparative Gemma/Qwen profile's already-approved collaborative-review policy after the Gateway ownership move; on reviewer output-contract failure preserve the exact malformed reviewer output and the contract-valid writer as unselected evidence while leaving the effective base current; add focused regressions and rerun the reviewed-profile smoke before the complete T094/T095/T111 matrix
+
 ## Phase 6 — W1 integrated validation
 
 - [ ] T022 Add invalid-edit-run-refresh-rerun browser coverage in `targets/catalyst/catalyst-ui/e2e/workbench.spec.ts`
@@ -227,4 +231,5 @@ acceptance, with T115 applied in the owning component PRs. T116 is the written
 G2.10a traceability gate. T117–T120 block the clean two-source run T121, which
 blocks the G2.10c
 user pause T122. G2.10 acceptance is separate from and does not silently close
-T094/T095/T111, W2, or W3.
+T094/T095/T111, W2, or W3. T125 and the live-smoke repair T126 both block the
+definitive current-profile T111 matrix.

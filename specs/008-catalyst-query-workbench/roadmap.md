@@ -14,7 +14,7 @@ composition, deterministic lint/repair/finalization, and query evidence.
 Med-Agent Hub exposes a generic `POST /v1/hub/generate` role executor and does
 not own Catalyst query profiles or their orchestration. Hub's separate
 clinical-answer/report profile engine is unchanged. The candidate umbrella pins
-are Catalyst `9fa31c2` (active #5 head) and Hub `946afa9` (active #15 head).
+are Catalyst `9b7aa0b` (active #5 head) and Hub `946afa9` (active #15 head).
 They still require an umbrella commit, clean-pin T111 validation, and user
 acceptance before merge.
 
@@ -1250,6 +1250,19 @@ prove an explicit output-token limit for each query role, reset the router to
 clear pre-fix work, retain exact configuration provenance, and rerun the full
 matrix. Increasing the harness HTTP observation window merely allows sequential
 role evidence to be collected; it does not relax the product's model timeout.
+
+The first post-limit smoke completed both roles in 58,380 ms
+(Gemma writer 34,006 ms; Qwen reviewer 24,374 ms), and both invocation records
+proved `maxTokens: 1024`. It did not pass: Qwen stopped normally after 336
+decoded tokens but returned a review object that failed the strict candidate
+schema. The failed turn correctly left the effective human base current, yet
+its exact reviewer output was discarded (`evidenceAvailable: false`) and the
+lint-clean writer was not retained as an unselected output. Inspection also
+found that the comparative profile lost its approved `collaborative_review`
+policy flag during the Gateway-ownership move even though the orchestration
+path still exists. T126 restores that existing policy and failure evidence
+invariant, with no added retry or workflow, before the reviewed smoke and full
+T111 matrix continue.
 
 ### G2.10 multi-source/lossless onboarding — WRITTEN TRACE COMPLETE; EVIDENCE OPEN
 
