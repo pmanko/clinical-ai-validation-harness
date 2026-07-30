@@ -14,7 +14,7 @@ composition, deterministic lint/repair/finalization, and query evidence.
 Med-Agent Hub exposes a generic `POST /v1/hub/generate` role executor and does
 not own Catalyst query profiles or their orchestration. Hub's separate
 clinical-answer/report profile engine is unchanged. The candidate umbrella pins
-are Catalyst `9b7aa0b` (active #5 head) and Hub `946afa9` (active #15 head).
+are Catalyst `bb36126` (active #5 head) and Hub `946afa9` (active #15 head).
 They still require an umbrella commit, clean-pin T111 validation, and user
 acceptance before merge.
 
@@ -1263,6 +1263,17 @@ policy flag during the Gateway-ownership move even though the orchestration
 path still exists. T126 restores that existing policy and failure evidence
 invariant, with no added retry or workflow, before the reviewed smoke and full
 T111 matrix continue.
+
+The immediate post-T126 smoke reproduced the same reviewer response digest
+`15234ba5…` and exposed the reason: the saved raw Qwen object demanded
+`test_name` because lint-clean review was incorrectly switched from the active
+aggregation instruction back to the session's initial row-level question. That
+violates FR-044/FR-046 and the recorded same-revision-context design. The same
+evidence projected the malformed reviewer payload as a second `writer`
+candidate. T126 therefore also restores the active instruction/revision context
+for review and derives the diagnostic raw-evidence role from the terminal model
+invocation/failure stage. These are contract-alignment fixes, not new repair
+rules or retries.
 
 ### G2.10 multi-source/lossless onboarding — WRITTEN TRACE COMPLETE; EVIDENCE OPEN
 

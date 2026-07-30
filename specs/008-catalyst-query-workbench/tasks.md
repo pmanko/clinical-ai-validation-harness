@@ -170,7 +170,7 @@ Gateway-ownership refactor is tracked separately in Phase 4.14.
 
 ## Phase 4.19 — Current-profile collaboration evidence repair
 
-- [ ] T126 Restore the comparative Gemma/Qwen profile's already-approved collaborative-review policy after the Gateway ownership move; on reviewer output-contract failure preserve the exact malformed reviewer output and the contract-valid writer as unselected evidence while leaving the effective base current; add focused regressions and rerun the reviewed-profile smoke before the complete T094/T095/T111 matrix
+- [ ] T126 Restore the comparative Gemma/Qwen profile's already-approved collaborative-review policy after the Gateway ownership move; give the reviewer the same current instruction and bounded revision context as the writer; on reviewer output-contract failure preserve and correctly label the exact malformed reviewer output and the contract-valid writer as unselected evidence while leaving the effective base current; add focused regressions and rerun the reviewed-profile smoke before the complete T094/T095/T111 matrix
 
 ## Phase 6 — W1 integrated validation
 
