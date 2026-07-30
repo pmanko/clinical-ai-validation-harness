@@ -14,14 +14,16 @@ composition, deterministic lint/repair/finalization, and query evidence.
 Med-Agent Hub exposes a generic `POST /v1/hub/generate` role executor and does
 not own Catalyst query profiles or their orchestration. Hub's separate
 clinical-answer/report profile engine is unchanged. The candidate umbrella pins
-are Catalyst `95515a2` (active #5 head) and Hub `198d5f6` (active #15 head).
+are Catalyst `be3f95c` (active #5 head) and Hub `198d5f6` (active #15 head).
 The 12/12 model/PostgreSQL matrix and bounded-failure recovery passed on
 Catalyst parent `bb36126` with the current Hub pin. Catalyst `95515a2` changes
 only the standalone fallback Hub SHA from `946afa9` to `198d5f6`; the umbrella
 runtime supplies the sibling Hub context and does not execute that fallback
 clone path. Focused pin/layout coverage and a clean candidate-head real-model/
-PostgreSQL smoke pass. Manual keyboard/zoom checks and explicit user acceptance
-remain open, so no merge occurs before that pause.
+PostgreSQL smoke pass. Catalyst `be3f95c` removes only the redundant assembly
+test that duplicated the old literal Hub SHA; the exact 38-test assembly command
+passes. Manual keyboard/zoom checks and explicit user acceptance remain open,
+so no merge occurs before that pause.
 
 The 2026-07-29 lightweight cross-artifact rerun found no unresolved
 CRITICAL/HIGH inconsistency after aligning the exact component revisions,
@@ -1398,6 +1400,10 @@ narrowing through the real model path and independent PostgreSQL/gold checks
 with Catalyst `95515a2` and Hub `198d5f6`. The completed 12/12 repetition matrix
 remains correctly attributed to direct parent `bb36126`; this scoped smoke
 establishes the one-line fallback-pin delta without relabelling that evidence.
+Catalyst `be3f95c` then removed the stale literal-SHA assertion rather than
+replacing it with another duplicated pin. The bootstrap behavior did not change,
+and the exact CI assembly command completes 38 tests with one expected local
+`psycopg` skip.
 
 ### G2.10 multi-source/lossless onboarding — WRITTEN TRACE COMPLETE; EVIDENCE OPEN
 

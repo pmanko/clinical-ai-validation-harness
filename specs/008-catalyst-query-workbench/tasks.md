@@ -147,7 +147,9 @@ Catalyst `bb36126`, and Hub `198d5f6`. Responsive 390/320 CSS-pixel and
 aligned the standalone fallback Hub SHA with `198d5f6`; focused umbrella
 pin/layout coverage passes 57/57, and clean umbrella `93689d5` run
 `4dd70443-ba23-4415-b0cd-d393d2352061` passed a scoped 1/1 real-model/
-PostgreSQL candidate-head smoke. T111 remains unchecked because actual
+PostgreSQL candidate-head smoke. Catalyst `be3f95c` then removed only the stale
+literal-Hub-SHA assembly assertion; the exact 38-test CI command is green with
+one expected local driver skip. T111 remains unchecked because actual
 keyboard-only Tab traversal, actual browser zoom, and explicit user acceptance
 remain open.
 

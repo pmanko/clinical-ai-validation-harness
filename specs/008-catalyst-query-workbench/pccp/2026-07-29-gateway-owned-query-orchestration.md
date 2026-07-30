@@ -35,11 +35,13 @@ Gateway:
 5. Hub's clinical-answer/report profiles remain a separate product surface and
    are not used as Catalyst query-profile discovery.
 
-The candidate component revisions are Catalyst `95515a2` (PR #5) and Hub
+The candidate component revisions are Catalyst `be3f95c` (PR #5) and Hub
 `198d5f6` (PR #15). Harness revision `e475d7a` pinned Catalyst parent
 `bb36126` and Hub `198d5f6` for the recorded T111 model/PostgreSQL evidence.
 Catalyst `95515a2` changes only the standalone fallback Hub SHA to match
 `198d5f6`; the umbrella sibling-Hub runtime does not execute that clone path.
+Catalyst `be3f95c` removes only a redundant assembly assertion that duplicated
+the old literal Hub SHA.
 
 ## Controlled behavior and invariants
 
@@ -137,6 +139,8 @@ checkpoint:
   57/57. Clean umbrella `93689d5` run
   `4dd70443-ba23-4415-b0cd-d393d2352061` passed a scoped 1/1 real-model/
   PostgreSQL narrowing smoke at Catalyst `95515a2` and Hub `198d5f6`.
+- Catalyst `be3f95c` changes no runtime code. The exact MVP assembly CI command
+  completes 38 tests with one expected local `psycopg` skip.
 - Run `cbc41bcd-56f7-4074-931f-98ed42fea202` passed 12/12 exact-current-pin
   live repetitions across narrowing, dirty-base aggregation/profile switching,
   unresolved correction, and distinct-patient semantics. Every successful data
