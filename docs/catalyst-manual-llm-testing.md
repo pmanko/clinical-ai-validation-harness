@@ -43,8 +43,11 @@ The URL is the OpenAI-compatible server root, without a trailing `/v1`. Then:
 make catalyst-mvp-external
 ```
 
-Open `http://localhost:3000` with the recommended configuration, or use the
-port set by `CATALYST_UI_PORT`. The first boot initializes the synthetic
+Open `http://localhost:13000`, or the port set by `CATALYST_UI_PORT`. The
+`make catalyst-mvp-*` targets run the isolated stack, which publishes the UI
+on `13000` and the gateway on `18000`; `3000` is Catalyst's own default, which
+applies only when running its compose directly from `targets/catalyst`. The
+first boot initializes the synthetic
 OpenELIS cohort and the governed analytics view, so it takes longer than later
 boots.
 
