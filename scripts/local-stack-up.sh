@@ -1,13 +1,15 @@
 #!/usr/bin/env bash
 # One-shot local dev bring-up after a reboot or Docker Desktop restart.
 #
-# Assumes the one-time setup is already done: Homebrew, Docker Desktop, uv,
-# Maven/Java, Node/yarn, llama.cpp installed; chartsearchai/querystore .omod
-# files and the chartsearchai ESM bundle already built into artifacts/;
-# .env.chartsearch configured; querystore backend already switched to
-# elasticsearch with bootstrap.autostart. This script does NOT rebuild any of
-# that — it just starts the processes/containers so the stack (and the
-# already-indexed patient data) comes back up as it was.
+# Fast-resume path: assumes `make chartsearchai-local` (or an equivalent
+# first build) already ran — chartsearchai/querystore .omod files, the
+# chartsearchai ESM bundle, and .env.chartsearch all already exist. This
+# script does NOT build, rebuild, or reconfigure anything; it only starts
+# what's already built, as fast as possible, and fails loudly instead of
+# reporting a partially-working stack as success.
+#
+# Use `make chartsearchai-local` instead whenever source under targets/
+# changed, or for first-time setup.
 #
 # Re-run anytime; every step is idempotent.
 
@@ -16,68 +18,102 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "${ROOT}"
 
-echo "==> Loading Homebrew environment"
+say() { printf '%s\n' "$*"; }
+fail() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
+
+wait_http() {
+  local label="$1" url="$2" timeout="$3" elapsed=0
+  until curl -fsS --max-time 3 "${url}" >/dev/null 2>&1; do
+    if [ "${elapsed}" -ge "${timeout}" ]; then
+      fail "${label} was not ready after ${timeout}s (${url})"
+    fi
+    sleep 2
+    elapsed=$((elapsed + 2))
+  done
+  say "    ${label}: ready"
+}
+
+wait_container() {
+  local label="$1" container="$2" timeout="$3" elapsed=0 status
+  while true; do
+    status="$(docker inspect -f '{{.State.Health.Status}}' "${container}" 2>/dev/null || echo starting)"
+    if [ "${status}" = "healthy" ]; then
+      say "    ${label}: healthy"
+      return
+    fi
+    if [ "${status}" = "unhealthy" ]; then
+      fail "${label} reported unhealthy; inspect: docker logs ${container}"
+    fi
+    if [ "${elapsed}" -ge "${timeout}" ]; then
+      fail "${label} was not healthy after ${timeout}s (last status: ${status})"
+    fi
+    sleep 5
+    elapsed=$((elapsed + 5))
+  done
+}
+
+[ -f .env.chartsearch ] || fail ".env.chartsearch not found. Copy .env.chartsearch.example and edit it, or run 'make chartsearchai-local' for first-time setup."
+set -a
+# shellcheck disable=SC1091
+. ./.env.chartsearch
+set +a
+
+command -v docker >/dev/null 2>&1 || fail "docker not found on PATH"
+command -v git >/dev/null 2>&1 || fail "git not found on PATH"
+[ -d targets/med-agent-hub/.git ] || [ -f targets/med-agent-hub/.git ] \
+  || fail "targets/med-agent-hub submodule not initialized (run: git submodule update --init)"
+HUB_BUILD_REVISION="$(git -C targets/med-agent-hub rev-parse HEAD)"
+export HUB_BUILD_REVISION
+
+say "==> Loading Homebrew environment"
 if [ -x /opt/homebrew/bin/brew ]; then
   eval "$(/opt/homebrew/bin/brew shellenv)"
 fi
 
-echo "==> Checking Docker Desktop"
+say "==> Checking Docker Desktop"
 if ! docker info >/dev/null 2>&1; then
-  echo "    starting Docker Desktop..."
-  open -a Docker
-  echo -n "    waiting for the daemon"
+  say "    starting Docker Desktop..."
+  open -a Docker 2>/dev/null || fail "Docker is not running and 'open -a Docker' failed — start Docker Desktop manually and re-run."
+  elapsed=0
   until docker info >/dev/null 2>&1; do
-    echo -n "."
+    if [ "${elapsed}" -ge 120 ]; then
+      fail "Docker did not become ready after 120s — check Docker Desktop."
+    fi
     sleep 2
+    elapsed=$((elapsed + 2))
   done
-  echo
 fi
-echo "    docker is up"
+say "    docker: ready"
 
-echo "==> Checking llama-router (:8077)"
-if curl -fsS -m 2 http://localhost:8077/v1/models >/dev/null 2>&1; then
-  echo "    already running"
+mkdir -p artifacts/llama-router
+ROUTER_URL="http://localhost:8077"
+ROUTER_PID_FILE="${ROOT}/artifacts/llama-router/router.pid"
+
+say "==> Checking llama-router (:8077)"
+if curl -fsS -m 2 "${ROUTER_URL}/v1/models" >/dev/null 2>&1; then
+  say "    already running"
 else
-  command -v llama-server >/dev/null 2>&1 || {
-    echo "ERROR: llama-server not on PATH (brew install llama.cpp)" >&2
-    exit 1
-  }
-  echo "    starting in background (log: /tmp/llama-router.log)"
-  nohup env LLAMA_ROUTER_MODELS_MAX="${LLAMA_ROUTER_MODELS_MAX:-4}" \
-    "${ROOT}/scripts/llama-router-up.sh" >/tmp/llama-router.log 2>&1 &
-  disown
-  for _ in $(seq 1 15); do
-    curl -fsS -m 2 http://localhost:8077/v1/models >/dev/null 2>&1 && break
-    sleep 1
-  done
+  command -v llama-server >/dev/null 2>&1 || fail "llama-server not on PATH (brew install llama.cpp)"
+  say "    starting in background (log: artifacts/llama-router/router.log)"
+  nohup env LLAMA_ROUTER_MODELS_MAX="${LLAMA_ROUTER_MODELS_MAX:-2}" \
+    "${ROOT}/scripts/llama-router-up.sh" \
+    >artifacts/llama-router/router.log 2>&1 &
+  echo "$!" >"${ROUTER_PID_FILE}"
+  wait_http "llama-router" "${ROUTER_URL}/v1/models" 60
 fi
 
-echo "==> Bringing up the Docker Compose stack"
-set -a
-[ -f .env.chartsearch ] && . ./.env.chartsearch
-set +a
-docker compose -f compose/openmrs-2.8-refapp.yml up -d
+say "==> Bringing up the Docker Compose stack (no build — fast-resume only)"
+./scripts/stack-up.sh --no-build \
+  || fail "stack-up.sh failed — an image may be missing. Run 'make chartsearchai-local' to build it first."
 
-echo "==> Waiting for the OpenMRS backend to become healthy"
-observed=0
-for i in $(seq 1 60); do
-  status=$(docker inspect -f '{{.State.Health.Status}}' harness-openmrs-backend 2>/dev/null || echo starting)
-  if [ "${status}" = "healthy" ]; then
-    echo "    healthy after $((i * 5))s"
-    observed=1
-    break
-  fi
-  sleep 5
-done
-if [ "${observed}" != "1" ]; then
-  echo "WARNING: backend not healthy after 5 min — check: docker compose -f compose/openmrs-2.8-refapp.yml logs backend" >&2
-fi
+wait_container "OpenMRS backend" harness-openmrs-backend 300
+wait_http "OpenMRS proxy" "http://127.0.0.1:${HARNESS_PROXY_HTTP_PORT:-8088}/__proxy_health" 120
 
 cat <<EOF
 
 Stack is up:
-  OpenMRS SPA:   http://localhost:8088/openmrs/spa   (admin / Admin123)
-  llama-router:  http://localhost:8077/v1/models
+  OpenMRS SPA:   http://localhost:${HARNESS_PROXY_HTTP_PORT:-8088}/openmrs/spa   (admin / Admin123)
+  llama-router:  ${ROUTER_URL}/v1/models
   Elasticsearch: http://localhost:9200/_cat/indices?v
 
 Stop everything with: scripts/local-stack-down.sh

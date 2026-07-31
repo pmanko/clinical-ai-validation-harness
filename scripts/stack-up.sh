@@ -7,6 +7,7 @@
 #   ./scripts/stack-up.sh db           # just db
 #   ./scripts/stack-up.sh db backend   # subset
 #   ./scripts/stack-up.sh --wait       # all + wait for backend health
+#   ./scripts/stack-up.sh --no-build   # never build images; fail if one is missing
 #
 # Idempotent: re-running with the stack already up is a no-op (docker compose's behavior).
 set -euo pipefail
@@ -19,14 +20,23 @@ fi
 export MED_AGENT_HUB_UID="${MED_AGENT_HUB_UID:-$(id -u)}"
 export MED_AGENT_HUB_GID="${MED_AGENT_HUB_GID:-$(id -g)}"
 WAIT=0
+NOBUILD=0
 SVCS=()
 for arg in "$@"; do
   case "$arg" in
     --wait) WAIT=1 ;;
+    --no-build) NOBUILD=1 ;;
     *) SVCS+=("$arg") ;;
   esac
 done
-docker compose -f "$COMPOSE_FILE" up -d "${SVCS[@]}"
+UP_ARGS=(up -d)
+[[ "$NOBUILD" == "1" ]] && UP_ARGS+=(--no-build)
+# "${SVCS[@]+"${SVCS[@]}"}" (not "${SVCS[@]}"): macOS ships bash 3.2, which
+# raises "unbound variable" expanding an empty array under `set -u`. Note this
+# must be the `+` alternate-value form, not `${SVCS[@]-}` — that substitutes
+# a single empty-string argument when SVCS is empty (Compose then sees a
+# blank service name), whereas `+` correctly yields zero arguments.
+docker compose -f "$COMPOSE_FILE" "${UP_ARGS[@]}" "${SVCS[@]+"${SVCS[@]}"}"
 if [[ "$WAIT" == "1" ]] || [[ "${#SVCS[@]}" -eq 0 ]]; then
   echo "Waiting for backend health (this can take 5-10 min on first boot)..."
   for i in $(seq 1 600); do

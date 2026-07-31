@@ -175,6 +175,22 @@ make chartsearch-doctor              # verify router, hub profile metadata, and 
 make chartsearch-backend BACKEND=elasticsearch   # or lucene | mysql
 ```
 
+**Fast-resume vs. `chartsearchai-local`.** `make chartsearchai-local` is the canonical entrypoint for
+first-time setup and for picking up source changes under `targets/` — it detects staleness, rebuilds the
+`.omod`/ESM artifacts as needed, and reconfigures the relay. On a day-to-day dev machine where nothing
+under `targets/` changed since the last session, that staleness-checking has real overhead (module hash
+comparisons, an ESM freshness check, service-account provisioning). `make local-stack-up` /
+`make local-stack-down` are a narrower, faster path for that common case: they start/stop Docker Desktop,
+llama-router, and the already-built compose stack with **no builds and no reconfiguration**, and fail
+loudly instead of reporting a partially-working stack as ready. Reach for `chartsearchai-local` after
+pulling new commits or editing a submodule; reach for `local-stack-up`/`local-stack-down` for the daily
+"turn it back on" / "turn it off" cycle in between.
+
+```bash
+make local-stack-up      # start Docker Desktop, llama-router, and the compose stack (no build)
+make local-stack-down    # stop the compose stack + llama-router; Docker volumes are preserved
+```
+
 **Provider and profile selection.** The final ESM shows no picker with bundled-only configuration.
 With hub configured, it shows a provider choice first and the provider's supported profile/mode choices
 second. Unready configured providers remain visibly disabled; the UI never invents raw model choices or

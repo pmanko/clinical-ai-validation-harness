@@ -14,4 +14,9 @@ for arg in "$@"; do
     *) echo "unknown arg: $arg" >&2; exit 1 ;;
   esac
 done
-docker compose -f "$COMPOSE_FILE" down "${EXTRA[@]}"
+# "${EXTRA[@]+"${EXTRA[@]}"}" (not "${EXTRA[@]}"): macOS ships bash 3.2, which
+# raises "unbound variable" expanding an empty array under `set -u`. Note this
+# must be the `+` alternate-value form, not `${EXTRA[@]-}` — that substitutes
+# a single empty-string argument when EXTRA is empty (Compose then sees a
+# blank service name), whereas `+` correctly yields zero arguments.
+docker compose -f "$COMPOSE_FILE" down "${EXTRA[@]+"${EXTRA[@]}"}"
