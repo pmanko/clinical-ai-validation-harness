@@ -62,6 +62,7 @@ def test_router_launcher_forwards_configured_small_model_limit(tmp_path):
     model_dir.mkdir()
     home = tmp_path / "home"
     home.mkdir()
+    runtime_dir = tmp_path / "runtime"
     env = os.environ.copy()
     env.update(
         {
@@ -70,6 +71,7 @@ def test_router_launcher_forwards_configured_small_model_limit(tmp_path):
             "LLAMA_ARGS_CAPTURE": str(capture),
             "LLAMA_MODEL_DIR": str(model_dir),
             "LLAMA_ROUTER_MODELS_MAX": configured,
+            "LLAMA_ROUTER_RUNTIME_DIR": str(runtime_dir),
         }
     )
 
@@ -87,6 +89,60 @@ def test_router_launcher_forwards_configured_small_model_limit(tmp_path):
     assert args[args.index("--models-preset") + 1] == str(
         ROOT / "scripts/llama-router.ini"
     )
+
+
+def test_router_launcher_does_not_mutate_the_real_runtime_symlink(tmp_path):
+    """A prior version of this script hardcoded its runtime symlink to
+    `${ROOT}/artifacts/llama-router/models` with no override, so any test that ran the
+    real script against the real ROOT (as the test above does, to observe the argv it
+    forwards) repointed the LIVE repo's runtime symlink at the test's disposable
+    tmp_path. Once pytest cleaned that tmp_path up, every subsequent JIT model load
+    through the real router failed with "failed to load" for any model not already
+    resident in a running llama-server. LLAMA_ROUTER_RUNTIME_DIR must isolate the
+    runtime symlink from the real repo without needing a full ROOT copy."""
+    real_runtime_models = ROOT / "artifacts/llama-router/models"
+
+    def runtime_state() -> tuple[str, str | None]:
+        if real_runtime_models.is_symlink():
+            return ("symlink", os.readlink(real_runtime_models))
+        if real_runtime_models.exists():
+            return ("path", str(real_runtime_models.stat().st_mode))
+        return ("missing", None)
+
+    before = runtime_state()
+
+    fake_bin = tmp_path / "bin"
+    fake_bin.mkdir()
+    llama_server = fake_bin / "llama-server"
+    llama_server.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+    llama_server.chmod(0o755)
+    model_dir = tmp_path / "models"
+    model_dir.mkdir()
+    home = tmp_path / "home"
+    home.mkdir()
+    runtime_dir = tmp_path / "runtime"
+    env = os.environ.copy()
+    env.update(
+        {
+            "HOME": str(home),
+            "PATH": f"{fake_bin}{os.pathsep}{env['PATH']}",
+            "LLAMA_MODEL_DIR": str(model_dir),
+            "LLAMA_ROUTER_RUNTIME_DIR": str(runtime_dir),
+        }
+    )
+
+    subprocess.run(
+        ["bash", str(ROOT / "scripts/llama-router-up.sh")],
+        cwd=ROOT,
+        env=env,
+        check=True,
+    )
+
+    assert runtime_state() == before, (
+        "scripts/llama-router-up.sh mutated the real runtime symlink instead of "
+        "honoring LLAMA_ROUTER_RUNTIME_DIR"
+    )
+    assert (runtime_dir / "models").resolve() == model_dir.resolve()
 
 
 def test_chartsearch_configure_writes_only_current_hub_properties():
@@ -283,9 +339,9 @@ def test_local_startup_proves_the_real_openmrs_relay_and_persistence():
     assert 'f"{api}/chat/stream"' in probe
     assert 'f"{api}/chat?' in probe
     assert 'row.get("messageId") == streamed["message_id"]' in probe
-    assert 'row.get("auditLogId") == streamed["audit_log_id"]' in probe
+    assert 'hydrated_audit_log_id != streamed["stream_audit_log_id"]' in probe
     assert 'hydrated_envelope_sha256 == streamed["final_envelope_sha256"]' in probe
-    assert 'event == "done"' in probe
+    assert 'event == "turn_done"' in probe
     assert '"chartsearchai_relay_probe.v2"' in probe
     assert 'f"{api}/chat/new"' in probe
     assert '"runtime_identity"' in probe
@@ -298,6 +354,11 @@ def test_local_builds_require_source_bound_artifact_provenance():
     probe = _read("scripts/probe-chartsearchai-relay.py")
 
     assert makefile.count("artifact-provenance.py write") >= 3
+    assert "artifacts/chartsearchai-local/module-provenance" in makefile
+    assert 'CHARTSEARCH_OMOD_PROVENANCE="artifacts/chartsearchai-local/module-provenance/chartsearchai-1.0.0-SNAPSHOT.omod.provenance.json"' in local
+    assert 'QUERYSTORE_OMOD_PROVENANCE="artifacts/chartsearchai-local/module-provenance/querystore-1.0.0-SNAPSHOT.omod.provenance.json"' in local
+    assert "artifacts/chartsearchai-local/module-provenance" in probe
+    assert "remove_legacy_module_manifests" in local
     assert "artifact-provenance.py verify" in local
     assert "DEPLOYED_CHARTSEARCH_PROVENANCE" in local
     assert '"mounted_sha256"' in probe
@@ -353,7 +414,7 @@ def test_existing_router_is_checked_before_local_binary_and_model_requirements()
 def test_check_reuses_existing_router_without_selecting_a_profile(tmp_path):
     fake_bin = tmp_path / "bin"
     fake_bin.mkdir()
-    for name in ("curl", "docker"):
+    for name in ("curl", "docker", "python3"):
         command = fake_bin / name
         command.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
         command.chmod(0o755)
