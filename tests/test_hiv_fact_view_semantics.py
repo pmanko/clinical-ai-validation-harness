@@ -19,6 +19,9 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 FACT_SQL = ROOT / "catalyst-sources" / "openmrs-hiv" / "sql" / "001_analytics_hiv_v1.sql"
+INGESTION_SCRIPT = (
+    ROOT / "catalyst-sources" / "openmrs-hiv" / "run-ingestion.sh"
+)
 
 DEFAULT_DSN = (
     "postgresql://catalyst_analytics_writer:demo-only-change-me"
@@ -109,6 +112,21 @@ def _connect(dsn, **kwargs):
     import psycopg
 
     return psycopg.connect(dsn, **kwargs)
+
+
+class HivIngestionScriptContractTests(unittest.TestCase):
+    def test_controller_readiness_retries_transient_http_errors(self):
+        script = INGESTION_SCRIPT.read_text(encoding="utf-8")
+
+        self.assertIn(
+            "curl -fsS --retry-all-errors --retry-connrefused --retry 60",
+            script,
+        )
+        self.assertIn("--retry-delay 3 --retry-max-time 180 --max-time 5", script)
+        self.assertIn(
+            '"http://localhost:${CONTROLLER_PORT}/actuator/health" | grep -q UP',
+            script,
+        )
 
 
 class HivFactViewSemanticsTests(unittest.TestCase):

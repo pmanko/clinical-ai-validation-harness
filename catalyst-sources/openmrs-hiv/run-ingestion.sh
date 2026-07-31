@@ -52,7 +52,8 @@ docker run -d --name hiv-data-pipes \
   -e FHIRDATA_NUMTHREADS=1 \
   -p "127.0.0.1:${CONTROLLER_PORT}:8080" \
   "${IMAGE}" >/dev/null
-curl -s --retry-connrefused --retry 40 --retry-delay 3 --retry-max-time 180 --max-time 5 \
+curl -fsS --retry-all-errors --retry-connrefused --retry 60 \
+  --retry-delay 3 --retry-max-time 180 --max-time 5 \
   "http://localhost:${CONTROLLER_PORT}/actuator/health" | grep -q UP
 
 echo "==> trigger FULL run and wait"

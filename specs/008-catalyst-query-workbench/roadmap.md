@@ -1429,6 +1429,21 @@ catalog code. Those facts establish an implementation candidate, not acceptance.
   explicit acceptance before describing multi-source/lossless onboarding as
   complete or using it in release evidence.
 
+**2026-07-31 provisioning checkpoint (partial evidence only):** the isolated
+stack exposed `openmrs-hiv` from its committed registry/catalog before the
+separate `catalyst_analytics_hiv` database had been provisioned, so dataset
+overview/rows returned 502 while the schema catalog remained readable. A real
+FHIR Data Pipes FULL run then fetched exactly 427,920/427,920 live OpenMRS
+Observations, applied the curated SQL, recorded pipeline run
+`hiv-20260731T000741Z`, and regenerated the catalog byte-identically. After a
+Gateway restart, data-source discovery, overview (5,285 patients; 427,915
+queryable observations; 143 concept types), rows, and the 12-relation editor
+catalog all returned 200. The ingestion runbook now retries transient HTTP
+startup failures from the controller and has a focused regression guard.
+This proves the source can be provisioned and read, but does not close T121:
+pre-provision registry availability is still broader than database readiness,
+and the complete two-source transition/staleness/execution matrix remains open.
+
 ## W2 — Targeted remediation
 
 **Status:** Planned
