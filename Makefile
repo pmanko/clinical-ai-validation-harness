@@ -11,7 +11,7 @@ export UV_PROJECT_ENVIRONMENT
         load-test orphan-fk-check import-smoke dump-loaded promote \
         chartsearch-build querystore-build openmrs-source-pair-build openmrs-source-pair-test repository-lines-check repository-lines-pr-check deployed-sources-check querystore-recreate-index chartsearch-configure querystore-configure chartsearch-backend chartsearch-doctor chartsearchai-local dual-provider-up \
         chartsearch-esm-build chartsearch-esm-dev \
-        llama-router-up llama-router-models \
+        llama-router-up llama-router-down llama-router-models \
         med-agent-hub-build med-agent-hub-up med-agent-hub-logs med-agent-hub-restart med-agent-hub-test chartsearch-test chartsearch-e2e-low-confidence querystore-test querystore-test-integration querystore-reindex \
         dashboard-ensure dashboard-restart validate-preflight validate-run validate-judge-prep validate-judge-finalize validate-publish \
         cloud-init cloud-sync cloud-down cloud-seed \
@@ -205,6 +205,9 @@ llama-router-up:
 	  echo "ERROR: 'llama-server' not on PATH — install llama.cpp (build 9430+) first."; exit 1; }; \
 	echo "==> llama-router on :8077 (tier=$(LLAMA_ROUTER_TIER), models-max=$$MAX) — Ctrl-C to stop"; \
 	LLAMA_ROUTER_MODELS_MAX=$$MAX ./scripts/llama-router-up.sh
+
+llama-router-down:
+	@./scripts/llama-router-down.sh
 
 # Probe what the router is serving (the picker's llama-server section + the tiers
 # med-agent-hub maps onto). Fails clearly when :8077 is down.
