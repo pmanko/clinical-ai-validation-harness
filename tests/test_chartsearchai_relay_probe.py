@@ -1019,6 +1019,8 @@ def test_runtime_identity_binds_built_and_deployed_artifacts(tmp_path, monkeypat
         lambda repo: {"commit": f"{repo.name}-commit", "tree_clean": True},
     )
 
+    hub_revision = ["med-agent-hub-commit"]
+
     def check_output(args, **_kwargs):
         if args[:3] == ["git", "rev-parse", "HEAD^{tree}"]:
             return "tree-sha\n"
@@ -1030,9 +1032,7 @@ def test_runtime_identity_binds_built_and_deployed_artifacts(tmp_path, monkeypat
                     {
                         "Config": {
                             "Labels": {
-                                "org.opencontainers.image.revision": (
-                                    "med-agent-hub-commit"
-                                )
+                                "org.opencontainers.image.revision": hub_revision[0]
                             }
                         }
                     }
@@ -1072,6 +1072,10 @@ def test_runtime_identity_binds_built_and_deployed_artifacts(tmp_path, monkeypat
         "app.js": probe._sha256(esm / "app.js"),
         "importmap.json": probe._sha256(esm / "importmap.json"),
     }
+
+    hub_revision[0] = "stale-hub-commit"
+    with pytest.raises(RuntimeError, match="running med-agent-hub image"):
+        probe._runtime_identity("http://openmrs/openmrs")
 
 
 def test_probe_cli_writes_requested_output(tmp_path, monkeypatch, capsys):
@@ -1113,6 +1117,22 @@ def test_probe_cli_writes_requested_output(tmp_path, monkeypatch, capsys):
     assert calls[1][2]["profile"] == "single-e4b-checked"
     assert json.loads(output.read_text(encoding="utf-8")) == result
     assert json.loads(capsys.readouterr().out) == result
+
+
+def test_probe_cli_can_verify_runtime_identity_without_a_patient(monkeypatch, capsys):
+    identity = {"deployment": {"revision": "hub-commit"}}
+    monkeypatch.setattr(probe, "_runtime_identity", lambda _url: identity)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["probe-chartsearchai-relay.py", "--identity-only"],
+    )
+
+    assert probe.main() == 0
+    assert json.loads(capsys.readouterr().out) == {
+        "schema_version": "chartsearchai_runtime_identity.v1",
+        "runtime_identity": identity,
+    }
 
 
 def test_probe_discovers_the_openmrs_relayed_product_default(monkeypatch):

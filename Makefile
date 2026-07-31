@@ -9,7 +9,7 @@ export UV_PROJECT_ENVIRONMENT
         reset-transform sqlmesh-status \
         loadtest-up loadtest-down \
         load-test orphan-fk-check import-smoke dump-loaded promote \
-        chartsearch-build querystore-build openmrs-source-pair-build openmrs-source-pair-test querystore-recreate-index chartsearch-configure querystore-configure chartsearch-backend chartsearch-doctor chartsearchai-local dual-provider-up \
+        chartsearch-build querystore-build openmrs-source-pair-build openmrs-source-pair-test repository-lines-check repository-lines-pr-check deployed-sources-check querystore-recreate-index chartsearch-configure querystore-configure chartsearch-backend chartsearch-doctor chartsearchai-local dual-provider-up \
         chartsearch-esm-build chartsearch-esm-dev \
         llama-router-up llama-router-models \
         med-agent-hub-build med-agent-hub-up med-agent-hub-logs med-agent-hub-restart med-agent-hub-test chartsearch-test chartsearch-e2e-low-confidence querystore-test querystore-test-integration querystore-reindex \
@@ -144,6 +144,20 @@ openmrs-source-pair-build: chartsearch-build
 # first so ChartSearchAI cannot pass against an older cached snapshot API.
 openmrs-source-pair-test:
 	./scripts/openmrs-source-pair-test.sh
+
+# Confirm that owned repositories are on main and OpenMRS companion repositories
+# exactly match their harness-integration heads. The PR form permits only the
+# harness itself to be on its current pull-request branch.
+repository-lines-check:
+	./scripts/verify-repository-lines.sh
+
+repository-lines-pr-check:
+	./scripts/verify-repository-lines.sh --allow-harness-branch
+
+# Verify that staged, mounted, and served OpenMRS artifacts plus the running hub
+# image were all built from the source revisions currently pinned by this repo.
+deployed-sources-check: repository-lines-check
+	$(UV) run python scripts/probe-chartsearchai-relay.py --identity-only
 
 # Build the chartsearchai frontend ESM from the pinned submodule and stage
 # it under artifacts/openmrs/spa-custom/. Caddy serves both the bundle

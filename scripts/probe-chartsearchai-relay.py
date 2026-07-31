@@ -253,16 +253,22 @@ def _runtime_identity(openmrs_url: str) -> dict[str, Any]:
         raise RuntimeError("served ChartSearchAI import-map target is not the staged bundle")
     artifacts["chartsearchai_esm"]["import_map_target"] = import_target
     artifacts["chartsearchai_esm"]["served_files"] = served_files
-    return {
+    source_revisions = {
         "harness": _git_identity(ROOT),
         "med_agent_hub": _git_identity(ROOT / "targets/med-agent-hub"),
         "chartsearchai": _git_identity(ROOT / "targets/chartsearchai"),
         "chartsearchai_esm": _git_identity(ROOT / "targets/chartsearchai-esm"),
         "querystore": _git_identity(ROOT / "targets/querystore"),
+    }
+    deployed_hub_revision = labels.get("org.opencontainers.image.revision")
+    if deployed_hub_revision != source_revisions["med_agent_hub"]["commit"]:
+        raise RuntimeError("running med-agent-hub image does not match the pinned source")
+    return {
+        **source_revisions,
         "deployment": {
             "container_id": container["Id"],
             "image_id": image_id,
-            "revision": labels.get("org.opencontainers.image.revision"),
+            "revision": deployed_hub_revision,
         },
         "artifacts": artifacts,
         "configuration": {
@@ -715,7 +721,12 @@ def probe_relay(
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--openmrs-url", default="http://127.0.0.1:8088/openmrs")
-    parser.add_argument("--patient", required=True)
+    parser.add_argument("--patient")
+    parser.add_argument(
+        "--identity-only",
+        action="store_true",
+        help="Verify and print deployed source/artifact identity without an LLM request.",
+    )
     parser.add_argument(
         "--provider",
         default="hub",
@@ -732,6 +743,19 @@ def main() -> int:
     parser.add_argument("--clear-after", action="store_true")
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
+
+    if args.identity_only:
+        result = {
+            "schema_version": "chartsearchai_runtime_identity.v1",
+            "runtime_identity": _runtime_identity(args.openmrs_url),
+        }
+        if args.output:
+            args.output.parent.mkdir(parents=True, exist_ok=True)
+            args.output.write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
+        print(json.dumps(result, sort_keys=True))
+        return 0
+    if not args.patient:
+        parser.error("--patient is required unless --identity-only is used")
 
     profile = args.profile or discover_default_profile(
         args.openmrs_url,
