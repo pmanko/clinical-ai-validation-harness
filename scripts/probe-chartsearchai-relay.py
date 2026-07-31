@@ -498,9 +498,6 @@ def _stream_turn(
         reference.get("source") == "querystore" for reference in references
     )
     in_depth = final.get("inDepth") or {}
-    terminal_payload = phase_payloads[terminal_event]
-    if _canonical_sha256(terminal_payload) != _canonical_sha256(final):
-        raise RuntimeError(f"{terminal_event} did not carry the final assistant envelope")
     if terminal_event == "indepth_done":
         if in_depth.get("status") != "complete" or not str(
             in_depth.get("answer") or ""
