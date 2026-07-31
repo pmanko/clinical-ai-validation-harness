@@ -101,8 +101,15 @@ def test_router_launcher_does_not_mutate_the_real_runtime_symlink(tmp_path):
     resident in a running llama-server. LLAMA_ROUTER_RUNTIME_DIR must isolate the
     runtime symlink from the real repo without needing a full ROOT copy."""
     real_runtime_models = ROOT / "artifacts/llama-router/models"
-    assert real_runtime_models.is_symlink(), "expected the real runtime symlink to pre-exist"
-    before = real_runtime_models.resolve()
+
+    def runtime_state() -> tuple[str, str | None]:
+        if real_runtime_models.is_symlink():
+            return ("symlink", os.readlink(real_runtime_models))
+        if real_runtime_models.exists():
+            return ("path", str(real_runtime_models.stat().st_mode))
+        return ("missing", None)
+
+    before = runtime_state()
 
     fake_bin = tmp_path / "bin"
     fake_bin.mkdir()
@@ -131,7 +138,7 @@ def test_router_launcher_does_not_mutate_the_real_runtime_symlink(tmp_path):
         check=True,
     )
 
-    assert real_runtime_models.resolve() == before, (
+    assert runtime_state() == before, (
         "scripts/llama-router-up.sh mutated the real runtime symlink instead of "
         "honoring LLAMA_ROUTER_RUNTIME_DIR"
     )
@@ -407,7 +414,7 @@ def test_existing_router_is_checked_before_local_binary_and_model_requirements()
 def test_check_reuses_existing_router_without_selecting_a_profile(tmp_path):
     fake_bin = tmp_path / "bin"
     fake_bin.mkdir()
-    for name in ("curl", "docker"):
+    for name in ("curl", "docker", "python3"):
         command = fake_bin / name
         command.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
         command.chmod(0o755)
