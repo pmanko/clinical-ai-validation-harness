@@ -24,7 +24,8 @@ jobs:
 
       - name: ShellCheck the compose-lifecycle scripts
         run: |
-          shellcheck \
+          docker run --rm -v "$PWD:/mnt:ro" -w /mnt \
+            koalaman/shellcheck:v0.11.0@sha256:61862eba1fcf09a484ebcc6feea46f1782532571a34ed51fedf90dd25f925a8d \
             scripts/stack-up.sh \
             scripts/stack-down.sh \
             scripts/local-stack-up.sh \

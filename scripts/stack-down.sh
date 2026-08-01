@@ -7,6 +7,7 @@
 #   ./scripts/stack-down.sh --volumes   # stop AND nuke volumes (fresh on next up)
 set -euo pipefail
 COMPOSE_FILE="${COMPOSE_FILE:-compose/openmrs-2.8-refapp.yml}"
+COMPOSE_ENV_FILE="${COMPOSE_ENV_FILE:-}"
 EXTRA=()
 for arg in "$@"; do
   case "$arg" in
@@ -14,9 +15,11 @@ for arg in "$@"; do
     *) echo "unknown arg: $arg" >&2; exit 1 ;;
   esac
 done
-# "${EXTRA[@]+"${EXTRA[@]}"}" (not "${EXTRA[@]}"): macOS ships bash 3.2, which
-# raises "unbound variable" expanding an empty array under `set -u`. Note this
-# must be the `+` alternate-value form, not `${EXTRA[@]-}` — that substitutes
-# a single empty-string argument when EXTRA is empty (Compose then sees a
-# blank service name), whereas `+` correctly yields zero arguments.
-docker compose -f "$COMPOSE_FILE" down "${EXTRA[@]+"${EXTRA[@]}"}"
+COMPOSE=(docker compose)
+if [[ -n "${COMPOSE_ENV_FILE}" ]]; then
+  COMPOSE+=(--env-file "${COMPOSE_ENV_FILE}")
+fi
+COMPOSE+=(-f "${COMPOSE_FILE}")
+# The alternate-value form expands to zero arguments for an empty array under
+# macOS Bash 3.2 + `set -u`; plain "${EXTRA[@]}" raises "unbound variable".
+"${COMPOSE[@]}" down "${EXTRA[@]+"${EXTRA[@]}"}"
