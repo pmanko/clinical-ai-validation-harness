@@ -121,12 +121,14 @@
 
 ### Tests for User Story 4
 
-- [ ] T033 [P] [US4] Gap-log entry test: an unreachable HAPI surface (the current, verified real state) produces one non-blocking gap-log entry per resource read, and a reachable-but-differing resource produces a divergence entry with both surfaces' status, in `targets/catalyst/catalyst-mcp/tests/test_parity_probe.py`
+- [x] T033 [P] [US4] Gap-log entry test: an unreachable HAPI surface (the current, verified real state) produces one non-blocking gap-log entry per resource read, and a reachable-but-differing resource produces a divergence entry with both surfaces' status, in `targets/catalyst/catalyst-mcp/tests/test_parity_probe.py`
 
 ### Implementation for User Story 4
 
-- [ ] T034 [US4] Implement the parity probe (replays the five canonical questions' underlying FHIR reads against HAPI, compares to the embedded-surface result, writes `artifacts/<run_id>/catalyst_gap_log.jsonl` per the Gap-Log Entry shape in data-model.md) in `targets/catalyst/catalyst-mcp/src/tools/parity_probe.py` (depends on T015, T033)
-- [ ] T035 [US4] Run the parity probe against the live local stack and confirm it records the real HAPI mTLS-unreachable gap without touching Story 1's answers (depends on T034)
+- [x] T034 [US4] Implement the parity probe (replays the five canonical questions' underlying FHIR reads against HAPI, compares to the embedded-surface result, writes `artifacts/<run_id>/catalyst_gap_log.jsonl` per the Gap-Log Entry shape in data-model.md) in `targets/catalyst/catalyst-mcp/src/tools/parity_probe.py` (depends on T015, T033)
+- [x] T035 [US4] Run the parity probe against the live local stack and confirm it records the real HAPI mTLS-unreachable gap without touching Story 1's answers (depends on T034)
+
+**Checkpoint**: All four user stories independently functional. **Verified**: 5/5 parity-probe tests pass against the real live stack — every probed resource type (Patient, ServiceRequest, Observation, DiagnosticReport) for the known fixture patient correctly records the real captured SSL error (`SSLV3_ALERT_BAD_CERTIFICATE`) as a non-blocking gap-log entry; the probe is read-only/idempotent and never touches Story 1's answers.
 
 **Checkpoint**: All four user stories independently functional.
 
