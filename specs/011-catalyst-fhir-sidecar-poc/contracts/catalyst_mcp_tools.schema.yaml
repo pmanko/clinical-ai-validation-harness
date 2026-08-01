@@ -1,0 +1,114 @@
+schema_version: 1
+kind: CatalystMcpFhirTools
+description: >-
+  The seven FHIR-backed MCP tools catalyst-mcp exposes for the FHIR sidecar
+  POC (spec FR-003, FR-004). These replace the current mocked
+  get_query_context/validate_sql pair as the hot-path data-access surface;
+  Catalyst's agent layer MUST call these via the MCP protocol, not the
+  existing stub mcp_client.get_schema() bypass. get_query_context and
+  validate_sql remain available (SQL path deferred, not removed) but are not
+  required by any of the five canonical questions.
+
+primary_surface: >-
+  OE2 embedded FHIR provider (/OpenELIS-Global/fhir/*, HTTP Basic auth,
+  credentials admin:adminADMIN! in local dev). Corrected from an original
+  HAPI-first assumption after verification; see research.md items 3 and 5.
+  Requires OE2's manual FHIR backfill (GET /OpenELIS-Global/OEToFhir,
+  authenticated) to have run at least once per changed record — sync is not
+  automatic in this deployment (transformOnStartup=false).
+fallback_surface: >-
+  OE2 HAPI FHIR sidecar (fhir.openelis.org) — parity probe only (Story 4), not
+  the answer path. Currently unreachable in local dev: its TLS listener
+  requires a client certificate this POC does not provision (verified via
+  curl -v: TLS handshake halts at "Request CERT" / "bad certificate").
+
+tools:
+  search_patient:
+    description: Search for patients by name or identifier.
+    parameters:
+      query:
+        type: string
+        description: Name fragment or identifier value.
+    returns:
+      type: object
+      description: FHIR Bundle of type searchset containing zero or more Patient resources.
+    ambiguity_handling: >-
+      MUST return all matches rather than silently picking one (spec Edge
+      Cases); the calling agent is responsible for disambiguation with the
+      reviewer or by using additional identifier context.
+
+  get_patient_context:
+    description: Demographic + identifier summary for a single patient.
+    parameters:
+      patient_id:
+        type: string
+    returns:
+      type: object
+      description: A single Patient resource, or an explicit not-found result.
+
+  get_service_requests:
+    description: Lab orders for a patient.
+    parameters:
+      patient_id:
+        type: string
+      date_range:
+        type: object
+        required: false
+        properties:
+          start: { type: string, format: date }
+          end: { type: string, format: date }
+    returns:
+      type: object
+      description: FHIR Bundle of ServiceRequest resources.
+
+  get_observations:
+    description: Lab result Observation resources for a patient.
+    parameters:
+      patient_id:
+        type: string
+      test_code:
+        type: string
+        required: false
+        description: Optional LOINC or local test-code filter.
+    returns:
+      type: object
+      description: FHIR Bundle of Observation resources.
+
+  get_diagnostic_reports:
+    description: DiagnosticReport resources for a patient.
+    parameters:
+      patient_id:
+        type: string
+    returns:
+      type: object
+      description: FHIR Bundle of DiagnosticReport resources.
+
+  get_resource_by_reference:
+    description: Resolve an arbitrary FHIR reference.
+    parameters:
+      reference:
+        type: string
+        pattern: "^[A-Za-z]+/[^/]+$"
+        description: "ResourceType/id, e.g. Observation/12345."
+    returns:
+      type: object
+      description: The single resolved resource, or an explicit not-found result (never a fabricated stand-in).
+
+  build_patient_lab_timeline:
+    description: Chronological merge of Observation + DiagnosticReport for a patient.
+    parameters:
+      patient_id:
+        type: string
+    returns:
+      type: array
+      description: Time-ordered list of LabTimelineEvent shapes (see data-model.md), each carrying resourceType, id, display, date, and abnormal flag.
+
+error_handling:
+  unreachable_surface: >-
+    If the configured FHIR surface (HAPI or embedded) is unreachable or times
+    out, tools MUST return an explicit error result the calling agent can
+    convert into an abstention (spec FR-008) rather than raising an
+    unstructured exception that reaches the reviewer as a stack trace.
+  unresolvable_reference: >-
+    get_resource_by_reference on a reference that does not resolve MUST
+    return an explicit not-found result, not an empty/default resource.

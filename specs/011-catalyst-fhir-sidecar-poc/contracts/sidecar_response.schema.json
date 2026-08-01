@@ -1,0 +1,137 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://clinical-ai-validation-harness/specs/011-catalyst-fhir-sidecar-poc/contracts/sidecar_response.schema.json",
+  "title": "CatalystSidecarResponse",
+  "description": "Response contract for catalyst-gateway's /v1/chat/completions when serving a Catalyst FHIR sidecar question. Additive over a standard OpenAI-style chat completion: 'answer' mirrors choices[0].message.content so generic OpenAI clients keep working; facts/citations/uiBlocks/provenance are Catalyst-specific fields read by the sidecar UI and the harness adapter (feature 011).",
+  "type": "object",
+  "required": ["answer", "citations", "provenance"],
+  "properties": {
+    "answer": {
+      "type": "string",
+      "description": "LLM-generated answer text. Inline citation markers (e.g. '[O/1]', '[SR/2]') reference citations[] by 1-based index and resource-type shorthand."
+    },
+    "facts": {
+      "type": "array",
+      "description": "Compact facts extracted from cited FHIR resources; advisory (LLM-derived), not the source of truth for grounding — citations[] is.",
+      "items": {
+        "type": "object",
+        "required": ["text", "source_ref"],
+        "properties": {
+          "text": { "type": "string" },
+          "source_ref": {
+            "type": "string",
+            "pattern": "^[A-Za-z]+/[^/]+$",
+            "description": "FHIR reference, ResourceType/id."
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "citations": {
+      "type": "array",
+      "description": "Deterministic evidence: every resource ID here MUST resolve against OE2 at answer time (spec FR-002). Empty array is valid only when the answer is an explicit abstention (spec FR-008, SC-002).",
+      "items": {
+        "type": "object",
+        "required": ["index", "resourceType", "id", "url", "display"],
+        "properties": {
+          "index": { "type": "integer", "minimum": 1 },
+          "resourceType": {
+            "type": "string",
+            "enum": ["Patient", "ServiceRequest", "Observation", "DiagnosticReport", "Practitioner", "Organization"]
+          },
+          "id": { "type": "string", "minLength": 1 },
+          "url": { "type": "string", "format": "uri" },
+          "display": { "type": "string" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "uiBlocks": {
+      "type": "array",
+      "description": "Structured blocks the sidecar UI renders (spec FR-006). Optional per-answer: an answer with no observation-shaped data may omit lab_result_table/lab_timeline entirely.",
+      "items": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": ["type", "rows"],
+            "properties": {
+              "type": { "const": "lab_result_table" },
+              "rows": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": ["test", "value", "unit", "refRange", "flag", "date", "orderRef"],
+                  "properties": {
+                    "test": { "type": "string" },
+                    "value": { "type": "string" },
+                    "unit": { "type": "string" },
+                    "refRange": { "type": "string" },
+                    "flag": {
+                      "enum": ["N", "L", "H", "LL", "HH", null],
+                      "description": "null only when the source Observation has no recorded interpretation flag; MUST NOT be fabricated (spec Edge Cases)."
+                    },
+                    "date": { "type": "string", "format": "date-time" },
+                    "orderRef": { "type": "string", "pattern": "^ServiceRequest/[^/]+$" }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            },
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "required": ["type", "events"],
+            "properties": {
+              "type": { "const": "lab_timeline" },
+              "events": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": ["date", "resourceType", "id", "display", "flag"],
+                  "properties": {
+                    "date": { "type": "string", "format": "date-time" },
+                    "resourceType": { "enum": ["Observation", "DiagnosticReport"] },
+                    "id": { "type": "string" },
+                    "display": { "type": "string" },
+                    "flag": { "enum": ["abnormal", "normal", null] }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            },
+            "additionalProperties": false
+          }
+        ]
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "required": ["fhir_surface", "fhir_base_url", "tools_called", "resource_ids"],
+      "properties": {
+        "fhir_surface": { "enum": ["hapi", "embedded", "hybrid"] },
+        "fhir_base_url": { "type": "string", "format": "uri" },
+        "tools_called": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "search_patient",
+              "get_patient_context",
+              "get_service_requests",
+              "get_observations",
+              "get_diagnostic_reports",
+              "get_resource_by_reference",
+              "build_patient_lab_timeline"
+            ]
+          }
+        },
+        "resource_ids": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^[A-Za-z]+/[^/]+$" }
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": true
+}
