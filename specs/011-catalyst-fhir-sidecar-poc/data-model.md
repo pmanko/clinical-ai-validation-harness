@@ -141,8 +141,19 @@ ones:
   in the JSON registry needs only `endpointUrl` (the gateway's
   `/v1/chat/completions` URL) and `modelName` (unused by Catalyst but required
   by the existing schema — set to a fixed placeholder like `"catalyst"`).
-- **`RunManifest.component`** (existing field, `harness/metadata.py`): set to
-  `"catalyst"` for these runs; no schema change needed.
+- **`RunManifest.component`** (existing field, `harness/metadata.py`): **correction
+  after running the real flow** — `run_comparison()` hardcodes
+  `component="validate"` for every transport (`harness/validate/runner.py`),
+  not per-target; this is not a per-transport field today, contrary to this
+  document's original assumption. Target identity for a Catalyst run is
+  instead recoverable from `dataset_provenance.comparison_set` (references
+  `011-catalyst-poc.json`, whose `transport: "catalyst"` is embedded) and
+  each `results.jsonl` row's `backend_id`/response `provenance`. No schema
+  change was needed either way. (Also observed: manifest's
+  `dataset_provenance.missing_chart_fixtures` flags the scenario's
+  `patient_ref` as a missing chartsearchai-style chart fixture — a harmless,
+  informational chartsearchai-specific check that doesn't apply to
+  FHIR-sourced data and doesn't block the run.)
 
 ## Relationships
 

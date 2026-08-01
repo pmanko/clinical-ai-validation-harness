@@ -96,6 +96,39 @@ def test_hub_transport_rejects_a_provider_pinned_backend(tmp_path):
         validate_execution_contract(comparison, [backends["arm"]])
 
 
+def test_catalyst_transport_accepts_a_plain_backend(tmp_path):
+    """Catalyst backends have no kind/provider concept (those are
+    chartsearchai-specific — see Backend.kind/provider) — a plain
+    endpointUrl/modelName entry must be accepted (feature 011)."""
+    data = _write_inputs(
+        tmp_path,
+        transport="catalyst",
+        kind=None,
+        model="catalyst",
+    )
+    comparison = load_comparison_set(data / "comparison_sets" / "mini.json")
+    backends = load_backends(data / "backends.json")
+
+    validate_execution_contract(comparison, [backends["arm"]])
+
+
+def test_catalyst_transport_rejects_a_provider_pinned_backend(tmp_path):
+    """CatalystClient.chat() has no `provider` kwarg (chartsearchai-only
+    concept) — same upfront-gate guard as the med-agent-hub case above."""
+    data = _write_inputs(
+        tmp_path,
+        transport="catalyst",
+        kind=None,
+        model="catalyst",
+        provider="hub",
+    )
+    comparison = load_comparison_set(data / "comparison_sets" / "mini.json")
+    backends = load_backends(data / "backends.json")
+
+    with pytest.raises(ValueError, match="provider"):
+        validate_execution_contract(comparison, [backends["arm"]])
+
+
 def test_comparison_rejects_unknown_transport(tmp_path):
     data = _write_inputs(
         tmp_path,

@@ -23,6 +23,19 @@ def validate_execution_contract(
             )
         return
 
+    if comparison.transport == "catalyst":
+        # CatalystClient (feature 011) has no product-profile/provider-arm
+        # concept — those are chartsearchai-only (see Backend.kind/provider).
+        # A catalyst backend entry only needs endpointUrl/modelName.
+        pinned = [backend.id for backend in backends if backend.provider]
+        if pinned:
+            names = ", ".join(pinned)
+            raise ValueError(
+                "catalyst transport does not support a pinned provider (a "
+                f"chartsearchai-only concept); remove provider from: {names}"
+            )
+        return
+
     invalid = [
         backend.id
         for backend in backends

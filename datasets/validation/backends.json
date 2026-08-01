@@ -64,5 +64,10 @@
     "label": "12B answer with deterministic temporal enforcement",
     "endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
     "modelName": "eval-12b-temporal-enforce"
+  },
+  "catalyst-e4b": {
+    "label": "Catalyst FHIR sidecar (gemma-e4b via llama-router)",
+    "endpointUrl": "http://localhost:8000/v1/chat/completions",
+    "modelName": "catalyst"
   }
 }

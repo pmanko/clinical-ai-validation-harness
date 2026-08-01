@@ -1,0 +1,14 @@
+{
+  "id": "catalyst-lab-questions",
+  "patient_ref": "E2E-PAT-001",
+  "turns": [
+    { "n": 1, "question": "What tests were ordered for patient E2E-PAT-001?" },
+    { "n": 2, "question": "Show recent lab results for patient E2E-PAT-001." }
+  ],
+  "tags": ["catalyst", "fhir-sidecar", "feature-011"],
+  "expectations": {
+    "should_cite_resource_types": ["Patient", "ServiceRequest"],
+    "should_abstain": true,
+    "notes": "Feature 011 Story 3 demo scenario. Both turns are expected to abstain honestly today: OE2's current fixture data (loaded via load-test-fixtures.sh --profile=harness) has real order (analysis) rows but they have not synced to the embedded FHIR ServiceRequest/Observation resources (a documented OE2-side gap, see specs/011-catalyst-fhir-sidecar-poc/research.md item 3 and spec.md Assumptions) -- not a Catalyst bug. This scenario exists to prove the harness adapter round-trip (run_manifest + results.jsonl with full sidecar provenance), not to demonstrate populated evidence cards."
+  }
+}

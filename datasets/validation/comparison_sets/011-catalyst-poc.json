@@ -1,0 +1,6 @@
+{
+  "id": "011-catalyst-poc",
+  "transport": "catalyst",
+  "scenario_ids": ["catalyst-lab-questions"],
+  "backend_ids": ["catalyst-e4b"]
+}

@@ -222,14 +222,16 @@ def main() -> int:
                 )
                 return 0
         if args.validate_action == "run":
+            from .validate.catalyst_client import CatalystClient
             from .validate.client import ChartSearchAiClient, MedAgentHubClient
             from .validate.runner import run_comparison
 
-            client = (
-                MedAgentHubClient()
-                if comparison.transport == "med-agent-hub"
-                else ChartSearchAiClient()
-            )
+            if comparison.transport == "med-agent-hub":
+                client = MedAgentHubClient()
+            elif comparison.transport == "catalyst":
+                client = CatalystClient()
+            else:
+                client = ChartSearchAiClient()
             result = run_comparison(
                 comparison_set_id=args.comparison_set,
                 client=client,

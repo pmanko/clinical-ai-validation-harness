@@ -84,13 +84,24 @@ targets:
     display_name: OpenELIS Catalyst (standalone target)
     submodule_path: targets/catalyst
     environment_override: HARNESS_TARGET_CATALYST
-    evidence_status: scaffolding
+    evidence_status: development
     supported_profiles: [local, vm]
     shared_profiles: []
     validation_surface:
-      kind: unavailable
+      kind: command
       description: >-
-        Submodule pinned at https://github.com/DIGI-UW/openelis-catalyst (extracted
-        from OpenELIS-Global-2 projects/catalyst). Specific validation commands
-        will be declared by a future feature that exercises Catalyst's real path.
-      evidence_mode: scaffolding_only
+        Feature 011 (FHIR sidecar POC) gave Catalyst a real validation surface:
+        MCP tools reading OpenELIS Global 2's embedded FHIR provider (OE2 is a
+        sibling checkout, not a submodule of this harness — see
+        specs/011-catalyst-fhir-sidecar-poc), a citation-grounded answer
+        pipeline with honest abstention, a gateway-served sidecar UI, and a
+        harness adapter (harness/validate/catalyst_client.py) verified end to
+        end via a real `harness-cli validate run`. Two of the five canonical
+        questions (order-shaped) are blocked by an OE2-side data-sync gap, not
+        a Catalyst gap — see specs/011-catalyst-fhir-sidecar-poc/research.md.
+      evidence_mode: real_path_required
+      command:
+        - cd targets/catalyst/catalyst-mcp && uv run pytest tests/test_fhir_tools.py
+        - cd targets/catalyst/catalyst-agents && uv run pytest tests/test_fhir_grounding.py
+        - cd targets/catalyst/catalyst-gateway && uv run pytest tests/test_sidecar_response_contract.py tests/test_sidecar_ui.py
+        - harness-cli validate run 011-catalyst-poc --data-root datasets/validation

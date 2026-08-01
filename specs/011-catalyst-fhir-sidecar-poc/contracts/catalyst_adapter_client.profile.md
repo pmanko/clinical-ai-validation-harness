@@ -82,7 +82,11 @@ the `med-agent-hub` branch).
 
 ## Run manifest fields
 
-`RunManifest.component = "catalyst"`. `target_provenance` records the
+`RunManifest.component` stays `"validate"` — verified by actually running the
+flow, `run_comparison()` hardcodes this for every transport, not per-target;
+see data-model.md's corrected note. Target identity comes from
+`dataset_provenance.comparison_set` and each result row's `backend_id`
+instead. `target_provenance` records the
 `targets/catalyst` submodule SHA at run time (same mechanism already used for
 `chartsearchai`/`querystore` runs). No new manifest schema fields are
 required — the sidecar response's own `provenance` object (fhir_surface,
