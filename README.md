@@ -163,6 +163,8 @@ make chartsearchai-local
 
 # Useful focused operations:
 ./scripts/chartsearchai-local.sh --check  # validate prerequisites without starting services
+make local-stack-up                  # fast resume: no builds; waits for the existing stack
+make local-stack-down                # stop Compose + its managed router; keep named volumes
 make openmrs-source-pair-build        # build/stage current Querystore, then ChartSearchAI
 make openmrs-source-pair-test         # install pinned Querystore, then test/build pinned ChartSearchAI
 make llama-router-models             # inspect raw models behind the hub
@@ -174,6 +176,13 @@ make chartsearch-doctor              # verify router, hub profile metadata, and 
 # Retrieval backend — querystore's CQRS read store tier
 make chartsearch-backend BACKEND=elasticsearch   # or lucene | mysql
 ```
+
+`make chartsearchai-local` remains the canonical first-run and source-change workflow: it
+builds or verifies artifacts, configures the product path, and exercises the real integration.
+The `local-stack-*` targets are intentionally narrower daily helpers. They require a configured
+`.env.chartsearch` and already-built images/artifacts, start Docker Desktop when supported, and
+fail rather than silently rebuilding or reporting an unready stack as healthy. Teardown preserves
+the Compose named volumes and only stops a llama-router recorded as managed by this checkout.
 
 **Provider and profile selection.** The final ESM shows no picker with bundled-only configuration.
 With hub configured, it shows a provider choice first and the provider's supported profile/mode choices

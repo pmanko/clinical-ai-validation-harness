@@ -4,7 +4,7 @@ UV_PROJECT_ENVIRONMENT ?= .venv
 export UV_PROJECT_ENVIRONMENT
 
 .PHONY: setup python-pin test smoke validate-plan clean-venv \
-        up down reset status logs \
+        up down local-stack-up local-stack-down reset status logs \
         ciel-fetch ciel-baseline \
         reset-transform sqlmesh-status \
         loadtest-up loadtest-down \
@@ -23,6 +23,16 @@ up:
 
 down:
 	./scripts/stack-down.sh
+
+# Fast-resume path for a day-to-day dev machine: starts Docker Desktop,
+# llama-router, and the already-built compose stack with no rebuilds — for
+# first-time setup or after source changes under targets/, use
+# `make chartsearchai-local` instead.
+local-stack-up:
+	./scripts/local-stack-up.sh
+
+local-stack-down:
+	./scripts/local-stack-down.sh
 
 reset:
 	./scripts/stack-reset.sh
