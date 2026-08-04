@@ -10,8 +10,8 @@ Execution state for the Catalyst validation integration remediation roadmap.
 | Authorization | Explicit user instruction to implement the approved plan on 2026-07-21 |
 | Approved roadmap SHA-256 (pre-A1) | `b00a063bf2b78494a3a719436d4609127eb2e845153d1ab2f9153d1e018e6ef8` |
 | Approved roadmap SHA-256 (A1, current) | `37c13c468d274b985a0f48e0e6e5cfb2e3e9eaf3b0fb0fd1ace6e73fca1cf1e7` |
-| Current execution boundary | P0–P4 and T134 complete; CVR-G13–G16 PASS; P5 live release work T135–T136 is next |
-| Next protected boundary | CVR-G17–G18 and MS-D remain required before report parity is released |
+| Current execution boundary | P0–P4 and T134 complete; CVR-G13–G16 PASS; T135 execution/judging/render/dry-run publish complete, with live publication and URL verification still in progress |
+| Next protected boundary | Finish CVR-G17 live publication, then CVR-G18 release hygiene and MS-D acceptance |
 | Deviations | None. Amendment A1 (2026-07-21, user-authorized): P4/P5 entry gates re-mapped from 008-G5/008-G6 to T094/T095/T111 acceptance — see roadmap §1.2 |
 
 ## Active-feature gate mapping
@@ -112,8 +112,34 @@ The audit distinguishes reusable prework from passed roadmap gates:
 - **CVR-G16 PASS:** all five D13 independent code-QA reports are present,
   non-empty, anchored to reviewed implementation `380301d`, and record zero
   open BLOCKER findings. The executable G16 gate passes.
-- **P5 is in progress:** the clean-pin live judged release run, verified
-  publication, release hygiene, and MS-D signoff have not been completed.
+- **P5 is in progress:** clean-pin run
+  `7e3adf47-c21f-4d8c-9595-fd73d3dbfb24` passed 13/13 scenario repetitions
+  and 411/411 assertions. Exactly three independent judge passes cover all 25
+  executed versions and finalize successfully. The report renders and its
+  family-aware dry-run publication passes. Live publication/URL verification,
+  release hygiene, and MS-D signoff remain.
+
+### T135 / CVR-G17 release-run checkpoint (2026-08-04)
+
+- Harness `9f4b26a` ran clean reviewed Catalyst `e7eba21` and Hub `092b5cd`.
+  The isolated runtime reported 96 patients, 1,152 results, 9 test types, and
+  pipeline run `full-20260804T203050Z`.
+- All 12 automatic repetitions and the bounded one-shot Hub-failure scenario
+  passed. The fault proxy injected exactly one HTTP 502 for the isolated Hub's
+  first chat completion; the failed turn preserved its base, and the Hub was
+  immediately restored to the direct router.
+- Independent PostgreSQL cross-checks and every configured gold check passed.
+  Passing gold is not treated as semantic perfection: narrowing repetition 3
+  omitted the explicitly requested `result_status = 'final'` predicate while
+  still matching the current data. All three advisory judge passes therefore
+  score that successor 63; the other 24 executed versions finalize at 100.
+- Judge identity is constant across 75 rows: provider `openai`, model
+  `gpt-5.6-sol`, version `runtime-reported:gpt-5.6-sol`, rubric SHA-256
+  `5dc94bbd30424f6f5f87b708a15a9f8615617d9e91180170f7c72df9c6e8f483`.
+- The rendered report and mixed-family dry-run publish pass under slug
+  `catalyst-t094-release`. External publication was not attempted after the
+  environment's evidence guard required a fresh explicit authorization for
+  this exact synthetic payload and the configured reports VM.
 
 ## Baseline Snapshot (CVR-G00)
 
@@ -183,7 +209,7 @@ The audit distinguishes reusable prework from passed roadmap gates:
 | CVR-G14 | PASS | 5 selected CLI and compatibility-wrapper tests; T131 complete |
 | CVR-G15 | PASS | 27-test mixed-family index/publisher dry-run gate; T132–T133 complete |
 | CVR-G16 | PASS | Five independent D13 reports; zero open BLOCKER findings; `verify… g16` PASS against reviewed implementation `380301d` |
-| CVR-G17 | READY | G16 PASS; clean-pin T094 run, exactly three judge passes, finalization, live publish, and URL/evidence verification remain |
+| CVR-G17 | IN PROGRESS | Run `7e3adf47` is 13/13 with 411/411 assertions; 3 × 25 judge rows finalized; report and mixed-index dry run PASS; live publish and URL/evidence verification remain |
 | CVR-G18 | BLOCKED | Runs only after G17; final CI/pin/docs/PCCP hygiene and MS-D remain |
 
 ## Signoffs
@@ -216,5 +242,7 @@ the P5 live release and MS-D acceptance.
 
 ### P5 — in progress
 T094/T095/T111, the merge chain, P4 parity gates, and T134/CVR-G16 are complete.
-T135/CVR-G17 is next; T136/CVR-G18 and MS-D remain blocked behind that live
-release evidence.
+T135/CVR-G17 has completed its clean-pin execution, three-pass judging,
+finalization, rendering, and dry-run publisher validation. Live publication and
+record-level URL verification remain; T136/CVR-G18 and MS-D stay blocked behind
+that evidence.
