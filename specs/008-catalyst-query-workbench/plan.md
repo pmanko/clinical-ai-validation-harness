@@ -85,15 +85,17 @@ single-user research artifacts, not multi-tenant production records
 *The original W1 and G2.8a written gates passed. G2.8b and the post-UI automated
 gate passed for the earlier Hub-owned query engine. The later Gateway-ownership
 refactor passed its July 30 PR-head model/PostgreSQL matrix and the reconciled
-merged-Hub pins passed the definitive T111 live rerun. Actual keyboard-only and
-browser-zoom checks plus user acceptance remain open.
+merged-Hub pins passed the definitive T111 live rerun. The user confirmed the
+actual keyboard-only and 200%-browser-zoom checks passed and accepted the MVP on
+2026-08-04; the deterministic Playwright path now guards the equivalent focus
+and reflow boundary.
 Multi-source/lossless acceptance remains separately open.*
 
 - **Real production paths — PASS**: The browser calls the deployed Catalyst
   Gateway, which composes the query flow, calls the real generic Hub role
   executor, and uses the selected PostgreSQL analytics database. Fixtures are
-  scaffolding, not behavior evidence. Final claims remain gated on the clean-pin
-  live accessibility/user checkpoint.
+  scaffolding, not behavior evidence. The clean-pin live accessibility/user
+  checkpoint is accepted for the MVP.
 - **Deterministic reviewed transforms — PASS**: SQL parsing, finding
   classification, patch scopes, patch application, frozen-unit verification, and
   version digests live in reviewed code/contracts. Model patches remain proposals.
@@ -758,12 +760,13 @@ The following items must remain visible until evidence resolves them:
   endpoint, while the supported Data Pipes run and complete health/provenance
   gate remain authoritative.
 - **N61 — Final merged-pin rerun follows the strongest PR-head live run
-  (technical evidence complete; user gate open at T111)**: The reconciled
-  candidates are Catalyst `9aa0e0f` and merged Hub `092b5cd`; the Harness
+  (accepted at T111)**: The accepted candidates are Catalyst `5f23c4e` and
+  merged Hub `092b5cd`; the Harness
   evidence-receipt parent is `6f58d45`. Final-pin run `0671dc34` passed 12/12
   plus PostgreSQL/gold checks,
   and `fb6377c1` passed the bounded failure and same-session recovery. Actual
-  keyboard/zoom inspection and user acceptance remain separate.
+  keyboard/zoom inspection passed, the user accepted the MVP, and the current
+  Catalyst head adds the deterministic E2E regression/focus-scroll correction.
 - **N62 — Multi-source/lossless acceptance gap (open at G2.10)**: Registry,
   two-source UI, lossless projections, SQL curation, and generated-catalog code
   exist in the active change set, but the feature amendment previously had no

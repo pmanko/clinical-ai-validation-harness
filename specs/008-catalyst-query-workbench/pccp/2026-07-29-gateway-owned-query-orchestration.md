@@ -36,12 +36,13 @@ Gateway:
 5. Hub's clinical-answer/report profiles remain a separate product surface and
    are not used as Catalyst query-profile discovery.
 
-The reconciled candidate revisions are Catalyst `9aa0e0f` (PR #5) and merged
+The accepted candidate revisions are Catalyst `5f23c4e` (PR #5) and merged
 Hub `092b5cd`; the Harness evidence-receipt parent is `6f58d45`. The July 30
 supporting evidence remains
 attributed to Harness `e475d7a`, Catalyst parent `bb36126`, and Hub `198d5f6`;
-it is not relabelled as final-pin evidence. Catalyst `9aa0e0f` updates only the
-standalone fallback Hub SHA from the earlier PR head to merged Hub `main`.
+it is not relabelled as final-pin evidence. Final live evidence ran at Catalyst
+`9aa0e0f`; `5f23c4e` adds only accepted-status documentation, the deterministic
+keyboard/reflow E2E regression, and the focus-scroll correction it exposed.
 
 ## Controlled behavior and invariants
 
@@ -156,8 +157,9 @@ checkpoint remains pending:
   completed without importing the failure payload.
 - Responsive inspection passed at 390 × 844 and 320 × 844 with no horizontal
   overflow. A 640 × 720 CSS layout-equivalent check covered 200%-zoom reflow
-  geometry. Actual Tab traversal and actual browser zoom remain unverified
-  because the automation surface did not advance keyboard focus or browser zoom.
+  geometry. At this PR-head checkpoint the automation surface could not advance
+  keyboard focus or browser zoom; those actual manual checks were completed and
+  accepted at the final-pin checkpoint below.
 
 The definitive final-pin run is now complete. Run
 `0671dc34-26c6-4d52-8443-47e0a833a539` passed 12/12 real-model repetitions,
@@ -165,7 +167,7 @@ The definitive final-pin run is now complete. Run
 comparisons. Run `fb6377c1-0b60-492a-8053-cc668a201d15` passed the one-shot
 Hub transport failure; its same-session recovery then generated a contract-valid
 successor and passed validation, execution, and an independent PostgreSQL
-record-digest check. The pending, PHI-safe receipt is
+record-digest check. The accepted PHI-safe receipt is
 `../evidence/t111-final-acceptance-2026-08-03.json`.
 
 Two observed model facts remain visible rather than normalized away:
@@ -175,8 +177,10 @@ the Qwen reviewer returned a contract-invalid repair response with a spurious
 test-name concern. Compact responsive geometry passes without horizontal
 overflow or covered focus targets, but the fixed composer remains 336 px tall.
 
-T111 is now pending only the actual keyboard-only traversal, actual 200% browser
-zoom, explicit disposition of those model/UX observations, and the user decision.
-Hub #15 is already merged; after acceptance, Catalyst must merge before the
-harness is repinned, revalidated, approved, and merged. Do not merge the
-remaining PRs from this candidate evidence.
+On 2026-08-04 the user confirmed actual keyboard-only traversal and actual 200%
+browser zoom passed, accepted the model/UX observations as non-blocking future
+work, and accepted the MVP. The deterministic Playwright path now guards
+uninterrupted focus and 200%-equivalent reflow; it exposed and drove correction
+of an expanded-composer focus obstruction. T111 is complete. Hub #15 is already
+merged; Catalyst must merge before the harness is repinned, revalidated,
+approved, and merged under T112.

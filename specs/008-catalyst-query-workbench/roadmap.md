@@ -1,6 +1,6 @@
 # Catalyst Query Workbench Roadmap
 
-## Current architecture and PR topology (2026-08-03)
+## Current architecture and PR topology (2026-08-04)
 
 **Status:** Current implementation is in active Harness
 [#37](https://github.com/pmanko/clinical-ai-validation-harness/pull/37), with
@@ -16,15 +16,16 @@ composition, deterministic lint/repair/finalization, and query evidence.
 Med-Agent Hub exposes a generic `POST /v1/hub/generate` role executor and does
 not own Catalyst query profiles or their orchestration. Hub's separate
 clinical-answer/report profile engine is unchanged. The reconciled candidate
-pins are Catalyst `9aa0e0f` (active #5 head) and merged Hub `092b5cd`; the
+pins are Catalyst `5f23c4e` (active #5 head) and merged Hub `092b5cd`; the
 Harness evidence-receipt parent is `6f58d45`. The definitive final-pin matrix
 passed 12/12 with independent
 PostgreSQL/gold checks, and the final-pin bounded failure plus same-session
 recovery passed. The July 30 runs remain supporting historical PR-head evidence
 on their recorded older revisions. Automated component gates pass on the
-reconciled heads. Manual keyboard/actual-zoom checks and explicit user
-acceptance remain open, so no remaining component merge occurs before that
-pause.
+reconciled runtime heads. Actual keyboard/200%-zoom checks passed and the user
+accepted the MVP on 2026-08-04. Catalyst `5f23c4e` adds the deterministic E2E
+regression and resulting focus-scroll fix; T112 now governs the remaining
+Catalyst merge and Harness repin/approval/merge order.
 
 The 2026-07-29 lightweight cross-artifact rerun found no unresolved
 CRITICAL/HIGH inconsistency after aligning the exact component revisions,
@@ -65,7 +66,9 @@ contract, test strategy, and staged harness integration are recorded here.
 **Status:** G2.1–G2.7 passed; G2.8a accepted; historical G2.8b backend/runtime
 and post-UI checkpoints passed. The reconciled merged-Hub pins passed the
 definitive G2.8c model/PostgreSQL matrix and bounded-failure recovery. Actual
-keyboard/zoom checks and user acceptance remain before T094/T095/T111 close.
+keyboard-only and 200%-browser-zoom checks passed; the user accepted
+T094/T095/T111 on 2026-08-04. A deterministic Playwright regression now guards
+the unobscured Tab path and 200%-equivalent reflow boundary.
 G2.9 remains at its written user checkpoint; G2.10 multi-source/lossless
 acceptance is newly traced and open; G3 and W2 have not started.
 
@@ -1386,11 +1389,10 @@ fixed to the viewport bottom. A 640 × 720 CSS viewport provided the
 layout-equivalent 200%-zoom reflow check with the same no-overflow and
 focusable-composer geometry. Browser automation could directly focus the data
 source control, and DOM inspection preserved the intended focusable order, but
-the automation surface did not advance focus for Tab key events. Therefore an
-actual keyboard-only Tab traversal and an actual browser-zoom interaction
-remain explicitly unverified. T094/T095/T111 stay open for that manual
-accessibility confirmation and explicit user acceptance; no merge is
-authorized by the model/PostgreSQL or responsive evidence alone.
+the automation surface did not advance focus for Tab key events. At this July
+30 checkpoint, actual keyboard-only Tab traversal and actual browser zoom were
+still unverified and T094/T095/T111 correctly remained open. They were later
+completed and accepted at the final-pin checkpoint below.
 
 The focused umbrella pin test then exposed that Catalyst's standalone fallback
 bootstrap still named Hub `946afa9` even though the umbrella sibling pin was
@@ -1408,7 +1410,7 @@ and the exact CI assembly command completes 38 tests with one expected local
 were all green at that head. Harness PR #37's test/diff-coverage job was green
 and GitGuardian was neutral after the `be3f95c` repin.
 
-### Final-pin reconciliation checkpoint — EVIDENCE READY; USER GATE OPEN
+### Final-pin reconciliation checkpoint — ACCEPTED (2026-08-04)
 
 On 2026-08-03 Hub #15 was confirmed merged at `092b5cd`. Catalyst #5 is clean
 at `9aa0e0f`, with its standalone fallback on the same merged Hub commit.
@@ -1438,7 +1440,7 @@ current base. After the Hub was restored to the direct router, same-session turn
 successor; deterministic validation, execution, and the independent
 PostgreSQL record-digest comparison all passed.
 
-The PHI-safe pending receipt is
+The PHI-safe accepted receipt is
 `specs/008-catalyst-query-workbench/evidence/`
 `t111-final-acceptance-2026-08-03.json`. Detailed ignored evidence is retained
 in the private archive under `t111-final-evidence-2026-08-03/`; the receipt
@@ -1448,14 +1450,17 @@ The active browser checkpoint uses the checked Gemma 4 12B writer/Qwen 2.5 14B
 reviewer profile, has a valid executed Query v1, and exposes the execution
 summary to the follow-up composer without result rows. Active-session reflow at
 390 × 844, 320 × 844, and a 640 × 720 layout-equivalent 200%-zoom viewport has
-no horizontal page overflow or covered non-composer focus target. Two facts
-remain explicit for the user gate: the fixed composer is 336 px tall at compact
-widths, and the live Qwen reviewer returned a contract-invalid/spurious repair
-message, so the policy retained the valid Gemma writer output. Actual
-keyboard-only Tab traversal and actual browser 200% zoom remain unverified
-because the automation surface cannot perform them. T094/T095/T111 therefore
-stay open, and no merge is authorized until the user completes those checks and
-accepts or rejects the candidate.
+no horizontal page overflow or covered non-composer focus target. The fixed
+composer remains 336 px tall at compact widths, and the live Qwen reviewer
+returned a contract-invalid/spurious repair message, so policy retained the
+valid Gemma writer output. The user accepted both as non-blocking follow-up
+work, confirmed the actual keyboard-only traversal and actual 200% browser zoom
+passed, and authorized the merge sequence. The new deterministic Playwright
+regression then exposed and fixed a native Tab-scroll obstruction behind the
+expanded composer by reserving its scroll area; the full UI, lint, typecheck,
+build, and deterministic E2E gates pass. T094/T095/T111 are complete. T112
+remains open until the actual Catalyst squash, harness repin, final gates,
+required approval, and harness squash finish.
 
 ### G2.10 multi-source/lossless onboarding — WRITTEN TRACE COMPLETE; EVIDENCE OPEN
 

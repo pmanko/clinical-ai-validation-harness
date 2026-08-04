@@ -262,17 +262,16 @@ phrasing rather than hard-coding an assumed cohort.
     Session, and sticky-jump focus; record any focus obstruction, overflow, or
     mismatch with automated tests.
 
-The 2026-08-03 candidate evidence is ready in runs `0671dc34` (12/12 matrix)
-and `fb6377c1` (one-shot failure plus same-session recovery). The PHI-safe
-pending receipt is `evidence/t111-final-acceptance-2026-08-03.json`. Actual
-keyboard traversal, actual browser 200% zoom, and explicit user acceptance are
-still required; this pointer does not mark T094/T095/T111 complete.
+The 2026-08-03 evidence in runs `0671dc34` (12/12 matrix) and `fb6377c1`
+(one-shot failure plus same-session recovery) is accepted. The PHI-safe receipt
+is `evidence/t111-final-acceptance-2026-08-03.json`. On 2026-08-04 the user
+confirmed actual keyboard traversal and actual browser 200% zoom passed and
+accepted T094/T095/T111. The deterministic Playwright notebook test now guards
+unobscured Tab focus and the corresponding 200%-equivalent reflow boundary.
 
-After the user accepts this evidence, update the root `README.md`, Catalyst user
-docs, roadmap, quickstart, and PCCP evidence. Draft component commits and PR pins
-already exist under the 2026-07-20 publication exception; acceptance still
-precedes ready-for-review/merge and the final Hub → Catalyst → harness
-squash/repin sequence.
+The root `README.md`, Catalyst user docs, roadmap, quickstart, and PCCP evidence
+are updated after acceptance. Hub is already merged; Catalyst squash and the
+final Harness repin/approval/squash remain T112.
 
 ## G2.10 multi-source/lossless checkpoint
 

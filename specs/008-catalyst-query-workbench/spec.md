@@ -4,9 +4,9 @@
 
 **Created**: 2026-07-17
 
-**Status**: Implemented through the iterative-query notebook and Gateway-owned
-query-orchestration refactor; final clean-pin model/PostgreSQL validation is
-complete, while actual keyboard/zoom evidence and user acceptance remain open
+**Status**: Iterative-query notebook and Gateway-owned query orchestration MVP
+accepted on the final clean pins; production hardening and the separately gated
+G2.9/G2.10/W2/W3 work remain open
 
 **Input**: Refine the Catalyst query experience with manageable dataset context,
 targeted query remediation, complete validator feedback, editable SQL,

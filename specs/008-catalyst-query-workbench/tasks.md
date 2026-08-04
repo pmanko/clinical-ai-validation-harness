@@ -114,9 +114,9 @@ Gateway-ownership refactor is tracked separately in Phase 4.14.
 - [X] T092 After T081 and T084–T089, pass the Hub, gateway/store, root runtime, schema-publication/registry, contract, lint, and diff checks before UI implementation; add a lightweight assertion that recorded initial/follow-up turn, snapshot, and generation-evidence events map without loss into the existing versioned `events.jsonl` envelope, without implementing W3 export; record contract drift and block T091 on any failure
 - [X] T091 After T090 and T092, implement the linear notebook UI, exact active-buffer submission, compact timeline, Restore Query, per-turn available-profile picker, typed generation-evidence detail, complete successor selection, result version/staleness labels, failure state, and adaptive canonical-composer focus in `targets/catalyst/catalyst-ui/src/features/query/`
 - [X] T093 Pass the post-UI full Hub, gateway/store, root harness, UI, Playwright, accessibility, lint, typecheck, build, contract-registry, and diff gate; record any contract drift or conditional model-output digest difference before real-path validation
-- [ ] T094 Add and run diverse real-path validation for narrowing, aggregation/output-shape change, unresolved correction, lint-clean semantic reviewer correction, and Hub/tool failure; include dirty/unchanged bases, profile switching, stale results, New Session isolation, exact selected output, timed-out/cancelled diagnostic presentation, and record-level PostgreSQL cross-check fixtures/evidence
-- [ ] T095 Rebuild the isolated sibling-Hub stack and complete G2.8c with Gemma 4 12B writing/Qwen 2.5 14B reviewing at temperature zero with the DRY repetition penalty disabled: run the T094 scenario families, inspect typed generation evidence and exact context/trace/model/effective-configuration provenance, conditionally report candidate/output digest differences when observed under that configuration, verify initial-question submit through successor-query visible in under 3 minutes after subtracting only the exact recorded durations of every initial/follow-up writer/reviewer invocation and reconcile those durations to their start/end timestamps and request/response-or-failure digests, report unadjusted wall time and explicit Run/database time separately, complete keyboard-only/narrow/200%-zoom checks, record reproducible SQL/parameters plus dataset/session/turn/query/version/execution IDs and inspected-record rationale, then pause for user acceptance
-- [ ] T096 After G2.8c/T111 user acceptance, update the root `README.md`, Catalyst user docs/status, final quickstart, roadmap, and applicable PCCP evidence/rollback/residual-risk dispositions; documentation follows evidence and precedes ready-for-review/merge acceptance
+- [X] T094 Add and run diverse real-path validation for narrowing, aggregation/output-shape change, unresolved correction, lint-clean semantic reviewer correction, and Hub/tool failure; include dirty/unchanged bases, profile switching, stale results, New Session isolation, exact selected output, timed-out/cancelled diagnostic presentation, and record-level PostgreSQL cross-check fixtures/evidence
+- [X] T095 Rebuild the isolated sibling-Hub stack and complete G2.8c with Gemma 4 12B writing/Qwen 2.5 14B reviewing at temperature zero with the DRY repetition penalty disabled: run the T094 scenario families, inspect typed generation evidence and exact context/trace/model/effective-configuration provenance, conditionally report candidate/output digest differences when observed under that configuration, verify initial-question submit through successor-query visible in under 3 minutes after subtracting only the exact recorded durations of every initial/follow-up writer/reviewer invocation and reconcile those durations to their start/end timestamps and request/response-or-failure digests, report unadjusted wall time and explicit Run/database time separately, complete keyboard-only/narrow/200%-zoom checks, record reproducible SQL/parameters plus dataset/session/turn/query/version/execution IDs and inspected-record rationale, then pause for user acceptance
+- [X] T096 After G2.8c/T111 user acceptance, update the root `README.md`, Catalyst user docs/status, final quickstart, roadmap, and applicable PCCP evidence/rollback/residual-risk dispositions; documentation follows evidence and precedes ready-for-review/merge acceptance
 - [X] T097 Commit/push the companion Hub and Catalyst changes, pin both sibling submodules in harness PR #37, rerun root pin/provenance checks, and update the PR without starting W2/W3. Published as drafts under explicit 2026-07-20 user direction; T094–T096 still block ready-for-review/merge acceptance
 
 ## Phase 4.12 — Corrective G2.9: unified workbench UX and queryable schema
@@ -137,7 +137,7 @@ Gateway-ownership refactor is tracked separately in Phase 4.14.
 - [X] T108 Resolve the Catalyst active-instruction, profile-binding, catalog-lineage, execution-idempotency, current-version provenance, stale expected-column, and complete iterative-browser-flow findings; add UI and analytics/assembly jobs to CI
 - [X] T109 Make the tracked umbrella boot reproducible from a clean recommended environment: correct fake-mode/port propagation, enforce clean matching sibling pins, tolerate an empty successful OpenELIS backfill response, pin OpenELIS deployment source/images, and rerun the health/provenance gate
 - [X] T110 Align `docs/specification.md`, `docs/roadmap.md`, `docs/med-agent-hub.md`, root README/quickstart, Harness provider/component/profile provenance, real-suite model IDs, and PR descriptions with the tested implementation
-- [ ] T111 Rerun the complete Hub/Catalyst/harness automated gates plus the T094/T095 live iterative workflow on clean pins; prove the versioned Hub backend inventory, exact required model aliases, available-profile subset, unavailable initial/governed/follow-up rejection before state or model calls, writer-only and reviewed provenance, independent PostgreSQL evidence, and pause for user acceptance
+- [X] T111 Rerun the complete Hub/Catalyst/harness automated gates plus the T094/T095 live iterative workflow on clean pins; prove the versioned Hub backend inventory, exact required model aliases, available-profile subset, unavailable initial/governed/follow-up rejection before state or model calls, writer-only and reviewed provenance, independent PostgreSQL evidence, and pause for user acceptance
 - [ ] T112 Hub #15 is already merged and pinned. After T111 acceptance, squash Catalyst, repin the resulting Catalyst `main` commit while retaining Hub `main` in the harness, rerun the required pin/live gates, obtain the required harness approval, and squash harness last
 
 T111 historical execution note (2026-07-30): the PR-head 12/12 model/PostgreSQL
@@ -149,9 +149,9 @@ pin/layout coverage passes 57/57, and clean umbrella `93689d5` run
 `4dd70443-ba23-4415-b0cd-d393d2352061` passed a scoped 1/1 real-model/
 PostgreSQL candidate-head smoke. Catalyst `be3f95c` then removed only the stale
 literal-Hub-SHA assembly assertion; the exact 38-test CI command is green with
-one expected local driver skip. T111 remains unchecked because actual
-keyboard-only Tab traversal, actual browser zoom, and explicit user acceptance
-remain open.
+one expected local driver skip. This historical checkpoint preceded the actual
+keyboard-only traversal, actual 200% browser zoom, and user acceptance recorded
+on 2026-08-04.
 
 T111 reconciliation note (2026-08-03): Hub #15 is merged at `092b5cd`.
 Catalyst #5 is clean and pushed at `9aa0e0f`; Harness #37 is clean, has
@@ -161,10 +161,12 @@ evidence-receipt parent `6f58d45`, and pins Catalyst `9aa0e0f` plus Hub
 24/24 independent PostgreSQL comparisons, and 18/18 gold-result comparisons.
 Bounded-failure run `fb6377c1-0b60-492a-8053-cc668a201d15` passed 1/1; after
 the expected failed turn preserved its base, a same-session recovery generated,
-validated, executed, and independently matched PostgreSQL. The PHI-safe pending
-receipt is `evidence/t111-final-acceptance-2026-08-03.json`. Actual
-keyboard-only Tab traversal, actual 200% browser zoom, and explicit user
-acceptance remain pending, so T094/T095/T111 and T112 stay unchecked.
+validated, executed, and independently matched PostgreSQL. The PHI-safe
+accepted receipt is `evidence/t111-final-acceptance-2026-08-03.json`. The user
+confirmed actual keyboard-only traversal and actual 200% browser zoom both
+passed and accepted the MVP on 2026-08-04, completing T094/T095/T111. T112
+remains open for the ordered Catalyst merge and final Harness repin/approval/
+merge sequence.
 
 ## Phase 4.14 — Gateway-owned query orchestration reconciliation
 
@@ -197,6 +199,10 @@ acceptance remain pending, so T094/T095/T111 and T112 stay unchecked.
 ## Phase 4.19 — Current-profile collaboration evidence repair
 
 - [X] T126 Restore the comparative Gemma/Qwen profile's already-approved collaborative-review policy after the Gateway ownership move; give the reviewer the same current instruction and bounded revision context as the writer; on reviewer output-contract failure preserve and correctly label the exact malformed reviewer output and the contract-valid writer as unselected evidence while leaving the effective base current; add focused regressions and rerun the reviewed-profile smoke before the complete T094/T095/T111 matrix
+
+## Phase 4.20 — Accepted accessibility regression
+
+- [X] T127 Record the user's actual keyboard-only and 200%-browser-zoom PASS; add deterministic Playwright coverage for uninterrupted Tab navigation and 200%-equivalent reflow; fix the expanded-composer scroll obstruction exposed by that regression; and rerun UI unit, lint, typecheck, build, and Playwright gates
 
 ## Phase 6 — W1 integrated validation
 
@@ -259,4 +265,5 @@ blocks the G2.10c
 user pause T122. G2.10 acceptance is separate from and does not silently close
 T094/T095/T111, W2, or W3. T125 and the live-smoke repair T126 were the final
 model-runtime blockers for the definitive current-profile matrix and are now
-complete; the accessibility/user checkpoint still blocks T111.
+complete. T127 records the passed accessibility/user checkpoint and its E2E
+regression; T112 is the only remaining G2.8 merge-chain task.

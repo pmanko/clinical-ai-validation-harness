@@ -1,13 +1,13 @@
 {
   "contractVersion": "harness.catalyst-final-acceptance-receipt.v1",
-  "generatedAt": "2026-08-04T07:07:37Z",
+  "generatedAt": "2026-08-04T14:37:40Z",
   "featureId": "008-catalyst-query-workbench",
   "taskIds": [
     "T094",
     "T095",
     "T111"
   ],
-  "evidenceStatus": "candidate_pending_user_acceptance",
+  "evidenceStatus": "accepted",
   "candidate": {
     "harness": {
       "repository": "pmanko/clinical-ai-validation-harness",
@@ -22,7 +22,9 @@
       "repository": "DIGI-UW/openelis-catalyst",
       "pullRequest": 5,
       "branch": "feat/catalyst-client-orchestration",
-      "sha": "9aa0e0f847b68d2b06b65398681c6bbf787509bb",
+      "sha": "5f23c4eaa52f6b04a5eab425429a212172cf14e7",
+      "liveEvidenceBaseSha": "9aa0e0f847b68d2b06b65398681c6bbf787509bb",
+      "postAcceptanceDelta": "Accepted-status documentation, deterministic keyboard/reflow E2E coverage, and the focus-scroll correction exposed by that E2E; no model, data, or query-orchestration contract change.",
       "matchesHarnessGitlink": true,
       "clean": true
     },
@@ -172,7 +174,7 @@
     },
     {
       "component": "catalyst-playwright",
-      "result": "1 passed, 3 expected live-stack skips"
+      "result": "1 passed, 3 expected live-stack skips; uninterrupted keyboard focus and 200%-equivalent reflow covered"
     },
     {
       "component": "harness",
@@ -221,8 +223,8 @@
         "overlappingNonComposerFocusTargets": 0
       }
     ],
-    "actualKeyboardOnlyTraversal": "pending_user_check",
-    "actualBrowserZoom200Percent": "pending_user_check"
+    "actualKeyboardOnlyTraversal": "passed_user_verified_2026-08-04",
+    "actualBrowserZoom200Percent": "passed_user_verified_2026-08-04"
   },
   "observedIssues": [
     {
@@ -236,20 +238,21 @@
       "type": "reviewer_contract_failure",
       "summary": "In the live browser checkpoint, Qwen 2.5 14B returned a contract-invalid repair response with a spurious test-name concern even though the question requested all laboratory results. The valid Gemma writer query remained selected and executed correctly.",
       "blocking": false,
-      "userDisposition": "pending"
+      "userDisposition": "accepted_nonblocking_future_pr"
     },
     {
       "id": "UX-1",
       "type": "compact_composer_height",
       "summary": "The fixed active-session composer occupies 336 of 844 CSS pixels at compact widths. Bottom padding prevents focus-target obstruction, but its visual weight remains a G2.9 UX decision.",
       "blocking": false,
-      "userDisposition": "pending"
+      "userDisposition": "accepted_nonblocking_future_pr"
     },
     {
       "id": "A11Y-1",
       "type": "automation_limit",
-      "summary": "The in-app automation surface could not advance real Tab focus or change actual browser zoom. Layout-equivalent reflow passed; manual checks remain required.",
-      "blocking": true
+      "summary": "The user verified actual Tab traversal and actual 200% browser zoom. A deterministic Playwright regression now covers uninterrupted Tab navigation and 200%-equivalent reflow; it exposed and drove correction of an expanded-composer focus obstruction.",
+      "blocking": false,
+      "userDisposition": "passed_and_automated_regression_added"
     }
   ],
   "privacy": {
@@ -261,13 +264,16 @@
     "detailedEvidenceRetention": "Private local archive referenced by run IDs and SHA-256 digests."
   },
   "userAcceptance": {
-    "status": "pending",
+    "status": "accepted",
+    "acceptedAt": "2026-08-04T14:37:40Z",
+    "acceptedBy": "pmanko",
+    "acceptanceStatement": "Actual keyboard-only traversal and 200% browser zoom passed; accept the MVP and cover the workflow with an end-to-end test.",
     "requiredChecks": [
       "Actual keyboard-only focus order, visible focus, and absence of traps or obscured controls",
       "Actual browser 200% zoom with no horizontal page overflow or obscured controls",
       "Accept or reject the candidate and disposition MODEL-1 and UX-1"
     ],
-    "authorizesT096": false,
-    "authorizesMerge": false
+    "authorizesT096": true,
+    "authorizesMerge": true
   }
 }

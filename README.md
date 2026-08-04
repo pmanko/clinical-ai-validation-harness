@@ -70,7 +70,7 @@ Human-facing docs use plain names. IDs appear in parentheses on first use and in
 | ChartSearchAI model gateway | F008 | `008` | Bundled and configured-Hub providers preserved behind the [dual-provider roadmap](specs/artifacts/planning/openmrs-dual-provider-parity-roadmap.md) |
 | Clinical knowledge base | F009 | `009` | [Brief + research](https://github.com/pmanko/clinical-ai-validation-harness/blob/main/specs/artifacts/planning/clinical-kb-brief.md) |
 | Retrieval evaluation | M4 | `010` | Planned |
-| Catalyst query workbench | M10 | `008` | Iterative manual workbench and initial real-path harness corpus in progress |
+| Catalyst query workbench | M10 | `008` | Manual iterative-query MVP accepted; production hardening and later experiments remain open |
 | Answer, citation, and abstention | M5 | `012` | Planned |
 | Safety and red-team | M6 | `013` | Planned |
 | Clinician governance review | M7 | `014` | Planned |
@@ -127,6 +127,11 @@ The local sandbox brings up OpenELIS, HAPI FHIR, FHIR Data Pipes, the analytics
 database, Catalyst Gateway, the pinned sibling Hub generic model executor, and
 the sidecar UI; it then seeds the synthetic multi-analyte cohort. Gateway owns
 the Catalyst query profiles, prompts, lint, and writer/reviewer orchestration.
+
+The final-pin manual MVP was accepted on 2026-08-04 after a 12/12 real-model
+matrix, independent PostgreSQL/gold comparisons, bounded failure/recovery, and
+actual keyboard-only plus 200%-browser-zoom checks. The deterministic
+Playwright notebook path preserves the corresponding focus and reflow boundary.
 
 ```bash
 make catalyst-mvp-fake

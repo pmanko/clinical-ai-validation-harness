@@ -1,7 +1,6 @@
 # PCCP-style Change Record: Iterative Query Notebook
 
-**Status:** Implemented candidate; final technical evidence ready and user
-acceptance pending
+**Status:** Implemented and accepted for the manual MVP on 2026-08-04
 
 **Date:** 2026-07-18
 **Reviewer decision:** The project owner approved the G2.8 artifact-first,
@@ -155,10 +154,12 @@ contract. On the reconciled merged-Hub pins, run
 24/24 independent PostgreSQL comparisons, and 18/18 gold-result comparisons.
 Run `fb6377c1-0b60-492a-8053-cc668a201d15` passed the expected one-shot Hub
 failure and the next turn in the same session recovered, validated, executed,
-and independently matched PostgreSQL. The PHI-safe pending receipt is
+and independently matched PostgreSQL. The PHI-safe accepted receipt is
 `../evidence/t111-final-acceptance-2026-08-03.json`.
 
-Actual keyboard-only Tab traversal, actual browser 200% zoom, explicit user
-disposition of the observed reviewer-contract/compact-composer issues, and user
-acceptance remain open. Root/user documentation completion and the final
-Catalyst → harness squash/repin sequence still follow that decision.
+The user confirmed actual keyboard-only Tab traversal and actual browser 200%
+zoom passed, accepted the observed reviewer-contract and compact-composer issues
+as non-blocking future work, and authorized the merge sequence. A deterministic
+Playwright regression now guards the accepted focus/reflow boundary and exposed
+one fixed-composer Tab-scroll obstruction, which was corrected before merge.
+The final Catalyst → harness squash/repin sequence remains tracked by T112.
