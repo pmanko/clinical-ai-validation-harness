@@ -211,15 +211,20 @@ Hub `092b5cd`, and T112 is complete.
 
 - [X] T127 Record the user's actual keyboard-only and 200%-browser-zoom PASS; add deterministic Playwright coverage for uninterrupted Tab navigation and 200%-equivalent reflow; fix the expanded-composer scroll obstruction exposed by that regression; and rerun UI unit, lint, typecheck, build, and Playwright gates
 
-## Phase 6 — W1 integrated validation
+## Phase 6 — W1 integrated validation (superseded closeout)
 
-- [ ] T022 Add invalid-edit-run-refresh-rerun browser coverage in `targets/catalyst/catalyst-ui/e2e/workbench.spec.ts`
-- [ ] T023 Add diverse real-path workbench smoke scenarios in `targets/catalyst/tests/e2e/test_mvp_live.sh`
-- [ ] T024 Run gateway, UI, browser, and real-stack checks and record exact-query digest evidence in `specs/008-catalyst-query-workbench/roadmap.md`
-- [ ] T055 Manually validate editor highlighting, line numbers, wrap default/toggle retention, keyword/catalog completion and no-catalog fallback, repeated deterministic Format, exact immutable Validate/Run versions, keyboard use, narrow layout, and 200% zoom; record mismatches and nondeterminism at G3 in `specs/008-catalyst-query-workbench/roadmap.md`
-- [ ] T025 Update Catalyst user docs and actual status in `targets/catalyst/docs/roadmap.md`
-- [ ] T026 Pin the verified Catalyst commit and update harness provenance in `targets/catalyst`
-- [ ] T027 Present G3 evidence and unresolved N-items to the user before starting W2 in `specs/008-catalyst-query-workbench/roadmap.md`
+The later G2.8/T111 merge-readiness sequence exercised a stricter superset of
+this legacy G3 checklist. The items below are closed by explicit supersession,
+not by claiming their original file-specific wording was executed verbatim.
+This does not start or approve W2.
+
+- [X] T022 Superseded by T108/T127 deterministic complete-flow and accessibility browser coverage
+- [X] T023 Superseded by the diverse real-path T094 matrix and clean-pin T111 rerun
+- [X] T024 Superseded by T094/T095/T111 Gateway, browser, real-stack, digest, and PostgreSQL evidence recorded in `specs/008-catalyst-query-workbench/roadmap.md`
+- [X] T055 Superseded by the accepted T095/T127 editor, keyboard, responsive-layout, and actual 200%-zoom validation
+- [X] T025 Superseded by T096/T110/T115 documentation reconciliation
+- [X] T026 Superseded by T112's merged Catalyst/Hub pins and post-merge harness provenance verification
+- [X] T027 Superseded by the T095/T111 user-acceptance checkpoint; W2 remains separately gated by T028/G4
 
 ## Phase 7 — User Story 2: targeted remediation (after G3)
 
@@ -233,7 +238,7 @@ Hub `092b5cd`, and T112 is complete.
 
 ## Phase 8 — Harness integration (after G5)
 
-- [ ] T035 Add versioned workbench event/manifest contract tests in `tests/test_metadata.py`
+- [X] T035 Superseded by T129/T130's authoritative notebook manifest/event contract and tests under `evals/metadata/`, per the approved validation integration roadmap; governed-preview export remains outside that replacement
 - [ ] T036 Implement session artifact export/import in `harness/catalyst/validation.py`
 - [ ] T037 Add one-click export in `targets/catalyst/catalyst-ui/src/features/query/QueryWorkspace.tsx` and validate W3 artifacts in `harness/catalyst/validation.py`
 - [ ] T038 Present G6 provenance/model-identity/scenario evidence before comparative claims in `specs/008-catalyst-query-workbench/roadmap.md`
@@ -247,7 +252,7 @@ Hub `092b5cd`, and T112 is complete.
 - [X] T132 Add red mixed-family dry-run publishing/index tests, then implement `scripts/publish-report.sh` and family-aware metadata, result loading, badges, deterministic gold rate, and advisory Catalyst judge median without routing Catalyst through Scout or freezing a ChartSearchAI dashboard
 - [X] T133 Dry-run stage one ChartSearchAI fixture and one Catalyst fixture; pass and record CVR-G13–G15 before starting release claims
 - [X] T134 Produce the five independent D13 code-QA artifacts, resolve every BLOCKER, and pass CVR-G16
-- [ ] T135 Run the complete real T094 suite on clean merged pins, apply the recorded Catalyst judge exactly three times, finalize, render, publish, and verify record-level evidence at the live URL for CVR-G17
+- [X] T135 Run the complete real T094 suite on clean merged pins, apply the recorded Catalyst judge exactly three times, finalize, render, publish, and verify record-level evidence at the live URL for CVR-G17
 - [ ] T136 Pass release CI/pin/docs/PCCP hygiene, record CVR-G18, and pause for MS-D user signoff before calling Catalyst report parity released
 
 ## Dependencies and implementation strategy

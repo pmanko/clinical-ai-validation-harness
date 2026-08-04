@@ -133,6 +133,12 @@ matrix, independent PostgreSQL/gold comparisons, bounded failure/recovery, and
 actual keyboard-only plus 200%-browser-zoom checks. The deterministic
 Playwright notebook path preserves the corresponding focus and reflow boundary.
 
+The P5 Catalyst report candidate is published at
+[reports.openclinai.org/catalyst-t094-release](https://reports.openclinai.org/catalyst-t094-release/):
+13/13 scenario repetitions and 411/411 deterministic assertions passed, with
+three advisory judge passes retained alongside record-level evidence. It remains
+labelled development evidence until CVR-G18 hygiene and final MS-D acceptance.
+
 ```bash
 make catalyst-mvp-fake
 ```

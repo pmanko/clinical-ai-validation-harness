@@ -7,12 +7,13 @@ Execution state for the Catalyst validation integration remediation roadmap.
 | Field | Value |
 |---|---|
 | Roadmap | [`catalyst-validation-integration-roadmap.md`](catalyst-validation-integration-roadmap.md) |
-| Authorization | Explicit user instruction to implement the approved plan on 2026-07-21 |
+| Authorization | Explicit user instruction to implement the approved plan on 2026-07-21; A2 gate-order clarification and exact synthetic release publication authorized 2026-08-04 |
 | Approved roadmap SHA-256 (pre-A1) | `b00a063bf2b78494a3a719436d4609127eb2e845153d1ab2f9153d1e018e6ef8` |
-| Approved roadmap SHA-256 (A1, current) | `37c13c468d274b985a0f48e0e6e5cfb2e3e9eaf3b0fb0fd1ace6e73fca1cf1e7` |
-| Current execution boundary | P0–P4 and T134 complete; CVR-G13–G16 PASS; T135 execution/judging/render/dry-run publish complete, with live publication and URL verification still in progress |
-| Next protected boundary | Finish CVR-G17 live publication, then CVR-G18 release hygiene and MS-D acceptance |
-| Deviations | None. Amendment A1 (2026-07-21, user-authorized): P4/P5 entry gates re-mapped from 008-G5/008-G6 to T094/T095/T111 acceptance — see roadmap §1.2 |
+| Approved roadmap SHA-256 (A1) | `37c13c468d274b985a0f48e0e6e5cfb2e3e9eaf3b0fb0fd1ace6e73fca1cf1e7` |
+| Approved roadmap SHA-256 (A2, current) | `d11d34f466f727e70a50eccc7024c85b334ad8c899ddb6a94ef0d26a09814dab` |
+| Current execution boundary | P0–P4 and T135 complete; CVR-G13–G17 PASS; T136/CVR-G18 release hygiene is in progress |
+| Next protected boundary | Finish CVR-G18 release hygiene, then pause for final MS-D acceptance |
+| Deviations | None. Amendment A1 (2026-07-21) remaps P4/P5 entry gates to T094/T095/T111 acceptance; Amendment A2 (2026-08-04) orders CVR-G18 hygiene before final MS-D acceptance — see roadmap §1.2 |
 
 ## Active-feature gate mapping
 
@@ -136,10 +137,12 @@ The audit distinguishes reusable prework from passed roadmap gates:
 - Judge identity is constant across 75 rows: provider `openai`, model
   `gpt-5.6-sol`, version `runtime-reported:gpt-5.6-sol`, rubric SHA-256
   `5dc94bbd30424f6f5f87b708a15a9f8615617d9e91180170f7c72df9c6e8f483`.
-- The rendered report and mixed-family dry-run publish pass under slug
-  `catalyst-t094-release`. External publication was not attempted after the
-  environment's evidence guard required a fresh explicit authorization for
-  this exact synthetic payload and the configured reports VM.
+- After explicit authorization for the exact synthetic payload, the report was
+  published at `https://reports.openclinai.org/catalyst-t094-release/`. The live
+  index contains its Catalyst card; the public report, run/results/judge
+  manifests, and representative evidence from every scenario family match the
+  staged bundle byte-for-byte. All 81 relative evidence links in the live report
+  returned HTTP 200 and matched their staged files.
 - Dry-run staging is byte-identical to the source bundle for every manifest,
   result, event, evidence-index, and judge artifact; every rendered relative
   evidence link resolves. The staged index contains 18 cards, including the
@@ -197,15 +200,11 @@ The audit distinguishes reusable prework from passed roadmap gates:
 | Fixture repair during P3 | PASS — `results.json` now includes `gold-fail-high-judge` + `multi-version-successor`; gold FAIL evidence carries `mismatch_rationale` |
 | P4/P5 entry guards | PASS at implementation time; Amendment A1's acceptance condition is now satisfied and the gate-state script must be advanced before P4 work |
 
-## Open roadmap consistency decision (2026-08-04)
+## Resolved roadmap consistency decision (2026-08-04)
 
-CVR-G18 currently requires MS-D to be recorded PASS, while the MS-D expected
-result says MS-D passes only if CVR-G18 already passes. This is a circular gate,
-not an implementation failure. No post-G16 verifier code or silent gate
-reinterpretation has been added. The proposed lightweight clarification is:
-CVR-G18 proves CI/pins/docs/PCCP readiness, then MS-D is the final release
-acceptance. User authorization is required before amending the approved roadmap
-and its recorded SHA-256.
+The user approved Amendment A2: CVR-G18 proves CI/pins/docs/PCCP and repository
+hygiene, then MS-D is the final release-acceptance decision. The roadmap no
+longer requires CVR-G18 and MS-D to have passed before one another.
 
 ## Gate Board
 
@@ -228,8 +227,8 @@ and its recorded SHA-256.
 | CVR-G14 | PASS | 5 selected CLI and compatibility-wrapper tests; T131 complete |
 | CVR-G15 | PASS | 27-test mixed-family index/publisher dry-run gate; T132–T133 complete |
 | CVR-G16 | PASS | Five independent D13 reports; zero open BLOCKER findings; `verify… g16` PASS against reviewed implementation `380301d` |
-| CVR-G17 | IN PROGRESS | Run `7e3adf47` is 13/13 with 411/411 assertions; 3 × 25 judge rows finalized; report and mixed-index dry run PASS; live publish and URL/evidence verification remain |
-| CVR-G18 | BLOCKED | Runs only after G17; final CI/pin/docs/PCCP hygiene and MS-D remain |
+| CVR-G17 | PASS | Run `7e3adf47` is 13/13 with 411/411 assertions; 3 × 25 judge rows finalized; live report/index published; 81/81 relative evidence links HTTP 200 and byte-identical to staging |
+| CVR-G18 | IN PROGRESS | Final CI/pin/docs/PCCP/repository hygiene must establish readiness for MS-D |
 
 ## Signoffs
 
@@ -260,8 +259,7 @@ stacked feature branch; the implementation remains development evidence until
 the P5 live release and MS-D acceptance.
 
 ### P5 — in progress
-T094/T095/T111, the merge chain, P4 parity gates, and T134/CVR-G16 are complete.
-T135/CVR-G17 has completed its clean-pin execution, three-pass judging,
-finalization, rendering, and dry-run publisher validation. Live publication and
-record-level URL verification remain; T136/CVR-G18 and MS-D stay blocked behind
-that evidence.
+T094/T095/T111, the merge chain, P4 parity gates, T134/CVR-G16, and
+T135/CVR-G17 are complete. The live report and all 81 relative evidence links
+are verified against the staged bundle. T136/CVR-G18 release hygiene is in
+progress; MS-D remains the final user-acceptance boundary.

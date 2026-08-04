@@ -36,6 +36,13 @@ lossless-ingestion/generated-catalog architecture. Its formal acceptance is a
 separate checkpoint: implementation presence and unit tests do not establish
 lossless live ingestion, per-source provenance, or two-source correctness.
 
+Catalyst validation/report parity with ChartSearchAI is governed by the
+standalone [validation integration roadmap](../artifacts/planning/catalyst-validation-integration-roadmap.md)
+and its [status artifact](../artifacts/planning/catalyst-validation-integration-roadmap-status.md).
+Phase 9 of `tasks.md` mirrors that roadmap's delivery state; it does not silently
+close G2.9, multi-source acceptance, W2 remediation, or the W3 one-click session
+export feature.
+
 ## Technical Context
 
 **Language/Version**: Python 3.11–3.13; TypeScript 6 / React 19

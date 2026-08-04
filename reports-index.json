@@ -3,6 +3,12 @@
   "scoring_note": "Each answer is graded 0\u201310, higher is better \u2014 <b>Accuracy</b>: are the stated facts correct? <b>Completeness</b>: did it cover what mattered? <b>Relevance</b>: did it actually answer the question? <b>Unsafe answers</b> counts responses with a potential safety problem (lower is better). <b>Questions</b> is how many were scored per setup, and the best value in each column is highlighted. <b>Benchmark /100</b> is the headline aggregate \u2014 it combines the dimensions (accuracy and completeness weighted most) minus soft penalties for safety and citation problems, so one number summarizes each setup. These come from a single automated judge on a small sample \u2014 they're directional, not a formal benchmark.",
   "runs": [
     {
+      "slug": "catalyst-t094-release",
+      "title": "Catalyst T094 validation",
+      "summary": "",
+      "takeaway": ""
+    },
+    {
       "slug": "catalyst-notebook-t094-2026-07-22",
       "title": "Catalyst notebook acceptance: can an AI-drafted SQL conversation survive real refinement?",
       "summary": "A different validation family from the chart-QA runs above: Catalyst turns a plain-language clinical question into governed SQL (a Gemma 4 12B writer drafted, a Qwen 2.5 14B reviewer checked, a deterministic policy enforcing read-only execution), then a follow-up instruction refines the exact current query. Four scenario families \u00d7 3 repetitions against the live stack and a real PostgreSQL: narrowing an unchanged base, aggregating from a dirty editor with a mid-session profile switch, correcting an unresolved parameter, and a semantic distinct-patient review. Every executed result is re-checked two ways \u2014 against an independently-run gold query (byte-level execution match) and by an independent read-only PostgreSQL cross-check.",

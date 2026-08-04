@@ -77,7 +77,8 @@ keyboard-only and 200%-browser-zoom checks passed; the user accepted
 T094/T095/T111 on 2026-08-04. A deterministic Playwright regression now guards
 the unobscured Tab path and 200%-equivalent reflow boundary.
 G2.9 remains at its written user checkpoint; G2.10 multi-source/lossless
-acceptance is newly traced and open; G3 and W2 have not started.
+acceptance is newly traced and open. The legacy G3/W1 closeout is superseded by
+the stricter accepted T094/T095/T111/T127 evidence; W2 has not started.
 
 - Collapse detailed dataset context while retaining state.
 - Persist sessions and immutable query versions in the gateway.
@@ -193,8 +194,9 @@ and rerun across a refresh without losing lineage.
   typecheck/lint/production build, 26 analytics tests, contract-copy equality,
   diff checks, and the live isolated MVP health/provenance gate using Gemma 4
   12B as writer and Qwen 2.5 14B as reviewer.
-- **G3 user:** integrated browser/manual acceptance and refresh retest; pause
-  before W2.
+- **G3 user (superseded/accepted):** the later T094/T095/T111/T127 sequence
+  provided the integrated browser/manual, refresh, real-stack, accessibility,
+  and user-acceptance evidence; W2 still requires its separate T028/G4 gate.
 
 ### G1 evidence — PASS (2026-07-17)
 

@@ -27,7 +27,8 @@ Publishable Catalyst notebook runs additionally require:
 - `report_family = "catalyst"`
 - `suite_id`
 - `suite_sha256` (SHA-256 of the exact input suite bytes)
-- `evidence_status = "development"` until the P5 release gates pass
+- `evidence_status = "development"` until CVR-G16–G18 and final MS-D acceptance
+  pass; live publication alone does not promote the evidence status
 
 For Catalyst query-validation runs, `target_provenance` contains separate,
 control-plane-compatible Catalyst and Med-Agent Hub entries. The runner rejects
