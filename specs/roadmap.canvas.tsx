@@ -611,7 +611,7 @@ const sequencingNotes: Array<[string, string]> = [
   ],
   [
     "Slug numbering is non-monotonic by design",
-    "The phantom slug 003 was never created — the validation spine landed as 006 (validation-harness MVP). Current feature folders include 006 = validation MVP (M2), 007 = llm-config-overrides (F007), 008 = Catalyst query workbench (M10), and 017 = med-agent-hub MCP tools (F010); M4 = 010 and M5–M9 = 012–016. Milestone/feature IDs (M0–M10, F005–F010) are the semantic ordering anchors; folder slugs are filesystem identifiers, not strict order.",
+    "The phantom slug 003 was never created — the validation spine landed as 006 (validation-harness MVP). Current feature folders: 001 (M0), 002 (M1), 004 (M3), 005 (F005), 006 (M2), 007 (F007), 008 (M10). Future slugs reserve 010 (M4), 012–016 (M5–M9), and 017 (F010). Milestone/feature IDs (M0–M10, F005–F010) are the semantic ordering anchors; folder slugs are filesystem identifiers, not strict order.",
   ],
 ];
 
