@@ -10,8 +10,8 @@ Execution state for the Catalyst validation integration remediation roadmap.
 | Authorization | Explicit user instruction to implement the approved plan on 2026-07-21 |
 | Approved roadmap SHA-256 (pre-A1) | `b00a063bf2b78494a3a719436d4609127eb2e845153d1ab2f9153d1e018e6ef8` |
 | Approved roadmap SHA-256 (A1, current) | `37c13c468d274b985a0f48e0e6e5cfb2e3e9eaf3b0fb0fd1ace6e73fca1cf1e7` |
-| Current execution boundary | P0–P4 complete; CVR-G13–G15 PASS on feature commit `5f457e2`; P5 release work T134–T136 is next |
-| Next protected boundary | CVR-G16–G18 and MS-D remain required before report parity is released |
+| Current execution boundary | P0–P4 and T134 complete; CVR-G13–G16 PASS; P5 live release work T135–T136 is next |
+| Next protected boundary | CVR-G17–G18 and MS-D remain required before report parity is released |
 | Deviations | None. Amendment A1 (2026-07-21, user-authorized): P4/P5 entry gates re-mapped from 008-G5/008-G6 to T094/T095/T111 acceptance — see roadmap §1.2 |
 
 ## Active-feature gate mapping
@@ -109,9 +109,11 @@ The audit distinguishes reusable prework from passed roadmap gates:
   ChartSearchAI wrapper, and builds one mixed index with Catalyst gold and
   advisory judge-median metrics without calling Scout. The two-fixture dry-run
   and republish test pass under a temporary `REPORTS_ROOT`; 27 tests PASS.
-- **P5 remains unstarted:** the D13 independent code-QA set, clean-pin live
-  judged release run, verified publication, release hygiene, and MS-D signoff
-  have not been completed.
+- **CVR-G16 PASS:** all five D13 independent code-QA reports are present,
+  non-empty, anchored to reviewed implementation `380301d`, and record zero
+  open BLOCKER findings. The executable G16 gate passes.
+- **P5 is in progress:** the clean-pin live judged release run, verified
+  publication, release hygiene, and MS-D signoff have not been completed.
 
 ## Baseline Snapshot (CVR-G00)
 
@@ -180,9 +182,9 @@ The audit distinguishes reusable prework from passed roadmap gates:
 | CVR-G13 | PASS | 51-test metadata/event/finalizer/runner gate; T129–T130 complete |
 | CVR-G14 | PASS | 5 selected CLI and compatibility-wrapper tests; T131 complete |
 | CVR-G15 | PASS | 27-test mixed-family index/publisher dry-run gate; T132–T133 complete |
-| CVR-G16 | READY | T094/T095/T111 accepted 2026-08-04; P5 work not started |
-| CVR-G17 | READY | T094/T095/T111 accepted 2026-08-04; P5 work not started |
-| CVR-G18 | READY | T094/T095/T111 accepted 2026-08-04; P5 work not started |
+| CVR-G16 | PASS | Five independent D13 reports; zero open BLOCKER findings; `verify… g16` PASS against reviewed implementation `380301d` |
+| CVR-G17 | READY | G16 PASS; clean-pin T094 run, exactly three judge passes, finalization, live publish, and URL/evidence verification remain |
+| CVR-G18 | BLOCKED | Runs only after G17; final CI/pin/docs/PCCP hygiene and MS-D remain |
 
 ## Signoffs
 
@@ -212,6 +214,7 @@ T128–T133 are complete. CVR-G13–G15 and the continuous suite are green on th
 stacked feature branch; the implementation remains development evidence until
 the P5 live release and MS-D acceptance.
 
-### P5 — not started (entry condition satisfied)
-T094/T095/T111, the merge chain, and the P4 parity gates are complete. P5 is
-unblocked; T134–T136 remain open.
+### P5 — in progress
+T094/T095/T111, the merge chain, P4 parity gates, and T134/CVR-G16 are complete.
+T135/CVR-G17 is next; T136/CVR-G18 and MS-D remain blocked behind that live
+release evidence.

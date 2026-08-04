@@ -2,13 +2,14 @@
 # Execute and record Catalyst Validation Integration (CVR) roadmap gates.
 # Usage:
 #   scripts/verify-catalyst-validation-roadmap-gates.sh test
-#   scripts/verify-catalyst-validation-roadmap-gates.sh g00|g01|...|g15|blocked
+#   scripts/verify-catalyst-validation-roadmap-gates.sh g00|g01|...|g16|blocked
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "${ROOT}"
 
 STATUS="${ROOT}/specs/artifacts/planning/catalyst-validation-integration-roadmap-status.md"
+QA_DIR="${ROOT}/artifacts/roadmap/code-qa/catalyst-validation-integration"
 BASE_BRANCH="$(awk -F'|' '/Diff-cover base branch/{gsub(/`| /, "", $3); print $3}' "${STATUS}" | head -1)"
 BASE_BRANCH="${BASE_BRANCH:-origin/main}"
 # Strip parenthetical fallback notes if present.
@@ -123,6 +124,28 @@ case "${cmd}" in
       evals/scripts/test_publish_report.py -q
     record G15 PASS "mixed-family dry-run publishing and index"
     ;;
+  g16)
+    reports="
+meaningful-test-coverage.md
+simplicity-review.md
+spec-code-alignment.md
+cross-repo-companion-pr.md
+evidence-bundle.md
+"
+    report_count="$(find "${QA_DIR}" -maxdepth 1 -type f -name '*.md' 2>/dev/null | wc -l | tr -d ' ')"
+    test "${report_count}" = "5"
+    for report in ${reports}; do
+      path="${QA_DIR}/${report}"
+      test -s "${path}"
+      rg -q '^Status: PASS$' "${path}"
+      rg -q '^Open BLOCKER findings: 0$' "${path}"
+      rg -q '^Reviewed implementation SHA: `[0-9a-f]{40}`$' "${path}"
+    done
+    reviewed_sha="$(sed -n 's/^Reviewed implementation SHA: `\([0-9a-f]\{40\}\)`$/\1/p' "${QA_DIR}/meaningful-test-coverage.md")"
+    test -n "${reviewed_sha}"
+    git cat-file -e "${reviewed_sha}^{commit}"
+    record G16 PASS "five independent code-QA reports; zero open BLOCKER findings; reviewed ${reviewed_sha}"
+    ;;
   blocked)
     # Amendment A1 (2026-07-21): P4 and P5 both entry-gate on recorded
     # T094/T095/T111 user acceptance; 008-G5/008-G6 no longer gate CVR phases.
@@ -138,7 +161,7 @@ case "${cmd}" in
     fi
     ;;
   *)
-    echo "usage: $0 test|g00|g01|g02|g03|g04|g05|g06|g07|g08|g09|g10|g11|g12|g13|g14|g15|blocked" >&2
+    echo "usage: $0 test|g00|g01|g02|g03|g04|g05|g06|g07|g08|g09|g10|g11|g12|g13|g14|g15|g16|blocked" >&2
     exit 2
     ;;
 esac
