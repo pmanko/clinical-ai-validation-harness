@@ -3,29 +3,35 @@
 ## Current architecture and PR topology (2026-08-04)
 
 **Status:** Current implementation is in active Harness
-[#37](https://github.com/pmanko/clinical-ai-validation-harness/pull/37), with
-Catalyst [#5](https://github.com/DIGI-UW/openelis-catalyst/pull/5) as its open
-component PR. Med-Agent Hub
-[#15](https://github.com/pmanko/med-agent-hub/pull/15) is merged; the harness and
-Catalyst standalone fallback now use Hub `main` at `092b5cd`. Catalyst #4 and
-Hub #14 are closed, unmerged, and superseded; references to them below are
-historical publication evidence only.
+[#37](https://github.com/pmanko/clinical-ai-validation-harness/pull/37).
+Catalyst [#5](https://github.com/DIGI-UW/openelis-catalyst/pull/5) and Med-Agent
+Hub [#15](https://github.com/pmanko/med-agent-hub/pull/15) are merged; the
+harness pins their `main` commits. Catalyst #4 and Hub #14 are closed, unmerged,
+and superseded; references to them below are historical publication evidence
+only.
 
 Catalyst Gateway now owns governed-query profiles, prompts, writer/reviewer
 composition, deterministic lint/repair/finalization, and query evidence.
 Med-Agent Hub exposes a generic `POST /v1/hub/generate` role executor and does
 not own Catalyst query profiles or their orchestration. Hub's separate
 clinical-answer/report profile engine is unchanged. The reconciled candidate
-pins are Catalyst `5f23c4e` (active #5 head) and merged Hub `092b5cd`; the
+pins are Catalyst `e7eba21` and Hub `092b5cd`; the
 Harness evidence-receipt parent is `6f58d45`. The definitive final-pin matrix
 passed 12/12 with independent
 PostgreSQL/gold checks, and the final-pin bounded failure plus same-session
 recovery passed. The July 30 runs remain supporting historical PR-head evidence
 on their recorded older revisions. Automated component gates pass on the
 reconciled runtime heads. Actual keyboard/200%-zoom checks passed and the user
-accepted the MVP on 2026-08-04. Catalyst `5f23c4e` adds the deterministic E2E
-regression and resulting focus-scroll fix; T112 now governs the remaining
-Catalyst merge and Harness repin/approval/merge order.
+accepted the MVP on 2026-08-04. Catalyst source head `5f23c4e` added the
+deterministic E2E regression and resulting focus-scroll fix and was squash-
+merged as `e7eba21`; T112 now governs final Harness verification, approval, and
+merge.
+
+Post-merge run `70d76a43-d687-4f2a-afe6-e23ca75fe6df` then passed 1/1 on the
+exact merged Catalyst/Hub pins, including both base and successor independent
+PostgreSQL checks (2/2) and gold-result comparisons (2/2). Full stack health and
+provenance also passed. T112 is now waiting only on required Harness approval
+and the final Harness squash.
 
 The 2026-07-29 lightweight cross-artifact rerun found no unresolved
 CRITICAL/HIGH inconsistency after aligning the exact component revisions,
@@ -1458,9 +1464,10 @@ work, confirmed the actual keyboard-only traversal and actual 200% browser zoom
 passed, and authorized the merge sequence. The new deterministic Playwright
 regression then exposed and fixed a native Tab-scroll obstruction behind the
 expanded composer by reserving its scroll area; the full UI, lint, typecheck,
-build, and deterministic E2E gates pass. T094/T095/T111 are complete. T112
-remains open until the actual Catalyst squash, harness repin, final gates,
-required approval, and harness squash finish.
+build, and deterministic E2E gates pass. T094/T095/T111 are complete. Catalyst
+#5 is squash-merged, the Harness pins the merged Catalyst/Hub commits, and
+post-merge health plus real-model/PostgreSQL/gold smoke pass. T112 remains open
+until required Harness approval and the Harness squash finish.
 
 ### G2.10 multi-source/lossless onboarding — WRITTEN TRACE COMPLETE; EVIDENCE OPEN
 

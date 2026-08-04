@@ -34,9 +34,9 @@ boundary and retains a separate clinical-answer/report profile system.
 
 | Component | Candidate revision | State |
 |---|---|---|
-| Catalyst | `5f23c4e` (PR #5) | Standalone fallback pinned to merged Hub `main`; local UI/unit/lint/typecheck/build/E2E gates green; GitHub CI in progress after the accepted E2E addition |
+| Catalyst | `e7eba21` (`main`; PR #5 merged) | Source head `5f23c4e` passed all five CI jobs, including the deterministic browser workflow, then squash-merged; standalone fallback remains pinned to Hub `main` |
 | Med-Agent Hub | `092b5cd` (`main`; PR #15 merged) | Generic role executor and final model-inventory dependencies available on merged `main` |
-| Harness | `codex/catalyst-mvp-umbrella` (PR #37; evidence-receipt parent `6f58d45`) | Working tree pins Catalyst `5f23c4e`/Hub `092b5cd`; final live matrix ran at Catalyst `9aa0e0f`, followed only by the accepted E2E/focus-scroll delta; all six review threads remain resolved; required approval remains |
+| Harness | `codex/catalyst-mvp-umbrella` (PR #37) | Pins Catalyst `e7eba21`/Hub `092b5cd`; full health/provenance PASS and post-merge real-model/PostgreSQL/gold smoke `70d76a43` PASS 1/1; required approval and final Harness squash remain |
 
 The authoritative July 30 PR-head run
 `cbc41bcd-56f7-4074-931f-98ed42fea202` passed 12/12 scenario repetitions on

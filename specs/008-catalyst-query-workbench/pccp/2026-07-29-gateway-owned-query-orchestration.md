@@ -5,7 +5,7 @@
 **Date:** 2026-07-29
 
 **Governance timing:** This record was created after the ownership refactor was
-implemented in the active component PRs, when roadmap reconciliation exposed
+implemented in the then-active component PRs, when roadmap reconciliation exposed
 that the earlier G2.8 PCCP still described Hub-owned query profiles. It is a
 retrospective implementation record, not a claim of preimplementation approval.
 It was complete before T111 acceptance. Hub #15 has since merged; Catalyst and
@@ -36,13 +36,14 @@ Gateway:
 5. Hub's clinical-answer/report profiles remain a separate product surface and
    are not used as Catalyst query-profile discovery.
 
-The accepted candidate revisions are Catalyst `5f23c4e` (PR #5) and merged
-Hub `092b5cd`; the Harness evidence-receipt parent is `6f58d45`. The July 30
+The merged revisions are Catalyst `e7eba21` (PR #5) and Hub `092b5cd` (PR #15);
+the Harness evidence-receipt parent is `6f58d45`. The July 30
 supporting evidence remains
 attributed to Harness `e475d7a`, Catalyst parent `bb36126`, and Hub `198d5f6`;
 it is not relabelled as final-pin evidence. Final live evidence ran at Catalyst
-`9aa0e0f`; `5f23c4e` adds only accepted-status documentation, the deterministic
-keyboard/reflow E2E regression, and the focus-scroll correction it exposed.
+`9aa0e0f`; source head `5f23c4e`, squash-merged as `e7eba21`, adds only
+accepted-status documentation, the deterministic keyboard/reflow E2E
+regression, and the focus-scroll correction it exposed.
 
 ## Controlled behavior and invariants
 
@@ -181,6 +182,8 @@ On 2026-08-04 the user confirmed actual keyboard-only traversal and actual 200%
 browser zoom passed, accepted the model/UX observations as non-blocking future
 work, and accepted the MVP. The deterministic Playwright path now guards
 uninterrupted focus and 200%-equivalent reflow; it exposed and drove correction
-of an expanded-composer focus obstruction. T111 is complete. Hub #15 is already
-merged; Catalyst must merge before the harness is repinned, revalidated,
-approved, and merged under T112.
+of an expanded-composer focus obstruction. T111 is complete. Hub #15 and
+Catalyst #5 are merged; the harness is pinned to those `main` commits and must
+be approved and merged under T112. Post-merge health/provenance passed, and run
+`70d76a43-d687-4f2a-afe6-e23ca75fe6df` passed 1/1 with 2/2 independent
+PostgreSQL checks and 2/2 gold-result comparisons.

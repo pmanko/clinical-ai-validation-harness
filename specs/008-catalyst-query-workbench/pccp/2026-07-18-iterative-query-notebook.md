@@ -162,4 +162,6 @@ zoom passed, accepted the observed reviewer-contract and compact-composer issues
 as non-blocking future work, and authorized the merge sequence. A deterministic
 Playwright regression now guards the accepted focus/reflow boundary and exposed
 one fixed-composer Tab-scroll obstruction, which was corrected before merge.
-The final Catalyst → harness squash/repin sequence remains tracked by T112.
+Catalyst #5 is squash-merged and the Harness working tree is repinned to its
+`main` commit; final Harness verification, approval, and squash remain tracked
+by T112.

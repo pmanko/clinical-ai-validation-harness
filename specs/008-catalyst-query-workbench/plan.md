@@ -760,13 +760,16 @@ The following items must remain visible until evidence resolves them:
   endpoint, while the supported Data Pipes run and complete health/provenance
   gate remain authoritative.
 - **N61 — Final merged-pin rerun follows the strongest PR-head live run
-  (accepted at T111)**: The accepted candidates are Catalyst `5f23c4e` and
-  merged Hub `092b5cd`; the Harness
+  (accepted at T111)**: The merged component pins are Catalyst `e7eba21` and
+  Hub `092b5cd`; the Harness
   evidence-receipt parent is `6f58d45`. Final-pin run `0671dc34` passed 12/12
   plus PostgreSQL/gold checks,
   and `fb6377c1` passed the bounded failure and same-session recovery. Actual
-  keyboard/zoom inspection passed, the user accepted the MVP, and the current
-  Catalyst head adds the deterministic E2E regression/focus-scroll correction.
+  keyboard/zoom inspection passed, the user accepted the MVP, and Catalyst
+  source head `5f23c4e` (squash-merged as `e7eba21`) adds the deterministic E2E
+  regression/focus-scroll correction. Post-merge run `70d76a43` passed 1/1 on
+  the exact merged Catalyst/Hub pins with 2/2 PostgreSQL checks and 2/2 gold-
+  result comparisons.
 - **N62 — Multi-source/lossless acceptance gap (open at G2.10)**: Registry,
   two-source UI, lossless projections, SQL curation, and generated-catalog code
   exist in the active change set, but the feature amendment previously had no

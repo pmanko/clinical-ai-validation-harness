@@ -1,6 +1,6 @@
 {
   "contractVersion": "harness.catalyst-final-acceptance-receipt.v1",
-  "generatedAt": "2026-08-04T14:37:40Z",
+  "generatedAt": "2026-08-04T15:16:38Z",
   "featureId": "008-catalyst-query-workbench",
   "taskIds": [
     "T094",
@@ -22,7 +22,8 @@
       "repository": "DIGI-UW/openelis-catalyst",
       "pullRequest": 5,
       "branch": "feat/catalyst-client-orchestration",
-      "sha": "5f23c4eaa52f6b04a5eab425429a212172cf14e7",
+      "sha": "e7eba21e3ad8201a49fd6ffff80b88092b174c78",
+      "sourceHeadSha": "5f23c4eaa52f6b04a5eab425429a212172cf14e7",
       "liveEvidenceBaseSha": "9aa0e0f847b68d2b06b65398681c6bbf787509bb",
       "postAcceptanceDelta": "Accepted-status documentation, deterministic keyboard/reflow E2E coverage, and the focus-scroll correction exposed by that E2E; no model, data, or query-orchestration contract change.",
       "matchesHarnessGitlink": true,
@@ -225,6 +226,24 @@
     ],
     "actualKeyboardOnlyTraversal": "passed_user_verified_2026-08-04",
     "actualBrowserZoom200Percent": "passed_user_verified_2026-08-04"
+  },
+  "postMergeVerification": {
+    "verifiedAt": "2026-08-04T15:16:38Z",
+    "harnessCommit": "c58423bb86127cb7f8811d5debdee73be964b671",
+    "catalystMainCommit": "e7eba21e3ad8201a49fd6ffff80b88092b174c78",
+    "medAgentHubMainCommit": "092b5cda7ccbdd7e7206f4edbaf2dda9f360f37c",
+    "mvpHealthAndProvenance": "passed",
+    "runId": "70d76a43-d687-4f2a-afe6-e23ca75fe6df",
+    "scenarioId": "narrowing-unchanged-base",
+    "result": "1/1 passed",
+    "postgresCrossChecks": "2/2 passed",
+    "goldResultComparisons": "2/2 passed",
+    "selectedQueryDigest": "fbeb97c89d138ce0a93bbdd2aec41bb7d8c776aaa9dea6abb3e5cb734fc13843",
+    "unadjustedGenerationWallMs": 163556,
+    "generationWallMinusRecordedInvocationsMs": 413,
+    "baseExecutionWallMs": 41,
+    "successorExecutionWallMs": 41,
+    "privateArchiveLocator": "artifacts/catalyst-notebook-validation/post-merge-smoke/70d76a43-d687-4f2a-afe6-e23ca75fe6df"
   },
   "observedIssues": [
     {

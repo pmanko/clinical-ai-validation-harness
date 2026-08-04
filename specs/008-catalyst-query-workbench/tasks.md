@@ -140,6 +140,13 @@ Gateway-ownership refactor is tracked separately in Phase 4.14.
 - [X] T111 Rerun the complete Hub/Catalyst/harness automated gates plus the T094/T095 live iterative workflow on clean pins; prove the versioned Hub backend inventory, exact required model aliases, available-profile subset, unavailable initial/governed/follow-up rejection before state or model calls, writer-only and reviewed provenance, independent PostgreSQL evidence, and pause for user acceptance
 - [ ] T112 Hub #15 is already merged and pinned. After T111 acceptance, squash Catalyst, repin the resulting Catalyst `main` commit while retaining Hub `main` in the harness, rerun the required pin/live gates, obtain the required harness approval, and squash harness last
 
+T112 progress note (2026-08-04): Catalyst #5 source head `5f23c4e` passed all
+five CI jobs and squash-merged to `main` as `e7eba21`. The harness working tree
+now pins Catalyst `e7eba21` and Hub `092b5cd`. Full health/provenance passed;
+real-model run `70d76a43-d687-4f2a-afe6-e23ca75fe6df` passed 1/1 with 2/2
+independent PostgreSQL checks and 2/2 gold-result comparisons. Required Harness
+approval and Harness squash remain.
+
 T111 historical execution note (2026-07-30): the PR-head 12/12 model/PostgreSQL
 matrix and bounded-failure/same-session recovery passed on harness `e475d7a`,
 Catalyst `bb36126`, and Hub `198d5f6`. Responsive 390/320 CSS-pixel and
@@ -164,9 +171,9 @@ the expected failed turn preserved its base, a same-session recovery generated,
 validated, executed, and independently matched PostgreSQL. The PHI-safe
 accepted receipt is `evidence/t111-final-acceptance-2026-08-03.json`. The user
 confirmed actual keyboard-only traversal and actual 200% browser zoom both
-passed and accepted the MVP on 2026-08-04, completing T094/T095/T111. T112
-remains open for the ordered Catalyst merge and final Harness repin/approval/
-merge sequence.
+passed and accepted the MVP on 2026-08-04, completing T094/T095/T111. Catalyst
+#5 has since squash-merged and the Harness working tree is repinned; T112
+remains open for final verification, required approval, and Harness merge.
 
 ## Phase 4.14 — Gateway-owned query orchestration reconciliation
 
