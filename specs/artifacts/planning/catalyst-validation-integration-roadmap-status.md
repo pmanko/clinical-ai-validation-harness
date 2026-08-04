@@ -10,8 +10,8 @@ Execution state for the Catalyst validation integration remediation roadmap.
 | Authorization | Explicit user instruction to implement the approved plan on 2026-07-21 |
 | Approved roadmap SHA-256 (pre-A1) | `b00a063bf2b78494a3a719436d4609127eb2e845153d1ab2f9153d1e018e6ef8` |
 | Approved roadmap SHA-256 (A1, current) | `37c13c468d274b985a0f48e0e6e5cfb2e3e9eaf3b0fb0fd1ace6e73fca1cf1e7` |
-| Current execution boundary | P0–P3 complete and signed off; T094/T095/T111 accepted 2026-08-04, opening P4/P5 under Amendment A1 |
-| Next protected boundary | P4/P5 may proceed; their own downstream review/publication gates remain authoritative |
+| Current execution boundary | P0–P3 complete and signed off; merge chain complete; P4 audit complete and implementation active under T129–T133 |
+| Next protected boundary | CVR-G13–G15 must pass before P5 release work T134–T136; MS-D remains the final user gate |
 | Deviations | None. Amendment A1 (2026-07-21, user-authorized): P4/P5 entry gates re-mapped from 008-G5/008-G6 to T094/T095/T111 acceptance — see roadmap §1.2 |
 
 ## Active-feature gate mapping
@@ -22,9 +22,9 @@ Execution state for the Catalyst validation integration remediation roadmap.
 | **008-G6** | `specs/008-catalyst-query-workbench/roadmap.md` W3 **G6 user** | Not accepted — no longer a CVR entry gate (A1) |
 | **T094** | Diverse real-path notebook validation | PASS — accepted; final-pin matrix 12/12 PASS (run `0671dc34`), 24/24 PostgreSQL checks, 18/18 gold-result checks; final-pin failure/recovery PASS (run `fb6377c1`) |
 | **T095** | G2.8c acceptance pause | PASS — accepted 2026-08-04; actual keyboard-only and 200%-browser-zoom checks PASS |
-| **T111** | Clean-pin rerun + user acceptance | PASS — accepted 2026-08-04; T112 merge/repin work remains |
+| **T111** | Clean-pin rerun + user acceptance | PASS — accepted 2026-08-04; T112 merge/repin/verification also complete |
 
-## Current architecture and candidate pins (2026-08-03)
+## Current architecture and merged pins (2026-08-04)
 
 The current implementation no longer uses Hub-owned Catalyst query profiles.
 Catalyst Gateway owns the query-profile registry, prompts, writer/reviewer
@@ -36,7 +36,7 @@ boundary and retains a separate clinical-answer/report profile system.
 |---|---|---|
 | Catalyst | `e7eba21` (`main`; PR #5 merged) | Source head `5f23c4e` passed all five CI jobs, including the deterministic browser workflow, then squash-merged; standalone fallback remains pinned to Hub `main` |
 | Med-Agent Hub | `092b5cd` (`main`; PR #15 merged) | Generic role executor and final model-inventory dependencies available on merged `main` |
-| Harness | `codex/catalyst-mvp-umbrella` (PR #37) | Pins Catalyst `e7eba21`/Hub `092b5cd`; full health/provenance PASS and post-merge real-model/PostgreSQL/gold smoke `70d76a43` PASS 1/1; required approval and final Harness squash remain |
+| Harness | `776a363` (`main`; PR #37 merged) | Pins Catalyst `e7eba21`/Hub `092b5cd`; full health/provenance PASS and post-merge real-model/PostgreSQL/gold smoke `70d76a43` PASS 1/1 |
 
 The authoritative July 30 PR-head run
 `cbc41bcd-56f7-4074-931f-98ed42fea202` passed 12/12 scenario repetitions on
@@ -74,7 +74,7 @@ backend model inventory, `LocalHub` requires every exact writer/reviewer alias,
 and unavailable profiles fail closed before state or model calls. Component
 coverage and the isolated exact-pin live proof are green.
 
-The final merged-Hub-pin T111 evidence is now ready. Harness run
+The final merged-Hub-pin T111 evidence was accepted. Harness run
 `0671dc34-26c6-4d52-8443-47e0a833a539` passed 12/12 real-model repetitions,
 24/24 independent PostgreSQL comparisons, and 18/18 gold-result comparisons on
 Catalyst `9aa0e0f` and Hub `092b5cd`. Run
@@ -83,8 +83,31 @@ the next turn in that same session then generated, validated, executed, and
 matched PostgreSQL after the direct router was restored. The accepted PHI-safe
 receipt is `specs/008-catalyst-query-workbench/evidence/`
 `t111-final-acceptance-2026-08-03.json`. The user-confirmed keyboard-only and
-actual 200%-zoom checks promote T094/T095/T111 to accepted; T112 remains the
-ordered Catalyst squash, Harness repin/verification, approval, and final squash.
+actual 200%-zoom checks promote T094/T095/T111 to accepted. Catalyst #5 and
+harness #37 subsequently squash-merged in dependency order, and T112 is complete.
+
+## P4/P5 current-state audit (2026-08-04)
+
+The audit distinguishes reusable prework from passed roadmap gates:
+
+- **Already implemented:** the real notebook runner writes `run_manifest.json`,
+  `results.json`, additive `results.jsonl`/`events.jsonl`, and bounded evidence;
+  the live dashboard can discover notebook runs; the three-pass Catalyst judge
+  schema/finalizer and offline shared-shell Catalyst report pass fixture tests.
+- **CVR-G13 remains open:** the manifest does not yet carry
+  `report_family`, `suite_id`, or `suite_sha256`; the additive stream uses the
+  ChartSearchAI-shaped `comparison_set`/`backend_selected` summary rather than
+  the required versioned scenario/turn/version/execution evidence contract; and
+  judge finalization explicitly does not append evaluation events.
+- **CVR-G14 remains open:** `harness-cli` has no `catalyst run` or
+  `catalyst report` command; the notebook script still owns argument parsing.
+- **CVR-G15 remains open:** only the ChartSearchAI-specific
+  `validate-publish.sh` exists. The curated index has a Catalyst scoreline
+  compatibility hook but rejects non-`artifacts/validate` run paths and has no
+  family-aware Catalyst result/judge metrics or badge.
+- **P5 remains unstarted:** the D13 independent code-QA set, clean-pin live
+  judged release run, verified publication, release hygiene, and MS-D signoff
+  have not been completed.
 
 ## Baseline Snapshot (CVR-G00)
 
@@ -121,7 +144,7 @@ ordered Catalyst squash, Harness repin/verification, approval, and final squash.
 | Judge axes/formula underspecified | Resolved: D6 formula + schemas + three-pass median |
 | Escaping semantics diverge | Resolved: `esc` + `esc_inline` |
 | Code-qa missing companion-pr artifact | Resolved: five-file D13 set |
-| P4/P5 vs 008 W3 ordering | Resolved: T094/T095/T111 accepted 2026-08-04; P4/P5 may begin after the current merge chain |
+| P4/P5 vs 008 W3 ordering | Resolved: T094/T095/T111 and T112 are complete; P4 is active independently of product W2/W3 |
 
 ## Post-implementation self-validation (2026-07-21)
 
@@ -150,9 +173,9 @@ ordered Catalyst squash, Harness repin/verification, approval, and final squash.
 | CVR-G10 | PASS | Fixture three-pass + `judge.jsonl`/`judge_manifest.json` present and tests green; MS-B signed off 2026-07-21 (Piotr Mankowski) |
 | CVR-G11 | PASS | Offline `harness.catalyst.report.build_report` with socket blocked |
 | CVR-G12 | PASS | Import-boundary + no-judge tests green; MS-C signed off 2026-07-21 (Piotr Mankowski) |
-| CVR-G13 | READY | T094/T095/T111 accepted 2026-08-04; P4 work not started |
-| CVR-G14 | READY | T094/T095/T111 accepted 2026-08-04; P4 work not started |
-| CVR-G15 | READY | T094/T095/T111 accepted 2026-08-04; P4 work not started |
+| CVR-G13 | IN PROGRESS | T128 audit complete; T129–T130 remain |
+| CVR-G14 | IN PROGRESS | T128 audit complete; T131 remains |
+| CVR-G15 | IN PROGRESS | T128 audit complete; T132–T133 remain |
 | CVR-G16 | READY | T094/T095/T111 accepted 2026-08-04; P5 work not started |
 | CVR-G17 | READY | T094/T095/T111 accepted 2026-08-04; P5 work not started |
 | CVR-G18 | READY | T094/T095/T111 accepted 2026-08-04; P5 work not started |
@@ -180,8 +203,11 @@ PCCP, skill, schemas, `harness/catalyst/reconcile.py`, `scripts/catalyst-judge-f
 ### P3 — complete; Signoff C PASS (2026-07-21)
 `harness/catalyst/report.py` offline report on shell; socket-blocked tests. MS-C signed off → CVR-G12 PASS.
 
-### P4 — not started (entry condition satisfied)
-T094/T095/T111 were accepted 2026-08-04. CVR-G13–G15 are ready for the next explicitly scoped implementation cycle after the current merge chain.
+### P4 — active (audit complete; implementation open)
+T094/T095/T111 and T112 are complete. The exact reusable prework and remaining
+CVR-G13–G15 gaps are recorded above; T129–T133 are the active implementation
+sequence.
 
 ### P5 — not started (entry condition satisfied)
-T094/T095/T111 were accepted 2026-08-04. CVR-G16–G18 are ready for the next explicitly scoped implementation cycle after the current merge chain.
+T094/T095/T111 and the merge chain are complete, but P5 is sequenced after the
+P4 parity gates. T134–T136 remain open.

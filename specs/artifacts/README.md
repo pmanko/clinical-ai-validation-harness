@@ -60,8 +60,6 @@ Durable planning and research artifacts that support the feature roadmap:
   - Governance/change-control template for material validation changes.
 - `planning/otel-collector-config.yaml`
   - Supporting OpenTelemetry collector config for harness services.
-- `planning/catalyst-fhir-sidecar-brief.md`
-  - Source brief that feeds `/speckit-specify` for feature 011 (Catalyst FHIR sidecar POC, M10).
 - `planning/chartsearchai-model-gateway-brief.md`
   - Source brief that feeds `/speckit-specify` for feature 008 (chartsearchai model gateway, F008). New FastAPI service routing chartsearchai's LLM calls to classes of connections (local-runtime / cloud-api / agentic).
 - `planning/clinical-kb-research.md`

@@ -42,7 +42,6 @@ export const topics: Topic[] = [
     blurb: 'Ask a clinical question in plain language; a writer/reviewer model team drafts governed SQL against a database-generated catalog, a deterministic policy enforces read-only execution, and the result is a typed table — running today on two independent data sources, OpenELIS lab data and OpenMRS HIV/ART program data.',
     links: [
       { kind: 'canvas', slug: 'specs/artifacts/canvases/catalyst-demos', label: 'Demos — see it answer real questions (canvas)' },
-      { kind: 'canvas', slug: 'specs/artifacts/canvases/catalyst-fhir-sidecar', label: 'Earlier design exploration (canvas)' },
     ],
   },
   {

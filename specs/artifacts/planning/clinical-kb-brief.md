@@ -15,7 +15,7 @@ This document is the authoritative architectural brief for the clinical knowledg
 
 ## 1. Goal
 
-Stand up `clinical-kb`, a dedicated host-agnostic clinical knowledge service that consumers (chartsearchai, the model gateway, openmrs_chatbot, Catalyst sidecar, med-agent-hub subagents) can call to retrieve grounded, citable, short clinical snippets optimized for low-power local models (4-8B parameter range).
+Stand up `clinical-kb`, a dedicated host-agnostic clinical knowledge service that consumers (chartsearchai, the model gateway, openmrs_chatbot, Catalyst workbench, med-agent-hub subagents) can call to retrieve grounded, citable, short clinical snippets optimized for low-power local models (4-8B parameter range).
 
 The service has two layers:
 - **General KB**: a curated corpus of openly licensed clinical reference content (WHO IMCI/EML/ANC, MSF Clinical Guidelines, RxNorm essentials, immunization schedules, pediatric dosing). Hybrid sparse+dense retrieval with RRF; small-cross-encoder reranking; section-aware chunking; explicit abstention.
@@ -36,7 +36,6 @@ The service is *orthogonal* to chartsearchai's per-patient chart retrieval; the 
 | **004-real-adapter-entrypoints** | KB is a new target with its own adapter. No code change to 004; KB is an additive target. |
 | **005-med-agent-hub-bridge** | Future consumer. Subagents can call KB as an MCP tool when ready; not required in 005 scope. |
 | **006-deferred / 007-deferred** | KB MCP tooling becomes a natural building block for these "frontend agent affordance" and "MCP tooling expansion" deferred features. |
-| **011-catalyst-fhir-sidecar-poc** | Catalyst MCP can register `kb_lookup` as an additional MCP tool alongside the FHIR tools in §8 of the catalyst-fhir-sidecar-brief. |
 | **Parallel gateway spec (sister item)** | The gateway is a natural first consumer because Python-to-Python is fastest to demo. KB is sequenceable independently — the gateway becomes one consumer of many when it lands. |
 | **002-openmrs-demo-data-2-8-remap** | The curation worker reads the demo dataset (large-demo-data-2-7-0.sql remapped to 2.8) for its first end-to-end smoke. |
 
@@ -167,7 +166,6 @@ The recommendation: **let F008 sequencing drive first-consumer choice**. If F008
 - `targets/chartsearchai/README.md` — hybrid retrieval (RRF), MedCPT support, embedding/lucene/hybrid/elasticsearch pipelines, type-aware expansion, absent-data detection (z-score gate), eval framework — all directly transferable.
 - `targets/chartsearchai/api/src/main/java/org/openmrs/module/chartsearchai/api/impl/LlmProvider.java` — integration point at `search` (line 120); system-prompt design with JSON-schema enforcement and citation requirements.
 - `specs/005-med-agent-hub-bridge/spec.md` — future consumer.
-- `specs/artifacts/planning/catalyst-fhir-sidecar-brief.md` — sibling brief structure followed here; §8 MCP tool sketch is the pattern for KB MCP exposure.
 
 **External sources** (top 12 from research Section A.5; full list in research doc):
 - MedRAG/MIRAGE — https://arxiv.org/abs/2402.13178

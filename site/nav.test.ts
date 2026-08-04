@@ -47,7 +47,6 @@ describe('overhaul curation', () => {
   });
 
   it.each([
-    'specs/artifacts/canvases/catalyst-fhir-sidecar',
     'specs/artifacts/canvases/chartsearchai-and-querystore',
     'specs/artifacts/canvases/validator-audit-framework',
     'specs/artifacts/planning/guardrails-methodology-research',
