@@ -10,8 +10,8 @@ Execution state for the Catalyst validation integration remediation roadmap.
 | Authorization | Explicit user instruction to implement the approved plan on 2026-07-21 |
 | Approved roadmap SHA-256 (pre-A1) | `b00a063bf2b78494a3a719436d4609127eb2e845153d1ab2f9153d1e018e6ef8` |
 | Approved roadmap SHA-256 (A1, current) | `37c13c468d274b985a0f48e0e6e5cfb2e3e9eaf3b0fb0fd1ace6e73fca1cf1e7` |
-| Current execution boundary | P0–P3 complete and signed off; merge chain complete; P4 audit complete and implementation active under T129–T133 |
-| Next protected boundary | CVR-G13–G15 must pass before P5 release work T134–T136; MS-D remains the final user gate |
+| Current execution boundary | P0–P4 complete; CVR-G13–G15 PASS on feature commit `5f457e2`; P5 release work T134–T136 is next |
+| Next protected boundary | CVR-G16–G18 and MS-D remain required before report parity is released |
 | Deviations | None. Amendment A1 (2026-07-21, user-authorized): P4/P5 entry gates re-mapped from 008-G5/008-G6 to T094/T095/T111 acceptance — see roadmap §1.2 |
 
 ## Active-feature gate mapping
@@ -86,7 +86,7 @@ receipt is `specs/008-catalyst-query-workbench/evidence/`
 actual 200%-zoom checks promote T094/T095/T111 to accepted. Catalyst #5 and
 harness #37 subsequently squash-merged in dependency order, and T112 is complete.
 
-## P4/P5 current-state audit (2026-08-04)
+## P4/P5 current state (2026-08-04)
 
 The audit distinguishes reusable prework from passed roadmap gates:
 
@@ -94,17 +94,21 @@ The audit distinguishes reusable prework from passed roadmap gates:
   `results.json`, additive `results.jsonl`/`events.jsonl`, and bounded evidence;
   the live dashboard can discover notebook runs; the three-pass Catalyst judge
   schema/finalizer and offline shared-shell Catalyst report pass fixture tests.
-- **CVR-G13 remains open:** the manifest does not yet carry
-  `report_family`, `suite_id`, or `suite_sha256`; the additive stream uses the
-  ChartSearchAI-shaped `comparison_set`/`backend_selected` summary rather than
-  the required versioned scenario/turn/version/execution evidence contract; and
-  judge finalization explicitly does not append evaluation events.
-- **CVR-G14 remains open:** `harness-cli` has no `catalyst run` or
-  `catalyst report` command; the notebook script still owns argument parsing.
-- **CVR-G15 remains open:** only the ChartSearchAI-specific
-  `validate-publish.sh` exists. The curated index has a Catalyst scoreline
-  compatibility hook but rejects non-`artifacts/validate` run paths and has no
-  family-aware Catalyst result/judge metrics or badge.
+- **CVR-G13 PASS:** manifests carry `report_family`, `suite_id`, and the exact
+  suite SHA-256; versioned run/scenario/turn/version/execution events resolve
+  their evidence references; judge finalization appends idempotent
+  provider/model/version/rubric evaluation events without rewriting the
+  run-start manifest. Focused gate: 51 tests PASS.
+- **CVR-G14 PASS:** `harness-cli catalyst run` exposes every legacy runner
+  option and both PostgreSQL checkers; `harness-cli catalyst report <run_dir>`
+  renders the offline report; the legacy script delegates to the shared CLI.
+  Focused gate: 5 selected tests PASS.
+- **CVR-G15 PASS:** `publish-report.sh` stages either family and its relative
+  evidence, emits exclusive family metadata with safe root-relative
+  `run_path`, skips Catalyst dashboard freezing, preserves the legacy
+  ChartSearchAI wrapper, and builds one mixed index with Catalyst gold and
+  advisory judge-median metrics without calling Scout. The two-fixture dry-run
+  and republish test pass under a temporary `REPORTS_ROOT`; 27 tests PASS.
 - **P5 remains unstarted:** the D13 independent code-QA set, clean-pin live
   judged release run, verified publication, release hygiene, and MS-D signoff
   have not been completed.
@@ -163,7 +167,7 @@ The audit distinguishes reusable prework from passed roadmap gates:
 | CVR-G00 | PASS | Roadmap + status committed; README linked; baselines + constitution recorded |
 | CVR-G01 | PASS | PHI-free fixtures + provenance tests green |
 | CVR-G02 | PASS | shared utility + uniqueness tests green |
-| CVR-G03 | PASS | `verify… g03`: 719 passed / 36 runtime skipped / 3 deselected; diff-cover 100% vs `origin/codex/catalyst-mvp-umbrella`; collection skip baseline still 0 |
+| CVR-G03 | PASS | `verify… test`: 1088 passed / 38 runtime skipped / 4 deselected; diff-cover 92% vs `origin/codex/catalyst-mvp-umbrella` |
 | CVR-G04 | PASS | byte-identical ChartSearchAI golden with frozen clock |
 | CVR-G05 | PASS | `harness/report_shell/` four modules; ownership/import tests green |
 | CVR-G06 | PASS | DOM canon + golden semantic parity + dashboard/index theme marker tests green |
@@ -173,9 +177,9 @@ The audit distinguishes reusable prework from passed roadmap gates:
 | CVR-G10 | PASS | Fixture three-pass + `judge.jsonl`/`judge_manifest.json` present and tests green; MS-B signed off 2026-07-21 (Piotr Mankowski) |
 | CVR-G11 | PASS | Offline `harness.catalyst.report.build_report` with socket blocked |
 | CVR-G12 | PASS | Import-boundary + no-judge tests green; MS-C signed off 2026-07-21 (Piotr Mankowski) |
-| CVR-G13 | IN PROGRESS | T128 audit complete; T129–T130 remain |
-| CVR-G14 | IN PROGRESS | T128 audit complete; T131 remains |
-| CVR-G15 | IN PROGRESS | T128 audit complete; T132–T133 remain |
+| CVR-G13 | PASS | 51-test metadata/event/finalizer/runner gate; T129–T130 complete |
+| CVR-G14 | PASS | 5 selected CLI and compatibility-wrapper tests; T131 complete |
+| CVR-G15 | PASS | 27-test mixed-family index/publisher dry-run gate; T132–T133 complete |
 | CVR-G16 | READY | T094/T095/T111 accepted 2026-08-04; P5 work not started |
 | CVR-G17 | READY | T094/T095/T111 accepted 2026-08-04; P5 work not started |
 | CVR-G18 | READY | T094/T095/T111 accepted 2026-08-04; P5 work not started |
@@ -203,11 +207,11 @@ PCCP, skill, schemas, `harness/catalyst/reconcile.py`, `scripts/catalyst-judge-f
 ### P3 — complete; Signoff C PASS (2026-07-21)
 `harness/catalyst/report.py` offline report on shell; socket-blocked tests. MS-C signed off → CVR-G12 PASS.
 
-### P4 — active (audit complete; implementation open)
-T094/T095/T111 and T112 are complete. The exact reusable prework and remaining
-CVR-G13–G15 gaps are recorded above; T129–T133 are the active implementation
-sequence.
+### P4 — complete
+T128–T133 are complete. CVR-G13–G15 and the continuous suite are green on the
+stacked feature branch; the implementation remains development evidence until
+the P5 live release and MS-D acceptance.
 
 ### P5 — not started (entry condition satisfied)
-T094/T095/T111 and the merge chain are complete, but P5 is sequenced after the
-P4 parity gates. T134–T136 remain open.
+T094/T095/T111, the merge chain, and the P4 parity gates are complete. P5 is
+unblocked; T134–T136 remain open.

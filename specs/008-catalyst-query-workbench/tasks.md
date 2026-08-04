@@ -241,11 +241,11 @@ Hub `092b5cd`, and T112 is complete.
 ## Phase 9 — Catalyst validation/report parity (CVR P4/P5)
 
 - [X] T128 Reconcile merged Hub #15, Catalyst #5, and harness #37 state; audit the real Catalyst notebook runner, judge/finalizer, report, CLI, publisher, and curated index against ChartSearchAI; record the exact implemented-versus-missing P4/P5 boundary without claiming gate completion
-- [ ] T129 Add red metadata/integration tests for publish-ready Catalyst `run_manifest.json`, versioned run/scenario/turn/version/execution `events.jsonl`, resolvable evidence references, and judge-finalization evaluation events without rewriting the run-start manifest
-- [ ] T130 Implement the CVR-G13 manifest/event contract, update the shared metadata schema, and preserve compatibility with existing notebook evidence/result artifacts
-- [ ] T131 Add red CLI parity tests, then implement `harness-cli catalyst run` with every notebook-runner option and `harness-cli catalyst report <run_dir>` while retaining the script as a thin compatibility wrapper
-- [ ] T132 Add red mixed-family dry-run publishing/index tests, then implement `scripts/publish-report.sh` and family-aware metadata, result loading, badges, deterministic gold rate, and advisory Catalyst judge median without routing Catalyst through Scout or freezing a ChartSearchAI dashboard
-- [ ] T133 Dry-run stage one ChartSearchAI fixture and one Catalyst fixture; pass and record CVR-G13–G15 before starting release claims
+- [X] T129 Add red metadata/integration tests for publish-ready Catalyst `run_manifest.json`, versioned run/scenario/turn/version/execution `events.jsonl`, resolvable evidence references, and judge-finalization evaluation events without rewriting the run-start manifest
+- [X] T130 Implement the CVR-G13 manifest/event contract, update the shared metadata schema, and preserve compatibility with existing notebook evidence/result artifacts
+- [X] T131 Add red CLI parity tests, then implement `harness-cli catalyst run` with every notebook-runner option and `harness-cli catalyst report <run_dir>` while retaining the script as a thin compatibility wrapper
+- [X] T132 Add red mixed-family dry-run publishing/index tests, then implement `scripts/publish-report.sh` and family-aware metadata, result loading, badges, deterministic gold rate, and advisory Catalyst judge median without routing Catalyst through Scout or freezing a ChartSearchAI dashboard
+- [X] T133 Dry-run stage one ChartSearchAI fixture and one Catalyst fixture; pass and record CVR-G13–G15 before starting release claims
 - [ ] T134 Produce the five independent D13 code-QA artifacts, resolve every BLOCKER, and pass CVR-G16
 - [ ] T135 Run the complete real T094 suite on clean merged pins, apply the recorded Catalyst judge exactly three times, finalize, render, publish, and verify record-level evidence at the live URL for CVR-G17
 - [ ] T136 Pass release CI/pin/docs/PCCP hygiene, record CVR-G18, and pause for MS-D user signoff before calling Catalyst report parity released
