@@ -23,9 +23,9 @@ else
   MANIFEST="${ROOT}/reports-index.json"
 fi
 
-python3 "${ROOT}/scripts/stage-report.py" \
+(cd "${ROOT}" && uv run python scripts/stage-report.py \
   "${FAMILY}" "${RUN_DIR}" "${SLUG}" "${TITLE}" "${SUMMARY}" "${TAKEAWAY}" \
-  --reports-root "${REPORTS_ROOT}" --manifest "${MANIFEST}" --root "${ROOT}"
+  --reports-root "${REPORTS_ROOT}" --manifest "${MANIFEST}" --root "${ROOT}")
 
 if [[ "${FAMILY}" == "chartsearchai" && "${DRY_RUN}" != "1" ]]; then
   echo "==> freezing ChartSearchAI interactive dashboard snapshot"
@@ -34,8 +34,8 @@ if [[ "${FAMILY}" == "chartsearchai" && "${DRY_RUN}" != "1" ]]; then
     || echo "warn: dashboard freeze failed for ${SLUG}" >&2
 fi
 
-python3 "${ROOT}/scripts/build-reports-index.py" \
-  --reports-root "${REPORTS_ROOT}" --manifest "${MANIFEST}" --root "${ROOT}"
+(cd "${ROOT}" && uv run python scripts/build-reports-index.py \
+  --reports-root "${REPORTS_ROOT}" --manifest "${MANIFEST}" --root "${ROOT}")
 if [[ "${MANIFEST}" != "${REPORTS_ROOT}/reports-index.json" ]]; then
   cp "${MANIFEST}" "${REPORTS_ROOT}/reports-index.json"
 fi
