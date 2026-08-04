@@ -21,7 +21,9 @@ def test_metrics_from_real_envelope():
     assert m["json_valid"] is True
     assert m["citation_count"] == 2
     assert m["references_empty"] is False
-    assert m["abstained"] is False
+    # The old `abstained` key was a byte-for-byte duplicate of `references_empty` and is gone;
+    # references_empty is the sole zero-citation proxy.
+    assert "abstained" not in m
     assert m["answer_chars"] > 0
     assert m["latency_ms"] == 8421
     assert m["first_turn"] is True
@@ -30,12 +32,15 @@ def test_metrics_from_real_envelope():
         assert key in m and m[key] is None
 
 
-def test_abstained_is_the_references_empty_proxy():
+def test_references_empty_is_the_sole_zero_citation_proxy():
+    # A zero-citation answer sets references_empty; there is no separate `abstained` field to
+    # misread as a real model-level abstention (the authoritative call is the human
+    # abstention_outcome in the feedback doc, not a citation-count heuristic).
     env = {"answer": "I can't determine that from this chart.", "references": [], "blocks": []}
     m = compute_metrics(envelope=env, latency_ms=100, http_status=200, first_turn=False)
     assert m["citation_count"] == 0
     assert m["references_empty"] is True
-    assert m["abstained"] is True  # heuristic proxy == references_empty
+    assert "abstained" not in m
 
 
 def test_metrics_on_http_error():

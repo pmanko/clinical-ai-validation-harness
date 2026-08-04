@@ -31,6 +31,20 @@ and conformance contract before changing provider, context, temporal, safety, or
 - Keep clinical evidence data separate from operating metadata. Query Store/CQRS is for searchable clinical records; this harness stores run, trace, response, evaluation, and review metadata.
 - Prefer small, reviewable changes that preserve reproducibility.
 
+## Repository Branch Policy
+
+- `clinical-ai-validation-harness` and `med-agent-hub` are maintained here. Changes use a
+  short-lived branch and pull request, then tested/deployed revisions must already be in `main`.
+- ChartSearchAI, ChartSearchAI ESM, and QueryStore are upstream-owned OpenMRS projects. Their
+  proven companion work is consolidated on each fork's `harness-integration` branch, and this
+  repository pins that exact remote head. Upstream pull-request branches are publication
+  vehicles, not build dependencies.
+- Other submodules remain on clean, remote-reachable commits unless an approved integration
+  effort gives them an explicit branch policy.
+- Run `scripts/verify-repository-lines.sh` before deployment. During a harness pull request, use
+  `scripts/verify-repository-lines.sh --allow-harness-branch`; the strict check must pass after
+  the pull request is merged.
+
 ## Testing Expectations
 
 - Add or update tests when implementing behavior.

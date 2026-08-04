@@ -4,12 +4,12 @@ UV_PROJECT_ENVIRONMENT ?= .venv
 export UV_PROJECT_ENVIRONMENT
 
 .PHONY: setup python-pin test smoke validate-plan clean-venv \
-        up down reset status logs \
+        up down local-stack-up local-stack-down reset status logs \
         ciel-fetch ciel-baseline \
         reset-transform sqlmesh-status \
         loadtest-up loadtest-down \
         load-test orphan-fk-check import-smoke dump-loaded promote \
-        chartsearch-build querystore-build querystore-recreate-index chartsearch-configure querystore-configure chartsearch-backend chartsearch-doctor chartsearchai-local dual-provider-up \
+        chartsearch-build querystore-build openmrs-source-pair-build openmrs-source-pair-test repository-lines-check repository-lines-pr-check deployed-sources-check querystore-recreate-index chartsearch-configure querystore-configure chartsearch-backend chartsearch-doctor chartsearchai-local dual-provider-up \
         chartsearch-esm-build chartsearch-esm-dev \
         llama-router-up llama-router-models \
         med-agent-hub-build med-agent-hub-up med-agent-hub-logs med-agent-hub-restart med-agent-hub-test chartsearch-test chartsearch-e2e-low-confidence querystore-test querystore-test-integration querystore-reindex \
@@ -24,6 +24,16 @@ up:
 
 down:
 	./scripts/stack-down.sh
+
+# Fast-resume path for a day-to-day dev machine: starts Docker Desktop,
+# llama-router, and the already-built compose stack with no rebuilds — for
+# first-time setup or after source changes under targets/, use
+# `make chartsearchai-local` instead.
+local-stack-up:
+	./scripts/local-stack-up.sh
+
+local-stack-down:
+	./scripts/local-stack-down.sh
 
 reset:
 	./scripts/stack-reset.sh
@@ -141,25 +151,48 @@ dump-loaded:
 # restart. The submodule URL points at the harness fork's
 # `harness-integration` branch; the parent records the exact SHA so
 # `git submodule update --init` gives a buildable state.
-chartsearch-build:
+chartsearch-build: querystore-build
 	cd targets/chartsearchai && mvn -DskipTests -B package
-	mkdir -p artifacts/openmrs/modules
+	mkdir -p artifacts/openmrs/modules artifacts/chartsearchai-local/module-provenance
 	cp targets/chartsearchai/omod/target/chartsearchai-*.omod artifacts/openmrs/modules/
 	./scripts/artifact-provenance.py write --repo targets/chartsearchai \
 	  --artifact artifacts/openmrs/modules/chartsearchai-1.0.0-SNAPSHOT.omod \
-	  --manifest artifacts/openmrs/modules/chartsearchai-1.0.0-SNAPSHOT.omod.provenance.json
+	  --manifest artifacts/chartsearchai-local/module-provenance/chartsearchai-1.0.0-SNAPSHOT.omod.provenance.json
 	@ls -la artifacts/openmrs/modules/chartsearchai-*.omod
 
 # Build the pinned patient-record source module used by the hub's optional
 # Querystore adapter. The local entrypoint invokes this only when missing/stale.
 querystore-build:
-	cd targets/querystore && mvn -DskipTests -B package
-	mkdir -p artifacts/openmrs/modules
+	cd targets/querystore && mvn -DskipTests -B install
+	mkdir -p artifacts/openmrs/modules artifacts/chartsearchai-local/module-provenance
 	cp targets/querystore/omod/target/querystore-*.omod artifacts/openmrs/modules/
 	./scripts/artifact-provenance.py write --repo targets/querystore \
 	  --artifact artifacts/openmrs/modules/querystore-1.0.0-SNAPSHOT.omod \
-	  --manifest artifacts/openmrs/modules/querystore-1.0.0-SNAPSHOT.omod.provenance.json
+	  --manifest artifacts/chartsearchai-local/module-provenance/querystore-1.0.0-SNAPSHOT.omod.provenance.json
 	@ls -la artifacts/openmrs/modules/querystore-*.omod
+
+# Build and stage the current development pair in dependency order. Unlike the
+# strict test target below, this supports intentional dirty-tree local work.
+openmrs-source-pair-build: chartsearch-build
+
+# Prove the exact pinned integration pair from source. Querystore is installed
+# first so ChartSearchAI cannot pass against an older cached snapshot API.
+openmrs-source-pair-test:
+	./scripts/openmrs-source-pair-test.sh
+
+# Confirm that owned repositories are on main and OpenMRS companion repositories
+# exactly match their harness-integration heads. The PR form permits only the
+# harness itself to be on its current pull-request branch.
+repository-lines-check:
+	./scripts/verify-repository-lines.sh
+
+repository-lines-pr-check:
+	./scripts/verify-repository-lines.sh --allow-harness-branch
+
+# Verify that staged, mounted, and served OpenMRS artifacts plus the running hub
+# image were all built from the source revisions currently pinned by this repo.
+deployed-sources-check: repository-lines-check
+	$(UV) run python scripts/probe-chartsearchai-relay.py --identity-only
 
 # Build the chartsearchai frontend ESM from the pinned submodule and stage
 # it under artifacts/openmrs/spa-custom/. Caddy serves both the bundle

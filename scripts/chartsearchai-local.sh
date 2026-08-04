@@ -61,10 +61,11 @@ SOURCE_ENV="${ROOT}/artifacts/chartsearchai-local/querystore-service.env"
 DEFAULT_PATIENT="${CHARTSEARCH_LOCAL_PATIENT_UUID:-dd75c020-1691-11df-97a5-7038c432aabf}"
 WARM_QUESTION="${CHARTSEARCH_LOCAL_WARM_QUESTION:-What was the latest visit date?}"
 MODULES_CHANGED=0
+OPENMRS_PAIR_NEEDS_BUILD=0
 CHARTSEARCH_OMOD="artifacts/openmrs/modules/chartsearchai-1.0.0-SNAPSHOT.omod"
-CHARTSEARCH_OMOD_PROVENANCE="${CHARTSEARCH_OMOD}.provenance.json"
+CHARTSEARCH_OMOD_PROVENANCE="artifacts/chartsearchai-local/module-provenance/chartsearchai-1.0.0-SNAPSHOT.omod.provenance.json"
 QUERYSTORE_OMOD="artifacts/openmrs/modules/querystore-1.0.0-SNAPSHOT.omod"
-QUERYSTORE_OMOD_PROVENANCE="${QUERYSTORE_OMOD}.provenance.json"
+QUERYSTORE_OMOD_PROVENANCE="artifacts/chartsearchai-local/module-provenance/querystore-1.0.0-SNAPSHOT.omod.provenance.json"
 CHARTSEARCH_ESM="artifacts/openmrs/spa-custom"
 CHARTSEARCH_ESM_PROVENANCE="artifacts/openmrs/chartsearchai-esm.provenance.json"
 DEPLOYED_CHARTSEARCH_PROVENANCE="artifacts/chartsearchai-local/deployed-chartsearchai-omod.json"
@@ -133,19 +134,16 @@ artifact_needs_build() {
 
 build_if_needed() {
   local label="$1" artifact="$2" target="$3" repo="$4" manifest="$5"
-  local did_build=0
   shift 5
   case "${BUILD_MODE}" in
     always)
       say "==> build ${label} (requested)"
       make "${target}"
-      did_build=1
       ;;
     auto)
       if artifact_needs_build "${artifact}" "${repo}" "${manifest}" "$@"; then
         say "==> build ${label} (missing or stale)"
         make "${target}"
-        did_build=1
       else
         say "==> ${label}: current"
       fi
@@ -159,22 +157,54 @@ build_if_needed() {
       ;;
     *) fail "CHARTSEARCH_LOCAL_BUILD must be auto, always, or never" ;;
   esac
-  if [ "${did_build}" = "1" ] && { [ "${target}" = "chartsearch-build" ] || [ "${target}" = "querystore-build" ]; }; then
-    MODULES_CHANGED=1
-  fi
+}
+
+remove_legacy_module_manifests() {
+  # OpenMRS scans every file in this bind-mounted directory as a candidate module.
+  # Provenance belongs outside it; these are stale copies from the prior layout.
+  rm -f \
+    artifacts/openmrs/modules/chartsearchai-1.0.0-SNAPSHOT.omod.provenance.json \
+    artifacts/openmrs/modules/querystore-1.0.0-SNAPSHOT.omod.provenance.json
 }
 
 require_command curl
 require_command docker
 require_command python3
-if artifact_needs_build \
-    "${CHARTSEARCH_OMOD}" targets/chartsearchai "${CHARTSEARCH_OMOD_PROVENANCE}" \
-    targets/chartsearchai/api/src targets/chartsearchai/omod/src \
-    targets/chartsearchai/pom.xml targets/chartsearchai/api/pom.xml targets/chartsearchai/omod/pom.xml \
-  || artifact_needs_build \
-    "${QUERYSTORE_OMOD}" targets/querystore "${QUERYSTORE_OMOD_PROVENANCE}" \
-    targets/querystore/api/src targets/querystore/omod/src \
-    targets/querystore/pom.xml targets/querystore/api/pom.xml targets/querystore/omod/pom.xml; then
+case "${BUILD_MODE}" in
+  always)
+    OPENMRS_PAIR_NEEDS_BUILD=1
+    ;;
+  auto)
+    if artifact_needs_build \
+        "${CHARTSEARCH_OMOD}" targets/chartsearchai "${CHARTSEARCH_OMOD_PROVENANCE}" \
+        targets/chartsearchai/api/src targets/chartsearchai/omod/src \
+        targets/chartsearchai/pom.xml targets/chartsearchai/api/pom.xml targets/chartsearchai/omod/pom.xml \
+      || artifact_needs_build \
+        "${QUERYSTORE_OMOD}" targets/querystore "${QUERYSTORE_OMOD_PROVENANCE}" \
+        targets/querystore/api/src targets/querystore/omod/src \
+        targets/querystore/pom.xml targets/querystore/api/pom.xml targets/querystore/omod/pom.xml; then
+      OPENMRS_PAIR_NEEDS_BUILD=1
+    fi
+    ;;
+  never)
+    python3 scripts/artifact-provenance.py verify \
+      --repo targets/chartsearchai \
+      --artifact "${CHARTSEARCH_OMOD}" \
+      --manifest "${CHARTSEARCH_OMOD_PROVENANCE}" \
+      >/dev/null 2>&1 \
+      || fail "ChartSearchAI module artifact provenance does not match the current clean source tree"
+    python3 scripts/artifact-provenance.py verify \
+      --repo targets/querystore \
+      --artifact "${QUERYSTORE_OMOD}" \
+      --manifest "${QUERYSTORE_OMOD_PROVENANCE}" \
+      >/dev/null 2>&1 \
+      || fail "Querystore module artifact provenance does not match the current clean source tree"
+    ;;
+  *)
+    fail "CHARTSEARCH_LOCAL_BUILD must be auto, always, or never"
+    ;;
+esac
+if [ "${OPENMRS_PAIR_NEEDS_BUILD}" = "1" ]; then
   require_command make
   require_command mvn
 fi
@@ -207,22 +237,17 @@ fi
 
 mkdir -p artifacts/chartsearchai-local artifacts/llama-router
 
-build_if_needed \
-  "ChartSearchAI module" \
-  "${CHARTSEARCH_OMOD}" \
-  chartsearch-build \
-  targets/chartsearchai \
-  "${CHARTSEARCH_OMOD_PROVENANCE}" \
-  targets/chartsearchai/api/src targets/chartsearchai/omod/src \
-  targets/chartsearchai/pom.xml targets/chartsearchai/api/pom.xml targets/chartsearchai/omod/pom.xml
-build_if_needed \
-  "Querystore module" \
-  "${QUERYSTORE_OMOD}" \
-  querystore-build \
-  targets/querystore \
-  "${QUERYSTORE_OMOD_PROVENANCE}" \
-  targets/querystore/api/src targets/querystore/omod/src \
-  targets/querystore/pom.xml targets/querystore/api/pom.xml targets/querystore/omod/pom.xml
+if [ "${OPENMRS_PAIR_NEEDS_BUILD}" = "1" ]; then
+  say "==> build OpenMRS source pair (Querystore, then ChartSearchAI)"
+  make openmrs-source-pair-build
+  MODULES_CHANGED=1
+elif [ "${BUILD_MODE}" = "never" ]; then
+  say "==> OpenMRS source pair: build skipped"
+else
+  say "==> OpenMRS source pair: current"
+fi
+
+remove_legacy_module_manifests
 
 if ! cmp -s "${CHARTSEARCH_OMOD_PROVENANCE}" "${DEPLOYED_CHARTSEARCH_PROVENANCE}" \
   || ! cmp -s "${QUERYSTORE_OMOD_PROVENANCE}" "${DEPLOYED_QUERYSTORE_PROVENANCE}"; then
@@ -338,6 +363,7 @@ say "==> prove OpenMRS staged relay and persistence"
 python3 scripts/probe-chartsearchai-relay.py \
   --openmrs-url "${OPENMRS_URL}" \
   --patient "${DEFAULT_PATIENT}" \
+  --provider hub \
   --profile "${HUB_PROFILE}" \
   --username "${CHARTSEARCH_ADMIN_USER:-admin}" \
   --password "${CHARTSEARCH_ADMIN_PASSWORD:-Admin123}" \

@@ -42,12 +42,14 @@ def compute_metrics(
         "json_valid": ok and "answer" in env,
         "answer_chars": len(answer_text),
         "citation_count": citation_count,
+        # The SOLE zero-citation proxy. chartsearchai emits no answer-level abstention flag, so
+        # abstention cannot be detected deterministically — references_empty is only "the model
+        # cited nothing," which also fires on a general/non-chart answer that legitimately needs no
+        # citation. It must NOT be read as a real model abstention; the authoritative call is the
+        # human abstention_outcome in the feedback doc (spec 006 FR-006.5). A former duplicate
+        # `abstained` key (identical to this) was removed — it was unconsumed and inflated
+        # apparent abstention rates in raw per-turn data.
         "references_empty": citation_count == 0,
-        # Heuristic PROXY only: chartsearchai emits no answer-level abstention
-        # flag, so abstention cannot be detected deterministically. references_empty
-        # is the closest signal; the authoritative call is the human
-        # abstention_outcome in the feedback doc (spec 006 FR-006.5).
-        "abstained": citation_count == 0,
         # The first turn per (scenario, backend) carries model warmup / cold-start
         # latency; flag it so latency_ms isn't misread (spec 006 risk note).
         "first_turn": first_turn,

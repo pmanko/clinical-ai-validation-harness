@@ -34,7 +34,10 @@ Current work is the **dual-provider foundational-parity roadmap**: preserve bund
 inference as the fresh-install default while allowing a configured med-agent-hub provider through
 the same OpenMRS conversation, evidence, persistence, and cancellation contract. QueryStore remains
 an OpenMRS projection with an optional hub adapter, not a hub dependency. The current integration
-branches are being rebuilt around that contract; see the checked-in [roadmap](specs/artifacts/planning/openmrs-dual-provider-parity-roadmap.md), [status](specs/artifacts/planning/openmrs-dual-provider-parity-roadmap-status.md), and [upstream inventory](specs/artifacts/planning/openmrs-dual-provider-upstream-inventory.md).
+branches carry that contract and are the source of truth for harness proof; upstream PR merge state
+does not gate local integration. See the checked-in [roadmap](specs/artifacts/planning/openmrs-dual-provider-parity-roadmap.md),
+[status](specs/artifacts/planning/openmrs-dual-provider-parity-roadmap-status.md), and
+[upstream inventory](specs/artifacts/planning/openmrs-dual-provider-upstream-inventory.md).
 
 ## How the docs fit together
 
@@ -202,8 +205,12 @@ make chartsearchai-local
 
 # Useful focused operations:
 ./scripts/chartsearchai-local.sh --check  # validate prerequisites without starting services
+make local-stack-up                  # fast resume: no builds; waits for the existing stack
+make local-stack-down                # stop Compose + its managed router; keep named volumes
+make openmrs-source-pair-build        # build/stage current Querystore, then ChartSearchAI
+make openmrs-source-pair-test         # install pinned Querystore, then test/build pinned ChartSearchAI
 make llama-router-models             # inspect raw models behind the hub
-make chartsearch-build               # rebuild + redeploy just the .omod
+make chartsearch-build               # same ordered pair build; ChartSearchAI depends on current Querystore API
 make med-agent-hub-up                # (re)start the hub on its own
 make chartsearch-configure           # write the fixed hub endpoint; profile discovery supplies the default
 make chartsearch-doctor              # verify router, hub profile metadata, and module status
@@ -211,6 +218,13 @@ make chartsearch-doctor              # verify router, hub profile metadata, and 
 # Retrieval backend — querystore's CQRS read store tier
 make chartsearch-backend BACKEND=elasticsearch   # or lucene | mysql
 ```
+
+`make chartsearchai-local` remains the canonical first-run and source-change workflow: it
+builds or verifies artifacts, configures the product path, and exercises the real integration.
+The `local-stack-*` targets are intentionally narrower daily helpers. They require a configured
+`.env.chartsearch` and already-built images/artifacts, start Docker Desktop when supported, and
+fail rather than silently rebuilding or reporting an unready stack as healthy. Teardown preserves
+the Compose named volumes and only stops a llama-router recorded as managed by this checkout.
 
 **Provider and profile selection.** The final ESM shows no picker with bundled-only configuration.
 With hub configured, it shows a provider choice first and the provider's supported profile/mode choices

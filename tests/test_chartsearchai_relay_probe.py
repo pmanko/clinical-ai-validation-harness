@@ -41,11 +41,11 @@ class FakeResponse:
         return self._body
 
 
-def test_probe_requires_answer_done_and_hydrated_same_row(monkeypatch):
+def test_probe_correlates_fast_stream_by_message_and_persistence_by_audit_row(monkeypatch):
     answer = {
         "session": "session-1",
         "messageId": "message-1",
-        "auditLogId": 42,
+        "provider": "hub",
         "answer": "The latest visit was 2026-07-10 [1].",
         "model": "single-e4b-checked",
         "answerValidation": {"status": "checking"},
@@ -89,9 +89,25 @@ def test_probe_requires_answer_done_and_hydrated_same_row(monkeypatch):
     responses = iter(
         [
             FakeResponse(
+                json.dumps(
+                    {
+                        "session": "session-1",
+                        "provider": "hub",
+                        "mode": "default",
+                        "messages": [],
+                    }
+                ).encode()
+            ),
+            FakeResponse(
                 [
+                    b"event: turn_started\n",
+                    b"data: {}\n",
+                    b"\n",
                     b"event: answer_done\n",
                     f"data: {json.dumps(answer)}\n".encode(),
+                    b"\n",
+                    b"event: ping\n",
+                    b"data:\n",
                     b"\n",
                     b"event: answer_validation\n",
                     f"data: {json.dumps(final)}\n".encode(),
@@ -102,14 +118,16 @@ def test_probe_requires_answer_done_and_hydrated_same_row(monkeypatch):
                     b"event: indepth_done\n",
                     f"data: {json.dumps(final)}\n".encode(),
                     b"\n",
-                    b"event: done\n",
-                    f"data: {json.dumps(final)}\n".encode(),
+                    b"event: turn_done\n",
+                    b'data: {"session":"session-1","messageId":"message-1","provider":"hub"}\n',
                     b"\n",
                 ],
                 {"X-ChartSearchAi-Session": "session-1"},
             ),
             FakeResponse(json.dumps(history).encode()),
-            FakeResponse(json.dumps({"session": "session-2"}).encode()),
+            FakeResponse(
+                json.dumps({"session": "session-2", "provider": "hub"}).encode()
+            ),
             FakeResponse(json.dumps({"session": "session-2", "messages": []}).encode()),
         ]
     )
@@ -144,6 +162,7 @@ def test_probe_requires_answer_done_and_hydrated_same_row(monkeypatch):
     assert result["schema_version"] == "chartsearchai_relay_probe.v2"
     assert result["session"] == "session-1"
     assert result["message_id"] == "message-1"
+    assert result["provider"] == "hub"
     assert result["profile"] == "single-e4b-checked"
     assert result["audit_log_id"] == 42
     assert result["answer_validation"] == {"status": "checked", "label": "Checked"}
@@ -154,21 +173,40 @@ def test_probe_requires_answer_done_and_hydrated_same_row(monkeypatch):
     assert result["in_depth_terminal_event"] == "indepth_done"
     assert result["final_envelope_sha256"] == result["hydrated_envelope_sha256"]
     assert result["events"] == [
+        "turn_started",
         "answer_done",
         "answer_validation",
         "indepth_pending",
         "indepth_done",
-        "done",
+        "turn_done",
     ]
     assert result["cleared_after"] is True
     assert result["runtime_identity"]["harness"]["commit"] == "harness-sha"
     assert [request.full_url for request, _ in requests] == [
-        "http://openmrs/openmrs/ws/rest/v1/chartsearchai/chat/stream",
-        "http://openmrs/openmrs/ws/rest/v1/chartsearchai/chat?patient=patient-1",
         "http://openmrs/openmrs/ws/rest/v1/chartsearchai/chat/new",
-        "http://openmrs/openmrs/ws/rest/v1/chartsearchai/chat?patient=patient-1",
+        "http://openmrs/openmrs/ws/rest/v1/chartsearchai/chat/stream",
+        "http://openmrs/openmrs/ws/rest/v1/chartsearchai/chat?"
+        "patient=patient-1&session=session-1",
+        "http://openmrs/openmrs/ws/rest/v1/chartsearchai/chat/new",
+        "http://openmrs/openmrs/ws/rest/v1/chartsearchai/chat?"
+        "patient=patient-1&session=session-2",
     ]
     assert all(request.get_header("Authorization") for request, _ in requests)
+    assert json.loads(requests[0][0].data) == {
+        "patient": "patient-1",
+        "provider": "hub",
+    }
+    assert json.loads(requests[1][0].data) == {
+        "patient": "patient-1",
+        "provider": "hub",
+        "profile": "single-e4b-checked",
+        "question": "Latest visit?",
+        "session": "session-1",
+    }
+    assert json.loads(requests[3][0].data) == {
+        "patient": "patient-1",
+        "provider": "hub",
+    }
 
 
 def test_stream_probe_rejects_error_event(monkeypatch):
@@ -193,11 +231,114 @@ def test_stream_probe_rejects_error_event(monkeypatch):
         raise AssertionError("expected relay error")
 
 
+def test_stream_probe_surfaces_turn_error_problem_code(monkeypatch):
+    response = FakeResponse(
+        [
+            b"event: turn_started\n",
+            b"data: {}\n",
+            b"\n",
+            b"event: turn_error\n",
+            b'data: {"error":"Patient context failed","problemCode":"context_unavailable"}\n',
+            b"\n",
+        ]
+    )
+    monkeypatch.setattr(probe.urllib.request, "urlopen", lambda *_args, **_kwargs: response)
+
+    with pytest.raises(
+        RuntimeError,
+        match=r"context_unavailable.*Patient context failed",
+    ):
+        probe._stream_turn(
+            "http://openmrs/chat/stream",
+            patient="patient-1",
+            profile="single-e4b-checked",
+            question="Latest visit?",
+            username="admin",
+            password="secret",
+            timeout=30,
+        )
+
+
+@pytest.mark.parametrize(
+    ("answer_session", "done_session", "message"),
+    [
+        ("session-2", "session-2", "different session than requested"),
+        ("session-1", "session-2", "different sessions"),
+    ],
+)
+def test_stream_probe_rejects_session_substitution(
+    monkeypatch, answer_session, done_session, message
+):
+    answer = {
+        "session": answer_session,
+        "messageId": "message-1",
+        "provider": "hub",
+        "model": "single-e4b-checked",
+        "answer": "Latest visit [1].",
+    }
+    done = {
+        "session": done_session,
+        "messageId": "message-1",
+        "provider": "hub",
+    }
+    response = FakeResponse(
+        [
+            b"event: answer_done\n",
+            f"data: {json.dumps(answer)}\n".encode(),
+            b"\n",
+            b"event: turn_done\n",
+            f"data: {json.dumps(done)}\n".encode(),
+            b"\n",
+        ]
+    )
+    monkeypatch.setattr(probe.urllib.request, "urlopen", lambda *_args, **_kwargs: response)
+
+    with pytest.raises(RuntimeError, match=message):
+        probe._stream_turn(
+            "http://openmrs/chat/stream",
+            patient="patient-1",
+            profile="single-e4b-checked",
+            question="Latest visit?",
+            session="session-1",
+            username="admin",
+            password="secret",
+            timeout=30,
+        )
+
+
+def test_probe_rejects_new_session_for_the_wrong_provider(monkeypatch):
+    monkeypatch.setattr(
+        probe,
+        "_post_json",
+        lambda *_args, **_kwargs: {"session": "session-1", "provider": "bundled"},
+    )
+
+    with pytest.raises(RuntimeError, match="requested provider session"):
+        probe.probe_relay(
+            "http://openmrs/openmrs",
+            patient="patient-1",
+            profile="single-e4b-checked",
+            question="Latest visit?",
+            username="admin",
+            password="secret",
+            timeout=30,
+            clear_after=False,
+        )
+
+
 def test_probe_rejects_turn_without_live_querystore_evidence(monkeypatch):
     monkeypatch.setattr(
         probe,
+        "_post_json",
+        lambda *_args, **_kwargs: {"session": "session-1", "provider": "hub"},
+    )
+    monkeypatch.setattr(
+        probe,
         "_stream_turn",
-        lambda *_args, **_kwargs: {"querystore_reference_count": 0},
+        lambda *_args, **_kwargs: {
+            "session": "session-1",
+            "querystore_reference_count": 0,
+        },
     )
 
     with pytest.raises(RuntimeError, match="live Querystore patient source"):
@@ -213,10 +354,145 @@ def test_probe_rejects_turn_without_live_querystore_evidence(monkeypatch):
         )
 
 
+def test_probe_rejects_stream_that_changes_the_fresh_session(monkeypatch):
+    monkeypatch.setattr(
+        probe,
+        "_post_json",
+        lambda *_args, **_kwargs: {"session": "session-1", "provider": "hub"},
+    )
+    monkeypatch.setattr(
+        probe,
+        "_stream_turn",
+        lambda *_args, **_kwargs: {
+            "session": "session-2",
+            "querystore_reference_count": 1,
+        },
+    )
+
+    with pytest.raises(RuntimeError, match="different session ids"):
+        probe.probe_relay(
+            "http://openmrs/openmrs",
+            patient="patient-1",
+            profile="single-e4b-checked",
+            question="Latest visit?",
+            username="admin",
+            password="secret",
+            timeout=30,
+            clear_after=False,
+        )
+
+
+def test_probe_rejects_hydration_from_a_different_audit_row(monkeypatch):
+    monkeypatch.setattr(
+        probe,
+        "_post_json",
+        lambda *_args, **_kwargs: {"session": "session-1", "provider": "hub"},
+    )
+    monkeypatch.setattr(
+        probe,
+        "_stream_turn",
+        lambda *_args, **_kwargs: {
+            "session": "session-1",
+            "message_id": "message-1",
+            "querystore_reference_count": 1,
+            "stream_audit_log_id": 42,
+            "final_envelope_sha256": "final-sha",
+        },
+    )
+    monkeypatch.setattr(
+        probe,
+        "_get_json",
+        lambda *_args, **_kwargs: {
+            "session": "session-1",
+            "messages": [
+                {
+                    "messageId": "message-1",
+                    "role": "assistant",
+                    "auditLogId": 43,
+                }
+            ],
+        },
+    )
+
+    with pytest.raises(RuntimeError, match="different audit rows"):
+        probe.probe_relay(
+            "http://openmrs/openmrs",
+            patient="patient-1",
+            profile="single-e4b-checked",
+            question="Latest visit?",
+            username="admin",
+            password="secret",
+            timeout=30,
+            clear_after=False,
+        )
+
+
+def test_probe_rejects_clear_after_session_for_the_wrong_provider(monkeypatch):
+    new_sessions = iter(
+        [
+            {"session": "session-1", "provider": "hub"},
+            {"session": "session-2", "provider": "bundled"},
+        ]
+    )
+    monkeypatch.setattr(
+        probe, "_post_json", lambda *_args, **_kwargs: next(new_sessions)
+    )
+    monkeypatch.setattr(
+        probe,
+        "_stream_turn",
+        lambda *_args, **_kwargs: {
+            "session": "session-1",
+            "message_id": "message-1",
+            "answer": "Fast answer [1].",
+            "final_answer": "Checked answer [1].",
+            "answer_done_ms": 10,
+            "done_ms": 20,
+            "final_answer_validation": {"status": "checked"},
+            "final_reference_count": 1,
+            "reference_sources": ["querystore"],
+            "querystore_reference_count": 1,
+            "final_in_depth": {"status": "complete", "answer": "Detail [1]."},
+            "in_depth_terminal_event": "indepth_done",
+            "event_names": ["answer_done", "turn_done"],
+            "stream_audit_log_id": 42,
+            "final_envelope_sha256": "same-sha",
+        },
+    )
+    monkeypatch.setattr(
+        probe,
+        "_get_json",
+        lambda *_args, **_kwargs: {
+            "session": "session-1",
+            "messages": [
+                {
+                    "messageId": "message-1",
+                    "role": "assistant",
+                    "auditLogId": 42,
+                }
+            ],
+        },
+    )
+    monkeypatch.setattr(probe, "_canonical_sha256", lambda *_args, **_kwargs: "same-sha")
+    monkeypatch.setattr(probe, "_runtime_identity", lambda *_args: {})
+
+    with pytest.raises(RuntimeError, match="requested provider session"):
+        probe.probe_relay(
+            "http://openmrs/openmrs",
+            patient="patient-1",
+            profile="single-e4b-checked",
+            question="Latest visit?",
+            username="admin",
+            password="secret",
+            timeout=30,
+            clear_after=True,
+        )
+
+
 def test_stream_probe_rejects_incomplete_review_sequence(monkeypatch):
     answer = {
         "session": "session-1",
         "messageId": "message-1",
+        "provider": "hub",
         "auditLogId": 42,
         "answer": "Answer [1].",
         "model": "single-e4b-checked",
@@ -238,6 +514,9 @@ def test_stream_probe_rejects_incomplete_review_sequence(monkeypatch):
     pending = {**final, "inDepth": {"status": "pending", "answer": ""}}
     response = FakeResponse(
         [
+            b"event: turn_started\n",
+            b"data: {}\n",
+            b"\n",
             b"event: answer_done\n",
             f"data: {json.dumps(answer)}\n".encode(),
             b"\n",
@@ -247,7 +526,7 @@ def test_stream_probe_rejects_incomplete_review_sequence(monkeypatch):
             b"event: indepth_done\n",
             f"data: {json.dumps(final)}\n".encode(),
             b"\n",
-            b"event: done\n",
+                b"event: turn_done\n",
             f"data: {json.dumps(final)}\n".encode(),
             b"\n",
         ]
@@ -270,6 +549,7 @@ def test_stream_probe_rejects_resolved_reference_without_grounding(monkeypatch):
     answer = {
         "session": "session-1",
         "messageId": "message-1",
+        "provider": "hub",
         "auditLogId": 42,
         "answer": "Answer [1].",
         "model": "single-e4b-checked",
@@ -285,11 +565,12 @@ def test_stream_probe_rejects_resolved_reference_without_grounding(monkeypatch):
     pending = {**final, "inDepth": {"status": "pending", "answer": ""}}
     chunks: list[bytes] = []
     for event, payload in [
+        ("turn_started", {}),
         ("answer_done", answer),
         ("answer_validation", final),
         ("indepth_pending", pending),
         ("indepth_done", final),
-        ("done", final),
+        ("turn_done", final),
     ]:
         chunks.extend(
             [
@@ -320,6 +601,7 @@ def test_stream_probe_accepts_reasoned_terminal_safety_withholding(monkeypatch):
     answer = {
         "session": "session-1",
         "messageId": "message-1",
+        "provider": "hub",
         "auditLogId": 42,
         "answer": "The model answer needs review.",
         "model": "single-e4b-checked",
@@ -343,11 +625,12 @@ def test_stream_probe_accepts_reasoned_terminal_safety_withholding(monkeypatch):
     pending = {**final, "inDepth": {"status": "pending", "answer": ""}}
     chunks: list[bytes] = []
     for event, payload in [
+        ("turn_started", {}),
         ("answer_done", answer),
         ("answer_validation", final),
         ("indepth_pending", pending),
         ("indepth_error", final),
-        ("done", final),
+            ("turn_done", final),
     ]:
         chunks.extend(
             [
@@ -381,6 +664,7 @@ def test_stream_probe_rejects_unavailable_indepth_review(monkeypatch):
     answer = {
         "session": "session-1",
         "messageId": "message-1",
+        "provider": "hub",
         "auditLogId": 42,
         "answer": "Answer [1].",
         "model": "single-e4b-checked",
@@ -407,11 +691,12 @@ def test_stream_probe_rejects_unavailable_indepth_review(monkeypatch):
     pending = {**final, "inDepth": {"status": "pending", "answer": ""}}
     chunks: list[bytes] = []
     for event, payload in [
+        ("turn_started", {}),
         ("answer_done", answer),
         ("answer_validation", final),
         ("indepth_pending", pending),
         ("indepth_error", final),
-        ("done", final),
+            ("turn_done", final),
     ]:
         chunks.extend(
             [
@@ -438,14 +723,30 @@ def test_stream_probe_rejects_unavailable_indepth_review(monkeypatch):
         )
 
 
-def _terminal_chunks(answer, final, *, terminal_event="indepth_done", phase=None):
+def _terminal_chunks(
+    answer,
+    final,
+    *,
+    terminal_event="indepth_done",
+    phase=None,
+    turn_done=None,
+):
     pending = {**final, "inDepth": {"status": "pending", "answer": ""}}
     events = [
+        ("turn_started", {}),
         ("answer_done", answer),
         ("answer_validation", phase or final),
         ("indepth_pending", pending),
         (terminal_event, final),
-        ("done", final),
+        (
+            "turn_done",
+            turn_done
+            or {
+                "session": answer["session"],
+                "messageId": answer["messageId"],
+                "provider": "hub",
+            },
+        ),
     ]
     chunks: list[bytes] = []
     for event, payload in events:
@@ -463,6 +764,7 @@ def _answer_and_final(*, grounding_status="verified", include_index=True):
     answer = {
         "session": "session-1",
         "messageId": "message-1",
+        "provider": "hub",
         "auditLogId": 42,
         "answer": "Answer [1].",
         "model": "single-e4b-checked",
@@ -482,6 +784,53 @@ def _answer_and_final(*, grounding_status="verified", include_index=True):
         "inDepth": {"status": "complete", "answer": "Detail [1]."},
     }
     return answer, final
+
+
+@pytest.mark.parametrize(
+    ("case", "message"),
+    [
+        ("answer_provider", "answer_done returned an unexpected provider"),
+        ("answer_audit_id", "answer_done contained a non-numeric auditLogId"),
+        ("missing_turn_done", "relay ended before turn_done"),
+        ("turn_message", "answer_done and turn_done used different assistant rows"),
+        ("turn_provider", "turn_done returned an unexpected provider"),
+    ],
+)
+def test_stream_probe_rejects_invalid_terminal_identity(monkeypatch, case, message):
+    answer, final = _answer_and_final()
+    turn_done = {
+        "session": answer["session"],
+        "messageId": answer["messageId"],
+        "provider": "hub",
+    }
+    if case == "answer_provider":
+        answer["provider"] = "bundled"
+    elif case == "answer_audit_id":
+        answer["auditLogId"] = "42"
+    elif case == "turn_message":
+        turn_done["messageId"] = "message-2"
+    elif case == "turn_provider":
+        turn_done["provider"] = "bundled"
+
+    chunks = _terminal_chunks(answer, final, turn_done=turn_done)
+    if case == "missing_turn_done":
+        chunks = chunks[:-3]
+    monkeypatch.setattr(
+        probe.urllib.request,
+        "urlopen",
+        lambda *_args, **_kwargs: FakeResponse(chunks),
+    )
+
+    with pytest.raises(RuntimeError, match=message):
+        probe._stream_turn(
+            "http://openmrs/chat/stream",
+            patient="patient-1",
+            profile="single-e4b-checked",
+            question="Latest visit?",
+            username="admin",
+            password="secret",
+            timeout=30,
+        )
 
 
 def test_stream_probe_rejects_checked_answer_with_unsupported_evidence(monkeypatch):
@@ -516,6 +865,27 @@ def test_stream_probe_rejects_phase_update_to_different_row(monkeypatch):
     )
 
     with pytest.raises(RuntimeError, match="different assistant row"):
+        probe._stream_turn(
+            "http://openmrs/chat/stream",
+            patient="patient-1",
+            profile="single-e4b-checked",
+            question="Latest visit?",
+            username="admin",
+            password="secret",
+            timeout=30,
+        )
+
+
+def test_stream_probe_rejects_inconsistent_optional_stream_audit_ids(monkeypatch):
+    answer, final = _answer_and_final()
+    final["auditLogId"] = 43
+    monkeypatch.setattr(
+        probe.urllib.request,
+        "urlopen",
+        lambda *_args, **_kwargs: FakeResponse(_terminal_chunks(answer, final)),
+    )
+
+    with pytest.raises(RuntimeError, match="different audit row"):
         probe._stream_turn(
             "http://openmrs/chat/stream",
             patient="patient-1",
@@ -785,14 +1155,22 @@ def test_runtime_identity_binds_built_and_deployed_artifacts(tmp_path, monkeypat
         path.write_text(json.dumps(payload), encoding="utf-8")
         return payload
 
-    omod_manifest = Path(f"{omod}.provenance.json")
+    omod_manifest = (
+        tmp_path
+        / "artifacts/chartsearchai-local/module-provenance/"
+        "chartsearchai-1.0.0-SNAPSHOT.omod.provenance.json"
+    )
     omod_provenance = write_provenance(chartsearchai, omod, omod_manifest)
     deployed_manifest = (
         tmp_path / "artifacts/chartsearchai-local/deployed-chartsearchai-omod.json"
     )
-    deployed_manifest.parent.mkdir(parents=True)
+    deployed_manifest.parent.mkdir(parents=True, exist_ok=True)
     deployed_manifest.write_text(json.dumps(omod_provenance), encoding="utf-8")
-    querystore_manifest = Path(f"{querystore_omod}.provenance.json")
+    querystore_manifest = (
+        tmp_path
+        / "artifacts/chartsearchai-local/module-provenance/"
+        "querystore-1.0.0-SNAPSHOT.omod.provenance.json"
+    )
     querystore_provenance = write_provenance(
         querystore, querystore_omod, querystore_manifest
     )
@@ -830,6 +1208,8 @@ def test_runtime_identity_binds_built_and_deployed_artifacts(tmp_path, monkeypat
         lambda repo: {"commit": f"{repo.name}-commit", "tree_clean": True},
     )
 
+    hub_revision = ["med-agent-hub-commit"]
+
     def check_output(args, **_kwargs):
         if args[:3] == ["git", "rev-parse", "HEAD^{tree}"]:
             return "tree-sha\n"
@@ -841,9 +1221,7 @@ def test_runtime_identity_binds_built_and_deployed_artifacts(tmp_path, monkeypat
                     {
                         "Config": {
                             "Labels": {
-                                "org.opencontainers.image.revision": (
-                                    "med-agent-hub-commit"
-                                )
+                                "org.opencontainers.image.revision": hub_revision[0]
                             }
                         }
                     }
@@ -884,6 +1262,10 @@ def test_runtime_identity_binds_built_and_deployed_artifacts(tmp_path, monkeypat
         "importmap.json": probe._sha256(esm / "importmap.json"),
     }
 
+    hub_revision[0] = "stale-hub-commit"
+    with pytest.raises(RuntimeError, match="running med-agent-hub image"):
+        probe._runtime_identity("http://openmrs/openmrs")
+
 
 def test_probe_cli_writes_requested_output(tmp_path, monkeypatch, capsys):
     result = {"schema_version": "chartsearchai_relay_probe.v2", "hydrated": True}
@@ -920,9 +1302,46 @@ def test_probe_cli_writes_requested_output(tmp_path, monkeypatch, capsys):
         {"username": "admin", "password": "Admin123", "timeout": 300},
     )
     assert calls[1][0:2] == ("probe", "http://127.0.0.1:8088/openmrs")
+    assert calls[1][2]["provider"] == "hub"
     assert calls[1][2]["profile"] == "single-e4b-checked"
     assert json.loads(output.read_text(encoding="utf-8")) == result
     assert json.loads(capsys.readouterr().out) == result
+
+
+def test_probe_cli_can_verify_runtime_identity_without_a_patient(
+    tmp_path, monkeypatch, capsys
+):
+    identity = {"deployment": {"revision": "hub-commit"}}
+    output = tmp_path / "identity" / "runtime.json"
+    monkeypatch.setattr(probe, "_runtime_identity", lambda _url: identity)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "probe-chartsearchai-relay.py",
+            "--identity-only",
+            "--output",
+            str(output),
+        ],
+    )
+
+    assert probe.main() == 0
+    expected = {
+        "schema_version": "chartsearchai_runtime_identity.v1",
+        "runtime_identity": identity,
+    }
+    assert json.loads(output.read_text(encoding="utf-8")) == expected
+    assert json.loads(capsys.readouterr().out) == expected
+
+
+def test_probe_cli_requires_patient_for_a_live_probe(monkeypatch, capsys):
+    monkeypatch.setattr(sys, "argv", ["probe-chartsearchai-relay.py"])
+
+    with pytest.raises(SystemExit) as exc:
+        probe.main()
+
+    assert exc.value.code == 2
+    assert "--patient is required unless --identity-only is used" in capsys.readouterr().err
 
 
 def test_probe_discovers_the_openmrs_relayed_product_default(monkeypatch):

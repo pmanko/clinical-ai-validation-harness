@@ -184,13 +184,15 @@ def _runtime_identity(openmrs_url: str) -> dict[str, Any]:
             ROOT / "targets/chartsearchai",
             ROOT / "artifacts/openmrs/modules/chartsearchai-1.0.0-SNAPSHOT.omod",
             ROOT
-            / "artifacts/openmrs/modules/chartsearchai-1.0.0-SNAPSHOT.omod.provenance.json",
+            / "artifacts/chartsearchai-local/module-provenance/"
+            "chartsearchai-1.0.0-SNAPSHOT.omod.provenance.json",
         ),
         "querystore_omod": (
             ROOT / "targets/querystore",
             ROOT / "artifacts/openmrs/modules/querystore-1.0.0-SNAPSHOT.omod",
             ROOT
-            / "artifacts/openmrs/modules/querystore-1.0.0-SNAPSHOT.omod.provenance.json",
+            / "artifacts/chartsearchai-local/module-provenance/"
+            "querystore-1.0.0-SNAPSHOT.omod.provenance.json",
         ),
         "chartsearchai_esm": (
             ROOT / "targets/chartsearchai-esm",
@@ -251,16 +253,22 @@ def _runtime_identity(openmrs_url: str) -> dict[str, Any]:
         raise RuntimeError("served ChartSearchAI import-map target is not the staged bundle")
     artifacts["chartsearchai_esm"]["import_map_target"] = import_target
     artifacts["chartsearchai_esm"]["served_files"] = served_files
-    return {
+    source_revisions = {
         "harness": _git_identity(ROOT),
         "med_agent_hub": _git_identity(ROOT / "targets/med-agent-hub"),
         "chartsearchai": _git_identity(ROOT / "targets/chartsearchai"),
         "chartsearchai_esm": _git_identity(ROOT / "targets/chartsearchai-esm"),
         "querystore": _git_identity(ROOT / "targets/querystore"),
+    }
+    deployed_hub_revision = labels.get("org.opencontainers.image.revision")
+    if deployed_hub_revision != source_revisions["med_agent_hub"]["commit"]:
+        raise RuntimeError("running med-agent-hub image does not match the pinned source")
+    return {
+        **source_revisions,
         "deployment": {
             "container_id": container["Id"],
             "image_id": image_id,
-            "revision": labels.get("org.opencontainers.image.revision"),
+            "revision": deployed_hub_revision,
         },
         "artifacts": artifacts,
         "configuration": {
@@ -297,28 +305,52 @@ def _stream_turn(
     stream_url: str,
     *,
     patient: str,
+    provider: str = "hub",
     profile: str,
     question: str,
+    session: str | None = None,
     username: str,
     password: str,
     timeout: int,
 ) -> dict[str, Any]:
+    payload = {
+        "patient": patient,
+        "provider": provider,
+        "profile": profile,
+        "question": question,
+    }
+    if session:
+        payload["session"] = session
     request = _request(
         stream_url,
         username=username,
         password=password,
-        payload={"patient": patient, "profile": profile, "question": question},
+        payload=payload,
         accept="text/event-stream",
     )
     started = time.monotonic()
     event = ""
     data_lines: list[str] = []
     answer_done: dict[str, Any] | None = None
-    final: dict[str, Any] | None = None
+    turn_done: dict[str, Any] | None = None
     event_names: list[str] = []
     phase_payloads: dict[str, dict[str, Any]] = {}
+    stream_audit_log_id: int | None = None
+
+    def observe_stream_audit_log_id(payload: dict[str, Any], phase: str) -> None:
+        """Accept omitted early audit IDs, but reject malformed or inconsistent ones."""
+        nonlocal stream_audit_log_id
+        audit_log_id = payload.get("auditLogId")
+        if audit_log_id is None:
+            return
+        if type(audit_log_id) is not int:
+            raise RuntimeError(f"{phase} contained a non-numeric auditLogId")
+        if stream_audit_log_id is not None and audit_log_id != stream_audit_log_id:
+            raise RuntimeError(f"{phase} used a different audit row")
+        stream_audit_log_id = audit_log_id
+
     with urllib.request.urlopen(request, timeout=timeout) as response:
-        session = response.headers.get("X-ChartSearchAi-Session")
+        header_session = response.headers.get("X-ChartSearchAi-Session")
         for raw in response:
             line = raw.decode(errors="replace").rstrip("\r\n")
             if line.startswith("event:"):
@@ -328,9 +360,19 @@ def _stream_turn(
                 data_lines.append(value[1:] if value.startswith(" ") else value)
             elif line == "" and data_lines:
                 data = "\n".join(data_lines)
+                if not data.strip():
+                    event = ""
+                    data_lines = []
+                    continue
                 if event == "error":
                     raise RuntimeError(f"ChartSearchAI relay returned an error: {data}")
                 payload = json.loads(data)
+                if event == "turn_error":
+                    problem_code = str(payload.get("problemCode") or "unknown_error")
+                    message = str(payload.get("error") or payload.get("message") or data)
+                    raise RuntimeError(
+                        f"ChartSearchAI relay turn_error [{problem_code}]: {message}"
+                    )
                 event_names.append(event)
                 phase_payloads[event] = payload
                 if event == "answer_done":
@@ -338,64 +380,72 @@ def _stream_turn(
                         raise RuntimeError("answer_done did not contain an answer")
                     if not payload.get("messageId"):
                         raise RuntimeError("answer_done did not contain a messageId")
-                    if not isinstance(payload.get("auditLogId"), int):
-                        raise RuntimeError("answer_done did not contain a numeric auditLogId")
+                    if payload.get("provider") != provider:
+                        raise RuntimeError("answer_done returned an unexpected provider")
+                    observe_stream_audit_log_id(payload, event)
                     returned_profile = payload.get("model") or payload.get("resolvedModel")
                     if returned_profile != profile:
                         raise RuntimeError(
                             "answer_done returned an unexpected profile: "
                             f"{returned_profile!r} != {profile!r}"
                         )
-                    resolved_session = payload.get("session") or session
+                    resolved_session = payload.get("session") or header_session
                     if not resolved_session:
                         raise RuntimeError("relay did not expose a session id")
+                    if session and resolved_session != session:
+                        raise RuntimeError("relay used a different session than requested")
                     answer_done = {
                         "session": resolved_session,
                         "message_id": payload["messageId"],
-                        "audit_log_id": payload["auditLogId"],
                         "profile": returned_profile,
                         "answer": payload["answer"],
                         "answer_validation": payload.get("answerValidation"),
                         "reference_count": len(payload.get("references") or []),
                         "answer_done_ms": round((time.monotonic() - started) * 1000),
                     }
-                elif event == "done":
-                    final = payload
+                elif event == "turn_done":
+                    turn_done = payload
                     break
                 event = ""
                 data_lines = []
     if answer_done is None:
         raise RuntimeError("ChartSearchAI relay ended before answer_done")
-    if final is None:
-        raise RuntimeError("ChartSearchAI relay ended before done")
-    if final.get("messageId") != answer_done["message_id"]:
-        raise RuntimeError("answer_done and done used different assistant rows")
-    if final.get("auditLogId") != answer_done["audit_log_id"]:
-        raise RuntimeError("answer_done and done used different audit rows")
+    if turn_done is None:
+        raise RuntimeError("ChartSearchAI relay ended before turn_done")
+    if turn_done.get("messageId") != answer_done["message_id"]:
+        raise RuntimeError("answer_done and turn_done used different assistant rows")
+    if turn_done.get("provider") != provider:
+        raise RuntimeError("turn_done returned an unexpected provider")
+    if turn_done.get("session") not in {None, answer_done["session"]}:
+        raise RuntimeError("answer_done and turn_done used different sessions")
+    observe_stream_audit_log_id(turn_done, "turn_done")
     valid_event_sequences = {
         (
+            "turn_started",
             "answer_done",
             "answer_validation",
             "indepth_pending",
             "indepth_done",
-            "done",
+            "turn_done",
         ),
         (
+            "turn_started",
             "answer_done",
             "answer_validation",
             "indepth_pending",
             "indepth_error",
-            "done",
+            "turn_done",
         ),
     }
     if tuple(event_names) not in valid_event_sequences:
         raise RuntimeError(f"reviewed staged lifecycle was incomplete: {event_names!r}")
+    terminal_event = event_names[-2]
+    final = phase_payloads[terminal_event]
     for phase in ("answer_validation", "indepth_pending", event_names[-2]):
         payload = phase_payloads.get(phase) or {}
         if payload.get("messageId") != answer_done["message_id"]:
             raise RuntimeError(f"{phase} updated a different assistant row")
-        if payload.get("auditLogId") != answer_done["audit_log_id"]:
-            raise RuntimeError(f"{phase} updated a different audit row")
+        observe_stream_audit_log_id(payload, phase)
     validation = final.get("answerValidation") or {}
     validation_status = validation.get("status")
     if validation_status not in {"checked", "edited", "needs_review"}:
@@ -448,10 +498,6 @@ def _stream_turn(
         reference.get("source") == "querystore" for reference in references
     )
     in_depth = final.get("inDepth") or {}
-    terminal_event = event_names[-2]
-    terminal_payload = phase_payloads[terminal_event]
-    if _canonical_sha256(terminal_payload) != _canonical_sha256(final):
-        raise RuntimeError(f"{terminal_event} did not carry the final assistant envelope")
     if terminal_event == "indepth_done":
         if in_depth.get("status") != "complete" or not str(
             in_depth.get("answer") or ""
@@ -469,6 +515,7 @@ def _stream_turn(
             raise RuntimeError("In-Depth review was unavailable")
     return {
         **answer_done,
+        "stream_audit_log_id": stream_audit_log_id,
         "event_names": event_names,
         "final_answer": final.get("answer") or "",
         "final_answer_validation": validation,
@@ -539,6 +586,7 @@ def probe_relay(
     openmrs_url: str,
     *,
     patient: str,
+    provider: str = "hub",
     profile: str,
     question: str,
     username: str,
@@ -547,21 +595,36 @@ def probe_relay(
     clear_after: bool,
 ) -> dict[str, Any]:
     api = f"{openmrs_url.rstrip('/')}/ws/rest/v1/chartsearchai"
-    streamed = _stream_turn(
-        f"{api}/chat/stream",
-        patient=patient,
-        profile=profile,
-        question=question,
+    fresh = _post_json(
+        f"{api}/chat/new",
+        {"patient": patient, "provider": provider},
         username=username,
         password=password,
         timeout=timeout,
     )
+    session = str(fresh.get("session") or "").strip()
+    if not session or fresh.get("provider") != provider:
+        raise RuntimeError("new-session response did not create the requested provider session")
+    streamed = _stream_turn(
+        f"{api}/chat/stream",
+        patient=patient,
+        provider=provider,
+        profile=profile,
+        question=question,
+        session=session,
+        username=username,
+        password=password,
+        timeout=timeout,
+    )
+    if streamed["session"] != session:
+        raise RuntimeError("fresh session and streamed turn returned different session ids")
     if streamed["querystore_reference_count"] <= 0:
         raise RuntimeError("relay proof did not use the live Querystore patient source")
 
-    history_url = f"{api}/chat?{urllib.parse.urlencode({'patient': patient})}"
+    history_url = f"{api}/chat?{urllib.parse.urlencode({'patient': patient, 'session': session})}"
     history: dict[str, Any] | None = None
     hydrated_envelope_sha256 = None
+    hydrated_audit_log_id: int | None = None
     for attempt in range(10):
         history = _get_json(
             history_url, username=username, password=password, timeout=timeout
@@ -572,11 +635,17 @@ def probe_relay(
                 for row in history.get("messages") or []
                 if row.get("messageId") == streamed["message_id"]
                 and row.get("role") == "assistant"
-                and row.get("auditLogId") == streamed["audit_log_id"]
+                and type(row.get("auditLogId")) is int
             ),
             None,
         )
         if matching is not None:
+            hydrated_audit_log_id = matching["auditLogId"]
+            if (
+                streamed["stream_audit_log_id"] is not None
+                and hydrated_audit_log_id != streamed["stream_audit_log_id"]
+            ):
+                raise RuntimeError("stream and hydrated response used different audit rows")
             hydrated_envelope_sha256 = _canonical_sha256(matching, hydrated=True)
         if hydrated_envelope_sha256 == streamed["final_envelope_sha256"]:
             break
@@ -593,11 +662,12 @@ def probe_relay(
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "openmrs_url": openmrs_url,
         "patient": patient,
+        "provider": provider,
         "profile": profile,
         "question": question,
         "session": streamed["session"],
         "message_id": streamed["message_id"],
-        "audit_log_id": streamed["audit_log_id"],
+        "audit_log_id": hydrated_audit_log_id,
         "fast_answer_sha256": hashlib.sha256(streamed["answer"].encode()).hexdigest(),
         "answer_sha256": hashlib.sha256(streamed["final_answer"].encode()).hexdigest(),
         "final_envelope_sha256": streamed["final_envelope_sha256"],
@@ -618,15 +688,27 @@ def probe_relay(
     if clear_after:
         cleared = _post_json(
             f"{api}/chat/new",
-            {"patient": patient},
+            {"patient": patient, "provider": provider},
             username=username,
             password=password,
             timeout=timeout,
         )
-        cleared_history = _get_json(
-            history_url, username=username, password=password, timeout=timeout
+        cleared_session = str(cleared.get("session") or "").strip()
+        if not cleared_session or cleared.get("provider") != provider:
+            raise RuntimeError(
+                "new-session response did not create the requested provider session"
+            )
+        cleared_history_url = (
+            f"{api}/chat?"
+            f"{urllib.parse.urlencode({'patient': patient, 'session': cleared_session})}"
         )
-        if not cleared.get("session") or cleared_history.get("session") != cleared.get("session"):
+        cleared_history = _get_json(
+            cleared_history_url,
+            username=username,
+            password=password,
+            timeout=timeout,
+        )
+        if cleared_history.get("session") != cleared_session:
             raise RuntimeError("new-session response did not match hydrated session")
         if cleared_history.get("messages"):
             raise RuntimeError("new-session hydration was not empty")
@@ -636,7 +718,17 @@ def probe_relay(
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--openmrs-url", default="http://127.0.0.1:8088/openmrs")
-    parser.add_argument("--patient", required=True)
+    parser.add_argument("--patient")
+    parser.add_argument(
+        "--identity-only",
+        action="store_true",
+        help="Verify and print deployed source/artifact identity without an LLM request.",
+    )
+    parser.add_argument(
+        "--provider",
+        default="hub",
+        help="Configured ChartSearchAI provider to prove (default: hub).",
+    )
     parser.add_argument("--profile")
     parser.add_argument(
         "--question",
@@ -649,6 +741,19 @@ def main() -> int:
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
 
+    if args.identity_only:
+        result = {
+            "schema_version": "chartsearchai_runtime_identity.v1",
+            "runtime_identity": _runtime_identity(args.openmrs_url),
+        }
+        if args.output:
+            args.output.parent.mkdir(parents=True, exist_ok=True)
+            args.output.write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
+        print(json.dumps(result, sort_keys=True))
+        return 0
+    if not args.patient:
+        parser.error("--patient is required unless --identity-only is used")
+
     profile = args.profile or discover_default_profile(
         args.openmrs_url,
         username=args.username,
@@ -658,6 +763,7 @@ def main() -> int:
     result = probe_relay(
         args.openmrs_url,
         patient=args.patient,
+        provider=args.provider,
         profile=profile,
         question=args.question,
         username=args.username,
