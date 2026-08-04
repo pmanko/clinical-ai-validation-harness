@@ -36,7 +36,7 @@ boundary and retains a separate clinical-answer/report profile system.
 |---|---|---|
 | Catalyst | `9aa0e0f` (PR #5) | Standalone fallback pinned to merged Hub `main`; all five PR CI jobs green; no unresolved review threads |
 | Med-Agent Hub | `092b5cd` (`main`; PR #15 merged) | Generic role executor and final model-inventory dependencies available on merged `main` |
-| Harness | `codex/catalyst-mvp-umbrella` (PR #37; evidence-receipt parent `6f58d45`) | Pins Catalyst `9aa0e0f`/Hub `092b5cd`; final matrix manifest is `716bef3` and the only pre-receipt delta is a docs-only CI-contract repair (focused 5/5 PASS); all six review threads resolved, CI rerun and approval required |
+| Harness | `codex/catalyst-mvp-umbrella` (PR #37; evidence-receipt parent `6f58d45`) | Pins Catalyst `9aa0e0f`/Hub `092b5cd`; final matrix manifest is `716bef3` and the only pre-receipt delta is a docs-only CI-contract repair (focused 5/5 PASS); all six review threads resolved; required approval remains, and the PR is authoritative for live check state |
 
 The authoritative July 30 PR-head run
 `cbc41bcd-56f7-4074-931f-98ed42fea202` passed 12/12 scenario repetitions on
