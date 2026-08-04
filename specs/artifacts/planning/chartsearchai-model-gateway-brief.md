@@ -74,7 +74,6 @@ Key architectural posture:
 | 010 (M5) | Answer/citation/abstention eval | not started | Different concern (eval methodology). | No | Yes — gateway enables per-provider eval runs by class. |
 | 013 (M8) | Querystore parity testbed | not started | Different concern (retrieval pipeline parity). | No | No — parallel. |
 | 014 (M9) | Cross-project validation expansion | not started | Different scope. | No | Possibly — if openmrs_chatbot wants to share a model picker, the gateway becomes a reusable surface. Out of scope for 008. |
-| 011 (M10) | Catalyst FHIR sidecar POC | planning | Catalyst exposes its own LLM-as-tool surface; could become a future gateway provider class (`catalyst-fhir`). Not in 008 scope. | No | Yes — gateway architecture leaves a clean slot for Catalyst as a provider. |
 
 **Recommended ordering**: 004 → 005 → 008, with 006 and 007 sequencing flexible after 008. Rationale:
 - 004 establishes the chartsearchai baseline (REST + ESM picker) that 008 evolves.
@@ -282,9 +281,6 @@ What does `chartsearchai.llm.remote.modelName` hold when the gateway is active?
 - `specs/004-real-adapter-entrypoints/{spec,plan,tasks}.md` — chartsearchai PoC baseline 008 extends
 - `specs/005-med-agent-hub-bridge/{spec,plan,tasks}.md` — agentic-provider precedent 008 absorbs; D1 (peer-of-LM-Studio posture), D4 (response_format end-to-end), FR-005.3 / FR-005.4 (the wire-shape invariants 008 generalizes)
 - `specs/001-harness-control-plane-foundation/{spec,plan,tasks}.md` — compose overlay and adapter contract shape
-
-**Reference brief whose shape this mirrors**:
-- `specs/artifacts/planning/catalyst-fhir-sidecar-brief.md`
 
 **Paired research/planning**:
 - `specs/artifacts/planning/clinical-kb-research.md` — companion KB research (parallel feature 009).

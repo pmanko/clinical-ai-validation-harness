@@ -138,14 +138,14 @@ Gateway-ownership refactor is tracked separately in Phase 4.14.
 - [X] T109 Make the tracked umbrella boot reproducible from a clean recommended environment: correct fake-mode/port propagation, enforce clean matching sibling pins, tolerate an empty successful OpenELIS backfill response, pin OpenELIS deployment source/images, and rerun the health/provenance gate
 - [X] T110 Align `docs/specification.md`, `docs/roadmap.md`, `docs/med-agent-hub.md`, root README/quickstart, Harness provider/component/profile provenance, real-suite model IDs, and PR descriptions with the tested implementation
 - [X] T111 Rerun the complete Hub/Catalyst/harness automated gates plus the T094/T095 live iterative workflow on clean pins; prove the versioned Hub backend inventory, exact required model aliases, available-profile subset, unavailable initial/governed/follow-up rejection before state or model calls, writer-only and reviewed provenance, independent PostgreSQL evidence, and pause for user acceptance
-- [ ] T112 Hub #15 is already merged and pinned. After T111 acceptance, squash Catalyst, repin the resulting Catalyst `main` commit while retaining Hub `main` in the harness, rerun the required pin/live gates, obtain the required harness approval, and squash harness last
+- [X] T112 Hub #15 is already merged and pinned. After T111 acceptance, squash Catalyst, repin the resulting Catalyst `main` commit while retaining Hub `main` in the harness, rerun the required pin/live gates, obtain the required harness approval, and squash harness last
 
 T112 progress note (2026-08-04): Catalyst #5 source head `5f23c4e` passed all
 five CI jobs and squash-merged to `main` as `e7eba21`. The harness working tree
 now pins Catalyst `e7eba21` and Hub `092b5cd`. Full health/provenance passed;
 real-model run `70d76a43-d687-4f2a-afe6-e23ca75fe6df` passed 1/1 with 2/2
-independent PostgreSQL checks and 2/2 gold-result comparisons. Required Harness
-approval and Harness squash remain.
+independent PostgreSQL checks and 2/2 gold-result comparisons. Harness #37 then
+passed required CI and squash-merged to `main` as `776a363`, completing T112.
 
 T111 historical execution note (2026-07-30): the PR-head 12/12 model/PostgreSQL
 matrix and bounded-failure/same-session recovery passed on harness `e475d7a`,
@@ -172,8 +172,8 @@ validated, executed, and independently matched PostgreSQL. The PHI-safe
 accepted receipt is `evidence/t111-final-acceptance-2026-08-03.json`. The user
 confirmed actual keyboard-only traversal and actual 200% browser zoom both
 passed and accepted the MVP on 2026-08-04, completing T094/T095/T111. Catalyst
-#5 has since squash-merged and the Harness working tree is repinned; T112
-remains open for final verification, required approval, and Harness merge.
+#5 and harness #37 have since squash-merged; `main` pins Catalyst `e7eba21` and
+Hub `092b5cd`, and T112 is complete.
 
 ## Phase 4.14 — Gateway-owned query orchestration reconciliation
 
@@ -238,6 +238,18 @@ remains open for final verification, required approval, and Harness merge.
 - [ ] T037 Add one-click export in `targets/catalyst/catalyst-ui/src/features/query/QueryWorkspace.tsx` and validate W3 artifacts in `harness/catalyst/validation.py`
 - [ ] T038 Present G6 provenance/model-identity/scenario evidence before comparative claims in `specs/008-catalyst-query-workbench/roadmap.md`
 
+## Phase 9 — Catalyst validation/report parity (CVR P4/P5)
+
+- [X] T128 Reconcile merged Hub #15, Catalyst #5, and harness #37 state; audit the real Catalyst notebook runner, judge/finalizer, report, CLI, publisher, and curated index against ChartSearchAI; record the exact implemented-versus-missing P4/P5 boundary without claiming gate completion
+- [ ] T129 Add red metadata/integration tests for publish-ready Catalyst `run_manifest.json`, versioned run/scenario/turn/version/execution `events.jsonl`, resolvable evidence references, and judge-finalization evaluation events without rewriting the run-start manifest
+- [ ] T130 Implement the CVR-G13 manifest/event contract, update the shared metadata schema, and preserve compatibility with existing notebook evidence/result artifacts
+- [ ] T131 Add red CLI parity tests, then implement `harness-cli catalyst run` with every notebook-runner option and `harness-cli catalyst report <run_dir>` while retaining the script as a thin compatibility wrapper
+- [ ] T132 Add red mixed-family dry-run publishing/index tests, then implement `scripts/publish-report.sh` and family-aware metadata, result loading, badges, deterministic gold rate, and advisory Catalyst judge median without routing Catalyst through Scout or freezing a ChartSearchAI dashboard
+- [ ] T133 Dry-run stage one ChartSearchAI fixture and one Catalyst fixture; pass and record CVR-G13–G15 before starting release claims
+- [ ] T134 Produce the five independent D13 code-QA artifacts, resolve every BLOCKER, and pass CVR-G16
+- [ ] T135 Run the complete real T094 suite on clean merged pins, apply the recorded Catalyst judge exactly three times, finalize, render, publish, and verify record-level evidence at the live URL for CVR-G17
+- [ ] T136 Pass release CI/pin/docs/PCCP hygiene, record CVR-G18, and pause for MS-D user signoff before calling Catalyst report parity released
+
 ## Dependencies and implementation strategy
 
 G0 (T001–T002) blocks all product code. T003–T007 block US1/US3/US4. T053 and
@@ -264,7 +276,7 @@ T093 blocks diverse real-path validation T094, which blocks the G2.8c/user pause
 T095. The user-directed draft publication in T097 was an explicit exception to
 the original T096-before-pinning order; T096 still blocks ready-for-review/merge
 acceptance, not the already-completed draft publication. T123 and T124 block the
-live T111 run; T111 blocks T112. T113
+live T111 run; T111 blocked the now-complete T112. T113
 documents the post-G2.8 ownership refactor; T114 and T115 must land before T111
 acceptance, with T115 applied in the owning component PRs. T116 is the written
 G2.10a traceability gate. T117–T120 block the clean two-source run T121, which
@@ -273,4 +285,6 @@ user pause T122. G2.10 acceptance is separate from and does not silently close
 T094/T095/T111, W2, or W3. T125 and the live-smoke repair T126 were the final
 model-runtime blockers for the definitive current-profile matrix and are now
 complete. T127 records the passed accessibility/user checkpoint and its E2E
-regression; T112 is the only remaining G2.8 merge-chain task.
+regression; no G2.8 merge-chain task remains. T128 records the P4/P5 baseline;
+T129 blocks T130, T131 and T132 are independently test-first, T130–T132 block
+the P4 dry-run gate T133, and T133 blocks P5 tasks T134–T136.

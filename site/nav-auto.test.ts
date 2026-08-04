@@ -18,11 +18,11 @@ const CURATED: NavSection[] = [
 describe('completeNav', () => {
   it('surfaces every on-disk doc and canvas as a leaf, without duplicating curated ones', () => {
     const docKeys = ['../README.md', '../specs/004-x/spec.md', '../docs/cloud-deploy.md'];
-    const canvasKeys = ['../specs/artifacts/canvases/catalyst-fhir-sidecar.canvas.tsx'];
+    const canvasKeys = ['../specs/artifacts/canvases/catalyst-demos.canvas.tsx'];
     const slugs = Object.keys(flattenLeaves(completeNav(docKeys, canvasKeys, CURATED)));
     expect(slugs).toContain('specs/004-x/spec');
     expect(slugs).toContain('docs/cloud-deploy');
-    expect(slugs).toContain('specs/artifacts/canvases/catalyst-fhir-sidecar');
+    expect(slugs).toContain('specs/artifacts/canvases/catalyst-demos');
     expect(slugs.filter((s) => s === 'README')).toHaveLength(1);
   });
 

@@ -73,14 +73,14 @@ const projectStages: Record<
   },
   catalyst: {
     name: 'Catalyst (OpenELIS)',
-    badge: 'Python FHIR sidecar · M10 Planning',
-    user: 'Lab tech or reviewer (sidecar report portal)',
-    entry: 'catalyst-gateway (A2A router) + sidecar UI',
-    context: 'catalyst-mcp queries OE2 HAPI FHIR (:8444); embedded FHIR parity probe',
-    retrieve: 'FHIR resource tools: search_patient, get_observations, get_diagnostic_reports, build_patient_lab_timeline',
-    generate: 'catalyst-agents (LM Studio / Gemini); FHIR-grounded answer with inline citation markers',
-    execute: 'Read-only FHIR queries; no SQL execution in POC; Scout-style evidence cards + lab timeline',
-    output: 'answer + facts[] + citations[resourceType, id, url] + uiBlocks[lab_result_table, lab_timeline]',
+    badge: 'Python SQL workbench · M10 MVP',
+    user: 'Lab analyst or reviewer',
+    entry: 'Catalyst iterative query workbench',
+    context: 'Approved generated catalogs over FHIR Data Pipes PostgreSQL and other registered analytics sources',
+    retrieve: 'Selected source catalog, schema metadata, validation findings, and the active query version',
+    generate: 'Gateway-owned Med-Agent Hub writer/reviewer profiles produce complete SQL revisions',
+    execute: 'Explicit manual validation and PostgreSQL execution with immutable versions and trace evidence',
+    output: 'Editable SQL, typed table results, validation findings, execution lineage, and model provenance',
   },
 };
 
@@ -378,10 +378,10 @@ const chatbotActions = [
 ];
 
 const catalystActions = [
-  'The sidecar report/analytics portal (M10) directly mirrors Scout\'s evidence-card presentation: FHIR-resource citations serve the same verification role as Scout\'s span-level citations. Design evidence cards per resource type (Observation, DiagnosticReport, ServiceRequest) with resource ID, display text, and date.',
-  'Scout\'s fast/slow-path orchestrator pattern still applies: single-resource lookups (one Observation) route to a one-shot path; multi-resource "trend" queries (all Observations for a patient over 90 days) route through the multi-agent MCP path. Add routing decision to the events.jsonl trace.',
-  'Add NASA-TLX to lab-tech evaluation of the sidecar UI once five canonical questions are answered end-to-end. Scout demonstrates workload reduction is independently measurable; the lab-timeline and evidence-card layout directly address the charting burden Scout measured.',
-  'Adopt LLM-as-judge calibration discipline: any automated FHIR-grounded answer scorer (resource ID present, flag correct, date matches) must be benchmarked against a human-adjudicated gold subset before being trusted for regression gating.',
+  'Apply Scout\'s evidence-first presentation principle to the workbench: show the exact SQL, validation findings, selected profile, source catalog, and result lineage alongside every generated artifact.',
+  'Use writer-only and different-family writer/reviewer profiles as explicit experimental conditions; record the routing decision and both model candidates in the immutable trace.',
+  'Add NASA-TLX to lab-analyst evaluation once dashboard composition is testable. Workload reduction is independently measurable from SQL correctness and result accuracy.',
+  'Calibrate any LLM judge against independently executed PostgreSQL gold queries and human review; never treat syntactic validity or a model judge as proof that the returned dataset is correct.',
 ];
 
 const usageCategoryRows = [
@@ -626,10 +626,10 @@ export default function ScoutComparativeAnalysis() {
           </CardHeader>
           <CardBody>
             <Stack gap={8}>
-              <Text><Text weight="semibold">Aligns on:</Text> agentic multi-step orchestration, tool-call discipline, verification-first design (evidence cards over FHIR resources vs Scout's span-level citations), separation of retrieval and generation.</Text>
-              <Text><Text weight="semibold">Diverges on:</Text> FHIR resource retrieval vs Scout's free-text synthesis over notes; read-only FHIR vs PHI-via-Azure; dedicated report/analytics sidecar UI vs embedded modal.</Text>
-              <Text><Text weight="semibold">Take from Scout:</Text> fast/slow-path routing for single vs multi-resource queries; LLM-as-judge calibration discipline; NASA-TLX for lab-tech workload on the sidecar UI; non-inferiority margins for RCT readiness.</Text>
-              <Text tone="secondary"><Text weight="semibold">Catalyst's structural strength:</Text> FHIR-read-only + no-PHI-in-LLM-context is structurally stronger than Scout's Azure-hosted PHI pipeline. The harness should not erode this under "Scout does it differently" pressure.</Text>
+              <Text><Text weight="semibold">Aligns on:</Text> multi-step model collaboration, tool-call discipline, verification-first presentation, and separation of generation from execution.</Text>
+              <Text><Text weight="semibold">Diverges on:</Text> supervised SQL generation over approved analytics catalogs vs Scout's free-text synthesis over notes; explicit query execution vs an embedded answer modal.</Text>
+              <Text><Text weight="semibold">Take from Scout:</Text> LLM-as-judge calibration discipline, NASA-TLX for analyst workload, and non-inferiority margins for future controlled evaluation.</Text>
+              <Text tone="secondary"><Text weight="semibold">Catalyst's structural strength:</Text> read-only database credentials, visible editable SQL, deterministic validation, and explicit execution preserve a human verification boundary.</Text>
             </Stack>
           </CardBody>
         </Card>
@@ -730,7 +730,7 @@ export default function ScoutComparativeAnalysis() {
         </Card>
         <Card>
           <CardHeader trailing={<Pill size="sm" tone="info" active>Catalyst</Pill>}>
-            FHIR sidecar lab
+            Supervised SQL workbench
           </CardHeader>
           <CardBody>
             <Stack gap={8}>

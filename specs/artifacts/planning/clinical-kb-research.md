@@ -142,7 +142,7 @@ Five candidate hosts × six criteria (1=poor, 5=excellent). Scored explicitly so
 |------|-------|---------------|
 | C1 | 5 | Matches the harness's "small-service Python target" pattern (chartsearchai, catalyst-mcp, querystore). |
 | C2 | 2 | A new container, a new lifecycle, a new docs surface — the largest infra cost of the five. |
-| C3 | 5 | One implementation, four+ consumers (chartsearchai inject, gateway inject, openmrs_chatbot, Catalyst sidecar, med-agent-hub subagents). |
+| C3 | 5 | One implementation, four+ consumers (chartsearchai inject, gateway inject, openmrs_chatbot, Catalyst workbench, med-agent-hub subagents). |
 | C4 | 4 | Two hops (consumer → KB service → optional curation worker). Clean failure boundaries. |
 | C5 | 5 | KB service holds only non-PHI knowledge; auto-curation worker runs deployment-side with PHI never leaving the host; only frequency aggregates leave. |
 | C6 | 5 | Independent release cadence; KB content updates hot-reload without restarting consumers. |
@@ -395,7 +395,6 @@ The end-to-end pattern — "introspect a deployment's OpenMRS DB to curate a dep
 | `targets/openmrs_chatbot/data/*.json` (drug KBs, immunization schedules, milestones) | Seed content for the general KB. |
 | `targets/openmrs_chatbot/vectorstore/chroma.py` | Reference impl for the KB ChromaDB collection. |
 | `specs/005-med-agent-hub-bridge/spec.md` | Future consumer; KB lookup is a candidate MCP tool for subagents. |
-| `specs/artifacts/planning/catalyst-fhir-sidecar-brief.md` § 8 (MCP tool sketch) | Pattern for how Catalyst could consume KB MCP tools. |
 | `compose/` | Adds one `clinical-kb` service; one optional `clinical-kb-curate` job. |
 | `harness/targets.yaml` | New `clinical-kb` target entry. |
 | `evals/` | New eval suite: KB recall, KB citation correctness, abstention discipline, lost-in-middle stress, contextualization regression. |

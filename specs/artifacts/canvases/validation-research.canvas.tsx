@@ -195,8 +195,8 @@ const sourceRows = [
   ],
   [
     <Link href="https://github.com/DIGI-UW/OpenELIS-Global-2/tree/develop/projects/catalyst">OpenELIS Catalyst</Link>,
-    'Lab AI sidecar over OpenELIS Global 2: catalyst-gateway + catalyst-agents + catalyst-mcp (Python) with FHIR-grounded retrieval over OE2 HAPI FHIR and embedded providers; resource-cited answers; Scout-style report/analytics UI. (M10 — Planning)',
-    'Validation primitives for FHIR resource retrieval QA, resource-level citation/grounding, multi-agent traces, and embedded-FHIR parity probing; shared metadata spine from M2.',
+    'Supervised analytics workbench over OpenELIS Global 2 and other registered data sources: natural-language question to editable SQL, deterministic validation, explicit execution, iterative revisions, and typed results. (M10 — manual MVP accepted)',
+    'Validation primitives for SQL generation, immutable query lineage, model-role provenance, execution correctness, source-catalog grounding, and independent PostgreSQL gold comparison.',
   ],
 ];
 
@@ -211,50 +211,50 @@ const parallelComparisonRows = [
     'Architecture',
     'Embedded Java module in OpenMRS; ONNX + Lucene + RRF retrieval over serialized chart records.',
     'Python chatbot with patient/doctor UIs and agent-team workflow scaffolding.',
-    'Multi-service Python sidecar: catalyst-gateway + catalyst-agents + catalyst-mcp; FHIR tools hit OE2 HAPI FHIR (:8444) as primary surface and embedded FHIR (/fhir/*) for parity.',
+    'Python gateway and browser workbench over approved analytics PostgreSQL sources; Med-Agent Hub executes configured writer/reviewer model roles.',
   ],
   [
     'Retrieval mode',
     'Embedding-driven retrieval over patient chart records; ranks by cosine + BM25 + RRF.',
     'Conversational retrieval/orchestration over OpenMRS data; role-aware context shaping.',
-    'FHIR resource queries via catalyst-mcp tools (search_patient, get_observations, get_diagnostic_reports, build_patient_lab_timeline); no SQL execution in POC.',
+    'Generated catalog and schema context for one selected analytics source; generated SQL remains editable before explicit execution.',
   ],
   [
     'Generation surface',
     'Structured JSON answer with chart-record citations.',
     'Multi-turn role-conditioned response (patient or doctor view).',
-    'FHIR-grounded answer with inline citation markers per resource (Patient, Observation, ServiceRequest, DiagnosticReport IDs); lab-result table + timeline uiBlocks.',
+    'Complete SQL revisions from recorded writer/reviewer profiles, with raw candidates, validation findings, and version digests retained.',
   ],
   [
     'Validation maturity',
     '485-case enriched retrieval, citation eval, absent-data eval, prompt-injection eval; planned spine and clinician adjudication.',
     'Early; setup, debug, and workflow-trace docs imply iterative manual eval; no published harness.',
-    'M10 Planning — Spec Kit Phase 2 pending. Five canonical FHIR questions; HAPI-first + embedded parity probe; sidecar report/analytics UI (Scout-style); harness adapter smoke with run_manifest + events.',
+    'Manual MVP accepted after live generation, manual edit, validation/execution, contextual follow-up, refresh restoration, keyboard flow, and independent PostgreSQL result checks.',
   ],
   [
     'Privacy/safety stance',
     'PHI handled through OpenMRS module boundary; PromptInjectionEvalTest covers direct injection.',
     'Patient/doctor role isolation in UI; safety surface needs definition.',
-    'FHIR read-only access to HAPI; no SQL in POC; LocalPHI mode deferred; schema allowlist + RBAC preserved for future SQL path.',
+    'Read-only analytics credentials and explicit execution boundary; catalog-grounded SQL with retained validation findings and database diagnostics.',
   ],
   [
     'Test data path',
     'Synthetic patient fixtures + planned large demo-data 2.8 remap.',
     'Likely in-app test fixtures; corpus and reproducibility unclear from public docs.',
-    'OE2 HAPI FHIR dev stack (sibling checkout via OPENELIS_ROOT); FHIR-populated data from FhirTransformService; real patient/lab fixtures in clinlims DB.',
+    'OpenELIS FHIR resources exported through FHIR Data Pipes into versioned analytics PostgreSQL views; additional sources carry their own database and generated catalog.',
   ],
 ];
 
 const primitiveMatrixRows = [
-  ['Test-data fidelity', 'Planned (2.8 remap)', 'Implementation-defined', 'OE2 HAPI FHIR dev stack; clinlims data via FhirTransformService'],
-  ['Retrieval QA', 'Yes (golden baselines, 485 cases)', 'Implied (response coverage)', 'FHIR resource query QA; 5 canonical questions; HAPI + embedded parity'],
-  ['NL->SQL QA', 'Not applicable', 'Not applicable', 'Not POC focus (FHIR-first; SQL execution deferred to Phase 3)'],
-  ['Agent-team trace QA', 'Not applicable', 'Yes (workflow trace docs)', 'Yes (multi-agent MCP trace via events.jsonl)'],
-  ['Citation/grounding', 'Yes (record-level)', 'Needs definition', 'Resource-level (Patient/Observation/DiagnosticReport IDs; inline citation markers)'],
-  ['Abstention/empty answer', 'Yes (AbsentDataEvalTest)', 'Needs definition', 'No-result FHIR response handling; empty bundle path'],
-  ['Prompt injection / safety', 'Yes (PromptInjectionEvalTest)', 'Needs definition', 'FHIR read-only; schema allowlist + RBAC preserved for SQL path'],
-  ['Clinician/expert review', 'Planned (P6 clinician adjudication)', 'Implied (debug docs)', 'Lab-tech review path on FHIR-grounded answers and evidence cards'],
-  ['Governance metadata', 'Planned (run-manifest from spine)', 'Limited', 'run_manifest.json + events.jsonl per M2 spine; provider/FHIR surface provenance'],
+  ['Test-data fidelity', 'Planned (2.8 remap)', 'Implementation-defined', 'FHIR Data Pipes export plus versioned analytics views and source watermark'],
+  ['Retrieval QA', 'Yes (golden baselines, 485 cases)', 'Implied (response coverage)', 'Catalog/schema grounding and independent result-set comparison'],
+  ['NL->SQL QA', 'Not applicable', 'Not applicable', 'Active: deterministic lint, database execution, and PostgreSQL gold-query comparison'],
+  ['Agent-team trace QA', 'Not applicable', 'Yes (workflow trace docs)', 'Writer/reviewer role, candidate, timing, digest, and failure evidence'],
+  ['Citation/grounding', 'Yes (record-level)', 'Needs definition', 'Source catalog, query lineage, FHIR identifiers in analytics rows, and execution provenance'],
+  ['Abstention/empty answer', 'Yes (AbsentDataEvalTest)', 'Needs definition', 'Empty-result and database-diagnostic handling without hiding the query'],
+  ['Prompt injection / safety', 'Yes (PromptInjectionEvalTest)', 'Needs definition', 'Read-only database role, explicit execution, and deterministic SQL validation'],
+  ['Clinician/expert review', 'Planned (P6 clinician adjudication)', 'Implied (debug docs)', 'Lab-analyst review of generated SQL, results, and future dashboards'],
+  ['Governance metadata', 'Planned (run-manifest from spine)', 'Limited', 'run_manifest.json + events.jsonl with model, query, execution, and source provenance'],
 ];
 
 const archLabels: Record<string, string> = {

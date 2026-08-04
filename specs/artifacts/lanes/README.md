@@ -32,6 +32,5 @@ specs/0NN-*/                           SPEC     — formal requirements, generat
 | L2 — Reports & human feedback | [L2-reports-human-feedback](L2-reports-human-feedback.md) | [report-human-feedback-brief](report-human-feedback-brief.md) | amends `specs/006-validation-harness-mvp` |
 | L3 — Validation spine as-built | [L3-validation-spine-asbuilt](L3-validation-spine-asbuilt.md) | — (links to 006) | `specs/006-validation-harness-mvp` |
 | L4 — chartsearchai upstream + reconcile | [L4-chartsearchai-upstream-reconcile](L4-chartsearchai-upstream-reconcile.md) | — (fork-PR mechanics) | fork repos (upstream PRs) |
-| L5 — Catalyst FHIR sidecar | [L5-catalyst-fhir-sidecar](L5-catalyst-fhir-sidecar.md) | [catalyst-fhir-sidecar-brief](../planning/catalyst-fhir-sidecar-brief.md) | `specs/011-catalyst-fhir-sidecar-poc` |
 
 See [`dev-roadmap.md`](dev-roadmap.md) for the program index (north-star, launch sequence, gates).
