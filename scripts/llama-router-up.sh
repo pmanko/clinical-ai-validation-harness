@@ -86,7 +86,7 @@ if [ "${DAEMON}" = "1" ]; then
     if curl -fsS --max-time 3 http://127.0.0.1:8077/v1/models >/dev/null 2>&1; then
       if [ "${PLATFORM}" = "Darwin" ]; then
         ROUTER_PID="$(launchctl print "gui/$(id -u)/${LABEL}" 2>/dev/null \
-          | awk '/pid =/ {print $3; exit}')"
+          | awk '/pid =/ {print $3; exit}' || true)"
         [ -z "${ROUTER_PID}" ] || printf '%s\n' "${ROUTER_PID}" >"${RUNTIME_DIR}/router.pid"
       fi
       echo "llama.cpp router ready on :8077"

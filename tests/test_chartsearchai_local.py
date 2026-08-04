@@ -4,6 +4,8 @@ import os
 import subprocess
 from pathlib import Path
 
+import pytest
+
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -145,7 +147,10 @@ def test_router_launcher_does_not_mutate_the_real_runtime_symlink(tmp_path):
     assert (runtime_dir / "models").resolve() == model_dir.resolve()
 
 
-def test_local_router_daemon_uses_launchd_on_macos(tmp_path):
+@pytest.mark.parametrize("launchctl_print_fails", [False, True])
+def test_local_router_daemon_uses_launchd_on_macos(
+    tmp_path, launchctl_print_fails
+):
     fake_bin = tmp_path / "bin"
     fake_bin.mkdir()
     ready = tmp_path / "router-ready"
@@ -163,6 +168,7 @@ def test_local_router_daemon_uses_launchd_on_macos(tmp_path):
             '  printf "%s\\n" "$@" > "$LAUNCHCTL_ARGS"\n'
             '  touch "$ROUTER_READY"\n'
             'elif [ "$1" = print ]; then\n'
+            '  [ "$LAUNCHCTL_PRINT_FAIL" = 1 ] && exit 1\n'
             "  printf 'pid = 123\\n'\n"
             "fi\n"
         ),
@@ -182,6 +188,7 @@ def test_local_router_daemon_uses_launchd_on_macos(tmp_path):
             "HOME": str(home),
             "PATH": f"{fake_bin}{os.pathsep}{env['PATH']}",
             "LAUNCHCTL_ARGS": str(launchctl_args),
+            "LAUNCHCTL_PRINT_FAIL": "1" if launchctl_print_fails else "0",
             "LLAMA_MODEL_DIR": str(model_dir),
             "LLAMA_ROUTER_MODELS_MAX": "2",
             "LLAMA_ROUTER_RUNTIME_DIR": str(runtime_dir),
@@ -204,7 +211,10 @@ def test_local_router_daemon_uses_launchd_on_macos(tmp_path):
     assert f"LLAMA_ROUTER_RUNTIME_DIR={runtime_dir}" in args
     assert "LLAMA_ROUTER_MODELS_MAX=2" in args
     assert str(ROOT / "scripts/llama-router-up.sh") in args
-    assert (runtime_dir / "router.pid").read_text(encoding="utf-8") == "123\n"
+    if launchctl_print_fails:
+        assert not (runtime_dir / "router.pid").exists()
+    else:
+        assert (runtime_dir / "router.pid").read_text(encoding="utf-8") == "123\n"
     local = _read("scripts/chartsearchai-local.sh")
     assert "./scripts/llama-router-up.sh --daemon" in local
     assert "nohup env" not in local
