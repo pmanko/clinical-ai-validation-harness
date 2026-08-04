@@ -118,6 +118,10 @@ def _build_parser() -> argparse.ArgumentParser:
         "relevance,harm,note}} map without prompting (scripted/test use).",
     )
 
+    from .catalyst.cli import configure_parser as configure_catalyst_parser
+
+    configure_catalyst_parser(sub)
+
     return parser
 
 
@@ -158,10 +162,14 @@ def _start_run(output_dir: Path, component: str, project_root: Path) -> tuple[Pa
     return manifest_path, events_path
 
 
-def main() -> int:
+def main(
+    argv: list[str] | None = None,
+    *,
+    project_root: Path | None = None,
+) -> int:
     import sys
-    args = _build_parser().parse_args()
-    config = HarnessConfig.from_defaults(Path("."))
+    args = _build_parser().parse_args(argv)
+    config = HarnessConfig.from_defaults(project_root or Path("."))
     if args.command == "schema-diff":
         output_dir = Path(args.output_dir)
         _manifest, events = _start_run(output_dir, "schema-diff", config.project_root)
@@ -200,6 +208,11 @@ def main() -> int:
         return _not_yet_implemented(f"ocl {args.ocl_action}")
     if args.command == "manifest":
         return _not_yet_implemented(f"manifest {args.manifest_action}")
+
+    if args.command == "catalyst":
+        from .catalyst.cli import dispatch as dispatch_catalyst
+
+        return dispatch_catalyst(args, project_root=config.project_root)
 
     if args.command == "validate":
         if args.validate_action in {"check", "run"}:

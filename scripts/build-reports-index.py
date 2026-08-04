@@ -13,10 +13,12 @@ Edit reports-index.json to add/remove/reorder runs or change the copy, then reru
 
 from __future__ import annotations
 
+import argparse
 import json
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
+from statistics import median
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
@@ -90,30 +92,39 @@ def human_arm(arm: str) -> tuple[str, str]:
     return (card.get("short_title") or _RAW.get(arm, arm), detail)
 
 
-def _run_dir_for(slug: str) -> Path | None:
-    """meta.run_dir is authoritative (a judged sibling reuses another run's results).
-
-    Other run families (e.g. the Catalyst notebook suite, whose meta.json
-    references its run dir as "../catalyst-notebook-validation/<id>" — see
-    the scoreline path in gather()) now also stream a results.jsonl. Reject
-    any run_dir that resolves outside VALIDATE so those don't get parsed as
-    scored validate rows just because the sentinel file now exists there too.
-    """
+def _run_meta(slug: str) -> dict:
     meta = REPORTS / slug / "meta.json"
-    if meta.exists():
-        try:
-            m = json.loads(meta.read_text())
-            rd = m.get("run_dir") or m.get("run_id")
-            if not rd:
-                return None
-            candidate = (VALIDATE / rd).resolve()
-            if (
-                candidate.is_relative_to(VALIDATE.resolve())
-                and (candidate / "results.jsonl").exists()
-            ):
-                return candidate
-        except Exception:
-            pass
+    if not meta.is_file():
+        return {}
+    try:
+        payload = json.loads(meta.read_text(encoding="utf-8"))
+        return payload if isinstance(payload, dict) else {}
+    except (OSError, json.JSONDecodeError):
+        return {}
+
+
+def _run_dir_for(slug: str) -> Path | None:
+    """Resolve new root-relative metadata or the legacy validate-only key."""
+
+    meta = _run_meta(slug)
+    family = str(meta.get("report_family") or "chartsearchai")
+    run_path = meta.get("run_path")
+    if isinstance(run_path, str) and run_path:
+        candidate = (ROOT / run_path).resolve()
+        if not candidate.is_relative_to(ROOT.resolve()):
+            return None
+        sentinel = "results.json" if family == "catalyst" else "results.jsonl"
+        return candidate if (candidate / sentinel).is_file() else None
+
+    # Backward compatibility: old metadata stored a bare directory name and
+    # was intentionally confined to artifacts/validate.
+    rd = meta.get("run_dir") or meta.get("run_id")
+    if rd:
+        candidate = (VALIDATE / str(rd)).resolve()
+        if candidate.is_relative_to(VALIDATE.resolve()) and (
+            candidate / "results.jsonl"
+        ).is_file():
+            return candidate
     return None
 
 
@@ -134,19 +145,51 @@ def _patient_names(run_dir: Path, uuids: set[str]) -> str:
 
 def gather(slug: str) -> dict:
     """Pull the score table + subtitle facts for one curated run from its data."""
-    out: dict = {"cells": None, "patients": "", "date": None, "scout": [], "scoreline": ""}
-    meta = REPORTS / slug / "meta.json"
-    if meta.exists():
-        try:
-            # Pass/fail run families (e.g. the Catalyst notebook acceptance
-            # suite) have no judge scores; their meta.json declares a scoreline
-            # rendered in place of the judge score table.
-            out["scoreline"] = str(json.loads(meta.read_text()).get("scoreline") or "")
-        except (json.JSONDecodeError, OSError):
-            pass
+    meta = _run_meta(slug)
+    family = str(meta.get("report_family") or "chartsearchai")
+    out: dict = {
+        "family": family,
+        "cells": None,
+        "patients": "",
+        "date": None,
+        "scout": [],
+        "scoreline": str(meta.get("scoreline") or ""),
+    }
     rdir = _run_dir_for(slug)
     if not rdir:
         return out
+    if family == "catalyst":
+        results = json.loads((rdir / "results.json").read_text(encoding="utf-8"))
+        rows = list(results.get("results") or [])
+        out["cells"] = int(results.get("resultCount") or len(rows))
+        out["date"] = datetime.fromtimestamp(
+            (rdir / "results.json").stat().st_mtime, timezone.utc
+        ).strftime("%-d %b %Y")
+        gold = [
+            assertion
+            for row in rows
+            for assertion in (row.get("assertions") or [])
+            if "gold_execution_match" in str(assertion.get("name") or "")
+        ]
+        passed = sum(bool(assertion.get("passed")) for assertion in gold)
+        parts = [f"Gold checks: {passed}/{len(gold)} passed"] if gold else []
+        judge_path = rdir / "judge.jsonl"
+        if judge_path.is_file():
+            judge_rows = [
+                json.loads(line)
+                for line in judge_path.read_text(encoding="utf-8").splitlines()
+                if line.strip()
+            ]
+            composites = [
+                float(row["composite"])
+                for row in judge_rows
+                if isinstance(row.get("composite"), (int, float))
+            ]
+            if composites:
+                parts.append(f"Advisory judge median: {median(composites):g}/100")
+        out["scoreline"] = " · ".join(parts) or out["scoreline"]
+        return out
+
     rows = [json.loads(l) for l in (rdir / "results.jsonl").read_text().splitlines() if l.strip()]
     arms = sorted({r.get("backend_id") for r in rows if r.get("backend_id")})
     pts = {(r.get("request") or {}).get("patient") for r in rows if (r.get("request") or {}).get("patient")}
@@ -229,7 +272,8 @@ def _card(entry: dict) -> str:
     if g["patients"]:
         facts.append(esc(g["patients"]))
     if g["cells"] is not None:
-        facts.append(f'{g["cells"]} graded answers')
+        unit = "scenario repetitions" if g.get("family") == "catalyst" else "graded answers"
+        facts.append(f'{g["cells"]} {unit}')
     if g["date"]:
         facts.append(esc(g["date"]))
     subtitle = " · ".join(facts)
@@ -238,9 +282,11 @@ def _card(entry: dict) -> str:
         links.append(f'<a class="btn ghost" href="{esc(slug)}/dashboard.html">Interactive dashboard</a>')
     takeaway = (f'<p class="takeaway"><span class="tk">Takeaway</span>{esc(entry["takeaway"])}</p>'
                 if entry.get("takeaway") else "")
+    family = str(g.get("family") or "chartsearchai")
+    family_label = "Catalyst SQL" if family == "catalyst" else "ChartSearchAI"
     return f"""  <article class="card">
   <header class="card-head">
-    <div class="titles"><h2>{esc(entry["title"])}</h2><div class="slug">{subtitle}</div></div>
+    <div class="titles"><span class="family {esc(family)}">{esc(family_label)}</span><h2>{esc(entry["title"])}</h2><div class="slug">{subtitle}</div></div>
     <div class="links">{"".join(links)}</div>
   </header>
   <p class="summary">{esc(entry.get("summary", ""))}</p>
@@ -268,6 +314,9 @@ _STYLE_CORE = """
   .card{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:22px 24px;margin-bottom:22px;}
   .card-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;margin-bottom:6px;}
   .titles h2{margin:0;font-size:20px;color:var(--ink);font-weight:600;line-height:1.3;}
+  .family{display:inline-block;margin:0 0 6px;padding:2px 7px;border:1px solid var(--border);
+    border-radius:999px;color:var(--muted);font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;}
+  .family.catalyst{color:var(--accent);border-color:var(--accent);}
   .titles .slug{color:var(--muted);font-size:13px;margin-top:4px;}
   .links{display:flex;gap:8px;flex-wrap:wrap;}
   .btn{display:inline-block;text-decoration:none;background:var(--accent);color:var(--btn-fg);
@@ -303,7 +352,22 @@ _STYLE_CORE = """
 STYLE = _STYLE_CORE + THEME_TOGGLE_CSS
 
 
-def main() -> None:
+def main(
+    argv: list[str] | None = None,
+) -> None:
+    global ROOT, REPORTS, VALIDATE, MANIFEST, BACKENDS, _RAW
+    if argv is not None:
+        parser = argparse.ArgumentParser()
+        parser.add_argument("--root", type=Path, default=ROOT)
+        parser.add_argument("--reports-root", type=Path)
+        parser.add_argument("--manifest", type=Path)
+        args = parser.parse_args(argv)
+        ROOT = args.root.resolve()
+        REPORTS = (args.reports_root or ROOT / "artifacts" / "reports").resolve()
+        VALIDATE = ROOT / "artifacts" / "validate"
+        MANIFEST = (args.manifest or ROOT / "reports-index.json").resolve()
+        BACKENDS = ROOT / "datasets" / "validation" / "backends.json"
+        _RAW = _backend_labels()
     manifest = json.loads(MANIFEST.read_text())
     runs = manifest.get("runs", [])
     # Loud, not silent: a run whose report is staged under artifacts/reports/ but absent from the
@@ -348,4 +412,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    main(sys.argv[1:])

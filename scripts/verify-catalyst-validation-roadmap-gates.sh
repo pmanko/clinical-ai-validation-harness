@@ -2,7 +2,7 @@
 # Execute and record Catalyst Validation Integration (CVR) roadmap gates.
 # Usage:
 #   scripts/verify-catalyst-validation-roadmap-gates.sh test
-#   scripts/verify-catalyst-validation-roadmap-gates.sh g00|g01|...|g12|blocked
+#   scripts/verify-catalyst-validation-roadmap-gates.sh g00|g01|...|g15|blocked
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -102,6 +102,27 @@ case "${cmd}" in
     record G12 PENDING "import boundary + no-judge green; MS-C user signoff required"
     exit 1
     ;;
+  g13)
+    uv run pytest \
+      evals/metadata/test_metadata_events.py \
+      evals/catalyst/test_notebook_events.py \
+      evals/catalyst/test_judge_finalize.py \
+      tests/test_catalyst_notebook_validation.py -q
+    record G13 PASS "versioned notebook manifest/events + judge provenance"
+    ;;
+  g14)
+    uv run pytest \
+      evals/orchestration/test_cli_subcommands.py \
+      tests/test_catalyst_notebook_validation.py \
+      -k 'notebook_cli or catalyst_run or catalyst_report' -q
+    record G14 PASS "Catalyst run/report CLI + compatibility wrapper"
+    ;;
+  g15)
+    uv run pytest \
+      evals/scripts/test_build_reports_index.py \
+      evals/scripts/test_publish_report.py -q
+    record G15 PASS "mixed-family dry-run publishing and index"
+    ;;
   blocked)
     # Amendment A1 (2026-07-21): P4 and P5 both entry-gate on recorded
     # T094/T095/T111 user acceptance; 008-G5/008-G6 no longer gate CVR phases.
@@ -117,7 +138,7 @@ case "${cmd}" in
     fi
     ;;
   *)
-    echo "usage: $0 test|g00|g01|g02|g03|g04|g05|g06|g07|g08|g09|g10|g11|g12|blocked" >&2
+    echo "usage: $0 test|g00|g01|g02|g03|g04|g05|g06|g07|g08|g09|g10|g11|g12|g13|g14|g15|blocked" >&2
     exit 2
     ;;
 esac

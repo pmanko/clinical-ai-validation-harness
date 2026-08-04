@@ -300,3 +300,92 @@ def test_run_dir_for_rejects_a_traversal_path_outside_validate(tmp_path, monkeyp
     monkeypatch.setattr(bri, "VALIDATE", validate)
 
     assert bri._run_dir_for("catalyst-run") is None
+
+
+def test_catalyst_gather_uses_root_relative_run_and_never_calls_scout(
+    tmp_path, monkeypatch
+):
+    bri = _load()
+    root = tmp_path
+    reports = root / "artifacts" / "reports"
+    run_dir = root / "artifacts" / "catalyst-notebook-validation" / "run-1"
+    slug_dir = reports / "catalyst-run"
+    slug_dir.mkdir(parents=True)
+    run_dir.mkdir(parents=True)
+    (slug_dir / "meta.json").write_text(
+        json.dumps(
+            {
+                "report_family": "catalyst",
+                "run_path": "artifacts/catalyst-notebook-validation/run-1",
+                "suite_id": "suite-1",
+                "suite_sha256": "a" * 64,
+            }
+        ),
+        encoding="utf-8",
+    )
+    (run_dir / "results.json").write_text(
+        json.dumps(
+            {
+                "resultCount": 2,
+                "passedCount": 1,
+                "results": [
+                    {
+                        "assertions": [
+                            {"name": "base_gold_execution_match", "passed": True},
+                            {
+                                "name": "successor_gold_execution_match",
+                                "passed": False,
+                            },
+                        ]
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    (run_dir / "judge.jsonl").write_text(
+        json.dumps({"composite": 80}) + "\n" + json.dumps({"composite": 100}) + "\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(bri, "ROOT", root)
+    monkeypatch.setattr(bri, "REPORTS", reports)
+    monkeypatch.setattr(bri, "VALIDATE", root / "artifacts" / "validate")
+    monkeypatch.setattr(
+        bri, "_load_judge", lambda *_: (_ for _ in ()).throw(AssertionError("Scout"))
+    )
+    monkeypatch.setattr(
+        bri, "scout_summary", lambda *_: (_ for _ in ()).throw(AssertionError("Scout"))
+    )
+
+    gathered = bri.gather("catalyst-run")
+
+    assert gathered["family"] == "catalyst"
+    assert gathered["cells"] == 2
+    assert gathered["scout"] == []
+    assert gathered["scoreline"] == (
+        "Gold checks: 1/2 passed · Advisory judge median: 90/100"
+    )
+    html = bri._card(
+        {"slug": "catalyst-run", "title": "Catalyst", "summary": "S"}
+    )
+    assert "Catalyst SQL" in html
+    assert "2 scenario repetitions" in html
+
+
+def test_root_relative_run_path_rejects_repository_traversal(tmp_path, monkeypatch):
+    bri = _load()
+    reports = tmp_path / "reports"
+    slug_dir = reports / "bad"
+    slug_dir.mkdir(parents=True)
+    (slug_dir / "meta.json").write_text(
+        json.dumps(
+            {
+                "report_family": "catalyst",
+                "run_path": "../outside",
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(bri, "ROOT", tmp_path)
+    monkeypatch.setattr(bri, "REPORTS", reports)
+    assert bri._run_dir_for("bad") is None

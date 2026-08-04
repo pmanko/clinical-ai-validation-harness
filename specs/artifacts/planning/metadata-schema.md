@@ -22,6 +22,13 @@ Each run emits:
 - `otel.gen_ai.operation.name`
 - `target_provenance`
 
+Publishable Catalyst notebook runs additionally require:
+
+- `report_family = "catalyst"`
+- `suite_id`
+- `suite_sha256` (SHA-256 of the exact input suite bytes)
+- `evidence_status = "development"` until the P5 release gates pass
+
 For Catalyst query-validation runs, `target_provenance` contains separate,
 control-plane-compatible Catalyst and Med-Agent Hub entries. The runner rejects
 an uninitialized, dirty, or pin-mismatched target before contacting either
@@ -33,6 +40,10 @@ must agree, and the resulting provider becomes `otel.gen_ai.provider.name`; the
 suite's provider is an expected value, not the evidence source. A run that fails
 before profile discovery records the provider as unresolved. Catalyst model
 operations use `otel.gen_ai.operation.name = chat`.
+
+`otel.gen_ai.provider.name` is the canonical provider field. The deprecated
+`otel.gen_ai.system` spelling is not emitted or accepted; this resolves the N6
+field-name question without carrying two conflicting provider identities.
 
 Validation comparison runs also emit `dataset_provenance` with:
 
@@ -60,6 +71,26 @@ input identity auditable afterward.
 - `runtime_identity`
 - `runtime_identity_failed`
 - `reviewer_change_record`
+
+Catalyst notebook streams use
+`schema_version = "harness.catalyst-notebook.event.v1"` and additionally emit:
+
+- `scenario` for one suite scenario/repetition outcome;
+- `turn` for initial and follow-up turn lineage;
+- `version` for the selected base and complete successor query identifiers and
+  digests;
+- `execution` for an explicit execution linked to its immutable query version;
+  and
+- `evaluation` with `evaluation_type = "catalyst_sql_judge"` only after the
+  three manual judge passes are finalized.
+
+Notebook event `evidence_paths` are run-directory-relative, traversal-safe, and
+must resolve to materialized evidence. Judge evaluation events include provider,
+model, model version, rubric digest, composite and axis/rationale details, plus
+links to `judge.jsonl`, `judge_manifest.json`, and the source evidence. The
+finalizer appends these events idempotently and never rewrites the run-start
+manifest. SQL result rows, credentials, and raw model traces are excluded from
+the event stream.
 
 ## OTel GenAI Alignment
 

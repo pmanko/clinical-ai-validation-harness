@@ -164,6 +164,32 @@ uv run python scripts/run-catalyst-validation.py \
 
 Run evidence is written under `artifacts/catalyst-validation/<run-id>/`.
 
+The iterative-query notebook uses the same top-level CLI and reporting archive
+as ChartSearchAI. By default it independently checks both the selected query
+execution and the hand-authored gold query against read-only PostgreSQL:
+
+```bash
+uv run harness-cli catalyst run \
+  --suite datasets/validation/catalyst/catalyst-notebook-t094-v1.json
+
+uv run harness-cli catalyst report \
+  artifacts/catalyst-notebook-validation/<run-id>
+```
+
+After three judge passes are finalized, stage or publish the report and its
+relative evidence links with the family-aware publisher:
+
+```bash
+scripts/publish-report.sh catalyst \
+  artifacts/catalyst-notebook-validation/<run-id> \
+  catalyst-t094-release "Catalyst T094 validation"
+```
+
+Use `PUBLISH_DRY_RUN=1 REPORTS_ROOT=<temporary-directory>` to render, index,
+and verify a publication without cloud or VM access. The legacy
+`scripts/validate-publish.sh <run-id> ...` command remains a ChartSearchAI
+compatibility wrapper.
+
 ```bash
 # 1. Install uv (Python environment manager) if not already installed
 curl -LsSf https://astral.sh/uv/install.sh | sh

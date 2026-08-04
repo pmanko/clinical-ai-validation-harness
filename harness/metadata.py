@@ -32,6 +32,9 @@ class RunManifest:
     otel_semconv_stability_opt_in: str = "gen_ai_latest_experimental"
     patients: dict[str, Any] = field(default_factory=dict)
     dataset_provenance: dict[str, Any] = field(default_factory=dict)
+    report_family: str | None = None
+    suite_id: str | None = None
+    suite_sha256: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         otel: dict[str, Any] = {
@@ -62,6 +65,12 @@ class RunManifest:
             payload["patients"] = self.patients
         if self.dataset_provenance:
             payload["dataset_provenance"] = self.dataset_provenance
+        if self.report_family is not None:
+            payload["report_family"] = self.report_family
+        if self.suite_id is not None:
+            payload["suite_id"] = self.suite_id
+        if self.suite_sha256 is not None:
+            payload["suite_sha256"] = self.suite_sha256
         return payload
 
 

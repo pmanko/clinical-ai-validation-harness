@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -30,6 +31,7 @@ def test_help_top_level(capsys):
         "sample",
         "ocl",
         "manifest",
+        "catalyst",
     ):
         assert expected in out
 
@@ -207,3 +209,118 @@ def test_transform_run_dispatches_to_orchestrator(monkeypatch):
     assert "--conceptmap" in invoked
     assert "datasets/transforms/sqlmesh" in invoked
     assert "datasets/mappings/openmrs-2.7-to-2.8.conceptmap.json" in invoked
+
+
+def test_catalyst_run_parser_exposes_every_compatibility_script_flag():
+    args = _build_parser().parse_args(
+        [
+            "catalyst",
+            "run",
+            "--suite",
+            "suite.json",
+            "--gateway-url",
+            "http://gateway",
+            "--output-dir",
+            "out",
+            "--scenario",
+            "s1",
+            "--scenario",
+            "s2",
+            "--repetitions",
+            "3",
+            "--include-manual",
+            "--postgres-dsn",
+            "postgresql://db",
+            "--no-postgres-cross-check",
+            "--timeout-seconds",
+            "42",
+        ]
+    )
+    assert args.catalyst_action == "run"
+    assert args.suite == "suite.json"
+    assert args.gateway_url == "http://gateway"
+    assert args.output_dir == "out"
+    assert args.scenarios == ["s1", "s2"]
+    assert args.repetitions == 3
+    assert args.include_manual is True
+    assert args.postgres_dsn == "postgresql://db"
+    assert args.no_postgres_cross_check is True
+    assert args.timeout_seconds == 42
+
+
+def test_catalyst_run_dispatches_every_runner_option(monkeypatch, tmp_path, capsys):
+    captured = {}
+
+    def fake_run(**kwargs):
+        captured.update(kwargs)
+        return SimpleNamespace(
+            run_id="run-1",
+            run_dir=tmp_path / "run-1",
+            passed_count=1,
+            result_count=1,
+            skipped_count=0,
+        )
+
+    monkeypatch.setattr("harness.catalyst.notebook_validation.run_notebook_suite", fake_run)
+    monkeypatch.setattr(
+        "harness.catalyst.notebook_validation.NotebookHttpClient",
+        lambda url, timeout_seconds: (url, timeout_seconds),
+    )
+    monkeypatch.setattr(
+        "harness.catalyst.notebook_validation.PostgresReadOnlyChecker",
+        lambda dsn: ("crosscheck", dsn),
+    )
+    monkeypatch.setattr(
+        "harness.catalyst.notebook_validation.PostgresGoldExecutionChecker",
+        lambda dsn: ("gold", dsn),
+    )
+
+    assert (
+        main(
+            [
+                "catalyst",
+                "run",
+                "--suite",
+                "suite.json",
+                "--gateway-url",
+                "http://gateway",
+                "--output-dir",
+                str(tmp_path),
+                "--scenario",
+                "s1",
+                "--repetitions",
+                "2",
+                "--postgres-dsn",
+                "postgresql://db",
+                "--timeout-seconds",
+                "45",
+            ]
+        )
+        == 0
+    )
+    assert captured["suite_path"] == Path("suite.json")
+    assert captured["client"] == ("http://gateway", 45)
+    assert captured["output_dir"] == tmp_path
+    assert captured["scenario_ids"] == {"s1"}
+    assert captured["repetitions"] == 2
+    assert captured["include_manual"] is False
+    assert captured["postgres_checker"] == ("crosscheck", "postgresql://db")
+    assert captured["gold_checker"] == ("gold", "postgresql://db")
+    assert captured["manual_checkpoint"] is None
+    assert captured["project_root"] == Path.cwd().resolve()
+    assert json.loads(capsys.readouterr().out)["run_id"] == "run-1"
+
+
+def test_catalyst_report_dispatches_directly_to_report_builder(
+    monkeypatch, tmp_path, capsys
+):
+    report_path = tmp_path / "report.html"
+    called = []
+    monkeypatch.setattr(
+        "harness.catalyst.report.build_report",
+        lambda run_dir: called.append(run_dir) or report_path,
+    )
+
+    assert main(["catalyst", "report", str(tmp_path)]) == 0
+    assert called == [tmp_path]
+    assert str(report_path) in capsys.readouterr().out
