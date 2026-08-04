@@ -11,6 +11,11 @@ Med-Agent Hub exposes a generic single-role completion endpoint plus a versioned
 backend model inventory. The UI lists a Gateway profile only when Hub advertises
 all of its exact required writer and optional reviewer aliases.
 
+The sibling Hub's existing product execution profiles remain in
+`targets/med-agent-hub/server/levels.yaml`; they are separate from Catalyst's
+Gateway-owned query profiles and are not edited to add Catalyst prompts or SQL
+orchestration.
+
 Treat the UI picker (backed by the Gateway registry filtered through Hub's live
 inventory) as the source of truth for currently available profiles, writer
 models, and reviewer models. The external OpenAI-compatible server must
