@@ -140,6 +140,15 @@ The audit distinguishes reusable prework from passed roadmap gates:
   `catalyst-t094-release`. External publication was not attempted after the
   environment's evidence guard required a fresh explicit authorization for
   this exact synthetic payload and the configured reports VM.
+- Dry-run staging is byte-identical to the source bundle for every manifest,
+  result, event, evidence-index, and judge artifact; every rendered relative
+  evidence link resolves. The staged index contains 18 cards, including the
+  Catalyst release candidate and existing ChartSearchAI reports. Release-file
+  SHA-256 values are: manifest `f789b5d5d73d4a9bca39816b30c412abd8b6a5034927ae4134db07bfef29b664`,
+  results `4cd68dc4a2710330c7df3f2d42de9f731615f19c8a6ed09a976f94d92a803737`,
+  events `779a9016dd5196b006521944e137a12a39e33ebc9fc0b2e4e16e9f3850059927`,
+  finalized judge `9349787e3330641bfe7ca236334139c3cbc69c0118a27b679528b619ffe73c01`,
+  and report `16d8ff16f1e3dd2955c6e0e08182384f6a8b31dc3ceca6bb891126c5a055024b`.
 
 ## Baseline Snapshot (CVR-G00)
 
@@ -187,6 +196,16 @@ The audit distinguishes reusable prework from passed roadmap gates:
 | Clarity | PASS — CVR gates retain single PASS interpretation; runtime MS/008 acceptance recorded here rather than assumed |
 | Fixture repair during P3 | PASS — `results.json` now includes `gold-fail-high-judge` + `multi-version-successor`; gold FAIL evidence carries `mismatch_rationale` |
 | P4/P5 entry guards | PASS at implementation time; Amendment A1's acceptance condition is now satisfied and the gate-state script must be advanced before P4 work |
+
+## Open roadmap consistency decision (2026-08-04)
+
+CVR-G18 currently requires MS-D to be recorded PASS, while the MS-D expected
+result says MS-D passes only if CVR-G18 already passes. This is a circular gate,
+not an implementation failure. No post-G16 verifier code or silent gate
+reinterpretation has been added. The proposed lightweight clarification is:
+CVR-G18 proves CI/pins/docs/PCCP readiness, then MS-D is the final release
+acceptance. User authorization is required before amending the approved roadmap
+and its recorded SHA-256.
 
 ## Gate Board
 
