@@ -1,6 +1,7 @@
 # PCCP-style Change Record: Iterative Query Notebook
 
-**Status:** Approved plan; implementation and evidence pending
+**Status:** Implemented candidate; final technical evidence ready and user
+acceptance pending
 
 **Date:** 2026-07-18
 **Reviewer decision:** The project owner approved the G2.8 artifact-first,
@@ -147,7 +148,17 @@ reported failed checkpoint, not a reason to weaken deterministic assertions.
 
 ## Evidence
 
-Pending G2.8b automated evidence and G2.8c real-stack/user acceptance. After
-acceptance, append exact commits, model identities/configuration, test results,
-timings, scenario record evidence, rollback verification, and residual issue
-dispositions here before the root README or submodule pins are updated.
+The later Gateway-ownership record supersedes this plan's original Hub-owned
+profile/orchestration placement without changing the artifact-first notebook
+contract. On the reconciled merged-Hub pins, run
+`0671dc34-26c6-4d52-8443-47e0a833a539` passed 12/12 real-model repetitions,
+24/24 independent PostgreSQL comparisons, and 18/18 gold-result comparisons.
+Run `fb6377c1-0b60-492a-8053-cc668a201d15` passed the expected one-shot Hub
+failure and the next turn in the same session recovered, validated, executed,
+and independently matched PostgreSQL. The PHI-safe pending receipt is
+`../evidence/t111-final-acceptance-2026-08-03.json`.
+
+Actual keyboard-only Tab traversal, actual browser 200% zoom, explicit user
+disposition of the observed reviewer-contract/compact-composer issues, and user
+acceptance remain open. Root/user documentation completion and the final
+Catalyst → harness squash/repin sequence still follow that decision.

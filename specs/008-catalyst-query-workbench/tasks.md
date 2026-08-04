@@ -154,12 +154,17 @@ keyboard-only Tab traversal, actual browser zoom, and explicit user acceptance
 remain open.
 
 T111 reconciliation note (2026-08-03): Hub #15 is merged at `092b5cd`.
-Catalyst #5 is clean and pushed at `9aa0e0f`; Harness #37 is clean and pushed
-at `80c2bb7`, includes current Harness `main`, and pins Catalyst `9aa0e0f` plus
-Hub `092b5cd`. Component and PR checks are green/neutral as applicable. The
-final-pin live matrix, durable acceptance receipt, actual keyboard-only/200%
-zoom checks, and explicit user acceptance remain pending, so T094/T095/T111 and
-T112 stay unchecked.
+Catalyst #5 is clean and pushed at `9aa0e0f`; Harness #37 is clean, has
+evidence-receipt parent `6f58d45`, and pins Catalyst `9aa0e0f` plus Hub
+`092b5cd`. Final-pin run
+`0671dc34-26c6-4d52-8443-47e0a833a539` passed 12/12 real-model repetitions,
+24/24 independent PostgreSQL comparisons, and 18/18 gold-result comparisons.
+Bounded-failure run `fb6377c1-0b60-492a-8053-cc668a201d15` passed 1/1; after
+the expected failed turn preserved its base, a same-session recovery generated,
+validated, executed, and independently matched PostgreSQL. The PHI-safe pending
+receipt is `evidence/t111-final-acceptance-2026-08-03.json`. Actual
+keyboard-only Tab traversal, actual 200% browser zoom, and explicit user
+acceptance remain pending, so T094/T095/T111 and T112 stay unchecked.
 
 ## Phase 4.14 — Gateway-owned query orchestration reconciliation
 

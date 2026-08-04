@@ -20,9 +20,9 @@ Execution state for the Catalyst validation integration remediation roadmap.
 |---|---|---|
 | **008-G5** | `specs/008-catalyst-query-workbench/roadmap.md` W2 **G5 user** | Not accepted — no longer a CVR entry gate (A1) |
 | **008-G6** | `specs/008-catalyst-query-workbench/roadmap.md` W3 **G6 user** | Not accepted — no longer a CVR entry gate (A1) |
-| **T094** | Diverse real-path notebook validation | In progress — July 30 PR-head model/PostgreSQL matrix 12/12 PASS (run `cbc41bcd`); one-shot transport failure and same-session recovery PASS (run `68da21db`); responsive 390/320 and 200%-layout-equivalent checks PASS; **open: final merged-pin rerun plus actual keyboard-only/zoom confirmation** |
-| **T095** | G2.8c acceptance pause | Open |
-| **T111** | Clean-pin rerun + user acceptance | Open |
+| **T094** | Diverse real-path notebook validation | Evidence ready — final-pin matrix 12/12 PASS (run `0671dc34`), 24/24 PostgreSQL checks, 18/18 gold-result checks; final-pin failure/recovery PASS (run `fb6377c1`); **open: actual keyboard-only/zoom confirmation and user decision** |
+| **T095** | G2.8c acceptance pause | User checkpoint ready; decision open |
+| **T111** | Clean-pin rerun + user acceptance | Technical evidence ready; manual accessibility/user gate open |
 
 ## Current architecture and candidate pins (2026-08-03)
 
@@ -36,7 +36,7 @@ boundary and retains a separate clinical-answer/report profile system.
 |---|---|---|
 | Catalyst | `9aa0e0f` (PR #5) | Standalone fallback pinned to merged Hub `main`; all five PR CI jobs green; no unresolved review threads |
 | Med-Agent Hub | `092b5cd` (`main`; PR #15 merged) | Generic role executor and final model-inventory dependencies available on merged `main` |
-| Harness | `80c2bb7` on `codex/catalyst-mvp-umbrella` (PR #37) | Reconciled with current Harness `main`; pins Catalyst `9aa0e0f`/Hub `092b5cd`; checks green/neutral, all six review threads resolved, approval required |
+| Harness | `codex/catalyst-mvp-umbrella` (PR #37; evidence-receipt parent `6f58d45`) | Pins Catalyst `9aa0e0f`/Hub `092b5cd`; final matrix manifest is `716bef3` and the only pre-receipt delta is a docs-only CI-contract repair (focused 5/5 PASS); all six review threads resolved, CI rerun and approval required |
 
 The authoritative July 30 PR-head run
 `cbc41bcd-56f7-4074-931f-98ed42fea202` passed 12/12 scenario repetitions on
@@ -73,10 +73,17 @@ backend model inventory, `LocalHub` requires every exact writer/reviewer alias,
 and unavailable profiles fail closed before state or model calls. Component
 coverage and the isolated exact-pin live proof are green.
 
-The final merged-pin T111 rerun is now pending on Harness `80c2bb7`, Catalyst
-`9aa0e0f`, and Hub `092b5cd`. No T094/T095/T111 status is promoted from the
-older runs; the definitive matrix, durable evidence receipt, actual keyboard/
-200%-zoom check, and explicit user acceptance remain required.
+The final merged-Hub-pin T111 evidence is now ready. Harness run
+`0671dc34-26c6-4d52-8443-47e0a833a539` passed 12/12 real-model repetitions,
+24/24 independent PostgreSQL comparisons, and 18/18 gold-result comparisons on
+Catalyst `9aa0e0f` and Hub `092b5cd`. Run
+`fb6377c1-0b60-492a-8053-cc668a201d15` passed the expected one-shot Hub failure;
+the next turn in that same session then generated, validated, executed, and
+matched PostgreSQL after the direct router was restored. The pending PHI-safe
+receipt is `specs/008-catalyst-query-workbench/evidence/`
+`t111-final-acceptance-2026-08-03.json`. No T094/T095/T111 status is promoted
+until actual keyboard-only/200%-zoom checks and explicit user acceptance are
+recorded.
 
 ## Baseline Snapshot (CVR-G00)
 

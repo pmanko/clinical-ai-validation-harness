@@ -84,9 +84,9 @@ single-user research artifacts, not multi-tenant production records
 
 *The original W1 and G2.8a written gates passed. G2.8b and the post-UI automated
 gate passed for the earlier Hub-owned query engine. The later Gateway-ownership
-refactor passed its July 30 PR-head model/PostgreSQL matrix; the reconciled
-merged-Hub pins still require the definitive T111 live rerun, accessibility
-matrix, and user acceptance.
+refactor passed its July 30 PR-head model/PostgreSQL matrix and the reconciled
+merged-Hub pins passed the definitive T111 live rerun. Actual keyboard-only and
+browser-zoom checks plus user acceptance remain open.
 Multi-source/lossless acceptance remains separately open.*
 
 - **Real production paths — PASS**: The browser calls the deployed Catalyst
@@ -758,10 +758,12 @@ The following items must remain visible until evidence resolves them:
   endpoint, while the supported Data Pipes run and complete health/provenance
   gate remain authoritative.
 - **N61 — Final merged-pin rerun follows the strongest PR-head live run
-  (open at T111)**: The strongest 12/12 and bounded-failure live evidence used
-  earlier PR-head revisions. The reconciled candidates are Harness `80c2bb7`,
-  Catalyst `9aa0e0f`, and merged Hub `092b5cd`. Component tests are necessary
-  but cannot substitute for the final-pin live and accessibility rerun.
+  (technical evidence complete; user gate open at T111)**: The reconciled
+  candidates are Catalyst `9aa0e0f` and merged Hub `092b5cd`; the Harness
+  evidence-receipt parent is `6f58d45`. Final-pin run `0671dc34` passed 12/12
+  plus PostgreSQL/gold checks,
+  and `fb6377c1` passed the bounded failure and same-session recovery. Actual
+  keyboard/zoom inspection and user acceptance remain separate.
 - **N62 — Multi-source/lossless acceptance gap (open at G2.10)**: Registry,
   two-source UI, lossless projections, SQL curation, and generated-catalog code
   exist in the active change set, but the feature amendment previously had no

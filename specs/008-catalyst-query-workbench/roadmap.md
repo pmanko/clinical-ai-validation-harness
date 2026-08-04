@@ -16,13 +16,15 @@ composition, deterministic lint/repair/finalization, and query evidence.
 Med-Agent Hub exposes a generic `POST /v1/hub/generate` role executor and does
 not own Catalyst query profiles or their orchestration. Hub's separate
 clinical-answer/report profile engine is unchanged. The reconciled candidate
-pins are Harness `80c2bb7`, Catalyst `9aa0e0f` (active #5 head), and merged Hub
-`092b5cd`. The July 30 12/12 model/PostgreSQL matrix, bounded-failure recovery,
-and scoped candidate-head smoke remain supporting PR-head evidence on their
-recorded older revisions; they are not relabelled as final-pin evidence.
-Automated component gates pass on the reconciled heads. The definitive live
-matrix, manual keyboard/actual-zoom checks, and explicit user acceptance remain
-open, so no remaining component merge occurs before that pause.
+pins are Catalyst `9aa0e0f` (active #5 head) and merged Hub `092b5cd`; the
+Harness evidence-receipt parent is `6f58d45`. The definitive final-pin matrix
+passed 12/12 with independent
+PostgreSQL/gold checks, and the final-pin bounded failure plus same-session
+recovery passed. The July 30 runs remain supporting historical PR-head evidence
+on their recorded older revisions. Automated component gates pass on the
+reconciled heads. Manual keyboard/actual-zoom checks and explicit user
+acceptance remain open, so no remaining component merge occurs before that
+pause.
 
 The 2026-07-29 lightweight cross-artifact rerun found no unresolved
 CRITICAL/HIGH inconsistency after aligning the exact component revisions,
@@ -61,10 +63,9 @@ contract, test strategy, and staged harness integration are recorded here.
 ## W1 — Manual workbench MVP
 
 **Status:** G2.1–G2.7 passed; G2.8a accepted; historical G2.8b backend/runtime
-and post-UI checkpoints passed. The July 30 PR-head G2.8c model/PostgreSQL
-matrix and bounded-failure recovery pass, but the reconciled merged-Hub pins
-still require the definitive live rerun, accessibility matrix, and user
-acceptance before T094/T095/T111 close.
+and post-UI checkpoints passed. The reconciled merged-Hub pins passed the
+definitive G2.8c model/PostgreSQL matrix and bounded-failure recovery. Actual
+keyboard/zoom checks and user acceptance remain before T094/T095/T111 close.
 G2.9 remains at its written user checkpoint; G2.10 multi-source/lossless
 acceptance is newly traced and open; G3 and W2 have not started.
 
@@ -1407,18 +1408,54 @@ and the exact CI assembly command completes 38 tests with one expected local
 were all green at that head. Harness PR #37's test/diff-coverage job was green
 and GitGuardian was neutral after the `be3f95c` repin.
 
-### Final-pin reconciliation checkpoint — AUTOMATED GATES IN PROGRESS
+### Final-pin reconciliation checkpoint — EVIDENCE READY; USER GATE OPEN
 
-On 2026-08-03 Hub #15 was confirmed merged at `092b5cd`. Catalyst #5 advanced
-to `9aa0e0f` so its standalone fallback uses that merged commit. Harness #37
-advanced to `80c2bb7`, integrated current Harness `main`, resolved its Hub
-gitlink to `092b5cd`, and pins Catalyst `9aa0e0f`. Both worktrees were clean and
-pushed at this checkpoint. Catalyst's five GitHub checks are green; Harness
-shellcheck and pytest/diff-coverage are green, GitGuardian is neutral, all six
-review threads are resolved, and the only GitHub merge blocker is the required
-Harness approval. These facts establish a clean candidate topology, not T111
-acceptance. The complete live matrix, retained evidence receipt, actual
-keyboard/200%-zoom inspection, and user pause remain pending.
+On 2026-08-03 Hub #15 was confirmed merged at `092b5cd`. Catalyst #5 is clean
+at `9aa0e0f`, with its standalone fallback on the same merged Hub commit.
+Harness #37 is clean; its evidence-receipt parent is `6f58d45`, and it pins
+Catalyst `9aa0e0f` plus Hub `092b5cd`. The definitive matrix started from
+Harness `716bef3`; the only pre-receipt delta is the documentation-only
+`6f58d45` CI-contract repair, which leaves both gitlinks and all runtime code
+unchanged and passes its focused 5/5 test.
+
+Final-pin run `0671dc34-26c6-4d52-8443-47e0a833a539` passed 12/12 real-model
+repetitions across unchanged-base narrowing, dirty-base aggregation/profile
+switching, unresolved correction, and distinct-patient semantics. All 24
+Gateway-versus-PostgreSQL comparisons and all 18 hand-authored gold-result
+comparisons passed. The longest unadjusted initial-plus-follow-up generation
+was 135,173 ms; after reconciling every recorded model invocation, the largest
+non-model remainder was 406 ms. Database executions were at most 50 ms for a
+base and 36 ms for a successor. At temperature zero with DRY disabled,
+aggregation produced two distinct selected query digests across three runs;
+all variants returned the correct dataset. The other three families were
+digest-stable.
+
+Bounded-failure run `fb6377c1-0b60-492a-8053-cc668a201d15` passed 1/1 after a
+one-shot proxy injected HTTP 502 on exactly chat call 1. Failed turn
+`fa210cab-02b2-4d65-9a47-5d8429ca5abc` selected no output and preserved the
+current base. After the Hub was restored to the direct router, same-session turn
+`ecb735cf-8f97-4b47-a60b-bdae296f7528` selected a contract-valid Gemma 4 12B
+successor; deterministic validation, execution, and the independent
+PostgreSQL record-digest comparison all passed.
+
+The PHI-safe pending receipt is
+`specs/008-catalyst-query-workbench/evidence/`
+`t111-final-acceptance-2026-08-03.json`. Detailed ignored evidence is retained
+in the private archive under `t111-final-evidence-2026-08-03/`; the receipt
+contains only run identifiers, summaries, and SHA-256 digests.
+
+The active browser checkpoint uses the checked Gemma 4 12B writer/Qwen 2.5 14B
+reviewer profile, has a valid executed Query v1, and exposes the execution
+summary to the follow-up composer without result rows. Active-session reflow at
+390 × 844, 320 × 844, and a 640 × 720 layout-equivalent 200%-zoom viewport has
+no horizontal page overflow or covered non-composer focus target. Two facts
+remain explicit for the user gate: the fixed composer is 336 px tall at compact
+widths, and the live Qwen reviewer returned a contract-invalid/spurious repair
+message, so the policy retained the valid Gemma writer output. Actual
+keyboard-only Tab traversal and actual browser 200% zoom remain unverified
+because the automation surface cannot perform them. T094/T095/T111 therefore
+stay open, and no merge is authorized until the user completes those checks and
+accepts or rejects the candidate.
 
 ### G2.10 multi-source/lossless onboarding — WRITTEN TRACE COMPLETE; EVIDENCE OPEN
 
