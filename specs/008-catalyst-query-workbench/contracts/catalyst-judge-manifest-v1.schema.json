@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openclinai.org/schemas/catalyst-judge-manifest-v1.schema.json",
+  "title": "catalyst-judge-manifest-v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "pass_paths",
+    "provider",
+    "model",
+    "model_version",
+    "rubric_sha256",
+    "finalized_at",
+    "axis_medians",
+    "composites"
+  ],
+  "properties": {
+    "schema": { "const": "catalyst-judge-manifest-v1" },
+    "pass_paths": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "provider": { "type": "string", "minLength": 1 },
+    "model": { "type": "string", "minLength": 1 },
+    "model_version": { "type": "string", "minLength": 1 },
+    "rubric_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "finalized_at": { "type": "string", "minLength": 1 },
+    "axis_medians": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": { "type": "integer", "minimum": 0, "maximum": 3 }
+      }
+    },
+    "composites": {
+      "type": "object",
+      "additionalProperties": { "type": "integer", "minimum": 0, "maximum": 100 }
+    }
+  }
+}

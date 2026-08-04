@@ -1,0 +1,20 @@
+{
+  "run_id": "validate-golden-v1",
+  "project": "clinical-ai-validation-harness",
+  "component": "validate",
+  "git_sha": "deadbeef01",
+  "dataset_id": "demo",
+  "dataset_version": "1",
+  "schema_mapping_version": "n/a",
+  "generated_at": "2026-07-21T00:00:00Z",
+  "evidence_status": "development",
+  "otel": {
+    "gen_ai.provider.name": "fixture"
+  },
+  "patients": {
+    "00000000-0000-4000-8000-0000000000aa": {
+      "display": "Demo Patient A",
+      "identifier": "DEMO-A"
+    }
+  }
+}

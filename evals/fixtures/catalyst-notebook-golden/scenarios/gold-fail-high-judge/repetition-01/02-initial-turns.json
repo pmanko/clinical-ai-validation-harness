@@ -1,0 +1,27 @@
+{
+  "contractVersion": "harness.catalyst-notebook.http-exchange.v1",
+  "request": {
+    "method": "GET",
+    "path": "/v1/catalyst/workbench/sessions/session-gold-fail-high-judge/turns",
+    "body": null
+  },
+  "response": {
+    "httpStatus": 200,
+    "body": {
+      "contractVersion": "catalyst.workbench.turn.timeline.v1",
+      "sessionId": "session-gold-fail-high-judge",
+      "currentTurnId": "turn-followup-gold-fail-high-judge",
+      "turns": [
+        {
+          "contractVersion": "catalyst.workbench.turn.v1",
+          "sessionId": "session-gold-fail-high-judge",
+          "turnId": "turn-initial-gold-fail-high-judge",
+          "ordinal": 1,
+          "kind": "initial",
+          "status": "completed"
+        }
+      ]
+    }
+  },
+  "elapsedMs": 5
+}

@@ -1,0 +1,17 @@
+{
+  "contractVersion": "harness.catalyst-notebook.gold-execution-match.v1",
+  "mode": "row_set",
+  "versionId": "version-succ-aggregation-dirty-base-profile-switch",
+  "queryDigest": "b660c32d8e3ed96941648564dd8588eeb1bd9e263ea245b078ec16047a25df4d",
+  "modelRowCount": 1,
+  "referenceRowCount": 1,
+  "matchColumns": [
+    "observation_id"
+  ],
+  "missingFromModelCount": 0,
+  "extraInModelCount": 0,
+  "missingFromModelSample": [],
+  "extraInModelSample": [],
+  "passed": true,
+  "rationale": null
+}

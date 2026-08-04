@@ -234,6 +234,7 @@ function HomeView() {
         <p className="landing-prose">{PROOF.body}</p>
         <div className="proof-actions">
           <a className="proof-demo-cta" href={PROOF.demoUrl} target="_blank" rel="noreferrer">{PROOF.demoLabel} ↗</a>
+          <Link className="proof-demo-cta proof-demo-cta-secondary" to={PROOF.secondaryDemoTo}>{PROOF.secondaryDemoLabel} →</Link>
         </div>
         <p className="proof-honesty">{PROOF.honesty}</p>
       </section>

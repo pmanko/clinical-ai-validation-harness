@@ -1,0 +1,21 @@
+{
+  "contractVersion": "harness.catalyst-notebook.gold-execution-match.v1",
+  "mode": "row_set",
+  "versionId": "version-base-gold-fail-high-judge",
+  "queryDigest": "2162a4de93a015fb7e8bce200d5fee4c3081412a11f89781152435d3bbad5bb8",
+  "modelRowCount": 3,
+  "referenceRowCount": 2,
+  "matchColumns": [
+    "observation_id"
+  ],
+  "missingFromModelCount": 0,
+  "extraInModelCount": 1,
+  "missingFromModelSample": [],
+  "extraInModelSample": [
+    {
+      "observation_id": "obs-extra-fixture"
+    }
+  ],
+  "mismatch_rationale": "row_set mismatch: model returned one extra observation_id not present in the independent reference result",
+  "passed": false
+}

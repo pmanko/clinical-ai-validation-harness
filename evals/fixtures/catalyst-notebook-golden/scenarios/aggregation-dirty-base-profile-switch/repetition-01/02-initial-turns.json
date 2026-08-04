@@ -1,0 +1,27 @@
+{
+  "contractVersion": "harness.catalyst-notebook.http-exchange.v1",
+  "request": {
+    "method": "GET",
+    "path": "/v1/catalyst/workbench/sessions/session-aggregation-dirty-base-profile-switch/turns",
+    "body": null
+  },
+  "response": {
+    "httpStatus": 200,
+    "body": {
+      "contractVersion": "catalyst.workbench.turn.timeline.v1",
+      "sessionId": "session-aggregation-dirty-base-profile-switch",
+      "currentTurnId": "turn-followup-aggregation-dirty-base-profile-switch",
+      "turns": [
+        {
+          "contractVersion": "catalyst.workbench.turn.v1",
+          "sessionId": "session-aggregation-dirty-base-profile-switch",
+          "turnId": "turn-initial-aggregation-dirty-base-profile-switch",
+          "ordinal": 1,
+          "kind": "initial",
+          "status": "completed"
+        }
+      ]
+    }
+  },
+  "elapsedMs": 5
+}

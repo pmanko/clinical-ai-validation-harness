@@ -93,10 +93,11 @@ describe('landing — mission-first overhaul', () => {
     expect(html).toContain('See the evidence behind the approach');
     expect(html).toContain('See how an AI answer is judged');
     expect(html).toContain('Run the harness yourself');
-    expect(html).toContain('Bring this to a deployment');
+    expect(html).toContain('Try Catalyst: ask a question, get SQL and a table');
     // each card carries an exact route to a real page
     expect(html).toContain('/spec/specs/background/why-local-first-clinical-ai');
     expect(html).toContain('/canvas/specs/artifacts/canvases/validation-research');
+    expect(html).toContain('/canvas/specs/artifacts/canvases/catalyst-demos');
     // no audience-labeled headers
     expect(html).not.toContain('For funders');
     expect(html).not.toContain('For developers');
@@ -104,5 +105,10 @@ describe('landing — mission-first overhaul', () => {
 
   it('surfaces the live clinical demo', () => {
     expect(html).toContain('openmrs.openclinai.org');
+  });
+
+  it('surfaces the Catalyst demo as a secondary proof CTA', () => {
+    expect(html).toContain('Watch Catalyst in action');
+    expect(html).toContain('/canvas/specs/artifacts/canvases/catalyst-demos');
   });
 });

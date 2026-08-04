@@ -1,0 +1,193 @@
+{
+  "id": "catalyst-notebook-t094-v1",
+  "datasetId": "catalyst-cohort-v1",
+  "datasetVersion": "1",
+  "catalogVersion": "analytics-catalog-v1",
+  "providerName": "llama.cpp",
+  "repetitions": 3,
+  "profiles": {
+    "catalyst-query-gemma-4-12b": {
+      "writerModelId": "gemma-4-12b"
+    },
+    "catalyst-query-gemma-4-12b-qwen2.5-14b-checked": {
+      "writerModelId": "gemma-4-12b",
+      "reviewerModelId": "qwen2.5-14b"
+    }
+  },
+  "scenarios": [
+    {
+      "id": "narrowing-unchanged-base",
+      "family": "narrowing",
+      "initialQuestion": "Show laboratory results since 2026-01-01 with patient, test, status, value, unit, and observed date.",
+      "initialProfileId": "catalyst-query-gemma-4-12b",
+      "followupInstruction": "Restrict the current query to final Viral Load results, preserving all selected columns, the existing date filter, and ordering.",
+      "followupProfileId": "catalyst-query-gemma-4-12b",
+      "editorQuery": {
+        "sql": "SELECT\n  observation_id,\n  patient_id,\n  test_name,\n  result_status,\n  result_value,\n  result_unit,\n  observed_at\nFROM analytics.lab_result_fact_v1\nWHERE observed_at >= :start_date\nORDER BY observed_at DESC, observation_id",
+        "parameters": [
+          {
+            "name": "start_date",
+            "type": "date",
+            "source": "human",
+            "value": "2026-01-01"
+          }
+        ],
+        "expectedColumns": []
+      },
+      "persistEditorQuery": true,
+      "expectedBaseClassification": "reused",
+      "validateBase": true,
+      "executeBase": true,
+      "validateSuccessor": true,
+      "executeSuccessor": true,
+      "baseGoldCheck": {
+        "mode": "row_set",
+        "referenceSql": "SELECT observation_id FROM analytics.lab_result_fact_v1 WHERE observed_at >= '2026-01-01'",
+        "matchColumns": ["observation_id"]
+      },
+      "successorGoldCheck": {
+        "mode": "row_set",
+        "referenceSql": "SELECT observation_id FROM analytics.lab_result_fact_v1 WHERE observed_at >= '2026-01-01' AND test_name = 'Viral Load' AND result_status = 'final'",
+        "matchColumns": ["observation_id"]
+      }
+    },
+    {
+      "id": "aggregation-dirty-base-profile-switch",
+      "family": "aggregation-output-shape",
+      "initialQuestion": "Show numeric laboratory results since 2026-01-01 with patient, test, value, and observed date.",
+      "initialProfileId": "catalyst-query-gemma-4-12b",
+      "followupInstruction": "Replace the current row output with one row per calendar month. Return observed_month, result_count, distinct_patient_count, and median_result_value; preserve all filters and order chronologically.",
+      "followupProfileId": "catalyst-query-gemma-4-12b-qwen2.5-14b-checked",
+      "editorQuery": {
+        "sql": "SELECT\n  observation_id,\n  patient_id,\n  test_name,\n  result_value,\n  result_unit,\n  observed_at\nFROM analytics.lab_result_fact_v1\nWHERE observed_at >= :start_date\n  AND result_value IS NOT NULL\nORDER BY observed_at, observation_id",
+        "parameters": [
+          {
+            "name": "start_date",
+            "type": "date",
+            "source": "human",
+            "value": "2026-01-01"
+          }
+        ],
+        "expectedColumns": []
+      },
+      "persistEditorQuery": false,
+      "expectedBaseClassification": "promoted_human",
+      "validateBase": true,
+      "executeBase": true,
+      "validateSuccessor": true,
+      "executeSuccessor": true,
+      "successorGoldCheck": {
+        "mode": "aggregate_by_key",
+        "referenceSql": "SELECT date_trunc('month', observed_at) AS observed_month, count(*) AS result_count, count(DISTINCT patient_id) AS distinct_patient_count, percentile_cont(0.5) WITHIN GROUP (ORDER BY result_value) AS median_result_value FROM analytics.lab_result_fact_v1 WHERE observed_at >= '2026-01-01' AND result_value IS NOT NULL GROUP BY 1",
+        "keyColumns": ["observed_month"],
+        "valueColumns": {
+          "result_count": {"tolerance": 0},
+          "distinct_patient_count": {"tolerance": 0},
+          "median_result_value": {"tolerance": 0.01}
+        }
+      }
+    },
+    {
+      "id": "unresolved-parameter-correction",
+      "family": "unresolved-correction",
+      "initialQuestion": "Show recent laboratory results.",
+      "initialProfileId": "catalyst-query-gemma-4-12b",
+      "followupInstruction": "Repair the unresolved parameter binding without changing columns, table, predicate values, or ordering.",
+      "followupProfileId": "catalyst-query-gemma-4-12b",
+      "editorQuery": {
+        "sql": "SELECT\n  observation_id,\n  patient_id,\n  test_name,\n  result_value,\n  result_unit,\n  observed_at\nFROM analytics.lab_result_fact_v1\nWHERE test_name = :test_name\nORDER BY observed_at DESC, observation_id",
+        "parameters": [
+          {
+            "name": "",
+            "type": "string",
+            "source": "human",
+            "value": "Viral Load"
+          }
+        ],
+        "expectedColumns": []
+      },
+      "persistEditorQuery": false,
+      "expectedBaseClassification": "unresolved",
+      "validateBase": true,
+      "executeBase": true,
+      "validateSuccessor": true,
+      "executeSuccessor": true,
+      "successorGoldCheck": {
+        "mode": "row_set",
+        "referenceSql": "SELECT observation_id FROM analytics.lab_result_fact_v1 WHERE test_name = 'Viral Load'",
+        "matchColumns": ["observation_id"]
+      }
+    },
+    {
+      "id": "semantic-distinct-patient-review",
+      "family": "lint-clean-semantic-reviewer-correction",
+      "initialQuestion": "Show patient identifiers represented in laboratory results since 2026-01-01.",
+      "initialProfileId": "catalyst-query-gemma-4-12b",
+      "followupInstruction": "Return one column named patient_count containing the number of distinct patients represented by these rows; do not count result rows.",
+      "followupProfileId": "catalyst-query-gemma-4-12b-qwen2.5-14b-checked",
+      "editorQuery": {
+        "sql": "SELECT patient_id\nFROM analytics.lab_result_fact_v1\nWHERE observed_at >= :start_date\nORDER BY patient_id",
+        "parameters": [
+          {
+            "name": "start_date",
+            "type": "date",
+            "source": "human",
+            "value": "2026-01-01"
+          }
+        ],
+        "expectedColumns": []
+      },
+      "persistEditorQuery": true,
+      "expectedBaseClassification": "reused",
+      "validateBase": true,
+      "executeBase": true,
+      "validateSuccessor": true,
+      "executeSuccessor": true,
+      "requireReviewerCorrection": false,
+      "baseGoldCheck": {
+        "mode": "row_set",
+        "referenceSql": "SELECT patient_id FROM analytics.lab_result_fact_v1 WHERE observed_at >= '2026-01-01'",
+        "matchColumns": ["patient_id"]
+      },
+      "successorGoldCheck": {
+        "mode": "scalar",
+        "referenceSql": "SELECT count(DISTINCT patient_id) AS patient_count FROM analytics.lab_result_fact_v1 WHERE observed_at >= '2026-01-01'",
+        "valueColumn": "patient_count"
+      }
+    },
+    {
+      "id": "bounded-hub-tool-failure",
+      "family": "hub-tool-failure",
+      "initialQuestion": "Show laboratory results since 2026-01-01.",
+      "initialProfileId": "catalyst-query-gemma-4-12b",
+      "followupInstruction": "Restrict the current query to final Viral Load results.",
+      "followupProfileId": "catalyst-query-gemma-4-12b",
+      "editorQuery": {
+        "sql": "SELECT observation_id, patient_id, test_name, result_value, observed_at\nFROM analytics.lab_result_fact_v1\nWHERE observed_at >= :start_date\nORDER BY observed_at DESC, observation_id",
+        "parameters": [
+          {
+            "name": "start_date",
+            "type": "date",
+            "source": "human",
+            "value": "2026-01-01"
+          }
+        ],
+        "expectedColumns": []
+      },
+      "persistEditorQuery": true,
+      "expectedBaseClassification": "reused",
+      "expectedTurnStatus": "failed",
+      "validateBase": true,
+      "executeBase": true,
+      "validateSuccessor": false,
+      "executeSuccessor": false,
+      "manualOnly": true,
+      "repetitions": 1,
+      "baseGoldCheck": {
+        "mode": "row_set",
+        "referenceSql": "SELECT observation_id FROM analytics.lab_result_fact_v1 WHERE observed_at >= '2026-01-01'",
+        "matchColumns": ["observation_id"]
+      }
+    }
+  ]
+}

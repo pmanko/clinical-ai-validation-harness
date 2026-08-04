@@ -1,0 +1,23 @@
+{
+  "contractVersion": "catalyst.workbench.query-version.v1",
+  "versionId": "version-mid-multi-version-successor",
+  "sessionId": "session-fixture",
+  "ordinal": 2,
+  "parentVersionId": "version-base-multi-version-successor",
+  "authorType": "model",
+  "sql": "SELECT observation_id, patient_id, test_name FROM analytics.lab_result_fact_v1 WHERE observed_at >= :start_date\n-- mid revision",
+  "parameters": [
+    {
+      "name": "start_date",
+      "type": "date",
+      "source": "human",
+      "value": "2026-01-01"
+    }
+  ],
+  "expectedColumns": [],
+  "queryDigest": "d33fde86129e7f1064c6c51aaeb51cea03e04595ff9c80b61ec8ee7852ee294d",
+  "provenance": {
+    "fixture": true
+  },
+  "createdAt": "2026-07-21T20:00:00+00:00"
+}

@@ -1,0 +1,16 @@
+{
+  "contractVersion": "harness.catalyst-notebook.gold-execution-match.v1",
+  "mode": "row_set",
+  "versionId": "version-base-unresolved-parameter-correction",
+  "queryDigest": "b1b7bb294419219223e528a1b836dd9e09f8590cbe0b1403587bb932d48187e0",
+  "modelRowCount": 2,
+  "referenceRowCount": 2,
+  "matchColumns": [
+    "observation_id"
+  ],
+  "missingFromModelCount": 0,
+  "extraInModelCount": 0,
+  "missingFromModelSample": [],
+  "extraInModelSample": [],
+  "passed": true
+}

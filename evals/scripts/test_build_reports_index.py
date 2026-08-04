@@ -200,3 +200,103 @@ def test_main_writes_index_and_warns_on_staged_but_unlisted(tmp_path, monkeypatc
     assert "hello" in out_html  # the intro copy
     # the staged-but-unlisted run is flagged on stderr
     assert "ghost-run is staged" in capsys.readouterr().err
+
+
+def test_card_includes_gather_facts_and_dashboard_link(tmp_path, monkeypatch) -> None:
+    bri = _load()
+    reports = tmp_path / "reports"
+    slug_dir = reports / "fact-run"
+    slug_dir.mkdir(parents=True)
+    (slug_dir / "dashboard.html").write_text("<html></html>", encoding="utf-8")
+    monkeypatch.setattr(bri, "REPORTS", reports)
+    monkeypatch.setattr(
+        bri,
+        "gather",
+        lambda slug: {
+            "patients": "12 patients",
+            "cells": 24,
+            "date": "2026-07-21",
+            "scout": [],
+        },
+    )
+    html = bri._card(
+        {
+            "slug": "fact-run",
+            "title": "Fact Run",
+            "summary": "summary",
+            "takeaway": "take",
+        }
+    )
+    assert "12 patients" in html
+    assert "24 graded answers" in html
+    assert "2026-07-21" in html
+    assert 'href="fact-run/dashboard.html"' in html
+
+
+def test_index_html_uses_shared_theme_toggle_assets(tmp_path, monkeypatch) -> None:
+    from harness.report_shell import assets as shell_assets
+
+    bri = _load()
+    reports = tmp_path / "reports"
+    reports.mkdir()
+    manifest = tmp_path / "reports-index.json"
+    manifest.write_text(
+        json.dumps({"intro": "i", "scoring_note": "n", "runs": []}),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(bri, "REPORTS", reports)
+    monkeypatch.setattr(bri, "MANIFEST", manifest)
+    monkeypatch.setattr(bri, "VALIDATE", tmp_path / "validate")
+    bri.main()
+    html = (reports / "index.html").read_text(encoding="utf-8")
+    assert shell_assets.THEME_TOGGLE_BUTTON_HTML in html
+    assert shell_assets.THEME_TOGGLE_CSS in html
+    assert shell_assets.theme_bootstrap_js("oc-theme-index") in html
+    assert shell_assets.theme_toggle_js("oc-theme-index") in html
+
+
+def test_card_renders_meta_scoreline_instead_of_unscored_disclaimer(tmp_path, monkeypatch):
+    """A run family without judge scores (e.g. the Catalyst notebook
+    acceptance suite) declares a meta.json scoreline; the card renders it in
+    place of the misleading 'not yet scored' disclaimer."""
+    bri = _load()
+    reports = tmp_path / "reports"
+    slug_dir = reports / "catalyst-run"
+    slug_dir.mkdir(parents=True)
+    (slug_dir / "meta.json").write_text(json.dumps({
+        "run_dir": "does-not-resolve",
+        "scoreline": "12/12 scenario repetitions passed - 384 assertions",
+    }), encoding="utf-8")
+    monkeypatch.setattr(bri, "REPORTS", reports)
+    monkeypatch.setattr(bri, "VALIDATE", tmp_path / "validate")
+    html = bri._card({"slug": "catalyst-run", "title": "T", "summary": "S"})
+    assert "384 assertions" in html
+    assert "not yet scored" not in html
+
+
+def test_run_dir_for_rejects_a_traversal_path_outside_validate(tmp_path, monkeypatch):
+    """A Catalyst run dir (a different family, referenced via a "../" run_dir —
+    see the scoreline path above) now also streams results.jsonl. _run_dir_for
+    must not resolve outside VALIDATE just because that sentinel file now
+    exists there too, or gather() would misparse Catalyst rows as scored
+    validate rows."""
+    bri = _load()
+    root = tmp_path
+    reports = root / "artifacts" / "reports"
+    validate = root / "artifacts" / "validate"
+    other_family = root / "artifacts" / "catalyst-notebook-validation" / "some-run-id"
+    other_family.mkdir(parents=True)
+    (other_family / "results.jsonl").write_text(
+        json.dumps({"scenario_id": "s", "backend_id": "b", "turn": 1}) + "\n",
+        encoding="utf-8",
+    )
+    slug_dir = reports / "catalyst-run"
+    slug_dir.mkdir(parents=True)
+    (slug_dir / "meta.json").write_text(
+        json.dumps({"run_dir": "../catalyst-notebook-validation/some-run-id"}),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(bri, "REPORTS", reports)
+    monkeypatch.setattr(bri, "VALIDATE", validate)
+
+    assert bri._run_dir_for("catalyst-run") is None

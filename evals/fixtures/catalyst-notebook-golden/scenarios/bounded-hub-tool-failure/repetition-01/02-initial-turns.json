@@ -1,0 +1,27 @@
+{
+  "contractVersion": "harness.catalyst-notebook.http-exchange.v1",
+  "request": {
+    "method": "GET",
+    "path": "/v1/catalyst/workbench/sessions/session-bounded-hub-tool-failure/turns",
+    "body": null
+  },
+  "response": {
+    "httpStatus": 200,
+    "body": {
+      "contractVersion": "catalyst.workbench.turn.timeline.v1",
+      "sessionId": "session-bounded-hub-tool-failure",
+      "currentTurnId": "turn-initial-bounded-hub-tool-failure",
+      "turns": [
+        {
+          "contractVersion": "catalyst.workbench.turn.v1",
+          "sessionId": "session-bounded-hub-tool-failure",
+          "turnId": "turn-initial-bounded-hub-tool-failure",
+          "ordinal": 1,
+          "kind": "initial",
+          "status": "completed"
+        }
+      ]
+    }
+  },
+  "elapsedMs": 5
+}

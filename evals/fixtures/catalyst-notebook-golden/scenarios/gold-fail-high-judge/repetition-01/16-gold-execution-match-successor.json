@@ -1,0 +1,21 @@
+{
+  "contractVersion": "harness.catalyst-notebook.gold-execution-match.v1",
+  "mode": "row_set",
+  "versionId": "version-succ-gold-fail-high-judge",
+  "queryDigest": "e5f8b197e9130e38059a953561f6256a2eb17bf619bad911df50336a5b21be77",
+  "modelRowCount": 1,
+  "referenceRowCount": 1,
+  "matchColumns": [
+    "observation_id"
+  ],
+  "missingFromModelCount": 1,
+  "extraInModelCount": 1,
+  "missingFromModelSample": [
+    "obs-1"
+  ],
+  "extraInModelSample": [
+    "obs-wrong"
+  ],
+  "passed": false,
+  "rationale": "Model observation_id set diverged from reference SQL row set (fixture intentional gold FAIL)."
+}

@@ -37,3 +37,9 @@ secret:
       # README/quickstart-style docs and the stack-up.sh "default creds"
       # banner. Documented in chartsearchai/README.md + the OpenMRS wiki.
       match: "admin / Admin123"
+    - name: "OpenMRS public demo admin default in the FHIR Data Pipes controller fixture"
+      # The OpenMRS HIV development source uses the same documented RefApp
+      # credential while ingesting its local synthetic/demo FHIR endpoint.
+      # Scope the exception to the controller property instead of ignoring the
+      # password token repository-wide.
+      match: 'fhirServerPassword: "Admin123"'

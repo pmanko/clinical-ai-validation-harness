@@ -1,0 +1,298 @@
+{
+  "contractVersion": "harness.catalyst-final-acceptance-receipt.v1",
+  "generatedAt": "2026-08-04T15:16:38Z",
+  "featureId": "008-catalyst-query-workbench",
+  "taskIds": [
+    "T094",
+    "T095",
+    "T111"
+  ],
+  "evidenceStatus": "accepted",
+  "candidate": {
+    "harness": {
+      "repository": "pmanko/clinical-ai-validation-harness",
+      "pullRequest": 37,
+      "branch": "codex/catalyst-mvp-umbrella",
+      "testedSha": "716bef3b4be4a1aebb36c309a9d5c1ce67a7fae4",
+      "receiptParentSha": "6f58d4576ad181371e789df1f8469fc0e2e9a9ef",
+      "postRunDelta": "Documentation-only CI contract repair; target gitlinks and runtime code are unchanged.",
+      "clean": true
+    },
+    "catalyst": {
+      "repository": "DIGI-UW/openelis-catalyst",
+      "pullRequest": 5,
+      "branch": "feat/catalyst-client-orchestration",
+      "sha": "e7eba21e3ad8201a49fd6ffff80b88092b174c78",
+      "sourceHeadSha": "5f23c4eaa52f6b04a5eab425429a212172cf14e7",
+      "liveEvidenceBaseSha": "9aa0e0f847b68d2b06b65398681c6bbf787509bb",
+      "postAcceptanceDelta": "Accepted-status documentation, deterministic keyboard/reflow E2E coverage, and the focus-scroll correction exposed by that E2E; no model, data, or query-orchestration contract change.",
+      "matchesHarnessGitlink": true,
+      "clean": true
+    },
+    "medAgentHub": {
+      "repository": "pmanko/med-agent-hub",
+      "pullRequest": 15,
+      "mergedSha": "092b5cda7ccbdd7e7206f4edbaf2dda9f360f37c",
+      "matchesHarnessGitlink": true,
+      "clean": true
+    }
+  },
+  "runtime": {
+    "stack": "catalyst-mvp-isolated",
+    "gatewayUrl": "http://127.0.0.1:18000",
+    "uiUrl": "http://localhost:13000",
+    "externalRouter": "http://host.docker.internal:18077",
+    "analyticsDatabase": "catalyst_analytics",
+    "datasetId": "full-20260804T063350Z",
+    "datasetVersion": "full-20260804T063350Z",
+    "catalogVersion": "analytics-catalog-v1+schema.665109d58952e881",
+    "datasetCounts": {
+      "patients": 96,
+      "results": 1152,
+      "testTypes": 9
+    },
+    "models": {
+      "writer": "gemma-4-12b",
+      "reviewer": "qwen2.5-14b",
+      "temperature": 0,
+      "dryMultiplier": 0,
+      "maxTokens": 1024
+    }
+  },
+  "automatedMatrix": {
+    "runId": "0671dc34-26c6-4d52-8443-47e0a833a539",
+    "suiteId": "catalyst-notebook-t094-v1",
+    "resultCount": 12,
+    "passedCount": 12,
+    "skippedManualCount": 1,
+    "scenarioFamilies": {
+      "narrowing-unchanged-base": "3/3 passed",
+      "aggregation-dirty-base-profile-switch": "3/3 passed",
+      "unresolved-parameter-correction": "3/3 passed",
+      "semantic-distinct-patient-review": "3/3 passed"
+    },
+    "postgresCrossChecks": "24/24 passed",
+    "goldIntentMatches": "18/18 passed",
+    "allAssertionsPassed": true,
+    "maxUnadjustedGenerationWallMs": 135173,
+    "maxGenerationWallMinusRecordedInvocationsMs": 406,
+    "maxBaseExecutionWallMs": 50,
+    "maxSuccessorExecutionWallMs": 36,
+    "hashes": {
+      "runManifestSha256": "82782ab8f2c5a1434ed869a57e453ee1e6c0829fa719b35e8a2bb578c0299b19",
+      "evidenceIndexSha256": "14d293f7452cf347bc50e15abc08f1325d5271402b1c8a67d4d9d7f43d65f982",
+      "resultsSha256": "4894b2344791e12689ac55f8bed36e3f17dcafdeaa2abe4b8c7c3488e6f6dc43",
+      "suiteSha256": "32053aa140868ffa481ec8e28283c9a5bbeeba3bcadc3a984fa24f163fd2bb62"
+    },
+    "privateArchiveLocator": "t111-final-evidence-2026-08-03/automatic-0671dc34-26c6-4d52-8443-47e0a833a539"
+  },
+  "boundedFailureAndRecovery": {
+    "runId": "fb6377c1-0b60-492a-8053-cc668a201d15",
+    "sessionId": "3d094dbf-71a0-4047-afda-e49b7be0e7cc",
+    "expectedFailureResult": "1/1 passed",
+    "injection": {
+      "chatCall": 1,
+      "httpStatus": 502,
+      "outcome": "injected",
+      "failedTurnStatus": "failed",
+      "failureCode": "writer_transport_failed",
+      "selectedOutput": false,
+      "previousVersionPreserved": true
+    },
+    "sameSessionRecovery": {
+      "turnOrdinal": 3,
+      "turnStatus": "completed",
+      "writer": "gemma-4-12b",
+      "contractValidSuccessorSelected": true,
+      "deterministicValidation": "valid",
+      "execution": "succeeded",
+      "postgresComparisons": {
+        "columns": true,
+        "returnedRows": true,
+        "truncated": true,
+        "recordDigests": true
+      }
+    },
+    "hashes": {
+      "runManifestSha256": "ec91c6978b826565b9903ab251382389f7aac10f4938d4a5a86bd06a5895a1b6",
+      "runnerEvidenceIndexSha256": "262212a961386354870812059f3576fccc048f38425d21f0e69fc96d93a7502b",
+      "resultsSha256": "e4ac2c3a482ca7388cccd3237d354cf3a85cebb649d33c5bba424453c8f0ed26",
+      "recoveryHashListSha256": "a52000dff4e58a13eb403e9d813414dadfb3596f49300ea6c5119cb1410764f1"
+    },
+    "privateArchiveLocator": "t111-final-evidence-2026-08-03/bounded-failure-fb6377c1-0b60-492a-8053-cc668a201d15"
+  },
+  "nondeterminism": {
+    "configuration": "temperature=0, dryMultiplier=0",
+    "scenarioFindings": [
+      {
+        "scenarioId": "aggregation-dirty-base-profile-switch",
+        "candidateDifferenceObserved": true,
+        "selectedOutputDifferenceObserved": true,
+        "distinctSelectedQueryDigests": 2,
+        "correctnessDisposition": "All three variants passed Gateway/PostgreSQL and hand-authored gold-result comparison."
+      },
+      {
+        "scenarioId": "narrowing-unchanged-base",
+        "candidateDifferenceObserved": false,
+        "distinctSelectedQueryDigests": 1
+      },
+      {
+        "scenarioId": "unresolved-parameter-correction",
+        "candidateDifferenceObserved": false,
+        "distinctSelectedQueryDigests": 1
+      },
+      {
+        "scenarioId": "semantic-distinct-patient-review",
+        "candidateDifferenceObserved": false,
+        "distinctSelectedQueryDigests": 1
+      }
+    ]
+  },
+  "componentGates": [
+    {
+      "component": "med-agent-hub",
+      "result": "638 passed"
+    },
+    {
+      "component": "catalyst-gateway",
+      "result": "206 passed"
+    },
+    {
+      "component": "catalyst-agents",
+      "result": "31 passed"
+    },
+    {
+      "component": "catalyst-mcp",
+      "result": "8 passed"
+    },
+    {
+      "component": "catalyst-mvp-assembly",
+      "result": "38 passed, 1 expected driver skip"
+    },
+    {
+      "component": "catalyst-ui",
+      "result": "118 passed; lint, typecheck, and production build passed"
+    },
+    {
+      "component": "catalyst-playwright",
+      "result": "1 passed, 3 expected live-stack skips; uninterrupted keyboard focus and 200%-equivalent reflow covered"
+    },
+    {
+      "component": "harness",
+      "result": "1075 passed, 38 skipped, 4 deselected; 85% total coverage; 93% diff coverage"
+    },
+    {
+      "component": "repository-lines",
+      "result": "passed with --allow-harness-branch"
+    },
+    {
+      "component": "post-run-doc-contract",
+      "result": "5 passed at current Harness head"
+    }
+  ],
+  "liveBrowserCheckpoint": {
+    "sessionId": "dae035da-370a-4d62-a99d-fa5f4d7276ce",
+    "profileId": "catalyst-query-gemma-4-12b-qwen2.5-14b-checked",
+    "writerOutcome": "succeeded",
+    "reviewerOutcome": "contract_failed",
+    "writerSelectedByFallbackPolicy": true,
+    "deterministicValidation": "valid",
+    "execution": "succeeded",
+    "returnedRows": 100,
+    "truncated": true,
+    "refinementContext": "Execution summary is present; result-row values are explicitly excluded.",
+    "responsiveChecks": [
+      {
+        "viewport": "390x844",
+        "horizontalPageOverflow": false,
+        "composerHeightPx": 336,
+        "mainBottomPaddingPx": 416,
+        "overlappingNonComposerFocusTargets": 0
+      },
+      {
+        "viewport": "320x844",
+        "horizontalPageOverflow": false,
+        "composerHeightPx": 336,
+        "mainBottomPaddingPx": 416,
+        "overlappingNonComposerFocusTargets": 0
+      },
+      {
+        "viewport": "640x720 layout-equivalent for 200% zoom",
+        "horizontalPageOverflow": false,
+        "composerHeightPx": 336,
+        "mainBottomPaddingPx": 416,
+        "overlappingNonComposerFocusTargets": 0
+      }
+    ],
+    "actualKeyboardOnlyTraversal": "passed_user_verified_2026-08-04",
+    "actualBrowserZoom200Percent": "passed_user_verified_2026-08-04"
+  },
+  "postMergeVerification": {
+    "verifiedAt": "2026-08-04T15:16:38Z",
+    "harnessCommit": "c58423bb86127cb7f8811d5debdee73be964b671",
+    "catalystMainCommit": "e7eba21e3ad8201a49fd6ffff80b88092b174c78",
+    "medAgentHubMainCommit": "092b5cda7ccbdd7e7206f4edbaf2dda9f360f37c",
+    "mvpHealthAndProvenance": "passed",
+    "runId": "70d76a43-d687-4f2a-afe6-e23ca75fe6df",
+    "scenarioId": "narrowing-unchanged-base",
+    "result": "1/1 passed",
+    "postgresCrossChecks": "2/2 passed",
+    "goldResultComparisons": "2/2 passed",
+    "selectedQueryDigest": "fbeb97c89d138ce0a93bbdd2aec41bb7d8c776aaa9dea6abb3e5cb734fc13843",
+    "unadjustedGenerationWallMs": 163556,
+    "generationWallMinusRecordedInvocationsMs": 413,
+    "baseExecutionWallMs": 41,
+    "successorExecutionWallMs": 41,
+    "privateArchiveLocator": "artifacts/catalyst-notebook-validation/post-merge-smoke/70d76a43-d687-4f2a-afe6-e23ca75fe6df"
+  },
+  "observedIssues": [
+    {
+      "id": "ND-1",
+      "type": "model_nondeterminism",
+      "summary": "The aggregation scenario produced two correct selected query digests across three temperature-zero repetitions.",
+      "blocking": false
+    },
+    {
+      "id": "MODEL-1",
+      "type": "reviewer_contract_failure",
+      "summary": "In the live browser checkpoint, Qwen 2.5 14B returned a contract-invalid repair response with a spurious test-name concern even though the question requested all laboratory results. The valid Gemma writer query remained selected and executed correctly.",
+      "blocking": false,
+      "userDisposition": "accepted_nonblocking_future_pr"
+    },
+    {
+      "id": "UX-1",
+      "type": "compact_composer_height",
+      "summary": "The fixed active-session composer occupies 336 of 844 CSS pixels at compact widths. Bottom padding prevents focus-target obstruction, but its visual weight remains a G2.9 UX decision.",
+      "blocking": false,
+      "userDisposition": "accepted_nonblocking_future_pr"
+    },
+    {
+      "id": "A11Y-1",
+      "type": "automation_limit",
+      "summary": "The user verified actual Tab traversal and actual 200% browser zoom. A deterministic Playwright regression now covers uninterrupted Tab navigation and 200%-equivalent reflow; it exposed and drove correction of an expanded-composer focus obstruction.",
+      "blocking": false,
+      "userDisposition": "passed_and_automated_regression_added"
+    }
+  ],
+  "privacy": {
+    "trackedReceiptContainsRawClinicalRows": false,
+    "trackedReceiptContainsQuestionsOrSql": false,
+    "trackedReceiptContainsRawPromptsOrModelOutputs": false,
+    "trackedReceiptContainsRawTracesOrHiddenReasoning": false,
+    "trackedReceiptContainsCredentialsOrDsns": false,
+    "detailedEvidenceRetention": "Private local archive referenced by run IDs and SHA-256 digests."
+  },
+  "userAcceptance": {
+    "status": "accepted",
+    "acceptedAt": "2026-08-04T14:37:40Z",
+    "acceptedBy": "pmanko",
+    "acceptanceStatement": "Actual keyboard-only traversal and 200% browser zoom passed; accept the MVP and cover the workflow with an end-to-end test.",
+    "requiredChecks": [
+      "Actual keyboard-only focus order, visible focus, and absence of traps or obscured controls",
+      "Actual browser 200% zoom with no horizontal page overflow or obscured controls",
+      "Accept or reject the candidate and disposition MODEL-1 and UX-1"
+    ],
+    "authorizesT096": true,
+    "authorizesMerge": true
+  }
+}

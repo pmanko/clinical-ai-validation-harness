@@ -1,6 +1,7 @@
 import json
 
-from harness.validate.hub_trace import load_traces
+from harness.validate.hub_trace import load_traces, match_trace
+from harness.validate.report import _gate_for_row
 
 
 def test_load_traces_parses_jsonl_and_tolerates_junk(tmp_path):
@@ -17,7 +18,6 @@ def test_load_traces_parses_jsonl_and_tolerates_junk(tmp_path):
 
 
 def test_match_trace_correlates_by_level_and_time_window():
-    from harness.validate.hub_trace import match_trace
     traces = [
         {"level_id": "med-validated", "ts": "2026-06-05T10:00:05+00:00", "answer_confidence": {"level": "green"}},
         {"level_id": "med-validated", "ts": "2026-06-05T10:02:30+00:00", "answer_confidence": {"level": "red"}},
@@ -32,9 +32,45 @@ def test_match_trace_correlates_by_level_and_time_window():
     assert match_trace(traces, "med-validated", None, None) is None
 
 
-def test_match_trace_prefers_same_question_and_nearest_completion_over_next_cell():
-    from harness.validate.hub_trace import match_trace
+def test_match_trace_dashboard_style_latest_match_and_slack():
+    """Dashboard and report paths share the same bounded matching semantics."""
+    traces = [
+        {"level_id": "arm-x", "ts": "2026-06-05T10:00:03+00:00", "n": 1},
+        {"level_id": "arm-x", "ts": "2026-06-05T10:00:08+00:00", "n": 2},
+        {"level_id": "arm-x", "ts": "2026-06-05T10:00:25+00:00", "n": 3},
+    ]
+    matched = match_trace(
+        traces,
+        "arm-x",
+        "2026-06-05T10:00:05+00:00",
+        "2026-06-05T10:00:10+00:00",
+    )
+    assert matched and matched["n"] == 2
 
+
+def test_gate_for_row_present_and_absent(monkeypatch):
+    monkeypatch.setattr(
+        "harness.validate.report.arm_model_name",
+        lambda backend_id, **_: backend_id,
+    )
+    traces = [
+        {
+            "level_id": "arm-a",
+            "ts": "2026-06-05T10:00:05+00:00",
+            "temporal_gate": {"status": "pass", "delta_days": 0},
+        }
+    ]
+    row = {
+        "backend_id": "arm-a",
+        "started_at": "2026-06-05T10:00:00+00:00",
+        "ended_at": "2026-06-05T10:00:20+00:00",
+    }
+    assert _gate_for_row(row, traces) == {"status": "pass", "delta_days": 0}
+    assert _gate_for_row(row, []) is None
+    assert _gate_for_row({**row, "backend_id": "other"}, traces) is None
+
+
+def test_match_trace_prefers_same_question_and_nearest_completion_over_next_cell():
     traces = [
         {
             "level_id": "eval-e4b-temporal-enforce",

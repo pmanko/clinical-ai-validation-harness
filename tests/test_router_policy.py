@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import configparser
 import json
 import signal
 from pathlib import Path
@@ -12,6 +13,23 @@ from harness.validate import router_policy
 from harness.validate.client import ChatResult
 from harness.validate.models import Backend
 from harness.validate.router_policy import effective_llama_router_models_max
+
+
+def test_router_preset_exposes_catalyst_bundled_qwen_alias():
+    root = Path(__file__).parents[1]
+    config = configparser.ConfigParser(interpolation=None)
+    config.read(root / "scripts" / "llama-router.ini")
+
+    alias = "qwen2.5-coder-1.5b-instruct-q4_k_m"
+    assert config[alias]["model"] == (
+        "targets/catalyst/.models/Qwen2.5-Coder-1.5B-Instruct-Q4_K_M.gguf"
+    )
+    assert f'cd "${{ROOT}}"' in (
+        root / "scripts" / "llama-router-up.sh"
+    ).read_text(encoding="utf-8")
+    assert 'ROUTER_PORT="${LLAMA_ROUTER_PORT:-8077}"' in (
+        root / "scripts" / "llama-router-up.sh"
+    ).read_text(encoding="utf-8")
 
 
 def test_backend_parses_explicit_llama_router_models_max():

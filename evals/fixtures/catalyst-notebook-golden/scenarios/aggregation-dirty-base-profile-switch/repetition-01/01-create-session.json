@@ -1,0 +1,99 @@
+{
+  "contractVersion": "harness.catalyst-notebook.http-exchange.v1",
+  "request": {
+    "method": "POST",
+    "path": "/v1/catalyst/workbench/sessions",
+    "body": {
+      "question": "Fixture question for aggregation-output-shape",
+      "profileId": "catalyst-query-gemma-4-12b"
+    }
+  },
+  "response": {
+    "httpStatus": 201,
+    "body": {
+      "contractVersion": "catalyst.workbench.session.v1",
+      "sessionId": "session-aggregation-dirty-base-profile-switch",
+      "question": "Fixture question for aggregation-output-shape",
+      "profileId": "catalyst-query-gemma-4-12b",
+      "datasetId": "catalyst-cohort-v1",
+      "datasetVersion": "1",
+      "catalogVersion": "analytics-catalog-v1",
+      "currentVersionId": "version-succ-aggregation-dirty-base-profile-switch",
+      "versions": [
+        {
+          "contractVersion": "catalyst.workbench.query-version.v1",
+          "versionId": "version-base-aggregation-dirty-base-profile-switch",
+          "sessionId": "session-fixture",
+          "ordinal": 1,
+          "parentVersionId": null,
+          "authorType": "model",
+          "sql": "SELECT observation_id, patient_id, result_value, observed_at FROM analytics.lab_result_fact_v1 WHERE observed_at >= :start_date",
+          "parameters": [
+            {
+              "name": "start_date",
+              "type": "date",
+              "source": "human",
+              "value": "2026-01-01"
+            }
+          ],
+          "expectedColumns": [],
+          "queryDigest": "a556bd025b1100890315b196f6bbca823b6d8864f5bb2bfcc6e985c4f512da1a",
+          "provenance": {
+            "fixture": true
+          },
+          "createdAt": "2026-07-21T20:00:00+00:00"
+        },
+        {
+          "contractVersion": "catalyst.workbench.query-version.v1",
+          "versionId": "version-succ-aggregation-dirty-base-profile-switch",
+          "sessionId": "session-fixture",
+          "ordinal": 2,
+          "parentVersionId": "version-base-aggregation-dirty-base-profile-switch",
+          "authorType": "model",
+          "sql": "SELECT date_trunc('month', observed_at) AS observed_month, count(*) AS result_count FROM analytics.lab_result_fact_v1 WHERE observed_at >= :start_date GROUP BY 1 ORDER BY 1",
+          "parameters": [
+            {
+              "name": "start_date",
+              "type": "date",
+              "source": "human",
+              "value": "2026-01-01"
+            }
+          ],
+          "expectedColumns": [],
+          "queryDigest": "b660c32d8e3ed96941648564dd8588eeb1bd9e263ea245b078ec16047a25df4d",
+          "provenance": {
+            "fixture": true
+          },
+          "createdAt": "2026-07-21T20:00:00+00:00"
+        }
+      ],
+      "currentVersion": {
+        "contractVersion": "catalyst.workbench.query-version.v1",
+        "versionId": "version-succ-aggregation-dirty-base-profile-switch",
+        "sessionId": "session-fixture",
+        "ordinal": 2,
+        "parentVersionId": "version-base-aggregation-dirty-base-profile-switch",
+        "authorType": "model",
+        "sql": "SELECT date_trunc('month', observed_at) AS observed_month, count(*) AS result_count FROM analytics.lab_result_fact_v1 WHERE observed_at >= :start_date GROUP BY 1 ORDER BY 1",
+        "parameters": [
+          {
+            "name": "start_date",
+            "type": "date",
+            "source": "human",
+            "value": "2026-01-01"
+          }
+        ],
+        "expectedColumns": [],
+        "queryDigest": "b660c32d8e3ed96941648564dd8588eeb1bd9e263ea245b078ec16047a25df4d",
+        "provenance": {
+          "fixture": true
+        },
+        "createdAt": "2026-07-21T20:00:00+00:00"
+      },
+      "status": "ready",
+      "createdAt": "2026-07-21T20:00:00+00:00",
+      "updatedAt": "2026-07-21T20:00:00+00:00"
+    }
+  },
+  "elapsedMs": 5
+}

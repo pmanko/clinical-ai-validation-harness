@@ -1,0 +1,71 @@
+{
+  "contractVersion": "harness.catalyst-notebook.http-exchange.v1",
+  "request": {
+    "method": "GET",
+    "path": "/v1/catalyst/workbench/sessions/session-semantic-distinct-patient-review/turns/turn-followup/generation-evidence",
+    "body": null
+  },
+  "response": {
+    "httpStatus": 200,
+    "body": {
+      "contractVersion": "catalyst.workbench.generation-evidence.v1",
+      "evidenceId": "evidence-followup-semantic-distinct-patient-review",
+      "evidenceDigest": "1a863151384bd6960cd7d705b4c089be7a0fdff0d52b9625a2210ab9ce7783f8",
+      "sessionId": "session-semantic-distinct-patient-review",
+      "turnId": "turn-followup-semantic-distinct-patient-review",
+      "turnKind": "followup",
+      "status": "completed",
+      "instruction": "Follow-up for lint-clean-semantic-reviewer-correction",
+      "candidates": [
+        {
+          "candidateDigest": "fc1322e147c185d347969910e3c1680f92970afa17579f6bb110de2334caa8ac",
+          "role": "writer",
+          "selected": false,
+          "sql": "SELECT count(*) AS patient_count FROM analytics.lab_result_fact_v1"
+        },
+        {
+          "candidateDigest": "25b1db211dd0e3a138223663085e83042eda63779749a957fd6257a895e5433a",
+          "role": "reviewer",
+          "selected": true,
+          "sql": "SELECT count(DISTINCT patient_id) AS patient_count FROM analytics.lab_result_fact_v1 WHERE observed_at >= :start_date"
+        }
+      ],
+      "finalSelection": {
+        "status": "completed",
+        "selectedCandidateDigest": "25b1db211dd0e3a138223663085e83042eda63779749a957fd6257a895e5433a",
+        "selectedVersionId": "version-succ-semantic-distinct-patient-review"
+      },
+      "invocations": [
+        {
+          "invocationId": "inv-writer-semantic-distinct-patient-review",
+          "role": "writer",
+          "stage": "followup_generation",
+          "attempt": 1,
+          "providerId": "llama.cpp",
+          "modelId": "gemma-4-12b",
+          "startedAt": "2026-07-21T20:00:00+00:00",
+          "endedAt": "2026-07-21T20:00:00+00:00",
+          "durationMs": 12,
+          "requestDigest": "f51736f519ab88ce75d79a453f42959f404cca56da0096e106045c50893ce072",
+          "responseDigest": "7bbf3e55c5e0420d624d7c5bd6db777f9d1268335eb4dccfc39659d3059f0359",
+          "outcome": "succeeded"
+        },
+        {
+          "invocationId": "inv-reviewer-semantic-distinct-patient-review",
+          "role": "reviewer",
+          "stage": "followup_generation",
+          "attempt": 1,
+          "providerId": "llama.cpp",
+          "modelId": "qwen2.5-14b",
+          "startedAt": "2026-07-21T20:00:00+00:00",
+          "endedAt": "2026-07-21T20:00:00+00:00",
+          "durationMs": 15,
+          "requestDigest": "1e1861b51c2b3d340e8b4c7b12fb8d0b7fd5befbcf8dd40976eeb017285e5404",
+          "responseDigest": "088616a9b5bfbfa1c6e71db168e2c676b21e381203936d439b83d4d6169b053a",
+          "outcome": "succeeded"
+        }
+      ]
+    }
+  },
+  "elapsedMs": 5
+}

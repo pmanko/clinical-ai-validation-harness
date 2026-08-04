@@ -1,0 +1,29 @@
+{
+  "contractVersion": "harness.catalyst-notebook.http-exchange.v1",
+  "request": {
+    "method": "POST",
+    "path": "/v1/catalyst/workbench/execute",
+    "body": {
+      "versionId": "version-succ-gold-fail-high-judge"
+    }
+  },
+  "response": {
+    "httpStatus": 200,
+    "body": {
+      "contractVersion": "catalyst.workbench.execution.v1",
+      "executionId": "exec-succ-gold-fail-high-judge",
+      "versionId": "version-succ-gold-fail-high-judge",
+      "status": "succeeded",
+      "columns": [
+        "observation_id"
+      ],
+      "rows": [
+        [
+          "obs-wrong"
+        ]
+      ],
+      "rowCount": 1
+    }
+  },
+  "elapsedMs": 5
+}

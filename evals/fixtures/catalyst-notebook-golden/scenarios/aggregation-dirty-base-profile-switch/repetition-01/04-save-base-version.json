@@ -1,0 +1,37 @@
+{
+  "contractVersion": "harness.catalyst-notebook.http-exchange.v1",
+  "request": {
+    "method": "POST",
+    "path": "/v1/catalyst/workbench/sessions/session-aggregation-dirty-base-profile-switch/versions",
+    "body": {
+      "sql": "SELECT observation_id, patient_id, result_value, observed_at FROM analytics.lab_result_fact_v1 WHERE observed_at >= :start_date"
+    }
+  },
+  "response": {
+    "httpStatus": 200,
+    "body": {
+      "contractVersion": "catalyst.workbench.query-version.v1",
+      "versionId": "version-base-aggregation-dirty-base-profile-switch",
+      "sessionId": "session-fixture",
+      "ordinal": 1,
+      "parentVersionId": null,
+      "authorType": "model",
+      "sql": "SELECT observation_id, patient_id, result_value, observed_at FROM analytics.lab_result_fact_v1 WHERE observed_at >= :start_date",
+      "parameters": [
+        {
+          "name": "start_date",
+          "type": "date",
+          "source": "human",
+          "value": "2026-01-01"
+        }
+      ],
+      "expectedColumns": [],
+      "queryDigest": "a556bd025b1100890315b196f6bbca823b6d8864f5bb2bfcc6e985c4f512da1a",
+      "provenance": {
+        "fixture": true
+      },
+      "createdAt": "2026-07-21T20:00:00+00:00"
+    }
+  },
+  "elapsedMs": 5
+}

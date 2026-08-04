@@ -25,6 +25,14 @@ from urllib.parse import parse_qs, urlparse
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
+from harness.common.jsonl import read_jsonl as _read_jsonl  # noqa: E402
+from harness.common.text import esc_inline  # noqa: E402
+from harness.report_shell.assets import (  # noqa: E402
+    THEME_TOGGLE_BUTTON_HTML,
+    THEME_TOGGLE_CSS,
+    theme_bootstrap_js,
+    theme_toggle_js,
+)
 from harness.validate.model_registry import arm_card, arm_model_name  # noqa: E402  (sys.path set above)
 from harness.validate.hub_trace import match_trace, trace_model_for_result  # noqa: E402
 from harness.validate.reconcile import combined_judge_summary  # noqa: E402
@@ -52,6 +60,12 @@ PORT = int(os.environ.get("DASH_PORT", "8099"))
 _RUN_OVERRIDE = None
 
 
+def _catalyst_runs_dir():
+    # NOT a module-level constant: computed from the (test-patchable) ROOT
+    # global on every call, so monkeypatching vd.ROOT in tests works.
+    return ROOT / "artifacts" / "catalyst-notebook-validation"
+
+
 def newest_run():
     if _RUN_OVERRIDE:
         return _RUN_OVERRIDE
@@ -59,17 +73,27 @@ def newest_run():
     # so side runs (1-cell verifies) don't hijack the view away from the real run being watched.
     pin = os.environ.get("DASH_RUN")
     if pin:
-        p = pin if os.path.isabs(pin) or os.path.sep in pin else str(ROOT / "artifacts" / "validate" / pin)
-        if os.path.isdir(p):
-            return p
-    # Rank by when results were last WRITTEN (results.jsonl mtime), not the dir mtime —
-    # rebuilding a report.html into an old run dir bumps the dir mtime and would otherwise
-    # hijack the live view.
+        for base in (ROOT / "artifacts" / "validate", _catalyst_runs_dir()):
+            p = pin if os.path.isabs(pin) or os.path.sep in pin else str(base / pin)
+            if os.path.isdir(p):
+                return p
+    # Rank by when results were last WRITTEN, not the dir mtime — rebuilding a report.html
+    # into an old run dir bumps the dir mtime and would otherwise hijack the live view.
+    # Catalyst notebook runs stream the same results.jsonl (see
+    # harness/catalyst/notebook_validation.py); older run dirs recorded before that only
+    # have per-turn evidence files, so fall back to the newest one of those.
     dirs = [d for d in glob.glob(str(ROOT / "artifacts" / "validate" / "*")) if os.path.isdir(d)]
+    dirs += [d for d in glob.glob(str(_catalyst_runs_dir() / "*")) if os.path.isdir(d)]
 
     def _activity(d):
         rp = os.path.join(d, "results.jsonl")
-        return os.path.getmtime(rp) if os.path.exists(rp) else os.path.getmtime(d)
+        if os.path.exists(rp):
+            return os.path.getmtime(rp)
+        newest = max(
+            (os.path.getmtime(p) for p in glob.glob(os.path.join(d, "**", "*.json"), recursive=True)),
+            default=0,
+        )
+        return newest if newest else os.path.getmtime(d)
 
     return max(dirs, key=_activity) if dirs else None
 
@@ -83,46 +107,26 @@ def resident_models():
     return sorted(set(re.findall(r"[A-Za-z0-9._-]+\.gguf", out)))
 
 
-def read_jsonl(p):
-    rows = []
-    try:
-        with open(p) as f:
-            for line in f:
-                line = line.strip()
-                if line:
-                    try:
-                        rows.append(json.loads(line))
-                    except json.JSONDecodeError:
-                        pass
-    except FileNotFoundError:
-        pass
-    return rows
-
-
 def read_judge_actors(run):
     actors = {}
     judges_dir = Path(run) / "judges"
     if judges_dir.exists():
         for path in sorted(judges_dir.glob("*/judge.jsonl")):
-            rows = read_jsonl(path)
+            rows = _read_jsonl(path, strict=False)
             if rows:
                 actors[path.parent.name] = rows
     if not actors:
-        rows = read_jsonl(Path(run) / "judge.jsonl")
+        rows = _read_jsonl(Path(run) / "judge.jsonl", strict=False)
         if rows:
             actors["canonical"] = rows
     return actors
-
-
-def _esc(s):
-    return (s or "").replace("\n", " ").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 
 def status():
     run = newest_run()
     if not run:
         return {"run": None}
-    events = read_jsonl(Path(run) / "events.jsonl")
+    events = _read_jsonl(Path(run) / "events.jsonl", strict=False)
     run_ev = next((e for e in events if e.get("event_type") == "run"), {})
     set_id = run_ev.get("comparison_set")
     scen_ids = run_ev.get("scenario_ids", [])
@@ -130,15 +134,28 @@ def status():
     labels = {e["backend_id"]: e.get("label", "")
               for e in events if e.get("event_type") == "backend_selected"}
 
-    turns = {}
-    for sid in scen_ids:
-        try:
-            turns[sid] = len(json.load(open(DATA / "scenarios" / f"{sid}.json"))["turns"])
-        except Exception:
-            turns[sid] = 1
-    total = sum(turns.values()) * len(back_ids) if back_ids else 0
+    # `cells` (an explicit [{scenario_id, backend_id, turns}] list) is emitted by
+    # harness/catalyst/notebook_validation.py, whose scenarios are pinned to one profile
+    # each rather than cross-producted against every backend like a validate comparison
+    # set. When present, it — not a scenario x backend cross product — is the source of
+    # truth for grid membership, per-cell expected turns, and total progress.
+    cells = run_ev.get("cells")
+    if cells:
+        expected_cells = [(c["scenario_id"], c["backend_id"]) for c in cells]
+        exp_turns = {(c["scenario_id"], c["backend_id"]): c["turns"] for c in cells}
+        total = sum(c["turns"] for c in cells)
+    else:
+        turns = {}
+        for sid in scen_ids:
+            try:
+                turns[sid] = len(json.load(open(DATA / "scenarios" / f"{sid}.json"))["turns"])
+            except Exception:
+                turns[sid] = 1
+        expected_cells = [(s, b) for s in scen_ids for b in back_ids]
+        exp_turns = {(s, b): turns.get(s, 1) for (s, b) in expected_cells}
+        total = sum(turns.values()) * len(back_ids) if back_ids else 0
 
-    results = read_jsonl(Path(run) / "results.jsonl")
+    results = _read_jsonl(Path(run) / "results.jsonl", strict=False)
     # "Active" = results written recently OR the runner process is still alive. The mtime check
     # alone misses slow tiers — a HIGH cell runs ~17 min writing NOTHING, so results.jsonl looks
     # stale and the run appears dead with no running cell. The process check keeps the frontier
@@ -147,9 +164,12 @@ def status():
     try:
         _runner_alive = subprocess.run(
             ["pgrep", "-f", "harness-cli validate run"], capture_output=True).returncode == 0
+        _catalyst_alive = subprocess.run(
+            ["pgrep", "-f", "run-catalyst-notebook-validation"], capture_output=True
+        ).returncode == 0
     except Exception:
-        _runner_alive = False
-    active = _runner_alive or (_rp.exists() and (time.time() - _rp.stat().st_mtime) < 120)
+        _runner_alive = _catalyst_alive = False
+    active = _runner_alive or _catalyst_alive or (_rp.exists() and (time.time() - _rp.stat().st_mtime) < 120)
     arms = {}
     for b in back_ids:
         rs = [r for r in results if r.get("backend_id") == b]
@@ -162,7 +182,7 @@ def status():
                    "last": rs[-1]["scenario_id"] if rs else ""}
 
     # Cell state per (scenario, backend), aggregating ALL turns of a (multi-turn) scenario:
-    #   done    = every expected turn answered (200 + non-empty)  -> green
+    #   done    = every expected turn answered (deterministic pass, or 200 + non-empty) -> green
     #   err     = a turn failed or came back empty                -> red
     #   running = the cell the runner is currently on (active frontier, or a partially
     #             completed multi-turn)                           -> yellow
@@ -173,40 +193,50 @@ def status():
 
     def _good(r):
         m = r.get("metrics") or {}
+        # A rubric that scores deterministic pass/fail (Catalyst) stamps `passed`
+        # directly; ChartSearchAI rows never carry it, so this is additive.
+        if "passed" in m:
+            return bool(m["passed"])
         return m.get("http_status") == 200 and (m.get("answer_chars") or 0) > 0
 
     states = {}
-    for s in scen_ids:
-        exp = turns.get(s, 1)
-        for b in back_ids:
-            rs = cell_rows.get((s, b), [])
-            good = sum(1 for r in rs if _good(r))
-            bad = sum(1 for r in rs if (r.get("metrics") or {}).get("http_status") not in (200, None))
-            if good >= exp:
-                st = "done"
-            elif bad > 0 or len(rs) >= exp:
-                st = "err"          # a failure, or all turns present but some empty
-            elif len(rs) > 0:
-                st = "running" if active else "err"   # partial: in-flight if active, else abandoned
-            else:
-                st = "pending"
-            states[(s, b)] = st
+    for (s, b) in expected_cells:
+        exp = exp_turns.get((s, b), 1)
+        rs = cell_rows.get((s, b), [])
+        good = sum(1 for r in rs if _good(r))
+        bad = sum(1 for r in rs if (r.get("metrics") or {}).get("http_status") not in (200, None))
+        if good >= exp:
+            st = "done"
+        elif bad > 0 or len(rs) >= exp:
+            st = "err"          # a failure, or all turns present but some empty
+        elif len(rs) > 0:
+            st = "running" if active else "err"   # partial: in-flight if active, else abandoned
+        else:
+            st = "pending"
+        states[(s, b)] = st
 
-    # While the run is in progress, the single active cell is the first incomplete one in
-    # backend-major order (mirrors the runner) — show it yellow even before its first row lands.
+    # While the run is in progress, the single active cell is the first incomplete one, in
+    # the order the runner actually visits cells: cells-order for Catalyst (scenario-major),
+    # backend-major scenario x backend for a validate comparison set (mirrors that runner).
     if total and len(results) < total and active:
-        marked = False
-        for b in back_ids:
-            for s in scen_ids:
+        if cells:
+            for (s, b) in expected_cells:
                 if states[(s, b)] in ("pending", "running"):
                     states[(s, b)] = "running"
-                    marked = True
                     break
-            if marked:
-                break
+        else:
+            marked = False
+            for b in back_ids:
+                for s in scen_ids:
+                    if states[(s, b)] in ("pending", "running"):
+                        states[(s, b)] = "running"
+                        marked = True
+                        break
+                if marked:
+                    break
 
     grid_list = [{"scenario": s, "backend": b, "state": states[(s, b)]}
-                 for s in scen_ids for b in back_ids]
+                 for (s, b) in expected_cells]
 
     feed = []
     for r in results[-14:]:
@@ -223,7 +253,7 @@ def status():
                      "chars": m.get("answer_chars"),
                      "indepth_status": ind.get("http_status"),
                      "indepth_chars": len((iresp or {}).get("answer") or ""),
-                     "ans": _esc(((r.get("response") or {}).get("answer", "") or "")[:90])})
+                     "ans": esc_inline(((r.get("response") or {}).get("answer", "") or "")[:90])})
 
     # Structured arm makeup + config (single and team med-agent-hub profiles) —
     # resolved by the shared resolver, REUSED from the report. Carries the real sampler knobs,
@@ -250,7 +280,7 @@ def detail(scenario, backend):
     run = newest_run()
     if not run or not scenario or not backend:
         return {"turns": []}
-    rows = [r for r in read_jsonl(Path(run) / "results.jsonl")
+    rows = [r for r in _read_jsonl(Path(run) / "results.jsonl", strict=False)
             if r.get("scenario_id") == scenario and r.get("backend_id") == backend]
     rows.sort(key=lambda r: r.get("turn", 0))
     exp = {}
@@ -259,7 +289,7 @@ def detail(scenario, backend):
     except Exception:
         pass
     chart_fixture = load_scenario_chart(scenario, DATA / "scenarios", DATA / "charts")
-    traces = read_jsonl(TRACE_FILE)
+    traces = _read_jsonl(TRACE_FILE, strict=False)
     turns = []
     for r in rows:
         m = r.get("metrics") or {}
@@ -331,11 +361,13 @@ def detail(scenario, backend):
     return {"scenario": scenario, "backend": backend, "expectations": exp, "turns": turns}
 
 
-PAGE = r"""<!doctype html><html data-theme="dark"><head><meta charset=utf-8><title>validate run</title><style>
+PAGE = (
+    r"""<!doctype html><html data-theme="dark"><head><meta charset=utf-8><title>validate run</title><style>
 html[data-theme="dark"]{color-scheme:dark;--bg:#0d1117;--surface:#161b22;--surface2:#1f2937;--sunken:#0b0f14;--text:#c9d1d9;--muted:#8b949e;--faint:#586069;--border:#30363d;--border2:#21262d;--accent:#79c0ff;--accent2:#58a6ff;--purple:#d2a8ff;--ok:#3fb950;--err:#f85149;--flag:#f0883e;--pend-bg:#1a1f27;--pend-fg:#484f58;--cav-red-bg:#3d1416;--cav-red-bd:#8b1a1a;--cav-red-fg:#ffd0d0;--cav-yel-bg:#3a2e08;--cav-yel-bd:#9e6a03;--cav-yel-fg:#ffe9b3}
 html[data-theme="light"]{color-scheme:light;--bg:#f6f8fa;--surface:#ffffff;--surface2:#eef1f5;--sunken:#f0f2f5;--text:#1f2328;--muted:#656d76;--faint:#8c959f;--border:#d0d7de;--border2:#e2e6ea;--accent:#0969da;--accent2:#0969da;--purple:#8250df;--ok:#1a7f37;--err:#cf222e;--flag:#bc4c00;--pend-bg:#eef1f5;--pend-fg:#8c959f;--cav-red-bg:#fff1f1;--cav-red-bd:#cf222e;--cav-red-fg:#a2191f;--cav-yel-bg:#fcf4d6;--cav-yel-bd:#d4a72c;--cav-yel-fg:#684e00}
-.theme-toggle{position:fixed;top:14px;right:16px;z-index:50;width:32px;height:32px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;font-size:14px;line-height:1;display:flex;align-items:center;justify-content:center}
-.theme-toggle:hover{border-color:var(--accent)}
+"""
+    + THEME_TOGGLE_CSS
+    + r"""
 body{background:var(--bg);color:var(--text);font:13px/1.5 -apple-system,BlinkMacSystemFont,Menlo,monospace;margin:0;padding:18px}
 h1{font-size:15px;margin:0 0 6px}.muted{color:var(--muted)}.ok{color:var(--ok)}.err{color:var(--err)}
 .bar{height:20px;background:var(--surface);border-radius:10px;overflow:hidden;margin:8px 0}
@@ -453,8 +485,12 @@ table.ac-knobs{border-collapse:collapse;font-size:10.5px;margin-top:2px}
 .arm-config .ac-pfull>summary{cursor:pointer;color:var(--accent);font-size:10px;list-style:revert}
 .arm-config pre.ac-pre{white-space:pre-wrap;font:10.5px/1.45 ui-monospace,Menlo,monospace;background:var(--sunken);border:1px solid var(--border2);border-radius:6px;padding:8px 10px;margin:4px 0 0;max-height:16em;overflow:auto}
 .arm-config .ac-retr{font-size:11px;font-family:ui-monospace,Menlo,monospace;color:var(--text)}
-</style><script>(function(){try{var t=localStorage.getItem('oc-theme-dashboard');if(t==='light'||t==='dark')document.documentElement.dataset.theme=t;}catch(e){}})();</script></head><body>
-<button id=theme-toggle class=theme-toggle type=button aria-label="Toggle light or dark mode" title="Toggle light / dark"></button>
+</style><script>"""
+    + theme_bootstrap_js("oc-theme-dashboard")
+    + r"""</script></head><body>
+"""
+    + THEME_TOGGLE_BUTTON_HTML
+    + r"""
 <h1 id=hdr>validate run</h1>
 <div class=bar><div id=fill style=width:0%></div></div>
 <div id=prog class=muted></div>
@@ -851,8 +887,11 @@ async function openD(s,b){
 function closeD(){modal.style.display='none'}
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeD()});
 tick();setInterval(tick,2000);
-(function(){var b=document.getElementById('theme-toggle');function s(){b.textContent=document.documentElement.dataset.theme==='dark'?'☀':'☾';}s();b.addEventListener('click',function(){var n=document.documentElement.dataset.theme==='dark'?'light':'dark';document.documentElement.dataset.theme=n;try{localStorage.setItem('oc-theme-dashboard',n);}catch(e){}s();});})();
+"""
+    + theme_toggle_js("oc-theme-dashboard")
+    + r"""
 </script></body></html>"""
+)
 PAGE = PAGE.replace("__SHARED_SCORE_FORMATTER__", score_formatter_js())
 
 

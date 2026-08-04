@@ -1,0 +1,122 @@
+{
+  "contractVersion": "harness.catalyst-notebook.http-exchange.v1",
+  "request": {
+    "method": "POST",
+    "path": "/v1/catalyst/workbench/sessions",
+    "body": {
+      "question": "Fixture question for narrowing",
+      "profileId": "catalyst-query-gemma-4-12b"
+    }
+  },
+  "response": {
+    "httpStatus": 201,
+    "body": {
+      "contractVersion": "catalyst.workbench.session.v1",
+      "sessionId": "session-multi-version-successor",
+      "question": "Fixture question for narrowing",
+      "profileId": "catalyst-query-gemma-4-12b",
+      "datasetId": "catalyst-cohort-v1",
+      "datasetVersion": "1",
+      "catalogVersion": "analytics-catalog-v1",
+      "currentVersionId": "version-succ-multi-version-successor",
+      "versions": [
+        {
+          "contractVersion": "catalyst.workbench.query-version.v1",
+          "versionId": "version-base-multi-version-successor",
+          "sessionId": "session-fixture",
+          "ordinal": 1,
+          "parentVersionId": null,
+          "authorType": "model",
+          "sql": "SELECT observation_id, patient_id, test_name FROM analytics.lab_result_fact_v1 WHERE observed_at >= :start_date",
+          "parameters": [
+            {
+              "name": "start_date",
+              "type": "date",
+              "source": "human",
+              "value": "2026-01-01"
+            }
+          ],
+          "expectedColumns": [],
+          "queryDigest": "0f4b88a688fbba1935927bc516d57be9cc800e1eacbe40f48ff38ab53d147177",
+          "provenance": {
+            "fixture": true
+          },
+          "createdAt": "2026-07-21T20:00:00+00:00"
+        },
+        {
+          "contractVersion": "catalyst.workbench.query-version.v1",
+          "versionId": "version-mid-multi-version-successor",
+          "sessionId": "session-fixture",
+          "ordinal": 2,
+          "parentVersionId": "version-base-multi-version-successor",
+          "authorType": "model",
+          "sql": "SELECT observation_id, patient_id, test_name FROM analytics.lab_result_fact_v1 WHERE observed_at >= :start_date\n-- mid revision",
+          "parameters": [
+            {
+              "name": "start_date",
+              "type": "date",
+              "source": "human",
+              "value": "2026-01-01"
+            }
+          ],
+          "expectedColumns": [],
+          "queryDigest": "d33fde86129e7f1064c6c51aaeb51cea03e04595ff9c80b61ec8ee7852ee294d",
+          "provenance": {
+            "fixture": true
+          },
+          "createdAt": "2026-07-21T20:00:00+00:00"
+        },
+        {
+          "contractVersion": "catalyst.workbench.query-version.v1",
+          "versionId": "version-succ-multi-version-successor",
+          "sessionId": "session-fixture",
+          "ordinal": 3,
+          "parentVersionId": "version-mid-multi-version-successor",
+          "authorType": "model",
+          "sql": "SELECT observation_id, patient_id, test_name FROM analytics.lab_result_fact_v1 WHERE observed_at >= :start_date AND test_name = 'Viral Load' AND result_status = 'final'",
+          "parameters": [
+            {
+              "name": "start_date",
+              "type": "date",
+              "source": "human",
+              "value": "2026-01-01"
+            }
+          ],
+          "expectedColumns": [],
+          "queryDigest": "b778e810feb94ba336fc7df5444f7444f1702028bfc54166d399d9df210359fb",
+          "provenance": {
+            "fixture": true
+          },
+          "createdAt": "2026-07-21T20:00:00+00:00"
+        }
+      ],
+      "currentVersion": {
+        "contractVersion": "catalyst.workbench.query-version.v1",
+        "versionId": "version-succ-multi-version-successor",
+        "sessionId": "session-fixture",
+        "ordinal": 3,
+        "parentVersionId": "version-mid-multi-version-successor",
+        "authorType": "model",
+        "sql": "SELECT observation_id, patient_id, test_name FROM analytics.lab_result_fact_v1 WHERE observed_at >= :start_date AND test_name = 'Viral Load' AND result_status = 'final'",
+        "parameters": [
+          {
+            "name": "start_date",
+            "type": "date",
+            "source": "human",
+            "value": "2026-01-01"
+          }
+        ],
+        "expectedColumns": [],
+        "queryDigest": "b778e810feb94ba336fc7df5444f7444f1702028bfc54166d399d9df210359fb",
+        "provenance": {
+          "fixture": true
+        },
+        "createdAt": "2026-07-21T20:00:00+00:00"
+      },
+      "status": "ready",
+      "createdAt": "2026-07-21T20:00:00+00:00",
+      "updatedAt": "2026-07-21T20:00:00+00:00"
+    }
+  },
+  "elapsedMs": 5
+}

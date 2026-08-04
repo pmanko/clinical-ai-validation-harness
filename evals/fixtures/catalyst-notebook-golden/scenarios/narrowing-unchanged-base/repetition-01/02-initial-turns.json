@@ -1,0 +1,27 @@
+{
+  "contractVersion": "harness.catalyst-notebook.http-exchange.v1",
+  "request": {
+    "method": "GET",
+    "path": "/v1/catalyst/workbench/sessions/session-narrowing-unchanged-base/turns",
+    "body": null
+  },
+  "response": {
+    "httpStatus": 200,
+    "body": {
+      "contractVersion": "catalyst.workbench.turn.timeline.v1",
+      "sessionId": "session-narrowing-unchanged-base",
+      "currentTurnId": "turn-followup-narrowing-unchanged-base",
+      "turns": [
+        {
+          "contractVersion": "catalyst.workbench.turn.v1",
+          "sessionId": "session-narrowing-unchanged-base",
+          "turnId": "turn-initial-narrowing-unchanged-base",
+          "ordinal": 1,
+          "kind": "initial",
+          "status": "completed"
+        }
+      ]
+    }
+  },
+  "elapsedMs": 5
+}

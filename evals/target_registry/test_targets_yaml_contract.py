@@ -12,5 +12,15 @@ def test_harness_targets_yaml_matches_contract() -> None:
     profile_ids = {p.id for p in doc.profiles}
     assert profile_ids == {"local", "vm"}
     catalyst = next(t for t in doc.targets if t.id == "catalyst")
-    assert catalyst.evidence_status == "scaffolding"
+    assert catalyst.evidence_status == "development"
     assert catalyst.submodule_path == "targets/catalyst"
+    assert catalyst.validation_surface.kind == "workflow"
+    assert catalyst.validation_surface.evidence_mode == "real_path_required"
+    assert catalyst.validation_surface.command == (
+        "uv",
+        "run",
+        "python",
+        "scripts/run-catalyst-validation.py",
+        "--suite",
+        "datasets/validation/catalyst/catalyst-mvp-v1.json",
+    )

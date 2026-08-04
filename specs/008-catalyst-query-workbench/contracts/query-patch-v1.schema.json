@@ -1,0 +1,114 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openelis-global.org/contracts/catalyst-query-patch-v1.schema.json",
+  "title": "Catalyst Query Patch v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contractVersion",
+    "sourceVersionId",
+    "sourceQueryDigest",
+    "scopeDigest",
+    "operations",
+    "rationale"
+  ],
+  "properties": {
+    "contractVersion": {
+      "const": "catalyst.query.patch.v1"
+    },
+    "sourceVersionId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "sourceQueryDigest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "scopeDigest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "operations": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "oneOf": [
+          {
+            "$ref": "#/$defs/replaceSqlUnit"
+          },
+          {
+            "$ref": "#/$defs/upsertParameter"
+          },
+          {
+            "$ref": "#/$defs/removeParameter"
+          }
+        ]
+      }
+    },
+    "rationale": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2000
+    }
+  },
+  "$defs": {
+    "replaceSqlUnit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["op", "unitId", "expectedDigest", "replacementSql"],
+      "properties": {
+        "op": {
+          "const": "replace_sql_unit"
+        },
+        "unitId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "expectedDigest": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "replacementSql": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "upsertParameter": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["op", "name", "logicalType", "value"],
+      "properties": {
+        "op": {
+          "const": "upsert_parameter"
+        },
+        "name": {
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+        },
+        "logicalType": {
+          "enum": ["string", "integer", "decimal", "boolean", "date", "date-time"]
+        },
+        "value": {}
+      }
+    },
+    "removeParameter": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["op", "name", "expectedDigest"],
+      "properties": {
+        "op": {
+          "const": "remove_parameter"
+        },
+        "name": {
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+        },
+        "expectedDigest": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      }
+    }
+  }
+}

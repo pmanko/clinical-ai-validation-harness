@@ -1,0 +1,187 @@
+# Catalyst Validation Integration Roadmap Status
+
+Execution state for the Catalyst validation integration remediation roadmap.
+
+## Control Record
+
+| Field | Value |
+|---|---|
+| Roadmap | [`catalyst-validation-integration-roadmap.md`](catalyst-validation-integration-roadmap.md) |
+| Authorization | Explicit user instruction to implement the approved plan on 2026-07-21 |
+| Approved roadmap SHA-256 (pre-A1) | `b00a063bf2b78494a3a719436d4609127eb2e845153d1ab2f9153d1e018e6ef8` |
+| Approved roadmap SHA-256 (A1, current) | `37c13c468d274b985a0f48e0e6e5cfb2e3e9eaf3b0fb0fd1ace6e73fca1cf1e7` |
+| Current execution boundary | P0–P3 complete and signed off; T094/T095/T111 accepted 2026-08-04, opening P4/P5 under Amendment A1 |
+| Next protected boundary | P4/P5 may proceed; their own downstream review/publication gates remain authoritative |
+| Deviations | None. Amendment A1 (2026-07-21, user-authorized): P4/P5 entry gates re-mapped from 008-G5/008-G6 to T094/T095/T111 acceptance — see roadmap §1.2 |
+
+## Active-feature gate mapping
+
+| Roadmap id | Active 008 checkpoint | Status at latest update |
+|---|---|---|
+| **008-G5** | `specs/008-catalyst-query-workbench/roadmap.md` W2 **G5 user** | Not accepted — no longer a CVR entry gate (A1) |
+| **008-G6** | `specs/008-catalyst-query-workbench/roadmap.md` W3 **G6 user** | Not accepted — no longer a CVR entry gate (A1) |
+| **T094** | Diverse real-path notebook validation | PASS — accepted; final-pin matrix 12/12 PASS (run `0671dc34`), 24/24 PostgreSQL checks, 18/18 gold-result checks; final-pin failure/recovery PASS (run `fb6377c1`) |
+| **T095** | G2.8c acceptance pause | PASS — accepted 2026-08-04; actual keyboard-only and 200%-browser-zoom checks PASS |
+| **T111** | Clean-pin rerun + user acceptance | PASS — accepted 2026-08-04; T112 merge/repin work remains |
+
+## Current architecture and candidate pins (2026-08-03)
+
+The current implementation no longer uses Hub-owned Catalyst query profiles.
+Catalyst Gateway owns the query-profile registry, prompts, writer/reviewer
+composition, deterministic lint/re-lint, finalization, and query evidence.
+Med-Agent Hub provides the generic `POST /v1/hub/generate` single-role model
+boundary and retains a separate clinical-answer/report profile system.
+
+| Component | Candidate revision | State |
+|---|---|---|
+| Catalyst | `e7eba21` (`main`; PR #5 merged) | Source head `5f23c4e` passed all five CI jobs, including the deterministic browser workflow, then squash-merged; standalone fallback remains pinned to Hub `main` |
+| Med-Agent Hub | `092b5cd` (`main`; PR #15 merged) | Generic role executor and final model-inventory dependencies available on merged `main` |
+| Harness | `codex/catalyst-mvp-umbrella` (PR #37) | Pins Catalyst `e7eba21`/Hub `092b5cd`; full health/provenance PASS and post-merge real-model/PostgreSQL/gold smoke `70d76a43` PASS 1/1; required approval and final Harness squash remain |
+
+The authoritative July 30 PR-head run
+`cbc41bcd-56f7-4074-931f-98ed42fea202` passed 12/12 scenario repetitions on
+harness `e475d7a`, Catalyst `bb36126`, and Hub `198d5f6`, with every result
+independently checked against PostgreSQL/gold SQL. The corresponding PR-head run
+`68da21db-2178-4010-9fd4-5c73fd477261` also proved a one-shot typed Hub
+transport failure leaves the human base current; same-session turn
+`bbd77610-2660-4ae8-84fa-6dffe57d760e` then recovered using matching
+validation/execution context. Responsive checks passed at 390 and 320 CSS px,
+plus a 200%-zoom layout-equivalent viewport. On 2026-08-04 the user also
+completed actual keyboard-only traversal and actual 200% browser zoom; both
+passed, and the user accepted the MVP candidate. A deterministic Playwright
+regression now covers uninterrupted Tab traversal and 200%-equivalent reflow.
+
+Focused pin/layout coverage then exposed a stale standalone fallback SHA in
+Catalyst. Candidate `95515a2` changes only that fallback default from Hub
+`946afa9` to current Hub `198d5f6`; the umbrella runtime supplies the sibling
+Hub context. Focused coverage passes 57/57. Clean umbrella `93689d5` run
+`4dd70443-ba23-4415-b0cd-d393d2352061` passed 1/1 real-model/PostgreSQL
+narrowing at Catalyst `95515a2` and Hub `198d5f6`; the complete 12/12 live
+matrix remains correctly attributed to parent `bb36126`.
+
+Catalyst `be3f95c` subsequently removes only the redundant CI assertion that
+duplicated the former Hub SHA. It does not change runtime behavior; the exact
+MVP assembly CI command completes 38 tests with one expected local `psycopg`
+skip.
+
+The deterministic T111 preflight drift is resolved by T123: the committed suite
+now uses the real Gateway writer-only and Gemma/Qwen reviewed IDs, retains a
+per-turn profile switch, and represents reviewer identity as optional only for
+writer-only profiles. No live result is inferred from that repair.
+
+T124 repaired the runtime-availability boundary: Hub publishes a versioned
+backend model inventory, `LocalHub` requires every exact writer/reviewer alias,
+and unavailable profiles fail closed before state or model calls. Component
+coverage and the isolated exact-pin live proof are green.
+
+The final merged-Hub-pin T111 evidence is now ready. Harness run
+`0671dc34-26c6-4d52-8443-47e0a833a539` passed 12/12 real-model repetitions,
+24/24 independent PostgreSQL comparisons, and 18/18 gold-result comparisons on
+Catalyst `9aa0e0f` and Hub `092b5cd`. Run
+`fb6377c1-0b60-492a-8053-cc668a201d15` passed the expected one-shot Hub failure;
+the next turn in that same session then generated, validated, executed, and
+matched PostgreSQL after the direct router was restored. The accepted PHI-safe
+receipt is `specs/008-catalyst-query-workbench/evidence/`
+`t111-final-acceptance-2026-08-03.json`. The user-confirmed keyboard-only and
+actual 200%-zoom checks promote T094/T095/T111 to accepted; T112 remains the
+ordered Catalyst squash, Harness repin/verification, approval, and final squash.
+
+## Baseline Snapshot (CVR-G00)
+
+| Field | Value |
+|---|---|
+| Captured at | 2026-07-21 |
+| Branch | `codex/catalyst-mvp-umbrella` |
+| Diff-cover base branch | `origin/codex/catalyst-mvp-umbrella` (fallback `origin/main`) |
+| Pytest collect | `684` tests collected under `uv run pytest -m 'not slow' --ignore=targets --collect-only -q` |
+| Pytest deselected | `3` (`slow` marker) |
+| Pytest skip count (collection) | `0` |
+
+## Constitution Check (§1.1)
+
+| Principle | Disposition | Notes |
+|---|---|---|
+| I Real production paths | PASS | Fixtures labelled development; release claims reserved for P5 live path |
+| II Deterministic reviewed transforms | PASS | Gold checks authoritative; rubric/schema/report in reviewed files |
+| III Record-level evidence | PASS | Gold/judge verdicts must link SQL, parameters, digests, evidence paths |
+| IV Metadata / provenance | PASS | Notebook `events.jsonl` + judge provenance gated before publish (P2/P4) |
+| V Tests define behavior | PASS | Red-first except green-before-green golden characterization tests |
+| Governance / PCCP | PASS | P2 PCCP required before rubric acceptance; P5 code-qa required |
+
+## Roadmap self-validation findings (resolved before persistence)
+
+| Finding | Disposition |
+|---|---|
+| Gate id collision with 008 G0–G6 | Resolved: unique `CVR-G00`–`CVR-G18` namespace |
+| P3 forward-referenced Catalyst CLI | Resolved: P3 calls `build_report()` directly |
+| Gitignored archived run as CI dependency | Resolved: committed PHI-free fixtures |
+| Publish/index ChartSearchAI-only paths | Resolved: family-aware `report_family` / `run_path` |
+| `comparison_set` overloaded for suite id | Resolved: Catalyst uses `suite_id` / `suite_sha256` |
+| Missing notebook `events.jsonl` | Resolved: P4 contract; P2 judge finalize appends later |
+| Judge axes/formula underspecified | Resolved: D6 formula + schemas + three-pass median |
+| Escaping semantics diverge | Resolved: `esc` + `esc_inline` |
+| Code-qa missing companion-pr artifact | Resolved: five-file D13 set |
+| P4/P5 vs 008 W3 ordering | Resolved: T094/T095/T111 accepted 2026-08-04; P4/P5 may begin after the current merge chain |
+
+## Post-implementation self-validation (2026-07-21)
+
+| Check | Disposition |
+|---|---|
+| Cross-artifact consistency | PASS — P0–P3 land on `harness/common`, `harness/report_shell`, `harness/catalyst/{reconcile,report}.py`; T094/T095/T111 acceptance opens P4/P5 |
+| Internal consistency | PASS — every P0–P3 task maps to a CVR gate; no Catalyst CLI until P4; signoffs MS-A–C complete and MVP acceptance recorded |
+| Clarity | PASS — CVR gates retain single PASS interpretation; runtime MS/008 acceptance recorded here rather than assumed |
+| Fixture repair during P3 | PASS — `results.json` now includes `gold-fail-high-judge` + `multi-version-successor`; gold FAIL evidence carries `mismatch_rationale` |
+| P4/P5 entry guards | PASS at implementation time; Amendment A1's acceptance condition is now satisfied and the gate-state script must be advanced before P4 work |
+
+## Gate Board
+
+| Gate | Status | Evidence |
+|---|---|---|
+| CVR-G00 | PASS | Roadmap + status committed; README linked; baselines + constitution recorded |
+| CVR-G01 | PASS | PHI-free fixtures + provenance tests green |
+| CVR-G02 | PASS | shared utility + uniqueness tests green |
+| CVR-G03 | PASS | `verify… g03`: 719 passed / 36 runtime skipped / 3 deselected; diff-cover 100% vs `origin/codex/catalyst-mvp-umbrella`; collection skip baseline still 0 |
+| CVR-G04 | PASS | byte-identical ChartSearchAI golden with frozen clock |
+| CVR-G05 | PASS | `harness/report_shell/` four modules; ownership/import tests green |
+| CVR-G06 | PASS | DOM canon + golden semantic parity + dashboard/index theme marker tests green |
+| CVR-G07 | PASS | G03/G05/G06 green; MS-A signed off 2026-07-21 (Piotr Mankowski) |
+| CVR-G08 | PASS | PCCP + `catalyst-judge-v1` schemas + skill + reconcile/schema tests |
+| CVR-G09 | PASS | finalize + gold-fail/perfect-judge precedence tests |
+| CVR-G10 | PASS | Fixture three-pass + `judge.jsonl`/`judge_manifest.json` present and tests green; MS-B signed off 2026-07-21 (Piotr Mankowski) |
+| CVR-G11 | PASS | Offline `harness.catalyst.report.build_report` with socket blocked |
+| CVR-G12 | PASS | Import-boundary + no-judge tests green; MS-C signed off 2026-07-21 (Piotr Mankowski) |
+| CVR-G13 | READY | T094/T095/T111 accepted 2026-08-04; P4 work not started |
+| CVR-G14 | READY | T094/T095/T111 accepted 2026-08-04; P4 work not started |
+| CVR-G15 | READY | T094/T095/T111 accepted 2026-08-04; P4 work not started |
+| CVR-G16 | READY | T094/T095/T111 accepted 2026-08-04; P5 work not started |
+| CVR-G17 | READY | T094/T095/T111 accepted 2026-08-04; P5 work not started |
+| CVR-G18 | READY | T094/T095/T111 accepted 2026-08-04; P5 work not started |
+
+## Signoffs
+
+| Signoff | Status | Reviewer | Date |
+|---|---|---|---|
+| MS-A (Signoff A) | PASS | Piotr Mankowski | 2026-07-21 |
+| MS-B (Signoff B) | PASS | Piotr Mankowski | 2026-07-21 |
+| MS-C (Signoff C) | PASS | Piotr Mankowski | 2026-07-21 |
+| MS-D (Signoff D) | BLOCKED | | |
+
+## Phase completion notes
+
+### P0 — complete
+Shared `harness/common/{jsonl,text}.py`; dashboard `_match_trace` removed; committed PHI-free fixtures.
+
+### P1 — complete; Signoff A PASS (2026-07-21)
+`harness/report_shell/` extracted; ChartSearchAI `report.py` consumes shell; dashboard/index theme assets migrated; CVR-G05/G06 green. MS-A signed off → CVR-G07 PASS.
+
+### P2 — complete; Signoff B PASS (2026-07-21)
+PCCP, skill, schemas, `harness/catalyst/reconcile.py`, `scripts/catalyst-judge-finalize.py`, fixture three-pass judge artifacts. MS-B signed off → CVR-G10 PASS.
+
+### P3 — complete; Signoff C PASS (2026-07-21)
+`harness/catalyst/report.py` offline report on shell; socket-blocked tests. MS-C signed off → CVR-G12 PASS.
+
+### P4 — not started (entry condition satisfied)
+T094/T095/T111 were accepted 2026-08-04. CVR-G13–G15 are ready for the next explicitly scoped implementation cycle after the current merge chain.
+
+### P5 — not started (entry condition satisfied)
+T094/T095/T111 were accepted 2026-08-04. CVR-G16–G18 are ready for the next explicitly scoped implementation cycle after the current merge chain.
