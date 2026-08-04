@@ -11,8 +11,8 @@ Execution state for the Catalyst validation integration remediation roadmap.
 | Approved roadmap SHA-256 (pre-A1) | `b00a063bf2b78494a3a719436d4609127eb2e845153d1ab2f9153d1e018e6ef8` |
 | Approved roadmap SHA-256 (A1) | `37c13c468d274b985a0f48e0e6e5cfb2e3e9eaf3b0fb0fd1ace6e73fca1cf1e7` |
 | Approved roadmap SHA-256 (A2, current) | `d11d34f466f727e70a50eccc7024c85b334ad8c899ddb6a94ef0d26a09814dab` |
-| Current execution boundary | P0–P4 and T135 complete; CVR-G13–G17 PASS; T136/CVR-G18 release hygiene is in progress |
-| Next protected boundary | Finish CVR-G18 release hygiene, then pause for final MS-D acceptance |
+| Current execution boundary | P0–P5 and T136 complete; CVR-G13–G18 PASS; final MS-D acceptance is ready |
+| Next protected boundary | Execute MS-D and record the user's final release-acceptance decision |
 | Deviations | None. Amendment A1 (2026-07-21) remaps P4/P5 entry gates to T094/T095/T111 acceptance; Amendment A2 (2026-08-04) orders CVR-G18 hygiene before final MS-D acceptance — see roadmap §1.2 |
 
 ## Active-feature gate mapping
@@ -113,12 +113,12 @@ The audit distinguishes reusable prework from passed roadmap gates:
 - **CVR-G16 PASS:** all five D13 independent code-QA reports are present,
   non-empty, anchored to reviewed implementation `380301d`, and record zero
   open BLOCKER findings. The executable G16 gate passes.
-- **P5 is in progress:** clean-pin run
+- **P5 implementation/release evidence is complete; MS-D is ready:** clean-pin run
   `7e3adf47-c21f-4d8c-9595-fd73d3dbfb24` passed 13/13 scenario repetitions
   and 411/411 assertions. Exactly three independent judge passes cover all 25
-  executed versions and finalize successfully. The report renders and its
-  family-aware dry-run publication passes. Live publication/URL verification,
-  release hygiene, and MS-D signoff remain.
+  executed versions and finalize successfully. The live report and record-level
+  links are verified, and CVR-G18 release hygiene passes. Only final MS-D
+  acceptance remains.
 
 ### T135 / CVR-G17 release-run checkpoint (2026-08-04)
 
@@ -152,6 +152,23 @@ The audit distinguishes reusable prework from passed roadmap gates:
   events `779a9016dd5196b006521944e137a12a39e33ebc9fc0b2e4e16e9f3850059927`,
   finalized judge `9349787e3330641bfe7ca236334139c3cbc69c0118a27b679528b619ffe73c01`,
   and report `16d8ff16f1e3dd2955c6e0e08182384f6a8b31dc3ceca6bb891126c5a055024b`.
+
+### T136 / CVR-G18 release-hygiene checkpoint (2026-08-04)
+
+- Release-candidate documentation/index commit `ed2645a8a90c67d7c489470eda36dc1dbbd2f4c1`
+  is pushed on `codex/catalyst-report-parity` and PR #43 is mergeable.
+- GitHub run `30955891962` passed `pytest-and-diff-coverage` in 2m39s,
+  `shellcheck`, and GitGuardian. The matching local roadmap gate passed 1,088
+  tests with 38 expected skips, four deselections, and 93% diff coverage; the
+  focused Catalyst report/metadata/publisher/event suite passed 74/74.
+- `scripts/verify-repository-lines.sh --allow-harness-branch` passes. The root
+  is clean and equals its pushed branch; all recursive submodules are clean.
+- Run `7e3adf47` records clean, matching reviewed/actual target pins Catalyst
+  `e7eba21` and Med-Agent Hub `092b5cd`, which equal the current gitlinks.
+- README, metadata schema, feature plan/roadmap/tasks, judge PCCP, validation
+  roadmap/status, and reports index consistently describe the same published
+  development-evidence candidate. Amendment A2 places final MS-D acceptance
+  after this hygiene gate.
 
 ## Baseline Snapshot (CVR-G00)
 
@@ -228,7 +245,7 @@ longer requires CVR-G18 and MS-D to have passed before one another.
 | CVR-G15 | PASS | 27-test mixed-family index/publisher dry-run gate; T132–T133 complete |
 | CVR-G16 | PASS | Five independent D13 reports; zero open BLOCKER findings; `verify… g16` PASS against reviewed implementation `380301d` |
 | CVR-G17 | PASS | Run `7e3adf47` is 13/13 with 411/411 assertions; 3 × 25 judge rows finalized; live report/index published; 81/81 relative evidence links HTTP 200 and byte-identical to staging |
-| CVR-G18 | IN PROGRESS | Final CI/pin/docs/PCCP/repository hygiene must establish readiness for MS-D |
+| CVR-G18 | PASS | Commit `ed2645a`: required GitHub CI green; local 1,088-test/93%-diff gate and focused 74-test gate PASS; repository policy/root/recursive-submodule/pin/docs/PCCP hygiene PASS; ready for MS-D |
 
 ## Signoffs
 
@@ -237,7 +254,7 @@ longer requires CVR-G18 and MS-D to have passed before one another.
 | MS-A (Signoff A) | PASS | Piotr Mankowski | 2026-07-21 |
 | MS-B (Signoff B) | PASS | Piotr Mankowski | 2026-07-21 |
 | MS-C (Signoff C) | PASS | Piotr Mankowski | 2026-07-21 |
-| MS-D (Signoff D) | BLOCKED | | |
+| MS-D (Signoff D) | READY | | |
 
 ## Phase completion notes
 
@@ -258,8 +275,9 @@ T128–T133 are complete. CVR-G13–G15 and the continuous suite are green on th
 stacked feature branch; the implementation remains development evidence until
 the P5 live release and MS-D acceptance.
 
-### P5 — in progress
+### P5 — implementation and release evidence complete; MS-D pending
 T094/T095/T111, the merge chain, P4 parity gates, T134/CVR-G16, and
 T135/CVR-G17 are complete. The live report and all 81 relative evidence links
-are verified against the staged bundle. T136/CVR-G18 release hygiene is in
-progress; MS-D remains the final user-acceptance boundary.
+are verified against the staged bundle. T136/CVR-G18 release hygiene is PASS;
+MS-D remains the final user-acceptance boundary, so the candidate stays
+`development` evidence and is not yet called released.

@@ -253,7 +253,7 @@ This does not start or approve W2.
 - [X] T133 Dry-run stage one ChartSearchAI fixture and one Catalyst fixture; pass and record CVR-G13–G15 before starting release claims
 - [X] T134 Produce the five independent D13 code-QA artifacts, resolve every BLOCKER, and pass CVR-G16
 - [X] T135 Run the complete real T094 suite on clean merged pins, apply the recorded Catalyst judge exactly three times, finalize, render, publish, and verify record-level evidence at the live URL for CVR-G17
-- [ ] T136 Pass release CI/pin/docs/PCCP hygiene, record CVR-G18, and pause for MS-D user signoff before calling Catalyst report parity released
+- [X] T136 Pass release CI/pin/docs/PCCP hygiene, record CVR-G18, and pause for MS-D user signoff before calling Catalyst report parity released
 
 ## Dependencies and implementation strategy
 
