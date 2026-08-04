@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openclinai.org/schemas/catalyst-judge-v1.schema.json",
+  "title": "catalyst-judge-v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "scenario_id",
+    "turn",
+    "version_id",
+    "repetition",
+    "provider",
+    "model",
+    "model_version",
+    "rubric_sha256",
+    "evaluated_at",
+    "intent_fidelity",
+    "sql_quality",
+    "schema_discipline",
+    "intent_fidelity_rationale",
+    "sql_quality_rationale",
+    "schema_discipline_rationale",
+    "evidence_paths",
+    "composite"
+  ],
+  "properties": {
+    "schema": { "const": "catalyst-judge-v1" },
+    "scenario_id": { "type": "string", "minLength": 1 },
+    "turn": { "type": "integer", "minimum": 0 },
+    "version_id": { "type": "string", "minLength": 1 },
+    "repetition": { "type": "integer", "minimum": 1, "maximum": 3 },
+    "provider": { "type": "string", "minLength": 1 },
+    "model": { "type": "string", "minLength": 1 },
+    "model_version": { "type": "string", "minLength": 1 },
+    "rubric_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "evaluated_at": { "type": "string", "minLength": 1 },
+    "intent_fidelity": { "type": "integer", "minimum": 0, "maximum": 3 },
+    "sql_quality": { "type": "integer", "minimum": 0, "maximum": 3 },
+    "schema_discipline": { "type": "integer", "minimum": 0, "maximum": 3 },
+    "followup_coherence": { "type": "integer", "minimum": 0, "maximum": 3 },
+    "intent_fidelity_rationale": { "type": "string", "minLength": 1 },
+    "sql_quality_rationale": { "type": "string", "minLength": 1 },
+    "schema_discipline_rationale": { "type": "string", "minLength": 1 },
+    "followup_coherence_rationale": { "type": "string", "minLength": 1 },
+    "evidence_paths": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "composite": { "type": "integer", "minimum": 0, "maximum": 100 }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": { "turn": { "minimum": 1 } },
+        "required": ["turn"]
+      },
+      "then": {
+        "required": ["followup_coherence", "followup_coherence_rationale"]
+      },
+      "else": {
+        "not": {
+          "required": ["followup_coherence"]
+        }
+      }
+    }
+  ]
+}

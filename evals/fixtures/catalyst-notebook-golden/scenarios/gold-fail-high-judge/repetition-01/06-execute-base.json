@@ -1,0 +1,35 @@
+{
+  "contractVersion": "harness.catalyst-notebook.http-exchange.v1",
+  "request": {
+    "method": "POST",
+    "path": "/v1/catalyst/workbench/execute",
+    "body": {
+      "versionId": "version-base-gold-fail-high-judge"
+    }
+  },
+  "response": {
+    "httpStatus": 200,
+    "body": {
+      "contractVersion": "catalyst.workbench.execution.v1",
+      "executionId": "exec-base-gold-fail-high-judge",
+      "versionId": "version-base-gold-fail-high-judge",
+      "status": "succeeded",
+      "columns": [
+        "observation_id",
+        "patient_id"
+      ],
+      "rows": [
+        [
+          "obs-1",
+          "demo-patient-a"
+        ],
+        [
+          "obs-2",
+          "demo-patient-b"
+        ]
+      ],
+      "rowCount": 2
+    }
+  },
+  "elapsedMs": 5
+}

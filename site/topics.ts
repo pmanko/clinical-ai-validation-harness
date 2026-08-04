@@ -38,10 +38,11 @@ export const topics: Topic[] = [
   },
   {
     id: 'lab-ai',
-    title: 'Lab AI — Catalyst / OpenELIS',
-    blurb: 'Extending the harness to lab-system AI: a FHIR-grounded sidecar over OpenELIS Global 2 that answers lab questions with resource-cited evidence — the proof the harness generalizes beyond OpenMRS.',
+    title: 'Catalyst — query-to-table for lab and program data',
+    blurb: 'Ask a clinical question in plain language; a writer/reviewer model team drafts governed SQL against a database-generated catalog, a deterministic policy enforces read-only execution, and the result is a typed table — running today on two independent data sources, OpenELIS lab data and OpenMRS HIV/ART program data.',
     links: [
-      { kind: 'canvas', slug: 'specs/artifacts/canvases/catalyst-fhir-sidecar', label: 'Catalyst FHIR sidecar (canvas)' },
+      { kind: 'canvas', slug: 'specs/artifacts/canvases/catalyst-demos', label: 'Demos — see it answer real questions (canvas)' },
+      { kind: 'canvas', slug: 'specs/artifacts/canvases/catalyst-fhir-sidecar', label: 'Earlier design exploration (canvas)' },
     ],
   },
   {

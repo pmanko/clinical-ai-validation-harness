@@ -33,6 +33,8 @@ import statistics
 from pathlib import Path
 from typing import Any, Callable
 
+from harness.common.jsonl import read_jsonl
+
 from ..metadata import utc_now_iso
 from .reconcile import cell_benchmark_score
 
@@ -447,14 +449,6 @@ def _is_int(v: Any) -> bool:
 # --------------------------------------------------------------------------- #
 # 6. the review driver — load a run, present cells, write adjudication.jsonl
 # --------------------------------------------------------------------------- #
-def read_jsonl(path: Path | str) -> list[dict[str, Any]]:
-    """Parse a .jsonl file into a list of dicts; missing file -> []."""
-    p = Path(path)
-    if not p.exists():
-        return []
-    return [json.loads(ln) for ln in p.read_text(encoding="utf-8").splitlines() if ln.strip()]
-
-
 def _resolve_snapshot(snapshot_file: Any, run_dir: Path) -> str:
     """Read the chart ground-truth snapshot text for a cell. The recorded
     snapshot_file is an absolute path from the producing machine; fall back to

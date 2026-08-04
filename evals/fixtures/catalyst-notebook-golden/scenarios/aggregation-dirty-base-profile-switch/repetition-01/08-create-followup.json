@@ -1,0 +1,43 @@
+{
+  "contractVersion": "harness.catalyst-notebook.http-exchange.v1",
+  "request": {
+    "method": "POST",
+    "path": "/v1/catalyst/workbench/sessions/session-aggregation-dirty-base-profile-switch/turns",
+    "body": {
+      "instruction": "Follow-up for aggregation-output-shape"
+    }
+  },
+  "response": {
+    "httpStatus": 201,
+    "body": {
+      "contractVersion": "catalyst.workbench.turn.v1",
+      "turnId": "turn-followup-aggregation-dirty-base-profile-switch",
+      "kind": "followup",
+      "status": "completed",
+      "selectedVersion": {
+        "contractVersion": "catalyst.workbench.query-version.v1",
+        "versionId": "version-succ-aggregation-dirty-base-profile-switch",
+        "sessionId": "session-fixture",
+        "ordinal": 2,
+        "parentVersionId": "version-base-aggregation-dirty-base-profile-switch",
+        "authorType": "model",
+        "sql": "SELECT date_trunc('month', observed_at) AS observed_month, count(*) AS result_count FROM analytics.lab_result_fact_v1 WHERE observed_at >= :start_date GROUP BY 1 ORDER BY 1",
+        "parameters": [
+          {
+            "name": "start_date",
+            "type": "date",
+            "source": "human",
+            "value": "2026-01-01"
+          }
+        ],
+        "expectedColumns": [],
+        "queryDigest": "b660c32d8e3ed96941648564dd8588eeb1bd9e263ea245b078ec16047a25df4d",
+        "provenance": {
+          "fixture": true
+        },
+        "createdAt": "2026-07-21T20:00:00+00:00"
+      }
+    }
+  },
+  "elapsedMs": 5
+}

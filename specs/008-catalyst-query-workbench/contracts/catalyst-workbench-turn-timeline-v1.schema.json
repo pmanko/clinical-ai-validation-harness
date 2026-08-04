@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openelis-global.org/contracts/catalyst-workbench-turn-timeline-v1.schema.json",
+  "title": "Catalyst workbench turn timeline v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contractVersion",
+    "sessionId",
+    "currentTurnId",
+    "currentVersion",
+    "turns"
+  ],
+  "properties": {
+    "contractVersion": {
+      "const": "catalyst.workbench.turn.timeline.v1"
+    },
+    "sessionId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "currentTurnId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "currentVersion": {
+      "oneOf": [
+        {"type": "null"},
+        {"$ref": "catalyst-workbench-turn-request-v1.schema.json#/$defs/versionRef"}
+      ]
+    },
+    "turns": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "catalyst-workbench-turn-v1.schema.json"
+      }
+    }
+  }
+}

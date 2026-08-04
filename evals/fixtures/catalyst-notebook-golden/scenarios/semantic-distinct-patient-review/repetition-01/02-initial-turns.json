@@ -1,0 +1,27 @@
+{
+  "contractVersion": "harness.catalyst-notebook.http-exchange.v1",
+  "request": {
+    "method": "GET",
+    "path": "/v1/catalyst/workbench/sessions/session-semantic-distinct-patient-review/turns",
+    "body": null
+  },
+  "response": {
+    "httpStatus": 200,
+    "body": {
+      "contractVersion": "catalyst.workbench.turn.timeline.v1",
+      "sessionId": "session-semantic-distinct-patient-review",
+      "currentTurnId": "turn-followup-semantic-distinct-patient-review",
+      "turns": [
+        {
+          "contractVersion": "catalyst.workbench.turn.v1",
+          "sessionId": "session-semantic-distinct-patient-review",
+          "turnId": "turn-initial-semantic-distinct-patient-review",
+          "ordinal": 1,
+          "kind": "initial",
+          "status": "completed"
+        }
+      ]
+    }
+  },
+  "elapsedMs": 5
+}

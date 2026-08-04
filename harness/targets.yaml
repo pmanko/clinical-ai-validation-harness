@@ -81,16 +81,23 @@ targets:
       evidence_mode: scaffolding_only
 
   - id: catalyst
-    display_name: OpenELIS Catalyst (standalone target)
+    display_name: OpenELIS Catalyst query-to-table MVP
     submodule_path: targets/catalyst
     environment_override: HARNESS_TARGET_CATALYST
-    evidence_status: scaffolding
+    evidence_status: development
     supported_profiles: [local, vm]
     shared_profiles: []
     validation_surface:
-      kind: unavailable
+      kind: workflow
       description: >-
-        Submodule pinned at https://github.com/DIGI-UW/openelis-catalyst (extracted
-        from OpenELIS-Global-2 projects/catalyst). Specific validation commands
-        will be declared by a future feature that exercises Catalyst's real path.
-      evidence_mode: scaffolding_only
+        Repeatable real-path Catalyst and Med-Agent Hub text-to-SQL experiments
+        with deterministic lint, execution assertions, and record-level evidence.
+        Clinical answer scoring remains out of scope for this query-to-table suite.
+      evidence_mode: real_path_required
+      command:
+        - uv
+        - run
+        - python
+        - scripts/run-catalyst-validation.py
+        - --suite
+        - datasets/validation/catalyst/catalyst-mvp-v1.json

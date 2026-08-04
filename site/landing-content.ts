@@ -47,9 +47,11 @@ export const APPROACH = {
 
 export const PROOF = {
   heading: 'How we prove it',
-  body: "The harness runs real clinical questions through real systems — OpenMRS chart search, query retrieval, clinical chat, and lab-system AI on OpenELIS — against a realistic demo corpus, and grades each answer on whether it is accurate, grounded in the record, and safe. Every result is recorded so any claim can be traced back and reproduced.",
+  body: "The harness runs real clinical questions through real systems — OpenMRS chart search, query retrieval, clinical chat, and Catalyst, a query-to-table workbench that turns a plain-language question into governed SQL — against a realistic demo corpus, and grades each answer on whether it is accurate, grounded in the record, and safe. Every result is recorded so any claim can be traced back and reproduced.",
   demoLabel: 'Try the live demo',
   demoUrl: DEMO_URL,
+  secondaryDemoLabel: 'Watch Catalyst in action',
+  secondaryDemoTo: '/canvas/specs/artifacts/canvases/catalyst-demos',
   honesty:
     'This is an advisory, clinician-in-the-loop research demonstrator — not a production medical device.',
 };
@@ -70,10 +72,11 @@ export const GO_DEEPER: GoDeeperCard[] = [
   },
   {
     title: 'See how an AI answer is judged',
-    outcome: 'The evidence model and scoring behind every result.',
+    outcome: 'The evidence model, safety guardrails, and scoring behind every result.',
     links: [
       { label: 'The evidence model', to: '/canvas/specs/artifacts/canvases/validation-research' },
       { label: 'Evidence & traceability', to: '/topic/evidence' },
+      { label: 'Safety & governance', to: '/topic/safety-governance' },
     ],
   },
   {
@@ -85,11 +88,11 @@ export const GO_DEEPER: GoDeeperCard[] = [
     ],
   },
   {
-    title: 'Bring this to a deployment',
-    outcome: 'How it extends to the lab and stays safe in real use.',
+    title: 'Try Catalyst: ask a question, get SQL and a table',
+    outcome: 'Two real data sources, two-turn conversations, generated SQL you can read — not a black box.',
     links: [
-      { label: 'Safety & governance', to: '/topic/safety-governance' },
-      { label: 'Lab AI — Catalyst / OpenELIS', to: '/topic/lab-ai' },
+      { label: 'Watch the demos', to: '/canvas/specs/artifacts/canvases/catalyst-demos' },
+      { label: 'How Catalyst is built', to: '/topic/lab-ai' },
     ],
   },
 ];

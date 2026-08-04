@@ -16,6 +16,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
+from harness.common.jsonl import read_jsonl  # noqa: E402
 from harness.validate.sources import audit_sources, build_sources, load_scenario_chart  # noqa: E402
 
 DATA = ROOT / "datasets" / "validation"
@@ -29,12 +30,6 @@ def run_dir(arg: str) -> Path:
     if cand.is_dir():
         return cand
     raise SystemExit(f"no run dir for {arg!r}")
-
-
-def read_jsonl(path: Path) -> list[dict]:
-    if not path.exists():
-        return []
-    return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
 
 
 def summarize(rd: Path) -> dict:

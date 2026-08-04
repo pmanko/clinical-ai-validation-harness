@@ -1,0 +1,123 @@
+#!/usr/bin/env bash
+# Harness entry point for the pinned Catalyst query-to-table MVP.
+#
+# Catalyst and med-agent-hub are sibling target submodules. Other local
+# bootstrap dependencies remain disposable checkouts, never nested submodules.
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+CATALYST_DIR="${ROOT_DIR}/targets/catalyst"
+HUB_DIR="${ROOT_DIR}/targets/med-agent-hub"
+DEFAULT_MVP_COMPOSE_OVERRIDE_FILE="${ROOT_DIR}/compose/catalyst-mvp-isolated.override.yml"
+
+MVP_COMPOSE_OVERRIDE_FILE="${MVP_COMPOSE_OVERRIDE_FILE:-${DEFAULT_MVP_COMPOSE_OVERRIDE_FILE}}"
+if [[ ! -f "${MVP_COMPOSE_OVERRIDE_FILE}" ]]; then
+  echo "ERROR: Catalyst MVP compose override does not exist: ${MVP_COMPOSE_OVERRIDE_FILE}" >&2
+  exit 1
+fi
+MVP_COMPOSE_OVERRIDE_FILE="$(
+  cd "$(dirname "${MVP_COMPOSE_OVERRIDE_FILE}")"
+  printf '%s/%s\n' "$(pwd -P)" "$(basename "${MVP_COMPOSE_OVERRIDE_FILE}")"
+)"
+export MVP_COMPOSE_OVERRIDE_FILE
+
+# The tracked override intentionally moves the OpenELIS TLS endpoints away
+# from the default stack. Keep the URLs used by seed/health aligned with those
+# published ports while still allowing callers to supply explicit values.
+if [[ "${MVP_COMPOSE_OVERRIDE_FILE}" == "${DEFAULT_MVP_COMPOSE_OVERRIDE_FILE}" ]]; then
+  export GATEWAY_PORT="${GATEWAY_PORT:-18000}"
+  export CATALYST_UI_PORT="${CATALYST_UI_PORT:-13000}"
+  export ANALYTICS_DB_PORT="${ANALYTICS_DB_PORT:-15443}"
+  export DATA_PIPES_PORT="${DATA_PIPES_PORT:-18090}"
+  export MED_AGENT_HUB_PORT="${MED_AGENT_HUB_PORT:-18082}"
+  export OPENELIS_HTTPS_PORT="${OPENELIS_HTTPS_PORT:-28443}"
+  export HAPI_HTTPS_PORT="${HAPI_HTTPS_PORT:-28444}"
+fi
+
+usage() {
+  cat <<'EOF'
+Usage: scripts/catalyst-mvp.sh [--fake] {up|seed|health|boot|down|reset}
+
+  --fake  Start the deterministic fake model router (recommended for first boot).
+  up      Start the Catalyst MVP services.
+  seed    Load the pinned synthetic OpenELIS viral-load fixture.
+  health  Run the full MVP health and provenance gate.
+  boot    Run up, seed, and health in sequence.
+  down    Stop the disposable MVP services.
+  reset   Remove the disposable MVP state.
+EOF
+}
+
+fake_backend=false
+if [[ "${1:-}" == "--fake" ]]; then
+  fake_backend=true
+  shift
+fi
+
+if [[ "${fake_backend}" == true ]]; then
+  export MVP_MODEL_BACKEND=fake
+  export MVP_PROFILE_ID="${MVP_PROFILE_ID:-catalyst-query-gemma-4-12b}"
+  export MVP_EXPECTED_ROLE_MODELS_JSON="${MVP_EXPECTED_ROLE_MODELS_JSON:-{\"query_generate\":\"gemma-4-12b\",\"query_review\":\"qwen2.5-coder-1.5b-instruct-q4_k_m\"}}"
+fi
+
+command_name="${1:-}"
+if [[ $# -ne 1 ]] || [[ ! "${command_name}" =~ ^(up|seed|health|boot|down|reset)$ ]]; then
+  usage >&2
+  exit 2
+fi
+
+require_pinned_clean_target() {
+  local label="$1"
+  local relative_path="$2"
+  local target_dir="${ROOT_DIR}/${relative_path}"
+  local expected actual
+
+  if ! git -C "${target_dir}" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    echo "ERROR: ${label} is not initialized at ${target_dir}." >&2
+    echo "Run: git submodule update --init ${relative_path}" >&2
+    exit 1
+  fi
+  expected="$(git -C "${ROOT_DIR}" rev-parse "HEAD:${relative_path}")"
+  actual="$(git -C "${target_dir}" rev-parse HEAD)"
+  if [[ "${actual}" != "${expected}" ]]; then
+    echo "ERROR: ${label} is at ${actual}; the harness pins ${expected}." >&2
+    echo "Run: git submodule update --init ${relative_path}" >&2
+    exit 1
+  fi
+  if [[ -n "$(git -C "${target_dir}" status --porcelain)" ]]; then
+    echo "ERROR: ${label} has uncommitted changes at ${target_dir}." >&2
+    exit 1
+  fi
+}
+
+require_pinned_clean_target "Catalyst" "targets/catalyst"
+
+if [[ -n "$(git -C "${CATALYST_DIR}" ls-tree HEAD .gitmodules)" ]]; then
+  echo "ERROR: the pinned Catalyst revision declares nested Git submodules." >&2
+  echo "Use a Catalyst revision with runtime bootstrap dependencies instead." >&2
+  exit 1
+fi
+
+require_pinned_clean_target "med-agent-hub" "targets/med-agent-hub"
+
+# The harness owns both product pins. Build the sibling Hub checkout directly;
+# standalone Catalyst runs retain their own same-commit fallback bootstrap.
+export MED_AGENT_HUB_CONTEXT="${HUB_DIR}"
+
+run_catalyst() {
+  local script_name="$1"
+  "${CATALYST_DIR}/scripts/${script_name}"
+}
+
+case "${command_name}" in
+  up) run_catalyst mvp-up.sh ;;
+  seed) run_catalyst mvp-seed.sh ;;
+  health) run_catalyst mvp-health.sh ;;
+  boot)
+    run_catalyst mvp-up.sh
+    run_catalyst mvp-seed.sh
+    run_catalyst mvp-health.sh
+    ;;
+  down) run_catalyst mvp-down.sh ;;
+  reset) run_catalyst mvp-reset.sh ;;
+esac

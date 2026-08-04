@@ -1,0 +1,18 @@
+{
+  "contractVersion": "harness.catalyst-notebook.http-exchange.v1",
+  "request": {
+    "method": "GET",
+    "path": "/v1/catalyst/dataset",
+    "body": null
+  },
+  "response": {
+    "httpStatus": 200,
+    "body": {
+      "contractVersion": "catalyst.dataset-overview.v1",
+      "datasetId": "catalyst-cohort-v1",
+      "datasetVersion": "1",
+      "displayName": "Fixture cohort (PHI-free)"
+    }
+  },
+  "elapsedMs": 5
+}

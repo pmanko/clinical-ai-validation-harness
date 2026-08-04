@@ -1,0 +1,52 @@
+name: catalyst-mvp-isolated
+
+# The upstream OpenELIS compose file owns a globally named 172.20.1.0/24
+# network and globally named containers. The harness keeps its MVP disposable
+# and isolated from any other OpenELIS checkout on the same workstation.
+services:
+  certs:
+    container_name: catalyst-mvp-isolated-certs
+
+  db.openelis.org:
+    container_name: catalyst-mvp-isolated-openelis-db
+    ports: !override
+      - "127.0.0.1:25432:5432"
+
+  oe.openelis.org:
+    container_name: catalyst-mvp-isolated-openelis-app
+    ports: !override
+      - "127.0.0.1:28080:8080"
+      - "127.0.0.1:${OPENELIS_HTTPS_PORT:-28443}:8443"
+    networks:
+      openelis-network:
+        ipv4_address: 192.168.166.121
+
+  fhir.openelis.org:
+    container_name: catalyst-mvp-isolated-hapi-fhir
+    ports: !override
+      - "127.0.0.1:28081:8080"
+      - "127.0.0.1:${HAPI_HTTPS_PORT:-28444}:8443"
+
+  # Registers the second (OpenMRS HIV/ART program) data source alongside the
+  # base OpenELIS one. The default path resolves relative to the first compose
+  # file's directory (targets/catalyst) to the harness-level
+  # catalyst-sources/openmrs-hiv directory; override with CATALYST_HIV_SOURCE_DIR
+  # if the source lives elsewhere. Its ingestion pipeline (fhir-data-pipes
+  # against the OpenMRS FHIR2 R4 endpoint) is run separately and writes to the
+  # sibling catalyst_analytics_hiv database.
+  catalyst-gateway:
+    environment:
+      CATALYST_DATA_SOURCES_PATH: "/app/config/extra/data-sources.json"
+    volumes:
+      # Mount the source directory whole at /app/config/extra, so the registry
+      # and every catalog it names keep their relative layout inside the
+      # container. data-sources.json addresses catalogs as
+      # /app/config/extra/<path-within-this-directory>.
+      - "${CATALYST_HIV_SOURCE_DIR:-../../catalyst-sources/openmrs-hiv}:/app/config/extra:ro"
+
+networks:
+  openelis-network:
+    name: catalyst-mvp-isolated-network
+    ipam:
+      config: !override
+        - subnet: 192.168.166.0/24

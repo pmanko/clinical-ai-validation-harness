@@ -12,6 +12,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 EMPTY_HF="${HOME}/.cache/llama-router-emptyhf"
+ROUTER_PORT="${LLAMA_ROUTER_PORT:-8077}"
 MODEL_DIR="${LLAMA_MODEL_DIR:-${HOME}/.cache/llama-router-models}"
 RUNTIME_DIR="${LLAMA_ROUTER_RUNTIME_DIR:-${ROOT}/artifacts/llama-router}"
 RUNTIME_MODELS="${RUNTIME_DIR}/models"
@@ -128,4 +129,4 @@ fi
 # (LOW+MED weights ~41G + one HIGH model ~29G > 64G) — pick the workload, restart to switch.
 exec env HF_HOME="${EMPTY_HF}" llama-server \
   --models-preset "${ROOT}/scripts/llama-router.ini" \
-  --models-max "${LLAMA_ROUTER_MODELS_MAX:-4}" --port 8077 --host 0.0.0.0
+  --models-max "${LLAMA_ROUTER_MODELS_MAX:-4}" --port "${ROUTER_PORT}" --host 0.0.0.0

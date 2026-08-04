@@ -1,0 +1,23 @@
+{
+  "evidence_status": "development",
+  "phi_free": true,
+  "release_evidence": false,
+  "suite_sha256": "fd392d9b2a9e8e9a76dce6f519d63259c7de2d0338882d476af0f986f417b434",
+  "description": "Synthetic Catalyst notebook fixture covering T094 families, gold-fail, and no-judge.",
+  "scenario_families": [
+    "aggregation-output-shape",
+    "hub-tool-failure",
+    "lint-clean-semantic-reviewer-correction",
+    "narrowing",
+    "unresolved-correction"
+  ],
+  "gold_fail_scenarios": [
+    "gold-fail-high-judge"
+  ],
+  "no_judge_scenarios": [
+    "narrowing-no-judge-variant"
+  ],
+  "multi_version_scenarios": [
+    "multi-version-successor"
+  ]
+}

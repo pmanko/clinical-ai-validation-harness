@@ -1,0 +1,5 @@
+# Runtime configuration required by the pinned controller's local Flink runner.
+taskmanager.memory.network.max: 256mb
+taskmanager.memory.managed.size: 256mb
+execution.attached: false
+execution.job-listeners: com.google.fhir.analytics.metrics.FlinkJobListener

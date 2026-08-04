@@ -26,10 +26,7 @@ from pathlib import Path
 from harness.validate.report import build_report
 
 
-def _read_jsonl(path: Path) -> list[dict]:
-    if not path.exists():
-        return []
-    return [json.loads(ln) for ln in path.read_text(encoding="utf-8").splitlines() if ln.strip()]
+from harness.common.jsonl import read_jsonl
 
 
 def main() -> None:
@@ -40,8 +37,8 @@ def main() -> None:
     manifest = json.loads((orig / "run_manifest.json").read_text(encoding="utf-8"))
     run_id = manifest.get("run_id", "")
 
-    orig_rows = _read_jsonl(orig / "results.jsonl")
-    patch_rows = _read_jsonl(patch / "results.jsonl")
+    orig_rows = read_jsonl(orig / "results.jsonl")
+    patch_rows = read_jsonl(patch / "results.jsonl")
 
     kept = [r for r in orig_rows if r.get("backend_id") != arm]
     arm_rows = [r for r in patch_rows if r.get("backend_id") == arm]

@@ -1,0 +1,149 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openelis-global.org/contracts/catalyst-workbench-editor-snapshot-record-v1.schema.json",
+  "title": "Catalyst workbench persisted editor snapshot record v1",
+  "description": "Server-owned persisted occurrence of exact editor content and its deterministic base-resolution evidence.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contractVersion",
+    "snapshotId",
+    "sessionId",
+    "turnId",
+    "capturedAt",
+    "actor",
+    "sourceObservedBase",
+    "classification",
+    "effectiveBaseVersion",
+    "content",
+    "unresolvedPaths",
+    "findings",
+    "sourceEvidenceRef"
+  ],
+  "properties": {
+    "contractVersion": {
+      "const": "catalyst.workbench.editor-snapshot-record.v1"
+    },
+    "snapshotId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "sessionId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "turnId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "capturedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "actor": {
+      "$ref": "#/$defs/actor"
+    },
+    "sourceObservedBase": {
+      "oneOf": [
+        {"type": "null"},
+        {"$ref": "catalyst-workbench-turn-request-v1.schema.json#/$defs/versionRef"}
+      ]
+    },
+    "classification": {
+      "enum": ["reused", "promoted_human", "unresolved"]
+    },
+    "effectiveBaseVersion": {
+      "oneOf": [
+        {"type": "null"},
+        {"$ref": "catalyst-workbench-turn-request-v1.schema.json#/$defs/versionRef"}
+      ]
+    },
+    "content": {
+      "$ref": "catalyst-workbench-editor-snapshot-v1.schema.json"
+    },
+    "unresolvedPaths": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1}
+    },
+    "findings": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/finding"}
+    },
+    "sourceEvidenceRef": {
+      "type": ["string", "null"],
+      "minLength": 1
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {"classification": {"const": "reused"}},
+        "required": ["classification"]
+      },
+      "then": {
+        "properties": {
+          "sourceObservedBase": {
+            "$ref": "catalyst-workbench-turn-request-v1.schema.json#/$defs/versionRef"
+          },
+          "effectiveBaseVersion": {
+            "$ref": "catalyst-workbench-turn-request-v1.schema.json#/$defs/versionRef"
+          },
+          "unresolvedPaths": {"maxItems": 0},
+          "findings": {"maxItems": 0}
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {"classification": {"const": "promoted_human"}},
+        "required": ["classification"]
+      },
+      "then": {
+        "properties": {
+          "effectiveBaseVersion": {
+            "$ref": "catalyst-workbench-turn-request-v1.schema.json#/$defs/versionRef"
+          },
+          "unresolvedPaths": {"maxItems": 0},
+          "findings": {"maxItems": 0}
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {"classification": {"const": "unresolved"}},
+        "required": ["classification"]
+      },
+      "then": {
+        "properties": {
+          "effectiveBaseVersion": {"type": "null"},
+          "unresolvedPaths": {"minItems": 1},
+          "findings": {"minItems": 1}
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "actor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "actorId"],
+      "properties": {
+        "type": {"enum": ["human", "system", "legacy_synthesis"]},
+        "actorId": {"type": ["string", "null"], "minLength": 1}
+      }
+    },
+    "finding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["findingId", "code", "severity", "path", "message"],
+      "properties": {
+        "findingId": {"type": "string", "minLength": 1},
+        "code": {"type": "string", "minLength": 1},
+        "severity": {"enum": ["error", "warning", "info"]},
+        "path": {"type": "string", "minLength": 1},
+        "message": {"type": "string", "minLength": 1, "maxLength": 4000}
+      }
+    }
+  }
+}

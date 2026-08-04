@@ -4,7 +4,7 @@ UV_PROJECT_ENVIRONMENT ?= .venv
 export UV_PROJECT_ENVIRONMENT
 
 .PHONY: setup python-pin test smoke validate-plan clean-venv \
-        up down reset status logs \
+        up down local-stack-up local-stack-down reset status logs \
         ciel-fetch ciel-baseline \
         reset-transform sqlmesh-status \
         loadtest-up loadtest-down \
@@ -15,7 +15,8 @@ export UV_PROJECT_ENVIRONMENT
         med-agent-hub-build med-agent-hub-up med-agent-hub-logs med-agent-hub-restart med-agent-hub-test chartsearch-test chartsearch-e2e-low-confidence querystore-test querystore-test-integration querystore-reindex \
         dashboard-ensure dashboard-restart validate-preflight validate-run validate-judge-prep validate-judge-finalize validate-publish \
         cloud-init cloud-sync cloud-down cloud-seed \
-        cloud-start cloud-stop cloud-ssh cloud-logs cloud-status cloud-destroy
+        cloud-start cloud-stop cloud-ssh cloud-logs cloud-status cloud-destroy \
+        catalyst-mvp-up catalyst-mvp-external catalyst-mvp-fake catalyst-mvp-seed catalyst-mvp-health catalyst-mvp-down catalyst-mvp-reset
 
 # --- compose lifecycle ---
 up:
@@ -23,6 +24,16 @@ up:
 
 down:
 	./scripts/stack-down.sh
+
+# Fast-resume path for a day-to-day dev machine: starts Docker Desktop,
+# llama-router, and the already-built compose stack with no rebuilds — for
+# first-time setup or after source changes under targets/, use
+# `make chartsearchai-local` instead.
+local-stack-up:
+	./scripts/local-stack-up.sh
+
+local-stack-down:
+	./scripts/local-stack-down.sh
 
 reset:
 	./scripts/stack-reset.sh
@@ -34,6 +45,30 @@ status:
 
 logs:
 	docker compose -f compose/openmrs-2.8-refapp.yml logs -f --tail=200
+
+# --- Catalyst query-to-table MVP ---
+# Catalyst is a harness target submodule. Its MVP performs a versioned runtime
+# bootstrap; Hub is never initialized as a nested Catalyst submodule.
+catalyst-mvp-up:
+	./scripts/catalyst-mvp.sh up
+
+catalyst-mvp-external:
+	MVP_MODEL_BACKEND=external ./scripts/catalyst-mvp.sh boot
+
+catalyst-mvp-fake:
+	./scripts/catalyst-mvp.sh --fake boot
+
+catalyst-mvp-seed:
+	./scripts/catalyst-mvp.sh seed
+
+catalyst-mvp-health:
+	./scripts/catalyst-mvp.sh health
+
+catalyst-mvp-down:
+	./scripts/catalyst-mvp.sh down
+
+catalyst-mvp-reset:
+	./scripts/catalyst-mvp.sh reset
 
 # --- CIEL baseline ---
 CIEL_VERSION ?= v2026-04-28

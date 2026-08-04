@@ -1,0 +1,39 @@
+{
+  "contractVersion": "harness.catalyst-notebook.http-exchange.v1",
+  "request": {
+    "method": "GET",
+    "path": "/v1/catalyst/workbench/sessions/session-aggregation-dirty-base-profile-switch/turns/turn-initial/generation-evidence",
+    "body": null
+  },
+  "response": {
+    "httpStatus": 200,
+    "body": {
+      "contractVersion": "catalyst.workbench.generation-evidence.v1",
+      "evidenceId": "evidence-initial-aggregation-dirty-base-profile-switch",
+      "evidenceDigest": "3fe820daa56fbdbc27d43027848ca61eafa916b7815aaf48458b97e88df46161",
+      "sessionId": "session-aggregation-dirty-base-profile-switch",
+      "turnId": "turn-initial-aggregation-dirty-base-profile-switch",
+      "turnKind": "initial",
+      "status": "completed",
+      "instruction": "Fixture question for aggregation-output-shape",
+      "candidates": [],
+      "invocations": [
+        {
+          "invocationId": "inv-writer-initial-aggregation-dirty-base-profile-switch",
+          "role": "writer",
+          "stage": "initial_generation",
+          "attempt": 1,
+          "providerId": "llama.cpp",
+          "modelId": "gemma-4-12b",
+          "startedAt": "2026-07-21T20:00:00+00:00",
+          "endedAt": "2026-07-21T20:00:00+00:00",
+          "durationMs": 10,
+          "requestDigest": "9f377ca7d1c84e371836ea5fee88649db9ea058d243bc54507fe57224c8a737d",
+          "responseDigest": "6be431c288852f21bf9ca0745c029ca38546b60605ea9e469c52048b3eb43c21",
+          "outcome": "succeeded"
+        }
+      ]
+    }
+  },
+  "elapsedMs": 5
+}

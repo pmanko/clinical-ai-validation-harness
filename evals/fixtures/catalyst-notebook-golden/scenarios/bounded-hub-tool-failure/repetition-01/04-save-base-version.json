@@ -1,0 +1,37 @@
+{
+  "contractVersion": "harness.catalyst-notebook.http-exchange.v1",
+  "request": {
+    "method": "POST",
+    "path": "/v1/catalyst/workbench/sessions/session-bounded-hub-tool-failure/versions",
+    "body": {
+      "sql": "SELECT observation_id, patient_id FROM analytics.lab_result_fact_v1 WHERE observed_at >= :start_date"
+    }
+  },
+  "response": {
+    "httpStatus": 200,
+    "body": {
+      "contractVersion": "catalyst.workbench.query-version.v1",
+      "versionId": "version-base-bounded-hub-tool-failure",
+      "sessionId": "session-fixture",
+      "ordinal": 1,
+      "parentVersionId": null,
+      "authorType": "model",
+      "sql": "SELECT observation_id, patient_id FROM analytics.lab_result_fact_v1 WHERE observed_at >= :start_date",
+      "parameters": [
+        {
+          "name": "start_date",
+          "type": "date",
+          "source": "human",
+          "value": "2026-01-01"
+        }
+      ],
+      "expectedColumns": [],
+      "queryDigest": "fa6c01cd3c49c6b6b1ba09fd5a84e58e2850863b2eacd0c358a727f62bf8e2fc",
+      "provenance": {
+        "fixture": true
+      },
+      "createdAt": "2026-07-21T20:00:00+00:00"
+    }
+  },
+  "elapsedMs": 5
+}

@@ -1,0 +1,45 @@
+{
+  "resourceType": "http://hl7.org/fhir/uv/sql-on-fhir/StructureDefinition/ViewDefinition",
+  "text": "Gap-fill for the upstream default set (which ships no Medication view); same lossless forEachOrNull-over-codings style. Needed because OpenMRS MedicationRequest references Medication resources rather than inlining a CodeableConcept.",
+  "name": "medication_flat",
+  "status": "active",
+  "resource": "Medication",
+  "fhirVersion": [
+    "4.0"
+  ],
+  "select": [
+    {
+      "column": [
+        {
+          "path": "getResourceKey()",
+          "name": "id"
+        },
+        {
+          "path": "status",
+          "name": "status"
+        },
+        {
+          "path": "code.text",
+          "name": "code_text"
+        }
+      ]
+    },
+    {
+      "forEachOrNull": "code.coding",
+      "column": [
+        {
+          "path": "code",
+          "name": "code_code"
+        },
+        {
+          "path": "system",
+          "name": "code_sys"
+        },
+        {
+          "path": "display",
+          "name": "code_display"
+        }
+      ]
+    }
+  ]
+}

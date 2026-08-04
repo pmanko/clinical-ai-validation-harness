@@ -51,20 +51,51 @@ def test_landing_has_one_clear_h1_and_required_project_sections():
     html, page = parsed_landing()
 
     assert page.h1_count == 1
-    assert {"main-content", "project", "hub", "openmrs", "evidence"} <= page.ids
+    assert {"main-content", "project", "hub", "openmrs", "catalyst", "evidence"} <= page.ids
     assert "Med Agent Hub" in html
-    assert "Current integration" in html
-    assert "Validation harness" in html
-    assert "Research demonstrator" in html
+    assert "OpenMRS integration" in html
+    assert "Published validation runs." in html
+    assert "Experimental software" in html
+
+
+def test_landing_uses_plain_project_language_instead_of_advertising_copy():
+    html, _ = parsed_landing()
+
+    assert "A framework for orchestrating and evaluating open models in clinical workflows." in html
+    assert "How each answer is produced." in html
+    for phrase in (
+        "Build clinical AI that can be inspected",
+        "Evidence before confidence",
+        "See the staged workflow in motion",
+        "Claims are published with the evidence needed to challenge them",
+        "Try the integration, then inspect the results",
+        "Explore the OpenMRS demo",
+        "Explore published reports",
+    ):
+        assert phrase not in html
 
 
 def test_primary_destinations_are_first_party_and_prominent():
     html, page = parsed_landing()
 
-    assert page.links.count("https://openmrs.openclinai.org/") >= 3
-    assert page.links.count("https://reports.openclinai.org/") >= 3
-    assert "Open the OpenMRS demo" in html
-    assert "Explore published reports" in html
+    assert 1 <= page.links.count("https://openmrs.openclinai.org/") <= 2
+    assert 1 <= page.links.count("https://reports.openclinai.org/") <= 5
+    assert "OpenMRS demo" in html
+    assert "Evaluation reports" in html
+
+    # Catalyst is a first-class product section: laboratory + HIV program
+    # demos, the published acceptance run, and the project documentation.
+    assert "Catalyst" in html
+    assert "OpenELIS" in html
+    assert "HIV" in html
+    assert (
+        "https://reports.openclinai.org/catalyst-notebook-t094-2026-07-22/"
+        in page.links
+    )
+    assert any(
+        link.startswith("https://pmanko.github.io/clinical-ai-validation-harness/")
+        for link in page.links
+    )
 
     first_party_hosts = {
         urlparse(link).hostname
@@ -75,11 +106,12 @@ def test_primary_destinations_are_first_party_and_prominent():
 
 
 def test_every_local_media_reference_exists_and_has_accessible_context():
-    _, page = parsed_landing()
+    html, page = parsed_landing()
 
-    assert len(page.videos) == 2
-    assert len(page.sources) == 2
+    assert len(page.videos) == 4
+    assert len(page.sources) == 4
     assert len(page.images) >= 3
+    assert "1:45 · silent recording at 2× speed" in html
 
     for image in page.images:
         assert image.get("src")
@@ -131,7 +163,10 @@ def test_stable_publish_entrypoint_verifies_the_live_page():
     assert '"${ROOT}/landing/"' in publish
     assert '"${ROOT}/compose/Caddyfile"' in publish
     assert '"${ROOT}/compose/openmrs-2.8-refapp.yml"' in publish
-    assert "rsync -avz --delete" in publish
+    # -L dereferences symlinks (landing/media/*.mp4 symlink into
+    # site/public/demos/videos/ to avoid duplicate committed binaries); the
+    # deployed landing/ must still receive real files, not dangling symlinks.
+    assert "rsync -avzL --delete" in publish
     assert "CONFIG_CHANGES=" in publish
     assert 'if [ -n "${CONFIG_CHANGES}" ]' in publish
     assert "proxy config unchanged; no service restart needed" in publish

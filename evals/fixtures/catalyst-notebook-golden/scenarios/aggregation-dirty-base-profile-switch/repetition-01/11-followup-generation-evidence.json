@@ -1,0 +1,58 @@
+{
+  "contractVersion": "harness.catalyst-notebook.http-exchange.v1",
+  "request": {
+    "method": "GET",
+    "path": "/v1/catalyst/workbench/sessions/session-aggregation-dirty-base-profile-switch/turns/turn-followup/generation-evidence",
+    "body": null
+  },
+  "response": {
+    "httpStatus": 200,
+    "body": {
+      "contractVersion": "catalyst.workbench.generation-evidence.v1",
+      "evidenceId": "evidence-followup-aggregation-dirty-base-profile-switch",
+      "evidenceDigest": "fb839bd30b0db27e581cb1c097bbb14944cdda3971fd23b95d6e1b69cd7a86a2",
+      "sessionId": "session-aggregation-dirty-base-profile-switch",
+      "turnId": "turn-followup-aggregation-dirty-base-profile-switch",
+      "turnKind": "followup",
+      "status": "completed",
+      "instruction": "Follow-up for aggregation-output-shape",
+      "candidates": [],
+      "finalSelection": {
+        "status": "completed",
+        "selectedCandidateDigest": "7cb1b90865894b0d4c03c6086c80512421ede4c8ad2163cb8ccc2178bfc30451",
+        "selectedVersionId": "version-succ-aggregation-dirty-base-profile-switch"
+      },
+      "invocations": [
+        {
+          "invocationId": "inv-writer-aggregation-dirty-base-profile-switch",
+          "role": "writer",
+          "stage": "followup_generation",
+          "attempt": 1,
+          "providerId": "llama.cpp",
+          "modelId": "gemma-4-12b",
+          "startedAt": "2026-07-21T20:00:00+00:00",
+          "endedAt": "2026-07-21T20:00:00+00:00",
+          "durationMs": 12,
+          "requestDigest": "f51736f519ab88ce75d79a453f42959f404cca56da0096e106045c50893ce072",
+          "responseDigest": "7bbf3e55c5e0420d624d7c5bd6db777f9d1268335eb4dccfc39659d3059f0359",
+          "outcome": "succeeded"
+        },
+        {
+          "invocationId": "inv-reviewer-aggregation-dirty-base-profile-switch",
+          "role": "reviewer",
+          "stage": "followup_generation",
+          "attempt": 1,
+          "providerId": "llama.cpp",
+          "modelId": "qwen2.5-14b",
+          "startedAt": "2026-07-21T20:00:00+00:00",
+          "endedAt": "2026-07-21T20:00:00+00:00",
+          "durationMs": 15,
+          "requestDigest": "1e1861b51c2b3d340e8b4c7b12fb8d0b7fd5befbcf8dd40976eeb017285e5404",
+          "responseDigest": "088616a9b5bfbfa1c6e71db168e2c676b21e381203936d439b83d4d6169b053a",
+          "outcome": "succeeded"
+        }
+      ]
+    }
+  },
+  "elapsedMs": 5
+}

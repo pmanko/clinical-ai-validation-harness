@@ -1,0 +1,20 @@
+{
+  "contractVersion": "harness.catalyst-notebook.http-exchange.v1",
+  "request": {
+    "method": "GET",
+    "path": "/v1/catalyst/catalog",
+    "body": null
+  },
+  "response": {
+    "httpStatus": 200,
+    "body": {
+      "catalogVersion": "analytics-catalog-v1",
+      "tables": [
+        {
+          "name": "analytics.lab_result_fact_v1"
+        }
+      ]
+    }
+  },
+  "elapsedMs": 5
+}

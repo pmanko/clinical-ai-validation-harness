@@ -1,5 +1,12 @@
 # AGENTS.md
 
+<!-- SPECKIT START -->
+Active feature plan: `specs/008-catalyst-query-workbench/plan.md`
+
+Implementation is gated by G0–G6 in that plan. Before crossing a user gate,
+surface unresolved nondeterminism, inconsistencies, and environment decisions.
+<!-- SPECKIT END -->
+
 Guidance for AI agents and contributors working in this repository.
 
 ## Project Purpose

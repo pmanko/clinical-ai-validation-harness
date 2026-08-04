@@ -52,7 +52,8 @@ export const navTree: NavSection[] = [
       { kind: 'canvas', slug: 'specs/artifacts/canvases/demo-data-profile',           title: 'Demo-data profile & cohorts',  blurb: 'The loaded OpenMRS 2.8 demo corpus: landscape, completeness, and validation cohorts.' },
       { kind: 'canvas', slug: 'specs/artifacts/canvases/clinical-ai-research-guidance', title: 'Clinical-AI research guidance', blurb: 'Research vectors, evidence levels, and maturity framing.' },
       { kind: 'canvas', slug: 'specs/artifacts/canvases/scout-comparative-analysis',  title: 'Scout comparative analysis',   blurb: 'Duke DIHI Scout and what it implies for chartsearchai, openmrs_chatbot, and Catalyst.' },
-      { kind: 'canvas', slug: 'specs/artifacts/canvases/catalyst-fhir-sidecar',       title: 'Catalyst FHIR sidecar',        blurb: 'FHIR-grounded lab AI over OpenELIS — the M10 design direction.' },
+      { kind: 'canvas', slug: 'specs/artifacts/canvases/catalyst-demos',              title: 'Catalyst demos',               blurb: 'Query-to-table on two real data sources — watch a two-turn conversation on each.' },
+      { kind: 'canvas', slug: 'specs/artifacts/canvases/catalyst-fhir-sidecar',       title: 'Catalyst FHIR sidecar',        blurb: 'FHIR-grounded lab AI over OpenELIS — the M10 design direction (superseded by the shipped query-to-table workbench above).' },
     ],
   },
   {
@@ -63,6 +64,7 @@ export const navTree: NavSection[] = [
       { kind: 'canvas', slug: 'specs/artifacts/canvases/sqlmesh-transformation-flow',  title: 'SQLMesh transformation flow',  blurb: 'How the deterministic OpenMRS 2.7 → 2.8 transform is materialized.' },
       { kind: 'canvas', slug: 'specs/artifacts/canvases/chartsearchai-and-querystore', title: 'chartsearchai & querystore',  blurb: 'Architecture of the chart-search and query-retrieval integration.' },
       { kind: 'canvas', slug: 'specs/artifacts/canvases/answer-indepth-parity',        title: 'Answer / In-Depth parity',    blurb: 'Evolving Answer and In-Depth into two truly separate, independently-measured responses — current architecture (both setups) and the roadmap.' },
+      { kind: 'canvas', slug: 'specs/artifacts/canvases/answer-flow',                  title: 'Answer flow — what to simplify', blurb: 'med-agent-hub answer-generation flow and where to cut complexity.' },
       { kind: 'canvas', slug: 'specs/artifacts/canvases/cross-project-comparison',     title: 'Cross-project comparison',     blurb: 'Side-by-side architecture of chartsearchai, openmrs_chatbot, and Catalyst.' },
       { kind: 'canvas', slug: 'specs/artifacts/canvases/upstream-contribution-and-compatibility', title: 'Upstream contribution & compatibility', blurb: 'The ChartSearchAI relay and med-agent-hub profile integration organized into reviewable OpenMRS contributions.' },
       { kind: 'canvas', slug: 'specs/artifacts/canvases/validator-audit-framework',   title: 'Validator audit framework',    blurb: 'How validator behavior is audited and kept reviewable.' },

@@ -1,0 +1,91 @@
+{
+  "resourceType": "http://hl7.org/fhir/uv/sql-on-fhir/StructureDefinition/ViewDefinition",
+  "text": "Upstream fhir-data-pipes default (docker/config/views/medication_request_flat_view.json) PLUS harness-local additive column med_display (OpenMRS uses medicationReference, whose display carries the drug name) — keep that delta when syncing from upstream.",
+  "fhirVersion": [
+    "4.0"
+  ],
+  "select": [
+    {
+      "column": [
+        {
+          "path": "getResourceKey()",
+          "name": "id"
+        },
+        {
+          "path": "subject.getReferenceKey(Patient)",
+          "name": "patient_id"
+        },
+        {
+          "path": "encounter.getReferenceKey(Encounter)",
+          "name": "encounter_id"
+        },
+        {
+          "path": "status",
+          "name": "status"
+        },
+        {
+          "path": "intent",
+          "name": "intent"
+        },
+        {
+          "path": "doNotPerform",
+          "name": "doNotPerform",
+          "type": "boolean"
+        },
+        {
+          "path": "requester.getReferenceKey(Practitioner)",
+          "name": "req_practitioner_id"
+        },
+        {
+          "path": "performer.getReferenceKey(Practitioner)",
+          "name": "perf_practitioner_id"
+        },
+        {
+          "path": "medication.ofType(Reference).getReferenceKey(Medication)",
+          "name": "med_id"
+        },
+        {
+          "path": "medication.ofType(Reference).display",
+          "name": "med_display"
+        }
+      ]
+    },
+    {
+      "forEachOrNull": "medication.ofType(CodeableConcept).coding",
+      "column": [
+        {
+          "path": "system",
+          "name": "medication_system"
+        },
+        {
+          "path": "code",
+          "name": "medication_code"
+        },
+        {
+          "path": "display",
+          "name": "medication_display"
+        }
+      ]
+    },
+    {
+      "forEachOrNull": "statusReason.coding",
+      "column": [
+        {
+          "path": "system",
+          "name": "statusReason_sys"
+        },
+        {
+          "path": "code",
+          "name": "statusReason_code"
+        },
+        {
+          "path": "display",
+          "name": "statusReason_display"
+        }
+      ]
+    }
+  ],
+  "name": "medication_request_flat",
+  "status": "draft",
+  "resource": "MedicationRequest"
+}
