@@ -20,11 +20,11 @@ Execution state for the Catalyst validation integration remediation roadmap.
 |---|---|---|
 | **008-G5** | `specs/008-catalyst-query-workbench/roadmap.md` W2 **G5 user** | Not accepted — no longer a CVR entry gate (A1) |
 | **008-G6** | `specs/008-catalyst-query-workbench/roadmap.md` W3 **G6 user** | Not accepted — no longer a CVR entry gate (A1) |
-| **T094** | Diverse real-path notebook validation | In progress — exact-current-pin model/PostgreSQL matrix 12/12 PASS (run `cbc41bcd`); one-shot transport failure and same-session recovery PASS (run `68da21db`); responsive 390/320 and 200%-layout-equivalent checks PASS; **open: actual keyboard-only/zoom confirmation** |
+| **T094** | Diverse real-path notebook validation | In progress — July 30 PR-head model/PostgreSQL matrix 12/12 PASS (run `cbc41bcd`); one-shot transport failure and same-session recovery PASS (run `68da21db`); responsive 390/320 and 200%-layout-equivalent checks PASS; **open: final merged-pin rerun plus actual keyboard-only/zoom confirmation** |
 | **T095** | G2.8c acceptance pause | Open |
 | **T111** | Clean-pin rerun + user acceptance | Open |
 
-## Current architecture and candidate pins (2026-07-30)
+## Current architecture and candidate pins (2026-08-03)
 
 The current implementation no longer uses Hub-owned Catalyst query profiles.
 Catalyst Gateway owns the query-profile registry, prompts, writer/reviewer
@@ -34,14 +34,14 @@ boundary and retains a separate clinical-answer/report profile system.
 
 | Component | Candidate revision | State |
 |---|---|---|
-| Catalyst | `be3f95c` (PR #5) | Standalone fallback Hub SHA aligned; redundant literal-SHA test removed; all five PR CI jobs green |
-| Med-Agent Hub | `198d5f6` (PR #15) | Focused 28/28 and full local 633/633 suites green; all Copilot threads resolved |
-| Harness | `codex/catalyst-mvp-umbrella` (PR #37) | Pins Catalyst `be3f95c`/Hub `198d5f6`; CI and GitGuardian green/neutral; keyboard/user acceptance remains open |
+| Catalyst | `9aa0e0f` (PR #5) | Standalone fallback pinned to merged Hub `main`; all five PR CI jobs green; no unresolved review threads |
+| Med-Agent Hub | `092b5cd` (`main`; PR #15 merged) | Generic role executor and final model-inventory dependencies available on merged `main` |
+| Harness | `80c2bb7` on `codex/catalyst-mvp-umbrella` (PR #37) | Reconciled with current Harness `main`; pins Catalyst `9aa0e0f`/Hub `092b5cd`; checks green/neutral, all six review threads resolved, approval required |
 
-The current authoritative run
+The authoritative July 30 PR-head run
 `cbc41bcd-56f7-4074-931f-98ed42fea202` passed 12/12 scenario repetitions on
 harness `e475d7a`, Catalyst `bb36126`, and Hub `198d5f6`, with every result
-independently checked against PostgreSQL/gold SQL. Current-pin run
+independently checked against PostgreSQL/gold SQL. The corresponding PR-head run
 `68da21db-2178-4010-9fd4-5c73fd477261` also proved a one-shot typed Hub
 transport failure leaves the human base current; same-session turn
 `bbd77610-2660-4ae8-84fa-6dffe57d760e` then recovered using matching
@@ -72,6 +72,11 @@ T124 repaired the runtime-availability boundary: Hub publishes a versioned
 backend model inventory, `LocalHub` requires every exact writer/reviewer alias,
 and unavailable profiles fail closed before state or model calls. Component
 coverage and the isolated exact-pin live proof are green.
+
+The final merged-pin T111 rerun is now pending on Harness `80c2bb7`, Catalyst
+`9aa0e0f`, and Hub `092b5cd`. No T094/T095/T111 status is promoted from the
+older runs; the definitive matrix, durable evidence receipt, actual keyboard/
+200%-zoom check, and explicit user acceptance remain required.
 
 ## Baseline Snapshot (CVR-G00)
 

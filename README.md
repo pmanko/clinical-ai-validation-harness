@@ -124,8 +124,9 @@ git submodule update --init targets/catalyst targets/med-agent-hub
 ```
 
 The local sandbox brings up OpenELIS, HAPI FHIR, FHIR Data Pipes, the analytics
-database, Catalyst Gateway, the pinned sibling Hub query profiles, and the sidecar UI;
-it then seeds the synthetic multi-analyte cohort.
+database, Catalyst Gateway, the pinned sibling Hub generic model executor, and
+the sidecar UI; it then seeds the synthetic multi-analyte cohort. Gateway owns
+the Catalyst query profiles, prompts, lint, and writer/reviewer orchestration.
 
 ```bash
 make catalyst-mvp-fake
@@ -140,14 +141,15 @@ catalyst-mvp-*` target runs the isolated stack
 `13000` and the gateway on `18000` so they cannot collide with another stack on
 this host. `3000` is Catalyst's own default, which you get only when running
 its compose directly from `targets/catalyst`. `CATALYST_UI_PORT` overrides
-either. The profile picker lets you compare Hub-owned
-model configurations; see
+either. The profile picker shows Gateway-owned query profiles whose exact writer
+and optional reviewer models are advertised by Hub's backend inventory; see
 [Catalyst manual LLM testing](docs/catalyst-manual-llm-testing.md). This is
 demo-data engineering evidence, not a clinical-quality claim.
 
 After the real-model health gate passes, run the versioned validation suite
-against that live Gateway. The selected Hub profile must advertise the Gemma 4
-12B writer and Qwen 2.5 14B reviewer configured by the suite.
+against that live Gateway. Hub's backend inventory must advertise the exact
+Gemma 4 12B writer and Qwen 2.5 14B reviewer aliases required by the selected
+Gateway profile.
 
 ```bash
 uv run python scripts/run-catalyst-validation.py \

@@ -84,8 +84,9 @@ single-user research artifacts, not multi-tenant production records
 
 *The original W1 and G2.8a written gates passed. G2.8b and the post-UI automated
 gate passed for the earlier Hub-owned query engine. The later Gateway-ownership
-refactor and current-pin model/PostgreSQL matrix pass in the active PR chain,
-but T111 still requires the live accessibility matrix and user acceptance.
+refactor passed its July 30 PR-head model/PostgreSQL matrix; the reconciled
+merged-Hub pins still require the definitive T111 live rerun, accessibility
+matrix, and user acceptance.
 Multi-source/lossless acceptance remains separately open.*
 
 - **Real production paths — PASS**: The browser calls the deployed Catalyst
@@ -756,12 +757,11 @@ The following items must remain visible until evidence resolves them:
   The wrapper now accepts an empty body from an otherwise successful backfill
   endpoint, while the supported Data Pipes run and complete health/provenance
   gate remain authoritative.
-- **N61 — Query-orchestration ownership changed after strongest live run
-  (open at T111)**: The strongest 12/12 and 18/18 live evidence used pre-refactor
-  Catalyst/Hub commits. Current code moves query profiles, prompts, and
-  writer/reviewer orchestration into Gateway and reduces Hub to a generic role
-  executor. Component tests are necessary but cannot substitute for the
-  current-pin live and accessibility rerun.
+- **N61 — Final merged-pin rerun follows the strongest PR-head live run
+  (open at T111)**: The strongest 12/12 and bounded-failure live evidence used
+  earlier PR-head revisions. The reconciled candidates are Harness `80c2bb7`,
+  Catalyst `9aa0e0f`, and merged Hub `092b5cd`. Component tests are necessary
+  but cannot substitute for the final-pin live and accessibility rerun.
 - **N62 — Multi-source/lossless acceptance gap (open at G2.10)**: Registry,
   two-source UI, lossless projections, SQL curation, and generated-catalog code
   exist in the active change set, but the feature amendment previously had no

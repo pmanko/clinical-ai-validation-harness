@@ -1,29 +1,28 @@
 # Catalyst Query Workbench Roadmap
 
-## Current architecture and PR topology (2026-07-29)
+## Current architecture and PR topology (2026-08-03)
 
-**Status:** Current implementation is in the active draft chain Harness
-[#37](https://github.com/pmanko/clinical-ai-validation-harness/pull/37) →
-Catalyst [#5](https://github.com/DIGI-UW/openelis-catalyst/pull/5) → Med-Agent Hub
-[#15](https://github.com/pmanko/med-agent-hub/pull/15). Catalyst #4 and Hub #14
-are closed, unmerged, and superseded; references to them below are historical
-publication evidence only.
+**Status:** Current implementation is in active Harness
+[#37](https://github.com/pmanko/clinical-ai-validation-harness/pull/37), with
+Catalyst [#5](https://github.com/DIGI-UW/openelis-catalyst/pull/5) as its open
+component PR. Med-Agent Hub
+[#15](https://github.com/pmanko/med-agent-hub/pull/15) is merged; the harness and
+Catalyst standalone fallback now use Hub `main` at `092b5cd`. Catalyst #4 and
+Hub #14 are closed, unmerged, and superseded; references to them below are
+historical publication evidence only.
 
 Catalyst Gateway now owns governed-query profiles, prompts, writer/reviewer
 composition, deterministic lint/repair/finalization, and query evidence.
 Med-Agent Hub exposes a generic `POST /v1/hub/generate` role executor and does
 not own Catalyst query profiles or their orchestration. Hub's separate
-clinical-answer/report profile engine is unchanged. The candidate umbrella pins
-are Catalyst `be3f95c` (active #5 head) and Hub `198d5f6` (active #15 head).
-The 12/12 model/PostgreSQL matrix and bounded-failure recovery passed on
-Catalyst parent `bb36126` with the current Hub pin. Catalyst `95515a2` changes
-only the standalone fallback Hub SHA from `946afa9` to `198d5f6`; the umbrella
-runtime supplies the sibling Hub context and does not execute that fallback
-clone path. Focused pin/layout coverage and a clean candidate-head real-model/
-PostgreSQL smoke pass. Catalyst `be3f95c` removes only the redundant assembly
-test that duplicated the old literal Hub SHA; the exact 38-test assembly command
-passes. Manual keyboard/zoom checks and explicit user acceptance remain open,
-so no merge occurs before that pause.
+clinical-answer/report profile engine is unchanged. The reconciled candidate
+pins are Harness `80c2bb7`, Catalyst `9aa0e0f` (active #5 head), and merged Hub
+`092b5cd`. The July 30 12/12 model/PostgreSQL matrix, bounded-failure recovery,
+and scoped candidate-head smoke remain supporting PR-head evidence on their
+recorded older revisions; they are not relabelled as final-pin evidence.
+Automated component gates pass on the reconciled heads. The definitive live
+matrix, manual keyboard/actual-zoom checks, and explicit user acceptance remain
+open, so no remaining component merge occurs before that pause.
 
 The 2026-07-29 lightweight cross-artifact rerun found no unresolved
 CRITICAL/HIGH inconsistency after aligning the exact component revisions,
@@ -62,9 +61,10 @@ contract, test strategy, and staged harness integration are recorded here.
 ## W1 — Manual workbench MVP
 
 **Status:** G2.1–G2.7 passed; G2.8a accepted; historical G2.8b backend/runtime
-and post-UI checkpoints passed; the current-pin G2.8c model/PostgreSQL matrix
-and bounded-failure recovery pass. The Gateway-owned refactor still awaits the
-live accessibility matrix and user acceptance before T094/T095/T111 close.
+and post-UI checkpoints passed. The July 30 PR-head G2.8c model/PostgreSQL
+matrix and bounded-failure recovery pass, but the reconciled merged-Hub pins
+still require the definitive live rerun, accessibility matrix, and user
+acceptance before T094/T095/T111 close.
 G2.9 remains at its written user checkpoint; G2.10 multi-source/lossless
 acceptance is newly traced and open; G3 and W2 have not started.
 
@@ -1203,10 +1203,10 @@ Product-code changes are paused at T098. T099–T104 remain pending until the us
 accepts the architecture and decides whether G2.9 should include bounded result
 row attachments or execution summaries only.
 
-### Gateway-owned query-orchestration refactor — IMPLEMENTED; CURRENT-PIN ACCEPTANCE OPEN
+### Gateway-owned query-orchestration refactor — IMPLEMENTED; FINAL-PIN ACCEPTANCE OPEN
 
-The active Catalyst #5 / Hub #15 design supersedes the Hub-owned Catalyst query
-profile architecture used by the historical G2.8 evidence:
+The active Catalyst #5 / merged Hub `main` design supersedes the Hub-owned
+Catalyst query-profile architecture used by the historical G2.8 evidence:
 
 - Catalyst Gateway's `query_profiles.py` owns five configured revision-capable
   query profiles and their exact required model aliases, including writer-only,
@@ -1338,7 +1338,7 @@ provider content verbatim, and profile digests include `selection_priority` and
 `supplemental_sources`. Hub's focused 28-test slice and full 633-test suite
 passed before `198d5f6` was pinned in the umbrella at `e475d7a`.
 
-The authoritative exact-current-pin repetition run is
+The authoritative July 30 PR-head repetition run is
 `artifacts/catalyst-notebook-validation/t111-review-fix-final-rerun-20260730/`
 `cbc41bcd-56f7-4074-931f-98ed42fea202`. Its manifest records harness
 `e475d7a`, clean Catalyst `bb36126`, clean Hub `198d5f6`,
@@ -1357,7 +1357,7 @@ matched PostgreSQL/gold execution:
 - lint-clean distinct-patient semantics: 3/3, 62,234/54,267/53,568 ms, all
   selected `COUNT(DISTINCT patient_id)`.
 
-The current-pin bounded-failure proof is
+The corresponding July 30 PR-head bounded-failure proof is
 `artifacts/catalyst-notebook-validation/`
 `t111-review-fix-bounded-failure-final-20260730/`
 `68da21db-2178-4010-9fd4-5c73fd477261` (1/1 passed). In session
@@ -1379,7 +1379,7 @@ Run `7302b5dc-527f-4ad9-ba93-a302d50f2b53` injected the fault on the second
 overall model call, which was still part of initial contract repair, so it is a
 fault-targeting procedure failure rather than follow-up failure evidence.
 
-Current-pin responsive inspection passed at 390 × 844 and 320 × 844 CSS
+PR-head responsive inspection passed at 390 × 844 and 320 × 844 CSS
 viewports with no horizontal overflow, one contained textarea, and the composer
 fixed to the viewport bottom. A 640 × 720 CSS viewport provided the
 layout-equivalent 200%-zoom reflow check with the same no-overflow and
@@ -1404,8 +1404,21 @@ Catalyst `be3f95c` then removed the stale literal-SHA assertion rather than
 replacing it with another duplicated pin. The bootstrap behavior did not change,
 and the exact CI assembly command completes 38 tests with one expected local
 `psycopg` skip. Catalyst PR #5's Gateway, Agents, MCP, UI, and MVP assembly jobs
-are all green at that head. Harness PR #37's test/diff-coverage job is green and
-GitGuardian is neutral after the `be3f95c` repin.
+were all green at that head. Harness PR #37's test/diff-coverage job was green
+and GitGuardian was neutral after the `be3f95c` repin.
+
+### Final-pin reconciliation checkpoint — AUTOMATED GATES IN PROGRESS
+
+On 2026-08-03 Hub #15 was confirmed merged at `092b5cd`. Catalyst #5 advanced
+to `9aa0e0f` so its standalone fallback uses that merged commit. Harness #37
+advanced to `80c2bb7`, integrated current Harness `main`, resolved its Hub
+gitlink to `092b5cd`, and pins Catalyst `9aa0e0f`. Both worktrees were clean and
+pushed at this checkpoint. Catalyst's five GitHub checks are green; Harness
+shellcheck and pytest/diff-coverage are green, GitGuardian is neutral, all six
+review threads are resolved, and the only GitHub merge blocker is the required
+Harness approval. These facts establish a clean candidate topology, not T111
+acceptance. The complete live matrix, retained evidence receipt, actual
+keyboard/200%-zoom inspection, and user pause remain pending.
 
 ### G2.10 multi-source/lossless onboarding — WRITTEN TRACE COMPLETE; EVIDENCE OPEN
 

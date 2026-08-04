@@ -5,16 +5,17 @@ engineering sandbox, not a claim that every question produces correct SQL.
 
 ## What is selectable
 
-Med-Agent Hub owns the model configuration. Catalyst sends only a profile ID,
-the question, the approved catalog, and policy context. The UI discovers the
-profiles from Hub and lists a profile only when all of its required models are
-served.
+Catalyst Gateway owns the query-profile registry, exact role/model mappings,
+prompts, sampling/output settings, lint, and writer/reviewer orchestration.
+Med-Agent Hub exposes a generic single-role completion endpoint plus a versioned
+backend model inventory. The UI lists a Gateway profile only when Hub advertises
+all of its exact required writer and optional reviewer aliases.
 
-Treat the UI picker (backed by the Gateway's Hub-discovered query options) as
-the source of truth for available profiles, writer models, and reviewer models.
-Do not rely on a copied profile list: it changes as the pinned Hub revision
-changes. The external OpenAI-compatible server must advertise every exact
-runtime model ID required by a profile in its `/v1/models` response.
+Treat the UI picker (backed by the Gateway registry filtered through Hub's live
+inventory) as the source of truth for currently available profiles, writer
+models, and reviewer models. The external OpenAI-compatible server must
+advertise every exact runtime model ID required by a profile in its `/v1/models`
+response.
 
 ## Start with an external model server
 
@@ -53,8 +54,8 @@ boots.
 
 ## Compare models manually
 
-1. Load or serve a model whose ID matches one of the Hub profiles.
-2. Refresh the Catalyst UI and select **Med-Agent Hub profile**.
+1. Load or serve every exact model alias required by a Gateway query profile.
+2. Refresh the Catalyst UI and select a **Model profile**.
 3. Enter a question using the runtime catalog as the available-data reference.
 4. Inspect the generated SQL, parameters, profile/model roles, and lint attempts.
 5. Accept only the queries you want to execute; compare the returned table and
@@ -93,32 +94,15 @@ returns ready/unsupported/rejected, which deterministic finding codes occur,
 whether correction succeeds, the proposed SQL shape, latency, and—after manual
 acceptance—the actual rows returned.
 
-## Add another Hub-owned profile
+## Add another Gateway-owned query profile
 
-For a local experiment, add a profile beside the existing Catalyst profiles in
-`targets/med-agent-hub/server/levels.yaml`. Keep the profile ID stable, set each
-role to its exact served model ID, and disable stochastic sampling and the DRY
-repetition penalty for SQL (`temperature: 0`, `dry: 0`):
-
-```yaml
-catalyst-query-my-model:
-  label: Catalyst governed query — My model
-  topology: single
-  stages: *catalyst_query
-  models: {query_generate: exact/writer-model-id, query_review: exact/reviewer-model-id}
-  prompts: {query_generate: catalyst-query-generate, query_review: catalyst-query-review}
-  policies:
-    output: query
-    temporal_gate: "off"
-    allowed_operation: select
-    generation_attempts: 1
-    collaborative_review: true
-    model_classes: {query_generate: writer-family, query_review: reviewer-family}
-  capabilities: {staged: false, validation: true}
-  outputContracts: [catalyst.query.v1]
-  visibility: product
-  knobs: {query_generate: {temperature: 0, dry: 0}, query_review: {temperature: 0, dry: 0}}
-```
+For a local experiment, add an `EngineProfile` to
+`targets/catalyst/catalyst-gateway/src/catalyst/query_profiles.py` and add its
+focused discovery/orchestration tests. Keep the profile ID stable, map each role
+to the exact router alias, and keep SQL sampling bounded (`temperature: 0`,
+`dry: 0`, and an explicit `maxTokens`). A writer-only profile needs only
+`query_generate`; a reviewed profile declares `query_review` as well. Hub needs
+no Catalyst-specific profile or prompt change.
 
 Rebuild the sibling Hub through the harness runner:
 
@@ -127,8 +111,10 @@ make catalyst-mvp-external
 ```
 
 Refresh the UI. The profile is omitted until every exact role model is served.
-Preserve a useful profile through review in the Med-Agent Hub repository, then
-update the Hub pin in the harness and Catalyst's same-commit standalone fallback.
+Preserve a useful query profile through review in Catalyst. Change Hub only if
+the generic role/inventory contract itself must change; if it does, merge Hub
+first and repin Catalyst's fallback plus the harness sibling pin to the same
+commit.
 
 ## Stop or reset
 

@@ -1,6 +1,6 @@
 # PCCP-style Change Record: Gateway-owned Query Orchestration
 
-**Status:** Implemented candidate; clean-pin evidence and user acceptance pending
+**Status:** Implemented candidate on reconciled pins; final live evidence and user acceptance pending
 
 **Date:** 2026-07-29
 
@@ -8,7 +8,8 @@
 implemented in the active component PRs, when roadmap reconciliation exposed
 that the earlier G2.8 PCCP still described Hub-owned query profiles. It is a
 retrospective implementation record, not a claim of preimplementation approval.
-It is complete before T111 acceptance and before any component merge.
+It was complete before T111 acceptance. Hub #15 has since merged; Catalyst and
+Harness remain unmerged pending the final gate.
 
 ## Modification and rationale
 
@@ -35,13 +36,11 @@ Gateway:
 5. Hub's clinical-answer/report profiles remain a separate product surface and
    are not used as Catalyst query-profile discovery.
 
-The candidate component revisions are Catalyst `be3f95c` (PR #5) and Hub
-`198d5f6` (PR #15). Harness revision `e475d7a` pinned Catalyst parent
-`bb36126` and Hub `198d5f6` for the recorded T111 model/PostgreSQL evidence.
-Catalyst `95515a2` changes only the standalone fallback Hub SHA to match
-`198d5f6`; the umbrella sibling-Hub runtime does not execute that clone path.
-Catalyst `be3f95c` removes only a redundant assembly assertion that duplicated
-the old literal Hub SHA.
+The reconciled candidate revisions are Harness `80c2bb7`, Catalyst `9aa0e0f`
+(PR #5), and merged Hub `092b5cd`. The July 30 supporting evidence remains
+attributed to Harness `e475d7a`, Catalyst parent `bb36126`, and Hub `198d5f6`;
+it is not relabelled as final-pin evidence. Catalyst `9aa0e0f` updates only the
+standalone fallback Hub SHA from the earlier PR head to merged Hub `main`.
 
 ## Controlled behavior and invariants
 
@@ -130,8 +129,9 @@ No database migration rollback or clinical-data rewrite is required.
 
 ## Evidence
 
-Runtime evidence is complete except for the manual accessibility/user
-checkpoint:
+The following July 30 PR-head evidence remains valid supporting evidence, but
+the reconciled final-pin live rerun and manual accessibility/user checkpoint are
+both still pending:
 
 - Harness `e475d7a` pins clean Catalyst `bb36126` and Hub `198d5f6` for the
   complete live matrix. Catalyst candidate `95515a2` subsequently aligns the
@@ -141,14 +141,14 @@ checkpoint:
   PostgreSQL narrowing smoke at Catalyst `95515a2` and Hub `198d5f6`.
 - Catalyst `be3f95c` changes no runtime code. The exact MVP assembly CI command
   completes 38 tests with one expected local `psycopg` skip.
-- Run `cbc41bcd-56f7-4074-931f-98ed42fea202` passed 12/12 exact-current-pin
+- Run `cbc41bcd-56f7-4074-931f-98ed42fea202` passed 12/12 PR-head
   live repetitions across narrowing, dirty-base aggregation/profile switching,
   unresolved correction, and distinct-patient semantics. Every successful data
   claim matched independent PostgreSQL/gold execution.
 - All role records retain `temperature: 0`, `dryMultiplier: 0`, and
   `maxTokens: 1024`. Aggregation produced one semantically equivalent
   `COUNT(observation_id)` variant among two `COUNT(*)` outputs.
-- Run `68da21db-2178-4010-9fd4-5c73fd477261` passed the exact-current-pin
+- Run `68da21db-2178-4010-9fd4-5c73fd477261` passed the corresponding PR-head
   bounded one-shot Hub transport failure. Failed turn
   `856d88bf-c03f-408b-8867-04239925d191` preserved the current human base;
   same-session recovery turn `bbd77610-2660-4ae8-84fa-6dffe57d760e` then
@@ -158,7 +158,8 @@ checkpoint:
   geometry. Actual Tab traversal and actual browser zoom remain unverified
   because the automation surface did not advance keyboard focus or browser zoom.
 
-T111 is still pending the manual keyboard/zoom confirmation and the explicit
-user decision. Harness approval and the documented Hub → Catalyst → harness
-squash/repin order also remain required. Do not merge from this partial
-acceptance evidence.
+T111 is still pending the final-pin live rerun, manual keyboard/zoom
+confirmation, durable evidence receipt, and explicit user decision. Hub #15 is
+already merged; after acceptance, Catalyst must merge before the harness is
+repinned, revalidated, approved, and merged. Do not merge the remaining PRs from
+this partial acceptance evidence.

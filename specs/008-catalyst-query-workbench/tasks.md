@@ -138,9 +138,9 @@ Gateway-ownership refactor is tracked separately in Phase 4.14.
 - [X] T109 Make the tracked umbrella boot reproducible from a clean recommended environment: correct fake-mode/port propagation, enforce clean matching sibling pins, tolerate an empty successful OpenELIS backfill response, pin OpenELIS deployment source/images, and rerun the health/provenance gate
 - [X] T110 Align `docs/specification.md`, `docs/roadmap.md`, `docs/med-agent-hub.md`, root README/quickstart, Harness provider/component/profile provenance, real-suite model IDs, and PR descriptions with the tested implementation
 - [ ] T111 Rerun the complete Hub/Catalyst/harness automated gates plus the T094/T095 live iterative workflow on clean pins; prove the versioned Hub backend inventory, exact required model aliases, available-profile subset, unavailable initial/governed/follow-up rejection before state or model calls, writer-only and reviewed provenance, independent PostgreSQL evidence, and pause for user acceptance
-- [ ] T112 After T111 acceptance, squash Hub first, repin/validate/squash Catalyst, repin both resulting `main` commits in the harness, obtain the required harness approval, and squash harness last
+- [ ] T112 Hub #15 is already merged and pinned. After T111 acceptance, squash Catalyst, repin the resulting Catalyst `main` commit while retaining Hub `main` in the harness, rerun the required pin/live gates, obtain the required harness approval, and squash harness last
 
-T111 execution note (2026-07-30): the exact-current-pin 12/12 model/PostgreSQL
+T111 historical execution note (2026-07-30): the PR-head 12/12 model/PostgreSQL
 matrix and bounded-failure/same-session recovery passed on harness `e475d7a`,
 Catalyst `bb36126`, and Hub `198d5f6`. Responsive 390/320 CSS-pixel and
 200%-layout-equivalent checks passed. Catalyst candidate `95515a2` subsequently
@@ -152,6 +152,14 @@ literal-Hub-SHA assembly assertion; the exact 38-test CI command is green with
 one expected local driver skip. T111 remains unchecked because actual
 keyboard-only Tab traversal, actual browser zoom, and explicit user acceptance
 remain open.
+
+T111 reconciliation note (2026-08-03): Hub #15 is merged at `092b5cd`.
+Catalyst #5 is clean and pushed at `9aa0e0f`; Harness #37 is clean and pushed
+at `80c2bb7`, includes current Harness `main`, and pins Catalyst `9aa0e0f` plus
+Hub `092b5cd`. Component and PR checks are green/neutral as applicable. The
+final-pin live matrix, durable acceptance receipt, actual keyboard-only/200%
+zoom checks, and explicit user acceptance remain pending, so T094/T095/T111 and
+T112 stay unchecked.
 
 ## Phase 4.14 — Gateway-owned query orchestration reconciliation
 
