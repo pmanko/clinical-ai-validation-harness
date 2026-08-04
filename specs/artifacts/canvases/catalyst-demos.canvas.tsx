@@ -184,9 +184,6 @@ export default function CatalystDemosCanvas() {
         <H2>Go deeper</H2>
         <Row gap={16} style={{ flexWrap: 'wrap' }}>
           <Link href="#/spec/README">Project README &amp; setup →</Link>
-          <Link href="#/canvas/specs/artifacts/canvases/catalyst-fhir-sidecar">
-            Earlier design exploration (M10 vision canvas) →
-          </Link>
         </Row>
       </Stack>
 

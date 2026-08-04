@@ -1,5 +1,5 @@
-// HISTORICAL / SUPERSEDED architecture canvas. Retained as a planning snapshot;
-// current execution is governed by hub-consolidation-roadmap.md.
+// Program-level roadmap canvas. Per-feature specifications and lane roadmaps
+// remain authoritative for implementation details and acceptance evidence.
 import {
   Callout,
   Card,
@@ -68,7 +68,7 @@ const lanes: Record<
     label: "OpenELIS / Catalyst",
     shortLabel: "Catalyst",
     tone: "info",
-    purpose: "FHIR-first lab AI sidecar over OpenELIS Global 2 — resource-grounded answers and report/analytics UI.",
+    purpose: "Supervised natural-language-to-SQL analysis over approved analytics data sources.",
   },
 };
 
@@ -282,21 +282,20 @@ const features: Feature[] = [
   {
     id: "M10",
     num: "M10",
-    title: "Catalyst FHIR sidecar POC",
-    slug: "011-catalyst-fhir-sidecar-poc",
+    title: "Catalyst query workbench",
+    slug: "008-catalyst-query-workbench",
     lane: "openelis",
     purpose:
-      "Stand up a Catalyst-owned FHIR-first sidecar over OE2's HAPI FHIR server, answering five canonical lab-data questions with resource-grounded citations and a Scout-style report/analytics UI.",
+      "Provide a supervised path from a natural-language question to editable, validated SQL and query-result artifacts that can become dashboards.",
     scope: [
-      "catalyst-mcp FHIR tools (search_patient, get_observations, get_service_requests, get_diagnostic_reports, build_patient_lab_timeline).",
-      "HAPI-first answer path; embedded-FHIR parity probe with gap log.",
-      "Catalyst sidecar UI: question input, cited answers, evidence cards, lab-result table, lab timeline.",
-      "Sidecar response contract (answer + facts[] + citations[] + uiBlocks[]).",
-      "Harness adapter smoke: OE2 up → Catalyst up → five canonical questions → emit run_manifest.json + events.jsonl.",
+      "FHIR Data Pipes and other registered sources expose approved analytics views through generated catalogs.",
+      "Gateway-owned writer/reviewer profiles produce complete SQL with deterministic validation and retained model evidence.",
+      "One iterative workbench supports manual edits, validation, execution, follow-up turns, refresh restoration, and result lineage.",
+      "Harness scenarios compare executed model SQL with independently authored PostgreSQL gold queries across model profiles.",
     ],
     evidence: [
-      "All five canonical questions answered with FHIR resource IDs cited and resolvable in OE2.",
-      "Parity probe records HAPI vs embedded divergences in the OE2 FHIR gap log.",
+      "The accepted live scenario covers generation, manual editing, execution, follow-up generation, refresh restoration, and keyboard operation.",
+      "Validation artifacts preserve model identity, query/version digests, execution results, and independent gold-query comparisons.",
     ],
     needs: ["M0", "M2", "M3"],
     unlocks: [],
@@ -519,7 +518,7 @@ const statusById: Record<string, { label: string; tone: StatusTone }> = {
   M7: { label: "Planned", tone: "neutral" },
   M8: { label: "Planned", tone: "neutral" },
   M9: { label: "Planned", tone: "neutral" },
-  M10: { label: "Brief", tone: "info" },
+  M10: { label: "Manual MVP accepted", tone: "success" },
   F005: { label: "Shipped", tone: "success" },
   F007: { label: "Planned", tone: "neutral" },
   F008: { label: "Phase 0 shipped", tone: "info" },
@@ -595,8 +594,8 @@ const sequencingNotes: Array<[string, string]> = [
     "Querystore parity and cross-project expansion should reuse the validation spine rather than create separate harnesses.",
   ],
   [
-    "M10 is Catalyst-lane, not expansion",
-    "The Catalyst FHIR sidecar POC runs in its own openelis lane. It needs M0 (harness foundation), M2 (metadata contract), and M3 (real adapter boundaries) — not full M4/M5/M6. Spec Kit drives Phase 2 (spec/plan/tasks); implementation lands in Phase 3.",
+    "M10 is the supervised Catalyst workbench",
+    "The accepted manual MVP runs in the OpenELIS/Catalyst lane: approved analytics sources feed an iterative query notebook with explicit validation and execution. Dashboard composition and broader experiments follow from this base rather than introducing a second data-access product.",
   ],
   [
     "F005 (med-agent-hub bridge) unlocks the gateway slot",
@@ -612,7 +611,7 @@ const sequencingNotes: Array<[string, string]> = [
   ],
   [
     "Slug numbering is non-monotonic by design",
-    "The phantom slug 003 was never created — the validation spine landed as 006 (validation-harness MVP). Real slugs now: 006 = validation MVP (M2), 007 = llm-config-overrides (F007), 008/009 = the F008/F009 briefs, 017 = F010 (med-agent-hub MCP tools); M4 = 010, M5–M9 = 012–016, M10 = 011 (external refs cemented). Milestone/feature IDs (M0–M10, F005–F010) are the semantic anchor; slugs are filesystem identifiers, not strict order.",
+    "The phantom slug 003 was never created — the validation spine landed as 006 (validation-harness MVP). Current feature folders include 006 = validation MVP (M2), 007 = llm-config-overrides (F007), 008 = Catalyst query workbench (M10), and 017 = med-agent-hub MCP tools (F010); M4 = 010 and M5–M9 = 012–016. Milestone/feature IDs (M0–M10, F005–F010) are the semantic ordering anchors; folder slugs are filesystem identifiers, not strict order.",
   ],
 ];
 

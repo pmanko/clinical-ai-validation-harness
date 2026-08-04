@@ -63,7 +63,6 @@ it touches. Click into the dossier for scope, gates, and the verbatim kickoff pr
 | **L2** | Reports & human feedback — %-scores, inline rubric, AI-team explainer, machine/human split, shared parity module | harness | Ready (rebase worktree) | [dossier](L2-reports-human-feedback.md) · [brief](report-human-feedback-brief.md) |
 | **L3** | Validation spine — `specs/006` as-built + close M2-F.1 (four `chartsearchai-live/` artifacts, citations resolve) | harness | Ready (rebase worktree) | [dossier](L3-validation-spine-asbuilt.md) |
 | **L4** | chartsearchai/esm — upstream PR split + the deferred reconcile + the `make smoke-chat` integrated gate | forks | Queued | [dossier](L4-chartsearchai-upstream-reconcile.md) |
-| **L5** | Catalyst FHIR sidecar (M10) — ground-up Spec Kit design over OpenELIS-Global-2 | harness (`011`) | Queued (deps present) | [dossier](L5-catalyst-fhir-sidecar.md) · [brief](../planning/catalyst-fhir-sidecar-brief.md) |
 
 **Parked (tracked, not active):** UCD / real-user requirements gathering (until real reviewers exist;
 questions derive from the corpus — L2's feedback surface is the intake); M4/M5 evaluation depth beyond
@@ -81,8 +80,6 @@ before working in them; L1's hub worktree is independent of harness `main`.
 git -C targets/med-agent-hub worktree add ~/code/hub-wt-mcp -b feat/real-mcp-tools origin/main   # L1 (exists)
 git worktree add ~/code/harness-wt-report -b feat/report-human-feedback main && (cd ~/code/harness-wt-report && uv sync --all-extras)   # L2
 git worktree add ~/code/harness-wt-spine  -b docs/006-validation-spine-asbuilt main && (cd ~/code/harness-wt-spine && uv sync --all-extras)  # L3
-# L5 when pulled forward:
-git worktree add ~/code/harness-wt-catalyst -b 011-catalyst-fhir-sidecar-poc main
 ```
 
 Harness worktrees don't need `git submodule update` (pytest ignores `targets/`), and the live stack

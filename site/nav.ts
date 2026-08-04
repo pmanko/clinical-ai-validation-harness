@@ -53,7 +53,6 @@ export const navTree: NavSection[] = [
       { kind: 'canvas', slug: 'specs/artifacts/canvases/clinical-ai-research-guidance', title: 'Clinical-AI research guidance', blurb: 'Research vectors, evidence levels, and maturity framing.' },
       { kind: 'canvas', slug: 'specs/artifacts/canvases/scout-comparative-analysis',  title: 'Scout comparative analysis',   blurb: 'Duke DIHI Scout and what it implies for chartsearchai, openmrs_chatbot, and Catalyst.' },
       { kind: 'canvas', slug: 'specs/artifacts/canvases/catalyst-demos',              title: 'Catalyst demos',               blurb: 'Query-to-table on two real data sources — watch a two-turn conversation on each.' },
-      { kind: 'canvas', slug: 'specs/artifacts/canvases/catalyst-fhir-sidecar',       title: 'Catalyst FHIR sidecar',        blurb: 'FHIR-grounded lab AI over OpenELIS — the M10 design direction (superseded by the shipped query-to-table workbench above).' },
     ],
   },
   {

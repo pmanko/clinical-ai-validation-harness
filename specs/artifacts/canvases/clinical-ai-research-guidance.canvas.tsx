@@ -186,9 +186,9 @@ function MaturitySpectrumDiagram() {
 }
 
 const vectorOverviewRows = [
-  ['V1. Clinical RAG architecture', 'Naive RAG can hurt; structured artifacts + provenance dramatically reduce hallucination.', 'STRONG', 'chartsearchai (primary), Catalyst (FHIR resource retrieval + citation, M10), openmrs_chatbot (if any retrieval)'],
-  ['V2. Multi-agent clinical AI', 'Helps under workload; not universally better than single LLMs; component metrics deceive.', 'EMERGING', 'openmrs_chatbot, Catalyst (catalyst-gateway → catalyst-agents → catalyst-mcp trace)'],
-  ['V3. NL-to-SQL clinical', 'SOTA models drop on hard queries; consistency (Pass^N) is the safety metric.', 'ACTIVE', 'Catalyst (future Phase 3 SQL path; FHIR-first POC is M10)'],
+  ['V1. Clinical RAG architecture', 'Naive RAG can hurt; structured artifacts + provenance dramatically reduce hallucination.', 'STRONG', 'chartsearchai (primary), openmrs_chatbot (if any retrieval)'],
+  ['V2. Multi-agent clinical AI', 'Helps under workload; not universally better than single LLMs; component metrics deceive.', 'EMERGING', 'openmrs_chatbot, Catalyst writer/reviewer profiles'],
+  ['V3. NL-to-SQL clinical', 'SOTA models drop on hard queries; consistency (Pass^N) is the safety metric.', 'ACTIVE', 'Catalyst iterative query workbench (M10)'],
   ['V4. Evaluation evolution', 'Static benchmarks contaminate; live + execution-grounded benchmarks emerging; provider switching causes silent drift.', 'EMERGING', 'All three'],
   ['V5. Indirect prompt injection', 'Architectural problem; defense-in-depth is the standard.', 'STRONG', 'All three (most acute for chartsearchai)'],
   ['V6. Healthcare AI governance', 'FDA PCCP becoming change-control standard; over 1,400 AI medical devices authorized.', 'REGULATORY', 'All three (forward-looking)'],
@@ -267,7 +267,7 @@ const vectors: Vector[] = [
     title: 'Clinical RAG architecture',
     evidence: 'STRONG',
     evidenceTone: 'success',
-    primary: ['chartsearchai (primary)', 'Catalyst (FHIR resource retrieval; resource-level citations per Observation/DiagnosticReport/ServiceRequest)', 'openmrs_chatbot (if retrieval)'],
+    primary: ['chartsearchai (primary)', 'openmrs_chatbot (if retrieval)'],
     lead: 'Eighteen months of evidence has changed the prior. Naive RAG often hurts more than it helps in clinical contexts. Quality depends on representation choices and provenance discipline more than retrieval algorithm choices.',
     findings: [
       'Baseline clinical RAG produced 43.6% unsupported claims; structured patient artifacts with provenance reduced this to 8.4% (40% relative reduction).',
@@ -287,7 +287,7 @@ const vectors: Vector[] = [
     ],
     csai: 'Validates the labeled-prose + structured-metadata pattern; adds urgency to per-citation provenance preservation in eval traces.',
     cbot: 'Any retrieval needs the same discipline; observable-signals eval is the practical floor.',
-    cat: 'FHIR resource queries (Patient, Observation, ServiceRequest, DiagnosticReport) are the structured retrieval layer for M10. Schema RAG / allowlist remains the model for the future SQL path (Phase 3). Resource-level citations are the provenance artifact.',
+    cat: 'Catalyst is not using a clinical RAG answer path. Its grounding artifacts are the selected source catalog, exact SQL/version digest, validation findings, executed result, and source-pipeline provenance.',
     limitation: 'Most studies use English-language EMRs (MIMIC-IV class). Generalization to OpenMRS in resource-constrained settings is not yet established.',
   },
   {
@@ -296,7 +296,7 @@ const vectors: Vector[] = [
     title: 'Multi-agent clinical AI',
     evidence: 'EMERGING',
     evidenceTone: 'info',
-    primary: ['openmrs_chatbot', 'Catalyst (multi-agent FHIR retrieval: gateway → agents → mcp trace; events.jsonl per M2 spine)'],
+    primary: ['openmrs_chatbot', 'Catalyst writer/reviewer collaboration through gateway-owned profiles'],
     lead: 'Orchestrated multi-agent helps in workload-heavy or mixed-task scenarios but is not universally better than a strong single LLM. The Optimization Paradox shows component-level metrics consistently deceive when used alone.',
     findings: [
       'Multi-agent sustained 90.6% accuracy at 5 tasks → 65.3% at 80 tasks vs single-agent 73.1% → 16.6% collapse.',
@@ -317,7 +317,7 @@ const vectors: Vector[] = [
     ],
     csai: 'Not multi-agent today. If added later, justify per task type and avoid optimizing components without end-to-end validation.',
     cbot: 'Agent-team scaffolding present; needs empirical justification per task type before committing.',
-    cat: 'catalyst-agents is multi-agent by design; FHIR tool orchestration (search_patient → get_observations → build_timeline) is the natural multi-agent test bed; end-to-end trace via events.jsonl + MCP tool spans.',
+    cat: 'Catalyst supports one writer and an optional different-family reviewer. The trace must retain both candidates, selected output, lint findings, role/model identity, timing, and final execution evidence.',
     limitation: 'Most studies focus on diagnostic/triage tasks. Chart-search and conversational EMR tasks not yet well-evaluated in the MAS literature.',
   },
   {
@@ -326,8 +326,8 @@ const vectors: Vector[] = [
     title: 'NL-to-SQL clinical',
     evidence: 'ACTIVE',
     evidenceTone: 'info',
-    primary: ['Catalyst (future Phase 3 SQL path; FHIR-first retrieval is the active M10 POC lane)'],
-    lead: 'Benchmarks are emerging fast (CLINSQL, EHR-ChatQA). Even SOTA models drop accuracy substantially on hard queries; consistency (Pass^N) is a much stricter bar than Pass@N and is the right safety metric for clinical use. For Catalyst, the FHIR-first POC (M10) precedes the SQL path; V3 findings apply to Phase 3 planning.',
+    primary: ['Catalyst iterative query workbench (M10)'],
+    lead: 'Benchmarks are emerging fast (CLINSQL, EHR-ChatQA). Even SOTA models drop accuracy substantially on hard queries; consistency (Pass^N) is a much stricter bar than Pass@N and is the right safety metric for clinical use. Catalyst applies these findings through editable query versions, deterministic checks, real execution, and independent result-set comparison.',
     findings: [
       'CLINSQL: GPT-5-mini 74.7% execution score; DeepSeek-R1 69.2% (best open-source); Gemini-2.5-Pro 85.5% on easy → 67.2% on hard.',
       'EHR-ChatQA: best agents reach Pass@5 over 90% but Pass^5 drops by up to 60 percentage points.',
@@ -347,7 +347,7 @@ const vectors: Vector[] = [
     ],
     csai: 'Not NL-to-SQL today. Relevant only if querystore-grounded SQL paths emerge.',
     cbot: 'Not NL-to-SQL today.',
-    cat: 'Future Phase 3 lane (SQL execution). M10 FHIR POC is the active path. Pass^N + schema-aware decomposition apply when the SQL path resumes in Phase 3 (post-OGC-070 Java backend integration).',
+    cat: 'Active M10 workbench lane. Pass^N, schema-aware context, deterministic lint, explicit PostgreSQL execution, and independent gold-query comparison are the relevant validation layers.',
     limitation: 'MIMIC-IV-centric benchmarks. OpenELIS schema not yet benchmarked. Non-English clinical contexts under-studied.',
   },
   {
@@ -471,7 +471,7 @@ const vectors: Vector[] = [
     ],
     csai: 'Rewrite top-level guidance around clinical evidence, evals-as-contract, scoped changes, and provenance; specific API rules can remain underneath.',
     cbot: 'Each agent role needs a short constitution: role, evidence limits, escalation behavior, and role-aware abstention.',
-    cat: 'The allowlist/RBAC design is strong and preserved for the SQL path. For FHIR M10: agent instructions should explain FHIR read-only access boundaries, resource scope limits, and citation obligations in clinical-safety terms.',
+    cat: 'Agent instructions should explain the selected data source, catalog boundaries, read-only database role, explicit execution step, and obligation to preserve uncertainty and validation findings.',
     limitation: 'The Anthropic work is not healthcare-specific and is based on model-training interventions, not just prompt files. Treat it as strong guidance for prompt/guideline design, not a guarantee.',
   },
   {
@@ -601,19 +601,18 @@ const evolutionPaths = {
     ],
   },
   cat: {
-    now: 'M10 (Planning) — FHIR-first sidecar POC. OGC-070 spec defines prior NL-to-SQL milestone plan; allowlist + RBAC by design; provider abstraction (LM Studio + Gemini). Active pivot: catalyst-mcp moves from schema mock to FHIR resource tools over OE2 HAPI FHIR (:8444).',
+    now: 'M10 manual MVP accepted — iterative natural-language-to-SQL workbench over approved analytics sources, with gateway-owned model profiles, immutable query versions, deterministic validation, and explicit execution.',
     near: [
-      'Five canonical FHIR questions answered with resource-level citations (M10 POC).',
-      'Scout-style sidecar UI: evidence cards per FHIR resource type, lab-result table, lab timeline.',
-      'HAPI-first answer path + embedded-FHIR parity probe with gap log (M10-F).',
-      'Pass^N consistency over canonical question set; OTel GenAI spans for MCP FHIR tool calls.',
-      'run_manifest.json + events.jsonl per M2 metadata spine.',
+      'Consolidate the accepted single-editor notebook UX and finish the remaining browser/e2e matrix.',
+      'Measure writer/reviewer profiles across diverse SQL tasks using repeated real executions and independent gold queries.',
+      'Add supervised dashboard composition on top of versioned query/result artifacts.',
+      'Expose source-pipeline freshness and FHIR resource identifiers already present in analytics rows where useful.',
+      'Keep run_manifest.json + events.jsonl aligned with the shared validation spine.',
     ],
     far: [
-      'NL-to-SQL Phase 3 (post-OGC-070 Java backend integration): CLINSQL-shaped scoring on OpenELIS schema.',
       'CHER tracking alongside ASR for safety-eval rigor once SQL path active.',
       'Federated cross-project benchmarks (sharing spine schema with chartsearchai).',
-      'PCCP-shaped change records for provider abstraction transitions and FHIR surface changes.',
+      'PCCP-shaped change records for provider, prompt, catalog, and execution-policy changes.',
     ],
   },
 };
