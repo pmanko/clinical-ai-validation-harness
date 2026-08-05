@@ -158,6 +158,7 @@ def test_publication_check_uses_paginated_exact_head_lookup_and_readiness():
 
     assert "gh api" in script
     assert "--paginate" in script
+    assert "--slurp" not in script
     assert "head=pmanko%3Aharness-integration" in script
     assert "--limit 100" not in script
     assert "isDraft,mergeable,statusCheckRollup" in script

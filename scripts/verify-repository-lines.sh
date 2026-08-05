@@ -97,9 +97,9 @@ require_integration_publication() {
   command -v gh >/dev/null 2>&1 \
     || fail "GitHub CLI is required for --check-publication-prs"
   head="$(git -C "$ROOT/$path" rev-parse origin/harness-integration)"
-  publication="$(gh api --method GET --paginate --slurp \
+  publication="$(gh api --method GET --paginate \
     "repos/$repo/pulls?state=all&base=main&head=pmanko%3Aharness-integration&per_page=100" \
-    --jq ".[][] | select(.head.sha == \"$head\") | [.number, (if .merged_at then \"MERGED\" else (.state | ascii_upcase) end), .html_url] | @tsv")"
+    --jq ".[] | select(.head.sha == \"$head\") | [.number, (if .merged_at then \"MERGED\" else (.state | ascii_upcase) end), .html_url] | @tsv")"
   [[ -n "$publication" ]] \
     || fail "$label integration head $head has no OpenMRS PR from pmanko:harness-integration"
   IFS=$'\t' read -r publication_number publication_state publication_url \
@@ -129,9 +129,9 @@ require_integration_publication() {
       || fail "$label publication PR #$publication_number has failing or pending checks: $publication_url"
   fi
 
-  duplicate="$(gh api --method GET --paginate --slurp \
+  duplicate="$(gh api --method GET --paginate \
     "repos/$repo/pulls?state=open&base=main&per_page=100" \
-    --jq ".[][] | select(.head.repo.owner.login == \"pmanko\" and .head.sha == \"$head\" and .head.ref != \"harness-integration\") | [.number, .head.ref, .html_url] | @tsv")"
+    --jq ".[] | select(.head.repo.owner.login == \"pmanko\" and .head.sha == \"$head\" and .head.ref != \"harness-integration\") | [.number, .head.ref, .html_url] | @tsv")"
   [[ -z "$duplicate" ]] \
     || fail "$label integration head is also published from a feature branch: $duplicate"
 
