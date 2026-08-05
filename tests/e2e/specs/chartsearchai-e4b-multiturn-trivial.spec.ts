@@ -87,6 +87,7 @@ async function sendTurn(page: Page, question: string, turnNumber: number): Promi
   await expect(page.getByText(/Checked|Updated after check|Needs review|Check unavailable/).last()).toBeVisible({
     timeout: 360_000,
   });
+  await expect(latestTurn.getByTestId('answer-validation-summary')).toBeVisible({ timeout: 30_000 });
   await caption(page, `Turn ${turnNumber}: answer check completed and the composer is ready.`, `${String(turnNumber).padStart(2, '0')}-checked.png`);
 
   return answerMs;

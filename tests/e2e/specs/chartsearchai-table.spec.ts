@@ -1,47 +1,132 @@
-import { test, expect, type Page } from '@playwright/test';
-import { login, openAiChatPanel, openPatientChart, resetChatSession, selectFastE4BModel } from '../support/openmrs';
+import { test, expect, type Page, type Route } from '@playwright/test';
+import { expandAiChatPanel, login, openAiChatPanel, openPatientChart, selectFastE4BModel } from '../support/openmrs';
 
 const MEDS_QUESTION = 'List the medications this patient is on.';
 
-async function askAndWait(page: Page, question: string): Promise<void> {
+const medicationReference = {
+  index: 1,
+  resourceType: 'drug_order',
+  resourceUuid: 'fixture-drug-order',
+  date: '2026-01-26',
+  title: 'Lamivudine drug order',
+  sourceText: 'Lamivudine. Action: NEW. Urgency: ROUTINE.',
+  resolutionStatus: 'resolved',
+  groundingStatus: 'supported',
+  grounded: true,
+};
+
+const medicationBlock = {
+  kind: 'table',
+  title: 'Current medications',
+  columns: [
+    { key: 'medication', label: 'Medication' },
+    { key: 'status', label: 'Status' },
+  ],
+  rows: [
+    { cells: { medication: { text: 'Lamivudine', refs: [1] }, status: { text: 'Active', refs: [1] } } },
+    { cells: { medication: { text: 'Nevirapine', refs: [1] }, status: { text: 'Active', refs: [1] } } },
+  ],
+};
+
+const finalEnvelope = {
+  answer: 'The documented medications are summarized below [1].',
+  references: [medicationReference],
+  blocks: [medicationBlock],
+  model: 'single-e4b-checked',
+  confidence: { answer: { level: 'green' }, in_depth: { level: 'green' } },
+  answerValidation: {
+    status: 'checked',
+    label: 'Checked',
+    summary: 'Answer checked against chart and deterministic temporal/date rules.',
+  },
+  inDepth: { status: 'complete', answer: 'Medication details remain linked to the chart source [1].' },
+};
+
+function stagedSse(): string {
+  const checking = {
+    ...finalEnvelope,
+    answerValidation: { status: 'checking', label: 'Checking answer' },
+    inDepth: { status: 'pending', answer: '' },
+  };
+  return [
+    ['answer_done', checking],
+    ['answer_validation', { ...finalEnvelope, inDepth: { status: 'pending', answer: '' } }],
+    ['indepth_pending', { ...finalEnvelope, inDepth: { status: 'pending', answer: '' } }],
+    ['indepth_done', finalEnvelope],
+    ['done', finalEnvelope],
+  ]
+    .map(([event, data]) => `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`)
+    .join('');
+}
+
+async function installTableFixture(page: Page): Promise<void> {
+  let completed = false;
+  await page.route('**/chartsearchai/chat/stream', async (route: Route) => {
+    const body = route.request().postDataJSON() as Record<string, string>;
+    expect(body.question).toBe(MEDS_QUESTION);
+    completed = true;
+    await route.fulfill({
+      status: 200,
+      contentType: 'text/event-stream',
+      headers: { 'X-ChartSearchAi-Session': 'table-fixture-session' },
+      body: stagedSse(),
+    });
+  });
+  await page.route(/\/chartsearchai\/chat\?patient=/, async (route: Route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        session: 'table-fixture-session',
+        messages: completed
+          ? [
+              { messageId: 'table-user', role: 'user', content: MEDS_QUESTION, createdAt: Date.now() - 1 },
+              {
+                messageId: 'table-assistant',
+                role: 'assistant',
+                content: finalEnvelope.answer,
+                references: finalEnvelope.references,
+                blocks: finalEnvelope.blocks,
+                confidence: finalEnvelope.confidence,
+                answerValidation: finalEnvelope.answerValidation,
+                inDepth: finalEnvelope.inDepth,
+                createdAt: Date.now(),
+              },
+            ]
+          : [],
+      }),
+    });
+  });
+}
+
+async function ask(page: Page): Promise<void> {
   const input = page.getByPlaceholder(/ask|question|search/i).first();
-  await input.fill(question);
+  await input.fill(MEDS_QUESTION);
   await input.press('Enter');
 }
 
-test.describe('chartsearchai — structured table blocks', () => {
-  test.beforeEach(async ({ request }) => {
-    await resetChatSession(request);
-  });
+async function assertMedicationTable(page: Page): Promise<void> {
+  const latestTurn = page.locator('[data-turn-phase]').last();
+  const medicationHeader = latestTurn.getByRole('columnheader', { name: 'Medication', exact: true });
+  await expect(medicationHeader).toBeVisible({ timeout: 30_000 });
+  const table = medicationHeader.locator('xpath=ancestor::table[1]');
+  await expect(table).toContainText('Lamivudine');
+  await expect(table).toContainText('Nevirapine');
+  await expect(table.locator('tbody tr')).toHaveCount(2);
+}
 
-  test('meds-list query renders a Carbon DataTable below the prose, and survives hard-reload', async ({ page }) => {
-    await login(page);
-    await openPatientChart(page);
-    await openAiChatPanel(page);
-    await selectFastE4BModel(page);
-    await askAndWait(page, MEDS_QUESTION);
+test('a structured provider envelope renders a medication table and survives hard reload', async ({ page }) => {
+  await installTableFixture(page);
+  await login(page);
+  await openPatientChart(page);
+  await openAiChatPanel(page);
+  await selectFastE4BModel(page);
+  await expandAiChatPanel(page);
+  await ask(page);
+  await assertMedicationTable(page);
 
-    // The table appears once the SSE `done` event lands. Anchor on a Carbon
-    // table with at least one column header — DataTable renders `<table>` with
-    // role=columnheader elements we can assert. Long timeout because cold
-    // medgemma inference takes ~30–60s.
-    const table = page.locator('table').filter({ has: page.getByRole('columnheader') }).first();
-    await expect(table).toBeVisible({ timeout: 180_000 });
-
-    // The Medication column should be present (semantic, not auto-generated
-    // "References") — proof the prompt's structured-tables directive landed.
-    await expect(table.getByRole('columnheader', { name: /medication/i })).toBeVisible();
-
-    // At least 2 rows (chart has > 10 unique meds; 2 is a safe lower bound
-    // that tolerates the occasional small-model drop-some-rows behavior).
-    const rowCount = await table.locator('tbody tr').count();
-    expect(rowCount, 'Medications table should render at least 2 unique-med rows').toBeGreaterThanOrEqual(2);
-
-    // Hard-reload → hydration path restores the table from chat_message.content.
-    await page.reload({ waitUntil: 'load' });
-    await openAiChatPanel(page);
-    const rehydratedTable = page.locator('table').filter({ has: page.getByRole('columnheader') }).first();
-    await expect(rehydratedTable).toBeVisible({ timeout: 60_000 });
-    await expect(rehydratedTable.getByRole('columnheader', { name: /medication/i })).toBeVisible();
-  });
+  await page.reload({ waitUntil: 'load' });
+  await openAiChatPanel(page);
+  await expandAiChatPanel(page);
+  await assertMedicationTable(page);
 });
