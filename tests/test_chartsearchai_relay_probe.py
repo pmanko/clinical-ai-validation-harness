@@ -172,6 +172,7 @@ def test_probe_correlates_fast_stream_by_message_and_persistence_by_audit_row(mo
     assert result["safety_warning_count"] == 1
     assert result["reference_count"] == 1
     assert result["reference_sources"] == ["querystore"]
+    assert result["expected_reference_source"] == "querystore"
     assert result["querystore_reference_count"] == 1
     assert result["in_depth_status"] == "complete"
     assert result["in_depth_terminal_event"] == "indepth_done"
@@ -337,7 +338,7 @@ def test_probe_rejects_new_session_for_the_wrong_provider(monkeypatch):
         )
 
 
-def test_probe_rejects_turn_without_live_querystore_evidence(monkeypatch):
+def test_probe_rejects_turn_without_expected_reference_source(monkeypatch):
     monkeypatch.setattr(
         probe,
         "_post_json",
@@ -349,10 +350,11 @@ def test_probe_rejects_turn_without_live_querystore_evidence(monkeypatch):
         lambda *_args, **_kwargs: {
             "session": "session-1",
             "querystore_reference_count": 0,
+            "reference_sources": ["drug-safety"],
         },
     )
 
-    with pytest.raises(RuntimeError, match="live Querystore patient source"):
+    with pytest.raises(RuntimeError, match="expected reference source: querystore"):
         probe.probe_relay(
             "http://openmrs/openmrs",
             patient="patient-1",
@@ -362,6 +364,36 @@ def test_probe_rejects_turn_without_live_querystore_evidence(monkeypatch):
             password="secret",
             timeout=30,
             clear_after=False,
+        )
+
+
+def test_probe_can_require_drug_safety_evidence(monkeypatch):
+    monkeypatch.setattr(
+        probe,
+        "_post_json",
+        lambda *_args, **_kwargs: {"session": "session-1", "provider": "hub"},
+    )
+    monkeypatch.setattr(
+        probe,
+        "_stream_turn",
+        lambda *_args, **_kwargs: {
+            "session": "session-1",
+            "querystore_reference_count": 0,
+            "reference_sources": ["querystore"],
+        },
+    )
+
+    with pytest.raises(RuntimeError, match="expected reference source: drug-safety"):
+        probe.probe_relay(
+            "http://openmrs/openmrs",
+            patient="patient-1",
+            profile="single-e4b-checked",
+            question="Is this dose safe?",
+            username="admin",
+            password="secret",
+            timeout=30,
+            clear_after=False,
+            expected_reference_source="drug-safety",
         )
 
 

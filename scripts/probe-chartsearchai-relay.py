@@ -597,6 +597,7 @@ def probe_relay(
     password: str,
     timeout: int,
     clear_after: bool,
+    expected_reference_source: str = "querystore",
 ) -> dict[str, Any]:
     api = f"{openmrs_url.rstrip('/')}/ws/rest/v1/chartsearchai"
     fresh = _post_json(
@@ -622,8 +623,15 @@ def probe_relay(
     )
     if streamed["session"] != session:
         raise RuntimeError("fresh session and streamed turn returned different session ids")
-    if streamed["querystore_reference_count"] <= 0:
-        raise RuntimeError("relay proof did not use the live Querystore patient source")
+    reference_sources = streamed.get("reference_sources") or []
+    source_is_present = expected_reference_source in reference_sources
+    if expected_reference_source == "querystore":
+        source_is_present = source_is_present or streamed["querystore_reference_count"] > 0
+    if not source_is_present:
+        raise RuntimeError(
+            "relay proof did not cite the expected reference source: "
+            f"{expected_reference_source}"
+        )
 
     history_url = f"{api}/chat?{urllib.parse.urlencode({'patient': patient, 'session': session})}"
     history: dict[str, Any] | None = None
@@ -683,6 +691,7 @@ def probe_relay(
         "safety_warning_count": streamed["final_safety_warning_count"],
         "reference_count": streamed["final_reference_count"],
         "reference_sources": streamed["reference_sources"],
+        "expected_reference_source": expected_reference_source,
         "querystore_reference_count": streamed["querystore_reference_count"],
         "in_depth_status": streamed["final_in_depth"].get("status"),
         "in_depth_terminal_event": streamed["in_depth_terminal_event"],
@@ -744,6 +753,14 @@ def main() -> int:
     parser.add_argument("--password", default="Admin123")
     parser.add_argument("--timeout", type=int, default=300)
     parser.add_argument("--clear-after", action="store_true")
+    parser.add_argument(
+        "--expected-reference-source",
+        default="querystore",
+        help=(
+            "Require the final answer to cite this source "
+            "(default: querystore; use drug-safety for a knowledge-base proof)."
+        ),
+    )
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
 
@@ -776,6 +793,7 @@ def main() -> int:
         password=args.password,
         timeout=args.timeout,
         clear_after=args.clear_after,
+        expected_reference_source=args.expected_reference_source,
     )
     if args.output:
         args.output.parent.mkdir(parents=True, exist_ok=True)
