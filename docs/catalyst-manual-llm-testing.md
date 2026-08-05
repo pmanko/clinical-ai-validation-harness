@@ -53,9 +53,12 @@ Open `http://localhost:13000`, or the port set by `CATALYST_UI_PORT`. The
 `make catalyst-mvp-*` targets run the isolated stack, which publishes the UI
 on `13000` and the gateway on `18000`; `3000` is Catalyst's own default, which
 applies only when running its compose directly from `targets/catalyst`. The
-first boot initializes the synthetic
-OpenELIS cohort and the governed analytics view, so it takes longer than later
-boots.
+first initialization loads the synthetic OpenELIS cohort, backfills FHIR, and
+materializes the governed analytics view, so it takes longer than ordinary
+restarts. That state is retained in this stack's named Docker volumes. Use
+`make catalyst-mvp-restart` for a normal stop/start without reloading FHIR or
+Data Pipes, `make catalyst-mvp-seed` only when you deliberately want to reload
+the fixture, and `make catalyst-mvp-reset` only for a clean slate.
 
 ## Compare models manually
 
@@ -121,9 +124,16 @@ the generic role/inventory contract itself must change; if it does, merge Hub
 first and repin Catalyst's fallback plus the harness sibling pin to the same
 commit.
 
-## Stop or reset
+## Restart, stop, or reset
 
 ```bash
+# Stop and start containers while retaining the OpenELIS, HAPI, Data Pipes,
+# analytics, Gateway, and Superset volumes. Does not re-seed.
+make catalyst-mvp-restart
+
+# Stop containers; `make catalyst-mvp-up` resumes the same volumes.
 make catalyst-mvp-down
+
+# Delete the disposable data volumes. The next boot needs an explicit seed.
 make catalyst-mvp-reset
 ```

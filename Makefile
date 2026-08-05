@@ -16,7 +16,7 @@ export UV_PROJECT_ENVIRONMENT
         dashboard-ensure dashboard-restart validate-preflight validate-run validate-judge-prep validate-judge-finalize validate-publish \
         cloud-init cloud-sync cloud-down cloud-seed \
         cloud-start cloud-stop cloud-ssh cloud-logs cloud-status cloud-destroy \
-        catalyst-mvp-up catalyst-mvp-external catalyst-mvp-fake catalyst-mvp-seed catalyst-mvp-health catalyst-mvp-down catalyst-mvp-reset
+        catalyst-mvp-up catalyst-mvp-external catalyst-mvp-fake catalyst-mvp-seed catalyst-mvp-health catalyst-mvp-restart catalyst-mvp-down catalyst-mvp-reset
 
 # --- compose lifecycle ---
 up:
@@ -63,6 +63,9 @@ catalyst-mvp-seed:
 
 catalyst-mvp-health:
 	./scripts/catalyst-mvp.sh health
+
+catalyst-mvp-restart:
+	./scripts/catalyst-mvp.sh restart
 
 catalyst-mvp-down:
 	./scripts/catalyst-mvp.sh down

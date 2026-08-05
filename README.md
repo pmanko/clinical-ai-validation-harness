@@ -161,6 +161,17 @@ is not a Dashboard MVP implementation dependency.
 make catalyst-mvp-fake
 ```
 
+That is the first-time path: it starts the isolated stack and loads the demo
+OpenELIS → FHIR → analytics pipeline. Day-to-day restarts retain the stack's
+named Docker volumes and do not reload that data:
+
+```bash
+make catalyst-mvp-restart
+```
+
+Use `make catalyst-mvp-seed` only to deliberately reload the fixture and
+`make catalyst-mvp-reset` only to discard the isolated data state.
+
 For a real external OpenAI-compatible model server, set
 `MVP_MODEL_BACKEND=external` and `MVP_EXTERNAL_ROUTER_URL` in
 `targets/catalyst/.env`, then run `make catalyst-mvp-external`. Open

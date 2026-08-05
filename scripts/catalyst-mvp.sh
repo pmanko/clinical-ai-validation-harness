@@ -37,15 +37,16 @@ fi
 
 usage() {
   cat <<'EOF'
-Usage: scripts/catalyst-mvp.sh [--fake] {up|seed|health|boot|down|reset}
+Usage: scripts/catalyst-mvp.sh [--fake] {up|seed|health|boot|restart|down|reset}
 
-  --fake  Start the deterministic fake model router (recommended for first boot).
-  up      Start the Catalyst MVP services.
-  seed    Load the pinned synthetic OpenELIS viral-load fixture.
-  health  Run the full MVP health and provenance gate.
-  boot    Run up, seed, and health in sequence.
-  down    Stop the disposable MVP services.
-  reset   Remove the disposable MVP state.
+  --fake   Start the deterministic fake model router (recommended for first boot).
+  up       Start the Catalyst MVP services without changing persisted data.
+  seed     Explicitly reload the pinned synthetic OpenELIS fixture and FHIR mart.
+  health   Run the full MVP health and provenance gate.
+  boot     First-time initialization: run up, seed, and health in sequence.
+  restart  Stop then start services while retaining all named volumes; does not seed.
+  down     Stop the disposable MVP services while retaining all named volumes.
+  reset    Remove the disposable MVP state and volumes.
 EOF
 }
 
@@ -58,11 +59,11 @@ fi
 if [[ "${fake_backend}" == true ]]; then
   export MVP_MODEL_BACKEND=fake
   export MVP_PROFILE_ID="${MVP_PROFILE_ID:-catalyst-query-gemma-4-12b}"
-  export MVP_EXPECTED_ROLE_MODELS_JSON="${MVP_EXPECTED_ROLE_MODELS_JSON:-{\"query_generate\":\"gemma-4-12b\",\"query_review\":\"qwen2.5-coder-1.5b-instruct-q4_k_m\"}}"
+  export MVP_EXPECTED_ROLE_MODELS_JSON="${MVP_EXPECTED_ROLE_MODELS_JSON:-{\"query_generate\":\"gemma-4-12b\"}}"
 fi
 
 command_name="${1:-}"
-if [[ $# -ne 1 ]] || [[ ! "${command_name}" =~ ^(up|seed|health|boot|down|reset)$ ]]; then
+if [[ $# -ne 1 ]] || [[ ! "${command_name}" =~ ^(up|seed|health|boot|restart|down|reset)$ ]]; then
   usage >&2
   exit 2
 fi
@@ -119,6 +120,10 @@ case "${command_name}" in
     run_catalyst mvp-up.sh
     run_catalyst mvp-seed.sh
     run_catalyst mvp-health.sh
+    ;;
+  restart)
+    run_catalyst mvp-down.sh
+    run_catalyst mvp-up.sh
     ;;
   down) run_catalyst mvp-down.sh ;;
   reset) run_catalyst mvp-reset.sh ;;
