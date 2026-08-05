@@ -11,7 +11,7 @@ const medicationReference = {
   title: 'Lamivudine drug order',
   sourceText: 'Lamivudine. Action: NEW. Urgency: ROUTINE.',
   resolutionStatus: 'resolved',
-  groundingStatus: 'supported',
+  groundingStatus: 'verified',
   grounded: true,
 };
 
@@ -49,11 +49,18 @@ function stagedSse(): string {
     inDepth: { status: 'pending', answer: '' },
   };
   return [
+    [
+      'turn_started',
+      { session: 'table-fixture-session', messageId: 'table-assistant', provider: 'hub' },
+    ],
     ['answer_done', checking],
     ['answer_validation', { ...finalEnvelope, inDepth: { status: 'pending', answer: '' } }],
     ['indepth_pending', { ...finalEnvelope, inDepth: { status: 'pending', answer: '' } }],
     ['indepth_done', finalEnvelope],
-    ['done', finalEnvelope],
+    [
+      'turn_done',
+      { session: 'table-fixture-session', messageId: 'table-assistant', provider: 'hub' },
+    ],
   ]
     .map(([event, data]) => `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`)
     .join('');
@@ -124,6 +131,7 @@ test('a structured provider envelope renders a medication table and survives har
   await expandAiChatPanel(page);
   await ask(page);
   await assertMedicationTable(page);
+  await expect(page.locator('[data-turn-phase]').last()).toHaveAttribute('data-turn-phase', 'complete');
 
   await page.reload({ waitUntil: 'load' });
   await openAiChatPanel(page);

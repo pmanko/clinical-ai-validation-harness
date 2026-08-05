@@ -284,8 +284,8 @@ With hub configured, it shows a provider choice first and the provider's support
 second. Unready configured providers remain visibly disabled; the UI never invents raw model choices or
 silently falls back to another provider.
 
-**Cloud.** The older GCE/LM Link workflow predates the hub-only product boundary and is not the canonical M3
-proof path. Use the local workflow above while the cloud scripts are reconciled with the same hub profile API.
+**Cloud.** The older GCE/LM Link workflow predates the current dual-provider boundary and is not the canonical
+proof path. Use the local workflow above while the cloud scripts are reconciled with the same provider contract.
 
 ## Key terms
 

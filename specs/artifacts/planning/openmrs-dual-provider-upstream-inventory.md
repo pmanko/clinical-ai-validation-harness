@@ -171,5 +171,5 @@ The exact tested and published heads are:
 | Repository | Integration/publication head | OpenMRS PR | Superseded PR |
 |---|---:|---|---|
 | QueryStore | `f37adc8a6b4c6baceb9a5b79a13c1de736088bf7` | [#68](https://github.com/openmrs/openmrs-module-querystore/pull/68) | #63 |
-| ChartSearchAI | `c8ec052e920027ff0846847279aa68f8c50259a0` | [#157](https://github.com/openmrs/openmrs-module-chartsearchai/pull/157) | #90 |
-| ChartSearchAI ESM | `971533af661025ff5e4e3cb25fd822fcd393c43c` | [#23](https://github.com/openmrs/openmrs-esm-chartsearchai/pull/23) | #22 |
+| ChartSearchAI | `17a91a9393ad03ba333395bc3b2ee7202cdd32e3` | [#157](https://github.com/openmrs/openmrs-module-chartsearchai/pull/157) | #90 |
+| ChartSearchAI ESM | `a796be39375df460b68274aad33d19eeeaf36238` | [#23](https://github.com/openmrs/openmrs-esm-chartsearchai/pull/23) | #22 |

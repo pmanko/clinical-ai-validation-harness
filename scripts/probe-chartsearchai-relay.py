@@ -499,6 +499,19 @@ def _stream_turn(
     querystore_reference_count = sum(
         reference.get("source") == "querystore" for reference in references
     )
+    verified_used_reference_sources = sorted(
+        {
+            str(reference.get("source"))
+            for reference in references
+            if str(reference.get("source") or "").strip()
+            and reference.get("resolutionStatus") == "resolved"
+            and reference.get("groundingStatus") == "verified"
+            and any(
+                isinstance(usage, dict) and str(usage.get("location") or "").strip()
+                for usage in (reference.get("usage") or [])
+            )
+        }
+    )
     in_depth = final.get("inDepth") or {}
     if terminal_event == "indepth_done":
         if in_depth.get("status") != "complete" or not str(
@@ -525,6 +538,7 @@ def _stream_turn(
         "final_safety_warning_count": len(final.get("safetyWarnings") or []),
         "final_reference_count": len(references),
         "reference_sources": reference_sources,
+        "verified_used_reference_sources": verified_used_reference_sources,
         "querystore_reference_count": querystore_reference_count,
         "final_in_depth": in_depth,
         "in_depth_terminal_event": terminal_event,
@@ -598,6 +612,8 @@ def probe_relay(
     timeout: int,
     clear_after: bool,
     expected_reference_source: str = "querystore",
+    expected_safety_status: str | None = None,
+    minimum_safety_warning_count: int = 0,
 ) -> dict[str, Any]:
     api = f"{openmrs_url.rstrip('/')}/ws/rest/v1/chartsearchai"
     fresh = _post_json(
@@ -623,14 +639,29 @@ def probe_relay(
     )
     if streamed["session"] != session:
         raise RuntimeError("fresh session and streamed turn returned different session ids")
-    reference_sources = streamed.get("reference_sources") or []
-    source_is_present = expected_reference_source in reference_sources
-    if expected_reference_source == "querystore":
-        source_is_present = source_is_present or streamed["querystore_reference_count"] > 0
-    if not source_is_present:
+    verified_sources = streamed.get("verified_used_reference_sources") or []
+    if expected_reference_source not in verified_sources:
         raise RuntimeError(
-            "relay proof did not cite the expected reference source: "
+            "relay proof did not use a resolved, verified expected reference source: "
             f"{expected_reference_source}"
+        )
+    if (
+        expected_safety_status is not None
+        and streamed["final_safety_status"] != expected_safety_status
+    ):
+        raise RuntimeError(
+            "relay proof returned an unexpected safety status: "
+            f"{streamed['final_safety_status']!r} != {expected_safety_status!r}"
+        )
+    if minimum_safety_warning_count < 0:
+        raise ValueError("minimum_safety_warning_count must be non-negative")
+    if (
+        minimum_safety_warning_count > 0
+        and streamed["final_safety_warning_count"] < minimum_safety_warning_count
+    ):
+        raise RuntimeError(
+            "relay proof returned too few safety warnings: "
+            f"{streamed['final_safety_warning_count']} < {minimum_safety_warning_count}"
         )
 
     history_url = f"{api}/chat?{urllib.parse.urlencode({'patient': patient, 'session': session})}"
@@ -691,7 +722,12 @@ def probe_relay(
         "safety_warning_count": streamed["final_safety_warning_count"],
         "reference_count": streamed["final_reference_count"],
         "reference_sources": streamed["reference_sources"],
+        "verified_used_reference_sources": streamed[
+            "verified_used_reference_sources"
+        ],
         "expected_reference_source": expected_reference_source,
+        "expected_safety_status": expected_safety_status,
+        "minimum_safety_warning_count": minimum_safety_warning_count,
         "querystore_reference_count": streamed["querystore_reference_count"],
         "in_depth_status": streamed["final_in_depth"].get("status"),
         "in_depth_terminal_event": streamed["in_depth_terminal_event"],
@@ -761,6 +797,17 @@ def main() -> int:
             "(default: querystore; use drug-safety for a knowledge-base proof)."
         ),
     )
+    parser.add_argument(
+        "--expected-safety-status",
+        choices=("checked", "limited", "unavailable"),
+        help="Require the final safety check to report this status.",
+    )
+    parser.add_argument(
+        "--minimum-safety-warning-count",
+        type=int,
+        default=0,
+        help="Require at least this many final safety warnings (default: 0).",
+    )
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
 
@@ -794,6 +841,8 @@ def main() -> int:
         timeout=args.timeout,
         clear_after=args.clear_after,
         expected_reference_source=args.expected_reference_source,
+        expected_safety_status=args.expected_safety_status,
+        minimum_safety_warning_count=args.minimum_safety_warning_count,
     )
     if args.output:
         args.output.parent.mkdir(parents=True, exist_ok=True)
