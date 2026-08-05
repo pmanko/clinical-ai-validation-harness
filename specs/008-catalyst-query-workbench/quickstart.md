@@ -309,21 +309,30 @@ The intended operator flow is:
 1. Boot Catalyst, Superset 6.1.0, and their metadata services with the existing
    isolated-stack command. Superset is exposed only on the documented localhost
    port and reads the Catalyst bundle outbox through a read-only bind mount.
-2. Run and independently verify a Catalyst query. Promote that exact successful
-   execution to a Dataset draft; review or override the deterministic Widget
-   suggestion; save it and place one or more widgets on a Dashboard draft.
-3. Select **Publish to Superset**. Catalyst atomically writes a native Superset
+2. In Ask, run the accepted notebook workflow before any builder action: select
+   a profile with its writer/reviewer models, generate a query, use the one SQL
+   editor's completion/Format/manual version flow, Validate, explicitly Run,
+   inspect findings/raw failure or database diagnostics and typed results, ask a
+   contextual follow-up, rerun, refresh, and confirm timeline/stale-result/New
+   session behavior. There must be no duplicate editor, example-prompt buttons,
+   automatic execution, or missing prior action/evidence.
+3. Promote that exact successful execution to the design's chronological Dataset
+   draft tile and review panel. Confirm the moved preview still exposes typed
+   rows, the exact Query vN, findings/diagnostics, and provenance; save it, review
+   or override the deterministic Widget suggestion, and place one or more saved
+   widgets on a Dashboard draft.
+4. Select **Publish to Superset**. Catalyst atomically writes a native Superset
    ZIP to the host-visible outbox and offers the same artifact for download.
    Bundle creation makes no model call and does not rerun the query.
-4. For a clean stack, let the bootstrap importer load the selected current
+5. For a clean stack, let the bootstrap importer load the selected current
    bundle. For an already-running stack, run the documented Superset import
    helper. Only a successful CLI result changes `Bundle ready` to `Imported`;
    generating the file alone never claims synchronization.
-5. Open Superset, render the imported dashboard, and independently reconcile
+6. Open Superset, render the imported dashboard, and independently reconcile
    representative values with PostgreSQL. Publish a changed draft and prove the
    stable logical Dashboard UUID points to newly created version-addressed
    Dataset/Widget children rather than relying on child-asset overwrite.
-6. Refresh Catalyst and prove immutable Dataset/Widget/Dashboard versions,
+7. Refresh Catalyst and prove immutable Dataset/Widget/Dashboard versions,
    import evidence, and stale-source states restore. Repeat with keyboard only,
    the accepted narrow layout, and actual 200% browser zoom.
 

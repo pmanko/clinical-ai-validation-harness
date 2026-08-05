@@ -2,7 +2,7 @@
 
 **Purpose**: Validate specification completeness and quality before planning
 
-**Created**: 2026-07-17
+**Created**: 2026-07-17; revalidated 2026-08-05
 
 **Feature**: [spec.md](../spec.md)
 
@@ -39,9 +39,13 @@
 - G2.8 adds a linear follow-up turn, exact editor-snapshot lineage, bounded
   revision context, failure recovery, per-turn profiles, and explicit
   non-branching/non-chat scope with measurable acceptance scenarios.
-- The 2026-08-04 alignment records the accepted workbench as the shared
-  foundation, adds Dashboard MVP User Story 7 plus FR-071–FR-076 and
-  SC-035–SC-039, and explicitly keeps G2.10, W2, W3/CVR, R4, and R5 as parallel
+- The 2026-08-05 alignment records the accepted workbench as the shared
+  foundation, adds Dashboard MVP User Story 7 plus FR-071–FR-080 and
+  SC-035–SC-041, and explicitly keeps G2.10, W2, W3/CVR, R4, and R5 as parallel
   independently gated pathways.
+- FR-080/SC-041 make the supplied Ask shell and chronological builder design the
+  target UX while requiring it to integrate every accepted query-notebook
+  capability through Save Dataset; the specification introduces no replacement
+  prompt-only flow, second SQL editor, example prompts, or automatic execution.
 - Dashboard MVP has no unresolved clarification markers and is ready for its
   test-first T137–T143 implementation slice.

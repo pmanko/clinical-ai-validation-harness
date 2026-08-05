@@ -1549,6 +1549,18 @@ experience without building a dashboard renderer. Catalyst persists supervised
 drafts and publishes deterministic native asset bundles to a local outbox;
 Apache Superset 6.1.0 imports, queries, and renders them.
 
+**Accepted Ask integration (2026-08-05):** The supplied mock governs the full
+target experience, including its Ask shell, fixed composer, chronological thread,
+Dataset tile, and review panel. That Ask design integrates rather than drops the
+accepted query notebook. Profile/model selection and evidence, the
+single full SQL editor, completion/Format, manual versions, advisory Validate,
+explicit Run, visible diagnostics/results, contextual follow-up, timeline,
+staleness, refresh restoration, and New session remain intact through **Save
+Dataset**. The schema/data context and executed-result preview may move into the
+design's compact thread/Dataset tile/review panel only if all information and
+actions remain available. No example prompts, duplicate editor, or automatic
+execution are introduced.
+
 - **D1a written-plan:** align the high-fidelity design, specification, model,
   contracts, tasks, quickstart, and both roadmaps around the file/outbox boundary;
   record version coupling, parameter compilation, credential policy, import
@@ -1558,10 +1570,12 @@ Apache Superset 6.1.0 imports, queries, and renders them.
   typed SQL compilation, a stable logical Dashboard UUID with version-derived
   child UUIDs, byte-identical ZIP generation, atomic outbox publication,
   bootstrap import, and explicit running-instance update.
-- **D1c product:** faithfully implement the fixed Ask composer, chronological
-  draft workflow, review panel, libraries, deterministic suggestion/override,
-  `Publish to Superset`, download, import state, and stale-source behavior with
-  zero model or automatic query calls during configuration.
+- **D1c product:** extend the accepted Ask/query-notebook inside the supplied
+  shell, preserve its full behavior through Dataset save, move the result preview
+  into the chronological Dataset tile/review panel, and implement libraries,
+  deterministic suggestion/override, `Publish to Superset`, download, import
+  state, and stale-source behavior with zero model or automatic query calls
+  during configuration.
 - **D1d automated/live:** prove refresh restoration, clean import and a changed
   publication using a stable Dashboard UUID plus new versioned children in real
   Superset, independent PostgreSQL value parity, failed-import
@@ -1593,6 +1607,12 @@ Open implementation evidence, not specification ambiguity, remains: the exact
 6.1.0 image/driver digest, native YAML/chart-`params` fixtures, tolerance of the
 additional Catalyst manifest member, outbox/runtime path permissions, and the
 clean/same-digest/changed-child/import-failure matrix must be proven in T138–T142.
+The 2026-08-05 scope amendment adds one implementation guard without reopening
+the accepted architecture: T141–T142 and FR-080/SC-041 now require the complete
+accepted Ask/query-notebook regression path integrated into the prototype's new
+shell. Its abbreviated prompt-only state and sample prompts are non-normative;
+its Ask layout, composer, thread, Dataset tile, and review panel remain required.
+
 Moving upstream documentation describes broader overwrite behavior than the
 pinned 6.1.0 source; the pin and live tests remain authoritative.
 

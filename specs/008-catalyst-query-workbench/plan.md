@@ -61,8 +61,27 @@ scheduling, automatic refresh, and production access control. Its first slice
 must not absorb G2.10, W2, W3, R4, or R5 merely because those paths can later
 enrich dashboards.
 
+The imported prototype is authoritative for the complete builder experience,
+including the Ask shell, fixed composer, chronological thread, Dataset tile, and
+review panel. Its Ask screen must integrate the accepted query notebook through
+**Save Dataset**: profile/model selection, one canonical SQL editor, completion
+and formatting, exact manual versions, advisory validation, explicit execution,
+visible failure/result evidence, contextual follow-up, history, staleness,
+refresh restoration, and New session all remain inside the new design. The
+schema/data context and executed-result preview move into the compact thread and
+review panel without loss of information or actions.
+
 ### Dashboard Builder MVP design boundary
 
+- Recompose the existing `QueryWorkspace` into the prototype's required Ask
+  shell while retaining its current routes/contracts and behavior; do not reduce
+  it to the prototype's abbreviated prompt-only state or add a second SQL editor.
+  The latest chronological turn contains the one active `SqlEditor`, parameters,
+  Format/Validate/Run actions, diagnostics, and result state; older turns and the
+  Dataset review panel show read-only snapshots. Generated queries remain
+  manually reviewable and executable, and all accepted query/version/validation/
+  execution/follow-up behavior remains the regression baseline through the
+  explicit Dataset save.
 - Extend the existing append-only Gateway/SQLite operating-metadata store with
   immutable-versioned `DatasetDraft`, `WidgetDraft`, `DashboardDraft`, and
   `SupersetBundleExport` records. Clinical rows remain on their immutable source
@@ -92,8 +111,11 @@ enrich dashboards.
   Compose stack. Superset queries the analytics database with the demo read-only
   role; production secrets and deployment are deferred.
 - Test contracts/storage, deterministic bundle generation, and UI behavior
-  before implementation. Finish with a real clean import and versioned-child
-  dashboard update, plus
+  before implementation. First run the accepted Ask/query-notebook E2E path in
+  the new shell and prove exactly one SQL editor, no automatic execution, no
+  example-prompt regression, and no missing profile, editor, validation, result,
+  diagnostic, follow-up, history, refresh, or session action. Finish with a real
+  clean import and versioned-child dashboard update, plus
   PostgreSQL value reconciliation, refresh/staleness, keyboard/reflow evidence,
   and a PCCP-style change record.
 

@@ -24,6 +24,12 @@ helper imports it. The logical Dashboard UUID stays stable while changed
 Dataset/Widget children use version-derived UUIDs, matching Superset 6.1.0's
 actual overwrite behavior. Refresh restores Catalyst drafts without model or
 database calls; changed source queries mark them stale rather than rebinding.
+The prototype's Ask shell integrates the accepted query notebook: all current
+generation, SQL editing/versioning, Validate/Run, diagnostic/result, contextual
+follow-up, history, refresh, and session behavior remains through **Save
+Dataset**, within the new fixed-composer, chronological-thread design. The
+schema/data context and executed-result preview move into its Dataset tile/review
+presentation.
 
 ## Parallel pathways
 

@@ -470,36 +470,50 @@ Widget versions, compose at least two widgets into one Dashboard, publish a
 byte-deterministic bundle, import it into clean Superset, publish a changed
 version, and verify the stable Dashboard points to new version-addressed child
 assets. Refresh, source staleness, failed import, PostgreSQL value parity,
-keyboard use and 200% zoom remain independently observable.
+keyboard use and 200% zoom remain independently observable. Before promotion,
+the accepted Ask/query-notebook regression path must still prove profile/model
+selection, generation evidence, one editable SQL buffer, Format, Validate, Run,
+manual versions, diagnostics, results, contextual follow-up, timeline, staleness,
+refresh restoration, and New session without a duplicate editor or automatic
+execution.
 
 **Acceptance Scenarios**:
 
-1. **Given** one successful, current execution, **When** the user promotes it,
+1. **Given** the accepted query workbench, **When** the Dashboard Builder shell
+   is enabled, **Then** the same Ask session still supports the full generation,
+   manual-edit/version, Format, Validate, explicit Run, diagnostic/result,
+   contextual-follow-up, history, refresh, and New session workflow through the
+   point where the user elects to save a Dataset. The runtime schema/catalog
+   guide remains available, and no example prompts are introduced.
+2. **Given** one successful, current execution, **When** the user promotes it,
    **Then** the Dataset draft binds the exact session, query version/digest,
    execution, source/catalog, typed schema/parameters, and result digest without
-   copying rows.
-2. **Given** a Dataset draft, **When** Catalyst suggests a compatible Widget,
+   copying rows. The executed-result preview may move from its current page
+   section into the design's chronological Dataset tile and review panel, but its
+   typed rows, query/version label, findings, database diagnostics, and provenance
+   remain accessible before save.
+3. **Given** a Dataset draft, **When** Catalyst suggests a compatible Widget,
    **Then** the user can review or override table, big-number KPI, time-series
    line/area, grouped/stacked bar, or proportion-bar type without a model call
    or query execution; deterministic bindings are reviewable/read-only and
    incompatible choices explain why.
-3. **Given** saved Widget versions, **When** the user places one or more on a
+4. **Given** saved Widget versions, **When** the user places one or more on a
    Dashboard and saves, **Then** immutable Dataset/Widget/Dashboard versions
    preserve author, timestamps, complete configuration, and transitive source
    provenance; refresh restores their libraries.
-4. **Given** a saved Dashboard, **When** the user selects **Publish to
+5. **Given** a saved Dashboard, **When** the user selects **Publish to
    Superset**, **Then** Catalyst atomically writes a native ZIP and current
    pointer to the host-visible outbox, offers the identical ZIP for download,
    and reports `Bundle ready` without claiming import success.
-5. **Given** a selected outbox bundle, **When** stack bootstrap or the explicit
+6. **Given** a selected outbox bundle, **When** stack bootstrap or the explicit
    import helper runs, **Then** the exact CLI receipt reports `Imported` or
    `Import failed`. A changed publication keeps the logical Dashboard UUID and
    uses new Dataset/Widget version UUIDs; an identical digest is idempotent.
-6. **Given** imported assets, **When** Superset renders them, **Then** it uses the
+7. **Given** imported assets, **When** Superset renders them, **Then** it uses the
    analytics database's read-only role and representative values reconcile to
    PostgreSQL. Changing the active source preserves saved drafts with explicit
    stale-source state and never silently rebinds them.
-7. **Given** keyboard-only navigation or 200% browser zoom, **When** the user
+8. **Given** keyboard-only navigation or 200% browser zoom, **When** the user
    completes Ask → Dataset → Widget → Dashboard → Publish and reviews import or
    error state, **Then** every control and value remains operable, readable, and
    unobscured.
@@ -954,6 +968,22 @@ keyboard use and 200% zoom remain independently observable.
   Superset API publication, embedded viewing, cross-system undo/reconciliation,
   sharing, scheduling, automatic refresh, and production authorization remain
   out of scope and MUST NOT block this milestone.
+- **FR-080**: Dashboard Builder MUST extend rather than replace the accepted
+  Ask/query-notebook behavior. Through the explicit **Save Dataset** transition,
+  Catalyst MUST retain profile/model selection and evidence, one canonical
+  completion/formatting-enabled SQL editor, exact manual versions and unresolved
+  snapshots, advisory Validate, explicit Run, visible findings/raw generation
+  evidence/database diagnostics, typed results, contextual follow-up, compact
+  history, result staleness, refresh restoration, and New session. The supplied
+  prototype's Ask shell, fixed composer, chronological thread, Dataset tile, and
+  review panel ARE the target experience, but its abbreviated prompt-only state
+  and example prompts do not supersede the accepted behavior. The runtime
+  schema/catalog guide and executed-result preview MAY move into that target
+  structure, provided their current information and actions remain accessible.
+  The latest turn MUST contain the active SQL work surface before any Dataset
+  tile; older turns and the Dataset panel use read-only snapshots and MUST NOT
+  create another editable SQL control. The implementation MUST NOT introduce a
+  second SQL editor or automatically execute a generated query.
 
 ### Key Entities
 
@@ -1226,6 +1256,12 @@ keyboard use and 200% zoom remain independently observable.
   Dashboard → Publish, library navigation, review panels, and error recovery are
   keyboard operable and unobscured at the accepted narrow layout and actual
   200% browser zoom.
+- **SC-041**: The accepted Ask/query-notebook E2E path passes unchanged in the
+  Dashboard Builder shell from profile selection through initial generation,
+  manual edit/version, Format, Validate, explicit Run, displayed findings and
+  typed results, contextual successor, rerun, stale-result labeling, refresh
+  restoration, and New session. The path exposes exactly one canonical SQL
+  editor and reaches **Save Dataset** with zero missing prior actions or evidence.
 
 ## Assumptions
 
@@ -1236,6 +1272,11 @@ keyboard use and 200% zoom remain independently observable.
 - Dashboard Builder MVP starts with one successful execution from any already
   accepted single source. Multi-source acceptance can broaden that source set
   later but is not a prerequisite for the first exported dashboard.
+- The supplied Dashboard Builder prototype governs the complete target visual
+  structure and interaction flow, including Ask. Its Ask shell must integrate
+  the accepted query-notebook interaction contract rather than omit it: the mock
+  supplies layout and progression, while the existing workbench supplies the
+  full behavior and evidence within that layout.
 - Superset 6.1.0 is the pinned local renderer. Catalyst persists builder drafts
   and emits Superset-native configuration; it does not implement its own
   dashboard renderer or embed clinical result rows in the export.

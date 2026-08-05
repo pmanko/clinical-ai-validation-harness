@@ -138,7 +138,11 @@ The selected next product milestone is the Superset-backed Dashboard Builder:
 promote governed executions through immutable Dataset, Widget, and multi-widget
 Dashboard drafts, then publish a deterministic native ZIP to a shared local
 outbox for import by pinned Superset 6.1.0. Catalyst owns the iterative desired
-configuration in this one-way MVP; Superset renders it. Multi-source/lossless
+configuration in this one-way MVP; Superset renders it. The prototype's Ask
+shell integrates the accepted query notebook without removing its profile/model evidence, single
+SQL editor, manual versions, Validate/Run, diagnostics/results, contextual
+follow-up, history, refresh, or New session behavior; only the dataset-preview
+presentation moves into the builder's Dataset tile/review panel. Multi-source/lossless
 onboarding, targeted SQL repair, session-export/comparative experiments,
 evidence-linked narratives, and production security are parallel pathways, not
 sequential prerequisites. Superset REST API publication, embedded viewing,
