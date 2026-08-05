@@ -91,23 +91,21 @@ require_integration_publication() {
   head="$(git -C "$ROOT/$path" rev-parse origin/harness-integration)"
   publication="$(gh pr list \
     --repo "$repo" \
-    --head pmanko:harness-integration \
     --base main \
     --state all \
     --limit 100 \
-    --json number,state,headRefOid,url \
-    --jq ".[] | select(.headRefOid == \"$head\") | [.number, .state, .url] | @tsv")"
+    --json number,state,headRefName,headRefOid,headRepositoryOwner,url \
+    --jq ".[] | select(.headRepositoryOwner.login == \"pmanko\" and .headRefName == \"harness-integration\" and .headRefOid == \"$head\") | [.number, .state, .url] | @tsv")"
   [[ -n "$publication" ]] \
     || fail "$label integration head $head has no OpenMRS PR from pmanko:harness-integration"
 
   duplicate="$(gh pr list \
     --repo "$repo" \
-    --author pmanko \
     --base main \
     --state open \
     --limit 100 \
-    --json number,headRefName,headRefOid,url \
-    --jq ".[] | select(.headRefOid == \"$head\" and .headRefName != \"harness-integration\") | [.number, .headRefName, .url] | @tsv")"
+    --json number,headRefName,headRefOid,headRepositoryOwner,url \
+    --jq ".[] | select(.headRepositoryOwner.login == \"pmanko\" and .headRefOid == \"$head\" and .headRefName != \"harness-integration\") | [.number, .headRefName, .url] | @tsv")"
   [[ -z "$duplicate" ]] \
     || fail "$label integration head is also published from a feature branch: $duplicate"
 
