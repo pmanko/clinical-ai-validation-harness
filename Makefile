@@ -189,8 +189,8 @@ repository-lines-check:
 repository-lines-pr-check:
 	./scripts/verify-repository-lines.sh --allow-harness-branch
 
-# Network-backed release check: the exact integration heads pinned above must
-# be the heads published to OpenMRS, with no duplicate same-head feature PR.
+# Network-backed PR-safe publication check: the exact integration heads pinned
+# above must be ready OpenMRS PR heads, with no duplicate same-head feature PR.
 repository-publication-check:
 	./scripts/verify-repository-lines.sh --allow-harness-branch --check-publication-prs
 

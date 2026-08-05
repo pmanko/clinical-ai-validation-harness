@@ -84,32 +84,59 @@ require_integration_publication() {
   local label="$3"
   local head
   local publication
+  local publication_number
+  local publication_state
+  local publication_url
   local duplicate
+  local readiness
+  local is_draft
+  local mergeable
+  local active_check_count
+  local blocker_count
 
   command -v gh >/dev/null 2>&1 \
     || fail "GitHub CLI is required for --check-publication-prs"
   head="$(git -C "$ROOT/$path" rev-parse origin/harness-integration)"
-  publication="$(gh pr list \
-    --repo "$repo" \
-    --base main \
-    --state all \
-    --limit 100 \
-    --json number,state,headRefName,headRefOid,headRepositoryOwner,url \
-    --jq ".[] | select(.headRepositoryOwner.login == \"pmanko\" and .headRefName == \"harness-integration\" and .headRefOid == \"$head\") | [.number, .state, .url] | @tsv")"
+  publication="$(gh api --method GET --paginate --slurp \
+    "repos/$repo/pulls?state=all&base=main&head=pmanko%3Aharness-integration&per_page=100" \
+    --jq ".[][] | select(.head.sha == \"$head\") | [.number, (if .merged_at then \"MERGED\" else (.state | ascii_upcase) end), .html_url] | @tsv")"
   [[ -n "$publication" ]] \
     || fail "$label integration head $head has no OpenMRS PR from pmanko:harness-integration"
+  IFS=$'\t' read -r publication_number publication_state publication_url \
+    <<< "$(printf '%s\n' "$publication" | head -n 1)"
+  [[ "$publication_state" != "CLOSED" ]] \
+    || fail "$label publication PR #$publication_number is closed without merging: $publication_url"
 
-  duplicate="$(gh pr list \
-    --repo "$repo" \
-    --base main \
-    --state open \
-    --limit 100 \
-    --json number,headRefName,headRefOid,headRepositoryOwner,url \
-    --jq ".[] | select(.headRepositoryOwner.login == \"pmanko\" and .headRefOid == \"$head\" and .headRefName != \"harness-integration\") | [.number, .headRefName, .url] | @tsv")"
+  if [[ "$publication_state" == "OPEN" ]]; then
+    readiness="$(gh pr view "$publication_number" \
+      --repo "$repo" \
+      --json isDraft,mergeable,statusCheckRollup \
+      --jq '[.isDraft, .mergeable,
+        ([.statusCheckRollup[] | select(.conclusion != "SKIPPED")] | length),
+        ([.statusCheckRollup[] | select(
+          .conclusion != "SKIPPED" and
+          ((.__typename == "CheckRun" and (.status != "COMPLETED" or .conclusion != "SUCCESS")) or
+           (.__typename != "CheckRun" and .state != "SUCCESS"))
+        )] | length)] | @tsv')"
+    IFS=$'\t' read -r is_draft mergeable active_check_count blocker_count <<< "$readiness"
+    [[ "$is_draft" == "false" ]] \
+      || fail "$label publication PR #$publication_number is still a draft: $publication_url"
+    [[ "$mergeable" == "MERGEABLE" ]] \
+      || fail "$label publication PR #$publication_number is not mergeable ($mergeable): $publication_url"
+    [[ "$active_check_count" -gt 0 ]] \
+      || fail "$label publication PR #$publication_number has no completed checks: $publication_url"
+    [[ "$blocker_count" -eq 0 ]] \
+      || fail "$label publication PR #$publication_number has failing or pending checks: $publication_url"
+  fi
+
+  duplicate="$(gh api --method GET --paginate --slurp \
+    "repos/$repo/pulls?state=open&base=main&per_page=100" \
+    --jq ".[][] | select(.head.repo.owner.login == \"pmanko\" and .head.sha == \"$head\" and .head.ref != \"harness-integration\") | [.number, .head.ref, .html_url] | @tsv")"
   [[ -z "$duplicate" ]] \
     || fail "$label integration head is also published from a feature branch: $duplicate"
 
-  printf '%s publication: %s\n' "$label" "$publication"
+  printf '%s publication: %s\t%s\t%s\n' \
+    "$label" "$publication_number" "$publication_state" "$publication_url"
 }
 
 require_clean_remote_commit "$ROOT" "validation harness"

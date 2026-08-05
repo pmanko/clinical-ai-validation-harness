@@ -131,9 +131,10 @@ The three fork integration branches were fetched and compared with current OpenM
 publication. Previous integration tips are preserved on each fork at
 `codex/backup/harness-integration-pre-upstream-sync-20260805`.
 
-ChartSearchAI was 19 upstream commits behind `03230b3`. Every commit was retained in the merge; the
-five conflicts were resolved by preserving both the provider integration and upstream's current
-evidence/drug-safety behavior.
+ChartSearchAI was initially 19 upstream commits behind `03230b3`. Every commit was retained in the
+merge; the five conflicts were resolved by preserving both the provider integration and upstream's
+current evidence/drug-safety behavior. Upstream then advanced once more to `dd651ef` during review;
+that commit was also retained and tested.
 
 | Upstream commit | Change | Disposition | Verification |
 |---|---|---|---|
@@ -156,6 +157,7 @@ evidence/drug-safety behavior.
 | `9b93bbc` | Check direct recorded allergies without classification data | **Keep.** Basic contraindication safety. | Full source-pair package and direct-allergy tests pass. |
 | `b013626` | Check active orders against patient allergies | **Keep.** Patient-specific contraindication safety. | Full source-pair package and active-order tests pass. |
 | `03230b3` | Match clinician-entered drug names independently | **Keep.** Drug-name resolution correction. | Full source-pair package and name-resolution tests pass. |
+| `dd651ef` | Make empty drug-reference loads loud and expose the loaded source | **Keep.** Prevents a configured but inert safety layer from appearing healthy. | Stable full ChartSearchAI wrapper passes at merged head `639c637`; the provider controller retains both dependency sets. |
 
 QueryStore had one upstream-only tooling commit. ESM already contained current upstream.
 
@@ -168,6 +170,6 @@ The exact tested and published heads are:
 
 | Repository | Integration/publication head | OpenMRS PR | Superseded PR |
 |---|---:|---|---|
-| QueryStore | `38ce1a9582767cc83048834b7684cd9ac0ea742a` | [#68](https://github.com/openmrs/openmrs-module-querystore/pull/68) | #63 |
-| ChartSearchAI | `a20a0d0386549c5778723e12b09cb78041ff9552` | [#157](https://github.com/openmrs/openmrs-module-chartsearchai/pull/157) | #90 |
-| ChartSearchAI ESM | `ea1bcefe0bc2a80df3016d2957cb018f2a6836a0` | [#23](https://github.com/openmrs/openmrs-esm-chartsearchai/pull/23) | #22 |
+| QueryStore | `f37adc8a6b4c6baceb9a5b79a13c1de736088bf7` | [#68](https://github.com/openmrs/openmrs-module-querystore/pull/68) | #63 |
+| ChartSearchAI | `639c6378ed182f503e42e7f3c9f2a3cd29f1bbfe` | [#157](https://github.com/openmrs/openmrs-module-chartsearchai/pull/157) | #90 |
+| ChartSearchAI ESM | `971533af661025ff5e4e3cb25fd822fcd393c43c` | [#23](https://github.com/openmrs/openmrs-esm-chartsearchai/pull/23) | #22 |

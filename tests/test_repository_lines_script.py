@@ -151,3 +151,30 @@ def test_repository_check_rejects_unmerged_hub_and_stale_openmrs_head(tmp_path):
     result = _run(root, "--allow-harness-branch")
     assert result.returncode != 0
     assert "QueryStore does not match origin/harness-integration" in result.stderr
+
+
+def test_publication_check_uses_paginated_exact_head_lookup_and_readiness():
+    script = SCRIPT.read_text(encoding="utf-8")
+
+    assert "gh api" in script
+    assert "--paginate" in script
+    assert "head=pmanko%3Aharness-integration" in script
+    assert "--limit 100" not in script
+    assert "isDraft,mergeable,statusCheckRollup" in script
+    assert '"MERGEABLE"' in script
+    assert "has no completed checks" in script
+
+
+def test_harness_ci_uses_the_repository_node_action_major():
+    workflow = (ROOT / ".github" / "workflows" / "harness-ci.yml").read_text(
+        encoding="utf-8"
+    )
+
+    assert "actions/setup-node@v4" in workflow
+    assert "actions/setup-node@v6" not in workflow
+
+
+def test_publication_make_target_is_described_as_pull_request_safe():
+    makefile = (ROOT / "Makefile").read_text(encoding="utf-8")
+
+    assert "Network-backed PR-safe publication check" in makefile
