@@ -255,20 +255,20 @@ This does not start or approve W2.
 - [X] T135 Run the complete real T094 suite on clean merged pins, apply the recorded Catalyst judge exactly three times, finalize, render, publish, and verify record-level evidence at the live URL for CVR-G17
 - [X] T136 Pass release CI/pin/docs/PCCP hygiene, record CVR-G18, and pause for MS-D user signoff before calling Catalyst report parity released
 
-## Phase 10 — Selected next product milestone: Dashboard MVP
+## Phase 10 — Selected next product milestone: Superset-backed Dashboard Builder MVP
 
-Dashboard MVP depends only on the accepted query/version/execution/table
+This milestone depends only on the accepted query/version/execution/table
 foundation. T117–T122 multi-source acceptance, T028–T034 query assistance,
-T036–T038 session export, narrative reporting, and production hardening are
-parallel paths and do not block this phase.
+T036–T038 session export, narrative reporting, and production hardening remain
+parallel and do not block it.
 
-- [ ] T137 [US7] Add failing dashboard contract, immutable-version, restoration, stale-source, missing-evidence, and concurrent-save tests in `targets/catalyst/catalyst-gateway/tests/test_dashboards.py` plus the versioned artifact schema in `targets/catalyst/docs/contracts/catalyst-dashboard-v1.schema.json`
-- [ ] T138 [US7] Implement dashboard artifact/version projection and routes without model calls or automatic query execution in `targets/catalyst/catalyst-gateway/src/catalyst/dashboards.py`, `targets/catalyst/catalyst-gateway/src/catalyst/storage.py`, and `targets/catalyst/catalyst-gateway/src/catalyst/routes.py`
-- [ ] T139 [P] [US7] Add failing typed UI/API tests for table/bar/line compatibility, manual title/bindings/labels/sort configuration, save/history/restore, and stale-source display in `targets/catalyst/catalyst-ui/src/features/query/api.test.ts` and `targets/catalyst/catalyst-ui/src/features/query/components/DashboardWorkspace.test.tsx`
-- [ ] T140 [US7] Implement the single-presentation dashboard workspace and wire it to the exact successful execution in `targets/catalyst/catalyst-ui/src/features/query/components/DashboardWorkspace.tsx`, `targets/catalyst/catalyst-ui/src/features/query/QueryWorkspace.tsx`, `targets/catalyst/catalyst-ui/src/features/query/api.ts`, and `targets/catalyst/catalyst-ui/src/features/query/types.ts`
-- [ ] T141 [US7] Prove deterministic refresh restoration, zero model/database calls during configuration, immutable lineage, and stale-source behavior in `targets/catalyst/catalyst-gateway/tests/test_dashboards.py` and `targets/catalyst/catalyst-ui/e2e/dashboard-mvp.spec.ts`
-- [ ] T142 [P] [US7] Record the implemented dashboard contract, validation/rollback protocol, provenance boundary, residual risk, and explicit export/narrative/security deferrals in `specs/008-catalyst-query-workbench/pccp/2026-08-dashboard-mvp.md`, `targets/catalyst/docs/specification.md`, `targets/catalyst/docs/roadmap.md`, `README.md`, and `specs/artifacts/planning/catalyst-product-roadmap-status.md`
-- [ ] T143 [US7] Run one real Catalyst execution, independently compare rendered values with PostgreSQL, complete keyboard-only/narrow-layout/actual-200%-zoom checks, record nondeterminism or inconsistencies, and pause for user acceptance in `specs/008-catalyst-query-workbench/roadmap.md`
+- [X] T137 [US7] Complete the written-plan checkpoint: align the supplied high-fidelity design, `spec.md`, `plan.md`, `data-model.md`, `quickstart.md`, both roadmaps, Catalyst's canonical specification, the Superset research/load-reload notes, and matching `contracts/catalyst-superset-bundle-v1.schema.json` copies in feature 008 and Catalyst docs; run the read-only cross-artifact analysis and record all nondeterminism/deferrals before product-code changes
+- [ ] T138 [US7] Add red Compose/launcher/health/import tests, then pin Apache Superset 6.1.0 plus persistent metadata storage and the read-only outbox mount in `targets/catalyst/docker-compose.mvp.yml`, Catalyst `scripts/mvp-*.sh`, `compose/catalyst-mvp-isolated.override.yml`, and `scripts/catalyst-mvp.sh`; provide bootstrap import and an explicit running-instance import/update command
+- [ ] T139 [US7] Add failing schema/storage/generator tests for Dataset/Widget/Dashboard immutable versions, exact execution lineage, stale/missing sources, deterministic typed parameter compilation, a stable logical Dashboard UUID with version-derived child UUIDs, byte-identical native ZIPs, atomic outbox publication, and import outcomes in `targets/catalyst/catalyst-gateway/tests/test_dashboard_builder.py` plus the versioned bundle contract
+- [ ] T140 [US7] Implement Gateway draft libraries, deterministic visualization compatibility/suggestion, Superset bundle generation/download/outbox publication, append-only provenance, and typed create/read/save/export routes without model calls or automatic query execution in `targets/catalyst/catalyst-gateway/src/catalyst/`
+- [ ] T141 [US7] Add failing typed UI/API/E2E tests, then implement the supplied Ask/Datasets/Widgets/Dashboards shell, persistent Ask composer, chronological draft tiles, one slide-over review panel, five supported visualization families with a compact compatible-type selector/read-only bindings and schematic thumbnails only, libraries, stale states, `Publish to Superset`, download, import status, and `Open Superset` in `targets/catalyst/catalyst-ui/src/features/`
+- [ ] T142 [US7] Prove deterministic refresh restoration, zero model/database calls during configuration, byte-identical export, clean Superset import, changed publication through a stable Dashboard UUID plus new versioned child UUIDs, and rendered-value parity with PostgreSQL in automated real-path tests; also cover idempotent same-digest import, failed import recovery, keyboard traversal, narrow layout, and actual 200% zoom
+- [ ] T143 [US7] Record the implemented contract, validation/rollback protocol, provenance/credential boundary, residual risks and explicit API/narrative/security deferrals in the PCCP and roadmap/status docs; demonstrate the real Catalyst → outbox → Superset workflow and pause for user acceptance
 
 ## Dependencies and implementation strategy
 
@@ -309,8 +309,9 @@ regression; no G2.8 merge-chain task remains. T128 records the P4/P5 baseline;
 T129 blocks T130, T131 and T132 are independently test-first, T130–T132 block
 the P4 dry-run gate T133, and T133 blocks P5 tasks T134–T136. The accepted
 US1/US3/US5 workbench foundation opens selected US7 without waiting for G2.10,
-W2, W3, R4, or R5. For Dashboard MVP, T137 blocks T138; T139 may run in
-parallel with T137/T138; T138 and T139 block T140; T140 blocks T141; T142 may
-start once the contracts stabilize; and T141 plus T142 block the real-path/user
-checkpoint T143. PR #43 MS-D and merge remain
+W2, W3, R4, or R5. For Dashboard Builder MVP, T137 blocks all product changes;
+T138 and T139 are red-first and may proceed independently after T137; both block
+T140. UI red tests in T141 may start after the T139 contract stabilizes, but UI
+implementation requires T140. T140 and T141 block the real-path T142 gate; T142
+blocks the documentation/user checkpoint T143. PR #43 MS-D and merge remain
 evaluation release closeout and do not block T137.

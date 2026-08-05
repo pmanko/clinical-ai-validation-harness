@@ -24,7 +24,7 @@ The harness coordinates validation across four clinical AI projects:
 | `chartsearchai` | OpenMRS clinical-chat module with bundled and med-agent-hub provider paths | Product integration target: shared lifecycle UX, persistence, evidence display, cancellation, and security |
 | `querystore` | Read-optimized OpenMRS clinical-record projection and optional med-agent-hub source | Context-source validation: materialized records, indexing integrity, date/freshness semantics, and retrieval experiments |
 | `openmrs_chatbot` | Python clinical chatbot with patient/doctor interfaces and agent workflow scaffolding | Future expansion: multi-turn grounding and role-aware answer evaluation |
-| `Catalyst` (OpenELIS) | Supervised reporting workbench: OpenELIS → HAPI FHIR → FHIR Data Pipes → governed query/table → versioned dashboard artifact | Query/notebook MVP accepted; Dashboard MVP selected next; data, repair, evaluation, narrative, and production paths remain independently gated |
+| `Catalyst` (OpenELIS) | Supervised reporting workbench: OpenELIS → HAPI FHIR → FHIR Data Pipes → governed query/table → versioned Dataset/Widget/Dashboard drafts → Superset bundle | Query/notebook MVP accepted; Superset-backed Dashboard Builder selected next; data, repair, evaluation, narrative, and production paths remain independently gated |
 
 ## Current priority: the validation spine and active lanes
 
@@ -71,7 +71,7 @@ Human-facing docs use plain names. IDs appear in parentheses on first use and in
 | ChartSearchAI model gateway | F008 | `008` | Bundled and configured-Hub providers preserved behind the [dual-provider roadmap](specs/artifacts/planning/openmrs-dual-provider-parity-roadmap.md) |
 | Clinical knowledge base | F009 | `009` | [Brief + research](https://github.com/pmanko/clinical-ai-validation-harness/blob/main/specs/artifacts/planning/clinical-kb-brief.md) |
 | Retrieval evaluation | M4 | `010` | Planned |
-| Catalyst supervised reporting | M10 | `008` | Query/workbench MVP accepted; single-artifact Dashboard MVP selected next; parallel follow-on pathways remain independently gated |
+| Catalyst supervised reporting | M10 | `008` | Query/workbench MVP accepted; Superset-backed Dashboard Builder MVP selected next; parallel follow-on pathways remain independently gated |
 | Answer, citation, and abstention | M5 | `012` | Planned |
 | Safety and red-team | M6 | `013` | Planned |
 | Clinician governance review | M7 | `014` | Planned |
@@ -134,16 +134,17 @@ matrix, independent PostgreSQL/gold comparisons, bounded failure/recovery, and
 actual keyboard-only plus 200%-browser-zoom checks. The deterministic
 Playwright notebook path preserves the corresponding focus and reflow boundary.
 
-The selected next product milestone is a supervised Dashboard MVP: promote one
-successful Query vN execution into one manually configured, versioned table,
-bar chart, or line chart; restore it after refresh; and mark it stale without
-silently rebinding when the source query changes. It depends only on the
-accepted workbench. Multi-source/lossless onboarding, targeted SQL repair,
-session-export/comparative experiments, evidence-linked narratives, and
-production security are parallel pathways, not sequential prerequisites.
-Multi-widget layouts, model-generated visualization specifications, sharing,
-scheduling, automatic refresh, publication/export, and production access
-control are outside this Dashboard MVP.
+The selected next product milestone is the Superset-backed Dashboard Builder:
+promote governed executions through immutable Dataset, Widget, and multi-widget
+Dashboard drafts, then publish a deterministic native ZIP to a shared local
+outbox for import by pinned Superset 6.1.0. Catalyst owns the iterative desired
+configuration in this one-way MVP; Superset renders it. Multi-source/lossless
+onboarding, targeted SQL repair, session-export/comparative experiments,
+evidence-linked narratives, and production security are parallel pathways, not
+sequential prerequisites. Superset REST API publication, embedded viewing,
+cross-system reconciliation, model-generated visualization specifications,
+sharing, scheduling, automatic refresh, and production access control remain
+outside this milestone.
 
 The P5 Catalyst report candidate is published at
 [reports.openclinai.org/catalyst-t094-release](https://reports.openclinai.org/catalyst-t094-release/):

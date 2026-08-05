@@ -1,6 +1,6 @@
 # Implementation Plan: Catalyst Query Workbench
 
-**Branch**: `codex/catalyst-mvp-umbrella` | **Date**: 2026-07-17 | **Spec**: [spec.md](spec.md)
+**Branch**: `codex/dashboard-builder-mvp` | **Date**: 2026-08-05 | **Spec**: [spec.md](spec.md)
 
 **Input**: Feature specification from `/specs/008-catalyst-query-workbench/spec.md`
 
@@ -46,56 +46,76 @@ export feature.
 
 | Pathway | State | Planning boundary |
 | --- | --- | --- |
-| **Supervised Dashboard MVP** | **Selected next product milestone** | Depends only on the accepted query/version/execution/table foundation. Create one manually configured, versioned table/bar/line artifact with refresh restoration and stale-source signaling. |
+| **Superset-backed Dashboard Builder MVP** | **Selected next product milestone** | Depends only on the accepted query/version/execution/table foundation. Persist supervised Dataset/Widget/Dashboard drafts and publish a deterministic native asset bundle to the local Superset outbox. |
 | G2.10 data foundation | Candidate implementation; acceptance evidence open | Complete multi-source, lossless-projection, generated-catalog, readiness, and provenance gates independently. |
 | W2 query assistance | Planned, not selected | Re-enter only after the G4 scope decision; bounded AST repair remains separate from internal generation correction. |
 | W3/CVR evaluation | Report parity implemented; session export/comparative expansion open | PR #43 MS-D/merge is release closeout. Additional export and experiments require their own selection. |
 | R4 narrative reporting | Planned | Starts from a governed table and is not a prerequisite for Dashboard MVP. |
 | R5 productionization | Future | Authentication, authorization, data scope, audit, and supported deployment require a separate program. |
 
-Dashboard MVP explicitly defers multi-widget layouts, model-generated
-visualization specifications, narrative reports, sharing, scheduling,
-automatic refresh, publication/export, and production access control. Its first
-implementation slice must not absorb G2.10, W2, W3, R4, or R5 work merely
-because those paths can later enrich dashboards.
+Dashboard Builder MVP implements the supplied iterative Ask → Dataset → Widget →
+Dashboard design while using Superset as the renderer. It explicitly defers the
+Superset REST API, embedded viewing, cross-system undo/reconciliation, model-
+generated visualization specifications, narrative reports, sharing,
+scheduling, automatic refresh, and production access control. Its first slice
+must not absorb G2.10, W2, W3, R4, or R5 merely because those paths can later
+enrich dashboards.
 
-### Dashboard MVP design boundary
+### Dashboard Builder MVP design boundary
 
 - Extend the existing append-only Gateway/SQLite operating-metadata store with
-  `DashboardArtifact` and immutable `DashboardVersion` records. Clinical result
-  rows remain on the immutable source execution; dashboard metadata references
-  that execution and an RFC 8785 canonical SHA-256 of its stored successful
-  `catalyst.table.v1` payload rather than duplicating rows.
-- Publish one versioned dashboard contract and typed create/save/read routes.
-  Stale or missing source evidence fails closed; compare-and-set on the parent
-  dashboard version rejects concurrent saves.
-- Add one `DashboardWorkspace` to the existing query workbench. It consumes the
-  typed execution result and supports a table for any valid result, a bar chart
-  for compatible category/numeric bindings, and a line chart for compatible
-  temporal/numeric bindings. Incompatible choices remain unavailable with a
-  user-readable reason.
-- Keep configuration deterministic and local. No Hub/profile/model dependency
-  is added, and configure/save/restore never triggers automatic query execution.
-- Test contracts/storage and UI behavior before implementation, then prove
-  restoration/staleness deterministically and finish with one real
-  Catalyst/PostgreSQL plus accessibility checkpoint and PCCP-style change
-  record.
+  immutable-versioned `DatasetDraft`, `WidgetDraft`, `DashboardDraft`, and
+  `SupersetBundleExport` records. Clinical rows remain on their immutable source
+  execution; builder metadata references the exact execution and canonical
+  result digest instead of copying rows.
+- Implement the supplied high-fidelity shell and iterative flow: the fixed Ask
+  composer and chronological work stay available while Dataset, Widget, and
+  Dashboard review panels and libraries progressively promote the same governed
+  artifact. One dashboard may contain multiple saved widgets.
+- Derive the initial presentation deterministically from the typed result shape,
+  support table, big-number KPI, time-series line/area, grouped/stacked bar, and
+  proportion bar, explain incompatibility, and let the user review or override
+  the compatible presentation type while keeping deterministic bindings
+  reviewable/read-only. Catalyst renders only schematic thumbnails; Superset is
+  the authoritative renderer. Configuration never invokes a model or reruns SQL.
+- Generate a native Superset asset ZIP with a stable logical Dashboard UUID,
+  immutable version-derived Dataset/Widget UUIDs, and deterministic
+  serialization. Compile named parameters from exact typed execution values,
+  preserve the parameterized form in a Catalyst manifest, and never place result
+  rows in the bundle.
+- `Publish to Superset` atomically writes the bundle to a host-visible outbox
+  bind-mounted read-only into Superset and offers the same ZIP for download. A
+  bootstrap importer loads the current bundle into a clean instance; an explicit
+  CLI helper imports or updates it in a running instance and records success or
+  failure against the exact digest. No Superset REST API is introduced.
+- Add pinned Apache Superset 6.1.0 plus its metadata database to the isolated
+  Compose stack. Superset queries the analytics database with the demo read-only
+  role; production secrets and deployment are deferred.
+- Test contracts/storage, deterministic bundle generation, and UI behavior
+  before implementation. Finish with a real clean import and versioned-child
+  dashboard update, plus
+  PostgreSQL value reconciliation, refresh/staleness, keyboard/reflow evidence,
+  and a PCCP-style change record.
 
 ## Technical Context
 
 **Language/Version**: Python 3.11–3.13; TypeScript 6 / React 19
 
-**Primary Dependencies**: FastAPI, psycopg 3, SQLGlot, jsonschema, Carbon React,
-direct CodeMirror 6 with `@codemirror/lang-sql`, `sql-formatter`, and the
+**Primary Dependencies**: FastAPI, psycopg 3, SQLGlot, jsonschema, deterministic
+YAML/ZIP serialization, Carbon React, direct CodeMirror 6 with
+`@codemirror/lang-sql`, `sql-formatter`, Apache Superset 6.1.0, and the
 med-agent-hub generic structured role-execution API
 
-**Storage**: Existing gateway SQLite store for workbench operating metadata;
-existing read-only PostgreSQL analytics database for query execution
+**Storage**: Existing Gateway SQLite store for workbench and builder operating
+metadata; existing read-only PostgreSQL analytics database for query execution
+and Superset virtual datasets; persistent Superset metadata database; and a
+host-visible, gitignored bundle outbox bind-mounted read-only into Superset
 
 **Testing**: pytest/pytest-asyncio, Vitest/Testing Library, Playwright, real-path
 harness Catalyst suite
 
-**Target Platform**: Local Docker Compose demo in a modern desktop browser
+**Target Platform**: Local Docker Compose demo in a modern desktop browser with
+Catalyst and a pinned local Superset instance
 
 **Project Type**: React web application + FastAPI gateway + external model hub
 
@@ -134,10 +154,11 @@ merged-Hub pins passed the definitive T111 live rerun. The user confirmed the
 actual keyboard-only and 200%-browser-zoom checks passed and accepted the MVP on
 2026-08-04; the deterministic Playwright path now guards the equivalent focus
 and reflow boundary.
-Multi-source/lossless acceptance remains separately open. Dashboard MVP is now
-the selected preimplementation slice: T137/T139 are red-first, T141 proves
-deterministic restoration and lineage, T142 records PCCP-style change control,
-and T143 requires the real Catalyst/PostgreSQL/accessibility checkpoint.*
+Multi-source/lossless acceptance remains separately open. Dashboard Builder MVP
+is now the selected preimplementation slice: its stack, contract/bundle, and UI
+tests are red-first; its automated acceptance proves deterministic export,
+clean import/versioned-child update, restoration, lineage, and PostgreSQL value parity; and
+its final gate requires the real Catalyst/Superset/accessibility checkpoint.*
 
 - **Real production paths — PASS**: The browser calls the deployed Catalyst
   Gateway, which composes the query flow, calls the real generic Hub role

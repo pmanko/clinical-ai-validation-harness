@@ -1,0 +1,140 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://catalyst.local/contracts/catalyst-superset-bundle-v1.schema.json",
+  "title": "Catalyst Superset Bundle Manifest v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "exportId",
+    "targetSupersetVersion",
+    "dashboard",
+    "widgets",
+    "datasets",
+    "assetUuids",
+    "credentialPolicy",
+    "generator",
+    "sourceVersionCreatedAt",
+    "assetContentDigest"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "catalyst.superset.bundle.v1" },
+    "exportId": { "$ref": "#/$defs/nonEmpty" },
+    "targetSupersetVersion": { "const": "6.1.0" },
+    "dashboard": { "$ref": "#/$defs/versionRef" },
+    "widgets": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/widgetRef" }
+    },
+    "datasets": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/datasetRef" }
+    },
+    "assetUuids": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["database", "dashboard", "datasetsByVersion", "chartsByVersion"],
+      "properties": {
+        "database": { "type": "string", "format": "uuid" },
+        "dashboard": { "type": "string", "format": "uuid" },
+        "datasetsByVersion": {
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": { "type": "string", "format": "uuid" }
+        },
+        "chartsByVersion": {
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": { "type": "string", "format": "uuid" }
+        }
+      }
+    },
+    "credentialPolicy": {
+      "enum": ["local_demo_read_only", "receiver_supplied"]
+    },
+    "generator": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["revision", "parameterCompilerRevision"],
+      "properties": {
+        "revision": { "$ref": "#/$defs/nonEmpty" },
+        "parameterCompilerRevision": { "$ref": "#/$defs/nonEmpty" }
+      }
+    },
+    "sourceVersionCreatedAt": { "type": "string", "format": "date-time" },
+    "assetContentDigest": { "$ref": "#/$defs/sha256" }
+  },
+  "$defs": {
+    "nonEmpty": { "type": "string", "minLength": 1 },
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "sourceRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sessionId",
+        "queryVersionId",
+        "queryDigest",
+        "executionId",
+        "dataSourceId",
+        "catalogVersion",
+        "resultSchemaDigest",
+        "resultDigest"
+      ],
+      "properties": {
+        "sessionId": { "$ref": "#/$defs/nonEmpty" },
+        "queryVersionId": { "$ref": "#/$defs/nonEmpty" },
+        "queryDigest": { "$ref": "#/$defs/sha256" },
+        "executionId": { "$ref": "#/$defs/nonEmpty" },
+        "dataSourceId": { "$ref": "#/$defs/nonEmpty" },
+        "catalogVersion": { "$ref": "#/$defs/nonEmpty" },
+        "resultSchemaDigest": { "$ref": "#/$defs/sha256" },
+        "resultDigest": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "versionRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "versionId", "configurationDigest"],
+      "properties": {
+        "id": { "$ref": "#/$defs/nonEmpty" },
+        "versionId": { "$ref": "#/$defs/nonEmpty" },
+        "configurationDigest": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "widgetRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "versionId", "configurationDigest", "datasetVersionId"],
+      "properties": {
+        "id": { "$ref": "#/$defs/nonEmpty" },
+        "versionId": { "$ref": "#/$defs/nonEmpty" },
+        "configurationDigest": { "$ref": "#/$defs/sha256" },
+        "datasetVersionId": { "$ref": "#/$defs/nonEmpty" }
+      }
+    },
+    "datasetRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "versionId",
+        "configurationDigest",
+        "parameterizedSqlDigest",
+        "compiledSqlDigest",
+        "typedParametersDigest",
+        "source"
+      ],
+      "properties": {
+        "id": { "$ref": "#/$defs/nonEmpty" },
+        "versionId": { "$ref": "#/$defs/nonEmpty" },
+        "configurationDigest": { "$ref": "#/$defs/sha256" },
+        "parameterizedSqlDigest": { "$ref": "#/$defs/sha256" },
+        "compiledSqlDigest": { "$ref": "#/$defs/sha256" },
+        "typedParametersDigest": { "$ref": "#/$defs/sha256" },
+        "source": { "$ref": "#/$defs/sourceRef" }
+      }
+    }
+  }
+}

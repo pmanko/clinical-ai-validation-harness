@@ -48,18 +48,18 @@ W2 → W3 → W4 queue.
 
 | Pathway | State | Relationship |
 | --- | --- | --- |
-| **Dashboard MVP (D1 / US7)** | **Selected next milestone** | Depends only on the accepted query/version/execution/table foundation |
+| **Superset-backed Dashboard Builder (D1 / US7)** | **Selected next milestone** | Depends only on the accepted query/version/execution/table foundation; Catalyst publishes deterministic native bundles and Superset renders them |
 | Data foundation (G2.10 / US6) | Candidate implementation; internal/live acceptance open | Can broaden dashboard sources later; does not block single-source D1 |
 | Query assistance (W2 / US2) | Planned, not selected | Re-enters only after its G4 scope gate |
 | Evaluation (W3/CVR) | Runner/report parity implemented; session export/comparative expansion open | PR #43 MS-D/merge is release closeout, not a D1 dependency |
 | Narrative reporting (Catalyst R4) | Not started | Parallel table-to-narrative flow; not a D1 dependency |
 | Productionization (Catalyst R5) | Future | Separate authentication, authorization, security, and deployment program |
 
-D1 is one executed result promoted into one manually configured, versioned
-table/bar/line artifact with refresh restoration and explicit stale-source
-state. Multi-widget layouts, model-generated visualization specifications,
-narratives, sharing, scheduling, automatic refresh, publication/export, and
-production access control are deferred.
+D1 promotes governed executions through versioned Dataset, Widget, and Dashboard
+drafts and publishes deterministic native bundles to a pinned local Superset
+outbox. The Superset REST API, embedded viewing, cross-system reconciliation,
+model-generated visualization specifications, narratives, sharing, scheduling,
+automatic refresh, and production access control are deferred.
 
 ## W0 — Durable specification and research
 
@@ -1540,27 +1540,66 @@ This proves the source can be provisioned and read, but does not close T121:
 pre-provision registry availability is still broader than database readiness,
 and the complete two-source transition/staleness/execution matrix remains open.
 
-## D1 — Supervised Dashboard MVP
+## D1 — Superset-backed Dashboard Builder MVP
 
-**Status:** Selected next milestone; implementation not started
+**Status:** Selected next milestone; written-plan checkpoint complete 2026-08-05
 
-**Goal:** Promote one successful Query vN execution into one manually
-configured, versioned dashboard artifact without changing or rerunning its
-query.
+**Goal:** Implement the supplied iterative Ask → Dataset → Widget → Dashboard
+experience without building a dashboard renderer. Catalyst persists supervised
+drafts and publishes deterministic native asset bundles to a local outbox;
+Apache Superset 6.1.0 imports, queries, and renders them.
 
-- **D1a internal:** prove the versioned dashboard contract, exact
-  query/execution/source/result binding, immutable saves, concurrent-save
-  rejection, missing-evidence failure, restoration, and stale-source state.
-- **D1b internal:** prove one table/bar/line presentation, typed-column
-  compatibility, manual title/bindings/labels/sort configuration, and zero model
-  or automatic database calls during configure/save/restore.
-- **D1c user:** demonstrate create → configure → save v1 → revise/save v2 →
-  refresh → source query change → stale dashboard using one real Catalyst
-  execution, independent PostgreSQL value checks, keyboard-only traversal,
-  narrow layout, and actual 200% browser zoom; pause for acceptance.
+- **D1a written-plan:** align the high-fidelity design, specification, model,
+  contracts, tasks, quickstart, and both roadmaps around the file/outbox boundary;
+  record version coupling, parameter compilation, credential policy, import
+  overwrite behavior, and all deferrals; pass the read-only consistency check.
+- **D1b stack/contract:** pin Superset in the isolated stack; prove immutable
+  Dataset/Widget/Dashboard lineage, five visualization families, deterministic
+  typed SQL compilation, a stable logical Dashboard UUID with version-derived
+  child UUIDs, byte-identical ZIP generation, atomic outbox publication,
+  bootstrap import, and explicit running-instance update.
+- **D1c product:** faithfully implement the fixed Ask composer, chronological
+  draft workflow, review panel, libraries, deterministic suggestion/override,
+  `Publish to Superset`, download, import state, and stale-source behavior with
+  zero model or automatic query calls during configuration.
+- **D1d automated/live:** prove refresh restoration, clean import and a changed
+  publication using a stable Dashboard UUID plus new versioned children in real
+  Superset, independent PostgreSQL value parity, failed-import
+  recovery, keyboard traversal, narrow layout, and actual 200% browser zoom;
+  record inconsistencies/nondeterminism and pause for user acceptance.
 
-**Exit:** T137–T143 pass and the user accepts D1c. The dashboard remains a local
-single-artifact demo; no deferred pathway is implied complete.
+### D1a written-plan checkpoint — COMPLETE (2026-08-05)
+
+The supplied high-fidelity design, canonical Catalyst specification/roadmap,
+feature spec/plan/model/tasks/quickstart, portfolio status, two Superset research
+notes, and matching bundle-manifest schemas now agree on the one-way file/outbox
+MVP. The read-only SpecKit consistency pass found no remaining constitution
+violation or unassigned D1 requirement after correcting these preimplementation
+defects:
+
+- pinned Superset 6.1.0 overwrites the logical Dashboard but not related
+  datasets/charts, so changed child assets are immutable/version-addressed;
+- a multi-widget Dashboard can reference multiple executions, so source lineage
+  is recorded per Dataset rather than once globally;
+- dynamic export/import times stay outside the ZIP so identical inputs remain
+  byte-identical and the manifest avoids a self-referential bundle digest;
+- the file-only MVP makes Catalyst the desired-configuration authority and
+  Superset the renderer; Superset-only edits are explicitly replaced on the next
+  publication rather than falsely represented as synchronized;
+- Catalyst provides only schematic thumbnails and deterministic compatible-type
+  selection; it does not grow a local chart renderer or arbitrary mapping UI.
+
+Open implementation evidence, not specification ambiguity, remains: the exact
+6.1.0 image/driver digest, native YAML/chart-`params` fixtures, tolerance of the
+additional Catalyst manifest member, outbox/runtime path permissions, and the
+clean/same-digest/changed-child/import-failure matrix must be proven in T138–T142.
+Moving upstream documentation describes broader overwrite behavior than the
+pinned 6.1.0 source; the pin and live tests remain authoritative.
+
+**Exit:** T137–T143 pass and the user accepts D1d. The Superset REST API,
+embedded dashboards, cross-system undo/reconciliation, narrative reporting,
+sharing, scheduling, automatic refresh, and production authorization remain
+explicitly deferred; no parallel pathway is implied complete.
 
 ## W2 — Targeted remediation
 

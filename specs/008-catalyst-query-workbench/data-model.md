@@ -237,33 +237,74 @@ displayed as stale and remains labelled with its original `Results from Query
 vN` identity. No successor edit or turn deletes the attempt or attaches it to
 another version.
 
-## DashboardArtifact and DashboardVersion
+## Dashboard Builder entities
 
-A DashboardArtifact is one supervised presentation rooted in one successful
-ExecutionAttempt. It records:
+### DatasetDraft
 
-- dashboard, session, source query-version, and source execution IDs;
-- source query/result digests, data-source ID, catalog version, and typed result
-  schema;
-- latest saved dashboard-version pointer; and
-- a derived source state: current, stale, or missing evidence.
+A DatasetDraft is rooted in one successful `ExecutionAttempt` and records:
 
-A DashboardVersion is immutable and records:
+- dataset-draft ID and immutable version ID/parent;
+- session, source query-version/digest, execution, data-source ID, catalog
+  version, typed result schema, and canonical result digest;
+- the original parameterized SQL and typed parameters;
+- the deterministically compiled Superset virtual-dataset SQL and compiler
+  revision;
+- name, description, author actor kind, creation time, and configuration digest;
+- latest-version pointer and derived source state: current, stale, or missing.
 
-- dashboard-version ID, parent ID, and artifact ID;
-- presentation kind: table, bar, or line;
-- title, selected columns or axis bindings, labels, and sort;
-- author actor kind (`human` in the unauthenticated demo), created time, and
-  configuration digest; and
-- the complete source binding copied from the artifact at save time.
+It references the immutable execution result but does not copy clinical rows.
+Named parameters are compiled only from the execution's typed values with
+PostgreSQL-aware literal escaping; the parameterized source remains preserved.
 
-The dashboard references the immutable execution result; it does not copy
-clinical rows into operating-metadata fields. The result digest is the RFC 8785
-canonical SHA-256 of the stored successful `catalyst.table.v1` payload.
-Configuration, preview, save, and restoration make no model call and do not
-execute the source query. A new active query or execution changes only the
-artifact's derived source state—it never rewrites a saved version or rebinds its
-evidence. Missing or digest-mismatched source evidence fails closed.
+### WidgetDraft
+
+A WidgetDraft is an immutable-versioned presentation over one exact
+DatasetDraft version. It records:
+
+- widget ID, version ID/parent, and dataset version ID/digest;
+- presentation kind: table, big-number KPI, time-series line/area,
+  grouped/stacked bar, or proportion bar;
+- title, column/axis bindings, labels, sort, aggregation, and display options;
+- whether the initial suggestion was accepted or overridden plus deterministic
+  compatibility evidence;
+- author, timestamps, configuration digest, and source provenance.
+
+### DashboardDraft
+
+A DashboardDraft is an immutable-versioned supervised composition. It records:
+
+- dashboard ID, version ID/parent, title, description, and layout;
+- an ordered list of exact WidgetDraft version IDs and stable placement IDs;
+- author, timestamps, configuration digest, and complete transitive source
+  provenance;
+- latest-version pointer and derived current/stale source state.
+
+### SupersetBundleExport
+
+A SupersetBundleExport records:
+
+- export ID, exact Dataset/Widget/Dashboard version IDs, one stable logical
+  Dashboard UUID, and immutable version-derived Dataset/Widget Superset UUIDs;
+- bundle contract version, target Superset version, deterministic content digest,
+  outbox path, and optional download name;
+- state: `bundle_ready`, `importing`, `imported`, or `import_failed`;
+- generator revision, generated time, and, when available, importer revision,
+  import time, exit status, and bounded diagnostic;
+- credential policy (`local_demo_read_only` or `receiver_supplied`) without
+  logging credentials.
+
+The ZIP contains native Superset database, virtual-dataset, chart, and dashboard
+YAML plus a Catalyst manifest. It never contains result rows. Identical inputs
+produce byte-identical archives through deterministic member ordering,
+timestamps, permissions, YAML serialization, and UUID derivation. A changed
+publication keeps the logical Dashboard UUID but uses new child-version UUIDs
+because Superset 6.1.0 does not overwrite related datasets/charts during
+dashboard import.
+`Publish to Superset` atomically replaces the selected dashboard's current
+outbox bundle. Superset mounts the outbox read-only; stack bootstrap or an
+explicit CLI helper performs the import and is the only authority allowed to
+record an import outcome. A new query or execution changes only derived stale
+state; it never rewrites or silently rebinds saved versions or prior exports.
 
 ## WorkbenchEvent
 

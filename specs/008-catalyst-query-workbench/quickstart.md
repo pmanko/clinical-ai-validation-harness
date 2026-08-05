@@ -297,30 +297,39 @@ Implementation plumbing is not acceptance evidence. Before closing G2.10:
 6. Confirm readiness documents and reports only the default source. Record the
    G2.10b evidence and pause at G2.10c for explicit user acceptance.
 
-## D1 Dashboard MVP checkpoint
+## D1 Superset-backed Dashboard Builder checkpoint
 
 This is the selected next product checkpoint. It requires only the accepted
 query/version/execution/table foundation; G2.10, W2, W3/CVR, R4, and R5 remain
 parallel.
 
-1. Run a seeded query and independently verify its returned values against
-   PostgreSQL. Create a dashboard from that exact successful execution.
-2. Select one compatible table, bar chart, or line chart. Manually configure
-   title, bindings, labels, and sort; confirm preview/configuration makes no model
-   call and does not re-execute the query.
-3. Save v1, revise the configuration, and save v2. Verify immutable parent,
-   author-kind, timestamp, configuration digest, and complete
-   session/query/execution/source/result provenance.
-4. Refresh and prove v2 plus version history restore byte-for-byte with zero
-   model calls and zero database executions.
-5. Edit or replace the active query and confirm the saved dashboard remains
-   visible, reports a stale source, and retains its original binding. Missing or
-   digest-mismatched source evidence must fail closed.
-6. Repeat create/configure/save/history/stale review with keyboard only, at the
-   accepted narrow layout, and at actual 200% browser zoom. Record any
-   nondeterminism, inconsistency, or test/manual mismatch and pause for user
-   acceptance at D1c.
+The implementation will add Superset to the normal isolated Catalyst launcher.
+The intended operator flow is:
 
-This checkpoint does not test or claim multi-widget layouts, model-generated
-visualization specifications, narratives, sharing, scheduling, automatic
-refresh, publication/export, or production authorization/deployment.
+1. Boot Catalyst, Superset 6.1.0, and their metadata services with the existing
+   isolated-stack command. Superset is exposed only on the documented localhost
+   port and reads the Catalyst bundle outbox through a read-only bind mount.
+2. Run and independently verify a Catalyst query. Promote that exact successful
+   execution to a Dataset draft; review or override the deterministic Widget
+   suggestion; save it and place one or more widgets on a Dashboard draft.
+3. Select **Publish to Superset**. Catalyst atomically writes a native Superset
+   ZIP to the host-visible outbox and offers the same artifact for download.
+   Bundle creation makes no model call and does not rerun the query.
+4. For a clean stack, let the bootstrap importer load the selected current
+   bundle. For an already-running stack, run the documented Superset import
+   helper. Only a successful CLI result changes `Bundle ready` to `Imported`;
+   generating the file alone never claims synchronization.
+5. Open Superset, render the imported dashboard, and independently reconcile
+   representative values with PostgreSQL. Publish a changed draft and prove the
+   stable logical Dashboard UUID points to newly created version-addressed
+   Dataset/Widget children rather than relying on child-asset overwrite.
+6. Refresh Catalyst and prove immutable Dataset/Widget/Dashboard versions,
+   import evidence, and stale-source states restore. Repeat with keyboard only,
+   the accepted narrow layout, and actual 200% browser zoom.
+
+The bundle contains configuration and provenance, not result rows. Named
+parameters are compiled from exact typed execution values; the original
+parameterized SQL remains in the Catalyst manifest. Only the labelled local
+demo may carry a read-only demo credential. Superset API publication, embedded
+viewing, cross-system undo/reconciliation, narratives, sharing, scheduling,
+automatic refresh, and production authorization/deployment are not claimed.
