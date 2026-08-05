@@ -291,7 +291,7 @@ const features: Feature[] = [
       "FHIR Data Pipes and other registered sources expose approved analytics views through generated catalogs.",
       "Gateway-owned writer/reviewer profiles produce complete SQL with deterministic validation and retained model evidence.",
       "One iterative workbench supports manual edits, validation, execution, follow-up turns, refresh restoration, and result lineage.",
-      "The selected next slice promotes one exact execution into one table, bar chart, or line chart with manual configuration, immutable versions, refresh restoration, and stale-source signalling.",
+      "The selected next slice promotes one exact execution into one table, bar chart, or line chart with manual configuration, immutable versions, refresh restoration, and stale-source signaling.",
       "Multi-source reliability, query repair, evaluation expansion, narrative reporting, and productionization remain parallel independently gated pathways.",
       "Harness scenarios compare executed model SQL with independently authored PostgreSQL gold queries across model profiles.",
     ],

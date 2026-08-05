@@ -272,7 +272,7 @@ unobscured Tab focus and the corresponding 200%-equivalent reflow boundary.
 The root `README.md`, Catalyst user docs, roadmap, quickstart, and PCCP evidence
 are updated after acceptance. Hub is already merged; Catalyst squash and the
 post-merge health/provenance and real-model/PostgreSQL/gold verification pass;
-Harness #37 approval, repin, verification, and squash completed T112.
+Harness PR #37 approval, repin, verification, and squash completed T112.
 
 ## G2.10 multi-source/lossless checkpoint
 

@@ -13,7 +13,8 @@ Execution state for the Catalyst validation integration remediation roadmap.
 | Approved roadmap SHA-256 (A2, current) | `d11d34f466f727e70a50eccc7024c85b334ad8c899ddb6a94ef0d26a09814dab` |
 | Current execution boundary | P0–P5 and T136 complete; CVR-G13–G18 PASS; final MS-D acceptance is ready |
 | Next protected boundary | Execute MS-D and record the user's final release-acceptance decision |
-| Integration PR | Harness [#43](https://github.com/pmanko/clinical-ai-validation-harness/pull/43) is ready for review, mergeable, and green on required checks at head `b99253a`; review and MS-D remain |
+| Integration PR | Harness [#43](https://github.com/pmanko/clinical-ai-validation-harness/pull/43) carries the release-closeout candidate; GitHub is authoritative for its mutable head, check, review, and mergeability state; MS-D and merge remain |
+| Last verified candidate | On 2026-08-04, head `b99253a` was ready for review, mergeable, and green on required checks at observation time |
 | Deviations | None. Amendment A1 (2026-07-21) remaps P4/P5 entry gates to T094/T095/T111 acceptance; Amendment A2 (2026-08-04) orders CVR-G18 hygiene before final MS-D acceptance — see roadmap §1.2 |
 
 This status file governs the Catalyst validation/report release only. The
