@@ -166,6 +166,19 @@ restart persistence, failed-import recovery, accepted Ask regression,
 accessibility evidence, versioned run evidence, pushed component branches/PRs,
 and explicit user acceptance.
 
+### D1 delivery-state clarification
+
+The long-form D1 objective above is the complete Dashboard Builder program, not
+the status label for the smallest locally useful deployment. The authoritative
+near-term delivery target is
+[`dashboard-mvp-delivery-goal.md`](dashboard-mvp-delivery-goal.md): one real
+workbench result promoted to a verified table dashboard in local Superset,
+without reducing the existing Ask workflow. It has M0–M4 testable checkpoints.
+The table vertical slice may be called a **working local MVP** only after M4;
+it must not be called full D1 completion. Five visualization mappings,
+multi-widget UX, full import recovery, the full accessibility matrix, and the
+schema-backed acceptance emitter remain D1 hardening work in T139–T182.
+
 ### D1 checkpoint contract
 
 | Checkpoint | Entry | Testable exit evidence | Pause rule |

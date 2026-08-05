@@ -1,6 +1,7 @@
 # PCCP-style Change Record: Superset-backed Dashboard Builder MVP
 
-**Status:** Preimplementation; D1a groundedness review in progress
+**Status:** D1a passed; local table-dashboard vertical slice implemented; full
+D1 acceptance open
 
 **Date:** 2026-08-05
 
@@ -11,6 +12,19 @@ embedded dashboard, background watcher, Catalyst chart renderer, automatic SQL
 execution, or model-generated visualization configuration is authorized.
 
 ## Modification and rationale
+
+### Current implementation boundary (2026-08-05)
+
+The current branches implement a local structural vertical slice: persisted
+builder drafts, deterministic native table bundle, pinned Superset runtime,
+explicit importer, restart-retained volumes, and verified import receipts. The
+completed local generation path used the deterministic fake router, so it is
+structural scaffolding rather than real-model acceptance. The table exporter is
+the only verified native visualization; the designed multi-widget/library UX,
+five-family import matrix, complete reset/reimport recovery, accessibility
+matrix, and dashboard evidence emitter remain open. This record therefore does
+not claim D1 completion until the real-model, record-reconciled, user-accepted
+path succeeds.
 
 The current product supports real writer/reviewer query generation, manual SQL
 editing and formatting, advisory validation, explicit PostgreSQL execution,

@@ -56,7 +56,7 @@ presentation.
 
 | Pathway | State | Next gate | Blocks D1? |
 | --- | --- | --- | --- |
-| Dashboard product (D1) | **Selected next; D1a passed and user-accepted, D1b authorized** | D1b runtime/import, D1c backend/export, D1d integrated UX, D1e deployed Superset/user acceptance | — |
+| Dashboard product (D1) | **Working local table-dashboard vertical slice; full D1 open** | M0–M4 local MVP acceptance, then D1 hardening (T139–T182) | — |
 | Data foundation (G2.10) | Candidate implementation; evidence open | T117–T122 internal and two-source/lossless acceptance | No |
 | Query assistance (W2) | Planned, not selected | G4 scope revalidation before T028–T034 | No |
 | Evaluation (W3/CVR) | Runner/report parity merged in PR #43; session-export/comparative expansion remains | Separately select T036–T038 or later experiments | No |
@@ -96,5 +96,16 @@ presentation.
   scripts under `targets/catalyst/scripts/` with no Catalyst package dependency;
   their canonical-JSON and pinned-container tests live under the Gateway test
   tree and run in Catalyst's Gateway CI job. Runtime commands use one dedicated
-  `mvp-superset.sh` boundary routed from the harness. No Dashboard Builder product
-  implementation or acceptance is claimed yet.
+  `mvp-superset.sh` boundary routed from the harness.
+
+  **Current correction (2026-08-05):** the former statement that no Dashboard
+  Builder implementation was claimed is obsolete. The active feature branches
+  contain a working local table-dashboard vertical slice: persisted builder
+  drafts, deterministic native bundle, pinned Superset stack, explicit importer,
+  and verified local import receipt. It is not full D1 acceptance: the exporter
+  is table-only; the multi-widget library shell, five clean-imported
+  visualization families, full reset/reimport recovery, comprehensive
+  accessibility evidence, real-model end-to-end evidence, and schema-backed
+  dashboard acceptance emission remain open. The authoritative M0–M4
+  local-MVP target is
+  `specs/008-catalyst-query-workbench/dashboard-mvp-delivery-goal.md`.

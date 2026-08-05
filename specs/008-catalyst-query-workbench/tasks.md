@@ -325,6 +325,32 @@ so textual order—not numeric order—is the executable sequence within D1.
 - [ ] T156 [US7] Repeat the deployed path for same-digest no-op, changed child, layout-only reuse, restart restoration, scoped pointer/bundle/preflight/credential failures and transactionally rolled-back CLI failures that preserve the prior verified Dashboard, a post-verification failure that reports `Import failed` with Open/current-success disabled and retained diagnostic, full Superset-local metadata/home reset plus verified per-Dashboard last-verified reimport, missing/corrupt projection refusal before reset, recovered-A/failed-desired-B automatic bootstrap/retry suppression until explicit retry or new publication, DB-enforced read-only write denial, and one clean-import fixture for every supported visualization family; record model candidate/digest variance rather than assuming temperature-zero reproducibility under `artifacts/catalyst-dashboard/<run-id>/d1e/repetitions/`
 - [ ] T157 [US7] Pass the final D1e evidence gate: validate the emitted `run_manifest.json`, structured `query_*` and builder `events.jsonl`, fixed `orderedWorkflow` in `acceptance.json`, screenshots/video, bundle/current/receipt/per-Dashboard-last-verified/evidence-index digests, revisions, IDs, PostgreSQL evidence, rationale, accessibility references, scoped failure-boundary evidence, and full-reset/reimport-last-verified recovery evidence under `artifacts/catalyst-dashboard/<run-id>/`; update `specs/008-catalyst-query-workbench/pccp/2026-08-05-superset-dashboard-builder.md`, `roadmap.md`, and `quickstart.md`; pass CI and remote-reachable pin checks, push both PR branches, demonstrate Catalyst → outbox → Superset, and pause for final user acceptance before calling the MVP complete
 
+### D1v — working local table-dashboard MVP
+
+This is the short, evidence-driven delivery target defined in
+`dashboard-mvp-delivery-goal.md`. It records the implemented vertical slice
+without marking the D1 hardening graph above complete.
+
+- [X] T183 [US7] Record the independently verified local baseline: Catalyst UI,
+  Gateway, Superset, and analytics health; named-volume restart retention;
+  deterministic table bundle; successful import receipt; and deployed
+  Superset URL. Link it from the D1 roadmap and clearly label fake-router
+  execution as structural scaffolding.
+- [ ] T184 [US7] Replace `worktree` importer provenance in successful receipts
+  with the exact Catalyst revision, add a focused regression test, and prove
+  the persisted local volume continues to retain receipts/projections after
+  restart.
+- [ ] T185 [US7] Exercise the preserved Ask workflow against an available real
+  Gemma 4 12B writer and different-family Qwen 2.5 14B reviewer; manually edit,
+  Validate, Run, and promote one exact result into Dataset → verified table
+  Widget → named Dashboard with no model substitution.
+- [ ] T186 [US7] Publish/import that Dashboard, compare three keyed rendered
+  values to recorded PostgreSQL queries, and write the bounded versioned manual
+  evidence directory required by MVP-07.
+- [ ] T187 [US7] Pause for user inspection and acceptance of the deployed local
+  Superset dashboard. Do not call full D1 complete; retain T139–T182 as the
+  hardening backlog.
+
 ## Dependencies and implementation strategy
 
 G0 (T001–T002) blocks all product code. T003–T007 block US1/US3/US4. T053 and

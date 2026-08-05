@@ -1542,8 +1542,20 @@ and the complete two-source transition/staleness/execution matrix remains open.
 
 ## D1 — Superset-backed Dashboard Builder MVP
 
-**Status:** Selected next milestone; D1a passed and user-accepted on 2026-08-05;
-D1b runtime/import implementation authorized
+**Status:** Working local table-dashboard vertical slice; D1a passed and
+user-accepted on 2026-08-05; full D1 acceptance remains open
+
+**Current implementation state (2026-08-05):** The active branches contain a
+working local table-dashboard vertical slice: immutable builder entities,
+deterministic native bundle generation, a pinned local Superset runtime, an
+explicit importer, and verified import receipts. It is not full D1 acceptance.
+The current exporter is table-only, the UI is not yet the designed multi-widget
+library shell, `mvp-superset.sh reset` intentionally refuses to run until its
+recovery contract is implemented, and recorded end-to-end generation used the
+fake router rather than a real-model acceptance run. The next delivery target
+and M0–M4 exits are defined in
+[`dashboard-mvp-delivery-goal.md`](dashboard-mvp-delivery-goal.md). T139–T182
+remain the full D1 hardening backlog; they are not retroactively complete.
 
 **Goal:** Implement the supplied iterative Ask → Dataset → Widget → Dashboard
 experience without building a dashboard renderer. Catalyst persists supervised
