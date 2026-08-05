@@ -16,6 +16,15 @@ ROUTER_PORT="${LLAMA_ROUTER_PORT:-8077}"
 MODEL_DIR="${LLAMA_MODEL_DIR:-${HOME}/.cache/llama-router-models}"
 RUNTIME_DIR="${LLAMA_ROUTER_RUNTIME_DIR:-${ROOT}/artifacts/llama-router}"
 RUNTIME_MODELS="${RUNTIME_DIR}/models"
+READY_TIMEOUT_SECONDS="${LLAMA_ROUTER_READY_TIMEOUT_SECONDS:-60}"
+DAEMON=0
+
+if [ "${1:-}" = "--daemon" ]; then
+  DAEMON=1
+elif [ "$#" -gt 0 ]; then
+  echo "usage: $0 [--daemon]" >&2
+  exit 2
+fi
 
 if [ ! -d "${MODEL_DIR}" ]; then
   echo "ERROR: LLAMA_MODEL_DIR does not exist: ${MODEL_DIR}" >&2
@@ -31,6 +40,75 @@ if [ -e "${RUNTIME_MODELS}" ] && [ ! -L "${RUNTIME_MODELS}" ]; then
 fi
 ln -sfn "${MODEL_DIR}" "${RUNTIME_MODELS}"
 cd "${ROOT}"
+
+if [ "${DAEMON}" = "1" ]; then
+  if curl -fsS --max-time 3 http://127.0.0.1:8077/v1/models >/dev/null 2>&1; then
+    echo "llama.cpp router already reachable on :8077"
+    exit 0
+  fi
+
+  command -v llama-server >/dev/null 2>&1 || {
+    echo "ERROR: llama-server is not on PATH" >&2
+    exit 1
+  }
+  mkdir -p "${RUNTIME_DIR}"
+
+  PLATFORM="$(uname -s)"
+  if [ "${PLATFORM}" = "Darwin" ]; then
+    LABEL="org.openclinai.llama-router"
+    command -v launchctl >/dev/null 2>&1 || {
+      echo "ERROR: launchctl is required for managed macOS startup" >&2
+      exit 1
+    }
+    launchctl remove "${LABEL}" >/dev/null 2>&1 || true
+    launchctl submit \
+      -l "${LABEL}" \
+      -o "${RUNTIME_DIR}/router.stdout.log" \
+      -e "${RUNTIME_DIR}/router.log" \
+      -- /usr/bin/env \
+      HOME="${HOME}" \
+      PATH="${PATH}" \
+      LLAMA_MODEL_DIR="${MODEL_DIR}" \
+      LLAMA_ROUTER_RUNTIME_DIR="${RUNTIME_DIR}" \
+      LLAMA_ROUTER_MODELS_MAX="${LLAMA_ROUTER_MODELS_MAX:-4}" \
+      "${ROOT}/scripts/llama-router-up.sh"
+  else
+    nohup env \
+      LLAMA_MODEL_DIR="${MODEL_DIR}" \
+      LLAMA_ROUTER_RUNTIME_DIR="${RUNTIME_DIR}" \
+      LLAMA_ROUTER_MODELS_MAX="${LLAMA_ROUTER_MODELS_MAX:-4}" \
+      "${ROOT}/scripts/llama-router-up.sh" \
+      >"${RUNTIME_DIR}/router.log" 2>&1 &
+    echo "$!" >"${RUNTIME_DIR}/router.pid"
+  fi
+
+  for _ in $(seq 1 "${READY_TIMEOUT_SECONDS}"); do
+    if curl -fsS --max-time 3 http://127.0.0.1:8077/v1/models >/dev/null 2>&1; then
+      if [ "${PLATFORM}" = "Darwin" ]; then
+        ROUTER_PID="$(launchctl print "gui/$(id -u)/${LABEL}" 2>/dev/null \
+          | awk '/pid =/ {print $3; exit}' || true)"
+        [ -z "${ROUTER_PID}" ] || printf '%s\n' "${ROUTER_PID}" >"${RUNTIME_DIR}/router.pid"
+      fi
+      echo "llama.cpp router ready on :8077"
+      exit 0
+    fi
+    sleep 1
+  done
+
+  if [ "${PLATFORM}" = "Darwin" ]; then
+    launchctl remove "${LABEL}" >/dev/null 2>&1 || true
+  elif [ -f "${RUNTIME_DIR}/router.pid" ]; then
+    ROUTER_PID="$(cat "${RUNTIME_DIR}/router.pid")"
+    case "${ROUTER_PID}" in
+      ''|*[!0-9]*) ;;
+      *) kill "${ROUTER_PID}" >/dev/null 2>&1 || true ;;
+    esac
+  fi
+  rm -f "${RUNTIME_DIR}/router.pid"
+  echo "ERROR: llama.cpp router was not ready after ${READY_TIMEOUT_SECONDS}s" >&2
+  tail -n 40 "${RUNTIME_DIR}/router.log" >&2 2>/dev/null || true
+  exit 1
+fi
 
 # LLAMA_ROUTER_MODELS_MAX caps how many model instances stay co-resident, and it MUST be
 # set per-workload — the tiers have wildly different footprints on this 64G host (Metal

@@ -4,6 +4,8 @@ import os
 import subprocess
 from pathlib import Path
 
+import pytest
+
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -143,6 +145,205 @@ def test_router_launcher_does_not_mutate_the_real_runtime_symlink(tmp_path):
         "honoring LLAMA_ROUTER_RUNTIME_DIR"
     )
     assert (runtime_dir / "models").resolve() == model_dir.resolve()
+
+
+@pytest.mark.parametrize("launchctl_print_fails", [False, True])
+def test_local_router_daemon_uses_launchd_on_macos(
+    tmp_path, launchctl_print_fails
+):
+    fake_bin = tmp_path / "bin"
+    fake_bin.mkdir()
+    ready = tmp_path / "router-ready"
+    launchctl_args = tmp_path / "launchctl-args.txt"
+    for name, body in {
+        "llama-server": "#!/bin/sh\nexit 0\n",
+        "uname": "#!/bin/sh\nprintf 'Darwin\\n'\n",
+        "curl": (
+            "#!/bin/sh\n"
+            '[ -f "$ROUTER_READY" ]\n'
+        ),
+        "launchctl": (
+            "#!/bin/sh\n"
+            'if [ "$1" = submit ]; then\n'
+            '  printf "%s\\n" "$@" > "$LAUNCHCTL_ARGS"\n'
+            '  touch "$ROUTER_READY"\n'
+            'elif [ "$1" = print ]; then\n'
+            '  [ "$LAUNCHCTL_PRINT_FAIL" = 1 ] && exit 1\n'
+            "  printf 'pid = 123\\n'\n"
+            "fi\n"
+        ),
+    }.items():
+        executable = fake_bin / name
+        executable.write_text(body, encoding="utf-8")
+        executable.chmod(0o755)
+
+    model_dir = tmp_path / "models"
+    model_dir.mkdir()
+    home = tmp_path / "home"
+    home.mkdir()
+    runtime_dir = tmp_path / "runtime"
+    env = os.environ.copy()
+    env.update(
+        {
+            "HOME": str(home),
+            "PATH": f"{fake_bin}{os.pathsep}{env['PATH']}",
+            "LAUNCHCTL_ARGS": str(launchctl_args),
+            "LAUNCHCTL_PRINT_FAIL": "1" if launchctl_print_fails else "0",
+            "LLAMA_MODEL_DIR": str(model_dir),
+            "LLAMA_ROUTER_MODELS_MAX": "2",
+            "LLAMA_ROUTER_RUNTIME_DIR": str(runtime_dir),
+            "ROUTER_READY": str(ready),
+        }
+    )
+
+    subprocess.run(
+        ["bash", str(ROOT / "scripts/llama-router-up.sh"), "--daemon"],
+        cwd=ROOT,
+        env=env,
+        check=True,
+    )
+
+    args = launchctl_args.read_text(encoding="utf-8").splitlines()
+    assert args[:3] == ["submit", "-l", "org.openclinai.llama-router"]
+    assert ["-o", str(runtime_dir / "router.stdout.log")] == args[3:5]
+    assert ["-e", str(runtime_dir / "router.log")] == args[5:7]
+    assert f"LLAMA_MODEL_DIR={model_dir}" in args
+    assert f"LLAMA_ROUTER_RUNTIME_DIR={runtime_dir}" in args
+    assert "LLAMA_ROUTER_MODELS_MAX=2" in args
+    assert str(ROOT / "scripts/llama-router-up.sh") in args
+    if launchctl_print_fails:
+        assert not (runtime_dir / "router.pid").exists()
+    else:
+        assert (runtime_dir / "router.pid").read_text(encoding="utf-8") == "123\n"
+    local = _read("scripts/chartsearchai-local.sh")
+    assert "./scripts/llama-router-up.sh --daemon" in local
+    assert "nohup env" not in local
+
+
+def test_local_router_daemon_removes_launchd_job_when_readiness_times_out(tmp_path):
+    fake_bin = tmp_path / "bin"
+    fake_bin.mkdir()
+    launchctl_calls = tmp_path / "launchctl-calls.txt"
+    for name, body in {
+        "llama-server": "#!/bin/sh\nexit 0\n",
+        "uname": "#!/bin/sh\nprintf 'Darwin\\n'\n",
+        "curl": "#!/bin/sh\nexit 1\n",
+        "launchctl": (
+            "#!/bin/sh\n"
+            'printf "%s\\n" "$*" >> "$LAUNCHCTL_CALLS"\n'
+        ),
+    }.items():
+        executable = fake_bin / name
+        executable.write_text(body, encoding="utf-8")
+        executable.chmod(0o755)
+
+    model_dir = tmp_path / "models"
+    model_dir.mkdir()
+    runtime_dir = tmp_path / "runtime"
+    env = os.environ.copy()
+    env.update(
+        {
+            "HOME": str(tmp_path / "home"),
+            "PATH": f"{fake_bin}{os.pathsep}{env['PATH']}",
+            "LAUNCHCTL_CALLS": str(launchctl_calls),
+            "LLAMA_MODEL_DIR": str(model_dir),
+            "LLAMA_ROUTER_READY_TIMEOUT_SECONDS": "1",
+            "LLAMA_ROUTER_RUNTIME_DIR": str(runtime_dir),
+        }
+    )
+
+    result = subprocess.run(
+        ["bash", str(ROOT / "scripts/llama-router-up.sh"), "--daemon"],
+        cwd=ROOT,
+        env=env,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 1
+    assert "was not ready after 1s" in result.stderr
+    calls = launchctl_calls.read_text(encoding="utf-8").splitlines()
+    assert calls[0] == "remove org.openclinai.llama-router"
+    assert calls[1].startswith("submit -l org.openclinai.llama-router ")
+    assert calls[-1] == "remove org.openclinai.llama-router"
+    assert not (runtime_dir / "router.pid").exists()
+
+
+def test_local_router_down_removes_launchd_job_and_pid_file(tmp_path):
+    fake_bin = tmp_path / "bin"
+    fake_bin.mkdir()
+    launchctl_calls = tmp_path / "launchctl-calls.txt"
+    for name, body in {
+        "uname": "#!/bin/sh\nprintf 'Darwin\\n'\n",
+        "launchctl": '#!/bin/sh\nprintf "%s\\n" "$*" > "$LAUNCHCTL_CALLS"\n',
+    }.items():
+        executable = fake_bin / name
+        executable.write_text(body, encoding="utf-8")
+        executable.chmod(0o755)
+
+    runtime_dir = tmp_path / "runtime"
+    runtime_dir.mkdir()
+    (runtime_dir / "router.pid").write_text("123\n", encoding="utf-8")
+    env = os.environ.copy()
+    env.update(
+        {
+            "PATH": f"{fake_bin}{os.pathsep}{env['PATH']}",
+            "LAUNCHCTL_CALLS": str(launchctl_calls),
+            "LLAMA_ROUTER_RUNTIME_DIR": str(runtime_dir),
+        }
+    )
+
+    subprocess.run(
+        ["bash", str(ROOT / "scripts/llama-router-down.sh")],
+        cwd=ROOT,
+        env=env,
+        check=True,
+    )
+
+    assert launchctl_calls.read_text(encoding="utf-8") == (
+        "remove org.openclinai.llama-router\n"
+    )
+    assert not (runtime_dir / "router.pid").exists()
+    assert "llama-router-down:" in _read("Makefile")
+
+
+def test_local_router_down_does_not_kill_unrelated_non_macos_pid(tmp_path):
+    fake_bin = tmp_path / "bin"
+    fake_bin.mkdir()
+    uname = fake_bin / "uname"
+    uname.write_text("#!/bin/sh\nprintf 'Linux\\n'\n", encoding="utf-8")
+    uname.chmod(0o755)
+
+    runtime_dir = tmp_path / "runtime"
+    runtime_dir.mkdir()
+    unrelated = subprocess.Popen(["sleep", "30"])
+    try:
+        (runtime_dir / "router.pid").write_text(
+            f"{unrelated.pid}\n", encoding="utf-8"
+        )
+        env = os.environ.copy()
+        env.update(
+            {
+                "PATH": f"{fake_bin}{os.pathsep}{env['PATH']}",
+                "LLAMA_ROUTER_RUNTIME_DIR": str(runtime_dir),
+            }
+        )
+
+        result = subprocess.run(
+            ["bash", str(ROOT / "scripts/llama-router-down.sh")],
+            cwd=ROOT,
+            env=env,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+
+        assert unrelated.poll() is None
+        assert f"refusing to stop unverified PID {unrelated.pid}" in result.stderr
+        assert not (runtime_dir / "router.pid").exists()
+    finally:
+        unrelated.terminate()
+        unrelated.wait(timeout=5)
 
 
 def test_chartsearch_configure_writes_only_current_hub_properties():

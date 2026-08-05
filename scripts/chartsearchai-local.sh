@@ -258,12 +258,10 @@ say "==> llama.cpp router"
 if [ "${ROUTER_REACHABLE}" = "1" ]; then
   say "  existing router: reachable"
 else
-  nohup env \
+  env \
     LLAMA_MODEL_DIR="${MODEL_DIR}" \
     LLAMA_ROUTER_MODELS_MAX="${LLAMA_ROUTER_MODELS_MAX:-2}" \
-    ./scripts/llama-router-up.sh \
-    >artifacts/llama-router/router.log 2>&1 &
-  echo "$!" >artifacts/llama-router/router.pid
+    ./scripts/llama-router-up.sh --daemon
   wait_http "llama.cpp router" "${ROUTER_URL}/v1/models" 60
 fi
 curl -fsS "${ROUTER_URL}/v1/models" \
