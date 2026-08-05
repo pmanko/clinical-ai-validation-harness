@@ -106,6 +106,7 @@ def test_harness_runner_defaults_to_a_tracked_isolated_compose_override() -> Non
     assert 'export ANALYTICS_DB_PORT="${ANALYTICS_DB_PORT:-15443}"' in runner
     assert 'export DATA_PIPES_PORT="${DATA_PIPES_PORT:-18090}"' in runner
     assert 'export MED_AGENT_HUB_PORT="${MED_AGENT_HUB_PORT:-18082}"' in runner
+    assert 'export SUPERSET_PORT="${SUPERSET_PORT:-18088}"' in runner
     assert "export MVP_MODEL_BACKEND=fake" in runner
     assert "catalyst-query-gemma-4-12b" in runner
     assert "qwen2.5-coder-1.5b-instruct-q4_k_m" in runner
@@ -118,14 +119,31 @@ def test_harness_runner_defaults_to_a_tracked_isolated_compose_override() -> Non
     assert "status --porcelain" in runner
 
     rendered = override.read_text(encoding="utf-8")
-    assert "name: catalyst-mvp-isolated" in rendered
-    assert "name: catalyst-mvp-isolated-network" in rendered
-    assert "subnet: 192.168.166.0/24" in rendered
-    assert "ipv4_address: 192.168.166.121" in rendered
+    assert "name: ${CATALYST_MVP_PROJECT_NAME:-catalyst-mvp-isolated}" in rendered
+    assert "name: ${CATALYST_MVP_NETWORK_NAME:-catalyst-mvp-isolated-network}" in rendered
+    assert "subnet: ${CATALYST_MVP_SUBNET:-192.168.166.0/24}" in rendered
+    assert "ipv4_address: ${CATALYST_MVP_OPENELIS_IPV4:-192.168.166.121}" in rendered
     assert '"127.0.0.1:25432:5432"' in rendered
     assert '"127.0.0.1:${OPENELIS_HTTPS_PORT:-28443}:8443"' in rendered
     assert '"127.0.0.1:${HAPI_HTTPS_PORT:-28444}:8443"' in rendered
+    assert '"127.0.0.1:${SUPERSET_PORT:-18088}:8088"' in rendered
+    for service in ("superset-metadata-db", "superset-init", "superset", "superset-importer"):
+        assert (
+            "${CATALYST_MVP_CONTAINER_PREFIX:-catalyst-mvp-isolated}-"
+            f"{service}"
+        ) in rendered
     assert "subnet: 172.20.1.0/24" not in rendered
+
+
+def test_catalyst_owns_and_ignores_superset_runtime_state() -> None:
+    ignore = (ROOT / "targets/catalyst/.gitignore").read_text(encoding="utf-8")
+    compose = (ROOT / "targets/catalyst/docker-compose.mvp.yml").read_text(
+        encoding="utf-8"
+    )
+
+    assert "/runtime/superset/" in ignore
+    assert "./runtime/superset/outbox:/opt/catalyst/outbox:ro" in compose
+    assert "./runtime/superset/receipts:/opt/catalyst/receipts:rw" in compose
 
 
 def test_manual_guide_uses_the_sibling_hub_and_current_external_router_setting() -> (

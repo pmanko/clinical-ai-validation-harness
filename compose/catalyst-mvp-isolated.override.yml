@@ -1,31 +1,45 @@
-name: catalyst-mvp-isolated
+name: ${CATALYST_MVP_PROJECT_NAME:-catalyst-mvp-isolated}
 
 # The upstream OpenELIS compose file owns a globally named 172.20.1.0/24
 # network and globally named containers. The harness keeps its MVP disposable
 # and isolated from any other OpenELIS checkout on the same workstation.
 services:
   certs:
-    container_name: catalyst-mvp-isolated-certs
+    container_name: ${CATALYST_MVP_CONTAINER_PREFIX:-catalyst-mvp-isolated}-certs
 
   db.openelis.org:
-    container_name: catalyst-mvp-isolated-openelis-db
+    container_name: ${CATALYST_MVP_CONTAINER_PREFIX:-catalyst-mvp-isolated}-openelis-db
     ports: !override
       - "127.0.0.1:25432:5432"
 
   oe.openelis.org:
-    container_name: catalyst-mvp-isolated-openelis-app
+    container_name: ${CATALYST_MVP_CONTAINER_PREFIX:-catalyst-mvp-isolated}-openelis-app
     ports: !override
       - "127.0.0.1:28080:8080"
       - "127.0.0.1:${OPENELIS_HTTPS_PORT:-28443}:8443"
     networks:
       openelis-network:
-        ipv4_address: 192.168.166.121
+        ipv4_address: ${CATALYST_MVP_OPENELIS_IPV4:-192.168.166.121}
 
   fhir.openelis.org:
-    container_name: catalyst-mvp-isolated-hapi-fhir
+    container_name: ${CATALYST_MVP_CONTAINER_PREFIX:-catalyst-mvp-isolated}-hapi-fhir
     ports: !override
       - "127.0.0.1:28081:8080"
       - "127.0.0.1:${HAPI_HTTPS_PORT:-28444}:8443"
+
+  superset-metadata-db:
+    container_name: ${CATALYST_MVP_CONTAINER_PREFIX:-catalyst-mvp-isolated}-superset-metadata-db
+
+  superset-init:
+    container_name: ${CATALYST_MVP_CONTAINER_PREFIX:-catalyst-mvp-isolated}-superset-init
+
+  superset:
+    container_name: ${CATALYST_MVP_CONTAINER_PREFIX:-catalyst-mvp-isolated}-superset
+    ports: !override
+      - "127.0.0.1:${SUPERSET_PORT:-18088}:8088"
+
+  superset-importer:
+    container_name: ${CATALYST_MVP_CONTAINER_PREFIX:-catalyst-mvp-isolated}-superset-importer
 
   # Registers the second (OpenMRS HIV/ART program) data source alongside the
   # base OpenELIS one. The default path resolves relative to the first compose
@@ -46,7 +60,7 @@ services:
 
 networks:
   openelis-network:
-    name: catalyst-mvp-isolated-network
+    name: ${CATALYST_MVP_NETWORK_NAME:-catalyst-mvp-isolated-network}
     ipam:
       config: !override
-        - subnet: 192.168.166.0/24
+        - subnet: ${CATALYST_MVP_SUBNET:-192.168.166.0/24}
