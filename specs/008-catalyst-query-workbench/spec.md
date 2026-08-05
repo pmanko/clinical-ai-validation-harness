@@ -4,10 +4,10 @@
 
 **Created**: 2026-07-17
 
-**Status**: Iterative-query notebook and Gateway-owned query orchestration MVP
-accepted on the final clean pins. This feature is the shared foundation for
-parallel follow-on pathways; the Superset-backed Dashboard Builder MVP is the
-selected next milestone.
+**Status**: Iterative-query notebook foundation accepted on the prior clean
+pins. The Hub-owned query-profile migration requires a fresh real-model gate.
+The current dashboard implementation is a Superset import spike; the full
+Superset-backed Dashboard Builder MVP remains the selected open milestone.
 
 **Input**: Refine the Catalyst query experience with manageable dataset context,
 targeted query remediation, complete validator feedback, editable SQL,
@@ -15,15 +15,14 @@ frictionless manual execution of imperfect drafts, execution-error feedback,
 iterative human correction, and contextual follow-up generation from the exact
 current editor state.
 
-**Current architecture (2026-07-29)**: Catalyst Gateway owns the governed-query
-profile registry, role prompts, writer/reviewer composition, deterministic lint,
-repair, finalization, and query evidence. Med-Agent Hub remains the shared model
-transport/provider boundary and exposes one generic structured role-execution
-primitive (`POST /v1/hub/generate`) per Gateway-selected role. Hub continues to
-own its separate clinical-answer/report profiles; those profiles are not the
-Catalyst query engine. Historical G2.1–G2.8 evidence below may describe the
-earlier Hub-owned query-profile implementation and is retained as evidence of
-the path that was tested at that time, not as current ownership guidance.
+**Current architecture (2026-08-05)**: Med-Agent Hub owns one shared profile
+schema for hosted clinical and caller-orchestrated Catalyst workflows. The
+Hub-owned Catalyst profile contains role models, prompts, and knobs and exposes
+live discovery plus named-role execution. Catalyst Gateway owns catalog/context,
+writer/reviewer composition, deterministic SQL lint/repair/finalization,
+execution, lineage, and query evidence. Historical G2.1–G2.8 evidence below is
+retained as evidence of the path tested at that time, not as current ownership
+guidance.
 
 ## Portfolio position after MVP acceptance
 
@@ -33,7 +32,7 @@ feature.
 
 | Pathway | Status | Relationship to feature 008 |
 | --- | --- | --- |
-| **Superset-backed Dashboard Builder MVP** | **Selected next product milestone** | Depends only on the accepted Query vN/execution/table foundation. Catalyst supervises dataset/widget/dashboard drafts and publishes a native bundle to a shared outbox; the pinned Superset CLI imports and renders it. |
+| **Superset-backed Dashboard Builder MVP** | **Selected open product milestone; current code is an import spike** | Depends only on the accepted Query vN/execution/table foundation. Catalyst supervises dataset/widget/dashboard drafts and publishes a native bundle to a shared outbox; the pinned Superset CLI imports and renders it. |
 | G2.10 multi-source/lossless data foundation | Evidence incomplete | Parallel reliability work; it can broaden dashboard sources later but does not block D1's one-source/one-catalog Dashboard rule |
 | W2 targeted query assistance | Planned, not selected | Parallel optional repair workflow; requires its own G4/G5 approval |
 | W3/CVR evaluation | Report parity merged in PR #43; session export/comparative expansion remains | Parallel evidence work; not a Dashboard product dependency |
@@ -372,7 +371,7 @@ inspectable after refresh.
 12. **Given** two follow-up requests with the same observed current-version ID
     and digest, **When** they arrive concurrently, **Then** exactly one request
     atomically claims generation and enters Gateway query orchestration, making
-    only the Hub role calls declared by the selected Gateway profile, while the
+    only the Hub role calls declared by the selected Hub query profile, while the
     other receives `409 turn_generation_in_progress`, makes no Hub role call,
     appends no event or version, and changes no current-version or current-turn
     pointer.
@@ -745,15 +744,16 @@ execution.
   unresolved manual buffer, leave missing names blank, preserve the raw evidence
   exactly, and MUST NOT create a model query version until a human submits a
   contract-valid draft.
-- **FR-032**: A reviewed Gateway query profile MUST obtain one complete writer
+- **FR-032**: A reviewed Hub query profile MUST obtain one complete writer
   candidate, run deterministic lint, and give the complete candidate plus
   specific findings to its declared reviewer role. For the comparative
   cross-family profile, the reviewer MUST be a different model family. When
   correction is required, the reviewer MUST return one complete corrected
   candidate rather than a text or JSON-pointer patch. The Gateway MUST validate
   the correction contract and rerun every deterministic check before
-  finalization. Each model role is executed through one generic Hub role request;
-  Hub MUST NOT select the Catalyst profile or compose its roles.
+  finalization. Each model role is executed through one configured Hub role
+  request. Hub MUST select the role model, prompt, and knobs from the named
+  profile; Gateway MUST compose the roles and MUST NOT override those settings.
 - **FR-033**: When the reviewer changes a structurally valid writer query, the
   workbench MUST persist the writer query as an immutable `model` version and the
   corrected query as its immutable `model_repair` child. Both SQL/parameter sets,
@@ -921,20 +921,21 @@ execution.
   bounded result-row attachment is explicitly approved and versioned, it MUST
   describe attached context as an execution summary and MUST NOT imply that row
   values are supplied to either model.
-- **FR-062**: Catalyst Gateway MUST own the governed-query profile registry,
-  model-role mapping, role prompts, sampling/output knobs, deterministic
-  writer/reviewer orchestration, correction policy, and query-profile evidence.
-  The registry MUST distinguish writer-only, self-reviewed, and cross-family
-  reviewed profiles. Runtime availability MUST require Hub's exact versioned
-  backend inventory and every unique required writer/reviewer model alias.
-  Unknown profiles, missing aliases, an unreachable router catalog, and
-  missing/malformed inventory MUST fail closed before events, previews, or model
-  calls without silent profile or model substitution.
-- **FR-063**: Med-Agent Hub MUST expose a generic structured single-role
-  execution boundary that accepts the Gateway-selected model, messages,
-  response format, and bounded invocation configuration and returns assistant
-  content without Catalyst-specific profile selection, query lint, review
-  orchestration, database access, or SQL execution.
+- **FR-062**: Med-Agent Hub MUST own the shared workflow-typed profile catalog,
+  including Catalyst query-profile IDs, model-role mapping, role prompts, and
+  sampling/output knobs. Catalyst Gateway MUST own deterministic writer/reviewer
+  orchestration, correction policy, SQL validation, execution, lineage, and
+  query evidence without duplicating Hub model configuration. Runtime
+  availability MUST require Hub's exact versioned backend inventory and every
+  unique required writer/reviewer alias. Unknown profiles, missing aliases, an
+  unreachable router catalog, and missing/malformed inventory MUST fail closed
+  before events, previews, or model calls without silent substitution.
+- **FR-063**: Med-Agent Hub MUST expose Catalyst query-profile discovery and a
+  configured structured single-role execution boundary that accepts a profile
+  ID, role, non-system messages, and response format; selects the configured
+  model/prompt/knobs; and returns assistant content without Catalyst SQL lint,
+  review composition, database access, execution, or lineage. Caller attempts
+  to override model, prompt, or knobs MUST be rejected.
 - **FR-064**: `GET /v1/catalyst/data-sources` MUST list the default source and
   every registered source with stable identity, label, and availability. A
   registered source whose required catalog is absent MUST remain discoverable as
@@ -1123,7 +1124,7 @@ execution.
 ### Key Entities
 
 - **Workbench Session**: A persistent identity covering the original question,
-  selected Gateway profile, initial and most-recently targeted data sources,
+  selected Hub query profile, initial and most-recently targeted data sources,
   per-source catalog baselines, current draft pointer, dataset-browser state, and
   ordered history of user and system actions.
 - **Query Version**: An immutable query draft with SQL, typed values, expected
@@ -1347,9 +1348,10 @@ execution.
   labelled result scroll region while its exact query-version label, stale
   status, row count, and keyboard navigation remain visible.
 - **SC-029**: Contract and integration tests prove every advertised Catalyst
-  query profile is Gateway-owned, produces a digest-bound prompt/model/config
-  snapshot, and invokes Hub only through the generic role endpoint; Hub contains
-  no Catalyst query profile, query prompt, lint, correction, or orchestration
+  query profile is Hub-owned, produces a digest-bound prompt/model/config
+  snapshot, and invokes Hub only through the configured role endpoint; Gateway
+  contains no duplicate model, prompt, or knob registry, while Hub contains no
+  Catalyst SQL lint, correction orchestration, execution, or lineage
   implementation. Tests also prove the exact versioned Hub backend inventory,
   every required model alias, unavailable-profile omission, and rejection of an
   unavailable initial, governed-preview, or follow-up selection before state

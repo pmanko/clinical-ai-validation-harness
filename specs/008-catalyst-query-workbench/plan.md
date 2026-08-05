@@ -7,10 +7,11 @@
 ## Summary
 
 Build a persistent manual query workbench around the real Catalyst Gateway →
-generic Med-Agent Hub role executor → model router path, with exact execution
-through Catalyst → PostgreSQL. Catalyst Gateway owns the governed-query profile
-registry, prompts, writer/reviewer composition, deterministic lint/repair, and
-query evidence; Hub supplies one structured model completion per requested role.
+Hub-configured role executor → model router path, with exact execution through
+Catalyst → PostgreSQL. Hub's shared profile catalog owns Catalyst role models,
+prompts, and knobs. Catalyst Gateway owns context, writer/reviewer composition,
+deterministic SQL lint/repair, execution, lineage, and query evidence; Hub
+supplies one structured model completion per named role.
 The first delivery slice makes the complete generated SQL and
 typed parameters editable, keeps deterministic validator findings visible but
 advisory, executes the exact displayed draft under the database role, returns
@@ -25,9 +26,9 @@ single implementation queue.
 Before G3 closes, add a linear iterative-query notebook inside the same
 workbench session. A follow-up instruction is grounded in the exact visible SQL
 and parameter buffer, produces a complete successor query through the
-Gateway-owned writer → lint → optional reviewer → lint path, and retains a
+Gateway-orchestrated writer → lint → optional reviewer → lint path, and retains a
 compact turn timeline. Each model role receives bounded, typed revision context
-through Hub's generic executor rather than an undifferentiated chat transcript or
+through Hub's configured-role endpoint rather than an undifferentiated chat transcript or
 returned result rows.
 
 The active change set also contains multi-source workbench plumbing and a
@@ -168,16 +169,13 @@ and explicit user acceptance.
 
 ### D1 delivery-state clarification
 
-The long-form D1 objective above is the complete Dashboard Builder program, not
-the status label for the smallest locally useful deployment. The authoritative
-near-term delivery target is
-[`dashboard-mvp-delivery-goal.md`](dashboard-mvp-delivery-goal.md): one real
-workbench result promoted to a verified table dashboard in local Superset,
-without reducing the existing Ask workflow. It has M0–M4 testable checkpoints.
-The table vertical slice may be called a **working local MVP** only after M4;
-it must not be called full D1 completion. Five visualization mappings,
-multi-widget UX, full import recovery, the full accessibility matrix, and the
-schema-backed acceptance emitter remain D1 hardening work in T139–T182.
+The long-form D1 objective is the Dashboard Builder MVP. The currently
+implemented table bundle/import path is a **Superset import spike**, not a
+smaller MVP tier. [`dashboard-mvp-delivery-goal.md`](dashboard-mvp-delivery-goal.md)
+gates the real external-model query path before integration resumes. D1 still
+requires the actual multi-widget experience, native Superset import,
+PostgreSQL reconciliation, the required accessibility/evidence matrices, and
+explicit user acceptance. The remaining work stays open in T139–T182.
 
 ### D1 checkpoint contract
 
@@ -233,9 +231,9 @@ explicit Run/database duration separately as secondary measures.
 **Constraints**: The isolated validation stack may use a documented demo fixture,
 while the product reads whichever registered analytics source is selected;
 synthetic/real classification comes only from authoritative dataset provenance
-and is otherwise unknown. Catalyst owns query profiles/orchestration but never
-serves model weights; model inference crosses the generic Hub role-execution
-boundary. Manual execution is never gated by validator status; database
+and is otherwise unknown. Hub owns profile models/prompts/knobs; Catalyst owns
+query orchestration and never serves model weights. Model inference crosses the
+configured Hub role-execution boundary. Manual execution is never gated by validator status; database
 permissions and a read-only transaction remain authoritative; statement timeout
 and fetch bounds must not rewrite SQL; no preview expiry; editor dependencies
 must pass keyboard, screen-reader naming, narrow-layout, deterministic-format,
@@ -262,7 +260,7 @@ clean import/versioned-child update, restoration, lineage, and PostgreSQL value 
 its final gate requires the real Catalyst/Superset/accessibility checkpoint.*
 
 - **Real production paths — PASS**: The browser calls the deployed Catalyst
-  Gateway, which composes the query flow, calls the real generic Hub role
+  Gateway, which composes the query flow, calls the real configured Hub role
   executor, and uses the selected PostgreSQL analytics database. Fixtures are
   scaffolding, not behavior evidence. The clean-pin live accessibility/user
   checkpoint is accepted for the MVP.
@@ -354,9 +352,8 @@ harness/
 targets/catalyst/                 # pinned Catalyst submodule
 ├── catalyst-gateway/src/catalyst/
 │   ├── analytics.py              # exact SQL execution + DB diagnostics
-│   ├── query_profiles.py         # Gateway-owned query profile registry
 │   ├── query_engine.py           # writer/lint/reviewer/finalize orchestration
-│   ├── local_hub.py              # local engine/profile discovery adapter
+│   ├── local_hub.py              # Hub query-profile discovery/execution adapter
 │   ├── routes.py                 # workbench endpoints
 │   ├── service.py                # governed path remains unchanged
 │   ├── storage.py                # persistent session/version/event store
@@ -377,18 +374,21 @@ targets/catalyst/                 # pinned Catalyst submodule
 ├── catalyst-ui/e2e/
 └── docs/roadmap.md
 
-targets/med-agent-hub/            # pinned sibling generic model runtime
-├── server/generic_role.py        # POST /v1/hub/generate
-└── tests/                        # generic-role transport/error contract checks
+targets/med-agent-hub/            # pinned sibling profile/model runtime
+├── server/levels.yaml            # shared clinical + Catalyst profile catalog
+├── server/generic_role.py        # query-profile discovery + named-role execution
+├── server/prompts/               # Hub-owned role prompts
+└── tests/                        # profile/transport/error contract checks
 
 scripts/generate-catalyst-source-catalog.py
                                   # live metadata + reviewed overlay → catalog
 ```
 
-**Structure Decision**: Keep Catalyst query profiles, prompts, deterministic
-query logic, writer/reviewer composition, workbench state, and execution in
-Catalyst Gateway; keep provider/model transport and single-call serialization in
-Hub; keep presentation in Catalyst UI; and keep experiment orchestration/artifact
+**Structure Decision**: Keep the shared profile schema, Catalyst role models,
+prompts, knobs, provider transport, and single-call serialization in Hub. Keep
+deterministic query logic, writer/reviewer composition, workbench state,
+execution, and lineage in Catalyst Gateway; keep presentation in Catalyst UI;
+and keep experiment orchestration/artifact
 validation in the umbrella harness. Hub's clinical-answer/report profile engine
 remains separate. The existing governed preview endpoints remain compatible; the
 workbench receives a separate API so advisory manual execution cannot weaken
@@ -402,7 +402,7 @@ a standalone fallback.
    immutable query versions, PostgreSQL-aware SQL/parameter editing with line
    numbers, wrap control, catalog/keyword completion and deterministic Format,
    advisory validation, exact-draft execution, database diagnostics, and refresh
-   restoration. A selected Gateway profile produces one complete writer
+   restoration. A selected Hub query profile produces one complete writer
    candidate and deterministic lint. Writer-only profiles finalize that candidate
    when it passes; reviewed profiles pass the complete candidate and findings to
    their declared reviewer. The comparative profile uses a different model
@@ -420,13 +420,13 @@ a standalone fallback.
    links to typed generation detail at
    `GET /sessions/{sessionId}/turns/{turnId}/generation-evidence`.
 3. **Targeted remediation**: AST repair units, deterministic fixes, a
-   Gateway-owned typed proposal/orchestration contract using Hub only for a
-   generic role call, frozen-unit verification, before/after review, full
+   Gateway-owned typed proposal/orchestration contract using a configured Hub
+   role call, frozen-unit verification, before/after review, full
    revalidation, and sibling runtime verification.
 4. **Harness integration**: one-click `run_manifest.json`/`events.jsonl`
    materialization, importer/contract tests, and expanded repeatable suites.
-5. **Experiment iteration**: richer datasets and scenario matrices across
-   Gateway query profiles/models. Agent teams remain explicitly deferred.
+5. **Experiment iteration**: richer datasets and scenario matrices across Hub
+   query profiles/models. Agent teams remain explicitly deferred.
 6. **Multi-source/lossless onboarding**: source registry and per-turn selection,
    per-source catalog baselines, upstream-default lossless projections,
    deterministic SQL curation, generated catalogs, default-readiness disclosure,
@@ -438,9 +438,10 @@ a standalone fallback.
 1. Keep the historical G2.8 plan and evidence intact; record the ownership
    change in a separate PCCP rather than rewriting the earlier run as if it used
    the current architecture.
-2. Prove Hub's generic role endpoint and absence of Catalyst query logic in Hub;
-   prove Gateway profile discovery, prompt/config digests, writer-only behavior,
-   reviewed behavior, and deterministic re-lint.
+2. Prove Hub's shared Catalyst query profile and named-role endpoint; prove the
+   absence of duplicate model/prompt/knob configuration in Gateway and the
+   absence of SQL policy/execution/lineage logic in Hub. Prove discovery,
+   prompt/config digests, reviewed behavior, and deterministic re-lint.
 3. Run the full Catalyst/Hub/harness gates and T094/T095/T111 live workflow on
    exact current pins. Complete the accessibility matrix and pause for acceptance.
 4. Separately audit every registered source's ViewDefinition provenance,
@@ -612,22 +613,20 @@ The following items must remain visible until evidence resolves them:
 - **N1 — Model sampling (bounded, still open for experiments)**: The canonical
   router advertises temperature 0, seed 42, context 24,576, and its full launch
   preset; Catalyst query roles override the router-wide DRY repetition penalty
-  to zero. Gateway profile and invocation evidence records declared/effective
-  role configuration around each generic Hub call. A single successful run is
+  to zero. Hub profile and Gateway invocation evidence record declared/effective
+  role configuration around each configured Hub call. A single successful run is
   not repeatability evidence, so
   comparative runs still require repetitions and variance reporting.
-- **N2 — Advertised versus physical model (resolved for Gemma and bundled
-  fallback)**: `gemma-e4b` maps to the loaded Gemma 4 E4B IT Q4_K_M artifact;
-  the bundled Qwen fallback is truthfully named as a 1.5B Q4_K_M model. The Hub
-  persists the router-advertised model object instead of inferring identity.
-- **N3 — Gemma target availability (resolved for this isolated stack)**: The
-  `catalyst-query-gemma-e4b` profile is available and both query roles resolve to
-  the loaded `gemma-e4b` backend. Physical revision evidence is deployment-owned
-  and comes from the router/artifact cache, not an alias alone.
-- **N4 — Validator drift**: Hub lint and gateway policy overlap but produce
-  different shapes and do not yet share one versioned finding schema. W1 must
-  normalize without claiming the layers are identical; W2 cannot scope repairs
-  from free-form messages.
+- **N2 — Advertised versus physical model (alias resolved; artifact identity
+  deployment-owned)**: The current Hub profile requires the router-advertised
+  IDs `google/gemma-4-e4b` and `qwen2.5-14b-instruct-mlx` exactly. Physical
+  revision evidence still comes from the router/artifact cache, not an alias.
+- **N3 — Model availability (current live gate open)**: Hub discovery must show
+  both exact role models before Gateway exposes `catalyst-query-e4b-qwen14b`.
+  Startup fails rather than inventing availability.
+- **N4 — Validator drift (resolved for ownership)**: Catalyst Gateway owns all
+  deterministic SQL lint/policy findings. Hub returns model role output and
+  does not run a parallel SQL validator.
 - **N5 — Dynamic result typing (resolved for W1)**: Manual execution derives
   result types from PostgreSQL cursor metadata with deterministic tests for
   scalar, array, JSON, null, and unknown fallbacks. Future database types can
@@ -635,16 +634,15 @@ The following items must remain visible until evidence resolves them:
 - **N6 — Metadata terminology**: The planning doc mentions
   `otel.gen_ai.system`, while the current writer emits
   `otel.gen_ai.provider.name`. W3 must reconcile this before contract validation.
-- **N7 — Documentation drift (partly resolved; target docs still open)**: The
-  feature artifacts now distinguish current Gateway-owned query orchestration
-  from historical Hub-owned evidence. Catalyst's submodule README/specification/
-  roadmap/client-contract still describe Hub-owned query profiles and must be
-  updated in Catalyst PR #5 without rewriting historical validation claims.
+- **N7 — Documentation drift (resolved for current ownership)**: Current
+  feature and Catalyst documents assign models/prompts/knobs to the shared Hub
+  profile and SQL orchestration/policy/execution/lineage to Gateway. Historical
+  evidence remains explicitly historical.
 - **N8 — Database authority boundary**: The workbench intentionally relies on
   the configured role and read-only transaction rather than application policy.
   Any database permission or function-side-effect concern discovered in manual
   tests is raised to the user as an environment decision, not silently blocked.
-- **N9 — Row-limit signal drift**: Hub lint can pass a generated query with no
+- **N9 — Row-limit signal drift**: Gateway lint can pass a generated query with no
   SQL `LIMIT`, while the executor independently applies a fetch bound and marks
   the returned table truncated. The UI and experiment artifacts must distinguish
   exact SQL from operational result truncation.
@@ -761,18 +759,17 @@ The following items must remain visible until evidence resolves them:
 - **N29 — Follow-up context discontinuity (resolved by G2.8b)**: Bounded current
   SQL, prior instructions, and exact-digest validation/execution summaries reach
   later query roles; prohibited context remains excluded.
-- **N30 — Duplicate Hub runtime ownership (resolved; architecture later
-  superseded)**: G2.8 retired the disposable patched Hub and made the harness
-  sibling the runtime source. The later refactor moved Catalyst query profiles
-  and orchestration into Gateway while retaining the sibling Hub as the generic
-  role executor.
+- **N30 — Duplicate Hub runtime ownership (resolved)**: G2.8 retired the
+  disposable patched Hub and made the harness sibling the runtime source. The
+  current design keeps one shared Hub profile catalog while Catalyst retains
+  query orchestration, policy, execution, and lineage.
 - **N31 — Context growth and truncation (bounded by contract)**: Revision
   context includes the initial question plus at most five most recent follow-up
   instructions, exact current editor state, and exact-digest feedback. The turn
   records the supplied IDs and deterministic omissions; raw result rows and
   historical SQL copies are excluded.
 - **N32 — Lint-clean semantic review restriction (resolved by G2.8b)**:
-  Reviewed Gateway profiles invoke their reviewer even when structural lint is
+  Reviewed Hub query profiles invoke their reviewer even when structural lint is
   clean and permit approval or a complete correction followed by deterministic
   re-lint.
 - **N33 — Intent-sensitive lint input gap (resolved by G2.8b)**: Lint receives
@@ -847,7 +844,7 @@ The following items must remain visible until evidence resolves them:
   defined values called `profileDigest`, and incomplete candidate/prohibited-
   class projection. History, immutable evidence digests, failed Hub provenance,
   candidates, and prohibited classes are now projected deterministically. The
-  Gateway profile-selection digest and Hub profile-configuration digest remain
+  selected-profile evidence digest and Hub profile-configuration digest remain
   semantically different values with confusingly similar names and must be
   disambiguated before final acceptance.
 - **N46 — Successor preservation and stable ordering (open)**: A reviewer
@@ -892,19 +889,19 @@ The following items must remain visible until evidence resolves them:
   fresh Gemma 4 12B/Qwen 2.5 14B run preserved the full base query and selected
   the requested `ORDER BY t1.observed_at DESC` successor. Model outputs remain
   nondeterministic evidence, so broader scenario coverage stays open.
-- **N53 — Per-turn profile choice (implementation resolved; live refactor
-  acceptance open)**: Gateway now defines five configured revision-capable query
-  profiles, including three writer-only choices and two reviewed choices
-  (self-reviewed Q4 and cross-family 12B/Qwen). `LocalHub` derives the available
-  subset from Hub's versioned router inventory; a configured profile is not
-  presented as runnable unless every exact required alias is advertised. T111
-  must prove discovery, switching, negative unavailable selection, and
-  provenance on current pins before this is treated as accepted live behavior.
+- **N53 — Per-turn profile choice (implementation resolved; current live gate
+  open)**: Hub now defines one caller-orchestrated Catalyst query profile with
+  exact E4B writer and different-family Qwen reviewer roles. `LocalHub` exposes
+  it only when Hub discovery marks both exact aliases available. Additional
+  profiles remain possible through the same schema but are not invented by
+  Gateway. The current live gate must prove discovery, negative unavailable
+  selection, and provenance on exact pins.
 - **N54 — Standalone fallback contract drift (resolved; architecture
   superseded)**: The disposable patch/duplicated runtime source remains retired.
-  Current Catalyst owns its query contracts and orchestration, while both the
-  umbrella runtime and Catalyst's standalone fallback use the same unmodified
-  generic Hub revision. T111 rechecks exact committed pins before acceptance.
+  Current Catalyst owns its query contracts and orchestration, while Hub owns
+  the shared role profile. Both the umbrella runtime and Catalyst's standalone
+  fallback use the same unmodified Hub revision; current live acceptance must
+  recheck exact committed pins.
 - **N55 — Active-session surfaces are vertically fragmented (open; G2.9)**: The
   live page is about 7,859 CSS pixels tall and separates the follow-up composer,
   editor, actions, results, evidence, and history by several viewports. The

@@ -231,8 +231,8 @@ This does not start or approve W2.
 - [ ] T028 [US2] Revalidate repair scope from W1 findings and pause at G4 in `specs/008-catalyst-query-workbench/roadmap.md`
 - [ ] T029 [P] [US2] Add AST unit/frozen-digest/patch-integrity tests in `targets/catalyst/catalyst-gateway/tests/test_query_repairs.py`
 - [ ] T030 [US2] Implement repair scopes and deterministic patching in `targets/catalyst/catalyst-gateway/src/catalyst/repairs.py`
-- [ ] T031 [US2] Implement a user-initiated typed repair-proposal contract in Catalyst Gateway, limited to selected AST units and frozen digests; execute any model proposal role only through Hub's generic role endpoint, and do not reuse the internal G2.3 retry as an accept/decline workflow
-- [ ] T032 [US2] Verify the Gateway-owned proposal contract and generic Hub runtime path through the pinned sibling `targets/med-agent-hub`, including the umbrella sibling build/pin and Catalyst's unmodified same-commit standalone fallback; do not add Catalyst query logic to Hub or restore the retired patch
+- [ ] T031 [US2] Implement a user-initiated typed repair-proposal contract in Catalyst Gateway, limited to selected AST units and frozen digests; execute any model proposal role only through a Hub-configured named role, and do not reuse the internal G2.3 retry as an accept/decline workflow
+- [ ] T032 [US2] Verify the Gateway-owned proposal/orchestration contract and Hub-configured role path through the pinned sibling `targets/med-agent-hub`, including the umbrella sibling build/pin and Catalyst's unmodified same-commit standalone fallback; keep models/prompts/knobs in the shared Hub profile and SQL policy/execution/lineage in Gateway; do not restore the retired patch
 - [ ] T033 [US2] Add before/after accept/decline repair UI in `targets/catalyst/catalyst-ui/src/features/query/QueryWorkspace.tsx`
 - [ ] T034 [US2] Run repair integrity/scenario metrics and pause at G5 in `specs/008-catalyst-query-workbench/roadmap.md`
 
@@ -321,35 +321,36 @@ so textual order—not numeric order—is the executable sequence within D1.
 - [ ] T180 [US7] Add red metadata tests for the versioned D1 manifest/events; structured `query_turn`, `query_version`, `query_execution`, Dataset/Widget/Dashboard/publication/import/reconciliation/accessibility/acceptance payloads; traversal-safe evidence references; the fixed six-step `orderedWorkflow`; and positive/negative `acceptance.json` cross-artifact validation in `evals/metadata/test_catalyst_dashboard_evidence.py`
 - [ ] T181 [US7] Implement only the manifest/event/acceptance serializer and emitter proven by T180 against the schemas finalized in T159, including the three `query_*` D1 projections, fixed `orderedWorkflow`, structured scoped-failure/recovery fields, and per-Dashboard last-verified evidence, in `harness/metadata.py` and `harness/catalyst/dashboard_evidence.py`; do not redefine acceptance or event schemas here
 - [ ] T182 [US7] Integrate preflight, live-event capture, evidence-index hashing, and final schema validation before the live run in `scripts/catalyst-dashboard-acceptance.py` and `scripts/catalyst-mvp.sh`
-- [ ] T155 [US7] Run the real configured Gemma 4 12B writer plus different-family Qwen 2.5 14B reviewer path (or record the exact available selected profile without substitution): initial question, manual edit/Format/Validate/Run, save Dataset v1 while Query v1 is current, ask a contextual follow-up, rerun, save Dataset v2 while Query v2 is current, save two heterogeneous Widgets, create one same-source-and-catalog Dashboard, publish/import, open the deterministic Superset slug URL, independently reconcile rendered values to reproducible PostgreSQL queries and inspected identifiers/values, and store the run under `artifacts/catalyst-dashboard/<run-id>/d1e/`
+- [ ] T155 [US7] Run the real Hub-owned `catalyst-query-e4b-qwen14b` profile with exact `google/gemma-4-e4b` writer and `qwen2.5-14b-instruct-mlx` reviewer: initial question, manual edit/Format/Validate/Run, save Dataset v1 while Query v1 is current, ask a contextual follow-up, rerun, save Dataset v2 while Query v2 is current, save two heterogeneous Widgets, create one same-source-and-catalog Dashboard, publish/import, open the deterministic Superset slug URL, independently reconcile rendered values to reproducible PostgreSQL queries and inspected identifiers/values, and store the run under `artifacts/catalyst-dashboard/<run-id>/d1e/`; missing aliases fail rather than substitute
 - [ ] T156 [US7] Repeat the deployed path for same-digest no-op, changed child, layout-only reuse, restart restoration, scoped pointer/bundle/preflight/credential failures and transactionally rolled-back CLI failures that preserve the prior verified Dashboard, a post-verification failure that reports `Import failed` with Open/current-success disabled and retained diagnostic, full Superset-local metadata/home reset plus verified per-Dashboard last-verified reimport, missing/corrupt projection refusal before reset, recovered-A/failed-desired-B automatic bootstrap/retry suppression until explicit retry or new publication, DB-enforced read-only write denial, and one clean-import fixture for every supported visualization family; record model candidate/digest variance rather than assuming temperature-zero reproducibility under `artifacts/catalyst-dashboard/<run-id>/d1e/repetitions/`
 - [ ] T157 [US7] Pass the final D1e evidence gate: validate the emitted `run_manifest.json`, structured `query_*` and builder `events.jsonl`, fixed `orderedWorkflow` in `acceptance.json`, screenshots/video, bundle/current/receipt/per-Dashboard-last-verified/evidence-index digests, revisions, IDs, PostgreSQL evidence, rationale, accessibility references, scoped failure-boundary evidence, and full-reset/reimport-last-verified recovery evidence under `artifacts/catalyst-dashboard/<run-id>/`; update `specs/008-catalyst-query-workbench/pccp/2026-08-05-superset-dashboard-builder.md`, `roadmap.md`, and `quickstart.md`; pass CI and remote-reachable pin checks, push both PR branches, demonstrate Catalyst → outbox → Superset, and pause for final user acceptance before calling the MVP complete
 
-### D1v — working local table-dashboard MVP
+### D1s — Superset import spike and Dashboard MVP bridge
 
-This is the short, evidence-driven delivery target defined in
-`dashboard-mvp-delivery-goal.md`. It records the implemented vertical slice
-without marking the D1 hardening graph above complete.
+The completed table bundle/import mechanics are a Superset import spike, not a
+smaller MVP. The tasks below bridge that spike into the full goal defined in
+`dashboard-mvp-delivery-goal.md` without marking the D1 graph above complete.
 
 - [X] T183 [US7] Record the independently verified local baseline: Catalyst UI,
   Gateway, Superset, and analytics health; named-volume restart retention;
   deterministic table bundle; successful import receipt; and deployed
-  Superset URL. Link it from the D1 roadmap and clearly label fake-router
-  execution as structural scaffolding.
+  Superset URL. Link it from the D1 roadmap and preserve the now-retired
+  fake-router execution only as historical structural evidence.
 - [ ] T184 [US7] Replace `worktree` importer provenance in successful receipts
   with the exact Catalyst revision, add a focused regression test, and prove
   the persisted local volume continues to retain receipts/projections after
   restart.
-- [ ] T185 [US7] Exercise the preserved Ask workflow against an available real
-  Gemma 4 12B writer and different-family Qwen 2.5 14B reviewer; manually edit,
-  Validate, Run, and promote one exact result into Dataset → verified table
-  Widget → named Dashboard with no model substitution.
-- [ ] T186 [US7] Publish/import that Dashboard, compare three keyed rendered
-  values to recorded PostgreSQL queries, and write the bounded versioned manual
-  evidence directory required by MVP-07.
-- [ ] T187 [US7] Pause for user inspection and acceptance of the deployed local
-  Superset dashboard. Do not call full D1 complete; retain T139–T182 as the
-  hardening backlog.
+- [ ] T185 [US7] Prove the preserved Ask workflow through the Hub-owned
+  `catalyst-query-e4b-qwen14b` profile against exact `google/gemma-4-e4b` and
+  `qwen2.5-14b-instruct-mlx` aliases; restart without seeding, generate, manually
+  edit, Validate, Run, inspect results and trace, then pause before dashboard
+  implementation resumes.
+- [ ] T186 [US7] Integrate that exact successful execution into the actual
+  multi-widget Dashboard Builder, publish/import its native bundle, and compare
+  representative values for every accepted widget to recorded PostgreSQL SQL.
+- [ ] T187 [US7] Complete the required T139–T182 failure/recovery,
+  repetition/nondeterminism, accessibility, and evidence gates; pause for user
+  inspection and acceptance before calling the Dashboard MVP complete.
 
 ## Dependencies and implementation strategy
 

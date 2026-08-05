@@ -1,7 +1,6 @@
 # PCCP-style Change Record: Superset-backed Dashboard Builder MVP
 
-**Status:** D1a passed; local table-dashboard vertical slice implemented; full
-D1 acceptance open
+**Status:** D1a passed; Superset import spike implemented; Dashboard MVP open
 
 **Date:** 2026-08-05
 
@@ -15,16 +14,17 @@ execution, or model-generated visualization configuration is authorized.
 
 ### Current implementation boundary (2026-08-05)
 
-The current branches implement a local structural vertical slice: persisted
+The current branches implement a Superset import spike: persisted
 builder drafts, deterministic native table bundle, pinned Superset runtime,
 explicit importer, restart-retained volumes, and verified import receipts. The
-completed local generation path used the deterministic fake router, so it is
-structural scaffolding rather than real-model acceptance. The table exporter is
+historical completed generation path used the then-available deterministic fake
+router, so that evidence is structural scaffolding rather than real-model
+acceptance. The fake router is no longer part of the product stack. The table exporter is
 the only verified native visualization; the designed multi-widget/library UX,
 five-family import matrix, complete reset/reimport recovery, accessibility
 matrix, and dashboard evidence emitter remain open. This record therefore does
-not claim D1 completion until the real-model, record-reconciled, user-accepted
-path succeeds.
+not claim an intermediate MVP or D1 completion until the real-model,
+multi-widget, record-reconciled, user-accepted path succeeds.
 
 The current product supports real writer/reviewer query generation, manual SQL
 editing and formatting, advisory validation, explicit PostgreSQL execution,

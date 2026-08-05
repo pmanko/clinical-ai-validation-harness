@@ -37,10 +37,9 @@ fi
 
 usage() {
   cat <<'EOF'
-Usage: scripts/catalyst-mvp.sh [--fake] {up|seed|health|boot|restart|down|reset}
+Usage: scripts/catalyst-mvp.sh {up|seed|health|boot|restart|down|reset}
 
-  --fake   Start the deterministic fake model router (recommended for first boot).
-  up       Start the Catalyst MVP services without changing persisted data.
+  up       Start the Catalyst services against the external model router without changing persisted data.
   seed     Explicitly reload the pinned synthetic OpenELIS fixture and FHIR mart.
   health   Run the full MVP health and provenance gate.
   boot     First-time initialization: run up, seed, and health in sequence.
@@ -49,18 +48,6 @@ Usage: scripts/catalyst-mvp.sh [--fake] {up|seed|health|boot|restart|down|reset}
   reset    Remove the disposable MVP state and volumes.
 EOF
 }
-
-fake_backend=false
-if [[ "${1:-}" == "--fake" ]]; then
-  fake_backend=true
-  shift
-fi
-
-if [[ "${fake_backend}" == true ]]; then
-  export MVP_MODEL_BACKEND=fake
-  export MVP_PROFILE_ID="${MVP_PROFILE_ID:-catalyst-query-gemma-4-12b}"
-  export MVP_EXPECTED_ROLE_MODELS_JSON="${MVP_EXPECTED_ROLE_MODELS_JSON:-{\"query_generate\":\"gemma-4-12b\"}}"
-fi
 
 command_name="${1:-}"
 if [[ $# -ne 1 ]] || [[ ! "${command_name}" =~ ^(up|seed|health|boot|restart|down|reset)$ ]]; then

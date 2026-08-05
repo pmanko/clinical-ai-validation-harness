@@ -107,10 +107,10 @@ def test_harness_runner_defaults_to_a_tracked_isolated_compose_override() -> Non
     assert 'export DATA_PIPES_PORT="${DATA_PIPES_PORT:-18090}"' in runner
     assert 'export MED_AGENT_HUB_PORT="${MED_AGENT_HUB_PORT:-18082}"' in runner
     assert 'export SUPERSET_PORT="${SUPERSET_PORT:-18088}"' in runner
-    assert "export MVP_MODEL_BACKEND=fake" in runner
-    assert "catalyst-query-gemma-4-12b" in runner
-    assert '\\"query_generate\\":\\"gemma-4-12b\\"' in runner
-    assert '\\"query_review\\"' not in runner
+    assert "--fake" not in runner
+    assert "MVP_FAKE_" not in runner
+    assert "MVP_EXPECTED_ROLE_MODELS_JSON" not in runner
+    assert "catalyst-query-gemma-4-12b" not in runner
     assert "restart  Stop then start services while retaining all named volumes" in runner
     assert "restart)" in runner
     assert "MVP_FAKE_BACKEND" not in runner

@@ -1,16 +1,19 @@
-# D1 Local Dashboard MVP Delivery Goal
+# D1 Dashboard Builder MVP Delivery Goal
 
-**Status:** Active delivery target — local table-dashboard vertical slice is
-implemented; real-model acceptance and MVP evidence remain open.
+**Status:** Active — Superset import spike implemented; Dashboard MVP open.
 
 ## Goal
 
-Deliver a manually testable local Catalyst workflow in which a user uses the
-accepted SQL workbench with the configured real Gemma writer and Qwen reviewer,
-manually validates and runs a query, promotes that exact execution to one
-Dataset, one verified table Widget, and one named Dashboard, publishes a native
-Superset bundle, imports it into pinned local Superset, opens the stable
-Superset URL, and reconciles representative displayed values to PostgreSQL.
+Deliver a manually testable local Catalyst workflow in which a user asks a
+question through the Hub-owned `catalyst-query-e4b-qwen14b` profile, edits,
+validates, and runs the generated SQL, promotes the exact successful execution
+into the designed multi-widget Dashboard Builder, publishes a native Superset
+bundle, imports it into pinned local Superset, reconciles displayed values to
+PostgreSQL, and explicitly accepts the experience.
+
+The existing table-only Dataset → Widget → Dashboard bundle/import path is a
+**Superset import spike**. It proves useful mechanics, but it is not a separate
+or smaller MVP tier and cannot close this goal by itself.
 
 The local named Docker volumes are the durable development state: `up` resumes
 them, `restart` retains them, `seed` explicitly reloads the source pipeline,
@@ -22,30 +25,34 @@ FHIR-cache registry is part of this goal.
 
 | ID | Testable acceptance evidence |
 | --- | --- |
-| MVP-01 | An isolated stack starts with Catalyst UI, Gateway, analytics PostgreSQL, and Superset healthy; `restart` preserves the seeded mart and the Superset metadata volumes without a pipeline reload. |
-| MVP-02 | A configured, available Gemma 4 12B writer and different-family Qwen 2.5 14B reviewer complete one question without silent fallback. The record names the actual profile, models, candidate digests, and configuration. |
+| MVP-01 | The isolated persistent stack starts without reseeding with Catalyst UI, Gateway, analytics PostgreSQL, Med-Agent Hub, and Superset healthy. No fake or bundled model-router service exists. |
+| MVP-02 | Hub discovery exposes only the available `catalyst-query-e4b-qwen14b` profile with exact `google/gemma-4-e4b` writer and `qwen2.5-14b-instruct-mlx` reviewer roles, prompts, knobs, and digests. Missing aliases fail startup clearly. |
 | MVP-03 | The existing Ask workflow remains intact through explicit Run: one editable SQL editor, manual edit/versioning, advisory validation, explicit execution, typed results, and follow-up all work before Dataset promotion. |
-| MVP-04 | One successful current execution creates a Dataset and a table Widget with exact query/execution/source/catalog provenance. Configuration and publication make no model or database call. |
-| MVP-05 | A named Dashboard publishes one byte-stable native ZIP to the Catalyst outbox. The downloaded bytes equal the outbox bytes. The explicit importer records an `imported` receipt and verified last-verified projection. |
-| MVP-06 | The stable `/superset/dashboard/catalyst-<dashboard-id>/` route opens in local Superset. At least three keyed displayed values reconcile to recorded reproducible PostgreSQL SQL. |
-| MVP-07 | One versioned evidence directory records commits/image digest, profile/model configuration, query/execution IDs and SQL, bundle digest, receipt/projection, PostgreSQL reconciliation, and manual visual evidence. It labels any fake-router run as structural scaffolding, never as real-model acceptance. |
-| MVP-08 | The user inspects and accepts the deployed local dashboard. |
+| MVP-04 | A successful current execution creates a Dataset and supports the actual multi-widget builder experience and required native Superset visualization mappings without a second SQL editor or automatic execution. |
+| MVP-05 | A named Dashboard publishes one byte-stable native bundle to the Catalyst outbox. The downloaded bytes equal the outbox bytes. The explicit importer records an `imported` receipt and verified last-verified projection. |
+| MVP-06 | The stable `/superset/dashboard/catalyst-<dashboard-id>/` route opens in local Superset. Representative values for every accepted widget reconcile to recorded reproducible PostgreSQL SQL. |
+| MVP-07 | One versioned evidence directory records exact commits/image digests, profile/model configuration, query/execution IDs and SQL, bundle/receipt/projection digests, PostgreSQL reconciliation, repetition/nondeterminism, accessibility checks, and screenshots/video. |
+| MVP-08 | The user inspects and accepts the deployed local dashboard workflow. |
 
 ## Checkpoints
 
 | Checkpoint | Entry | Exit evidence | Decision |
 | --- | --- | --- | --- |
-| M0 — truthful baseline | Current branches and runtime evidence available | Product/docs/task state distinguishes the implemented table vertical slice from unimplemented D1 hardening; import receipts contain immutable component provenance rather than `worktree`; the `codex/` branch-name limitation of the SpecKit prerequisite is recorded rather than hidden. | Internal |
-| M1 — persistent runtime | M0 complete | `up`, `restart`, `seed`, and stack-level `reset` behavior is documented and tested; restart preserves analytics and Superset volumes. This does not claim D1 last-verified recovery reset. | Internal |
-| M2 — supervised deployment path | M1 complete | Existing Ask regression remains green; one exact execution produces Dataset → table Widget → named Dashboard → byte-matching bundle → verified import. | Internal |
-| M3 — real-model evidence | M2 complete and models are available | MVP-02 through MVP-07 are demonstrated with no model substitution and record-level PostgreSQL reconciliation. | User review |
-| M4 — local MVP acceptance | M3 complete | User opens and accepts the deployed Superset dashboard. | User acceptance |
+| M0 — truthful baseline | Current branches and runtime evidence available | Product/docs/task state identifies the implemented table exporter/importer as a Superset import spike and keeps the Dashboard MVP open. | Internal |
+| M1 — real profile/runtime foundation | M0 complete | Hub/Catalyst/harness pins contain one shared workflow-typed profile schema, no duplicate Gateway model configuration, no fake-router path, and external-only startup with exact alias checks. | Internal |
+| M2 — real query-workbench proof | M1 complete and models are available | Persistent isolated stack starts without seed; Gemma → Qwen generation, manual edit, Validate/Run, result inspection, and exact trace evidence pass. Pause before dashboard implementation resumes. | User review |
+| M3 — Dashboard MVP integration | M2 accepted | The preserved Ask workbench feeds the actual multi-widget builder; native bundle import, stable Superset rendering, restart restoration, and PostgreSQL reconciliation pass. | User review |
+| M4 — release acceptance | M3 complete | Required repetition, nondeterminism, failure/recovery, keyboard/reflow/accessibility, and video evidence pass; user accepts the deployed workflow. | User acceptance |
 
-## Explicitly deferred to D1 hardening
+## Required D1 completion work
 
-The fuller D1 program remains real work, but does not redefine the local MVP:
-five clean-imported visualization families, multi-widget/library UX, a complete
-reset/reimport recovery implementation, full accessibility matrix, changed and
-layout-only child-version behavior, and the schema-backed dashboard event and
-acceptance emitter. These remain in T139–T182 and must not be marked complete
-from table-MVP evidence.
+The full D1 program remains part of this MVP: five clean-imported visualization
+families, multi-widget/library UX, complete reset/reimport recovery, the full
+accessibility matrix, changed and layout-only child-version behavior, and the
+schema-backed dashboard event and acceptance emitter. These remain in
+T139–T182 and must not be marked complete from import-spike evidence.
+
+Superset REST publication, embedded Superset, bidirectional reconciliation,
+sharing/scheduling, automatic refresh, production authentication and
+authorization, and model-generated visualization specifications remain outside
+this local MVP.

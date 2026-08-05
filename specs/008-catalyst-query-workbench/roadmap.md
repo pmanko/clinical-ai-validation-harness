@@ -1,6 +1,6 @@
 # Catalyst Query Workbench Roadmap
 
-## Current architecture and PR topology (2026-08-04)
+## Current architecture and PR topology (2026-08-05)
 
 **Status:** The accepted manual workbench MVP is merged on all three repository
 lines. Harness [#37](https://github.com/pmanko/clinical-ai-validation-harness/pull/37)
@@ -11,13 +11,14 @@ Med-Agent Hub [#15](https://github.com/pmanko/med-agent-hub/pull/15) at
 unmerged, and superseded; references to earlier PR heads below are historical
 evidence only.
 
-Catalyst Gateway now owns governed-query profiles, prompts, writer/reviewer
-composition, deterministic lint/repair/finalization, and query evidence.
-Med-Agent Hub exposes a generic `POST /v1/hub/generate` role executor and does
-not own Catalyst query profiles or their orchestration. Hub's separate
-clinical-answer/report profile engine is unchanged. The reconciled candidate
-pins are Catalyst `e7eba21` and Hub `092b5cd`; the
-Harness evidence-receipt parent is `6f58d45`. The definitive final-pin matrix
+Catalyst Gateway owns governed-query context, writer/reviewer composition,
+deterministic SQL lint/repair/finalization, execution, lineage, and query
+evidence. Med-Agent Hub now uses one workflow-typed profile schema for hosted
+clinical and caller-orchestrated Catalyst workflows. Its Hub-owned Catalyst
+profile contains role models, prompts, and knobs and exposes named-role
+execution; Gateway cannot override those settings. The current implementation
+heads are Catalyst `55e7192` and Hub `b23d7d2`; the umbrella pin update is in
+this branch. The prior accepted pins remain historical evidence. The definitive final-pin matrix
 passed 12/12 with independent
 PostgreSQL/gold checks, and the final-pin bounded failure plus same-session
 recovery passed. The July 30 runs remain supporting historical PR-head evidence
@@ -48,7 +49,7 @@ W2 → W3 → W4 queue.
 
 | Pathway | State | Relationship |
 | --- | --- | --- |
-| **Superset-backed Dashboard Builder (D1 / US7)** | **Selected next milestone** | Depends only on the accepted query/version/execution/table foundation; Catalyst publishes deterministic native bundles and Superset renders them |
+| **Superset-backed Dashboard Builder (D1 / US7)** | **Selected open milestone; current implementation is a Superset import spike** | Depends only on the accepted query/version/execution/table foundation; Catalyst publishes deterministic native bundles and Superset renders them |
 | Data foundation (G2.10 / US6) | Candidate implementation; internal/live acceptance open | Can broaden dashboard sources later; does not block D1's one-source/one-catalog Dashboard rule |
 | Query assistance (W2 / US2) | Planned, not selected | Re-enters only after its G4 scope gate |
 | Evaluation (W3/CVR) | Runner/report parity merged in PR #43; session export/comparative expansion open | Parallel evidence work; not a D1 dependency |
@@ -1542,17 +1543,17 @@ and the complete two-source transition/staleness/execution matrix remains open.
 
 ## D1 — Superset-backed Dashboard Builder MVP
 
-**Status:** Working local table-dashboard vertical slice; D1a passed and
-user-accepted on 2026-08-05; full D1 acceptance remains open
+**Status:** Superset import spike implemented; Dashboard MVP remains open
 
 **Current implementation state (2026-08-05):** The active branches contain a
-working local table-dashboard vertical slice: immutable builder entities,
+Superset import spike: immutable builder entities,
 deterministic native bundle generation, a pinned local Superset runtime, an
-explicit importer, and verified import receipts. It is not full D1 acceptance.
+explicit importer, and verified import receipts. It is not an intermediate MVP
+or full D1 acceptance.
 The current exporter is table-only, the UI is not yet the designed multi-widget
 library shell, `mvp-superset.sh reset` intentionally refuses to run until its
-recovery contract is implemented, and recorded end-to-end generation used the
-fake router rather than a real-model acceptance run. The next delivery target
+recovery contract is implemented, and historical recorded end-to-end generation
+used the now-removed fake router rather than a real-model acceptance run. The next delivery target
 and M0–M4 exits are defined in
 [`dashboard-mvp-delivery-goal.md`](dashboard-mvp-delivery-goal.md). T139–T182
 remain the full D1 hardening backlog; they are not retroactively complete.
@@ -1689,8 +1690,9 @@ Dashboard UUID, and slug are stable; changed child versions use new UUIDs, and
 layout-only publications reuse unchanged children.
 
 The user explicitly accepted the bounded D1a plan on 2026-08-05 and directed
-execution to continue through a working local MVP. T138 and D1a are complete;
-T139/T160 may begin without another push or implementation approval pause.
+implementation to continue. T138 and D1a are complete. The earlier “working
+local MVP” label is superseded: current code is a Superset import spike, and M2
+real-profile acceptance now pauses before dashboard implementation resumes.
 
 **D1 program exit:** T137–T182 pass and the user accepts D1e. The Superset REST API,
 embedded dashboards, cross-system undo/reconciliation, narrative reporting,

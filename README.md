@@ -65,13 +65,13 @@ Human-facing docs use plain names. IDs appear in parentheses on first use and in
 | OpenMRS demo-data remap | M1 | `002` | Complete |
 | Validation spine | M2 | `006` | In progress (validation-harness MVP; runner/report/feedback shipped — see lane L3) |
 | Real adapter entrypoints | M3 | `004` | In progress |
-| med-agent-hub service | F005 | `005` | Shipped as the configured profile-driven provider; Catalyst also uses its generic role executor |
+| med-agent-hub service | F005 | `005` | Shipped as the configured profile-driven provider; Catalyst uses its shared profile schema and named-role executor |
 | LLM config overrides | F007 | `007` | Superseded by explicit provider/profile configuration |
 | med-agent-hub MCP tools | F010 | `017` | Superseded; dead MCP/A2A runtime removed |
 | ChartSearchAI model gateway | F008 | `008` | Bundled and configured-Hub providers preserved behind the [dual-provider roadmap](specs/artifacts/planning/openmrs-dual-provider-parity-roadmap.md) |
 | Clinical knowledge base | F009 | `009` | [Brief + research](https://github.com/pmanko/clinical-ai-validation-harness/blob/main/specs/artifacts/planning/clinical-kb-brief.md) |
 | Retrieval evaluation | M4 | `010` | Planned |
-| Catalyst supervised reporting | M10 | `008` | Query/workbench MVP accepted; Superset-backed Dashboard Builder MVP selected next; parallel follow-on pathways remain independently gated |
+| Catalyst supervised reporting | M10 | `008` | Query/workbench foundation accepted; Superset import spike implemented; Dashboard Builder MVP open |
 | Answer, citation, and abstention | M5 | `012` | Planned |
 | Safety and red-team | M6 | `013` | Planned |
 | Clinician governance review | M7 | `014` | Planned |
@@ -125,14 +125,18 @@ git submodule update --init targets/catalyst targets/med-agent-hub
 ```
 
 The local sandbox brings up OpenELIS, HAPI FHIR, FHIR Data Pipes, the analytics
-database, Catalyst Gateway, the pinned sibling Hub generic model executor, and
-the sidecar UI; it then seeds the synthetic multi-analyte cohort. Gateway owns
-the Catalyst query profiles, prompts, lint, and writer/reviewer orchestration.
+database, Catalyst Gateway, the pinned sibling Hub, and the sidecar UI; an
+explicit seed command loads the synthetic multi-analyte cohort. Hub owns the
+shared Catalyst query profile, prompts, role models, and model knobs. Gateway
+owns catalog/context assembly, SQL lint and policy, writer/reviewer
+orchestration, execution, and query-version lineage.
 
-The final-pin manual MVP was accepted on 2026-08-04 after a 12/12 real-model
+The prior final-pin manual workbench was accepted on 2026-08-04 after a 12/12 real-model
 matrix, independent PostgreSQL/gold comparisons, bounded failure/recovery, and
 actual keyboard-only plus 200%-browser-zoom checks. The deterministic
 Playwright notebook path preserves the corresponding focus and reflow boundary.
+The current Hub-owned profile migration requires a fresh exact-pin live gate
+before dashboard implementation resumes.
 
 The selected next product milestone is the Superset-backed Dashboard Builder:
 promote governed executions through immutable Dataset, Widget, and multi-widget
@@ -150,6 +154,11 @@ cross-system reconciliation, model-generated visualization specifications,
 sharing, scheduling, automatic refresh, and production access control remain
 outside this milestone.
 
+The current table-only bundle/import implementation is a Superset import spike,
+not a smaller Dashboard MVP. The MVP remains open through real-profile query
+proof, the actual multi-widget experience, native Superset import, PostgreSQL
+reconciliation, accessibility/evidence gates, and explicit user acceptance.
+
 The P5 Catalyst report is published at
 [reports.openclinai.org/catalyst-t094-release](https://reports.openclinai.org/catalyst-t094-release/):
 13/13 scenario repetitions and 411/411 deterministic assertions passed, with
@@ -157,11 +166,15 @@ three advisory judge passes retained alongside record-level evidence. PR #43
 merged green at `136067a`; optional future evaluation expansion is parallel and
 is not a Dashboard MVP implementation dependency.
 
+Start the local OpenAI-compatible router on port `1234`; it must advertise the
+exact `google/gemma-4-e4b` writer and `qwen2.5-14b-instruct-mlx` reviewer model
+IDs. The only supported manual path is then:
+
 ```bash
-make catalyst-mvp-fake
+make catalyst-mvp-external
 ```
 
-That is the first-time path: it starts the isolated stack and loads the demo
+That first-time path starts the isolated stack and explicitly loads the demo
 OpenELIS → FHIR → analytics pipeline. Day-to-day restarts retain the stack's
 named Docker volumes and do not reload that data:
 
@@ -172,24 +185,23 @@ make catalyst-mvp-restart
 Use `make catalyst-mvp-seed` only to deliberately reload the fixture and
 `make catalyst-mvp-reset` only to discard the isolated data state.
 
-For a real external OpenAI-compatible model server, set
-`MVP_MODEL_BACKEND=external` and `MVP_EXTERNAL_ROUTER_URL` in
-`targets/catalyst/.env`, then run `make catalyst-mvp-external`. Open
+The external model URL defaults to `http://host.docker.internal:1234`; override
+`MVP_EXTERNAL_ROUTER_URL` only when the real router is elsewhere. Startup fails
+if the router cannot advertise both configured profile models. Open
 `http://localhost:13000` after the health gate succeeds. Every `make
 catalyst-mvp-*` target runs the isolated stack
 (`compose/catalyst-mvp-isolated.override.yml`), which publishes the UI on
 `13000` and the gateway on `18000` so they cannot collide with another stack on
 this host. `3000` is Catalyst's own default, which you get only when running
 its compose directly from `targets/catalyst`. `CATALYST_UI_PORT` overrides
-either. The profile picker shows Gateway-owned query profiles whose exact writer
-and optional reviewer models are advertised by Hub's backend inventory; see
+either. The profile picker shows only available Hub-owned query profiles and
+their exact writer/reviewer models; see
 [Catalyst manual LLM testing](docs/catalyst-manual-llm-testing.md). This is
 demo-data engineering evidence, not a clinical-quality claim.
 
 After the real-model health gate passes, run the versioned validation suite
-against that live Gateway. Hub's backend inventory must advertise the exact
-Gemma 4 12B writer and Qwen 2.5 14B reviewer aliases required by the selected
-Gateway profile.
+against that live Gateway. Hub discovery records the exact model and prompt
+configuration used by each role.
 
 ```bash
 uv run python scripts/run-catalyst-validation.py \

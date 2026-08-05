@@ -9,37 +9,35 @@ From an isolated harness worktree, initialize the two pinned sibling targets:
 
 ```bash
 git submodule update --init targets/catalyst targets/med-agent-hub
-make catalyst-mvp-fake
+make catalyst-mvp-external
 ```
 
 The tracked umbrella runner uses
 `compose/catalyst-mvp-isolated.override.yml`, project
 `catalyst-mvp-isolated`, Gateway `http://127.0.0.1:18000`, and browser
-`http://localhost:13000/`. For real local models, configure the external
-OpenAI-compatible router in `targets/catalyst/.env` and run
-`make catalyst-mvp-external`.
+`http://localhost:13000/`. The only manual model path is the external
+OpenAI-compatible router at `http://host.docker.internal:1234`; it must
+advertise `google/gemma-4-e4b` and `qwen2.5-14b-instruct-mlx` exactly.
 
-Current query ownership is Catalyst Gateway → Hub generic role executor → model
-router. Before relying on a stack, verify:
+Current query ownership is Catalyst Gateway orchestration → Hub-configured role
+execution → model router. Before relying on a stack, verify:
 
 ```bash
-test -f targets/catalyst/catalyst-gateway/src/catalyst/query_profiles.py
 test -f targets/catalyst/catalyst-gateway/src/catalyst/query_engine.py
 test -f targets/med-agent-hub/server/generic_role.py
-rg -n 'POST /v1/hub/generate|/v1/hub/generate' \
+rg -n 'catalyst-query-e4b-qwen14b|/v1/hub/query-profiles' \
   targets/catalyst/catalyst-gateway/src/catalyst \
-  targets/med-agent-hub/server
+  targets/med-agent-hub/server/levels.yaml \
+  targets/med-agent-hub/server/generic_role.py
 ```
 
-Gateway owns the query profile IDs, prompts, writer/reviewer flow, and required
-model aliases. Catalyst does not use the Hub profile objects in
-`GET /v1/models` `data[]` as query-profile discovery; those remain Hub's own
-clinical-answer/report profiles. `LocalHub` does consume that response's
-versioned top-level `backend` inventory to determine whether every exact model
-alias required by a Gateway profile is currently advertised. A missing,
-malformed, or unreachable inventory makes affected profiles unavailable without
-substitution. Historical G2.8 steps below refer to the earlier Hub-owned query
-engine and are retained only to explain the evidence produced then.
+Hub owns the shared query profile ID, prompts, role models, and knobs. Gateway
+owns writer/reviewer orchestration, deterministic SQL policy/lint, execution,
+and lineage. `LocalHub` consumes `GET /v1/hub/query-profiles`, which combines
+Hub configuration with the router's exact model inventory. Missing, malformed,
+or unreachable inventory makes affected profiles unavailable without
+substitution. Historical G2.8 steps below are retained only to explain the
+evidence produced then.
 
 ## Historical G2.2 checkpoint used before editor implementation
 
@@ -72,8 +70,8 @@ different validation scopes.
 
 1. Start or rebuild the isolated gateway and UI while retaining the existing
    Hub, model router, seeded analytics database, and SQLite volume.
-2. Confirm health reports the selected Gateway query profile and role models
-   while independently confirming the generic Hub executor/model-router path is
+2. Confirm health reports the selected Hub query profile and exact role models
+   while independently confirming the configured-role Hub/model-router path is
    ready.
 3. Create a workbench session from a natural-language question.
 4. Verify the generated SQL, typed parameters, model/profile provenance, and
@@ -156,7 +154,7 @@ Do not implement the notebook UI until this checkpoint passes.
 ## G2.8c iterative-notebook live checkpoint
 
 Run this sequence only after the G2.8 turn/context contracts and deterministic
-tests pass. Use the isolated real stack, not the fake router, and pause for user
+tests pass. Use the isolated real external-router stack and pause for user
 acceptance after recording the evidence.
 
 ### Required scenario matrix
@@ -192,10 +190,11 @@ phrasing rather than hard-coding an assumed cohort.
 
 ### Execution sequence and evidence
 
-1. Confirm Gateway profile discovery reports the selected Gemma 4 12B writer
-   and Qwen 2.5 14B reviewer, including profile/prompt/configuration digests.
+1. Confirm Hub profile discovery reports the selected
+   `google/gemma-4-e4b` writer and `qwen2.5-14b-instruct-mlx` reviewer,
+   including profile/prompt/configuration digests.
    Confirm each role reaches sibling `targets/med-agent-hub` only through the
-   generic executor and that no disposable patched clone is used.
+   configured role endpoint and that no disposable patched clone is used.
 2. Confirm the new session's initial recorded events and retrieve typed
    generation evidence for the initial and follow-up turns. For each scenario,
    record dataset ID/version, catalog version, session and turn IDs, observed CAS
