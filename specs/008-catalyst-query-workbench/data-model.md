@@ -237,6 +237,34 @@ displayed as stale and remains labelled with its original `Results from Query
 vN` identity. No successor edit or turn deletes the attempt or attaches it to
 another version.
 
+## DashboardArtifact and DashboardVersion
+
+A DashboardArtifact is one supervised presentation rooted in one successful
+ExecutionAttempt. It records:
+
+- dashboard, session, source query-version, and source execution IDs;
+- source query/result digests, data-source ID, catalog version, and typed result
+  schema;
+- latest saved dashboard-version pointer; and
+- a derived source state: current, stale, or missing evidence.
+
+A DashboardVersion is immutable and records:
+
+- dashboard-version ID, parent ID, and artifact ID;
+- presentation kind: table, bar, or line;
+- title, selected columns or axis bindings, labels, and sort;
+- author actor kind (`human` in the unauthenticated demo), created time, and
+  configuration digest; and
+- the complete source binding copied from the artifact at save time.
+
+The dashboard references the immutable execution result; it does not copy
+clinical rows into operating-metadata fields. The result digest is the RFC 8785
+canonical SHA-256 of the stored successful `catalyst.table.v1` payload.
+Configuration, preview, save, and restoration make no model call and do not
+execute the source query. A new active query or execution changes only the
+artifact's derived source state—it never rewrites a saved version or rebinds its
+evidence. Missing or digest-mismatched source evidence fails closed.
+
 ## WorkbenchEvent
 
 An ordered append-only stream links session creation, generation, validation,

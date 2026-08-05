@@ -24,7 +24,7 @@ The harness coordinates validation across four clinical AI projects:
 | `chartsearchai` | OpenMRS clinical-chat module with bundled and med-agent-hub provider paths | Product integration target: shared lifecycle UX, persistence, evidence display, cancellation, and security |
 | `querystore` | Read-optimized OpenMRS clinical-record projection and optional med-agent-hub source | Context-source validation: materialized records, indexing integrity, date/freshness semantics, and retrieval experiments |
 | `openmrs_chatbot` | Python clinical chatbot with patient/doctor interfaces and agent workflow scaffolding | Future expansion: multi-turn grounding and role-aware answer evaluation |
-| `Catalyst` (OpenELIS) | Lab query-to-table sidecar: OpenELIS → HAPI FHIR → FHIR Data Pipes → governed analytics view → reviewed, read-only Catalyst execution | Manual multi-LLM sandbox available; harness experiments are under active development |
+| `Catalyst` (OpenELIS) | Supervised reporting workbench: OpenELIS → HAPI FHIR → FHIR Data Pipes → governed query/table → versioned dashboard artifact | Query/notebook MVP accepted; Dashboard MVP selected next; data, repair, evaluation, narrative, and production paths remain independently gated |
 
 ## Current priority: the validation spine and active lanes
 
@@ -49,6 +49,7 @@ does not gate local integration. See the checked-in [roadmap](specs/artifacts/pl
 | Validation evidence model and evaluation methodology | [Validation research canvas](https://pmanko.github.io/clinical-ai-validation-harness/#/canvas/specs/artifacts/canvases/validation-research) |
 | Current priority operator walkthrough | [Feature 002 quickstart](https://github.com/pmanko/clinical-ai-validation-harness/blob/main/specs/002-openmrs-demo-data-2-8-remap/quickstart.md) |
 | Harness foundation and control-plane detail | [Feature 001 spec](https://github.com/pmanko/clinical-ai-validation-harness/blob/main/specs/001-harness-control-plane-foundation/spec.md) |
+| Catalyst product pathways and selected milestone | [Catalyst product roadmap status](specs/artifacts/planning/catalyst-product-roadmap-status.md) |
 | All planning artifacts, canvases, and research docs | [specs/artifacts/](https://github.com/pmanko/clinical-ai-validation-harness/tree/main/specs/artifacts) |
 | Superseded pre-hub cloud guide | [docs/cloud-deploy.md](https://github.com/pmanko/clinical-ai-validation-harness/blob/main/docs/cloud-deploy.md) |
 
@@ -70,7 +71,7 @@ Human-facing docs use plain names. IDs appear in parentheses on first use and in
 | ChartSearchAI model gateway | F008 | `008` | Bundled and configured-Hub providers preserved behind the [dual-provider roadmap](specs/artifacts/planning/openmrs-dual-provider-parity-roadmap.md) |
 | Clinical knowledge base | F009 | `009` | [Brief + research](https://github.com/pmanko/clinical-ai-validation-harness/blob/main/specs/artifacts/planning/clinical-kb-brief.md) |
 | Retrieval evaluation | M4 | `010` | Planned |
-| Catalyst query workbench | M10 | `008` | Manual iterative-query MVP accepted; production hardening and later experiments remain open |
+| Catalyst supervised reporting | M10 | `008` | Query/workbench MVP accepted; single-artifact Dashboard MVP selected next; parallel follow-on pathways remain independently gated |
 | Answer, citation, and abstention | M5 | `012` | Planned |
 | Safety and red-team | M6 | `013` | Planned |
 | Clinician governance review | M7 | `014` | Planned |
@@ -115,7 +116,7 @@ targets/       Pinned submodule checkouts of the four target projects
 
 **Requirements:** Python 3.11+, `uv`, Docker / Docker Compose, Git.
 
-## Catalyst query-to-table MVP
+## Catalyst query workbench and dashboard direction
 
 Initialize the two sibling targets without `--recursive`:
 
@@ -132,6 +133,25 @@ The final-pin manual MVP was accepted on 2026-08-04 after a 12/12 real-model
 matrix, independent PostgreSQL/gold comparisons, bounded failure/recovery, and
 actual keyboard-only plus 200%-browser-zoom checks. The deterministic
 Playwright notebook path preserves the corresponding focus and reflow boundary.
+
+The selected next product milestone is a supervised Dashboard MVP: promote one
+successful Query vN execution into one manually configured, versioned table,
+bar chart, or line chart; restore it after refresh; and mark it stale without
+silently rebinding when the source query changes. It depends only on the
+accepted workbench. Multi-source/lossless onboarding, targeted SQL repair,
+session-export/comparative experiments, evidence-linked narratives, and
+production security are parallel pathways, not sequential prerequisites.
+Multi-widget layouts, model-generated visualization specifications, sharing,
+scheduling, automatic refresh, publication/export, and production access
+control are outside this Dashboard MVP.
+
+The P5 Catalyst report candidate is published at
+[reports.openclinai.org/catalyst-t094-release](https://reports.openclinai.org/catalyst-t094-release/):
+13/13 scenario repetitions and 411/411 deterministic assertions passed, with
+three advisory judge passes retained alongside record-level evidence. It remains
+labelled development evidence until final MS-D acceptance; CVR-G18 hygiene has
+already passed. That PR #43 release decision is evaluation closeout, not a
+Dashboard MVP implementation dependency.
 
 ```bash
 make catalyst-mvp-fake
@@ -163,6 +183,32 @@ uv run python scripts/run-catalyst-validation.py \
 ```
 
 Run evidence is written under `artifacts/catalyst-validation/<run-id>/`.
+
+The iterative-query notebook uses the same top-level CLI and reporting archive
+as ChartSearchAI. By default it independently checks both the selected query
+execution and the hand-authored gold query against read-only PostgreSQL:
+
+```bash
+uv run harness-cli catalyst run \
+  --suite datasets/validation/catalyst/catalyst-notebook-t094-v1.json
+
+uv run harness-cli catalyst report \
+  artifacts/catalyst-notebook-validation/<run-id>
+```
+
+After three judge passes are finalized, stage or publish the report and its
+relative evidence links with the family-aware publisher:
+
+```bash
+scripts/publish-report.sh catalyst \
+  artifacts/catalyst-notebook-validation/<run-id> \
+  catalyst-t094-release "Catalyst T094 validation"
+```
+
+Use `PUBLISH_DRY_RUN=1 REPORTS_ROOT=<temporary-directory>` to render, index,
+and verify a publication without cloud or VM access. The legacy
+`scripts/validate-publish.sh <run-id> ...` command remains a ChartSearchAI
+compatibility wrapper.
 
 ```bash
 # 1. Install uv (Python environment manager) if not already installed

@@ -28,6 +28,7 @@ import rfc8785
 from ..common.jsonl import append_jsonl
 from ..metadata import RunManifest, append_event
 from ..submodules import read_harness_git_sha
+from .events import NOTEBOOK_EVENT_SCHEMA_VERSION, notebook_result_events
 from .validation import _response_payload, _target_provenance
 
 
@@ -919,6 +920,7 @@ def run_notebook_suite(
     recorder = _EvidenceRecorder(run_dir, run_id)
     root = Path(project_root).resolve()
     target_provenance = provenance_loader(root)
+    suite_sha256 = hashlib.sha256(suite_path.read_bytes()).hexdigest()
     manifest = RunManifest(
         run_id=run_id,
         project="clinical-ai-validation-harness",
@@ -935,13 +937,16 @@ def run_notebook_suite(
             "read-only PostgreSQL connection."
         ),
         target_provenance=target_provenance,
+        report_family="catalyst",
+        suite_id=suite.id,
+        suite_sha256=suite_sha256,
     )
     recorder.json("run_manifest.json", manifest.to_dict(), kind="run_manifest")
     recorder.json(
         "suite.json",
         json.loads(suite_path.read_text(encoding="utf-8")),
         kind="suite_definition",
-        metadata={"sourceSha256": hashlib.sha256(suite_path.read_bytes()).hexdigest()},
+        metadata={"sourceSha256": suite_sha256},
     )
 
     # Additive run-stream files (events.jsonl / results.jsonl): NOT registered
@@ -969,13 +974,17 @@ def run_notebook_suite(
     append_event(
         events_path,
         {
+            "schema_version": NOTEBOOK_EVENT_SCHEMA_VERSION,
             "event_type": "run",
             "run_id": run_id,
             "component": "catalyst-notebook-validation",
-            "comparison_set": suite.id,
+            "report_family": "catalyst",
+            "suite_id": suite.id,
+            "suite_sha256": suite_sha256,
             "scenario_ids": [cell["scenario_id"] for cell in cells],
             "backend_ids": sorted({cell["backend_id"] for cell in cells}),
             "cells": cells,
+            "evidence_paths": ["run_manifest.json", "suite.json"],
         },
     )
     for profile_id, profile in suite.profiles.items():
@@ -989,6 +998,7 @@ def run_notebook_suite(
         append_event(
             events_path,
             {
+                "schema_version": NOTEBOOK_EVENT_SCHEMA_VERSION,
                 "event_type": "backend_selected",
                 "run_id": run_id,
                 "backend_id": profile_id,
@@ -1086,9 +1096,18 @@ def run_notebook_suite(
                     "ended_at": ended_at,
                 },
             )
+            for event in notebook_result_events(
+                run_id=run_id,
+                run_dir=run_dir,
+                prefix=prefix,
+                result=result,
+                backend_id=backend_id,
+            ):
+                append_event(events_path, event)
             append_event(
                 events_path,
                 {
+                    "schema_version": NOTEBOOK_EVENT_SCHEMA_VERSION,
                     "event_type": "evaluation",
                     "check": "notebook_scenario",
                     "run_id": run_id,
@@ -1524,6 +1543,7 @@ def _run_scenario(
         else None,
         "followupTurnId": turn.get("turnId"),
         "baseVersionId": base_version.get("versionId"),
+        "baseQueryDigest": base_version.get("queryDigest"),
         "selectedVersionId": turn.get("selectedVersionId"),
         "baseExecutionId": (base_execution or {}).get("executionId"),
         "successorExecutionId": (successor_execution or {}).get("executionId"),

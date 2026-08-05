@@ -423,8 +423,19 @@ def test_real_http_client_runs_notebook_path_and_hashes_evidence(
     assert [e["event_type"] for e in events] == [
         "run",
         "backend_selected",
+        "scenario",
+        "turn",
+        "turn",
+        "version",
+        "version",
+        "execution",
+        "execution",
         "evaluation",
     ]
+    assert all(
+        e["schema_version"] == "harness.catalyst-notebook.event.v1"
+        for e in events
+    )
     assert events[0]["cells"] == [
         {"scenario_id": "unchanged", "backend_id": PROFILE_ID, "turns": 1}
     ]
@@ -1601,16 +1612,29 @@ def test_results_jsonl_streams_incrementally_and_survives_a_mid_run_crash(
     assert not (run_dir / "results.json").exists()
     assert not (run_dir / "evidence-index.json").exists()
 
+    manifest = json.loads((run_dir / "run_manifest.json").read_text())
+    assert manifest["report_family"] == "catalyst"
+    assert manifest["suite_id"] == "notebook-test-v1"
+    assert len(manifest["suite_sha256"]) == 64
+
     events = read_jsonl(run_dir / "events.jsonl")
     result_rows = read_jsonl(run_dir / "results.jsonl")
 
     assert events[0]["event_type"] == "run"
+    assert events[0]["schema_version"] == "harness.catalyst-notebook.event.v1"
+    assert events[0]["report_family"] == "catalyst"
+    assert events[0]["suite_id"] == "notebook-test-v1"
+    assert "comparison_set" not in events[0]
     assert events[0]["cells"] == [
         {"scenario_id": "first", "backend_id": PROFILE_ID, "turns": 1},
         {"scenario_id": "second", "backend_id": PROFILE_ID, "turns": 1},
     ]
     evaluation_events = [e for e in events if e["event_type"] == "evaluation"]
     assert [e["scenario_id"] for e in evaluation_events] == ["first"]
+    assert {e["event_type"] for e in events} >= {"run", "scenario", "evaluation"}
+    for event in events:
+        for path in event.get("evidence_paths", []):
+            assert (run_dir / path).is_file(), path
 
     assert [row["scenario_id"] for row in result_rows] == ["first"]
     row = result_rows[0]

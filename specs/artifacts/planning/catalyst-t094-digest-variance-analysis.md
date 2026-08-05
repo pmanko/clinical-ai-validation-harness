@@ -1,6 +1,8 @@
 # Catalyst T094 — Three-Repetition Digest-Variance Analysis
 
-**Status:** development evidence (T094 in progress; not a release claim)
+**Status:** historical development evidence from the in-progress T094 run; T094
+later passed on final pins (see
+`catalyst-validation-integration-roadmap-status.md`)
 **Author date:** 2026-07-21
 **Run:** `5794eb05-5c63-48c9-9aa2-c04b914a3712`
 under `artifacts/catalyst-validation/t094-t095-20260721T143955Z/notebook-gold/`
@@ -35,7 +37,8 @@ verified result set is *execution-equivalent* (benign), not a correctness fault.
 
 Scope: 4 of the 5 T094 families ran in the automatic ×3 matrix. The fifth,
 `bounded-hub-tool-failure`, is the manual family (0 automatic assertions) and is
-**out of scope here** — it remains open under T094.
+**out of scope for this historical run**; the later final-pin failure/recovery
+run closed that T094 family.
 
 ## 3. Results
 
@@ -87,8 +90,9 @@ execution-level ground truth rather than by brittle string comparison.
 
 ## 6. Caveats / open items
 
-- `bounded-hub-tool-failure` (manual family) is not covered here and remains open
-  under T094, alongside the live accessibility matrix.
+- `bounded-hub-tool-failure` (manual family) is not covered by this run. The
+  later final-pin failure/recovery run and accepted accessibility matrix close
+  those T094/T095 items in the authoritative status artifact.
 - Single run of the matrix; this characterizes *that* run's variance, not a
   long-run stability distribution.
 - Development evidence only — release claims remain reserved for the clean-pin

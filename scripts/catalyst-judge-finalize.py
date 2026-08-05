@@ -9,6 +9,7 @@ P4 appends evaluation events when a notebook events file is present.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import sys
 from collections import defaultdict
@@ -24,6 +25,7 @@ sys.path.insert(0, str(ROOT))
 
 from harness.catalyst.reconcile import finalize_judge_row  # noqa: E402
 from harness.common.jsonl import read_jsonl  # noqa: E402
+from harness.metadata import append_event  # noqa: E402
 
 JUDGE_SCHEMA_PATH = (
     ROOT
@@ -40,6 +42,7 @@ MANIFEST_SCHEMA_PATH = (
     / "catalyst-judge-manifest-v1.schema.json"
 )
 PASS_NAMES = ("judge.pass-1.jsonl", "judge.pass-2.jsonl", "judge.pass-3.jsonl")
+EVENT_SCHEMA_VERSION = "harness.catalyst-notebook.event.v1"
 
 
 def _load_validator(path: Path) -> Draft202012Validator:
@@ -142,6 +145,116 @@ def group_cells(
     return dict(grouped)
 
 
+def _append_judge_evaluation_events(
+    run_dir: Path,
+    finalized_rows: list[dict[str, Any]],
+) -> int:
+    """Append one idempotent evaluation event per finalized judge cell.
+
+    P2 fixtures without an event stream remain supported. Once a notebook
+    stream exists, however, its run manifest and every judge evidence link are
+    part of the publish contract and must resolve inside the run directory.
+    """
+
+    events_path = run_dir / "events.jsonl"
+    if not events_path.exists():
+        return 0
+    manifest_path = run_dir / "run_manifest.json"
+    if not manifest_path.is_file():
+        raise FileNotFoundError(
+            "events.jsonl is present but run_manifest.json is missing"
+        )
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    run_id = manifest.get("run_id")
+    if not isinstance(run_id, str) or not run_id:
+        raise ValueError("run_manifest.json must contain a non-empty run_id")
+
+    root = run_dir.resolve()
+    for row in finalized_rows:
+        for relative in row["evidence_paths"]:
+            path = (run_dir / relative).resolve()
+            if not path.is_relative_to(root):
+                raise ValueError(
+                    f"judge evidence path escapes the run directory: {relative}"
+                )
+            if not path.is_file():
+                raise FileNotFoundError(f"judge evidence path not found: {relative}")
+
+    existing = read_jsonl(events_path)
+    existing_ids = {
+        str(event["evaluation_id"])
+        for event in existing
+        if event.get("event_type") == "evaluation"
+        and event.get("evaluation_type") == "catalyst_sql_judge"
+        and event.get("evaluation_id")
+    }
+    appended = 0
+    for row in finalized_rows:
+        identity = ":".join(
+            (
+                run_id,
+                str(row["scenario_id"]),
+                str(row["turn"]),
+                str(row["version_id"]),
+                str(row["provider"]),
+                str(row["model"]),
+                str(row["model_version"]),
+                str(row["rubric_sha256"]),
+            )
+        )
+        evaluation_id = hashlib.sha256(identity.encode("utf-8")).hexdigest()
+        if evaluation_id in existing_ids:
+            continue
+        axes = {
+            name: int(row[name])
+            for name in (
+                "intent_fidelity",
+                "sql_quality",
+                "schema_discipline",
+                "followup_coherence",
+            )
+            if name in row
+        }
+        rationales = {
+            name: str(row[name])
+            for name in (
+                "intent_fidelity_rationale",
+                "sql_quality_rationale",
+                "schema_discipline_rationale",
+                "followup_coherence_rationale",
+            )
+            if name in row
+        }
+        append_event(
+            events_path,
+            {
+                "schema_version": EVENT_SCHEMA_VERSION,
+                "event_type": "evaluation",
+                "evaluation_type": "catalyst_sql_judge",
+                "evaluation_id": evaluation_id,
+                "run_id": run_id,
+                "scenario_id": row["scenario_id"],
+                "turn": row["turn"],
+                "version_id": row["version_id"],
+                "provider": row["provider"],
+                "model": row["model"],
+                "model_version": row["model_version"],
+                "rubric_sha256": row["rubric_sha256"],
+                "composite": row["composite"],
+                "axes": axes,
+                "rationales": rationales,
+                "evidence_paths": [
+                    "judge.jsonl",
+                    "judge_manifest.json",
+                    *row["evidence_paths"],
+                ],
+            },
+        )
+        existing_ids.add(evaluation_id)
+        appended += 1
+    return appended
+
+
 def finalize(run_dir: Path | str) -> dict[str, Any]:
     """Finalize three pass files. Returns judge rows + manifest payload."""
     run_dir = Path(run_dir)
@@ -197,11 +310,13 @@ def finalize(run_dir: Path | str) -> dict[str, Any]:
         json.dumps(manifest, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
+    appended_event_count = _append_judge_evaluation_events(run_dir, finalized_rows)
     return {
         "judge_rows": finalized_rows,
         "manifest": manifest,
         "judge_path": str(judge_path),
         "manifest_path": str(manifest_path),
+        "appended_event_count": appended_event_count,
     }
 
 

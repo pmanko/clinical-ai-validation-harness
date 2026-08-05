@@ -5,8 +5,8 @@
 **Created**: 2026-07-17
 
 **Status**: Iterative-query notebook and Gateway-owned query orchestration MVP
-accepted on the final clean pins; production hardening and the separately gated
-G2.9/G2.10/W2/W3 work remain open
+accepted on the final clean pins. This feature is the shared foundation for
+parallel follow-on pathways; supervised Dashboard MVP is selected next.
 
 **Input**: Refine the Catalyst query experience with manageable dataset context,
 targeted query remediation, complete validator feedback, editable SQL,
@@ -23,6 +23,28 @@ own its separate clinical-answer/report profiles; those profiles are not the
 Catalyst query engine. Historical G2.1–G2.8 evidence below may describe the
 earlier Hub-owned query-profile implementation and is retained as evidence of
 the path that was tested at that time, not as current ownership guidance.
+
+## Portfolio position after MVP acceptance
+
+Feature 008 delivered the accepted query/workbench foundation. It no longer
+acts as one linear queue in which every remaining item blocks the next product
+feature.
+
+| Pathway | Status | Relationship to feature 008 |
+| --- | --- | --- |
+| **Supervised Dashboard MVP** | **Selected next product milestone** | Depends only on the accepted Query vN/execution/table foundation; its product contract lives in Catalyst's canonical specification and roadmap |
+| G2.10 multi-source/lossless data foundation | Evidence incomplete | Parallel reliability work; it can broaden dashboard sources later but does not block a single-source Dashboard MVP |
+| W2 targeted query assistance | Planned, not selected | Parallel optional repair workflow; requires its own G4/G5 approval |
+| W3/CVR evaluation | Report parity implemented; session export/comparative expansion remains | Parallel evidence work; PR #43 MS-D/merge is release closeout, not a product dependency |
+| R4 narrative reporting | Not started | Parallel table-to-narrative pathway; not a dashboard prerequisite |
+| R5 productionization | Future | Authentication, authorization, security and supported deployment remain outside the local Dashboard MVP |
+
+Dashboard MVP is deliberately narrow: one successful execution becomes one
+manually configured table, bar chart, or line chart; explicit saves create
+immutable dashboard versions; refresh restores the artifact; and later query
+changes mark its source stale without rebinding it. Multi-widget layouts,
+model-generated visualization specifications, narratives, sharing, scheduling,
+automatic refresh, publication, and production security are deferred.
 
 ## Clarifications
 
@@ -424,6 +446,46 @@ catalog agreement, and independent PostgreSQL results.
    the UI and documentation do not imply that every registered source was
    checked. Full registry readiness remains a separately tracked follow-up.
 
+---
+
+### User Story 7 - Turn an executed result into a dashboard (Priority: P1)
+
+As a reporting user, I can promote the exact result I just ran into one
+manually configured dashboard artifact, save revisions, and return to it without
+losing which query and execution produced it.
+
+**Why this priority**: The accepted workbench proves query-to-table iteration.
+The next useful supervised product outcome is a durable presentation that the
+user controls, not another model-only output or an unrelated reporting system.
+
+**Independent Test**: Execute one seeded query, create a dashboard draft, choose
+and configure one compatible presentation, save two versions, refresh, then
+change the active query and prove the saved dashboard remains visible, restored,
+traceable, and explicitly stale rather than silently rebound.
+
+**Acceptance Scenarios**:
+
+1. **Given** one successful, current execution, **When** the user creates a
+   dashboard, **Then** its draft is bound to the exact session, query
+   version/digest, execution, source/catalog version, typed schema, and result
+   digest.
+2. **Given** a dashboard draft, **When** the user selects a table, bar chart, or
+   line chart supported by the typed result and configures title, bindings,
+   labels, and sort, **Then** the preview changes without a model call or query
+   execution.
+3. **Given** a configured draft, **When** the user explicitly saves twice,
+   **Then** two immutable dashboard versions preserve their author, timestamps,
+   configuration, and exact source provenance.
+4. **Given** a saved dashboard, **When** the application refreshes, **Then** the
+   latest saved version and its history restore without a model call or query
+   re-execution.
+5. **Given** a saved dashboard whose source query or execution is no longer the
+   active workbench state, **When** it is displayed, **Then** it remains visible
+   with an explicit stale-source state and is never silently rebound.
+6. **Given** keyboard-only navigation or 200% browser zoom, **When** the user
+   completes create, configure, preview, save, history, and stale-state review,
+   **Then** every control and value remains operable, readable, and unobscured.
+
 ### Edge Cases
 
 - A finding points to a query unit that no longer exists in the current version.
@@ -471,6 +533,14 @@ catalog agreement, and independent PostgreSQL results.
   a different repeated-coding cross product than the reviewed input.
 - A curated view lacks a grain or column comment, or its overlay names a
   canonical semantic value that is absent from live data.
+- A result has no compatible numeric/category or temporal/numeric column pair
+  for a requested bar or line chart; the unsupported choice is explained and
+  the source table remains available.
+- A dashboard draft is unsaved when the source query changes, a saved dashboard
+  is opened while its source is stale, or two tabs attempt to save from the same
+  dashboard version.
+- A saved dashboard's result evidence is missing or its digest no longer
+  matches; restoration fails closed without substituting the current result.
 
 ## Requirements
 
@@ -808,6 +878,25 @@ catalog agreement, and independent PostgreSQL results.
   open until dedicated tasks and evidence prove every registered source; the
   presence of implementation plumbing or unit tests alone MUST NOT close that
   checkpoint.
+- **FR-071**: A dashboard draft MUST be created only from a successful query
+  execution and MUST bind the exact session, query version/digest, execution,
+  data source/catalog version, typed result schema, and result digest.
+- **FR-072**: Dashboard MVP MUST support exactly one presentation per artifact:
+  the result table, a compatible bar chart, or a compatible line chart. Users
+  MUST manually configure title, selected columns or axes, labels, and sort.
+- **FR-073**: Dashboard preview, configuration, save, and restoration MUST NOT
+  invoke a model or execute a query automatically.
+- **FR-074**: Each explicit dashboard save MUST append an immutable version with
+  parent, author, timestamp, complete presentation configuration, and source
+  provenance.
+- **FR-075**: Refresh MUST restore the latest saved dashboard and version
+  history. A later query edit, successor, or execution MUST retain the saved
+  artifact and mark its source stale rather than hide or silently rebind it.
+- **FR-076**: Dashboard MVP MUST remain independently deliverable from G2.10
+  multi-source acceptance, W2 repair, W3 comparative expansion, R4 narrative
+  reporting, and R5 productionization. It MUST exclude multi-widget layouts,
+  model-generated visualization specifications, sharing, scheduling, automatic
+  refresh, publication/export, and production authorization.
 
 ### Key Entities
 
@@ -871,6 +960,12 @@ catalog agreement, and independent PostgreSQL results.
 - **Catalog Overlay**: The small reviewed source-specific input containing
   identity, approved views, and semantic canonical values that cannot be derived
   from PostgreSQL metadata alone.
+- **Dashboard Artifact**: A stable identity bound to one exact source execution,
+  with a pointer to its latest saved dashboard version and explicit current or
+  stale source state.
+- **Dashboard Version**: An immutable manually authored presentation containing
+  one table/bar/line configuration, title, bindings, labels, sort, parent,
+  author, timestamp, and source provenance.
 
 ### Evidence, Provenance & Data Boundaries
 
@@ -1045,6 +1140,22 @@ catalog agreement, and independent PostgreSQL results.
 - **SC-034**: The live two-source and default-readiness matrix is recorded as a
   separate user checkpoint. Until it passes, documentation labels multi-source
   implementation as present but not formally accepted.
+- **SC-035**: From one successful execution, a user can create, configure, and
+  save the first dashboard version in under three minutes without a model call
+  or query re-execution.
+- **SC-036**: Every saved dashboard version resolves to exactly one session,
+  query version/digest, execution, data source/catalog version, typed result
+  schema/digest, parent version, author, and timestamp; unresolved references
+  are zero in the acceptance fixture.
+- **SC-037**: Refresh restores two saved dashboard versions byte-for-byte and
+  performs zero model calls and zero database executions.
+- **SC-038**: After the active query changes, 100% of dashboard acceptance cases
+  preserve the saved artifact, display its stale-source state, and retain its
+  original source binding.
+- **SC-039**: Deterministic UI and manual checks prove create, presentation
+  selection, configuration, preview, save, history, and stale-state review are
+  keyboard operable and unobscured at the accepted narrow layout and actual
+  200% browser zoom.
 
 ## Assumptions
 
@@ -1052,6 +1163,15 @@ catalog agreement, and independent PostgreSQL results.
   into its connected OpenELIS-to-FHIR pipeline and is not a production clinical
   reporting tool. The current dataset's synthetic/real classification is unknown
   unless an authoritative load manifest supplies it.
+- Dashboard MVP starts with one successful execution from any already accepted
+  single source. Multi-source acceptance can broaden that source set later but
+  is not a prerequisite for the first dashboard artifact.
+- Dashboard configuration is fully supervised and manual in this milestone;
+  typed-column compatibility may limit available chart choices without asking a
+  model to invent or repair a visualization specification.
+- Because the local demo has no authentication, dashboard version `author`
+  records the actor kind `human` and MUST NOT imply a verified user identity.
+  Production identity attribution remains in R5.
 - Users are technical evaluators comparing model and validator behavior; no
   authentication or production role model is introduced in this iteration.
 - Existing isolated database credentials and permissions remain authoritative.

@@ -21,6 +21,12 @@ This roadmap does not silently supersede `specs/008-catalyst-query-workbench/roa
 
 **A1 (2026-07-21, user-authorized):** P4's entry gate changed from 008-G5 (W2 exit checkpoint "G5 user") to recorded T094/T095/T111 user acceptance; P5's entry gate changed from 008-G6 + T094/T095/T111 to recorded T094/T095/T111 user acceptance. Rationale: G5 and G6 are exit checkpoints of the unstarted W2 (lint remediation) and W3 (session export) product phases, which are orthogonal to validating and publishing real-path evidence; T094/T095/T111 are the actual user-acceptance gates for the real-path run this roadmap reports and publishes. The pre-amendment wording is preserved in git history at the original approved SHA-256 `b00a063bf2b78494a3a719436d4609127eb2e845153d1ab2f9153d1e018e6ef8`.
 
+**A2 (2026-08-04, user-authorized):** CVR-G18 proves release CI, pin,
+documentation, PCCP, and repository hygiene and establishes readiness for
+Signoff D; it does not require MS-D to have already passed. MS-D runs only after
+CVR-G18 and is the final release-acceptance decision. This removes the circular
+dependency in which each gate previously required the other to pass.
+
 ## 2. Baseline facts (verified in-repo)
 
 - Deterministic ground truth already exists: gold execution-match (count / row_set / aggregate_by_key / scalar) in [harness/catalyst/notebook_validation.py](harness/catalyst/notebook_validation.py), wired into `scripts/run-catalyst-notebook-validation.py` (default output root `artifacts/catalyst-notebook-validation`). A gitignored local development run is documented by the active 008 roadmap under `artifacts/catalyst-validation/t094-t095-20260721T143955Z/notebook-gold/`; it is not a clean-checkout dependency, and its `RunManifest` uses `evidence_status: development`.
@@ -109,7 +115,8 @@ Tasks:
 2. Run DIGI-UW/code-qa per D13; remediate every BLOCKER and regenerate affected reports.
 3. Run the complete committed `catalyst-notebook-t094-v1` suite through the real clean-pin Catalyst/Hub/PostgreSQL path; apply three manual judge repetitions; finalize, report, and publish.
 4. Update `README.md`, `specs/artifacts/planning/metadata-schema.md`, active 008 status/tasks, PCCP residual-risk disposition, and roadmap status.
-5. Pass CVR-G16–G18, then Signoff D executes MS-D.
+5. Pass CVR-G16–G18, then Signoff D executes MS-D; only a recorded MS-D PASS
+   permits the release claim.
 
 ## 5. Executable acceptance matrix
 
@@ -133,7 +140,7 @@ Tasks:
 | **CVR-G15 Mixed-family publish** | With `PUBLISH_DRY_RUN=1 REPORTS_ROOT=<pytest tmp_path>`, explicit fixture run dirs stage two reports only under `REPORTS_ROOT`; index shows correct family badges and family metrics; Catalyst never enters Scout code; metadata uses `comparison_set` only for ChartSearchAI and `suite_id`/digest only for Catalyst; `run_path` is root-relative/traversal-safe; republish preserves curated prose. |
 | **CVR-G16 Independent QA** | All five D13 code-qa files exist and are non-empty; status artifact lists zero unresolved BLOCKER findings. |
 | **CVR-G17 Live release evidence** | After recorded T094/T095/T111 acceptance (A1), the complete T094 suite runs through real Catalyst/Hub/PostgreSQL on clean pins, all deterministic required assertions pass, three-pass judge output finalizes, and the live URL serves the report with record-level evidence links. |
-| **CVR-G18 Release hygiene/docs** | Required CI is green at the recorded release SHA; root and recursive submodule status are clean; tested/pushed pins match manifests; README, metadata schema, 008 roadmap/tasks, PCCP, and roadmap status describe the same released behavior; MS-D is recorded PASS. |
+| **CVR-G18 Release hygiene/docs** | Required CI is green at the recorded release SHA; root and recursive submodule status are clean; tested/pushed pins match manifests; README, metadata schema, 008 roadmap/tasks, PCCP, and roadmap status describe the same release-candidate behavior and record readiness for MS-D. |
 
 ## 6. Manual test scripts (user signoffs)
 
@@ -166,7 +173,7 @@ Expected: PASS only if CVR-G16–G18 pass and published files/digests match the 
 1. **Cross-artifact consistency:** verify constitution, `AGENTS.md`, active 008 plan/roadmap/tasks, metadata schema, CLI, runner outputs, and publish/index implementation.
 2. **Internal consistency:** every task maps to a CVR gate; P0→P3 contains no future CLI call; P4/P5 entry guards match §1.1; every signoff has a fixed script; every non-runtime path exists or is explicitly marked new.
 3. **Clarity:** every CVR gate has one PASS interpretation; D1–D14 define every implementation choice; runtime identifiers are outputs recorded in the status artifact rather than unresolved design choices.
-4. **Resolved findings in this validation:** unique CVR namespace; P3 CLI forward reference removed; committed fixture replaces gitignored CI dependency; family-aware result/path/index dispatch; `comparison_set` no longer overloaded; `events.jsonl` and judge provenance added; PCCP/evidence/diverse tests added; judge axes/formula/schema fixed; escaping semantics preserved; code-qa artifact set completed.
+4. **Resolved findings in this validation:** unique CVR namespace; P3 CLI forward reference removed; committed fixture replaces gitignored CI dependency; family-aware result/path/index dispatch; `comparison_set` no longer overloaded; `events.jsonl` and judge provenance added; PCCP/evidence/diverse tests added; judge axes/formula/schema fixed; escaping semantics preserved; code-qa artifact set completed; A2 orders CVR-G18 before final MS-D acceptance without circularity.
 5. Copy this finding/disposition list into `catalyst-validation-integration-roadmap-status.md` at persistence, then rerun checks after any roadmap change.
 
 ## 8. Defaults and exclusions

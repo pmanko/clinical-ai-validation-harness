@@ -1,6 +1,6 @@
 # PCCP-style Change Record: Catalyst Judge v1
 
-**Status:** Approved for implementation under the Catalyst validation integration roadmap
+**Status:** Release-candidate evidence complete; final MS-D acceptance pending
 
 **Date:** 2026-07-21
 **Reviewer decision:** The project owner approved the full remediation roadmap, including
@@ -52,7 +52,9 @@ Finalization writes `judge.jsonl` and `judge_manifest.json`.
 
 - Adds advisory quality scores for SQL/analytics runs without changing Scout.
 - Requires new reconcile/finalize code and report sections.
-- Does not authorize comparative release claims before 008-G6 + T094/T095/T111.
+- Does not authorize a release claim before CVR-G16–G18 and final MS-D
+  acceptance. Amendment A1 replaced the former 008-G6 entry condition with
+  recorded T094/T095/T111 acceptance; Amendment A2 orders CVR-G18 before MS-D.
 
 ## Rollback
 
@@ -66,3 +68,24 @@ Finalization writes `judge.jsonl` and `judge_manifest.json`.
 - Manual skill invocation is not a CLI-reproducible generation path; finalization and
   schema validation are the deterministic controls.
 - Fixtures and development scoring are not release evidence.
+
+## P5 release-candidate disposition (2026-08-04)
+
+- Clean-pin run `7e3adf47-c21f-4d8c-9595-fd73d3dbfb24` passed 13/13
+  scenario repetitions, 411/411 deterministic assertions, independent
+  PostgreSQL comparisons, and configured gold checks.
+- Exactly three judge passes used provider `openai`, model `gpt-5.6-sol`, model
+  version `runtime-reported:gpt-5.6-sol`, and the reviewed rubric digest.
+  Finalization covered all 25 executed query versions.
+- The public candidate is
+  `https://reports.openclinai.org/catalyst-t094-release/`. Its report,
+  manifests, and all 81 report-relative evidence links were fetched from the
+  live host and matched the staged bundle byte-for-byte.
+- The judge consistently scored one narrowing successor 63 because repetition
+  3 omitted the requested `result_status = 'final'` predicate while still
+  matching the current rows. Deterministic gold therefore passed, but the
+  semantic weakness remains visible rather than being normalized away.
+- Residual risks remain advisory-judge dependence, model-output variance even
+  at temperature zero, and dataset-contingent gold matches. The rollback above
+  remains valid. CVR-G18 has passed; evidence stays `development` until final
+  MS-D acceptance.

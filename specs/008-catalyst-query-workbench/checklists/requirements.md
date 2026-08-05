@@ -39,4 +39,9 @@
 - G2.8 adds a linear follow-up turn, exact editor-snapshot lineage, bounded
   revision context, failure recovery, per-turn profiles, and explicit
   non-branching/non-chat scope with measurable acceptance scenarios.
-- The specification is ready for implementation planning.
+- The 2026-08-04 alignment records the accepted workbench as the shared
+  foundation, adds Dashboard MVP User Story 7 plus FR-071–FR-076 and
+  SC-035–SC-039, and explicitly keeps G2.10, W2, W3/CVR, R4, and R5 as parallel
+  independently gated pathways.
+- Dashboard MVP has no unresolved clarification markers and is ready for its
+  test-first T137–T143 implementation slice.

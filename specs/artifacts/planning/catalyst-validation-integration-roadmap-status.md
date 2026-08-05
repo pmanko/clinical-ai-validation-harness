@@ -7,12 +7,23 @@ Execution state for the Catalyst validation integration remediation roadmap.
 | Field | Value |
 |---|---|
 | Roadmap | [`catalyst-validation-integration-roadmap.md`](catalyst-validation-integration-roadmap.md) |
-| Authorization | Explicit user instruction to implement the approved plan on 2026-07-21 |
+| Authorization | Explicit user instruction to implement the approved plan on 2026-07-21; A2 gate-order clarification and exact synthetic release publication authorized 2026-08-04 |
 | Approved roadmap SHA-256 (pre-A1) | `b00a063bf2b78494a3a719436d4609127eb2e845153d1ab2f9153d1e018e6ef8` |
-| Approved roadmap SHA-256 (A1, current) | `37c13c468d274b985a0f48e0e6e5cfb2e3e9eaf3b0fb0fd1ace6e73fca1cf1e7` |
-| Current execution boundary | P0–P3 complete and signed off; merge chain complete; P4 audit complete and implementation active under T129–T133 |
-| Next protected boundary | CVR-G13–G15 must pass before P5 release work T134–T136; MS-D remains the final user gate |
-| Deviations | None. Amendment A1 (2026-07-21, user-authorized): P4/P5 entry gates re-mapped from 008-G5/008-G6 to T094/T095/T111 acceptance — see roadmap §1.2 |
+| Approved roadmap SHA-256 (A1) | `37c13c468d274b985a0f48e0e6e5cfb2e3e9eaf3b0fb0fd1ace6e73fca1cf1e7` |
+| Approved roadmap SHA-256 (A2, current) | `d11d34f466f727e70a50eccc7024c85b334ad8c899ddb6a94ef0d26a09814dab` |
+| Current execution boundary | P0–P5 and T136 complete; CVR-G13–G18 PASS; final MS-D acceptance is ready |
+| Next protected boundary | Execute MS-D and record the user's final release-acceptance decision |
+| Integration PR | Harness [#43](https://github.com/pmanko/clinical-ai-validation-harness/pull/43) carries the release-closeout candidate; GitHub is authoritative for its mutable head, check, review, and mergeability state; MS-D and merge remain |
+| Last verified candidate | On 2026-08-04, head `b99253a` was ready for review, mergeable, and green on required checks at observation time |
+| Deviations | None. Amendment A1 (2026-07-21) remaps P4/P5 entry gates to T094/T095/T111 acceptance; Amendment A2 (2026-08-04) orders CVR-G18 hygiene before final MS-D acceptance — see roadmap §1.2 |
+
+This status file governs the Catalyst validation/report release only. The
+parallel product roadmap is summarized in
+[`catalyst-product-roadmap-status.md`](catalyst-product-roadmap-status.md), where
+Supervised Dashboard MVP is selected next. Dashboard implementation depends on
+the accepted query/workbench foundation, not on PR #43's final MS-D or merge;
+MS-D remains required only before calling this report-parity candidate released
+and promoting its evidence label.
 
 ## Active-feature gate mapping
 
@@ -86,7 +97,7 @@ receipt is `specs/008-catalyst-query-workbench/evidence/`
 actual 200%-zoom checks promote T094/T095/T111 to accepted. Catalyst #5 and
 harness #37 subsequently squash-merged in dependency order, and T112 is complete.
 
-## P4/P5 current-state audit (2026-08-04)
+## P4/P5 current state (2026-08-04)
 
 The audit distinguishes reusable prework from passed roadmap gates:
 
@@ -94,20 +105,80 @@ The audit distinguishes reusable prework from passed roadmap gates:
   `results.json`, additive `results.jsonl`/`events.jsonl`, and bounded evidence;
   the live dashboard can discover notebook runs; the three-pass Catalyst judge
   schema/finalizer and offline shared-shell Catalyst report pass fixture tests.
-- **CVR-G13 remains open:** the manifest does not yet carry
-  `report_family`, `suite_id`, or `suite_sha256`; the additive stream uses the
-  ChartSearchAI-shaped `comparison_set`/`backend_selected` summary rather than
-  the required versioned scenario/turn/version/execution evidence contract; and
-  judge finalization explicitly does not append evaluation events.
-- **CVR-G14 remains open:** `harness-cli` has no `catalyst run` or
-  `catalyst report` command; the notebook script still owns argument parsing.
-- **CVR-G15 remains open:** only the ChartSearchAI-specific
-  `validate-publish.sh` exists. The curated index has a Catalyst scoreline
-  compatibility hook but rejects non-`artifacts/validate` run paths and has no
-  family-aware Catalyst result/judge metrics or badge.
-- **P5 remains unstarted:** the D13 independent code-QA set, clean-pin live
-  judged release run, verified publication, release hygiene, and MS-D signoff
-  have not been completed.
+- **CVR-G13 PASS:** manifests carry `report_family`, `suite_id`, and the exact
+  suite SHA-256; versioned run/scenario/turn/version/execution events resolve
+  their evidence references; judge finalization appends idempotent
+  provider/model/version/rubric evaluation events without rewriting the
+  run-start manifest. Focused gate: 51 tests PASS.
+- **CVR-G14 PASS:** `harness-cli catalyst run` exposes every legacy runner
+  option and both PostgreSQL checkers; `harness-cli catalyst report <run_dir>`
+  renders the offline report; the legacy script delegates to the shared CLI.
+  Focused gate: 5 selected tests PASS.
+- **CVR-G15 PASS:** `publish-report.sh` stages either family and its relative
+  evidence, emits exclusive family metadata with safe root-relative
+  `run_path`, skips Catalyst dashboard freezing, preserves the legacy
+  ChartSearchAI wrapper, and builds one mixed index with Catalyst gold and
+  advisory judge-median metrics without calling Scout. The two-fixture dry-run
+  and republish test pass under a temporary `REPORTS_ROOT`; 27 tests PASS.
+- **CVR-G16 PASS:** all five D13 independent code-QA reports are present,
+  non-empty, anchored to reviewed implementation `380301d`, and record zero
+  open BLOCKER findings. The executable G16 gate passes.
+- **P5 implementation/release evidence is complete; MS-D is ready:** clean-pin run
+  `7e3adf47-c21f-4d8c-9595-fd73d3dbfb24` passed 13/13 scenario repetitions
+  and 411/411 assertions. Exactly three independent judge passes cover all 25
+  executed versions and finalize successfully. The live report and record-level
+  links are verified, and CVR-G18 release hygiene passes. Only final MS-D
+  acceptance remains.
+
+### T135 / CVR-G17 release-run checkpoint (2026-08-04)
+
+- Harness `9f4b26a` ran clean reviewed Catalyst `e7eba21` and Hub `092b5cd`.
+  The isolated runtime reported 96 patients, 1,152 results, 9 test types, and
+  pipeline run `full-20260804T203050Z`.
+- All 12 automatic repetitions and the bounded one-shot Hub-failure scenario
+  passed. The fault proxy injected exactly one HTTP 502 for the isolated Hub's
+  first chat completion; the failed turn preserved its base, and the Hub was
+  immediately restored to the direct router.
+- Independent PostgreSQL cross-checks and every configured gold check passed.
+  Passing gold is not treated as semantic perfection: narrowing repetition 3
+  omitted the explicitly requested `result_status = 'final'` predicate while
+  still matching the current data. All three advisory judge passes therefore
+  score that successor 63; the other 24 executed versions finalize at 100.
+- Judge identity is constant across 75 rows: provider `openai`, model
+  `gpt-5.6-sol`, version `runtime-reported:gpt-5.6-sol`, rubric SHA-256
+  `5dc94bbd30424f6f5f87b708a15a9f8615617d9e91180170f7c72df9c6e8f483`.
+- After explicit authorization for the exact synthetic payload, the report was
+  published at `https://reports.openclinai.org/catalyst-t094-release/`. The live
+  index contains its Catalyst card; the public report, run/results/judge
+  manifests, and representative evidence from every scenario family match the
+  staged bundle byte-for-byte. All 81 relative evidence links in the live report
+  returned HTTP 200 and matched their staged files.
+- Dry-run staging is byte-identical to the source bundle for every manifest,
+  result, event, evidence-index, and judge artifact; every rendered relative
+  evidence link resolves. The staged index contains 18 cards, including the
+  Catalyst release candidate and existing ChartSearchAI reports. Release-file
+  SHA-256 values are: manifest `f789b5d5d73d4a9bca39816b30c412abd8b6a5034927ae4134db07bfef29b664`,
+  results `4cd68dc4a2710330c7df3f2d42de9f731615f19c8a6ed09a976f94d92a803737`,
+  events `779a9016dd5196b006521944e137a12a39e33ebc9fc0b2e4e16e9f3850059927`,
+  finalized judge `9349787e3330641bfe7ca236334139c3cbc69c0118a27b679528b619ffe73c01`,
+  and report `16d8ff16f1e3dd2955c6e0e08182384f6a8b31dc3ceca6bb891126c5a055024b`.
+
+### T136 / CVR-G18 release-hygiene checkpoint (2026-08-04)
+
+- Release-candidate documentation/index commit `ed2645a8a90c67d7c489470eda36dc1dbbd2f4c1`
+  is pushed on `codex/catalyst-report-parity` and PR #43 is mergeable.
+- GitHub run `30955891962` passed `pytest-and-diff-coverage` in 2m39s,
+  `shellcheck`, and GitGuardian. The matching local roadmap gate passed 1,088
+  tests with 38 expected skips, four deselections, and 93% diff coverage; the
+  focused Catalyst report/metadata/publisher/event suite passed 74/74.
+- `scripts/verify-repository-lines.sh --allow-harness-branch` passes. The root
+  is clean and equals its pushed branch; all recursive submodules are clean.
+- Run `7e3adf47` records clean, matching reviewed/actual target pins Catalyst
+  `e7eba21` and Med-Agent Hub `092b5cd`, which equal the current gitlinks.
+- README, metadata schema, feature plan/roadmap/tasks, judge PCCP, validation
+  roadmap/status, and reports index consistently describe the same published
+  development-evidence candidate. Amendment A2 places final MS-D acceptance
+  after this hygiene gate.
 
 ## Baseline Snapshot (CVR-G00)
 
@@ -156,6 +227,12 @@ The audit distinguishes reusable prework from passed roadmap gates:
 | Fixture repair during P3 | PASS — `results.json` now includes `gold-fail-high-judge` + `multi-version-successor`; gold FAIL evidence carries `mismatch_rationale` |
 | P4/P5 entry guards | PASS at implementation time; Amendment A1's acceptance condition is now satisfied and the gate-state script must be advanced before P4 work |
 
+## Resolved roadmap consistency decision (2026-08-04)
+
+The user approved Amendment A2: CVR-G18 proves CI/pins/docs/PCCP and repository
+hygiene, then MS-D is the final release-acceptance decision. The roadmap no
+longer requires CVR-G18 and MS-D to have passed before one another.
+
 ## Gate Board
 
 | Gate | Status | Evidence |
@@ -163,7 +240,7 @@ The audit distinguishes reusable prework from passed roadmap gates:
 | CVR-G00 | PASS | Roadmap + status committed; README linked; baselines + constitution recorded |
 | CVR-G01 | PASS | PHI-free fixtures + provenance tests green |
 | CVR-G02 | PASS | shared utility + uniqueness tests green |
-| CVR-G03 | PASS | `verify… g03`: 719 passed / 36 runtime skipped / 3 deselected; diff-cover 100% vs `origin/codex/catalyst-mvp-umbrella`; collection skip baseline still 0 |
+| CVR-G03 | PASS | `verify… test`: 1088 passed / 38 runtime skipped / 4 deselected; diff-cover 92% vs `origin/codex/catalyst-mvp-umbrella` |
 | CVR-G04 | PASS | byte-identical ChartSearchAI golden with frozen clock |
 | CVR-G05 | PASS | `harness/report_shell/` four modules; ownership/import tests green |
 | CVR-G06 | PASS | DOM canon + golden semantic parity + dashboard/index theme marker tests green |
@@ -173,12 +250,12 @@ The audit distinguishes reusable prework from passed roadmap gates:
 | CVR-G10 | PASS | Fixture three-pass + `judge.jsonl`/`judge_manifest.json` present and tests green; MS-B signed off 2026-07-21 (Piotr Mankowski) |
 | CVR-G11 | PASS | Offline `harness.catalyst.report.build_report` with socket blocked |
 | CVR-G12 | PASS | Import-boundary + no-judge tests green; MS-C signed off 2026-07-21 (Piotr Mankowski) |
-| CVR-G13 | IN PROGRESS | T128 audit complete; T129–T130 remain |
-| CVR-G14 | IN PROGRESS | T128 audit complete; T131 remains |
-| CVR-G15 | IN PROGRESS | T128 audit complete; T132–T133 remain |
-| CVR-G16 | READY | T094/T095/T111 accepted 2026-08-04; P5 work not started |
-| CVR-G17 | READY | T094/T095/T111 accepted 2026-08-04; P5 work not started |
-| CVR-G18 | READY | T094/T095/T111 accepted 2026-08-04; P5 work not started |
+| CVR-G13 | PASS | 51-test metadata/event/finalizer/runner gate; T129–T130 complete |
+| CVR-G14 | PASS | 5 selected CLI and compatibility-wrapper tests; T131 complete |
+| CVR-G15 | PASS | 27-test mixed-family index/publisher dry-run gate; T132–T133 complete |
+| CVR-G16 | PASS | Five independent D13 reports; zero open BLOCKER findings; `verify… g16` PASS against reviewed implementation `380301d` |
+| CVR-G17 | PASS | Run `7e3adf47` is 13/13 with 411/411 assertions; 3 × 25 judge rows finalized; live report/index published; 81/81 relative evidence links HTTP 200 and byte-identical to staging |
+| CVR-G18 | PASS | Commit `ed2645a`: required GitHub CI green; local 1,088-test/93%-diff gate and focused 74-test gate PASS; repository policy/root/recursive-submodule/pin/docs/PCCP hygiene PASS; ready for MS-D |
 
 ## Signoffs
 
@@ -187,7 +264,7 @@ The audit distinguishes reusable prework from passed roadmap gates:
 | MS-A (Signoff A) | PASS | Piotr Mankowski | 2026-07-21 |
 | MS-B (Signoff B) | PASS | Piotr Mankowski | 2026-07-21 |
 | MS-C (Signoff C) | PASS | Piotr Mankowski | 2026-07-21 |
-| MS-D (Signoff D) | BLOCKED | | |
+| MS-D (Signoff D) | READY | | |
 
 ## Phase completion notes
 
@@ -203,11 +280,14 @@ PCCP, skill, schemas, `harness/catalyst/reconcile.py`, `scripts/catalyst-judge-f
 ### P3 — complete; Signoff C PASS (2026-07-21)
 `harness/catalyst/report.py` offline report on shell; socket-blocked tests. MS-C signed off → CVR-G12 PASS.
 
-### P4 — active (audit complete; implementation open)
-T094/T095/T111 and T112 are complete. The exact reusable prework and remaining
-CVR-G13–G15 gaps are recorded above; T129–T133 are the active implementation
-sequence.
+### P4 — complete
+T128–T133 are complete. CVR-G13–G15 and the continuous suite are green on the
+stacked feature branch; the implementation remains development evidence until
+the P5 live release and MS-D acceptance.
 
-### P5 — not started (entry condition satisfied)
-T094/T095/T111 and the merge chain are complete, but P5 is sequenced after the
-P4 parity gates. T134–T136 remain open.
+### P5 — implementation and release evidence complete; MS-D pending
+T094/T095/T111, the merge chain, P4 parity gates, T134/CVR-G16, and
+T135/CVR-G17 are complete. The live report and all 81 relative evidence links
+are verified against the staged bundle. T136/CVR-G18 release hygiene is PASS;
+MS-D remains the final user-acceptance boundary, so the candidate stays
+`development` evidence and is not yet called released.

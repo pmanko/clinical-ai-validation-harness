@@ -202,3 +202,75 @@ def test_main_exits_on_missing_run(tmp_path: Path, monkeypatch: pytest.MonkeyPat
     )
     with pytest.raises(SystemExit):
         mod.main()
+
+
+def test_finalize_appends_idempotent_evaluation_events_without_rewriting_manifest(
+    tmp_path: Path,
+) -> None:
+    mod = _load()
+    passes = []
+    for repetition in range(1, 4):
+        passes.append(
+            [
+                _row(
+                    scenario_id="s1",
+                    turn=0,
+                    version_id="version-0",
+                    repetition=repetition,
+                    intent=3,
+                    sql=3,
+                    schema_d=3,
+                )
+            ]
+        )
+    _write_passes(tmp_path, passes)
+    evidence = tmp_path / "scenarios" / "s1" / "evidence.json"
+    evidence.parent.mkdir(parents=True)
+    evidence.write_text("{}\n", encoding="utf-8")
+    manifest_path = tmp_path / "run_manifest.json"
+    manifest_path.write_text(
+        json.dumps(
+            {
+                "run_id": "run-1",
+                "report_family": "catalyst",
+                "suite_id": "suite-1",
+                "suite_sha256": "a" * 64,
+            },
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    original_manifest = manifest_path.read_bytes()
+    (tmp_path / "events.jsonl").write_text(
+        json.dumps({"event_type": "run", "run_id": "run-1"}) + "\n",
+        encoding="utf-8",
+    )
+
+    first = mod.finalize(tmp_path)
+    second = mod.finalize(tmp_path)
+
+    assert first["appended_event_count"] == 1
+    assert second["appended_event_count"] == 0
+    assert manifest_path.read_bytes() == original_manifest
+    events = [
+        json.loads(line)
+        for line in (tmp_path / "events.jsonl").read_text().splitlines()
+    ]
+    judged = [
+        event
+        for event in events
+        if event.get("evaluation_type") == "catalyst_sql_judge"
+    ]
+    assert len(judged) == 1
+    event = judged[0]
+    assert event["schema_version"] == "harness.catalyst-notebook.event.v1"
+    assert event["provider"] == "fixture"
+    assert event["model"] == "fixture-judge"
+    assert event["model_version"] == "p2"
+    assert event["rubric_sha256"] == "b" * 64
+    assert event["evidence_paths"][:2] == [
+        "judge.jsonl",
+        "judge_manifest.json",
+    ]
+    assert all((tmp_path / path).is_file() for path in event["evidence_paths"])

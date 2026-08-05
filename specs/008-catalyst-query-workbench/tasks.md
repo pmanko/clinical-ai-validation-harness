@@ -122,12 +122,12 @@ Gateway-ownership refactor is tracked separately in Phase 4.14.
 ## Phase 4.12 — Corrective G2.9: unified workbench UX and queryable schema
 
 - [X] T098 Measure the restored active-session scroll/focus flow, audit the exact execution-context boundary and live PostgreSQL/catalog surfaces, research primary database-assistant/schema-browser and WCAG patterns, record N55–N58 plus the one-composer/one-editor workbench-dock proposal and acceptance cases in `specs/008-catalyst-query-workbench/`, and pause for G2.9a user acceptance before product-code changes
-- [ ] T099 [P] After G2.9a acceptance, add failing UI/Playwright tests for exactly one reusable Ask/Refine composer and one SQL editor, compact chronological history, adjacent editor actions, bounded results, truthful matching/stale/unexecuted grounding labels, responsive dock pin/collapse behavior, refresh restoration, keyboard focus, 390 × 844, 320 CSS px reflow, and 200% text
-- [ ] T100 [P] After G2.9a acceptance, publish and register a truthful versioned editor/schema catalog containing the complete reviewed 16-column `analytics.lab_result_fact_v1`, view grain/descriptions, column types/nullability/descriptions/unit relationships, and actual read-only/advisory/max-row/timeout capabilities; add deterministic Gateway and live information-schema drift tests before UI integration
-- [ ] T101 Implement one runtime-backed queryable-schema guide using the same catalog as model grounding/completion, keep record preview secondary, remove example prompts and synthetic/demo claims not backed by load metadata, and distinguish the supported fact view from broader database-role access
-- [ ] T102 Implement the active-session workspace with the disabled initial form removed, compact artifact chronology, one canonical SQL editor, adjacent Format/Validate/Run actions, bounded Results/Validation/Evidence panes, and one responsive bottom dock expanding the existing editor or Ask/Refine composer without duplicating either input
-- [ ] T103 Expose exact matching/stale/unexecuted execution-grounding state in the dock and generation evidence; if and only if G2.9a approves value-level context, first publish a bounded explicit result-attachment contract with digest/provenance and negative tests against silent or unrelated row sharing
-- [ ] T104 Pass focused/full Gateway, Hub-if-contract-affected, UI, Playwright, schema-registry, accessibility, typecheck/build, live information-schema, and diff gates; demonstrate edit → stale results → Run → execution-grounded Refine plus schema discovery/refresh at G2.9c and pause for user acceptance
+- [X] T099 Superseded by T108/T127's deterministic component and Playwright coverage for one composer/editor, history, adjacent actions, bounded results, grounding labels, dock/reflow, refresh, focus, narrow layouts, and 200%-equivalent behavior
+- [X] T100 Superseded by the shipped generated 16-column `analytics.lab_result_fact_v1` catalog plus T108/T111 runtime/catalog/provenance gates; G2.10's broader multi-source metadata acceptance remains separately open
+- [X] T101 Superseded by the runtime-backed `DatasetBrowser`/editor catalog path and its component/live catalog coverage accepted through T108/T111
+- [X] T102 Superseded by the shipped `WorkbenchPanel`/`TurnNotebook` workspace and complete iterative-browser flow accepted through T108/T127/T111
+- [X] T103 Superseded by the shipped matching/stale/unexecuted execution-summary boundary and negative exclusion of result rows accepted through T108/T111; no value-level attachment was approved
+- [X] T104 Superseded by T111's complete real-profile/PostgreSQL acceptance plus T127's accessibility regression; its exact historical file-list command was not rerun verbatim
 - [X] T105 Correct `patient_flat_v1.name_display` with a tested FHIRPath fallback; emit and render deterministic all-blank/NULL result-column feedback without hiding successful rows; forward only the bounded exact-digest warning to refinement context; and reproduce the original query through the isolated stack
 
 ## Phase 4.13 — PR merge-readiness audit
@@ -211,17 +211,22 @@ Hub `092b5cd`, and T112 is complete.
 
 - [X] T127 Record the user's actual keyboard-only and 200%-browser-zoom PASS; add deterministic Playwright coverage for uninterrupted Tab navigation and 200%-equivalent reflow; fix the expanded-composer scroll obstruction exposed by that regression; and rerun UI unit, lint, typecheck, build, and Playwright gates
 
-## Phase 6 — W1 integrated validation
+## Phase 6 — W1 integrated validation (superseded closeout)
 
-- [ ] T022 Add invalid-edit-run-refresh-rerun browser coverage in `targets/catalyst/catalyst-ui/e2e/workbench.spec.ts`
-- [ ] T023 Add diverse real-path workbench smoke scenarios in `targets/catalyst/tests/e2e/test_mvp_live.sh`
-- [ ] T024 Run gateway, UI, browser, and real-stack checks and record exact-query digest evidence in `specs/008-catalyst-query-workbench/roadmap.md`
-- [ ] T055 Manually validate editor highlighting, line numbers, wrap default/toggle retention, keyword/catalog completion and no-catalog fallback, repeated deterministic Format, exact immutable Validate/Run versions, keyboard use, narrow layout, and 200% zoom; record mismatches and nondeterminism at G3 in `specs/008-catalyst-query-workbench/roadmap.md`
-- [ ] T025 Update Catalyst user docs and actual status in `targets/catalyst/docs/roadmap.md`
-- [ ] T026 Pin the verified Catalyst commit and update harness provenance in `targets/catalyst`
-- [ ] T027 Present G3 evidence and unresolved N-items to the user before starting W2 in `specs/008-catalyst-query-workbench/roadmap.md`
+The later G2.8/T111 merge-readiness sequence exercised a stricter superset of
+this legacy G3 checklist. The items below are closed by explicit supersession,
+not by claiming their original file-specific wording was executed verbatim.
+This does not start or approve W2.
 
-## Phase 7 — User Story 2: targeted remediation (after G3)
+- [X] T022 Superseded by T108/T127 deterministic complete-flow and accessibility browser coverage
+- [X] T023 Superseded by the diverse real-path T094 matrix and clean-pin T111 rerun
+- [X] T024 Superseded by T094/T095/T111 Gateway, browser, real-stack, digest, and PostgreSQL evidence recorded in `specs/008-catalyst-query-workbench/roadmap.md`
+- [X] T055 Superseded by the accepted T095/T127 editor, keyboard, responsive-layout, and actual 200%-zoom validation
+- [X] T025 Superseded by T096/T110/T115 documentation reconciliation
+- [X] T026 Superseded by T112's merged Catalyst/Hub pins and post-merge harness provenance verification
+- [X] T027 Superseded by the T095/T111 user-acceptance checkpoint; W2 remains separately gated by T028/G4
+
+## Phase 7 — Parallel query-assistance pathway: User Story 2 (not selected)
 
 - [ ] T028 [US2] Revalidate repair scope from W1 findings and pause at G4 in `specs/008-catalyst-query-workbench/roadmap.md`
 - [ ] T029 [P] [US2] Add AST unit/frozen-digest/patch-integrity tests in `targets/catalyst/catalyst-gateway/tests/test_query_repairs.py`
@@ -231,24 +236,39 @@ Hub `092b5cd`, and T112 is complete.
 - [ ] T033 [US2] Add before/after accept/decline repair UI in `targets/catalyst/catalyst-ui/src/features/query/QueryWorkspace.tsx`
 - [ ] T034 [US2] Run repair integrity/scenario metrics and pause at G5 in `specs/008-catalyst-query-workbench/roadmap.md`
 
-## Phase 8 — Harness integration (after G5)
+## Phase 8 — Parallel evaluation pathway: session export (not selected)
 
-- [ ] T035 Add versioned workbench event/manifest contract tests in `tests/test_metadata.py`
+- [X] T035 Superseded by T129/T130's authoritative notebook manifest/event contract and tests under `evals/metadata/`, per the approved validation integration roadmap; governed-preview export remains outside that replacement
 - [ ] T036 Implement session artifact export/import in `harness/catalyst/validation.py`
 - [ ] T037 Add one-click export in `targets/catalyst/catalyst-ui/src/features/query/QueryWorkspace.tsx` and validate W3 artifacts in `harness/catalyst/validation.py`
 - [ ] T038 Present G6 provenance/model-identity/scenario evidence before comparative claims in `specs/008-catalyst-query-workbench/roadmap.md`
 
-## Phase 9 — Catalyst validation/report parity (CVR P4/P5)
+## Phase 9 — Evaluation release closeout: Catalyst report parity (PR #43)
 
 - [X] T128 Reconcile merged Hub #15, Catalyst #5, and harness #37 state; audit the real Catalyst notebook runner, judge/finalizer, report, CLI, publisher, and curated index against ChartSearchAI; record the exact implemented-versus-missing P4/P5 boundary without claiming gate completion
-- [ ] T129 Add red metadata/integration tests for publish-ready Catalyst `run_manifest.json`, versioned run/scenario/turn/version/execution `events.jsonl`, resolvable evidence references, and judge-finalization evaluation events without rewriting the run-start manifest
-- [ ] T130 Implement the CVR-G13 manifest/event contract, update the shared metadata schema, and preserve compatibility with existing notebook evidence/result artifacts
-- [ ] T131 Add red CLI parity tests, then implement `harness-cli catalyst run` with every notebook-runner option and `harness-cli catalyst report <run_dir>` while retaining the script as a thin compatibility wrapper
-- [ ] T132 Add red mixed-family dry-run publishing/index tests, then implement `scripts/publish-report.sh` and family-aware metadata, result loading, badges, deterministic gold rate, and advisory Catalyst judge median without routing Catalyst through Scout or freezing a ChartSearchAI dashboard
-- [ ] T133 Dry-run stage one ChartSearchAI fixture and one Catalyst fixture; pass and record CVR-G13–G15 before starting release claims
-- [ ] T134 Produce the five independent D13 code-QA artifacts, resolve every BLOCKER, and pass CVR-G16
-- [ ] T135 Run the complete real T094 suite on clean merged pins, apply the recorded Catalyst judge exactly three times, finalize, render, publish, and verify record-level evidence at the live URL for CVR-G17
-- [ ] T136 Pass release CI/pin/docs/PCCP hygiene, record CVR-G18, and pause for MS-D user signoff before calling Catalyst report parity released
+- [X] T129 Add red metadata/integration tests for publish-ready Catalyst `run_manifest.json`, versioned run/scenario/turn/version/execution `events.jsonl`, resolvable evidence references, and judge-finalization evaluation events without rewriting the run-start manifest
+- [X] T130 Implement the CVR-G13 manifest/event contract, update the shared metadata schema, and preserve compatibility with existing notebook evidence/result artifacts
+- [X] T131 Add red CLI parity tests, then implement `harness-cli catalyst run` with every notebook-runner option and `harness-cli catalyst report <run_dir>` while retaining the script as a thin compatibility wrapper
+- [X] T132 Add red mixed-family dry-run publishing/index tests, then implement `scripts/publish-report.sh` and family-aware metadata, result loading, badges, deterministic gold rate, and advisory Catalyst judge median without routing Catalyst through Scout or freezing a ChartSearchAI dashboard
+- [X] T133 Dry-run stage one ChartSearchAI fixture and one Catalyst fixture; pass and record CVR-G13–G15 before starting release claims
+- [X] T134 Produce the five independent D13 code-QA artifacts, resolve every BLOCKER, and pass CVR-G16
+- [X] T135 Run the complete real T094 suite on clean merged pins, apply the recorded Catalyst judge exactly three times, finalize, render, publish, and verify record-level evidence at the live URL for CVR-G17
+- [X] T136 Pass release CI/pin/docs/PCCP hygiene, record CVR-G18, and pause for MS-D user signoff before calling Catalyst report parity released
+
+## Phase 10 — Selected next product milestone: Dashboard MVP
+
+Dashboard MVP depends only on the accepted query/version/execution/table
+foundation. T117–T122 multi-source acceptance, T028–T034 query assistance,
+T036–T038 session export, narrative reporting, and production hardening are
+parallel paths and do not block this phase.
+
+- [ ] T137 [US7] Add failing dashboard contract, immutable-version, restoration, stale-source, missing-evidence, and concurrent-save tests in `targets/catalyst/catalyst-gateway/tests/test_dashboards.py` plus the versioned artifact schema in `targets/catalyst/docs/contracts/catalyst-dashboard-v1.schema.json`
+- [ ] T138 [US7] Implement dashboard artifact/version projection and routes without model calls or automatic query execution in `targets/catalyst/catalyst-gateway/src/catalyst/dashboards.py`, `targets/catalyst/catalyst-gateway/src/catalyst/storage.py`, and `targets/catalyst/catalyst-gateway/src/catalyst/routes.py`
+- [ ] T139 [P] [US7] Add failing typed UI/API tests for table/bar/line compatibility, manual title/bindings/labels/sort configuration, save/history/restore, and stale-source display in `targets/catalyst/catalyst-ui/src/features/query/api.test.ts` and `targets/catalyst/catalyst-ui/src/features/query/components/DashboardWorkspace.test.tsx`
+- [ ] T140 [US7] Implement the single-presentation dashboard workspace and wire it to the exact successful execution in `targets/catalyst/catalyst-ui/src/features/query/components/DashboardWorkspace.tsx`, `targets/catalyst/catalyst-ui/src/features/query/QueryWorkspace.tsx`, `targets/catalyst/catalyst-ui/src/features/query/api.ts`, and `targets/catalyst/catalyst-ui/src/features/query/types.ts`
+- [ ] T141 [US7] Prove deterministic refresh restoration, zero model/database calls during configuration, immutable lineage, and stale-source behavior in `targets/catalyst/catalyst-gateway/tests/test_dashboards.py` and `targets/catalyst/catalyst-ui/e2e/dashboard-mvp.spec.ts`
+- [ ] T142 [P] [US7] Record the implemented dashboard contract, validation/rollback protocol, provenance boundary, residual risk, and explicit export/narrative/security deferrals in `specs/008-catalyst-query-workbench/pccp/2026-08-dashboard-mvp.md`, `targets/catalyst/docs/specification.md`, `targets/catalyst/docs/roadmap.md`, `README.md`, and `specs/artifacts/planning/catalyst-product-roadmap-status.md`
+- [ ] T143 [US7] Run one real Catalyst execution, independently compare rendered values with PostgreSQL, complete keyboard-only/narrow-layout/actual-200%-zoom checks, record nondeterminism or inconsistencies, and pause for user acceptance in `specs/008-catalyst-query-workbench/roadmap.md`
 
 ## Dependencies and implementation strategy
 
@@ -287,4 +307,10 @@ model-runtime blockers for the definitive current-profile matrix and are now
 complete. T127 records the passed accessibility/user checkpoint and its E2E
 regression; no G2.8 merge-chain task remains. T128 records the P4/P5 baseline;
 T129 blocks T130, T131 and T132 are independently test-first, T130–T132 block
-the P4 dry-run gate T133, and T133 blocks P5 tasks T134–T136.
+the P4 dry-run gate T133, and T133 blocks P5 tasks T134–T136. The accepted
+US1/US3/US5 workbench foundation opens selected US7 without waiting for G2.10,
+W2, W3, R4, or R5. For Dashboard MVP, T137 blocks T138; T139 may run in
+parallel with T137/T138; T138 and T139 block T140; T140 blocks T141; T142 may
+start once the contracts stabilize; and T141 plus T142 block the real-path/user
+checkpoint T143. PR #43 MS-D and merge remain
+evaluation release closeout and do not block T137.
