@@ -116,6 +116,8 @@ def test_harness_runner_defaults_to_a_tracked_isolated_compose_override() -> Non
         'require_pinned_clean_target "med-agent-hub" "targets/med-agent-hub"' in runner
     )
     assert 'rev-parse "HEAD:${relative_path}"' in runner
+    assert 'rev-parse --show-toplevel' in runner
+    assert '[[ "${target_top}" != "${target_dir}" ]]' in runner
     assert "status --porcelain" in runner
 
     rendered = override.read_text(encoding="utf-8")

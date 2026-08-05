@@ -71,9 +71,10 @@ require_pinned_clean_target() {
   local label="$1"
   local relative_path="$2"
   local target_dir="${ROOT_DIR}/${relative_path}"
-  local expected actual
+  local expected actual target_top
 
-  if ! git -C "${target_dir}" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  target_top="$(git -C "${target_dir}" rev-parse --show-toplevel 2>/dev/null || true)"
+  if [[ "${target_top}" != "${target_dir}" ]]; then
     echo "ERROR: ${label} is not initialized at ${target_dir}." >&2
     echo "Run: git submodule update --init ${relative_path}" >&2
     exit 1
