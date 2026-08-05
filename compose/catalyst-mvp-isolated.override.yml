@@ -9,13 +9,11 @@ services:
 
   db.openelis.org:
     container_name: ${CATALYST_MVP_CONTAINER_PREFIX:-catalyst-mvp-isolated}-openelis-db
-    ports: !override
-      - "127.0.0.1:25432:5432"
+    ports: !reset []
 
   oe.openelis.org:
     container_name: ${CATALYST_MVP_CONTAINER_PREFIX:-catalyst-mvp-isolated}-openelis-app
     ports: !override
-      - "127.0.0.1:28080:8080"
       - "127.0.0.1:${OPENELIS_HTTPS_PORT:-28443}:8443"
     networks:
       openelis-network:
@@ -24,7 +22,6 @@ services:
   fhir.openelis.org:
     container_name: ${CATALYST_MVP_CONTAINER_PREFIX:-catalyst-mvp-isolated}-hapi-fhir
     ports: !override
-      - "127.0.0.1:28081:8080"
       - "127.0.0.1:${HAPI_HTTPS_PORT:-28444}:8443"
 
   superset-metadata-db:

@@ -123,7 +123,10 @@ def test_harness_runner_defaults_to_a_tracked_isolated_compose_override() -> Non
     assert "name: ${CATALYST_MVP_NETWORK_NAME:-catalyst-mvp-isolated-network}" in rendered
     assert "subnet: ${CATALYST_MVP_SUBNET:-192.168.166.0/24}" in rendered
     assert "ipv4_address: ${CATALYST_MVP_OPENELIS_IPV4:-192.168.166.121}" in rendered
-    assert '"127.0.0.1:25432:5432"' in rendered
+    assert "ports: !reset []" in rendered
+    assert '"127.0.0.1:25432:5432"' not in rendered
+    assert '"127.0.0.1:28080:8080"' not in rendered
+    assert '"127.0.0.1:28081:8080"' not in rendered
     assert '"127.0.0.1:${OPENELIS_HTTPS_PORT:-28443}:8443"' in rendered
     assert '"127.0.0.1:${HAPI_HTTPS_PORT:-28444}:8443"' in rendered
     assert '"127.0.0.1:${SUPERSET_PORT:-18088}:8088"' in rendered
