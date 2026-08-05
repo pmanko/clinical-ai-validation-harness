@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import re
 import shutil
 import sys
@@ -44,19 +45,72 @@ def _comparison_set(run_dir: Path) -> str:
     raise ValueError("ChartSearchAI run event is missing comparison_set")
 
 
+def _recorded_suite_source_sha256(run_dir: Path) -> str | None:
+    index_path = run_dir / "evidence-index.json"
+    if not index_path.is_file():
+        return None
+    entries = _load_json(index_path).get("entries", [])
+    for entry in entries:
+        if isinstance(entry, dict) and entry.get("path") == "suite.json":
+            source = (entry.get("metadata") or {}).get("sourceSha256")
+            return str(source) if source else None
+    return None
+
+
 def _catalyst_suite_identity(run_dir: Path) -> tuple[str, str]:
     manifest = _load_json(run_dir / "run_manifest.json")
     suite_path = run_dir / "suite.json"
     suite = _load_json(suite_path)
-    suite_id = manifest.get("suite_id") or suite.get("id")
-    suite_sha256 = manifest.get("suite_sha256") or hashlib.sha256(
-        suite_path.read_bytes()
-    ).hexdigest()
+
+    declared_id = manifest.get("suite_id")
+    if declared_id is not None and str(declared_id) != str(suite.get("id") or ""):
+        raise ValueError(
+            f"Catalyst run_manifest.json suite_id {str(declared_id)!r} does not "
+            f"match suite.json {str(suite.get('id') or '')!r}"
+        )
+    suite_id = declared_id or suite.get("id")
     if not suite_id:
         raise ValueError("Catalyst run is missing suite_id")
+
+    # run_manifest.suite_sha256 digests the *source* suite definition, while
+    # suite.json in the run directory is a re-serialized copy, so the two are
+    # never byte-equal. evidence-index.json records the source digest
+    # separately; that is the only value the manifest can be checked against.
+    recorded_source = _recorded_suite_source_sha256(run_dir)
+    declared_sha = manifest.get("suite_sha256")
+    if (
+        declared_sha is not None
+        and recorded_source is not None
+        and str(declared_sha) != recorded_source
+    ):
+        raise ValueError(
+            "Catalyst run_manifest.json suite_sha256 does not match the "
+            "sourceSha256 recorded for suite.json in evidence-index.json"
+        )
+    suite_sha256 = (
+        declared_sha
+        or recorded_source
+        or hashlib.sha256(suite_path.read_bytes()).hexdigest()
+    )
     if not re.fullmatch(r"[a-f0-9]{64}", str(suite_sha256)):
         raise ValueError("Catalyst suite_sha256 must be a lowercase SHA-256 digest")
     return str(suite_id), str(suite_sha256)
+
+
+def _assert_no_symlinks(run_dir: Path) -> None:
+    """Reject symlinked run content before it is copied into a published report.
+
+    copytree would otherwise dereference links and publish file contents from
+    outside the run directory.
+    """
+    for parent, dir_names, file_names in os.walk(run_dir, followlinks=False):
+        for name in sorted(dir_names) + sorted(file_names):
+            candidate = Path(parent) / name
+            if candidate.is_symlink():
+                raise ValueError(
+                    "run directory must not contain symlinks: "
+                    f"{candidate.relative_to(run_dir)}"
+                )
 
 
 def _upsert_manifest(
@@ -102,13 +156,14 @@ def stage_report(
     if not run_dir.is_dir():
         raise FileNotFoundError(f"run directory not found: {run_dir}")
     run_path = _root_relative(root, run_dir)
+    _assert_no_symlinks(run_dir)
     reports_root.mkdir(parents=True, exist_ok=True)
     destination = reports_root / slug
     destination.mkdir(parents=True, exist_ok=True)
 
     # Render from a staged copy so dry-run publishing mutates nothing outside
     # REPORTS_ROOT and every report-relative evidence link remains resolvable.
-    shutil.copytree(run_dir, destination, dirs_exist_ok=True)
+    shutil.copytree(run_dir, destination, dirs_exist_ok=True, symlinks=True)
     if family == "chartsearchai":
         comparison_set = _comparison_set(run_dir)
         family_meta = {"comparison_set": comparison_set}

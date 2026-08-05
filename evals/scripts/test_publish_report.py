@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import importlib.util
 import os
@@ -232,6 +233,190 @@ def test_stage_module_rejects_invalid_inputs(tmp_path: Path) -> None:
         assert "inside repository root" in str(exc)
     else:
         raise AssertionError("outside run directory was accepted")
+
+
+SOURCE_SHA = "a" * 64
+
+
+def _catalyst_run(
+    directory: Path,
+    *,
+    index_source_sha: str | None = None,
+    **manifest_extra: object,
+) -> Path:
+    run = directory / "run"
+    run.mkdir(parents=True)
+    (run / "suite.json").write_text(
+        json.dumps({"id": "suite-under-test-v1"}), encoding="utf-8"
+    )
+    (run / "run_manifest.json").write_text(
+        json.dumps({"run_id": "r1", **manifest_extra}), encoding="utf-8"
+    )
+    if index_source_sha is not None:
+        (run / "evidence-index.json").write_text(
+            json.dumps(
+                {
+                    "contractVersion": "harness.catalyst-notebook.evidence-index.v1",
+                    "entries": [
+                        {
+                            "path": "suite.json",
+                            "kind": "suite_definition",
+                            "sha256": hashlib.sha256(
+                                (run / "suite.json").read_bytes()
+                            ).hexdigest(),
+                            "metadata": {"sourceSha256": index_source_sha},
+                        }
+                    ],
+                }
+            ),
+            encoding="utf-8",
+        )
+    return run
+
+
+def test_catalyst_suite_identity_accepts_agreeing_manifest_values(
+    tmp_path: Path,
+) -> None:
+    mod = _load_stage()
+
+    # Legacy run: no manifest identity and no evidence index, so identity is
+    # derived from the staged suite copy.
+    derived = _catalyst_run(tmp_path / "derived")
+    derived_sha = hashlib.sha256((derived / "suite.json").read_bytes()).hexdigest()
+    assert mod._catalyst_suite_identity(derived) == ("suite-under-test-v1", derived_sha)
+
+    # Real run shape: run_manifest.suite_sha256 digests the *source* suite file,
+    # which is deliberately not byte-equal to the re-serialized staged copy. It
+    # must be accepted, and reported, as the recorded source digest.
+    agreeing = _catalyst_run(
+        tmp_path / "agreeing",
+        index_source_sha=SOURCE_SHA,
+        suite_id="suite-under-test-v1",
+        suite_sha256=SOURCE_SHA,
+    )
+    staged_sha = hashlib.sha256((agreeing / "suite.json").read_bytes()).hexdigest()
+    assert SOURCE_SHA != staged_sha
+    assert mod._catalyst_suite_identity(agreeing) == ("suite-under-test-v1", SOURCE_SHA)
+
+
+def test_catalyst_suite_identity_rejects_manifest_suite_mismatch(
+    tmp_path: Path,
+) -> None:
+    mod = _load_stage()
+    wrong_id = _catalyst_run(tmp_path / "wrong-id", suite_id="some-other-suite-v9")
+    try:
+        mod._catalyst_suite_identity(wrong_id)
+    except ValueError as exc:
+        assert "suite_id" in str(exc)
+    else:
+        raise AssertionError("mismatched manifest suite_id was accepted")
+
+    wrong_sha = _catalyst_run(
+        tmp_path / "wrong-sha",
+        index_source_sha=SOURCE_SHA,
+        suite_sha256="b" * 64,
+    )
+    try:
+        mod._catalyst_suite_identity(wrong_sha)
+    except ValueError as exc:
+        assert "suite_sha256" in str(exc)
+    else:
+        raise AssertionError("mismatched manifest suite_sha256 was accepted")
+
+
+def test_catalyst_suite_identity_rejects_unidentifiable_suite(tmp_path: Path) -> None:
+    mod = _load_stage()
+
+    anonymous = tmp_path / "anonymous"
+    anonymous.mkdir()
+    (anonymous / "suite.json").write_text(json.dumps({}), encoding="utf-8")
+    (anonymous / "run_manifest.json").write_text(json.dumps({}), encoding="utf-8")
+    try:
+        mod._catalyst_suite_identity(anonymous)
+    except ValueError as exc:
+        assert "missing suite_id" in str(exc)
+    else:
+        raise AssertionError("suite without an id was accepted")
+
+    malformed = _catalyst_run(tmp_path / "malformed", suite_sha256="not-a-digest")
+    try:
+        mod._catalyst_suite_identity(malformed)
+    except ValueError as exc:
+        assert "lowercase SHA-256 digest" in str(exc)
+    else:
+        raise AssertionError("malformed suite_sha256 was accepted")
+
+
+def test_comparison_set_skips_blanks_and_requires_a_run_event(tmp_path: Path) -> None:
+    mod = _load_stage()
+
+    run = tmp_path / "chart-run"
+    run.mkdir()
+    events = run / "events.jsonl"
+    events.write_text(
+        "\n".join(["", json.dumps({"event_type": "scenario"}), ""]), encoding="utf-8"
+    )
+    try:
+        mod._comparison_set(run)
+    except ValueError as exc:
+        assert "comparison_set" in str(exc)
+    else:
+        raise AssertionError("run stream without a run event was accepted")
+
+    events.write_text(
+        "\n".join(
+            ["", json.dumps({"event_type": "run", "comparison_set": "demo"}), ""]
+        ),
+        encoding="utf-8",
+    )
+    assert mod._comparison_set(run) == "demo"
+
+
+def test_stage_module_rejects_symlinked_run_contents(tmp_path: Path) -> None:
+    mod = _load_stage()
+    secret = tmp_path / "outside-secret.txt"
+    secret.write_text("do not publish", encoding="utf-8")
+    outside_dir = tmp_path / "outside-dir"
+    outside_dir.mkdir()
+    (outside_dir / "nested-secret.txt").write_text("also secret", encoding="utf-8")
+
+    manifest = tmp_path / "index.json"
+    manifest.write_text(json.dumps({"runs": []}), encoding="utf-8")
+
+    def _stage(root: Path, run: Path, slug: str) -> None:
+        mod.stage_report(
+            family="catalyst",
+            run_dir=run,
+            slug=slug,
+            reports_root=tmp_path / "reports",
+            manifest_path=manifest,
+            root=root,
+        )
+
+    file_root = tmp_path / "file-link"
+    file_run = _catalyst_run(file_root)
+    (file_run / "leak.txt").symlink_to(secret)
+    try:
+        _stage(file_root, file_run, "symlinked-file")
+    except ValueError as exc:
+        assert "symlink" in str(exc).lower()
+    else:
+        raise AssertionError("symlinked run file was accepted")
+
+    nested_root = tmp_path / "dir-link"
+    nested_run = _catalyst_run(nested_root)
+    (nested_run / "sub").mkdir()
+    (nested_run / "sub" / "leak").symlink_to(outside_dir, target_is_directory=True)
+    try:
+        _stage(nested_root, nested_run, "symlinked-dir")
+    except ValueError as exc:
+        assert "symlink" in str(exc).lower()
+    else:
+        raise AssertionError("nested symlinked run directory was accepted")
+
+    staged = tmp_path / "reports"
+    assert not (staged / "symlinked-file" / "leak.txt").exists()
+    assert not (staged / "symlinked-dir" / "sub" / "leak").exists()
 
 
 def test_stage_module_main_reports_errors_and_success(tmp_path: Path, capsys) -> None:
