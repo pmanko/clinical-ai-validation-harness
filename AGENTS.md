@@ -37,13 +37,16 @@ and conformance contract before changing provider, context, temporal, safety, or
   short-lived branch and pull request, then tested/deployed revisions must already be in `main`.
 - ChartSearchAI, ChartSearchAI ESM, and QueryStore are upstream-owned OpenMRS projects. Their
   proven companion work is consolidated on each fork's `harness-integration` branch, and this
-  repository pins that exact remote head. Upstream pull-request branches are publication
-  vehicles, not build dependencies.
+  repository pins that exact remote head. The OpenMRS pull request must use
+  `pmanko:harness-integration` as its head; do not publish the same tested commit from a separate
+  feature branch.
 - Other submodules remain on clean, remote-reachable commits unless an approved integration
   effort gives them an explicit branch policy.
 - Run `scripts/verify-repository-lines.sh` before deployment. During a harness pull request, use
   `scripts/verify-repository-lines.sh --allow-harness-branch`; the strict check must pass after
-  the pull request is merged.
+  the pull request is merged. Before upstream publication or release signoff, also run
+  `scripts/verify-repository-lines.sh --check-publication-prs` (or
+  `make repository-publication-check` while the harness PR is open).
 
 ## Testing Expectations
 

@@ -9,7 +9,7 @@ export UV_PROJECT_ENVIRONMENT
         reset-transform sqlmesh-status \
         loadtest-up loadtest-down \
         load-test orphan-fk-check import-smoke dump-loaded promote \
-        chartsearch-build querystore-build openmrs-source-pair-build openmrs-source-pair-test repository-lines-check repository-lines-pr-check deployed-sources-check querystore-recreate-index chartsearch-configure querystore-configure chartsearch-backend chartsearch-doctor chartsearchai-local dual-provider-up \
+        chartsearch-build querystore-build openmrs-source-pair-build openmrs-source-pair-test repository-lines-check repository-lines-pr-check repository-publication-check deployed-sources-check querystore-recreate-index chartsearch-configure querystore-configure chartsearch-backend chartsearch-doctor chartsearchai-local dual-provider-up \
         chartsearch-esm-build chartsearch-esm-dev \
         llama-router-up llama-router-down llama-router-models \
         med-agent-hub-build med-agent-hub-up med-agent-hub-logs med-agent-hub-restart med-agent-hub-test chartsearch-test chartsearch-e2e-low-confidence querystore-test querystore-test-integration querystore-reindex \
@@ -188,6 +188,11 @@ repository-lines-check:
 
 repository-lines-pr-check:
 	./scripts/verify-repository-lines.sh --allow-harness-branch
+
+# Network-backed release check: the exact integration heads pinned above must
+# be the heads published to OpenMRS, with no duplicate same-head feature PR.
+repository-publication-check:
+	./scripts/verify-repository-lines.sh --allow-harness-branch --check-publication-prs
 
 # Verify that staged, mounted, and served OpenMRS artifacts plus the running hub
 # image were all built from the source revisions currently pinned by this repo.

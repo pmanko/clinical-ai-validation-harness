@@ -124,3 +124,50 @@ dropped during the rebuild.
   authorize creating a PR per internal commit group.
 - A new upstream commit requires an added row with its disposition and verification before it is
   included in a rebuilt PR.
+
+## Upstream Synchronization and Direct Publication — 2026-08-05
+
+The three fork integration branches were fetched and compared with current OpenMRS upstream before
+publication. Previous integration tips are preserved on each fork at
+`codex/backup/harness-integration-pre-upstream-sync-20260805`.
+
+ChartSearchAI was 19 upstream commits behind `03230b3`. Every commit was retained in the merge; the
+five conflicts were resolved by preserving both the provider integration and upstream's current
+evidence/drug-safety behavior.
+
+| Upstream commit | Change | Disposition | Verification |
+|---|---|---|---|
+| `5cd06fd` | Echo-scoped answer mentions and reference-group grounding rules | **Keep.** Citation/safety correctness. | Full source-pair package and citation/safety tests pass. |
+| `13690b1` | Inject deterministic safety findings before answer generation | **Keep.** Current bundled safety behavior. | Full source-pair package and safety tests pass. |
+| `9c2a8d6` | Word-start matching for interaction tokens in order names | **Keep.** Drug matching correction. | Full source-pair package and order-name tests pass. |
+| `b73eb23` | Move rendering bookkeeping out of citable records | **Keep.** Prevents citation text contamination. | Full source-pair package and reference-rendering tests pass. |
+| `ba4cff0` | Strip residual DDInter field markers | **Keep.** Knowledge-base normalization. | Full source-pair package and DDInter tests pass. |
+| `84a434c` | Lead safety answers with the supported verdict | **Keep.** Prompt behavior for bundled safety answers. | Full source-pair package passes. |
+| `623be82` | Reconcile active-order reads against retrieved chart records | **Keep.** Patient-context completeness. | Full source-pair package and reconciliation tests pass. |
+| `c5c7293` | Deduplicate interaction chips by drug/order pair | **Keep.** Clinician-facing warning correctness. | Full source-pair package and interaction tests pass. |
+| `b03aa62` | Check drugs named together in the question | **Keep.** Drug-interaction coverage. | Full source-pair package and pair tests pass. |
+| `89d14ab` | Screen active orders even when the question names no drug | **Keep.** Patient safety coverage. | Full source-pair package and active-order tests pass. |
+| `e73c8b0` | Fold rule and class interaction findings into one chip | **Keep.** Warning deduplication. | Full source-pair package and grouping tests pass. |
+| `9a61ccc` | Base grounding demotion on reference group | **Keep.** Evidence semantics. | Full source-pair package and grounding tests pass. |
+| `49625b0` | Tighten unsupported-verdict evaluation behavior | **Keep.** Evaluation must not fail open. | Full source-pair package and eval self-tests pass. |
+| `71a7c4b` | Fold diacritics in drug/order matching | **Keep.** Internationalized name matching. | Full source-pair package and diacritic tests pass. |
+| `0d3a906` | Configurable pair-chip cap and per-order ATC attribution | **Keep.** Bounded, attributable warnings. | Full source-pair package and cap/ATC tests pass. |
+| `32bb64a` | Correct drug-safety documentation after ATC changes | **Keep.** Documentation alignment. | Documentation included in tested merge. |
+| `9b93bbc` | Check direct recorded allergies without classification data | **Keep.** Basic contraindication safety. | Full source-pair package and direct-allergy tests pass. |
+| `b013626` | Check active orders against patient allergies | **Keep.** Patient-specific contraindication safety. | Full source-pair package and active-order tests pass. |
+| `03230b3` | Match clinician-entered drug names independently | **Keep.** Drug-name resolution correction. | Full source-pair package and name-resolution tests pass. |
+
+QueryStore had one upstream-only tooling commit. ESM already contained current upstream.
+
+| Repository | Upstream commit | Disposition | Verification |
+|---|---|---|---|
+| QueryStore | `0f06fb3` | **Keep.** PR-review tooling only. | `mvn -q -B clean install` passes at merged head `38ce1a9`. |
+| ChartSearchAI ESM | `3003cd2` | **Already contained.** No merge commit required. | 218 tests, lint, TypeScript, and production build pass at `ea1bcef`. |
+
+The exact tested and published heads are:
+
+| Repository | Integration/publication head | OpenMRS PR | Superseded PR |
+|---|---:|---|---|
+| QueryStore | `38ce1a9582767cc83048834b7684cd9ac0ea742a` | [#68](https://github.com/openmrs/openmrs-module-querystore/pull/68) | #63 |
+| ChartSearchAI | `a20a0d0386549c5778723e12b09cb78041ff9552` | [#157](https://github.com/openmrs/openmrs-module-chartsearchai/pull/157) | #90 |
+| ChartSearchAI ESM | `ea1bcefe0bc2a80df3016d2957cb018f2a6836a0` | [#23](https://github.com/openmrs/openmrs-esm-chartsearchai/pull/23) | #22 |

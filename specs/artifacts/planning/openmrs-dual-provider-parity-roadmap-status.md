@@ -7,7 +7,8 @@ TOGETHER with the Amendments section below — in particular, the 2026-07-21 con
 2026-07-22 shared-context-slice amendments re-scope roadmap §5 (Context Modes) and the §12
 non-goal "No model-context policy inside QueryStore": context selection invariants are now
 implemented once in QueryStore (`getContextSlice`, its ADR Decisions 17–18) with engines as thin
-adapters. The roadmap file alone under-describes context ownership.
+adapters. The 2026-08-05 publication amendment also makes each fork's `harness-integration`
+branch the direct OpenMRS PR head. The roadmap file alone under-describes these approved changes.
 
 ## Control Record
 
@@ -16,7 +17,7 @@ adapters. The roadmap file alone under-describes context ownership.
 | Roadmap | [`openmrs-dual-provider-parity-roadmap.md`](openmrs-dual-provider-parity-roadmap.md) |
 | Approval | Explicit user instruction to implement the roadmap on 2026-07-20 |
 | Approved roadmap SHA-256 | `a3948d648ba21303639b55e65226455a088e2fb61f693a16a2e769276f20bd72` (Revision 2, 2026-07-23; Revision 1 was `cf2c8b33c81ab69ece6150d0171ea3e940f89edfa3968e02c6bd9bf8abc274f5`, preserved at `8bc9caa`) |
-| Current boundary | The source implementation is ready for an exact-version product retest. QueryStore `6197e4b`, ChartSearchAI `5025d77`, and ESM `ea1bcef` are the exact remote `harness-integration` heads. The reviewed hub follow-up is merged into hub `main` at `b82f957`. Harness PR #39 rebuilds the post-#35 work from current harness `main` and pins those four revisions. Its full harness suite passes with 869 tests. The running local stack still contains the older 2026-07-29 OpenMRS artifacts and a mismatched hub image, so it is not evidence for this source line. Next: merge PR #39, redeploy only through the stable Make targets, verify deployed revisions, and rerun the browser/product checks before comparative evaluation. |
+| Current boundary | Current OpenMRS upstream is merged into the tested integration line. QueryStore `38ce1a9`, ChartSearchAI `a20a0d0`, and ESM `ea1bcef` are the exact remote `harness-integration` heads and the heads of OpenMRS PRs #68, #157, and #23 respectively. QueryStore `clean install`, the ChartSearchAI source-pair package (1,019 tests, no failures/errors), and ESM test/lint/type/build checks pass. The parent pin and publication gate are being carried in the current harness cleanup PR. Live product evidence still requires a rebuild from these exact pins; older recordings remain historical evidence only. |
 | Supersedes | `MAH-CONSOLIDATION-2026-07-09-v1` for active architecture and execution authority |
 | Preserved prior decisions | Temporal-facts Git provenance, stable evaluation IDs, and medication-knowledge safety boundary remain active unless this roadmap explicitly changes them |
 | Signoff 1 | Granted by user on 2026-07-20: baseline, contracts, upstream dispositions, and branch-rebuild procedure approved |
@@ -28,7 +29,8 @@ adapters. The roadmap file alone under-describes context ownership.
 - **Merged:** med-agent-hub's paginated QueryStore reads, per-citation grounding, and complete
   context-slice validation are on hub `main` through PR #17.
 - **Pinned OpenMRS work:** QueryStore, ChartSearchAI, and ChartSearchAI ESM each match the exact
-  `harness-integration` head on the corresponding fork.
+  `harness-integration` head on the corresponding fork. OpenMRS PRs now originate directly from
+  those branches: QueryStore #68, ChartSearchAI #157, and ESM #23.
 - **Not yet proven live:** the assembled local application has not been rebuilt from these four
   revisions. Existing browser/video evidence belongs to the preceding revision set.
 - **Next required work:** merge this harness follow-up, rebuild the complete local stack, verify
@@ -38,8 +40,9 @@ adapters. The roadmap file alone under-describes context ownership.
   only after the exact tested revisions are recorded.
 
 Repository ownership is intentionally simple: the harness and med-agent-hub land through pull
-requests into `main`; the three upstream-owned OpenMRS projects are pinned from their fork's exact
-`harness-integration` head. `scripts/verify-repository-lines.sh` enforces that distinction.
+requests into `main`; the three upstream-owned OpenMRS projects are pinned and published from their
+fork's exact `harness-integration` head. `scripts/verify-repository-lines.sh` enforces local branch
+identity, and its `--check-publication-prs` option verifies the GitHub PR heads.
 
 ## Initial Baseline
 
@@ -724,3 +727,34 @@ the engine-parity instrument.
 single-implementation owner), G06 (bundled preservation guards CP0/CP2), G09 (source-neutrality
 preserved by construction). No acceptance criterion is relaxed; record-set equality for
 QueryStore-sourced runs becomes provable rather than aspirational.
+
+### 2026-08-05 — Publish the tested integration head directly
+
+**Approval:** Explicit user direction on 2026-08-05 after confirming that each old feature branch
+and its fork `harness-integration` branch pointed to the same commit. The extra publication branch
+provided no isolation and made the tested source, harness pin, and OpenMRS review head appear to be
+different lines.
+
+**Decision:**
+
+- For ChartSearchAI, ChartSearchAI ESM, and QueryStore, `pmanko:harness-integration` is both the
+  source line pinned by the harness and the head branch used by the OpenMRS pull request.
+- A separate feature branch may be used for unproven work, but it is not an OpenMRS publication
+  source until that work is consolidated and tested on `harness-integration`.
+- The integration branch first merges current `openmrs:main`, resolves and tests the combined
+  code, and is then pushed without rewriting the independently preserved backup ref.
+- `scripts/verify-repository-lines.sh --check-publication-prs` verifies that the exact remote
+  integration commit has an OpenMRS PR from `pmanko:harness-integration` and that the same commit is
+  not also published by an open feature-branch PR.
+
+**Execution:** Current upstream was merged into ChartSearchAI (`a20a0d0`) and QueryStore
+(`38ce1a9`); ESM (`ea1bcef`) already contained current upstream. Immutable backup refs named
+`codex/backup/harness-integration-pre-upstream-sync-20260805` were pushed before the merges.
+QueryStore `mvn -q -B clean install` passed. ChartSearchAI was built after installing that exact
+QueryStore source and passed 1,019 tests with zero failures/errors (34 opt-in eval skips). ESM
+passed 218 tests plus lint, TypeScript, and production build. OpenMRS PRs #157, #23, and #68 now
+publish those exact heads; feature-sourced PRs #90, #22, and #63 were closed as superseded.
+
+**Affected gates:** Tightens G02, G03, G20, and G21 without changing runtime behavior or relaxing
+any product acceptance criterion. The immutable roadmap body remains unchanged; this approved
+amendment replaces its earlier allowance to split a curated publication branch from integration.
