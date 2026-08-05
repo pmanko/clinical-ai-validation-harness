@@ -56,7 +56,7 @@ presentation.
 
 | Pathway | State | Next gate | Blocks D1? |
 | --- | --- | --- | --- |
-| Dashboard product (D1) | **Working local table-dashboard vertical slice; full D1 open** | M0–M4 local MVP acceptance, then D1 hardening (T139–T182) | — |
+| Dashboard product (D1) | **Superset import spike plus accepted-workbench real-model proof; full D1 open** | User M2 review, then multi-widget M3 and release M4 (T139–T182) | — |
 | Data foundation (G2.10) | Candidate implementation; evidence open | T117–T122 internal and two-source/lossless acceptance | No |
 | Query assistance (W2) | Planned, not selected | G4 scope revalidation before T028–T034 | No |
 | Evaluation (W3/CVR) | Runner/report parity merged in PR #43; session-export/comparative expansion remains | Separately select T036–T038 or later experiments | No |
@@ -105,7 +105,9 @@ presentation.
   and verified local import receipt. It is not full D1 acceptance: the exporter
   is table-only; the multi-widget library shell, five clean-imported
   visualization families, full reset/reimport recovery, comprehensive
-  accessibility evidence, real-model end-to-end evidence, and schema-backed
-  dashboard acceptance emission remain open. The authoritative M0–M4
+  accessibility evidence, builder-integrated real-model D1e evidence, and
+  schema-backed dashboard acceptance emission remain open. The standalone M2
+  real-profile workbench proof passed technically on exact Gemma E4B/Qwen 14B
+  aliases and is awaiting user acceptance. The authoritative M0–M4
   local-MVP target is
   `specs/008-catalyst-query-workbench/dashboard-mvp-delivery-goal.md`.

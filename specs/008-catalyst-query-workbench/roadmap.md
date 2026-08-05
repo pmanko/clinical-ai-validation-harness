@@ -16,9 +16,10 @@ deterministic SQL lint/repair/finalization, execution, lineage, and query
 evidence. Med-Agent Hub now uses one workflow-typed profile schema for hosted
 clinical and caller-orchestrated Catalyst workflows. Its Hub-owned Catalyst
 profile contains role models, prompts, and knobs and exposes named-role
-execution; Gateway cannot override those settings. The current implementation
-heads are Catalyst `55e7192` and Hub `b23d7d2`; the umbrella pin update is in
-this branch. The prior accepted pins remain historical evidence. The definitive final-pin matrix
+execution; Gateway cannot override those settings. The current PR heads are
+Catalyst `7ab0384` and Hub `e6095f5`; the M2 live runtime used Catalyst
+`240e49b` before its documentation-only `7ab0384` successor and umbrella pin
+`cd04265`. The prior accepted pins remain historical evidence. The definitive final-pin matrix
 passed 12/12 with independent
 PostgreSQL/gold checks, and the final-pin bounded failure plus same-session
 recovery passed. The July 30 runs remain supporting historical PR-head evidence
@@ -1692,7 +1693,43 @@ layout-only publications reuse unchanged children.
 The user explicitly accepted the bounded D1a plan on 2026-08-05 and directed
 implementation to continue. T138 and D1a are complete. The earlier “working
 local MVP” label is superseded: current code is a Superset import spike, and M2
-real-profile acceptance now pauses before dashboard implementation resumes.
+real-profile technical evidence now pauses for user acceptance before dashboard
+implementation resumes.
+
+### M2 real-profile/workbench checkpoint — TECHNICAL PASS; USER ACCEPTANCE PENDING (2026-08-05)
+
+The persistent `catalyst-dashboard-mvp` stack restarted twice without a seed or
+volume reset. Its analytics projection retained 1,152 rows, Superset retained
+two Dashboards, and the analytics/data-pipes/Gateway/Superset volumes retained
+their original `2026-08-05T13:09:33-07:00` creation time. No model-router
+container exists. Hub and Gateway reported healthy/ready and discovery exposed
+only available profile `catalyst-query-e4b-qwen14b`, backed by exact
+`google/gemma-4-e4b` writer and `qwen2.5-14b-instruct-mlx` reviewer aliases at
+`host.docker.internal:1234`.
+
+One stored initial turn completed through both real roles in 68,163 ms. Gemma
+produced a grounded latest-ten SELECT; Qwen approved it. The visible SQL was
+manually changed from `LIMIT 10` to `LIMIT 5`, creating a human child version.
+Advisory validation returned `valid` with no findings, explicit Run returned
+five typed rows, and the exact direct PostgreSQL query matched every returned
+value. Reloading the session restored two versions, three validation records,
+and the successful execution. The clean browser view exposed all nine runtime
+relations and only the exact two-model profile.
+
+Two real integration defects were found and resolved before the successful
+turn: Catalyst prompt evidence must use bare lowercase SHA-256 rather than the
+clinical `sha256:` convention, and profile evidence must hash RFC 8785 bytes
+rather than ordinary JSON bytes. Hub `644 passed`, Gateway `205 passed`, the
+assembly gate passed `42` tests plus `61` subtests (`2` environment skips), and
+all Hub/Catalyst remote CI jobs passed. Full IDs, digests, SQL, runtime state,
+and issue dispositions are in
+`evidence/m2-real-query-workbench-2026-08-05.json`.
+
+This is not a reproducibility or Dashboard-MVP claim. The generated ordering has
+no stable secondary key for tied `observed_at` values, and no identical-input
+repetition was run; those remain recorded for T187/D1e. M3 multi-widget
+integration, Superset dashboard reconciliation/recovery, the full accessibility
+and evidence matrix, and final user acceptance remain open.
 
 **D1 program exit:** T137–T182 pass and the user accepts D1e. The Superset REST API,
 embedded dashboards, cross-system undo/reconciliation, narrative reporting,

@@ -38,11 +38,11 @@ FHIR-cache registry is part of this goal.
 
 | Checkpoint | Entry | Exit evidence | Decision |
 | --- | --- | --- | --- |
-| M0 — truthful baseline | Current branches and runtime evidence available | Product/docs/task state identifies the implemented table exporter/importer as a Superset import spike and keeps the Dashboard MVP open. | Internal |
-| M1 — real profile/runtime foundation | M0 complete | Hub/Catalyst/harness pins contain one shared workflow-typed profile schema, no duplicate Gateway model configuration, no fake-router path, and external-only startup with exact alias checks. | Internal |
-| M2 — real query-workbench proof | M1 complete and models are available | Persistent isolated stack starts without seed; Gemma → Qwen generation, manual edit, Validate/Run, result inspection, and exact trace evidence pass. Pause before dashboard implementation resumes. | User review |
-| M3 — Dashboard MVP integration | M2 accepted | The preserved Ask workbench feeds the actual multi-widget builder; native bundle import, stable Superset rendering, restart restoration, and PostgreSQL reconciliation pass. | User review |
-| M4 — release acceptance | M3 complete | Required repetition, nondeterminism, failure/recovery, keyboard/reflow/accessibility, and video evidence pass; user accepts the deployed workflow. | User acceptance |
+| M0 — truthful baseline | Current branches and runtime evidence available | Product/docs/task state identifies the implemented table exporter/importer as a Superset import spike and keeps the Dashboard MVP open. | Passed 2026-08-05 |
+| M1 — real profile/runtime foundation | M0 complete | Hub/Catalyst/harness pins contain one shared workflow-typed profile schema, no duplicate Gateway model configuration, no fake-router path, and external-only startup with exact alias checks. | Passed 2026-08-05 |
+| M2 — real query-workbench proof | M1 complete and models are available | Persistent isolated stack starts without seed; Gemma → Qwen generation, manual edit, Validate/Run, result inspection, and exact trace evidence pass. Pause before dashboard implementation resumes. | Technical pass; user acceptance pending |
+| M3 — Dashboard MVP integration | M2 accepted | The preserved Ask workbench feeds the actual multi-widget builder; native bundle import, stable Superset rendering, restart restoration, and PostgreSQL reconciliation pass. | Not started |
+| M4 — release acceptance | M3 complete | Required repetition, nondeterminism, failure/recovery, keyboard/reflow/accessibility, and video evidence pass; user accepts the deployed workflow. | Not started |
 
 ## Required D1 completion work
 

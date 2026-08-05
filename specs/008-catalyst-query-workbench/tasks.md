@@ -340,11 +340,13 @@ smaller MVP. The tasks below bridge that spike into the full goal defined in
   with the exact Catalyst revision, add a focused regression test, and prove
   the persisted local volume continues to retain receipts/projections after
   restart.
-- [ ] T185 [US7] Prove the preserved Ask workflow through the Hub-owned
+- [X] T185 [US7] Prove the preserved Ask workflow through the Hub-owned
   `catalyst-query-e4b-qwen14b` profile against exact `google/gemma-4-e4b` and
   `qwen2.5-14b-instruct-mlx` aliases; restart without seeding, generate, manually
   edit, Validate, Run, inspect results and trace, then pause before dashboard
-  implementation resumes.
+  implementation resumes. Technical evidence is recorded in
+  `evidence/m2-real-query-workbench-2026-08-05.json`; user acceptance remains
+  the M2 pause condition.
 - [ ] T186 [US7] Integrate that exact successful execution into the actual
   multi-widget Dashboard Builder, publish/import its native bundle, and compare
   representative values for every accepted widget to recorded PostgreSQL SQL.
