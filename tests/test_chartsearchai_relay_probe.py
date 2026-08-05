@@ -64,6 +64,7 @@ def test_probe_correlates_fast_stream_by_message_and_persistence_by_audit_row(mo
             }
         ],
         "blocks": [{"kind": "paragraph", "text": "Summary"}],
+        "safetyStatus": "limited",
         "safetyWarnings": [{"type": "interaction", "detail": "Check therapy"}],
         "confidence": {"answer": {"level": "green"}},
         "inDepth": {"status": "complete", "answer": "Supporting detail [1]."},
@@ -79,6 +80,7 @@ def test_probe_correlates_fast_stream_by_message_and_persistence_by_audit_row(mo
                 "content": final["answer"],
                 "references": final["references"],
                 "blocks": final["blocks"],
+                "safetyStatus": final["safetyStatus"],
                 "safetyWarnings": final["safetyWarnings"],
                 "confidence": final["confidence"],
                 "answerValidation": final["answerValidation"],
@@ -166,6 +168,8 @@ def test_probe_correlates_fast_stream_by_message_and_persistence_by_audit_row(mo
     assert result["profile"] == "single-e4b-checked"
     assert result["audit_log_id"] == 42
     assert result["answer_validation"] == {"status": "checked", "label": "Checked"}
+    assert result["safety_status"] == "limited"
+    assert result["safety_warning_count"] == 1
     assert result["reference_count"] == 1
     assert result["reference_sources"] == ["querystore"]
     assert result["querystore_reference_count"] == 1
@@ -207,6 +211,13 @@ def test_probe_correlates_fast_stream_by_message_and_persistence_by_audit_row(mo
         "patient": "patient-1",
         "provider": "hub",
     }
+
+
+def test_canonical_envelope_hash_includes_safety_status():
+    checked = {"answer": "A", "safetyStatus": "checked", "safetyWarnings": []}
+    unavailable = {"answer": "A", "safetyStatus": "unavailable", "safetyWarnings": []}
+
+    assert probe._canonical_sha256(checked) != probe._canonical_sha256(unavailable)
 
 
 def test_stream_probe_rejects_error_event(monkeypatch):
@@ -448,6 +459,8 @@ def test_probe_rejects_clear_after_session_for_the_wrong_provider(monkeypatch):
             "answer_done_ms": 10,
             "done_ms": 20,
             "final_answer_validation": {"status": "checked"},
+            "final_safety_status": "checked",
+            "final_safety_warning_count": 0,
             "final_reference_count": 1,
             "reference_sources": ["querystore"],
             "querystore_reference_count": 1,

@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import { login, openAiChatPanel, openPatientChart, resetChatSession } from '../support/openmrs';
+import { login, openAiChatPanel, openPatientChart, resetChatSession, selectFastE4BModel } from '../support/openmrs';
 
 const MEDS_QUESTION = 'List the medications this patient is on.';
 
@@ -18,6 +18,7 @@ test.describe('chartsearchai — structured table blocks', () => {
     await login(page);
     await openPatientChart(page);
     await openAiChatPanel(page);
+    await selectFastE4BModel(page);
     await askAndWait(page, MEDS_QUESTION);
 
     // The table appears once the SSE `done` event lands. Anchor on a Carbon
