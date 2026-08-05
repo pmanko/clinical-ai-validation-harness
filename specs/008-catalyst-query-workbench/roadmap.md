@@ -1542,8 +1542,8 @@ and the complete two-source transition/staleness/execution matrix remains open.
 
 ## D1 — Superset-backed Dashboard Builder MVP
 
-**Status:** Selected next milestone; D1a technical validation passed on
-2026-08-05; explicit user acceptance is pending before product code
+**Status:** Selected next milestone; D1a passed and user-accepted on 2026-08-05;
+D1b runtime/import implementation authorized
 
 **Goal:** Implement the supplied iterative Ask → Dataset → Widget → Dashboard
 experience without building a dashboard renderer. Catalyst persists supervised
@@ -1611,7 +1611,7 @@ execution are introduced.
   reimport-last-verified recovery cases, pass CI/pins, and pause for final
   user acceptance.
 
-### D1a grounded-contract checkpoint — TECHNICAL PASS; USER ACCEPTANCE PENDING (2026-08-05)
+### D1a grounded-contract checkpoint — PASSED (2026-08-05)
 
 The second independent audit invalidated the earlier completion claim. It found
 that both feature branches had inherited pre-squash ancestry, API/current-pointer/
@@ -1676,8 +1676,9 @@ overwrite behavior. Its related database/dataset/chart importer uses
 Dashboard UUID, and slug are stable; changed child versions use new UUIDs, and
 layout-only publications reuse unchanged children.
 
-The technical portion of T138 is satisfied. D1a remains open only for the
-explicit user decision required before T139 or any product-code change.
+The user explicitly accepted the bounded D1a plan on 2026-08-05 and directed
+execution to continue through a working local MVP. T138 and D1a are complete;
+T139/T160 may begin without another push or implementation approval pause.
 
 **D1 program exit:** T137–T182 pass and the user accepts D1e. The Superset REST API,
 embedded dashboards, cross-system undo/reconciliation, narrative reporting,

@@ -91,5 +91,5 @@
 - [x] Preimplementation PCCP and N64–N74 register cover validation, product
   rollback, scoped import failure, and explicit recovery
 - [x] Post-edit SpecKit analysis has zero unresolved CRITICAL/HIGH findings
-- [ ] User explicitly accepts the D1a written plan after the final analysis and
+- [x] User explicitly accepts the D1a written plan after the final analysis and
   before T139 or any product-code change

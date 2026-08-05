@@ -56,7 +56,7 @@ presentation.
 
 | Pathway | State | Next gate | Blocks D1? |
 | --- | --- | --- | --- |
-| Dashboard product (D1) | **Selected next; D1a technical pass complete, explicit user acceptance pending** | D1a user decision, D1b runtime/import, D1c backend/export, D1d integrated UX, D1e deployed Superset/user acceptance | — |
+| Dashboard product (D1) | **Selected next; D1a passed and user-accepted, D1b authorized** | D1b runtime/import, D1c backend/export, D1d integrated UX, D1e deployed Superset/user acceptance | — |
 | Data foundation (G2.10) | Candidate implementation; evidence open | T117–T122 internal and two-source/lossless acceptance | No |
 | Query assistance (W2) | Planned, not selected | G4 scope revalidation before T028–T034 | No |
 | Evaluation (W3/CVR) | Runner/report parity merged in PR #43; session-export/comparative expansion remains | Separately select T036–T038 or later experiments | No |
@@ -89,8 +89,8 @@ presentation.
   on current `main`, eight Dashboard Builder contract mirrors are byte-identical,
   seven JSON Schemas and their positive/negative fixtures validate, all 182 task
   IDs are unique, and the final Spec Kit pass has zero unresolved CRITICAL/HIGH
-  findings. Only explicit D1a user acceptance remains before product code. The
-  task graph is split into path-specific red→green steps, and evidence schema/
+  findings. The user accepted D1a on 2026-08-05 and authorized implementation
+  through a working local MVP. The task graph is split into path-specific red→green steps, and evidence schema/
   emitter validation precedes the real D1e run. Catalyst owns and gitignores
   `runtime/superset/`. Importer/state implementations are standalone Python 3.10
   scripts under `targets/catalyst/scripts/` with no Catalyst package dependency;
