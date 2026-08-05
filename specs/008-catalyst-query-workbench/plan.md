@@ -17,11 +17,10 @@ advisory, executes the exact displayed draft under the database role, returns
 useful database errors, restores the session after refresh, and collapses detailed
 dataset context by default. The SQL editor provides PostgreSQL highlighting,
 line numbers, default-on toggleable wrapping, catalog-and-keyword completion,
-and deterministic formatting without weakening immutable version lineage. The
-next slice constrains automated remediation to
-versioned SQL AST units with frozen-unit digests. Harness artifact materialization
-follows once the session event model is stable; the first slice still records all
-lineage needed for that export.
+and deterministic formatting without weakening immutable version lineage.
+That workbench foundation is accepted. Remaining data, repair, evaluation,
+narrative, and production work is organized as parallel pathways rather than a
+single implementation queue.
 
 Before G3 closes, add a linear iterative-query notebook inside the same
 workbench session. A follow-up instruction is grounded in the exact visible SQL
@@ -42,6 +41,45 @@ and its [status artifact](../artifacts/planning/catalyst-validation-integration-
 Phase 9 of `tasks.md` mirrors that roadmap's delivery state; it does not silently
 close G2.9, multi-source acceptance, W2 remediation, or the W3 one-click session
 export feature.
+
+## Parallel pathways after the accepted workbench
+
+| Pathway | State | Planning boundary |
+| --- | --- | --- |
+| **Supervised Dashboard MVP** | **Selected next product milestone** | Depends only on the accepted query/version/execution/table foundation. Create one manually configured, versioned table/bar/line artifact with refresh restoration and stale-source signaling. |
+| G2.10 data foundation | Candidate implementation; acceptance evidence open | Complete multi-source, lossless-projection, generated-catalog, readiness, and provenance gates independently. |
+| W2 query assistance | Planned, not selected | Re-enter only after the G4 scope decision; bounded AST repair remains separate from internal generation correction. |
+| W3/CVR evaluation | Report parity implemented; session export/comparative expansion open | PR #43 MS-D/merge is release closeout. Additional export and experiments require their own selection. |
+| R4 narrative reporting | Planned | Starts from a governed table and is not a prerequisite for Dashboard MVP. |
+| R5 productionization | Future | Authentication, authorization, data scope, audit, and supported deployment require a separate program. |
+
+Dashboard MVP explicitly defers multi-widget layouts, model-generated
+visualization specifications, narrative reports, sharing, scheduling,
+automatic refresh, publication/export, and production access control. Its first
+implementation slice must not absorb G2.10, W2, W3, R4, or R5 work merely
+because those paths can later enrich dashboards.
+
+### Dashboard MVP design boundary
+
+- Extend the existing append-only Gateway/SQLite operating-metadata store with
+  `DashboardArtifact` and immutable `DashboardVersion` records. Clinical result
+  rows remain on the immutable source execution; dashboard metadata references
+  that execution and an RFC 8785 canonical SHA-256 of its stored successful
+  `catalyst.table.v1` payload rather than duplicating rows.
+- Publish one versioned dashboard contract and typed create/save/read routes.
+  Stale or missing source evidence fails closed; compare-and-set on the parent
+  dashboard version rejects concurrent saves.
+- Add one `DashboardWorkspace` to the existing query workbench. It consumes the
+  typed execution result and supports a table for any valid result, a bar chart
+  for compatible category/numeric bindings, and a line chart for compatible
+  temporal/numeric bindings. Incompatible choices remain unavailable with a
+  user-readable reason.
+- Keep configuration deterministic and local. No Hub/profile/model dependency
+  is added, and configure/save/restore never triggers automatic query execution.
+- Test contracts/storage and UI behavior before implementation, then prove
+  restoration/staleness deterministically and finish with one real
+  Catalyst/PostgreSQL plus accessibility checkpoint and PCCP-style change
+  record.
 
 ## Technical Context
 
@@ -96,7 +134,10 @@ merged-Hub pins passed the definitive T111 live rerun. The user confirmed the
 actual keyboard-only and 200%-browser-zoom checks passed and accepted the MVP on
 2026-08-04; the deterministic Playwright path now guards the equivalent focus
 and reflow boundary.
-Multi-source/lossless acceptance remains separately open.*
+Multi-source/lossless acceptance remains separately open. Dashboard MVP is now
+the selected preimplementation slice: T137/T139 are red-first, T141 proves
+deterministic restoration and lineage, T142 records PCCP-style change control,
+and T143 requires the real Catalyst/PostgreSQL/accessibility checkpoint.*
 
 - **Real production paths — PASS**: The browser calls the deployed Catalyst
   Gateway, which composes the query flow, calls the real generic Hub role

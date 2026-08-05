@@ -282,20 +282,23 @@ const features: Feature[] = [
   {
     id: "M10",
     num: "M10",
-    title: "Catalyst query workbench",
+    title: "Catalyst supervised reporting",
     slug: "008-catalyst-query-workbench",
     lane: "openelis",
     purpose:
-      "Provide a supervised path from a natural-language question to editable, validated SQL and query-result artifacts that can become dashboards.",
+      "Provide a supervised path from a natural-language question to an editable governed query, an executed result, and a manually configured versioned dashboard artifact.",
     scope: [
       "FHIR Data Pipes and other registered sources expose approved analytics views through generated catalogs.",
       "Gateway-owned writer/reviewer profiles produce complete SQL with deterministic validation and retained model evidence.",
       "One iterative workbench supports manual edits, validation, execution, follow-up turns, refresh restoration, and result lineage.",
+      "The selected next slice promotes one exact execution into one table, bar chart, or line chart with manual configuration, immutable versions, refresh restoration, and stale-source signalling.",
+      "Multi-source reliability, query repair, evaluation expansion, narrative reporting, and productionization remain parallel independently gated pathways.",
       "Harness scenarios compare executed model SQL with independently authored PostgreSQL gold queries across model profiles.",
     ],
     evidence: [
       "The accepted live scenario covers generation, manual editing, execution, follow-up generation, refresh restoration, and keyboard operation.",
       "Validation artifacts preserve model identity, query/version digests, execution results, and independent gold-query comparisons.",
+      "Dashboard MVP acceptance will add deterministic contract/UI evidence plus one real Catalyst/PostgreSQL and accessibility checkpoint.",
     ],
     needs: ["M0", "M2", "M3"],
     unlocks: [],
@@ -518,7 +521,7 @@ const statusById: Record<string, { label: string; tone: StatusTone }> = {
   M7: { label: "Planned", tone: "neutral" },
   M8: { label: "Planned", tone: "neutral" },
   M9: { label: "Planned", tone: "neutral" },
-  M10: { label: "Manual MVP accepted", tone: "success" },
+  M10: { label: "Workbench accepted; dashboard next", tone: "info" },
   F005: { label: "Shipped", tone: "success" },
   F007: { label: "Planned", tone: "neutral" },
   F008: { label: "Phase 0 shipped", tone: "info" },
@@ -594,8 +597,8 @@ const sequencingNotes: Array<[string, string]> = [
     "Querystore parity and cross-project expansion should reuse the validation spine rather than create separate harnesses.",
   ],
   [
-    "M10 is the supervised Catalyst workbench",
-    "The accepted manual MVP runs in the OpenELIS/Catalyst lane: approved analytics sources feed an iterative query notebook with explicit validation and execution. Dashboard composition and broader experiments follow from this base rather than introducing a second data-access product.",
+    "M10 is supervised Catalyst reporting",
+    "The accepted manual workbench is the shared base. Dashboard MVP is selected next and depends only on that base; data onboarding, query repair, evaluation expansion, narrative reporting, and productionization remain parallel pathways with independent gates.",
   ],
   [
     "F005 (med-agent-hub bridge) unlocks the gateway slot",

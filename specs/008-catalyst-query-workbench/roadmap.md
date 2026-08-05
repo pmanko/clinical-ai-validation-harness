@@ -41,6 +41,26 @@ negative paths, and the discovery/invocation race. Task and requirement IDs are
 unique, and T123/T124 explicitly block T111. This written result does not replace
 the clean-pin runtime evidence.
 
+## Parallel pathways and current selection (2026-08-04)
+
+The accepted workbench is the shared foundation, not the start of one mandatory
+W2 → W3 → W4 queue.
+
+| Pathway | State | Relationship |
+| --- | --- | --- |
+| **Dashboard MVP (D1 / US7)** | **Selected next milestone** | Depends only on the accepted query/version/execution/table foundation |
+| Data foundation (G2.10 / US6) | Candidate implementation; internal/live acceptance open | Can broaden dashboard sources later; does not block single-source D1 |
+| Query assistance (W2 / US2) | Planned, not selected | Re-enters only after its G4 scope gate |
+| Evaluation (W3/CVR) | Runner/report parity implemented; session export/comparative expansion open | PR #43 MS-D/merge is release closeout, not a D1 dependency |
+| Narrative reporting (Catalyst R4) | Not started | Parallel table-to-narrative flow; not a D1 dependency |
+| Productionization (Catalyst R5) | Future | Separate authentication, authorization, security, and deployment program |
+
+D1 is one executed result promoted into one manually configured, versioned
+table/bar/line artifact with refresh restoration and explicit stale-source
+state. Multi-widget layouts, model-generated visualization specifications,
+narratives, sharing, scheduling, automatic refresh, publication/export, and
+production access control are deferred.
+
 ## W0 — Durable specification and research
 
 **Status:** Complete; W1 approved 2026-07-17
@@ -1212,11 +1232,20 @@ that boundary visible. Sending actual result values remains a separate explicit
 attachment decision because it reverses G2.8's approved exclusion; the UI must
 not imply value-level context until that decision is made.
 
-Product-code changes are paused at T098. T099–T104 remain pending until the user
-accepts the architecture and decides whether G2.9 should include bounded result
-row attachments or execution summaries only.
+At this historical checkpoint, product-code changes paused at T098 pending the
+architecture and result-context decision. The later accepted implementation
+chose execution summaries only: no result-row attachment was approved. The
+runtime-backed catalog/schema guide, single composer/editor, compact history,
+adjacent actions, bounded results, responsive workbench panel, and explicit
+matching/stale/unexecuted state shipped and were covered by T108/T127/T111.
+T099–T104 are therefore closed by explicit supersession in `tasks.md`; this does
+not close G2.10's broader multi-source acceptance.
 
-### Gateway-owned query-orchestration refactor — IMPLEMENTED; FINAL-PIN ACCEPTANCE OPEN
+### Gateway-owned query-orchestration refactor — IMPLEMENTED AND FINAL-PIN ACCEPTED
+
+Final disposition: T111 passed and the user accepted the current-pin refactor on
+2026-08-04; T112 then completed the merge/repin verification. The chronological
+blockers and remediation evidence below are retained as history.
 
 The active Catalyst #5 / merged Hub `main` design supersedes the Hub-owned
 Catalyst query-profile architecture used by the historical G2.8 evidence:
@@ -1237,11 +1266,12 @@ Catalyst query-profile architecture used by the historical G2.8 evidence:
   public boundary. Writer-only profiles omit reviewer evidence; reviewed profiles
   preserve every role call and deterministic disposition.
 
-The refactor is not accepted merely because component tests exist. T111 must run
-the full Hub/Catalyst/harness gates and live notebook matrix on exact current
-pins, including profile discovery/switching, writer-only and reviewed evidence,
-PostgreSQL checks, the accessibility matrix, and the user pause. T114 records the
-ownership-refactor PCCP; its evidence remains pending T111.
+At this checkpoint, the refactor was not accepted merely because component tests
+existed. T111 still had to run the full Hub/Catalyst/harness gates and live
+notebook matrix on exact current pins, including profile discovery/switching,
+writer-only and reviewed evidence, PostgreSQL checks, the accessibility matrix,
+and the user pause. T114 recorded the ownership-refactor PCCP; its evidence was
+completed by the later accepted T111 run.
 
 The first current-pin runbook audit found the committed T094 suite still named a
 removed Hub-era profile and required every profile to have a reviewer. T123
@@ -1510,9 +1540,31 @@ This proves the source can be provisioned and read, but does not close T121:
 pre-provision registry availability is still broader than database readiness,
 and the complete two-source transition/staleness/execution matrix remains open.
 
+## D1 — Supervised Dashboard MVP
+
+**Status:** Selected next milestone; implementation not started
+
+**Goal:** Promote one successful Query vN execution into one manually
+configured, versioned dashboard artifact without changing or rerunning its
+query.
+
+- **D1a internal:** prove the versioned dashboard contract, exact
+  query/execution/source/result binding, immutable saves, concurrent-save
+  rejection, missing-evidence failure, restoration, and stale-source state.
+- **D1b internal:** prove one table/bar/line presentation, typed-column
+  compatibility, manual title/bindings/labels/sort configuration, and zero model
+  or automatic database calls during configure/save/restore.
+- **D1c user:** demonstrate create → configure → save v1 → revise/save v2 →
+  refresh → source query change → stale dashboard using one real Catalyst
+  execution, independent PostgreSQL value checks, keyboard-only traversal,
+  narrow layout, and actual 200% browser zoom; pause for acceptance.
+
+**Exit:** T137–T143 pass and the user accepts D1c. The dashboard remains a local
+single-artifact demo; no deferred pathway is implied complete.
+
 ## W2 — Targeted remediation
 
-**Status:** Planned
+**Status:** Parallel pathway; planned, not selected
 
 - Normalize current lint output into stable findings.
 - Derive AST repair units and freeze unaffected-unit digests.
@@ -1532,7 +1584,11 @@ least 90% of cases and every accepted repair passes full revalidation.
 
 ## W3 — Harness experiment integration
 
-**Status:** Planned only after G5 user approval
+**Status:** Parallel pathway. Notebook-run metadata, judging, report rendering,
+and mixed-family publishing are implemented on PR #43's release candidate.
+One-click workbench session export and broader comparative experiments remain
+planned but are not selected; their earlier G5 dependency applies only if the
+W2 → experiment sequence is chosen.
 
 - Materialize a session as `run_manifest.json` and `events.jsonl`.
 - Validate bundles against versioned contracts in the umbrella harness.
@@ -1555,9 +1611,9 @@ Each gate report must mark every item as open, bounded, resolved, or user-decide
 and link the evidence or decision. New issues receive the next stable `N#` ID;
 they are never silently removed.
 
-## W4 — Rich datasets and experiment iteration
+## W4 — Evaluation dataset and experiment iteration
 
-**Status:** Planned
+**Status:** Parallel evaluation expansion; planned, not selected
 
 Add broader synthetic cohorts, question families, known-answer fixtures, and
 model/profile matrices based on W1–W3 evidence. Agent-team experiments remain

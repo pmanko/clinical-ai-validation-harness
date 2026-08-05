@@ -272,7 +272,7 @@ unobscured Tab focus and the corresponding 200%-equivalent reflow boundary.
 The root `README.md`, Catalyst user docs, roadmap, quickstart, and PCCP evidence
 are updated after acceptance. Hub is already merged; Catalyst squash and the
 post-merge health/provenance and real-model/PostgreSQL/gold verification pass;
-required Harness approval and squash remain T112.
+Harness #37 approval, repin, verification, and squash completed T112.
 
 ## G2.10 multi-source/lossless checkpoint
 
@@ -296,3 +296,31 @@ Implementation plumbing is not acceptance evidence. Before closing G2.10:
    corresponding PostgreSQL database with record-level evidence.
 6. Confirm readiness documents and reports only the default source. Record the
    G2.10b evidence and pause at G2.10c for explicit user acceptance.
+
+## D1 Dashboard MVP checkpoint
+
+This is the selected next product checkpoint. It requires only the accepted
+query/version/execution/table foundation; G2.10, W2, W3/CVR, R4, and R5 remain
+parallel.
+
+1. Run a seeded query and independently verify its returned values against
+   PostgreSQL. Create a dashboard from that exact successful execution.
+2. Select one compatible table, bar chart, or line chart. Manually configure
+   title, bindings, labels, and sort; confirm preview/configuration makes no model
+   call and does not re-execute the query.
+3. Save v1, revise the configuration, and save v2. Verify immutable parent,
+   author-kind, timestamp, configuration digest, and complete
+   session/query/execution/source/result provenance.
+4. Refresh and prove v2 plus version history restore byte-for-byte with zero
+   model calls and zero database executions.
+5. Edit or replace the active query and confirm the saved dashboard remains
+   visible, reports a stale source, and retains its original binding. Missing or
+   digest-mismatched source evidence must fail closed.
+6. Repeat create/configure/save/history/stale review with keyboard only, at the
+   accepted narrow layout, and at actual 200% browser zoom. Record any
+   nondeterminism, inconsistency, or test/manual mismatch and pause for user
+   acceptance at D1c.
+
+This checkpoint does not test or claim multi-widget layouts, model-generated
+visualization specifications, narratives, sharing, scheduling, automatic
+refresh, publication/export, or production authorization/deployment.
