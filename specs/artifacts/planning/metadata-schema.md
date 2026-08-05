@@ -30,6 +30,27 @@ Publishable Catalyst notebook runs additionally require:
 - `evidence_status = "development"` until CVR-G16–G18 and final MS-D acceptance
   pass; live publication alone does not promote the evidence status
 
+Catalyst Dashboard Builder acceptance runs use
+`report_family = "catalyst_dashboard"` and additionally require:
+
+- `dashboard_evidence_schema_version = "harness.catalyst-dashboard.acceptance.v1"`;
+- exact Harness and Catalyst revisions plus clean/dirty and pin state;
+- selected Gateway profile and writer/reviewer provider, model, configuration,
+  prompt, candidate, and output digests for the model-backed query turns;
+- `data_source_id` and `catalog_version` for the Dashboard's locked source pair;
+- Superset application image digest, platform version, metadata-database image
+  digest, PostgreSQL driver package/version, and bundle-contract version;
+- references to the exact `acceptance.json`, bundle, desired `current.json`,
+  import receipt/latest-per-digest projection, atomic per-Dashboard last-
+  verified projection, PostgreSQL reconciliation, and accessibility
+  evidence, including the scoped import-failure boundary and any explicit
+  full-reset/reimport-last-verified recovery sequence; and
+- `evidence_status = "development"` until the D1e user acceptance event exists.
+
+Dashboard evidence extends the existing manifest rather than rewriting it after
+the run. Later import, reconciliation, accessibility, and acceptance facts are
+append-only events and the separately validated `acceptance.json` projection.
+
 For Catalyst query-validation runs, `target_provenance` contains separate,
 control-plane-compatible Catalyst and Med-Agent Hub entries. The runner rejects
 an uninitialized, dirty, or pin-mismatched target before contacting either
@@ -92,6 +113,97 @@ links to `judge.jsonl`, `judge_manifest.json`, and the source evidence. The
 finalizer appends these events idempotently and never rewrites the run-start
 manifest. SQL result rows, credentials, and raw model traces are excluded from
 the event stream.
+
+### Catalyst Dashboard Builder events and acceptance
+
+Dashboard Builder streams use
+`schema_version = "harness.catalyst-dashboard.event.v1"`. The D1 emitter keeps
+the accepted notebook stream unchanged and projects its exact source lineage
+into schema-valid `query_turn`, `query_version`, and `query_execution` records
+with traversal-safe references to the source notebook/API evidence. It then
+adds:
+
+- `query_turn` for initial/follow-up role, instruction digest, exact base and
+  selected Query versions, outcome, and source evidence;
+- `query_version` for the selected base/successor Query version and digest,
+  author role, turn, and source evidence;
+- `query_execution` for one successful Run and its Query/result digests plus
+  source evidence;
+- `dataset_version` for one immutable Dataset version and its exact execution,
+  query, source/catalog, canonical result, and configuration digests;
+- `widget_version` for one immutable Widget version, Dataset parent, compatible
+  presentation/bindings, and accepted-versus-overridden disposition;
+- `dashboard_version` for one immutable Dashboard version, locked
+  `dataSourceId`/`catalogVersion`, ordered Widget versions, and layout digest;
+- `bundle_published` for the Dashboard version, deterministic bundle ID/digest,
+  outbox pointer digest, stable Superset UUID/slug/URL, and publication timing;
+- `superset_import_attempt` for exact bundle/pointer identity, importer/runtime
+  revisions, outcome/stage, CLI status, stable error code, receipt reference to
+  the separately bounded diagnostic,
+  failure-boundary classification, preservation support, per-Dashboard last-
+  verified projection/bundle identity, linked explicit recovery attempt,
+  automatic-bootstrap/retry suppression, and verified
+  UUID/slug/relationships when available;
+- `superset_status_observed` for the exact dashboard/bundle status projection
+  and receipt/latest digest used to derive it;
+- `postgresql_reconciliation` for reproducible SQL, parameter and result
+  digests, bounded inspected record identifiers/values, Superset observations,
+  and reviewer rationale;
+- `accessibility_observation` for viewport/zoom/input mode, assertion outcome,
+  and screenshot/video/test evidence references; and
+- `acceptance_decision` for the final user decision, timestamp, accepted D1
+  version/digest set, residual risks, and evidence-index digest.
+
+Dashboard event entity references are immutable and resolvable. Clinical rows,
+database credentials, Superset secrets, raw model traces, and localized warning
+prose are excluded. The canonical result reference uses the RFC 8785 digest of
+`{contractVersion, columns, rows, returnedRows, maxRows, truncated,
+truncationReason, warningCodes}`; row-free `executionBounds` and `resultBounds`
+must be byte-identical. Stable warning codes are de-duplicated in persisted
+execution order. D1 recognizes `all_blank_columns` and
+`legacy_unclassified_warning`; adding another code requires a versioned
+contract change.
+
+`acceptance.json` uses
+`schema_version = "harness.catalyst-dashboard.acceptance.v1"` and is valid only
+when it resolves:
+
+- the manifest/event schema versions, run ID, evidence status, and exact
+  component/image/driver revisions;
+- real writer/reviewer profile and candidate/output digests;
+- session, turn, query-version, execution, Dataset, Widget, Dashboard, bundle,
+  publication, and import-attempt identifiers/digests;
+- the expected and observed stable Superset Dashboard UUID,
+  logical Catalyst Dashboard ID, `catalyst-<lowercase-dashboard-id>` slug, and
+  `/superset/dashboard/<slug>/` URL;
+- exact bundle, desired-current-pointer, receipt/latest-per-digest,
+  per-Dashboard-last-verified, and evidence-index copies and SHA-256 digests;
+- PostgreSQL reconciliation SQL/parameters, inspected bounded IDs/values,
+  comparison outcome, and reviewer rationale;
+- restart, idempotency, changed-child, and layout-only evidence; preserving
+  pointer/bundle/preflight/credential and transactionally rolled-back CLI
+  failure evidence;
+  post-import-verification `Import failed`, retained-diagnostic, and disabled
+  Open/current-success evidence; missing/corrupt recovery-projection refusal;
+  full Superset-local metadata/home reset and last-verified reimport evidence;
+  recovered-A/failed-desired-B automatic-bootstrap/retry suppression without an
+  automatic-rollback claim;
+  read-only denial, five-family, and accessibility evidence references; and
+- final user acceptance state and residual risks.
+
+It also contains a fixed six-step `orderedWorkflow` projection whose event
+sequences and identifiers must resolve, in order, to initial Query selection,
+successful initial Run, Dataset v1 save, contextual follow-up, successful
+successor Run, and Dataset v2 save. The cross-artifact validator rejects a
+schema-valid receipt if sequences are not strictly increasing, Dataset v1 does
+not precede the follow-up, either Dataset references the wrong execution/Query,
+or Dataset v2 does not follow the successor Run.
+
+Every referenced path is run-directory-relative, traversal-safe, and materialized
+before acceptance validation. An early failure records typed omissions and its
+failure stage; it never invents identifiers unavailable before parsing or
+verification. A missing or invalid reference keeps the receipt and run in
+`development` and prevents D1 completion.
 
 ## OTel GenAI Alignment
 

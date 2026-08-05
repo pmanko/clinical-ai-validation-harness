@@ -301,44 +301,150 @@ Implementation plumbing is not acceptance evidence. Before closing G2.10:
 
 This is the selected next product checkpoint. It requires only the accepted
 query/version/execution/table foundation; G2.10, W2, W3/CVR, R4, and R5 remain
-parallel.
+parallel. Commands below are the implementation contract for T137–T182; until
+those tasks are checked, an absent command is an expected open item rather than
+evidence that the runtime exists.
 
-The implementation will add Superset to the normal isolated Catalyst launcher.
-The intended operator flow is:
+### Planned operator commands and endpoints
 
-1. Boot Catalyst, Superset 6.1.0, and their metadata services with the existing
-   isolated-stack command. Superset is exposed only on the documented localhost
-   port and reads the Catalyst bundle outbox through a read-only bind mount.
-2. In Ask, run the accepted notebook workflow before any builder action: select
-   a profile with its writer/reviewer models, generate a query, use the one SQL
-   editor's completion/Format/manual version flow, Validate, explicitly Run,
-   inspect findings/raw failure or database diagnostics and typed results, ask a
-   contextual follow-up, rerun, refresh, and confirm timeline/stale-result/New
-   session behavior. There must be no duplicate editor, example-prompt buttons,
-   automatic execution, or missing prior action/evidence.
-3. Promote that exact successful execution to the design's chronological Dataset
-   draft tile and review panel. Confirm the moved preview still exposes typed
-   rows, the exact Query vN, findings/diagnostics, and provenance; save it, review
-   or override the deterministic Widget suggestion, and place one or more saved
-   widgets on a Dashboard draft.
-4. Select **Publish to Superset**. Catalyst atomically writes a native Superset
+```bash
+# boot the full isolated Catalyst + Superset stack
+scripts/catalyst-mvp.sh up
+
+# inspect/import the exact current outbox bundle without a background watcher
+scripts/catalyst-mvp.sh superset-status
+scripts/catalyst-mvp.sh superset-import
+
+# explicit local-only recovery after a post-import verification failure;
+# validates the per-Dashboard last-verified projection, fully resets only the
+# Superset-local metadata database/home volumes, and reimports that exact bundle
+scripts/catalyst-mvp.sh superset-reset --reimport-last-verified
+```
+
+The harness routes these commands to the dedicated target-side operator
+boundary `targets/catalyst/scripts/mvp-superset.sh {status|import|reset}`;
+`mvp-up.sh` remains the stack lifecycle helper, not a second import dispatcher.
+The importer/state programs are standalone Python-3.10-compatible scripts under
+`targets/catalyst/scripts/`; they import no Catalyst package and rely only on
+the standard library plus dependencies already built into the pinned Superset
+image. Their tests remain in the Gateway CI suite.
+
+- Catalyst UI: `http://localhost:13000`
+- Catalyst Gateway: `http://localhost:18000`
+- Superset: `http://localhost:18088`
+- Superset health: `http://localhost:18088/health`
+- Catalyst-owned runtime state:
+  `targets/catalyst/runtime/superset/{outbox,receipts,backups}/`, covered by
+  `/runtime/superset/` in `targets/catalyst/.gitignore`
+- D1 evidence: `artifacts/catalyst-dashboard/<run-id>/` containing
+  `run_manifest.json`, `events.jsonl`, `acceptance.json`, exact bundle/pointer/
+  receipt copies, PostgreSQL reconciliation, and screenshots/video
+
+### Acceptance flow
+
+1. Boot Catalyst, digest-pinned Superset 6.1.0, and its metadata database with
+   the isolated-stack command. Require Catalyst health plus `GET /health` = 200
+   on localhost port 18088. Record the Superset application/platform digest and
+   PostgreSQL driver revision. Superset reads the outbox through a read-only
+   mount; the importer alone receives a writable receipt/lock mount. Stack
+   configuration proves the driver/network path and DB-enforced SELECT-only
+   access. The canonical native fixture—not `superset_config.py` or
+   `superset set-database-uri`—creates the persisted analytics Database asset.
+2. In Ask, select a profile with its writer/reviewer models, generate Query v1,
+   use the sole SQL editor's completion/Format/manual version flow, Validate,
+   explicitly Run, and inspect findings/raw failure or database diagnostics and
+   typed results. Confirm the Dataset tile/panel exposes the exact Query v1,
+   complete accepted table wire types, parameters, bounded rows, warning codes
+   plus display prose, truncation truth, and provenance. There must be no
+   duplicate editor, example-prompt buttons, automatic execution, or missing
+   prior action/evidence.
+3. While Query v1 and its editor digest are still current, save **Dataset v1**.
+   Then ask a contextual follow-up from that exact visible buffer, review the
+   complete successor Query v2, explicitly rerun it, and save **Dataset v2**
+   while Query v2 is current. Only after both saves, refresh and confirm the
+   timeline, stale-result labels, libraries, and New session behavior. A stale
+   unsaved execution remains inspectable but is not promotable.
+4. Review or override deterministic Widget suggestions for the two saved
+   Dataset versions and create two heterogeneous Widgets. Place them on a newly
+   named Dashboard only when both share its locked `dataSourceId` and
+   `catalogVersion`; either mismatch must be rejected. After a catalog refresh,
+   create a new Dashboard rather than mixing catalog versions.
+5. Select **Publish to Superset**. Catalyst atomically writes a native Superset
    ZIP to the host-visible outbox and offers the same artifact for download.
    Bundle creation makes no model call and does not rerun the query.
-5. For a clean stack, let the bootstrap importer load the selected current
-   bundle. For an already-running stack, run the documented Superset import
-   helper. Only a successful CLI result changes `Bundle ready` to `Imported`;
-   generating the file alone never claims synchronization.
-6. Open Superset, render the imported dashboard, and independently reconcile
-   representative values with PostgreSQL. Publish a changed draft and prove the
-   stable logical Dashboard UUID points to newly created version-addressed
-   Dataset/Widget children rather than relying on child-asset overwrite.
-7. Refresh Catalyst and prove immutable Dataset/Widget/Dashboard versions,
+6. For a clean stack, let the bootstrap importer load the eligible selected
+   current desired bundle. For an already-running stack, run the documented Superset import
+   helper. Only a successful CLI result plus exact post-import verification and
+   a validated receipt/latest projection changes `Bundle ready` to `Imported`;
+   generating the file alone never claims synchronization. Missing, malformed,
+   wrong-version, or foreign-digest pointers/receipts never claim Imported;
+   pointer/bundle/preflight/credential failures and a transactionally rolled-
+   back Superset CLI failure leave the previously verified Dashboard usable. If the CLI
+   succeeds but UUID/slug/relationship verification fails, report
+   **Import failed**, retain the diagnostic, and disable Open Superset and any
+   current-success claim. Do not claim an automatic rollback. Recovery first
+   validates `receipts/last-verified/<logicalDashboardId>.json` and its
+   referenced bundle; missing/corrupt projection data stops before reset. Then
+   explicitly reset the complete Superset-local metadata database/home volumes
+   and reimport/verify that bundle. Do not selectively delete assets or mutate
+   Superset through ORM or REST. If verified A is recovered while failed desired
+   B remains in `current.json`, B stays `import_failed` and automatic bootstrap/
+   retry is suppressed until explicit retry or a new publication.
+7. Open
+   `/superset/dashboard/catalyst-<lowercase-dashboard-id>/` in Superset,
+   require the observed UUID and slug to match the bundle/receipt, require at
+   least two Widgets to
+   render, and independently reconcile keyed identifiers/values with the exact
+   PostgreSQL verification SQL. Publish a changed child and a layout-only
+   version: changed children receive new version-addressed UUIDs, unchanged
+   children are reused, and the logical Catalyst Dashboard ID, slug, and
+   Superset Dashboard UUID remain stable.
+8. Refresh Catalyst and prove immutable Dataset/Widget/Dashboard versions,
    import evidence, and stale-source states restore. Repeat with keyboard only,
-   the accepted narrow layout, and actual 200% browser zoom.
+   desktop, 390×844, 320 CSS px, and actual 200% browser zoom. Capture Escape/
+   focus return, focus containment, status announcements, reduced motion, and
+   unobscured fixed-composer/editor evidence.
+9. Run the all-five-family canonical Superset fixture matrix, same-digest no-op,
+   concurrent import, ordinary restart, the scoped preserving-failure matrix,
+   a post-verification failure with no Open/current-success claim, missing/
+   corrupt recovery-projection refusal, full Superset-local reset plus per-
+   Dashboard last-verified reimport, recovered-A/failed-desired-B retry
+   suppression, and database write-denial checks. Also prove the standalone
+   Python 3.10 importer inside the pinned Superset container, constrained
+   canonical-JSON parity with `rfc8785`, and a clean Catalyst target after
+   publication. Record actual start/end time from the eligible execution to Bundle
+   ready and require under 180 seconds with zero model/database calls after
+   execution.
 
 The bundle contains configuration and provenance, not result rows. Named
 parameters are compiled from exact typed execution values; the original
-parameterized SQL remains in the Catalyst manifest. Only the labelled local
+parameterized SQL remains in the Catalyst manifest. `resultDigest` hashes the
+canonical RFC 8785 bounded execution object; its row-free `executionBounds` and
+manifest `resultBounds` projections are byte-identical, and only stable ordered
+warning codes enter the digest. Only the labelled local
 demo may carry a read-only demo credential. Superset API publication, embedded
 viewing, cross-system undo/reconciliation, narratives, sharing, scheduling,
 automatic refresh, and production authorization/deployment are not claimed.
+
+### D1 completion receipt
+
+D1 is not complete from a generated ZIP, passing unit tests, or a Superset health
+check alone. Before this flow starts, positive and negative tests must validate
+the D1 event emitter and
+`harness.catalyst-dashboard.acceptance.v1` schema. `acceptance.json` must resolve
+the exact component and image SHAs,
+real writer/reviewer profile and candidate digests, session/turn/query/execution/
+Dataset/Widget/Dashboard IDs, bundle/current/receipt/per-Dashboard-last-verified
+digests, stable Superset
+UUID/slug/URL,
+reproducible PostgreSQL SQL plus inspected record identifiers/values, reviewer
+rationale, failure-recovery evidence, accessibility artifacts, and the matching
+versioned harness manifest/events. `events.jsonl` must include structured
+`query_turn`, `query_version`, and `query_execution` D1 projections plus immutable
+Dataset/Widget/Dashboard versions, bundle publication, import/status,
+scoped failure classification, explicit full-reset/reimport recovery, PostgreSQL
+reconciliation, accessibility observation, and acceptance-decision events with
+materialized traversal-safe evidence references. `acceptance.json` must also
+carry the fixed six-step `orderedWorkflow` from initial Query selection through
+Dataset v2 save. The final
+checkpoint is explicit user acceptance of that deployed dashboard.

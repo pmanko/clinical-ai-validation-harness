@@ -1,0 +1,436 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://catalyst.local/contracts/catalyst-superset-import-receipt-v1.schema.json",
+  "title": "Catalyst Superset immutable import receipt v1",
+  "description": "One immutable terminal importer attempt. Failed pre-parse attempts may omit identifiers that could not be established; they never invent verification evidence.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "receiptId",
+    "startedAt",
+    "finishedAt",
+    "outcome",
+    "stage",
+    "importer",
+    "exitCode",
+    "supersetMutationDisposition",
+    "verification",
+    "errorCode",
+    "diagnostic",
+    "recovery",
+    "receiptDigest"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "catalyst.superset.import-receipt.v1" },
+    "receiptId": { "$ref": "#/$defs/uuidV4" },
+    "publicationId": { "$ref": "#/$defs/uuidV4" },
+    "bundleId": { "$ref": "#/$defs/uuidV5" },
+    "bundle": { "$ref": "#/$defs/bundleRef" },
+    "dashboard": { "$ref": "#/$defs/dashboardRef" },
+    "targetSupersetVersion": { "const": "6.1.0" },
+    "startedAt": { "$ref": "#/$defs/utcDateTime" },
+    "finishedAt": { "$ref": "#/$defs/utcDateTime" },
+    "outcome": { "enum": ["imported", "import_failed"] },
+    "stage": { "$ref": "#/$defs/stage" },
+    "importer": { "$ref": "#/$defs/importer" },
+    "exitCode": { "type": ["integer", "null"] },
+    "supersetMutationDisposition": {
+      "enum": ["not_started", "transaction_rolled_back", "committed_unverified", "verified"]
+    },
+    "verification": {
+      "oneOf": [
+        { "$ref": "#/$defs/passedVerification" },
+        { "$ref": "#/$defs/unavailableVerification" }
+      ]
+    },
+    "errorCode": {
+      "oneOf": [
+        { "$ref": "#/$defs/stableCode" },
+        { "type": "null" }
+      ]
+    },
+    "diagnostic": { "$ref": "#/$defs/diagnostic" },
+    "recovery": { "$ref": "#/$defs/recovery" },
+    "receiptDigest": { "$ref": "#/$defs/sha256" }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": { "outcome": { "const": "imported" } },
+        "required": ["outcome"]
+      },
+      "then": {
+        "required": [
+          "publicationId",
+          "bundleId",
+          "bundle",
+          "dashboard",
+          "targetSupersetVersion"
+        ],
+        "properties": {
+          "stage": { "const": "complete" },
+          "exitCode": { "const": 0 },
+          "errorCode": { "type": "null" },
+          "supersetMutationDisposition": { "const": "verified" },
+          "verification": { "$ref": "#/$defs/passedVerification" },
+          "recovery": {
+            "properties": {
+              "priorVerifiedDashboardState": { "const": "not_applicable" },
+              "openSupersetEnabled": { "const": true },
+              "currentSuccessClaimEnabled": { "const": true },
+              "requiredAction": { "const": "none" }
+            }
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "stage": { "not": { "const": "complete" } },
+          "errorCode": { "$ref": "#/$defs/stableCode" },
+          "diagnostic": {
+            "allOf": [
+              { "$ref": "#/$defs/diagnostic" },
+              { "properties": { "text": { "minLength": 1 } } }
+            ]
+          },
+          "verification": { "$ref": "#/$defs/unavailableVerification" }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "outcome": { "const": "import_failed" },
+          "stage": { "const": "post_import_verification" }
+        },
+        "required": ["outcome", "stage"]
+      },
+      "then": {
+        "properties": {
+          "exitCode": { "const": 0 },
+          "supersetMutationDisposition": { "const": "committed_unverified" },
+          "verification": {
+            "properties": { "status": { "const": "failed" } }
+          },
+          "recovery": {
+            "properties": {
+              "priorVerifiedDashboardState": { "const": "not_guaranteed" },
+              "openSupersetEnabled": { "const": false },
+              "currentSuccessClaimEnabled": { "const": false },
+              "requiredAction": {
+                "const": "full_reset_then_reimport_last_verified_bundle"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "outcome": { "const": "import_failed" },
+          "stage": {
+            "enum": [
+              "pointer_read",
+              "pointer_validation",
+              "bundle_read",
+              "bundle_validation",
+              "manifest_validation",
+              "credential_resolution"
+            ]
+          }
+        },
+        "required": ["outcome", "stage"]
+      },
+      "then": {
+        "properties": {
+          "exitCode": { "type": "null" },
+          "supersetMutationDisposition": { "const": "not_started" },
+          "verification": {
+            "properties": { "status": { "const": "not_run" } }
+          },
+          "recovery": {
+            "properties": {
+              "priorVerifiedDashboardState": { "const": "preserved" },
+              "openSupersetEnabled": { "const": false },
+              "currentSuccessClaimEnabled": { "const": false },
+              "requiredAction": { "const": "retry_same_bundle" }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "outcome": { "const": "import_failed" },
+          "stage": { "const": "cli_import" }
+        },
+        "required": ["outcome", "stage"]
+      },
+      "then": {
+        "properties": {
+          "exitCode": {
+            "type": "integer",
+            "not": { "const": 0 }
+          },
+          "supersetMutationDisposition": { "const": "transaction_rolled_back" },
+          "verification": {
+            "properties": { "status": { "const": "not_run" } }
+          },
+          "recovery": {
+            "properties": {
+              "priorVerifiedDashboardState": { "const": "preserved" },
+              "openSupersetEnabled": { "const": false },
+              "currentSuccessClaimEnabled": { "const": false },
+              "requiredAction": { "const": "retry_same_bundle" }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "outcome": { "const": "import_failed" },
+          "stage": {
+            "enum": [
+              "credential_resolution",
+              "cli_import",
+              "post_import_verification"
+            ]
+          }
+        },
+        "required": ["outcome", "stage"]
+      },
+      "then": {
+        "required": [
+          "publicationId",
+          "bundleId",
+          "bundle",
+          "dashboard",
+          "targetSupersetVersion"
+        ]
+      }
+    }
+  ],
+  "$defs": {
+    "nonEmpty": { "type": "string", "minLength": 1 },
+    "stableCode": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "uuidV4": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+    "uuidV5": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-5[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+    "utcDateTime": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "Z$"
+    },
+    "stage": {
+      "enum": [
+        "pointer_read",
+        "pointer_validation",
+        "bundle_read",
+        "bundle_validation",
+        "manifest_validation",
+        "credential_resolution",
+        "cli_import",
+        "post_import_verification",
+        "complete"
+      ]
+    },
+    "bundleRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["fileName", "sha256", "bytes"],
+      "properties": {
+        "fileName": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}\\.zip$"
+        },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "bytes": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "dashboardRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "versionId",
+        "configurationDigest",
+        "supersetUuid",
+        "supersetSlug"
+      ],
+      "properties": {
+        "id": { "$ref": "#/$defs/uuidV4" },
+        "versionId": { "$ref": "#/$defs/uuidV4" },
+        "configurationDigest": { "$ref": "#/$defs/sha256" },
+        "supersetUuid": { "$ref": "#/$defs/uuidV5" },
+        "supersetSlug": {
+          "type": "string",
+          "pattern": "^catalyst-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        }
+      }
+    },
+    "importer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "revision",
+        "supersetVersion",
+        "imageDigest",
+        "platform",
+        "driverRevision",
+        "commandDigest"
+      ],
+      "properties": {
+        "revision": { "$ref": "#/$defs/nonEmpty" },
+        "supersetVersion": { "const": "6.1.0" },
+        "imageDigest": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "platform": { "$ref": "#/$defs/nonEmpty" },
+        "driverRevision": { "$ref": "#/$defs/nonEmpty" },
+        "commandDigest": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "passedVerification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "dashboardUuid",
+        "dashboardSlug",
+        "expectedDatasetUuids",
+        "expectedChartUuids",
+        "relationshipsMatch"
+      ],
+      "properties": {
+        "status": { "const": "passed" },
+        "dashboardUuid": { "$ref": "#/$defs/uuidV5" },
+        "dashboardSlug": {
+          "type": "string",
+          "pattern": "^catalyst-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "expectedDatasetUuids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/uuidV5" }
+        },
+        "expectedChartUuids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/uuidV5" }
+        },
+        "relationshipsMatch": { "const": true }
+      }
+    },
+    "unavailableVerification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "omissionReason"],
+      "properties": {
+        "status": { "enum": ["not_run", "failed"] },
+        "omissionReason": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$"
+        }
+      }
+    },
+    "diagnostic": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["text", "truncated", "redacted"],
+      "properties": {
+        "text": { "type": "string", "maxLength": 16384 },
+        "truncated": { "type": "boolean" },
+        "redacted": { "const": true }
+      }
+    },
+    "lastVerifiedProjection": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "status",
+            "logicalDashboardId",
+            "generation",
+            "path",
+            "projectionDigest",
+            "publicationId",
+            "bundleId",
+            "bundleDigest",
+            "receiptId",
+            "receiptDigest"
+          ],
+          "properties": {
+            "status": { "const": "available" },
+            "logicalDashboardId": { "$ref": "#/$defs/uuidV4" },
+            "generation": { "type": "integer", "minimum": 1 },
+            "path": {
+              "type": "string",
+              "pattern": "^receipts/last-verified/[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\\.json$"
+            },
+            "projectionDigest": { "$ref": "#/$defs/sha256" },
+            "publicationId": { "$ref": "#/$defs/uuidV4" },
+            "bundleId": { "$ref": "#/$defs/uuidV5" },
+            "bundleDigest": { "$ref": "#/$defs/sha256" },
+            "receiptId": { "$ref": "#/$defs/uuidV4" },
+            "receiptDigest": { "$ref": "#/$defs/sha256" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["status", "omissionReason"],
+          "properties": {
+            "status": { "const": "unavailable" },
+            "omissionReason": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]*$"
+            }
+          }
+        }
+      ]
+    },
+    "recovery": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "priorVerifiedDashboardState",
+        "openSupersetEnabled",
+        "currentSuccessClaimEnabled",
+        "requiredAction",
+        "lastVerifiedProjection"
+      ],
+      "properties": {
+        "priorVerifiedDashboardState": {
+          "enum": ["preserved", "not_guaranteed", "not_applicable"]
+        },
+        "openSupersetEnabled": { "type": "boolean" },
+        "currentSuccessClaimEnabled": { "type": "boolean" },
+        "requiredAction": {
+          "enum": [
+            "none",
+            "retry_same_bundle",
+            "full_reset_then_reimport_last_verified_bundle"
+          ]
+        },
+        "lastVerifiedProjection": { "$ref": "#/$defs/lastVerifiedProjection" }
+      }
+    }
+  }
+}

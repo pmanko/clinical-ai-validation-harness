@@ -1,0 +1,706 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://catalyst.local/contracts/catalyst-dashboard-acceptance-v1.schema.json",
+  "title": "Catalyst Dashboard Builder D1 acceptance receipt v1",
+  "description": "Final schema-valid D1 acceptance projection. It references immutable evidence and digests; it does not embed clinical rows, credentials, DSNs, raw traces, or hidden reasoning.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "evidence_status",
+    "acceptanceId",
+    "milestone",
+    "generatedAt",
+    "outcome",
+    "bundleContractVersion",
+    "evidenceIndexDigest",
+    "runEvidence",
+    "componentRevisions",
+    "supersetRuntime",
+    "modelProfile",
+    "lineage",
+    "acceptedArtifacts",
+    "orderedWorkflow",
+    "publication",
+    "postgresqlReconciliation",
+    "scenarioMatrix",
+    "accessibility",
+    "qualityGates",
+    "residualRisks",
+    "userAcceptance",
+    "receiptDigest"
+  ],
+  "properties": {
+    "schema_version": { "const": "harness.catalyst-dashboard.acceptance.v1" },
+    "evidence_status": { "const": "accepted" },
+    "acceptanceId": { "$ref": "#/$defs/uuidV4" },
+    "milestone": { "const": "D1" },
+    "generatedAt": { "$ref": "#/$defs/utcDateTime" },
+    "outcome": { "const": "accepted" },
+    "bundleContractVersion": { "const": "catalyst.superset.bundle.v1" },
+    "evidenceIndexDigest": { "$ref": "#/$defs/sha256" },
+    "runEvidence": { "$ref": "#/$defs/runEvidence" },
+    "componentRevisions": { "$ref": "#/$defs/componentRevisions" },
+    "supersetRuntime": { "$ref": "#/$defs/supersetRuntime" },
+    "modelProfile": { "$ref": "#/$defs/modelProfile" },
+    "lineage": { "$ref": "#/$defs/lineage" },
+    "acceptedArtifacts": { "$ref": "#/$defs/acceptedArtifacts" },
+    "orderedWorkflow": { "$ref": "#/$defs/orderedWorkflow" },
+    "publication": { "$ref": "#/$defs/publication" },
+    "postgresqlReconciliation": {
+      "type": "array",
+      "minItems": 2,
+      "items": { "$ref": "#/$defs/reconciliation" }
+    },
+    "scenarioMatrix": { "$ref": "#/$defs/scenarioMatrix" },
+    "accessibility": { "$ref": "#/$defs/accessibility" },
+    "qualityGates": { "$ref": "#/$defs/qualityGates" },
+    "residualRisks": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/residualRisk" }
+    },
+    "userAcceptance": { "$ref": "#/$defs/userAcceptance" },
+    "receiptDigest": { "$ref": "#/$defs/sha256" }
+  },
+  "$defs": {
+    "nonEmpty": { "type": "string", "minLength": 1, "maxLength": 500 },
+    "stableCode": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "gitSha": { "type": "string", "pattern": "^[a-f0-9]{40}$" },
+    "uuid": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+    "uuidV4": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+    "uuidV5": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-5[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+    "utcDateTime": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "Z$"
+    },
+    "safePath": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1000,
+      "pattern": "^(?!/)(?!.*\\.\\.)(?!.*\\\\)[A-Za-z0-9._/-]+$"
+    },
+    "evidenceRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256", "mediaType"],
+      "properties": {
+        "path": { "$ref": "#/$defs/safePath" },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "mediaType": { "$ref": "#/$defs/nonEmpty" }
+      }
+    },
+    "exactVersionRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "versionId", "configurationDigest"],
+      "properties": {
+        "id": { "$ref": "#/$defs/uuidV4" },
+        "versionId": { "$ref": "#/$defs/uuidV4" },
+        "configurationDigest": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "runEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "runId",
+        "runManifestSchemaVersion",
+        "eventSchemaVersion",
+        "runManifest",
+        "events",
+        "evidenceIndex",
+        "eventCount"
+      ],
+      "properties": {
+        "runId": { "$ref": "#/$defs/nonEmpty" },
+        "runManifestSchemaVersion": { "const": 1 },
+        "eventSchemaVersion": { "const": "harness.catalyst-dashboard.event.v1" },
+        "runManifest": { "$ref": "#/$defs/evidenceRef" },
+        "events": { "$ref": "#/$defs/evidenceRef" },
+        "evidenceIndex": { "$ref": "#/$defs/evidenceRef" },
+        "eventCount": { "type": "integer", "minimum": 9 }
+      }
+    },
+    "repositoryRevision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repository", "commit", "branch"],
+      "properties": {
+        "repository": { "$ref": "#/$defs/nonEmpty" },
+        "commit": { "$ref": "#/$defs/gitSha" },
+        "branch": { "$ref": "#/$defs/nonEmpty" }
+      }
+    },
+    "componentRevisions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["harness", "catalyst", "medAgentHub", "openelis"],
+      "properties": {
+        "harness": { "$ref": "#/$defs/repositoryRevision" },
+        "catalyst": { "$ref": "#/$defs/repositoryRevision" },
+        "medAgentHub": { "$ref": "#/$defs/repositoryRevision" },
+        "openelis": { "$ref": "#/$defs/repositoryRevision" }
+      }
+    },
+    "supersetRuntime": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "imageDigest",
+        "metadataDatabaseImageDigest",
+        "platform",
+        "driverRevision",
+        "importerRevision"
+      ],
+      "properties": {
+        "version": { "const": "6.1.0" },
+        "imageDigest": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "metadataDatabaseImageDigest": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "platform": { "$ref": "#/$defs/nonEmpty" },
+        "driverRevision": { "$ref": "#/$defs/nonEmpty" },
+        "importerRevision": { "$ref": "#/$defs/nonEmpty" }
+      }
+    },
+    "modelRole": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "role",
+        "model",
+        "provider",
+        "configurationDigest",
+        "promptDigest",
+        "candidateDigest",
+        "outputDigest",
+        "generationEvidence"
+      ],
+      "properties": {
+        "role": { "enum": ["writer", "reviewer"] },
+        "model": { "$ref": "#/$defs/nonEmpty" },
+        "provider": { "$ref": "#/$defs/nonEmpty" },
+        "configurationDigest": { "$ref": "#/$defs/sha256" },
+        "promptDigest": { "$ref": "#/$defs/sha256" },
+        "candidateDigest": { "$ref": "#/$defs/sha256" },
+        "outputDigest": { "$ref": "#/$defs/sha256" },
+        "generationEvidence": { "$ref": "#/$defs/evidenceRef" }
+      }
+    },
+    "modelProfile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["profileId", "profileDigest", "writer", "reviewer", "reviewerRationale"],
+      "properties": {
+        "profileId": { "$ref": "#/$defs/nonEmpty" },
+        "profileDigest": { "$ref": "#/$defs/sha256" },
+        "writer": {
+          "allOf": [
+            { "$ref": "#/$defs/modelRole" },
+            { "properties": { "role": { "const": "writer" } } }
+          ]
+        },
+        "reviewer": {
+          "allOf": [
+            { "$ref": "#/$defs/modelRole" },
+            { "properties": { "role": { "const": "reviewer" } } }
+          ]
+        },
+        "reviewerRationale": { "$ref": "#/$defs/evidenceRef" }
+      }
+    },
+    "lineage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sessionId",
+        "turnIds",
+        "queryVersionIds",
+        "executionIds",
+        "datasets",
+        "widgets",
+        "dashboard"
+      ],
+      "properties": {
+        "sessionId": { "$ref": "#/$defs/uuid" },
+        "turnIds": {
+          "type": "array",
+          "minItems": 2,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/uuid" }
+        },
+        "queryVersionIds": {
+          "type": "array",
+          "minItems": 2,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/uuid" }
+        },
+        "executionIds": {
+          "type": "array",
+          "minItems": 2,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/uuid" }
+        },
+        "datasets": {
+          "type": "array",
+          "minItems": 2,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/exactVersionRef" }
+        },
+        "widgets": {
+          "type": "array",
+          "minItems": 2,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/exactVersionRef" }
+        },
+        "dashboard": { "$ref": "#/$defs/exactVersionRef" }
+      }
+    },
+    "acceptedArtifacts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "queryVersions",
+        "datasets",
+        "widgets",
+        "dashboard",
+        "bundleDigest",
+        "receiptDigest",
+        "lastVerifiedProjectionDigest"
+      ],
+      "properties": {
+        "queryVersions": {
+          "type": "array",
+          "minItems": 2,
+          "uniqueItems": true,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["versionId", "queryDigest"],
+            "properties": {
+              "versionId": { "$ref": "#/$defs/uuid" },
+              "queryDigest": { "$ref": "#/$defs/sha256" }
+            }
+          }
+        },
+        "datasets": {
+          "type": "array",
+          "minItems": 2,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/exactVersionRef" }
+        },
+        "widgets": {
+          "type": "array",
+          "minItems": 2,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/exactVersionRef" }
+        },
+        "dashboard": { "$ref": "#/$defs/exactVersionRef" },
+        "bundleDigest": { "$ref": "#/$defs/sha256" },
+        "receiptDigest": { "$ref": "#/$defs/sha256" },
+        "lastVerifiedProjectionDigest": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "workflowStep": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["stage", "eventId", "sequence", "eventType"],
+      "properties": {
+        "stage": {
+          "enum": [
+            "initial_query_selected",
+            "initial_execution_succeeded",
+            "dataset_v1_saved",
+            "contextual_followup_completed",
+            "successor_execution_succeeded",
+            "dataset_v2_saved"
+          ]
+        },
+        "eventId": { "$ref": "#/$defs/uuidV4" },
+        "sequence": { "type": "integer", "minimum": 1 },
+        "eventType": {
+          "enum": ["query_version", "query_execution", "dataset_version", "query_turn"]
+        },
+        "turnId": { "$ref": "#/$defs/uuid" },
+        "baseQueryVersionId": { "$ref": "#/$defs/uuid" },
+        "queryVersionId": { "$ref": "#/$defs/uuid" },
+        "executionId": { "$ref": "#/$defs/uuid" },
+        "dataset": { "$ref": "#/$defs/exactVersionRef" }
+      },
+      "oneOf": [
+        {
+          "required": ["turnId", "queryVersionId"],
+          "properties": {
+            "stage": { "const": "initial_query_selected" },
+            "eventType": { "const": "query_version" }
+          }
+        },
+        {
+          "required": ["queryVersionId", "executionId"],
+          "properties": {
+            "stage": { "const": "initial_execution_succeeded" },
+            "eventType": { "const": "query_execution" }
+          }
+        },
+        {
+          "required": ["queryVersionId", "executionId", "dataset"],
+          "properties": {
+            "stage": { "const": "dataset_v1_saved" },
+            "eventType": { "const": "dataset_version" }
+          }
+        },
+        {
+          "required": ["turnId", "baseQueryVersionId", "queryVersionId"],
+          "properties": {
+            "stage": { "const": "contextual_followup_completed" },
+            "eventType": { "const": "query_turn" }
+          }
+        },
+        {
+          "required": ["queryVersionId", "executionId"],
+          "properties": {
+            "stage": { "const": "successor_execution_succeeded" },
+            "eventType": { "const": "query_execution" }
+          }
+        },
+        {
+          "required": ["queryVersionId", "executionId", "dataset"],
+          "properties": {
+            "stage": { "const": "dataset_v2_saved" },
+            "eventType": { "const": "dataset_version" }
+          }
+        }
+      ]
+    },
+    "orderedWorkflow": {
+      "type": "array",
+      "minItems": 6,
+      "maxItems": 6,
+      "prefixItems": [
+        {
+          "allOf": [
+            { "$ref": "#/$defs/workflowStep" },
+            { "properties": { "stage": { "const": "initial_query_selected" } } }
+          ]
+        },
+        {
+          "allOf": [
+            { "$ref": "#/$defs/workflowStep" },
+            { "properties": { "stage": { "const": "initial_execution_succeeded" } } }
+          ]
+        },
+        {
+          "allOf": [
+            { "$ref": "#/$defs/workflowStep" },
+            { "properties": { "stage": { "const": "dataset_v1_saved" } } }
+          ]
+        },
+        {
+          "allOf": [
+            { "$ref": "#/$defs/workflowStep" },
+            { "properties": { "stage": { "const": "contextual_followup_completed" } } }
+          ]
+        },
+        {
+          "allOf": [
+            { "$ref": "#/$defs/workflowStep" },
+            { "properties": { "stage": { "const": "successor_execution_succeeded" } } }
+          ]
+        },
+        {
+          "allOf": [
+            { "$ref": "#/$defs/workflowStep" },
+            { "properties": { "stage": { "const": "dataset_v2_saved" } } }
+          ]
+        }
+      ],
+      "items": false
+    },
+    "publication": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "publicationId",
+        "bundleId",
+        "assetContentDigest",
+        "bundleDigest",
+        "bundleBytes",
+        "bundle",
+        "currentPointer",
+        "importLatest",
+        "importReceipt",
+        "lastVerifiedProjection",
+        "supersetDashboard"
+      ],
+      "properties": {
+        "publicationId": { "$ref": "#/$defs/uuidV4" },
+        "bundleId": { "$ref": "#/$defs/uuidV5" },
+        "assetContentDigest": { "$ref": "#/$defs/sha256" },
+        "bundleDigest": { "$ref": "#/$defs/sha256" },
+        "bundleBytes": { "type": "integer", "minimum": 1 },
+        "bundle": { "$ref": "#/$defs/evidenceRef" },
+        "currentPointer": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["path", "sha256", "schemaVersion"],
+          "properties": {
+            "path": { "const": "runtime/superset/outbox/current.json" },
+            "sha256": { "$ref": "#/$defs/sha256" },
+            "schemaVersion": { "const": "catalyst.superset.outbox.current.v1" }
+          }
+        },
+        "importLatest": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["path", "sha256", "schemaVersion"],
+          "properties": {
+            "path": { "$ref": "#/$defs/safePath" },
+            "sha256": { "$ref": "#/$defs/sha256" },
+            "schemaVersion": { "const": "catalyst.superset.import-latest.v1" }
+          }
+        },
+        "importReceipt": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["receiptId", "path", "receiptDigest", "schemaVersion", "outcome"],
+          "properties": {
+            "receiptId": { "$ref": "#/$defs/uuidV4" },
+            "path": { "$ref": "#/$defs/safePath" },
+            "receiptDigest": { "$ref": "#/$defs/sha256" },
+            "schemaVersion": { "const": "catalyst.superset.import-receipt.v1" },
+            "outcome": { "const": "imported" }
+          }
+        },
+        "lastVerifiedProjection": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "logicalDashboardId",
+            "generation",
+            "path",
+            "sha256",
+            "schemaVersion"
+          ],
+          "properties": {
+            "logicalDashboardId": { "$ref": "#/$defs/uuidV4" },
+            "generation": { "type": "integer", "minimum": 1 },
+            "path": {
+              "type": "string",
+              "pattern": "^runtime/superset/receipts/last-verified/[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\\.json$"
+            },
+            "sha256": { "$ref": "#/$defs/sha256" },
+            "schemaVersion": { "const": "catalyst.superset.last-verified.v1" }
+          }
+        },
+        "supersetDashboard": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["uuid", "slug", "url"],
+          "properties": {
+            "uuid": { "$ref": "#/$defs/uuidV5" },
+            "slug": {
+              "type": "string",
+              "pattern": "^catalyst-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+            },
+            "url": {
+              "type": "string",
+              "format": "uri",
+              "pattern": "/superset/dashboard/catalyst-[0-9a-f-]+/$"
+            }
+          }
+        }
+      }
+    },
+    "reconciliation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "widget",
+        "verificationSqlDigest",
+        "typedParametersDigest",
+        "expectedResultDigest",
+        "observedResultDigest",
+        "comparedRecordCount",
+        "matched",
+        "inspectedEvidence",
+        "reviewerRationale",
+        "evidence"
+      ],
+      "properties": {
+        "widget": { "$ref": "#/$defs/exactVersionRef" },
+        "verificationSqlDigest": { "$ref": "#/$defs/sha256" },
+        "typedParametersDigest": { "$ref": "#/$defs/sha256" },
+        "expectedResultDigest": { "$ref": "#/$defs/sha256" },
+        "observedResultDigest": { "$ref": "#/$defs/sha256" },
+        "comparedRecordCount": { "type": "integer", "minimum": 1 },
+        "matched": { "const": true },
+        "inspectedEvidence": { "$ref": "#/$defs/evidenceRef" },
+        "reviewerRationale": { "$ref": "#/$defs/evidenceRef" },
+        "evidence": { "$ref": "#/$defs/evidenceRef" }
+      }
+    },
+    "passedCheck": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "evidence"],
+      "properties": {
+        "status": { "const": "passed" },
+        "evidence": { "$ref": "#/$defs/evidenceRef" }
+      }
+    },
+    "scenarioMatrix": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "real_writer_reviewer",
+        "manual_edit_validate_run",
+        "contextual_followup",
+        "save_v1_followup_save_v2_order",
+        "two_heterogeneous_widgets",
+        "same_digest_noop",
+        "changed_child",
+        "layout_only_reuse",
+        "restart_restoration",
+        "precommit_failed_import_preserves_prior",
+        "post_verification_failure_requires_full_reset_recovery",
+        "read_only_write_denial",
+        "all_visualization_families"
+      ],
+      "properties": {
+        "real_writer_reviewer": { "$ref": "#/$defs/passedCheck" },
+        "manual_edit_validate_run": { "$ref": "#/$defs/passedCheck" },
+        "contextual_followup": { "$ref": "#/$defs/passedCheck" },
+        "save_v1_followup_save_v2_order": { "$ref": "#/$defs/passedCheck" },
+        "two_heterogeneous_widgets": { "$ref": "#/$defs/passedCheck" },
+        "same_digest_noop": { "$ref": "#/$defs/passedCheck" },
+        "changed_child": { "$ref": "#/$defs/passedCheck" },
+        "layout_only_reuse": { "$ref": "#/$defs/passedCheck" },
+        "restart_restoration": { "$ref": "#/$defs/passedCheck" },
+        "precommit_failed_import_preserves_prior": { "$ref": "#/$defs/passedCheck" },
+        "post_verification_failure_requires_full_reset_recovery": { "$ref": "#/$defs/passedCheck" },
+        "read_only_write_denial": { "$ref": "#/$defs/passedCheck" },
+        "all_visualization_families": { "$ref": "#/$defs/passedCheck" }
+      }
+    },
+    "accessibility": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "keyboard_traversal",
+        "escape_focus_return",
+        "focus_containment",
+        "status_announcements",
+        "reduced_motion",
+        "desktop",
+        "viewport_390x844",
+        "viewport_320_css_px",
+        "zoom_200_percent",
+        "unobscured_controls",
+        "exactly_one_editor"
+      ],
+      "properties": {
+        "keyboard_traversal": { "$ref": "#/$defs/passedCheck" },
+        "escape_focus_return": { "$ref": "#/$defs/passedCheck" },
+        "focus_containment": { "$ref": "#/$defs/passedCheck" },
+        "status_announcements": { "$ref": "#/$defs/passedCheck" },
+        "reduced_motion": { "$ref": "#/$defs/passedCheck" },
+        "desktop": { "$ref": "#/$defs/passedCheck" },
+        "viewport_390x844": { "$ref": "#/$defs/passedCheck" },
+        "viewport_320_css_px": { "$ref": "#/$defs/passedCheck" },
+        "zoom_200_percent": { "$ref": "#/$defs/passedCheck" },
+        "unobscured_controls": { "$ref": "#/$defs/passedCheck" },
+        "exactly_one_editor": { "$ref": "#/$defs/passedCheck" }
+      }
+    },
+    "ciCheck": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "status", "revision", "url"],
+      "properties": {
+        "name": { "$ref": "#/$defs/nonEmpty" },
+        "status": { "const": "success" },
+        "revision": { "$ref": "#/$defs/gitSha" },
+        "url": { "type": "string", "format": "uri" }
+      }
+    },
+    "pinResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "repository",
+        "expectedCommit",
+        "observedCommit",
+        "remoteReachable",
+        "status"
+      ],
+      "properties": {
+        "repository": { "$ref": "#/$defs/nonEmpty" },
+        "expectedCommit": { "$ref": "#/$defs/gitSha" },
+        "observedCommit": { "$ref": "#/$defs/gitSha" },
+        "remoteReachable": { "const": true },
+        "status": { "const": "passed" }
+      }
+    },
+    "qualityGates": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ciChecks", "repositoryPins", "repositoryLineCheck", "schemaValidation"],
+      "properties": {
+        "ciChecks": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/ciCheck" }
+        },
+        "repositoryPins": {
+          "type": "array",
+          "minItems": 2,
+          "items": { "$ref": "#/$defs/pinResult" }
+        },
+        "repositoryLineCheck": { "$ref": "#/$defs/passedCheck" },
+        "schemaValidation": { "$ref": "#/$defs/passedCheck" }
+      }
+    },
+    "residualRisk": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "disposition", "evidence"],
+      "properties": {
+        "code": { "$ref": "#/$defs/stableCode" },
+        "disposition": { "enum": ["accepted", "mitigated", "deferred"] },
+        "evidence": { "$ref": "#/$defs/evidenceRef" }
+      }
+    },
+    "userAcceptance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["decision", "acceptedAt", "acceptedBy", "evidence"],
+      "properties": {
+        "decision": { "const": "accepted" },
+        "acceptedAt": { "$ref": "#/$defs/utcDateTime" },
+        "acceptedBy": { "$ref": "#/$defs/nonEmpty" },
+        "evidence": { "$ref": "#/$defs/evidenceRef" }
+      }
+    }
+  }
+}

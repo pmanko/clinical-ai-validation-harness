@@ -150,13 +150,12 @@ cross-system reconciliation, model-generated visualization specifications,
 sharing, scheduling, automatic refresh, and production access control remain
 outside this milestone.
 
-The P5 Catalyst report candidate is published at
+The P5 Catalyst report is published at
 [reports.openclinai.org/catalyst-t094-release](https://reports.openclinai.org/catalyst-t094-release/):
 13/13 scenario repetitions and 411/411 deterministic assertions passed, with
-three advisory judge passes retained alongside record-level evidence. It remains
-labelled development evidence until final MS-D acceptance; CVR-G18 hygiene has
-already passed. That PR #43 release decision is evaluation closeout, not a
-Dashboard MVP implementation dependency.
+three advisory judge passes retained alongside record-level evidence. PR #43
+merged green at `136067a`; optional future evaluation expansion is parallel and
+is not a Dashboard MVP implementation dependency.
 
 ```bash
 make catalyst-mvp-fake

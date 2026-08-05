@@ -1,0 +1,160 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://catalyst.local/contracts/catalyst-superset-last-verified-v1.schema.json",
+  "title": "Catalyst Superset last verified Dashboard projection v1",
+  "description": "Atomic per-logical-Dashboard pointer to the exact immutable publication, bundle, receipt, and Superset runtime most recently verified by the importer.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "logicalDashboardId",
+    "generation",
+    "dashboard",
+    "publicationId",
+    "bundleContractVersion",
+    "bundleId",
+    "bundleDigest",
+    "bundle",
+    "importLatest",
+    "importReceipt",
+    "supersetRuntime",
+    "supersetDashboard",
+    "updatedAt",
+    "projectionDigest"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "catalyst.superset.last-verified.v1" },
+    "logicalDashboardId": { "$ref": "#/$defs/uuidV4" },
+    "generation": { "type": "integer", "minimum": 1 },
+    "dashboard": { "$ref": "#/$defs/exactVersionRef" },
+    "publicationId": { "$ref": "#/$defs/uuidV4" },
+    "bundleContractVersion": { "const": "catalyst.superset.bundle.v1" },
+    "bundleId": { "$ref": "#/$defs/uuidV5" },
+    "bundleDigest": { "$ref": "#/$defs/sha256" },
+    "bundle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256", "bytes"],
+      "properties": {
+        "path": {
+          "type": "string",
+          "pattern": "^outbox/[a-f0-9]{64}\\.zip$"
+        },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "bytes": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "importLatest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256", "schemaVersion"],
+      "properties": {
+        "path": {
+          "type": "string",
+          "pattern": "^receipts/latest/[a-f0-9]{64}\\.json$"
+        },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "schemaVersion": { "const": "catalyst.superset.import-latest.v1" }
+      }
+    },
+    "importReceipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "receiptId",
+        "path",
+        "receiptDigest",
+        "schemaVersion",
+        "outcome",
+        "stage"
+      ],
+      "properties": {
+        "receiptId": { "$ref": "#/$defs/uuidV4" },
+        "path": {
+          "type": "string",
+          "pattern": "^receipts/attempts/[a-f0-9]{64}/[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\\.json$"
+        },
+        "receiptDigest": { "$ref": "#/$defs/sha256" },
+        "schemaVersion": { "const": "catalyst.superset.import-receipt.v1" },
+        "outcome": { "const": "imported" },
+        "stage": { "const": "complete" }
+      }
+    },
+    "supersetRuntime": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "imageDigest",
+        "metadataDatabaseImageDigest",
+        "platform",
+        "driverRevision",
+        "importerRevision"
+      ],
+      "properties": {
+        "version": { "const": "6.1.0" },
+        "imageDigest": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "metadataDatabaseImageDigest": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "platform": { "$ref": "#/$defs/nonEmpty" },
+        "driverRevision": { "$ref": "#/$defs/nonEmpty" },
+        "importerRevision": { "$ref": "#/$defs/nonEmpty" }
+      }
+    },
+    "supersetDashboard": { "$ref": "#/$defs/supersetIdentity" },
+    "updatedAt": { "$ref": "#/$defs/utcDateTime" },
+    "projectionDigest": { "$ref": "#/$defs/sha256" }
+  },
+  "$defs": {
+    "nonEmpty": { "type": "string", "minLength": 1, "maxLength": 500 },
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "uuidV4": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+    "uuidV5": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-5[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+    "utcDateTime": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "Z$"
+    },
+    "exactVersionRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "versionId", "configurationDigest"],
+      "properties": {
+        "id": { "$ref": "#/$defs/uuidV4" },
+        "versionId": { "$ref": "#/$defs/uuidV4" },
+        "configurationDigest": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "supersetIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["logicalDashboardId", "uuid", "slug", "url"],
+      "properties": {
+        "logicalDashboardId": { "$ref": "#/$defs/uuidV4" },
+        "uuid": { "$ref": "#/$defs/uuidV5" },
+        "slug": {
+          "type": "string",
+          "pattern": "^catalyst-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "url": {
+          "type": "string",
+          "format": "uri",
+          "pattern": "/superset/dashboard/catalyst-[0-9a-f-]+/$"
+        }
+      }
+    }
+  }
+}

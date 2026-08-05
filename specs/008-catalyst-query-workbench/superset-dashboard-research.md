@@ -1,6 +1,6 @@
 # Superset-backed Dashboard Builder research
 
-**Date:** 2026-08-05  
+**Date:** 2026-08-05
 **Decision status:** Approved architecture; file-export MVP selected
 
 ## Decision
@@ -40,14 +40,24 @@ instance to supply its own secret.
 
 ## Pinned runtime
 
-- Superset: `6.1.0`, the current official release on 2026-08-05.
+- Superset: `6.1.0`, the current official release on 2026-08-05. D1b records an
+  immutable multi-architecture image digest rather than relying on the tag.
 - Deployment: one local Superset application with persistent demo metadata;
   Redis, Celery, reports, thumbnails, and production HA are not required.
 - Analytics: the existing `catalyst_readonly` PostgreSQL role over the selected
   Catalyst analytics source.
-- Import: a one-shot Compose service invokes the pinned Superset CLI. Stack
-  bootstrap loads the selected current bundle; an explicit helper imports or
-  updates a running instance. Manual UI import remains a diagnostic fallback.
+- Import: a one-shot Compose service invokes the pinned Superset CLI.
+  `current.json` is the global desired-publication pointer, not import truth or
+  the recovery target. Bootstrap imports it only when no terminal
+  `import_failed` projection for that desired digest suppresses automatic work;
+  a failed desired bundle changes only through an explicit retry or a new
+  publication. An explicit helper imports or updates a running instance. Manual
+  UI import remains a diagnostic fallback.
+- Runtime ownership: Catalyst owns and gitignores `runtime/superset/`. Importer/
+  state code is standalone Python 3.10 under `targets/catalyst/scripts/`, imports
+  no Catalyst package, and uses only standard-library and pinned-image built-ins.
+  Gateway CI proves its constrained canonical JSON against `rfc8785` and smoke-
+  executes it inside the pinned Superset container.
 
 Superset's Docker Compose documentation explicitly describes Compose as an
 appropriate local/development setup and not a production deployment. Its
@@ -57,24 +67,36 @@ MVP.
 
 ## Bundle contract
 
-The generated ZIP contains:
+Superset 6.1.0 strips the first path component from every ZIP member, so the
+generated ZIP contains one required enclosing root:
 
 ```text
-metadata.yaml
-databases/<stable-name>.yaml
-datasets/<stable-name>.yaml
-charts/<stable-name>.yaml
-dashboards/<stable-name>.yaml
-catalyst/manifest.json
+catalyst_dashboard_<stable-dashboard-uuid>/
+  metadata.yaml
+  databases/<stable-name>.yaml
+  datasets/<stable-name>.yaml
+  charts/<stable-name>.yaml
+  dashboards/<stable-name>.yaml
+  catalyst/manifest.json
 ```
 
 `metadata.yaml` uses Superset's versioned asset format. The Catalyst manifest is
-additional provenance evidence and is ignored by the Superset importer. It
-records the exact session, turn, query version/digest, execution, source/catalog
-version, result schema/digest, dashboard version, stable asset UUIDs, bundle
-contract version, target Superset version, and a digest of the native asset
-members. The host-side `current.json` and export record carry the final ZIP
-digest; the manifest does not attempt a self-referential digest of its own ZIP.
+additional provenance evidence. Pinned 6.1.0 bundle loading accepts only YAML
+members, so the JSON member is ignored by Superset while remaining available to
+Catalyst; a clean import still verifies this behavior. It records the original
+parameterized SQL and ordered typed parameter values plus exact session, turn,
+query version/digest, execution, source/catalog version, bounded-result schema/
+digest/truncation, immutable Dataset/Widget/Dashboard versions and authors/times,
+stable asset UUIDs, bundle contract version, target Superset version, and a
+digest of the native asset members. The host-side current pointer and publication
+record carry the final ZIP digest; the manifest does not attempt a self-
+referential digest of its own ZIP. Its `bundleId` is deterministically derived
+from immutable configuration inputs, while dynamic attempt IDs/times remain
+outside the archive. The pointer identifies desired content only. Per-digest
+`receipts/latest/<bundleDigest>.json` records the latest attempt, while verified
+success atomically advances
+`receipts/last-verified/<logicalDashboardId>.json` under
+`catalyst.superset.last-verified.v1`; neither is inferred from `current.json`.
 
 Bundle serialization is deterministic: the logical Dashboard draft has a stable
 UUID, while Dataset and Widget/chart UUIDs derive from immutable version IDs.
@@ -100,13 +122,16 @@ The supplied design is the UX source of truth:
   bar as the target visualization set;
 - dashboard action is **Publish to Superset**, which atomically writes the
   outbox bundle and also exposes **Download bundle**;
-- **Open Superset** opens the local renderer after the explicit import helper or
-  bootstrap importer runs.
+- **Open Superset** is enabled only when the exact desired digest has a validated
+  `imported` receipt/latest projection; merely running bootstrap/import is not
+  success.
 
 Because there is no Superset API call in this slice, Catalyst says `Draft`,
-`Bundle ready`, `Imported`, or `Import failed`; only a digest-addressed CLI
-receipt can establish the latter two. It never claims `Synced`. Cross-system
-Undo and reconciliation remain deferred.
+`Bundle ready`, `Imported`, or `Import failed`; status requires the immutable
+digest-addressed receipt plus its validated atomic latest projection. Preflight
+and confirmed transaction-rollback failures preserve prior verified state;
+`post_import_verification` with `committed_unverified` does not. It never claims
+`Synced`. Cross-system Undo and reconciliation remain deferred.
 
 ## Alternatives considered
 
@@ -131,8 +156,9 @@ Superset.
 
 - Superset's YAML schemas and chart `params` are version-coupled; the pin and a
   real import/export round trip are mandatory evidence.
-- A generated bundle cannot prove it was imported. Only a receipt from the
-  one-shot CLI importer against the exact digest establishes import status.
+- A generated bundle cannot prove it was imported. Only a validated immutable
+  receipt/latest projection for the exact digest establishes status; successful
+  verification also advances the per-Dashboard last-verified projection.
 - Virtual-dataset execution may expose SQL dialect or driver differences even
   when Catalyst previously executed the source query successfully.
 - Result ordering is not stable without an explicit SQL/order configuration;
@@ -140,12 +166,18 @@ Superset.
 - Superset 6.1.0 overwrites the dashboard but hard-codes `overwrite=False` for
   related database, dataset, and chart assets. The MVP keeps the dashboard UUID
   stable and uses new version-derived child UUIDs on change; orphan cleanup is
-  an explicit local reset, not part of publication.
+  an explicit full reset of Superset-local metadata database/home volumes, not
+  part of publication. The MVP never performs asset-selective deletion or direct
+  Superset ORM/REST recovery mutations.
 - Re-import overwrites the generated dashboard configuration, so Superset-only
   layout edits are ephemeral in this MVP and the UI must say so.
 - The design handoff leaves Undo, non-demo credentials, authorization, unique
   naming, and cache timeout unresolved; none blocks the isolated file-export
   MVP, and none may be represented as solved.
+- The lean `apache/superset:6.1.0` image does not bundle PostgreSQL drivers.
+  D1b first proves and digest-pins `6.1.0-dev` plus its driver identity on arm64
+  and amd64; if unavailable or inconsistent, it builds a lean-derived image with
+  a hash-pinned driver instead of installing packages at runtime.
 
 ## Primary sources
 
@@ -156,4 +188,5 @@ Superset.
 - [Dashboard import contract](https://superset.apache.org/developer-docs/6.1.0/api/dashboard/)
 - [All-assets ZIP export contract](https://superset.apache.org/docs/api/export-all-assets/)
 - [Superset 6.1.0 dashboard importer](https://github.com/apache/superset/blob/6.1.0/superset/commands/dashboard/importers/v1/__init__.py)
+- [Superset 6.1.0 bundle loader](https://github.com/apache/superset/blob/6.1.0/superset/commands/importers/v1/utils.py#L228-L234)
 - [Focused load/reload research and lifecycle decision](superset-load-reload-research.md)
