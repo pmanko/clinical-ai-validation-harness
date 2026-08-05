@@ -87,4 +87,5 @@ Finalization writes `judge.jsonl` and `judge_manifest.json`.
   semantic weakness remains visible rather than being normalized away.
 - Residual risks remain advisory-judge dependence, model-output variance even
   at temperature zero, and dataset-contingent gold matches. The rollback above
-  remains valid. Evidence stays `development` until CVR-G18 and MS-D pass.
+  remains valid. CVR-G18 has passed; evidence stays `development` until final
+  MS-D acceptance.
