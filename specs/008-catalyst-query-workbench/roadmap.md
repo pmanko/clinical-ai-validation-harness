@@ -1778,7 +1778,10 @@ a Catalyst reporting choice. The exporter must never change Dataset SQL or
 serialize a requested compatible chart as a table. T141 owns fixture/import
 proof for the renderer mapping. A bounded Catalyst preview is disclosure about
 the workbench display, not a chart incompatibility: Superset reads the saved
-Dataset SQL rather than the preview rows.
+Dataset SQL rather than the preview rows. To avoid silently collapsing a saved
+table's report dimensions, chart bindings carry every available categorical
+column as a Superset series/grouping dimension; chart-ready SQL remains the
+place to define the intended report grain.
 
 **D1 program exit:** T137–T182 pass and the user accepts D1e. The Superset REST API,
 embedded dashboards, cross-system undo/reconciliation, narrative reporting,

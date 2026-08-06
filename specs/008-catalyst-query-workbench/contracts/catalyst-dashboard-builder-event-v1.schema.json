@@ -290,24 +290,26 @@
     "timeSeriesBindings": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["xColumn", "metricColumn"],
+      "required": ["xColumn", "metricColumn", "seriesColumns"],
       "properties": {
         "xColumn": { "$ref": "#/$defs/columnBinding" },
-        "metricColumn": { "$ref": "#/$defs/columnBinding" }
+        "metricColumn": { "$ref": "#/$defs/columnBinding" },
+        "seriesColumns": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/columnBinding" }
+        }
       }
     },
     "barBindings": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["categoryColumn", "metricColumn", "seriesColumn"],
+      "required": ["categoryColumn", "metricColumn", "seriesColumns"],
       "properties": {
         "categoryColumn": { "$ref": "#/$defs/columnBinding" },
         "metricColumn": { "$ref": "#/$defs/columnBinding" },
-        "seriesColumn": {
-          "oneOf": [
-            { "$ref": "#/$defs/columnBinding" },
-            { "type": "null" }
-          ]
+        "seriesColumns": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/columnBinding" }
         }
       }
     },

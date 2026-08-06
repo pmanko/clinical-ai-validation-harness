@@ -362,11 +362,12 @@ column refs:
   column whose type is numeric; it binds that column as `metricColumn`;
 - time-series line and area require at least one temporal and one numeric
   column; they bind the first temporal `xColumn` and
-  first numeric `metricColumn`;
+  first numeric `metricColumn`, plus every categorical column as ordered
+  `seriesColumns`;
 - grouped and stacked bar require at least one categorical and one numeric
   column; they bind the first categorical
-  `categoryColumn`, the first numeric `metricColumn`, and the second categorical
-  column as nullable `seriesColumn`; and
+  `categoryColumn`, the first numeric `metricColumn`, and remaining categorical
+  columns as ordered `seriesColumns`; and
 - proportion bar requires two categorical columns plus one numeric column so
   its category and series bindings form a meaningful
   100%-stacked bar. It is never suggested and is available only as an explicit
@@ -377,7 +378,9 @@ Widget review selects only a chart type over that table and its derived column
 bindings; it does not ask the user to calculate the table again. Superset's
 native chart configuration contains its renderer-required metric detail, but
 that detail is exported from the saved result schema and is not a Catalyst
-reporting choice. Stable incompatibility codes are
+reporting choice. A chart preserves all available categorical dimensions as
+series/grouping columns, so a chart-ready SQL table remains the way to define
+the report grain. Stable incompatibility codes are
 `requires_one_numeric_cell`, `requires_temporal_numeric`,
 `requires_categorical_numeric`, and `requires_two_categorical_numeric`.
 Localized explanation text is
