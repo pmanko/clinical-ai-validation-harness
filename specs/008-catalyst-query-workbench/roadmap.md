@@ -1551,20 +1551,35 @@ and the complete two-source transition/staleness/execution matrix remains open.
 started
 
 **Current implementation state (corrected 2026-08-06):** The active branches
-contain a reusable backend/import foundation: immutable builder entities,
-deterministic native bundle generation, a pinned local Superset runtime,
-explicit importer and verified receipts, a real Hub-profile execution, and a
-table plus time-series Superset Dashboard whose values reconcile to PostgreSQL
-and restore after restart. This passes the corrected T186 foundation task, but
-the live Catalyst product still mounts the old vertical workbench and appends a
-publishing panel; it does not implement the binding 4c shell, chronology,
-Dataset/Widget/Dashboard panels, or libraries. It is therefore not an M3 user
-validation candidate. `mvp-superset.sh reset`
+now contain a live M3 candidate in the binding 4c shell: one Ask/notebook
+surface, compact chronological turns, one SQL editor, Dataset/Widget/Dashboard
+review and libraries, publication controls, the reusable backend/import
+foundation, and a real Hub-profile workflow through local Superset. One fresh
+Gemma/Qwen session completed manual correction, validation/execution,
+contextual follow-up, successor correction/execution, exact Dataset review, and
+refresh restoration. M3 remains open because the remaining D1d task evidence
+and explicit user acceptance are not complete. `mvp-superset.sh reset`
 intentionally refuses to run until its recovery contract is implemented; the
 five-family, failure/recovery, repetition, accessibility, evidence-emitter, CI,
 and user-acceptance gates remain open. The M0–M4 exits are defined in
 [`dashboard-mvp-delivery-goal.md`](dashboard-mvp-delivery-goal.md). T139–T182
 remain the full D1 hardening backlog; they are not retroactively complete.
+
+**2026-08-06 4c live-notebook checkpoint:** Session
+`4232e4f1-d80f-4040-aaaa-51b256f5c81f` used the Hub-owned
+`catalyst-query-e4b-qwen14b` profile. The first model query omitted the requested
+aggregate even though lint and review passed; a human Query v2 correction
+validated and returned 22 typed rows. Follow-up turn
+`a50a4536-3e2d-4af0-8f25-fdc67a1c80e5` received the exact Query v2 editor
+snapshot, matching validation, execution columns, and 22-row summary. Its
+selected Query v3 added the analyte constraint but dropped the date constraint;
+a human Query v4 restored both and returned six monthly Viral Load rows. The
+notebook, active Query v4, parameters, validation, Run 2 summary, and six-row
+Dataset review restored after refresh. Per-turn generation evidence is now
+hydrated from the selected turn rather than the initial session artifact. Exact
+digests and timings are in
+`evidence/m3-4c-live-notebook-2026-08-06.json`. These semantic failures are W3
+evaluation cases; they do not justify widening the M3 product scope.
 
 **2026-08-06 product-first foundation inventory:** The happy-path contracts
 needed to begin D1d/M3 are present and green, but no broad D1b/D1c task is

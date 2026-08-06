@@ -1092,6 +1092,22 @@ The following items must remain visible until evidence resolves them:
   started, T187 is retired as an umbrella closeout, and T139–T182 close only from
   their own evidence. The binding 4c shell and authoritative design contract now
   require side-by-side browser inspection and user acceptance before M3 can pass.
+- **N78 — syntactically valid SQL can remain semantically incomplete (open,
+  evaluation boundary rather than M3 scope expansion):** in the fresh 4c live
+  run, the writer omitted `COUNT(*)` from a count-by-month instruction and the
+  reviewer approved it. The contextual successor then dropped the inherited
+  date predicate while correctly adding the requested analyte constraint. The
+  exact base SQL and matching execution summary were present in the recorded
+  revision context, so this is model/reviewer fidelity—not missing product
+  context. Preserve the candidates and corrections as W3 cases; M3 continues to
+  support manual correction and must not detour into an unplanned semantic
+  optimizer.
+- **N79 — workbench displayed initial evidence after a follow-up (resolved at
+  Catalyst `50fec1d`):** the notebook timeline already exposed a distinct,
+  inspectable evidence record per turn, but the workbench rendered the session's
+  initial `generationOutcome`. Notebook mode now hides that legacy panel and
+  provides a latest-turn evidence action; earlier turns retain their own evidence
+  actions.
 
 ## Complexity Tracking
 
