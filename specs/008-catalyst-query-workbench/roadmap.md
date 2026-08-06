@@ -1557,8 +1557,10 @@ review and libraries, publication controls, the reusable backend/import
 foundation, and a real Hub-profile workflow through local Superset. One fresh
 Gemma/Qwen session completed manual correction, validation/execution,
 contextual follow-up, successor correction/execution, exact Dataset review, and
-refresh restoration. M3 remains open because the remaining D1d task evidence
-and explicit user acceptance are not complete. `mvp-superset.sh reset`
+refresh restoration. The Dashboard library now hydrates exact importer-owned
+receipt/projection state after refresh and exposes Open Superset only for a
+verified matching Dashboard version. M3 remains open because the remaining D1d
+task evidence and explicit user acceptance are not complete. `mvp-superset.sh reset`
 intentionally refuses to run until its recovery contract is implemented; the
 five-family, failure/recovery, repetition, accessibility, evidence-emitter, CI,
 and user-acceptance gates remain open. The M0–M4 exits are defined in

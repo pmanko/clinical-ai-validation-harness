@@ -4,8 +4,8 @@
   "status": "live_candidate_user_acceptance_open",
   "scope": "Binding 4c shell with real initial generation, manual correction, execution, contextual follow-up, successor correction, execution, per-turn evidence, and refresh restoration",
   "revisions": {
-    "harness": "489958f776a7dec71072859a4ce8fc12d705e4a1",
-    "catalyst": "50fec1dbb31b5cf5142a5beda7a4ae7b3217ad96",
+    "harness": "8443e8f3a58bd2fb6f27aa9c72f8cd0e12ca1ab4",
+    "catalyst": "c9f9b87",
     "medAgentHub": "e6095f520d9b3be53069d7a4fff710c91f18c246"
   },
   "runtime": {
@@ -102,7 +102,20 @@
     "latestTurnEvidenceHydrated": true,
     "datasetReviewShowsExactQueryAndSixTypedRows": true,
     "refreshRestoredQueryV4Run2AndSixRowSummary": true,
+    "workbenchNounNavigation": true,
     "explicitUserAcceptance": false
+  },
+  "publicationAcceptance": {
+    "dashboardId": "2e125fc6-6f3c-4519-9192-9d61cf519300",
+    "dashboardVersionId": "216c2279-4d15-46d8-ac9c-894bc727c779",
+    "dashboardTitle": "Manual MVP verification",
+    "bundleDigest": "39a81b845728bdc49840f9c971873e76912823b00d514a37c8175f8c786d2ff9",
+    "receiptId": "1df37ad1-f984-4461-a7b2-f66d5451adfc",
+    "receiptDigest": "9d3577000105869322782d8d5af2d307d6dd41c3c4727863a05e0ce4542ec4b5",
+    "statusAfterRefresh": "imported",
+    "verifiedSupersetUrl": "http://localhost:18088/superset/dashboard/catalyst-2e125fc6-6f3c-4519-9192-9d61cf519300/",
+    "openLinkRequiresExactProjectionMatch": true,
+    "reseeded": false
   },
   "openIssues": [
     {
@@ -115,11 +128,16 @@
       "status": "resolved",
       "summary": "Notebook evidence is now selected by turn instead of showing the session's initial generation artifact.",
       "resolutionRevision": "50fec1dbb31b5cf5142a5beda7a4ae7b3217ad96"
+    },
+    {
+      "id": "N80",
+      "status": "resolved",
+      "summary": "The Dashboard library now projects importer-owned receipts instead of leaving imported bundles labelled bundle-ready.",
+      "resolutionRevision": "7dccc02"
     }
   ],
   "remainingForM3": [
     "Complete the still-open T150-T154 and T174-T179 acceptance details individually.",
-    "Expose verified import/Open Superset state coherently in the Dashboard library.",
     "Complete desktop, 390x844, 320 CSS-pixel, actual 200-percent zoom, keyboard, focus, and reduced-motion review.",
     "Obtain explicit user acceptance of the live 4c experience."
   ]

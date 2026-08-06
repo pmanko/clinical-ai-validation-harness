@@ -1108,6 +1108,11 @@ The following items must remain visible until evidence resolves them:
   initial `generationOutcome`. Notebook mode now hides that legacy panel and
   provides a latest-turn evidence action; earlier turns retain their own evidence
   actions.
+- **N80 — imported Dashboard remained labelled bundle-ready (resolved at
+  Catalyst `7dccc02`):** importer receipts existed, but Gateway returned only
+  the stored pre-import publication. The Dashboard library now receives a
+  read-only, exact-match projection and offers the verified Superset URL only
+  when bundle, Dashboard version/configuration, and receipt digests agree.
 
 ## Complexity Tracking
 
