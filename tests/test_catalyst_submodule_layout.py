@@ -113,6 +113,8 @@ def test_harness_runner_defaults_to_a_tracked_isolated_compose_override() -> Non
     assert "catalyst-query-gemma-4-12b" not in runner
     assert "restart  Stop then start services while retaining all named volumes" in runner
     assert "restart)" in runner
+    assert "superset-status  Show the published-bundle import state" in runner
+    assert "superset-import) run_catalyst mvp-superset.sh import" in runner
     assert "MVP_FAKE_BACKEND" not in runner
     assert 'require_pinned_clean_target "Catalyst" "targets/catalyst"' in runner
     assert (
@@ -141,6 +143,15 @@ def test_harness_runner_defaults_to_a_tracked_isolated_compose_override() -> Non
             f"{service}"
         ) in rendered
     assert "subnet: 172.20.1.0/24" not in rendered
+
+
+def test_harness_exposes_the_isolated_superset_operator_commands() -> None:
+    makefile = (ROOT / "Makefile").read_text(encoding="utf-8")
+
+    assert "catalyst-superset-status:" in makefile
+    assert "./scripts/catalyst-mvp.sh superset-status" in makefile
+    assert "catalyst-superset-import:" in makefile
+    assert "./scripts/catalyst-mvp.sh superset-import" in makefile
 
 
 def test_catalyst_owns_and_ignores_superset_runtime_state() -> None:

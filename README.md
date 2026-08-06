@@ -185,6 +185,11 @@ make catalyst-mvp-restart
 Use `make catalyst-mvp-seed` only to deliberately reload the fixture and
 `make catalyst-mvp-reset` only to discard the isolated data state.
 
+When a Catalyst dashboard bundle is published, inspect or import it into the
+same isolated Superset instance with `make catalyst-superset-status` and
+`make catalyst-superset-import`. The latter records the exact Catalyst commit
+in its durable local receipt; it does not reload OpenELIS or FHIR data.
+
 The external model URL defaults to `http://host.docker.internal:1234`; override
 `MVP_EXTERNAL_ROUTER_URL` only when the real router is elsewhere. Startup fails
 if the router cannot advertise both configured profile models. Open

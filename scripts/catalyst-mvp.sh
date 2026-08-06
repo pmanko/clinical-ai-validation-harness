@@ -37,7 +37,7 @@ fi
 
 usage() {
   cat <<'EOF'
-Usage: scripts/catalyst-mvp.sh {up|seed|health|boot|restart|down|reset}
+Usage: scripts/catalyst-mvp.sh {up|seed|health|boot|restart|down|reset|superset-status|superset-import}
 
   up       Start the Catalyst services against the external model router without changing persisted data.
   seed     Explicitly reload the pinned synthetic OpenELIS fixture and FHIR mart.
@@ -46,11 +46,13 @@ Usage: scripts/catalyst-mvp.sh {up|seed|health|boot|restart|down|reset}
   restart  Stop then start services while retaining all named volumes; does not seed.
   down     Stop the disposable MVP services while retaining all named volumes.
   reset    Remove the disposable MVP state and volumes.
+  superset-status  Show the published-bundle import state for this isolated stack.
+  superset-import  Import the current published Catalyst bundle into this isolated Superset.
 EOF
 }
 
 command_name="${1:-}"
-if [[ $# -ne 1 ]] || [[ ! "${command_name}" =~ ^(up|seed|health|boot|restart|down|reset)$ ]]; then
+if [[ $# -ne 1 ]] || [[ ! "${command_name}" =~ ^(up|seed|health|boot|restart|down|reset|superset-status|superset-import)$ ]]; then
   usage >&2
   exit 2
 fi
@@ -114,4 +116,6 @@ case "${command_name}" in
     ;;
   down) run_catalyst mvp-down.sh ;;
   reset) run_catalyst mvp-reset.sh ;;
+  superset-status) run_catalyst mvp-superset.sh status ;;
+  superset-import) run_catalyst mvp-superset.sh import ;;
 esac

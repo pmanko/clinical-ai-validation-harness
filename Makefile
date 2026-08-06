@@ -70,6 +70,12 @@ catalyst-mvp-down:
 catalyst-mvp-reset:
 	./scripts/catalyst-mvp.sh reset
 
+catalyst-superset-status:
+	./scripts/catalyst-mvp.sh superset-status
+
+catalyst-superset-import:
+	./scripts/catalyst-mvp.sh superset-import
+
 # --- CIEL baseline ---
 CIEL_VERSION ?= v2026-04-28
 
