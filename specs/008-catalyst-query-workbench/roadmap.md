@@ -1906,6 +1906,47 @@ The failure/recovery and visualization-family repetitions, durable screenshot/
 video and accessibility matrix, schema-backed acceptance artifacts, CI review,
 and explicit user acceptance are not inferred from this M3 pass.
 
+### M3 D1d focused implementation checkpoint — AUTOMATED PASS; LIVE ACCEPTANCE OPEN (2026-08-06)
+
+The focused Dataset, Widget/Dashboard, and publication slices now implement the
+pending T175/T152, T176/T177, and T178/T153 behavior. Dataset review is bound to
+the exact successful execution rather than the latest execution of any status;
+it shows the matching Query version, bounded typed rows with paging, typed
+parameters, validation findings, database diagnostic, profile/model/trace and
+catalog provenance, and read-only SQL. Saved Dataset library rows hydrate their
+recorded source workbench session through the existing session API, so refresh
+and cross-session review do not silently lose execution evidence.
+
+Widget review derives the same five-family compatibility rules enforced by the
+Gateway, presents only compatible choices, explains incompatible choices, and
+shows the derived binding while preserving an explicit compatible override.
+Dashboard composition retains user append order and surfaces the existing
+source/catalog rejection. Publication now treats `Bundle ready` separately from
+`Imported`, requires receipt ID, receipt digest, and verified Dashboard URL
+before showing Imported/Open Superset, retains failure codes, and distinguishes
+same-bundle retry guidance from the bounded
+`full_reset_then_reimport_last_verified_bundle` operator recovery. The Gateway's
+older recovery tokens and zero-row Big Number suggestion were aligned with the
+accepted contract.
+
+Validation passed: Catalyst UI lint and typecheck; 143 Vitest tests; the focused
+Gateway Dashboard Builder suite (8 tests); and the deterministic Playwright
+flow at desktop, 390×844, 320 CSS pixels, and the 640-CSS-pixel 200%-equivalent
+reflow. Live inspection of the rebuilt, volume-preserving isolated stack at
+`http://localhost:13000/` confirmed exact current-run Dataset evidence,
+cross-session saved-Dataset hydration, compatible Widget choices/bindings, and
+receipt-gated Imported/Open state. No seed, reset, fake router, or model call was
+used for this checkpoint.
+
+This is not T154 acceptance. The six focused task boxes remain open for the
+explicit closure checkpoint, and T179/T154 still require actual 200% browser
+zoom, durable D1d screenshots/video/acceptance evidence, and user acceptance. M4 has not
+started. The client currently mirrors the Gateway's deterministic presentation
+compatibility calculation because the lightweight M3 API has no pre-save
+suggestion endpoint; the Gateway remains authoritative at save time, and D1c
+owns elimination of that bounded duplication if its hardened endpoint is
+implemented.
+
 ### Supporting routing-surface corrective — PASSED (does not start M4; 2026-08-06)
 
 The supported product path is now singular. Catalyst Gateway no longer imports

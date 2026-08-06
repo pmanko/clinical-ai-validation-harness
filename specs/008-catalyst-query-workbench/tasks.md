@@ -287,6 +287,15 @@ sequence is D1d → user acceptance → D1b/D1c/D1e hardening.
 - [ ] T179 [US7] Add the red Playwright keyboard/reflow/accessibility matrix for empty/populated Ask, every panel/library, focus containment/return, announcements, reduced motion, 390×844, 320 CSS px, and actual 200% zoom in the consolidated `targets/catalyst/catalyst-ui/e2e/query-to-table.spec.ts`
 - [ ] T154 [US7] Pass D1d component/API/E2E and visual-accessibility review for empty/populated Ask, all review panels, and all libraries at desktop, 390×844, 320 CSS px, and actual 200% zoom; prove keyboard order, Escape/focus return, panel focus containment, status announcements, reduced motion, unobscured editor/composer, exact one-editor behavior, and no loss from the accepted Ask matrix; record `artifacts/catalyst-dashboard/<run-id>/d1d/`, update `specs/008-catalyst-query-workbench/roadmap.md`, and pause for user UX acceptance
 
+Implementation note (2026-08-06): the focused T175/T152, T176/T177, and
+T178/T153 component/API behavior is implemented and its automated tests pass.
+The T179 automated matrix also passes for empty/populated state, every
+panel/library, announcements, focus containment/return, reduced motion,
+desktop, 390×844, 320 CSS pixels, and the 640-CSS-pixel reflow equivalent.
+These tasks remain open at the live checkpoint: actual 200% browser zoom,
+durable D1d screenshot/video/acceptance evidence, and explicit user acceptance are not inferred from the
+automated pass.
+
 ### D1b — pinned Superset runtime and import foundation
 
 - [ ] T139 [US7] Add red stack tests for Superset application/driver identity, metadata initialization, localhost health, volume persistence, and restart retention in `targets/catalyst/tests/analytics/test_mvp_assembly.py` and `tests/test_catalyst_submodule_layout.py`

@@ -1,0 +1,99 @@
+{
+  "recordedAt": "2026-08-06T22:43:00Z",
+  "schemaVersion": "catalyst.dashboard-m3-d1d-focused-implementation.v1",
+  "status": "automated_pass_live_acceptance_open",
+  "scope": "Focused D1d Dataset, Widget/Dashboard, publication, and accessibility implementation checkpoint",
+  "revisions": {
+    "baseHarness": "2497ff9b7105ec962fe506988fffa5d1761f8bf0",
+    "catalyst": "2f5ec7a1e067436afce51aaf9e9dd5eb7c578fc2",
+    "medAgentHub": "e6095f520d9b3be53069d7a4fff710c91f18c246"
+  },
+  "runtime": {
+    "url": "http://localhost:13000/?dataSource=openelis",
+    "stack": "catalyst-mvp-isolated",
+    "gatewayHealthy": true,
+    "uiHealthy": true,
+    "analyticsDatabaseHealthy": true,
+    "medAgentHubHealthy": true,
+    "supersetHealthy": true,
+    "volumesRemoved": false,
+    "seeded": false,
+    "modelInvocations": 0,
+    "fakeRouterUsed": false
+  },
+  "automatedValidation": [
+    {
+      "command": "npm run lint",
+      "status": "passed"
+    },
+    {
+      "command": "npm run typecheck",
+      "status": "passed"
+    },
+    {
+      "command": "npm test -- --run",
+      "status": "passed",
+      "testFiles": 11,
+      "tests": 143
+    },
+    {
+      "command": "env PYTHONPATH=. .venv/bin/ruff check src/catalyst/dashboard_builder.py tests/test_dashboard_builder.py",
+      "status": "passed"
+    },
+    {
+      "command": "env PYTHONPATH=. .venv/bin/pytest -q tests/test_dashboard_builder.py",
+      "status": "passed",
+      "tests": 8,
+      "warnings": [
+        "Pytest cache writes were denied by the worktree sandbox; test behavior was unaffected."
+      ]
+    },
+    {
+      "command": "npm run test:e2e -- --project=deterministic",
+      "status": "passed",
+      "tests": 1,
+      "guardedProjectsSkipped": 3,
+      "coveredViewports": [
+        "desktop",
+        "390x844",
+        "320 CSS px",
+        "640 CSS px reflow equivalent to 200% at a 1280 CSS px viewport"
+      ]
+    }
+  ],
+  "liveInspection": {
+    "dataset": [
+      "Current review was bound to the exact successful Query version and execution rather than a later failed execution.",
+      "Typed rows, paging, parameters, findings, diagnostics, SQL, models, trace, and catalog provenance were inspectable.",
+      "A saved Dataset from an older Workbench session hydrated its recorded source session and displayed complete execution evidence.",
+      "The exact execution SQL and parameters prevented the active editor from falsely marking an older saved Dataset stale."
+    ],
+    "widget": [
+      "Compatible presentation choices and incompatible explanations were visible.",
+      "The derived time, metric, and grouping binding was visible before save.",
+      "Big Number was not offered for a multi-row Dataset; zero-row numeric shapes now deterministically suggest table."
+    ],
+    "dashboardAndPublication": [
+      "Dashboard composition preserves user append order and exposes source/catalog mismatch errors.",
+      "Bundle-ready and Imported states are distinct.",
+      "Open Superset is shown only when the exact receipt ID, receipt digest, Dashboard URL, bundle, and configuration agree.",
+      "Failure diagnostics distinguish same-bundle retry from full Superset-local reset and last-verified reimport guidance."
+    ]
+  },
+  "openAcceptance": [
+    "Actual browser zoom at 200% remains a manual check; the automated 640-CSS-pixel viewport is equivalent reflow evidence, not a substitute.",
+    "Durable D1d screenshot/video capture remains open.",
+    "Explicit user acceptance remains open.",
+    "T175/T152, T176/T177, T178/T153, T179, and T154 remain unchecked until the live closure checkpoint."
+  ],
+  "nondeterminismAndInconsistencies": [
+    "N75 remains open: catalog-column advisory lint can miss a model-generated nonexistent column.",
+    "N78 remains open: syntactically valid SQL can be semantically incomplete; preserve these cases for W3 rather than adding an M3 semantic optimizer.",
+    "N81 is bounded for M3: the client mirrors deterministic Widget compatibility for pre-save explanation because no pre-save suggestion endpoint exists; Gateway save validation remains authoritative and T169-T170 own consolidation in D1c."
+  ],
+  "milestone": {
+    "m3": "in_progress",
+    "m4": "not_started",
+    "reason": "Actual 200% zoom, durable visual evidence, focused task closure, and explicit user acceptance remain open."
+  }
+}

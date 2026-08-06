@@ -1122,6 +1122,14 @@ The following items must remain visible until evidence resolves them:
   the stored pre-import publication. The Dashboard library now receives a
   read-only, exact-match projection and offers the verified Superset URL only
   when bundle, Dashboard version/configuration, and receipt digests agree.
+- **N81 — Widget compatibility is mirrored in the D1d client (bounded for M3;
+  eliminate in D1c):** the Gateway is authoritative when a Widget is saved,
+  but the D1d review panel currently mirrors the five-family compatibility and
+  default-suggestion rules so it can explain choices before save. There is no
+  pre-save suggestion endpoint in the current contract. Keep this duplication
+  bounded and covered by UI/Gateway tests for M3; T169–T170 own consolidating
+  the rules behind the deterministic Gateway compatibility contract during
+  D1c rather than expanding D1d with a new API.
 
 ## Complexity Tracking
 
