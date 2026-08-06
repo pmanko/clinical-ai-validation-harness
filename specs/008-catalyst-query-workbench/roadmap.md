@@ -1757,6 +1757,25 @@ is table-only. It does not pass D1b, start D1c/D1d, or claim multi-widget
 visualization mappings, PostgreSQL reconciliation for each widget, recovery,
 repetition, or accessibility evidence.
 
+### M3 native-chart mapping boundary (2026-08-06)
+
+N65 is now a concrete pinned-runtime finding, not a theoretical concern. A
+read-only `ChartDataCommand` check against the imported Catalyst virtual
+dataset used `echarts_timeseries_line` with a raw SQL-expression metric for
+`result_value` and `observed_at` as its x-axis. Superset generated a query that
+selected `result_value` while grouping by `observed_at`; PostgreSQL correctly
+rejected it because the value was neither grouped nor aggregated. The pinned
+Superset chart helper defaults an unspecified metric aggregation to `SUM`.
+
+The accepted Dashboard Builder contract instead requires every non-table
+binding to carry `aggregation: "none"` and treats any required renderer
+aggregation as schema drift. Therefore the current exporter must remain
+table-only; it must not advertise or silently serialize KPI, line/area, bar, or
+proportion widgets as tables. Completing the multi-widget M3 path requires an
+explicit product/contract decision between a narrowly defined, tested
+roll-up/aggregation rule and a renderer that can consume raw chart values. T141
+remains the owning clean-import/mapping task and is blocked on that decision.
+
 **D1 program exit:** T137–T182 pass and the user accepts D1e. The Superset REST API,
 embedded dashboards, cross-system undo/reconciliation, narrative reporting,
 sharing, scheduling, automatic refresh, and production authorization remain
