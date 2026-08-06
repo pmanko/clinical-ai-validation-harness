@@ -392,7 +392,7 @@ fi
 
 java_m2_contracts_ok=0
 if [[ $hub_m1_suite_ok -eq 1 ]] && command -v mvn >/dev/null 2>&1; then
-  if "$ROOT/scripts/test-chartsearchai.sh" >/tmp/hub-m2-java-contracts.log 2>&1; then
+  if "$ROOT/scripts/openmrs-source-pair-test.sh" >/tmp/hub-m2-java-contracts.log 2>&1; then
     java_m2_contracts_ok=1
   fi
 fi

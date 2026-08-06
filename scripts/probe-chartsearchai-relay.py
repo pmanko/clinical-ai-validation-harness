@@ -499,6 +499,26 @@ def _stream_turn(
     querystore_reference_count = sum(
         reference.get("source") == "querystore" for reference in references
     )
+    resolved_reference_sources = sorted(
+        {
+            str(reference.get("source"))
+            for reference in references
+            if str(reference.get("source") or "").strip()
+            and reference.get("resolutionStatus") == "resolved"
+        }
+    )
+    resolved_used_reference_sources = sorted(
+        {
+            str(reference.get("source"))
+            for reference in references
+            if str(reference.get("source") or "").strip()
+            and reference.get("resolutionStatus") == "resolved"
+            and any(
+                isinstance(usage, dict) and str(usage.get("location") or "").strip()
+                for usage in (reference.get("usage") or [])
+            )
+        }
+    )
     verified_used_reference_sources = sorted(
         {
             str(reference.get("source"))
@@ -538,6 +558,8 @@ def _stream_turn(
         "final_safety_warning_count": len(final.get("safetyWarnings") or []),
         "final_reference_count": len(references),
         "reference_sources": reference_sources,
+        "resolved_reference_sources": resolved_reference_sources,
+        "resolved_used_reference_sources": resolved_used_reference_sources,
         "verified_used_reference_sources": verified_used_reference_sources,
         "querystore_reference_count": querystore_reference_count,
         "final_in_depth": in_depth,
@@ -600,6 +622,15 @@ def discover_default_profile(
     return str(defaults[0]["id"])
 
 
+def _reference_source_proof(
+    streamed: dict[str, Any],
+) -> tuple[str, list[str]]:
+    validation = streamed.get("final_answer_validation") or {}
+    if validation.get("status") == "needs_review":
+        return "resolved and used", streamed.get("resolved_used_reference_sources") or []
+    return "resolved, verified", streamed.get("verified_used_reference_sources") or []
+
+
 def probe_relay(
     openmrs_url: str,
     *,
@@ -639,10 +670,10 @@ def probe_relay(
     )
     if streamed["session"] != session:
         raise RuntimeError("fresh session and streamed turn returned different session ids")
-    verified_sources = streamed.get("verified_used_reference_sources") or []
-    if expected_reference_source not in verified_sources:
+    proof_label, proven_sources = _reference_source_proof(streamed)
+    if expected_reference_source not in proven_sources:
         raise RuntimeError(
-            "relay proof did not use a resolved, verified expected reference source: "
+            f"relay proof did not use a {proof_label} expected reference source: "
             f"{expected_reference_source}"
         )
     if (
@@ -722,6 +753,7 @@ def probe_relay(
         "safety_warning_count": streamed["final_safety_warning_count"],
         "reference_count": streamed["final_reference_count"],
         "reference_sources": streamed["reference_sources"],
+        "resolved_reference_sources": streamed["resolved_reference_sources"],
         "verified_used_reference_sources": streamed[
             "verified_used_reference_sources"
         ],

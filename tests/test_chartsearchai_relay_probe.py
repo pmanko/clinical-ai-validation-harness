@@ -173,6 +173,7 @@ def test_probe_correlates_fast_stream_by_message_and_persistence_by_audit_row(mo
     assert result["safety_warning_count"] == 1
     assert result["reference_count"] == 1
     assert result["reference_sources"] == ["querystore"]
+    assert result["resolved_reference_sources"] == ["querystore"]
     assert result["verified_used_reference_sources"] == ["querystore"]
     assert result["expected_reference_source"] == "querystore"
     assert result["expected_safety_status"] is None
@@ -403,6 +404,46 @@ def test_probe_can_require_drug_safety_evidence(monkeypatch):
         )
 
 
+def test_needs_review_source_proof_requires_resolved_usage_not_verification():
+    label, sources = probe._reference_source_proof(
+        {
+            "final_answer_validation": {"status": "needs_review"},
+            "resolved_reference_sources": ["querystore"],
+            "resolved_used_reference_sources": ["querystore"],
+            "verified_used_reference_sources": [],
+        }
+    )
+
+    assert label == "resolved and used"
+    assert sources == ["querystore"]
+
+
+def test_needs_review_source_proof_rejects_resolved_but_unused_reference():
+    label, sources = probe._reference_source_proof(
+        {
+            "final_answer_validation": {"status": "needs_review"},
+            "resolved_reference_sources": ["querystore"],
+            "resolved_used_reference_sources": [],
+        }
+    )
+
+    assert label == "resolved and used"
+    assert sources == []
+
+
+def test_checked_source_proof_requires_verified_usage():
+    label, sources = probe._reference_source_proof(
+        {
+            "final_answer_validation": {"status": "checked"},
+            "resolved_reference_sources": ["querystore"],
+            "verified_used_reference_sources": [],
+        }
+    )
+
+    assert label == "resolved, verified"
+    assert sources == []
+
+
 @pytest.mark.parametrize(
     ("streamed", "kwargs", "message"),
     [
@@ -568,6 +609,7 @@ def test_probe_rejects_clear_after_session_for_the_wrong_provider(monkeypatch):
             "final_safety_warning_count": 0,
             "final_reference_count": 1,
             "reference_sources": ["querystore"],
+            "resolved_reference_sources": ["querystore"],
             "verified_used_reference_sources": ["querystore"],
             "querystore_reference_count": 1,
             "final_in_depth": {"status": "complete", "answer": "Detail [1]."},

@@ -231,7 +231,8 @@ def test_architecture_gates_use_the_reactor_valid_java_lifecycle():
         encoding="utf-8"
     )
 
-    assert '"$ROOT/scripts/test-chartsearchai.sh"' in consolidation
+    assert '"$ROOT/scripts/openmrs-source-pair-test.sh"' in consolidation
+    assert '"$ROOT/scripts/test-chartsearchai.sh"' not in consolidation
     assert "-Dtest=ChatServiceHubWireTest,ChartSearchAiStreamingTest" not in consolidation
     assert 'exec "${ROOT}/scripts/verify-hub-consolidation-gates.sh" "$@"' in stage
     assert "mvn" not in stage

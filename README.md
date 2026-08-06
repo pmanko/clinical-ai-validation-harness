@@ -262,6 +262,9 @@ make local-stack-up                  # fast resume: no builds; waits for the exi
 make local-stack-down                # stop Compose + its managed router; keep named volumes
 make openmrs-source-pair-build        # build/stage current Querystore, then ChartSearchAI
 make openmrs-source-pair-test         # install pinned Querystore, then test/build pinned ChartSearchAI
+./scripts/test-querystore.sh mysql-integration  # real MySQL completeness/read-path contract
+./scripts/test-chartsearchai-esm.sh   # frontend tests, typecheck, lint, and production build
+./scripts/verify-dual-provider-parity-gates.sh --phase full  # source suites plus exact-head evidence
 make llama-router-models             # inspect raw models behind the hub
 make chartsearch-build               # same ordered pair build; ChartSearchAI depends on current Querystore API
 make med-agent-hub-up                # (re)start the hub on its own
@@ -329,6 +332,8 @@ Use an environment variable to override the location:
 export HARNESS_TARGET_CHARTSEARCHAI=/path/to/openmrs-module-chartsearchai
 ```
 
-The `querystore` source repository is also expected as a sibling checkout (`../openmrs-module-querystore`) or via `HARNESS_TARGET_QUERYSTORE`.
+The QueryStore source used by builds and validation is the pinned submodule at
+`targets/querystore`. Initialize submodules before running the OpenMRS build targets; do not
+substitute an unrelated sibling checkout for the tested pin.
 
 For OpenELIS feasibility analysis (feature 002, sub-phase M2-H), the OpenELIS Global 2 repository is read from a sibling checkout (`../OpenELIS-Global-2`) or via `OPENELIS_ROOT=/path/to/OpenELIS-Global-2`.
