@@ -1,10 +1,10 @@
 {
   "contractVersion": "catalyst.dashboard-builder.m3-4c-live-notebook.v1",
-  "observedAt": "2026-08-06T21:42:23Z",
-  "status": "live_candidate_user_acceptance_open",
+  "observedAt": "2026-08-06T22:03:00Z",
+  "status": "live_implementation_user_acceptance_open",
   "scope": "Binding 4c shell with real initial generation, manual correction, execution, contextual follow-up, successor correction, execution, per-turn evidence, and refresh restoration",
   "revisions": {
-    "harness": "1e1bad5aff88cdfd28e493c0c95f5f9cdd9fef1b",
+    "harness": "43818b18510fc7ee83df18a4088fc12db0a8d432",
     "catalyst": "0be01ad8671ef628f2b1c8f3b28c76b408aa8c4c",
     "medAgentHub": "e6095f520d9b3be53069d7a4fff710c91f18c246"
   },
@@ -107,6 +107,7 @@
     "reviewDialogFocusContained": true,
     "escapeRestoresReviewTriggerFocus": true,
     "desktopNavigationCollapse": true,
+    "d1dTaskPathsReconciled": true,
     "desktopViewport": "1280x720",
     "compactViewport": "390x844",
     "narrowViewport": "320x720",
@@ -194,12 +195,12 @@
     },
     {
       "id": "N81",
-      "status": "open_task_alignment",
-      "summary": "D1d tasks name three component files and dashboard-builder.spec.ts that do not exist; the current implementation and coverage are intentionally consolidated in DashboardPublishPanel and query-to-table.spec.ts. Task path/status remediation awaits explicit approval and must not create duplicate product architecture."
+      "status": "resolved",
+      "summary": "D1d task paths now name the intentionally consolidated DashboardPublishPanel and query-to-table.spec.ts implementation without creating duplicate product architecture; T150/T174/T151 closed from their own evidence while the remaining D1d task pairs stay open."
     }
   ],
   "remainingForM3": [
-    "Reconcile T150-T154/T174-T179 paths and statuses to the consolidated implementation after explicit approval.",
+    "Complete the remaining T175/T152, T176/T177, T178/T153, and T179/T154 checks from their own evidence.",
     "Complete actual 200-percent browser zoom and final side-by-side visual review; deterministic 640-CSS-pixel equivalent reflow already passes.",
     "Obtain explicit user acceptance of the live 4c experience."
   ]

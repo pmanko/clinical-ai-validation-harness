@@ -180,10 +180,11 @@ their product, hardening, accessibility, or acceptance requirements.
 
 As of 2026-08-06, the binding 4c product surface and deterministic browser flow
 are implemented and live through imported-state refresh. The remaining M3 gate
-is deliberately narrow: actual 200% browser zoom, reconciliation of the obsolete
-D1d task file paths/statuses to the consolidated implementation, and explicit
-user UX acceptance. Those items do not authorize M4 recovery/evidence-emitter
-work or a parallel UI architecture.
+is deliberately narrow: the still-open Dataset, Widget/Dashboard, publication,
+and accessibility task pairs; actual 200% browser zoom; and explicit user UX
+acceptance. The obsolete D1d file paths and completed shell-task statuses have
+been reconciled to the consolidated implementation. These remaining items do
+not authorize M4 recovery/evidence-emitter work or a parallel UI architecture.
 
 Supporting corrective work removed the obsolete Gateway A2A chat relay and all
 dead `CATALYST_ROUTER_URL` wiring from supported Compose configurations.
@@ -197,7 +198,7 @@ a second manual product path. Supported local operation is exclusively Gateway
 | --- | --- | --- | --- |
 | **D1a — grounded contracts** | Current-main feature branches and the accepted workbench baseline | T137, T158–T159, T138; exact API/pointer/receipt/acceptance schemas; preimplementation PCCP; deterministic identity/layout/result/source-catalog decisions; N64–N74 register; SpecKit rerun with zero unresolved CRITICAL/HIGH findings; explicit user acceptance | Pause after presenting the bounded plan/evidence; product code starts only after the user accepts D1a |
 | **D1 foundation inventory** | D1a passed and T186 evidence available | Audit existing T139–T149 and T160–T173 code/tests against their exact acceptance text. Credit only directly proven behavior; retain every unproven hardening item for M4. A green happy-path API/import contract is sufficient to start the product surface. | Stop only on API/lineage drift that prevents the real Ask → Dataset → Widget → Dashboard → Publish path; do not detour into exhaustive release hardening before UX |
-| **D1d / M3 — integrated product UX** | Foundation inventory confirms the happy-path contracts used by the UI | T150–T154 and T174–T179; accepted Ask characterization remains green with one editor; binding 4c shell, fixed composer, chronology, Available data, Dataset/Widget/Dashboard panels and libraries, publication controls, refresh/staleness, and browser comparison | Pause for user UX acceptance. M3 cannot pass while any required D1d task is open |
+| **D1d / M3 — integrated product UX** | Foundation inventory confirms the happy-path contracts used by the UI | T150/T174/T151 complete; finish T175/T152, T176/T177, T178/T153, and T179/T154 while preserving the accepted Ask characterization, one editor, binding 4c shell, fixed composer, chronology, Available data, Dataset/Widget/Dashboard panels and libraries, publication controls, refresh/staleness, and browser comparison | Pause for user UX acceptance. M3 cannot pass while any required D1d task is open |
 | **D1e / M4 — release hardening and deployed acceptance** | User accepts D1d/M3 | Finish every still-open T139–T182 item individually, including evidence emitter, real writer/reviewer path, changed/restart/failure matrices, accessibility/video, PostgreSQL reconciliation, green CI, and final user acceptance | D1 remains open until the complete dashboard and evidence are inspected and accepted |
 
 Three surfaces have distinct names throughout D1: **Available data** is the
@@ -1091,14 +1092,15 @@ The following items must remain visible until evidence resolves them:
   wait for healthy `analytics-db` and `superset` services before launching the
   one-shot importer with `--no-deps`. This preserves the same importer and
   receipt contracts while making the manual path predictable.
-- **N77 — Dashboard milestone and product-surface drift (resolved in planning;
-  verify at D1d/M3)**: T186 backend/import evidence was incorrectly described as
-  the actual Dashboard Builder and used to mark M3 passed while every D1d UX task
-  remained open. The live product still mounted the old vertical workbench with
-  an appended publishing panel. M3 is restored to in progress, M4 has not
-  started, T187 is retired as an umbrella closeout, and T139–T182 close only from
-  their own evidence. The binding 4c shell and authoritative design contract now
-  require side-by-side browser inspection and user acceptance before M3 can pass.
+- **N77 — Dashboard milestone and product-surface drift (resolved in planning
+  and implementation; verify final D1d/M3 acceptance)**: T186 backend/import
+  evidence was incorrectly described as the actual Dashboard Builder and used
+  to mark M3 passed while every D1d UX task remained open. M3 was restored to in
+  progress, M4 has not started, T187 is retired as an umbrella closeout, and
+  T139–T182 close only from their own evidence. The binding 4c shell is now live
+  and T150/T174/T151 are complete; the remaining D1d task pairs, actual 200%
+  browser zoom, side-by-side inspection, and explicit user acceptance still
+  block M3 completion.
 - **N78 — syntactically valid SQL can remain semantically incomplete (open,
   evaluation boundary rather than M3 scope expansion):** in the fresh 4c live
   run, the writer omitted `COUNT(*)` from a count-by-month instruction and the

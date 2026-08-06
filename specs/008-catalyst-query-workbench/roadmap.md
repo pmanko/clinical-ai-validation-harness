@@ -1,6 +1,6 @@
 # Catalyst Query Workbench Roadmap
 
-## Current architecture and PR topology (2026-08-05)
+## Current architecture and PR topology (2026-08-06)
 
 **Status:** The accepted manual workbench MVP is merged on all three repository
 lines. Harness [#37](https://github.com/pmanko/clinical-ai-validation-harness/pull/37)
@@ -9,15 +9,18 @@ squash-merged as `776a363`; it pins Catalyst
 Med-Agent Hub [#15](https://github.com/pmanko/med-agent-hub/pull/15) at
 `092b5cd`. Catalyst #4, Hub #14, harness #41, and Catalyst #6 are closed,
 unmerged, and superseded; references to earlier PR heads below are historical
-evidence only.
+evidence only. The active Dashboard Builder branches are harness
+`codex/dashboard-builder-mvp` and Catalyst
+`codex/dashboard-builder-mvp-design`. The live M3 runtime checkpoint used
+harness `43818b1`, Catalyst `0be01ad`, and the pinned Hub `e6095f5`; later
+documentation-only commits do not rewrite that runtime evidence.
 
 Catalyst Gateway owns governed-query context, writer/reviewer composition,
 deterministic SQL lint/repair/finalization, execution, lineage, and query
 evidence. Med-Agent Hub now uses one workflow-typed profile schema for hosted
 clinical and caller-orchestrated Catalyst workflows. Its Hub-owned Catalyst
 profile contains role models, prompts, and knobs and exposes named-role
-execution; Gateway cannot override those settings. The current component PR
-heads are Catalyst `93d74d9` and Hub `e6095f5`; the M2 live runtime used
+execution; Gateway cannot override those settings. The M2 live runtime used
 Catalyst `240e49b` before its documentation successor and the later one-line
 standalone Hub fallback-pin synchronization. The evidence was recorded at
 umbrella pin `cd04265`; subsequent umbrella commits change documentation and
@@ -1551,7 +1554,7 @@ and the complete two-source transition/staleness/execution matrix remains open.
 started
 
 **Current implementation state (corrected 2026-08-06):** The active branches
-now contain a live M3 candidate in the binding 4c shell: one Ask/notebook
+now contain a live M3 implementation in the binding 4c shell: one Ask/notebook
 surface, compact chronological turns, one SQL editor, Dataset/Widget/Dashboard
 review and libraries, publication controls, the reusable backend/import
 foundation, and a real Hub-profile workflow through local Superset. One fresh
@@ -1562,9 +1565,10 @@ receipt/projection state after refresh and exposes Open Superset only for a
 verified matching Dashboard version. The deterministic 4c browser flow now
 covers the complete Workbench to Dataset to Widget to Dashboard to Publish path,
 stale-result retention, imported-state refresh, keyboard/focus behavior,
-navigation collapse, reduced motion, and 390/320/640 CSS-pixel reflow. M3
-remains open because actual 200% browser zoom, D1d task-path/status
-reconciliation, and explicit user acceptance are not complete. `mvp-superset.sh reset`
+navigation collapse, reduced motion, and 390/320/640 CSS-pixel reflow. The
+accepted Ask characterization and 4c shell tasks T150/T174/T151 are complete;
+the remaining Dataset/Widget/publication D1d checks, actual 200% browser zoom,
+and explicit user acceptance remain open. `mvp-superset.sh reset`
 intentionally refuses to run until its recovery contract is implemented; the
 five-family, failure/recovery, repetition, accessibility, evidence-emitter, CI,
 and user-acceptance gates remain open. The M0–M4 exits are defined in
@@ -1587,11 +1591,11 @@ digests and timings are in
 `evidence/m3-4c-live-notebook-2026-08-06.json`. These semantic failures are W3
 evaluation cases; they do not justify widening the M3 product scope.
 
-**2026-08-06 D1d automated/live browser checkpoint:** Catalyst revisions
-`6bb7907` and `33888ec` retain successful results in the Workbench after a
-successor is generated and mark them stale, implement a modal Dataset/Widget/
-Dashboard review panel with Tab containment and Escape focus return, add an
-explicit collapsible navigation rail, and place its collapse control on the
+**2026-08-06 D1d automated/live browser checkpoint:** Catalyst revision
+`0be01ad` retains successful results in the Workbench after a
+successor is generated and marks them stale, implements a modal Dataset/Widget/
+Dashboard review panel with Tab containment and Escape focus return, adds an
+explicit collapsible navigation rail, and places its collapse control on the
 same row as the Catalyst brand. The comprehensive existing
 `catalyst-ui/e2e/query-to-table.spec.ts` now exercises the real 4c path through
 refresh-hydrated imported state instead of the obsolete appended Dashboard
@@ -1602,11 +1606,13 @@ The isolated production UI was rebuilt without reseeding and restored session
 `4232e4f1-d80f-4040-aaaa-51b256f5c81f`, Query v4, six typed rows, the exact
 Gemma/Qwen profile, and the 2-schema/9-relation catalog. Live review-panel
 Escape restored the Dataset trigger and live navigation collapse toggled the
-expected shell state. Actual 200% browser zoom remains a manual check: the
-in-app browser ignored programmatic zoom shortcuts, so only the deterministic
-640-CSS-pixel equivalent is recorded. N81 records that T175-T179 name obsolete
-component/E2E paths; remediating those paths/statuses requires explicit approval
-and must not create duplicate component architecture. Exact details are in
+expected shell state. The expanded flow now also covers empty libraries, save
+announcements, every review drawer, and horizontal overflow across the artifact
+libraries. Actual 200% browser zoom remains a manual check: the in-app browser
+ignored programmatic zoom shortcuts, so only the deterministic 640-CSS-pixel
+equivalent is recorded. N81 is resolved: T175–T179 now name the consolidated
+`DashboardPublishPanel` and `query-to-table.spec.ts` paths without creating
+duplicate component architecture. Exact details are in
 `evidence/m3-4c-live-notebook-2026-08-06.json`.
 
 **2026-08-06 product-first foundation inventory:** The happy-path contracts
@@ -1665,35 +1671,39 @@ execution are introduced.
   slug, suggestion, layout, and evidence semantics; preimplementation PCCP;
   N64–N74 register; and a read-only analysis with zero unresolved CRITICAL/HIGH
   findings.
-- **D1b Superset runtime/import (T139–T144/T160–T165):** digest-pinned 6.1.0 runtime and
-  driver, persistent metadata, canonical five-family native fixture that owns
-  the deterministic analytics Database asset, DB-enforced read-only network
-  access, Catalyst-owned gitignored runtime state, outbox/lock/receipt
-  permissions, Gateway-CI-tested standalone Python 3.10 importer/state scripts
-  with no Catalyst package dependency, constrained-canonical-JSON parity and a
-  pinned-container smoke, a dedicated `mvp-superset.sh` operator wrapper, clean import, restart,
-  same-digest, and concurrency proof. Pointer/bundle/preflight/credential and
-  transactionally rolled-back CLI failures preserve the previously verified Dashboard;
-  post-import verification failure instead reports `Import failed`, disables
-  Open/current-success, retains diagnostics, and requires a valid atomic per-
-  Dashboard last-verified projection, full reset of only the Superset-local
-  metadata database/home volumes, and verified reimport. Missing/corrupt
-  projection data stops before reset; recovered A leaves failed desired B
-  current/import_failed with automatic bootstrap/retry suppressed until explicit
-  retry or a new publication. No asset-selective deletion, direct ORM/REST
-  mutation, or automatic rollback is used.
-- **D1c builder backend/export (T145–T149/T166–T173):** red-first immutable
-  storage/routes, lossless execution adaptation and typed SQL compilation,
-  deterministic presentation bindings, stable UUID/slug, complete provenance,
-  byte-identical bundle generation, atomic publication/download, digest-bound
-  status projection, and a real fixture round trip with zero configuration-time
-  model or database calls.
-- **D1d integrated product UX (T150–T154/T174–T179):** characterize then recompose the
-  accepted Ask/query-notebook with exactly one editor and compact Available data;
-  promote the one full bounded Query result to Dataset/Widget/Dashboard libraries;
-  expose publish/download/import/open actions; and pass explicit keyboard,
-  viewport, 200% zoom, focus, status, and visual-fidelity checks before user UX
-  acceptance.
+- **D1d integrated product UX (active M3; T150–T154/T174–T179):**
+  T150/T174/T151 are complete. Finish the remaining Dataset, Widget/Dashboard,
+  publication, and accessibility task pairs while preserving the accepted
+  Ask/query-notebook with exactly one editor and compact Available data;
+  promote the one full bounded Query result to Dataset/Widget/Dashboard
+  libraries; expose publish/download/import/open actions; and pass explicit
+  keyboard, viewport, actual 200% zoom, focus, status, and visual-fidelity
+  checks before user UX acceptance.
+- **D1b Superset runtime/import hardening after M3
+  (T139–T144/T160–T165):** digest-pinned 6.1.0 runtime and driver, persistent
+  metadata, canonical five-family native fixture that owns the deterministic
+  analytics Database asset, DB-enforced read-only network access,
+  Catalyst-owned gitignored runtime state, outbox/lock/receipt permissions,
+  Gateway-CI-tested standalone Python 3.10 importer/state scripts with no
+  Catalyst package dependency, constrained-canonical-JSON parity and a
+  pinned-container smoke, a dedicated `mvp-superset.sh` operator wrapper,
+  clean import, restart, same-digest, and concurrency proof. Pointer/bundle/
+  preflight/credential and transactionally rolled-back CLI failures preserve
+  the previously verified Dashboard; post-import verification failure instead
+  reports `Import failed`, disables Open/current-success, retains diagnostics,
+  and requires a valid atomic per-Dashboard last-verified projection, full
+  reset of only the Superset-local metadata database/home volumes, and verified
+  reimport. Missing/corrupt projection data stops before reset; recovered A
+  leaves failed desired B current/import_failed with automatic bootstrap/retry
+  suppressed until explicit retry or a new publication. No asset-selective
+  deletion, direct ORM/REST mutation, or automatic rollback is used.
+- **D1c builder backend/export hardening after D1b
+  (T145–T149/T166–T173):** red-first immutable storage/routes, lossless
+  execution adaptation and typed SQL compilation, deterministic presentation
+  bindings, stable UUID/slug, complete provenance, byte-identical bundle
+  generation, atomic publication/download, digest-bound status projection, and
+  a real fixture round trip with zero configuration-time model or database
+  calls.
 - **D1e deployed MVP (T180–T182/T155–T157):** validate the versioned
   manifest/event/acceptance serializer/emitter, structured `query_*` D1
   projections, and fixed six-step `orderedWorkflow` against the schemas finalized
@@ -1886,8 +1896,10 @@ query versions, execution, Dataset, both Widget drafts, Dashboard title, import
 receipt/last-verified projection, and real Superset Dashboard. Evidence is in
 `evidence/m3-real-multi-widget-2026-08-06.json`.
 
-This evidence does not close M3. T150–T154 and T174–T179 remain the immediate
-product path, followed by side-by-side browser inspection and user acceptance.
+This evidence does not close M3. T150/T174/T151 are complete from their own
+Ask characterization, shell, and browser evidence. T175/T152, T176/T177,
+T178/T153, and T179/T154 remain the immediate product path, followed by final
+side-by-side browser inspection and user acceptance.
 M4 has not started. In particular, only one model run was made and the model's
 `ORDER BY observed_at DESC` has no stable secondary key for tied timestamps.
 The failure/recovery and visualization-family repetitions, durable screenshot/

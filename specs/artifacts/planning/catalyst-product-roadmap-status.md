@@ -56,7 +56,7 @@ presentation.
 
 | Pathway | State | Next gate | Blocks D1? |
 | --- | --- | --- | --- |
-| Dashboard product (D1) | **Superset import spike plus accepted-workbench real-model proof; full D1 open** | User M2 review, then multi-widget M3 and release M4 (T139–T182) | — |
+| Dashboard product (D1) | **M3 integrated 4c implementation live; T150/T174/T151 complete; remaining D1d checks and user acceptance open; M4 not started** | Complete T175/T152, T176/T177, T178/T153, and T179/T154, then pause for M3 user acceptance before D1b/D1c/D1e hardening | — |
 | Data foundation (G2.10) | Candidate implementation; evidence open | T117–T122 internal and two-source/lossless acceptance | No |
 | Query assistance (W2) | Planned, not selected | G4 scope revalidation before T028–T034 | No |
 | Evaluation (W3/CVR) | Runner/report parity merged in PR #43; session-export/comparative expansion remains | Separately select T036–T038 or later experiments | No |
@@ -98,16 +98,16 @@ presentation.
   tree and run in Catalyst's Gateway CI job. Runtime commands use one dedicated
   `mvp-superset.sh` boundary routed from the harness.
 
-  **Current correction (2026-08-05):** the former statement that no Dashboard
-  Builder implementation was claimed is obsolete. The active feature branches
-  contain a working local table-dashboard vertical slice: persisted builder
-  drafts, deterministic native bundle, pinned Superset stack, explicit importer,
-  and verified local import receipt. It is not full D1 acceptance: the exporter
-  is table-only; the multi-widget library shell, five clean-imported
-  visualization families, full reset/reimport recovery, comprehensive
-  accessibility evidence, builder-integrated real-model D1e evidence, and
-  schema-backed dashboard acceptance emission remain open. The standalone M2
-  real-profile workbench proof passed technically on exact Gemma E4B/Qwen 14B
-  aliases and is awaiting user acceptance. The authoritative M0–M4
-  local-MVP target is
+  **Current correction (2026-08-06):** the table-only Superset import spike is
+  reusable foundation evidence, not the current product surface. The active
+  feature branches now contain the binding 4c shell with the accepted Workbench,
+  chronological turns, one SQL editor and fixed composer, Dataset/Widget/
+  Dashboard review and libraries, deterministic publication controls, and a
+  real Gemma E4B/Qwen 14B notebook-to-Superset path. M2 is accepted.
+  T150/T174/T151 are complete; the remaining Dataset/Widget/publication D1d
+  checks, actual 200% browser zoom, and explicit user acceptance keep M3 in
+  progress. Five-family clean-import coverage, full reset/reimport recovery,
+  complete evidence emission, repetition, and release CI remain M4 work and
+  have not started merely because supporting evidence exists. The authoritative
+  M0–M4 local-MVP target is
   `specs/008-catalyst-query-workbench/dashboard-mvp-delivery-goal.md`.
