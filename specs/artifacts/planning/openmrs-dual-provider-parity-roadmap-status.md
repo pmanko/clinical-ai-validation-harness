@@ -815,3 +815,31 @@ drug-safety relay proof passed at that deployed head. ESM `a796be3` then added a
 unavailable advertised default hiding every ready provider, plus provider-neutral warning detail
 formatting. The release gate remains open for an exact-head deployment and the drug-safety
 completeness contract described in G16.
+
+### 2026-08-05 — Medication-safety package honesty and visible source summary
+
+Review of the dual-provider medication-safety result found that parser diagnostics and package
+identity were not consistently strong enough to support a clinician-facing `checked` state.
+Malformed nested fields could remove executable rules without always invalidating the package;
+the primary and cross-reactivity packages did not have equally strict identity/content checks;
+and a clean checked result could still hide the source-package summary in the ESM.
+
+The remediation is committed at med-agent-hub `5661416`, ChartSearchAI `7910dfc`, and ChartSearchAI
+ESM `52468f9`:
+
+- Both providers require package id, version, source, valid content collections, and clinical
+  approval before the corresponding deterministic rules can produce checked warnings.
+- Invalid ATC relationship prefixes, malformed dose bands, and rejected nested rules are removed
+  at the parser boundary and reported as package issues. A malformed child field no longer erases
+  an otherwise identifiable Java drug record.
+- Primary and cross-reactivity diagnostics survive unavailable/limited early returns and remain
+  separate in the canonical response and Java status endpoint.
+- The ESM visibly renders `Checked`, `Limited safety check`, or `Safety check unavailable`, plus
+  plain-language issues and the medication-rule and cross-reactivity package identity, version,
+  review state, and provenance. A clean checked result with package metadata is no longer hidden.
+
+Local exact-source verification passed: med-agent-hub 651 tests; ChartSearchAI 1,056 tests with
+zero failures/errors and 34 existing skips; ESM 230 tests plus lint, TypeScript, translation
+extraction, and production build. The cross-repository documentation scan also passed. Fresh
+public CI, exact-head deployment/browser proof, and hash-bound independent QA remain pending, and
+the parent repository-line gate remains intentionally open until hub PR #19 lands on `main`.
