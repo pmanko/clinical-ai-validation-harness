@@ -1612,9 +1612,9 @@ Gemma/Qwen profile, and the 2-schema/9-relation catalog. Live review-panel
 Escape restored the Dataset trigger and live navigation collapse toggled the
 expected shell state. The expanded flow now also covers empty libraries, save
 announcements, every review drawer, and horizontal overflow across the artifact
-libraries. Actual 200% browser zoom remains a manual check: the in-app browser
-ignored programmatic zoom shortcuts, so only the deterministic 640-CSS-pixel
-equivalent is recorded. N81 is resolved: T175–T179 now name the consolidated
+libraries. Actual 200% browser zoom was later deferred from the MVP gates; the
+deterministic 640-CSS-pixel equivalent remains recorded as the regression
+boundary. N81 is resolved: T175–T179 now name the consolidated
 `DashboardPublishPanel` and `query-to-table.spec.ts` paths without creating
 duplicate component architecture. Exact details are in
 `evidence/m3-4c-live-notebook-2026-08-06.json`.
@@ -1989,8 +1989,35 @@ signal is overconfident for this class of catalog error. The deterministic
 browser E2E now includes Dataset save, time-series Widget creation, Dashboard
 publication, keyboard traversal through all builder controls, 390×844 compact
 layout, and the 640-CSS-pixel 200%-equivalent reflow. Actual Dashboard Builder
-200% browser zoom and the individually tracked D1 tasks remain open. Exact evidence is in
+200% browser zoom is deferred polish; the individually tracked D1 tasks remain
+open. Exact evidence is in
 `evidence/m4-repetition-recovery-2026-08-06.json`.
+
+### M4 D1b runtime identity checkpoint — T140 PASSED (2026-08-06)
+
+The umbrella override and pinned Catalyst target now both declare the exact
+Superset `6.1.0` image digest and `linux/arm64` platform used by the local
+acceptance stack. The target records `psycopg2-binary==2.9.9` in rendered
+importer configuration and MVP provenance. A live container inspection reported
+`aarch64` and psycopg2 `2.9.9`; the full real-stack health gate passed with the
+Gemma-E4B writer/Qwen-14B reviewer profile and emitted the same runtime identity.
+
+The analytics bootstrap now makes `catalyst_readonly` default to read-only and
+revokes schema creation. The already-persisted local volume was updated without
+re-seeding; live verification returned `on|false|true` for transaction
+read-only, public-schema CREATE, and analytics-table SELECT respectively.
+Focused tests passed (32 Catalyst assembly and 8 harness pin/layout tests), and
+the rendered Compose configuration resolved all three Superset services to the
+same platform and digest. Exact evidence is in
+`evidence/m4-d1b-runtime-pin-2026-08-06.json`.
+
+This closes only T140. T139/T160 remain open because their complete red-test
+matrices include restart retention, deterministic secret injection,
+secret-free outputs, mount ownership, and clean-target publication proof.
+T161/T162 and the clean-import/recovery gate T144 likewise remain open. The
+default platform is deliberately the current Apple-silicon acceptance runtime;
+cross-architecture runs must provide an explicit `SUPERSET_PLATFORM` override
+and record it rather than relying on silent emulation.
 
 ## W2 — Targeted remediation
 

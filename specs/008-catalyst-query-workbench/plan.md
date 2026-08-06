@@ -982,12 +982,14 @@ The following items must remain visible until evidence resolves them:
   change remains a truthful bounded transport failure recorded in generation
   evidence. T111 records any observed race rather than treating discovery as a
   reservation.
-- **N64 — Superset application and PostgreSQL driver image identity (open;
-  resolve at D1b/T139–T141/T160–T162/T144)**: The `6.1.0` tag alone is not an immutable runtime
-  identity and the stock image's analytics driver must be proven. Record the
-  architecture-specific image digest and driver/package revision used by every
-  acceptance run; fail the D1b gate if the pinned image cannot connect or the
-  database does not enforce read-only access. Runtime configuration does not
+- **N64 — Superset application and PostgreSQL driver image identity (bounded at
+  T140; repeat at D1b/T139–T141/T160–T162/T144)**: The local arm64 runtime now
+  pins Superset `6.1.0` by digest, declares `linux/arm64`, records
+  `psycopg2-binary==2.9.9`, and has live proof that the analytics role defaults
+  to read-only, lacks schema-create permission, and retains SELECT. Other hosts
+  must set an explicit `SUPERSET_PLATFORM` rather than silently emulating this
+  acceptance runtime. The complete clean-boot/import and permission/restart
+  matrix remains at T139–T144/T160–T162; runtime configuration still does not
   create the persisted Superset Database asset.
 - **N65 — Native asset schema, chart parameters, and extra-member tolerance
   (partly resolved; complete at D1b/T141/T144)**: Superset YAML and chart
@@ -1101,10 +1103,10 @@ The following items must remain visible until evidence resolves them:
   to mark M3 passed while every D1d UX task remained open. M3 was restored to in
   progress, T187 is retired as an umbrella closeout, and
   T139–T182 close only from their own evidence. The binding 4c shell is now live
-  and T150/T174/T151 are complete; the remaining D1d task pairs, actual 200%
-  browser zoom, side-by-side inspection, and explicit user acceptance still
-  were closed from their own evidence before the user accepted M3 and directed
-  M4 to begin on 2026-08-06.
+  and all D1d task pairs were closed from their own evidence before the user
+  accepted M3 and directed M4 to begin on 2026-08-06. Actual 200% browser zoom
+  was subsequently removed from the MVP gates and is tracked only as deferred
+  polish in N83.
 - **N83 — Actual 200% browser zoom (deferred polish)**: The user explicitly
   removed actual 200% browser-zoom validation from the current MVP gates on
   2026-08-06. Deterministic desktop, 390×844, 320-CSS-pixel, and 640-CSS-pixel

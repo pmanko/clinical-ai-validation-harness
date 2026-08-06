@@ -167,6 +167,37 @@ def test_catalyst_owns_and_ignores_superset_runtime_state() -> None:
     assert "./runtime/superset/receipts:/opt/catalyst/receipts:rw" in compose
 
 
+def test_superset_runtime_identity_is_explicit_in_the_pinned_target() -> None:
+    superset_image = (
+        "apache/superset:6.1.0-dev@sha256:"
+        "5822dff49c41fd745ce33e38af502f9c64df30d133aeba148c5d89b35a1004ef"
+    )
+    compose = (ROOT / "targets/catalyst/docker-compose.mvp.yml").read_text(
+        encoding="utf-8"
+    )
+    override = (ROOT / "compose/catalyst-mvp-isolated.override.yml").read_text(
+        encoding="utf-8"
+    )
+    env = (ROOT / "targets/catalyst/env.recommended").read_text(encoding="utf-8")
+
+    assert compose.count('platform: "${SUPERSET_PLATFORM:-linux/arm64}"') >= 3
+    assert override.count('platform: "${SUPERSET_PLATFORM:-linux/arm64}"') >= 3
+    assert compose.count(f"image: {superset_image}") >= 3
+    assert override.count(f"image: {superset_image}") >= 3
+    assert (
+        'CATALYST_SUPERSET_DRIVER_REVISION: '
+        '"${SUPERSET_DRIVER_REVISION:-psycopg2-binary==2.9.9}"'
+        in override
+    )
+    assert "SUPERSET_PLATFORM=linux/arm64" in env
+    assert "SUPERSET_DRIVER_REVISION=psycopg2-binary==2.9.9" in env
+    assert (
+        'CATALYST_SUPERSET_DRIVER_REVISION: '
+        '"${SUPERSET_DRIVER_REVISION:-psycopg2-binary==2.9.9}"'
+        in compose
+    )
+
+
 def test_manual_guide_uses_the_sibling_hub_and_current_external_router_setting() -> (
     None
 ):
