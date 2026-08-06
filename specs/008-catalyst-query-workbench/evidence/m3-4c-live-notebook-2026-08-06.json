@@ -5,7 +5,7 @@
   "scope": "Binding 4c shell with real initial generation, manual correction, execution, contextual follow-up, successor correction, execution, per-turn evidence, and refresh restoration",
   "revisions": {
     "harness": "5433058e9cb87df63f69a18ee01b6ca111c7c7b2",
-    "catalyst": "33888ec832d699943a0fd00f0c8fc7684d7b5b56",
+    "catalyst": "03c0d175a9d32adec04c2a19b2140c1aace2bddd",
     "medAgentHub": "e6095f520d9b3be53069d7a4fff710c91f18c246"
   },
   "runtime": {
@@ -148,6 +148,11 @@
         "390x844, 320x720, and 640x720 reflow",
         "reduced-motion transition removal"
       ]
+    },
+    "staleResultLineageRegression": {
+      "catalystRevision": "03c0d175a9d32adec04c2a19b2140c1aace2bddd",
+      "result": "7 focused component tests, typecheck, and lint passed",
+      "assertion": "A retained stale result and SQL snapshot use the executed Query version, never the newer current editor version."
     }
   },
   "publicationAcceptance": {
