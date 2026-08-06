@@ -1734,6 +1734,29 @@ repetition was run; those remain recorded for T187/D1e. M3 multi-widget
 integration, Superset dashboard reconciliation/recovery, the full accessibility
 and evidence matrix, and final user acceptance remain open.
 
+### M3 D1b bridge — provenance and restart proof (2026-08-06)
+
+T184 is complete. The live isolated stack saved a Dataset from an existing
+real Query v1 execution, published bundle
+`861f9a9aa2948121c068c3aecaabd22330431efbc6e3c58368ff2adfc1a34f64`,
+and imported it into pinned local Superset. Its immutable receipt and
+last-verified projection both identify Catalyst revision
+`7c2fecc7c85e9769d5338516b9d20fef4c5b0446`; the projection and dashboard
+route survived the documented non-destructive stack restart. Evidence is in
+`evidence/m3-superset-provenance-restart-2026-08-06.json`.
+
+The complete health/provenance gate subsequently passed with the real
+Gemma-E4B/Qwen-14B profile and the existing 1,152-row analytics mart. The
+restart did not seed or remove volumes; upstream HAPI and OpenELIS JVM/Spring
+initialization nevertheless took several minutes before they accepted traffic.
+Treat that startup latency as an operational follow-up, not evidence of state
+loss or a reason to add a separate FHIR cache.
+
+This is deliberately only an importer/runtime bridge: the current real bundle
+is table-only. It does not pass D1b, start D1c/D1d, or claim multi-widget
+visualization mappings, PostgreSQL reconciliation for each widget, recovery,
+repetition, or accessibility evidence.
+
 **D1 program exit:** T137–T182 pass and the user accepts D1e. The Superset REST API,
 embedded dashboards, cross-system undo/reconciliation, narrative reporting,
 sharing, scheduling, automatic refresh, and production authorization remain
