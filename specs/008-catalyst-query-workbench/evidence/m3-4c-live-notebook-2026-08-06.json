@@ -1,11 +1,11 @@
 {
   "contractVersion": "catalyst.dashboard-builder.m3-4c-live-notebook.v1",
-  "observedAt": "2026-08-06T21:27:45Z",
+  "observedAt": "2026-08-06T21:42:23Z",
   "status": "live_candidate_user_acceptance_open",
   "scope": "Binding 4c shell with real initial generation, manual correction, execution, contextual follow-up, successor correction, execution, per-turn evidence, and refresh restoration",
   "revisions": {
-    "harness": "5433058e9cb87df63f69a18ee01b6ca111c7c7b2",
-    "catalyst": "03c0d175a9d32adec04c2a19b2140c1aace2bddd",
+    "harness": "1e1bad5aff88cdfd28e493c0c95f5f9cdd9fef1b",
+    "catalyst": "0be01ad8671ef628f2b1c8f3b28c76b408aa8c4c",
     "medAgentHub": "e6095f520d9b3be53069d7a4fff710c91f18c246"
   },
   "runtime": {
@@ -117,7 +117,7 @@
     "explicitUserAcceptance": false
   },
   "automatedAcceptance": {
-    "catalystRevision": "6bb79077b14e257f224142ebbdc2c5bd35083b63",
+    "catalystRevision": "0be01ad8671ef628f2b1c8f3b28c76b408aa8c4c",
     "unitTests": {
       "command": "npm test",
       "result": "132 passed"
@@ -142,12 +142,19 @@
         "stale prior result retained after successor generation",
         "successor Run and second Dataset save",
         "Widget and Dashboard review/save libraries",
+        "empty Dataset, Widget, and Dashboard library states",
+        "save confirmation toasts for Dataset, Widget, and Dashboard artifacts",
         "publish bundle state and imported receipt hydration after refresh",
         "navigation collapse and keyboard order",
-        "review-dialog focus containment and return",
-        "390x844, 320x720, and 640x720 reflow",
+        "Dataset, Widget, and Dashboard review-dialog focus containment and return",
+        "390x844, 320x720, and 640x720 reflow across Workbench and all artifact libraries",
         "reduced-motion transition removal"
       ]
+    },
+    "narrowDashboardLibraryRegression": {
+      "catalystRevision": "0be01ad8671ef628f2b1c8f3b28c76b408aa8c4c",
+      "result": "The full deterministic browser flow passes at 320 and 640 CSS pixels without horizontal overflow.",
+      "assertion": "Saved-dashboard actions stack within the content column rather than pushing the download link offscreen."
     },
     "staleResultLineageRegression": {
       "catalystRevision": "03c0d175a9d32adec04c2a19b2140c1aace2bddd",
