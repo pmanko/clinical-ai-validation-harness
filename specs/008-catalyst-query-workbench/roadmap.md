@@ -16,10 +16,13 @@ deterministic SQL lint/repair/finalization, execution, lineage, and query
 evidence. Med-Agent Hub now uses one workflow-typed profile schema for hosted
 clinical and caller-orchestrated Catalyst workflows. Its Hub-owned Catalyst
 profile contains role models, prompts, and knobs and exposes named-role
-execution; Gateway cannot override those settings. The current PR heads are
-Catalyst `7ab0384` and Hub `e6095f5`; the M2 live runtime used Catalyst
-`240e49b` before its documentation-only `7ab0384` successor and umbrella pin
-`cd04265`. The prior accepted pins remain historical evidence. The definitive final-pin matrix
+execution; Gateway cannot override those settings. The current component PR
+heads are Catalyst `93d74d9` and Hub `e6095f5`; the M2 live runtime used
+Catalyst `240e49b` before its documentation successor and the later one-line
+standalone Hub fallback-pin synchronization. The evidence was recorded at
+umbrella pin `cd04265`; subsequent umbrella commits change documentation and
+pin consistency, not the recorded runtime. The prior accepted pins remain
+historical evidence. The definitive final-pin matrix
 passed 12/12 with independent
 PostgreSQL/gold checks, and the final-pin bounded failure plus same-session
 recovery passed. The July 30 runs remain supporting historical PR-head evidence
