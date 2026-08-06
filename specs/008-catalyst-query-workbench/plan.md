@@ -177,6 +177,12 @@ restoration. D1 still requires the T187 failure/recovery and repetition matrix,
 the required accessibility/evidence artifacts, and explicit user acceptance.
 The remaining hardening work stays open in T139–T182.
 
+The first T187 corrective also removes the obsolete Gateway A2A chat relay and
+all dead `CATALYST_ROUTER_URL` wiring from supported Compose configurations.
+The historical agent prototype is not deleted, but it is no longer exposed as
+a second manual product path. Supported local operation is exclusively Gateway
+→ named Hub query profile → external exact-model router.
+
 ### D1 checkpoint contract
 
 | Checkpoint | Entry | Testable exit evidence | Pause rule |

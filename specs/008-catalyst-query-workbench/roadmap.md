@@ -1814,6 +1814,25 @@ The failure/recovery and visualization-family repetitions, durable screenshot/
 video and accessibility matrix, schema-backed acceptance artifacts, CI review,
 and explicit user acceptance are not inferred from this M3 pass.
 
+### M4 routing-surface corrective — PASSED (2026-08-06)
+
+The supported product path is now singular. Catalyst Gateway no longer imports
+the A2A client, reads `CATALYST_ROUTER_URL`, or exposes the obsolete generic
+`/v1/chat/completions` relay. The supported MVP and standalone demo Compose
+files contain neither that dead Gateway URL nor a bundled/fake model-router
+service; both use the Hub-owned `catalyst-query-e4b-qwen14b` profile over the
+external router at `host.docker.internal:1234`. The historical Catalyst agent
+prototype source remains isolated and is not a Gateway product endpoint.
+
+The rebuilt no-seed isolated stack passed exact external-router configuration,
+Hub profile, Gateway profile view, analytics, UI, Superset, source-pin, and
+provenance gates. Live OpenAPI reported no generic chat relay while the
+workbench remained present, and persisted Dashboard Builder state restored as
+five Datasets, nine Widgets, and five Dashboards. Gateway formatting, lint,
+mypy, 210 tests, and 31 assembly checks passed. This closes only the routing
+surface corrective within T187; repetition, recovery, accessibility/evidence,
+green PR CI, and user acceptance remain open.
+
 ## W2 — Targeted remediation
 
 **Status:** Parallel pathway; planned, not selected
