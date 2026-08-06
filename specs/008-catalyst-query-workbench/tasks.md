@@ -356,7 +356,11 @@ smaller MVP. The tasks below bridge that spike into the full goal defined in
   recorded in `evidence/m3-real-multi-widget-2026-08-06.json`.
 - [ ] T187 [US7] Complete the required T139–T182 failure/recovery,
   repetition/nondeterminism, accessibility, and evidence gates; pause for user
-  inspection and acceptance before calling the Dashboard MVP complete.
+  inspection and acceptance before calling the Dashboard MVP complete. The
+  first real repetition/manual database-recovery pass and expanded Dashboard
+  Builder keyboard/reflow E2E are recorded in
+  `evidence/m4-repetition-recovery-2026-08-06.json`; N75 and the remaining
+  acceptance matrix keep this task open.
 
 ## Dependencies and implementation strategy
 

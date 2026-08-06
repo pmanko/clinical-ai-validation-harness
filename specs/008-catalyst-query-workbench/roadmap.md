@@ -1833,6 +1833,27 @@ mypy, 210 tests, and 31 assembly checks passed. This closes only the routing
 surface corrective within T187; repetition, recovery, accessibility/evidence,
 green PR CI, and user acceptance remain open.
 
+### M4 repetition and manual recovery checkpoint — PARTIAL (2026-08-06)
+
+One identical-input real-model repetition used the same exact profile,
+instruction, and catalog as M3. It selected byte-identical SQL and the same
+`713fa555...` query digest; its run-specific trace/evidence IDs, model request/
+response digests, and 35,341 ms writer plus 37,394 ms reviewer timings remain
+recorded rather than collapsed into a reproducibility claim. A separate manual
+failure/recovery sequence retained a failed Query v2 with PostgreSQL SQLSTATE
+`42703`, permitted direct editor correction, and ran the stable-secondary-sort
+Query v3 successfully for ten rows without another model call.
+
+That sequence exposed N75: the advisory validator called the deliberately
+unknown unqualified `missing_column` selection valid. PostgreSQL still rejected
+it safely and the UI showed the exact database diagnostic, but the pre-run
+signal is overconfident for this class of catalog error. The deterministic
+browser E2E now includes Dataset save, time-series Widget creation, Dashboard
+publication, keyboard traversal through all builder controls, 390×844 compact
+layout, and the 640-CSS-pixel 200%-equivalent reflow. Actual Dashboard Builder
+200% browser zoom and the rest of T187 remain open. Exact evidence is in
+`evidence/m4-repetition-recovery-2026-08-06.json`.
+
 ## W2 — Targeted remediation
 
 **Status:** Parallel pathway; planned, not selected

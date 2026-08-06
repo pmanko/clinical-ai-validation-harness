@@ -1065,6 +1065,16 @@ The following items must remain visible until evidence resolves them:
   failed, with automatic bootstrap/retry suppressed until explicit retry or new
   publication. Asset-selective deletion, direct ORM/REST mutation, automatic
   rollback, and a prior-Dashboard usability claim are prohibited.
+- **N75 — Catalog-column advisory lint gap (open; discovered in T187 manual
+  recovery)**: The deterministic validator marked
+  `SELECT missing_column FROM analytics.lab_result_fact_v1 LIMIT 1` valid even
+  though the live approved relation has no such column. Explicit Run remained
+  available by design; PostgreSQL safely rejected the query with SQLSTATE
+  `42703`, the UI retained the exact diagnostic, and a manual successor ran
+  successfully. This does not block manual MVP testing, but the `Valid` label is
+  too strong for unqualified unknown-column errors. Address through a focused
+  catalog-aware lint amendment rather than changing the advisory or explicit-
+  Run contract.
 
 ## Complexity Tracking
 
