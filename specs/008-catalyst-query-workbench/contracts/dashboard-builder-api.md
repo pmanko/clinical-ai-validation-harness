@@ -360,15 +360,15 @@ column refs:
   ordinal order;
 - big number is compatible only for one returned row and exactly one result
   column whose type is numeric; it binds that column as `metricColumn`;
-- time-series line and area require an untruncated result with at least one
-  temporal and one numeric column; they bind the first temporal `xColumn` and
+- time-series line and area require at least one temporal and one numeric
+  column; they bind the first temporal `xColumn` and
   first numeric `metricColumn`;
-- grouped and stacked bar require an untruncated result with at least one
-  categorical and one numeric column; they bind the first categorical
+- grouped and stacked bar require at least one categorical and one numeric
+  column; they bind the first categorical
   `categoryColumn`, the first numeric `metricColumn`, and the second categorical
   column as nullable `seriesColumn`; and
-- proportion bar requires an untruncated result with two categorical columns
-  plus one numeric column so its category and series bindings form a meaningful
+- proportion bar requires two categorical columns plus one numeric column so
+  its category and series bindings form a meaningful
   100%-stacked bar. It is never suggested and is available only as an explicit
   override.
 
@@ -378,9 +378,9 @@ bindings; it does not ask the user to calculate the table again. Superset's
 native chart configuration contains its renderer-required metric detail, but
 that detail is exported from the saved result schema and is not a Catalyst
 reporting choice. Stable incompatibility codes are
-`requires_one_numeric_cell`, `requires_untruncated_temporal_numeric`,
-`requires_untruncated_categorical_numeric`, and
-`requires_untruncated_two_categorical_numeric`. Localized explanation text is
+`requires_one_numeric_cell`, `requires_temporal_numeric`,
+`requires_categorical_numeric`, and `requires_two_categorical_numeric`.
+Localized explanation text is
 derived from the code and excluded from `compatibilityDigest`.
 
 Suggestion priority is exact and short-circuiting: compatible `big_number`,

@@ -997,11 +997,11 @@ execution.
   proportion-bar presentations. It MUST show derived bindings read-only,
   explain why incompatible choices are unavailable, and fall back to table when
   no chart mapping is valid. Suggestion and binding MUST use typed schema,
-  returned-row count/truncation, and first-column ordinal precedence only: an
-  exact one-row/one-numeric result suggests KPI; an untruncated temporal-plus-
-  numeric result suggests time-series; an untruncated categorical-plus-numeric
-  result suggests grouped bar; otherwise table. Proportion bar is compatible
-  only with an untruncated two-categorical-plus-numeric result, is never
+  returned-row count, and first-column ordinal precedence only: an exact
+  one-row/one-numeric result suggests KPI; a temporal-plus-numeric result
+  suggests time-series; a categorical-plus-numeric result suggests grouped bar;
+  otherwise table. Proportion bar is compatible only with a two-categorical-
+  plus-numeric result, is never
   suggested, and requires an explicit supervised override. The saved Dataset SQL
   owns any report aggregation. A non-table Widget MUST use only its read-only
   derived bindings over that saved table; Catalyst MUST NOT infer or silently

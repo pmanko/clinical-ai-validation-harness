@@ -1776,7 +1776,9 @@ and the Widget selects a chart over that table. Superset's required native
 metric configuration is an exporter detail derived from the result schema, not
 a Catalyst reporting choice. The exporter must never change Dataset SQL or
 serialize a requested compatible chart as a table. T141 owns fixture/import
-proof for the renderer mapping.
+proof for the renderer mapping. A bounded Catalyst preview is disclosure about
+the workbench display, not a chart incompatibility: Superset reads the saved
+Dataset SQL rather than the preview rows.
 
 **D1 program exit:** T137–T182 pass and the user accepts D1e. The Superset REST API,
 embedded dashboards, cross-system undo/reconciliation, narrative reporting,
