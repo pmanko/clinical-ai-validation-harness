@@ -150,8 +150,14 @@ Characterize the accepted QueryWorkspace before recomposition. Then prove one
 composer/editor/New session action, exact contextual refinement, compact
 Available data, one full Dataset result surface, idempotent saves, libraries,
 staleness, publish/download/status/open actions, refresh/error recovery, and the
-desktop/390×844/320-CSS-pixel/actual-200%-zoom keyboard/focus/status/reduced-
-motion matrix. Pause for user UX acceptance.
+desktop/390×844/320/640-CSS-pixel keyboard/focus/status/reduced-motion matrix.
+Pause for user UX acceptance.
+
+Scope amendment (2026-08-06): after accepting M3 and directing M4, the user
+explicitly deferred actual 200% browser-zoom validation to polish. The current
+MVP gates retain deterministic desktop, 390×844, 320-CSS-pixel, and 640-CSS-
+pixel equivalent reflow coverage; the 640px check must not be reported as an
+actual browser-zoom run.
 
 ### D1e — deployed MVP
 

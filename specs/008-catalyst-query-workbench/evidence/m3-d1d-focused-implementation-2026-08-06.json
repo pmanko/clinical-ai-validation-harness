@@ -1,12 +1,12 @@
 {
   "recordedAt": "2026-08-06T22:43:00Z",
   "schemaVersion": "catalyst.dashboard-m3-d1d-focused-implementation.v1",
-  "status": "automated_pass_live_acceptance_open",
+  "status": "accepted",
   "scope": "Focused D1d Dataset, Widget/Dashboard, publication, and accessibility implementation checkpoint",
   "revisions": {
     "baseHarness": "2497ff9b7105ec962fe506988fffa5d1761f8bf0",
     "testedCatalyst": "2f5ec7a1e067436afce51aaf9e9dd5eb7c578fc2",
-    "finalCatalystDocumentationSuccessor": "655a3776ef9e7152beff7b0c7c27e717ec4ca429",
+    "finalCatalystDocumentationSuccessor": "69708bc904547c3a8cc6e98183f0893f1b501592",
     "medAgentHub": "e6095f520d9b3be53069d7a4fff710c91f18c246"
   },
   "runtime": {
@@ -81,20 +81,32 @@
       "Failure diagnostics distinguish same-bundle retry from full Superset-local reset and last-verified reimport guidance."
     ]
   },
-  "openAcceptance": [
-    "Actual browser zoom at 200% remains a manual check; the automated 640-CSS-pixel viewport is equivalent reflow evidence, not a substitute.",
-    "Durable D1d screenshot/video capture remains open.",
-    "Explicit user acceptance remains open.",
-    "T175/T152, T176/T177, T178/T153, T179, and T154 remain unchecked until the live closure checkpoint."
-  ],
+  "acceptance": {
+    "status": "accepted",
+    "acceptedAt": "2026-08-06T23:35:02Z",
+    "decision": "User approved the M3 UX checkpoint and directed work to continue to M4.",
+    "actualBrowserZoom200Percent": {
+      "evidenceType": "deferred_polish",
+      "status": "not_required",
+      "note": "The user explicitly relaxed actual 200% browser-zoom validation for the current MVP. Automated 320/390/640-CSS-pixel reflow coverage remains required; an actual 200% check is deferred polish."
+    },
+    "durableArtifacts": {
+      "directory": "artifacts/catalyst-dashboard/m3-d1d-20260806/d1d/",
+      "liveScreenshot": "live-workbench.png",
+      "mockWalkthroughScreenshot": "mock-walkthrough-final.png",
+      "mockWalkthroughVideo": "mock-walkthrough.webm",
+      "mockWalkthroughTrace": "mock-walkthrough-trace.zip",
+      "classification": "The live screenshot records the real retained Catalyst session. The video, final screenshot, and trace are explicitly labelled deterministic mock-API UI evidence and are not real-model or release-path evidence."
+    }
+  },
   "nondeterminismAndInconsistencies": [
     "N75 remains open: catalog-column advisory lint can miss a model-generated nonexistent column.",
     "N78 remains open: syntactically valid SQL can be semantically incomplete; preserve these cases for W3 rather than adding an M3 semantic optimizer.",
     "N82 is bounded for M3: the client mirrors deterministic Widget compatibility for pre-save explanation because no pre-save suggestion endpoint exists; Gateway save validation remains authoritative and T169-T170 own consolidation in D1c."
   ],
   "milestone": {
-    "m3": "in_progress",
-    "m4": "not_started",
-    "reason": "Actual 200% zoom, durable visual evidence, focused task closure, and explicit user acceptance remain open."
+    "m3": "accepted",
+    "m4": "in_progress",
+    "reason": "The user explicitly accepted M3 and directed the implementation to proceed to M4."
   }
 }

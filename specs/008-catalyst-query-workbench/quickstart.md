@@ -400,7 +400,8 @@ image. Their tests remain in the Gateway CI suite.
    Superset Dashboard UUID remain stable.
 8. Refresh Catalyst and prove immutable Dataset/Widget/Dashboard versions,
    import evidence, and stale-source states restore. Repeat with keyboard only,
-   desktop, 390×844, 320 CSS px, and actual 200% browser zoom. Capture Escape/
+   desktop, 390×844, 320 CSS px, and a 640-CSS-pixel equivalent reflow boundary.
+   Actual 200% browser zoom is deferred polish and is not an MVP gate. Capture Escape/
    focus return, focus containment, status announcements, reduced motion, and
    unobscured fixed-composer/editor evidence.
 9. Run the all-five-family canonical Superset fixture matrix, same-digest no-op,

@@ -58,7 +58,7 @@ W2 → W3 → W4 queue.
 
 | Pathway | State | Relationship |
 | --- | --- | --- |
-| **Superset-backed Dashboard Builder (D1 / US7)** | **M3 integrated 4c implementation live; focused D1d closure and user acceptance open; M4 not started** | Depends only on the accepted query/version/execution/table foundation; Catalyst promotes governed executions through Dataset/Widget/Dashboard review and deterministic native bundles rendered by Superset |
+| **Superset-backed Dashboard Builder (D1 / US7)** | **M3 accepted 2026-08-06; M4 release hardening in progress** | Depends only on the accepted query/version/execution/table foundation; Catalyst promotes governed executions through Dataset/Widget/Dashboard review and deterministic native bundles rendered by Superset |
 | Data foundation (G2.10 / US6) | Candidate implementation; internal/live acceptance open | Can broaden dashboard sources later; does not block D1's one-source/one-catalog Dashboard rule |
 | Query assistance (W2 / US2) | Planned, not selected | Re-enters only after its G4 scope gate |
 | Evaluation (W3/CVR) | Runner/report parity merged in PR #43; session export/comparative expansion open | Parallel evidence work; not a D1 dependency |
@@ -1552,8 +1552,8 @@ and the complete two-source transition/staleness/execution matrix remains open.
 
 ## D1 — Superset-backed Dashboard Builder MVP
 
-**Status:** M3 product integration in progress; M4 release acceptance has not
-started
+**Status:** M3 accepted 2026-08-06; M4 release hardening and deployed acceptance
+in progress
 
 **Current implementation state (corrected 2026-08-06):** The active branches
 now contain a live M3 implementation in the binding 4c shell: one Ask/notebook
@@ -1568,9 +1568,10 @@ verified matching Dashboard version. The deterministic 4c browser flow now
 covers the complete Workbench to Dataset to Widget to Dashboard to Publish path,
 stale-result retention, imported-state refresh, keyboard/focus behavior,
 navigation collapse, reduced motion, and 390/320/640 CSS-pixel reflow. The
-accepted Ask characterization and 4c shell tasks T150/T174/T151 are complete;
-the focused D1d live task-closure checkpoint, actual 200% browser zoom, durable
-visual/acceptance evidence, and explicit user acceptance remain open.
+accepted Ask characterization, 4c shell, and focused D1d tasks T150–T154 and
+T174–T179 are complete. The user accepted M3 and directed M4 to begin. Actual
+200% browser zoom is explicitly deferred polish; deterministic desktop and
+320/390/640-CSS-pixel reflow coverage remains required.
 `mvp-superset.sh reset`
 intentionally refuses to run until its recovery contract is implemented; the
 five-family, failure/recovery, repetition, accessibility, evidence-emitter, CI,
@@ -1674,15 +1675,13 @@ execution are introduced.
   slug, suggestion, layout, and evidence semantics; preimplementation PCCP;
   N64–N74 register; and a read-only analysis with zero unresolved CRITICAL/HIGH
   findings.
-- **D1d integrated product UX (active M3; T150–T154/T174–T179):**
-  T150/T174/T151 are complete and the focused automated behavior for the
-  Dataset, Widget/Dashboard, publication, and accessibility task pairs passes.
-  Complete their individual live closure and T154 visual evidence while preserving the accepted
-  Ask/query-notebook with exactly one editor and compact Available data;
-  promote the one full bounded Query result to Dataset/Widget/Dashboard
-  libraries; expose publish/download/import/open actions; and pass explicit
-  keyboard, viewport, actual 200% zoom, focus, status, and visual-fidelity
-  checks before user UX acceptance.
+- **D1d integrated product UX (accepted M3; T150–T154/T174–T179):**
+  The Ask/query-notebook retains exactly one editor and compact Available data;
+  the full bounded Query result promotes through Dataset/Widget/Dashboard
+  libraries with publish/download/import/open actions. Focused automated/live
+  evidence, durable visual artifacts, and user acceptance closed the gate.
+  Actual 200% browser zoom is deferred polish; desktop and 320/390/640-CSS-
+  pixel reflow remain the regression matrix.
 - **D1b Superset runtime/import hardening after M3
   (T139–T144/T160–T165):** digest-pinned 6.1.0 runtime and driver, persistent
   metadata, canonical five-family native fixture that owns the deterministic
@@ -1902,17 +1901,16 @@ query versions, execution, Dataset, both Widget drafts, Dashboard title, import
 receipt/last-verified projection, and real Superset Dashboard. Evidence is in
 `evidence/m3-real-multi-widget-2026-08-06.json`.
 
-This evidence does not close M3. T150/T174/T151 are complete from their own
-Ask characterization, shell, and browser evidence. T175/T152, T176/T177,
-T178/T153, and T179/T154 remain the immediate product path, followed by final
-side-by-side browser inspection and user acceptance.
-M4 has not started. In particular, only one model run was made and the model's
+This foundation evidence alone did not close M3. The later focused D1d
+implementation/evidence closed T150–T154 and T174–T179, and the user explicitly
+accepted the milestone and directed M4 to begin. Actual 200% browser zoom is
+deferred polish. M4 remains open: only one model run was made and the model's
 `ORDER BY observed_at DESC` has no stable secondary key for tied timestamps.
 The failure/recovery and visualization-family repetitions, durable screenshot/
 video and accessibility matrix, schema-backed acceptance artifacts, CI review,
 and explicit user acceptance are not inferred from this M3 pass.
 
-### M3 D1d focused implementation checkpoint — AUTOMATED PASS; LIVE ACCEPTANCE OPEN (2026-08-06)
+### M3 D1d focused implementation checkpoint — ACCEPTED (2026-08-06)
 
 The focused Dataset, Widget/Dashboard, and publication slices now implement the
 pending T175/T152, T176/T177, and T178/T153 behavior. Dataset review is bound to
@@ -1944,10 +1942,12 @@ cross-session saved-Dataset hydration, compatible Widget choices/bindings, and
 receipt-gated Imported/Open state. No seed, reset, fake router, or model call was
 used for this checkpoint.
 
-This is not T154 acceptance. The six focused task boxes remain open for the
-explicit closure checkpoint, and T179/T154 still require actual 200% browser
-zoom, durable D1d screenshots/video/acceptance evidence, and user acceptance. M4 has not
-started. The client currently mirrors the Gateway's deterministic presentation
+The user explicitly accepted this checkpoint and directed M4 to begin. T175/
+T152, T176/T177, T178/T153, and T179/T154 are closed from their own focused
+evidence. The durable evidence directory contains a live retained-session
+screenshot and a clearly labelled deterministic mock-API walkthrough video,
+final screenshot, and trace. Actual 200% browser zoom is deferred polish and is
+not an MVP gate; 320/390/640-CSS-pixel reflow remains required. The client currently mirrors the Gateway's deterministic presentation
 compatibility calculation because the lightweight M3 API has no pre-save
 suggestion endpoint (N82); the Gateway remains authoritative at save time, and D1c
 owns elimination of that bounded duplication if its hardened endpoint is

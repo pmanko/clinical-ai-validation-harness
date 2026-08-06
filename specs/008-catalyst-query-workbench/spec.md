@@ -5,10 +5,11 @@
 **Created**: 2026-07-17
 
 **Status**: Iterative-query notebook foundation accepted. The selected
-Superset-backed Dashboard Builder is in M3: its binding 4c product surface and
-real notebook-to-Superset path are live, and the focused automated D1d checks
-pass. Actual 200% browser review, durable visual/acceptance evidence, focused
-task closure, and explicit user acceptance remain open; M4 has not started.
+Superset-backed Dashboard Builder completed M3 on 2026-08-06: its binding 4c
+product surface, real notebook-to-Superset path, focused automated D1d checks,
+durable visual evidence, and explicit user acceptance are recorded. M4 release
+hardening and deployed acceptance are in progress. Actual 200% browser zoom is
+deferred polish, not an MVP gate.
 
 **Input**: Refine the Catalyst query experience with manageable dataset context,
 targeted query remediation, complete validator feedback, editable SQL,
@@ -33,7 +34,7 @@ feature.
 
 | Pathway | Status | Relationship to feature 008 |
 | --- | --- | --- |
-| **Superset-backed Dashboard Builder MVP** | **M3 integrated 4c implementation live; manual acceptance open; M4 not started** | Depends only on the accepted Query vN/execution/table foundation. Catalyst supervises Dataset/Widget/Dashboard drafts and publishes a native bundle to a shared outbox; the pinned Superset CLI imports and renders it. |
+| **Superset-backed Dashboard Builder MVP** | **M3 accepted 2026-08-06; M4 release hardening in progress** | Depends only on the accepted Query vN/execution/table foundation. Catalyst supervises Dataset/Widget/Dashboard drafts and publishes a native bundle to a shared outbox; the pinned Superset CLI imports and renders it. |
 | G2.10 multi-source/lossless data foundation | Evidence incomplete | Parallel reliability work; it can broaden dashboard sources later but does not block D1's one-source/one-catalog Dashboard rule |
 | W2 targeted query assistance | Planned, not selected | Parallel optional repair workflow; requires its own G4/G5 approval |
 | W3/CVR evaluation | Report parity merged in PR #43; session export/comparative expansion remains | Parallel evidence work; not a Dashboard product dependency |
@@ -536,7 +537,7 @@ execution.
    network path and the database-enforced read-only role, and representative
    values reconcile to PostgreSQL. Changing the active source preserves saved drafts with explicit
    stale-source state and never silently rebinds them.
-9. **Given** keyboard-only navigation or 200% browser zoom, **When** the user
+9. **Given** keyboard-only navigation or the required responsive reflow matrix, **When** the user
    completes Ask → Dataset → Widget → Dashboard → Publish and reviews import or
    error state, **Then** every control and value remains operable, readable, and
    unobscured.
@@ -558,7 +559,7 @@ execution.
 | PUB-01 | Publish and download bytes match; only an exact valid receipt establishes Imported; Open Superset lands on `/superset/dashboard/catalyst-<lowercase-dashboard-id>/`. Pointer/bundle/manifest/credential and other preflight failures plus transactionally rolled-back CLI failures preserve the previously verified Dashboard. Post-import verification failure reports Import failed, disables Open/current-success, retains its diagnostic, and exposes only full Superset-local metadata/home reset plus verified reimport of the logical Dashboard's atomic last-verified projection. Missing/corrupt projection data stops before reset. Recovery of verified A does not replace desired failed B in `current.json` or clear B's `import_failed`; automatic bootstrap/retry of B remains suppressed until explicit retry or a new publication. |
 | PERF-01 | From an already eligible successful execution to Bundle ready is under 180 seconds, measured start/end, with zero model and database calls during configuration/publication. |
 | EVIDENCE-01 | A schema-valid `acceptance.json` resolves component/image revisions, bundle/pointer/receipt/last-verified digests, stable Superset UUID/slug/URL, query/execution/entity IDs, reproducible PostgreSQL SQL plus inspected IDs/values, reviewer rationale, accessibility evidence, the fixed six-step `orderedWorkflow`, and versioned `run_manifest.json`/`events.jsonl` with structured `query_turn`, `query_version`, `query_execution`, Dataset/Widget/Dashboard/publication/import/reconciliation/acceptance payloads. |
-| A11Y-01 | Empty/populated Ask, all panels, and all libraries pass keyboard traversal, Escape/focus return, status announcements, reduced motion, desktop, 390×844, 320 CSS px, and actual 200% zoom without obscured controls or document overflow. |
+| A11Y-01 | Empty/populated Ask, all panels, and all libraries pass keyboard traversal, Escape/focus return, status announcements, reduced motion, desktop, 390×844, 320 CSS px, and a 640-CSS-pixel equivalent reflow boundary without obscured controls or document overflow. Actual 200% browser zoom is deferred polish and is not an MVP gate. |
 
 ### Edge Cases
 
@@ -1416,7 +1417,8 @@ execution.
   saved drafts, display stale-source state, and retain original source binding.
 - **SC-040**: Deterministic UI and manual checks prove empty/populated Ask →
   Dataset → Widget → Dashboard → Publish, every library/review panel, and error
-  recovery at desktop, 390×844, 320 CSS px, and actual 200% browser zoom. Tests
+  recovery at desktop, 390×844, 320 CSS px, and a 640-CSS-pixel equivalent
+  reflow boundary. Actual 200% browser zoom is deferred polish. Tests
   cover keyboard order, Escape and focus return/containment, status
   announcements, reduced motion, no document overflow, and no obscured
   composer/editor/control.
