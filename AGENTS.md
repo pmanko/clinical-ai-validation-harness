@@ -18,6 +18,14 @@ their prerequisite product tasks. Do not change a milestone's meaning or exit
 criteria without explicit user approval. On `codex/*` branches, run SpecKit with
 `SPECIFY_FEATURE=008-catalyst-query-workbench` so the active feature resolves
 without renaming the branch.
+
+Use `scripts/catalyst-mvp.sh` for isolated-stack lifecycle, health, and Superset
+import/status operations. Do not invoke the target Compose file alone: the
+harness wrapper establishes the isolated override, ports, sibling Hub context,
+and no-reseed defaults. A targeted service rebuild must preserve those same
+settings, retain volumes, and verify the expected `13000` UI and `18000`
+Gateway bindings before browser acceptance. Seeding and reset remain explicit
+user-visible operations.
 <!-- SPECKIT END -->
 
 Guidance for AI agents and contributors working in this repository.
