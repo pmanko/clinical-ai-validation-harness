@@ -1566,6 +1566,22 @@ and user-acceptance gates remain open. The M0–M4 exits are defined in
 [`dashboard-mvp-delivery-goal.md`](dashboard-mvp-delivery-goal.md). T139–T182
 remain the full D1 hardening backlog; they are not retroactively complete.
 
+**2026-08-06 product-first foundation inventory:** The happy-path contracts
+needed to begin D1d/M3 are present and green, but no broad D1b/D1c task is
+retroactively closed:
+
+- `dashboard_builder.py` and `dashboard_routes.py` provide the reusable
+  Dataset/Widget/Dashboard persistence, SQL compilation, native-bundle, outbox,
+  status, and route foundation. The focused builder/import suite passed 16/16.
+- The pinned Superset runtime, persistent volume, read-only outbox/writable
+  receipt separation, and exact Catalyst-revision receipt checks passed 3/3.
+- The existing `DashboardPublishPanel` bridge passed 2/2 focused UI tests. It is
+  implementation material to recompose, not evidence of the 4c shell or D1d.
+- Full D1b/D1c recovery, conflict/idempotency, clean-fixture, changed-child,
+  publication-state, and separated red-first coverage remains assigned to its
+  original tasks for M4. These gaps do not prevent the already-proven real happy
+  path from supporting immediate D1d product work.
+
 **2026-08-06 supporting visualization-family/operator checkpoint:** The live
 integrated UI saved one Query-v3 Dataset and six Widgets covering table,
 time-series line, time-series area, grouped bar, stacked bar, and proportion
