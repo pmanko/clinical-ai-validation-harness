@@ -255,9 +255,9 @@ Hub; keep presentation in Catalyst UI; and keep experiment orchestration/artifac
 validation in the umbrella harness. Hub's clinical-answer/report profile engine
 remains separate. The existing governed preview endpoints remain compatible; the
 workbench receives a separate API so advisory manual execution cannot weaken
-governed behavior. The umbrella runtime builds its pinned sibling Hub checkout;
-Catalyst may bootstrap an unmodified clone at the identical pinned commit only as
-a standalone fallback.
+governed behavior. The umbrella runtime builds its exact pinned sibling Hub
+checkout. Catalyst's standalone runtime may bootstrap an unmodified clone at its
+own immutable pin; that fallback is not an umbrella build dependency.
 
 ## Delivery Slices
 
@@ -329,7 +329,7 @@ a standalone fallback.
    builder, schema/detail publication, or orchestration routes.
 4. Land a failing root harness runtime test before wiring the sibling Hub build;
    only after that wiring is proven retire Catalyst's disposable Hub patch and
-   retain an unpatched same-commit standalone fallback.
+   retain a separately pinned, unpatched standalone fallback.
 5. Land failing UI tests, but do not implement the UI until the Hub/backend/store/
    root schema and contract-drift checkpoint passes. Then implement the UI and
    pass the post-UI full gate.
@@ -765,9 +765,11 @@ The following items must remain visible until evidence resolves them:
   provenance on current pins before this is treated as accepted live behavior.
 - **N54 — Standalone fallback contract drift (resolved; architecture
   superseded)**: The disposable patch/duplicated runtime source remains retired.
-  Current Catalyst owns its query contracts and orchestration, while both the
-  umbrella runtime and Catalyst's standalone fallback use the same unmodified
-  generic Hub revision. T111 rechecks exact committed pins before acceptance.
+  Current Catalyst owns its query contracts and orchestration. The umbrella uses
+  its exact sibling Hub pin; Catalyst standalone uses a separate immutable,
+  unmodified Hub fallback. Each path records and verifies the revision it
+  actually runs rather than coupling the two pins. T111 rechecks exact committed
+  pins before acceptance.
 - **N55 — Active-session surfaces are vertically fragmented (open; G2.9)**: The
   live page is about 7,859 CSS pixels tall and separates the follow-up composer,
   editor, actions, results, evidence, and history by several viewports. The

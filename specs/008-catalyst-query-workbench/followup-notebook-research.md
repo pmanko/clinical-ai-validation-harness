@@ -171,10 +171,10 @@ running in the isolated stack.
 
 G2.8 resolves this by landing the profile/follow-up work in the real Hub sibling
 and making the umbrella runner build that pinned source. Catalyst may retain a
-standalone fallback at the same pinned commit, but the disposable patch and two
-different effective Hub sources must be retired. Until that change lands, live
-evidence must name the actual patched checkout rather than imply that the sibling
-pin ran.
+separately pinned, unmodified standalone fallback, but the disposable patch and
+two patched/unpatched effective Hub sources must be retired. Until that change
+lands, live evidence must name the actual patched checkout rather than imply that
+the sibling pin ran.
 
 The preimplementation change controls, rollback, and evidence protocol are in
 [`pccp/2026-07-18-iterative-query-notebook.md`](pccp/2026-07-18-iterative-query-notebook.md).
