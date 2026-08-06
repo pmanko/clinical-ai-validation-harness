@@ -178,6 +178,13 @@ not prove the binding 4c product surface, so M3 remains in progress and M4 has
 not started. T139–T182 close individually; no bridge or evidence task can close
 their product, hardening, accessibility, or acceptance requirements.
 
+As of 2026-08-06, the binding 4c product surface and deterministic browser flow
+are implemented and live through imported-state refresh. The remaining M3 gate
+is deliberately narrow: actual 200% browser zoom, reconciliation of the obsolete
+D1d task file paths/statuses to the consolidated implementation, and explicit
+user UX acceptance. Those items do not authorize M4 recovery/evidence-emitter
+work or a parallel UI architecture.
+
 Supporting corrective work removed the obsolete Gateway A2A chat relay and all
 dead `CATALYST_ROUTER_URL` wiring from supported Compose configurations.
 The historical agent prototype is not deleted, but it is no longer exposed as

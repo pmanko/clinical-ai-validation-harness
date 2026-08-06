@@ -1,9 +1,9 @@
 # D1 Dashboard Builder MVP Delivery Goal
 
 **Status:** Active — the binding 4c product candidate is live and the real
-notebook-to-Superset path has passed one manual checkpoint. M3 remains in
-progress pending the remaining D1d matrix and explicit user acceptance; M4 has
-not started.
+notebook-to-Superset path plus deterministic D1d browser flow pass. M3 remains
+in progress pending actual 200% browser zoom, task-path/status reconciliation,
+and explicit user acceptance; M4 has not started.
 
 ## Goal
 
@@ -44,7 +44,7 @@ FHIR-cache registry is part of this goal.
 | M0 — truthful baseline | Current branches and runtime evidence available | Product/docs/task state identifies the implemented table exporter/importer as a Superset import spike and keeps the Dashboard MVP open. | Passed 2026-08-05 |
 | M1 — real profile/runtime foundation | M0 complete | Hub/Catalyst/harness pins contain one shared workflow-typed profile schema, no duplicate Gateway model configuration, no fake-router path, and external-only startup with exact alias checks. | Passed 2026-08-05 |
 | M2 — real query-workbench proof | M1 complete and models are available | Persistent isolated stack starts without seed; Gemma → Qwen generation, manual edit, Validate/Run, result inspection, and exact trace evidence pass. Pause before dashboard implementation resumes. | Accepted 2026-08-05 |
-| M3 — Dashboard MVP integration | M2 accepted | The preserved Ask workbench is recomposed into the binding 4c shell with one editor/composer, chronological turns, Dataset/Widget/Dashboard review and libraries, and publication controls; the real happy path imports into Superset and reconciles to PostgreSQL. | **In progress** — the 4c shell and one real Gemma/Qwen notebook-to-Superset path are live, including refresh-hydrated `Imported`/verified Open state; the remaining T150–T154/T174–T179 checks and explicit user acceptance are open. |
+| M3 — Dashboard MVP integration | M2 accepted | The preserved Workbench is recomposed into the binding 4c shell with one editor/composer, chronological turns, Dataset/Widget/Dashboard review and libraries, and publication controls; the real happy path imports into Superset and reconciles to PostgreSQL. | **In progress** — the 4c shell, one real Gemma/Qwen notebook-to-Superset path, and deterministic D1d browser flow are live, including refresh-hydrated `Imported`/verified Open state. Actual 200% browser zoom, obsolete task-path/status reconciliation, and explicit user acceptance remain open. |
 | M4 — release acceptance | M3 complete and explicitly accepted by the user | Required repetition, nondeterminism, failure/recovery, keyboard/reflow/accessibility, evidence emission, CI, and video evidence pass; the user accepts the deployed workflow. | **Not started** — partial technical evidence already recorded remains supporting evidence only. |
 
 ## Required D1 completion work

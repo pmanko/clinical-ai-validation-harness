@@ -1559,8 +1559,12 @@ Gemma/Qwen session completed manual correction, validation/execution,
 contextual follow-up, successor correction/execution, exact Dataset review, and
 refresh restoration. The Dashboard library now hydrates exact importer-owned
 receipt/projection state after refresh and exposes Open Superset only for a
-verified matching Dashboard version. M3 remains open because the remaining D1d
-task evidence and explicit user acceptance are not complete. `mvp-superset.sh reset`
+verified matching Dashboard version. The deterministic 4c browser flow now
+covers the complete Workbench to Dataset to Widget to Dashboard to Publish path,
+stale-result retention, imported-state refresh, keyboard/focus behavior,
+navigation collapse, reduced motion, and 390/320/640 CSS-pixel reflow. M3
+remains open because actual 200% browser zoom, D1d task-path/status
+reconciliation, and explicit user acceptance are not complete. `mvp-superset.sh reset`
 intentionally refuses to run until its recovery contract is implemented; the
 five-family, failure/recovery, repetition, accessibility, evidence-emitter, CI,
 and user-acceptance gates remain open. The M0–M4 exits are defined in
@@ -1582,6 +1586,28 @@ hydrated from the selected turn rather than the initial session artifact. Exact
 digests and timings are in
 `evidence/m3-4c-live-notebook-2026-08-06.json`. These semantic failures are W3
 evaluation cases; they do not justify widening the M3 product scope.
+
+**2026-08-06 D1d automated/live browser checkpoint:** Catalyst revisions
+`6bb7907` and `33888ec` retain successful results in the Workbench after a
+successor is generated and mark them stale, implement a modal Dataset/Widget/
+Dashboard review panel with Tab containment and Escape focus return, add an
+explicit collapsible navigation rail, and place its collapse control on the
+same row as the Catalyst brand. The comprehensive existing
+`catalyst-ui/e2e/query-to-table.spec.ts` now exercises the real 4c path through
+refresh-hydrated imported state instead of the obsolete appended Dashboard
+Builder assumptions. UI unit tests passed 132/132; typecheck and lint passed;
+the deterministic browser project passed its Dashboard Builder flow with the
+other three source-specific scenarios skipped by their declared project guards.
+The isolated production UI was rebuilt without reseeding and restored session
+`4232e4f1-d80f-4040-aaaa-51b256f5c81f`, Query v4, six typed rows, the exact
+Gemma/Qwen profile, and the 2-schema/9-relation catalog. Live review-panel
+Escape restored the Dataset trigger and live navigation collapse toggled the
+expected shell state. Actual 200% browser zoom remains a manual check: the
+in-app browser ignored programmatic zoom shortcuts, so only the deterministic
+640-CSS-pixel equivalent is recorded. N81 records that T175-T179 name obsolete
+component/E2E paths; remediating those paths/statuses requires explicit approval
+and must not create duplicate component architecture. Exact details are in
+`evidence/m3-4c-live-notebook-2026-08-06.json`.
 
 **2026-08-06 product-first foundation inventory:** The happy-path contracts
 needed to begin D1d/M3 are present and green, but no broad D1b/D1c task is

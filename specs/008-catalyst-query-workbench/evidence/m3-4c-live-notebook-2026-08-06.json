@@ -1,11 +1,11 @@
 {
   "contractVersion": "catalyst.dashboard-builder.m3-4c-live-notebook.v1",
-  "observedAt": "2026-08-06T20:31:00Z",
+  "observedAt": "2026-08-06T21:27:45Z",
   "status": "live_candidate_user_acceptance_open",
   "scope": "Binding 4c shell with real initial generation, manual correction, execution, contextual follow-up, successor correction, execution, per-turn evidence, and refresh restoration",
   "revisions": {
-    "harness": "8443e8f3a58bd2fb6f27aa9c72f8cd0e12ca1ab4",
-    "catalyst": "c9f9b87",
+    "harness": "5433058e9cb87df63f69a18ee01b6ca111c7c7b2",
+    "catalyst": "33888ec832d699943a0fd00f0c8fc7684d7b5b56",
     "medAgentHub": "e6095f520d9b3be53069d7a4fff710c91f18c246"
   },
   "runtime": {
@@ -103,7 +103,52 @@
     "datasetReviewShowsExactQueryAndSixTypedRows": true,
     "refreshRestoredQueryV4Run2AndSixRowSummary": true,
     "workbenchNounNavigation": true,
+    "collapseControlSharesCatalystHeaderRow": true,
+    "reviewDialogFocusContained": true,
+    "escapeRestoresReviewTriggerFocus": true,
+    "desktopNavigationCollapse": true,
+    "desktopViewport": "1280x720",
+    "compactViewport": "390x844",
+    "narrowViewport": "320x720",
+    "zoomEquivalentViewport": "640x720",
+    "noHorizontalOverflowAtTestedViewports": true,
+    "reducedMotionDisablesNavigationTransitions": true,
+    "actualBrowserZoom200Percent": false,
     "explicitUserAcceptance": false
+  },
+  "automatedAcceptance": {
+    "catalystRevision": "6bb79077b14e257f224142ebbdc2c5bd35083b63",
+    "unitTests": {
+      "command": "npm test",
+      "result": "132 passed"
+    },
+    "typecheck": {
+      "command": "npm run typecheck",
+      "result": "passed"
+    },
+    "lint": {
+      "command": "npm run lint",
+      "result": "passed"
+    },
+    "browserFlow": {
+      "path": "catalyst-ui/e2e/query-to-table.spec.ts",
+      "command": "npx playwright test --project=deterministic --reporter=line",
+      "result": "1 passed; 3 source-specific scenarios skipped by their declared project guards",
+      "covered": [
+        "Workbench question and profile selection",
+        "manual SQL edit, validation, and explicit Run",
+        "exact Dataset result and SQL review",
+        "saved Dataset before contextual follow-up",
+        "stale prior result retained after successor generation",
+        "successor Run and second Dataset save",
+        "Widget and Dashboard review/save libraries",
+        "publish bundle state and imported receipt hydration after refresh",
+        "navigation collapse and keyboard order",
+        "review-dialog focus containment and return",
+        "390x844, 320x720, and 640x720 reflow",
+        "reduced-motion transition removal"
+      ]
+    }
   },
   "publicationAcceptance": {
     "dashboardId": "2e125fc6-6f3c-4519-9192-9d61cf519300",
@@ -134,11 +179,16 @@
       "status": "resolved",
       "summary": "The Dashboard library now projects importer-owned receipts instead of leaving imported bundles labelled bundle-ready.",
       "resolutionRevision": "7dccc02"
+    },
+    {
+      "id": "N81",
+      "status": "open_task_alignment",
+      "summary": "D1d tasks name three component files and dashboard-builder.spec.ts that do not exist; the current implementation and coverage are intentionally consolidated in DashboardPublishPanel and query-to-table.spec.ts. Task path/status remediation awaits explicit approval and must not create duplicate product architecture."
     }
   ],
   "remainingForM3": [
-    "Complete the still-open T150-T154 and T174-T179 acceptance details individually.",
-    "Complete desktop, 390x844, 320 CSS-pixel, actual 200-percent zoom, keyboard, focus, and reduced-motion review.",
+    "Reconcile T150-T154/T174-T179 paths and statuses to the consolidated implementation after explicit approval.",
+    "Complete actual 200-percent browser zoom and final side-by-side visual review; deterministic 640-CSS-pixel equivalent reflow already passes.",
     "Obtain explicit user acceptance of the live 4c experience."
   ]
 }
