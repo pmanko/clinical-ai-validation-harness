@@ -1547,21 +1547,26 @@ and the complete two-source transition/staleness/execution matrix remains open.
 
 ## D1 — Superset-backed Dashboard Builder MVP
 
-**Status:** M3 real-profile multi-widget workflow passed; M4 release acceptance remains open
+**Status:** M3 product integration in progress; M4 release acceptance has not
+started
 
-**Current implementation state (2026-08-06):** The active branches contain a
-manually testable M3 candidate: immutable builder entities, deterministic native
-bundle generation, a pinned local Superset runtime, explicit importer and
-verified receipts, a real Hub-profile execution, and a table plus time-series
-Dashboard whose values reconcile to PostgreSQL and restore after restart. This
-passes T186 but is not full D1 release acceptance. `mvp-superset.sh reset`
+**Current implementation state (corrected 2026-08-06):** The active branches
+contain a reusable backend/import foundation: immutable builder entities,
+deterministic native bundle generation, a pinned local Superset runtime,
+explicit importer and verified receipts, a real Hub-profile execution, and a
+table plus time-series Superset Dashboard whose values reconcile to PostgreSQL
+and restore after restart. This passes the corrected T186 foundation task, but
+the live Catalyst product still mounts the old vertical workbench and appends a
+publishing panel; it does not implement the binding 4c shell, chronology,
+Dataset/Widget/Dashboard panels, or libraries. It is therefore not an M3 user
+validation candidate. `mvp-superset.sh reset`
 intentionally refuses to run until its recovery contract is implemented; the
 five-family, failure/recovery, repetition, accessibility, evidence-emitter, CI,
 and user-acceptance gates remain open. The M0–M4 exits are defined in
 [`dashboard-mvp-delivery-goal.md`](dashboard-mvp-delivery-goal.md). T139–T182
 remain the full D1 hardening backlog; they are not retroactively complete.
 
-**2026-08-06 T187 visualization-family/operator checkpoint:** The live
+**2026-08-06 supporting visualization-family/operator checkpoint:** The live
 integrated UI saved one Query-v3 Dataset and six Widgets covering table,
 time-series line, time-series area, grouped bar, stacked bar, and proportion
 bar. Bundle
@@ -1743,7 +1748,7 @@ and issue dispositions are in
 
 This is not a reproducibility or Dashboard-MVP claim. The generated ordering has
 no stable secondary key for tied `observed_at` values, and no identical-input
-repetition was run; those remain recorded for T187/D1e. M3 multi-widget
+repetition was run; those remain recorded for the individual D1e tasks. M3 multi-widget
 integration, Superset dashboard reconciliation/recovery, the full accessibility
 and evidence matrix, and final user acceptance remain open.
 
@@ -1801,9 +1806,9 @@ embedded dashboards, cross-system undo/reconciliation, narrative reporting,
 sharing, scheduling, automatic refresh, and production authorization remain
 explicitly deferred; no parallel pathway is implied complete.
 
-### M3 real-profile multi-widget checkpoint — PASSED (2026-08-06)
+### Real-profile/backend-import foundation — PASSED; M3 IN PROGRESS (2026-08-06)
 
-T186 is complete. A fresh session used the only advertised Hub-owned profile,
+The corrected T186 foundation task is complete. A fresh session used the only advertised Hub-owned profile,
 `catalyst-query-e4b-qwen14b`, with exact `google/gemma-4-e4b` writer and
 `qwen2.5-14b-instruct-mlx` reviewer aliases. Gemma generated a complete
 latest-ten query, Qwen approved it, and the sole SQL editor was manually changed
@@ -1822,13 +1827,15 @@ query versions, execution, Dataset, both Widget drafts, Dashboard title, import
 receipt/last-verified projection, and real Superset Dashboard. Evidence is in
 `evidence/m3-real-multi-widget-2026-08-06.json`.
 
-M4/T187 remains open. In particular, only one model run was made and the model's
+This evidence does not close M3. T150–T154 and T174–T179 remain the immediate
+product path, followed by side-by-side browser inspection and user acceptance.
+M4 has not started. In particular, only one model run was made and the model's
 `ORDER BY observed_at DESC` has no stable secondary key for tied timestamps.
 The failure/recovery and visualization-family repetitions, durable screenshot/
 video and accessibility matrix, schema-backed acceptance artifacts, CI review,
 and explicit user acceptance are not inferred from this M3 pass.
 
-### M4 routing-surface corrective — PASSED (2026-08-06)
+### Supporting routing-surface corrective — PASSED (does not start M4; 2026-08-06)
 
 The supported product path is now singular. Catalyst Gateway no longer imports
 the A2A client, reads `CATALYST_ROUTER_URL`, or exposes the obsolete generic
@@ -1843,11 +1850,10 @@ Hub profile, Gateway profile view, analytics, UI, Superset, source-pin, and
 provenance gates. Live OpenAPI reported no generic chat relay while the
 workbench remained present, and persisted Dashboard Builder state restored as
 five Datasets, nine Widgets, and five Dashboards. Gateway formatting, lint,
-mypy, 210 tests, and 31 assembly checks passed. This closes only the routing
-surface corrective within T187; repetition, recovery, accessibility/evidence,
-green PR CI, and user acceptance remain open.
+mypy, 210 tests, and 31 assembly checks passed. This is retained as supporting
+foundation evidence only. It does not close a D1 task or start M4.
 
-### M4 repetition and manual recovery checkpoint — PARTIAL (2026-08-06)
+### Supporting repetition and manual recovery evidence — PARTIAL (does not start M4; 2026-08-06)
 
 One identical-input real-model repetition used the same exact profile,
 instruction, and catalog as M3. It selected byte-identical SQL and the same
@@ -1865,7 +1871,7 @@ signal is overconfident for this class of catalog error. The deterministic
 browser E2E now includes Dataset save, time-series Widget creation, Dashboard
 publication, keyboard traversal through all builder controls, 390×844 compact
 layout, and the 640-CSS-pixel 200%-equivalent reflow. Actual Dashboard Builder
-200% browser zoom and the rest of T187 remain open. Exact evidence is in
+200% browser zoom and the individually tracked D1 tasks remain open. Exact evidence is in
 `evidence/m4-repetition-recovery-2026-08-06.json`.
 
 ## W2 — Targeted remediation

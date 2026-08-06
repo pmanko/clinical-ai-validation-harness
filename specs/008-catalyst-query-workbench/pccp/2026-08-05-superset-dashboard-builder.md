@@ -1,7 +1,7 @@
 # PCCP-style Change Record: Superset-backed Dashboard Builder MVP
 
-**Status:** D1a passed; M3/T186 real-profile multi-widget workflow passed;
-M4/T187 release acceptance open
+**Status:** D1a passed; T186 backend/import foundation passed; M3 binding 4c
+product integration in progress; M4 release acceptance not started
 
 **Date:** 2026-08-05
 
@@ -40,17 +40,18 @@ queries the compiled virtual-dataset SQL with the demo read-only role and is the
 only dashboard renderer. Superset-only edits are intentionally replaced by the
 next publication and are not represented as synchronized.
 
-### M3 implementation checkpoint (2026-08-06)
+### Reusable foundation checkpoint (2026-08-06)
 
 The active branches now supersede the table-only runtime boundary above with a
-manually testable real-profile flow: Gemma E4B generation, Qwen 14B review,
+real-profile backend/import flow: Gemma E4B generation, Qwen 14B review,
 manual SQL child version, explicit execution, one exact Dataset, table and
 time-series Widgets, native bundle/import, live Superset rendering, per-widget
 PostgreSQL reconciliation, and restart restoration. Catalyst exposes no second
 aggregation choice; Superset's required native metric is deterministically
-derived by the exporter without changing Dataset SQL. T187 still owns the
-five-family, failure/recovery, repetition/nondeterminism, accessibility,
-schema-backed evidence, CI, and explicit user-acceptance gates.
+derived by the exporter without changing Dataset SQL. This is not the binding
+4c product experience and cannot close M3. T139–T182 individually own the
+remaining product, hardening, failure/recovery, repetition/nondeterminism,
+accessibility, schema-backed evidence, CI, and user-acceptance gates.
 
 The reconciled design integrates the existing workbench rather than copying the
 mock's abbreviated prompt-only flow. Available data remains discoverable before

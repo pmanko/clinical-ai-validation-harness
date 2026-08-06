@@ -325,11 +325,11 @@ so textual order—not numeric order—is the executable sequence within D1.
 - [ ] T156 [US7] Repeat the deployed path for same-digest no-op, changed child, layout-only reuse, restart restoration, scoped pointer/bundle/preflight/credential failures and transactionally rolled-back CLI failures that preserve the prior verified Dashboard, a post-verification failure that reports `Import failed` with Open/current-success disabled and retained diagnostic, full Superset-local metadata/home reset plus verified per-Dashboard last-verified reimport, missing/corrupt projection refusal before reset, recovered-A/failed-desired-B automatic bootstrap/retry suppression until explicit retry or new publication, DB-enforced read-only write denial, and one clean-import fixture for every supported visualization family; record model candidate/digest variance rather than assuming temperature-zero reproducibility under `artifacts/catalyst-dashboard/<run-id>/d1e/repetitions/`
 - [ ] T157 [US7] Pass the final D1e evidence gate: validate the emitted `run_manifest.json`, structured `query_*` and builder `events.jsonl`, fixed `orderedWorkflow` in `acceptance.json`, screenshots/video, bundle/current/receipt/per-Dashboard-last-verified/evidence-index digests, revisions, IDs, PostgreSQL evidence, rationale, accessibility references, scoped failure-boundary evidence, and full-reset/reimport-last-verified recovery evidence under `artifacts/catalyst-dashboard/<run-id>/`; update `specs/008-catalyst-query-workbench/pccp/2026-08-05-superset-dashboard-builder.md`, `roadmap.md`, and `quickstart.md`; pass CI and remote-reachable pin checks, push both PR branches, demonstrate Catalyst → outbox → Superset, and pause for final user acceptance before calling the MVP complete
 
-### D1s — Superset import spike and Dashboard MVP bridge
+### D1s — Superset import spike and reusable foundation evidence
 
-The completed table bundle/import mechanics are a Superset import spike, not a
-smaller MVP. The tasks below bridge that spike into the full goal defined in
-`dashboard-mvp-delivery-goal.md` without marking the D1 graph above complete.
+The completed bundle/import mechanics are a Superset import spike and reusable
+foundation, not a smaller MVP or an alternate completion route. These tasks do
+not close, bypass, or replace any T139–T182 task.
 
 - [X] T183 [US7] Record the independently verified local baseline: Catalyst UI,
   Gateway, Superset, and analytics health; named-volume restart retention;
@@ -348,19 +348,19 @@ smaller MVP. The tasks below bridge that spike into the full goal defined in
   implementation resumes. Technical evidence is recorded in
   `evidence/m2-real-query-workbench-2026-08-05.json`; the user accepted that
   pause on 2026-08-05 and directed M3 to begin.
-- [X] T186 [US7] Integrate that exact successful execution into the actual
-  multi-widget Dashboard Builder, publish/import its native bundle, and compare
-  representative values for every accepted widget to recorded PostgreSQL SQL.
+- [X] T186 [US7] Prove the reusable real-model/backend/import foundation by
+  persisting an exact successful execution as Dataset/Widget/Dashboard records,
+  publishing/importing its native bundle, and comparing representative values
+  for every included widget to recorded PostgreSQL SQL. This does not prove the
+  binding 4c shell, review panels, libraries, or D1d product experience.
   The exact 2026-08-06 real-profile run, manual child version, table plus line
   widgets, imported Superset IDs, per-widget SQL, and restart restoration are
   recorded in `evidence/m3-real-multi-widget-2026-08-06.json`.
-- [ ] T187 [US7] Complete the required T139–T182 failure/recovery,
-  repetition/nondeterminism, accessibility, and evidence gates; pause for user
-  inspection and acceptance before calling the Dashboard MVP complete. The
-  first real repetition/manual database-recovery pass and expanded Dashboard
-  Builder keyboard/reflow E2E are recorded in
-  `evidence/m4-repetition-recovery-2026-08-06.json`; N75 and the remaining
-  acceptance matrix keep this task open.
+- [X] T187 [US7] Retire the umbrella closeout task. Its first real repetition,
+  manual database-recovery, routing cleanup, and reflow evidence remains valid
+  supporting evidence in `evidence/m4-repetition-recovery-2026-08-06.json`, but
+  it closes no T139–T182 task. Those tasks are audited and completed
+  individually; D1d/M3 user acceptance precedes M4 release hardening.
 
 ## Dependencies and implementation strategy
 
@@ -407,11 +407,15 @@ runtime plus proven driver/network/read-only path blocks T141, whose native
 fixture—not runtime configuration—owns the persisted analytics Database asset.
 Importer red tests T142/T163 run in the Catalyst Gateway CI/test runner and
 block standalone Python 3.10 runtime scripts T143/T164; those scripts block the dedicated
-T165 `mvp-superset.sh` operator wrapper and harness routing. All D1b tasks block
-gate T144. In D1c, storage/route tests T145/T166 block
+T165 `mvp-superset.sh` operator wrapper and harness routing. All D1b tasks still
+block the final release-hardening gate T144, but an inventory-confirmed green
+happy-path runtime/import contract is sufficient to begin D1d/M3 product work.
+In D1c, storage/route tests T145/T166 block
 T146/T167; compiler test T147 blocks T168; visualization test T169 blocks T170;
 serializer test T171 blocks T148; publication test T172 blocks T173. All D1c
-tasks block gate T149. T150 characterizes the accepted Ask path; red shell,
+tasks still block the final hardening gate T149, but an inventory-confirmed
+green happy-path builder/publication contract is sufficient to begin D1d/M3
+product work. T150 characterizes the accepted Ask path; red shell,
 Dataset, Widget/Dashboard, publication, and accessibility tests T174–T179 each
 precede their implementations T151–T153/T177 and together block gate T154.
 User-accepted D1d plus the acceptance/event schemas finalized at T159 block the

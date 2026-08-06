@@ -5,6 +5,19 @@ Active feature plan: `specs/008-catalyst-query-workbench/plan.md`
 
 Implementation is gated by G0–G6 in that plan. Before crossing a user gate,
 surface unresolved nondeterminism, inconsistencies, and environment decisions.
+
+For the selected Dashboard Builder milestone, the authoritative UX contract is
+`targets/catalyst/docs/dashboard-builder-mvp-design.md`; its reconciled
+`Catalyst Dashboard Builder 4c.dc.html` page is the binding visual reference.
+“Lightweight” means the simplest implementation that satisfies that contract,
+not a reduction of the product scope. A product milestone cannot pass while its
+required UX tasks remain open, and backend/import evidence cannot substitute for
+browser-visible acceptance. Every UX checkpoint must compare the live product
+with the binding reference side by side. Bridge or evidence tasks cannot close
+their prerequisite product tasks. Do not change a milestone's meaning or exit
+criteria without explicit user approval. On `codex/*` branches, run SpecKit with
+`SPECIFY_FEATURE=008-catalyst-query-workbench` so the active feature resolves
+without renaming the branch.
 <!-- SPECKIT END -->
 
 Guidance for AI agents and contributors working in this repository.

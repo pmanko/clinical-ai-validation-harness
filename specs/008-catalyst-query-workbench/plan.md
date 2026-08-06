@@ -171,14 +171,15 @@ and explicit user acceptance.
 
 The long-form D1 objective is the Dashboard Builder MVP. The original table-only
 bundle/import path was a **Superset import spike**, not a smaller MVP tier.
-M3/T186 now proves the integrated real external-model execution through a
-two-widget native Superset import, PostgreSQL reconciliation, and restart
-restoration. D1 still requires the T187 failure/recovery and repetition matrix,
-the required accessibility/evidence artifacts, and explicit user acceptance.
-The remaining hardening work stays open in T139–T182.
+T186 proves a reusable real-model/backend/import foundation: one exact execution
+can persist Dataset/Widget/Dashboard records, publish a native bundle, import it
+into Superset, reconcile values to PostgreSQL, and restore after restart. It does
+not prove the binding 4c product surface, so M3 remains in progress and M4 has
+not started. T139–T182 close individually; no bridge or evidence task can close
+their product, hardening, accessibility, or acceptance requirements.
 
-The first T187 corrective also removes the obsolete Gateway A2A chat relay and
-all dead `CATALYST_ROUTER_URL` wiring from supported Compose configurations.
+Supporting corrective work removed the obsolete Gateway A2A chat relay and all
+dead `CATALYST_ROUTER_URL` wiring from supported Compose configurations.
 The historical agent prototype is not deleted, but it is no longer exposed as
 a second manual product path. Supported local operation is exclusively Gateway
 → named Hub query profile → external exact-model router.
@@ -188,10 +189,9 @@ a second manual product path. Supported local operation is exclusively Gateway
 | Checkpoint | Entry | Testable exit evidence | Pause rule |
 | --- | --- | --- | --- |
 | **D1a — grounded contracts** | Current-main feature branches and the accepted workbench baseline | T137, T158–T159, T138; exact API/pointer/receipt/acceptance schemas; preimplementation PCCP; deterministic identity/layout/result/source-catalog decisions; N64–N74 register; SpecKit rerun with zero unresolved CRITICAL/HIGH findings; explicit user acceptance | Pause after presenting the bounded plan/evidence; product code starts only after the user accepts D1a |
-| **D1b — Superset runtime/import** | D1a passed | T139–T144 and T160–T165; Catalyst-owned gitignored runtime path; digest-pinned Superset/driver; clean boot and canonical 6.1 fixture import; all five visualization mappings; standalone Python 3.10 importer with pinned-container/canonical-JSON proof; restart/no-op/lock matrix; scoped preflight/credential and transactionally rolled-back CLI preservation; post-verification Import-failed/no-Open evidence; per-Dashboard last-verified projection and full Superset-local reset/reimport recovery; read-only write denial and credential negatives | Stop on pinned-schema, manifest-tolerance, image, permission, transaction, projection, or post-verification drift before builder implementation |
-| **D1c — builder backend/export** | D1b passed | T145–T149 and T166–T173; red-first immutable storage/routes, execution adapter/compiler, visualization, serializer, and publication tests; real fixture round trip; byte-identical ZIP; stable slug; complete provenance; exact changed/reused UUID behavior; zero post-execution model/DB calls | Stop on API/manifest/source-lineage drift before UI integration |
-| **D1d — integrated product UX** | D1c passed | T150–T154 and T174–T179; accepted Ask characterization remains green with one editor; Available data, Dataset/Widget/Dashboard flow, publication controls, refresh/staleness, error recovery, viewport/keyboard/zoom matrix | Pause for user UX acceptance before the definitive live run |
-| **D1e — deployed MVP acceptance** | User accepts D1d | T180–T182 and T155–T157; validated evidence emitter before the real writer/reviewer path; Save Dataset v1 before the follow-up and Dataset v2 after rerun; heterogeneous Widgets; real imported deterministic Superset slug URL; PostgreSQL reconciliation; repeat/change/restart/failure evidence; versioned manifest/events/acceptance/PCCP; green CI and user acceptance | D1 remains open until the real dashboard and evidence are inspected and accepted |
+| **D1 foundation inventory** | D1a passed and T186 evidence available | Audit existing T139–T149 and T160–T173 code/tests against their exact acceptance text. Credit only directly proven behavior; retain every unproven hardening item for M4. A green happy-path API/import contract is sufficient to start the product surface. | Stop only on API/lineage drift that prevents the real Ask → Dataset → Widget → Dashboard → Publish path; do not detour into exhaustive release hardening before UX |
+| **D1d / M3 — integrated product UX** | Foundation inventory confirms the happy-path contracts used by the UI | T150–T154 and T174–T179; accepted Ask characterization remains green with one editor; binding 4c shell, fixed composer, chronology, Available data, Dataset/Widget/Dashboard panels and libraries, publication controls, refresh/staleness, and browser comparison | Pause for user UX acceptance. M3 cannot pass while any required D1d task is open |
+| **D1e / M4 — release hardening and deployed acceptance** | User accepts D1d/M3 | Finish every still-open T139–T182 item individually, including evidence emitter, real writer/reviewer path, changed/restart/failure matrices, accessibility/video, PostgreSQL reconciliation, green CI, and final user acceptance | D1 remains open until the complete dashboard and evidence are inspected and accepted |
 
 Three surfaces have distinct names throughout D1: **Available data** is the
 pre-generation catalog and filterable/paginated source preview; **Query result**
@@ -1065,7 +1065,7 @@ The following items must remain visible until evidence resolves them:
   failed, with automatic bootstrap/retry suppressed until explicit retry or new
   publication. Asset-selective deletion, direct ORM/REST mutation, automatic
   rollback, and a prior-Dashboard usability claim are prohibited.
-- **N75 — Catalog-column advisory lint gap (open; discovered in T187 manual
+- **N75 — Catalog-column advisory lint gap (open; discovered in supporting manual
   recovery)**: The deterministic validator marked
   `SELECT missing_column FROM analytics.lab_result_fact_v1 LIMIT 1` valid even
   though the live approved relation has no such column. Explicit Run remained
@@ -1076,7 +1076,7 @@ The following items must remain visible until evidence resolves them:
   catalog-aware lint amendment rather than changing the advisory or explicit-
   Run contract.
 - **N76 — Superset operator dependency startup was implicit (resolved in
-  T187)**: The first live six-widget import let `docker compose run` start or
+  operator evidence)**: The first live six-widget import let `docker compose run` start or
   recreate Superset dependencies implicitly. Superset briefly failed its first
   boot because its metadata-database hostname was unavailable, and even the
   read-only `status` command could perturb runtime state. The operator wrapper
@@ -1084,6 +1084,14 @@ The following items must remain visible until evidence resolves them:
   wait for healthy `analytics-db` and `superset` services before launching the
   one-shot importer with `--no-deps`. This preserves the same importer and
   receipt contracts while making the manual path predictable.
+- **N77 — Dashboard milestone and product-surface drift (resolved in planning;
+  verify at D1d/M3)**: T186 backend/import evidence was incorrectly described as
+  the actual Dashboard Builder and used to mark M3 passed while every D1d UX task
+  remained open. The live product still mounted the old vertical workbench with
+  an appended publishing panel. M3 is restored to in progress, M4 has not
+  started, T187 is retired as an umbrella closeout, and T139–T182 close only from
+  their own evidence. The binding 4c shell and authoritative design contract now
+  require side-by-side browser inspection and user acceptance before M3 can pass.
 
 ## Complexity Tracking
 

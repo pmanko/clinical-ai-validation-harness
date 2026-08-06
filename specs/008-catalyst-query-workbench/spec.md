@@ -39,10 +39,12 @@ feature.
 | R4 narrative reporting | Not started | Parallel table-to-narrative pathway; not a dashboard prerequisite |
 | R5 productionization | Future | Authentication, authorization, security and supported deployment remain outside the local Dashboard MVP |
 
-Dashboard Builder MVP follows the supplied iterative design: one successful
-execution becomes a reusable dataset draft, the user reviews a deterministic
-widget suggestion, and one or more saved widgets can be arranged as a dashboard
-draft. Catalyst persists the supervised draft lineage and atomically publishes
+Dashboard Builder MVP follows the authoritative reconciled design in
+`targets/catalyst/docs/dashboard-builder-mvp-design.md`; the populated
+`Catalyst Dashboard Builder 4c.dc.html` page is its binding visual reference.
+One successful execution becomes a reusable dataset draft, the user reviews a
+deterministic widget suggestion, and one or more saved widgets can be arranged
+as a dashboard draft. Catalyst persists the supervised draft lineage and atomically publishes
 a deterministic native Superset asset ZIP to its gitignored runtime outbox.
 Stack bootstrap may invoke the pinned Superset CLI only for an eligible current
 desired digest; an explicit helper owns retries. The CLI queries the analytics
