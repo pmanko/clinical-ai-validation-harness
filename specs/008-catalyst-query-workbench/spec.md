@@ -1002,7 +1002,11 @@ execution.
   numeric result suggests time-series; an untruncated categorical-plus-numeric
   result suggests grouped bar; otherwise table. Proportion bar is compatible
   only with an untruncated categorical-plus-numeric result, is never suggested,
-  and requires an explicit supervised override. Arbitrary column remapping,
+  and requires an explicit supervised override. Every non-table Widget MUST
+  also require a human-selected report aggregation—sum, average, minimum,
+  maximum, count of non-empty metric values, or count of distinct metric
+  values—over its read-only derived metric binding. Catalyst MUST NOT infer or
+  silently substitute that operation. Arbitrary column remapping,
   semantic-whole inference, and a Catalyst-owned chart renderer are out of
   scope; only a schematic type preview is local.
 - **FR-073**: Catalyst MUST persist Dataset, Widget, and Dashboard drafts in

@@ -285,7 +285,9 @@
       "required": ["metricColumn", "aggregation"],
       "properties": {
         "metricColumn": { "$ref": "#/$defs/columnBinding" },
-        "aggregation": { "const": "none" }
+        "aggregation": {
+          "enum": ["sum", "avg", "min", "max", "count", "count_distinct"]
+        }
       }
     },
     "timeSeriesBindings": {
@@ -295,7 +297,9 @@
       "properties": {
         "xColumn": { "$ref": "#/$defs/columnBinding" },
         "metricColumn": { "$ref": "#/$defs/columnBinding" },
-        "aggregation": { "const": "none" }
+        "aggregation": {
+          "enum": ["sum", "avg", "min", "max", "count", "count_distinct"]
+        }
       }
     },
     "barBindings": {
@@ -311,7 +315,9 @@
             { "type": "null" }
           ]
         },
-        "aggregation": { "const": "none" }
+        "aggregation": {
+          "enum": ["sum", "avg", "min", "max", "count", "count_distinct"]
+        }
       }
     },
     "supersetIdentity": {
