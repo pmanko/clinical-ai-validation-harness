@@ -1547,18 +1547,17 @@ and the complete two-source transition/staleness/execution matrix remains open.
 
 ## D1 — Superset-backed Dashboard Builder MVP
 
-**Status:** Superset import spike implemented; Dashboard MVP remains open
+**Status:** M3 real-profile multi-widget workflow passed; M4 release acceptance remains open
 
-**Current implementation state (2026-08-05):** The active branches contain a
-Superset import spike: immutable builder entities,
-deterministic native bundle generation, a pinned local Superset runtime, an
-explicit importer, and verified import receipts. It is not an intermediate MVP
-or full D1 acceptance.
-The current exporter is table-only, the UI is not yet the designed multi-widget
-library shell, `mvp-superset.sh reset` intentionally refuses to run until its
-recovery contract is implemented, and historical recorded end-to-end generation
-used the now-removed fake router rather than a real-model acceptance run. The next delivery target
-and M0–M4 exits are defined in
+**Current implementation state (2026-08-06):** The active branches contain a
+manually testable M3 candidate: immutable builder entities, deterministic native
+bundle generation, a pinned local Superset runtime, explicit importer and
+verified receipts, a real Hub-profile execution, and a table plus time-series
+Dashboard whose values reconcile to PostgreSQL and restore after restart. This
+passes T186 but is not full D1 release acceptance. `mvp-superset.sh reset`
+intentionally refuses to run until its recovery contract is implemented; the
+five-family, failure/recovery, repetition, accessibility, evidence-emitter, CI,
+and user-acceptance gates remain open. The M0–M4 exits are defined in
 [`dashboard-mvp-delivery-goal.md`](dashboard-mvp-delivery-goal.md). T139–T182
 remain the full D1 hardening backlog; they are not retroactively complete.
 
@@ -1787,6 +1786,33 @@ place to define the intended report grain.
 embedded dashboards, cross-system undo/reconciliation, narrative reporting,
 sharing, scheduling, automatic refresh, and production authorization remain
 explicitly deferred; no parallel pathway is implied complete.
+
+### M3 real-profile multi-widget checkpoint — PASSED (2026-08-06)
+
+T186 is complete. A fresh session used the only advertised Hub-owned profile,
+`catalyst-query-e4b-qwen14b`, with exact `google/gemma-4-e4b` writer and
+`qwen2.5-14b-instruct-mlx` reviewer aliases. Gemma generated a complete
+latest-ten query, Qwen approved it, and the sole SQL editor was manually changed
+to `LIMIT 5`; advisory validation and explicit execution returned five typed
+rows. The exact execution became one Dataset feeding a table and a time-series
+line Widget—without a second aggregation control—then one native bundle was
+imported into Superset at the deterministic Dashboard route.
+
+The Superset table rendered all five rows. Its visible generated line-chart SQL
+used Superset's required internal `MAX(result_value)` metric while grouping by
+the Dataset's time, patient, and unit dimensions; the independent PostgreSQL
+queries returned the same five table rows and five chart groups. This internal
+metric is exporter syntax, not a Catalyst aggregation choice and does not alter
+the governed Dataset SQL. A no-seed, volume-preserving restart restored the
+query versions, execution, Dataset, both Widget drafts, Dashboard title, import
+receipt/last-verified projection, and real Superset Dashboard. Evidence is in
+`evidence/m3-real-multi-widget-2026-08-06.json`.
+
+M4/T187 remains open. In particular, only one model run was made and the model's
+`ORDER BY observed_at DESC` has no stable secondary key for tied timestamps.
+The failure/recovery and visualization-family repetitions, durable screenshot/
+video and accessibility matrix, schema-backed acceptance artifacts, CI review,
+and explicit user acceptance are not inferred from this M3 pass.
 
 ## W2 — Targeted remediation
 

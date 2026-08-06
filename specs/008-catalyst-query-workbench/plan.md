@@ -169,13 +169,13 @@ and explicit user acceptance.
 
 ### D1 delivery-state clarification
 
-The long-form D1 objective is the Dashboard Builder MVP. The currently
-implemented table bundle/import path is a **Superset import spike**, not a
-smaller MVP tier. [`dashboard-mvp-delivery-goal.md`](dashboard-mvp-delivery-goal.md)
-gates the real external-model query path before integration resumes. D1 still
-requires the actual multi-widget experience, native Superset import,
-PostgreSQL reconciliation, the required accessibility/evidence matrices, and
-explicit user acceptance. The remaining work stays open in T139–T182.
+The long-form D1 objective is the Dashboard Builder MVP. The original table-only
+bundle/import path was a **Superset import spike**, not a smaller MVP tier.
+M3/T186 now proves the integrated real external-model execution through a
+two-widget native Superset import, PostgreSQL reconciliation, and restart
+restoration. D1 still requires the T187 failure/recovery and repetition matrix,
+the required accessibility/evidence artifacts, and explicit user acceptance.
+The remaining hardening work stays open in T139–T182.
 
 ### D1 checkpoint contract
 

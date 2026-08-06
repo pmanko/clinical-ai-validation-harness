@@ -348,9 +348,12 @@ smaller MVP. The tasks below bridge that spike into the full goal defined in
   implementation resumes. Technical evidence is recorded in
   `evidence/m2-real-query-workbench-2026-08-05.json`; the user accepted that
   pause on 2026-08-05 and directed M3 to begin.
-- [ ] T186 [US7] Integrate that exact successful execution into the actual
+- [X] T186 [US7] Integrate that exact successful execution into the actual
   multi-widget Dashboard Builder, publish/import its native bundle, and compare
   representative values for every accepted widget to recorded PostgreSQL SQL.
+  The exact 2026-08-06 real-profile run, manual child version, table plus line
+  widgets, imported Superset IDs, per-widget SQL, and restart restoration are
+  recorded in `evidence/m3-real-multi-widget-2026-08-06.json`.
 - [ ] T187 [US7] Complete the required T139–T182 failure/recovery,
   repetition/nondeterminism, accessibility, and evidence gates; pause for user
   inspection and acceptance before calling the Dashboard MVP complete.

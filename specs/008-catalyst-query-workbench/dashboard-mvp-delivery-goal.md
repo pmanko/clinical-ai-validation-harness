@@ -1,6 +1,6 @@
 # D1 Dashboard Builder MVP Delivery Goal
 
-**Status:** Active — Superset import spike implemented; Dashboard MVP open.
+**Status:** Active — M3 live workflow passed; M4 release acceptance open.
 
 ## Goal
 
@@ -11,7 +11,7 @@ into the designed multi-widget Dashboard Builder, publishes a native Superset
 bundle, imports it into pinned local Superset, reconciles displayed values to
 PostgreSQL, and explicitly accepts the experience.
 
-The existing table-only Dataset → Widget → Dashboard bundle/import path is a
+The original table-only Dataset → Widget → Dashboard bundle/import path was a
 **Superset import spike**. It proves useful mechanics, but it is not a separate
 or smaller MVP tier and cannot close this goal by itself.
 
@@ -41,8 +41,8 @@ FHIR-cache registry is part of this goal.
 | M0 — truthful baseline | Current branches and runtime evidence available | Product/docs/task state identifies the implemented table exporter/importer as a Superset import spike and keeps the Dashboard MVP open. | Passed 2026-08-05 |
 | M1 — real profile/runtime foundation | M0 complete | Hub/Catalyst/harness pins contain one shared workflow-typed profile schema, no duplicate Gateway model configuration, no fake-router path, and external-only startup with exact alias checks. | Passed 2026-08-05 |
 | M2 — real query-workbench proof | M1 complete and models are available | Persistent isolated stack starts without seed; Gemma → Qwen generation, manual edit, Validate/Run, result inspection, and exact trace evidence pass. Pause before dashboard implementation resumes. | Accepted 2026-08-05 |
-| M3 — Dashboard MVP integration | M2 accepted | The preserved Ask workbench feeds the actual multi-widget builder; native bundle import, stable Superset rendering, restart restoration, and PostgreSQL reconciliation pass. | In progress — T184 provenance/restart bridge passed; D1b runtime/import hardening remains |
-| M4 — release acceptance | M3 complete | Required repetition, nondeterminism, failure/recovery, keyboard/reflow/accessibility, and video evidence pass; user accepts the deployed workflow. | Not started |
+| M3 — Dashboard MVP integration | M2 accepted | The preserved Ask workbench feeds the actual multi-widget builder; native bundle import, stable Superset rendering, restart restoration, and PostgreSQL reconciliation pass. | Passed 2026-08-06 — T186 evidence recorded; user validation candidate is running locally |
+| M4 — release acceptance | M3 complete | Required repetition, nondeterminism, failure/recovery, keyboard/reflow/accessibility, and video evidence pass; user accepts the deployed workflow. | In progress — T187 and explicit user acceptance remain |
 
 ## Required D1 completion work
 

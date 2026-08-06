@@ -1,6 +1,7 @@
 # PCCP-style Change Record: Superset-backed Dashboard Builder MVP
 
-**Status:** D1a passed; Superset import spike implemented; Dashboard MVP open
+**Status:** D1a passed; M3/T186 real-profile multi-widget workflow passed;
+M4/T187 release acceptance open
 
 **Date:** 2026-08-05
 
@@ -38,6 +39,18 @@ Catalyst remains the desired-configuration and provenance authority. Superset
 queries the compiled virtual-dataset SQL with the demo read-only role and is the
 only dashboard renderer. Superset-only edits are intentionally replaced by the
 next publication and are not represented as synchronized.
+
+### M3 implementation checkpoint (2026-08-06)
+
+The active branches now supersede the table-only runtime boundary above with a
+manually testable real-profile flow: Gemma E4B generation, Qwen 14B review,
+manual SQL child version, explicit execution, one exact Dataset, table and
+time-series Widgets, native bundle/import, live Superset rendering, per-widget
+PostgreSQL reconciliation, and restart restoration. Catalyst exposes no second
+aggregation choice; Superset's required native metric is deterministically
+derived by the exporter without changing Dataset SQL. T187 still owns the
+five-family, failure/recovery, repetition/nondeterminism, accessibility,
+schema-backed evidence, CI, and explicit user-acceptance gates.
 
 The reconciled design integrates the existing workbench rather than copying the
 mock's abbreviated prompt-only flow. Available data remains discoverable before
