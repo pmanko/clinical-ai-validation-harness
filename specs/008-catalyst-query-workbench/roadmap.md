@@ -11,9 +11,11 @@ Med-Agent Hub [#15](https://github.com/pmanko/med-agent-hub/pull/15) at
 unmerged, and superseded; references to earlier PR heads below are historical
 evidence only. The active Dashboard Builder branches are harness
 `codex/dashboard-builder-mvp` and Catalyst
-`codex/dashboard-builder-mvp-design`. The live M3 runtime checkpoint used
-harness `43818b1`, Catalyst `0be01ad`, and the pinned Hub `e6095f5`; later
-documentation-only commits do not rewrite that runtime evidence.
+`codex/dashboard-builder-mvp-design`. The initial 4c runtime checkpoint used
+harness `43818b1`, Catalyst `0be01ad`, and the pinned Hub `e6095f5`. The focused
+D1d review surfaces and saved-Dataset correction were then validated on
+Catalyst `2f5ec7a` and pinned by harness `02fcd7f`; Catalyst `655a377` is its
+documentation-only status successor and does not rewrite the runtime evidence.
 
 Catalyst Gateway owns governed-query context, writer/reviewer composition,
 deterministic SQL lint/repair/finalization, execution, lineage, and query
@@ -56,7 +58,7 @@ W2 → W3 → W4 queue.
 
 | Pathway | State | Relationship |
 | --- | --- | --- |
-| **Superset-backed Dashboard Builder (D1 / US7)** | **Selected open milestone; current implementation is a Superset import spike** | Depends only on the accepted query/version/execution/table foundation; Catalyst publishes deterministic native bundles and Superset renders them |
+| **Superset-backed Dashboard Builder (D1 / US7)** | **M3 integrated 4c implementation live; focused D1d closure and user acceptance open; M4 not started** | Depends only on the accepted query/version/execution/table foundation; Catalyst promotes governed executions through Dataset/Widget/Dashboard review and deterministic native bundles rendered by Superset |
 | Data foundation (G2.10 / US6) | Candidate implementation; internal/live acceptance open | Can broaden dashboard sources later; does not block D1's one-source/one-catalog Dashboard rule |
 | Query assistance (W2 / US2) | Planned, not selected | Re-enters only after its G4 scope gate |
 | Evaluation (W3/CVR) | Runner/report parity merged in PR #43; session export/comparative expansion open | Parallel evidence work; not a D1 dependency |
@@ -1567,8 +1569,9 @@ covers the complete Workbench to Dataset to Widget to Dashboard to Publish path,
 stale-result retention, imported-state refresh, keyboard/focus behavior,
 navigation collapse, reduced motion, and 390/320/640 CSS-pixel reflow. The
 accepted Ask characterization and 4c shell tasks T150/T174/T151 are complete;
-the remaining Dataset/Widget/publication D1d checks, actual 200% browser zoom,
-and explicit user acceptance remain open. `mvp-superset.sh reset`
+the focused D1d live task-closure checkpoint, actual 200% browser zoom, durable
+visual/acceptance evidence, and explicit user acceptance remain open.
+`mvp-superset.sh reset`
 intentionally refuses to run until its recovery contract is implemented; the
 five-family, failure/recovery, repetition, accessibility, evidence-emitter, CI,
 and user-acceptance gates remain open. The M0–M4 exits are defined in
@@ -1672,8 +1675,9 @@ execution are introduced.
   N64–N74 register; and a read-only analysis with zero unresolved CRITICAL/HIGH
   findings.
 - **D1d integrated product UX (active M3; T150–T154/T174–T179):**
-  T150/T174/T151 are complete. Finish the remaining Dataset, Widget/Dashboard,
-  publication, and accessibility task pairs while preserving the accepted
+  T150/T174/T151 are complete and the focused automated behavior for the
+  Dataset, Widget/Dashboard, publication, and accessibility task pairs passes.
+  Complete their individual live closure and T154 visual evidence while preserving the accepted
   Ask/query-notebook with exactly one editor and compact Available data;
   promote the one full bounded Query result to Dataset/Widget/Dashboard
   libraries; expose publish/download/import/open actions; and pass explicit
@@ -1781,9 +1785,11 @@ Dashboard UUID, and slug are stable; changed child versions use new UUIDs, and
 layout-only publications reuse unchanged children.
 
 The user explicitly accepted the bounded D1a plan on 2026-08-05 and directed
-implementation to continue. T138 and D1a are complete. The earlier “working
-local MVP” label is superseded: current code is a Superset import spike. The
-user accepted the M2 real-profile/workbench checkpoint on 2026-08-05 and
+implementation to continue. T138 and D1a are complete. At that checkpoint the
+earlier “working local MVP” label was superseded and the then-current code was
+correctly reclassified as a Superset import spike. The later M3 sections record
+the binding 4c implementation that now supersedes that product-state snapshot.
+The user accepted the M2 real-profile/workbench checkpoint on 2026-08-05 and
 directed M3 Dashboard MVP integration to begin.
 
 ### M2 real-profile/workbench checkpoint — ACCEPTED (2026-08-05)
@@ -1943,7 +1949,7 @@ explicit closure checkpoint, and T179/T154 still require actual 200% browser
 zoom, durable D1d screenshots/video/acceptance evidence, and user acceptance. M4 has not
 started. The client currently mirrors the Gateway's deterministic presentation
 compatibility calculation because the lightweight M3 API has no pre-save
-suggestion endpoint; the Gateway remains authoritative at save time, and D1c
+suggestion endpoint (N82); the Gateway remains authoritative at save time, and D1c
 owns elimination of that bounded duplication if its hardened endpoint is
 implemented.
 

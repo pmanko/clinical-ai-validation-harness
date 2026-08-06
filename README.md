@@ -71,7 +71,7 @@ Human-facing docs use plain names. IDs appear in parentheses on first use and in
 | ChartSearchAI model gateway | F008 | `008` | Bundled and configured-Hub providers preserved behind the [dual-provider roadmap](specs/artifacts/planning/openmrs-dual-provider-parity-roadmap.md) |
 | Clinical knowledge base | F009 | `009` | [Brief + research](https://github.com/pmanko/clinical-ai-validation-harness/blob/main/specs/artifacts/planning/clinical-kb-brief.md) |
 | Retrieval evaluation | M4 | `010` | Planned |
-| Catalyst supervised reporting | M10 | `008` | Query/workbench foundation accepted; Superset import spike implemented; Dashboard Builder MVP open |
+| Catalyst supervised reporting | M10 | `008` | Query/workbench foundation accepted; Dashboard Builder M3 integrated 4c implementation live with manual acceptance open; M4 not started |
 | Answer, citation, and abstention | M5 | `012` | Planned |
 | Safety and red-team | M6 | `013` | Planned |
 | Clinician governance review | M7 | `014` | Planned |
@@ -154,10 +154,13 @@ cross-system reconciliation, model-generated visualization specifications,
 sharing, scheduling, automatic refresh, and production access control remain
 outside this milestone.
 
-The current table-only bundle/import implementation is a Superset import spike,
-not a smaller Dashboard MVP. The MVP remains open through real-profile query
-proof, the actual multi-widget experience, native Superset import, PostgreSQL
-reconciliation, accessibility/evidence gates, and explicit user acceptance.
+The original table-only bundle/import implementation was a Superset import
+spike, not a smaller Dashboard MVP. The current M3 implementation integrates
+the real-profile query notebook with the binding 4c Dataset → Widget →
+Dashboard experience and native Superset import. M3 remains open for the
+focused D1d task-closure checkpoint, actual 200% browser review, durable visual
+evidence, and explicit user acceptance; exhaustive recovery/evidence hardening
+remains M4 work after that acceptance.
 
 The P5 Catalyst report is published at
 [reports.openclinai.org/catalyst-t094-release](https://reports.openclinai.org/catalyst-t094-release/):

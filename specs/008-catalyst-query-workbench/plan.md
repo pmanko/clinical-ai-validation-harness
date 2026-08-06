@@ -198,7 +198,7 @@ a second manual product path. Supported local operation is exclusively Gateway
 | --- | --- | --- | --- |
 | **D1a — grounded contracts** | Current-main feature branches and the accepted workbench baseline | T137, T158–T159, T138; exact API/pointer/receipt/acceptance schemas; preimplementation PCCP; deterministic identity/layout/result/source-catalog decisions; N64–N74 register; SpecKit rerun with zero unresolved CRITICAL/HIGH findings; explicit user acceptance | Pause after presenting the bounded plan/evidence; product code starts only after the user accepts D1a |
 | **D1 foundation inventory** | D1a passed and T186 evidence available | Audit existing T139–T149 and T160–T173 code/tests against their exact acceptance text. Credit only directly proven behavior; retain every unproven hardening item for M4. A green happy-path API/import contract is sufficient to start the product surface. | Stop only on API/lineage drift that prevents the real Ask → Dataset → Widget → Dashboard → Publish path; do not detour into exhaustive release hardening before UX |
-| **D1d / M3 — integrated product UX** | Foundation inventory confirms the happy-path contracts used by the UI | T150/T174/T151 complete; finish T175/T152, T176/T177, T178/T153, and T179/T154 while preserving the accepted Ask characterization, one editor, binding 4c shell, fixed composer, chronology, Available data, Dataset/Widget/Dashboard panels and libraries, publication controls, refresh/staleness, and browser comparison | Pause for user UX acceptance. M3 cannot pass while any required D1d task is open |
+| **D1d / M3 — integrated product UX** | Foundation inventory confirms the happy-path contracts used by the UI | T150/T174/T151 complete; focused automated behavior for T175/T152, T176/T177, T178/T153, and T179 passes. Complete their individual live closure plus T154 actual-200%-zoom/visual evidence while preserving the accepted Ask characterization, one editor, binding 4c shell, fixed composer, chronology, Available data, Dataset/Widget/Dashboard panels and libraries, publication controls, refresh/staleness, and browser comparison | Pause for user UX acceptance. M3 cannot pass while any required D1d task is open |
 | **D1e / M4 — release hardening and deployed acceptance** | User accepts D1d/M3 | Finish every still-open T139–T182 item individually, including evidence emitter, real writer/reviewer path, changed/restart/failure matrices, accessibility/video, PostgreSQL reconciliation, green CI, and final user acceptance | D1 remains open until the complete dashboard and evidence are inspected and accepted |
 
 Three surfaces have distinct names throughout D1: **Available data** is the
@@ -1122,7 +1122,11 @@ The following items must remain visible until evidence resolves them:
   the stored pre-import publication. The Dashboard library now receives a
   read-only, exact-match projection and offers the verified Superset URL only
   when bundle, Dashboard version/configuration, and receipt digests agree.
-- **N81 — Widget compatibility is mirrored in the D1d client (bounded for M3;
+- **N81 — D1d task paths referenced obsolete component boundaries (resolved in
+  planning):** T175–T179 now name the consolidated
+  `DashboardPublishPanel`/`query-to-table.spec.ts` implementation rather than
+  creating a second Dashboard Builder component architecture.
+- **N82 — Widget compatibility is mirrored in the D1d client (bounded for M3;
   eliminate in D1c):** the Gateway is authoritative when a Widget is saved,
   but the D1d review panel currently mirrors the five-family compatibility and
   default-suggestion rules so it can explain choices before save. There is no

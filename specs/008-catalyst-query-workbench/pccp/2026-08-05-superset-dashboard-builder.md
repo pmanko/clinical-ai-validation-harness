@@ -13,9 +13,9 @@ execution, or model-generated visualization configuration is authorized.
 
 ## Modification and rationale
 
-### Current implementation boundary (2026-08-05)
+### Preimplementation boundary recorded on 2026-08-05
 
-The current branches implement a Superset import spike: persisted
+The branches at this checkpoint implemented a Superset import spike: persisted
 builder drafts, deterministic native table bundle, pinned Superset runtime,
 explicit importer, restart-retained volumes, and verified import receipts. The
 historical completed generation path used the then-available deterministic fake

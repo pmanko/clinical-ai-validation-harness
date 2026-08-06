@@ -4,10 +4,11 @@
 
 **Created**: 2026-07-17
 
-**Status**: Iterative-query notebook foundation accepted on the prior clean
-pins. The Hub-owned query-profile migration requires a fresh real-model gate.
-The current dashboard implementation is a Superset import spike; the full
-Superset-backed Dashboard Builder MVP remains the selected open milestone.
+**Status**: Iterative-query notebook foundation accepted. The selected
+Superset-backed Dashboard Builder is in M3: its binding 4c product surface and
+real notebook-to-Superset path are live, and the focused automated D1d checks
+pass. Actual 200% browser review, durable visual/acceptance evidence, focused
+task closure, and explicit user acceptance remain open; M4 has not started.
 
 **Input**: Refine the Catalyst query experience with manageable dataset context,
 targeted query remediation, complete validator feedback, editable SQL,
@@ -24,7 +25,7 @@ execution, lineage, and query evidence. Historical G2.1–G2.8 evidence below is
 retained as evidence of the path tested at that time, not as current ownership
 guidance.
 
-## Portfolio position after MVP acceptance
+## Portfolio position after query-workbench MVP acceptance
 
 Feature 008 delivered the accepted query/workbench foundation. It no longer
 acts as one linear queue in which every remaining item blocks the next product
@@ -32,7 +33,7 @@ feature.
 
 | Pathway | Status | Relationship to feature 008 |
 | --- | --- | --- |
-| **Superset-backed Dashboard Builder MVP** | **Selected open product milestone; current code is an import spike** | Depends only on the accepted Query vN/execution/table foundation. Catalyst supervises dataset/widget/dashboard drafts and publishes a native bundle to a shared outbox; the pinned Superset CLI imports and renders it. |
+| **Superset-backed Dashboard Builder MVP** | **M3 integrated 4c implementation live; manual acceptance open; M4 not started** | Depends only on the accepted Query vN/execution/table foundation. Catalyst supervises Dataset/Widget/Dashboard drafts and publishes a native bundle to a shared outbox; the pinned Superset CLI imports and renders it. |
 | G2.10 multi-source/lossless data foundation | Evidence incomplete | Parallel reliability work; it can broaden dashboard sources later but does not block D1's one-source/one-catalog Dashboard rule |
 | W2 targeted query assistance | Planned, not selected | Parallel optional repair workflow; requires its own G4/G5 approval |
 | W3/CVR evaluation | Report parity merged in PR #43; session export/comparative expansion remains | Parallel evidence work; not a Dashboard product dependency |

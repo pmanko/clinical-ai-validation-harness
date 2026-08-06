@@ -5,7 +5,8 @@
   "scope": "Focused D1d Dataset, Widget/Dashboard, publication, and accessibility implementation checkpoint",
   "revisions": {
     "baseHarness": "2497ff9b7105ec962fe506988fffa5d1761f8bf0",
-    "catalyst": "2f5ec7a1e067436afce51aaf9e9dd5eb7c578fc2",
+    "testedCatalyst": "2f5ec7a1e067436afce51aaf9e9dd5eb7c578fc2",
+    "finalCatalystDocumentationSuccessor": "655a3776ef9e7152beff7b0c7c27e717ec4ca429",
     "medAgentHub": "e6095f520d9b3be53069d7a4fff710c91f18c246"
   },
   "runtime": {
@@ -89,7 +90,7 @@
   "nondeterminismAndInconsistencies": [
     "N75 remains open: catalog-column advisory lint can miss a model-generated nonexistent column.",
     "N78 remains open: syntactically valid SQL can be semantically incomplete; preserve these cases for W3 rather than adding an M3 semantic optimizer.",
-    "N81 is bounded for M3: the client mirrors deterministic Widget compatibility for pre-save explanation because no pre-save suggestion endpoint exists; Gateway save validation remains authoritative and T169-T170 own consolidation in D1c."
+    "N82 is bounded for M3: the client mirrors deterministic Widget compatibility for pre-save explanation because no pre-save suggestion endpoint exists; Gateway save validation remains authoritative and T169-T170 own consolidation in D1c."
   ],
   "milestone": {
     "m3": "in_progress",
