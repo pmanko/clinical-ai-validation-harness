@@ -1561,6 +1561,20 @@ and user-acceptance gates remain open. The M0–M4 exits are defined in
 [`dashboard-mvp-delivery-goal.md`](dashboard-mvp-delivery-goal.md). T139–T182
 remain the full D1 hardening backlog; they are not retroactively complete.
 
+**2026-08-06 T187 visualization-family/operator checkpoint:** The live
+integrated UI saved one Query-v3 Dataset and six Widgets covering table,
+time-series line, time-series area, grouped bar, stacked bar, and proportion
+bar. Bundle
+`f9c20ef6e2f9a50365cc415ab09011317459f673db41ab8a80c7fcac257a2e8e`
+imported successfully as Superset Dashboard 6 at
+`/superset/dashboard/catalyst-75618da5-05ff-4125-b683-187205eb2706/`.
+Superset persisted six native charts, every chart retained the exact saved SQL,
+and all six chart-data requests returned HTTP 200. The first operator attempt
+also exposed N76: implicit dependency startup briefly failed Superset DNS and
+made `status` capable of mutating runtime state. The focused wrapper correction
+is part of this checkpoint; full reset/reimport failure recovery, evidence
+emission, final CI, and user acceptance remain open.
+
 **Goal:** Implement the supplied iterative Ask → Dataset → Widget → Dashboard
 experience without building a dashboard renderer. Catalyst persists supervised
 drafts and publishes deterministic native asset bundles to a local outbox;

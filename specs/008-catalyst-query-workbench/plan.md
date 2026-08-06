@@ -1075,6 +1075,15 @@ The following items must remain visible until evidence resolves them:
   too strong for unqualified unknown-column errors. Address through a focused
   catalog-aware lint amendment rather than changing the advisory or explicit-
   Run contract.
+- **N76 — Superset operator dependency startup was implicit (resolved in
+  T187)**: The first live six-widget import let `docker compose run` start or
+  recreate Superset dependencies implicitly. Superset briefly failed its first
+  boot because its metadata-database hostname was unavailable, and even the
+  read-only `status` command could perturb runtime state. The operator wrapper
+  now keeps `status` dependency-free and makes `import` explicitly start and
+  wait for healthy `analytics-db` and `superset` services before launching the
+  one-shot importer with `--no-deps`. This preserves the same importer and
+  receipt contracts while making the manual path predictable.
 
 ## Complexity Tracking
 
