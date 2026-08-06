@@ -282,30 +282,24 @@
     "metricBindings": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["metricColumn", "aggregation"],
+      "required": ["metricColumn"],
       "properties": {
-        "metricColumn": { "$ref": "#/$defs/columnBinding" },
-        "aggregation": {
-          "enum": ["sum", "avg", "min", "max", "count", "count_distinct"]
-        }
+        "metricColumn": { "$ref": "#/$defs/columnBinding" }
       }
     },
     "timeSeriesBindings": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["xColumn", "metricColumn", "aggregation"],
+      "required": ["xColumn", "metricColumn"],
       "properties": {
         "xColumn": { "$ref": "#/$defs/columnBinding" },
-        "metricColumn": { "$ref": "#/$defs/columnBinding" },
-        "aggregation": {
-          "enum": ["sum", "avg", "min", "max", "count", "count_distinct"]
-        }
+        "metricColumn": { "$ref": "#/$defs/columnBinding" }
       }
     },
     "barBindings": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["categoryColumn", "metricColumn", "seriesColumn", "aggregation"],
+      "required": ["categoryColumn", "metricColumn", "seriesColumn"],
       "properties": {
         "categoryColumn": { "$ref": "#/$defs/columnBinding" },
         "metricColumn": { "$ref": "#/$defs/columnBinding" },
@@ -314,9 +308,6 @@
             { "$ref": "#/$defs/columnBinding" },
             { "type": "null" }
           ]
-        },
-        "aggregation": {
-          "enum": ["sum", "avg", "min", "max", "count", "count_distinct"]
         }
       }
     },

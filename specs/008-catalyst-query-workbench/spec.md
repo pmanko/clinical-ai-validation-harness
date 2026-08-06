@@ -1002,11 +1002,10 @@ execution.
   numeric result suggests time-series; an untruncated categorical-plus-numeric
   result suggests grouped bar; otherwise table. Proportion bar is compatible
   only with an untruncated two-categorical-plus-numeric result, is never
-  suggested, and requires an explicit supervised override. Every non-table Widget MUST
-  also require a human-selected report aggregation—sum, average, minimum,
-  maximum, count of non-empty metric values, or count of distinct metric
-  values—over its read-only derived metric binding. Catalyst MUST NOT infer or
-  silently substitute that operation. Arbitrary column remapping,
+  suggested, and requires an explicit supervised override. The saved Dataset SQL
+  owns any report aggregation. A non-table Widget MUST use only its read-only
+  derived bindings over that saved table; Catalyst MUST NOT infer or silently
+  substitute a reporting aggregation. Arbitrary column remapping,
   semantic-whole inference, and a Catalyst-owned chart renderer are out of
   scope; only a schematic type preview is local.
 - **FR-073**: Catalyst MUST persist Dataset, Widget, and Dashboard drafts in
@@ -1192,7 +1191,7 @@ execution.
   schema/parameters, immutable source lineage, and current/stale source state.
 - **Widget Draft**: An immutable-versioned presentation over one Dataset Draft,
   containing a supported visualization type, reviewed column bindings, labels,
-  sort/aggregation configuration, compatibility evidence, and provenance.
+  sort configuration, compatibility evidence, and provenance.
 - **Dashboard Draft**: An immutable-versioned supervised composition of one or
   more Widget Draft versions with title and layout configuration.
 - **Superset Bundle**: A content-addressed native Superset asset ZIP and Catalyst

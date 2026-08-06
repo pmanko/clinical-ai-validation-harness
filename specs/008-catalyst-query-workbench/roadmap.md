@@ -1768,13 +1768,15 @@ rejected it because the value was neither grouped nor aggregated. The pinned
 Superset chart helper defaults an unspecified metric aggregation to `SUM`.
 
 The earlier Dashboard Builder contract required every non-table binding to carry
-`aggregation: "none"` and therefore overconstrained ordinary reporting. On
-2026-08-06 the user directed aggregation to be first-class in the Dashboard
-Builder. The amended contract keeps Dataset SQL governed and immutable while a
-Widget records an explicit human-selected aggregation (`sum`, `avg`, `min`,
-`max`, `count`, or `count_distinct`) over its derived report dimensions. The
-exporter must never substitute an operation or serialize a requested chart as a
-table. T141 now owns the fixture/import proof for every permitted operation.
+`aggregation: "none"` and therefore overconstrained ordinary reporting. A
+brief follow-on proposal exposed an aggregation choice in Widget review; the
+user rejected that second calculation layer. The corrected model is simpler:
+the governed Dataset SQL creates the report table (including any aggregation),
+and the Widget selects a chart over that table. Superset's required native
+metric configuration is an exporter detail derived from the result schema, not
+a Catalyst reporting choice. The exporter must never change Dataset SQL or
+serialize a requested compatible chart as a table. T141 owns fixture/import
+proof for the renderer mapping.
 
 **D1 program exit:** T137–T182 pass and the user accepts D1e. The Superset REST API,
 embedded dashboards, cross-system undo/reconciliation, narrative reporting,

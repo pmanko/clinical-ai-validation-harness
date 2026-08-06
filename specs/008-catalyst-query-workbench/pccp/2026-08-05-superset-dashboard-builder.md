@@ -53,10 +53,9 @@ presentation. Earlier turns and review panels are read-only.
   result identity; it stores no clinical rows. Truncation is explicit and total
   row count remains unknown unless the query itself calculates it.
 - Widget compatibility/bindings are deterministic. Table is the fallback;
-  proportion is never auto-suggested. Every non-table Widget records one
-  explicit human-selected report aggregation (`sum`, `avg`, `min`, `max`,
-  `count`, or `count_distinct`) over its read-only metric binding; Catalyst never
-  infers or substitutes it. Configuration makes no model or database call.
+  proportion is never auto-suggested. The saved Dataset SQL owns report
+  aggregation, and Widget review selects only a visualization over that table's
+  read-only bindings. Configuration makes no model or database call.
 - D1 creates named Dashboards and derives full-width 12-column rows from Widget
   append order. One Dashboard accepts one source/catalog only; cross-source
   placement fails without mutation.
@@ -120,14 +119,14 @@ missing/corrupt-projection refusal before reset, recovered-A/failed-desired-B
 automatic-bootstrap/retry suppression, write denial, and secret-redaction cases. The
 fixture must carry the persisted analytics Database asset; runtime setup proves
 only driver/network and DB-enforced read-only access. Fixtures cover the full
-permitted report-aggregation vocabulary and importer tests must be discovered
+renderer-metric behavior and importer tests must be discovered
 by Catalyst Gateway CI before the operator wrapper is accepted.
 
 ### D1c — builder backend/export
 
 Red storage/route/compiler/export tests precede implementation. Evidence covers
 immutable lineage, stale/missing/CAS/idempotency outcomes, deterministic
-suggestion/layout/UUIDs, explicit aggregation selection/mapping, typed parameter escaping, byte-identical ZIPs, atomic
+suggestion/layout/UUIDs, schema-to-native metric mapping, typed parameter escaping, byte-identical ZIPs, atomic
 publication/download parity, complete source resolution, changed versus reused
 children, all five real fixtures, and zero model/database calls after Run.
 

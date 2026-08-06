@@ -372,14 +372,12 @@ column refs:
   100%-stacked bar. It is never suggested and is available only as an explicit
   override.
 
-Every non-table Widget carries one explicit aggregation selected during Widget
-review: `sum`, `avg`, `min`, `max`, `count`, or `count_distinct`. Catalyst never
-selects it implicitly, and the UI describes `count` as a count of non-null
-metric-column values. The saved Dataset remains the governed SQL; this selected
-operation is the report-level aggregation Superset applies while grouping that
-Dataset by the derived dimensions. D1b MUST prove the pinned Superset 6.1.0
-mapping for every permitted operation in the canonical fixture. Stable
-incompatibility codes are
+The saved Dataset SQL owns the report calculation, including any aggregation.
+Widget review selects only a chart type over that table and its derived column
+bindings; it does not ask the user to calculate the table again. Superset's
+native chart configuration contains its renderer-required metric detail, but
+that detail is exported from the saved result schema and is not a Catalyst
+reporting choice. Stable incompatibility codes are
 `requires_one_numeric_cell`, `requires_untruncated_temporal_numeric`,
 `requires_untruncated_categorical_numeric`, and
 `requires_untruncated_two_categorical_numeric`. Localized explanation text is
@@ -393,14 +391,11 @@ suggested kind, ordered entries, bindings, and reason codes defined above.
 
 Widget create (`catalyst.dashboard-builder.widget.create.v1`) and successor
 requests carry an exact Dataset version reference, `title`, selected
-`presentationKind`, explicit `aggregation` for a non-table kind,
-`displayOptions`, and `idempotencyKey`; successors also
+`presentationKind`, `displayOptions`, and `idempotencyKey`; successors also
 carry `observedParent`. Both carry the exact observed suggestion `revision` and
 `compatibilityDigest`; a changed compiler result is
 `409 stale_widget_suggestion` and creates no version. `title` is 1-160 non-blank Unicode code points.
-`aggregation` is omitted for `table` and otherwise one of `sum`, `avg`, `min`,
-`max`, `count`, or `count_distinct`. It is a human review choice, not a model
-inference or implicit default. `displayOptions` is a complete object with `showLegend`, `showValues`, nullable
+`displayOptions` is a complete object with `showLegend`, `showValues`, nullable
 `numberFormat` (at most 80 code points), and `sort` (`derived`, `ascending`, or
 `descending`); no other keys are accepted. The client does not submit arbitrary
 column/axis bindings. The server recomputes bindings and compatibility from the
@@ -423,7 +418,6 @@ or `overridden_suggestion` in the immutable configuration.
   },
   "title": "Viral load by month",
   "presentationKind": "time_series_line",
-  "aggregation": "avg",
   "displayOptions": {
     "showLegend": true,
     "showValues": false,
@@ -438,7 +432,7 @@ Success returns a closed
 `catalyst.dashboard-builder.widget-version.v1` nested in
 `catalyst.dashboard-builder.widget.v1`. Its immutable configuration contains
 the exact Dataset version ref, title, presentation kind, derived bindings,
-selected aggregation, display options, suggestion revision/digest/disposition,
+display options, suggestion revision/digest/disposition,
 and compiler revision.
 Successor requests change the create `contractVersion`, add
 `observedParent`, and otherwise submit the same complete fields.
