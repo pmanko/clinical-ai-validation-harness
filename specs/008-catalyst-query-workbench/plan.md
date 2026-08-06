@@ -973,14 +973,16 @@ The following items must remain visible until evidence resolves them:
   database does not enforce read-only access. Runtime configuration does not
   create the persisted Superset Database asset.
 - **N65 — Native asset schema, chart parameters, and extra-member tolerance
-  (open; resolve at D1b/T141/T144)**: Superset YAML and chart `params` are
-  release-coupled. The Widget's report aggregation is an explicit human choice
-  from `sum`, `avg`, `min`, `max`, `count`, or `count_distinct`; Catalyst must
-  not choose one implicitly. Pinned source shows the JSON manifest is ignored
-  by the YAML-only loader, but a canonical 6.1.0 export and clean import must
-  prove the whole archive, including its deterministic persisted analytics
-  Database asset/URI contract and each permitted aggregation. Preserve one
-  fixture for each supported visualization family and stop on drift.
+  (partly resolved; complete at D1b/T141/T144)**: Superset YAML and chart
+  `params` are release-coupled. The saved Dataset SQL owns the report table and
+  any aggregation; Catalyst exposes no second aggregation choice. Superset's
+  required native metric object is an exporter detail derived from the result
+  schema, with all available categorical dimensions retained as grouping
+  columns. A live table-plus-time-series bundle now imports and returns all 962
+  PostgreSQL rows without collapse, but the canonical 6.1.0 clean-import matrix
+  must still prove the whole archive, its persisted analytics Database asset/
+  URI contract, and every supported visualization family. Preserve one fixture
+  for each family and stop on drift.
 - **N66 — Outbox, lock, and receipt ownership across host/container UIDs (open;
   resolve at D1b/T142–T144/T163–T165)**: Superset/importer must read the outbox without
   mutating it while the importer alone writes locks and atomic receipts. The
