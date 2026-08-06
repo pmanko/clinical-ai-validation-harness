@@ -98,7 +98,8 @@ export MED_AGENT_HUB_CONTEXT="${HUB_DIR}"
 
 run_catalyst() {
   local script_name="$1"
-  "${CATALYST_DIR}/scripts/${script_name}"
+  shift
+  "${CATALYST_DIR}/scripts/${script_name}" "$@"
 }
 
 case "${command_name}" in
