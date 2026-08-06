@@ -1695,11 +1695,11 @@ layout-only publications reuse unchanged children.
 
 The user explicitly accepted the bounded D1a plan on 2026-08-05 and directed
 implementation to continue. T138 and D1a are complete. The earlier “working
-local MVP” label is superseded: current code is a Superset import spike, and M2
-real-profile technical evidence now pauses for user acceptance before dashboard
-implementation resumes.
+local MVP” label is superseded: current code is a Superset import spike. The
+user accepted the M2 real-profile/workbench checkpoint on 2026-08-05 and
+directed M3 Dashboard MVP integration to begin.
 
-### M2 real-profile/workbench checkpoint — TECHNICAL PASS; USER ACCEPTANCE PENDING (2026-08-05)
+### M2 real-profile/workbench checkpoint — ACCEPTED (2026-08-05)
 
 The persistent `catalyst-dashboard-mvp` stack restarted twice without a seed or
 volume reset. Its analytics projection retained 1,152 rows, Superset retained
