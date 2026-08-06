@@ -214,6 +214,7 @@
         "configurationDigest",
         "datasetVersionId",
         "presentationKind",
+        "aggregation",
         "compatibilityDigest",
         "vizMappingRevision",
         "author",
@@ -233,6 +234,14 @@
             "grouped_bar",
             "stacked_bar",
             "proportion_bar"
+          ]
+        },
+        "aggregation": {
+          "oneOf": [
+            { "type": "null" },
+            {
+              "enum": ["sum", "avg", "min", "max", "count", "count_distinct"]
+            }
           ]
         },
         "compatibilityDigest": { "$ref": "#/$defs/sha256" },

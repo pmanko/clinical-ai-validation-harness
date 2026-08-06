@@ -367,8 +367,10 @@ column refs:
   categorical and one numeric column; they bind the first categorical
   `categoryColumn`, the first numeric `metricColumn`, and the second categorical
   column as nullable `seriesColumn`; and
-- proportion bar has the same binding compatibility as grouped bar, is never
-  suggested, and is available only as an explicit override.
+- proportion bar requires an untruncated result with two categorical columns
+  plus one numeric column so its category and series bindings form a meaningful
+  100%-stacked bar. It is never suggested and is available only as an explicit
+  override.
 
 Every non-table Widget carries one explicit aggregation selected during Widget
 review: `sum`, `avg`, `min`, `max`, `count`, or `count_distinct`. Catalyst never
@@ -378,8 +380,9 @@ operation is the report-level aggregation Superset applies while grouping that
 Dataset by the derived dimensions. D1b MUST prove the pinned Superset 6.1.0
 mapping for every permitted operation in the canonical fixture. Stable
 incompatibility codes are
-`requires_one_numeric_cell`, `requires_untruncated_temporal_numeric`, and
-`requires_untruncated_categorical_numeric`. Localized explanation text is
+`requires_one_numeric_cell`, `requires_untruncated_temporal_numeric`,
+`requires_untruncated_categorical_numeric`, and
+`requires_untruncated_two_categorical_numeric`. Localized explanation text is
 derived from the code and excluded from `compatibilityDigest`.
 
 Suggestion priority is exact and short-circuiting: compatible `big_number`,

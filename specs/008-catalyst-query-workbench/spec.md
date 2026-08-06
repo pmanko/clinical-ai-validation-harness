@@ -1001,8 +1001,8 @@ execution.
   exact one-row/one-numeric result suggests KPI; an untruncated temporal-plus-
   numeric result suggests time-series; an untruncated categorical-plus-numeric
   result suggests grouped bar; otherwise table. Proportion bar is compatible
-  only with an untruncated categorical-plus-numeric result, is never suggested,
-  and requires an explicit supervised override. Every non-table Widget MUST
+  only with an untruncated two-categorical-plus-numeric result, is never
+  suggested, and requires an explicit supervised override. Every non-table Widget MUST
   also require a human-selected report aggregation—sum, average, minimum,
   maximum, count of non-empty metric values, or count of distinct metric
   values—over its read-only derived metric binding. Catalyst MUST NOT infer or
