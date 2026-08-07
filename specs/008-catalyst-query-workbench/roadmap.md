@@ -1993,7 +1993,7 @@ layout, and the 640-CSS-pixel 200%-equivalent reflow. Actual Dashboard Builder
 open. Exact evidence is in
 `evidence/m4-repetition-recovery-2026-08-06.json`.
 
-### M4 D1b runtime identity checkpoint — T140 PASSED (2026-08-06)
+### M4 D1b runtime/lifecycle checkpoint — T139/T140/T160–T162 PASSED (2026-08-06)
 
 The umbrella override and pinned Catalyst target now both declare the exact
 Superset `6.1.0` image digest and `linux/arm64` platform used by the local
@@ -2011,13 +2011,31 @@ the rendered Compose configuration resolved all three Superset services to the
 same platform and digest. Exact evidence is in
 `evidence/m4-d1b-runtime-pin-2026-08-06.json`.
 
-This closes only T140. T139/T160 remain open because their complete red-test
-matrices include restart retention, deterministic secret injection,
-secret-free outputs, mount ownership, and clean-target publication proof.
-T161/T162 and the clean-import/recovery gate T144 likewise remain open. The
-default platform is deliberately the current Apple-silicon acceptance runtime;
-cross-architecture runs must provide an explicit `SUPERSET_PLATFORM` override
-and record it rather than relying on silent emulation.
+Expanded contract tests now cover metadata initialization, localhost health,
+non-destructive restart versus explicit reset, deterministic local config,
+credential-redacted output, read-only outbox/read-write receipt separation,
+Catalyst-owned ignored runtime state, and the umbrella clean-target guard. A
+Superset-only stop/start preserved both named-volume identities and all seven
+metadata dashboards; the verified import receipt remained current, localhost
+health returned `OK`, and the full real-stack health/provenance gate passed.
+Receipt/provenance scans found no configured demo credentials, and receipt
+files remained host-owned mode `0600`. No seed, model call, or volume reset was
+used. Exact lifecycle evidence is in
+`evidence/m4-d1b-runtime-lifecycle-2026-08-06.json`.
+
+This closes T139/T140/T160/T161/T162. T141 is next: the repository still has no
+canonical `tests/fixtures/superset-6.1/` five-family clean-import fixture, so no
+fixture/import or broader D1b recovery claim is made. T142–T144/T163–T165 remain
+open. The default platform is deliberately the current Apple-silicon acceptance
+runtime; cross-architecture runs must provide and record an explicit
+`SUPERSET_PLATFORM` override.
+
+One manual invocation detail was exposed and retained: direct Compose without
+the umbrella runner's environment used target `.env` port 8088 and collided
+with another local service. Repeating the same non-destructive restart with the
+supported isolated port 18088 succeeded. This is not state loss; local manual
+validation must use `scripts/catalyst-mvp.sh` (or reproduce its exported
+isolated ports) rather than bypassing the umbrella boundary.
 
 ## W2 — Targeted remediation
 

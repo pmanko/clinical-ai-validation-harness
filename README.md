@@ -135,8 +135,8 @@ The prior final-pin manual workbench was accepted on 2026-08-04 after a 12/12 re
 matrix, independent PostgreSQL/gold comparisons, bounded failure/recovery, and
 actual keyboard-only plus 200%-browser-zoom checks. The deterministic
 Playwright notebook path preserves the corresponding focus and reflow boundary.
-The current Hub-owned profile migration requires a fresh exact-pin live gate
-before dashboard implementation resumes.
+The Hub-owned profile migration and exact-pin live gate have passed; Dashboard
+Builder implementation is now in M4 release hardening.
 
 The selected next product milestone is the Superset-backed Dashboard Builder:
 promote governed executions through immutable Dataset, Widget, and multi-widget
@@ -161,6 +161,10 @@ Dashboard experience and native Superset import. M3 closed with focused D1d
 evidence and explicit user review on 2026-08-06; exhaustive recovery/evidence
 hardening is active M4 work. Actual 200% browser zoom is deferred polish rather
 than an MVP gate; desktop and 320/390/640-CSS-pixel reflow coverage remains.
+The first D1b runtime/lifecycle checkpoint (T139/T140/T160–T162) now passes with
+the pinned Superset identity, DB-enforced read-only access, non-destructive
+volume restart, retained imported state, secret-free evidence, and synchronized
+tests. The canonical five-family clean-import fixture at T141 is next.
 
 The P5 Catalyst report is published at
 [reports.openclinai.org/catalyst-t094-release](https://reports.openclinai.org/catalyst-t094-release/):

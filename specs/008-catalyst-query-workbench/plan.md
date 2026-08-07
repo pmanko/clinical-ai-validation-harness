@@ -983,14 +983,15 @@ The following items must remain visible until evidence resolves them:
   evidence. T111 records any observed race rather than treating discovery as a
   reservation.
 - **N64 — Superset application and PostgreSQL driver image identity (bounded at
-  T140; repeat at D1b/T139–T141/T160–T162/T144)**: The local arm64 runtime now
+  T139/T140/T160–T162; repeat at D1b/T141/T144)**: The local arm64 runtime now
   pins Superset `6.1.0` by digest, declares `linux/arm64`, records
   `psycopg2-binary==2.9.9`, and has live proof that the analytics role defaults
   to read-only, lacks schema-create permission, and retains SELECT. Other hosts
   must set an explicit `SUPERSET_PLATFORM` rather than silently emulating this
-  acceptance runtime. The complete clean-boot/import and permission/restart
-  matrix remains at T139–T144/T160–T162; runtime configuration still does not
-  create the persisted Superset Database asset.
+  acceptance runtime. The runtime identity, permission, mount, localhost-health,
+  and non-destructive restart checks pass; the canonical clean-boot/import
+  matrix remains at T141/T144. Runtime configuration still does not create the
+  persisted Superset Database asset.
 - **N65 — Native asset schema, chart parameters, and extra-member tolerance
   (partly resolved; complete at D1b/T141/T144)**: Superset YAML and chart
   `params` are release-coupled. The saved Dataset SQL owns the report table and

@@ -165,6 +165,51 @@ def test_catalyst_owns_and_ignores_superset_runtime_state() -> None:
     assert "/runtime/superset/" in ignore
     assert "./runtime/superset/outbox:/opt/catalyst/outbox:ro" in compose
     assert "./runtime/superset/receipts:/opt/catalyst/receipts:rw" in compose
+    ignored = subprocess.run(
+        [
+            "git",
+            "-C",
+            "targets/catalyst",
+            "check-ignore",
+            "runtime/superset/outbox/current.json",
+            "runtime/superset/receipts/latest/example.json",
+        ],
+        cwd=ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.splitlines()
+    assert ignored == [
+        "runtime/superset/outbox/current.json",
+        "runtime/superset/receipts/latest/example.json",
+    ]
+
+
+def test_harness_restart_retains_volumes_and_clean_target_guard_remains_active() -> None:
+    runner = (ROOT / "scripts/catalyst-mvp.sh").read_text(encoding="utf-8")
+    down = (ROOT / "targets/catalyst/scripts/mvp-down.sh").read_text(
+        encoding="utf-8"
+    )
+
+    restart_case = runner[runner.index("  restart)") : runner.index("  down)")]
+    assert "run_catalyst mvp-down.sh" in restart_case
+    assert "run_catalyst mvp-up.sh" in restart_case
+    assert "mvp-seed.sh" not in restart_case
+    assert "mvp-reset.sh" not in restart_case
+    assert "down --volumes" not in down
+    assert 'status --porcelain' in runner
+    assert (
+        _git(
+            "-C",
+            "targets/catalyst",
+            "status",
+            "--porcelain",
+            "--untracked-files=all",
+            "--",
+            "runtime/superset",
+        )
+        == ""
+    )
 
 
 def test_superset_runtime_identity_is_explicit_in_the_pinned_target() -> None:
