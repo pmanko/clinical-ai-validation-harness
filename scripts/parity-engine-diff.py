@@ -230,6 +230,10 @@ def main() -> int:
         print("FAIL: mandatory clinical core differs between the arms — the shared slice "
               "guarantees it in both; never excusable by a documented divergence")
         return 1
+    if not mandatory["core_a"] or not mandatory["core_b"]:
+        print("FAIL: mandatory clinical core is empty in one or both arms; parity cannot be "
+              "claimed without exercising required evidence")
+        return 1
     if retrieval["status"] == "violation":
         print("FAIL: retrieval record sets differ with no explicit contract entry (AC-4)")
         return 1

@@ -1,8 +1,8 @@
 # Dual-Provider Conformance Contract
 
 **Roadmap:** `OPENMRS-DUAL-PROVIDER-PARITY-2026-07-20`  
-**Status:** Foundation contract. The fixtures define required behavior; implementation tests are
-added red-first in the owning repository after Signoff 1.
+**Status:** Active contract. The fixtures define required behavior and are consumed by owner tests
+in QueryStore, ChartSearchAI, the ESM, med-agent-hub, and the harness evaluator.
 
 ## Purpose and Boundary
 
@@ -55,8 +55,10 @@ TurnResult
 
 Rules:
 
-1. `answer_done` and exactly one of `turn_done` or `turn_error` are required for every accepted
-   turn. `answer_validation`, `evidence_updated`, and In-Depth events are capability-driven.
+1. Every accepted turn emits exactly one of `turn_done` or `turn_error`. A turn that reaches an
+   answer emits `answer_done` first; an early provider or transport failure may emit `turn_error`
+   without `answer_done`. `answer_validation`, `evidence_updated`, and In-Depth events are
+   capability-driven.
 2. A provider never silently falls back to another provider. Its error uses one normalized,
    machine-readable problem code.
 3. Changing `providerId` creates a new conversation. Existing conversation records retain the
@@ -75,11 +77,12 @@ This context boundary does not turn QueryStore into a prompt composer or a manda
 med-agent-hub. The hub remains source-neutral: inline charts, static knowledge, and alternate
 adapters remain valid sources. Per the 2026-07-22 shared context-selection amendment
 (`openmrs-dual-provider-parity-roadmap-status.md`), QueryStore additionally serves the tiered
-record-selection contract (`getContextSlice`: mandatory | recency_anchor | typed | similarity) for
-QueryStore-sourced context, so the `context_policy` selection invariants are implemented once at
-the data owner. Each answer engine owns prompt composition, token budgeting over the tiers,
-question interpretation, context selection for non-QueryStore sources, reasoning, deterministic
-gates, evidence processing, and provider-specific output semantics.
+record-selection contract (`getContextSlice`: mandatory | exact | recency_anchor | typed |
+similarity) for QueryStore-sourced context, so the `context_policy` selection invariants are
+implemented once at the data owner. QueryStore may apply its versioned, opt-in question
+interpretation when building that slice. Each answer engine owns prompt composition, token
+budgeting over the returned tiers, context selection for non-QueryStore sources, reasoning,
+deterministic gates, evidence processing, and provider-specific output semantics.
 
 The common OpenMRS layer owns the authoritative conversation and audit record:
 
@@ -154,7 +157,36 @@ Neither an empty warning list nor a missing source package implies `checked`.
 
 ## Red-First Test Procedure
 
-After Signoff 1, each owning repository first adds an adapter test that consumes the fixture and
-fails against its current behavior. The implementation follows in the same reviewable commit group.
-The final gate records the exact test command and fixture case IDs. A test may not be weakened or
-removed to turn the gate green.
+For a contract change, each owning repository first adds or updates an adapter test that consumes the
+fixture and fails against the current behavior. The implementation follows in the same reviewable
+commit group. The final gate records the exact test command and fixture case IDs. A test may not be
+weakened or removed to turn the gate green.
+
+## Runtime Evidence Bundle
+
+Static source and owner-test checks prove implementation properties. Gates that claim live product
+behavior additionally require a hash-bound JSON evidence bundle. Each observation names its gate and
+identifier, lists the exact artifacts used, and evaluates values read from those artifacts:
+
+```json
+{
+  "artifacts": [
+    {"kind": "relay_probe", "path": "artifacts/.../probe.json", "sha256": "..."}
+  ],
+  "assertions": [
+    {
+      "name": "checked_answer_visible",
+      "evaluator": "json_pointer_equals",
+      "artifact_path": "artifacts/.../probe.json",
+      "artifact_json_pointer": "/answerValidation/status",
+      "expected": "checked"
+    }
+  ]
+}
+```
+
+An assertion cannot certify itself with stored `actual` or `passed` fields. The gate evaluator
+resolves the listed in-repository artifact, verifies its SHA-256, reads the JSON pointer, and compares
+that value with `expected`. Context-policy parity additionally requires exactly one
+`parity_engine_diff` artifact with no ledger-identity violation, an approved retrieval status, and a
+non-empty mandatory clinical core that is equal across providers.

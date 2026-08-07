@@ -148,7 +148,26 @@ export async function expandAiChatPanel(page: Page): Promise<void> {
   await expect(page.getByRole('button', { name: /restore/i }).first()).toBeVisible({ timeout: 15_000 });
 }
 
+/** Select med-agent-hub explicitly. The product default may be the bundled provider, in which
+ * case hub profiles are intentionally hidden until this provider switch creates a new session. */
+export async function selectHubProvider(page: Page): Promise<void> {
+  const providerButton = page.getByTestId('chartsearchai-provider-picker');
+  await expect(providerButton).toBeVisible({ timeout: 30_000 });
+  if (await providerButton.getByText(/Med-Agent Hub/i).isVisible().catch(() => false)) {
+    return;
+  }
+  await providerButton.click();
+  const hubOption = page
+    .getByRole('menuitemradio', { name: /Med-Agent Hub/i })
+    .or(page.getByText(/Med-Agent Hub/i))
+    .first();
+  await expect(hubOption).toBeVisible({ timeout: 30_000 });
+  await hubOption.click();
+  await expect(providerButton).toContainText(/Med-Agent Hub/i, { timeout: 30_000 });
+}
+
 export async function selectCheckedModel(page: Page, labelPattern: RegExp = /Checked answer \(12B\)/i): Promise<void> {
+  await selectHubProvider(page);
   const modelButton = page.getByTestId('chartsearchai-profile-picker');
   await expect(modelButton).toBeVisible({ timeout: 30_000 });
   await modelButton.click();

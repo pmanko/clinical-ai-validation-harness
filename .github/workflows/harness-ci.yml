@@ -29,7 +29,57 @@ jobs:
             scripts/stack-up.sh \
             scripts/stack-down.sh \
             scripts/local-stack-up.sh \
-            scripts/local-stack-down.sh
+            scripts/local-stack-down.sh \
+            scripts/verify-repository-lines.sh
+
+  openmrs-integration-source:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Fetch authoritative integration refs
+        run: |
+          for repo in \
+            targets/chartsearchai \
+            targets/chartsearchai-esm \
+            targets/querystore; do
+            git -C "$repo" fetch origin \
+              harness-integration:refs/remotes/origin/harness-integration
+          done
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '11'
+          cache: maven
+
+      - name: Build the pinned QueryStore and ChartSearchAI source pair
+        run: make openmrs-source-pair-test
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'yarn'
+          cache-dependency-path: targets/chartsearchai-esm/yarn.lock
+
+      - name: Install and verify the pinned ChartSearchAI ESM
+        working-directory: targets/chartsearchai-esm
+        run: |
+          yarn install --immutable
+          yarn extract-translations
+          git diff --exit-code translations/
+          yarn lint
+          yarn typescript
+          yarn test --coverage
+          yarn build
 
   pytest-and-diff-coverage:
     runs-on: ubuntu-latest

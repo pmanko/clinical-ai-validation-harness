@@ -61,9 +61,11 @@ def test_probe_correlates_fast_stream_by_message_and_persistence_by_audit_row(mo
                 "source": "querystore",
                 "resolutionStatus": "resolved",
                 "groundingStatus": "verified",
+                "usage": [{"location": "answer", "text": "Checked answer"}],
             }
         ],
         "blocks": [{"kind": "paragraph", "text": "Summary"}],
+        "safetyStatus": "limited",
         "safetyWarnings": [{"type": "interaction", "detail": "Check therapy"}],
         "confidence": {"answer": {"level": "green"}},
         "inDepth": {"status": "complete", "answer": "Supporting detail [1]."},
@@ -79,6 +81,7 @@ def test_probe_correlates_fast_stream_by_message_and_persistence_by_audit_row(mo
                 "content": final["answer"],
                 "references": final["references"],
                 "blocks": final["blocks"],
+                "safetyStatus": final["safetyStatus"],
                 "safetyWarnings": final["safetyWarnings"],
                 "confidence": final["confidence"],
                 "answerValidation": final["answerValidation"],
@@ -166,8 +169,15 @@ def test_probe_correlates_fast_stream_by_message_and_persistence_by_audit_row(mo
     assert result["profile"] == "single-e4b-checked"
     assert result["audit_log_id"] == 42
     assert result["answer_validation"] == {"status": "checked", "label": "Checked"}
+    assert result["safety_status"] == "limited"
+    assert result["safety_warning_count"] == 1
     assert result["reference_count"] == 1
     assert result["reference_sources"] == ["querystore"]
+    assert result["resolved_reference_sources"] == ["querystore"]
+    assert result["verified_used_reference_sources"] == ["querystore"]
+    assert result["expected_reference_source"] == "querystore"
+    assert result["expected_safety_status"] is None
+    assert result["minimum_safety_warning_count"] == 0
     assert result["querystore_reference_count"] == 1
     assert result["in_depth_status"] == "complete"
     assert result["in_depth_terminal_event"] == "indepth_done"
@@ -207,6 +217,13 @@ def test_probe_correlates_fast_stream_by_message_and_persistence_by_audit_row(mo
         "patient": "patient-1",
         "provider": "hub",
     }
+
+
+def test_canonical_envelope_hash_includes_safety_status():
+    checked = {"answer": "A", "safetyStatus": "checked", "safetyWarnings": []}
+    unavailable = {"answer": "A", "safetyStatus": "unavailable", "safetyWarnings": []}
+
+    assert probe._canonical_sha256(checked) != probe._canonical_sha256(unavailable)
 
 
 def test_stream_probe_rejects_error_event(monkeypatch):
@@ -326,7 +343,7 @@ def test_probe_rejects_new_session_for_the_wrong_provider(monkeypatch):
         )
 
 
-def test_probe_rejects_turn_without_live_querystore_evidence(monkeypatch):
+def test_probe_rejects_turn_without_expected_reference_source(monkeypatch):
     monkeypatch.setattr(
         probe,
         "_post_json",
@@ -338,10 +355,12 @@ def test_probe_rejects_turn_without_live_querystore_evidence(monkeypatch):
         lambda *_args, **_kwargs: {
             "session": "session-1",
             "querystore_reference_count": 0,
+            "reference_sources": ["drug-safety"],
+            "verified_used_reference_sources": ["drug-safety"],
         },
     )
 
-    with pytest.raises(RuntimeError, match="live Querystore patient source"):
+    with pytest.raises(RuntimeError, match="expected reference source: querystore"):
         probe.probe_relay(
             "http://openmrs/openmrs",
             patient="patient-1",
@@ -351,6 +370,143 @@ def test_probe_rejects_turn_without_live_querystore_evidence(monkeypatch):
             password="secret",
             timeout=30,
             clear_after=False,
+        )
+
+
+def test_probe_can_require_drug_safety_evidence(monkeypatch):
+    monkeypatch.setattr(
+        probe,
+        "_post_json",
+        lambda *_args, **_kwargs: {"session": "session-1", "provider": "hub"},
+    )
+    monkeypatch.setattr(
+        probe,
+        "_stream_turn",
+        lambda *_args, **_kwargs: {
+            "session": "session-1",
+            "querystore_reference_count": 0,
+            "reference_sources": ["querystore"],
+            "verified_used_reference_sources": ["querystore"],
+        },
+    )
+
+    with pytest.raises(RuntimeError, match="expected reference source: drug-safety"):
+        probe.probe_relay(
+            "http://openmrs/openmrs",
+            patient="patient-1",
+            profile="single-e4b-checked",
+            question="Is this dose safe?",
+            username="admin",
+            password="secret",
+            timeout=30,
+            clear_after=False,
+            expected_reference_source="drug-safety",
+        )
+
+
+def test_needs_review_source_proof_requires_resolved_usage_not_verification():
+    label, sources = probe._reference_source_proof(
+        {
+            "final_answer_validation": {"status": "needs_review"},
+            "resolved_reference_sources": ["querystore"],
+            "resolved_used_reference_sources": ["querystore"],
+            "verified_used_reference_sources": [],
+        }
+    )
+
+    assert label == "resolved and used"
+    assert sources == ["querystore"]
+
+
+def test_needs_review_source_proof_rejects_resolved_but_unused_reference():
+    label, sources = probe._reference_source_proof(
+        {
+            "final_answer_validation": {"status": "needs_review"},
+            "resolved_reference_sources": ["querystore"],
+            "resolved_used_reference_sources": [],
+        }
+    )
+
+    assert label == "resolved and used"
+    assert sources == []
+
+
+def test_checked_source_proof_requires_verified_usage():
+    label, sources = probe._reference_source_proof(
+        {
+            "final_answer_validation": {"status": "checked"},
+            "resolved_reference_sources": ["querystore"],
+            "verified_used_reference_sources": [],
+        }
+    )
+
+    assert label == "resolved, verified"
+    assert sources == []
+
+
+@pytest.mark.parametrize(
+    ("streamed", "kwargs", "message"),
+    [
+        (
+            {
+                "verified_used_reference_sources": [],
+                "final_safety_status": "checked",
+                "final_safety_warning_count": 1,
+            },
+            {"expected_reference_source": "drug-safety"},
+            "resolved, verified expected reference source",
+        ),
+        (
+            {
+                "verified_used_reference_sources": ["drug-safety"],
+                "final_safety_status": "unavailable",
+                "final_safety_warning_count": 1,
+            },
+            {
+                "expected_reference_source": "drug-safety",
+                "expected_safety_status": "checked",
+            },
+            "unexpected safety status",
+        ),
+        (
+            {
+                "verified_used_reference_sources": ["drug-safety"],
+                "final_safety_status": "checked",
+                "final_safety_warning_count": 0,
+            },
+            {
+                "expected_reference_source": "drug-safety",
+                "minimum_safety_warning_count": 1,
+            },
+            "too few safety warnings",
+        ),
+    ],
+)
+def test_probe_rejects_unproven_safety_expectations(
+    monkeypatch, streamed, kwargs, message
+):
+    monkeypatch.setattr(
+        probe,
+        "_post_json",
+        lambda *_args, **_kwargs: {"session": "session-1", "provider": "hub"},
+    )
+    monkeypatch.setattr(
+        probe,
+        "_stream_turn",
+        lambda *_args, **_kwargs: {"session": "session-1", **streamed},
+    )
+
+    with pytest.raises(RuntimeError, match=message):
+        probe.probe_relay(
+            "http://openmrs/openmrs",
+            patient="patient-1",
+            profile="single-e4b-checked",
+            question="Is this dose safe?",
+            username="admin",
+            password="secret",
+            timeout=30,
+            clear_after=False,
+            **kwargs,
         )
 
 
@@ -395,6 +551,7 @@ def test_probe_rejects_hydration_from_a_different_audit_row(monkeypatch):
             "session": "session-1",
             "message_id": "message-1",
             "querystore_reference_count": 1,
+            "verified_used_reference_sources": ["querystore"],
             "stream_audit_log_id": 42,
             "final_envelope_sha256": "final-sha",
         },
@@ -448,8 +605,12 @@ def test_probe_rejects_clear_after_session_for_the_wrong_provider(monkeypatch):
             "answer_done_ms": 10,
             "done_ms": 20,
             "final_answer_validation": {"status": "checked"},
+            "final_safety_status": "checked",
+            "final_safety_warning_count": 0,
             "final_reference_count": 1,
             "reference_sources": ["querystore"],
+            "resolved_reference_sources": ["querystore"],
+            "verified_used_reference_sources": ["querystore"],
             "querystore_reference_count": 1,
             "final_in_depth": {"status": "complete", "answer": "Detail [1]."},
             "in_depth_terminal_event": "indepth_done",

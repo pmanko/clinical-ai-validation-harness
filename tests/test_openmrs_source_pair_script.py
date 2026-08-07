@@ -6,10 +6,13 @@ import stat
 import subprocess
 from pathlib import Path
 
+import yaml
+
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts" / "openmrs-source-pair-test.sh"
 LOCAL_SCRIPT = ROOT / "scripts" / "chartsearchai-local.sh"
+CHARTSEARCHAI_WORKFLOW = ROOT / "targets" / "chartsearchai" / ".github" / "workflows" / "build.yml"
 SUBMODULES = ("querystore", "chartsearchai", "chartsearchai-esm")
 
 
@@ -147,3 +150,25 @@ def test_local_entrypoint_builds_the_openmrs_modules_as_one_pair():
     assert "make openmrs-source-pair-build" in source
     assert '"ChartSearchAI module" \\\n' not in source
     assert '"Querystore module" \\\n' not in source
+
+
+def test_chartsearchai_integration_ci_builds_the_exact_pinned_querystore_source():
+    workflow_text = CHARTSEARCHAI_WORKFLOW.read_text(encoding="utf-8")
+    workflow = yaml.safe_load(workflow_text)
+    querystore_head = _git(ROOT / "targets" / "querystore", "rev-parse", "HEAD")
+
+    assert "github.head_ref != 'harness-integration'" in workflow["jobs"]["build"]["if"]
+    paired = workflow["jobs"]["paired-build"]
+    assert "github.head_ref == 'harness-integration'" in paired["if"]
+    assert paired["strategy"]["matrix"]["java"] == [11, 17, 21]
+
+    checkout = next(
+        step for step in paired["steps"] if step["name"] == "Checkout paired QueryStore source"
+    )
+    assert checkout["with"]["repository"] == "pmanko/openmrs-module-querystore"
+    assert checkout["with"]["ref"] == querystore_head
+
+    install = next(
+        step for step in paired["steps"] if step["name"] == "Install paired QueryStore source"
+    )
+    assert "clean install -DskipTests" in install["run"]
