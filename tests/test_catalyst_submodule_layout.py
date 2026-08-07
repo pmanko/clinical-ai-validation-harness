@@ -150,10 +150,13 @@ def test_harness_runner_defaults_to_a_tracked_isolated_compose_override() -> Non
 def test_harness_exposes_the_isolated_superset_operator_commands() -> None:
     runner = (ROOT / "scripts/catalyst-mvp.sh").read_text(encoding="utf-8")
     makefile = (ROOT / "Makefile").read_text(encoding="utf-8")
+    phony_declarations = makefile.split("# --- compose lifecycle ---", maxsplit=1)[0]
 
     assert '"${CATALYST_DIR}/scripts/${script_name}" "$@"' in runner
+    assert "catalyst-superset-status" in phony_declarations
     assert "catalyst-superset-status:" in makefile
     assert "./scripts/catalyst-mvp.sh superset-status" in makefile
+    assert "catalyst-superset-import" in phony_declarations
     assert "catalyst-superset-import:" in makefile
     assert "./scripts/catalyst-mvp.sh superset-import" in makefile
 
