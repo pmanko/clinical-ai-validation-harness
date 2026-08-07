@@ -2089,7 +2089,12 @@ target-level operator invocation also exposed the already-documented umbrella
 configuration footgun: without the harness override it creates a separate
 Compose project, and even with the override `superset-import` may reconcile an
 analytics container unnecessarily. T165 must keep import/recovery scoped to the
-Superset services and the supported umbrella runner.
+Superset services and the supported umbrella runner. The supported umbrella
+health/provenance gate passed after the new pin. Every historical local
+last-verified projection still records `linux/unknown` (and some carry the old
+`worktree` importer revision), so none will be retroactively trusted for the
+destructive T165 recovery demonstration; that gate requires a fresh conforming
+verified-A fixture.
 
 ## W2 — Targeted remediation
 
