@@ -2062,6 +2062,35 @@ The fixture keeps the approved order; T148/T149 must align the serializer rather
 than weakening the golden test. T142/T163 importer-state red matrices are the
 next D1b slice.
 
+### M4 D1b standalone importer checkpoint — T142/T143 PASSED (2026-08-06)
+
+The standalone importer now validates missing/malformed pointers, foreign
+digests, pointer traversal, corrupt/traversal/symlink ZIPs, pinned Superset
+version, manifest identity, and trustworthy digest-addressed latest/receipt
+links before reusing prior state. Preflight and CLI/post-verification failure
+receipts retain their distinct preservation/mutation claims and disable current
+success controls. The importer and state helper contain no Catalyst package
+imports, constrained canonical JSON matches `rfc8785`, and the pinned Superset
+container executed the scripts on Python `3.10.20`.
+
+The importer lock marker now contains exactly the approved publication, bundle,
+digest, receipt, and start-time fields. A waiter rechecks the captured digest
+after acquiring the lock, same-digest success skips the CLI without another
+receipt, and a busy attempt reports live import state without replacing the
+latest projection. Stale marker bytes cannot claim activity, and a corrupt
+last-verified projection is no longer silently reset to generation 1. The full
+Gateway suite passes with 231 tests; exact evidence is in
+`evidence/m4-d1b-importer-2026-08-06.json`.
+
+This closes T142/T143 only. T163/T164 remain in progress because their recovery
+matrix still needs the verified-A / failed-desired-B scenario, and T165 still
+must implement the explicit Superset-local reset/reimport boundary. A direct
+target-level operator invocation also exposed the already-documented umbrella
+configuration footgun: without the harness override it creates a separate
+Compose project, and even with the override `superset-import` may reconcile an
+analytics container unnecessarily. T165 must keep import/recovery scoped to the
+Superset services and the supported umbrella runner.
+
 ## W2 — Targeted remediation
 
 **Status:** Parallel pathway; planned, not selected
