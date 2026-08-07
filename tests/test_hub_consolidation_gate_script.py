@@ -65,6 +65,9 @@ def test_gate_scripts_keep_the_historical_consolidation_matrix_separate_from_dua
     dual = (ROOT / "scripts" / "verify-dual-provider-parity-gates.sh").read_text(
         encoding="utf-8"
     )
+    dual_evaluator = (ROOT / "scripts" / "verify_dual_provider_parity_gates.py").read_text(
+        encoding="utf-8"
+    )
 
     assert "tests/test_drug_safety_followthrough.py" in consolidation
     assert 'exec "${ROOT}/scripts/verify-hub-consolidation-gates.sh" "$@"' in stage
@@ -73,7 +76,8 @@ def test_gate_scripts_keep_the_historical_consolidation_matrix_separate_from_dua
     assert "Bundled and hub use fully separate inference backends" in (
         ROOT / "specs/artifacts/planning/openmrs-dual-provider-parity-roadmap-status.md"
     ).read_text(encoding="utf-8")
-    assert "ChartSearchAI PR #26 rollback ref exists" in dual
+    assert "verify_dual_provider_parity_gates.py" in dual
+    assert "ChartSearchAI PR #26" in dual_evaluator
 
 
 def test_openmrs_source_pair_gate_builds_exact_integration_heads_in_dependency_order():

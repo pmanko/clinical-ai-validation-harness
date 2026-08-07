@@ -7,7 +7,8 @@ TOGETHER with the Amendments section below — in particular, the 2026-07-21 con
 2026-07-22 shared-context-slice amendments re-scope roadmap §5 (Context Modes) and the §12
 non-goal "No model-context policy inside QueryStore": context selection invariants are now
 implemented once in QueryStore (`getContextSlice`, its ADR Decisions 17–18) with engines as thin
-adapters. The roadmap file alone under-describes context ownership.
+adapters. The 2026-08-05 publication amendment also makes each fork's `harness-integration`
+branch the direct OpenMRS PR head. The roadmap file alone under-describes these approved changes.
 
 ## Control Record
 
@@ -16,7 +17,7 @@ adapters. The roadmap file alone under-describes context ownership.
 | Roadmap | [`openmrs-dual-provider-parity-roadmap.md`](openmrs-dual-provider-parity-roadmap.md) |
 | Approval | Explicit user instruction to implement the roadmap on 2026-07-20 |
 | Approved roadmap SHA-256 | `a3948d648ba21303639b55e65226455a088e2fb61f693a16a2e769276f20bd72` (Revision 2, 2026-07-23; Revision 1 was `cf2c8b33c81ab69ece6150d0171ea3e940f89edfa3968e02c6bd9bf8abc274f5`, preserved at `8bc9caa`) |
-| Current boundary | The source implementation is ready for an exact-version product retest. QueryStore `6197e4b`, ChartSearchAI `5025d77`, and ESM `ea1bcef` are the exact remote `harness-integration` heads. The reviewed hub follow-up is merged into hub `main` at `b82f957`. Harness PR #39 rebuilds the post-#35 work from current harness `main` and pins those four revisions. Its full harness suite passes with 869 tests. The running local stack still contains the older 2026-07-29 OpenMRS artifacts and a mismatched hub image, so it is not evidence for this source line. Next: merge PR #39, redeploy only through the stable Make targets, verify deployed revisions, and rerun the browser/product checks before comparative evaluation. |
+| Current boundary | Current OpenMRS upstream is merged into the integration line. QueryStore `56b49cf`, ChartSearchAI `25a098e`, and ESM `c9416c6` are the remote `harness-integration` heads and the heads of OpenMRS PRs #68, #157, and #23 respectively; med-agent-hub PR #19 is at `cb4e05f`. QueryStore and ChartSearchAI passed full paired-source builds at behavior commit `b3911aa`; `25a098e` changes only paired-CI's immutable QueryStore pin to `56b49cf`. Hub passed 664 tests, and the ESM change is covered by the previously green 230-test/lint/TypeScript/build sweep. Two independent reviews found no remaining code blocker after the fail-closed medication-safety, In-Depth explanation, and full-chart completeness fixes. The last deployed proof predates these heads, so the final exact-head live sweep, independent QA bundle, controlled evaluation, judging, and publication remain required. The parent pins and status update are carried in harness PR #45; Signoff 2 is not yet available. |
 | Supersedes | `MAH-CONSOLIDATION-2026-07-09-v1` for active architecture and execution authority |
 | Preserved prior decisions | Temporal-facts Git provenance, stable evaluation IDs, and medication-knowledge safety boundary remain active unless this roadmap explicitly changes them |
 | Signoff 1 | Granted by user on 2026-07-20: baseline, contracts, upstream dispositions, and branch-rebuild procedure approved |
@@ -26,20 +27,25 @@ adapters. The roadmap file alone under-describes context ownership.
 ## Current Status in Plain Language
 
 - **Merged:** med-agent-hub's paginated QueryStore reads, per-citation grounding, and complete
-  context-slice validation are on hub `main` through PR #17.
+  context-slice validation are on hub `main` through PR #17. The current safety hardening is on
+  ready PR #19 at `cb4e05f`.
 - **Pinned OpenMRS work:** QueryStore, ChartSearchAI, and ChartSearchAI ESM each match the exact
-  `harness-integration` head on the corresponding fork.
-- **Not yet proven live:** the assembled local application has not been rebuilt from these four
-  revisions. Existing browser/video evidence belongs to the preceding revision set.
-- **Next required work:** merge this harness follow-up, rebuild the complete local stack, verify
-  source and deployed revisions match, then repeat provider, persistence, multi-turn, cancellation,
-  validation, evidence, and video checks.
+  `harness-integration` head on the corresponding fork. OpenMRS PRs now originate directly from
+  those branches: QueryStore #68, ChartSearchAI #157, and ESM #23.
+- **Current reviewed source:** QueryStore `56b49cf`, ChartSearchAI `25a098e`, ESM `c9416c6`, and hub
+  `cb4e05f` pass their complete source-level test/build contracts; the OpenMRS Java pair was tested
+  together from source.
+- **Last proven live:** the assembled local application at ESM `f26868c` passed source/artifact
+  identity, provider, persistence, multi-turn, cancellation, validation, evidence, and video checks.
+- **Next required work:** rebuild the exact current heads, repeat the live provider/demo sweep, run
+  the executable acceptance gates and hash-bound independent QA, then run the controlled evaluation.
 - **After that:** run the controlled provider/model comparison, judge it independently, and publish
-  only after the exact tested revisions are recorded.
+  only from the exact tested revisions.
 
 Repository ownership is intentionally simple: the harness and med-agent-hub land through pull
-requests into `main`; the three upstream-owned OpenMRS projects are pinned from their fork's exact
-`harness-integration` head. `scripts/verify-repository-lines.sh` enforces that distinction.
+requests into `main`; the three upstream-owned OpenMRS projects are pinned and published from their
+fork's exact `harness-integration` head. `scripts/verify-repository-lines.sh` enforces local branch
+identity, and its `--check-publication-prs` option verifies the GitHub PR heads.
 
 ## Initial Baseline
 
@@ -71,17 +77,17 @@ The refreshed repository state, upstream dispositions, and rollback refs are rec
 | G08 Freshness | In progress | QueryStore `856bdda` adds a stable complete-chart `snapshotId`, a strong page-specific ETag with `private, must-revalidate` caching, `304 Not Modified` on `If-None-Match` (`QueryStoreRestController`), and rejection of mixed-snapshot multi-page reads, all covered by `PatientRecordEndpointTest`. **E2E proven live 2026-07-23:** `If-None-Match` revalidation returned `304` on the unchanged chart; a live obs write changed the snapshotId (`05f3552b…` → `41c136b8…`) and the new record appeared in the chart page. |
 | G09 Source independence | Passed 2026-07-24 | Implementation exists and is exercised: `InlineChartSource`/`StaticKnowledgeSource` pass the same source contract (`context_sources.py`; 10 test references), hub config guards partial querystore configuration, and CP3 kept the slice consumption source-scoped with failure-degradation tests. **Live evidence recorded 2026-07-24** ([`evidence/g09-hub-no-querystore-2026-07-24.md`](evidence/g09-hub-no-querystore-2026-07-24.md)): `harness-med-agent-hub` rebuilt and started with `QUERYSTORE_BASE_URL`/`QUERYSTORE_USERNAME`/`QUERYSTORE_PASSWORD` all empty (fully unconfigured, not partial) — healthy on startup, and a real inline-chart request with no patient ref produced a correctly grounded, fully-validated answer (`context.sources: ["inline","knowledge-base"]`, never `querystore`; `answerValidation.status: checked`). |
 | G10 Context policy | In progress | Engine-parity instrument (2026-07-22, `engine-parity-instrument.md`) measured both implementations against identical questions on one index: bundled has typed-complete + similarity + panel completion + temporal recency anchor but NO mandatory clinical core; hub has mandatory core + always-on clinical-date recency + budget but NO panel completion. Execution path: `querystore-context-slice-plan.md`. **CP0 complete (2026-07-22, chartsearchai `4772dfb`):** `buildScoped` carries the mandatory clinical core (allergies + active conditions) in every slice — red-first unit proof against fixture `context.enumerated-medications-are-complete`, full suite 647/0, live parity probe shows the penicillin allergy + active conditions in BOTH arms' medication prompts. **CP1 complete (2026-07-22, querystore `6bc783e`):** ADR Decision 17 — `getContextSlice(patient, question, {types, temporal})` + REST `patientrecord?mode=context`, tiers mandatory/recency_anchor/typed/similarity/panel, context_policy fixtures as red-first querystore tests (8/8; full build 488+35/0), live tier-tagged slice served on the harness stack (mandatory:8 typed:18 similarity:17 of a 320-doc chart). **CP2 complete (2026-07-22, chartsearchai `74d623b`):** `buildScoped` is a thin adapter over `getContextSlice` — question interpretation (intents/temporal/preprocessing/contributed scopes) stays bundled-side, selection is the shared contract; local mandatory-core/family-completion/cap-probe logic deleted; builder tests exercise the REAL querystore slice impl via a delegating stub; suite 648/0; live probe shows the shared slice (allergy + active conditions) in the bundled prompt. **CP3 complete (2026-07-22, med-agent-hub `d7b5e44`):** the querystore source consumes the tier-tagged slice with hub-side interpretation (cues mirroring QueryScopeRouter); slice-mandatory authoritative (union with local heuristic), slice-selected never zero-relevance, local recent-core yields to the slice's temporal-gated anchor; failure degrades to local policy; suite 611/0; live turn requested mode=context&temporal=true&types=drug_order,medication_dispense. **CP4 complete (2026-07-22, harness `16da491`):** diff gained the HARD mandatory-core parity gate (allergies + active conditions text-equal across both prompts — never excusable by documented divergence); divergence entry narrowed to the two measured residuals (caller-side similarity-input drift; hub additive lexical union). Sweep 3/3 PASS with core parity 7=7; scored engine-parity-e4b run 6/6 good cells (bundled 6.8-9.4s vs hub 86-121s on one shared gemma-e4b). **All five checkpoints of `querystore-context-slice-plan.md` are complete.** **v2 follow-through (2026-07-22, querystore `41105d1` / chartsearchai `a34b78b` / med-agent-hub `d7b5e44`+):** question interpretation + retrieval preprocessing centralized in querystore (its ADR Decision 18, `interpretQuestion`); both engines now send the RAW question — similarity-input drift ELIMINATED (verified: identical 51-record slices at source). Residuals are hub-side by design: token-budget ceiling trimming + lexical union. RemoteLlmEngine now surfaces context overflow as chart_too_large (explicit-overflow parity with the local engine, chartsearchai). |
-| G11 Context ceiling | Passed 2026-07-24 | Bundled fullChart fails loud (`ChartTooLargeException`); the shared slice surfaces backend-cap truncation explicitly (`chartTruncated`); the hub trims its token budget over slice tiers with `mandatory` never droppable and slice-selected never zero-relevance (CP3, med-agent-hub `d7b5e44`). **Bundled's residual gap closed 2026-07-24** (chartsearchai `5a1a619`): `QueryStoreChartBuilder.applyContextBudget()` now enforces a real token ceiling over the query-scoped slice — a new `TokenCounter`/`LocalLlamaTokenCounter` delegates exact counting to `LocalLlmEngine`'s own llama-server `/tokenize` endpoint (never approximating, mirroring the hub's `RouterTokenCounter`); mandatory records never trim and abstain via a new `InsufficientContextException` → `insufficient_context` problem code (the identical wire string the hub's `InsufficientContextError` already uses) when they alone overflow; otherwise a fast accept when everything fits, else a greedy fill of optional tiers up to the ceiling instead of hard-failing on excess optional content. `RemoteLlmEngine` has no assumed `/tokenize` route (an arbitrary OpenAI-compatible endpoint may not expose one) so it keeps its existing `ChartTooLargeException` reactive backstop unchanged — a deliberate, documented asymmetry, not an oversight. Red-first: `QueryStoreChartBuilderBudgetTest`'s 5 cases (one driven directly by fixture `context.mandatory-overflow-abstains`'s `budget_tokens`/`mandatory_tokens` numbers) failed to compile before the seam existed. Full reactor 677/677 api + 56/56 omod. |
-| G12 Cache isolation | In progress | The revalidating patient-ledger cache is keyed by (deployment identity, authorization scope, patient) (`context_sources.py:495`; `test_patient_ledger_cache.py`; landed with med-agent-hub `e44ee89`-line work). **Remaining:** prefix-reuse scope isolation evidence (depends on G13) and a recorded stale-on-error-never-served proof. |
+| G11 Context ceiling | Passed 2026-07-24 | Bundled fullChart fails loud (`ChartTooLargeException`); the shared slice surfaces backend-cap truncation explicitly (`chartTruncated`); the hub trims its token budget over slice tiers with `mandatory` never droppable and slice-selected never zero-relevance (CP3, med-agent-hub `d7b5e44`). **Bundled's residual gap closed 2026-07-24 and tightened 2026-08-06:** `QueryStoreChartBuilder.applyContextBudget()` enforces a real token ceiling over the query-scoped slice. `TokenCounter`/`LocalLlamaTokenCounter` delegates exact counting to the serving llama.cpp engine; current prompt-budget decisions use `/v1/chat/completions/input_tokens`, including the configured system prompt, question, and model chat template. Required mandatory, exact, typed-complete, and panel records never trim and abstain via `InsufficientContextException` → `insufficient_context` when they alone overflow; otherwise a bounded priority-prefix search includes optional evidence only while it fits. A final exact preflight after deterministic knowledge-reference injection prevents the assembled local prompt from exceeding the input budget. `RemoteLlmEngine` has no assumed tokenizer route (an arbitrary OpenAI-compatible endpoint may not expose one), so it retains its reactive `ChartTooLargeException` backstop rather than approximating. Red-first budget, transport, prompt-overhead, and final-preflight tests cover the tightened path. |
+| G12 Cache isolation | In progress | The revalidating patient-ledger cache is keyed by (deployment identity, authorization scope, patient) (`context_sources.py:495`; `test_patient_ledger_cache.py`) and its regression suite proves failed revalidation never serves the cached ledger. QueryStore `56b49cf` binds `chartTruncated` into snapshot/ETag identity, and hub `cb4e05f` rejects missing or true completeness metadata before a ledger can enter the cache. **Remaining:** prefix-reuse scope isolation evidence (depends on deferred G13) and exact-head live cache observation. |
 | G13 Prefix proof | Deferred (user-directed 2026-07-24) | Per roadmap §8 step 6: this was surfaced as a conscious GO/DEFER call at Signoff-2 prep, not a silent gap — query-scoped is the operating default and the parity configuration runs the remote engine, so full-chart prompt-prefix reuse only matters if `full_chart_stable` becomes a near-term deployment target. User chose DEFER. Does not block Signoff 2. Revisit if/when `full_chart_stable` moves toward deployment; G12's "Remaining" (prefix-reuse scope isolation) stays open pending this. |
 | G14 Temporal safety | In progress | The hub's deterministic temporal gate suite is implemented and heavily tested (`temporal.py`; 78 temporal test cases) and drove the published eval findings. **The shared fixture-corpus remainder closed 2026-07-24:** med-agent-hub's `test_dual_provider_conformance_adapter.py` drives all 4 `temporal_gate` fixture cases through the real `run_temporal_gate()` (4/4 passing against the pre-existing implementation, no behavior change needed). Bundled chartsearchai has no temporal-gate engine of its own — only `HubClinicalAnswerProvider` advertises `ANSWER_CHECK`, and it relays the hub's already-gated `temporalGate` object opaquely (`AnswerEnvelope`'s own contract) — so its fixture obligation is proving the relay never drops or reshapes the gate's status, not re-deriving a result; `TemporalGateRelayConformanceTest` drives all 4 cases through a scripted `HubStreamTransport` and was verified non-vacuous by temporarily stripping `temporalGate` in `envelopeOrNull` and confirming the test fails, then reverting. **Live end-to-end relay-parity evidence recorded 2026-07-24** ([`evidence/g14-temporal-gate-relay-parity-2026-07-24.md`](evidence/g14-temporal-gate-relay-parity-2026-07-24.md)): the same temporal question against the same real patient, once through chartsearchai's REST relay (`provider=hub`) and once directly against the hub, produced the identical `temporalGate.status` (`not_applicable`) both times — recorded transparently alongside an unrelated, expected sampling-variance difference in the separate `answerValidation` review verdict (two independent LLM invocations, not a byte-for-byte replay). |
 | G15 Final-answer integrity | Passed 2026-07-24 | Hub review rewrites are re-gated and grounding binds to the final answer (the `b2bef83` grounding-source fix + rewrite-validator work are on #13). **Live evidence recorded 2026-07-24** ([`evidence/g15-rewrite-and-citation-independence-2026-07-24.md`](evidence/g15-rewrite-and-citation-independence-2026-07-24.md)) against a real patient and model: (1) a deliberately chart-contradicted answer (wrong dose) was caught, rewritten to the chart-correct value, and honestly labeled `answerValidation.status: edited` with the original wrong answer preserved for audit — not silently presented as checked; (2) a two-turn conversation showed citation indices are stable ledger positions, not per-turn-reset integers — turn 2's resolvable reference pool for a different question simply did not contain turn 1's citation index at all, so it cannot be silently misread as pointing to different evidence. |
-| G16 Drug-safety honesty | In progress | The checked/limited/unavailable result contract is implemented on **both** sides as of 2026-07-24. Prior to this, neither side actually distinguished "checked, nothing found" from "disabled/unavailable" — the wire envelope only ever set `safetyWarnings` when non-empty, so all three cases were indistinguishable to any client. **Hub** (med-agent-hub `ba09e94`): `drug_safety.check_answer_safety()` returns a `SafetyCheckResult(status, warnings)` — `unavailable` when there is no dataset/patient context or the check raised, `limited` when the caller ran only a subset of dose/interaction/contraindication checks, `checked` otherwise; `validate_answer()` delegates to it unchanged (zero behavior change for its ~30 existing callers); wired through all three stream/bare/combined envelope paths as `safetyStatus`, verified end-to-end through the real profile-execution pipeline (`test_drug_safety_integration.py`), not by calling the checker directly. **Bundled** (chartsearchai `6c154ac`): `DrugSafetyValidator.validateWithStatus()` mirrors the same three states; `ChartAnswer` gained a `safetyStatus` field (legacy constructors default to `unavailable` rather than silently implying checked); wired through `LlmInferenceService`, `BundledClinicalAnswerProvider`, and all three `ChartSearchAiRestController` response sites. Both red-first (`test_drug_safety_status.py`, `DrugSafetyStatusTest` — confirmed failing/non-compiling before implementation) and fixture-driven against the shared `drug_safety_status` family. 622/622 hub tests + 677/677 chartsearchai api + 56/56 omod tests green. **ESM completion:** `2fac28a` threaded `safetyStatus` through the canonical wire types, live-event and hydration reducers, and `ai-response-panel`; six red-first component/hook tests cover checked/limited/unavailable behavior. Translation extraction then required the three new English keys; `a1da7cb` updates them. ESM PR #22 at `5fdfaa1` passed its current public OpenMRS CI build on 2026-07-30 (run `30502675985`). **Remaining:** live browser evidence that all three states survive the full provider relay and reload, plus closeout documentation/QA gates. |
-| G17 Canonical UI | In progress | The ESM rebuild (`e602faf`, 203 tests) implements the canonical lifecycle reducer, conditional provider picker, and new-conversation-on-switch. **PR-fold item is obsolete** under the 2026-07-23 integration-branch model (proven work lands on `harness-integration` directly; a PR is a curated artifact cut later, not a gate). **Reload-survival evidence recorded and FIXED 2026-07-24:** `GET /chat` required a client-supplied `session` unconditionally (`MissingServletRequestParameterException` on every call, surfaced to the caller as a bare 500) — the ESM's `fetchChatHistory` has no session to send on a fresh page load by construction, so every reload silently rehydrated to an empty, default-provider panel; live-confirmed via three independent e2e specs failing on this exact exception. `session` is now optional; when omitted, `ConversationService.getLatestActiveConversation(patient)` (new) resolves the caller's own active conversation, and each restored assistant turn now carries its FULL persisted answer envelope (references, blocks, safety warnings, confidence, answer validation, In-Depth) via `turn.getProviderPayload()`, not just bare text — previously reload would have lost all evidence/validation/In-Depth state even had the session bug not existed. Red-first: `ChatHistoryEndpointTest` (5 new tests). **Live-verified:** `chartsearchai-demo.spec.ts`'s persisted-history assertion, which reads the reload/history endpoint directly, now returns the full rich envelope (previously a bare 500). **Fast follow-up closure 2026-07-30:** the ESM correctly unlocks the composer after Answer validation, but Java previously withheld that checked answer from conversation history until optional In-Depth reached a terminal event. ChartSearchAI `209e7cb` persists only `answerValidation.status: checked|edited` envelopes at `answer_validation`; `needs_review` remains excluded from model history. Red-first API persistence and REST-contract tests cover both boundaries; the live `chartsearchai-e4b-multiturn-trivial` Playwright test passed with the second hub trace reporting one prior turn/two prior messages. |
-| G18 Cancellation | Passed 2026-07-29 | `CancellationSignal` was a first-class TYPE in the provider boundary but was never actually wired: the REST layer passed `CancellationSignal.NONE` (a signal that never cancels) for every turn, and `HubStreamTransport`'s interface had no way to interrupt a blocking hub read even if it had been real — a preempted turn ran to the hub's own completion, silently holding the router slot. **Fixed and first proven live 2026-07-24 (chartsearchai `4e4c7ae`):** `TurnCancellation` binds the open hub response body so `cancel()` force-closes it from another thread; `TurnPreemptionRegistry` cancels whichever turn currently holds a conversation's slot when a new one starts. A turn cancelled after it already produced a real answer now persists that answer and settles dangling In-Depth as failed. **Current-head proof:** ChartSearchAI `962b29f`, ESM `5fdfaa1`, QueryStore `e2cb359`, and hub `04d2cea` passed `chartsearchai-preempt.spec.ts`; a third question preempted active In-Depth, the previous turn settled terminally, and the hub trace recorded `router_lock_released: true`. `ProviderRestContractTest` and the deterministic hub stream-preempt test cover the same invariants below the browser. |
-| G19 Honest demo | Passed 2026-07-29 | `make chartsearchai-local` builds/stages the current ESM, verifies the live QueryStore source, configures the providers, and runs the hardened relay probe against a newly created explicit hub session. **Current exact proof:** ChartSearchAI `962b29f`, ESM `5fdfaa1`, QueryStore `e2cb359`, and hub `04d2cea`; all 365 patient records were fetched over four server-capped pages; `answer_done` arrived in 5.957 s and terminal state in 15.724 s on this warm sample; the persisted final envelope rehydrated byte-identically with QueryStore references, an edited checked Answer, and honestly withheld `needs_review` In-Depth. The live two-turn and preemption Playwright specs both passed. A paced 1280x720 three-turn/preemption recording is preserved outside source control as `artifacts/reports/demos/videos/chartsearchai-dual-provider-e4b-multiturn-preempt-20260729.mp4`, with a separate 2x derivative; reviewed frames show the expanded panel, configured provider/profile, checked lifecycle, evidence tiles, multi-turn carryover, and preemption. Model errors remain visible; rejected In-Depth is not presented as complete. |
+| G16 Drug-safety honesty | In progress | The source-package identity, provenance, approval, content diagnostics, mapping/exposure completeness, checked/limited/unavailable state, and warning list now survive both providers, persistence, hydration, and UI rendering. Hub `cb4e05f` and ChartSearchAI `b3911aa` additionally fail closed on malformed severity/age fields, apply the same severity floor to warnings and prompt evidence, and prevent an unavailable cross-reactivity package from influencing active-order injection. Independent review found no remaining code blocker. **Remaining:** exact-head deployed proof with a resolved drug-safety source and both clean and limited package states. |
+| G17 Canonical UI | In progress | One reducer handles the bundled and hub lifecycle, including Answer checking, optional In-Depth, evidence, original/rejected output, safety state, cancellation, and reload hydration. ESM `c9416c6` renders visible Answer and In-Depth validation summaries, including the concrete reason a rejected In-Depth section needs review; it also retains the provider-default and provider-neutral warning fixes. The 230-test/lint/TypeScript/build sweep is green. **Remaining:** exact-head deployment, provider-picker regression, and browser proof before this gate returns to Passed. |
+| G18 Cancellation | Passed 2026-08-05 | `CancellationSignal` was a first-class TYPE in the provider boundary but was never actually wired: the REST layer passed `CancellationSignal.NONE` (a signal that never cancels) for every turn, and `HubStreamTransport`'s interface had no way to interrupt a blocking hub read even if it had been real — a preempted turn ran to the hub's own completion, silently holding the router slot. **Fixed and first proven live 2026-07-24 (chartsearchai `4e4c7ae`):** `TurnCancellation` binds the open hub response body so `cancel()` force-closes it from another thread; `TurnPreemptionRegistry` cancels whichever turn currently holds a conversation's slot when a new one starts. A turn cancelled after it already produced a real answer now persists that answer and settles dangling In-Depth as failed. **Current-head proof:** QueryStore `f37adc8`, ChartSearchAI `17a91a9`, ESM `f26868c`, and hub `092b5cd` passed `chartsearchai-preempt.spec.ts`; a third question preempted active In-Depth and the previous turn settled terminally. `ProviderRestContractTest` and the deterministic hub stream-preempt test cover the same invariants below the browser. |
+| G19 Honest demo | In progress | The deployment at QueryStore `f37adc8`, ChartSearchAI `17a91a9`, ESM `f26868c`, and hub `092b5cd` passed source/artifact identity, relay persistence, multi-turn, low-confidence disclosure, deterministic table hydration, safety-warning path, preemption, and the paced raw/2x video proof. Current reviewed heads are QueryStore `56b49cf`, ChartSearchAI `25a098e`, ESM `c9416c6`, and hub `cb4e05f`; the earlier evidence is behaviorally useful but is not exact-current-head release proof. Rebuild and rerun the live provider-picker and demo sweep before returning this gate to Passed. |
 | G20 Documentation | Passed 2026-07-29 | `scripts/verify-doc-drift.sh` now scans all seven repositories against the approved dual-provider contract rather than the superseded hub-only removal list. It requires current root, adapter, ChartSearchAI, ESM, hub, and QueryStore statements; permits supported bundled local/remote engines, streaming, warming, grounding, and QueryStore behavior; and still rejects removed shared session state, obsolete hub profile defaults, retired global role settings, unbounded-context claims, and hub-only/provider-removal claims. Root `642629f`, ChartSearchAI `eeb1b54`, and ESM `5fdfaa1` add the missing provider-boundary documentation and direct regression coverage; the gate passes with seven explicitly marked historical files. |
-| G21 QA and hygiene | In progress | The source-tested heads are QueryStore `6197e4b`, ChartSearchAI `5025d77`, ESM `ea1bcef`, and hub `b82f957`. Full QueryStore, ChartSearchAI, ESM, and hub suites pass; the rebuilt harness follow-up passes 869 tests with 35 expected skips and 4 deselected slow tests. The OpenMRS heads equal their remote `harness-integration` heads; the hub fixes are merged into `main` through PR #17 and intentionally exclude the unsafe review shortcut. The root relay/source-pair tests verify parent pins, clean submodule trees, dependency order, and explicit session identity. The repository-line and deployed-source checks now make branch ownership and runtime provenance executable. Remaining before this source line replaces the prior live-proven set: merge harness PR #39, redeploy, complete the live product/browser proof, and perform independent QA. |
+| G21 QA and hygiene | In progress | Exact source-level proof is green at QueryStore `56b49cf`, ChartSearchAI behavior commit `b3911aa` plus CI-only head `25a098e`, ESM `c9416c6`, and hub `cb4e05f`: full QueryStore reactor, full ChartSearchAI reactor compiled against that exact QueryStore source, 230 ESM tests plus lint/TypeScript/build, and 664 hub tests. Two independent reviews reproduced the full-chart completeness defects, verified their fixes, and found no additional code blocker. **Remaining:** public CI at the new heads, full executable gate sweep, exact-head live proof, hash-bound DIGI-UW/code-qa bundle, and final harness PR #45 review. |
 | G22 Next-stage readiness | In progress | Run metadata already identifies provider/mode/endpoint/model per arm (`run_meta.json` `backends` freeze), stage timings and hub traces have dedicated harness modules (`stage_timings.py`, `hub_trace.py`), and the parity instrument records selected evidence per run. **Remaining:** snapshot identity + cache state + gate results carried per run row. |
 
 ## Foundation Closeout
@@ -281,7 +287,7 @@ row above — the one fixture case that turned into real new-feature work on the
 the user pushed back on an initial "record as a known gap" recommendation with an architecture
 question ("why would the boundary be inside the app... we currently do it in hub so that needs to
 be reconciled") that led to grounding the actual design in the hub's `RouterTokenCounter` (which
-delegates counting to the real engine's `/tokenize` endpoint, never approximates) before building
+delegates counting to the real engine rather than approximating) before building
 the mirrored Java version.
 
 **Not pursued, explicitly scoped out:** ESM rendering of the new `safetyStatus` field (G16); a
@@ -724,3 +730,149 @@ the engine-parity instrument.
 single-implementation owner), G06 (bundled preservation guards CP0/CP2), G09 (source-neutrality
 preserved by construction). No acceptance criterion is relaxed; record-set equality for
 QueryStore-sourced runs becomes provable rather than aspirational.
+
+### 2026-08-05 — Publish the tested integration head directly
+
+**Approval:** Explicit user direction on 2026-08-05 after confirming that each old feature branch
+and its fork `harness-integration` branch pointed to the same commit. The extra publication branch
+provided no isolation and made the tested source, harness pin, and OpenMRS review head appear to be
+different lines.
+
+**Decision:**
+
+- For ChartSearchAI, ChartSearchAI ESM, and QueryStore, `pmanko:harness-integration` is both the
+  source line pinned by the harness and the head branch used by the OpenMRS pull request.
+- A separate feature branch may be used for unproven work, but it is not an OpenMRS publication
+  source until that work is consolidated and tested on `harness-integration`.
+- The integration branch first merges current `openmrs:main`, resolves and tests the combined
+  code, and is then pushed without rewriting the independently preserved backup ref.
+- `scripts/verify-repository-lines.sh --check-publication-prs` verifies that the exact remote
+  integration commit has an OpenMRS PR from `pmanko:harness-integration` and that the same commit is
+  not also published by an open feature-branch PR.
+
+**Execution:** Current upstream was merged into ChartSearchAI (`a20a0d0`) and QueryStore
+(`38ce1a9`); ESM (`ea1bcef`) already contained current upstream. Immutable backup refs named
+`codex/backup/harness-integration-pre-upstream-sync-20260805` were pushed before the merges.
+QueryStore `mvn -q -B clean install` passed. ChartSearchAI was built after installing that exact
+QueryStore source and passed 1,019 tests with zero failures/errors (34 opt-in eval skips). ESM
+passed 218 tests plus lint, TypeScript, and production build. OpenMRS PRs #157, #23, and #68 now
+publish those exact heads; feature-sourced PRs #90, #22, and #63 were closed as superseded.
+
+**Affected gates:** Tightens G02, G03, G20, and G21 without changing runtime behavior or relaxing
+any product acceptance criterion. The immutable roadmap body remains unchanged; this approved
+amendment replaces its earlier allowance to split a curated publication branch from integration.
+
+### 2026-08-05 — Review remediation and late ChartSearchAI upstream sync
+
+Copilot reviewed the three OpenMRS publication PRs and harness PR #45. QueryStore `f37adc8`
+corrects exact-multiple pagination and documents the materialized-count contract. ESM `971533a`
+corrects session-expiry signaling, localizes review disclosure, removes repeated safety-type text,
+and waits for the asynchronous provider-default state in its CI test. ChartSearchAI `9d61c75`
+corrects cancellation classification, rejects post-terminal hub events, and closes non-2xx response
+bodies; each behavior has a regression test.
+
+While those changes were being validated, ChartSearchAI upstream advanced from `03230b3` to
+`dd651ef`. The integration branch merged that commit as `639c637`, preserving both the
+provider-neutral controller dependencies and upstream's drug-reference load-status endpoint. The
+stable full ChartSearchAI wrapper and the committed umbrella source-pair build pass at the merged
+head. GitHub reports PR #157 mergeable and clean, but its standalone Java jobs compile against the
+older public QueryStore snapshot and fail before tests because #68's three context-slice classes are
+absent. The publication gate correctly leaves #157 not-ready until #68 merges/publishes and the
+matrix is rerun (or a separately approved temporary cross-repository CI override is added).
+
+That sequencing constraint was removed in ChartSearchAI `c8ec052`: only pull requests whose head
+is `harness-integration` use a paired Java 11/17/21 matrix. Each job checks out immutable public
+QueryStore commit `f37adc8`, installs it with its tests skipped (the QueryStore PR owns its full
+matrix), then runs the complete ChartSearchAI build and uploads the Java 11 OMOD with checksums.
+Pushes to OpenMRS `main` and all unrelated PR branches continue using the official OpenMRS reusable
+workflow. A harness contract test parses this workflow and requires its QueryStore ref to equal the
+parent's exact QueryStore submodule head.
+
+Harness PR #45 replaces the capped `gh pr list --limit 100` publication lookup with paginated,
+server-filtered REST reads and verifies that each open publication PR is non-draft, mergeable, has
+at least one active check, and has no pending or failing non-skipped check. It also aligns the Node
+setup action with the repository's v4 baseline and labels the publication target as PR-safe.
+
+At the publication heads at that checkpoint, QueryStore `f37adc8`, ChartSearchAI `c8ec052`, and ESM `971533a`,
+all three OpenMRS PRs are non-draft, mergeable, clean, and green. ChartSearchAI #157's paired Java
+11/17/21 jobs and evaluation-harness self-test all passed. The root
+`make openmrs-source-pair-test`, `make repository-lines-pr-check`, and
+`make repository-publication-check` commands pass. PR descriptions at that checkpoint presented
+the same review order. Later review clarified that the paired source checkout enables pre-merge
+review, while the actual merge/deploy order remains QueryStore, then ChartSearchAI, then the ESM.
+
+### 2026-08-05 — Provider label and validation-summary visibility follow-up
+
+Live browser setup exposed two reviewer-visible presentation defects. ChartSearchAI returned the
+machine provider id as its display label, so `17a91a9` now advertises `Med-Agent Hub` from the
+backend descriptor and protects that metadata with a provider test. The ESM rendered
+`answerValidation.summary` only through a native `title` tooltip; `f26868c` renders that text
+as visible, wrapping, status-colored content for Answer and completed In-Depth sections. The full
+ChartSearchAI test wrapper and the ESM 220-test, lint, TypeScript, and production-build checks pass
+locally, and both exact-head public CI suites are green. The rebuilt exact-head stack passed the
+relay and browser proof: the provider label and status summary are visible in a real checked
+Answer, multi-turn and preemption complete, low-confidence/original output remains inspectable,
+and structured table blocks survive reload in a deterministic provider-envelope test. The sampled
+E4B medications answer did not itself emit a table; that model prompt-compliance result belongs in
+evaluation and is not treated as a renderer regression. The current-head video and non-empty
+drug-safety relay proof passed at that deployed head. ESM `a796be3` then added a regression for an
+unavailable advertised default hiding every ready provider, plus provider-neutral warning detail
+formatting. The release gate remains open for an exact-head deployment and the drug-safety
+completeness contract described in G16.
+
+### 2026-08-05 — Medication-safety package honesty and visible source summary
+
+Review of the dual-provider medication-safety result found that parser diagnostics and package
+identity were not consistently strong enough to support a clinician-facing `checked` state.
+Malformed nested fields could remove executable rules without always invalidating the package;
+the primary and cross-reactivity packages did not have equally strict identity/content checks;
+and a clean checked result could still hide the source-package summary in the ESM.
+
+The remediation is committed at med-agent-hub `5661416`, ChartSearchAI `7910dfc`, and ChartSearchAI
+ESM `52468f9`:
+
+- Both providers require package id, version, source, valid content collections, and clinical
+  approval before the corresponding deterministic rules can produce checked warnings.
+- Invalid ATC relationship prefixes, malformed dose bands, and rejected nested rules are removed
+  at the parser boundary and reported as package issues. A malformed child field no longer erases
+  an otherwise identifiable Java drug record.
+- Primary and cross-reactivity diagnostics survive unavailable/limited early returns and remain
+  separate in the canonical response and Java status endpoint.
+- The ESM visibly renders `Checked`, `Limited safety check`, or `Safety check unavailable`, plus
+  plain-language issues and the medication-rule and cross-reactivity package identity, version,
+  review state, and provenance. A clean checked result with package metadata is no longer hidden.
+
+Local exact-source verification passed: med-agent-hub 651 tests; ChartSearchAI 1,056 tests with
+zero failures/errors and 34 existing skips; ESM 230 tests plus lint, TypeScript, translation
+extraction, and production build. The cross-repository documentation scan also passed. Fresh
+public CI, exact-head deployment/browser proof, and hash-bound independent QA remain pending, and
+the parent repository-line gate remains intentionally open until hub PR #19 lands on `main`.
+
+### 2026-08-05 — Fail-closed review closeout and paired-source proof
+
+Two independent reviews of the medication-safety follow-up identified three additional
+full-chart completeness failures: the hub ignored QueryStore's `chartTruncated` flag,
+Elasticsearch handled a failed read as a complete empty chart, and full-chart snapshot/ETag
+identity omitted the completeness state. Those findings were reproduced before correction.
+
+The remediation is committed and pushed at QueryStore `56b49cf`, ChartSearchAI `25a098e` (runtime
+behavior `b3911aa`, paired-CI pin `25a098e`), ESM
+`c9416c6`, and med-agent-hub `cb4e05f`:
+
+- QueryStore now exposes authorized backend completeness on full-chart REST reads, marks handled
+  Elasticsearch failures incomplete, and includes completeness in the snapshot and ETag.
+- The hub requires `chartTruncated` on every full-chart page and rejects an incomplete chart before
+  it can enter the revalidating ledger cache or support temporal and medication-safety checks.
+- Both medication-safety implementations reject non-finite/overflowing numeric fields, malformed
+  rated severities, and unavailable relationship packages; prompt evidence and warning emission
+  use the same severity policy.
+- The real In-Depth product envelope supplies a specific validation summary, ChartSearchAI
+  persists it, and the ESM renders it visibly when a section is withheld for review.
+
+Red-first tests demonstrated the hub's former acceptance of `chartTruncated:true` and the stale
+ETag behavior. Final local proof passed: 664 hub tests; the complete QueryStore reactor; the
+complete ChartSearchAI reactor after installing that exact QueryStore working tree; and the prior
+230-test/lint/TypeScript/build ESM sweep for the unchanged final ESM patch. Expected OpenMRS test
+logs and one existing Starlette/httpx deprecation warning remain non-failing. Fresh public CI,
+exact-head deployment/browser proof, the full executable gate sweep, independent QA bundle, and
+the controlled evaluation/report remain open.

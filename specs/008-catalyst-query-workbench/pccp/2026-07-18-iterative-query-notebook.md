@@ -138,7 +138,7 @@ and existing immutable version contracts remain compatible. No follow-up runs
 automatically. Rollback disables the turn routes/UI and restores the prior
 single-question workbench while retaining append-only evidence. The umbrella
 runtime may roll back both sibling pins together; Catalyst's standalone fallback
-uses the same unpatched Hub commit and cannot restore the retired patch.
+uses its own immutable, unpatched Hub pin and cannot restore the retired patch.
 
 Residual risks are semantic agreement between two model families, inference
 variance at temperature zero, model/tool availability, validator-scope drift,

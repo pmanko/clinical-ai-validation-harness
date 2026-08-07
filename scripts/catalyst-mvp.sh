@@ -100,8 +100,8 @@ fi
 
 require_pinned_clean_target "med-agent-hub" "targets/med-agent-hub"
 
-# The harness owns both product pins. Build the sibling Hub checkout directly;
-# standalone Catalyst runs retain their own same-commit fallback bootstrap.
+# The harness owns both product pins and builds the exact sibling Hub checkout.
+# Catalyst's separately pinned fallback is only for standalone Catalyst runs.
 export MED_AGENT_HUB_CONTEXT="${HUB_DIR}"
 
 run_catalyst() {

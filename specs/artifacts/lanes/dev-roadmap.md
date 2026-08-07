@@ -50,7 +50,10 @@ the in-repo dev roadmap, and the docs-site IA landing/topics/search). Submodule 
 
 **med-agent-hub restructure (PRs #9, #25):** first CI (`hub-ci.yml`: `unit-and-contract` over the `/v1` OpenAI-compat contract + `docker-build`), dead A2A/fake-MCP tests removed, README aligned to the shipped architecture (declarative `server/levels.yaml`, validator + per-section confidence, temporal grounding, trace artifact). The `harness-integration` buffer branch was retired — the hub is our own repo, so it pins `main` and the harness `.gitmodules` tracks it directly.
 
-**Submodule branch models differ by repo:** chartsearchai / chartsearchai-esm are forks → feature branch → upstream PR → consolidate into `harness-integration` → harness pin bump. med-agent-hub is our own repo → feature branch → PR → `hub-ci` green → `main` → harness pin bump (no buffer branch).
+**Submodule branch models differ by repo:** chartsearchai / chartsearchai-esm / QueryStore are
+OpenMRS forks → consolidate and test on `harness-integration` → publish that exact branch in the
+OpenMRS PR → harness pin bump. med-agent-hub is our own repo → feature branch → PR → `hub-ci`
+green → `main` → harness pin bump (no buffer branch).
 
 ## Development lanes
 

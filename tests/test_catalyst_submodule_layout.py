@@ -79,13 +79,15 @@ def test_harness_runner_builds_the_sibling_hub_without_catalyst_patch_source() -
         catalyst / "patches/med-agent-hub/catalyst-query-profile.patch"
     ).exists()
 
+    # The umbrella build always supplies the sibling checkout above. Catalyst's
+    # standalone fallback is independently pinned and must not become a moving
+    # build dependency of the umbrella repository.
     fallback_ref = re.search(
         r'HUB_REF="\$\{MED_AGENT_HUB_REF:-([0-9a-f]{40})\}"', bootstrap
     )
     assert fallback_ref is not None
-    assert (
-        fallback_ref.group(1) == _git("rev-parse", "HEAD:targets/med-agent-hub").strip()
-    )
+    assert "MED_AGENT_HUB_REF" not in runner
+    assert "bootstrap-med-agent-hub.sh" not in runner
 
 
 def test_harness_runner_defaults_to_a_tracked_isolated_compose_override() -> None:
