@@ -1,16 +1,17 @@
 # Implementation Plan: Catalyst Query Workbench
 
-**Branch**: `codex/catalyst-mvp-umbrella` | **Date**: 2026-07-17 | **Spec**: [spec.md](spec.md)
+**Branch**: `codex/dashboard-builder-mvp` | **Date**: 2026-08-05 | **Spec**: [spec.md](spec.md)
 
 **Input**: Feature specification from `/specs/008-catalyst-query-workbench/spec.md`
 
 ## Summary
 
 Build a persistent manual query workbench around the real Catalyst Gateway →
-generic Med-Agent Hub role executor → model router path, with exact execution
-through Catalyst → PostgreSQL. Catalyst Gateway owns the governed-query profile
-registry, prompts, writer/reviewer composition, deterministic lint/repair, and
-query evidence; Hub supplies one structured model completion per requested role.
+Hub-configured role executor → model router path, with exact execution through
+Catalyst → PostgreSQL. Hub's shared profile catalog owns Catalyst role models,
+prompts, and knobs. Catalyst Gateway owns context, writer/reviewer composition,
+deterministic SQL lint/repair, execution, lineage, and query evidence; Hub
+supplies one structured model completion per named role.
 The first delivery slice makes the complete generated SQL and
 typed parameters editable, keeps deterministic validator findings visible but
 advisory, executes the exact displayed draft under the database role, returns
@@ -25,9 +26,9 @@ single implementation queue.
 Before G3 closes, add a linear iterative-query notebook inside the same
 workbench session. A follow-up instruction is grounded in the exact visible SQL
 and parameter buffer, produces a complete successor query through the
-Gateway-owned writer → lint → optional reviewer → lint path, and retains a
+Gateway-orchestrated writer → lint → optional reviewer → lint path, and retains a
 compact turn timeline. Each model role receives bounded, typed revision context
-through Hub's generic executor rather than an undifferentiated chat transcript or
+through Hub's configured-role endpoint rather than an undifferentiated chat transcript or
 returned result rows.
 
 The active change set also contains multi-source workbench plumbing and a
@@ -46,56 +47,191 @@ export feature.
 
 | Pathway | State | Planning boundary |
 | --- | --- | --- |
-| **Supervised Dashboard MVP** | **Selected next product milestone** | Depends only on the accepted query/version/execution/table foundation. Create one manually configured, versioned table/bar/line artifact with refresh restoration and stale-source signaling. |
+| **Superset-backed Dashboard Builder MVP** | **Selected next product milestone** | Depends only on the accepted query/version/execution/table foundation. Persist supervised Dataset/Widget/Dashboard drafts and publish a deterministic native asset bundle to the local Superset outbox. |
 | G2.10 data foundation | Candidate implementation; acceptance evidence open | Complete multi-source, lossless-projection, generated-catalog, readiness, and provenance gates independently. |
 | W2 query assistance | Planned, not selected | Re-enter only after the G4 scope decision; bounded AST repair remains separate from internal generation correction. |
-| W3/CVR evaluation | Report parity implemented; session export/comparative expansion open | PR #43 MS-D/merge is release closeout. Additional export and experiments require their own selection. |
+| W3/CVR evaluation | Report parity merged in PR #43; session export/comparative expansion open | Additional export and experiments require their own selection. They do not block Dashboard MVP. |
 | R4 narrative reporting | Planned | Starts from a governed table and is not a prerequisite for Dashboard MVP. |
 | R5 productionization | Future | Authentication, authorization, data scope, audit, and supported deployment require a separate program. |
 
-Dashboard MVP explicitly defers multi-widget layouts, model-generated
-visualization specifications, narrative reports, sharing, scheduling,
-automatic refresh, publication/export, and production access control. Its first
-implementation slice must not absorb G2.10, W2, W3, R4, or R5 work merely
-because those paths can later enrich dashboards.
+Dashboard Builder MVP implements the supplied iterative Ask → Dataset → Widget →
+Dashboard design while using Superset as the renderer. It explicitly defers the
+Superset REST API, embedded viewing, cross-system undo/reconciliation, model-
+generated visualization specifications, narrative reports, sharing,
+scheduling, automatic refresh, and production access control. Its first slice
+must not absorb G2.10, W2, W3, R4, or R5 merely because those paths can later
+enrich dashboards.
 
-### Dashboard MVP design boundary
+The reconciled design specification and populated Ask reference state are
+authoritative for the complete builder experience. The originally imported mock
+remains a visual reference only where it agrees with that contract. Its Ask
+shell, fixed composer, chronological thread, Dataset tile, and review panel must
+integrate the accepted query notebook through
+**Save Dataset**: profile/model selection, one canonical SQL editor, completion
+and formatting, exact manual versions, advisory validation, explicit execution,
+visible failure/result evidence, contextual follow-up, history, staleness,
+refresh restoration, and New session all remain inside the new design. The
+schema/data context and executed-result preview move into the compact thread and
+review panel without loss of information or actions.
 
+### Dashboard Builder MVP design boundary
+
+- Recompose the existing `QueryWorkspace` into the prototype's required Ask
+  shell while retaining its current routes/contracts and behavior; do not reduce
+  it to the prototype's abbreviated prompt-only state or add a second SQL editor.
+  The latest chronological turn contains the one active `SqlEditor`, parameters,
+  Format/Validate/Run actions, diagnostics, and result state; older turns and the
+  Dataset review panel show read-only snapshots. Generated queries remain
+  manually reviewable and executable, and all accepted query/version/validation/
+  execution/follow-up behavior remains the regression baseline through the
+  explicit Dataset save.
 - Extend the existing append-only Gateway/SQLite operating-metadata store with
-  `DashboardArtifact` and immutable `DashboardVersion` records. Clinical result
-  rows remain on the immutable source execution; dashboard metadata references
-  that execution and an RFC 8785 canonical SHA-256 of its stored successful
-  `catalyst.table.v1` payload rather than duplicating rows.
-- Publish one versioned dashboard contract and typed create/save/read routes.
-  Stale or missing source evidence fails closed; compare-and-set on the parent
-  dashboard version rejects concurrent saves.
-- Add one `DashboardWorkspace` to the existing query workbench. It consumes the
-  typed execution result and supports a table for any valid result, a bar chart
-  for compatible category/numeric bindings, and a line chart for compatible
-  temporal/numeric bindings. Incompatible choices remain unavailable with a
-  user-readable reason.
-- Keep configuration deterministic and local. No Hub/profile/model dependency
-  is added, and configure/save/restore never triggers automatic query execution.
-- Test contracts/storage and UI behavior before implementation, then prove
-  restoration/staleness deterministically and finish with one real
-  Catalyst/PostgreSQL plus accessibility checkpoint and PCCP-style change
-  record.
+  immutable-versioned `DatasetDraft`, `WidgetDraft`, `DashboardDraft`, and
+  `SupersetBundleExport` records. Clinical rows remain on their immutable source
+  execution; builder metadata references the exact execution and canonical
+  result digest instead of copying rows.
+- Normalize an eligible execution losslessly into the contract's RFC 8785
+  `{contractVersion, columns, rows, returnedRows, maxRows, truncated,
+  truncationReason, warningCodes}` object before Dataset creation. Preserve all
+  accepted table wire column/cell types and row/column order. Hash stable warning
+  codes rather than localized prose; the bounded D1 map is
+  `all_blank_columns` or `legacy_unclassified_warning`. Reject inconsistent row
+  widths/counts instead of coercing them. The API's row-free `executionBounds`
+  and manifest's `resultBounds` are byte-identical projections.
+- Implement the supplied high-fidelity shell and iterative flow: the fixed Ask
+  composer and chronological work stay available while Dataset, Widget, and
+  Dashboard review panels and libraries progressively promote the same governed
+  artifact. One dashboard may contain multiple saved widgets.
+- Derive the initial presentation deterministically from the typed result shape,
+  support table, big-number KPI, time-series line/area, grouped/stacked bar, and
+  proportion bar, explain incompatibility, and let the user review or override
+  the compatible presentation type while keeping deterministic bindings
+  reviewable/read-only. Catalyst renders only schematic thumbnails; Superset is
+  the authoritative renderer. Configuration never invokes a model or reruns SQL.
+- Generate a native Superset asset ZIP with a stable Superset Dashboard UUID
+  derived from the logical Catalyst Dashboard ID,
+  immutable version-derived Dataset/Widget UUIDs, and deterministic
+  serialization. Compile named parameters from exact typed execution values,
+  preserve the parameterized form in a Catalyst manifest, and never place result
+  rows in the bundle. A Dashboard locks both `dataSourceId` and
+  `catalogVersion`; a catalog refresh requires a new Dashboard in D1. Generate
+  slug `catalyst-<lowercase-dashboard-id>` from the logical Catalyst Dashboard
+  ID, independently derive the Superset Dashboard UUID, and verify the stable local route
+  `/superset/dashboard/<slug>/` after import.
+- `Publish to Superset` atomically writes the bundle beneath Catalyst-owned,
+  gitignored `runtime/superset/` to a host-visible outbox bind-mounted read-only
+  into Superset and offers the same ZIP for download. A bootstrap importer loads
+  an eligible current desired bundle into a clean instance; an explicit
+  CLI helper imports or updates it in a running instance and records success or
+  failure against the exact digest. Pointer/bundle/manifest/credential and
+  other preflight failures, plus transactionally rolled-back CLI failures,
+  preserve the last verified Dashboard. A
+  post-import verification failure instead records `Import failed`, disables
+  Open/current-success, retains its diagnostic and last verified digest, and
+  requires validation of the atomic per-Dashboard last-verified projection,
+  full reset of only the Superset-local metadata database/home volumes, then
+  reimport and verification of that bundle. Missing/corrupt projection data
+  stops before reset. Recovery of verified A leaves failed desired B in
+  `current.json` and `import_failed`, with automatic bootstrap/retry suppressed
+  until explicit retry or a new publication. No asset-selective deletion,
+  direct ORM/REST mutation, or automatic rollback is used.
+- Add pinned Apache Superset 6.1.0 plus its metadata database to the isolated
+  Compose stack. Runtime configuration proves the PostgreSQL driver/network path
+  and DB-enforced SELECT-only role; the clean-imported native fixture owns the
+  persisted deterministic analytics Database asset. Importer/state logic is
+  implemented as standalone Python-3.10-compatible scripts under
+  `targets/catalyst/scripts/`; it imports no Catalyst package and uses only the
+  standard library plus pinned Superset-image built-ins. Gateway CI discovers
+  its tests, proves its constrained canonical JSON against `rfc8785`, and runs a
+  pinned-container smoke test. One dedicated `mvp-superset.sh` helper provides
+  explicit import/status/reset operations behind harness routing. Production
+  secrets and deployment are deferred.
+- Test contracts/storage, deterministic bundle generation, and UI behavior
+  before implementation. First run the accepted Ask/query-notebook E2E path in
+  the new shell and prove exactly one SQL editor, no automatic execution, no
+  example-prompt regression, and no missing profile, editor, validation, result,
+  diagnostic, follow-up, history, refresh, or session action. Finish with a real
+  clean import and versioned-child dashboard update, plus
+  PostgreSQL value reconciliation, refresh/staleness, keyboard/reflow evidence,
+  and a PCCP-style change record.
+
+### D1 implementation objective
+
+Deliver and verify a local Catalyst Dashboard Builder MVP in which a user uses
+the configured real writer/reviewer profile to generate and explicitly run SQL,
+saves exact results as Dataset and Widget versions, composes at least two
+heterogeneous widgets into a Dashboard, publishes a deterministic native bundle,
+imports it into pinned Superset 6.1.0, and opens a real Superset dashboard whose
+rendered values match PostgreSQL. Completion also requires changed republish,
+restart persistence, failed-import recovery, accepted Ask regression,
+accessibility evidence, versioned run evidence, pushed component branches/PRs,
+and explicit user acceptance.
+
+### D1 delivery-state clarification
+
+The long-form D1 objective is the Dashboard Builder MVP. The original table-only
+bundle/import path was a **Superset import spike**, not a smaller MVP tier.
+T186 proves a reusable real-model/backend/import foundation: one exact execution
+can persist Dataset/Widget/Dashboard records, publish a native bundle, import it
+into Superset, reconcile values to PostgreSQL, and restore after restart. It did
+not prove the binding 4c product surface. The later focused D1d implementation,
+automated checks, durable visual evidence, and explicit user approval closed M3
+on 2026-08-06; M4 is now in progress. T139–T182 close individually; no bridge or evidence task can close
+their product, hardening, accessibility, or acceptance requirements.
+
+As of 2026-08-06, the binding 4c product surface and deterministic browser flow
+are implemented and live through imported-state refresh. The focused Dataset,
+Widget/Dashboard, publication, and accessibility task pairs are closed; the
+user accepted the UX checkpoint and directed M4 to begin. Automated 320/390/640-
+CSS-pixel reflow coverage remains required; actual 200% browser zoom is deferred
+polish and is not an M3 or M4 gate. The obsolete D1d file paths and completed
+shell-task statuses have been reconciled to the consolidated implementation.
+M4 now owns the remaining recovery, evidence-emitter, and deployed-acceptance
+work without introducing a parallel UI architecture.
+
+Supporting corrective work removed the obsolete Gateway A2A chat relay and all
+dead `CATALYST_ROUTER_URL` wiring from supported Compose configurations.
+The historical agent prototype is not deleted, but it is no longer exposed as
+a second manual product path. Supported local operation is exclusively Gateway
+→ named Hub query profile → external exact-model router.
+
+### D1 checkpoint contract
+
+| Checkpoint | Entry | Testable exit evidence | Pause rule |
+| --- | --- | --- | --- |
+| **D1a — grounded contracts** | Current-main feature branches and the accepted workbench baseline | T137, T158–T159, T138; exact API/pointer/receipt/acceptance schemas; preimplementation PCCP; deterministic identity/layout/result/source-catalog decisions; N64–N74 register; SpecKit rerun with zero unresolved CRITICAL/HIGH findings; explicit user acceptance | Pause after presenting the bounded plan/evidence; product code starts only after the user accepts D1a |
+| **D1 foundation inventory** | D1a passed and T186 evidence available | Audit existing T139–T149 and T160–T173 code/tests against their exact acceptance text. Credit only directly proven behavior; retain every unproven hardening item for M4. A green happy-path API/import contract is sufficient to start the product surface. | Stop only on API/lineage drift that prevents the real Ask → Dataset → Widget → Dashboard → Publish path; do not detour into exhaustive release hardening before UX |
+| **D1d / M3 — integrated product UX (accepted 2026-08-06)** | Foundation inventory confirms the happy-path contracts used by the UI | T150–T154 and T174–T179 complete; focused automated behavior, durable visual evidence, accepted Ask characterization, one editor, binding 4c shell, fixed composer, chronology, Available data, Dataset/Widget/Dashboard panels and libraries, publication controls, and refresh/staleness all retained | Gate passed; actual 200% browser zoom is deferred polish, while 320/390/640-CSS-pixel reflow remains the regression baseline |
+| **D1e / M4 — release hardening and deployed acceptance (in progress)** | User accepted D1d/M3 on 2026-08-06 | Finish every still-open T139–T182 item individually, including evidence emitter, real writer/reviewer path, changed/restart/failure matrices, accessibility/video, PostgreSQL reconciliation, green CI, and final user acceptance | D1 remains open until the complete dashboard and evidence are inspected and accepted |
+
+Three surfaces have distinct names throughout D1: **Available data** is the
+pre-generation catalog and filterable/paginated source preview; **Query result**
+is the bounded typed output of an explicit Run, including empty, blank,
+truncation, warning, and diagnostic state; **Dataset draft** is the immutable
+promotion of one exact successful Query result. The latter two may share one
+review panel, but they are never silently conflated or duplicated.
 
 ## Technical Context
 
-**Language/Version**: Python 3.11–3.13; TypeScript 6 / React 19
+**Language/Version**: Python 3.11–3.13 for Catalyst Gateway and harness code;
+Python 3.10 compatibility for the standalone Superset importer/state scripts;
+TypeScript 6 / React 19
 
-**Primary Dependencies**: FastAPI, psycopg 3, SQLGlot, jsonschema, Carbon React,
-direct CodeMirror 6 with `@codemirror/lang-sql`, `sql-formatter`, and the
+**Primary Dependencies**: FastAPI, psycopg 3, SQLGlot, jsonschema, deterministic
+YAML/ZIP serialization, Carbon React, direct CodeMirror 6 with
+`@codemirror/lang-sql`, `sql-formatter`, Apache Superset 6.1.0, and the
 med-agent-hub generic structured role-execution API
 
-**Storage**: Existing gateway SQLite store for workbench operating metadata;
-existing read-only PostgreSQL analytics database for query execution
+**Storage**: Existing Gateway SQLite store for workbench and builder operating
+metadata; existing read-only PostgreSQL analytics database for query execution
+and Superset virtual datasets; persistent Superset metadata database; and a
+host-visible, gitignored bundle outbox bind-mounted read-only into Superset
 
 **Testing**: pytest/pytest-asyncio, Vitest/Testing Library, Playwright, real-path
 harness Catalyst suite
 
-**Target Platform**: Local Docker Compose demo in a modern desktop browser
+**Target Platform**: Local Docker Compose demo in a modern desktop browser with
+Catalyst and a pinned local Superset instance
 
 **Project Type**: React web application + FastAPI gateway + external model hub
 
@@ -112,9 +248,9 @@ explicit Run/database duration separately as secondary measures.
 **Constraints**: The isolated validation stack may use a documented demo fixture,
 while the product reads whichever registered analytics source is selected;
 synthetic/real classification comes only from authoritative dataset provenance
-and is otherwise unknown. Catalyst owns query profiles/orchestration but never
-serves model weights; model inference crosses the generic Hub role-execution
-boundary. Manual execution is never gated by validator status; database
+and is otherwise unknown. Hub owns profile models/prompts/knobs; Catalyst owns
+query orchestration and never serves model weights. Model inference crosses the
+configured Hub role-execution boundary. Manual execution is never gated by validator status; database
 permissions and a read-only transaction remain authoritative; statement timeout
 and fetch bounds must not rewrite SQL; no preview expiry; editor dependencies
 must pass keyboard, screen-reader naming, narrow-layout, deterministic-format,
@@ -134,13 +270,14 @@ merged-Hub pins passed the definitive T111 live rerun. The user confirmed the
 actual keyboard-only and 200%-browser-zoom checks passed and accepted the MVP on
 2026-08-04; the deterministic Playwright path now guards the equivalent focus
 and reflow boundary.
-Multi-source/lossless acceptance remains separately open. Dashboard MVP is now
-the selected preimplementation slice: T137/T139 are red-first, T141 proves
-deterministic restoration and lineage, T142 records PCCP-style change control,
-and T143 requires the real Catalyst/PostgreSQL/accessibility checkpoint.*
+Multi-source/lossless acceptance remains separately open. Dashboard Builder MVP
+is now the selected preimplementation slice: its stack, contract/bundle, and UI
+tests are red-first; its automated acceptance proves deterministic export,
+clean import/versioned-child update, restoration, lineage, and PostgreSQL value parity; and
+its final gate requires the real Catalyst/Superset/accessibility checkpoint.*
 
 - **Real production paths — PASS**: The browser calls the deployed Catalyst
-  Gateway, which composes the query flow, calls the real generic Hub role
+  Gateway, which composes the query flow, calls the real configured Hub role
   executor, and uses the selected PostgreSQL analytics database. Fixtures are
   scaffolding, not behavior evidence. The clean-pin live accessibility/user
   checkpoint is accepted for the MVP.
@@ -158,7 +295,7 @@ and T143 requires the real Catalyst/PostgreSQL/accessibility checkpoint.*
   evidence retains full role prompts and one timing/digest record for every
   successful or failed invocation. The harness-integration slice materializes
   the same lineage as versioned `run_manifest.json` and `events.jsonl` artifacts.
-- **Tests define behavior — PASS for implemented slices; acceptance open**:
+- **Tests define behavior — PASS for implemented slices; M4 acceptance open**:
   Hub, store/gateway, root-runtime, and UI red tests are separate prerequisites
   for their implementation tasks. Coverage
   includes atomic concurrent claims, crash-orphan recovery, non-mutating legacy
@@ -198,9 +335,18 @@ specs/008-catalyst-query-workbench/
 ├── roadmap.md
 ├── followup-notebook-research.md
 ├── pccp/
-│   └── 2026-07-18-iterative-query-notebook.md
+│   ├── 2026-07-18-iterative-query-notebook.md
+│   └── 2026-08-05-superset-dashboard-builder.md
 └── contracts/
    ├── workbench-api.md
+   ├── dashboard-builder-api.md
+   ├── catalyst-superset-bundle-v1.schema.json
+   ├── catalyst-superset-outbox-current-v1.schema.json
+   ├── catalyst-superset-import-receipt-v1.schema.json
+   ├── catalyst-superset-import-latest-v1.schema.json
+   ├── catalyst-superset-last-verified-v1.schema.json
+   ├── catalyst-dashboard-builder-event-v1.schema.json
+   ├── catalyst-dashboard-acceptance-v1.schema.json
    ├── query-patch-v1.schema.json
    ├── catalyst-query-request-v2.schema.json
    ├── catalyst-query-revision-context-v1.schema.json
@@ -216,20 +362,25 @@ specs/008-catalyst-query-workbench/
 
 ```text
 harness/
-├── catalyst/validation.py        # real-path scenario runner and later importer
+├── catalyst/validation.py        # real-path query scenario runner
+├── catalyst/dashboard_evidence.py # D1 event/acceptance projections
 └── metadata.py                   # canonical run manifest/event writers
 
 targets/catalyst/                 # pinned Catalyst submodule
 ├── catalyst-gateway/src/catalyst/
 │   ├── analytics.py              # exact SQL execution + DB diagnostics
-│   ├── query_profiles.py         # Gateway-owned query profile registry
 │   ├── query_engine.py           # writer/lint/reviewer/finalize orchestration
-│   ├── local_hub.py              # local engine/profile discovery adapter
+│   ├── local_hub.py              # Hub query-profile discovery/execution adapter
 │   ├── routes.py                 # workbench endpoints
 │   ├── service.py                # governed path remains unchanged
 │   ├── storage.py                # persistent session/version/event store
 │   └── workbench.py              # advisory validation and execution orchestration
 ├── catalyst-gateway/tests/
+├── scripts/
+│   ├── superset-import.py       # standalone Python 3.10 importer
+│   ├── superset-import-state.py # standalone lock/receipt projections
+│   └── mvp-superset.sh          # import/status/full-reset operator boundary
+├── runtime/superset/             # Catalyst-owned, gitignored outbox/receipts
 ├── catalyst-ui/src/
 │   └── features/query/
 │       ├── api.ts
@@ -240,18 +391,21 @@ targets/catalyst/                 # pinned Catalyst submodule
 ├── catalyst-ui/e2e/
 └── docs/roadmap.md
 
-targets/med-agent-hub/            # pinned sibling generic model runtime
-├── server/generic_role.py        # POST /v1/hub/generate
-└── tests/                        # generic-role transport/error contract checks
+targets/med-agent-hub/            # pinned sibling profile/model runtime
+├── server/levels.yaml            # shared clinical + Catalyst profile catalog
+├── server/generic_role.py        # query-profile discovery + named-role execution
+├── server/prompts/               # Hub-owned role prompts
+└── tests/                        # profile/transport/error contract checks
 
 scripts/generate-catalyst-source-catalog.py
                                   # live metadata + reviewed overlay → catalog
 ```
 
-**Structure Decision**: Keep Catalyst query profiles, prompts, deterministic
-query logic, writer/reviewer composition, workbench state, and execution in
-Catalyst Gateway; keep provider/model transport and single-call serialization in
-Hub; keep presentation in Catalyst UI; and keep experiment orchestration/artifact
+**Structure Decision**: Keep the shared profile schema, Catalyst role models,
+prompts, knobs, provider transport, and single-call serialization in Hub. Keep
+deterministic query logic, writer/reviewer composition, workbench state,
+execution, and lineage in Catalyst Gateway; keep presentation in Catalyst UI;
+and keep experiment orchestration/artifact
 validation in the umbrella harness. Hub's clinical-answer/report profile engine
 remains separate. The existing governed preview endpoints remain compatible; the
 workbench receives a separate API so advisory manual execution cannot weaken
@@ -265,7 +419,7 @@ own immutable pin; that fallback is not an umbrella build dependency.
    immutable query versions, PostgreSQL-aware SQL/parameter editing with line
    numbers, wrap control, catalog/keyword completion and deterministic Format,
    advisory validation, exact-draft execution, database diagnostics, and refresh
-   restoration. A selected Gateway profile produces one complete writer
+   restoration. A selected Hub query profile produces one complete writer
    candidate and deterministic lint. Writer-only profiles finalize that candidate
    when it passes; reviewed profiles pass the complete candidate and findings to
    their declared reviewer. The comparative profile uses a different model
@@ -283,13 +437,13 @@ own immutable pin; that fallback is not an umbrella build dependency.
    links to typed generation detail at
    `GET /sessions/{sessionId}/turns/{turnId}/generation-evidence`.
 3. **Targeted remediation**: AST repair units, deterministic fixes, a
-   Gateway-owned typed proposal/orchestration contract using Hub only for a
-   generic role call, frozen-unit verification, before/after review, full
+   Gateway-owned typed proposal/orchestration contract using a configured Hub
+   role call, frozen-unit verification, before/after review, full
    revalidation, and sibling runtime verification.
 4. **Harness integration**: one-click `run_manifest.json`/`events.jsonl`
    materialization, importer/contract tests, and expanded repeatable suites.
-5. **Experiment iteration**: richer datasets and scenario matrices across
-   Gateway query profiles/models. Agent teams remain explicitly deferred.
+5. **Experiment iteration**: richer datasets and scenario matrices across Hub
+   query profiles/models. Agent teams remain explicitly deferred.
 6. **Multi-source/lossless onboarding**: source registry and per-turn selection,
    per-source catalog baselines, upstream-default lossless projections,
    deterministic SQL curation, generated catalogs, default-readiness disclosure,
@@ -301,9 +455,10 @@ own immutable pin; that fallback is not an umbrella build dependency.
 1. Keep the historical G2.8 plan and evidence intact; record the ownership
    change in a separate PCCP rather than rewriting the earlier run as if it used
    the current architecture.
-2. Prove Hub's generic role endpoint and absence of Catalyst query logic in Hub;
-   prove Gateway profile discovery, prompt/config digests, writer-only behavior,
-   reviewed behavior, and deterministic re-lint.
+2. Prove Hub's shared Catalyst query profile and named-role endpoint; prove the
+   absence of duplicate model/prompt/knob configuration in Gateway and the
+   absence of SQL policy/execution/lineage logic in Hub. Prove discovery,
+   prompt/config digests, reviewed behavior, and deterministic re-lint.
 3. Run the full Catalyst/Hub/harness gates and T094/T095/T111 live workflow on
    exact current pins. Complete the accessibility matrix and pause for acceptance.
 4. Separately audit every registered source's ViewDefinition provenance,
@@ -475,22 +630,20 @@ The following items must remain visible until evidence resolves them:
 - **N1 — Model sampling (bounded, still open for experiments)**: The canonical
   router advertises temperature 0, seed 42, context 24,576, and its full launch
   preset; Catalyst query roles override the router-wide DRY repetition penalty
-  to zero. Gateway profile and invocation evidence records declared/effective
-  role configuration around each generic Hub call. A single successful run is
+  to zero. Hub profile and Gateway invocation evidence record declared/effective
+  role configuration around each configured Hub call. A single successful run is
   not repeatability evidence, so
   comparative runs still require repetitions and variance reporting.
-- **N2 — Advertised versus physical model (resolved for Gemma and bundled
-  fallback)**: `gemma-e4b` maps to the loaded Gemma 4 E4B IT Q4_K_M artifact;
-  the bundled Qwen fallback is truthfully named as a 1.5B Q4_K_M model. The Hub
-  persists the router-advertised model object instead of inferring identity.
-- **N3 — Gemma target availability (resolved for this isolated stack)**: The
-  `catalyst-query-gemma-e4b` profile is available and both query roles resolve to
-  the loaded `gemma-e4b` backend. Physical revision evidence is deployment-owned
-  and comes from the router/artifact cache, not an alias alone.
-- **N4 — Validator drift**: Hub lint and gateway policy overlap but produce
-  different shapes and do not yet share one versioned finding schema. W1 must
-  normalize without claiming the layers are identical; W2 cannot scope repairs
-  from free-form messages.
+- **N2 — Advertised versus physical model (alias resolved; artifact identity
+  deployment-owned)**: The current Hub profile requires the router-advertised
+  IDs `google/gemma-4-e4b` and `qwen2.5-14b-instruct-mlx` exactly. Physical
+  revision evidence still comes from the router/artifact cache, not an alias.
+- **N3 — Model availability (current live gate open)**: Hub discovery must show
+  both exact role models before Gateway exposes `catalyst-query-e4b-qwen14b`.
+  Startup fails rather than inventing availability.
+- **N4 — Validator drift (resolved for ownership)**: Catalyst Gateway owns all
+  deterministic SQL lint/policy findings. Hub returns model role output and
+  does not run a parallel SQL validator.
 - **N5 — Dynamic result typing (resolved for W1)**: Manual execution derives
   result types from PostgreSQL cursor metadata with deterministic tests for
   scalar, array, JSON, null, and unknown fallbacks. Future database types can
@@ -498,16 +651,15 @@ The following items must remain visible until evidence resolves them:
 - **N6 — Metadata terminology**: The planning doc mentions
   `otel.gen_ai.system`, while the current writer emits
   `otel.gen_ai.provider.name`. W3 must reconcile this before contract validation.
-- **N7 — Documentation drift (partly resolved; target docs still open)**: The
-  feature artifacts now distinguish current Gateway-owned query orchestration
-  from historical Hub-owned evidence. Catalyst's submodule README/specification/
-  roadmap/client-contract still describe Hub-owned query profiles and must be
-  updated in Catalyst PR #5 without rewriting historical validation claims.
+- **N7 — Documentation drift (resolved for current ownership)**: Current
+  feature and Catalyst documents assign models/prompts/knobs to the shared Hub
+  profile and SQL orchestration/policy/execution/lineage to Gateway. Historical
+  evidence remains explicitly historical.
 - **N8 — Database authority boundary**: The workbench intentionally relies on
   the configured role and read-only transaction rather than application policy.
   Any database permission or function-side-effect concern discovered in manual
   tests is raised to the user as an environment decision, not silently blocked.
-- **N9 — Row-limit signal drift**: Hub lint can pass a generated query with no
+- **N9 — Row-limit signal drift**: Gateway lint can pass a generated query with no
   SQL `LIMIT`, while the executor independently applies a fetch bound and marks
   the returned table truncated. The UI and experiment artifacts must distinguish
   exact SQL from operational result truncation.
@@ -624,18 +776,17 @@ The following items must remain visible until evidence resolves them:
 - **N29 — Follow-up context discontinuity (resolved by G2.8b)**: Bounded current
   SQL, prior instructions, and exact-digest validation/execution summaries reach
   later query roles; prohibited context remains excluded.
-- **N30 — Duplicate Hub runtime ownership (resolved; architecture later
-  superseded)**: G2.8 retired the disposable patched Hub and made the harness
-  sibling the runtime source. The later refactor moved Catalyst query profiles
-  and orchestration into Gateway while retaining the sibling Hub as the generic
-  role executor.
+- **N30 — Duplicate Hub runtime ownership (resolved)**: G2.8 retired the
+  disposable patched Hub and made the harness sibling the runtime source. The
+  current design keeps one shared Hub profile catalog while Catalyst retains
+  query orchestration, policy, execution, and lineage.
 - **N31 — Context growth and truncation (bounded by contract)**: Revision
   context includes the initial question plus at most five most recent follow-up
   instructions, exact current editor state, and exact-digest feedback. The turn
   records the supplied IDs and deterministic omissions; raw result rows and
   historical SQL copies are excluded.
 - **N32 — Lint-clean semantic review restriction (resolved by G2.8b)**:
-  Reviewed Gateway profiles invoke their reviewer even when structural lint is
+  Reviewed Hub query profiles invoke their reviewer even when structural lint is
   clean and permit approval or a complete correction followed by deterministic
   re-lint.
 - **N33 — Intent-sensitive lint input gap (resolved by G2.8b)**: Lint receives
@@ -710,7 +861,7 @@ The following items must remain visible until evidence resolves them:
   defined values called `profileDigest`, and incomplete candidate/prohibited-
   class projection. History, immutable evidence digests, failed Hub provenance,
   candidates, and prohibited classes are now projected deterministically. The
-  Gateway profile-selection digest and Hub profile-configuration digest remain
+  selected-profile evidence digest and Hub profile-configuration digest remain
   semantically different values with confusingly similar names and must be
   disambiguated before final acceptance.
 - **N46 — Successor preservation and stable ordering (open)**: A reviewer
@@ -755,21 +906,21 @@ The following items must remain visible until evidence resolves them:
   fresh Gemma 4 12B/Qwen 2.5 14B run preserved the full base query and selected
   the requested `ORDER BY t1.observed_at DESC` successor. Model outputs remain
   nondeterministic evidence, so broader scenario coverage stays open.
-- **N53 — Per-turn profile choice (implementation resolved; live refactor
-  acceptance open)**: Gateway now defines five configured revision-capable query
-  profiles, including three writer-only choices and two reviewed choices
-  (self-reviewed Q4 and cross-family 12B/Qwen). `LocalHub` derives the available
-  subset from Hub's versioned router inventory; a configured profile is not
-  presented as runnable unless every exact required alias is advertised. T111
-  must prove discovery, switching, negative unavailable selection, and
-  provenance on current pins before this is treated as accepted live behavior.
+- **N53 — Per-turn profile choice (implementation resolved; current live gate
+  open)**: Hub now defines one caller-orchestrated Catalyst query profile with
+  exact E4B writer and different-family Qwen reviewer roles. `LocalHub` exposes
+  it only when Hub discovery marks both exact aliases available. Additional
+  profiles remain possible through the same schema but are not invented by
+  Gateway. The current live gate must prove discovery, negative unavailable
+  selection, and provenance on exact pins.
 - **N54 — Standalone fallback contract drift (resolved; architecture
   superseded)**: The disposable patch/duplicated runtime source remains retired.
-  Current Catalyst owns its query contracts and orchestration. The umbrella uses
-  its exact sibling Hub pin; Catalyst standalone uses a separate immutable,
-  unmodified Hub fallback. Each path records and verifies the revision it
-  actually runs rather than coupling the two pins. T111 rechecks exact committed
-  pins before acceptance.
+  Current Catalyst owns its query contracts and orchestration, while Hub owns
+  shared role profiles and generic role execution. The umbrella uses its exact
+  sibling Hub pin; Catalyst standalone uses a separate immutable, unmodified Hub
+  fallback. Each path records and verifies the revision it actually runs rather
+  than coupling the two pins; current live acceptance must recheck both exact
+  committed revisions.
 - **N55 — Active-session surfaces are vertically fragmented (open; G2.9)**: The
   live page is about 7,859 CSS pixels tall and separates the follow-up composer,
   editor, actions, results, evidence, and history by several viewports. The
@@ -833,6 +984,172 @@ The following items must remain visible until evidence resolves them:
   change remains a truthful bounded transport failure recorded in generation
   evidence. T111 records any observed race rather than treating discovery as a
   reservation.
+- **N64 — Superset application and PostgreSQL driver image identity (bounded at
+  T139/T140/T160–T162; repeat at D1b/T141/T144)**: The local arm64 runtime now
+  pins Superset `6.1.0` by digest, declares `linux/arm64`, records
+  `psycopg2-binary==2.9.9`, and has live proof that the analytics role defaults
+  to read-only, lacks schema-create permission, and retains SELECT. Other hosts
+  must set an explicit `SUPERSET_PLATFORM` rather than silently emulating this
+  acceptance runtime. The runtime identity, permission, mount, localhost-health,
+  and non-destructive restart checks pass; the canonical clean-boot/import
+  matrix remains at T141/T144. Runtime configuration still does not create the
+  persisted Superset Database asset.
+- **N65 — Native asset schema, chart parameters, and extra-member tolerance
+  (fixture resolved at D1b/T141; release repetition remains at T144)**: Superset YAML and chart
+  `params` are release-coupled. The saved Dataset SQL owns the report table and
+  any aggregation; Catalyst exposes no second aggregation choice. Superset's
+  required native metric object is an exporter detail derived from the result
+  schema, with all available categorical dimensions retained as grouping
+  columns. The canonical root-wrapped fixture now clean-imports into an empty
+  Superset 6.1 metadata database with one read-only Database, two saved-SQL
+  Datasets, seven charts, and one Dashboard covering every supported family;
+  the extra Catalyst JSON member is ignored as intended. Its deterministic
+  generator, exact member/final digests, and byte regeneration are checked in.
+  T144 still repeats this through the full importer/recovery gate and stops on
+  pinned-schema drift.
+- **N66 — Outbox, lock, and receipt ownership across host/container UIDs (open;
+  resolve at D1b/T142–T144/T163–T165)**: Superset/importer must read the outbox without
+  mutating it while the importer alone writes locks and atomic receipts. The
+  exact bind mounts, UID ownership, concurrent behavior, and failure cleanup
+  require real Compose proof. Catalyst owns `targets/catalyst/runtime/superset/`,
+  `/runtime/superset/` is target-gitignored, and publication must leave the
+  target clean. Importer/state implementations are standalone Python 3.10
+  scripts under `targets/catalyst/scripts/`, import no Catalyst package, and use
+  only the standard library plus pinned-image built-ins; their tests remain in
+  the Gateway CI path, compare constrained canonical JSON with `rfc8785`, and
+  include a pinned-container smoke. A dedicated `mvp-superset.sh` wrapper, not
+  `mvp-up.sh`, owns operator import/status/reset dispatch.
+- **N67 — Bounded Query result versus full virtual dataset (resolved by D1a;
+  verify at D1c/T147/T168 and D1e)**: `resultDigest` is SHA-256 over the RFC 8785
+  object `{contractVersion, columns, rows, returnedRows, maxRows, truncated,
+  truncationReason, warningCodes}` using the accepted table wire forms and
+  preserved column/row order. The adapter enforces row/count/truncation
+  invariants; row-free `executionBounds` and `resultBounds` are byte-identical.
+  Stable warnings use only the bounded `all_blank_columns` and
+  `legacy_unclassified_warning` map in persisted execution order; localized
+  prose is display evidence, not digest input. UI copy says `N shown; more
+  available; total unknown` when truncated. Superset reruns the compiled SQL;
+  acceptance compares reproducible keyed PostgreSQL values, never preview
+  position or an invented total.
+- **N68 — Visualization semantic inference from truncated data (resolved by
+  D1a; verify at D1c)**: Type suggestion uses exact schema/row-count/truncation
+  predicates and deterministic column order. Table is the fallback; proportion
+  is never auto-suggested and requires explicit user selection. No heuristic
+  claim that a measure represents a meaningful whole is made.
+- **N69 — Dashboard source/catalog multiplicity (resolved by D1a; verify at
+  D1c/T145/T166/T176)**: D1 enforces one exact `dataSourceId` plus
+  `catalogVersion` pair per Dashboard. The first Widget locks both values; either
+  mismatch is rejected without saving a version, and a catalog refresh requires
+  an explicit new Dashboard. Multi-source or cross-catalog migration requires a
+  later approved amendment.
+- **N70 — Raw prototype versus accepted Ask behavior (resolved by D1a; verify at
+  D1d)**: The reconciled design specification and populated Ask reference state
+  govern behavior. Imported screens are visual references only where consistent;
+  sample prompts, prompt-only generation, `Synced`/`Push`, implicit Superset
+  registration, and cross-system Undo are non-normative.
+- **N71 — Real-model candidate variance (open observation; record at
+  D1e/T155–T157/T180–T182)**: Temperature zero and identical prompts do not guarantee
+  byte-identical model output across providers or runtimes. Acceptance records
+  every candidate/model/configuration/digest and judges the resulting datasets;
+  it does not treat a seed as a reproducibility guarantee or silently substitute
+  an unavailable writer/reviewer.
+- **N72 — Stable Superset navigation identity (resolved by D1a; verify at
+  D1c/T171–T173 and D1e)**: D1 derives the slug
+  `catalyst-<lowercase-dashboard-id>` from the stable logical Catalyst Dashboard
+  ID, not from the separately derived Superset asset UUID. Bundle, receipt,
+  dashboard status, and acceptance evidence carry the logical ID, expected
+  Superset UUID, slug, and `/superset/dashboard/<slug>/` route; import
+  verification must observe the exact UUID/slug pair before Open Superset is
+  enabled.
+- **N73 — Dashboard acceptance evidence contract (resolved in writing at D1a;
+  implement before D1e/T180–T182)**: The existing notebook manifest/event
+  contract did not cover builder assets or import evidence. D1 adds a versioned
+  acceptance schema, structured `query_turn`/`query_version`/`query_execution`
+  projections, Dataset/Widget/Dashboard/publication/import/status/PostgreSQL/
+  accessibility/acceptance payloads, and a fixed six-step `orderedWorkflow`.
+  Red validation/emitter tests precede the live run; missing, inconsistent, or
+  traversal-unsafe evidence keeps the run in development and blocks completion.
+- **N74 — Post-import verification is not an automatic rollback boundary
+  (resolved by D1a; verify at D1b/T142–T144/T163–T165 and D1e)**: Superset may
+  have mutated metadata before UUID/slug/relationship verification fails. D1
+  guarantees prior-Dashboard preservation only for pointer/bundle/manifest/
+  credential and other preflight failures plus transactionally rolled-back CLI
+  imports. Post-verification
+  failure is explicitly `Import failed`, disables Open/current-success, retains
+  the diagnostic, and requires a valid atomic per-Dashboard last-verified
+  projection before an operator-triggered full reset of only Superset-local
+  metadata database/home volumes plus reimport and verification. Missing/corrupt
+  projection data stops before reset. Recovery of A leaves desired B current and
+  failed, with automatic bootstrap/retry suppressed until explicit retry or new
+  publication. Asset-selective deletion, direct ORM/REST mutation, automatic
+  rollback, and a prior-Dashboard usability claim are prohibited.
+- **N75 — Catalog-column advisory lint gap (open; discovered in supporting manual
+  recovery)**: The deterministic validator marked
+  `SELECT missing_column FROM analytics.lab_result_fact_v1 LIMIT 1` valid even
+  though the live approved relation has no such column. Explicit Run remained
+  available by design; PostgreSQL safely rejected the query with SQLSTATE
+  `42703`, the UI retained the exact diagnostic, and a manual successor ran
+  successfully. This does not block manual MVP testing, but the `Valid` label is
+  too strong for unqualified unknown-column errors. Address through a focused
+  catalog-aware lint amendment rather than changing the advisory or explicit-
+  Run contract.
+- **N76 — Superset operator dependency startup was implicit (resolved in
+  operator evidence)**: The first live six-widget import let `docker compose run` start or
+  recreate Superset dependencies implicitly. Superset briefly failed its first
+  boot because its metadata-database hostname was unavailable, and even the
+  read-only `status` command could perturb runtime state. The operator wrapper
+  now keeps `status` dependency-free and makes `import` explicitly start and
+  wait for healthy `analytics-db` and `superset` services before launching the
+  one-shot importer with `--no-deps`. This preserves the same importer and
+  receipt contracts while making the manual path predictable.
+- **N77 — Dashboard milestone and product-surface drift (resolved in planning,
+  implementation, and M3 acceptance)**: T186 backend/import
+  evidence was incorrectly described as the actual Dashboard Builder and used
+  to mark M3 passed while every D1d UX task remained open. M3 was restored to in
+  progress, T187 is retired as an umbrella closeout, and
+  T139–T182 close only from their own evidence. The binding 4c shell is now live
+  and all D1d task pairs were closed from their own evidence before the user
+  accepted M3 and directed M4 to begin on 2026-08-06. Actual 200% browser zoom
+  was subsequently removed from the MVP gates and is tracked only as deferred
+  polish in N83.
+- **N83 — Actual 200% browser zoom (deferred polish)**: The user explicitly
+  removed actual 200% browser-zoom validation from the current MVP gates on
+  2026-08-06. Deterministic desktop, 390×844, 320-CSS-pixel, and 640-CSS-pixel
+  equivalent reflow checks remain required for M4. Do not report the 640px check
+  as an actual browser-zoom run.
+- **N78 — syntactically valid SQL can remain semantically incomplete (open,
+  evaluation boundary rather than M3 scope expansion):** in the fresh 4c live
+  run, the writer omitted `COUNT(*)` from a count-by-month instruction and the
+  reviewer approved it. The contextual successor then dropped the inherited
+  date predicate while correctly adding the requested analyte constraint. The
+  exact base SQL and matching execution summary were present in the recorded
+  revision context, so this is model/reviewer fidelity—not missing product
+  context. Preserve the candidates and corrections as W3 cases; M3 continues to
+  support manual correction and must not detour into an unplanned semantic
+  optimizer.
+- **N79 — workbench displayed initial evidence after a follow-up (resolved at
+  Catalyst `50fec1d`):** the notebook timeline already exposed a distinct,
+  inspectable evidence record per turn, but the workbench rendered the session's
+  initial `generationOutcome`. Notebook mode now hides that legacy panel and
+  provides a latest-turn evidence action; earlier turns retain their own evidence
+  actions.
+- **N80 — imported Dashboard remained labelled bundle-ready (resolved at
+  Catalyst `7dccc02`):** importer receipts existed, but Gateway returned only
+  the stored pre-import publication. The Dashboard library now receives a
+  read-only, exact-match projection and offers the verified Superset URL only
+  when bundle, Dashboard version/configuration, and receipt digests agree.
+- **N81 — D1d task paths referenced obsolete component boundaries (resolved in
+  planning):** T175–T179 now name the consolidated
+  `DashboardPublishPanel`/`query-to-table.spec.ts` implementation rather than
+  creating a second Dashboard Builder component architecture.
+- **N82 — Widget compatibility is mirrored in the D1d client (bounded for M3;
+  eliminate in D1c):** the Gateway is authoritative when a Widget is saved,
+  but the D1d review panel currently mirrors the five-family compatibility and
+  default-suggestion rules so it can explain choices before save. There is no
+  pre-save suggestion endpoint in the current contract. Keep this duplication
+  bounded and covered by UI/Gateway tests for M3; T169–T170 own consolidating
+  the rules behind the deterministic Gateway compatibility contract during
+  D1c rather than expanding D1d with a new API.
 
 ## Complexity Tracking
 

@@ -9,37 +9,35 @@ From an isolated harness worktree, initialize the two pinned sibling targets:
 
 ```bash
 git submodule update --init targets/catalyst targets/med-agent-hub
-make catalyst-mvp-fake
+make catalyst-mvp-external
 ```
 
 The tracked umbrella runner uses
 `compose/catalyst-mvp-isolated.override.yml`, project
 `catalyst-mvp-isolated`, Gateway `http://127.0.0.1:18000`, and browser
-`http://localhost:13000/`. For real local models, configure the external
-OpenAI-compatible router in `targets/catalyst/.env` and run
-`make catalyst-mvp-external`.
+`http://localhost:13000/`. The only manual model path is the external
+OpenAI-compatible router at `http://host.docker.internal:1234`; it must
+advertise `google/gemma-4-e4b` and `qwen2.5-14b-instruct-mlx` exactly.
 
-Current query ownership is Catalyst Gateway → Hub generic role executor → model
-router. Before relying on a stack, verify:
+Current query ownership is Catalyst Gateway orchestration → Hub-configured role
+execution → model router. Before relying on a stack, verify:
 
 ```bash
-test -f targets/catalyst/catalyst-gateway/src/catalyst/query_profiles.py
 test -f targets/catalyst/catalyst-gateway/src/catalyst/query_engine.py
 test -f targets/med-agent-hub/server/generic_role.py
-rg -n 'POST /v1/hub/generate|/v1/hub/generate' \
+rg -n 'catalyst-query-e4b-qwen14b|/v1/hub/query-profiles' \
   targets/catalyst/catalyst-gateway/src/catalyst \
-  targets/med-agent-hub/server
+  targets/med-agent-hub/server/levels.yaml \
+  targets/med-agent-hub/server/generic_role.py
 ```
 
-Gateway owns the query profile IDs, prompts, writer/reviewer flow, and required
-model aliases. Catalyst does not use the Hub profile objects in
-`GET /v1/models` `data[]` as query-profile discovery; those remain Hub's own
-clinical-answer/report profiles. `LocalHub` does consume that response's
-versioned top-level `backend` inventory to determine whether every exact model
-alias required by a Gateway profile is currently advertised. A missing,
-malformed, or unreachable inventory makes affected profiles unavailable without
-substitution. Historical G2.8 steps below refer to the earlier Hub-owned query
-engine and are retained only to explain the evidence produced then.
+Hub owns the shared query profile ID, prompts, role models, and knobs. Gateway
+owns writer/reviewer orchestration, deterministic SQL policy/lint, execution,
+and lineage. `LocalHub` consumes `GET /v1/hub/query-profiles`, which combines
+Hub configuration with the router's exact model inventory. Missing, malformed,
+or unreachable inventory makes affected profiles unavailable without
+substitution. Historical G2.8 steps below are retained only to explain the
+evidence produced then.
 
 ## Historical G2.2 checkpoint used before editor implementation
 
@@ -72,8 +70,8 @@ different validation scopes.
 
 1. Start or rebuild the isolated gateway and UI while retaining the existing
    Hub, model router, seeded analytics database, and SQLite volume.
-2. Confirm health reports the selected Gateway query profile and role models
-   while independently confirming the generic Hub executor/model-router path is
+2. Confirm health reports the selected Hub query profile and exact role models
+   while independently confirming the configured-role Hub/model-router path is
    ready.
 3. Create a workbench session from a natural-language question.
 4. Verify the generated SQL, typed parameters, model/profile provenance, and
@@ -156,7 +154,7 @@ Do not implement the notebook UI until this checkpoint passes.
 ## G2.8c iterative-notebook live checkpoint
 
 Run this sequence only after the G2.8 turn/context contracts and deterministic
-tests pass. Use the isolated real stack, not the fake router, and pause for user
+tests pass. Use the isolated real external-router stack and pause for user
 acceptance after recording the evidence.
 
 ### Required scenario matrix
@@ -192,10 +190,11 @@ phrasing rather than hard-coding an assumed cohort.
 
 ### Execution sequence and evidence
 
-1. Confirm Gateway profile discovery reports the selected Gemma 4 12B writer
-   and Qwen 2.5 14B reviewer, including profile/prompt/configuration digests.
+1. Confirm Hub profile discovery reports the selected
+   `google/gemma-4-e4b` writer and `qwen2.5-14b-instruct-mlx` reviewer,
+   including profile/prompt/configuration digests.
    Confirm each role reaches sibling `targets/med-agent-hub` only through the
-   generic executor and that no disposable patched clone is used.
+   configured role endpoint and that no disposable patched clone is used.
 2. Confirm the new session's initial recorded events and retrieve typed
    generation evidence for the initial and follow-up turns. For each scenario,
    record dataset ID/version, catalog version, session and turn IDs, observed CAS
@@ -297,30 +296,155 @@ Implementation plumbing is not acceptance evidence. Before closing G2.10:
 6. Confirm readiness documents and reports only the default source. Record the
    G2.10b evidence and pause at G2.10c for explicit user acceptance.
 
-## D1 Dashboard MVP checkpoint
+## D1 Superset-backed Dashboard Builder checkpoint
 
 This is the selected next product checkpoint. It requires only the accepted
 query/version/execution/table foundation; G2.10, W2, W3/CVR, R4, and R5 remain
-parallel.
+parallel. Commands below are the implementation contract for T137–T182; until
+those tasks are checked, an absent command is an expected open item rather than
+evidence that the runtime exists.
 
-1. Run a seeded query and independently verify its returned values against
-   PostgreSQL. Create a dashboard from that exact successful execution.
-2. Select one compatible table, bar chart, or line chart. Manually configure
-   title, bindings, labels, and sort; confirm preview/configuration makes no model
-   call and does not re-execute the query.
-3. Save v1, revise the configuration, and save v2. Verify immutable parent,
-   author-kind, timestamp, configuration digest, and complete
-   session/query/execution/source/result provenance.
-4. Refresh and prove v2 plus version history restore byte-for-byte with zero
-   model calls and zero database executions.
-5. Edit or replace the active query and confirm the saved dashboard remains
-   visible, reports a stale source, and retains its original binding. Missing or
-   digest-mismatched source evidence must fail closed.
-6. Repeat create/configure/save/history/stale review with keyboard only, at the
-   accepted narrow layout, and at actual 200% browser zoom. Record any
-   nondeterminism, inconsistency, or test/manual mismatch and pause for user
-   acceptance at D1c.
+### Planned operator commands and endpoints
 
-This checkpoint does not test or claim multi-widget layouts, model-generated
-visualization specifications, narratives, sharing, scheduling, automatic
-refresh, publication/export, or production authorization/deployment.
+```bash
+# boot the full isolated Catalyst + Superset stack
+scripts/catalyst-mvp.sh up
+
+# inspect/import the exact current outbox bundle without a background watcher
+scripts/catalyst-mvp.sh superset-status
+scripts/catalyst-mvp.sh superset-import
+
+# explicit local-only recovery after a post-import verification failure;
+# validates the per-Dashboard last-verified projection, fully resets only the
+# Superset-local metadata database/home volumes, and reimports that exact bundle
+scripts/catalyst-mvp.sh superset-reset --reimport-last-verified
+```
+
+The harness routes these commands to the dedicated target-side operator
+boundary `targets/catalyst/scripts/mvp-superset.sh {status|import|reset}`;
+`mvp-up.sh` remains the stack lifecycle helper, not a second import dispatcher.
+The importer/state programs are standalone Python-3.10-compatible scripts under
+`targets/catalyst/scripts/`; they import no Catalyst package and rely only on
+the standard library plus dependencies already built into the pinned Superset
+image. Their tests remain in the Gateway CI suite.
+
+- Catalyst UI: `http://localhost:13000`
+- Catalyst Gateway: `http://localhost:18000`
+- Superset: `http://localhost:18088`
+- Superset health: `http://localhost:18088/health`
+- Catalyst-owned runtime state:
+  `targets/catalyst/runtime/superset/{outbox,receipts,backups}/`, covered by
+  `/runtime/superset/` in `targets/catalyst/.gitignore`
+- D1 evidence: `artifacts/catalyst-dashboard/<run-id>/` containing
+  `run_manifest.json`, `events.jsonl`, `acceptance.json`, exact bundle/pointer/
+  receipt copies, PostgreSQL reconciliation, and screenshots/video
+
+### Acceptance flow
+
+1. Boot Catalyst, digest-pinned Superset 6.1.0, and its metadata database with
+   the isolated-stack command. Require Catalyst health plus `GET /health` = 200
+   on localhost port 18088. Record the Superset application/platform digest and
+   PostgreSQL driver revision. Superset reads the outbox through a read-only
+   mount; the importer alone receives a writable receipt/lock mount. Stack
+   configuration proves the driver/network path and DB-enforced SELECT-only
+   access. The canonical native fixture—not `superset_config.py` or
+   `superset set-database-uri`—creates the persisted analytics Database asset.
+2. In Ask, select a profile with its writer/reviewer models, generate Query v1,
+   use the sole SQL editor's completion/Format/manual version flow, Validate,
+   explicitly Run, and inspect findings/raw failure or database diagnostics and
+   typed results. Confirm the Dataset tile/panel exposes the exact Query v1,
+   complete accepted table wire types, parameters, bounded rows, warning codes
+   plus display prose, truncation truth, and provenance. There must be no
+   duplicate editor, example-prompt buttons, automatic execution, or missing
+   prior action/evidence.
+3. While Query v1 and its editor digest are still current, save **Dataset v1**.
+   Then ask a contextual follow-up from that exact visible buffer, review the
+   complete successor Query v2, explicitly rerun it, and save **Dataset v2**
+   while Query v2 is current. Only after both saves, refresh and confirm the
+   timeline, stale-result labels, libraries, and New session behavior. A stale
+   unsaved execution remains inspectable but is not promotable.
+4. Review or override deterministic Widget suggestions for the two saved
+   Dataset versions and create two heterogeneous Widgets. Place them on a newly
+   named Dashboard only when both share its locked `dataSourceId` and
+   `catalogVersion`; either mismatch must be rejected. After a catalog refresh,
+   create a new Dashboard rather than mixing catalog versions.
+5. Select **Publish to Superset**. Catalyst atomically writes a native Superset
+   ZIP to the host-visible outbox and offers the same artifact for download.
+   Bundle creation makes no model call and does not rerun the query.
+6. For a clean stack, let the bootstrap importer load the eligible selected
+   current desired bundle. For an already-running stack, run the documented Superset import
+   helper. Only a successful CLI result plus exact post-import verification and
+   a validated receipt/latest projection changes `Bundle ready` to `Imported`;
+   generating the file alone never claims synchronization. Missing, malformed,
+   wrong-version, or foreign-digest pointers/receipts never claim Imported;
+   pointer/bundle/preflight/credential failures and a transactionally rolled-
+   back Superset CLI failure leave the previously verified Dashboard usable. If the CLI
+   succeeds but UUID/slug/relationship verification fails, report
+   **Import failed**, retain the diagnostic, and disable Open Superset and any
+   current-success claim. Do not claim an automatic rollback. Recovery first
+   validates `receipts/last-verified/<logicalDashboardId>.json` and its
+   referenced bundle; missing/corrupt projection data stops before reset. Then
+   explicitly reset the complete Superset-local metadata database/home volumes
+   and reimport/verify that bundle. Do not selectively delete assets or mutate
+   Superset through ORM or REST. If verified A is recovered while failed desired
+   B remains in `current.json`, B stays `import_failed` and automatic bootstrap/
+   retry is suppressed until explicit retry or a new publication.
+7. Open
+   `/superset/dashboard/catalyst-<lowercase-dashboard-id>/` in Superset,
+   require the observed UUID and slug to match the bundle/receipt, require at
+   least two Widgets to
+   render, and independently reconcile keyed identifiers/values with the exact
+   PostgreSQL verification SQL. Publish a changed child and a layout-only
+   version: changed children receive new version-addressed UUIDs, unchanged
+   children are reused, and the logical Catalyst Dashboard ID, slug, and
+   Superset Dashboard UUID remain stable.
+8. Refresh Catalyst and prove immutable Dataset/Widget/Dashboard versions,
+   import evidence, and stale-source states restore. Repeat with keyboard only,
+   desktop, 390×844, 320 CSS px, and a 640-CSS-pixel equivalent reflow boundary.
+   Actual 200% browser zoom is deferred polish and is not an MVP gate. Capture Escape/
+   focus return, focus containment, status announcements, reduced motion, and
+   unobscured fixed-composer/editor evidence.
+9. Run the all-five-family canonical Superset fixture matrix, same-digest no-op,
+   concurrent import, ordinary restart, the scoped preserving-failure matrix,
+   a post-verification failure with no Open/current-success claim, missing/
+   corrupt recovery-projection refusal, full Superset-local reset plus per-
+   Dashboard last-verified reimport, recovered-A/failed-desired-B retry
+   suppression, and database write-denial checks. Also prove the standalone
+   Python 3.10 importer inside the pinned Superset container, constrained
+   canonical-JSON parity with `rfc8785`, and a clean Catalyst target after
+   publication. Record actual start/end time from the eligible execution to Bundle
+   ready and require under 180 seconds with zero model/database calls after
+   execution.
+
+The bundle contains configuration and provenance, not result rows. Named
+parameters are compiled from exact typed execution values; the original
+parameterized SQL remains in the Catalyst manifest. `resultDigest` hashes the
+canonical RFC 8785 bounded execution object; its row-free `executionBounds` and
+manifest `resultBounds` projections are byte-identical, and only stable ordered
+warning codes enter the digest. Only the labelled local
+demo may carry a read-only demo credential. Superset API publication, embedded
+viewing, cross-system undo/reconciliation, narratives, sharing, scheduling,
+automatic refresh, and production authorization/deployment are not claimed.
+
+### D1 completion receipt
+
+D1 is not complete from a generated ZIP, passing unit tests, or a Superset health
+check alone. Before this flow starts, positive and negative tests must validate
+the D1 event emitter and
+`harness.catalyst-dashboard.acceptance.v1` schema. `acceptance.json` must resolve
+the exact component and image SHAs,
+real writer/reviewer profile and candidate digests, session/turn/query/execution/
+Dataset/Widget/Dashboard IDs, bundle/current/receipt/per-Dashboard-last-verified
+digests, stable Superset
+UUID/slug/URL,
+reproducible PostgreSQL SQL plus inspected record identifiers/values, reviewer
+rationale, failure-recovery evidence, accessibility artifacts, and the matching
+versioned harness manifest/events. `events.jsonl` must include structured
+`query_turn`, `query_version`, and `query_execution` D1 projections plus immutable
+Dataset/Widget/Dashboard versions, bundle publication, import/status,
+scoped failure classification, explicit full-reset/reimport recovery, PostgreSQL
+reconciliation, accessibility observation, and acceptance-decision events with
+materialized traversal-safe evidence references. `acceptance.json` must also
+carry the fixed six-step `orderedWorkflow` from initial Query selection through
+Dataset v2 save. The final
+checkpoint is explicit user acceptance of that deployed dashboard.

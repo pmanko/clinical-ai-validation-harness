@@ -1,0 +1,46 @@
+{
+  "recordedAt": "2026-08-06T07:24:57.810515Z",
+  "schemaVersion": "catalyst.dashboard-m3-bridge-evidence.v1",
+  "status": "passed",
+  "scope": "T184 exact importer provenance and non-destructive Superset receipt/projection restart retention",
+  "sourceExecution": {
+    "sessionId": "dae035da-370a-4d62-a99d-fa5f4d7276ce",
+    "executionId": "46258206-464f-4417-95a7-acba2d0cbc4c",
+    "queryVersion": 1,
+    "profileId": "catalyst-query-e4b-qwen14b"
+  },
+  "publication": {
+    "dashboardId": "1b065d19-234c-4f1a-aa8e-e3bb500ce805",
+    "dashboardVersionId": "6ad1e92a-96b3-4233-bd2d-3406e8de1e18",
+    "bundleId": "1775f2a1-214f-5f67-87fd-120ea6f8ec26",
+    "bundleDigest": "861f9a9aa2948121c068c3aecaabd22330431efbc6e3c58368ff2adfc1a34f64",
+    "dashboardUrl": "http://localhost:18088/superset/dashboard/catalyst-1b065d19-234c-4f1a-aa8e-e3bb500ce805/"
+  },
+  "import": {
+    "catalystRevision": "7c2fecc7c85e9769d5338516b9d20fef4c5b0446",
+    "outcome": "imported",
+    "stage": "complete",
+    "receiptDigest": "dff3317c2782f81a9321d77ada8f998c73e8ecd3651a3cdd032d2bc2313866bc",
+    "lastVerifiedGeneration": 1
+  },
+  "restart": {
+    "command": "scripts/catalyst-mvp.sh restart",
+    "seeded": false,
+    "volumesRemoved": false,
+    "receiptAndProjectionPersisted": true,
+    "supersetRouteStatus": 302,
+    "routeInterpretation": "Superset routed the imported dashboard to its normal authentication boundary."
+  },
+  "healthGate": {
+    "status": "passed",
+    "generatedAt": "2026-08-06T07:24:57.810515Z",
+    "analyticsFactRows": 1152,
+    "profileId": "catalyst-query-e4b-qwen14b",
+    "writerModel": "google/gemma-4-e4b",
+    "reviewerModel": "qwen2.5-14b-instruct-mlx"
+  },
+  "operationalObservation": "The non-destructive restart retained state but upstream HAPI and OpenELIS JVM/Spring initialization took several minutes before the full health gate passed. No seed or volume reset occurred.",
+  "openItems": [
+    "The published bundle is table-only and does not satisfy the D1 multi-widget or per-widget PostgreSQL-reconciliation exits."
+  ]
+}

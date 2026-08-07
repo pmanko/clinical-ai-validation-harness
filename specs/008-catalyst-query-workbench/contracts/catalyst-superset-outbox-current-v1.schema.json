@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://catalyst.local/contracts/catalyst-superset-outbox-current-v1.schema.json",
+  "title": "Catalyst Superset outbox current pointer v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "publicationId",
+    "bundleId",
+    "dashboard",
+    "targetSupersetVersion",
+    "bundle",
+    "manifest",
+    "publishedAt"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "catalyst.superset.outbox.current.v1" },
+    "publicationId": { "$ref": "#/$defs/uuidV4" },
+    "bundleId": { "$ref": "#/$defs/uuidV5" },
+    "dashboard": { "$ref": "#/$defs/versionRef" },
+    "targetSupersetVersion": { "const": "6.1.0" },
+    "bundle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["fileName", "sha256", "bytes"],
+      "properties": {
+        "fileName": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}\\.zip$"
+        },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "bytes": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "manifest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "schemaVersion", "assetContentDigest"],
+      "properties": {
+        "path": {
+          "type": "string",
+          "pattern": "^catalyst_dashboard_[0-9a-f]{8}-[0-9a-f]{4}-5[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/catalyst/manifest\\.json$"
+        },
+        "schemaVersion": { "const": "catalyst.superset.bundle.v1" },
+        "assetContentDigest": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "publishedAt": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "Z$"
+    }
+  },
+  "$defs": {
+    "nonEmpty": { "type": "string", "minLength": 1 },
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "uuidV4": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+    "uuidV5": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-5[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+    "versionRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "versionId", "configurationDigest"],
+      "properties": {
+        "id": { "$ref": "#/$defs/uuidV4" },
+        "versionId": { "$ref": "#/$defs/uuidV4" },
+        "configurationDigest": { "$ref": "#/$defs/sha256" }
+      }
+    }
+  }
+}

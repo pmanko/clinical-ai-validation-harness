@@ -231,8 +231,8 @@ This does not start or approve W2.
 - [ ] T028 [US2] Revalidate repair scope from W1 findings and pause at G4 in `specs/008-catalyst-query-workbench/roadmap.md`
 - [ ] T029 [P] [US2] Add AST unit/frozen-digest/patch-integrity tests in `targets/catalyst/catalyst-gateway/tests/test_query_repairs.py`
 - [ ] T030 [US2] Implement repair scopes and deterministic patching in `targets/catalyst/catalyst-gateway/src/catalyst/repairs.py`
-- [ ] T031 [US2] Implement a user-initiated typed repair-proposal contract in Catalyst Gateway, limited to selected AST units and frozen digests; execute any model proposal role only through Hub's generic role endpoint, and do not reuse the internal G2.3 retry as an accept/decline workflow
-- [ ] T032 [US2] Verify the Gateway-owned proposal contract and generic Hub runtime path through the exact sibling `targets/med-agent-hub` pin. Verify Catalyst's standalone mode separately against its immutable fallback; do not couple the umbrella build to that fallback, add Catalyst query logic to Hub, or restore the retired patch
+- [ ] T031 [US2] Implement a user-initiated typed repair-proposal contract in Catalyst Gateway, limited to selected AST units and frozen digests; execute any model proposal role only through Hub's generic configured-role endpoint, and do not reuse the internal G2.3 retry as an accept/decline workflow
+- [ ] T032 [US2] Verify the Gateway-owned proposal/orchestration contract through the exact sibling `targets/med-agent-hub` pin, with models/prompts/knobs in the shared Hub profile and SQL policy/execution/lineage in Gateway. Verify Catalyst standalone separately against its immutable unmodified fallback; do not couple the umbrella build to that fallback, add Catalyst query logic to Hub, or restore the retired patch
 - [ ] T033 [US2] Add before/after accept/decline repair UI in `targets/catalyst/catalyst-ui/src/features/query/QueryWorkspace.tsx`
 - [ ] T034 [US2] Run repair integrity/scenario metrics and pause at G5 in `specs/008-catalyst-query-workbench/roadmap.md`
 
@@ -255,20 +255,127 @@ This does not start or approve W2.
 - [X] T135 Run the complete real T094 suite on clean merged pins, apply the recorded Catalyst judge exactly three times, finalize, render, publish, and verify record-level evidence at the live URL for CVR-G17
 - [X] T136 Pass release CI/pin/docs/PCCP hygiene, record CVR-G18, and pause for MS-D user signoff before calling Catalyst report parity released
 
-## Phase 10 — Selected next product milestone: Dashboard MVP
+## Phase 10 — Selected next product milestone: Superset-backed Dashboard Builder MVP
 
-Dashboard MVP depends only on the accepted query/version/execution/table
+This milestone depends only on the accepted query/version/execution/table
 foundation. T117–T122 multi-source acceptance, T028–T034 query assistance,
-T036–T038 session export, narrative reporting, and production hardening are
-parallel paths and do not block this phase.
+T036–T038 session export, narrative reporting, and production hardening remain
+parallel and do not block it.
 
-- [ ] T137 [US7] Add failing dashboard contract, immutable-version, restoration, stale-source, missing-evidence, and concurrent-save tests in `targets/catalyst/catalyst-gateway/tests/test_dashboards.py` plus the versioned artifact schema in `targets/catalyst/docs/contracts/catalyst-dashboard-v1.schema.json`
-- [ ] T138 [US7] Implement dashboard artifact/version projection and routes without model calls or automatic query execution in `targets/catalyst/catalyst-gateway/src/catalyst/dashboards.py`, `targets/catalyst/catalyst-gateway/src/catalyst/storage.py`, and `targets/catalyst/catalyst-gateway/src/catalyst/routes.py`
-- [ ] T139 [P] [US7] Add failing typed UI/API tests for table/bar/line compatibility, manual title/bindings/labels/sort configuration, save/history/restore, and stale-source display in `targets/catalyst/catalyst-ui/src/features/query/api.test.ts` and `targets/catalyst/catalyst-ui/src/features/query/components/DashboardWorkspace.test.tsx`
-- [ ] T140 [US7] Implement the single-presentation dashboard workspace and wire it to the exact successful execution in `targets/catalyst/catalyst-ui/src/features/query/components/DashboardWorkspace.tsx`, `targets/catalyst/catalyst-ui/src/features/query/QueryWorkspace.tsx`, `targets/catalyst/catalyst-ui/src/features/query/api.ts`, and `targets/catalyst/catalyst-ui/src/features/query/types.ts`
-- [ ] T141 [US7] Prove deterministic refresh restoration, zero model/database calls during configuration, immutable lineage, and stale-source behavior in `targets/catalyst/catalyst-gateway/tests/test_dashboards.py` and `targets/catalyst/catalyst-ui/e2e/dashboard-mvp.spec.ts`
-- [ ] T142 [P] [US7] Record the implemented dashboard contract, validation/rollback protocol, provenance boundary, residual risk, and explicit export/narrative/security deferrals in `specs/008-catalyst-query-workbench/pccp/2026-08-dashboard-mvp.md`, `targets/catalyst/docs/specification.md`, `targets/catalyst/docs/roadmap.md`, `README.md`, and `specs/artifacts/planning/catalyst-product-roadmap-status.md`
-- [ ] T143 [US7] Run one real Catalyst execution, independently compare rendered values with PostgreSQL, complete keyboard-only/narrow-layout/actual-200%-zoom checks, record nondeterminism or inconsistencies, and pause for user acceptance in `specs/008-catalyst-query-workbench/roadmap.md`
+The original checkpoint IDs T144/T149/T154/T157 remain stable for historical
+links. New decomposition tasks use T158+ and appear at their dependency point,
+so textual order—not numeric order—is the executable sequence within D1. After
+the accepted D1a gate and reusable T183–T186 foundation, the active product-first
+sequence is D1d → user acceptance → D1b/D1c/D1e hardening.
+
+- [X] T137 [US7] Verify both feature branches descend from current `main`, correct merged PR #43 and D1 status, and record the exact ancestry evidence in `specs/008-catalyst-query-workbench/roadmap.md` and `specs/artifacts/planning/catalyst-product-roadmap-status.md`
+- [X] T158 [US7] Reconcile the accepted Ask behavior, Dataset/Widget/Dashboard entities, bounded-result semantics, same-source-and-catalog rule, stable Superset slug, and live Save-v1-before-follow-up sequence across `specs/008-catalyst-query-workbench/spec.md`, `plan.md`, `data-model.md`, `quickstart.md`, and `checklists/requirements.md`
+- [X] T159 [US7] Finalize and validate the Gateway API, bundle, pointer, receipt/latest, atomic per-Dashboard `catalyst-superset-last-verified-v1.schema.json`, dashboard-acceptance JSON Schema, scoped import-failure/recovery semantics, required contract copies, and preimplementation PCCP in `specs/008-catalyst-query-workbench/contracts/`, `targets/catalyst/docs/contracts/`, and `specs/008-catalyst-query-workbench/pccp/2026-08-05-superset-dashboard-builder.md`
+- [X] T138 [US7] Run the read-only cross-artifact analysis after T137/T158/T159; assign every open runtime/design uncertainty an N-number and checkpoint; require zero unresolved CRITICAL/HIGH findings, byte-identical contract copies, valid JSON Schemas, record explicit D1a evidence in `specs/008-catalyst-query-workbench/roadmap.md`, present the bounded D1a decision to the user, and pause for explicit acceptance before any product code
+
+### D1d — active integrated Ask and Dashboard Builder UX
+
+- [X] T150 [US7] Add the accepted Ask characterization matrix before recomposition—Available data, profile/models, one SQL editor, Format/manual/unresolved versions, advisory Validate, explicit Run, evidence/diagnostics/typed results, follow-up, chronology, staleness, refresh, and New session—in `targets/catalyst/catalyst-ui/src/features/query/QueryWorkspace.test.tsx` and `targets/catalyst/catalyst-ui/e2e/query-to-table.spec.ts`
+- [X] T174 [US7] Add red shell tests for one active editor in the latest turn, read-only prior SQL, compact Available data, fixed/focusable composer, one New session action, and no example prompts in `targets/catalyst/catalyst-ui/src/features/query/QueryWorkspace.test.tsx`
+- [X] T151 [US7] Recompose only the Ask/thread shell and Available data surface proven by T174 in `targets/catalyst/catalyst-ui/src/features/query/QueryWorkspace.tsx`, `components/TurnNotebook.tsx`, `components/DatasetBrowser.tsx`, and `components/TurnNotebook.css`
+- [X] T175 [US7] Add red Dataset tile/panel/library tests for current-execution promotion, complete bounded result/Query vN/finding/diagnostic/provenance display, stale disabled-save behavior, idempotency, refresh, and persistence failure in the consolidated `targets/catalyst/catalyst-ui/src/features/query/components/DashboardPublishPanel.test.tsx`
+- [X] T152 [US7] Implement only the Dataset tile, sole result panel, Save Dataset action, and Dataset library proven by T175 in the consolidated `targets/catalyst/catalyst-ui/src/features/query/components/DashboardPublishPanel.tsx` and `targets/catalyst/catalyst-ui/src/features/query/QueryWorkspace.tsx`
+- [X] T176 [US7] Add red Widget/Dashboard UI tests for compatible type review/override, immutable libraries, deterministic append order, and source/catalog mismatch rejection in the consolidated `targets/catalyst/catalyst-ui/src/features/query/components/DashboardPublishPanel.test.tsx`
+- [X] T177 [US7] Implement the Widget review, Dashboard composition, and Dataset/Widget/Dashboard libraries proven by T176 in the consolidated `targets/catalyst/catalyst-ui/src/features/query/components/DashboardPublishPanel.tsx`
+- [X] T178 [US7] Add red publication UI tests for Publish, Download, dashboard-level status, actionable failures, exact receipt gating, Open Superset's deterministic slug URL, and post-verification `Import failed` with no Open/current-success control plus explicit operator guidance to perform the full Superset-local reset/reimport of the per-Dashboard last-verified bundle in the consolidated `targets/catalyst/catalyst-ui/src/features/query/components/DashboardPublishPanel.test.tsx`; no browser-triggered reset endpoint, asset-selective mutation, or automatic rollback/retry is introduced
+- [X] T153 [US7] Implement only the publication/download/status/Open Superset controls proven by T178, including retained failure diagnostics and explicit operator recovery guidance without a browser-triggered reset or automatic rollback, in the consolidated `targets/catalyst/catalyst-ui/src/features/query/components/DashboardPublishPanel.tsx`
+- [X] T179 [US7] Add the red Playwright keyboard/reflow/accessibility matrix for empty/populated Ask, every panel/library, focus containment/return, announcements, reduced motion, 390×844, 320 CSS px, and a 640-CSS-pixel equivalent reflow boundary in the consolidated `targets/catalyst/catalyst-ui/e2e/query-to-table.spec.ts`; actual 200% browser zoom is deferred polish and is not an MVP gate
+- [X] T154 [US7] Pass D1d component/API/E2E and visual-accessibility review for empty/populated Ask, all review panels, and all libraries at desktop, 390×844, 320 CSS px, and a 640-CSS-pixel equivalent reflow boundary; prove keyboard order, Escape/focus return, panel focus containment, status announcements, reduced motion, unobscured editor/composer, exact one-editor behavior, and no loss from the accepted Ask matrix; record `artifacts/catalyst-dashboard/<run-id>/d1d/`, update `specs/008-catalyst-query-workbench/roadmap.md`, and pause for user UX acceptance; actual 200% browser zoom is deferred polish and is not an MVP gate
+
+Implementation note (2026-08-06): the focused T175/T152, T176/T177, and
+T178/T153 component/API behavior is implemented and its automated tests pass.
+The T179 automated matrix also passes for empty/populated state, every
+panel/library, announcements, focus containment/return, reduced motion,
+desktop, 390×844, 320 CSS pixels, and the 640-CSS-pixel reflow equivalent.
+The user accepted this M3 gate on 2026-08-06 and directed M4 to begin, then
+explicitly relaxed actual 200% browser-zoom validation to deferred polish. The
+automated 320/390/640-CSS-pixel checks remain the required reflow evidence.
+Durable live screenshot plus labelled deterministic mock walkthrough
+video/screenshot/trace evidence is recorded under
+`artifacts/catalyst-dashboard/m3-d1d-20260806/d1d/` and indexed by
+`evidence/m3-d1d-focused-implementation-2026-08-06.json`.
+
+### D1b — pinned Superset runtime and import foundation
+
+- [X] T139 [US7] Add red stack tests for Superset application/driver identity, metadata initialization, localhost health, volume persistence, and restart retention in `targets/catalyst/tests/analytics/test_mvp_assembly.py` and `tests/test_catalyst_submodule_layout.py`
+- [X] T160 [US7] Add red launcher and permission tests for the read-only analytics role, outbox/receipt mount separation, deterministic local secret injection, secret-free output, Catalyst ownership of `runtime/superset/`, `/runtime/superset/` target-ignore coverage, and a clean-target guard after publication in `targets/catalyst/tests/analytics/test_mvp_assembly.py` and `tests/test_catalyst_submodule_layout.py`
+- [X] T140 [US7] Resolve and pin the Superset 6.1.0 application/platform image and PostgreSQL-driver revision in `compose/catalyst-mvp-isolated.override.yml` and `targets/catalyst/docker-compose.mvp.yml`
+- [X] T161 [US7] Implement only the Superset metadata database, init, application, healthcheck, and persistent-volume services proven by T139 in `compose/catalyst-mvp-isolated.override.yml` and `targets/catalyst/docker-compose.mvp.yml`; make Catalyst own `targets/catalyst/runtime/superset/`, add `/runtime/superset/` to `targets/catalyst/.gitignore`, and prove the target clean-worktree guard still passes after publication creates runtime artifacts
+- [X] T162 [US7] Prove and implement only the Superset PostgreSQL driver/network path, DB-enforced SELECT-only analytics access, local secret/config handling, mount ownership, and `up`/`health`/`down` stack integration required by T160 in `targets/catalyst/superset/superset_config.py`, `targets/catalyst/scripts/superset-init.sh`, `targets/catalyst/scripts/mvp-up.sh`, and `scripts/catalyst-mvp.sh`; do not create the persisted analytics Database asset here or via `superset set-database-uri`
+- [X] T141 [US7] Export, curate, and clean-import one root-wrapped Superset 6.1.0 fixture that owns the persisted deterministic read-only analytics Database asset/URI contract and establishes exact dataset/chart/dashboard YAML and `viz_type`/`params` for table, KPI, time-series line/area, grouped/stacked bar, and proportion bar, including renderer metric behavior that preserves the saved Dataset SQL as the reporting contract and ignored Catalyst JSON-member behavior in `targets/catalyst/tests/fixtures/superset-6.1/`
+- [X] T142 [US7] Add red bundle-selection/import tests for missing, malformed, corrupt, foreign-digest, wrong-version, and traversal-unsafe pointer/ZIP inputs; prove preservation only for pointer/bundle/preflight/credential failures and transactionally rolled-back Superset CLI failures; prove the standalone Python 3.10 importer imports no Catalyst package, uses only Python standard-library and pinned Superset-image built-ins, and its constrained canonical-JSON bytes match `rfc8785`; and prove post-import verification failure reports `Import failed`, disables Open/current-success, and retains diagnostics in `targets/catalyst/catalyst-gateway/tests/test_superset_importer.py`; require discovery by `targets/catalyst/.github/workflows/ci.yml`'s `catalyst-gateway` matrix job and `targets/catalyst/tests/run_tests.sh gateway`, plus smoke execution inside the pinned Superset container
+- [ ] T163 [US7] Add red importer-state tests for the OS lock descriptor, exact captured digest, same-digest no-op, concurrent attempts, stage-dependent failure receipts, atomic latest-per-digest and `receipts/last-verified/<logicalDashboardId>.json` projections, read-only outbox ownership, and explicit recovery in `targets/catalyst/catalyst-gateway/tests/test_superset_import_state.py`; prove a missing/corrupt last-verified projection stops before reset, full-reset recovery of verified A leaves failed desired B in `current.json` and `import_failed`, automatic bootstrap/retry of B remains suppressed, and only explicit retry or a new publication may change B; require discovery by `targets/catalyst/.github/workflows/ci.yml`'s `catalyst-gateway` matrix job and `targets/catalyst/tests/run_tests.sh gateway`
+- [X] T143 [US7] Implement only the standalone Python-3.10-compatible pointer/ZIP validator and bootstrap/running-instance Superset CLI import executor proven by T142 in `targets/catalyst/scripts/superset-import.py`; it MUST import no Catalyst package and use only Python standard-library plus dependencies already built into the pinned Superset image
+- [ ] T164 [US7] Implement only the standalone Python-3.10-compatible bounded OS lock descriptor, append-only attempt/atomic latest-per-digest writer, and atomic per-Dashboard last-verified projection proven by T163 in `targets/catalyst/scripts/superset-import-state.py`; it MUST import no Catalyst package and MUST preserve failed desired-target state independently from recovered last-verified state
+- [ ] T165 [US7] Implement the dedicated `targets/catalyst/scripts/mvp-superset.sh {import|status|reset}` operator boundary, including full reset of only the Superset-local metadata database/home volumes followed by explicit reimport and verification of the selected Dashboard's last-verified bundle; prohibit asset-selective deletion, direct ORM writes, REST mutation, watchers, and automatic rollback/retry, stop before reset when the projection is missing/corrupt, and suppress automatic bootstrap/retry of a still-current failed desired bundle after recovery; route matching subcommands through `scripts/catalyst-mvp.sh` rather than adding a Superset dispatcher to `targets/catalyst/scripts/mvp-up.sh`
+- [ ] T144 [US7] Pass D1b: clean boot/import, all five visualization fixtures including the fixture-owned analytics Database asset, ordinary restart without re-import, same-digest idempotency, concurrent lock behavior, corrupt/foreign/missing pointer rejection, scoped pointer/bundle/preflight/credential and transactionally rolled-back CLI prior-dashboard preservation, post-verification `Import failed` with Open/current-success disabled and retained diagnostic, full Superset-local metadata/home reset and verified per-Dashboard last-verified reimport without asset-selective/direct-ORM/REST mutation or automatic rollback, missing/corrupt recovery-projection refusal before reset, recovered-A/failed-desired-B suppression until explicit retry or new publication, Python 3.10 pinned-container importer smoke, constrained-canonical-JSON parity with `rfc8785`, DB-enforced read-only mutation denial, clean target after runtime publication, and secret-free logs/manifests/receipts; record exact image/driver digests in `artifacts/catalyst-dashboard/<run-id>/d1b/` and `specs/008-catalyst-query-workbench/roadmap.md`, and pause on pinned-schema drift
+
+### D1c — builder backend and deterministic bundle
+
+- [ ] T145 [US7] Add red SQLite/repository tests for immutable Dataset/Widget/Dashboard versions, latest pointers, parent-digest conflicts, idempotent saves, stale/missing sources, locked `dataSourceId` plus `catalogVersion`, and append-order layout in `targets/catalyst/catalyst-gateway/tests/test_dashboard_store.py`
+- [ ] T166 [US7] Add red Gateway route tests for Dataset/Widget/Dashboard create, read, save, and library projections, current-execution promotion, stale conflicts, and source/catalog mismatch errors in `targets/catalyst/catalyst-gateway/tests/test_dashboard_routes.py`
+- [ ] T146 [US7] Implement only the immutable builder tables, repository operations, and append-only provenance required by T145 in `targets/catalyst/catalyst-gateway/src/catalyst/storage.py` and `targets/catalyst/catalyst-gateway/src/catalyst/dashboard_store.py`
+- [ ] T167 [US7] Implement only the versioned builder routes and projections required by T166 in `targets/catalyst/catalyst-gateway/src/catalyst/dashboard_routes.py` and `targets/catalyst/catalyst-gateway/src/gateway.py`
+- [ ] T147 [US7] Add red compatibility tests for the canonical RFC 8785 execution envelope, full accepted table wire types, ordered stable warning mapping, row/count invariants, and typed PostgreSQL parameter compilation in `targets/catalyst/catalyst-gateway/tests/test_dashboard_compiler.py`
+- [ ] T168 [US7] Implement the lossless execution adapter, `all_blank_columns`/`legacy_unclassified_warning` mapping, row-free bounds projection, and typed parameter compiler proven by T147 in `targets/catalyst/catalyst-gateway/src/catalyst/dashboard_compiler.py`
+- [ ] T169 [US7] Add red deterministic compatibility/suggestion/binding tests for table, KPI, time-series, grouped/stacked bar, and two-categorical proportion bar; prove every non-table Widget derives only schema bindings from its saved Dataset in `targets/catalyst/catalyst-gateway/tests/test_dashboard_widgets.py`
+- [ ] T170 [US7] Implement only the deterministic Widget compatibility, suggestion, supervised override, and read-only binding functions proven by T169 in `targets/catalyst/catalyst-gateway/src/catalyst/dashboard_widgets.py`
+- [ ] T171 [US7] Add red native-asset tests for the stable Superset Dashboard UUID, logical Catalyst Dashboard ID-derived slug/URL, version-derived child UUIDs, schema-to-native-metric mapping, deterministic YAML/member metadata, root wrapping, byte-identical ZIPs, full manifest provenance, and layout-only child reuse in `targets/catalyst/catalyst-gateway/tests/test_superset_bundle.py`
+- [ ] T148 [US7] Implement only the deterministic native Superset asset/manifest serializer and ZIP generator proven by T171 in `targets/catalyst/catalyst-gateway/src/catalyst/superset_bundle.py`
+- [ ] T172 [US7] Add red publication tests for atomic content-addressed outbox/current-pointer writes, download parity, dashboard- and bundle-level status, exact receipt/latest-per-digest and per-Dashboard last-verified projections, append-only publication evidence, and post-verification `Import failed` suppressing Open/current-success and automatic bootstrap/retry in `targets/catalyst/catalyst-gateway/tests/test_superset_publication.py`
+- [ ] T173 [US7] Implement the outbox publication/download and digest-bound dashboard/bundle status projections proven by T172, including retained post-verification diagnostics, independently visible failed-desired and recovered-last-verified identities, and no success/Open or automatic-retry projection until an explicit retry/new publication earns a verified receipt, in `targets/catalyst/catalyst-gateway/src/catalyst/superset_publication.py` and `targets/catalyst/catalyst-gateway/src/catalyst/dashboard_routes.py`
+- [ ] T149 [US7] Pass D1c with contract fixtures and a real pinned-Superset round trip: every accepted asset resolves to its query/execution/version evidence, all five visualization families import, identical inputs are byte-identical, changed layout reuses unchanged children, changed Dataset/Widget versions create new children, and configuration/publication performs zero model and database calls; record the gate in `artifacts/catalyst-dashboard/<run-id>/d1c/` and `specs/008-catalyst-query-workbench/roadmap.md`
+
+### D1e — real deployed-dashboard acceptance
+
+- [ ] T180 [US7] Add red metadata tests for the versioned D1 manifest/events; structured `query_turn`, `query_version`, `query_execution`, Dataset/Widget/Dashboard/publication/import/reconciliation/accessibility/acceptance payloads; traversal-safe evidence references; the fixed six-step `orderedWorkflow`; and positive/negative `acceptance.json` cross-artifact validation in `evals/metadata/test_catalyst_dashboard_evidence.py`
+- [ ] T181 [US7] Implement only the manifest/event/acceptance serializer and emitter proven by T180 against the schemas finalized in T159, including the three `query_*` D1 projections, fixed `orderedWorkflow`, structured scoped-failure/recovery fields, and per-Dashboard last-verified evidence, in `harness/metadata.py` and `harness/catalyst/dashboard_evidence.py`; do not redefine acceptance or event schemas here
+- [ ] T182 [US7] Integrate preflight, live-event capture, evidence-index hashing, and final schema validation before the live run in `scripts/catalyst-dashboard-acceptance.py` and `scripts/catalyst-mvp.sh`
+- [ ] T155 [US7] Run the real Hub-owned `catalyst-query-e4b-qwen14b` profile with exact `google/gemma-4-e4b` writer and `qwen2.5-14b-instruct-mlx` reviewer: initial question, manual edit/Format/Validate/Run, save Dataset v1 while Query v1 is current, ask a contextual follow-up, rerun, save Dataset v2 while Query v2 is current, save two heterogeneous Widgets, create one same-source-and-catalog Dashboard, publish/import, open the deterministic Superset slug URL, independently reconcile rendered values to reproducible PostgreSQL queries and inspected identifiers/values, and store the run under `artifacts/catalyst-dashboard/<run-id>/d1e/`; missing aliases fail rather than substitute
+- [ ] T156 [US7] Repeat the deployed path for same-digest no-op, changed child, layout-only reuse, restart restoration, scoped pointer/bundle/preflight/credential failures and transactionally rolled-back CLI failures that preserve the prior verified Dashboard, a post-verification failure that reports `Import failed` with Open/current-success disabled and retained diagnostic, full Superset-local metadata/home reset plus verified per-Dashboard last-verified reimport, missing/corrupt projection refusal before reset, recovered-A/failed-desired-B automatic bootstrap/retry suppression until explicit retry or new publication, DB-enforced read-only write denial, and one clean-import fixture for every supported visualization family; record model candidate/digest variance rather than assuming temperature-zero reproducibility under `artifacts/catalyst-dashboard/<run-id>/d1e/repetitions/`
+- [ ] T157 [US7] Pass the final D1e evidence gate: validate the emitted `run_manifest.json`, structured `query_*` and builder `events.jsonl`, fixed `orderedWorkflow` in `acceptance.json`, screenshots/video, bundle/current/receipt/per-Dashboard-last-verified/evidence-index digests, revisions, IDs, PostgreSQL evidence, rationale, accessibility references, scoped failure-boundary evidence, and full-reset/reimport-last-verified recovery evidence under `artifacts/catalyst-dashboard/<run-id>/`; update `specs/008-catalyst-query-workbench/pccp/2026-08-05-superset-dashboard-builder.md`, `roadmap.md`, and `quickstart.md`; pass CI and remote-reachable pin checks, push both PR branches, demonstrate Catalyst → outbox → Superset, and pause for final user acceptance before calling the MVP complete
+
+### D1s — Superset import spike and reusable foundation evidence
+
+The completed bundle/import mechanics are a Superset import spike and reusable
+foundation, not a smaller MVP or an alternate completion route. These tasks do
+not close, bypass, or replace any T139–T182 task.
+
+- [X] T183 [US7] Record the independently verified local baseline: Catalyst UI,
+  Gateway, Superset, and analytics health; named-volume restart retention;
+  deterministic table bundle; successful import receipt; and deployed
+  Superset URL. Link it from the D1 roadmap and preserve the now-retired
+  fake-router execution only as historical structural evidence.
+- [X] T184 [US7] Replace `worktree` importer provenance in successful receipts
+  with the exact Catalyst revision, add a focused regression test, and prove
+  the persisted local volume continues to retain receipts/projections after
+  restart. The 2026-08-06 real-query bundle/import/restart proof is recorded in
+  `evidence/m3-superset-provenance-restart-2026-08-06.json`.
+- [X] T185 [US7] Prove the preserved Ask workflow through the Hub-owned
+  `catalyst-query-e4b-qwen14b` profile against exact `google/gemma-4-e4b` and
+  `qwen2.5-14b-instruct-mlx` aliases; restart without seeding, generate, manually
+  edit, Validate, Run, inspect results and trace, then pause before dashboard
+  implementation resumes. Technical evidence is recorded in
+  `evidence/m2-real-query-workbench-2026-08-05.json`; the user accepted that
+  pause on 2026-08-05 and directed M3 to begin.
+- [X] T186 [US7] Prove the reusable real-model/backend/import foundation by
+  persisting an exact successful execution as Dataset/Widget/Dashboard records,
+  publishing/importing its native bundle, and comparing representative values
+  for every included widget to recorded PostgreSQL SQL. This does not prove the
+  binding 4c shell, review panels, libraries, or D1d product experience.
+  The exact 2026-08-06 real-profile run, manual child version, table plus line
+  widgets, imported Superset IDs, per-widget SQL, and restart restoration are
+  recorded in `evidence/m3-real-multi-widget-2026-08-06.json`.
+- [X] T187 [US7] Retire the umbrella closeout task. Its first real repetition,
+  manual database-recovery, routing cleanup, and reflow evidence remains valid
+  supporting evidence in `evidence/m4-repetition-recovery-2026-08-06.json`, but
+  it closes no T139–T182 task. Those tasks are audited and completed
+  individually; D1d/M3 user acceptance precedes M4 release hardening.
 
 ## Dependencies and implementation strategy
 
@@ -309,8 +416,42 @@ regression; no G2.8 merge-chain task remains. T128 records the P4/P5 baseline;
 T129 blocks T130, T131 and T132 are independently test-first, T130–T132 block
 the P4 dry-run gate T133, and T133 blocks P5 tasks T134–T136. The accepted
 US1/US3/US5 workbench foundation opens selected US7 without waiting for G2.10,
-W2, W3, R4, or R5. For Dashboard MVP, T137 blocks T138; T139 may run in
-parallel with T137/T138; T138 and T139 block T140; T140 blocks T141; T142 may
-start once the contracts stabilize; and T141 plus T142 block the real-path/user
-checkpoint T143. PR #43 MS-D and merge remain
-evaluation release closeout and do not block T137.
+W2, W3, R4, or R5. T137, T158, and T159 block the read-only D1a gate T138 and
+all product code. In D1b, red tests T139/T160 block T140/T161/T162; the pinned
+runtime plus proven driver/network/read-only path blocks T141, whose native
+fixture—not runtime configuration—owns the persisted analytics Database asset.
+Importer red tests T142/T163 run in the Catalyst Gateway CI/test runner and
+block standalone Python 3.10 runtime scripts T143/T164; those scripts block the dedicated
+T165 `mvp-superset.sh` operator wrapper and harness routing. All D1b tasks still
+block the final release-hardening gate T144, but an inventory-confirmed green
+happy-path runtime/import contract is sufficient to begin D1d/M3 product work.
+In D1c, storage/route tests T145/T166 block
+T146/T167; compiler test T147 blocks T168; visualization test T169 blocks T170;
+serializer test T171 blocks T148; publication test T172 blocks T173. All D1c
+tasks still block the final hardening gate T149, but an inventory-confirmed
+green happy-path builder/publication contract is sufficient to begin D1d/M3
+product work. T150 characterizes the accepted Ask path; red shell,
+Dataset, Widget/Dashboard, publication, and accessibility tests T174–T179 each
+precede their implementations T151–T153/T177 and together block gate T154.
+User-accepted D1d plus the acceptance/event schemas finalized at T159 block the
+red evidence test T180; T180 blocks the serializer/emitter-only T181 and live
+integration T182. The validated emitter then precedes real runs T155–T156 and
+final evidence/user gate T157.
+PR #43 merged green at
+`136067a`; optional future
+session-export/comparative work remains parallel and does not block D1.
+
+### D1 requirement-to-task coverage
+
+| Requirement/evidence | Closing tasks |
+| --- | --- |
+| FR-071, FR-073, SC-036, SC-039 — exact immutable Dataset lineage and stale restoration | T145–T147, T166–T168, T175, T152, T155 |
+| FR-072 — deterministic five-family compatibility and supervised override | T141, T169–T171, T148–T149, T176–T177, T156 |
+| FR-074 — multi-widget same-source-and-catalog Dashboard creation/version/layout | T145–T146, T166–T167, T176–T177, T155 |
+| FR-075, FR-077, FR-079, SC-037–SC-038 — deterministic bundle/outbox/import lifecycle and stable slug | T139–T144, T160–T165, T171–T173, T148–T149, T178, T153, T155–T157 |
+| FR-076 — typed parameter compilation and portable provenance | T147–T149, T168, T171, T180–T182 |
+| FR-078 — read-only and credential boundary | T139–T144, T160–T165, T156–T157 |
+| FR-080, SC-041 — complete accepted Ask behavior in the new shell | T150–T154, T174–T179, T155 |
+| SC-035 — supervised promotion under three minutes and no post-Run model/DB calls | T149, T155 |
+| SC-040 — keyboard/reflow/error recovery | T179, T154, T156–T157 |
+| EVIDENCE-01 — versioned run/events/acceptance contract and live evidence | T180–T182, T155–T157 |

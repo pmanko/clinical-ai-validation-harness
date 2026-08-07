@@ -1,6 +1,6 @@
 # Catalyst Query Workbench Roadmap
 
-## Current architecture and PR topology (2026-08-04)
+## Current architecture and PR topology (2026-08-06)
 
 **Status:** The accepted manual workbench MVP is merged on all three repository
 lines. Harness [#37](https://github.com/pmanko/clinical-ai-validation-harness/pull/37)
@@ -9,15 +9,25 @@ squash-merged as `776a363`; it pins Catalyst
 Med-Agent Hub [#15](https://github.com/pmanko/med-agent-hub/pull/15) at
 `092b5cd`. Catalyst #4, Hub #14, harness #41, and Catalyst #6 are closed,
 unmerged, and superseded; references to earlier PR heads below are historical
-evidence only.
+evidence only. The active Dashboard Builder branches are harness
+`codex/dashboard-builder-mvp` and Catalyst
+`codex/dashboard-builder-mvp-design`. The initial 4c runtime checkpoint used
+harness `43818b1`, Catalyst `0be01ad`, and the pinned Hub `e6095f5`. The focused
+D1d review surfaces and saved-Dataset correction were then validated on
+Catalyst `2f5ec7a` and pinned by harness `02fcd7f`; Catalyst `655a377` is its
+documentation-only status successor and does not rewrite the runtime evidence.
 
-Catalyst Gateway now owns governed-query profiles, prompts, writer/reviewer
-composition, deterministic lint/repair/finalization, and query evidence.
-Med-Agent Hub exposes a generic `POST /v1/hub/generate` role executor and does
-not own Catalyst query profiles or their orchestration. Hub's separate
-clinical-answer/report profile engine is unchanged. The reconciled candidate
-pins are Catalyst `e7eba21` and Hub `092b5cd`; the
-Harness evidence-receipt parent is `6f58d45`. The definitive final-pin matrix
+Catalyst Gateway owns governed-query context, writer/reviewer composition,
+deterministic SQL lint/repair/finalization, execution, lineage, and query
+evidence. Med-Agent Hub now uses one workflow-typed profile schema for hosted
+clinical and caller-orchestrated Catalyst workflows. Its Hub-owned Catalyst
+profile contains role models, prompts, and knobs and exposes named-role
+execution; Gateway cannot override those settings. The M2 live runtime used
+Catalyst `240e49b` before its documentation successor and the later one-line
+standalone Hub fallback-pin synchronization. The evidence was recorded at
+umbrella pin `cd04265`; subsequent umbrella commits change documentation and
+pin consistency, not the recorded runtime. The prior accepted pins remain
+historical evidence. The definitive final-pin matrix
 passed 12/12 with independent
 PostgreSQL/gold checks, and the final-pin bounded failure plus same-session
 recovery passed. The July 30 runs remain supporting historical PR-head evidence
@@ -48,18 +58,18 @@ W2 → W3 → W4 queue.
 
 | Pathway | State | Relationship |
 | --- | --- | --- |
-| **Dashboard MVP (D1 / US7)** | **Selected next milestone** | Depends only on the accepted query/version/execution/table foundation |
-| Data foundation (G2.10 / US6) | Candidate implementation; internal/live acceptance open | Can broaden dashboard sources later; does not block single-source D1 |
+| **Superset-backed Dashboard Builder (D1 / US7)** | **M3 accepted 2026-08-06; M4 release hardening in progress** | Depends only on the accepted query/version/execution/table foundation; Catalyst promotes governed executions through Dataset/Widget/Dashboard review and deterministic native bundles rendered by Superset |
+| Data foundation (G2.10 / US6) | Candidate implementation; internal/live acceptance open | Can broaden dashboard sources later; does not block D1's one-source/one-catalog Dashboard rule |
 | Query assistance (W2 / US2) | Planned, not selected | Re-enters only after its G4 scope gate |
-| Evaluation (W3/CVR) | Runner/report parity implemented; session export/comparative expansion open | PR #43 MS-D/merge is release closeout, not a D1 dependency |
+| Evaluation (W3/CVR) | Runner/report parity merged in PR #43; session export/comparative expansion open | Parallel evidence work; not a D1 dependency |
 | Narrative reporting (Catalyst R4) | Not started | Parallel table-to-narrative flow; not a D1 dependency |
 | Productionization (Catalyst R5) | Future | Separate authentication, authorization, security, and deployment program |
 
-D1 is one executed result promoted into one manually configured, versioned
-table/bar/line artifact with refresh restoration and explicit stale-source
-state. Multi-widget layouts, model-generated visualization specifications,
-narratives, sharing, scheduling, automatic refresh, publication/export, and
-production access control are deferred.
+D1 promotes governed executions through versioned Dataset, Widget, and Dashboard
+drafts and publishes deterministic native bundles to a pinned local Superset
+outbox. The Superset REST API, embedded viewing, cross-system reconciliation,
+model-generated visualization specifications, narratives, sharing, scheduling,
+automatic refresh, and production access control are deferred.
 
 ## W0 — Durable specification and research
 
@@ -1540,27 +1550,551 @@ This proves the source can be provisioned and read, but does not close T121:
 pre-provision registry availability is still broader than database readiness,
 and the complete two-source transition/staleness/execution matrix remains open.
 
-## D1 — Supervised Dashboard MVP
+## D1 — Superset-backed Dashboard Builder MVP
 
-**Status:** Selected next milestone; implementation not started
+**Status:** M3 accepted 2026-08-06; M4 release hardening and deployed acceptance
+in progress
 
-**Goal:** Promote one successful Query vN execution into one manually
-configured, versioned dashboard artifact without changing or rerunning its
-query.
+**Current implementation state (corrected 2026-08-06):** The active branches
+now contain a live M3 implementation in the binding 4c shell: one Ask/notebook
+surface, compact chronological turns, one SQL editor, Dataset/Widget/Dashboard
+review and libraries, publication controls, the reusable backend/import
+foundation, and a real Hub-profile workflow through local Superset. One fresh
+Gemma/Qwen session completed manual correction, validation/execution,
+contextual follow-up, successor correction/execution, exact Dataset review, and
+refresh restoration. The Dashboard library now hydrates exact importer-owned
+receipt/projection state after refresh and exposes Open Superset only for a
+verified matching Dashboard version. The deterministic 4c browser flow now
+covers the complete Workbench to Dataset to Widget to Dashboard to Publish path,
+stale-result retention, imported-state refresh, keyboard/focus behavior,
+navigation collapse, reduced motion, and 390/320/640 CSS-pixel reflow. The
+accepted Ask characterization, 4c shell, and focused D1d tasks T150–T154 and
+T174–T179 are complete. The user accepted M3 and directed M4 to begin. Actual
+200% browser zoom is explicitly deferred polish; deterministic desktop and
+320/390/640-CSS-pixel reflow coverage remains required.
+`mvp-superset.sh reset`
+intentionally refuses to run until its recovery contract is implemented; the
+five-family, failure/recovery, repetition, accessibility, evidence-emitter, CI,
+and user-acceptance gates remain open. The M0–M4 exits are defined in
+[`dashboard-mvp-delivery-goal.md`](dashboard-mvp-delivery-goal.md). T139–T182
+remain the full D1 hardening backlog; they are not retroactively complete.
 
-- **D1a internal:** prove the versioned dashboard contract, exact
-  query/execution/source/result binding, immutable saves, concurrent-save
-  rejection, missing-evidence failure, restoration, and stale-source state.
-- **D1b internal:** prove one table/bar/line presentation, typed-column
-  compatibility, manual title/bindings/labels/sort configuration, and zero model
-  or automatic database calls during configure/save/restore.
-- **D1c user:** demonstrate create → configure → save v1 → revise/save v2 →
-  refresh → source query change → stale dashboard using one real Catalyst
-  execution, independent PostgreSQL value checks, keyboard-only traversal,
-  narrow layout, and actual 200% browser zoom; pause for acceptance.
+**2026-08-06 4c live-notebook checkpoint:** Session
+`4232e4f1-d80f-4040-aaaa-51b256f5c81f` used the Hub-owned
+`catalyst-query-e4b-qwen14b` profile. The first model query omitted the requested
+aggregate even though lint and review passed; a human Query v2 correction
+validated and returned 22 typed rows. Follow-up turn
+`a50a4536-3e2d-4af0-8f25-fdc67a1c80e5` received the exact Query v2 editor
+snapshot, matching validation, execution columns, and 22-row summary. Its
+selected Query v3 added the analyte constraint but dropped the date constraint;
+a human Query v4 restored both and returned six monthly Viral Load rows. The
+notebook, active Query v4, parameters, validation, Run 2 summary, and six-row
+Dataset review restored after refresh. Per-turn generation evidence is now
+hydrated from the selected turn rather than the initial session artifact. Exact
+digests and timings are in
+`evidence/m3-4c-live-notebook-2026-08-06.json`. These semantic failures are W3
+evaluation cases; they do not justify widening the M3 product scope.
 
-**Exit:** T137–T143 pass and the user accepts D1c. The dashboard remains a local
-single-artifact demo; no deferred pathway is implied complete.
+**2026-08-06 D1d automated/live browser checkpoint:** Catalyst revision
+`0be01ad` retains successful results in the Workbench after a
+successor is generated and marks them stale, implements a modal Dataset/Widget/
+Dashboard review panel with Tab containment and Escape focus return, adds an
+explicit collapsible navigation rail, and places its collapse control on the
+same row as the Catalyst brand. The comprehensive existing
+`catalyst-ui/e2e/query-to-table.spec.ts` now exercises the real 4c path through
+refresh-hydrated imported state instead of the obsolete appended Dashboard
+Builder assumptions. UI unit tests passed 132/132; typecheck and lint passed;
+the deterministic browser project passed its Dashboard Builder flow with the
+other three source-specific scenarios skipped by their declared project guards.
+The isolated production UI was rebuilt without reseeding and restored session
+`4232e4f1-d80f-4040-aaaa-51b256f5c81f`, Query v4, six typed rows, the exact
+Gemma/Qwen profile, and the 2-schema/9-relation catalog. Live review-panel
+Escape restored the Dataset trigger and live navigation collapse toggled the
+expected shell state. The expanded flow now also covers empty libraries, save
+announcements, every review drawer, and horizontal overflow across the artifact
+libraries. Actual 200% browser zoom was later deferred from the MVP gates; the
+deterministic 640-CSS-pixel equivalent remains recorded as the regression
+boundary. N81 is resolved: T175–T179 now name the consolidated
+`DashboardPublishPanel` and `query-to-table.spec.ts` paths without creating
+duplicate component architecture. Exact details are in
+`evidence/m3-4c-live-notebook-2026-08-06.json`.
+
+**2026-08-06 product-first foundation inventory:** The happy-path contracts
+needed to begin D1d/M3 are present and green, but no broad D1b/D1c task is
+retroactively closed:
+
+- `dashboard_builder.py` and `dashboard_routes.py` provide the reusable
+  Dataset/Widget/Dashboard persistence, SQL compilation, native-bundle, outbox,
+  status, and route foundation. The focused builder/import suite passed 16/16.
+- The pinned Superset runtime, persistent volume, read-only outbox/writable
+  receipt separation, and exact Catalyst-revision receipt checks passed 3/3.
+- The existing `DashboardPublishPanel` bridge passed 2/2 focused UI tests. It is
+  implementation material to recompose, not evidence of the 4c shell or D1d.
+- Full D1b/D1c recovery, conflict/idempotency, clean-fixture, changed-child,
+  publication-state, and separated red-first coverage remains assigned to its
+  original tasks for M4. These gaps do not prevent the already-proven real happy
+  path from supporting immediate D1d product work.
+
+**2026-08-06 supporting visualization-family/operator checkpoint:** The live
+integrated UI saved one Query-v3 Dataset and six Widgets covering table,
+time-series line, time-series area, grouped bar, stacked bar, and proportion
+bar. Bundle
+`f9c20ef6e2f9a50365cc415ab09011317459f673db41ab8a80c7fcac257a2e8e`
+imported successfully as Superset Dashboard 6 at
+`/superset/dashboard/catalyst-75618da5-05ff-4125-b683-187205eb2706/`.
+Superset persisted six native charts, every chart retained the exact saved SQL,
+and all six chart-data requests returned HTTP 200. The first operator attempt
+also exposed N76: implicit dependency startup briefly failed Superset DNS and
+made `status` capable of mutating runtime state. The focused wrapper correction
+is part of this checkpoint; full reset/reimport failure recovery, evidence
+emission, final CI, and user acceptance remain open.
+
+**Goal:** Implement the supplied iterative Ask → Dataset → Widget → Dashboard
+experience without building a dashboard renderer. Catalyst persists supervised
+drafts and publishes deterministic native asset bundles to a local outbox;
+Apache Superset 6.1.0 imports, queries, and renders them.
+
+**Accepted Ask integration (2026-08-05):** The reconciled design specification
+and populated Ask reference state govern the full target experience. The raw
+imported mock is a visual reference only where it agrees with that contract. Its
+Ask shell, fixed composer, chronological thread, Dataset tile, and review panel
+integrate rather than drop the
+accepted query notebook. Profile/model selection and evidence, the
+single full SQL editor, completion/Format, manual versions, advisory Validate,
+explicit Run, visible diagnostics/results, contextual follow-up, timeline,
+staleness, refresh restoration, and New session remain intact through **Save
+Dataset**. The schema/data context and executed-result preview may move into the
+design's compact thread/Dataset tile/review panel only if all information and
+actions remain available. No example prompts, duplicate editor, or automatic
+execution are introduced.
+
+- **D1a grounded contracts (T137/T158–T159/T138):** current-main branch
+  ancestry; exact builder/API/pointer/receipt/latest/per-Dashboard-last-verified/
+  acceptance contracts;
+  deterministic source/catalog, canonical execution, warning, identity, stable
+  slug, suggestion, layout, and evidence semantics; preimplementation PCCP;
+  N64–N74 register; and a read-only analysis with zero unresolved CRITICAL/HIGH
+  findings.
+- **D1d integrated product UX (accepted M3; T150–T154/T174–T179):**
+  The Ask/query-notebook retains exactly one editor and compact Available data;
+  the full bounded Query result promotes through Dataset/Widget/Dashboard
+  libraries with publish/download/import/open actions. Focused automated/live
+  evidence, durable visual artifacts, and user acceptance closed the gate.
+  Actual 200% browser zoom is deferred polish; desktop and 320/390/640-CSS-
+  pixel reflow remain the regression matrix.
+- **D1b Superset runtime/import hardening after M3
+  (T139–T144/T160–T165):** digest-pinned 6.1.0 runtime and driver, persistent
+  metadata, canonical five-family native fixture that owns the deterministic
+  analytics Database asset, DB-enforced read-only network access,
+  Catalyst-owned gitignored runtime state, outbox/lock/receipt permissions,
+  Gateway-CI-tested standalone Python 3.10 importer/state scripts with no
+  Catalyst package dependency, constrained-canonical-JSON parity and a
+  pinned-container smoke, a dedicated `mvp-superset.sh` operator wrapper,
+  clean import, restart, same-digest, and concurrency proof. Pointer/bundle/
+  preflight/credential and transactionally rolled-back CLI failures preserve
+  the previously verified Dashboard; post-import verification failure instead
+  reports `Import failed`, disables Open/current-success, retains diagnostics,
+  and requires a valid atomic per-Dashboard last-verified projection, full
+  reset of only the Superset-local metadata database/home volumes, and verified
+  reimport. Missing/corrupt projection data stops before reset; recovered A
+  leaves failed desired B current/import_failed with automatic bootstrap/retry
+  suppressed until explicit retry or a new publication. No asset-selective
+  deletion, direct ORM/REST mutation, or automatic rollback is used.
+- **D1c builder backend/export hardening after D1b
+  (T145–T149/T166–T173):** red-first immutable storage/routes, lossless
+  execution adaptation and typed SQL compilation, deterministic presentation
+  bindings, stable UUID/slug, complete provenance, byte-identical bundle
+  generation, atomic publication/download, digest-bound status projection, and
+  a real fixture round trip with zero configuration-time model or database
+  calls.
+- **D1e deployed MVP (T180–T182/T155–T157):** validate the versioned
+  manifest/event/acceptance serializer/emitter, structured `query_*` D1
+  projections, and fixed six-step `orderedWorkflow` against the schemas finalized
+  in T159 before using the real selected
+  writer/reviewer path; save Dataset v1 before refinement and Dataset v2 after
+  the successor rerun; create heterogeneous Widgets, deploy one real Dashboard
+  to its deterministic Superset slug, reconcile rendered records/values to
+  PostgreSQL, repeat same/change/restart/scoped-failure and explicit full-reset/
+  reimport-last-verified recovery cases, pass CI/pins, and pause for final
+  user acceptance.
+
+### D1a grounded-contract checkpoint — PASSED (2026-08-05)
+
+The second independent audit invalidated the earlier completion claim. It found
+that both feature branches had inherited pre-squash ancestry, API/current-pointer/
+receipt contracts were absent, runtime/import/backend/UI/evidence tasks were too
+large or not test-first, the
+prototype still visually bypassed the real workbench, evidence requirements did
+not satisfy the constitution, and result/suggestion/layout/source semantics were
+underspecified. The branches were rebased onto current Catalyst `b8fa0d5` and
+harness `136067a` and force-pushed with lease; their PR diffs no longer delete
+newer `main` files. The D1 graph now separates red tests from path-specific
+runtime, importer, storage, compiler, serializer, publication, UI, and evidence
+implementation while preserving T144/T149/T154/T157 as checkpoint gates.
+
+Technical-pass evidence after remediation:
+
+- A fresh fetch verified the harness branch against `origin/main` `136067a` and
+  the Catalyst branch against `origin/main` `b8fa0d5`; each branch has that exact
+  remote tip as its merge base and is zero commits behind.
+- T137, T158, and T159 are complete. The D1 inventory contains FR-071–FR-080,
+  SC-035–SC-041, and path-specific red→green/acceptance tasks within 182 unique
+  declared task IDs (`T001`–`T182`) with no duplicate IDs or unresolved
+  placeholders.
+- All eight Dashboard Builder contract artifacts are byte-identical between the
+  harness and Catalyst. The seven JSON Schemas passed Draft 2020-12
+  meta-validation and positive/negative contract fixtures after the last
+  contract edit; the final byte comparison and `git diff --check` prove no later
+  contract drift.
+- The post-edit Spec Kit prerequisite check resolves feature 008 successfully.
+  Its read-only consistency pass reports zero unresolved CRITICAL/HIGH findings.
+  The two non-blocking clarity findings—standalone importer Python 3.10 scope and
+  a D1-wide exit label under D1a—were corrected without changing scope.
+- N64–N66 retain the real Superset/runtime uncertainties and are owned by D1b;
+  N71 owns observed model variance at D1e. N67–N70 and N72–N74 are resolved in
+  the written contracts but remain assigned to their explicit implementation and
+  live-verification checkpoints.
+
+D1a now closes only when all of the following are true:
+
+1. API, manifest, `current.json`, import-receipt/latest, and atomic per-Dashboard
+   last-verified contracts validate and
+   distinguish a deterministic in-bundle identity from dynamic publication and
+   importer attempts.
+2. `resultDigest` is explicitly the canonical RFC 8785 bounded typed Run
+   payload, current table wire types are preserved, warning prose maps to a
+   bounded ordered code set, truncation is disclosed, Dashboard creation/layout
+   are deterministic, and D1 rejects either source or catalog-version mismatch.
+3. The reconciled Ask reference visibly preserves Available data, the sole SQL
+   editor, profile/models, Format/Validate/Run, diagnostics/evidence, contextual
+   follow-up, chronology, and the full result surface before Save Dataset.
+4. The D1 PCCP defines validation, product rollback, scoped import-failure and
+   explicit full-reset/reimport recovery boundaries, credential/data boundaries, stable
+   Dashboard UUID/slug/URL verification, and required schema-valid
+   `run_manifest.json`/`events.jsonl`/`acceptance.json` plus record/value
+   rationale; red schema/emitter tests precede the live run.
+5. The post-edit SpecKit analysis reports zero unresolved CRITICAL/HIGH issues;
+   all remaining environment uncertainty is assigned N64–N74 and an owning
+   checkpoint.
+
+Pinned Superset 6.1.0 source—not moving documentation—remains authoritative for
+overwrite behavior. Its related database/dataset/chart importer uses
+`overwrite=False`, so the logical Catalyst Dashboard ID, derived Superset
+Dashboard UUID, and slug are stable; changed child versions use new UUIDs, and
+layout-only publications reuse unchanged children.
+
+The user explicitly accepted the bounded D1a plan on 2026-08-05 and directed
+implementation to continue. T138 and D1a are complete. At that checkpoint the
+earlier “working local MVP” label was superseded and the then-current code was
+correctly reclassified as a Superset import spike. The later M3 sections record
+the binding 4c implementation that now supersedes that product-state snapshot.
+The user accepted the M2 real-profile/workbench checkpoint on 2026-08-05 and
+directed M3 Dashboard MVP integration to begin.
+
+### M2 real-profile/workbench checkpoint — ACCEPTED (2026-08-05)
+
+The persistent `catalyst-dashboard-mvp` stack restarted twice without a seed or
+volume reset. Its analytics projection retained 1,152 rows, Superset retained
+two Dashboards, and the analytics/data-pipes/Gateway/Superset volumes retained
+their original `2026-08-05T13:09:33-07:00` creation time. No model-router
+container exists. Hub and Gateway reported healthy/ready and discovery exposed
+only available profile `catalyst-query-e4b-qwen14b`, backed by exact
+`google/gemma-4-e4b` writer and `qwen2.5-14b-instruct-mlx` reviewer aliases at
+`host.docker.internal:1234`.
+
+One stored initial turn completed through both real roles in 68,163 ms. Gemma
+produced a grounded latest-ten SELECT; Qwen approved it. The visible SQL was
+manually changed from `LIMIT 10` to `LIMIT 5`, creating a human child version.
+Advisory validation returned `valid` with no findings, explicit Run returned
+five typed rows, and the exact direct PostgreSQL query matched every returned
+value. Reloading the session restored two versions, three validation records,
+and the successful execution. The clean browser view exposed all nine runtime
+relations and only the exact two-model profile.
+
+Two real integration defects were found and resolved before the successful
+turn: Catalyst prompt evidence must use bare lowercase SHA-256 rather than the
+clinical `sha256:` convention, and profile evidence must hash RFC 8785 bytes
+rather than ordinary JSON bytes. Hub `644 passed`, Gateway `205 passed`, the
+assembly gate passed `42` tests plus `61` subtests (`2` environment skips), and
+all Hub/Catalyst remote CI jobs passed. Full IDs, digests, SQL, runtime state,
+and issue dispositions are in
+`evidence/m2-real-query-workbench-2026-08-05.json`.
+
+This is not a reproducibility or Dashboard-MVP claim. The generated ordering has
+no stable secondary key for tied `observed_at` values, and no identical-input
+repetition was run; those remain recorded for the individual D1e tasks. M3 multi-widget
+integration, Superset dashboard reconciliation/recovery, the full accessibility
+and evidence matrix, and final user acceptance remain open.
+
+### M3 D1b bridge — provenance and restart proof (2026-08-06)
+
+T184 is complete. The live isolated stack saved a Dataset from an existing
+real Query v1 execution, published bundle
+`861f9a9aa2948121c068c3aecaabd22330431efbc6e3c58368ff2adfc1a34f64`,
+and imported it into pinned local Superset. Its immutable receipt and
+last-verified projection both identify Catalyst revision
+`7c2fecc7c85e9769d5338516b9d20fef4c5b0446`; the projection and dashboard
+route survived the documented non-destructive stack restart. Evidence is in
+`evidence/m3-superset-provenance-restart-2026-08-06.json`.
+
+The complete health/provenance gate subsequently passed with the real
+Gemma-E4B/Qwen-14B profile and the existing 1,152-row analytics mart. The
+restart did not seed or remove volumes; upstream HAPI and OpenELIS JVM/Spring
+initialization nevertheless took several minutes before they accepted traffic.
+Treat that startup latency as an operational follow-up, not evidence of state
+loss or a reason to add a separate FHIR cache.
+
+This is deliberately only an importer/runtime bridge: the current real bundle
+is table-only. It does not pass D1b, start D1c/D1d, or claim multi-widget
+visualization mappings, PostgreSQL reconciliation for each widget, recovery,
+repetition, or accessibility evidence.
+
+### M3 native-chart mapping boundary (2026-08-06)
+
+N65 is now a concrete pinned-runtime finding, not a theoretical concern. A
+read-only `ChartDataCommand` check against the imported Catalyst virtual
+dataset used `echarts_timeseries_line` with a raw SQL-expression metric for
+`result_value` and `observed_at` as its x-axis. Superset generated a query that
+selected `result_value` while grouping by `observed_at`; PostgreSQL correctly
+rejected it because the value was neither grouped nor aggregated. The pinned
+Superset chart helper defaults an unspecified metric aggregation to `SUM`.
+
+The earlier Dashboard Builder contract required every non-table binding to carry
+`aggregation: "none"` and therefore overconstrained ordinary reporting. A
+brief follow-on proposal exposed an aggregation choice in Widget review; the
+user rejected that second calculation layer. The corrected model is simpler:
+the governed Dataset SQL creates the report table (including any aggregation),
+and the Widget selects a chart over that table. Superset's required native
+metric configuration is an exporter detail derived from the result schema, not
+a Catalyst reporting choice. The exporter must never change Dataset SQL or
+serialize a requested compatible chart as a table. T141 owns fixture/import
+proof for the renderer mapping. A bounded Catalyst preview is disclosure about
+the workbench display, not a chart incompatibility: Superset reads the saved
+Dataset SQL rather than the preview rows. To avoid silently collapsing a saved
+table's report dimensions, chart bindings carry every available categorical
+column as a Superset series/grouping dimension; chart-ready SQL remains the
+place to define the intended report grain.
+
+**D1 program exit:** T137–T182 pass and the user accepts D1e. The Superset REST API,
+embedded dashboards, cross-system undo/reconciliation, narrative reporting,
+sharing, scheduling, automatic refresh, and production authorization remain
+explicitly deferred; no parallel pathway is implied complete.
+
+### Real-profile/backend-import foundation — PASSED; M3 IN PROGRESS (2026-08-06)
+
+The corrected T186 foundation task is complete. A fresh session used the only advertised Hub-owned profile,
+`catalyst-query-e4b-qwen14b`, with exact `google/gemma-4-e4b` writer and
+`qwen2.5-14b-instruct-mlx` reviewer aliases. Gemma generated a complete
+latest-ten query, Qwen approved it, and the sole SQL editor was manually changed
+to `LIMIT 5`; advisory validation and explicit execution returned five typed
+rows. The exact execution became one Dataset feeding a table and a time-series
+line Widget—without a second aggregation control—then one native bundle was
+imported into Superset at the deterministic Dashboard route.
+
+The Superset table rendered all five rows. Its visible generated line-chart SQL
+used Superset's required internal `MAX(result_value)` metric while grouping by
+the Dataset's time, patient, and unit dimensions; the independent PostgreSQL
+queries returned the same five table rows and five chart groups. This internal
+metric is exporter syntax, not a Catalyst aggregation choice and does not alter
+the governed Dataset SQL. A no-seed, volume-preserving restart restored the
+query versions, execution, Dataset, both Widget drafts, Dashboard title, import
+receipt/last-verified projection, and real Superset Dashboard. Evidence is in
+`evidence/m3-real-multi-widget-2026-08-06.json`.
+
+This foundation evidence alone did not close M3. The later focused D1d
+implementation/evidence closed T150–T154 and T174–T179, and the user explicitly
+accepted the milestone and directed M4 to begin. Actual 200% browser zoom is
+deferred polish. M4 remains open: only one model run was made and the model's
+`ORDER BY observed_at DESC` has no stable secondary key for tied timestamps.
+The failure/recovery and visualization-family repetitions, durable screenshot/
+video and accessibility matrix, schema-backed acceptance artifacts, CI review,
+and explicit user acceptance are not inferred from this M3 pass.
+
+### M3 D1d focused implementation checkpoint — ACCEPTED (2026-08-06)
+
+The focused Dataset, Widget/Dashboard, and publication slices now implement the
+pending T175/T152, T176/T177, and T178/T153 behavior. Dataset review is bound to
+the exact successful execution rather than the latest execution of any status;
+it shows the matching Query version, bounded typed rows with paging, typed
+parameters, validation findings, database diagnostic, profile/model/trace and
+catalog provenance, and read-only SQL. Saved Dataset library rows hydrate their
+recorded source workbench session through the existing session API, so refresh
+and cross-session review do not silently lose execution evidence.
+
+Widget review derives the same five-family compatibility rules enforced by the
+Gateway, presents only compatible choices, explains incompatible choices, and
+shows the derived binding while preserving an explicit compatible override.
+Dashboard composition retains user append order and surfaces the existing
+source/catalog rejection. Publication now treats `Bundle ready` separately from
+`Imported`, requires receipt ID, receipt digest, and verified Dashboard URL
+before showing Imported/Open Superset, retains failure codes, and distinguishes
+same-bundle retry guidance from the bounded
+`full_reset_then_reimport_last_verified_bundle` operator recovery. The Gateway's
+older recovery tokens and zero-row Big Number suggestion were aligned with the
+accepted contract.
+
+Validation passed: Catalyst UI lint and typecheck; 143 Vitest tests; the focused
+Gateway Dashboard Builder suite (8 tests); and the deterministic Playwright
+flow at desktop, 390×844, 320 CSS pixels, and the 640-CSS-pixel 200%-equivalent
+reflow. Live inspection of the rebuilt, volume-preserving isolated stack at
+`http://localhost:13000/` confirmed exact current-run Dataset evidence,
+cross-session saved-Dataset hydration, compatible Widget choices/bindings, and
+receipt-gated Imported/Open state. No seed, reset, fake router, or model call was
+used for this checkpoint.
+
+The user explicitly accepted this checkpoint and directed M4 to begin. T175/
+T152, T176/T177, T178/T153, and T179/T154 are closed from their own focused
+evidence. The durable evidence directory contains a live retained-session
+screenshot and a clearly labelled deterministic mock-API walkthrough video,
+final screenshot, and trace. Actual 200% browser zoom is deferred polish and is
+not an MVP gate; 320/390/640-CSS-pixel reflow remains required. The client currently mirrors the Gateway's deterministic presentation
+compatibility calculation because the lightweight M3 API has no pre-save
+suggestion endpoint (N82); the Gateway remains authoritative at save time, and D1c
+owns elimination of that bounded duplication if its hardened endpoint is
+implemented.
+
+### Supporting routing-surface corrective — PASSED (does not start M4; 2026-08-06)
+
+The supported product path is now singular. Catalyst Gateway no longer imports
+the A2A client, reads `CATALYST_ROUTER_URL`, or exposes the obsolete generic
+`/v1/chat/completions` relay. The supported MVP and standalone demo Compose
+files contain neither that dead Gateway URL nor a bundled/fake model-router
+service; both use the Hub-owned `catalyst-query-e4b-qwen14b` profile over the
+external router at `host.docker.internal:1234`. The historical Catalyst agent
+prototype source remains isolated and is not a Gateway product endpoint.
+
+The rebuilt no-seed isolated stack passed exact external-router configuration,
+Hub profile, Gateway profile view, analytics, UI, Superset, source-pin, and
+provenance gates. Live OpenAPI reported no generic chat relay while the
+workbench remained present, and persisted Dashboard Builder state restored as
+five Datasets, nine Widgets, and five Dashboards. Gateway formatting, lint,
+mypy, 210 tests, and 31 assembly checks passed. This is retained as supporting
+foundation evidence only. It does not close a D1 task or start M4.
+
+### Supporting repetition and manual recovery evidence — PARTIAL (does not start M4; 2026-08-06)
+
+One identical-input real-model repetition used the same exact profile,
+instruction, and catalog as M3. It selected byte-identical SQL and the same
+`713fa555...` query digest; its run-specific trace/evidence IDs, model request/
+response digests, and 35,341 ms writer plus 37,394 ms reviewer timings remain
+recorded rather than collapsed into a reproducibility claim. A separate manual
+failure/recovery sequence retained a failed Query v2 with PostgreSQL SQLSTATE
+`42703`, permitted direct editor correction, and ran the stable-secondary-sort
+Query v3 successfully for ten rows without another model call.
+
+That sequence exposed N75: the advisory validator called the deliberately
+unknown unqualified `missing_column` selection valid. PostgreSQL still rejected
+it safely and the UI showed the exact database diagnostic, but the pre-run
+signal is overconfident for this class of catalog error. The deterministic
+browser E2E now includes Dataset save, time-series Widget creation, Dashboard
+publication, keyboard traversal through all builder controls, 390×844 compact
+layout, and the 640-CSS-pixel 200%-equivalent reflow. Actual Dashboard Builder
+200% browser zoom is deferred polish; the individually tracked D1 tasks remain
+open. Exact evidence is in
+`evidence/m4-repetition-recovery-2026-08-06.json`.
+
+### M4 D1b runtime/lifecycle checkpoint — T139/T140/T160–T162 PASSED (2026-08-06)
+
+The umbrella override and pinned Catalyst target now both declare the exact
+Superset `6.1.0` image digest and `linux/arm64` platform used by the local
+acceptance stack. The target records `psycopg2-binary==2.9.9` in rendered
+importer configuration and MVP provenance. A live container inspection reported
+`aarch64` and psycopg2 `2.9.9`; the full real-stack health gate passed with the
+Gemma-E4B writer/Qwen-14B reviewer profile and emitted the same runtime identity.
+
+The analytics bootstrap now makes `catalyst_readonly` default to read-only and
+revokes schema creation. The already-persisted local volume was updated without
+re-seeding; live verification returned `on|false|true` for transaction
+read-only, public-schema CREATE, and analytics-table SELECT respectively.
+Focused tests passed (32 Catalyst assembly and 8 harness pin/layout tests), and
+the rendered Compose configuration resolved all three Superset services to the
+same platform and digest. Exact evidence is in
+`evidence/m4-d1b-runtime-pin-2026-08-06.json`.
+
+Expanded contract tests now cover metadata initialization, localhost health,
+non-destructive restart versus explicit reset, deterministic local config,
+credential-redacted output, read-only outbox/read-write receipt separation,
+Catalyst-owned ignored runtime state, and the umbrella clean-target guard. A
+Superset-only stop/start preserved both named-volume identities and all seven
+metadata dashboards; the verified import receipt remained current, localhost
+health returned `OK`, and the full real-stack health/provenance gate passed.
+Receipt/provenance scans found no configured demo credentials, and receipt
+files remained host-owned mode `0600`. No seed, model call, or volume reset was
+used. Exact lifecycle evidence is in
+`evidence/m4-d1b-runtime-lifecycle-2026-08-06.json`.
+
+This closes T139/T140/T160/T161/T162. T141 subsequently closes from the canonical
+fixture checkpoint below; T142–T144/T163–T165 remain open. The default platform
+is deliberately the current Apple-silicon acceptance runtime;
+cross-architecture runs must provide and record an explicit `SUPERSET_PLATFORM`
+override.
+
+One manual invocation detail was exposed and retained: direct Compose without
+the umbrella runner's environment used target `.env` port 8088 and collided
+with another local service. Repeating the same non-destructive restart with the
+supported isolated port 18088 succeeded. This is not state loss; local manual
+validation must use `scripts/catalyst-mvp.sh` (or reproduce its exported
+isolated ports) rather than bypassing the umbrella boundary.
+
+### M4 D1b canonical Superset fixture — T141 PASSED (2026-08-06)
+
+The checked-in deterministic Superset 6.1 fixture now covers table, KPI,
+time-series line/area, grouped/stacked bar, and proportion bar with two governed
+virtual Datasets, seven native charts, one Dashboard, and the fixture-owned
+read-only analytics Database asset. Tests lock exact saved SQL, `viz_type` and
+`params`, internal `MAX` renderer metrics, root wrapping, member order,
+per-member/final digests, and byte-for-byte regeneration.
+
+The pinned image clean-imported the fixture into a newly created empty temporary
+metadata database. Superset persisted exact counts `1 dashboard | 7 charts | 2
+datasets | 1 database`, ignored the extra Catalyst JSON manifest, and retained
+the expected stable UUIDs/read-only flags. Independent execution through
+`catalyst_readonly` returned `1152|10|on` for the aggregate row count, detailed
+Dataset row count, and transaction read-only setting. The temporary database
+was removed; the manual-test instance remained healthy with its original seven
+Dashboards. Exact evidence is in
+`evidence/m4-d1b-superset-fixture-2026-08-06.json`.
+
+One deterministic inconsistency is now explicit for D1c: current product
+publication writes `catalyst/manifest.json` last, while the approved ZIP
+contract and canonical fixture sort every relative member lexicographically.
+The fixture keeps the approved order; T148/T149 must align the serializer rather
+than weakening the golden test. T142/T163 importer-state red matrices are the
+next D1b slice.
+
+### M4 D1b standalone importer checkpoint — T142/T143 PASSED (2026-08-06)
+
+The standalone importer now validates missing/malformed pointers, foreign
+digests, pointer traversal, corrupt/traversal/symlink ZIPs, pinned Superset
+version, manifest identity, and trustworthy digest-addressed latest/receipt
+links before reusing prior state. Preflight and CLI/post-verification failure
+receipts retain their distinct preservation/mutation claims and disable current
+success controls. The importer and state helper contain no Catalyst package
+imports, constrained canonical JSON matches `rfc8785`, and the pinned Superset
+container executed the scripts on Python `3.10.20`.
+
+The importer lock marker now contains exactly the approved publication, bundle,
+digest, receipt, and start-time fields. A waiter rechecks the captured digest
+after acquiring the lock, same-digest success skips the CLI without another
+receipt, and a busy attempt reports live import state without replacing the
+latest projection. Stale marker bytes cannot claim activity, and a corrupt
+last-verified projection is no longer silently reset to generation 1. The full
+Gateway suite passes with 231 tests; exact evidence is in
+`evidence/m4-d1b-importer-2026-08-06.json`.
+
+This closes T142/T143 only. T163/T164 remain in progress because their recovery
+matrix still needs the verified-A / failed-desired-B scenario, and T165 still
+must implement the explicit Superset-local reset/reimport boundary. A direct
+target-level operator invocation also exposed the already-documented umbrella
+configuration footgun: without the harness override it creates a separate
+Compose project, and even with the override `superset-import` may reconcile an
+analytics container unnecessarily. T165 must keep import/recovery scoped to the
+Superset services and the supported umbrella runner. The supported umbrella
+health/provenance gate passed after the new pin. Every historical local
+last-verified projection still records `linux/unknown` (and some carry the old
+`worktree` importer revision), so none will be retroactively trusted for the
+destructive T165 recovery demonstration; that gate requires a fresh conforming
+verified-A fixture.
 
 ## W2 — Targeted remediation
 
@@ -1585,7 +2119,7 @@ least 90% of cases and every accepted repair passes full revalidation.
 ## W3 — Harness experiment integration
 
 **Status:** Parallel pathway. Notebook-run metadata, judging, report rendering,
-and mixed-family publishing are implemented on PR #43's release candidate.
+and mixed-family publishing merged in PR #43 at `136067a`.
 One-click workbench session export and broader comparative experiments remain
 planned but are not selected; their earlier G5 dependency applies only if the
 W2 → experiment sequence is chosen.

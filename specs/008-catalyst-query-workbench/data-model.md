@@ -237,33 +237,162 @@ displayed as stale and remains labelled with its original `Results from Query
 vN` identity. No successor edit or turn deletes the attempt or attaches it to
 another version.
 
-## DashboardArtifact and DashboardVersion
+## Dashboard Builder entities
 
-A DashboardArtifact is one supervised presentation rooted in one successful
-ExecutionAttempt. It records:
+### DatasetDraft
 
-- dashboard, session, source query-version, and source execution IDs;
-- source query/result digests, data-source ID, catalog version, and typed result
-  schema;
-- latest saved dashboard-version pointer; and
-- a derived source state: current, stale, or missing evidence.
+A DatasetDraft is rooted in one successful `ExecutionAttempt` and records:
 
-A DashboardVersion is immutable and records:
+- dataset-draft ID and immutable version ID/parent;
+- session, source query-version/digest, execution, data-source ID, catalog
+  version, typed result schema, and canonical result digest;
+- the original parameterized SQL and typed parameters;
+- the deterministically compiled Superset virtual-dataset SQL and compiler
+  revision;
+- name, description, author actor kind, creation time, and configuration digest;
+- latest-version pointer and derived source state: current, stale, or missing.
 
-- dashboard-version ID, parent ID, and artifact ID;
-- presentation kind: table, bar, or line;
-- title, selected columns or axis bindings, labels, and sort;
-- author actor kind (`human` in the unauthenticated demo), created time, and
-  configuration digest; and
-- the complete source binding copied from the artifact at save time.
+It references the immutable execution result but does not copy clinical rows.
+Promotion is permitted only while that execution's query version and editor
+digest still match the session's current stored state. A later edit or successor
+keeps the old result inspectable as stale but cannot promote an unsaved stale
+execution. Named parameters are compiled only from the execution's typed values
+with PostgreSQL-aware literal escaping; the parameterized source remains
+preserved.
 
-The dashboard references the immutable execution result; it does not copy
-clinical rows into operating-metadata fields. The result digest is the RFC 8785
-canonical SHA-256 of the stored successful `catalyst.table.v1` payload.
-Configuration, preview, save, and restoration make no model call and do not
-execute the source query. A new active query or execution changes only the
-artifact's derived source state—it never rewrites a saved version or rebinds its
-evidence. Missing or digest-mismatched source evidence fails closed.
+The canonical bounded result object is the RFC 8785 serialization of
+`{contractVersion, columns, rows, returnedRows, maxRows, truncated,
+truncationReason, warningCodes}`. `resultDigest` is its SHA-256. `columns` and
+typed cells reuse every accepted workbench table wire form, preserving database
+column and row order. The Dataset's row-free `executionBounds` projection and
+the manifest's `resultBounds` projection are byte-identical and retain the
+ordered schema, counts, truncation fields, and warning codes while omitting
+rows. Codes are de-duplicated in persisted execution order: the existing
+all-blank-column condition maps to `all_blank_columns`; retained legacy warning
+prose without a recognized mapping maps to `legacy_unclassified_warning`.
+Localized prose remains attached to execution display evidence and is not part
+of the digest. The adapter rejects invalid row widths or counts rather than
+coercing them. A truncated result has `returnedRows = maxRows` and a non-null
+reason; an untruncated result has a null reason. This is not a claim about rows
+the Gateway did not fetch. Truncated views persist `rowsShown` and
+`totalKnown: false` and never invent a full row count.
+
+### WidgetDraft
+
+A WidgetDraft is an immutable-versioned presentation over one exact
+DatasetDraft version. It records:
+
+- widget ID, version ID/parent, and dataset version ID/digest;
+- presentation kind: table, big-number KPI, time-series line/area,
+  grouped/stacked bar, or proportion bar;
+- title, column/axis bindings, labels, sort, aggregation, and display options;
+- whether the initial suggestion was accepted or overridden plus deterministic
+  compatibility evidence;
+- author, timestamps, configuration digest, and source provenance.
+
+### DashboardDraft
+
+A DashboardDraft is an immutable-versioned supervised composition. It records:
+
+- dashboard ID, version ID/parent, title, description, and layout;
+- an ordered list of exact WidgetDraft version IDs and stable placement IDs;
+- one locked `dataSourceId` and `catalogVersion`, established by the first
+  Widget and enforced for every later placement;
+- author, timestamps, configuration digest, and complete transitive source
+  provenance;
+- latest-version pointer and derived current/stale source state.
+
+D1 creates a Dashboard from a user-supplied name. Widgets append in saved order
+to deterministic full-width rows in a versioned 12-column layout; arbitrary
+resize/rearrange controls are deferred. A source or catalog-version mismatch is
+rejected before a new version is written. After a catalog refresh, D1 requires
+an explicitly new Dashboard rather than mutating the locked pair. Layout-only
+versions reuse unchanged Widget and Dataset version identities.
+
+### SupersetBundle
+
+A SupersetBundle records deterministic artifact identity:
+
+- bundle ID derived from immutable configuration inputs, exact Dataset/Widget/
+  Dashboard version IDs, the logical Catalyst Dashboard ID, one stable derived
+  Superset Dashboard UUID, and immutable version-derived Dataset/Widget
+  Superset UUIDs;
+- deterministic dashboard slug
+  `catalyst-<lowercase-logical-catalyst-dashboard-id>` and local route
+  `/superset/dashboard/<slug>/`;
+- bundle contract version, target Superset version, deterministic content digest,
+  canonical outbox filename, and optional download name;
+- generator and parameter-compiler revisions plus immutable source-version
+  creation time;
+- credential policy (`local_demo_read_only` or `receiver_supplied`) without
+  logging credentials.
+
+### SupersetPublicationAttempt and SupersetImportAttempt
+
+Dynamic operating evidence remains outside the deterministic ZIP:
+
+- publication/attempt ID, Dashboard ID/version, bundle ID/digest, pointer path,
+  actual start/end time, actor, and outcome;
+- importer/runtime/image/driver revision, CLI exit status, bounded diagnostic,
+  and exact receipt path when an import is attempted;
+- expected and observed Dashboard UUID/slug plus relationship verification when
+  import reaches post-import verification;
+- failure boundary (`pointer`, `bundle`, `preflight`, `credential`,
+  `cli_transaction`, or `post_import_verification`), whether prior-Dashboard
+  preservation is contractually supported for that boundary, and the exact
+  last-known-verified bundle ID/digest when one exists;
+- recovery disposition `full_reset_then_reimport_last_verified_bundle` for a
+  full reset of only the Superset-local metadata
+  database/home volumes and verified reimport of the per-Dashboard last-verified
+  bundle, recorded as linked append-only attempts rather than an implicit or
+  automatic rollback;
+- append-only attempt records, one atomic latest projection per digest, and one
+  atomic last-verified projection per logical Dashboard ID at
+  `receipts/last-verified/<logicalDashboardId>.json`;
+- dashboard-level user-visible state `draft`, `bundle_ready`, `imported`, or
+  `import_failed`; `draft` has no bundle identity. Bundle-level status exists
+  only for a non-null bundle ID/digest and is never `draft`; `importing` is an
+  ephemeral process condition only.
+
+The per-Dashboard last-verified projection is the sole recovery authority. It
+validates against `catalyst-superset-last-verified-v1.schema.json` and records
+the exact verified bundle/receipt identity without replacing the global desired
+publication pointer. Missing/corrupt projection data or a missing/digest-
+mismatched referenced bundle stops before any destructive operation.
+
+The ZIP contains one enclosing bundle-root directory with native Superset
+database, virtual-dataset, chart, and dashboard YAML plus a Catalyst manifest.
+It never contains result rows. Identical inputs
+produce byte-identical archives through deterministic member ordering,
+timestamps, permissions, YAML serialization, and UUID derivation. A changed
+publication keeps the logical Catalyst Dashboard ID, slug, and derived Superset
+Dashboard UUID but uses new child-version UUIDs
+because Superset 6.1.0 does not overwrite related datasets/charts during
+dashboard import.
+`Publish to Superset` atomically creates the content-addressed ZIP beneath the
+Catalyst-owned, gitignored `runtime/superset/` tree and replaces the one global
+`current.json` pointer with the most recently published desired Dashboard. The
+pointer is not imported-success or last-verified state; prior Dashboard bundles
+remain content-addressed and downloadable.
+Superset mounts the outbox read-only; stack bootstrap or an explicit CLI helper
+performs the import and is the only authority allowed to append an import
+attempt/update its latest projection. A new query or execution changes only
+derived stale state; it never rewrites or silently rebinds saved versions or
+prior bundles.
+
+Pointer/bundle validation, preflight, credential, and transactionally rolled-
+back Superset CLI failures occur before a committed import is accepted and preserve the
+previously verified Dashboard. A zero-exit CLI followed by UUID, slug, or
+relationship verification failure is different: it sets `import_failed`, keeps
+the diagnostic, disables Open Superset/current-success claims, and makes no
+claim that the previous Dashboard remains usable. Recovery first validates the
+logical Dashboard's atomic last-verified projection and immutable bundle, then
+performs a full reset of only the Superset-local metadata database/home volumes
+followed by reimport and verification. It never selectively deletes assets,
+writes through Superset ORM/REST, or runs automatically. If verified A is
+recovered while failed desired B remains in `current.json`, B stays
+`import_failed`; bootstrap/retry of B is suppressed until explicit retry or a
+new publication.
 
 ## WorkbenchEvent
 
@@ -273,6 +402,34 @@ profile changes, turn requests/completions/failures, editor snapshots,
 revision-context construction, and browser-state updates. Each event has an ID,
 sequence, type, contract version, timestamp, actor, entity references, and
 payload.
+
+D1 acceptance uses a separate versioned dashboard-event vocabulary over the
+same append-only evidence rules: `query_turn`, `query_version`,
+`query_execution`, `dataset_version`, `widget_version`, `dashboard_version`,
+`bundle_published`, `superset_import_attempt`,
+`superset_status_observed`, `postgresql_reconciliation`,
+`accessibility_observation`, and `acceptance_decision`. Every builder event
+references immutable IDs/digests rather than embedding query-result rows. The
+publication/import events also carry the expected stable Superset Dashboard
+UUID, logical Catalyst Dashboard ID, slug, and URL; an import event records
+observed identifiers only when the import
+reaches verification. `acceptance.json` is a versioned projection over these
+events and their traversal-safe evidence paths, not a replacement for
+`events.jsonl`.
+
+For recovery evidence, the failed `superset_import_attempt`, full-reset
+attempt, per-Dashboard last-verified reimport attempt, and resulting
+`superset_status_observed` event cross-reference their immutable attempt and
+bundle/projection digests. No event may label a post-verification failure as a
+successful rollback, imply recovered A changed desired B, expose Open Superset
+for B, or permit automatic retry before a new verified B receipt exists.
+
+The three `query_*` events are structured D1 projections over existing notebook
+evidence rather than renamed notebook records. Final acceptance carries a fixed
+six-step `orderedWorkflow`—initial Query selection, successful initial Run,
+Dataset v1 save, contextual follow-up, successful successor Run, Dataset v2
+save—and cross-validates every sequence and identifier against those projections
+and the source evidence.
 
 Turn events preserve the exact instruction, base/snapshot/context digests,
 selected profile and role/model provenance, produced-version references, and

@@ -32,36 +32,27 @@ if [[ "${MVP_COMPOSE_OVERRIDE_FILE}" == "${DEFAULT_MVP_COMPOSE_OVERRIDE_FILE}" ]
   export MED_AGENT_HUB_PORT="${MED_AGENT_HUB_PORT:-18082}"
   export OPENELIS_HTTPS_PORT="${OPENELIS_HTTPS_PORT:-28443}"
   export HAPI_HTTPS_PORT="${HAPI_HTTPS_PORT:-28444}"
+  export SUPERSET_PORT="${SUPERSET_PORT:-18088}"
 fi
 
 usage() {
   cat <<'EOF'
-Usage: scripts/catalyst-mvp.sh [--fake] {up|seed|health|boot|down|reset}
+Usage: scripts/catalyst-mvp.sh {up|seed|health|boot|restart|down|reset|superset-status|superset-import}
 
-  --fake  Start the deterministic fake model router (recommended for first boot).
-  up      Start the Catalyst MVP services.
-  seed    Load the pinned synthetic OpenELIS viral-load fixture.
-  health  Run the full MVP health and provenance gate.
-  boot    Run up, seed, and health in sequence.
-  down    Stop the disposable MVP services.
-  reset   Remove the disposable MVP state.
+  up       Start the Catalyst services against the external model router without changing persisted data.
+  seed     Explicitly reload the pinned synthetic OpenELIS fixture and FHIR mart.
+  health   Run the full MVP health and provenance gate.
+  boot     First-time initialization: run up, seed, and health in sequence.
+  restart  Stop then start services while retaining all named volumes; does not seed.
+  down     Stop the disposable MVP services while retaining all named volumes.
+  reset    Remove the disposable MVP state and volumes.
+  superset-status  Show the published-bundle import state for this isolated stack.
+  superset-import  Import the current published Catalyst bundle into this isolated Superset.
 EOF
 }
 
-fake_backend=false
-if [[ "${1:-}" == "--fake" ]]; then
-  fake_backend=true
-  shift
-fi
-
-if [[ "${fake_backend}" == true ]]; then
-  export MVP_MODEL_BACKEND=fake
-  export MVP_PROFILE_ID="${MVP_PROFILE_ID:-catalyst-query-gemma-4-12b}"
-  export MVP_EXPECTED_ROLE_MODELS_JSON="${MVP_EXPECTED_ROLE_MODELS_JSON:-{\"query_generate\":\"gemma-4-12b\",\"query_review\":\"qwen2.5-coder-1.5b-instruct-q4_k_m\"}}"
-fi
-
 command_name="${1:-}"
-if [[ $# -ne 1 ]] || [[ ! "${command_name}" =~ ^(up|seed|health|boot|down|reset)$ ]]; then
+if [[ $# -ne 1 ]] || [[ ! "${command_name}" =~ ^(up|seed|health|boot|restart|down|reset|superset-status|superset-import)$ ]]; then
   usage >&2
   exit 2
 fi
@@ -70,9 +61,10 @@ require_pinned_clean_target() {
   local label="$1"
   local relative_path="$2"
   local target_dir="${ROOT_DIR}/${relative_path}"
-  local expected actual
+  local expected actual target_top
 
-  if ! git -C "${target_dir}" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  target_top="$(git -C "${target_dir}" rev-parse --show-toplevel 2>/dev/null || true)"
+  if [[ "${target_top}" != "${target_dir}" ]]; then
     echo "ERROR: ${label} is not initialized at ${target_dir}." >&2
     echo "Run: git submodule update --init ${relative_path}" >&2
     exit 1
@@ -106,7 +98,8 @@ export MED_AGENT_HUB_CONTEXT="${HUB_DIR}"
 
 run_catalyst() {
   local script_name="$1"
-  "${CATALYST_DIR}/scripts/${script_name}"
+  shift
+  "${CATALYST_DIR}/scripts/${script_name}" "$@"
 }
 
 case "${command_name}" in
@@ -118,6 +111,12 @@ case "${command_name}" in
     run_catalyst mvp-seed.sh
     run_catalyst mvp-health.sh
     ;;
+  restart)
+    run_catalyst mvp-down.sh
+    run_catalyst mvp-up.sh
+    ;;
   down) run_catalyst mvp-down.sh ;;
   reset) run_catalyst mvp-reset.sh ;;
+  superset-status) run_catalyst mvp-superset.sh status ;;
+  superset-import) run_catalyst mvp-superset.sh import ;;
 esac

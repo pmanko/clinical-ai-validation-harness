@@ -5,18 +5,18 @@ engineering sandbox, not a claim that every question produces correct SQL.
 
 ## What is selectable
 
-Catalyst Gateway owns the query-profile registry, exact role/model mappings,
-prompts, sampling/output settings, lint, and writer/reviewer orchestration.
-Med-Agent Hub exposes a generic single-role completion endpoint plus a versioned
-backend model inventory. The UI lists a Gateway profile only when Hub advertises
-all of its exact required writer and optional reviewer aliases.
+Catalyst Gateway owns catalog/context assembly, structured output, SQL lint,
+writer/reviewer orchestration, execution, and lineage. Med-Agent Hub's shared
+profile catalog owns the query profile ID, exact role/model mappings, prompts,
+and model knobs. The UI lists a Hub query profile only when Hub advertises all
+of its exact required writer and reviewer aliases.
 
-The sibling Hub's existing product execution profiles remain in
-`targets/med-agent-hub/server/levels.yaml`; they are separate from Catalyst's
-Gateway-owned query profiles and are not edited to add Catalyst prompts or SQL
-orchestration.
+The sibling Hub's clinical and Catalyst profiles share one `Profile` schema in
+`targets/med-agent-hub/server/levels.yaml`. Clinical profiles use the hosted
+clinical workflow; the Catalyst profile uses caller orchestration, so SQL
+policy, lint, execution, and lineage remain in Gateway.
 
-Treat the UI picker (backed by the Gateway registry filtered through Hub's live
+Treat the UI picker (backed by Hub query-profile discovery filtered to live
 inventory) as the source of truth for currently available profiles, writer
 models, and reviewer models. The external OpenAI-compatible server must
 advertise every exact runtime model ID required by a profile in its `/v1/models`
@@ -38,9 +38,7 @@ Set these values in `targets/catalyst/.env`:
 ```dotenv
 MVP_MODEL_BACKEND=external
 MVP_EXTERNAL_ROUTER_URL=http://host.docker.internal:1234
-MVP_EXTERNAL_PROFILE_ID=catalyst-query-gemma-4-12b
-MVP_EXTERNAL_MODEL_ID=gemma-4-12b
-MVP_EXTERNAL_EXPECTED_ROLE_MODELS_JSON='{"query_generate":"gemma-4-12b","query_review":"qwen2.5-14b"}'
+MVP_EXTERNAL_PROFILE_ID=catalyst-query-e4b-qwen14b
 ```
 
 The URL is the OpenAI-compatible server root, without a trailing `/v1`. Then:
@@ -53,13 +51,17 @@ Open `http://localhost:13000`, or the port set by `CATALYST_UI_PORT`. The
 `make catalyst-mvp-*` targets run the isolated stack, which publishes the UI
 on `13000` and the gateway on `18000`; `3000` is Catalyst's own default, which
 applies only when running its compose directly from `targets/catalyst`. The
-first boot initializes the synthetic
-OpenELIS cohort and the governed analytics view, so it takes longer than later
-boots.
+first initialization loads the synthetic OpenELIS cohort, backfills FHIR, and
+materializes the governed analytics view, so it takes longer than ordinary
+restarts. That state is retained in this stack's named Docker volumes. Use
+`make catalyst-mvp-restart` for a normal stop/start without reloading FHIR or
+Data Pipes, `make catalyst-mvp-seed` only when you deliberately want to reload
+the fixture, and `make catalyst-mvp-reset` only for a clean slate.
 
 ## Compare models manually
 
-1. Load or serve every exact model alias required by a Gateway query profile.
+1. Load or serve `google/gemma-4-e4b` and
+   `qwen2.5-14b-instruct-mlx` exactly.
 2. Refresh the Catalyst UI and select a **Model profile**.
 3. Enter a question using the runtime catalog as the available-data reference.
 4. Inspect the generated SQL, parameters, profile/model roles, and lint attempts.
@@ -99,15 +101,14 @@ returns ready/unsupported/rejected, which deterministic finding codes occur,
 whether correction succeeds, the proposed SQL shape, latency, and—after manual
 acceptance—the actual rows returned.
 
-## Add another Gateway-owned query profile
+## Add another Hub-owned Catalyst query profile
 
-For a local experiment, add an `EngineProfile` to
-`targets/catalyst/catalyst-gateway/src/catalyst/query_profiles.py` and add its
-focused discovery/orchestration tests. Keep the profile ID stable, map each role
-to the exact router alias, and keep SQL sampling bounded (`temperature: 0`,
-`dry: 0`, and an explicit `maxTokens`). A writer-only profile needs only
-`query_generate`; a reviewed profile declares `query_review` as well. Hub needs
-no Catalyst-specific profile or prompt change.
+For a local experiment, add a `workflow: catalyst_query` entry to
+`targets/med-agent-hub/server/levels.yaml` and its prompts beneath
+`server/prompts/`, then add focused Hub compilation/discovery tests and Catalyst
+orchestration tests. Keep the profile ID stable, map each role to the exact
+router alias, and keep SQL sampling bounded (`temperature: 0`, `dry: 0`, and an
+explicit `maxTokens`). Gateway must not duplicate or override those values.
 
 Rebuild the sibling Hub through the harness runner:
 
@@ -116,14 +117,19 @@ make catalyst-mvp-external
 ```
 
 Refresh the UI. The profile is omitted until every exact role model is served.
-Preserve a useful query profile through review in Catalyst. Change Hub only if
-the generic role/inventory contract itself must change; if it does, merge Hub
-first and repin Catalyst's fallback plus the harness sibling pin to the same
-commit.
+Preserve a useful query profile through review in Hub. Merge Hub first and repin
+Catalyst's fallback plus the harness sibling pin to the same commit.
 
-## Stop or reset
+## Restart, stop, or reset
 
 ```bash
+# Stop and start containers while retaining the OpenELIS, HAPI, Data Pipes,
+# analytics, Gateway, and Superset volumes. Does not re-seed.
+make catalyst-mvp-restart
+
+# Stop containers; `make catalyst-mvp-up` resumes the same volumes.
 make catalyst-mvp-down
+
+# Delete the disposable data volumes. The next boot needs an explicit seed.
 make catalyst-mvp-reset
 ```

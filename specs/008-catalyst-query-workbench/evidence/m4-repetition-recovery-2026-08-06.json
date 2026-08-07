@@ -1,0 +1,189 @@
+{
+  "contractVersion": "catalyst.dashboard-builder.m4-checkpoint.v1",
+  "observedAt": "2026-08-06T16:45:00Z",
+  "catalystRevision": "6fda72a57a389353cd25807927904b4005977ab2",
+  "catalystEvidenceRevision": "4c065a092eecaf6c869c4f7f9ac00af165c1ec44",
+  "catalystOperatorFixRevision": "19837c392ab08cb3e92d9851f25e55a80bfff223",
+  "runtime": {
+    "project": "catalyst-mvp-isolated",
+    "reseeded": false,
+    "healthGatePassedAt": "2026-08-06T16:15:33.117591Z",
+    "postOperatorHealthGatePassedAt": "2026-08-06T17:01:56.562644Z",
+    "profileId": "catalyst-query-e4b-qwen14b",
+    "writerModel": "google/gemma-4-e4b",
+    "reviewerModel": "qwen2.5-14b-instruct-mlx",
+    "routerBaseUrl": "http://host.docker.internal:1234"
+  },
+  "identicalInputRepetition": {
+    "instruction": "Return patient_id, result_value, result_unit, and observed_at for the ten latest rows from analytics.lab_result_fact_v1.",
+    "baseline": {
+      "sessionId": "bea19bba-c8a4-4749-906b-c50c4f6f7a34",
+      "turnId": "ed83412a-54d3-4cca-9a02-96dc8f324159",
+      "writerDurationMs": 48760,
+      "reviewerDurationMs": 41098,
+      "totalInvocationDurationMs": 89858,
+      "candidateSql": "SELECT patient_id, result_value, result_unit, observed_at FROM analytics.lab_result_fact_v1 ORDER BY observed_at DESC LIMIT 10",
+      "candidateQueryDigest": "713fa5556c707d67b7e29ad91e6d2eda640d002d96c5c3aeac04fd780a1915c4"
+    },
+    "repetition": {
+      "sessionId": "296060d9-4bf0-4175-9604-dda699613288",
+      "turnId": "0967b49d-4f6d-4850-ad71-52c4bfae7ab7",
+      "versionId": "7f319ea6-efbc-47d3-831a-8d3f46e1a389",
+      "evidenceId": "3df5c688-c308-4ecd-b251-39bf97897053",
+      "evidenceDigest": "d037afe6e9cae81c45937785b1b7f081b611bdae9d67b283e340ac9147b9c726",
+      "traceId": "576daad5-6ee3-4125-8b4b-821dbe3737ee",
+      "writerDurationMs": 35341,
+      "reviewerDurationMs": 37394,
+      "totalInvocationDurationMs": 72735,
+      "writerRequestDigest": "c345a285a002c6aee40d5e4cfb2ab8f7d43077d11c2fed34e0c25e33947eb8b7",
+      "writerResponseDigest": "c5e8887fd2b3dbe424f81ce5a03f853629a322b691ab5e4f10d8d4e491b7d35d",
+      "reviewerRequestDigest": "82631c1f3366b77eb63b1a75adac87a23421870b1a3f6332eb4aeb0f94ea8a8a",
+      "reviewerResponseDigest": "b92f85da26ed834a8122d1a7b7b335186ab4f73e3c4e3bec6cb2794bd08686f7",
+      "candidateSql": "SELECT patient_id, result_value, result_unit, observed_at FROM analytics.lab_result_fact_v1 ORDER BY observed_at DESC LIMIT 10",
+      "candidateQueryDigest": "713fa5556c707d67b7e29ad91e6d2eda640d002d96c5c3aeac04fd780a1915c4",
+      "reviewDecision": "approve"
+    },
+    "observation": "The two runs selected byte-identical SQL and the same query digest, while model latency and raw request/response evidence remained run-specific. This single repetition is not a general determinism claim."
+  },
+  "manualFailureRecovery": {
+    "invalidVersion": {
+      "versionId": "4a3dec41-df49-46cb-87bb-5e77970c92a5",
+      "queryDigest": "ffaf7757e7130cda720725362c18a405c98707b961371d52e461d11269a2ca8e",
+      "sql": "SELECT missing_column FROM analytics.lab_result_fact_v1 LIMIT 1",
+      "validationId": "516d8107-f9c8-41eb-821c-389d0a9eba47",
+      "validationStatus": "valid",
+      "validationFindings": [],
+      "executionId": "ee67723a-2649-4647-b5c1-b4a2a438c9f1",
+      "executionStatus": "failed",
+      "durationMs": 5,
+      "databaseDiagnostic": {
+        "sqlstate": "42703",
+        "severity": "ERROR",
+        "position": 8,
+        "message": "column \"missing_column\" does not exist"
+      }
+    },
+    "correctedVersion": {
+      "versionId": "28b9f4b0-9b41-44d8-852f-d522ad68b2bf",
+      "queryDigest": "7abb0e858b06b79e1657f44d9cd6bc8f29128cc17c8cb67258c37c5212f92b52",
+      "sql": "SELECT patient_id, result_value, result_unit, observed_at FROM analytics.lab_result_fact_v1 ORDER BY observed_at DESC, patient_id ASC LIMIT 10",
+      "validationId": "2edf0fc4-6179-46a7-a40d-194af1fa92ce",
+      "validationStatus": "valid",
+      "executionId": "5204bf0f-956c-46a8-885c-fcdcd524f1e1",
+      "executionStatus": "succeeded",
+      "durationMs": 12,
+      "returnedRows": 10
+    },
+    "observation": "The failed result remained visible with a typed PostgreSQL diagnostic, the editor remained available, and a manual successor validated and ran without another model call."
+  },
+  "visualizationFamilyImport": {
+    "source": {
+      "sessionId": "296060d9-4bf0-4175-9604-dda699613288",
+      "turnId": "0967b49d-4f6d-4850-ad71-52c4bfae7ab7",
+      "queryVersionId": "28b9f4b0-9b41-44d8-852f-d522ad68b2bf",
+      "queryDigest": "7abb0e858b06b79e1657f44d9cd6bc8f29128cc17c8cb67258c37c5212f92b52",
+      "executionId": "5204bf0f-956c-46a8-885c-fcdcd524f1e1",
+      "datasetId": "be2a10d6-33f4-4b8e-9b07-9b17430a1437",
+      "datasetVersionId": "5ec19439-2768-46b6-a14c-e667f17c038e",
+      "savedSql": "SELECT patient_id, result_value, result_unit, observed_at FROM analytics.lab_result_fact_v1 ORDER BY observed_at DESC, patient_id ASC LIMIT 10"
+    },
+    "presentationKinds": [
+      "table",
+      "time_series_line",
+      "time_series_area",
+      "grouped_bar",
+      "stacked_bar",
+      "proportion_bar"
+    ],
+    "publication": {
+      "publicationId": "a44513f8-834b-4c99-9183-ba50f87a513b",
+      "bundleId": "ed5165a0-7e1f-5e9c-a2f7-2a9fe9e161e8",
+      "bundleDigest": "f9c20ef6e2f9a50365cc415ab09011317459f673db41ab8a80c7fcac257a2e8e",
+      "dashboardId": "75618da5-05ff-4125-b683-187205eb2706",
+      "dashboardVersionId": "8c6965f9-e01d-40cf-a42d-0b94de672102",
+      "dashboardConfigurationDigest": "8b716768145038c8bfb50f03cf615f1f91ed2633edb117fcf6b1835df9888e43"
+    },
+    "import": {
+      "receiptId": "2dcef1ef-8814-4117-810f-8283d4a25672",
+      "receiptDigest": "993b8e4d676fa8ccb83225855766aa3141116f115389c672a414cc4843a76dda",
+      "outcome": "imported",
+      "relationshipsMatch": true,
+      "supersetDashboardId": 6,
+      "supersetDashboardUuid": "31a44511-912b-52ec-ab0a-0a06c53f9df0",
+      "supersetSlug": "catalyst-75618da5-05ff-4125-b683-187205eb2706",
+      "supersetUrl": "http://localhost:18088/superset/dashboard/catalyst-75618da5-05ff-4125-b683-187205eb2706/",
+      "nativeChartCount": 6,
+      "chartDataHttpStatuses": [200, 200, 200, 200, 200, 200],
+      "savedSqlPreservedForEveryChart": true,
+      "nativeTypes": [
+        "table",
+        "echarts_timeseries_line",
+        "echarts_area",
+        "echarts_timeseries_bar"
+      ],
+      "barVariants": {
+        "grouped": {
+          "stack": null,
+          "contributionMode": null
+        },
+        "stacked": {
+          "stack": "Stack",
+          "contributionMode": null
+        },
+        "proportion": {
+          "stack": "Stack",
+          "contributionMode": "row"
+        }
+      }
+    }
+  },
+  "operatorStartupRecovery": {
+    "observedFailure": "An implicit docker compose run dependency startup briefly launched Superset before its metadata-database hostname resolved.",
+    "correction": "Status now runs the importer with --no-deps; import explicitly starts and waits for healthy analytics-db and superset services before running the importer with --no-deps.",
+    "focusedTest": "python3 -m unittest tests.analytics.test_mvp_assembly",
+    "focusedTestResult": "31 passed",
+    "nonMutatingStatusProof": "Superset and analytics container IDs, creation timestamps, and start timestamps were identical before and after status.",
+    "supportedEntrypoint": "scripts/catalyst-mvp.sh superset-{status,import}"
+  },
+  "accessibilityRegression": {
+    "command": "npx playwright test --project=deterministic e2e/query-to-table.spec.ts",
+    "result": "1 passed",
+    "covered": [
+      "single active SQL editor",
+      "Dataset save",
+      "time-series Widget save",
+      "Dashboard publication",
+      "keyboard focus visibility and unobscured controls through Publish to Superset",
+      "390x844 compact viewport without horizontal overflow",
+      "640 CSS-pixel 200%-equivalent reflow without horizontal overflow"
+    ],
+    "actualBrowserZoom200Percent": "not_run_for_dashboard_builder"
+  },
+  "openIssues": [
+    {
+      "id": "N75",
+      "summary": "The advisory validator did not flag an unqualified selected column absent from the approved catalog; PostgreSQL safely rejected it with SQLSTATE 42703.",
+      "impact": "The manual failure/recovery path works, but the pre-run Valid label is overconfident for this class of catalog error.",
+      "status": "open"
+    },
+    {
+      "id": "N71",
+      "summary": "One identical-input repetition matched the baseline candidate; broader repetition remains required before any reproducibility claim.",
+      "status": "open_observation"
+    },
+    {
+      "id": "N76",
+      "summary": "Superset importer dependency startup was implicit and a status read could perturb runtime state.",
+      "status": "resolved",
+      "resolutionRevision": "19837c392ab08cb3e92d9851f25e55a80bfff223"
+    }
+  ],
+  "remainingForT187": [
+    "repeat/changed-child import matrix across the supported visualization families",
+    "Superset failed-import and full reset/reimport recovery",
+    "actual 200% browser zoom with Dashboard Builder controls",
+    "schema-backed run/events/acceptance artifacts",
+    "green final PR CI and review",
+    "explicit user inspection and acceptance"
+  ]
+}

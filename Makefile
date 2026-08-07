@@ -16,7 +16,7 @@ export UV_PROJECT_ENVIRONMENT
         dashboard-ensure dashboard-restart validate-preflight validate-run validate-judge-prep validate-judge-finalize validate-publish \
         cloud-init cloud-sync cloud-down cloud-seed \
         cloud-start cloud-stop cloud-ssh cloud-logs cloud-status cloud-destroy \
-        catalyst-mvp-up catalyst-mvp-external catalyst-mvp-fake catalyst-mvp-seed catalyst-mvp-health catalyst-mvp-down catalyst-mvp-reset
+        catalyst-mvp-up catalyst-mvp-external catalyst-mvp-seed catalyst-mvp-health catalyst-mvp-restart catalyst-mvp-down catalyst-mvp-reset catalyst-superset-status catalyst-superset-import
 
 # --- compose lifecycle ---
 up:
@@ -55,20 +55,26 @@ catalyst-mvp-up:
 catalyst-mvp-external:
 	MVP_MODEL_BACKEND=external ./scripts/catalyst-mvp.sh boot
 
-catalyst-mvp-fake:
-	./scripts/catalyst-mvp.sh --fake boot
-
 catalyst-mvp-seed:
 	./scripts/catalyst-mvp.sh seed
 
 catalyst-mvp-health:
 	./scripts/catalyst-mvp.sh health
 
+catalyst-mvp-restart:
+	./scripts/catalyst-mvp.sh restart
+
 catalyst-mvp-down:
 	./scripts/catalyst-mvp.sh down
 
 catalyst-mvp-reset:
 	./scripts/catalyst-mvp.sh reset
+
+catalyst-superset-status:
+	./scripts/catalyst-mvp.sh superset-status
+
+catalyst-superset-import:
+	./scripts/catalyst-mvp.sh superset-import
 
 # --- CIEL baseline ---
 CIEL_VERSION ?= v2026-04-28

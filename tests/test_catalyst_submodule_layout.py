@@ -108,26 +108,144 @@ def test_harness_runner_defaults_to_a_tracked_isolated_compose_override() -> Non
     assert 'export ANALYTICS_DB_PORT="${ANALYTICS_DB_PORT:-15443}"' in runner
     assert 'export DATA_PIPES_PORT="${DATA_PIPES_PORT:-18090}"' in runner
     assert 'export MED_AGENT_HUB_PORT="${MED_AGENT_HUB_PORT:-18082}"' in runner
-    assert "export MVP_MODEL_BACKEND=fake" in runner
-    assert "catalyst-query-gemma-4-12b" in runner
-    assert "qwen2.5-coder-1.5b-instruct-q4_k_m" in runner
+    assert 'export SUPERSET_PORT="${SUPERSET_PORT:-18088}"' in runner
+    assert "--fake" not in runner
+    assert "MVP_FAKE_" not in runner
+    assert "MVP_EXPECTED_ROLE_MODELS_JSON" not in runner
+    assert "catalyst-query-gemma-4-12b" not in runner
+    assert "restart  Stop then start services while retaining all named volumes" in runner
+    assert "restart)" in runner
+    assert "superset-status  Show the published-bundle import state" in runner
+    assert "superset-import) run_catalyst mvp-superset.sh import" in runner
     assert "MVP_FAKE_BACKEND" not in runner
     assert 'require_pinned_clean_target "Catalyst" "targets/catalyst"' in runner
     assert (
         'require_pinned_clean_target "med-agent-hub" "targets/med-agent-hub"' in runner
     )
     assert 'rev-parse "HEAD:${relative_path}"' in runner
+    assert 'rev-parse --show-toplevel' in runner
+    assert '[[ "${target_top}" != "${target_dir}" ]]' in runner
     assert "status --porcelain" in runner
 
     rendered = override.read_text(encoding="utf-8")
-    assert "name: catalyst-mvp-isolated" in rendered
-    assert "name: catalyst-mvp-isolated-network" in rendered
-    assert "subnet: 192.168.166.0/24" in rendered
-    assert "ipv4_address: 192.168.166.121" in rendered
-    assert '"127.0.0.1:25432:5432"' in rendered
+    assert "name: ${CATALYST_MVP_PROJECT_NAME:-catalyst-mvp-isolated}" in rendered
+    assert "name: ${CATALYST_MVP_NETWORK_NAME:-catalyst-mvp-isolated-network}" in rendered
+    assert "subnet: ${CATALYST_MVP_SUBNET:-192.168.166.0/24}" in rendered
+    assert "ipv4_address: ${CATALYST_MVP_OPENELIS_IPV4:-192.168.166.121}" in rendered
+    assert "ports: !reset []" in rendered
+    assert '"127.0.0.1:25432:5432"' not in rendered
+    assert '"127.0.0.1:28080:8080"' not in rendered
+    assert '"127.0.0.1:28081:8080"' not in rendered
     assert '"127.0.0.1:${OPENELIS_HTTPS_PORT:-28443}:8443"' in rendered
     assert '"127.0.0.1:${HAPI_HTTPS_PORT:-28444}:8443"' in rendered
+    assert '"127.0.0.1:${SUPERSET_PORT:-18088}:8088"' in rendered
+    for service in ("superset-metadata-db", "superset-init", "superset", "superset-importer"):
+        assert (
+            "${CATALYST_MVP_CONTAINER_PREFIX:-catalyst-mvp-isolated}-"
+            f"{service}"
+        ) in rendered
     assert "subnet: 172.20.1.0/24" not in rendered
+
+
+def test_harness_exposes_the_isolated_superset_operator_commands() -> None:
+    runner = (ROOT / "scripts/catalyst-mvp.sh").read_text(encoding="utf-8")
+    makefile = (ROOT / "Makefile").read_text(encoding="utf-8")
+    phony_declarations = makefile.split("# --- compose lifecycle ---", maxsplit=1)[0]
+
+    assert '"${CATALYST_DIR}/scripts/${script_name}" "$@"' in runner
+    assert "catalyst-superset-status" in phony_declarations
+    assert "catalyst-superset-status:" in makefile
+    assert "./scripts/catalyst-mvp.sh superset-status" in makefile
+    assert "catalyst-superset-import" in phony_declarations
+    assert "catalyst-superset-import:" in makefile
+    assert "./scripts/catalyst-mvp.sh superset-import" in makefile
+
+
+def test_catalyst_owns_and_ignores_superset_runtime_state() -> None:
+    ignore = (ROOT / "targets/catalyst/.gitignore").read_text(encoding="utf-8")
+    compose = (ROOT / "targets/catalyst/docker-compose.mvp.yml").read_text(
+        encoding="utf-8"
+    )
+
+    assert "/runtime/superset/" in ignore
+    assert "./runtime/superset/outbox:/opt/catalyst/outbox:ro" in compose
+    assert "./runtime/superset/receipts:/opt/catalyst/receipts:rw" in compose
+    ignored = subprocess.run(
+        [
+            "git",
+            "-C",
+            "targets/catalyst",
+            "check-ignore",
+            "runtime/superset/outbox/current.json",
+            "runtime/superset/receipts/latest/example.json",
+        ],
+        cwd=ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.splitlines()
+    assert ignored == [
+        "runtime/superset/outbox/current.json",
+        "runtime/superset/receipts/latest/example.json",
+    ]
+
+
+def test_harness_restart_retains_volumes_and_clean_target_guard_remains_active() -> None:
+    runner = (ROOT / "scripts/catalyst-mvp.sh").read_text(encoding="utf-8")
+    down = (ROOT / "targets/catalyst/scripts/mvp-down.sh").read_text(
+        encoding="utf-8"
+    )
+
+    restart_case = runner[runner.index("  restart)") : runner.index("  down)")]
+    assert "run_catalyst mvp-down.sh" in restart_case
+    assert "run_catalyst mvp-up.sh" in restart_case
+    assert "mvp-seed.sh" not in restart_case
+    assert "mvp-reset.sh" not in restart_case
+    assert "down --volumes" not in down
+    assert 'status --porcelain' in runner
+    assert (
+        _git(
+            "-C",
+            "targets/catalyst",
+            "status",
+            "--porcelain",
+            "--untracked-files=all",
+            "--",
+            "runtime/superset",
+        )
+        == ""
+    )
+
+
+def test_superset_runtime_identity_is_explicit_in_the_pinned_target() -> None:
+    superset_image = (
+        "apache/superset:6.1.0-dev@sha256:"
+        "5822dff49c41fd745ce33e38af502f9c64df30d133aeba148c5d89b35a1004ef"
+    )
+    compose = (ROOT / "targets/catalyst/docker-compose.mvp.yml").read_text(
+        encoding="utf-8"
+    )
+    override = (ROOT / "compose/catalyst-mvp-isolated.override.yml").read_text(
+        encoding="utf-8"
+    )
+    env = (ROOT / "targets/catalyst/env.recommended").read_text(encoding="utf-8")
+
+    assert compose.count('platform: "${SUPERSET_PLATFORM:-linux/arm64}"') >= 3
+    assert override.count('platform: "${SUPERSET_PLATFORM:-linux/arm64}"') >= 3
+    assert compose.count(f"image: {superset_image}") >= 3
+    assert override.count(f"image: {superset_image}") >= 3
+    assert (
+        'CATALYST_SUPERSET_DRIVER_REVISION: '
+        '"${SUPERSET_DRIVER_REVISION:-psycopg2-binary==2.9.9}"'
+        in override
+    )
+    assert "SUPERSET_PLATFORM=linux/arm64" in env
+    assert "SUPERSET_DRIVER_REVISION=psycopg2-binary==2.9.9" in env
+    assert (
+        'CATALYST_SUPERSET_DRIVER_REVISION: '
+        '"${SUPERSET_DRIVER_REVISION:-psycopg2-binary==2.9.9}"'
+        in compose
+    )
 
 
 def test_manual_guide_uses_the_sibling_hub_and_current_external_router_setting() -> (

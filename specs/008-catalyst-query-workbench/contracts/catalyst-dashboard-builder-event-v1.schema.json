@@ -1,0 +1,1102 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://catalyst.local/contracts/catalyst-dashboard-builder-event-v1.schema.json",
+  "title": "Catalyst Dashboard Builder event v1",
+  "description": "Append-only D1 lineage and operating evidence. Payloads contain IDs, digests, stable codes, outcomes, and traversal-safe evidence references only; SQL, parameters, result rows, credentials, DSNs, and free-form diagnostics are prohibited.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "event_id",
+    "sequence",
+    "timestamp",
+    "event_type",
+    "actor",
+    "correlation",
+    "payload_digest",
+    "payload"
+  ],
+  "properties": {
+    "schema_version": { "const": "harness.catalyst-dashboard.event.v1" },
+    "event_id": { "$ref": "#/$defs/uuidV4" },
+    "sequence": { "type": "integer", "minimum": 1 },
+    "timestamp": { "$ref": "#/$defs/utcDateTime" },
+    "event_type": {
+      "enum": [
+        "query_turn",
+        "query_version",
+        "query_execution",
+        "dataset_version",
+        "widget_version",
+        "dashboard_version",
+        "bundle_published",
+        "superset_import_attempt",
+        "superset_status_observed",
+        "postgresql_reconciliation",
+        "accessibility_observation",
+        "acceptance_decision"
+      ]
+    },
+    "actor": { "$ref": "#/$defs/actor" },
+    "correlation": { "$ref": "#/$defs/correlation" },
+    "payload_digest": { "$ref": "#/$defs/sha256" },
+    "payload": { "type": "object" }
+  },
+  "oneOf": [
+    {
+      "properties": {
+        "event_type": { "const": "query_turn" },
+        "payload": { "$ref": "#/$defs/queryTurnPayload" }
+      }
+    },
+    {
+      "properties": {
+        "event_type": { "const": "query_version" },
+        "payload": { "$ref": "#/$defs/queryVersionPayload" }
+      }
+    },
+    {
+      "properties": {
+        "event_type": { "const": "query_execution" },
+        "payload": { "$ref": "#/$defs/queryExecutionPayload" }
+      }
+    },
+    {
+      "properties": {
+        "event_type": { "const": "dataset_version" },
+        "payload": { "$ref": "#/$defs/datasetVersionPayload" }
+      }
+    },
+    {
+      "properties": {
+        "event_type": { "const": "widget_version" },
+        "payload": { "$ref": "#/$defs/widgetVersionPayload" }
+      }
+    },
+    {
+      "properties": {
+        "event_type": { "const": "dashboard_version" },
+        "payload": { "$ref": "#/$defs/dashboardVersionPayload" }
+      }
+    },
+    {
+      "properties": {
+        "event_type": { "const": "bundle_published" },
+        "payload": { "$ref": "#/$defs/bundlePublishedPayload" }
+      }
+    },
+    {
+      "properties": {
+        "event_type": { "const": "superset_import_attempt" },
+        "payload": { "$ref": "#/$defs/importAttemptPayload" }
+      }
+    },
+    {
+      "properties": {
+        "event_type": { "const": "superset_status_observed" },
+        "payload": { "$ref": "#/$defs/statusObservedPayload" }
+      }
+    },
+    {
+      "properties": {
+        "event_type": { "const": "postgresql_reconciliation" },
+        "payload": { "$ref": "#/$defs/reconciliationPayload" }
+      }
+    },
+    {
+      "properties": {
+        "event_type": { "const": "accessibility_observation" },
+        "payload": { "$ref": "#/$defs/accessibilityPayload" }
+      }
+    },
+    {
+      "properties": {
+        "event_type": { "const": "acceptance_decision" },
+        "payload": { "$ref": "#/$defs/acceptancePayload" }
+      }
+    }
+  ],
+  "$defs": {
+    "nonEmpty": { "type": "string", "minLength": 1, "maxLength": 500 },
+    "stableCode": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "uuid": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+    "uuidV4": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+    "uuidV5": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-5[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+    "utcDateTime": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "Z$"
+    },
+    "safePath": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1000,
+      "pattern": "^(?!/)(?!.*\\.\\.)(?!.*\\\\)[A-Za-z0-9._/-]+$"
+    },
+    "evidenceRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256", "mediaType"],
+      "properties": {
+        "path": { "$ref": "#/$defs/safePath" },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "mediaType": { "$ref": "#/$defs/nonEmpty" }
+      }
+    },
+    "actor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["actorKind"],
+      "properties": {
+        "actorKind": { "enum": ["human", "model", "system"] },
+        "actorId": { "$ref": "#/$defs/nonEmpty" }
+      }
+    },
+    "correlation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["runId"],
+      "properties": {
+        "runId": { "$ref": "#/$defs/nonEmpty" },
+        "sessionId": { "$ref": "#/$defs/uuid" },
+        "turnId": { "$ref": "#/$defs/uuid" },
+        "queryVersionId": { "$ref": "#/$defs/uuid" },
+        "executionId": { "$ref": "#/$defs/uuid" },
+        "requestDigest": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "versionRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "versionId", "ordinal", "parentVersionId", "configurationDigest"],
+      "properties": {
+        "id": { "$ref": "#/$defs/uuidV4" },
+        "versionId": { "$ref": "#/$defs/uuidV4" },
+        "ordinal": { "type": "integer", "minimum": 1 },
+        "parentVersionId": {
+          "oneOf": [
+            { "$ref": "#/$defs/uuidV4" },
+            { "type": "null" }
+          ]
+        },
+        "configurationDigest": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "exactVersionRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "versionId", "configurationDigest"],
+      "properties": {
+        "id": { "$ref": "#/$defs/uuidV4" },
+        "versionId": { "$ref": "#/$defs/uuidV4" },
+        "configurationDigest": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "sourceLineage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sessionId",
+        "turnId",
+        "queryVersionId",
+        "queryDigest",
+        "executionId",
+        "dataSourceId",
+        "catalogVersion",
+        "resultSchemaDigest",
+        "resultDigest"
+      ],
+      "properties": {
+        "sessionId": { "$ref": "#/$defs/uuid" },
+        "turnId": { "$ref": "#/$defs/uuid" },
+        "queryVersionId": { "$ref": "#/$defs/uuid" },
+        "queryDigest": { "$ref": "#/$defs/sha256" },
+        "executionId": { "$ref": "#/$defs/uuid" },
+        "dataSourceId": { "$ref": "#/$defs/nonEmpty" },
+        "catalogVersion": { "$ref": "#/$defs/nonEmpty" },
+        "resultSchemaDigest": { "$ref": "#/$defs/sha256" },
+        "resultDigest": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "presentationKind": {
+      "enum": [
+        "table",
+        "big_number",
+        "time_series_line",
+        "time_series_area",
+        "grouped_bar",
+        "stacked_bar",
+        "proportion_bar"
+      ]
+    },
+    "columnBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ordinal", "name", "logicalType"],
+      "properties": {
+        "ordinal": { "type": "integer", "minimum": 0 },
+        "name": { "$ref": "#/$defs/nonEmpty" },
+        "logicalType": {
+          "enum": [
+            "string",
+            "integer",
+            "decimal",
+            "boolean",
+            "date",
+            "date-time",
+            "time",
+            "interval",
+            "json",
+            "binary",
+            "array",
+            "unknown"
+          ]
+        }
+      }
+    },
+    "tableBindings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["columns"],
+      "properties": {
+        "columns": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/columnBinding" }
+        }
+      }
+    },
+    "metricBindings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["metricColumn"],
+      "properties": {
+        "metricColumn": { "$ref": "#/$defs/columnBinding" }
+      }
+    },
+    "timeSeriesBindings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["xColumn", "metricColumn", "seriesColumns"],
+      "properties": {
+        "xColumn": { "$ref": "#/$defs/columnBinding" },
+        "metricColumn": { "$ref": "#/$defs/columnBinding" },
+        "seriesColumns": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/columnBinding" }
+        }
+      }
+    },
+    "barBindings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["categoryColumn", "metricColumn", "seriesColumns"],
+      "properties": {
+        "categoryColumn": { "$ref": "#/$defs/columnBinding" },
+        "metricColumn": { "$ref": "#/$defs/columnBinding" },
+        "seriesColumns": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/columnBinding" }
+        }
+      }
+    },
+    "supersetIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["logicalDashboardId", "uuid", "slug", "url"],
+      "properties": {
+        "logicalDashboardId": { "$ref": "#/$defs/uuidV4" },
+        "uuid": { "$ref": "#/$defs/uuidV5" },
+        "slug": {
+          "type": "string",
+          "pattern": "^catalyst-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "url": {
+          "type": "string",
+          "format": "uri",
+          "pattern": "/superset/dashboard/catalyst-[0-9a-f-]+/$"
+        }
+      }
+    },
+    "nullableSha256": {
+      "oneOf": [
+        { "$ref": "#/$defs/sha256" },
+        { "type": "null" }
+      ]
+    },
+    "nullableUuidV4": {
+      "oneOf": [
+        { "$ref": "#/$defs/uuidV4" },
+        { "type": "null" }
+      ]
+    },
+    "nullableUuidV5": {
+      "oneOf": [
+        { "$ref": "#/$defs/uuidV5" },
+        { "type": "null" }
+      ]
+    },
+    "nullableIdentity": {
+      "oneOf": [
+        { "$ref": "#/$defs/supersetIdentity" },
+        { "type": "null" }
+      ]
+    },
+    "importStage": {
+      "enum": [
+        "pointer_read",
+        "pointer_validation",
+        "bundle_read",
+        "bundle_validation",
+        "manifest_validation",
+        "credential_resolution",
+        "cli_import",
+        "post_import_verification",
+        "complete"
+      ]
+    },
+    "importerRuntime": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "revision",
+        "supersetVersion",
+        "imageDigest",
+        "platform",
+        "driverRevision",
+        "commandDigest"
+      ],
+      "properties": {
+        "revision": { "$ref": "#/$defs/nonEmpty" },
+        "supersetVersion": { "const": "6.1.0" },
+        "imageDigest": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "platform": { "$ref": "#/$defs/nonEmpty" },
+        "driverRevision": { "$ref": "#/$defs/nonEmpty" },
+        "commandDigest": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "queryTurnPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "turnId",
+        "turnRole",
+        "instructionDigest",
+        "baseQueryVersionId",
+        "selectedQueryVersionId",
+        "outcome",
+        "sourceEvidence"
+      ],
+      "properties": {
+        "turnId": { "$ref": "#/$defs/uuid" },
+        "turnRole": { "enum": ["initial", "followup"] },
+        "instructionDigest": { "$ref": "#/$defs/sha256" },
+        "baseQueryVersionId": {
+          "oneOf": [
+            { "$ref": "#/$defs/uuid" },
+            { "type": "null" }
+          ]
+        },
+        "selectedQueryVersionId": { "$ref": "#/$defs/uuid" },
+        "outcome": { "const": "completed" },
+        "sourceEvidence": { "$ref": "#/$defs/evidenceRef" }
+      }
+    },
+    "queryVersionPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "turnId",
+        "queryVersionId",
+        "queryDigest",
+        "authorKind",
+        "selectionRole",
+        "sourceEvidence"
+      ],
+      "properties": {
+        "turnId": { "$ref": "#/$defs/uuid" },
+        "queryVersionId": { "$ref": "#/$defs/uuid" },
+        "queryDigest": { "$ref": "#/$defs/sha256" },
+        "authorKind": { "enum": ["human", "writer", "reviewer"] },
+        "selectionRole": { "enum": ["base", "successor"] },
+        "sourceEvidence": { "$ref": "#/$defs/evidenceRef" }
+      }
+    },
+    "queryExecutionPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "executionId",
+        "queryVersionId",
+        "queryDigest",
+        "resultSchemaDigest",
+        "resultDigest",
+        "outcome",
+        "sourceEvidence"
+      ],
+      "properties": {
+        "executionId": { "$ref": "#/$defs/uuid" },
+        "queryVersionId": { "$ref": "#/$defs/uuid" },
+        "queryDigest": { "$ref": "#/$defs/sha256" },
+        "resultSchemaDigest": { "$ref": "#/$defs/sha256" },
+        "resultDigest": { "$ref": "#/$defs/sha256" },
+        "outcome": { "const": "succeeded" },
+        "sourceEvidence": { "$ref": "#/$defs/evidenceRef" }
+      }
+    },
+    "datasetVersionPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["dataset", "source", "replayed"],
+      "properties": {
+        "dataset": { "$ref": "#/$defs/versionRef" },
+        "source": { "$ref": "#/$defs/sourceLineage" },
+        "replayed": { "type": "boolean" }
+      }
+    },
+    "widgetVersionPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "widget",
+        "datasetVersion",
+        "presentationKind",
+        "bindings",
+        "suggestionDisposition",
+        "compatibilityDigest",
+        "vizMappingRevision",
+        "replayed"
+      ],
+      "properties": {
+        "widget": { "$ref": "#/$defs/versionRef" },
+        "datasetVersion": { "$ref": "#/$defs/exactVersionRef" },
+        "presentationKind": { "$ref": "#/$defs/presentationKind" },
+        "bindings": {
+          "oneOf": [
+            { "$ref": "#/$defs/tableBindings" },
+            { "$ref": "#/$defs/metricBindings" },
+            { "$ref": "#/$defs/timeSeriesBindings" },
+            { "$ref": "#/$defs/barBindings" }
+          ]
+        },
+        "suggestionDisposition": {
+          "enum": ["accepted_suggestion", "overridden_suggestion"]
+        },
+        "compatibilityDigest": { "$ref": "#/$defs/sha256" },
+        "vizMappingRevision": { "$ref": "#/$defs/nonEmpty" },
+        "replayed": { "type": "boolean" }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "presentationKind": { "const": "table" } },
+            "required": ["presentationKind"]
+          },
+          "then": { "properties": { "bindings": { "$ref": "#/$defs/tableBindings" } } }
+        },
+        {
+          "if": {
+            "properties": { "presentationKind": { "const": "big_number" } },
+            "required": ["presentationKind"]
+          },
+          "then": { "properties": { "bindings": { "$ref": "#/$defs/metricBindings" } } }
+        },
+        {
+          "if": {
+            "properties": {
+              "presentationKind": { "enum": ["time_series_line", "time_series_area"] }
+            },
+            "required": ["presentationKind"]
+          },
+          "then": { "properties": { "bindings": { "$ref": "#/$defs/timeSeriesBindings" } } }
+        },
+        {
+          "if": {
+            "properties": {
+              "presentationKind": { "enum": ["grouped_bar", "stacked_bar", "proportion_bar"] }
+            },
+            "required": ["presentationKind"]
+          },
+          "then": { "properties": { "bindings": { "$ref": "#/$defs/barBindings" } } }
+        }
+      ]
+    },
+    "dashboardVersionPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["dashboard", "widgetVersions", "dataSourceId", "catalogVersion", "layoutDigest", "replayed"],
+      "properties": {
+        "dashboard": { "$ref": "#/$defs/versionRef" },
+        "widgetVersions": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 50,
+          "items": { "$ref": "#/$defs/exactVersionRef" }
+        },
+        "dataSourceId": { "$ref": "#/$defs/nonEmpty" },
+        "catalogVersion": { "$ref": "#/$defs/nonEmpty" },
+        "layoutDigest": { "$ref": "#/$defs/sha256" },
+        "replayed": { "type": "boolean" }
+      }
+    },
+    "bundlePublishedPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "publicationId",
+        "dashboard",
+        "bundleId",
+        "assetContentDigest",
+        "bundleDigest",
+        "bundleBytes",
+        "currentPointerDigest",
+        "expectedDashboard",
+        "outcome",
+        "replayed"
+      ],
+      "properties": {
+        "publicationId": { "$ref": "#/$defs/uuidV4" },
+        "dashboard": { "$ref": "#/$defs/exactVersionRef" },
+        "bundleId": { "$ref": "#/$defs/uuidV5" },
+        "assetContentDigest": { "$ref": "#/$defs/sha256" },
+        "bundleDigest": { "$ref": "#/$defs/sha256" },
+        "bundleBytes": { "type": "integer", "minimum": 1 },
+        "currentPointerDigest": { "$ref": "#/$defs/sha256" },
+        "expectedDashboard": { "$ref": "#/$defs/supersetIdentity" },
+        "outcome": { "const": "bundle_ready" },
+        "replayed": { "type": "boolean" }
+      }
+    },
+    "importAttemptPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "receiptId",
+        "publicationId",
+        "bundleId",
+        "bundleDigest",
+        "receiptDigest",
+        "latestProjectionDigest",
+        "importer",
+        "exitCode",
+        "outcome",
+        "disposition",
+        "stage",
+        "supersetMutationDisposition",
+        "expectedDashboard",
+        "observedDashboard",
+        "errorCode",
+        "receiptEvidence",
+        "recoveryOfReceiptId",
+        "recovery",
+        "replayed"
+      ],
+      "properties": {
+        "receiptId": { "$ref": "#/$defs/uuidV4" },
+        "publicationId": { "$ref": "#/$defs/nullableUuidV4" },
+        "bundleId": { "$ref": "#/$defs/nullableUuidV5" },
+        "bundleDigest": { "$ref": "#/$defs/nullableSha256" },
+        "receiptDigest": { "$ref": "#/$defs/sha256" },
+        "latestProjectionDigest": { "$ref": "#/$defs/nullableSha256" },
+        "importer": { "$ref": "#/$defs/importerRuntime" },
+        "exitCode": { "type": ["integer", "null"] },
+        "outcome": { "enum": ["imported", "import_failed"] },
+        "disposition": { "enum": ["imported", "failed", "reused_verified_success"] },
+        "stage": { "$ref": "#/$defs/importStage" },
+        "supersetMutationDisposition": {
+          "enum": ["not_started", "transaction_rolled_back", "committed_unverified", "verified"]
+        },
+        "expectedDashboard": { "$ref": "#/$defs/nullableIdentity" },
+        "observedDashboard": { "$ref": "#/$defs/nullableIdentity" },
+        "errorCode": {
+          "oneOf": [
+            { "$ref": "#/$defs/stableCode" },
+            { "type": "null" }
+          ]
+        },
+        "receiptEvidence": { "$ref": "#/$defs/evidenceRef" },
+        "recoveryOfReceiptId": { "$ref": "#/$defs/nullableUuidV4" },
+        "recovery": { "$ref": "#/$defs/importRecovery" },
+        "replayed": { "type": "boolean" }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "outcome": { "const": "imported" } },
+            "required": ["outcome"]
+          },
+          "then": {
+            "properties": {
+              "publicationId": { "$ref": "#/$defs/uuidV4" },
+              "bundleId": { "$ref": "#/$defs/uuidV5" },
+              "bundleDigest": { "$ref": "#/$defs/sha256" },
+              "latestProjectionDigest": { "$ref": "#/$defs/sha256" },
+              "exitCode": { "const": 0 },
+              "disposition": { "enum": ["imported", "reused_verified_success"] },
+              "stage": { "const": "complete" },
+              "supersetMutationDisposition": { "const": "verified" },
+              "expectedDashboard": { "$ref": "#/$defs/supersetIdentity" },
+              "observedDashboard": { "$ref": "#/$defs/supersetIdentity" },
+              "errorCode": { "type": "null" },
+              "recovery": {
+                "properties": {
+                  "priorVerifiedDashboardState": { "const": "not_applicable" },
+                  "openSupersetEnabled": { "const": true },
+                  "currentSuccessClaimEnabled": { "const": true },
+                  "requiredAction": { "const": "none" },
+                  "recoveryAttemptId": { "type": "null" }
+                }
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "disposition": { "const": "failed" },
+              "stage": {
+                "allOf": [
+                  { "$ref": "#/$defs/importStage" },
+                  { "not": { "const": "complete" } }
+                ]
+              },
+              "observedDashboard": { "type": "null" },
+              "errorCode": { "$ref": "#/$defs/stableCode" },
+              "recovery": {
+                "properties": {
+                  "openSupersetEnabled": { "const": false },
+                  "currentSuccessClaimEnabled": { "const": false }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "outcome": { "const": "import_failed" },
+              "stage": { "const": "post_import_verification" }
+            },
+            "required": ["outcome", "stage"]
+          },
+          "then": {
+            "properties": {
+              "supersetMutationDisposition": { "const": "committed_unverified" },
+              "recovery": {
+                "properties": {
+                  "priorVerifiedDashboardState": { "const": "not_guaranteed" },
+                  "requiredAction": {
+                    "const": "full_reset_then_reimport_last_verified_bundle"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "outcome": { "const": "import_failed" },
+              "stage": {
+                "enum": [
+                  "pointer_read",
+                  "pointer_validation",
+                  "bundle_read",
+                  "bundle_validation",
+                  "manifest_validation",
+                  "credential_resolution"
+                ]
+              }
+            },
+            "required": ["outcome", "stage"]
+          },
+          "then": {
+            "properties": {
+              "supersetMutationDisposition": { "const": "not_started" },
+              "exitCode": { "type": "null" },
+              "recovery": {
+                "properties": {
+                  "priorVerifiedDashboardState": { "const": "preserved" },
+                  "requiredAction": { "const": "retry_same_bundle" }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "outcome": { "const": "import_failed" },
+              "stage": { "const": "cli_import" }
+            },
+            "required": ["outcome", "stage"]
+          },
+          "then": {
+            "properties": {
+              "supersetMutationDisposition": { "const": "transaction_rolled_back" },
+              "exitCode": {
+                "type": "integer",
+                "not": { "const": 0 }
+              },
+              "recovery": {
+                "properties": {
+                  "priorVerifiedDashboardState": { "const": "preserved" },
+                  "requiredAction": { "const": "retry_same_bundle" }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "outcome": { "const": "import_failed" },
+              "stage": { "const": "post_import_verification" }
+            },
+            "required": ["outcome", "stage"]
+          },
+          "then": {
+            "properties": { "exitCode": { "const": 0 } }
+          }
+        }
+      ]
+    },
+    "statusObservedPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scope",
+        "dashboard",
+        "bundleId",
+        "bundleDigest",
+        "status",
+        "receiptId",
+        "receiptDigest",
+        "latestProjectionDigest",
+        "supersetDashboard"
+      ],
+      "properties": {
+        "scope": { "enum": ["dashboard_current_version", "bundle"] },
+        "dashboard": { "$ref": "#/$defs/exactVersionRef" },
+        "bundleId": { "$ref": "#/$defs/nullableUuidV5" },
+        "bundleDigest": { "$ref": "#/$defs/nullableSha256" },
+        "status": { "enum": ["draft", "bundle_ready", "importing", "imported", "import_failed"] },
+        "receiptId": { "$ref": "#/$defs/nullableUuidV4" },
+        "receiptDigest": { "$ref": "#/$defs/nullableSha256" },
+        "latestProjectionDigest": { "$ref": "#/$defs/nullableSha256" },
+        "supersetDashboard": { "$ref": "#/$defs/nullableIdentity" }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "status": { "const": "draft" } },
+            "required": ["status"]
+          },
+          "then": {
+            "properties": {
+              "scope": { "const": "dashboard_current_version" },
+              "bundleId": { "type": "null" },
+              "bundleDigest": { "type": "null" },
+              "receiptId": { "type": "null" },
+              "receiptDigest": { "type": "null" },
+              "latestProjectionDigest": { "type": "null" },
+              "supersetDashboard": { "type": "null" }
+            }
+          },
+          "else": {
+            "properties": {
+              "bundleId": { "$ref": "#/$defs/uuidV5" },
+              "bundleDigest": { "$ref": "#/$defs/sha256" }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": { "scope": { "const": "bundle" } },
+            "required": ["scope"]
+          },
+          "then": {
+            "properties": {
+              "status": { "enum": ["bundle_ready", "importing", "imported", "import_failed"] }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": { "status": { "const": "imported" } },
+            "required": ["status"]
+          },
+          "then": {
+            "properties": {
+              "receiptId": { "$ref": "#/$defs/uuidV4" },
+              "receiptDigest": { "$ref": "#/$defs/sha256" },
+              "latestProjectionDigest": { "$ref": "#/$defs/sha256" },
+              "supersetDashboard": { "$ref": "#/$defs/supersetIdentity" }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": { "status": { "const": "import_failed" } },
+            "required": ["status"]
+          },
+          "then": {
+            "properties": {
+              "receiptId": { "$ref": "#/$defs/uuidV4" },
+              "receiptDigest": { "$ref": "#/$defs/sha256" },
+              "latestProjectionDigest": { "$ref": "#/$defs/sha256" }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": { "status": { "const": "bundle_ready" } },
+            "required": ["status"]
+          },
+          "then": {
+            "properties": {
+              "receiptId": { "type": "null" },
+              "receiptDigest": { "type": "null" },
+              "latestProjectionDigest": { "type": "null" }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": { "status": { "not": { "const": "draft" } } },
+            "required": ["status"]
+          },
+          "then": {
+            "properties": {
+              "supersetDashboard": { "$ref": "#/$defs/supersetIdentity" }
+            }
+          }
+        }
+      ]
+    },
+    "reconciliationPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "widget",
+        "verificationSqlDigest",
+        "typedParametersDigest",
+        "expectedResultDigest",
+        "observedResultDigest",
+        "comparedRecordCount",
+        "matched",
+        "inspectedEvidence",
+        "reviewerRationale",
+        "evidence"
+      ],
+      "properties": {
+        "widget": { "$ref": "#/$defs/exactVersionRef" },
+        "verificationSqlDigest": { "$ref": "#/$defs/sha256" },
+        "typedParametersDigest": { "$ref": "#/$defs/sha256" },
+        "expectedResultDigest": { "$ref": "#/$defs/sha256" },
+        "observedResultDigest": { "$ref": "#/$defs/sha256" },
+        "comparedRecordCount": { "type": "integer", "minimum": 1 },
+        "matched": { "type": "boolean" },
+        "inspectedEvidence": { "$ref": "#/$defs/evidenceRef" },
+        "reviewerRationale": { "$ref": "#/$defs/evidenceRef" },
+        "evidence": { "$ref": "#/$defs/evidenceRef" }
+      }
+    },
+    "accessibilityPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["checkId", "viewport", "zoomPercent", "inputMode", "status", "evidence"],
+      "properties": {
+        "checkId": {
+          "enum": [
+            "keyboard_traversal",
+            "escape_focus_return",
+            "focus_containment",
+            "status_announcements",
+            "reduced_motion",
+            "desktop",
+            "viewport_390x844",
+            "viewport_320_css_px",
+            "zoom_200_percent",
+            "unobscured_controls",
+            "exactly_one_editor"
+          ]
+        },
+        "viewport": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["widthCssPx", "heightCssPx"],
+          "properties": {
+            "widthCssPx": { "type": "integer", "minimum": 1 },
+            "heightCssPx": { "type": "integer", "minimum": 1 }
+          }
+        },
+        "zoomPercent": { "type": "integer", "minimum": 25, "maximum": 400 },
+        "inputMode": {
+          "enum": ["keyboard", "pointer", "touch", "screen_reader", "automated"]
+        },
+        "status": { "enum": ["passed", "failed"] },
+        "evidence": { "$ref": "#/$defs/evidenceRef" }
+      }
+    },
+    "acceptancePayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "acceptanceId",
+        "decision",
+        "acceptedAt",
+        "acceptedBy",
+        "acceptedArtifacts",
+        "residualRisks",
+        "evidenceIndexDigest",
+        "evidence"
+      ],
+      "properties": {
+        "acceptanceId": { "$ref": "#/$defs/uuidV4" },
+        "decision": { "enum": ["accepted", "rejected"] },
+        "acceptedAt": { "$ref": "#/$defs/utcDateTime" },
+        "acceptedBy": { "$ref": "#/$defs/nonEmpty" },
+        "acceptedArtifacts": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "queryVersions",
+            "datasets",
+            "widgets",
+            "dashboard",
+            "bundleDigest",
+            "receiptDigest",
+            "lastVerifiedProjectionDigest"
+          ],
+          "properties": {
+            "queryVersions": {
+              "type": "array",
+              "minItems": 2,
+              "uniqueItems": true,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["versionId", "queryDigest"],
+                "properties": {
+                  "versionId": { "$ref": "#/$defs/uuid" },
+                  "queryDigest": { "$ref": "#/$defs/sha256" }
+                }
+              }
+            },
+            "datasets": {
+              "type": "array",
+              "minItems": 2,
+              "uniqueItems": true,
+              "items": { "$ref": "#/$defs/exactVersionRef" }
+            },
+            "widgets": {
+              "type": "array",
+              "minItems": 2,
+              "uniqueItems": true,
+              "items": { "$ref": "#/$defs/exactVersionRef" }
+            },
+            "dashboard": { "$ref": "#/$defs/exactVersionRef" },
+            "bundleDigest": { "$ref": "#/$defs/sha256" },
+            "receiptDigest": { "$ref": "#/$defs/sha256" },
+            "lastVerifiedProjectionDigest": { "$ref": "#/$defs/sha256" }
+          }
+        },
+        "residualRisks": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/stableCode" }
+        },
+        "evidenceIndexDigest": { "$ref": "#/$defs/sha256" },
+        "evidence": { "$ref": "#/$defs/evidenceRef" }
+      }
+    },
+    "lastVerifiedProjectionRef": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "status",
+            "logicalDashboardId",
+            "generation",
+            "path",
+            "projectionDigest",
+            "publicationId",
+            "bundleId",
+            "bundleDigest",
+            "receiptId",
+            "receiptDigest"
+          ],
+          "properties": {
+            "status": { "const": "available" },
+            "logicalDashboardId": { "$ref": "#/$defs/uuidV4" },
+            "generation": { "type": "integer", "minimum": 1 },
+            "path": {
+              "type": "string",
+              "pattern": "^receipts/last-verified/[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\\.json$"
+            },
+            "projectionDigest": { "$ref": "#/$defs/sha256" },
+            "publicationId": { "$ref": "#/$defs/uuidV4" },
+            "bundleId": { "$ref": "#/$defs/uuidV5" },
+            "bundleDigest": { "$ref": "#/$defs/sha256" },
+            "receiptId": { "$ref": "#/$defs/uuidV4" },
+            "receiptDigest": { "$ref": "#/$defs/sha256" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["status", "omissionReason"],
+          "properties": {
+            "status": { "const": "unavailable" },
+            "omissionReason": { "$ref": "#/$defs/stableCode" }
+          }
+        }
+      ]
+    },
+    "importRecovery": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "priorVerifiedDashboardState",
+        "openSupersetEnabled",
+        "currentSuccessClaimEnabled",
+        "requiredAction",
+        "lastVerifiedProjection",
+        "recoveryAttemptId"
+      ],
+      "properties": {
+        "priorVerifiedDashboardState": {
+          "enum": ["preserved", "not_guaranteed", "not_applicable"]
+        },
+        "openSupersetEnabled": { "type": "boolean" },
+        "currentSuccessClaimEnabled": { "type": "boolean" },
+        "requiredAction": {
+          "enum": [
+            "none",
+            "retry_same_bundle",
+            "full_reset_then_reimport_last_verified_bundle"
+          ]
+        },
+        "lastVerifiedProjection": { "$ref": "#/$defs/lastVerifiedProjectionRef" },
+        "recoveryAttemptId": { "$ref": "#/$defs/nullableUuidV4" }
+      }
+    }
+  }
+}

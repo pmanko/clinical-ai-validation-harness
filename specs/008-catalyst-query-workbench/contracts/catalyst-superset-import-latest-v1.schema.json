@@ -1,0 +1,136 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://catalyst.local/contracts/catalyst-superset-import-latest-v1.schema.json",
+  "title": "Catalyst Superset latest import projection v1",
+  "description": "Digest-addressed terminal projection created only after bundle ID and digest are trustworthy; unresolved pointer failures never appear here.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "bundleId",
+    "bundleDigest",
+    "latestReceipt",
+    "updatedAt"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "catalyst.superset.import-latest.v1" },
+    "bundleId": { "$ref": "#/$defs/uuidV5" },
+    "bundleDigest": { "$ref": "#/$defs/sha256" },
+    "latestReceipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "receiptId",
+        "path",
+        "receiptDigest",
+        "outcome",
+        "stage",
+        "finishedAt",
+        "errorCode",
+        "recoveryAction"
+      ],
+      "properties": {
+        "receiptId": { "$ref": "#/$defs/uuidV4" },
+        "path": {
+          "type": "string",
+          "pattern": "^receipts/attempts/[a-f0-9]{64}/[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\\.json$"
+        },
+        "receiptDigest": { "$ref": "#/$defs/sha256" },
+        "outcome": { "enum": ["imported", "import_failed"] },
+        "stage": { "$ref": "#/$defs/stage" },
+        "finishedAt": { "$ref": "#/$defs/utcDateTime" },
+        "errorCode": {
+          "oneOf": [
+            { "$ref": "#/$defs/stableCode" },
+            { "type": "null" }
+          ]
+        },
+        "recoveryAction": {
+          "enum": [
+            "none",
+            "retry_same_bundle",
+            "full_reset_then_reimport_last_verified_bundle"
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "outcome": { "const": "imported" } },
+            "required": ["outcome"]
+          },
+          "then": {
+            "properties": {
+              "stage": { "const": "complete" },
+              "errorCode": { "type": "null" },
+              "recoveryAction": { "const": "none" }
+            }
+          },
+          "else": {
+            "properties": {
+              "stage": { "not": { "const": "complete" } },
+              "errorCode": { "$ref": "#/$defs/stableCode" }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": { "stage": { "const": "post_import_verification" } },
+            "required": ["stage"]
+          },
+          "then": {
+            "properties": {
+              "recoveryAction": {
+                "const": "full_reset_then_reimport_last_verified_bundle"
+              }
+            }
+          },
+          "else": {
+            "if": {
+              "properties": { "outcome": { "const": "import_failed" } },
+              "required": ["outcome"]
+            },
+            "then": {
+              "properties": { "recoveryAction": { "const": "retry_same_bundle" } }
+            }
+          }
+        }
+      ]
+    },
+    "updatedAt": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "Z$"
+    }
+  },
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "stableCode": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+    "uuidV4": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+    "uuidV5": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-5[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+    "utcDateTime": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "Z$"
+    },
+    "stage": {
+      "enum": [
+        "bundle_read",
+        "bundle_validation",
+        "manifest_validation",
+        "credential_resolution",
+        "cli_import",
+        "post_import_verification",
+        "complete"
+      ]
+    }
+  }
+}
