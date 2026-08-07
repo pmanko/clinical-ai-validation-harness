@@ -2096,6 +2096,90 @@ last-verified projection still records `linux/unknown` (and some carry the old
 destructive T165 recovery demonstration; that gate requires a fresh conforming
 verified-A fixture.
 
+### M4 merge-topology closure (2026-08-07)
+
+Catalyst PR #8 (`feat: Superset-backed Dashboard Builder MVP`) and Hub PR #18
+(`feat: add Hub-owned Catalyst query profile`) are squash-merged. Catalyst
+`main` is `2f41928`, tree-identical to the validated branch tip except a
+Ruff-format-only whitespace fix (`4e40853`); Hub `main` is `1908061`,
+tree-identical to the validated `623ddb5`. Harness PR #47 repins
+`targets/catalyst` and `targets/med-agent-hub` from the mid-stream #46 pins
+(`85441ce` / `1fec9b4`) to those merged main tips, so the umbrella `main` pins
+leaf `main`s. PR #8 is merged and closed; remaining M4 work lands in fresh,
+individually scoped PRs rather than growing a single umbrella feature branch.
+
+### M4 scope disposition — GATE RESIZED (2026-08-07)
+
+Forty tasks remained open in `tasks.md`. This disposition resizes the M4
+acceptance gate the same way actual 200% browser zoom was resized on
+2026-08-06: every removal is explicit, attributed, and reversible, and no
+named proof silently drops.
+
+**Gating for the deployed acceptance (21 tasks).** The D1 hardening chain
+retains: importer state and operator recovery T163/T164/T165; immutable
+builder storage and routes T145/T146/T166/T167; the canonical execution
+envelope and typed parameter compiler T147/T168; deterministic Widget
+compatibility T169/T170; the deterministic native bundle T171/T148;
+publication projections T172/T173; the evidence chain T180/T181/T182; and the
+deployed acceptance runs T155/T156 closed by the final evidence gate T157.
+
+**Consolidated checkpoints (2 tasks).** The stand-alone D1b and D1c gate
+ceremonies T144 and T149 fold into the D1e gate instead of running as
+separate checkpoints. No named proof is dropped: T144's five-fixture import,
+same-digest idempotency, concurrent-lock behavior, scoped-failure
+preservation, reset/reimport recovery, read-only mutation denial, Python 3.10
+pinned-container smoke, canonical-JSON parity, secret-free artifacts, and
+image/driver digest recording transfer verbatim to T156/T157 evidence; T149's
+fixture round-trip, byte-identical rerun, layout-only child reuse, and
+zero-model/zero-database configuration proofs transfer verbatim to T157. The
+automated red suites those gates depend on (T163, T142, T145, T147, T169,
+T171, T172) remain individually gating and run in CI.
+
+**Deferred from the MVP gate (17 tasks).** These were already declared
+parallel, not selected, or polish in `tasks.md`; recording them here makes
+the M4 gate enumerable:
+
+- T021 dataset-browser state persistence — UX polish; no acceptance proof
+  depends on it.
+- T117–T122 multi-source/lossless onboarding — the G2.10 pathway; the
+  single-source deployed acceptance is unaffected.
+- T028–T034 User Story 2 query assistance — parallel pathway, not selected.
+- T036–T038 one-click session export — parallel pathway, not selected.
+
+Deferral closes nothing: all seventeen stay open in `tasks.md` under their
+existing phases and re-enter through their own gates (G2.10c, G4–G6) when
+selected.
+
+### D1e acceptance-run execution plan (2026-08-07)
+
+The deployed stack is CPU-backed; the 2026-08-06 live run measured roughly
+5m24s per real generation, and the one observed generation failure was caused
+by an interrupted Hub restart, not by the models. T155/T156 therefore run in
+one protected window with the stack frozen:
+
+- **Preflight (T182 integration).** `mvp-health.sh` green; Hub, router, and
+  Superset warm with no pending container restarts; evidence capture and
+  preflight schema validation wired before the first question. No deploys,
+  reseeds, or pin changes until the window closes.
+- **T155 budget.** Two real question turns (initial plus contextual
+  follow-up) with writer and reviewer legs are at least four model calls,
+  roughly 20–25 minutes of pure model time; manual edit/Format/Validate/Run,
+  two Dataset versions, two heterogeneous Widgets, Dashboard composition,
+  publish/import, the deterministic Superset URL, and PostgreSQL
+  reconciliation bring the segment to roughly 60–90 minutes.
+- **T156 budget.** Repetition, restart, reset/reimport, and
+  failure-injection scenarios are mostly non-model work; budget a further
+  60–120 minutes wall clock. The destructive verified-A / failed-desired-B
+  recovery demonstration requires the fresh conforming verified-A fixture
+  recorded in the T142/T143 checkpoint; no historical `linux/unknown`
+  projection may be reused.
+- **Interruption rule.** If infrastructure is disturbed mid-scenario
+  (restart, redeploy, manual container intervention), the affected scenario
+  restarts from its beginning; evidence is never patched across an
+  interruption.
+- **Total.** One protected window of about three hours, scheduled when
+  nothing else needs the demo host.
+
 ## W2 — Targeted remediation
 
 **Status:** Parallel pathway; planned, not selected
