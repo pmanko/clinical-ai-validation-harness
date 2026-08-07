@@ -45,7 +45,7 @@ FHIR-cache registry is part of this goal.
 | M1 — real profile/runtime foundation | M0 complete | Hub/Catalyst/harness pins contain one shared workflow-typed profile schema, no duplicate Gateway model configuration, no fake-router path, and external-only startup with exact alias checks. | Passed 2026-08-05 |
 | M2 — real query-workbench proof | M1 complete and models are available | Persistent isolated stack starts without seed; Gemma → Qwen generation, manual edit, Validate/Run, result inspection, and exact trace evidence pass. Pause before dashboard implementation resumes. | Accepted 2026-08-05 |
 | M3 — Dashboard MVP integration | M2 accepted | The preserved Workbench is recomposed into the binding 4c shell with one editor/composer, chronological turns, Dataset/Widget/Dashboard review and libraries, and publication controls; the real happy path imports into Superset and reconciles to PostgreSQL. | **Accepted 2026-08-06** — T150–T154 and T174–T179 are closed from focused automated/live evidence, durable visual artifacts, and explicit user acceptance. Actual 200% browser zoom was explicitly deferred to polish; 320/390/640-CSS-pixel reflow remains required. |
-| M4 — release acceptance | M3 complete and explicitly accepted by the user | Required repetition, nondeterminism, failure/recovery, keyboard/reflow/accessibility, evidence emission, CI, and video evidence pass; the user accepts the deployed workflow. | **In progress** — D1b runtime/lifecycle T139/T140/T160–T162 pass; T141 five-family fixture is next, followed by the remaining D1b → D1c → D1e tasks. |
+| M4 — release acceptance | M3 complete and explicitly accepted by the user | Required repetition, nondeterminism, failure/recovery, keyboard/reflow/accessibility, evidence emission, CI, and video evidence pass; the user accepts the deployed workflow. | **In progress** — D1b runtime/lifecycle T139/T140/T160–T162 and canonical five-family fixture T141 pass; importer/state T142/T163 are next, followed by the remaining D1b → D1c → D1e tasks. |
 
 ## Required D1 completion work
 
@@ -55,7 +55,8 @@ component/API/browser, durable visual, and user-acceptance evidence. Actual 200%
 browser zoom is deferred polish and is not an M4 gate; deterministic desktop and
 320/390/640-CSS-pixel reflow remains required. D1b runtime identity,
 permissions, mounts, secret-free evidence, and non-destructive restart now pass
-at T139/T140/T160–T162. The remaining D1 hardening—five-family clean-import coverage, complete reset/reimport recovery,
+at T139/T140/T160–T162, and the canonical five-family clean-import fixture passes
+at T141. The remaining D1 hardening—complete reset/reimport recovery,
 changed/layout-only child behavior, schema-backed evidence emission, repetition,
 CI, and release evidence—remains individually tracked in the still-open D1 tasks. No bridge
 task may close those tasks or substitute backend evidence for product UX.

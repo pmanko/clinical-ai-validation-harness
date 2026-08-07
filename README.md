@@ -161,10 +161,11 @@ Dashboard experience and native Superset import. M3 closed with focused D1d
 evidence and explicit user review on 2026-08-06; exhaustive recovery/evidence
 hardening is active M4 work. Actual 200% browser zoom is deferred polish rather
 than an MVP gate; desktop and 320/390/640-CSS-pixel reflow coverage remains.
-The first D1b runtime/lifecycle checkpoint (T139/T140/T160–T162) now passes with
+The D1b runtime/lifecycle checkpoint (T139/T140/T160–T162) now passes with
 the pinned Superset identity, DB-enforced read-only access, non-destructive
 volume restart, retained imported state, secret-free evidence, and synchronized
-tests. The canonical five-family clean-import fixture at T141 is next.
+tests. The deterministic seven-chart, five-family clean-import fixture at T141
+also passes; importer/state failure and recovery matrices T142/T163 are next.
 
 The P5 Catalyst report is published at
 [reports.openclinai.org/catalyst-t094-release](https://reports.openclinai.org/catalyst-t094-release/):

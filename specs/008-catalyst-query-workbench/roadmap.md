@@ -2023,12 +2023,11 @@ files remained host-owned mode `0600`. No seed, model call, or volume reset was
 used. Exact lifecycle evidence is in
 `evidence/m4-d1b-runtime-lifecycle-2026-08-06.json`.
 
-This closes T139/T140/T160/T161/T162. T141 is next: the repository still has no
-canonical `tests/fixtures/superset-6.1/` five-family clean-import fixture, so no
-fixture/import or broader D1b recovery claim is made. T142–T144/T163–T165 remain
-open. The default platform is deliberately the current Apple-silicon acceptance
-runtime; cross-architecture runs must provide and record an explicit
-`SUPERSET_PLATFORM` override.
+This closes T139/T140/T160/T161/T162. T141 subsequently closes from the canonical
+fixture checkpoint below; T142–T144/T163–T165 remain open. The default platform
+is deliberately the current Apple-silicon acceptance runtime;
+cross-architecture runs must provide and record an explicit `SUPERSET_PLATFORM`
+override.
 
 One manual invocation detail was exposed and retained: direct Compose without
 the umbrella runner's environment used target `.env` port 8088 and collided
@@ -2036,6 +2035,32 @@ with another local service. Repeating the same non-destructive restart with the
 supported isolated port 18088 succeeded. This is not state loss; local manual
 validation must use `scripts/catalyst-mvp.sh` (or reproduce its exported
 isolated ports) rather than bypassing the umbrella boundary.
+
+### M4 D1b canonical Superset fixture — T141 PASSED (2026-08-06)
+
+The checked-in deterministic Superset 6.1 fixture now covers table, KPI,
+time-series line/area, grouped/stacked bar, and proportion bar with two governed
+virtual Datasets, seven native charts, one Dashboard, and the fixture-owned
+read-only analytics Database asset. Tests lock exact saved SQL, `viz_type` and
+`params`, internal `MAX` renderer metrics, root wrapping, member order,
+per-member/final digests, and byte-for-byte regeneration.
+
+The pinned image clean-imported the fixture into a newly created empty temporary
+metadata database. Superset persisted exact counts `1 dashboard | 7 charts | 2
+datasets | 1 database`, ignored the extra Catalyst JSON manifest, and retained
+the expected stable UUIDs/read-only flags. Independent execution through
+`catalyst_readonly` returned `1152|10|on` for the aggregate row count, detailed
+Dataset row count, and transaction read-only setting. The temporary database
+was removed; the manual-test instance remained healthy with its original seven
+Dashboards. Exact evidence is in
+`evidence/m4-d1b-superset-fixture-2026-08-06.json`.
+
+One deterministic inconsistency is now explicit for D1c: current product
+publication writes `catalyst/manifest.json` last, while the approved ZIP
+contract and canonical fixture sort every relative member lexicographically.
+The fixture keeps the approved order; T148/T149 must align the serializer rather
+than weakening the golden test. T142/T163 importer-state red matrices are the
+next D1b slice.
 
 ## W2 — Targeted remediation
 

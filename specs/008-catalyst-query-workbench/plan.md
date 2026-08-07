@@ -993,16 +993,18 @@ The following items must remain visible until evidence resolves them:
   matrix remains at T141/T144. Runtime configuration still does not create the
   persisted Superset Database asset.
 - **N65 — Native asset schema, chart parameters, and extra-member tolerance
-  (partly resolved; complete at D1b/T141/T144)**: Superset YAML and chart
+  (fixture resolved at D1b/T141; release repetition remains at T144)**: Superset YAML and chart
   `params` are release-coupled. The saved Dataset SQL owns the report table and
   any aggregation; Catalyst exposes no second aggregation choice. Superset's
   required native metric object is an exporter detail derived from the result
   schema, with all available categorical dimensions retained as grouping
-  columns. A live table-plus-time-series bundle now imports and returns all 962
-  PostgreSQL rows without collapse, but the canonical 6.1.0 clean-import matrix
-  must still prove the whole archive, its persisted analytics Database asset/
-  URI contract, and every supported visualization family. Preserve one fixture
-  for each family and stop on drift.
+  columns. The canonical root-wrapped fixture now clean-imports into an empty
+  Superset 6.1 metadata database with one read-only Database, two saved-SQL
+  Datasets, seven charts, and one Dashboard covering every supported family;
+  the extra Catalyst JSON member is ignored as intended. Its deterministic
+  generator, exact member/final digests, and byte regeneration are checked in.
+  T144 still repeats this through the full importer/recovery gate and stops on
+  pinned-schema drift.
 - **N66 — Outbox, lock, and receipt ownership across host/container UIDs (open;
   resolve at D1b/T142–T144/T163–T165)**: Superset/importer must read the outbox without
   mutating it while the importer alone writes locks and atomic receipts. The
