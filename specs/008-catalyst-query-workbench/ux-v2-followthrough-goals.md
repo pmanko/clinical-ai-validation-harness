@@ -121,6 +121,15 @@ replaced, not translated.
 
 ---
 
+## Found while building the baseline — not yet fixed
+
+**The refine composer renders on the Widgets and Dashboards screens.** It was
+exposed by a screenshot diff: `Refine [3]` and the jump arrow appear on a
+library page, and the composer's scroll-adaptive height changes those pages'
+document height between runs. Composing a follow-up query has no meaning in a
+library, so it should not be mounted there. Small, and worth doing before the
+token migration repaints those screens.
+
 ## Goal 3 — Build the repair turn ("Fix query")
 
 The one advertised feature with nothing behind it.
