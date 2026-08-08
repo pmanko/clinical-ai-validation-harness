@@ -269,10 +269,11 @@ the accepted D1a gate and reusable T183–T186 foundation, the active product-fi
 sequence is D1d → user acceptance → D1b/D1c/D1e hardening.
 
 The 2026-08-07 M4 scope disposition in `roadmap.md` enumerates the gate: 21
-tasks remain gating for the deployed acceptance, the T144/T149 checkpoint
-ceremonies consolidate into T156/T157 with every named proof transferred, and
-T021, T117–T122, T028–T034, and T036–T038 are explicitly outside the M4
-acceptance gate while remaining open in their own phases.
+tasks remain gating for the deployed acceptance; the standalone T144 (D1b) and
+T149 (D1c) checkpoint ceremonies consolidate into D1e, with T144 proofs
+transferring to T156/T157 and T149 proofs transferring to T157; and T021,
+T117–T122, T028–T034, and T036–T038 are explicitly outside the M4 acceptance gate
+while remaining open in their own phases.
 
 - [X] T137 [US7] Verify both feature branches descend from current `main`, correct merged PR #43 and D1 status, and record the exact ancestry evidence in `specs/008-catalyst-query-workbench/roadmap.md` and `specs/artifacts/planning/catalyst-product-roadmap-status.md`
 - [X] T158 [US7] Reconcile the accepted Ask behavior, Dataset/Widget/Dashboard entities, bounded-result semantics, same-source-and-catalog rule, stable Superset slug, and live Save-v1-before-follow-up sequence across `specs/008-catalyst-query-workbench/spec.md`, `plan.md`, `data-model.md`, `quickstart.md`, and `checklists/requirements.md`
