@@ -47,15 +47,41 @@ Per file: `WorkbenchRail.css` 80 · `TurnNotebook.css` 75 · `styles.css` 67 ·
 2. **`#e8f0fe` is not a Carbon color.** It is a Material/Google blue tint. A
    non-Carbon value leaked in and must be replaced, not translated.
 
-### One item recon did not resolve — settle it first
+### The base theme — SETTLED 2026-08-08
 
-`src/carbon.scss` is bare `@use "@carbon/react"`, which emits Carbon's **default
-(White)** theme, while §10 mandates **Gray 10**. If that is what is happening, we
-are on the wrong base theme, and it would independently explain the flatness:
-under White, `background` and `layer-01` are both `#ffffff`, collapsing the exact
-depth cue Gray 10 gives for free. **This is unverified** — the check is one grep
-of the emitted `--cds-background` value. It is the first task of Checkpoint 1
-because it can change the size of Checkpoints 2 and 3.
+Recon left this open and guessed the mechanism was a bare `@use "@carbon/react"`
+in `src/carbon.scss` falling back to Carbon's default. That guess was wrong in
+mechanism and right in effect. The actual cause is one line:
+
+```tsx
+// src/App.tsx:14
+<Theme theme="white">
+```
+
+**We are on White, deliberately and explicitly, while §10 mandates Gray 10.**
+
+Two consequences the rest of this document depends on:
+
+1. **The flatness has a named cause.** Under White, `--cds-background: #fff`
+   and `--cds-layer-01: #f4f4f4`. Under Gray 10 they swap — `#f4f4f4` page,
+   `#fff` layer — which is exactly the page-versus-card depth cue the UI is
+   missing and currently fakes with grey hairlines. Correcting it is a
+   one-word change, and it is why CP-4 (the layer model) is mostly free once
+   CP-3 lands rather than a redesign.
+2. **Token migration cannot precede it.** The colour tokens are emitted *only*
+   under `.cds--white` / `.cds--g10` / `.cds--g90` / `.cds--g100` class
+   selectors — `:root` carries the grid, layout and `--cds-layer` alias tokens
+   but no palette. So `var(--cds-background)` resolves only inside a `<Theme>`
+   subtree. Migrating literals to tokens without confirming that every styled
+   node sits under the theme wrapper would silently produce unstyled regions.
+   CP-3 must assert the wrapper's coverage before substituting anything.
+
+Dark mode is the same knob: `g90` / `g100` are already in the bundle, so CP-7
+is a theme-value swap plus a persisted preference, not new CSS.
+
+The change itself is **not** made here. It shifts every surface at once, so it
+belongs behind CP-1's baseline harness where the diff can be reviewed rather
+than merged on faith.
 
 ## Library currency (audited 2026-08-08)
 
