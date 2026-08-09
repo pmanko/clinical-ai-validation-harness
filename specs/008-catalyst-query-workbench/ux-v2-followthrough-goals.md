@@ -165,6 +165,73 @@ the result; a failed generation states why, keeps the instruction, and moves
 to the cell carrying the failure; and a turn that produced no version is
 ordered by when it happened.
 
+## Goal 2c — Make it look like something, in both themes *(requested 2026-08-08)*
+
+"It's so grey and bleh." It is, and the research says that is not a taste
+problem — it is four capabilities Carbon ships that we do not spend. All four
+are theme-aware, so light and dark both improve from the same work, and none
+of them is a redesign.
+
+Measured against the built bundle on 2026-08-08.
+
+### 1. The type scale is entirely unused — the biggest lever
+
+| Carbon type tokens referenced in our CSS | **0** |
+| Hand-rolled `font-size: Xrem` declarations | **134** |
+
+Carbon's type scale is not just sizes: each step pairs a size with a
+line-height, weight and letter-spacing that were designed together. 134
+independent guesses is why the page reads as undifferentiated grey text —
+nothing establishes hierarchy, so everything has the same visual weight.
+Adopting `--cds-heading-*` / `--cds-body-*` / `--cds-label-*` is mechanical,
+exactly like CP-3, and measurable the same way.
+
+### 2. Depth is flat — one layer doing the work of three
+
+| `--cds-layer-01` uses | **29** |
+| `--cds-layer-02` / `-03` uses | **0** |
+
+CP-4 separated the page from the cards. Inside a card nothing separates
+further: the dataset tile, the result table and the review panel all sit on
+the same white. Carbon's layer model exists for exactly this nesting, and
+`layer-02`/`layer-03` are already emitted in every theme.
+
+### 3. Carbon ships an AI visual language and we use none of it
+
+| `--cds-ai-*` tokens in the bundle | **21** |
+| Referenced by us | **0** |
+
+`ai-aura-start/end`, `ai-border-start/end`, `ai-popover-background`,
+`ai-drop-shadow`, `ai-inner-shadow`. This product's entire premise is that a
+model wrote the query — Carbon has a designed vocabulary for exactly that
+claim, and we render it as a flat purple tint. They are theme-aware out of the
+box: `ai-border-start` is `#a6c8ffa3` in Gray 10 and `#a6c8ff5c` in Gray 100;
+`ai-popover-background` flips `#fff` to `#161616`.
+
+Highest impact per line changed, and the most on-brand: it makes
+model-authored content *look* model-authored instead of merely being labelled.
+
+### 4. IBM Plex is not actually shipped
+
+`src/carbon.scss` sets `$css--font-face: false`, and the built bundle contains
+**0 `@font-face` rules**. The CSS asks for `IBM Plex Sans` and the browser
+falls back to system-ui for anyone who does not happen to have Plex installed
+locally — which is most people, including every visitor to the demo host. It
+renders correctly on a developer Mac with Plex installed, which is why nobody
+noticed. Carbon's whole typographic identity rests on this font.
+
+`@ibm/plex` is not a declared dependency. Adding it, or flipping the flag, is
+the smallest change on this list with a visible effect on every screen.
+
+**Sequencing:** these belong with CP-7, not after it. Dark mode is a theme
+swap, and all four items above are theme-aware — doing them first means dark
+mode arrives already looking composed rather than needing a second pass. Item
+4 is independent and can land immediately.
+
+**Done when:** Carbon type tokens replace the hand-rolled sizes; nesting uses
+the layer model; model-authored content uses the AI tokens; Plex is served
+rather than assumed; and the full baseline is captured in **both** themes.
+
 ## Goal 3 — Build the repair turn ("Fix query")
 
 The one advertised feature with nothing behind it.
