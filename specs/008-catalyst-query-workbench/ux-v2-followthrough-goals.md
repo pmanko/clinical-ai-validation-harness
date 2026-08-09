@@ -121,14 +121,22 @@ replaced, not translated.
 
 ---
 
-## Found while building the baseline — not yet fixed
+## Retracted — a finding that was not one
 
-**The refine composer renders on the Widgets and Dashboards screens.** It was
-exposed by a screenshot diff: `Refine [3]` and the jump arrow appear on a
-library page, and the composer's scroll-adaptive height changes those pages'
-document height between runs. Composing a follow-up query has no meaning in a
-library, so it should not be mounted there. Small, and worth doing before the
-token migration repaints those screens.
+An earlier revision of this document claimed the refine composer renders on
+the Widgets and Dashboards screens, read off a screenshot diff showing
+`Refine [3]` on a library page. **That was wrong.** The notebook and its
+composer sit inside `<section hidden={activeSection !== "ask"}>`
+(`QueryWorkspace.tsx` 1519–1747) and are absent from every library screen —
+confirmed by driving the app: the composer is not in the DOM on Datasets,
+Widgets or Dashboards.
+
+What the diff actually showed was the overlay artifact of a *mis-captured*
+baseline: three library screenshots were racing each other on a shared dev
+server, so one recorded a neighbour's screen. Fixing that race was the real
+correction; the composer was never the problem. Recorded here rather than
+deleted, because a wrong finding that quietly disappears is worse than one
+that is struck out.
 
 ## Goal 3 — Build the repair turn ("Fix query")
 
