@@ -138,6 +138,33 @@ correction; the composer was never the problem. Recorded here rather than
 deleted, because a wrong finding that quietly disappears is worse than one
 that is struck out.
 
+## Goal 2b — Generation has to show its work *(reported 2026-08-08)*
+
+Raised from use, and diagnosed against the live gateway on session
+`8169f441`. Three defects, one story.
+
+1. **No pending state.** Asking for the next query shows nothing where the
+   answer will appear. The only feedback is the submit button's label, inside
+   a composer that may be scrolled away. A cell should appear at the foot of
+   the thread the moment generation starts, in a generating state, and become
+   the answer in place.
+2. **A failed generation is silent.** `createWorkbenchTurn` returning a turn
+   with `status: "failed"` is treated as success: no error is surfaced, the
+   instruction box is cleared, and nothing moves. The observed failure was
+   `reviewer_output_contract_failed` — "query review was not valid JSON" —
+   and the user saw nothing at all.
+3. **A failed turn lands mid-thread.** `threadCells` orders by the selected
+   version's ordinal; a failed turn has no version, so it inherits
+   `previous + 0.5` and sorts *before* every later hand-edited run. On the
+   observed session the new turn was filed as cell [2] of 5. Turns and
+   versions both carry `createdAt`, which is the honest shared clock and
+   handles a turn that produced no version.
+
+**Done when:** a generating cell appears at the end of the thread and becomes
+the result; a failed generation states why, keeps the instruction, and moves
+to the cell carrying the failure; and a turn that produced no version is
+ordered by when it happened.
+
 ## Goal 3 — Build the repair turn ("Fix query")
 
 The one advertised feature with nothing behind it.
