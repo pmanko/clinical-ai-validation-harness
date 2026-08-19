@@ -79,6 +79,40 @@ echo "==> apply curated analytics SQL"
 psql_hiv <"${SRC_DIR}/sql/001_analytics_hiv_v1.sql" >/dev/null
 psql_hiv <"${SRC_DIR}/sql/002_analytics_hiv_comments_v1.sql" >/dev/null
 
+echo "==> verify curated views hold exactly one row per resource"
+# The base *_flat tables are lossless cross products by design, so their row
+# counts exceed their entity counts and that is fine. The curated views are the
+# query surface, and each promises one row per resource in its COMMENT ON VIEW.
+# Nothing checked that promise, which is how a fan-out reached a result: a join
+# that multiplies rows still returns a plausible number.
+#
+# Iterated as a list rather than `while read` from a heredoc, because psql_hiv
+# runs `docker exec -i` and would eat the loop's stdin after the first view.
+grain_failures=0
+for grain in \
+  hiv_observation_fact_v1:observation_id \
+  hiv_visit_fact_v1:encounter_id \
+  hiv_medication_request_fact_v1:medication_request_id \
+  hiv_patient_dim_v1:patient_id
+do
+  view="${grain%%:*}"
+  key="${grain##*:}"
+  counts="$(psql_hiv -tAc \
+    "SELECT count(*)||' '||count(DISTINCT ${key}) FROM analytics.${view}")"
+  rows="${counts%% *}"
+  distinct="${counts##* }"
+  if [ "${rows}" != "${distinct}" ]; then
+    echo "ERROR: analytics.${view} has ${rows} rows for ${distinct} distinct ${key}." >&2
+    grain_failures=$((grain_failures + 1))
+  else
+    echo "    ${view}: ${rows} rows, one per ${key}"
+  fi
+done
+if [ "${grain_failures}" -ne 0 ]; then
+  echo "A curated view lost its one-row-per-resource grain; a join is fanning out." >&2
+  exit 1
+fi
+
 echo "==> register pipeline run (freshness contract)"
 counts="$(psql_hiv -tAc "SELECT json_build_object(
   'Patient', (SELECT COUNT(DISTINCT id) FROM public.patient_flat),
