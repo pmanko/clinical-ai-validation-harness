@@ -7,7 +7,8 @@
   "approvedViews": [
     { "name": "analytics.hiv_observation_fact_v1", "version": "2" },
     { "name": "analytics.hiv_visit_fact_v1", "version": "2" },
-    { "name": "analytics.hiv_concept_mapping_v1", "version": "1" }
+    { "name": "analytics.hiv_concept_mapping_v1", "version": "1" },
+    { "name": "analytics.hiv_medication_request_fact_v1", "version": "1" }
   ],
   "unitColumns": {
     "analytics.hiv_observation_fact_v1.value_numeric": "value_unit"
@@ -17,7 +18,10 @@
     "analytics.hiv_observation_fact_v1.patient_id",
     "analytics.hiv_visit_fact_v1.encounter_id",
     "analytics.hiv_visit_fact_v1.patient_id",
-    "analytics.hiv_concept_mapping_v1.observation_count"
+    "analytics.hiv_concept_mapping_v1.observation_count",
+    "analytics.hiv_medication_request_fact_v1.medication_request_id",
+    "analytics.hiv_medication_request_fact_v1.patient_id",
+    "analytics.hiv_medication_request_fact_v1.medication_name"
   ],
   "semanticDimensions": {
     "analytics.hiv_observation_fact_v1": [

@@ -67,6 +67,7 @@ FROM analytics.pipeline_run_v1;
 -- views built on them); superseded by the default-table layering above.
 DROP VIEW IF EXISTS analytics.hiv_observation_fact_v1;
 DROP VIEW IF EXISTS analytics.hiv_visit_fact_v1;
+DROP VIEW IF EXISTS analytics.hiv_medication_request_fact_v1;
 DROP VIEW IF EXISTS analytics.hiv_patient_dim_v1;
 DROP VIEW IF EXISTS analytics.hiv_concept_mapping_v1;
 DROP TABLE IF EXISTS public.observation_flat_v1;
@@ -246,6 +247,57 @@ GROUP BY 1, 2, 3, 4, 5;
 
 COMMENT ON VIEW analytics.hiv_concept_mapping_v1 IS
     'Terminology-mapping coverage observed in the data: one row per distinct (concept, OpenMRS/CIEL/SNOMED/WHO-ANC code) combination with the number of observations carrying it. Null in a code column means that observation batch carried no coding from that system.';
+
+-- Medication requests, one row per FHIR MedicationRequest.
+CREATE VIEW analytics.hiv_medication_request_fact_v1 AS
+WITH per_medication AS (
+    -- medication_flat is one row per (Medication x code.coding), so the same id
+    -- arrives several times carrying different codes. Collapse to one row per
+    -- resource before joining, or every request multiplies by its codings.
+    SELECT
+        m.id AS med_id,
+        MAX(m.code_display) AS medication_name,
+        MAX(m.code_code) AS medication_code,
+        MAX(m.code_sys) AS medication_code_system
+    FROM public.medication_flat AS m
+    GROUP BY m.id
+),
+per_request AS (
+    SELECT
+        r.id AS medication_request_id,
+        MAX(r.patient_id) AS patient_id,
+        MAX(r.encounter_id) AS encounter_id,
+        MAX(r.status) AS request_status,
+        MAX(r.intent) AS request_intent,
+        -- medication[x] is a FHIR choice type and this source populates the
+        -- reference arm, so med_display is the name that is actually here;
+        -- medication.ofType(CodeableConcept) is empty in every row.
+        MAX(r.med_id) AS med_id,
+        MAX(r.med_display) AS medication_display,
+        BOOL_OR(COALESCE(r.donotperform, FALSE)) AS do_not_perform
+    FROM public.medication_request_flat AS r
+    GROUP BY r.id
+)
+SELECT
+    f.medication_request_id,
+    f.patient_id,
+    p.gender AS patient_gender,
+    p.birth_date AS patient_birth_date,
+    f.encounter_id,
+    f.request_status,
+    f.request_intent,
+    f.do_not_perform,
+    COALESCE(f.medication_display, m.medication_name) AS medication_name,
+    m.medication_code,
+    m.medication_code_system
+FROM per_request AS f
+JOIN analytics.hiv_patient_dim_v1 AS p
+    ON p.patient_id = f.patient_id
+LEFT JOIN per_medication AS m
+    ON m.med_id = f.med_id;
+
+COMMENT ON VIEW analytics.hiv_medication_request_fact_v1 IS
+    'Demo-only HIV medication request fact at exactly one row per FHIR MedicationRequest (collapsing the medication/statusReason coding cross product on the base table, and de-duplicating medication_flat before the join so a drug with several codings cannot multiply the request). Requests whose subject does not resolve to an ingested Patient are excluded by the patient join. MedicationRequest carries no date in this export, so there is no time window here; join hiv_visit_fact_v1 on encounter_id when a date is needed. medication_name comes from the reference display carried on the request itself.';
 
 GRANT USAGE ON SCHEMA analytics TO catalyst_readonly;
 GRANT SELECT ON ALL TABLES IN SCHEMA analytics TO catalyst_readonly;

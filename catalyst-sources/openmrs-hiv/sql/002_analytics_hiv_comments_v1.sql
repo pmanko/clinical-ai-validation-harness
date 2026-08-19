@@ -75,3 +75,26 @@ COMMENT ON COLUMN analytics.hiv_concept_mapping_v1.who_anc_code IS
     'WHO ANC custom code mapped to this concept, when present.';
 COMMENT ON COLUMN analytics.hiv_concept_mapping_v1.observation_count IS
     'Number of observations carrying exactly this mapping combination.';
+
+COMMENT ON COLUMN analytics.hiv_medication_request_fact_v1.medication_request_id IS
+    'FHIR MedicationRequest resource identifier and stable row identity.';
+COMMENT ON COLUMN analytics.hiv_medication_request_fact_v1.patient_id IS
+    'FHIR Patient resource identifier the medication was requested for.';
+COMMENT ON COLUMN analytics.hiv_medication_request_fact_v1.patient_gender IS
+    'FHIR Patient.gender of the requested-for patient.';
+COMMENT ON COLUMN analytics.hiv_medication_request_fact_v1.patient_birth_date IS
+    'FHIR Patient.birthDate. MedicationRequest carries no date here, so age at request cannot be derived from this view alone.';
+COMMENT ON COLUMN analytics.hiv_medication_request_fact_v1.encounter_id IS
+    'FHIR Encounter the request was recorded within. Join hiv_visit_fact_v1 on this to get a date.';
+COMMENT ON COLUMN analytics.hiv_medication_request_fact_v1.request_status IS
+    'FHIR MedicationRequest.status, for example active, completed or stopped.';
+COMMENT ON COLUMN analytics.hiv_medication_request_fact_v1.request_intent IS
+    'FHIR MedicationRequest.intent, for example order or plan.';
+COMMENT ON COLUMN analytics.hiv_medication_request_fact_v1.do_not_perform IS
+    'True when the request records that the medication should NOT be taken. Exclude these when counting prescriptions.';
+COMMENT ON COLUMN analytics.hiv_medication_request_fact_v1.medication_name IS
+    'Drug name. Group by this to count requests by medication; it is populated for every row.';
+COMMENT ON COLUMN analytics.hiv_medication_request_fact_v1.medication_code IS
+    'Code for the drug from the referenced Medication resource. Null when the request references no Medication.';
+COMMENT ON COLUMN analytics.hiv_medication_request_fact_v1.medication_code_system IS
+    'Coding system the medication_code belongs to.';

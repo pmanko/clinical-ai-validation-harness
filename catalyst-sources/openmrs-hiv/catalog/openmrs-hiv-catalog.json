@@ -348,6 +348,80 @@
           "description": "Number of observations carrying exactly this mapping combination."
         }
       ]
+    },
+    {
+      "name": "analytics.hiv_medication_request_fact_v1",
+      "version": "1",
+      "approved": true,
+      "grain": "Demo-only HIV medication request fact at exactly one row per FHIR MedicationRequest (collapsing the medication/statusReason coding cross product on the base table, and de-duplicating medication_flat before the join so a drug with several codings cannot multiply the request). Requests whose subject does not resolve to an ingested Patient are excluded by the patient join. MedicationRequest carries no date in this export, so there is no time window here; join hiv_visit_fact_v1 on encounter_id when a date is needed. medication_name comes from the reference display carried on the request itself.",
+      "columns": [
+        {
+          "name": "medication_request_id",
+          "logicalType": "string",
+          "nullable": false,
+          "description": "FHIR MedicationRequest resource identifier and stable row identity."
+        },
+        {
+          "name": "patient_id",
+          "logicalType": "string",
+          "nullable": false,
+          "description": "FHIR Patient resource identifier the medication was requested for."
+        },
+        {
+          "name": "patient_gender",
+          "logicalType": "string",
+          "nullable": true,
+          "description": "FHIR Patient.gender of the requested-for patient."
+        },
+        {
+          "name": "patient_birth_date",
+          "logicalType": "date",
+          "nullable": true,
+          "description": "FHIR Patient.birthDate. MedicationRequest carries no date here, so age at request cannot be derived from this view alone."
+        },
+        {
+          "name": "encounter_id",
+          "logicalType": "string",
+          "nullable": true,
+          "description": "FHIR Encounter the request was recorded within. Join hiv_visit_fact_v1 on this to get a date."
+        },
+        {
+          "name": "request_status",
+          "logicalType": "string",
+          "nullable": true,
+          "description": "FHIR MedicationRequest.status, for example active, completed or stopped."
+        },
+        {
+          "name": "request_intent",
+          "logicalType": "string",
+          "nullable": true,
+          "description": "FHIR MedicationRequest.intent, for example order or plan."
+        },
+        {
+          "name": "do_not_perform",
+          "logicalType": "boolean",
+          "nullable": true,
+          "description": "True when the request records that the medication should NOT be taken. Exclude these when counting prescriptions."
+        },
+        {
+          "name": "medication_name",
+          "logicalType": "string",
+          "nullable": false,
+          "description": "Drug name. Group by this to count requests by medication; it is populated for every row."
+        },
+        {
+          "name": "medication_code",
+          "logicalType": "string",
+          "nullable": true,
+          "description": "Code for the drug from the referenced Medication resource. Null when the request references no Medication."
+        },
+        {
+          "name": "medication_code_system",
+          "logicalType": "string",
+          "nullable": true,
+          "description": "Coding system the medication_code belongs to."
+        }
+      ]
     }
   ],
   "datasetBrowser": {
