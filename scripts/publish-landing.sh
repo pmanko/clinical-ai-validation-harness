@@ -39,9 +39,10 @@ gcp_ssh "mkdir -p ${GCP_REMOTE_REPO}/landing ${GCP_REMOTE_REPO}/compose"
 
 SSH_TRANSPORT="ssh -i ${GCP_SSH_KEY} -o StrictHostKeyChecking=accept-new"
 echo "==> syncing tested landing files only"
-# -L: dereference symlinks (landing/media/*.mp4 symlinks into site/public/demos/videos/
-# to avoid committing duplicate binaries; the deployed landing/ must still get real files).
-rsync -avzL --delete -e "${SSH_TRANSPORT}" \
+# No -L: the recordings are no longer symlinked into this tree at all. They are
+# served by the Catalyst demo host, and landing/index.html links to them there,
+# so landing/ carries only text and the small hand-made poster images.
+rsync -avz --delete -e "${SSH_TRANSPORT}" \
   "${ROOT}/landing/" \
   "${GCP_SSH_USER}@${IP}:${GCP_REMOTE_REPO}/landing/"
 CONFIG_CHANGES="$(rsync -az --itemize-changes -e "${SSH_TRANSPORT}" \
@@ -69,11 +70,13 @@ curl -fsS --retry 8 --retry-delay 2 --max-time 20 "https://${SITE}/" \
   | grep -q '>Catalyst</a>'
 curl -fsS --retry 8 --retry-delay 2 --max-time 20 "https://${SITE}/media/openmrs-evidence-poster.png" \
   -o /dev/null
-curl -fsS --retry 8 --retry-delay 2 --max-time 20 "https://${SITE}/media/openmrs-e4b-staged-demo.mp4" \
-  -o /dev/null
-curl -fsS --retry 8 --retry-delay 2 --max-time 20 "https://${SITE}/media/catalyst-openelis-demo.mp4" \
-  -o /dev/null
-curl -fsS --retry 8 --retry-delay 2 --max-time 20 "https://${SITE}/media/catalyst-openmrs-hiv-demo.mp4" \
-  -o /dev/null
+# The recordings live on the Catalyst demo host now, so verify them there —
+# a publish that leaves the page pointing at a missing video is still broken,
+# and this is the check that catches it.
+for clip in openmrs-e4b-staged-demo.mp4 openmrs-12b-multiturn-demo.mp4 \
+            openelis-lab-demo.mp4 openmrs-hiv-demo.mp4; do
+  curl -fsS --retry 8 --retry-delay 2 --max-time 30 \
+    "https://catalyst.openelis-global.org/media/${clip}" -o /dev/null
+done
 
 echo "==> published: https://${SITE}/"

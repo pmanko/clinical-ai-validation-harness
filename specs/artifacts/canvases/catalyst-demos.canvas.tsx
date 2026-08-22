@@ -17,11 +17,12 @@ import {
   Text,
 } from 'cursor/canvas';
 
-// Bundled with the site build (site/public/demos/videos/), not a separate
-// host — these are small (~350-475 KB), so there is no reason to split them
-// off onto the reports.openclinai.org evidence archive, which exists for a
-// different purpose (growing, append-only validation-run output).
-const VIDEO_BASE = `${import.meta.env.BASE_URL}demos/videos`;
+// Served by the Catalyst demo host, not bundled with the site build. Size was
+// never the reason to split these off — permanence was: a recording re-cut on
+// every UI change is a new binary, and git keeps every one of them forever.
+// The host serves them from a directory the deploy writes, so the repository
+// stays text.
+const VIDEO_BASE = 'https://catalyst.openelis-global.org/media';
 
 type DemoClip = {
   id: string;

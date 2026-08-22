@@ -1,7 +1,10 @@
 # Demo-video recording framework
 
-How the published Catalyst demo videos (`landing/media/*.mp4`,
-`site/public/demos/videos/*.mp4`) are produced, and how to make a new one.
+How the published Catalyst demo videos are produced, and how to make a new one.
+The cuts are **not committed**: they are served by the demo host at
+`https://catalyst.openelis-global.org/media/<name>`, and the pages link there.
+A recording re-cut on every UI change is a new binary, and git keeps every one
+forever — `tests/test_no_committed_media.py` enforces that.
 This is the reusable framework the "proper video recording" work asked for —
 a raw Playwright capture is never published directly; it is always passed
 through `scripts/render_demo_video.py` with an authored timeline that adds
@@ -60,10 +63,21 @@ turns it into a publishable mp4 deterministically.
    and point `FFMPEG_BIN` at `$(brew --prefix ffmpeg-full)/bin/ffmpeg`. CI/other
    machines may have a fuller stock `ffmpeg`; `render_demo_video.py` defaults
    to plain `ffmpeg` if `FFMPEG_BIN` is unset.
-5. **Publish** — copy the rendered mp4 + poster into `landing/media/` and
-   `site/public/demos/videos/`, update duration captions
-   (`landing/index.html` video-meta spans, `tests/test_landing_site.py`
-   pins), and run `./scripts/publish-landing.sh`.
+5. **Publish** — upload the rendered mp4 + poster to the demo host, then
+   update the page:
+
+   ```sh
+   scp -i ~/.ssh/aws-catalyst-demo/catalyst-demo-key.pem \
+     <cut>.mp4 <cut>-poster.jpg \
+     ubuntu@catalyst.openelis-global.org:~/catalyst-demo/targets/catalyst/runtime/media/
+   ```
+
+   **Give a new cut a new filename** — the media route sets a one-week
+   immutable `Cache-Control`, so overwriting a name leaves stale copies in
+   browser caches. Then update the duration captions (`landing/index.html`
+   video-meta spans, `tests/test_landing_site.py` pins) and the `<source>`/
+   `poster` URLs to the new names, and run `./scripts/publish-landing.sh` —
+   it verifies each clip on the media host before declaring success.
 
 ## Timeline JSON schema
 

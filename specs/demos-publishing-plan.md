@@ -3,7 +3,7 @@
 > **SUPERSEDED (2026-07-22).** The hosting recommendation below (videos on the
 > `reports.openclinai.org` host, page on the Pages site) was overruled when the
 > Catalyst demos shipped: demo videos are small enough to bundle directly into
-> the site build (`site/public/demos/videos/`, referenced via `BASE_URL`), so
+> the demo host (`https://catalyst.openelis-global.org/media/`), so
 > demos live entirely on ONE user-facing stack with no rsync/VM dependency —
 > see `specs/artifacts/canvases/catalyst-demos.canvas.tsx`. The ChartSearchAI
 > videos this plan curated should follow the same pattern when featured (cut
