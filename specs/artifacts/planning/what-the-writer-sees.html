@@ -173,7 +173,21 @@
   .guardrails ul { margin: 0; columns: 2; column-gap: 2.5rem; font-size: 0.9rem; }
   @media (max-width: 48rem) { .guardrails ul { columns: 1; } }
 
-  .mermaidwrap { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 1rem; margin: 0 0 1.25rem; }
+  /* ---- session loop (pure CSS) ---- */
+  .flowwrap { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 1.2rem 1.2rem 0.9rem; margin: 0 0 1.25rem; }
+  .flow { min-width: 56rem; }
+  .fpipe { display: grid; grid-template-columns: repeat(6, 1fr); column-gap: 1.5rem; align-items: stretch; }
+  .fnode { position: relative; display: flex; flex-direction: column; justify-content: center; background: var(--surface-2); border: 1px solid var(--line); border-radius: 6px; padding: 0.5rem 0.5rem; font-size: 0.8rem; font-weight: 600; text-align: center; line-height: 1.3; }
+  .fnode.actor { border-left: 3px solid var(--ink-3); }
+  .fnode.store { border: 1.5px solid var(--accent); background: var(--accent-soft); }
+  .fnode:not(:last-child)::after { content: "→"; position: absolute; right: -1.18rem; top: 50%; transform: translateY(-50%); color: var(--ink-3); font-weight: 450; }
+  .fsub { display: block; font-weight: 450; font-size: 0.66rem; color: var(--ink-3); line-height: 1.35; margin-top: 0.15rem; }
+  .frets { position: relative; height: 6rem; margin-top: 0.55rem; }
+  .fret { position: absolute; top: 0; border-left: 1.5px solid var(--ink-3); border-right: 1.5px solid var(--ink-3); border-bottom: 1.5px solid var(--ink-3); border-radius: 0 0 8px 8px; }
+  .fret::before { content: "▲"; position: absolute; top: -0.75rem; left: -0.36rem; font-size: 0.62rem; color: var(--ink-3); }
+  .fret .flabel { position: absolute; bottom: 0; left: 50%; transform: translate(-50%, 55%); background: var(--surface); padding: 0 0.5rem; font-size: 0.7rem; font-weight: 450; color: var(--ink-2); white-space: nowrap; }
+  .fret .flabel b { color: var(--accent); font-family: "IBM Plex Mono", monospace; font-weight: 500; font-size: 0.66rem; }
+  .fcap { font-size: 0.74rem; color: var(--ink-3); margin: 1.1rem 0 0; }
   .src { font-size: 0.85rem; color: var(--ink-2); columns: 2; column-gap: 3rem; }
   @media (max-width: 48rem) { .src { columns: 1; } }
   .src li { margin-bottom: 0.35rem; break-inside: avoid; }
@@ -380,19 +394,27 @@ plus one pin affordance.</p>
   </div>
 </div>
 
-<div class="mermaidwrap"><pre class="mermaid">
-flowchart LR
-  U[Person: instruction / pin] --> PB[(Session playbook<br/>guidance entries)]
-  PB --> REQ[Request assembly<br/>catalog + snapshot + history<br/>+ guidance + exemplars + last failure]
-  REQ --> W[Writer]
-  W --> L{Lint / repair}
-  L -- candidate --> T[Turn record<br/>versions · evidence · findings]
-  L -- exhausted --> T
-  T -- verified pair --> VQ[(Verified queries)]
-  VQ --> REQ
-  T -- lesson, one-click pin --> PB
-  T -- rendered cell --> U
-</pre></div>
+<div class="flowwrap">
+  <div class="flow">
+    <div class="fpipe">
+      <div class="fnode actor">Person<span class="fsub">instruction · pin · edit</span></div>
+      <div class="fnode store">Session playbook<span class="fsub">guidance entries</span></div>
+      <div class="fnode">Request assembly<span class="fsub">catalog · snapshot · history<br>+ guidance · exemplars · failure</span></div>
+      <div class="fnode">Writer<span class="fsub">ready | needs_clarification</span></div>
+      <div class="fnode">Lint / repair<span class="fsub">candidate or exhausted</span></div>
+      <div class="fnode">Turn record<span class="fsub">versions · evidence · findings</span></div>
+    </div>
+    <div class="frets">
+      <div class="fret" style="left:43%;   width:48.6%; height:1.0rem"><span class="flabel">verified pair → few-shot exemplars <b>CE4</b></span></div>
+      <div class="fret" style="left:40.4%; width:49.7%; height:2.25rem"><span class="flabel">failed attempt + findings → retry context <b>CE3</b></span></div>
+      <div class="fret" style="left:25%;   width:63.6%; height:3.5rem"><span class="flabel">lesson, one-click pin <b>CE2</b></span></div>
+      <div class="fret" style="left:8.3%;  width:78.8%; height:4.75rem"><span class="flabel">rendered cell · answer or question</span></div>
+    </div>
+  </div>
+  <p class="fcap">The session loop. Every box is a record type the workbench already keeps; the four returns are
+  the roadmap — what changes is that these records start flowing back into the next request instead of
+  stopping at the person.</p>
+</div>
 
 <h2><span class="no">04</span>The program — three phases, then the phase-1 workstreams</h2>
 <p class="lede">Agreed goals in order: <b>session playbook → conversation mode → dashboards, Superset
@@ -518,15 +540,3 @@ writer received. Benchmarks cited are on their own workloads; CE0 exists to re-m
 Canonical copy: <code>specs/artifacts/planning/what-the-writer-sees.html</code> in the harness repo · published view:
 claude.ai/code/artifact/e65204a5-7b0e-49fb-ac43-155f41c6cae2 — update the repo file, then republish to the same URL.</p>
 </main>
-
-<!-- Mermaid rendering outside the claude.ai artifact runtime (which renders
-     .mermaid natively and blocks this script via CSP): when the repo copy is
-     opened in a browser, load mermaid from CDN so the diagram still draws. -->
-<script type="module">
-  if (document.querySelector("pre.mermaid") && !window.__artifactRuntime) {
-    try {
-      const { default: mermaid } = await import("https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs");
-      mermaid.initialize({ startOnLoad: true, theme: matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "neutral" });
-    } catch { /* offline: the diagram degrades to readable mermaid source */ }
-  }
-</script>
