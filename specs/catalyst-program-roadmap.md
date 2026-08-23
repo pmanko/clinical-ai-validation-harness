@@ -5,8 +5,12 @@ committed work until the Phase 1 discussion lands; the point of this document
 is to make that discussion concrete.
 
 Companion artifact (field research, evidence, and the CE workstream detail):
-*What the Writer Sees* — claude.ai/code/artifact/e65204a5-7b0e-49fb-ac43-155f41c6cae2.
-This file is the source of truth; the artifact is the presentation.
+*What the Writer Sees* — versioned in-repo at
+`specs/artifacts/planning/what-the-writer-sees.html` (self-contained; opens in
+any browser), published at
+claude.ai/code/artifact/e65204a5-7b0e-49fb-ac43-155f41c6cae2. This file is the
+source of truth for decisions; the artifact is the presentation. To revise it:
+edit the repo file, republish to the same URL.
 
 ## Where this starts from (2026-08-23)
 

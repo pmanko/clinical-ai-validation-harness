@@ -2,6 +2,12 @@
 
 Durable planning and research artifacts that support the feature roadmap:
 
+- `planning/what-the-writer-sees.html`
+  - Self-contained context-engineering report for the Catalyst program (2026-08-23): recon of the
+    generation-context pipeline, field-convergence evidence (semantic grounding, ACE playbooks,
+    verified queries, correction-in-context), and the P1-P3 program view. Companion to
+    `specs/catalyst-program-roadmap.md`; published view at
+    claude.ai/code/artifact/e65204a5-7b0e-49fb-ac43-155f41c6cae2 (update file, republish same URL).
 - `planning/openmrs-dual-provider-parity-roadmap.md`
   - Approved canonical roadmap for preserving bundled ChartSearchAI and med-agent-hub behind one
     capability-driven OpenMRS interface. It supersedes the hub-only architecture roadmap.
