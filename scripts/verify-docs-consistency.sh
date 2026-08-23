@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+# Planning-document consistency guard.
+#
+# The program roadmap, the Feature 008 milestone contract, and the historical
+# remediation record each own different facts; this asserts the invariants
+# that keep them agreeing. Every check here encodes an acceptance criterion
+# from specs/artifacts/planning/catalyst-open-pr-remediation-roadmap-2026-08-23.md
+# (R4), so drift fails a pull request instead of waiting for the next audit.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+fail=0
+err() { echo "FAIL: $*" >&2; fail=1; }
+
+TASKS=specs/008-catalyst-query-workbench/tasks.md
+PROGRAM=specs/catalyst-program-roadmap.md
+INVARIANT='WS1–WS7 remediation is closed; Feature 008 D1e/M4 remains in progress and is scheduled as P3.'
+
+# 1. No workstation address or security-group rule id in tracked specs.
+if grep -rInE '[0-9]{1,3}(\.[0-9]{1,3}){3}/32|sgr-[0-9a-f]{8,}' specs/; then
+  err "concrete /32 address or sgr-* rule id in tracked specs"
+fi
+
+# 2. Task checkboxes use the uppercase marker.
+if grep -n '^- \[x\]' "$TASKS"; then
+  err "lowercase [x] task marker in $TASKS"
+fi
+
+# 3. Phase 10 carries exactly 17 literal unchecked entries
+#    (15 active gates + the two consolidated ceremonies T144/T149).
+unchecked=$(awk '/^## Phase 10/{f=1} f && /^- \[ \]/{c++} END{print c+0}' "$TASKS")
+[ "$unchecked" -eq 17 ] || err "Phase 10 unchecked entries: $unchecked (expected 17)"
+
+# 4. No live status source still names Dashboard Builder the selected next
+#    milestone; that sequencing now lives in the program roadmap.
+if grep -rIln 'elected next product milestone' README.md AGENTS.md "$PROGRAM" \
+    specs/008-catalyst-query-workbench/plan.md "$TASKS" 2>/dev/null; then
+  err "'selected next product milestone' still asserted by a live status source"
+fi
+
+# 5. The governing invariant sentence is present verbatim where it binds
+#    (whitespace-normalized so ordinary line wrapping is not a violation).
+for f in "$PROGRAM" specs/artifacts/planning/catalyst-open-pr-remediation-roadmap-2026-08-23.md; do
+  tr -s '[:space:]>' ' ' < "$f" | grep -qF "$INVARIANT" \
+    || err "invariant sentence missing from $f"
+done
+
+if [ "$fail" -ne 0 ]; then
+  exit 1
+fi
+echo "docs consistency: OK"

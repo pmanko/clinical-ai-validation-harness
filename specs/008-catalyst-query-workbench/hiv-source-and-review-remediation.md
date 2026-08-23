@@ -1,5 +1,8 @@
 # HIV source and review-stage remediation
 
+> **Historical/advisory document (dated 2026-08-19).** For current status and
+> sequencing see `specs/catalyst-program-roadmap.md`.
+
 Triage of one local turn on the `openmrs-hiv` source, 2026-08-18. Question asked:
 *"I want to know the number of medication requests prescribed to women, by medication type."*
 

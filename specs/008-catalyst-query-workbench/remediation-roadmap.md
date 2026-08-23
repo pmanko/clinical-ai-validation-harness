@@ -1,5 +1,10 @@
 # Catalyst remediation roadmap
 
+> **Historical record — WS1–WS7, closed 2026-08-23.** Kept as the evidence log
+> for Feature 008 remediation. Active planning:
+> `specs/catalyst-program-roadmap.md` and
+> `specs/artifacts/planning/catalyst-open-pr-remediation-roadmap-2026-08-23.md`.
+
 **This is the single tracking document for the remediation.** Earlier docs
 (`hiv-source-and-review-remediation.md`, `ux-v2-followthrough-goals.md`) are
 history; item status lives here. Last validated: 2026-08-22.
@@ -578,7 +583,7 @@ the branch where I first noticed it.
 (only 80/443) — consistent with the revoke-after-each-deploy practice recorded
 below. Per the owner's instruction that SSH access be protected by a
 public/private key pair, a rule scoped to a single workstation IP
-(`sgr-0567f0fe86ff966cb`, 69.196.67.179/32) was added and **left in place**;
+(scoped to a single workstation /32; rule id redacted) was added and **left in place**;
 the host was verified key-only first (`passwordauthentication no`,
 `kbdinteractiveauthentication no`). Say the word and it is revoked.
 
@@ -631,7 +636,7 @@ Two process notes, recorded because they cost real time:
   the site fine. Server-side verification now runs on the box.
 - The workstation IP rotated three times during the deploy, so the SSH rule was
   re-added and revoked more than once. Final state verified: port 22 allows only
-  50.35.107.148/32.
+  a single workstation /32 (address redacted).
 
 **Open observation, being A/B tested rather than assumed:** 2 of the 5 A2 runs
 failed at a *different* stage, `writer_validation` / `generation_failed` (the
@@ -733,7 +738,7 @@ deterministic e2e ×4 consecutive green; live probe on :13000 —
 saveEnabled true · savedToastShown true · followOnOffered true`.
 
 **Server (same bundle hash, catalyst.openelis-global.org):** identical probe,
-identical clean result. SSH rule sgr-0f432d9b6f77a98e0 added and revoked;
+identical clean result. SSH rule (id redacted) added and revoked;
 port-22 rules verified `[]` after. CI at 160aa61: gateway/MCP/assembly/agents
 green, UI in progress at log time.
 
@@ -808,7 +813,7 @@ on the box, `.env` intact, bundle parity `index-BVl-RKG0.js`), and the C2
 probe against https://catalyst.openelis-global.org came back identical to
 local: `versionReused true · authorStaysModel true · columnsKept true ·
 noVersionAppended true` (profile catalyst-query-gemma-4-12b, generation
-23.7s). SSH rule sgr-01da370067410b394 revoked; port-22 rules verified `[]`.
+23.7s). SSH rule (id redacted) revoked; port-22 rules verified `[]`.
 Both environments now run catalyst main @ 23070ec exactly. Umbrella repin
 PR #54 CI: green except `openmrs-integration-source` still running at log
 time. WS2.5 (a)+(b) — the QueryWorkspace hook split — starts next on the
@@ -847,7 +852,7 @@ by design.
 
 ### 2026-08-22 — WS2.5 closed: server at main 3ec27ad, parity exact
 
-User re-authed AWS. Rule sgr-0110ee7a3fcca3f78 added; both services rsynced
+User re-authed AWS. SSH rule (id redacted) added; both services rsynced
 from main @ `3ec27ad` (hooks/ present on box, `.env` symlink intact), rebuilt,
 healthy. **Bundle parity is byte-exact**: server and local both serve
 `index-TxgR6K0a.js`. Functional pass on the live server identical to every
@@ -888,7 +893,7 @@ no stale icon after a clean run; the model-context note appears exactly once,
 in the current cell's footer; a real edit shows "Provisional draft — differs
 from [1]" and the single ⚠ stale icon (tooltip carries the full sentence);
 running the edit yields the "Edited by hand" cell with diff line "+2 −1 vs
-[1]" and the provisional marker gone. SSH rule sgr-08a5082ba10f726f4 added and
+[1]" and the provisional marker gone. SSH rule (id redacted) added and
 revoked; port-22 rules verified `[]`.
 
 **Operational note for WS4's ledger:** the `aws login` token refresh flakes in
@@ -929,7 +934,7 @@ errors into fake zeros.
 
 **Both environments** rebuilt from `fc69ad1`, bundle parity byte-exact
 (`index-CruCPaOF.js`), gateway healthy, deployed code carries the extractor.
-SSH rule sgr-064741499152b2810 added and revoked; port-22 rules `[]`.
+SSH rule (id redacted) added and revoked; port-22 rules `[]`.
 
 **Finding for WS4:** the server advertises **no reviewer-capable profile** at
 all (`reviewerProfiles: []`; local has three), so the unreviewed marker

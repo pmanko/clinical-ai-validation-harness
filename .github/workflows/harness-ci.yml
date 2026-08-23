@@ -30,7 +30,11 @@ jobs:
             scripts/stack-down.sh \
             scripts/local-stack-up.sh \
             scripts/local-stack-down.sh \
-            scripts/verify-repository-lines.sh
+            scripts/verify-repository-lines.sh \
+            scripts/verify-docs-consistency.sh
+
+      - name: Verify planning-document consistency
+        run: scripts/verify-docs-consistency.sh
 
   openmrs-integration-source:
     runs-on: ubuntu-latest

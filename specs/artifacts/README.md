@@ -2,6 +2,10 @@
 
 Durable planning and research artifacts that support the feature roadmap:
 
+- `planning/catalyst-open-pr-remediation-roadmap-2026-08-23.md`
+  - Owner-gated remediation roadmap for the open harness pull-request queue (#49–#57):
+    locked decisions, per-PR acceptance criteria, serial merge order, and checkpoints A–I.
+    Governs the cleanup that precedes program P1.
 - `planning/what-the-writer-sees.html`
   - Self-contained context-engineering report for the Catalyst program (2026-08-23): recon of the
     generation-context pipeline, field-convergence evidence (semantic grounding, ACE playbooks,

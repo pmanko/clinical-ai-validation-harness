@@ -1,16 +1,26 @@
 # Catalyst program roadmap — playbook → conversation → dashboards
 
-Status: **proposal for planning discussion** (2026-08-23). Nothing below is
-committed work until the Phase 1 discussion lands; the point of this document
-is to make that discussion concrete.
+Status: **program goals and order approved by the owner on 2026-08-23**
+(P1 session playbook → P2 conversation mode → P3 dashboards, Superset end to
+end). What remains **pending** are the six Phase-1 scope/measurement decisions
+in the planning-discussion agenda below — the approved order alone does not
+authorize P1 implementation.
+
+WS1–WS7 remediation is closed; Feature 008 D1e/M4 remains in progress and is scheduled as P3.
+P3 inherits the unchanged D1e/M4 requirements, binding visual contract, and
+exit criteria — 15 active gates (T166, T147, T168, T169, T170, T171, T148, T172, T173, T180, T181, T182, T155, T156, T157) per
+`specs/008-catalyst-query-workbench/tasks.md`. Phase-start scoping may
+sequence that contract; it may not shrink it.
 
 Companion artifact (field research, evidence, and the CE workstream detail):
 *What the Writer Sees* — versioned in-repo at
 `specs/artifacts/planning/what-the-writer-sees.html` (self-contained; opens in
 any browser), published at
-claude.ai/code/artifact/e65204a5-7b0e-49fb-ac43-155f41c6cae2. This file is the
-source of truth for decisions; the artifact is the presentation. To revise it:
-edit the repo file, republish to the same URL.
+<https://claude.ai/code/artifact/e65204a5-7b0e-49fb-ac43-155f41c6cae2>. This
+file is the source of truth for decisions; the artifact is the presentation.
+To revise it: edit the repo file, republish to the same URL. Pull-request
+cleanup preceding P1 is governed by
+`specs/artifacts/planning/catalyst-open-pr-remediation-roadmap-2026-08-23.md`.
 
 ## Where this starts from (2026-08-23)
 
@@ -20,15 +30,14 @@ edit the repo file, republish to the same URL.
   unanswerable-looking turns ask instead of erroring, raw output is one click
   away. Both environments deploy from this main.
 - **Feature 008 remediation is closed** — WS1–WS7 done; log and completion
-  table in `008-catalyst-query-workbench/remediation-roadmap.md`.
+  table in `specs/008-catalyst-query-workbench/remediation-roadmap.md`.
 - **Recon finding that seeds Phase 1:** the writer's context is assembled in 71
   lines and the only thing that accumulates in a session is the instruction
   list. The turn-3 failure that motivated WS7 was *context scoping* — the
   writer's catalog held four views with no patient name anywhere, and its
   grammar forbids asking. Full recon in the artifact.
-- **Harness PRs open:** #49, #51, #52, #54, #55 await review (#50 is stacked on
-  #55). The catalyst submodule pin needs advancing to `655b796` (supersedes
-  part of #54).
+- **Harness PR queue:** dispositions, order, and acceptance for #49–#57 are
+  governed by the tracked PR-remediation roadmap (see above).
 
 ## The three goals, in order
 
@@ -92,9 +101,10 @@ deliberately not designed further here.
 ## Phase 3 — dashboard workflow, Superset end-to-end (sketch)
 
 Continues the existing dashboard-MVP direction (datasets → widgets →
-dashboards, Superset outbox/import). Definition of done above; scoping at
-phase start, informed by what P1/P2 change about how queries and datasets get
-produced.
+dashboards, Superset outbox/import). Definition of done above. P3 inherits the
+unchanged D1e/M4 contract and its 15 active gates; scoping at phase start
+sequences that inherited contract — informed by what P1/P2 change about how
+queries and datasets get produced — and does not reduce it.
 
 ## Standing operational notes
 

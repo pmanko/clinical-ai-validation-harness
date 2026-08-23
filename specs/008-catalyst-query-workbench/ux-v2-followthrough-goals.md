@@ -1,5 +1,8 @@
 # Catalyst workbench — UX v2 follow-through goals
 
+> **Historical/advisory document (dated 2026-08-08).** For current status and
+> sequencing see `specs/catalyst-program-roadmap.md`.
+
 Status: proposed · Written 2026-08-08 · Scope: `targets/catalyst`
 
 Priority order set by the user on 2026-08-08: **the UX/style revamp comes

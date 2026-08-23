@@ -138,7 +138,9 @@ Playwright notebook path preserves the corresponding focus and reflow boundary.
 The Hub-owned profile migration and exact-pin live gate have passed; Dashboard
 Builder implementation is now in M4 release hardening.
 
-The selected next product milestone is the Superset-backed Dashboard Builder:
+The Superset-backed Dashboard Builder is scheduled as program phase P3
+(order approved 2026-08-23 in `specs/catalyst-program-roadmap.md`; its D1e/M4
+contract is unchanged):
 promote governed executions through immutable Dataset, Widget, and multi-widget
 Dashboard drafts, then publish a deterministic native ZIP to a shared local
 outbox for import by pinned Superset 6.1.0. Catalyst owns the iterative desired

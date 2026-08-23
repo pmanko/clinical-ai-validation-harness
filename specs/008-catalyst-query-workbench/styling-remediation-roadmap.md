@@ -1,5 +1,8 @@
 # Catalyst workbench styling remediation and revamp
 
+> **Historical/advisory document (dated 2026-08-22).** For current status and
+> sequencing see `specs/catalyst-program-roadmap.md`.
+
 Status: proposed · Recon date: 2026-08-08 · Scope: `targets/catalyst/catalyst-ui`
 
 ## Why this is remediation, not redesign

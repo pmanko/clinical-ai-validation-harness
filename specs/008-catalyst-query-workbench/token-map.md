@@ -1,5 +1,8 @@
 # Catalyst workbench token map
 
+> **Historical/advisory document (dated 2026-08-22).** For current status and
+> sequencing see `specs/catalyst-program-roadmap.md`.
+
 Checkpoint 2 of `styling-remediation-roadmap.md` · Produced 2026-08-08 ·
 No code changes — this is the decision record CP-3 executes.
 
