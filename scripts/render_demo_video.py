@@ -39,39 +39,76 @@ def build_filtergraph(timeline: dict, tmp_dir: "Path | None" = None) -> str:
         import tempfile
 
         tmp_dir = Path(tempfile.mkdtemp())
+    # Resolved by fontconfig, so a family name rather than a path: the same
+    # timeline renders on a laptop and in CI without carrying a font binary.
+    font = timeline.get("font", "Helvetica Neue")
     filters = []
     labels = []
     for i, segment in enumerate(timeline["segments"]):
         label = f"s{i}"
         if segment["type"] == "card":
             h = timeline["height"]
+            w = timeline["width"]
+            duration = segment["duration"]
             chain = (
-                f"color=c=0x24133F:size={timeline['width']}x{h}"
-                f":rate={timeline.get('fps', 25)}:duration={segment['duration']}"
+                f"color=c=0x24133F:size={w}x{h}"
+                f":rate={timeline.get('fps', 25)}:duration={duration}"
             )
             if segment.get("kicker"):
                 kicker_path = Path(tmp_dir) / f"{label}-kicker.txt"
                 kicker_path.write_text(segment["kicker"], encoding="utf-8")
                 chain += (
-                    f",drawtext=textfile={drawtext_escape(str(kicker_path))}"
-                    f":fontcolor=0xF2C75C:fontsize={int(h * 0.032)}"
-                    f":x=(w-text_w)/2:y=(h/2)-{int(h * 0.11)}"
+                    f",drawtext=font='{font}'"
+                    f":textfile={drawtext_escape(str(kicker_path))}"
+                    f":fontcolor=0xF2C75C:fontsize={int(h * 0.028)}"
+                    f":x=(w-text_w)/2:y=(h/2)-{int(h * 0.13)}"
+                )
+                # A short gold rule under the kicker. Centred text alone reads
+                # as a slide someone typed; the rule is what makes the card
+                # look composed rather than defaulted.
+                # `iw`, not `w`: inside drawbox `w` is the box's own width, so
+                # x=(w-rule_w)/2 evaluates to zero and pins the rule to the
+                # left edge instead of centring it.
+                rule_w = int(w * 0.075)
+                chain += (
+                    f",drawbox=x=(iw-{rule_w})/2:y={int(h * 0.5 - h * 0.072)}"
+                    f":w={rule_w}:h=3:color=0xF2C75C@0.9:t=fill"
                 )
             heading_path = Path(tmp_dir) / f"{label}-heading.txt"
             heading_path.write_text(segment["heading"], encoding="utf-8")
             chain += (
-                f",drawtext=textfile={drawtext_escape(str(heading_path))}"
-                f":fontcolor=white:fontsize={int(h * 0.055)}"
+                f",drawtext=font='{font}'"
+                f":textfile={drawtext_escape(str(heading_path))}"
+                f":fontcolor=white:fontsize={int(h * 0.058)}"
                 f":x=(w-text_w)/2:y=(h-text_h)/2"
             )
             for j, line in enumerate(segment.get("lines", ())):
                 line_path = Path(tmp_dir) / f"{label}-line{j}.txt"
                 line_path.write_text(line, encoding="utf-8")
                 chain += (
-                    f",drawtext=textfile={drawtext_escape(str(line_path))}"
-                    f":fontcolor=0xCFC6E0:fontsize={int(h * 0.032)}"
-                    f":x=(w-text_w)/2:y=(h/2)+{int(h * (0.1 + j * 0.06))}"
+                    f",drawtext=font='{font}'"
+                    f":textfile={drawtext_escape(str(line_path))}"
+                    f":fontcolor=0xCFC6E0:fontsize={int(h * 0.030)}"
+                    f":x=(w-text_w)/2:y=(h/2)+{int(h * (0.1 + j * 0.055))}"
                 )
+            # These mp4s get shared on their own, not only embedded in the
+            # page they were made for, so each card carries where it came from.
+            footer = timeline.get("footer")
+            if footer:
+                footer_path = Path(tmp_dir) / f"{label}-footer.txt"
+                footer_path.write_text(footer, encoding="utf-8")
+                chain += (
+                    f",drawtext=font='{font}'"
+                    f":textfile={drawtext_escape(str(footer_path))}"
+                    f":fontcolor=0xCFC6E0@0.55:fontsize={int(h * 0.024)}"
+                    f":x=(w-text_w)/2:y=h-text_h-{int(h * 0.06)}"
+                )
+            # Fade the card in and out so sections arrive instead of blinking.
+            fade = min(0.4, duration / 4)
+            chain += (
+                f",fade=t=in:st=0:d={fade:.2f}"
+                f",fade=t=out:st={duration - fade:.2f}:d={fade:.2f}"
+            )
         else:
             w, h = timeline["width"], timeline["height"]
             chain = f"[0:v]trim=start={segment['start']}:end={segment['end']}"
@@ -86,9 +123,15 @@ def build_filtergraph(timeline: dict, tmp_dir: "Path | None" = None) -> str:
             if segment.get("caption"):
                 caption_path = Path(tmp_dir) / f"{label}-caption.txt"
                 caption_path.write_text(segment["caption"], encoding="utf-8")
+                # boxborderw matters more than it sounds: without padding the
+                # box is drawn tight to the glyphs and reads as a bug rather
+                # than a lower third.
                 chain += (
-                    f",drawtext=textfile={drawtext_escape(str(caption_path))}"
-                    f":fontcolor=white:box=1:boxcolor=0x24133F:x=36:y=h-text_h-36"
+                    f",drawtext=font='{font}'"
+                    f":textfile={drawtext_escape(str(caption_path))}"
+                    f":fontcolor=white:fontsize={int(h * 0.030)}"
+                    f":box=1:boxcolor=0x24133F@0.92:boxborderw={int(h * 0.022)}"
+                    f":x={int(w * 0.035)}:y=h-text_h-{int(h * 0.075)}"
                 )
         filters.append(f"{chain}[{label}]")
         labels.append(f"[{label}]")
@@ -150,8 +193,9 @@ def main(argv: "list[str] | None" = None) -> None:
     if args.poster:
         subprocess.run(
             [
-                "ffmpeg", "-y", "-ss", str(args.poster_time), "-i", args.output,
-                "-vframes", "1", "-q:v", "3", args.poster,
+                os.environ.get("FFMPEG_BIN", "ffmpeg"),
+                "-y", "-ss", str(args.poster_time), "-i", args.output,
+                "-vframes", "1", "-q:v", "2", args.poster,
             ],
             check=True,
         )

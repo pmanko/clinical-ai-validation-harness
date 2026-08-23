@@ -99,6 +99,32 @@ def test_filtergraph_trims_speeds_concatenates_and_burns_text(tmp_path):
     assert "boxcolor=0x24133F" in graph
 
 
+def test_card_rule_is_centred_on_the_frame_not_on_itself():
+    """Inside drawbox, `w` is the box's own width, not the frame's.
+
+    Centring with x=(w-rule)/2 therefore evaluates to zero and pins the rule
+    to the left edge -- which still renders, still encodes, and still ships,
+    looking broken. Only an eye on the frame or this assertion catches it.
+    """
+    graph = rdv.build_filtergraph(minimal_timeline())
+    rule = next(part for part in graph.split(",") if part.startswith("drawbox="))
+    assert "x=(iw-" in rule, f"rule is not centred on the frame: {rule}"
+
+
+def test_card_fades_in_and_out_so_sections_do_not_blink():
+    graph = rdv.build_filtergraph(minimal_timeline())
+    assert "fade=t=in:st=0:d=0.40" in graph
+    # A 2.0s card with a 0.40s fade starts fading out at 1.60s.
+    assert "fade=t=out:st=1.60:d=0.40" in graph
+
+
+def test_caption_box_is_padded_away_from_its_text():
+    """Without boxborderw the box is drawn tight against the glyphs."""
+    graph = rdv.build_filtergraph(minimal_timeline())
+    assert "boxborderw=" in graph
+    assert "boxborderw=0" not in graph
+
+
 def test_clip_hold_freezes_the_final_frame_for_extra_seconds():
     timeline = minimal_timeline()
     timeline["segments"][1]["hold"] = 2.5
