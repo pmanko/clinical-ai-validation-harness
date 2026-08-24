@@ -17,6 +17,7 @@ import pytest
 
 from harness.catalyst.notebook_validation import (
     writer_outcome,
+    repetition_pair_is_unstable,
     HttpExchange,
     NotebookHttpClient,
     NotebookQuery,
@@ -134,12 +135,31 @@ class _WorkbenchState:
         self.followup_turn: dict[str, Any] | None = None
         self.followup_turns: list[dict[str, Any]] = []
         self.turn_requests: list[dict[str, Any]] = []
+        self.turn_status_sequence: list[str] | None = None
+        self.session_id = "session-1"
+        self.session_ids: list[str] = []
         self.requests: list[tuple[str, str]] = []
+
+    def reset(self) -> None:
+        """A new session starts a repetition from the same clean state.
+
+        Each repetition gets its own session id, which is what the runner's
+        new_session_isolation assertion is there to catch.
+        """
+        self.session_id = f"session-{len(self.session_ids) + 1}"
+        self.session_ids.append(self.session_id)
+        self.versions = [
+            _version("version-1", "SELECT patient_id FROM analytics.lab_result_fact_v1")
+        ]
+        self.current = self.versions[0]
+        self.executions = []
+        self.followup_turn = None
+        self.followup_turns = []
 
     def session(self) -> dict[str, Any]:
         return {
             "contractVersion": "catalyst.workbench.session.v1",
-            "sessionId": "session-1",
+            "sessionId": self.session_id,
             "question": "Show patient identifiers.",
             "profileId": PROFILE_ID,
             "datasetId": "pipeline-1",
@@ -161,7 +181,7 @@ class _WorkbenchState:
     def initial_turn(self) -> dict[str, Any]:
         return {
             "contractVersion": "catalyst.workbench.turn.v1",
-            "sessionId": "session-1",
+            "sessionId": self.session_id,
             "turnId": "turn-initial",
             "ordinal": 1,
             "kind": "initial",
@@ -172,7 +192,7 @@ class _WorkbenchState:
         turns = [self.initial_turn(), *self.followup_turns]
         return {
             "contractVersion": "catalyst.workbench.turn.timeline.v1",
-            "sessionId": "session-1",
+            "sessionId": self.session_id,
             "currentTurnId": turns[-1]["turnId"],
             "currentVersion": {
                 "versionId": self.current["versionId"],
@@ -235,9 +255,9 @@ def _handler(state: _WorkbenchState):
                         "catalogVersion": "analytics-catalog-v1+schema.1234567890abcdef",
                     },
                 )
-            elif self.path == "/v1/catalyst/workbench/sessions/session-1":
+            elif self.path == f"/v1/catalyst/workbench/sessions/{state.session_id}":
                 self._send(200, state.session())
-            elif self.path == "/v1/catalyst/workbench/sessions/session-1/turns":
+            elif self.path == f"/v1/catalyst/workbench/sessions/{state.session_id}/turns":
                 self._send(200, state.timeline())
             elif self.path.endswith("turn-initial/generation-evidence"):
                 self._send(200, _evidence("turn-initial", "Show patient identifiers."))
@@ -254,8 +274,9 @@ def _handler(state: _WorkbenchState):
             state.requests.append(("POST", self.path))
             body = self._body()
             if self.path == "/v1/catalyst/workbench/sessions":
+                state.reset()
                 self._send(201, state.session())
-            elif self.path == "/v1/catalyst/workbench/sessions/session-1/versions":
+            elif self.path == f"/v1/catalyst/workbench/sessions/{state.session_id}/versions":
                 version = _version(
                     "version-2", body["sql"], parent=state.current["versionId"]
                 )
@@ -300,7 +321,7 @@ def _handler(state: _WorkbenchState):
                 }
                 state.executions.append(execution)
                 self._send(200, execution)
-            elif self.path == "/v1/catalyst/workbench/sessions/session-1/turns":
+            elif self.path == f"/v1/catalyst/workbench/sessions/{state.session_id}/turns":
                 state.turn_requests.append(body)
                 ordinal = len(state.followup_turns) + 1
                 suffix = "" if ordinal == 1 else f"-{ordinal}"
@@ -315,11 +336,18 @@ def _handler(state: _WorkbenchState):
                 state.current = successor
                 state.followup_turn = {
                     "contractVersion": "catalyst.workbench.turn.v1",
-                    "sessionId": "session-1",
+                    "sessionId": state.session_id,
                     "turnId": f"turn-followup{suffix}",
                     "ordinal": 1 + ordinal,
                     "kind": "followup",
-                    "status": "completed",
+                    "status": (
+                        state.turn_status_sequence[
+                            max(len(state.session_ids) - 1, 0)
+                            % len(state.turn_status_sequence)
+                        ]
+                        if state.turn_status_sequence
+                        else "completed"
+                    ),
                     "snapshotClassification": "reused",
                     "manualVersion": None,
                     "profileSnapshot": {"profileId": PROFILE_ID},
@@ -1706,7 +1734,9 @@ def test_manual_scenario_requires_an_operator_checkpoint(tmp_path: Path) -> None
         thread.join(timeout=5)
         server.server_close()
 
-    assert checkpoints == [("unchanged", "session-1")]
+    # The second run opens its own session, so assert the pairing rather than
+    # a fixed id: the checkpoint sees the scenario and the live session.
+    assert checkpoints == [("unchanged", state.session_ids[-1])]
     # The mock completes the turn, so the expected-failed scenario records the
     # failed-turn preservation check and does not pass.
     results = json.loads((result.run_dir / "results.json").read_text())
@@ -2461,3 +2491,137 @@ def test_three_turn_scenario_runs_every_turn_against_the_current_query(
     written = {path.name for path in repetition_dir.iterdir()}
     assert "08-create-followup.json" in written
     assert "08-create-followup-t2.json" in written
+
+
+# --- adaptive repetitions --------------------------------------------------
+#
+# Every profile/scenario pair starts at three repetitions and extends to five
+# when those three disagree: mixed verdicts, mixed writer outcomes, or a
+# database answer that matched on one run and not another. A pair whose three
+# runs agree is already settled and is not re-run.
+
+
+def _rep(passed: bool, outcomes: list[str], *, answer: bool | None = None) -> dict:
+    row: dict[str, Any] = {
+        "status": "completed",
+        "passed": passed,
+        "turns": [{"observedOutcome": outcome} for outcome in outcomes],
+        "assertions": [],
+    }
+    if answer is not None:
+        row["assertions"] = [
+            {"name": "successor_gold_execution_match", "passed": answer, "evidence": {}}
+        ]
+    return row
+
+
+def test_agreeing_repetitions_are_settled() -> None:
+    runs = [_rep(True, ["ready"], answer=True) for _ in range(3)]
+    assert repetition_pair_is_unstable(runs) is False
+
+
+def test_mixed_verdicts_extend_the_pair() -> None:
+    runs = [
+        _rep(True, ["ready"]),
+        _rep(False, ["ready"]),
+        _rep(True, ["ready"]),
+    ]
+    assert repetition_pair_is_unstable(runs) is True
+
+
+def test_mixed_writer_outcomes_extend_the_pair() -> None:
+    """Same verdict, different answer kind — the pair has not settled."""
+    runs = [
+        _rep(True, ["ready"]),
+        _rep(True, ["needs_clarification"]),
+        _rep(True, ["ready"]),
+    ]
+    assert repetition_pair_is_unstable(runs) is True
+
+
+def test_a_database_answer_that_only_sometimes_matches_extends_the_pair() -> None:
+    runs = [
+        _rep(True, ["ready"], answer=True),
+        _rep(True, ["ready"], answer=False),
+        _rep(True, ["ready"], answer=True),
+    ]
+    assert repetition_pair_is_unstable(runs) is True
+
+
+def test_a_single_repetition_cannot_disagree_with_itself() -> None:
+    assert repetition_pair_is_unstable([_rep(True, ["ready"])]) is False
+
+
+def test_skipped_repetitions_are_not_evidence_of_instability() -> None:
+    runs = [
+        _rep(True, ["ready"]),
+        {"status": "skipped", "reason": "manual-only"},
+        _rep(True, ["ready"]),
+    ]
+    assert repetition_pair_is_unstable(runs) is False
+
+
+def _adaptive_suite(**scenario_overrides: Any) -> dict[str, Any]:
+    return {
+        "id": "notebook-adaptive-v1",
+        "datasetId": "catalyst-cohort-v1",
+        "datasetVersion": "1",
+        "catalogVersion": "analytics-catalog-v1",
+        "providerName": "llama.cpp",
+        "repetitions": 3,
+        "extendedRepetitions": 5,
+        "profiles": {
+            PROFILE_ID: {
+                "writerModelId": "gemma-4-12b",
+                "reviewerModelId": "qwen2.5-14b",
+            }
+        },
+        "scenarios": [
+            {
+                "id": "adaptive",
+                "family": "narrowing",
+                "initialQuestion": "Show patient identifiers.",
+                "initialProfileId": PROFILE_ID,
+                "followupInstruction": "Return only distinct patients.",
+                "followupProfileId": PROFILE_ID,
+                "expectedBaseClassification": "reused",
+                **scenario_overrides,
+            }
+        ],
+    }
+
+
+def _run_against_fake(tmp_path: Path, suite: dict[str, Any], state) -> Any:
+    suite_path = tmp_path / "suite.json"
+    suite_path.write_text(json.dumps(suite), encoding="utf-8")
+    server = ThreadingHTTPServer(("127.0.0.1", 0), _handler(state))
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        return run_notebook_suite(
+            suite_path=suite_path,
+            client=NotebookHttpClient(f"http://127.0.0.1:{server.server_port}"),
+            output_dir=tmp_path / "artifacts",
+            project_root=ROOT,
+            provenance_loader=lambda _: [],
+        )
+    finally:
+        server.shutdown()
+        thread.join(timeout=5)
+        server.server_close()
+
+
+def test_a_settled_pair_stops_at_three_repetitions(tmp_path: Path) -> None:
+    state = _WorkbenchState()
+    result = _run_against_fake(tmp_path, _adaptive_suite(), state)
+
+    assert result.result_count == 3
+
+
+def test_an_unstable_pair_is_extended_to_five_repetitions(tmp_path: Path) -> None:
+    """Repetition 2 disagrees with 1 and 3, so the pair has not settled."""
+    state = _WorkbenchState()
+    state.turn_status_sequence = ["completed", "failed", "completed"]
+    result = _run_against_fake(tmp_path, _adaptive_suite(), state)
+
+    assert result.result_count == 5

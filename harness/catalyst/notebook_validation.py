@@ -208,6 +208,7 @@ class NotebookSuite:
     catalog_version: str
     provider_name: str
     repetitions: int
+    extended_repetitions: int | None
     profiles: dict[str, dict[str, str | None]]
     scenarios: tuple[NotebookScenario, ...]
 
@@ -811,6 +812,12 @@ def load_notebook_suite(path: Path | str) -> NotebookSuite:
     repetitions = int(payload["repetitions"])
     if repetitions < 1:
         raise ValueError("Notebook suite repetitions must be at least one")
+    extended_value = payload.get("extendedRepetitions")
+    extended = int(extended_value) if extended_value is not None else None
+    if extended is not None and extended < repetitions:
+        raise ValueError(
+            "Notebook suite extendedRepetitions must not be below repetitions"
+        )
     scenarios: list[NotebookScenario] = []
     seen: set[str] = set()
     for item in payload["scenarios"]:
@@ -890,6 +897,7 @@ def load_notebook_suite(path: Path | str) -> NotebookSuite:
         catalog_version=str(payload["catalogVersion"]),
         provider_name=str(payload["providerName"]),
         repetitions=repetitions,
+        extended_repetitions=extended,
         profiles=profiles,
         scenarios=tuple(scenarios),
     )
@@ -973,6 +981,36 @@ def _first_failed_assertion(assertions: list[dict[str, Any]]) -> str | None:
         if not item.get("passed"):
             return f"{item['name']}: {item.get('evidence')!r}"
     return None
+
+
+def repetition_pair_is_unstable(runs: list[dict[str, Any]]) -> bool:
+    """Whether a profile/scenario pair's repetitions disagree with each other.
+
+    Three agreeing runs settle a pair. Three that disagree — on the verdict,
+    on which answer the writer gave, or on whether the database check matched
+    — have not measured anything yet, so the pair earns two more runs.
+    """
+    scored = [run for run in runs if run.get("status") != "skipped"]
+    if len(scored) < 2:
+        return False
+
+    def answer_matches(run: dict[str, Any]) -> bool | None:
+        for assertion in run.get("assertions") or []:
+            if str(assertion.get("name", "")).endswith("gold_execution_match"):
+                return bool(assertion.get("passed"))
+        return None
+
+    signatures = {
+        (
+            bool(run.get("passed")),
+            tuple(
+                str(turn.get("observedOutcome")) for turn in run.get("turns") or []
+            ),
+            answer_matches(run),
+        )
+        for run in scored
+    }
+    return len(signatures) > 1
 
 
 def _effective_repetitions(
@@ -1128,7 +1166,17 @@ def run_notebook_suite(
             )
             continue
         repeat_count = _effective_repetitions(suite, scenario, repetitions)
-        for repetition in range(1, repeat_count + 1):
+        # A pair that disagrees with itself has measured nothing, so it earns
+        # the extension; one that agrees is settled and is not re-run.
+        ceiling = (
+            repeat_count
+            if repetitions is not None or suite.extended_repetitions is None
+            else max(repeat_count, suite.extended_repetitions)
+        )
+        scenario_runs: list[dict[str, Any]] = []
+        repetition = 0
+        while repetition < repeat_count:
+            repetition += 1
             prefix = f"scenarios/{scenario.id}/repetition-{repetition:02d}"
             started_at = datetime.now(timezone.utc).isoformat()
             result = _run_scenario(
@@ -1155,6 +1203,7 @@ def run_notebook_suite(
             )
             result["passed"] = all(item["passed"] for item in result["assertions"])
             results.append(result)
+            scenario_runs.append(result)
             ended_at = datetime.now(timezone.utc).isoformat()
 
             http_status = _normalized_http_status(run_dir, prefix)
@@ -1210,6 +1259,12 @@ def run_notebook_suite(
                     "passed": result["passed"],
                 },
             )
+            if (
+                repetition == repeat_count
+                and repeat_count < ceiling
+                and repetition_pair_is_unstable(scenario_runs)
+            ):
+                repeat_count = ceiling
 
     passed_count = sum(result.get("passed") is True for result in results)
     result_count = sum(result.get("status") != "skipped" for result in results)
