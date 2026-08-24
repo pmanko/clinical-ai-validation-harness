@@ -4257,3 +4257,73 @@ def test_the_split_puts_judgment_on_one_side_and_the_contract_on_the_other():
     # An unknown check fails loud rather than passing as mere data.
     assert assertion_class("brand_new_check") == "conformance"
     assert assertion_class("brand_new_check", strict=True) is None
+
+
+def test_the_dashboard_feed_carries_the_words_of_the_conversation(
+    tmp_path: Path,
+) -> None:
+    """A refusal or a clarifying question IS the model's answer.
+
+    The feed row is what the live dashboard renders, so when the writer
+    declines it has to carry the sentence the writer wrote -- otherwise the
+    cell shows a status where a conversation happened.
+    """
+    suite = {
+        "id": "notebook-unsupported-v1",
+        "datasetId": "catalyst-cohort-v1",
+        "datasetVersion": "1",
+        "catalogVersion": "analytics-catalog-v1",
+        "providerName": "llama.cpp",
+        "repetitions": 1,
+        "profiles": {
+            PROFILE_ID: {
+                "writerModelId": "gemma-4-12b",
+                "reviewerModelId": "qwen2.5-14b",
+            }
+        },
+        "scenarios": [
+            {
+                "id": "no-address",
+                "family": "unsupported",
+                "initialQuestion": "Show each patient's home address.",
+                "initialProfileId": PROFILE_ID,
+                "expectedBaseClassification": "reused",
+                "expectedBaseOutcome": "unsupported",
+                "validateBase": False,
+                "executeBase": False,
+                "turns": [],
+            }
+        ],
+    }
+    suite_path = tmp_path / "suite.json"
+    suite_path.write_text(json.dumps(suite), encoding="utf-8")
+    state = _WorkbenchState()
+    state.base_outcome = "unsupported"
+    server = ThreadingHTTPServer(("127.0.0.1", 0), _handler(state))
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        result = run_notebook_suite(
+            suite_path=suite_path,
+            client=NotebookHttpClient(f"http://127.0.0.1:{server.server_port}"),
+            output_dir=tmp_path / "artifacts",
+            project_root=ROOT,
+            provenance_loader=lambda _: [],
+        )
+    finally:
+        server.shutdown()
+        thread.join(timeout=5)
+        server.server_close()
+
+    feed = [
+        json.loads(line)
+        for line in (result.run_dir / "results.jsonl")
+        .read_text(encoding="utf-8")
+        .splitlines()
+        if line.strip()
+    ]
+    response = feed[0]["response"]
+    assert response["baseAnswerText"] == "The data records no home address."
+    assert response["baseOutcome"] == "unsupported"
+    # Every failed check reaching the dashboard says which kind it is.
+    assert all("class" in item for item in response["failedAssertions"])

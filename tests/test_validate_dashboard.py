@@ -225,34 +225,103 @@ def test_a_failure_is_reduced_to_one_blamed_root_cause(tmp_path: Path):
     assert unknown["disposition"] == "unvetted"
 
 
-def test_gold_verdicts_recorded_before_sentences_still_get_one(tmp_path: Path):
-    """Legacy structured gold evidence — including the runner's JSON-string
-    compaction — summarizes to one sentence; anything unparseable falls
-    through to raw display (None)."""
+def _conformance_run(tmp_path: Path):
+    """Four cells: a clean pass, a judged failure, a contract failure, and a
+    judged failure recorded before the runner stamped classes."""
+    run = tmp_path / "run"
+    run.mkdir()
+    cells = [{"scenario_id": s, "backend_id": "team-a", "turns": 1}
+             for s in ("A1", "A2", "A3", "A4")]
+    (run / "events.jsonl").write_text(
+        json.dumps({"event_type": "run", "cells": cells,
+                    "scenario_ids": [c["scenario_id"] for c in cells],
+                    "backend_ids": ["team-a"]}) + "\n",
+        encoding="utf-8",
+    )
+    (run / "suite.json").write_text(json.dumps({"scenarios": []}), encoding="utf-8")
+
+    def row(sid, passed, failed):
+        return {
+            "scenario_id": sid, "backend_id": "team-a", "turn": 1,
+            "request": {"question": "q"},
+            "response": {"answer": "a", "failedAssertions": failed},
+            "metrics": {"http_status": 200, "passed": passed, "answer_chars": 1},
+        }
+
+    rows = [
+        row("A1", True, []),
+        # The model refused where a query was due: an allowed path.
+        row("A2", False, [{"name": "base_writer_outcome",
+                           "class": "evaluation", "evidence": ""}]),
+        # The gateway failed to persist its own echo: unexpected behaviour.
+        row("A3", False, [{"name": "writer_model",
+                           "class": "conformance", "evidence": ""}]),
+        # Recorded before the stamp existed — classified by name.
+        row("A4", False, [{"name": "successor_gold_execution_match",
+                           "evidence": ""}]),
+    ]
+    (run / "results.jsonl").write_text(
+        "".join(json.dumps(r) + "\n" for r in rows), encoding="utf-8"
+    )
+    return run
+
+
+def test_only_unexpected_behaviour_turns_a_cell_red(tmp_path: Path):
+    """The grid answers one question: did the system behave as designed?
+
+    A refused query, a rejected revision, a wrong answer — all allowed
+    paths, all green. Red is reserved for the contract breaking. How good
+    the answers were is the report's job.
+    """
     vd = _load_dashboard_module()
-    say = vd._sentence_for_gold
+    run = _conformance_run(tmp_path)
+    vd._RUN_OVERRIDE = str(run)
+    try:
+        status = vd.status()
+    finally:
+        vd._RUN_OVERRIDE = None
 
-    # A verdict that already carries a sentence passes through verbatim.
-    assert say({"disagreement": "already said"}) == "already said"
+    by = {g["scenario"]: g["state"] for g in status["grid"]}
+    assert by["A1"] == "done"
+    assert by["A2"] == "done", "a judged failure is a result, not breakage"
+    assert by["A3"] == "err"
+    assert by["A4"] == "done", "legacy rows classify by name"
 
-    # Count mode, honest and capped.
-    assert say({"modelRowCount": 4, "referenceRowCount": 6}) == (
-        "the answer returned 4 rows; the independent reference returns 6"
+    # The judged tally is reported as a number, never as cell colour.
+    assert status["conformant"] == 3
+    assert status["unexpected"] == 1
+    assert status["judged_passed"] == 1
+    assert status["judged_scored"] == 4
+
+
+def test_the_frozen_snapshot_can_open_every_cell_it_lets_you_click(
+    tmp_path: Path,
+):
+    """A published snapshot is the only interactive surface a reader gets.
+
+    The grid makes every non-pending cell clickable, so the freeze has to
+    embed detail for exactly those; anything narrower ships a page whose
+    cells open empty.
+    """
+    vd = _load_dashboard_module()
+    run = _conformance_run(tmp_path)
+    out = tmp_path / "dashboard.html"
+    vd._RUN_OVERRIDE = str(run)
+    try:
+        status = vd.status()
+        vd.freeze(str(out))
+    finally:
+        vd._RUN_OVERRIDE = None
+
+    page = out.read_text(encoding="utf-8")
+    embedded = json.loads(
+        page.split("window.__DETAIL__=", 1)[1].split(";\n", 1)[0]
     )
-    assert say(json.dumps({"modelRowCount": 500, "referenceRowCount": 6,
-                           "modelRowsExceededCap": True})) == (
-        "the answer returned over 500 rows; the independent reference returns 6"
-    )
-
-    # Aggregate mode names each kind of group-level disagreement present.
-    assert say({"modelRowCount": 10, "referenceRowCount": 10,
-                "extraKeys": ["a", "b"], "missingKeys": ["c"],
-                "valueMismatches": {"d": [1, 2]}}) == (
-        "the answer has 2 groups the reference does not have; "
-        "1 reference groups missing; counts disagree on 1 groups"
-    )
-
-    # Not a verdict: fall through to raw display.
-    assert say("{clipped json") is None
-    assert say(["not", "a", "dict"]) is None
-    assert say({"somethingElse": 1}) is None
+    clickable = {
+        f"{g['scenario']}|{g['backend']}"
+        for g in status["grid"]
+        if g["state"] != "pending"
+    }
+    assert clickable, "fixture should have clickable cells"
+    assert set(embedded) == clickable
+    assert all(embedded[k].get("turns") for k in clickable)

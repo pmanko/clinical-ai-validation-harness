@@ -196,10 +196,32 @@ def status():
     for r in results:
         cell_rows.setdefault((r.get("scenario_id"), r.get("backend_id")), []).append(r)
 
-    def _good(r):
+    def _conformed(r):
+        """Whether this row shows the system behaving as designed.
+
+        A scored row (Catalyst) is judged on its assertions' class: a failed
+        `evaluation` check means the model answered badly along a path the
+        product allows, which is a result, not a malfunction. Only a failed
+        `conformance` check -- a broken contract, missing evidence, the
+        wrong model, a transport error -- says the run itself misbehaved.
+        Rows recorded before the runner stamped classes fall back to the
+        name table. ChartSearchAI rows carry no verdict, so they keep the
+        HTTP heuristic.
+        """
         m = r.get("metrics") or {}
-        # A rubric that scores deterministic pass/fail (Catalyst) stamps `passed`
-        # directly; ChartSearchAI rows never carry it, so this is additive.
+        if "passed" not in m:
+            return m.get("http_status") == 200 and (m.get("answer_chars") or 0) > 0
+        if m.get("passed"):
+            return True
+        for item in (r.get("response") or {}).get("failedAssertions") or []:
+            if (item.get("class") or assertion_class(item.get("name") or "")) == "conformance":
+                return False
+        # A scored failure with nothing attributable is unexplained, and an
+        # unexplained failure is exactly what must not read as fine.
+        return bool((r.get("response") or {}).get("failedAssertions"))
+
+    def _judged(r):
+        m = r.get("metrics") or {}
         if "passed" in m:
             return bool(m["passed"])
         return m.get("http_status") == 200 and (m.get("answer_chars") or 0) > 0
@@ -208,17 +230,22 @@ def status():
     for (s, b) in expected_cells:
         exp = exp_turns.get((s, b), 1)
         rs = cell_rows.get((s, b), [])
-        good = sum(1 for r in rs if _good(r))
+        good = sum(1 for r in rs if _conformed(r))
         bad = sum(1 for r in rs if (r.get("metrics") or {}).get("http_status") not in (200, None))
-        if good >= exp:
+        if bad > 0:
+            st = "err"          # a transport or server error, whatever else happened
+        elif good >= exp:
             st = "done"
-        elif bad > 0 or len(rs) >= exp:
-            st = "err"          # a failure, or all turns present but some empty
+        elif len(rs) >= exp:
+            st = "err"          # all turns present, but one broke the contract
         elif len(rs) > 0:
             st = "running" if active else "err"   # partial: in-flight if active, else abandoned
         else:
             st = "pending"
         states[(s, b)] = st
+
+    scored = [r for r in results if "passed" in (r.get("metrics") or {})]
+    judged_passed = sum(1 for r in scored if _judged(r))
 
     # While the run is in progress, the single active cell is the first incomplete one, in
     # the order the runner actually visits cells: cells-order for Catalyst (scenario-major),
@@ -276,10 +303,20 @@ def status():
 
     return {"run": os.path.basename(run), "family": run_family(run),
             "set": set_id, "done": len(results), "total": total,
+            "conformant": sum(1 for v in states.values() if v == "done"),
+            "unexpected": sum(1 for v in states.values() if v == "err"),
+            "judged_passed": judged_passed, "judged_scored": len(scored),
             "scenarios": scen_ids, "backends": back_ids, "arms": arms, "arm_cards": arm_cards,
             "judge_actors": sorted(judge_actors.keys()),
             "judge_combined": combined_judge_summary(judge_actors, back_ids),
             "grid": grid_list, "feed": feed, "models": resident_models()}
+
+
+try:
+    from harness.catalyst.notebook_validation import assertion_class
+except Exception:  # the dashboard also runs from a bare checkout
+    def assertion_class(name):
+        return "conformance"
 
 
 _ROOT_PRECEDENCE = (
@@ -346,7 +383,7 @@ def _sentence_for_gold(evidence):
 
 
 def blame_failure(failed_assertions, ledger_path):
-    """One attributed explanation for a failed repetition.
+    """One attributed explanation for a failed conversation.
 
     The root cause is the highest-precedence failed check, said in plain
     words; the rest are consequences. Blame comes from the vetted ledger --
@@ -501,16 +538,21 @@ def detail(scenario, backend):
                       # would all render empty for them.
                       "catalyst": ({
                           "passed": m.get("passed"),
+                          "question": resp.get("question"),
                           "baseOutcome": resp.get("baseOutcome"),
+                          "baseAnswerText": resp.get("baseAnswerText"),
                           "expectedBaseOutcome": resp.get("expectedBaseOutcome"),
                           "turns": resp.get("turns") or [],
                           "failedAssertions": resp.get("failedAssertions") or [],
                           "resultPreview": resp.get("resultPreview"),
-                          "blame": (blame_failure(
-                              resp.get("failedAssertions") or [],
-                              str(ROOT / "datasets" / "validation" / "catalyst"
-                                  / "vetted-failure-signatures.json"),
-                          ) if not m.get("passed") else None),
+                          # Whether the row broke the contract or merely
+                          # answered badly -- the same split the grid uses.
+                          "conformed": not any(
+                              (item.get("class")
+                               or assertion_class(item.get("name") or ""))
+                              == "conformance"
+                              for item in resp.get("failedAssertions") or []
+                          ),
                       } if "passed" in m else None),
                       "trace": {"answer_confidence": tr.get("answer_confidence"),
                                 "indepth_confidence": tr.get("indepth_confidence"),
@@ -659,7 +701,7 @@ table.ac-knobs{border-collapse:collapse;font-size:10.5px;margin-top:2px}
 <section><h2>Models resident (llama-router)</h2><div id=models></div></section>
 <section><h2>Arms</h2><div class=row id=arms></div></section>
 <section><h2>Judged scores</h2><div id=judges></div></section>
-<section><h2>Scenario &times; arm &nbsp;<span class=muted>(click a cell)</span></h2><div id=grid></div></section>
+<section><h2>Scenario &times; arm &nbsp;<span class=muted>(click a cell)</span></h2><p id=legend class=muted style="margin:2px 0 6px"></p><div id=grid></div></section>
 <section><h2>Recent &nbsp;<span class=muted>(click a row)</span></h2><div class=feed id=feed></div></section>
 <div id=modal onclick="if(event.target===this)closeD()"><div id=mbody></div></div>
 <script>
@@ -822,6 +864,14 @@ async function tick(){
  const pct=d.total?Math.round(100*d.done/d.total):0;
  hdr.textContent='run '+d.run.slice(0,8)+'  ·  set '+(d.set||'')+'  ·  '+pct+'%';
  fill.style.width=pct+'%'; prog.textContent=d.done+' / '+d.total+' results';
+ const lg=document.getElementById('legend');
+ if(lg){
+  if(isCat){
+   let t='<b>'+(d.conformant||0)+'</b> followed an allowed path &nbsp;·&nbsp; <b>'+(d.unexpected||0)+'</b> unexpected behaviour';
+   if(d.judged_scored) t+=' &nbsp;·&nbsp; judged <b>'+(d.judged_passed||0)+'/'+d.judged_scored+'</b> — see the report';
+   lg.innerHTML=t+'<br><span class=c200 style="padding:0 4px">✓</span> allowed path (a refusal, a question or a wrong answer still counts) &nbsp;·&nbsp; <span class=cerr style="padding:0 4px">×</span> the system misbehaved &nbsp;·&nbsp; <span class=crun style="padding:0 4px">●</span> running';
+  } else lg.textContent='';
+ }
  models.innerHTML=(d.models||[]).map(m=>'<span class=chip>'+m+'</span>').join('')||'<span class=muted>none resident</span>';
  arms.innerHTML=renderArmCards(d);
  restoreOpenDetails(arms);   // re-apply the user's expanded config/full-prompt panels after the re-render
@@ -1001,28 +1051,37 @@ async function openD(s,b){
  const reps=(d.turns||[]);
  if(reps.length&&reps[0].catalyst){
   // Older run dirs may lack suite.json; the question must still be visible.
-  if(!ce&&reps[0].question) h+='<div class=exp><b>Question:</b> '+esc(reps[0].question)+'</div>';
-  // One scenario, N repetitions: the script is stated once above; what a
-  // reviewer compares is per-repetition outcomes, so those are a table and
-  // the full transcript of each repetition is collapsed beneath it.
-  const chip=(exp,obs)=>(!exp||obs===exp)?'<span class=ok>'+esc(obs||'?')+'</span>':'<span class=err>'+esc(obs||'?')+'</span>';
-  const first=reps[0].catalyst;
-  h+='<div style="overflow-x:auto"><table class=data><tr><th>rep</th><th>opening</th>';
-  (first.turns||[]).forEach((u,i)=>{h+='<th title="'+esc(u.instruction||'')+'">turn '+(i+2)+'</th>';});
-  h+='<th>time</th><th>verdict</th><th>why</th></tr>';
-  reps.forEach(t=>{
+  if(!ce&&(reps[0].catalyst.question||reps[0].question)) h+='<div class=exp><b>Question:</b> '+esc(reps[0].catalyst.question||reps[0].question)+'</div>';
+  // A cell is ONE conversation, so it renders as one: the opening question,
+  // what the writer answered, then each scripted turn and its answer. The
+  // outer index is a rerun of the whole conversation -- only shown when
+  // there is more than one.
+  const chip=(exp,obs)=>(!exp||obs===exp)?'<span class=ok>'+esc(obs||'?')+'</span>':'<span class=err>'+esc(obs||'?')+'</span>'+(exp?' <span class=muted>(expected '+esc(exp)+')</span>':'');
+  const kindOf=o=>o==='needs_clarification'?'asked a question':(o==='unsupported'?'declined':(o==='rejected'?'was rejected':'wrote a query'));
+  const say=(role,label,body,extra)=>'<div class=tstep><div class="trole'+(extra||'')+'">'+esc(label)+'</div><div class=tbody>'+body+'</div></div>';
+  const arrow='<div class=tarrow>↓</div>';
+  reps.forEach((t,ri)=>{
    const c=t.catalyst;
-   const bl=c.blame;
-   const blameChip=b=>!b?'':('<span class="chip'+(b.disposition==='model'?'':' cerr')+'" style="margin-right:6px">'+esc(b.disposition.toUpperCase())+'</span>');
-   const why=bl?(blameChip(bl)+esc(bl.root?bl.root.human:'')+(bl.consequences?' <span class=muted>(+'+bl.consequences+' consequent checks)</span>':'')):'';
-   h+='<tr><td>'+t.turn+'</td><td>'+chip(c.expectedBaseOutcome,c.baseOutcome)+'</td>';
-   (first.turns||[]).forEach((_,i)=>{const u=(c.turns||[])[i]||{};h+='<td>'+chip(u.expectedOutcome,u.observedOutcome)+'</td>';});
-   h+='<td>'+Math.round((t.latency_ms||0)/1000)+'s</td><td>'+(c.passed?'<span class=ok>PASS</span>':'<span class=err>FAIL</span>')+'</td><td>'+why+'</td></tr>';
-  });
-  h+='</table></div>';
-  reps.forEach(t=>{
-   const c=t.catalyst;
-   h+='<details class=tracebox><summary>'+(c.passed?'✓':'×')+' repetition '+t.turn+' — full detail</summary><div class=turn>';
+   const many=reps.length>1;
+   const head=(c.passed?'<span class=ok>✓ judged pass</span>':'<span class=err>× judged fail</span>')
+     +(c.conformed?'':' <span class=err>· the system misbehaved</span>')
+     +' <span class=muted>· '+Math.round((t.latency_ms||0)/1000)+'s</span>';
+   if(many) h+='<div class=ctitle style="margin-top:8px">run '+t.turn+'</div>';
+   h+='<div class=meta>'+head+'</div>';
+   const steps=[];
+   steps.push(say('user','person asks','<div class=q style="margin:0">'+esc(c.question||(d.catalystExpected||{}).question||'')+'</div>'));
+   const baseBody=(c.baseAnswerText
+      ? '<pre style="white-space:pre-wrap;margin:0">'+esc(c.baseAnswerText)+'</pre>'
+      : '<pre style="white-space:pre-wrap;margin:0">'+esc((c.turns||[]).length?'(query written; final SQL below)':(t.answer||''))+'</pre>');
+   steps.push(say('model','writer '+kindOf(c.baseOutcome)+' — '+((c.expectedBaseOutcome&&c.baseOutcome!==c.expectedBaseOutcome)?'':'')+'',baseBody+'<div class=meta style="margin-top:3px">'+chip(c.expectedBaseOutcome,c.baseOutcome)+'</div>'));
+   (c.turns||[]).forEach((u,i)=>{
+    const isAnswer=(c.baseOutcome==='needs_clarification'&&i===0);
+    steps.push(say('user',isAnswer?'person answers the question':'person asks for a change (turn '+(i+2)+')','<div class=q style="margin:0">'+esc(u.instruction||'')+'</div>'));
+    const body=u.answerText?('<pre style="white-space:pre-wrap;margin:0">'+esc(u.answerText)+'</pre>'):'<span class=muted>(answer text not recorded for this run)</span>';
+    steps.push(say('model','writer '+kindOf(u.observedOutcome),body+'<div class=meta style="margin-top:3px">'+chip(u.expectedOutcome,u.observedOutcome)+'</div>'));
+   });
+   h+='<div class=trace>'+steps.join(arrow)+'</div>';
+   h+='<details class=tracebox><summary>final query and result</summary><div class=turn>';
    h+='<div class=ans><pre style="white-space:pre-wrap;margin:0">'+esc(t.answer||'')+'</pre></div>';
    const rp=c.resultPreview;
    if(rp&&(rp.columns||[]).length){
@@ -1031,15 +1090,18 @@ async function openD(s,b){
     h+=(rp.rows||[]).map(r=>'<tr>'+r.map(v=>'<td>'+esc(v==null?'∅':String(v))+'</td>').join('')+'</tr>').join('');
     h+='</table></div></div>';
    }
-   if((c.failedAssertions||[]).length){
-    const b=c.blame||{};
-    h+='<div class="caveat '+(b.disposition==='model'?'yellow':'red')+'"><b>'+esc((b.disposition||'?').toUpperCase())+'</b> — '+esc(b.rationale||'')+'</div>';
-    if(b.root) h+='<div class=meta><b>Root cause:</b> '+esc(b.root.human)+' <span class=muted>('+esc(b.root.name)+')</span><br>'+esc(typeof b.root.evidence==='string'?b.root.evidence:JSON.stringify(b.root.evidence||''))+'</div>';
-    h+='<details><summary>all '+c.failedAssertions.length+' failed checks</summary>'+c.failedAssertions.map(f=>'<div class="caveat red"><b>'+esc(f.name)+'</b> — '+esc(f.evidence||'')+'</div>').join('')+'</details>';
+   h+='</div></details>';
+   const fa=c.failedAssertions||[];
+   if(fa.length){
+    const conf=fa.filter(f=>(f.class||'conformance')==='conformance');
+    const ev=fa.filter(f=>(f.class||'conformance')!=='conformance');
+    if(conf.length) h+='<div class="caveat red"><b>Unexpected behaviour</b> — the run broke its own contract here, so this measurement is not trustworthy.</div>'
+      +conf.map(f=>'<div class="caveat red"><b>'+esc(f.name)+'</b> — '+esc(typeof f.evidence==='string'?f.evidence:JSON.stringify(f.evidence||''))+'</div>').join('');
+    if(ev.length) h+='<details><summary>'+ev.length+' judged check'+(ev.length>1?'s':'')+' the answer did not meet</summary>'
+      +ev.map(f=>'<div class=meta><b>'+esc(f.name)+'</b> — '+esc(typeof f.evidence==='string'?f.evidence:JSON.stringify(f.evidence||''))+'</div>').join('')+'</details>';
    }else{
     h+='<div class=meta><span class=ok>every check passed</span></div>';
    }
-   h+='</div></details>';
   });
   mbody.innerHTML=h; modal.style.display='flex';
   return;
@@ -1184,7 +1246,7 @@ def freeze(out_path):
         raise SystemExit("no run to snapshot")
     details = {}
     for g in st.get("grid", []):
-        if g.get("state") in ("done", "err", "running"):  # cells that have results
+        if g.get("state") != "pending":  # every cell the grid makes clickable
             s, b = g["scenario"], g["backend"]
             details[f"{s}|{b}"] = detail(s, b)
     shim = (

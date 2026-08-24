@@ -1550,13 +1550,16 @@ def _adopt_reused_pair(
                 "request": {"question": scenario.initial_question},
                 "response": {
                     "answer": answer,
+                    "question": scenario.initial_question,
                     "baseOutcome": row.get("baseOutcome"),
+                    "baseAnswerText": row.get("baseAnswerText"),
                     "expectedBaseOutcome": row.get("expectedBaseOutcome"),
                     "turns": [
                         {
                             "instruction": t.get("instruction"),
                             "expectedOutcome": t.get("expectedOutcome"),
                             "observedOutcome": t.get("observedOutcome"),
+                            "answerText": t.get("answerText"),
                         }
                         for t in row.get("turns") or []
                     ],
@@ -1973,7 +1976,9 @@ def run_notebook_suite(
                         },
                         "response": {
                             "answer": answer,
+                            "question": scenario.initial_question,
                             "baseOutcome": result.get("baseOutcome"),
+                            "baseAnswerText": result.get("baseAnswerText"),
                             "expectedBaseOutcome": result.get(
                                 "expectedBaseOutcome"
                             ),
@@ -1982,6 +1987,7 @@ def run_notebook_suite(
                                     "instruction": t.get("instruction"),
                                     "expectedOutcome": t.get("expectedOutcome"),
                                     "observedOutcome": t.get("observedOutcome"),
+                                    "answerText": t.get("answerText"),
                                 }
                                 for t in result.get("turns") or []
                             ],
@@ -1989,6 +1995,8 @@ def run_notebook_suite(
                             "failedAssertions": [
                                 {
                                     "name": item["name"],
+                                    "class": item.get("class")
+                                    or assertion_class(item["name"]),
                                     "evidence": _compact_evidence(
                                         item.get("evidence")
                                     ),
@@ -2617,6 +2625,14 @@ def _run_scenario(
                 "status": turn.get("status"),
                 "expectedOutcome": turn_spec.expected_outcome,
                 "observedOutcome": observed_outcome,
+                # What the writer said this turn: its question or refusal in
+                # words, or the SQL it settled on. A reader following the
+                # conversation needs the answer, not just its kind.
+                "answerText": (
+                    str((turn.get("failure") or {}).get("message") or "")
+                    or str((refreshed.get("currentVersion") or {}).get("sql") or "")
+                )
+                or None,
                 "selectedVersionId": turn.get("selectedVersionId"),
                 "evidenceDigest": followup_evidence.get("evidenceDigest"),
             }
