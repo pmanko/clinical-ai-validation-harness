@@ -144,6 +144,11 @@ def status():
         expected_cells = [(c["scenario_id"], c["backend_id"]) for c in cells]
         exp_turns = {(c["scenario_id"], c["backend_id"]): c["turns"] for c in cells}
         total = sum(c["turns"] for c in cells)
+        # A comparison's cells repeat every scenario once per team; the grid
+        # wants one row per scenario and one column per team, in first-seen
+        # order, not the suite rendered N times over.
+        scen_ids = list(dict.fromkeys(c["scenario_id"] for c in cells))
+        back_ids = list(dict.fromkeys(c["backend_id"] for c in cells))
     else:
         turns = {}
         for sid in scen_ids:
