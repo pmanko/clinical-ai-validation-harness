@@ -84,6 +84,17 @@ CHIP_CSS = """.chips { margin-top: 6px; }
 .chip.bad { background: #a01; color: #fff; }
 """
 
+SHARED_JS_DEPS = r"""/* Helpers the shared JS below calls. They used to be defined only by one
+   caller, so every other page that shipped SORTABLE_TABLE_JS threw a
+   ReferenceError mid-sort -- after the header had been emptied. A page that
+   defines its own keeps it; this is a no-op there. */
+if (typeof htmlEsc !== 'function') {
+  function htmlEsc(s){ return String(s == null ? '' : s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;'); }
+}
+"""
+
 SORTABLE_TABLE_JS = r"""/* ---- sortable tables (every data table) ----
    UX research (W3C APG sortable-table, Adrian Roselli, NN/g): each header label
    wraps a real <button> (free keyboard + focus), aria-sort sits ONLY on the active

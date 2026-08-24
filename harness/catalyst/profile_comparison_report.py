@@ -11,9 +11,43 @@ import json
 from pathlib import Path
 from typing import Any
 
+from harness.report_shell.assets import (
+    SHARED_CSS,
+    SHARED_JS,
+    SHARED_JS_DEPS,
+    THEME_TOGGLE_BUTTON_HTML,
+    theme_toggle_js,
+)
 from harness.report_shell.document import render_document
 
 from .attribution import blame, conformed
+
+_STYLE = (
+    SHARED_CSS
+    + """
+body { font-family: ui-sans-serif, system-ui, sans-serif; margin: 0; background: var(--bg); color: var(--fg); }
+header.topbar { display:flex; justify-content:space-between; align-items:flex-start; gap:16px; padding:18px 24px; border-bottom:1px solid var(--line); background: var(--surface); }
+header.topbar h1 { margin:0; font-size:20px; }
+main { padding: 18px 24px 48px; max-width: 1200px; }
+section { margin: 22px 0; }
+h2 { font-size: 16px; margin: 0 0 10px; }
+table.data { width:100%; border-collapse:collapse; font-size:13px; background:var(--surface); }
+table.data th, table.data td { border:1px solid var(--line); padding:6px 8px; text-align:left; vertical-align:top; }
+table.data th { background: var(--surface2); }
+.verdict { font-size: 15px; background: var(--note-bg); border:1px solid var(--line); padding:12px 14px; border-radius:8px; }
+.verdict b { font-size: 17px; }
+.gatelist { color: var(--mut); font-size: 13px; margin: 8px 0 0; padding-left: 18px; }
+.note { color: var(--mut); font-size: 12px; margin: 0 0 8px; }
+.vpass { color: #0a7; font-weight: 600; }
+.vfail { color: var(--err); font-weight: 700; }
+.vinvalid { color: var(--purple, #8250df); font-weight: 700; }
+.sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; border:0; }
+"""
+)
+
+_SCRIPT = SHARED_JS_DEPS + SHARED_JS + theme_toggle_js("oc-theme-report") + """
+document.querySelectorAll('table.data').forEach(makeSortable);
+"""
 
 
 def _esc(value: Any) -> str:
@@ -170,8 +204,9 @@ def _qualification(
         else "No acceptance gates were applied to this run:"
     )
     return (
-        f"<h2>Decision</h2><p>{gate_text} <b>{verdict}</b>.</p>"
-        f"<ul>{''.join(lines)}</ul>"
+        "<section><h2>Decision</h2>"
+        f"<p class=verdict>{gate_text} <b>{verdict}</b>.</p>"
+        f"<ul class=gatelist>{''.join(lines)}</ul></section>"
     )
 
 
@@ -210,7 +245,7 @@ def build_comparison_report(
         )
 
     summary_table = (
-        "<table><thead><tr>"
+        "<table class=data><thead><tr>"
         "<th>Profile</th><th>Profile ID</th>"
         "<th>Conversations passed</th><th>Assertions</th>"
         "<th>Avg generation time</th>"
@@ -268,7 +303,7 @@ def build_comparison_report(
         f"<th>{_esc(e['profile_label'])}</th>" for e in entries
     )
     matrix_table = (
-        "<table><thead><tr>"
+        "<table class=data><thead><tr>"
         f"{matrix_header}"
         "</tr></thead><tbody>"
         f"{''.join(matrix_rows)}"
@@ -281,21 +316,27 @@ def build_comparison_report(
         else ""
     )
     body = (
-        f"<h1>{_esc(title)}</h1>"
+        "<header class=topbar>"
+        f"<h1>{_esc(title)}</h1>{THEME_TOGGLE_BUTTON_HTML}"
+        "</header><main>"
         f"{decision}"
-        "<h2>Summary</h2>"
-        f"{summary_table}"
-        "<h2>Per-scenario breakdown</h2>"
+        "<section><h2>Summary</h2>"
+        f"{summary_table}</section>"
+        "<section><h2>Per-scenario breakdown</h2>"
         "<p class=note>PASS and FAIL are the judge's verdict on the answer. "
         "INVALID means the run broke its own contract there and measured "
         "nothing — it is not a score against the team.</p>"
-        f"{matrix_table}"
-        "<h2>What went wrong</h2>"
-        f"{inventory_table}"
+        f"{matrix_table}</section>"
+        "<section><h2>What went wrong</h2>"
+        f"{inventory_table}</section>"
+        "</main>"
     )
 
     return render_document(
         title=title,
         body_html=body,
+        style=_STYLE,
+        script=_SCRIPT,
+        theme_storage_key="oc-theme-report",
         embedded_data={"entries": [e["profile_id"] for e in entries]},
     )

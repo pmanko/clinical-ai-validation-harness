@@ -13,6 +13,7 @@ from harness.catalyst.reconcile import merge_gold_and_judge
 from harness.report_shell.assets import (
     SHARED_CSS,
     SHARED_JS,
+    SHARED_JS_DEPS,
     THEME_TOGGLE_BUTTON_HTML,
     theme_toggle_js,
 )
@@ -33,7 +34,7 @@ table.data th, table.data td { border:1px solid var(--line); padding:6px 8px; te
 table.data th { background: var(--surface2); }
 .pass { color: #0a7; font-weight: 600; }
 .fail { color: var(--err); font-weight: 700; }
-.adv { color: var(--mut); font-size: 12px; }
+.adv { color: var(--mut); font-size: 12px; }\n.sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; border:0; }
 .note { background: var(--note-bg); border:1px solid var(--line); padding:10px 12px; border-radius:8px; font-size:13px; }
 pre.diff, pre.sql, pre.rationale { white-space: pre-wrap; font-family: ui-monospace, monospace; font-size: 12px; background: var(--surface2); border:1px solid var(--line); padding:10px; border-radius:8px; }
 a.ev { color: var(--accent); }
@@ -42,7 +43,7 @@ a.ev { color: var(--accent); }
 """
 )
 
-_SCRIPT = SHARED_JS + theme_toggle_js("oc-theme-report") + """
+_SCRIPT = SHARED_JS_DEPS + SHARED_JS + theme_toggle_js("oc-theme-report") + """
 document.querySelectorAll('table.data').forEach(makeSortable);
 """
 

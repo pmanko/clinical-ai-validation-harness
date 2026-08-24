@@ -131,3 +131,13 @@ def test_report_carries_narrative_context_not_just_the_gate_matrix(
     # The assertion-name dump collapses behind a pass-count summary instead of
     # dominating the matrix (names stay in the HTML for the marker tests).
     assert "passed</summary>" in html
+
+
+def test_catalyst_pages_can_actually_sort_their_tables(tmp_path) -> None:
+    """makeSortable rewrites each header through htmlEsc; without it the
+    first table's header row is wiped and no table sorts."""
+    from harness.catalyst import report as catalyst_report
+
+    script = catalyst_report._SCRIPT
+    assert "function htmlEsc" in script
+    assert script.index("function htmlEsc") < script.index("makeSortable(")

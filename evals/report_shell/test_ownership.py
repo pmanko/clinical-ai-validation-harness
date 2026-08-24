@@ -47,3 +47,15 @@ def test_domain_renderers_remain_outside_shell() -> None:
     report_text = REPORT.read_text(encoding="utf-8")
     assert "from harness.report_shell" in report_text
     assert "def build_report" in report_text
+
+
+def test_shared_sorting_js_brings_its_own_helpers() -> None:
+    """The shell's sortable-table JS calls htmlEsc, which only one caller
+    happened to define -- so every other page threw a ReferenceError
+    mid-sort and left the header blank. The shell now ships the helper its
+    own code needs.
+    """
+    from harness.report_shell import assets
+
+    assert "function htmlEsc" in assets.SHARED_JS_DEPS
+    assert "htmlEsc" in assets.SORTABLE_TABLE_JS
