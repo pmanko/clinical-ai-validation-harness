@@ -9,9 +9,11 @@
 [submodule "targets/openmrs_chatbot"]
 	path = targets/openmrs_chatbot
 	url = https://github.com/anichiti/openmrs_chatbot.git
+	branch = main
 [submodule "targets/catalyst"]
 	path = targets/catalyst
 	url = https://github.com/DIGI-UW/openelis-catalyst.git
+	branch = main
 [submodule "targets/chartsearchai-esm"]
 	path = targets/chartsearchai-esm
 	url = https://github.com/pmanko/openmrs-esm-chartsearchai.git
@@ -19,3 +21,4 @@
 [submodule "targets/med-agent-hub"]
 	path = targets/med-agent-hub
 	url = https://github.com/pmanko/med-agent-hub.git
+	branch = main

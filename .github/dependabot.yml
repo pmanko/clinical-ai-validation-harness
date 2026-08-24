@@ -1,0 +1,22 @@
+version: 2
+
+# Every target is pinned to an exact commit, because a submodule gitlink stores a
+# commit object (mode 160000) and because a validation harness has to be able to
+# reproduce a recorded result against the code that produced it. Floating to a
+# branch tip would make a run's meaning depend on when it was executed.
+#
+# The cost of that is a repin commit each time a target moves, which has been
+# roughly a sixth of this repository's history. Dependabot is here to write those
+# commits instead of us: it proposes each bump as a reviewable PR, so the pin stays
+# exact and deliberate without being hand-maintained.
+updates:
+  - package-ecosystem: gitsubmodule
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 6
+    labels:
+      - dependencies
+      - submodule-repin
+    commit-message:
+      prefix: chore
