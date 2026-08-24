@@ -47,7 +47,7 @@ export feature.
 
 | Pathway | State | Planning boundary |
 | --- | --- | --- |
-| **Superset-backed Dashboard Builder MVP** | **Selected next product milestone** | Depends only on the accepted query/version/execution/table foundation. Persist supervised Dataset/Widget/Dashboard drafts and publish a deterministic native asset bundle to the local Superset outbox. |
+| **Superset-backed Dashboard Builder MVP** | **Scheduled as program P3** (order approved 2026-08-23 — see `specs/catalyst-program-roadmap.md`; D1e/M4 contract and its 15 active gates unchanged) | Depends only on the accepted query/version/execution/table foundation. Persist supervised Dataset/Widget/Dashboard drafts and publish a deterministic native asset bundle to the local Superset outbox. |
 | G2.10 data foundation | Candidate implementation; acceptance evidence open | Complete multi-source, lossless-projection, generated-catalog, readiness, and provenance gates independently. |
 | W2 query assistance | Planned, not selected | Re-enter only after the G4 scope decision; bounded AST repair remains separate from internal generation correction. |
 | W3/CVR evaluation | Report parity merged in PR #43; session export/comparative expansion open | Additional export and experiments require their own selection. They do not block Dashboard MVP. |

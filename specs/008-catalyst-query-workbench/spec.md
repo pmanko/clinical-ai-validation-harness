@@ -154,6 +154,99 @@ production authorization are deferred.
   per-source readiness across the registry is not yet implemented and is
   tracked as follow-up work, not a gap in the current check.
 
+### Session 2026-08-08 — workbench UX v2
+
+Recorded after implementation, not before it: these behaviours were built
+from the design handoff and then reshaped by manual walkthroughs, and this
+session states what was decided and why. Where an answer supersedes an
+earlier one, it says so. Every item below is implemented and covered by a
+test unless explicitly marked otherwise.
+
+- Q: A session could only be created *from* a question, so the rail's "new
+  session" form offered a name and a source with nothing to do with them.
+  Can a session exist before there is a question? → A: Yes. `POST
+  /workbench/sessions` accepts a request with no `question`, and `POST
+  /workbench/sessions/{id}/question` asks the first one later —
+  `409 session_already_started` on a second attempt. Both paths run the same
+  seeding routine, so a session created *with* a question behaves exactly as
+  it did. `claim_initial_turn` is untouched: `kind: initial` still means
+  nothing observed, nothing revised, no editor snapshot.
+- Q: What names a session? → A: Its first question, unless renamed. `name`
+  is optional at creation and backfills from the first question's text;
+  `PATCH /workbench/sessions/{id}/name` renames the thread and never touches
+  `question`, which is evidence of what was asked rather than a label. A
+  session with neither reads "New session".
+- Q: Does a session still allow the mid-session source switching decided on
+  2026-07-22? → A: **No — that answer is superseded.** Query versions chain
+  through `parentVersionId` and each follow-up is written relative to the
+  previous query, so a version whose parent was written against a different
+  schema would describe a lineage that never existed. A turn or version
+  naming a different `dataSourceId` is `409 data_source_immutable`; catalog
+  staleness is judged against one baseline rather than per source. Querying
+  another source means starting another session.
+- Q: What is a turn, now that a person can also edit and run SQL by hand? →
+  A: A cell in one thread. Model generations live in the turn timeline and
+  hand edits live among the session's versions; the thread is the two
+  merged. Query versions are numbered in the order they were appended — the
+  one clock both kinds share — so that ordering is authoritative, and a
+  cell's `[n]` is simply its position in the thread. A hand-edited version
+  that has not been run is not yet a cell; it is the draft in the editor.
+- Q: Where does a run's result appear? → A: In the cell whose query produced
+  it, expanded by default, spanning the thread's width, minimisable per
+  cell. Not in a standalone panel, and never in two places at once.
+- Q: Saving a version and running one were separate actions. Should they
+  stay separate? → A: No. Running already saved the editor as an immutable
+  version and checked it on the way, so a separate save could only ever add
+  a version with no result to show for it — and, pressed before Run, added
+  two. **One Run action.** The advisory check reports beside it and never
+  blocks.
+- Q: What leads after a run? → A: The result, whichever way it went. A
+  completed run — success *or* database failure — closes the editor, moves
+  to the cell carrying the outcome, and offers editing again as a choice.
+  Only a failure of the action itself, where no execution was recorded and
+  there is nothing to read, leaves the editor open with the error above it.
+  A failed run is a result, not an absence.
+- Q: When is the SQL editor open? → A: Whenever there is something to do in
+  it — a query not yet run, unsaved edits, or an explicit request to edit.
+  Otherwise the thread's last cell offers "Edit query" and the composer
+  offers the next question.
+- Q: How much internal numbering reaches the surface? → A: As little as
+  possible. Cells are numbered; query versions and execution runs are not
+  cited in the thread, in the composer's heading, in the execution summary
+  sent to the model, or in a result table's caption. Version and run
+  ordinals remain in the Details panel and the dataset review panel, which
+  are the provenance surfaces and where identity belongs.
+- Q: What does the section nav call the query surface? → A: **Workbench** —
+  the place, not the gesture ("Ask"). The label is the button's own text and
+  accessible name, not an `aria-label` on a bare icon, and it collapses to
+  icon-only only when the rail is dragged near its 200px minimum. The
+  section states the same word in a visible heading above the session's
+  name, matching Datasets, Widgets and Dashboards.
+- Q: What happens when a result is saved as a Dataset? → A: The gateway
+  records an immutable entity pinning `sessionId`, `turnId`,
+  `queryVersionId`, `queryDigest`, `executionId`, `dataSourceId`,
+  `catalogVersion`, a `resultSchemaDigest` and a `resultDigest` over the
+  exact returned rows, the parameterized and compiled SQL, the typed
+  parameters, and the row bounds. It refuses unless the execution succeeded
+  **and** is the currently-visible query's run. The review panel then offers
+  **Build a widget from this Dataset** in place: saving used to close onto
+  the thread while the next step lived in a nav section the analyst had to
+  already know about, ending the chain at the moment it should have
+  continued.
+- Q: Is the promotion chain past a Dataset complete? → A: The promotion
+  *path* exists and is verified end to end (this answer records that the
+  chain works, not that Dashboard M4 acceptance is complete — the D1e/M4
+  gate remains open). Dataset → Widget (presentation kinds filtered against the
+  saved column types, with the incompatible ones explained) → Dashboard
+  (one or more Widgets, single source) → **Publish**, which writes a
+  deterministic zip and a `current.json` pointer and reports
+  `bundle_ready`. The Superset **import itself is out of band** — a local
+  helper consumes that bundle — after which the publication reports
+  `imported` with a receipt id, receipt digest and dashboard URL, and the
+  Dashboard row offers "Open Superset". A publication claiming `imported`
+  without all three pieces of receipt evidence is reported as failed rather
+  than trusted.
+
 ## User Scenarios & Testing
 
 ### User Story 1 - Understand and refine a generated query (Priority: P1)
