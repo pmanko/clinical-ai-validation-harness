@@ -303,6 +303,13 @@ def status():
 
     return {"run": os.path.basename(run), "family": run_family(run),
             "set": set_id, "done": len(results), "total": total,
+            "warning": (
+                None if CLASSIFIER_SOURCE else
+                "This page cannot classify assertions (" + _CLASSIFIER_ERROR
+                + "), so every failure is shown as unexpected behaviour. "
+                "Serve the dashboard from a checkout whose harness package "
+                "matches this script."
+            ),
             "conformant": sum(1 for v in states.values() if v == "done"),
             "unexpected": sum(1 for v in states.values() if v == "err"),
             "judged_passed": judged_passed, "judged_scored": len(scored),
@@ -314,7 +321,15 @@ def status():
 
 try:
     from harness.catalyst.notebook_validation import assertion_class
-except Exception:  # the dashboard also runs from a bare checkout
+
+    CLASSIFIER_SOURCE = "harness.catalyst.notebook_validation"
+except Exception as _classifier_error:  # pragma: no cover - deployment guard
+    # Without the table, a legacy run cannot be told apart from a broken one.
+    # Answering anyway would paint a confident grid from a classifier this
+    # process does not have, so the page says so instead of guessing quietly.
+    CLASSIFIER_SOURCE = None
+    _CLASSIFIER_ERROR = str(_classifier_error)
+
     def assertion_class(name):
         return "conformance"
 
@@ -698,6 +713,7 @@ table.ac-knobs{border-collapse:collapse;font-size:10.5px;margin-top:2px}
 <h1 id=hdr>validate run</h1>
 <div class=bar><div id=fill style=width:0%></div></div>
 <div id=prog class=muted></div>
+<div id=warnbar class="caveat red" style="display:none"></div>
 <section><h2>Models resident (llama-router)</h2><div id=models></div></section>
 <section><h2>Arms</h2><div class=row id=arms></div></section>
 <section><h2>Judged scores</h2><div id=judges></div></section>
@@ -864,6 +880,8 @@ async function tick(){
  const pct=d.total?Math.round(100*d.done/d.total):0;
  hdr.textContent='run '+d.run.slice(0,8)+'  ·  set '+(d.set||'')+'  ·  '+pct+'%';
  fill.style.width=pct+'%'; prog.textContent=d.done+' / '+d.total+' results';
+ const wb=document.getElementById('warnbar');
+ if(wb){ if(d.warning){wb.textContent=d.warning; wb.style.display='';} else wb.style.display='none'; }
  const lg=document.getElementById('legend');
  if(lg){
   if(isCat){
