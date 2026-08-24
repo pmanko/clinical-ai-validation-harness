@@ -73,7 +73,8 @@ SEED_ROWS = f"""
 -- patient_flat's grain is id x generalPractitioner x name(x given) x
 -- identifier, so a patient repeats. p1 repeats with one consistent name;
 -- p3 carries two different family names (a rename or a duplicate record),
--- which must not resolve to either; p4's name is blank padding only.
+-- which must not resolve to either; p4's name is blank padding only, and
+-- p5's is padding that is not spaces -- btrim(text) would keep it.
 INSERT INTO public.patient_flat
     (id, gender, birth_date, family, given, identifier_value)
 VALUES
@@ -82,7 +83,8 @@ VALUES
     ('p2', 'male', '1985-06-15', NULL, NULL, 'mrn-3'),
     ('p3', 'male', '1979-02-02', 'Rapondi', 'Jean', 'mrn-4'),
     ('p3', 'male', '1979-02-02', 'Seger', 'Jean', 'mrn-5'),
-    ('p4', 'female', '2001-03-03', '   ', '', 'mrn-6');
+    ('p4', 'female', '2001-03-03', '   ', '', 'mrn-6'),
+    ('p5', 'male', '1995-05-05', E'\t', E'\n ', 'mrn-7');
 
 -- obs-1: three coding systems on the same observation (OpenMRS-native +
 -- CIEL + SNOMED); a numeric CD4 result. Production represents the native
@@ -333,7 +335,7 @@ class HivFactViewSemanticsTests(unittest.TestCase):
             "SELECT * FROM analytics.hiv_patient_dim_v1 ORDER BY patient_id"
         )
         self.assertEqual(
-            [row["patient_id"] for row in rows], ["p1", "p2", "p3", "p4"]
+            [row["patient_id"] for row in rows], ["p1", "p2", "p3", "p4", "p5"]
         )
         p1 = rows[0]
         self.assertEqual(p1["family_name"], "Hornblower")
@@ -359,6 +361,18 @@ class HivFactViewSemanticsTests(unittest.TestCase):
     def test_blank_name_components_are_null_not_whitespace(self):
         rows = self._rows(
             "SELECT * FROM analytics.hiv_patient_dim_v1 WHERE patient_id = 'p4'"
+        )
+        self.assertIsNone(rows[0]["family_name"])
+        self.assertIsNone(rows[0]["given_name"])
+
+    def test_padding_that_is_not_spaces_is_still_no_name(self):
+        """One-argument btrim() trims spaces only, so tabs and newlines stayed.
+
+        A name of one tab is not a name; emitting it would put whitespace in
+        front of a reader as though the record were identified.
+        """
+        rows = self._rows(
+            "SELECT * FROM analytics.hiv_patient_dim_v1 WHERE patient_id = 'p5'"
         )
         self.assertIsNone(rows[0]["family_name"])
         self.assertIsNone(rows[0]["given_name"])

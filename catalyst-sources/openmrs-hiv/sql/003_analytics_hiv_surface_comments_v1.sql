@@ -38,7 +38,7 @@ COMMENT ON COLUMN analytics.pipeline_run_v1.error_message IS
     'Failure text when the run did not complete; null on success.';
 
 COMMENT ON VIEW analytics.pipeline_freshness_v1 IS
-    'The most recent ingestion run with its lag, for answering how current the data is. Operating record, not clinical data.';
+    'One row per ingestion run with its lag, for answering how current the data is; order by completed_at for the latest. Operating record, not clinical data.';
 COMMENT ON COLUMN analytics.pipeline_freshness_v1.pipeline_run_id IS
     'Ingestion run identifier; joins to analytics.pipeline_run_v1.';
 COMMENT ON COLUMN analytics.pipeline_freshness_v1.contract_version IS

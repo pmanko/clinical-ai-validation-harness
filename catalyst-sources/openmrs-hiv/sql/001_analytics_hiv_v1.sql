@@ -91,12 +91,12 @@ SELECT
     MAX(gender) AS gender,
     MAX(birth_date) AS birth_date,
     CASE
-        WHEN COUNT(DISTINCT NULLIF(btrim(family), '')) = 1
-        THEN MAX(NULLIF(btrim(family), ''))
+        WHEN COUNT(DISTINCT NULLIF(btrim(family, E' \t\n\r'), '')) = 1
+        THEN MAX(NULLIF(btrim(family, E' \t\n\r'), ''))
     END AS family_name,
     CASE
-        WHEN COUNT(DISTINCT NULLIF(btrim(given), '')) = 1
-        THEN MAX(NULLIF(btrim(given), ''))
+        WHEN COUNT(DISTINCT NULLIF(btrim(given, E' \t\n\r'), '')) = 1
+        THEN MAX(NULLIF(btrim(given, E' \t\n\r'), ''))
     END AS given_name
 FROM public.patient_flat
 GROUP BY id;

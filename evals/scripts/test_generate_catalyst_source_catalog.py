@@ -48,10 +48,14 @@ SCRATCH_DB = "catalyst_generator_test"
 SEED_DDL = """
 CREATE SCHEMA IF NOT EXISTS gen_test;
 
-CREATE VIEW gen_test.happy_v1 AS SELECT 1::int AS id, 'Malaria'::text AS name;
+CREATE VIEW gen_test.happy_v1 AS SELECT 1::int AS id, 'Malaria'::text AS name,
+    '{"Patient": 1}'::jsonb AS resource_counts;
 COMMENT ON VIEW gen_test.happy_v1 IS 'One row per test fixture.';
 COMMENT ON COLUMN gen_test.happy_v1.id IS 'Fixture identifier.';
 COMMENT ON COLUMN gen_test.happy_v1.name IS 'Fixture display name.';
+-- The operating records carry per-resource counts as jsonb, so the
+-- happy path has to prove that type reaches the catalog as 'json'.
+COMMENT ON COLUMN gen_test.happy_v1.resource_counts IS 'Fixture counts.';
 
 CREATE VIEW gen_test.no_view_comment_v1 AS SELECT 1::int AS id;
 COMMENT ON COLUMN gen_test.no_view_comment_v1.id IS 'Fixture identifier.';
@@ -175,6 +179,7 @@ class GenerateSourceCatalogTests(unittest.TestCase):
             self.assertEqual(
                 columns["name"]["description"], "Fixture display name."
             )
+            self.assertEqual(columns["resource_counts"]["logicalType"], "json")
 
     def test_fails_fast_on_missing_view_comment(self):
         import tempfile
