@@ -59,12 +59,19 @@ one context practice or claim local and server model performance are equal.
 
 ## Implementation readiness
 
-No product decision remains open. Two repository tasks precede Phase 1 coding:
+No product decision or repository blocker remains. The three readiness tasks
+are complete:
 
-1. Merge the authoritative roadmap update and close stale PR #59 as
+1. The authoritative roadmap replaces stale PR #59, which is closed as
    superseded.
-2. Repair issue #58 and publish catalog v5 so the final comparison does not
-   score a known blank source column as model behavior.
+2. Harness PR #61 repaired issue #58. Catalog v5 and the exact native codes and
+   displays reconcile locally and on the demo host. The HIV correction was
+   applied in place without reingesting or reseeding that source. A separate
+   supported synthetic OpenELIS seed later restored the local MVP validation
+   baseline.
+3. Catalyst PR #65 fixed the isolated seed command's false Superset-port
+   failure, and the harness pins its merged commit. The full local health and
+   provenance gate passes.
 
 The exact interfaces, scenario set, model profiles, thresholds, implementation
 order, deployed browser checks, and unchanged Phase 3 gates are defined in the

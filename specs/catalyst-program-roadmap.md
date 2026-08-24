@@ -1,9 +1,8 @@
 # Catalyst program roadmap — authoritative plan
 
-**Status:** Phase 1 decisions locked by the owner on 2026-08-23. The
-pull-request cleanup is complete. Repairing issue #58 is the only data-quality
-gate before the final model comparison. Once the planning record and #58 are
-merged, Phase 1 is ready for implementation without another scope decision.
+**Status:** Phase 1 decisions and pre-implementation repairs are complete. This
+authoritative planning record supersedes closed PR #59. Phase 1 is ready for
+implementation; no product, data, or local-environment blocker remains.
 
 This file is the single source of truth for the Catalyst program. The planning
 brief and *What the Writer Sees* preserve evidence and rejected alternatives;
@@ -11,17 +10,24 @@ they do not override this roadmap.
 
 ## Current verified starting point
 
-- Harness `main` is `49040ee3e16c3785a5beed23657cda61a3243965`.
-- Catalyst is pinned at `655b796a96e2cb2f96d6a3e21e66aa74ba1b84ca`.
+- Harness `main` includes the issue #58 correction merged as
+  `867364472bc0b291c02124c5e93603c61a501ce3`.
+- Catalyst is pinned at `2ad4a1385185a1e6d5e44ed75ddb9d1488de1e53`,
+  which preserves the isolated Superset port through seed and final health.
 - Med-Agent Hub is pinned at `8b81320ef428d06422c9ed69a8f411799a5144f9`.
 - Pull requests #51, #52, #54, #55, #57, and #50 are merged. #49 was closed
   after its useful work was salvaged. The closeout recorded 1,142 passing
   tests, clean repository-line verification, clean submodule initialization,
   and green checks on the final head.
 - The medication-code repair is live locally and on the demo host.
-- Issue #58 remains open: every one of the 143 rows in
-  `analytics.hiv_concept_mapping_v1` currently has a blank
-  `openmrs_concept_code`. This is a source defect, not model behavior.
+- Issue #58 is closed. Locally and on the demo host, all 143 rows in
+  `analytics.hiv_concept_mapping_v1` have an OpenMRS-native code, the mapping
+  equals an independent raw-table calculation in both directions, and the
+  native concept and coded-answer displays have zero differences. The public
+  demo serves catalog v5 with schema `analytics-v1` and 13 readable relations.
+- The full harness suite records 1,145 passes, and the supported isolated-stack
+  health and provenance gate passes on the freshly seeded 96-patient,
+  1,152-result fixture.
 - Feature 008 remediation WS1–WS7 is closed.
 
 ## Program order
@@ -269,7 +275,7 @@ documentation consistency check must agree. The old pull-request cleanup
 roadmap becomes a closed historical record. Every actionable review thread is
 fixed, answered, and resolved; checks pass on the final reviewed head.
 
-### G1 — repair issue #58
+### G1 — repair issue #58 — complete
 
 Ship the source correction separately from Phase 1 behavior:
 
@@ -287,6 +293,15 @@ Ship the source correction separately from Phase 1 behavior:
 
 G1 blocks the final comparison, not parallel development of the runner or
 context features.
+
+**Completion evidence:** harness PR #61 merged the correction; the catalog was
+generated twice with identical bytes; the real PostgreSQL semantic suite
+passed 13 tests; both local and demo databases returned `143|143|0|0|0` for
+mapping rows, nonblank native codes, the two set differences, and display
+differences; and the demo Gateway reports catalog v5. Neither environment was
+reingested or reseeded to apply this HIV source correction. A separate
+supported synthetic OpenELIS seed was run afterward to restore the local MVP
+validation baseline recorded above.
 
 ### G2 — runner and frozen evidence
 
