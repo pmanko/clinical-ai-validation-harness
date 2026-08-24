@@ -70,8 +70,21 @@ CREATE TABLE public.medication_request_flat (
 """
 
 SEED_ROWS = f"""
-INSERT INTO public.patient_flat (id, gender, birth_date)
-VALUES ('p1', 'female', '1990-01-01'), ('p2', 'male', '1985-06-15');
+-- patient_flat's grain is id x generalPractitioner x name(x given) x
+-- identifier, so a patient repeats. p1 repeats with one consistent name;
+-- p3 carries two different family names (a rename or a duplicate record),
+-- which must not resolve to either; p4's name is blank padding only, and
+-- p5's is padding that is not spaces -- btrim(text) would keep it.
+INSERT INTO public.patient_flat
+    (id, gender, birth_date, family, given, identifier_value)
+VALUES
+    ('p1', 'female', '1990-01-01', 'Hornblower', 'Ada', 'mrn-1'),
+    ('p1', 'female', '1990-01-01', 'Hornblower', 'Ada', 'mrn-2'),
+    ('p2', 'male', '1985-06-15', NULL, NULL, 'mrn-3'),
+    ('p3', 'male', '1979-02-02', 'Rapondi', 'Jean', 'mrn-4'),
+    ('p3', 'male', '1979-02-02', 'Seger', 'Jean', 'mrn-5'),
+    ('p4', 'female', '2001-03-03', '   ', '', 'mrn-6'),
+    ('p5', 'male', '1995-05-05', E'\t', E'\n ', 'mrn-7');
 
 -- obs-1: three coding systems on the same observation (OpenMRS-native +
 -- CIEL + SNOMED); a numeric CD4 result. Production represents the native
@@ -311,6 +324,58 @@ class HivFactViewSemanticsTests(unittest.TestCase):
         self.assertEqual(obs5["value_coded_name"], "Empty-system answer")
         self.assertEqual(obs6["concept_name"], "Null-system concept")
         self.assertEqual(obs6["value_coded_name"], "Null-system answer")
+
+    def test_patient_dimension_keeps_one_row_per_patient_with_its_name(self):
+        """The dimension is one row per patient and carries the name parts.
+
+        Phase 1 gives the writer a governed way to answer "which patient",
+        which previously existed only on the raw flat table.
+        """
+        rows = self._rows(
+            "SELECT * FROM analytics.hiv_patient_dim_v1 ORDER BY patient_id"
+        )
+        self.assertEqual(
+            [row["patient_id"] for row in rows], ["p1", "p2", "p3", "p4", "p5"]
+        )
+        p1 = rows[0]
+        self.assertEqual(p1["family_name"], "Hornblower")
+        self.assertEqual(p1["given_name"], "Ada")
+        self.assertEqual(p1["gender"], "female")
+
+    def test_a_patient_with_conflicting_names_gets_no_name_rather_than_a_guess(
+        self,
+    ):
+        """Two family names on one patient is ambiguity, not a value to pick.
+
+        Independent maximums would pair one record's family with another's
+        given and invent a person who does not exist.
+        """
+        rows = self._rows(
+            "SELECT * FROM analytics.hiv_patient_dim_v1 WHERE patient_id = 'p3'"
+        )
+        self.assertEqual(len(rows), 1)
+        self.assertIsNone(rows[0]["family_name"])
+        # The unambiguous half is still answerable.
+        self.assertEqual(rows[0]["given_name"], "Jean")
+
+    def test_blank_name_components_are_null_not_whitespace(self):
+        rows = self._rows(
+            "SELECT * FROM analytics.hiv_patient_dim_v1 WHERE patient_id = 'p4'"
+        )
+        self.assertIsNone(rows[0]["family_name"])
+        self.assertIsNone(rows[0]["given_name"])
+
+    def test_padding_that_is_not_spaces_is_still_no_name(self):
+        """One-argument btrim() trims spaces only, so tabs and newlines stayed.
+
+        A name of one tab is not a name; emitting it would put whitespace in
+        front of a reader as though the record were identified.
+        """
+        rows = self._rows(
+            "SELECT * FROM analytics.hiv_patient_dim_v1 WHERE patient_id = 'p5'"
+        )
+        self.assertIsNone(rows[0]["family_name"])
+        self.assertIsNone(rows[0]["given_name"])
 
     def test_concept_mapping_view_flags_the_unmapped_concept(self):
         rows = self._rows(

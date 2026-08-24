@@ -50,6 +50,10 @@ TYPE_MAP = {
     "date": "date",
     "timestamp with time zone": "timestamp",
     "timestamp without time zone": "timestamp",
+    # The operating records carry their per-resource counts as jsonb; "json"
+    # is a logical type the editor-catalog contract already allows.
+    "jsonb": "json",
+    "json": "json",
 }
 
 COLUMNS_SQL = """

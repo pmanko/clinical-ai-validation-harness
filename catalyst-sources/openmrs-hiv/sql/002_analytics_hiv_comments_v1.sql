@@ -102,3 +102,17 @@ COMMENT ON COLUMN analytics.hiv_medication_request_fact_v1.medication_code_snome
     'SNOMED CT drug code, from the request''s own coding when present, otherwise the referenced Medication''s. Null when neither carries a SNOMED mapping.';
 COMMENT ON COLUMN analytics.hiv_medication_request_fact_v1.medication_code_who_anc IS
     'WHO ANC custom drug code, from the request''s own coding when present, otherwise the referenced Medication''s. Null when neither carries a WHO ANC mapping; sparse in this data (at most one drug carries it).';
+
+-- Patient dimension. Phase 1 promotes the governed way to identify a patient
+-- out of the raw flat table, so these carry the same reviewed descriptions as
+-- the fact views.
+COMMENT ON COLUMN analytics.hiv_patient_dim_v1.patient_id IS
+    'FHIR Patient resource identifier and stable row identity; the join key every fact view references.';
+COMMENT ON COLUMN analytics.hiv_patient_dim_v1.gender IS
+    'FHIR Patient.gender, constant per resource.';
+COMMENT ON COLUMN analytics.hiv_patient_dim_v1.birth_date IS
+    'FHIR Patient.birthDate. Compute age as (reference date - birth_date) rather than assuming a stored age column.';
+COMMENT ON COLUMN analytics.hiv_patient_dim_v1.family_name IS
+    'FHIR Patient.name.family -- the surname, and what a request for a patient last name means. Populated only when the patient has exactly one distinct nonblank family name; null when the source carries several, because choosing one would invent a person. Demo data: treat as identifying information.';
+COMMENT ON COLUMN analytics.hiv_patient_dim_v1.given_name IS
+    'FHIR Patient.name.given -- the first name. Populated only when the patient has exactly one distinct nonblank given name, on the same rule as family_name, and resolved independently of it. Demo data: treat as identifying information.';
