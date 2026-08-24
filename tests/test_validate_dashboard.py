@@ -139,3 +139,39 @@ def test_a_catalyst_cell_shows_the_frozen_acceptance_criterion(tmp_path: Path):
     chart_run.mkdir()
     assert vd.run_family(str(chart_run)) == "chartsearchai"
     assert vd.catalyst_expectation(str(chart_run), "B2") is None
+
+
+def test_the_comparison_grid_has_one_row_per_scenario(tmp_path: Path):
+    """(team x scenario) cells collapse to one row per scenario.
+
+    The manifest's cells repeat every scenario once per team; using their ids
+    raw as grid rows rendered the suite once per team, mostly empty. Two
+    scenarios and three teams here stand in for the real 12x3.
+    """
+    vd = _load_dashboard_module()
+    run = tmp_path / "run"
+    run.mkdir()
+    cells = [
+        {"scenario_id": s, "backend_id": b, "turns": 3}
+        for b in ("team-a", "team-b", "team-c")
+        for s in ("A1", "A2")
+    ]
+    events = [
+        {"event_type": "run", "scenario_ids": [c["scenario_id"] for c in cells],
+         "backend_ids": [c["backend_id"] for c in cells], "cells": cells}
+    ]
+    (run / "events.jsonl").write_text(
+        "\n".join(json.dumps(e) for e in events) + "\n", encoding="utf-8"
+    )
+    (run / "results.jsonl").write_text("", encoding="utf-8")
+    (run / "suite.json").write_text(json.dumps({"scenarios": []}), encoding="utf-8")
+
+    vd._RUN_OVERRIDE = str(run)
+    try:
+        status = vd.status()
+    finally:
+        vd._RUN_OVERRIDE = None
+
+    assert status["scenarios"] == ["A1", "A2"]
+    assert status["backends"] == ["team-a", "team-b", "team-c"]
+    assert len(status["grid"]) == 6
