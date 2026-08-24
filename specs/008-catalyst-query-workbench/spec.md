@@ -4,7 +4,7 @@
 
 **Created**: 2026-07-17
 
-**Status**: Iterative-query notebook foundation accepted. The program P3
+**Status**: Iterative-query notebook foundation accepted. Program P3's
 Superset-backed Dashboard Builder completed M3 on 2026-08-06: its binding 4c
 product surface, real notebook-to-Superset path, focused automated D1d checks,
 durable visual evidence, and explicit user acceptance are recorded. M4 release

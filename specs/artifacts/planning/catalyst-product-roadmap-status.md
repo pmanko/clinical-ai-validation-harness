@@ -56,7 +56,7 @@ presentation.
 
 | Pathway | State | Next gate | Blocks D1? |
 | --- | --- | --- | --- |
-| Dashboard product (D1) | **M3 accepted 2026-08-06; M4 release hardening in progress; 15 active gates remain** | Complete the exact T166/T147/T168–T173/T180–T182/T155–T157 gate listed in Feature 008 tasks | — |
+| Dashboard product (D1) | **M3 accepted 2026-08-06; M4 release hardening in progress; 15 active gates remain** | Complete the exact T166/T147/T168–T173/T180–T182/T155–T157 gates listed in Feature 008 tasks | — |
 | Data foundation (G2.10) | Candidate implementation; evidence open | T117–T122 internal and two-source/lossless acceptance | No |
 | Query assistance (W2) | Planned, not selected | G4 scope revalidation before T028–T034 | No |
 | Evaluation (W3/CVR) | Runner/report parity merged in PR #43; session-export/comparative expansion remains | Separately select T036–T038 or later experiments | No |

@@ -12,7 +12,7 @@ cd "$(dirname "$0")/.."
 fail=0
 err() { echo "FAIL: $*" >&2; fail=1; }
 
-TASKS=specs/008-catalyst-query-workbench/tasks.md
+TASKS="${DOCS_TASKS_PATH:-specs/008-catalyst-query-workbench/tasks.md}"
 PROGRAM=specs/catalyst-program-roadmap.md
 INVARIANT='WS1–WS7 remediation is closed; Feature 008 D1e/M4 remains in progress and is scheduled as P3.'
 
@@ -28,18 +28,26 @@ fi
 
 # 3. Phase 10 carries the exact 15 active gates plus the two consolidated
 #    historical ceremonies T144/T149.
-unchecked=$(awk '/^## Phase 10/{f=1} f && /^- \[ \]/{c++} END{print c+0}' "$TASKS")
+phase10_block="$(
+  awk '
+    /^## Phase 10([[:space:]]|$)/ { in_phase = 1 }
+    in_phase && /^## / && $0 !~ /^## Phase 10([[:space:]]|$)/ { exit }
+    in_phase { print }
+  ' "$TASKS"
+)"
+unchecked="$(grep -cE '^- \[ \]' <<<"${phase10_block}" || true)"
 [ "$unchecked" -eq 17 ] || err "Phase 10 unchecked entries: $unchecked (expected 17)"
 active_gates=(
   T166 T147 T168 T169 T170 T171 T148 T172 T173
   T180 T181 T182 T155 T156 T157
 )
 for gate in "${active_gates[@]}"; do
-  grep -qE "^- \[ \] ${gate}[[:space:]]" "$TASKS" \
+  grep -qE "^- \[ \] ${gate}[[:space:]]" <<<"${phase10_block}" \
     || err "active Phase 10 gate missing or checked: ${gate}"
 done
 for ceremony in T144 T149; do
-  grep -qE "^- \[ \] ${ceremony}[[:space:]].*Consolidated" "$TASKS" \
+  grep -qE "^- \[ \] ${ceremony}[[:space:]].*Consolidated" \
+    <<<"${phase10_block}" \
     || err "historical consolidated ceremony is not recorded correctly: ${ceremony}"
 done
 
