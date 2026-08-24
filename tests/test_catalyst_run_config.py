@@ -87,3 +87,29 @@ def test_the_shipped_template_is_the_one_the_comparison_runs(tmp_path):
     assert config["gates"]["overall"] == 0.90
     assert config["gates"]["per_scenario"] == 0.80
     assert config["publish"]["slug"]
+
+
+def test_a_seed_that_cannot_be_read_refuses_before_anything_runs(tmp_path):
+    """A run started from a broken seed would be unreproducible by
+    definition, so it never starts."""
+    missing = tmp_path / "absent.json"
+    with pytest.raises(SystemExit) as caught:
+        resolve(missing)
+    assert "cannot read" in str(caught.value)
+
+    corrupt = tmp_path / "corrupt.json"
+    corrupt.write_text("{not json", encoding="utf-8")
+    with pytest.raises(SystemExit) as caught:
+        resolve(corrupt)
+    assert "not valid JSON" in str(caught.value)
+
+
+def test_a_run_from_before_seeds_existed_still_finishes(tmp_path):
+    """load_frozen is how finish reads a run's gates; older runs have none,
+    and must fall through to 'no gates recorded' rather than crash."""
+    run_dir = tmp_path / "run"
+    run_dir.mkdir()
+    assert load_frozen(run_dir) == {}
+
+    (run_dir / "run-config.json").write_text("{not json", encoding="utf-8")
+    assert load_frozen(run_dir) == {}

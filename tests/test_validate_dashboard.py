@@ -307,3 +307,41 @@ def test_the_frozen_snapshot_can_open_every_cell_it_lets_you_click(
     assert clickable, "fixture should have clickable cells"
     assert set(embedded) == clickable
     assert all(embedded[k].get("turns") for k in clickable)
+
+
+def test_a_transport_error_is_red_whatever_the_assertions_say(tmp_path: Path):
+    """A 599 is how a dead gateway reaches the feed.
+
+    The row may carry no failing assertion at all — there was no answer to
+    check — so the conformance rule alone would call the cell fine. The
+    status is decisive.
+    """
+    vd = _load_dashboard_module()
+    run = tmp_path / "run"
+    run.mkdir()
+    (run / "events.jsonl").write_text(
+        json.dumps({"event_type": "run",
+                    "cells": [{"scenario_id": "A1", "backend_id": "team-a",
+                               "turns": 1}],
+                    "scenario_ids": ["A1"], "backend_ids": ["team-a"]}) + "\n",
+        encoding="utf-8",
+    )
+    (run / "suite.json").write_text(json.dumps({"scenarios": []}), encoding="utf-8")
+    (run / "results.jsonl").write_text(
+        json.dumps({
+            "scenario_id": "A1", "backend_id": "team-a", "turn": 1,
+            "request": {"question": "q"},
+            "response": {"answer": "", "failedAssertions": []},
+            "metrics": {"http_status": 599, "passed": False,
+                        "answer_chars": 0},
+        }) + "\n",
+        encoding="utf-8",
+    )
+    vd._RUN_OVERRIDE = str(run)
+    try:
+        status = vd.status()
+    finally:
+        vd._RUN_OVERRIDE = None
+
+    assert status["grid"][0]["state"] == "err"
+    assert status["unexpected"] == 1

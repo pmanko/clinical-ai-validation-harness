@@ -176,3 +176,22 @@ def test_a_team_that_meets_every_gate_is_named(tmp_path: Path) -> None:
 
     assert "Qualified: team-a" in html
     assert "No team qualified" not in html
+
+
+def test_a_failure_with_nothing_recorded_still_reports_a_verdict(
+    tmp_path: Path,
+) -> None:
+    """A row can be marked failed with no failing assertion behind it (an
+    older runner, a truncated record). The page must still say FAIL rather
+    than silently claim a pass."""
+    run_dir = tmp_path / "run"
+    run_dir.mkdir()
+    (run_dir / "results.json").write_text(json.dumps({"results": [
+        {"scenarioId": "A1", "profileId": "team-a", "status": "completed",
+         "passed": False, "assertions": [],
+         "timing": {"unadjustedGenerationWallMs": 10}},
+    ]}), encoding="utf-8")
+
+    html = build_comparison_report(entries_from_comparison_run(run_dir))
+
+    assert "FAIL" in html
