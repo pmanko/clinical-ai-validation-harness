@@ -13,6 +13,8 @@ def validate_timeline(timeline: dict) -> None:
     for i, segment in enumerate(timeline["segments"]):
         if segment["type"] == "clip" and segment["end"] <= segment["start"]:
             raise ValueError(f"segment {i}: clip 'end' must exceed 'start'")
+        if segment["type"] == "card" and segment["duration"] <= 0:
+            raise ValueError(f"segment {i}: card 'duration' must be positive")
 
 
 def final_duration(timeline: dict) -> float:
@@ -39,9 +41,10 @@ def build_filtergraph(timeline: dict, tmp_dir: "Path | None" = None) -> str:
         import tempfile
 
         tmp_dir = Path(tempfile.mkdtemp())
-    # Resolved by fontconfig, so a family name rather than a path: the same
-    # timeline renders on a laptop and in CI without carrying a font binary.
-    font = timeline.get("font", "Helvetica Neue")
+    # A fontconfig generic alias, not a specific family: "Helvetica Neue"
+    # renders on macOS but is absent on Linux CI runners, so the default has
+    # to be something fontconfig can always resolve to *some* sans-serif.
+    font = timeline.get("font", "sans-serif")
     filters = []
     labels = []
     for i, segment in enumerate(timeline["segments"]):

@@ -46,9 +46,9 @@ const clips: DemoClip[] = [
     followup: 'Also include the result unit and how many minutes elapsed between specimen receipt and result release',
     factView: 'analytics.lab_result_fact_v1',
     file: 'openelis-lab-demo-20260823.mp4',
-    poster: 'openelis-lab-demo-poster.jpg',
-    sizeLabel: '~660 KB',
-    durationLabel: '~29s',
+    poster: 'openelis-lab-demo-20260823-poster.jpg',
+    sizeLabel: '~2.1 MB',
+    durationLabel: '~53s',
   },
   {
     id: 'openmrs-hiv-demo',
@@ -58,9 +58,9 @@ const clips: DemoClip[] = [
     followup: "Also include the patient's gender and birth date",
     factView: 'analytics.hiv_observation_fact_v1',
     file: 'openmrs-hiv-demo-20260823.mp4',
-    poster: 'openmrs-hiv-demo-poster.jpg',
-    sizeLabel: '~790 KB',
-    durationLabel: '~32s',
+    poster: 'openmrs-hiv-demo-20260823-poster.jpg',
+    sizeLabel: '~1.6 MB',
+    durationLabel: '~52s',
   },
 ];
 

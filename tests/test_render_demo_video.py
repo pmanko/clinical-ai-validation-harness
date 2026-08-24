@@ -59,6 +59,15 @@ def test_validate_timeline_rejects_clip_whose_end_precedes_start():
         rdv.validate_timeline(timeline)
 
 
+def test_validate_timeline_rejects_a_card_with_non_positive_duration():
+    timeline = minimal_timeline()
+    rdv.validate_timeline(timeline)  # the well-formed baseline passes
+
+    timeline["segments"][0]["duration"] = 0.0
+    with pytest.raises(ValueError, match="duration"):
+        rdv.validate_timeline(timeline)
+
+
 def test_final_duration_sums_cards_and_speed_adjusted_clips():
     # 2.0s card + 8.0s clip at 1x + 12.0s clip at 4x = 2 + 8 + 3 = 13.0
     assert rdv.final_duration(minimal_timeline()) == pytest.approx(13.0)
@@ -99,41 +108,41 @@ def test_filtergraph_trims_speeds_concatenates_and_burns_text(tmp_path):
     assert "boxcolor=0x24133F" in graph
 
 
-def test_card_rule_is_centred_on_the_frame_not_on_itself():
+def test_card_rule_is_centred_on_the_frame_not_on_itself(tmp_path):
     """Inside drawbox, `w` is the box's own width, not the frame's.
 
     Centring with x=(w-rule)/2 therefore evaluates to zero and pins the rule
     to the left edge -- which still renders, still encodes, and still ships,
     looking broken. Only an eye on the frame or this assertion catches it.
     """
-    graph = rdv.build_filtergraph(minimal_timeline())
+    graph = rdv.build_filtergraph(minimal_timeline(), tmp_path)
     rule = next(part for part in graph.split(",") if part.startswith("drawbox="))
     assert "x=(iw-" in rule, f"rule is not centred on the frame: {rule}"
 
 
-def test_card_fades_in_and_out_so_sections_do_not_blink():
-    graph = rdv.build_filtergraph(minimal_timeline())
+def test_card_fades_in_and_out_so_sections_do_not_blink(tmp_path):
+    graph = rdv.build_filtergraph(minimal_timeline(), tmp_path)
     assert "fade=t=in:st=0:d=0.40" in graph
     # A 2.0s card with a 0.40s fade starts fading out at 1.60s.
     assert "fade=t=out:st=1.60:d=0.40" in graph
 
 
-def test_caption_box_is_padded_away_from_its_text():
+def test_caption_box_is_padded_away_from_its_text(tmp_path):
     """Without boxborderw the box is drawn tight against the glyphs."""
-    graph = rdv.build_filtergraph(minimal_timeline())
+    graph = rdv.build_filtergraph(minimal_timeline(), tmp_path)
     assert "boxborderw=" in graph
     assert "boxborderw=0" not in graph
 
 
-def test_clip_hold_freezes_the_final_frame_for_extra_seconds():
+def test_clip_hold_freezes_the_final_frame_for_extra_seconds(tmp_path):
     timeline = minimal_timeline()
     timeline["segments"][1]["hold"] = 2.5
-    graph = rdv.build_filtergraph(timeline)
+    graph = rdv.build_filtergraph(timeline, tmp_path)
     assert "tpad=stop_mode=clone:stop_duration=2.5" in graph
 
 
-def test_clip_is_scaled_and_padded_to_the_timeline_canvas_size():
-    graph = rdv.build_filtergraph(minimal_timeline(width=1280, height=720))
+def test_clip_is_scaled_and_padded_to_the_timeline_canvas_size(tmp_path):
+    graph = rdv.build_filtergraph(minimal_timeline(width=1280, height=720), tmp_path)
     assert "scale=1280:720" in graph
     assert "pad=1280:720" in graph
 
