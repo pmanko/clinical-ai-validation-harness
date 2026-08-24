@@ -274,3 +274,50 @@ def test_report_shows_historical_indepth_call_failure(monkeypatch):
 
     assert "Failed" in cell["answer_html"]
     assert "in-depth request failed: timeout" in cell["answer_html"]
+
+
+def test_the_narrative_report_sections_a_comparison_run_by_team(tmp_path):
+    """A comparison run's rows resolve evidence and labels by their team."""
+    import json as _json
+
+    from harness.catalyst.report import build_report
+
+    run_dir = tmp_path / "run"
+    (run_dir / "scenarios" / "team-a" / "A1" / "repetition-01").mkdir(parents=True)
+    (run_dir / "suite.json").write_text(
+        _json.dumps(
+            {
+                "id": "s", "datasetId": "d", "datasetVersion": "1",
+                "catalogVersion": "c", "providerName": "llama.cpp",
+                "repetitions": 1,
+                "profiles": {"team-a": {"writerModelId": "m", "reviewerModelId": None}},
+                "scenarios": [
+                    {"id": "A1", "family": "single-ready",
+                     "initialQuestion": "How many?",
+                     "initialProfileId": "team-a",
+                     "expectedBaseClassification": "reused",
+                     "expectedBaseOutcome": "ready",
+                     "turns": [{"instruction": "keep", "profileId": "team-a"}]}
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    (run_dir / "results.json").write_text(
+        _json.dumps(
+            {
+                "runId": "r", "suiteId": "s", "passedCount": 1, "resultCount": 1,
+                "results": [
+                    {"scenarioId": "A1", "profileId": "team-a",
+                     "status": "completed", "passed": True,
+                     "assertions": [{"name": "x", "passed": True}],
+                     "turns": [], "timing": {"unadjustedGenerationWallMs": 5}}
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    out = build_report(run_dir)
+    html = out.read_text(encoding="utf-8")
+    assert "team-a · A1" in html
