@@ -26,7 +26,7 @@ def _triage(run_dir: Path, vetted: list[dict], monkeypatch, capsys) -> tuple[int
 
 def _write_rows(tmp_path: Path, rows: list[dict]) -> Path:
     run_dir = tmp_path / "run"
-    run_dir.mkdir()
+    run_dir.mkdir(parents=True)
     (run_dir / "rows.jsonl").write_text(
         "".join(json.dumps(r) + "\n" for r in rows), encoding="utf-8"
     )
@@ -95,3 +95,44 @@ def test_missing_inputs_refuse_in_one_line_not_a_traceback(
     code, out = _triage(empty, [], monkeypatch, capsys)
     assert code == 1
     assert "TRIAGE FAILED: cannot read" in out
+
+
+def test_the_remaining_refusals_and_gaps_are_exercised(tmp_path, monkeypatch, capsys):
+    """Bad JSONL, a bad ledger, the repo-relative default, and the other
+    two vacuous-pass gaps all take their intended paths."""
+    # Malformed rows.jsonl -> one-line refusal.
+    run_dir = tmp_path / "bad"
+    run_dir.mkdir()
+    (run_dir / "rows.jsonl").write_text("{not json}\n", encoding="utf-8")
+    code, out = _triage(run_dir, [], monkeypatch, capsys)
+    assert code == 1 and "not valid JSONL" in out
+
+    # Malformed ledger -> one-line refusal.
+    spec = importlib.util.spec_from_file_location(
+        "triage_run2", ROOT / "scripts" / "triage-run.py"
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    good = _write_rows(tmp_path, [_pass_row()])
+    broken = tmp_path / "broken.json"
+    broken.write_text("[{\"no_signature\": true}]", encoding="utf-8")
+    monkeypatch.setattr(
+        "sys.argv", ["triage-run.py", str(good), "--vetted", str(broken)]
+    )
+    assert module.main() == 1
+    assert "vetted ledger" in capsys.readouterr().out
+
+    # The default ledger resolves against the script's repo from anywhere.
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr("sys.argv", ["triage-run.py", str(good)])
+    assert module.main() == 0
+
+    # A pass that skipped its gold check, and a terminal base never verified
+    # SQL-free, are both named as gaps.
+    gappy = _pass_row("B1")
+    gappy["assertions"] = [{"name": "token_evidence_recorded-base", "passed": True}]
+    run_dir2 = _write_rows(tmp_path / "second", [gappy])
+    code, out = _triage(run_dir2, [], monkeypatch, capsys)
+    assert code == 1
+    assert "no independent-answer check ran" in out
+    assert "terminal base not verified SQL-free" in out
