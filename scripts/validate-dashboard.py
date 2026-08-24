@@ -320,6 +320,7 @@ def status():
 
 
 try:
+    from harness.catalyst.attribution import blame as _blame
     from harness.catalyst.notebook_validation import assertion_class
 
     CLASSIFIER_SOURCE = "harness.catalyst.notebook_validation"
@@ -333,104 +334,14 @@ except Exception as _classifier_error:  # pragma: no cover - deployment guard
     def assertion_class(name):
         return "conformance"
 
-
-_ROOT_PRECEDENCE = (
-    # First failed match wins; everything else failed as a consequence.
-    ("base_writer_outcome", "the opening answer was the wrong kind"),
-    ("writer_outcome", "the writer's answer was rejected or of the wrong kind"),
-    ("successor_execution_succeeded", "the accepted query failed to execute"),
-    ("base_gold_execution_match",
-     "the answer disagrees with the independent reference"),
-    ("successor_gold_execution_match",
-     "the answer disagrees with the independent reference"),
-    ("no_sql_after_non_ready_base", "a refusal or question left SQL behind"),
-    ("token_evidence_recorded", "no token accounting was published"),
-)
-
-_VETTED_CACHE = {}
+    def _blame(assertions, ledger_path=None):
+        return {"kind": "invalid", "root": None, "consequences": 0,
+                "rationale": None}
 
 
-def _vetted_ledger(path):
-    cached = _VETTED_CACHE.get(path)
-    if cached is None:
-        try:
-            with open(path, encoding="utf-8") as handle:
-                cached = {
-                    tuple(e["signature"]): e for e in json.load(handle)
-                }
-        except Exception:
-            cached = {}
-        _VETTED_CACHE[path] = cached
-    return cached
-
-
-def _sentence_for_gold(evidence):
-    """Summarize a structured gold verdict recorded before sentences existed."""
-    if isinstance(evidence, str):
-        # The runner compacts assertion evidence to a JSON string; a clipped
-        # blob will simply fail to parse and fall through to raw display.
-        try:
-            evidence = json.loads(evidence)
-        except (ValueError, TypeError):
-            return None
-    if not isinstance(evidence, dict):
-        return None
-    if isinstance(evidence.get("disagreement"), str):
-        return evidence["disagreement"]
-    if "modelRowCount" in evidence and "referenceRowCount" in evidence:
-        extra = evidence.get("extraKeys")
-        missing = evidence.get("missingKeys")
-        mism = evidence.get("valueMismatches")
-        if extra or missing or mism:
-            parts = []
-            if extra:
-                parts.append(f"the answer has {len(extra)} groups the reference does not have")
-            if missing:
-                parts.append(f"{len(missing)} reference groups missing")
-            if mism:
-                parts.append(f"counts disagree on {len(mism)} groups")
-            return "; ".join(parts)
-        model = evidence["modelRowCount"]
-        counted = f"over {model}" if evidence.get("modelRowsExceededCap") else str(model)
-        return (f"the answer returned {counted} rows; the independent "
-                f"reference returns {evidence['referenceRowCount']}")
-    return None
-
-
-def blame_failure(failed_assertions, ledger_path):
-    """One attributed explanation for a failed conversation.
-
-    The root cause is the highest-precedence failed check, said in plain
-    words; the rest are consequences. Blame comes from the vetted ledger --
-    the same dispositions the triage gate enforces -- and an unvetted
-    combination says 'unvetted' instead of guessing.
-    """
-    names = sorted({re.sub(r"-(?:t\d+|base)$", "", a["name"]) for a in failed_assertions})
-    entry = _vetted_ledger(ledger_path).get(tuple(names))
-    root = None
-    for name, human in _ROOT_PRECEDENCE:
-        hit = next(
-            (a for a in failed_assertions
-             if re.sub(r"-(?:t\d+|base)$", "", a["name"]) == name),
-            None,
-        )
-        if hit is not None:
-            evidence = hit.get("evidence")
-            spoken = _sentence_for_gold(evidence)
-            root = {"name": name, "human": human,
-                    "evidence": spoken if spoken is not None else evidence}
-            break
-    if root is None and failed_assertions:
-        first = failed_assertions[0]
-        root = {"name": first["name"], "human": first["name"],
-                "evidence": first.get("evidence")}
-    return {
-        "disposition": entry["disposition"] if entry else "unvetted",
-        "rationale": entry["rationale"] if entry else
-            "This failure combination has no vetted disposition yet -- investigate before trusting the verdict.",
-        "root": root,
-        "consequences": max(0, len(failed_assertions) - 1),
-    }
+# Blame lives in harness.catalyst.attribution -- the same explanation the
+# triage gate and the comparison page use. This script keeps no copy.
+blame_failure = _blame
 
 
 def run_family(run):

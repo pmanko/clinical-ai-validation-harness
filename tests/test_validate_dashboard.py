@@ -182,47 +182,29 @@ def test_a_failure_is_reduced_to_one_blamed_root_cause(tmp_path: Path):
 
     A rejected writer answer also fails the terminal-status, selection and
     staleness checks; showing all four raw makes every red look like four
-    mysteries. The root cause is picked by precedence, said in plain words,
-    and blamed via the same vetted ledger the triage gate uses.
+    mysteries. The root cause is picked by precedence and said in plain
+    words, by the same module the triage gate and comparison page use.
     """
     vd = _load_dashboard_module()
-    ledger = tmp_path / "vetted.json"
-    ledger.write_text(
-        json.dumps(
-            [
-                {
-                    "signature": [
-                        "exact_selected_output",
-                        "followup_terminal_status",
-                        "writer_outcome",
-                    ],
-                    "disposition": "model",
-                    "rationale": "The writer's follow-up was rejected by the lint.",
-                }
-            ]
-        ),
-        encoding="utf-8",
-    )
     failed = [
-        {"name": "followup_terminal_status", "evidence": "failed"},
-        {"name": "writer_outcome",
+        {"name": "followup_terminal_status", "class": "evaluation",
+         "evidence": "failed"},
+        {"name": "writer_outcome", "class": "evaluation",
          "evidence": '{"expected": "ready", "observed": "rejected"}'},
-        {"name": "exact_selected_output", "evidence": "[]"},
+        {"name": "exact_selected_output", "class": "evaluation",
+         "evidence": "[]"},
     ]
 
-    verdict = vd.blame_failure(failed, str(ledger))
+    verdict = vd.blame_failure(failed)
 
-    assert verdict["disposition"] == "model"
-    assert "rejected by the lint" in verdict["rationale"]
+    assert verdict["kind"] == "judged"
     assert verdict["root"]["name"] == "writer_outcome"
     assert "answer" in verdict["root"]["human"].lower()
     assert verdict["consequences"] == 2
 
-    # An unvetted combination says so instead of guessing.
-    unknown = vd.blame_failure(
-        [{"name": "brand_new_check", "evidence": "?"}], str(ledger)
-    )
-    assert unknown["disposition"] == "unvetted"
+    # A check nobody classified cannot be vouched for.
+    unknown = vd.blame_failure([{"name": "brand_new_check", "evidence": "?"}])
+    assert unknown["kind"] == "invalid"
 
 
 def _conformance_run(tmp_path: Path):

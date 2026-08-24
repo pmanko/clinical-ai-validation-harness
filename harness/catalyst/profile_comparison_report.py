@@ -13,6 +13,8 @@ from typing import Any
 
 from harness.report_shell.document import render_document
 
+from .attribution import blame, conformed
+
 
 def _esc(value: Any) -> str:
     return (
@@ -76,10 +78,108 @@ def _entry_rows(entry: dict[str, Any]) -> list[dict[str, Any]]:
     return rows
 
 
+def _cell_verdict(runs: list[dict[str, Any]]) -> tuple[str, str]:
+    """One conversation's verdict, and the sentence that explains it.
+
+    A cell whose contract broke is INVALID, never FAIL: it measured nothing,
+    so reporting it as a team's result would be a lie about the team.
+    """
+    for row in runs:
+        assertions = row.get("assertions") or []
+        if not conformed(assertions):
+            reason = blame(assertions)
+            root = reason.get("root") or {}
+            return "INVALID", (
+                "invalid measurement — "
+                + str(root.get("why") or root.get("human") or root.get("name") or "")
+            )
+    if all(_scenario_passed(row) for row in runs):
+        return "PASS", ""
+    for row in runs:
+        if not _scenario_passed(row):
+            reason = blame(row.get("assertions") or [])
+            root = reason.get("root") or {}
+            return "FAIL", str(
+                root.get("why") or root.get("human") or root.get("name") or ""
+            )
+    return "FAIL", ""
+
+
+def _qualification(
+    entries: list[dict[str, Any]],
+    per_entry_results: list[dict[str, Any]],
+    invalid_by_entry: dict[str, int],
+    gates: dict[str, float],
+) -> str:
+    """The decision, with the thresholds it was made against.
+
+    Printed together so the page still means something when the programme's
+    gates move; a team with an invalid measurement is undecidable rather
+    than beaten, and says so.
+    """
+    overall = gates.get("overall")
+    per_scenario = gates.get("per_scenario")
+    lines: list[str] = []
+    qualified: list[str] = []
+    for entry, by_scenario in zip(entries, per_entry_results):
+        rows = [row for runs in by_scenario.values() for row in runs]
+        scored = len(rows)
+        passed = sum(1 for row in rows if _scenario_passed(row))
+        rate = (passed / scored) if scored else 0.0
+        worst = min(
+            (
+                sum(1 for r in runs if _scenario_passed(r)) / len(runs)
+                for runs in by_scenario.values()
+                if runs
+            ),
+            default=0.0,
+        )
+        invalid = invalid_by_entry.get(entry["profile_id"], 0)
+        if invalid:
+            note = (
+                f"undecidable — {invalid} invalid measurement"
+                + ("s" if invalid > 1 else "")
+            )
+        elif (overall is None or rate >= overall) and (
+            per_scenario is None or worst >= per_scenario
+        ):
+            qualified.append(entry["profile_label"])
+            note = "meets every gate"
+        else:
+            note = "below the gates"
+        lines.append(
+            f"<li><code>{_esc(entry['profile_label'])}</code> — "
+            f"{passed}/{scored} conversations ({rate:.0%} overall, "
+            f"worst scenario {worst:.0%}) — {note}</li>"
+        )
+    verdict = (
+        f"Qualified: {_esc(qualified[0])}" if len(qualified) == 1
+        else (f"Qualified: {_esc(', '.join(qualified))}" if qualified
+              else "No team qualified")
+    )
+    applied = []
+    if overall is not None:
+        applied.append(f"at least {overall:.0%} of conversations overall")
+    if per_scenario is not None:
+        applied.append(f"at least {per_scenario:.0%} on every scenario")
+    gate_text = (
+        "Against the gates in force at publication ("
+        + " and ".join(applied)
+        + "):"
+        if applied
+        else "No acceptance gates were applied to this run:"
+    )
+    return (
+        f"<h2>Decision</h2><p>{gate_text} <b>{verdict}</b>.</p>"
+        f"<ul>{''.join(lines)}</ul>"
+    )
+
+
 def build_comparison_report(
     entries: list[dict[str, Any]],
     *,
     title: str = "Catalyst profile comparison",
+    gates: dict[str, float] | None = None,
 ) -> str:
     """Render one HTML page comparing each entry's notebook-validation run.
 
@@ -130,17 +230,39 @@ def build_comparison_report(
         per_entry_results.append(by_scenario)
 
     matrix_rows: list[str] = []
+    inventory: list[str] = []
+    invalid_by_entry: dict[str, int] = {e["profile_id"]: 0 for e in entries}
     for scenario_id in scenario_ids:
         cells = [f"<td>{_esc(scenario_id)}</td>"]
-        for by_scenario in per_entry_results:
-            reps = by_scenario.get(scenario_id, [])
-            if not reps:
+        for entry, by_scenario in zip(entries, per_entry_results):
+            runs = by_scenario.get(scenario_id, [])
+            if not runs:
                 cells.append("<td>—</td>")
                 continue
-            passed_reps = sum(1 for row in reps if _scenario_passed(row))
-            verdict = "PASS" if passed_reps == len(reps) else "FAIL"
-            cells.append(f"<td>{verdict} ({passed_reps}/{len(reps)})</td>")
+            verdict, note = _cell_verdict(runs)
+            if verdict == "INVALID":
+                invalid_by_entry[entry["profile_id"]] += 1
+            cells.append(
+                f'<td class="v{verdict.lower()}">{verdict}</td>'
+            )
+            if note:
+                inventory.append(
+                    "<tr>"
+                    f"<td>{_esc(scenario_id)}</td>"
+                    f"<td>{_esc(entry['profile_label'])}</td>"
+                    f'<td class="v{verdict.lower()}">{verdict}</td>'
+                    f"<td>{_esc(note)}</td>"
+                    "</tr>"
+                )
         matrix_rows.append(f"<tr>{''.join(cells)}</tr>")
+
+    inventory_table = (
+        "<table class=data><thead><tr><th>Scenario</th><th>Team</th>"
+        "<th>Verdict</th><th>What happened</th></tr></thead><tbody>"
+        f"{''.join(inventory)}</tbody></table>"
+        if inventory
+        else "<p>Every conversation passed.</p>"
+    )
 
     matrix_header = "<th>Scenario</th>" + "".join(
         f"<th>{_esc(e['profile_label'])}</th>" for e in entries
@@ -153,12 +275,23 @@ def build_comparison_report(
         "</tbody></table>"
     )
 
+    decision = (
+        _qualification(entries, per_entry_results, invalid_by_entry, gates)
+        if gates is not None
+        else ""
+    )
     body = (
         f"<h1>{_esc(title)}</h1>"
+        f"{decision}"
         "<h2>Summary</h2>"
         f"{summary_table}"
         "<h2>Per-scenario breakdown</h2>"
+        "<p class=note>PASS and FAIL are the judge's verdict on the answer. "
+        "INVALID means the run broke its own contract there and measured "
+        "nothing — it is not a score against the team.</p>"
         f"{matrix_table}"
+        "<h2>What went wrong</h2>"
+        f"{inventory_table}"
     )
 
     return render_document(

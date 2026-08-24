@@ -55,7 +55,7 @@ def test_each_team_is_scored_on_its_own_rows_alone(tmp_path: Path) -> None:
 
     assert "2/2" in html   # team-a: A1 + U1 both passed
     assert "0/1" in html   # team-b: its single A1 row failed
-    assert "PASS (1/1)" in html and "FAIL (0/1)" in html
+    assert "PASS" in html and "FAIL" in html
 
 
 def test_a_scenario_that_passed_by_expecting_its_failure_stays_passed(
@@ -84,4 +84,95 @@ def test_a_scenario_that_passed_by_expecting_its_failure_stays_passed(
     html = build_comparison_report(entries_from_comparison_run(run_dir))
 
     assert "1/1" in html
-    assert "PASS (1/1)" in html
+    assert "PASS" in html
+
+
+def _write_taxonomy_run(tmp_path: Path) -> Path:
+    """Three teams on one scenario: a pass, a judged failure with structured
+    gold evidence, and a run that broke its own contract."""
+    run_dir = tmp_path / "run"
+    run_dir.mkdir()
+    rows = [
+        {"scenarioId": "A1", "profileId": "team-pass", "status": "completed",
+         "passed": True, "assertions": [{"name": "session_created",
+                                         "class": "conformance",
+                                         "passed": True}],
+         "timing": {"unadjustedGenerationWallMs": 1000}},
+        # The same team misses a second scenario, so nobody clears the gates.
+        {"scenarioId": "A2", "profileId": "team-pass", "status": "completed",
+         "passed": False,
+         "assertions": [{"name": "base_writer_outcome", "class": "evaluation",
+                         "passed": False,
+                         "evidence": {"observed": "ready",
+                                      "expected": "unsupported"}}],
+         "timing": {"unadjustedGenerationWallMs": 1000}},
+        {"scenarioId": "A1", "profileId": "team-judged", "status": "completed",
+         "passed": False,
+         "assertions": [{"name": "successor_gold_execution_match-t1",
+                         "class": "evaluation", "passed": False,
+                         "evidence": {"modelRowCount": 4,
+                                      "referenceRowCount": 6}}],
+         "timing": {"unadjustedGenerationWallMs": 1000}},
+        {"scenarioId": "A1", "profileId": "team-broken", "status": "completed",
+         "passed": False,
+         "assertions": [{"name": "writer_model", "class": "conformance",
+                         "passed": False, "evidence": "wrong model answered"}],
+         "timing": {"unadjustedGenerationWallMs": 1000}},
+    ]
+    (run_dir / "results.json").write_text(
+        json.dumps({"results": rows}), encoding="utf-8"
+    )
+    return run_dir
+
+
+def test_a_broken_run_is_not_reported_as_a_result(tmp_path: Path) -> None:
+    """An invalid measurement must never be presented as a team's score.
+
+    A judged failure is a finding and says why in one sentence; a cell whose
+    contract broke measured nothing and has to say that instead.
+    """
+    run_dir = _write_taxonomy_run(tmp_path)
+
+    html = build_comparison_report(entries_from_comparison_run(run_dir))
+
+    assert "FAIL" in html and "INVALID" in html
+    assert ("the answer returned 4 rows; the independent reference "
+            "returns 6") in html
+    assert "wrong model answered" in html
+
+
+def test_the_page_states_the_verdict_and_the_gates_it_applied(
+    tmp_path: Path,
+) -> None:
+    """A frozen page has to be readable a year later without the roadmap."""
+    run_dir = _write_taxonomy_run(tmp_path)
+
+    html = build_comparison_report(
+        entries_from_comparison_run(run_dir),
+        gates={"overall": 0.90, "per_scenario": 0.80},
+    )
+
+    assert "No team qualified" in html
+    assert "90" in html and "80" in html
+    # The broken team is undecidable, not merely beaten.
+    assert "invalid measurement" in html
+
+
+def test_a_team_that_meets_every_gate_is_named(tmp_path: Path) -> None:
+    run_dir = tmp_path / "run"
+    run_dir.mkdir()
+    (run_dir / "results.json").write_text(json.dumps({"results": [
+        {"scenarioId": "A1", "profileId": "team-a", "status": "completed",
+         "passed": True, "assertions": [{"name": "session_created",
+                                         "class": "conformance",
+                                         "passed": True}],
+         "timing": {"unadjustedGenerationWallMs": 10}},
+    ]}), encoding="utf-8")
+
+    html = build_comparison_report(
+        entries_from_comparison_run(run_dir),
+        gates={"overall": 0.90, "per_scenario": 0.80},
+    )
+
+    assert "Qualified: team-a" in html
+    assert "No team qualified" not in html
