@@ -3717,3 +3717,39 @@ def test_a_model_query_that_times_out_fails_the_check_not_the_run(
 
     assert result["passed"] is False
     assert "statement timeout" in result["disagreement"]
+
+
+def test_a_partially_repeated_pair_is_rerun_not_reused(tmp_path: Path) -> None:
+    """One recorded repetition of three is not a finished pair.
+
+    An interruption can land mid-pair; reusing what it left would score the
+    pair on fewer repetitions than the suite demands, silently.
+    """
+    state = _WorkbenchState()
+    suite = _adaptive_suite()
+    suite["repetitions"] = 3
+    suite.pop("extendedRepetitions", None)
+    suite_path = tmp_path / "suite.json"
+    suite_path.write_text(json.dumps(suite), encoding="utf-8")
+
+    first = _run_against_fake(tmp_path, suite, state)
+    rows = [
+        json.loads(line)
+        for line in (first.run_dir / "rows.jsonl").read_text().splitlines()
+        if line.strip()
+    ]
+    assert len(rows) == 3
+    # The interruption left one repetition recorded and no summary.
+    (first.run_dir / "rows.jsonl").write_text(
+        json.dumps(rows[0]) + "\n", encoding="utf-8"
+    )
+    (first.run_dir / "results.json").unlink()
+    turns_before = len(state.turn_requests)
+    state.turn_requests.clear()
+
+    resumed = _run_against_fake(tmp_path, suite, state, resume_from=first.run_dir)
+
+    summary = json.loads((resumed.run_dir / "results.json").read_text())
+    assert len(summary["results"]) == 3
+    # The whole pair re-ran: partial work is measurement of nothing.
+    assert len(state.turn_requests) == turns_before
