@@ -14,13 +14,15 @@ import math
 import re
 import time
 from collections import Counter
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import date, datetime, time as datetime_time, timezone
 from decimal import Decimal
 from pathlib import Path
 from typing import Any, Callable, Protocol
 from urllib.parse import urlparse
 from uuid import UUID, uuid4
+
+from urllib.parse import quote
 
 import requests
 import rfc8785
@@ -224,6 +226,12 @@ class NotebookSuite:
     require_token_evidence: bool
     profiles: dict[str, dict[str, str | None]]
     scenarios: tuple[NotebookScenario, ...]
+    # The teams this suite compares, in the order they are run. Empty means
+    # the suite is not a comparison: each scenario uses the profile it names.
+    comparison_profiles: tuple[str, ...] = ()
+    # The gateway serves several sources and answers its default when not
+    # told which; a suite bound to one names it so nothing else can answer.
+    data_source_id: str | None = None
 
 
 @dataclass(frozen=True)
@@ -293,7 +301,7 @@ class NotebookTransport(Protocol):
         instruction: str,
         profile_id: str,
         observed_base: dict[str, str] | None,
-        editor_snapshot: dict[str, Any],
+        editor_snapshot: dict[str, Any] | None,
     ) -> HttpExchange: ...
 
 
@@ -314,9 +322,16 @@ class GoldChecker(Protocol):
 
 
 class NotebookHttpClient:
-    def __init__(self, base_url: str, *, timeout_seconds: int = 240) -> None:
+    def __init__(
+        self,
+        base_url: str,
+        *,
+        timeout_seconds: int = 240,
+        data_source_id: str | None = None,
+    ) -> None:
         self.base_url = base_url.rstrip("/")
         self.timeout_seconds = timeout_seconds
+        self.data_source_id = data_source_id
         self.session = requests.Session()
 
     def _request(
@@ -345,11 +360,22 @@ class NotebookHttpClient:
     def profiles(self) -> HttpExchange:
         return self._request("GET", "/v1/catalyst/query-options")
 
+    def bind_data_source(self, data_source_id: str) -> None:
+        self.data_source_id = data_source_id
+
+    def _scoped(self, path: str) -> str:
+        """Ask the suite's source, not whichever one the gateway defaults to."""
+        if self.data_source_id is None:
+            return path
+        return f"{path}?dataSourceId={quote(self.data_source_id)}"
+
     def dataset_overview(self) -> HttpExchange:
-        return self._request("GET", "/v1/catalyst/dataset")
+        return self._request("GET", self._scoped("/v1/catalyst/dataset"))
 
     def catalog(self) -> HttpExchange:
-        return self._request("GET", "/v1/catalyst/workbench/catalog")
+        return self._request(
+            "GET", self._scoped("/v1/catalyst/workbench/catalog")
+        )
 
     def create_session(self, question: str, profile_id: str) -> HttpExchange:
         return self._request(
@@ -360,6 +386,11 @@ class NotebookHttpClient:
                 "deploymentMode": "demo",
                 "question": question,
                 "profileId": profile_id,
+                **(
+                    {"dataSourceId": self.data_source_id}
+                    if self.data_source_id is not None
+                    else {}
+                ),
             },
         )
 
@@ -426,7 +457,7 @@ class NotebookHttpClient:
         instruction: str,
         profile_id: str,
         observed_base: dict[str, str] | None,
-        editor_snapshot: dict[str, Any],
+        editor_snapshot: dict[str, Any] | None,
     ) -> HttpExchange:
         return self._request(
             "POST",
@@ -435,6 +466,11 @@ class NotebookHttpClient:
                 "contractVersion": "catalyst.workbench.turn.request.v1",
                 "instruction": instruction,
                 "profileId": profile_id,
+                **(
+                    {"dataSourceId": self.data_source_id}
+                    if self.data_source_id is not None
+                    else {}
+                ),
                 "observedBase": observed_base,
                 "editorSnapshot": editor_snapshot,
             },
@@ -532,23 +568,22 @@ def _fetch_all_rows(
     parameters: list[dict[str, Any]],
     *,
     max_rows: int,
-) -> list[dict[str, Any]]:
+) -> tuple[list[dict[str, Any]], bool]:
     bindings = {
         str(parameter["name"]): _binding_value(parameter) for parameter in parameters
     }
     driver_sql = _driver_sql(sql, set(bindings))
     cursor.execute(driver_sql, bindings)
     rows = list(cursor.fetchmany(max_rows + 1))
-    if len(rows) > max_rows:
-        raise ValueError(
-            f"gold execution match exceeded the {max_rows}-row safety cap; "
-            "raise max_rows or narrow the scenario"
-        )
+    exceeded = len(rows) > max_rows
     columns = [item.name for item in (cursor.description or ())]
-    return [
-        {column: _json_safe_value(value) for column, value in zip(columns, row)}
-        for row in rows
-    ]
+    return (
+        [
+            {column: _json_safe_value(value) for column, value in zip(columns, row)}
+            for row in rows[:max_rows]
+        ],
+        exceeded,
+    )
 
 
 class PostgresGoldExecutionChecker:
@@ -577,18 +612,43 @@ class PostgresGoldExecutionChecker:
                     "SELECT set_config('statement_timeout', %s, true)",
                     (f"{self.statement_timeout_ms}ms",),
                 )
-                model_rows = _fetch_all_rows(
-                    cursor,
-                    str(version["sql"]),
-                    list(version.get("parameters") or []),
-                    max_rows=self.max_rows,
-                )
-                reference_rows = _fetch_all_rows(
+                try:
+                    model_rows, model_exceeded = _fetch_all_rows(
+                        cursor,
+                        str(version["sql"]),
+                        list(version.get("parameters") or []),
+                        max_rows=self.max_rows,
+                    )
+                except psycopg.errors.QueryCanceled:
+                    # Too slow to answer within the product's own statement
+                    # timeout is a wrong answer, not a broken harness.
+                    return {
+                        "contractVersion": (
+                            "harness.catalyst-notebook.gold-execution-match.v1"
+                        ),
+                        "mode": gold_check.mode,
+                        "versionId": version.get("versionId"),
+                        "queryDigest": version.get("queryDigest"),
+                        "passed": False,
+                        "disagreement": (
+                            "the model's query exceeded the "
+                            f"{self.statement_timeout_ms}ms statement timeout "
+                            "when re-executed independently"
+                        ),
+                    }
+                reference_rows, reference_exceeded = _fetch_all_rows(
                     cursor,
                     gold_check.reference_sql,
                     list(gold_check.reference_parameters),
                     max_rows=self.max_rows,
                 )
+        # The reference is ours: oversized means the scenario is misauthored,
+        # and scoring against a truncated reference would be a quiet lie.
+        if reference_exceeded:
+            raise ValueError(
+                f"the reference query exceeded the {self.max_rows}-row safety "
+                "cap; narrow the scenario or raise max_rows"
+            )
 
         result: dict[str, Any] = {
             "contractVersion": "harness.catalyst-notebook.gold-execution-match.v1",
@@ -598,6 +658,12 @@ class PostgresGoldExecutionChecker:
             "modelRowCount": len(model_rows),
             "referenceRowCount": len(reference_rows),
         }
+        if model_exceeded:
+            # An unfiltered model answer is a wrong answer, not a broken
+            # harness: score the mismatch instead of erasing finished work.
+            result["modelRowsExceededCap"] = True
+            result["passed"] = False
+            return result
         if gold_check.mode == "count":
             result["passed"] = len(model_rows) == len(reference_rows)
         elif gold_check.mode == "row_set":
@@ -627,6 +693,22 @@ def _compare_row_sets(
     reference_rows: list[dict[str, Any]],
     match_columns: tuple[str, ...],
 ) -> dict[str, Any]:
+    # A match column the model never projected can only produce a wall of
+    # None-vs-value diffs; the honest evidence is one sentence naming it.
+    if model_rows:
+        model_columns = sorted(model_rows[0])
+        absent = [c for c in match_columns if c not in model_rows[0]]
+        if absent:
+            return {
+                "matchColumns": list(match_columns),
+                "passed": False,
+                "disagreement": (
+                    f"the model result has no column named "
+                    f"{', '.join(repr(c) for c in absent)}; its columns are "
+                    f"{model_columns}"
+                ),
+            }
+
     def _key(row: dict[str, Any]) -> tuple[Any, ...]:
         return tuple(row.get(column) for column in match_columns)
 
@@ -662,6 +744,34 @@ def _compare_aggregates(
     def _key(row: dict[str, Any]) -> tuple[Any, ...]:
         return tuple(row.get(column) for column in key_columns)
 
+    # The criterion is "this aggregate by this key", not our spelling of the
+    # aggregate: keys come from catalog values and match naturally, but the
+    # value column is named by the model. When our name is absent and the row
+    # has exactly one non-key column left, that column is the value. Two or
+    # more is a real ambiguity, reported as a sentence rather than guessed.
+    resolution: dict[str, str] = {}
+    if model_rows:
+        model_columns = list(model_rows[0])
+        spare = [c for c in model_columns if c not in key_columns]
+        for wanted in value_columns:
+            if wanted in model_columns:
+                continue
+            others = [c for c in spare if c not in value_columns]
+            if len(others) == 1:
+                resolution[wanted] = others[0]
+            else:
+                return {
+                    "keyColumns": list(key_columns),
+                    "valueColumns": value_columns,
+                    "passed": False,
+                    "disagreement": (
+                        f"the model result has no column named {wanted!r} and "
+                        f"{'no' if not others else 'several'} unambiguous "
+                        f"stand-in{'s' if len(others) != 1 else ''} "
+                        f"({others}); its columns are {sorted(model_columns)}"
+                    ),
+                }
+
     model_by_key = {_key(row): row for row in model_rows}
     reference_by_key = {_key(row): row for row in reference_rows}
     missing_keys = sorted(set(reference_by_key) - set(model_by_key), key=str)
@@ -671,7 +781,7 @@ def _compare_aggregates(
         model_row, reference_row = model_by_key[key], reference_by_key[key]
         for column, spec in value_columns.items():
             model_value, reference_value = (
-                model_row.get(column),
+                model_row.get(resolution.get(column, column)),
                 reference_row.get(column),
             )
             tolerance = float(spec.get("tolerance", 0))
@@ -691,6 +801,7 @@ def _compare_aggregates(
         "missingKeys": [list(key) for key in missing_keys],
         "extraKeys": [list(key) for key in extra_keys],
         "valueMismatches": mismatches,
+        "valueColumnResolution": resolution,
         "passed": not missing_keys and not extra_keys and not mismatches,
     }
 
@@ -867,7 +978,12 @@ def load_notebook_suite(path: Path | str) -> NotebookSuite:
         if scenario_repetitions is not None and int(scenario_repetitions) < 1:
             raise ValueError(f"scenario {scenario_id!r} repetitions must be positive")
         classification = str(item["expectedBaseClassification"])
-        if classification not in {"reused", "promoted_human", "unresolved"}:
+        if classification not in {
+            "not_applicable",
+            "reused",
+            "promoted_human",
+            "unresolved",
+        }:
             raise ValueError(f"scenario {scenario_id!r} has invalid classification")
         base_outcome = str(item.get("expectedBaseOutcome", "ready"))
         if base_outcome not in WRITER_OUTCOMES:
@@ -921,6 +1037,14 @@ def load_notebook_suite(path: Path | str) -> NotebookSuite:
         if frozen_digest is not None:
             entry["profileConfigurationDigest"] = str(frozen_digest)
         profiles[str(profile_id)] = entry
+    comparison_profiles = tuple(
+        str(value) for value in payload.get("comparisonProfiles") or ()
+    )
+    for profile_id in comparison_profiles:
+        if profile_id not in profiles:
+            raise ValueError(
+                f"suite compares unknown profile {profile_id!r}"
+            )
     for scenario in scenarios:
         for profile_id in (
             scenario.initial_profile_id,
@@ -943,6 +1067,12 @@ def load_notebook_suite(path: Path | str) -> NotebookSuite:
         require_token_evidence=bool(payload.get("requireTokenEvidence", False)),
         profiles=profiles,
         scenarios=tuple(scenarios),
+        comparison_profiles=comparison_profiles,
+        data_source_id=(
+            str(payload["dataSourceId"])
+            if payload.get("dataSourceId") is not None
+            else None
+        ),
     )
 
 
@@ -1017,6 +1147,53 @@ def _selected_answer_sql(run_dir: Path, prefix: str) -> str | None:
     body = (data.get("response") or {}).get("body") or {}
     current = body.get("currentVersion")
     return current.get("sql") if isinstance(current, dict) else None
+
+
+def _result_preview(execution: dict[str, Any] | None) -> dict[str, Any] | None:
+    """The first rows of what the query actually returned, for review.
+
+    A reviewer judging a cell needs the SQL and the table it produced, not a
+    filename. Values are unwrapped from their typed envelopes and clipped.
+    """
+    if not isinstance(execution, dict):
+        return None
+    result = execution.get("result")
+    if not isinstance(result, dict):
+        return None
+
+    def plain(cell: Any) -> Any:
+        return cell.get("value") if isinstance(cell, dict) else cell
+
+    columns = [
+        str(column.get("name"))
+        for column in result.get("columns") or []
+        if isinstance(column, dict)
+    ]
+    rows = [
+        [plain(cell) for cell in row]
+        for row in (result.get("rows") or [])[:10]
+        if isinstance(row, list)
+    ]
+    row_count = result.get("rowCount") or {}
+    return {
+        "columns": columns,
+        "rows": rows,
+        "returned": row_count.get("returned"),
+        "truncatedPreview": len(result.get("rows") or []) > 10,
+    }
+
+
+def _compact_evidence(evidence: Any) -> str:
+    """One legible line per failed assertion, for the run dashboard.
+
+    A gold check that produced a plain `disagreement` sentence surfaces it
+    verbatim; anything else is compacted JSON, clipped so one wide diff
+    cannot swallow the cell view.
+    """
+    if isinstance(evidence, dict) and isinstance(evidence.get("disagreement"), str):
+        return evidence["disagreement"]
+    text = json.dumps(evidence, sort_keys=True, default=str)
+    return text if len(text) <= 400 else text[:397] + "..."
 
 
 def _first_failed_assertion(assertions: list[dict[str, Any]]) -> str | None:
@@ -1109,6 +1286,58 @@ def repetition_pair_is_unstable(runs: list[dict[str, Any]]) -> bool:
     return len(signatures) > 1
 
 
+def _finished_pairs(
+    resume_from: Path | str | None,
+) -> dict[tuple[str, str], list[dict[str, Any]]]:
+    """Completed (team, scenario) rows from an interrupted run, by pair.
+
+    Only whole pairs are reused. A pair that was mid-flight when the run
+    stopped is re-run from the start, because half a pair's repetitions is
+    not a measurement of anything.
+    """
+    if resume_from is None:
+        return {}
+    # rows.jsonl is appended as each repetition completes, so it is what an
+    # interrupted run actually left behind; results.json only exists once a
+    # run finished.
+    rows: list[dict[str, Any]] = []
+    incremental = Path(resume_from) / "rows.jsonl"
+    if incremental.exists():
+        for line in incremental.read_text(encoding="utf-8").splitlines():
+            if line.strip():
+                rows.append(json.loads(line))
+    else:
+        results_path = Path(resume_from) / "results.json"
+        if not results_path.exists():
+            return {}
+        payload = json.loads(results_path.read_text(encoding="utf-8"))
+        rows = list(payload.get("results") or [])
+    pairs: dict[tuple[str, str], list[dict[str, Any]]] = {}
+    for row in rows:
+        profile_id = row.get("profileId")
+        scenario_id = row.get("scenarioId")
+        if not isinstance(profile_id, str) or not isinstance(scenario_id, str):
+            continue
+        pairs.setdefault((profile_id, scenario_id), []).append(row)
+    return pairs
+
+
+def _scenario_for_profile(
+    scenario: NotebookScenario, profile_id: str
+) -> NotebookScenario:
+    """The same scenario, answered by one team.
+
+    Every team is compared on identical wording and order; only who answers
+    changes, so the scenario is rebuilt with its profile references replaced
+    and nothing else touched.
+    """
+    return replace(
+        scenario,
+        initial_profile_id=profile_id,
+        turns=tuple(replace(turn, profile_id=profile_id) for turn in scenario.turns),
+    )
+
+
 def _effective_repetitions(
     suite: NotebookSuite, scenario: NotebookScenario, repetitions: int | None
 ) -> int:
@@ -1128,9 +1357,16 @@ def run_notebook_suite(
     gold_checker: GoldChecker | None = None,
     manual_checkpoint: Callable[[NotebookScenario, str], None] | None = None,
     provenance_loader: Callable[[Path], list[dict[str, Any]]] = _target_provenance,
+    resume_from: Path | str | None = None,
 ) -> NotebookRunResult:
     suite_path = Path(suite_path)
     suite = load_notebook_suite(suite_path)
+    # A gateway serving several sources answers its default when it is not
+    # told which, so a suite bound to one binds the client to it too.
+    if suite.data_source_id is not None:
+        bind = getattr(client, "bind_data_source", None)
+        if bind is not None:
+            bind(suite.data_source_id)
     selected = [
         scenario
         for scenario in suite.scenarios
@@ -1188,12 +1424,15 @@ def run_notebook_suite(
     # granularity than this run/scenario spine) and stays unused here.
     events_path = run_dir / "events.jsonl"
     results_path = run_dir / "results.jsonl"
+    # One matrix cell per (team, scenario): the comparison's tracking grid.
+    cell_teams: tuple[str | None, ...] = suite.comparison_profiles or (None,)
     cells = [
         {
             "scenario_id": scenario.id,
-            "backend_id": scenario.followup_profile_id,
+            "backend_id": cell_team or scenario.followup_profile_id,
             "turns": _effective_repetitions(suite, scenario, repetitions),
         }
+        for cell_team in cell_teams
         for scenario in selected
         if not (scenario.manual_only and not include_manual)
     ]
@@ -1246,6 +1485,10 @@ def run_notebook_suite(
     )
     _require_discovery(suite, profiles_exchange, dataset_exchange, catalog_exchange)
 
+    # A comparison is hours of model time, so an interruption resumes rather
+    # than restarts: every (team, scenario) already recorded is reused
+    # verbatim and only the missing pairs are run again.
+    finished = _finished_pairs(resume_from)
     results: list[dict[str, Any]] = []
     seen_sessions: set[str] = set()
     # The budget belongs to the run: it exists to stop a team being scored
@@ -1254,149 +1497,202 @@ def run_notebook_suite(
     replacements = 0
     infrastructure_failures: list[dict[str, Any]] = []
     skipped = 0
-    for scenario in selected:
-        if scenario.manual_only and not include_manual:
-            skipped += 1
-            results.append(
-                {
-                    "scenarioId": scenario.id,
-                    "family": scenario.family,
-                    "status": "skipped",
-                    "reason": "manual-only bounded failure scenario was not enabled",
-                }
+    # Teams are the outer loop: a local model stays resident while it answers
+    # the whole suite, and every team meets the same frozen scenario order.
+    teams: tuple[str | None, ...] = suite.comparison_profiles or (None,)
+    for team in teams:
+        # The budget invalidates *that team's* run, so each team gets its own.
+        replacements = 0
+        for scenario in selected:
+            if team is not None:
+                scenario = _scenario_for_profile(scenario, team)
+            recorded = finished.get(
+                (team or scenario.initial_profile_id, scenario.id)
             )
-            continue
-        repeat_count = _effective_repetitions(suite, scenario, repetitions)
-        # A pair that disagrees with itself has measured nothing, so it earns
-        # the extension; one that agrees is settled and is not re-run.
-        ceiling = (
-            repeat_count
-            if repetitions is not None or suite.extended_repetitions is None
-            else max(repeat_count, suite.extended_repetitions)
-        )
-        scenario_runs: list[dict[str, Any]] = []
-        repetition = 0
-        while repetition < repeat_count:
-            repetition += 1
-            attempt_slot = (
-                f"repetition-{repetition:02d}"
-                if replacements == 0
-                else f"repetition-{repetition:02d}-replacement-{replacements:02d}"
-            )
-            prefix = f"scenarios/{scenario.id}/{attempt_slot}"
-            started_at = datetime.now(timezone.utc).isoformat()
-            result = _run_scenario(
-                suite=suite,
-                scenario=scenario,
-                repetition=repetition,
-                client=client,
-                recorder=recorder,
-                prefix=prefix,
-                postgres_checker=postgres_checker,
-                gold_checker=gold_checker,
-                manual_checkpoint=manual_checkpoint,
-            )
-            session_id = result.get("sessionId")
-            isolated = isinstance(session_id, str) and session_id not in seen_sessions
-            if isinstance(session_id, str):
-                seen_sessions.add(session_id)
-            result["assertions"].append(
-                {
-                    "name": "new_session_isolation",
-                    "passed": isolated,
-                    "evidence": session_id,
-                }
-            )
-            result["passed"] = all(item["passed"] for item in result["assertions"])
-            result["httpStatus"] = _normalized_http_status(run_dir, prefix)
-            if suite.infrastructure_replacements and is_infrastructure_failure(result):
-                replacements += 1
-                if replacements > suite.infrastructure_replacements:
-                    raise ValueError(
-                        f"scenario {scenario.id!r} hit a third infrastructure "
-                        "failure for this run; the run is invalid for that team"
-                    )
-                infrastructure_failures.append(
+            if recorded is not None:
+                results.extend(recorded)
+                continue
+            if scenario.manual_only and not include_manual:
+                skipped += 1
+                results.append(
                     {
                         "scenarioId": scenario.id,
-                        "repetition": repetition,
-                        "attempt": attempt_slot,
-                        "httpStatus": result["httpStatus"],
-                        "status": result.get("status"),
-                        "sessionId": result.get("sessionId"),
+                        "family": scenario.family,
+                        "profileId": team or scenario.initial_profile_id,
+                        "status": "skipped",
+                        "reason": "manual-only bounded failure scenario was not enabled",
                     }
                 )
-                result["status"] = "infrastructure_failed"
-                results.append(result)
-                # The host, not the model, failed: re-run this repetition
-                # rather than scoring it.
-                repetition -= 1
                 continue
-            results.append(result)
-            scenario_runs.append(result)
-            ended_at = datetime.now(timezone.utc).isoformat()
-
-            http_status = _normalized_http_status(run_dir, prefix)
-            answer = _selected_answer_sql(run_dir, prefix) or str(result.get("status"))
-            backend_id = scenario.followup_profile_id
-            append_jsonl(
-                results_path,
-                {
-                    "run_id": run_id,
-                    "scenario_id": scenario.id,
-                    "backend_id": backend_id,
-                    "turn": repetition,
-                    "request": {
-                        "question": (
-                            f"{scenario.initial_question} ⇒ "
-                            f"{scenario.followup_instruction}"
-                            if scenario.turns
-                            else scenario.initial_question
+            repeat_count = _effective_repetitions(suite, scenario, repetitions)
+            # A pair that disagrees with itself has measured nothing, so it earns
+            # the extension; one that agrees is settled and is not re-run.
+            ceiling = (
+                repeat_count
+                if repetitions is not None or suite.extended_repetitions is None
+                else max(repeat_count, suite.extended_repetitions)
+            )
+            scenario_runs: list[dict[str, Any]] = []
+            repetition = 0
+            while repetition < repeat_count:
+                repetition += 1
+                attempt_slot = (
+                    f"repetition-{repetition:02d}"
+                    if replacements == 0
+                    else f"repetition-{repetition:02d}-replacement-{replacements:02d}"
+                )
+                prefix = (
+                    f"scenarios/{scenario.id}/{attempt_slot}"
+                    if team is None
+                    else f"scenarios/{team}/{scenario.id}/{attempt_slot}"
+                )
+                started_at = datetime.now(timezone.utc).isoformat()
+                result = _run_scenario(
+                    suite=suite,
+                    scenario=scenario,
+                    repetition=repetition,
+                    client=client,
+                    recorder=recorder,
+                    prefix=prefix,
+                    postgres_checker=postgres_checker,
+                    gold_checker=gold_checker,
+                    manual_checkpoint=manual_checkpoint,
+                )
+                session_id = result.get("sessionId")
+                isolated = isinstance(session_id, str) and session_id not in seen_sessions
+                if isinstance(session_id, str):
+                    seen_sessions.add(session_id)
+                result["assertions"].append(
+                    {
+                        "name": "new_session_isolation",
+                        "passed": isolated,
+                        "evidence": session_id,
+                    }
+                )
+                result["passed"] = all(item["passed"] for item in result["assertions"])
+                result["profileId"] = team or scenario.initial_profile_id
+                # Appended now, not at the end: this row is what --resume
+                # reuses when the run dies before the summary is written.
+                append_jsonl(run_dir / "rows.jsonl", result)
+                result["httpStatus"] = _normalized_http_status(run_dir, prefix)
+                if suite.infrastructure_replacements and is_infrastructure_failure(result):
+                    replacements += 1
+                    if replacements > suite.infrastructure_replacements:
+                        raise ValueError(
+                            f"scenario {scenario.id!r} hit a third infrastructure "
+                            "failure for this run; the run is invalid for that team"
                         )
+                    infrastructure_failures.append(
+                        {
+                            "scenarioId": scenario.id,
+                            "repetition": repetition,
+                            "attempt": attempt_slot,
+                            "httpStatus": result["httpStatus"],
+                            "status": result.get("status"),
+                            "sessionId": result.get("sessionId"),
+                        }
+                    )
+                    result["status"] = "infrastructure_failed"
+                    results.append(result)
+                    # The host, not the model, failed: re-run this repetition
+                    # rather than scoring it.
+                    repetition -= 1
+                    continue
+                results.append(result)
+                scenario_runs.append(result)
+                ended_at = datetime.now(timezone.utc).isoformat()
+
+                http_status = _normalized_http_status(run_dir, prefix)
+                answer = (
+                    _selected_answer_sql(run_dir, prefix)
+                    or result.get("baseSql")
+                    or result.get("baseAnswerText")
+                    or str(result.get("status"))
+                )
+                backend_id = scenario.followup_profile_id
+                append_jsonl(
+                    results_path,
+                    {
+                        "run_id": run_id,
+                        "scenario_id": scenario.id,
+                        "backend_id": backend_id,
+                        "turn": repetition,
+                        "request": {
+                            "question": (
+                                f"{scenario.initial_question} ⇒ "
+                                f"{scenario.followup_instruction}"
+                                if scenario.turns
+                                else scenario.initial_question
+                            )
+                        },
+                        "response": {
+                            "answer": answer,
+                            "baseOutcome": result.get("baseOutcome"),
+                            "expectedBaseOutcome": result.get(
+                                "expectedBaseOutcome"
+                            ),
+                            "turns": [
+                                {
+                                    "instruction": t.get("instruction"),
+                                    "expectedOutcome": t.get("expectedOutcome"),
+                                    "observedOutcome": t.get("observedOutcome"),
+                                }
+                                for t in result.get("turns") or []
+                            ],
+                            "resultPreview": result.get("resultPreview"),
+                            "failedAssertions": [
+                                {
+                                    "name": item["name"],
+                                    "evidence": _compact_evidence(
+                                        item.get("evidence")
+                                    ),
+                                }
+                                for item in result.get("assertions") or []
+                                if not item.get("passed")
+                            ][:8],
+                        },
+                        "metrics": {
+                            "http_status": http_status,
+                            "latency_ms": (result.get("timing") or {}).get(
+                                "unadjustedGenerationWallMs"
+                            ),
+                            "answer_chars": len(answer) if isinstance(answer, str) else 0,
+                            "passed": result["passed"],
+                            "first_turn": repetition == 1,
+                        },
+                        "error": _first_failed_assertion(result["assertions"]),
+                        "started_at": started_at,
+                        "ended_at": ended_at,
                     },
-                    "response": {"answer": answer},
-                    "metrics": {
+                )
+                for event in notebook_result_events(
+                    run_id=run_id,
+                    run_dir=run_dir,
+                    prefix=prefix,
+                    result=result,
+                    backend_id=backend_id,
+                ):
+                    append_event(events_path, event)
+                append_event(
+                    events_path,
+                    {
+                        "schema_version": NOTEBOOK_EVENT_SCHEMA_VERSION,
+                        "event_type": "evaluation",
+                        "check": "notebook_scenario",
+                        "run_id": run_id,
+                        "scenario_id": scenario.id,
+                        "backend_id": backend_id,
+                        "turn": repetition,
                         "http_status": http_status,
-                        "latency_ms": (result.get("timing") or {}).get(
-                            "unadjustedGenerationWallMs"
-                        ),
-                        "answer_chars": len(answer) if isinstance(answer, str) else 0,
                         "passed": result["passed"],
-                        "first_turn": repetition == 1,
                     },
-                    "error": _first_failed_assertion(result["assertions"]),
-                    "started_at": started_at,
-                    "ended_at": ended_at,
-                },
-            )
-            for event in notebook_result_events(
-                run_id=run_id,
-                run_dir=run_dir,
-                prefix=prefix,
-                result=result,
-                backend_id=backend_id,
-            ):
-                append_event(events_path, event)
-            append_event(
-                events_path,
-                {
-                    "schema_version": NOTEBOOK_EVENT_SCHEMA_VERSION,
-                    "event_type": "evaluation",
-                    "check": "notebook_scenario",
-                    "run_id": run_id,
-                    "scenario_id": scenario.id,
-                    "backend_id": backend_id,
-                    "turn": repetition,
-                    "http_status": http_status,
-                    "passed": result["passed"],
-                },
-            )
-            if (
-                repetition == repeat_count
-                and repeat_count < ceiling
-                and repetition_pair_is_unstable(scenario_runs)
-            ):
-                repeat_count = ceiling
+                )
+                if (
+                    repetition == repeat_count
+                    and repeat_count < ceiling
+                    and repetition_pair_is_unstable(scenario_runs)
+                ):
+                    repeat_count = ceiling
 
     passed_count = sum(
         result.get("passed") is True
@@ -1485,6 +1781,11 @@ def _run_scenario(
         None,
     )
     check("initial_turn_recorded", isinstance(initial_turn, dict), initial_turn)
+    base_failure_message = (
+        str((initial_turn.get("failure") or {}).get("message") or "")
+        if isinstance(initial_turn, dict)
+        else ""
+    )
     initial_evidence: dict[str, Any] = {}
     if isinstance(initial_turn, dict):
         evidence_exchange = client.generation_evidence(
@@ -1652,22 +1953,38 @@ def _run_scenario(
             )
 
         pinned = scenario.editor_query if turn_index == 1 else None
-        editor_query = pinned or NotebookQuery(
-            sql=str(base_version["sql"]),
-            parameters=tuple(dict(item) for item in base_version.get("parameters", [])),
-            expected_columns=tuple(
-                dict(item) for item in base_version.get("expectedColumns", [])
-            ),
+        # Answering the writer's question revises nothing: the session holds
+        # no query, so the turn claims neither an editor nor a base.
+        editor_query = pinned or (
+            NotebookQuery(
+                sql=str(base_version["sql"]),
+                parameters=tuple(
+                    dict(item) for item in base_version.get("parameters", [])
+                ),
+                expected_columns=tuple(
+                    dict(item) for item in base_version.get("expectedColumns", [])
+                ),
+            )
+            if base_version is not None
+            else None
         )
-        snapshot = {
-            "contractVersion": "catalyst.workbench.editor-snapshot.v1",
-            **editor_query.content(),
-            "editorDigest": query_digest(editor_query),
-        }
-        observed_base = {
-            "versionId": str(base_version["versionId"]),
-            "queryDigest": str(base_version["queryDigest"]),
-        }
+        snapshot = (
+            {
+                "contractVersion": "catalyst.workbench.editor-snapshot.v1",
+                **editor_query.content(),
+                "editorDigest": query_digest(editor_query),
+            }
+            if editor_query is not None
+            else None
+        )
+        observed_base = (
+            {
+                "versionId": str(base_version["versionId"]),
+                "queryDigest": str(base_version["queryDigest"]),
+            }
+            if base_version is not None
+            else None
+        )
         if scenario.manual_only:
             if manual_checkpoint is None:
                 raise ValueError(
@@ -1944,6 +2261,10 @@ def _run_scenario(
         "status": turn.get("status") if scenario.turns else "completed",
         "baseOutcome": observed_base_outcome,
         "expectedBaseOutcome": scenario.expected_base_outcome,
+        # For a question or a refusal these words ARE the answer under test.
+        "baseAnswerText": base_failure_message or None,
+        "baseSql": (base_version or {}).get("sql"),
+        "resultPreview": _result_preview(successor_execution or base_execution),
         "sessionId": session_id,
         "initialTurnId": initial_turn.get("turnId")
         if isinstance(initial_turn, dict)

@@ -27,8 +27,11 @@ fi
   "${FAMILY}" "${RUN_DIR}" "${SLUG}" "${TITLE}" "${SUMMARY}" "${TAKEAWAY}" \
   --reports-root "${REPORTS_ROOT}" --manifest "${MANIFEST}" --root "${ROOT}")
 
-if [[ "${FAMILY}" == "chartsearchai" && "${DRY_RUN}" != "1" ]]; then
-  echo "==> freezing ChartSearchAI interactive dashboard snapshot"
+# The interactive dashboard's run matrix is the tracking/review surface for
+# BOTH families; the index links it whenever <slug>/dashboard.html exists, so
+# skipping the freeze is how catalyst reports quietly lost that link.
+if [[ "${DRY_RUN}" != "1" ]]; then
+  echo "==> freezing interactive dashboard snapshot (${FAMILY})"
   (cd "${ROOT}" && uv run python scripts/validate-dashboard.py \
     --freeze "${REPORTS_ROOT}/${SLUG}/dashboard.html" --run "${RUN_DIR}") \
     || echo "warn: dashboard freeze failed for ${SLUG}" >&2

@@ -145,12 +145,19 @@ class _WorkbenchState:
         # none, exactly as the Gateway does when the writer asks or
         # declines on the opening question.
         self.base_outcome = "ready"
+        # Which profiles discovery advertises; a comparison suite needs
+        # every team it names to be offered.
+        self.profile_ids: list[str] = [PROFILE_ID]
+        # Per-profile role models, so a comparison suite's teams are told
+        # apart by what they actually offer.
+        self.profile_models: dict[str, tuple[str, str | None]] = {}
         # A terminal answer that nonetheless left SQL in the session:
         # the exact contradiction the runner has to catch.
         self.leaves_a_query_behind = False
         self.turn_http_sequence: list[int] | None = None
         self.turn_attempts = 0
         self.requests: list[tuple[str, str]] = []
+        self.session_requests: list[dict[str, Any]] = []
 
     def reset(self) -> None:
         """A new session starts a repetition from the same clean state.
@@ -256,27 +263,33 @@ def _handler(state: _WorkbenchState):
 
         def do_GET(self) -> None:  # noqa: N802
             state.requests.append(("GET", self.path))
-            if self.path == "/v1/catalyst/query-options":
+            path = self.path.split("?")[0]
+            if path == "/v1/catalyst/query-options":
                 self._send(
                     200,
                     {
                         "profiles": [
                             {
-                                "id": PROFILE_ID,
+                                "id": profile_id,
                                 "available": True,
                                 "revisionCapable": True,
                                 "role_models": {
-                                    "query_generate": "gemma-4-12b",
-                                    "query_review": "qwen2.5-14b",
+                                    "query_generate": state.profile_models.get(
+                                        profile_id, ("gemma-4-12b", "qwen2.5-14b")
+                                    )[0],
+                                    "query_review": state.profile_models.get(
+                                        profile_id, ("gemma-4-12b", "qwen2.5-14b")
+                                    )[1],
                                 },
                                 "provenance": {
                                     "profileConfigurationDigest": state.profile_digest
                                 },
                             }
+                            for profile_id in state.profile_ids
                         ]
                     },
                 )
-            elif self.path == "/v1/catalyst/dataset":
+            elif path == "/v1/catalyst/dataset":
                 self._send(
                     200,
                     {
@@ -285,7 +298,7 @@ def _handler(state: _WorkbenchState):
                         "pipelineRunId": "pipeline-1",
                     },
                 )
-            elif self.path == "/v1/catalyst/workbench/catalog":
+            elif path == "/v1/catalyst/workbench/catalog":
                 self._send(
                     200,
                     {
@@ -313,6 +326,7 @@ def _handler(state: _WorkbenchState):
             body = self._body()
             if self.path == "/v1/catalyst/workbench/sessions":
                 state.reset()
+                state.session_requests.append(body)
                 self._send(201, state.session())
             elif self.path == f"/v1/catalyst/workbench/sessions/{state.session_id}/versions":
                 version = _version(
@@ -375,7 +389,11 @@ def _handler(state: _WorkbenchState):
                     f"version-{2 + ordinal}",
                     "SELECT DISTINCT patient_id FROM analytics.lab_result_fact_v1"
                     + ("" if ordinal == 1 else f" LIMIT {ordinal}"),
-                    parent=state.current["versionId"],
+                    # A turn answering a question produces the session's
+                    # first version, so it has no parent.
+                    parent=(
+                        state.current["versionId"] if state.current else None
+                    ),
                 )
                 successor["authorType"] = "model_repair"
                 state.versions.append(successor)
@@ -2637,7 +2655,9 @@ def _adaptive_suite(**scenario_overrides: Any) -> dict[str, Any]:
     }
 
 
-def _run_against_fake(tmp_path: Path, suite: dict[str, Any], state) -> Any:
+def _run_against_fake(
+    tmp_path: Path, suite: dict[str, Any], state, *, resume_from: Path | None = None
+) -> Any:
     suite_path = tmp_path / "suite.json"
     suite_path.write_text(json.dumps(suite), encoding="utf-8")
     server = ThreadingHTTPServer(("127.0.0.1", 0), _handler(state))
@@ -2650,6 +2670,7 @@ def _run_against_fake(tmp_path: Path, suite: dict[str, Any], state) -> Any:
             output_dir=tmp_path / "artifacts",
             project_root=ROOT,
             provenance_loader=lambda _: [],
+            resume_from=resume_from,
         )
     finally:
         server.shutdown()
@@ -3186,3 +3207,513 @@ def test_the_replacement_budget_is_the_runs_not_each_scenarios(
 
     with pytest.raises(ValueError, match="third infrastructure failure"):
         _run_against_fake(tmp_path, suite, state)
+
+
+# --- one frozen comparison, run once, resumable ----------------------------
+
+
+def _comparison_suite(**overrides: Any) -> dict[str, Any]:
+    """One suite, three teams, the same twelve scenarios for each."""
+    payload = _adaptive_suite()
+    payload["repetitions"] = 1
+    payload.pop("extendedRepetitions", None)
+    payload["profiles"] = {
+        "team-a": {"writerModelId": "gemma-4-12b", "reviewerModelId": None},
+        "team-b": {"writerModelId": "gemma-4-12b", "reviewerModelId": "gemma-4-12b"},
+        "team-c": {"writerModelId": "gemma-4-12b", "reviewerModelId": "qwen2.5-14b"},
+    }
+    payload["comparisonProfiles"] = ["team-a", "team-b", "team-c"]
+    base = payload["scenarios"][0]
+    base["initialProfileId"] = "team-a"
+    base["followupProfileId"] = "team-a"
+    payload.update(overrides)
+    return payload
+
+
+def test_a_suite_can_name_the_teams_it_compares(tmp_path: Path) -> None:
+    suite = load_notebook_suite(_write_suite(tmp_path, _comparison_suite()))
+
+    assert suite.comparison_profiles == ("team-a", "team-b", "team-c")
+
+
+def test_a_suite_that_names_no_teams_runs_the_profile_each_scenario_declares(
+    tmp_path: Path,
+) -> None:
+    suite = load_notebook_suite(_write_suite(tmp_path, _suite_payload()))
+
+    assert suite.comparison_profiles == ()
+
+
+def test_a_compared_team_must_be_a_declared_profile(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="unknown profile"):
+        load_notebook_suite(
+            _write_suite(
+                tmp_path, _comparison_suite(comparisonProfiles=["team-a", "team-z"])
+            )
+        )
+
+
+def test_every_team_runs_every_scenario_in_one_invocation(tmp_path: Path) -> None:
+    """The comparison is one run, not one run per team.
+
+    Teams are the outer loop so a local model stays resident while it answers
+    the whole suite, and every team sees the same frozen scenario order.
+    """
+    state = _WorkbenchState()
+    state.profile_ids = ["team-a", "team-b", "team-c"]
+    state.profile_models = {
+        "team-a": ("gemma-4-12b", None),
+        "team-b": ("gemma-4-12b", "gemma-4-12b"),
+        "team-c": ("gemma-4-12b", "qwen2.5-14b"),
+    }
+    suite = _comparison_suite()
+    base = suite["scenarios"][0]
+    suite["scenarios"] = [{**base, "id": "s1"}, {**base, "id": "s2"}]
+
+    result = _run_against_fake(tmp_path, suite, state)
+
+    summary = json.loads((result.run_dir / "results.json").read_text())
+    ran = [(row["profileId"], row["scenarioId"]) for row in summary["results"]]
+    assert ran == [
+        ("team-a", "s1"), ("team-a", "s2"),
+        ("team-b", "s1"), ("team-b", "s2"),
+        ("team-c", "s1"), ("team-c", "s2"),
+    ]
+    # Each team actually answered under its own profile, not team-a's.
+    assert {
+        request["profileId"] for request in state.turn_requests
+    } == {"team-a", "team-b", "team-c"}
+
+
+def test_a_resumed_run_keeps_finished_work_and_only_runs_what_is_left(
+    tmp_path: Path,
+) -> None:
+    """A comparison is hours of model time; an interruption must not restart it.
+
+    Resuming reuses every (team, scenario) already recorded in the run
+    directory verbatim -- the same rows, in the same order -- and spends model
+    time only on the pairs that never finished.
+    """
+    state = _WorkbenchState()
+    state.profile_ids = ["team-a", "team-b", "team-c"]
+    state.profile_models = {
+        "team-a": ("gemma-4-12b", None),
+        "team-b": ("gemma-4-12b", "gemma-4-12b"),
+        "team-c": ("gemma-4-12b", "qwen2.5-14b"),
+    }
+    suite = _comparison_suite()
+    suite["comparisonProfiles"] = ["team-a", "team-b"]
+    suite_path = tmp_path / "suite.json"
+    suite_path.write_text(json.dumps(suite), encoding="utf-8")
+
+    first = _run_against_fake(tmp_path, suite, state)
+    done = json.loads((first.run_dir / "results.json").read_text())
+    finished_turns = len(state.turn_requests)
+    assert [row["profileId"] for row in done["results"]] == ["team-a", "team-b"]
+
+    # An interruption leaves the incremental rows and no final summary:
+    # keep team-a's rows in rows.jsonl and delete everything summarising.
+    team_a_rows = [row for row in done["results"] if row["profileId"] == "team-a"]
+    (first.run_dir / "rows.jsonl").write_text(
+        "".join(json.dumps(row) + "\n" for row in team_a_rows), encoding="utf-8"
+    )
+    (first.run_dir / "results.json").unlink()
+
+    state.turn_requests.clear()
+    resumed = _run_against_fake(tmp_path, suite, state, resume_from=first.run_dir)
+
+    rows = json.loads((resumed.run_dir / "results.json").read_text())["results"]
+    assert [row["profileId"] for row in rows] == ["team-a", "team-b"]
+    # team-a was reused, not re-run: only team-b cost model time.
+    assert len(state.turn_requests) == finished_turns // 2
+    assert rows[0] == team_a_rows[0]
+
+
+def test_a_suite_bound_to_one_source_asks_that_source_everything(
+    tmp_path: Path,
+) -> None:
+    """The HIV comparison must not be silently answered by OpenELIS.
+
+    A gateway serving several sources answers the default one when asked
+    without a `dataSourceId`, so a suite that names a source has to carry it
+    into discovery and into every session it opens -- otherwise the run looks
+    healthy and measures the wrong data.
+    """
+    state = _WorkbenchState()
+    suite = _suite_payload(dataSourceId="openmrs-hiv")
+    suite_path = tmp_path / "suite.json"
+    suite_path.write_text(json.dumps(suite), encoding="utf-8")
+    assert load_notebook_suite(suite_path).data_source_id == "openmrs-hiv"
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), _handler(state))
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        run_notebook_suite(
+            suite_path=suite_path,
+            # Built the way the CLI builds it: knowing nothing about the
+            # source, so only the suite can bind it.
+            client=NotebookHttpClient(f"http://127.0.0.1:{server.server_port}"),
+            output_dir=tmp_path / "artifacts",
+            project_root=ROOT,
+            provenance_loader=lambda _: [],
+        )
+    finally:
+        server.shutdown()
+        thread.join(timeout=5)
+        server.server_close()
+
+    asked = [path for method, path in state.requests if method == "GET"]
+    assert any(
+        path.startswith("/v1/catalyst/dataset") and "dataSourceId=openmrs-hiv" in path
+        for path in asked
+    ), asked
+    assert any(
+        path.startswith("/v1/catalyst/workbench/catalog")
+        and "dataSourceId=openmrs-hiv" in path
+        for path in asked
+    ), asked
+    assert state.session_requests[0]["dataSourceId"] == "openmrs-hiv"
+    assert state.turn_requests[0]["dataSourceId"] == "openmrs-hiv"
+
+
+def test_a_suite_naming_no_source_still_asks_the_gateways_default(
+    tmp_path: Path,
+) -> None:
+    state = _WorkbenchState()
+    _run_against_fake(tmp_path, _suite_payload(), state)
+
+    assert load_notebook_suite  # imported
+    assert all("dataSourceId" not in path for _method, path in state.requests)
+    assert "dataSourceId" not in state.session_requests[0]
+
+
+def test_a_clarification_is_answered_with_no_query_to_revise(tmp_path: Path) -> None:
+    """B1-B3: the opening question asked, so the answering turn revises nothing.
+
+    The turn still has to be sent, and it cannot carry an editor snapshot
+    because the session holds no query -- reading one off the absent base is
+    how this used to end the run.
+    """
+    suite = {
+        "id": "notebook-clarify-v1",
+        "datasetId": "catalyst-cohort-v1",
+        "datasetVersion": "1",
+        "catalogVersion": "analytics-catalog-v1",
+        "providerName": "llama.cpp",
+        "repetitions": 1,
+        "profiles": {
+            PROFILE_ID: {
+                "writerModelId": "gemma-4-12b",
+                "reviewerModelId": "qwen2.5-14b",
+            }
+        },
+        "scenarios": [
+            {
+                "id": "recent-results",
+                "family": "clarification",
+                "initialQuestion": "Show recent HIV results.",
+                "initialProfileId": PROFILE_ID,
+                "expectedBaseClassification": "not_applicable",
+                "expectedBaseOutcome": "needs_clarification",
+                "validateBase": False,
+                "executeBase": False,
+                "turns": [
+                    {
+                        "instruction": "The last 90 days, and only CD4 count.",
+                        "profileId": PROFILE_ID,
+                    }
+                ],
+            }
+        ],
+    }
+    suite_path = tmp_path / "suite.json"
+    suite_path.write_text(json.dumps(suite), encoding="utf-8")
+    state = _WorkbenchState()
+    state.base_outcome = "needs_clarification"
+    server = ThreadingHTTPServer(("127.0.0.1", 0), _handler(state))
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        result = run_notebook_suite(
+            suite_path=suite_path,
+            client=NotebookHttpClient(f"http://127.0.0.1:{server.server_port}"),
+            output_dir=tmp_path / "artifacts",
+            project_root=ROOT,
+            provenance_loader=lambda _: [],
+        )
+    finally:
+        server.shutdown()
+        thread.join(timeout=5)
+        server.server_close()
+
+    row = json.loads((result.run_dir / "results.json").read_text())["results"][0]
+    assert row["baseOutcome"] == "needs_clarification"
+    assert len(row["turns"]) == 1
+    # The answering turn claimed nothing about a query it never received.
+    request = state.turn_requests[0]
+    assert request["editorSnapshot"] is None
+    assert request["observedBase"] is None
+
+
+def test_a_model_query_that_blows_the_row_cap_fails_the_check_not_the_run(
+    monkeypatch,
+) -> None:
+    """An unfiltered model query is a wrong answer, not a broken harness.
+
+    The cap exists so a runaway query cannot stall the comparison; hitting it
+    proves the model's answer is far larger than the reference, which is a
+    scored mismatch. Killing the whole run here would let one bad answer
+    erase hours of finished work.
+    """
+    from harness.catalyst.notebook_validation import (
+        PostgresGoldExecutionChecker,
+        NotebookGoldCheck,
+    )
+
+    _gold_check_connection(
+        monkeypatch,
+        {
+            "model_table": (["patient_id"], [(f"p{i}",) for i in range(6)]),
+            "reference_table": (["patient_id"], [("p1",), ("p2",)]),
+        },
+    )
+    version = {
+        "versionId": "version-1",
+        "queryDigest": "a" * 64,
+        "sql": "SELECT patient_id FROM model_table",
+        "parameters": [],
+    }
+    gold_check = NotebookGoldCheck(
+        mode="row_set",
+        reference_sql="SELECT patient_id FROM reference_table",
+        match_columns=("patient_id",),
+    )
+
+    result = PostgresGoldExecutionChecker(
+        "postgresql://readonly:secret@127.0.0.1:15443/catalyst_analytics",
+        max_rows=5,
+    ).check(version, gold_check)
+
+    assert result["passed"] is False
+    assert result["modelRowsExceededCap"] is True
+    assert result["modelRowCount"] == 5
+
+
+def test_a_reference_that_blows_the_row_cap_is_a_suite_error(monkeypatch) -> None:
+    """The reference is ours: if it is oversized the scenario is misauthored,
+    and silently scoring against a truncated reference would be a lie."""
+    from harness.catalyst.notebook_validation import (
+        PostgresGoldExecutionChecker,
+        NotebookGoldCheck,
+    )
+
+    _gold_check_connection(
+        monkeypatch,
+        {
+            "model_table": (["patient_id"], [("p1",)]),
+            "reference_table": (["patient_id"], [(f"p{i}",) for i in range(6)]),
+        },
+    )
+    version = {
+        "versionId": "version-1",
+        "queryDigest": "a" * 64,
+        "sql": "SELECT patient_id FROM model_table",
+        "parameters": [],
+    }
+    gold_check = NotebookGoldCheck(
+        mode="row_set",
+        reference_sql="SELECT patient_id FROM reference_table",
+        match_columns=("patient_id",),
+    )
+
+    with pytest.raises(ValueError, match="reference"):
+        PostgresGoldExecutionChecker(
+            "postgresql://readonly:secret@127.0.0.1:15443/catalyst_analytics",
+            max_rows=5,
+        ).check(version, gold_check)
+
+
+# --- acceptance criteria must not depend on the model's column names --------
+
+
+def test_an_aggregate_value_matches_whatever_the_model_called_its_count(
+    monkeypatch,
+) -> None:
+    """The criterion is 'count of visits by encounter type', not a spelling.
+
+    The keys come from catalog values so they match naturally; the aggregate
+    is a column the model names itself ('visit_count', 'total', ...). A
+    criterion that demands our spelling scores a correct answer as wrong.
+    When the row has exactly one non-key column, that is the value.
+    """
+    from harness.catalyst.notebook_validation import (
+        PostgresGoldExecutionChecker,
+        NotebookGoldCheck,
+    )
+
+    _gold_check_connection(
+        monkeypatch,
+        {
+            "model_table": (
+                ["encounter_type", "visit_count"],
+                [("Adult Visit", 13369), ("Check In", 941)],
+            ),
+            "reference_table": (
+                ["encounter_type", "visits"],
+                [("Adult Visit", 13369), ("Check In", 941)],
+            ),
+        },
+    )
+    version = {
+        "versionId": "version-1",
+        "queryDigest": "a" * 64,
+        "sql": "SELECT encounter_type, count(*) AS visit_count FROM model_table",
+        "parameters": [],
+    }
+    gold_check = NotebookGoldCheck(
+        mode="aggregate_by_key",
+        reference_sql="SELECT encounter_type, visits FROM reference_table",
+        key_columns=("encounter_type",),
+        value_columns={"visits": {"tolerance": 0}},
+    )
+
+    result = PostgresGoldExecutionChecker(
+        "postgresql://readonly:secret@127.0.0.1:15443/catalyst_analytics"
+    ).check(version, gold_check)
+
+    assert result["passed"] is True, result
+    assert result["valueColumnResolution"] == {"visits": "visit_count"}
+
+
+def test_an_ambiguous_aggregate_names_the_columns_it_could_not_choose_between(
+    monkeypatch,
+) -> None:
+    """Two candidate value columns cannot be silently guessed between --
+    and the evidence says exactly that, not a wall of row diffs."""
+    from harness.catalyst.notebook_validation import (
+        PostgresGoldExecutionChecker,
+        NotebookGoldCheck,
+    )
+
+    _gold_check_connection(
+        monkeypatch,
+        {
+            "model_table": (
+                ["encounter_type", "n", "pct"],
+                [("Adult Visit", 13369, 0.9)],
+            ),
+            "reference_table": (
+                ["encounter_type", "visits"],
+                [("Adult Visit", 13369)],
+            ),
+        },
+    )
+    version = {
+        "versionId": "version-1",
+        "queryDigest": "a" * 64,
+        "sql": "SELECT encounter_type, n, pct FROM model_table",
+        "parameters": [],
+    }
+    gold_check = NotebookGoldCheck(
+        mode="aggregate_by_key",
+        reference_sql="SELECT encounter_type, visits FROM reference_table",
+        key_columns=("encounter_type",),
+        value_columns={"visits": {"tolerance": 0}},
+    )
+
+    result = PostgresGoldExecutionChecker(
+        "postgresql://readonly:secret@127.0.0.1:15443/catalyst_analytics"
+    ).check(version, gold_check)
+
+    assert result["passed"] is False
+    assert "visits" in result["disagreement"]
+    assert "n" in result["disagreement"] and "pct" in result["disagreement"]
+
+
+def test_a_row_set_missing_its_match_column_says_so_in_one_sentence(
+    monkeypatch,
+) -> None:
+    """A wrong criterion or projection reads as a sentence, not a row diff."""
+    from harness.catalyst.notebook_validation import (
+        PostgresGoldExecutionChecker,
+        NotebookGoldCheck,
+    )
+
+    _gold_check_connection(
+        monkeypatch,
+        {
+            "model_table": (["patient_id", "value"], [("p1", 7)]),
+            "reference_table": (["observation_id"], [("o1",)]),
+        },
+    )
+    version = {
+        "versionId": "version-1",
+        "queryDigest": "a" * 64,
+        "sql": "SELECT patient_id, value FROM model_table",
+        "parameters": [],
+    }
+    gold_check = NotebookGoldCheck(
+        mode="row_set",
+        reference_sql="SELECT observation_id FROM reference_table",
+        match_columns=("observation_id",),
+    )
+
+    result = PostgresGoldExecutionChecker(
+        "postgresql://readonly:secret@127.0.0.1:15443/catalyst_analytics"
+    ).check(version, gold_check)
+
+    assert result["passed"] is False
+    assert "observation_id" in result["disagreement"]
+    assert "patient_id" in result["disagreement"]
+
+
+def test_a_model_query_that_times_out_fails_the_check_not_the_run(
+    monkeypatch,
+) -> None:
+    """A query too slow to answer within the statement timeout is a wrong
+    answer for this product, and the evidence says so in one sentence."""
+    from harness.catalyst.notebook_validation import (
+        PostgresGoldExecutionChecker,
+        NotebookGoldCheck,
+    )
+
+    cursor = _gold_check_connection(
+        monkeypatch,
+        {
+            "reference_table": (["patient_id"], [("p1",)]),
+        },
+    )
+
+    class _Timeout(Exception):
+        pass
+
+    import psycopg
+
+    monkeypatch.setattr(psycopg.errors, "QueryCanceled", _Timeout, raising=False)
+    original = cursor.execute
+
+    def slow_execute(sql, *args, **kwargs):
+        if "model_table" in sql:
+            raise _Timeout("canceling statement due to statement timeout")
+        return original(sql, *args, **kwargs)
+
+    cursor.execute = slow_execute
+    version = {
+        "versionId": "version-1",
+        "queryDigest": "a" * 64,
+        "sql": "SELECT patient_id FROM model_table",
+        "parameters": [],
+    }
+    gold_check = NotebookGoldCheck(
+        mode="row_set",
+        reference_sql="SELECT patient_id FROM reference_table",
+        match_columns=("patient_id",),
+    )
+
+    result = PostgresGoldExecutionChecker(
+        "postgresql://readonly:secret@127.0.0.1:15443/catalyst_analytics"
+    ).check(version, gold_check)
+
+    assert result["passed"] is False
+    assert "statement timeout" in result["disagreement"]

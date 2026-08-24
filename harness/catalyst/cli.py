@@ -46,6 +46,14 @@ def configure_parser(parent: argparse._SubParsersAction[Any]) -> None:
         help="skip independent DB comparison (not valid for T094 acceptance)",
     )
     run.add_argument(
+        "--resume",
+        dest="resume_from",
+        help=(
+            "continue an interrupted run directory: every (team, scenario) "
+            "already recorded there is reused and only the rest is run"
+        ),
+    )
+    run.add_argument(
         "--timeout-seconds",
         type=int,
         default=900,
@@ -94,7 +102,8 @@ def dispatch(args: argparse.Namespace, *, project_root: Path) -> int:
     result = run_notebook_suite(
         suite_path=Path(args.suite),
         client=NotebookHttpClient(
-            args.gateway_url, timeout_seconds=args.timeout_seconds
+            args.gateway_url,
+            timeout_seconds=args.timeout_seconds,
         ),
         output_dir=Path(args.output_dir),
         project_root=project_root,
@@ -104,6 +113,7 @@ def dispatch(args: argparse.Namespace, *, project_root: Path) -> int:
         postgres_checker=checker,
         gold_checker=gold_checker,
         manual_checkpoint=_manual_checkpoint if args.include_manual else None,
+        resume_from=Path(args.resume_from) if args.resume_from else None,
     )
     print(
         json.dumps(
