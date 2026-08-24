@@ -210,11 +210,9 @@ def status():
     )
 
     def _cell_failure_state(rs):
-        """'modelfail' when every failure is a vetted model result; 'err'
-        the moment anything is unvetted or infrastructure -- a completed
-        comparison with imperfect teams is a successful run, and only a
-        suspect run deserves red."""
-        state = "modelfail"
+        """The judge's verdict owns pass/fail: a vetted model failure is a
+        red 'failed' cell. 'issue' marks a measurement the run itself
+        invalidated -- infrastructure breakage or an unvetted signature."""
         for r in rs:
             m = r.get("metrics") or {}
             if "passed" not in m or m.get("passed"):
@@ -222,8 +220,8 @@ def status():
             failed = (r.get("response") or {}).get("failedAssertions") or []
             verdict = blame_failure(failed, ledger_path)
             if verdict["disposition"] != "model":
-                return "err"
-        return state
+                return "issue"
+        return "err"
 
     states = {}
     for (s, b) in expected_cells:
@@ -523,7 +521,6 @@ html[data-theme="light"]{color-scheme:light;--bg:#f6f8fa;--surface:#ffffff;--sur
 """
     + THEME_TOGGLE_CSS
     + r"""
-.cmodel{color:var(--flag);border-color:var(--flag);}
 body{background:var(--bg);color:var(--text);font:13px/1.5 -apple-system,BlinkMacSystemFont,Menlo,monospace;margin:0;padding:18px}
 h1{font-size:15px;margin:0 0 6px}.muted{color:var(--muted)}.ok{color:var(--ok)}.err{color:var(--err)}
 .bar{height:20px;background:var(--surface);border-radius:10px;overflow:hidden;margin:8px 0}
@@ -539,7 +536,7 @@ table.grid{border-collapse:collapse;margin-top:6px;font-size:11px;table-layout:f
 .grid th:not(:first-child){width:120px;text-align:center;white-space:normal;vertical-align:bottom;line-height:1.25;font-size:10.5px}
 .grid td:not(:first-child){width:120px;text-align:center}
 .grid td{cursor:pointer}.grid td:hover{outline:2px solid var(--accent2)}
-.c200{background:#196c2e;color:#e6ffe9}.cerr{background:#8b1a1a;color:#ffe9e9}.cpend{background:var(--pend-bg);color:var(--pend-fg);cursor:default}
+.c200{background:#196c2e;color:#e6ffe9}.cerr{background:#8b1a1a;color:#ffe9e9}.cissue{background:#4c2889;color:#e9d8ff}.cpend{background:var(--pend-bg);color:var(--pend-fg);cursor:default}
 .crun{background:#9e6a03;color:#ffe9b3;animation:pulse 1.1s ease-in-out infinite}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
 .feed div{padding:2px 0;border-bottom:1px solid var(--border2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
@@ -653,12 +650,12 @@ table.ac-knobs{border-collapse:collapse;font-size:10.5px;margin-top:2px}
 <section><h2>Models resident (llama-router)</h2><div id=models></div></section>
 <section><h2>Arms</h2><div class=row id=arms></div></section>
 <section><h2>Judged scores</h2><div id=judges></div></section>
-<section><h2>Scenario &times; arm &nbsp;<span class=muted>(click a cell)</span></h2><p class=muted style="margin:2px 0 6px">✓ passed &nbsp;·&nbsp; <span class=cmodel>F</span> model failed the scenario (scored result) &nbsp;·&nbsp; <span class=err>!</span> run suspect — unvetted or infrastructure &nbsp;·&nbsp; ● running</p><div id=grid></div></section>
+<section><h2>Scenario &times; arm &nbsp;<span class=muted>(click a cell)</span></h2><p class=muted style="margin:2px 0 6px"><span class=ok>✓</span> passed &nbsp;·&nbsp; <span class=err>×</span> failed (the judge's verdict) &nbsp;·&nbsp; <span style="color:var(--purple)">!</span> run issue — measurement invalid (infrastructure or unvetted) &nbsp;·&nbsp; ● running</p><div id=grid></div></section>
 <section><h2>Recent &nbsp;<span class=muted>(click a row)</span></h2><div class=feed id=feed></div></section>
 <div id=modal onclick="if(event.target===this)closeD()"><div id=mbody></div></div>
 <script>
-const cls=s=>({done:'c200',modelfail:'cmodel',err:'cerr',running:'crun',pending:'cpend'}[s]||'cpend');
-const sym=s=>({done:'✓',modelfail:'F',err:'!',running:'●',pending:'·'}[s]||'·');
+const cls=s=>({done:'c200',err:'cerr',issue:'cissue',running:'crun',pending:'cpend'}[s]||'cpend');
+const sym=s=>({done:'✓',err:'×',issue:'!',running:'●',pending:'·'}[s]||'·');
 // Human-readable arm titles from the resolver's arm_cards (model_registry), never the raw dashed
 // backend id. Filled each tick from the latest /api/status. armTitle = full; armShort = tight
 // grid/column variant. Fall back to the raw id only if a card is missing.

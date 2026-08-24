@@ -225,14 +225,13 @@ def test_a_failure_is_reduced_to_one_blamed_root_cause(tmp_path: Path):
     assert unknown["disposition"] == "unvetted"
 
 
-def test_a_vetted_model_failure_is_a_result_not_an_alarm(tmp_path: Path):
+def test_only_the_judge_fails_a_cell_and_run_issues_stand_apart(tmp_path: Path):
     """The grid distinguishes 'the model failed the scenario' from 'the run
     is suspect'.
 
-    A completed comparison with imperfect teams is a SUCCESSFUL run; painting
-    every vetted model failure the same red as infrastructure breakage made
-    it read as a broken run. Vetted model failures render as their own state;
-    red is reserved for unvetted or infrastructure failures.
+    The judge's verdict owns pass/fail (green/red); a cell whose failure is
+    infrastructure breakage or an unvetted signature is not a measurement at
+    all and renders as its own 'issue' state.
     """
     vd = _load_dashboard_module()
     run = tmp_path / "run"
@@ -281,5 +280,5 @@ def test_a_vetted_model_failure_is_a_result_not_an_alarm(tmp_path: Path):
 
     by = {(g["scenario"]): g["state"] for g in status["grid"]}
     assert by["A1"] == "done"
-    assert by["A2"] == "modelfail"
-    assert by["A3"] == "err"
+    assert by["A2"] == "err"
+    assert by["A3"] == "issue"
