@@ -288,7 +288,9 @@ context features.
 ### G2 — runner and frozen evidence
 
 Extend `harness/catalyst/notebook_validation.py`; do not create a second runner.
-Support arbitrary ordered turns, the four recorded terminal states, adaptive
+Support arbitrary ordered turns; the writer outcomes `ready`,
+`needs_clarification`, and `unsupported`; the separate Gateway-owned
+`rejected` state; adaptive
 three-to-five scheduling, exact token evidence, separate infrastructure
 counts, independent database checks, and byte-stable evidence replay. Profile
 or digest drift fails before a live run.
