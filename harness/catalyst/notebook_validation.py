@@ -1248,6 +1248,10 @@ def run_notebook_suite(
 
     results: list[dict[str, Any]] = []
     seen_sessions: set[str] = set()
+    # The budget belongs to the run: it exists to stop a team being scored
+    # on a host that keeps falling over, and a per-scenario counter would
+    # let a twelve-scenario suite absorb twenty-four failures.
+    replacements = 0
     infrastructure_failures: list[dict[str, Any]] = []
     skipped = 0
     for scenario in selected:
@@ -1271,7 +1275,6 @@ def run_notebook_suite(
             else max(repeat_count, suite.extended_repetitions)
         )
         scenario_runs: list[dict[str, Any]] = []
-        replacements = 0
         repetition = 0
         while repetition < repeat_count:
             repetition += 1
@@ -1311,7 +1314,7 @@ def run_notebook_suite(
                 if replacements > suite.infrastructure_replacements:
                     raise ValueError(
                         f"scenario {scenario.id!r} hit a third infrastructure "
-                        "failure; this run is invalid for that team"
+                        "failure for this run; the run is invalid for that team"
                     )
                 infrastructure_failures.append(
                     {

@@ -3160,3 +3160,29 @@ def test_a_refusal_that_left_a_query_behind_is_caught(tmp_path: Path) -> None:
     assert "base_writer_outcome" not in failed
     assert "no_sql_after_non_ready_base" in failed
     assert row["passed"] is False
+
+
+def test_the_replacement_budget_is_the_runs_not_each_scenarios(
+    tmp_path: Path,
+) -> None:
+    """Two replacements for the team, not two for every scenario it runs.
+
+    The budget exists to stop a team being scored on a host that keeps
+    falling over. Counted per scenario, a twelve-scenario suite silently
+    tolerates twenty-four failures while reporting a budget of two.
+    """
+    state = _WorkbenchState()
+    # One 503 in each of the first three scenarios: within a per-scenario
+    # budget of two, but the third exhausts a run-wide one.
+    state.turn_http_sequence = [503, 201, 503, 201, 503, 201]
+    suite = _adaptive_suite()
+    suite["repetitions"] = 1
+    suite["infrastructureReplacements"] = 2
+    suite.pop("extendedRepetitions", None)
+    base = suite["scenarios"][0]
+    suite["scenarios"] = [
+        {**base, "id": f"adaptive-{index}"} for index in range(1, 4)
+    ]
+
+    with pytest.raises(ValueError, match="third infrastructure failure"):
+        _run_against_fake(tmp_path, suite, state)
