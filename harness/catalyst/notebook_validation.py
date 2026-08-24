@@ -192,6 +192,9 @@ class NotebookScenario:
     base_gold_check: NotebookGoldCheck | None = None
     successor_gold_check: NotebookGoldCheck | None = None
     expected_base_outcome: str = "ready"
+    # Standing instructions pinned to the session after the opening answer,
+    # before any follow-up -- exactly as a person would pin them.
+    pin_guidance: tuple[str, ...] = ()
 
     @property
     def scored_on_the_opening_question_alone(self) -> bool:
@@ -277,6 +280,8 @@ class NotebookTransport(Protocol):
     def catalog(self) -> HttpExchange: ...
 
     def create_session(self, question: str, profile_id: str) -> HttpExchange: ...
+
+    def pin_guidance(self, session_id: str, text: str) -> HttpExchange: ...
 
     def get_session(self, session_id: str) -> HttpExchange: ...
 
@@ -384,6 +389,16 @@ class NotebookHttpClient:
 
     def bind_data_source(self, data_source_id: str) -> None:
         self.data_source_id = data_source_id
+
+    def pin_guidance(self, session_id: str, text: str) -> HttpExchange:
+        return self._request(
+            "POST",
+            f"/v1/catalyst/workbench/sessions/{session_id}/guidance",
+            {
+                "contractVersion": "catalyst.workbench.guidance.request.v1",
+                "text": text,
+            },
+        )
 
     def _scoped(self, path: str) -> str:
         """Ask the suite's source, not whichever one the gateway defaults to."""
@@ -1061,6 +1076,9 @@ def load_notebook_suite(path: Path | str) -> NotebookSuite:
                 base_gold_check=_load_gold_check(item.get("baseGoldCheck")),
                 successor_gold_check=_load_gold_check(item.get("successorGoldCheck")),
                 expected_base_outcome=base_outcome,
+                pin_guidance=tuple(
+                    str(text) for text in item.get("pinGuidance") or ()
+                ),
             )
         )
     if not scenarios:
@@ -2122,6 +2140,23 @@ def _run_scenario(
                 kind="gold_execution_match",
             )
             check("base_gold_execution_match", gold_result["passed"], gold_result)
+
+    for pin_index, guidance_text in enumerate(scenario.pin_guidance, start=1):
+        pin_exchange = client.pin_guidance(session_id, guidance_text)
+        pinned_session = recorder.exchange(
+            f"{prefix}/04-pin-guidance-{pin_index:02d}.json",
+            pin_exchange,
+            kind="guidance_pin",
+        )
+        listed = [
+            entry.get("text")
+            for entry in pinned_session.get("guidance") or []
+        ]
+        check(
+            "guidance_pinned",
+            pin_exchange.status_code == 201 and guidance_text in listed,
+            {"httpStatus": pin_exchange.status_code, "guidance": listed},
+        )
 
     # Each declared turn runs against the query the previous turn left current.
     # Turn 1 keeps the original evidence filenames and assertion names so every

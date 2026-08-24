@@ -145,7 +145,7 @@
     },
     {
       "id": "M2",
-      "comment": "Guidance is pinned after the opening question; both later turns must honour it without being told again.",
+      "comment": "Guidance is pinned to the session after the opening answer -- 'Exclude do_not_perform requests.' -- and both later turns must honour it without it being repeated. Acceptance: the final top-ten medication-and-gender counts equal the independently verified reference, which excludes do_not_perform; a model that ignores the pin includes those rows and the counts disagree. (No tie at the rank-10 boundary: 948 vs 613.)",
       "family": "retained-guidance",
       "initialQuestion": "Count medication requests by medication name.",
       "initialProfileId": "catalyst-query-gemma-4-12b",
@@ -164,7 +164,23 @@
           "profileId": "catalyst-query-gemma-4-12b",
           "expectedOutcome": "ready"
         }
-      ]
+      ],
+      "pinGuidance": [
+        "Exclude do_not_perform requests."
+      ],
+      "successorGoldCheck": {
+        "mode": "aggregate_by_key",
+        "referenceSql": "SELECT medication_name, patient_gender, count(*) AS requests FROM analytics.hiv_medication_request_fact_v1 WHERE NOT do_not_perform GROUP BY medication_name, patient_gender ORDER BY requests DESC LIMIT 10",
+        "keyColumns": [
+          "medication_name",
+          "patient_gender"
+        ],
+        "valueColumns": {
+          "requests": {
+            "tolerance": 0
+          }
+        }
+      }
     },
     {
       "id": "M3",

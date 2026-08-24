@@ -158,6 +158,8 @@ class _WorkbenchState:
         self.turn_attempts = 0
         self.requests: list[tuple[str, str]] = []
         self.session_requests: list[dict[str, Any]] = []
+        self.posts: list[tuple[str, str, dict[str, Any]]] = []
+        self.guidance: list[dict[str, Any]] = []
 
     def reset(self) -> None:
         """A new session starts a repetition from the same clean state.
@@ -324,6 +326,17 @@ def _handler(state: _WorkbenchState):
         def do_POST(self) -> None:  # noqa: N802
             state.requests.append(("POST", self.path))
             body = self._body()
+            state.posts.append(("POST", self.path, body))
+            if self.path.endswith("/guidance"):
+                state.guidance.append(
+                    {"entryId": f"g-{len(state.guidance) + 1}",
+                     "text": body.get("text"), "source": "human",
+                     "active": True}
+                )
+                payload = state.session()
+                payload["guidance"] = list(state.guidance)
+                self._send(201, payload)
+                return
             if self.path == "/v1/catalyst/workbench/sessions":
                 state.reset()
                 state.session_requests.append(body)
@@ -3989,3 +4002,39 @@ def test_a_deterministic_answer_with_no_model_call_owes_no_token_evidence() -> N
         for name, passed, _ in token_evidence_checks(called_but_uncounted)
     )
     assert checks["token_evidence_recorded"] is False
+
+
+def test_a_scenario_pins_its_guidance_after_the_opening_answer(
+    tmp_path: Path,
+) -> None:
+    """M2's pin is part of the scenario, not something the turns restate.
+
+    The suite declares what gets pinned; the runner pins it through the same
+    HTTP surface a person uses, after the opening answer and before any
+    follow-up, and records the exchange as evidence.
+    """
+    state = _WorkbenchState()
+    suite = _adaptive_suite()
+    suite["repetitions"] = 1
+    suite.pop("extendedRepetitions", None)
+    suite["scenarios"][0]["pinGuidance"] = ["Exclude do_not_perform requests."]
+
+    result = _run_against_fake(tmp_path, suite, state)
+
+    pins = [
+        (method, path, body)
+        for method, path, body in state.posts
+        if path.endswith("/guidance")
+    ]
+    assert len(pins) == 1
+    assert pins[0][2]["text"] == "Exclude do_not_perform requests."
+    row = json.loads((result.run_dir / "results.json").read_text())["results"][0]
+    names = {a["name"]: a["passed"] for a in row["assertions"]}
+    assert names.get("guidance_pinned") is True
+    repetition_dir = next((result.run_dir / "scenarios").glob("*/repetition-01"))
+    assert (repetition_dir / "04-pin-guidance-01.json").exists()
+    # The pin precedes the follow-up turn.
+    order = [p for _m, p, _b in state.posts]
+    assert order.index(pins[0][1]) < order.index(
+        next(p for p in order if p.endswith("/turns"))
+    )
