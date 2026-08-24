@@ -192,7 +192,7 @@
     },
     {
       "id": "B1",
-      "comment": "Ambiguous on both window and result type, so the opening question must ask; the frozen answer then has to produce the query.",
+      "comment": "Ambiguous on window and result type, so the opening question must ask; the frozen answer then has to produce the query. Acceptance: exactly the 6 observations of the three named result types in the 90-day window, checked as a row count -- the projection is the model's to name.",
       "family": "clarification",
       "initialQuestion": "Show recent HIV results.",
       "initialProfileId": "catalyst-query-gemma-4-12b",
@@ -201,11 +201,8 @@
       "validateBase": false,
       "executeBase": false,
       "successorGoldCheck": {
-        "mode": "row_set",
-        "referenceSql": "SELECT observation_id FROM analytics.hiv_observation_fact_v1 WHERE concept_name IN ('CD4 count', 'CD4%', 'HIV viral load') AND observed_at >= (DATE '2026-08-24' - INTERVAL '90 days')",
-        "matchColumns": [
-          "observation_id"
-        ]
+        "mode": "count",
+        "referenceSql": "SELECT observation_id FROM analytics.hiv_observation_fact_v1 WHERE concept_name IN ('CD4 count', 'CD4%', 'HIV viral load') AND observed_at >= (DATE '2026-08-24' - INTERVAL '90 days')"
       },
       "turns": [
         {
@@ -217,7 +214,7 @@
     },
     {
       "id": "B2",
-      "comment": "'Poor' is undefined in this data; the frozen answer supplies the rule.",
+      "comment": "'Poor' is undefined in this data; the frozen answer supplies the rule. Acceptance: one row per patient whose latest antiretroviral adherence result is not 'All' -- 108 patients, checked as a row count.",
       "family": "clarification",
       "initialQuestion": "Show patients with poor adherence.",
       "initialProfileId": "catalyst-query-gemma-4-12b",
@@ -226,11 +223,8 @@
       "validateBase": false,
       "executeBase": false,
       "successorGoldCheck": {
-        "mode": "row_set",
-        "referenceSql": "SELECT DISTINCT o.patient_id FROM analytics.hiv_observation_fact_v1 o JOIN (SELECT patient_id, max(observed_at) AS latest FROM analytics.hiv_observation_fact_v1 WHERE concept_name = 'Antiretroviral adherence in past week' GROUP BY patient_id) x ON x.patient_id = o.patient_id AND x.latest = o.observed_at WHERE o.concept_name = 'Antiretroviral adherence in past week' AND o.value_coded_name <> 'All'",
-        "matchColumns": [
-          "patient_id"
-        ]
+        "mode": "count",
+        "referenceSql": "SELECT DISTINCT o.patient_id FROM analytics.hiv_observation_fact_v1 o JOIN (SELECT patient_id, max(observed_at) AS latest FROM analytics.hiv_observation_fact_v1 WHERE concept_name = 'Antiretroviral adherence in past week' GROUP BY patient_id) x ON x.patient_id = o.patient_id AND x.latest = o.observed_at WHERE o.concept_name = 'Antiretroviral adherence in past week' AND o.value_coded_name <> 'All'"
       },
       "turns": [
         {
@@ -242,7 +236,7 @@
     },
     {
       "id": "B3",
-      "comment": "Overdue needs both an as-of date and a rule; the frozen answer supplies both.",
+      "comment": "Overdue needs an as-of date and a rule; the frozen answer supplies both. Acceptance: one row per overdue patient -- 4665, checked as a row count.",
       "family": "clarification",
       "initialQuestion": "Show patients overdue for follow-up.",
       "initialProfileId": "catalyst-query-gemma-4-12b",
@@ -251,11 +245,8 @@
       "validateBase": false,
       "executeBase": false,
       "successorGoldCheck": {
-        "mode": "row_set",
-        "referenceSql": "SELECT DISTINCT o.patient_id FROM analytics.hiv_observation_fact_v1 o LEFT JOIN (SELECT patient_id, max(started_at) AS last_visit FROM analytics.hiv_visit_fact_v1 GROUP BY patient_id) v ON v.patient_id = o.patient_id WHERE o.concept_name = 'Return visit date' AND o.value_datetime < DATE '2026-03-01' AND (v.last_visit IS NULL OR v.last_visit <= o.value_datetime)",
-        "matchColumns": [
-          "patient_id"
-        ]
+        "mode": "count",
+        "referenceSql": "SELECT DISTINCT o.patient_id FROM analytics.hiv_observation_fact_v1 o LEFT JOIN (SELECT patient_id, max(started_at) AS last_visit FROM analytics.hiv_visit_fact_v1 GROUP BY patient_id) v ON v.patient_id = o.patient_id WHERE o.concept_name = 'Return visit date' AND o.value_datetime < DATE '2026-03-01' AND (v.last_visit IS NULL OR v.last_visit <= o.value_datetime)"
       },
       "turns": [
         {
