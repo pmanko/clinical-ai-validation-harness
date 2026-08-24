@@ -1286,6 +1286,40 @@ def repetition_pair_is_unstable(runs: list[dict[str, Any]]) -> bool:
     return len(signatures) > 1
 
 
+def _pair_is_complete(
+    recorded: list[dict[str, Any]],
+    suite: NotebookSuite,
+    scenario: NotebookScenario,
+    repetitions: int | None,
+) -> bool:
+    """Whether an interrupted run finished this pair by the live run's rules.
+
+    One recorded repetition of three is not a finished pair, and three
+    mutually disagreeing repetitions of a suite that extends to five are not
+    either: reuse applies exactly the scheduler's own completion rule, so a
+    resumed run and an uninterrupted one accept the same evidence.
+    """
+    # Only scored repetitions count: replaced infrastructure attempts and
+    # skips are outside the model denominator, so they neither complete a
+    # pair nor read as instability.
+    scored = [
+        row
+        for row in recorded
+        if row.get("status") not in {"skipped", "infrastructure_failed"}
+    ]
+    required = _effective_repetitions(suite, scenario, repetitions)
+    if len(scored) < required:
+        return False
+    if (
+        repetitions is None
+        and suite.extended_repetitions is not None
+        and required < suite.extended_repetitions
+        and repetition_pair_is_unstable(scored)
+    ):
+        return len(scored) >= suite.extended_repetitions
+    return True
+
+
 def _finished_pairs(
     resume_from: Path | str | None,
 ) -> dict[tuple[str, str], list[dict[str, Any]]]:
@@ -1509,7 +1543,9 @@ def run_notebook_suite(
             recorded = finished.get(
                 (team or scenario.initial_profile_id, scenario.id)
             )
-            if recorded is not None:
+            if recorded is not None and _pair_is_complete(
+                recorded, suite, scenario, repetitions
+            ):
                 results.extend(recorded)
                 continue
             if scenario.manual_only and not include_manual:

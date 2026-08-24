@@ -3717,3 +3717,86 @@ def test_a_model_query_that_times_out_fails_the_check_not_the_run(
 
     assert result["passed"] is False
     assert "statement timeout" in result["disagreement"]
+
+
+def test_a_partially_repeated_pair_is_rerun_not_reused(tmp_path: Path) -> None:
+    """One recorded repetition of three is not a finished pair.
+
+    An interruption can land mid-pair; reusing what it left would score the
+    pair on fewer repetitions than the suite demands, silently.
+    """
+    state = _WorkbenchState()
+    suite = _adaptive_suite()
+    suite["repetitions"] = 3
+    suite.pop("extendedRepetitions", None)
+    suite_path = tmp_path / "suite.json"
+    suite_path.write_text(json.dumps(suite), encoding="utf-8")
+
+    first = _run_against_fake(tmp_path, suite, state)
+    rows = [
+        json.loads(line)
+        for line in (first.run_dir / "rows.jsonl").read_text().splitlines()
+        if line.strip()
+    ]
+    assert len(rows) == 3
+    # The interruption left one repetition recorded and no summary.
+    (first.run_dir / "rows.jsonl").write_text(
+        json.dumps(rows[0]) + "\n", encoding="utf-8"
+    )
+    (first.run_dir / "results.json").unlink()
+    turns_before = len(state.turn_requests)
+    state.turn_requests.clear()
+
+    resumed = _run_against_fake(tmp_path, suite, state, resume_from=first.run_dir)
+
+    summary = json.loads((resumed.run_dir / "results.json").read_text())
+    assert len(summary["results"]) == 3
+    # The whole pair re-ran: partial work is measurement of nothing.
+    assert len(state.turn_requests) == turns_before
+
+
+def test_an_unstable_recorded_pair_is_only_reused_at_the_extended_count(
+    tmp_path: Path,
+) -> None:
+    """Three disagreeing repetitions of a 3->5 suite are not settled evidence.
+
+    The live scheduler would have extended them; reuse holds resumed runs to
+    the same rule, and accepts the pair once the extension is recorded.
+    """
+    from harness.catalyst.notebook_validation import _pair_is_complete
+
+    suite = load_notebook_suite(_write_suite(tmp_path, _adaptive_suite()))
+    scenario = suite.scenarios[0]
+    disagreeing = [
+        _rep(True, ["ready"]),
+        _rep(False, ["ready"]),
+        _rep(True, ["ready"]),
+    ]
+
+    assert _pair_is_complete(disagreeing, suite, scenario, None) is False
+    extended = disagreeing + [_rep(True, ["ready"]), _rep(True, ["ready"])]
+    assert _pair_is_complete(extended, suite, scenario, None) is True
+    # An explicit repetition override was asked for exactly that many.
+    assert _pair_is_complete(disagreeing, suite, scenario, 3) is True
+
+
+def test_replaced_infrastructure_attempts_do_not_complete_a_pair(
+    tmp_path: Path,
+) -> None:
+    """Two model runs plus one replaced 503 are not three repetitions."""
+    from harness.catalyst.notebook_validation import _pair_is_complete
+
+    suite = load_notebook_suite(_write_suite(tmp_path, _adaptive_suite()))
+    scenario = suite.scenarios[0]
+    recorded = [
+        _rep(True, ["ready"]),
+        {"status": "infrastructure_failed", "passed": False,
+         "turns": [], "assertions": []},
+        _rep(True, ["ready"]),
+    ]
+
+    assert _pair_is_complete(recorded, suite, scenario, None) is False
+    assert (
+        _pair_is_complete(recorded + [_rep(True, ["ready"])], suite, scenario, None)
+        is True
+    )
