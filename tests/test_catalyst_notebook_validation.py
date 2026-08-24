@@ -4038,3 +4038,36 @@ def test_a_scenario_pins_its_guidance_after_the_opening_answer(
     assert order.index(pins[0][1]) < order.index(
         next(p for p in order if p.endswith("/turns"))
     )
+
+
+def test_a_bare_string_pin_is_refused_not_pinned_per_character(
+    tmp_path: Path,
+) -> None:
+    with pytest.raises(ValueError, match="pinGuidance must be a list"):
+        load_notebook_suite(
+            _write_suite(
+                tmp_path,
+                _suite_payload(
+                    scenarios=[
+                        {
+                            **_suite_payload()["scenarios"][0],
+                            "pinGuidance": "Exclude do_not_perform requests.",
+                        }
+                    ]
+                ),
+            )
+        )
+
+
+def test_a_failed_pin_surfaces_in_the_rows_http_status(tmp_path: Path) -> None:
+    """A 5xx pin is host trouble like any other 5xx step."""
+    from harness.catalyst.notebook_validation import _normalized_http_status
+
+    prefix = "scenarios/s1/repetition-01"
+    step = tmp_path / prefix
+    step.mkdir(parents=True)
+    (step / "04-pin-guidance-01.json").write_text(
+        json.dumps({"response": {"httpStatus": 503}}), encoding="utf-8"
+    )
+
+    assert _normalized_http_status(tmp_path, prefix) == 503
