@@ -28,6 +28,11 @@ def _load_results(run_dir: Path) -> dict[str, Any]:
 
 
 def _scenario_passed(row: dict[str, Any]) -> bool:
+    # The runner's own verdict is authoritative: a scenario can pass with
+    # status "failed" (a bounded failure it was told to expect). The status
+    # heuristic only serves rows recorded before the verdict existed.
+    if "passed" in row:
+        return bool(row["passed"])
     if row.get("status") != "completed":
         return False
     assertions = row.get("assertions") or []

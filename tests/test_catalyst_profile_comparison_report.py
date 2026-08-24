@@ -56,3 +56,32 @@ def test_each_team_is_scored_on_its_own_rows_alone(tmp_path: Path) -> None:
     assert "2/2" in html   # team-a: A1 + U1 both passed
     assert "0/1" in html   # team-b: its single A1 row failed
     assert "PASS (1/1)" in html and "FAIL (0/1)" in html
+
+
+def test_a_scenario_that_passed_by_expecting_its_failure_stays_passed(
+    tmp_path: Path,
+) -> None:
+    """The runner's verdict outranks the status heuristic.
+
+    A bounded-failure scenario ends with status "failed" and passed: true;
+    recomputing from status would quietly regress its pass."""
+    run_dir = tmp_path / "run"
+    run_dir.mkdir()
+    (run_dir / "results.json").write_text(
+        json.dumps(
+            {
+                "results": [
+                    {"scenarioId": "bounded", "profileId": "team-a",
+                     "status": "failed", "passed": True,
+                     "assertions": [{"name": "x", "passed": True}],
+                     "timing": {"unadjustedGenerationWallMs": 10}},
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    html = build_comparison_report(entries_from_comparison_run(run_dir))
+
+    assert "1/1" in html
+    assert "PASS (1/1)" in html
