@@ -31,6 +31,7 @@ from harness.report_shell.assets import (  # noqa: E402
     theme_toggle_js,
 )
 from harness.validate.reconcile import scout_summary  # noqa: E402
+from harness.catalyst.attribution import conformed as _conformed
 from harness.validate.report import _load_judge  # noqa: E402
 from harness.validate.model_registry import arm_card  # noqa: E402
 
@@ -165,14 +166,38 @@ def gather(slug: str) -> dict:
         out["date"] = datetime.fromtimestamp(
             (rdir / "results.json").stat().st_mtime, timezone.utc
         ).strftime("%-d %b %Y")
-        gold = [
-            assertion
-            for row in rows
-            for assertion in (row.get("assertions") or [])
-            if "gold_execution_match" in str(assertion.get("name") or "")
-        ]
-        passed = sum(bool(assertion.get("passed")) for assertion in gold)
-        parts = [f"Gold checks: {passed}/{len(gold)} passed"] if gold else []
+        teams: dict[str, list[dict]] = {}
+        for row in rows:
+            team = row.get("profileId")
+            if isinstance(team, str):
+                teams.setdefault(team, []).append(row)
+        if len(teams) > 1:
+            # A comparison's headline is how the teams did, not how many
+            # gold checks ran across all of them at once.
+            scores = [
+                f"{team.split('catalyst-query-')[-1]} "
+                f"{sum(1 for r in rs if r.get('passed'))}/{len(rs)}"
+                for team, rs in teams.items()
+            ]
+            parts = [f"{len(teams)} teams · " + " · ".join(scores)]
+            invalid = sum(
+                1
+                for row in rows
+                if not _conformed(row.get("assertions") or [])
+            )
+            if invalid:
+                parts.append(
+                    f"{invalid} invalid measurement" + ("s" if invalid > 1 else "")
+                )
+        else:
+            gold = [
+                assertion
+                for row in rows
+                for assertion in (row.get("assertions") or [])
+                if "gold_execution_match" in str(assertion.get("name") or "")
+            ]
+            passed = sum(bool(assertion.get("passed")) for assertion in gold)
+            parts = [f"Gold checks: {passed}/{len(gold)} passed"] if gold else []
         judge_path = rdir / "judge.jsonl"
         if judge_path.is_file():
             judge_rows = [
@@ -278,6 +303,9 @@ def _card(entry: dict) -> str:
         facts.append(esc(g["date"]))
     subtitle = " · ".join(facts)
     links = [f'<a class="btn" href="{esc(slug)}/index.html">Full report</a>']
+    if (REPORTS / slug / "comparison.html").exists():
+        # The decision document: verdict, gates and the failure inventory.
+        links.append(f'<a class="btn ghost" href="{esc(slug)}/comparison.html">Team comparison</a>')
     if (REPORTS / slug / "dashboard.html").exists():
         links.append(f'<a class="btn ghost" href="{esc(slug)}/dashboard.html">Interactive dashboard</a>')
     takeaway = (f'<p class="takeaway"><span class="tk">Takeaway</span>{esc(entry["takeaway"])}</p>'
