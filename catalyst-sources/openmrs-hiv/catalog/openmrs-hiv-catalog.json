@@ -1,6 +1,6 @@
 {
   "contractVersion": "catalyst.analytics.catalog.v1",
-  "catalogVersion": "openmrs-hiv-catalog-v4",
+  "catalogVersion": "openmrs-hiv-catalog-v5",
   "deploymentMode": "demo",
   "dataSource": "openmrs-hiv-fhir-postgresql",
   "dialect": "postgresql",

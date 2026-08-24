@@ -158,6 +158,93 @@ if [ "${coding_failures}" -ne 0 ]; then
 fi
 echo "    medication_flat, medication_request_flat: at most one coding per known system"
 
+echo "==> verify OpenMRS-native observation coding and displays"
+mapping_counts="$(psql_hiv -tAc \
+  "SELECT count(*)||' '||count(NULLIF(openmrs_concept_code, ''))
+   FROM analytics.hiv_concept_mapping_v1")"
+mapping_rows="${mapping_counts%% *}"
+mapping_native_codes="${mapping_counts##* }"
+if [ "${mapping_rows}" != "${mapping_native_codes}" ]; then
+  echo "ERROR: analytics.hiv_concept_mapping_v1 has ${mapping_native_codes} nonblank OpenMRS-native codes for ${mapping_rows} rows." >&2
+  exit 1
+fi
+
+# Recompute the mapping independently from the raw table in both directions.
+# The source uses both '' (production) and potentially NULL (compatibility) for
+# "no external system"; either denotes the OpenMRS-native coding arm.
+mapping_differences="$(psql_hiv -tAc "
+WITH raw_per_observation AS (
+  SELECT
+    o.id,
+    MAX(o.obs_date) AS observed_at,
+    MAX(o.code_display) FILTER (
+      WHERE o.code_sys IS NULL OR o.code_sys = ''
+    ) AS concept_name,
+    MAX(o.code_code) FILTER (
+      WHERE o.code_sys IS NULL OR o.code_sys = ''
+    ) AS openmrs_concept_code,
+    MAX(o.code_code) FILTER (
+      WHERE o.code_sys = 'https://cielterminology.org'
+    ) AS ciel_code,
+    MAX(o.code_code) FILTER (
+      WHERE o.code_sys = 'http://snomed.info/sct/'
+    ) AS snomed_code,
+    MAX(o.code_code) FILTER (
+      WHERE o.code_sys = 'http://fhir.org/guides/who/anc-cds/CodeSystem/anc-custom-codes'
+    ) AS who_anc_code
+  FROM public.observation_flat AS o
+  GROUP BY o.id
+), expected AS (
+  SELECT
+    concept_name,
+    openmrs_concept_code,
+    ciel_code,
+    snomed_code,
+    who_anc_code,
+    COUNT(*) AS observation_count
+  FROM raw_per_observation
+  WHERE observed_at >= '2020-01-01' AND observed_at < '2035-01-01'
+  GROUP BY 1, 2, 3, 4, 5
+), missing_from_view AS (
+  SELECT * FROM expected
+  EXCEPT
+  SELECT * FROM analytics.hiv_concept_mapping_v1
+), missing_from_raw AS (
+  SELECT * FROM analytics.hiv_concept_mapping_v1
+  EXCEPT
+  SELECT * FROM expected
+)
+SELECT (SELECT COUNT(*) FROM missing_from_view)
+     + (SELECT COUNT(*) FROM missing_from_raw);")"
+if [ "${mapping_differences}" -ne 0 ]; then
+  echo "ERROR: analytics.hiv_concept_mapping_v1 differs from the independent raw-table mapping in ${mapping_differences} direction-row(s)." >&2
+  exit 1
+fi
+
+display_mismatches="$(psql_hiv -tAc "
+WITH raw_displays AS (
+  SELECT
+    o.id,
+    MAX(o.code_display) FILTER (
+      WHERE o.code_sys IS NULL OR o.code_sys = ''
+    ) AS concept_name,
+    MAX(o.value_display) FILTER (
+      WHERE o.value_sys IS NULL OR o.value_sys = ''
+    ) AS value_coded_name
+  FROM public.observation_flat AS o
+  GROUP BY o.id
+)
+SELECT COUNT(*)
+FROM analytics.hiv_observation_fact_v1 AS f
+JOIN raw_displays AS r ON r.id = f.observation_id
+WHERE f.concept_name IS DISTINCT FROM r.concept_name
+   OR f.value_coded_name IS DISTINCT FROM r.value_coded_name;")"
+if [ "${display_mismatches}" -ne 0 ]; then
+  echo "ERROR: analytics.hiv_observation_fact_v1 has ${display_mismatches} OpenMRS-native display mismatch(es)." >&2
+  exit 1
+fi
+echo "    concept mapping: ${mapping_rows}/${mapping_rows} native codes; raw mapping and displays reconcile"
+
 echo "==> register pipeline run (freshness contract)"
 counts="$(psql_hiv -tAc "SELECT json_build_object(
   'Patient', (SELECT COUNT(DISTINCT id) FROM public.patient_flat),
