@@ -78,3 +78,64 @@ process.stdout.write(JSON.stringify({{flagged,original}}));
     )
     assert "Original model answer" in rendered["original"]
     assert "answer or its supporting citations was changed" in rendered["original"]
+
+
+def _load_dashboard_module():
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location(
+        "validate_dashboard", ROOT / "scripts" / "validate-dashboard.py"
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_a_catalyst_cell_shows_the_frozen_acceptance_criterion(tmp_path: Path):
+    """What the dashboard displays as 'expected' is what the scorer enforces.
+
+    The suite travels with the run, so the cell's expectation block comes
+    from the run's own suite.json -- criterion prose, the answer each turn
+    deserves, and the independent reference -- not from a chart-QA stub.
+    """
+    vd = _load_dashboard_module()
+    run = tmp_path / "run"
+    run.mkdir()
+    (run / "suite.json").write_text(
+        json.dumps(
+            {
+                "scenarios": [
+                    {
+                        "id": "B2",
+                        "comment": "'Poor' is undefined; the frozen answer supplies the rule.",
+                        "initialQuestion": "Show patients with poor adherence.",
+                        "expectedBaseOutcome": "needs_clarification",
+                        "turns": [
+                            {
+                                "instruction": "Poor means latest adherence != All.",
+                                "expectedOutcome": "ready",
+                            }
+                        ],
+                        "successorGoldCheck": {
+                            "mode": "row_set",
+                            "referenceSql": "SELECT patient_id FROM x",
+                        },
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    assert vd.run_family(str(run)) == "catalyst"
+    expected = vd.catalyst_expectation(str(run), "B2")
+    assert expected["baseOutcome"] == "needs_clarification"
+    assert "frozen answer" in expected["criterion"]
+    assert expected["turns"][0]["expectedOutcome"] == "ready"
+    assert expected["goldCheck"]["mode"] == "row_set"
+    # An unknown scenario and a chart-QA run both answer with absence.
+    assert vd.catalyst_expectation(str(run), "nope") is None
+    chart_run = tmp_path / "chart"
+    chart_run.mkdir()
+    assert vd.run_family(str(chart_run)) == "chartsearchai"
+    assert vd.catalyst_expectation(str(chart_run), "B2") is None
