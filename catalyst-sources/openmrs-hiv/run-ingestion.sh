@@ -113,6 +113,51 @@ if [ "${grain_failures}" -ne 0 ]; then
   exit 1
 fi
 
+echo "==> verify medication coding is safe to pivot per system"
+# hiv_medication_request_fact_v1 aggregates code.coding per system (openmrs
+# local / CIEL / SNOMED / WHO-ANC) so a multi-coded resource cannot pair a
+# code with the wrong system. That pivot assumes at most one coding per
+# system per resource, and that every non-null system is one of the four it
+# knows about -- an ingestion producing more than one, or a system outside
+# that set, would have its extra coding silently discarded by the view.
+known_systems="'https://cielterminology.org', 'http://snomed.info/sct/', 'http://fhir.org/guides/who/anc-cds/CodeSystem/anc-custom-codes'"
+coding_failures=0
+for check in \
+  "medication_flat:id:code_sys" \
+  "medication_request_flat:id:medication_system"
+do
+  table="${check%%:*}"
+  rest="${check#*:}"
+  key="${rest%%:*}"
+  system_col="${rest##*:}"
+  # This source represents "no external coding system" (the OpenMRS-native
+  # arm the view buckets separately) as '' on some tables and NULL on
+  # others, not consistently -- both mean the same thing here.
+  no_system="${system_col} IS NULL OR ${system_col} = ''"
+  duplicate_systems="$(psql_hiv -tAc \
+    "SELECT count(*) FROM (
+       SELECT ${key} FROM public.${table}
+       WHERE NOT (${no_system})
+       GROUP BY ${key}, ${system_col} HAVING count(*) > 1
+     ) x")"
+  if [ "${duplicate_systems}" -ne 0 ]; then
+    echo "ERROR: public.${table} has ${duplicate_systems} resource(s) with more than one coding for the same ${system_col}." >&2
+    coding_failures=$((coding_failures + 1))
+  fi
+  unexpected_systems="$(psql_hiv -tAc \
+    "SELECT count(DISTINCT ${system_col}) FROM public.${table}
+     WHERE NOT (${no_system}) AND ${system_col} NOT IN (${known_systems})")"
+  if [ "${unexpected_systems}" -ne 0 ]; then
+    echo "ERROR: public.${table}.${system_col} has ${unexpected_systems} system(s) outside {${known_systems}}; hiv_medication_request_fact_v1 would silently discard that coding." >&2
+    coding_failures=$((coding_failures + 1))
+  fi
+done
+if [ "${coding_failures}" -ne 0 ]; then
+  echo "Medication coding does not fit the per-system pivot; extend it before trusting this run." >&2
+  exit 1
+fi
+echo "    medication_flat, medication_request_flat: at most one coding per known system"
+
 echo "==> register pipeline run (freshness contract)"
 counts="$(psql_hiv -tAc "SELECT json_build_object(
   'Patient', (SELECT COUNT(DISTINCT id) FROM public.patient_flat),

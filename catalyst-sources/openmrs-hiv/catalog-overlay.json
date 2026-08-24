@@ -1,6 +1,6 @@
 {
   "comment": "The ONLY hand-maintained catalog input for this data source. Everything else (columns, types, descriptions, grain) is introspected from the analytics database by scripts/generate-catalyst-source-catalog.py: descriptions come from COMMENT ON COLUMN, grain from COMMENT ON VIEW (see sql/). Canonical semantic values are validated against the actual data at generation time.",
-  "catalogVersion": "openmrs-hiv-catalog-v3",
+  "catalogVersion": "openmrs-hiv-catalog-v4",
   "dataSource": "openmrs-hiv-fhir-postgresql",
   "dialect": "postgresql",
   "schemaVersion": "analytics-v1",
@@ -21,7 +21,7 @@
     "analytics.hiv_concept_mapping_v1.observation_count",
     "analytics.hiv_medication_request_fact_v1.medication_request_id",
     "analytics.hiv_medication_request_fact_v1.patient_id",
-    "analytics.hiv_medication_request_fact_v1.medication_name"
+    "analytics.hiv_medication_request_fact_v1.do_not_perform"
   ],
   "semanticDimensions": {
     "analytics.hiv_observation_fact_v1": [

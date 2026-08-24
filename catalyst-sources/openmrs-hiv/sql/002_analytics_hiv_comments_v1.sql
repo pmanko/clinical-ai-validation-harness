@@ -93,8 +93,12 @@ COMMENT ON COLUMN analytics.hiv_medication_request_fact_v1.request_intent IS
 COMMENT ON COLUMN analytics.hiv_medication_request_fact_v1.do_not_perform IS
     'True when the request records that the medication should NOT be taken. Exclude these when counting prescriptions.';
 COMMENT ON COLUMN analytics.hiv_medication_request_fact_v1.medication_name IS
-    'Drug name. Group by this to count requests by medication; it is populated for every row.';
-COMMENT ON COLUMN analytics.hiv_medication_request_fact_v1.medication_code IS
-    'Code for the drug from the referenced Medication resource. Null when the request references no Medication.';
-COMMENT ON COLUMN analytics.hiv_medication_request_fact_v1.medication_code_system IS
-    'Coding system the medication_code belongs to.';
+    'Drug name, by precedence: the request''s own reference display, its direct coding display, the referenced Medication''s text, then the referenced Medication''s coding display. Null when none of those is populated -- verified nonempty in the current data, but not guaranteed by the source.';
+COMMENT ON COLUMN analytics.hiv_medication_request_fact_v1.medication_code_openmrs IS
+    'OpenMRS-native drug code (no external coding system), from the request''s own coding when present, otherwise the referenced Medication''s.';
+COMMENT ON COLUMN analytics.hiv_medication_request_fact_v1.medication_code_ciel IS
+    'CIEL numeric drug code, from the request''s own coding when present, otherwise the referenced Medication''s. Null when neither carries a CIEL mapping.';
+COMMENT ON COLUMN analytics.hiv_medication_request_fact_v1.medication_code_snomed IS
+    'SNOMED CT drug code, from the request''s own coding when present, otherwise the referenced Medication''s. Null when neither carries a SNOMED mapping.';
+COMMENT ON COLUMN analytics.hiv_medication_request_fact_v1.medication_code_who_anc IS
+    'WHO ANC custom drug code, from the request''s own coding when present, otherwise the referenced Medication''s. Null when neither carries a WHO ANC mapping; sparse in this data (at most one drug carries it).';

@@ -55,6 +55,18 @@ CREATE TABLE public.encounter_flat (
     type_sys varchar, type_code varchar, type_display varchar,
     practitioner_id varchar, location_id varchar
 );
+CREATE TABLE public.medication_flat (
+    id varchar, status varchar, code_text varchar, code_code varchar,
+    code_sys varchar, code_display varchar
+);
+CREATE TABLE public.medication_request_flat (
+    id varchar, patient_id varchar, encounter_id varchar, status varchar,
+    intent varchar, donotperform boolean, req_practitioner_id varchar,
+    perf_practitioner_id varchar, med_id varchar, med_display varchar,
+    medication_system varchar, medication_code varchar,
+    medication_display varchar, statusreason_sys varchar,
+    statusreason_code varchar, statusreason_display varchar
+);
 """
 
 SEED_ROWS = f"""
@@ -107,6 +119,68 @@ VALUES
      'c', 'local', 'Visit type B (local)');
 """
 
+# The OpenMRS-native coding carries '' for code_sys/medication_system in the
+# real sink, not NULL (found by running this fix against the live analytics
+# database) -- seeded that way here so a regression back to an IS-NULL-only
+# filter fails this suite instead of only failing in production.
+MEDICATION_SEED_ROWS = f"""
+-- med-multi: three codings on the same Medication (OpenMRS-native + CIEL +
+-- SNOMED) -- an independent MAX() per column here previously paired a code
+-- from one coding with the system of another.
+INSERT INTO public.medication_flat (id, code_text, code_code, code_sys, code_display)
+VALUES
+    ('med-multi', 'Multi Drug', '1001', '', 'Multi Drug (local)'),
+    ('med-multi', NULL, '1001-ciel', '{CIEL}', NULL),
+    ('med-multi', NULL, '9001-snomed', '{SNOMED}', NULL);
+-- med-text: no display on its coding, but a top-level text.
+INSERT INTO public.medication_flat (id, code_text, code_code, code_sys, code_display)
+VALUES ('med-text', 'Text Only Drug', '2002', '', NULL);
+-- med-display-only: no text, coding display is the only thing available.
+INSERT INTO public.medication_flat (id, code_text, code_code, code_sys, code_display)
+VALUES ('med-display-only', NULL, '3003', '', 'Display Fallback Drug');
+-- med-blank: identity only, no display or text anywhere.
+INSERT INTO public.medication_flat (id, code_text, code_code, code_sys, code_display)
+VALUES ('med-blank', NULL, '4004', '', '');
+
+-- req-1: reference display wins (tier 1); proves the multi-coded fix.
+INSERT INTO public.medication_request_flat
+    (id, patient_id, status, intent, donotperform, med_id, med_display)
+VALUES ('req-1', 'p1', 'active', 'order', FALSE, 'med-multi', 'Reference Display One');
+-- req-2: no reference; its OWN direct medication[x] CodeableConcept fans out
+-- across three coding rows (OpenMRS-native + CIEL + SNOMED), and
+-- donotperform is NULL on all three -- proves the direct arm gets the same
+-- per-system treatment as the referenced Medication, direct display wins
+-- (tier 2), and COALESCE(donotperform, FALSE) still holds under BOOL_OR.
+INSERT INTO public.medication_request_flat
+    (id, patient_id, status, intent, donotperform,
+     medication_code, medication_system, medication_display)
+VALUES
+    ('req-2', 'p1', 'active', 'order', NULL, '5005', '', 'Direct Display Two'),
+    ('req-2', 'p1', 'active', 'order', NULL, '5005-ciel', '{CIEL}', NULL),
+    ('req-2', 'p1', 'active', 'order', NULL, '9005-snomed', '{SNOMED}', NULL);
+-- req-3: no reference or direct display -- falls to the referenced
+-- Medication's text (tier 3).
+INSERT INTO public.medication_request_flat
+    (id, patient_id, status, intent, donotperform, med_id)
+VALUES ('req-3', 'p2', 'active', 'order', TRUE, 'med-text');
+-- req-4: falls all the way to the referenced Medication's coding display
+-- (tier 4, the least preferred).
+INSERT INTO public.medication_request_flat
+    (id, patient_id, status, intent, donotperform, med_id)
+VALUES ('req-4', 'p1', 'active', 'order', FALSE, 'med-display-only');
+-- req-5: reference display is '' (present but blank, not NULL) and the
+-- referenced Medication has no display or text either -- every tier is
+-- blank, so the name is NULL, not ''.
+INSERT INTO public.medication_request_flat
+    (id, patient_id, status, intent, donotperform, med_id, med_display)
+VALUES ('req-5', 'p2', 'active', 'order', FALSE, 'med-blank', '');
+-- req-6: subject does not resolve to an ingested Patient -- excluded by the
+-- patient join, same as observations.
+INSERT INTO public.medication_request_flat
+    (id, patient_id, status, intent, donotperform, med_id, med_display)
+VALUES ('req-6', 'does-not-exist', 'active', 'order', FALSE, 'med-multi', 'Should Not Appear');
+"""
+
 
 def _connect(dsn, **kwargs):
     import psycopg
@@ -152,6 +226,7 @@ class HivFactViewSemanticsTests(unittest.TestCase):
         cls.conn = _connect(cls.scratch_dsn)
         cls.conn.execute(SEED_DDL)
         cls.conn.execute(SEED_ROWS)
+        cls.conn.execute(MEDICATION_SEED_ROWS)
         cls.conn.execute(FACT_SQL.read_text())
         cls.conn.commit()
 
@@ -213,3 +288,63 @@ class HivFactViewSemanticsTests(unittest.TestCase):
         first, second = rows
         self.assertIsNone(first["days_since_prior_visit"])
         self.assertEqual(float(second["days_since_prior_visit"]), 10.0)
+
+    def _medication_row(self, request_id):
+        rows = self._rows(
+            "SELECT * FROM analytics.hiv_medication_request_fact_v1 "
+            f"WHERE medication_request_id = '{request_id}'"
+        )
+        self.assertEqual(len(rows), 1, f"expected exactly one row for {request_id}")
+        return rows[0]
+
+    def test_medication_fact_holds_one_row_per_request_and_excludes_unresolved_patient(self):
+        rows = self._rows(
+            "SELECT medication_request_id FROM analytics.hiv_medication_request_fact_v1 "
+            "ORDER BY medication_request_id"
+        )
+        # req-2's own three-coding fan-out collapses to one row; req-6 (no
+        # resolvable patient) is excluded by the patient join.
+        self.assertEqual(
+            [row["medication_request_id"] for row in rows],
+            ["req-1", "req-2", "req-3", "req-4", "req-5"],
+        )
+
+    def test_multi_coded_referenced_medication_keeps_each_code_with_its_own_system(self):
+        row = self._medication_row("req-1")
+        self.assertEqual(row["medication_name"], "Reference Display One")
+        self.assertEqual(row["medication_code_openmrs"], "1001")
+        self.assertEqual(row["medication_code_ciel"], "1001-ciel")
+        self.assertEqual(row["medication_code_snomed"], "9001-snomed")
+        self.assertIsNone(row["medication_code_who_anc"])
+        self.assertFalse(row["do_not_perform"])
+        self.assertEqual(row["patient_gender"], "female")
+
+    def test_direct_coding_arm_fans_out_and_pivots_like_the_referenced_medication(self):
+        row = self._medication_row("req-2")
+        # Direct display wins because there is no reference display (tier 2).
+        self.assertEqual(row["medication_name"], "Direct Display Two")
+        self.assertEqual(row["medication_code_openmrs"], "5005")
+        self.assertEqual(row["medication_code_ciel"], "5005-ciel")
+        self.assertEqual(row["medication_code_snomed"], "9005-snomed")
+        # donotperform was NULL on every one of the three fanned-out rows.
+        self.assertFalse(row["do_not_perform"])
+
+    def test_medication_name_precedence_falls_to_the_referenced_medications_text(self):
+        row = self._medication_row("req-3")
+        self.assertEqual(row["medication_name"], "Text Only Drug")
+        self.assertEqual(row["medication_code_openmrs"], "2002")
+        self.assertTrue(row["do_not_perform"])
+        self.assertEqual(row["patient_gender"], "male")
+
+    def test_medication_name_precedence_falls_to_the_referenced_codings_display(self):
+        row = self._medication_row("req-4")
+        self.assertEqual(row["medication_name"], "Display Fallback Drug")
+        self.assertEqual(row["medication_code_openmrs"], "3003")
+
+    def test_blank_medication_name_is_null_not_an_empty_string(self):
+        row = self._medication_row("req-5")
+        # Every arm was blank (reference display '', referenced Medication has
+        # neither display nor text) -- the contract permits null; '' is not a
+        # name.
+        self.assertIsNone(row["medication_name"])
+        self.assertEqual(row["medication_code_openmrs"], "4004")
