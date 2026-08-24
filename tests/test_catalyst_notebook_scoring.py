@@ -270,3 +270,61 @@ def test_a_comparison_is_scored_per_team_not_pooled(tmp_path: Path) -> None:
     # Per-team scenario detail exists under the team, not pooled.
     assert teams["team-a"]["scenarios"]["A1"]["passed"] == 1
     assert teams["team-b"]["scenarios"]["A1"]["passed"] == 0
+
+
+def test_reruns_of_the_same_suite_compose_into_one_score(tmp_path: Path) -> None:
+    """Single-pass runs aggregate across run directories.
+
+    Each run measures every (team, scenario) once; statistical repetition is
+    a rerun of the whole suite, so the scorer pools rows across runs and the
+    per-team denominators grow accordingly.
+    """
+    from harness.catalyst.notebook_scoring import score_runs
+
+    def _run(name: str, passed: bool) -> Path:
+        run_dir = tmp_path / name
+        run_dir.mkdir()
+        (run_dir / "results.json").write_text(
+            json.dumps(
+                {
+                    "runId": name,
+                    "suiteId": "suite-1",
+                    "results": [
+                        {"scenarioId": "A1", "profileId": "team-a",
+                         "status": "completed", "passed": passed,
+                         "baseOutcome": "ready", "expectedBaseOutcome": "ready",
+                         "turns": [], "assertions": []}
+                    ],
+                }
+            ),
+            encoding="utf-8",
+        )
+        return run_dir
+
+    first, second = _run("run-1", True), _run("run-2", False)
+    scored = score_runs([first, second])
+
+    assert scored["runIds"] == ["run-1", "run-2"]
+    assert scored["profiles"]["team-a"]["totals"] == {
+        "scored": 2, "passed": 1, "rate": 0.5,
+        "interval": scored["profiles"]["team-a"]["totals"]["interval"],
+        "worstScenarioRate": 0.5,
+    }
+    # Byte-stable like the single-run form.
+    assert score_runs([first, second], as_json=True) == score_runs(
+        [first, second], as_json=True
+    )
+
+
+def test_reruns_of_different_suites_refuse_to_compose(tmp_path: Path) -> None:
+    from harness.catalyst.notebook_scoring import score_runs
+
+    for name, suite in (("a", "suite-1"), ("b", "suite-2")):
+        d = tmp_path / name
+        d.mkdir()
+        (d / "results.json").write_text(
+            json.dumps({"runId": name, "suiteId": suite, "results": []}),
+            encoding="utf-8",
+        )
+    with pytest.raises(ValueError, match="different suites"):
+        score_runs([tmp_path / "a", tmp_path / "b"])
