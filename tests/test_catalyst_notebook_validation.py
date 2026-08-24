@@ -2140,3 +2140,118 @@ def test_notebook_cli_can_skip_the_postgres_cross_check(
     assert captured["postgres_checker"] is None
     assert captured["gold_checker"] is None
     capsys.readouterr()
+
+
+def test_scenario_turns_default_to_the_single_recorded_followup(
+    tmp_path: Path,
+) -> None:
+    """Every suite in the repository predates multi-turn scenarios.
+
+    Those suites describe one follow-up through `followupInstruction`. They
+    keep loading, and they present as a one-turn sequence so the runner has a
+    single shape to execute.
+    """
+    suite = load_notebook_suite(_write_suite(tmp_path, _suite_payload()))
+    scenario = suite.scenarios[0]
+
+    assert len(scenario.turns) == 1
+    turn = scenario.turns[0]
+    assert turn.instruction == "Return only distinct patients."
+    assert turn.profile_id == PROFILE_ID
+    assert turn.expected_turn_status == "completed"
+    # The pre-turn accessors keep answering for the first follow-up.
+    assert scenario.followup_instruction == turn.instruction
+    assert scenario.followup_profile_id == turn.profile_id
+
+
+def test_scenario_accepts_an_ordered_turn_sequence(tmp_path: Path) -> None:
+    """The locked suite needs three user turns (M1, M2, M3), not two.
+
+    Turns are executed in the order given, each naming its own profile and
+    expected terminal status, so a scenario can drive refinement then a
+    question without a second runner.
+    """
+    base = _suite_payload()["scenarios"][0]
+    suite = load_notebook_suite(
+        _write_suite(
+            tmp_path,
+            _suite_payload(
+                scenarios=[
+                    {
+                        **{
+                            key: value
+                            for key, value in base.items()
+                            if key
+                            not in {"followupInstruction", "followupProfileId"}
+                        },
+                        "turns": [
+                            {
+                                "instruction": "Collapse to one row per patient.",
+                                "profileId": PROFILE_ID,
+                            },
+                            {
+                                "instruction": "Add the patient last name.",
+                                "profileId": PROFILE_ID,
+                                "expectedTurnStatus": "failed",
+                            },
+                        ],
+                    }
+                ]
+            ),
+        )
+    )
+    scenario = suite.scenarios[0]
+
+    assert [turn.instruction for turn in scenario.turns] == [
+        "Collapse to one row per patient.",
+        "Add the patient last name.",
+    ]
+    assert [turn.expected_turn_status for turn in scenario.turns] == [
+        "completed",
+        "failed",
+    ]
+    # The first turn is what the pre-turn accessors describe.
+    assert scenario.followup_instruction == "Collapse to one row per patient."
+
+
+def test_scenario_rejects_declaring_both_turn_forms(tmp_path: Path) -> None:
+    """One scenario, one description of its turns."""
+    base = _suite_payload()["scenarios"][0]
+    with pytest.raises(ValueError, match="both 'turns' and 'followupInstruction'"):
+        load_notebook_suite(
+            _write_suite(
+                tmp_path,
+                _suite_payload(
+                    scenarios=[
+                        {**base, "turns": [{"instruction": "x", "profileId": PROFILE_ID}]}
+                    ]
+                ),
+            )
+        )
+
+
+def test_scenario_turn_profiles_must_exist_in_the_suite(tmp_path: Path) -> None:
+    """Checked for every turn, not just the one that happens to be first."""
+    base = _suite_payload()["scenarios"][0]
+    with pytest.raises(ValueError, match="unknown profile"):
+        load_notebook_suite(
+            _write_suite(
+                tmp_path,
+                _suite_payload(
+                    scenarios=[
+                        {
+                            **{
+                                key: value
+                                for key, value in base.items()
+                                if key
+                                not in {"followupInstruction", "followupProfileId"}
+                            },
+                            "turns": [
+                                {"instruction": "first", "profileId": PROFILE_ID},
+                                {"instruction": "x", "profileId": "not-a-profile"},
+                            ],
+                        }
+                    ]
+                ),
+            )
+        )

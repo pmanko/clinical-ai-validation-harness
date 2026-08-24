@@ -128,17 +128,29 @@ def _load_gold_check(payload: dict[str, Any] | None) -> NotebookGoldCheck | None
 
 
 @dataclass(frozen=True)
+class NotebookTurn:
+    """One follow-up the operator sends after the session question.
+
+    A scenario is the session question plus these, in order. Suites written
+    before multi-turn scenarios describe exactly one, so the sequence is how
+    every scenario is executed regardless of which form declared it.
+    """
+
+    instruction: str
+    profile_id: str
+    expected_turn_status: str = "completed"
+
+
+@dataclass(frozen=True)
 class NotebookScenario:
     id: str
     family: str
     initial_question: str
     initial_profile_id: str
-    followup_instruction: str
-    followup_profile_id: str
+    turns: tuple[NotebookTurn, ...]
     editor_query: NotebookQuery | None
     persist_editor_query: bool
     expected_base_classification: str
-    expected_turn_status: str
     validate_base: bool
     execute_base: bool
     validate_successor: bool
@@ -148,6 +160,18 @@ class NotebookScenario:
     require_reviewer_correction: bool
     base_gold_check: NotebookGoldCheck | None = None
     successor_gold_check: NotebookGoldCheck | None = None
+
+    @property
+    def expected_turn_status(self) -> str:
+        return self.turns[0].expected_turn_status
+
+    @property
+    def followup_instruction(self) -> str:
+        return self.turns[0].instruction
+
+    @property
+    def followup_profile_id(self) -> str:
+        return self.turns[0].profile_id
 
 
 @dataclass(frozen=True)
@@ -710,6 +734,45 @@ class _EvidenceRecorder:
         )
 
 
+def _load_turns(
+    scenario_id: str, item: dict[str, Any]
+) -> tuple[NotebookTurn, ...]:
+    """Read a scenario's follow-ups from whichever form declares them."""
+
+    declared = item.get("turns")
+    legacy = "followupInstruction" in item or "followupProfileId" in item
+    if declared is not None and legacy:
+        raise ValueError(
+            f"scenario {scenario_id!r} declares both 'turns' and "
+            "'followupInstruction'; use one form"
+        )
+    if declared is None:
+        declared = [
+            {
+                "instruction": item["followupInstruction"],
+                "profileId": item["followupProfileId"],
+                "expectedTurnStatus": item.get("expectedTurnStatus", "completed"),
+            }
+        ]
+    if not declared:
+        raise ValueError(f"scenario {scenario_id!r} must declare at least one turn")
+    turns: list[NotebookTurn] = []
+    for position, entry in enumerate(declared, start=1):
+        status = str(entry.get("expectedTurnStatus", "completed"))
+        if status not in {"completed", "failed"}:
+            raise ValueError(
+                f"scenario {scenario_id!r} turn {position} has invalid turn status"
+            )
+        turns.append(
+            NotebookTurn(
+                instruction=str(entry["instruction"]),
+                profile_id=str(entry["profileId"]),
+                expected_turn_status=status,
+            )
+        )
+    return tuple(turns)
+
+
 def load_notebook_suite(path: Path | str) -> NotebookSuite:
     payload = json.loads(Path(path).read_text(encoding="utf-8"))
     repetitions = int(payload["repetitions"])
@@ -738,21 +801,17 @@ def load_notebook_suite(path: Path | str) -> NotebookSuite:
         classification = str(item["expectedBaseClassification"])
         if classification not in {"reused", "promoted_human", "unresolved"}:
             raise ValueError(f"scenario {scenario_id!r} has invalid classification")
-        status = str(item.get("expectedTurnStatus", "completed"))
-        if status not in {"completed", "failed"}:
-            raise ValueError(f"scenario {scenario_id!r} has invalid turn status")
+        turns = _load_turns(scenario_id, item)
         scenarios.append(
             NotebookScenario(
                 id=scenario_id,
                 family=str(item["family"]),
                 initial_question=str(item["initialQuestion"]),
                 initial_profile_id=str(item["initialProfileId"]),
-                followup_instruction=str(item["followupInstruction"]),
-                followup_profile_id=str(item["followupProfileId"]),
+                turns=turns,
                 editor_query=editor_query,
                 persist_editor_query=bool(item.get("persistEditorQuery", False)),
                 expected_base_classification=classification,
-                expected_turn_status=status,
                 validate_base=bool(item.get("validateBase", True)),
                 execute_base=bool(item.get("executeBase", True)),
                 validate_successor=bool(item.get("validateSuccessor", True)),
@@ -784,7 +843,7 @@ def load_notebook_suite(path: Path | str) -> NotebookSuite:
     for scenario in scenarios:
         for profile_id in (
             scenario.initial_profile_id,
-            scenario.followup_profile_id,
+            *(turn.profile_id for turn in scenario.turns),
         ):
             if profile_id not in profiles:
                 raise ValueError(
