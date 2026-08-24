@@ -175,3 +175,51 @@ def test_the_comparison_grid_has_one_row_per_scenario(tmp_path: Path):
     assert status["scenarios"] == ["A1", "A2"]
     assert status["backends"] == ["team-a", "team-b", "team-c"]
     assert len(status["grid"]) == 6
+
+
+def test_a_failure_is_reduced_to_one_blamed_root_cause(tmp_path: Path):
+    """Four cascading red checks become one attributed explanation.
+
+    A rejected writer answer also fails the terminal-status, selection and
+    staleness checks; showing all four raw makes every red look like four
+    mysteries. The root cause is picked by precedence, said in plain words,
+    and blamed via the same vetted ledger the triage gate uses.
+    """
+    vd = _load_dashboard_module()
+    ledger = tmp_path / "vetted.json"
+    ledger.write_text(
+        json.dumps(
+            [
+                {
+                    "signature": [
+                        "exact_selected_output",
+                        "followup_terminal_status",
+                        "writer_outcome",
+                    ],
+                    "disposition": "model",
+                    "rationale": "The writer's follow-up was rejected by the lint.",
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+    failed = [
+        {"name": "followup_terminal_status", "evidence": "failed"},
+        {"name": "writer_outcome",
+         "evidence": '{"expected": "ready", "observed": "rejected"}'},
+        {"name": "exact_selected_output", "evidence": "[]"},
+    ]
+
+    verdict = vd.blame_failure(failed, str(ledger))
+
+    assert verdict["disposition"] == "model"
+    assert "rejected by the lint" in verdict["rationale"]
+    assert verdict["root"]["name"] == "writer_outcome"
+    assert "answer" in verdict["root"]["human"].lower()
+    assert verdict["consequences"] == 2
+
+    # An unvetted combination says so instead of guessing.
+    unknown = vd.blame_failure(
+        [{"name": "brand_new_check", "evidence": "?"}], str(ledger)
+    )
+    assert unknown["disposition"] == "unvetted"

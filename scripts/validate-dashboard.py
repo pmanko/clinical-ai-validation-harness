@@ -282,6 +282,70 @@ def status():
             "grid": grid_list, "feed": feed, "models": resident_models()}
 
 
+_ROOT_PRECEDENCE = (
+    # First failed match wins; everything else failed as a consequence.
+    ("base_writer_outcome", "the opening answer was the wrong kind"),
+    ("writer_outcome", "the writer's answer was rejected or of the wrong kind"),
+    ("successor_execution_succeeded", "the accepted query failed to execute"),
+    ("base_gold_execution_match",
+     "the answer disagrees with the independent reference"),
+    ("successor_gold_execution_match",
+     "the answer disagrees with the independent reference"),
+    ("no_sql_after_non_ready_base", "a refusal or question left SQL behind"),
+    ("token_evidence_recorded", "no token accounting was published"),
+)
+
+_VETTED_CACHE = {}
+
+
+def _vetted_ledger(path):
+    cached = _VETTED_CACHE.get(path)
+    if cached is None:
+        try:
+            with open(path, encoding="utf-8") as handle:
+                cached = {
+                    tuple(e["signature"]): e for e in json.load(handle)
+                }
+        except Exception:
+            cached = {}
+        _VETTED_CACHE[path] = cached
+    return cached
+
+
+def blame_failure(failed_assertions, ledger_path):
+    """One attributed explanation for a failed repetition.
+
+    The root cause is the highest-precedence failed check, said in plain
+    words; the rest are consequences. Blame comes from the vetted ledger --
+    the same dispositions the triage gate enforces -- and an unvetted
+    combination says 'unvetted' instead of guessing.
+    """
+    names = sorted({re.sub(r"-(?:t\d+|base)$", "", a["name"]) for a in failed_assertions})
+    entry = _vetted_ledger(ledger_path).get(tuple(names))
+    root = None
+    for name, human in _ROOT_PRECEDENCE:
+        hit = next(
+            (a for a in failed_assertions
+             if re.sub(r"-(?:t\d+|base)$", "", a["name"]) == name),
+            None,
+        )
+        if hit is not None:
+            root = {"name": name, "human": human,
+                    "evidence": hit.get("evidence")}
+            break
+    if root is None and failed_assertions:
+        first = failed_assertions[0]
+        root = {"name": first["name"], "human": first["name"],
+                "evidence": first.get("evidence")}
+    return {
+        "disposition": entry["disposition"] if entry else "unvetted",
+        "rationale": entry["rationale"] if entry else
+            "This failure combination has no vetted disposition yet -- investigate before trusting the verdict.",
+        "root": root,
+        "consequences": max(0, len(failed_assertions) - 1),
+    }
+
+
 def run_family(run):
     """'catalyst' when the run carries a notebook suite; 'chartsearchai' otherwise."""
     return "catalyst" if os.path.exists(os.path.join(run, "suite.json")) else "chartsearchai"
@@ -407,6 +471,11 @@ def detail(scenario, backend):
                           "turns": resp.get("turns") or [],
                           "failedAssertions": resp.get("failedAssertions") or [],
                           "resultPreview": resp.get("resultPreview"),
+                          "blame": (blame_failure(
+                              resp.get("failedAssertions") or [],
+                              str(ROOT / "datasets" / "validation" / "catalyst"
+                                  / "vetted-failure-signatures.json"),
+                          ) if not m.get("passed") else None),
                       } if "passed" in m else None),
                       "trace": {"answer_confidence": tr.get("answer_confidence"),
                                 "indepth_confidence": tr.get("indepth_confidence"),
@@ -894,19 +963,32 @@ async function openD(s,b){
  }else{
   h+='<div class=exp><b>Expected:</b> '+(e.should_abstain?'ABSTAIN':'retrieve')+(e.should_cite_resource_types?' ['+e.should_cite_resource_types.join(', ')+']':'')+'<br>'+esc(e.notes||'')+'</div>';
  }
- (d.turns||[]).forEach(t=>{
-  const tr=t.trace;
-  const answerConf=t.answer_confidence_display;
-  const indepthConf=t.indepth_confidence_display;
-  const answerLifecycle=t.answer_validation_display;
-  const indepthLifecycle=t.indepth_validation_display;
-  h+='<div class=turn><div class=q>Turn '+t.turn+': '+esc(t.question)+'</div>';
-  if(t.catalyst){
+ const reps=(d.turns||[]);
+ if(reps.length&&reps[0].catalyst){
+  // Older run dirs may lack suite.json; the question must still be visible.
+  if(!ce&&reps[0].question) h+='<div class=exp><b>Question:</b> '+esc(reps[0].question)+'</div>';
+  // One scenario, N repetitions: the script is stated once above; what a
+  // reviewer compares is per-repetition outcomes, so those are a table and
+  // the full transcript of each repetition is collapsed beneath it.
+  const chip=(exp,obs)=>(!exp||obs===exp)?'<span class=ok>'+esc(obs||'?')+'</span>':'<span class=err>'+esc(obs||'?')+'</span>';
+  const first=reps[0].catalyst;
+  h+='<div style="overflow-x:auto"><table class=data><tr><th>rep</th><th>opening</th>';
+  (first.turns||[]).forEach((u,i)=>{h+='<th title="'+esc(u.instruction||'')+'">turn '+(i+2)+'</th>';});
+  h+='<th>time</th><th>verdict</th><th>why</th></tr>';
+  reps.forEach(t=>{
    const c=t.catalyst;
-   const chip=(exp,obs)=>(!exp||obs===exp)?'<span class=ok>'+esc(obs||'?')+'</span>':'<span class=err>'+esc(obs||'?')+' (expected '+esc(exp)+')</span>';
-   h+='<div class=meta>'+(c.passed?'<span class=ok>PASS</span>':'<span class=err>FAIL</span>')+' · '+(t.latency_ms||0)+'ms · opening answer '+chip(c.expectedBaseOutcome,c.baseOutcome)+'</div>';
+   const bl=c.blame;
+   const blameChip=b=>!b?'':('<span class="chip'+(b.disposition==='model'?'':' cerr')+'" style="margin-right:6px">'+esc(b.disposition.toUpperCase())+'</span>');
+   const why=bl?(blameChip(bl)+esc(bl.root?bl.root.human:'')+(bl.consequences?' <span class=muted>(+'+bl.consequences+' consequent checks)</span>':'')):'';
+   h+='<tr><td>'+t.turn+'</td><td>'+chip(c.expectedBaseOutcome,c.baseOutcome)+'</td>';
+   (first.turns||[]).forEach((_,i)=>{const u=(c.turns||[])[i]||{};h+='<td>'+chip(u.expectedOutcome,u.observedOutcome)+'</td>';});
+   h+='<td>'+Math.round((t.latency_ms||0)/1000)+'s</td><td>'+(c.passed?'<span class=ok>PASS</span>':'<span class=err>FAIL</span>')+'</td><td>'+why+'</td></tr>';
+  });
+  h+='</table></div>';
+  reps.forEach(t=>{
+   const c=t.catalyst;
+   h+='<details class=tracebox><summary>'+(c.passed?'✓':'×')+' repetition '+t.turn+' — full detail</summary><div class=turn>';
    h+='<div class=ans><pre style="white-space:pre-wrap;margin:0">'+esc(t.answer||'')+'</pre></div>';
-   (c.turns||[]).forEach((u,i)=>{h+='<div class=meta>turn '+(i+2)+': '+esc(u.instruction||'')+' → '+chip(u.expectedOutcome,u.observedOutcome)+'</div>';});
    const rp=c.resultPreview;
    if(rp&&(rp.columns||[]).length){
     h+='<div class=csec><div class=ctitle>Result ('+(rp.returned!=null?rp.returned+' rows':'')+(rp.truncatedPreview?', first 10 shown':'')+')</div>';
@@ -915,13 +997,25 @@ async function openD(s,b){
     h+='</table></div></div>';
    }
    if((c.failedAssertions||[]).length){
-    h+='<div class=csec><div class=ctitle>Failed checks</div>'+c.failedAssertions.map(f=>'<div class="caveat red"><b>'+esc(f.name)+'</b> — '+esc(f.evidence||'')+'</div>').join('')+'</div>';
+    const b=c.blame||{};
+    h+='<div class="caveat '+(b.disposition==='model'?'yellow':'red')+'"><b>'+esc((b.disposition||'?').toUpperCase())+'</b> — '+esc(b.rationale||'')+'</div>';
+    if(b.root) h+='<div class=meta><b>Root cause:</b> '+esc(b.root.human)+' <span class=muted>('+esc(b.root.name)+')</span><br>'+esc(typeof b.root.evidence==='string'?b.root.evidence:JSON.stringify(b.root.evidence||''))+'</div>';
+    h+='<details><summary>all '+c.failedAssertions.length+' failed checks</summary>'+c.failedAssertions.map(f=>'<div class="caveat red"><b>'+esc(f.name)+'</b> — '+esc(f.evidence||'')+'</div>').join('')+'</details>';
    }else{
     h+='<div class=meta><span class=ok>every check passed</span></div>';
    }
-   h+='</div>';
-   return;
-  }
+   h+='</div></details>';
+  });
+  mbody.innerHTML=h; modal.style.display='flex';
+  return;
+ }
+ (d.turns||[]).forEach(t=>{
+  const tr=t.trace;
+  const answerConf=t.answer_confidence_display;
+  const indepthConf=t.indepth_confidence_display;
+  const answerLifecycle=t.answer_validation_display;
+  const indepthLifecycle=t.indepth_validation_display;
+  h+='<div class=turn><div class=q>Turn '+t.turn+': '+esc(t.question)+'</div>';
   h+='<div class=meta><span class="'+(t.status===200?'ok':'err')+'">status '+t.status+'</span> · '+(t.latency_ms||0)+'ms · '+(t.chars||0)+' chars · '+(t.citations||0)+' source refs</div>';
   h+=renderStageTimings(tr&&tr.stage_timings);
   if(t.error){
