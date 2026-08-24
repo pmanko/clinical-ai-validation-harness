@@ -59,9 +59,21 @@ STATUS_SOURCES=(
   specs/artifacts/planning/catalyst-product-roadmap-status.md
   specs/artifacts/planning/catalyst-validation-integration-roadmap-status.md
 )
-if grep -rIlnE '[Ss]elected next( product)? milestone|selected next' \
-    "${STATUS_SOURCES[@]}" 2>/dev/null; then
+if [ -n "${DOCS_STATUS_EXTRA_PATH:-}" ]; then
+  STATUS_SOURCES+=("${DOCS_STATUS_EXTRA_PATH}")
+fi
+status_matches=""
+if status_matches="$(
+  grep -IlnE '[Ss]elected next( product)? milestone|selected next' \
+    "${STATUS_SOURCES[@]}"
+)"; then
+  printf '%s\n' "${status_matches}"
   err "a live status source still calls Dashboard Builder the selected next milestone"
+else
+  status_check=$?
+  if [ "${status_check}" -ne 1 ]; then
+    err "unable to inspect every live status source"
+  fi
 fi
 
 # 5. The governing invariant sentence is present verbatim where it binds

@@ -8,11 +8,16 @@ SCRIPT = ROOT / "scripts" / "verify-docs-consistency.sh"
 TASKS = ROOT / "specs" / "008-catalyst-query-workbench" / "tasks.md"
 
 
-def _run_with_tasks(tmp_path: Path, content: str) -> subprocess.CompletedProcess[str]:
+def _run_with_tasks(
+    tmp_path: Path,
+    content: str,
+    extra_environment: dict[str, str] | None = None,
+) -> subprocess.CompletedProcess[str]:
     tasks_path = tmp_path / "tasks.md"
     tasks_path.write_text(content, encoding="utf-8")
     environment = os.environ.copy()
     environment["DOCS_TASKS_PATH"] = str(tasks_path)
+    environment.update(extra_environment or {})
     return subprocess.run(
         [SCRIPT],
         cwd=ROOT,
@@ -46,3 +51,14 @@ def test_phase_10_gate_cannot_be_moved_to_a_later_section(tmp_path: Path) -> Non
 
     assert completed.returncode != 0
     assert "active Phase 10 gate missing or checked: T166" in completed.stderr
+
+
+def test_missing_status_source_is_a_check_failure(tmp_path: Path) -> None:
+    completed = _run_with_tasks(
+        tmp_path,
+        TASKS.read_text(encoding="utf-8"),
+        {"DOCS_STATUS_EXTRA_PATH": str(tmp_path / "missing-status.md")},
+    )
+
+    assert completed.returncode != 0
+    assert "unable to inspect every live status source" in completed.stderr
