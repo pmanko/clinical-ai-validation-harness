@@ -132,6 +132,8 @@ class _WorkbenchState:
         self.current = self.versions[0]
         self.executions: list[dict[str, Any]] = []
         self.followup_turn: dict[str, Any] | None = None
+        self.followup_turns: list[dict[str, Any]] = []
+        self.turn_requests: list[dict[str, Any]] = []
         self.requests: list[tuple[str, str]] = []
 
     def session(self) -> dict[str, Any]:
@@ -167,9 +169,7 @@ class _WorkbenchState:
         }
 
     def timeline(self) -> dict[str, Any]:
-        turns = [self.initial_turn()]
-        if self.followup_turn is not None:
-            turns.append(self.followup_turn)
+        turns = [self.initial_turn(), *self.followup_turns]
         return {
             "contractVersion": "catalyst.workbench.turn.timeline.v1",
             "sessionId": "session-1",
@@ -241,10 +241,11 @@ def _handler(state: _WorkbenchState):
                 self._send(200, state.timeline())
             elif self.path.endswith("turn-initial/generation-evidence"):
                 self._send(200, _evidence("turn-initial", "Show patient identifiers."))
-            elif self.path.endswith("turn-followup/generation-evidence"):
+            elif "/generation-evidence" in self.path:
+                turn_id = self.path.split("/turns/")[1].split("/")[0]
                 self._send(
                     200,
-                    _evidence("turn-followup", "Return only distinct patients."),
+                    _evidence(turn_id, "Return only distinct patients."),
                 )
             else:
                 self._send(404, {"error": {"code": "not_found"}})
@@ -300,9 +301,13 @@ def _handler(state: _WorkbenchState):
                 state.executions.append(execution)
                 self._send(200, execution)
             elif self.path == "/v1/catalyst/workbench/sessions/session-1/turns":
+                state.turn_requests.append(body)
+                ordinal = len(state.followup_turns) + 1
+                suffix = "" if ordinal == 1 else f"-{ordinal}"
                 successor = _version(
-                    "version-3",
-                    "SELECT DISTINCT patient_id FROM analytics.lab_result_fact_v1",
+                    f"version-{2 + ordinal}",
+                    "SELECT DISTINCT patient_id FROM analytics.lab_result_fact_v1"
+                    + ("" if ordinal == 1 else f" LIMIT {ordinal}"),
                     parent=state.current["versionId"],
                 )
                 successor["authorType"] = "model_repair"
@@ -311,8 +316,8 @@ def _handler(state: _WorkbenchState):
                 state.followup_turn = {
                     "contractVersion": "catalyst.workbench.turn.v1",
                     "sessionId": "session-1",
-                    "turnId": "turn-followup",
-                    "ordinal": 2,
+                    "turnId": f"turn-followup{suffix}",
+                    "ordinal": 1 + ordinal,
                     "kind": "followup",
                     "status": "completed",
                     "snapshotClassification": "reused",
@@ -333,6 +338,7 @@ def _handler(state: _WorkbenchState):
                     },
                     "failure": None,
                 }
+                state.followup_turns.append(state.followup_turn)
                 self._send(201, state.followup_turn)
             else:
                 self._send(404, {"error": {"code": "not_found"}})
@@ -2356,3 +2362,102 @@ def test_turn_rejects_gateway_rejection_as_an_expected_writer_outcome(
                 ),
             )
         )
+
+
+def test_three_turn_scenario_runs_every_turn_against_the_current_query(
+    tmp_path: Path,
+) -> None:
+    """M1/M2/M3 drive three user turns; each one starts from the last result.
+
+    Turn 1 keeps the original evidence filenames and assertion names, so suites
+    recorded before multi-turn scenarios replay unchanged; later turns are
+    suffixed and their own evidence is fetched and checked.
+    """
+    suite = {
+        "id": "notebook-multi-turn-v1",
+        "datasetId": "catalyst-cohort-v1",
+        "datasetVersion": "1",
+        "catalogVersion": "analytics-catalog-v1",
+        "providerName": "llama.cpp",
+        "repetitions": 1,
+        "profiles": {
+            PROFILE_ID: {
+                "writerModelId": "gemma-4-12b",
+                "reviewerModelId": "qwen2.5-14b",
+            }
+        },
+        "scenarios": [
+            {
+                "id": "refine-twice",
+                "family": "narrowing",
+                "initialQuestion": "Show patient identifiers.",
+                "initialProfileId": PROFILE_ID,
+                "expectedBaseClassification": "reused",
+                "turns": [
+                    {
+                        "instruction": "Return only distinct patients.",
+                        "profileId": PROFILE_ID,
+                    },
+                    {
+                        "instruction": "Keep just the first row.",
+                        "profileId": PROFILE_ID,
+                    },
+                ],
+            }
+        ],
+    }
+    suite_path = tmp_path / "suite.json"
+    suite_path.write_text(json.dumps(suite), encoding="utf-8")
+    state = _WorkbenchState()
+    server = ThreadingHTTPServer(("127.0.0.1", 0), _handler(state))
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        result = run_notebook_suite(
+            suite_path=suite_path,
+            client=NotebookHttpClient(f"http://127.0.0.1:{server.server_port}"),
+            output_dir=tmp_path / "artifacts",
+            project_root=ROOT,
+            provenance_loader=lambda _: [],
+        )
+    finally:
+        server.shutdown()
+        thread.join(timeout=5)
+        server.server_close()
+
+    turn_posts = [
+        path
+        for method, path in state.requests
+        if method == "POST" and path.endswith("/sessions/session-1/turns")
+    ]
+    assert len(turn_posts) == 2
+
+    # Turn 2 must be based on what turn 1 left current, not on the original
+    # base version — that chaining is what makes a refinement sequence real.
+    assert state.turn_requests[0]["observedBase"]["versionId"] == "version-1"
+    assert state.turn_requests[1]["observedBase"]["versionId"] == "version-3"
+    assert (
+        state.turn_requests[1]["editorSnapshot"]["sql"]
+        == "SELECT DISTINCT patient_id FROM analytics.lab_result_fact_v1"
+    )
+
+    row = json.loads((result.run_dir / "results.json").read_text())["results"][0]
+    assert [turn["turnIndex"] for turn in row["turns"]] == [1, 2]
+    assert [turn["turnId"] for turn in row["turns"]] == [
+        "turn-followup",
+        "turn-followup-2",
+    ]
+    assert [turn["instruction"] for turn in row["turns"]] == [
+        "Return only distinct patients.",
+        "Keep just the first row.",
+    ]
+    assert all(turn["observedOutcome"] == "ready" for turn in row["turns"])
+
+    # Turn 1's evidence keeps its original name; turn 2 is slotted beside it.
+    names = {item["name"] for item in row["assertions"]}
+    assert "followup_terminal_status" in names
+    assert "followup_terminal_status-t2" in names
+    repetition_dir = next((result.run_dir / "scenarios").glob("*/*"))
+    written = {path.name for path in repetition_dir.iterdir()}
+    assert "08-create-followup.json" in written
+    assert "08-create-followup-t2.json" in written
