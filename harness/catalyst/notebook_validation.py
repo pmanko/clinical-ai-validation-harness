@@ -14,7 +14,7 @@ import math
 import re
 import time
 from collections import Counter
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import date, datetime, time as datetime_time, timezone
 from decimal import Decimal
 from pathlib import Path
@@ -224,6 +224,9 @@ class NotebookSuite:
     require_token_evidence: bool
     profiles: dict[str, dict[str, str | None]]
     scenarios: tuple[NotebookScenario, ...]
+    # The teams this suite compares, in the order they are run. Empty means
+    # the suite is not a comparison: each scenario uses the profile it names.
+    comparison_profiles: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -921,6 +924,14 @@ def load_notebook_suite(path: Path | str) -> NotebookSuite:
         if frozen_digest is not None:
             entry["profileConfigurationDigest"] = str(frozen_digest)
         profiles[str(profile_id)] = entry
+    comparison_profiles = tuple(
+        str(value) for value in payload.get("comparisonProfiles") or ()
+    )
+    for profile_id in comparison_profiles:
+        if profile_id not in profiles:
+            raise ValueError(
+                f"suite compares unknown profile {profile_id!r}"
+            )
     for scenario in scenarios:
         for profile_id in (
             scenario.initial_profile_id,
@@ -943,6 +954,7 @@ def load_notebook_suite(path: Path | str) -> NotebookSuite:
         require_token_evidence=bool(payload.get("requireTokenEvidence", False)),
         profiles=profiles,
         scenarios=tuple(scenarios),
+        comparison_profiles=comparison_profiles,
     )
 
 
@@ -1109,6 +1121,47 @@ def repetition_pair_is_unstable(runs: list[dict[str, Any]]) -> bool:
     return len(signatures) > 1
 
 
+def _finished_pairs(
+    resume_from: Path | str | None,
+) -> dict[tuple[str, str], list[dict[str, Any]]]:
+    """Completed (team, scenario) rows from an interrupted run, by pair.
+
+    Only whole pairs are reused. A pair that was mid-flight when the run
+    stopped is re-run from the start, because half a pair's repetitions is
+    not a measurement of anything.
+    """
+    if resume_from is None:
+        return {}
+    results_path = Path(resume_from) / "results.json"
+    if not results_path.exists():
+        return {}
+    payload = json.loads(results_path.read_text(encoding="utf-8"))
+    pairs: dict[tuple[str, str], list[dict[str, Any]]] = {}
+    for row in payload.get("results") or []:
+        profile_id = row.get("profileId")
+        scenario_id = row.get("scenarioId")
+        if not isinstance(profile_id, str) or not isinstance(scenario_id, str):
+            continue
+        pairs.setdefault((profile_id, scenario_id), []).append(row)
+    return pairs
+
+
+def _scenario_for_profile(
+    scenario: NotebookScenario, profile_id: str
+) -> NotebookScenario:
+    """The same scenario, answered by one team.
+
+    Every team is compared on identical wording and order; only who answers
+    changes, so the scenario is rebuilt with its profile references replaced
+    and nothing else touched.
+    """
+    return replace(
+        scenario,
+        initial_profile_id=profile_id,
+        turns=tuple(replace(turn, profile_id=profile_id) for turn in scenario.turns),
+    )
+
+
 def _effective_repetitions(
     suite: NotebookSuite, scenario: NotebookScenario, repetitions: int | None
 ) -> int:
@@ -1128,6 +1181,7 @@ def run_notebook_suite(
     gold_checker: GoldChecker | None = None,
     manual_checkpoint: Callable[[NotebookScenario, str], None] | None = None,
     provenance_loader: Callable[[Path], list[dict[str, Any]]] = _target_provenance,
+    resume_from: Path | str | None = None,
 ) -> NotebookRunResult:
     suite_path = Path(suite_path)
     suite = load_notebook_suite(suite_path)
@@ -1246,6 +1300,10 @@ def run_notebook_suite(
     )
     _require_discovery(suite, profiles_exchange, dataset_exchange, catalog_exchange)
 
+    # A comparison is hours of model time, so an interruption resumes rather
+    # than restarts: every (team, scenario) already recorded is reused
+    # verbatim and only the missing pairs are run again.
+    finished = _finished_pairs(resume_from)
     results: list[dict[str, Any]] = []
     seen_sessions: set[str] = set()
     # The budget belongs to the run: it exists to stop a team being scored
@@ -1254,149 +1312,169 @@ def run_notebook_suite(
     replacements = 0
     infrastructure_failures: list[dict[str, Any]] = []
     skipped = 0
-    for scenario in selected:
-        if scenario.manual_only and not include_manual:
-            skipped += 1
-            results.append(
-                {
-                    "scenarioId": scenario.id,
-                    "family": scenario.family,
-                    "status": "skipped",
-                    "reason": "manual-only bounded failure scenario was not enabled",
-                }
+    # Teams are the outer loop: a local model stays resident while it answers
+    # the whole suite, and every team meets the same frozen scenario order.
+    teams: tuple[str | None, ...] = suite.comparison_profiles or (None,)
+    for team in teams:
+        # The budget invalidates *that team's* run, so each team gets its own.
+        replacements = 0
+        for scenario in selected:
+            if team is not None:
+                scenario = _scenario_for_profile(scenario, team)
+            recorded = finished.get(
+                (team or scenario.initial_profile_id, scenario.id)
             )
-            continue
-        repeat_count = _effective_repetitions(suite, scenario, repetitions)
-        # A pair that disagrees with itself has measured nothing, so it earns
-        # the extension; one that agrees is settled and is not re-run.
-        ceiling = (
-            repeat_count
-            if repetitions is not None or suite.extended_repetitions is None
-            else max(repeat_count, suite.extended_repetitions)
-        )
-        scenario_runs: list[dict[str, Any]] = []
-        repetition = 0
-        while repetition < repeat_count:
-            repetition += 1
-            attempt_slot = (
-                f"repetition-{repetition:02d}"
-                if replacements == 0
-                else f"repetition-{repetition:02d}-replacement-{replacements:02d}"
-            )
-            prefix = f"scenarios/{scenario.id}/{attempt_slot}"
-            started_at = datetime.now(timezone.utc).isoformat()
-            result = _run_scenario(
-                suite=suite,
-                scenario=scenario,
-                repetition=repetition,
-                client=client,
-                recorder=recorder,
-                prefix=prefix,
-                postgres_checker=postgres_checker,
-                gold_checker=gold_checker,
-                manual_checkpoint=manual_checkpoint,
-            )
-            session_id = result.get("sessionId")
-            isolated = isinstance(session_id, str) and session_id not in seen_sessions
-            if isinstance(session_id, str):
-                seen_sessions.add(session_id)
-            result["assertions"].append(
-                {
-                    "name": "new_session_isolation",
-                    "passed": isolated,
-                    "evidence": session_id,
-                }
-            )
-            result["passed"] = all(item["passed"] for item in result["assertions"])
-            result["httpStatus"] = _normalized_http_status(run_dir, prefix)
-            if suite.infrastructure_replacements and is_infrastructure_failure(result):
-                replacements += 1
-                if replacements > suite.infrastructure_replacements:
-                    raise ValueError(
-                        f"scenario {scenario.id!r} hit a third infrastructure "
-                        "failure for this run; the run is invalid for that team"
-                    )
-                infrastructure_failures.append(
+            if recorded is not None:
+                results.extend(recorded)
+                continue
+            if scenario.manual_only and not include_manual:
+                skipped += 1
+                results.append(
                     {
                         "scenarioId": scenario.id,
-                        "repetition": repetition,
-                        "attempt": attempt_slot,
-                        "httpStatus": result["httpStatus"],
-                        "status": result.get("status"),
-                        "sessionId": result.get("sessionId"),
+                        "family": scenario.family,
+                        "profileId": team or scenario.initial_profile_id,
+                        "status": "skipped",
+                        "reason": "manual-only bounded failure scenario was not enabled",
                     }
                 )
-                result["status"] = "infrastructure_failed"
-                results.append(result)
-                # The host, not the model, failed: re-run this repetition
-                # rather than scoring it.
-                repetition -= 1
                 continue
-            results.append(result)
-            scenario_runs.append(result)
-            ended_at = datetime.now(timezone.utc).isoformat()
-
-            http_status = _normalized_http_status(run_dir, prefix)
-            answer = _selected_answer_sql(run_dir, prefix) or str(result.get("status"))
-            backend_id = scenario.followup_profile_id
-            append_jsonl(
-                results_path,
-                {
-                    "run_id": run_id,
-                    "scenario_id": scenario.id,
-                    "backend_id": backend_id,
-                    "turn": repetition,
-                    "request": {
-                        "question": (
-                            f"{scenario.initial_question} ⇒ "
-                            f"{scenario.followup_instruction}"
-                            if scenario.turns
-                            else scenario.initial_question
+            repeat_count = _effective_repetitions(suite, scenario, repetitions)
+            # A pair that disagrees with itself has measured nothing, so it earns
+            # the extension; one that agrees is settled and is not re-run.
+            ceiling = (
+                repeat_count
+                if repetitions is not None or suite.extended_repetitions is None
+                else max(repeat_count, suite.extended_repetitions)
+            )
+            scenario_runs: list[dict[str, Any]] = []
+            repetition = 0
+            while repetition < repeat_count:
+                repetition += 1
+                attempt_slot = (
+                    f"repetition-{repetition:02d}"
+                    if replacements == 0
+                    else f"repetition-{repetition:02d}-replacement-{replacements:02d}"
+                )
+                prefix = (
+                    f"scenarios/{scenario.id}/{attempt_slot}"
+                    if team is None
+                    else f"scenarios/{team}/{scenario.id}/{attempt_slot}"
+                )
+                started_at = datetime.now(timezone.utc).isoformat()
+                result = _run_scenario(
+                    suite=suite,
+                    scenario=scenario,
+                    repetition=repetition,
+                    client=client,
+                    recorder=recorder,
+                    prefix=prefix,
+                    postgres_checker=postgres_checker,
+                    gold_checker=gold_checker,
+                    manual_checkpoint=manual_checkpoint,
+                )
+                session_id = result.get("sessionId")
+                isolated = isinstance(session_id, str) and session_id not in seen_sessions
+                if isinstance(session_id, str):
+                    seen_sessions.add(session_id)
+                result["assertions"].append(
+                    {
+                        "name": "new_session_isolation",
+                        "passed": isolated,
+                        "evidence": session_id,
+                    }
+                )
+                result["passed"] = all(item["passed"] for item in result["assertions"])
+                result["profileId"] = team or scenario.initial_profile_id
+                result["httpStatus"] = _normalized_http_status(run_dir, prefix)
+                if suite.infrastructure_replacements and is_infrastructure_failure(result):
+                    replacements += 1
+                    if replacements > suite.infrastructure_replacements:
+                        raise ValueError(
+                            f"scenario {scenario.id!r} hit a third infrastructure "
+                            "failure for this run; the run is invalid for that team"
                         )
+                    infrastructure_failures.append(
+                        {
+                            "scenarioId": scenario.id,
+                            "repetition": repetition,
+                            "attempt": attempt_slot,
+                            "httpStatus": result["httpStatus"],
+                            "status": result.get("status"),
+                            "sessionId": result.get("sessionId"),
+                        }
+                    )
+                    result["status"] = "infrastructure_failed"
+                    results.append(result)
+                    # The host, not the model, failed: re-run this repetition
+                    # rather than scoring it.
+                    repetition -= 1
+                    continue
+                results.append(result)
+                scenario_runs.append(result)
+                ended_at = datetime.now(timezone.utc).isoformat()
+
+                http_status = _normalized_http_status(run_dir, prefix)
+                answer = _selected_answer_sql(run_dir, prefix) or str(result.get("status"))
+                backend_id = scenario.followup_profile_id
+                append_jsonl(
+                    results_path,
+                    {
+                        "run_id": run_id,
+                        "scenario_id": scenario.id,
+                        "backend_id": backend_id,
+                        "turn": repetition,
+                        "request": {
+                            "question": (
+                                f"{scenario.initial_question} ⇒ "
+                                f"{scenario.followup_instruction}"
+                                if scenario.turns
+                                else scenario.initial_question
+                            )
+                        },
+                        "response": {"answer": answer},
+                        "metrics": {
+                            "http_status": http_status,
+                            "latency_ms": (result.get("timing") or {}).get(
+                                "unadjustedGenerationWallMs"
+                            ),
+                            "answer_chars": len(answer) if isinstance(answer, str) else 0,
+                            "passed": result["passed"],
+                            "first_turn": repetition == 1,
+                        },
+                        "error": _first_failed_assertion(result["assertions"]),
+                        "started_at": started_at,
+                        "ended_at": ended_at,
                     },
-                    "response": {"answer": answer},
-                    "metrics": {
+                )
+                for event in notebook_result_events(
+                    run_id=run_id,
+                    run_dir=run_dir,
+                    prefix=prefix,
+                    result=result,
+                    backend_id=backend_id,
+                ):
+                    append_event(events_path, event)
+                append_event(
+                    events_path,
+                    {
+                        "schema_version": NOTEBOOK_EVENT_SCHEMA_VERSION,
+                        "event_type": "evaluation",
+                        "check": "notebook_scenario",
+                        "run_id": run_id,
+                        "scenario_id": scenario.id,
+                        "backend_id": backend_id,
+                        "turn": repetition,
                         "http_status": http_status,
-                        "latency_ms": (result.get("timing") or {}).get(
-                            "unadjustedGenerationWallMs"
-                        ),
-                        "answer_chars": len(answer) if isinstance(answer, str) else 0,
                         "passed": result["passed"],
-                        "first_turn": repetition == 1,
                     },
-                    "error": _first_failed_assertion(result["assertions"]),
-                    "started_at": started_at,
-                    "ended_at": ended_at,
-                },
-            )
-            for event in notebook_result_events(
-                run_id=run_id,
-                run_dir=run_dir,
-                prefix=prefix,
-                result=result,
-                backend_id=backend_id,
-            ):
-                append_event(events_path, event)
-            append_event(
-                events_path,
-                {
-                    "schema_version": NOTEBOOK_EVENT_SCHEMA_VERSION,
-                    "event_type": "evaluation",
-                    "check": "notebook_scenario",
-                    "run_id": run_id,
-                    "scenario_id": scenario.id,
-                    "backend_id": backend_id,
-                    "turn": repetition,
-                    "http_status": http_status,
-                    "passed": result["passed"],
-                },
-            )
-            if (
-                repetition == repeat_count
-                and repeat_count < ceiling
-                and repetition_pair_is_unstable(scenario_runs)
-            ):
-                repeat_count = ceiling
+                )
+                if (
+                    repetition == repeat_count
+                    and repeat_count < ceiling
+                    and repetition_pair_is_unstable(scenario_runs)
+                ):
+                    repeat_count = ceiling
 
     passed_count = sum(
         result.get("passed") is True

@@ -145,6 +145,12 @@ class _WorkbenchState:
         # none, exactly as the Gateway does when the writer asks or
         # declines on the opening question.
         self.base_outcome = "ready"
+        # Which profiles discovery advertises; a comparison suite needs
+        # every team it names to be offered.
+        self.profile_ids: list[str] = [PROFILE_ID]
+        # Per-profile role models, so a comparison suite's teams are told
+        # apart by what they actually offer.
+        self.profile_models: dict[str, tuple[str, str | None]] = {}
         # A terminal answer that nonetheless left SQL in the session:
         # the exact contradiction the runner has to catch.
         self.leaves_a_query_behind = False
@@ -262,17 +268,22 @@ def _handler(state: _WorkbenchState):
                     {
                         "profiles": [
                             {
-                                "id": PROFILE_ID,
+                                "id": profile_id,
                                 "available": True,
                                 "revisionCapable": True,
                                 "role_models": {
-                                    "query_generate": "gemma-4-12b",
-                                    "query_review": "qwen2.5-14b",
+                                    "query_generate": state.profile_models.get(
+                                        profile_id, ("gemma-4-12b", "qwen2.5-14b")
+                                    )[0],
+                                    "query_review": state.profile_models.get(
+                                        profile_id, ("gemma-4-12b", "qwen2.5-14b")
+                                    )[1],
                                 },
                                 "provenance": {
                                     "profileConfigurationDigest": state.profile_digest
                                 },
                             }
+                            for profile_id in state.profile_ids
                         ]
                     },
                 )
@@ -2637,7 +2648,9 @@ def _adaptive_suite(**scenario_overrides: Any) -> dict[str, Any]:
     }
 
 
-def _run_against_fake(tmp_path: Path, suite: dict[str, Any], state) -> Any:
+def _run_against_fake(
+    tmp_path: Path, suite: dict[str, Any], state, *, resume_from: Path | None = None
+) -> Any:
     suite_path = tmp_path / "suite.json"
     suite_path.write_text(json.dumps(suite), encoding="utf-8")
     server = ThreadingHTTPServer(("127.0.0.1", 0), _handler(state))
@@ -2650,6 +2663,7 @@ def _run_against_fake(tmp_path: Path, suite: dict[str, Any], state) -> Any:
             output_dir=tmp_path / "artifacts",
             project_root=ROOT,
             provenance_loader=lambda _: [],
+            resume_from=resume_from,
         )
     finally:
         server.shutdown()
@@ -3186,3 +3200,122 @@ def test_the_replacement_budget_is_the_runs_not_each_scenarios(
 
     with pytest.raises(ValueError, match="third infrastructure failure"):
         _run_against_fake(tmp_path, suite, state)
+
+
+# --- one frozen comparison, run once, resumable ----------------------------
+
+
+def _comparison_suite(**overrides: Any) -> dict[str, Any]:
+    """One suite, three teams, the same twelve scenarios for each."""
+    payload = _adaptive_suite()
+    payload["repetitions"] = 1
+    payload.pop("extendedRepetitions", None)
+    payload["profiles"] = {
+        "team-a": {"writerModelId": "gemma-4-12b", "reviewerModelId": None},
+        "team-b": {"writerModelId": "gemma-4-12b", "reviewerModelId": "gemma-4-12b"},
+        "team-c": {"writerModelId": "gemma-4-12b", "reviewerModelId": "qwen2.5-14b"},
+    }
+    payload["comparisonProfiles"] = ["team-a", "team-b", "team-c"]
+    base = payload["scenarios"][0]
+    base["initialProfileId"] = "team-a"
+    base["followupProfileId"] = "team-a"
+    payload.update(overrides)
+    return payload
+
+
+def test_a_suite_can_name_the_teams_it_compares(tmp_path: Path) -> None:
+    suite = load_notebook_suite(_write_suite(tmp_path, _comparison_suite()))
+
+    assert suite.comparison_profiles == ("team-a", "team-b", "team-c")
+
+
+def test_a_suite_that_names_no_teams_runs_the_profile_each_scenario_declares(
+    tmp_path: Path,
+) -> None:
+    suite = load_notebook_suite(_write_suite(tmp_path, _suite_payload()))
+
+    assert suite.comparison_profiles == ()
+
+
+def test_a_compared_team_must_be_a_declared_profile(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="unknown profile"):
+        load_notebook_suite(
+            _write_suite(
+                tmp_path, _comparison_suite(comparisonProfiles=["team-a", "team-z"])
+            )
+        )
+
+
+def test_every_team_runs_every_scenario_in_one_invocation(tmp_path: Path) -> None:
+    """The comparison is one run, not one run per team.
+
+    Teams are the outer loop so a local model stays resident while it answers
+    the whole suite, and every team sees the same frozen scenario order.
+    """
+    state = _WorkbenchState()
+    state.profile_ids = ["team-a", "team-b", "team-c"]
+    state.profile_models = {
+        "team-a": ("gemma-4-12b", None),
+        "team-b": ("gemma-4-12b", "gemma-4-12b"),
+        "team-c": ("gemma-4-12b", "qwen2.5-14b"),
+    }
+    suite = _comparison_suite()
+    base = suite["scenarios"][0]
+    suite["scenarios"] = [{**base, "id": "s1"}, {**base, "id": "s2"}]
+
+    result = _run_against_fake(tmp_path, suite, state)
+
+    summary = json.loads((result.run_dir / "results.json").read_text())
+    ran = [(row["profileId"], row["scenarioId"]) for row in summary["results"]]
+    assert ran == [
+        ("team-a", "s1"), ("team-a", "s2"),
+        ("team-b", "s1"), ("team-b", "s2"),
+        ("team-c", "s1"), ("team-c", "s2"),
+    ]
+    # Each team actually answered under its own profile, not team-a's.
+    assert {
+        request["profileId"] for request in state.turn_requests
+    } == {"team-a", "team-b", "team-c"}
+
+
+def test_a_resumed_run_keeps_finished_work_and_only_runs_what_is_left(
+    tmp_path: Path,
+) -> None:
+    """A comparison is hours of model time; an interruption must not restart it.
+
+    Resuming reuses every (team, scenario) already recorded in the run
+    directory verbatim -- the same rows, in the same order -- and spends model
+    time only on the pairs that never finished.
+    """
+    state = _WorkbenchState()
+    state.profile_ids = ["team-a", "team-b", "team-c"]
+    state.profile_models = {
+        "team-a": ("gemma-4-12b", None),
+        "team-b": ("gemma-4-12b", "gemma-4-12b"),
+        "team-c": ("gemma-4-12b", "qwen2.5-14b"),
+    }
+    suite = _comparison_suite()
+    suite["comparisonProfiles"] = ["team-a", "team-b"]
+    suite_path = tmp_path / "suite.json"
+    suite_path.write_text(json.dumps(suite), encoding="utf-8")
+
+    first = _run_against_fake(tmp_path, suite, state)
+    done = json.loads((first.run_dir / "results.json").read_text())
+    finished_turns = len(state.turn_requests)
+    assert [row["profileId"] for row in done["results"]] == ["team-a", "team-b"]
+
+    # Drop team-b's work, as an interruption partway through would leave it.
+    partial = dict(done)
+    partial["results"] = [
+        row for row in done["results"] if row["profileId"] == "team-a"
+    ]
+    (first.run_dir / "results.json").write_text(json.dumps(partial), encoding="utf-8")
+
+    state.turn_requests.clear()
+    resumed = _run_against_fake(tmp_path, suite, state, resume_from=first.run_dir)
+
+    rows = json.loads((resumed.run_dir / "results.json").read_text())["results"]
+    assert [row["profileId"] for row in rows] == ["team-a", "team-b"]
+    # team-a was reused, not re-run: only team-b cost model time.
+    assert len(state.turn_requests) == finished_turns // 2
+    assert rows[0] == partial["results"][0]
