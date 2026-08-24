@@ -127,18 +127,58 @@ def _load_gold_check(payload: dict[str, Any] | None) -> NotebookGoldCheck | None
     )
 
 
+WRITER_OUTCOMES = ("ready", "needs_clarification", "unsupported")
+# A question and a refusal both end a generation with no SQL.
+TERMINAL_WRITER_OUTCOMES = frozenset(WRITER_OUTCOMES[1:])
+"""The writer's terminal choices. `rejected` is the Gateway's, not one of these."""
+
+
+def writer_outcome(turn: dict[str, Any]) -> str:
+    """Which terminal answer the writer gave for this turn.
+
+    Catalyst does not publish a turn-level outcome yet: a clarification
+    arrives as a failed turn whose failure code names the writer's choice.
+    The published field wins as soon as it exists, so the runner reads the
+    same vocabulary before and after that contract lands. Anything else that
+    failed is the Gateway's `rejected`, which is not a writer answer.
+    """
+    published = turn.get("writerOutcome")
+    if published in WRITER_OUTCOMES:
+        return str(published)
+    if turn.get("status") == "completed":
+        return "ready"
+    failure = turn.get("failure")
+    code = failure.get("code") if isinstance(failure, dict) else None
+    if code in WRITER_OUTCOMES:
+        return str(code)
+    return "rejected"
+
+
+@dataclass(frozen=True)
+class NotebookTurn:
+    """One follow-up the operator sends after the session question.
+
+    A scenario is the session question plus these, in order. Suites written
+    before multi-turn scenarios describe exactly one, so the sequence is how
+    every scenario is executed regardless of which form declared it.
+    """
+
+    instruction: str
+    profile_id: str
+    expected_turn_status: str = "completed"
+    expected_outcome: str = "ready"
+
+
 @dataclass(frozen=True)
 class NotebookScenario:
     id: str
     family: str
     initial_question: str
     initial_profile_id: str
-    followup_instruction: str
-    followup_profile_id: str
+    turns: tuple[NotebookTurn, ...]
     editor_query: NotebookQuery | None
     persist_editor_query: bool
     expected_base_classification: str
-    expected_turn_status: str
     validate_base: bool
     execute_base: bool
     validate_successor: bool
@@ -148,6 +188,27 @@ class NotebookScenario:
     require_reviewer_correction: bool
     base_gold_check: NotebookGoldCheck | None = None
     successor_gold_check: NotebookGoldCheck | None = None
+    expected_base_outcome: str = "ready"
+
+    @property
+    def scored_on_the_opening_question_alone(self) -> bool:
+        """The writer asked or refused, so nothing follows it."""
+
+        return not self.turns
+
+    @property
+    def expected_turn_status(self) -> str:
+        return self.turns[0].expected_turn_status if self.turns else "failed"
+
+    @property
+    def followup_instruction(self) -> str:
+        return self.turns[0].instruction if self.turns else ""
+
+    @property
+    def followup_profile_id(self) -> str:
+        # A scenario scored on its opening question alone was still run
+        # by a profile: the one that answered it.
+        return self.turns[0].profile_id if self.turns else self.initial_profile_id
 
 
 @dataclass(frozen=True)
@@ -158,6 +219,9 @@ class NotebookSuite:
     catalog_version: str
     provider_name: str
     repetitions: int
+    extended_repetitions: int | None
+    infrastructure_replacements: int
+    require_token_evidence: bool
     profiles: dict[str, dict[str, str | None]]
     scenarios: tuple[NotebookScenario, ...]
 
@@ -710,11 +774,78 @@ class _EvidenceRecorder:
         )
 
 
+def _load_turns(
+    scenario_id: str, item: dict[str, Any], base_outcome: str
+) -> tuple[NotebookTurn, ...]:
+    """Read a scenario's follow-ups from whichever form declares them."""
+
+    declared = item.get("turns")
+    legacy = "followupInstruction" in item or "followupProfileId" in item
+    if declared is not None and legacy:
+        raise ValueError(
+            f"scenario {scenario_id!r} declares both 'turns' and "
+            "'followupInstruction'; use one form"
+        )
+    if declared is None:
+        declared = [
+            {
+                "instruction": item["followupInstruction"],
+                "profileId": item["followupProfileId"],
+                "expectedTurnStatus": item.get("expectedTurnStatus", "completed"),
+            }
+        ]
+    if not declared and base_outcome not in TERMINAL_WRITER_OUTCOMES:
+        # A scenario scored on its opening question alone is fine when the
+        # answer is a question or a refusal -- there is nothing to follow.
+        # A query, though, has to be checked here or nothing is measured
+        # beyond the session opening, which reads as a pass.
+        if not (
+            bool(item.get("validateBase", True))
+            and bool(item.get("executeBase", True))
+        ):
+            raise ValueError(
+                f"scenario {scenario_id!r} must declare at least one turn, "
+                "or validate and execute the query its opening question asked for"
+            )
+    turns: list[NotebookTurn] = []
+    for position, entry in enumerate(declared, start=1):
+        status = str(entry.get("expectedTurnStatus", "completed"))
+        if status not in {"completed", "failed"}:
+            raise ValueError(
+                f"scenario {scenario_id!r} turn {position} has invalid turn status"
+            )
+        outcome = str(entry.get("expectedOutcome", "ready"))
+        if outcome not in WRITER_OUTCOMES:
+            raise ValueError(
+                f"scenario {scenario_id!r} turn {position} has invalid expected "
+                f"outcome {outcome!r}"
+            )
+        turns.append(
+            NotebookTurn(
+                instruction=str(entry["instruction"]),
+                profile_id=str(entry["profileId"]),
+                expected_turn_status=status,
+                expected_outcome=outcome,
+            )
+        )
+    return tuple(turns)
+
+
 def load_notebook_suite(path: Path | str) -> NotebookSuite:
     payload = json.loads(Path(path).read_text(encoding="utf-8"))
     repetitions = int(payload["repetitions"])
     if repetitions < 1:
         raise ValueError("Notebook suite repetitions must be at least one")
+    replacement_value = payload.get("infrastructureReplacements")
+    replacement_budget = int(replacement_value) if replacement_value is not None else 0
+    if replacement_budget < 0:
+        raise ValueError("Notebook suite infrastructureReplacements must not be negative")
+    extended_value = payload.get("extendedRepetitions")
+    extended = int(extended_value) if extended_value is not None else None
+    if extended is not None and extended < repetitions:
+        raise ValueError(
+            "Notebook suite extendedRepetitions must not be below repetitions"
+        )
     scenarios: list[NotebookScenario] = []
     seen: set[str] = set()
     for item in payload["scenarios"]:
@@ -738,21 +869,23 @@ def load_notebook_suite(path: Path | str) -> NotebookSuite:
         classification = str(item["expectedBaseClassification"])
         if classification not in {"reused", "promoted_human", "unresolved"}:
             raise ValueError(f"scenario {scenario_id!r} has invalid classification")
-        status = str(item.get("expectedTurnStatus", "completed"))
-        if status not in {"completed", "failed"}:
-            raise ValueError(f"scenario {scenario_id!r} has invalid turn status")
+        base_outcome = str(item.get("expectedBaseOutcome", "ready"))
+        if base_outcome not in WRITER_OUTCOMES:
+            raise ValueError(
+                f"scenario {scenario_id!r} has invalid expected base "
+                f"outcome {base_outcome!r}"
+            )
+        turns = _load_turns(scenario_id, item, base_outcome)
         scenarios.append(
             NotebookScenario(
                 id=scenario_id,
                 family=str(item["family"]),
                 initial_question=str(item["initialQuestion"]),
                 initial_profile_id=str(item["initialProfileId"]),
-                followup_instruction=str(item["followupInstruction"]),
-                followup_profile_id=str(item["followupProfileId"]),
+                turns=turns,
                 editor_query=editor_query,
                 persist_editor_query=bool(item.get("persistEditorQuery", False)),
                 expected_base_classification=classification,
-                expected_turn_status=status,
                 validate_base=bool(item.get("validateBase", True)),
                 execute_base=bool(item.get("executeBase", True)),
                 validate_successor=bool(item.get("validateSuccessor", True)),
@@ -768,6 +901,7 @@ def load_notebook_suite(path: Path | str) -> NotebookSuite:
                 ),
                 base_gold_check=_load_gold_check(item.get("baseGoldCheck")),
                 successor_gold_check=_load_gold_check(item.get("successorGoldCheck")),
+                expected_base_outcome=base_outcome,
             )
         )
     if not scenarios:
@@ -775,16 +909,22 @@ def load_notebook_suite(path: Path | str) -> NotebookSuite:
     profiles = {}
     for profile_id, detail in payload["profiles"].items():
         reviewer_model_id = detail.get("reviewerModelId")
-        profiles[str(profile_id)] = {
+        frozen_digest = detail.get("profileConfigurationDigest")
+        entry: dict[str, str | None] = {
             "writerModelId": str(detail["writerModelId"]),
             "reviewerModelId": (
                 str(reviewer_model_id) if reviewer_model_id is not None else None
             ),
         }
+        # Only suites that froze a digest carry the key, so a profile map keeps
+        # exactly the shape every existing reader and suite already expects.
+        if frozen_digest is not None:
+            entry["profileConfigurationDigest"] = str(frozen_digest)
+        profiles[str(profile_id)] = entry
     for scenario in scenarios:
         for profile_id in (
             scenario.initial_profile_id,
-            scenario.followup_profile_id,
+            *(turn.profile_id for turn in scenario.turns),
         ):
             if profile_id not in profiles:
                 raise ValueError(
@@ -798,6 +938,9 @@ def load_notebook_suite(path: Path | str) -> NotebookSuite:
         catalog_version=str(payload["catalogVersion"]),
         provider_name=str(payload["providerName"]),
         repetitions=repetitions,
+        extended_repetitions=extended,
+        infrastructure_replacements=replacement_budget,
+        require_token_evidence=bool(payload.get("requireTokenEvidence", False)),
         profiles=profiles,
         scenarios=tuple(scenarios),
     )
@@ -881,6 +1024,89 @@ def _first_failed_assertion(assertions: list[dict[str, Any]]) -> str | None:
         if not item.get("passed"):
             return f"{item['name']}: {item.get('evidence')!r}"
     return None
+
+
+def token_evidence_checks(
+    evidence: dict[str, Any],
+) -> list[tuple[str, bool, Any]]:
+    """Assertions over one turn's token accounting.
+
+    A profile declares its window, its output reserve, and the exact
+    tokenizer; the fully rendered messages are counted against them before the
+    model is called. Evidence that names no tokenizer is a character-count
+    substitute, which the roadmap forbids, so it does not count as recorded.
+    """
+    accounting = evidence.get("tokenAccounting")
+    if not isinstance(accounting, dict):
+        return [("token_evidence_recorded", False, None)]
+
+    window = accounting.get("contextWindow")
+    reserve = accounting.get("outputReserve")
+    prompt = accounting.get("promptTokens")
+    tokenizer = accounting.get("tokenizer")
+    recorded = (
+        isinstance(tokenizer, str)
+        and bool(tokenizer)
+        and all(isinstance(value, int) for value in (window, reserve, prompt))
+    )
+    if not recorded:
+        return [("token_evidence_recorded", False, accounting)]
+    return [
+        ("token_evidence_recorded", True, accounting),
+        (
+            "token_budget_respected",
+            int(prompt) + int(reserve) <= int(window),
+            {
+                "promptTokens": prompt,
+                "outputReserve": reserve,
+                "contextWindow": window,
+            },
+        ),
+    ]
+
+
+def is_infrastructure_failure(result: dict[str, Any]) -> bool:
+    """Whether this repetition failed the host rather than the model.
+
+    A team is judged on what its models did. A 5xx, or a repetition that never
+    reached a turn, measured nothing and is replaced instead of scored. A 4xx
+    is Catalyst refusing the request, which is the product's behaviour and
+    belongs in the denominator like any other answer.
+    """
+    if result.get("status") == "failed_before_turn":
+        return True
+    status = result.get("httpStatus")
+    return isinstance(status, int) and status >= 500
+
+
+def repetition_pair_is_unstable(runs: list[dict[str, Any]]) -> bool:
+    """Whether a profile/scenario pair's repetitions disagree with each other.
+
+    Three agreeing runs settle a pair. Three that disagree — on the verdict,
+    on which answer the writer gave, or on whether the database check matched
+    — have not measured anything yet, so the pair earns two more runs.
+    """
+    scored = [run for run in runs if run.get("status") != "skipped"]
+    if len(scored) < 2:
+        return False
+
+    def answer_matches(run: dict[str, Any]) -> bool | None:
+        for assertion in run.get("assertions") or []:
+            if str(assertion.get("name", "")).endswith("gold_execution_match"):
+                return bool(assertion.get("passed"))
+        return None
+
+    signatures = {
+        (
+            bool(run.get("passed")),
+            tuple(
+                str(turn.get("observedOutcome")) for turn in run.get("turns") or []
+            ),
+            answer_matches(run),
+        )
+        for run in scored
+    }
+    return len(signatures) > 1
 
 
 def _effective_repetitions(
@@ -1022,6 +1248,11 @@ def run_notebook_suite(
 
     results: list[dict[str, Any]] = []
     seen_sessions: set[str] = set()
+    # The budget belongs to the run: it exists to stop a team being scored
+    # on a host that keeps falling over, and a per-scenario counter would
+    # let a twelve-scenario suite absorb twenty-four failures.
+    replacements = 0
+    infrastructure_failures: list[dict[str, Any]] = []
     skipped = 0
     for scenario in selected:
         if scenario.manual_only and not include_manual:
@@ -1036,8 +1267,23 @@ def run_notebook_suite(
             )
             continue
         repeat_count = _effective_repetitions(suite, scenario, repetitions)
-        for repetition in range(1, repeat_count + 1):
-            prefix = f"scenarios/{scenario.id}/repetition-{repetition:02d}"
+        # A pair that disagrees with itself has measured nothing, so it earns
+        # the extension; one that agrees is settled and is not re-run.
+        ceiling = (
+            repeat_count
+            if repetitions is not None or suite.extended_repetitions is None
+            else max(repeat_count, suite.extended_repetitions)
+        )
+        scenario_runs: list[dict[str, Any]] = []
+        repetition = 0
+        while repetition < repeat_count:
+            repetition += 1
+            attempt_slot = (
+                f"repetition-{repetition:02d}"
+                if replacements == 0
+                else f"repetition-{repetition:02d}-replacement-{replacements:02d}"
+            )
+            prefix = f"scenarios/{scenario.id}/{attempt_slot}"
             started_at = datetime.now(timezone.utc).isoformat()
             result = _run_scenario(
                 suite=suite,
@@ -1062,7 +1308,32 @@ def run_notebook_suite(
                 }
             )
             result["passed"] = all(item["passed"] for item in result["assertions"])
+            result["httpStatus"] = _normalized_http_status(run_dir, prefix)
+            if suite.infrastructure_replacements and is_infrastructure_failure(result):
+                replacements += 1
+                if replacements > suite.infrastructure_replacements:
+                    raise ValueError(
+                        f"scenario {scenario.id!r} hit a third infrastructure "
+                        "failure for this run; the run is invalid for that team"
+                    )
+                infrastructure_failures.append(
+                    {
+                        "scenarioId": scenario.id,
+                        "repetition": repetition,
+                        "attempt": attempt_slot,
+                        "httpStatus": result["httpStatus"],
+                        "status": result.get("status"),
+                        "sessionId": result.get("sessionId"),
+                    }
+                )
+                result["status"] = "infrastructure_failed"
+                results.append(result)
+                # The host, not the model, failed: re-run this repetition
+                # rather than scoring it.
+                repetition -= 1
+                continue
             results.append(result)
+            scenario_runs.append(result)
             ended_at = datetime.now(timezone.utc).isoformat()
 
             http_status = _normalized_http_status(run_dir, prefix)
@@ -1079,6 +1350,8 @@ def run_notebook_suite(
                         "question": (
                             f"{scenario.initial_question} ⇒ "
                             f"{scenario.followup_instruction}"
+                            if scenario.turns
+                            else scenario.initial_question
                         )
                     },
                     "response": {"answer": answer},
@@ -1118,9 +1391,22 @@ def run_notebook_suite(
                     "passed": result["passed"],
                 },
             )
+            if (
+                repetition == repeat_count
+                and repeat_count < ceiling
+                and repetition_pair_is_unstable(scenario_runs)
+            ):
+                repeat_count = ceiling
 
-    passed_count = sum(result.get("passed") is True for result in results)
-    result_count = sum(result.get("status") != "skipped" for result in results)
+    passed_count = sum(
+        result.get("passed") is True
+        and result.get("status") != "infrastructure_failed"
+        for result in results
+    )
+    result_count = sum(
+        result.get("status") not in {"skipped", "infrastructure_failed"}
+        for result in results
+    )
     nondeterminism = _nondeterminism_summary(results)
     summary = {
         "contractVersion": "harness.catalyst-notebook.validation-run.v1",
@@ -1131,6 +1417,8 @@ def run_notebook_suite(
         "resultCount": result_count,
         "passedCount": passed_count,
         "skippedCount": skipped,
+        "infrastructureFailureCount": len(infrastructure_failures),
+        "infrastructureFailures": infrastructure_failures,
         "nondeterminism": nondeterminism,
         "results": results,
     }
@@ -1213,6 +1501,37 @@ def _run_scenario(
             evidence_exchange.status_code,
         )
 
+    # What the writer answered the opening question with, before anything is
+    # done to the session: a query, a question, or a refusal.
+    observed_base_outcome = (
+        writer_outcome(initial_turn) if isinstance(initial_turn, dict) else "rejected"
+    )
+    check(
+        "base_writer_outcome",
+        observed_base_outcome == scenario.expected_base_outcome,
+        {
+            "observed": observed_base_outcome,
+            "expected": scenario.expected_base_outcome,
+        },
+    )
+    if scenario.expected_base_outcome in TERMINAL_WRITER_OUTCOMES:
+        # A question or a refusal is one writer call and no SQL. There is
+        # nothing to validate, execute or check an answer against, and the
+        # session must be holding no query at all.
+        check(
+            "no_sql_after_non_ready_base",
+            not session.get("versions") and session.get("currentVersionId") is None,
+            {
+                "versions": session.get("versions"),
+                "currentVersionId": session.get("currentVersionId"),
+            },
+        )
+        if scenario.validate_base or scenario.execute_base:
+            raise ValueError(
+                f"scenario {scenario.id!r} expects no query from its opening "
+                "question, so it cannot validate or execute one"
+            )
+
     if scenario.persist_editor_query:
         if scenario.editor_query is None:
             raise ValueError(
@@ -1236,7 +1555,9 @@ def _run_scenario(
         current = session.get("currentVersion")
 
     base_version = current if isinstance(current, dict) else None
-    if base_version is None:
+    if base_version is None and scenario.expected_base_outcome not in (
+        TERMINAL_WRITER_OUTCOMES
+    ):
         check("base_version_available", False, None)
         return {
             "scenarioId": scenario.id,
@@ -1247,7 +1568,8 @@ def _run_scenario(
             "assertions": assertions,
             "passed": False,
         }
-    check("base_version_available", True, base_version.get("versionId"))
+    if base_version is not None:
+        check("base_version_available", True, base_version.get("versionId"))
 
     if scenario.validate_base:
         validated = client.validate_version(str(base_version["versionId"]))
@@ -1304,222 +1626,303 @@ def _run_scenario(
             )
             check("base_gold_execution_match", gold_result["passed"], gold_result)
 
-    editor_query = scenario.editor_query or NotebookQuery(
-        sql=str(base_version["sql"]),
-        parameters=tuple(dict(item) for item in base_version.get("parameters", [])),
-        expected_columns=tuple(
-            dict(item) for item in base_version.get("expectedColumns", [])
-        ),
-    )
-    snapshot = {
-        "contractVersion": "catalyst.workbench.editor-snapshot.v1",
-        **editor_query.content(),
-        "editorDigest": query_digest(editor_query),
-    }
-    observed_base = {
-        "versionId": str(base_version["versionId"]),
-        "queryDigest": str(base_version["queryDigest"]),
-    }
-    if scenario.manual_only:
-        if manual_checkpoint is None:
-            raise ValueError(
-                f"scenario {scenario.id!r} requires an operator checkpoint"
-            )
-        manual_checkpoint(scenario, session_id)
-    followup = client.create_turn(
-        session_id,
-        instruction=scenario.followup_instruction,
-        profile_id=scenario.followup_profile_id,
-        observed_base=observed_base,
-        editor_snapshot=snapshot,
-    )
-    turn = recorder.exchange(
-        f"{prefix}/08-create-followup.json", followup, kind="turn_create"
-    )
-    check("followup_http_created", followup.status_code == 201, followup.status_code)
-    check(
-        "followup_terminal_status",
-        turn.get("status") == scenario.expected_turn_status,
-        turn.get("status"),
-    )
-    check(
-        "base_classification",
-        turn.get("snapshotClassification") == scenario.expected_base_classification,
-        turn.get("snapshotClassification"),
-    )
-    manual_version = turn.get("manualVersion")
-    check(
-        "manual_version_classification",
-        (manual_version is not None)
-        is (scenario.expected_base_classification == "promoted_human"),
-        manual_version,
-    )
-    check(
-        "followup_profile",
-        turn.get("profileSnapshot", {}).get("profileId")
-        == scenario.followup_profile_id,
-        turn.get("profileSnapshot", {}).get("profileId"),
-    )
-
-    refreshed_exchange = client.get_session(session_id)
-    refreshed = recorder.exchange(
-        f"{prefix}/09-refreshed-session.json",
-        refreshed_exchange,
-        kind="session_restore",
-    )
-    timeline_exchange = client.get_turns(session_id)
-    timeline = recorder.exchange(
-        f"{prefix}/10-final-turns.json",
-        timeline_exchange,
-        kind="turn_timeline",
-    )
-    check(
-        "refresh_restored",
-        refreshed_exchange.status_code == 200,
-        refreshed_exchange.status_code,
-    )
-    check(
-        "timeline_current_turn",
-        timeline.get("currentTurnId") == turn.get("turnId"),
-        timeline.get("currentTurnId"),
-    )
-
+    # Each declared turn runs against the query the previous turn left current.
+    # Turn 1 keeps the original evidence filenames and assertion names so every
+    # suite recorded before multi-turn scenarios replays byte-for-byte.
+    turn_summaries: list[dict[str, Any]] = []
+    # A scenario scored on its opening question alone never enters the
+    # loop, so everything the summary reads from a turn is stated here
+    # as the absence it actually is.
+    turn: dict[str, Any] = {}
+    followup: HttpExchange | None = None
     followup_evidence: dict[str, Any] = {}
-    if isinstance(turn.get("turnId"), str):
-        evidence_exchange = client.generation_evidence(session_id, turn["turnId"])
-        followup_evidence = recorder.exchange(
-            f"{prefix}/11-followup-generation-evidence.json",
-            evidence_exchange,
-            kind="generation_evidence",
-        )
-        check(
-            "followup_evidence_available",
-            evidence_exchange.status_code == 200,
-            evidence_exchange.status_code,
-        )
-        evidence_checks = _evidence_checks(
-            followup_evidence,
-            expected_profile=suite.profiles[scenario.followup_profile_id],
-        )
-        for name, passed, evidence in evidence_checks:
-            check(name, passed, evidence)
+    selected: dict[str, Any] | None = None
+    successor_execution: dict[str, Any] | None = None
+    successor_execution_wall_ms = 0
+    for turn_index, turn_spec in enumerate(scenario.turns, start=1):
+        slot = "" if turn_index == 1 else f"-t{turn_index}"
 
-    selected = None
-    if scenario.expected_turn_status == "completed":
-        outputs = list(turn.get("outputVersions") or [])
-        selected_outputs = [item for item in outputs if item.get("selected") is True]
-        if len(selected_outputs) == 1:
-            selected = refreshed.get("currentVersion")
-        exact_selection = (
-            len(selected_outputs) == 1
-            and turn.get("selectedVersionId") == selected_outputs[0].get("versionId")
-            and turn.get("resultingCurrentVersion", {}).get("versionId")
-            == selected_outputs[0].get("versionId")
-            and refreshed.get("currentVersionId")
-            == selected_outputs[0].get("versionId")
+        def check(name: str, passed: bool, evidence: Any, _slot: str = slot) -> None:
+            assertions.append(
+                {
+                    "name": f"{name}{_slot}",
+                    "passed": bool(passed),
+                    "evidence": evidence,
+                }
+            )
+
+        pinned = scenario.editor_query if turn_index == 1 else None
+        editor_query = pinned or NotebookQuery(
+            sql=str(base_version["sql"]),
+            parameters=tuple(dict(item) for item in base_version.get("parameters", [])),
+            expected_columns=tuple(
+                dict(item) for item in base_version.get("expectedColumns", [])
+            ),
         )
-        check("exact_selected_output", exact_selection, selected_outputs)
-        reviewer_corrected = bool(
-            selected_outputs and selected_outputs[0].get("role") == "reviewer"
+        snapshot = {
+            "contractVersion": "catalyst.workbench.editor-snapshot.v1",
+            **editor_query.content(),
+            "editorDigest": query_digest(editor_query),
+        }
+        observed_base = {
+            "versionId": str(base_version["versionId"]),
+            "queryDigest": str(base_version["queryDigest"]),
+        }
+        if scenario.manual_only:
+            if manual_checkpoint is None:
+                raise ValueError(
+                    f"scenario {scenario.id!r} requires an operator checkpoint"
+                )
+            manual_checkpoint(scenario, session_id)
+        followup = client.create_turn(
+            session_id,
+            instruction=turn_spec.instruction,
+            profile_id=turn_spec.profile_id,
+            observed_base=observed_base,
+            editor_snapshot=snapshot,
+        )
+        turn = recorder.exchange(
+            f"{prefix}/08-create-followup{slot}.json", followup, kind="turn_create"
+        )
+        check("followup_http_created", followup.status_code == 201, followup.status_code)
+        check(
+            "followup_terminal_status",
+            turn.get("status") == turn_spec.expected_turn_status,
+            turn.get("status"),
+        )
+        observed_outcome = writer_outcome(turn)
+        check(
+            "writer_outcome",
+            observed_outcome == turn_spec.expected_outcome,
+            {"observed": observed_outcome, "expected": turn_spec.expected_outcome},
+        )
+        if turn_spec.expected_outcome in {"needs_clarification", "unsupported"}:
+            # A question or a refusal is one writer call and no SQL: the prior
+            # selected query has to survive it untouched.
+            check(
+                "no_sql_after_non_ready_outcome",
+                not turn.get("outputVersions") and turn.get("selectedVersionId") is None,
+                {
+                    "outputVersions": turn.get("outputVersions"),
+                    "selectedVersionId": turn.get("selectedVersionId"),
+                },
+            )
+        check(
+            "base_classification",
+            turn.get("snapshotClassification") == scenario.expected_base_classification,
+            turn.get("snapshotClassification"),
+        )
+        manual_version = turn.get("manualVersion")
+        check(
+            "manual_version_classification",
+            (manual_version is not None)
+            is (scenario.expected_base_classification == "promoted_human"),
+            manual_version,
         )
         check(
-            "semantic_reviewer_correction",
-            reviewer_corrected or not scenario.require_reviewer_correction,
-            {
-                "observed": reviewer_corrected,
-                "required": scenario.require_reviewer_correction,
-            },
+            "followup_profile",
+            turn.get("profileSnapshot", {}).get("profileId")
+            == turn_spec.profile_id,
+            turn.get("profileSnapshot", {}).get("profileId"),
         )
-        if base_execution is not None:
+
+        refreshed_exchange = client.get_session(session_id)
+        refreshed = recorder.exchange(
+            f"{prefix}/09-refreshed-session{slot}.json",
+            refreshed_exchange,
+            kind="session_restore",
+        )
+        timeline_exchange = client.get_turns(session_id)
+        timeline = recorder.exchange(
+            f"{prefix}/10-final-turns{slot}.json",
+            timeline_exchange,
+            kind="turn_timeline",
+        )
+        check(
+            "refresh_restored",
+            refreshed_exchange.status_code == 200,
+            refreshed_exchange.status_code,
+        )
+        check(
+            "timeline_current_turn",
+            timeline.get("currentTurnId") == turn.get("turnId"),
+            timeline.get("currentTurnId"),
+        )
+
+        followup_evidence: dict[str, Any] = {}
+        if isinstance(turn.get("turnId"), str):
+            evidence_exchange = client.generation_evidence(session_id, turn["turnId"])
+            followup_evidence = recorder.exchange(
+                f"{prefix}/11-followup-generation-evidence{slot}.json",
+                evidence_exchange,
+                kind="generation_evidence",
+            )
             check(
-                "prior_results_stale_after_successor",
-                refreshed.get("currentVersionId") != base_version.get("versionId")
-                and any(
-                    item.get("versionId") == base_version.get("versionId")
-                    for item in refreshed.get("executions", [])
-                ),
+                "followup_evidence_available",
+                evidence_exchange.status_code == 200,
+                evidence_exchange.status_code,
+            )
+            evidence_checks = _evidence_checks(
+                followup_evidence,
+                expected_profile=suite.profiles[turn_spec.profile_id],
+            )
+            for name, passed, evidence in evidence_checks:
+                check(name, passed, evidence)
+            for name, passed, detail in token_evidence_checks(followup_evidence):
+                # Recorded either way; only a suite that requires the
+                # accounting fails the turn for its absence.
+                if name == "token_evidence_recorded" and not passed:
+                    if suite.require_token_evidence:
+                        check(name, False, detail)
+                    else:
+                        assertions.append(
+                            {
+                                "name": f"{name}{slot}",
+                                "passed": True,
+                                "evidence": {"recorded": False, "required": False},
+                            }
+                        )
+                    continue
+                check(name, passed, detail)
+
+        selected = None
+        if turn_spec.expected_turn_status == "completed":
+            outputs = list(turn.get("outputVersions") or [])
+            selected_outputs = [item for item in outputs if item.get("selected") is True]
+            if len(selected_outputs) == 1:
+                selected = refreshed.get("currentVersion")
+            exact_selection = (
+                len(selected_outputs) == 1
+                and turn.get("selectedVersionId") == selected_outputs[0].get("versionId")
+                and turn.get("resultingCurrentVersion", {}).get("versionId")
+                == selected_outputs[0].get("versionId")
+                and refreshed.get("currentVersionId")
+                == selected_outputs[0].get("versionId")
+            )
+            check("exact_selected_output", exact_selection, selected_outputs)
+            reviewer_corrected = bool(
+                selected_outputs and selected_outputs[0].get("role") == "reviewer"
+            )
+            check(
+                "semantic_reviewer_correction",
+                reviewer_corrected or not scenario.require_reviewer_correction,
                 {
-                    "baseVersionId": base_version.get("versionId"),
+                    "observed": reviewer_corrected,
+                    "required": scenario.require_reviewer_correction,
+                },
+            )
+            if base_execution is not None:
+                check(
+                    "prior_results_stale_after_successor",
+                    refreshed.get("currentVersionId") != base_version.get("versionId")
+                    and any(
+                        item.get("versionId") == base_version.get("versionId")
+                        for item in refreshed.get("executions", [])
+                    ),
+                    {
+                        "baseVersionId": base_version.get("versionId"),
+                        "currentVersionId": refreshed.get("currentVersionId"),
+                    },
+                )
+        else:
+            check(
+                "failed_turn_preserved_base",
+                turn.get("selectedVersionId") is None
+                and refreshed.get("currentVersionId")
+                == turn.get("resultingCurrentVersion", {}).get("versionId"),
+                {
+                    "failure": turn.get("failure"),
                     "currentVersionId": refreshed.get("currentVersionId"),
                 },
             )
-    else:
-        check(
-            "failed_turn_preserved_base",
-            turn.get("selectedVersionId") is None
-            and refreshed.get("currentVersionId")
-            == turn.get("resultingCurrentVersion", {}).get("versionId"),
-            {
-                "failure": turn.get("failure"),
-                "currentVersionId": refreshed.get("currentVersionId"),
-            },
-        )
 
-    successor_execution: dict[str, Any] | None = None
-    successor_execution_wall_ms = 0
-    if isinstance(selected, dict) and scenario.validate_successor:
-        validated = client.validate_version(str(selected["versionId"]))
-        recorder.exchange(
-            f"{prefix}/12-validate-successor.json",
-            validated,
-            kind="query_validation",
-        )
-        check(
-            "successor_validation_recorded",
-            validated.status_code == 201,
-            validated.status_code,
-        )
-    if isinstance(selected, dict) and scenario.execute_successor:
-        executed = client.execute_version(selected)
-        successor_execution_wall_ms = executed.elapsed_ms
-        successor_execution = recorder.exchange(
-            f"{prefix}/13-execute-successor.json",
-            executed,
-            kind="query_execution",
-        )
-        check(
-            "successor_execution_succeeded",
-            executed.status_code == 200
-            and successor_execution.get("status") == "succeeded",
+        successor_execution: dict[str, Any] | None = None
+        successor_execution_wall_ms = 0
+        if isinstance(selected, dict) and scenario.validate_successor:
+            validated = client.validate_version(str(selected["versionId"]))
+            recorder.exchange(
+                f"{prefix}/12-validate-successor{slot}.json",
+                validated,
+                kind="query_validation",
+            )
+            check(
+                "successor_validation_recorded",
+                validated.status_code == 201,
+                validated.status_code,
+            )
+        if isinstance(selected, dict) and scenario.execute_successor:
+            executed = client.execute_version(selected)
+            successor_execution_wall_ms = executed.elapsed_ms
+            successor_execution = recorder.exchange(
+                f"{prefix}/13-execute-successor{slot}.json",
+                executed,
+                kind="query_execution",
+            )
+            check(
+                "successor_execution_succeeded",
+                executed.status_code == 200
+                and successor_execution.get("status") == "succeeded",
+                {
+                    "httpStatus": executed.status_code,
+                    "status": successor_execution.get("status"),
+                    "diagnostic": successor_execution.get("databaseDiagnostic"),
+                },
+            )
+            if (
+                postgres_checker is not None
+                and executed.status_code == 200
+                and successor_execution.get("status") == "succeeded"
+            ):
+                crosscheck = postgres_checker.check(selected, successor_execution)
+                recorder.json(
+                    f"{prefix}/14-postgres-successor{slot}.json",
+                    crosscheck,
+                    kind="postgres_crosscheck",
+                )
+                check("successor_postgres_crosscheck", crosscheck["passed"], crosscheck)
+            if (
+                gold_checker is not None
+                and scenario.successor_gold_check is not None
+                and executed.status_code == 200
+                and successor_execution.get("status") == "succeeded"
+            ):
+                gold_result = gold_checker.check(selected, scenario.successor_gold_check)
+                recorder.json(
+                    f"{prefix}/16-gold-execution-match-successor{slot}.json",
+                    gold_result,
+                    kind="gold_execution_match",
+                )
+                check("successor_gold_execution_match", gold_result["passed"], gold_result)
+
+        turn_summaries.append(
             {
-                "httpStatus": executed.status_code,
-                "status": successor_execution.get("status"),
-                "diagnostic": successor_execution.get("databaseDiagnostic"),
-            },
+                "turnIndex": turn_index,
+                "turnId": turn.get("turnId"),
+                "instruction": turn_spec.instruction,
+                "profileId": turn_spec.profile_id,
+                "status": turn.get("status"),
+                "expectedOutcome": turn_spec.expected_outcome,
+                "observedOutcome": observed_outcome,
+                "selectedVersionId": turn.get("selectedVersionId"),
+                "evidenceDigest": followup_evidence.get("evidenceDigest"),
+            }
         )
-        if (
-            postgres_checker is not None
-            and executed.status_code == 200
-            and successor_execution.get("status") == "succeeded"
-        ):
-            crosscheck = postgres_checker.check(selected, successor_execution)
-            recorder.json(
-                f"{prefix}/14-postgres-successor.json",
-                crosscheck,
-                kind="postgres_crosscheck",
-            )
-            check("successor_postgres_crosscheck", crosscheck["passed"], crosscheck)
-        if (
-            gold_checker is not None
-            and scenario.successor_gold_check is not None
-            and executed.status_code == 200
-            and successor_execution.get("status") == "succeeded"
-        ):
-            gold_result = gold_checker.check(selected, scenario.successor_gold_check)
-            recorder.json(
-                f"{prefix}/16-gold-execution-match-successor.json",
-                gold_result,
-                kind="gold_execution_match",
-            )
-            check("successor_gold_execution_match", gold_result["passed"], gold_result)
+        # The next turn starts from whatever this one left current, which is
+        # the unchanged prior query when the writer asked or refused.
+        current_version = refreshed.get("currentVersion")
+        if isinstance(current_version, dict) and current_version.get("versionId"):
+            base_version = current_version
+        base_execution = successor_execution or base_execution
+        base_execution_wall_ms = successor_execution_wall_ms or base_execution_wall_ms
 
     invocation_ms = int(initial_evidence.get("totalInvocationDurationMs") or 0) + int(
         followup_evidence.get("totalInvocationDurationMs") or 0
     )
-    generation_wall_ms = create.elapsed_ms + followup.elapsed_ms
+    followup_wall_ms = followup.elapsed_ms if followup is not None else 0
+    generation_wall_ms = create.elapsed_ms + followup_wall_ms
     timing = {
         "initialGenerationWallMs": create.elapsed_ms,
-        "followupGenerationWallMs": followup.elapsed_ms,
+        "followupGenerationWallMs": followup_wall_ms,
         "unadjustedGenerationWallMs": generation_wall_ms,
         "recordedInvocationDurationMs": invocation_ms,
         "generationWallMinusRecordedInvocationsMs": generation_wall_ms - invocation_ms,
@@ -1536,14 +1939,19 @@ def _run_scenario(
         "scenarioId": scenario.id,
         "family": scenario.family,
         "repetition": repetition,
-        "status": turn.get("status"),
+        # With no turn to report on, the repetition's status is the
+        # session's own: it ran to the end of what it declared.
+        "status": turn.get("status") if scenario.turns else "completed",
+        "baseOutcome": observed_base_outcome,
+        "expectedBaseOutcome": scenario.expected_base_outcome,
         "sessionId": session_id,
         "initialTurnId": initial_turn.get("turnId")
         if isinstance(initial_turn, dict)
         else None,
         "followupTurnId": turn.get("turnId"),
-        "baseVersionId": base_version.get("versionId"),
-        "baseQueryDigest": base_version.get("queryDigest"),
+        "turns": turn_summaries,
+        "baseVersionId": (base_version or {}).get("versionId"),
+        "baseQueryDigest": (base_version or {}).get("queryDigest"),
         "selectedVersionId": turn.get("selectedVersionId"),
         "baseExecutionId": (base_execution or {}).get("executionId"),
         "successorExecutionId": (successor_execution or {}).get("executionId"),
@@ -1630,6 +2038,21 @@ def _require_discovery(
             raise ValueError(f"profile {profile_id!r} writer model drifted")
         if roles.get("query_review") != expected.get("reviewerModelId"):
             raise ValueError(f"profile {profile_id!r} reviewer model drifted")
+        frozen_digest = expected.get("profileConfigurationDigest")
+        if frozen_digest is not None:
+            provenance = profile.get("provenance")
+            advertised_digest = (
+                provenance.get("profileConfigurationDigest")
+                if isinstance(provenance, dict)
+                else None
+            )
+            if not advertised_digest:
+                raise ValueError(
+                    f"profile {profile_id!r} does not advertise a profile digest "
+                    "to compare with the frozen one"
+                )
+            if advertised_digest != frozen_digest:
+                raise ValueError(f"profile {profile_id!r} profile digest drifted")
     dataset = dataset_exchange.response_body
     if dataset.get("contractVersion") != "catalyst.dataset-overview.v1":
         raise ValueError("runtime dataset overview contract is unsupported")

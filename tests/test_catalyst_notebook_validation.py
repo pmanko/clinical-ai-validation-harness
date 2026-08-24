@@ -16,6 +16,10 @@ from uuid import UUID
 import pytest
 
 from harness.catalyst.notebook_validation import (
+    writer_outcome,
+    repetition_pair_is_unstable,
+    is_infrastructure_failure,
+    token_evidence_checks,
     HttpExchange,
     NotebookHttpClient,
     NotebookQuery,
@@ -131,21 +135,61 @@ class _WorkbenchState:
         self.current = self.versions[0]
         self.executions: list[dict[str, Any]] = []
         self.followup_turn: dict[str, Any] | None = None
+        self.followup_turns: list[dict[str, Any]] = []
+        self.turn_requests: list[dict[str, Any]] = []
+        self.turn_status_sequence: list[str] | None = None
+        self.session_id = "session-1"
+        self.session_ids: list[str] = []
+        self.profile_digest: str | None = None
+        # "ready" produces the base query; a terminal answer produces
+        # none, exactly as the Gateway does when the writer asks or
+        # declines on the opening question.
+        self.base_outcome = "ready"
+        # A terminal answer that nonetheless left SQL in the session:
+        # the exact contradiction the runner has to catch.
+        self.leaves_a_query_behind = False
+        self.turn_http_sequence: list[int] | None = None
+        self.turn_attempts = 0
         self.requests: list[tuple[str, str]] = []
+
+    def reset(self) -> None:
+        """A new session starts a repetition from the same clean state.
+
+        Each repetition gets its own session id, which is what the runner's
+        new_session_isolation assertion is there to catch.
+        """
+        self.session_id = f"session-{len(self.session_ids) + 1}"
+        self.session_ids.append(self.session_id)
+        self.versions = (
+            []
+            if self.base_outcome != "ready" and not self.leaves_a_query_behind
+            else [
+                _version(
+                    "version-1",
+                    "SELECT patient_id FROM analytics.lab_result_fact_v1",
+                )
+            ]
+        )
+        self.current = self.versions[0] if self.versions else None
+        self.executions = []
+        self.followup_turn = None
+        self.followup_turns = []
 
     def session(self) -> dict[str, Any]:
         return {
             "contractVersion": "catalyst.workbench.session.v1",
-            "sessionId": "session-1",
+            "sessionId": self.session_id,
             "question": "Show patient identifiers.",
             "profileId": PROFILE_ID,
             "datasetId": "pipeline-1",
             "datasetVersion": "pipeline-1",
             "catalogVersion": "analytics-catalog-v1+schema.1234567890abcdef",
-            "currentVersionId": self.current["versionId"],
+            "currentVersionId": (
+                self.current["versionId"] if self.current else None
+            ),
             "browserState": {},
             "provenance": {},
-            "status": "ready",
+            "status": self.base_outcome,
             "createdAt": "2026-07-20T12:00:00Z",
             "updatedAt": "2026-07-20T12:00:03Z",
             "versions": self.versions,
@@ -156,27 +200,39 @@ class _WorkbenchState:
         }
 
     def initial_turn(self) -> dict[str, Any]:
-        return {
+        turn = {
             "contractVersion": "catalyst.workbench.turn.v1",
-            "sessionId": "session-1",
+            "sessionId": self.session_id,
             "turnId": "turn-initial",
             "ordinal": 1,
             "kind": "initial",
             "status": "completed",
         }
+        if self.base_outcome != "ready":
+            turn["status"] = "failed"
+            turn["writerOutcome"] = self.base_outcome
+            turn["outputVersions"] = []
+            turn["selectedVersionId"] = None
+            turn["failure"] = {
+                "code": self.base_outcome,
+                "message": "The data records no home address.",
+            }
+        return turn
 
     def timeline(self) -> dict[str, Any]:
-        turns = [self.initial_turn()]
-        if self.followup_turn is not None:
-            turns.append(self.followup_turn)
+        turns = [self.initial_turn(), *self.followup_turns]
         return {
             "contractVersion": "catalyst.workbench.turn.timeline.v1",
-            "sessionId": "session-1",
+            "sessionId": self.session_id,
             "currentTurnId": turns[-1]["turnId"],
-            "currentVersion": {
-                "versionId": self.current["versionId"],
-                "queryDigest": self.current["queryDigest"],
-            },
+            "currentVersion": (
+                {
+                    "versionId": self.current["versionId"],
+                    "queryDigest": self.current["queryDigest"],
+                }
+                if self.current
+                else None
+            ),
             "turns": turns,
         }
 
@@ -213,6 +269,9 @@ def _handler(state: _WorkbenchState):
                                     "query_generate": "gemma-4-12b",
                                     "query_review": "qwen2.5-14b",
                                 },
+                                "provenance": {
+                                    "profileConfigurationDigest": state.profile_digest
+                                },
                             }
                         ]
                     },
@@ -234,16 +293,17 @@ def _handler(state: _WorkbenchState):
                         "catalogVersion": "analytics-catalog-v1+schema.1234567890abcdef",
                     },
                 )
-            elif self.path == "/v1/catalyst/workbench/sessions/session-1":
+            elif self.path == f"/v1/catalyst/workbench/sessions/{state.session_id}":
                 self._send(200, state.session())
-            elif self.path == "/v1/catalyst/workbench/sessions/session-1/turns":
+            elif self.path == f"/v1/catalyst/workbench/sessions/{state.session_id}/turns":
                 self._send(200, state.timeline())
             elif self.path.endswith("turn-initial/generation-evidence"):
                 self._send(200, _evidence("turn-initial", "Show patient identifiers."))
-            elif self.path.endswith("turn-followup/generation-evidence"):
+            elif "/generation-evidence" in self.path:
+                turn_id = self.path.split("/turns/")[1].split("/")[0]
                 self._send(
                     200,
-                    _evidence("turn-followup", "Return only distinct patients."),
+                    _evidence(turn_id, "Return only distinct patients."),
                 )
             else:
                 self._send(404, {"error": {"code": "not_found"}})
@@ -252,8 +312,9 @@ def _handler(state: _WorkbenchState):
             state.requests.append(("POST", self.path))
             body = self._body()
             if self.path == "/v1/catalyst/workbench/sessions":
+                state.reset()
                 self._send(201, state.session())
-            elif self.path == "/v1/catalyst/workbench/sessions/session-1/versions":
+            elif self.path == f"/v1/catalyst/workbench/sessions/{state.session_id}/versions":
                 version = _version(
                     "version-2", body["sql"], parent=state.current["versionId"]
                 )
@@ -298,10 +359,22 @@ def _handler(state: _WorkbenchState):
                 }
                 state.executions.append(execution)
                 self._send(200, execution)
-            elif self.path == "/v1/catalyst/workbench/sessions/session-1/turns":
+            elif self.path == f"/v1/catalyst/workbench/sessions/{state.session_id}/turns":
+                state.turn_requests.append(body)
+                if state.turn_http_sequence:
+                    status = state.turn_http_sequence[
+                        min(state.turn_attempts, len(state.turn_http_sequence) - 1)
+                    ]
+                    state.turn_attempts += 1
+                    if status >= 500:
+                        self._send(status, {"error": {"code": "unavailable"}})
+                        return
+                ordinal = len(state.followup_turns) + 1
+                suffix = "" if ordinal == 1 else f"-{ordinal}"
                 successor = _version(
-                    "version-3",
-                    "SELECT DISTINCT patient_id FROM analytics.lab_result_fact_v1",
+                    f"version-{2 + ordinal}",
+                    "SELECT DISTINCT patient_id FROM analytics.lab_result_fact_v1"
+                    + ("" if ordinal == 1 else f" LIMIT {ordinal}"),
                     parent=state.current["versionId"],
                 )
                 successor["authorType"] = "model_repair"
@@ -309,11 +382,18 @@ def _handler(state: _WorkbenchState):
                 state.current = successor
                 state.followup_turn = {
                     "contractVersion": "catalyst.workbench.turn.v1",
-                    "sessionId": "session-1",
-                    "turnId": "turn-followup",
-                    "ordinal": 2,
+                    "sessionId": state.session_id,
+                    "turnId": f"turn-followup{suffix}",
+                    "ordinal": 1 + ordinal,
                     "kind": "followup",
-                    "status": "completed",
+                    "status": (
+                        state.turn_status_sequence[
+                            max(len(state.session_ids) - 1, 0)
+                            % len(state.turn_status_sequence)
+                        ]
+                        if state.turn_status_sequence
+                        else "completed"
+                    ),
                     "snapshotClassification": "reused",
                     "manualVersion": None,
                     "profileSnapshot": {"profileId": PROFILE_ID},
@@ -332,6 +412,7 @@ def _handler(state: _WorkbenchState):
                     },
                     "failure": None,
                 }
+                state.followup_turns.append(state.followup_turn)
                 self._send(201, state.followup_turn)
             else:
                 self._send(404, {"error": {"code": "not_found"}})
@@ -1699,7 +1780,9 @@ def test_manual_scenario_requires_an_operator_checkpoint(tmp_path: Path) -> None
         thread.join(timeout=5)
         server.server_close()
 
-    assert checkpoints == [("unchanged", "session-1")]
+    # The second run opens its own session, so assert the pairing rather than
+    # a fixed id: the checkpoint sees the scenario and the live session.
+    assert checkpoints == [("unchanged", state.session_ids[-1])]
     # The mock completes the turn, so the expected-failed scenario records the
     # failed-turn preservation check and does not pass.
     results = json.loads((result.run_dir / "results.json").read_text())
@@ -2140,3 +2223,966 @@ def test_notebook_cli_can_skip_the_postgres_cross_check(
     assert captured["postgres_checker"] is None
     assert captured["gold_checker"] is None
     capsys.readouterr()
+
+
+def test_scenario_turns_default_to_the_single_recorded_followup(
+    tmp_path: Path,
+) -> None:
+    """Every suite in the repository predates multi-turn scenarios.
+
+    Those suites describe one follow-up through `followupInstruction`. They
+    keep loading, and they present as a one-turn sequence so the runner has a
+    single shape to execute.
+    """
+    suite = load_notebook_suite(_write_suite(tmp_path, _suite_payload()))
+    scenario = suite.scenarios[0]
+
+    assert len(scenario.turns) == 1
+    turn = scenario.turns[0]
+    assert turn.instruction == "Return only distinct patients."
+    assert turn.profile_id == PROFILE_ID
+    assert turn.expected_turn_status == "completed"
+    # The pre-turn accessors keep answering for the first follow-up.
+    assert scenario.followup_instruction == turn.instruction
+    assert scenario.followup_profile_id == turn.profile_id
+
+
+def test_scenario_accepts_an_ordered_turn_sequence(tmp_path: Path) -> None:
+    """The locked suite needs three user turns (M1, M2, M3), not two.
+
+    Turns are executed in the order given, each naming its own profile and
+    expected terminal status, so a scenario can drive refinement then a
+    question without a second runner.
+    """
+    base = _suite_payload()["scenarios"][0]
+    suite = load_notebook_suite(
+        _write_suite(
+            tmp_path,
+            _suite_payload(
+                scenarios=[
+                    {
+                        **{
+                            key: value
+                            for key, value in base.items()
+                            if key
+                            not in {"followupInstruction", "followupProfileId"}
+                        },
+                        "turns": [
+                            {
+                                "instruction": "Collapse to one row per patient.",
+                                "profileId": PROFILE_ID,
+                            },
+                            {
+                                "instruction": "Add the patient last name.",
+                                "profileId": PROFILE_ID,
+                                "expectedTurnStatus": "failed",
+                            },
+                        ],
+                    }
+                ]
+            ),
+        )
+    )
+    scenario = suite.scenarios[0]
+
+    assert [turn.instruction for turn in scenario.turns] == [
+        "Collapse to one row per patient.",
+        "Add the patient last name.",
+    ]
+    assert [turn.expected_turn_status for turn in scenario.turns] == [
+        "completed",
+        "failed",
+    ]
+    # The first turn is what the pre-turn accessors describe.
+    assert scenario.followup_instruction == "Collapse to one row per patient."
+
+
+def test_scenario_rejects_declaring_both_turn_forms(tmp_path: Path) -> None:
+    """One scenario, one description of its turns."""
+    base = _suite_payload()["scenarios"][0]
+    with pytest.raises(ValueError, match="both 'turns' and 'followupInstruction'"):
+        load_notebook_suite(
+            _write_suite(
+                tmp_path,
+                _suite_payload(
+                    scenarios=[
+                        {**base, "turns": [{"instruction": "x", "profileId": PROFILE_ID}]}
+                    ]
+                ),
+            )
+        )
+
+
+def test_scenario_turn_profiles_must_exist_in_the_suite(tmp_path: Path) -> None:
+    """Checked for every turn, not just the one that happens to be first."""
+    base = _suite_payload()["scenarios"][0]
+    with pytest.raises(ValueError, match="unknown profile"):
+        load_notebook_suite(
+            _write_suite(
+                tmp_path,
+                _suite_payload(
+                    scenarios=[
+                        {
+                            **{
+                                key: value
+                                for key, value in base.items()
+                                if key
+                                not in {"followupInstruction", "followupProfileId"}
+                            },
+                            "turns": [
+                                {"instruction": "first", "profileId": PROFILE_ID},
+                                {"instruction": "x", "profileId": "not-a-profile"},
+                            ],
+                        }
+                    ]
+                ),
+            )
+        )
+
+
+# --- writer outcomes -------------------------------------------------------
+#
+# The writer may end a turn three ways: ready, needs_clarification, or
+# unsupported. `rejected` is the Gateway's, for policy/contract/reviewer or
+# orchestration failure, and is never a writer choice. Catalyst does not
+# publish a turn-level outcome yet — today a clarification arrives as a failed
+# turn carrying failure.code — so the reader accepts the field when it appears
+# and derives the outcome from the recorded shape until then.
+
+
+def test_writer_outcome_prefers_the_published_field() -> None:
+    turn = {"status": "failed", "writerOutcome": "unsupported"}
+    assert writer_outcome(turn) == "unsupported"
+
+
+@pytest.mark.parametrize("code", ["needs_clarification", "unsupported"])
+def test_writer_outcome_derives_the_writer_choice_from_todays_shape(
+    code: str,
+) -> None:
+    turn = {"status": "failed", "failure": {"code": code, "message": "…"}}
+    assert writer_outcome(turn) == code
+
+
+def test_writer_outcome_reads_a_completed_turn_as_ready() -> None:
+    turn = {"status": "completed", "selectedVersionId": "v1"}
+    assert writer_outcome(turn) == "ready"
+
+
+def test_writer_outcome_keeps_gateway_failures_out_of_the_writer_vocabulary() -> None:
+    """A contract or transport failure is the Gateway's, not a writer answer."""
+    turn = {"status": "failed", "failure": {"code": "writer_output_contract_failed"}}
+    assert writer_outcome(turn) == "rejected"
+
+
+def test_turn_declares_its_expected_writer_outcome(tmp_path: Path) -> None:
+    base = _suite_payload()["scenarios"][0]
+    suite = load_notebook_suite(
+        _write_suite(
+            tmp_path,
+            _suite_payload(
+                scenarios=[
+                    {
+                        **{
+                            key: value
+                            for key, value in base.items()
+                            if key
+                            not in {"followupInstruction", "followupProfileId"}
+                        },
+                        "turns": [
+                            {
+                                "instruction": "Show recent HIV results.",
+                                "profileId": PROFILE_ID,
+                                "expectedOutcome": "needs_clarification",
+                            },
+                            {
+                                "instruction": "Last 90 days, CD4 count.",
+                                "profileId": PROFILE_ID,
+                            },
+                        ],
+                    }
+                ]
+            ),
+        )
+    )
+    turns = suite.scenarios[0].turns
+
+    assert [turn.expected_outcome for turn in turns] == ["needs_clarification", "ready"]
+
+
+def test_turn_rejects_gateway_rejection_as_an_expected_writer_outcome(
+    tmp_path: Path,
+) -> None:
+    base = _suite_payload()["scenarios"][0]
+    with pytest.raises(ValueError, match="invalid expected outcome"):
+        load_notebook_suite(
+            _write_suite(
+                tmp_path,
+                _suite_payload(
+                    scenarios=[
+                        {
+                            **{
+                                key: value
+                                for key, value in base.items()
+                                if key
+                                not in {"followupInstruction", "followupProfileId"}
+                            },
+                            "turns": [
+                                {
+                                    "instruction": "x",
+                                    "profileId": PROFILE_ID,
+                                    "expectedOutcome": "rejected",
+                                }
+                            ],
+                        }
+                    ]
+                ),
+            )
+        )
+
+
+def test_three_turn_scenario_runs_every_turn_against_the_current_query(
+    tmp_path: Path,
+) -> None:
+    """M1/M2/M3 drive three user turns; each one starts from the last result.
+
+    Turn 1 keeps the original evidence filenames and assertion names, so suites
+    recorded before multi-turn scenarios replay unchanged; later turns are
+    suffixed and their own evidence is fetched and checked.
+    """
+    suite = {
+        "id": "notebook-multi-turn-v1",
+        "datasetId": "catalyst-cohort-v1",
+        "datasetVersion": "1",
+        "catalogVersion": "analytics-catalog-v1",
+        "providerName": "llama.cpp",
+        "repetitions": 1,
+        "profiles": {
+            PROFILE_ID: {
+                "writerModelId": "gemma-4-12b",
+                "reviewerModelId": "qwen2.5-14b",
+            }
+        },
+        "scenarios": [
+            {
+                "id": "refine-twice",
+                "family": "narrowing",
+                "initialQuestion": "Show patient identifiers.",
+                "initialProfileId": PROFILE_ID,
+                "expectedBaseClassification": "reused",
+                "turns": [
+                    {
+                        "instruction": "Return only distinct patients.",
+                        "profileId": PROFILE_ID,
+                    },
+                    {
+                        "instruction": "Keep just the first row.",
+                        "profileId": PROFILE_ID,
+                    },
+                ],
+            }
+        ],
+    }
+    suite_path = tmp_path / "suite.json"
+    suite_path.write_text(json.dumps(suite), encoding="utf-8")
+    state = _WorkbenchState()
+    server = ThreadingHTTPServer(("127.0.0.1", 0), _handler(state))
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        result = run_notebook_suite(
+            suite_path=suite_path,
+            client=NotebookHttpClient(f"http://127.0.0.1:{server.server_port}"),
+            output_dir=tmp_path / "artifacts",
+            project_root=ROOT,
+            provenance_loader=lambda _: [],
+        )
+    finally:
+        server.shutdown()
+        thread.join(timeout=5)
+        server.server_close()
+
+    turn_posts = [
+        path
+        for method, path in state.requests
+        if method == "POST" and path.endswith("/sessions/session-1/turns")
+    ]
+    assert len(turn_posts) == 2
+
+    # Turn 2 must be based on what turn 1 left current, not on the original
+    # base version — that chaining is what makes a refinement sequence real.
+    assert state.turn_requests[0]["observedBase"]["versionId"] == "version-1"
+    assert state.turn_requests[1]["observedBase"]["versionId"] == "version-3"
+    assert (
+        state.turn_requests[1]["editorSnapshot"]["sql"]
+        == "SELECT DISTINCT patient_id FROM analytics.lab_result_fact_v1"
+    )
+
+    row = json.loads((result.run_dir / "results.json").read_text())["results"][0]
+    assert [turn["turnIndex"] for turn in row["turns"]] == [1, 2]
+    assert [turn["turnId"] for turn in row["turns"]] == [
+        "turn-followup",
+        "turn-followup-2",
+    ]
+    assert [turn["instruction"] for turn in row["turns"]] == [
+        "Return only distinct patients.",
+        "Keep just the first row.",
+    ]
+    assert all(turn["observedOutcome"] == "ready" for turn in row["turns"])
+
+    # Turn 1's evidence keeps its original name; turn 2 is slotted beside it.
+    names = {item["name"] for item in row["assertions"]}
+    assert "followup_terminal_status" in names
+    assert "followup_terminal_status-t2" in names
+    repetition_dir = next((result.run_dir / "scenarios").glob("*/*"))
+    written = {path.name for path in repetition_dir.iterdir()}
+    assert "08-create-followup.json" in written
+    assert "08-create-followup-t2.json" in written
+
+
+# --- adaptive repetitions --------------------------------------------------
+#
+# Every profile/scenario pair starts at three repetitions and extends to five
+# when those three disagree: mixed verdicts, mixed writer outcomes, or a
+# database answer that matched on one run and not another. A pair whose three
+# runs agree is already settled and is not re-run.
+
+
+def _rep(passed: bool, outcomes: list[str], *, answer: bool | None = None) -> dict:
+    row: dict[str, Any] = {
+        "status": "completed",
+        "passed": passed,
+        "turns": [{"observedOutcome": outcome} for outcome in outcomes],
+        "assertions": [],
+    }
+    if answer is not None:
+        row["assertions"] = [
+            {"name": "successor_gold_execution_match", "passed": answer, "evidence": {}}
+        ]
+    return row
+
+
+def test_agreeing_repetitions_are_settled() -> None:
+    runs = [_rep(True, ["ready"], answer=True) for _ in range(3)]
+    assert repetition_pair_is_unstable(runs) is False
+
+
+def test_mixed_verdicts_extend_the_pair() -> None:
+    runs = [
+        _rep(True, ["ready"]),
+        _rep(False, ["ready"]),
+        _rep(True, ["ready"]),
+    ]
+    assert repetition_pair_is_unstable(runs) is True
+
+
+def test_mixed_writer_outcomes_extend_the_pair() -> None:
+    """Same verdict, different answer kind — the pair has not settled."""
+    runs = [
+        _rep(True, ["ready"]),
+        _rep(True, ["needs_clarification"]),
+        _rep(True, ["ready"]),
+    ]
+    assert repetition_pair_is_unstable(runs) is True
+
+
+def test_a_database_answer_that_only_sometimes_matches_extends_the_pair() -> None:
+    runs = [
+        _rep(True, ["ready"], answer=True),
+        _rep(True, ["ready"], answer=False),
+        _rep(True, ["ready"], answer=True),
+    ]
+    assert repetition_pair_is_unstable(runs) is True
+
+
+def test_a_single_repetition_cannot_disagree_with_itself() -> None:
+    assert repetition_pair_is_unstable([_rep(True, ["ready"])]) is False
+
+
+def test_skipped_repetitions_are_not_evidence_of_instability() -> None:
+    runs = [
+        _rep(True, ["ready"]),
+        {"status": "skipped", "reason": "manual-only"},
+        _rep(True, ["ready"]),
+    ]
+    assert repetition_pair_is_unstable(runs) is False
+
+
+def _adaptive_suite(**scenario_overrides: Any) -> dict[str, Any]:
+    return {
+        "id": "notebook-adaptive-v1",
+        "datasetId": "catalyst-cohort-v1",
+        "datasetVersion": "1",
+        "catalogVersion": "analytics-catalog-v1",
+        "providerName": "llama.cpp",
+        "repetitions": 3,
+        "extendedRepetitions": 5,
+        "profiles": {
+            PROFILE_ID: {
+                "writerModelId": "gemma-4-12b",
+                "reviewerModelId": "qwen2.5-14b",
+            }
+        },
+        "scenarios": [
+            {
+                "id": "adaptive",
+                "family": "narrowing",
+                "initialQuestion": "Show patient identifiers.",
+                "initialProfileId": PROFILE_ID,
+                "followupInstruction": "Return only distinct patients.",
+                "followupProfileId": PROFILE_ID,
+                "expectedBaseClassification": "reused",
+                **scenario_overrides,
+            }
+        ],
+    }
+
+
+def _run_against_fake(tmp_path: Path, suite: dict[str, Any], state) -> Any:
+    suite_path = tmp_path / "suite.json"
+    suite_path.write_text(json.dumps(suite), encoding="utf-8")
+    server = ThreadingHTTPServer(("127.0.0.1", 0), _handler(state))
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        return run_notebook_suite(
+            suite_path=suite_path,
+            client=NotebookHttpClient(f"http://127.0.0.1:{server.server_port}"),
+            output_dir=tmp_path / "artifacts",
+            project_root=ROOT,
+            provenance_loader=lambda _: [],
+        )
+    finally:
+        server.shutdown()
+        thread.join(timeout=5)
+        server.server_close()
+
+
+def test_a_settled_pair_stops_at_three_repetitions(tmp_path: Path) -> None:
+    state = _WorkbenchState()
+    result = _run_against_fake(tmp_path, _adaptive_suite(), state)
+
+    assert result.result_count == 3
+
+
+def test_an_unstable_pair_is_extended_to_five_repetitions(tmp_path: Path) -> None:
+    """Repetition 2 disagrees with 1 and 3, so the pair has not settled."""
+    state = _WorkbenchState()
+    state.turn_status_sequence = ["completed", "failed", "completed"]
+    result = _run_against_fake(tmp_path, _adaptive_suite(), state)
+
+    assert result.result_count == 5
+
+
+# --- frozen profile digests ------------------------------------------------
+#
+# The comparison freezes each team's resolved aliases and profile digest
+# before the run. A profile that has been reconfigured since the freeze is a
+# different team, so the run stops before spending a single model call on it.
+
+
+def _digest_suite(**profile_extra: Any) -> dict[str, Any]:
+    suite = _adaptive_suite()
+    suite["repetitions"] = 1
+    suite.pop("extendedRepetitions", None)
+    suite["profiles"][PROFILE_ID] = {
+        "writerModelId": "gemma-4-12b",
+        "reviewerModelId": "qwen2.5-14b",
+        **profile_extra,
+    }
+    return suite
+
+
+def test_a_frozen_profile_digest_that_still_matches_runs(tmp_path: Path) -> None:
+    state = _WorkbenchState()
+    state.profile_digest = "d" * 64
+    result = _run_against_fake(
+        tmp_path, _digest_suite(profileConfigurationDigest="d" * 64), state
+    )
+
+    assert result.result_count == 1
+
+
+def test_a_drifted_profile_digest_stops_before_any_model_call(
+    tmp_path: Path,
+) -> None:
+    state = _WorkbenchState()
+    state.profile_digest = "e" * 64
+    with pytest.raises(ValueError, match="profile digest drifted"):
+        _run_against_fake(
+            tmp_path, _digest_suite(profileConfigurationDigest="d" * 64), state
+        )
+
+    assert not [
+        path for method, path in state.requests if method == "POST"
+    ], "no session or turn may be created once drift is known"
+
+
+def test_a_frozen_digest_the_gateway_does_not_advertise_is_unverifiable(
+    tmp_path: Path,
+) -> None:
+    state = _WorkbenchState()
+    state.profile_digest = None
+    with pytest.raises(ValueError, match="does not advertise a profile digest"):
+        _run_against_fake(
+            tmp_path, _digest_suite(profileConfigurationDigest="d" * 64), state
+        )
+
+
+# --- infrastructure vs model failures --------------------------------------
+#
+# A team is judged on what its models did. A Gateway that returned 503, or a
+# repetition that never reached a turn, says nothing about the model, so it is
+# counted separately, replaced up to twice, and invalidates the team's run on
+# a third.
+
+
+def test_a_server_error_is_an_infrastructure_failure() -> None:
+    assert is_infrastructure_failure({"status": "completed", "httpStatus": 503}) is True
+
+
+def test_a_repetition_that_never_reached_a_turn_is_infrastructure() -> None:
+    assert (
+        is_infrastructure_failure({"status": "failed_before_turn", "httpStatus": 200})
+        is True
+    )
+
+
+def test_a_model_that_answered_badly_is_not_an_infrastructure_failure() -> None:
+    """A wrong answer is the measurement, not a broken run."""
+    assert (
+        is_infrastructure_failure(
+            {"status": "completed", "httpStatus": 200, "passed": False}
+        )
+        is False
+    )
+
+
+def test_a_client_error_is_the_products_problem_not_the_hosts() -> None:
+    """422 is Catalyst rejecting the request — that belongs in the denominator."""
+    assert (
+        is_infrastructure_failure({"status": "completed", "httpStatus": 422}) is False
+    )
+
+
+def test_infrastructure_failures_are_replaced_and_counted_apart(
+    tmp_path: Path,
+) -> None:
+    state = _WorkbenchState()
+    # Repetition 1 hits a 503; its replacement succeeds.
+    state.turn_http_sequence = [503, 201, 201, 201]
+    suite = _adaptive_suite()
+    suite["repetitions"] = 3
+    suite["infrastructureReplacements"] = 2
+    suite.pop("extendedRepetitions", None)
+    result = _run_against_fake(tmp_path, suite, state)
+
+    summary = json.loads((result.run_dir / "results.json").read_text())
+    assert summary["infrastructureFailureCount"] == 1
+    assert summary["resultCount"] == 3, "the denominator stays at three model runs"
+    scored = [
+        row
+        for row in summary["results"]
+        if row.get("status") not in {"skipped", "infrastructure_failed"}
+    ]
+    assert len(scored) == 3
+
+
+def test_a_third_infrastructure_failure_invalidates_the_run(tmp_path: Path) -> None:
+    state = _WorkbenchState()
+    state.turn_http_sequence = [503, 503, 503]
+    suite = _adaptive_suite()
+    suite["repetitions"] = 3
+    suite["infrastructureReplacements"] = 2
+    suite.pop("extendedRepetitions", None)
+    with pytest.raises(ValueError, match="third infrastructure failure"):
+        _run_against_fake(tmp_path, suite, state)
+
+    # The budget is two replacements, so the third failure stops the run: one
+    # original attempt plus two replacements, and no fourth.
+    assert state.turn_attempts == 3
+
+
+# --- token evidence --------------------------------------------------------
+#
+# Every writer, reviewer, or repair call counts its fully rendered messages
+# against the profile's declared window before the model is invoked. The
+# runner records that accounting and refuses a run whose numbers do not add
+# up; a suite that requires the accounting also refuses one that lacks it.
+
+
+def _accounting(**overrides: Any) -> dict[str, Any]:
+    return {
+        "tokenAccounting": {
+            "tokenizer": "gemma-4",
+            "contextWindow": 8192,
+            "outputReserve": 1024,
+            "promptTokens": 4000,
+            "includedItemIds": ["guidance-1"],
+            "omittedItemIds": [],
+            "omissions": [],
+            **overrides,
+        }
+    }
+
+
+def test_token_evidence_within_the_declared_window_passes() -> None:
+    checks = dict(
+        (name, passed) for name, passed, _ in token_evidence_checks(_accounting())
+    )
+    assert checks == {"token_evidence_recorded": True, "token_budget_respected": True}
+
+
+def test_a_prompt_that_leaves_no_room_for_the_reply_fails() -> None:
+    """promptTokens + outputReserve must fit the window, not just the prompt."""
+    evidence = _accounting(promptTokens=7500)
+    checks = dict((name, passed) for name, passed, _ in token_evidence_checks(evidence))
+    assert checks["token_budget_respected"] is False
+
+
+def test_a_character_count_substitute_is_not_token_evidence() -> None:
+    evidence = _accounting()
+    del evidence["tokenAccounting"]["tokenizer"]
+    checks = dict((name, passed) for name, passed, _ in token_evidence_checks(evidence))
+    assert checks["token_evidence_recorded"] is False
+
+
+def test_absent_accounting_is_reported_but_not_required_by_default() -> None:
+    checks = dict((name, passed) for name, passed, _ in token_evidence_checks({}))
+    assert checks == {"token_evidence_recorded": False}
+
+
+def test_a_suite_may_require_token_evidence(tmp_path: Path) -> None:
+    """The locked suite turns this on; older suites keep running without it."""
+    state = _WorkbenchState()
+    suite = _adaptive_suite()
+    suite["repetitions"] = 1
+    suite.pop("extendedRepetitions", None)
+    suite["requireTokenEvidence"] = True
+    result = _run_against_fake(tmp_path, suite, state)
+
+    row = json.loads((result.run_dir / "results.json").read_text())["results"][0]
+    names = {item["name"]: item["passed"] for item in row["assertions"]}
+    assert names["token_evidence_recorded"] is False
+    assert row["passed"] is False
+
+
+def _terminal_base_scenario(**overrides: Any) -> dict[str, Any]:
+    base = _suite_payload()["scenarios"][0]
+    scenario = {
+        key: value
+        for key, value in base.items()
+        if key not in {"followupInstruction", "followupProfileId"}
+    }
+    scenario.update(
+        {
+            "initialQuestion": "Show each patient's home address.",
+            "expectedBaseOutcome": "unsupported",
+            "validateBase": False,
+            "executeBase": False,
+            "turns": [],
+        }
+    )
+    scenario.update(overrides)
+    return scenario
+
+
+def test_a_scenario_may_declare_the_answer_its_opening_question_deserves(
+    tmp_path: Path,
+) -> None:
+    """U1/U2 and B1-B3 are scored on the opening question, not a follow-up.
+
+    The writer's answer to the question that opened the session is the thing
+    under test; without saying which answer is expected, a refusal and a
+    query both read as "the base".
+    """
+    suite = load_notebook_suite(
+        _write_suite(tmp_path, _suite_payload(scenarios=[_terminal_base_scenario()]))
+    )
+
+    assert suite.scenarios[0].expected_base_outcome == "unsupported"
+    assert suite.scenarios[0].turns == ()
+
+
+def test_a_scenario_that_says_nothing_still_expects_a_query(tmp_path: Path) -> None:
+    suite = load_notebook_suite(_write_suite(tmp_path, _suite_payload()))
+
+    assert suite.scenarios[0].expected_base_outcome == "ready"
+
+
+def test_a_base_cannot_be_expected_to_be_gateway_rejected(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="invalid expected base outcome"):
+        load_notebook_suite(
+            _write_suite(
+                tmp_path,
+                _suite_payload(
+                    scenarios=[_terminal_base_scenario(expectedBaseOutcome="rejected")]
+                ),
+            )
+        )
+
+
+def test_a_ready_base_with_no_turns_must_check_the_query_it_asked_for(
+    tmp_path: Path,
+) -> None:
+    """A1-A4 are scored on their opening question, by running its query.
+
+    Expecting a query, declaring no follow-up and then not validating or
+    executing it would measure nothing past the session opening -- which
+    reads as a pass.
+    """
+    with pytest.raises(ValueError, match="must declare at least one turn"):
+        load_notebook_suite(
+            _write_suite(
+                tmp_path,
+                _suite_payload(
+                    scenarios=[
+                        _terminal_base_scenario(
+                            expectedBaseOutcome="ready",
+                            validateBase=False,
+                            executeBase=False,
+                        )
+                    ]
+                ),
+            )
+        )
+
+    checked = load_notebook_suite(
+        _write_suite(
+            tmp_path,
+            _suite_payload(
+                scenarios=[
+                    _terminal_base_scenario(
+                        expectedBaseOutcome="ready",
+                        validateBase=True,
+                        executeBase=True,
+                    )
+                ]
+            ),
+        )
+    )
+    assert checked.scenarios[0].turns == ()
+    assert checked.scenarios[0].expected_base_outcome == "ready"
+
+
+def test_a_refused_opening_question_is_a_pass_not_a_failed_repetition(
+    tmp_path: Path,
+) -> None:
+    """U1/U2: the session opens, the writer declines, and that is the answer.
+
+    With no version to validate the runner used to abandon the repetition as
+    `failed_before_turn`, scoring the product's correct refusal as its own
+    breakage. The scenario is scored on the opening question alone.
+    """
+    suite = {
+        "id": "notebook-unsupported-v1",
+        "datasetId": "catalyst-cohort-v1",
+        "datasetVersion": "1",
+        "catalogVersion": "analytics-catalog-v1",
+        "providerName": "llama.cpp",
+        "repetitions": 1,
+        "profiles": {
+            PROFILE_ID: {
+                "writerModelId": "gemma-4-12b",
+                "reviewerModelId": "qwen2.5-14b",
+            }
+        },
+        "scenarios": [
+            {
+                "id": "no-address",
+                "family": "unsupported",
+                "initialQuestion": "Show each patient's home address.",
+                "initialProfileId": PROFILE_ID,
+                "expectedBaseClassification": "reused",
+                "expectedBaseOutcome": "unsupported",
+                "validateBase": False,
+                "executeBase": False,
+                "turns": [],
+            }
+        ],
+    }
+    suite_path = tmp_path / "suite.json"
+    suite_path.write_text(json.dumps(suite), encoding="utf-8")
+    state = _WorkbenchState()
+    state.base_outcome = "unsupported"
+    server = ThreadingHTTPServer(("127.0.0.1", 0), _handler(state))
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        result = run_notebook_suite(
+            suite_path=suite_path,
+            client=NotebookHttpClient(f"http://127.0.0.1:{server.server_port}"),
+            output_dir=tmp_path / "artifacts",
+            project_root=ROOT,
+            provenance_loader=lambda _: [],
+        )
+    finally:
+        server.shutdown()
+        thread.join(timeout=5)
+        server.server_close()
+
+    row = json.loads((result.run_dir / "results.json").read_text())["results"][0]
+    assert row["status"] == "completed"
+    assert row["passed"] is True, [
+        item for item in row["assertions"] if not item["passed"]
+    ]
+    assert row["turns"] == []
+    assert row["baseOutcome"] == "unsupported"
+
+    names = {item["name"] for item in row["assertions"]}
+    assert "base_writer_outcome" in names
+    # Nothing was produced, so nothing may have been validated or executed.
+    assert "base_version_available" not in names
+    assert "base_validation_recorded" not in names
+    assert "no_sql_after_non_ready_base" in names
+    # And no turn was posted at all.
+    assert not [
+        path
+        for method, path in state.requests
+        if method == "POST" and path.endswith("/turns")
+    ]
+
+
+def test_an_opening_question_answered_with_sql_when_a_refusal_was_due_fails(
+    tmp_path: Path,
+) -> None:
+    """The guard has to be about the answer, not merely about the absence."""
+    suite = {
+        "id": "notebook-unsupported-v1",
+        "datasetId": "catalyst-cohort-v1",
+        "datasetVersion": "1",
+        "catalogVersion": "analytics-catalog-v1",
+        "providerName": "llama.cpp",
+        "repetitions": 1,
+        "profiles": {
+            PROFILE_ID: {
+                "writerModelId": "gemma-4-12b",
+                "reviewerModelId": "qwen2.5-14b",
+            }
+        },
+        "scenarios": [
+            {
+                "id": "no-address",
+                "family": "unsupported",
+                "initialQuestion": "Show each patient's home address.",
+                "initialProfileId": PROFILE_ID,
+                "expectedBaseClassification": "reused",
+                "expectedBaseOutcome": "unsupported",
+                "validateBase": False,
+                "executeBase": False,
+                "turns": [],
+            }
+        ],
+    }
+    suite_path = tmp_path / "suite.json"
+    suite_path.write_text(json.dumps(suite), encoding="utf-8")
+    state = _WorkbenchState()  # answers with a query instead of declining
+    server = ThreadingHTTPServer(("127.0.0.1", 0), _handler(state))
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        result = run_notebook_suite(
+            suite_path=suite_path,
+            client=NotebookHttpClient(f"http://127.0.0.1:{server.server_port}"),
+            output_dir=tmp_path / "artifacts",
+            project_root=ROOT,
+            provenance_loader=lambda _: [],
+        )
+    finally:
+        server.shutdown()
+        thread.join(timeout=5)
+        server.server_close()
+
+    row = json.loads((result.run_dir / "results.json").read_text())["results"][0]
+    assert row["passed"] is False
+    failed = {item["name"] for item in row["assertions"] if not item["passed"]}
+    assert "base_writer_outcome" in failed
+
+
+def test_a_refusal_that_left_a_query_behind_is_caught(tmp_path: Path) -> None:
+    """Declining and producing SQL anyway is worse than either alone.
+
+    The writer's answer is right and would pass the outcome check on its own,
+    so only a separate assertion about the session's contents can see that a
+    refusal still put an executable query in front of the person.
+    """
+    suite = {
+        "id": "notebook-unsupported-v1",
+        "datasetId": "catalyst-cohort-v1",
+        "datasetVersion": "1",
+        "catalogVersion": "analytics-catalog-v1",
+        "providerName": "llama.cpp",
+        "repetitions": 1,
+        "profiles": {
+            PROFILE_ID: {
+                "writerModelId": "gemma-4-12b",
+                "reviewerModelId": "qwen2.5-14b",
+            }
+        },
+        "scenarios": [
+            {
+                "id": "no-address",
+                "family": "unsupported",
+                "initialQuestion": "Show each patient's home address.",
+                "initialProfileId": PROFILE_ID,
+                "expectedBaseClassification": "reused",
+                "expectedBaseOutcome": "unsupported",
+                "validateBase": False,
+                "executeBase": False,
+                "turns": [],
+            }
+        ],
+    }
+    suite_path = tmp_path / "suite.json"
+    suite_path.write_text(json.dumps(suite), encoding="utf-8")
+    state = _WorkbenchState()
+    state.base_outcome = "unsupported"
+    state.leaves_a_query_behind = True
+    server = ThreadingHTTPServer(("127.0.0.1", 0), _handler(state))
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        result = run_notebook_suite(
+            suite_path=suite_path,
+            client=NotebookHttpClient(f"http://127.0.0.1:{server.server_port}"),
+            output_dir=tmp_path / "artifacts",
+            project_root=ROOT,
+            provenance_loader=lambda _: [],
+        )
+    finally:
+        server.shutdown()
+        thread.join(timeout=5)
+        server.server_close()
+
+    row = json.loads((result.run_dir / "results.json").read_text())["results"][0]
+    assert row["baseOutcome"] == "unsupported"
+    failed = {item["name"] for item in row["assertions"] if not item["passed"]}
+    # The answer itself was correct; only the leftover query is wrong.
+    assert "base_writer_outcome" not in failed
+    assert "no_sql_after_non_ready_base" in failed
+    assert row["passed"] is False
+
+
+def test_the_replacement_budget_is_the_runs_not_each_scenarios(
+    tmp_path: Path,
+) -> None:
+    """Two replacements for the team, not two for every scenario it runs.
+
+    The budget exists to stop a team being scored on a host that keeps
+    falling over. Counted per scenario, a twelve-scenario suite silently
+    tolerates twenty-four failures while reporting a budget of two.
+    """
+    state = _WorkbenchState()
+    # One 503 in each of the first three scenarios: within a per-scenario
+    # budget of two, but the third exhausts a run-wide one.
+    state.turn_http_sequence = [503, 201, 503, 201, 503, 201]
+    suite = _adaptive_suite()
+    suite["repetitions"] = 1
+    suite["infrastructureReplacements"] = 2
+    suite.pop("extendedRepetitions", None)
+    base = suite["scenarios"][0]
+    suite["scenarios"] = [
+        {**base, "id": f"adaptive-{index}"} for index in range(1, 4)
+    ]
+
+    with pytest.raises(ValueError, match="third infrastructure failure"):
+        _run_against_fake(tmp_path, suite, state)
