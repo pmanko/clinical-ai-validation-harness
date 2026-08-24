@@ -584,6 +584,27 @@ class PostgresReadOnlyChecker:
         }
 
 
+def _escape_percents_outside_placeholders(sql: str) -> str:
+    """Double every % that is not opening a %(name)s placeholder."""
+    output: list[str] = []
+    index = 0
+    while index < len(sql):
+        char = sql[index]
+        if char == "%":
+            if sql.startswith("%(", index):
+                end = sql.find(")s", index)
+                if end != -1:
+                    output.append(sql[index : end + 2])
+                    index = end + 2
+                    continue
+            output.append("%%")
+            index += 1
+            continue
+        output.append(char)
+        index += 1
+    return "".join(output)
+
+
 def _fetch_all_rows(
     cursor: Any,
     sql: str,
@@ -2723,7 +2744,12 @@ def _binding_value(parameter: dict[str, Any]) -> Any:
 
 
 def _driver_sql(sql: str, parameter_names: set[str]) -> str:
-    """Convert named placeholders outside PostgreSQL strings/comments/casts."""
+    """Convert named placeholders outside PostgreSQL strings/comments/casts.
+
+    Every literal percent is doubled on the way through: psycopg treats %
+    as a placeholder marker whenever a params argument is passed, and this
+    data really does contain values like 'CD4%'.
+    """
 
     output: list[str] = []
     index = 0
@@ -2809,4 +2835,4 @@ def _driver_sql(sql: str, parameter_names: set[str]) -> str:
                 continue
         output.append(char)
         index += 1
-    return "".join(output)
+    return _escape_percents_outside_placeholders("".join(output))
