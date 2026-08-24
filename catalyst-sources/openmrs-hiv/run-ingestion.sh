@@ -206,13 +206,41 @@ WITH raw_per_observation AS (
   WHERE observed_at >= '2020-01-01' AND observed_at < '2035-01-01'
   GROUP BY 1, 2, 3, 4, 5
 ), missing_from_view AS (
-  SELECT * FROM expected
+  SELECT
+    concept_name,
+    openmrs_concept_code,
+    ciel_code,
+    snomed_code,
+    who_anc_code,
+    observation_count
+  FROM expected
   EXCEPT
-  SELECT * FROM analytics.hiv_concept_mapping_v1
+  SELECT
+    concept_name,
+    openmrs_concept_code,
+    ciel_code,
+    snomed_code,
+    who_anc_code,
+    observation_count
+  FROM analytics.hiv_concept_mapping_v1
 ), missing_from_raw AS (
-  SELECT * FROM analytics.hiv_concept_mapping_v1
+  SELECT
+    concept_name,
+    openmrs_concept_code,
+    ciel_code,
+    snomed_code,
+    who_anc_code,
+    observation_count
+  FROM analytics.hiv_concept_mapping_v1
   EXCEPT
-  SELECT * FROM expected
+  SELECT
+    concept_name,
+    openmrs_concept_code,
+    ciel_code,
+    snomed_code,
+    who_anc_code,
+    observation_count
+  FROM expected
 )
 SELECT (SELECT COUNT(*) FROM missing_from_view)
      + (SELECT COUNT(*) FROM missing_from_raw);")"
