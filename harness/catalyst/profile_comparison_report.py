@@ -212,7 +212,7 @@ def build_comparison_report(
     summary_table = (
         "<table><thead><tr>"
         "<th>Profile</th><th>Profile ID</th>"
-        "<th>Scenario repetitions passed</th><th>Assertions</th>"
+        "<th>Conversations passed</th><th>Assertions</th>"
         "<th>Avg generation time</th>"
         "</tr></thead><tbody>"
         f"{''.join(rows)}"

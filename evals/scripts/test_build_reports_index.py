@@ -265,7 +265,7 @@ def test_card_renders_meta_scoreline_instead_of_unscored_disclaimer(tmp_path, mo
     slug_dir.mkdir(parents=True)
     (slug_dir / "meta.json").write_text(json.dumps({
         "run_dir": "does-not-resolve",
-        "scoreline": "12/12 scenario repetitions passed - 384 assertions",
+        "scoreline": "12/12 conversations passed - 384 assertions",
     }), encoding="utf-8")
     monkeypatch.setattr(bri, "REPORTS", reports)
     monkeypatch.setattr(bri, "VALIDATE", tmp_path / "validate")
@@ -369,7 +369,7 @@ def test_catalyst_gather_uses_root_relative_run_and_never_calls_scout(
         {"slug": "catalyst-run", "title": "Catalyst", "summary": "S"}
     )
     assert "Catalyst SQL" in html
-    assert "2 scenario repetitions" in html
+    assert "2 conversations" in html
 
 
 def test_root_relative_run_path_rejects_repository_traversal(tmp_path, monkeypatch):

@@ -272,7 +272,7 @@ def _card(entry: dict) -> str:
     if g["patients"]:
         facts.append(esc(g["patients"]))
     if g["cells"] is not None:
-        unit = "scenario repetitions" if g.get("family") == "catalyst" else "graded answers"
+        unit = "conversations" if g.get("family") == "catalyst" else "graded answers"
         facts.append(f'{g["cells"]} {unit}')
     if g["date"]:
         facts.append(esc(g["date"]))

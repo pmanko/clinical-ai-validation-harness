@@ -135,7 +135,7 @@ def main() -> int:
     for row, gaps in vacuous:
         print(
             f"\nVACUOUS PASS {row.get('profileId','?')} × {row.get('scenarioId')} "
-            f"rep{row.get('repetition')}: {gaps}"
+            f"run {row.get('repetition')}: {gaps}"
         )
     if invalid or vacuous:
         print(

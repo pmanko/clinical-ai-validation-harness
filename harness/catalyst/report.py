@@ -271,11 +271,11 @@ def _headline_section(suite: dict[str, Any], results: dict[str, Any]) -> str:
         "<section>",
         "<h2>Result</h2>",
         f"<p class='headline'><span class='{verdict_cls}'>{esc(passed)}/{esc(total)}"
-        " scenario repetitions passed</span>"
+        " conversations passed</span>"
         f" · {assertion_total} assertions"
         + (f" · {esc(skipped)} manual-only scenario skipped" if skipped else "")
         + "</p>",
-        "<p class='adv'>Each repetition is a full live conversation: a question"
+        "<p class='adv'>Each conversation runs live: a question"
         " generates SQL (a writer model drafts it; reviewed profiles also invoke"
         " their configured reviewer), the query"
         " is validated and executed against PostgreSQL, then a follow-up"
@@ -384,7 +384,7 @@ def _scenario_card(
                 for r in completed
             )
             facts.append(
-                f"{reps} repetition{'s' if reps != 1 else ''} — "
+                f"{reps} run{'s' if reps != 1 else ''} — "
                 + ("all passed" if all_ok else "FAILURES present")
             )
         key = (
