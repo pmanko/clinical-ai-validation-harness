@@ -3800,3 +3800,45 @@ def test_replaced_infrastructure_attempts_do_not_complete_a_pair(
         _pair_is_complete(recorded + [_rep(True, ["ready"])], suite, scenario, None)
         is True
     )
+
+
+def test_a_dropped_connection_is_an_infrastructure_failure_not_a_dead_run(
+    tmp_path: Path,
+) -> None:
+    """The host vanishing mid-request is exactly what the budget is for.
+
+    The first full comparison died here: the daemon under the stack stopped,
+    the client raised ConnectionError, and hours of scheduled work ended with
+    a traceback instead of a replaced repetition. A transport failure is now
+    an exchange with a synthetic 599, so it is replaced within the budget
+    and a third one still invalidates the team's run.
+    """
+    state = _WorkbenchState()
+    state.turn_http_sequence = [599, 201, 201, 201]
+    suite = _adaptive_suite()
+    suite["repetitions"] = 3
+    suite["infrastructureReplacements"] = 2
+    suite.pop("extendedRepetitions", None)
+
+    result = _run_against_fake(tmp_path, suite, state)
+
+    summary = json.loads((result.run_dir / "results.json").read_text())
+    assert summary["infrastructureFailureCount"] == 1
+    assert summary["resultCount"] == 3
+
+
+def test_the_client_translates_a_transport_error_into_an_exchange() -> None:
+    import requests as _requests
+
+    client = NotebookHttpClient("http://127.0.0.1:9")  # nothing listens here
+    client.session = type(
+        "S", (), {"request": lambda *a, **k: (_ for _ in ()).throw(
+            _requests.ConnectionError("Remote end closed connection")
+        )}
+    )()
+
+    exchange = client.create_session("q", "profile")
+
+    assert exchange.status_code == 599
+    message = exchange.response_body["error"]["message"]
+    assert "ConnectionError" in message and "Remote end closed" in message

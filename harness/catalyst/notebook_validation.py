@@ -341,12 +341,33 @@ class NotebookHttpClient:
         body: dict[str, Any] | None = None,
     ) -> HttpExchange:
         started = time.monotonic()
-        response = self.session.request(
-            method,
-            f"{self.base_url}{path}",
-            json=body,
-            timeout=self.timeout_seconds,
-        )
+        try:
+            response = self.session.request(
+                method,
+                f"{self.base_url}{path}",
+                json=body,
+                timeout=self.timeout_seconds,
+            )
+        except requests.RequestException as error:
+            # The host vanishing mid-request is the infrastructure budget's
+            # job, not a reason to end the run with a traceback: surface it
+            # as an exchange with a synthetic 599 so it is replaced and, on
+            # the third time, invalidates the team's run like any other 5xx.
+            return HttpExchange(
+                method=method,
+                path=path,
+                status_code=599,
+                request_body=body,
+                response_body={
+                    "error": {
+                        "code": "transport_failed",
+                        # Some RequestException variants stringify to nothing;
+                        # the class name keeps the evidence diagnosable.
+                        "message": f"{type(error).__name__}: {error}",
+                    }
+                },
+                elapsed_ms=round((time.monotonic() - started) * 1000),
+            )
         elapsed_ms = round((time.monotonic() - started) * 1000)
         return HttpExchange(
             method=method,
