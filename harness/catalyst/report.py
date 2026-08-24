@@ -136,6 +136,24 @@ def _judge_index(rows: list[dict[str, Any]]) -> dict[tuple[str, int], dict[str, 
     return idx
 
 
+def _row_scenario_key(row: dict[str, Any]) -> str:
+    """Where this row's evidence lives under scenarios/.
+
+    A comparison run nests evidence per team; a single-profile run keeps the
+    flat layout. The row itself says which world it came from.
+    """
+    sid = str(row.get("scenarioId"))
+    team = row.get("profileId")
+    return f"{team}/{sid}" if isinstance(team, str) and team else sid
+
+
+def _row_label(row: dict[str, Any]) -> str:
+    """The scenario id, prefixed by its team when the run compares several."""
+    sid = str(row.get("scenarioId"))
+    team = row.get("profileId")
+    return f"{team} · {sid}" if isinstance(team, str) and team else sid
+
+
 def _gold_passed(assertions: list[dict[str, Any]]) -> bool:
     gold = [
         a
@@ -308,8 +326,12 @@ def _scenario_narrative_section(
 ) -> str:
     """One card per scenario: what was asked, how it was refined, what ran."""
     by_scenario: dict[str, list[dict[str, Any]]] = {}
+    teams: list[str] = []
     for row in results.get("results") or []:
         by_scenario.setdefault(str(row["scenarioId"]), []).append(row)
+        team = row.get("profileId")
+        if isinstance(team, str) and team and team not in teams:
+            teams.append(team)
     cards: list[str] = []
     for scenario in suite.get("scenarios") or []:
         sid = str(scenario.get("id"))
@@ -341,8 +363,9 @@ def _scenario_narrative_section(
                 f"{reps} repetition{'s' if reps != 1 else ''} — "
                 + ("all passed" if all_ok else "FAILURES present")
             )
-        base_rows = _execution_row_count(run_dir, sid, "06-execute-base.json")
-        succ_rows = _execution_row_count(run_dir, sid, "13-execute-successor.json")
+        key = _row_scenario_key(completed[0]) if completed else sid
+        base_rows = _execution_row_count(run_dir, key, "06-execute-base.json")
+        succ_rows = _execution_row_count(run_dir, key, "13-execute-successor.json")
         if base_rows is not None:
             facts.append(f"base query returned {base_rows} rows")
         if succ_rows is not None:
@@ -380,11 +403,12 @@ def _build_body(run_dir: Path, blob: dict[str, Any]) -> str:
 
     rows_html: list[str] = []
     for row in results.get("results") or []:
-        sid = row["scenarioId"]
+        sid = _row_label(row)
         assertions = row.get("assertions") or []
         gold_ok = _gold_passed(assertions)
-        judge0 = jidx.get((sid, 0))
-        judge1 = jidx.get((sid, 1))
+        # Judges are indexed by the bare scenario id, not the display label.
+        judge0 = jidx.get((str(row.get("scenarioId")), 0))
+        judge1 = jidx.get((str(row.get("scenarioId")), 1))
         merged = merge_gold_and_judge(gold_passed=gold_ok, judge_row=judge0 or judge1)
         verdict = merged["reported"]
         v_cls = "pass" if verdict == "PASS" else "fail"
@@ -392,7 +416,7 @@ def _build_body(run_dir: Path, blob: dict[str, Any]) -> str:
         for a in assertions:
             if a.get("passed"):
                 continue
-            detail = _assertion_fail_details(run_dir, sid, a)
+            detail = _assertion_fail_details(run_dir, _row_scenario_key(row), a)
             fail_bits.append(
                 f"<div><span class='chip-fail'>{esc(a.get('name'))}</span> {detail}</div>"
             )
@@ -418,7 +442,7 @@ def _build_body(run_dir: Path, blob: dict[str, Any]) -> str:
 
     timeline: list[str] = []
     for row in results.get("results") or []:
-        sid = row["scenarioId"]
+        sid = _row_label(row)
         timeline.append(
             "<tr>"
             f"<td><code>{esc(sid)}</code></td>"
@@ -432,10 +456,10 @@ def _build_body(run_dir: Path, blob: dict[str, Any]) -> str:
     diff_sections: list[str] = []
     for row in results.get("results") or []:
         sid = row["scenarioId"]
-        versions = _scenario_sql_versions(run_dir, sid)
+        versions = _scenario_sql_versions(run_dir, _row_scenario_key(row))
         if len(versions) < 2:
             continue
-        chunks = [f"<h3><code>{esc(sid)}</code> SQL versions</h3>"]
+        chunks = [f"<h3><code>{esc(_row_label(row))}</code> SQL versions</h3>"]
         for i in range(len(versions) - 1):
             a_label, a_sql = versions[i]
             b_label, b_sql = versions[i + 1]

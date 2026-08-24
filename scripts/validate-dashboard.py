@@ -269,11 +269,48 @@ def status():
 
     judge_actors = read_judge_actors(run)
 
-    return {"run": os.path.basename(run), "set": set_id, "done": len(results), "total": total,
+    return {"run": os.path.basename(run), "family": run_family(run),
+            "set": set_id, "done": len(results), "total": total,
             "scenarios": scen_ids, "backends": back_ids, "arms": arms, "arm_cards": arm_cards,
             "judge_actors": sorted(judge_actors.keys()),
             "judge_combined": combined_judge_summary(judge_actors, back_ids),
             "grid": grid_list, "feed": feed, "models": resident_models()}
+
+
+def run_family(run):
+    """'catalyst' when the run carries a notebook suite; 'chartsearchai' otherwise."""
+    return "catalyst" if os.path.exists(os.path.join(run, "suite.json")) else "chartsearchai"
+
+
+def catalyst_expectation(run, scenario_id):
+    """The frozen acceptance criterion for one scenario, from the run's own suite.
+
+    The suite travels with the run, so what the dashboard shows as
+    'expected' is exactly what the scorer holds the model to -- criterion
+    prose, the answer each turn deserves, and the independent reference.
+    """
+    try:
+        suite = json.load(open(os.path.join(run, "suite.json")))
+    except Exception:
+        return None
+    scenario = next(
+        (s for s in suite.get("scenarios") or [] if s.get("id") == scenario_id), None
+    )
+    if not scenario:
+        return None
+    gold = scenario.get("baseGoldCheck") or scenario.get("successorGoldCheck")
+    return {
+        "criterion": scenario.get("comment") or "",
+        "question": scenario.get("initialQuestion") or "",
+        "baseOutcome": scenario.get("expectedBaseOutcome", "ready"),
+        "turns": [
+            {"instruction": t.get("instruction"),
+             "expectedOutcome": t.get("expectedOutcome", "ready")}
+            for t in scenario.get("turns") or []
+        ],
+        "goldCheck": ({"mode": gold.get("mode"),
+                       "referenceSql": gold.get("referenceSql")} if gold else None),
+    }
 
 
 def detail(scenario, backend):
@@ -282,6 +319,9 @@ def detail(scenario, backend):
         return {"turns": []}
     rows = [r for r in _read_jsonl(Path(run) / "results.jsonl", strict=False)
             if r.get("scenario_id") == scenario and r.get("backend_id") == backend]
+    catalyst_expected = (
+        catalyst_expectation(run, scenario) if run_family(run) == "catalyst" else None
+    )
     rows.sort(key=lambda r: r.get("turn", 0))
     exp = {}
     try:
@@ -369,7 +409,8 @@ def detail(scenario, backend):
                                 "steps": tr.get("steps") or [],
                                 "stage_timings": extract_stage_timings(tr),
                                 "models": tr.get("models") or {}} if tr else None})
-    return {"scenario": scenario, "backend": backend, "expectations": exp, "turns": turns}
+    return {"scenario": scenario, "backend": backend, "expectations": exp,
+            "catalystExpected": catalyst_expected, "turns": turns}
 
 
 PAGE = (
@@ -660,6 +701,12 @@ function restoreOpenDetails(root){
 }
 async function tick(){
  let d; try{d=await(await fetch('/api/status')).json()}catch(e){return}
+ // A catalyst run has no judge or arm-card machinery; empty boxes are noise.
+ const isCat=d.family==='catalyst';
+ document.querySelectorAll('section').forEach(s=>{
+  const h=s.querySelector('h2'); if(!h) return;
+  if(/^(Arms|Judged scores)/.test(h.textContent)) s.style.display=isCat?'none':'';
+ });
  if(!d.run){hdr.textContent='waiting for a run...';return}
  ARM_CARDS=d.arm_cards||{};
  const pct=d.total?Math.round(100*d.done/d.total):0;
@@ -830,7 +877,17 @@ async function openD(s,b){
  const d=await(await fetch('/api/detail?scenario='+encodeURIComponent(s)+'&backend='+encodeURIComponent(b))).json();
  const e=d.expectations||{};
  let h='<div class=mhead><b>'+s+'</b> &nbsp;·&nbsp; '+b+'<span class=x onclick="closeD()">✕</span></div>';
- h+='<div class=exp><b>Expected:</b> '+(e.should_abstain?'ABSTAIN':'retrieve')+(e.should_cite_resource_types?' ['+e.should_cite_resource_types.join(', ')+']':'')+'<br>'+esc(e.notes||'')+'</div>';
+ const ce=d.catalystExpected;
+ if(ce){
+  h+='<div class=exp><b>Question:</b> '+esc(ce.question||'')+'<br>';
+  h+='<b>Acceptance:</b> '+esc(ce.criterion||'')+'<br>';
+  h+='<b>Opening answer must be:</b> '+esc(ce.baseOutcome||'ready');
+  (ce.turns||[]).forEach((u,i)=>{h+='<br><b>Turn '+(i+2)+'</b> (“'+esc(u.instruction||'')+'”) → '+esc(u.expectedOutcome||'ready');});
+  if(ce.goldCheck) h+='<br><b>Checked against:</b> '+esc(ce.goldCheck.mode)+' vs an independent reference<details><summary>reference SQL</summary><pre style="white-space:pre-wrap">'+esc(ce.goldCheck.referenceSql||'')+'</pre></details>';
+  h+='</div>';
+ }else{
+  h+='<div class=exp><b>Expected:</b> '+(e.should_abstain?'ABSTAIN':'retrieve')+(e.should_cite_resource_types?' ['+e.should_cite_resource_types.join(', ')+']':'')+'<br>'+esc(e.notes||'')+'</div>';
+ }
  (d.turns||[]).forEach(t=>{
   const tr=t.trace;
   const answerConf=t.answer_confidence_display;

@@ -16,6 +16,7 @@ export UV_PROJECT_ENVIRONMENT
         dashboard-ensure dashboard-restart validate-preflight validate-run validate-judge-prep validate-judge-finalize validate-publish \
         cloud-init cloud-sync cloud-down cloud-seed \
         cloud-start cloud-stop cloud-ssh cloud-logs cloud-status cloud-destroy \
+        catalyst-comparison-run catalyst-comparison-resume catalyst-comparison-finish \
         catalyst-mvp-up catalyst-mvp-external catalyst-mvp-seed catalyst-mvp-health catalyst-mvp-restart catalyst-mvp-down catalyst-mvp-reset catalyst-superset-status catalyst-superset-import
 
 # --- compose lifecycle ---
@@ -49,6 +50,16 @@ logs:
 # --- Catalyst query-to-table MVP ---
 # Catalyst is a harness target submodule. Its MVP performs a versioned runtime
 # bootstrap; Hub is never initialized as a nested Catalyst submodule.
+# Phase 1 comparison: run/resume/finish (score+report+dashboard+stage).
+catalyst-comparison-run:
+	./scripts/catalyst-comparison.sh run
+
+catalyst-comparison-resume:
+	./scripts/catalyst-comparison.sh resume $(RUN_ID)
+
+catalyst-comparison-finish:
+	./scripts/catalyst-comparison.sh finish $(RUN_ID)
+
 catalyst-mvp-up:
 	./scripts/catalyst-mvp.sh up
 
