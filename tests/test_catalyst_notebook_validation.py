@@ -138,6 +138,7 @@ class _WorkbenchState:
         self.turn_status_sequence: list[str] | None = None
         self.session_id = "session-1"
         self.session_ids: list[str] = []
+        self.profile_digest: str | None = None
         self.requests: list[tuple[str, str]] = []
 
     def reset(self) -> None:
@@ -233,6 +234,9 @@ def _handler(state: _WorkbenchState):
                                 "role_models": {
                                     "query_generate": "gemma-4-12b",
                                     "query_review": "qwen2.5-14b",
+                                },
+                                "provenance": {
+                                    "profileConfigurationDigest": state.profile_digest
                                 },
                             }
                         ]
@@ -2625,3 +2629,58 @@ def test_an_unstable_pair_is_extended_to_five_repetitions(tmp_path: Path) -> Non
     result = _run_against_fake(tmp_path, _adaptive_suite(), state)
 
     assert result.result_count == 5
+
+
+# --- frozen profile digests ------------------------------------------------
+#
+# The comparison freezes each team's resolved aliases and profile digest
+# before the run. A profile that has been reconfigured since the freeze is a
+# different team, so the run stops before spending a single model call on it.
+
+
+def _digest_suite(**profile_extra: Any) -> dict[str, Any]:
+    suite = _adaptive_suite()
+    suite["repetitions"] = 1
+    suite.pop("extendedRepetitions", None)
+    suite["profiles"][PROFILE_ID] = {
+        "writerModelId": "gemma-4-12b",
+        "reviewerModelId": "qwen2.5-14b",
+        **profile_extra,
+    }
+    return suite
+
+
+def test_a_frozen_profile_digest_that_still_matches_runs(tmp_path: Path) -> None:
+    state = _WorkbenchState()
+    state.profile_digest = "d" * 64
+    result = _run_against_fake(
+        tmp_path, _digest_suite(profileConfigurationDigest="d" * 64), state
+    )
+
+    assert result.result_count == 1
+
+
+def test_a_drifted_profile_digest_stops_before_any_model_call(
+    tmp_path: Path,
+) -> None:
+    state = _WorkbenchState()
+    state.profile_digest = "e" * 64
+    with pytest.raises(ValueError, match="profile digest drifted"):
+        _run_against_fake(
+            tmp_path, _digest_suite(profileConfigurationDigest="d" * 64), state
+        )
+
+    assert not [
+        path for method, path in state.requests if method == "POST"
+    ], "no session or turn may be created once drift is known"
+
+
+def test_a_frozen_digest_the_gateway_does_not_advertise_is_unverifiable(
+    tmp_path: Path,
+) -> None:
+    state = _WorkbenchState()
+    state.profile_digest = None
+    with pytest.raises(ValueError, match="does not advertise a profile digest"):
+        _run_against_fake(
+            tmp_path, _digest_suite(profileConfigurationDigest="d" * 64), state
+        )

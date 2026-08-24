@@ -874,12 +874,18 @@ def load_notebook_suite(path: Path | str) -> NotebookSuite:
     profiles = {}
     for profile_id, detail in payload["profiles"].items():
         reviewer_model_id = detail.get("reviewerModelId")
-        profiles[str(profile_id)] = {
+        frozen_digest = detail.get("profileConfigurationDigest")
+        entry: dict[str, str | None] = {
             "writerModelId": str(detail["writerModelId"]),
             "reviewerModelId": (
                 str(reviewer_model_id) if reviewer_model_id is not None else None
             ),
         }
+        # Only suites that froze a digest carry the key, so a profile map keeps
+        # exactly the shape every existing reader and suite already expects.
+        if frozen_digest is not None:
+            entry["profileConfigurationDigest"] = str(frozen_digest)
+        profiles[str(profile_id)] = entry
     for scenario in scenarios:
         for profile_id in (
             scenario.initial_profile_id,
@@ -1833,6 +1839,21 @@ def _require_discovery(
             raise ValueError(f"profile {profile_id!r} writer model drifted")
         if roles.get("query_review") != expected.get("reviewerModelId"):
             raise ValueError(f"profile {profile_id!r} reviewer model drifted")
+        frozen_digest = expected.get("profileConfigurationDigest")
+        if frozen_digest is not None:
+            provenance = profile.get("provenance")
+            advertised_digest = (
+                provenance.get("profileConfigurationDigest")
+                if isinstance(provenance, dict)
+                else None
+            )
+            if not advertised_digest:
+                raise ValueError(
+                    f"profile {profile_id!r} does not advertise a profile digest "
+                    "to compare with the frozen one"
+                )
+            if advertised_digest != frozen_digest:
+                raise ValueError(f"profile {profile_id!r} profile digest drifted")
     dataset = dataset_exchange.response_body
     if dataset.get("contractVersion") != "catalyst.dataset-overview.v1":
         raise ValueError("runtime dataset overview contract is unsupported")
