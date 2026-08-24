@@ -290,7 +290,8 @@ def catalyst_expectation(run, scenario_id):
     prose, the answer each turn deserves, and the independent reference.
     """
     try:
-        suite = json.load(open(os.path.join(run, "suite.json")))
+        with open(os.path.join(run, "suite.json"), encoding="utf-8") as handle:
+            suite = json.load(handle)
     except Exception:
         return None
     scenario = next(

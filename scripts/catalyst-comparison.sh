@@ -16,7 +16,9 @@ SUITE="${SUITE:-datasets/validation/catalyst/catalyst-phase1-comparison-v1.json}
 GATEWAY_URL="${GATEWAY_URL:-http://127.0.0.1:18000}"
 OUT_DIR="${OUT_DIR:-${ROOT}/artifacts/catalyst-notebook-validation}"
 POSTGRES_DSN="${POSTGRES_DSN:-postgresql://catalyst_readonly:demo-readonly-change-me@127.0.0.1:15443/catalyst_analytics_hiv}"
-SLUG="${SLUG:-catalyst-phase1-comparison-$(date +%Y-%m-%d)}"
+# SLUG defaults per run id inside `finish`, so re-running finish on any day
+# restages the same run under the same slug instead of duplicating it.
+SLUG="${SLUG:-}"
 
 cmd="${1:?usage: catalyst-comparison.sh run|resume <run-id>|finish <run-id>}"
 
@@ -40,6 +42,7 @@ case "${cmd}" in
   finish)
     run_id="${2:?finish needs the run id}"
     run_dir="${OUT_DIR}/${run_id}"
+    SLUG="${SLUG:-catalyst-phase1-comparison-${run_id%%-*}}"
     [[ -f "${run_dir}/results.json" ]] || { echo "ERROR: ${run_dir} has no results.json (run not finished — use resume)" >&2; exit 1; }
 
     echo "==> scoring twice; replays must be byte-identical"
