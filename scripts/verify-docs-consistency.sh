@@ -26,16 +26,34 @@ if grep -n '^- \[x\]' "$TASKS"; then
   err "lowercase [x] task marker in $TASKS"
 fi
 
-# 3. Phase 10 carries exactly 17 literal unchecked entries
-#    (15 active gates + the two consolidated ceremonies T144/T149).
+# 3. Phase 10 carries the exact 15 active gates plus the two consolidated
+#    historical ceremonies T144/T149.
 unchecked=$(awk '/^## Phase 10/{f=1} f && /^- \[ \]/{c++} END{print c+0}' "$TASKS")
 [ "$unchecked" -eq 17 ] || err "Phase 10 unchecked entries: $unchecked (expected 17)"
+active_gates=(
+  T166 T147 T168 T169 T170 T171 T148 T172 T173
+  T180 T181 T182 T155 T156 T157
+)
+for gate in "${active_gates[@]}"; do
+  grep -qE "^- \[ \] ${gate}[[:space:]]" "$TASKS" \
+    || err "active Phase 10 gate missing or checked: ${gate}"
+done
+for ceremony in T144 T149; do
+  grep -qE "^- \[ \] ${ceremony}[[:space:]].*Consolidated" "$TASKS" \
+    || err "historical consolidated ceremony is not recorded correctly: ${ceremony}"
+done
 
 # 4. No live status source still names Dashboard Builder the selected next
 #    milestone; that sequencing now lives in the program roadmap.
-if grep -rIln 'elected next product milestone' README.md AGENTS.md "$PROGRAM" \
-    specs/008-catalyst-query-workbench/plan.md "$TASKS" 2>/dev/null; then
-  err "'selected next product milestone' still asserted by a live status source"
+STATUS_SOURCES=(
+  README.md AGENTS.md "$PROGRAM"
+  specs/008-catalyst-query-workbench/plan.md "$TASKS"
+  specs/artifacts/planning/catalyst-product-roadmap-status.md
+  specs/artifacts/planning/catalyst-validation-integration-roadmap-status.md
+)
+if grep -rIlnE '[Ss]elected next( product)? milestone|selected next' \
+    "${STATUS_SOURCES[@]}" 2>/dev/null; then
+  err "a live status source still calls Dashboard Builder the selected next milestone"
 fi
 
 # 5. The governing invariant sentence is present verbatim where it binds

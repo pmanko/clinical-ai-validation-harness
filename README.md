@@ -24,7 +24,7 @@ The harness coordinates validation across four clinical AI projects:
 | `chartsearchai` | OpenMRS clinical-chat module with bundled and med-agent-hub provider paths | Product integration target: shared lifecycle UX, persistence, evidence display, cancellation, and security |
 | `querystore` | Read-optimized OpenMRS clinical-record projection and optional med-agent-hub source | Context-source validation: materialized records, indexing integrity, date/freshness semantics, and retrieval experiments |
 | `openmrs_chatbot` | Python clinical chatbot with patient/doctor interfaces and agent workflow scaffolding | Future expansion: multi-turn grounding and role-aware answer evaluation |
-| `Catalyst` (OpenELIS) | Supervised reporting workbench: OpenELIS → HAPI FHIR → FHIR Data Pipes → governed query/table → versioned Dataset/Widget/Dashboard drafts → Superset bundle | Query/notebook MVP accepted; Superset-backed Dashboard Builder selected next; data, repair, evaluation, narrative, and production paths remain independently gated |
+| `Catalyst` (OpenELIS) | Supervised reporting workbench: OpenELIS → HAPI FHIR → FHIR Data Pipes → governed query/table → versioned Dataset/Widget/Dashboard drafts → Superset bundle | Query/notebook MVP accepted; session-context work is program P1; Superset-backed Dashboard Builder remains unchanged as P3; other paths remain independently gated |
 
 ## Current priority: the validation spine and active lanes
 

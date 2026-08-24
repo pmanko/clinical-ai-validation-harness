@@ -6,7 +6,13 @@ Active feature plan: `specs/008-catalyst-query-workbench/plan.md`
 Implementation is gated by G0–G6 in that plan. Before crossing a user gate,
 surface unresolved nondeterminism, inconsistencies, and environment decisions.
 
-For the selected Dashboard Builder milestone, the authoritative UX contract is
+For Catalyst program Phase 1, `specs/catalyst-program-roadmap.md` is the single
+authority for the reviewed data surface, context contract, model-team
+comparison, acceptance thresholds, and delivery order. Its workshop decisions
+are closed; supporting briefs and HTML artifacts do not reopen them. Phase 1
+does not change Feature 008's Dashboard Builder meaning or gates.
+
+For the program-P3 Dashboard Builder milestone, the authoritative UX contract is
 `targets/catalyst/docs/dashboard-builder-mvp-design.md`; its reconciled
 `Catalyst Dashboard Builder 4c.dc.html` page is the binding visual reference.
 “Lightweight” means the simplest implementation that satisfies that contract,

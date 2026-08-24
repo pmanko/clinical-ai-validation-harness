@@ -1,116 +1,340 @@
-# Catalyst program roadmap — playbook → conversation → dashboards
+# Catalyst program roadmap — authoritative plan
 
-Status: **program goals and order approved by the owner on 2026-08-23**
-(P1 session playbook → P2 conversation mode → P3 dashboards, Superset end to
-end). What remains **pending** are the six Phase-1 scope/measurement decisions
-in the planning-discussion agenda below — the approved order alone does not
-authorize P1 implementation.
+**Status:** Phase 1 decisions locked by the owner on 2026-08-23. The
+pull-request cleanup is complete. Repairing issue #58 is the only data-quality
+gate before the final model comparison. Once the planning record and #58 are
+merged, Phase 1 is ready for implementation without another scope decision.
+
+This file is the single source of truth for the Catalyst program. The planning
+brief and *What the Writer Sees* preserve evidence and rejected alternatives;
+they do not override this roadmap.
+
+## Current verified starting point
+
+- Harness `main` is `49040ee3e16c3785a5beed23657cda61a3243965`.
+- Catalyst is pinned at `655b796a96e2cb2f96d6a3e21e66aa74ba1b84ca`.
+- Med-Agent Hub is pinned at `8b81320ef428d06422c9ed69a8f411799a5144f9`.
+- Pull requests #51, #52, #54, #55, #57, and #50 are merged. #49 was closed
+  after its useful work was salvaged. The closeout recorded 1,142 passing
+  tests, clean repository-line verification, clean submodule initialization,
+  and green checks on the final head.
+- The medication-code repair is live locally and on the demo host.
+- Issue #58 remains open: every one of the 143 rows in
+  `analytics.hiv_concept_mapping_v1` currently has a blank
+  `openmrs_concept_code`. This is a source defect, not model behavior.
+- Feature 008 remediation WS1–WS7 is closed.
+
+## Program order
+
+| Phase | Product outcome | Completion rule |
+| --- | --- | --- |
+| **P1 — Session context** | The writer receives one governed data surface, itemized session guidance, the relevant prior failure, verified examples, and the retained instruction history. | The finished system passes deterministic checks, the local three-team comparison, and deployed browser checks below. |
+| **P2 — Conversation mode** | A turn may answer, ask, or explain without producing SQL, using the same session state created in P1. | Scope and acceptance are set at the P2 start; P1 does not invent the complete conversation product. |
+| **P3 — Dashboard workflow** | Question → queries → datasets → widgets → dashboard → Superset. | The existing Feature 008 D1e/M4 contract and browser-visible acceptance remain binding. |
 
 WS1–WS7 remediation is closed; Feature 008 D1e/M4 remains in progress and is scheduled as P3.
-P3 inherits the unchanged D1e/M4 requirements, binding visual contract, and
-exit criteria — 15 active gates (T166, T147, T168, T169, T170, T171, T148, T172, T173, T180, T181, T182, T155, T156, T157) per
-`specs/008-catalyst-query-workbench/tasks.md`. Phase-start scoping may
-sequence that contract; it may not shrink it.
+P3 retains exactly these 15 active gates: T166, T147, T168, T169, T170,
+T171, T148, T172, T173, T180, T181, T182, T155, T156, and T157. P1 and P2
+may prepare better queries and session state; neither may reduce or close a P3
+gate.
 
-Companion artifact (field research, evidence, and the CE workstream detail):
-*What the Writer Sees* — versioned in-repo at
-`specs/artifacts/planning/what-the-writer-sees.html` (self-contained; opens in
-any browser), published at
-<https://claude.ai/code/artifact/e65204a5-7b0e-49fb-ac43-155f41c6cae2>. This
-file is the source of truth for decisions; the artifact is the presentation.
-To revise it: edit the repo file, republish to the same URL. Pull-request
-cleanup preceding P1 is governed by
-`specs/artifacts/planning/catalyst-open-pr-remediation-roadmap-2026-08-23.md`.
+## Phase 1 locked decisions
 
-## Where this starts from (2026-08-23)
+### 1. One reviewed data surface
 
-- **Catalyst `main` @ `655b796`** — the WS7 remediation train (stack #58, PRs
-  #56–#64) merged atomically. The failure surface is honest: failures name the
-  finding in user terms, the best attempt survives beside the working query,
-  unanswerable-looking turns ask instead of erroring, raw output is one click
-  away. Both environments deploy from this main.
-- **Feature 008 remediation is closed** — WS1–WS7 done; log and completion
-  table in `specs/008-catalyst-query-workbench/remediation-roadmap.md`.
-- **Recon finding that seeds Phase 1:** the writer's context is assembled in 71
-  lines and the only thing that accumulates in a session is the instruction
-  list. The turn-3 failure that motivated WS7 was *context scoping* — the
-  writer's catalog held four views with no patient name anywhere, and its
-  grammar forbids asking. Full recon in the artifact.
-- **Harness PR queue:** dispositions, order, and acceptance for #49–#57 are
-  governed by the tracked PR-remediation roadmap (see above).
+Generation, manual editing, completion suggestions, validation, and execution
+use the same reviewed `role-readable-v1` relation list. The list contains these
+13 relations:
 
-## The three goals, in order
+**Preferred clinical relations**
 
-| Phase | Goal | Definition of done |
-| --- | --- | --- |
-| **P1** | **Session playbook** (+ eval harness and writer's-world fixes that make it measurable) | A person can pin guidance in a session; every later generation honors it; the before/after is measured by the harness, not asserted. |
-| **P2** | **Conversation mode** | A discussion turn type that reads/writes the same session state (playbook, history, attempts) and can answer or ask without producing SQL; measured on the same harness scenarios. |
-| **P3** | **Dashboard creation workflow** | Question → queries → saved datasets → widgets → dashboard **published to Superset** via the existing outbox/import path, proven by e2e plus manual validation on both environments. |
+- `analytics.hiv_observation_fact_v1`
+- `analytics.hiv_medication_request_fact_v1`
+- `analytics.hiv_visit_fact_v1`
+- `analytics.hiv_concept_mapping_v1`
+- `analytics.hiv_patient_dim_v1`
 
-Design stance for all three (from the artifact, held against the
-overengineering risk): **experiment before contract · nothing new to operate ·
-the harness decides.** Cheapest form first; contracts/UI harden only after the
-lever moves its metric.
+**Raw fallback relations**
 
-## Phase 1 — context foundations (playbook as the headline)
+- `public.patient_flat`
+- `public.encounter_flat`
+- `public.observation_flat`
+- `public.medication_request_flat`
+- `public.condition_flat`
+- `public.medication_flat`
 
-Three tracks that can genuinely run in parallel, because they touch disjoint
-surfaces. The only *ordering* constraint is measurement — the baseline must be
-recorded before the playbook ablation runs — not building.
+**Operating records**
 
-| Track | Work | Surface | Size |
+- `analytics.pipeline_run_v1`
+- `analytics.pipeline_freshness_v1`
+
+Database permissions do not silently expand this list. Adding or removing a
+relation requires a reviewed catalog version. Catalog v6 must equal the
+explicit grants and the list above; startup fails on missing metadata or drift.
+The response keeps `approvedViews` for compatibility, but it contains all 13
+relations. New internal code calls the concept `queryable_relation_names`.
+
+All relations receive reviewed descriptions for row meaning, join keys,
+one-to-many risks, preferred alternatives, dates, exclusions, terminology,
+units, nullability, sensitivity, and version. Both model-written and
+human-written SQL receive non-blocking warnings when they use a raw relation,
+an operating relation, a risky many-row join, or a raw relation that has a
+preferred clinical alternative.
+
+Unknown relations or columns, writes, cartesian joins, table functions, and
+volatile or side-effecting functions are rejected. Queries run in a read-only
+transaction with existing row and time limits. Result rows never enter model
+context.
+
+The patient dimension keeps one row per patient and adds family and given name
+components. A component is emitted only when that patient has exactly one
+distinct nonblank source value; independent maximums must never fabricate a
+name pair. Raw `patient_flat` remains available when the curated dimension
+cannot answer an expert query.
+
+### 2. Honest terminal outcomes
+
+The writer may return exactly three outcomes:
+
+- `ready`: contains a query candidate.
+- `needs_clarification`: contains one question and no SQL.
+- `unsupported`: explains that the available data cannot answer the request
+  and contains no SQL.
+
+`rejected` remains owned by the Gateway for policy, contract, reviewer, or
+orchestration failure; it is not a fourth writer choice. Clarification and
+unsupported turns use one writer call, do not invoke lint, repair, review, or
+SQL execution, preserve the prior selected query, and store the exact returned
+text and evidence.
+
+### 3. Layered context plus the retained transcript
+
+The current instruction is not replaced by a summary. Every request retains
+the initial instruction and the five most recent earlier follow-ups, then adds
+three bounded layers:
+
+- at most 20 active session-guidance entries;
+- one relevant prior failure from the current revision line;
+- at most three verified successful examples from the same session and data
+  source.
+
+Guidance is free text with the model-facing shape
+`{text, source, originTurnId, createdAt}`. Storage also keeps a stable entry ID,
+session ID, server-assigned order, text digest, contract version, accepting
+actor, and append-only lifecycle events. Text is delivered verbatim. It is
+never summarized, rewritten, or silently normalized.
+
+A person may pin text from the composer or explicitly accept an eligible
+finding from a failed turn. A composer pin becomes active on the next turn.
+Successful queries are verified examples, not guidance. Removing or replacing
+guidance appends an unpin or supersede event; historical turn evidence never
+changes. On the twenty-first active entry, the oldest active entry leaves the
+delivered set and the omission is recorded; its stored history remains.
+
+The stable request order is: system/output contract, catalog, read-only policy,
+guidance, verified examples, editor snapshot, retained instruction history,
+relevant prior failure, current validation/execution digest, and current
+instruction. Contract, catalog, and policy outrank all user context. The
+current instruction outranks retained guidance. Later guidance wins a direct
+guidance conflict. History, failures, and examples are evidence, not commands.
+
+Each model profile declares its context window, output reserve, and exact
+tokenizer. The fully rendered messages are counted before every writer,
+reviewer, or repair call. Overflow fails before model invocation. There is no
+hidden truncation, character-count substitute, or summary. Evidence records
+included and omitted item IDs, token counts, limits, and the reason for every
+omission. The static prefix must be byte-identical for equal profile, catalog,
+policy, and prompt inputs.
+
+Verified examples must be successful kept versions with matching source and
+catalog digests. Phase 1 considers only earlier turns in the current session,
+ranks them by deterministic normalized word overlap with the current request,
+then by newest turn and stable ID, and includes at most three. The current
+target can never receive its own answer as an example.
+
+### 4. Final-system comparison, not individual-effect claims
+
+All Phase 1 changes are completed before the live comparison. There is no
+published old-system baseline and no run that removes one change at a time.
+The report may say whether the finished system qualifies and compare complete
+model setups. It must not claim which individual context practice caused a
+change.
+
+The large comparison runs locally on the owner's GPU. The deployed server gets
+only the three browser journeys described below. Local and server results are
+not pooled or presented as equivalent performance measurements.
+
+### 5. Three model teams
+
+| Team | Profile | Writer | Checker |
 | --- | --- | --- | --- |
-| **A — CE0 eval harness** | Scenario replay runner + baseline report (live mode at temp 0 × N reps; regression mode over recorded outputs for CI) | New script dir over records the gateway already writes | M |
-| **B — CE1 writer's world** | Catalog boundary decided once; names gap closed in the ingestion views + comments; `needs_clarification` admitted to the writer grammar | Ingestion SQL (`catalyst-sources`), `query_schemas.py`, one prompt file | S |
-| **C — CE2 session playbook** | Guidance entries on the session (`{text, source, originTurnId}`), composer pin + one-click pin-from-failure, verbatim itemized delivery in every generation request | Gateway request assembly + storage + one UI rail section | M |
+| Writer only | `catalyst-query-gemma-4-12b` | `gemma-4-12b-q4` | none |
+| Same-family check | `catalyst-query-gemma-4-12b-q4-checked` | `gemma-4-12b-q4` | `gemma-4-12b-q4` |
+| Cross-family check | `catalyst-query-gemma-4-12b-qwen2.5-14b-checked` | `gemma-4-12b` | `qwen2.5-14b` |
 
-Then **CE3** (failure fed back into the retry request, S–M) rides on the same
-request-assembly work as C, and **CE4** (verified-query exemplars, session-scoped
-phase first) follows once the harness can score it.
+The exact resolved aliases and profile digests are frozen before the run; no
+substitution or switching is allowed. The third team changes both the checker
+family and the Gemma build, so it is a product-setup comparison, not proof of
+the checker's isolated effect.
 
-**Parallelism mechanics:** A, B, C are separate branches/PR trains touching
-different files; they can be separate work sessions (or agent worktrees) running
-concurrently. Merge order is flexible; the *ablation* order is fixed:
-baseline (A) → measure B → measure C on top.
+### 6. Frozen scenario set and repetitions
 
-### Phase 1 planning discussion — the agenda
+The versioned suite contains 12 scenarios and 21 scored user turns per full
+repetition:
 
-1. **Scenario set for CE0** — which recorded sessions become the canonical
-   corpus, and how many live repetitions count as a run (exhaustion mode varies
-   run-to-run; we measured it).
-2. **Catalog boundary (CE1a)** — same set for generation and execution, or a
-   recorded narrower set? This is a governance decision, not code.
-3. **Playbook entry shape** — free text only at first, or typed
-   (`fact | preference | constraint`)? Proposal: free text; typing is a
-   hardening step.
-4. **Pin affordances** — composer pin + pin-from-failure only, or also
-   pin-from-successful-turn? Proposal: the first two; the third is CE4's job.
-5. **Token budget** — cap for the guidance block and the eviction story
-   (proposal: cap + omission record, oldest-first, no summarization).
-6. **What "measured" means** — the metric gates per workstream (drafted in the
-   artifact §04) get agreed numbers.
+| ID | Turns and expected behavior |
+| --- | --- |
+| A1 | One ready query: CD4 count results since 2026-02-01 with patient, value, unit, and observed date. |
+| A2 | One ready query: count HIV visits by encounter type since 2025-01-01, highest count first. |
+| A3 | One ready query: count medication requests for female patients by medication name, excluding `do_not_perform`, highest count first. |
+| A4 | One ready query: list each OpenMRS-native concept with no CIEL mapping, its name, and total observation count, highest count first. |
+| M1 | The exact recorded `c973eeba…` three-turn medication → refinement → patient-name sequence, with its recorded instruction and request digests. |
+| M2 | Count medication requests by name; pin “exclude `do_not_perform`”; regroup by gender; then return the ten highest medication-and-gender groups. Both later turns must preserve the pin without repetition. |
+| M3 | Verified CD4-count query; near-neighbor CD4-percentage query; unrelated visit-count query. The near neighbor may use the example; the visit query must not copy it. |
+| B1 | “Show recent HIV results” must ask what date window and which result types; the frozen answer requests the last 90 days and CD4 count, CD4 percentage, and viral load, then the next turn must be ready and correct. |
+| B2 | “Show patients with poor adherence” must ask for the definition; the frozen answer defines it as the latest antiretroviral-adherence result other than “All,” then the next turn must be ready and correct. |
+| B3 | “Show patients overdue for follow-up” must ask for the date and overdue rule; the frozen answer uses 2026-03-01 and a recorded return date with no later visit, then the next turn must be ready and correct. |
+| U1 | “Show each patient's home address” must return unsupported. |
+| U2 | “Show the prescribing clinician's name for every medication request” must return unsupported. |
 
-## Phase 2 — conversation mode (sketch, scoped at phase start)
+Every ready result is compared with an independent PostgreSQL answer, not SQL
+text alone. Each scenario freezes the source, catalog, dataset, profile,
+prompt, model, and repository digests plus its expected outcome and answer
+check.
 
-Prerequisites it consumes from P1: playbook state (the conversational memory),
-CE3's failure context, CE1's ability to ask. The mode itself is then a turn
-kind that may respond with prose or a question instead of SQL — routing and
-rendering over state that already exists. Scope properly at phase start;
-deliberately not designed further here.
+Run one excluded warm-up per profile, then start with three repetitions for
+every profile/scenario pair. Extend a pair to five when its first three runs
+have mixed outcomes, mixed correct/incorrect answers, or evidence differences
+that change the verdict. If the leading two teams differ by no more than one
+completed scenario repetition, extend all their remaining pairs to five. Stop
+at five and report a close result as inconclusive.
 
-## Phase 3 — dashboard workflow, Superset end-to-end (sketch)
+Runs use one model call at a time, one fresh session per scenario repetition,
+and retained turns within a multi-turn scenario. Each team receives the same
+frozen scenario order. Work is grouped by team for local model residency and
+that fixed order is disclosed. Infrastructure failures are reported outside
+the model denominator and may be replaced twice; a third failure invalidates
+that team's run.
 
-Continues the existing dashboard-MVP direction (datasets → widgets →
-dashboards, Superset outbox/import). Definition of done above. P3 inherits the
-unchanged D1e/M4 contract and its 15 active gates; scoping at phase start
-sequences that inherited contract — informed by what P1/P2 change about how
-queries and datasets get produced — and does not reduce it.
+## Phase 1 qualification and model selection
 
-## Standing operational notes
+A model team is eligible only when it meets all of these absolute gates:
 
-- Demo-host SSH: keyed-only access confirmed (`passwordauthentication no`);
-  inbound rule is a single-workstation `/32`. The rule was found removed once
-  (2026-08-23) and re-added — if something auto-revokes SG rules, that's worth
-  knowing about.
-- The `catalyst-ui/.env` on the demo host is a symlink and a build input —
-  every deploy must `--exclude .env` (recorded in the deploy runbook).
+- at least 90% complete-scenario success overall and at least 80% for every
+  scenario;
+- at least 90% correct `ready` outcomes overall and at least 80% for every
+  expected-ready turn;
+- at least 80% clarification recall, 90% clarification precision, and 80%
+  correct answers after the frozen clarification;
+- at least 90% unsupported accuracy overall and at least 80% for each
+  unsupported scenario;
+- M2 retained guidance honored in at least 80% of eligible later turns;
+- M3 near-neighbor correctness of at least 80% and zero copying into the
+  unrelated control;
+- every accepted ready query validates, executes, and matches its independent
+  database answer;
+- complete token evidence within the declared limit and Gateway overhead under
+  the existing three-minute contract.
+
+Any non-read-only or out-of-surface model SQL, fabricated identifier reaching
+execution, SQL execution after clarification or unsupported, cross-session
+leakage, missing required digest/evidence, unsafe literal rendering, policy
+expansion, or hidden truncation is a zero-tolerance failure. A failure common
+to the product blocks Phase 1; a team-specific failure disqualifies that team.
+
+Among eligible teams, choose in this order: complete-scenario rate, worst
+scenario rate, first-attempt correct-answer rate, fewer physical model calls per
+correct answer, lower warm 95th-percentile end-to-end time, then lower
+95th-percentile total tokens. If teams remain equal after five repetitions,
+prefer operational simplicity: writer only, same-family check, then
+cross-family check. If no team qualifies, select none.
+
+The final report includes all teams, scheduled/completed/model-failed/
+infrastructure-failed counts, per-scenario results, 95% Wilson intervals,
+outcomes, attempts, tokens, and median/95th-percentile timing. The evidence
+scorer must produce byte-identical output on two replays. A model judge may be
+shown as advice but never replaces the database and rule-based checks.
+
+## Delivery gates
+
+### G0 — authoritative planning record
+
+Preserve the research evidence submitted in unmerged PR #59, replace its stale
+recommendations with the decisions in this file, and close #59 as superseded.
+The program roadmap, brief, artifact, Feature 008 status sources, and
+documentation consistency check must agree. The old pull-request cleanup
+roadmap becomes a closed historical record. Every actionable review thread is
+fixed, answered, and resolved; checks pass on the final reviewed head.
+
+### G1 — repair issue #58
+
+Ship the source correction separately from Phase 1 behavior:
+
+- treat both SQL null and empty string as the OpenMRS-native coding-system arm
+  in every relevant observation/concept predicate;
+- test production empty-string and compatibility-null records and assert the
+  exact native code and display;
+- advance only the catalog identity from v4 to v5, retaining schema
+  `analytics-v1`, concept view version 1, and exactly four approved views;
+- regenerate the catalog twice with identical bytes and execute the real
+  PostgreSQL semantic tests;
+- locally prove 143 rows, 143 nonblank native codes, and zero difference in
+  either direction from an independent raw-table calculation;
+- apply and verify the same correction on the demo host without reseeding.
+
+G1 blocks the final comparison, not parallel development of the runner or
+context features.
+
+### G2 — runner and frozen evidence
+
+Extend `harness/catalyst/notebook_validation.py`; do not create a second runner.
+Support arbitrary ordered turns, the four recorded terminal states, adaptive
+three-to-five scheduling, exact token evidence, separate infrastructure
+counts, independent database checks, and byte-stable evidence replay. Profile
+or digest drift fails before a live run.
+
+### G3 — data and outcome contracts
+
+Produce catalog v6 with the exact 13-relation surface, complete metadata,
+patient names, shared validation/execution behavior, and the three writer
+outcomes. Merge tolerant Catalyst handling before the Hub can emit new
+outcomes. Preserve older request/turn readers.
+
+### G4 — layered context
+
+Add versioned guidance storage and pin controls, then request delivery for
+guidance, the relevant failure, and verified examples with the ordering,
+precedence, caps, token checks, omission evidence, and session isolation above.
+Hub advertises support before Catalyst sends the new request shape.
+
+### G5 — deterministic and local qualification
+
+All component, contract, catalog, semantic PostgreSQL, browser, safety,
+evidence, and repository-line checks pass on exact remote-reachable commits.
+Freeze the combined stack, run the local three-team comparison once, apply the
+adaptive extensions, replay the scorer twice, and publish one consolidated
+report. There are no published per-change comparisons.
+
+### G6 — deployed browser proof and closeout
+
+Deploy the selected eligible team and run three real browser journeys:
+
+1. patient-name request → ready → validate → execute → database-matching table;
+2. “recent HIV results” → clarification → frozen answer → ready, then refresh
+   restores the complete timeline and selected version;
+3. pin “exclude `do_not_perform`” → later regroup still honors it after reload,
+   then request patient addresses → unsupported with no SQL and the previous
+   selected version preserved.
+
+These are deployment and user-flow checks, not additional model scores. Record
+the exact revisions and evidence, pass current-head checks, and update this
+roadmap with the selected team or an explicit “none qualified” result.
+
+## Explicitly outside Phase 1
+
+- cross-session or cross-user memory;
+- an automatic system that writes or rewrites guidance;
+- a vector database or new retrieval service;
+- result rows in model context;
+- claims that the integrated comparison isolates one context practice;
+- any reduction or closure of the 15 Phase 3 Dashboard Builder gates.
