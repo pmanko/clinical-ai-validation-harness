@@ -12,6 +12,7 @@ import hashlib
 import json
 import math
 import re
+import shutil
 import time
 from collections import Counter
 from dataclasses import dataclass, field, replace
@@ -1307,6 +1308,83 @@ def repetition_pair_is_unstable(runs: list[dict[str, Any]]) -> bool:
     return len(signatures) > 1
 
 
+def _adopt_reused_pair(
+    *,
+    run_dir: Path,
+    resume_from: Path | None,
+    run_id: str,
+    scenario: NotebookScenario,
+    team: str | None,
+    recorded: list[dict[str, Any]],
+    results_path: Path,
+) -> None:
+    """Bring a reused pair fully into the resumed run's directory.
+
+    Everything downstream -- the live dashboard, the report's evidence
+    links, the scorer -- reads one run directory, so a reused pair's rows,
+    feed entries, and evidence tree travel with the resumed run instead of
+    staying behind in the interrupted one.
+    """
+    # Match the live rows exactly: they group by the profile that answered
+    # the follow-ups (which falls back to the opener when there are none).
+    backend_id = team or scenario.followup_profile_id
+    key = f"{backend_id}/{scenario.id}" if team is not None else scenario.id
+    if resume_from is not None:
+        source = resume_from / "scenarios" / key
+        destination = run_dir / "scenarios" / key
+        if source.is_dir() and not destination.exists():
+            shutil.copytree(source, destination)
+    for row in recorded:
+        append_jsonl(run_dir / "rows.jsonl", row)
+        answer = (
+            row.get("baseSql")
+            or row.get("baseAnswerText")
+            or str(row.get("status"))
+        )
+        append_jsonl(
+            results_path,
+            {
+                "run_id": run_id,
+                "scenario_id": scenario.id,
+                "backend_id": backend_id,
+                "turn": row.get("repetition"),
+                "request": {"question": scenario.initial_question},
+                "response": {
+                    "answer": answer,
+                    "baseOutcome": row.get("baseOutcome"),
+                    "expectedBaseOutcome": row.get("expectedBaseOutcome"),
+                    "turns": [
+                        {
+                            "instruction": t.get("instruction"),
+                            "expectedOutcome": t.get("expectedOutcome"),
+                            "observedOutcome": t.get("observedOutcome"),
+                        }
+                        for t in row.get("turns") or []
+                    ],
+                    "resultPreview": row.get("resultPreview"),
+                    "failedAssertions": [
+                        {
+                            "name": item["name"],
+                            "evidence": _compact_evidence(item.get("evidence")),
+                        }
+                        for item in row.get("assertions") or []
+                        if not item.get("passed")
+                    ][:8],
+                },
+                "metrics": {
+                    "http_status": row.get("httpStatus"),
+                    "latency_ms": (row.get("timing") or {}).get(
+                        "unadjustedGenerationWallMs"
+                    ),
+                    "answer_chars": len(answer) if isinstance(answer, str) else 0,
+                    "passed": row.get("passed"),
+                    "reused": True,
+                },
+                "error": _first_failed_assertion(row.get("assertions") or []),
+            },
+        )
+
+
 def _pair_is_complete(
     recorded: list[dict[str, Any]],
     suite: NotebookSuite,
@@ -1562,12 +1640,21 @@ def run_notebook_suite(
             if team is not None:
                 scenario = _scenario_for_profile(scenario, team)
             recorded = finished.get(
-                (team or scenario.initial_profile_id, scenario.id)
+                (team or scenario.followup_profile_id, scenario.id)
             )
             if recorded is not None and _pair_is_complete(
                 recorded, suite, scenario, repetitions
             ):
                 results.extend(recorded)
+                _adopt_reused_pair(
+                    run_dir=run_dir,
+                    resume_from=Path(resume_from) if resume_from else None,
+                    run_id=run_id,
+                    scenario=scenario,
+                    team=team,
+                    recorded=recorded,
+                    results_path=results_path,
+                )
                 continue
             if scenario.manual_only and not include_manual:
                 skipped += 1
@@ -1575,7 +1662,7 @@ def run_notebook_suite(
                     {
                         "scenarioId": scenario.id,
                         "family": scenario.family,
-                        "profileId": team or scenario.initial_profile_id,
+                        "profileId": team or scenario.followup_profile_id,
                         "status": "skipped",
                         "reason": "manual-only bounded failure scenario was not enabled",
                     }
@@ -1627,7 +1714,7 @@ def run_notebook_suite(
                     }
                 )
                 result["passed"] = all(item["passed"] for item in result["assertions"])
-                result["profileId"] = team or scenario.initial_profile_id
+                result["profileId"] = team or scenario.followup_profile_id
                 # Appended now, not at the end: this row is what --resume
                 # reuses when the run dies before the summary is written.
                 append_jsonl(run_dir / "rows.jsonl", result)
