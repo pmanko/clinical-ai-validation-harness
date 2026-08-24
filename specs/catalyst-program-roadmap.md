@@ -24,7 +24,10 @@ they do not override this roadmap.
   `analytics.hiv_concept_mapping_v1` have an OpenMRS-native code, the mapping
   equals an independent raw-table calculation in both directions, and the
   native concept and coded-answer displays have zero differences. The public
-  demo serves catalog v5 with schema `analytics-v1` and 13 readable relations.
+  demo serves catalog v5 with schema `analytics-v1`: its human editor catalog
+  lists 13 readable relations, while its model-writing allowlist still contains
+  4 approved views. Phase 1 catalog v6 deliberately makes both surfaces the
+  same exact 13-relation list defined below.
 - The full harness suite records 1,145 passes, and the supported isolated-stack
   health and provenance gate passes on the freshly seeded 96-patient,
   1,152-result fixture.
