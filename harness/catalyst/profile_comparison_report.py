@@ -28,10 +28,52 @@ def _load_results(run_dir: Path) -> dict[str, Any]:
 
 
 def _scenario_passed(row: dict[str, Any]) -> bool:
+    # The runner's own verdict is authoritative: a scenario can pass with
+    # status "failed" (a bounded failure it was told to expect). The status
+    # heuristic only serves rows recorded before the verdict existed.
+    if "passed" in row:
+        return bool(row["passed"])
     if row.get("status") != "completed":
         return False
     assertions = row.get("assertions") or []
     return all(bool(a.get("passed")) for a in assertions)
+
+
+def entries_from_comparison_run(run_dir: Path | str) -> list[dict[str, Any]]:
+    """One entry per team from a single frozen-comparison run.
+
+    The comparison is one run whose rows are stamped by the team that
+    produced them, so the page's entries share the run directory and differ
+    only in which rows they own.
+    """
+    results = _load_results(Path(run_dir))
+    team_ids: list[str] = []
+    for row in results.get("results") or []:
+        profile_id = row.get("profileId")
+        if isinstance(profile_id, str) and profile_id not in team_ids:
+            team_ids.append(profile_id)
+    return [
+        {"run_dir": Path(run_dir), "profile_id": team, "profile_label": team}
+        for team in team_ids
+    ]
+
+
+def _entry_rows(entry: dict[str, Any]) -> list[dict[str, Any]]:
+    """The rows this entry is scored on.
+
+    Rows stamped with a profileId belong to that team alone; a legacy
+    one-run-per-profile directory has unstamped rows, which all belong to
+    its single entry.
+    """
+    results = _load_results(entry["run_dir"])
+    rows = [
+        row
+        for row in results.get("results") or []
+        if row.get("status") not in {"skipped", "infrastructure_failed"}
+    ]
+    if any(row.get("profileId") for row in rows):
+        return [row for row in rows if row.get("profileId") == entry["profile_id"]]
+    return rows
 
 
 def build_comparison_report(
@@ -46,10 +88,9 @@ def build_comparison_report(
     """
     rows: list[str] = []
     for entry in entries:
-        results = _load_results(entry["run_dir"])
-        passed = results.get("passedCount", 0)
-        total = results.get("resultCount", 0)
-        result_rows = results.get("results") or []
+        result_rows = _entry_rows(entry)
+        passed = sum(1 for row in result_rows if _scenario_passed(row))
+        total = len(result_rows)
         assertion_total = sum(len(row.get("assertions") or []) for row in result_rows)
         wall_times = [
             row["timing"]["unadjustedGenerationWallMs"]
@@ -81,9 +122,8 @@ def build_comparison_report(
     scenario_ids: list[str] = []
     per_entry_results: list[dict[str, Any]] = []
     for entry in entries:
-        results = _load_results(entry["run_dir"])
         by_scenario: dict[str, list[dict[str, Any]]] = {}
-        for row in results.get("results") or []:
+        for row in _entry_rows(entry):
             by_scenario.setdefault(row["scenarioId"], []).append(row)
             if row["scenarioId"] not in scenario_ids:
                 scenario_ids.append(row["scenarioId"])
