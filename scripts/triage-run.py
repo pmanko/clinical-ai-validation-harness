@@ -61,15 +61,31 @@ def main() -> int:
     )
     args = parser.parse_args()
     rows_path = Path(args.run_dir) / "rows.jsonl"
-    rows = [
-        json.loads(line)
-        for line in rows_path.read_text(encoding="utf-8").splitlines()
-        if line.strip()
-    ]
-    vetted = {
-        tuple(entry["signature"]): entry
-        for entry in json.loads(Path(args.vetted).read_text(encoding="utf-8"))
-    }
+    vetted_path = Path(args.vetted)
+    if not vetted_path.is_absolute() and not vetted_path.exists():
+        # Default resolves against the repo the script lives in, so `finish`
+        # works from any working directory.
+        vetted_path = Path(__file__).resolve().parents[1] / args.vetted
+    try:
+        rows = [
+            json.loads(line)
+            for line in rows_path.read_text(encoding="utf-8").splitlines()
+            if line.strip()
+        ]
+    except OSError as error:
+        print(f"TRIAGE FAILED: cannot read {rows_path}: {error}")
+        return 1
+    except json.JSONDecodeError as error:
+        print(f"TRIAGE FAILED: {rows_path} is not valid JSONL: {error}")
+        return 1
+    try:
+        vetted = {
+            tuple(entry["signature"]): entry
+            for entry in json.loads(vetted_path.read_text(encoding="utf-8"))
+        }
+    except (OSError, json.JSONDecodeError, KeyError, TypeError) as error:
+        print(f"TRIAGE FAILED: cannot read the vetted ledger {vetted_path}: {error}")
+        return 1
 
     unvetted: dict[tuple[str, ...], list[dict]] = defaultdict(list)
     dispositions: dict[str, int] = defaultdict(int)

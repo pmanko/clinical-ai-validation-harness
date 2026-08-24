@@ -3924,8 +3924,8 @@ def test_the_opening_generation_is_token_checked_like_any_other(
     suite["repetitions"] = 1
     suite["requireTokenEvidence"] = True
     suite.pop("extendedRepetitions", None)
-    suite["scenarios"][0].pop("followupInstruction")
-    suite["scenarios"][0].pop("followupProfileId")
+    suite["scenarios"][0].pop("followupInstruction", None)
+    suite["scenarios"][0].pop("followupProfileId", None)
     suite["scenarios"][0]["turns"] = []
     suite["scenarios"][0]["expectedBaseOutcome"] = "ready"
 
