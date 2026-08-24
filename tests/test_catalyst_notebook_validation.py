@@ -3130,6 +3130,16 @@ def test_an_opening_question_answered_with_sql_when_a_refusal_was_due_fails(
     assert row["passed"] is False
     failed = {item["name"] for item in row["assertions"] if not item["passed"]}
     assert "base_writer_outcome" in failed
+    # The writer answered `ready`, so the session is *supposed* to hold that
+    # query: the no-SQL contract check does not apply and must not fire. It
+    # is the judgment that failed here, not the product's behaviour.
+    names = {item["name"] for item in row["assertions"]}
+    assert "no_sql_after_non_ready_base" not in names
+    assert all(
+        item["class"] == "evaluation"
+        for item in row["assertions"]
+        if not item["passed"]
+    )
 
 
 def test_a_refusal_that_left_a_query_behind_is_caught(tmp_path: Path) -> None:
@@ -4158,3 +4168,92 @@ def test_every_failing_gold_mode_says_why_in_one_sentence() -> None:
     )
     assert verdict["passed"] is False
     assert "counts disagree on 1 group " in verdict["disagreement"] + " "
+||||||| parent of 9d4e01d (feat(runner): every assertion says whether it judges the answer or checks the contract)
+
+
+def test_every_assertion_the_runner_can_emit_is_classified():
+    """The conformance/evaluation split is a closed contract.
+
+    A new check that nobody classified would silently decide whether a cell
+    reads as unexpected behaviour, so the table must cover every name the
+    module can emit. Extracted from the source itself, so adding an
+    assertion without classifying it fails here.
+    """
+    import ast
+
+    from harness.catalyst import notebook_validation as nv
+
+    source = Path(nv.__file__).read_text(encoding="utf-8")
+    tree = ast.parse(source)
+    emitted: set[str] = set()
+    for node in ast.walk(tree):
+        # check("name", ...) and check(f"{name}-base", ...)
+        if (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Name)
+            and node.func.id == "check"
+            and node.args
+            and isinstance(node.args[0], ast.Constant)
+        ):
+            emitted.add(node.args[0].value)
+        # {"name": "literal", "passed": ...} appended directly
+        if isinstance(node, ast.Dict):
+            keys = [k.value for k in node.keys if isinstance(k, ast.Constant)]
+            if "name" in keys and "passed" in keys:
+                value = node.values[keys.index("name")]
+                if isinstance(value, ast.Constant):
+                    emitted.add(value.value)
+    # The helpers yield (name, passed, evidence) tuples.
+    for helper in ("_evidence_checks", "token_evidence_checks"):
+        for node in ast.walk(tree):
+            if isinstance(node, ast.FunctionDef) and node.name == helper:
+                for inner in ast.walk(node):
+                    if (
+                        isinstance(inner, ast.Tuple)
+                        and inner.elts
+                        and isinstance(inner.elts[0], ast.Constant)
+                        and isinstance(inner.elts[0].value, str)
+                    ):
+                        emitted.add(inner.elts[0].value)
+
+    assert len(emitted) > 30, "the extractor stopped finding assertions"
+    unclassified = sorted(n for n in emitted if not nv.assertion_class(n, strict=True))
+    assert unclassified == []
+
+
+def test_the_split_puts_judgment_on_one_side_and_the_contract_on_the_other():
+    """Judged quality never colours a cell; broken behaviour always does."""
+    from harness.catalyst.notebook_validation import assertion_class
+
+    for name in (
+        "base_writer_outcome",
+        "writer_outcome",
+        "followup_terminal_status",
+        "base_gold_execution_match",
+        "successor_gold_execution_match",
+        "successor_execution_succeeded",
+        "exact_selected_output",
+        "prior_results_stale_after_successor",
+        "semantic_reviewer_correction",
+    ):
+        assert assertion_class(name) == "evaluation", name
+
+    for name in (
+        "no_sql_after_non_ready_base",
+        "token_evidence_recorded",
+        "writer_model",
+        "effective_temperature_and_dry",
+        "guidance_pinned",
+        "session_created",
+        "base_classification",
+        "revision_context_exclusions",
+        "new_session_isolation",
+    ):
+        assert assertion_class(name) == "conformance", name
+
+    # Slot suffixes are the same check on a later turn.
+    assert assertion_class("writer_outcome-t3") == "evaluation"
+    assert assertion_class("token_evidence_recorded-base") == "conformance"
+    # An unknown check fails loud rather than passing as mere data.
+    assert assertion_class("brand_new_check") == "conformance"
+    assert assertion_class("brand_new_check", strict=True) is None

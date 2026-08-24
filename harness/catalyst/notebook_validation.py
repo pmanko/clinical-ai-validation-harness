@@ -136,6 +136,85 @@ TERMINAL_WRITER_OUTCOMES = frozenset(WRITER_OUTCOMES[1:])
 """The writer's terminal choices. `rejected` is the Gateway's, not one of these."""
 
 
+_SLOT_SUFFIX = re.compile(r"-(?:t\d+|base)$")
+
+EVALUATION_ASSERTIONS = frozenset(
+    {
+        # How good the answer was. Every one of these can fail while the
+        # product behaves exactly as designed -- a refusal, a question, a
+        # rejected revision and a query killed by the statement timeout are
+        # all allowed paths.
+        "base_writer_outcome",
+        "writer_outcome",
+        "followup_terminal_status",
+        "base_execution_succeeded",
+        "successor_execution_succeeded",
+        "base_gold_execution_match",
+        "successor_gold_execution_match",
+        "base_postgres_crosscheck",
+        "successor_postgres_crosscheck",
+        "exact_selected_output",
+        "prior_results_stale_after_successor",
+        "semantic_reviewer_correction",
+    }
+)
+"""Judgments about the answer. These never mean the run misbehaved."""
+
+CONFORMANCE_ASSERTIONS = frozenset(
+    {
+        # The product's and the harness's own contract: session protocol,
+        # persisted state, evidence, configuration and safety. A failure
+        # here is unexpected behaviour and invalidates the measurement.
+        "session_created",
+        "new_session_isolation",
+        "initial_turn_recorded",
+        "initial_evidence_available",
+        "followup_http_created",
+        "followup_evidence_available",
+        "followup_profile",
+        "base_version_available",
+        "base_version_saved",
+        "base_validation_recorded",
+        "successor_validation_recorded",
+        "successor_visible_under_three_minutes",
+        "base_classification",
+        "manual_version_classification",
+        "failed_turn_preserved_base",
+        "refresh_restored",
+        "timeline_current_turn",
+        "no_sql_after_non_ready_base",
+        "no_sql_after_non_ready_outcome",
+        "guidance_pinned",
+        "token_evidence_recorded",
+        "token_budget_respected",
+        "writer_model",
+        "reviewer_model",
+        "effective_temperature_and_dry",
+        "invocation_digests",
+        "invocation_duration_sum",
+        "invocation_timestamp_reconciliation",
+        "revision_context_exclusions",
+    }
+)
+"""Contract checks. A failure here means the run, not the model, went wrong."""
+
+
+def assertion_class(name: str, *, strict: bool = False) -> str | None:
+    """Whether `name` judges the answer or checks the contract.
+
+    Slot suffixes (`-base`, `-t2`) are the same check on another turn. An
+    unclassified name is treated as a contract check so a new failure is
+    loud rather than quietly filed as data; `strict=True` returns None
+    instead, which is how the coverage test finds names nobody classified.
+    """
+    root = _SLOT_SUFFIX.sub("", name)
+    if root in EVALUATION_ASSERTIONS:
+        return "evaluation"
+    if root in CONFORMANCE_ASSERTIONS:
+        return "conformance"
+    return None if strict else "conformance"
+
+
 def writer_outcome(turn: dict[str, Any]) -> str:
     """Which terminal answer the writer gave for this turn.
 
@@ -1485,6 +1564,8 @@ def _adopt_reused_pair(
                     "failedAssertions": [
                         {
                             "name": item["name"],
+                            "class": item.get("class")
+                            or assertion_class(item["name"]),
                             "evidence": _compact_evidence(item.get("evidence")),
                         }
                         for item in row.get("assertions") or []
@@ -1829,6 +1910,7 @@ def run_notebook_suite(
                 result["assertions"].append(
                     {
                         "name": "new_session_isolation",
+                        "class": assertion_class("new_session_isolation"),
                         "passed": isolated,
                         "evidence": session_id,
                     }
@@ -2008,7 +2090,14 @@ def _run_scenario(
     assertions: list[dict[str, Any]] = []
 
     def check(name: str, passed: bool, evidence: Any) -> None:
-        assertions.append({"name": name, "passed": bool(passed), "evidence": evidence})
+        assertions.append(
+            {
+                "name": name,
+                "class": assertion_class(name),
+                "passed": bool(passed),
+                "evidence": evidence,
+            }
+        )
 
     create = client.create_session(
         scenario.initial_question, scenario.initial_profile_id
@@ -2076,6 +2165,7 @@ def _run_scenario(
                     assertions.append(
                         {
                             "name": f"{name}-base",
+                            "class": assertion_class(name),
                             "passed": True,
                             "evidence": {"recorded": False, "required": False},
                         }
@@ -2096,10 +2186,15 @@ def _run_scenario(
             "expected": scenario.expected_base_outcome,
         },
     )
-    if scenario.expected_base_outcome in TERMINAL_WRITER_OUTCOMES:
+    if observed_base_outcome in TERMINAL_WRITER_OUTCOMES:
         # A question or a refusal is one writer call and no SQL. There is
         # nothing to validate, execute or check an answer against, and the
         # session must be holding no query at all.
+        #
+        # Keyed on what the writer actually answered, not on what the
+        # scenario hoped for: a writer that answers `ready` is supposed to
+        # leave its query in the session, so asking this of it would fail a
+        # contract check for a judgment the outcome check already made.
         check(
             "no_sql_after_non_ready_base",
             not session.get("versions") and session.get("currentVersionId") is None,
@@ -2108,6 +2203,7 @@ def _run_scenario(
                 "currentVersionId": session.get("currentVersionId"),
             },
         )
+    if scenario.expected_base_outcome in TERMINAL_WRITER_OUTCOMES:
         if scenario.validate_base or scenario.execute_base:
             raise ValueError(
                 f"scenario {scenario.id!r} expects no query from its opening "
@@ -2245,6 +2341,7 @@ def _run_scenario(
             assertions.append(
                 {
                     "name": f"{name}{_slot}",
+                    "class": assertion_class(name),
                     "passed": bool(passed),
                     "evidence": evidence,
                 }
@@ -2311,9 +2408,10 @@ def _run_scenario(
             observed_outcome == turn_spec.expected_outcome,
             {"observed": observed_outcome, "expected": turn_spec.expected_outcome},
         )
-        if turn_spec.expected_outcome in {"needs_clarification", "unsupported"}:
+        if observed_outcome in TERMINAL_WRITER_OUTCOMES:
             # A question or a refusal is one writer call and no SQL: the prior
-            # selected query has to survive it untouched.
+            # selected query has to survive it untouched. Keyed on the answer
+            # actually given, for the reason spelled out at the base check.
             check(
                 "no_sql_after_non_ready_outcome",
                 not turn.get("outputVersions") and turn.get("selectedVersionId") is None,
@@ -2393,6 +2491,7 @@ def _run_scenario(
                         assertions.append(
                             {
                                 "name": f"{name}{slot}",
+                                "class": assertion_class(name),
                                 "passed": True,
                                 "evidence": {"recorded": False, "required": False},
                             }
