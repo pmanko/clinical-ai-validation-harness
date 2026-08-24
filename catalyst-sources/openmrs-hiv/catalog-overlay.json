@@ -1,6 +1,6 @@
 {
   "comment": "The ONLY hand-maintained catalog input for this data source. Everything else (columns, types, descriptions, grain) is introspected from the analytics database by scripts/generate-catalyst-source-catalog.py: descriptions come from COMMENT ON COLUMN, grain from COMMENT ON VIEW (see sql/). Canonical semantic values are validated against the actual data at generation time.",
-  "catalogVersion": "openmrs-hiv-catalog-v4",
+  "catalogVersion": "openmrs-hiv-catalog-v5",
   "dataSource": "openmrs-hiv-fhir-postgresql",
   "dialect": "postgresql",
   "schemaVersion": "analytics-v1",

@@ -101,7 +101,9 @@ WITH per_observation AS (
         MAX(o.status) AS obs_status,
         MAX(o.obs_date) AS observed_at,
         COALESCE(
-            MAX(o.code_display) FILTER (WHERE o.code_sys IS NULL),
+            MAX(o.code_display) FILTER (
+                WHERE o.code_sys IS NULL OR o.code_sys = ''
+            ),
             MAX(o.code_display)
         ) AS concept_name,
         MAX(o.code_code) FILTER (
@@ -116,7 +118,9 @@ WITH per_observation AS (
         MAX(o.val_quantity) AS value_numeric,
         MAX(o.val_quantity_unit) AS value_unit,
         COALESCE(
-            MAX(o.value_display) FILTER (WHERE o.value_sys IS NULL),
+            MAX(o.value_display) FILTER (
+                WHERE o.value_sys IS NULL OR o.value_sys = ''
+            ),
             MAX(o.value_display)
         ) AS value_coded_name,
         MAX(o.value_code) FILTER (
@@ -214,10 +218,14 @@ WITH per_observation AS (
         o.id,
         MAX(o.obs_date) AS observed_at,
         COALESCE(
-            MAX(o.code_display) FILTER (WHERE o.code_sys IS NULL),
+            MAX(o.code_display) FILTER (
+                WHERE o.code_sys IS NULL OR o.code_sys = ''
+            ),
             MAX(o.code_display)
         ) AS concept_name,
-        MAX(o.code_code) FILTER (WHERE o.code_sys IS NULL)
+        MAX(o.code_code) FILTER (
+            WHERE o.code_sys IS NULL OR o.code_sys = ''
+        )
             AS openmrs_concept_code,
         MAX(o.code_code) FILTER (
             WHERE o.code_sys = 'https://cielterminology.org'

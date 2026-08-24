@@ -74,13 +74,14 @@ INSERT INTO public.patient_flat (id, gender, birth_date)
 VALUES ('p1', 'female', '1990-01-01'), ('p2', 'male', '1985-06-15');
 
 -- obs-1: three coding systems on the same observation (OpenMRS-native +
--- CIEL + SNOMED); a numeric CD4 result.
+-- CIEL + SNOMED); a numeric CD4 result. Production represents the native
+-- system as an empty string.
 INSERT INTO public.observation_flat
     (id, patient_id, status, obs_date, val_quantity, val_quantity_unit,
      code_code, code_sys, code_display)
 VALUES
     ('obs-1', 'p1', 'final', '2026-06-01T10:00:00Z', 450, 'cells/uL',
-     '5497', NULL, 'CD4 count'),
+     '5497', '', 'CD4 count'),
     ('obs-1', 'p1', 'final', '2026-06-01T10:00:00Z', 450, 'cells/uL',
      '5497', '{CIEL}', 'CD4 count (CIEL)'),
     ('obs-1', 'p1', 'final', '2026-06-01T10:00:00Z', 450, 'cells/uL',
@@ -92,7 +93,32 @@ INSERT INTO public.observation_flat
      code_code, code_sys, code_display)
 VALUES
     ('obs-2', 'p2', 'final', '2026-06-05T10:00:00Z', 36.5, 'degC',
-     '5088', NULL, 'Temperature (local)');
+     '5088', '', 'Temperature (local)');
+-- obs-5: production empty-string native code and coded answer alongside an
+-- external mapping whose display sorts later. A generic MAX(display) fallback
+-- would silently choose the external wording.
+INSERT INTO public.observation_flat
+    (id, patient_id, status, obs_date, code_code, code_sys, code_display,
+     value_code, value_sys, value_display)
+VALUES
+    ('obs-5', 'p1', 'final', '2026-06-07T10:00:00Z',
+     'empty-native-code', '', 'Empty-system concept',
+     'empty-native-answer', '', 'Empty-system answer'),
+    ('obs-5', 'p1', 'final', '2026-06-07T10:00:00Z',
+     'empty-ciel-code', '{CIEL}', 'ZZZ external concept',
+     'empty-ciel-answer', '{CIEL}', 'ZZZ external answer');
+-- obs-6: compatibility NULL native system, retained so accepting the real
+-- empty-string representation does not regress sources that normalize it.
+INSERT INTO public.observation_flat
+    (id, patient_id, status, obs_date, code_code, code_sys, code_display,
+     value_code, value_sys, value_display)
+VALUES
+    ('obs-6', 'p2', 'final', '2026-06-08T10:00:00Z',
+     'null-native-code', NULL, 'Null-system concept',
+     'null-native-answer', NULL, 'Null-system answer'),
+    ('obs-6', 'p2', 'final', '2026-06-08T10:00:00Z',
+     'null-ciel-code', '{CIEL}', 'ZZZ null external concept',
+     'null-ciel-answer', '{CIEL}', 'ZZZ null external answer');
 -- obs-3: no resolvable patient subject -- must be excluded by the patient join.
 INSERT INTO public.observation_flat
     (id, patient_id, status, obs_date, val_quantity, code_code, code_sys, code_display)
@@ -202,6 +228,19 @@ class HivIngestionScriptContractTests(unittest.TestCase):
             script,
         )
 
+    def test_ingestion_reconciles_native_concept_codes_and_displays(self):
+        script = INGESTION_SCRIPT.read_text(encoding="utf-8")
+
+        self.assertIn(
+            "count(NULLIF(openmrs_concept_code, ''))",
+            script,
+        )
+        self.assertIn("missing_from_view", script)
+        self.assertIn("missing_from_raw", script)
+        self.assertIn("display_mismatches", script)
+        self.assertIn("o.code_sys IS NULL OR o.code_sys = ''", script)
+        self.assertIn("o.value_sys IS NULL OR o.value_sys = ''", script)
+
 
 class HivFactViewSemanticsTests(unittest.TestCase):
     maxDiff = None
@@ -249,12 +288,13 @@ class HivFactViewSemanticsTests(unittest.TestCase):
             "SELECT * FROM analytics.hiv_observation_fact_v1 ORDER BY observation_id"
         )
         # obs-3 (no patient) and obs-4 (outside date window) are excluded;
-        # obs-1's 3 coding rows collapse to one.
+        # each multi-coded observation collapses to one.
         self.assertEqual(
-            [row["observation_id"] for row in rows], ["obs-1", "obs-2"]
+            [row["observation_id"] for row in rows],
+            ["obs-1", "obs-2", "obs-5", "obs-6"],
         )
 
-        obs1, obs2 = rows
+        obs1, obs2, obs5, obs6 = rows
         self.assertEqual(obs1["concept_name"], "CD4 count")
         self.assertEqual(obs1["concept_code_ciel"], "5497")
         self.assertEqual(obs1["concept_code_snomed"], "733961000000107")
@@ -267,6 +307,11 @@ class HivFactViewSemanticsTests(unittest.TestCase):
         self.assertIsNone(obs2["concept_code_ciel"])
         self.assertIsNone(obs2["concept_code_snomed"])
 
+        self.assertEqual(obs5["concept_name"], "Empty-system concept")
+        self.assertEqual(obs5["value_coded_name"], "Empty-system answer")
+        self.assertEqual(obs6["concept_name"], "Null-system concept")
+        self.assertEqual(obs6["value_coded_name"], "Null-system answer")
+
     def test_concept_mapping_view_flags_the_unmapped_concept(self):
         rows = self._rows(
             "SELECT * FROM analytics.hiv_concept_mapping_v1 "
@@ -274,9 +319,42 @@ class HivFactViewSemanticsTests(unittest.TestCase):
         )
         self.assertEqual(len(rows), 1)
         row = rows[0]
+        self.assertEqual(row["openmrs_concept_code"], "5088")
         self.assertIsNone(row["ciel_code"])
         self.assertIsNone(row["snomed_code"])
         self.assertEqual(row["observation_count"], 1)
+
+    def test_concept_mapping_uses_exact_empty_and_null_native_codings(self):
+        rows = self._rows(
+            "SELECT concept_name, openmrs_concept_code "
+            "FROM analytics.hiv_concept_mapping_v1 "
+            "WHERE concept_name IN ('Empty-system concept', 'Null-system concept') "
+            "ORDER BY concept_name"
+        )
+        self.assertEqual(
+            rows,
+            [
+                {
+                    "concept_name": "Empty-system concept",
+                    "openmrs_concept_code": "empty-native-code",
+                },
+                {
+                    "concept_name": "Null-system concept",
+                    "openmrs_concept_code": "null-native-code",
+                },
+            ],
+        )
+
+    def test_every_seeded_concept_mapping_has_a_native_code(self):
+        rows = self._rows(
+            "SELECT count(*) AS total, "
+            "count(NULLIF(openmrs_concept_code, '')) AS with_native_code "
+            "FROM analytics.hiv_concept_mapping_v1"
+        )
+        # obs-3 has no resolvable Patient and is excluded from the patient fact,
+        # but the terminology view intentionally covers it; all five in-window
+        # observations still carry a native code.
+        self.assertEqual(rows, [{"total": 5, "with_native_code": 5}])
 
     def test_visit_fact_collapses_codings_and_computes_gap_in_own_window(self):
         rows = self._rows(
