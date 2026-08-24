@@ -3954,3 +3954,38 @@ def test_a_suite_not_requiring_tokens_records_the_base_absence_honestly(
     base = [a for a in row["assertions"] if a["name"] == "token_evidence_recorded-base"]
     assert base and base[0]["passed"] is True
     assert base[0]["evidence"] == {"recorded": False, "required": False}
+
+
+def test_a_deterministic_answer_with_no_model_call_owes_no_token_evidence() -> None:
+    """Zero invocations means nothing was rendered or sent.
+
+    B1's opening question is answered by the catalog-scope preflight -- no
+    model call -- and the run scored that honest absence as a failure. An
+    affirmatively empty invocation list passes with the absence recorded;
+    a missing list stays strict, so a turn cannot dodge the check by not
+    recording its calls.
+    """
+    zero_calls = {"invocations": [], "tokenAccounting": None}
+    checks = dict(
+        (name, (passed, detail))
+        for name, passed, detail in token_evidence_checks(zero_calls)
+    )
+    passed, detail = checks["token_evidence_recorded"]
+    assert passed is True
+    assert detail == {"recorded": False, "modelInvocations": 0}
+
+    no_record = {"tokenAccounting": None}
+    checks = dict(
+        (name, passed) for name, passed, _ in token_evidence_checks(no_record)
+    )
+    assert checks["token_evidence_recorded"] is False
+
+    called_but_uncounted = {
+        "invocations": [{"role": "writer", "outcome": "succeeded"}],
+        "tokenAccounting": None,
+    }
+    checks = dict(
+        (name, passed)
+        for name, passed, _ in token_evidence_checks(called_but_uncounted)
+    )
+    assert checks["token_evidence_recorded"] is False

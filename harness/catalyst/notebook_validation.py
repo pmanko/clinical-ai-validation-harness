@@ -1258,6 +1258,20 @@ def token_evidence_checks(
     """
     accounting = evidence.get("tokenAccounting")
     if not isinstance(accounting, dict):
+        # An affirmatively empty invocation list is a deterministic answer --
+        # the catalog-scope preflight asks or declines without any model call,
+        # so nothing was rendered or sent and there is nothing to count. A
+        # MISSING list stays strict: a turn cannot dodge the check by not
+        # recording its calls.
+        invocations = evidence.get("invocations")
+        if isinstance(invocations, list) and not invocations:
+            return [
+                (
+                    "token_evidence_recorded",
+                    True,
+                    {"recorded": False, "modelInvocations": 0},
+                )
+            ]
         return [("token_evidence_recorded", False, None)]
 
     window = accounting.get("contextWindow")
