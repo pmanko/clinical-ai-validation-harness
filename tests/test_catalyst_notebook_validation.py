@@ -3842,3 +3842,45 @@ def test_the_client_translates_a_transport_error_into_an_exchange() -> None:
     assert exchange.status_code == 599
     message = exchange.response_body["error"]["message"]
     assert "ConnectionError" in message and "Remote end closed" in message
+
+
+def test_a_resumed_run_directory_is_self_contained(tmp_path: Path) -> None:
+    """Reused pairs travel with the resumed run: rows, feed, and evidence.
+
+    Everything downstream -- the live dashboard, the report's evidence
+    links, the scorer -- reads one run directory. A resume that left the
+    reused pairs' rows and evidence in the old directory would show 0 done
+    on the dashboard and break the report's links for exactly the work that
+    was already paid for.
+    """
+    state = _WorkbenchState()
+    suite = _adaptive_suite()
+    suite["repetitions"] = 1
+    suite.pop("extendedRepetitions", None)
+    suite_path = tmp_path / "suite.json"
+    suite_path.write_text(json.dumps(suite), encoding="utf-8")
+
+    first = _run_against_fake(tmp_path, suite, state)
+    # The old run recorded its pair fully; the summary vanished with the crash.
+    (first.run_dir / "results.json").unlink()
+
+    resumed = _run_against_fake(tmp_path, suite, state, resume_from=first.run_dir)
+
+    rows = [
+        json.loads(line)
+        for line in (resumed.run_dir / "rows.jsonl").read_text().splitlines()
+        if line.strip()
+    ]
+    assert [row["scenarioId"] for row in rows] == ["adaptive"]
+    feed = [
+        json.loads(line)
+        for line in (resumed.run_dir / "results.jsonl").read_text().splitlines()
+        if line.strip()
+    ]
+    assert [entry["scenario_id"] for entry in feed] == ["adaptive"]
+    assert feed[0]["metrics"]["passed"] is True
+    # The reused pair's evidence tree came along.
+    assert (
+        resumed.run_dir / "scenarios" / "adaptive" / "repetition-01"
+        / "01-create-session.json"
+    ).exists()
