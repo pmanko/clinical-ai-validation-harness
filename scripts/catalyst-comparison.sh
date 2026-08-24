@@ -45,6 +45,9 @@ case "${cmd}" in
     SLUG="${SLUG:-catalyst-phase1-comparison-${run_id%%-*}}"
     [[ -f "${run_dir}/results.json" ]] || { echo "ERROR: ${run_dir} has no results.json (run not finished — use resume)" >&2; exit 1; }
 
+    echo "==> triage: every failure vetted, every pass exercised"
+    (cd "${ROOT}" && uv run python scripts/triage-run.py "${run_dir}")
+
     echo "==> scoring twice; replays must be byte-identical"
     (cd "${ROOT}" && uv run python - "$run_dir" <<'PY'
 import sys

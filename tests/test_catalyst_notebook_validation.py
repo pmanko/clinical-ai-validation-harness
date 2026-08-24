@@ -3907,3 +3907,33 @@ def test_a_literal_percent_survives_the_driver_conversion() -> None:
     )
     assert "'%%viral%%'" in mixed
     assert "%(since)s" in mixed
+
+
+def test_the_opening_generation_is_token_checked_like_any_other(
+    tmp_path: Path,
+) -> None:
+    """A base-only scenario's only generation is the opening one.
+
+    A1-A4 have no follow-ups, so asserting token evidence only inside the
+    turn loop let them pass with the requirement never exercised -- a
+    vacuous pass the roadmap's 'complete token evidence' gate exists to
+    forbid.
+    """
+    state = _WorkbenchState()
+    suite = _adaptive_suite()
+    suite["repetitions"] = 1
+    suite["requireTokenEvidence"] = True
+    suite.pop("extendedRepetitions", None)
+    suite["scenarios"][0].pop("followupInstruction")
+    suite["scenarios"][0].pop("followupProfileId")
+    suite["scenarios"][0]["turns"] = []
+    suite["scenarios"][0]["expectedBaseOutcome"] = "ready"
+
+    result = _run_against_fake(tmp_path, suite, state)
+
+    row = json.loads((result.run_dir / "results.json").read_text())["results"][0]
+    names = {a["name"]: a["passed"] for a in row["assertions"]}
+    assert "token_evidence_recorded-base" in names
+    # The fake's evidence carries no accounting, so a requiring suite fails.
+    assert names["token_evidence_recorded-base"] is False
+    assert row["passed"] is False

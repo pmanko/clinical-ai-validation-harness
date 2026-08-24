@@ -1,0 +1,37 @@
+[
+  {
+    "signature": ["exact_selected_output", "followup_terminal_status", "writer_outcome"],
+    "disposition": "model",
+    "rationale": "The writer's follow-up was rejected by the deterministic lint (e.g. it bound only one of several explicitly named analytes). Verified genuine after the greedy-alias fix (catalyst #71): requirements now bind only analytes the instruction actually names."
+  },
+  {
+    "signature": ["exact_selected_output", "followup_terminal_status", "prior_results_stale_after_successor", "writer_outcome"],
+    "disposition": "model",
+    "rationale": "Same rejected-follow-up class; the staleness assertion fails alongside because no successor was produced."
+  },
+  {
+    "signature": ["successor_execution_succeeded"],
+    "disposition": "model",
+    "rationale": "The model's accepted query exceeded the product's 30s statement timeout when executed (sqlstate 57014)."
+  },
+  {
+    "signature": ["successor_gold_execution_match"],
+    "disposition": "model",
+    "rationale": "The executed answer disagreed with the independently authored reference. Valid only since the criteria became projection-independent (harness #66/#73); any column-name disagreement text here would be a criteria bug instead."
+  },
+  {
+    "signature": ["base_gold_execution_match"],
+    "disposition": "model",
+    "rationale": "Opening-question answer disagreed with the independent reference, under projection-independent criteria."
+  },
+  {
+    "signature": ["base_writer_outcome", "no_sql_after_non_ready_base"],
+    "disposition": "model",
+    "rationale": "The writer produced a query where the scenario requires a refusal or a question (e.g. U2 confabulating a clinician-name query)."
+  },
+  {
+    "signature": ["base_writer_outcome"],
+    "disposition": "model",
+    "rationale": "The opening answer kind was wrong (e.g. ready where unsupported was due), with no leftover SQL."
+  }
+]

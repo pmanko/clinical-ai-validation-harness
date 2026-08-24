@@ -1966,6 +1966,23 @@ def _run_scenario(
             evidence_exchange.status_code == 200,
             evidence_exchange.status_code,
         )
+        # The opening generation is a scored turn like any other -- for a
+        # base-only scenario it is the only one -- so its token accounting is
+        # asserted here, not just inside the follow-up loop.
+        for name, passed, detail in token_evidence_checks(initial_evidence):
+            if name == "token_evidence_recorded" and not passed:
+                if suite.require_token_evidence:
+                    check(f"{name}-base", False, detail)
+                else:
+                    assertions.append(
+                        {
+                            "name": f"{name}-base",
+                            "passed": True,
+                            "evidence": {"recorded": False, "required": False},
+                        }
+                    )
+                continue
+            check(f"{name}-base", passed, detail)
 
     # What the writer answered the opening question with, before anything is
     # done to the session: a query, a question, or a refusal.
