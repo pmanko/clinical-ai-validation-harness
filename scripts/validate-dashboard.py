@@ -894,21 +894,28 @@ async function openD(s,b){
  }else{
   h+='<div class=exp><b>Expected:</b> '+(e.should_abstain?'ABSTAIN':'retrieve')+(e.should_cite_resource_types?' ['+e.should_cite_resource_types.join(', ')+']':'')+'<br>'+esc(e.notes||'')+'</div>';
  }
- (d.turns||[]).forEach(t=>{
-  const tr=t.trace;
-  const answerConf=t.answer_confidence_display;
-  const indepthConf=t.indepth_confidence_display;
-  const answerLifecycle=t.answer_validation_display;
-  const indepthLifecycle=t.indepth_validation_display;
-  // A catalyst run's rows are repetitions of the same scenario, not
-  // conversation turns; the conversation is inside the card.
-  h+='<div class=turn><div class=q>'+(t.catalyst?('Repetition '+t.turn):('Turn '+t.turn+': '+esc(t.question)))+'</div>';
-  if(t.catalyst){
+ const reps=(d.turns||[]);
+ if(reps.length&&reps[0].catalyst){
+  // One scenario, N repetitions: the script is stated once above; what a
+  // reviewer compares is per-repetition outcomes, so those are a table and
+  // the full transcript of each repetition is collapsed beneath it.
+  const chip=(exp,obs)=>(!exp||obs===exp)?'<span class=ok>'+esc(obs||'?')+'</span>':'<span class=err>'+esc(obs||'?')+'</span>';
+  const first=reps[0].catalyst;
+  h+='<div style="overflow-x:auto"><table class=data><tr><th>rep</th><th>opening</th>';
+  (first.turns||[]).forEach((u,i)=>{h+='<th title="'+esc(u.instruction||'')+'">turn '+(i+2)+'</th>';});
+  h+='<th>time</th><th>verdict</th><th>why</th></tr>';
+  reps.forEach(t=>{
    const c=t.catalyst;
-   const chip=(exp,obs)=>(!exp||obs===exp)?'<span class=ok>'+esc(obs||'?')+'</span>':'<span class=err>'+esc(obs||'?')+' (expected '+esc(exp)+')</span>';
-   h+='<div class=meta>'+(c.passed?'<span class=ok>PASS</span>':'<span class=err>FAIL</span>')+' · '+(t.latency_ms||0)+'ms · opening answer '+chip(c.expectedBaseOutcome,c.baseOutcome)+'</div>';
+   const why=(c.failedAssertions&&c.failedAssertions.length)?esc(c.failedAssertions[0].name):'';
+   h+='<tr><td>'+t.turn+'</td><td>'+chip(c.expectedBaseOutcome,c.baseOutcome)+'</td>';
+   (first.turns||[]).forEach((_,i)=>{const u=(c.turns||[])[i]||{};h+='<td>'+chip(u.expectedOutcome,u.observedOutcome)+'</td>';});
+   h+='<td>'+Math.round((t.latency_ms||0)/1000)+'s</td><td>'+(c.passed?'<span class=ok>PASS</span>':'<span class=err>FAIL</span>')+'</td><td>'+why+'</td></tr>';
+  });
+  h+='</table></div>';
+  reps.forEach(t=>{
+   const c=t.catalyst;
+   h+='<details class=tracebox><summary>'+(c.passed?'✓':'×')+' repetition '+t.turn+' — full detail</summary><div class=turn>';
    h+='<div class=ans><pre style="white-space:pre-wrap;margin:0">'+esc(t.answer||'')+'</pre></div>';
-   (c.turns||[]).forEach((u,i)=>{h+='<div class=meta>turn '+(i+2)+': '+esc(u.instruction||'')+' → '+chip(u.expectedOutcome,u.observedOutcome)+'</div>';});
    const rp=c.resultPreview;
    if(rp&&(rp.columns||[]).length){
     h+='<div class=csec><div class=ctitle>Result ('+(rp.returned!=null?rp.returned+' rows':'')+(rp.truncatedPreview?', first 10 shown':'')+')</div>';
@@ -921,9 +928,18 @@ async function openD(s,b){
    }else{
     h+='<div class=meta><span class=ok>every check passed</span></div>';
    }
-   h+='</div>';
-   return;
-  }
+   h+='</div></details>';
+  });
+  mbody.innerHTML=h; modal.style.display='flex';
+  return;
+ }
+ (d.turns||[]).forEach(t=>{
+  const tr=t.trace;
+  const answerConf=t.answer_confidence_display;
+  const indepthConf=t.indepth_confidence_display;
+  const answerLifecycle=t.answer_validation_display;
+  const indepthLifecycle=t.indepth_validation_display;
+  h+='<div class=turn><div class=q>Turn '+t.turn+': '+esc(t.question)+'</div>';
   h+='<div class=meta><span class="'+(t.status===200?'ok':'err')+'">status '+t.status+'</span> · '+(t.latency_ms||0)+'ms · '+(t.chars||0)+' chars · '+(t.citations||0)+' source refs</div>';
   h+=renderStageTimings(tr&&tr.stage_timings);
   if(t.error){
