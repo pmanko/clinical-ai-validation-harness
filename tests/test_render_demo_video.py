@@ -154,6 +154,19 @@ def test_card_kicker_and_lines_are_written_to_textfiles_too(tmp_path):
     assert "Plain-language question to checked SQL." in written
 
 
+def test_card_footer_is_written_to_a_textfile_and_drawn_near_the_bottom(tmp_path):
+    timeline = minimal_timeline(footer="catalyst.openelis-global.org")
+    graph = rdv.build_filtergraph(timeline, tmp_path)
+    written = {p.read_text(encoding="utf-8") for p in tmp_path.glob("*.txt")}
+    assert "catalyst.openelis-global.org" in written
+    assert "y=h-text_h-" in graph
+
+
+def test_card_without_a_footer_draws_no_extra_textfile_for_it(tmp_path):
+    rdv.build_filtergraph(minimal_timeline(), tmp_path)
+    assert not any(p.name.endswith("-footer.txt") for p in tmp_path.glob("*.txt"))
+
+
 def test_build_command_uses_ffmpeg_bin_env_override(monkeypatch):
     monkeypatch.setenv("FFMPEG_BIN", "/opt/homebrew/opt/ffmpeg-full/bin/ffmpeg")
     cmd = rdv.build_command(minimal_timeline(), source="raw.webm", output="out.mp4")
