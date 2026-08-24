@@ -1325,7 +1325,9 @@ def _adopt_reused_pair(
     feed entries, and evidence tree travel with the resumed run instead of
     staying behind in the interrupted one.
     """
-    backend_id = team or scenario.initial_profile_id
+    # Match the live rows exactly: they group by the profile that answered
+    # the follow-ups (which falls back to the opener when there are none).
+    backend_id = team or scenario.followup_profile_id
     key = f"{backend_id}/{scenario.id}" if team is not None else scenario.id
     if resume_from is not None:
         source = resume_from / "scenarios" / key
@@ -1638,7 +1640,7 @@ def run_notebook_suite(
             if team is not None:
                 scenario = _scenario_for_profile(scenario, team)
             recorded = finished.get(
-                (team or scenario.initial_profile_id, scenario.id)
+                (team or scenario.followup_profile_id, scenario.id)
             )
             if recorded is not None and _pair_is_complete(
                 recorded, suite, scenario, repetitions
@@ -1660,7 +1662,7 @@ def run_notebook_suite(
                     {
                         "scenarioId": scenario.id,
                         "family": scenario.family,
-                        "profileId": team or scenario.initial_profile_id,
+                        "profileId": team or scenario.followup_profile_id,
                         "status": "skipped",
                         "reason": "manual-only bounded failure scenario was not enabled",
                     }
@@ -1712,7 +1714,7 @@ def run_notebook_suite(
                     }
                 )
                 result["passed"] = all(item["passed"] for item in result["assertions"])
-                result["profileId"] = team or scenario.initial_profile_id
+                result["profileId"] = team or scenario.followup_profile_id
                 # Appended now, not at the end: this row is what --resume
                 # reuses when the run dies before the summary is written.
                 append_jsonl(run_dir / "rows.jsonl", result)
