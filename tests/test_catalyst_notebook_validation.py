@@ -157,6 +157,7 @@ class _WorkbenchState:
         self.turn_http_sequence: list[int] | None = None
         self.turn_attempts = 0
         self.requests: list[tuple[str, str]] = []
+        self.session_requests: list[dict[str, Any]] = []
 
     def reset(self) -> None:
         """A new session starts a repetition from the same clean state.
@@ -262,7 +263,8 @@ def _handler(state: _WorkbenchState):
 
         def do_GET(self) -> None:  # noqa: N802
             state.requests.append(("GET", self.path))
-            if self.path == "/v1/catalyst/query-options":
+            path = self.path.split("?")[0]
+            if path == "/v1/catalyst/query-options":
                 self._send(
                     200,
                     {
@@ -287,7 +289,7 @@ def _handler(state: _WorkbenchState):
                         ]
                     },
                 )
-            elif self.path == "/v1/catalyst/dataset":
+            elif path == "/v1/catalyst/dataset":
                 self._send(
                     200,
                     {
@@ -296,7 +298,7 @@ def _handler(state: _WorkbenchState):
                         "pipelineRunId": "pipeline-1",
                     },
                 )
-            elif self.path == "/v1/catalyst/workbench/catalog":
+            elif path == "/v1/catalyst/workbench/catalog":
                 self._send(
                     200,
                     {
@@ -324,6 +326,7 @@ def _handler(state: _WorkbenchState):
             body = self._body()
             if self.path == "/v1/catalyst/workbench/sessions":
                 state.reset()
+                state.session_requests.append(body)
                 self._send(201, state.session())
             elif self.path == f"/v1/catalyst/workbench/sessions/{state.session_id}/versions":
                 version = _version(
@@ -386,7 +389,11 @@ def _handler(state: _WorkbenchState):
                     f"version-{2 + ordinal}",
                     "SELECT DISTINCT patient_id FROM analytics.lab_result_fact_v1"
                     + ("" if ordinal == 1 else f" LIMIT {ordinal}"),
-                    parent=state.current["versionId"],
+                    # A turn answering a question produces the session's
+                    # first version, so it has no parent.
+                    parent=(
+                        state.current["versionId"] if state.current else None
+                    ),
                 )
                 successor["authorType"] = "model_repair"
                 state.versions.append(successor)
@@ -3319,3 +3326,208 @@ def test_a_resumed_run_keeps_finished_work_and_only_runs_what_is_left(
     # team-a was reused, not re-run: only team-b cost model time.
     assert len(state.turn_requests) == finished_turns // 2
     assert rows[0] == partial["results"][0]
+
+
+def test_a_suite_bound_to_one_source_asks_that_source_everything(
+    tmp_path: Path,
+) -> None:
+    """The HIV comparison must not be silently answered by OpenELIS.
+
+    A gateway serving several sources answers the default one when asked
+    without a `dataSourceId`, so a suite that names a source has to carry it
+    into discovery and into every session it opens -- otherwise the run looks
+    healthy and measures the wrong data.
+    """
+    state = _WorkbenchState()
+    suite = _suite_payload(dataSourceId="openmrs-hiv")
+    suite_path = tmp_path / "suite.json"
+    suite_path.write_text(json.dumps(suite), encoding="utf-8")
+    assert load_notebook_suite(suite_path).data_source_id == "openmrs-hiv"
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), _handler(state))
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        run_notebook_suite(
+            suite_path=suite_path,
+            # Built the way the CLI builds it: knowing nothing about the
+            # source, so only the suite can bind it.
+            client=NotebookHttpClient(f"http://127.0.0.1:{server.server_port}"),
+            output_dir=tmp_path / "artifacts",
+            project_root=ROOT,
+            provenance_loader=lambda _: [],
+        )
+    finally:
+        server.shutdown()
+        thread.join(timeout=5)
+        server.server_close()
+
+    asked = [path for method, path in state.requests if method == "GET"]
+    assert any(
+        path.startswith("/v1/catalyst/dataset") and "dataSourceId=openmrs-hiv" in path
+        for path in asked
+    ), asked
+    assert any(
+        path.startswith("/v1/catalyst/workbench/catalog")
+        and "dataSourceId=openmrs-hiv" in path
+        for path in asked
+    ), asked
+    assert state.session_requests[0]["dataSourceId"] == "openmrs-hiv"
+    assert state.turn_requests[0]["dataSourceId"] == "openmrs-hiv"
+
+
+def test_a_suite_naming_no_source_still_asks_the_gateways_default(
+    tmp_path: Path,
+) -> None:
+    state = _WorkbenchState()
+    _run_against_fake(tmp_path, _suite_payload(), state)
+
+    assert load_notebook_suite  # imported
+    assert all("dataSourceId" not in path for _method, path in state.requests)
+    assert "dataSourceId" not in state.session_requests[0]
+
+
+def test_a_clarification_is_answered_with_no_query_to_revise(tmp_path: Path) -> None:
+    """B1-B3: the opening question asked, so the answering turn revises nothing.
+
+    The turn still has to be sent, and it cannot carry an editor snapshot
+    because the session holds no query -- reading one off the absent base is
+    how this used to end the run.
+    """
+    suite = {
+        "id": "notebook-clarify-v1",
+        "datasetId": "catalyst-cohort-v1",
+        "datasetVersion": "1",
+        "catalogVersion": "analytics-catalog-v1",
+        "providerName": "llama.cpp",
+        "repetitions": 1,
+        "profiles": {
+            PROFILE_ID: {
+                "writerModelId": "gemma-4-12b",
+                "reviewerModelId": "qwen2.5-14b",
+            }
+        },
+        "scenarios": [
+            {
+                "id": "recent-results",
+                "family": "clarification",
+                "initialQuestion": "Show recent HIV results.",
+                "initialProfileId": PROFILE_ID,
+                "expectedBaseClassification": "not_applicable",
+                "expectedBaseOutcome": "needs_clarification",
+                "validateBase": False,
+                "executeBase": False,
+                "turns": [
+                    {
+                        "instruction": "The last 90 days, and only CD4 count.",
+                        "profileId": PROFILE_ID,
+                    }
+                ],
+            }
+        ],
+    }
+    suite_path = tmp_path / "suite.json"
+    suite_path.write_text(json.dumps(suite), encoding="utf-8")
+    state = _WorkbenchState()
+    state.base_outcome = "needs_clarification"
+    server = ThreadingHTTPServer(("127.0.0.1", 0), _handler(state))
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        result = run_notebook_suite(
+            suite_path=suite_path,
+            client=NotebookHttpClient(f"http://127.0.0.1:{server.server_port}"),
+            output_dir=tmp_path / "artifacts",
+            project_root=ROOT,
+            provenance_loader=lambda _: [],
+        )
+    finally:
+        server.shutdown()
+        thread.join(timeout=5)
+        server.server_close()
+
+    row = json.loads((result.run_dir / "results.json").read_text())["results"][0]
+    assert row["baseOutcome"] == "needs_clarification"
+    assert len(row["turns"]) == 1
+    # The answering turn claimed nothing about a query it never received.
+    request = state.turn_requests[0]
+    assert request["editorSnapshot"] is None
+    assert request["observedBase"] is None
+
+
+def test_a_model_query_that_blows_the_row_cap_fails_the_check_not_the_run(
+    monkeypatch,
+) -> None:
+    """An unfiltered model query is a wrong answer, not a broken harness.
+
+    The cap exists so a runaway query cannot stall the comparison; hitting it
+    proves the model's answer is far larger than the reference, which is a
+    scored mismatch. Killing the whole run here would let one bad answer
+    erase hours of finished work.
+    """
+    from harness.catalyst.notebook_validation import (
+        PostgresGoldExecutionChecker,
+        NotebookGoldCheck,
+    )
+
+    _gold_check_connection(
+        monkeypatch,
+        {
+            "model_table": (["patient_id"], [(f"p{i}",) for i in range(6)]),
+            "reference_table": (["patient_id"], [("p1",), ("p2",)]),
+        },
+    )
+    version = {
+        "versionId": "version-1",
+        "queryDigest": "a" * 64,
+        "sql": "SELECT patient_id FROM model_table",
+        "parameters": [],
+    }
+    gold_check = NotebookGoldCheck(
+        mode="row_set",
+        reference_sql="SELECT patient_id FROM reference_table",
+        match_columns=("patient_id",),
+    )
+
+    result = PostgresGoldExecutionChecker(
+        "postgresql://readonly:secret@127.0.0.1:15443/catalyst_analytics",
+        max_rows=5,
+    ).check(version, gold_check)
+
+    assert result["passed"] is False
+    assert result["modelRowsExceededCap"] is True
+    assert result["modelRowCount"] == 5
+
+
+def test_a_reference_that_blows_the_row_cap_is_a_suite_error(monkeypatch) -> None:
+    """The reference is ours: if it is oversized the scenario is misauthored,
+    and silently scoring against a truncated reference would be a lie."""
+    from harness.catalyst.notebook_validation import (
+        PostgresGoldExecutionChecker,
+        NotebookGoldCheck,
+    )
+
+    _gold_check_connection(
+        monkeypatch,
+        {
+            "model_table": (["patient_id"], [("p1",)]),
+            "reference_table": (["patient_id"], [(f"p{i}",) for i in range(6)]),
+        },
+    )
+    version = {
+        "versionId": "version-1",
+        "queryDigest": "a" * 64,
+        "sql": "SELECT patient_id FROM model_table",
+        "parameters": [],
+    }
+    gold_check = NotebookGoldCheck(
+        mode="row_set",
+        reference_sql="SELECT patient_id FROM reference_table",
+        match_columns=("patient_id",),
+    )
+
+    with pytest.raises(ValueError, match="reference"):
+        PostgresGoldExecutionChecker(
+            "postgresql://readonly:secret@127.0.0.1:15443/catalyst_analytics",
+            max_rows=5,
+        ).check(version, gold_check)

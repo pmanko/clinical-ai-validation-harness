@@ -22,6 +22,8 @@ from typing import Any, Callable, Protocol
 from urllib.parse import urlparse
 from uuid import UUID, uuid4
 
+from urllib.parse import quote
+
 import requests
 import rfc8785
 
@@ -227,6 +229,9 @@ class NotebookSuite:
     # The teams this suite compares, in the order they are run. Empty means
     # the suite is not a comparison: each scenario uses the profile it names.
     comparison_profiles: tuple[str, ...] = ()
+    # The gateway serves several sources and answers its default when not
+    # told which; a suite bound to one names it so nothing else can answer.
+    data_source_id: str | None = None
 
 
 @dataclass(frozen=True)
@@ -296,7 +301,7 @@ class NotebookTransport(Protocol):
         instruction: str,
         profile_id: str,
         observed_base: dict[str, str] | None,
-        editor_snapshot: dict[str, Any],
+        editor_snapshot: dict[str, Any] | None,
     ) -> HttpExchange: ...
 
 
@@ -317,9 +322,16 @@ class GoldChecker(Protocol):
 
 
 class NotebookHttpClient:
-    def __init__(self, base_url: str, *, timeout_seconds: int = 240) -> None:
+    def __init__(
+        self,
+        base_url: str,
+        *,
+        timeout_seconds: int = 240,
+        data_source_id: str | None = None,
+    ) -> None:
         self.base_url = base_url.rstrip("/")
         self.timeout_seconds = timeout_seconds
+        self.data_source_id = data_source_id
         self.session = requests.Session()
 
     def _request(
@@ -348,11 +360,22 @@ class NotebookHttpClient:
     def profiles(self) -> HttpExchange:
         return self._request("GET", "/v1/catalyst/query-options")
 
+    def bind_data_source(self, data_source_id: str) -> None:
+        self.data_source_id = data_source_id
+
+    def _scoped(self, path: str) -> str:
+        """Ask the suite's source, not whichever one the gateway defaults to."""
+        if self.data_source_id is None:
+            return path
+        return f"{path}?dataSourceId={quote(self.data_source_id)}"
+
     def dataset_overview(self) -> HttpExchange:
-        return self._request("GET", "/v1/catalyst/dataset")
+        return self._request("GET", self._scoped("/v1/catalyst/dataset"))
 
     def catalog(self) -> HttpExchange:
-        return self._request("GET", "/v1/catalyst/workbench/catalog")
+        return self._request(
+            "GET", self._scoped("/v1/catalyst/workbench/catalog")
+        )
 
     def create_session(self, question: str, profile_id: str) -> HttpExchange:
         return self._request(
@@ -363,6 +386,11 @@ class NotebookHttpClient:
                 "deploymentMode": "demo",
                 "question": question,
                 "profileId": profile_id,
+                **(
+                    {"dataSourceId": self.data_source_id}
+                    if self.data_source_id is not None
+                    else {}
+                ),
             },
         )
 
@@ -429,7 +457,7 @@ class NotebookHttpClient:
         instruction: str,
         profile_id: str,
         observed_base: dict[str, str] | None,
-        editor_snapshot: dict[str, Any],
+        editor_snapshot: dict[str, Any] | None,
     ) -> HttpExchange:
         return self._request(
             "POST",
@@ -438,6 +466,11 @@ class NotebookHttpClient:
                 "contractVersion": "catalyst.workbench.turn.request.v1",
                 "instruction": instruction,
                 "profileId": profile_id,
+                **(
+                    {"dataSourceId": self.data_source_id}
+                    if self.data_source_id is not None
+                    else {}
+                ),
                 "observedBase": observed_base,
                 "editorSnapshot": editor_snapshot,
             },
@@ -535,23 +568,22 @@ def _fetch_all_rows(
     parameters: list[dict[str, Any]],
     *,
     max_rows: int,
-) -> list[dict[str, Any]]:
+) -> tuple[list[dict[str, Any]], bool]:
     bindings = {
         str(parameter["name"]): _binding_value(parameter) for parameter in parameters
     }
     driver_sql = _driver_sql(sql, set(bindings))
     cursor.execute(driver_sql, bindings)
     rows = list(cursor.fetchmany(max_rows + 1))
-    if len(rows) > max_rows:
-        raise ValueError(
-            f"gold execution match exceeded the {max_rows}-row safety cap; "
-            "raise max_rows or narrow the scenario"
-        )
+    exceeded = len(rows) > max_rows
     columns = [item.name for item in (cursor.description or ())]
-    return [
-        {column: _json_safe_value(value) for column, value in zip(columns, row)}
-        for row in rows
-    ]
+    return (
+        [
+            {column: _json_safe_value(value) for column, value in zip(columns, row)}
+            for row in rows[:max_rows]
+        ],
+        exceeded,
+    )
 
 
 class PostgresGoldExecutionChecker:
@@ -580,18 +612,25 @@ class PostgresGoldExecutionChecker:
                     "SELECT set_config('statement_timeout', %s, true)",
                     (f"{self.statement_timeout_ms}ms",),
                 )
-                model_rows = _fetch_all_rows(
+                model_rows, model_exceeded = _fetch_all_rows(
                     cursor,
                     str(version["sql"]),
                     list(version.get("parameters") or []),
                     max_rows=self.max_rows,
                 )
-                reference_rows = _fetch_all_rows(
+                reference_rows, reference_exceeded = _fetch_all_rows(
                     cursor,
                     gold_check.reference_sql,
                     list(gold_check.reference_parameters),
                     max_rows=self.max_rows,
                 )
+        # The reference is ours: oversized means the scenario is misauthored,
+        # and scoring against a truncated reference would be a quiet lie.
+        if reference_exceeded:
+            raise ValueError(
+                f"the reference query exceeded the {self.max_rows}-row safety "
+                "cap; narrow the scenario or raise max_rows"
+            )
 
         result: dict[str, Any] = {
             "contractVersion": "harness.catalyst-notebook.gold-execution-match.v1",
@@ -601,6 +640,12 @@ class PostgresGoldExecutionChecker:
             "modelRowCount": len(model_rows),
             "referenceRowCount": len(reference_rows),
         }
+        if model_exceeded:
+            # An unfiltered model answer is a wrong answer, not a broken
+            # harness: score the mismatch instead of erasing finished work.
+            result["modelRowsExceededCap"] = True
+            result["passed"] = False
+            return result
         if gold_check.mode == "count":
             result["passed"] = len(model_rows) == len(reference_rows)
         elif gold_check.mode == "row_set":
@@ -870,7 +915,12 @@ def load_notebook_suite(path: Path | str) -> NotebookSuite:
         if scenario_repetitions is not None and int(scenario_repetitions) < 1:
             raise ValueError(f"scenario {scenario_id!r} repetitions must be positive")
         classification = str(item["expectedBaseClassification"])
-        if classification not in {"reused", "promoted_human", "unresolved"}:
+        if classification not in {
+            "not_applicable",
+            "reused",
+            "promoted_human",
+            "unresolved",
+        }:
             raise ValueError(f"scenario {scenario_id!r} has invalid classification")
         base_outcome = str(item.get("expectedBaseOutcome", "ready"))
         if base_outcome not in WRITER_OUTCOMES:
@@ -955,6 +1005,11 @@ def load_notebook_suite(path: Path | str) -> NotebookSuite:
         profiles=profiles,
         scenarios=tuple(scenarios),
         comparison_profiles=comparison_profiles,
+        data_source_id=(
+            str(payload["dataSourceId"])
+            if payload.get("dataSourceId") is not None
+            else None
+        ),
     )
 
 
@@ -1185,6 +1240,12 @@ def run_notebook_suite(
 ) -> NotebookRunResult:
     suite_path = Path(suite_path)
     suite = load_notebook_suite(suite_path)
+    # A gateway serving several sources answers its default when it is not
+    # told which, so a suite bound to one binds the client to it too.
+    if suite.data_source_id is not None:
+        bind = getattr(client, "bind_data_source", None)
+        if bind is not None:
+            bind(suite.data_source_id)
     selected = [
         scenario
         for scenario in suite.scenarios
@@ -1730,22 +1791,38 @@ def _run_scenario(
             )
 
         pinned = scenario.editor_query if turn_index == 1 else None
-        editor_query = pinned or NotebookQuery(
-            sql=str(base_version["sql"]),
-            parameters=tuple(dict(item) for item in base_version.get("parameters", [])),
-            expected_columns=tuple(
-                dict(item) for item in base_version.get("expectedColumns", [])
-            ),
+        # Answering the writer's question revises nothing: the session holds
+        # no query, so the turn claims neither an editor nor a base.
+        editor_query = pinned or (
+            NotebookQuery(
+                sql=str(base_version["sql"]),
+                parameters=tuple(
+                    dict(item) for item in base_version.get("parameters", [])
+                ),
+                expected_columns=tuple(
+                    dict(item) for item in base_version.get("expectedColumns", [])
+                ),
+            )
+            if base_version is not None
+            else None
         )
-        snapshot = {
-            "contractVersion": "catalyst.workbench.editor-snapshot.v1",
-            **editor_query.content(),
-            "editorDigest": query_digest(editor_query),
-        }
-        observed_base = {
-            "versionId": str(base_version["versionId"]),
-            "queryDigest": str(base_version["queryDigest"]),
-        }
+        snapshot = (
+            {
+                "contractVersion": "catalyst.workbench.editor-snapshot.v1",
+                **editor_query.content(),
+                "editorDigest": query_digest(editor_query),
+            }
+            if editor_query is not None
+            else None
+        )
+        observed_base = (
+            {
+                "versionId": str(base_version["versionId"]),
+                "queryDigest": str(base_version["queryDigest"]),
+            }
+            if base_version is not None
+            else None
+        )
         if scenario.manual_only:
             if manual_checkpoint is None:
                 raise ValueError(

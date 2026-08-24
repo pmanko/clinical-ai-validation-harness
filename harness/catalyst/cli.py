@@ -102,7 +102,8 @@ def dispatch(args: argparse.Namespace, *, project_root: Path) -> int:
     result = run_notebook_suite(
         suite_path=Path(args.suite),
         client=NotebookHttpClient(
-            args.gateway_url, timeout_seconds=args.timeout_seconds
+            args.gateway_url,
+            timeout_seconds=args.timeout_seconds,
         ),
         output_dir=Path(args.output_dir),
         project_root=project_root,
