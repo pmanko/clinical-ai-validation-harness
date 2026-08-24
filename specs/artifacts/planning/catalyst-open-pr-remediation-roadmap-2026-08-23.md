@@ -1,11 +1,30 @@
 # Catalyst open-pull-request remediation roadmap
 
-**Status:** Draft for owner approval — tracked in-repo and amended
-2026-08-23 per owner-directed review (§7 parallelism; R1 label wording).
+**Status:** **Closed historical record.** The queue completed on 2026-08-24 at
+harness `main` `49040ee3e16c3785a5beed23657cda61a3243965`. This file preserves the
+review plan and evidence requirements; it governs no current work. Current
+Catalyst sequencing and acceptance live only in
+`specs/catalyst-program-roadmap.md`.
 
 **Evidence baseline:** 2026-08-23
 
 **Scope:** Harness pull requests #49, #50, #51, #52, #54, #55, and #57
+
+## Closeout
+
+- #51, #52, #54, #55, #57, and #50 merged; #49 closed after its unique work
+  was salvaged into #54 and #57.
+- The final head recorded 1,142 passing tests, 40 skips, clean repository-line
+  verification, clean submodule initialization, and green required checks.
+- The medication-code correction was verified locally and on the demo host;
+  the landing page was republished and checked live.
+- All review threads received dispositions, the closeout checklist was posted
+  on #57, and branch protection returned to one required approving review.
+- Issue #58 was discovered during closeout and remains separate: it predates
+  this queue and is not a regression from these pull requests.
+
+The remainder of this document is the plan as executed. Future-tense language
+below is retained only to preserve the audit trail.
 
 ## 1. Outcome
 

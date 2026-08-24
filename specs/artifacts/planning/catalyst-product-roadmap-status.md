@@ -11,7 +11,7 @@ history and implementation tasks.
 | Field | Value |
 | --- | --- |
 | Accepted foundation | Query-to-table workbench and iterative Query vN notebook |
-| Selected next milestone | **Superset-backed Dashboard Builder MVP (D1 / feature 008 US7, T137–T182)** |
+| Program position | **P3 — Superset-backed Dashboard Builder MVP (D1 / feature 008 US7, T137–T182), unchanged behind P1 session context and P2 conversation mode** |
 | Dependency | Accepted query/version/execution/table foundation only |
 | Release work kept separate | Harness PR #43 merged green at `136067a`; optional session-export/comparative expansion remains parallel |
 | Approved renderer/handoff | Superset 6.1.0; deterministic native ZIP written to a shared outbox and imported by a one-shot CLI service |
@@ -56,7 +56,7 @@ presentation.
 
 | Pathway | State | Next gate | Blocks D1? |
 | --- | --- | --- | --- |
-| Dashboard product (D1) | **M3 integrated 4c implementation live; T150/T174/T151 complete; remaining D1d checks and user acceptance open; M4 not started** | Complete T175/T152, T176/T177, T178/T153, and T179/T154, then pause for M3 user acceptance before D1b/D1c/D1e hardening | — |
+| Dashboard product (D1) | **M3 accepted 2026-08-06; M4 release hardening in progress; 15 active gates remain** | Complete the exact T166/T147/T168–T173/T180–T182/T155–T157 gates listed in Feature 008 tasks | — |
 | Data foundation (G2.10) | Candidate implementation; evidence open | T117–T122 internal and two-source/lossless acceptance | No |
 | Query assistance (W2) | Planned, not selected | G4 scope revalidation before T028–T034 | No |
 | Evaluation (W3/CVR) | Runner/report parity merged in PR #43; session-export/comparative expansion remains | Separately select T036–T038 or later experiments | No |

@@ -1,3 +1,4 @@
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>What the Writer Sees</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Serif:wght@400;600;700&family=IBM+Plex+Sans:ital,wght@0,400;0,450;0,600;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <style>
@@ -203,15 +204,21 @@
     the evidence behind each; and a deliberately lean roadmap for Catalyst — every lever run as a cheap
     experiment first, validated by an evaluation harness, and hardened only if the numbers say so.</p>
   </div>
-  <p class="meta">v5 · 2026-08-23<br>
+  <p class="meta">v6 · 2026-08-23<br>
   grounded in: catalyst main @ 655b796 (WS7 merged) · the recorded hub request for session c973eeba turn 3 · ingestion SQL · writer prompt<br>
-  source of truth: specs/catalyst-program-roadmap.md (harness PR #57) · status: program order approved 2026-08-23; the six P1 scope decisions remain pending</p>
+  source of truth: specs/catalyst-program-roadmap.md · status: workshop complete; owner decisions locked 2026-08-23</p>
 </header>
 
 <div class="stance">
   <div><h3>Experiment before contract</h3><p>Every lever ships first as the cheapest thing that can move a metric — a field, a flag, a script. Contracts, UI, and governance harden a lever only after it has earned its keep.</p></div>
   <div><h3>Nothing new to operate</h3><p>No new services, stores, or models. Every proposal below is a bounded change to the gateway request, the ingestion SQL, or a script over records the system already writes.</p></div>
   <div><h3>The harness decides</h3><p>This is an exploratory project feeding future production designs. What survives is what a measured baseline-vs-lever comparison keeps — not what sounded architectural.</p></div>
+</div>
+
+<div class="stance">
+  <div><h3>Owner decision</h3><p>One reviewed 13-relation surface for the writer, editor, validator, and executor.</p></div>
+  <div><h3>Qualification</h3><p>Compare the completed system across three model teams locally; do not claim an individual context practice caused the result.</p></div>
+  <div><h3>Deployment proof</h3><p>Run three real browser journeys on the server after the local comparison.</p></div>
 </div>
 
 <h2><span class="no">01</span>Recon — the context surface as built</h2>
@@ -236,7 +243,7 @@ channels this roadmap proposes — nothing else changes.</p>
   <div class="anatomy-col">
     <h3>Proposed <span class="sub">same request + three bounded blocks</span></h3>
     <div class="block static"><b>System prompt · static</b>Unchanged position — stable prefix preserved (cache economics, Manus P6).</div>
-    <div class="block present"><b>Catalog · static</b>CE1: boundary decided once; names gap closed in the views; comments extended.</div>
+    <div class="block present"><b>Catalog · static</b>CE1: one reviewed 13-relation surface; complete meanings and join risks; safe patient names.</div>
     <div class="block present"><b>Policy · static</b>Unchanged.</div>
     <div class="block new"><b>Session guidance · CE2</b>Itemized pinned entries, verbatim, append-only, capped with omission records. The playbook.</div>
     <div class="block new"><b>Verified exemplars · CE4</b>Top-k question→SQL pairs from this session's (later: this source's) kept versions.</div>
@@ -244,7 +251,7 @@ channels this roadmap proposes — nothing else changes.</p>
     <div class="block present"><b>Instruction history</b>Unchanged.</div>
     <div class="block new"><b>Last failure · CE3</b>Prior attempt's SQL + unresolved findings + the human's clarification answer.</div>
     <div class="block present"><b>Validation / execution context</b>Unchanged.</div>
-    <div class="cachehint">grammar: ready | needs_clarification (CE1) → asking is legal</div>
+    <div class="cachehint">grammar: ready | needs_clarification | unsupported; Gateway rejection remains separate</div>
   </div>
 </div>
 
@@ -268,7 +275,8 @@ channels this roadmap proposes — nothing else changes.</p>
     <p class="scope-note">Asked for patient last names, the model was shown a world where none exist, and a
     grammar where asking is illegal. Invention was the only legal move — this was context scoping, not model
     reasoning. A human using “Edit this attempt” joined <code>patient_flat</code> and got real surnames in one
-    query. The subset is an accident of two code paths, not a recorded decision.</p>
+    query. The four-view subset was deliberately declared; its consequence was not deliberately resolved. The
+    owner has now chosen one reviewed 13-relation surface for model and human paths.</p>
   </div>
   <div class="card">
     <h3>Three structural contradictions</h3>
@@ -310,9 +318,9 @@ claims get measured on <em>our</em> workload instead of trusted.</p>
 
 <div class="grid2" style="margin-top:1rem">
   <div class="card">
-    <div class="dirhead"><h3>P1 · Semantic grounding beats model choice</h3><span class="pill have">strong, quantified</span></div>
+    <div class="dirhead"><h3>P1 · Semantic grounding materially affects accuracy</h3><span class="pill have">strong, quantified</span></div>
     <dl class="rows">
-      <dt>Claim</dt><dd>Business meaning attached to the schema (descriptions, grain, synonyms) moves accuracy more than swapping frontier models.</dd>
+      <dt>Claim</dt><dd>Business meaning attached to the schema (descriptions, grain, synonyms) can materially improve accuracy and must be measured on Catalyst's workload.</dd>
       <dt>Evidence</dt><dd>The two chart groups above: a 70-point cliff without grounding; an 8–16-point lift with it, on frontier models.</dd>
       <dt>Catalyst fit</dt><dd>Mechanism already built (<code>COMMENT ON</code> → catalog); the lever is coverage + scope. → <b>CE1</b></dd>
     </dl>
@@ -328,7 +336,7 @@ claims get measured on <em>our</em> workload instead of trusted.</p>
   <div class="card">
     <div class="dirhead"><h3>P3 · Verified-query exemplars</h3><span class="pill have">strong; product-grade adoption</span></div>
     <dl class="rows">
-      <dt>Claim</dt><dd>Retrieving human-verified question→SQL pairs as few-shot for similar questions is the biggest accuracy lever after grounding.</dd>
+      <dt>Claim</dt><dd>Retrieving human-verified question→SQL pairs for similar questions is a promising accuracy lever that Catalyst must qualify rather than assume.</dd>
       <dt>Evidence</dt><dd>Shipped as a core primitive in <a href="https://docs.snowflake.com/en/user-guide/snowflake-cortex/cortex-analyst/verified-query-repository">Snowflake Cortex Analyst (VQR)</a>; standard across production stacks. <a href="https://atlan.com/know/ai-agent/data-for-ai/text-to-sql-for-enterprise/">Enterprise practice</a>: feedback-loop teams keep improving, one-time setups plateau.</dd>
       <dt>Catalyst fit</dt><dd>Every hand-edited → run → kept version is already a recorded golden pair. Nothing retrieves them. → <b>CE4</b></dd>
     </dl>
@@ -400,7 +408,7 @@ plus one pin affordance.</p>
       <div class="fnode actor">Person<span class="fsub">instruction · pin · edit</span></div>
       <div class="fnode store">Session playbook<span class="fsub">guidance entries</span></div>
       <div class="fnode">Request assembly<span class="fsub">catalog · snapshot · history<br>+ guidance · exemplars · failure</span></div>
-      <div class="fnode">Writer<span class="fsub">ready | needs_clarification</span></div>
+      <div class="fnode">Writer<span class="fsub">ready | needs_clarification | unsupported</span></div>
       <div class="fnode">Lint / repair<span class="fsub">candidate or exhausted</span></div>
       <div class="fnode">Turn record<span class="fsub">versions · evidence · findings</span></div>
     </div>
@@ -420,8 +428,9 @@ plus one pin affordance.</p>
 <p class="lede">Goals and order <b>approved by the owner 2026-08-23</b>: <b>session playbook → conversation
 mode → dashboards, Superset end-to-end</b>. WS1–WS7 remediation is closed; Feature 008 D1e/M4 remains in
 progress and is scheduled as P3, inheriting its unchanged contract and 15 active gates. Source of truth:
-<code>specs/catalyst-program-roadmap.md</code> (harness PR #57); this page is the presentation. The six
-Phase-1 scope decisions remain <em>pending the planning discussion</em> — its agenda is in the repo doc.</p>
+<code>specs/catalyst-program-roadmap.md</code>; this page is supporting research. The planning workshop is
+complete. The owner chose one reviewed 13-relation surface, layered context plus the retained transcript,
+three writer outcomes, a local three-team comparison of the completed system, and limited deployed browser proof.</p>
 
 <div class="lane">
   <div class="gate"><b>Starting point</b>
@@ -430,18 +439,16 @@ Phase-1 scope decisions remain <em>pending the planning discussion</em> — its 
     only instructions.</p>
   </div>
   <div class="lane-items">
-    <div class="lane-item"><b>P1 · Session playbook</b><span class="sz">next</span><div class="exp">CE0 ∥ CE1 ∥ CE2 as parallel tracks (disjoint surfaces); CE3/CE4 follow. Done = pinned guidance honored by later generations, <em>measured</em> before/after.</div></div>
+    <div class="lane-item"><b>P1 · Session context</b><span class="sz">next</span><div class="exp">Shared data surface + honest outcomes + transcript + guidance + prior failure + verified examples. Done = the completed system qualifies across the three model teams.</div></div>
     <div class="lane-item"><b>P2 · Conversation mode</b><span class="sz">then</span><div class="exp">A turn kind that answers or asks without SQL, over the same session state P1 builds (playbook, history, attempts). Scoped at phase start.</div></div>
     <div class="lane-item"><b>P3 · Dashboards</b><span class="sz">then</span><div class="exp">Question → queries → datasets → widgets → dashboard published to Superset via the existing outbox path; e2e + manual proof on both envs.</div></div>
   </div>
 </div>
 
-<p class="lede"><b>Parallelism:</b> tracks A (CE0 harness — a script over records the gateway already writes),
-B (CE1 — ingestion SQL + writer grammar), and C (CE2 — request assembly + one rail section) touch disjoint
-files and can run as concurrent branches or work sessions. Only the <em>measurements</em> are ordered:
-baseline first, then each lever ablated on top. Method for every lever:
-<b>baseline → cheapest experiment → ablate → decide</b> — hardened into contracts and UI only after it moves
-its metric without regressing the others.</p>
+<p class="lede"><b>Implementation:</b> the runner, data/outcome contracts, and layered-context work may be
+built in separate reviewable changes. Qualification happens only after they are integrated. There is no
+published old-system baseline and no individual on/off comparison; the report evaluates the finished system
+and compares complete model teams.</p>
 
 <div class="lane">
   <div class="gate"><b>CE0 · gate</b>
@@ -471,52 +478,52 @@ its metric without regressing the others.</p>
   <div class="card">
     <div class="dirhead"><h3>CE0 — Evaluation harness</h3><span class="tag">the gate · size M</span></div>
     <dl class="rows">
-      <dt>Cheapest form</dt><dd>A pytest-style runner + scenario YAML per source (single asks, the multi-turn c973eeba arc, ambiguous asks, unanswerable asks) + a JSON report. Two modes: <b>live</b> (real profile, temp 0, N reps — exhaustion mode varies run-to-run, we measured it) and <b>regression</b> (replay recorded model outputs through the deterministic pipeline; free, per-PR CI).</dd>
+      <dt>Form</dt><dd>Extend the existing notebook-validation runner with the frozen 12-scenario, 21-turn suite, arbitrary turn sequences, three-to-five adaptive repetitions, exact token evidence, separate infrastructure failures, and byte-stable scoring replay.</dd>
       <dt>Substrate</dt><dd>Already recorded: every turn's evidence bundle holds the exact hub request, per-attempt raw outputs, findings, digests. Golden results come from human-verified runs.</dd>
       <dt>Metrics</dt><dd>Execution accuracy vs golden digest · first-attempt candidate rate · attempts-to-success · grounding-failure rate (invented identifiers) · clarification precision/recall · tokens + latency.</dd>
-      <dt>Acceptance</dt><dd>Reproducible baseline report for both sources; regression mode in CI; live mode on demand against either environment.</dd>
+      <dt>Acceptance</dt><dd>One consolidated local report across writer-only, same-family-check, and cross-family-check teams; three deployed browser journeys after selection.</dd>
     </dl>
   </div>
   <div class="card">
     <div class="dirhead"><h3>CE1 — Honest writer's world</h3><span class="tag">P1 + P5 · size S · first lever</span></div>
     <dl class="rows">
-      <dt>Cheapest form</dt><dd>(a) One recorded decision on the generation-vs-execution boundary. (b) Name fields on the patient dim + comments in 002 — a <code>CREATE OR REPLACE VIEW</code>. (c) A <code>needs_clarification</code> branch in the writer grammar — question text only; prompt already commands it, WS7 already renders it.</dd>
-      <dt>Validate</dt><dd>Replay the turn-3 arc + ambiguous/unanswerable classes: grounding-failure rate falls; the model asking directly beats the gateway's after-exhaustion inference on latency and precision.</dd>
-      <dt>Harden only if</dt><dd>It measures well — then the boundary decision goes in the data-source contract, not before.</dd>
+      <dt>Form</dt><dd>One reviewed list of all 13 readable relations for generation, editing, validation, and execution; complete data meaning and join-risk notes; safe patient-name components; <code>ready</code>, <code>needs_clarification</code>, and <code>unsupported</code> writer branches.</dd>
+      <dt>Validate</dt><dd>Exact catalog/grant equality, safe read-only behavior, independent database answers, honest clarification, and unsupported requests that never reach SQL.</dd>
+      <dt>Contract</dt><dd>Catalog v6 records the decision. Runtime permissions never auto-publish a relation.</dd>
     </dl>
   </div>
   <div class="card">
     <div class="dirhead"><h3>CE2 — Session playbook</h3><span class="tag">P2 + P6 · size M · the core capability</span></div>
     <dl class="rows">
-      <dt>Cheapest form</dt><dd>A <code>guidance</code> list on the session record (existing store) + a composer “pin” affordance + verbatim itemized delivery in the request. Entry = <code>{text, source: human|system, originTurnId}</code>. One-click pin from a failed cell's finding. <em>No new contract version until the experiment wins.</em></dd>
-      <dt>Validate</dt><dd>“Correction that should persist” scenarios: pin at turn k, turns k+1…k+n must honor it unprompted. Guided-retry success on vs off; token/accuracy check on scenarios where guidance is irrelevant (bloat guard).</dd>
-      <dt>Harden only if</dt><dd>It wins — then the contract (<code>catalyst.workbench.guidance.v1</code>), rail UI, supersede semantics, and promotion-to-catalog-comments follow. This object is also conversation mode's state.</dd>
+      <dt>Form</dt><dd>A versioned guidance list on the existing session store, composer pin, explicit pin-from-failure, append-only unpin/supersede, and verbatim delivery. Model-facing entry = <code>{text, source, originTurnId, createdAt}</code>.</dd>
+      <dt>Validate</dt><dd>Pin at turn k; later turns honor it without repetition. Prove exact text, provenance, restart survival, session isolation, 20-entry capacity, token limits, literal rendering, and honest omissions.</dd>
+      <dt>Contract</dt><dd>The same object becomes P2 conversation state; successful queries remain verified examples rather than guidance.</dd>
     </dl>
   </div>
   <div class="card">
     <div class="dirhead"><h3>CE3 — Failure fed back</h3><span class="tag">P4 · size S–M · completes WS7's loop</span></div>
     <dl class="rows">
       <dt>Cheapest form</dt><dd>When the prior turn on this intent failed, add a bounded <code>previousAttempt</code> block to the revision context: the retained SQL, unresolved finding codes + evidence, and the human's clarification answer if any. One prompt paragraph explains the block.</dd>
-      <dt>Validate</dt><dd>Retry scenarios: success rate and attempts-to-success, on vs off. Canonical case: with CE1+CE3 on, the reworded turn-3 retry should succeed in one turn.</dd>
-      <dt>Harden only if</dt><dd>Measured — then it becomes a contract field with the same omission honesty as the rest.</dd>
+      <dt>Validate</dt><dd>Only the most recent relevant failure in the current revision line is delivered; first attempts and unrelated turns receive none; retained SQL, finding evidence, and any clarification answer remain digest-bound.</dd>
+      <dt>Contract</dt><dd>One bounded block with the same token, omission, and session-isolation rules as guidance.</dd>
     </dl>
   </div>
   <div class="card">
     <div class="dirhead"><h3>CE4 — Verified-query exemplars</h3><span class="tag">P3 · size M · free substrate</span></div>
     <dl class="rows">
-      <dt>Cheapest form</dt><dd>Phase 1, session-scoped: this session's succeeded turns (instruction + selected SQL) as few-shot in follow-ups — no retrieval infra at all. Phase 2, only if phase 1 wins: mark kept versions as verified pairs per source; simple similarity retrieval, VQR-style.</dd>
-      <dt>Validate</dt><dd>First-attempt execution accuracy on questions with near-neighbor pairs, on vs off; accuracy on dissimilar questions must not regress (exemplar-copying guard).</dd>
-      <dt>Harden only if</dt><dd>Phase 2's retrieval earns its complexity against phase 1's numbers.</dd>
+      <dt>Form</dt><dd>Session-scoped successful kept turns only, matching source and catalog; deterministic word-overlap ranking; at most three; no retrieval service.</dd>
+      <dt>Validate</dt><dd>The CD4 near-neighbor case is correct while the unrelated visit question never copies the example. A target can never receive itself.</dd>
+      <dt>Contract</dt><dd>Cross-session retrieval remains outside Phase 1.</dd>
     </dl>
   </div>
   <div class="card">
     <div class="dirhead"><h3>Deferred to the larger session</h3><span class="tag">explicitly out of scope now</span></div>
     <ul style="font-size:0.9rem; margin:0.4rem 0 0">
-      <li><b>Repair-loop redesign</b> — anchored patches vs full regeneration, attempt budgets. Needs CE0 ablations; the patch machinery manufactured several failures we watched.</li>
+      <li><b>Repair-loop redesign</b> — anchored patches vs full regeneration, attempt budgets. Needs a later controlled study; the patch machinery manufactured several failures we watched.</li>
       <li><b>Automated reflection/curation</b> (full ACE) — after CE2's manual channel shows what good entries look like.</li>
       <li><b>Cross-session / cross-user promotion</b> — whose lesson, verified by whom.</li>
       <li><b>Generic metadata generation</b> — FHIR-spec-derived semantics for flat columns (<a href="https://arxiv.org/pdf/2502.20657">auto-description research</a>); worth it when the approved set outgrows hand-commenting.</li>
-      <li><b>Model-behavior evals</b> — profile matrix, synonym probes, reviewer impact: same CE0 harness, different independent variable.</li>
+      <li><b>Causal model claims</b> — the three complete teams are compared, but this run does not isolate reviewer or quantization effects.</li>
     </ul>
   </div>
 </div>

@@ -3,13 +3,17 @@
 Durable planning and research artifacts that support the feature roadmap:
 
 - `planning/catalyst-open-pr-remediation-roadmap-2026-08-23.md`
-  - Owner-gated remediation roadmap for the open harness pull-request queue (#49–#57):
-    locked decisions, per-PR acceptance criteria, serial merge order, and checkpoints A–I.
-    Governs the cleanup that precedes program P1.
+  - Closed historical record for the completed harness pull-request queue (#49–#57):
+    original acceptance criteria, execution order, and final closeout. It governs no current work.
+- `planning/phase-1-planning-discussion-brief.md`
+  - Closed workshop record: the established facts, the owner's locked choices, and the original
+    recommendations those choices superseded. The current plan remains
+    `specs/catalyst-program-roadmap.md`.
 - `planning/what-the-writer-sees.html`
   - Self-contained context-engineering report for the Catalyst program (2026-08-23): recon of the
     generation-context pipeline, field-convergence evidence (semantic grounding, ACE playbooks,
-    verified queries, correction-in-context), and the P1-P3 program view. Companion to
+    verified queries, correction-in-context), and the P1-P3 program view. Its recommendations are
+    supporting research; owner choices are recorded as accepted or superseded. Companion to
     `specs/catalyst-program-roadmap.md`; published view at
     claude.ai/code/artifact/e65204a5-7b0e-49fb-ac43-155f41c6cae2 (update file, republish same URL).
 - `planning/openmrs-dual-provider-parity-roadmap.md`

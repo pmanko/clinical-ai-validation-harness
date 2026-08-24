@@ -20,7 +20,7 @@ Execution state for the Catalyst validation integration remediation roadmap.
 This status file governs the Catalyst validation/report release only. The
 parallel product roadmap is summarized in
 [`catalyst-product-roadmap-status.md`](catalyst-product-roadmap-status.md), where
-Supervised Dashboard MVP is selected next. Dashboard implementation depends on
+the Dashboard MVP is scheduled as program P3 with its contract unchanged. Dashboard implementation depends on
 the accepted query/workbench foundation, not on PR #43's final MS-D or merge;
 MS-D remains required only before calling this report-parity candidate released
 and promoting its evidence label.
