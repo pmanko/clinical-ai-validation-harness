@@ -19,6 +19,7 @@ from harness.catalyst.notebook_validation import (
     writer_outcome,
     repetition_pair_is_unstable,
     is_infrastructure_failure,
+    token_evidence_checks,
     HttpExchange,
     NotebookHttpClient,
     NotebookQuery,
@@ -2769,3 +2770,67 @@ def test_a_third_infrastructure_failure_invalidates_the_run(tmp_path: Path) -> N
     # The budget is two replacements, so the third failure stops the run: one
     # original attempt plus two replacements, and no fourth.
     assert state.turn_attempts == 3
+
+
+# --- token evidence --------------------------------------------------------
+#
+# Every writer, reviewer, or repair call counts its fully rendered messages
+# against the profile's declared window before the model is invoked. The
+# runner records that accounting and refuses a run whose numbers do not add
+# up; a suite that requires the accounting also refuses one that lacks it.
+
+
+def _accounting(**overrides: Any) -> dict[str, Any]:
+    return {
+        "tokenAccounting": {
+            "tokenizer": "gemma-4",
+            "contextWindow": 8192,
+            "outputReserve": 1024,
+            "promptTokens": 4000,
+            "includedItemIds": ["guidance-1"],
+            "omittedItemIds": [],
+            "omissions": [],
+            **overrides,
+        }
+    }
+
+
+def test_token_evidence_within_the_declared_window_passes() -> None:
+    checks = dict(
+        (name, passed) for name, passed, _ in token_evidence_checks(_accounting())
+    )
+    assert checks == {"token_evidence_recorded": True, "token_budget_respected": True}
+
+
+def test_a_prompt_that_leaves_no_room_for_the_reply_fails() -> None:
+    """promptTokens + outputReserve must fit the window, not just the prompt."""
+    evidence = _accounting(promptTokens=7500)
+    checks = dict((name, passed) for name, passed, _ in token_evidence_checks(evidence))
+    assert checks["token_budget_respected"] is False
+
+
+def test_a_character_count_substitute_is_not_token_evidence() -> None:
+    evidence = _accounting()
+    del evidence["tokenAccounting"]["tokenizer"]
+    checks = dict((name, passed) for name, passed, _ in token_evidence_checks(evidence))
+    assert checks["token_evidence_recorded"] is False
+
+
+def test_absent_accounting_is_reported_but_not_required_by_default() -> None:
+    checks = dict((name, passed) for name, passed, _ in token_evidence_checks({}))
+    assert checks == {"token_evidence_recorded": False}
+
+
+def test_a_suite_may_require_token_evidence(tmp_path: Path) -> None:
+    """The locked suite turns this on; older suites keep running without it."""
+    state = _WorkbenchState()
+    suite = _adaptive_suite()
+    suite["repetitions"] = 1
+    suite.pop("extendedRepetitions", None)
+    suite["requireTokenEvidence"] = True
+    result = _run_against_fake(tmp_path, suite, state)
+
+    row = json.loads((result.run_dir / "results.json").read_text())["results"][0]
+    names = {item["name"]: item["passed"] for item in row["assertions"]}
+    assert names["token_evidence_recorded"] is False
+    assert row["passed"] is False

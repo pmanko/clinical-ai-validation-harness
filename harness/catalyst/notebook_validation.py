@@ -210,6 +210,7 @@ class NotebookSuite:
     repetitions: int
     extended_repetitions: int | None
     infrastructure_replacements: int
+    require_token_evidence: bool
     profiles: dict[str, dict[str, str | None]]
     scenarios: tuple[NotebookScenario, ...]
 
@@ -910,6 +911,7 @@ def load_notebook_suite(path: Path | str) -> NotebookSuite:
         repetitions=repetitions,
         extended_repetitions=extended,
         infrastructure_replacements=replacement_budget,
+        require_token_evidence=bool(payload.get("requireTokenEvidence", False)),
         profiles=profiles,
         scenarios=tuple(scenarios),
     )
@@ -993,6 +995,45 @@ def _first_failed_assertion(assertions: list[dict[str, Any]]) -> str | None:
         if not item.get("passed"):
             return f"{item['name']}: {item.get('evidence')!r}"
     return None
+
+
+def token_evidence_checks(
+    evidence: dict[str, Any],
+) -> list[tuple[str, bool, Any]]:
+    """Assertions over one turn's token accounting.
+
+    A profile declares its window, its output reserve, and the exact
+    tokenizer; the fully rendered messages are counted against them before the
+    model is called. Evidence that names no tokenizer is a character-count
+    substitute, which the roadmap forbids, so it does not count as recorded.
+    """
+    accounting = evidence.get("tokenAccounting")
+    if not isinstance(accounting, dict):
+        return [("token_evidence_recorded", False, None)]
+
+    window = accounting.get("contextWindow")
+    reserve = accounting.get("outputReserve")
+    prompt = accounting.get("promptTokens")
+    tokenizer = accounting.get("tokenizer")
+    recorded = (
+        isinstance(tokenizer, str)
+        and bool(tokenizer)
+        and all(isinstance(value, int) for value in (window, reserve, prompt))
+    )
+    if not recorded:
+        return [("token_evidence_recorded", False, accounting)]
+    return [
+        ("token_evidence_recorded", True, accounting),
+        (
+            "token_budget_respected",
+            int(prompt) + int(reserve) <= int(window),
+            {
+                "promptTokens": prompt,
+                "outputReserve": reserve,
+                "contextWindow": window,
+            },
+        ),
+    ]
 
 
 def is_infrastructure_failure(result: dict[str, Any]) -> bool:
@@ -1650,6 +1691,22 @@ def _run_scenario(
             )
             for name, passed, evidence in evidence_checks:
                 check(name, passed, evidence)
+            for name, passed, detail in token_evidence_checks(followup_evidence):
+                # Recorded either way; only a suite that requires the
+                # accounting fails the turn for its absence.
+                if name == "token_evidence_recorded" and not passed:
+                    if suite.require_token_evidence:
+                        check(name, False, detail)
+                    else:
+                        assertions.append(
+                            {
+                                "name": f"{name}{slot}",
+                                "passed": True,
+                                "evidence": {"recorded": False, "required": False},
+                            }
+                        )
+                    continue
+                check(name, passed, detail)
 
         selected = None
         if turn_spec.expected_turn_status == "completed":
