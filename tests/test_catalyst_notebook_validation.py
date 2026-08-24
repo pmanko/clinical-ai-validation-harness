@@ -3778,3 +3778,25 @@ def test_an_unstable_recorded_pair_is_only_reused_at_the_extended_count(
     assert _pair_is_complete(extended, suite, scenario, None) is True
     # An explicit repetition override was asked for exactly that many.
     assert _pair_is_complete(disagreeing, suite, scenario, 3) is True
+
+
+def test_replaced_infrastructure_attempts_do_not_complete_a_pair(
+    tmp_path: Path,
+) -> None:
+    """Two model runs plus one replaced 503 are not three repetitions."""
+    from harness.catalyst.notebook_validation import _pair_is_complete
+
+    suite = load_notebook_suite(_write_suite(tmp_path, _adaptive_suite()))
+    scenario = suite.scenarios[0]
+    recorded = [
+        _rep(True, ["ready"]),
+        {"status": "infrastructure_failed", "passed": False,
+         "turns": [], "assertions": []},
+        _rep(True, ["ready"]),
+    ]
+
+    assert _pair_is_complete(recorded, suite, scenario, None) is False
+    assert (
+        _pair_is_complete(recorded + [_rep(True, ["ready"])], suite, scenario, None)
+        is True
+    )

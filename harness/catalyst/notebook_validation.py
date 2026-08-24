@@ -1299,16 +1299,24 @@ def _pair_is_complete(
     either: reuse applies exactly the scheduler's own completion rule, so a
     resumed run and an uninterrupted one accept the same evidence.
     """
+    # Only scored repetitions count: replaced infrastructure attempts and
+    # skips are outside the model denominator, so they neither complete a
+    # pair nor read as instability.
+    scored = [
+        row
+        for row in recorded
+        if row.get("status") not in {"skipped", "infrastructure_failed"}
+    ]
     required = _effective_repetitions(suite, scenario, repetitions)
-    if len(recorded) < required:
+    if len(scored) < required:
         return False
     if (
         repetitions is None
         and suite.extended_repetitions is not None
         and required < suite.extended_repetitions
-        and repetition_pair_is_unstable(recorded)
+        and repetition_pair_is_unstable(scored)
     ):
-        return len(recorded) >= suite.extended_repetitions
+        return len(scored) >= suite.extended_repetitions
     return True
 
 
