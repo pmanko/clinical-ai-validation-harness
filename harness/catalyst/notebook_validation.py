@@ -209,6 +209,7 @@ class NotebookSuite:
     provider_name: str
     repetitions: int
     extended_repetitions: int | None
+    infrastructure_replacements: int
     profiles: dict[str, dict[str, str | None]]
     scenarios: tuple[NotebookScenario, ...]
 
@@ -812,6 +813,10 @@ def load_notebook_suite(path: Path | str) -> NotebookSuite:
     repetitions = int(payload["repetitions"])
     if repetitions < 1:
         raise ValueError("Notebook suite repetitions must be at least one")
+    replacement_value = payload.get("infrastructureReplacements")
+    replacement_budget = int(replacement_value) if replacement_value is not None else 0
+    if replacement_budget < 0:
+        raise ValueError("Notebook suite infrastructureReplacements must not be negative")
     extended_value = payload.get("extendedRepetitions")
     extended = int(extended_value) if extended_value is not None else None
     if extended is not None and extended < repetitions:
@@ -904,6 +909,7 @@ def load_notebook_suite(path: Path | str) -> NotebookSuite:
         provider_name=str(payload["providerName"]),
         repetitions=repetitions,
         extended_repetitions=extended,
+        infrastructure_replacements=replacement_budget,
         profiles=profiles,
         scenarios=tuple(scenarios),
     )
@@ -987,6 +993,20 @@ def _first_failed_assertion(assertions: list[dict[str, Any]]) -> str | None:
         if not item.get("passed"):
             return f"{item['name']}: {item.get('evidence')!r}"
     return None
+
+
+def is_infrastructure_failure(result: dict[str, Any]) -> bool:
+    """Whether this repetition failed the host rather than the model.
+
+    A team is judged on what its models did. A 5xx, or a repetition that never
+    reached a turn, measured nothing and is replaced instead of scored. A 4xx
+    is Catalyst refusing the request, which is the product's behaviour and
+    belongs in the denominator like any other answer.
+    """
+    if result.get("status") == "failed_before_turn":
+        return True
+    status = result.get("httpStatus")
+    return isinstance(status, int) and status >= 500
 
 
 def repetition_pair_is_unstable(runs: list[dict[str, Any]]) -> bool:
@@ -1158,6 +1178,7 @@ def run_notebook_suite(
 
     results: list[dict[str, Any]] = []
     seen_sessions: set[str] = set()
+    infrastructure_failures: list[dict[str, Any]] = []
     skipped = 0
     for scenario in selected:
         if scenario.manual_only and not include_manual:
@@ -1180,10 +1201,16 @@ def run_notebook_suite(
             else max(repeat_count, suite.extended_repetitions)
         )
         scenario_runs: list[dict[str, Any]] = []
+        replacements = 0
         repetition = 0
         while repetition < repeat_count:
             repetition += 1
-            prefix = f"scenarios/{scenario.id}/repetition-{repetition:02d}"
+            attempt_slot = (
+                f"repetition-{repetition:02d}"
+                if replacements == 0
+                else f"repetition-{repetition:02d}-replacement-{replacements:02d}"
+            )
+            prefix = f"scenarios/{scenario.id}/{attempt_slot}"
             started_at = datetime.now(timezone.utc).isoformat()
             result = _run_scenario(
                 suite=suite,
@@ -1208,6 +1235,30 @@ def run_notebook_suite(
                 }
             )
             result["passed"] = all(item["passed"] for item in result["assertions"])
+            result["httpStatus"] = _normalized_http_status(run_dir, prefix)
+            if suite.infrastructure_replacements and is_infrastructure_failure(result):
+                replacements += 1
+                if replacements > suite.infrastructure_replacements:
+                    raise ValueError(
+                        f"scenario {scenario.id!r} hit a third infrastructure "
+                        "failure; this run is invalid for that team"
+                    )
+                infrastructure_failures.append(
+                    {
+                        "scenarioId": scenario.id,
+                        "repetition": repetition,
+                        "attempt": attempt_slot,
+                        "httpStatus": result["httpStatus"],
+                        "status": result.get("status"),
+                        "sessionId": result.get("sessionId"),
+                    }
+                )
+                result["status"] = "infrastructure_failed"
+                results.append(result)
+                # The host, not the model, failed: re-run this repetition
+                # rather than scoring it.
+                repetition -= 1
+                continue
             results.append(result)
             scenario_runs.append(result)
             ended_at = datetime.now(timezone.utc).isoformat()
@@ -1272,8 +1323,15 @@ def run_notebook_suite(
             ):
                 repeat_count = ceiling
 
-    passed_count = sum(result.get("passed") is True for result in results)
-    result_count = sum(result.get("status") != "skipped" for result in results)
+    passed_count = sum(
+        result.get("passed") is True
+        and result.get("status") != "infrastructure_failed"
+        for result in results
+    )
+    result_count = sum(
+        result.get("status") not in {"skipped", "infrastructure_failed"}
+        for result in results
+    )
     nondeterminism = _nondeterminism_summary(results)
     summary = {
         "contractVersion": "harness.catalyst-notebook.validation-run.v1",
@@ -1284,6 +1342,8 @@ def run_notebook_suite(
         "resultCount": result_count,
         "passedCount": passed_count,
         "skippedCount": skipped,
+        "infrastructureFailureCount": len(infrastructure_failures),
+        "infrastructureFailures": infrastructure_failures,
         "nondeterminism": nondeterminism,
         "results": results,
     }

@@ -18,6 +18,7 @@ import pytest
 from harness.catalyst.notebook_validation import (
     writer_outcome,
     repetition_pair_is_unstable,
+    is_infrastructure_failure,
     HttpExchange,
     NotebookHttpClient,
     NotebookQuery,
@@ -139,6 +140,8 @@ class _WorkbenchState:
         self.session_id = "session-1"
         self.session_ids: list[str] = []
         self.profile_digest: str | None = None
+        self.turn_http_sequence: list[int] | None = None
+        self.turn_attempts = 0
         self.requests: list[tuple[str, str]] = []
 
     def reset(self) -> None:
@@ -327,6 +330,14 @@ def _handler(state: _WorkbenchState):
                 self._send(200, execution)
             elif self.path == f"/v1/catalyst/workbench/sessions/{state.session_id}/turns":
                 state.turn_requests.append(body)
+                if state.turn_http_sequence:
+                    status = state.turn_http_sequence[
+                        min(state.turn_attempts, len(state.turn_http_sequence) - 1)
+                    ]
+                    state.turn_attempts += 1
+                    if status >= 500:
+                        self._send(status, {"error": {"code": "unavailable"}})
+                        return
                 ordinal = len(state.followup_turns) + 1
                 suffix = "" if ordinal == 1 else f"-{ordinal}"
                 successor = _version(
@@ -2684,3 +2695,77 @@ def test_a_frozen_digest_the_gateway_does_not_advertise_is_unverifiable(
         _run_against_fake(
             tmp_path, _digest_suite(profileConfigurationDigest="d" * 64), state
         )
+
+
+# --- infrastructure vs model failures --------------------------------------
+#
+# A team is judged on what its models did. A Gateway that returned 503, or a
+# repetition that never reached a turn, says nothing about the model, so it is
+# counted separately, replaced up to twice, and invalidates the team's run on
+# a third.
+
+
+def test_a_server_error_is_an_infrastructure_failure() -> None:
+    assert is_infrastructure_failure({"status": "completed", "httpStatus": 503}) is True
+
+
+def test_a_repetition_that_never_reached_a_turn_is_infrastructure() -> None:
+    assert (
+        is_infrastructure_failure({"status": "failed_before_turn", "httpStatus": 200})
+        is True
+    )
+
+
+def test_a_model_that_answered_badly_is_not_an_infrastructure_failure() -> None:
+    """A wrong answer is the measurement, not a broken run."""
+    assert (
+        is_infrastructure_failure(
+            {"status": "completed", "httpStatus": 200, "passed": False}
+        )
+        is False
+    )
+
+
+def test_a_client_error_is_the_products_problem_not_the_hosts() -> None:
+    """422 is Catalyst rejecting the request — that belongs in the denominator."""
+    assert (
+        is_infrastructure_failure({"status": "completed", "httpStatus": 422}) is False
+    )
+
+
+def test_infrastructure_failures_are_replaced_and_counted_apart(
+    tmp_path: Path,
+) -> None:
+    state = _WorkbenchState()
+    # Repetition 1 hits a 503; its replacement succeeds.
+    state.turn_http_sequence = [503, 201, 201, 201]
+    suite = _adaptive_suite()
+    suite["repetitions"] = 3
+    suite["infrastructureReplacements"] = 2
+    suite.pop("extendedRepetitions", None)
+    result = _run_against_fake(tmp_path, suite, state)
+
+    summary = json.loads((result.run_dir / "results.json").read_text())
+    assert summary["infrastructureFailureCount"] == 1
+    assert summary["resultCount"] == 3, "the denominator stays at three model runs"
+    scored = [
+        row
+        for row in summary["results"]
+        if row.get("status") not in {"skipped", "infrastructure_failed"}
+    ]
+    assert len(scored) == 3
+
+
+def test_a_third_infrastructure_failure_invalidates_the_run(tmp_path: Path) -> None:
+    state = _WorkbenchState()
+    state.turn_http_sequence = [503, 503, 503]
+    suite = _adaptive_suite()
+    suite["repetitions"] = 3
+    suite["infrastructureReplacements"] = 2
+    suite.pop("extendedRepetitions", None)
+    with pytest.raises(ValueError, match="third infrastructure failure"):
+        _run_against_fake(tmp_path, suite, state)
+
+    # The budget is two replacements, so the third failure stops the run: one
+    # original attempt plus two replacements, and no fourth.
+    assert state.turn_attempts == 3
