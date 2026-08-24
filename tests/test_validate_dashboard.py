@@ -142,10 +142,11 @@ def test_a_catalyst_cell_shows_the_frozen_acceptance_criterion(tmp_path: Path):
 
 
 def test_the_comparison_grid_has_one_row_per_scenario(tmp_path: Path):
-    """(team x scenario) cells collapse to a 12-row, 3-column matrix.
+    """(team x scenario) cells collapse to one row per scenario.
 
     The manifest's cells repeat every scenario once per team; using their ids
-    raw as grid rows rendered the suite three times over, two thirds empty.
+    raw as grid rows rendered the suite once per team, mostly empty. Two
+    scenarios and three teams here stand in for the real 12x3.
     """
     vd = _load_dashboard_module()
     run = tmp_path / "run"
