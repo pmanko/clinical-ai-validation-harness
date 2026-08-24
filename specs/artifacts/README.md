@@ -6,6 +6,11 @@ Durable planning and research artifacts that support the feature roadmap:
   - Owner-gated remediation roadmap for the open harness pull-request queue (#49–#57):
     locked decisions, per-PR acceptance criteria, serial merge order, and checkpoints A–I.
     Governs the cleanup that precedes program P1.
+- `planning/phase-1-planning-discussion-brief.md`
+  - Decision-support pack for the Catalyst Phase-1 planning discussion: per agenda item the
+    established facts, options, recommendation, and downstream unblocks, plus the pointer map to
+    every spec, artifact, and code path involved. Agenda and decision record live in
+    `specs/catalyst-program-roadmap.md`.
 - `planning/what-the-writer-sees.html`
   - Self-contained context-engineering report for the Catalyst program (2026-08-23): recon of the
     generation-context pipeline, field-convergence evidence (semantic grounding, ACE playbooks,

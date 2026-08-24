@@ -75,6 +75,9 @@ baseline (A) → measure B → measure C on top.
 
 ### Phase 1 planning discussion — the agenda
 
+Decision-support pack (facts, options, recommendation, and what each
+answer unblocks, per item): `specs/artifacts/planning/phase-1-planning-discussion-brief.md`. Decisions are recorded here.
+
 1. **Scenario set for CE0** — which recorded sessions become the canonical
    corpus, and how many live repetitions count as a run (exhaustion mode varies
    run-to-run; we measured it).
