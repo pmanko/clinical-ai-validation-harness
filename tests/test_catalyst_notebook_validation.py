@@ -141,6 +141,13 @@ class _WorkbenchState:
         self.session_id = "session-1"
         self.session_ids: list[str] = []
         self.profile_digest: str | None = None
+        # "ready" produces the base query; a terminal answer produces
+        # none, exactly as the Gateway does when the writer asks or
+        # declines on the opening question.
+        self.base_outcome = "ready"
+        # A terminal answer that nonetheless left SQL in the session:
+        # the exact contradiction the runner has to catch.
+        self.leaves_a_query_behind = False
         self.turn_http_sequence: list[int] | None = None
         self.turn_attempts = 0
         self.requests: list[tuple[str, str]] = []
@@ -153,10 +160,17 @@ class _WorkbenchState:
         """
         self.session_id = f"session-{len(self.session_ids) + 1}"
         self.session_ids.append(self.session_id)
-        self.versions = [
-            _version("version-1", "SELECT patient_id FROM analytics.lab_result_fact_v1")
-        ]
-        self.current = self.versions[0]
+        self.versions = (
+            []
+            if self.base_outcome != "ready" and not self.leaves_a_query_behind
+            else [
+                _version(
+                    "version-1",
+                    "SELECT patient_id FROM analytics.lab_result_fact_v1",
+                )
+            ]
+        )
+        self.current = self.versions[0] if self.versions else None
         self.executions = []
         self.followup_turn = None
         self.followup_turns = []
@@ -170,10 +184,12 @@ class _WorkbenchState:
             "datasetId": "pipeline-1",
             "datasetVersion": "pipeline-1",
             "catalogVersion": "analytics-catalog-v1+schema.1234567890abcdef",
-            "currentVersionId": self.current["versionId"],
+            "currentVersionId": (
+                self.current["versionId"] if self.current else None
+            ),
             "browserState": {},
             "provenance": {},
-            "status": "ready",
+            "status": self.base_outcome,
             "createdAt": "2026-07-20T12:00:00Z",
             "updatedAt": "2026-07-20T12:00:03Z",
             "versions": self.versions,
@@ -184,7 +200,7 @@ class _WorkbenchState:
         }
 
     def initial_turn(self) -> dict[str, Any]:
-        return {
+        turn = {
             "contractVersion": "catalyst.workbench.turn.v1",
             "sessionId": self.session_id,
             "turnId": "turn-initial",
@@ -192,6 +208,16 @@ class _WorkbenchState:
             "kind": "initial",
             "status": "completed",
         }
+        if self.base_outcome != "ready":
+            turn["status"] = "failed"
+            turn["writerOutcome"] = self.base_outcome
+            turn["outputVersions"] = []
+            turn["selectedVersionId"] = None
+            turn["failure"] = {
+                "code": self.base_outcome,
+                "message": "The data records no home address.",
+            }
+        return turn
 
     def timeline(self) -> dict[str, Any]:
         turns = [self.initial_turn(), *self.followup_turns]
@@ -199,10 +225,14 @@ class _WorkbenchState:
             "contractVersion": "catalyst.workbench.turn.timeline.v1",
             "sessionId": self.session_id,
             "currentTurnId": turns[-1]["turnId"],
-            "currentVersion": {
-                "versionId": self.current["versionId"],
-                "queryDigest": self.current["queryDigest"],
-            },
+            "currentVersion": (
+                {
+                    "versionId": self.current["versionId"],
+                    "queryDigest": self.current["queryDigest"],
+                }
+                if self.current
+                else None
+            ),
             "turns": turns,
         }
 
@@ -2833,4 +2863,300 @@ def test_a_suite_may_require_token_evidence(tmp_path: Path) -> None:
     row = json.loads((result.run_dir / "results.json").read_text())["results"][0]
     names = {item["name"]: item["passed"] for item in row["assertions"]}
     assert names["token_evidence_recorded"] is False
+    assert row["passed"] is False
+
+
+def _terminal_base_scenario(**overrides: Any) -> dict[str, Any]:
+    base = _suite_payload()["scenarios"][0]
+    scenario = {
+        key: value
+        for key, value in base.items()
+        if key not in {"followupInstruction", "followupProfileId"}
+    }
+    scenario.update(
+        {
+            "initialQuestion": "Show each patient's home address.",
+            "expectedBaseOutcome": "unsupported",
+            "validateBase": False,
+            "executeBase": False,
+            "turns": [],
+        }
+    )
+    scenario.update(overrides)
+    return scenario
+
+
+def test_a_scenario_may_declare_the_answer_its_opening_question_deserves(
+    tmp_path: Path,
+) -> None:
+    """U1/U2 and B1-B3 are scored on the opening question, not a follow-up.
+
+    The writer's answer to the question that opened the session is the thing
+    under test; without saying which answer is expected, a refusal and a
+    query both read as "the base".
+    """
+    suite = load_notebook_suite(
+        _write_suite(tmp_path, _suite_payload(scenarios=[_terminal_base_scenario()]))
+    )
+
+    assert suite.scenarios[0].expected_base_outcome == "unsupported"
+    assert suite.scenarios[0].turns == ()
+
+
+def test_a_scenario_that_says_nothing_still_expects_a_query(tmp_path: Path) -> None:
+    suite = load_notebook_suite(_write_suite(tmp_path, _suite_payload()))
+
+    assert suite.scenarios[0].expected_base_outcome == "ready"
+
+
+def test_a_base_cannot_be_expected_to_be_gateway_rejected(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="invalid expected base outcome"):
+        load_notebook_suite(
+            _write_suite(
+                tmp_path,
+                _suite_payload(
+                    scenarios=[_terminal_base_scenario(expectedBaseOutcome="rejected")]
+                ),
+            )
+        )
+
+
+def test_a_ready_base_with_no_turns_must_check_the_query_it_asked_for(
+    tmp_path: Path,
+) -> None:
+    """A1-A4 are scored on their opening question, by running its query.
+
+    Expecting a query, declaring no follow-up and then not validating or
+    executing it would measure nothing past the session opening -- which
+    reads as a pass.
+    """
+    with pytest.raises(ValueError, match="must declare at least one turn"):
+        load_notebook_suite(
+            _write_suite(
+                tmp_path,
+                _suite_payload(
+                    scenarios=[
+                        _terminal_base_scenario(
+                            expectedBaseOutcome="ready",
+                            validateBase=False,
+                            executeBase=False,
+                        )
+                    ]
+                ),
+            )
+        )
+
+    checked = load_notebook_suite(
+        _write_suite(
+            tmp_path,
+            _suite_payload(
+                scenarios=[
+                    _terminal_base_scenario(
+                        expectedBaseOutcome="ready",
+                        validateBase=True,
+                        executeBase=True,
+                    )
+                ]
+            ),
+        )
+    )
+    assert checked.scenarios[0].turns == ()
+    assert checked.scenarios[0].expected_base_outcome == "ready"
+
+
+def test_a_refused_opening_question_is_a_pass_not_a_failed_repetition(
+    tmp_path: Path,
+) -> None:
+    """U1/U2: the session opens, the writer declines, and that is the answer.
+
+    With no version to validate the runner used to abandon the repetition as
+    `failed_before_turn`, scoring the product's correct refusal as its own
+    breakage. The scenario is scored on the opening question alone.
+    """
+    suite = {
+        "id": "notebook-unsupported-v1",
+        "datasetId": "catalyst-cohort-v1",
+        "datasetVersion": "1",
+        "catalogVersion": "analytics-catalog-v1",
+        "providerName": "llama.cpp",
+        "repetitions": 1,
+        "profiles": {
+            PROFILE_ID: {
+                "writerModelId": "gemma-4-12b",
+                "reviewerModelId": "qwen2.5-14b",
+            }
+        },
+        "scenarios": [
+            {
+                "id": "no-address",
+                "family": "unsupported",
+                "initialQuestion": "Show each patient's home address.",
+                "initialProfileId": PROFILE_ID,
+                "expectedBaseClassification": "reused",
+                "expectedBaseOutcome": "unsupported",
+                "validateBase": False,
+                "executeBase": False,
+                "turns": [],
+            }
+        ],
+    }
+    suite_path = tmp_path / "suite.json"
+    suite_path.write_text(json.dumps(suite), encoding="utf-8")
+    state = _WorkbenchState()
+    state.base_outcome = "unsupported"
+    server = ThreadingHTTPServer(("127.0.0.1", 0), _handler(state))
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        result = run_notebook_suite(
+            suite_path=suite_path,
+            client=NotebookHttpClient(f"http://127.0.0.1:{server.server_port}"),
+            output_dir=tmp_path / "artifacts",
+            project_root=ROOT,
+            provenance_loader=lambda _: [],
+        )
+    finally:
+        server.shutdown()
+        thread.join(timeout=5)
+        server.server_close()
+
+    row = json.loads((result.run_dir / "results.json").read_text())["results"][0]
+    assert row["status"] == "completed"
+    assert row["passed"] is True, [
+        item for item in row["assertions"] if not item["passed"]
+    ]
+    assert row["turns"] == []
+    assert row["baseOutcome"] == "unsupported"
+
+    names = {item["name"] for item in row["assertions"]}
+    assert "base_writer_outcome" in names
+    # Nothing was produced, so nothing may have been validated or executed.
+    assert "base_version_available" not in names
+    assert "base_validation_recorded" not in names
+    assert "no_sql_after_non_ready_base" in names
+    # And no turn was posted at all.
+    assert not [
+        path
+        for method, path in state.requests
+        if method == "POST" and path.endswith("/turns")
+    ]
+
+
+def test_an_opening_question_answered_with_sql_when_a_refusal_was_due_fails(
+    tmp_path: Path,
+) -> None:
+    """The guard has to be about the answer, not merely about the absence."""
+    suite = {
+        "id": "notebook-unsupported-v1",
+        "datasetId": "catalyst-cohort-v1",
+        "datasetVersion": "1",
+        "catalogVersion": "analytics-catalog-v1",
+        "providerName": "llama.cpp",
+        "repetitions": 1,
+        "profiles": {
+            PROFILE_ID: {
+                "writerModelId": "gemma-4-12b",
+                "reviewerModelId": "qwen2.5-14b",
+            }
+        },
+        "scenarios": [
+            {
+                "id": "no-address",
+                "family": "unsupported",
+                "initialQuestion": "Show each patient's home address.",
+                "initialProfileId": PROFILE_ID,
+                "expectedBaseClassification": "reused",
+                "expectedBaseOutcome": "unsupported",
+                "validateBase": False,
+                "executeBase": False,
+                "turns": [],
+            }
+        ],
+    }
+    suite_path = tmp_path / "suite.json"
+    suite_path.write_text(json.dumps(suite), encoding="utf-8")
+    state = _WorkbenchState()  # answers with a query instead of declining
+    server = ThreadingHTTPServer(("127.0.0.1", 0), _handler(state))
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        result = run_notebook_suite(
+            suite_path=suite_path,
+            client=NotebookHttpClient(f"http://127.0.0.1:{server.server_port}"),
+            output_dir=tmp_path / "artifacts",
+            project_root=ROOT,
+            provenance_loader=lambda _: [],
+        )
+    finally:
+        server.shutdown()
+        thread.join(timeout=5)
+        server.server_close()
+
+    row = json.loads((result.run_dir / "results.json").read_text())["results"][0]
+    assert row["passed"] is False
+    failed = {item["name"] for item in row["assertions"] if not item["passed"]}
+    assert "base_writer_outcome" in failed
+
+
+def test_a_refusal_that_left_a_query_behind_is_caught(tmp_path: Path) -> None:
+    """Declining and producing SQL anyway is worse than either alone.
+
+    The writer's answer is right and would pass the outcome check on its own,
+    so only a separate assertion about the session's contents can see that a
+    refusal still put an executable query in front of the person.
+    """
+    suite = {
+        "id": "notebook-unsupported-v1",
+        "datasetId": "catalyst-cohort-v1",
+        "datasetVersion": "1",
+        "catalogVersion": "analytics-catalog-v1",
+        "providerName": "llama.cpp",
+        "repetitions": 1,
+        "profiles": {
+            PROFILE_ID: {
+                "writerModelId": "gemma-4-12b",
+                "reviewerModelId": "qwen2.5-14b",
+            }
+        },
+        "scenarios": [
+            {
+                "id": "no-address",
+                "family": "unsupported",
+                "initialQuestion": "Show each patient's home address.",
+                "initialProfileId": PROFILE_ID,
+                "expectedBaseClassification": "reused",
+                "expectedBaseOutcome": "unsupported",
+                "validateBase": False,
+                "executeBase": False,
+                "turns": [],
+            }
+        ],
+    }
+    suite_path = tmp_path / "suite.json"
+    suite_path.write_text(json.dumps(suite), encoding="utf-8")
+    state = _WorkbenchState()
+    state.base_outcome = "unsupported"
+    state.leaves_a_query_behind = True
+    server = ThreadingHTTPServer(("127.0.0.1", 0), _handler(state))
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        result = run_notebook_suite(
+            suite_path=suite_path,
+            client=NotebookHttpClient(f"http://127.0.0.1:{server.server_port}"),
+            output_dir=tmp_path / "artifacts",
+            project_root=ROOT,
+            provenance_loader=lambda _: [],
+        )
+    finally:
+        server.shutdown()
+        thread.join(timeout=5)
+        server.server_close()
+
+    row = json.loads((result.run_dir / "results.json").read_text())["results"][0]
+    assert row["baseOutcome"] == "unsupported"
+    failed = {item["name"] for item in row["assertions"] if not item["passed"]}
+    # The answer itself was correct; only the leftover query is wrong.
+    assert "base_writer_outcome" not in failed
+    assert "no_sql_after_non_ready_base" in failed
     assert row["passed"] is False

@@ -86,6 +86,15 @@ def score_run(run_dir: Path | str, *, as_json: bool = False) -> dict[str, Any] |
         bucket["scored"] += 1
         if row.get("passed") is True:
             bucket["passed"] += 1
+        # The opening question is a scored user turn like the rest: for a
+        # clarification or a refusal it is the only answer the scenario has.
+        base_observed = row.get("baseOutcome")
+        if base_observed is not None:
+            base_expected = str(row.get("expectedBaseOutcome") or base_observed)
+            bucket["outcomes"][str(base_observed)] += 1
+            expected_outcomes[base_expected] += 1
+            if str(base_observed) == base_expected:
+                observed_outcomes[base_expected] += 1
         for turn in row.get("turns") or []:
             observed = str(turn.get("observedOutcome"))
             expected = str(turn.get("expectedOutcome") or observed)

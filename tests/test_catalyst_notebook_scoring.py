@@ -174,3 +174,65 @@ def test_scoring_the_same_run_twice_produces_identical_bytes(
         if line.startswith("  \"")
     ]
     assert top_level == sorted(top_level)
+
+
+def test_the_opening_question_is_a_scored_outcome_like_any_other(
+    tmp_path: Path,
+) -> None:
+    """U1/U2 are answered entirely by the base; A/M scenarios open with one too.
+
+    The locked suite counts 21 scored user turns across 12 scenarios only
+    because the opening question is one of them. Reading turns alone loses
+    every base answer -- and for a scenario scored on its opening question
+    alone, that is the whole scenario.
+    """
+    run_dir = _write_run(
+        tmp_path,
+        {
+            "runId": "run-1",
+            "suiteId": "suite-1",
+            "results": [
+                {
+                    "scenarioId": "U1",
+                    "status": "completed",
+                    "passed": True,
+                    "baseOutcome": "unsupported",
+                    "expectedBaseOutcome": "unsupported",
+                    "turns": [],
+                    "assertions": [],
+                },
+                {
+                    "scenarioId": "U1",
+                    "status": "completed",
+                    "passed": False,
+                    "baseOutcome": "ready",
+                    "expectedBaseOutcome": "unsupported",
+                    "turns": [],
+                    "assertions": [],
+                },
+                {
+                    "scenarioId": "B1",
+                    "status": "completed",
+                    "passed": True,
+                    "baseOutcome": "needs_clarification",
+                    "expectedBaseOutcome": "needs_clarification",
+                    "turns": [
+                        {"observedOutcome": "ready", "expectedOutcome": "ready"}
+                    ],
+                    "assertions": [],
+                },
+            ],
+            "infrastructureFailures": [],
+        },
+    )
+    scored = score_run(run_dir)
+
+    assert scored["outcomeAccuracy"]["unsupported"] == {"expected": 2, "observed": 1}
+    assert scored["outcomeAccuracy"]["needs_clarification"] == {
+        "expected": 1,
+        "observed": 1,
+    }
+    # The ready follow-up on B1 is still counted beside its base.
+    assert scored["outcomeAccuracy"]["ready"] == {"expected": 1, "observed": 1}
+    # And what the base actually answered shows in the scenario's own tally.
+    assert scored["scenarios"]["U1"]["outcomes"] == {"ready": 1, "unsupported": 1}

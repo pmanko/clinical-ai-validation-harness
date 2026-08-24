@@ -128,6 +128,8 @@ def _load_gold_check(payload: dict[str, Any] | None) -> NotebookGoldCheck | None
 
 
 WRITER_OUTCOMES = ("ready", "needs_clarification", "unsupported")
+# A question and a refusal both end a generation with no SQL.
+TERMINAL_WRITER_OUTCOMES = frozenset(WRITER_OUTCOMES[1:])
 """The writer's terminal choices. `rejected` is the Gateway's, not one of these."""
 
 
@@ -186,18 +188,27 @@ class NotebookScenario:
     require_reviewer_correction: bool
     base_gold_check: NotebookGoldCheck | None = None
     successor_gold_check: NotebookGoldCheck | None = None
+    expected_base_outcome: str = "ready"
+
+    @property
+    def scored_on_the_opening_question_alone(self) -> bool:
+        """The writer asked or refused, so nothing follows it."""
+
+        return not self.turns
 
     @property
     def expected_turn_status(self) -> str:
-        return self.turns[0].expected_turn_status
+        return self.turns[0].expected_turn_status if self.turns else "failed"
 
     @property
     def followup_instruction(self) -> str:
-        return self.turns[0].instruction
+        return self.turns[0].instruction if self.turns else ""
 
     @property
     def followup_profile_id(self) -> str:
-        return self.turns[0].profile_id
+        # A scenario scored on its opening question alone was still run
+        # by a profile: the one that answered it.
+        return self.turns[0].profile_id if self.turns else self.initial_profile_id
 
 
 @dataclass(frozen=True)
@@ -764,7 +775,7 @@ class _EvidenceRecorder:
 
 
 def _load_turns(
-    scenario_id: str, item: dict[str, Any]
+    scenario_id: str, item: dict[str, Any], base_outcome: str
 ) -> tuple[NotebookTurn, ...]:
     """Read a scenario's follow-ups from whichever form declares them."""
 
@@ -783,8 +794,19 @@ def _load_turns(
                 "expectedTurnStatus": item.get("expectedTurnStatus", "completed"),
             }
         ]
-    if not declared:
-        raise ValueError(f"scenario {scenario_id!r} must declare at least one turn")
+    if not declared and base_outcome not in TERMINAL_WRITER_OUTCOMES:
+        # A scenario scored on its opening question alone is fine when the
+        # answer is a question or a refusal -- there is nothing to follow.
+        # A query, though, has to be checked here or nothing is measured
+        # beyond the session opening, which reads as a pass.
+        if not (
+            bool(item.get("validateBase", True))
+            and bool(item.get("executeBase", True))
+        ):
+            raise ValueError(
+                f"scenario {scenario_id!r} must declare at least one turn, "
+                "or validate and execute the query its opening question asked for"
+            )
     turns: list[NotebookTurn] = []
     for position, entry in enumerate(declared, start=1):
         status = str(entry.get("expectedTurnStatus", "completed"))
@@ -847,7 +869,13 @@ def load_notebook_suite(path: Path | str) -> NotebookSuite:
         classification = str(item["expectedBaseClassification"])
         if classification not in {"reused", "promoted_human", "unresolved"}:
             raise ValueError(f"scenario {scenario_id!r} has invalid classification")
-        turns = _load_turns(scenario_id, item)
+        base_outcome = str(item.get("expectedBaseOutcome", "ready"))
+        if base_outcome not in WRITER_OUTCOMES:
+            raise ValueError(
+                f"scenario {scenario_id!r} has invalid expected base "
+                f"outcome {base_outcome!r}"
+            )
+        turns = _load_turns(scenario_id, item, base_outcome)
         scenarios.append(
             NotebookScenario(
                 id=scenario_id,
@@ -873,6 +901,7 @@ def load_notebook_suite(path: Path | str) -> NotebookSuite:
                 ),
                 base_gold_check=_load_gold_check(item.get("baseGoldCheck")),
                 successor_gold_check=_load_gold_check(item.get("successorGoldCheck")),
+                expected_base_outcome=base_outcome,
             )
         )
     if not scenarios:
@@ -1318,6 +1347,8 @@ def run_notebook_suite(
                         "question": (
                             f"{scenario.initial_question} ⇒ "
                             f"{scenario.followup_instruction}"
+                            if scenario.turns
+                            else scenario.initial_question
                         )
                     },
                     "response": {"answer": answer},
@@ -1467,6 +1498,37 @@ def _run_scenario(
             evidence_exchange.status_code,
         )
 
+    # What the writer answered the opening question with, before anything is
+    # done to the session: a query, a question, or a refusal.
+    observed_base_outcome = (
+        writer_outcome(initial_turn) if isinstance(initial_turn, dict) else "rejected"
+    )
+    check(
+        "base_writer_outcome",
+        observed_base_outcome == scenario.expected_base_outcome,
+        {
+            "observed": observed_base_outcome,
+            "expected": scenario.expected_base_outcome,
+        },
+    )
+    if scenario.expected_base_outcome in TERMINAL_WRITER_OUTCOMES:
+        # A question or a refusal is one writer call and no SQL. There is
+        # nothing to validate, execute or check an answer against, and the
+        # session must be holding no query at all.
+        check(
+            "no_sql_after_non_ready_base",
+            not session.get("versions") and session.get("currentVersionId") is None,
+            {
+                "versions": session.get("versions"),
+                "currentVersionId": session.get("currentVersionId"),
+            },
+        )
+        if scenario.validate_base or scenario.execute_base:
+            raise ValueError(
+                f"scenario {scenario.id!r} expects no query from its opening "
+                "question, so it cannot validate or execute one"
+            )
+
     if scenario.persist_editor_query:
         if scenario.editor_query is None:
             raise ValueError(
@@ -1490,7 +1552,9 @@ def _run_scenario(
         current = session.get("currentVersion")
 
     base_version = current if isinstance(current, dict) else None
-    if base_version is None:
+    if base_version is None and scenario.expected_base_outcome not in (
+        TERMINAL_WRITER_OUTCOMES
+    ):
         check("base_version_available", False, None)
         return {
             "scenarioId": scenario.id,
@@ -1501,7 +1565,8 @@ def _run_scenario(
             "assertions": assertions,
             "passed": False,
         }
-    check("base_version_available", True, base_version.get("versionId"))
+    if base_version is not None:
+        check("base_version_available", True, base_version.get("versionId"))
 
     if scenario.validate_base:
         validated = client.validate_version(str(base_version["versionId"]))
@@ -1562,6 +1627,15 @@ def _run_scenario(
     # Turn 1 keeps the original evidence filenames and assertion names so every
     # suite recorded before multi-turn scenarios replays byte-for-byte.
     turn_summaries: list[dict[str, Any]] = []
+    # A scenario scored on its opening question alone never enters the
+    # loop, so everything the summary reads from a turn is stated here
+    # as the absence it actually is.
+    turn: dict[str, Any] = {}
+    followup: HttpExchange | None = None
+    followup_evidence: dict[str, Any] = {}
+    selected: dict[str, Any] | None = None
+    successor_execution: dict[str, Any] | None = None
+    successor_execution_wall_ms = 0
     for turn_index, turn_spec in enumerate(scenario.turns, start=1):
         slot = "" if turn_index == 1 else f"-t{turn_index}"
 
@@ -1841,10 +1915,11 @@ def _run_scenario(
     invocation_ms = int(initial_evidence.get("totalInvocationDurationMs") or 0) + int(
         followup_evidence.get("totalInvocationDurationMs") or 0
     )
-    generation_wall_ms = create.elapsed_ms + followup.elapsed_ms
+    followup_wall_ms = followup.elapsed_ms if followup is not None else 0
+    generation_wall_ms = create.elapsed_ms + followup_wall_ms
     timing = {
         "initialGenerationWallMs": create.elapsed_ms,
-        "followupGenerationWallMs": followup.elapsed_ms,
+        "followupGenerationWallMs": followup_wall_ms,
         "unadjustedGenerationWallMs": generation_wall_ms,
         "recordedInvocationDurationMs": invocation_ms,
         "generationWallMinusRecordedInvocationsMs": generation_wall_ms - invocation_ms,
@@ -1861,15 +1936,19 @@ def _run_scenario(
         "scenarioId": scenario.id,
         "family": scenario.family,
         "repetition": repetition,
-        "status": turn.get("status"),
+        # With no turn to report on, the repetition's status is the
+        # session's own: it ran to the end of what it declared.
+        "status": turn.get("status") if scenario.turns else "completed",
+        "baseOutcome": observed_base_outcome,
+        "expectedBaseOutcome": scenario.expected_base_outcome,
         "sessionId": session_id,
         "initialTurnId": initial_turn.get("turnId")
         if isinstance(initial_turn, dict)
         else None,
         "followupTurnId": turn.get("turnId"),
         "turns": turn_summaries,
-        "baseVersionId": base_version.get("versionId"),
-        "baseQueryDigest": base_version.get("queryDigest"),
+        "baseVersionId": (base_version or {}).get("versionId"),
+        "baseQueryDigest": (base_version or {}).get("queryDigest"),
         "selectedVersionId": turn.get("selectedVersionId"),
         "baseExecutionId": (base_execution or {}).get("executionId"),
         "successorExecutionId": (successor_execution or {}).get("executionId"),
