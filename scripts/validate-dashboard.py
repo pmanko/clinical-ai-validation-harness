@@ -965,6 +965,8 @@ async function openD(s,b){
  }
  const reps=(d.turns||[]);
  if(reps.length&&reps[0].catalyst){
+  // Older run dirs may lack suite.json; the question must still be visible.
+  if(!ce&&reps[0].question) h+='<div class=exp><b>Question:</b> '+esc(reps[0].question)+'</div>';
   // One scenario, N repetitions: the script is stated once above; what a
   // reviewer compares is per-repetition outcomes, so those are a table and
   // the full transcript of each repetition is collapsed beneath it.
