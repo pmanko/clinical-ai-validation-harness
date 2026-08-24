@@ -16,6 +16,7 @@ from uuid import UUID
 import pytest
 
 from harness.catalyst.notebook_validation import (
+    writer_outcome,
     HttpExchange,
     NotebookHttpClient,
     NotebookQuery,
@@ -2249,6 +2250,106 @@ def test_scenario_turn_profiles_must_exist_in_the_suite(tmp_path: Path) -> None:
                             "turns": [
                                 {"instruction": "first", "profileId": PROFILE_ID},
                                 {"instruction": "x", "profileId": "not-a-profile"},
+                            ],
+                        }
+                    ]
+                ),
+            )
+        )
+
+
+# --- writer outcomes -------------------------------------------------------
+#
+# The writer may end a turn three ways: ready, needs_clarification, or
+# unsupported. `rejected` is the Gateway's, for policy/contract/reviewer or
+# orchestration failure, and is never a writer choice. Catalyst does not
+# publish a turn-level outcome yet — today a clarification arrives as a failed
+# turn carrying failure.code — so the reader accepts the field when it appears
+# and derives the outcome from the recorded shape until then.
+
+
+def test_writer_outcome_prefers_the_published_field() -> None:
+    turn = {"status": "failed", "writerOutcome": "unsupported"}
+    assert writer_outcome(turn) == "unsupported"
+
+
+@pytest.mark.parametrize("code", ["needs_clarification", "unsupported"])
+def test_writer_outcome_derives_the_writer_choice_from_todays_shape(
+    code: str,
+) -> None:
+    turn = {"status": "failed", "failure": {"code": code, "message": "…"}}
+    assert writer_outcome(turn) == code
+
+
+def test_writer_outcome_reads_a_completed_turn_as_ready() -> None:
+    turn = {"status": "completed", "selectedVersionId": "v1"}
+    assert writer_outcome(turn) == "ready"
+
+
+def test_writer_outcome_keeps_gateway_failures_out_of_the_writer_vocabulary() -> None:
+    """A contract or transport failure is the Gateway's, not a writer answer."""
+    turn = {"status": "failed", "failure": {"code": "writer_output_contract_failed"}}
+    assert writer_outcome(turn) == "rejected"
+
+
+def test_turn_declares_its_expected_writer_outcome(tmp_path: Path) -> None:
+    base = _suite_payload()["scenarios"][0]
+    suite = load_notebook_suite(
+        _write_suite(
+            tmp_path,
+            _suite_payload(
+                scenarios=[
+                    {
+                        **{
+                            key: value
+                            for key, value in base.items()
+                            if key
+                            not in {"followupInstruction", "followupProfileId"}
+                        },
+                        "turns": [
+                            {
+                                "instruction": "Show recent HIV results.",
+                                "profileId": PROFILE_ID,
+                                "expectedOutcome": "needs_clarification",
+                            },
+                            {
+                                "instruction": "Last 90 days, CD4 count.",
+                                "profileId": PROFILE_ID,
+                            },
+                        ],
+                    }
+                ]
+            ),
+        )
+    )
+    turns = suite.scenarios[0].turns
+
+    assert [turn.expected_outcome for turn in turns] == ["needs_clarification", "ready"]
+
+
+def test_turn_rejects_gateway_rejection_as_an_expected_writer_outcome(
+    tmp_path: Path,
+) -> None:
+    base = _suite_payload()["scenarios"][0]
+    with pytest.raises(ValueError, match="invalid expected outcome"):
+        load_notebook_suite(
+            _write_suite(
+                tmp_path,
+                _suite_payload(
+                    scenarios=[
+                        {
+                            **{
+                                key: value
+                                for key, value in base.items()
+                                if key
+                                not in {"followupInstruction", "followupProfileId"}
+                            },
+                            "turns": [
+                                {
+                                    "instruction": "x",
+                                    "profileId": PROFILE_ID,
+                                    "expectedOutcome": "rejected",
+                                }
                             ],
                         }
                     ]

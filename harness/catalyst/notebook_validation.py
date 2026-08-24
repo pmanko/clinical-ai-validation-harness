@@ -127,6 +127,31 @@ def _load_gold_check(payload: dict[str, Any] | None) -> NotebookGoldCheck | None
     )
 
 
+WRITER_OUTCOMES = ("ready", "needs_clarification", "unsupported")
+"""The writer's terminal choices. `rejected` is the Gateway's, not one of these."""
+
+
+def writer_outcome(turn: dict[str, Any]) -> str:
+    """Which terminal answer the writer gave for this turn.
+
+    Catalyst does not publish a turn-level outcome yet: a clarification
+    arrives as a failed turn whose failure code names the writer's choice.
+    The published field wins as soon as it exists, so the runner reads the
+    same vocabulary before and after that contract lands. Anything else that
+    failed is the Gateway's `rejected`, which is not a writer answer.
+    """
+    published = turn.get("writerOutcome")
+    if published in WRITER_OUTCOMES:
+        return str(published)
+    if turn.get("status") == "completed":
+        return "ready"
+    failure = turn.get("failure")
+    code = failure.get("code") if isinstance(failure, dict) else None
+    if code in WRITER_OUTCOMES:
+        return str(code)
+    return "rejected"
+
+
 @dataclass(frozen=True)
 class NotebookTurn:
     """One follow-up the operator sends after the session question.
@@ -139,6 +164,7 @@ class NotebookTurn:
     instruction: str
     profile_id: str
     expected_turn_status: str = "completed"
+    expected_outcome: str = "ready"
 
 
 @dataclass(frozen=True)
@@ -763,11 +789,18 @@ def _load_turns(
             raise ValueError(
                 f"scenario {scenario_id!r} turn {position} has invalid turn status"
             )
+        outcome = str(entry.get("expectedOutcome", "ready"))
+        if outcome not in WRITER_OUTCOMES:
+            raise ValueError(
+                f"scenario {scenario_id!r} turn {position} has invalid expected "
+                f"outcome {outcome!r}"
+            )
         turns.append(
             NotebookTurn(
                 instruction=str(entry["instruction"]),
                 profile_id=str(entry["profileId"]),
                 expected_turn_status=status,
+                expected_outcome=outcome,
             )
         )
     return tuple(turns)
