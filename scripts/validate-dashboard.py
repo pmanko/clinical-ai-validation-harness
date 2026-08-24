@@ -204,14 +204,41 @@ def status():
             return bool(m["passed"])
         return m.get("http_status") == 200 and (m.get("answer_chars") or 0) > 0
 
+    ledger_path = _VETTED_LEDGER_OVERRIDE or str(
+        ROOT / "datasets" / "validation" / "catalyst"
+        / "vetted-failure-signatures.json"
+    )
+
+    def _cell_failure_state(rs):
+        """'modelfail' when every failure is a vetted model result; 'err'
+        the moment anything is unvetted or infrastructure -- a completed
+        comparison with imperfect teams is a successful run, and only a
+        suspect run deserves red."""
+        state = "modelfail"
+        for r in rs:
+            m = r.get("metrics") or {}
+            if "passed" not in m or m.get("passed"):
+                continue
+            failed = (r.get("response") or {}).get("failedAssertions") or []
+            verdict = blame_failure(failed, ledger_path)
+            if verdict["disposition"] != "model":
+                return "err"
+        return state
+
     states = {}
     for (s, b) in expected_cells:
         exp = exp_turns.get((s, b), 1)
         rs = cell_rows.get((s, b), [])
         good = sum(1 for r in rs if _good(r))
         bad = sum(1 for r in rs if (r.get("metrics") or {}).get("http_status") not in (200, None))
+        scored_fail = any(
+            "passed" in (r.get("metrics") or {}) and not r["metrics"]["passed"]
+            for r in rs
+        )
         if good >= exp:
             st = "done"
+        elif scored_fail and not bad and len(rs) >= exp:
+            st = _cell_failure_state(rs)
         elif bad > 0 or len(rs) >= exp:
             st = "err"          # a failure, or all turns present but some empty
         elif len(rs) > 0:
@@ -296,6 +323,7 @@ _ROOT_PRECEDENCE = (
 )
 
 _VETTED_CACHE = {}
+_VETTED_LEDGER_OVERRIDE = None
 
 
 def _vetted_ledger(path):
@@ -495,6 +523,7 @@ html[data-theme="light"]{color-scheme:light;--bg:#f6f8fa;--surface:#ffffff;--sur
 """
     + THEME_TOGGLE_CSS
     + r"""
+.cmodel{color:var(--flag);border-color:var(--flag);}
 body{background:var(--bg);color:var(--text);font:13px/1.5 -apple-system,BlinkMacSystemFont,Menlo,monospace;margin:0;padding:18px}
 h1{font-size:15px;margin:0 0 6px}.muted{color:var(--muted)}.ok{color:var(--ok)}.err{color:var(--err)}
 .bar{height:20px;background:var(--surface);border-radius:10px;overflow:hidden;margin:8px 0}
@@ -624,12 +653,12 @@ table.ac-knobs{border-collapse:collapse;font-size:10.5px;margin-top:2px}
 <section><h2>Models resident (llama-router)</h2><div id=models></div></section>
 <section><h2>Arms</h2><div class=row id=arms></div></section>
 <section><h2>Judged scores</h2><div id=judges></div></section>
-<section><h2>Scenario &times; arm &nbsp;<span class=muted>(click a cell)</span></h2><div id=grid></div></section>
+<section><h2>Scenario &times; arm &nbsp;<span class=muted>(click a cell)</span></h2><p class=muted style="margin:2px 0 6px">✓ passed &nbsp;·&nbsp; <span class=cmodel>F</span> model failed the scenario (scored result) &nbsp;·&nbsp; <span class=err>!</span> run suspect — unvetted or infrastructure &nbsp;·&nbsp; ● running</p><div id=grid></div></section>
 <section><h2>Recent &nbsp;<span class=muted>(click a row)</span></h2><div class=feed id=feed></div></section>
 <div id=modal onclick="if(event.target===this)closeD()"><div id=mbody></div></div>
 <script>
-const cls=s=>({done:'c200',err:'cerr',running:'crun',pending:'cpend'}[s]||'cpend');
-const sym=s=>({done:'✓',err:'×',running:'●',pending:'·'}[s]||'·');
+const cls=s=>({done:'c200',modelfail:'cmodel',err:'cerr',running:'crun',pending:'cpend'}[s]||'cpend');
+const sym=s=>({done:'✓',modelfail:'F',err:'!',running:'●',pending:'·'}[s]||'·');
 // Human-readable arm titles from the resolver's arm_cards (model_registry), never the raw dashed
 // backend id. Filled each tick from the latest /api/status. armTitle = full; armShort = tight
 // grid/column variant. Fall back to the raw id only if a card is missing.

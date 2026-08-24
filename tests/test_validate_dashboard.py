@@ -223,3 +223,63 @@ def test_a_failure_is_reduced_to_one_blamed_root_cause(tmp_path: Path):
         [{"name": "brand_new_check", "evidence": "?"}], str(ledger)
     )
     assert unknown["disposition"] == "unvetted"
+
+
+def test_a_vetted_model_failure_is_a_result_not_an_alarm(tmp_path: Path):
+    """The grid distinguishes 'the model failed the scenario' from 'the run
+    is suspect'.
+
+    A completed comparison with imperfect teams is a SUCCESSFUL run; painting
+    every vetted model failure the same red as infrastructure breakage made
+    it read as a broken run. Vetted model failures render as their own state;
+    red is reserved for unvetted or infrastructure failures.
+    """
+    vd = _load_dashboard_module()
+    run = tmp_path / "run"
+    run.mkdir()
+    cells = [{"scenario_id": s, "backend_id": "team-a", "turns": 1}
+             for s in ("A1", "A2", "A3")]
+    (run / "events.jsonl").write_text(
+        json.dumps({"event_type": "run", "cells": cells,
+                    "scenario_ids": [c["scenario_id"] for c in cells],
+                    "backend_ids": ["team-a"]}) + "\n",
+        encoding="utf-8",
+    )
+    (run / "suite.json").write_text(json.dumps({"scenarios": []}), encoding="utf-8")
+
+    def row(sid, passed, failed_names=()):
+        return {
+            "scenario_id": sid, "backend_id": "team-a", "turn": 1,
+            "request": {"question": "q"},
+            "response": {"answer": "a",
+                         "failedAssertions": [{"name": n, "evidence": ""}
+                                              for n in failed_names]},
+            "metrics": {"http_status": 200, "passed": passed,
+                        "answer_chars": 1},
+        }
+
+    rows = [
+        row("A1", True),
+        row("A2", False, ("writer_outcome",)),          # vetted: model
+        row("A3", False, ("brand_new_breakage",)),      # unvetted: alarm
+    ]
+    (run / "results.jsonl").write_text(
+        "".join(json.dumps(r) + "\n" for r in rows), encoding="utf-8"
+    )
+    ledger = tmp_path / "vetted.json"
+    ledger.write_text(json.dumps([
+        {"signature": ["writer_outcome"], "disposition": "model",
+         "rationale": "known"}
+    ]), encoding="utf-8")
+    vd._RUN_OVERRIDE = str(run)
+    vd._VETTED_LEDGER_OVERRIDE = str(ledger)
+    try:
+        status = vd.status()
+    finally:
+        vd._RUN_OVERRIDE = None
+        vd._VETTED_LEDGER_OVERRIDE = None
+
+    by = {(g["scenario"]): g["state"] for g in status["grid"]}
+    assert by["A1"] == "done"
+    assert by["A2"] == "modelfail"
+    assert by["A3"] == "err"
