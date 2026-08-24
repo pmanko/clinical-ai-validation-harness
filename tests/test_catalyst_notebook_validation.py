@@ -3532,3 +3532,188 @@ def test_a_reference_that_blows_the_row_cap_is_a_suite_error(monkeypatch) -> Non
             "postgresql://readonly:secret@127.0.0.1:15443/catalyst_analytics",
             max_rows=5,
         ).check(version, gold_check)
+
+
+# --- acceptance criteria must not depend on the model's column names --------
+
+
+def test_an_aggregate_value_matches_whatever_the_model_called_its_count(
+    monkeypatch,
+) -> None:
+    """The criterion is 'count of visits by encounter type', not a spelling.
+
+    The keys come from catalog values so they match naturally; the aggregate
+    is a column the model names itself ('visit_count', 'total', ...). A
+    criterion that demands our spelling scores a correct answer as wrong.
+    When the row has exactly one non-key column, that is the value.
+    """
+    from harness.catalyst.notebook_validation import (
+        PostgresGoldExecutionChecker,
+        NotebookGoldCheck,
+    )
+
+    _gold_check_connection(
+        monkeypatch,
+        {
+            "model_table": (
+                ["encounter_type", "visit_count"],
+                [("Adult Visit", 13369), ("Check In", 941)],
+            ),
+            "reference_table": (
+                ["encounter_type", "visits"],
+                [("Adult Visit", 13369), ("Check In", 941)],
+            ),
+        },
+    )
+    version = {
+        "versionId": "version-1",
+        "queryDigest": "a" * 64,
+        "sql": "SELECT encounter_type, count(*) AS visit_count FROM model_table",
+        "parameters": [],
+    }
+    gold_check = NotebookGoldCheck(
+        mode="aggregate_by_key",
+        reference_sql="SELECT encounter_type, visits FROM reference_table",
+        key_columns=("encounter_type",),
+        value_columns={"visits": {"tolerance": 0}},
+    )
+
+    result = PostgresGoldExecutionChecker(
+        "postgresql://readonly:secret@127.0.0.1:15443/catalyst_analytics"
+    ).check(version, gold_check)
+
+    assert result["passed"] is True, result
+    assert result["valueColumnResolution"] == {"visits": "visit_count"}
+
+
+def test_an_ambiguous_aggregate_names_the_columns_it_could_not_choose_between(
+    monkeypatch,
+) -> None:
+    """Two candidate value columns cannot be silently guessed between --
+    and the evidence says exactly that, not a wall of row diffs."""
+    from harness.catalyst.notebook_validation import (
+        PostgresGoldExecutionChecker,
+        NotebookGoldCheck,
+    )
+
+    _gold_check_connection(
+        monkeypatch,
+        {
+            "model_table": (
+                ["encounter_type", "n", "pct"],
+                [("Adult Visit", 13369, 0.9)],
+            ),
+            "reference_table": (
+                ["encounter_type", "visits"],
+                [("Adult Visit", 13369)],
+            ),
+        },
+    )
+    version = {
+        "versionId": "version-1",
+        "queryDigest": "a" * 64,
+        "sql": "SELECT encounter_type, n, pct FROM model_table",
+        "parameters": [],
+    }
+    gold_check = NotebookGoldCheck(
+        mode="aggregate_by_key",
+        reference_sql="SELECT encounter_type, visits FROM reference_table",
+        key_columns=("encounter_type",),
+        value_columns={"visits": {"tolerance": 0}},
+    )
+
+    result = PostgresGoldExecutionChecker(
+        "postgresql://readonly:secret@127.0.0.1:15443/catalyst_analytics"
+    ).check(version, gold_check)
+
+    assert result["passed"] is False
+    assert "visits" in result["disagreement"]
+    assert "n" in result["disagreement"] and "pct" in result["disagreement"]
+
+
+def test_a_row_set_missing_its_match_column_says_so_in_one_sentence(
+    monkeypatch,
+) -> None:
+    """A wrong criterion or projection reads as a sentence, not a row diff."""
+    from harness.catalyst.notebook_validation import (
+        PostgresGoldExecutionChecker,
+        NotebookGoldCheck,
+    )
+
+    _gold_check_connection(
+        monkeypatch,
+        {
+            "model_table": (["patient_id", "value"], [("p1", 7)]),
+            "reference_table": (["observation_id"], [("o1",)]),
+        },
+    )
+    version = {
+        "versionId": "version-1",
+        "queryDigest": "a" * 64,
+        "sql": "SELECT patient_id, value FROM model_table",
+        "parameters": [],
+    }
+    gold_check = NotebookGoldCheck(
+        mode="row_set",
+        reference_sql="SELECT observation_id FROM reference_table",
+        match_columns=("observation_id",),
+    )
+
+    result = PostgresGoldExecutionChecker(
+        "postgresql://readonly:secret@127.0.0.1:15443/catalyst_analytics"
+    ).check(version, gold_check)
+
+    assert result["passed"] is False
+    assert "observation_id" in result["disagreement"]
+    assert "patient_id" in result["disagreement"]
+
+
+def test_a_model_query_that_times_out_fails_the_check_not_the_run(
+    monkeypatch,
+) -> None:
+    """A query too slow to answer within the statement timeout is a wrong
+    answer for this product, and the evidence says so in one sentence."""
+    from harness.catalyst.notebook_validation import (
+        PostgresGoldExecutionChecker,
+        NotebookGoldCheck,
+    )
+
+    cursor = _gold_check_connection(
+        monkeypatch,
+        {
+            "reference_table": (["patient_id"], [("p1",)]),
+        },
+    )
+
+    class _Timeout(Exception):
+        pass
+
+    import psycopg
+
+    monkeypatch.setattr(psycopg.errors, "QueryCanceled", _Timeout, raising=False)
+    original = cursor.execute
+
+    def slow_execute(sql, *args, **kwargs):
+        if "model_table" in sql:
+            raise _Timeout("canceling statement due to statement timeout")
+        return original(sql, *args, **kwargs)
+
+    cursor.execute = slow_execute
+    version = {
+        "versionId": "version-1",
+        "queryDigest": "a" * 64,
+        "sql": "SELECT patient_id FROM model_table",
+        "parameters": [],
+    }
+    gold_check = NotebookGoldCheck(
+        mode="row_set",
+        reference_sql="SELECT patient_id FROM reference_table",
+        match_columns=("patient_id",),
+    )
+
+    result = PostgresGoldExecutionChecker(
+        "postgresql://readonly:secret@127.0.0.1:15443/catalyst_analytics"
+    ).check(version, gold_check)
+
+    assert result["passed"] is False
+    assert "statement timeout" in result["disagreement"]

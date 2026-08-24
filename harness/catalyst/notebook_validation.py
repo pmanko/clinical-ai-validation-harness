@@ -612,12 +612,30 @@ class PostgresGoldExecutionChecker:
                     "SELECT set_config('statement_timeout', %s, true)",
                     (f"{self.statement_timeout_ms}ms",),
                 )
-                model_rows, model_exceeded = _fetch_all_rows(
-                    cursor,
-                    str(version["sql"]),
-                    list(version.get("parameters") or []),
-                    max_rows=self.max_rows,
-                )
+                try:
+                    model_rows, model_exceeded = _fetch_all_rows(
+                        cursor,
+                        str(version["sql"]),
+                        list(version.get("parameters") or []),
+                        max_rows=self.max_rows,
+                    )
+                except psycopg.errors.QueryCanceled:
+                    # Too slow to answer within the product's own statement
+                    # timeout is a wrong answer, not a broken harness.
+                    return {
+                        "contractVersion": (
+                            "harness.catalyst-notebook.gold-execution-match.v1"
+                        ),
+                        "mode": gold_check.mode,
+                        "versionId": version.get("versionId"),
+                        "queryDigest": version.get("queryDigest"),
+                        "passed": False,
+                        "disagreement": (
+                            "the model's query exceeded the "
+                            f"{self.statement_timeout_ms}ms statement timeout "
+                            "when re-executed independently"
+                        ),
+                    }
                 reference_rows, reference_exceeded = _fetch_all_rows(
                     cursor,
                     gold_check.reference_sql,
@@ -675,6 +693,22 @@ def _compare_row_sets(
     reference_rows: list[dict[str, Any]],
     match_columns: tuple[str, ...],
 ) -> dict[str, Any]:
+    # A match column the model never projected can only produce a wall of
+    # None-vs-value diffs; the honest evidence is one sentence naming it.
+    if model_rows:
+        model_columns = sorted(model_rows[0])
+        absent = [c for c in match_columns if c not in model_rows[0]]
+        if absent:
+            return {
+                "matchColumns": list(match_columns),
+                "passed": False,
+                "disagreement": (
+                    f"the model result has no column named "
+                    f"{', '.join(repr(c) for c in absent)}; its columns are "
+                    f"{model_columns}"
+                ),
+            }
+
     def _key(row: dict[str, Any]) -> tuple[Any, ...]:
         return tuple(row.get(column) for column in match_columns)
 
@@ -710,6 +744,34 @@ def _compare_aggregates(
     def _key(row: dict[str, Any]) -> tuple[Any, ...]:
         return tuple(row.get(column) for column in key_columns)
 
+    # The criterion is "this aggregate by this key", not our spelling of the
+    # aggregate: keys come from catalog values and match naturally, but the
+    # value column is named by the model. When our name is absent and the row
+    # has exactly one non-key column left, that column is the value. Two or
+    # more is a real ambiguity, reported as a sentence rather than guessed.
+    resolution: dict[str, str] = {}
+    if model_rows:
+        model_columns = list(model_rows[0])
+        spare = [c for c in model_columns if c not in key_columns]
+        for wanted in value_columns:
+            if wanted in model_columns:
+                continue
+            others = [c for c in spare if c not in value_columns]
+            if len(others) == 1:
+                resolution[wanted] = others[0]
+            else:
+                return {
+                    "keyColumns": list(key_columns),
+                    "valueColumns": value_columns,
+                    "passed": False,
+                    "disagreement": (
+                        f"the model result has no column named {wanted!r} and "
+                        f"{'no' if not others else 'several'} unambiguous "
+                        f"stand-in{'s' if len(others) != 1 else ''} "
+                        f"({others}); its columns are {sorted(model_columns)}"
+                    ),
+                }
+
     model_by_key = {_key(row): row for row in model_rows}
     reference_by_key = {_key(row): row for row in reference_rows}
     missing_keys = sorted(set(reference_by_key) - set(model_by_key), key=str)
@@ -719,7 +781,7 @@ def _compare_aggregates(
         model_row, reference_row = model_by_key[key], reference_by_key[key]
         for column, spec in value_columns.items():
             model_value, reference_value = (
-                model_row.get(column),
+                model_row.get(resolution.get(column, column)),
                 reference_row.get(column),
             )
             tolerance = float(spec.get("tolerance", 0))
@@ -739,6 +801,7 @@ def _compare_aggregates(
         "missingKeys": [list(key) for key in missing_keys],
         "extraKeys": [list(key) for key in extra_keys],
         "valueMismatches": mismatches,
+        "valueColumnResolution": resolution,
         "passed": not missing_keys and not extra_keys and not mismatches,
     }
 
@@ -1086,6 +1149,53 @@ def _selected_answer_sql(run_dir: Path, prefix: str) -> str | None:
     return current.get("sql") if isinstance(current, dict) else None
 
 
+def _result_preview(execution: dict[str, Any] | None) -> dict[str, Any] | None:
+    """The first rows of what the query actually returned, for review.
+
+    A reviewer judging a cell needs the SQL and the table it produced, not a
+    filename. Values are unwrapped from their typed envelopes and clipped.
+    """
+    if not isinstance(execution, dict):
+        return None
+    result = execution.get("result")
+    if not isinstance(result, dict):
+        return None
+
+    def plain(cell: Any) -> Any:
+        return cell.get("value") if isinstance(cell, dict) else cell
+
+    columns = [
+        str(column.get("name"))
+        for column in result.get("columns") or []
+        if isinstance(column, dict)
+    ]
+    rows = [
+        [plain(cell) for cell in row]
+        for row in (result.get("rows") or [])[:10]
+        if isinstance(row, list)
+    ]
+    row_count = result.get("rowCount") or {}
+    return {
+        "columns": columns,
+        "rows": rows,
+        "returned": row_count.get("returned"),
+        "truncatedPreview": len(result.get("rows") or []) > 10,
+    }
+
+
+def _compact_evidence(evidence: Any) -> str:
+    """One legible line per failed assertion, for the run dashboard.
+
+    A gold check that produced a plain `disagreement` sentence surfaces it
+    verbatim; anything else is compacted JSON, clipped so one wide diff
+    cannot swallow the cell view.
+    """
+    if isinstance(evidence, dict) and isinstance(evidence.get("disagreement"), str):
+        return evidence["disagreement"]
+    text = json.dumps(evidence, sort_keys=True, default=str)
+    return text if len(text) <= 400 else text[:397] + "..."
+
+
 def _first_failed_assertion(assertions: list[dict[str, Any]]) -> str | None:
     for item in assertions:
         if not item.get("passed"):
@@ -1314,12 +1424,15 @@ def run_notebook_suite(
     # granularity than this run/scenario spine) and stays unused here.
     events_path = run_dir / "events.jsonl"
     results_path = run_dir / "results.jsonl"
+    # One matrix cell per (team, scenario): the comparison's tracking grid.
+    cell_teams: tuple[str | None, ...] = suite.comparison_profiles or (None,)
     cells = [
         {
             "scenario_id": scenario.id,
-            "backend_id": scenario.followup_profile_id,
+            "backend_id": cell_team or scenario.followup_profile_id,
             "turns": _effective_repetitions(suite, scenario, repetitions),
         }
+        for cell_team in cell_teams
         for scenario in selected
         if not (scenario.manual_only and not include_manual)
     ]
@@ -1490,7 +1603,12 @@ def run_notebook_suite(
                 ended_at = datetime.now(timezone.utc).isoformat()
 
                 http_status = _normalized_http_status(run_dir, prefix)
-                answer = _selected_answer_sql(run_dir, prefix) or str(result.get("status"))
+                answer = (
+                    _selected_answer_sql(run_dir, prefix)
+                    or result.get("baseSql")
+                    or result.get("baseAnswerText")
+                    or str(result.get("status"))
+                )
                 backend_id = scenario.followup_profile_id
                 append_jsonl(
                     results_path,
@@ -1507,7 +1625,32 @@ def run_notebook_suite(
                                 else scenario.initial_question
                             )
                         },
-                        "response": {"answer": answer},
+                        "response": {
+                            "answer": answer,
+                            "baseOutcome": result.get("baseOutcome"),
+                            "expectedBaseOutcome": result.get(
+                                "expectedBaseOutcome"
+                            ),
+                            "turns": [
+                                {
+                                    "instruction": t.get("instruction"),
+                                    "expectedOutcome": t.get("expectedOutcome"),
+                                    "observedOutcome": t.get("observedOutcome"),
+                                }
+                                for t in result.get("turns") or []
+                            ],
+                            "resultPreview": result.get("resultPreview"),
+                            "failedAssertions": [
+                                {
+                                    "name": item["name"],
+                                    "evidence": _compact_evidence(
+                                        item.get("evidence")
+                                    ),
+                                }
+                                for item in result.get("assertions") or []
+                                if not item.get("passed")
+                            ][:8],
+                        },
                         "metrics": {
                             "http_status": http_status,
                             "latency_ms": (result.get("timing") or {}).get(
@@ -1638,6 +1781,11 @@ def _run_scenario(
         None,
     )
     check("initial_turn_recorded", isinstance(initial_turn, dict), initial_turn)
+    base_failure_message = (
+        str((initial_turn.get("failure") or {}).get("message") or "")
+        if isinstance(initial_turn, dict)
+        else ""
+    )
     initial_evidence: dict[str, Any] = {}
     if isinstance(initial_turn, dict):
         evidence_exchange = client.generation_evidence(
@@ -2113,6 +2261,10 @@ def _run_scenario(
         "status": turn.get("status") if scenario.turns else "completed",
         "baseOutcome": observed_base_outcome,
         "expectedBaseOutcome": scenario.expected_base_outcome,
+        # For a question or a refusal these words ARE the answer under test.
+        "baseAnswerText": base_failure_message or None,
+        "baseSql": (base_version or {}).get("sql"),
+        "resultPreview": _result_preview(successor_execution or base_execution),
         "sessionId": session_id,
         "initialTurnId": initial_turn.get("turnId")
         if isinstance(initial_turn, dict)

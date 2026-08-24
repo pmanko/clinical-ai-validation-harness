@@ -236,3 +236,37 @@ def test_the_opening_question_is_a_scored_outcome_like_any_other(
     assert scored["outcomeAccuracy"]["ready"] == {"expected": 1, "observed": 1}
     # And what the base actually answered shows in the scenario's own tally.
     assert scored["scenarios"]["U1"]["outcomes"] == {"ready": 1, "unsupported": 1}
+
+
+def test_a_comparison_is_scored_per_team_not_pooled(tmp_path: Path) -> None:
+    """Selection needs each team's own rates; a pooled number hides the winner.
+
+    The absolute gates and the ordering both read per-team numbers, so a
+    run whose rows carry profileId is scored per profile alongside the
+    pooled view, and a team's weakness cannot hide in another's strength.
+    """
+    run_dir = _write_run(
+        tmp_path,
+        {
+            "runId": "run-1",
+            "suiteId": "suite-1",
+            "results": [
+                {"scenarioId": "A1", "profileId": "team-a", "status": "completed",
+                 "passed": True, "baseOutcome": "ready",
+                 "expectedBaseOutcome": "ready", "turns": [], "assertions": []},
+                {"scenarioId": "A1", "profileId": "team-b", "status": "completed",
+                 "passed": False, "baseOutcome": "ready",
+                 "expectedBaseOutcome": "ready", "turns": [], "assertions": []},
+            ],
+            "infrastructureFailures": [],
+        },
+    )
+    scored = score_run(run_dir)
+
+    teams = scored["profiles"]
+    assert teams["team-a"]["totals"]["rate"] == 1.0
+    assert teams["team-b"]["totals"]["rate"] == 0.0
+    assert scored["totals"]["rate"] == 0.5
+    # Per-team scenario detail exists under the team, not pooled.
+    assert teams["team-a"]["scenarios"]["A1"]["passed"] == 1
+    assert teams["team-b"]["scenarios"]["A1"]["passed"] == 0

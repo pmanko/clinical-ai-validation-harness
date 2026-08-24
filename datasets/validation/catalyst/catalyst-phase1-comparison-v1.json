@@ -35,7 +35,7 @@
   "scenarios": [
     {
       "id": "A1",
-      "comment": "One ready query, matched against an independent count of the same rows.",
+      "comment": "One ready query. Acceptance: the result set is exactly the 11 CD4-count observations since 2026-02-01 -- checked as a row count against an independently authored reference (the projection is the model's to name, so the criterion binds the filter semantics, and the independent read-only re-execution binds the rest).",
       "family": "single-ready",
       "initialQuestion": "List CD4 count results since 2026-02-01 with the patient, the value, the unit, and the observed date.",
       "initialProfileId": "catalyst-query-gemma-4-12b",
@@ -44,11 +44,8 @@
       "validateBase": true,
       "executeBase": true,
       "baseGoldCheck": {
-        "mode": "row_set",
-        "referenceSql": "SELECT observation_id FROM analytics.hiv_observation_fact_v1 WHERE concept_name = 'CD4 count' AND observed_at >= '2026-02-01'",
-        "matchColumns": [
-          "observation_id"
-        ]
+        "mode": "count",
+        "referenceSql": "SELECT observation_id FROM analytics.hiv_observation_fact_v1 WHERE concept_name = 'CD4 count' AND observed_at >= '2026-02-01'"
       },
       "turns": []
     },
@@ -230,7 +227,7 @@
       "executeBase": false,
       "successorGoldCheck": {
         "mode": "row_set",
-        "referenceSql": "SELECT DISTINCT patient_id FROM analytics.hiv_observation_fact_v1 o WHERE o.concept_name = 'Antiretroviral adherence in past week' AND o.value_coded_name <> 'All' AND o.observed_at = (  SELECT max(i.observed_at) FROM analytics.hiv_observation_fact_v1 i   WHERE i.patient_id = o.patient_id   AND i.concept_name = 'Antiretroviral adherence in past week')",
+        "referenceSql": "SELECT DISTINCT o.patient_id FROM analytics.hiv_observation_fact_v1 o JOIN (SELECT patient_id, max(observed_at) AS latest FROM analytics.hiv_observation_fact_v1 WHERE concept_name = 'Antiretroviral adherence in past week' GROUP BY patient_id) x ON x.patient_id = o.patient_id AND x.latest = o.observed_at WHERE o.concept_name = 'Antiretroviral adherence in past week' AND o.value_coded_name <> 'All'",
         "matchColumns": [
           "patient_id"
         ]
@@ -255,7 +252,7 @@
       "executeBase": false,
       "successorGoldCheck": {
         "mode": "row_set",
-        "referenceSql": "SELECT DISTINCT o.patient_id FROM analytics.hiv_observation_fact_v1 o WHERE o.concept_name = 'Return visit date' AND o.value_datetime < DATE '2026-03-01' AND NOT EXISTS (SELECT 1 FROM analytics.hiv_visit_fact_v1 v   WHERE v.patient_id = o.patient_id AND v.started_at > o.value_datetime)",
+        "referenceSql": "SELECT DISTINCT o.patient_id FROM analytics.hiv_observation_fact_v1 o LEFT JOIN (SELECT patient_id, max(started_at) AS last_visit FROM analytics.hiv_visit_fact_v1 GROUP BY patient_id) v ON v.patient_id = o.patient_id WHERE o.concept_name = 'Return visit date' AND o.value_datetime < DATE '2026-03-01' AND (v.last_visit IS NULL OR v.last_visit <= o.value_datetime)",
         "matchColumns": [
           "patient_id"
         ]

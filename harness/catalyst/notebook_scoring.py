@@ -57,21 +57,9 @@ def _interval(successes: int, total: int) -> list[float]:
     return [round(low, _PRECISION), round(high, _PRECISION)]
 
 
-def score_run(run_dir: Path | str, *, as_json: bool = False) -> dict[str, Any] | str:
-    """Score one run directory.
-
-    Set ``as_json`` for the canonical serialization used when publishing or
-    comparing two replays.
-    """
-    results_path = Path(run_dir) / "results.json"
-    payload = json.loads(results_path.read_text(encoding="utf-8"))
-    rows = list(payload.get("results") or [])
-
-    scored_rows = [
-        row
-        for row in rows
-        if row.get("status") not in {"skipped", "infrastructure_failed"}
-    ]
+def _score_rows(scored_rows: list[dict[str, Any]]) -> dict[str, Any]:
+    """The aggregate view of a set of scored rows: totals, per-scenario
+    rates, and outcome accuracy. Used pooled and once per compared team."""
     scenarios: dict[str, dict[str, Any]] = {}
     expected_outcomes: Counter[str] = Counter()
     observed_outcomes: Counter[str] = Counter()
@@ -128,20 +116,13 @@ def score_run(run_dir: Path | str, *, as_json: bool = False) -> dict[str, Any] |
         (entry["rate"] for entry in scenario_report.values() if entry["rate"] is not None),
         default=None,
     )
-    report = {
-        "contractVersion": SCORING_CONTRACT_VERSION,
-        "runId": payload.get("runId"),
-        "suiteId": payload.get("suiteId"),
+    return {
         "totals": {
             "scored": scored_total,
             "passed": passed_total,
             "rate": _rate(passed_total, scored_total),
             "interval": _interval(passed_total, scored_total),
             "worstScenarioRate": worst,
-            "skipped": sum(row.get("status") == "skipped" for row in rows),
-            "infrastructureFailed": sum(
-                row.get("status") == "infrastructure_failed" for row in rows
-            ),
         },
         "outcomeAccuracy": {
             outcome: {
@@ -151,6 +132,46 @@ def score_run(run_dir: Path | str, *, as_json: bool = False) -> dict[str, Any] |
             for outcome in sorted(expected_outcomes)
         },
         "scenarios": scenario_report,
+    }
+
+
+def score_run(run_dir: Path | str, *, as_json: bool = False) -> dict[str, Any] | str:
+    """Score one run directory.
+
+    The pooled view stays at the top level; a run whose rows carry a
+    profileId -- the frozen comparison -- is also scored once per team under
+    ``profiles``, because the absolute gates and the selection ordering both
+    read per-team numbers and a pooled rate would let one team's weakness
+    hide in another's strength.
+
+    Set ``as_json`` for the canonical serialization used when publishing or
+    comparing two replays.
+    """
+    results_path = Path(run_dir) / "results.json"
+    payload = json.loads(results_path.read_text(encoding="utf-8"))
+    rows = list(payload.get("results") or [])
+
+    scored_rows = [
+        row
+        for row in rows
+        if row.get("status") not in {"skipped", "infrastructure_failed"}
+    ]
+    report: dict[str, Any] = {
+        "contractVersion": SCORING_CONTRACT_VERSION,
+        "runId": payload.get("runId"),
+        "suiteId": payload.get("suiteId"),
+        **_score_rows(scored_rows),
+    }
+    report["totals"]["skipped"] = sum(row.get("status") == "skipped" for row in rows)
+    report["totals"]["infrastructureFailed"] = sum(
+        row.get("status") == "infrastructure_failed" for row in rows
+    )
+    team_ids = sorted(
+        {str(row["profileId"]) for row in scored_rows if row.get("profileId")}
+    )
+    report["profiles"] = {
+        team: _score_rows([row for row in scored_rows if row.get("profileId") == team])
+        for team in team_ids
     }
     if as_json:
         return json.dumps(report, indent=2, sort_keys=True, ensure_ascii=False) + "\n"

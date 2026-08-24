@@ -351,6 +351,17 @@ def detail(scenario, backend):
                       "status": m.get("http_status"), "latency_ms": m.get("latency_ms"),
                       "chars": m.get("answer_chars"), "citations": m.get("citation_count"),
                       "error": r.get("error"),
+                      # Catalyst rows are graded deterministically and carry
+                      # their own review payload; the chart-QA panels below
+                      # would all render empty for them.
+                      "catalyst": ({
+                          "passed": m.get("passed"),
+                          "baseOutcome": resp.get("baseOutcome"),
+                          "expectedBaseOutcome": resp.get("expectedBaseOutcome"),
+                          "turns": resp.get("turns") or [],
+                          "failedAssertions": resp.get("failedAssertions") or [],
+                          "resultPreview": resp.get("resultPreview"),
+                      } if "passed" in m else None),
                       "trace": {"answer_confidence": tr.get("answer_confidence"),
                                 "indepth_confidence": tr.get("indepth_confidence"),
                                 "answer_text": tr.get("answer_text", ""),
@@ -827,6 +838,27 @@ async function openD(s,b){
   const answerLifecycle=t.answer_validation_display;
   const indepthLifecycle=t.indepth_validation_display;
   h+='<div class=turn><div class=q>Turn '+t.turn+': '+esc(t.question)+'</div>';
+  if(t.catalyst){
+   const c=t.catalyst;
+   const chip=(exp,obs)=>(!exp||obs===exp)?'<span class=ok>'+esc(obs||'?')+'</span>':'<span class=err>'+esc(obs||'?')+' (expected '+esc(exp)+')</span>';
+   h+='<div class=meta>'+(c.passed?'<span class=ok>PASS</span>':'<span class=err>FAIL</span>')+' · '+(t.latency_ms||0)+'ms · opening answer '+chip(c.expectedBaseOutcome,c.baseOutcome)+'</div>';
+   h+='<div class=ans><pre style="white-space:pre-wrap;margin:0">'+esc(t.answer||'')+'</pre></div>';
+   (c.turns||[]).forEach((u,i)=>{h+='<div class=meta>turn '+(i+2)+': '+esc(u.instruction||'')+' → '+chip(u.expectedOutcome,u.observedOutcome)+'</div>';});
+   const rp=c.resultPreview;
+   if(rp&&(rp.columns||[]).length){
+    h+='<div class=csec><div class=ctitle>Result ('+(rp.returned!=null?rp.returned+' rows':'')+(rp.truncatedPreview?', first 10 shown':'')+')</div>';
+    h+='<div style="overflow-x:auto"><table class=data><tr>'+rp.columns.map(cn=>'<th>'+esc(cn)+'</th>').join('')+'</tr>';
+    h+=(rp.rows||[]).map(r=>'<tr>'+r.map(v=>'<td>'+esc(v==null?'∅':String(v))+'</td>').join('')+'</tr>').join('');
+    h+='</table></div></div>';
+   }
+   if((c.failedAssertions||[]).length){
+    h+='<div class=csec><div class=ctitle>Failed checks</div>'+c.failedAssertions.map(f=>'<div class="caveat red"><b>'+esc(f.name)+'</b> — '+esc(f.evidence||'')+'</div>').join('')+'</div>';
+   }else{
+    h+='<div class=meta><span class=ok>every check passed</span></div>';
+   }
+   h+='</div>';
+   return;
+  }
   h+='<div class=meta><span class="'+(t.status===200?'ok':'err')+'">status '+t.status+'</span> · '+(t.latency_ms||0)+'ms · '+(t.chars||0)+' chars · '+(t.citations||0)+' source refs</div>';
   h+=renderStageTimings(tr&&tr.stage_timings);
   if(t.error){
