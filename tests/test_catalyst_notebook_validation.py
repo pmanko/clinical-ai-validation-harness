@@ -3753,3 +3753,28 @@ def test_a_partially_repeated_pair_is_rerun_not_reused(tmp_path: Path) -> None:
     assert len(summary["results"]) == 3
     # The whole pair re-ran: partial work is measurement of nothing.
     assert len(state.turn_requests) == turns_before
+
+
+def test_an_unstable_recorded_pair_is_only_reused_at_the_extended_count(
+    tmp_path: Path,
+) -> None:
+    """Three disagreeing repetitions of a 3->5 suite are not settled evidence.
+
+    The live scheduler would have extended them; reuse holds resumed runs to
+    the same rule, and accepts the pair once the extension is recorded.
+    """
+    from harness.catalyst.notebook_validation import _pair_is_complete
+
+    suite = load_notebook_suite(_write_suite(tmp_path, _adaptive_suite()))
+    scenario = suite.scenarios[0]
+    disagreeing = [
+        _rep(True, ["ready"]),
+        _rep(False, ["ready"]),
+        _rep(True, ["ready"]),
+    ]
+
+    assert _pair_is_complete(disagreeing, suite, scenario, None) is False
+    extended = disagreeing + [_rep(True, ["ready"]), _rep(True, ["ready"])]
+    assert _pair_is_complete(extended, suite, scenario, None) is True
+    # An explicit repetition override was asked for exactly that many.
+    assert _pair_is_complete(disagreeing, suite, scenario, 3) is True
