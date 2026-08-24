@@ -32,6 +32,25 @@ if [ ! -f "${ROOT}/.env.chartsearch.cloud" ]; then
   exit 1
 fi
 
+# The page is the source of truth for which demo-host assets it needs, not a
+# list maintained here: a recut changes the <source>/poster URL in
+# landing/index.html, and that edit alone must be enough to keep this script
+# correct. Extracted before any deployment mutation, so a missing asset (a
+# recut published to landing/ before its video/poster reached the demo host)
+# fails here and leaves the currently published page untouched.
+MEDIA_HOST="https://catalyst.openelis-global.org/media/"
+mapfile -t REMOTE_MEDIA_ASSETS < <(
+  grep -oE "${MEDIA_HOST}[A-Za-z0-9._-]+" "${ROOT}/landing/index.html" | sort -u
+)
+if [ "${#REMOTE_MEDIA_ASSETS[@]}" -eq 0 ]; then
+  echo "error: no ${MEDIA_HOST}<asset> references found in landing/index.html" >&2
+  exit 1
+fi
+echo "==> verifying ${#REMOTE_MEDIA_ASSETS[@]} demo-host asset(s) referenced by landing/index.html"
+for asset in "${REMOTE_MEDIA_ASSETS[@]}"; do
+  curl -fsS --retry 8 --retry-delay 2 --max-time 30 "${asset}" -o /dev/null
+done
+
 IP="$(gcp_vm_ip)"
 HUB_BUILD_REVISION="$(git -C "${ROOT}/targets/med-agent-hub" rev-parse HEAD)"
 gcp_ssh_keygen_once
@@ -39,9 +58,10 @@ gcp_ssh "mkdir -p ${GCP_REMOTE_REPO}/landing ${GCP_REMOTE_REPO}/compose"
 
 SSH_TRANSPORT="ssh -i ${GCP_SSH_KEY} -o StrictHostKeyChecking=accept-new"
 echo "==> syncing tested landing files only"
-# -L: dereference symlinks (landing/media/*.mp4 symlinks into site/public/demos/videos/
-# to avoid committing duplicate binaries; the deployed landing/ must still get real files).
-rsync -avzL --delete -e "${SSH_TRANSPORT}" \
+# No -L: the recordings are no longer symlinked into this tree at all. They are
+# served by the Catalyst demo host, and landing/index.html links to them there,
+# so landing/ carries only text and the small hand-made poster images.
+rsync -avz --delete -e "${SSH_TRANSPORT}" \
   "${ROOT}/landing/" \
   "${GCP_SSH_USER}@${IP}:${GCP_REMOTE_REPO}/landing/"
 CONFIG_CHANGES="$(rsync -az --itemize-changes -e "${SSH_TRANSPORT}" \
@@ -69,11 +89,13 @@ curl -fsS --retry 8 --retry-delay 2 --max-time 20 "https://${SITE}/" \
   | grep -q '>Catalyst</a>'
 curl -fsS --retry 8 --retry-delay 2 --max-time 20 "https://${SITE}/media/openmrs-evidence-poster.png" \
   -o /dev/null
-curl -fsS --retry 8 --retry-delay 2 --max-time 20 "https://${SITE}/media/openmrs-e4b-staged-demo.mp4" \
-  -o /dev/null
-curl -fsS --retry 8 --retry-delay 2 --max-time 20 "https://${SITE}/media/catalyst-openelis-demo.mp4" \
-  -o /dev/null
-curl -fsS --retry 8 --retry-delay 2 --max-time 20 "https://${SITE}/media/catalyst-openmrs-hiv-demo.mp4" \
-  -o /dev/null
+# Separate post-publish verification: the demo-host assets were already
+# confirmed reachable above, before this deploy touched anything, but the
+# published landing/index.html on the VM is what the pre-publish check read
+# from THIS checkout -- re-check the same list against the now-live page so a
+# transport failure during rsync is not mistaken for success.
+for asset in "${REMOTE_MEDIA_ASSETS[@]}"; do
+  curl -fsS --retry 8 --retry-delay 2 --max-time 30 "${asset}" -o /dev/null
+done
 
 echo "==> published: https://${SITE}/"

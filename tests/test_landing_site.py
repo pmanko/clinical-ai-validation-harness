@@ -105,6 +105,9 @@ def test_primary_destinations_are_first_party_and_prominent():
     assert {"openmrs.openclinai.org", "reports.openclinai.org"} <= first_party_hosts
 
 
+MEDIA_HOST = "https://catalyst.openelis-global.org/media/"
+
+
 def test_every_local_media_reference_exists_and_has_accessible_context():
     html, page = parsed_landing()
 
@@ -122,13 +125,24 @@ def test_every_local_media_reference_exists_and_has_accessible_context():
         assert video.get("controls") is None
         assert video.get("preload") == "metadata"
         assert video.get("aria-label")
-        assert video.get("poster")
-        assert local_asset(str(video["poster"])).is_file()
+        poster = str(video.get("poster") or "")
+        assert poster
+        # Recordings and their posters are served by the demo host; the
+        # hand-made page images stay local. Either is fine — a poster that is
+        # neither is a typo, which is what this catches.
+        if poster.startswith("http"):
+            assert poster.startswith(MEDIA_HOST)
+        else:
+            assert local_asset(poster).is_file()
 
+    # Every clip is hosted, so nothing here should resolve to a local file.
+    # Compare by URL path (e.g. "/media/foo.mp4"), not by stripping MEDIA_HOST
+    # textually -- that would drop the "media/" segment and check
+    # landing/foo.mp4 instead of the actual local-alias location,
+    # landing/media/foo.mp4.
     for source in page.sources:
-        asset = local_asset(source)
-        assert asset.is_file()
-        assert asset.stat().st_size < 15 * 1024 * 1024
+        assert source.startswith(MEDIA_HOST), source
+        assert not local_asset(urlparse(source).path).exists()
 
 
 def test_landing_is_static_responsive_and_keyboard_visible():
@@ -163,10 +177,18 @@ def test_stable_publish_entrypoint_verifies_the_live_page():
     assert '"${ROOT}/landing/"' in publish
     assert '"${ROOT}/compose/Caddyfile"' in publish
     assert '"${ROOT}/compose/openmrs-2.8-refapp.yml"' in publish
-    # -L dereferences symlinks (landing/media/*.mp4 symlink into
-    # site/public/demos/videos/ to avoid duplicate committed binaries); the
-    # deployed landing/ must still receive real files, not dangling symlinks.
-    assert "rsync -avzL --delete" in publish
+    # No -L: the recordings are not in this tree at all any more, so there are
+    # no symlinks to dereference and landing/ carries only text and small
+    # hand-made images.
+    assert "rsync -avz --delete" in publish
+    assert "rsync -avzL" not in publish
+    # A publish that leaves the page pointing at a missing video is broken. The
+    # asset list is derived from the page itself, not hand-maintained here, so
+    # a recut is caught by editing the page alone -- and verified before
+    # syncing anything, so a missing asset leaves the live page untouched.
+    assert 'grep -oE "${MEDIA_HOST}[A-Za-z0-9._-]+" "${ROOT}/landing/index.html"' in publish
+    assert publish.index("REMOTE_MEDIA_ASSETS") < publish.index('rsync -avz --delete')
+    assert publish.count('curl -fsS --retry 8 --retry-delay 2 --max-time 30 "${asset}" -o /dev/null') == 2
     assert "CONFIG_CHANGES=" in publish
     assert 'if [ -n "${CONFIG_CHANGES}" ]' in publish
     assert "proxy config unchanged; no service restart needed" in publish

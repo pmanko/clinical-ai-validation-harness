@@ -1,14 +1,21 @@
 # Publishing ChartSearchAI Demo Videos — Implementation Plan
 
-> **SUPERSEDED (2026-07-22).** The hosting recommendation below (videos on the
-> `reports.openclinai.org` host, page on the Pages site) was overruled when the
-> Catalyst demos shipped: demo videos are small enough to bundle directly into
-> the site build (`site/public/demos/videos/`, referenced via `BASE_URL`), so
-> demos live entirely on ONE user-facing stack with no rsync/VM dependency —
-> see `specs/artifacts/canvases/catalyst-demos.canvas.tsx`. The ChartSearchAI
-> videos this plan curated should follow the same pattern when featured (cut
-> selection/captions remain the open questions at the bottom). The
-> reports host stays scoped to validation-run evidence only.
+> **SUPERSEDED (2026-07-22), updated 2026-08-23.** The hosting recommendation
+> below (videos on the `reports.openclinai.org` host, page on the Pages site)
+> was overruled when the Catalyst demos shipped: demo videos are small enough
+> to bundle directly into the Catalyst demo host
+> (`https://catalyst.openelis-global.org/media/`) instead of committing them
+> anywhere — see `specs/artifacts/canvases/catalyst-demos.canvas.tsx` and
+> `specs/demo-video-recording-guide.md`. This removes media bytes from the
+> repository and from the landing page's own publish sync, **not** from
+> infrastructure generally: the Catalyst demo host is a separate rsync+SSH
+> deployment (`specs/demo-video-recording-guide.md` step 5), and the landing
+> page itself still publishes to its own VM over rsync
+> (`scripts/publish-landing.sh`) and links out to that separate host. The
+> ChartSearchAI videos this plan curated should follow the same
+> media-lives-on-its-own-host pattern when featured (cut selection/captions
+> remain the open questions at the bottom). The reports host stays scoped to
+> validation-run evidence only.
 
 ## Recommendation
 

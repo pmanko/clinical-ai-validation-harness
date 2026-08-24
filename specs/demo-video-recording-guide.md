@@ -1,7 +1,10 @@
 # Demo-video recording framework
 
-How the published Catalyst demo videos (`landing/media/*.mp4`,
-`site/public/demos/videos/*.mp4`) are produced, and how to make a new one.
+How the published Catalyst demo videos are produced, and how to make a new one.
+The cuts are **not committed**: they are served by the demo host at
+`https://catalyst.openelis-global.org/media/<name>`, and the pages link there.
+A recording re-cut on every UI change is a new binary, and git keeps every one
+forever — `tests/test_no_committed_media.py` enforces that.
 This is the reusable framework the "proper video recording" work asked for —
 a raw Playwright capture is never published directly; it is always passed
 through `scripts/render_demo_video.py` with an authored timeline that adds
@@ -60,10 +63,30 @@ turns it into a publishable mp4 deterministically.
    and point `FFMPEG_BIN` at `$(brew --prefix ffmpeg-full)/bin/ffmpeg`. CI/other
    machines may have a fuller stock `ffmpeg`; `render_demo_video.py` defaults
    to plain `ffmpeg` if `FFMPEG_BIN` is unset.
-5. **Publish** — copy the rendered mp4 + poster into `landing/media/` and
-   `site/public/demos/videos/`, update duration captions
-   (`landing/index.html` video-meta spans, `tests/test_landing_site.py`
-   pins), and run `./scripts/publish-landing.sh`.
+5. **Publish** — upload the rendered mp4 + poster to the demo host, then
+   update the page:
+
+   ```sh
+   scp -i ~/.ssh/aws-catalyst-demo/catalyst-demo-key.pem \
+     <cut>.mp4 <cut>-poster.jpg \
+     ubuntu@catalyst.openelis-global.org:~/catalyst-demo/targets/catalyst/runtime/media/
+   ```
+
+   **Give a new cut a new filename** — the media route sets a one-week
+   immutable `Cache-Control`, so overwriting a name leaves stale copies in
+   browser caches.
+
+   **Two independent consumers name that filename, and both need the edit:**
+   - `landing/index.html` — the duration captions (video-meta spans,
+     `tests/test_landing_site.py` pins) and the `<source>`/`poster` URLs.
+     Publish with `./scripts/publish-landing.sh`, which derives its
+     demo-host asset list from this file and verifies every one of them
+     before syncing anything, so a recut published before its file reaches
+     the media host fails the publish rather than breaking the live page.
+   - `specs/artifacts/canvases/catalyst-demos.canvas.tsx` — the same
+     filename, poster, and duration label, hand-maintained separately
+     (`scripts/render_demo_video.py`'s output goes here too; nothing
+     regenerates this file automatically).
 
 ## Timeline JSON schema
 
