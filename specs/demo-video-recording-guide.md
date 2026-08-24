@@ -74,10 +74,19 @@ turns it into a publishable mp4 deterministically.
 
    **Give a new cut a new filename** — the media route sets a one-week
    immutable `Cache-Control`, so overwriting a name leaves stale copies in
-   browser caches. Then update the duration captions (`landing/index.html`
-   video-meta spans, `tests/test_landing_site.py` pins) and the `<source>`/
-   `poster` URLs to the new names, and run `./scripts/publish-landing.sh` —
-   it verifies each clip on the media host before declaring success.
+   browser caches.
+
+   **Two independent consumers name that filename, and both need the edit:**
+   - `landing/index.html` — the duration captions (video-meta spans,
+     `tests/test_landing_site.py` pins) and the `<source>`/`poster` URLs.
+     Publish with `./scripts/publish-landing.sh`, which derives its
+     demo-host asset list from this file and verifies every one of them
+     before syncing anything, so a recut published before its file reaches
+     the media host fails the publish rather than breaking the live page.
+   - `specs/artifacts/canvases/catalyst-demos.canvas.tsx` — the same
+     filename, poster, and duration label, hand-maintained separately
+     (`scripts/render_demo_video.py`'s output goes here too; nothing
+     regenerates this file automatically).
 
 ## Timeline JSON schema
 

@@ -136,9 +136,13 @@ def test_every_local_media_reference_exists_and_has_accessible_context():
             assert local_asset(poster).is_file()
 
     # Every clip is hosted, so nothing here should resolve to a local file.
+    # Compare by URL path (e.g. "/media/foo.mp4"), not by stripping MEDIA_HOST
+    # textually -- that would drop the "media/" segment and check
+    # landing/foo.mp4 instead of the actual local-alias location,
+    # landing/media/foo.mp4.
     for source in page.sources:
         assert source.startswith(MEDIA_HOST), source
-        assert not local_asset(source.removeprefix(MEDIA_HOST)).exists()
+        assert not local_asset(urlparse(source).path).exists()
 
 
 def test_landing_is_static_responsive_and_keyboard_visible():
@@ -178,9 +182,13 @@ def test_stable_publish_entrypoint_verifies_the_live_page():
     # hand-made images.
     assert "rsync -avz --delete" in publish
     assert "rsync -avzL" not in publish
-    # A publish that leaves the page pointing at a missing video is broken, so
-    # the clips are still verified — where they now live.
-    assert "https://catalyst.openelis-global.org/media/${clip}" in publish
+    # A publish that leaves the page pointing at a missing video is broken. The
+    # asset list is derived from the page itself, not hand-maintained here, so
+    # a recut is caught by editing the page alone -- and verified before
+    # syncing anything, so a missing asset leaves the live page untouched.
+    assert 'grep -oE "${MEDIA_HOST}[A-Za-z0-9._-]+" "${ROOT}/landing/index.html"' in publish
+    assert publish.index("REMOTE_MEDIA_ASSETS") < publish.index('rsync -avz --delete')
+    assert publish.count('curl -fsS --retry 8 --retry-delay 2 --max-time 30 "${asset}" -o /dev/null') == 2
     assert "CONFIG_CHANGES=" in publish
     assert 'if [ -n "${CONFIG_CHANGES}" ]' in publish
     assert "proxy config unchanged; no service restart needed" in publish
