@@ -71,8 +71,11 @@ use the same reviewed `role-readable-v1` relation list. The list contains these
 Database permissions do not silently expand this list. Adding or removing a
 relation requires a reviewed catalog version. Catalog v6 must equal the
 explicit grants and the list above; startup fails on missing metadata or drift.
-The response keeps `approvedViews` for compatibility, but it contains all 13
-relations. New internal code calls the concept `queryable_relation_names`.
+In catalog v6, the existing published `approvedViews` field is the authoritative
+allowlist and contains exactly the 13 relations above; Phase 1 does not add a
+second published allowlist field. New internal code calls the same concept
+`queryable_relation_names` even though the compatibility field retains its old
+name.
 
 All relations receive reviewed descriptions for row meaning, join keys,
 one-to-many risks, preferred alternatives, dates, exclusions, terminology,
