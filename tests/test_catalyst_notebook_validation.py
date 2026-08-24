@@ -3937,3 +3937,20 @@ def test_the_opening_generation_is_token_checked_like_any_other(
     # The fake's evidence carries no accounting, so a requiring suite fails.
     assert names["token_evidence_recorded-base"] is False
     assert row["passed"] is False
+
+
+def test_a_suite_not_requiring_tokens_records_the_base_absence_honestly(
+    tmp_path: Path,
+) -> None:
+    """Absent accounting on the opening turn is recorded, not failed."""
+    state = _WorkbenchState()
+    suite = _adaptive_suite()
+    suite["repetitions"] = 1
+    suite.pop("extendedRepetitions", None)
+
+    result = _run_against_fake(tmp_path, suite, state)
+
+    row = json.loads((result.run_dir / "results.json").read_text())["results"][0]
+    base = [a for a in row["assertions"] if a["name"] == "token_evidence_recorded-base"]
+    assert base and base[0]["passed"] is True
+    assert base[0]["evidence"] == {"recorded": False, "required": False}
