@@ -3884,3 +3884,26 @@ def test_a_resumed_run_directory_is_self_contained(tmp_path: Path) -> None:
         resumed.run_dir / "scenarios" / "adaptive" / "repetition-01"
         / "01-create-session.json"
     ).exists()
+
+
+def test_a_literal_percent_survives_the_driver_conversion() -> None:
+    """'CD4%' is data, not a placeholder.
+
+    psycopg treats % as a placeholder marker whenever a params argument is
+    passed, so every literal percent must be doubled by the conversion --
+    with or without named parameters present. The second full comparison
+    died on exactly this, executing a reference that filters on 'CD4%'.
+    """
+    from harness.catalyst.notebook_validation import _driver_sql
+
+    plain = _driver_sql(
+        "SELECT 1 FROM t WHERE name IN ('CD4 count', 'CD4%')", set()
+    )
+    assert "'CD4%%'" in plain
+
+    mixed = _driver_sql(
+        "SELECT 1 FROM t WHERE name LIKE '%viral%' AND day >= :since",
+        {"since"},
+    )
+    assert "'%%viral%%'" in mixed
+    assert "%(since)s" in mixed
