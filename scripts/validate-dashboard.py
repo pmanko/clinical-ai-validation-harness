@@ -900,7 +900,9 @@ async function openD(s,b){
   const indepthConf=t.indepth_confidence_display;
   const answerLifecycle=t.answer_validation_display;
   const indepthLifecycle=t.indepth_validation_display;
-  h+='<div class=turn><div class=q>Turn '+t.turn+': '+esc(t.question)+'</div>';
+  // A catalyst run's rows are repetitions of the same scenario, not
+  // conversation turns; the conversation is inside the card.
+  h+='<div class=turn><div class=q>'+(t.catalyst?('Repetition '+t.turn):('Turn '+t.turn+': '+esc(t.question)))+'</div>';
   if(t.catalyst){
    const c=t.catalyst;
    const chip=(exp,obs)=>(!exp||obs===exp)?'<span class=ok>'+esc(obs||'?')+'</span>':'<span class=err>'+esc(obs||'?')+' (expected '+esc(exp)+')</span>';
