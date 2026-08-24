@@ -314,6 +314,13 @@ def _vetted_ledger(path):
 
 def _sentence_for_gold(evidence):
     """Summarize a structured gold verdict recorded before sentences existed."""
+    if isinstance(evidence, str):
+        # The runner compacts assertion evidence to a JSON string; a clipped
+        # blob will simply fail to parse and fall through to raw display.
+        try:
+            evidence = json.loads(evidence)
+        except (ValueError, TypeError):
+            return None
     if not isinstance(evidence, dict):
         return None
     if isinstance(evidence.get("disagreement"), str):
