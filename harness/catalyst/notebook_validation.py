@@ -361,7 +361,9 @@ class NotebookHttpClient:
                 response_body={
                     "error": {
                         "code": "transport_failed",
-                        "message": str(error),
+                        # Some RequestException variants stringify to nothing;
+                        # the class name keeps the evidence diagnosable.
+                        "message": f"{type(error).__name__}: {error}",
                     }
                 },
                 elapsed_ms=round((time.monotonic() - started) * 1000),

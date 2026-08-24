@@ -3840,4 +3840,5 @@ def test_the_client_translates_a_transport_error_into_an_exchange() -> None:
     exchange = client.create_session("q", "profile")
 
     assert exchange.status_code == 599
-    assert "Remote end closed" in json.dumps(exchange.response_body)
+    message = exchange.response_body["error"]["message"]
+    assert "ConnectionError" in message and "Remote end closed" in message
