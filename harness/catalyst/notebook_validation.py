@@ -1187,12 +1187,23 @@ def _finished_pairs(
     """
     if resume_from is None:
         return {}
-    results_path = Path(resume_from) / "results.json"
-    if not results_path.exists():
-        return {}
-    payload = json.loads(results_path.read_text(encoding="utf-8"))
+    # rows.jsonl is appended as each repetition completes, so it is what an
+    # interrupted run actually left behind; results.json only exists once a
+    # run finished.
+    rows: list[dict[str, Any]] = []
+    incremental = Path(resume_from) / "rows.jsonl"
+    if incremental.exists():
+        for line in incremental.read_text(encoding="utf-8").splitlines():
+            if line.strip():
+                rows.append(json.loads(line))
+    else:
+        results_path = Path(resume_from) / "results.json"
+        if not results_path.exists():
+            return {}
+        payload = json.loads(results_path.read_text(encoding="utf-8"))
+        rows = list(payload.get("results") or [])
     pairs: dict[tuple[str, str], list[dict[str, Any]]] = {}
-    for row in payload.get("results") or []:
+    for row in rows:
         profile_id = row.get("profileId")
         scenario_id = row.get("scenarioId")
         if not isinstance(profile_id, str) or not isinstance(scenario_id, str):
@@ -1447,6 +1458,9 @@ def run_notebook_suite(
                 )
                 result["passed"] = all(item["passed"] for item in result["assertions"])
                 result["profileId"] = team or scenario.initial_profile_id
+                # Appended now, not at the end: this row is what --resume
+                # reuses when the run dies before the summary is written.
+                append_jsonl(run_dir / "rows.jsonl", result)
                 result["httpStatus"] = _normalized_http_status(run_dir, prefix)
                 if suite.infrastructure_replacements and is_infrastructure_failure(result):
                     replacements += 1

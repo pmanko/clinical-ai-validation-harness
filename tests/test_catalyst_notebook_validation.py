@@ -3311,12 +3311,13 @@ def test_a_resumed_run_keeps_finished_work_and_only_runs_what_is_left(
     finished_turns = len(state.turn_requests)
     assert [row["profileId"] for row in done["results"]] == ["team-a", "team-b"]
 
-    # Drop team-b's work, as an interruption partway through would leave it.
-    partial = dict(done)
-    partial["results"] = [
-        row for row in done["results"] if row["profileId"] == "team-a"
-    ]
-    (first.run_dir / "results.json").write_text(json.dumps(partial), encoding="utf-8")
+    # An interruption leaves the incremental rows and no final summary:
+    # keep team-a's rows in rows.jsonl and delete everything summarising.
+    team_a_rows = [row for row in done["results"] if row["profileId"] == "team-a"]
+    (first.run_dir / "rows.jsonl").write_text(
+        "".join(json.dumps(row) + "\n" for row in team_a_rows), encoding="utf-8"
+    )
+    (first.run_dir / "results.json").unlink()
 
     state.turn_requests.clear()
     resumed = _run_against_fake(tmp_path, suite, state, resume_from=first.run_dir)
@@ -3325,7 +3326,7 @@ def test_a_resumed_run_keeps_finished_work_and_only_runs_what_is_left(
     assert [row["profileId"] for row in rows] == ["team-a", "team-b"]
     # team-a was reused, not re-run: only team-b cost model time.
     assert len(state.turn_requests) == finished_turns // 2
-    assert rows[0] == partial["results"][0]
+    assert rows[0] == team_a_rows[0]
 
 
 def test_a_suite_bound_to_one_source_asks_that_source_everything(
