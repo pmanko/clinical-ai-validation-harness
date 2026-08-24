@@ -1,13 +1,12 @@
 {
   "id": "catalyst-phase1-comparison-v1",
-  "comment": "Phase 1 locked comparison: 12 scenarios and 21 scored user turns (the opening question is turn 1), run once against all three model teams in the order listed. Frozen before the run; every reference answer was verified against the live HIV analytics database first.",
+  "comment": "Phase 1 locked comparison: 12 scenarios and 21 scored user turns (the opening question is turn 1), run once against all three model teams in the order listed -- one clean measurement per (team, scenario); statistical repetition is a rerun of the whole suite. Frozen before the run; every reference answer was verified against the live HIV analytics database first.",
   "dataSourceId": "openmrs-hiv",
   "datasetId": "hiv-20260731T000741Z",
   "datasetVersion": "1",
   "catalogVersion": "openmrs-hiv-catalog-v6",
   "providerName": "llama.cpp",
-  "repetitions": 3,
-  "extendedRepetitions": 5,
+  "repetitions": 1,
   "infrastructureReplacements": 2,
   "requireTokenEvidence": true,
   "comparisonProfiles": [

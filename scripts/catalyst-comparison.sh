@@ -86,6 +86,19 @@ PY
       "${TITLE:-Catalyst Phase 1: three model teams on the locked HIV suite}" \
       "${SUMMARY:-}" "${TAKEAWAY:-}"
     ;;
+  score)
+    # Compose any number of single-pass runs of the same suite into one
+    # sample: catalyst-comparison.sh score <run-id> [<run-id> ...]
+    shift
+    [[ $# -ge 1 ]] || { echo "score needs at least one run id" >&2; exit 1; }
+    dirs=()
+    for run_id in "$@"; do dirs+=("${OUT_DIR}/${run_id}"); done
+    (cd "${ROOT}" && uv run python -c '
+import sys
+from harness.catalyst.notebook_scoring import score_runs
+print(score_runs(sys.argv[1:], as_json=True), end="")
+' "${dirs[@]}")
+    ;;
   *)
     echo "unknown command ${cmd}" >&2; exit 1;;
 esac

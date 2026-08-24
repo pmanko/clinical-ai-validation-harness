@@ -176,3 +176,52 @@ def score_run(run_dir: Path | str, *, as_json: bool = False) -> dict[str, Any] |
     if as_json:
         return json.dumps(report, indent=2, sort_keys=True, ensure_ascii=False) + "\n"
     return report
+
+
+def score_runs(
+    run_dirs: list[Path | str], *, as_json: bool = False
+) -> dict[str, Any] | str:
+    """Score several single-pass runs of the SAME suite as one sample.
+
+    Each run measures every (team, scenario) once; statistical repetition is
+    a rerun of the whole suite, so composition is pooling the runs' rows --
+    the per-team and per-scenario denominators grow with each rerun, and the
+    report names every run it drew from.
+    """
+    rows: list[dict[str, Any]] = []
+    run_ids: list[str] = []
+    suite_ids: list[str] = []
+    skipped = infrastructure_failed = 0
+    for run_dir in run_dirs:
+        payload = json.loads(
+            (Path(run_dir) / "results.json").read_text(encoding="utf-8")
+        )
+        run_ids.append(str(payload.get("runId")))
+        suite_ids.append(str(payload.get("suiteId")))
+        for row in payload.get("results") or []:
+            if row.get("status") == "skipped":
+                skipped += 1
+            elif row.get("status") == "infrastructure_failed":
+                infrastructure_failed += 1
+            else:
+                rows.append(row)
+    if len(set(suite_ids)) > 1:
+        raise ValueError(
+            f"runs of different suites do not compose: {sorted(set(suite_ids))}"
+        )
+    report: dict[str, Any] = {
+        "contractVersion": SCORING_CONTRACT_VERSION,
+        "runIds": run_ids,
+        "suiteId": suite_ids[0] if suite_ids else None,
+        **_score_rows(rows),
+    }
+    report["totals"]["skipped"] = skipped
+    report["totals"]["infrastructureFailed"] = infrastructure_failed
+    team_ids = sorted({str(r["profileId"]) for r in rows if r.get("profileId")})
+    report["profiles"] = {
+        team: _score_rows([r for r in rows if r.get("profileId") == team])
+        for team in team_ids
+    }
+    if as_json:
+        return json.dumps(report, indent=2, sort_keys=True, ensure_ascii=False) + "\n"
+    return report
