@@ -4071,3 +4071,63 @@ def test_a_failed_pin_surfaces_in_the_rows_http_status(tmp_path: Path) -> None:
     )
 
     assert _normalized_http_status(tmp_path, prefix) == 503
+
+
+def test_every_failing_gold_verdict_says_why_in_one_sentence(monkeypatch) -> None:
+    """A reviewer clicking a red cell reads a sentence, not a JSON diff.
+
+    Two of four live reds showed raw structures because only the shape
+    failures carried a `disagreement`; the count, aggregate, and row-set
+    mismatch paths now write theirs too.
+    """
+    from harness.catalyst.notebook_validation import (
+        PostgresGoldExecutionChecker,
+        NotebookGoldCheck,
+    )
+
+    def run(tables, sql, gold):
+        _gold_check_connection(monkeypatch, tables)
+        version = {"versionId": "v", "queryDigest": "a" * 64,
+                   "sql": sql, "parameters": []}
+        return PostgresGoldExecutionChecker(
+            "postgresql://readonly:secret@127.0.0.1:15443/x"
+        ).check(version, gold)
+
+    counted = run(
+        {"model_table": (["n"], [(1,), (2,), (3,)]),
+         "reference_table": (["n"], [(1,), (2,)])},
+        "SELECT n FROM model_table",
+        NotebookGoldCheck(mode="count", reference_sql="SELECT n FROM reference_table"),
+    )
+    assert counted["passed"] is False
+    assert counted["disagreement"] == (
+        "the answer returned 3 rows; the independent reference returns 2"
+    )
+
+    grouped = run(
+        {"model_table": (["k", "c"], [("a", 5), ("b", 9), ("c", 1)]),
+         "reference_table": (["k", "c"], [("a", 5), ("b", 7)])},
+        "SELECT k, c FROM model_table",
+        NotebookGoldCheck(
+            mode="aggregate_by_key",
+            reference_sql="SELECT k, c FROM reference_table",
+            key_columns=("k",),
+            value_columns={"c": {"tolerance": 0}},
+        ),
+    )
+    assert grouped["passed"] is False
+    assert "1 group the reference does not have" in grouped["disagreement"]
+    assert "'b': 9 vs 7" in grouped["disagreement"]
+
+    rowset = run(
+        {"model_table": (["id"], [("x",), ("y",)]),
+         "reference_table": (["id"], [("x",), ("z",)])},
+        "SELECT id FROM model_table",
+        NotebookGoldCheck(
+            mode="row_set",
+            reference_sql="SELECT id FROM reference_table",
+            match_columns=("id",),
+        ),
+    )
+    assert rowset["passed"] is False
+    assert "1 row missing from the answer and 1 extra" in rowset["disagreement"]
