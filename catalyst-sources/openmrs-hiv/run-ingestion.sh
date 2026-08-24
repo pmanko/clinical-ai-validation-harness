@@ -78,6 +78,7 @@ echo "    observations: ${fetched}/${expected}"
 echo "==> apply curated analytics SQL"
 psql_hiv <"${SRC_DIR}/sql/001_analytics_hiv_v1.sql" >/dev/null
 psql_hiv <"${SRC_DIR}/sql/002_analytics_hiv_comments_v1.sql" >/dev/null
+psql_hiv <"${SRC_DIR}/sql/003_analytics_hiv_surface_comments_v1.sql" >/dev/null
 
 echo "==> verify curated views hold exactly one row per resource"
 # The base *_flat tables are lossless cross products by design, so their row

@@ -78,15 +78,31 @@ DROP TABLE IF EXISTS public.condition_flat_v1;
 
 -- One row per patient (collapses the name/identifier/practitioner cross
 -- product; gender and birth_date are constant per resource id).
+--
+-- Name components are emitted only when the patient has exactly one distinct
+-- nonblank value for that component. Taking independent maximums would pair
+-- one record's family name with another's given name and invent a person who
+-- does not exist, so an ambiguous component is null and the unambiguous half
+-- still answers. Blank and whitespace-only source values are absent, not
+-- empty strings.
 CREATE VIEW analytics.hiv_patient_dim_v1 AS
-SELECT DISTINCT
+SELECT
     id AS patient_id,
-    gender,
-    birth_date
-FROM public.patient_flat;
+    MAX(gender) AS gender,
+    MAX(birth_date) AS birth_date,
+    CASE
+        WHEN COUNT(DISTINCT NULLIF(btrim(family), '')) = 1
+        THEN MAX(NULLIF(btrim(family), ''))
+    END AS family_name,
+    CASE
+        WHEN COUNT(DISTINCT NULLIF(btrim(given), '')) = 1
+        THEN MAX(NULLIF(btrim(given), ''))
+    END AS given_name
+FROM public.patient_flat
+GROUP BY id;
 
 COMMENT ON VIEW analytics.hiv_patient_dim_v1 IS
-    'Demo-only patient dimension at exactly one row per FHIR Patient.';
+    'Demo-only patient dimension at exactly one row per FHIR Patient. Join to any fact view on patient_id. Prefer this over public.patient_flat, which repeats a patient once per name, identifier, and practitioner.';
 
 -- Known demo-data artifact: a handful of OpenMRS observations carry
 -- clearly-wrong effective dates (as early as 1919, as late as 5025). The fact

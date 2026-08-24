@@ -59,7 +59,9 @@ COMMENT ON COLUMN gen_test.no_view_comment_v1.id IS 'Fixture identifier.';
 CREATE VIEW gen_test.no_col_comment_v1 AS SELECT 1::int AS id;
 COMMENT ON VIEW gen_test.no_col_comment_v1 IS 'One row per test fixture.';
 
-CREATE VIEW gen_test.bad_type_v1 AS SELECT '{}'::jsonb AS payload;
+-- A geometric type: no logical equivalent the catalog can express, and
+-- unlike jsonb it is not something an analytics relation would carry.
+CREATE VIEW gen_test.bad_type_v1 AS SELECT point(0, 0) AS payload;
 COMMENT ON VIEW gen_test.bad_type_v1 IS 'One row per test fixture.';
 COMMENT ON COLUMN gen_test.bad_type_v1.payload IS 'Unmapped-type column.';
 """
@@ -225,7 +227,7 @@ class GenerateSourceCatalogTests(unittest.TestCase):
             result = self._run(overlay, tmp_path / "catalog.json", tmp_path)
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("unmapped SQL type", result.stderr)
-            self.assertIn("jsonb", result.stderr)
+            self.assertIn("point", result.stderr)
 
     def test_fails_fast_on_canonical_value_matching_zero_rows(self):
         import tempfile
