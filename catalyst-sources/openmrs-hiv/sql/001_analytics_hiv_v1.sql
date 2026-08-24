@@ -67,6 +67,7 @@ FROM analytics.pipeline_run_v1;
 -- views built on them); superseded by the default-table layering above.
 DROP VIEW IF EXISTS analytics.hiv_observation_fact_v1;
 DROP VIEW IF EXISTS analytics.hiv_visit_fact_v1;
+DROP VIEW IF EXISTS analytics.hiv_medication_request_fact_v1;
 DROP VIEW IF EXISTS analytics.hiv_patient_dim_v1;
 DROP VIEW IF EXISTS analytics.hiv_concept_mapping_v1;
 DROP TABLE IF EXISTS public.observation_flat_v1;
@@ -246,6 +247,102 @@ GROUP BY 1, 2, 3, 4, 5;
 
 COMMENT ON VIEW analytics.hiv_concept_mapping_v1 IS
     'Terminology-mapping coverage observed in the data: one row per distinct (concept, OpenMRS/CIEL/SNOMED/WHO-ANC code) combination with the number of observations carrying it. Null in a code column means that observation batch carried no coding from that system.';
+
+-- Medication requests, one row per FHIR MedicationRequest.
+CREATE VIEW analytics.hiv_medication_request_fact_v1 AS
+WITH per_medication AS (
+    -- medication_flat is one row per (Medication x code.coding), so the same id
+    -- arrives several times carrying different codes. Collapse to one row per
+    -- resource before joining, or every request multiplies by its codings.
+    -- An independent MAX() per column here previously paired a code from one
+    -- coding with the system of another whenever a Medication carried more
+    -- than one coding (59 of 359 Medications in the reference dataset, always
+    -- OpenMRS-native + CIEL + SNOMED together) -- e.g. code 774557006
+    -- (SNOMED) paired with system https://cielterminology.org. Aggregating
+    -- per system, mirroring hiv_concept_mapping_v1's terminology pivot,
+    -- keeps each code with the system it actually came from.
+    SELECT
+        m.id AS med_id,
+        MAX(m.code_text) AS medication_text,
+        MAX(m.code_display) AS medication_display,
+        -- The OpenMRS-native coding carries '' here, not NULL -- unlike
+        -- request_intent/status above, this source does not normalize an
+        -- absent coding system to SQL NULL.
+        MAX(m.code_code) FILTER (WHERE m.code_sys IS NULL OR m.code_sys = '')
+            AS medication_code_openmrs,
+        MAX(m.code_code) FILTER (WHERE m.code_sys = 'https://cielterminology.org')
+            AS medication_code_ciel,
+        MAX(m.code_code) FILTER (WHERE m.code_sys = 'http://snomed.info/sct/')
+            AS medication_code_snomed,
+        MAX(m.code_code) FILTER (
+            WHERE m.code_sys = 'http://fhir.org/guides/who/anc-cds/CodeSystem/anc-custom-codes'
+        ) AS medication_code_who_anc
+    FROM public.medication_flat AS m
+    GROUP BY m.id
+),
+per_request AS (
+    -- medication_request_flat carries the same per-coding cross product on
+    -- its own direct medication[x] CodeableConcept arm (medication_code/
+    -- medication_system/medication_display) as it does on statusReason, so
+    -- that arm gets the identical per-system treatment -- collapsing it with
+    -- an independent MAX() would risk the same fabricated pairing.
+    SELECT
+        r.id AS medication_request_id,
+        MAX(r.patient_id) AS patient_id,
+        MAX(r.encounter_id) AS encounter_id,
+        MAX(r.status) AS request_status,
+        MAX(r.intent) AS request_intent,
+        MAX(r.med_id) AS med_id,
+        -- medication[x] is a FHIR choice type. This source populates the
+        -- reference arm (med_display); the direct CodeableConcept arm
+        -- (medication_code/medication_display) is legal FHIR and preserved
+        -- for name/code precedence even though every row today takes the
+        -- reference arm instead.
+        MAX(r.med_display) AS medication_reference_display,
+        MAX(r.medication_display) AS medication_direct_display,
+        MAX(r.medication_code) FILTER (WHERE r.medication_system IS NULL OR r.medication_system = '')
+            AS direct_code_openmrs,
+        MAX(r.medication_code) FILTER (WHERE r.medication_system = 'https://cielterminology.org')
+            AS direct_code_ciel,
+        MAX(r.medication_code) FILTER (WHERE r.medication_system = 'http://snomed.info/sct/')
+            AS direct_code_snomed,
+        MAX(r.medication_code) FILTER (
+            WHERE r.medication_system = 'http://fhir.org/guides/who/anc-cds/CodeSystem/anc-custom-codes'
+        ) AS direct_code_who_anc,
+        BOOL_OR(COALESCE(r.donotperform, FALSE)) AS do_not_perform
+    FROM public.medication_request_flat AS r
+    GROUP BY r.id
+)
+SELECT
+    f.medication_request_id,
+    f.patient_id,
+    p.gender AS patient_gender,
+    p.birth_date AS patient_birth_date,
+    f.encounter_id,
+    f.request_status,
+    f.request_intent,
+    f.do_not_perform,
+    -- Precedence: request reference display, direct coding display,
+    -- referenced Medication's own text, referenced coding display. Blank
+    -- strings are absent, not a name -- COALESCE alone would keep one.
+    COALESCE(
+        NULLIF(f.medication_reference_display, ''),
+        NULLIF(f.medication_direct_display, ''),
+        NULLIF(m.medication_text, ''),
+        NULLIF(m.medication_display, '')
+    ) AS medication_name,
+    COALESCE(f.direct_code_openmrs, m.medication_code_openmrs) AS medication_code_openmrs,
+    COALESCE(f.direct_code_ciel, m.medication_code_ciel) AS medication_code_ciel,
+    COALESCE(f.direct_code_snomed, m.medication_code_snomed) AS medication_code_snomed,
+    COALESCE(f.direct_code_who_anc, m.medication_code_who_anc) AS medication_code_who_anc
+FROM per_request AS f
+JOIN analytics.hiv_patient_dim_v1 AS p
+    ON p.patient_id = f.patient_id
+LEFT JOIN per_medication AS m
+    ON m.med_id = f.med_id;
+
+COMMENT ON VIEW analytics.hiv_medication_request_fact_v1 IS
+    'Demo-only HIV medication request fact at exactly one row per FHIR MedicationRequest (collapsing the medication/statusReason coding cross product on the base table, and de-duplicating medication_flat before the join so a drug with several codings cannot multiply the request). Requests whose subject does not resolve to an ingested Patient are excluded by the patient join. MedicationRequest carries no date in this export, so there is no time window here; join hiv_visit_fact_v1 on encounter_id when a date is needed. medication_code_openmrs/ciel/snomed/who_anc pivot each terminology system into its own column, like hiv_concept_mapping_v1, so a multi-coded medication cannot pair a code with the wrong system; medication_name may be null when no arm supplies one -- see catalog-overlay.json.';
 
 GRANT USAGE ON SCHEMA analytics TO catalyst_readonly;
 GRANT SELECT ON ALL TABLES IN SCHEMA analytics TO catalyst_readonly;

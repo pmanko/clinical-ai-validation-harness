@@ -1,6 +1,6 @@
 {
   "contractVersion": "catalyst.analytics.catalog.v1",
-  "catalogVersion": "openmrs-hiv-catalog-v3",
+  "catalogVersion": "openmrs-hiv-catalog-v4",
   "deploymentMode": "demo",
   "dataSource": "openmrs-hiv-fhir-postgresql",
   "dialect": "postgresql",
@@ -346,6 +346,92 @@
           "logicalType": "integer",
           "nullable": false,
           "description": "Number of observations carrying exactly this mapping combination."
+        }
+      ]
+    },
+    {
+      "name": "analytics.hiv_medication_request_fact_v1",
+      "version": "1",
+      "approved": true,
+      "grain": "Demo-only HIV medication request fact at exactly one row per FHIR MedicationRequest (collapsing the medication/statusReason coding cross product on the base table, and de-duplicating medication_flat before the join so a drug with several codings cannot multiply the request). Requests whose subject does not resolve to an ingested Patient are excluded by the patient join. MedicationRequest carries no date in this export, so there is no time window here; join hiv_visit_fact_v1 on encounter_id when a date is needed. medication_code_openmrs/ciel/snomed/who_anc pivot each terminology system into its own column, like hiv_concept_mapping_v1, so a multi-coded medication cannot pair a code with the wrong system; medication_name may be null when no arm supplies one -- see catalog-overlay.json.",
+      "columns": [
+        {
+          "name": "medication_request_id",
+          "logicalType": "string",
+          "nullable": false,
+          "description": "FHIR MedicationRequest resource identifier and stable row identity."
+        },
+        {
+          "name": "patient_id",
+          "logicalType": "string",
+          "nullable": false,
+          "description": "FHIR Patient resource identifier the medication was requested for."
+        },
+        {
+          "name": "patient_gender",
+          "logicalType": "string",
+          "nullable": true,
+          "description": "FHIR Patient.gender of the requested-for patient."
+        },
+        {
+          "name": "patient_birth_date",
+          "logicalType": "date",
+          "nullable": true,
+          "description": "FHIR Patient.birthDate. MedicationRequest carries no date here, so age at request cannot be derived from this view alone."
+        },
+        {
+          "name": "encounter_id",
+          "logicalType": "string",
+          "nullable": true,
+          "description": "FHIR Encounter the request was recorded within. Join hiv_visit_fact_v1 on this to get a date."
+        },
+        {
+          "name": "request_status",
+          "logicalType": "string",
+          "nullable": true,
+          "description": "FHIR MedicationRequest.status, for example active, completed or stopped."
+        },
+        {
+          "name": "request_intent",
+          "logicalType": "string",
+          "nullable": true,
+          "description": "FHIR MedicationRequest.intent, for example order or plan."
+        },
+        {
+          "name": "do_not_perform",
+          "logicalType": "boolean",
+          "nullable": false,
+          "description": "True when the request records that the medication should NOT be taken. Exclude these when counting prescriptions."
+        },
+        {
+          "name": "medication_name",
+          "logicalType": "string",
+          "nullable": true,
+          "description": "Drug name, by precedence: the request's own reference display, its direct coding display, the referenced Medication's text, then the referenced Medication's coding display. Null when none of those is populated -- verified nonempty in the current data, but not guaranteed by the source."
+        },
+        {
+          "name": "medication_code_openmrs",
+          "logicalType": "string",
+          "nullable": true,
+          "description": "OpenMRS-native drug code (no external coding system), from the request's own coding when present, otherwise the referenced Medication's."
+        },
+        {
+          "name": "medication_code_ciel",
+          "logicalType": "string",
+          "nullable": true,
+          "description": "CIEL numeric drug code, from the request's own coding when present, otherwise the referenced Medication's. Null when neither carries a CIEL mapping."
+        },
+        {
+          "name": "medication_code_snomed",
+          "logicalType": "string",
+          "nullable": true,
+          "description": "SNOMED CT drug code, from the request's own coding when present, otherwise the referenced Medication's. Null when neither carries a SNOMED mapping."
+        },
+        {
+          "name": "medication_code_who_anc",
+          "logicalType": "string",
+          "nullable": true,
+          "description": "WHO ANC custom drug code, from the request's own coding when present, otherwise the referenced Medication's. Null when neither carries a WHO ANC mapping; sparse in this data (at most one drug carries it)."
         }
       ]
     }
