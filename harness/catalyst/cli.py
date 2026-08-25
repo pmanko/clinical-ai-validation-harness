@@ -27,6 +27,10 @@ def configure_parser(parent: argparse._SubParsersAction[Any]) -> None:
         "run", help="Run the real Catalyst notebook acceptance matrix"
     )
     run.add_argument("--suite", default=DEFAULT_SUITE)
+    run.add_argument(
+        "--run-config",
+        help="resolve and freeze one run seed before discovery or model calls",
+    )
     run.add_argument("--gateway-url", default=DEFAULT_GATEWAY_URL)
     run.add_argument("--output-dir", default=DEFAULT_OUTPUT_DIR)
     run.add_argument("--scenario", action="append", dest="scenarios")
@@ -56,7 +60,7 @@ def configure_parser(parent: argparse._SubParsersAction[Any]) -> None:
     run.add_argument(
         "--timeout-seconds",
         type=int,
-        default=900,
+        default=None,
         help="whole-request observation window; reviewed turns invoke roles sequentially",
     )
 
@@ -92,6 +96,38 @@ def dispatch(args: argparse.Namespace, *, project_root: Path) -> int:
         PostgresReadOnlyChecker,
         run_notebook_suite,
     )
+    from .run_config import postgres_dsn, publishable, resolve
+
+    frozen_config = None
+    warmup_question = None
+    if args.run_config:
+        config = resolve(args.run_config)
+        invocation = config["invocation"]
+        args.suite = config["suite"]
+        args.gateway_url = config["gatewayUrl"]
+        args.output_dir = config["outputDir"]
+        args.postgres_dsn = postgres_dsn(config)
+        if args.scenarios is None:
+            args.scenarios = invocation["scenarios"] or None
+        if args.repetitions is None:
+            args.repetitions = invocation["repetitions"]
+        args.include_manual = args.include_manual or invocation["includeManual"]
+        args.no_postgres_cross_check = (
+            args.no_postgres_cross_check or not invocation["postgresCrossCheck"]
+        )
+        if args.timeout_seconds is None:
+            args.timeout_seconds = invocation["timeoutSeconds"]
+        config["invocation"] = {
+            "scenarios": list(args.scenarios or []),
+            "repetitions": args.repetitions,
+            "includeManual": args.include_manual,
+            "postgresCrossCheck": not args.no_postgres_cross_check,
+            "timeoutSeconds": args.timeout_seconds,
+        }
+        frozen_config = publishable(config)
+        warmup_question = config.get("warmupQuestion") or None
+    if args.timeout_seconds is None:
+        args.timeout_seconds = 900
 
     checker = None
     gold_checker = None
@@ -114,6 +150,8 @@ def dispatch(args: argparse.Namespace, *, project_root: Path) -> int:
         gold_checker=gold_checker,
         manual_checkpoint=_manual_checkpoint if args.include_manual else None,
         resume_from=Path(args.resume_from) if args.resume_from else None,
+        frozen_config=frozen_config,
+        warmup_question=warmup_question,
     )
     print(
         json.dumps(
@@ -123,8 +161,10 @@ def dispatch(args: argparse.Namespace, *, project_root: Path) -> int:
                 "passed": result.passed_count,
                 "total": result.result_count,
                 "skipped": result.skipped_count,
+                "complete": result.complete,
+                "measurement_valid": result.measurement_valid,
             },
             indent=2,
         )
     )
-    return 0 if result.passed_count == result.result_count else 1
+    return 0 if result.complete and result.measurement_valid else 1

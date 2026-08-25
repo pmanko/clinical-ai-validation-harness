@@ -2,7 +2,8 @@
 # The Phase 1 comparison, one command, end to end.
 #
 #   scripts/catalyst-comparison.sh run              start (or restart) the frozen comparison
-#   scripts/catalyst-comparison.sh resume <run-id>  continue an interrupted run
+#   scripts/catalyst-comparison.sh resume <run-id>  create a linked replacement for
+#                                                   an interrupted run
 #   scripts/catalyst-comparison.sh finish <run-id>  score twice (byte-check), build the
 #                                                   report, freeze the dashboard, stage both
 #
@@ -21,9 +22,9 @@ CONFIG="${CONFIG:-${ROOT}/datasets/validation/catalyst/run-config.template.json}
 cfg() {
   (cd "${ROOT}" && uv run python -c '
 import sys
-from harness.catalyst.run_config import postgres_dsn, resolve
-config = resolve(sys.argv[1])
 field = sys.argv[2]
+from harness.catalyst.run_config import postgres_dsn, resolve
+config = resolve(sys.argv[1], require_secrets=(field == "dsn"))
 if field == "dsn":
     print(postgres_dsn(config))
 else:
@@ -36,41 +37,22 @@ else:
 
 cmd="${1:?usage: catalyst-comparison.sh run|resume <run-id>|finish <run-id>}"
 
-SUITE="$(cfg "${CONFIG}" suite)"
-GATEWAY_URL="$(cfg "${CONFIG}" gatewayUrl)"
 OUT_DIR="${OUT_DIR:-${ROOT}/$(cfg "${CONFIG}" outputDir)}"
 
 run_suite() {
   (cd "${ROOT}" && uv run harness-cli catalyst run \
-    --suite "${SUITE}" \
-    --gateway-url "${GATEWAY_URL}" \
-    --output-dir "${OUT_DIR}" \
-    --postgres-dsn "$(cfg "${CONFIG}" dsn)" \
+    --run-config "${CONFIG}" \
     "$@")
-}
-
-# The seed is frozen into the run directory the first time we see it, so
-# `finish` months later applies the gates the run was started with, and the
-# published package carries its own configuration.
-freeze_seed() {
-  (cd "${ROOT}" && uv run python -c '
-import sys
-from harness.catalyst.run_config import freeze, resolve
-print(freeze(resolve(sys.argv[1]), sys.argv[2]))
-' "${CONFIG}" "$1")
 }
 
 case "${cmd}" in
   run)
     run_suite
-    # The runner names the directory, so seed the newest one it just wrote.
-    newest="$(ls -td "${OUT_DIR}"/*/ 2>/dev/null | head -1)"
-    [[ -n "${newest}" ]] && freeze_seed "${newest%/}"
     ;;
   resume)
     run_id="${2:?resume needs the run id}"
+    CONFIG="${OUT_DIR}/${run_id}/run-config.json"
     run_suite --resume "${OUT_DIR}/${run_id}"
-    [[ -f "${OUT_DIR}/${run_id}/run-config.json" ]] || freeze_seed "${OUT_DIR}/${run_id}"
     ;;
   finish)
     run_id="${2:?finish needs the run id}"

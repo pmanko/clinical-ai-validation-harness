@@ -27,8 +27,41 @@ Publishable Catalyst notebook runs additionally require:
 - `report_family = "catalyst"`
 - `suite_id`
 - `suite_sha256` (SHA-256 of the exact input suite bytes)
+- `resumedFrom` when this is a replacement for an interrupted Catalyst run;
+- `resumeAncestry`, ordered oldest to newest, when recovery spans one or more
+  interrupted runs;
 - `evidence_status = "development"` until CVR-G16–G18 and final MS-D acceptance
   pass; live publication alone does not promote the evidence status
+
+The runner writes `run-config.json` before discovery, warm-up, or measured
+conversation calls. It is the exact public run seed: database passwords and
+password-bearing URLs, absolute workstation paths, non-local private addresses,
+and security-group rule identifiers are rejected. The local password is resolved
+only in memory when a database check is requested. Scoring, reporting, and
+publication read the frozen file without resolving that password.
+
+`run-status.json` is an atomically replaced lifecycle projection with
+`state = incomplete | invalid | complete`, `measurementValid`, the direct and
+full recovery ancestry, and infrastructure failures retained across that chain.
+An abrupt stop therefore leaves an actionable `incomplete` source; a normal
+completion writes `complete` only when every measured conversation is valid.
+
+Every complete comparison records one excluded warm-up under
+`warmups/<profile>/` before that profile's measured cells. Warm-up sessions never
+appear in `rows.jsonl`, `results.jsonl`, `results.json`, or the scored count.
+Each measured row records `evidencePrefix`, `measurementValid`, and an
+outcome-specific `measurementEvidence` projection. Ready paths state the
+validation decision, execution decision, and oracle result. Clarification and
+unsupported paths prove that no new query, validation, execution, or oracle call
+occurred.
+
+A replacement run writes `recovery-import.json`. Before any warm-up or measured
+model call, the runner checks the exact suite, frozen seed, revisions, discovery
+identities, scenario order, and every eligible source-evidence digest. Imported
+files are copied without rewriting, hashed again in the replacement, and indexed
+with their source run and source digest. Model-quality failures remain eligible;
+infrastructure failures, pre-turn failures, partial cells, and duplicate cells do
+not.
 
 Catalyst Dashboard Builder acceptance runs use
 `report_family = "catalyst_dashboard"` and additionally require:

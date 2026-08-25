@@ -35,6 +35,8 @@ class RunManifest:
     report_family: str | None = None
     suite_id: str | None = None
     suite_sha256: str | None = None
+    resumed_from: str | None = None
+    resume_ancestry: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         otel: dict[str, Any] = {
@@ -71,6 +73,10 @@ class RunManifest:
             payload["suite_id"] = self.suite_id
         if self.suite_sha256 is not None:
             payload["suite_sha256"] = self.suite_sha256
+        if self.resumed_from is not None:
+            payload["resumedFrom"] = self.resumed_from
+        if self.resume_ancestry:
+            payload["resumeAncestry"] = list(self.resume_ancestry)
         return payload
 
 

@@ -12,7 +12,6 @@ import hashlib
 import json
 import math
 import re
-import shutil
 import time
 from collections import Counter
 from dataclasses import dataclass, field, replace
@@ -32,6 +31,7 @@ from ..common.jsonl import append_jsonl
 from ..metadata import RunManifest, append_event
 from ..submodules import read_harness_git_sha
 from .events import NOTEBOOK_EVENT_SCHEMA_VERSION, notebook_result_events
+from .run_config import publishable
 from .validation import _response_payload, _target_provenance
 
 
@@ -349,6 +349,8 @@ class NotebookRunResult:
     result_count: int
     passed_count: int
     skipped_count: int
+    complete: bool
+    measurement_valid: bool
 
 
 class NotebookTransport(Protocol):
@@ -1056,6 +1058,41 @@ class _EvidenceRecorder:
         self.json(relative_path, exchange.as_dict(), kind=kind)
         return exchange.response_body
 
+    def adopt(
+        self,
+        relative_path: str,
+        source: Path,
+        *,
+        kind: str,
+        metadata: dict[str, Any],
+        expected_sha256: str,
+    ) -> dict[str, Any]:
+        """Copy one immutable evidence file and prove the bytes survived."""
+        destination = self.run_dir / relative_path
+        if not destination.resolve().is_relative_to(self.run_dir.resolve()):
+            raise ValueError("Evidence path must stay within the run directory")
+        if destination.exists():
+            raise ValueError(f"recovery would overwrite {relative_path}")
+        encoded = source.read_bytes()
+        source_sha256 = hashlib.sha256(encoded).hexdigest()
+        if source_sha256 != expected_sha256:
+            raise ValueError(f"recovery evidence changed after preflight: {relative_path}")
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_bytes(encoded)
+        destination_sha256 = hashlib.sha256(destination.read_bytes()).hexdigest()
+        if destination_sha256 != source_sha256:
+            raise ValueError(f"recovery changed evidence bytes for {relative_path}")
+        entry = {
+            "path": relative_path,
+            "kind": kind,
+            "mediaType": "application/json",
+            "bytes": len(encoded),
+            "sha256": destination_sha256,
+            "metadata": {**metadata, "sourceSha256": source_sha256},
+        }
+        self.entries.append(entry)
+        return entry
+
     def finish(self) -> None:
         index = {
             "contractVersion": "harness.catalyst-notebook.evidence-index.v1",
@@ -1072,6 +1109,32 @@ class _EvidenceRecorder:
             f"{hashlib.sha256(encoded).hexdigest()}  evidence-index.json\n",
             encoding="utf-8",
         )
+
+
+def _write_run_status(run_dir: Path, payload: dict[str, Any]) -> None:
+    """Write the current lifecycle projection without changing older runs."""
+    path = run_dir / "run-status.json"
+    temporary = run_dir / ".run-status.json.tmp"
+    temporary.write_text(
+        json.dumps(payload, indent=2, ensure_ascii=False, allow_nan=False) + "\n",
+        encoding="utf-8",
+    )
+    temporary.replace(path)
+
+
+def _canonical_sha256(payload: Any) -> str:
+    return hashlib.sha256(rfc8785.dumps(payload)).hexdigest()
+
+
+def _exchange_body(path: Path) -> dict[str, Any]:
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        body = payload["response"]["body"]
+    except (OSError, json.JSONDecodeError, KeyError, TypeError) as error:
+        raise ValueError(f"cannot read recovery identity from {path}") from error
+    if not isinstance(body, dict):
+        raise ValueError(f"recovery identity in {path} is not an object")
+    return body
 
 
 def _load_pin_guidance(
@@ -1507,15 +1570,178 @@ def repetition_pair_is_unstable(runs: list[dict[str, Any]]) -> bool:
     return len(signatures) > 1
 
 
-def _adopt_reused_pair(
+def _measurement_evidence(
     *,
     run_dir: Path,
+    prefix: str,
+    scenario: NotebookScenario,
+    result: dict[str, Any],
+) -> dict[str, Any]:
+    """Record why each possible query-side action did or did not run."""
+
+    def exists(name: str) -> bool:
+        return (run_dir / prefix / name).is_file()
+
+    def query_path(
+        *,
+        outcome: str,
+        sql_present: bool,
+        validation_requested: bool,
+        validation_file: str,
+        execution_requested: bool,
+        execution_file: str,
+        oracle_configured: bool,
+        oracle_file: str,
+    ) -> dict[str, Any]:
+        ready = outcome == "ready"
+        validation_recorded = exists(validation_file)
+        execution_recorded = exists(execution_file)
+        oracle_recorded = exists(oracle_file)
+        execution_succeeded = False
+        if execution_recorded:
+            execution_payload = _exchange_body(run_dir / prefix / execution_file)
+            execution_succeeded = execution_payload.get("status") == "succeeded"
+        if not ready:
+            validation_status = "not_run_non_query"
+            execution_status = "not_run_non_query"
+            oracle_status = "not_run_non_query"
+            complete = (
+                not sql_present
+                and not validation_recorded
+                and not execution_recorded
+                and not oracle_recorded
+            )
+        else:
+            validation_status = (
+                "recorded"
+                if validation_recorded
+                else "not_requested"
+                if not validation_requested
+                else "missing"
+            )
+            execution_status = (
+                "recorded"
+                if execution_recorded
+                else "not_requested"
+                if not execution_requested
+                else "missing"
+            )
+            oracle_status = (
+                "recorded"
+                if oracle_recorded
+                else "not_configured"
+                if not oracle_configured
+                else "not_evaluable_without_successful_execution"
+                if execution_recorded and not execution_succeeded
+                else "missing"
+            )
+            complete = (
+                sql_present
+                and (validation_recorded or not validation_requested)
+                and (execution_recorded or not execution_requested)
+                and (
+                    oracle_recorded
+                    or not oracle_configured
+                    or (execution_recorded and not execution_succeeded)
+                )
+            )
+        return {
+            "outcome": outcome,
+            "sqlPresent": sql_present,
+            "validationDecision": validation_status,
+            "executionDecision": execution_status,
+            "oracleResult": oracle_status,
+            "complete": complete,
+        }
+
+    base = query_path(
+        outcome=str(result.get("baseOutcome") or "rejected"),
+        sql_present=bool(result.get("baseSql")),
+        validation_requested=scenario.validate_base,
+        validation_file="05-validate-base.json",
+        execution_requested=scenario.execute_base,
+        execution_file="06-execute-base.json",
+        oracle_configured=scenario.base_gold_check is not None,
+        oracle_file="15-gold-execution-match-base.json",
+    )
+    turns: list[dict[str, Any]] = []
+    turn_summaries = list(result.get("turns") or [])
+    turn_count_complete = len(turn_summaries) == len(scenario.turns)
+    for index, (turn_spec, summary) in enumerate(
+        zip(scenario.turns, turn_summaries), start=1
+    ):
+        slot = "" if index == 1 else f"-t{index}"
+        observed = str(summary.get("observedOutcome") or "rejected")
+        # A non-query follow-up may retain the prior SQL in the editor. It
+        # proves that it generated no new SQL through the absent selection.
+        selected = bool(summary.get("selectedVersionId"))
+        turns.append(
+            {
+                "turnIndex": index,
+                **query_path(
+                    outcome=observed,
+                    sql_present=selected if observed == "ready" else False,
+                    validation_requested=scenario.validate_successor,
+                    validation_file=f"12-validate-successor{slot}.json",
+                    execution_requested=scenario.execute_successor,
+                    execution_file=f"13-execute-successor{slot}.json",
+                    oracle_configured=(
+                        scenario.successor_gold_check is not None
+                    ),
+                    oracle_file=f"16-gold-execution-match-successor{slot}.json",
+                ),
+            }
+        )
+    return {
+        "contractVersion": "harness.catalyst-notebook.measurement-evidence.v1",
+        "base": base,
+        "turns": turns,
+        "declaredTurnCount": len(scenario.turns),
+        "recordedTurnCount": len(turn_summaries),
+        "complete": (
+            base["complete"]
+            and turn_count_complete
+            and all(item["complete"] for item in turns)
+        ),
+    }
+
+
+def _row_is_measurement_valid(row: dict[str, Any]) -> bool:
+    if row.get("status") in {
+        "failed_before_turn",
+        "infrastructure_failed",
+        "skipped",
+    }:
+        return False
+    assertions = row.get("assertions") or []
+    if not assertions:
+        return False
+    conformance_assertions = [
+        item for item in assertions if item.get("class") == "conformance"
+    ]
+    conformed = bool(conformance_assertions) and all(
+        item.get("passed") is True for item in conformance_assertions
+    )
+    evidence = row.get("measurementEvidence") or {}
+    return (
+        conformed
+        and evidence.get("complete") is True
+        and isinstance(row.get("sessionId"), str)
+        and bool(row.get("sessionId"))
+    )
+
+
+def _adopt_reused_pair(
+    *,
+    recorder: _EvidenceRecorder,
     resume_from: Path | None,
     run_id: str,
     scenario: NotebookScenario,
     team: str | None,
     recorded: list[dict[str, Any]],
     results_path: Path,
+    imports: list[dict[str, Any]],
+    preflight_digests: dict[str, str],
 ) -> None:
     """Bring a reused pair fully into the resumed run's directory.
 
@@ -1528,13 +1754,57 @@ def _adopt_reused_pair(
     # the follow-ups (which falls back to the opener when there are none).
     backend_id = team or scenario.followup_profile_id
     key = f"{backend_id}/{scenario.id}" if team is not None else scenario.id
-    if resume_from is not None:
-        source = resume_from / "scenarios" / key
-        destination = run_dir / "scenarios" / key
-        if source.is_dir() and not destination.exists():
-            shutil.copytree(source, destination)
+    if resume_from is None:
+        raise ValueError("recovery source is required when adopting evidence")
     for row in recorded:
-        append_jsonl(run_dir / "rows.jsonl", row)
+        evidence_prefix = row.get("evidencePrefix")
+        if not isinstance(evidence_prefix, str) or not evidence_prefix.startswith(
+            f"scenarios/{key}/"
+        ):
+            raise ValueError(
+                f"reusable {key} row does not identify its exact evidence directory"
+            )
+        source = resume_from / evidence_prefix
+        if not source.is_dir():
+            raise ValueError(f"recovery evidence is missing for {evidence_prefix}")
+        copied: list[dict[str, Any]] = []
+        for source_file in sorted(source.rglob("*.json")):
+            relative = source_file.relative_to(resume_from).as_posix()
+            expected_sha256 = preflight_digests.get(relative)
+            if expected_sha256 is None:
+                raise ValueError(
+                    f"recovery evidence appeared after preflight: {relative}"
+                )
+            copied.append(
+                recorder.adopt(
+                    relative,
+                    source_file,
+                    kind="recovered_conversation_evidence",
+                    metadata={
+                        "sourceRunId": resume_from.name,
+                        "scenarioId": scenario.id,
+                        "profileId": backend_id,
+                    },
+                    expected_sha256=expected_sha256,
+                )
+            )
+        if not copied:
+            raise ValueError(f"recovery evidence is empty for {evidence_prefix}")
+        row_sha256 = _canonical_sha256(row)
+        imports.append(
+            {
+                "sourceRunId": resume_from.name,
+                "profileId": backend_id,
+                "scenarioId": scenario.id,
+                "repetition": row.get("repetition"),
+                "rowSha256": row_sha256,
+                "evidence": [
+                    {"path": item["path"], "sha256": item["sha256"]}
+                    for item in copied
+                ],
+            }
+        )
+        append_jsonl(recorder.run_dir / "rows.jsonl", row)
         answer = (
             row.get("baseSql")
             or row.get("baseAnswerText")
@@ -1652,11 +1922,21 @@ def _finished_pairs(
         payload = json.loads(results_path.read_text(encoding="utf-8"))
         rows = list(payload.get("results") or [])
     pairs: dict[tuple[str, str], list[dict[str, Any]]] = {}
+    seen_cells: set[tuple[str, str, int]] = set()
     for row in rows:
         profile_id = row.get("profileId")
         scenario_id = row.get("scenarioId")
         if not isinstance(profile_id, str) or not isinstance(scenario_id, str):
             continue
+        if not _row_is_measurement_valid(row):
+            continue
+        repetition = row.get("repetition")
+        if not isinstance(repetition, int):
+            continue
+        cell = (profile_id, scenario_id, repetition)
+        if cell in seen_cells:
+            raise ValueError(f"recovery source duplicates measurement cell {cell!r}")
+        seen_cells.add(cell)
         pairs.setdefault((profile_id, scenario_id), []).append(row)
     return pairs
 
@@ -1683,6 +1963,230 @@ def _effective_repetitions(
     return repetitions or scenario.repetitions or suite.repetitions
 
 
+def _preflight_recovery_evidence(
+    resume_from: Path,
+    reusable_pairs: list[tuple[str, list[dict[str, Any]]]],
+) -> dict[str, str]:
+    """Hash every file eligible for import before any model conversation."""
+    digests: dict[str, str] = {}
+    seen_prefixes: set[str] = set()
+    indexed: dict[str, str] = {}
+    index_path = resume_from / "evidence-index.json"
+    if index_path.is_file():
+        try:
+            index = json.loads(index_path.read_text(encoding="utf-8"))
+            indexed = {
+                str(item["path"]): str(item["sha256"])
+                for item in index.get("entries") or []
+                if isinstance(item, dict)
+                and isinstance(item.get("path"), str)
+                and isinstance(item.get("sha256"), str)
+            }
+        except (json.JSONDecodeError, KeyError, TypeError) as error:
+            raise ValueError("recovery evidence index is invalid") from error
+    for expected_prefix, rows in reusable_pairs:
+        for row in rows:
+            evidence_prefix = row.get("evidencePrefix")
+            if (
+                not isinstance(evidence_prefix, str)
+                or not evidence_prefix.startswith(expected_prefix)
+                or evidence_prefix in seen_prefixes
+            ):
+                raise ValueError(
+                    "recovery row has a missing, misplaced, or duplicate evidence path"
+                )
+            seen_prefixes.add(evidence_prefix)
+            source = resume_from / evidence_prefix
+            if not source.is_dir():
+                raise ValueError(f"recovery evidence is missing for {evidence_prefix}")
+            evidence_files = sorted(source.rglob("*.json"))
+            if not evidence_files:
+                raise ValueError(f"recovery evidence is empty for {evidence_prefix}")
+            for source_file in evidence_files:
+                relative = source_file.relative_to(resume_from).as_posix()
+                if relative in digests:
+                    raise ValueError(f"recovery evidence path is duplicated: {relative}")
+                digest = hashlib.sha256(source_file.read_bytes()).hexdigest()
+                if relative in indexed and indexed[relative] != digest:
+                    raise ValueError(
+                        f"recovery evidence no longer matches its index: {relative}"
+                    )
+                digests[relative] = digest
+    return digests
+
+
+def _run_tree_sha256(run_dir: Path) -> str:
+    files = []
+    for path in sorted(item for item in run_dir.rglob("*") if item.is_file()):
+        files.append(
+            {
+                "path": path.relative_to(run_dir).as_posix(),
+                "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+            }
+        )
+    return _canonical_sha256(files)
+
+
+def _load_resume_header(resume_from: Path | None) -> dict[str, Any] | None:
+    if resume_from is None:
+        return None
+    if not resume_from.is_dir():
+        raise ValueError(f"recovery source does not exist: {resume_from}")
+    try:
+        status = json.loads(
+            (resume_from / "run-status.json").read_text(encoding="utf-8")
+        )
+        manifest = json.loads(
+            (resume_from / "run_manifest.json").read_text(encoding="utf-8")
+        )
+        frozen_config = json.loads(
+            (resume_from / "run-config.json").read_text(encoding="utf-8")
+        )
+    except (OSError, json.JSONDecodeError) as error:
+        raise ValueError(
+            "recovery requires the source manifest, frozen config, and run status"
+        ) from error
+    if status.get("state") != "incomplete":
+        raise ValueError("only an immutable incomplete run can be recovered")
+    source_id = manifest.get("run_id")
+    if not isinstance(source_id, str) or source_id != resume_from.name:
+        raise ValueError("recovery source directory and manifest run ID disagree")
+    prior_ancestry = list(manifest.get("resumeAncestry") or [])
+    ancestry = prior_ancestry + [source_id]
+    if not all(isinstance(item, str) and item for item in ancestry):
+        raise ValueError("recovery ancestry contains an invalid run ID")
+    if len(set(ancestry)) != len(ancestry):
+        raise ValueError("recovery ancestry contains a cycle or duplicate run")
+    direct_parent = manifest.get("resumedFrom")
+    if prior_ancestry:
+        if direct_parent != prior_ancestry[-1]:
+            raise ValueError("recovery manifest does not preserve its direct parent")
+    elif direct_parent is not None:
+        raise ValueError("recovery manifest names a parent outside its ancestry")
+    for index, ancestor_id in enumerate(prior_ancestry):
+        ancestor_path = resume_from.parent / str(ancestor_id) / "run_manifest.json"
+        try:
+            ancestor = json.loads(ancestor_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as error:
+            raise ValueError(
+                f"recovery ancestry manifest is missing for {ancestor_id!r}"
+            ) from error
+        expected_ancestry = prior_ancestry[:index]
+        expected_parent = expected_ancestry[-1] if expected_ancestry else None
+        if (
+            ancestor.get("run_id") != ancestor_id
+            or list(ancestor.get("resumeAncestry") or []) != expected_ancestry
+            or ancestor.get("resumedFrom") != expected_parent
+        ):
+            raise ValueError(f"recovery ancestry is inconsistent at {ancestor_id!r}")
+    return {
+        "runId": source_id,
+        "ancestry": ancestry,
+        "manifest": manifest,
+        "frozenConfig": frozen_config,
+        "infrastructureFailures": list(status.get("infrastructureFailures") or []),
+        "treeSha256": _run_tree_sha256(resume_from),
+    }
+
+
+def _validate_recovery_identity(
+    *,
+    resume_from: Path,
+    header: dict[str, Any],
+    frozen_config: dict[str, Any],
+    suite_sha256: str,
+    manifest: RunManifest,
+    profiles: dict[str, Any],
+    dataset: dict[str, Any],
+    catalog: dict[str, Any],
+) -> None:
+    source_manifest = header["manifest"]
+    comparisons = {
+        "frozen configuration": (
+            header["frozenConfig"],
+            frozen_config,
+        ),
+        "suite bytes": (source_manifest.get("suite_sha256"), suite_sha256),
+        "Harness revision": (source_manifest.get("git_sha"), manifest.git_sha),
+        "component revisions": (
+            source_manifest.get("target_provenance") or [],
+            manifest.target_provenance,
+        ),
+        "dataset ID": (source_manifest.get("dataset_id"), manifest.dataset_id),
+        "dataset version": (
+            source_manifest.get("dataset_version"),
+            manifest.dataset_version,
+        ),
+        "catalog identity": (
+            source_manifest.get("schema_mapping_version"),
+            manifest.schema_mapping_version,
+        ),
+        "profile and model discovery": (
+            _exchange_body(resume_from / "discovery/query-options.json"),
+            profiles,
+        ),
+        "dataset discovery": (
+            _exchange_body(resume_from / "discovery/dataset.json"),
+            dataset,
+        ),
+        "catalog discovery": (
+            _exchange_body(resume_from / "discovery/catalog.json"),
+            catalog,
+        ),
+    }
+    drifted = [
+        name
+        for name, (source, current) in comparisons.items()
+        if _canonical_sha256(source) != _canonical_sha256(current)
+    ]
+    if drifted:
+        raise ValueError(
+            "recovery identity drifted before reuse or model calls: "
+            + ", ".join(drifted)
+        )
+
+
+def _record_warmup(
+    *,
+    client: NotebookTransport,
+    recorder: _EvidenceRecorder,
+    profile_id: str,
+    question: str,
+) -> str:
+    """Run one fresh, recorded conversation that never enters scoring."""
+    prefix = f"warmups/{profile_id}"
+    created = client.create_session(question, profile_id)
+    session = recorder.exchange(
+        f"{prefix}/01-create-session.json", created, kind="excluded_warmup"
+    )
+    session_id = session.get("sessionId")
+    if created.status_code != 201 or not isinstance(session_id, str):
+        raise ValueError(f"warm-up failed before a session for profile {profile_id!r}")
+    timeline_exchange = client.get_turns(session_id)
+    timeline = recorder.exchange(
+        f"{prefix}/02-turns.json", timeline_exchange, kind="excluded_warmup"
+    )
+    initial = next(
+        (
+            item
+            for item in timeline.get("turns") or []
+            if item.get("kind") == "initial" and isinstance(item.get("turnId"), str)
+        ),
+        None,
+    )
+    if timeline_exchange.status_code != 200 or initial is None:
+        raise ValueError(f"warm-up timeline is incomplete for profile {profile_id!r}")
+    evidence_exchange = client.generation_evidence(session_id, initial["turnId"])
+    recorder.exchange(
+        f"{prefix}/03-generation-evidence.json",
+        evidence_exchange,
+        kind="excluded_warmup",
+    )
+    if evidence_exchange.status_code != 200:
+        raise ValueError(f"warm-up evidence is incomplete for profile {profile_id!r}")
+    return session_id
+
+
 def run_notebook_suite(
     *,
     suite_path: Path | str,
@@ -1697,6 +2201,8 @@ def run_notebook_suite(
     manual_checkpoint: Callable[[NotebookScenario, str], None] | None = None,
     provenance_loader: Callable[[Path], list[dict[str, Any]]] = _target_provenance,
     resume_from: Path | str | None = None,
+    frozen_config: dict[str, Any] | None = None,
+    warmup_question: str | None = None,
 ) -> NotebookRunResult:
     suite_path = Path(suite_path)
     suite = load_notebook_suite(suite_path)
@@ -1716,12 +2222,26 @@ def run_notebook_suite(
     if repetitions is not None and repetitions < 1:
         raise ValueError("repetitions must be at least one")
 
+    resume_path = Path(resume_from) if resume_from is not None else None
+    resume_header = _load_resume_header(resume_path)
     run_id = str(uuid4())
     run_dir = Path(output_dir) / run_id
     recorder = _EvidenceRecorder(run_dir, run_id)
     root = Path(project_root).resolve()
     target_provenance = provenance_loader(root)
     suite_sha256 = hashlib.sha256(suite_path.read_bytes()).hexdigest()
+    public_config = publishable(frozen_config or {
+        "contractVersion": "harness.catalyst-notebook.run-config.v1",
+        "suiteSha256": suite_sha256,
+        "scenarioIds": [scenario.id for scenario in selected],
+        "repetitions": repetitions,
+        "includeManual": include_manual,
+        "warmupQuestion": warmup_question or "",
+    })
+    configured_warmup = str(public_config.get("warmupQuestion") or "")
+    if warmup_question and configured_warmup and warmup_question != configured_warmup:
+        raise ValueError("the requested warm-up differs from the frozen run config")
+    warmup_question = configured_warmup or warmup_question
     manifest = RunManifest(
         run_id=run_id,
         project="clinical-ai-validation-harness",
@@ -1741,6 +2261,8 @@ def run_notebook_suite(
         report_family="catalyst",
         suite_id=suite.id,
         suite_sha256=suite_sha256,
+        resumed_from=(resume_header or {}).get("runId"),
+        resume_ancestry=list((resume_header or {}).get("ancestry") or []),
     )
     recorder.json("run_manifest.json", manifest.to_dict(), kind="run_manifest")
     recorder.json(
@@ -1749,6 +2271,20 @@ def run_notebook_suite(
         kind="suite_definition",
         metadata={"sourceSha256": suite_sha256},
     )
+    recorder.json("run-config.json", public_config, kind="run_configuration")
+    infrastructure_failures: list[dict[str, Any]] = list(
+        (resume_header or {}).get("infrastructureFailures") or []
+    )
+    status = {
+        "contractVersion": "harness.catalyst-notebook.run-status.v1",
+        "runId": run_id,
+        "state": "incomplete",
+        "measurementValid": False,
+        "resumedFrom": (resume_header or {}).get("runId"),
+        "resumeAncestry": list((resume_header or {}).get("ancestry") or []),
+        "infrastructureFailures": infrastructure_failures,
+    }
+    _write_run_status(run_dir, status)
 
     # Additive run-stream files (events.jsonl / results.jsonl): NOT registered
     # in the evidence index, so evidence-index.json/.sha256 and results.json
@@ -1823,43 +2359,91 @@ def run_notebook_suite(
         "discovery/catalog.json", catalog_exchange, kind="catalog_discovery"
     )
     _require_discovery(suite, profiles_exchange, dataset_exchange, catalog_exchange)
+    if resume_path is not None and resume_header is not None:
+        _validate_recovery_identity(
+            resume_from=resume_path,
+            header=resume_header,
+            frozen_config=public_config,
+            suite_sha256=suite_sha256,
+            manifest=manifest,
+            profiles=profiles_exchange.response_body,
+            dataset=dataset_exchange.response_body,
+            catalog=catalog_exchange.response_body,
+        )
 
     # A comparison is hours of model time, so an interruption resumes rather
     # than restarts: every (team, scenario) already recorded is reused
     # verbatim and only the missing pairs are run again.
-    finished = _finished_pairs(resume_from)
-    results: list[dict[str, Any]] = []
-    seen_sessions: set[str] = set()
-    # The budget belongs to the run: it exists to stop a team being scored
-    # on a host that keeps falling over, and a per-scenario counter would
-    # let a twelve-scenario suite absorb twenty-four failures.
-    replacements = 0
-    infrastructure_failures: list[dict[str, Any]] = []
-    skipped = 0
-    # Teams are the outer loop: a local model stays resident while it answers
-    # the whole suite, and every team meets the same frozen scenario order.
+    finished = _finished_pairs(resume_path)
     teams: tuple[str | None, ...] = suite.comparison_profiles or (None,)
+    reusable: dict[tuple[str, str], list[dict[str, Any]]] = {}
+    reusable_evidence: list[tuple[str, list[dict[str, Any]]]] = []
     for team in teams:
-        # The budget invalidates *that team's* run, so each team gets its own.
-        replacements = 0
-        for scenario in selected:
-            if team is not None:
-                scenario = _scenario_for_profile(scenario, team)
-            recorded = finished.get(
-                (team or scenario.followup_profile_id, scenario.id)
+        for declared_scenario in selected:
+            scenario = (
+                _scenario_for_profile(declared_scenario, team)
+                if team is not None
+                else declared_scenario
             )
+            key = (team or scenario.followup_profile_id, scenario.id)
+            recorded = finished.get(key)
             if recorded is not None and _pair_is_complete(
                 recorded, suite, scenario, repetitions
             ):
+                reusable[key] = recorded
+                expected_prefix = (
+                    f"scenarios/{scenario.id}/"
+                    if team is None
+                    else f"scenarios/{team}/{scenario.id}/"
+                )
+                reusable_evidence.append((expected_prefix, recorded))
+    preflight_digests = (
+        _preflight_recovery_evidence(resume_path, reusable_evidence)
+        if resume_path is not None
+        else {}
+    )
+    results: list[dict[str, Any]] = []
+    seen_sessions: set[str] = set()
+    recovery_imports: list[dict[str, Any]] = []
+    # The budget belongs to the run: it exists to stop a team being scored
+    # on a host that keeps falling over, and a per-scenario counter would
+    # let a twelve-scenario suite absorb twenty-four failures.
+    skipped = 0
+    # Teams are the outer loop: a local model stays resident while it answers
+    # the whole suite, and every team meets the same frozen scenario order.
+    for team in teams:
+        # The budget invalidates *that team's* run, so each team gets its own.
+        team_id = team or selected[0].followup_profile_id
+        replacements = sum(
+            item.get("profileId") == team_id for item in infrastructure_failures
+        )
+        if warmup_question:
+            seen_sessions.add(
+                _record_warmup(
+                    client=client,
+                    recorder=recorder,
+                    profile_id=team_id,
+                    question=warmup_question,
+                )
+            )
+        for scenario in selected:
+            if team is not None:
+                scenario = _scenario_for_profile(scenario, team)
+            recorded = reusable.get(
+                (team or scenario.followup_profile_id, scenario.id)
+            )
+            if recorded is not None:
                 results.extend(recorded)
                 _adopt_reused_pair(
-                    run_dir=run_dir,
-                    resume_from=Path(resume_from) if resume_from else None,
+                    recorder=recorder,
+                    resume_from=resume_path,
                     run_id=run_id,
                     scenario=scenario,
                     team=team,
                     recorded=recorded,
                     results_path=results_path,
+                    imports=recovery_imports,
+                    preflight_digests=preflight_digests,
                 )
                 continue
             if scenario.manual_only and not include_manual:
@@ -1922,33 +2506,59 @@ def run_notebook_suite(
                 )
                 result["passed"] = all(item["passed"] for item in result["assertions"])
                 result["profileId"] = team or scenario.followup_profile_id
-                # Appended now, not at the end: this row is what --resume
-                # reuses when the run dies before the summary is written.
-                append_jsonl(run_dir / "rows.jsonl", result)
                 result["httpStatus"] = _normalized_http_status(run_dir, prefix)
-                if suite.infrastructure_replacements and is_infrastructure_failure(result):
+                result["evidencePrefix"] = prefix
+                result["measurementEvidence"] = _measurement_evidence(
+                    run_dir=run_dir,
+                    prefix=prefix,
+                    scenario=scenario,
+                    result=result,
+                )
+                if (
+                    suite.infrastructure_replacements
+                    and is_infrastructure_failure(result)
+                ):
                     replacements += 1
+                    result["status"] = "infrastructure_failed"
+                    result["measurementValid"] = False
+                    failure = {
+                        "profileId": team_id,
+                        "scenarioId": scenario.id,
+                        "repetition": repetition,
+                        "attempt": attempt_slot,
+                        "httpStatus": result["httpStatus"],
+                        "status": result.get("status"),
+                        "sessionId": result.get("sessionId"),
+                    }
+                    infrastructure_failures.append(failure)
+                    append_jsonl(run_dir / "rows.jsonl", result)
+                    status["infrastructureFailures"] = infrastructure_failures
                     if replacements > suite.infrastructure_replacements:
+                        status.update(
+                            {
+                                "state": "invalid",
+                                "reason": (
+                                    f"profile {team_id!r} exceeded its infrastructure "
+                                    "replacement budget"
+                                ),
+                            }
+                        )
+                        _write_run_status(run_dir, status)
                         raise ValueError(
                             f"scenario {scenario.id!r} hit a third infrastructure "
-                            "failure for this run; the run is invalid for that team"
+                            "failure across the recovery chain; the run is invalid "
+                            "for that team"
                         )
-                    infrastructure_failures.append(
-                        {
-                            "scenarioId": scenario.id,
-                            "repetition": repetition,
-                            "attempt": attempt_slot,
-                            "httpStatus": result["httpStatus"],
-                            "status": result.get("status"),
-                            "sessionId": result.get("sessionId"),
-                        }
-                    )
-                    result["status"] = "infrastructure_failed"
+                    _write_run_status(run_dir, status)
                     results.append(result)
                     # The host, not the model, failed: re-run this repetition
                     # rather than scoring it.
                     repetition -= 1
                     continue
+                result["measurementValid"] = _row_is_measurement_valid(result)
+                # Appended only after its final classification: this is what a
+                # replacement may import if the process stops before summary.
+                append_jsonl(run_dir / "rows.jsonl", result)
                 results.append(result)
                 scenario_runs.append(result)
                 ended_at = datetime.now(timezone.utc).isoformat()
@@ -2052,6 +2662,28 @@ def run_notebook_suite(
                 ):
                     repeat_count = ceiling
 
+    if recovery_imports:
+        recorder.json(
+            "recovery-import.json",
+            {
+                "contractVersion": "harness.catalyst-notebook.recovery-import.v1",
+                "resumedFrom": (resume_header or {}).get("runId"),
+                "resumeAncestry": list((resume_header or {}).get("ancestry") or []),
+                "imports": recovery_imports,
+            },
+            kind="recovery_import_ledger",
+        )
+    if resume_path is not None and resume_header is not None:
+        if _run_tree_sha256(resume_path) != resume_header["treeSha256"]:
+            status.update(
+                {
+                    "state": "invalid",
+                    "reason": "the interrupted source changed during recovery",
+                }
+            )
+            _write_run_status(run_dir, status)
+            raise ValueError("the interrupted source changed during recovery")
+
     passed_count = sum(
         result.get("passed") is True
         and result.get("status") != "infrastructure_failed"
@@ -2060,6 +2692,14 @@ def run_notebook_suite(
     result_count = sum(
         result.get("status") not in {"skipped", "infrastructure_failed"}
         for result in results
+    )
+    measured = [
+        result
+        for result in results
+        if result.get("status") not in {"skipped", "infrastructure_failed"}
+    ]
+    measurement_valid = bool(measured) and all(
+        result.get("measurementValid") is True for result in measured
     )
     nondeterminism = _nondeterminism_summary(results)
     summary = {
@@ -2070,6 +2710,7 @@ def run_notebook_suite(
         "catalogVersion": catalog.get("catalogVersion"),
         "resultCount": result_count,
         "passedCount": passed_count,
+        "measurementValid": measurement_valid,
         "skippedCount": skipped,
         "infrastructureFailureCount": len(infrastructure_failures),
         "infrastructureFailures": infrastructure_failures,
@@ -2078,12 +2719,25 @@ def run_notebook_suite(
     }
     recorder.json("results.json", summary, kind="validation_results")
     recorder.finish()
+    status.update(
+        {
+            "state": "complete" if measurement_valid else "invalid",
+            "measurementValid": measurement_valid,
+            "resultCount": result_count,
+            "passedCount": passed_count,
+        }
+    )
+    if not measurement_valid:
+        status["reason"] = "one or more conversations lacked complete contract evidence"
+    _write_run_status(run_dir, status)
     return NotebookRunResult(
         run_id=run_id,
         run_dir=run_dir,
         result_count=result_count,
         passed_count=passed_count,
         skipped_count=skipped,
+        complete=True,
+        measurement_valid=measurement_valid,
     )
 
 
