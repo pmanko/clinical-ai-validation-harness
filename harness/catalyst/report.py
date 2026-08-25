@@ -12,6 +12,7 @@ from typing import Any
 from harness.common.jsonl import read_jsonl
 from harness.common.text import esc
 from harness.catalyst.notebook_validation import assertion_class
+from harness.catalyst.judge_ranking import aggregate_rankings
 from harness.catalyst.judge_consensus import (
     agreement,
     consensus,
@@ -811,6 +812,63 @@ def _verdict_section(
     return "".join(bits)
 
 
+def _ranking_section(rank_rows: list[dict[str, Any]], labels: dict[str | None, str]) -> str:
+    """The comparative standing, when a ranking pass has been run.
+
+    Absent for runs judged pointwise only — which is every run so far, and
+    saying nothing is correct there: an empty section would imply the
+    comparison was made and came out even.
+    """
+    if not rank_rows:
+        return ""
+    result = aggregate_rankings(rank_rows)
+    if not result["standing"]:
+        return ""
+    rows = "".join(
+        "<tr>"
+        f"<td>{esc(labels.get(entry['team'], entry['team']))}</td>"
+        f"<td class='num'>{esc(entry['mean_rank'])}</td>"
+        f"<td class='num'>{esc(entry['wins'])}</td>"
+        f"<td class='num'>{esc(entry['comparisons'])}</td>"
+        f"<td class='num adv'>{esc(entry['best'])}–{esc(entry['worst'])}</td>"
+        "</tr>"
+        for entry in result["standing"]
+    )
+    verdict = (
+        "The ranking separates the teams."
+        if result["separates_teams"]
+        else "Every team shares the same mean rank: the ranking does not"
+        " separate them."
+    )
+    incomparable = ""
+    if result["incomparable"]:
+        items = "".join(
+            f"<li><code>{esc(item['scenario_id'])}</code> turn"
+            f" {esc(item['turn'])} — {esc(item['reason'])}</li>"
+            for item in result["incomparable"]
+        )
+        incomparable = (
+            f"<p class='adv'>{len(result['incomparable'])} comparison(s) the"
+            f" judge declined to rank:</p><ul class='adv'>{items}</ul>"
+        )
+    return (
+        "<section id='judge-ranking'>"
+        "<h2>Comparative standing<span class='pill-adv'>advisory</span></h2>"
+        "<p class='adv'>The same question, every team's answer, ranked"
+        " best-first by a judge that could not see which team wrote which"
+        " (labels are shuffled per comparison). Pointwise scores saturate —"
+        " a ranking cannot. Mean rank leads because it survives ties;"
+        f" wins are shown because a reader thinks in wins. {esc(verdict)}</p>"
+        "<table class='data'><thead><tr>"
+        "<th>team</th><th class='num'>mean rank</th><th class='num'>wins</th>"
+        "<th class='num'>comparisons</th><th class='num'>best–worst</th>"
+        "</tr></thead>"
+        f"<tbody>{rows}</tbody></table>"
+        f"{incomparable}"
+        "</section>"
+    )
+
+
 def _judge_trust_block(judges: list[dict[str, Any]], run_dir: Path) -> str:
     """How far these scores can be trusted — stated, not implied.
 
@@ -1334,6 +1392,7 @@ def _build_body(run_dir: Path, blob: dict[str, Any]) -> str:
         f"{_abstract_section(suite, results, judges, config)}"
         f"{_verdict_section(suite, results, config)}"
         f"{_judge_summary_section(suite, results, judges, judge_manifest, run_dir)}"
+        f"{_ranking_section(blob.get('judge_rankings') or [], _team_labels(results, suite))}"
         "<section>"
         "<h2>Scenario matrix</h2>"
         "<table class='data'>"
@@ -1380,6 +1439,8 @@ def build_report(run_dir: Path | str) -> Path:
         # The frozen seed (gates, publish copy) and the finalized-judge
         # manifest travel with the run; both may be absent on older runs.
         "config": load_frozen(run_dir),
+        # Comparative rankings, when a ranking pass has been run.
+        "judge_rankings": read_jsonl(run_dir / "judge_rank.jsonl", strict=False),
         "judge_manifest": _load_json(run_dir / "judge_manifest.json"),
     }
     body = _build_body(run_dir, blob)

@@ -479,3 +479,40 @@ def test_an_adjudicated_run_reports_its_agreement_rate(tmp_path) -> None:
     assert "Human adjudication" in summary
     assert "1 of 1 cells reviewed" in summary
     assert "No human adjudication" not in summary
+
+
+def test_a_ranking_pass_renders_a_comparative_standing(tmp_path) -> None:
+    """Pointwise scores saturate; a ranking cannot. When a ranking pass has
+    been run its standing appears — and when it has not, nothing does,
+    because an empty section would imply an even result."""
+    from harness.catalyst.report import build_report
+
+    run = _two_team_run(tmp_path)
+    assert "Comparative standing" not in build_report(run).read_text("utf-8")
+
+    (run / "judge_rank.jsonl").write_text(
+        "\n".join(
+            json.dumps(entry)
+            for entry in (
+                {"scenario_id": "S1", "turn": 0, "ranks": {"team-a": 1, "team-b": 2}},
+                {
+                    "scenario_id": "S2",
+                    "turn": 0,
+                    "comparable": False,
+                    "reason": "reference describes the final turn",
+                },
+            )
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    html = build_report(run).read_text(encoding="utf-8")
+    standing = html[html.index("Comparative standing"):]
+
+    assert "mean rank" in standing
+    # Teams appear by their short names, best mean rank first.
+    assert standing.index("writer-only") < standing.index("r-checked")
+    assert "separates the teams" in standing
+    # The declined comparison is named with its reason, not silently dropped.
+    assert "reference describes the final turn" in standing
