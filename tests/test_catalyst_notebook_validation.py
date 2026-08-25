@@ -1383,9 +1383,9 @@ def test_committed_t094_suite_uses_current_profiles_and_switches_per_turn() -> N
 
 
 def test_report_labels_writer_only_profile_without_inventing_a_reviewer() -> None:
-    from harness.catalyst.report import _headline_section
+    from harness.catalyst.report import _methods_section
 
-    html = _headline_section(
+    html = _methods_section(
         {
             "profiles": {
                 WRITER_ONLY_PROFILE_ID: {"writerModelId": "gemma-4-12b"},
@@ -1401,6 +1401,7 @@ def test_report_labels_writer_only_profile_without_inventing_a_reviewer() -> Non
             "skippedCount": 0,
             "results": [],
         },
+        [],
     )
 
     assert "— (writer only)" in html
