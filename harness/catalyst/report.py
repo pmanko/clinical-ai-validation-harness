@@ -500,6 +500,81 @@ def _execution_row_count(run_dir: Path, scenario_id: str, stem: str) -> int | No
     return None
 
 
+def _judged_failure_map(
+    results: dict[str, Any],
+) -> tuple[list[str | None], dict[str, list[str | None]]]:
+    """Which teams missed which scenarios, counting only valid measurements.
+
+    A conformance-broken row is an invalid measurement, not a miss; it is
+    reported separately rather than blended into the failure story.
+    """
+    teams: list[str | None] = []
+    failed: dict[str, list[str | None]] = {}
+    for row in results.get("results") or []:
+        if row.get("status") == "skipped":
+            continue
+        team = _row_team(row)
+        if team not in teams:
+            teams.append(team)
+        if row.get("passed"):
+            continue
+        if not _conformed(row.get("assertions") or []):
+            continue
+        failed.setdefault(str(row.get("scenarioId")), []).append(team)
+    return teams, failed
+
+
+def _failure_character(judges: list[dict[str, Any]]) -> str | None:
+    """One plain sentence on WHAT went wrong, argued from the judge's axes.
+
+    When construction and schema use stay at ceiling on the very queries
+    that failed, the misses are about reading the question, not writing
+    SQL — and the abstract can say so from measurement rather than opinion.
+    """
+    if not judges:
+        return None
+    flagged = [
+        row
+        for row in judges
+        if isinstance(row.get("composite"), (int, float))
+        and row["composite"] < _FLAG_BELOW
+    ]
+    if not flagged:
+        return (
+            "A separate AI judge read every executed query and found nothing"
+            " to flag; its per-axis scores are in the judge summary below."
+        )
+
+    def med(axis: str) -> float | None:
+        values = [
+            row[axis] for row in flagged if isinstance(row.get(axis), (int, float))
+        ]
+        return float(median(values)) if values else None
+
+    intent = med("intent_fidelity")
+    craft = med("sql_quality")
+    schema = med("schema_discipline")
+    if (
+        intent is not None
+        and craft is not None
+        and schema is not None
+        and craft >= 2.5
+        and schema >= 2.5
+        and intent <= 1.5
+    ):
+        return (
+            "A separate AI judge read every executed query. On the failed"
+            " questions the SQL itself still scored at ceiling for"
+            " construction and schema use — what dropped was fidelity to what"
+            " the question actually asked. The errors are misreadings, not"
+            " broken queries."
+        )
+    return (
+        "A separate AI judge read every executed query; its per-axis reading"
+        " of each failure is in the judge summary below."
+    )
+
+
 def _abstract_section(
     suite: dict[str, Any],
     results: dict[str, Any],
@@ -508,11 +583,16 @@ def _abstract_section(
 ) -> str:
     """The report in plain terms: assembled from the run's own numbers so it
     cannot drift from them, with the wording templates seeded (optionally)
-    from the run config's publish block."""
+    from the run config's publish block.
+
+    Deliberately free of pass/fail gates: thresholds are publication policy
+    and live in the Result section with the policy that set them. The
+    abstract reports how the teams actually did relative to each other and
+    what the failures were.
+    """
     publish = config.get("publish") or {}
     tallies = _team_tallies(results)
     labels = _team_labels(results, suite)
-    gates = config.get("gates") or {}
     n_questions = max((total for _, _, total in tallies), default=0)
     subject = publish.get("plainSubject") or "a clinical database"
     paragraphs: list[str] = []
@@ -540,54 +620,85 @@ def _abstract_section(
     if lead:
         paragraphs.append(f"<p>{esc(lead)}</p>")
 
-    if tallies:
-        best_team, best_passed, best_total = tallies[0]
-        best_label = labels.get(best_team, str(best_team))
-        outcome = _gate_outcome(results, labels, gates)
-        if len(tallies) > 1 and outcome is not None:
-            if outcome["qualified"]:
-                sentence = (
-                    f"<b>{esc(', '.join(outcome['qualified']))} cleared the"
-                    " acceptance bar.</b>"
-                    f" Best score: {best_passed} of {best_total}."
-                )
-            elif outcome["undecidable"]:
-                sentence = (
-                    "<b>The run could not be decided</b> — some measurements"
-                    " were invalid; see the comparison page."
-                )
-            else:
-                sentence = (
-                    "<b>No team passed enough questions to clear the"
-                    " acceptance bar.</b> The best team —"
-                    f" {esc(best_label)} — got {best_passed} of {best_total}."
-                )
-        elif len(tallies) > 1:
-            sentence = (
-                f"The best team — {esc(best_label)} — passed"
-                f" {best_passed} of {best_total} questions."
+    teams, failed = _judged_failure_map(results)
+    invalid_teams = sorted(
+        {
+            labels.get(_row_team(row), str(_row_team(row)))
+            for row in results.get("results") or []
+            if row.get("status") != "skipped"
+            and not _conformed(row.get("assertions") or [])
+        }
+    )
+
+    # How the teams actually did, relative to each other.
+    if len(tallies) > 1:
+        scores = " · ".join(
+            f"{esc(labels.get(team, str(team)))} {passed} of {total}"
+            for team, passed, total in tallies
+        )
+        spread = tallies[0][1] - tallies[-1][1]
+        if spread == 0:
+            opener = "<b>The teams tied</b>"
+        elif spread == 1:
+            opener = (
+                "<b>The teams finished within one question of each other</b>"
+                " — a practical tie at this sample size"
             )
         else:
-            sentence = f"It passed {best_passed} of {best_total} questions."
-        paragraphs.append(f"<p>{sentence}</p>")
-
-    if judges:
-        composites = [
-            row["composite"]
-            for row in judges
-            if isinstance(row.get("composite"), (int, float))
-        ]
-        if composites:
-            judge_sentence = (
-                f"A separate AI judge read every query the team{'s' if len(tallies) > 1 else ''}"
-                f" wrote ({len(composites)} in all) and scored each from 0 to 100:"
-                f" the typical score was {median(composites):g} and the lowest"
-                f" was {min(composites):g}."
+            opener = (
+                f"<b>{esc(labels.get(tallies[0][0], str(tallies[0][0])))}"
+                f" led by {spread} questions</b>"
             )
-            takeaway = publish.get("plainTakeaway")
-            if takeaway:
-                judge_sentence += f" {takeaway}"
-            paragraphs.append(f"<p>{esc(judge_sentence)}</p>")
+        sentence = f"{opener}: {scores}."
+        if invalid_teams:
+            sentence += (
+                f" ({esc(', '.join(invalid_teams))} also had invalid"
+                " measurements, reported separately in the comparison.)"
+            )
+        paragraphs.append(f"<p>{sentence}</p>")
+    elif tallies:
+        _, passed, total = tallies[0]
+        paragraphs.append(
+            f"<p>It answered <b>{passed} of {total}</b> correctly.</p>"
+        )
+
+    # What the failures were — where they landed, and their nature.
+    if failed:
+        n_teams = len(teams)
+        shared = sorted(
+            sid for sid, missed_by in failed.items()
+            if len(set(missed_by)) == n_teams
+        )
+        partial = sorted(set(failed) - set(shared))
+        if len(tallies) > 1:
+            bits: list[str] = []
+            if shared:
+                bits.append(
+                    f"{len(shared)} of the {n_questions} questions"
+                    f" ({', '.join(shared)}) were missed by every team"
+                )
+            if partial:
+                bits.append(
+                    f"{', '.join(partial)} tripped only"
+                    f" {'one team' if all(len(set(failed[sid])) == 1 for sid in partial) else 'some teams'}"
+                )
+            cluster = (
+                "The misses were largely shared, not team-specific: "
+                if shared
+                else "No miss was shared by every team: "
+            ) + "; ".join(bits) + "."
+        else:
+            cluster = f"It missed {', '.join(sorted(failed))}."
+        character = _failure_character(judges)
+        failure_text = cluster + (f" {character}" if character else "")
+        takeaway = publish.get("plainTakeaway")
+        if takeaway:
+            failure_text += f" {takeaway}"
+        paragraphs.append(f"<p>{esc(failure_text)}</p>")
+    elif judges:
+        character = _failure_character(judges)
+        if character:
+            paragraphs.append(f"<p>{esc(character)}</p>")
 
     reps = [1]
     for row in results.get("results") or []:
@@ -598,7 +709,8 @@ def _abstract_section(
         ("One conversation per question, on a demonstration dataset — "
          if once
          else "A demonstration dataset — ")
-        + "read this as directional evidence, not a benchmark."
+        + "read this as directional evidence, not a benchmark; differences of"
+        " a question or two are within noise."
     )
     paragraphs.append(f"<p class='adv'>{esc(caveat)}</p>")
 

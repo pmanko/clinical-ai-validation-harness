@@ -360,7 +360,13 @@ def test_report_leads_with_plain_abstract_then_verdict_then_judge(tmp_path) -> N
     assert order == sorted(order)
     # The abstract speaks plainly and states the winner by its short name.
     assert "row for row" in html
-    assert "cleared the acceptance bar" in html
+    # The abstract carries relative performance and the failure anatomy —
+    # never a pass/fail gate, which is publication policy and lives in the
+    # Result section with the policy that set it.
+    assert "acceptance bar" not in html.split("<h2>Result</h2>")[0]
+    assert "practical tie" in html
+    # This fixture's one miss is team-specific, so the cluster sentence says so.
+    assert "No miss was shared by every team" in html
 
 
 def test_verdict_states_the_frozen_gates_it_applied(tmp_path) -> None:
@@ -401,3 +407,26 @@ def test_single_profile_run_keeps_its_headline_and_gets_no_gate_verdict() -> Non
     assert "Against the gates in force" not in html
     results = json.loads((FIXTURE / "results.json").read_text(encoding="utf-8"))
     assert f"{results['passedCount']}/{results['resultCount']}" in html
+
+
+def test_abstract_reports_relative_performance_and_failure_clusters(tmp_path) -> None:
+    """No thresholds in the abstract: how the teams did against each other,
+    which questions the misses landed on, and what kind of errors they were."""
+    from harness.catalyst.report import build_report
+
+    run = _two_team_run(
+        tmp_path, team_b_passed=False, gates={"overall": 0.9, "per_scenario": 0.8}
+    )
+    html = build_report(run).read_text(encoding="utf-8")
+    abstract = html[html.index("In plain terms"): html.index("<h2>Result</h2>")]
+
+    # Relative scores for every team, by short name.
+    assert "writer-only 1 of 1" in abstract
+    assert "r-checked 0 of 1" in abstract
+    # The miss is located (S1, one team only) and characterized from the
+    # judge's axes: craft at ceiling, intent dropped.
+    assert "S1" in abstract
+    assert "misreadings, not broken queries" in abstract
+    # Gates appear only in the Result section.
+    assert "gates in force" not in abstract
+    assert "Against the gates in force at publication" in html
