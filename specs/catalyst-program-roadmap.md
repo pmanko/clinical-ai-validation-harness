@@ -383,9 +383,10 @@ catalyst `50f15b1` (echo-contract fix #73 merged), med-agent-hub `e26c52a`;
 harness runner merged as `fcac80b` (PR #82).
 
 - **G6 disposition:** with no qualifying team there is no deployment and the
-  three browser journeys were not exercised; the spec is ready at
-  `catalyst-ui/e2e/phase1-journeys.spec.ts` for whichever team first clears
-  the gates.
+  three browser journeys were not exercised; the spec is ready in the
+  catalyst repo (DIGI-UW/openelis-catalyst,
+  `catalyst-ui/e2e/phase1-journeys.spec.ts`) for whichever team first
+  clears the gates.
 - **Finding corrected:** an earlier run (`58b74775`) suggested reviewer arms
   scored below writer-only. That ordering was a measurement artifact — a
   gateway response-echo contract bug destroyed the qwen-reviewed team's
