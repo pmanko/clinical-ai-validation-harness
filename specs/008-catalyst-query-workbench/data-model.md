@@ -109,17 +109,20 @@ unsaved keystrokes are not claimed as immutable history.
 
 ## RevisionContextRecord
 
+Existing v1/v2 records with a fixed instruction window remain readable. The
+Phase 1 successor uses a new version and does not treat that historical window
+as the product limit.
+
 - `context_id`, `turn_id`, selection-policy revision, and canonical context
   digest
 - current instruction and its digest
-- initial question plus zero to five most-recent preceding follow-up
-  instructions, in deterministic chronological order
+- relevant preceding instructions, with their order and inclusion recorded
 - exact editor snapshot ID/digest plus observed and effective base IDs/digests
 - latest matching validation-run/finding references
 - latest matching execution diagnostic and result-shape summary: column
   metadata, returned count, and truncation only
 - catalog, policy, dataset, profile, prompt, and correlation references/digests
-- explicit included/omitted entity references and truncation reason
+- explicit included/omitted entity references and omission reason
 
 Validation or execution evidence is included only when its query digest matches
 the submitted editor snapshot. Result rows, database credentials, connection

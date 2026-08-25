@@ -43,12 +43,16 @@ specific prompt text and one invocation record for every successful or failed
 writer/reviewer call—including identity, stage/attempt, timing, request digest,
 outcome, and response-or-failure digest—live only in typed generation evidence.
 
-The bounded context contains the initial question, at most five preceding
+The historical v2 context contains the initial question, at most five preceding
 follow-up instructions, exact current SQL/parameters and digests, catalog and
 profile evidence, and only digest-matching validation or execution summaries.
 It excludes returned rows, credentials, connection details, hidden reasoning,
 raw traces, historical SQL copies, unrelated sessions, and a replayed chat
 transcript.
+
+The Phase 1 successor preserves v2 compatibility but does not treat five as a
+product limit. It records the relevant context actually supplied and every
+omission.
 
 ## Controlled output and recovery invariants
 

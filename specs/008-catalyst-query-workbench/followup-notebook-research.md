@@ -83,7 +83,11 @@ submissions create exactly one human version, make it current, and inherit the
 applicable active turn ID. The three actions must not maintain separate notions
 of dirty state or lineage.
 
-Each follow-up request provides Hub only:
+This section records the historical v2 design. Phase 1 preserves its readers
+but supersedes the fixed five-instruction window with visible, relevant context
+selection and explicit omissions.
+
+Each v2 follow-up request provides Hub only:
 
 - the current instruction and exact base SQL, typed parameters, and expected
   columns;
