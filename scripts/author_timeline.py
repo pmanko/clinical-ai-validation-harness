@@ -159,7 +159,7 @@ def main() -> None:
     )
     print(
         f"wrote {args.output} — {len(cards)} cards, {len(clips)} clips, "
-        f"{screen / 60:.0f}:{screen % 60:04.1f} on screen"
+        f"{int(screen // 60)}:{screen % 60:04.1f} on screen"
     )
 
 
