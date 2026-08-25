@@ -68,6 +68,23 @@ def _cell_key_str(key: tuple[str, int, str]) -> str:
     return f"{key[0]}:{key[1]}:{key[2]}"
 
 
+def actor_dirs(run_dir: Path) -> list[Path]:
+    """Where each judge actor's three passes live.
+
+    A second judge from a different model family is what turns three
+    same-model passes into validity evidence rather than stability
+    evidence, so the layout admits more than one: `judges/<actor>/` holds a
+    pass set each. The flat run root remains the single-actor layout every
+    existing run uses, and is returned when no judges/ directory exists.
+    """
+    nested = sorted(
+        path
+        for path in (run_dir / "judges").glob("*")
+        if path.is_dir() and (path / PASS_NAMES[0]).is_file()
+    )
+    return nested or [run_dir]
+
+
 def load_and_validate_passes(
     run_dir: Path,
     row_schema: dict[str, Any],

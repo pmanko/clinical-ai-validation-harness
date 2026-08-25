@@ -12,6 +12,11 @@ from typing import Any
 from harness.common.jsonl import read_jsonl
 from harness.common.text import esc
 from harness.catalyst.notebook_validation import assertion_class
+from harness.catalyst.judge_consensus import (
+    agreement,
+    consensus,
+    load_adjudication,
+)
 from harness.catalyst.reconcile import merge_gold_and_judge
 from harness.catalyst.run_config import load_frozen
 from harness.report_shell.assets import (
@@ -806,11 +811,62 @@ def _verdict_section(
     return "".join(bits)
 
 
+def _judge_trust_block(judges: list[dict[str, Any]], run_dir: Path) -> str:
+    """How far these scores can be trusted — stated, not implied.
+
+    Two things a reader cannot see from the numbers: whether more than one
+    judge ever looked (three passes of one model measure stability, not
+    validity), and whether a human ever checked a call. Both are printed,
+    including — especially — when the answer is "no".
+    """
+    view = consensus(judges)
+    bits: list[str] = []
+    if view["single_actor"]:
+        actor = view["actors"][0] if view["actors"] else "one model"
+        bits.append(
+            f"<b>One judge actor</b> ({esc(actor)}), three passes finalized by"
+            " median. That measures how stably this model scores, not whether"
+            " it scores correctly — there is no cross-model agreement evidence"
+            " in this run."
+        )
+    else:
+        disagreements = view["disagreements"]
+        bits.append(
+            f"<b>{len(view['actors'])} judge actors</b>"
+            f" ({esc(', '.join(view['actors']))}) scored"
+            f" {view['cells_scored_by_all']} of {view['cells']} cells in common."
+        )
+        if disagreements:
+            worst = disagreements[0]
+            bits.append(
+                f"They disagreed on {len(disagreements)} cells; the widest is"
+                f" {esc(worst['cell'])} on <code>{esc(worst['axis'])}</code>"
+                f" (spread {worst['spread']})."
+            )
+        else:
+            bits.append("They agreed on every axis of every shared cell.")
+
+    human = agreement(judges, load_adjudication(run_dir))
+    if human is None:
+        bits.append(
+            "<b>No human adjudication.</b> Nobody has confirmed or overruled a"
+            " judged call in this run, so the scores carry no human anchor."
+        )
+    else:
+        bits.append(
+            f"<b>Human adjudication:</b> the judge's call matched a reviewer on"
+            f" {human['agreed']} of {human['reviewed']} cells reviewed"
+            f" ({human['rate']:.0%})."
+        )
+    return "<div class='note'>" + " ".join(bits) + "</div>"
+
+
 def _judge_summary_section(
     suite: dict[str, Any],
     results: dict[str, Any],
     judges: list[dict[str, Any]],
     judge_manifest: dict[str, Any],
+    run_dir: Path,
 ) -> str:
     """The judge at a glance: one row per team, medians plus the floor and
     the flagged cases — linked into the full rationales below."""
@@ -926,6 +982,7 @@ def _judge_summary_section(
         " after ↓. Read the axes first: when they saturate, the composite is"
         " nearly a step function of whichever axis dropped.</dd>"
         "</dl>"
+        f"{_judge_trust_block(judges, run_dir)}"
         "</section>"
     )
 
@@ -1276,7 +1333,7 @@ def _build_body(run_dir: Path, blob: dict[str, Any]) -> str:
         "<main id='report'>"
         f"{_abstract_section(suite, results, judges, config)}"
         f"{_verdict_section(suite, results, config)}"
-        f"{_judge_summary_section(suite, results, judges, judge_manifest)}"
+        f"{_judge_summary_section(suite, results, judges, judge_manifest, run_dir)}"
         "<section>"
         "<h2>Scenario matrix</h2>"
         "<table class='data'>"

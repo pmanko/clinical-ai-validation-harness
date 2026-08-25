@@ -444,3 +444,38 @@ def test_abstract_reports_relative_performance_and_failure_clusters(tmp_path) ->
     # Gates appear only in the Result section.
     assert "gates in force" not in abstract
     assert "Against the gates in force at publication" in html
+
+
+def test_the_judge_summary_states_what_it_cannot_claim(tmp_path) -> None:
+    """Self-agreement is not validity, and an unreviewed run has no anchor.
+
+    A single-actor run must say so where its scores are printed, and must
+    not imply a consensus or a human check it never had.
+    """
+    from harness.catalyst.report import build_report
+
+    run = _two_team_run(tmp_path)
+    html = build_report(run).read_text(encoding="utf-8")
+    summary = html[html.index("Judge summary"): html.index("Scenario matrix")]
+
+    assert "One judge actor" in summary
+    assert "not whether it scores correctly" in summary
+    assert "No human adjudication" in summary
+
+
+def test_an_adjudicated_run_reports_its_agreement_rate(tmp_path) -> None:
+    from harness.catalyst.judge_consensus import ADJUDICATION_NAME
+    from harness.catalyst.report import build_report
+
+    run = _two_team_run(tmp_path)
+    (run / ADJUDICATION_NAME).write_text(
+        json.dumps({"verdicts": {"S1:0:version-b": {"agree": True}}}),
+        encoding="utf-8",
+    )
+
+    html = build_report(run).read_text(encoding="utf-8")
+    summary = html[html.index("Judge summary"): html.index("Scenario matrix")]
+
+    assert "Human adjudication" in summary
+    assert "1 of 1 cells reviewed" in summary
+    assert "No human adjudication" not in summary

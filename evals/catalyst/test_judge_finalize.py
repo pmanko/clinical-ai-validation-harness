@@ -274,3 +274,23 @@ def test_finalize_appends_idempotent_evaluation_events_without_rewriting_manifes
         "judge_manifest.json",
     ]
     assert all((tmp_path / path).is_file() for path in event["evidence_paths"])
+
+
+def test_actor_dirs_finds_each_judge_actors_pass_set(tmp_path) -> None:
+    """A second judge from another family is what makes three passes mean
+    validity rather than stability, so the layout must admit more than one."""
+    finalize_module = _load()
+
+    # The flat layout every existing run uses stays the single-actor answer.
+    (tmp_path / "judge.pass-1.jsonl").write_text("{}\n", encoding="utf-8")
+    assert finalize_module.actor_dirs(tmp_path) == [tmp_path]
+
+    # judges/<actor>/ wins once present, and only complete sets count.
+    for actor in ("anthropic-fable", "other-family"):
+        actor_dir = tmp_path / "judges" / actor
+        actor_dir.mkdir(parents=True)
+        (actor_dir / "judge.pass-1.jsonl").write_text("{}\n", encoding="utf-8")
+    (tmp_path / "judges" / "not-started").mkdir()
+
+    found = [path.name for path in finalize_module.actor_dirs(tmp_path)]
+    assert found == ["anthropic-fable", "other-family"]
