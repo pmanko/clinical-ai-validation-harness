@@ -533,7 +533,7 @@ may change the fifteen Phase 3 gates.
 | Work item | Repository | State | Pull request | Merge evidence |
 | --- | --- | --- | --- | --- |
 | R0 roadmap and truth | Harness | Complete | [#89](https://github.com/pmanko/clinical-ai-validation-harness/pull/89) | `30c3187b17639b06b0a501d87f3835b32a3ff4b5` |
-| R1 run identity and replacement recovery | Harness | In progress | — | — |
+| R1 run identity and replacement recovery | Harness | In review | [#90](https://github.com/pmanko/clinical-ai-validation-harness/pull/90) | — |
 | R2 turn-scoped adjudication | Harness | Not started | — | — |
 | R3 complete-run composition | Harness | Not started | — | — |
 | R4 qualification and publication | Harness | Not started | — | — |
@@ -617,3 +617,4 @@ prerequisite product behavior.
   `hfj_blk_import_job` tables. This was not a planned schema change. R7 now
   requires stable retained storage across worktrees and a no-reseed restart
   proof before qualification.
+- R1 opened as harness pull request #90 from commit `26fdf04`.
