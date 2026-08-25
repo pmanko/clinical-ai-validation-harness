@@ -101,12 +101,13 @@ def dispatch(args: argparse.Namespace, *, project_root: Path) -> int:
     frozen_config = None
     warmup_question = None
     if args.run_config:
-        config = resolve(args.run_config)
+        # Read the public seed first so a deliberately disabled database
+        # cross-check does not require a password it will never use.
+        config = resolve(args.run_config, require_secrets=False)
         invocation = config["invocation"]
         args.suite = config["suite"]
         args.gateway_url = config["gatewayUrl"]
         args.output_dir = config["outputDir"]
-        args.postgres_dsn = postgres_dsn(config)
         if args.scenarios is None:
             args.scenarios = invocation["scenarios"] or None
         if args.repetitions is None:
@@ -115,6 +116,9 @@ def dispatch(args: argparse.Namespace, *, project_root: Path) -> int:
         args.no_postgres_cross_check = (
             args.no_postgres_cross_check or not invocation["postgresCrossCheck"]
         )
+        if not args.no_postgres_cross_check:
+            config = resolve(args.run_config)
+            args.postgres_dsn = postgres_dsn(config)
         if args.timeout_seconds is None:
             args.timeout_seconds = invocation["timeoutSeconds"]
         effective_scenarios = list(dict.fromkeys(args.scenarios or []))

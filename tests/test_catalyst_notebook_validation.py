@@ -2425,6 +2425,7 @@ def test_notebook_cli_resolves_one_frozen_seed_for_the_whole_run(
     monkeypatch.setattr(
         notebook_validation, "run_notebook_suite", fake_run_notebook_suite
     )
+    monkeypatch.delenv("INTENTIONALLY_MISSING_DB_PASSWORD", raising=False)
     config_path = tmp_path / "seed.json"
     config_path.write_text(
         json.dumps(
@@ -2433,7 +2434,9 @@ def test_notebook_cli_resolves_one_frozen_seed_for_the_whole_run(
                 "gatewayUrl": "http://127.0.0.1:18000",
                 "outputDir": str(tmp_path / "out").removeprefix("/"),
                 "warmupQuestion": "Warm the selected team once.",
-                "postgres": {},
+                "postgres": {
+                    "passwordEnv": "INTENTIONALLY_MISSING_DB_PASSWORD"
+                },
                 "gates": {"overall": 0.9, "perScenario": 0.8},
                 "invocation": {
                     "scenarios": ["unchanged"],
