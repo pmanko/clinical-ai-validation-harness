@@ -302,15 +302,25 @@ def _card(entry: dict) -> str:
     if g["date"]:
         facts.append(esc(g["date"]))
     subtitle = " · ".join(facts)
-    links = [f'<a class="btn" href="{esc(slug)}/index.html">Full report</a>']
-    if (REPORTS / slug / "comparison.html").exists():
-        # The decision document: verdict, gates and the failure inventory.
-        links.append(f'<a class="btn ghost" href="{esc(slug)}/comparison.html">Team comparison</a>')
-    if (REPORTS / slug / "dashboard.html").exists():
-        links.append(f'<a class="btn ghost" href="{esc(slug)}/dashboard.html">Interactive dashboard</a>')
+    family = str(g.get("family") or "chartsearchai")
+    if family == "catalyst":
+        # Labels name the question each page answers, not the artifact kind.
+        links = [f'<a class="btn" href="{esc(slug)}/index.html">Read the report</a>']
+        if (REPORTS / slug / "comparison.html").exists():
+            # The decision document: verdict, gates and the failure inventory.
+            links.append(f'<a class="btn ghost" href="{esc(slug)}/comparison.html">Compare the teams</a>')
+        if (REPORTS / slug / "dashboard.html").exists():
+            links.append(f'<a class="btn ghost" href="{esc(slug)}/dashboard.html">Inspect every conversation</a>')
+        if (REPORTS / slug / "run-config.json").exists():
+            links.append(f'<a class="btn ghost" href="{esc(slug)}/run-config.json">Run seed (JSON)</a>')
+    else:
+        links = [f'<a class="btn" href="{esc(slug)}/index.html">Full report</a>']
+        if (REPORTS / slug / "comparison.html").exists():
+            links.append(f'<a class="btn ghost" href="{esc(slug)}/comparison.html">Team comparison</a>')
+        if (REPORTS / slug / "dashboard.html").exists():
+            links.append(f'<a class="btn ghost" href="{esc(slug)}/dashboard.html">Interactive dashboard</a>')
     takeaway = (f'<p class="takeaway"><span class="tk">Takeaway</span>{esc(entry["takeaway"])}</p>'
                 if entry.get("takeaway") else "")
-    family = str(g.get("family") or "chartsearchai")
     family_label = "Catalyst SQL" if family == "catalyst" else "ChartSearchAI"
     return f"""  <article class="card">
   <header class="card-head">

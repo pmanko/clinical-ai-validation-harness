@@ -416,7 +416,9 @@ def test_the_decision_document_is_reachable_from_the_index(
     html = bri._card({"slug": "cmp-run", "title": "Cmp", "summary": "s"})
 
     assert 'href="cmp-run/comparison.html"' in html
-    assert "Team comparison" in html
+    # Catalyst links say what question each page answers.
+    assert "Compare the teams" in html
+    assert "Read the report" in html
 
 
 def test_a_comparison_run_says_how_the_teams_did_on_the_index(
@@ -461,3 +463,24 @@ def test_a_comparison_run_says_how_the_teams_did_on_the_index(
     assert "2 teams" in gathered["scoreline"]
     assert "team-a 2/2" in gathered["scoreline"]
     assert "invalid" in gathered["scoreline"]
+
+
+def test_a_catalyst_card_links_the_staged_run_seed(tmp_path, monkeypatch) -> None:
+    """The published package carries its own seed; the card offers it."""
+    bri = _load()
+    reports = tmp_path / "reports"
+    slug_dir = reports / "seeded-run"
+    slug_dir.mkdir(parents=True)
+    (slug_dir / "run-config.json").write_text("{}", encoding="utf-8")
+    monkeypatch.setattr(bri, "REPORTS", reports)
+    monkeypatch.setattr(
+        bri,
+        "gather",
+        lambda slug: {"patients": "", "cells": 36, "date": "2026-08-25",
+                      "scout": [], "family": "catalyst"},
+    )
+
+    html = bri._card({"slug": "seeded-run", "title": "Seeded", "summary": "s"})
+
+    assert 'href="seeded-run/run-config.json"' in html
+    assert "Run seed (JSON)" in html

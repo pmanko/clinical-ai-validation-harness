@@ -4,13 +4,16 @@ from __future__ import annotations
 
 import difflib
 import json
+import re
 from pathlib import Path
+from statistics import median
 from typing import Any
 
 from harness.common.jsonl import read_jsonl
 from harness.common.text import esc
 from harness.catalyst.notebook_validation import assertion_class
 from harness.catalyst.reconcile import merge_gold_and_judge
+from harness.catalyst.run_config import load_frozen
 from harness.report_shell.assets import (
     SHARED_CSS,
     SHARED_JS,
@@ -42,11 +45,36 @@ a.ev { color: var(--accent); }
 .chip-fail { display:inline-block; background:#a01; color:#fff; font-size:11px; padding:1px 6px; border-radius:3px; }
 .chip-invalid { display:inline-block; background:#5b2d91; color:#fff; font-size:11px; padding:1px 6px; border-radius:3px; }
 .chip-pass { display:inline-block; background:#0a7; color:#fff; font-size:11px; padding:1px 6px; border-radius:3px; }
+.abstract { font-size:14.5px; line-height:1.6; max-width:70ch; }
+.abstract p { margin: 8px 0; }
+.gate-verdict { font-size:15px; font-weight:600; margin:0 0 10px; }
+.vchips { display:flex; flex-wrap:wrap; gap:10px; margin:10px 0; }
+.vchip { border:1px solid var(--line); border-radius:8px; padding:7px 12px; font-size:13px; background:var(--surface); }
+.vchip.lead { border-color:var(--accent); }
+.vchip b { font-size:15px; }
+.vchip .sub { display:block; color:var(--mut); font-size:11px; }
+.pill-adv { display:inline-block; font-size:10px; letter-spacing:.06em; text-transform:uppercase; color:var(--mut); border:1px solid var(--line); border-radius:999px; padding:1px 8px; vertical-align:middle; margin-left:6px; }
+td.num, th.num { text-align:right; font-variant-numeric:tabular-nums; }
+.flagged { color: var(--err); font-weight:700; }
+dl.legend { font-size:12px; color:var(--mut); margin:10px 0 0; }
+dl.legend dt { font-weight:600; float:left; clear:left; width:9em; color:var(--fg); }
+dl.legend dd { margin:0 0 3px 10em; }
+details.jcell { border:1px solid var(--line); border-radius:8px; background:var(--note-bg); padding:6px 10px; margin:6px 0; font-size:13px; }
+details.jcell summary { cursor:pointer; }
+a.jlink { color: var(--accent); }
 """
 )
 
 _SCRIPT = SHARED_JS_DEPS + SHARED_JS + theme_toggle_js("oc-theme-report") + """
 document.querySelectorAll('table.data').forEach(makeSortable);
+/* A judge anchor may live on a collapsed <details>; open it when targeted. */
+function openJudgeTarget(){
+  var id = location.hash && location.hash.slice(1);
+  var el = id && document.getElementById(id);
+  if (el && el.tagName === 'DETAILS') { el.open = true; }
+}
+window.addEventListener('hashchange', openJudgeTarget);
+openJudgeTarget();
 """
 
 
@@ -132,11 +160,204 @@ def _scenario_sql_versions(run_dir: Path, scenario_id: str) -> list[tuple[str, s
     return out
 
 
-def _judge_index(rows: list[dict[str, Any]]) -> dict[tuple[str, int], dict[str, Any]]:
-    idx: dict[tuple[str, int], dict[str, Any]] = {}
+_JUDGE_AXES = (
+    "intent_fidelity",
+    "sql_quality",
+    "schema_discipline",
+    "followup_coherence",
+)
+_AXIS_HEADS = {
+    "intent_fidelity": "intent",
+    "sql_quality": "SQL craft",
+    "schema_discipline": "schema",
+    "followup_coherence": "follow-up",
+}
+# A judged query scoring below this composite gets called out by name in the
+# judge summary; everything above it collapses into the medians.
+_FLAG_BELOW = 80
+
+
+def _judge_team(row: dict[str, Any]) -> str | None:
+    """Which team's query this judge row scored.
+
+    Judge rows are contract-frozen (catalyst-judge-v1 forbids extra fields),
+    so the team is not a field — but a comparison run nests every evidence
+    file under scenarios/<team>/<scenario>/, and the row links its evidence.
+    A single-profile run keeps the flat scenarios/<scenario>/ layout -> None.
+    """
+    stamped = row.get("team")
+    if isinstance(stamped, str) and stamped:
+        return stamped
+    for path in row.get("evidence_paths") or []:
+        parts = str(path).split("/")
+        if len(parts) >= 3 and parts[0] == "scenarios":
+            return None if parts[2].startswith("repetition-") else parts[1]
+    return None
+
+
+def _judge_anchor(team: str | None, scenario_id: str, turn: int) -> str:
+    raw = f"judge-{team or 'run'}-{scenario_id}-t{turn}"
+    return re.sub(r"[^A-Za-z0-9_.-]", "-", raw)
+
+
+def _judges_by_cell(
+    rows: list[dict[str, Any]],
+) -> dict[tuple[str | None, str], list[dict[str, Any]]]:
+    """Judge rows grouped per (team, scenario), each cell's rows in turn order.
+
+    Keying on the team is what keeps a comparison run's three answers to the
+    same scenario from overwriting each other.
+    """
+    cells: dict[tuple[str | None, str], list[dict[str, Any]]] = {}
     for row in rows:
-        idx[(str(row["scenario_id"]), int(row["turn"]))] = row
-    return idx
+        cells.setdefault((_judge_team(row), str(row.get("scenario_id"))), []).append(row)
+    for cell_rows in cells.values():
+        cell_rows.sort(key=lambda r: int(r.get("turn") or 0))
+    return cells
+
+
+def _row_team(row: dict[str, Any]) -> str | None:
+    team = row.get("profileId")
+    return team if isinstance(team, str) and team else None
+
+
+def _team_tallies(results: dict[str, Any]) -> list[tuple[str | None, int, int]]:
+    """(team, conversations passed, conversations run), best rate first."""
+    tallies: dict[str | None, list[int]] = {}
+    for row in results.get("results") or []:
+        if row.get("status") == "skipped":
+            continue
+        tally = tallies.setdefault(_row_team(row), [0, 0])
+        tally[0] += 1 if row.get("passed") else 0
+        tally[1] += 1
+    return sorted(
+        ((team, passed, total) for team, (passed, total) in tallies.items()),
+        key=lambda item: (-(item[1] / item[2] if item[2] else 0.0), str(item[0])),
+    )
+
+
+def _team_labels(results: dict[str, Any], suite: dict[str, Any]) -> dict[str | None, str]:
+    """A short human name per team: what distinguishes it, not its full slug."""
+    profiles = suite.get("profiles") or {}
+    teams: list[str | None] = []
+    for row in results.get("results") or []:
+        team = _row_team(row)
+        if team not in teams:
+            teams.append(team)
+    labels: dict[str | None, str] = {}
+    for team in teams:
+        cfg = profiles.get(team) or {}
+        writer = cfg.get("writerModelId")
+        reviewer = cfg.get("reviewerModelId")
+        if not writer:
+            labels[team] = team or "this run"
+        elif not reviewer:
+            labels[team] = "writer-only"
+        elif reviewer == writer:
+            labels[team] = "self-checked"
+        else:
+            labels[team] = f"{reviewer}-checked"
+    if len(set(labels.values())) < len(labels):
+        labels = {team: (team or "this run") for team in teams}
+    return labels
+
+
+def _team_models(suite: dict[str, Any], team: str | None) -> str:
+    cfg = (suite.get("profiles") or {}).get(team) or {}
+    writer = cfg.get("writerModelId")
+    reviewer = cfg.get("reviewerModelId")
+    if not writer:
+        return ""
+    return f"{writer} writer · {reviewer} reviewer" if reviewer else f"{writer}, no reviewer"
+
+
+def _conformed(assertions: list[dict[str, Any]]) -> bool:
+    """No failed conformance assertion — the row is a valid measurement."""
+    for assertion in assertions:
+        if assertion.get("passed"):
+            continue
+        kind = assertion.get("class") or assertion_class(str(assertion.get("name") or ""))
+        if kind == "conformance":
+            return False
+    return True
+
+
+def _gate_outcome(
+    results: dict[str, Any],
+    labels: dict[str | None, str],
+    gates: dict[str, Any],
+) -> dict[str, Any] | None:
+    """The decision, computed the way comparison.html computes it: overall
+    rate and worst per-scenario rate against the frozen gates; a team with an
+    invalid measurement is undecidable rather than beaten."""
+    overall = gates.get("overall")
+    per_scenario = gates.get("per_scenario")
+    if overall is None and per_scenario is None:
+        return None
+    by_team: dict[str | None, dict[str, list[dict[str, Any]]]] = {}
+    for row in results.get("results") or []:
+        if row.get("status") == "skipped":
+            continue
+        by_team.setdefault(_row_team(row), {}).setdefault(
+            str(row.get("scenarioId")), []
+        ).append(row)
+    if len(by_team) < 2:
+        return None
+    qualified: list[str] = []
+    undecidable: list[str] = []
+    for team, by_scenario in by_team.items():
+        rows = [row for runs in by_scenario.values() for row in runs]
+        if any(not _conformed(row.get("assertions") or []) for row in rows):
+            undecidable.append(labels.get(team, str(team)))
+            continue
+        rate = sum(1 for row in rows if row.get("passed")) / len(rows) if rows else 0.0
+        worst = min(
+            (
+                sum(1 for r in runs if r.get("passed")) / len(runs)
+                for runs in by_scenario.values()
+                if runs
+            ),
+            default=0.0,
+        )
+        if (overall is None or rate >= float(overall)) and (
+            per_scenario is None or worst >= float(per_scenario)
+        ):
+            qualified.append(labels.get(team, str(team)))
+    gate_bits = []
+    if overall is not None:
+        gate_bits.append(f"≥{float(overall):.0%} overall")
+    if per_scenario is not None:
+        gate_bits.append(f"≥{float(per_scenario):.0%} per scenario")
+    return {
+        "gates": gate_bits,
+        "qualified": sorted(qualified),
+        "undecidable": sorted(undecidable),
+    }
+
+
+def _gate_verdict_line(outcome: dict[str, Any]) -> str:
+    prefix = (
+        "Against the gates in force at publication"
+        f" ({', '.join(outcome['gates'])}): "
+    )
+    qualified = outcome["qualified"]
+    undecidable = outcome["undecidable"]
+    if qualified:
+        line = prefix + "qualified — " + ", ".join(qualified)
+        if undecidable:
+            line += (
+                " · no decision for "
+                + ", ".join(undecidable)
+                + " (invalid measurements)"
+            )
+        return line
+    if undecidable:
+        return (
+            prefix
+            + "no decision — invalid measurements for "
+            + ", ".join(undecidable)
+        )
+    return prefix + "no team qualified"
 
 
 def _row_scenario_key(row: dict[str, Any]) -> str:
@@ -279,23 +500,356 @@ def _execution_row_count(run_dir: Path, scenario_id: str, stem: str) -> int | No
     return None
 
 
-def _headline_section(suite: dict[str, Any], results: dict[str, Any]) -> str:
-    """Verdict + dataset + model-lineup summary a reader can take in at a glance."""
+def _abstract_section(
+    suite: dict[str, Any],
+    results: dict[str, Any],
+    judges: list[dict[str, Any]],
+    config: dict[str, Any],
+) -> str:
+    """The report in plain terms: assembled from the run's own numbers so it
+    cannot drift from them, with the wording templates seeded (optionally)
+    from the run config's publish block."""
+    publish = config.get("publish") or {}
+    tallies = _team_tallies(results)
+    labels = _team_labels(results, suite)
+    gates = config.get("gates") or {}
+    n_questions = max((total for _, _, total in tallies), default=0)
+    subject = publish.get("plainSubject") or "a clinical database"
+    paragraphs: list[str] = []
+
+    lead = publish.get("plainSummary")
+    if not lead and tallies:
+        if len(tallies) > 1:
+            lead = (
+                f"We asked {len(tallies)} AI “teams” the same"
+                f" {n_questions} questions about {subject}, in plain English,"
+                " and let each team write and run the database queries itself"
+                " — including asking us to clarify vague questions, and"
+                " refusing ones the data can't answer. A team passes a"
+                " question only when its final answer matches an independently"
+                " written reference answer, row for row."
+            )
+        else:
+            lead = (
+                f"We asked an AI team {n_questions} questions about {subject},"
+                " in plain English, and let it write and run the database"
+                " queries itself. It passes a question only when its final"
+                " answer matches an independently written reference answer,"
+                " row for row."
+            )
+    if lead:
+        paragraphs.append(f"<p>{esc(lead)}</p>")
+
+    if tallies:
+        best_team, best_passed, best_total = tallies[0]
+        best_label = labels.get(best_team, str(best_team))
+        outcome = _gate_outcome(results, labels, gates)
+        if len(tallies) > 1 and outcome is not None:
+            if outcome["qualified"]:
+                sentence = (
+                    f"<b>{esc(', '.join(outcome['qualified']))} cleared the"
+                    " acceptance bar.</b>"
+                    f" Best score: {best_passed} of {best_total}."
+                )
+            elif outcome["undecidable"]:
+                sentence = (
+                    "<b>The run could not be decided</b> — some measurements"
+                    " were invalid; see the comparison page."
+                )
+            else:
+                sentence = (
+                    "<b>No team passed enough questions to clear the"
+                    " acceptance bar.</b> The best team —"
+                    f" {esc(best_label)} — got {best_passed} of {best_total}."
+                )
+        elif len(tallies) > 1:
+            sentence = (
+                f"The best team — {esc(best_label)} — passed"
+                f" {best_passed} of {best_total} questions."
+            )
+        else:
+            sentence = f"It passed {best_passed} of {best_total} questions."
+        paragraphs.append(f"<p>{sentence}</p>")
+
+    if judges:
+        composites = [
+            row["composite"]
+            for row in judges
+            if isinstance(row.get("composite"), (int, float))
+        ]
+        if composites:
+            judge_sentence = (
+                f"A separate AI judge read every query the team{'s' if len(tallies) > 1 else ''}"
+                f" wrote ({len(composites)} in all) and scored each from 0 to 100:"
+                f" the typical score was {median(composites):g} and the lowest"
+                f" was {min(composites):g}."
+            )
+            takeaway = publish.get("plainTakeaway")
+            if takeaway:
+                judge_sentence += f" {takeaway}"
+            paragraphs.append(f"<p>{esc(judge_sentence)}</p>")
+
+    reps = [1]
+    for row in results.get("results") or []:
+        if isinstance(row.get("repetition"), int):
+            reps.append(int(row["repetition"]))
+    once = max(reps) <= 1
+    caveat = (
+        ("One conversation per question, on a demonstration dataset — "
+         if once
+         else "A demonstration dataset — ")
+        + "read this as directional evidence, not a benchmark."
+    )
+    paragraphs.append(f"<p class='adv'>{esc(caveat)}</p>")
+
+    if not paragraphs:
+        return ""
+    return (
+        "<section class='abstract'><h2>In plain terms</h2>"
+        + "".join(paragraphs)
+        + "</section>"
+    )
+
+
+def _verdict_section(
+    suite: dict[str, Any],
+    results: dict[str, Any],
+    config: dict[str, Any],
+) -> str:
+    """The decision facts: gate verdict and how each team did, before any detail."""
     passed = results.get("passedCount")
     total = results.get("resultCount")
     skipped = results.get("skippedCount") or 0
     assertion_total = sum(
         len(row.get("assertions") or []) for row in results.get("results") or []
     )
-    verdict_cls = "pass" if passed == total else "fail"
-    bits = [
-        "<section>",
-        "<h2>Result</h2>",
-        f"<p class='headline'><span class='{verdict_cls}'>{esc(passed)}/{esc(total)}"
-        " conversations passed</span>"
-        f" · {assertion_total} assertions"
-        + (f" · {esc(skipped)} manual-only scenario skipped" if skipped else "")
-        + "</p>",
+    tallies = _team_tallies(results)
+    labels = _team_labels(results, suite)
+    outcome = _gate_outcome(results, labels, config.get("gates") or {})
+    bits = ["<section>", "<h2>Result</h2>"]
+    if outcome:
+        cls = "pass" if outcome["qualified"] else "fail"
+        bits.append(
+            f"<p class='gate-verdict {cls}'>{esc(_gate_verdict_line(outcome))}</p>"
+        )
+    if len(tallies) > 1:
+        chips = []
+        for index, (team, team_passed, team_total) in enumerate(tallies):
+            models = _team_models(suite, team)
+            chips.append(
+                f"<div class='vchip{' lead' if index == 0 else ''}'>"
+                f"<b>{team_passed}/{team_total}</b> {esc(labels.get(team, str(team)))}"
+                + (f"<span class='sub'>{esc(models)}</span>" if models else "")
+                + "</div>"
+            )
+        bits.append(f"<div class='vchips'>{''.join(chips)}</div>")
+        bits.append(
+            f"<p class='adv'>{esc(passed)}/{esc(total)} conversations passed"
+            f" across all teams · {assertion_total} assertions"
+            + (f" · {esc(skipped)} manual-only scenario skipped" if skipped else "")
+            + " · pass = the final answer matches the independent reference"
+            " answer row-for-row.</p>"
+        )
+    else:
+        verdict_cls = "pass" if passed == total else "fail"
+        bits.append(
+            f"<p class='headline'><span class='{verdict_cls}'>{esc(passed)}/{esc(total)}"
+            " conversations passed</span>"
+            f" · {assertion_total} assertions"
+            + (f" · {esc(skipped)} manual-only scenario skipped" if skipped else "")
+            + "</p>"
+        )
+        bits.append(
+            "<p class='adv'>pass = the final answer matches the independent"
+            " reference answer row-for-row.</p>"
+        )
+    bits.append("</section>")
+    return "".join(bits)
+
+
+def _judge_summary_section(
+    suite: dict[str, Any],
+    results: dict[str, Any],
+    judges: list[dict[str, Any]],
+    judge_manifest: dict[str, Any],
+) -> str:
+    """The judge at a glance: one row per team, medians plus the floor and
+    the flagged cases — linked into the full rationales below."""
+    if not judges:
+        return ""
+    labels = _team_labels(results, suite)
+    by_team: dict[str | None, list[dict[str, Any]]] = {}
+    for row in judges:
+        by_team.setdefault(_judge_team(row), []).append(row)
+
+    def summary_row(
+        name: str, rows: list[dict[str, Any]], *, name_teams: bool = False
+    ) -> str:
+        composites = [
+            row["composite"]
+            for row in rows
+            if isinstance(row.get("composite"), (int, float))
+        ]
+        flagged = sorted(
+            (
+                row
+                for row in rows
+                if isinstance(row.get("composite"), (int, float))
+                and row["composite"] < _FLAG_BELOW
+            ),
+            key=lambda row: row["composite"],
+        )
+
+        def flag_link(row: dict[str, Any]) -> str:
+            team = _judge_team(row)
+            anchor = _judge_anchor(
+                team, str(row.get("scenario_id")), int(row.get("turn") or 0)
+            )
+            prefix = (
+                f"{esc(labels.get(team, str(team)))}: " if name_teams else ""
+            )
+            return (
+                f"<a class='jlink' href='#{anchor}'>{prefix}"
+                f"{esc(row.get('scenario_id'))}·turn {esc(row.get('turn'))}"
+                f" — {esc(row.get('composite'))}</a>"
+            )
+
+        flag_links = ", ".join(flag_link(row) for row in flagged)
+        floor = min(composites) if composites else None
+        floor_cls = " flagged" if flagged else ""
+        cells = [
+            f"<td>{esc(name)}</td>",
+            f"<td class='num'>{len(rows)}</td>",
+            f"<td class='num'>{median(composites):g}</td>" if composites else "<td class='num'>—</td>",
+            f"<td class='num{floor_cls}'>{floor:g}</td>" if floor is not None else "<td class='num'>—</td>",
+            f"<td>{flag_links or '—'}</td>",
+        ]
+        for axis in _JUDGE_AXES:
+            values = [row[axis] for row in rows if isinstance(row.get(axis), (int, float))]
+            cells.append(
+                f"<td class='num'>{median(values):g}</td>" if values else "<td class='num'>—</td>"
+            )
+        return "<tr>" + "".join(cells) + "</tr>"
+
+    rows_html = [
+        summary_row(labels.get(team, str(team) if team else "this run"), team_rows)
+        for team, team_rows in sorted(
+            by_team.items(), key=lambda item: str(item[0] or "")
+        )
+    ]
+    if len(by_team) > 1:
+        rows_html.append(summary_row("all teams", judges, name_teams=True))
+
+    model = judge_manifest.get("model") or (judges[0].get("model") if judges else "")
+    provider = judge_manifest.get("provider") or (judges[0].get("provider") if judges else "")
+    rubric = str(
+        judge_manifest.get("rubric_sha256") or judges[0].get("rubric_sha256") or ""
+    )
+    protocol = (
+        f"Judge: {esc(model)} ({esc(provider)}) · three independent passes"
+        " finalized by per-axis medians"
+        + (f" · rubric {esc(rubric[:12])}…" if rubric else "")
+    )
+    axis_heads = "".join(f"<th class='num'>{esc(_AXIS_HEADS[a])}</th>" for a in _JUDGE_AXES)
+    return (
+        "<section id='judge-summary'>"
+        "<h2>Judge summary<span class='pill-adv'>advisory</span></h2>"
+        "<p class='adv'>A separate AI judge read every executed query against"
+        " its recorded evidence. Scores are 0–3 per axis; the composite weighs"
+        " them into 0–100. Advisory means it never gates acceptance — the"
+        " row-for-row reference check does. Where that check failed, the judge"
+        " explains why; it cannot overrule it.</p>"
+        "<table class='data'><thead><tr>"
+        "<th>team</th><th class='num'>queries judged</th>"
+        "<th class='num'>composite median</th><th class='num'>floor</th>"
+        f"<th>flagged (&lt;{_FLAG_BELOW})</th>{axis_heads}"
+        "</tr></thead>"
+        f"<tbody>{''.join(rows_html)}</tbody></table>"
+        f"<p class='adv'>{protocol}</p>"
+        "<dl class='legend'>"
+        "<dt>intent</dt><dd>did the SQL answer the question as asked (0–3)</dd>"
+        "<dt>SQL craft</dt><dd>clean, minimal, executable construction — joins,"
+        " predicates, no dead branches (0–3)</dd>"
+        "<dt>schema</dt><dd>only catalogued tables and columns, parameters bound"
+        " with correct types (0–3)</dd>"
+        "<dt>follow-up</dt><dd>the revision honors the new instruction without"
+        " breaking what worked (0–3, follow-up turns only)</dd>"
+        "<dt>composite</dt><dd>weighted 0–100 (opening queries 47/29/24;"
+        " follow-up queries 40/25/20/15)</dd>"
+        "<dt>floor</dt><dd>the lowest composite this team received — its worst"
+        " single query</dd>"
+        "</dl>"
+        "</section>"
+    )
+
+
+def _judge_detail_section(
+    suite: dict[str, Any],
+    results: dict[str, Any],
+    judges: list[dict[str, Any]],
+) -> str:
+    """Every judge rationale, grouped per team, flagged cases first and open."""
+    if not judges:
+        return (
+            "<section><h2>Judge detail<span class='pill-adv'>advisory</span></h2>"
+            "<div class='note'>Judge not available for this run"
+            " (development / no-judge path).</div></section>"
+        )
+    labels = _team_labels(results, suite)
+    by_team: dict[str | None, list[dict[str, Any]]] = {}
+    for row in judges:
+        by_team.setdefault(_judge_team(row), []).append(row)
+    chunks: list[str] = []
+    for team, team_rows in sorted(by_team.items(), key=lambda item: str(item[0] or "")):
+        if len(by_team) > 1 or team is not None:
+            chunks.append(
+                f"<h3>{esc(labels.get(team, str(team)))}"
+                + (f" <span class='adv'>{esc(team)}</span>" if team else "")
+                + "</h3>"
+            )
+        ordered = sorted(
+            team_rows,
+            key=lambda row: (
+                not (
+                    isinstance(row.get("composite"), (int, float))
+                    and row["composite"] < _FLAG_BELOW
+                ),
+                row.get("composite") if isinstance(row.get("composite"), (int, float)) else 0,
+                str(row.get("scenario_id")),
+                int(row.get("turn") or 0),
+            ),
+        )
+        for row in ordered:
+            composite = row.get("composite")
+            flagged = isinstance(composite, (int, float)) and composite < _FLAG_BELOW
+            anchor = _judge_anchor(
+                team, str(row.get("scenario_id")), int(row.get("turn") or 0)
+            )
+            summary = (
+                f"<code>{esc(row.get('scenario_id'))}</code>"
+                f" turn {esc(row.get('turn'))}"
+                f" · composite {esc(composite)}"
+                + (" — <span class='flagged'>flagged</span>" if flagged else "")
+            )
+            chunks.append(
+                f"<details class='jcell' id='{anchor}'{' open' if flagged else ''}>"
+                f"<summary>{summary}</summary>"
+                f"<div class='adv'>version {esc(row.get('version_id'))}</div>"
+                f"{_render_judge_block(row)}"
+                "</details>"
+            )
+    return (
+        "<section><h2>Judge detail<span class='pill-adv'>advisory</span></h2>"
+        + "".join(chunks)
+        + "</section>"
+    )
+
+
+def _methods_section(
+    suite: dict[str, Any], results: dict[str, Any], meta_bits: list[str]
+) -> str:
+    """How the run works, the dataset, and the model lineup — folded, at the end."""
+    inner: list[str] = [
         "<p class='adv'>Each conversation runs live: a question"
         " generates SQL (a writer model drafts it; reviewed profiles also invoke"
         " their configured reviewer), the query"
@@ -322,7 +876,7 @@ def _headline_section(suite: dict[str, Any], results: dict[str, Any]) -> str:
         if window:
             facts.append(esc(window))
         if facts:
-            bits.append(
+            inner.append(
                 f"<p class='adv'>Dataset <code>{esc(dataset.get('datasetId'))}</code>"
                 f" ({esc(dataset.get('dataSource'))}): " + " · ".join(facts) + "</p>"
             )
@@ -334,12 +888,17 @@ def _headline_section(suite: dict[str, Any], results: dict[str, Any]) -> str:
             f"<td>{esc(cfg.get('reviewerModelId') or '— (writer only)')}</td></tr>"
             for pid, cfg in sorted(profiles.items())
         )
-        bits.append(
+        inner.append(
             "<table class='data'><thead><tr><th>profile</th><th>writer model</th>"
             f"<th>reviewer model</th></tr></thead><tbody>{rows}</tbody></table>"
         )
-    bits.append("</section>")
-    return "".join(bits)
+    inner.append(f"<p class='adv'>{esc(' · '.join(meta_bits))}</p>")
+    return (
+        "<section><h2>Methods &amp; provenance</h2>"
+        "<details><summary>How this works, the dataset, and the model lineup</summary>"
+        + "".join(inner)
+        + "</details></section>"
+    )
 
 
 def _scenario_narrative_section(
@@ -451,7 +1010,9 @@ def _build_body(run_dir: Path, blob: dict[str, Any]) -> str:
     suite = blob["suite"]
     results = blob["results"]
     judges = blob["judges"]
-    jidx = _judge_index(judges)
+    config = blob.get("config") or {}
+    judge_manifest = blob.get("judge_manifest") or {}
+    judge_cells = _judges_by_cell(judges)
 
     suite_id = suite.get("id") or results.get("suiteId") or manifest.get("run_id")
     title = f"Catalyst notebook report · {suite_id}"
@@ -471,12 +1032,31 @@ def _build_body(run_dir: Path, blob: dict[str, Any]) -> str:
         sid = _row_label(row)
         assertions = row.get("assertions") or []
         gold_ok = _gold_passed(assertions)
-        # Judges are indexed by the bare scenario id, not the display label.
-        judge0 = jidx.get((str(row.get("scenarioId")), 0))
-        judge1 = jidx.get((str(row.get("scenarioId")), 1))
-        merged = merge_gold_and_judge(gold_passed=gold_ok, judge_row=judge0 or judge1)
+        # Judge rows join on (team, scenario): a comparison run's teams share
+        # every scenario id, so the bare id would collide across teams.
+        cell_judges = judge_cells.get(
+            (_row_team(row), str(row.get("scenarioId")))
+        ) or []
+        lowest = min(
+            (
+                jrow
+                for jrow in cell_judges
+                if isinstance(jrow.get("composite"), (int, float))
+            ),
+            key=lambda jrow: jrow["composite"],
+            default=None,
+        )
+        merged = merge_gold_and_judge(gold_passed=gold_ok, judge_row=lowest)
         verdict = merged["reported"]
         v_cls = "pass" if verdict == "PASS" else "fail"
+        judge_cell = (
+            " · ".join(
+                f"<a class='jlink' href='#{_judge_anchor(_judge_team(jrow), str(jrow.get('scenario_id')), int(jrow.get('turn') or 0))}'>"
+                f"{esc(jrow.get('composite'))}</a>"
+                for jrow in cell_judges
+            )
+            or "—"
+        )
         fail_bits = []
         for a in assertions:
             if a.get("passed"):
@@ -496,8 +1076,7 @@ def _build_body(run_dir: Path, blob: dict[str, Any]) -> str:
             f"<td><code>{esc(sid)}</code><div class='adv'>{esc(row.get('family'))}</div></td>"
             f"<td class='{v_cls}'>{esc(verdict)}</td>"
             f"<td>{'yes' if gold_ok else 'no'}</td>"
-            f"<td class='adv'>{esc((judge0 or {}).get('composite', '—'))}"
-            f" / {esc((judge1 or {}).get('composite', '—'))}<div>advisory</div></td>"
+            f"<td class='adv'>{judge_cell}</td>"
             f"<td>{assertions_cell}</td>"
             f"<td>{''.join(fail_bits) if fail_bits else '—'}</td>"
             "</tr>"
@@ -535,21 +1114,6 @@ def _build_body(run_dir: Path, blob: dict[str, Any]) -> str:
         if len(chunks) > 1:
             diff_sections.append("".join(chunks))
 
-    judge_sections: list[str] = []
-    if not judges:
-        judge_sections.append(
-            "<div class='note'>Judge not available for this run (development / no-judge path).</div>"
-        )
-    else:
-        for row in judges:
-            judge_sections.append(
-                "<div class='note'>"
-                f"<div><code>{esc(row.get('scenario_id'))}</code> turn={esc(row.get('turn'))} "
-                f"version={esc(row.get('version_id'))}</div>"
-                f"{_render_judge_block(row)}"
-                "</div>"
-            )
-
     empty_diff = "<div class='note'>No multi-version SQL diffs found.</div>"
     diff_html = "".join(diff_sections) or empty_diff
 
@@ -563,16 +1127,23 @@ def _build_body(run_dir: Path, blob: dict[str, Any]) -> str:
         f"{THEME_TOGGLE_BUTTON_HTML}"
         "</header>"
         "<main id='report'>"
-        f"{_headline_section(suite, results)}"
-        f"{_scenario_narrative_section(run_dir, suite, results)}"
+        f"{_abstract_section(suite, results, judges, config)}"
+        f"{_verdict_section(suite, results, config)}"
+        f"{_judge_summary_section(suite, results, judges, judge_manifest)}"
         "<section>"
         "<h2>Scenario matrix</h2>"
         "<table class='data'>"
         "<thead><tr>"
         "<th>scenario</th><th>reported</th><th>gold ok</th>"
-        "<th>judge medians (base/succ)</th><th>assertions</th><th>gold FAIL detail</th>"
+        "<th>judge by turn (advisory)</th>"
+        "<th>assertions</th><th>gold FAIL detail</th>"
         "</tr></thead>"
         f"<tbody>{''.join(rows_html)}</tbody></table>"
+        "</section>"
+        f"{_scenario_narrative_section(run_dir, suite, results)}"
+        "<section>"
+        "<h2>SQL diffs</h2>"
+        f"{diff_html}"
         "</section>"
         "<section>"
         "<h2>Turn / version / execution timeline</h2>"
@@ -581,14 +1152,8 @@ def _build_body(run_dir: Path, blob: dict[str, Any]) -> str:
         "<th>executions</th><th>gen wall</th></tr></thead>"
         f"<tbody>{''.join(timeline)}</tbody></table>"
         "</section>"
-        "<section>"
-        "<h2>SQL diffs</h2>"
-        f"{diff_html}"
-        "</section>"
-        "<section>"
-        "<h2>Finalized judge (advisory)</h2>"
-        f"{''.join(judge_sections)}"
-        "</section>"
+        f"{_judge_detail_section(suite, results, judges)}"
+        f"{_methods_section(suite, results, meta_bits)}"
         "</main>"
         "<div id='sort-live' class='sr-only' aria-live='polite'></div>"
     )
@@ -608,6 +1173,10 @@ def build_report(run_dir: Path | str) -> Path:
         "suite": suite,
         "results": results,
         "judges": judges,
+        # The frozen seed (gates, publish copy) and the finalized-judge
+        # manifest travel with the run; both may be absent on older runs.
+        "config": load_frozen(run_dir),
+        "judge_manifest": _load_json(run_dir / "judge_manifest.json"),
     }
     body = _build_body(run_dir, blob)
     suite_id = suite.get("id") or results.get("suiteId") or manifest.get("run_id") or "catalyst"
