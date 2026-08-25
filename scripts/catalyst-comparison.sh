@@ -37,7 +37,7 @@ else:
 
 cmd="${1:?usage: catalyst-comparison.sh run|resume <run-id>|finish <run-id>}"
 
-OUT_DIR="${OUT_DIR:-${ROOT}/$(cfg "${CONFIG}" outputDir)}"
+OUT_DIR="${ROOT}/$(cfg "${CONFIG}" outputDir)"
 
 run_suite() {
   (cd "${ROOT}" && uv run harness-cli catalyst run \
@@ -51,14 +51,29 @@ case "${cmd}" in
     ;;
   resume)
     run_id="${2:?resume needs the run id}"
-    CONFIG="${OUT_DIR}/${run_id}/run-config.json"
-    run_suite --resume "${OUT_DIR}/${run_id}"
+    source_dir="${OUT_DIR}/${run_id}"
+    CONFIG="${source_dir}/run-config.json"
+    frozen_out_dir="${ROOT}/$(cfg "${CONFIG}" outputDir)"
+    [[ "${source_dir}" == "${frozen_out_dir}/${run_id}" ]] || {
+      echo "ERROR: recovery source does not match its frozen outputDir" >&2
+      exit 1
+    }
+    OUT_DIR="${frozen_out_dir}"
+    run_suite --resume "${source_dir}"
     ;;
   finish)
     run_id="${2:?finish needs the run id}"
     run_dir="${OUT_DIR}/${run_id}"
     # The run's own seed decides how it is judged and published.
-    [[ -f "${run_dir}/run-config.json" ]] && CONFIG="${run_dir}/run-config.json"
+    if [[ -f "${run_dir}/run-config.json" ]]; then
+      CONFIG="${run_dir}/run-config.json"
+      frozen_out_dir="${ROOT}/$(cfg "${CONFIG}" outputDir)"
+      [[ "${run_dir}" == "${frozen_out_dir}/${run_id}" ]] || {
+        echo "ERROR: run directory does not match its frozen outputDir" >&2
+        exit 1
+      }
+      OUT_DIR="${frozen_out_dir}"
+    fi
     SLUG="${SLUG:-$(cfg "${CONFIG}" publish.slug)}"
     SLUG="${SLUG:-catalyst-phase1-comparison-${run_id%%-*}}"
     [[ -f "${run_dir}/results.json" ]] || { echo "ERROR: ${run_dir} has no results.json (run not finished — use resume)" >&2; exit 1; }

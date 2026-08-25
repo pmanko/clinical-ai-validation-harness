@@ -51,17 +51,17 @@ def _template(tmp_path: Path, **overrides) -> Path:
 def test_the_password_never_reaches_the_frozen_seed(tmp_path, monkeypatch):
     """The seed is published with the evidence, so it carries the name of
     the secret, never the secret."""
-    monkeypatch.setenv("CATALYST_READONLY_PASSWORD", "hunter2")
+    monkeypatch.setenv("CATALYST_READONLY_PASSWORD", "runtime-only-test-value")
     config = resolve(_template(tmp_path))
 
-    assert "hunter2" in postgres_dsn(config)
+    assert "runtime-only-test-value" in postgres_dsn(config)
 
     run_dir = tmp_path / "run"
     run_dir.mkdir()
     freeze(config, run_dir)
 
     written = (run_dir / "run-config.json").read_text(encoding="utf-8")
-    assert "hunter2" not in written
+    assert "runtime-only-test-value" not in written
     assert "CATALYST_READONLY_PASSWORD" in written
     assert str(tmp_path) not in written
     assert "source" not in json.loads(written)
@@ -73,11 +73,11 @@ def test_the_password_never_reaches_the_frozen_seed(tmp_path, monkeypatch):
         {"note": "/Users/example/private/config.json"},
         {"note": "sgr-0123456789abcdef0"},
         {"gatewayUrl": "http://192.168.1.20:18000"},
-        {"password": "not-for-publication"},
+        {"password": None},
         {"postgresDsn": "postgresql://user:secret@db/example"},
         {"note": "postgresql://user:secret@db/example"},
         {"note": "workstation address 10.0.0.24 must not be published"},
-        {"nested": [{"password": "also-not-for-publication"}]},
+        {"nested": [{"password": None}]},
     ],
 )
 def test_public_seed_rejects_private_runtime_details(unsafe):
@@ -156,6 +156,7 @@ def test_the_wrapper_uses_the_runner_result_instead_of_guessing_a_directory():
     assert "--run-config" in script
     assert "ls -td" not in script
     assert "freeze_seed" not in script
+    assert 'OUT_DIR="${OUT_DIR:-' not in script
 
 
 def test_a_seed_that_cannot_be_read_refuses_before_anything_runs(tmp_path):

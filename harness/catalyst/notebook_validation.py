@@ -2412,25 +2412,32 @@ def run_notebook_suite(
     # Teams are the outer loop: a local model stays resident while it answers
     # the whole suite, and every team meets the same frozen scenario order.
     for team in teams:
-        # The budget invalidates *that team's* run, so each team gets its own.
-        team_id = team or selected[0].followup_profile_id
-        replacements = sum(
-            item.get("profileId") == team_id for item in infrastructure_failures
-        )
-        if warmup_question:
+        # Only a comparison declares one profile as a team across the whole
+        # selected matrix. Legacy suites may choose a different profile in
+        # each scenario and therefore have no single team-level warm-up.
+        if warmup_question and team is not None:
             seen_sessions.add(
                 _record_warmup(
                     client=client,
                     recorder=recorder,
-                    profile_id=team_id,
+                    profile_id=team,
                     question=warmup_question,
                 )
             )
         for scenario in selected:
             if team is not None:
                 scenario = _scenario_for_profile(scenario, team)
+            profile_id = team or scenario.followup_profile_id
+            # The budget follows the profile that actually handles this
+            # scenario. For a comparison this remains one team-wide budget;
+            # for a legacy mixed-profile suite it cannot be misattributed to
+            # whichever profile happened to appear in the first scenario.
+            replacements = sum(
+                item.get("profileId") == profile_id
+                for item in infrastructure_failures
+            )
             recorded = reusable.get(
-                (team or scenario.followup_profile_id, scenario.id)
+                (profile_id, scenario.id)
             )
             if recorded is not None:
                 results.extend(recorded)
@@ -2505,7 +2512,7 @@ def run_notebook_suite(
                     }
                 )
                 result["passed"] = all(item["passed"] for item in result["assertions"])
-                result["profileId"] = team or scenario.followup_profile_id
+                result["profileId"] = profile_id
                 result["httpStatus"] = _normalized_http_status(run_dir, prefix)
                 result["evidencePrefix"] = prefix
                 result["measurementEvidence"] = _measurement_evidence(
@@ -2522,7 +2529,7 @@ def run_notebook_suite(
                     result["status"] = "infrastructure_failed"
                     result["measurementValid"] = False
                     failure = {
-                        "profileId": team_id,
+                        "profileId": profile_id,
                         "scenarioId": scenario.id,
                         "repetition": repetition,
                         "attempt": attempt_slot,
@@ -2538,16 +2545,16 @@ def run_notebook_suite(
                             {
                                 "state": "invalid",
                                 "reason": (
-                                    f"profile {team_id!r} exceeded its infrastructure "
+                                    f"profile {profile_id!r} exceeded its infrastructure "
                                     "replacement budget"
                                 ),
                             }
                         )
                         _write_run_status(run_dir, status)
                         raise ValueError(
-                            f"scenario {scenario.id!r} hit a third infrastructure "
-                            "failure across the recovery chain; the run is invalid "
-                            "for that team"
+                            f"scenario {scenario.id!r} exceeded the infrastructure "
+                            "failure budget across the recovery chain; the run is "
+                            "invalid for that profile"
                         )
                     _write_run_status(run_dir, status)
                     results.append(result)

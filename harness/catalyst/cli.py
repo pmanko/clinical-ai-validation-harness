@@ -117,8 +117,10 @@ def dispatch(args: argparse.Namespace, *, project_root: Path) -> int:
         )
         if args.timeout_seconds is None:
             args.timeout_seconds = invocation["timeoutSeconds"]
+        effective_scenarios = list(dict.fromkeys(args.scenarios or []))
+        args.scenarios = effective_scenarios or None
         config["invocation"] = {
-            "scenarios": list(args.scenarios or []),
+            "scenarios": effective_scenarios,
             "repetitions": args.repetitions,
             "includeManual": args.include_manual,
             "postgresCrossCheck": not args.no_postgres_cross_check,

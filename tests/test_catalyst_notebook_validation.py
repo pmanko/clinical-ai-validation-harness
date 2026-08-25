@@ -2453,6 +2453,10 @@ def test_notebook_cli_resolves_one_frozen_seed_for_the_whole_run(
             "run-catalyst-notebook-validation.py",
             "--run-config",
             str(config_path),
+            "--scenario",
+            "unchanged",
+            "--scenario",
+            "unchanged",
         ],
     )
 
@@ -3070,12 +3074,64 @@ def test_a_third_infrastructure_failure_invalidates_the_run(tmp_path: Path) -> N
     suite["repetitions"] = 3
     suite["infrastructureReplacements"] = 2
     suite.pop("extendedRepetitions", None)
-    with pytest.raises(ValueError, match="third infrastructure failure"):
+    with pytest.raises(ValueError, match="infrastructure failure budget"):
         _run_against_fake(tmp_path, suite, state)
 
     # The budget is two replacements, so the third failure stops the run: one
     # original attempt plus two replacements, and no fourth.
     assert state.turn_attempts == 3
+
+
+def test_mixed_profile_suite_attributes_failure_budget_to_the_actual_profile(
+    tmp_path: Path,
+) -> None:
+    """Legacy suites may choose profiles per scenario instead of declaring teams."""
+    alternate_profile = "catalyst-query-alternate"
+    state = _WorkbenchState()
+    state.profile_ids = [PROFILE_ID, alternate_profile]
+    state.profile_models = {
+        PROFILE_ID: ("gemma-4-12b", "qwen2.5-14b"),
+        alternate_profile: ("gemma-4-12b", "qwen2.5-14b"),
+    }
+    # The first profile completes. The alternate profile then exhausts its
+    # single allowed replacement.
+    state.turn_http_sequence = [201, 503, 503]
+    suite = _adaptive_suite()
+    suite["repetitions"] = 1
+    suite["infrastructureReplacements"] = 1
+    suite.pop("extendedRepetitions", None)
+    suite["profiles"][alternate_profile] = {
+        "writerModelId": "gemma-4-12b",
+        "reviewerModelId": "qwen2.5-14b",
+    }
+    first = {**suite["scenarios"][0], "id": "first-profile"}
+    second = {
+        **suite["scenarios"][0],
+        "id": "alternate-profile",
+        "initialQuestion": "Show identifiers through the alternate profile.",
+        "initialProfileId": alternate_profile,
+        "followupProfileId": alternate_profile,
+    }
+    suite["scenarios"] = [first, second]
+
+    with pytest.raises(ValueError, match="infrastructure failure budget"):
+        _run_against_fake(
+            tmp_path,
+            suite,
+            state,
+            warmup_question="This must not run for a legacy mixed-profile suite.",
+        )
+
+    run_dir = next((tmp_path / "artifacts").iterdir())
+    status = json.loads((run_dir / "run-status.json").read_text())
+    assert status["state"] == "invalid"
+    assert {item["profileId"] for item in status["infrastructureFailures"]} == {
+        alternate_profile
+    }
+    assert all(
+        request["question"] != "This must not run for a legacy mixed-profile suite."
+        for request in state.session_requests
+    )
 
 
 # --- token evidence --------------------------------------------------------
@@ -3470,7 +3526,7 @@ def test_the_replacement_budget_is_the_runs_not_each_scenarios(
         {**base, "id": f"adaptive-{index}"} for index in range(1, 4)
     ]
 
-    with pytest.raises(ValueError, match="third infrastructure failure"):
+    with pytest.raises(ValueError, match="infrastructure failure budget"):
         _run_against_fake(tmp_path, suite, state)
 
 
@@ -3496,7 +3552,7 @@ def test_the_third_infrastructure_failure_across_recovery_invalidates_the_team(
     state.turn_http_sequence = [503]
     state.turn_attempts = 0
 
-    with pytest.raises(ValueError, match="third infrastructure failure"):
+    with pytest.raises(ValueError, match="infrastructure failure budget"):
         _run_against_fake(tmp_path, suite, state, resume_from=source.run_dir)
 
     replacements = [
