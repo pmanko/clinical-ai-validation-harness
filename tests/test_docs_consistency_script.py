@@ -1,31 +1,25 @@
+import json
 import os
 import subprocess
 from pathlib import Path
-
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts" / "verify-docs-consistency.sh"
 TASKS = ROOT / "specs" / "008-catalyst-query-workbench" / "tasks.md"
 PROGRAM = ROOT / "specs" / "catalyst-program-roadmap.md"
 QUALIFICATION = ROOT / "specs" / "catalyst-phase1-qualification-remediation-roadmap.md"
-BRIEF = ROOT / "specs" / "artifacts" / "planning" / "phase-1-planning-discussion-brief.md"
+BRIEF = (
+    ROOT / "specs" / "artifacts" / "planning" / "phase-1-planning-discussion-brief.md"
+)
 WRITER_ARTIFACT = (
     ROOT / "specs" / "artifacts" / "planning" / "what-the-writer-sees.html"
 )
 PHASE1_SUITE = (
-    ROOT
-    / "datasets"
-    / "validation"
-    / "catalyst"
-    / "catalyst-phase1-comparison-v1.json"
+    ROOT / "datasets" / "validation" / "catalyst" / "catalyst-phase1-comparison-v1.json"
 )
 CATALOG_V6_OVERLAY = ROOT / "catalyst-sources" / "openmrs-hiv" / "catalog-overlay.json"
 CATALOG_V6_GENERATED = (
-    ROOT
-    / "catalyst-sources"
-    / "openmrs-hiv"
-    / "catalog"
-    / "openmrs-hiv-catalog.json"
+    ROOT / "catalyst-sources" / "openmrs-hiv" / "catalog" / "openmrs-hiv-catalog.json"
 )
 
 
@@ -125,21 +119,20 @@ def test_obsolete_per_cell_repetition_rule_is_rejected(tmp_path: Path) -> None:
 def test_phase1_suite_internal_repetitions_must_remain_one(tmp_path: Path) -> None:
     environment = _source_overrides(tmp_path)
     suite = Path(environment["DOCS_PHASE1_SUITE_PATH"])
-    suite.write_text(
-        suite.read_text(encoding="utf-8").replace(
-            '"repetitions": 1', '"repetitions": 3', 1
-        ),
-        encoding="utf-8",
-    )
+    payload = json.loads(suite.read_text(encoding="utf-8"))
 
-    completed = _run_with_tasks(
-        tmp_path,
-        TASKS.read_text(encoding="utf-8"),
-        environment,
-    )
+    for invalid_value in (3, 10, "1", True):
+        payload["repetitions"] = invalid_value
+        suite.write_text(json.dumps(payload), encoding="utf-8")
 
-    assert completed.returncode != 0
-    assert "suite repetitions must remain one" in completed.stderr
+        completed = _run_with_tasks(
+            tmp_path,
+            TASKS.read_text(encoding="utf-8"),
+            environment,
+        )
+
+        assert completed.returncode != 0
+        assert "suite repetitions must remain one" in completed.stderr
 
 
 def test_published_phase1_suite_v1_bytes_are_immutable(tmp_path: Path) -> None:

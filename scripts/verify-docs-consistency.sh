@@ -134,8 +134,18 @@ grep -qF 'three complete runs' "$PROGRAM" \
   || err "program roadmap does not start with three complete runs"
 grep -qF 'three fresh complete suite runs' "$QUALIFICATION" \
   || err "qualification roadmap does not require three fresh complete runs"
-grep -qE '"repetitions"[[:space:]]*:[[:space:]]*1' "$PHASE1_SUITE" \
-  || err "Phase 1 suite repetitions must remain one"
+if ! python3 - "$PHASE1_SUITE" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as source:
+    repetitions = json.load(source).get("repetitions")
+if type(repetitions) is not int or repetitions != 1:
+    raise SystemExit(1)
+PY
+then
+  err "Phase 1 suite repetitions must remain one"
+fi
 if grep -IinE \
   'start with three repetitions for every|start with three per (model|profile)/scenario pair|extend a pair to five|three-to-five adaptive repetitions|adaptive three-to-five scheduling' \
   "$PROGRAM" "$QUALIFICATION" "$BRIEF" "$WRITER_ARTIFACT"; then
