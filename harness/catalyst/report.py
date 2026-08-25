@@ -9,6 +9,7 @@ from typing import Any
 
 from harness.common.jsonl import read_jsonl
 from harness.common.text import esc
+from harness.catalyst.notebook_validation import assertion_class
 from harness.catalyst.reconcile import merge_gold_and_judge
 from harness.report_shell.assets import (
     SHARED_CSS,
@@ -39,6 +40,7 @@ table.data th { background: var(--surface2); }
 pre.diff, pre.sql, pre.rationale { white-space: pre-wrap; font-family: ui-monospace, monospace; font-size: 12px; background: var(--surface2); border:1px solid var(--line); padding:10px; border-radius:8px; }
 a.ev { color: var(--accent); }
 .chip-fail { display:inline-block; background:#a01; color:#fff; font-size:11px; padding:1px 6px; border-radius:3px; }
+.chip-invalid { display:inline-block; background:#5b2d91; color:#fff; font-size:11px; padding:1px 6px; border-radius:3px; }
 .chip-pass { display:inline-block; background:#0a7; color:#fff; font-size:11px; padding:1px 6px; border-radius:3px; }
 """
 )
@@ -164,6 +166,24 @@ def _gold_passed(assertions: list[dict[str, Any]]) -> bool:
     if not gold:
         return all(bool(a.get("passed")) for a in assertions)
     return all(bool(a.get("passed")) for a in gold)
+
+
+def _fail_chip(assertion: dict[str, Any]) -> str:
+    """A failed check's chip, labeled by what kind of finding it is.
+
+    A broken contract (an invalid measurement) and a judged miss (a result)
+    must not look alike; the split comes stamped from the runner, with the
+    name table as the fallback for older rows.
+    """
+    kind = assertion.get("class") or assertion_class(
+        str(assertion.get("name") or "")
+    )
+    if kind == "conformance":
+        return (
+            f"<span class='chip-invalid'>contract · "
+            f"{esc(assertion.get('name'))}</span>"
+        )
+    return f"<span class='chip-fail'>judged · {esc(assertion.get('name'))}</span>"
 
 
 def _assertion_fail_details(
@@ -373,7 +393,28 @@ def _scenario_card(
         chunks.append(
             f"<p><b>Question</b> — {esc(scenario.get('initialQuestion'))}</p>"
         )
-        if scenario.get("followupInstruction"):
+        # The conversation as it ran: the writer's opening answer in words
+        # when it asked or declined, then each scripted turn and its answer.
+        first = completed[0] if completed else {}
+        if first.get("baseAnswerText"):
+            chunks.append(
+                f"<p><b>Writer</b> — {esc(first.get('baseAnswerText'))}</p>"
+            )
+        recorded_turns = first.get("turns") or []
+        if recorded_turns:
+            for index, turn in enumerate(recorded_turns, start=2):
+                chunks.append(
+                    f"<p><b>Turn {index}</b> — "
+                    f"“{esc(turn.get('instruction'))}” → "
+                    f"{esc(turn.get('observedOutcome') or '?')}"
+                    + (
+                        f": {esc(turn.get('answerText'))}"
+                        if turn.get("answerText")
+                        else ""
+                    )
+                    + "</p>"
+                )
+        elif scenario.get("followupInstruction"):
             chunks.append(
                 f"<p><b>Follow-up</b> — {esc(scenario.get('followupInstruction'))}</p>"
             )
@@ -441,9 +482,7 @@ def _build_body(run_dir: Path, blob: dict[str, Any]) -> str:
             if a.get("passed"):
                 continue
             detail = _assertion_fail_details(run_dir, _row_scenario_key(row), a)
-            fail_bits.append(
-                f"<div><span class='chip-fail'>{esc(a.get('name'))}</span> {detail}</div>"
-            )
+            fail_bits.append(f"<div>{_fail_chip(a)} {detail}</div>")
         assertion_names = ", ".join(esc(a.get("name")) for a in assertions)
         passed_n = sum(1 for a in assertions if a.get("passed"))
         assertions_cell = (

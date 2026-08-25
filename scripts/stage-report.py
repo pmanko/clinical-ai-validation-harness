@@ -120,6 +120,7 @@ def _upsert_manifest(
     title: str,
     summary: str,
     takeaway: str,
+    family: str,
 ) -> None:
     payload = _load_json(path)
     runs = payload.setdefault("runs", [])
@@ -131,6 +132,9 @@ def _upsert_manifest(
                 "title": title or f"{slug} (auto-added — edit title)",
                 "summary": summary,
                 "takeaway": takeaway,
+                # The landing page labels and groups runs by family without
+                # re-deriving it from the staged files.
+                "family": family,
             },
         )
         path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
@@ -196,6 +200,7 @@ def stage_report(
         title=title,
         summary=summary,
         takeaway=takeaway,
+        family=family,
     )
     return index_path
 

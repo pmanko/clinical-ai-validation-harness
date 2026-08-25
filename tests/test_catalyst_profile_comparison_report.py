@@ -195,3 +195,53 @@ def test_a_failure_with_nothing_recorded_still_reports_a_verdict(
     html = build_comparison_report(entries_from_comparison_run(run_dir))
 
     assert "FAIL" in html
+
+
+def test_the_page_says_what_kind_of_conversation_each_scenario_is(
+    tmp_path: Path,
+) -> None:
+    """A reviewer weighing the teams needs to know which rows were
+    clarification exchanges or multi-turn refinements, and a judged failure
+    in a conversation names the turn it happened on."""
+    run_dir = tmp_path / "run"
+    run_dir.mkdir()
+    rows = [
+        # A clarification exchange that failed on the answer turn.
+        {"scenarioId": "B1", "profileId": "team-a", "status": "completed",
+         "passed": False,
+         "expectedBaseOutcome": "needs_clarification",
+         "baseOutcome": "needs_clarification",
+         "turns": [{"turnIndex": 1, "expectedOutcome": "ready",
+                    "observedOutcome": "rejected"}],
+         "assertions": [{"name": "writer_outcome-t1", "class": "evaluation",
+                         "passed": False,
+                         "evidence": {"observed": "rejected",
+                                      "expected": "ready"}}],
+         "timing": {"unadjustedGenerationWallMs": 10}},
+        # A three-turn refinement that passed.
+        {"scenarioId": "M1", "profileId": "team-a", "status": "completed",
+         "passed": True,
+         "expectedBaseOutcome": "ready", "baseOutcome": "ready",
+         "turns": [{"turnIndex": 1}, {"turnIndex": 2}],
+         "assertions": [{"name": "session_created", "class": "conformance",
+                         "passed": True}],
+         "timing": {"unadjustedGenerationWallMs": 10}},
+        # A single-turn question.
+        {"scenarioId": "A1", "profileId": "team-a", "status": "completed",
+         "passed": True,
+         "expectedBaseOutcome": "ready", "baseOutcome": "ready",
+         "turns": [],
+         "assertions": [{"name": "session_created", "class": "conformance",
+                         "passed": True}],
+         "timing": {"unadjustedGenerationWallMs": 10}},
+    ]
+    (run_dir / "results.json").write_text(
+        json.dumps({"results": rows}), encoding="utf-8"
+    )
+
+    html = build_comparison_report(entries_from_comparison_run(run_dir))
+
+    assert "clarification" in html
+    assert "multi-turn ×3" in html
+    assert "single-turn" in html
+    assert "at turn 2 of 2" in html

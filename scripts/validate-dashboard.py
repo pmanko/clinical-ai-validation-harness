@@ -403,6 +403,39 @@ def detail(scenario, backend):
         m = r.get("metrics") or {}
         resp = r.get("response") or {}
         request = r.get("request") or {}
+        if "passed" in (r.get("metrics") or {}):
+            # A catalyst row grades deterministically and renders as a
+            # dialogue: none of the chart-QA review pipeline below applies,
+            # and computing it here only to discard it in the browser made
+            # every catalyst click pay for source-matching it never shows.
+            m = r.get("metrics") or {}
+            turns.append({
+                "turn": r.get("turn"),
+                "question": request.get("question", ""),
+                "answer": resp.get("answer") or "",
+                "status": m.get("http_status"),
+                "latency_ms": m.get("latency_ms"),
+                "chars": m.get("answer_chars"),
+                "error": r.get("error"),
+                "catalyst": {
+                    "passed": m.get("passed"),
+                    "question": resp.get("question"),
+                    "baseOutcome": resp.get("baseOutcome"),
+                    "baseAnswerText": resp.get("baseAnswerText"),
+                    "baseSql": resp.get("baseSql"),
+                    "expectedBaseOutcome": resp.get("expectedBaseOutcome"),
+                    "turns": resp.get("turns") or [],
+                    "failedAssertions": resp.get("failedAssertions") or [],
+                    "resultPreview": resp.get("resultPreview"),
+                    "conformed": not any(
+                        (item.get("class")
+                         or assertion_class(item.get("name") or ""))
+                        == "conformance"
+                        for item in resp.get("failedAssertions") or []
+                    ),
+                },
+            })
+            continue
         tr = match_trace(
             traces,
             trace_model_for_result(r, arm_model_name(backend)),
@@ -459,28 +492,6 @@ def detail(scenario, backend):
                       "status": m.get("http_status"), "latency_ms": m.get("latency_ms"),
                       "chars": m.get("answer_chars"), "citations": m.get("citation_count"),
                       "error": r.get("error"),
-                      # Catalyst rows are graded deterministically and carry
-                      # their own review payload; the chart-QA panels below
-                      # would all render empty for them.
-                      "catalyst": ({
-                          "passed": m.get("passed"),
-                          "question": resp.get("question"),
-                          "baseOutcome": resp.get("baseOutcome"),
-                          "baseAnswerText": resp.get("baseAnswerText"),
-                          "baseSql": resp.get("baseSql"),
-                          "expectedBaseOutcome": resp.get("expectedBaseOutcome"),
-                          "turns": resp.get("turns") or [],
-                          "failedAssertions": resp.get("failedAssertions") or [],
-                          "resultPreview": resp.get("resultPreview"),
-                          # Whether the row broke the contract or merely
-                          # answered badly -- the same split the grid uses.
-                          "conformed": not any(
-                              (item.get("class")
-                               or assertion_class(item.get("name") or ""))
-                              == "conformance"
-                              for item in resp.get("failedAssertions") or []
-                          ),
-                      } if "passed" in m else None),
                       "trace": {"answer_confidence": tr.get("answer_confidence"),
                                 "indepth_confidence": tr.get("indepth_confidence"),
                                 "answer_text": tr.get("answer_text", ""),

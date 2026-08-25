@@ -20,7 +20,7 @@ from harness.report_shell.assets import (
 )
 from harness.report_shell.document import render_document
 
-from .attribution import blame, conformed
+from .attribution import blame, conformed, root_name
 
 _STYLE = (
     SHARED_CSS
@@ -41,6 +41,7 @@ table.data th { background: var(--surface2); }
 .vpass { color: #0a7; font-weight: 600; }
 .vfail { color: var(--err); font-weight: 700; }
 .vinvalid { color: var(--purple, #8250df); font-weight: 700; }
+.flow { color: var(--mut); font-size: 11px; }
 .sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; border:0; }
 """
 )
@@ -112,6 +113,40 @@ def _entry_rows(entry: dict[str, Any]) -> list[dict[str, Any]]:
     return rows
 
 
+def _flow_kind(runs: list[dict[str, Any]]) -> str:
+    """What kind of conversation this scenario runs.
+
+    A reviewer weighing teams reads a clarification exchange differently
+    from a three-turn refinement, so the row says which it is.
+    """
+    row = runs[0]
+    total = 1 + len(row.get("turns") or [])
+    if row.get("expectedBaseOutcome") == "needs_clarification":
+        return "clarification"
+    if total > 1:
+        return f"multi-turn ×{total}"
+    return "single-turn"
+
+
+def _failed_turn(row: dict[str, Any]) -> str:
+    """'at turn K of N' for the earliest turn a judged check failed on."""
+    total = 1 + len(row.get("turns") or [])
+    turn_numbers = []
+    for item in row.get("assertions") or []:
+        if item.get("passed"):
+            continue
+        name = str(item.get("name") or "")
+        if name.endswith("-base") or name == root_name(name):
+            turn_numbers.append(1)
+        else:
+            suffix = name.rsplit("-t", 1)[-1]
+            if suffix.isdigit():
+                turn_numbers.append(int(suffix) + 1)
+    if not turn_numbers or total <= 1:
+        return ""
+    return f" (at turn {min(turn_numbers)} of {total})"
+
+
 def _cell_verdict(runs: list[dict[str, Any]]) -> tuple[str, str]:
     """One conversation's verdict, and the sentence that explains it.
 
@@ -135,7 +170,7 @@ def _cell_verdict(runs: list[dict[str, Any]]) -> tuple[str, str]:
             root = reason.get("root") or {}
             return "FAIL", str(
                 root.get("why") or root.get("human") or root.get("name") or ""
-            )
+            ) + _failed_turn(row)
     return "FAIL", ""
 
 
@@ -268,7 +303,18 @@ def build_comparison_report(
     inventory: list[str] = []
     invalid_by_entry: dict[str, int] = {e["profile_id"]: 0 for e in entries}
     for scenario_id in scenario_ids:
-        cells = [f"<td>{_esc(scenario_id)}</td>"]
+        flow = next(
+            (
+                _flow_kind(by_scenario[scenario_id])
+                for by_scenario in per_entry_results
+                if by_scenario.get(scenario_id)
+            ),
+            "",
+        )
+        cells = [
+            f"<td>{_esc(scenario_id)} "
+            f"<span class=flow>{_esc(flow)}</span></td>"
+        ]
         for entry, by_scenario in zip(entries, per_entry_results):
             runs = by_scenario.get(scenario_id, [])
             if not runs:
