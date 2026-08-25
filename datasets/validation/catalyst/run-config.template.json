@@ -17,7 +17,8 @@
   "publish": {
     "slug": "catalyst-phase1-comparison",
     "title": "Catalyst Phase 1: three model teams on the locked HIV suite",
-    "summary": "Twelve scenarios per team over one live conversation each, judged against an independent database answer.",
-    "takeaway": ""
+    "summary": "Catalyst turns plain-English clinical questions into database queries it runs itself. Each team faced the same twelve questions about an HIV dataset — including vague ones they had to ask about, and impossible ones they had to refuse — with every answer checked row-for-row against an independently written reference.",
+    "takeaway": "",
+    "plainSubject": "an HIV test-results database"
   }
 }

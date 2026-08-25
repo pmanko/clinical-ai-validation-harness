@@ -5,8 +5,8 @@
     {
       "slug": "catalyst-phase1-comparison",
       "title": "Catalyst Phase 1: three model teams on the locked HIV suite",
-      "summary": "Twelve scenarios per team over one live conversation each, judged against an independent database answer.",
-      "takeaway": "No team met the 90%/80% acceptance gates. Every one of the 36 conversations is a valid measurement: the qwen2.5-14b-reviewed team leads at 8/12; all failures are judged model results (B1/B3/M2/U2 shared across teams). Advisory judge (catalyst-judge-v1, 3-pass medians over 44 executed queries): median composite 100, floor 55 \u2014 the misses are intent, not SQL craft.",
+      "summary": "Catalyst turns plain-English clinical questions into database queries it runs itself. Three AI team configurations each faced the same twelve questions about an HIV dataset \u2014 including vague ones they had to ask about, and impossible ones they had to refuse \u2014 with every answer checked row-for-row against an independently written reference.",
+      "takeaway": "No team cleared the acceptance bar (\u226590% overall, \u226580% per scenario). Best: the qwen-reviewed team at 8/12. An independent AI judge rated the SQL itself consistently well-built (median 100/100 across 44 queries) \u2014 the failures came from misreading ambiguous questions, the same two follow-ups for every team. Next lever: question understanding, not query craft.",
       "family": "catalyst"
     },
     {
