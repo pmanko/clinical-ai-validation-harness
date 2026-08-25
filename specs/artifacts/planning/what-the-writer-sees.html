@@ -439,7 +439,7 @@ three writer outcomes, a local three-team comparison of the completed system, an
     only instructions.</p>
   </div>
   <div class="lane-items">
-    <div class="lane-item"><b>P1 · Session context</b><span class="sz">next</span><div class="exp">Shared data surface + honest outcomes + transcript + guidance + prior failure + verified examples. Done = the completed system qualifies across the three model teams.</div></div>
+    <div class="lane-item"><b>P1 · Session context</b><span class="sz">qualification remediation</span><div class="exp">The product foundation is implemented, but the model-team decision is not final. Active execution lives in specs/catalyst-phase1-qualification-remediation-roadmap.md.</div></div>
     <div class="lane-item"><b>P2 · Conversation mode</b><span class="sz">then</span><div class="exp">A turn kind that answers or asks without SQL, over the same session state P1 builds (playbook, history, attempts). Scoped at phase start.</div></div>
     <div class="lane-item"><b>P3 · Dashboards</b><span class="sz">then</span><div class="exp">Question → queries → datasets → widgets → dashboard published to Superset via the existing outbox path; e2e + manual proof on both envs.</div></div>
   </div>
@@ -478,7 +478,7 @@ and compares complete model teams.</p>
   <div class="card">
     <div class="dirhead"><h3>CE0 — Evaluation harness</h3><span class="tag">the gate · size M</span></div>
     <dl class="rows">
-      <dt>Form</dt><dd>Extend the existing notebook-validation runner with the frozen 12-scenario, 21-turn suite, arbitrary turn sequences, three-to-five adaptive repetitions, exact token evidence, separate infrastructure failures, and byte-stable scoring replay.</dd>
+      <dt>Form</dt><dd>Extend the existing notebook-validation runner with the frozen 12-scenario, 21-turn suite, arbitrary turn sequences, one measurement per team/scenario in each complete run, and three complete suite runs. Extend the unchanged batch to five only when a scored turn varies in outcome/correctness, a leave-one-run-out score changes qualification, or the leading teams differ by at most one complete-scenario success out of 36. Retain exact token evidence, separate infrastructure failures, and byte-stable scoring replay.</dd>
       <dt>Substrate</dt><dd>Already recorded: every turn's evidence bundle holds the exact hub request, per-attempt raw outputs, findings, digests. Golden results come from human-verified runs.</dd>
       <dt>Metrics</dt><dd>Execution accuracy vs golden digest · first-attempt candidate rate · attempts-to-success · grounding-failure rate (invented identifiers) · clarification precision/recall · tokens + latency.</dd>
       <dt>Acceptance</dt><dd>One consolidated local report across writer-only, same-family-check, and cross-family-check teams; three deployed browser journeys after selection.</dd>
@@ -489,7 +489,7 @@ and compares complete model teams.</p>
     <dl class="rows">
       <dt>Form</dt><dd>One reviewed list of all 13 readable relations for generation, editing, validation, and execution; complete data meaning and join-risk notes; safe patient-name components; <code>ready</code>, <code>needs_clarification</code>, and <code>unsupported</code> writer branches.</dd>
       <dt>Validate</dt><dd>Exact catalog/grant equality, safe read-only behavior, independent database answers, honest clarification, and unsupported requests that never reach SQL.</dd>
-      <dt>Contract</dt><dd>Catalog v6 records the decision. Runtime permissions never auto-publish a relation.</dd>
+      <dt>Contract</dt><dd>Published catalog v6 remains historical evidence. Catalog v7 records the corrected 13-relation decision. Runtime permissions never auto-publish a relation.</dd>
     </dl>
   </div>
   <div class="card">

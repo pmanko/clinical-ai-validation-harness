@@ -1,20 +1,23 @@
 # Catalyst program roadmap — authoritative plan
 
-**Status:** Phase 1 decisions and pre-implementation repairs are complete. This
-authoritative planning record supersedes closed PR #59. Phase 1 is ready for
-implementation; no product, data, or local-environment blocker remains.
+**Status:** Phase 1 product work is substantially implemented. The first
+development comparison selected no team, so Phase 1 is not yet qualified or
+deployed. The active repairs and clean pull-request sequence are tracked in
+`specs/catalyst-phase1-qualification-remediation-roadmap.md`.
 
-This file is the single source of truth for the Catalyst program. The planning
-brief and *What the Writer Sees* preserve evidence and rejected alternatives;
-they do not override this roadmap.
+This file is the single source of truth for Catalyst product scope, locked
+decisions, acceptance thresholds, and program order. The qualification
+remediation roadmap governs execution of those decisions. The planning brief
+and *What the Writer Sees* preserve evidence and rejected alternatives; they do
+not override either active roadmap.
 
 ## Current verified starting point
 
-- Harness `main` includes the issue #58 correction merged as
-  `867364472bc0b291c02124c5e93603c61a501ce3`.
-- Catalyst is pinned at `2ad4a1385185a1e6d5e44ed75ddb9d1488de1e53`,
-  which preserves the isolated Superset port through seed and final health.
-- Med-Agent Hub is pinned at `8b81320ef428d06422c9ed69a8f411799a5144f9`.
+- The Phase 1 qualification-remediation baseline is harness commit
+  `bf9b38029059ed5bd6126587e9677eee4336e368`.
+- Catalyst is pinned at `50f15b10c7a63eef6ede338060edfc29f246e004`.
+- Med-Agent Hub is pinned at
+  `e26c52af7cabc1aaac5f521f871ac42c9ae2539e`.
 - Pull requests #51, #52, #54, #55, #57, and #50 are merged. #49 was closed
   after its useful work was salvaged. The closeout recorded 1,142 passing
   tests, clean repository-line verification, clean submodule initialization,
@@ -26,12 +29,18 @@ they do not override this roadmap.
   native concept and coded-answer displays have zero differences. The public
   demo serves catalog v5 with schema `analytics-v1`: its human editor catalog
   lists 13 readable relations, while its model-writing allowlist still contains
-  4 approved views. Phase 1 catalog v6 deliberately makes both surfaces the
-  same exact 13-relation list defined below.
-- The full harness suite records 1,145 passes, and the supported isolated-stack
-  health and provenance gate passes on the freshly seeded 96-patient,
-  1,152-result fixture.
+  4 approved views. Current main contains catalog v6 and published suite v1;
+  both identities are now immutable historical evidence. Qualification uses
+  catalog v7 and suite v2 to make both surfaces the same exact 13-relation list
+  defined below.
+- Current harness, Catalyst, and Hub automated checks are green. The supported
+  isolated-stack health and provenance gate previously passed on the freshly
+  seeded 96-patient, 1,152-result fixture; no reseed is authorized by this
+  planning update.
 - Feature 008 remediation WS1–WS7 is closed.
+- The published 36-conversation development pass selected no team and was
+  correctly not deployed. Its evidence predates the current harness and
+  Catalyst revisions and does not satisfy the repeated qualification method.
 
 ## Program order
 
@@ -78,9 +87,10 @@ use the same reviewed `role-readable-v1` relation list. The list contains these
 - `analytics.pipeline_freshness_v1`
 
 Database permissions do not silently expand this list. Adding or removing a
-relation requires a reviewed catalog version. Catalog v6 must equal the
+relation requires a reviewed catalog version. Catalog v6 has already produced
+evidence and remains byte-for-byte unchanged. Catalog v7 must equal the
 explicit grants and the list above; startup fails on missing metadata or drift.
-In catalog v6, the existing published `approvedViews` field is the authoritative
+In catalog v7, the existing published `approvedViews` field is the authoritative
 allowlist and contains exactly the 13 relations above; Phase 1 does not add a
 second published allowlist field. New internal code calls the same concept
 `queryable_relation_names` even though the compatibility field retains its old
@@ -191,8 +201,9 @@ the checker's isolated effect.
 
 ### 6. Frozen scenario set and repetitions
 
-The versioned suite contains 12 scenarios and 21 scored user turns per full
-repetition:
+Qualification suite v2 contains 12 scenarios and 21 scored user turns per full
+run. Published suite v1 remains readable and byte-identical but cannot enter
+the repaired qualification batch:
 
 | ID | Turns and expected behavior |
 | --- | --- |
@@ -200,9 +211,9 @@ repetition:
 | A2 | One ready query: count HIV visits by encounter type since 2025-01-01, highest count first. |
 | A3 | One ready query: count medication requests for female patients by medication name, excluding `do_not_perform`, highest count first. |
 | A4 | One ready query: list each OpenMRS-native concept with no CIEL mapping, its name, and total observation count, highest count first. |
-| M1 | The exact recorded `c973eeba…` three-turn medication → refinement → patient-name sequence, with its recorded instruction and request digests. |
+| M1 | The exact recorded `c973eeba…` three-turn medication → refinement → patient-name sequence, with its recorded instruction and request digests. All three ready answers are scored, including the historically flawed opening answer. Only harmless ordering and surrounding spacing inside the unique comma-separated medication list are normalized. |
 | M2 | Count medication requests by name; pin “exclude `do_not_perform`”; regroup by gender; then return the ten highest medication-and-gender groups. Both later turns must preserve the pin without repetition. |
-| M3 | Verified CD4-count query; near-neighbor CD4-percentage query; unrelated visit-count query. The near neighbor may use the example; the visit query must not copy it. |
+| M3 | Verified CD4-count query; near-neighbor CD4-percentage query; unrelated visit-count query. The near neighbor may use the example. The visit query must match an independent database answer, have a query digest different from both earlier turns, and reuse no CD4/observation relation, predicate, or projection. |
 | B1 | “Show recent HIV results” must ask what date window and which result types; the frozen answer requests the last 90 days and CD4 count, CD4 percentage, and viral load, then the next turn must be ready and correct. |
 | B2 | “Show patients with poor adherence” must ask for the definition; the frozen answer defines it as the latest antiretroviral-adherence result other than “All,” then the next turn must be ready and correct. |
 | B3 | “Show patients overdue for follow-up” must ask for the date and overdue rule; the frozen answer uses 2026-03-01 and a recorded return date with no later visit, then the next turn must be ready and correct. |
@@ -214,19 +225,40 @@ text alone. Each scenario freezes the source, catalog, dataset, profile,
 prompt, model, and repository digests plus its expected outcome and answer
 check.
 
-Run one excluded warm-up per profile, then start with three repetitions for
-every profile/scenario pair. Extend a pair to five when its first three runs
-have mixed outcomes, mixed correct/incorrect answers, or evidence differences
-that change the verdict. If the leading two teams differ by no more than one
-completed scenario repetition, extend all their remaining pairs to five. Stop
-at five and report a close result as inconclusive.
+Ready-query validation passes only with status `valid`, or status `warning`
+when every validation finding's rule code is present in suite v2's frozen
+non-blocking allowlist. Status `invalid`, an unknown status, or any unlisted
+warning fails the turn before execution.
 
-Runs use one model call at a time, one fresh session per scenario repetition,
-and retained turns within a multi-turn scenario. Each team receives the same
-frozen scenario order. Work is grouped by team for local model residency and
-that fixed order is disclosed. Infrastructure failures are reported outside
-the model denominator and may be replaced twice; a third failure invalidates
-that team's run.
+Before every complete suite run, run one fresh-session, recorded, unscored
+warm-up per profile and exclude it from qualification. The complete suite run
+then measures every profile/scenario pair exactly once: 36 conversations total, with
+`repetitions: 1` in the suite. Repeated measurement means rerunning that whole
+frozen suite. Start with three complete runs. Extend the unchanged batch to
+five if any scored turn's terminal outcome or answer correctness varies across
+the first three runs; if leaving out any one run changes whether a team passes
+any qualification gate; or if the two leading teams differ by no more than one
+complete-scenario success among their 36 measurements. Never extend or retry
+an individual measured cell. Stop at five and report a remaining close result
+as inconclusive.
+
+Runs use one model call at a time, one fresh session per scenario in each
+complete run, and retained turns within a multi-turn scenario. Each team
+receives the same frozen scenario order. Work is grouped by team for local
+model residency and that fixed order is disclosed. Infrastructure failures are
+reported outside the model denominator. An interrupted run remains immutable,
+incomplete, and permanently excluded from composition. Recovery creates a new
+run with its own identity and a `resumedFrom` reference. After every frozen
+provenance field and evidence digest matches, it imports every complete,
+measurement-valid conversation regardless of the model outcome or answer
+quality. It never imports or retries a cell selectively from its score. A ready
+path is complete when the protocol records its validation, execution decision,
+and oracle result; a clarification or unsupported path is complete when the
+protocol records its outcome and proves that SQL, validation, and execution did
+not run. Across a linked chain, a team may replace two infrastructure failures;
+its third invalidates that team's constituent run. Only a complete replacement
+with exactly one measurement-valid conversation for every cell may enter the
+combined score.
 
 ## Phase 1 qualification and model selection
 
@@ -243,7 +275,8 @@ A model team is eligible only when it meets all of these absolute gates:
 - M2 retained guidance honored in at least 80% of eligible later turns;
 - M3 near-neighbor correctness of at least 80% and zero copying into the
   unrelated control;
-- every accepted ready query validates, executes, and matches its independent
+- every accepted ready query has `valid` validation or only explicitly
+  allowlisted non-blocking warnings, executes, and matches its independent
   database answer;
 - complete token evidence within the declared limit and Gateway overhead under
   the existing three-minute contract.
@@ -260,6 +293,12 @@ correct answer, lower warm 95th-percentile end-to-end time, then lower
 95th-percentile total tokens. If teams remain equal after five repetitions,
 prefer operational simplicity: writer only, same-family check, then
 cross-family check. If no team qualifies, select none.
+
+A `none` selection is a complete qualification outcome, not permission to tune
+against failed frozen questions. Preserve that batch unchanged and do not
+deploy. Any next attempt may address only a general product behavior, must use
+nearby tests outside the frozen suite, and starts from a completely new frozen
+batch. Pre-fix and post-fix runs are never pooled.
 
 The final report includes all teams, scheduled/completed/model-failed/
 infrastructure-failed counts, per-scenario results, 95% Wilson intervals,
@@ -311,17 +350,24 @@ validation baseline recorded above.
 Extend `harness/catalyst/notebook_validation.py`; do not create a second runner.
 Support arbitrary ordered turns; the writer outcomes `ready`,
 `needs_clarification`, and `unsupported`; the separate Gateway-owned
-`rejected` state; adaptive
-three-to-five scheduling, exact token evidence, separate infrastructure
-counts, independent database checks, and byte-stable evidence replay. Profile
-or digest drift fails before a live run.
+`rejected` state; one measurement per cell in a complete suite run;
+turn-scoped independent database checks; exact token evidence; separate
+infrastructure counts; comparable whole-run composition; and byte-stable
+evidence replay. Recovery uses a new `resumedFrom` run and preserves the
+interrupted run unchanged. Profile or digest drift fails before a live run.
+Preserve suite v1 bytes and put corrected qualification semantics in suite v2.
+Suite v2 and the runner reject extended, per-scenario, and command-line
+repetition overrides in comparison mode.
 
 ### G3 — data and outcome contracts
 
-Produce catalog v6 with the exact 13-relation surface, complete metadata,
-patient names, shared validation/execution behavior, and the three writer
-outcomes. Merge tolerant Catalyst handling before the Hub can emit new
-outcomes. Preserve older request/turn readers.
+Before changing the current unversioned catalog files, copy their exact v6
+bytes to new versioned v6 paths and retarget the immutable digest guard to those
+archives. Produce catalog v7 in the active paths with the exact 13-relation
+surface, complete metadata, patient names, shared
+validation/execution behavior, and the three writer outcomes. Merge tolerant
+Catalyst handling before the Hub can emit new outcomes. Preserve older
+request/turn readers.
 
 ### G4 — layered context
 
@@ -334,9 +380,10 @@ Hub advertises support before Catalyst sends the new request shape.
 
 All component, contract, catalog, semantic PostgreSQL, browser, safety,
 evidence, and repository-line checks pass on exact remote-reachable commits.
-Freeze the combined stack, run the local three-team comparison once, apply the
-adaptive extensions, replay the scorer twice, and publish one consolidated
-report. There are no published per-change comparisons.
+Freeze the combined stack, run three complete local comparisons, extend the
+entire frozen batch to five only under the rule above, replay the combined
+scorer twice, and publish one consolidated report. There are no published
+per-change comparisons.
 
 ### G6 — deployed browser proof and closeout
 
@@ -362,9 +409,11 @@ roadmap with the selected team or an explicit “none qualified” result.
 - claims that the integrated comparison isolates one context practice;
 - any reduction or closure of the 15 Phase 3 Dashboard Builder gates.
 
-## Phase 1 comparison — recorded outcome (2026-08-25)
+## Phase 1 comparison — development first pass (2026-08-25)
 
-**No team qualified.** Against the acceptance gates in force at publication
+**No team qualified in this development pass.** The no-deploy disposition
+stands. Final Phase 1 qualification remains open pending the repaired repeated
+batch. Against the two acceptance gates implemented by the published report
 (≥90% of conversations overall, ≥80% on every scenario), the locked
 12-scenario HIV suite run once as live conversations per team gave:
 
@@ -376,11 +425,20 @@ roadmap with the selected team or an explicit “none qualified” result.
 
 Evidence package (report, decision document, frozen dashboard, run seed,
 full run copy): <https://reports.openclinai.org/catalyst-phase1-comparison/>.
-Run `9ae123db-8f40-4246-8769-d427a5551769`; triage clean — 36/36
-conversations conformed, zero invalid measurements, all 14 failures judged
-model results; scorer byte-identical on two replays. Component pins:
-catalyst `50f15b1` (echo-contract fix #73 merged), med-agent-hub `e26c52a`;
-harness runner merged as `fcac80b` (PR #82).
+Run `9ae123db-8f40-4246-8769-d427a5551769`; its published manifest labels the
+evidence `development` and records harness `a0c0b5c`, Catalyst `aa90485`, and
+Med-Agent Hub `e26c52a`. The run contained 36/36 conformed conversations and
+the scorer replayed byte-identically. Later audit found that M2's final
+top-ten answer check was also applied to its earlier unlimited regrouping turn,
+that M1/M3 lacked complete independent answer checks, and that only two of the
+locked qualification gates were applied. The detailed failure attribution is
+therefore diagnostic, not release evidence. The conservative no-selection
+decision is unchanged because the leading team remained below the basic 90%
+gate even if M2 alone were corrected.
+
+The run used published suite v1 and catalog v6. Those identities remain
+readable and byte-identical; corrected evidence uses suite v2 and catalog v7
+and is never pooled with this pass.
 
 - **G6 disposition:** with no qualifying team there is no deployment and the
   three browser journeys were not exercised; the spec is ready in the
@@ -392,16 +450,16 @@ harness runner merged as `fcac80b` (PR #82).
   gateway response-echo contract bug destroyed the qwen-reviewed team's
   cross-family B2/B3 evidence. On valid measurements the qwen-reviewed team
   is the strongest arm. The prior conclusion is retracted.
-- **What blocks qualification is shared writer capability, not reviewer
-  configuration:** B1 (clarification follow-through), B3 (overdue-visit
-  logic), M2 (a top-N limit ignored), U2 (answering where a refusal is due)
-  fail across all three arms — exactly the levers the P1 session-context
-  workstreams (guidance, prior-failure recall, verified examples) exist to
-  move.
+- **The old shared-failure list is a remediation hypothesis, not a tuning
+  target:** B1, B3, and U2 remain useful diagnostic findings. M2 must be
+  remeasured after its turn-scoped check is repaired. No model or prompt is
+  tuned against these labels before qualification evidence is trustworthy.
 - **Measurement amendments now in force:** one suite pass = one live
   conversation per (team, scenario); repetition means composing whole reruns
-  via `score_runs`, never per-turn retries. Cell state on every surface is
-  behavioural conformance (allowed path vs unexpected behaviour); judged
-  quality is a number in the report. Every run is seeded from
+  via `score_runs`, never per-turn or per-cell retries. The initial batch is
+  three complete passes and any extension is the entire frozen suite, up to
+  five complete passes. Cell state on every surface is behavioural conformance
+  (allowed path vs unexpected behaviour); judged quality is a number in the
+  report. Every run is seeded from
   `datasets/validation/catalyst/run-config.template.json`, and the frozen,
   secret-free seed ships inside the evidence package.

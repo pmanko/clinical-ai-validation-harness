@@ -1,7 +1,9 @@
 # Phase 1 planning discussion — closed decision record
 
 **Status:** Workshop completed 2026-08-23. This file explains the evidence and
-the choices made. `specs/catalyst-program-roadmap.md` is the only current plan.
+the choices made. `specs/catalyst-program-roadmap.md` owns product decisions;
+`specs/catalyst-phase1-qualification-remediation-roadmap.md` owns the active
+repair sequence. This historical brief is not a current plan.
 
 ## What the research established
 
@@ -33,7 +35,7 @@ important findings were:
 | Guidance | Free text with provenance; composer pin and explicit pin-from-failure; no pin-from-success. Unpin and replacement are append-only events. |
 | Measurement | Qualify the completed Phase 1 system. Do not publish an old-system baseline or individual on/off comparisons. |
 | Model comparison | Gemma writer only; Gemma writer checked by Gemma; Gemma writer checked by Qwen. Treat them as complete product setups. |
-| Repetitions | Start with three per model/scenario pair and extend unstable or effectively tied pairs to five; never extend beyond five. |
+| Repetitions | One complete run measures each model/scenario pair once. Repeat the whole frozen suite three times. Extend the unchanged batch to five when a scored turn varies in outcome/correctness, a leave-one-run-out score changes qualification, or the leading teams differ by at most one complete-scenario success out of 36; never repeat an individual cell inside a run. |
 | Environments | Run the full comparison locally on the owner's GPU. Run three real browser journeys on the deployed server. |
 | Report | One consolidated report with absolute qualification gates, separate failure counts, database answers, token and timing evidence, and no causal claim about an individual context practice. |
 
@@ -48,8 +50,11 @@ pack. They must not reappear as open choices:
   The owner chose one final integrated qualification.
 - Run the complete repeated matrix both locally and on the demo server. The
   owner chose local GPU measurement plus limited deployed browser checks.
-- Run five repetitions for every pair by default. The owner chose three,
-  extending only unstable or tied pairs to five.
+- Repeat an individual model/scenario cell. The owner chose one measurement per
+  cell in a complete run, with repetition supplied only by rerunning the whole
+  frozen suite. Start with three complete runs and extend the whole batch to
+  five only for scored-turn variation, a leave-one-run-out qualification
+  change, or a leading-team margin of at most one success out of 36.
 - Allow only ready or clarification. The owner added an honest unsupported
   outcome while retaining Gateway rejection.
 
@@ -57,10 +62,12 @@ These choices mean the final report can compare model teams and determine
 whether the finished product meets its bar. It cannot attribute a result to
 one context practice or claim local and server model performance are equal.
 
-## Implementation readiness
+## Historical implementation-readiness record
 
-No product decision or repository blocker remains. The three readiness tasks
-are complete:
+At workshop close, no product-decision or repository blocker remained. The
+three readiness tasks below were complete. Later implementation and the first
+development comparison exposed qualification-system defects now governed by
+`specs/catalyst-phase1-qualification-remediation-roadmap.md`.
 
 1. The authoritative roadmap replaces stale PR #59, which is closed as
    superseded.
@@ -80,6 +87,8 @@ program roadmap.
 ## Evidence pointers
 
 - `specs/catalyst-program-roadmap.md` — current decisions and acceptance.
+- `specs/catalyst-phase1-qualification-remediation-roadmap.md` — active
+  execution, acceptance evidence, and pull-request tracker.
 - `specs/artifacts/planning/what-the-writer-sees.html` sections 01–02 — writer
   context reconstruction and the six evidence-backed practices.
 - `specs/008-catalyst-query-workbench/remediation-roadmap.md` — completed

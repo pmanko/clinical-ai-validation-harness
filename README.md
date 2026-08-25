@@ -24,7 +24,11 @@ The harness coordinates validation across four clinical AI projects:
 | `chartsearchai` | OpenMRS clinical-chat module with bundled and med-agent-hub provider paths | Product integration target: shared lifecycle UX, persistence, evidence display, cancellation, and security |
 | `querystore` | Read-optimized OpenMRS clinical-record projection and optional med-agent-hub source | Context-source validation: materialized records, indexing integrity, date/freshness semantics, and retrieval experiments |
 | `openmrs_chatbot` | Python clinical chatbot with patient/doctor interfaces and agent workflow scaffolding | Future expansion: multi-turn grounding and role-aware answer evaluation |
-| `Catalyst` (OpenELIS) | Supervised reporting workbench: OpenELIS → HAPI FHIR → FHIR Data Pipes → governed query/table → versioned Dataset/Widget/Dashboard drafts → Superset bundle | Query/notebook MVP accepted; session-context work is program P1; Superset-backed Dashboard Builder remains unchanged as P3; other paths remain independently gated |
+| `Catalyst` (OpenELIS) | Supervised reporting workbench: OpenELIS → HAPI FHIR → FHIR Data Pipes → governed query/table → versioned Dataset/Widget/Dashboard drafts → Superset bundle | Query/notebook MVP accepted; program P1 is implemented but its model-team qualification is under remediation; Superset-backed Dashboard Builder remains unchanged as P3; other paths remain independently gated |
+
+The Catalyst program decisions live in `specs/catalyst-program-roadmap.md`.
+The active Phase 1 repair sequence and evidence gates live in
+`specs/catalyst-phase1-qualification-remediation-roadmap.md`.
 
 ## Current priority: the validation spine and active lanes
 
@@ -167,7 +171,9 @@ The D1b runtime/lifecycle checkpoint (T139/T140/T160–T162) now passes with
 the pinned Superset identity, DB-enforced read-only access, non-destructive
 volume restart, retained imported state, secret-free evidence, and synchronized
 tests. The deterministic seven-chart, five-family clean-import fixture at T141
-also passes; importer/state failure and recovery matrices T142/T163 are next.
+also passes; importer/state failure and recovery matrices T142/T163 are
+complete. The 15 remaining M4 gates are tracked in Feature 008 tasks and the
+unchanged P3 contract.
 
 The P5 Catalyst report is published at
 [reports.openclinai.org/catalyst-t094-release](https://reports.openclinai.org/catalyst-t094-release/):
