@@ -131,3 +131,60 @@ def test_report_carries_narrative_context_not_just_the_gate_matrix(
     # The assertion-name dump collapses behind a pass-count summary instead of
     # dominating the matrix (names stay in the HTML for the marker tests).
     assert "passed</summary>" in html
+
+
+def test_catalyst_pages_can_actually_sort_their_tables(tmp_path) -> None:
+    """makeSortable rewrites each header through htmlEsc; without it the
+    first table's header row is wiped and no table sorts."""
+    from harness.catalyst import report as catalyst_report
+
+    script = catalyst_report._SCRIPT
+    assert "function htmlEsc" in script
+    assert script.index("function htmlEsc") < script.index("makeSortable(")
+
+
+def test_a_failed_check_chip_says_which_kind_it_is() -> None:
+    """A broken contract and a judged miss are different findings; the
+    matrix chip carries the split the runner stamped."""
+    from harness.catalyst.report import _fail_chip
+
+    judged = _fail_chip({"name": "writer_outcome-t1", "class": "evaluation"})
+    broken = _fail_chip({"name": "writer_model", "class": "conformance"})
+
+    assert "judged" in judged and "writer_outcome-t1" in judged
+    assert "contract" in broken and "chip-invalid" in broken
+    # Legacy rows without the stamp classify by name.
+    assert "judged" in _fail_chip({"name": "base_gold_execution_match"})
+
+
+def test_the_scenario_card_reads_as_the_conversation_it_ran() -> None:
+    """Question, then each turn's instruction and what the writer answered
+    -- the words of a question or refusal, in place."""
+    from harness.catalyst.report import _scenario_card
+
+    scenario = {
+        "id": "B1",
+        "initialQuestion": "Show recent HIV results.",
+        "expectedBaseOutcome": "needs_clarification",
+    }
+    completed = [{
+        "scenarioId": "B1",
+        "baseOutcome": "needs_clarification",
+        "baseAnswerText": "Which window, and which result types?",
+        "assertions": [{"name": "x", "passed": True}],
+        "turns": [{
+            "turnIndex": 1,
+            "instruction": "The last 90 days, CD4 only.",
+            "expectedOutcome": "ready",
+            "observedOutcome": "ready",
+        }],
+    }]
+
+    html = _scenario_card(Path("/nonexistent"), scenario, "team × B1", completed)
+
+    assert "Show recent HIV results." in html
+    assert "Which window, and which result types?" in html
+    assert "The last 90 days, CD4 only." in html
+    order = [html.index("Show recent"), html.index("Which window"),
+             html.index("The last 90 days")]
+    assert order == sorted(order)

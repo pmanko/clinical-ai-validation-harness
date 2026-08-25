@@ -196,10 +196,32 @@ def status():
     for r in results:
         cell_rows.setdefault((r.get("scenario_id"), r.get("backend_id")), []).append(r)
 
-    def _good(r):
+    def _conformed(r):
+        """Whether this row shows the system behaving as designed.
+
+        A scored row (Catalyst) is judged on its assertions' class: a failed
+        `evaluation` check means the model answered badly along a path the
+        product allows, which is a result, not a malfunction. Only a failed
+        `conformance` check -- a broken contract, missing evidence, the
+        wrong model, a transport error -- says the run itself misbehaved.
+        Rows recorded before the runner stamped classes fall back to the
+        name table. ChartSearchAI rows carry no verdict, so they keep the
+        HTTP heuristic.
+        """
         m = r.get("metrics") or {}
-        # A rubric that scores deterministic pass/fail (Catalyst) stamps `passed`
-        # directly; ChartSearchAI rows never carry it, so this is additive.
+        if "passed" not in m:
+            return m.get("http_status") == 200 and (m.get("answer_chars") or 0) > 0
+        if m.get("passed"):
+            return True
+        for item in (r.get("response") or {}).get("failedAssertions") or []:
+            if (item.get("class") or assertion_class(item.get("name") or "")) == "conformance":
+                return False
+        # A scored failure with nothing attributable is unexplained, and an
+        # unexplained failure is exactly what must not read as fine.
+        return bool((r.get("response") or {}).get("failedAssertions"))
+
+    def _judged(r):
+        m = r.get("metrics") or {}
         if "passed" in m:
             return bool(m["passed"])
         return m.get("http_status") == 200 and (m.get("answer_chars") or 0) > 0
@@ -208,17 +230,22 @@ def status():
     for (s, b) in expected_cells:
         exp = exp_turns.get((s, b), 1)
         rs = cell_rows.get((s, b), [])
-        good = sum(1 for r in rs if _good(r))
+        good = sum(1 for r in rs if _conformed(r))
         bad = sum(1 for r in rs if (r.get("metrics") or {}).get("http_status") not in (200, None))
-        if good >= exp:
+        if bad > 0:
+            st = "err"          # a transport or server error, whatever else happened
+        elif good >= exp:
             st = "done"
-        elif bad > 0 or len(rs) >= exp:
-            st = "err"          # a failure, or all turns present but some empty
+        elif len(rs) >= exp:
+            st = "err"          # all turns present, but one broke the contract
         elif len(rs) > 0:
             st = "running" if active else "err"   # partial: in-flight if active, else abandoned
         else:
             st = "pending"
         states[(s, b)] = st
+
+    scored = [r for r in results if "passed" in (r.get("metrics") or {})]
+    judged_passed = sum(1 for r in scored if _judged(r))
 
     # While the run is in progress, the single active cell is the first incomplete one, in
     # the order the runner actually visits cells: cells-order for Catalyst (scenario-major),
@@ -276,109 +303,76 @@ def status():
 
     return {"run": os.path.basename(run), "family": run_family(run),
             "set": set_id, "done": len(results), "total": total,
+            "warning": (
+                None if CLASSIFIER_SOURCE else
+                "This page cannot classify assertions (" + _CLASSIFIER_ERROR
+                + "), so every failure is shown as unexpected behaviour. "
+                "Serve the dashboard from a checkout whose harness package "
+                "matches this script."
+            ),
+            "conformant": sum(1 for v in states.values() if v == "done"),
+            "unexpected": sum(1 for v in states.values() if v == "err"),
+            "judged_passed": judged_passed, "judged_scored": len(scored),
             "scenarios": scen_ids, "backends": back_ids, "arms": arms, "arm_cards": arm_cards,
             "judge_actors": sorted(judge_actors.keys()),
             "judge_combined": combined_judge_summary(judge_actors, back_ids),
             "grid": grid_list, "feed": feed, "models": resident_models()}
 
 
-_ROOT_PRECEDENCE = (
-    # First failed match wins; everything else failed as a consequence.
-    ("base_writer_outcome", "the opening answer was the wrong kind"),
-    ("writer_outcome", "the writer's answer was rejected or of the wrong kind"),
-    ("successor_execution_succeeded", "the accepted query failed to execute"),
-    ("base_gold_execution_match",
-     "the answer disagrees with the independent reference"),
-    ("successor_gold_execution_match",
-     "the answer disagrees with the independent reference"),
-    ("no_sql_after_non_ready_base", "a refusal or question left SQL behind"),
-    ("token_evidence_recorded", "no token accounting was published"),
+try:
+    from harness.catalyst.attribution import blame as _blame
+    from harness.catalyst.notebook_validation import assertion_class
+
+    CLASSIFIER_SOURCE = "harness.catalyst.notebook_validation"
+except Exception as _classifier_error:  # pragma: no cover - deployment guard
+    # Without the table, a legacy run cannot be told apart from a broken one.
+    # Answering anyway would paint a confident grid from a classifier this
+    # process does not have, so the page says so instead of guessing quietly.
+    CLASSIFIER_SOURCE = None
+    _CLASSIFIER_ERROR = str(_classifier_error)
+
+    def assertion_class(name):
+        return "conformance"
+
+    def _blame(assertions, ledger_path=None):
+        return {"kind": "invalid", "root": None, "consequences": 0,
+                "rationale": None}
+
+
+# Blame lives in harness.catalyst.attribution -- the same explanation the
+# triage gate and the comparison page use. This script keeps no copy.
+blame_failure = _blame
+
+
+_SQL_CLAUSE = re.compile(
+    r"\s+(FROM|WHERE|GROUP BY|ORDER BY|HAVING|LIMIT|OFFSET|UNION ALL|UNION"
+    r"|LEFT JOIN|RIGHT JOIN|FULL JOIN|INNER JOIN|CROSS JOIN|JOIN|ON|AND|OR)\s+",
+    re.IGNORECASE,
 )
 
-_VETTED_CACHE = {}
 
+def _format_sql(sql):
+    """Break a single-line query at clause boundaries, for reading.
 
-def _vetted_ledger(path):
-    cached = _VETTED_CACHE.get(path)
-    if cached is None:
-        try:
-            with open(path, encoding="utf-8") as handle:
-                cached = {
-                    tuple(e["signature"]): e for e in json.load(handle)
-                }
-        except Exception:
-            cached = {}
-        _VETTED_CACHE[path] = cached
-    return cached
-
-
-def _sentence_for_gold(evidence):
-    """Summarize a structured gold verdict recorded before sentences existed."""
-    if isinstance(evidence, str):
-        # The runner compacts assertion evidence to a JSON string; a clipped
-        # blob will simply fail to parse and fall through to raw display.
-        try:
-            evidence = json.loads(evidence)
-        except (ValueError, TypeError):
-            return None
-    if not isinstance(evidence, dict):
-        return None
-    if isinstance(evidence.get("disagreement"), str):
-        return evidence["disagreement"]
-    if "modelRowCount" in evidence and "referenceRowCount" in evidence:
-        extra = evidence.get("extraKeys")
-        missing = evidence.get("missingKeys")
-        mism = evidence.get("valueMismatches")
-        if extra or missing or mism:
-            parts = []
-            if extra:
-                parts.append(f"the answer has {len(extra)} groups the reference does not have")
-            if missing:
-                parts.append(f"{len(missing)} reference groups missing")
-            if mism:
-                parts.append(f"counts disagree on {len(mism)} groups")
-            return "; ".join(parts)
-        model = evidence["modelRowCount"]
-        counted = f"over {model}" if evidence.get("modelRowsExceededCap") else str(model)
-        return (f"the answer returned {counted} rows; the independent "
-                f"reference returns {evidence['referenceRowCount']}")
-    return None
-
-
-def blame_failure(failed_assertions, ledger_path):
-    """One attributed explanation for a failed repetition.
-
-    The root cause is the highest-precedence failed check, said in plain
-    words; the rest are consequences. Blame comes from the vetted ledger --
-    the same dispositions the triage gate enforces -- and an unvetted
-    combination says 'unvetted' instead of guessing.
+    Display only -- the recorded evidence keeps the model's bytes. A query
+    the model formatted itself, and anything that is not a query, pass
+    through untouched; string literals are split out first so a keyword
+    inside one stays where the model put it.
     """
-    names = sorted({re.sub(r"-(?:t\d+|base)$", "", a["name"]) for a in failed_assertions})
-    entry = _vetted_ledger(ledger_path).get(tuple(names))
-    root = None
-    for name, human in _ROOT_PRECEDENCE:
-        hit = next(
-            (a for a in failed_assertions
-             if re.sub(r"-(?:t\d+|base)$", "", a["name"]) == name),
-            None,
+    if not sql or "\n" in sql or not re.match(r"\s*(SELECT|WITH)\b", sql, re.IGNORECASE):
+        return sql
+
+    def _break(chunk):
+        return _SQL_CLAUSE.sub(
+            lambda m: "\n"
+            + ("  " if m.group(1).upper() in ("ON", "AND", "OR") else "")
+            + m.group(1).upper()
+            + " ",
+            chunk,
         )
-        if hit is not None:
-            evidence = hit.get("evidence")
-            spoken = _sentence_for_gold(evidence)
-            root = {"name": name, "human": human,
-                    "evidence": spoken if spoken is not None else evidence}
-            break
-    if root is None and failed_assertions:
-        first = failed_assertions[0]
-        root = {"name": first["name"], "human": first["name"],
-                "evidence": first.get("evidence")}
-    return {
-        "disposition": entry["disposition"] if entry else "unvetted",
-        "rationale": entry["rationale"] if entry else
-            "This failure combination has no vetted disposition yet -- investigate before trusting the verdict.",
-        "root": root,
-        "consequences": max(0, len(failed_assertions) - 1),
-    }
+
+    parts = re.split(r"('(?:[^']|'')*')", sql)
+    return "".join(part if i % 2 else _break(part) for i, part in enumerate(parts))
 
 
 def run_family(run):
@@ -440,6 +434,42 @@ def detail(scenario, backend):
         m = r.get("metrics") or {}
         resp = r.get("response") or {}
         request = r.get("request") or {}
+        if "passed" in (r.get("metrics") or {}):
+            # A catalyst row grades deterministically and renders as a
+            # dialogue: none of the chart-QA review pipeline below applies,
+            # and computing it here only to discard it in the browser made
+            # every catalyst click pay for source-matching it never shows.
+            m = r.get("metrics") or {}
+            turns.append({
+                "turn": r.get("turn"),
+                "question": request.get("question", ""),
+                "answer": _format_sql(resp.get("answer")) or "",
+                "status": m.get("http_status"),
+                "latency_ms": m.get("latency_ms"),
+                "chars": m.get("answer_chars"),
+                "error": r.get("error"),
+                "catalyst": {
+                    "passed": m.get("passed"),
+                    "question": resp.get("question"),
+                    "baseOutcome": resp.get("baseOutcome"),
+                    "baseAnswerText": resp.get("baseAnswerText"),
+                    "baseSql": _format_sql(resp.get("baseSql")),
+                    "expectedBaseOutcome": resp.get("expectedBaseOutcome"),
+                    "turns": [
+                        {**turn, "sql": _format_sql(turn.get("sql"))}
+                        for turn in resp.get("turns") or []
+                    ],
+                    "failedAssertions": resp.get("failedAssertions") or [],
+                    "resultPreview": resp.get("resultPreview"),
+                    "conformed": not any(
+                        (item.get("class")
+                         or assertion_class(item.get("name") or ""))
+                        == "conformance"
+                        for item in resp.get("failedAssertions") or []
+                    ),
+                },
+            })
+            continue
         tr = match_trace(
             traces,
             trace_model_for_result(r, arm_model_name(backend)),
@@ -496,22 +526,6 @@ def detail(scenario, backend):
                       "status": m.get("http_status"), "latency_ms": m.get("latency_ms"),
                       "chars": m.get("answer_chars"), "citations": m.get("citation_count"),
                       "error": r.get("error"),
-                      # Catalyst rows are graded deterministically and carry
-                      # their own review payload; the chart-QA panels below
-                      # would all render empty for them.
-                      "catalyst": ({
-                          "passed": m.get("passed"),
-                          "baseOutcome": resp.get("baseOutcome"),
-                          "expectedBaseOutcome": resp.get("expectedBaseOutcome"),
-                          "turns": resp.get("turns") or [],
-                          "failedAssertions": resp.get("failedAssertions") or [],
-                          "resultPreview": resp.get("resultPreview"),
-                          "blame": (blame_failure(
-                              resp.get("failedAssertions") or [],
-                              str(ROOT / "datasets" / "validation" / "catalyst"
-                                  / "vetted-failure-signatures.json"),
-                          ) if not m.get("passed") else None),
-                      } if "passed" in m else None),
                       "trace": {"answer_confidence": tr.get("answer_confidence"),
                                 "indepth_confidence": tr.get("indepth_confidence"),
                                 "answer_text": tr.get("answer_text", ""),
@@ -545,6 +559,7 @@ table.grid{border-collapse:collapse;margin-top:6px;font-size:11px;table-layout:f
 .grid th:not(:first-child){width:120px;text-align:center;white-space:normal;vertical-align:bottom;line-height:1.25;font-size:10.5px}
 .grid td:not(:first-child){width:120px;text-align:center}
 .grid td{cursor:pointer}.grid td:hover{outline:2px solid var(--accent2)}
+.sqlblock{white-space:pre-wrap;margin:4px 0 0;font-family:ui-monospace,Menlo,monospace;font-size:11px;background:var(--sunken);border:1px solid var(--border2);border-radius:6px;padding:8px}
 .c200{background:#196c2e;color:#e6ffe9}.cerr{background:#8b1a1a;color:#ffe9e9}.cpend{background:var(--pend-bg);color:var(--pend-fg);cursor:default}
 .crun{background:#9e6a03;color:#ffe9b3;animation:pulse 1.1s ease-in-out infinite}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
@@ -656,10 +671,11 @@ table.ac-knobs{border-collapse:collapse;font-size:10.5px;margin-top:2px}
 <h1 id=hdr>validate run</h1>
 <div class=bar><div id=fill style=width:0%></div></div>
 <div id=prog class=muted></div>
+<div id=warnbar class="caveat red" style="display:none"></div>
 <section><h2>Models resident (llama-router)</h2><div id=models></div></section>
 <section><h2>Arms</h2><div class=row id=arms></div></section>
 <section><h2>Judged scores</h2><div id=judges></div></section>
-<section><h2>Scenario &times; arm &nbsp;<span class=muted>(click a cell)</span></h2><div id=grid></div></section>
+<section><h2>Scenario &times; arm &nbsp;<span class=muted>(click a cell)</span></h2><p id=legend class=muted style="margin:2px 0 6px"></p><div id=grid></div></section>
 <section><h2>Recent &nbsp;<span class=muted>(click a row)</span></h2><div class=feed id=feed></div></section>
 <div id=modal onclick="if(event.target===this)closeD()"><div id=mbody></div></div>
 <script>
@@ -822,6 +838,16 @@ async function tick(){
  const pct=d.total?Math.round(100*d.done/d.total):0;
  hdr.textContent='run '+d.run.slice(0,8)+'  ·  set '+(d.set||'')+'  ·  '+pct+'%';
  fill.style.width=pct+'%'; prog.textContent=d.done+' / '+d.total+' results';
+ const wb=document.getElementById('warnbar');
+ if(wb){ if(d.warning){wb.textContent=d.warning; wb.style.display='';} else wb.style.display='none'; }
+ const lg=document.getElementById('legend');
+ if(lg){
+  if(isCat){
+   let t='<b>'+(d.conformant||0)+'</b> followed an allowed path &nbsp;·&nbsp; <b>'+(d.unexpected||0)+'</b> unexpected behaviour';
+   if(d.judged_scored) t+=' &nbsp;·&nbsp; judged <b>'+(d.judged_passed||0)+'/'+d.judged_scored+'</b> — see the report';
+   lg.innerHTML=t+'<br><span class=c200 style="padding:0 4px">✓</span> allowed path (a refusal, a question or a wrong answer still counts) &nbsp;·&nbsp; <span class=cerr style="padding:0 4px">×</span> the system misbehaved &nbsp;·&nbsp; <span class=crun style="padding:0 4px">●</span> running';
+  } else lg.textContent='';
+ }
  models.innerHTML=(d.models||[]).map(m=>'<span class=chip>'+m+'</span>').join('')||'<span class=muted>none resident</span>';
  arms.innerHTML=renderArmCards(d);
  restoreOpenDetails(arms);   // re-apply the user's expanded config/full-prompt panels after the re-render
@@ -1001,28 +1027,44 @@ async function openD(s,b){
  const reps=(d.turns||[]);
  if(reps.length&&reps[0].catalyst){
   // Older run dirs may lack suite.json; the question must still be visible.
-  if(!ce&&reps[0].question) h+='<div class=exp><b>Question:</b> '+esc(reps[0].question)+'</div>';
-  // One scenario, N repetitions: the script is stated once above; what a
-  // reviewer compares is per-repetition outcomes, so those are a table and
-  // the full transcript of each repetition is collapsed beneath it.
-  const chip=(exp,obs)=>(!exp||obs===exp)?'<span class=ok>'+esc(obs||'?')+'</span>':'<span class=err>'+esc(obs||'?')+'</span>';
-  const first=reps[0].catalyst;
-  h+='<div style="overflow-x:auto"><table class=data><tr><th>rep</th><th>opening</th>';
-  (first.turns||[]).forEach((u,i)=>{h+='<th title="'+esc(u.instruction||'')+'">turn '+(i+2)+'</th>';});
-  h+='<th>time</th><th>verdict</th><th>why</th></tr>';
-  reps.forEach(t=>{
+  if(!ce&&(reps[0].catalyst.question||reps[0].question)) h+='<div class=exp><b>Question:</b> '+esc(reps[0].catalyst.question||reps[0].question)+'</div>';
+  // A cell is ONE conversation, so it renders as one: the opening question,
+  // what the writer answered, then each scripted turn and its answer. The
+  // outer index is a rerun of the whole conversation -- only shown when
+  // there is more than one.
+  const chip=(exp,obs)=>(!exp||obs===exp)?'<span class=ok>'+esc(obs||'?')+'</span>':'<span class=err>'+esc(obs||'?')+'</span>'+(exp?' <span class=muted>(expected '+esc(exp)+')</span>':'');
+  const kindOf=o=>o==='needs_clarification'?'asked a question':(o==='unsupported'?'declined':(o==='rejected'?'was rejected':'wrote a query'));
+  const say=(role,label,body,extra)=>'<div class=tstep><div class="trole'+(extra||'')+'">'+esc(label)+'</div><div class=tbody>'+body+'</div></div>';
+  const arrow='<div class=tarrow>↓</div>';
+  reps.forEach((t,ri)=>{
    const c=t.catalyst;
-   const bl=c.blame;
-   const blameChip=b=>!b?'':('<span class="chip'+(b.disposition==='model'?'':' cerr')+'" style="margin-right:6px">'+esc(b.disposition.toUpperCase())+'</span>');
-   const why=bl?(blameChip(bl)+esc(bl.root?bl.root.human:'')+(bl.consequences?' <span class=muted>(+'+bl.consequences+' consequent checks)</span>':'')):'';
-   h+='<tr><td>'+t.turn+'</td><td>'+chip(c.expectedBaseOutcome,c.baseOutcome)+'</td>';
-   (first.turns||[]).forEach((_,i)=>{const u=(c.turns||[])[i]||{};h+='<td>'+chip(u.expectedOutcome,u.observedOutcome)+'</td>';});
-   h+='<td>'+Math.round((t.latency_ms||0)/1000)+'s</td><td>'+(c.passed?'<span class=ok>PASS</span>':'<span class=err>FAIL</span>')+'</td><td>'+why+'</td></tr>';
-  });
-  h+='</table></div>';
-  reps.forEach(t=>{
-   const c=t.catalyst;
-   h+='<details class=tracebox><summary>'+(c.passed?'✓':'×')+' repetition '+t.turn+' — full detail</summary><div class=turn>';
+   const many=reps.length>1;
+   const head=(c.passed?'<span class=ok>✓ judged pass</span>':'<span class=err>× judged fail</span>')
+     +(c.conformed?'':' <span class=err>· the system misbehaved</span>')
+     +' <span class=muted>· '+Math.round((t.latency_ms||0)/1000)+'s</span>';
+   if(many) h+='<div class=ctitle style="margin-top:8px">run '+t.turn+'</div>';
+   h+='<div class=meta>'+head+'</div>';
+   const steps=[];
+   steps.push(say('user','person asks','<div class=q style="margin:0">'+esc(c.question||(d.catalystExpected||{}).question||'')+'</div>'));
+   const sqlBlock=s=>'<pre class=sqlblock>'+esc(s)+'</pre>';
+   const saidBlock=s=>'<pre style="white-space:pre-wrap;margin:0">'+esc(s)+'</pre>';
+   // Every generated query is shown where it was written. Runs recorded
+   // before per-turn SQL existed fall back to the final selected query.
+   const baseSql=c.baseSql||((c.turns||[]).length?null:(c.baseOutcome==='ready'?t.answer:null));
+   const baseBody=(c.baseAnswerText?saidBlock(c.baseAnswerText):'')
+      +(baseSql?sqlBlock(baseSql):'')
+      +((!c.baseAnswerText&&!baseSql)?'<span class=muted>(recorded before per-turn SQL; final query below)</span>':'');
+   steps.push(say('model','writer '+kindOf(c.baseOutcome)+' — '+((c.expectedBaseOutcome&&c.baseOutcome!==c.expectedBaseOutcome)?'':'')+'',baseBody+'<div class=meta style="margin-top:3px">'+chip(c.expectedBaseOutcome,c.baseOutcome)+'</div>'));
+   (c.turns||[]).forEach((u,i)=>{
+    const isAnswer=(c.baseOutcome==='needs_clarification'&&i===0);
+    steps.push(say('user',isAnswer?'person answers the question':'person asks for a change (turn '+(i+2)+')','<div class=q style="margin:0">'+esc(u.instruction||'')+'</div>'));
+    const body=(u.answerText?saidBlock(u.answerText):'')
+      +(u.sql?sqlBlock(u.sql):'')
+      +((!u.answerText&&!u.sql)?'<span class=muted>(recorded before per-turn SQL; final query below)</span>':'');
+    steps.push(say('model','writer '+kindOf(u.observedOutcome),body+'<div class=meta style="margin-top:3px">'+chip(u.expectedOutcome,u.observedOutcome)+'</div>'));
+   });
+   h+='<div class=trace>'+steps.join(arrow)+'</div>';
+   h+='<details class=tracebox open><summary>selected query and its result</summary><div class=turn>';
    h+='<div class=ans><pre style="white-space:pre-wrap;margin:0">'+esc(t.answer||'')+'</pre></div>';
    const rp=c.resultPreview;
    if(rp&&(rp.columns||[]).length){
@@ -1031,15 +1073,18 @@ async function openD(s,b){
     h+=(rp.rows||[]).map(r=>'<tr>'+r.map(v=>'<td>'+esc(v==null?'∅':String(v))+'</td>').join('')+'</tr>').join('');
     h+='</table></div></div>';
    }
-   if((c.failedAssertions||[]).length){
-    const b=c.blame||{};
-    h+='<div class="caveat '+(b.disposition==='model'?'yellow':'red')+'"><b>'+esc((b.disposition||'?').toUpperCase())+'</b> — '+esc(b.rationale||'')+'</div>';
-    if(b.root) h+='<div class=meta><b>Root cause:</b> '+esc(b.root.human)+' <span class=muted>('+esc(b.root.name)+')</span><br>'+esc(typeof b.root.evidence==='string'?b.root.evidence:JSON.stringify(b.root.evidence||''))+'</div>';
-    h+='<details><summary>all '+c.failedAssertions.length+' failed checks</summary>'+c.failedAssertions.map(f=>'<div class="caveat red"><b>'+esc(f.name)+'</b> — '+esc(f.evidence||'')+'</div>').join('')+'</details>';
+   h+='</div></details>';
+   const fa=c.failedAssertions||[];
+   if(fa.length){
+    const conf=fa.filter(f=>(f.class||'conformance')==='conformance');
+    const ev=fa.filter(f=>(f.class||'conformance')!=='conformance');
+    if(conf.length) h+='<div class="caveat red"><b>Unexpected behaviour</b> — the run broke its own contract here, so this measurement is not trustworthy.</div>'
+      +conf.map(f=>'<div class="caveat red"><b>'+esc(f.name)+'</b> — '+esc(typeof f.evidence==='string'?f.evidence:JSON.stringify(f.evidence||''))+'</div>').join('');
+    if(ev.length) h+='<details><summary>'+ev.length+' judged check'+(ev.length>1?'s':'')+' the answer did not meet</summary>'
+      +ev.map(f=>'<div class=meta><b>'+esc(f.name)+'</b> — '+esc(typeof f.evidence==='string'?f.evidence:JSON.stringify(f.evidence||''))+'</div>').join('')+'</details>';
    }else{
     h+='<div class=meta><span class=ok>every check passed</span></div>';
    }
-   h+='</div></details>';
   });
   mbody.innerHTML=h; modal.style.display='flex';
   return;
@@ -1184,7 +1229,7 @@ def freeze(out_path):
         raise SystemExit("no run to snapshot")
     details = {}
     for g in st.get("grid", []):
-        if g.get("state") in ("done", "err", "running"):  # cells that have results
+        if g.get("state") != "pending":  # every cell the grid makes clickable
             s, b = g["scenario"], g["backend"]
             details[f"{s}|{b}"] = detail(s, b)
     shim = (

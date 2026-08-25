@@ -54,7 +54,10 @@ def test_a_clean_run_passes_triage(tmp_path, monkeypatch, capsys):
     assert "triage clean" in out
 
 
-def test_an_unvetted_failure_signature_refuses_the_run(tmp_path, monkeypatch, capsys):
+def test_a_check_nobody_classified_refuses_the_run(tmp_path, monkeypatch, capsys):
+    """An unrecognised failure is unexplained, and unexplained means the
+    measurement cannot be trusted -- so it blocks the finish and names
+    itself, rather than being filed as another judged failure."""
     row = _pass_row()
     row["passed"] = False
     row["assertions"].append({"name": "something_new", "passed": False,
@@ -62,7 +65,8 @@ def test_an_unvetted_failure_signature_refuses_the_run(tmp_path, monkeypatch, ca
     run_dir = _write_rows(tmp_path, [row])
     code, out = _triage(run_dir, [], monkeypatch, capsys)
     assert code == 1
-    assert "UNVETTED" in out and "something_new" in out and "novel breakage" in out
+    assert "INVALID MEASUREMENT" in out
+    assert "something_new" in out and "novel breakage" in out
 
 
 def test_a_vetted_failure_is_dispositioned_not_flagged(tmp_path, monkeypatch, capsys):
@@ -136,3 +140,44 @@ def test_the_remaining_refusals_and_gaps_are_exercised(tmp_path, monkeypatch, ca
     assert code == 1
     assert "no independent-answer check ran" in out
     assert "terminal base not verified SQL-free" in out
+
+
+def test_a_broken_contract_refuses_the_run_however_it_is_vetted(
+    tmp_path, monkeypatch, capsys
+):
+    """Explaining an invalid measurement does not make it a result.
+
+    Vetting records why a contract broke; the pair still has to be re-graded
+    before the run can be finished, so triage refuses either way.
+    """
+    row = _pass_row("B2")
+    row["passed"] = False
+    row["assertions"] = [
+        {"name": "writer_model", "class": "conformance", "passed": False,
+         "evidence": "no invocations recorded"}
+    ]
+    run_dir = _write_rows(tmp_path, [row])
+    code, out = _triage(
+        run_dir,
+        [{"signature": ["writer_model"], "disposition": "infrastructure",
+          "rationale": "the gateway broke; re-grade"}],
+        monkeypatch, capsys,
+    )
+    assert code == 1
+    assert "INVALID MEASUREMENT" in out
+
+
+def test_a_judged_failure_is_data_and_never_blocks_the_run(
+    tmp_path, monkeypatch, capsys
+):
+    """The comparison exists to record these; an unvetted one is fine too."""
+    row = _pass_row("M2")
+    row["passed"] = False
+    row["assertions"] = [
+        {"name": "successor_gold_execution_match", "class": "evaluation",
+         "passed": False, "evidence": {"modelRowCount": 4,
+                                       "referenceRowCount": 6}}
+    ]
+    run_dir = _write_rows(tmp_path, [row])
+    code, out = _triage(run_dir, [], monkeypatch, capsys)
+    assert code == 0, out

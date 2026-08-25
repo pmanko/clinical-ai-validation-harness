@@ -24,17 +24,15 @@ from pathlib import Path
 
 _SLOT = re.compile(r"-(?:t\d+|base)$")
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from harness.catalyst.attribution import (  # noqa: E402
+    conformed,
+    signature as _signature_of,
+)
+
 
 def _signature(row: dict) -> tuple[str, ...]:
-    return tuple(
-        sorted(
-            {
-                _SLOT.sub("", a["name"])
-                for a in row.get("assertions") or []
-                if not a.get("passed")
-            }
-        )
-    )
+    return _signature_of(row.get("assertions") or [])
 
 
 def _pass_gaps(row: dict) -> list[str]:
@@ -87,16 +85,23 @@ def main() -> int:
         print(f"TRIAGE FAILED: cannot read the vetted ledger {vetted_path}: {error}")
         return 1
 
-    unvetted: dict[tuple[str, ...], list[dict]] = defaultdict(list)
     dispositions: dict[str, int] = defaultdict(int)
+    invalid: list[dict] = []
+    judged = 0
     for row in rows:
         if row.get("passed"):
             continue
+        assertions = row.get("assertions") or []
+        if not conformed(assertions):
+            # A broken contract measured nothing. Vetting records WHY it
+            # broke; it never makes the number usable, so the pair still has
+            # to be re-graded before this run can be finished.
+            invalid.append(row)
+            continue
+        judged += 1
         signature = _signature(row)
         entry = vetted.get(signature)
-        if entry is None:
-            unvetted[signature].append(row)
-        else:
+        if entry is not None:
             dispositions[entry["disposition"]] += 1
 
     vacuous = [
@@ -104,36 +109,44 @@ def main() -> int:
     ]
 
     passed = sum(1 for r in rows if r.get("passed"))
-    print(f"{len(rows)} rows: {passed} passed, {len(rows) - passed} failed")
+    print(
+        f"{len(rows)} conversations: {passed} passed, {judged} judged failures, "
+        f"{len(invalid)} invalid measurements"
+    )
+    for row in invalid:
+        entry = vetted.get(_signature(row))
+        print(
+            f"\nINVALID MEASUREMENT {row.get('profileId','?')} × "
+            f"{row.get('scenarioId')}"
+        )
+        if entry:
+            print(f"  recorded cause: {entry['rationale']}")
+        for a in row.get("assertions") or []:
+            if a.get("passed"):
+                continue
+            evidence = a.get("evidence")
+            if isinstance(evidence, dict) and isinstance(
+                evidence.get("disagreement"), str
+            ):
+                evidence = evidence["disagreement"]
+            print(f"    {a['name']} -> {json.dumps(evidence, default=str)[:200]}")
     for disposition, count in sorted(dispositions.items()):
         print(f"  vetted {disposition}: {count} rows")
-    for signature, offenders in unvetted.items():
-        cells = sorted(
-            {(r.get("profileId", "?"), r.get("scenarioId")) for r in offenders}
-        )
-        print(f"\nUNVETTED signature {list(signature)}")
-        print(f"  cells: {cells}")
-        first = offenders[0]
-        for a in first.get("assertions") or []:
-            if not a.get("passed"):
-                evidence = a.get("evidence")
-                if isinstance(evidence, dict) and isinstance(
-                    evidence.get("disagreement"), str
-                ):
-                    evidence = evidence["disagreement"]
-                print(f"    {a['name']} -> {json.dumps(evidence, default=str)[:200]}")
     for row, gaps in vacuous:
         print(
             f"\nVACUOUS PASS {row.get('profileId','?')} × {row.get('scenarioId')} "
-            f"rep{row.get('repetition')}: {gaps}"
+            f"run {row.get('repetition')}: {gaps}"
         )
-    if unvetted or vacuous:
+    if invalid or vacuous:
         print(
-            "\nTRIAGE FAILED: disposition every unvetted signature (add it to "
-            "the vetted ledger with a rationale) and close every vacuous pass."
+            "\nTRIAGE FAILED: re-grade every invalid measurement (fix the "
+            "cause, then resume the run) and close every vacuous pass. "
+            "Judged failures are the data and never block a finish."
         )
         return 1
-    print("triage clean: every failure vetted, every pass exercised")
+    print(
+        "triage clean: every conversation conformed, every pass exercised"
+    )
     return 0
 
 

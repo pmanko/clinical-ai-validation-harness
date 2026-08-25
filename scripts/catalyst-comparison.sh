@@ -12,40 +12,76 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-SUITE="${SUITE:-datasets/validation/catalyst/catalyst-phase1-comparison-v1.json}"
-GATEWAY_URL="${GATEWAY_URL:-http://127.0.0.1:18000}"
-OUT_DIR="${OUT_DIR:-${ROOT}/artifacts/catalyst-notebook-validation}"
-POSTGRES_DSN="${POSTGRES_DSN:-postgresql://catalyst_readonly:demo-readonly-change-me@127.0.0.1:15443/catalyst_analytics_hiv}"
-# SLUG defaults per run id inside `finish`, so re-running finish on any day
-# restages the same run under the same slug instead of duplicating it.
-SLUG="${SLUG:-}"
+# Everything a run needs comes from one seed file, so nothing about a
+# comparison depends on which variables happened to be exported that day.
+CONFIG="${CONFIG:-${ROOT}/datasets/validation/catalyst/run-config.template.json}"
+
+# Reads one field out of a config file (the template for `run`, the run's own
+# frozen copy afterwards).
+cfg() {
+  (cd "${ROOT}" && uv run python -c '
+import sys
+from harness.catalyst.run_config import postgres_dsn, resolve
+config = resolve(sys.argv[1])
+field = sys.argv[2]
+if field == "dsn":
+    print(postgres_dsn(config))
+else:
+    value = config
+    for part in field.split("."):
+        value = (value or {}).get(part)
+    print(value if value is not None else "")
+' "$1" "$2")
+}
 
 cmd="${1:?usage: catalyst-comparison.sh run|resume <run-id>|finish <run-id>}"
+
+SUITE="$(cfg "${CONFIG}" suite)"
+GATEWAY_URL="$(cfg "${CONFIG}" gatewayUrl)"
+OUT_DIR="${OUT_DIR:-${ROOT}/$(cfg "${CONFIG}" outputDir)}"
 
 run_suite() {
   (cd "${ROOT}" && uv run harness-cli catalyst run \
     --suite "${SUITE}" \
     --gateway-url "${GATEWAY_URL}" \
     --output-dir "${OUT_DIR}" \
-    --postgres-dsn "${POSTGRES_DSN}" \
+    --postgres-dsn "$(cfg "${CONFIG}" dsn)" \
     "$@")
+}
+
+# The seed is frozen into the run directory the first time we see it, so
+# `finish` months later applies the gates the run was started with, and the
+# published package carries its own configuration.
+freeze_seed() {
+  (cd "${ROOT}" && uv run python -c '
+import sys
+from harness.catalyst.run_config import freeze, resolve
+print(freeze(resolve(sys.argv[1]), sys.argv[2]))
+' "${CONFIG}" "$1")
 }
 
 case "${cmd}" in
   run)
     run_suite
+    # The runner names the directory, so seed the newest one it just wrote.
+    newest="$(ls -td "${OUT_DIR}"/*/ 2>/dev/null | head -1)"
+    [[ -n "${newest}" ]] && freeze_seed "${newest%/}"
     ;;
   resume)
     run_id="${2:?resume needs the run id}"
     run_suite --resume "${OUT_DIR}/${run_id}"
+    [[ -f "${OUT_DIR}/${run_id}/run-config.json" ]] || freeze_seed "${OUT_DIR}/${run_id}"
     ;;
   finish)
     run_id="${2:?finish needs the run id}"
     run_dir="${OUT_DIR}/${run_id}"
+    # The run's own seed decides how it is judged and published.
+    [[ -f "${run_dir}/run-config.json" ]] && CONFIG="${run_dir}/run-config.json"
+    SLUG="${SLUG:-$(cfg "${CONFIG}" publish.slug)}"
     SLUG="${SLUG:-catalyst-phase1-comparison-${run_id%%-*}}"
     [[ -f "${run_dir}/results.json" ]] || { echo "ERROR: ${run_dir} has no results.json (run not finished — use resume)" >&2; exit 1; }
 
-    echo "==> triage: every failure vetted, every pass exercised"
+    echo "==> triage: every conversation conformed, every pass exercised"
     (cd "${ROOT}" && uv run python scripts/triage-run.py "${run_dir}")
 
     echo "==> scoring twice; replays must be byte-identical"
@@ -72,19 +108,26 @@ from harness.catalyst.profile_comparison_report import (
     build_comparison_report,
     entries_from_comparison_run,
 )
+from harness.catalyst.run_config import load_frozen
 run_dir = Path(sys.argv[1])
 entries = entries_from_comparison_run(run_dir)
-html = build_comparison_report(entries, title="Catalyst Phase 1 team comparison")
+# The gates come from the run's own seed, so the page records the policy it
+# was judged against rather than whatever the programme uses today.
+gates = (load_frozen(run_dir).get("gates") or None)
+html = build_comparison_report(
+    entries, title="Catalyst Phase 1 team comparison", gates=gates
+)
 out = run_dir / "comparison.html"
 out.write_text(html, encoding="utf-8")
-print(f"comparison -> {out} ({len(entries)} teams)")
+print(f"comparison -> {out} ({len(entries)} teams, gates={gates})")
 PY
 )
 
     echo "==> stage report + frozen dashboard into the curated index"
     "${ROOT}/scripts/publish-report.sh" catalyst "${run_dir}" "${SLUG}" \
-      "${TITLE:-Catalyst Phase 1: three model teams on the locked HIV suite}" \
-      "${SUMMARY:-}" "${TAKEAWAY:-}"
+      "${TITLE:-$(cfg "${CONFIG}" publish.title)}" \
+      "${SUMMARY:-$(cfg "${CONFIG}" publish.summary)}" \
+      "${TAKEAWAY:-$(cfg "${CONFIG}" publish.takeaway)}"
     ;;
   score)
     # Compose any number of single-pass runs of the same suite into one

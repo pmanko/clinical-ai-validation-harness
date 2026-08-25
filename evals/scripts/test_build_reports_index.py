@@ -265,7 +265,7 @@ def test_card_renders_meta_scoreline_instead_of_unscored_disclaimer(tmp_path, mo
     slug_dir.mkdir(parents=True)
     (slug_dir / "meta.json").write_text(json.dumps({
         "run_dir": "does-not-resolve",
-        "scoreline": "12/12 scenario repetitions passed - 384 assertions",
+        "scoreline": "12/12 conversations passed - 384 assertions",
     }), encoding="utf-8")
     monkeypatch.setattr(bri, "REPORTS", reports)
     monkeypatch.setattr(bri, "VALIDATE", tmp_path / "validate")
@@ -369,7 +369,7 @@ def test_catalyst_gather_uses_root_relative_run_and_never_calls_scout(
         {"slug": "catalyst-run", "title": "Catalyst", "summary": "S"}
     )
     assert "Catalyst SQL" in html
-    assert "2 scenario repetitions" in html
+    assert "2 conversations" in html
 
 
 def test_root_relative_run_path_rejects_repository_traversal(tmp_path, monkeypatch):
@@ -389,3 +389,75 @@ def test_root_relative_run_path_rejects_repository_traversal(tmp_path, monkeypat
     monkeypatch.setattr(bri, "ROOT", tmp_path)
     monkeypatch.setattr(bri, "REPORTS", reports)
     assert bri._run_dir_for("bad") is None
+
+
+def test_the_decision_document_is_reachable_from_the_index(
+    tmp_path, monkeypatch
+) -> None:
+    """A comparison page nobody can click is not published.
+
+    stage_report copies comparison.html into the slug directory, but the
+    index only ever linked the report and the dashboard, so the artifact
+    that carries the verdict was unreachable.
+    """
+    bri = _load()
+    reports = tmp_path / "reports"
+    slug_dir = reports / "cmp-run"
+    slug_dir.mkdir(parents=True)
+    (slug_dir / "comparison.html").write_text("<html></html>", encoding="utf-8")
+    monkeypatch.setattr(bri, "REPORTS", reports)
+    monkeypatch.setattr(
+        bri,
+        "gather",
+        lambda slug: {"patients": "", "cells": 36, "date": "2026-08-25",
+                      "scout": [], "family": "catalyst"},
+    )
+
+    html = bri._card({"slug": "cmp-run", "title": "Cmp", "summary": "s"})
+
+    assert 'href="cmp-run/comparison.html"' in html
+    assert "Team comparison" in html
+
+
+def test_a_comparison_run_says_how_the_teams_did_on_the_index(
+    tmp_path, monkeypatch
+) -> None:
+    """The index card is the first thing a reader sees about a run.
+
+    For a three-team comparison, 'gold checks passed' says nothing about
+    the decision; the card names the teams' conversation scores and flags
+    any measurement that was not valid.
+    """
+    bri = _load()
+    root = tmp_path
+    reports = root / "artifacts" / "reports"
+    (reports / "cmp").mkdir(parents=True)
+    run_dir = root / "artifacts" / "catalyst-notebook-validation" / "cmp-run"
+    run_dir.mkdir(parents=True)
+    (reports / "cmp" / "meta.json").write_text(
+        json.dumps({"report_family": "catalyst",
+                    "run_path": "artifacts/catalyst-notebook-validation/cmp-run"}),
+        encoding="utf-8",
+    )
+
+    def row(team, passed, cls="evaluation"):
+        return {"profileId": team, "passed": passed,
+                "assertions": [{"name": "successor_gold_execution_match",
+                                "class": cls, "passed": passed}]}
+
+    (run_dir / "results.json").write_text(
+        json.dumps({"resultCount": 4, "results": [
+            row("team-a", True), row("team-a", True),
+            row("team-b", True), row("team-b", False, "conformance"),
+        ]}),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(bri, "ROOT", root)
+    monkeypatch.setattr(bri, "REPORTS", reports)
+    monkeypatch.setattr(bri, "VALIDATE", root / "artifacts" / "validate")
+
+    gathered = bri.gather("cmp")
+
+    assert "2 teams" in gathered["scoreline"]
+    assert "team-a 2/2" in gathered["scoreline"]
+    assert "invalid" in gathered["scoreline"]
