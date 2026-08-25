@@ -1,9 +1,7 @@
-"""Catalog v6 is the reviewed Phase 1 data surface.
+"""Preserve the historical catalog v6 fixture without making it a product cap.
 
-The writer, the editor, the validator, and the executor all read this one
-list, so a relation appearing or disappearing is a reviewed catalog version
-rather than a permissions change or a regeneration artifact. These assertions
-read the committed catalog, not the database.
+These assertions describe the committed v6 evidence. The active runtime
+surface is every relation the configured read-only database role can read.
 """
 
 from __future__ import annotations
@@ -16,7 +14,7 @@ SOURCE = ROOT / "catalyst-sources" / "openmrs-hiv"
 CATALOG = SOURCE / "catalog" / "openmrs-hiv-catalog.json"
 OVERLAY = SOURCE / "catalog-overlay.json"
 
-PHASE_1_SURFACE = {
+CATALOG_V6_RELATIONS = {
     # Preferred clinical relations
     "analytics.hiv_observation_fact_v1",
     "analytics.hiv_medication_request_fact_v1",
@@ -47,20 +45,22 @@ def test_catalog_is_v6() -> None:
     assert catalog["schemaVersion"] == "analytics-v1"
 
 
-def test_catalog_exposes_exactly_the_reviewed_thirteen() -> None:
+def test_catalog_v6_records_its_historical_thirteen_relations() -> None:
     names = {view["name"] for view in _catalog()["views"]}
-    assert names == PHASE_1_SURFACE
-    assert len(PHASE_1_SURFACE) == 13
+    assert names == CATALOG_V6_RELATIONS
+    assert len(CATALOG_V6_RELATIONS) == 13
 
 
 def test_the_overlay_and_the_generated_catalog_agree() -> None:
     """The overlay is the reviewed input; the catalog is what it produced."""
     overlay = json.loads(OVERLAY.read_text(encoding="utf-8"))
-    assert {entry["name"] for entry in overlay["approvedViews"]} == PHASE_1_SURFACE
+    assert {entry["name"] for entry in overlay["approvedViews"]} == (
+        CATALOG_V6_RELATIONS
+    )
     assert overlay["catalogVersion"] == _catalog()["catalogVersion"]
 
 
-def test_every_relation_is_approved_for_the_one_shared_surface() -> None:
+def test_every_historical_v6_relation_was_marked_approved() -> None:
     assert all(view.get("approved") is True for view in _catalog()["views"])
 
 

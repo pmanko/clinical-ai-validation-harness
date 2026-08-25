@@ -780,11 +780,12 @@ The following items must remain visible until evidence resolves them:
   disposable patched Hub and made the harness sibling the runtime source. The
   current design keeps one shared Hub profile catalog while Catalyst retains
   query orchestration, policy, execution, and lineage.
-- **N31 — Context growth and truncation (bounded by contract)**: Revision
-  context includes the initial question plus at most five most recent follow-up
-  instructions, exact current editor state, and exact-digest feedback. The turn
-  records the supplied IDs and deterministic omissions; raw result rows and
-  historical SQL copies are excluded.
+- **N31 — Context growth and omissions (Phase 1 successor)**: The existing v2
+  contract used the initial question plus five recent follow-ups. Phase 1 does
+  not preserve that count as a product limit. Revision context records the
+  relevant instructions and every omission alongside the exact editor state
+  and matching feedback; raw result rows and historical SQL copies remain
+  excluded.
 - **N32 — Lint-clean semantic review restriction (resolved by G2.8b)**:
   Reviewed Hub query profiles invoke their reviewer even when structural lint is
   clean and permit approval or a complete correction followed by deterministic
@@ -934,17 +935,13 @@ The following items must remain visible until evidence resolves them:
   G2.9 will disclose this accurately. Value-level follow-ups require an explicit,
   bounded result attachment and would reverse the approved G2.8 exclusion; no
   silent row sharing will be introduced without the checkpoint decision.
-- **N57 — Supported catalog omits half of the physical fact-view columns (open;
-  G2.9)**: The editor/model catalog exposes 8 fields while the live approved
-  `analytics.lab_result_fact_v1` has 16. The same runtime catalog must become the
-  source for model grounding, completion, and the user-facing schema guide, with
-  a live information-schema drift check.
-- **N58 — Database permissions exceed the reviewed product catalog (open;
-  intentional boundary)**: The read-only role can SELECT seven business
-  relations, while only the fact view has reviewed query semantics. G2.9 proposes
-  the completed 16-column fact view as the supported surface and labels manual
-  execution as database-role governed. Advertising all seven relations requires
-  a separate reviewed catalog decision.
+- **N57 — Runtime catalog omitted physical columns (open; G2.9)**: The same
+  complete runtime catalog must supply model grounding, completion, and the
+  user-facing schema guide.
+- **N58 — Reviewed subset versus database readability (superseded
+  2026-08-25)**: The configured read-only role's complete readable catalog is
+  the shared demo surface. Reviewed metadata guides use but does not decide
+  availability.
 - **N59 — Optional Patient display text erased structured names (resolved;
   superseded)**: `patient_flat_v1.name_display` read only optional FHIR
   `HumanName.text`, while OpenELIS populated `given` and `family`. The

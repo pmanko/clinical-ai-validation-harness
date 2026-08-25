@@ -5,65 +5,57 @@ is not qualified or deployed. This roadmap governs the repairs needed to make
 the model-team decision trustworthy and repeatable.
 
 `specs/catalyst-program-roadmap.md` remains the authority for product scope,
-the reviewed data surface, the context contract, the three model teams, the
-acceptance thresholds, and the P1 → P2 → P3 order. This file is its execution
+the readable data surface, the context outcome, the three model teams, the
+comparison method, and the P1 → P2 → P3 order. This file is its execution
 roadmap. The planning brief and HTML artifact are historical evidence; they do
 not reopen closed decisions.
 
 ## Goal
 
-Produce a release-grade Phase 1 qualification decision from fresh, comparable
-whole-suite runs, then deploy and close Phase 1 only if one or more model teams
-pass every locked gate.
+Produce a trustworthy Phase 1 comparison from fresh, comparable whole-suite
+runs and a documented owner-reviewed decision. Deploy only a model team that
+is selected from complete evidence.
 
 The work is deliberately split into small pull requests. Measurement repairs
 land before model or prompt tuning so the project does not optimize against a
 known-broken check. Every tested or deployed revision must already be merged to
 the relevant repository's `main` branch.
 
-## Decisions that remain locked
+## Execution rules inherited from the program roadmap
+
+The program roadmap owns the product and comparison decisions. This execution
+roadmap applies only the rules needed to produce trustworthy evidence:
 
 - One full suite run contains one live conversation for each of the three
   model teams and each of the twelve scenarios: 36 conversations total.
 - The suite keeps `repetitions: 1`. Repeated measurement means rerunning the
   complete frozen suite, never retrying or repeating an individual cell inside
   a run.
-- Start with three fresh complete suite runs. Extend the unchanged batch to
-  five if any scored turn's terminal outcome or answer correctness varies
-  across the first three runs; if leaving out any one run changes whether a
-  team passes any qualification gate; or if the two leading teams differ by no
-  more than one complete-scenario success among their 36 measurements. Stop at
-  five and report a remaining close result as inconclusive.
-- A run is local model-quality evidence. The deployed server receives only the
-  three final browser journeys after a team qualifies. Local and server
-  measurements are not pooled.
-- All thirteen reviewed relations are available to both the model and the
-  person editing SQL. Database permissions do not silently change that list.
+- Before a live batch starts, record its planned number of complete suite runs
+  and its decision method. Do not change either after seeing results. If the
+  planned whole-suite evidence is insufficient, report it as inconclusive.
 - Published catalog v6 and comparison suite v1 are immutable historical
   identities. Qualification repairs use catalog v7 and suite v2; no evidence
   is relabelled as if it used the newer versions.
-- The writer may choose `ready`, `needs_clarification`, or `unsupported`.
-  Gateway-owned `rejected` remains separate.
 - An interrupted run remains immutable, incomplete, and permanently excluded
   from composition. Recovery creates a new run with its own identity and a
   `resumedFrom` reference. After every frozen provenance field matches, the
   replacement reuses every complete, measurement-valid conversation regardless
-  of whether the model answer passed or failed.
+  of whether the model answer passed or failed. This finishes one interrupted
+  run; it does not count as another repetition.
 - All three M1 ready answers are scored, including the historically flawed
   opening answer. Only harmless ordering and spacing inside the unique
   comma-separated medication list are normalized.
-- M3's unrelated visit turn must match its independent database answer, use a
-  different query digest, and copy no CD4/observation relation, predicate, or
-  projection from either earlier turn.
-- A ready query may proceed when validation is `valid`, or when validation is
-  `warning` and every warning rule code is on the suite's frozen non-blocking
-  allowlist. `invalid`, unknown status, or an unlisted warning fails the turn.
-- If no team qualifies, record `none` and continue only through general
-  product remediation tested outside the frozen suite. Freeze a completely
-  new batch before measuring again.
-- Phase 1 does not make causal claims about individual context practices.
-- Phase 2 conversation mode and all fifteen Phase 3 Dashboard Builder gates
-  remain outside this remediation.
+- M3's unrelated visit turn must match its independent database answer and
+  carry no irrelevant CD4-specific assumptions into the visit answer. Sharing
+  a relation or SQL form that is valid for both questions is not a failure.
+- Validation is advisory. A selected `ready` query reaches PostgreSQL through
+  the bounded read-only path; its findings, database result or diagnostic, and
+  independent answer check are recorded. A wrong query is a model-quality
+  result, not an invalid measurement when its evidence is complete.
+- If no team is selected, record `none` or `inconclusive` and continue only
+  through general product remediation tested outside the frozen suite. Freeze
+  a completely new batch before measuring again.
 
 ## Verified starting point
 
@@ -103,30 +95,30 @@ mixed checkout.
 | ID | Finding | Consequence |
 | --- | --- | --- |
 | Q1 | A scenario has one `successorGoldCheck`, and the runner applies it after every follow-up. M2's final top-ten answer therefore judges its earlier unlimited regrouping turn. | A correct intermediate answer can fail and a premature limit can pass. Published M2 attribution is unreliable. |
-| Q2 | M1 and M3 lack independent answer checks for every ready turn; the M3 no-copy control is not measured. Several single-turn checks compare counts rather than every requested field or row. | Passing evidence does not prove the requested answers. |
-| Q3 | Validation evidence proves only that the API returned HTTP 201, not that the model query was valid. Opening turns receive weaker provenance checks, and intermediate turn time is omitted. | Invalid or incompletely evidenced model output can enter a score. |
+| Q2 | M1 and M3 lack independent answer checks for every ready turn; irrelevant carryover into M3's visit answer is not measured. Several single-turn checks compare counts rather than every requested field or row. | Passing evidence does not prove the requested answers. |
+| Q3 | Validation evidence proves only that the API returned HTTP 201, not what PostgreSQL returned for the exact query. Opening turns receive weaker provenance checks, and intermediate turn time is omitted. | Wrong and incompletely evidenced model output cannot be reported honestly. |
 | Q4 | `score_runs` checks only `suiteId`. It accepts duplicate, partial, or differently configured runs. | Whole-run composition can pool incomparable evidence. |
 | Q5 | The combined-run command prints JSON but cannot triage, qualify, report, or publish a complete batch. | Repeated measures cannot produce the required single decision artifact. |
-| Q6 | Qualification applies only overall and worst-scenario rates while describing those as every gate. | A future team could be declared eligible without satisfying the locked contract. |
-| Q7 | The catalog/grant boundary can drift, token accounting can fail open, and a selected but unexecuted query can become a “verified” example. Query-policy coverage also omits several locked unsafe forms. | Product-level zero-tolerance failures remain possible even with a correct scorer. |
-| Q8 | The program roadmap, brief, and HTML retain obsolete per-cell three-to-five language and stale implementation status. | The supposed single source of truth gives incompatible instructions. |
+| Q6 | The report applies only two provisional rates while claiming that it evaluated every decision rule. | A future report could overstate what the evidence supports. |
+| Q7 | The model receives fewer readable relations than the human editor, token evidence can be absent, and a selected but unexecuted query can become a “verified” example. | Product and measurement behavior can disagree even with a correct scorer. |
+| Q8 | The program roadmap, brief, and HTML retain obsolete fixed run counts, context mechanisms, and stale implementation status. | The supposed single source of truth gives incompatible instructions. |
 | Q9 | The wrapper freezes configuration only after a run returns, but ordinary model failures make the command exit early. Resume creates a new run while its text claims to continue the old one, and the wrapper finds a run through a racy “newest directory” lookup. | Failed or interrupted comparisons can lack their frozen identity, and resumed evidence can be attached to the wrong run. |
 | Q10 | The supported OpenELIS dependency stores PostgreSQL data in a path relative to the current Catalyst worktree while every worktree uses the same Compose project name. Starting from a second clean worktree can therefore replace the database container against a fresh host path while retaining an older FHIR container. | A normal no-reseed start can silently combine incompatible runtime state, fail health checks, and make real-path qualification depend on which checkout started the stack. |
 
 ## Required evidence standard
 
-No pull request closes from a passing total alone. Evidence must identify the
-exact code, suite, configuration, data, catalog, model files, prompts,
-tokenizer, context limits, and record-level database answers used. Each
+No pull request closes from a passing total alone. Comparison evidence must
+identify the code, suite, configuration, data, catalog, model setup, actual
+request context, and record-level database answers used. Each
 behavioral change adds a nearby case that was not used to design the fix.
 
 Each pull request must:
 
 1. answer and resolve every actionable current-head review thread;
-2. run its focused tests plus the owning repository's full required checks;
+2. run its focused tests plus the owning repository's normal required checks;
 3. preserve a clean remote-reachable component revision;
-4. record any intentionally skipped real-path check and keep the PR open until
-   that check is supplied;
+4. record any deferred real-path check; the final merged qualification
+   candidate must supply real PostgreSQL proof before live comparison;
 5. avoid seeding, resetting, deploying, or changing live access rules unless
    the step below explicitly calls for it and the operation is visible to the
    owner.
@@ -134,8 +126,8 @@ Each pull request must:
 ## Pull-request execution plan
 
 The dependency order is R0; then R1, R5, and R6 may proceed in parallel; then
-R2 → R3 → R4 → R7 → R8. R9 is conditional on a `none` result, and R10 is
-conditional on an eligible team. Every transition between repositories is a
+R2 → R3 → R4 → R7 → R8. R9 is conditional on `none`, `inconclusive`, or a
+shared product blocker, and R10 is conditional on a selected team. Every transition between repositories is a
 separate pull request based on that repository's current `main`. A Harness
 gitlink update never points at an unmerged component branch.
 
@@ -150,15 +142,15 @@ per-cell repetition language and stale Phase 1 status.
 Acceptance:
 
 - every active source says one conversation per team/scenario in a complete
-  run and three complete runs, extending the complete batch to five;
+  run and uses only complete-suite reruns for repeated measurement;
 - the program roadmap says implemented but not qualified or deployed;
 - current harness and component pins are correct;
 - the prior report is labelled a development first pass whose no-deploy
   disposition remains valid;
 - the catalog v6 and suite v1 files are byte-locked, and both active roadmaps
   name catalog v7 and suite v2 as the qualification successors;
-- the owner-approved recovery, M1, M3, validation-warning, and no-qualifier
-  decisions are recorded without an open interpretation gap;
+- the recovery, M1, M3, advisory-validation, and no-selection outcomes are
+  recorded without an open interpretation gap;
 - the dirty owner checkout is untouched;
 - documentation consistency, `git diff --check`, and repository-line checks
   pass on the final branch.
@@ -192,13 +184,13 @@ Acceptance:
   outcome, validation result, execution result, or answer correctness; recovery
   may not select or rerun cells based on quality;
 - an infrastructure-failed, pre-turn, or partial conversation is never reused;
-- suite bytes, frozen configuration, component revisions, dataset and catalog
-  identities, team/profile/model/prompt/tokenizer identities, scenario order,
-  and every imported evidence digest must match before any reuse or live call;
+- the recorded configuration and evidence capable of changing a result must
+  match before any reuse or live call;
 - repeated replacement retains the full ancestry chain, never duplicates a
   team/scenario cell, and never rewrites an earlier run;
-- across the linked chain, a team may replace two infrastructure failures; its
-  third infrastructure failure invalidates that team's constituent run;
+- infrastructure failures and replacements are recorded separately from model
+  quality; persistent instability leaves the batch incomplete rather than
+  invoking an arbitrary retry budget;
 - the interrupted run never enters composition; only a complete replacement
   containing exactly one measurement-valid conversation for every cell may
   enter;
@@ -231,14 +223,14 @@ Acceptance:
 - M2 turn 3 independently proves the exact top-ten result and retained
   exclusion;
 - every ready turn in M1 and M3 has an independent database answer; M3's visit
-  control also has a query digest different from both CD4 turns and reuses no
-  CD4/observation relation, predicate, or projection;
+  control also proves that irrelevant CD4-specific assumptions did not change
+  its answer;
 - A1–A4 and B1–B3 compare every requested field or row set, not counts alone;
 - duplicate aggregate keys fail rather than being silently collapsed;
-- an accepted model query must have validation status `valid`, or status
-  `warning` with every finding's rule code on the suite's frozen non-blocking
-  allowlist; `invalid`, unknown status, or an unlisted warning fails before
-  execution; every accepted query then executes and matches its turn's answer;
+- every `ready` query records advisory validation, reaches PostgreSQL through
+  the bounded read-only path, and records its result or diagnostic plus the
+  independent answer check; validator, database, or answer errors lower model
+  quality but do not erase an otherwise complete measurement;
 - opening and follow-up turns receive the same model, prompt, digest,
   forbidden-context, token, and timing evidence checks;
 - all turns contribute to total calls, tokens, and elapsed time;
@@ -263,14 +255,12 @@ Acceptance:
   team/scenario pair and no duplicate pair;
 - duplicate run IDs, partial matrices, internal cell repetitions, and
   untriaged runs are rejected;
-- composition requires identical suite bytes, frozen run configuration,
-  thresholds, dataset and catalog identity, harness/Catalyst/Hub revisions,
-  profile and prompt digests, exact model-file identity, tokenizer, context
-  window, and output reserve;
+- composition requires the same frozen suite, decision method, and recorded
+  configuration for everything capable of changing a result;
 - every constituent manifest and indexed evidence digest verifies before
   scoring;
-- infrastructure failures remain outside model denominators; the first two per
-  team may be replaced and the third invalidates that team's constituent run;
+- infrastructure failures remain outside model-quality results; replacements
+  are visible and never selected according to answer quality;
 - the combined artifact names every run and preserves each run's separate
   provenance;
 - scoring the same ordered batch twice produces identical bytes;
@@ -280,153 +270,133 @@ Acceptance:
 
 **Repository:** validation harness. **Depends on:** R3.
 
-Encode the complete Phase 1 decision instead of two proxy thresholds.
+Produce the complete Phase 1 comparison and documented decision instead of
+claiming that two provisional percentages are a full qualification.
 
 Acceptance:
 
-- eligibility covers complete-scenario rate, each scenario floor, ready-answer
-  correctness, clarification recall and precision, post-clarification answer
-  correctness, unsupported accuracy, retained guidance, the verified-example
-  control, validation/execution, token completeness, and time limit;
-- every zero-tolerance product or evidence failure is explicit and blocks the
-  affected product or team as specified by the program roadmap;
-- selection applies the locked tie-break order and chooses none when no team
-  qualifies;
+- before live execution, the batch records its owner-reviewed decision method;
+  the implementation does not hard-code universal percentages, automatic
+  disqualifiers, or a tie-break chain;
+- the comparison covers answer and terminal-outcome correctness,
+  clarification, unsupported requests, retained guidance, verified examples,
+  PostgreSQL results, evidence completeness, reliability, tokens, and time;
+- the decision selects one team, `none`, or `inconclusive` and explains why;
 - the report includes scheduled, completed, model-failed,
   infrastructure-failed, and invalid counts; outcome and answer metrics;
-  calls; total tokens; median and 95th-percentile time; intervals; and exact
-  failure reasons linked to evidence;
+  calls, tokens, timing, and exact failure reasons linked to evidence;
 - `finish` accepts several complete run IDs, performs triage and deterministic
   replay, and publishes one consolidated report, comparison, dashboard, score,
   decision, frozen configuration, and provenance package;
 - scoring or publication does not require a database password after the live
   runs have finished;
-- tests prove that no page can say “meets every gate” when only a subset was
-  evaluated.
+- tests prove that no page can claim a selection rule was met unless that rule
+  was recorded before the batch and evaluated completely.
 
-### R5 — Exact data surface and query safety
+### R5 — Shared readable catalog and execution boundary
 
 **Repositories:** Catalyst first, then validation harness repin and source
 configuration. **Depends on:** R0; may run in parallel with R1 and R6.
 
-Enforce the already approved thirteen-relation contract without narrowing the
-owner's chosen surface. Preserve the published catalog v6 files byte-for-byte;
-the corrected contract is catalog v7.
+Remove the model-only catalog restriction while preserving the workbench's
+deliberately advisory manual validation. Preserve the published catalog v6
+files byte-for-byte; catalog v7 records the corrected behavior.
 
 Acceptance:
 
-- catalog v7 generation, editor suggestions, model lint, manual lint, and
-  execution use the same exact qualified relation set;
+- every model and human tool can use every relation the configured read-only
+  database role can read; metadata may guide use but cannot hide a relation,
+  and refreshes do not fail merely because access changed;
+- legacy fields such as `approvedViews` may remain readable for compatibility
+  but cannot filter the runtime surface;
+- manual validation remains advisory; the database's read-only controls, time
+  limit, and result limit remain authoritative;
 - before either current unversioned catalog file changes, copy the exact v6
   overlay and generated catalog to new paths whose filenames identify v6, then
   retarget the immutable digest guard to those archived files;
-- the new active overlay and generated catalog identify v7, and the guard
-  verifies both preserved v6 bytes and the v7 identity;
-- startup and deployment fail when the reviewed catalog, database grants, or
-  discovered surface differ;
-- all thirteen relations and columns have reviewed, non-placeholder meaning,
-  grain, join, terminology, unit, exclusion, nullability, sensitivity, and
-  version metadata;
-- raw, operating, multiplicative-grain, and preferred-relation warnings are
-  deterministic and retained for both model and manual SQL;
-- unknown or unqualified relations and columns, writes, cartesian joins, table
-  functions, and volatile or side-effecting functions fail before execution;
-- the database role is explicitly read-only with bounded statements and
-  results, and new grants cannot silently publish new relations;
-- local and demo environments expose matching catalog, grant, and surface
-  digests before deployed acceptance.
+- the new active files identify v7, while guards preserve the v6 bytes and v7
+  identity;
+- qualification records the catalog used by each batch and starts a new batch
+  if it changes; local and demo identities are recorded separately.
 
-### R6 — Context and token integrity
+### R6 — Honest context evidence
 
 **Repositories:** Med-Agent Hub first, then Catalyst, then validation harness
 repin. **Depends on:** R0; may run in parallel with R1 and R5.
 
-Finish the locked context contract without changing its caps or precedence.
+Finish the required context outcome without making ordinary demo availability
+depend on qualification-only evidence.
 
 Acceptance:
 
-- every writer, checker, and repair call counts the fully rendered messages
-  with the declared exact tokenizer before model invocation;
-- missing token accounting or overflow fails before the call, with no hidden
-  truncation or character-count substitute;
-- model-file identity, tokenizer identity, context window, output reserve, and
-  generation settings are digest-bound and recorded;
-- physical request order matches the locked context order and the static
-  prefix is byte-identical for identical static inputs;
-- verified examples require a successfully validated and executed kept
-  version with matching source and catalog digests;
-- pin-from-failure accepts only an eligible retained finding and records the
-  accepting actor and provenance;
-- every omitted guidance entry, example, failure, or history item is itemized
-  with its reason;
-- Hub advertises the versioned capability before Catalyst sends the request
-  shape, and mixed-version startup fails visibly instead of substituting.
+- evidence records what each model call actually received and which resolved
+  profile, model, settings, and context limits it used;
+- context is never silently truncated, summarized, or substituted;
+- included and omitted guidance, examples, failures, and history remain
+  identifiable with the reason for each omission;
+- verified examples come only from prior kept queries that were validated and
+  executed successfully for the same source;
+- missing or inconsistent evidence makes a run ineligible for qualification;
+  it does not take unrelated demo features offline;
+- a capability mismatch is visible and never causes silent model or contract
+  substitution.
 
-### R7 — Required real-path checks and repository safeguards
+### R7 — Real-path and stable-database proof
 
 **Repositories:** validation harness, Catalyst, and Hub as separate reviewable
 pull requests. **Depends on:** R5 and R6 before their release checks.
 
 Acceptance:
 
-- real PostgreSQL catalog, semantic-answer, permission-drift, and SQL-safety
-  tests run as required checks rather than skipping when the database is
-  absent;
-- the strict repository-line check is required on merge candidates and passes
-  after every repin;
-- Catalyst and Hub `main` branches receive protection consistent with the
-  documented pull-request policy;
-- Catalyst standalone bootstrap uses a merged Hub revision or an explicit
-  supported override, never a feature-only commit;
+- the exact merged qualification candidate passes real PostgreSQL catalog
+  refresh, semantic-answer, advisory-validation, and read-only execution tests
+  before the live comparison; changes that affect this path run the proof
+  earlier when practical;
 - the supported isolated wrapper gives its retained OpenELIS test database one
   stable location independent of the current Git worktree; starting the same
   pinned stack from a second clean worktree neither initializes a different
   database nor combines retained service containers with a new database;
 - a no-reset, no-reseed restart from a second clean worktree preserves the
   existing fixture and passes the full supported health check;
-- unresolved current review threads on merged Phase 1 pull requests are
-  answered and resolved, including already-fixed findings;
-- Hub image publication, if retained, publishes the tested image by immutable
-  digest rather than rebuilding or trusting a mutable tag.
+- the same retained fixture supports the final comparison without being
+  recreated for each check.
 
 ### R8 — Fresh whole-suite qualification batch
 
 **Environment:** owner's local GPU through the supported isolated wrapper.
 **Depends on:** R1–R7 merged and exact harness/component pins on `main`.
 
-Before starting, freeze one signed-off suite v2/catalog v7 batch identity. In
-each complete run, run one fresh-session, recorded, unscored warm-up per profile,
-exclude it from qualification, and then run the entire suite.
-Run three complete suites initially. No prompt, model, catalog, code, data,
-threshold, ordering, or environment change is permitted inside the batch.
+Before starting, freeze one signed-off suite v2/catalog v7 batch identity, its
+planned number of complete runs, and its owner-reviewed decision method. In
+each complete run, run one fresh-session, recorded, unscored warm-up per
+profile, exclude it from qualification, and then run the entire suite. No
+prompt, model, catalog, code, data, decision method, or environment change is
+permitted inside the batch.
 
 Acceptance:
 
 - each run contains exactly 36 distinct conversations and its multi-turn
   conversations preserve their internal session;
-- each run is independently triage-clean and all three compose under R3;
-- after the first three complete runs, extend the entire suite twice under the
-  same identity if any scored turn varies in terminal outcome or answer
-  correctness, any leave-one-run-out score changes a qualification verdict, or
-  the leading teams differ by at most one complete-scenario success out of 36;
-  never extend individual cells;
+- each run is independently triage-clean and every planned run composes under
+  R3;
+- repeated measurement uses complete-suite reruns only; never extend or retry
+  selected measured cells after observing their quality;
 - the consolidated R4 package is byte-stable, public, secret-free, and names
   every run and exact component revision;
 - the owner performs the final evidence and diff review;
-- if no team passes every gate, the recorded selection is explicitly `none`
-  and no deployment occurs.
+- if no team is selected, record `none` or `inconclusive` and do not deploy.
 
 ### R9 — Evidence-led product remediation, only if needed
 
 **Repositories:** determined by the fresh failures. **Depends on:** R8 selects
-none or exposes a common product blocker.
+`none`, is inconclusive, or exposes a common product blocker.
 
 Do not assume that the old B1, B3, M2, or U2 labels remain the right targets.
 Use the repaired evidence to identify the smallest shared capability failure.
-If no team qualifies, first record the selection as `none`. Remediate only the
-general behavior, add diverse nearby and adversarial tests not copied from the
-frozen suite, merge new exact revisions, and start an entirely new R8 batch.
-Never tune to a frozen question or pool pre-fix and post-fix runs.
+If no team is selected, first record `none` or `inconclusive`. Remediate only
+the general behavior, add diverse nearby and adversarial tests not copied from
+the frozen suite, merge new exact revisions, and start an entirely new R8
+batch. Never tune to a frozen question or pool pre-fix and post-fix runs.
 
 Acceptance:
 
@@ -439,7 +409,7 @@ Acceptance:
 
 ### R10 — Selected-team deployment and Phase 1 closeout
 
-**Environment:** demo host. **Depends on:** an eligible team from R8 or a later
+**Environment:** demo host. **Depends on:** a selected team from R8 or a later
 clean batch.
 
 Resolve demo profile and environment issues before deployment. Deploy only
@@ -449,8 +419,8 @@ with their database answers and stored session state.
 Acceptance:
 
 - the selected team is available with no fallback or substitution;
-- local and demo component, catalog, grant, surface, profile, and prompt
-  identities are recorded;
+- local and demo component, catalog, profile, and prompt identities are
+  recorded separately;
 - patient-name ready → validate → execute matches the independent database
   result in the browser;
 - clarification → frozen answer → ready remains complete after refresh with
@@ -458,16 +428,15 @@ Acceptance:
 - retained `do_not_perform` guidance survives reload and remains honored, then
   the address request returns unsupported with no SQL and preserves the prior
   selected version;
-- current-head automated checks, strict repository-line verification, and the
-  three live journeys pass;
+- current-head automated checks and the three live journeys pass;
 - the program roadmap records the selected team and evidence, or explicitly
   records that Phase 1 remains open if deployment fails.
 
 ## Verification commands
 
-Run the focused checks for each change and the owning repository's full checks.
-These are minimum evidence surfaces, not substitutes for a requirement-specific
-test named above.
+Run focused and normal repository checks for each change. Run the real stack
+checks before live qualification and whenever a change directly affects that
+path. These commands are evidence surfaces, not universal pull-request gates.
 
 **Validation harness pull requests**
 
@@ -533,16 +502,16 @@ may change the fifteen Phase 3 gates.
 | Work item | Repository | State | Pull request | Merge evidence |
 | --- | --- | --- | --- | --- |
 | R0 roadmap and truth | Harness | Complete | [#89](https://github.com/pmanko/clinical-ai-validation-harness/pull/89) | `30c3187b17639b06b0a501d87f3835b32a3ff4b5` |
-| R1 run identity and replacement recovery | Harness | In review | [#90](https://github.com/pmanko/clinical-ai-validation-harness/pull/90) | — |
+| R1 run identity and replacement recovery | Harness | Complete | [#90](https://github.com/pmanko/clinical-ai-validation-harness/pull/90) | `4a6cc59dc2be5187df5d44ee40efdb5b9858db59` |
 | R2 turn-scoped adjudication | Harness | Not started | — | — |
 | R3 complete-run composition | Harness | Not started | — | — |
 | R4 qualification and publication | Harness | Not started | — | — |
-| R5 data surface and safety | Catalyst → Harness | Not started | — | — |
-| R6 context and tokens | Hub → Catalyst → Harness | Not started | — | — |
-| R7 real-path checks and safeguards | All three | Not started | — | — |
+| R5 shared readable catalog | Catalyst → Harness | Not started | — | — |
+| R6 honest context evidence | Hub → Catalyst → Harness | Not started | — | — |
+| R7 real-path and stable-database proof | All three | Not started | — | — |
 | R8 fresh qualification batch | Harness evidence | Blocked on R1–R7 | — | — |
 | R9 product remediation if needed | Evidence-selected | Blocked on R8 | — | — |
-| R10 deployment and closeout | Harness + Catalyst | Blocked on eligible team | — | — |
+| R10 deployment and closeout | Harness + Catalyst | Blocked on selected team | — | — |
 
 Update this table and the append-only log in the same pull request that changes
 a work item's state. A bridge, repin, report, or evidence task cannot close its
@@ -554,8 +523,8 @@ prerequisite product behavior.
   rewrite merged evidence history.
 - A measurement-contract change increments its version and invalidates earlier
   runs for composition, even when old evidence remains readable.
-- A code, data, catalog, model, prompt, tokenizer, context, threshold, or suite
-  change starts a new batch identity.
+- A code, data, catalog, model, prompt, context, decision-method, or suite change
+  starts a new batch identity.
 - A failed deployment reverts to the last known-good merged pins without
   reseeding or deleting volumes unless the owner explicitly approves that
   separate operation.
@@ -618,3 +587,43 @@ prerequisite product behavior.
   requires stable retained storage across worktrees and a no-reseed restart
   proof before qualification.
 - R1 opened as harness pull request #90 from commit `26fdf04`.
+
+### 2026-08-25 — data-boundary correction
+
+- The owner clarified that the observed count of 13 readable relations was
+  never intended as a fixed product allowlist.
+- The model and human paths must use the same complete catalog exposed by the
+  configured read-only database role. Reviewed metadata guides use but does
+  not decide availability.
+- Manual validation remains advisory, consistent with Feature 008. PostgreSQL
+  evaluates the exact displayed SQL under the existing read-only and bounded
+  execution controls.
+- Fixed-surface startup failure, blanket exploratory-SQL bans, and identical
+  local/demo relation requirements were removed from R5. No Catalyst change
+  based on those superseded requirements was committed, pushed, or opened as a
+  pull request.
+- R1 is merged through harness pull request #90 at
+  `4a6cc59dc2be5187df5d44ee40efdb5b9858db59`.
+
+### 2026-08-25 — outcome-focused simplification
+
+- The owner removed the fixed three-to-five run rule, numerical pass gates,
+  automatic tie-breaks, and the fixed infrastructure retry budget. A batch now
+  records its complete-run count and owner-reviewed decision method before live
+  execution and reports an inconclusive result when the planned evidence is not
+  enough.
+- Advisory validation no longer blocks the selected SQL from reaching the
+  bounded read-only PostgreSQL path. Wrong SQL, a database diagnostic, or a
+  wrong answer is model-quality evidence when the measurement record is
+  complete.
+- The M3 visit control now tests the independent answer and irrelevant
+  CD4-specific carryover. It does not ban an otherwise useful relation or SQL
+  form.
+- The context contract now specifies visible inputs, omissions, provenance,
+  and verified examples without fixing caps, physical ordering, or a ranking
+  formula.
+- Real PostgreSQL proof remains mandatory before live comparison, but is not a
+  universal pull-request gate. Branch administration, image publication, and
+  similar repository operations are not Phase 1 product acceptance criteria.
+- These decisions supersede the numerical and mechanism-specific statements in
+  the earlier append-only entries.

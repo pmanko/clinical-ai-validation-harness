@@ -440,7 +440,7 @@ W1 closure.
   manual Format. Monaco's worker/provider overhead and unsupported mobile-browser
   target do not fit this focused workbench.
 - Cross-artifact analysis found one implementation gap: the UI had no typed path
-  to the gateway's approved catalog. The roadmap now requires a read-only
+  to the gateway's runtime catalog. The roadmap now requires a read-only
   `catalyst.workbench.editor-catalog.v1` route sourced from that same catalog;
   catalog failure removes identifier suggestions only and never blocks editing.
 - The catalog contract/route red run failed for the intended missing-contract and
@@ -794,13 +794,15 @@ W1 closure.
   creates one current human version with active-turn provenance. Compact turns
   resolve typed provenance through
   `GET /sessions/{sessionId}/turns/{turnId}/generation-evidence`.
-- Hub `catalyst.query.request.v2` carries the exact editor snapshot and
-  observed/effective base evidence, initial question plus the five most recent
+- Historical Hub `catalyst.query.request.v2` carries the exact editor snapshot
+  and observed/effective base evidence, the initial question plus five recent
   follow-up instructions, and only
   validation/execution summaries whose query digest matches the exact editor
   snapshot. It never
   carries prior result rows, credentials, raw traces, or every historical SQL
   copy. Truncation and supplied entity IDs/digests are recorded as provenance.
+  The Phase 1 successor preserves v2 compatibility but records relevant
+  retained instructions and omissions without treating five as a product cap.
 - The writer returns one complete successor candidate. Deterministic lint
   receives the effective instruction explicitly. The different-family reviewer
   may approve, reject, or return one complete correction even when initial lint
@@ -1228,13 +1230,13 @@ The proposed G2.9 product shape is deliberately small:
 - one runtime-backed schema guide replacing record counts as the primary answer
   to “what can I query?”
 
-The audit also found catalog drift. The supported model/editor catalog lists 8
+The audit also found catalog drift. At that time, the model/editor catalog listed 8
 columns for `analytics.lab_result_fact_v1`; the live view has 16. The read-only
 database role can technically SELECT seven business relations, but the six
-low-level/pipeline relations do not yet have reviewed product descriptions. The
-recommended boundary is to present the completed 16-column fact view as the
-supported query surface and treat broader manual SQL access as database-role
-governed, not as implicit product support.
+low-level/pipeline relations did not yet have reviewed product descriptions.
+The narrow-surface recommendation recorded here was superseded on 2026-08-25:
+every role-readable relation is available, with reviewed metadata used as
+guidance rather than an availability gate.
 
 The existing follow-up context includes matching execution status, row count,
 column schema, timing, and database diagnostics, but no row values. G2.9 makes

@@ -5,8 +5,8 @@
     {
       "slug": "catalyst-phase1-comparison",
       "title": "Catalyst Phase 1: three model teams on the locked HIV suite",
-      "summary": "Catalyst turns plain-English clinical questions into database queries it runs itself. Three AI team configurations each faced the same twelve questions about an HIV dataset \u2014 including vague ones they had to ask about, and impossible ones they had to refuse \u2014 with every answer checked row-for-row against an independently written reference.",
-      "takeaway": "No team cleared the acceptance bar (\u226590% overall, \u226580% per scenario). Best: the qwen-reviewed team at 8/12. An independent AI judge rated the SQL itself consistently well-built (median 100/100 across 44 queries) \u2014 the failures came from misreading ambiguous questions, the same two follow-ups for every team. Next lever: question understanding, not query craft.",
+      "summary": "Catalyst turns plain-English clinical questions into database queries it runs itself. Three AI team configurations each faced the same twelve questions about an HIV dataset \u2014 including vague ones they had to ask about, and impossible ones they had to refuse. A later audit found that some turn-level and row-level reference checks were incomplete, so this remains a development pass rather than final comparison evidence.",
+      "takeaway": "No team was selected from this development pass. Best: the qwen-reviewed team at 8/12. An independent AI judge rated the SQL itself consistently well-built (median 100/100 across 44 queries) \u2014 the failures came from misreading ambiguous questions, the same two follow-ups for every team. The numerical rule used for this provisional report is retired; the final comparison uses the owner-reviewed decision method recorded before live work.",
       "family": "catalyst"
     },
     {

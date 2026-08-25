@@ -201,30 +201,30 @@
     <p class="eyebrow">Catalyst · context engineering — practices, evidence, roadmap</p>
     <h1>What the Writer Sees</h1>
     <p class="standfirst">The practices the field converged on for accumulating, session-persistent context;
-    the evidence behind each; and a deliberately lean roadmap for Catalyst — every lever run as a cheap
-    experiment first, validated by an evaluation harness, and hardened only if the numbers say so.</p>
+    the evidence behind each; and the integrated Phase 1 outcome chosen for Catalyst. The final comparison
+    evaluates the completed system and does not assign effects to individual context changes.</p>
   </div>
-  <p class="meta">v6 · 2026-08-23<br>
+  <p class="meta">v7 · 2026-08-25 owner corrections<br>
   grounded in: catalyst main @ 655b796 (WS7 merged) · the recorded hub request for session c973eeba turn 3 · ingestion SQL · writer prompt<br>
-  source of truth: specs/catalyst-program-roadmap.md · status: workshop complete; owner decisions locked 2026-08-23</p>
+  source of truth: specs/catalyst-program-roadmap.md · relation counts are fixture snapshots; run counts, pass percentages, retry budgets, and context caps are not locked here</p>
 </header>
 
 <div class="stance">
-  <div><h3>Experiment before contract</h3><p>Every lever ships first as the cheapest thing that can move a metric — a field, a flag, a script. Contracts, UI, and governance harden a lever only after it has earned its keep.</p></div>
-  <div><h3>Nothing new to operate</h3><p>No new services, stores, or models. Every proposal below is a bounded change to the gateway request, the ingestion SQL, or a script over records the system already writes.</p></div>
-  <div><h3>The harness decides</h3><p>This is an exploratory project feeding future production designs. What survives is what a measured baseline-vs-lever comparison keeps — not what sounded architectural.</p></div>
+  <div><h3>Complete the chosen outcome</h3><p>All Phase 1 context changes land before the model-team comparison. This work does not run one-change-at-a-time studies.</p></div>
+  <div><h3>Use the existing substrate</h3><p>No new services, stores, or models are required. The work extends requests and records the system already owns.</p></div>
+  <div><h3>Compare complete teams</h3><p>The harness reports the finished model setups and their evidence. The owner records a selected team, none, or an inconclusive result.</p></div>
 </div>
 
 <div class="stance">
-  <div><h3>Owner decision</h3><p>One reviewed 13-relation surface for the writer, editor, validator, and executor.</p></div>
+  <div><h3>Owner decision</h3><p>The writer and human tools use every relation the configured read-only database role can read.</p></div>
   <div><h3>Qualification</h3><p>Compare the completed system across three model teams locally; do not claim an individual context practice caused the result.</p></div>
   <div><h3>Deployment proof</h3><p>Run three real browser journeys on the server after the local comparison.</p></div>
 </div>
 
 <h2><span class="no">01</span>Recon — the context surface as built</h2>
 <p class="lede">The entire per-request context assembly is 71 lines (<code>request.py</code>). Left: what the
-writer received in the turn that started this investigation. Right: the same request with the three missing
-channels this roadmap proposes — nothing else changes.</p>
+writer received in the turn that started this investigation. Right: the same request with the missing kinds
+of session context this roadmap proposes.</p>
 
 <div class="anatomy">
   <div class="anatomy-col">
@@ -241,15 +241,15 @@ channels this roadmap proposes — nothing else changes.</p>
     <div class="cachehint">grammar: status must be "ready" → asking is illegal</div>
   </div>
   <div class="anatomy-col">
-    <h3>Proposed <span class="sub">same request + three bounded blocks</span></h3>
-    <div class="block static"><b>System prompt · static</b>Unchanged position — stable prefix preserved (cache economics, Manus P6).</div>
-    <div class="block present"><b>Catalog · static</b>CE1: one reviewed 13-relation surface; complete meanings and join risks; safe patient names.</div>
-    <div class="block present"><b>Policy · static</b>Unchanged.</div>
-    <div class="block new"><b>Session guidance · CE2</b>Itemized pinned entries, verbatim, append-only, capped with omission records. The playbook.</div>
-    <div class="block new"><b>Verified exemplars · CE4</b>Top-k question→SQL pairs from this session's (later: this source's) kept versions.</div>
+    <h3>Proposed <span class="sub">same request + relevant recorded context</span></h3>
+    <div class="block static"><b>System prompt · static</b>Existing contract rules and domain guidance.</div>
+    <div class="block present"><b>Catalog · static</b>CE1: the complete role-readable surface; reviewed guidance where available; safe patient names.</div>
+    <div class="block present"><b>Execution boundary</b>Advisory validation; the read-only database account, transaction, timeout, and result bound remain authoritative.</div>
+    <div class="block new"><b>Session guidance · CE2</b>Relevant pinned entries, verbatim, with provenance and omission records.</div>
+    <div class="block new"><b>Verified exemplars · CE4</b>Relevant question→SQL pairs from this session's kept versions, with the actual selection recorded.</div>
     <div class="block present"><b>Editor snapshot</b>Unchanged.</div>
-    <div class="block present"><b>Instruction history</b>Unchanged.</div>
-    <div class="block new"><b>Last failure · CE3</b>Prior attempt's SQL + unresolved findings + the human's clarification answer.</div>
+    <div class="block present"><b>Instruction history</b>Relevant retained instructions, with actual inclusions and omissions recorded.</div>
+    <div class="block new"><b>Failure context · CE3</b>Relevant earlier SQL, unresolved findings, and the human's clarification answer.</div>
     <div class="block present"><b>Validation / execution context</b>Unchanged.</div>
     <div class="cachehint">grammar: ready | needs_clarification | unsupported; Gateway rejection remains separate</div>
   </div>
@@ -276,7 +276,8 @@ channels this roadmap proposes — nothing else changes.</p>
     grammar where asking is illegal. Invention was the only legal move — this was context scoping, not model
     reasoning. A human using “Edit this attempt” joined <code>patient_flat</code> and got real surnames in one
     query. The four-view subset was deliberately declared; its consequence was not deliberately resolved. The
-    owner has now chosen one reviewed 13-relation surface for model and human paths.</p>
+    owner has now chosen the complete role-readable surface for both model and human paths. Thirteen was
+    the count in this recorded fixture, not a limit.</p>
   </div>
   <div class="card">
     <h3>Three structural contradictions</h3>
@@ -358,11 +359,11 @@ claims get measured on <em>our</em> workload instead of trusted.</p>
     </dl>
   </div>
   <div class="card">
-    <div class="dirhead"><h3>P6 · Context mechanics: append-only, stable prefixes, bounded blocks</h3><span class="pill have">strong, operational</span></div>
+    <div class="dirhead"><h3>P6 · Context mechanics must stay observable</h3><span class="pill have">strong, operational</span></div>
     <dl class="rows">
-      <dt>Claim</dt><dd>Order context stable-first and append-only; keep per-step context minimal; every added block is capped and honest about omissions.</dd>
+      <dt>Claim</dt><dd>Use the context that is relevant and fits the configured model, and record what was supplied or omitted. This evidence does not establish one universal cap, order, or ranking rule.</dd>
       <dt>Evidence</dt><dd><a href="https://manus.im/blog/Context-Engineering-for-AI-Agents-Lessons-from-Building-Manus">Manus production data</a>: 10× cached-vs-uncached token cost; single-token prefix changes invalidate the cache. <a href="https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents">Anthropic</a>: just-in-time over pre-loading.</dd>
-      <dt>Catalyst fit</dt><dd>A design constraint across CE2–CE4, not a workstream — visible in the “Proposed” column above.</dd>
+      <dt>Catalyst fit</dt><dd>An implementation consideration across CE2–CE4. The active roadmap specifies the required outcome and evidence.</dd>
     </dl>
   </div>
 </div>
@@ -379,13 +380,13 @@ plus one pin affordance.</p>
     <tr><td>Append-only, no rewrites</td><td>Immutable versions; turns never mutate</td><td>Supersede by marking, never editing</td></tr>
     <tr><td>Provenance per entry</td><td>Digests, evidence refs, actor on every record</td><td><span class="mono">{text, source, originTurnId}</span></td></tr>
     <tr><td>Reflection → curation</td><td>WS7 findings, retained attempts</td><td>One-click “pin as guidance” on a failed cell; the human curates first</td></tr>
-    <tr><td>Bounded delivery</td><td>Revision context with omission records</td><td>One more bounded block, same discipline</td></tr>
+    <tr><td>Observable delivery</td><td>Revision context with omission records</td><td>Supply relevant entries and record omissions</td></tr>
   </table></div>
   <div class="mock">
     <h3>Sketch — where it lives (not a spec)</h3>
     <div class="mock-frame">
       <div class="mock-rail">
-        <div class="sec">Data</div><div class="item">13 relations</div>
+        <div class="sec">Data</div><div class="item">role-readable relations</div>
         <div class="sec">Turns</div><div class="item">8 cells</div>
         <div class="sec" style="color:var(--accent)">Guidance · 2</div>
         <div class="gpin">names live on patient_flat.family <span style="color:var(--ink-3)">· you, [3]</span></div>
@@ -429,7 +430,7 @@ plus one pin affordance.</p>
 mode → dashboards, Superset end-to-end</b>. WS1–WS7 remediation is closed; Feature 008 D1e/M4 remains in
 progress and is scheduled as P3, inheriting its unchanged contract and 15 active gates. Source of truth:
 <code>specs/catalyst-program-roadmap.md</code>; this page is supporting research. The planning workshop is
-complete. The owner chose one reviewed 13-relation surface, layered context plus the retained transcript,
+complete. The owner chose one shared role-readable surface, layered context plus the retained transcript,
 three writer outcomes, a local three-team comparison of the completed system, and limited deployed browser proof.</p>
 
 <div class="lane">
@@ -468,7 +469,7 @@ and compares complete model teams.</p>
     <li>No vector database, embedding service, or retrieval infra — CE4 phase 1 is “this session's kept turns”, a list comprehension.</li>
     <li>No automated Reflector/Curator — the human pins; automation waits until manual entries show what good looks like <em>and</em> CE0 can score it.</li>
     <li>No cross-session or cross-user memory — governance questions deferred until session-scoped accumulation proves value.</li>
-    <li>No summarization/compaction of guidance — entries verbatim; caps + omission records, per ACE's failure modes.</li>
+    <li>No silent summarization or compaction of guidance — record exactly what is supplied and what is omitted.</li>
     <li>No new services or stores — session-attached data in the existing SQLite store; scripts in the existing repos.</li>
     <li>No speculative conversation mode — CE1–CE3 are its prerequisites; the mode itself waits until they're measured.</li>
   </ul>
@@ -478,7 +479,7 @@ and compares complete model teams.</p>
   <div class="card">
     <div class="dirhead"><h3>CE0 — Evaluation harness</h3><span class="tag">the gate · size M</span></div>
     <dl class="rows">
-      <dt>Form</dt><dd>Extend the existing notebook-validation runner with the frozen 12-scenario, 21-turn suite, arbitrary turn sequences, one measurement per team/scenario in each complete run, and three complete suite runs. Extend the unchanged batch to five only when a scored turn varies in outcome/correctness, a leave-one-run-out score changes qualification, or the leading teams differ by at most one complete-scenario success out of 36. Retain exact token evidence, separate infrastructure failures, and byte-stable scoring replay.</dd>
+      <dt>Form</dt><dd>Extend the existing notebook-validation runner with the frozen 12-scenario, 21-turn suite, arbitrary turn sequences, and one measurement per team/scenario in each complete run. Record the planned number of complete reruns and decision method before live work; never repeat selected cells after seeing their quality. Retain context evidence, separate infrastructure failures, and replayable scoring.</dd>
       <dt>Substrate</dt><dd>Already recorded: every turn's evidence bundle holds the exact hub request, per-attempt raw outputs, findings, digests. Golden results come from human-verified runs.</dd>
       <dt>Metrics</dt><dd>Execution accuracy vs golden digest · first-attempt candidate rate · attempts-to-success · grounding-failure rate (invented identifiers) · clarification precision/recall · tokens + latency.</dd>
       <dt>Acceptance</dt><dd>One consolidated local report across writer-only, same-family-check, and cross-family-check teams; three deployed browser journeys after selection.</dd>
@@ -487,32 +488,32 @@ and compares complete model teams.</p>
   <div class="card">
     <div class="dirhead"><h3>CE1 — Honest writer's world</h3><span class="tag">P1 + P5 · size S · first lever</span></div>
     <dl class="rows">
-      <dt>Form</dt><dd>One reviewed list of all 13 readable relations for generation, editing, validation, and execution; complete data meaning and join-risk notes; safe patient-name components; <code>ready</code>, <code>needs_clarification</code>, and <code>unsupported</code> writer branches.</dd>
-      <dt>Validate</dt><dd>Exact catalog/grant equality, safe read-only behavior, independent database answers, honest clarification, and unsupported requests that never reach SQL.</dd>
-      <dt>Contract</dt><dd>Published catalog v6 remains historical evidence. Catalog v7 records the corrected 13-relation decision. Runtime permissions never auto-publish a relation.</dd>
+      <dt>Form</dt><dd>Every relation readable by the configured role is available for generation, editing, validation, and execution; reviewed guidance improves known relations without hiding others; <code>ready</code>, <code>needs_clarification</code>, and <code>unsupported</code> remain the writer branches.</dd>
+      <dt>Validate</dt><dd>Model and human paths receive the same refreshed catalog; manual validation stays advisory; independent database answers test model quality.</dd>
+      <dt>Contract</dt><dd>Published catalog v6 remains historical evidence. Catalog v7 records that database readability, not a fixed member list, defines availability.</dd>
     </dl>
   </div>
   <div class="card">
     <div class="dirhead"><h3>CE2 — Session playbook</h3><span class="tag">P2 + P6 · size M · the core capability</span></div>
     <dl class="rows">
       <dt>Form</dt><dd>A versioned guidance list on the existing session store, composer pin, explicit pin-from-failure, append-only unpin/supersede, and verbatim delivery. Model-facing entry = <code>{text, source, originTurnId, createdAt}</code>.</dd>
-      <dt>Validate</dt><dd>Pin at turn k; later turns honor it without repetition. Prove exact text, provenance, restart survival, session isolation, 20-entry capacity, token limits, literal rendering, and honest omissions.</dd>
+      <dt>Validate</dt><dd>Pin at turn k; later turns honor it without repetition. Prove exact text, provenance, restart survival, session isolation, compatibility with the configured model, literal rendering, and honest omissions.</dd>
       <dt>Contract</dt><dd>The same object becomes P2 conversation state; successful queries remain verified examples rather than guidance.</dd>
     </dl>
   </div>
   <div class="card">
     <div class="dirhead"><h3>CE3 — Failure fed back</h3><span class="tag">P4 · size S–M · completes WS7's loop</span></div>
     <dl class="rows">
-      <dt>Cheapest form</dt><dd>When the prior turn on this intent failed, add a bounded <code>previousAttempt</code> block to the revision context: the retained SQL, unresolved finding codes + evidence, and the human's clarification answer if any. One prompt paragraph explains the block.</dd>
-      <dt>Validate</dt><dd>Only the most recent relevant failure in the current revision line is delivered; first attempts and unrelated turns receive none; retained SQL, finding evidence, and any clarification answer remain digest-bound.</dd>
-      <dt>Contract</dt><dd>One bounded block with the same token, omission, and session-isolation rules as guidance.</dd>
+      <dt>Cheapest form</dt><dd>When an earlier relevant attempt failed, supply the useful failure information already recorded: retained SQL, unresolved findings and evidence, and the human's clarification answer if any.</dd>
+      <dt>Validate</dt><dd>Relevant failure information reaches the model; first attempts and unrelated turns do not inherit it; retained SQL, finding evidence, and clarification answers remain traceable.</dd>
+      <dt>Contract</dt><dd>The request records what failure information was included or omitted and preserves session isolation.</dd>
     </dl>
   </div>
   <div class="card">
     <div class="dirhead"><h3>CE4 — Verified-query exemplars</h3><span class="tag">P3 · size M · free substrate</span></div>
     <dl class="rows">
-      <dt>Form</dt><dd>Session-scoped successful kept turns only, matching source and catalog; deterministic word-overlap ranking; at most three; no retrieval service.</dd>
-      <dt>Validate</dt><dd>The CD4 near-neighbor case is correct while the unrelated visit question never copies the example. A target can never receive itself.</dd>
+      <dt>Form</dt><dd>Session-scoped successful kept turns only, matching source and catalog. Selection is recorded without locking a count or ranking formula here; no retrieval service is required.</dd>
+      <dt>Validate</dt><dd>The CD4 near-neighbor case is correct while the unrelated visit answer carries no irrelevant CD4-specific assumptions. A target can never receive itself.</dd>
       <dt>Contract</dt><dd>Cross-session retrieval remains outside Phase 1.</dd>
     </dl>
   </div>
@@ -522,7 +523,7 @@ and compares complete model teams.</p>
       <li><b>Repair-loop redesign</b> — anchored patches vs full regeneration, attempt budgets. Needs a later controlled study; the patch machinery manufactured several failures we watched.</li>
       <li><b>Automated reflection/curation</b> (full ACE) — after CE2's manual channel shows what good entries look like.</li>
       <li><b>Cross-session / cross-user promotion</b> — whose lesson, verified by whom.</li>
-      <li><b>Generic metadata generation</b> — FHIR-spec-derived semantics for flat columns (<a href="https://arxiv.org/pdf/2502.20657">auto-description research</a>); worth it when the approved set outgrows hand-commenting.</li>
+      <li><b>Generic metadata generation</b> — FHIR-spec-derived semantics for flat columns (<a href="https://arxiv.org/pdf/2502.20657">auto-description research</a>); worth it when the role-readable surface outgrows hand-commenting.</li>
       <li><b>Causal model claims</b> — the three complete teams are compared, but this run does not isolate reviewer or quantization effects.</li>
     </ul>
   </div>

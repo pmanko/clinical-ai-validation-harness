@@ -3,7 +3,12 @@
 **Status:** Workshop completed 2026-08-23. This file explains the evidence and
 the choices made. `specs/catalyst-program-roadmap.md` owns product decisions;
 `specs/catalyst-phase1-qualification-remediation-roadmap.md` owns the active
-repair sequence. This historical brief is not a current plan.
+repair sequence. This historical brief is not a current plan. On 2026-08-25,
+the owner corrected the data-boundary entry below: the number 13 described the
+then-current fixture and was never intended as a product allowlist. On the same
+date, the owner removed the brief's fixed run count, numerical gates, retry
+budget, context caps, ranking formula, and validator execution gate. The active
+roadmaps contain the simpler outcome-based decisions.
 
 ## What the research established
 
@@ -27,34 +32,34 @@ important findings were:
 
 ## Owner decisions
 
-| Question | Locked answer |
+| Question | Current decision |
 | --- | --- |
-| Data boundary | One reviewed list of all 13 currently readable relations for the writer, editor, validator, and executor. Database permissions do not auto-expand it. |
+| Data boundary | The writer, editor, validator, and executor use every relation the configured read-only database role can read. Reviewed metadata guides use but does not hide readable relations. |
 | Writer outcomes | `ready`, `needs_clarification`, and `unsupported`; Gateway-owned `rejected` remains separate. |
-| Conversation state | Keep the initial instruction and five latest follow-ups, then add at most 20 verbatim guidance entries, one relevant failure, and three verified examples. |
+| Conversation state | Supply relevant retained instructions, person-pinned guidance, useful failure information, and prior verified examples within the configured model's capacity. Record what was supplied and every omission; do not lock counts, physical order, or ranking here. |
 | Guidance | Free text with provenance; composer pin and explicit pin-from-failure; no pin-from-success. Unpin and replacement are append-only events. |
 | Measurement | Qualify the completed Phase 1 system. Do not publish an old-system baseline or individual on/off comparisons. |
 | Model comparison | Gemma writer only; Gemma writer checked by Gemma; Gemma writer checked by Qwen. Treat them as complete product setups. |
-| Repetitions | One complete run measures each model/scenario pair once. Repeat the whole frozen suite three times. Extend the unchanged batch to five when a scored turn varies in outcome/correctness, a leave-one-run-out score changes qualification, or the leading teams differ by at most one complete-scenario success out of 36; never repeat an individual cell inside a run. |
+| Repetitions | One complete run measures each model/scenario pair once. Before live work, record the planned number of whole-suite reruns and the decision method. Never repeat selected cells after seeing their quality; report an inconclusive result when the planned evidence is insufficient. |
 | Environments | Run the full comparison locally on the owner's GPU. Run three real browser journeys on the deployed server. |
-| Report | One consolidated report with absolute qualification gates, separate failure counts, database answers, token and timing evidence, and no causal claim about an individual context practice. |
+| Report | One consolidated report with separate model and infrastructure outcomes, database answers, context, token and timing evidence, and the documented owner-reviewed decision. No causal claim is made about an individual context practice. |
 
 ## Recommendations explicitly superseded
 
 The workshop rejected these recommendations from the original discussion
 pack. They must not reappear as open choices:
 
-- Keep a smaller generation-only catalog. The owner chose the shared reviewed
-  13-relation list.
+- Keep a smaller generation-only catalog. The owner chose the same complete
+  role-readable catalog for model and human paths; the current relation count
+  is not a limit.
 - Measure an old system and then remove or add each context practice in turn.
   The owner chose one final integrated qualification.
 - Run the complete repeated matrix both locally and on the demo server. The
   owner chose local GPU measurement plus limited deployed browser checks.
 - Repeat an individual model/scenario cell. The owner chose one measurement per
   cell in a complete run, with repetition supplied only by rerunning the whole
-  frozen suite. Start with three complete runs and extend the whole batch to
-  five only for scored-turn variation, a leave-one-run-out qualification
-  change, or a leading-team margin of at most one success out of 36.
+  frozen suite. The batch records its run count before execution rather than
+  choosing more measurements from observed scores.
 - Allow only ready or clarification. The owner added an honest unsupported
   outcome while retaining Gateway rejection.
 
@@ -80,7 +85,7 @@ development comparison exposed qualification-system defects now governed by
    failure, and the harness pins its merged commit. The full local health and
    provenance gate passes.
 
-The exact interfaces, scenario set, model profiles, thresholds, implementation
+The interfaces, scenario set, model profiles, comparison method, implementation
 order, deployed browser checks, and unchanged Phase 3 gates are defined in the
 program roadmap.
 

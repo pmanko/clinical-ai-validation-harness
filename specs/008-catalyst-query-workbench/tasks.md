@@ -41,10 +41,10 @@ coverage of its HTTP surface is not.
 - [X] T054 [US1] Record the G2.2 TDD checkpoint with the diagnostic-retention and missing-parameter regressions, failing editor tests, reviewed editor/formatter version decision, missing-`name` contract disposition, and nondeterminism/inconsistency flags in `specs/008-catalyst-query-workbench/roadmap.md` before SQL editor implementation
 - [X] T009 [US1] Add session/create-version/validate routes in `targets/catalyst/catalyst-gateway/src/catalyst/routes.py`
 - [X] T010 [US1] Implement workbench orchestration and immutable validation runs in `targets/catalyst/catalyst-gateway/src/catalyst/service.py` and `targets/catalyst/catalyst-gateway/src/catalyst/workbench.py`
-- [X] T057 [P] [US1] Add failing contract/route tests for a read-only editor catalog sourced from the gateway's active approved catalog in `targets/catalyst/catalyst-gateway/tests/test_workbench_routes.py` and `targets/catalyst/catalyst-gateway/tests/test_catalyst_mvp.py`
+- [X] T057 [P] [US1] Add failing contract/route tests for a read-only editor catalog sourced from the gateway's active runtime catalog in `targets/catalyst/catalyst-gateway/tests/test_workbench_routes.py` and `targets/catalyst/catalyst-gateway/tests/test_catalyst_mvp.py`
 - [X] T058 [US1] Add and register `catalyst.workbench.editor-catalog.v1`, expose `GET /v1/catalyst/workbench/catalog`, and derive its ordered PostgreSQL schema/view/column vocabulary from the existing gateway catalog in `targets/catalyst/docs/contracts/`, `targets/catalyst/catalyst-gateway/src/catalyst/routes.py`, and `targets/catalyst/catalyst-gateway/src/catalyst/service.py`
 - [X] T011 [US1] Add workbench API types/client calls in `targets/catalyst/catalyst-ui/src/features/query/api.ts`
-- [X] T012 [US1] Implement the reviewed PostgreSQL editor with highlighting, line numbers, default-on retained wrap toggle, approved-catalog/keyword completion, deterministic Format, exact immutable child-version persistence, exhausted-retry raw-output/best-draft inspection, typed parameters, findings, and timeline in `targets/catalyst/catalyst-ui/src/features/query/components/SqlEditor.tsx` and `targets/catalyst/catalyst-ui/src/features/query/QueryWorkspace.tsx`
+- [X] T012 [US1] Implement the reviewed PostgreSQL editor with highlighting, line numbers, default-on retained wrap toggle, runtime-catalog/keyword completion, deterministic Format, exact immutable child-version persistence, exhausted-retry raw-output/best-draft inspection, typed parameters, findings, and timeline in `targets/catalyst/catalyst-ui/src/features/query/components/SqlEditor.tsx` and `targets/catalyst/catalyst-ui/src/features/query/QueryWorkspace.tsx`
 - [X] T013 [US1] Restore the active server session after refresh in `targets/catalyst/catalyst-ui/src/features/query/QueryWorkspace.tsx`
 
 ## Phase 4 — User Story 3: run exact drafts
@@ -114,7 +114,9 @@ coverage of its HTTP surface is not.
 
 The tasks in this phase record the then-current Hub-owned query-profile
 implementation and its evidence. They remain completed historical work; the
-Gateway-ownership refactor is tracked separately in Phase 4.14.
+Gateway-ownership refactor is tracked separately in Phase 4.14. Their fixed
+five-instruction language describes the historical v2 contract and is not the
+Phase 1 product limit.
 
 - [X] T076 Record the approved artifact-first linear notebook, current-state/Hub audit, UX research, turn/data/context contracts, sibling-Hub ownership decision, G2.8a–c checkpoints, and N27–N42 across `specs/008-catalyst-query-workbench/`
 - [X] T077 Record the initial Spec Kit analysis findings and remediate the written PCCP timing, test-order, runtime-ownership, failure-recovery, and live-evidence gaps in `specs/008-catalyst-query-workbench/`; leave the final reanalysis result pending
