@@ -4396,3 +4396,7 @@ def test_every_generated_query_is_visible_in_the_feed(tmp_path: Path) -> None:
     assert str(response["baseSql"]).startswith("SELECT")
     turn = response["turns"][0]
     assert str(turn["sql"]).startswith("SELECT")
+    # The base is the OPENING query. The session head moves as turns land,
+    # so recording the head at the end showed the final query where the
+    # first belongs -- three judges independently flagged it.
+    assert response["baseSql"] != turn["sql"]
