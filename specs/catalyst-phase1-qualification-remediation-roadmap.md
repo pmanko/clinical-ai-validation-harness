@@ -618,3 +618,22 @@ prerequisite product behavior.
   requires stable retained storage across worktrees and a no-reseed restart
   proof before qualification.
 - R1 opened as harness pull request #90 from commit `26fdf04`.
+
+### 2026-08-25 — measurement-surface work landed beside this plan (no R state change)
+
+- The owner-directed judging review executed outside the R sequence but inside
+  its rules: harness PR #92 reworks the report abstract (data-argued, no
+  gates), replaces the `<80` flag with rubric-anchor flagging, leads the judge
+  summary with axes, states single-actor/no-adjudication limits in place, adds
+  the `catalyst-judge-rank-v1` comparative-ranking rubric and machinery, and
+  gives the runner per-turn `goldCheck` support — the Q1/R2 enabler. A draft
+  minimal "suite v2" was created and then **withdrawn** the same day: the
+  shipped v2 is R2's to create, bound to catalog v7 with per-turn contracts
+  for every scenario. Suite v1 remains byte-identical. Records:
+  `specs/artifacts/planning/judging-review-2026-08-25.md`,
+  `specs/008-catalyst-query-workbench/pccp/2026-08-25-catalyst-judge-rank-v1.md`.
+- The published report and landing surfaces changed under
+  `specs/artifacts/planning/report-surfaces-2026-08-25.md` (PRs #87/#91/#92);
+  the 2026-08-24 code-QA audit's non-Q findings (CI false-green fix detail,
+  dead code, coverage gaps, spec-document verdicts, owner scope calls) are
+  persisted in `specs/artifacts/planning/code-qa-audit-2026-08-24.md`.

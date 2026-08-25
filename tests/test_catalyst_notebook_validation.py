@@ -5026,27 +5026,24 @@ def test_a_mid_conversation_turn_is_not_judged_against_the_final_reference() -> 
     assert turns[1].gold_check is None
 
 
-def test_suite_v2_checks_each_m2_turn_against_its_own_state() -> None:
-    """The successor suite carries the fix; v1 stays byte-immutable.
+def test_suite_v1_stays_byte_immutable_with_no_per_turn_checks() -> None:
+    """v1 is the published run's seed; the successor belongs to R2.
 
-    v1 is the published run's seed and the docs guard hashes it, so a
-    qualification repair ships as v2 — the policy the program already
-    records ("qualification repairs use catalog v7 and suite v2").
+    The runner now supports per-turn gold references (Q1 in the
+    qualification-remediation roadmap), but the shipped v2 suite is R2's to
+    create — it must bind catalog v7 and carry per-turn answer contracts for
+    every scenario, not only M2. Until R2, the repository ships v1 alone,
+    unchanged: its M2 still declares no turn-level goldCheck, which is the
+    recorded defect, not a feature.
     """
     import json
     from pathlib import Path
 
     root = Path(__file__).resolve().parents[1] / "datasets/validation/catalyst"
-    v2 = json.loads((root / "catalyst-phase1-comparison-v2.json").read_text("utf-8"))
-    m2 = next(s for s in v2["scenarios"] if s["id"] == "M2")
-
-    turn_one = m2["turns"][0]["goldCheck"]
-    assert "LIMIT" not in turn_one["referenceSql"].upper()
-    assert "LIMIT 10" in m2["successorGoldCheck"]["referenceSql"].upper()
-    # Both references honour the pinned guidance the scenario tests.
-    assert "do_not_perform" in turn_one["referenceSql"]
-
-    # v1 still describes the old, unscoped behaviour — untouched.
     v1 = json.loads((root / "catalyst-phase1-comparison-v1.json").read_text("utf-8"))
-    m2_v1 = next(s for s in v1["scenarios"] if s["id"] == "M2")
-    assert "goldCheck" not in m2_v1["turns"][0]
+    m2 = next(s for s in v1["scenarios"] if s["id"] == "M2")
+
+    assert "goldCheck" not in m2["turns"][0]
+    assert "LIMIT 10" in m2["successorGoldCheck"]["referenceSql"].upper()
+    # And no premature successor file exists to collide with R2's.
+    assert not (root / "catalyst-phase1-comparison-v2.json").exists()
