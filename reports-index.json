@@ -6,7 +6,7 @@
       "slug": "catalyst-phase1-comparison",
       "title": "Catalyst Phase 1: three model teams on the locked HIV suite",
       "summary": "Twelve scenarios per team over one live conversation each, judged against an independent database answer.",
-      "takeaway": "No team met the 90%/80% acceptance gates. With the echo bug fixed, every one of the 36 conversations is a valid measurement: the qwen2.5-14b-reviewed team leads at 8/12, and all failures are judged model results (B1/B3/M2/U2 shared across teams).",
+      "takeaway": "No team met the 90%/80% acceptance gates. Every one of the 36 conversations is a valid measurement: the qwen2.5-14b-reviewed team leads at 8/12; all failures are judged model results (B1/B3/M2/U2 shared across teams). Advisory judge (catalyst-judge-v1, 3-pass medians over 44 executed queries): median composite 100, floor 55 \u2014 the misses are intent, not SQL craft.",
       "family": "catalyst"
     },
     {
