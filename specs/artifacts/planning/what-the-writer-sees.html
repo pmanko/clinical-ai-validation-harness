@@ -223,8 +223,8 @@
 
 <h2><span class="no">01</span>Recon — the context surface as built</h2>
 <p class="lede">The entire per-request context assembly is 71 lines (<code>request.py</code>). Left: what the
-writer received in the turn that started this investigation. Right: the same request with the missing kinds
-of session context this roadmap proposes.</p>
+writer received in the turn that started this investigation. Right: corrected contracts and candidate context
+additions considered by the research; the active roadmap decides which are required and which remain experimental.</p>
 
 <div class="anatomy">
   <div class="anatomy-col">
@@ -241,11 +241,11 @@ of session context this roadmap proposes.</p>
     <div class="cachehint">grammar: status must be "ready" → asking is illegal</div>
   </div>
   <div class="anatomy-col">
-    <h3>Proposed <span class="sub">same request + relevant recorded context</span></h3>
+    <h3>Candidate directions <span class="sub">corrected contract + context to evaluate</span></h3>
     <div class="block static"><b>System prompt · static</b>Existing contract rules and domain guidance.</div>
     <div class="block present"><b>Catalog · static</b>CE1: the complete role-readable surface; reviewed guidance where available; safe patient names.</div>
     <div class="block present"><b>Execution boundary</b>Advisory validation; the read-only database account, transaction, timeout, and result bound remain authoritative.</div>
-    <div class="block new"><b>Session guidance · CE2</b>Relevant pinned entries, verbatim, with provenance and omission records.</div>
+    <div class="block new"><b>Explicit session guidance · CE2 research</b>If tested, supply it with provenance and omission records; do not assume a Pin interface.</div>
     <div class="block new"><b>Verified exemplars · CE4</b>Relevant question→SQL pairs from this session's kept versions, with the actual selection recorded.</div>
     <div class="block present"><b>Editor snapshot</b>Unchanged.</div>
     <div class="block present"><b>Instruction history</b>Relevant retained instructions, with actual inclusions and omissions recorded.</div>
@@ -314,7 +314,8 @@ claims get measured on <em>our</em> workload instead of trusted.</p>
   <div class="barrow"><span class="lbl">Finance reasoning</span><div class="track"><div class="fill" style="width:71.7%"></div></div><span class="val">+8.6pp</span></div>
   <p class="barnote">Sources: Spider 2.0 gap via the paired semantic-layer benchmark (arXiv 2604.25149); dbt semantic-layer
   benchmark update (2026); ACE (arXiv 2510.04618). Different benchmarks, different scales — the shared shape is the point:
-  context quality moves accuracy more than model choice, and structured accumulation compounds it.</p>
+  context quality can move accuracy substantially, and structured accumulation improved the cited workloads.
+  Whether explicit guidance adds value for Catalyst beyond retained history remains unproven.</p>
 </div>
 
 <div class="grid2" style="margin-top:1rem">
@@ -327,11 +328,11 @@ claims get measured on <em>our</em> workload instead of trusted.</p>
     </dl>
   </div>
   <div class="card">
-    <div class="dirhead"><h3>P2 · Accumulate as an itemized playbook, never a summary</h3><span class="pill have">strong, benchmarked</span></div>
+    <div class="dirhead"><h3>P2 · Itemized guidance is a research hypothesis</h3><span class="pill part">evidence elsewhere; untested here</span></div>
     <dl class="rows">
-      <dt>Claim</dt><dd>Improving contexts are discrete, provenance-carrying entries, appended and refined incrementally — never rewritten wholesale or compressed to prose.</dd>
+      <dt>Claim</dt><dd>If separate guidance is useful, discrete provenance-carrying entries may preserve important detail better than repeatedly rewritten summaries.</dd>
       <dt>Evidence</dt><dd><a href="https://arxiv.org/abs/2510.04618">ACE</a>: +10.6pp/+8.6pp, and names the failure modes to design against — <em>brevity bias</em> (summaries drop the detail that mattered) and <em>context collapse</em> (rewriting erodes knowledge). <a href="https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents">Anthropic</a> converges from practice: structured notes outside the window, pulled back when relevant.</dd>
-      <dt>Catalyst fit</dt><dd>The notebook already <em>is</em> this shape — see §03. → <b>CE2</b></dd>
+      <dt>Catalyst fit</dt><dd>The existing guidance storage or application programming interface is an experimental seam. Compare it with retained history before proposing a product design. → <b>CE2</b></dd>
     </dl>
   </div>
   <div class="card">
@@ -425,8 +426,8 @@ is unproven, and Phase 1 requires no Pin control. The mockup below shows what wa
 </div>
 
 <h2><span class="no">04</span>The program — three phases, then the phase-1 workstreams</h2>
-<p class="lede">Goals and order <b>approved by the owner 2026-08-23</b>: <b>session playbook → conversation
-mode → dashboards, Superset end-to-end</b>. WS1–WS7 remediation is closed; Feature 008 D1e/M4 remains in
+<p class="lede">Current program order: <b>session context → conversation mode → dashboards,
+Superset end-to-end</b>. WS1–WS7 remediation is closed; Feature 008 D1e/M4 remains in
 progress and is scheduled as P3, inheriting its unchanged contract and 15 active gates. Source of truth:
 <code>specs/catalyst-program-roadmap.md</code>; this page is supporting research. The planning workshop is
 complete. The current roadmap keeps one shared role-readable surface, retained conversation history,
@@ -441,7 +442,7 @@ session guidance and any Pin interface remain research questions.</p>
   </div>
   <div class="lane-items">
     <div class="lane-item"><b>P1 · Session context</b><span class="sz">comparison repair</span><div class="exp">The product foundation is implemented. Active work repairs the evidence and report; Phase 1 does not require a team-selection result.</div></div>
-    <div class="lane-item"><b>P2 · Conversation mode</b><span class="sz">then</span><div class="exp">A turn kind that answers or asks without SQL, over the same session state P1 builds (playbook, history, attempts). Scoped at phase start.</div></div>
+    <div class="lane-item"><b>P2 · Conversation mode</b><span class="sz">then</span><div class="exp">A turn kind that answers or asks without SQL, over the same session state P1 builds (retained history, relevant failures, and verified examples). Scoped at phase start.</div></div>
     <div class="lane-item"><b>P3 · Dashboards</b><span class="sz">then</span><div class="exp">Question → queries → datasets → widgets → dashboard published to Superset via the existing outbox path; e2e + manual proof on both envs.</div></div>
   </div>
 </div>
@@ -458,7 +459,7 @@ compares complete model teams for the reader.</p>
   <div class="lane-items">
     <div class="lane-item"><b>CE1</b><span class="sz">S</span><div class="exp">Honest writer's world: catalog decision, names gap, writer may ask.</div></div>
     <div class="lane-item"><b>CE3</b><span class="sz">S–M</span><div class="exp">Failure fed back: last attempt + findings in the retry request.</div></div>
-    <div class="lane-item"><b>CE2</b><span class="sz">M</span><div class="exp">Session playbook: pinned guidance entries in every request.</div></div>
+    <div class="lane-item"><b>CE2</b><span class="sz">research</span><div class="exp">Compare retained history with explicit session guidance and durable knowledge; do not assume a Pin interface.</div></div>
     <div class="lane-item"><b>CE4</b><span class="sz">M</span><div class="exp">Verified exemplars: session-scoped few-shot first, retrieval later.</div></div>
   </div>
 </div>
@@ -521,7 +522,7 @@ compares complete model teams for the reader.</p>
     <div class="dirhead"><h3>Deferred to the larger session</h3><span class="tag">explicitly out of scope now</span></div>
     <ul style="font-size:0.9rem; margin:0.4rem 0 0">
       <li><b>Repair-loop redesign</b> — anchored patches vs full regeneration, attempt budgets. Needs a later controlled study; the patch machinery manufactured several failures we watched.</li>
-      <li><b>Automated reflection/curation</b> (full ACE) — after CE2's manual channel shows what good entries look like.</li>
+      <li><b>Automated reflection/curation</b> (full ACE) — only if CE2 research first shows that explicit guidance adds value and a deliberate interface is chosen.</li>
       <li><b>Cross-session / cross-user promotion</b> — whose lesson, verified by whom.</li>
       <li><b>Generic metadata generation</b> — FHIR-spec-derived semantics for flat columns (<a href="https://arxiv.org/pdf/2502.20657">auto-description research</a>); worth it when the role-readable surface outgrows hand-commenting.</li>
       <li><b>Causal model claims</b> — the three complete teams are compared, but this run does not isolate reviewer or quantization effects.</li>

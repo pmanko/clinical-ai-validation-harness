@@ -1,17 +1,17 @@
 # Catalyst Phase 1 comparison repair — execution plan
 
-**Status:** Active roadmap under owner review. The Phase 1 product foundation
-exists; the remaining work is to make the planned experiment and report
-trustworthy. This is not a production-approval or model-selection plan.
+**Status:** Active. The owner-approved direction is recorded in R0. The Phase 1
+product foundation exists; the remaining work is to make the planned experiment
+and report trustworthy. This is not a production-approval or model-selection
+plan.
 
 `specs/catalyst-program-roadmap.md` is the authority for product scope, the
 readable data surface, session-context direction, the three model teams, the
 comparison intent, and the P1 → P2 → P3 order. This file only sequences the
 remaining work. Its historical filename is retained to avoid link churn.
 
-Reporting implementation remains paused while this direction is reviewed.
-After approval, that work can be reduced to what this plan actually calls for;
-it must not get ahead of the roadmap decision.
+Implementation follows the sequence below. Reporting work must not get ahead of
+the evidence, data-surface, and context behavior on which it depends.
 
 ## Goal
 
@@ -77,7 +77,7 @@ and report are complete.
 
 ### R0 — Align the authoritative plan
 
-**Repository:** validation harness. **State:** under owner review.
+**Repository:** validation harness. **State:** complete.
 
 Align the program roadmap and this execution plan with the current direction.
 Supporting research remains available but cannot silently restore discarded

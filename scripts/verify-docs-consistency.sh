@@ -154,7 +154,7 @@ grep -qF '### R6 — Honest context evidence and guidance research seam' "$EXECU
   || err "execution plan is missing guidance research"
 
 if grep -IinE \
-  'owner records a selected team|decision selects one team|record `none` or `inconclusive`|Deploy the selected team|selected-team deployment|planned run count|planned number of complete|composer pin|pin-from-failure' \
+  'owner records a selected team|decision selects one team|record .none. or .inconclusive.|Deploy the selected team|selected-team deployment|planned run count|planned number of complete|composer pin|pin-from-failure' \
   "$PROGRAM" "$EXECUTION"; then
   err "an active roadmap restores a superseded Phase 1 rule"
 fi
