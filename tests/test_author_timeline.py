@@ -192,3 +192,86 @@ def test_the_authored_timeline_renders():
 
     rdv.validate_timeline(timeline)
     assert rdv.final_duration(timeline) > 3.0
+
+
+def test_probe_duration_reads_the_length_ffprobe_reports(monkeypatch):
+    """The lead-in is recovered from the capture's real duration, so a
+    mis-read here would land every cut in the wrong place."""
+    calls = {}
+
+    class _Result:
+        stdout = "162.36\n"
+
+    def fake_run(cmd, **kwargs):
+        calls["cmd"] = cmd
+        assert kwargs["check"] is True
+        return _Result()
+
+    monkeypatch.setattr(at.subprocess, "run", fake_run)
+
+    assert at.probe_duration("/tmp/raw.webm") == 162.36
+    assert calls["cmd"][0] == "ffprobe"
+    assert calls["cmd"][-1] == "/tmp/raw.webm"
+
+
+def _plan_and_milestones(tmp_path):
+    plan = tmp_path / "plan.json"
+    plan.write_text(
+        json.dumps(
+            {
+                "width": 1280,
+                "height": 720,
+                "fps": 25,
+                "segments": [
+                    {"type": "card", "duration": 3.0, "heading": "Section"},
+                    {
+                        "type": "clip",
+                        "from": "a",
+                        "to": "b",
+                        "kind": "wait",
+                        "target_seconds": 5.0,
+                        "caption": "Compressed.",
+                    },
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    marks = tmp_path / "milestones.json"
+    marks.write_text(json.dumps(milestones(a=1.0, b=41.0)), encoding="utf-8")
+    return plan, marks
+
+
+def test_the_cli_writes_a_timeline_and_reports_the_screen_time(
+    tmp_path, monkeypatch, capsys
+):
+    plan, marks = _plan_and_milestones(tmp_path)
+    source = tmp_path / "raw.webm"
+    source.write_bytes(b"")
+    out = tmp_path / "timeline.json"
+    monkeypatch.setattr(at, "probe_duration", lambda _path: 43.0)
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "author_timeline.py",
+            str(plan),
+            "--milestones",
+            str(marks),
+            "--source",
+            str(source),
+            "--output",
+            str(out)],
+    )
+
+    at.main()
+
+    written = json.loads(out.read_text(encoding="utf-8"))
+    assert written["width"] == 1280
+    assert [segment["type"] for segment in written["segments"]] == ["card", "clip"]
+    # 40s of waiting compressed toward 5s, plus a 3s card.
+    assert written["segments"][1]["speed"] == 8.0
+    printed = capsys.readouterr().out
+    assert str(out) in printed
+    assert "1 cards, 1 clips" in printed
+    # Minutes floor rather than round: 8s of screen time is 0:08.0, never 1:xx.
+    assert "0:08.0 on screen" in printed
