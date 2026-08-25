@@ -98,7 +98,7 @@ def _source_overrides(tmp_path: Path) -> dict[str, str]:
     environment: dict[str, str] = {}
     for variable, source in sources.items():
         target = tmp_path / source.name
-        target.write_text(source.read_text(encoding="utf-8"), encoding="utf-8")
+        target.write_bytes(source.read_bytes())
         environment[variable] = str(target)
     return environment
 

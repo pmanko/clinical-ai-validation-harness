@@ -170,7 +170,7 @@ for phrase in \
   'All three M1 ready answers are scored' \
   'query digest different from both CD4 turns and reuses no CD4/observation relation, predicate, or projection' \
   'unknown status, or an unlisted warning fails' \
-  'If no team qualifies, record `none`' \
+  "If no team qualifies, record \`none\`" \
   'terminal outcome or answer correctness varies across the first three runs' \
   'leaving out any one run changes whether a team passes any qualification gate' \
   'differ by no more than one complete-scenario success among their 36 measurements' \
