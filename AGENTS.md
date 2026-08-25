@@ -11,6 +11,10 @@ authority for the reviewed data surface, context contract, model-team
 comparison, acceptance thresholds, and delivery order. Its workshop decisions
 are closed; supporting briefs and HTML artifacts do not reopen them. Phase 1
 does not change Feature 008's Dashboard Builder meaning or gates.
+`specs/catalyst-phase1-qualification-remediation-roadmap.md` is the active
+execution roadmap for making that locked comparison trustworthy. It may track
+repair status and pull requests but may not change the program roadmap's
+product meaning or thresholds.
 
 For the program P3 Dashboard Builder milestone, the authoritative UX contract is
 `targets/catalyst/docs/dashboard-builder-mvp-design.md`; its reconciled

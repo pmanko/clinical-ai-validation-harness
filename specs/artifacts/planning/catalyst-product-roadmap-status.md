@@ -12,6 +12,7 @@ history and implementation tasks.
 | --- | --- |
 | Accepted foundation | Query-to-table workbench and iterative Query vN notebook |
 | Program position | **P3 — Superset-backed Dashboard Builder MVP (D1 / feature 008 US7, T137–T182), unchanged behind P1 session context and P2 conversation mode** |
+| Active program work | P1 product foundation implemented; model-team qualification and evidence tooling under remediation in `specs/catalyst-phase1-qualification-remediation-roadmap.md` |
 | Dependency | Accepted query/version/execution/table foundation only |
 | Release work kept separate | Harness PR #43 merged green at `136067a`; optional session-export/comparative expansion remains parallel |
 | Approved renderer/handoff | Superset 6.1.0; deterministic native ZIP written to a shared outbox and imported by a one-shot CLI service |
@@ -98,16 +99,13 @@ presentation.
   tree and run in Catalyst's Gateway CI job. Runtime commands use one dedicated
   `mvp-superset.sh` boundary routed from the harness.
 
-  **Current correction (2026-08-06):** the table-only Superset import spike is
-  reusable foundation evidence, not the current product surface. The active
-  feature branches now contain the binding 4c shell with the accepted Workbench,
+  **Historical correction (2026-08-06):** the table-only Superset import spike
+  was reusable foundation evidence, not the product surface. The feature
+  branches now contain the binding 4c shell with the accepted Workbench,
   chronological turns, one SQL editor and fixed composer, Dataset/Widget/
   Dashboard review and libraries, deterministic publication controls, and a
-  real Gemma E4B/Qwen 14B notebook-to-Superset path. M2 is accepted.
-  T150/T174/T151 are complete; the remaining Dataset/Widget/publication D1d
-  checks, actual 200% browser zoom, and explicit user acceptance keep M3 in
-  progress. Five-family clean-import coverage, full reset/reimport recovery,
-  complete evidence emission, repetition, and release CI remain M4 work and
-  have not started merely because supporting evidence exists. The authoritative
+  real Gemma E4B/Qwen 14B notebook-to-Superset path. That was the status before
+  M3 acceptance on 2026-08-06. M3 is now closed and M4 release hardening is in
+  progress with the 15 active gates named above. The authoritative
   M0–M4 local-MVP target is
   `specs/008-catalyst-query-workbench/dashboard-mvp-delivery-goal.md`.
