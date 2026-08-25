@@ -39,6 +39,18 @@ type DemoClip = {
 
 const clips: DemoClip[] = [
   {
+    id: 'catalyst-full-scenario-demo',
+    dataSource: 'OpenELIS Laboratory',
+    pill: 'Full scenario',
+    question: 'Show viral load results since 2026-01-01 with patient, value, and observed date',
+    followup: 'Now count the results by test name instead, highest count first',
+    factView: 'analytics.lab_result_fact_v1',
+    file: 'catalyst-full-scenario-demo-20260825b.mp4',
+    poster: 'catalyst-full-scenario-demo-20260825b-poster.jpg',
+    sizeLabel: '~3.1 MB',
+    durationLabel: '1:48',
+  },
+  {
     id: 'openelis-lab-demo',
     dataSource: 'OpenELIS Laboratory',
     pill: 'Lab data',

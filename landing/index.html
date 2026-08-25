@@ -248,64 +248,37 @@
             <h2>Catalyst: plain-language questions over laboratory and program data.</h2>
           </div>
           <p>
-            Catalyst is the framework's example implementation for program-monitoring and reporting questions — viral load coverage, CD4 counts, specimen turnaround — directly from laboratory (OpenELIS) and HIV program (OpenMRS) databases. It turns a question into SQL against a catalog generated from the database itself. A writer model drafts the query, a selected profile may add a reviewer, and a deterministic policy allows only read-only execution. Results are typed tables, and a follow-up instruction refines the exact current query.
+            Catalyst is the framework's example implementation for program-monitoring and reporting questions — viral load coverage, CD4 counts, specimen turnaround — directly from laboratory (OpenELIS) and HIV program (OpenMRS) databases. It turns a question into SQL against a catalog generated from the database itself. A writer model drafts the query, a selected profile may add a reviewer, and a deterministic policy allows only read-only execution. Results are typed tables, a follow-up instruction refines the exact current query, and saved results become Datasets, Widgets, and dashboards published to Superset.
           </p>
         </div>
-        <div class="page-width video-grid">
-          <article class="video-item">
-            <video
-              controls
-              playsinline
-              preload="metadata"
-              poster="https://catalyst.openelis-global.org/media/openelis-lab-demo-20260823-poster.jpg"
-              aria-label="Catalyst demonstration on OpenELIS laboratory data: a viral load question, execution, and a follow-up adding specimen turnaround detail"
-            >
-              <source src="https://catalyst.openelis-global.org/media/openelis-lab-demo-20260823.mp4" type="video/mp4" />
-              Your browser does not support embedded video.
-            </video>
+        <div class="page-width feature-media">
+          <video
+            controls
+            playsinline
+            preload="metadata"
+            poster="https://catalyst.openelis-global.org/media/catalyst-full-scenario-demo-20260825b-poster.jpg"
+            aria-label="Catalyst full-scenario demonstration: a plain-language laboratory question becomes checked SQL, saved Datasets and Widgets, and a published Superset dashboard"
+          >
+            <source src="https://catalyst.openelis-global.org/media/catalyst-full-scenario-demo-20260825b.mp4" type="video/mp4" />
+            Your browser does not support embedded video.
+          </video>
+          <div class="media-caption">
             <div>
-              <p class="video-meta">OpenELIS laboratory <span>0:53</span></p>
-              <h3>Laboratory results, then turnaround detail</h3>
-              <p>A viral load question generates and runs, then a follow-up adds the result unit and specimen receipt-to-release time to the same query.</p>
-              <details class="transcript">
-                <summary>Transcript (silent recording)</summary>
-                <ol>
-                  <li>Turn 1: the question "Show viral load results since 2026-01-01 with patient, value, and observed date" is asked against the OpenELIS laboratory data source.</li>
-                  <li>A writer model drafts SQL against the generated catalog; a reviewer model checks it.</li>
-                  <li>The query is validated, executed read-only, and results return as a typed table.</li>
-                  <li>Turn 2: the follow-up "Also include the result unit and how many minutes elapsed between specimen receipt and result release" refines the same query rather than starting over.</li>
-                  <li>The refined query is validated and executed; the result table now includes the added columns.</li>
-                </ol>
-              </details>
+              <strong>Full scenario</strong>
+              <span>From a plain-language question to a live Superset dashboard.</span>
             </div>
-          </article>
-          <article class="video-item">
-            <video
-              controls
-              playsinline
-              preload="metadata"
-              poster="https://catalyst.openelis-global.org/media/openmrs-hiv-demo-20260823-poster.jpg"
-              aria-label="Catalyst demonstration on OpenMRS HIV program data: a CD4 count question, execution, and a follow-up adding patient demographics"
-            >
-              <source src="https://catalyst.openelis-global.org/media/openmrs-hiv-demo-20260823.mp4" type="video/mp4" />
-              Your browser does not support embedded video.
-            </video>
-            <div>
-              <p class="video-meta">OpenMRS HIV/ART program <span>0:52</span></p>
-              <h3>Program data on a second source</h3>
-              <p>The same workbench targets a separate HIV program database: a CD4 count question, then a follow-up adding gender and birth date.</p>
-              <details class="transcript">
-                <summary>Transcript (silent recording)</summary>
-                <ol>
-                  <li>The OpenMRS HIV/ART program data source is selected before asking a question.</li>
-                  <li>Turn 1: the question "Show CD4 count results since 2026-01-01 with patient, value, and observed date" is asked.</li>
-                  <li>A writer model drafts SQL against the generated catalog; a reviewer model checks it, then the query is validated and executed read-only.</li>
-                  <li>Turn 2: the follow-up "Also include the patient's gender and birth date" refines the same query.</li>
-                  <li>The refined query is validated and executed; the result table now includes gender and birth date.</li>
-                </ol>
-              </details>
-            </div>
-          </article>
+            <span>1:48 · silent recording</span>
+          </div>
+          <details class="transcript">
+            <summary>Transcript (silent recording)</summary>
+            <ol>
+              <li>The question "Show viral load results since 2026-01-01 with patient, value, and observed date" is asked against the OpenELIS laboratory source.</li>
+              <li>A writer model drafts SQL, a reviewer checks it against the generated catalog, and the query runs read-only; the typed result is saved as a Dataset.</li>
+              <li>A follow-up — "Now count the results by test name instead, highest count first" — refines the same query, and the aggregate is saved as a second Dataset.</li>
+              <li>A table Widget and a grouped-bar Widget are built over the saved Datasets and collected into a dashboard.</li>
+              <li>The dashboard publishes as a native Superset bundle, the pinned importer records its receipt, and the finished dashboard — the table and the chart — renders in Superset.</li>
+            </ol>
+          </details>
         </div>
         <div class="page-width lifecycle-row" role="list" aria-label="Catalyst validation summary">
           <div role="listitem"><span>01</span><strong>Two data sources</strong><p>OpenELIS laboratory and OpenMRS HIV/ART program data, each with its own database and generated catalog.</p></div>

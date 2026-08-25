@@ -111,8 +111,11 @@ MEDIA_HOST = "https://catalyst.openelis-global.org/media/"
 def test_every_local_media_reference_exists_and_has_accessible_context():
     html, page = parsed_landing()
 
-    assert len(page.videos) == 4
-    assert len(page.sources) == 4
+    # Three recordings: the two ChartSearchAI sessions and Catalyst's single
+    # full-scenario cut (question -> checked SQL -> Datasets/Widgets ->
+    # published Superset dashboard), which replaced the two short clips.
+    assert len(page.videos) == 3
+    assert len(page.sources) == 3
     assert len(page.images) >= 3
     assert "1:45 · silent recording at 2× speed" in html
 
