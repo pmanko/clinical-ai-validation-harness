@@ -361,3 +361,46 @@ roadmap with the selected team or an explicit “none qualified” result.
 - result rows in model context;
 - claims that the integrated comparison isolates one context practice;
 - any reduction or closure of the 15 Phase 3 Dashboard Builder gates.
+
+## Phase 1 comparison — recorded outcome (2026-08-25)
+
+**No team qualified.** Against the acceptance gates in force at publication
+(≥90% of conversations overall, ≥80% on every scenario), the locked
+12-scenario HIV suite run once as live conversations per team gave:
+
+| Team | Judged | Failures |
+| --- | --- | --- |
+| `catalyst-query-gemma-4-12b` (writer-only) | 7/12 (58%) | B1 B2 B3 M2 U2 |
+| `catalyst-query-gemma-4-12b-q4-checked` | 7/12 (58%) | B1 B3 M2 M3 U2 |
+| `catalyst-query-gemma-4-12b-qwen2.5-14b-checked` | **8/12 (67%)** | B1 B3 M2 U2 |
+
+Evidence package (report, decision document, frozen dashboard, run seed,
+full run copy): <https://reports.openclinai.org/catalyst-phase1-comparison/>.
+Run `9ae123db-8f40-4246-8769-d427a5551769`; triage clean — 36/36
+conversations conformed, zero invalid measurements, all 14 failures judged
+model results; scorer byte-identical on two replays. Component pins:
+catalyst `50f15b1` (echo-contract fix #73 merged), med-agent-hub `e26c52a`;
+harness runner from PR #82 (exact merged SHA recorded on merge).
+
+- **G6 disposition:** with no qualifying team there is no deployment and the
+  three browser journeys were not exercised; the spec is ready at
+  `catalyst-ui/e2e/phase1-journeys.spec.ts` for whichever team first clears
+  the gates.
+- **Finding corrected:** an earlier run (`58b74775`) suggested reviewer arms
+  scored below writer-only. That ordering was a measurement artifact — a
+  gateway response-echo contract bug destroyed the qwen-reviewed team's
+  cross-family B2/B3 evidence. On valid measurements the qwen-reviewed team
+  is the strongest arm. The prior conclusion is retracted.
+- **What blocks qualification is shared writer capability, not reviewer
+  configuration:** B1 (clarification follow-through), B3 (overdue-visit
+  logic), M2 (a top-N limit ignored), U2 (answering where a refusal is due)
+  fail across all three arms — exactly the levers the P1 session-context
+  workstreams (guidance, prior-failure recall, verified examples) exist to
+  move.
+- **Measurement amendments now in force:** one suite pass = one live
+  conversation per (team, scenario); repetition means composing whole reruns
+  via `score_runs`, never per-turn retries. Cell state on every surface is
+  behavioural conformance (allowed path vs unexpected behaviour); judged
+  quality is a number in the report. Every run is seeded from
+  `datasets/validation/catalyst/run-config.template.json`, and the frozen,
+  secret-free seed ships inside the evidence package.
