@@ -223,3 +223,36 @@ def test_a_failure_is_reduced_to_one_blamed_root_cause(tmp_path: Path):
         [{"name": "brand_new_check", "evidence": "?"}], str(ledger)
     )
     assert unknown["disposition"] == "unvetted"
+
+
+def test_gold_verdicts_recorded_before_sentences_still_get_one(tmp_path: Path):
+    """Legacy structured gold evidence — including the runner's JSON-string
+    compaction — summarizes to one sentence; anything unparseable falls
+    through to raw display (None)."""
+    vd = _load_dashboard_module()
+    say = vd._sentence_for_gold
+
+    # A verdict that already carries a sentence passes through verbatim.
+    assert say({"disagreement": "already said"}) == "already said"
+
+    # Count mode, honest and capped.
+    assert say({"modelRowCount": 4, "referenceRowCount": 6}) == (
+        "the answer returned 4 rows; the independent reference returns 6"
+    )
+    assert say(json.dumps({"modelRowCount": 500, "referenceRowCount": 6,
+                           "modelRowsExceededCap": True})) == (
+        "the answer returned over 500 rows; the independent reference returns 6"
+    )
+
+    # Aggregate mode names each kind of group-level disagreement present.
+    assert say({"modelRowCount": 10, "referenceRowCount": 10,
+                "extraKeys": ["a", "b"], "missingKeys": ["c"],
+                "valueMismatches": {"d": [1, 2]}}) == (
+        "the answer has 2 groups the reference does not have; "
+        "1 reference groups missing; counts disagree on 1 groups"
+    )
+
+    # Not a verdict: fall through to raw display.
+    assert say("{clipped json") is None
+    assert say(["not", "a", "dict"]) is None
+    assert say({"somethingElse": 1}) is None

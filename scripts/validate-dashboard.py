@@ -312,6 +312,39 @@ def _vetted_ledger(path):
     return cached
 
 
+def _sentence_for_gold(evidence):
+    """Summarize a structured gold verdict recorded before sentences existed."""
+    if isinstance(evidence, str):
+        # The runner compacts assertion evidence to a JSON string; a clipped
+        # blob will simply fail to parse and fall through to raw display.
+        try:
+            evidence = json.loads(evidence)
+        except (ValueError, TypeError):
+            return None
+    if not isinstance(evidence, dict):
+        return None
+    if isinstance(evidence.get("disagreement"), str):
+        return evidence["disagreement"]
+    if "modelRowCount" in evidence and "referenceRowCount" in evidence:
+        extra = evidence.get("extraKeys")
+        missing = evidence.get("missingKeys")
+        mism = evidence.get("valueMismatches")
+        if extra or missing or mism:
+            parts = []
+            if extra:
+                parts.append(f"the answer has {len(extra)} groups the reference does not have")
+            if missing:
+                parts.append(f"{len(missing)} reference groups missing")
+            if mism:
+                parts.append(f"counts disagree on {len(mism)} groups")
+            return "; ".join(parts)
+        model = evidence["modelRowCount"]
+        counted = f"over {model}" if evidence.get("modelRowsExceededCap") else str(model)
+        return (f"the answer returned {counted} rows; the independent "
+                f"reference returns {evidence['referenceRowCount']}")
+    return None
+
+
 def blame_failure(failed_assertions, ledger_path):
     """One attributed explanation for a failed repetition.
 
@@ -330,8 +363,10 @@ def blame_failure(failed_assertions, ledger_path):
             None,
         )
         if hit is not None:
+            evidence = hit.get("evidence")
+            spoken = _sentence_for_gold(evidence)
             root = {"name": name, "human": human,
-                    "evidence": hit.get("evidence")}
+                    "evidence": spoken if spoken is not None else evidence}
             break
     if root is None and failed_assertions:
         first = failed_assertions[0]
