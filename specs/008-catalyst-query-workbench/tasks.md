@@ -23,7 +23,7 @@ coverage of its HTTP surface is not.
 ## Phase 1 — G0 plan gate
 
 - [X] T001 Validate spec/plan/roadmap/task coverage and report only blocking inconsistencies in `specs/008-catalyst-query-workbench/`
-- [X] T002 Record G0 dispositions for N1–N8 and obtain user approval in `the removed 008 evidence log (git 7540f939a951)`
+- [X] T002 Record G0 dispositions for N1–N8 and obtain user approval in `specs/008-catalyst-query-workbench/roadmap.md`
 
 ## Phase 2 — Shared foundation
 
@@ -31,14 +31,14 @@ coverage of its HTTP surface is not.
 - [X] T004 Add versioned finding/session API schemas in `targets/catalyst/docs/contracts/`
 - [X] T005 Implement append-only workbench storage and migrations in `targets/catalyst/catalyst-gateway/src/catalyst/storage.py`
 - [X] T006 Implement canonical advisory validation normalization in `targets/catalyst/catalyst-gateway/src/catalyst/workbench.py`
-- [X] T007 Complete G1 persistence/API validation and record evidence in `the removed 008 evidence log (git 7540f939a951)`
+- [X] T007 Complete G1 persistence/API validation and record evidence in `specs/008-catalyst-query-workbench/roadmap.md`
 
 ## Phase 3 — User Story 1: edit and validate drafts
 
-- [X] T053 [US1] Inspect E4B session `2bed91de-fa7d-4ffa-b4ae-0a454a883930`, trace `07740499-387c-40b4-97c3-2bf7c4e08b7e`, retained attempt-1 version `d801dc1d-fc94-435b-bee6-2b45c3173af1`, attempts 2–3 failures and Gemma 4 12B attempts 1–3 failures at `parameters.1: 'name' is required` for “how many patients had viral load tests above 1000 count/ml?”, document the candidate-or-raw diagnostic gap, decide the owning contract/normalization layer, and record the G2.2 disposition and variance in `the removed 008 evidence log (git 7540f939a951)` and `specs/008-catalyst-query-workbench/research.md`
+- [X] T053 [US1] Inspect E4B session `2bed91de-fa7d-4ffa-b4ae-0a454a883930`, trace `07740499-387c-40b4-97c3-2bf7c4e08b7e`, retained attempt-1 version `d801dc1d-fc94-435b-bee6-2b45c3173af1`, attempts 2–3 failures and Gemma 4 12B attempts 1–3 failures at `parameters.1: 'name' is required` for “how many patients had viral load tests above 1000 count/ml?”, document the candidate-or-raw diagnostic gap, decide the owning contract/normalization layer, and record the G2.2 disposition and variance in `specs/008-catalyst-query-workbench/roadmap.md` and `specs/008-catalyst-query-workbench/research.md`
 - [X] T008 [P] [US1] Add failing tests for exhausted-retry raw-output/best-draft retention and one-to-one missing-parameter normalization plus UI tests for PostgreSQL highlighting, line numbers, default-on wrap/toggle retention, deterministic keyword/catalog completion, deterministic Format, graceful catalog failure, immutable Validate/Run versions, findings, parameters, and history in `targets/catalyst/.med-agent-hub/tests/test_catalyst_query.py`, `targets/catalyst/catalyst-gateway/tests/test_workbench_routes.py`, `targets/catalyst/catalyst-ui/src/App.test.tsx`, and `targets/catalyst/catalyst-ui/src/features/query/components/SqlEditor.test.tsx`
 - [X] T056 [US1] Preserve both the best parsed candidate and latest malformed raw generation response, implement the conservative one-question-grounded-parameter/one-placeholder normalization without auto-naming ambiguous cases, and regenerate the durable Hub patch in `targets/catalyst/.med-agent-hub/server/catalyst_query.py`, `targets/catalyst/catalyst-gateway/src/catalyst/service.py`, and `targets/catalyst/patches/med-agent-hub/catalyst-query-profile.patch`
-- [X] T054 [US1] Record the G2.2 TDD checkpoint with the diagnostic-retention and missing-parameter regressions, failing editor tests, reviewed editor/formatter version decision, missing-`name` contract disposition, and nondeterminism/inconsistency flags in `the removed 008 evidence log (git 7540f939a951)` before SQL editor implementation
+- [X] T054 [US1] Record the G2.2 TDD checkpoint with the diagnostic-retention and missing-parameter regressions, failing editor tests, reviewed editor/formatter version decision, missing-`name` contract disposition, and nondeterminism/inconsistency flags in `specs/008-catalyst-query-workbench/roadmap.md` before SQL editor implementation
 - [X] T009 [US1] Add session/create-version/validate routes in `targets/catalyst/catalyst-gateway/src/catalyst/routes.py`
 - [X] T010 [US1] Implement workbench orchestration and immutable validation runs in `targets/catalyst/catalyst-gateway/src/catalyst/service.py` and `targets/catalyst/catalyst-gateway/src/catalyst/workbench.py`
 - [X] T057 [P] [US1] Add failing contract/route tests for a read-only editor catalog sourced from the gateway's active approved catalog in `targets/catalyst/catalyst-gateway/tests/test_workbench_routes.py` and `targets/catalyst/catalyst-gateway/tests/test_catalyst_mvp.py`
@@ -53,7 +53,7 @@ coverage of its HTTP surface is not.
 - [X] T015 [US3] Extend PostgreSQL execution to preserve diagnostics and derive dynamic columns in `targets/catalyst/catalyst-gateway/src/catalyst/analytics.py`
 - [X] T016 [US3] Add ungated workbench execution route without changing governed previews in `targets/catalyst/catalyst-gateway/src/catalyst/routes.py`
 - [X] T017 [US3] Render rows, empty/truncated states, and database errors by version in `targets/catalyst/catalyst-ui/src/features/query/QueryWorkspace.tsx` and `targets/catalyst/catalyst-ui/src/features/query/components/WorkbenchPanel.tsx`
-- [X] T018 [US3] Demonstrate exact-query success/failure through the isolated stack and pause at G2 in `the removed 008 evidence log (git 7540f939a951)`
+- [X] T018 [US3] Demonstrate exact-query success/failure through the isolated stack and pause at G2 in `specs/008-catalyst-query-workbench/roadmap.md`
 
 ## Phase 5 — User Story 4: compact dataset context
 
@@ -68,7 +68,7 @@ coverage of its HTTP surface is not.
 - [X] T041 Align the Catalyst Gemma profile and durable Hub patch with canonical `gemma-e4b` in `targets/catalyst/.med-agent-hub/server/levels.yaml` and `targets/catalyst/patches/med-agent-hub/catalyst-query-profile.patch`
 - [X] T042 Extract side-effect-free Hub generation for workbench sessions while preserving governed endpoint behavior in `targets/catalyst/catalyst-gateway/src/catalyst/service.py`
 - [X] T043 Wire the isolated manual stack to a worktree-owned llama.cpp router and make every bundled fallback model alias truthful in `targets/catalyst/docker-compose.mvp.yml`, `targets/catalyst/env.recommended`, `targets/catalyst/scripts/`, and `scripts/llama-router-up.sh`
-- [X] T044 Re-run real Gemma generation and exact execution, verify physical identity/provenance and no preview side effect, and record G2.1 evidence in `the removed 008 evidence log (git 7540f939a951)`
+- [X] T044 Re-run real Gemma generation and exact execution, verify physical identity/provenance and no preview side effect, and record G2.1 evidence in `specs/008-catalyst-query-workbench/roadmap.md`
 - [X] T045 Record the approved model/pipeline change, validation protocol, rollback, and residual risks in `specs/008-catalyst-query-workbench/pccp/2026-07-17-gemma-routing-and-workbench-generation.md`
 - [X] T046 Research and implement an input-first composer with a non-overlapping, focus-preserving sticky jump control in `targets/catalyst/catalyst-ui/src/features/query/components/`
 - [X] T047 Remove user-facing prompt examples and duplicate dataset summaries while keeping one live, state-retaining OpenELIS-to-FHIR record browser in `targets/catalyst/catalyst-ui/src/features/query/components/DatasetBrowser.tsx`
@@ -83,7 +83,7 @@ coverage of its HTTP surface is not.
 - [X] T059 Record the live E4B/12B whole-object retry regression, manual valid and invalid execution evidence, N18–N20, and the approved patch-only retry contract in `specs/008-catalyst-query-workbench/`
 - [X] T060 [P] Add failing Hub tests for strict finding-scoped patch responses, frozen unaffected fields, uniquely anchored SQL text changes, missing-name leaf patches, and rejection/diagnostic retention for full, duplicate, ambiguous, stale, or out-of-scope changes in `targets/catalyst/.med-agent-hub/tests/test_catalyst_query.py`
 - [X] T061 Implement localized generation patch contracts/application and regenerate the durable Hub patch in `targets/catalyst/.med-agent-hub/server/catalyst_query.py`, `targets/catalyst/.med-agent-hub/server/contracts/`, and `targets/catalyst/patches/med-agent-hub/catalyst-query-profile.patch`
-- [X] T062 Rebuild the isolated Hub and repeat the exact E4B/12B question, proving physical model identity, frozen-unit integrity, full revalidation, best/raw retention, and manual Validate/Run behavior in `the removed 008 evidence log (git 7540f939a951)`
+- [X] T062 Rebuild the isolated Hub and repeat the exact E4B/12B question, proving physical model identity, frozen-unit integrity, full revalidation, best/raw retention, and manual Validate/Run behavior in `specs/008-catalyst-query-workbench/roadmap.md`
 
 ## Phase 4.7 — Corrective G2.4: unresolved raw-draft hydration
 
@@ -96,19 +96,19 @@ coverage of its HTTP surface is not.
 - [X] T066 Record the generator/final-contract boundary, simple ordered pairing, count-mismatch fallback, real 12B execution checkpoint, and N24 in `specs/008-catalyst-query-workbench/`
 - [X] T067 Add failing Hub tests for optional generated names/source, ordered pairing for the exact 12B and longer-query shapes, count-mismatch retention, final-contract strictness, lint continuation, and no name-only retry in `targets/catalyst/.med-agent-hub/tests/test_catalyst_query.py`
 - [X] T068 Relax only the backend generation parameter schema, implement ordered placeholder/parameter pairing before final validation/lint, update the generation prompt, and regenerate the durable Hub patch in `targets/catalyst/.med-agent-hub/server/` and `targets/catalyst/patches/med-agent-hub/catalyst-query-profile.patch`
-- [X] T069 Rebuild the isolated Hub, rerun the exact Gemma 4 12B question through generation, lint/review, manual execution, and refresh, then record SQL validity, database outcome, returned-data evidence, physical model identity, and remaining inconsistencies in `the removed 008 evidence log (git 7540f939a951)`
+- [X] T069 Rebuild the isolated Hub, rerun the exact Gemma 4 12B question through generation, lint/review, manual execution, and refresh, then record SQL validity, database outcome, returned-data evidence, physical model identity, and remaining inconsistencies in `specs/008-catalyst-query-workbench/roadmap.md`
 
 ## Phase 4.9 — Corrective G2.6: writer–reviewer collaboration
 
 - [X] T070 Record the approved one-writer/one-reviewer flow, distinct-model requirement, complete-candidate correction, deterministic re-lint, two-version persistence/visibility, N25–N26, and the live checkpoint in `specs/008-catalyst-query-workbench/`
 - [X] T071 Add failing Hub, gateway, and UI tests proving one writer call, deterministic findings delivered to a different reviewer model, complete corrected-candidate return, deterministic re-lint, linked `model`/`model_repair` versions, and visible model/stage evidence in `targets/catalyst/.med-agent-hub/tests/`, `targets/catalyst/catalyst-gateway/tests/`, and `targets/catalyst/catalyst-ui/src/`
 - [X] T072 Implement the writer–lint–reviewer–re-lint orchestration, mixed Gemma 4 12B/Qwen 2.5 14B role profile, collaboration result contract, gateway lineage persistence, workbench evidence UI, durable Hub patch, and PCCP record in `targets/catalyst/.med-agent-hub/`, `targets/catalyst/catalyst-gateway/`, `targets/catalyst/catalyst-ui/`, and `targets/catalyst/patches/med-agent-hub/`
-- [X] T073 Rebuild the isolated stack, rerun the exact Gemma 4 12B writer/Qwen 2.5 14B reviewer question through PostgreSQL execution and refresh, then record both candidates/versions, lint/review trace, physical model identities, exact query digest/result rows, and any nondeterminism in `the removed 008 evidence log (git 7540f939a951)`
+- [X] T073 Rebuild the isolated stack, rerun the exact Gemma 4 12B writer/Qwen 2.5 14B reviewer question through PostgreSQL execution and refresh, then record both candidates/versions, lint/review trace, physical model identities, exact query digest/result rows, and any nondeterminism in `specs/008-catalyst-query-workbench/roadmap.md`
 
 ## Phase 4.10 — Corrective G2.7: manual reset controls
 
 - [X] T074 Add separate New session and Clear draft controls without deleting retained server evidence or changing the selected available profile in `targets/catalyst/catalyst-ui/src/features/query/QueryWorkspace.tsx`
-- [X] T075 Prove both reset boundaries with focused/full UI checks and one live isolated-browser iteration, and record the evidence in `the removed 008 evidence log (git 7540f939a951)`
+- [X] T075 Prove both reset boundaries with focused/full UI checks and one live isolated-browser iteration, and record the evidence in `specs/008-catalyst-query-workbench/roadmap.md`
 
 ## Phase 4.11 — Corrective G2.8: iterative query notebook
 
@@ -240,7 +240,7 @@ This does not start or approve W2.
 
 - [X] T022 Superseded by T108/T127 deterministic complete-flow and accessibility browser coverage
 - [X] T023 Superseded by the diverse real-path T094 matrix and clean-pin T111 rerun
-- [X] T024 Superseded by T094/T095/T111 Gateway, browser, real-stack, digest, and PostgreSQL evidence recorded in `the removed 008 evidence log (git 7540f939a951)`
+- [X] T024 Superseded by T094/T095/T111 Gateway, browser, real-stack, digest, and PostgreSQL evidence recorded in `specs/008-catalyst-query-workbench/roadmap.md`
 - [X] T055 Superseded by the accepted T095/T127 editor, keyboard, responsive-layout, and actual 200%-zoom validation
 - [X] T025 Superseded by T096/T110/T115 documentation reconciliation
 - [X] T026 Superseded by T112's merged Catalyst/Hub pins and post-merge harness provenance verification
@@ -248,20 +248,20 @@ This does not start or approve W2.
 
 ## Phase 7 — Parallel query-assistance pathway: User Story 2 (not selected)
 
-- [ ] T028 [US2] Revalidate repair scope from W1 findings and pause at G4 in `the removed 008 evidence log (git 7540f939a951)`
+- [ ] T028 [US2] Revalidate repair scope from W1 findings and pause at G4 in `specs/008-catalyst-query-workbench/roadmap.md`
 - [ ] T029 [P] [US2] Add AST unit/frozen-digest/patch-integrity tests in `targets/catalyst/catalyst-gateway/tests/test_query_repairs.py`
 - [ ] T030 [US2] Implement repair scopes and deterministic patching in `targets/catalyst/catalyst-gateway/src/catalyst/repairs.py`
 - [ ] T031 [US2] Implement a user-initiated typed repair-proposal contract in Catalyst Gateway, limited to selected AST units and frozen digests; execute any model proposal role only through Hub's generic configured-role endpoint, and do not reuse the internal G2.3 retry as an accept/decline workflow
 - [ ] T032 [US2] Verify the Gateway-owned proposal/orchestration contract through the exact sibling `targets/med-agent-hub` pin, with models/prompts/knobs in the shared Hub profile and SQL policy/execution/lineage in Gateway. Verify Catalyst standalone separately against its immutable unmodified fallback; do not couple the umbrella build to that fallback, add Catalyst query logic to Hub, or restore the retired patch
 - [ ] T033 [US2] Add before/after accept/decline repair UI in `targets/catalyst/catalyst-ui/src/features/query/QueryWorkspace.tsx`
-- [ ] T034 [US2] Run repair integrity/scenario metrics and pause at G5 in `the removed 008 evidence log (git 7540f939a951)`
+- [ ] T034 [US2] Run repair integrity/scenario metrics and pause at G5 in `specs/008-catalyst-query-workbench/roadmap.md`
 
 ## Phase 8 — Parallel evaluation pathway: session export (not selected)
 
 - [X] T035 Superseded by T129/T130's authoritative notebook manifest/event contract and tests under `evals/metadata/`, per the approved validation integration roadmap; governed-preview export remains outside that replacement
 - [ ] T036 Implement session artifact export/import in `harness/catalyst/validation.py`
 - [ ] T037 Add one-click export in `targets/catalyst/catalyst-ui/src/features/query/QueryWorkspace.tsx` and validate W3 artifacts in `harness/catalyst/validation.py`
-- [ ] T038 Present G6 provenance/model-identity/scenario evidence before comparative claims in `the removed 008 evidence log (git 7540f939a951)`
+- [ ] T038 Present G6 provenance/model-identity/scenario evidence before comparative claims in `specs/008-catalyst-query-workbench/roadmap.md`
 
 ## Phase 9 — Evaluation release closeout: Catalyst report parity (PR #43)
 
@@ -301,10 +301,10 @@ transferring to T156/T157 and T149 proofs transferring to T157; and T021,
 T117–T122, T028–T034, and T036–T038 are explicitly outside the M4 acceptance gate
 while remaining open in their own phases.
 
-- [X] T137 [US7] Verify both feature branches descend from current `main`, correct merged PR #43 and D1 status, and record the exact ancestry evidence in `the removed 008 evidence log (git 7540f939a951)` and `specs/artifacts/planning/catalyst-product-roadmap-status.md`
+- [X] T137 [US7] Verify both feature branches descend from current `main`, correct merged PR #43 and D1 status, and record the exact ancestry evidence in `specs/008-catalyst-query-workbench/roadmap.md` and `specs/artifacts/planning/catalyst-product-roadmap-status.md`
 - [X] T158 [US7] Reconcile the accepted Ask behavior, Dataset/Widget/Dashboard entities, bounded-result semantics, same-source-and-catalog rule, stable Superset slug, and live Save-v1-before-follow-up sequence across `specs/008-catalyst-query-workbench/spec.md`, `plan.md`, `data-model.md`, `quickstart.md`, and `checklists/requirements.md`
 - [X] T159 [US7] Finalize and validate the Gateway API, bundle, pointer, receipt/latest, atomic per-Dashboard `catalyst-superset-last-verified-v1.schema.json`, dashboard-acceptance JSON Schema, scoped import-failure/recovery semantics, required contract copies, and preimplementation PCCP in `specs/008-catalyst-query-workbench/contracts/`, `targets/catalyst/docs/contracts/`, and `specs/008-catalyst-query-workbench/pccp/2026-08-05-superset-dashboard-builder.md`
-- [X] T138 [US7] Run the read-only cross-artifact analysis after T137/T158/T159; assign every open runtime/design uncertainty an N-number and checkpoint; require zero unresolved CRITICAL/HIGH findings, byte-identical contract copies, valid JSON Schemas, record explicit D1a evidence in `the removed 008 evidence log (git 7540f939a951)`, present the bounded D1a decision to the user, and pause for explicit acceptance before any product code
+- [X] T138 [US7] Run the read-only cross-artifact analysis after T137/T158/T159; assign every open runtime/design uncertainty an N-number and checkpoint; require zero unresolved CRITICAL/HIGH findings, byte-identical contract copies, valid JSON Schemas, record explicit D1a evidence in `specs/008-catalyst-query-workbench/roadmap.md`, present the bounded D1a decision to the user, and pause for explicit acceptance before any product code
 
 ### D1d — active integrated Ask and Dashboard Builder UX
 
@@ -318,7 +318,7 @@ while remaining open in their own phases.
 - [X] T178 [US7] Add red publication UI tests for Publish, Download, dashboard-level status, actionable failures, exact receipt gating, Open Superset's deterministic slug URL, and post-verification `Import failed` with no Open/current-success control plus explicit operator guidance to perform the full Superset-local reset/reimport of the per-Dashboard last-verified bundle in the consolidated `targets/catalyst/catalyst-ui/src/features/query/components/DashboardPublishPanel.test.tsx`; no browser-triggered reset endpoint, asset-selective mutation, or automatic rollback/retry is introduced
 - [X] T153 [US7] Implement only the publication/download/status/Open Superset controls proven by T178, including retained failure diagnostics and explicit operator recovery guidance without a browser-triggered reset or automatic rollback, in the consolidated `targets/catalyst/catalyst-ui/src/features/query/components/DashboardPublishPanel.tsx`
 - [X] T179 [US7] Add the red Playwright keyboard/reflow/accessibility matrix for empty/populated Ask, every panel/library, focus containment/return, announcements, reduced motion, 390×844, 320 CSS px, and a 640-CSS-pixel equivalent reflow boundary in the consolidated `targets/catalyst/catalyst-ui/e2e/query-to-table.spec.ts`; actual 200% browser zoom is deferred polish and is not an MVP gate
-- [X] T154 [US7] Pass D1d component/API/E2E and visual-accessibility review for empty/populated Ask, all review panels, and all libraries at desktop, 390×844, 320 CSS px, and a 640-CSS-pixel equivalent reflow boundary; prove keyboard order, Escape/focus return, panel focus containment, status announcements, reduced motion, unobscured editor/composer, exact one-editor behavior, and no loss from the accepted Ask matrix; record `artifacts/catalyst-dashboard/<run-id>/d1d/`, update `the removed 008 evidence log (git 7540f939a951)`, and pause for user UX acceptance; actual 200% browser zoom is deferred polish and is not an MVP gate
+- [X] T154 [US7] Pass D1d component/API/E2E and visual-accessibility review for empty/populated Ask, all review panels, and all libraries at desktop, 390×844, 320 CSS px, and a 640-CSS-pixel equivalent reflow boundary; prove keyboard order, Escape/focus return, panel focus containment, status announcements, reduced motion, unobscured editor/composer, exact one-editor behavior, and no loss from the accepted Ask matrix; record `artifacts/catalyst-dashboard/<run-id>/d1d/`, update `specs/008-catalyst-query-workbench/roadmap.md`, and pause for user UX acceptance; actual 200% browser zoom is deferred polish and is not an MVP gate
 
 Implementation note (2026-08-06): the focused T175/T152, T176/T177, and
 T178/T153 component/API behavior is implemented and its automated tests pass.
@@ -349,7 +349,7 @@ video/screenshot/trace evidence is recorded under
   - **Verified 2026-08-08:** IMPLEMENTED — `targets/catalyst/scripts/superset-import-state.py` exists.
 - [X] T165 [US7] Implement the dedicated `targets/catalyst/scripts/mvp-superset.sh {import|status|reset}` operator boundary, including full reset of only the Superset-local metadata database/home volumes followed by explicit reimport and verification of the selected Dashboard's last-verified bundle; prohibit asset-selective deletion, direct ORM writes, REST mutation, watchers, and automatic rollback/retry, stop before reset when the projection is missing/corrupt, and suppress automatic bootstrap/retry of a still-current failed desired bundle after recovery; route matching subcommands through `scripts/catalyst-mvp.sh` rather than adding a Superset dispatcher to `targets/catalyst/scripts/mvp-up.sh`
   - **Verified 2026-08-08:** IMPLEMENTED — `targets/catalyst/scripts/mvp-superset.sh` exists and is routed through `scripts/catalyst-mvp.sh`.
-- [ ] T144 [US7] Pass D1b: clean boot/import, all five visualization fixtures including the fixture-owned analytics Database asset, ordinary restart without re-import, same-digest idempotency, concurrent lock behavior, corrupt/foreign/missing pointer rejection, scoped pointer/bundle/preflight/credential and transactionally rolled-back CLI prior-dashboard preservation, post-verification `Import failed` with Open/current-success disabled and retained diagnostic, full Superset-local metadata/home reset and verified per-Dashboard last-verified reimport without asset-selective/direct-ORM/REST mutation or automatic rollback, missing/corrupt recovery-projection refusal before reset, recovered-A/failed-desired-B suppression until explicit retry or new publication, Python 3.10 pinned-container importer smoke, constrained-canonical-JSON parity with `rfc8785`, DB-enforced read-only mutation denial, clean target after runtime publication, and secret-free logs/manifests/receipts; record exact image/driver digests in `artifacts/catalyst-dashboard/<run-id>/d1b/` and `the removed 008 evidence log (git 7540f939a951)`, and pause on pinned-schema drift. Consolidated by the 2026-08-07 scope disposition: this gate no longer runs as a separate checkpoint; every proof named here transfers verbatim to the T156/T157 D1e evidence
+- [ ] T144 [US7] Pass D1b: clean boot/import, all five visualization fixtures including the fixture-owned analytics Database asset, ordinary restart without re-import, same-digest idempotency, concurrent lock behavior, corrupt/foreign/missing pointer rejection, scoped pointer/bundle/preflight/credential and transactionally rolled-back CLI prior-dashboard preservation, post-verification `Import failed` with Open/current-success disabled and retained diagnostic, full Superset-local metadata/home reset and verified per-Dashboard last-verified reimport without asset-selective/direct-ORM/REST mutation or automatic rollback, missing/corrupt recovery-projection refusal before reset, recovered-A/failed-desired-B suppression until explicit retry or new publication, Python 3.10 pinned-container importer smoke, constrained-canonical-JSON parity with `rfc8785`, DB-enforced read-only mutation denial, clean target after runtime publication, and secret-free logs/manifests/receipts; record exact image/driver digests in `artifacts/catalyst-dashboard/<run-id>/d1b/` and `specs/008-catalyst-query-workbench/roadmap.md`, and pause on pinned-schema drift. Consolidated by the 2026-08-07 scope disposition: this gate no longer runs as a separate checkpoint; every proof named here transfers verbatim to the T156/T157 D1e evidence
 
 ### D1c — builder backend and deterministic bundle
 
@@ -369,7 +369,7 @@ video/screenshot/trace evidence is recorded under
 - [ ] T148 [US7] Implement only the deterministic native Superset asset/manifest serializer and ZIP generator proven by T171 in `targets/catalyst/catalyst-gateway/src/catalyst/superset_bundle.py`
 - [ ] T172 [US7] Add red publication tests for atomic content-addressed outbox/current-pointer writes, download parity, dashboard- and bundle-level status, exact receipt/latest-per-digest and per-Dashboard last-verified projections, append-only publication evidence, and post-verification `Import failed` suppressing Open/current-success and automatic bootstrap/retry in `targets/catalyst/catalyst-gateway/tests/test_superset_publication.py`
 - [ ] T173 [US7] Implement the outbox publication/download and digest-bound dashboard/bundle status projections proven by T172, including retained post-verification diagnostics, independently visible failed-desired and recovered-last-verified identities, and no success/Open or automatic-retry projection until an explicit retry/new publication earns a verified receipt, in `targets/catalyst/catalyst-gateway/src/catalyst/superset_publication.py` and `targets/catalyst/catalyst-gateway/src/catalyst/dashboard_routes.py`
-- [ ] T149 [US7] Pass D1c with contract fixtures and a real pinned-Superset round trip: every accepted asset resolves to its query/execution/version evidence, all five visualization families import, identical inputs are byte-identical, changed layout reuses unchanged children, changed Dataset/Widget versions create new children, and configuration/publication performs zero model and database calls; record the gate in `artifacts/catalyst-dashboard/<run-id>/d1c/` and `the removed 008 evidence log (git 7540f939a951)`. Consolidated by the 2026-08-07 scope disposition: this gate no longer runs as a separate checkpoint; every proof named here transfers verbatim to the T157 D1e evidence
+- [ ] T149 [US7] Pass D1c with contract fixtures and a real pinned-Superset round trip: every accepted asset resolves to its query/execution/version evidence, all five visualization families import, identical inputs are byte-identical, changed layout reuses unchanged children, changed Dataset/Widget versions create new children, and configuration/publication performs zero model and database calls; record the gate in `artifacts/catalyst-dashboard/<run-id>/d1c/` and `specs/008-catalyst-query-workbench/roadmap.md`. Consolidated by the 2026-08-07 scope disposition: this gate no longer runs as a separate checkpoint; every proof named here transfers verbatim to the T157 D1e evidence
 
 ### D1e — real deployed-dashboard acceptance
 
