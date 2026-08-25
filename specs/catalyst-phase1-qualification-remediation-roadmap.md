@@ -111,6 +111,7 @@ mixed checkout.
 | Q7 | The catalog/grant boundary can drift, token accounting can fail open, and a selected but unexecuted query can become a “verified” example. Query-policy coverage also omits several locked unsafe forms. | Product-level zero-tolerance failures remain possible even with a correct scorer. |
 | Q8 | The program roadmap, brief, and HTML retain obsolete per-cell three-to-five language and stale implementation status. | The supposed single source of truth gives incompatible instructions. |
 | Q9 | The wrapper freezes configuration only after a run returns, but ordinary model failures make the command exit early. Resume creates a new run while its text claims to continue the old one, and the wrapper finds a run through a racy “newest directory” lookup. | Failed or interrupted comparisons can lack their frozen identity, and resumed evidence can be attached to the wrong run. |
+| Q10 | The supported OpenELIS dependency stores PostgreSQL data in a path relative to the current Catalyst worktree while every worktree uses the same Compose project name. Starting from a second clean worktree can therefore replace the database container against a fresh host path while retaining an older FHIR container. | A normal no-reseed start can silently combine incompatible runtime state, fail health checks, and make real-path qualification depend on which checkout started the stack. |
 
 ## Required evidence standard
 
@@ -377,6 +378,12 @@ Acceptance:
   documented pull-request policy;
 - Catalyst standalone bootstrap uses a merged Hub revision or an explicit
   supported override, never a feature-only commit;
+- the supported isolated wrapper gives its retained OpenELIS test database one
+  stable location independent of the current Git worktree; starting the same
+  pinned stack from a second clean worktree neither initializes a different
+  database nor combines retained service containers with a new database;
+- a no-reset, no-reseed restart from a second clean worktree preserves the
+  existing fixture and passes the full supported health check;
 - unresolved current review threads on merged Phase 1 pull requests are
   answered and resolved, including already-fixed findings;
 - Hub image publication, if retained, publishes the tested image by immutable
@@ -525,8 +532,8 @@ may change the fifteen Phase 3 gates.
 
 | Work item | Repository | State | Pull request | Merge evidence |
 | --- | --- | --- | --- | --- |
-| R0 roadmap and truth | Harness | In progress | — | — |
-| R1 run identity and replacement recovery | Harness | Not started | — | — |
+| R0 roadmap and truth | Harness | Complete | [#89](https://github.com/pmanko/clinical-ai-validation-harness/pull/89) | `30c3187b17639b06b0a501d87f3835b32a3ff4b5` |
+| R1 run identity and replacement recovery | Harness | In review | [#90](https://github.com/pmanko/clinical-ai-validation-harness/pull/90) | — |
 | R2 turn-scoped adjudication | Harness | Not started | — | — |
 | R3 complete-run composition | Harness | Not started | — | — |
 | R4 qualification and publication | Harness | Not started | — | — |
@@ -580,3 +587,34 @@ prerequisite product behavior.
   against fixing commit `4f17747` and resolved.
 - R0 started. No product, model, live-data, deployment, or access-rule change
   was made.
+
+### 2026-08-24 — R0 merged and R1 real-path smoke
+
+- R0 merged through harness pull request #89 at
+  `30c3187b17639b06b0a501d87f3835b32a3ff4b5`.
+- R1 implementation froze the secret-free run seed before discovery, recorded
+  one excluded warm-up per team, separated answer quality from measurement
+  validity, and added immutable replacement-run recovery with preflighted
+  evidence copying and full ancestry.
+- Development smoke `2ac36fed-ce4c-4253-8e24-0cf07df870f6` ran scenario A1
+  once through each of the three intended live model teams. It recorded three
+  warm-ups and three measurement-valid rows; all three rows happened to pass.
+  Its frozen seed records the A1-only selection, suite-owned repetition,
+  database cross-check, and 900-second timeout without a password or local
+  source path. This targeted run is implementation evidence only and is not
+  part of the qualification batch.
+- Preliminary smoke `7b8228d8-e1da-4d79-9002-148540364f5d` exposed that a
+  command-line scenario filter was not yet represented in the frozen seed;
+  that gap was fixed before the final smoke. Run
+  `990f2f17-5310-4ec0-a536-1397c39a6f7b` was correctly marked invalid and
+  excluded after the still-running stack build replaced the Gateway during a
+  request and exhausted that team's infrastructure budget. Neither artifact
+  may enter qualification composition.
+- The same startup exposed Q10. The OpenELIS database bind mount is relative to
+  `.openelis-docker/configs/database/data` in the initiating worktree. Docker
+  recreated the database service from the new clean worktree while retaining
+  the older FHIR service, which then failed on absent `hfj_search` and
+  `hfj_blk_import_job` tables. This was not a planned schema change. R7 now
+  requires stable retained storage across worktrees and a no-reseed restart
+  proof before qualification.
+- R1 opened as harness pull request #90 from commit `26fdf04`.

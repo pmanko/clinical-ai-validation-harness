@@ -62,11 +62,16 @@ def _version(version_id: str, sql: str, *, parent: str | None = None) -> dict[st
     }
 
 
-def _evidence(turn_id: str, instruction: str) -> dict[str, Any]:
+def _evidence(
+    turn_id: str,
+    instruction: str,
+    role_models: tuple[str, str | None] = ("gemma-4-12b", "qwen2.5-14b"),
+) -> dict[str, Any]:
     invocations = []
-    for index, (role, model_id) in enumerate(
-        (("writer", "gemma-4-12b"), ("reviewer", "qwen2.5-14b")), start=1
-    ):
+    roles = [("writer", role_models[0])]
+    if role_models[1] is not None:
+        roles.append(("reviewer", role_models[1]))
+    for index, (role, model_id) in enumerate(roles, start=1):
         invocations.append(
             {
                 "invocationId": f"invocation-{turn_id}-{index}",
@@ -117,7 +122,7 @@ def _evidence(turn_id: str, instruction: str) -> dict[str, Any]:
         "hubRequest": {},
         "hubResponse": {},
         "invocations": invocations,
-        "totalInvocationDurationMs": 10,
+        "totalInvocationDurationMs": 5 * len(invocations),
         "candidates": [],
         "finalSelection": {"status": "completed"},
         "omissions": [],
@@ -151,6 +156,7 @@ class _WorkbenchState:
         # Per-profile role models, so a comparison suite's teams are told
         # apart by what they actually offer.
         self.profile_models: dict[str, tuple[str, str | None]] = {}
+        self.current_profile_id = PROFILE_ID
         # A terminal answer that nonetheless left SQL in the session:
         # the exact contradiction the runner has to catch.
         self.leaves_a_query_behind = False
@@ -313,12 +319,29 @@ def _handler(state: _WorkbenchState):
             elif self.path == f"/v1/catalyst/workbench/sessions/{state.session_id}/turns":
                 self._send(200, state.timeline())
             elif self.path.endswith("turn-initial/generation-evidence"):
-                self._send(200, _evidence("turn-initial", "Show patient identifiers."))
+                self._send(
+                    200,
+                    _evidence(
+                        "turn-initial",
+                        "Show patient identifiers.",
+                        state.profile_models.get(
+                            state.current_profile_id,
+                            ("gemma-4-12b", "qwen2.5-14b"),
+                        ),
+                    ),
+                )
             elif "/generation-evidence" in self.path:
                 turn_id = self.path.split("/turns/")[1].split("/")[0]
                 self._send(
                     200,
-                    _evidence(turn_id, "Return only distinct patients."),
+                    _evidence(
+                        turn_id,
+                        "Return only distinct patients.",
+                        state.profile_models.get(
+                            state.current_profile_id,
+                            ("gemma-4-12b", "qwen2.5-14b"),
+                        ),
+                    ),
                 )
             else:
                 self._send(404, {"error": {"code": "not_found"}})
@@ -338,6 +361,7 @@ def _handler(state: _WorkbenchState):
                 self._send(201, payload)
                 return
             if self.path == "/v1/catalyst/workbench/sessions":
+                state.current_profile_id = body.get("profileId", PROFILE_ID)
                 state.reset()
                 state.session_requests.append(body)
                 self._send(201, state.session())
@@ -387,6 +411,7 @@ def _handler(state: _WorkbenchState):
                 state.executions.append(execution)
                 self._send(200, execution)
             elif self.path == f"/v1/catalyst/workbench/sessions/{state.session_id}/turns":
+                state.current_profile_id = body.get("profileId", PROFILE_ID)
                 state.turn_requests.append(body)
                 if state.turn_http_sequence:
                     status = state.turn_http_sequence[
@@ -427,7 +452,7 @@ def _handler(state: _WorkbenchState):
                     ),
                     "snapshotClassification": "reused",
                     "manualVersion": None,
-                    "profileSnapshot": {"profileId": PROFILE_ID},
+                    "profileSnapshot": {"profileId": state.current_profile_id},
                     "outputVersions": [
                         {
                             "versionId": successor["versionId"],
@@ -2151,6 +2176,80 @@ def test_evidence_recorder_rejects_paths_outside_run_directory(
         recorder.json("../escape.json", {}, kind="evidence")
 
 
+def test_recovered_evidence_cannot_escape_overwrite_or_change_after_preflight(
+    tmp_path: Path,
+) -> None:
+    from harness.catalyst.notebook_validation import _EvidenceRecorder
+
+    recorder = _EvidenceRecorder(tmp_path / "run", "run-1")
+    source = tmp_path / "source.json"
+    source.write_text("{}\n")
+    digest = hashlib.sha256(source.read_bytes()).hexdigest()
+
+    with pytest.raises(ValueError, match="must stay within the run directory"):
+        recorder.adopt(
+            "../escape.json",
+            source,
+            kind="recovered",
+            metadata={},
+            expected_sha256=digest,
+        )
+    recorder.run_dir.mkdir()
+    (recorder.run_dir / "exists.json").write_text("already here")
+    with pytest.raises(ValueError, match="would overwrite"):
+        recorder.adopt(
+            "exists.json",
+            source,
+            kind="recovered",
+            metadata={},
+            expected_sha256=digest,
+        )
+    with pytest.raises(ValueError, match="changed after preflight"):
+        recorder.adopt(
+            "changed.json",
+            source,
+            kind="recovered",
+            metadata={},
+            expected_sha256="0" * 64,
+        )
+
+
+def test_recovery_identity_exchange_must_exist_and_contain_an_object(
+    tmp_path: Path,
+) -> None:
+    from harness.catalyst.notebook_validation import _exchange_body
+
+    path = tmp_path / "exchange.json"
+    with pytest.raises(ValueError, match="cannot read recovery identity"):
+        _exchange_body(path)
+    path.write_text(json.dumps({"response": {"body": []}}))
+    with pytest.raises(ValueError, match="is not an object"):
+        _exchange_body(path)
+
+
+def test_a_malformed_recovery_evidence_index_is_refused(tmp_path: Path) -> None:
+    from harness.catalyst.notebook_validation import _preflight_recovery_evidence
+
+    (tmp_path / "evidence-index.json").write_text("{not-json")
+    with pytest.raises(ValueError, match="evidence index is invalid"):
+        _preflight_recovery_evidence(tmp_path, [])
+
+
+def test_recovery_refuses_a_row_without_structural_conformance_checks() -> None:
+    from harness.catalyst.notebook_validation import _row_is_measurement_valid
+
+    assert not _row_is_measurement_valid(
+        {
+            "status": "completed",
+            "sessionId": "session-1",
+            "measurementEvidence": {"complete": True},
+            "assertions": [
+                {"name": "answer_match", "class": "model_quality", "passed": True}
+            ],
+        }
+    )
+
+
 def test_notebook_cli_wires_arguments_into_the_runner(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
@@ -2168,6 +2267,8 @@ def test_notebook_cli_wires_arguments_into_the_runner(
             passed_count=2,
             result_count=2,
             skipped_count=1,
+            complete=True,
+            measurement_valid=True,
         )
 
     monkeypatch.setattr(
@@ -2211,6 +2312,8 @@ def test_notebook_cli_wires_arguments_into_the_runner(
         "passed": 2,
         "total": 2,
         "skipped": 1,
+        "complete": True,
+        "measurement_valid": True,
     }
 
 
@@ -2231,6 +2334,8 @@ def test_notebook_cli_can_skip_the_postgres_cross_check(
             passed_count=0,
             result_count=1,
             skipped_count=0,
+            complete=True,
+            measurement_valid=True,
         )
 
     monkeypatch.setattr(
@@ -2251,10 +2356,136 @@ def test_notebook_cli_can_skip_the_postgres_cross_check(
     with pytest.raises(SystemExit) as exit_info:
         runpy.run_path(str(script_path), run_name="__main__")
 
-    assert exit_info.value.code == 1
+    # A wrong answer is still a successfully completed measurement.
+    assert exit_info.value.code == 0
     assert captured["postgres_checker"] is None
     assert captured["gold_checker"] is None
     capsys.readouterr()
+
+
+def test_notebook_cli_fails_an_invalid_measurement_even_if_the_command_finished(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    import harness.catalyst.notebook_validation as notebook_validation
+
+    monkeypatch.setattr(
+        notebook_validation,
+        "run_notebook_suite",
+        lambda **_: SimpleNamespace(
+            run_id="run-invalid",
+            run_dir=tmp_path / "run-invalid",
+            passed_count=1,
+            result_count=1,
+            skipped_count=0,
+            complete=True,
+            measurement_valid=False,
+        ),
+    )
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "run-catalyst-notebook-validation.py",
+            "--output-dir",
+            str(tmp_path),
+            "--no-postgres-cross-check",
+        ],
+    )
+
+    with pytest.raises(SystemExit) as exit_info:
+        runpy.run_path(
+            str(ROOT / "scripts" / "run-catalyst-notebook-validation.py"),
+            run_name="__main__",
+        )
+
+    assert exit_info.value.code == 1
+
+
+def test_notebook_cli_resolves_one_frozen_seed_for_the_whole_run(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    from harness.catalyst import notebook_validation
+
+    captured: dict[str, Any] = {}
+
+    def fake_run_notebook_suite(**kwargs: Any) -> SimpleNamespace:
+        captured.update(kwargs)
+        return SimpleNamespace(
+            run_id="run-configured",
+            run_dir=tmp_path / "out" / "run-configured",
+            passed_count=0,
+            result_count=1,
+            skipped_count=0,
+            complete=True,
+            measurement_valid=True,
+        )
+
+    monkeypatch.setattr(
+        notebook_validation, "run_notebook_suite", fake_run_notebook_suite
+    )
+    monkeypatch.delenv("INTENTIONALLY_MISSING_DB_PASSWORD", raising=False)
+    config_path = tmp_path / "seed.json"
+    config_path.write_text(
+        json.dumps(
+            {
+                "suite": "frozen-suite.json",
+                "gatewayUrl": "http://127.0.0.1:18000",
+                "outputDir": str(tmp_path / "out").removeprefix("/"),
+                "warmupQuestion": "Warm the selected team once.",
+                "postgres": {
+                    "passwordEnv": "INTENTIONALLY_MISSING_DB_PASSWORD"
+                },
+                "gates": {"overall": 0.9, "perScenario": 0.8},
+                "invocation": {
+                    "scenarios": ["unchanged"],
+                    "repetitions": 2,
+                    "includeManual": False,
+                    "postgresCrossCheck": False,
+                    "timeoutSeconds": 321,
+                },
+                "publish": {"slug": "frozen"},
+            }
+        )
+    )
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "run-catalyst-notebook-validation.py",
+            "--run-config",
+            str(config_path),
+            "--scenario",
+            "unchanged",
+            "--scenario",
+            "unchanged",
+        ],
+    )
+
+    with pytest.raises(SystemExit) as exit_info:
+        runpy.run_path(
+            str(ROOT / "scripts" / "run-catalyst-notebook-validation.py"),
+            run_name="__main__",
+        )
+
+    assert exit_info.value.code == 0
+    assert captured["suite_path"] == Path("frozen-suite.json")
+    assert captured["client"].base_url == "http://127.0.0.1:18000"
+    assert captured["scenario_ids"] == {"unchanged"}
+    assert captured["repetitions"] == 2
+    assert captured["postgres_checker"] is None
+    assert captured["gold_checker"] is None
+    assert captured["client"].timeout_seconds == 321
+    assert captured["warmup_question"] == "Warm the selected team once."
+    assert "source" not in captured["frozen_config"]
+    assert captured["frozen_config"]["invocation"] == {
+        "scenarios": ["unchanged"],
+        "repetitions": 2,
+        "includeManual": False,
+        "postgresCrossCheck": False,
+        "timeoutSeconds": 321,
+    }
 
 
 def test_scenario_turns_default_to_the_single_recorded_followup(
@@ -2670,7 +2901,13 @@ def _adaptive_suite(**scenario_overrides: Any) -> dict[str, Any]:
 
 
 def _run_against_fake(
-    tmp_path: Path, suite: dict[str, Any], state, *, resume_from: Path | None = None
+    tmp_path: Path,
+    suite: dict[str, Any],
+    state,
+    *,
+    resume_from: Path | None = None,
+    frozen_config: dict[str, Any] | None = None,
+    warmup_question: str | None = None,
 ) -> Any:
     suite_path = tmp_path / "suite.json"
     suite_path.write_text(json.dumps(suite), encoding="utf-8")
@@ -2685,11 +2922,22 @@ def _run_against_fake(
             project_root=ROOT,
             provenance_loader=lambda _: [],
             resume_from=resume_from,
+            frozen_config=frozen_config,
+            warmup_question=warmup_question,
         )
     finally:
         server.shutdown()
         thread.join(timeout=5)
         server.server_close()
+
+
+def _mark_interrupted(run_dir: Path) -> None:
+    """Turn a completed fixture into the exact immutable state a crash leaves."""
+    status_path = run_dir / "run-status.json"
+    status = json.loads(status_path.read_text(encoding="utf-8"))
+    status.update({"state": "incomplete", "measurementValid": False})
+    status.pop("reason", None)
+    status_path.write_text(json.dumps(status, indent=2) + "\n", encoding="utf-8")
 
 
 def test_a_settled_pair_stops_at_three_repetitions(tmp_path: Path) -> None:
@@ -2829,12 +3077,64 @@ def test_a_third_infrastructure_failure_invalidates_the_run(tmp_path: Path) -> N
     suite["repetitions"] = 3
     suite["infrastructureReplacements"] = 2
     suite.pop("extendedRepetitions", None)
-    with pytest.raises(ValueError, match="third infrastructure failure"):
+    with pytest.raises(ValueError, match="infrastructure failure budget"):
         _run_against_fake(tmp_path, suite, state)
 
     # The budget is two replacements, so the third failure stops the run: one
     # original attempt plus two replacements, and no fourth.
     assert state.turn_attempts == 3
+
+
+def test_mixed_profile_suite_attributes_failure_budget_to_the_actual_profile(
+    tmp_path: Path,
+) -> None:
+    """Legacy suites may choose profiles per scenario instead of declaring teams."""
+    alternate_profile = "catalyst-query-alternate"
+    state = _WorkbenchState()
+    state.profile_ids = [PROFILE_ID, alternate_profile]
+    state.profile_models = {
+        PROFILE_ID: ("gemma-4-12b", "qwen2.5-14b"),
+        alternate_profile: ("gemma-4-12b", "qwen2.5-14b"),
+    }
+    # The first profile completes. The alternate profile then exhausts its
+    # single allowed replacement.
+    state.turn_http_sequence = [201, 503, 503]
+    suite = _adaptive_suite()
+    suite["repetitions"] = 1
+    suite["infrastructureReplacements"] = 1
+    suite.pop("extendedRepetitions", None)
+    suite["profiles"][alternate_profile] = {
+        "writerModelId": "gemma-4-12b",
+        "reviewerModelId": "qwen2.5-14b",
+    }
+    first = {**suite["scenarios"][0], "id": "first-profile"}
+    second = {
+        **suite["scenarios"][0],
+        "id": "alternate-profile",
+        "initialQuestion": "Show identifiers through the alternate profile.",
+        "initialProfileId": alternate_profile,
+        "followupProfileId": alternate_profile,
+    }
+    suite["scenarios"] = [first, second]
+
+    with pytest.raises(ValueError, match="infrastructure failure budget"):
+        _run_against_fake(
+            tmp_path,
+            suite,
+            state,
+            warmup_question="This must not run for a legacy mixed-profile suite.",
+        )
+
+    run_dir = next((tmp_path / "artifacts").iterdir())
+    status = json.loads((run_dir / "run-status.json").read_text())
+    assert status["state"] == "invalid"
+    assert {item["profileId"] for item in status["infrastructureFailures"]} == {
+        alternate_profile
+    }
+    assert all(
+        request["question"] != "This must not run for a legacy mixed-profile suite."
+        for request in state.session_requests
+    )
 
 
 # --- token evidence --------------------------------------------------------
@@ -3229,8 +3529,46 @@ def test_the_replacement_budget_is_the_runs_not_each_scenarios(
         {**base, "id": f"adaptive-{index}"} for index in range(1, 4)
     ]
 
-    with pytest.raises(ValueError, match="third infrastructure failure"):
+    with pytest.raises(ValueError, match="infrastructure failure budget"):
         _run_against_fake(tmp_path, suite, state)
+
+
+def test_the_third_infrastructure_failure_across_recovery_invalidates_the_team(
+    tmp_path: Path,
+) -> None:
+    state = _WorkbenchState()
+    suite = _adaptive_suite()
+    suite["repetitions"] = 1
+    suite["infrastructureReplacements"] = 2
+    suite.pop("extendedRepetitions", None)
+    source = _run_against_fake(tmp_path, suite, state)
+    (source.run_dir / "rows.jsonl").write_text("")
+    (source.run_dir / "results.json").unlink()
+    _mark_interrupted(source.run_dir)
+    status_path = source.run_dir / "run-status.json"
+    status = json.loads(status_path.read_text())
+    status["infrastructureFailures"] = [
+        {"profileId": PROFILE_ID, "scenarioId": "prior-1"},
+        {"profileId": PROFILE_ID, "scenarioId": "prior-2"},
+    ]
+    status_path.write_text(json.dumps(status, indent=2) + "\n")
+    state.turn_http_sequence = [503]
+    state.turn_attempts = 0
+
+    with pytest.raises(ValueError, match="infrastructure failure budget"):
+        _run_against_fake(tmp_path, suite, state, resume_from=source.run_dir)
+
+    replacements = [
+        path
+        for path in (tmp_path / "artifacts").iterdir()
+        if path != source.run_dir
+    ]
+    assert len(replacements) == 1
+    replacement_status = json.loads(
+        (replacements[0] / "run-status.json").read_text()
+    )
+    assert replacement_status["state"] == "invalid"
+    assert len(replacement_status["infrastructureFailures"]) == 3
 
 
 # --- one frozen comparison, run once, resumable ----------------------------
@@ -3258,6 +3596,88 @@ def test_a_suite_can_name_the_teams_it_compares(tmp_path: Path) -> None:
     suite = load_notebook_suite(_write_suite(tmp_path, _comparison_suite()))
 
     assert suite.comparison_profiles == ("team-a", "team-b", "team-c")
+
+
+def test_the_frozen_seed_exists_before_the_first_live_call(tmp_path: Path) -> None:
+    output_dir = tmp_path / "artifacts"
+
+    class FreezeCheckingClient(_StubClient):
+        saw_seed = False
+
+        def profiles(self) -> HttpExchange:
+            run_dirs = list(output_dir.iterdir())
+            assert len(run_dirs) == 1
+            frozen = run_dirs[0] / "run-config.json"
+            assert frozen.is_file()
+            assert json.loads(frozen.read_text())["identity"] == "frozen-first"
+            self.saw_seed = True
+            return super().profiles()
+
+    client = FreezeCheckingClient(session_status=503, session_body={})
+    result = run_notebook_suite(
+        suite_path=_write_suite(tmp_path, _suite_payload()),
+        client=client,
+        output_dir=output_dir,
+        project_root=ROOT,
+        provenance_loader=lambda _: [],
+        frozen_config={"identity": "frozen-first"},
+    )
+
+    assert client.saw_seed is True
+    assert result.measurement_valid is False
+
+
+def test_each_team_gets_one_recorded_unscored_warmup(tmp_path: Path) -> None:
+    state = _WorkbenchState()
+    state.profile_ids = ["team-a", "team-b", "team-c"]
+    state.profile_models = {
+        "team-a": ("gemma-4-12b", None),
+        "team-b": ("gemma-4-12b", "gemma-4-12b"),
+        "team-c": ("gemma-4-12b", "qwen2.5-14b"),
+    }
+    suite = _comparison_suite()
+    suite["comparisonProfiles"] = ["team-a", "team-b"]
+    question = "How many distinct patients are represented in the approved HIV data?"
+
+    result = _run_against_fake(
+        tmp_path,
+        suite,
+        state,
+        frozen_config={"warmupQuestion": question},
+        warmup_question=question,
+    )
+
+    assert [
+        (item["profileId"], item["question"])
+        for item in state.session_requests
+    ] == [
+        ("team-a", question),
+        ("team-a", "Show patient identifiers."),
+        ("team-b", question),
+        ("team-b", "Show patient identifiers."),
+    ]
+    assert result.result_count == 2
+    rows = [
+        json.loads(line)
+        for line in (result.run_dir / "rows.jsonl").read_text().splitlines()
+    ]
+    assert len(rows) == 2
+    for profile_id in ("team-a", "team-b"):
+        assert (
+            result.run_dir / "warmups" / profile_id / "01-create-session.json"
+        ).is_file()
+        assert not any(
+            row.get("sessionId")
+            == json.loads(
+                (
+                    result.run_dir
+                    / "warmups"
+                    / profile_id
+                    / "01-create-session.json"
+                ).read_text()
+            )["response"]["body"]["sessionId"]
+            for row in rows
+        )
 
 
 def test_a_suite_that_names_no_teams_runs_the_profile_each_scenario_declares(
@@ -3342,6 +3762,12 @@ def test_a_resumed_run_keeps_finished_work_and_only_runs_what_is_left(
         "".join(json.dumps(row) + "\n" for row in team_a_rows), encoding="utf-8"
     )
     (first.run_dir / "results.json").unlink()
+    _mark_interrupted(first.run_dir)
+    source_bytes = {
+        path.relative_to(first.run_dir).as_posix(): path.read_bytes()
+        for path in first.run_dir.rglob("*")
+        if path.is_file()
+    }
 
     state.turn_requests.clear()
     resumed = _run_against_fake(tmp_path, suite, state, resume_from=first.run_dir)
@@ -3351,6 +3777,154 @@ def test_a_resumed_run_keeps_finished_work_and_only_runs_what_is_left(
     # team-a was reused, not re-run: only team-b cost model time.
     assert len(state.turn_requests) == finished_turns // 2
     assert rows[0] == team_a_rows[0]
+    assert source_bytes == {
+        path.relative_to(first.run_dir).as_posix(): path.read_bytes()
+        for path in first.run_dir.rglob("*")
+        if path.is_file()
+    }
+    manifest = json.loads((resumed.run_dir / "run_manifest.json").read_text())
+    assert manifest["resumedFrom"] == first.run_id
+    assert manifest["resumeAncestry"] == [first.run_id]
+    recovery = json.loads((resumed.run_dir / "recovery-import.json").read_text())
+    assert recovery["imports"][0]["sourceRunId"] == first.run_id
+    assert recovery["imports"][0]["evidence"]
+
+
+def test_recovery_reuses_a_complete_wrong_answer_without_rerunning_it(
+    tmp_path: Path,
+) -> None:
+    state = _WorkbenchState()
+    suite = _comparison_suite()
+    suite["comparisonProfiles"] = ["team-a"]
+    state.profile_ids = ["team-a", "team-b", "team-c"]
+    state.profile_models = {
+        "team-a": ("gemma-4-12b", None),
+        "team-b": ("gemma-4-12b", "gemma-4-12b"),
+        "team-c": ("gemma-4-12b", "qwen2.5-14b"),
+    }
+    first = _run_against_fake(tmp_path, suite, state)
+    row = json.loads((first.run_dir / "rows.jsonl").read_text().splitlines()[0])
+    evaluation = next(
+        item for item in row["assertions"] if item["class"] == "evaluation"
+    )
+    evaluation["passed"] = False
+    row["passed"] = False
+    assert row["measurementValid"] is True
+    (first.run_dir / "rows.jsonl").write_text(json.dumps(row) + "\n")
+    (first.run_dir / "results.json").unlink()
+    _mark_interrupted(first.run_dir)
+    state.turn_requests.clear()
+
+    replacement = _run_against_fake(
+        tmp_path, suite, state, resume_from=first.run_dir
+    )
+
+    assert state.turn_requests == []
+    assert replacement.measurement_valid is True
+    assert replacement.passed_count == 0
+    adopted = json.loads((replacement.run_dir / "results.json").read_text())
+    assert adopted["results"][0]["passed"] is False
+
+
+def test_recovery_refuses_a_completed_source_before_any_live_call(
+    tmp_path: Path,
+) -> None:
+    state = _WorkbenchState()
+    source = _run_against_fake(tmp_path, _adaptive_suite(), state)
+    state.requests.clear()
+
+    with pytest.raises(ValueError, match="only an immutable incomplete run"):
+        _run_against_fake(tmp_path, _adaptive_suite(), state, resume_from=source.run_dir)
+
+    assert state.requests == []
+
+
+def test_recovery_identity_drift_stops_before_any_model_conversation(
+    tmp_path: Path,
+) -> None:
+    state = _WorkbenchState()
+    suite = _adaptive_suite()
+    source = _run_against_fake(tmp_path, suite, state)
+    (source.run_dir / "results.json").unlink()
+    _mark_interrupted(source.run_dir)
+    changed = json.loads(json.dumps(suite))
+    changed["scenarios"][0]["initialQuestion"] = "A changed question"
+    state.turn_requests.clear()
+
+    with pytest.raises(ValueError, match="recovery identity drifted"):
+        _run_against_fake(tmp_path, changed, state, resume_from=source.run_dir)
+
+    assert state.turn_requests == []
+
+
+def test_all_reusable_evidence_is_preflighted_before_any_warmup(
+    tmp_path: Path,
+) -> None:
+    state = _WorkbenchState()
+    state.profile_ids = ["team-a", "team-b", "team-c"]
+    state.profile_models = {
+        "team-a": ("gemma-4-12b", None),
+        "team-b": ("gemma-4-12b", "gemma-4-12b"),
+        "team-c": ("gemma-4-12b", "qwen2.5-14b"),
+    }
+    suite = _comparison_suite()
+    suite["comparisonProfiles"] = ["team-a", "team-b"]
+    question = "How many distinct patients are represented in the approved HIV data?"
+    config = {"warmupQuestion": question}
+    source = _run_against_fake(
+        tmp_path,
+        suite,
+        state,
+        frozen_config=config,
+        warmup_question=question,
+    )
+    (source.run_dir / "results.json").unlink()
+    _mark_interrupted(source.run_dir)
+    missing = source.run_dir / "scenarios" / "team-b"
+    missing.rename(source.run_dir / "missing-team-b-evidence")
+    state.session_requests.clear()
+
+    with pytest.raises(ValueError, match="recovery evidence is missing"):
+        _run_against_fake(
+            tmp_path,
+            suite,
+            state,
+            resume_from=source.run_dir,
+            frozen_config=config,
+            warmup_question=question,
+        )
+
+    assert state.session_requests == []
+
+
+def test_repeated_recovery_retains_the_complete_ancestry_without_duplicates(
+    tmp_path: Path,
+) -> None:
+    state = _WorkbenchState()
+    suite = _adaptive_suite()
+    first = _run_against_fake(tmp_path, suite, state)
+    (first.run_dir / "results.json").unlink()
+    _mark_interrupted(first.run_dir)
+    second = _run_against_fake(tmp_path, suite, state, resume_from=first.run_dir)
+    (second.run_dir / "results.json").unlink()
+    _mark_interrupted(second.run_dir)
+    state.turn_requests.clear()
+
+    third = _run_against_fake(tmp_path, suite, state, resume_from=second.run_dir)
+
+    manifest = json.loads((third.run_dir / "run_manifest.json").read_text())
+    assert manifest["resumedFrom"] == second.run_id
+    assert manifest["resumeAncestry"] == [first.run_id, second.run_id]
+    rows = [
+        json.loads(line)
+        for line in (third.run_dir / "rows.jsonl").read_text().splitlines()
+    ]
+    assert [(row["profileId"], row["scenarioId"], row["repetition"]) for row in rows] == [
+        (PROFILE_ID, "adaptive", 1),
+        (PROFILE_ID, "adaptive", 2),
+        (PROFILE_ID, "adaptive", 3),
+    ]
+    assert state.turn_requests == []
 
 
 def test_a_suite_bound_to_one_source_asks_that_source_everything(
@@ -3768,6 +4342,7 @@ def test_a_partially_repeated_pair_is_rerun_not_reused(tmp_path: Path) -> None:
         json.dumps(rows[0]) + "\n", encoding="utf-8"
     )
     (first.run_dir / "results.json").unlink()
+    _mark_interrupted(first.run_dir)
     turns_before = len(state.turn_requests)
     state.turn_requests.clear()
 
@@ -3887,6 +4462,7 @@ def test_a_resumed_run_directory_is_self_contained(tmp_path: Path) -> None:
     first = _run_against_fake(tmp_path, suite, state)
     # The old run recorded its pair fully; the summary vanished with the crash.
     (first.run_dir / "results.json").unlink()
+    _mark_interrupted(first.run_dir)
 
     resumed = _run_against_fake(tmp_path, suite, state, resume_from=first.run_dir)
 

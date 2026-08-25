@@ -30,6 +30,7 @@ jobs:
             scripts/stack-down.sh \
             scripts/local-stack-up.sh \
             scripts/local-stack-down.sh \
+            scripts/catalyst-comparison.sh \
             scripts/verify-repository-lines.sh \
             scripts/verify-docs-consistency.sh
 
