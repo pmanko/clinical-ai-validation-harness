@@ -4131,3 +4131,30 @@ def test_every_failing_gold_verdict_says_why_in_one_sentence(monkeypatch) -> Non
     )
     assert rowset["passed"] is False
     assert "1 row missing from the answer and 1 extra" in rowset["disagreement"]
+
+
+def test_every_failing_gold_mode_says_why_in_one_sentence() -> None:
+    """The PR's contract, held for the paths review found silent or wrong:
+    a capped answer, a scalar mismatch, and one group wrong in two value
+    columns (one group, not 'two groups')."""
+    from harness.catalyst.notebook_validation import (
+        _compare_aggregates,
+        _compare_scalars,
+    )
+
+    scalar = _compare_scalars(
+        [{"patient_count": 11}], [{"patient_count": 6}], "patient_count"
+    )
+    assert scalar["passed"] is False
+    assert scalar["disagreement"] == (
+        "the answer's patient_count is 11; the independent reference says 6"
+    )
+
+    verdict = _compare_aggregates(
+        [{"g": "a", "n": 1, "m": 9}],
+        [{"g": "a", "n": 2, "m": 8}],
+        key_columns=["g"],
+        value_columns={"n": {}, "m": {}},
+    )
+    assert verdict["passed"] is False
+    assert "counts disagree on 1 group " in verdict["disagreement"] + " "

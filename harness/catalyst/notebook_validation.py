@@ -721,18 +721,17 @@ class PostgresGoldExecutionChecker:
             # harness: score the mismatch instead of erasing finished work.
             result["modelRowsExceededCap"] = True
             result["passed"] = False
+            result["disagreement"] = (
+                f"the answer returned over {len(model_rows)} rows; the "
+                f"independent reference returns {len(reference_rows)}"
+            )
             return result
         if gold_check.mode == "count":
             result["passed"] = len(model_rows) == len(reference_rows)
             if not result["passed"]:
-                counted = (
-                    f"over {len(model_rows)}"
-                    if model_exceeded
-                    else str(len(model_rows))
-                )
                 result["disagreement"] = (
-                    f"the answer returned {counted} rows; the independent "
-                    f"reference returns {len(reference_rows)}"
+                    f"the answer returned {len(model_rows)} rows; the "
+                    f"independent reference returns {len(reference_rows)}"
                 )
         elif gold_check.mode == "row_set":
             result.update(
@@ -895,11 +894,15 @@ def _compare_aggregates(
                 f"{'s' if len(missing_keys) != 1 else ''} missing"
             )
         if mismatches:
+            # One entry per (group, value column); the sentence counts
+            # groups, or two bad columns in one group would read as two
+            # disagreeing groups.
+            groups = len({tuple(item["key"]) for item in mismatches})
             first = mismatches[0]
             key_label = ", ".join(str(part) for part in first["key"])
             parts.append(
-                f"counts disagree on {len(mismatches)} group"
-                f"{'s' if len(mismatches) != 1 else ''} (first: "
+                f"counts disagree on {groups} group"
+                f"{'s' if groups != 1 else ''} (first: "
                 f"'{key_label}': {first['modelValue']} vs "
                 f"{first['referenceValue']})"
             )
@@ -914,7 +917,7 @@ def _compare_scalars(
 ) -> dict[str, Any]:
     model_value = model_rows[0].get(value_column) if model_rows else None
     reference_value = reference_rows[0].get(value_column) if reference_rows else None
-    return {
+    verdict: dict[str, Any] = {
         "valueColumn": value_column,
         "modelValue": model_value,
         "referenceValue": reference_value,
@@ -922,6 +925,12 @@ def _compare_scalars(
         and bool(reference_rows)
         and model_value == reference_value,
     }
+    if not verdict["passed"]:
+        verdict["disagreement"] = (
+            f"the answer's {value_column} is {model_value}; the independent "
+            f"reference says {reference_value}"
+        )
+    return verdict
 
 
 class _EvidenceRecorder:
