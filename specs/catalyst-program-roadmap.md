@@ -380,7 +380,7 @@ Run `9ae123db-8f40-4246-8769-d427a5551769`; triage clean — 36/36
 conversations conformed, zero invalid measurements, all 14 failures judged
 model results; scorer byte-identical on two replays. Component pins:
 catalyst `50f15b1` (echo-contract fix #73 merged), med-agent-hub `e26c52a`;
-harness runner from PR #82 (exact merged SHA recorded on merge).
+harness runner merged as `fcac80b` (PR #82).
 
 - **G6 disposition:** with no qualifying team there is no deployment and the
   three browser journeys were not exercised; the spec is ready at
