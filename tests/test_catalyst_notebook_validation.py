@@ -4327,3 +4327,73 @@ def test_the_dashboard_feed_carries_the_words_of_the_conversation(
     assert response["baseOutcome"] == "unsupported"
     # Every failed check reaching the dashboard says which kind it is.
     assert all("class" in item for item in response["failedAssertions"])
+
+
+def test_every_generated_query_is_visible_in_the_feed(tmp_path: Path) -> None:
+    """A reader following a conversation needs each turn's SQL, in place.
+
+    The feed used to carry only the final selected query, so a multi-turn
+    cell showed one query where three were written. The base turn's SQL and
+    every follow-up's SQL now travel with the row, separate from the words
+    a refusal or a question uses.
+    """
+    suite = {
+        "id": "notebook-sql-visibility-v1",
+        "datasetId": "catalyst-cohort-v1",
+        "datasetVersion": "1",
+        "catalogVersion": "analytics-catalog-v1",
+        "providerName": "llama.cpp",
+        "repetitions": 1,
+        "profiles": {
+            PROFILE_ID: {
+                "writerModelId": "gemma-4-12b",
+                "reviewerModelId": "qwen2.5-14b",
+            }
+        },
+        "scenarios": [
+            {
+                "id": "refine-once",
+                "family": "multiturn",
+                "initialQuestion": "Show lab patients.",
+                "initialProfileId": PROFILE_ID,
+                "expectedBaseClassification": "reused",
+                "expectedBaseOutcome": "ready",
+                "validateBase": False,
+                "executeBase": False,
+                "turns": [
+                    {"instruction": "Distinct patients only.",
+                     "profileId": PROFILE_ID}
+                ],
+            }
+        ],
+    }
+    suite_path = tmp_path / "suite.json"
+    suite_path.write_text(json.dumps(suite), encoding="utf-8")
+    state = _WorkbenchState()
+    server = ThreadingHTTPServer(("127.0.0.1", 0), _handler(state))
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        result = run_notebook_suite(
+            suite_path=suite_path,
+            client=NotebookHttpClient(f"http://127.0.0.1:{server.server_port}"),
+            output_dir=tmp_path / "artifacts",
+            project_root=ROOT,
+            provenance_loader=lambda _: [],
+        )
+    finally:
+        server.shutdown()
+        thread.join(timeout=5)
+        server.server_close()
+
+    feed = [
+        json.loads(line)
+        for line in (result.run_dir / "results.jsonl")
+        .read_text(encoding="utf-8")
+        .splitlines()
+        if line.strip()
+    ]
+    response = feed[0]["response"]
+    assert str(response["baseSql"]).startswith("SELECT")
+    turn = response["turns"][0]
+    assert str(turn["sql"]).startswith("SELECT")

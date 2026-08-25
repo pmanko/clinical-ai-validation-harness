@@ -467,6 +467,7 @@ def detail(scenario, backend):
                           "question": resp.get("question"),
                           "baseOutcome": resp.get("baseOutcome"),
                           "baseAnswerText": resp.get("baseAnswerText"),
+                          "baseSql": resp.get("baseSql"),
                           "expectedBaseOutcome": resp.get("expectedBaseOutcome"),
                           "turns": resp.get("turns") or [],
                           "failedAssertions": resp.get("failedAssertions") or [],
@@ -513,6 +514,7 @@ table.grid{border-collapse:collapse;margin-top:6px;font-size:11px;table-layout:f
 .grid th:not(:first-child){width:120px;text-align:center;white-space:normal;vertical-align:bottom;line-height:1.25;font-size:10.5px}
 .grid td:not(:first-child){width:120px;text-align:center}
 .grid td{cursor:pointer}.grid td:hover{outline:2px solid var(--accent2)}
+.sqlblock{white-space:pre-wrap;margin:4px 0 0;font-family:ui-monospace,Menlo,monospace;font-size:11px;background:var(--sunken);border:1px solid var(--border2);border-radius:6px;padding:8px}
 .c200{background:#196c2e;color:#e6ffe9}.cerr{background:#8b1a1a;color:#ffe9e9}.cpend{background:var(--pend-bg);color:var(--pend-fg);cursor:default}
 .crun{background:#9e6a03;color:#ffe9b3;animation:pulse 1.1s ease-in-out infinite}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
@@ -999,18 +1001,25 @@ async function openD(s,b){
    h+='<div class=meta>'+head+'</div>';
    const steps=[];
    steps.push(say('user','person asks','<div class=q style="margin:0">'+esc(c.question||(d.catalystExpected||{}).question||'')+'</div>'));
-   const baseBody=(c.baseAnswerText
-      ? '<pre style="white-space:pre-wrap;margin:0">'+esc(c.baseAnswerText)+'</pre>'
-      : '<pre style="white-space:pre-wrap;margin:0">'+esc((c.turns||[]).length?'(query written; final SQL below)':(t.answer||''))+'</pre>');
+   const sqlBlock=s=>'<pre class=sqlblock>'+esc(s)+'</pre>';
+   const saidBlock=s=>'<pre style="white-space:pre-wrap;margin:0">'+esc(s)+'</pre>';
+   // Every generated query is shown where it was written. Runs recorded
+   // before per-turn SQL existed fall back to the final selected query.
+   const baseSql=c.baseSql||((c.turns||[]).length?null:(c.baseOutcome==='ready'?t.answer:null));
+   const baseBody=(c.baseAnswerText?saidBlock(c.baseAnswerText):'')
+      +(baseSql?sqlBlock(baseSql):'')
+      +((!c.baseAnswerText&&!baseSql)?'<span class=muted>(recorded before per-turn SQL; final query below)</span>':'');
    steps.push(say('model','writer '+kindOf(c.baseOutcome)+' — '+((c.expectedBaseOutcome&&c.baseOutcome!==c.expectedBaseOutcome)?'':'')+'',baseBody+'<div class=meta style="margin-top:3px">'+chip(c.expectedBaseOutcome,c.baseOutcome)+'</div>'));
    (c.turns||[]).forEach((u,i)=>{
     const isAnswer=(c.baseOutcome==='needs_clarification'&&i===0);
     steps.push(say('user',isAnswer?'person answers the question':'person asks for a change (turn '+(i+2)+')','<div class=q style="margin:0">'+esc(u.instruction||'')+'</div>'));
-    const body=u.answerText?('<pre style="white-space:pre-wrap;margin:0">'+esc(u.answerText)+'</pre>'):'<span class=muted>(answer text not recorded for this run)</span>';
+    const body=(u.answerText?saidBlock(u.answerText):'')
+      +(u.sql?sqlBlock(u.sql):'')
+      +((!u.answerText&&!u.sql)?'<span class=muted>(recorded before per-turn SQL; final query below)</span>':'');
     steps.push(say('model','writer '+kindOf(u.observedOutcome),body+'<div class=meta style="margin-top:3px">'+chip(u.expectedOutcome,u.observedOutcome)+'</div>'));
    });
    h+='<div class=trace>'+steps.join(arrow)+'</div>';
-   h+='<details class=tracebox><summary>final query and result</summary><div class=turn>';
+   h+='<details class=tracebox open><summary>selected query and its result</summary><div class=turn>';
    h+='<div class=ans><pre style="white-space:pre-wrap;margin:0">'+esc(t.answer||'')+'</pre></div>';
    const rp=c.resultPreview;
    if(rp&&(rp.columns||[]).length){

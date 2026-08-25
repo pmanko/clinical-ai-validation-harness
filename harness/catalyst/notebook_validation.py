@@ -1553,6 +1553,7 @@ def _adopt_reused_pair(
                     "question": scenario.initial_question,
                     "baseOutcome": row.get("baseOutcome"),
                     "baseAnswerText": row.get("baseAnswerText"),
+                    "baseSql": row.get("baseSql"),
                     "expectedBaseOutcome": row.get("expectedBaseOutcome"),
                     "turns": [
                         {
@@ -1560,6 +1561,7 @@ def _adopt_reused_pair(
                             "expectedOutcome": t.get("expectedOutcome"),
                             "observedOutcome": t.get("observedOutcome"),
                             "answerText": t.get("answerText"),
+                            "sql": t.get("sql"),
                         }
                         for t in row.get("turns") or []
                     ],
@@ -1979,6 +1981,7 @@ def run_notebook_suite(
                             "question": scenario.initial_question,
                             "baseOutcome": result.get("baseOutcome"),
                             "baseAnswerText": result.get("baseAnswerText"),
+                            "baseSql": result.get("baseSql"),
                             "expectedBaseOutcome": result.get(
                                 "expectedBaseOutcome"
                             ),
@@ -1988,6 +1991,7 @@ def run_notebook_suite(
                                     "expectedOutcome": t.get("expectedOutcome"),
                                     "observedOutcome": t.get("observedOutcome"),
                                     "answerText": t.get("answerText"),
+                                    "sql": t.get("sql"),
                                 }
                                 for t in result.get("turns") or []
                             ],
@@ -2625,14 +2629,17 @@ def _run_scenario(
                 "status": turn.get("status"),
                 "expectedOutcome": turn_spec.expected_outcome,
                 "observedOutcome": observed_outcome,
-                # What the writer said this turn: its question or refusal in
-                # words, or the SQL it settled on. A reader following the
-                # conversation needs the answer, not just its kind.
+                # What the writer said this turn, in its own two currencies:
+                # the words of a question or refusal, and the SQL the session
+                # holds after the turn. A reader following the conversation
+                # needs both, in place.
                 "answerText": (
-                    str((turn.get("failure") or {}).get("message") or "")
-                    or str((refreshed.get("currentVersion") or {}).get("sql") or "")
-                )
-                or None,
+                    str((turn.get("failure") or {}).get("message") or "") or None
+                ),
+                "sql": (
+                    str((refreshed.get("currentVersion") or {}).get("sql") or "")
+                    or None
+                ),
                 "selectedVersionId": turn.get("selectedVersionId"),
                 "evidenceDigest": followup_evidence.get("evidenceDigest"),
             }
