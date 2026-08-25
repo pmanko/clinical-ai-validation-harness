@@ -2249,6 +2249,8 @@ def _run_scenario(
     # `base_version` is reassigned as turns land, so reading it at the end
     # reported the final query where the first belongs.
     opening_sql = (base_version or {}).get("sql")
+    opening_version_id = (base_version or {}).get("versionId")
+    opening_query_digest = (base_version or {}).get("queryDigest")
     if base_version is None and scenario.expected_base_outcome not in (
         TERMINAL_WRITER_OUTCOMES
     ):
@@ -2695,8 +2697,8 @@ def _run_scenario(
         else None,
         "followupTurnId": turn.get("turnId"),
         "turns": turn_summaries,
-        "baseVersionId": (base_version or {}).get("versionId"),
-        "baseQueryDigest": (base_version or {}).get("queryDigest"),
+        "baseVersionId": opening_version_id,
+        "baseQueryDigest": opening_query_digest,
         "selectedVersionId": turn.get("selectedVersionId"),
         "baseExecutionId": (base_execution or {}).get("executionId"),
         "successorExecutionId": (successor_execution or {}).get("executionId"),

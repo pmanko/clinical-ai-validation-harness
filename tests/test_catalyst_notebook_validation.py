@@ -4400,3 +4400,9 @@ def test_every_generated_query_is_visible_in_the_feed(tmp_path: Path) -> None:
     # so recording the head at the end showed the final query where the
     # first belongs -- three judges independently flagged it.
     assert response["baseSql"] != turn["sql"]
+    # The identifiers travel with the same opening version, not the head.
+    row = json.loads(
+        (result.run_dir / "results.json").read_text(encoding="utf-8")
+    )["results"][0]
+    assert row["baseVersionId"] != row["selectedVersionId"]
+    assert row["baseQueryDigest"] != row["selectedQueryDigest"]
