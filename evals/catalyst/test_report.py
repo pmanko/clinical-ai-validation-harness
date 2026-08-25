@@ -516,3 +516,36 @@ def test_a_ranking_pass_renders_a_comparative_standing(tmp_path) -> None:
     assert "separates the teams" in standing
     # The declined comparison is named with its reason, not silently dropped.
     assert "reference describes the final turn" in standing
+
+
+def test_a_team_with_no_valid_measurement_is_not_in_the_every_team_denominator(
+    tmp_path,
+) -> None:
+    """"Missed by every team" counts teams that actually measured something.
+
+    A team whose rows are all conformance-broken contributed no valid
+    measurement, so counting it in the denominator makes a miss that every
+    measured team shared look team-specific.
+    """
+    from harness.catalyst.report import _judged_failure_map
+
+    results = {
+        "results": [
+            # Two teams measured S1 and both missed it.
+            {"scenarioId": "S1", "profileId": "a", "passed": False, "status": "completed",
+             "assertions": [{"name": "base_gold_execution_match", "passed": False}]},
+            {"scenarioId": "S1", "profileId": "b", "passed": False, "status": "completed",
+             "assertions": [{"name": "base_gold_execution_match", "passed": False}]},
+            # A third team's only row is an invalid measurement.
+            {"scenarioId": "S1", "profileId": "c", "passed": False, "status": "completed",
+             "assertions": [{"name": "gateway_persistence", "passed": False,
+                             "class": "conformance"}]},
+        ]
+    }
+
+    teams, failed = _judged_failure_map(results)
+
+    assert set(teams) == {"a", "b"}
+    assert set(failed["S1"]) == {"a", "b"}
+    # The shared-miss test the abstract runs now fires correctly.
+    assert len(set(failed["S1"])) == len(teams)

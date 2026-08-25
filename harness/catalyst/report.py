@@ -551,12 +551,15 @@ def _judged_failure_map(
     for row in results.get("results") or []:
         if row.get("status") == "skipped":
             continue
+        # A team enters the roster only once it has measured something. Its
+        # invalid rows must not pad the "every team" denominator, or a miss
+        # every measured team shared reads as team-specific.
+        if not _conformed(row.get("assertions") or []):
+            continue
         team = _row_team(row)
         if team not in teams:
             teams.append(team)
         if row.get("passed"):
-            continue
-        if not _conformed(row.get("assertions") or []):
             continue
         failed.setdefault(str(row.get("scenarioId")), []).append(team)
     return teams, failed
