@@ -562,7 +562,9 @@ def _judged_failure_map(
     return teams, failed
 
 
-def _failure_character(judges: list[dict[str, Any]]) -> str | None:
+def _failure_character(
+    judges: list[dict[str, Any]], failed_scenarios: set[str] | None = None
+) -> str | None:
     """One plain sentence on WHAT went wrong, argued from the judge's axes.
 
     When construction and schema use stay at ceiling on the very queries
@@ -571,7 +573,16 @@ def _failure_character(judges: list[dict[str, Any]]) -> str | None:
     """
     if not judges:
         return None
-    flagged = _weakest_rows(judges, limit=len(judges))
+    # The claim below is about the queries on questions that FAILED, so the
+    # evidence must be those queries — not every query the judge marked down
+    # anywhere, which would let a passing scenario's style note decide what
+    # the failures were.
+    scope = (
+        [row for row in judges if str(row.get("scenario_id")) in failed_scenarios]
+        if failed_scenarios
+        else judges
+    )
+    flagged = _weakest_rows(scope, limit=len(scope))
     if not flagged:
         return (
             "A separate AI judge read every executed query and found nothing"
@@ -722,7 +733,7 @@ def _abstract_section(
             ) + "; ".join(bits) + "."
         else:
             cluster = f"It missed {', '.join(sorted(failed))}."
-        character = _failure_character(judges)
+        character = _failure_character(judges, set(failed))
         failure_text = cluster + (f" {character}" if character else "")
         takeaway = publish.get("plainTakeaway")
         if takeaway:
