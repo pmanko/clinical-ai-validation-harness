@@ -332,7 +332,6 @@ specs/008-catalyst-query-workbench/
 ├── research.md
 ├── data-model.md
 ├── quickstart.md
-├── roadmap.md
 ├── followup-notebook-research.md
 ├── pccp/
 │   ├── 2026-07-18-iterative-query-notebook.md
@@ -389,7 +388,7 @@ targets/catalyst/                 # pinned Catalyst submodule
 │           ├── DatasetBrowser.tsx
 │           └── SqlEditor.tsx     # PostgreSQL editing + completion + format UI
 ├── catalyst-ui/e2e/
-└── docs/roadmap.md
+└── docs/
 
 targets/med-agent-hub/            # pinned sibling profile/model runtime
 ├── server/levels.yaml            # shared clinical + Catalyst profile catalog
@@ -495,7 +494,9 @@ own immutable pin; that fallback is not an umbrella build dependency.
 ## Validation and Check-in Gates
 
 No implementation task may silently cross a gate. Gate evidence and unresolved
-issues are appended to `roadmap.md`; product-code work pauses at the user gates.
+issues are appended to the qualification-remediation roadmap's append-only
+status log (`specs/catalyst-phase1-qualification-remediation-roadmap.md`);
+product-code work pauses at the user gates.
 
 1. **G0 — Plan readiness (user gate, before implementation)**: Generate
    `tasks.md`, run read-only Spec Kit analysis across spec/plan/tasks, resolve all

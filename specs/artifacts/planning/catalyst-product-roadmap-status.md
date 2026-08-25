@@ -73,8 +73,8 @@ presentation.
 | `specs/008-catalyst-query-workbench/spec.md` | Accepted workbench foundation plus Dashboard MVP user story/requirements |
 | `specs/008-catalyst-query-workbench/plan.md` | Technical pathway boundaries, Dashboard MVP design boundary, and selected-milestone scope |
 | `specs/008-catalyst-query-workbench/tasks.md` | Historical work plus executable test-first D1 tasks T137–T182, retaining T144/T149/T154/T157 as checkpoint gates |
-| `specs/008-catalyst-query-workbench/roadmap.md` | Detailed evidence history and D1a–D1e checkpoint board |
-| `specs/008-catalyst-query-workbench/data-model.md` and `quickstart.md` | Builder-draft/bundle lineage and the D1 live/manual acceptance sequence |
+| the removed 008 evidence log (git 7540f939a951) | Detailed evidence history and D1a–D1e checkpoint board (removed from the tree 2026-08-25; read it at that commit) |
+| `specs/008-catalyst-query-workbench/spec.md` and `plan.md` | Builder-draft/bundle lineage and the D1 live/manual acceptance sequence (the stale data-model/quickstart pair was removed 2026-08-25) |
 | `specs/008-catalyst-query-workbench/superset-dashboard-research.md` and `superset-load-reload-research.md` | Renderer, bundle, load/reload, UUID, and import-state decisions against pinned Superset behavior |
 | `specs/artifacts/planning/catalyst-validation-integration-roadmap-status.md` | PR #43 evaluation-release status only; not the product roadmap |
 

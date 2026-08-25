@@ -29,8 +29,8 @@ and promoting its evidence label.
 
 | Roadmap id | Active 008 checkpoint | Status at latest update |
 |---|---|---|
-| **008-G5** | `specs/008-catalyst-query-workbench/roadmap.md` W2 **G5 user** | Not accepted — no longer a CVR entry gate (A1) |
-| **008-G6** | `specs/008-catalyst-query-workbench/roadmap.md` W3 **G6 user** | Not accepted — no longer a CVR entry gate (A1) |
+| **008-G5** | `the removed 008 evidence log (git 7540f939a951)` W2 **G5 user** | Not accepted — no longer a CVR entry gate (A1) |
+| **008-G6** | `the removed 008 evidence log (git 7540f939a951)` W3 **G6 user** | Not accepted — no longer a CVR entry gate (A1) |
 | **T094** | Diverse real-path notebook validation | PASS — accepted; final-pin matrix 12/12 PASS (run `0671dc34`), 24/24 PostgreSQL checks, 18/18 gold-result checks; final-pin failure/recovery PASS (run `fb6377c1`) |
 | **T095** | G2.8c acceptance pause | PASS — accepted 2026-08-04; actual keyboard-only and 200%-browser-zoom checks PASS |
 | **T111** | Clean-pin rerun + user acceptance | PASS — accepted 2026-08-04; T112 merge/repin/verification also complete |

@@ -15,7 +15,7 @@ Out of scope (explicitly excluded, section 8): rewriting `scripts/validate-dashb
 - Constitution V (tests): each behavioral task is red-first except the explicitly green-before-green baseline golden tests; diverse scenario, failure, no-judge, and gold-fail/judge-pass cases are mandatory.
 - Governance: P2 creates a PCCP-style change record before the rubric is accepted; P5 includes independent code-qa evidence.
 
-This roadmap does not silently supersede `specs/008-catalyst-query-workbench/roadmap.md`. P0–P3 are preparatory refactor/rubric/report work and may proceed using development fixtures. Per Amendment A1, P4 harness-integration work MUST NOT start until tasks **T094, T095, and T111** (the active roadmap's real-path acceptance gates) are recorded PASS in the status artifact, and P5 comparative/release claims require the same recorded acceptance. The active roadmap's **G5 user**/**G6 user** checkpoints (W2/W3 exits) remain product-feature checkpoints on the 008 track but no longer gate this roadmap's phases. These dependencies are hard phase-entry gates.
+This roadmap does not silently supersede `the removed 008 evidence log (git 7540f939a951)`. P0–P3 are preparatory refactor/rubric/report work and may proceed using development fixtures. Per Amendment A1, P4 harness-integration work MUST NOT start until tasks **T094, T095, and T111** (the active roadmap's real-path acceptance gates) are recorded PASS in the status artifact, and P5 comparative/release claims require the same recorded acceptance. The active roadmap's **G5 user**/**G6 user** checkpoints (W2/W3 exits) remain product-feature checkpoints on the 008 track but no longer gate this roadmap's phases. These dependencies are hard phase-entry gates.
 
 ### 1.2 Amendments
 
