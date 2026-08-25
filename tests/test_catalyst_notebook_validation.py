@@ -4983,3 +4983,70 @@ def test_every_generated_query_is_visible_in_the_feed(tmp_path: Path) -> None:
     )["results"][0]
     assert row["baseVersionId"] != row["selectedVersionId"]
     assert row["baseQueryDigest"] != row["selectedQueryDigest"]
+
+
+def test_a_mid_conversation_turn_is_not_judged_against_the_final_reference() -> None:
+    """The scenario's reference describes the conversation's FINAL state.
+
+    Run 9ae123db checked M2's turn 1 — grouped, not yet limited to ten —
+    against the top-ten reference, so every team "failed" M2 by
+    construction; all three judge passes independently flagged it. A turn
+    now carries its own reference, and the scenario's belongs to the last
+    turn alone.
+    """
+    from harness.catalyst.notebook_validation import _load_turns
+
+    turns = _load_turns(
+        "M2",
+        {
+            "turns": [
+                {
+                    "instruction": "Regroup that by patient gender as well.",
+                    "profileId": "p",
+                    "goldCheck": {
+                        "mode": "aggregate_by_key",
+                        "referenceSql": "SELECT a, b, count(*) AS n FROM t GROUP BY a, b",
+                        "keyColumns": ["a", "b"],
+                        "valueColumns": {"n": {"tolerance": 0}},
+                    },
+                },
+                {
+                    "instruction": "Return only the ten highest groups.",
+                    "profileId": "p",
+                },
+            ]
+        },
+        "ready",
+    )
+
+    # The intermediate turn owns a reference for the state it reaches.
+    assert turns[0].gold_check is not None
+    assert "LIMIT" not in turns[0].gold_check.reference_sql.upper()
+    # The last turn takes the scenario-level reference instead.
+    assert turns[1].gold_check is None
+
+
+def test_suite_v2_checks_each_m2_turn_against_its_own_state() -> None:
+    """The successor suite carries the fix; v1 stays byte-immutable.
+
+    v1 is the published run's seed and the docs guard hashes it, so a
+    qualification repair ships as v2 — the policy the program already
+    records ("qualification repairs use catalog v7 and suite v2").
+    """
+    import json
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1] / "datasets/validation/catalyst"
+    v2 = json.loads((root / "catalyst-phase1-comparison-v2.json").read_text("utf-8"))
+    m2 = next(s for s in v2["scenarios"] if s["id"] == "M2")
+
+    turn_one = m2["turns"][0]["goldCheck"]
+    assert "LIMIT" not in turn_one["referenceSql"].upper()
+    assert "LIMIT 10" in m2["successorGoldCheck"]["referenceSql"].upper()
+    # Both references honour the pinned guidance the scenario tests.
+    assert "do_not_perform" in turn_one["referenceSql"]
+
+    # v1 still describes the old, unscoped behaviour — untouched.
+    v1 = json.loads((root / "catalyst-phase1-comparison-v1.json").read_text("utf-8"))
+    m2_v1 = next(s for s in v1["scenarios"] if s["id"] == "M2")
+    assert "goldCheck" not in m2_v1["turns"][0]

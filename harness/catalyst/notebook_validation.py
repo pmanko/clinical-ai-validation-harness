@@ -249,6 +249,12 @@ class NotebookTurn:
     profile_id: str
     expected_turn_status: str = "completed"
     expected_outcome: str = "ready"
+    # A reference for THIS turn's state. A multi-turn scenario reaches its
+    # final shape only on its last turn, so an intermediate turn judged
+    # against the final reference fails by construction -- which is exactly
+    # what happened to M2 turn 1 (grouped, not yet limited to ten) in run
+    # 9ae123db, and what all three judge passes independently flagged.
+    gold_check: NotebookGoldCheck | None = None
 
 
 @dataclass(frozen=True)
@@ -269,6 +275,10 @@ class NotebookScenario:
     manual_only: bool
     require_reviewer_correction: bool
     base_gold_check: NotebookGoldCheck | None = None
+    # The reference for the conversation's FINAL state. It is checked on the
+    # last turn only; earlier turns are checked against their own
+    # `turns[].goldCheck` when the suite supplies one, and left unchecked
+    # when it does not.
     successor_gold_check: NotebookGoldCheck | None = None
     expected_base_outcome: str = "ready"
     # Standing instructions pinned to the session after the opening answer,
@@ -1204,6 +1214,7 @@ def _load_turns(
                 profile_id=str(entry["profileId"]),
                 expected_turn_status=status,
                 expected_outcome=outcome,
+                gold_check=_load_gold_check(entry.get("goldCheck")),
             )
         )
     return tuple(turns)
@@ -1685,8 +1696,16 @@ def _measurement_evidence(
                     validation_file=f"12-validate-successor{slot}.json",
                     execution_requested=scenario.execute_successor,
                     execution_file=f"13-execute-successor{slot}.json",
+                    # Same per-turn scoping the runner applies: the
+                    # scenario's reference belongs to the last turn, an
+                    # earlier turn has an oracle only if it declared one.
                     oracle_configured=(
-                        scenario.successor_gold_check is not None
+                        (
+                            scenario.successor_gold_check
+                            if index == len(scenario.turns)
+                            else turn_spec.gold_check
+                        )
+                        is not None
                     ),
                     oracle_file=f"16-gold-execution-match-successor{slot}.json",
                 ),
@@ -3273,13 +3292,25 @@ def _run_scenario(
                     kind="postgres_crosscheck",
                 )
                 check("successor_postgres_crosscheck", crosscheck["passed"], crosscheck)
+            # The scenario's reference describes the conversation's FINAL
+            # state, so it belongs to the last turn only; an intermediate
+            # turn is checked against its own reference when the suite
+            # declares one, and left unchecked when it does not. Judging a
+            # mid-conversation query against the final answer fails by
+            # construction and reads as a model miss (M2 turn 1, run
+            # 9ae123db) rather than the suite artifact it is.
+            turn_gold_check = (
+                scenario.successor_gold_check
+                if turn_index == len(scenario.turns)
+                else turn_spec.gold_check
+            )
             if (
                 gold_checker is not None
-                and scenario.successor_gold_check is not None
+                and turn_gold_check is not None
                 and executed.status_code == 200
                 and successor_execution.get("status") == "succeeded"
             ):
-                gold_result = gold_checker.check(selected, scenario.successor_gold_check)
+                gold_result = gold_checker.check(selected, turn_gold_check)
                 recorder.json(
                     f"{prefix}/16-gold-execution-match-successor{slot}.json",
                     gold_result,

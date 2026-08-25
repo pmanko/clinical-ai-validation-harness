@@ -172,9 +172,41 @@ _AXIS_HEADS = {
     "schema_discipline": "schema",
     "followup_coherence": "follow-up",
 }
-# A judged query scoring below this composite gets called out by name in the
-# judge summary; everything above it collapses into the medians.
-_FLAG_BELOW = 80
+# Which judged queries get called out by name. A fixed composite cutoff was
+# arbitrary, and useless on a run whose axes saturate — the composite is then
+# nearly a step function of the one axis that dropped. The rubric already
+# defines imperfection: any axis below its top anchor means that axis was not
+# fully satisfied. So a query is named when the judge marked it down on ANY
+# axis, worst composite first, capped so a bad run does not print its whole
+# worklist. Purely relative ranking was rejected for the opposite failure: a
+# team whose every query scored alike and badly would name nothing.
+_MAX_NAMED_PER_TEAM = 3
+_AXIS_TOP = 3
+
+
+def _weakest_rows(
+    rows: list[dict[str, Any]], limit: int = _MAX_NAMED_PER_TEAM
+) -> list[dict[str, Any]]:
+    """The judged queries worth reading: any the judge marked down.
+
+    Ordered by composite so the worst leads, then by scenario and turn so the
+    list is stable across runs with identical scores.
+    """
+
+    def marked_down(row: dict[str, Any]) -> bool:
+        return any(
+            isinstance(row.get(axis), (int, float)) and row[axis] < _AXIS_TOP
+            for axis in _JUDGE_AXES
+        )
+
+    return sorted(
+        (row for row in rows if marked_down(row)),
+        key=lambda row: (
+            row.get("composite") if isinstance(row.get("composite"), (int, float)) else 0,
+            str(row.get("scenario_id")),
+            int(row.get("turn") or 0),
+        ),
+    )[:limit]
 
 
 def _judge_team(row: dict[str, Any]) -> str | None:
@@ -533,12 +565,7 @@ def _failure_character(judges: list[dict[str, Any]]) -> str | None:
     """
     if not judges:
         return None
-    flagged = [
-        row
-        for row in judges
-        if isinstance(row.get("composite"), (int, float))
-        and row["composite"] < _FLAG_BELOW
-    ]
+    flagged = _weakest_rows(judges, limit=len(judges))
     if not flagged:
         return (
             "A separate AI judge read every executed query and found nothing"
@@ -802,15 +829,7 @@ def _judge_summary_section(
             for row in rows
             if isinstance(row.get("composite"), (int, float))
         ]
-        flagged = sorted(
-            (
-                row
-                for row in rows
-                if isinstance(row.get("composite"), (int, float))
-                and row["composite"] < _FLAG_BELOW
-            ),
-            key=lambda row: row["composite"],
-        )
+        flagged = _weakest_rows(rows)
 
         def flag_link(row: dict[str, Any]) -> str:
             team = _judge_team(row)
@@ -832,15 +851,26 @@ def _judge_summary_section(
         cells = [
             f"<td>{esc(name)}</td>",
             f"<td class='num'>{len(rows)}</td>",
-            f"<td class='num'>{median(composites):g}</td>" if composites else "<td class='num'>—</td>",
-            f"<td class='num{floor_cls}'>{floor:g}</td>" if floor is not None else "<td class='num'>—</td>",
-            f"<td>{flag_links or '—'}</td>",
         ]
+        # Axes first: they are what the judge actually scored. The composite
+        # is a derived convenience and sits at the end, where a reader can
+        # ignore it.
         for axis in _JUDGE_AXES:
             values = [row[axis] for row in rows if isinstance(row.get(axis), (int, float))]
-            cells.append(
-                f"<td class='num'>{median(values):g}</td>" if values else "<td class='num'>—</td>"
-            )
+            if not values:
+                cells.append("<td class='num'>—</td>")
+                continue
+            low, high = min(values), max(values)
+            spread = "" if low == high else f"<span class='adv'> {low:g}–{high:g}</span>"
+            cells.append(f"<td class='num'>{median(values):g}{spread}</td>")
+        cells.append(f"<td>{flag_links or '—'}</td>")
+        cells.append(
+            f"<td class='num adv'>{median(composites):g}"
+            + (f" <span class='{floor_cls.strip() or 'adv'}'>↓{floor:g}</span>" if floor is not None and floor != median(composites) else "")
+            + "</td>"
+            if composites
+            else "<td class='num adv'>—</td>"
+        )
         return "<tr>" + "".join(cells) + "</tr>"
 
     rows_html = [
@@ -867,14 +897,15 @@ def _judge_summary_section(
         "<section id='judge-summary'>"
         "<h2>Judge summary<span class='pill-adv'>advisory</span></h2>"
         "<p class='adv'>A separate AI judge read every executed query against"
-        " its recorded evidence. Scores are 0–3 per axis; the composite weighs"
-        " them into 0–100. Advisory means it never gates acceptance — the"
-        " row-for-row reference check does. Where that check failed, the judge"
-        " explains why; it cannot overrule it.</p>"
+        " its recorded evidence and scored four axes from 0 to 3. The axes are"
+        " what it judged, so they lead; each cell shows the median and, where"
+        " the scores differ, the range behind it. Advisory means it never gates"
+        " acceptance — the row-for-row reference check does. Where that check"
+        " failed, the judge explains why; it cannot overrule it.</p>"
         "<table class='data'><thead><tr>"
         "<th>team</th><th class='num'>queries judged</th>"
-        "<th class='num'>composite median</th><th class='num'>floor</th>"
-        f"<th>flagged (&lt;{_FLAG_BELOW})</th>{axis_heads}"
+        f"{axis_heads}<th>weakest queries</th>"
+        "<th class='num'>composite</th>"
         "</tr></thead>"
         f"<tbody>{''.join(rows_html)}</tbody></table>"
         f"<p class='adv'>{protocol}</p>"
@@ -886,10 +917,14 @@ def _judge_summary_section(
         " with correct types (0–3)</dd>"
         "<dt>follow-up</dt><dd>the revision honors the new instruction without"
         " breaking what worked (0–3, follow-up turns only)</dd>"
-        "<dt>composite</dt><dd>weighted 0–100 (opening queries 47/29/24;"
-        " follow-up queries 40/25/20/15)</dd>"
-        "<dt>floor</dt><dd>the lowest composite this team received — its worst"
-        " single query</dd>"
+        "<dt>weakest queries</dt><dd>every query the judge marked down on any"
+        " axis, worst first (at most three shown) — the rubric's own anchors"
+        " decide, not a composite cutoff. Blank when nothing was marked"
+        " down.</dd>"
+        "<dt>composite</dt><dd>a weighted convenience score (0–100; opening"
+        " queries 47/29/24, follow-ups 40/25/20/15) with the team's floor"
+        " after ↓. Read the axes first: when they saturate, the composite is"
+        " nearly a step function of whichever axis dropped.</dd>"
         "</dl>"
         "</section>"
     )
@@ -919,13 +954,13 @@ def _judge_detail_section(
                 + (f" <span class='adv'>{esc(team)}</span>" if team else "")
                 + "</h3>"
             )
+        weakest = {
+            str(row.get("version_id")) for row in _weakest_rows(team_rows)
+        }
         ordered = sorted(
             team_rows,
             key=lambda row: (
-                not (
-                    isinstance(row.get("composite"), (int, float))
-                    and row["composite"] < _FLAG_BELOW
-                ),
+                str(row.get("version_id")) not in weakest,
                 row.get("composite") if isinstance(row.get("composite"), (int, float)) else 0,
                 str(row.get("scenario_id")),
                 int(row.get("turn") or 0),
@@ -933,7 +968,7 @@ def _judge_detail_section(
         )
         for row in ordered:
             composite = row.get("composite")
-            flagged = isinstance(composite, (int, float)) and composite < _FLAG_BELOW
+            flagged = str(row.get("version_id")) in weakest
             anchor = _judge_anchor(
                 team, str(row.get("scenario_id")), int(row.get("turn") or 0)
             )

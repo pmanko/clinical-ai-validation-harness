@@ -14,6 +14,17 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 def _block_network(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Forbid sockets while a report is BUILT — not while it is imported.
+
+    Importing harness.catalyst.report pulls in urllib3, whose import chain
+    reaches ssl, and ssl fails to initialize once socket.socket is a stub.
+    Blocking first therefore made these tests pass or fail on whether some
+    earlier test had already cached the module — invisible until a new test
+    elsewhere shifted the order. Importing up front makes the block mean
+    what it says.
+    """
+    import harness.catalyst.report  # noqa: F401  (warm the import chain)
+
     def _raise(*_a, **_k):  # noqa: ANN001
         raise RuntimeError("network blocked in catalyst report tests")
 
@@ -65,8 +76,11 @@ def test_gold_fail_with_perfect_judge_still_reports_fail(
 
     html = build_report(FIXTURE).read_text(encoding="utf-8")
     # Scenario cell must remain FAIL despite composite 100 judge scores.
-    idx = html.index("gold-fail-high-judge")
-    window = html[idx : idx + 2500]
+    # Scoped to the matrix: the abstract now names failing scenarios too, so
+    # searching from the document's first mention lands in the wrong section.
+    matrix = html[html.index("Scenario matrix"): html.index("What each scenario does")]
+    idx = matrix.index("gold-fail-high-judge")
+    window = matrix[idx : idx + 2500]
     assert "FAIL" in window
     assert "100" in window  # advisory judge composite still visible
 
