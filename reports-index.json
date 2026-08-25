@@ -3,6 +3,13 @@
   "scoring_note": "Each answer is graded 0\u201310, higher is better \u2014 <b>Accuracy</b>: are the stated facts correct? <b>Completeness</b>: did it cover what mattered? <b>Relevance</b>: did it actually answer the question? <b>Unsafe answers</b> counts responses with a potential safety problem (lower is better). <b>Questions</b> is how many were scored per setup, and the best value in each column is highlighted. <b>Benchmark /100</b> is the headline aggregate \u2014 it combines the dimensions (accuracy and completeness weighted most) minus soft penalties for safety and citation problems, so one number summarizes each setup. These come from a single automated judge on a small sample \u2014 they're directional, not a formal benchmark.",
   "runs": [
     {
+      "slug": "catalyst-phase1-comparison",
+      "title": "Catalyst Phase 1: three model teams on the locked HIV suite",
+      "summary": "Twelve scenarios per team over one live conversation each, judged against an independent database answer.",
+      "takeaway": "No team met the 90%/80% acceptance gates. With the echo bug fixed, every one of the 36 conversations is a valid measurement: the qwen2.5-14b-reviewed team leads at 8/12, and all failures are judged model results (B1/B3/M2/U2 shared across teams).",
+      "family": "catalyst"
+    },
+    {
       "slug": "catalyst-t094-release",
       "title": "Catalyst T094 validation",
       "summary": "",
