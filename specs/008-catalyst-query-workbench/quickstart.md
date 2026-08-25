@@ -300,11 +300,13 @@ Implementation plumbing is not acceptance evidence. Before closing G2.10:
 
 ## D1 Superset-backed Dashboard Builder checkpoint
 
-This is the selected next product checkpoint. It requires only the accepted
-query/version/execution/table foundation; G2.10, W2, W3/CVR, R4, and R5 remain
-parallel. Commands below are the implementation contract for T137–T182; until
-those tasks are checked, an absent command is an expected open item rather than
-evidence that the runtime exists.
+This is the program's P3 product checkpoint; P1 session context and P2
+conversation mode come first in the program sequence. Its accepted
+query/version/execution/table foundation and Feature 008 contract remain
+unchanged. Within Feature 008, G2.10, W2, W3/CVR, R4, and R5 remain parallel.
+Commands below are the implementation contract for T137–T182; until those tasks
+are checked, an absent command is an expected open item rather than evidence
+that the runtime exists.
 
 ### Planned operator commands and endpoints
 

@@ -244,9 +244,12 @@ uv run harness-cli catalyst report \
   artifacts/catalyst-notebook-validation/<run-id>
 ```
 
-After one manually initiated judge review is finalized, stage or publish the
-report and its relative evidence links with the family-aware publisher. A
-second review by a different model or agent is optional and remains separate:
+The current `scripts/catalyst-judge-finalize.py` still expects the legacy
+three-pass format, so it is not yet the repaired Phase 1 review path. Roadmap
+R4 will make one manually initiated full-context review the default and keep an
+optional second model or agent's rationale separate. Once a compatible report
+has been prepared, stage or publish it and its relative evidence links with the
+family-aware publisher:
 
 ```bash
 scripts/publish-report.sh catalyst \
