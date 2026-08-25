@@ -4168,7 +4168,6 @@ def test_every_failing_gold_mode_says_why_in_one_sentence() -> None:
     )
     assert verdict["passed"] is False
     assert "counts disagree on 1 group " in verdict["disagreement"] + " "
-||||||| parent of 9d4e01d (feat(runner): every assertion says whether it judges the answer or checks the contract)
 
 
 def test_every_assertion_the_runner_can_emit_is_classified():

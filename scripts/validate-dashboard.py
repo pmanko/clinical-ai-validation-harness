@@ -344,6 +344,37 @@ except Exception as _classifier_error:  # pragma: no cover - deployment guard
 blame_failure = _blame
 
 
+_SQL_CLAUSE = re.compile(
+    r"\s+(FROM|WHERE|GROUP BY|ORDER BY|HAVING|LIMIT|OFFSET|UNION ALL|UNION"
+    r"|LEFT JOIN|RIGHT JOIN|FULL JOIN|INNER JOIN|CROSS JOIN|JOIN|ON|AND|OR)\s+",
+    re.IGNORECASE,
+)
+
+
+def _format_sql(sql):
+    """Break a single-line query at clause boundaries, for reading.
+
+    Display only -- the recorded evidence keeps the model's bytes. A query
+    the model formatted itself, and anything that is not a query, pass
+    through untouched; string literals are split out first so a keyword
+    inside one stays where the model put it.
+    """
+    if not sql or "\n" in sql or not re.match(r"\s*(SELECT|WITH)\b", sql, re.IGNORECASE):
+        return sql
+
+    def _break(chunk):
+        return _SQL_CLAUSE.sub(
+            lambda m: "\n"
+            + ("  " if m.group(1).upper() in ("ON", "AND", "OR") else "")
+            + m.group(1).upper()
+            + " ",
+            chunk,
+        )
+
+    parts = re.split(r"('(?:[^']|'')*')", sql)
+    return "".join(part if i % 2 else _break(part) for i, part in enumerate(parts))
+
+
 def run_family(run):
     """'catalyst' when the run carries a notebook suite; 'chartsearchai' otherwise."""
     return "catalyst" if os.path.exists(os.path.join(run, "suite.json")) else "chartsearchai"
@@ -412,7 +443,7 @@ def detail(scenario, backend):
             turns.append({
                 "turn": r.get("turn"),
                 "question": request.get("question", ""),
-                "answer": resp.get("answer") or "",
+                "answer": _format_sql(resp.get("answer")) or "",
                 "status": m.get("http_status"),
                 "latency_ms": m.get("latency_ms"),
                 "chars": m.get("answer_chars"),
@@ -422,9 +453,12 @@ def detail(scenario, backend):
                     "question": resp.get("question"),
                     "baseOutcome": resp.get("baseOutcome"),
                     "baseAnswerText": resp.get("baseAnswerText"),
-                    "baseSql": resp.get("baseSql"),
+                    "baseSql": _format_sql(resp.get("baseSql")),
                     "expectedBaseOutcome": resp.get("expectedBaseOutcome"),
-                    "turns": resp.get("turns") or [],
+                    "turns": [
+                        {**turn, "sql": _format_sql(turn.get("sql"))}
+                        for turn in resp.get("turns") or []
+                    ],
                     "failedAssertions": resp.get("failedAssertions") or [],
                     "resultPreview": resp.get("resultPreview"),
                     "conformed": not any(

@@ -345,3 +345,28 @@ def test_a_transport_error_is_red_whatever_the_assertions_say(tmp_path: Path):
 
     assert status["grid"][0]["state"] == "err"
     assert status["unexpected"] == 1
+
+
+def test_single_line_sql_is_formatted_for_reading_and_nothing_else_is():
+    """Models often emit a query as one long line; the detail view breaks it
+    at clause boundaries so a reader can follow it. A query the model
+    formatted itself, prose, and keywords inside string literals are left
+    exactly as recorded — this is display, never evidence.
+    """
+    vd = _load_dashboard_module()
+    f = vd._format_sql
+
+    flat = ("SELECT a, b FROM t1 JOIN t2 ON t1.id = t2.id "
+            "WHERE x = 'keep FROM here' GROUP BY a ORDER BY b LIMIT 5")
+    pretty = f(flat)
+    assert "\nFROM t1" in pretty
+    assert "\n  ON t1.id" in pretty
+    assert "\nWHERE x" in pretty
+    assert "'keep FROM here'" in pretty, "string literals stay verbatim"
+    assert "\nGROUP BY a" in pretty and "\nORDER BY b" in pretty
+
+    already = "SELECT a\nFROM t"
+    assert f(already) == already, "the model's own layout is respected"
+    prose = "The data records no home address."
+    assert f(prose) == prose
+    assert f(None) is None
