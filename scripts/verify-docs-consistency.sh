@@ -259,7 +259,7 @@ for phrase in \
   'All three M1 ready answers are scored' \
   'carry no irrelevant CD4-specific assumptions into the visit answer' \
   'Validation is advisory' \
-  'record `none` or `inconclusive`' \
+  "record \`none\` or \`inconclusive\`" \
   'planned number of complete suite runs' \
   'permanently excluded from composition' \
   'regardless of whether the model answer passed or failed' \
