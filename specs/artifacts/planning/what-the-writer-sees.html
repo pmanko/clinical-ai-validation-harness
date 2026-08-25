@@ -200,25 +200,25 @@
   <div>
     <p class="eyebrow">Catalyst · context engineering — practices, evidence, roadmap</p>
     <h1>What the Writer Sees</h1>
-    <p class="standfirst">The practices the field converged on for accumulating, session-persistent context;
-    the evidence behind each; and the integrated Phase 1 outcome chosen for Catalyst. The final comparison
-    evaluates the completed system and does not assign effects to individual context changes.</p>
+    <p class="standfirst">Research evidence about the context the writer sees and the practices considered
+    for Phase 1. Sections 01–02 remain the evidence base; current product and experiment decisions live only
+    in <code>specs/catalyst-program-roadmap.md</code>.</p>
   </div>
   <p class="meta">v7 · 2026-08-25 owner corrections<br>
   grounded in: catalyst main @ 655b796 (WS7 merged) · the recorded hub request for session c973eeba turn 3 · ingestion SQL · writer prompt<br>
-  source of truth: specs/catalyst-program-roadmap.md · relation counts are fixture snapshots; run counts, pass percentages, retry budgets, and context caps are not locked here</p>
+  source of truth: specs/catalyst-program-roadmap.md · this page preserves research and superseded proposals rather than a second current plan</p>
 </header>
 
 <div class="stance">
-  <div><h3>Complete the chosen outcome</h3><p>All Phase 1 context changes land before the model-team comparison. This work does not run one-change-at-a-time studies.</p></div>
-  <div><h3>Use the existing substrate</h3><p>No new services, stores, or models are required. The work extends requests and records the system already owns.</p></div>
-  <div><h3>Compare complete teams</h3><p>The harness reports the finished model setups and their evidence. The owner records a selected team, none, or an inconclusive result.</p></div>
+  <div><h3>Current correction</h3><p>Phase 1 is exploratory validation. It completes with real-path product proof and a complete three-team evidence report; it does not require a winning team.</p></div>
+  <div><h3>Reader-led review</h3><p>Automated checks establish facts. One manually initiated frontier-model review may apply the same rubric and complete case context; another, different reviewer is optional.</p></div>
+  <div><h3>Guidance is research</h3><p>Retained conversation history is the current baseline. Separate guidance and any Pin interface remain open questions to test, not locked product requirements.</p></div>
 </div>
 
 <div class="stance">
   <div><h3>Owner decision</h3><p>The writer and human tools use every relation the configured read-only database role can read.</p></div>
-  <div><h3>Qualification</h3><p>Compare the completed system across three model teams locally; do not claim an individual context practice caused the result.</p></div>
-  <div><h3>Deployment proof</h3><p>Run three real browser journeys on the server after the local comparison.</p></div>
+  <div><h3>Comparison</h3><p>Compare the completed system across three model teams locally; do not claim an individual context practice caused the result or automatically rank a winner.</p></div>
+  <div><h3>Product proof</h3><p>Run three real browser journeys with an explicitly recorded demo setup; the setup need not be chosen by the comparison.</p></div>
 </div>
 
 <h2><span class="no">01</span>Recon — the context surface as built</h2>
@@ -368,14 +368,14 @@ claims get measured on <em>our</em> workload instead of trusted.</p>
   </div>
 </div>
 
-<h2><span class="no">03</span>The notebook is already a playbook</h2>
-<p class="lede">ACE's storage requirements are properties the workbench already enforces for turns. The playbook
-is not a new subsystem — it's a second, smaller column of the same material, and the UI cost is one rail section
-plus one pin affordance.</p>
+<h2><span class="no">03</span>Historical guidance-interface sketch — superseded</h2>
+<p class="lede">This section preserves the interface hypothesis that led to the current research question.
+It is not an implementation plan: retained conversation history is the baseline, the value of separate guidance
+is unproven, and Phase 1 requires no Pin control. The mockup below shows what was considered, not what is approved.</p>
 
 <div class="grid2">
   <div class="tablewrap"><table>
-    <tr><th>Playbook requirement (ACE)</th><th>Notebook already has</th><th>Playbook adds</th></tr>
+    <tr><th>Earlier playbook hypothesis</th><th>Notebook already has</th><th>What the sketch proposed</th></tr>
     <tr><td>Itemized entries, not prose</td><td>Addressable cells <span class="mono">[1]…[n]</span></td><td>Guidance entries, same addressability</td></tr>
     <tr><td>Append-only, no rewrites</td><td>Immutable versions; turns never mutate</td><td>Supersede by marking, never editing</td></tr>
     <tr><td>Provenance per entry</td><td>Digests, evidence refs, actor on every record</td><td><span class="mono">{text, source, originTurnId}</span></td></tr>
@@ -383,7 +383,7 @@ plus one pin affordance.</p>
     <tr><td>Observable delivery</td><td>Revision context with omission records</td><td>Supply relevant entries and record omissions</td></tr>
   </table></div>
   <div class="mock">
-    <h3>Sketch — where it lives (not a spec)</h3>
+    <h3>Historical sketch — not a spec or approved interface</h3>
     <div class="mock-frame">
       <div class="mock-rail">
         <div class="sec">Data</div><div class="item">role-readable relations</div>
@@ -398,8 +398,8 @@ plus one pin affordance.</p>
         <div class="mock-cell"><span class="g">[8]</span>Edited by hand · 100 rows</div>
       </div>
     </div>
-    <p class="mock-cap">Every generation request carries the pinned entries verbatim. Entries are addressable,
-    attributable, and one click from the failure that taught them.</p>
+    <p class="mock-cap">The earlier concept would have carried pinned entries verbatim. Whether that adds
+    useful behavior beyond retained conversation history is now a research question.</p>
   </div>
 </div>
 
@@ -420,9 +420,8 @@ plus one pin affordance.</p>
       <div class="fret" style="left:8.3%;  width:78.8%; height:4.75rem"><span class="flabel">rendered cell · answer or question</span></div>
     </div>
   </div>
-  <p class="fcap">The session loop. Every box is a record type the workbench already keeps; the four returns are
-  the roadmap — what changes is that these records start flowing back into the next request instead of
-  stopping at the person.</p>
+  <p class="fcap">Historical proposed loop. The useful observation is that the workbench already owns these
+  record types. The active roadmap does not approve the playbook or Pin path shown here.</p>
 </div>
 
 <h2><span class="no">04</span>The program — three phases, then the phase-1 workstreams</h2>
@@ -430,8 +429,9 @@ plus one pin affordance.</p>
 mode → dashboards, Superset end-to-end</b>. WS1–WS7 remediation is closed; Feature 008 D1e/M4 remains in
 progress and is scheduled as P3, inheriting its unchanged contract and 15 active gates. Source of truth:
 <code>specs/catalyst-program-roadmap.md</code>; this page is supporting research. The planning workshop is
-complete. The owner chose one shared role-readable surface, layered context plus the retained transcript,
-three writer outcomes, a local three-team comparison of the completed system, and limited deployed browser proof.</p>
+complete. The current roadmap keeps one shared role-readable surface, retained conversation history,
+three writer outcomes, a reader-reviewed local three-team comparison, and limited browser proof. Separate
+session guidance and any Pin interface remain research questions.</p>
 
 <div class="lane">
   <div class="gate"><b>Starting point</b>
@@ -440,16 +440,16 @@ three writer outcomes, a local three-team comparison of the completed system, an
     only instructions.</p>
   </div>
   <div class="lane-items">
-    <div class="lane-item"><b>P1 · Session context</b><span class="sz">qualification remediation</span><div class="exp">The product foundation is implemented, but the model-team decision is not final. Active execution lives in specs/catalyst-phase1-qualification-remediation-roadmap.md.</div></div>
+    <div class="lane-item"><b>P1 · Session context</b><span class="sz">comparison repair</span><div class="exp">The product foundation is implemented. Active work repairs the evidence and report; Phase 1 does not require a team-selection result.</div></div>
     <div class="lane-item"><b>P2 · Conversation mode</b><span class="sz">then</span><div class="exp">A turn kind that answers or asks without SQL, over the same session state P1 builds (playbook, history, attempts). Scoped at phase start.</div></div>
     <div class="lane-item"><b>P3 · Dashboards</b><span class="sz">then</span><div class="exp">Question → queries → datasets → widgets → dashboard published to Superset via the existing outbox path; e2e + manual proof on both envs.</div></div>
   </div>
 </div>
 
-<p class="lede"><b>Implementation:</b> the runner, data/outcome contracts, and layered-context work may be
-built in separate reviewable changes. Qualification happens only after they are integrated. There is no
-published old-system baseline and no individual on/off comparison; the report evaluates the finished system
-and compares complete model teams.</p>
+<p class="lede"><b>Implementation:</b> the runner, data/outcome contracts, and context-evidence work may be
+built in separate reviewable changes. The experiment follows their integration. There is no published
+old-system baseline and no individual on/off comparison; the report evaluates the finished system and
+compares complete model teams for the reader.</p>
 
 <div class="lane">
   <div class="gate"><b>CE0 · gate</b>
@@ -467,7 +467,7 @@ and compares complete model teams.</p>
   <h3>Deliberately not building (the overengineering line)</h3>
   <ul>
     <li>No vector database, embedding service, or retrieval infra — CE4 phase 1 is “this session's kept turns”, a list comprehension.</li>
-    <li>No automated Reflector/Curator — the human pins; automation waits until manual entries show what good looks like <em>and</em> CE0 can score it.</li>
+    <li>No automated Reflector/Curator — explicit guidance remains an experiment until evidence shows utility beyond ordinary conversation history.</li>
     <li>No cross-session or cross-user memory — governance questions deferred until session-scoped accumulation proves value.</li>
     <li>No silent summarization or compaction of guidance — record exactly what is supplied and what is omitted.</li>
     <li>No new services or stores — session-attached data in the existing SQLite store; scripts in the existing repos.</li>
@@ -479,10 +479,10 @@ and compares complete model teams.</p>
   <div class="card">
     <div class="dirhead"><h3>CE0 — Evaluation harness</h3><span class="tag">the gate · size M</span></div>
     <dl class="rows">
-      <dt>Form</dt><dd>Extend the existing notebook-validation runner with the frozen 12-scenario, 21-turn suite, arbitrary turn sequences, and one measurement per team/scenario in each complete run. Record the planned number of complete reruns and decision method before live work; never repeat selected cells after seeing their quality. Retain context evidence, separate infrastructure failures, and replayable scoring.</dd>
+      <dt>Form</dt><dd>Extend the existing notebook-validation runner with the frozen 12-scenario, 21-turn suite and arbitrary turn sequences. Retain complete conversation and context evidence, separate infrastructure interruptions from model behavior, and make the factual report replayable.</dd>
       <dt>Substrate</dt><dd>Already recorded: every turn's evidence bundle holds the exact hub request, per-attempt raw outputs, findings, digests. Golden results come from human-verified runs.</dd>
       <dt>Metrics</dt><dd>Execution accuracy vs golden digest · first-attempt candidate rate · attempts-to-success · grounding-failure rate (invented identifiers) · clarification precision/recall · tokens + latency.</dd>
-      <dt>Acceptance</dt><dd>One consolidated local report across writer-only, same-family-check, and cross-family-check teams; three deployed browser journeys after selection.</dd>
+      <dt>Acceptance</dt><dd>One consolidated local report across writer-only, same-family-check, and cross-family-check teams, followed by reader review; three browser journeys use an explicitly recorded demo setup.</dd>
     </dl>
   </div>
   <div class="card">
@@ -494,11 +494,11 @@ and compares complete model teams.</p>
     </dl>
   </div>
   <div class="card">
-    <div class="dirhead"><h3>CE2 — Session playbook</h3><span class="tag">P2 + P6 · size M · the core capability</span></div>
+    <div class="dirhead"><h3>CE2 — Explicit session guidance research</h3><span class="tag">open question</span></div>
     <dl class="rows">
-      <dt>Form</dt><dd>A versioned guidance list on the existing session store, composer pin, explicit pin-from-failure, append-only unpin/supersede, and verbatim delivery. Model-facing entry = <code>{text, source, originTurnId, createdAt}</code>.</dd>
-      <dt>Validate</dt><dd>Pin at turn k; later turns honor it without repetition. Prove exact text, provenance, restart survival, session isolation, compatibility with the configured model, literal rendering, and honest omissions.</dd>
-      <dt>Contract</dt><dd>The same object becomes P2 conversation state; successful queries remain verified examples rather than guidance.</dd>
+      <dt>Form</dt><dd>Use the existing guidance storage or application programming interface only as an experimental seam. Phase 1 requires no composer or Pin control.</dd>
+      <dt>Validate</dt><dd>Compare retained conversation history, explicit session guidance, and durable catalog or verified-example knowledge on nearby research cases. Record the exact context each path supplies.</dd>
+      <dt>Contract</dt><dd>A user-facing control is proposed only if the experiment shows useful behavior beyond ordinary history. Successful queries remain verified examples rather than guidance.</dd>
     </dl>
   </div>
   <div class="card">

@@ -1,4 +1,3 @@
-import json
 import os
 import subprocess
 from pathlib import Path
@@ -9,7 +8,7 @@ ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts" / "verify-docs-consistency.sh"
 TASKS = ROOT / "specs" / "008-catalyst-query-workbench" / "tasks.md"
 PROGRAM = ROOT / "specs" / "catalyst-program-roadmap.md"
-QUALIFICATION = ROOT / "specs" / "catalyst-phase1-qualification-remediation-roadmap.md"
+EXECUTION = ROOT / "specs" / "catalyst-phase1-qualification-remediation-roadmap.md"
 BRIEF = (
     ROOT / "specs" / "artifacts" / "planning" / "phase-1-planning-discussion-brief.md"
 )
@@ -92,7 +91,7 @@ def test_missing_status_source_is_a_check_failure(tmp_path: Path) -> None:
 def _source_overrides(tmp_path: Path) -> dict[str, str]:
     sources = {
         "DOCS_PROGRAM_PATH": PROGRAM,
-        "DOCS_QUALIFICATION_PATH": QUALIFICATION,
+        "DOCS_EXECUTION_PATH": EXECUTION,
         "DOCS_BRIEF_PATH": BRIEF,
         "DOCS_WRITER_ARTIFACT_PATH": WRITER_ARTIFACT,
         "DOCS_FEATURE_SPEC_PATH": FEATURE_SPEC,
@@ -110,37 +109,40 @@ def _source_overrides(tmp_path: Path) -> dict[str, str]:
 
 
 @pytest.mark.parametrize(
-    "decision_phrase",
+    ("environment_key", "marker", "expected_error"),
     [
-        "Relation counts are environment snapshots",
-        "metadata cannot hide a readable relation",
-        "does not by itself stop ordinary startup",
-        "the application adds no blanket query bans",
-        "The exact selected SQL reaches PostgreSQL",
-        "bounded by the configured read-only account, read-only transaction, timeout, and result limit",
-        "wrong query, database diagnostic, or wrong answer is a model-quality result",
-        "do not have to match",
-        "planned run count and decision method are recorded before live work",
-        "no universal pass percentage, automatic disqualifier, or fixed tie-break",
-        "no fixed retry or failure allowance",
-        "no fixed count, physical order, or ranking formula",
-        "not rejected merely for sharing a relation or SQL form",
-        "not on every ordinary pull request",
-        "not Phase 1 product blockers",
+        (
+            "DOCS_PROGRAM_PATH",
+            "## Phase 1 comparison and reader review",
+            "program roadmap is missing reader-led comparison",
+        ),
+        (
+            "DOCS_PROGRAM_PATH",
+            "### 3. Session context and the open guidance question",
+            "program roadmap is missing the open guidance question",
+        ),
+        (
+            "DOCS_EXECUTION_PATH",
+            "### R4 — Context-rich report and manual rubric review",
+            "execution plan is missing manual full-context review",
+        ),
+        (
+            "DOCS_EXECUTION_PATH",
+            "### R6 — Honest context evidence and guidance research seam",
+            "execution plan is missing guidance research",
+        ),
     ],
 )
-def test_current_decision_summary_cannot_be_weakened(
+def test_current_roadmap_structure_cannot_silently_disappear(
     tmp_path: Path,
-    decision_phrase: str,
+    environment_key: str,
+    marker: str,
+    expected_error: str,
 ) -> None:
     environment = _source_overrides(tmp_path)
-    program = Path(environment["DOCS_PROGRAM_PATH"])
-    program.write_text(
-        program.read_text(encoding="utf-8").replace(
-            decision_phrase,
-            "removed decision",
-            1,
-        ),
+    source = Path(environment[environment_key])
+    source.write_text(
+        source.read_text(encoding="utf-8").replace(marker, "removed section", 1),
         encoding="utf-8",
     )
 
@@ -151,26 +153,7 @@ def test_current_decision_summary_cannot_be_weakened(
     )
 
     assert completed.returncode != 0
-    assert f"current program outcome missing: {decision_phrase}" in completed.stderr
-
-
-def test_phase1_suite_internal_repetitions_must_remain_one(tmp_path: Path) -> None:
-    environment = _source_overrides(tmp_path)
-    suite = Path(environment["DOCS_PHASE1_SUITE_PATH"])
-    payload = json.loads(suite.read_text(encoding="utf-8"))
-
-    for invalid_value in (3, 10, "1", True):
-        payload["repetitions"] = invalid_value
-        suite.write_text(json.dumps(payload), encoding="utf-8")
-
-        completed = _run_with_tasks(
-            tmp_path,
-            TASKS.read_text(encoding="utf-8"),
-            environment,
-        )
-
-        assert completed.returncode != 0
-        assert "suite repetitions must remain one" in completed.stderr
+    assert expected_error in completed.stderr
 
 
 def test_published_phase1_suite_v1_bytes_are_immutable(tmp_path: Path) -> None:
@@ -224,17 +207,23 @@ def test_published_catalog_v6_generated_bytes_are_immutable(tmp_path: Path) -> N
     assert "immutable catalog v6 generated file bytes changed" in completed.stderr
 
 
-def test_interrupted_run_must_use_a_new_linked_identity(tmp_path: Path) -> None:
+@pytest.mark.parametrize(
+    "stale_rule",
+    [
+        "The owner records a selected team.",
+        "Record `none` or `inconclusive`.",
+        "Deploy the selected team.",
+        "Use a composer pin.",
+    ],
+)
+def test_superseded_rule_cannot_return_to_an_active_roadmap(
+    tmp_path: Path,
+    stale_rule: str,
+) -> None:
     environment = _source_overrides(tmp_path)
-    qualification = Path(environment["DOCS_QUALIFICATION_PATH"])
-    content = qualification.read_text(encoding="utf-8")
-    marker = "## Execution rules inherited from the program roadmap"
-    qualification.write_text(
-        content.replace(
-            marker,
-            f"{marker}\n\nResume continues the same run ID after interruption.",
-            1,
-        ),
+    execution = Path(environment["DOCS_EXECUTION_PATH"])
+    execution.write_text(
+        execution.read_text(encoding="utf-8") + f"\n{stale_rule}\n",
         encoding="utf-8",
     )
 
@@ -245,18 +234,15 @@ def test_interrupted_run_must_use_a_new_linked_identity(tmp_path: Path) -> None:
     )
 
     assert completed.returncode != 0
-    assert "stale same-run recovery rule" in completed.stderr
+    assert "an active roadmap restores a superseded Phase 1 rule" in completed.stderr
 
 
-def test_superseded_wording_in_the_historical_log_is_not_current(
-    tmp_path: Path,
-) -> None:
+def test_negative_team_selection_statement_is_allowed(tmp_path: Path) -> None:
     environment = _source_overrides(tmp_path)
-    qualification = Path(environment["DOCS_QUALIFICATION_PATH"])
-    qualification.write_text(
-        qualification.read_text(encoding="utf-8")
-        + "\nResume continues the same run ID after interruption.\n"
-        + "Branch protection is not a Phase 1 product blocker.\n",
+    execution = Path(environment["DOCS_EXECUTION_PATH"])
+    execution.write_text(
+        execution.read_text(encoding="utf-8")
+        + "\nA team preference is not required.\n",
         encoding="utf-8",
     )
 
@@ -269,125 +255,36 @@ def test_superseded_wording_in_the_historical_log_is_not_current(
     assert completed.returncode == 0, completed.stderr
 
 
-def test_owner_approved_m1_rule_cannot_disappear(tmp_path: Path) -> None:
-    environment = _source_overrides(tmp_path)
-    qualification = Path(environment["DOCS_QUALIFICATION_PATH"])
-    qualification.write_text(
-        qualification.read_text(encoding="utf-8").replace(
-            "All three M1 ready answers are scored",
-            "Only later M1 answers are scored",
-            1,
+@pytest.mark.parametrize(
+    ("environment_key", "required_text", "expected_error"),
+    [
+        (
+            "DOCS_FEATURE_SPEC_PATH",
+            "include every relation the configured read-only database role can read",
+            "Feature 008 does not require the complete role-readable catalog",
         ),
-        encoding="utf-8",
-    )
-
-    completed = _run_with_tasks(
-        tmp_path,
-        TASKS.read_text(encoding="utf-8"),
-        environment,
-    )
-
-    assert completed.returncode != 0
-    assert "current Phase 1 evidence rule missing" in completed.stderr
-
-
-def test_m3_semantic_carryover_rule_cannot_disappear(tmp_path: Path) -> None:
-    environment = _source_overrides(tmp_path)
-    qualification = Path(environment["DOCS_QUALIFICATION_PATH"])
-    qualification.write_text(
-        qualification.read_text(encoding="utf-8").replace(
-            "carry no irrelevant CD4-specific assumptions into the visit answer",
-            "may carry CD4-specific assumptions into the visit answer",
-            1,
+        (
+            "DOCS_FEATURE_SPEC_PATH",
+            "Users MUST be able to run the exact displayed draft regardless of\n  its validator status",
+            "Feature 008 does not preserve advisory exact-SQL execution",
         ),
-        encoding="utf-8",
-    )
-
-    completed = _run_with_tasks(
-        tmp_path,
-        TASKS.read_text(encoding="utf-8"),
-        environment,
-    )
-
-    assert completed.returncode != 0
-    assert "current Phase 1 evidence rule missing" in completed.stderr
-
-
-def test_advisory_validation_cannot_become_an_execution_gate(tmp_path: Path) -> None:
-    environment = _source_overrides(tmp_path)
-    qualification = Path(environment["DOCS_QUALIFICATION_PATH"])
-    qualification.write_text(
-        qualification.read_text(encoding="utf-8").replace(
-            "Validation is advisory",
-            "Validation blocks execution",
+        (
+            "DOCS_WORKBENCH_API_PATH",
+            "Workbench validation is advisory",
+            "workbench API does not preserve advisory validation",
         ),
-        encoding="utf-8",
-    )
-
-    completed = _run_with_tasks(
-        tmp_path,
-        TASKS.read_text(encoding="utf-8"),
-        environment,
-    )
-
-    assert completed.returncode != 0
-    assert "current Phase 1 evidence rule missing" in completed.stderr
-
-
-def test_no_selection_must_remain_an_explicit_outcome(tmp_path: Path) -> None:
-    environment = _source_overrides(tmp_path)
-    qualification = Path(environment["DOCS_QUALIFICATION_PATH"])
-    qualification.write_text(
-        qualification.read_text(encoding="utf-8").replace(
-            "record `none` or `inconclusive`",
-            "select a fallback",
-        ),
-        encoding="utf-8",
-    )
-
-    completed = _run_with_tasks(
-        tmp_path,
-        TASKS.read_text(encoding="utf-8"),
-        environment,
-    )
-
-    assert completed.returncode != 0
-    assert "current Phase 1 evidence rule missing" in completed.stderr
-
-
-def test_recovery_cannot_select_cells_by_answer_quality(tmp_path: Path) -> None:
-    environment = _source_overrides(tmp_path)
-    qualification = Path(environment["DOCS_QUALIFICATION_PATH"])
-    qualification.write_text(
-        qualification.read_text(encoding="utf-8").replace(
-            "conversation regardless",
-            "conversation only",
-            1,
-        ),
-        encoding="utf-8",
-    )
-
-    completed = _run_with_tasks(
-        tmp_path,
-        TASKS.read_text(encoding="utf-8"),
-        environment,
-    )
-
-    assert completed.returncode != 0
-    assert "current Phase 1 evidence rule missing" in completed.stderr
-
-
-def test_writer_artifact_must_retain_the_owner_correction_banner(
+    ],
+)
+def test_durable_product_boundary_cannot_disappear(
     tmp_path: Path,
+    environment_key: str,
+    required_text: str,
+    expected_error: str,
 ) -> None:
     environment = _source_overrides(tmp_path)
-    artifact = Path(environment["DOCS_WRITER_ARTIFACT_PATH"])
-    artifact.write_text(
-        artifact.read_text(encoding="utf-8").replace(
-            "run counts, pass percentages, retry budgets, and context caps are not locked here",
-            "the old implementation rules remain locked here",
-            1,
-        ),
+    source = Path(environment[environment_key])
+    source.write_text(
+        source.read_text(encoding="utf-8").replace(required_text, "removed boundary", 1),
         encoding="utf-8",
     )
 
@@ -398,60 +295,4 @@ def test_writer_artifact_must_retain_the_owner_correction_banner(
     )
 
     assert completed.returncode != 0
-    assert "writer artifact lacks the owner-correction banner" in completed.stderr
-
-
-def test_program_roadmap_must_name_the_current_component_pins(
-    tmp_path: Path,
-) -> None:
-    environment = _source_overrides(tmp_path)
-    program = Path(environment["DOCS_PROGRAM_PATH"])
-    current_pin = subprocess.check_output(
-        ["git", "ls-tree", "HEAD", "targets/catalyst"],
-        cwd=ROOT,
-        text=True,
-    ).split()[2]
-    program.write_text(
-        program.read_text(encoding="utf-8").replace(
-            current_pin,
-            "0000000000000000000000000000000000000000",
-            1,
-        ),
-        encoding="utf-8",
-    )
-
-    completed = _run_with_tasks(
-        tmp_path,
-        TASKS.read_text(encoding="utf-8"),
-        environment,
-    )
-
-    assert completed.returncode != 0
-    assert "does not name the pinned Catalyst revision" in completed.stderr
-
-
-def test_program_roadmap_must_name_the_current_hub_pin(tmp_path: Path) -> None:
-    environment = _source_overrides(tmp_path)
-    program = Path(environment["DOCS_PROGRAM_PATH"])
-    current_pin = subprocess.check_output(
-        ["git", "ls-tree", "HEAD", "targets/med-agent-hub"],
-        cwd=ROOT,
-        text=True,
-    ).split()[2]
-    program.write_text(
-        program.read_text(encoding="utf-8").replace(
-            current_pin,
-            "0000000000000000000000000000000000000000",
-            1,
-        ),
-        encoding="utf-8",
-    )
-
-    completed = _run_with_tasks(
-        tmp_path,
-        TASKS.read_text(encoding="utf-8"),
-        environment,
-    )
-
-    assert completed.returncode != 0
-    assert "does not name the pinned Hub revision" in completed.stderr
+    assert expected_error in completed.stderr

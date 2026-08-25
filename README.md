@@ -24,10 +24,10 @@ The harness coordinates validation across four clinical AI projects:
 | `chartsearchai` | OpenMRS clinical-chat module with bundled and med-agent-hub provider paths | Product integration target: shared lifecycle UX, persistence, evidence display, cancellation, and security |
 | `querystore` | Read-optimized OpenMRS clinical-record projection and optional med-agent-hub source | Context-source validation: materialized records, indexing integrity, date/freshness semantics, and retrieval experiments |
 | `openmrs_chatbot` | Python clinical chatbot with patient/doctor interfaces and agent workflow scaffolding | Future expansion: multi-turn grounding and role-aware answer evaluation |
-| `Catalyst` (OpenELIS) | Supervised reporting workbench: OpenELIS → HAPI FHIR → FHIR Data Pipes → governed query/table → versioned Dataset/Widget/Dashboard drafts → Superset bundle | Query/notebook MVP accepted; program P1 is implemented but its model-team qualification is under remediation; Superset-backed Dashboard Builder remains unchanged as P3; other paths remain independently gated |
+| `Catalyst` (OpenELIS) | Supervised reporting workbench: OpenELIS → HAPI FHIR → FHIR Data Pipes → governed query/table → versioned Dataset/Widget/Dashboard drafts → Superset bundle | Query/notebook MVP accepted; program P1 product work is substantially implemented and its exploratory three-team evidence/report path is under repair; Superset-backed Dashboard Builder remains unchanged as P3; other paths remain independently gated |
 
 The Catalyst program decisions live in `specs/catalyst-program-roadmap.md`.
-The active Phase 1 repair sequence and evidence gates live in
+The active Phase 1 comparison-repair sequence lives in
 `specs/catalyst-phase1-qualification-remediation-roadmap.md`.
 
 ## Current priority: the validation spine and active lanes
@@ -244,8 +244,9 @@ uv run harness-cli catalyst report \
   artifacts/catalyst-notebook-validation/<run-id>
 ```
 
-After three judge passes are finalized, stage or publish the report and its
-relative evidence links with the family-aware publisher:
+After one manually initiated judge review is finalized, stage or publish the
+report and its relative evidence links with the family-aware publisher. A
+second review by a different model or agent is optional and remains separate:
 
 ```bash
 scripts/publish-report.sh catalyst \
