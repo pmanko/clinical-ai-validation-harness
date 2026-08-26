@@ -1,0 +1,322 @@
+{
+  "id": "catalyst-phase1-comparison-v2",
+  "reportMode": "reader-led",
+  "comment": "Repaired Phase 1 comparison: 12 scenarios and 21 evaluated user turns, once per model team. Every ready turn has its own independent PostgreSQL answer check. A repeated measure is another complete run of this file, never extra calls for selected cases.",
+  "dataSourceId": "openmrs-hiv",
+  "datasetId": "hiv-20260731T000741Z",
+  "datasetVersion": "1",
+  "catalogVersion": "openmrs-hiv-catalog-v6",
+  "providerName": "llama.cpp",
+  "repetitions": 1,
+  "requireTokenEvidence": true,
+  "comparisonProfiles": [
+    "catalyst-query-gemma-4-12b",
+    "catalyst-query-gemma-4-12b-q4-checked",
+    "catalyst-query-gemma-4-12b-qwen2.5-14b-checked"
+  ],
+  "profiles": {
+    "catalyst-query-gemma-4-12b": {
+      "writerModelId": "gemma-4-12b-q4",
+      "reviewerModelId": null,
+      "profileConfigurationDigest": "561bb714d7f82dffc2789f302c0871684cb57cbe57f505da85d27e7db0494f9e"
+    },
+    "catalyst-query-gemma-4-12b-q4-checked": {
+      "writerModelId": "gemma-4-12b-q4",
+      "reviewerModelId": "gemma-4-12b-q4",
+      "profileConfigurationDigest": "dbfe5a9c13a1269a5ed8b269a8d5c82506419f8515efe33e236770a90e571ffa"
+    },
+    "catalyst-query-gemma-4-12b-qwen2.5-14b-checked": {
+      "writerModelId": "gemma-4-12b",
+      "reviewerModelId": "qwen2.5-14b",
+      "profileConfigurationDigest": "15595cf4e548c98075b154c0dadd8fe56921196c118ca36895882645a6daac49"
+    }
+  },
+  "scenarios": [
+    {
+      "id": "A1",
+      "comment": "CD4 rows must contain the requested patient, value, unit, and date, not merely the right count.",
+      "family": "single-ready",
+      "initialQuestion": "List CD4 count results since 2026-02-01 with the patient, the value, the unit, and the observed date.",
+      "initialProfileId": "catalyst-query-gemma-4-12b",
+      "expectedBaseClassification": "reused",
+      "expectedBaseOutcome": "ready",
+      "validateBase": true,
+      "executeBase": true,
+      "baseGoldCheck": {
+        "mode": "row_set",
+        "referenceSql": "SELECT patient_id, value_numeric, value_unit, observed_at FROM analytics.hiv_observation_fact_v1 WHERE concept_name = 'CD4 count' AND observed_at >= DATE '2026-02-01'",
+        "matchColumns": ["patient_id", "value_numeric", "value_unit", "observed_at"]
+      },
+      "turns": []
+    },
+    {
+      "id": "A2",
+      "comment": "Visit groups and counts must match the independent answer; ordering is presentation only.",
+      "family": "single-ready",
+      "initialQuestion": "Count HIV visits by encounter type since 2025-01-01, highest count first.",
+      "initialProfileId": "catalyst-query-gemma-4-12b",
+      "expectedBaseClassification": "reused",
+      "expectedBaseOutcome": "ready",
+      "validateBase": true,
+      "executeBase": true,
+      "baseGoldCheck": {
+        "mode": "aggregate_by_key",
+        "referenceSql": "SELECT encounter_type, count(*) AS visits FROM analytics.hiv_visit_fact_v1 WHERE started_at >= DATE '2025-01-01' GROUP BY encounter_type",
+        "keyColumns": ["encounter_type"],
+        "valueColumns": {"visits": {"tolerance": 0}}
+      },
+      "turns": []
+    },
+    {
+      "id": "A3",
+      "comment": "Medication groups and counts must reflect both the female-patient filter and do_not_perform exclusion.",
+      "family": "single-ready",
+      "initialQuestion": "Count medication requests for female patients by medication name, excluding do_not_perform, highest count first.",
+      "initialProfileId": "catalyst-query-gemma-4-12b",
+      "expectedBaseClassification": "reused",
+      "expectedBaseOutcome": "ready",
+      "validateBase": true,
+      "executeBase": true,
+      "baseGoldCheck": {
+        "mode": "aggregate_by_key",
+        "referenceSql": "SELECT medication_name, count(*) AS requests FROM analytics.hiv_medication_request_fact_v1 WHERE patient_gender = 'female' AND NOT do_not_perform GROUP BY medication_name",
+        "keyColumns": ["medication_name"],
+        "valueColumns": {"requests": {"tolerance": 0}}
+      },
+      "turns": []
+    },
+    {
+      "id": "A4",
+      "comment": "The OpenMRS-native code, concept name, and observation total must all match.",
+      "family": "single-ready",
+      "initialQuestion": "List each OpenMRS-native concept with no CIEL mapping, its name, and its total observation count, highest count first.",
+      "initialProfileId": "catalyst-query-gemma-4-12b",
+      "expectedBaseClassification": "reused",
+      "expectedBaseOutcome": "ready",
+      "validateBase": true,
+      "executeBase": true,
+      "baseGoldCheck": {
+        "mode": "aggregate_by_key",
+        "referenceSql": "SELECT openmrs_concept_code, concept_name, observation_count FROM analytics.hiv_concept_mapping_v1 WHERE ciel_code IS NULL",
+        "keyColumns": ["openmrs_concept_code", "concept_name"],
+        "valueColumns": {"observation_count": {"tolerance": 0}}
+      },
+      "turns": []
+    },
+    {
+      "id": "M1",
+      "comment": "The recorded medication conversation. The opening checks the requested patient, last-name, and medication rows. Later turns separately check the requested one-row-per-patient shape. Medication-list ordering and surrounding spacing are ignored, but membership is exact.",
+      "family": "multi-turn",
+      "initialQuestion": "I need to get the list of medications prescribed for each patient, with the patient id and patient last name in the result.",
+      "initialProfileId": "catalyst-query-gemma-4-12b",
+      "expectedBaseClassification": "reused",
+      "expectedBaseOutcome": "ready",
+      "validateBase": true,
+      "executeBase": true,
+      "baseGoldCheck": {
+        "mode": "row_set",
+        "referenceSql": "SELECT m.patient_id, p.family_name, m.medication_name FROM analytics.hiv_medication_request_fact_v1 m JOIN analytics.hiv_patient_dim_v1 p USING (patient_id)",
+        "matchColumns": ["patient_id", "family_name", "medication_name"]
+      },
+      "turns": [
+        {
+          "instruction": "The query needs to be updated - gender is labeled as last name, and the result should be collapsed per patient - so one row per patient, with comma-separated unique medications.",
+          "profileId": "catalyst-query-gemma-4-12b",
+          "expectedOutcome": "ready",
+          "goldCheck": {
+            "mode": "row_set",
+            "referenceSql": "SELECT m.patient_id, p.family_name, string_agg(DISTINCT m.medication_name, ', ' ORDER BY m.medication_name) AS medications FROM analytics.hiv_medication_request_fact_v1 m JOIN analytics.hiv_patient_dim_v1 p USING (patient_id) GROUP BY m.patient_id, p.family_name",
+            "matchColumns": ["patient_id", "family_name", "medications"],
+            "normalizers": {"medications": "unordered_csv"}
+          }
+        },
+        {
+          "instruction": "We need to join in the patient table by id to this query, so we can get patient last name",
+          "profileId": "catalyst-query-gemma-4-12b",
+          "expectedOutcome": "ready",
+          "goldCheck": {
+            "mode": "row_set",
+            "referenceSql": "SELECT m.patient_id, p.family_name, string_agg(DISTINCT m.medication_name, ', ' ORDER BY m.medication_name) AS medications FROM analytics.hiv_medication_request_fact_v1 m JOIN analytics.hiv_patient_dim_v1 p USING (patient_id) GROUP BY m.patient_id, p.family_name",
+            "matchColumns": ["patient_id", "family_name", "medications"],
+            "normalizers": {"medications": "unordered_csv"}
+          }
+        }
+      ]
+    },
+    {
+      "id": "M2",
+      "comment": "The exclusion is an ordinary opening user instruction. Both later turns must retain it without a hidden guidance injection.",
+      "family": "retained-instruction",
+      "initialQuestion": "Count medication requests by medication name, excluding do_not_perform requests.",
+      "initialProfileId": "catalyst-query-gemma-4-12b",
+      "expectedBaseClassification": "reused",
+      "expectedBaseOutcome": "ready",
+      "validateBase": true,
+      "executeBase": true,
+      "baseGoldCheck": {
+        "mode": "aggregate_by_key",
+        "referenceSql": "SELECT medication_name, count(*) AS requests FROM analytics.hiv_medication_request_fact_v1 WHERE NOT do_not_perform GROUP BY medication_name",
+        "keyColumns": ["medication_name"],
+        "valueColumns": {"requests": {"tolerance": 0}}
+      },
+      "turns": [
+        {
+          "instruction": "Regroup that by patient gender as well as medication name.",
+          "profileId": "catalyst-query-gemma-4-12b",
+          "expectedOutcome": "ready",
+          "goldCheck": {
+            "mode": "aggregate_by_key",
+            "referenceSql": "SELECT medication_name, patient_gender, count(*) AS requests FROM analytics.hiv_medication_request_fact_v1 WHERE NOT do_not_perform GROUP BY medication_name, patient_gender",
+            "keyColumns": ["medication_name", "patient_gender"],
+            "valueColumns": {"requests": {"tolerance": 0}}
+          }
+        },
+        {
+          "instruction": "Return only the ten highest medication-and-gender groups.",
+          "profileId": "catalyst-query-gemma-4-12b",
+          "expectedOutcome": "ready",
+          "goldCheck": {
+            "mode": "aggregate_by_key",
+            "referenceSql": "SELECT medication_name, patient_gender, count(*) AS requests FROM analytics.hiv_medication_request_fact_v1 WHERE NOT do_not_perform GROUP BY medication_name, patient_gender ORDER BY requests DESC, medication_name, patient_gender LIMIT 10",
+            "keyColumns": ["medication_name", "patient_gender"],
+            "valueColumns": {"requests": {"tolerance": 0}}
+          }
+        }
+      ]
+    },
+    {
+      "id": "M3",
+      "comment": "The near-neighbor turn may use the verified opening example. The independent visit question has its own answer check and is not judged by a brittle SQL-text proxy.",
+      "family": "verified-examples",
+      "initialQuestion": "Count CD4 count results by patient.",
+      "initialProfileId": "catalyst-query-gemma-4-12b",
+      "expectedBaseClassification": "reused",
+      "expectedBaseOutcome": "ready",
+      "validateBase": true,
+      "executeBase": true,
+      "baseGoldCheck": {
+        "mode": "aggregate_by_key",
+        "referenceSql": "SELECT patient_id, count(*) AS result_count FROM analytics.hiv_observation_fact_v1 WHERE concept_name = 'CD4 count' GROUP BY patient_id",
+        "keyColumns": ["patient_id"],
+        "valueColumns": {"result_count": {"tolerance": 0}}
+      },
+      "turns": [
+        {
+          "instruction": "Now count CD4 percentage results by patient instead.",
+          "profileId": "catalyst-query-gemma-4-12b",
+          "expectedOutcome": "ready",
+          "goldCheck": {
+            "mode": "aggregate_by_key",
+            "referenceSql": "SELECT patient_id, count(*) AS result_count FROM analytics.hiv_observation_fact_v1 WHERE concept_name = 'CD4%' GROUP BY patient_id",
+            "keyColumns": ["patient_id"],
+            "valueColumns": {"result_count": {"tolerance": 0}}
+          }
+        },
+        {
+          "instruction": "Separately, count HIV visits by encounter type.",
+          "profileId": "catalyst-query-gemma-4-12b",
+          "expectedOutcome": "ready",
+          "goldCheck": {
+            "mode": "aggregate_by_key",
+            "referenceSql": "SELECT encounter_type, count(*) AS visits FROM analytics.hiv_visit_fact_v1 GROUP BY encounter_type",
+            "keyColumns": ["encounter_type"],
+            "valueColumns": {"visits": {"tolerance": 0}}
+          }
+        }
+      ]
+    },
+    {
+      "id": "B1",
+      "comment": "The opening must clarify the window and result types. The answer turn must return the exact requested observation rows and fields.",
+      "family": "clarification",
+      "initialQuestion": "Show recent HIV results.",
+      "initialProfileId": "catalyst-query-gemma-4-12b",
+      "expectedBaseClassification": "not_applicable",
+      "expectedBaseOutcome": "needs_clarification",
+      "validateBase": false,
+      "executeBase": false,
+      "turns": [
+        {
+          "instruction": "As of 2026-08-24, use the preceding 90 days, and include only CD4 count, CD4 percentage, and HIV viral load.",
+          "profileId": "catalyst-query-gemma-4-12b",
+          "expectedOutcome": "ready",
+          "goldCheck": {
+            "mode": "row_set",
+            "referenceSql": "SELECT patient_id, concept_name, observed_at, value_numeric, value_unit FROM analytics.hiv_observation_fact_v1 WHERE concept_name IN ('CD4 count', 'CD4%', 'HIV viral load') AND observed_at >= (DATE '2026-08-24' - INTERVAL '90 days')",
+            "matchColumns": ["patient_id", "concept_name", "observed_at", "value_numeric", "value_unit"]
+          }
+        }
+      ]
+    },
+    {
+      "id": "B2",
+      "comment": "The opening must ask for a definition. The frozen answer defines it, and the resulting patient set must match.",
+      "family": "clarification",
+      "initialQuestion": "Show patients with poor adherence.",
+      "initialProfileId": "catalyst-query-gemma-4-12b",
+      "expectedBaseClassification": "not_applicable",
+      "expectedBaseOutcome": "needs_clarification",
+      "validateBase": false,
+      "executeBase": false,
+      "turns": [
+        {
+          "instruction": "Poor adherence means the patient's latest antiretroviral adherence result is anything other than 'All'.",
+          "profileId": "catalyst-query-gemma-4-12b",
+          "expectedOutcome": "ready",
+          "goldCheck": {
+            "mode": "row_set",
+            "referenceSql": "SELECT DISTINCT o.patient_id FROM analytics.hiv_observation_fact_v1 o JOIN (SELECT patient_id, max(observed_at) AS latest FROM analytics.hiv_observation_fact_v1 WHERE concept_name = 'Antiretroviral adherence in past week' GROUP BY patient_id) x ON x.patient_id = o.patient_id AND x.latest = o.observed_at WHERE o.concept_name = 'Antiretroviral adherence in past week' AND o.value_coded_name <> 'All'",
+            "matchColumns": ["patient_id"]
+          }
+        }
+      ]
+    },
+    {
+      "id": "B3",
+      "comment": "The opening must ask for an as-of date and overdue rule. The frozen answer defines both, and the resulting patient set must match.",
+      "family": "clarification",
+      "initialQuestion": "Show patients overdue for follow-up.",
+      "initialProfileId": "catalyst-query-gemma-4-12b",
+      "expectedBaseClassification": "not_applicable",
+      "expectedBaseOutcome": "needs_clarification",
+      "validateBase": false,
+      "executeBase": false,
+      "turns": [
+        {
+          "instruction": "As of 2026-03-01, overdue means a recorded return visit date before that date with no later visit.",
+          "profileId": "catalyst-query-gemma-4-12b",
+          "expectedOutcome": "ready",
+          "goldCheck": {
+            "mode": "row_set",
+            "referenceSql": "SELECT DISTINCT o.patient_id FROM analytics.hiv_observation_fact_v1 o LEFT JOIN (SELECT patient_id, max(started_at) AS last_visit FROM analytics.hiv_visit_fact_v1 GROUP BY patient_id) v USING (patient_id) WHERE o.concept_name = 'Return visit date' AND o.value_datetime < DATE '2026-03-01' AND (v.last_visit IS NULL OR v.last_visit <= o.value_datetime)",
+            "matchColumns": ["patient_id"]
+          }
+        }
+      ]
+    },
+    {
+      "id": "U1",
+      "comment": "No readable relation contains a home address. The writer must explain that and produce no SQL.",
+      "family": "unsupported",
+      "initialQuestion": "Show each patient's home address.",
+      "initialProfileId": "catalyst-query-gemma-4-12b",
+      "expectedBaseClassification": "not_applicable",
+      "expectedBaseOutcome": "unsupported",
+      "validateBase": false,
+      "executeBase": false,
+      "turns": []
+    },
+    {
+      "id": "U2",
+      "comment": "Readable relations contain practitioner references but no prescribing-clinician name. The writer must explain that and produce no SQL.",
+      "family": "unsupported",
+      "initialQuestion": "Show the prescribing clinician's name for every medication request.",
+      "initialProfileId": "catalyst-query-gemma-4-12b",
+      "expectedBaseClassification": "not_applicable",
+      "expectedBaseOutcome": "unsupported",
+      "validateBase": false,
+      "executeBase": false,
+      "turns": []
+    }
+  ]
+}

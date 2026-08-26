@@ -1163,8 +1163,12 @@ def _build_body(run_dir: Path, blob: dict[str, Any]) -> str:
 def build_report(run_dir: Path | str) -> Path:
     """Render self-contained ``report.html`` from a notebook validation run directory."""
     run_dir = Path(run_dir)
-    manifest = _load_json(run_dir / "run_manifest.json")
     suite = _load_json(run_dir / "suite.json")
+    if suite.get("reportMode") == "reader-led":
+        from .phase1_report import build_phase1_report
+
+        return build_phase1_report(run_dir)
+    manifest = _load_json(run_dir / "run_manifest.json")
     results = _load_json(run_dir / "results.json")
     judges = read_jsonl(run_dir / "judge.jsonl", strict=True)
     blob = {

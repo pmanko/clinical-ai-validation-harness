@@ -149,10 +149,10 @@ grep -qF '## Phase 1 comparison and reader review' "$PROGRAM" \
   || err "program roadmap is missing reader-led comparison"
 grep -qF '### 3. Session context and the open guidance question' "$PROGRAM" \
   || err "program roadmap is missing the open guidance question"
-grep -qF '### R4 — Context-rich report and manual rubric review' "$EXECUTION" \
-  || err "execution plan is missing manual full-context review"
-grep -qF '### R6 — Honest context evidence and guidance research seam' "$EXECUTION" \
-  || err "execution plan is missing guidance research"
+grep -qF '### Context-rich report and reader review' "$EXECUTION" \
+  || err "execution plan is missing full-context reader review"
+grep -qF '### Honest session-context evidence' "$EXECUTION" \
+  || err "execution plan is missing session-context evidence"
 
 if grep -IinE \
   'owner records a selected team|decision selects one team|record .none. or .inconclusive.|Deploy the selected team|selected-team deployment|planned run count|planned number of complete|composer pin|pin-from-failure' \

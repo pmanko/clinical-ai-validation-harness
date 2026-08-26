@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -79,6 +80,16 @@ def _manual_checkpoint(scenario: Any, session_id: str) -> None:
     input()
 
 
+def _reader_led_run(run_dir: Path) -> bool:
+    """Return whether the frozen suite asks for the reader-led presentation."""
+
+    try:
+        suite = json.loads((run_dir / "suite.json").read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return False
+    return isinstance(suite, dict) and suite.get("reportMode") == "reader-led"
+
+
 def dispatch(args: argparse.Namespace, *, project_root: Path) -> int:
     if args.catalyst_action == "report":
         from .report import build_report
@@ -100,6 +111,7 @@ def dispatch(args: argparse.Namespace, *, project_root: Path) -> int:
 
     frozen_config = None
     warmup_question = None
+    reader_rubric_path = None
     if args.run_config:
         # Read the public seed first so a deliberately disabled database
         # cross-check does not require a password it will never use.
@@ -130,6 +142,31 @@ def dispatch(args: argparse.Namespace, *, project_root: Path) -> int:
             "postgresCrossCheck": not args.no_postgres_cross_check,
             "timeoutSeconds": args.timeout_seconds,
         }
+        if config.get("readerRubric"):
+            candidate = Path(str(config["readerRubric"]))
+            if not candidate.is_absolute():
+                candidate = project_root / candidate
+            if args.resume_from:
+                frozen_candidate = Path(args.resume_from) / "reader-rubric.md"
+                if frozen_candidate.is_file():
+                    candidate = frozen_candidate
+            try:
+                rubric_bytes = candidate.read_bytes()
+            except OSError as error:
+                raise SystemExit(
+                    f"cannot read reader rubric {candidate}: {error}"
+                ) from error
+            rubric_sha256 = hashlib.sha256(rubric_bytes).hexdigest()
+            recorded_rubric_sha256 = str(config.get("readerRubricSha256") or "")
+            if (
+                recorded_rubric_sha256
+                and recorded_rubric_sha256 != rubric_sha256
+            ):
+                raise SystemExit(
+                    "reader rubric bytes differ from the frozen run configuration"
+                )
+            config["readerRubricSha256"] = rubric_sha256
+            reader_rubric_path = candidate
         frozen_config = publishable(config)
         warmup_question = config.get("warmupQuestion") or None
     if args.timeout_seconds is None:
@@ -158,19 +195,27 @@ def dispatch(args: argparse.Namespace, *, project_root: Path) -> int:
         resume_from=Path(args.resume_from) if args.resume_from else None,
         frozen_config=frozen_config,
         warmup_question=warmup_question,
+        reader_rubric_path=reader_rubric_path,
     )
-    print(
-        json.dumps(
-            {
-                "run_id": result.run_id,
-                "run_dir": str(result.run_dir),
-                "passed": result.passed_count,
-                "total": result.result_count,
-                "skipped": result.skipped_count,
-                "complete": result.complete,
-                "measurement_valid": result.measurement_valid,
-            },
-            indent=2,
-        )
-    )
+    if _reader_led_run(Path(result.run_dir)):
+        summary = {
+            "run_id": result.run_id,
+            "run_dir": str(result.run_dir),
+            "recorded_conversations": result.result_count,
+            "skipped_conversations": result.skipped_count,
+            "collection_complete": result.complete,
+            "evidence_valid": result.measurement_valid,
+        }
+    else:
+        # Older suites retain their historical command output for reproducibility.
+        summary = {
+            "run_id": result.run_id,
+            "run_dir": str(result.run_dir),
+            "passed": result.passed_count,
+            "total": result.result_count,
+            "skipped": result.skipped_count,
+            "complete": result.complete,
+            "measurement_valid": result.measurement_valid,
+        }
+    print(json.dumps(summary, indent=2))
     return 0 if result.complete and result.measurement_valid else 1

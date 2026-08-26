@@ -123,13 +123,13 @@ def _source_overrides(tmp_path: Path) -> dict[str, str]:
         ),
         (
             "DOCS_EXECUTION_PATH",
-            "### R4 — Context-rich report and manual rubric review",
-            "execution plan is missing manual full-context review",
+            "### Context-rich report and reader review",
+            "execution plan is missing full-context reader review",
         ),
         (
             "DOCS_EXECUTION_PATH",
-            "### R6 — Honest context evidence and guidance research seam",
-            "execution plan is missing guidance research",
+            "### Honest session-context evidence",
+            "execution plan is missing session-context evidence",
         ),
     ],
 )

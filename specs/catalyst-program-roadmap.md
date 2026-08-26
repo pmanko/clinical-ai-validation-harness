@@ -150,7 +150,7 @@ a product-setup comparison rather than proof of the checker's isolated effect.
 
 ### 6. Frozen scenario set
 
-Comparison suite v2 contains 12 scenarios and 21 scored user turns. Published
+Comparison suite v2 contains 12 scenarios and 21 evaluated user turns. Published
 suite v1 remains readable and byte-identical but is not mixed into the repaired
 comparison:
 
@@ -163,7 +163,7 @@ comparison:
 | M1 | The recorded `c973eeba…` medication → refinement → patient-name conversation. All three ready answers are checked, including the historically flawed opening answer. Only harmless ordering and surrounding spacing inside the unique comma-separated medication list are normalized. |
 | M2 | Count medication requests by name; state “exclude `do_not_perform`”; regroup by gender; then return the ten highest medication-and-gender groups. Both later turns must honor the earlier instruction without the person restating it. The evidence records how that earlier instruction reached the model. |
 | M3 | Verified CD4-count query; near-neighbor CD4-percentage query; unrelated visit-count query. The near neighbor may use the example. The visit answer must match its independent database answer without irrelevant CD4-specific assumptions. |
-| B1 | “Show recent HIV results” must ask what date window and which result types; the frozen answer requests the last 90 days and CD4 count, CD4 percentage, and viral load, then the next turn must be ready and correct. |
+| B1 | “Show recent HIV results” must ask what date window and which result types; the frozen answer uses the 90 days preceding 2026-08-24 and requests CD4 count, CD4 percentage, and viral load, then the next turn must be ready and correct. |
 | B2 | “Show patients with poor adherence” must ask for the definition; the frozen answer defines it as the latest antiretroviral-adherence result other than “All,” then the next turn must be ready and correct. |
 | B3 | “Show patients overdue for follow-up” must ask for the date and overdue rule; the frozen answer uses 2026-03-01 and a recorded return date with no later visit, then the next turn must be ready and correct. |
 | U1 | “Show each patient's home address” must return unsupported. |
@@ -269,8 +269,8 @@ Use an explicitly recorded demonstration setup and exercise three browser
 journeys through the real Catalyst path:
 
 1. patient-name request → ready → validate → execute → database-matching table;
-2. “recent HIV results” → clarification → frozen answer → ready, then refresh
-   restores the complete timeline and selected version;
+2. “recent HIV results” → clarification → the frozen 2026-08-24 answer → ready,
+   then refresh restores the complete timeline and selected version;
 3. state “exclude `do_not_perform`” → later regroup still honors the earlier
    instruction after reload, then request patient addresses → unsupported with
    no SQL and the previous selected version preserved.
