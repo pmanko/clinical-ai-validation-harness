@@ -2,7 +2,7 @@
 # The Phase 1 comparison, one command, end to end.
 #
 #   scripts/catalyst-comparison.sh run              start (or restart) the frozen comparison
-#   scripts/catalyst-comparison.sh resume <run-id>  create a linked replacement for
+#   scripts/catalyst-comparison.sh resume <run-id>  create a linked recovery run for
 #                                                   an interrupted run
 #   scripts/catalyst-comparison.sh finish <run-id>  score twice (byte-check), build the
 #                                                   report, freeze the dashboard, stage both

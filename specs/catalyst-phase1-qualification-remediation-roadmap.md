@@ -36,6 +36,9 @@ outcome.
 - Wrong SQL, a database diagnostic, a wrong answer, clarification, and an
   unsupported response are all observable model behavior when the supporting
   evidence is complete.
+- One Phase 1 run covers the complete frozen team-and-scenario matrix once.
+  Any repeated measure is another complete run, not extra calls for selected
+  cells.
 - Machine or service interruptions are recorded separately from model
   behavior. The roadmap defines no fixed allowance. Recovery belongs in
   harness code and tests.
@@ -68,7 +71,7 @@ suite and catalog identities.
 
 ## Sequence
 
-R0 establishes the plan. R1's core collection lifecycle is already merged.
+R0 establishes the plan. R1 establishes the collection lifecycle.
 R5, R6, and R7 can proceed in parallel after R0. R2 binds the finished data and
 context contracts; R3 then establishes result-set integrity; R4 produces the
 reporting and manual-review path. R8 runs the experiment. R9 is optional work
@@ -96,23 +99,22 @@ Acceptance:
 
 ### R1 — Honest collection identity and interruption handling
 
-**Repository:** validation harness. **State:** core work merged.
+**Repository:** validation harness. **State:** in review.
 
-Keep the merged behavior that freezes a secret-free collection identity before
-live calls, returns the exact evidence location, preserves interrupted
-evidence, and treats wrong model answers as experimental results rather than
-runner failures.
-
-One small implementation cleanup remains before R8: remove the legacy fixed
-infrastructure-replacement budget from the active collection path. Historical
-suite v1 evidence stays unchanged. Persistent environment failure simply
-leaves collection incomplete until the operator decides how to proceed.
+The collection freezes a secret-free identity before live calls, returns the
+exact evidence location, preserves interrupted evidence, and treats wrong
+model answers as experimental results rather than runner failures. A machine
+or service interruption stops the current collection as incomplete; the
+operator chooses when to resume. Historical suite v1 evidence stays unchanged,
+and its legacy replacement setting has no active effect.
 
 Acceptance:
 
 - completed model responses remain evidence regardless of answer quality;
 - collection interruptions and model behavior are represented separately;
 - no fixed machine-failure allowance controls the experiment;
+- an explicit recovery reuses only complete, unchanged conversations and
+  produces a self-contained run without repeating those conversations;
 - lifecycle and recovery behavior is proven by focused harness tests rather
   than restated as product policy.
 
@@ -152,6 +154,7 @@ Acceptance:
 
 - the result set contains every conversation declared by the frozen suite with
   no unintended omission or duplicated evidence record;
+- repeated measures, when requested, are separate complete suite runs;
 - every conversation has the suite, data, catalog, code, model, prompt, and
   context evidence needed to understand what ran;
 - mixed or internally inconsistent evidence is reported plainly and cannot be
