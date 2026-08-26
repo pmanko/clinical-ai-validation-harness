@@ -42,7 +42,7 @@ close a P3 gate.
 | Environments | Local and demonstration catalog identities are recorded separately and do not have to match. |
 | Interpretation | The roadmap defines no pass percentage, automatic disqualifier, ranking formula, tie-break, or required winner. Automated checks establish facts; the reader interprets the full evidence against the rubric. |
 | Collection interruptions | Machine and service interruptions are recorded separately from model behavior. There is no fixed allowance and no model-quality implication. Harness code and tests own collection recovery. |
-| Context | Retained conversation history is the current default. Whether separate session guidance adds useful behavior is an open research question. Context evidence records what was supplied and what was omitted, without a roadmap-defined cap, physical order, or ranking formula. |
+| Context | Retained conversation history is the current default. Whether separate session guidance adds useful behavior is an open research question. The first implementation supplies every eligible context item and records the actual per-model request. If that complete request does not fit, it records the capacity rejection rather than silently trimming or ranking context. |
 | Independent visit check | The visit answer must answer the independent visit question without irrelevant carryover; sharing a relation or SQL form with an earlier query is not itself a failure. |
 | Real database proof | Real PostgreSQL proof is required before the live comparison, not on every ordinary pull request. |
 | Repository administration | Branch settings, image publishing, and similar repository operations are not Phase 1 product blockers. |
@@ -115,6 +115,11 @@ count, request ordering, or selection algorithm. It forbids silent summary,
 truncation, or substitution. Missing or inconsistent context evidence means
 that case cannot support the comparison; it does not take unrelated product
 features offline.
+
+The first implementation sends all eligible context. If the Hub proves that
+the exact assembled request does not fit the selected model, it records that
+capacity rejection. It does not automatically remove context and retry; such a
+policy can be considered later if real evidence shows that it is needed.
 
 ### 4. Complete-system comparison
 

@@ -221,6 +221,9 @@ Acceptance:
 - evidence shows the current instruction, retained history, failure
   information, verified examples, and any explicit guidance actually supplied
   to every model call;
+- every eligible item is supplied; a request that does not fit the selected
+  model records that exact capacity rejection instead of silently trimming,
+  ranking, or retrying with less context;
 - omissions are visible with their reason; context is not silently summarized,
   truncated, or substituted;
 - verified examples come only from earlier kept queries with recorded advisory
