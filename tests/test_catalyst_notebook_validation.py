@@ -3233,26 +3233,6 @@ def test_recovery_refuses_a_row_without_structural_conformance_checks() -> None:
     )
 
 
-def test_a_slow_local_response_remains_valid_measurement_evidence() -> None:
-    from harness.catalyst.notebook_validation import _row_is_measurement_valid
-
-    assert _row_is_measurement_valid(
-        {
-            "status": "completed",
-            "sessionId": "session-1",
-            "measurementEvidence": {"complete": True},
-            "assertions": [
-                {"name": "session_created", "class": "conformance", "passed": True},
-                {
-                    "name": "successor_visible_under_three_minutes",
-                    "class": "evaluation",
-                    "passed": False,
-                },
-            ],
-        }
-    )
-
-
 def test_notebook_cli_wires_arguments_into_the_runner(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
@@ -4079,6 +4059,21 @@ def _run_against_fake(
         server.shutdown()
         thread.join(timeout=5)
         server.server_close()
+
+
+def test_phase1_records_raw_timing_without_a_timing_verdict(tmp_path: Path) -> None:
+    suite = _adaptive_suite()
+    suite["id"] = "catalyst-phase1-comparison-test"
+    suite["repetitions"] = 1
+    suite.pop("extendedRepetitions", None)
+
+    result = _run_against_fake(tmp_path, suite, _WorkbenchState())
+    row = json.loads((result.run_dir / "results.json").read_text())["results"][0]
+
+    assert "generationWallMinusRecordedInvocationsMs" in row["timing"]
+    assert "successor_visible_under_three_minutes" not in {
+        assertion["name"] for assertion in row["assertions"]
+    }
 
 
 def _mark_interrupted(run_dir: Path) -> None:
@@ -7054,7 +7049,6 @@ def test_the_split_puts_judgment_on_one_side_and_the_contract_on_the_other():
         "exact_selected_output",
         "prior_results_stale_after_successor",
         "semantic_reviewer_correction",
-        "successor_visible_under_three_minutes",
     ):
         assert assertion_class(name) == "evaluation", name
 
@@ -7068,6 +7062,7 @@ def test_the_split_puts_judgment_on_one_side_and_the_contract_on_the_other():
         "base_classification",
         "revision_context_exclusions",
         "new_session_isolation",
+        "successor_visible_under_three_minutes",
     ):
         assert assertion_class(name) == "conformance", name
 
