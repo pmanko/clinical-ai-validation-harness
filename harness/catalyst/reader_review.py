@@ -79,10 +79,17 @@ def prepare_reader_review(
         ),
     }
     out = run_dir / REVIEW_INPUT_NAME
-    out.write_text(
-        json.dumps(payload, indent=2, sort_keys=True, ensure_ascii=False) + "\n",
-        encoding="utf-8",
-    )
+    encoded = (
+        json.dumps(payload, indent=2, sort_keys=True, ensure_ascii=False) + "\n"
+    ).encode("utf-8")
+    if out.is_file():
+        if out.read_bytes() != encoded:
+            raise ValueError(
+                "existing reader-review-input.json differs from the current "
+                "evidence; preserving the exact input already prepared"
+            )
+        return out
+    out.write_bytes(encoded)
     return out
 
 

@@ -136,7 +136,9 @@ def case_records(
         scenario = scenarios.get(scenario_id) or {}
         prefix = str(row.get("evidencePrefix") or "")
         if not prefix:
-            continue
+            raise ValueError(
+                f"completed reader result has no evidence directory: {scenario_id}"
+            )
         if evidence_index is not None:
             root = run_dir.resolve()
             prefix_path = (run_dir / prefix).resolve()
@@ -155,9 +157,14 @@ def case_records(
                 evidence_index=evidence_index,
             )
         ]
-        for offset, turn in enumerate(row.get("turns") or [], start=2):
-            if not isinstance(turn, dict):
-                continue
+        turn_summaries = row.get("turns") or []
+        if not isinstance(turn_summaries, list) or any(
+            not isinstance(turn, dict) for turn in turn_summaries
+        ):
+            raise ValueError(
+                f"completed reader result has malformed turns: {scenario_id}"
+            )
+        for offset, turn in enumerate(turn_summaries, start=2):
             turns.append(
                 _turn_evidence(
                     run_dir,

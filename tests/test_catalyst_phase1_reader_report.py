@@ -7,7 +7,18 @@ from pathlib import Path
 
 import pytest
 
-from harness.catalyst.phase1_evidence import case_records, collection_summary
+from harness.catalyst.phase1_evidence import (
+    artifact_body,
+    case_records,
+    collection_summary,
+    load_json,
+)
+from harness.catalyst.phase1_report import (
+    _evidence_details,
+    _matrix_cell,
+    _reviews,
+    _turn_fact,
+)
 from harness.catalyst.reader_review import (
     prepare_reader_review,
     validate_reader_reviews,
@@ -19,6 +30,15 @@ def _write_json(path: Path, payload: object) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
         json.dumps(payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+
+def _write_evidence_index(run_dir: Path, payload: dict) -> None:
+    index_path = run_dir / "evidence-index.json"
+    _write_json(index_path, payload)
+    (run_dir / "evidence-index.sha256").write_text(
+        f"{hashlib.sha256(index_path.read_bytes()).hexdigest()}  evidence-index.json\n",
         encoding="utf-8",
     )
 
@@ -39,19 +59,14 @@ def _sign_evidence(run_dir: Path) -> None:
                 "sha256": hashlib.sha256(encoded).hexdigest(),
             }
         )
-    index_path = run_dir / "evidence-index.json"
-    _write_json(
-        index_path,
+    _write_evidence_index(
+        run_dir,
         {
             "contractVersion": "harness.catalyst-notebook.evidence-index.v1",
             "runId": manifest["run_id"],
             "hashAlgorithm": "sha256",
             "entries": entries,
         },
-    )
-    (run_dir / "evidence-index.sha256").write_text(
-        f"{hashlib.sha256(index_path.read_bytes()).hexdigest()}  evidence-index.json\n",
-        encoding="utf-8",
     )
 
 
@@ -307,6 +322,265 @@ def _attach_current_review(
     )
 
 
+def test_evidence_json_readers_handle_missing_nonobjects_and_wrapped_bodies(
+    tmp_path: Path,
+) -> None:
+    assert load_json(tmp_path / "missing.json") == {}
+
+    nonobject = tmp_path / "list.json"
+    nonobject.write_text("[]\n", encoding="utf-8")
+    assert load_json(nonobject) == {}
+
+    exchange = tmp_path / "exchange.json"
+    _write_json(exchange, {"response": {"body": {"status": "succeeded"}}})
+    assert artifact_body(exchange) == {"status": "succeeded"}
+
+
+def test_case_records_ignore_nonresults(
+    tmp_path: Path,
+) -> None:
+    prefix = "scenarios/team-a/A1/repetition-01"
+    (tmp_path / prefix).mkdir(parents=True)
+    suite = {
+        "scenarios": [
+            {
+                "id": "A1",
+                "family": "suite-family",
+                "initialQuestion": "Show the measurements.",
+            }
+        ]
+    }
+    results = {
+        "results": [
+            None,
+            {"status": "skipped"},
+            {"status": "infrastructure_failed"},
+            {
+                "status": "completed",
+                "scenarioId": "A1",
+                "profileId": "team-a",
+                "evidencePrefix": prefix,
+                "turns": [],
+            },
+        ]
+    }
+
+    records = case_records(tmp_path, suite=suite, results=results)
+
+    assert len(records) == 1
+    assert records[0]["family"] == "suite-family"
+    assert len(records[0]["turns"]) == 1
+
+
+@pytest.mark.parametrize(
+    ("row", "message"),
+    [
+        (
+            {"status": "completed", "scenarioId": "A1"},
+            "no evidence directory",
+        ),
+        (
+            {
+                "status": "completed",
+                "scenarioId": "A1",
+                "evidencePrefix": "scenarios/team-a/A1/repetition-01",
+                "turns": [None],
+            },
+            "malformed turns",
+        ),
+    ],
+)
+def test_case_records_reject_completed_rows_that_cannot_be_rendered(
+    tmp_path: Path,
+    row: dict,
+    message: str,
+) -> None:
+    prefix = "scenarios/team-a/A1/repetition-01"
+    (tmp_path / prefix).mkdir(parents=True)
+    suite = {"scenarios": [{"id": "A1", "initialQuestion": "Question"}]}
+
+    with pytest.raises(ValueError, match=message):
+        case_records(tmp_path, suite=suite, results={"results": [row]})
+
+
+def test_case_records_reject_missing_or_escaping_evidence_paths(
+    tmp_path: Path,
+) -> None:
+    suite = {"scenarios": [{"id": "A1", "initialQuestion": "Question"}]}
+    row = {
+        "status": "completed",
+        "scenarioId": "A1",
+        "profileId": "team-a",
+        "evidencePrefix": "scenarios/team-a/A1/repetition-01",
+    }
+
+    with pytest.raises(ValueError, match="evidence directory is missing"):
+        case_records(
+            tmp_path,
+            suite=suite,
+            results={"results": [row]},
+            evidence_index={},
+        )
+
+    escaping = {**row, "evidencePrefix": "../outside-run"}
+    with pytest.raises(ValueError, match="evidence path escapes run directory"):
+        case_records(tmp_path, suite=suite, results={"results": [escaping]})
+
+
+def test_collection_summary_supports_one_unnamed_profile_and_ignores_nonresults() -> None:
+    suite = {"scenarios": [{"id": "A1"}]}
+    results = {
+        "measurementValid": True,
+        "results": [
+            None,
+            {"status": "skipped"},
+            {"status": "infrastructure_failed"},
+            {
+                "status": "completed",
+                "scenarioId": "A1",
+                "repetition": 1,
+            },
+        ],
+    }
+
+    summary = collection_summary(suite, results)
+
+    assert summary["complete"] is True
+    assert summary["expectedConversations"] == 1
+    assert summary["recordedConversations"] == 1
+
+
+@pytest.mark.parametrize(
+    ("turn", "expected"),
+    [
+        (
+            {"evidence": {"execution": {"status": "timed_out"}}},
+            ("PostgreSQL returned timed_out", "different"),
+        ),
+        (
+            {"expectedOutcome": "ready", "observedOutcome": "ready"},
+            ("outcome was as expected", "ok"),
+        ),
+        (
+            {"expectedOutcome": "ready", "observedOutcome": "unsupported"},
+            ("expected ready; observed unsupported", "different"),
+        ),
+        ({}, ("no automated factual conclusion", "unknown")),
+    ],
+)
+def test_turn_fact_describes_database_and_observed_outcomes(
+    turn: dict,
+    expected: tuple[str, str],
+) -> None:
+    assert _turn_fact(turn) == expected
+
+
+def test_matrix_cell_names_database_diagnostics() -> None:
+    html = _matrix_cell(
+        {
+            "measurementValid": False,
+            "turns": [
+                {
+                    "expectedOutcome": "ready",
+                    "observedOutcome": "ready",
+                    "evidence": {"execution": {"status": "failed"}},
+                }
+            ],
+        }
+    )
+
+    assert "evidence incomplete" in html
+    assert "1 database diagnostic(s)" in html
+
+
+def test_evidence_details_allows_a_turn_without_optional_artifacts() -> None:
+    assert _evidence_details({"evidence": {}}) == ""
+
+
+def test_reviews_explains_that_no_review_is_attached(tmp_path: Path) -> None:
+    assert "No reader review has been attached yet" in _reviews(tmp_path)
+
+
+def test_review_preparation_rejects_unsigned_results_and_incomplete_runs(
+    tmp_path: Path,
+) -> None:
+    run_dir, _suite, _results, rubric_path = _comparison_run(tmp_path)
+    index_path = run_dir / "evidence-index.json"
+    index = json.loads(index_path.read_text(encoding="utf-8"))
+    index["entries"] = [
+        entry for entry in index["entries"] if entry["path"] != "results.json"
+    ]
+    _write_evidence_index(run_dir, index)
+
+    with pytest.raises(ValueError, match="signed results.json"):
+        prepare_reader_review(run_dir, rubric_path)
+
+    results = json.loads((run_dir / "results.json").read_text(encoding="utf-8"))
+    results["results"] = results["results"][:-1]
+    _write_json(run_dir / "results.json", results)
+    _sign_evidence(run_dir)
+
+    with pytest.raises(ValueError, match="every planned conversation"):
+        prepare_reader_review(run_dir, rubric_path)
+
+
+def test_review_preparation_requires_the_frozen_rubric(
+    tmp_path: Path,
+) -> None:
+    run_dir, _suite, _results, rubric_path = _comparison_run(tmp_path)
+    run_config_path = run_dir / "run-config.json"
+    run_config = json.loads(run_config_path.read_text(encoding="utf-8"))
+    run_config.pop("readerRubricSha256")
+    _write_json(run_config_path, run_config)
+    _sign_evidence(run_dir)
+
+    with pytest.raises(ValueError, match="rubric digest frozen with the run"):
+        prepare_reader_review(run_dir, rubric_path)
+
+    second_root = tmp_path / "second-run"
+    second_root.mkdir()
+    run_dir, _suite, _results, _rubric_path = _comparison_run(second_root)
+    different_rubric = tmp_path / "different-rubric.md"
+    different_rubric.write_text("Different review instructions.\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="differs from the rubric frozen"):
+        prepare_reader_review(run_dir, different_rubric)
+
+
+def test_reader_validation_requires_input_and_review_metadata(tmp_path: Path) -> None:
+    run_dir, _suite, _results, rubric_path = _comparison_run(tmp_path)
+
+    with pytest.raises(ValueError, match="reader review input is missing"):
+        validate_reader_reviews(run_dir)
+
+    prepare_reader_review(run_dir, rubric_path)
+    review_dir = run_dir / "reader-reviews"
+    review_dir.mkdir()
+    (review_dir / "frontier-reader.md").write_text(
+        "A substantive review.\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="reader review metadata is missing"):
+        validate_reader_reviews(run_dir)
+
+
+def test_review_preparation_preserves_an_existing_different_input(
+    tmp_path: Path,
+) -> None:
+    run_dir, _suite, _results, rubric_path = _comparison_run(tmp_path)
+    review_input = prepare_reader_review(run_dir, rubric_path)
+    original = review_input.read_bytes()
+
+    manifest_path = run_dir / "run_manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["changedAfterPreparation"] = True
+    _write_json(manifest_path, manifest)
+    _sign_evidence(run_dir)
+
+    with pytest.raises(ValueError, match="preserving the exact input"):
+        prepare_reader_review(run_dir, rubric_path)
+    assert review_input.read_bytes() == original
+
+
 def test_collection_check_detects_complete_missing_and_duplicate_results(tmp_path: Path) -> None:
     _run_dir, suite, results, _rubric = _comparison_run(tmp_path)
 
@@ -470,11 +744,7 @@ def test_review_packaging_rejects_unindexed_referenced_evidence(
     index["entries"] = [
         entry for entry in index["entries"] if entry["path"] != relative
     ]
-    _write_json(index_path, index)
-    (run_dir / "evidence-index.sha256").write_text(
-        f"{hashlib.sha256(index_path.read_bytes()).hexdigest()}  evidence-index.json\n",
-        encoding="utf-8",
-    )
+    _write_evidence_index(run_dir, index)
 
     with pytest.raises(ValueError, match="not in the signed index"):
         prepare_reader_review(run_dir, rubric_path)

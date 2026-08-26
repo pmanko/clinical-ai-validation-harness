@@ -1125,6 +1125,161 @@ def _gold_check_connection(
     return cursor
 
 
+def _row_set_version_and_check() -> tuple[dict[str, Any], Any]:
+    from harness.catalyst.notebook_validation import NotebookGoldCheck
+
+    return (
+        {
+            "versionId": "version-1",
+            "queryDigest": "a" * 64,
+            "sql": "SELECT observation_id FROM model_table",
+            "parameters": [],
+        },
+        NotebookGoldCheck(
+            mode="row_set",
+            reference_sql="SELECT observation_id FROM reference_table",
+            match_columns=("observation_id",),
+        ),
+    )
+
+
+@pytest.mark.parametrize(
+    ("trigger", "message", "raises"),
+    [
+        ("AS model_rows LIMIT 0", "model query could not be compared", False),
+        (
+            "AS reference_rows LIMIT 0",
+            "independent reference query could not be compared",
+            True,
+        ),
+        (
+            "(SELECT count(*) FROM model_values)",
+            "requested model columns could not be compared",
+            False,
+        ),
+    ],
+)
+def test_database_row_set_reports_query_and_comparison_errors(
+    trigger: str, message: str, raises: bool,
+) -> None:
+    import psycopg
+
+    from harness.catalyst.notebook_validation import PostgresGoldExecutionChecker
+
+    cursor = _GoldCheckCursor(
+        {
+            "model_table": (["observation_id"], [("o1",)]),
+            "reference_table": (["observation_id"], [("o1",)]),
+        }
+    )
+    execute = cursor.execute
+
+    def fail_selected(statement: str, parameters: object = None) -> None:
+        if trigger in statement:
+            raise psycopg.Error("comparison failed")
+        execute(statement, parameters)
+
+    cursor.execute = fail_selected  # type: ignore[method-assign]
+    version, gold_check = _row_set_version_and_check()
+    checker = PostgresGoldExecutionChecker("postgresql://unused")
+
+    if raises:
+        with pytest.raises(ValueError, match=message):
+            checker._database_row_set_check(cursor, version, gold_check)
+    else:
+        result = checker._database_row_set_check(cursor, version, gold_check)
+        assert result["passed"] is False
+        assert message in result["disagreement"]
+        assert result["databaseDiagnostic"] == {"sqlstate": None}
+
+
+@pytest.mark.parametrize("missing_from", ["model", "reference"])
+def test_database_row_set_names_missing_match_columns(missing_from: str) -> None:
+    from harness.catalyst.notebook_validation import PostgresGoldExecutionChecker
+
+    cursor = _GoldCheckCursor(
+        {
+            "model_table": (
+                ["wrong_column"] if missing_from == "model" else ["observation_id"],
+                [("o1",)],
+            ),
+            "reference_table": (
+                ["wrong_column"]
+                if missing_from == "reference"
+                else ["observation_id"],
+                [("o1",)],
+            ),
+        }
+    )
+    version, gold_check = _row_set_version_and_check()
+    checker = PostgresGoldExecutionChecker("postgresql://unused")
+
+    if missing_from == "reference":
+        with pytest.raises(ValueError, match="reference query is missing columns"):
+            checker._database_row_set_check(cursor, version, gold_check)
+    else:
+        result = checker._database_row_set_check(cursor, version, gold_check)
+        assert result["passed"] is False
+        assert "no column named 'observation_id'" in result["disagreement"]
+
+
+def test_database_row_set_requires_one_summary_row() -> None:
+    from harness.catalyst.notebook_validation import PostgresGoldExecutionChecker
+
+    cursor = _GoldCheckCursor(
+        {
+            "model_table": (["observation_id"], [("o1",)]),
+            "reference_table": (["observation_id"], [("o1",)]),
+        }
+    )
+    execute = cursor.execute
+
+    def omit_summary(statement: str, parameters: object = None) -> None:
+        execute(statement, parameters)
+        if "(SELECT count(*) FROM model_values)" in statement:
+            cursor._rows = []
+
+    cursor.execute = omit_summary  # type: ignore[method-assign]
+    version, gold_check = _row_set_version_and_check()
+
+    with pytest.raises(ValueError, match="returned no summary"):
+        PostgresGoldExecutionChecker("postgresql://unused")._database_row_set_check(
+            cursor, version, gold_check
+        )
+
+
+@pytest.mark.parametrize(
+    ("model_rows", "reference_rows", "missing_sample", "extra_sample"),
+    [
+        ([("o1",)], [("o1",), ("o2",)], [["o2"]], []),
+        ([("o1",), ("o2",)], [("o1",)], [], [["o2"]]),
+    ],
+)
+def test_database_row_set_samples_each_one_sided_difference(
+    model_rows: list[tuple[str]],
+    reference_rows: list[tuple[str]],
+    missing_sample: list[list[str]],
+    extra_sample: list[list[str]],
+) -> None:
+    from harness.catalyst.notebook_validation import PostgresGoldExecutionChecker
+
+    cursor = _GoldCheckCursor(
+        {
+            "model_table": (["observation_id"], model_rows),
+            "reference_table": (["observation_id"], reference_rows),
+        }
+    )
+    version, gold_check = _row_set_version_and_check()
+
+    result = PostgresGoldExecutionChecker(
+        "postgresql://unused"
+    )._database_row_set_check(cursor, version, gold_check)
+
+    assert result["passed"] is False
+    assert result["missingFromModelSample"] == missing_sample
+    assert result["extraInModelSample"] == extra_sample
+
+
 def test_gold_execution_checker_count_mode_compares_row_counts(monkeypatch) -> None:
     from harness.catalyst.notebook_validation import (
         PostgresGoldExecutionChecker,
@@ -1968,6 +2123,33 @@ def test_reader_led_suite_refuses_a_ready_turn_without_its_own_check(
         load_notebook_suite(_write_suite(tmp_path, payload))
 
 
+def test_reader_led_suite_refuses_hidden_guidance_and_an_unchecked_opening(
+    tmp_path: Path,
+) -> None:
+    base = _suite_payload()["scenarios"][0]
+    hidden_guidance = {
+        **base,
+        "pinGuidance": ["Exclude do_not_perform requests."],
+    }
+    with pytest.raises(ValueError, match="not pinGuidance"):
+        load_notebook_suite(
+            _write_suite(
+                tmp_path,
+                _suite_payload(
+                    reportMode="reader-led", scenarios=[hidden_guidance]
+                ),
+            )
+        )
+
+    with pytest.raises(ValueError, match="answer check for its opening turn"):
+        load_notebook_suite(
+            _write_suite(
+                tmp_path,
+                _suite_payload(reportMode="reader-led", scenarios=[base]),
+            )
+        )
+
+
 def test_suite_loader_rejects_invalid_gold_checks(tmp_path: Path) -> None:
     base = _suite_payload()["scenarios"][0]
 
@@ -2016,6 +2198,45 @@ def test_suite_loader_rejects_invalid_gold_checks(tmp_path: Path) -> None:
         load_notebook_suite(
             _write_suite(tmp_path, _suite_payload(scenarios=[write_verb_reference]))
         )
+
+
+@pytest.mark.parametrize(
+    ("payload", "message"),
+    [
+        (
+            _gold_check_payload(
+                mode="aggregate_by_key",
+                keyColumns=["group"],
+                valueColumns={"count": {}},
+                normalizers={"group": "unordered_csv"},
+            ),
+            "supported only for row_set",
+        ),
+        (
+            _gold_check_payload(
+                mode="row_set",
+                matchColumns=["patient_id"],
+                normalizers={"medications": "unordered_csv"},
+            ),
+            "outside matchColumns",
+        ),
+        (
+            _gold_check_payload(
+                mode="row_set",
+                matchColumns=["patient_id"],
+                normalizers={"patient_id": "lowercase"},
+            ),
+            "unsupported gold check normalizers",
+        ),
+    ],
+)
+def test_gold_check_normalizer_configuration_is_strict(
+    payload: dict[str, Any], message: str,
+) -> None:
+    from harness.catalyst.notebook_validation import _load_gold_check
+
+    with pytest.raises(ValueError, match=message):
+        _load_gold_check(payload)
 
 
 def test_run_suite_rejects_empty_selection_and_bad_repetitions(
@@ -2585,6 +2806,47 @@ def test_followup_revision_context_must_be_present() -> None:
     )
 
 
+def test_request_revision_skips_malformed_messages_before_a_valid_one() -> None:
+    from harness.catalyst.notebook_validation import _request_revision
+
+    expected = {
+        "currentInstruction": "Return only distinct patients.",
+        "instructionHistory": [],
+    }
+    invocation = {
+        "requestEvidence": {
+            "request": {
+                "messages": [
+                    "not-an-object",
+                    {"content": "{not-json"},
+                    {"content": ["not-an-object-payload"]},
+                    {"content": {"revision": ["not-an-object-revision"]}},
+                    {"content": {"revision": expected}},
+                ]
+            }
+        }
+    }
+
+    assert _request_revision(invocation) == expected
+
+
+def test_request_revision_and_capacity_tolerate_non_dispatch_records() -> None:
+    from harness.catalyst.notebook_validation import (
+        _capacity_evidence_is_coherent,
+        _request_revision,
+    )
+
+    assert _request_revision({"requestEvidence": {"request": []}}) is None
+    assert _request_revision(
+        {
+            "requestEvidence": {
+                "request": {"messages": [{"content": {"revision": None}}]}
+            }
+        }
+    ) is None
+    assert _capacity_evidence_is_coherent({"outcome": "transport_failed"}) is True
+
+
 @pytest.mark.parametrize("answer", ["needs_clarification", "unsupported"])
 def test_a_terminal_answer_with_no_model_invocation_remains_valid(answer: str) -> None:
     evidence = _evidence("turn-followup", "Ask or decline deterministically.")
@@ -2838,6 +3100,122 @@ def test_a_malformed_recovery_evidence_index_is_refused(tmp_path: Path) -> None:
     (tmp_path / "evidence-index.json").write_text("{not-json")
     with pytest.raises(ValueError, match="evidence index is invalid"):
         _preflight_recovery_evidence(tmp_path, [])
+
+
+def _signed_public_evidence_run(
+    tmp_path: Path,
+    *,
+    run_config: dict[str, Any] | None = None,
+    include_suite: bool = True,
+    reader_rubric: str | None = None,
+) -> Path:
+    from harness.catalyst.notebook_validation import _EvidenceRecorder
+
+    run_dir = tmp_path / "run-public-evidence"
+    recorder = _EvidenceRecorder(run_dir, "run-public-evidence")
+    recorder.json(
+        "run_manifest.json",
+        {"run_id": "run-public-evidence"},
+        kind="run_manifest",
+    )
+    recorder.json("run-config.json", run_config or {}, kind="run_config")
+    if include_suite:
+        recorder.json("suite.json", {"id": "suite"}, kind="suite")
+    if reader_rubric is not None:
+        rubric_path = run_dir / "reader-rubric.md"
+        rubric_path.write_text(reader_rubric, encoding="utf-8")
+        recorder.file(
+            "reader-rubric.md",
+            kind="reader_rubric",
+            media_type="text/markdown",
+        )
+    return run_dir
+
+
+def _resign_indexed_file(run_dir: Path, relative: str, content: bytes) -> None:
+    path = run_dir / relative
+    path.write_bytes(content)
+    index_path = run_dir / "evidence-index.json"
+    index = json.loads(index_path.read_text(encoding="utf-8"))
+    entry = next(item for item in index["entries"] if item["path"] == relative)
+    entry["bytes"] = len(content)
+    entry["sha256"] = hashlib.sha256(content).hexdigest()
+    encoded = (
+        json.dumps(index, indent=2, ensure_ascii=False, allow_nan=False) + "\n"
+    ).encode("utf-8")
+    index_path.write_bytes(encoded)
+    (run_dir / "evidence-index.sha256").write_text(
+        f"{hashlib.sha256(encoded).hexdigest()}  evidence-index.json\n",
+        encoding="utf-8",
+    )
+
+
+def test_public_evidence_validator_accepts_a_complete_signed_inventory(
+    tmp_path: Path,
+) -> None:
+    from harness.catalyst.notebook_validation import validate_notebook_evidence
+
+    run_dir = _signed_public_evidence_run(tmp_path)
+
+    assert set(validate_notebook_evidence(run_dir)) == {
+        "run_manifest.json",
+        "run-config.json",
+        "suite.json",
+    }
+
+
+def test_public_evidence_validator_requires_a_readable_identified_manifest(
+    tmp_path: Path,
+) -> None:
+    from harness.catalyst.notebook_validation import validate_notebook_evidence
+
+    run_dir = tmp_path / "bad-public-evidence"
+    run_dir.mkdir()
+    (run_dir / "run_manifest.json").write_text("{not-json", encoding="utf-8")
+    with pytest.raises(ValueError, match="run manifest cannot be read"):
+        validate_notebook_evidence(run_dir)
+
+    (run_dir / "run_manifest.json").write_text("{}", encoding="utf-8")
+    with pytest.raises(ValueError, match="run manifest has no run_id"):
+        validate_notebook_evidence(run_dir)
+
+
+def test_public_evidence_validator_rejects_a_signed_malformed_run_config(
+    tmp_path: Path,
+) -> None:
+    from harness.catalyst.notebook_validation import validate_notebook_evidence
+
+    run_dir = _signed_public_evidence_run(tmp_path)
+    _resign_indexed_file(run_dir, "run-config.json", b"{not-json")
+
+    with pytest.raises(ValueError, match="run configuration cannot be read"):
+        validate_notebook_evidence(run_dir)
+
+
+def test_public_evidence_validator_requires_all_identity_files(
+    tmp_path: Path,
+) -> None:
+    from harness.catalyst.notebook_validation import validate_notebook_evidence
+
+    run_dir = _signed_public_evidence_run(tmp_path, include_suite=False)
+
+    with pytest.raises(ValueError, match="identity files are not indexed: suite.json"):
+        validate_notebook_evidence(run_dir)
+
+
+def test_public_evidence_validator_checks_the_frozen_reader_rubric(
+    tmp_path: Path,
+) -> None:
+    from harness.catalyst.notebook_validation import validate_notebook_evidence
+
+    run_dir = _signed_public_evidence_run(
+        tmp_path,
+        run_config={"readerRubricSha256": "0" * 64},
+        reader_rubric="# Reader rubric\n",
+    )
+
+    with pytest.raises(ValueError, match="reader rubric differs"):
+        validate_notebook_evidence(run_dir)
 
 
 def test_recovery_refuses_a_row_without_structural_conformance_checks() -> None:
