@@ -105,6 +105,16 @@ def test_primary_destinations_are_first_party_and_prominent():
     assert {"openmrs.openclinai.org", "reports.openclinai.org"} <= first_party_hosts
 
 
+def test_catalyst_copy_distinguishes_the_recorded_example_from_its_data_surface():
+    html, _ = parsed_landing()
+
+    assert "The demo uses the OpenELIS laboratory database" in html
+    assert "an OpenMRS HIV program database is a second configured example" in html
+    assert "a deterministic policy keeps database execution read-only" in html
+    assert "any relational source its database role can read" in html
+    assert "The two sources shown here" not in html
+
+
 MEDIA_HOST = "https://catalyst.openelis-global.org/media/"
 
 

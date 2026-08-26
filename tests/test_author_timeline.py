@@ -112,6 +112,23 @@ def test_an_unknown_clip_kind_is_rejected_instead_of_becoming_a_wait():
 
 
 @pytest.mark.parametrize(
+    "entry",
+    [{"type": "caption"}, {}],
+    ids=["unknown", "missing"],
+)
+def test_an_unknown_or_missing_segment_type_has_a_clear_error(entry):
+    with pytest.raises(
+        ValueError,
+        match="segment 0: 'type' must be 'card' or 'clip'",
+    ):
+        at.build_timeline(
+            {"segments": [entry]},
+            milestones(a=0.0),
+            video_duration=1.0,
+        )
+
+
+@pytest.mark.parametrize(
     "target",
     [0.0, -1.0, True, "5", float("nan"), float("inf")],
     ids=["zero", "negative", "boolean", "string", "nan", "infinity"],

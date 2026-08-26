@@ -132,8 +132,14 @@ def build_timeline(
     marks = marks_by_label(milestones)
     offset = recording_offset(milestones, video_duration)
     segments: list[dict[str, Any]] = []
-    for entry in plan["segments"]:
-        if entry["type"] == "card":
+    for index, entry in enumerate(plan["segments"]):
+        segment_type = entry.get("type")
+        if segment_type not in {"card", "clip"}:
+            raise ValueError(
+                f"segment {index}: 'type' must be 'card' or 'clip'; "
+                f"got {segment_type!r}"
+            )
+        if segment_type == "card":
             segments.append({k: v for k, v in entry.items()})
             continue
         start, end = resolve_span(marks, entry["from"], entry["to"], offset)
