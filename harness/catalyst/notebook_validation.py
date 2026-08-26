@@ -467,7 +467,7 @@ class PostgresChecker(Protocol):
     def check(
         self,
         version: dict[str, Any],
-        execution: dict[str, Any],
+        execution: object,
     ) -> dict[str, Any]: ...
 
 
@@ -682,7 +682,7 @@ class PostgresReadOnlyChecker:
     def check(
         self,
         version: dict[str, Any],
-        execution: dict[str, Any],
+        execution: object,
     ) -> dict[str, Any]:
         import psycopg
 
@@ -692,7 +692,8 @@ class PostgresReadOnlyChecker:
             for parameter in parameters
         }
         driver_sql = _driver_sql(str(version["sql"]), set(bindings))
-        result = execution.get("result") if isinstance(execution, dict) else None
+        gateway_execution = execution if isinstance(execution, dict) else {}
+        result = gateway_execution.get("result")
         gateway_columns = [
             item.get("name") for item in (result or {}).get("columns", [])
         ]
@@ -720,7 +721,7 @@ class PostgresReadOnlyChecker:
                         "database": parsed.path.lstrip("/") or None,
                         "versionId": version.get("versionId"),
                         "queryDigest": version.get("queryDigest"),
-                        "gatewayExecutionId": execution.get("executionId"),
+                        "gatewayExecutionId": gateway_execution.get("executionId"),
                         "maxRows": self.max_rows,
                         "statementTimeoutMs": self.statement_timeout_ms,
                         "timedOut": True,
@@ -760,7 +761,7 @@ class PostgresReadOnlyChecker:
             "database": parsed.path.lstrip("/") or None,
             "versionId": version.get("versionId"),
             "queryDigest": version.get("queryDigest"),
-            "gatewayExecutionId": execution.get("executionId"),
+            "gatewayExecutionId": gateway_execution.get("executionId"),
             "maxRows": self.max_rows,
             "comparisons": comparisons,
             "passed": all(comparisons.values()),

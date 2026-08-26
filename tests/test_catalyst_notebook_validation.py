@@ -909,6 +909,59 @@ def test_postgres_crosscheck_uses_read_only_transaction_and_record_digests(
     assert statements[2][1] == {"test_name": "Viral Load"}
 
 
+def test_postgres_timeout_accepts_a_non_object_gateway_execution(
+    monkeypatch,
+) -> None:
+    import psycopg
+
+    class Cursor:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args: object) -> None:
+            return None
+
+        def execute(self, statement: str, parameters: object = None) -> None:
+            if statement == "SET TRANSACTION READ ONLY" or "set_config" in statement:
+                return
+            raise psycopg.errors.QueryCanceled(
+                "canceling statement due to statement timeout"
+            )
+
+    class Connection:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args: object) -> None:
+            return None
+
+        def cursor(self) -> Cursor:
+            return Cursor()
+
+    monkeypatch.setattr(psycopg, "connect", lambda *args, **kwargs: Connection())
+    version = {
+        "versionId": "version-1",
+        "queryDigest": "a" * 64,
+        "sql": "SELECT patient_id FROM analytics.lab_result_fact_v1",
+        "parameters": [],
+    }
+
+    result = PostgresReadOnlyChecker(
+        "postgresql://readonly:secret@127.0.0.1:15443/catalyst_analytics",
+        statement_timeout_ms=25,
+    ).check(version, [])
+
+    assert result["timedOut"] is True
+    assert result["passed"] is False
+    assert result["gatewayExecutionId"] is None
+    assert result["gateway"] == {
+        "columns": [],
+        "returned": None,
+        "truncated": None,
+        "recordDigests": [],
+    }
+
+
 class _GoldCheckCursor:
     """Stub cursor returning canned rows keyed by a marker substring in the
     executed SQL, so a single instance can serve the model + reference
