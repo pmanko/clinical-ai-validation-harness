@@ -127,13 +127,14 @@ for f in "$PROGRAM" "$EXECUTION" "$BRIEF" "$WRITER_ARTIFACT" \
   "$FEATURE_SPEC" "$WORKBENCH_API"; do
   [ -f "$f" ] || { err "missing Phase 1 planning source: $f"; continue; }
 done
-# 7. Published catalog v6 and suite v1 are immutable. Corrected work uses new
-#    version identities rather than relabelling historical evidence.
+# 7. Published catalog v6 and suite v1 are immutable. A corrected suite uses a
+#    new identity; the repaired run records the catalog it actually observed.
 assert_sha256 "$PHASE1_SUITE" "$PHASE1_SUITE_V1_SHA256" "Phase 1 suite v1"
 assert_sha256 "$CATALOG_V6_OVERLAY" "$CATALOG_V6_OVERLAY_SHA256" "catalog v6 overlay"
 assert_sha256 "$CATALOG_V6_GENERATED" "$CATALOG_V6_GENERATED_SHA256" "catalog v6 generated file"
 for f in "$PROGRAM" "$EXECUTION"; do
-  grep -qF 'catalog v7' "$f" || err "catalog v7 successor missing from $f"
+  grep -qF 'catalog identity' "$f" || err "observed catalog identity missing from $f"
+  grep -qF 'readable surface' "$f" || err "observed readable surface missing from $f"
   grep -qF 'suite v2' "$f" || err "suite v2 successor missing from $f"
   grep -qF 'catalog v6' "$f" || err "catalog v6 history missing from $f"
   grep -qF 'suite v1' "$f" || err "suite v1 history missing from $f"

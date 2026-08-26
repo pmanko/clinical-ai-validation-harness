@@ -56,8 +56,8 @@ count into a product rule.
 
 Reviewed metadata improves descriptions and warnings for known relations but
 does not decide whether a readable relation is available. Published catalog v6
-remains unchanged as historical evidence; catalog v7 records the corrected
-behavior.
+remains unchanged as historical evidence. The repaired experiment records the
+catalog identity and readable surface it actually used.
 
 Manual validation remains advisory. A person may run the exact SQL and receive
 the database's result or diagnostic. The read-only database user, read-only
@@ -233,10 +233,10 @@ Recovery details live in harness code and tests rather than in product policy.
 
 ### G3 — shared data and outcome contracts
 
-Preserve catalog v6 under its historical identity and produce catalog v7 with
-one role-readable surface, patient names, advisory validation, and the three
-writer outcomes. Catalog metadata may guide use but may not hide readable
-relations. Preserve older request and turn readers.
+Preserve catalog v6 under its historical identity and use one role-readable
+surface with patient names, advisory validation, and the three writer outcomes.
+Catalog metadata may guide use but may not hide readable relations. Preserve
+older request and turn readers.
 
 ### G4 — honest context and guidance research
 

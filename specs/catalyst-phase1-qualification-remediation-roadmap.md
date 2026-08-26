@@ -194,8 +194,8 @@ Acceptance:
 **Depends on:** R0.
 
 Remove the model-only catalog restriction while preserving advisory validation.
-Keep published catalog v6 under its historical identity and introduce catalog
-v7 for the corrected behavior.
+Keep published catalog v6 under its historical identity and record the actual
+catalog identity and readable surface used by the repaired experiment.
 
 Acceptance:
 
@@ -259,9 +259,9 @@ Acceptance:
 **Environment:** owner's local GPU through the supported isolated stack.
 **Depends on:** R1–R7 complete on the exact code used for collection.
 
-Freeze the current suite v2, catalog v7, rubric, model setups, data, and
-environment. Exercise all three teams across the full scenario set and publish
-the complete evidence and R4 review.
+Freeze the current suite v2, rubric, model setups, data, observed catalog
+identity, and environment. Exercise all three teams across the full scenario
+set and publish the complete evidence and R4 review.
 
 Acceptance:
 
