@@ -87,8 +87,9 @@ The writer can receive the current instruction, relevant retained conversation
 history, relevant failure information, and verified examples from the same
 session. Earlier material cannot silently replace the current instruction.
 Verified examples come only from earlier kept queries in the same session that
-were validated and executed successfully against the same source. The current
-target can never receive its own answer as an example.
+have an advisory-validation record and executed successfully against the same
+source. Validator findings remain attached to the example but do not veto it.
+The current target can never receive its own answer as an example.
 
 The existing guidance storage or application programming interface may remain
 available as an experimental seam, but Phase 1 does not require a composer

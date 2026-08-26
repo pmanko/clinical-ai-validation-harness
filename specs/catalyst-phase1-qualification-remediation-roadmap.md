@@ -223,8 +223,9 @@ Acceptance:
   to every model call;
 - omissions are visible with their reason; context is not silently summarized,
   truncated, or substituted;
-- verified examples come only from earlier kept queries that validated and
-  executed successfully against the same source;
+- verified examples come only from earlier kept queries with recorded advisory
+  validation and successful database execution against the same source;
+- validator findings stay with those examples but do not veto their use;
 - existing application-programming-interface guidance may remain available for
   experiments, but no composer or Pin control is required;
 - separate nearby research cases compare retained history, explicit guidance,
