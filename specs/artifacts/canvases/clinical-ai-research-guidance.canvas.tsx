@@ -1,5 +1,3 @@
-// Historical artifact snapshot. Current implementation guidance lives in the approved hub
-// consolidation roadmap and its status amendments.
 import {
   Callout,
   Card,
@@ -25,8 +23,8 @@ type StageIndex = 0 | 1 | 2 | 3 | 4;
 type MaturityProject = {
   id: string;
   name: string;
-  current: number;
-  target: number;
+  current: StageIndex;
+  target: StageIndex;
   note: string;
 };
 
@@ -36,23 +34,23 @@ const maturityProjects: MaturityProject[] = [
   {
     id: 'csai',
     name: 'chartsearchai',
-    current: 1.6,
-    target: 2.5,
+    current: 1,
+    target: 2,
     note: 'Live demo + 485-case eval; not deployed in production',
   },
   {
     id: 'cbot',
     name: 'openmrs_chatbot',
-    current: 0.3,
-    target: 1.5,
+    current: 0,
+    target: 1,
     note: 'Setup + workflow trace docs only; no public eval',
   },
   {
     id: 'cat',
-    name: 'Catalyst (OpenELIS)',
-    current: 0.8,
-    target: 1.7,
-    note: 'M0.0 foundation in 3.2.1.3 release; smoke E2E scripts',
+    name: 'Catalyst',
+    current: 0,
+    target: 1,
+    note: 'Workbench and Dashboard path built; generic connection, selected Spark reference deployment, and comparison remain open',
   },
 ];
 
@@ -187,8 +185,8 @@ function MaturitySpectrumDiagram() {
 
 const vectorOverviewRows = [
   ['V1. Clinical RAG architecture', 'Naive RAG can hurt; structured artifacts + provenance dramatically reduce hallucination.', 'STRONG', 'chartsearchai (primary), openmrs_chatbot (if any retrieval)'],
-  ['V2. Multi-agent clinical AI', 'Helps under workload; not universally better than single LLMs; component metrics deceive.', 'EMERGING', 'openmrs_chatbot, Catalyst writer/reviewer profiles'],
-  ['V3. NL-to-SQL clinical', 'SOTA models drop on hard queries; consistency (Pass^N) is the safety metric.', 'ACTIVE', 'Catalyst iterative query workbench (M10)'],
+  ['V2. Multi-agent clinical AI', 'Helps under workload; not universally better than single LLMs; component metrics deceive.', 'EMERGING', 'openmrs_chatbot, Catalyst optional writer/reviewer teams'],
+  ['V3. NL-to-SQL clinical', 'SOTA models drop on hard queries; product usefulness needs full-case review, not one automatic metric.', 'ACTIVE', 'Catalyst SQL workbench and reader-led comparison'],
   ['V4. Evaluation evolution', 'Static benchmarks contaminate; live + execution-grounded benchmarks emerging; provider switching causes silent drift.', 'EMERGING', 'All three'],
   ['V5. Indirect prompt injection', 'Architectural problem; defense-in-depth is the standard.', 'STRONG', 'All three (most acute for chartsearchai)'],
   ['V6. Healthcare AI governance', 'FDA PCCP becoming change-control standard; over 1,400 AI medical devices authorized.', 'REGULATORY', 'All three (forward-looking)'],
@@ -203,7 +201,7 @@ const openQuestionsRows = [
   ['Where is the boundary between exploratory POC and pilot per project?', 'All', 'Stakeholder definition'],
   ['Who reviews indirect-injection corpora when they include synthetic chart text?', 'chartsearchai, openmrs_chatbot', 'Process design'],
   ['How does role-aware abstention generalize from chartsearchai to patient/doctor UIs?', 'openmrs_chatbot', 'Specification'],
-  ['Does Catalyst\'s Rule of Two pattern apply to chartsearchai\'s record-level access?', 'chartsearchai', 'Architecture review'],
+  ['How should chartsearchai separate untrusted record content from sensitive record access?', 'chartsearchai', 'Architecture review'],
   ['Should the 18/20 OpenMRS clinical questions be benchmarked against all three with role-aware variants?', 'All', 'Eval design'],
 ];
 
@@ -287,7 +285,7 @@ const vectors: Vector[] = [
     ],
     csai: 'Validates the labeled-prose + structured-metadata pattern; adds urgency to per-citation provenance preservation in eval traces.',
     cbot: 'Any retrieval needs the same discipline; observable-signals eval is the practical floor.',
-    cat: 'Catalyst is not using a clinical RAG answer path. Its grounding artifacts are the selected source catalog, exact SQL/version digest, validation findings, executed result, and source-pipeline provenance.',
+    cat: 'Catalyst is not a clinical RAG answer path. It gives the writer the selected configured SQL source, declared dialect, and complete readable schema; the person reviews the query, and only explicit Run sends the exact selected SQL to that source.',
     limitation: 'Most studies use English-language EMRs (MIMIC-IV class). Generalization to OpenMRS in resource-constrained settings is not yet established.',
   },
   {
@@ -296,7 +294,7 @@ const vectors: Vector[] = [
     title: 'Multi-agent clinical AI',
     evidence: 'EMERGING',
     evidenceTone: 'info',
-    primary: ['openmrs_chatbot', 'Catalyst writer/reviewer collaboration through gateway-owned profiles'],
+    primary: ['openmrs_chatbot', 'Catalyst optional writer/reviewer teams through Hub-configured profiles'],
     lead: 'Orchestrated multi-agent helps in workload-heavy or mixed-task scenarios but is not universally better than a strong single LLM. The Optimization Paradox shows component-level metrics consistently deceive when used alone.',
     findings: [
       'Multi-agent sustained 90.6% accuracy at 5 tasks → 65.3% at 80 tasks vs single-agent 73.1% → 16.6% collapse.',
@@ -317,7 +315,7 @@ const vectors: Vector[] = [
     ],
     csai: 'Not multi-agent today. If added later, justify per task type and avoid optimizing components without end-to-end validation.',
     cbot: 'Agent-team scaffolding present; needs empirical justification per task type before committing.',
-    cat: 'Catalyst supports one writer and an optional different-family reviewer. The trace must retain both candidates, selected output, lint findings, role/model identity, timing, and final execution evidence.',
+    cat: 'Catalyst supports a writer-only team and optional writer/reviewer teams. The Phase 1 comparison will run each selected complete team through the same suite once, then give one reader the full stored context; it will not infer system quality from one role in isolation.',
     limitation: 'Most studies focus on diagnostic/triage tasks. Chart-search and conversational EMR tasks not yet well-evaluated in the MAS literature.',
   },
   {
@@ -326,8 +324,8 @@ const vectors: Vector[] = [
     title: 'NL-to-SQL clinical',
     evidence: 'ACTIVE',
     evidenceTone: 'info',
-    primary: ['Catalyst iterative query workbench (M10)'],
-    lead: 'Benchmarks are emerging fast (CLINSQL, EHR-ChatQA). Even SOTA models drop accuracy substantially on hard queries; consistency (Pass^N) is a much stricter bar than Pass@N and is the right safety metric for clinical use. Catalyst applies these findings through editable query versions, deterministic checks, real execution, and independent result-set comparison.',
+    primary: ['Catalyst SQL workbench'],
+    lead: 'Benchmarks are emerging fast (CLINSQL, EHR-ChatQA). Even SOTA models drop accuracy substantially on hard queries, and published results distinguish best-of-many success from consistent performance. No single benchmark statistic determines whether a reviewed query is useful in this exploratory product.',
     findings: [
       'CLINSQL: GPT-5-mini 74.7% execution score; DeepSeek-R1 69.2% (best open-source); Gemini-2.5-Pro 85.5% on easy → 67.2% on hard.',
       'EHR-ChatQA: best agents reach Pass@5 over 90% but Pass^5 drops by up to 60 percentage points.',
@@ -335,20 +333,20 @@ const vectors: Vector[] = [
       'Exemplar-bank growth via clinician feedback is a practical evolution path.',
     ],
     doList: [
-      'Pass^N consistency, not just Pass@N.',
+      'Distinguish best-of-many success from consistency, and choose the measure that matches the study.',
       'Schema-aware decomposition into predicate-level sub-questions.',
       'Post-processing validity checks before returning SQL to user.',
       'Exemplar bank that grows with clinician feedback.',
     ],
     dontList: [
-      'Trust single-trial Pass@N as a release gate.',
+      'Treat any single benchmark statistic as a product release gate.',
       'Ignore temporal reasoning over time-series clinical data.',
-      'Assume schema stability; allowlist + drift detection are required.',
+      'Assume one schema snapshot represents every later deployment; record the schema actually used.',
     ],
     csai: 'Not NL-to-SQL today. Relevant only if querystore-grounded SQL paths emerge.',
     cbot: 'Not NL-to-SQL today.',
-    cat: 'Active M10 workbench lane. Pass^N, schema-aware context, deterministic lint, explicit PostgreSQL execution, and independent gold-query comparison are the relevant validation layers.',
-    limitation: 'MIMIC-IV-centric benchmarks. OpenELIS schema not yet benchmarked. Non-English clinical contexts under-studied.',
+    cat: 'The selected Catalyst contract gives the writer and editor the configured source\'s explicit dialect and complete readable schema. Findings are advisory, and each ready model turn sends the exact selected SQL through Catalyst once. The generic connection and selected FHIR Data Pipes → Parquet → Spark SQL reference path are not yet implemented. Static reference queries will be run and reviewed only when scenarios are designed or deliberately changed; one full-context reader will compare stored cases with those references and the shared rubric.',
+    limitation: 'MIMIC-IV-centric benchmarks may not generalize to the selected FHIR Data Pipes and Spark reference sources. Non-English clinical contexts remain under-studied.',
   },
   {
     id: 'eval',
@@ -372,13 +370,13 @@ const vectors: Vector[] = [
       'Use execution-grounded scoring where possible (real DB / real API responses).',
     ],
     dontList: [
-      'Rely on a one-time golden baseline.',
+      'Treat a static reference as permanently representative after the scenario, data, or intended use deliberately changes.',
       'Assume benchmark generalization across populations or care settings.',
       'Skip handoff drift testing when introducing a new provider.',
     ],
     csai: 'Golden 485-case set will need a refresh cadence. Per-provider metric capture matters once LM Studio model changes are routine.',
     cbot: 'No public eval contract. Observable signals (intent, message-level quality, explicit feedback) are the practical floor.',
-    cat: 'Provider portability needs explicit handoff drift testing; today\'s smoke E2E does not capture it.',
+    cat: 'Phase 1 will record the actual profile, models, prompts, configuration, conversation, selected SQL, and rows or database error for every case. Each selected team will complete the suite once; one full-context reader will apply the shared rubric without thresholds, automatic ranking, or a required winner.',
     limitation: 'Benchmark pluralism is causing fragmentation. No consensus on which to track for resource-poor settings yet.',
   },
   {
@@ -409,7 +407,7 @@ const vectors: Vector[] = [
     ],
     csai: 'Chart text is the primary indirect-injection vector. Expand the existing PromptInjectionEvalTest from direct only to indirect via observation/note text.',
     cbot: 'Needs explicit injection eval. Declare Rule of Two boundary explicitly given multi-UI and agent-team surface.',
-    cat: 'Allowlist + RBAC + read-only DB user honors Rule of Two by design. Add spotlighting between schema context and user input inside MCP responses.',
+    cat: 'Catalyst should mark source schema and descriptions clearly as data when assembling model context. The selected demo will use retained non-sensitive data, and its Spark query path must prevent mutation; production identity and access control remain separate work.',
     limitation: 'Defenses partially reduce but never eliminate. Plan for residual risk; no architecture is injection-immune.',
   },
   {
@@ -440,7 +438,7 @@ const vectors: Vector[] = [
     ],
     csai: 'Validation roadmap should encode PCCP-shaped change records; existing 485-case eval is well-positioned to serve as the Impact Assessment substrate.',
     cbot: 'Governance currently undeclared. Needs at minimum: intended-use statement, change log, basic monitoring plan.',
-    cat: 'Provider abstraction (LM Studio + Gemini) is itself a change vector; PCCP framing useful for handoff change control.',
+    cat: 'Phase 1 evidence will record the profile, role models, prompts, source identity, dialect, and repository versions actually used. Material changes can use a PCCP-shaped review record without turning the exploratory comparison into product approval.',
     limitation: 'International regulatory landscape evolving fast; LMIC-specific frameworks under-developed; OpenMRS deployment contexts may need bespoke governance shape.',
   },
   {
@@ -471,7 +469,7 @@ const vectors: Vector[] = [
     ],
     csai: 'Rewrite top-level guidance around clinical evidence, evals-as-contract, scoped changes, and provenance; specific API rules can remain underneath.',
     cbot: 'Each agent role needs a short constitution: role, evidence limits, escalation behavior, and role-aware abstention.',
-    cat: 'Agent instructions should explain the selected data source, catalog boundaries, read-only database role, explicit execution step, and obligation to preserve uncertainty and validation findings.',
+    cat: 'Agent instructions should explain the configured SQL source, explicit dialect, complete readable schema, advisory nature of findings, explicit Run action, and obligation to preserve uncertainty and the exact selected query.',
     limitation: 'The Anthropic work is not healthcare-specific and is based on model-training interventions, not just prompt files. Treat it as strong guidance for prompt/guideline design, not a guarantee.',
   },
   {
@@ -501,7 +499,7 @@ const vectors: Vector[] = [
     ],
     csai: 'P2 validation spine should emit run manifests and JSONL traces aligned to OTel GenAI conventions while keeping citation/eval-specific fields.',
     cbot: 'Workflow trace docs should evolve into agent/tool/model spans plus per-turn evaluation records.',
-    cat: 'A2A router, catalyst-agents, MCP FHIR tool calls (search_patient, get_observations, etc.), and answer/citation generation are natural OTel GenAI span boundaries. SQL preview + RBAC spans deferred to Phase 3.',
+    cat: 'Useful Catalyst spans are Hub profile discovery and role calls, source-schema discovery, writer/reviewer orchestration, and explicit SQL execution. Keep the selected source, dialect, query version, rows or error, and timing in Catalyst operating metadata without creating a second evaluation system.',
     limitation: 'OpenTelemetry GenAI conventions are still in development. Use them as a vocabulary target, but keep the schema versioned and locally owned.',
   },
 ];
@@ -601,18 +599,19 @@ const evolutionPaths = {
     ],
   },
   cat: {
-    now: 'M10 manual MVP accepted — iterative natural-language-to-SQL workbench over approved analytics sources, with gateway-owned model profiles, immutable query versions, deterministic validation, and explicit execution.',
+    now: 'The Workbench and Dashboard path are substantially built, but the source architecture and model-team comparison remain open. The target is a generic configured SQL source with an explicit dialect, complete readable schema, advisory findings, and exact selected SQL executed once.',
     near: [
-      'Consolidate the accepted single-editor notebook UX and finish the remaining browser/e2e matrix.',
-      'Measure writer/reviewer profiles across diverse SQL tasks using repeated real executions and independent gold queries.',
-      'Add supervised dashboard composition on top of versioned query/result artifacts.',
-      'Expose source-pipeline freshness and FHIR resource identifiers already present in analytics rows where useful.',
-      'Keep run_manifest.json + events.jsonl aligned with the shared validation spine.',
+      'Simplify Catalyst around one generic connection path shared by generated and manually edited SQL.',
+      'Use FHIR Data Pipes → Parquet → Spark SQL for each selected reference source, with Catalyst and Superset as SQL clients.',
+      'Use one generic connection path; keep engine-specific behavior only in the smallest dialect adapter.',
+      'Review each scenario reference once at design time, then run the complete suite once for every selected writer or writer/reviewer team.',
+      'Publish one full-context reader report that applies the shared rubric without an automatic score or winner.',
     ],
     far: [
-      'CHER tracking alongside ASR for safety-eval rigor once SQL path active.',
-      'Federated cross-project benchmarks (sharing spine schema with chartsearchai).',
-      'PCCP-shaped change records for provider, prompt, catalog, and execution-policy changes.',
+      'Research whether separate pinned guidance adds value beyond conversation history and source descriptions.',
+      'Define the broader conversational response modes after reviewing the comparison report.',
+      'Complete the accepted Dashboard Builder browser experience and Superset publication flow.',
+      'Use PCCP-shaped change records for material provider, prompt, or source-behavior changes.',
     ],
   },
 };
@@ -623,7 +622,7 @@ export default function ClinicalAIResearchGuidance() {
       <Stack gap={8}>
         <H1>Clinical AI Research → Prototype Guidance</H1>
         <Text tone="secondary">
-          Positions chartsearchai, openmrs_chatbot, and OpenELIS Catalyst as early-prototype explorations against the current
+          Positions chartsearchai, openmrs_chatbot, and Catalyst as early-prototype explorations against the current
           state of clinical AI development (mid-2026). Recent peer-reviewed and arXiv work calibrates realistic expectations,
           identifies near-term evolution moves, and protects against treating the prototypes as feature-complete products.
         </Text>
@@ -640,7 +639,7 @@ export default function ClinicalAIResearchGuidance() {
         <Stat value="8" label="Research vectors covered" tone="info" />
         <Stat value="3" label="Early-prototype projects assessed" tone="info" />
         <Stat value="Curated" label="Recent papers and standards" tone="success" />
-        <Stat value="2 of 3" label="Projects below MVP tier" tone="warning" />
+        <Stat value="Separate" label="Project maturity paths" tone="warning" />
       </Grid>
 
       <Callout tone="warning" title="What these projects actually are">
@@ -653,9 +652,9 @@ export default function ClinicalAIResearchGuidance() {
 
       <H2>Maturity Snapshot</H2>
       <Text tone="secondary">
-        Filled circle = current position; dashed open circle = realistic 12-month target if the recommended evolution moves
-        are taken. Movement is not a goal in itself — staying at POC for the right reasons (e.g. waiting on clinician input
-        or governance clarity) is acceptable.
+        These are categorical planning labels based on the evidence stated beside each project, not fractional scores or a ranking.
+        Filled circle = current category; dashed open circle = a possible 12-month category if the recommended work is accepted.
+        Movement is not a goal in itself.
       </Text>
       <Card>
         <CardBody>
@@ -794,7 +793,7 @@ export default function ClinicalAIResearchGuidance() {
       <Callout tone="info" title="Posture summary">
         Read these prototypes as <Text weight="semibold">live experiments</Text> rather than products. The research does not
         give us a single architecture to converge on; it gives us a set of disciplined moves: stage-aware retrieval metrics,
-        Pass^N consistency, indirect-injection coverage, per-provider drift capture, PCCP-shaped change control, and a refresh
+        task-matched evaluation, indirect-injection coverage, per-provider drift capture, PCCP-shaped change control, and a refresh
         cadence on benchmarks. The agentic-alignment research adds two more: principle-driven operating guidance and traceable
         operating metadata. Each project should pick the moves that match its current tier and explicitly defer the rest.
       </Callout>

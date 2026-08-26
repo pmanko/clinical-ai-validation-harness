@@ -3,48 +3,54 @@
 <!-- SPECKIT START -->
 Active feature plan: `specs/008-catalyst-query-workbench/plan.md`
 
-Implementation is gated by G0–G6 in that plan. Before crossing a user gate,
-surface unresolved nondeterminism, inconsistencies, and environment decisions.
+For Catalyst, read these authorities in order:
 
-For Catalyst program Phase 1, `specs/catalyst-program-roadmap.md` is the single
-authority for the shared readable data surface, context contract, model-team
-comparison, and delivery order. Supporting briefs and HTML artifacts do not
-override it. Phase 1 does not change Feature 008's Dashboard Builder meaning or
-gates. Apply explicit owner amendments to the roadmap before implementation.
-The data surface is every relation the configured read-only database role can
-read. Catalog metadata may guide use but cannot hide a readable relation, and
-manual validation remains advisory: selected SQL reaches PostgreSQL through the
-bounded read-only path and returns a result or diagnostic. Phase 1 is an
-exploratory comparison whose complete evidence is interpreted by the reader;
-do not introduce a pass threshold, automatic team selection, required result
-label, or deployment gate. Retained conversation history is the current
-baseline. Separate session guidance and any user-facing Pin control remain an
-open research question.
-`specs/catalyst-phase1-qualification-remediation-roadmap.md` is the active
-execution plan for making that comparison trustworthy. It may not change the
-program roadmap's product meaning or maintain a parallel decision or status
-ledger.
+1. `specs/catalyst-program-roadmap.md` for phase order, product decisions,
+   context behavior, and the model-team comparison;
+2. `specs/catalyst-implementation-plan.md` for the current
+   implementation sequence, checkpoints, and status;
+3. the active Feature 008 specification and tasks for current product behavior;
+4. `targets/catalyst/docs/dashboard-builder-mvp-design.md` and its populated
+   binding 4c page for the Dashboard Builder interaction and visual
+   contract.
 
-For the program P3 Dashboard Builder milestone, the authoritative UX contract is
-`targets/catalyst/docs/dashboard-builder-mvp-design.md`; its reconciled
-`Catalyst Dashboard Builder 4c.dc.html` page is the binding visual reference.
-“Lightweight” means the simplest implementation that satisfies that contract,
-not a reduction of the product scope. A product milestone cannot pass while its
-required UX tasks remain open, and backend/import evidence cannot substitute for
-browser-visible acceptance. Every UX checkpoint must compare the live product
-with the binding reference side by side. Bridge or evidence tasks cannot close
-their prerequisite product tasks. Do not change a milestone's meaning or exit
-criteria without explicit user approval. On `codex/*` branches, run SpecKit with
-`SPECIFY_FEATURE=008-catalyst-query-workbench` so the active feature resolves
-without renaming the branch.
+Only the listed current documents define requirements. Run reports record
+observations and do not define product behavior.
+
+Catalyst core is a generic SQL-connected application. A source declares its
+identity, label, connection configuration or reference, and SQL dialect. Model
+and human tools receive every readable table, view, column, and type. Optional
+descriptions may enrich that information but cannot hide relations. FHIR Data
+Pipes -> Parquet -> Spark SQL is the selected reference deployment and is not
+yet implemented; it is not the Catalyst product contract.
+
+Validation is advisory. Exact selected SQL reaches the configured connection
+through shared connection-execution code and returns bounded rows or the
+database error. Do not add an application relation allowlist, fixed relation
+count, SQL translation, direct-database harness replay, automatic factual
+equivalence, score threshold, ranking, required repeated reader, or automatic
+team choice.
+
+Program order is Phase 1 session context and comparison, then definition of
+Phase 2 conversation mode, then Phase 3 Dashboard Builder completion. The
+Phase 1 connection implementation includes one Dataset-to-Superset regression smoke but does
+not close or reduce Phase 3.
+
+Before each owner review pause, surface unresolved implementation findings and
+environment choices. Do not add a subsystem to solve a hypothetical problem;
+record a concrete failure and return to the owner first.
+
+For Phase 3, compare the live Workbench, Dataset review/library, Widget
+review/library, Dashboard library/arrangement, and publish/import states side by
+side with the binding design. Backend or evidence work cannot substitute for
+browser-visible acceptance, and only explicit owner approval may change product
+scope. On `codex/*` branches, run SpecKit with
+`SPECIFY_FEATURE=008-catalyst-query-workbench`.
 
 Use `scripts/catalyst-mvp.sh` for isolated-stack lifecycle, health, and Superset
-import/status operations. Do not invoke the target Compose file alone: the
-harness wrapper establishes the isolated override, ports, sibling Hub context,
-and no-reseed defaults. A targeted service rebuild must preserve those same
-settings, retain volumes, and verify the expected `13000` UI and `18000`
-Gateway bindings before browser acceptance. Seeding and reset remain explicit
-user-visible operations.
+operations. Do not invoke the target Compose file alone: the harness wrapper
+establishes the isolated override, ports, sibling Hub context, and no-reseed
+defaults. Seeding and reset remain explicit user-visible operations.
 <!-- SPECKIT END -->
 
 Guidance for AI agents and contributors working in this repository.

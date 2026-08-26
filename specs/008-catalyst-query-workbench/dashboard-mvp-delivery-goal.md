@@ -1,68 +1,110 @@
-# D1 Dashboard Builder MVP Delivery Goal
+# Dashboard Builder delivery goal
 
-**Status:** Active — M3 was accepted on 2026-08-06 after the binding 4c product,
-real notebook-to-Superset path, deterministic D1d browser flow, durable visual
-evidence, and user checkpoint passed. M4 release hardening and deployed
-acceptance are in progress. Actual 200% browser zoom is deferred polish.
+**Status:** The binding design and query-notebook browser behavior are accepted. Final
+Phase 3 implementation and browser-visible acceptance remain open.
+
+Phase 1 requires one Dataset-to-Superset regression smoke through the generic
+connection. That smoke does not complete or reduce this goal. Phase 2 is defined
+after the Phase 1 report; Dashboard Builder completion follows as Phase 3.
 
 ## Goal
 
-Deliver a manually testable local Catalyst workflow in which a user asks a
-question through the Hub-owned `catalyst-query-e4b-qwen14b` profile, edits,
-validates, and runs the generated SQL, promotes the exact successful execution
-into the designed multi-widget Dashboard Builder, publishes a native Superset
-bundle, imports it into pinned local Superset, reconciles displayed values to
-PostgreSQL, and explicitly accepts the experience.
+Deliver a manually testable Catalyst workflow in which a person:
 
-The original table-only Dataset → Widget → Dashboard bundle/import path was a
-**Superset import spike**. It proves useful mechanics, but it is not a separate
-or smaller MVP tier and cannot close this goal by itself.
+1. asks a question through the configured model profile;
+2. reviews, edits, formats, and runs the exact SQL;
+3. saves a successful execution as an immutable Dataset;
+4. creates and reviews multiple Widgets;
+5. arranges a Dashboard;
+6. publishes a deterministic native Superset bundle;
+7. imports it and opens the stable URL; and
+8. inspects the rendered dashboard.
 
-The local named Docker volumes are the durable development state: `up` resumes
-them, `restart` retains them, `seed` explicitly reloads the source pipeline,
-and the **stack-level** `reset` is destructive. This is distinct from the
-unimplemented D1 Superset last-verified recovery reset. No additional
-FHIR-cache registry is part of this goal.
+The binding interaction and visual contract is
+`targets/catalyst/docs/dashboard-builder-mvp-design.md` and its populated
+binding 4c page. Current product requirements and tasks live in
+[spec.md](spec.md) and [tasks.md](tasks.md).
 
-## Definition of done
+## Phase 1 regression smoke
 
-| ID | Testable acceptance evidence |
-| --- | --- |
-| MVP-01 | The isolated persistent stack starts without reseeding with Catalyst UI, Gateway, analytics PostgreSQL, Med-Agent Hub, and Superset healthy. No fake or bundled model-router service exists. |
-| MVP-02 | Hub discovery exposes only the available `catalyst-query-e4b-qwen14b` profile with exact `google/gemma-4-e4b` writer and `qwen2.5-14b-instruct-mlx` reviewer roles, prompts, knobs, and digests. Missing aliases fail startup clearly. |
-| MVP-03 | The existing Ask workflow remains intact through explicit Run: one editable SQL editor, manual edit/versioning, advisory validation, explicit execution, typed results, and follow-up all work before Dataset promotion. |
-| MVP-04 | A successful current execution creates a Dataset and supports the actual multi-widget builder experience and required native Superset visualization mappings without a second SQL editor or automatic execution. |
-| MVP-05 | A named Dashboard publishes one byte-stable native bundle to the Catalyst outbox. The downloaded bytes equal the outbox bytes. The explicit importer records an `imported` receipt and verified last-verified projection. |
-| MVP-06 | The stable `/superset/dashboard/catalyst-<dashboard-id>/` route opens in local Superset. Representative values for every accepted widget reconcile to recorded reproducible PostgreSQL SQL. |
-| MVP-07 | One versioned evidence directory records exact commits/image digests, profile/model configuration, query/execution IDs and SQL, bundle/receipt/projection digests, PostgreSQL reconciliation, repetition/nondeterminism, accessibility checks, and screenshots/video. |
-| MVP-08 | The user inspects and accepts the deployed local dashboard workflow. |
+Phase 1 covers one narrow Dashboard path:
 
-## Checkpoints
+- a successful exact query is saved and restored after refresh;
+- its Dataset is published and imported through the accepted Spark connection;
+- Superset renders it;
+- one displayed value is inspected against the originating Catalyst result
+  without a second database query; and
+- the chosen Spark query path cannot mutate source data.
 
-| Checkpoint | Entry | Exit evidence | Decision |
-| --- | --- | --- | --- |
-| M0 — truthful baseline | Current branches and runtime evidence available | Product/docs/task state identifies the implemented table exporter/importer as a Superset import spike and keeps the Dashboard MVP open. | Passed 2026-08-05 |
-| M1 — real profile/runtime foundation | M0 complete | Hub/Catalyst/harness pins contain one shared workflow-typed profile schema, no duplicate Gateway model configuration, no fake-router path, and external-only startup with exact alias checks. | Passed 2026-08-05 |
-| M2 — real query-workbench proof | M1 complete and models are available | Persistent isolated stack starts without seed; Gemma → Qwen generation, manual edit, Validate/Run, result inspection, and exact trace evidence pass. Pause before dashboard implementation resumes. | Accepted 2026-08-05 |
-| M3 — Dashboard MVP integration | M2 accepted | The preserved Workbench is recomposed into the binding 4c shell with one editor/composer, chronological turns, Dataset/Widget/Dashboard review and libraries, and publication controls; the real happy path imports into Superset and reconciles to PostgreSQL. | **Accepted 2026-08-06** — T150–T154 and T174–T179 are closed from focused automated/live evidence, durable visual artifacts, and explicit user acceptance. Actual 200% browser zoom was explicitly deferred to polish; 320/390/640-CSS-pixel reflow remains required. |
-| M4 — release acceptance | M3 complete and explicitly accepted by the user | Required repetition, nondeterminism, failure/recovery, keyboard/reflow/accessibility, evidence emission, CI, and video evidence pass; the user accepts the deployed workflow. | **In progress** — D1b runtime/lifecycle T139/T140/T160–T162, canonical five-family fixture T141, and standalone importer T142/T143 pass. T163–T165 recovery/state closure is next, followed by the remaining D1b → D1c → D1e tasks. |
+This proves the generic connection reaches Superset. It is not final
+Dashboard Builder acceptance.
 
-## Required D1 completion work
+## Phase 3 definition of done
 
-The active implementation slice is M4 release hardening without widening scope.
-T150–T154 and T174–T179 are complete from their own characterization,
-component/API/browser, durable visual, and user-acceptance evidence. Actual 200%
-browser zoom is deferred polish and is not an M4 gate; deterministic desktop and
-320/390/640-CSS-pixel reflow remains required. D1b runtime identity,
-permissions, mounts, secret-free evidence, and non-destructive restart now pass
-at T139/T140/T160–T162, and the canonical five-family clean-import fixture passes
-at T141, and the standalone Python 3.10 importer boundary passes at T142/T143.
-The remaining D1 hardening—complete reset/reimport recovery,
-changed/layout-only child behavior, schema-backed evidence emission, repetition,
-CI, and release evidence—remains individually tracked in the still-open D1 tasks. No bridge
-task may close those tasks or substitute backend evidence for product UX.
+### Workbench and thread
 
-Superset REST publication, embedded Superset, bidirectional reconciliation,
-sharing/scheduling, automatic refresh, production authentication and
-authorization, and model-generated visualization specifications remain outside
-this local MVP.
+- The live product is compared side by side with the binding design.
+- Profile and model selection, one active SQL editor, fixed composer,
+  chronological thread, New session, Format, explicit Run, advisory findings,
+  typed parameters, generation and failure evidence, database errors,
+  Clear/Restore, query versions, stale-result behavior, and refresh restoration
+  remain present.
+- Available data exposes every readable relation and column through the compact
+  disclosure and full searchable, filterable, paginated view, including empty
+  and failure states.
+- Earlier turns are readable summaries and only the latest turn owns the editor.
+
+### Dataset, Widget, and Dashboard
+
+- Only a successful execution for the exact current query creates or refreshes a
+  Dataset draft.
+- The Dataset review panel owns the full bounded typed result table.
+- Dataset saves are immutable and idempotent and retain source, dialect,
+  readable-schema snapshot, query, and execution identity.
+- Visualization compatibility and the initial suggestion are deterministic from
+  the typed result shape; the person reviews or chooses another compatible type.
+- Widget and Dashboard libraries show saved immutable versions.
+- A Dashboard arranges multiple same-source Widgets and preserves the accepted
+  layout behavior.
+
+### Publication and Superset
+
+- Publish creates a deterministic native Superset bundle in the outbox and
+  exposes the same bytes for download.
+- Status follows explicit importer receipts. A file's existence alone is not
+  shown as imported.
+- Failures remain actionable and do not expose a false success or Open action.
+- The stable Dashboard URL opens only after successful import.
+- Superset renders the originating saved Datasets through the configured
+  connection.
+- One displayed value is inspected against its originating Catalyst result;
+  there is no separate database reconciliation path.
+
+### Accessibility and owner acceptance
+
+- Focus order, visible focus, Escape/return behavior, announcements, reduced
+  motion, desktop, and the accepted narrow-layout checks pass.
+- The owner walks the live Workbench, Dataset review/library, Widget
+  review/library, Dashboard library/arrangement, and every publish/import state
+  side by side with the binding design and accepts the result.
+
+## Focused implementation work
+
+- Add public route coverage for Dataset, Widget, Dashboard, and publication
+  actions.
+- Finish lossless typed execution-to-Dataset conversion for the active dialect.
+- Finish deterministic visualization compatibility, bundle generation, and
+  receipt-based publication status.
+- Run the real model-assisted browser workflow through Spark.
+- Capture only the source, dialect, readable schema, model setup, query and
+  execution, asset and receipt, screenshots, and accessibility results needed to
+  understand the visible flow and diagnose a failure.
+
+## Not required
+
+This goal does not require repeated model runs, restart/reset matrices,
+environment parity, direct database reconciliation, exhaustive infrastructure
+failure simulation, Superset application programming interface publication,
+embedded Superset, bidirectional synchronization, sharing, scheduling,
+automatic refresh, production access control, or model-generated visualization
+specifications.

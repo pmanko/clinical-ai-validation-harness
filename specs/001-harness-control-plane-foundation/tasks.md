@@ -139,7 +139,7 @@
 
 - [ ] T051 [P] Update control-plane quickstart examples after implementation in `specs/001-harness-control-plane-foundation/quickstart.md`, ensuring downstream specs reference `harness/targets.yaml`, environment profile names, and artifact boundary categories instead of redefining baseline identities (SC-006)
 - [ ] T052 [P] Update metadata planning notes for current OTel GenAI fields and target provenance in `specs/artifacts/planning/metadata-schema.md`
-- [ ] T053 [P] Update adapter README files with target-owned validation surface status in `adapters/chartsearchai/README.md`, `adapters/querystore/README.md`, `adapters/openmrs_chatbot/README.md`, and `adapters/catalyst/README.md`
+- [ ] T053 [P] Update adapter README files with target-owned validation surface status in `adapters/chartsearchai/README.md`, `adapters/querystore/README.md`, and `adapters/openmrs_chatbot/README.md`
 - [ ] T054 [P] Update `specs/roadmap.canvas.tsx` with M0 control-plane foundation status and an explicit list of downstream roadmap features unblocked versus still blocked by this milestone
 - [ ] T054a [P] Document downstream features unblocked by the M0 control-plane foundation in `specs/artifacts/handoffs/control-plane-foundation-unblocking.md`
 - [ ] T055 Review all readiness and manifest tests for narrow overfit to one fixture in `evals/target_registry/`, `evals/orchestration/`, and `evals/metadata/`

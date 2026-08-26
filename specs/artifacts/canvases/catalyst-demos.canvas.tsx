@@ -3,7 +3,6 @@ import {
   Card,
   CardBody,
   CardHeader,
-  Code,
   Divider,
   Grid,
   H1,
@@ -30,7 +29,6 @@ type DemoClip = {
   pill: string;
   question: string;
   followup: string;
-  factView: string;
   file: string;
   poster: string;
   sizeLabel: string;
@@ -39,28 +37,15 @@ type DemoClip = {
 
 const clips: DemoClip[] = [
   {
-    id: 'openelis-lab-demo',
+    id: 'catalyst-full-scenario-demo',
     dataSource: 'OpenELIS Laboratory',
-    pill: 'Lab data',
+    pill: 'Full scenario',
     question: 'Show viral load results since 2026-01-01 with patient, value, and observed date',
-    followup: 'Also include the result unit and how many minutes elapsed between specimen receipt and result release',
-    factView: 'analytics.lab_result_fact_v1',
-    file: 'openelis-lab-demo-20260823.mp4',
-    poster: 'openelis-lab-demo-20260823-poster.jpg',
-    sizeLabel: '~2.1 MB',
-    durationLabel: '~53s',
-  },
-  {
-    id: 'openmrs-hiv-demo',
-    dataSource: 'OpenMRS HIV/ART program',
-    pill: 'HIV program data',
-    question: 'Show CD4 count results since 2026-01-01 with patient, value, and observed date',
-    followup: "Also include the patient's gender and birth date",
-    factView: 'analytics.hiv_observation_fact_v1',
-    file: 'openmrs-hiv-demo-20260823.mp4',
-    poster: 'openmrs-hiv-demo-20260823-poster.jpg',
-    sizeLabel: '~1.6 MB',
-    durationLabel: '~52s',
+    followup: 'Now count the results by test name instead, highest count first',
+    file: 'catalyst-full-scenario-demo-20260825b.mp4',
+    poster: 'catalyst-full-scenario-demo-20260825b-poster.jpg',
+    sizeLabel: '~3.1 MB',
+    durationLabel: '1:48',
   },
 ];
 
@@ -100,8 +85,7 @@ function DemoVideo({ clip }: { clip: DemoClip }) {
             </Row>
           </Stack>
           <Text size="small" tone="tertiary">
-            Generated against <Code>{clip.factView}</Code> — reviewed, executed, and re-refined from the exact
-            current query, not restarted from scratch.
+            The second turn refines the exact current query rather than starting over.
           </Text>
         </Stack>
       </CardBody>
@@ -113,42 +97,51 @@ export default function CatalystDemosCanvas() {
   return (
     <Stack gap={24}>
       <Stack gap={6}>
-        <H1>Catalyst — query-to-table for clinical data, on two real data sources</H1>
+        <H1>Catalyst — from a question to a dashboard</H1>
         <Text tone="secondary">
-          Ask a clinical question in plain language; a small writer model drafts SQL against a database-generated
-          catalog, a reviewer model checks it, and a deterministic policy — not the model — decides whether the SQL
-          is safe to run. Every answer is a typed table you can inspect, not a paragraph you have to trust.
+          The selected Catalyst contract uses a configured SQL source, its declared dialect, and every table and column
+          the connection can read. A writer drafts SQL, a selected profile may add a reviewer, advisory findings remain
+          visible, and the person chooses the exact query to run. Successful results can become Datasets, Widgets,
+          and a Dashboard published to Superset. The generic connection is not yet implemented.
         </Text>
       </Stack>
 
+      <Callout tone="warning">
+        <Text size="small">
+          <strong>The Spark reference deployment is not yet implemented.</strong> The recording demonstrates the accepted
+          Workbench-to-Superset interaction. Phase 1 acceptance waits for the FHIR Data Pipes → Parquet → Spark
+          connection and a fresh model-team comparison.
+        </Text>
+      </Callout>
+
       <Grid columns={4} gap={16}>
-        <Stat value="2" label="Independent data sources" tone="info" />
-        <Stat value="2" label="Real turns per demo below" />
-        <Stat value="0" label="Hand-written ingestion projections" tone="success" />
-        <Stat value="1" label="Read-only SQL policy, enforced deterministically" />
+        <Stat value="1" label="Full product-flow recording" tone="info" />
+        <Stat value="2" label="Conversation turns" />
+        <Stat value="0" label="Sensitive patient records" tone="success" />
+        <Stat value="1" label="Configured source per session" />
       </Grid>
 
       <Divider />
 
       <Stack gap={8}>
-        <H2>What makes this different</H2>
+        <H2>Selected product contract</H2>
         <Grid columns={2} gap={16}>
           {[
             {
-              title: 'Governed generation, not a chat window',
-              body: 'A writer model drafts the query; a reviewer model checks it against the same catalog. Neither model is trusted to enforce safety — a separate deterministic SQL policy parses the generated statement and rejects anything that is not read-only, regardless of what either model produced.',
+              title: 'One source per session',
+              body: 'A session keeps one source identity, dialect, and readable schema. Choosing another source starts another session instead of mixing data or query context.',
             },
             {
-              title: 'The catalog is generated, never hand-written',
-              body: "Column names, types, and grain come from the database itself (COMMENT ON VIEW / COMMENT ON COLUMN on the curated SQL) plus one small overlay file per source. A canonical value that matches zero live rows fails catalog generation instead of silently producing empty results.",
+              title: 'Complete readable schema',
+              body: 'The model, Available data view, and editor receive every readable table, view, column, and type. Optional descriptions may explain the data but cannot hide it.',
             },
             {
-              title: 'Lossless ingestion, curated in SQL',
-              body: 'The ingestion layer keeps every coding on every FHIR resource — nothing is picked or dropped on the way in. Collapsing to one row per resource and choosing a display value happens afterward in SQL, where a mistake costs a view redefinition, not a full re-fetch from the source system.',
+              title: 'Exact, person-controlled execution',
+              body: 'Formatting and validation are advisory. The person can edit the query, inspect findings, and run the exact selected SQL once to receive typed rows or the database error.',
             },
             {
-              title: 'One session, switchable data source',
-              body: 'A workbench session is not locked to the data source it started on: a later turn can target a different registered source, and the session picks up right where the conversation left off.',
+              title: 'Product and deployment stay separate',
+              body: 'Catalyst is a SQL client. FHIR Data Pipes, Parquet, and Spark define the selected reference deployment without becoming a requirement for every Catalyst connection.',
             },
           ].map((pillar) => (
             <Card key={pillar.title}>
@@ -166,13 +159,12 @@ export default function CatalystDemosCanvas() {
       <Divider />
 
       <Stack gap={12}>
-        <H2>Watch it work — one conversation per data source</H2>
+        <H2>Watch the full product flow</H2>
         <Text tone="secondary" size="small">
-          Each recording is a real run against the live stack: real writer/reviewer models, real PostgreSQL
-          execution, no scripted or mocked responses. Turn 2 in each recording refines turn 1's exact query rather
-          than starting a new one.
+          This is a real writer/reviewer run through conversation, typed results, saved Datasets and Widgets, and a
+          Dashboard imported into Superset. It demonstrates the existing Workbench-to-Superset interaction on the current runtime.
         </Text>
-        <Grid columns={2} gap={16}>
+        <Grid columns={1} gap={16}>
           {clips.map((clip) => (
             <DemoVideo key={clip.id} clip={clip} />
           ))}
