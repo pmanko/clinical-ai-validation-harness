@@ -115,6 +115,46 @@ def test_a_capture_shorter_than_the_run_never_shifts_cuts_backwards():
     assert timeline["segments"][0]["end"] == 4.0
 
 
+def test_a_clip_starting_after_the_capture_fails_with_the_milestone_named():
+    plan = {
+        "segments": [
+            {"type": "clip", "from": "late", "to": "later", "kind": "read"}
+        ]
+    }
+    data = milestones(late=5.0, later=8.0)
+
+    with pytest.raises(
+        ValueError,
+        match=(
+            "milestone 'late' starts at 5.00s, at or after the capture "
+            "ends at 4.00s"
+        ),
+    ):
+        at.build_timeline(plan, data, video_duration=4.0)
+
+
+def test_a_clipped_wait_uses_only_the_footage_that_will_render():
+    plan = {
+        "segments": [
+            {
+                "type": "clip",
+                "from": "start",
+                "to": "finished",
+                "kind": "wait",
+                "target_seconds": 1.0,
+            }
+        ]
+    }
+    data = milestones(start=1.0, finished=20.0)
+
+    timeline = at.build_timeline(plan, data, video_duration=5.0)
+
+    clip = timeline["segments"][0]
+    assert clip["start"] == 1.0
+    assert clip["end"] == 5.0
+    assert clip["speed"] == 4.0
+
+
 def test_cards_and_captions_pass_through_untouched():
     plan = {
         "width": 1280,

@@ -122,12 +122,23 @@ def build_timeline(
             continue
         start, end = resolve_span(marks, entry["from"], entry["to"], offset)
         kind = entry.get("kind", "read")
+        clipped_end = min(end, video_duration)
+        if start >= clipped_end:
+            raise ValueError(
+                f"milestone {entry['from']!r} starts at {start:.2f}s, "
+                f"at or after the capture ends at {video_duration:.2f}s"
+            )
         clip: dict[str, Any] = {
             "type": "clip",
             "start": round(start, 2),
-            "end": round(min(end, video_duration), 2),
+            "end": round(clipped_end, 2),
             "speed": round(
-                speed_for(end - start, kind, entry.get("target_seconds")), 2
+                speed_for(
+                    clipped_end - start,
+                    kind,
+                    entry.get("target_seconds"),
+                ),
+                2,
             ),
         }
         if entry.get("caption"):
