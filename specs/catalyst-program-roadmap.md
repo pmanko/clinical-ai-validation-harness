@@ -50,10 +50,9 @@ close a P3 gate.
 ### 1. One shared readable data surface
 
 Generation, manual editing, completion suggestions, validation, and execution
-use every relation the configured read-only database role can read. The 13
-relations observed in one fixture are not an allowlist or product limit. A
-catalog refresh adds or removes relations as the role's access changes without
-altering the database schema.
+use every relation the configured read-only database role can read. A catalog
+refresh reflects changes to that access without turning an observed relation
+count into a product rule.
 
 Reviewed metadata improves descriptions and warnings for known relations but
 does not decide whether a readable relation is available. Published catalog v6
