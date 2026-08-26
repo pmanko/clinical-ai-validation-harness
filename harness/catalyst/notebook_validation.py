@@ -91,6 +91,7 @@ class NotebookGoldCheck:
     reference_sql: str
     reference_parameters: tuple[dict[str, Any], ...] = ()
     match_columns: tuple[str, ...] = ()
+    normalizers: dict[str, str] = field(default_factory=dict)
     key_columns: tuple[str, ...] = ()
     value_columns: dict[str, dict[str, Any]] = field(default_factory=dict)
     value_column: str | None = None
@@ -105,6 +106,10 @@ def _load_gold_check(payload: dict[str, Any] | None) -> NotebookGoldCheck | None
     reference_sql = str(payload["referenceSql"])
     _guard_reference_sql(reference_sql)
     match_columns = tuple(str(c) for c in payload.get("matchColumns", []))
+    normalizers = {
+        str(column): str(normalizer)
+        for column, normalizer in payload.get("normalizers", {}).items()
+    }
     key_columns = tuple(str(c) for c in payload.get("keyColumns", []))
     value_columns = {
         str(k): dict(v) for k, v in payload.get("valueColumns", {}).items()
@@ -112,6 +117,25 @@ def _load_gold_check(payload: dict[str, Any] | None) -> NotebookGoldCheck | None
     value_column = payload.get("valueColumn")
     if mode == "row_set" and not match_columns:
         raise ValueError("row_set gold check requires matchColumns")
+    if normalizers and mode != "row_set":
+        raise ValueError("gold check normalizers are supported only for row_set")
+    unknown_normalizer_columns = sorted(set(normalizers) - set(match_columns))
+    if unknown_normalizer_columns:
+        raise ValueError(
+            "gold check normalizers name columns outside matchColumns: "
+            f"{unknown_normalizer_columns}"
+        )
+    unsupported_normalizers = sorted(
+        {
+            normalizer
+            for normalizer in normalizers.values()
+            if normalizer != "unordered_csv"
+        }
+    )
+    if unsupported_normalizers:
+        raise ValueError(
+            f"unsupported gold check normalizers: {unsupported_normalizers}"
+        )
     if mode == "aggregate_by_key" and (not key_columns or not value_columns):
         raise ValueError(
             "aggregate_by_key gold check requires keyColumns and valueColumns"
@@ -125,6 +149,7 @@ def _load_gold_check(payload: dict[str, Any] | None) -> NotebookGoldCheck | None
             dict(p) for p in payload.get("referenceParameters", [])
         ),
         match_columns=match_columns,
+        normalizers=normalizers,
         key_columns=key_columns,
         value_columns=value_columns,
         value_column=str(value_column) if value_column else None,
@@ -191,6 +216,10 @@ CONFORMANCE_ASSERTIONS = frozenset(
         "writer_model",
         "reviewer_model",
         "effective_temperature_and_dry",
+        "hub_request_evidence",
+        "hub_request_digest_match",
+        "hub_capacity_evidence",
+        "retained_instruction_context",
         "invocation_digests",
         "invocation_duration_sum",
         "invocation_timestamp_reconciliation",
@@ -278,6 +307,7 @@ class NotebookTurn:
     profile_id: str
     expected_turn_status: str = "completed"
     expected_outcome: str = "ready"
+    gold_check: NotebookGoldCheck | None = None
 
 
 @dataclass(frozen=True)
@@ -837,6 +867,197 @@ class PostgresGoldExecutionChecker:
         self.statement_timeout_ms = statement_timeout_ms
         self.max_rows = max_rows
 
+    @staticmethod
+    def _subquery(sql: str) -> str:
+        return sql.strip().removesuffix(";").rstrip()
+
+    @staticmethod
+    def _identifier(name: str) -> str:
+        return '"' + name.replace('"', '""') + '"'
+
+    def _database_row_set_check(
+        self,
+        cursor: Any,
+        version: dict[str, Any],
+        gold_check: "NotebookGoldCheck",
+    ) -> dict[str, Any]:
+        """Compare large plain row sets inside PostgreSQL.
+
+        Only the counts and small disagreement samples cross the process
+        boundary. This checks a complete large result without inventing a row
+        cutoff for the evidence tool.
+        """
+
+        import psycopg
+
+        model_parameters = list(version.get("parameters") or [])
+        bindings = {
+            str(parameter["name"]): _binding_value(parameter)
+            for parameter in model_parameters
+        }
+        model_sql = self._subquery(
+            _driver_sql(str(version["sql"]), set(bindings))
+        )
+        reference_sql = self._subquery(
+            _driver_sql(gold_check.reference_sql, set())
+        )
+        result: dict[str, Any] = {
+            "contractVersion": "harness.catalyst-notebook.gold-execution-match.v1",
+            "mode": gold_check.mode,
+            "versionId": version.get("versionId"),
+            "queryDigest": version.get("queryDigest"),
+            "matchColumns": list(gold_check.match_columns),
+            "normalizers": {},
+            "comparisonLocation": "postgresql",
+        }
+
+        try:
+            cursor.execute(
+                f"SELECT * FROM ({model_sql}) AS model_rows LIMIT 0",
+                bindings,
+            )
+        except psycopg.errors.QueryCanceled:
+            result.update(
+                {
+                    "passed": False,
+                    "disagreement": (
+                        "the model's query exceeded the "
+                        f"{self.statement_timeout_ms}ms statement timeout "
+                        "when re-executed independently"
+                    ),
+                }
+            )
+            return result
+        except psycopg.Error as error:
+            result.update(
+                {
+                    "passed": False,
+                    "disagreement": (
+                        "the model query could not be compared as a row set"
+                    ),
+                    "databaseDiagnostic": {"sqlstate": error.sqlstate},
+                }
+            )
+            return result
+        model_columns = [item.name for item in (cursor.description or ())]
+        missing_model_columns = [
+            column
+            for column in gold_check.match_columns
+            if column not in model_columns
+        ]
+        if missing_model_columns:
+            result.update(
+                {
+                    "passed": False,
+                    "disagreement": (
+                        "the model result has no column named "
+                        + ", ".join(repr(column) for column in missing_model_columns)
+                        + f"; its columns are {sorted(model_columns)}"
+                    ),
+                }
+            )
+            return result
+
+        try:
+            cursor.execute(
+                f"SELECT * FROM ({reference_sql}) AS reference_rows LIMIT 0",
+                {},
+            )
+        except psycopg.Error as error:
+            raise ValueError(
+                "the independent reference query could not be compared"
+            ) from error
+        reference_columns = [item.name for item in (cursor.description or ())]
+        missing_reference_columns = [
+            column
+            for column in gold_check.match_columns
+            if column not in reference_columns
+        ]
+        if missing_reference_columns:
+            raise ValueError(
+                "the independent reference query is missing columns: "
+                + ", ".join(missing_reference_columns)
+            )
+
+        projected = ", ".join(
+            self._identifier(column) for column in gold_check.match_columns
+        )
+        common = (
+            f"WITH model_rows AS ({model_sql}), "
+            f"reference_rows AS ({reference_sql}), "
+            f"model_values AS (SELECT {projected} FROM model_rows), "
+            f"reference_values AS (SELECT {projected} FROM reference_rows) "
+        )
+        try:
+            cursor.execute(
+                common
+                + "SELECT "
+                + "(SELECT count(*) FROM model_values), "
+                + "(SELECT count(*) FROM reference_values), "
+                + "(SELECT count(*) FROM ("
+                + "SELECT * FROM reference_values EXCEPT ALL "
+                + "SELECT * FROM model_values) AS missing), "
+                + "(SELECT count(*) FROM ("
+                + "SELECT * FROM model_values EXCEPT ALL "
+                + "SELECT * FROM reference_values) AS extra)",
+                bindings,
+            )
+            summary_rows = list(cursor.fetchmany(1))
+        except psycopg.Error as error:
+            result.update(
+                {
+                    "passed": False,
+                    "disagreement": (
+                        "the requested model columns could not be compared with "
+                        "the independent answer"
+                    ),
+                    "databaseDiagnostic": {"sqlstate": error.sqlstate},
+                }
+            )
+            return result
+        if len(summary_rows) != 1:
+            raise ValueError("database row-set comparison returned no summary")
+        model_count, reference_count, missing_count, extra_count = summary_rows[0]
+
+        def sample(first: str, second: str) -> list[list[Any]]:
+            cursor.execute(
+                common
+                + "SELECT * FROM ("
+                + f"SELECT * FROM {first} EXCEPT ALL SELECT * FROM {second}"
+                + ") AS difference LIMIT 20",
+                bindings,
+            )
+            return [
+                [_json_safe_value(value) for value in row]
+                for row in cursor.fetchmany(20)
+            ]
+
+        missing_sample = (
+            sample("reference_values", "model_values") if missing_count else []
+        )
+        extra_sample = (
+            sample("model_values", "reference_values") if extra_count else []
+        )
+        passed = not missing_count and not extra_count
+        result.update(
+            {
+                "modelRowCount": int(model_count),
+                "referenceRowCount": int(reference_count),
+                "missingFromModelCount": int(missing_count),
+                "extraInModelCount": int(extra_count),
+                "missingFromModelSample": missing_sample,
+                "extraInModelSample": extra_sample,
+                "passed": passed,
+            }
+        )
+        if not passed:
+            result["disagreement"] = (
+                f"{missing_count} row{'s' if missing_count != 1 else ''} missing "
+                f"from the answer and {extra_count} extra, compared on "
+                f"{', '.join(gold_check.match_columns)}"
+            )
+        return result
+
     def check(
         self,
         version: dict[str, Any],
@@ -851,6 +1072,14 @@ class PostgresGoldExecutionChecker:
                     "SELECT set_config('statement_timeout', %s, true)",
                     (f"{self.statement_timeout_ms}ms",),
                 )
+                if (
+                    gold_check.mode == "row_set"
+                    and not gold_check.normalizers
+                    and not gold_check.reference_parameters
+                ):
+                    return self._database_row_set_check(
+                        cursor, version, gold_check
+                    )
                 try:
                     model_rows, model_exceeded = _fetch_all_rows(
                         cursor,
@@ -916,7 +1145,12 @@ class PostgresGoldExecutionChecker:
                 )
         elif gold_check.mode == "row_set":
             result.update(
-                _compare_row_sets(model_rows, reference_rows, gold_check.match_columns)
+                _compare_row_sets(
+                    model_rows,
+                    reference_rows,
+                    gold_check.match_columns,
+                    gold_check.normalizers,
+                )
             )
         elif gold_check.mode == "aggregate_by_key":
             result.update(
@@ -940,6 +1174,7 @@ def _compare_row_sets(
     model_rows: list[dict[str, Any]],
     reference_rows: list[dict[str, Any]],
     match_columns: tuple[str, ...],
+    normalizers: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     # A match column the model never projected can only produce a wall of
     # None-vs-value diffs; the honest evidence is one sentence naming it.
@@ -957,8 +1192,19 @@ def _compare_row_sets(
                 ),
             }
 
+    normalizers = normalizers or {}
+
+    def _normalized_value(column: str, value: Any) -> Any:
+        if normalizers.get(column) != "unordered_csv" or not isinstance(value, str):
+            return value
+        # Ordering and surrounding spaces are presentation details. Keeping
+        # duplicates means a repeated or missing item still disagrees.
+        return tuple(sorted(part.strip() for part in value.split(",") if part.strip()))
+
     def _key(row: dict[str, Any]) -> tuple[Any, ...]:
-        return tuple(row.get(column) for column in match_columns)
+        return tuple(
+            _normalized_value(column, row.get(column)) for column in match_columns
+        )
 
     model_counter = Counter(_key(row) for row in model_rows)
     reference_counter = Counter(_key(row) for row in reference_rows)
@@ -967,6 +1213,7 @@ def _compare_row_sets(
     passed = not missing and not extra
     verdict = {
         "matchColumns": list(match_columns),
+        "normalizers": normalizers,
         "missingFromModelCount": len(missing),
         "extraInModelCount": len(extra),
         "missingFromModelSample": [list(item) for item in missing[:20]],
@@ -1000,6 +1247,43 @@ def _compare_aggregates(
     def _key(row: dict[str, Any]) -> tuple[Any, ...]:
         return tuple(row.get(column) for column in key_columns)
 
+    model_keys = [_key(row) for row in model_rows]
+    reference_keys = [_key(row) for row in reference_rows]
+
+    def _duplicates(keys: list[tuple[Any, ...]]) -> list[dict[str, Any]]:
+        return [
+            {"key": list(key), "rowCount": count}
+            for key, count in sorted(
+                Counter(keys).items(), key=lambda item: str(item[0])
+            )
+            if count > 1
+        ]
+
+    duplicate_model_keys = _duplicates(model_keys)
+    duplicate_reference_keys = _duplicates(reference_keys)
+    if duplicate_model_keys or duplicate_reference_keys:
+        parts: list[str] = []
+        if duplicate_model_keys:
+            first = duplicate_model_keys[0]
+            parts.append(
+                "the answer has duplicate aggregate keys "
+                f"(first: {first['key']} appears {first['rowCount']} times)"
+            )
+        if duplicate_reference_keys:
+            first = duplicate_reference_keys[0]
+            parts.append(
+                "the independent reference has duplicate aggregate keys "
+                f"(first: {first['key']} appears {first['rowCount']} times)"
+            )
+        return {
+            "keyColumns": list(key_columns),
+            "valueColumns": value_columns,
+            "duplicateModelKeys": duplicate_model_keys,
+            "duplicateReferenceKeys": duplicate_reference_keys,
+            "passed": False,
+            "disagreement": "; ".join(parts),
+        }
+
     # The criterion is "this aggregate by this key", not our spelling of the
     # aggregate: keys come from catalog values and match naturally, but the
     # value column is named by the model. When our name is absent and the row
@@ -1028,8 +1312,10 @@ def _compare_aggregates(
                     ),
                 }
 
-    model_by_key = {_key(row): row for row in model_rows}
-    reference_by_key = {_key(row): row for row in reference_rows}
+    # Duplicate keys were rejected above, so converting to keyed rows cannot
+    # silently discard a disagreeing aggregate row.
+    model_by_key = dict(zip(model_keys, model_rows))
+    reference_by_key = dict(zip(reference_keys, reference_rows))
     missing_keys = sorted(set(reference_by_key) - set(model_by_key), key=str)
     extra_keys = sorted(set(model_by_key) - set(reference_by_key), key=str)
     mismatches: list[dict[str, Any]] = []
@@ -1367,6 +1653,7 @@ def _load_turns(
                 profile_id=str(entry["profileId"]),
                 expected_turn_status=status,
                 expected_outcome=outcome,
+                gold_check=_load_gold_check(entry.get("goldCheck")),
             )
         )
     return tuple(turns)
@@ -1465,6 +1752,27 @@ def load_notebook_suite(path: Path | str) -> NotebookSuite:
         )
     if not scenarios:
         raise ValueError("Notebook suite must contain scenarios")
+    if payload.get("reportMode") == "reader-led":
+        for scenario in scenarios:
+            if scenario.pin_guidance:
+                raise ValueError(
+                    f"reader-led scenario {scenario.id!r} must express all "
+                    "instructions in its conversation, not pinGuidance"
+                )
+            if (
+                scenario.expected_base_outcome == "ready"
+                and scenario.base_gold_check is None
+            ):
+                raise ValueError(
+                    f"reader-led scenario {scenario.id!r} needs an independent "
+                    "answer check for its opening turn"
+                )
+            for position, turn in enumerate(scenario.turns, start=1):
+                if turn.expected_outcome == "ready" and turn.gold_check is None:
+                    raise ValueError(
+                        f"reader-led scenario {scenario.id!r} turn {position} "
+                        "needs its own independent answer check"
+                    )
     profiles = {}
     for profile_id, detail in payload["profiles"].items():
         reviewer_model_id = detail.get("reviewerModelId")
@@ -1875,6 +2183,7 @@ def _measurement_evidence(
         # A non-query follow-up may retain the prior SQL in the editor. It
         # proves that it generated no new SQL through the absent selection.
         selected = bool(summary.get("selectedVersionId"))
+        turn_gold_check = turn_spec.gold_check or scenario.successor_gold_check
         turns.append(
             {
                 "turnIndex": index,
@@ -1885,9 +2194,7 @@ def _measurement_evidence(
                     validation_file=f"12-validate-successor{slot}.json",
                     execution_requested=scenario.execute_successor,
                     execution_file=f"13-execute-successor{slot}.json",
-                    oracle_configured=(
-                        scenario.successor_gold_check is not None
-                    ),
+                    oracle_configured=turn_gold_check is not None,
                     oracle_file=f"16-gold-execution-match-successor{slot}.json",
                 ),
             }
@@ -1954,10 +2261,8 @@ def _append_result_outputs(
         or result.get("baseAnswerText")
         or str(result.get("status"))
     )
-    question = (
-        f"{scenario.initial_question} ⇒ {scenario.followup_instruction}"
-        if scenario.turns
-        else scenario.initial_question
+    question = " ⇒ ".join(
+        [scenario.initial_question, *(turn.instruction for turn in scenario.turns)]
     )
     metrics = {
         "http_status": result.get("httpStatus"),
@@ -1985,11 +2290,18 @@ def _append_result_outputs(
             "expectedBaseOutcome": result.get("expectedBaseOutcome"),
             "turns": [
                 {
+                    "turnId": turn.get("turnId"),
                     "instruction": turn.get("instruction"),
                     "expectedOutcome": turn.get("expectedOutcome"),
                     "observedOutcome": turn.get("observedOutcome"),
                     "answerText": turn.get("answerText"),
                     "sql": turn.get("sql"),
+                    "selectedVersionId": turn.get("selectedVersionId"),
+                    "selectedQueryDigest": turn.get("selectedQueryDigest"),
+                    "executionId": turn.get("executionId"),
+                    "candidateDigests": turn.get("candidateDigests") or [],
+                    "evidenceDigest": turn.get("evidenceDigest"),
+                    "timing": turn.get("timing") or {},
                 }
                 for turn in result.get("turns") or []
             ],
@@ -2014,14 +2326,111 @@ def _append_result_outputs(
     if isinstance(ended_at, str) and ended_at:
         stream_row["ended_at"] = ended_at
     append_jsonl(results_path, stream_row)
+
+    recorded_turns = [
+        turn for turn in result.get("turns") or [] if isinstance(turn, dict)
+    ]
+    event_result = result
+    if recorded_turns:
+        # The shared event projector predates multi-turn scenarios and its
+        # unsuffixed evidence paths identify the first follow-up. Give it that
+        # turn's identities, then append every later suffixed turn below.
+        first_turn = recorded_turns[0]
+        event_result = {
+            **result,
+            "followupTurnId": first_turn.get("turnId"),
+            "selectedVersionId": first_turn.get("selectedVersionId"),
+            "selectedQueryDigest": first_turn.get("selectedQueryDigest"),
+            "successorExecutionId": first_turn.get("executionId"),
+        }
     for event in notebook_result_events(
         run_id=run_id,
         run_dir=run_dir,
         prefix=prefix,
-        result=result,
+        result=event_result,
         backend_id=backend_id,
     ):
         append_event(events_path, event)
+
+    def materialized(paths: list[str]) -> list[str]:
+        root = run_dir.resolve()
+        existing: list[str] = []
+        for relative in paths:
+            path = run_dir / relative
+            if not path.resolve().is_relative_to(root):
+                raise ValueError(
+                    "event evidence path must stay within the run directory"
+                )
+            if path.is_file():
+                existing.append(relative)
+        return existing
+
+    event_common = {
+        "schema_version": NOTEBOOK_EVENT_SCHEMA_VERSION,
+        "run_id": run_id,
+        "scenario_id": str(result["scenarioId"]),
+        "repetition": int(result["repetition"]),
+        "session_id": result.get("sessionId"),
+        "backend_id": backend_id,
+    }
+    for turn_index, turn in enumerate(recorded_turns[1:], start=2):
+        slot = f"-t{turn_index}"
+        turn_id = turn.get("turnId")
+        if turn_id:
+            append_event(
+                events_path,
+                {
+                    **event_common,
+                    "event_type": "turn",
+                    "turn_role": "followup",
+                    "turn_id": turn_id,
+                    "evidence_paths": materialized(
+                        [
+                            f"{prefix}/08-create-followup{slot}.json",
+                            f"{prefix}/10-final-turns{slot}.json",
+                            f"{prefix}/11-followup-generation-evidence{slot}.json",
+                        ]
+                    ),
+                },
+            )
+        version_id = turn.get("selectedVersionId")
+        if version_id:
+            append_event(
+                events_path,
+                {
+                    **event_common,
+                    "event_type": "version",
+                    "version_role": "successor",
+                    "version_id": version_id,
+                    "query_digest": turn.get("selectedQueryDigest"),
+                    "turn_id": turn_id,
+                    "evidence_paths": materialized(
+                        [
+                            f"{prefix}/09-refreshed-session{slot}.json",
+                            f"{prefix}/10-final-turns{slot}.json",
+                        ]
+                    ),
+                },
+            )
+        execution_id = turn.get("executionId")
+        if execution_id:
+            append_event(
+                events_path,
+                {
+                    **event_common,
+                    "event_type": "execution",
+                    "execution_role": "successor",
+                    "execution_id": execution_id,
+                    "version_id": version_id,
+                    "evidence_paths": materialized(
+                        [
+                            f"{prefix}/13-execute-successor{slot}.json",
+                            f"{prefix}/14-postgres-successor{slot}.json",
+                            f"{prefix}/16-gold-execution-match-successor{slot}.json",
+                        ]
+                    ),
+                },
+            )
     append_event(
         events_path,
         {
@@ -2408,8 +2817,13 @@ def _run_tree_sha256(run_dir: Path) -> str:
     return _canonical_sha256(files)
 
 
-def _validated_evidence_index(run_dir: Path) -> dict[str, dict[str, Any]]:
+def _validated_evidence_index(
+    run_dir: Path,
+    *,
+    expected_run_id: str | None = None,
+) -> dict[str, dict[str, Any]]:
     """Verify an interrupted run's signed inventory before trusting any row."""
+    expected_run_id = expected_run_id or run_dir.name
     index_candidates = (
         run_dir / "evidence-index.json",
         run_dir / ".evidence-index.json.tmp",
@@ -2455,7 +2869,7 @@ def _validated_evidence_index(run_dir: Path) -> dict[str, dict[str, Any]]:
         if (
             index.get("contractVersion")
             != "harness.catalyst-notebook.evidence-index.v1"
-            or index.get("runId") != run_dir.name
+            or index.get("runId") != expected_run_id
             or index.get("hashAlgorithm") != "sha256"
         ):
             raise ValueError("recovery evidence index identity is invalid")
@@ -2508,6 +2922,22 @@ def _validated_evidence_index(run_dir: Path) -> dict[str, dict[str, Any]]:
             validated[relative] = dict(entry)
             total_bytes += byte_count
         core_paths = {"run_manifest.json", "run-config.json", "suite.json"}
+        try:
+            run_config = json.loads(
+                (run_dir / "run-config.json").read_text(encoding="utf-8")
+            )
+        except (OSError, json.JSONDecodeError) as error:
+            raise ValueError("recovery run configuration cannot be read") from error
+        rubric_digest = str(run_config.get("readerRubricSha256") or "")
+        if rubric_digest:
+            core_paths.add("reader-rubric.md")
+            indexed_digest = str(
+                (validated.get("reader-rubric.md") or {}).get("sha256") or ""
+            )
+            if indexed_digest and indexed_digest != rubric_digest:
+                raise ValueError(
+                    "recovery reader rubric differs from its frozen digest"
+                )
         missing_core = sorted(core_paths.difference(validated))
         if missing_core:
             raise ValueError(
@@ -2530,6 +2960,24 @@ def _validated_evidence_index(run_dir: Path) -> dict[str, dict[str, Any]]:
     # written temporary checkpoint. Prefer the one that safely binds more
     # evidence, especially a longer completed-row prefix.
     return max(valid, key=lambda item: item[0])[1]
+
+
+def validate_notebook_evidence(
+    run_dir: Path | str,
+) -> dict[str, dict[str, Any]]:
+    """Verify a run's signed evidence inventory before downstream use."""
+
+    run_dir = Path(run_dir)
+    try:
+        manifest = json.loads(
+            (run_dir / "run_manifest.json").read_text(encoding="utf-8")
+        )
+    except (OSError, json.JSONDecodeError) as error:
+        raise ValueError("run manifest cannot be read") from error
+    run_id = manifest.get("run_id") if isinstance(manifest, dict) else None
+    if not isinstance(run_id, str) or not run_id:
+        raise ValueError("run manifest has no run_id")
+    return _validated_evidence_index(run_dir, expected_run_id=run_id)
 
 
 def _signed_jsonl_records(
@@ -2819,6 +3267,7 @@ def run_notebook_suite(
     resume_from: Path | str | None = None,
     frozen_config: dict[str, Any] | None = None,
     warmup_question: str | None = None,
+    reader_rubric_path: Path | str | None = None,
 ) -> NotebookRunResult:
     suite_path = Path(suite_path)
     suite = load_notebook_suite(suite_path)
@@ -2917,6 +3366,24 @@ def run_notebook_suite(
         metadata={"sourceSha256": suite_sha256},
     )
     recorder.json("run-config.json", public_config, kind="run_configuration")
+    if reader_rubric_path is not None:
+        rubric_source = Path(reader_rubric_path)
+        rubric_bytes = rubric_source.read_bytes()
+        rubric_digest = hashlib.sha256(rubric_bytes).hexdigest()
+        expected_rubric_digest = str(
+            public_config.get("readerRubricSha256") or ""
+        )
+        if expected_rubric_digest and rubric_digest != expected_rubric_digest:
+            raise ValueError(
+                "reader rubric bytes differ from the frozen run configuration"
+            )
+        rubric_path = run_dir / "reader-rubric.md"
+        rubric_path.write_bytes(rubric_bytes)
+        recorder.file(
+            "reader-rubric.md",
+            kind="reader_rubric",
+            media_type="text/markdown",
+        )
     recovery_imports: list[dict[str, Any]] = []
     source_failures: list[dict[str, Any]] = list(
         (resume_header or {}).get("infrastructureFailures") or []
@@ -3628,6 +4095,11 @@ def _run_scenario(
             evidence_exchange.status_code == 200,
             evidence_exchange.status_code,
         )
+        for name, passed, detail in _evidence_checks(
+            initial_evidence,
+            expected_profile=suite.profiles[scenario.initial_profile_id],
+        ):
+            check(f"{name}-base", passed, detail)
         # The opening generation is a scored turn like any other -- for a
         # base-only scenario it is the only one -- so its token accounting is
         # asserted here, not just inside the follow-up loop.
@@ -3844,8 +4316,17 @@ def _run_scenario(
     selected: dict[str, Any] | None = None
     successor_execution: dict[str, Any] | None = None
     successor_execution_wall_ms = 0
+    scenario_check = check
+    prior_execution = base_execution
+    latest_execution = base_execution
+    followup_candidate_digest_sequences: list[list[str]] = []
+    followup_evidence_digests: list[str | None] = []
+    followup_selected_query_digests: list[str | None] = []
+    successor_execution_ids: list[str] = []
+    turn_timing_summaries: list[dict[str, Any]] = []
     for turn_index, turn_spec in enumerate(scenario.turns, start=1):
         slot = "" if turn_index == 1 else f"-t{turn_index}"
+        turn_gold_check = turn_spec.gold_check or scenario.successor_gold_check
 
         def check(name: str, passed: bool, evidence: Any, _slot: str = slot) -> None:
             assertions.append(
@@ -4066,7 +4547,7 @@ def _run_scenario(
                     "required": scenario.require_reviewer_correction,
                 },
             )
-            if base_execution is not None:
+            if prior_execution is not None:
                 check(
                     "prior_results_stale_after_successor",
                     refreshed.get("currentVersionId") != base_version.get("versionId")
@@ -4139,7 +4620,7 @@ def _run_scenario(
                 check("successor_postgres_crosscheck", crosscheck["passed"], crosscheck)
             if (
                 gold_checker is not None
-                and scenario.successor_gold_check is not None
+                and turn_gold_check is not None
                 and executed.status_code == 200
                 and successor_execution.get("status") == "succeeded"
             ):
@@ -4149,11 +4630,50 @@ def _run_scenario(
                     ),
                     operation="successor_gold_execution_match",
                     kind="gold_execution_match",
-                    call=lambda: gold_checker.check(
-                        selected, scenario.successor_gold_check
-                    ),
+                    call=lambda: gold_checker.check(selected, turn_gold_check),
                 )
                 check("successor_gold_execution_match", gold_result["passed"], gold_result)
+
+        turn_candidate_digests = [
+            str(item["candidateDigest"])
+            for item in followup_evidence.get("candidates", [])
+            if item.get("candidateDigest") is not None
+        ]
+        turn_evidence_digest = followup_evidence.get("evidenceDigest")
+        turn_selected_query_digest = (
+            selected.get("queryDigest") if isinstance(selected, dict) else None
+        )
+        turn_execution_id = (
+            successor_execution.get("executionId")
+            if isinstance(successor_execution, dict)
+            else None
+        )
+        turn_invocation_ms = int(
+            followup_evidence.get("totalInvocationDurationMs") or 0
+        )
+        turn_timing = {
+            "turnIndex": turn_index,
+            "generationWallMs": followup.elapsed_ms,
+            "recordedInvocationDurationMs": turn_invocation_ms,
+            "generationWallMinusRecordedInvocationsMs": (
+                followup.elapsed_ms - turn_invocation_ms
+            ),
+            "executionWallMs": successor_execution_wall_ms,
+        }
+        followup_candidate_digest_sequences.append(turn_candidate_digests)
+        followup_evidence_digests.append(
+            str(turn_evidence_digest)
+            if isinstance(turn_evidence_digest, str)
+            else None
+        )
+        followup_selected_query_digests.append(
+            str(turn_selected_query_digest)
+            if isinstance(turn_selected_query_digest, str)
+            else None
+        )
+        if isinstance(turn_execution_id, str):
+            successor_execution_ids.append(turn_execution_id)
+        turn_timing_summaries.append(turn_timing)
 
         turn_summaries.append(
             {
@@ -4174,9 +4694,21 @@ def _run_scenario(
                 "sql": (
                     str((refreshed.get("currentVersion") or {}).get("sql") or "")
                     or None
-                ),
+                )
+                if turn.get("selectedVersionId")
+                else None,
+                "retainedSql": (
+                    str((refreshed.get("currentVersion") or {}).get("sql") or "")
+                    or None
+                )
+                if not turn.get("selectedVersionId")
+                else None,
                 "selectedVersionId": turn.get("selectedVersionId"),
-                "evidenceDigest": followup_evidence.get("evidenceDigest"),
+                "selectedQueryDigest": turn_selected_query_digest,
+                "executionId": turn_execution_id,
+                "candidateDigests": turn_candidate_digests,
+                "evidenceDigest": turn_evidence_digest,
+                "timing": turn_timing,
             }
         )
         # The next turn starts from whatever this one left current, which is
@@ -4184,13 +4716,19 @@ def _run_scenario(
         current_version = refreshed.get("currentVersion")
         if isinstance(current_version, dict) and current_version.get("versionId"):
             base_version = current_version
-        base_execution = successor_execution or base_execution
-        base_execution_wall_ms = successor_execution_wall_ms or base_execution_wall_ms
+        prior_execution = successor_execution or prior_execution
+        latest_execution = successor_execution or latest_execution
 
-    invocation_ms = int(initial_evidence.get("totalInvocationDurationMs") or 0) + int(
-        followup_evidence.get("totalInvocationDurationMs") or 0
+    invocation_ms = int(initial_evidence.get("totalInvocationDurationMs") or 0) + sum(
+        int(item["recordedInvocationDurationMs"])
+        for item in turn_timing_summaries
     )
-    followup_wall_ms = followup.elapsed_ms if followup is not None else 0
+    followup_wall_ms = sum(
+        int(item["generationWallMs"]) for item in turn_timing_summaries
+    )
+    successor_execution_wall_ms = sum(
+        int(item["executionWallMs"]) for item in turn_timing_summaries
+    )
     generation_wall_ms = create.elapsed_ms + followup_wall_ms
     timing = {
         "initialGenerationWallMs": create.elapsed_ms,
@@ -4200,8 +4738,9 @@ def _run_scenario(
         "generationWallMinusRecordedInvocationsMs": generation_wall_ms - invocation_ms,
         "baseExecutionWallMs": base_execution_wall_ms,
         "successorExecutionWallMs": successor_execution_wall_ms,
+        "followups": turn_timing_summaries,
     }
-    check(
+    scenario_check(
         "successor_visible_under_three_minutes",
         generation_wall_ms - invocation_ms < 180_000,
         timing,
@@ -4219,7 +4758,7 @@ def _run_scenario(
         # For a question or a refusal these words ARE the answer under test.
         "baseAnswerText": base_failure_message or None,
         "baseSql": opening_sql,
-        "resultPreview": _result_preview(successor_execution or base_execution),
+        "resultPreview": _result_preview(latest_execution),
         "sessionId": session_id,
         "initialTurnId": initial_turn.get("turnId")
         if isinstance(initial_turn, dict)
@@ -4231,20 +4770,26 @@ def _run_scenario(
         "selectedVersionId": turn.get("selectedVersionId"),
         "baseExecutionId": (base_execution or {}).get("executionId"),
         "successorExecutionId": (successor_execution or {}).get("executionId"),
+        "successorExecutionIds": successor_execution_ids,
         "initialCandidateDigests": [
             item.get("candidateDigest")
             for item in initial_evidence.get("candidates", [])
             if item.get("candidateDigest") is not None
         ],
         "followupCandidateDigests": [
-            item.get("candidateDigest")
-            for item in followup_evidence.get("candidates", [])
-            if item.get("candidateDigest") is not None
+            digest
+            for sequence in followup_candidate_digest_sequences
+            for digest in sequence
         ],
+        "followupCandidateDigestSequences": followup_candidate_digest_sequences,
+        "followupSelectedQueryDigests": followup_selected_query_digests,
         "selectedQueryDigest": (
             selected.get("queryDigest") if isinstance(selected, dict) else None
         ),
-        "followupEvidenceDigest": followup_evidence.get("evidenceDigest"),
+        "followupEvidenceDigest": (
+            followup_evidence_digests[-1] if followup_evidence_digests else None
+        ),
+        "followupEvidenceDigests": followup_evidence_digests,
         "timing": timing,
         "assertions": assertions,
         "passed": all(item["passed"] for item in assertions),
@@ -4347,12 +4892,101 @@ def _require_discovery(
         raise ValueError("runtime catalog does not derive from the notebook suite")
 
 
+def _request_revision(invocation: dict[str, Any]) -> dict[str, Any] | None:
+    exact = invocation.get("requestEvidence")
+    request = exact.get("request") if isinstance(exact, dict) else None
+    if not isinstance(request, dict):
+        return None
+    for message in request.get("messages") or []:
+        if not isinstance(message, dict):
+            continue
+        content = message.get("content")
+        try:
+            payload = json.loads(content) if isinstance(content, str) else content
+        except (TypeError, ValueError):
+            continue
+        revision = payload.get("revision") if isinstance(payload, dict) else None
+        if isinstance(revision, dict):
+            return revision
+    return None
+
+
+def _capacity_evidence_is_coherent(invocation: dict[str, Any]) -> bool:
+    outcome = invocation.get("outcome")
+    if outcome not in {"succeeded", "pre_dispatch_rejected"}:
+        return True
+    exact = invocation.get("requestEvidence")
+    request = exact.get("request") if isinstance(exact, dict) else None
+    tokens = exact.get("tokens") if isinstance(exact, dict) else None
+    request_config = request.get("config") if isinstance(request, dict) else None
+    invocation_config = invocation.get("configuration")
+    if not all(
+        isinstance(value, dict)
+        for value in (tokens, request_config, invocation_config)
+    ):
+        return False
+
+    context_window = tokens.get("contextWindow")
+    output_reserve = tokens.get("outputReserve")
+    prompt_tokens = tokens.get("promptTokens")
+    required_tokens = tokens.get("requiredTokens")
+    fits = tokens.get("fits")
+    if not (
+        isinstance(tokens.get("tokenizer"), str)
+        and bool(tokens["tokenizer"])
+        and tokens["tokenizer"] == invocation.get("modelId")
+        and type(context_window) is int
+        and context_window > 0
+        and type(output_reserve) is int
+        and output_reserve >= 0
+        and type(prompt_tokens) is int
+        and prompt_tokens >= 0
+        and type(required_tokens) is int
+        and required_tokens == prompt_tokens + output_reserve
+        and type(fits) is bool
+        and fits is (required_tokens <= context_window)
+        and output_reserve == request_config.get("maxTokens")
+        and output_reserve == invocation_config.get("maxTokens")
+    ):
+        return False
+
+    if outcome == "succeeded":
+        return fits and invocation.get("tokenAccounting") == {
+            "tokenizer": tokens["tokenizer"],
+            "contextWindow": context_window,
+            "outputReserve": output_reserve,
+            "promptTokens": prompt_tokens,
+        }
+    hub_error = invocation.get("hubError")
+    return (
+        not fits
+        and isinstance(hub_error, dict)
+        and hub_error.get("code") == "context_window_exceeded"
+        and hub_error.get("httpStatus") == 422
+    )
+
+
 def _evidence_checks(
     evidence: dict[str, Any],
     *,
     expected_profile: dict[str, str | None],
 ) -> list[tuple[str, bool, Any]]:
-    invocations = list(evidence.get("invocations") or [])
+    supplied_invocations = evidence.get("invocations")
+    invocations = (
+        list(supplied_invocations) if isinstance(supplied_invocations, list) else []
+    )
+    final_selection = evidence.get("finalSelection")
+    terminal_failure = (
+        final_selection.get("failure") if isinstance(final_selection, dict) else None
+    )
+    zero_invocation_answer = (
+        isinstance(supplied_invocations, list)
+        and not supplied_invocations
+        and evidence.get("status") == "failed"
+        and isinstance(terminal_failure, dict)
+        and terminal_failure.get("code")
+        in {"needs_clarification", "unsupported"}
+    )
     duration_sum = sum(
         int(item.get("durationMs") or 0)
         for item in invocations
@@ -4389,9 +5023,12 @@ def _evidence_checks(
         if item.get("role") in {"writer", "reviewer"}
     }
     configurations = [item.get("configuration") or {} for item in invocations]
-    config_ok = bool(configurations) and all(
-        item.get("temperature") == 0 and item.get("dryMultiplier") == 0
-        for item in configurations
+    config_ok = zero_invocation_answer or (
+        bool(configurations)
+        and all(
+            item.get("temperature") == 0 and item.get("dryMultiplier") == 0
+            for item in configurations
+        )
     )
     forbidden = _find_forbidden_keys(evidence.get("revisionContext"))
     reviewer_model = role_models.get("reviewer")
@@ -4404,6 +5041,97 @@ def _evidence_checks(
     reviewer_matches_profile = (
         reviewer_model == expected_reviewer_model
         or reviewer_not_reached_after_failure
+        or zero_invocation_answer
+    )
+
+    revision_context = evidence.get("revisionContext")
+    followup_requires_context = evidence.get("turnKind") == "followup"
+    revision_context_recorded = isinstance(revision_context, dict)
+    request_evidence_detail = []
+    digest_detail = []
+    capacity_detail = []
+    retained_context_detail = []
+    for invocation in invocations:
+        invocation_id = invocation.get("invocationId")
+        role = invocation.get("role")
+        exact = invocation.get("requestEvidence")
+        request = exact.get("request") if isinstance(exact, dict) else None
+        nested_digest = exact.get("requestDigest") if isinstance(exact, dict) else None
+        recorded = (
+            isinstance(exact, dict)
+            and set(exact)
+            == {"contractVersion", "request", "requestDigest", "prompt", "tokens"}
+            and exact.get("contractVersion")
+            == "med-agent-hub.catalyst-role-request-evidence.v1"
+            and isinstance(request, dict)
+            and isinstance(request.get("messages"), list)
+            and len(request["messages"]) >= 2
+            and isinstance(exact.get("prompt"), dict)
+            and isinstance(exact.get("tokens"), dict)
+        )
+        request_evidence_detail.append(
+            {"invocationId": invocation_id, "role": role, "recorded": recorded}
+        )
+        digest_match = (
+            isinstance(nested_digest, str)
+            and re.fullmatch(r"[a-f0-9]{64}", nested_digest) is not None
+            and invocation.get("requestDigest") == nested_digest
+        )
+        digest_detail.append(
+            {
+                "invocationId": invocation_id,
+                "invocationRequestDigest": invocation.get("requestDigest"),
+                "requestEvidenceDigest": nested_digest,
+                "matches": digest_match,
+            }
+        )
+        capacity_coherent = _capacity_evidence_is_coherent(invocation)
+        capacity_detail.append(
+            {
+                "invocationId": invocation_id,
+                "outcome": invocation.get("outcome"),
+                "coherent": capacity_coherent,
+                "tokens": exact.get("tokens") if isinstance(exact, dict) else None,
+            }
+        )
+        context_required = followup_requires_context or revision_context_recorded
+        context_match = not context_required or (
+            revision_context_recorded
+            and _request_revision(invocation) == revision_context
+        )
+        retained_context_detail.append(
+            {
+                "invocationId": invocation_id,
+                "required": context_required,
+                "revisionContextRecorded": revision_context_recorded,
+                "matches": context_match,
+            }
+        )
+
+    request_evidence_ok = zero_invocation_answer or (
+        bool(invocations)
+        and len(request_evidence_detail) == len(invocations)
+        and all(item["recorded"] for item in request_evidence_detail)
+    )
+    digest_matches = zero_invocation_answer or (
+        bool(invocations)
+        and len(digest_detail) == len(invocations)
+        and all(item["matches"] for item in digest_detail)
+    )
+    capacity_coherent = zero_invocation_answer or (
+        bool(invocations)
+        and len(capacity_detail) == len(invocations)
+        and all(item["coherent"] for item in capacity_detail)
+    )
+    retained_context = (
+        not followup_requires_context or revision_context_recorded
+    ) and (
+        zero_invocation_answer
+        or (
+            bool(invocations)
+            and len(retained_context_detail) == len(invocations)
+            and all(item["matches"] for item in retained_context_detail)
+        )
     )
     return [
         (
@@ -4422,7 +5150,8 @@ def _evidence_checks(
         ),
         (
             "writer_model",
-            role_models.get("writer") == expected_profile["writerModelId"],
+            role_models.get("writer") == expected_profile["writerModelId"]
+            or zero_invocation_answer,
             role_models,
         ),
         (
@@ -4436,6 +5165,14 @@ def _evidence_checks(
             },
         ),
         ("effective_temperature_and_dry", config_ok, configurations),
+        ("hub_request_evidence", request_evidence_ok, request_evidence_detail),
+        ("hub_request_digest_match", digest_matches, digest_detail),
+        ("hub_capacity_evidence", capacity_coherent, capacity_detail),
+        (
+            "retained_instruction_context",
+            retained_context,
+            retained_context_detail,
+        ),
         ("revision_context_exclusions", not forbidden, forbidden),
     ]
 

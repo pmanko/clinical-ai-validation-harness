@@ -1,11 +1,10 @@
 """The file that seeds a run, and travels with its evidence.
 
 Nothing about a comparison should live in a shell variable that happened to
-be set that afternoon: the suite, the gateway, the acceptance gates and the
-publication identity are all read from one config file built off a checked-in
-template. `run` freezes the resolved copy into the run directory, so a
-`finish` months later applies the thresholds the run was seeded with rather
-than today's, and a published package carries its own seed.
+be set that afternoon: the suite, rubric, gateway, database identity, and
+publication identity are all read from one checked-in config file. `run`
+freezes the resolved copy into the run directory, so the published evidence
+states exactly what was used.
 
 Secrets are referenced by environment-variable name, never written. The
 frozen copy is published, so it must be safe to publish.
@@ -30,7 +29,7 @@ def resolve(path: str | Path, *, require_secrets: bool = True) -> dict[str, Any]
     """Read a config file and normalize it, resolving secret references.
 
     `require_secrets=False` is for reading a template without the runtime
-    environment (tests, and anything that only wants the gates).
+    environment, such as documentation and tests.
     """
     source = Path(path)
     try:
@@ -49,7 +48,6 @@ def resolve(path: str | Path, *, require_secrets: bool = True) -> dict[str, Any]
             f"${password_env}, which is not set"
         )
 
-    gates = dict(raw.get("gates") or {})
     invocation = raw.get("invocation", {})
     if invocation is None:
         invocation = {}
@@ -85,18 +83,15 @@ def resolve(path: str | Path, *, require_secrets: bool = True) -> dict[str, Any]
             raise SystemExit(
                 f"run config {source} invocation.{field} must be boolean"
             )
-    return {
+    resolved = {
         "suite": str(raw.get("suite") or ""),
+        "readerRubric": str(raw.get("readerRubric") or ""),
+        "readerRubricSha256": str(raw.get("readerRubricSha256") or ""),
         "gatewayUrl": str(raw.get("gatewayUrl") or ""),
         "outputDir": str(raw.get("outputDir") or ""),
         "warmupQuestion": str(raw.get("warmupQuestion") or ""),
         "postgres": postgres,
         "_password": password,
-        # Normalized to the snake_case the report and triage speak.
-        "gates": {
-            "overall": gates.get("overall"),
-            "per_scenario": gates.get("perScenario", gates.get("per_scenario")),
-        },
         "invocation": {
             "scenarios": list(dict.fromkeys(scenarios)),
             "repetitions": repetitions,
@@ -107,6 +102,15 @@ def resolve(path: str | Path, *, require_secrets: bool = True) -> dict[str, Any]
         "publish": dict(raw.get("publish") or {}),
         "source": str(source),
     }
+    # Older frozen runs may still be reproduced with their historical report.
+    # The active reader-led comparison does not declare or consume gates.
+    if "gates" in raw:
+        gates = dict(raw.get("gates") or {})
+        resolved["gates"] = {
+            "overall": gates.get("overall"),
+            "per_scenario": gates.get("perScenario", gates.get("per_scenario")),
+        }
+    return resolved
 
 
 def postgres_dsn(config: dict[str, Any]) -> str:

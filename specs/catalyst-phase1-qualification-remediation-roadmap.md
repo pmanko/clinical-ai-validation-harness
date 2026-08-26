@@ -1,6 +1,6 @@
 # Catalyst Phase 1 comparison repair — execution plan
 
-**Status:** Active. The owner-approved direction is recorded in R0. The Phase 1
+**Status:** Active. The owner-approved direction is recorded below. The Phase 1
 product foundation exists; the remaining work is to make the planned experiment
 and report trustworthy. This is not a production-approval or model-selection
 plan.
@@ -59,12 +59,10 @@ outcome.
 
 | Area | Verified problem | Required outcome |
 | --- | --- | --- |
-| Turn checks | One follow-up answer check was applied to more than its intended turn, and several ready turns lack complete independent answers. | Each scored turn has its own expected outcome and database-backed factual check. |
+| Turn checks | One follow-up answer check was applied to more than its intended turn, and several ready turns lack complete independent answers. | Each evaluated turn has its own expected outcome and database-backed factual check. |
 | Database evidence | Some records prove only that an endpoint accepted a request, not what PostgreSQL returned for the exact SQL. | The report links the displayed SQL, validator findings, PostgreSQL result or diagnostic, and independent answer check. |
-| Result-set integrity | Existing composition can accept missing, accidentally duplicated, or differently configured evidence. | The result set matches the collection declared by one frozen experiment definition and is internally consistent. |
-| Reporting | Legacy report code turns provisional percentages into verdict and ranking language and advertises several judge passes. | The report presents the evidence and one manual full-context rubric review by default, without automatic team verdicts. |
+| Reporting | Legacy report code turns provisional percentages into verdict and ranking language and advertises several judge passes. | The report presents the evidence and one full-context reader review by default, without automatic team verdicts. |
 | Data and context | The writer can receive a narrower catalog than the human, exact context evidence may be absent, and an unexecuted query can appear as a verified example. | Model and human share the readable surface; examples are genuinely verified; supplied and omitted context is visible. |
-| Real-path stability | The retained OpenELIS database location can depend on the worktree that starts the stack. | The supported stack preserves the same test fixture across clean worktrees without a hidden seed or reset. |
 
 The development comparison already published remains useful diagnostic
 evidence. Its measurement defects mean it cannot settle the repaired
@@ -73,14 +71,22 @@ suite and catalog identities.
 
 ## Sequence
 
-R0 establishes the plan. R1 establishes the collection lifecycle.
-R5, R6, and R7 can proceed in parallel after R0. R2 binds the finished data and
-context contracts; R3 then establishes result-set integrity; R4 produces the
-reporting and manual-review path. R8 runs the experiment. R9 is optional work
-chosen after reading the results. R10 closes Phase 1 once the real product path
-and report are complete.
+The remaining work has one dependency chain:
 
-### R0 — Align the authoritative plan
+1. finish the shared data surface and session-context evidence;
+2. add question-specific database answer checks;
+3. generate the human-readable evidence report;
+4. run and publish the complete three-team comparison; and
+5. verify the real browser path and close Phase 1.
+
+Planning alignment and interruption-safe collection are already complete.
+Collection and reporting include a small sanity check that the frozen suite's
+declared conversations are each present once. That check is not a separate
+implementation stage. The existing retained test
+database is reused; Phase 1 does not require a worktree or restart persistence
+experiment.
+
+### Align the authoritative plan
 
 **Repository:** validation harness. **State:** complete.
 
@@ -99,9 +105,9 @@ Acceptance:
 - the owner reviews and approves the final roadmap diff before reporting
   implementation resumes.
 
-### R1 — Honest collection identity and interruption handling
+### Honest collection identity and interruption handling
 
-**Repository:** validation harness. **State:** in review.
+**Repository:** validation harness. **State:** complete.
 
 The collection freezes a secret-free identity before live calls, returns the
 exact evidence location, preserves interrupted evidence, and treats wrong
@@ -120,9 +126,10 @@ Acceptance:
 - lifecycle and recovery behavior is proven by focused harness tests rather
   than restated as product policy.
 
-### R2 — Turn-specific factual evidence
+### Turn-specific factual evidence
 
-**Repository:** validation harness. **Depends on:** R1, R5, and R6.
+**Repository:** validation harness. **Depends on:** the shared data surface and
+session-context evidence.
 
 Create suite v2 without changing published suite v1. Give every opening and
 follow-up turn its own expected outcome, database execution evidence when SQL
@@ -142,34 +149,16 @@ Acceptance:
   observations, context evidence, model calls, tokens, and timing remain
   connected to the correct turn;
 - an ordinary bad model query stays in the result set when this evidence is
-  present.
+  present;
+- the report calls the collection complete only when the conversations declared
+  by the frozen suite are each present once.
 
-### R3 — Complete result-set integrity
+### Context-rich report and reader review
 
-**Repository:** validation harness. **Depends on:** R2.
+**Repository:** validation harness. **Depends on:** turn-specific factual
+evidence.
 
-Treat the frozen suite's declared team-and-scenario collection as one
-reviewable evidence set. Validate its completeness and frozen configuration
-before reporting it.
-
-Acceptance:
-
-- the result set contains every conversation declared by the frozen suite with
-  no unintended omission or duplicated evidence record;
-- repeated measures, when requested, are separate complete suite runs;
-- every conversation has the suite, data, catalog, code, model, prompt, and
-  context evidence needed to understand what ran;
-- mixed or internally inconsistent evidence is reported plainly and cannot be
-  presented as the completed experiment;
-- infrastructure-interrupted collection is distinct from completed model
-  behavior;
-- replaying the stored evidence produces the same factual report content.
-
-### R4 — Context-rich report and manual rubric review
-
-**Repository:** validation harness. **Depends on:** R3.
-
-Use the existing result preparation and manual finalization path. Remove the
+Use the existing result preparation and explicit finalization path. Remove the
 legacy automatic pass/fail, percentage-threshold, ranking, tie, and
 prescribed review-count semantics from the active report.
 
@@ -178,7 +167,7 @@ Acceptance:
 - the reader can inspect every complete conversation, actual model context,
   output, selected SQL, validator findings, PostgreSQL result or diagnostic,
   independent factual checks, timings, calls, tokens, and relevant provenance;
-- one manually initiated frontier-model review of the entire prepared result
+- one deliberately initiated frontier-model review of the entire prepared result
   set against the frozen rubric is the default;
 - the same complete case context and rubric is supplied for every team;
 - if the owner wants another perspective, it uses a different model or agent
@@ -190,10 +179,10 @@ Acceptance:
   machine-readable evidence rather than creating several parallel decision
   artifacts.
 
-### R5 — Shared readable data surface
+### Shared readable data surface
 
 **Repositories:** Catalyst, then validation harness source/catalog integration.
-**Depends on:** R0.
+**Depends on:** the aligned plan.
 
 Remove the model-only catalog restriction while preserving advisory validation.
 Keep published catalog v6 under its historical identity and record the actual
@@ -210,10 +199,10 @@ Acceptance:
 - local and demo catalogs are recorded separately and need not be identical;
 - the experiment records the catalog it actually used.
 
-### R6 — Honest context evidence and guidance research seam
+### Honest session-context evidence
 
 **Repositories:** Med-Agent Hub, Catalyst, then validation harness integration.
-**Depends on:** R0.
+**Depends on:** the aligned plan.
 
 Make actual session context observable without deciding in advance that a
 separate guidance control is useful.
@@ -231,62 +220,42 @@ Acceptance:
 - verified examples come only from earlier kept queries with recorded advisory
   validation and successful database execution against the same source;
 - validator findings stay with those examples but do not veto their use;
-- existing application-programming-interface guidance may remain available for
-  experiments, but no composer or Pin control is required;
-- separate nearby research cases compare retained user-instruction history,
-  explicit guidance, and durable catalog or example knowledge before a
-  user-facing design is proposed;
-- general reusable rules are evaluated as durable metadata or examples rather
-  than assumed to belong in a session pin.
+- existing guidance support may remain available for experiments, but no
+  composer or Pin control is required.
 
-### R7 — Real database path and stable retained fixture
+The optional comparison of retained history, explicit guidance, and durable
+catalog or example knowledge remains separate research. It can inform a future
+user interface, but it is not required before the core comparison.
 
-**Repositories:** validation harness, Catalyst, and Med-Agent Hub as needed.
-**Depends on:** R5 and R6 for final proof.
-
-Prove the experiment through real PostgreSQL and make the supported retained
-test database independent of the worktree that launches Catalyst.
-
-Acceptance:
-
-- the exact code intended for R8 passes real catalog refresh, semantic-answer,
-  advisory-validation, and bounded read-only execution checks;
-- starting the same stack from another clean worktree preserves the same
-  fixture and does not combine incompatible retained services;
-- a supported no-reset, no-seed restart passes health checks;
-- the stable fixture can be used throughout the experiment without routine
-  recreation;
-- local and demonstration environments record their own observed state rather
-  than being forced to match.
-
-### R8 — Run and publish the Phase 1 experiment
+### Run and publish the Phase 1 experiment
 
 **Environment:** owner's local GPU through the supported isolated stack.
-**Depends on:** R1–R7 complete on the exact code used for collection.
+**Depends on:** the data surface, context evidence, question-specific checks,
+and report path being complete on the exact code used for collection.
 
 Freeze the current suite v2, rubric, model setups, data, observed catalog
 identity, and environment. Exercise all three teams across the full scenario
-set and publish the complete evidence and R4 review.
+set and publish the complete evidence and reader review.
 
 Acceptance:
 
 - every suite-declared conversation is present and retains its internal session
   context;
-- every result is traceable to the frozen experiment definition and passes R2
-  and R3 evidence checks;
+- every result is traceable to the frozen experiment definition and has its
+  question-specific evidence;
 - wrong model answers remain visible findings;
 - machine or service interruptions remain separate and an unfinished
   collection is reported as unfinished;
 - the public report is secret-free, links to the underlying evidence, and
-  shows the manual rubric rationale;
+  shows the reader's rubric rationale;
 - the reader can evaluate the result set without an automatic winner or formal
   outcome label;
 - completing and publishing this experiment satisfies the comparison part of
   Phase 1 regardless of the reader's preference.
 
-### R9 — Optional evidence-led next-goal planning
+### Optional evidence-led next-goal planning
 
-**Depends on:** R8 report available.
+**Depends on:** the comparison report being available.
 
 After reading the report, the owner may choose a product repair, a focused
 research experiment, a model change, or no immediate follow-up. This item is
@@ -298,10 +267,10 @@ that were not copied from the frozen comparison questions. The change receives
 a direct code-and-test review. The old result remains intact; any later
 experiment is reported under its own definition.
 
-### R10 — Confirm the real product path and close Phase 1
+### Confirm the real product path and close Phase 1
 
-**Depends on:** R8 report and a working real Catalyst path. A team preference
-is not required.
+**Depends on:** the comparison report and a working real Catalyst path. A team
+preference is not required.
 
 Use an explicitly recorded demonstration configuration to verify the browser
 journeys named in the program roadmap. The demonstration proves that the
@@ -320,10 +289,11 @@ Acceptance is intentionally small:
 
 Each code change runs the focused tests for the behavior it changes plus the
 repository's current required checks. Real PostgreSQL proof is required before
-R8. The supported `scripts/catalyst-mvp.sh` wrapper is used for stack lifecycle,
-and seed or reset remains an explicit owner-approved operation. Browser
-acceptance compares the live behavior with the expected database answer and
-visible product state.
+the comparison run. Use the existing retained test database and record its
+dataset identity and health. The supported `scripts/catalyst-mvp.sh` wrapper is
+used for stack lifecycle, and seed or reset remains an explicit owner-approved
+operation. Browser acceptance compares the live behavior with the expected
+database answer and visible product state.
 
 The repository's current scripts, continuous-integration configuration, and
 tests are the canonical commands and assertions; this roadmap does not copy

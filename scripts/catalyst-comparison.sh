@@ -4,8 +4,11 @@
 #   scripts/catalyst-comparison.sh run              start (or restart) the frozen comparison
 #   scripts/catalyst-comparison.sh resume <run-id>  create a linked recovery run for
 #                                                   an interrupted run
-#   scripts/catalyst-comparison.sh finish <run-id>  score twice (byte-check), build the
-#                                                   report, freeze the dashboard, stage both
+#   scripts/catalyst-comparison.sh prepare-review <run-id>
+#                                                   verify the completed evidence and
+#                                                   write the reviewer's input file
+#   scripts/catalyst-comparison.sh finish <run-id>  verify evidence, require the attached
+#                                                   reader review, and publish the report
 #
 # The run lands in artifacts/catalyst-notebook-validation/<run-id>/ where the
 # live dashboard (scripts/validate-dashboard.py, :8099) picks it up; `finish`
@@ -35,7 +38,7 @@ else:
 ' "$1" "$2")
 }
 
-cmd="${1:?usage: catalyst-comparison.sh run|resume <run-id>|finish <run-id>}"
+cmd="${1:?usage: catalyst-comparison.sh run|resume <run-id>|prepare-review <run-id>|finish <run-id>}"
 
 OUT_DIR="${ROOT}/$(cfg "${CONFIG}" outputDir)"
 
@@ -61,8 +64,8 @@ case "${cmd}" in
     OUT_DIR="${frozen_out_dir}"
     run_suite --resume "${source_dir}"
     ;;
-  finish)
-    run_id="${2:?finish needs the run id}"
+  prepare-review|finish)
+    run_id="${2:?${cmd} needs the run id}"
     run_dir="${OUT_DIR}/${run_id}"
     # The run's own seed decides how it is judged and published.
     if [[ -f "${run_dir}/run-config.json" ]]; then
@@ -78,66 +81,29 @@ case "${cmd}" in
     SLUG="${SLUG:-catalyst-phase1-comparison-${run_id%%-*}}"
     [[ -f "${run_dir}/results.json" ]] || { echo "ERROR: ${run_dir} has no results.json (run not finished — use resume)" >&2; exit 1; }
 
-    echo "==> triage: every conversation conformed, every pass exercised"
+    echo "==> verify: every conversation has the evidence its question requires"
     (cd "${ROOT}" && uv run python scripts/triage-run.py "${run_dir}")
 
-    echo "==> scoring twice; replays must be byte-identical"
-    (cd "${ROOT}" && uv run python - "$run_dir" <<'PY'
-import sys
-from harness.catalyst.notebook_scoring import score_run
-first = score_run(sys.argv[1], as_json=True)
-second = score_run(sys.argv[1], as_json=True)
-assert first == second, "scorer replay was not byte-identical"
-out = f"{sys.argv[1]}/score.json"
-open(out, "w", encoding="utf-8").write(first)
-print(f"score -> {out} (byte-identical on replay)")
-PY
-)
+    echo "==> prepare one full-context reader-review input"
+    (cd "${ROOT}" && uv run python scripts/prepare-catalyst-reader-review.py "${run_dir}")
 
-    echo "==> single-run narrative report"
+    if [[ "${cmd}" == "prepare-review" ]]; then
+      echo "review input ready: ${run_dir}/reader-review-input.json"
+      exit 0
+    fi
+
+    echo "==> verify attached review used this exact reader-review input"
+    (cd "${ROOT}" && uv run python scripts/prepare-catalyst-reader-review.py \
+      "${run_dir}" --check-attached)
+
+    echo "==> full-evidence report with the attached reader review"
     (cd "${ROOT}" && uv run harness-cli catalyst report "${run_dir}")
 
-    echo "==> per-team comparison page"
-    (cd "${ROOT}" && uv run python - "$run_dir" <<'PY'
-import sys
-from pathlib import Path
-from harness.catalyst.profile_comparison_report import (
-    build_comparison_report,
-    entries_from_comparison_run,
-)
-from harness.catalyst.run_config import load_frozen
-run_dir = Path(sys.argv[1])
-entries = entries_from_comparison_run(run_dir)
-# The gates come from the run's own seed, so the page records the policy it
-# was judged against rather than whatever the programme uses today.
-gates = (load_frozen(run_dir).get("gates") or None)
-html = build_comparison_report(
-    entries, title="Catalyst Phase 1 team comparison", gates=gates
-)
-out = run_dir / "comparison.html"
-out.write_text(html, encoding="utf-8")
-print(f"comparison -> {out} ({len(entries)} teams, gates={gates})")
-PY
-)
-
-    echo "==> stage report + frozen dashboard into the curated index"
+    echo "==> stage the report and its evidence into the curated index"
     "${ROOT}/scripts/publish-report.sh" catalyst "${run_dir}" "${SLUG}" \
       "${TITLE:-$(cfg "${CONFIG}" publish.title)}" \
       "${SUMMARY:-$(cfg "${CONFIG}" publish.summary)}" \
       "${TAKEAWAY:-$(cfg "${CONFIG}" publish.takeaway)}"
-    ;;
-  score)
-    # Compose any number of single-pass runs of the same suite into one
-    # sample: catalyst-comparison.sh score <run-id> [<run-id> ...]
-    shift
-    [[ $# -ge 1 ]] || { echo "score needs at least one run id" >&2; exit 1; }
-    dirs=()
-    for run_id in "$@"; do dirs+=("${OUT_DIR}/${run_id}"); done
-    (cd "${ROOT}" && uv run python -c '
-import sys
-from harness.catalyst.notebook_scoring import score_runs
-print(score_runs(sys.argv[1:], as_json=True), end="")
-' "${dirs[@]}")
     ;;
   *)
     echo "unknown command ${cmd}" >&2; exit 1;;

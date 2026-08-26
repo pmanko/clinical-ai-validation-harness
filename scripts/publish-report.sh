@@ -30,11 +30,19 @@ fi
 # The interactive dashboard's run matrix is the tracking/review surface for
 # BOTH families; the index links it whenever <slug>/dashboard.html exists, so
 # skipping the freeze is how catalyst reports quietly lost that link.
-if [[ "${DRY_RUN}" != "1" ]]; then
+READER_LED=0
+if [[ "${FAMILY}" == "catalyst" ]] \
+  && grep -q '"reportMode"[[:space:]]*:[[:space:]]*"reader-led"' \
+    "${RUN_DIR}/suite.json"; then
+  READER_LED=1
+fi
+if [[ "${DRY_RUN}" != "1" && "${READER_LED}" != "1" ]]; then
   echo "==> freezing interactive dashboard snapshot (${FAMILY})"
   (cd "${ROOT}" && uv run python scripts/validate-dashboard.py \
     --freeze "${REPORTS_ROOT}/${SLUG}/dashboard.html" --run "${RUN_DIR}") \
     || echo "warn: dashboard freeze failed for ${SLUG}" >&2
+elif [[ "${DRY_RUN}" != "1" ]]; then
+  echo "==> reader-led report: no automatic-score dashboard is generated"
 fi
 
 (cd "${ROOT}" && uv run python scripts/build-reports-index.py \
@@ -57,10 +65,14 @@ fi
 
 IP="$(gcp_vm_ip)"
 gcp_ssh_keygen_once
-gcp_ssh "mkdir -p ${GCP_REMOTE_REPO}/artifacts/reports"
+gcp_ssh "mkdir -p ${GCP_REMOTE_REPO}/artifacts/reports/${SLUG}"
+rsync -avz --delete \
+  -e "ssh -i ${GCP_SSH_KEY} -o StrictHostKeyChecking=accept-new" \
+  "${REPORTS_ROOT}/${SLUG}/" \
+  "${GCP_SSH_USER}@${IP}:${GCP_REMOTE_REPO}/artifacts/reports/${SLUG}/"
 rsync -avz \
   -e "ssh -i ${GCP_SSH_KEY} -o StrictHostKeyChecking=accept-new" \
-  "${REPORTS_ROOT}/" \
+  "${REPORTS_ROOT}/index.html" "${REPORTS_ROOT}/reports-index.json" \
   "${GCP_SSH_USER}@${IP}:${GCP_REMOTE_REPO}/artifacts/reports/"
 gcp_ssh "chmod -R a+rX ${GCP_REMOTE_REPO}/artifacts/reports"
 

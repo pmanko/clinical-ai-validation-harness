@@ -117,10 +117,13 @@ def test_the_shipped_template_is_the_one_the_comparison_runs(tmp_path):
         ROOT / "datasets" / "validation" / "catalyst" / "run-config.template.json",
         require_secrets=False,
     )
-    assert config["suite"].endswith("catalyst-phase1-comparison-v1.json")
+    assert config["suite"].endswith("catalyst-phase1-comparison-v2.json")
     assert (ROOT / config["suite"]).is_file()
-    assert config["gates"]["overall"] == 0.90
-    assert config["gates"]["per_scenario"] == 0.80
+    assert config["readerRubric"].endswith(
+        "catalyst-phase1-reader-rubric-v1.md"
+    )
+    assert (ROOT / config["readerRubric"]).is_file()
+    assert "gates" not in config
     assert config["publish"]["slug"]
     assert config["warmupQuestion"].startswith("How many distinct patients")
     assert config["invocation"] == {

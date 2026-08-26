@@ -5,6 +5,7 @@ import json
 import runpy
 import sys
 import threading
+from collections import Counter
 from datetime import date, datetime, time, timezone
 from decimal import Decimal
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -67,11 +68,79 @@ def _evidence(
     instruction: str,
     role_models: tuple[str, str | None] = ("gemma-4-12b", "qwen2.5-14b"),
 ) -> dict[str, Any]:
+    evidence_digest = hashlib.sha256(f"evidence:{turn_id}".encode()).hexdigest()
+    candidate_digest = hashlib.sha256(f"candidate:{turn_id}".encode()).hexdigest()
+    revision_context = (
+        None
+        if turn_id == "turn-initial"
+        else {
+            "currentInstruction": instruction,
+            "instructionHistory": [
+                {
+                    "kind": "initial",
+                    "instruction": "Show patient identifiers.",
+                }
+            ],
+        }
+    )
     invocations = []
     roles = [("writer", role_models[0])]
     if role_models[1] is not None:
         roles.append(("reviewer", role_models[1]))
     for index, (role, model_id) in enumerate(roles, start=1):
+        accounting = {
+            "tokenizer": model_id,
+            "contextWindow": 8192,
+            "outputReserve": 2048,
+            "promptTokens": 4000,
+        }
+        caller_payload: dict[str, Any] = {"instruction": instruction}
+        if revision_context is not None:
+            caller_payload["revision"] = revision_context
+        request = {
+            "profileId": PROFILE_ID,
+            "role": "query_generate" if role == "writer" else "query_review",
+            "model": model_id,
+            "messages": [
+                {"role": "system", "content": f"Exact {role} prompt."},
+                {
+                    "role": "user",
+                    "content": json.dumps(caller_payload, separators=(",", ":")),
+                },
+            ],
+            "responseFormat": {"type": "json_object"},
+            "config": {
+                "temperature": 0,
+                "dryMultiplier": 0,
+                "maxTokens": accounting["outputReserve"],
+            },
+        }
+        request_digest = hashlib.sha256(
+            json.dumps(
+                request,
+                sort_keys=True,
+                separators=(",", ":"),
+            ).encode("utf-8")
+        ).hexdigest()
+        rendered_prompt = f"<s>exact {role} request</s>"
+        request_evidence = {
+            "contractVersion": "med-agent-hub.catalyst-role-request-evidence.v1",
+            "request": request,
+            "requestDigest": request_digest,
+            "prompt": {
+                "renderedPrompt": rendered_prompt,
+                "renderedPromptDigest": hashlib.sha256(
+                    rendered_prompt.encode("utf-8")
+                ).hexdigest(),
+            },
+            "tokens": {
+                **accounting,
+                "requiredTokens": (
+                    accounting["promptTokens"] + accounting["outputReserve"]
+                ),
+                "fits": True,
+            },
+        }
         invocations.append(
             {
                 "invocationId": f"invocation-{turn_id}-{index}",
@@ -89,16 +158,18 @@ def _evidence(
                 "startedAt": f"2026-07-20T12:00:0{index}.000Z",
                 "endedAt": f"2026-07-20T12:00:0{index}.005Z",
                 "durationMs": 5,
-                "requestDigest": str(index) * 64,
+                "requestDigest": request_digest,
                 "responseDigest": str(index + 2) * 64,
                 "failureDigest": None,
+                "tokenAccounting": accounting,
+                "requestEvidence": request_evidence,
                 "outcome": "succeeded",
             }
         )
     return {
         "contractVersion": "catalyst.workbench.generation-evidence.v1",
         "evidenceId": f"evidence-{turn_id}",
-        "evidenceDigest": "a" * 64,
+        "evidenceDigest": evidence_digest,
         "sessionId": "session-1",
         "turnId": turn_id,
         "turnKind": "initial" if turn_id == "turn-initial" else "followup",
@@ -110,7 +181,7 @@ def _evidence(
         "observedBase": None,
         "effectiveBaseVersion": None,
         "manualVersion": None,
-        "revisionContext": {"instructionHistory": []},
+        "revisionContext": revision_context,
         "dataset": {},
         "catalog": {},
         "policy": {},
@@ -123,7 +194,7 @@ def _evidence(
         "hubResponse": {},
         "invocations": invocations,
         "totalInvocationDurationMs": 5 * len(invocations),
-        "candidates": [],
+        "candidates": [{"candidateDigest": candidate_digest}],
         "finalSelection": {"status": "completed"},
         "omissions": [],
         "prohibitedClasses": [],
@@ -983,6 +1054,39 @@ class _GoldCheckCursor:
 
     def execute(self, statement: str, parameters: object = None) -> None:
         self.statements.append((statement, parameters))
+        if "model_values AS" in statement:
+            model_columns, model_rows = next(
+                value
+                for marker, value in self.rows_by_marker.items()
+                if "model" in marker
+            )
+            reference_columns, reference_rows = next(
+                value
+                for marker, value in self.rows_by_marker.items()
+                if "reference" in marker
+            )
+            missing = list(
+                (Counter(reference_rows) - Counter(model_rows)).elements()
+            )
+            extra = list((Counter(model_rows) - Counter(reference_rows)).elements())
+            if "(SELECT count(*) FROM model_values)" in statement:
+                self._columns = [
+                    "model_count",
+                    "reference_count",
+                    "missing_count",
+                    "extra_count",
+                ]
+                self._rows = [
+                    (len(model_rows), len(reference_rows), len(missing), len(extra))
+                ]
+            elif (
+                "SELECT * FROM reference_values EXCEPT ALL "
+                "SELECT * FROM model_values" in statement
+            ):
+                self._columns, self._rows = reference_columns, missing[:20]
+            else:
+                self._columns, self._rows = model_columns, extra[:20]
+            return
         for marker, (columns, rows) in self.rows_by_marker.items():
             if marker in statement:
                 self._columns, self._rows = columns, rows
@@ -1019,6 +1123,161 @@ def _gold_check_connection(
 
     monkeypatch.setattr(psycopg, "connect", lambda *args, **kwargs: Connection())
     return cursor
+
+
+def _row_set_version_and_check() -> tuple[dict[str, Any], Any]:
+    from harness.catalyst.notebook_validation import NotebookGoldCheck
+
+    return (
+        {
+            "versionId": "version-1",
+            "queryDigest": "a" * 64,
+            "sql": "SELECT observation_id FROM model_table",
+            "parameters": [],
+        },
+        NotebookGoldCheck(
+            mode="row_set",
+            reference_sql="SELECT observation_id FROM reference_table",
+            match_columns=("observation_id",),
+        ),
+    )
+
+
+@pytest.mark.parametrize(
+    ("trigger", "message", "raises"),
+    [
+        ("AS model_rows LIMIT 0", "model query could not be compared", False),
+        (
+            "AS reference_rows LIMIT 0",
+            "independent reference query could not be compared",
+            True,
+        ),
+        (
+            "(SELECT count(*) FROM model_values)",
+            "requested model columns could not be compared",
+            False,
+        ),
+    ],
+)
+def test_database_row_set_reports_query_and_comparison_errors(
+    trigger: str, message: str, raises: bool,
+) -> None:
+    import psycopg
+
+    from harness.catalyst.notebook_validation import PostgresGoldExecutionChecker
+
+    cursor = _GoldCheckCursor(
+        {
+            "model_table": (["observation_id"], [("o1",)]),
+            "reference_table": (["observation_id"], [("o1",)]),
+        }
+    )
+    execute = cursor.execute
+
+    def fail_selected(statement: str, parameters: object = None) -> None:
+        if trigger in statement:
+            raise psycopg.Error("comparison failed")
+        execute(statement, parameters)
+
+    cursor.execute = fail_selected  # type: ignore[method-assign]
+    version, gold_check = _row_set_version_and_check()
+    checker = PostgresGoldExecutionChecker("postgresql://unused")
+
+    if raises:
+        with pytest.raises(ValueError, match=message):
+            checker._database_row_set_check(cursor, version, gold_check)
+    else:
+        result = checker._database_row_set_check(cursor, version, gold_check)
+        assert result["passed"] is False
+        assert message in result["disagreement"]
+        assert result["databaseDiagnostic"] == {"sqlstate": None}
+
+
+@pytest.mark.parametrize("missing_from", ["model", "reference"])
+def test_database_row_set_names_missing_match_columns(missing_from: str) -> None:
+    from harness.catalyst.notebook_validation import PostgresGoldExecutionChecker
+
+    cursor = _GoldCheckCursor(
+        {
+            "model_table": (
+                ["wrong_column"] if missing_from == "model" else ["observation_id"],
+                [("o1",)],
+            ),
+            "reference_table": (
+                ["wrong_column"]
+                if missing_from == "reference"
+                else ["observation_id"],
+                [("o1",)],
+            ),
+        }
+    )
+    version, gold_check = _row_set_version_and_check()
+    checker = PostgresGoldExecutionChecker("postgresql://unused")
+
+    if missing_from == "reference":
+        with pytest.raises(ValueError, match="reference query is missing columns"):
+            checker._database_row_set_check(cursor, version, gold_check)
+    else:
+        result = checker._database_row_set_check(cursor, version, gold_check)
+        assert result["passed"] is False
+        assert "no column named 'observation_id'" in result["disagreement"]
+
+
+def test_database_row_set_requires_one_summary_row() -> None:
+    from harness.catalyst.notebook_validation import PostgresGoldExecutionChecker
+
+    cursor = _GoldCheckCursor(
+        {
+            "model_table": (["observation_id"], [("o1",)]),
+            "reference_table": (["observation_id"], [("o1",)]),
+        }
+    )
+    execute = cursor.execute
+
+    def omit_summary(statement: str, parameters: object = None) -> None:
+        execute(statement, parameters)
+        if "(SELECT count(*) FROM model_values)" in statement:
+            cursor._rows = []
+
+    cursor.execute = omit_summary  # type: ignore[method-assign]
+    version, gold_check = _row_set_version_and_check()
+
+    with pytest.raises(ValueError, match="returned no summary"):
+        PostgresGoldExecutionChecker("postgresql://unused")._database_row_set_check(
+            cursor, version, gold_check
+        )
+
+
+@pytest.mark.parametrize(
+    ("model_rows", "reference_rows", "missing_sample", "extra_sample"),
+    [
+        ([("o1",)], [("o1",), ("o2",)], [["o2"]], []),
+        ([("o1",), ("o2",)], [("o1",)], [], [["o2"]]),
+    ],
+)
+def test_database_row_set_samples_each_one_sided_difference(
+    model_rows: list[tuple[str]],
+    reference_rows: list[tuple[str]],
+    missing_sample: list[list[str]],
+    extra_sample: list[list[str]],
+) -> None:
+    from harness.catalyst.notebook_validation import PostgresGoldExecutionChecker
+
+    cursor = _GoldCheckCursor(
+        {
+            "model_table": (["observation_id"], model_rows),
+            "reference_table": (["observation_id"], reference_rows),
+        }
+    )
+    version, gold_check = _row_set_version_and_check()
+
+    result = PostgresGoldExecutionChecker(
+        "postgresql://unused"
+    )._database_row_set_check(cursor, version, gold_check)
+
+    assert result["passed"] is False
+    assert result["missingFromModelSample"] == missing_sample
+    assert result["extraInModelSample"] == extra_sample
 
 
 def test_gold_execution_checker_count_mode_compares_row_counts(monkeypatch) -> None:
@@ -1157,6 +1416,85 @@ def test_gold_execution_checker_row_set_mode_passes_on_exact_match(monkeypatch) 
     ).check(version, gold_check)
 
     assert result["passed"] is True
+
+
+def test_row_set_can_ignore_csv_order_without_ignoring_membership(monkeypatch) -> None:
+    from harness.catalyst.notebook_validation import (
+        NotebookGoldCheck,
+        PostgresGoldExecutionChecker,
+    )
+
+    _gold_check_connection(
+        monkeypatch,
+        {
+            "model_table": (
+                ["patient_id", "medications"],
+                [("p1", "Tenofovir,  Dolutegravir")],
+            ),
+            "reference_table": (
+                ["patient_id", "medications"],
+                [("p1", "Dolutegravir, Tenofovir")],
+            ),
+        },
+    )
+    check = NotebookGoldCheck(
+        mode="row_set",
+        reference_sql="SELECT patient_id, medications FROM reference_table",
+        match_columns=("patient_id", "medications"),
+        normalizers={"medications": "unordered_csv"},
+    )
+    version = {
+        "versionId": "v",
+        "queryDigest": "a" * 64,
+        "sql": "SELECT patient_id, medications FROM model_table",
+        "parameters": [],
+    }
+
+    result = PostgresGoldExecutionChecker(
+        "postgresql://readonly:secret@127.0.0.1:15443/catalyst_analytics"
+    ).check(version, check)
+
+    assert result["passed"] is True
+    assert result["normalizers"] == {"medications": "unordered_csv"}
+
+
+def test_row_set_csv_normalizer_does_not_hide_a_duplicate_item(monkeypatch) -> None:
+    from harness.catalyst.notebook_validation import (
+        NotebookGoldCheck,
+        PostgresGoldExecutionChecker,
+    )
+
+    _gold_check_connection(
+        monkeypatch,
+        {
+            "model_table": (
+                ["patient_id", "medications"],
+                [("p1", "Dolutegravir, Tenofovir, Tenofovir")],
+            ),
+            "reference_table": (
+                ["patient_id", "medications"],
+                [("p1", "Dolutegravir, Tenofovir")],
+            ),
+        },
+    )
+    check = NotebookGoldCheck(
+        mode="row_set",
+        reference_sql="SELECT patient_id, medications FROM reference_table",
+        match_columns=("patient_id", "medications"),
+        normalizers={"medications": "unordered_csv"},
+    )
+    version = {
+        "versionId": "v",
+        "queryDigest": "a" * 64,
+        "sql": "SELECT patient_id, medications FROM model_table",
+        "parameters": [],
+    }
+
+    result = PostgresGoldExecutionChecker(
+        "postgresql://readonly:secret@127.0.0.1:15443/catalyst_analytics"
+    ).check(version, check)
+
+    assert result["passed"] is False
 
 
 def test_gold_execution_checker_aggregate_by_key_mode_detects_value_mismatch(
@@ -1739,6 +2077,79 @@ def test_suite_loader_parses_gold_checks_by_mode(tmp_path: Path) -> None:
     assert check.value_column == "patient_count"
 
 
+def test_reader_led_suite_gives_each_ready_turn_its_own_answer_check() -> None:
+    suite = load_notebook_suite(
+        ROOT
+        / "datasets"
+        / "validation"
+        / "catalyst"
+        / "catalyst-phase1-comparison-v2.json"
+    )
+
+    ready_turns = 0
+    for scenario in suite.scenarios:
+        assert scenario.pin_guidance == ()
+        if scenario.expected_base_outcome == "ready":
+            ready_turns += 1
+            assert scenario.base_gold_check is not None
+        for turn in scenario.turns:
+            if turn.expected_outcome == "ready":
+                ready_turns += 1
+                assert turn.gold_check is not None
+
+    assert len(suite.scenarios) == 12
+    assert ready_turns == 16
+    retained = next(item for item in suite.scenarios if item.id == "M2")
+    assert retained.successor_gold_check is None
+    assert "patient_gender" in retained.turns[0].gold_check.reference_sql
+    assert "LIMIT 10" in retained.turns[1].gold_check.reference_sql
+
+
+def test_reader_led_suite_refuses_a_ready_turn_without_its_own_check(
+    tmp_path: Path,
+) -> None:
+    payload = json.loads(
+        (
+            ROOT
+            / "datasets"
+            / "validation"
+            / "catalyst"
+            / "catalyst-phase1-comparison-v2.json"
+        ).read_text(encoding="utf-8")
+    )
+    del payload["scenarios"][5]["turns"][1]["goldCheck"]
+
+    with pytest.raises(ValueError, match="turn 2 needs its own independent answer"):
+        load_notebook_suite(_write_suite(tmp_path, payload))
+
+
+def test_reader_led_suite_refuses_hidden_guidance_and_an_unchecked_opening(
+    tmp_path: Path,
+) -> None:
+    base = _suite_payload()["scenarios"][0]
+    hidden_guidance = {
+        **base,
+        "pinGuidance": ["Exclude do_not_perform requests."],
+    }
+    with pytest.raises(ValueError, match="not pinGuidance"):
+        load_notebook_suite(
+            _write_suite(
+                tmp_path,
+                _suite_payload(
+                    reportMode="reader-led", scenarios=[hidden_guidance]
+                ),
+            )
+        )
+
+    with pytest.raises(ValueError, match="answer check for its opening turn"):
+        load_notebook_suite(
+            _write_suite(
+                tmp_path,
+                _suite_payload(reportMode="reader-led", scenarios=[base]),
+            )
+        )
+
+
 def test_suite_loader_rejects_invalid_gold_checks(tmp_path: Path) -> None:
     base = _suite_payload()["scenarios"][0]
 
@@ -1787,6 +2198,45 @@ def test_suite_loader_rejects_invalid_gold_checks(tmp_path: Path) -> None:
         load_notebook_suite(
             _write_suite(tmp_path, _suite_payload(scenarios=[write_verb_reference]))
         )
+
+
+@pytest.mark.parametrize(
+    ("payload", "message"),
+    [
+        (
+            _gold_check_payload(
+                mode="aggregate_by_key",
+                keyColumns=["group"],
+                valueColumns={"count": {}},
+                normalizers={"group": "unordered_csv"},
+            ),
+            "supported only for row_set",
+        ),
+        (
+            _gold_check_payload(
+                mode="row_set",
+                matchColumns=["patient_id"],
+                normalizers={"medications": "unordered_csv"},
+            ),
+            "outside matchColumns",
+        ),
+        (
+            _gold_check_payload(
+                mode="row_set",
+                matchColumns=["patient_id"],
+                normalizers={"patient_id": "lowercase"},
+            ),
+            "unsupported gold check normalizers",
+        ),
+    ],
+)
+def test_gold_check_normalizer_configuration_is_strict(
+    payload: dict[str, Any], message: str,
+) -> None:
+    from harness.catalyst.notebook_validation import _load_gold_check
+
+    with pytest.raises(ValueError, match=message):
+        _load_gold_check(payload)
 
 
 def test_run_suite_rejects_empty_selection_and_bad_repetitions(
@@ -2232,6 +2682,185 @@ def test_evidence_reviewer_invocation_exactly_matches_profile() -> None:
     assert failed_before_review_checks["reviewer_model"] is True
 
 
+def _evidence_check_results(evidence: dict[str, Any]) -> dict[str, bool]:
+    return {
+        name: passed
+        for name, passed, _ in _evidence_checks(
+            evidence,
+            expected_profile={
+                "writerModelId": "gemma-4-12b",
+                "reviewerModelId": "qwen2.5-14b",
+            },
+        )
+    }
+
+
+def test_exact_hub_request_and_capacity_evidence_passes_for_every_role() -> None:
+    checks = _evidence_check_results(
+        _evidence("turn-followup", "Return only distinct patients.")
+    )
+
+    assert checks["hub_request_evidence"] is True
+    assert checks["hub_request_digest_match"] is True
+    assert checks["hub_capacity_evidence"] is True
+    assert checks["retained_instruction_context"] is True
+
+
+def test_a_model_invocation_missing_hub_request_evidence_fails() -> None:
+    evidence = _evidence("turn-followup", "Return only distinct patients.")
+    evidence["invocations"][0].pop("requestEvidence")
+
+    assert _evidence_check_results(evidence)["hub_request_evidence"] is False
+
+
+def test_the_invocation_digest_must_match_the_hub_request_digest() -> None:
+    evidence = _evidence("turn-followup", "Return only distinct patients.")
+    evidence["invocations"][0]["requestDigest"] = "f" * 64
+
+    assert _evidence_check_results(evidence)["hub_request_digest_match"] is False
+
+
+def test_an_exact_capacity_rejection_is_valid_and_an_inconsistent_one_is_not() -> None:
+    evidence = _evidence(
+        "turn-followup",
+        "Return only distinct patients.",
+        role_models=("gemma-4-12b", None),
+    )
+    invocation = evidence["invocations"][0]
+    invocation["outcome"] = "pre_dispatch_rejected"
+    invocation["responseDigest"] = None
+    invocation["failureDigest"] = "f" * 64
+    invocation.pop("tokenAccounting")
+    invocation["hubError"] = {
+        "code": "context_window_exceeded",
+        "httpStatus": 422,
+        "message": "The exact request exceeds the context window.",
+    }
+    tokens = invocation["requestEvidence"]["tokens"]
+    tokens["contextWindow"] = 5000
+    tokens["fits"] = False
+    evidence["status"] = "failed"
+    evidence["finalSelection"] = {
+        "status": "failed",
+        "failure": {
+            "stage": "writer_request",
+            "code": "context_window_exceeded",
+        },
+    }
+
+    expected_profile = {
+        "writerModelId": "gemma-4-12b",
+        "reviewerModelId": None,
+    }
+    checks = dict(
+        (name, passed)
+        for name, passed, _ in _evidence_checks(
+            evidence, expected_profile=expected_profile
+        )
+    )
+    assert checks["hub_capacity_evidence"] is True
+
+    tokens["fits"] = True
+    checks = dict(
+        (name, passed)
+        for name, passed, _ in _evidence_checks(
+            evidence, expected_profile=expected_profile
+        )
+    )
+    assert checks["hub_capacity_evidence"] is False
+
+
+def test_every_exact_followup_request_retains_the_prior_instruction() -> None:
+    evidence = _evidence("turn-followup", "Return only distinct patients.")
+    assert _evidence_check_results(evidence)["retained_instruction_context"] is True
+
+    reviewer = evidence["invocations"][1]
+    content = reviewer["requestEvidence"]["request"]["messages"][1]["content"]
+    payload = json.loads(content)
+    payload["revision"]["instructionHistory"] = []
+    reviewer["requestEvidence"]["request"]["messages"][1]["content"] = json.dumps(
+        payload, separators=(",", ":")
+    )
+
+    assert _evidence_check_results(evidence)["retained_instruction_context"] is False
+
+
+@pytest.mark.parametrize("malformed", [None, [], "not-an-object"])
+def test_followup_revision_context_must_be_an_object(malformed: Any) -> None:
+    evidence = _evidence("turn-followup", "Return only distinct patients.")
+    evidence["revisionContext"] = malformed
+
+    assert _evidence_check_results(evidence)["retained_instruction_context"] is False
+
+
+def test_followup_revision_context_must_be_present() -> None:
+    evidence = _evidence("turn-followup", "Return only distinct patients.")
+    evidence.pop("revisionContext")
+
+    assert _evidence_check_results(evidence)["retained_instruction_context"] is False
+    assert (
+        _evidence_check_results(_evidence("turn-initial", "Show patient identifiers."))[
+            "retained_instruction_context"
+        ]
+        is True
+    )
+
+
+def test_request_revision_skips_malformed_messages_before_a_valid_one() -> None:
+    from harness.catalyst.notebook_validation import _request_revision
+
+    expected = {
+        "currentInstruction": "Return only distinct patients.",
+        "instructionHistory": [],
+    }
+    invocation = {
+        "requestEvidence": {
+            "request": {
+                "messages": [
+                    "not-an-object",
+                    {"content": "{not-json"},
+                    {"content": ["not-an-object-payload"]},
+                    {"content": {"revision": ["not-an-object-revision"]}},
+                    {"content": {"revision": expected}},
+                ]
+            }
+        }
+    }
+
+    assert _request_revision(invocation) == expected
+
+
+def test_request_revision_and_capacity_tolerate_non_dispatch_records() -> None:
+    from harness.catalyst.notebook_validation import (
+        _capacity_evidence_is_coherent,
+        _request_revision,
+    )
+
+    assert _request_revision({"requestEvidence": {"request": []}}) is None
+    assert _request_revision(
+        {
+            "requestEvidence": {
+                "request": {"messages": [{"content": {"revision": None}}]}
+            }
+        }
+    ) is None
+    assert _capacity_evidence_is_coherent({"outcome": "transport_failed"}) is True
+
+
+@pytest.mark.parametrize("answer", ["needs_clarification", "unsupported"])
+def test_a_terminal_answer_with_no_model_invocation_remains_valid(answer: str) -> None:
+    evidence = _evidence("turn-followup", "Ask or decline deterministically.")
+    evidence["status"] = "failed"
+    evidence["invocations"] = []
+    evidence["totalInvocationDurationMs"] = 0
+    evidence["finalSelection"] = {
+        "status": "failed",
+        "failure": {"stage": "writer_decision", "code": answer},
+    }
+
+    assert all(_evidence_check_results(evidence).values())
+
+
 def test_discovery_gate_rejects_runtime_drift(tmp_path: Path) -> None:
     suite = load_notebook_suite(_write_suite(tmp_path, _suite_payload()))
     profiles = _exchange({"profiles": [_discovery_profile()]})
@@ -2471,6 +3100,122 @@ def test_a_malformed_recovery_evidence_index_is_refused(tmp_path: Path) -> None:
     (tmp_path / "evidence-index.json").write_text("{not-json")
     with pytest.raises(ValueError, match="evidence index is invalid"):
         _preflight_recovery_evidence(tmp_path, [])
+
+
+def _signed_public_evidence_run(
+    tmp_path: Path,
+    *,
+    run_config: dict[str, Any] | None = None,
+    include_suite: bool = True,
+    reader_rubric: str | None = None,
+) -> Path:
+    from harness.catalyst.notebook_validation import _EvidenceRecorder
+
+    run_dir = tmp_path / "run-public-evidence"
+    recorder = _EvidenceRecorder(run_dir, "run-public-evidence")
+    recorder.json(
+        "run_manifest.json",
+        {"run_id": "run-public-evidence"},
+        kind="run_manifest",
+    )
+    recorder.json("run-config.json", run_config or {}, kind="run_config")
+    if include_suite:
+        recorder.json("suite.json", {"id": "suite"}, kind="suite")
+    if reader_rubric is not None:
+        rubric_path = run_dir / "reader-rubric.md"
+        rubric_path.write_text(reader_rubric, encoding="utf-8")
+        recorder.file(
+            "reader-rubric.md",
+            kind="reader_rubric",
+            media_type="text/markdown",
+        )
+    return run_dir
+
+
+def _resign_indexed_file(run_dir: Path, relative: str, content: bytes) -> None:
+    path = run_dir / relative
+    path.write_bytes(content)
+    index_path = run_dir / "evidence-index.json"
+    index = json.loads(index_path.read_text(encoding="utf-8"))
+    entry = next(item for item in index["entries"] if item["path"] == relative)
+    entry["bytes"] = len(content)
+    entry["sha256"] = hashlib.sha256(content).hexdigest()
+    encoded = (
+        json.dumps(index, indent=2, ensure_ascii=False, allow_nan=False) + "\n"
+    ).encode("utf-8")
+    index_path.write_bytes(encoded)
+    (run_dir / "evidence-index.sha256").write_text(
+        f"{hashlib.sha256(encoded).hexdigest()}  evidence-index.json\n",
+        encoding="utf-8",
+    )
+
+
+def test_public_evidence_validator_accepts_a_complete_signed_inventory(
+    tmp_path: Path,
+) -> None:
+    from harness.catalyst.notebook_validation import validate_notebook_evidence
+
+    run_dir = _signed_public_evidence_run(tmp_path)
+
+    assert set(validate_notebook_evidence(run_dir)) == {
+        "run_manifest.json",
+        "run-config.json",
+        "suite.json",
+    }
+
+
+def test_public_evidence_validator_requires_a_readable_identified_manifest(
+    tmp_path: Path,
+) -> None:
+    from harness.catalyst.notebook_validation import validate_notebook_evidence
+
+    run_dir = tmp_path / "bad-public-evidence"
+    run_dir.mkdir()
+    (run_dir / "run_manifest.json").write_text("{not-json", encoding="utf-8")
+    with pytest.raises(ValueError, match="run manifest cannot be read"):
+        validate_notebook_evidence(run_dir)
+
+    (run_dir / "run_manifest.json").write_text("{}", encoding="utf-8")
+    with pytest.raises(ValueError, match="run manifest has no run_id"):
+        validate_notebook_evidence(run_dir)
+
+
+def test_public_evidence_validator_rejects_a_signed_malformed_run_config(
+    tmp_path: Path,
+) -> None:
+    from harness.catalyst.notebook_validation import validate_notebook_evidence
+
+    run_dir = _signed_public_evidence_run(tmp_path)
+    _resign_indexed_file(run_dir, "run-config.json", b"{not-json")
+
+    with pytest.raises(ValueError, match="run configuration cannot be read"):
+        validate_notebook_evidence(run_dir)
+
+
+def test_public_evidence_validator_requires_all_identity_files(
+    tmp_path: Path,
+) -> None:
+    from harness.catalyst.notebook_validation import validate_notebook_evidence
+
+    run_dir = _signed_public_evidence_run(tmp_path, include_suite=False)
+
+    with pytest.raises(ValueError, match="identity files are not indexed: suite.json"):
+        validate_notebook_evidence(run_dir)
+
+
+def test_public_evidence_validator_checks_the_frozen_reader_rubric(
+    tmp_path: Path,
+) -> None:
+    from harness.catalyst.notebook_validation import validate_notebook_evidence
+
+    run_dir = _signed_public_evidence_run(
+        tmp_path,
+        run_config={"readerRubricSha256": "0" * 64},
+        reader_rubric="# Reader rubric\n",
+    )
+
+    with pytest.raises(ValueError, match="reader rubric differs"):
+        validate_notebook_evidence(run_dir)
 
 
 def test_recovery_refuses_a_row_without_structural_conformance_checks() -> None:
@@ -3083,6 +3828,104 @@ def test_three_turn_scenario_runs_every_turn_against_the_current_query(
     written = {path.name for path in repetition_dir.iterdir()}
     assert "08-create-followup.json" in written
     assert "08-create-followup-t2.json" in written
+
+    candidate_digests = [
+        hashlib.sha256(f"candidate:{turn_id}".encode()).hexdigest()
+        for turn_id in ("turn-followup", "turn-followup-2")
+    ]
+    evidence_digests = [
+        hashlib.sha256(f"evidence:{turn_id}".encode()).hexdigest()
+        for turn_id in ("turn-followup", "turn-followup-2")
+    ]
+    versions = {item["versionId"]: item for item in state.versions}
+    selected_digests = [
+        versions[version_id]["queryDigest"]
+        for version_id in ("version-3", "version-4")
+    ]
+    assert row["baseExecutionId"] == "execution-version-1"
+    assert row["successorExecutionId"] == "execution-version-4"
+    assert row["successorExecutionIds"] == [
+        "execution-version-3",
+        "execution-version-4",
+    ]
+    assert row["followupCandidateDigests"] == candidate_digests
+    assert row["followupCandidateDigestSequences"] == [
+        [candidate_digests[0]],
+        [candidate_digests[1]],
+    ]
+    assert row["followupEvidenceDigests"] == evidence_digests
+    assert row["followupSelectedQueryDigests"] == selected_digests
+    assert [turn["executionId"] for turn in row["turns"]] == [
+        "execution-version-3",
+        "execution-version-4",
+    ]
+    assert [turn["candidateDigests"] for turn in row["turns"]] == [
+        [candidate_digests[0]],
+        [candidate_digests[1]],
+    ]
+
+    def elapsed(name: str) -> int:
+        return json.loads((repetition_dir / name).read_text())["elapsedMs"]
+
+    followup_walls = [
+        elapsed("08-create-followup.json"),
+        elapsed("08-create-followup-t2.json"),
+    ]
+    successor_execution_walls = [
+        elapsed("13-execute-successor.json"),
+        elapsed("13-execute-successor-t2.json"),
+    ]
+    timing = row["timing"]
+    assert timing["recordedInvocationDurationMs"] == 30
+    assert timing["followupGenerationWallMs"] == sum(followup_walls)
+    assert timing["baseExecutionWallMs"] == elapsed("06-execute-base.json")
+    assert timing["successorExecutionWallMs"] == sum(successor_execution_walls)
+    assert [item["generationWallMs"] for item in timing["followups"]] == (
+        followup_walls
+    )
+    assert [item["executionWallMs"] for item in timing["followups"]] == (
+        successor_execution_walls
+    )
+
+    events = read_jsonl(result.run_dir / "events.jsonl")
+    followup_events = [
+        event
+        for event in events
+        if event.get("event_type") == "turn"
+        and event.get("turn_role") == "followup"
+    ]
+    assert [event["turn_id"] for event in followup_events] == [
+        "turn-followup",
+        "turn-followup-2",
+    ]
+    assert followup_events[1]["evidence_paths"] == [
+        f"{row['evidencePrefix']}/08-create-followup-t2.json",
+        f"{row['evidencePrefix']}/10-final-turns-t2.json",
+        f"{row['evidencePrefix']}/11-followup-generation-evidence-t2.json",
+    ]
+    execution_events = [
+        event for event in events if event.get("event_type") == "execution"
+    ]
+    assert [event["execution_id"] for event in execution_events] == [
+        "execution-version-1",
+        "execution-version-3",
+        "execution-version-4",
+    ]
+    assert [event["execution_role"] for event in execution_events] == [
+        "base",
+        "successor",
+        "successor",
+    ]
+
+    stream_row = read_jsonl(result.run_dir / "results.jsonl")[0]
+    assert stream_row["request"]["question"] == (
+        "Show patient identifiers. ⇒ Return only distinct patients. ⇒ "
+        "Keep just the first row."
+    )
+    assert [turn["turnId"] for turn in stream_row["response"]["turns"]] == [
+        "turn-followup",
+        "turn-followup-2",
+    ]
 
 
 # --- adaptive repetitions --------------------------------------------------
@@ -3956,9 +4799,6 @@ def _accounting(**overrides: Any) -> dict[str, Any]:
             "contextWindow": 8192,
             "outputReserve": 1024,
             "promptTokens": 4000,
-            "includedItemIds": ["guidance-1"],
-            "omittedItemIds": [],
-            "omissions": [],
             **overrides,
         }
     }
@@ -5398,7 +6238,7 @@ def test_a_model_query_that_blows_the_row_cap_fails_the_check_not_the_run(
 
     The cap exists so a runaway query cannot stall the comparison; hitting it
     proves the model's answer is far larger than the reference, which is a
-    scored mismatch. Killing the whole run here would let one bad answer
+    factual mismatch. Killing the whole run here would let one bad answer
     erase hours of finished work.
     """
     from harness.catalyst.notebook_validation import (
@@ -5420,9 +6260,8 @@ def test_a_model_query_that_blows_the_row_cap_fails_the_check_not_the_run(
         "parameters": [],
     }
     gold_check = NotebookGoldCheck(
-        mode="row_set",
+        mode="count",
         reference_sql="SELECT patient_id FROM reference_table",
-        match_columns=("patient_id",),
     )
 
     result = PostgresGoldExecutionChecker(
@@ -5457,9 +6296,8 @@ def test_a_reference_that_blows_the_row_cap_is_a_suite_error(monkeypatch) -> Non
         "parameters": [],
     }
     gold_check = NotebookGoldCheck(
-        mode="row_set",
+        mode="count",
         reference_sql="SELECT patient_id FROM reference_table",
-        match_columns=("patient_id",),
     )
 
     with pytest.raises(ValueError, match="reference"):
@@ -5564,6 +6402,40 @@ def test_an_ambiguous_aggregate_names_the_columns_it_could_not_choose_between(
     assert result["passed"] is False
     assert "visits" in result["disagreement"]
     assert "n" in result["disagreement"] and "pct" in result["disagreement"]
+
+
+@pytest.mark.parametrize("duplicate_side", ["model", "reference"])
+def test_duplicate_aggregate_keys_are_disagreement_not_collapsed(
+    duplicate_side: str,
+) -> None:
+    from harness.catalyst.notebook_validation import _compare_aggregates
+
+    model_rows = [{"group": "a", "count": 2}]
+    reference_rows = [{"group": "a", "count": 2}]
+    duplicated = [
+        {"group": "a", "count": 1},
+        {"group": "a", "count": 2},
+    ]
+    if duplicate_side == "model":
+        model_rows = duplicated
+    else:
+        reference_rows = duplicated
+
+    result = _compare_aggregates(
+        model_rows,
+        reference_rows,
+        key_columns=("group",),
+        value_columns={"count": {"tolerance": 0}},
+    )
+
+    assert result["passed"] is False
+    duplicate_field = (
+        "duplicateModelKeys"
+        if duplicate_side == "model"
+        else "duplicateReferenceKeys"
+    )
+    assert result[duplicate_field] == [{"key": ["a"], "rowCount": 2}]
+    assert "duplicate aggregate keys" in result["disagreement"]
 
 
 def test_a_row_set_missing_its_match_column_says_so_in_one_sentence(

@@ -31,14 +31,14 @@ Publishable Catalyst notebook runs additionally require:
 - `resumeAncestry`, ordered oldest to newest, when recovery spans one or more
   interrupted runs;
 - `evidence_status = "development"` until the active Phase 1 roadmap's
-  experiment-publication and closeout requirements are met (currently R8 and
-  R10); live publication alone does not promote the evidence status
+  comparison-publication and real-product closeout requirements are met; live
+  publication alone does not promote the evidence status
 
 The runner writes `run-config.json` before discovery, warm-up, or measured
 conversation calls. It is the exact public run seed: database passwords and
 password-bearing URLs, absolute workstation paths, non-local private addresses,
 and security-group rule identifiers are rejected. The local password is resolved
-only in memory when a database check is requested. Scoring, reporting, and
+only in memory when a database check is requested. Review, reporting, and
 publication read the frozen file without resolving that password.
 
 A Phase 1 comparison run records one conversation for every declared
@@ -73,7 +73,8 @@ Every profile with new model calls records one excluded warm-up under
 `warmups/<profile>/` before those calls. A recovery that only reuses completed
 cells makes no new warm-up call; it copies the source warm-up beneath that same
 profile directory and records its source run. Warm-up sessions never appear in
-`rows.jsonl`, `results.jsonl`, `results.json`, or the scored count.
+`rows.jsonl`, `results.jsonl`, `results.json`, or the recorded conversation
+count.
 Each measured row records `evidencePrefix`, `measurementValid`, and an
 outcome-specific `measurementEvidence` projection, plus its original start and
 end times so recovered feeds retain trace correlation. Ready paths state the
@@ -123,6 +124,48 @@ suite's provider is an expected value, not the evidence source. A run that fails
 before profile discovery records the provider as unresolved. Catalyst model
 operations use `otel.gen_ai.operation.name = chat`.
 
+Each recorded turn preserves its own `revisionContext`. For a follow-up this
+includes the current instruction, the complete retained prior-instruction
+history, the observed and effective base, the editor snapshot, relevant
+validation and execution summaries, verified examples, explicit experimental
+guidance, and the selection/omission facts supplied for that turn. Initial
+turns have no revision context. The harness compares this per-turn context with
+the revision context inside every actual writer and reviewer request; raw result
+rows and the other prohibited context classes remain excluded.
+
+Every actual writer or reviewer invocation also retains the Hub's
+`med-agent-hub.catalyst-role-request-evidence.v1` record: the configured role,
+model, exact system and caller messages, response format, effective model
+configuration, rendered prompt and digest, tokenizer, context window, output
+reserve, prompt-token count, required-token total, and fit decision. The
+invocation `requestDigest` must equal the nested Hub `requestDigest`. A
+successful invocation must have exact counts that fit and agree with its
+four-field `tokenAccounting` projection. A known pre-dispatch capacity rejection
+must instead prove that `promptTokens + outputReserve` exceeds `contextWindow`
+and retain Hub error code `context_window_exceeded` with HTTP status 422. A
+catalog preflight may answer `needs_clarification` or `unsupported` with an
+affirmatively empty invocation list; it owes no model-request or token evidence.
+
+### Reader-led comparison review
+
+A complete reader-led comparison freezes `reader-rubric.md` beside the run
+evidence. `reader-review-input.json` is then prepared from that exact run. It
+contains the rubric and its SHA-256 digest, the full suite including each
+question-specific reference query, the run manifest and public run
+configuration, the model-team definitions, the collection-completeness facts,
+and every conversation and turn with its stored generation, validation,
+PostgreSQL, cross-check, and independent-answer evidence. A wrong answer or
+database diagnostic stays in this package as experimental evidence.
+
+Each attached review is a nonempty `reader-reviews/<name>.md` file with a
+matching `reader-reviews/<name>.json` metadata file. The metadata names the
+reviewer, provider, model, model version, and review time and records
+`reviewInputSha256`, the SHA-256 digest of the exact
+`reader-review-input.json` the reviewer received. Reporting and publication
+reject an attached review when that digest does not match the current input. A
+second perspective remains a separate review with its own metadata; reviews
+are not combined into an automatic numerical result.
+
 `otel.gen_ai.provider.name` is the canonical provider field. The deprecated
 `otel.gen_ai.system` spelling is not emitted or accepted; this resolves the N6
 field-name question without carrying two conflicting provider identities.
@@ -161,18 +204,20 @@ Catalyst notebook streams use
 - `turn` for initial and follow-up turn lineage;
 - `version` for the selected base and complete successor query identifiers and
   digests;
-- `execution` for an explicit execution linked to its immutable query version;
-  and
-- `evaluation` with `evaluation_type = "catalyst_sql_judge"` after a manually
-  initiated full-context rubric review is finalized.
+- `execution` for an explicit execution linked to its immutable query version.
 
 Notebook event `evidence_paths` are run-directory-relative, traversal-safe, and
-must resolve to materialized evidence. Judge evaluation events include provider,
-model, model version, rubric digest, and rationale details, plus links to
-`judge.jsonl`, `judge_manifest.json`, and the source evidence. A separately
-requested second perspective stays a separate review. The finalizer appends
-events idempotently and never rewrites the run-start manifest. SQL result rows,
-credentials, and raw model traces are excluded from the event stream.
+must resolve to materialized evidence. Reader-led reviews use the review
+artifacts and digest binding described above; they do not emit an automated
+judge event. The finalizer appends events idempotently and never rewrites the
+run-start manifest. SQL result rows, credentials, and raw model traces are
+excluded from the event stream.
+
+Legacy notebook runs may contain `judge.jsonl`, `judge_manifest.json`, and an
+`evaluation` event with `evaluation_type = "catalyst_sql_judge"`. Those files
+describe the older automated scoring workflow only. They remain readable for
+historical reports but are not produced, required, or consulted by reader-led
+comparisons.
 
 ### Catalyst Dashboard Builder events and acceptance
 

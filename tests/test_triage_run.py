@@ -39,6 +39,10 @@ def _pass_row(scenario: str = "A1") -> dict:
         "profileId": "team-a",
         "repetition": 1,
         "passed": True,
+        "measurementEvidence": {
+            "base": {"outcome": "ready", "oracleResult": "recorded"},
+            "turns": [],
+        },
         "assertions": [
             {"name": "token_evidence_recorded-base", "passed": True},
             {"name": "base_gold_execution_match", "passed": True},
@@ -135,10 +139,17 @@ def test_the_remaining_refusals_and_gaps_are_exercised(tmp_path, monkeypatch, ca
     # SQL-free, are both named as gaps.
     gappy = _pass_row("B1")
     gappy["assertions"] = [{"name": "token_evidence_recorded-base", "passed": True}]
+    gappy["measurementEvidence"] = {
+        "base": {
+            "outcome": "needs_clarification",
+            "oracleResult": "not_run_non_query",
+        },
+        "turns": [{"outcome": "ready", "oracleResult": "not_configured"}],
+    }
     run_dir2 = _write_rows(tmp_path / "second", [gappy])
     code, out = _triage(run_dir2, [], monkeypatch, capsys)
     assert code == 1
-    assert "no independent-answer check ran" in out
+    assert "follow-up 1 has no independent answer check" in out
     assert "terminal base not verified SQL-free" in out
 
 

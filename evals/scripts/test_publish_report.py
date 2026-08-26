@@ -128,7 +128,7 @@ def test_dry_run_stages_both_families_and_preserves_curation(tmp_path: Path) -> 
         (reports / "reports-index.json").read_text(encoding="utf-8")
     )
     entry = next(row for row in manifest["runs"] if row["slug"] == "catalyst-fixture")
-    assert entry["title"] == "Catalyst title"
+    assert entry["title"] == "Replacement title"
 
 
 def test_dry_run_rejects_run_outside_repository(tmp_path: Path) -> None:
@@ -180,7 +180,8 @@ def test_stage_module_directly_covers_family_contracts(tmp_path: Path) -> None:
         "Chart direct",
     ]
 
-    # Existing curated copy is intentionally preserved on direct republish.
+    # Republishing the same slug updates its curated description as well as
+    # replacing its files, so an old report label cannot survive.
     mod.stage_report(
         family="catalyst",
         run_dir=CATALYST_FIXTURE,
@@ -191,7 +192,7 @@ def test_stage_module_directly_covers_family_contracts(tmp_path: Path) -> None:
         title="Replacement",
     )
     payload = json.loads(manifest.read_text(encoding="utf-8"))
-    assert payload["runs"][0]["title"] == "Catalyst direct"
+    assert payload["runs"][0]["title"] == "Replacement"
 
 
 def test_stage_module_rejects_invalid_inputs(tmp_path: Path) -> None:
