@@ -1,17 +1,18 @@
 -- Reviewed descriptions for the Phase 1 relation surface beyond the curated
 -- HIV fact views.
 --
--- Catalog v6 gives the writer, the editor, the validator, and the executor the
--- same 13 relations. Nine of them are described here: the operating records
--- and the raw fhir-data-pipes flat tables, which are the fallback when a
--- curated view cannot answer an expert question.
+-- When this migration was authored, the configured role could read 13
+-- relations. That count describes the captured environment; it is not a
+-- product limit. Nine relations receive descriptions here: the operating
+-- records and the raw fhir-data-pipes flat tables, which are useful fallbacks
+-- when a curated view cannot answer an expert question.
 --
 -- Every flat table repeats a resource once per coding, name, identifier, or
 -- participant. That one-to-many fan-out is the single most dangerous thing
 -- about them, so each table comment states its grain, names its preferred
 -- curated alternative, and each join key says what it repeats against.
--- Descriptions are the model's only schema context; the catalog generator
--- fails when one is missing.
+-- Descriptions improve the model's schema context. Missing metadata must not
+-- hide a readable relation or prevent the application from starting.
 
 -- ---------------------------------------------------------------- operating
 COMMENT ON TABLE analytics.pipeline_run_v1 IS

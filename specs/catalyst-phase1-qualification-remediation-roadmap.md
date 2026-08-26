@@ -36,10 +36,15 @@ outcome.
 - Wrong SQL, a database diagnostic, a wrong answer, clarification, and an
   unsupported response are all observable model behavior when the supporting
   evidence is complete.
+- One Phase 1 run covers the complete frozen team-and-scenario matrix once.
+  Any repeated measure is another complete run, not extra calls for selected
+  cells.
 - Machine or service interruptions are recorded separately from model
   behavior. The roadmap defines no fixed allowance. Recovery belongs in
   harness code and tests.
-- Retained conversation history is the current context baseline. The value of
+- Every prior user instruction in the session is the current context baseline.
+  Raw model replies are represented through query, verified-example, and
+  failure records rather than replayed as trusted text. The value of
   separate session guidance remains a research question, and Phase 1 requires
   no Pin interface.
 - Exact revisions, test totals, pull-request state, operational history, and
@@ -68,7 +73,7 @@ suite and catalog identities.
 
 ## Sequence
 
-R0 establishes the plan. R1's core collection lifecycle is already merged.
+R0 establishes the plan. R1 establishes the collection lifecycle.
 R5, R6, and R7 can proceed in parallel after R0. R2 binds the finished data and
 context contracts; R3 then establishes result-set integrity; R4 produces the
 reporting and manual-review path. R8 runs the experiment. R9 is optional work
@@ -96,23 +101,22 @@ Acceptance:
 
 ### R1 — Honest collection identity and interruption handling
 
-**Repository:** validation harness. **State:** core work merged.
+**Repository:** validation harness. **State:** in review.
 
-Keep the merged behavior that freezes a secret-free collection identity before
-live calls, returns the exact evidence location, preserves interrupted
-evidence, and treats wrong model answers as experimental results rather than
-runner failures.
-
-One small implementation cleanup remains before R8: remove the legacy fixed
-infrastructure-replacement budget from the active collection path. Historical
-suite v1 evidence stays unchanged. Persistent environment failure simply
-leaves collection incomplete until the operator decides how to proceed.
+The collection freezes a secret-free identity before live calls, returns the
+exact evidence location, preserves interrupted evidence, and treats wrong
+model answers as experimental results rather than runner failures. A machine
+or service interruption stops the current collection as incomplete; the
+operator chooses when to resume. Historical suite v1 evidence stays unchanged,
+and its legacy replacement setting has no active effect.
 
 Acceptance:
 
 - completed model responses remain evidence regardless of answer quality;
 - collection interruptions and model behavior are represented separately;
 - no fixed machine-failure allowance controls the experiment;
+- an explicit recovery reuses only complete, unchanged conversations and
+  produces a self-contained run without repeating those conversations;
 - lifecycle and recovery behavior is proven by focused harness tests rather
   than restated as product policy.
 
@@ -152,6 +156,7 @@ Acceptance:
 
 - the result set contains every conversation declared by the frozen suite with
   no unintended omission or duplicated evidence record;
+- repeated measures, when requested, are separate complete suite runs;
 - every conversation has the suite, data, catalog, code, model, prompt, and
   context evidence needed to understand what ran;
 - mixed or internally inconsistent evidence is reported plainly and cannot be
@@ -191,8 +196,8 @@ Acceptance:
 **Depends on:** R0.
 
 Remove the model-only catalog restriction while preserving advisory validation.
-Keep published catalog v6 under its historical identity and introduce catalog
-v7 for the corrected behavior.
+Keep published catalog v6 under its historical identity and record the actual
+catalog identity and readable surface used by the repaired experiment.
 
 Acceptance:
 
@@ -215,18 +220,22 @@ separate guidance control is useful.
 
 Acceptance:
 
-- evidence shows the current instruction, retained history, failure
+- evidence shows the current instruction, every prior user instruction, failure
   information, verified examples, and any explicit guidance actually supplied
   to every model call;
+- every eligible item is supplied; a request that does not fit the selected
+  model records that exact capacity rejection instead of silently trimming,
+  ranking, or retrying with less context;
 - omissions are visible with their reason; context is not silently summarized,
   truncated, or substituted;
-- verified examples come only from earlier kept queries that validated and
-  executed successfully against the same source;
+- verified examples come only from earlier kept queries with recorded advisory
+  validation and successful database execution against the same source;
+- validator findings stay with those examples but do not veto their use;
 - existing application-programming-interface guidance may remain available for
   experiments, but no composer or Pin control is required;
-- separate nearby research cases compare retained history, explicit guidance,
-  and durable catalog or example knowledge before a user-facing design is
-  proposed;
+- separate nearby research cases compare retained user-instruction history,
+  explicit guidance, and durable catalog or example knowledge before a
+  user-facing design is proposed;
 - general reusable rules are evaluated as durable metadata or examples rather
   than assumed to belong in a session pin.
 
@@ -255,9 +264,9 @@ Acceptance:
 **Environment:** owner's local GPU through the supported isolated stack.
 **Depends on:** R1–R7 complete on the exact code used for collection.
 
-Freeze the current suite v2, catalog v7, rubric, model setups, data, and
-environment. Exercise all three teams across the full scenario set and publish
-the complete evidence and R4 review.
+Freeze the current suite v2, rubric, model setups, data, observed catalog
+identity, and environment. Exercise all three teams across the full scenario
+set and publish the complete evidence and R4 review.
 
 Acceptance:
 

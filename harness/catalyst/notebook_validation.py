@@ -50,6 +50,7 @@ class NotebookQuery:
 
 
 _GOLD_CHECK_MODES = frozenset({"count", "row_set", "aggregate_by_key", "scalar"})
+_PHASE1_COMPARISON_SUITE_PREFIX = "catalyst-phase1-comparison-"
 
 # Reference SQL for a gold execution-match check runs directly against the
 # analytics database outside the Gateway's write-blocking policy layer, so it
@@ -236,6 +237,34 @@ def writer_outcome(turn: dict[str, Any]) -> str:
     return "rejected"
 
 
+MODEL_TRANSPORT_STAGES = frozenset({"writer_transport", "reviewer_transport"})
+COLLECTION_INTERRUPTION_STAGES = frozenset(
+    {
+        *MODEL_TRANSPORT_STAGES,
+        "gateway_persistence",
+        "orphan_recovery",
+    }
+)
+
+
+def _persisted_service_interruption(turn: dict[str, Any]) -> dict[str, Any] | None:
+    """Return a service interruption recorded inside a successful reply.
+
+    Catalyst persists an upstream timeout or connection failure as a failed
+    turn and still returns the workbench resource successfully.  The stage is
+    the contract boundary: other failed turns are model answers or product
+    behavior and remain part of the experiment.
+    """
+    failure = turn.get("failure")
+    if (
+        turn.get("status") == "failed"
+        and isinstance(failure, dict)
+        and failure.get("stage") in COLLECTION_INTERRUPTION_STAGES
+    ):
+        return failure
+    return None
+
+
 @dataclass(frozen=True)
 class NotebookTurn:
     """One follow-up the operator sends after the session question.
@@ -305,7 +334,6 @@ class NotebookSuite:
     provider_name: str
     repetitions: int
     extended_repetitions: int | None
-    infrastructure_replacements: int
     require_token_evidence: bool
     profiles: dict[str, dict[str, str | None]]
     scenarios: tuple[NotebookScenario, ...]
@@ -340,6 +368,49 @@ class HttpExchange:
             },
             "elapsedMs": self.elapsed_ms,
         }
+
+
+class _CollectionInterrupted(RuntimeError):
+    """A recorded dependency failure that stops the current collection."""
+
+    def __init__(
+        self,
+        evidence_path: str,
+        exchange: HttpExchange | None,
+        *,
+        recorded_failure: dict[str, Any] | None = None,
+        interruption_kind: str | None = None,
+        interruption_code: str | None = None,
+    ) -> None:
+        if recorded_failure is None and exchange is not None:
+            message = f"{evidence_path} returned HTTP {exchange.status_code}"
+        else:
+            stage = (recorded_failure or {}).get("stage") or interruption_kind
+            code = (recorded_failure or {}).get("code") or interruption_code
+            label = ":".join(str(value) for value in (stage, code) if value)
+            message = f"{evidence_path} recorded {label or 'a service interruption'}"
+        super().__init__(message)
+        self.evidence_path = evidence_path
+        self.exchange = exchange
+        self.recorded_failure = recorded_failure
+        self.interruption_kind = interruption_kind
+        self.interruption_code = interruption_code
+
+
+def _carry_recorded_failure(
+    interruption: _CollectionInterrupted,
+    recorded_failure: dict[str, Any] | None,
+) -> _CollectionInterrupted:
+    """Keep an already persisted turn failure when a later evidence call fails."""
+    if recorded_failure is None or interruption.recorded_failure is not None:
+        return interruption
+    return _CollectionInterrupted(
+        interruption.evidence_path,
+        interruption.exchange,
+        recorded_failure=recorded_failure,
+        interruption_kind=interruption.interruption_kind,
+        interruption_code=interruption.interruption_code,
+    )
 
 
 @dataclass(frozen=True)
@@ -396,7 +467,7 @@ class PostgresChecker(Protocol):
     def check(
         self,
         version: dict[str, Any],
-        execution: dict[str, Any],
+        execution: object,
     ) -> dict[str, Any]: ...
 
 
@@ -436,10 +507,9 @@ class NotebookHttpClient:
                 timeout=self.timeout_seconds,
             )
         except requests.RequestException as error:
-            # The host vanishing mid-request is the infrastructure budget's
-            # job, not a reason to end the run with a traceback: surface it
-            # as an exchange with a synthetic 599 so it is replaced and, on
-            # the third time, invalidates the team's run like any other 5xx.
+            # Preserve a transport failure as an exchange. The collection
+            # runner records it, stops, and returns the evidence location so
+            # the operator can resume explicitly.
             return HttpExchange(
                 method=method,
                 path=path,
@@ -612,7 +682,7 @@ class PostgresReadOnlyChecker:
     def check(
         self,
         version: dict[str, Any],
-        execution: dict[str, Any],
+        execution: object,
     ) -> dict[str, Any]:
         import psycopg
 
@@ -622,23 +692,8 @@ class PostgresReadOnlyChecker:
             for parameter in parameters
         }
         driver_sql = _driver_sql(str(version["sql"]), set(bindings))
-        with psycopg.connect(self.dsn, connect_timeout=10) as connection:
-            with connection.cursor() as cursor:
-                cursor.execute("SET TRANSACTION READ ONLY")
-                cursor.execute(
-                    "SELECT set_config('statement_timeout', %s, true)",
-                    (f"{self.statement_timeout_ms}ms",),
-                )
-                cursor.execute(driver_sql, bindings)
-                direct_rows = list(cursor.fetchmany(self.max_rows + 1))
-                direct_columns = [item.name for item in (cursor.description or ())]
-
-        direct_truncated = len(direct_rows) > self.max_rows
-        direct_rows = direct_rows[: self.max_rows]
-        normalized_direct = [
-            [_json_safe_value(value) for value in row] for row in direct_rows
-        ]
-        result = execution.get("result") if isinstance(execution, dict) else None
+        gateway_execution = execution if isinstance(execution, dict) else {}
+        result = gateway_execution.get("result")
         gateway_columns = [
             item.get("name") for item in (result or {}).get("columns", [])
         ]
@@ -647,6 +702,52 @@ class PostgresReadOnlyChecker:
             for row in (result or {}).get("rows", [])
         ]
         row_count = (result or {}).get("rowCount", {})
+        parsed = urlparse(self.dsn)
+        with psycopg.connect(self.dsn, connect_timeout=10) as connection:
+            with connection.cursor() as cursor:
+                cursor.execute("SET TRANSACTION READ ONLY")
+                cursor.execute(
+                    "SELECT set_config('statement_timeout', %s, true)",
+                    (f"{self.statement_timeout_ms}ms",),
+                )
+                try:
+                    cursor.execute(driver_sql, bindings)
+                except psycopg.errors.QueryCanceled:
+                    return {
+                        "contractVersion": (
+                            "harness.catalyst-notebook.postgres-crosscheck.v1"
+                        ),
+                        "readOnlyTransaction": True,
+                        "database": parsed.path.lstrip("/") or None,
+                        "versionId": version.get("versionId"),
+                        "queryDigest": version.get("queryDigest"),
+                        "gatewayExecutionId": gateway_execution.get("executionId"),
+                        "maxRows": self.max_rows,
+                        "statementTimeoutMs": self.statement_timeout_ms,
+                        "timedOut": True,
+                        "comparisons": {"queryCompleted": False},
+                        "passed": False,
+                        "disagreement": (
+                            "the model's query exceeded the "
+                            f"{self.statement_timeout_ms}ms statement timeout "
+                            "when re-executed independently"
+                        ),
+                        "gateway": {
+                            "columns": gateway_columns,
+                            "returned": row_count.get("returned"),
+                            "truncated": row_count.get("truncated"),
+                            "recordDigests": _row_digests(gateway_rows),
+                        },
+                        "postgres": {"queryCompleted": False},
+                    }
+                direct_rows = list(cursor.fetchmany(self.max_rows + 1))
+                direct_columns = [item.name for item in (cursor.description or ())]
+
+        direct_truncated = len(direct_rows) > self.max_rows
+        direct_rows = direct_rows[: self.max_rows]
+        normalized_direct = [
+            [_json_safe_value(value) for value in row] for row in direct_rows
+        ]
         comparisons = {
             "columns": gateway_columns == direct_columns,
             "returnedRows": row_count.get("returned") == len(direct_rows),
@@ -654,14 +755,13 @@ class PostgresReadOnlyChecker:
             "recordDigests": _row_digests(gateway_rows)
             == _row_digests(normalized_direct),
         }
-        parsed = urlparse(self.dsn)
         return {
             "contractVersion": "harness.catalyst-notebook.postgres-crosscheck.v1",
             "readOnlyTransaction": True,
             "database": parsed.path.lstrip("/") or None,
             "versionId": version.get("versionId"),
             "queryDigest": version.get("queryDigest"),
-            "gatewayExecutionId": execution.get("executionId"),
+            "gatewayExecutionId": gateway_execution.get("executionId"),
             "maxRows": self.max_rows,
             "comparisons": comparisons,
             "passed": all(comparisons.values()),
@@ -1046,6 +1146,7 @@ class _EvidenceRecorder:
         if metadata:
             entry["metadata"] = metadata
         self.entries.append(entry)
+        self._write_index()
         return path
 
     def exchange(
@@ -1056,6 +1157,8 @@ class _EvidenceRecorder:
         kind: str,
     ) -> dict[str, Any]:
         self.json(relative_path, exchange.as_dict(), kind=kind)
+        if exchange.status_code >= 500:
+            raise _CollectionInterrupted(relative_path, exchange)
         return exchange.response_body
 
     def adopt(
@@ -1091,9 +1194,44 @@ class _EvidenceRecorder:
             "metadata": {**metadata, "sourceSha256": source_sha256},
         }
         self.entries.append(entry)
+        self._write_index()
         return entry
 
-    def finish(self) -> None:
+    def file(
+        self,
+        relative_path: str,
+        *,
+        kind: str,
+        media_type: str,
+        replace: bool = False,
+    ) -> dict[str, Any]:
+        """Bind an existing append-only run file into the evidence index."""
+        path = self.run_dir / relative_path
+        if not path.resolve().is_relative_to(self.run_dir.resolve()):
+            raise ValueError("Evidence path must stay within the run directory")
+        if not path.is_file():
+            raise ValueError(f"Evidence file is missing: {relative_path}")
+        prior = next(
+            (item for item in self.entries if item.get("path") == relative_path),
+            None,
+        )
+        if prior is not None and not replace:
+            raise ValueError(f"Evidence path is already indexed: {relative_path}")
+        encoded = path.read_bytes()
+        entry = {
+            "path": relative_path,
+            "kind": kind,
+            "mediaType": media_type,
+            "bytes": len(encoded),
+            "sha256": hashlib.sha256(encoded).hexdigest(),
+        }
+        if prior is not None:
+            self.entries.remove(prior)
+        self.entries.append(entry)
+        self._write_index()
+        return entry
+
+    def _write_index(self) -> None:
         index = {
             "contractVersion": "harness.catalyst-notebook.evidence-index.v1",
             "runId": self.run_id,
@@ -1104,11 +1242,19 @@ class _EvidenceRecorder:
             json.dumps(index, indent=2, ensure_ascii=False, allow_nan=False) + "\n"
         ).encode("utf-8")
         index_path = self.run_dir / "evidence-index.json"
-        index_path.write_bytes(encoded)
-        (self.run_dir / "evidence-index.sha256").write_text(
+        index_temporary = self.run_dir / ".evidence-index.json.tmp"
+        checksum_path = self.run_dir / "evidence-index.sha256"
+        checksum_temporary = self.run_dir / ".evidence-index.sha256.tmp"
+        index_temporary.write_bytes(encoded)
+        checksum_temporary.write_text(
             f"{hashlib.sha256(encoded).hexdigest()}  evidence-index.json\n",
             encoding="utf-8",
         )
+        index_temporary.replace(index_path)
+        checksum_temporary.replace(checksum_path)
+
+    def finish(self) -> None:
+        self._write_index()
 
 
 def _write_run_status(run_dir: Path, payload: dict[str, Any]) -> None:
@@ -1120,6 +1266,23 @@ def _write_run_status(run_dir: Path, payload: dict[str, Any]) -> None:
         encoding="utf-8",
     )
     temporary.replace(path)
+
+
+def _index_run_streams(recorder: _EvidenceRecorder) -> None:
+    """Sign the append-only streams at their last complete record."""
+    for relative_path, kind in (
+        ("rows.jsonl", "measurement_rows"),
+        ("interruptions.jsonl", "collection_interruptions"),
+        ("results.jsonl", "result_stream"),
+        ("events.jsonl", "event_stream"),
+    ):
+        if (recorder.run_dir / relative_path).is_file():
+            recorder.file(
+                relative_path,
+                kind=kind,
+                media_type="application/x-ndjson",
+                replace=True,
+            )
 
 
 def _canonical_sha256(payload: Any) -> str:
@@ -1211,18 +1374,21 @@ def _load_turns(
 
 def load_notebook_suite(path: Path | str) -> NotebookSuite:
     payload = json.loads(Path(path).read_text(encoding="utf-8"))
+    suite_id = str(payload["id"])
+    phase1_comparison = suite_id.startswith(_PHASE1_COMPARISON_SUITE_PREFIX)
     repetitions = int(payload["repetitions"])
     if repetitions < 1:
         raise ValueError("Notebook suite repetitions must be at least one")
-    replacement_value = payload.get("infrastructureReplacements")
-    replacement_budget = int(replacement_value) if replacement_value is not None else 0
-    if replacement_budget < 0:
-        raise ValueError("Notebook suite infrastructureReplacements must not be negative")
     extended_value = payload.get("extendedRepetitions")
     extended = int(extended_value) if extended_value is not None else None
     if extended is not None and extended < repetitions:
         raise ValueError(
             "Notebook suite extendedRepetitions must not be below repetitions"
+        )
+    if phase1_comparison and (repetitions != 1 or extended is not None):
+        raise ValueError(
+            "Phase 1 repeated measures are separate full-suite runs; "
+            "the suite must use one conversation per team/scenario cell"
         )
     scenarios: list[NotebookScenario] = []
     seen: set[str] = set()
@@ -1244,6 +1410,15 @@ def load_notebook_suite(path: Path | str) -> NotebookSuite:
         scenario_repetitions = item.get("repetitions")
         if scenario_repetitions is not None and int(scenario_repetitions) < 1:
             raise ValueError(f"scenario {scenario_id!r} repetitions must be positive")
+        if (
+            phase1_comparison
+            and scenario_repetitions is not None
+            and int(scenario_repetitions) != 1
+        ):
+            raise ValueError(
+                "Phase 1 repeated measures are separate full-suite runs; "
+                f"scenario {scenario_id!r} cannot repeat within a run"
+            )
         classification = str(item["expectedBaseClassification"])
         if classification not in {
             "not_applicable",
@@ -1324,14 +1499,13 @@ def load_notebook_suite(path: Path | str) -> NotebookSuite:
                     f"{profile_id!r}"
                 )
     return NotebookSuite(
-        id=str(payload["id"]),
+        id=suite_id,
         dataset_id=str(payload["datasetId"]),
         dataset_version=str(payload["datasetVersion"]),
         catalog_version=str(payload["catalogVersion"]),
         provider_name=str(payload["providerName"]),
         repetitions=repetitions,
         extended_repetitions=extended,
-        infrastructure_replacements=replacement_budget,
         require_token_evidence=bool(payload.get("requireTokenEvidence", False)),
         profiles=profiles,
         scenarios=tuple(scenarios),
@@ -1527,25 +1701,48 @@ def token_evidence_checks(
 
 
 def is_infrastructure_failure(result: dict[str, Any]) -> bool:
-    """Whether this repetition failed the host rather than the model.
+    """Whether an HTTP service or transport failure interrupted collection."""
 
-    A team is judged on what its models did. A 5xx, or a repetition that never
-    reached a turn, measured nothing and is replaced instead of scored. A 4xx
-    is Catalyst refusing the request, which is the product's behaviour and
-    belongs in the denominator like any other answer.
-    """
-    if result.get("status") == "failed_before_turn":
-        return True
     status = result.get("httpStatus")
-    return isinstance(status, int) and status >= 500
+    return result.get("status") == "infrastructure_failed" or (
+        isinstance(status, int) and status >= 500
+    ) or (
+        result.get("failureStage") in COLLECTION_INTERRUPTION_STAGES
+    )
+
+
+def _profile_availability_drift(
+    exchange: HttpExchange,
+) -> bool:
+    """Detect a profile disappearing after successful run discovery."""
+    error = exchange.response_body.get("error")
+    if (
+        exchange.status_code == 422
+        and isinstance(error, dict)
+        and error.get("code") == "profile_unavailable"
+    ):
+        return True
+    return False
+
+
+def _database_service_interruption(error: Exception) -> bool:
+    """Keep database availability failures separate from query judgments."""
+    if isinstance(error, OSError):
+        return True
+    try:
+        import psycopg
+    except ImportError:
+        return False
+    if isinstance(error, psycopg.errors.QueryCanceled):
+        return False
+    return isinstance(error, psycopg.OperationalError)
 
 
 def repetition_pair_is_unstable(runs: list[dict[str, Any]]) -> bool:
-    """Whether a profile/scenario pair's repetitions disagree with each other.
+    """Legacy within-cell disagreement used by older notebook suites.
 
-    Three agreeing runs settle a pair. Three that disagree — on the verdict,
-    on which answer the writer gave, or on whether the database check matched
-    — have not measured anything yet, so the pair earns two more runs.
+    Phase 1 comparison suites reject this collection shape. Their repeated
+    measures are separate runs of the complete suite.
     """
     scored = [run for run in runs if run.get("status") != "skipped"]
     if len(scored) < 2:
@@ -1666,7 +1863,10 @@ def _measurement_evidence(
     )
     turns: list[dict[str, Any]] = []
     turn_summaries = list(result.get("turns") or [])
-    turn_count_complete = len(turn_summaries) == len(scenario.turns)
+    turn_count_complete = (
+        len(turn_summaries) == len(scenario.turns)
+        or result.get("baseOutcomeEndedConversation") is True
+    )
     for index, (turn_spec, summary) in enumerate(
         zip(scenario.turns, turn_summaries), start=1
     ):
@@ -1731,6 +1931,114 @@ def _row_is_measurement_valid(row: dict[str, Any]) -> bool:
     )
 
 
+def _append_result_outputs(
+    *,
+    run_dir: Path,
+    run_id: str,
+    scenario: NotebookScenario,
+    backend_id: str,
+    result: dict[str, Any],
+    results_path: Path,
+    events_path: Path,
+    reused: bool = False,
+    started_at: str | None = None,
+    ended_at: str | None = None,
+) -> None:
+    """Emit the same reader-facing row and events for live or reused evidence."""
+    prefix = result.get("evidencePrefix")
+    if not isinstance(prefix, str) or not prefix:
+        raise ValueError("a completed result must name its evidence directory")
+    answer = (
+        _selected_answer_sql(run_dir, prefix)
+        or result.get("baseSql")
+        or result.get("baseAnswerText")
+        or str(result.get("status"))
+    )
+    question = (
+        f"{scenario.initial_question} ⇒ {scenario.followup_instruction}"
+        if scenario.turns
+        else scenario.initial_question
+    )
+    metrics = {
+        "http_status": result.get("httpStatus"),
+        "latency_ms": (result.get("timing") or {}).get(
+            "unadjustedGenerationWallMs"
+        ),
+        "answer_chars": len(answer) if isinstance(answer, str) else 0,
+        "passed": result.get("passed"),
+        "first_turn": result.get("repetition") == 1,
+    }
+    if reused:
+        metrics["reused"] = True
+    stream_row: dict[str, Any] = {
+        "run_id": run_id,
+        "scenario_id": scenario.id,
+        "backend_id": backend_id,
+        "turn": result.get("repetition"),
+        "request": {"question": question},
+        "response": {
+            "answer": answer,
+            "question": scenario.initial_question,
+            "baseOutcome": result.get("baseOutcome"),
+            "baseAnswerText": result.get("baseAnswerText"),
+            "baseSql": result.get("baseSql"),
+            "expectedBaseOutcome": result.get("expectedBaseOutcome"),
+            "turns": [
+                {
+                    "instruction": turn.get("instruction"),
+                    "expectedOutcome": turn.get("expectedOutcome"),
+                    "observedOutcome": turn.get("observedOutcome"),
+                    "answerText": turn.get("answerText"),
+                    "sql": turn.get("sql"),
+                }
+                for turn in result.get("turns") or []
+            ],
+            "resultPreview": result.get("resultPreview"),
+            "failedAssertions": [
+                {
+                    "name": item["name"],
+                    "class": item.get("class") or assertion_class(item["name"]),
+                    "evidence": _compact_evidence(item.get("evidence")),
+                }
+                for item in result.get("assertions") or []
+                if not item.get("passed")
+            ][:8],
+        },
+        "metrics": metrics,
+        "error": _first_failed_assertion(result.get("assertions") or []),
+    }
+    started_at = started_at or result.get("startedAt")
+    ended_at = ended_at or result.get("endedAt")
+    if isinstance(started_at, str) and started_at:
+        stream_row["started_at"] = started_at
+    if isinstance(ended_at, str) and ended_at:
+        stream_row["ended_at"] = ended_at
+    append_jsonl(results_path, stream_row)
+    for event in notebook_result_events(
+        run_id=run_id,
+        run_dir=run_dir,
+        prefix=prefix,
+        result=result,
+        backend_id=backend_id,
+    ):
+        append_event(events_path, event)
+    append_event(
+        events_path,
+        {
+            "schema_version": NOTEBOOK_EVENT_SCHEMA_VERSION,
+            "event_type": "evaluation",
+            "check": "notebook_scenario",
+            "run_id": run_id,
+            "scenario_id": scenario.id,
+            "backend_id": backend_id,
+            "turn": result.get("repetition"),
+            "http_status": result.get("httpStatus"),
+            "passed": result.get("passed"),
+            **({"reused": True} if reused else {}),
+        },
+    )
+
+
 def _adopt_reused_pair(
     *,
     recorder: _EvidenceRecorder,
@@ -1740,6 +2048,7 @@ def _adopt_reused_pair(
     team: str | None,
     recorded: list[dict[str, Any]],
     results_path: Path,
+    events_path: Path,
     imports: list[dict[str, Any]],
     preflight_digests: dict[str, str],
 ) -> None:
@@ -1793,6 +2102,7 @@ def _adopt_reused_pair(
         row_sha256 = _canonical_sha256(row)
         imports.append(
             {
+                "kind": "measurement_cell",
                 "sourceRunId": resume_from.name,
                 "profileId": backend_id,
                 "scenarioId": scenario.id,
@@ -1805,60 +2115,137 @@ def _adopt_reused_pair(
             }
         )
         append_jsonl(recorder.run_dir / "rows.jsonl", row)
-        answer = (
-            row.get("baseSql")
-            or row.get("baseAnswerText")
-            or str(row.get("status"))
+        recorder.file(
+            "rows.jsonl",
+            kind="measurement_rows",
+            media_type="application/x-ndjson",
+            replace=True,
         )
-        append_jsonl(
-            results_path,
-            {
-                "run_id": run_id,
-                "scenario_id": scenario.id,
-                "backend_id": backend_id,
-                "turn": row.get("repetition"),
-                "request": {"question": scenario.initial_question},
-                "response": {
-                    "answer": answer,
-                    "question": scenario.initial_question,
-                    "baseOutcome": row.get("baseOutcome"),
-                    "baseAnswerText": row.get("baseAnswerText"),
-                    "baseSql": row.get("baseSql"),
-                    "expectedBaseOutcome": row.get("expectedBaseOutcome"),
-                    "turns": [
-                        {
-                            "instruction": t.get("instruction"),
-                            "expectedOutcome": t.get("expectedOutcome"),
-                            "observedOutcome": t.get("observedOutcome"),
-                            "answerText": t.get("answerText"),
-                            "sql": t.get("sql"),
-                        }
-                        for t in row.get("turns") or []
-                    ],
-                    "resultPreview": row.get("resultPreview"),
-                    "failedAssertions": [
-                        {
-                            "name": item["name"],
-                            "class": item.get("class")
-                            or assertion_class(item["name"]),
-                            "evidence": _compact_evidence(item.get("evidence")),
-                        }
-                        for item in row.get("assertions") or []
-                        if not item.get("passed")
-                    ][:8],
+        _append_result_outputs(
+            run_dir=recorder.run_dir,
+            run_id=run_id,
+            scenario=scenario,
+            backend_id=backend_id,
+            result=row,
+            results_path=results_path,
+            events_path=events_path,
+            reused=True,
+        )
+
+
+def _adopt_recovery_warmup(
+    *,
+    recorder: _EvidenceRecorder,
+    source: Path,
+    profile_id: str,
+    imports: list[dict[str, Any]],
+    preflight_digests: dict[str, str],
+) -> None:
+    """Carry the excluded warm-up that actually preceded reused cells."""
+    source_prefix = source / "warmups" / profile_id
+    copied: list[dict[str, Any]] = []
+    for source_file in sorted(source_prefix.rglob("*.json")):
+        source_relative = source_file.relative_to(source).as_posix()
+        expected_sha256 = preflight_digests.get(source_relative)
+        if expected_sha256 is None:
+            raise ValueError(
+                f"recovery warm-up appeared after preflight: {source_relative}"
+            )
+        tail = source_file.relative_to(source_prefix).as_posix()
+        destination = f"warmups/{profile_id}/sources/{source.name}/{tail}"
+        copied.append(
+            recorder.adopt(
+                destination,
+                source_file,
+                kind="recovered_excluded_warmup",
+                metadata={
+                    "sourceRunId": source.name,
+                    "profileId": profile_id,
+                    "sourcePath": source_relative,
                 },
-                "metrics": {
-                    "http_status": row.get("httpStatus"),
-                    "latency_ms": (row.get("timing") or {}).get(
-                        "unadjustedGenerationWallMs"
-                    ),
-                    "answer_chars": len(answer) if isinstance(answer, str) else 0,
-                    "passed": row.get("passed"),
-                    "reused": True,
-                },
-                "error": _first_failed_assertion(row.get("assertions") or []),
+                expected_sha256=expected_sha256,
+            )
+        )
+    if not copied:
+        raise ValueError(f"recovery warm-up is missing for profile {profile_id!r}")
+    imports.append(
+        {
+            "kind": "excluded_warmup",
+            "sourceRunId": source.name,
+            "profileId": profile_id,
+            "evidence": [
+                {"path": item["path"], "sha256": item["sha256"]}
+                for item in copied
+            ],
+        }
+    )
+
+
+def _adopt_recovery_interruptions(
+    *,
+    recorder: _EvidenceRecorder,
+    source: Path,
+    failures: list[dict[str, Any]],
+    evidence_index: dict[str, dict[str, Any]],
+    imports: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Keep inherited failure pointers truthful inside the recovery run."""
+    adopted_failures: list[dict[str, Any]] = []
+    for failure in failures:
+        source_path = failure.get("evidencePath")
+        origin_run_id = failure.get("runId")
+        origin_path = failure.get("sourceEvidencePath", source_path)
+        if (
+            not isinstance(source_path, str)
+            or not source_path
+            or not isinstance(origin_run_id, str)
+            or not origin_run_id
+            or not isinstance(origin_path, str)
+            or not origin_path
+        ):
+            raise ValueError(
+                "recovery interruption is missing its run or evidence identity"
+            )
+        entry = evidence_index.get(source_path)
+        if entry is None:
+            raise ValueError(
+                f"recovery interruption evidence is not indexed: {source_path}"
+            )
+        destination = (
+            f"interruptions/sources/{origin_run_id}/{origin_path}"
+        )
+        copied = recorder.adopt(
+            destination,
+            source / source_path,
+            kind="recovered_interruption_evidence",
+            metadata={
+                "sourceRunId": source.name,
+                "originRunId": origin_run_id,
+                "sourcePath": source_path,
+                "originEvidencePath": origin_path,
             },
+            expected_sha256=str(entry["sha256"]),
         )
+        adopted_failures.append(
+            {
+                **failure,
+                "evidencePath": destination,
+                "sourceEvidencePath": origin_path,
+                "recoveredFromRunId": source.name,
+            }
+        )
+        imports.append(
+            {
+                "kind": "collection_interruption",
+                "sourceRunId": source.name,
+                "originRunId": origin_run_id,
+                "sourcePath": source_path,
+                "originEvidencePath": origin_path,
+                "destinationPath": destination,
+                "sha256": copied["sha256"],
+            }
+        )
+    return adopted_failures
 
 
 def _pair_is_complete(
@@ -1867,14 +2254,12 @@ def _pair_is_complete(
     scenario: NotebookScenario,
     repetitions: int | None,
 ) -> bool:
-    """Whether an interrupted run finished this pair by the live run's rules.
+    """Whether an interrupted run finished this pair by its suite's rules.
 
-    One recorded repetition of three is not a finished pair, and three
-    mutually disagreeing repetitions of a suite that extends to five are not
-    either: reuse applies exactly the scheduler's own completion rule, so a
-    resumed run and an uninterrupted one accept the same evidence.
+    Older suites may declare several within-cell repetitions. Phase 1
+    comparison suites declare one cell and repeat only as complete new runs.
     """
-    # Only scored repetitions count: replaced infrastructure attempts and
+    # Only scored repetitions count: interrupted infrastructure attempts and
     # skips are outside the model denominator, so they neither complete a
     # pair nor read as instability.
     scored = [
@@ -1906,21 +2291,18 @@ def _finished_pairs(
     """
     if resume_from is None:
         return {}
-    # rows.jsonl is appended as each repetition completes, so it is what an
-    # interrupted run actually left behind; results.json only exists once a
-    # run finished.
+    # rows.jsonl is appended and re-signed as each repetition completes. Read
+    # only that signed prefix: an abrupt stop may leave an unfinished next
+    # line after it, but may not rewrite any completed row.
     rows: list[dict[str, Any]] = []
-    incremental = Path(resume_from) / "rows.jsonl"
-    if incremental.exists():
-        for line in incremental.read_text(encoding="utf-8").splitlines():
-            if line.strip():
-                rows.append(json.loads(line))
-    else:
-        results_path = Path(resume_from) / "results.json"
-        if not results_path.exists():
-            return {}
-        payload = json.loads(results_path.read_text(encoding="utf-8"))
-        rows = list(payload.get("results") or [])
+    source = Path(resume_from)
+    incremental = source / "rows.jsonl"
+    if not incremental.exists():
+        return {}
+    indexed = _validated_evidence_index(source)
+    if "rows.jsonl" not in indexed:
+        return {}
+    rows = _signed_jsonl_records(source, indexed, "rows.jsonl")
     pairs: dict[tuple[str, str], list[dict[str, Any]]] = {}
     seen_cells: set[tuple[str, str, int]] = set()
     for row in rows:
@@ -1966,24 +2348,36 @@ def _effective_repetitions(
 def _preflight_recovery_evidence(
     resume_from: Path,
     reusable_pairs: list[tuple[str, list[dict[str, Any]]]],
+    warmup_profiles: set[str] | None = None,
 ) -> dict[str, str]:
     """Hash every file eligible for import before any model conversation."""
     digests: dict[str, str] = {}
     seen_prefixes: set[str] = set()
-    indexed: dict[str, str] = {}
-    index_path = resume_from / "evidence-index.json"
-    if index_path.is_file():
-        try:
-            index = json.loads(index_path.read_text(encoding="utf-8"))
-            indexed = {
-                str(item["path"]): str(item["sha256"])
-                for item in index.get("entries") or []
-                if isinstance(item, dict)
-                and isinstance(item.get("path"), str)
-                and isinstance(item.get("sha256"), str)
-            }
-        except (json.JSONDecodeError, KeyError, TypeError) as error:
-            raise ValueError("recovery evidence index is invalid") from error
+    indexed = {
+        path: str(item["sha256"])
+        for path, item in _validated_evidence_index(resume_from).items()
+    }
+
+    def add_tree(prefix: str) -> None:
+        source = resume_from / prefix
+        if not source.is_dir():
+            raise ValueError(f"recovery evidence is missing for {prefix}")
+        evidence_files = sorted(source.rglob("*.json"))
+        if not evidence_files:
+            raise ValueError(f"recovery evidence is empty for {prefix}")
+        for source_file in evidence_files:
+            relative = source_file.relative_to(resume_from).as_posix()
+            if relative in digests:
+                raise ValueError(f"recovery evidence path is duplicated: {relative}")
+            digest = hashlib.sha256(source_file.read_bytes()).hexdigest()
+            if relative not in indexed:
+                raise ValueError(f"recovery evidence is not indexed: {relative}")
+            if indexed[relative] != digest:
+                raise ValueError(
+                    f"recovery evidence no longer matches its index: {relative}"
+                )
+            digests[relative] = digest
+
     for expected_prefix, rows in reusable_pairs:
         for row in rows:
             evidence_prefix = row.get("evidencePrefix")
@@ -1996,22 +2390,9 @@ def _preflight_recovery_evidence(
                     "recovery row has a missing, misplaced, or duplicate evidence path"
                 )
             seen_prefixes.add(evidence_prefix)
-            source = resume_from / evidence_prefix
-            if not source.is_dir():
-                raise ValueError(f"recovery evidence is missing for {evidence_prefix}")
-            evidence_files = sorted(source.rglob("*.json"))
-            if not evidence_files:
-                raise ValueError(f"recovery evidence is empty for {evidence_prefix}")
-            for source_file in evidence_files:
-                relative = source_file.relative_to(resume_from).as_posix()
-                if relative in digests:
-                    raise ValueError(f"recovery evidence path is duplicated: {relative}")
-                digest = hashlib.sha256(source_file.read_bytes()).hexdigest()
-                if relative in indexed and indexed[relative] != digest:
-                    raise ValueError(
-                        f"recovery evidence no longer matches its index: {relative}"
-                    )
-                digests[relative] = digest
+            add_tree(evidence_prefix)
+    for profile_id in sorted(warmup_profiles or set()):
+        add_tree(f"warmups/{profile_id}")
     return digests
 
 
@@ -2025,6 +2406,155 @@ def _run_tree_sha256(run_dir: Path) -> str:
             }
         )
     return _canonical_sha256(files)
+
+
+def _validated_evidence_index(run_dir: Path) -> dict[str, dict[str, Any]]:
+    """Verify an interrupted run's signed inventory before trusting any row."""
+    index_candidates = (
+        run_dir / "evidence-index.json",
+        run_dir / ".evidence-index.json.tmp",
+    )
+    checksum_candidates = (
+        run_dir / "evidence-index.sha256",
+        run_dir / ".evidence-index.sha256.tmp",
+    )
+    checksums: set[str] = set()
+    for path in checksum_candidates:
+        try:
+            value = path.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            continue
+        match = re.fullmatch(
+            r"([0-9a-f]{64})  evidence-index\.json\n?",
+            value,
+        )
+        if match is not None:
+            checksums.add(match.group(1))
+    candidates: list[dict[str, Any]] = []
+    for path in index_candidates:
+        try:
+            encoded = path.read_bytes()
+        except OSError:
+            continue
+        if hashlib.sha256(encoded).hexdigest() not in checksums:
+            continue
+        try:
+            candidate = json.loads(encoded)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(candidate, dict):
+            candidates.append(candidate)
+    if not candidates:
+        raise ValueError(
+            "recovery evidence index is invalid or its checksum does not match"
+        )
+
+    def validate(
+        index: dict[str, Any],
+    ) -> tuple[tuple[int, int, int], dict[str, dict[str, Any]]]:
+        if (
+            index.get("contractVersion")
+            != "harness.catalyst-notebook.evidence-index.v1"
+            or index.get("runId") != run_dir.name
+            or index.get("hashAlgorithm") != "sha256"
+        ):
+            raise ValueError("recovery evidence index identity is invalid")
+        entries = index.get("entries")
+        if not isinstance(entries, list):
+            raise ValueError("recovery evidence index entries are invalid")
+        validated: dict[str, dict[str, Any]] = {}
+        total_bytes = 0
+        for entry in entries:
+            if not isinstance(entry, dict):
+                raise ValueError("recovery evidence index entry is invalid")
+            relative = entry.get("path")
+            digest = entry.get("sha256")
+            byte_count = entry.get("bytes")
+            if (
+                not isinstance(relative, str)
+                or not relative
+                or relative in validated
+                or not isinstance(digest, str)
+                or re.fullmatch(r"[0-9a-f]{64}", digest) is None
+                or not isinstance(byte_count, int)
+                or byte_count < 0
+            ):
+                raise ValueError("recovery evidence index entry is invalid")
+            path = run_dir / relative
+            if (
+                not path.resolve().is_relative_to(run_dir.resolve())
+                or not path.is_file()
+            ):
+                raise ValueError(
+                    f"recovery evidence is missing or misplaced: {relative}"
+                )
+            file_bytes = path.read_bytes()
+            # These streams are append-only. The signed prefix is
+            # authoritative; any later bytes were not committed records.
+            if relative in {"rows.jsonl", "interruptions.jsonl"}:
+                if len(file_bytes) < byte_count:
+                    raise ValueError(
+                        f"recovery {relative} is shorter than its signed prefix"
+                    )
+                signed_bytes = file_bytes[:byte_count]
+            else:
+                if len(file_bytes) != byte_count:
+                    raise ValueError(f"recovery evidence size changed: {relative}")
+                signed_bytes = file_bytes
+            if hashlib.sha256(signed_bytes).hexdigest() != digest:
+                raise ValueError(
+                    f"recovery evidence no longer matches its index: {relative}"
+                )
+            validated[relative] = dict(entry)
+            total_bytes += byte_count
+        core_paths = {"run_manifest.json", "run-config.json", "suite.json"}
+        missing_core = sorted(core_paths.difference(validated))
+        if missing_core:
+            raise ValueError(
+                "recovery identity files are not indexed: "
+                + ", ".join(missing_core)
+            )
+        rows_bytes = int((validated.get("rows.jsonl") or {}).get("bytes") or 0)
+        return (len(validated), rows_bytes, total_bytes), validated
+
+    valid: list[tuple[tuple[int, int, int], dict[str, dict[str, Any]]]] = []
+    errors: list[ValueError] = []
+    for candidate in candidates:
+        try:
+            valid.append(validate(candidate))
+        except ValueError as error:
+            errors.append(error)
+    if not valid:
+        raise errors[0]
+    # A crash can leave both the prior canonical checkpoint and the next fully
+    # written temporary checkpoint. Prefer the one that safely binds more
+    # evidence, especially a longer completed-row prefix.
+    return max(valid, key=lambda item: item[0])[1]
+
+
+def _signed_jsonl_records(
+    run_dir: Path,
+    evidence_index: dict[str, dict[str, Any]],
+    relative_path: str,
+) -> list[dict[str, Any]]:
+    entry = evidence_index.get(relative_path)
+    if entry is None:
+        return []
+    signed = (run_dir / relative_path).read_bytes()[: int(entry["bytes"])]
+    if signed and not signed.endswith(b"\n"):
+        raise ValueError(f"recovery {relative_path} has an incomplete signed record")
+    records: list[dict[str, Any]] = []
+    try:
+        for line in signed.decode("utf-8").splitlines():
+            if not line.strip():
+                continue
+            payload = json.loads(line)
+            if not isinstance(payload, dict):
+                raise ValueError(f"recovery {relative_path} record is not an object")
+            records.append(payload)
+    except (UnicodeDecodeError, json.JSONDecodeError) as error:
+        raise ValueError(f"recovery {relative_path} has an invalid signed record") from error
+    return records
 
 
 def _load_resume_header(resume_from: Path | None) -> dict[str, Any] | None:
@@ -2046,11 +2576,47 @@ def _load_resume_header(resume_from: Path | None) -> dict[str, Any] | None:
         raise ValueError(
             "recovery requires the source manifest, frozen config, and run status"
         ) from error
+    if not all(isinstance(item, dict) for item in (status, manifest, frozen_config)):
+        raise ValueError(
+            "recovery requires object-shaped manifest, frozen config, and run status"
+        )
     if status.get("state") != "incomplete":
         raise ValueError("only an immutable incomplete run can be recovered")
     source_id = manifest.get("run_id")
     if not isinstance(source_id, str) or source_id != resume_from.name:
         raise ValueError("recovery source directory and manifest run ID disagree")
+    evidence_index = _validated_evidence_index(resume_from)
+    failures = status.get("infrastructureFailures")
+    if (
+        status.get("contractVersion")
+        != "harness.catalyst-notebook.run-status.v1"
+        or status.get("runId") != source_id
+        or status.get("measurementValid") is not False
+        or not isinstance(failures, list)
+        or any(not isinstance(item, dict) for item in failures)
+    ):
+        raise ValueError("recovery run status is inconsistent with its source")
+    signed_failures = _signed_jsonl_records(
+        resume_from,
+        evidence_index,
+        "interruptions.jsonl",
+    )
+    if any(
+        item.get("runId") != source_id
+        or item.get("status") != "infrastructure_failed"
+        or not isinstance(item.get("phase"), str)
+        or not isinstance(item.get("evidencePath"), str)
+        for item in signed_failures
+    ):
+        raise ValueError("recovery interruption history is invalid")
+    merged_failures: list[dict[str, Any]] = []
+    seen_failures: set[str] = set()
+    for item in [*failures, *signed_failures]:
+        digest = _canonical_sha256(item)
+        if digest in seen_failures:
+            continue
+        seen_failures.add(digest)
+        merged_failures.append(dict(item))
     prior_ancestry = list(manifest.get("resumeAncestry") or [])
     ancestry = prior_ancestry + [source_id]
     if not all(isinstance(item, str) and item for item in ancestry):
@@ -2058,6 +2624,11 @@ def _load_resume_header(resume_from: Path | None) -> dict[str, Any] | None:
     if len(set(ancestry)) != len(ancestry):
         raise ValueError("recovery ancestry contains a cycle or duplicate run")
     direct_parent = manifest.get("resumedFrom")
+    if (
+        status.get("resumedFrom") != direct_parent
+        or list(status.get("resumeAncestry") or []) != prior_ancestry
+    ):
+        raise ValueError("recovery run status and manifest ancestry disagree")
     if prior_ancestry:
         if direct_parent != prior_ancestry[-1]:
             raise ValueError("recovery manifest does not preserve its direct parent")
@@ -2066,6 +2637,7 @@ def _load_resume_header(resume_from: Path | None) -> dict[str, Any] | None:
     for index, ancestor_id in enumerate(prior_ancestry):
         ancestor_path = resume_from.parent / str(ancestor_id) / "run_manifest.json"
         try:
+            _validated_evidence_index(ancestor_path.parent)
             ancestor = json.loads(ancestor_path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError) as error:
             raise ValueError(
@@ -2084,7 +2656,8 @@ def _load_resume_header(resume_from: Path | None) -> dict[str, Any] | None:
         "ancestry": ancestry,
         "manifest": manifest,
         "frozenConfig": frozen_config,
-        "infrastructureFailures": list(status.get("infrastructureFailures") or []),
+        "infrastructureFailures": merged_failures,
+        "evidenceIndex": evidence_index,
         "treeSha256": _run_tree_sha256(resume_from),
     }
 
@@ -2099,6 +2672,7 @@ def _validate_recovery_identity(
     profiles: dict[str, Any],
     dataset: dict[str, Any],
     catalog: dict[str, Any],
+    allow_incomplete_source_discovery: bool = False,
 ) -> None:
     source_manifest = header["manifest"]
     comparisons = {
@@ -2121,19 +2695,44 @@ def _validate_recovery_identity(
             source_manifest.get("schema_mapping_version"),
             manifest.schema_mapping_version,
         ),
-        "profile and model discovery": (
-            _exchange_body(resume_from / "discovery/query-options.json"),
+    }
+    discovery = (
+        (
+            "profile and model discovery",
+            resume_from / "discovery/query-options.json",
             profiles,
         ),
-        "dataset discovery": (
-            _exchange_body(resume_from / "discovery/dataset.json"),
-            dataset,
-        ),
-        "catalog discovery": (
-            _exchange_body(resume_from / "discovery/catalog.json"),
-            catalog,
-        ),
-    }
+        ("dataset discovery", resume_from / "discovery/dataset.json", dataset),
+        ("catalog discovery", resume_from / "discovery/catalog.json", catalog),
+    )
+    source_discovery: dict[str, dict[str, Any]] = {}
+    for name, path, _ in discovery:
+        relative = path.relative_to(resume_from).as_posix()
+        if path.is_file() and relative not in header["evidenceIndex"]:
+            raise ValueError(f"recovery discovery evidence is not indexed: {relative}")
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+            response = payload.get("response") or {}
+            body = response.get("body")
+            http_status = response.get("httpStatus")
+        except (OSError, json.JSONDecodeError, AttributeError):
+            body = None
+            http_status = None
+        if (
+            isinstance(body, dict)
+            and isinstance(http_status, int)
+            and 200 <= http_status < 300
+        ):
+            source_discovery[name] = body
+    if len(source_discovery) == len(discovery):
+        comparisons.update(
+            {
+                name: (source_discovery[name], current)
+                for name, _, current in discovery
+            }
+        )
+    elif not allow_incomplete_source_discovery:
+        raise ValueError("recovery source has incomplete discovery evidence")
     drifted = [
         name
         for name, (source, current) in comparisons.items()
@@ -2159,6 +2758,13 @@ def _record_warmup(
     session = recorder.exchange(
         f"{prefix}/01-create-session.json", created, kind="excluded_warmup"
     )
+    if _profile_availability_drift(created):
+        raise _CollectionInterrupted(
+            f"{prefix}/01-create-session.json",
+            created,
+            interruption_kind="profile_availability",
+            interruption_code="profile_unavailable",
+        )
     session_id = session.get("sessionId")
     if created.status_code != 201 or not isinstance(session_id, str):
         raise ValueError(f"warm-up failed before a session for profile {profile_id!r}")
@@ -2176,14 +2782,24 @@ def _record_warmup(
     )
     if timeline_exchange.status_code != 200 or initial is None:
         raise ValueError(f"warm-up timeline is incomplete for profile {profile_id!r}")
+    interruption = _persisted_service_interruption(initial)
     evidence_exchange = client.generation_evidence(session_id, initial["turnId"])
-    recorder.exchange(
-        f"{prefix}/03-generation-evidence.json",
-        evidence_exchange,
-        kind="excluded_warmup",
-    )
+    try:
+        recorder.exchange(
+            f"{prefix}/03-generation-evidence.json",
+            evidence_exchange,
+            kind="excluded_warmup",
+        )
+    except _CollectionInterrupted as later:
+        raise _carry_recorded_failure(later, interruption) from later
     if evidence_exchange.status_code != 200:
         raise ValueError(f"warm-up evidence is incomplete for profile {profile_id!r}")
+    if interruption is not None:
+        raise _CollectionInterrupted(
+            f"{prefix}/02-turns.json",
+            timeline_exchange,
+            recorded_failure=interruption,
+        )
     return session_id
 
 
@@ -2219,11 +2835,40 @@ def run_notebook_suite(
     ]
     if not selected:
         raise ValueError("no notebook scenarios selected")
+    if (
+        suite.id.startswith(_PHASE1_COMPARISON_SUITE_PREFIX)
+        and scenario_ids is not None
+        and scenario_ids != {scenario.id for scenario in suite.scenarios}
+    ):
+        raise ValueError(
+            "Phase 1 collection must run the complete frozen scenario set"
+        )
     if repetitions is not None and repetitions < 1:
         raise ValueError("repetitions must be at least one")
+    if (
+        suite.id.startswith(_PHASE1_COMPARISON_SUITE_PREFIX)
+        and repetitions not in {None, 1}
+    ):
+        raise ValueError(
+            "Phase 1 repeated measures are separate full-suite runs; "
+            "the repetition override must be one"
+        )
 
     resume_path = Path(resume_from) if resume_from is not None else None
     resume_header = _load_resume_header(resume_path)
+    recovery_chain = (
+        tuple(
+            resume_path.parent / str(source_id)
+            for source_id in reversed(resume_header["ancestry"])
+        )
+        if resume_path is not None and resume_header is not None
+        else ()
+    )
+    recovery_source_hashes = (
+        {resume_path: resume_header["treeSha256"]}
+        if resume_path is not None and resume_header is not None
+        else {}
+    )
     run_id = str(uuid4())
     run_dir = Path(output_dir) / run_id
     recorder = _EvidenceRecorder(run_dir, run_id)
@@ -2272,8 +2917,20 @@ def run_notebook_suite(
         metadata={"sourceSha256": suite_sha256},
     )
     recorder.json("run-config.json", public_config, kind="run_configuration")
-    infrastructure_failures: list[dict[str, Any]] = list(
+    recovery_imports: list[dict[str, Any]] = []
+    source_failures: list[dict[str, Any]] = list(
         (resume_header or {}).get("infrastructureFailures") or []
+    )
+    infrastructure_failures = (
+        _adopt_recovery_interruptions(
+            recorder=recorder,
+            source=resume_path,
+            failures=source_failures,
+            evidence_index=resume_header["evidenceIndex"],
+            imports=recovery_imports,
+        )
+        if resume_path is not None and resume_header is not None
+        else source_failures
     )
     status = {
         "contractVersion": "harness.catalyst-notebook.run-status.v1",
@@ -2285,14 +2942,12 @@ def run_notebook_suite(
         "infrastructureFailures": infrastructure_failures,
     }
     _write_run_status(run_dir, status)
+    results: list[dict[str, Any]] = []
+    skipped = 0
 
-    # Additive run-stream files (events.jsonl / results.jsonl): NOT registered
-    # in the evidence index, so evidence-index.json/.sha256 and results.json
-    # stay byte-identical to today. This is the same run/backend_selected/
-    # evaluation + results-row contract harness/validate/runner.py streams,
-    # so scripts/validate-dashboard.py tracks a Catalyst run live instead of
-    # only ChartSearchAI's "validate" family — one harness architecture, only
-    # the scenarios and rubric differ.
+    # Additive run-stream files use the same run/backend_selected/evaluation +
+    # results-row contract as harness/validate/runner.py. They are signed at
+    # the last complete record so a recovery never trusts mutable summaries.
     #
     # harness/catalyst/events.py::workbench_event_envelope is a separate,
     # tested bridge for typed Gateway *session* events (a different
@@ -2346,19 +3001,208 @@ def run_notebook_suite(
             },
         )
 
-    profiles_exchange = client.profiles()
-    dataset_exchange = client.dataset_overview()
-    catalog_exchange = client.catalog()
-    recorder.exchange(
-        "discovery/query-options.json", profiles_exchange, kind="profile_discovery"
-    )
-    dataset = recorder.exchange(
-        "discovery/dataset.json", dataset_exchange, kind="dataset_discovery"
-    )
-    catalog = recorder.exchange(
-        "discovery/catalog.json", catalog_exchange, kind="catalog_discovery"
-    )
+    def record_recovery_imports() -> None:
+        if recovery_imports and not (run_dir / "recovery-import.json").exists():
+            recorder.json(
+                "recovery-import.json",
+                {
+                    "contractVersion": (
+                        "harness.catalyst-notebook.recovery-import.v1"
+                    ),
+                    "resumedFrom": (resume_header or {}).get("runId"),
+                    "resumeAncestry": list(
+                        (resume_header or {}).get("ancestry") or []
+                    ),
+                    "imports": recovery_imports,
+                },
+                kind="recovery_import_ledger",
+            )
+
+    def require_unchanged_recovery_source() -> None:
+        for source, expected_sha256 in recovery_source_hashes.items():
+            if _run_tree_sha256(source) == expected_sha256:
+                continue
+            status.update(
+                {
+                    "state": "invalid",
+                    "reason": "an interrupted source changed during recovery",
+                }
+            )
+            _write_run_status(run_dir, status)
+            raise ValueError("an interrupted source changed during recovery")
+
+    def finish_incomplete(
+        interruption: _CollectionInterrupted,
+        *,
+        phase: str,
+        profile_id: str | None = None,
+        scenario: NotebookScenario | None = None,
+        repetition: int | None = None,
+        attempt: str | None = None,
+        evidence_prefix: str | None = None,
+    ) -> NotebookRunResult:
+        http_status = (
+            interruption.exchange.status_code
+            if interruption.exchange is not None
+            else None
+        )
+        failure: dict[str, Any] = {
+            "runId": run_id,
+            "phase": phase,
+            "status": "infrastructure_failed",
+            "evidencePath": interruption.evidence_path,
+        }
+        if http_status is not None:
+            failure["httpStatus"] = http_status
+        recorded_failure = interruption.recorded_failure
+        interruption_kind = interruption.interruption_kind
+        interruption_code = interruption.interruption_code
+        if recorded_failure is not None:
+            stage = recorded_failure.get("stage")
+            code = recorded_failure.get("code")
+            if stage is not None:
+                failure["failureStage"] = stage
+            if code is not None:
+                failure["failureCode"] = code
+        if interruption_kind is not None:
+            failure["interruptionKind"] = interruption_kind
+        if interruption_code is not None:
+            failure["interruptionCode"] = interruption_code
+        for key, value in (
+            ("profileId", profile_id),
+            ("scenarioId", scenario.id if scenario is not None else None),
+            ("repetition", repetition),
+            ("attempt", attempt),
+            ("evidencePrefix", evidence_prefix),
+        ):
+            if value is not None:
+                failure[key] = value
+        infrastructure_failures.append(failure)
+        append_jsonl(run_dir / "interruptions.jsonl", failure)
+        recorder.file(
+            "interruptions.jsonl",
+            kind="collection_interruptions",
+            media_type="application/x-ndjson",
+            replace=True,
+        )
+
+        if scenario is not None and repetition is not None and profile_id is not None:
+            row = {
+                "scenarioId": scenario.id,
+                "family": scenario.family,
+                "repetition": repetition,
+                "status": "infrastructure_failed",
+                "sessionId": None,
+                "assertions": [],
+                "passed": False,
+                "profileId": profile_id,
+                "httpStatus": http_status,
+                "evidencePrefix": evidence_prefix,
+                "interruptionEvidencePath": interruption.evidence_path,
+                "measurementValid": False,
+            }
+            if recorded_failure is not None:
+                stage = recorded_failure.get("stage")
+                code = recorded_failure.get("code")
+                if stage is not None:
+                    row["failureStage"] = stage
+                if code is not None:
+                    row["failureCode"] = code
+            if interruption_kind is not None:
+                row["interruptionKind"] = interruption_kind
+            if interruption_code is not None:
+                row["interruptionCode"] = interruption_code
+            append_jsonl(run_dir / "rows.jsonl", row)
+            recorder.file(
+                "rows.jsonl",
+                kind="measurement_rows",
+                media_type="application/x-ndjson",
+                replace=True,
+            )
+            results.append(row)
+
+        record_recovery_imports()
+        require_unchanged_recovery_source()
+        _index_run_streams(recorder)
+        recorder.finish()
+        passed_count = sum(
+            item.get("passed") is True
+            and item.get("status") not in {"skipped", "infrastructure_failed"}
+            for item in results
+        )
+        result_count = sum(
+            item.get("status") not in {"skipped", "infrastructure_failed"}
+            for item in results
+        )
+        status.update(
+            {
+                "state": "incomplete",
+                "measurementValid": False,
+                "reason": "collection stopped after "
+                + (
+                    "recorded "
+                    + ":".join(
+                        str(value)
+                        for value in (
+                            recorded_failure.get("stage"),
+                            recorded_failure.get("code"),
+                        )
+                        if value
+                    )
+                    if recorded_failure is not None
+                    else (
+                        ":".join(
+                            str(value)
+                            for value in (interruption_kind, interruption_code)
+                            if value
+                        )
+                        if interruption_kind is not None
+                        else f"HTTP {http_status}"
+                    )
+                )
+                + f" during {phase}; resume explicitly when the environment is ready",
+                "resultCount": result_count,
+                "passedCount": passed_count,
+                "infrastructureFailures": infrastructure_failures,
+            }
+        )
+        _write_run_status(run_dir, status)
+        return NotebookRunResult(
+            run_id=run_id,
+            run_dir=run_dir,
+            result_count=result_count,
+            passed_count=passed_count,
+            skipped_count=skipped,
+            complete=False,
+            measurement_valid=False,
+        )
+
+    try:
+        profiles_exchange = client.profiles()
+        recorder.exchange(
+            "discovery/query-options.json",
+            profiles_exchange,
+            kind="profile_discovery",
+        )
+        dataset_exchange = client.dataset_overview()
+        dataset = recorder.exchange(
+            "discovery/dataset.json", dataset_exchange, kind="dataset_discovery"
+        )
+        catalog_exchange = client.catalog()
+        catalog = recorder.exchange(
+            "discovery/catalog.json", catalog_exchange, kind="catalog_discovery"
+        )
+    except _CollectionInterrupted as interruption:
+        return finish_incomplete(
+            interruption,
+            phase="discovery",
+            evidence_prefix="discovery",
+        )
     _require_discovery(suite, profiles_exchange, dataset_exchange, catalog_exchange)
+    finished_sources = [
+        (source, _finished_pairs(source)) for source in recovery_chain
+    ]
+    direct_finished = finished_sources[0][1] if finished_sources else {}
     if resume_path is not None and resume_header is not None:
         _validate_recovery_identity(
             resume_from=resume_path,
@@ -2369,15 +3213,16 @@ def run_notebook_suite(
             profiles=profiles_exchange.response_body,
             dataset=dataset_exchange.response_body,
             catalog=catalog_exchange.response_body,
+            allow_incomplete_source_discovery=not bool(direct_finished),
         )
 
     # A comparison is hours of model time, so an interruption resumes rather
     # than restarts: every (team, scenario) already recorded is reused
     # verbatim and only the missing pairs are run again.
-    finished = _finished_pairs(resume_path)
     teams: tuple[str | None, ...] = suite.comparison_profiles or (None,)
-    reusable: dict[tuple[str, str], list[dict[str, Any]]] = {}
-    reusable_evidence: list[tuple[str, list[dict[str, Any]]]] = []
+    reusable: dict[tuple[str, str], tuple[Path, list[dict[str, Any]]]] = {}
+    reusable_evidence: dict[Path, list[tuple[str, list[dict[str, Any]]]]] = {}
+    recovery_warmups: dict[Path, set[str]] = {}
     for team in teams:
         for declared_scenario in selected:
             scenario = (
@@ -2386,71 +3231,103 @@ def run_notebook_suite(
                 else declared_scenario
             )
             key = (team or scenario.followup_profile_id, scenario.id)
-            recorded = finished.get(key)
-            if recorded is not None and _pair_is_complete(
-                recorded, suite, scenario, repetitions
-            ):
-                reusable[key] = recorded
+            for source, finished in finished_sources:
+                recorded = finished.get(key)
+                if recorded is None or not _pair_is_complete(
+                    recorded, suite, scenario, repetitions
+                ):
+                    continue
+                reusable[key] = (source, recorded)
                 expected_prefix = (
                     f"scenarios/{scenario.id}/"
                     if team is None
                     else f"scenarios/{team}/{scenario.id}/"
                 )
-                reusable_evidence.append((expected_prefix, recorded))
-    preflight_digests = (
-        _preflight_recovery_evidence(resume_path, reusable_evidence)
-        if resume_path is not None
-        else {}
-    )
-    results: list[dict[str, Any]] = []
+                reusable_evidence.setdefault(source, []).append(
+                    (expected_prefix, recorded)
+                )
+                if warmup_question and team is not None:
+                    recovery_warmups.setdefault(source, set()).add(team)
+                break
+    preflight_digests: dict[Path, dict[str, str]] = {}
+    for source, evidence in reusable_evidence.items():
+        if source != resume_path:
+            source_header = _load_resume_header(source)
+            assert source_header is not None
+            _validate_recovery_identity(
+                resume_from=source,
+                header=source_header,
+                frozen_config=public_config,
+                suite_sha256=suite_sha256,
+                manifest=manifest,
+                profiles=profiles_exchange.response_body,
+                dataset=dataset_exchange.response_body,
+                catalog=catalog_exchange.response_body,
+            )
+            recovery_source_hashes[source] = source_header["treeSha256"]
+        preflight_digests[source] = _preflight_recovery_evidence(
+            source,
+            evidence,
+            recovery_warmups.get(source),
+        )
+    for source, profile_ids in recovery_warmups.items():
+        for profile_id in sorted(profile_ids):
+            _adopt_recovery_warmup(
+                recorder=recorder,
+                source=source,
+                profile_id=profile_id,
+                imports=recovery_imports,
+                preflight_digests=preflight_digests[source],
+            )
     seen_sessions: set[str] = set()
-    recovery_imports: list[dict[str, Any]] = []
-    # The budget belongs to the run: it exists to stop a team being scored
-    # on a host that keeps falling over, and a per-scenario counter would
-    # let a twelve-scenario suite absorb twenty-four failures.
-    skipped = 0
     # Teams are the outer loop: a local model stays resident while it answers
     # the whole suite, and every team meets the same frozen scenario order.
     for team in teams:
         # Only a comparison declares one profile as a team across the whole
         # selected matrix. Legacy suites may choose a different profile in
         # each scenario and therefore have no single team-level warm-up.
-        if warmup_question and team is not None:
-            seen_sessions.add(
-                _record_warmup(
+        team_has_live_cells = any(
+            not (scenario.manual_only and not include_manual)
+            and (team or scenario.followup_profile_id, scenario.id) not in reusable
+            for scenario in selected
+        )
+        if warmup_question and team is not None and team_has_live_cells:
+            try:
+                warmup_session_id = _record_warmup(
                     client=client,
                     recorder=recorder,
                     profile_id=team,
                     question=warmup_question,
                 )
-            )
+            except _CollectionInterrupted as interruption:
+                return finish_incomplete(
+                    interruption,
+                    phase="warmup",
+                    profile_id=team,
+                    evidence_prefix=f"warmups/{team}",
+                )
+            seen_sessions.add(warmup_session_id)
         for scenario in selected:
             if team is not None:
                 scenario = _scenario_for_profile(scenario, team)
             profile_id = team or scenario.followup_profile_id
-            # The budget follows the profile that actually handles this
-            # scenario. For a comparison this remains one team-wide budget;
-            # for a legacy mixed-profile suite it cannot be misattributed to
-            # whichever profile happened to appear in the first scenario.
-            replacements = sum(
-                item.get("profileId") == profile_id
-                for item in infrastructure_failures
-            )
-            recorded = reusable.get(
+            recovered = reusable.get(
                 (profile_id, scenario.id)
             )
-            if recorded is not None:
+            if recovered is not None:
+                source, recorded = recovered
                 results.extend(recorded)
                 _adopt_reused_pair(
                     recorder=recorder,
-                    resume_from=resume_path,
+                    resume_from=source,
                     run_id=run_id,
                     scenario=scenario,
                     team=team,
                     recorded=recorded,
                     results_path=results_path,
+                    events_path=events_path,
                     imports=recovery_imports,
-                    preflight_digests=preflight_digests,
+                    preflight_digests=preflight_digests[source],
                 )
                 continue
             if scenario.manual_only and not include_manual:
@@ -2466,8 +3343,9 @@ def run_notebook_suite(
                 )
                 continue
             repeat_count = _effective_repetitions(suite, scenario, repetitions)
-            # A pair that disagrees with itself has measured nothing, so it earns
-            # the extension; one that agrees is settled and is not re-run.
+            # Compatibility for older notebook suites that explicitly declare
+            # an adaptive within-cell extension. Phase 1 comparison suites
+            # reject that shape and repeat only as complete new runs.
             ceiling = (
                 repeat_count
                 if repetitions is not None or suite.extended_repetitions is None
@@ -2477,28 +3355,35 @@ def run_notebook_suite(
             repetition = 0
             while repetition < repeat_count:
                 repetition += 1
-                attempt_slot = (
-                    f"repetition-{repetition:02d}"
-                    if replacements == 0
-                    else f"repetition-{repetition:02d}-replacement-{replacements:02d}"
-                )
+                attempt_slot = f"repetition-{repetition:02d}"
                 prefix = (
                     f"scenarios/{scenario.id}/{attempt_slot}"
                     if team is None
                     else f"scenarios/{team}/{scenario.id}/{attempt_slot}"
                 )
                 started_at = datetime.now(timezone.utc).isoformat()
-                result = _run_scenario(
-                    suite=suite,
-                    scenario=scenario,
-                    repetition=repetition,
-                    client=client,
-                    recorder=recorder,
-                    prefix=prefix,
-                    postgres_checker=postgres_checker,
-                    gold_checker=gold_checker,
-                    manual_checkpoint=manual_checkpoint,
-                )
+                try:
+                    result = _run_scenario(
+                        suite=suite,
+                        scenario=scenario,
+                        repetition=repetition,
+                        client=client,
+                        recorder=recorder,
+                        prefix=prefix,
+                        postgres_checker=postgres_checker,
+                        gold_checker=gold_checker,
+                        manual_checkpoint=manual_checkpoint,
+                    )
+                except _CollectionInterrupted as interruption:
+                    return finish_incomplete(
+                        interruption,
+                        phase="scenario",
+                        profile_id=profile_id,
+                        scenario=scenario,
+                        repetition=repetition,
+                        attempt=attempt_slot,
+                        evidence_prefix=prefix,
+                    )
                 session_id = result.get("sessionId")
                 isolated = isinstance(session_id, str) and session_id not in seen_sessions
                 if isinstance(session_id, str):
@@ -2521,146 +3406,32 @@ def run_notebook_suite(
                     scenario=scenario,
                     result=result,
                 )
-                if (
-                    suite.infrastructure_replacements
-                    and is_infrastructure_failure(result)
-                ):
-                    replacements += 1
-                    result["status"] = "infrastructure_failed"
-                    result["measurementValid"] = False
-                    failure = {
-                        "profileId": profile_id,
-                        "scenarioId": scenario.id,
-                        "repetition": repetition,
-                        "attempt": attempt_slot,
-                        "httpStatus": result["httpStatus"],
-                        "status": result.get("status"),
-                        "sessionId": result.get("sessionId"),
-                    }
-                    infrastructure_failures.append(failure)
-                    append_jsonl(run_dir / "rows.jsonl", result)
-                    status["infrastructureFailures"] = infrastructure_failures
-                    if replacements > suite.infrastructure_replacements:
-                        status.update(
-                            {
-                                "state": "invalid",
-                                "reason": (
-                                    f"profile {profile_id!r} exceeded its infrastructure "
-                                    "replacement budget"
-                                ),
-                            }
-                        )
-                        _write_run_status(run_dir, status)
-                        raise ValueError(
-                            f"scenario {scenario.id!r} exceeded the infrastructure "
-                            "failure budget across the recovery chain; the run is "
-                            "invalid for that profile"
-                        )
-                    _write_run_status(run_dir, status)
-                    results.append(result)
-                    # The host, not the model, failed: re-run this repetition
-                    # rather than scoring it.
-                    repetition -= 1
-                    continue
                 result["measurementValid"] = _row_is_measurement_valid(result)
+                ended_at = datetime.now(timezone.utc).isoformat()
+                result["startedAt"] = started_at
+                result["endedAt"] = ended_at
                 # Appended only after its final classification: this is what a
-                # replacement may import if the process stops before summary.
+                # recovery run may import if the process stops before summary.
                 append_jsonl(run_dir / "rows.jsonl", result)
+                recorder.file(
+                    "rows.jsonl",
+                    kind="measurement_rows",
+                    media_type="application/x-ndjson",
+                    replace=True,
+                )
                 results.append(result)
                 scenario_runs.append(result)
-                ended_at = datetime.now(timezone.utc).isoformat()
-
-                http_status = _normalized_http_status(run_dir, prefix)
-                answer = (
-                    _selected_answer_sql(run_dir, prefix)
-                    or result.get("baseSql")
-                    or result.get("baseAnswerText")
-                    or str(result.get("status"))
-                )
                 backend_id = scenario.followup_profile_id
-                append_jsonl(
-                    results_path,
-                    {
-                        "run_id": run_id,
-                        "scenario_id": scenario.id,
-                        "backend_id": backend_id,
-                        "turn": repetition,
-                        "request": {
-                            "question": (
-                                f"{scenario.initial_question} ⇒ "
-                                f"{scenario.followup_instruction}"
-                                if scenario.turns
-                                else scenario.initial_question
-                            )
-                        },
-                        "response": {
-                            "answer": answer,
-                            "question": scenario.initial_question,
-                            "baseOutcome": result.get("baseOutcome"),
-                            "baseAnswerText": result.get("baseAnswerText"),
-                            "baseSql": result.get("baseSql"),
-                            "expectedBaseOutcome": result.get(
-                                "expectedBaseOutcome"
-                            ),
-                            "turns": [
-                                {
-                                    "instruction": t.get("instruction"),
-                                    "expectedOutcome": t.get("expectedOutcome"),
-                                    "observedOutcome": t.get("observedOutcome"),
-                                    "answerText": t.get("answerText"),
-                                    "sql": t.get("sql"),
-                                }
-                                for t in result.get("turns") or []
-                            ],
-                            "resultPreview": result.get("resultPreview"),
-                            "failedAssertions": [
-                                {
-                                    "name": item["name"],
-                                    "class": item.get("class")
-                                    or assertion_class(item["name"]),
-                                    "evidence": _compact_evidence(
-                                        item.get("evidence")
-                                    ),
-                                }
-                                for item in result.get("assertions") or []
-                                if not item.get("passed")
-                            ][:8],
-                        },
-                        "metrics": {
-                            "http_status": http_status,
-                            "latency_ms": (result.get("timing") or {}).get(
-                                "unadjustedGenerationWallMs"
-                            ),
-                            "answer_chars": len(answer) if isinstance(answer, str) else 0,
-                            "passed": result["passed"],
-                            "first_turn": repetition == 1,
-                        },
-                        "error": _first_failed_assertion(result["assertions"]),
-                        "started_at": started_at,
-                        "ended_at": ended_at,
-                    },
-                )
-                for event in notebook_result_events(
-                    run_id=run_id,
+                _append_result_outputs(
                     run_dir=run_dir,
-                    prefix=prefix,
-                    result=result,
+                    run_id=run_id,
+                    scenario=scenario,
                     backend_id=backend_id,
-                ):
-                    append_event(events_path, event)
-                append_event(
-                    events_path,
-                    {
-                        "schema_version": NOTEBOOK_EVENT_SCHEMA_VERSION,
-                        "event_type": "evaluation",
-                        "check": "notebook_scenario",
-                        "run_id": run_id,
-                        "scenario_id": scenario.id,
-                        "backend_id": backend_id,
-                        "turn": repetition,
-                        "http_status": http_status,
-                        "passed": result["passed"],
-                    },
+                    result=result,
+                    results_path=results_path,
+                    events_path=events_path,
+                    started_at=started_at,
+                    ended_at=ended_at,
                 )
                 if (
                     repetition == repeat_count
@@ -2669,27 +3440,8 @@ def run_notebook_suite(
                 ):
                     repeat_count = ceiling
 
-    if recovery_imports:
-        recorder.json(
-            "recovery-import.json",
-            {
-                "contractVersion": "harness.catalyst-notebook.recovery-import.v1",
-                "resumedFrom": (resume_header or {}).get("runId"),
-                "resumeAncestry": list((resume_header or {}).get("ancestry") or []),
-                "imports": recovery_imports,
-            },
-            kind="recovery_import_ledger",
-        )
-    if resume_path is not None and resume_header is not None:
-        if _run_tree_sha256(resume_path) != resume_header["treeSha256"]:
-            status.update(
-                {
-                    "state": "invalid",
-                    "reason": "the interrupted source changed during recovery",
-                }
-            )
-            _write_run_status(run_dir, status)
-            raise ValueError("the interrupted source changed during recovery")
+    record_recovery_imports()
+    require_unchanged_recovery_source()
 
     passed_count = sum(
         result.get("passed") is True
@@ -2725,6 +3477,7 @@ def run_notebook_suite(
         "results": results,
     }
     recorder.json("results.json", summary, kind="validation_results")
+    _index_run_streams(recorder)
     recorder.finish()
     status.update(
         {
@@ -2772,12 +3525,52 @@ def _run_scenario(
             }
         )
 
+    def database_check(
+        *,
+        relative_path: str,
+        operation: str,
+        kind: str,
+        call: Callable[[], dict[str, Any]],
+    ) -> dict[str, Any]:
+        try:
+            result = call()
+        except Exception as error:
+            if not _database_service_interruption(error):
+                raise
+            recorder.json(
+                relative_path,
+                {
+                    "contractVersion": (
+                        "harness.catalyst-notebook.service-interruption.v1"
+                    ),
+                    "service": "postgresql",
+                    "operation": operation,
+                    "exceptionType": type(error).__name__,
+                },
+                kind="service_interruption",
+            )
+            raise _CollectionInterrupted(
+                relative_path,
+                None,
+                interruption_kind="database_availability",
+                interruption_code="postgres_unavailable",
+            ) from error
+        recorder.json(relative_path, result, kind=kind)
+        return result
+
     create = client.create_session(
         scenario.initial_question, scenario.initial_profile_id
     )
     session = recorder.exchange(
         f"{prefix}/01-create-session.json", create, kind="session_create"
     )
+    if _profile_availability_drift(create):
+        raise _CollectionInterrupted(
+            f"{prefix}/01-create-session.json",
+            create,
+            interruption_kind="profile_availability",
+            interruption_code="profile_unavailable",
+        )
     check("session_created", create.status_code == 201, create.status_code)
     if create.status_code != 201 or not isinstance(session.get("sessionId"), str):
         return {
@@ -2807,6 +3600,11 @@ def _run_scenario(
         None,
     )
     check("initial_turn_recorded", isinstance(initial_turn, dict), initial_turn)
+    initial_interruption = (
+        _persisted_service_interruption(initial_turn)
+        if isinstance(initial_turn, dict)
+        else None
+    )
     base_failure_message = (
         str((initial_turn.get("failure") or {}).get("message") or "")
         if isinstance(initial_turn, dict)
@@ -2817,11 +3615,14 @@ def _run_scenario(
         evidence_exchange = client.generation_evidence(
             session_id, str(initial_turn["turnId"])
         )
-        initial_evidence = recorder.exchange(
-            f"{prefix}/03-initial-generation-evidence.json",
-            evidence_exchange,
-            kind="generation_evidence",
-        )
+        try:
+            initial_evidence = recorder.exchange(
+                f"{prefix}/03-initial-generation-evidence.json",
+                evidence_exchange,
+                kind="generation_evidence",
+            )
+        except _CollectionInterrupted as later:
+            raise _carry_recorded_failure(later, initial_interruption) from later
         check(
             "initial_evidence_available",
             evidence_exchange.status_code == 200,
@@ -2845,6 +3646,13 @@ def _run_scenario(
                     )
                 continue
             check(f"{name}-base", passed, detail)
+
+    if initial_interruption is not None:
+        raise _CollectionInterrupted(
+            f"{prefix}/02-initial-turns.json",
+            initial_timeline_exchange,
+            recorded_failure=initial_interruption,
+        )
 
     # What the writer answered the opening question with, before anything is
     # done to the session: a query, a question, or a refusal.
@@ -2915,6 +3723,27 @@ def _run_scenario(
     if base_version is None and scenario.expected_base_outcome not in (
         TERMINAL_WRITER_OUTCOMES
     ):
+        # A writer may answer with a complete question or refusal where the
+        # suite expected SQL. That is a wrong answer, not a broken collection:
+        # record it and end this conversation without attempting refinements
+        # that require a query to exist.
+        if observed_base_outcome in TERMINAL_WRITER_OUTCOMES:
+            return {
+                "scenarioId": scenario.id,
+                "family": scenario.family,
+                "repetition": repetition,
+                "status": initial_turn.get("status", "failed"),
+                "baseOutcome": observed_base_outcome,
+                "expectedBaseOutcome": scenario.expected_base_outcome,
+                "baseAnswerText": base_failure_message or None,
+                "baseSql": None,
+                "sessionId": session_id,
+                "initialTurnId": initial_turn.get("turnId"),
+                "turns": [],
+                "baseOutcomeEndedConversation": True,
+                "assertions": assertions,
+                "passed": False,
+            }
         check("base_version_available", False, None)
         return {
             "scenarioId": scenario.id,
@@ -2962,11 +3791,11 @@ def _run_scenario(
             and executed.status_code == 200
             and base_execution.get("status") == "succeeded"
         ):
-            crosscheck = postgres_checker.check(base_version, base_execution)
-            recorder.json(
-                f"{prefix}/07-postgres-base.json",
-                crosscheck,
+            crosscheck = database_check(
+                relative_path=f"{prefix}/07-postgres-base.json",
+                operation="base_postgres_crosscheck",
                 kind="postgres_crosscheck",
+                call=lambda: postgres_checker.check(base_version, base_execution),
             )
             check("base_postgres_crosscheck", crosscheck["passed"], crosscheck)
         if (
@@ -2975,11 +3804,13 @@ def _run_scenario(
             and executed.status_code == 200
             and base_execution.get("status") == "succeeded"
         ):
-            gold_result = gold_checker.check(base_version, scenario.base_gold_check)
-            recorder.json(
-                f"{prefix}/15-gold-execution-match-base.json",
-                gold_result,
+            gold_result = database_check(
+                relative_path=f"{prefix}/15-gold-execution-match-base.json",
+                operation="base_gold_execution_match",
                 kind="gold_execution_match",
+                call=lambda: gold_checker.check(
+                    base_version, scenario.base_gold_check
+                ),
             )
             check("base_gold_execution_match", gold_result["passed"], gold_result)
 
@@ -3075,6 +3906,14 @@ def _run_scenario(
         turn = recorder.exchange(
             f"{prefix}/08-create-followup{slot}.json", followup, kind="turn_create"
         )
+        if _profile_availability_drift(followup):
+            raise _CollectionInterrupted(
+                f"{prefix}/08-create-followup{slot}.json",
+                followup,
+                interruption_kind="profile_availability",
+                interruption_code="profile_unavailable",
+            )
+        followup_interruption = _persisted_service_interruption(turn)
         check("followup_http_created", followup.status_code == 201, followup.status_code)
         check(
             "followup_terminal_status",
@@ -3119,17 +3958,23 @@ def _run_scenario(
         )
 
         refreshed_exchange = client.get_session(session_id)
-        refreshed = recorder.exchange(
-            f"{prefix}/09-refreshed-session{slot}.json",
-            refreshed_exchange,
-            kind="session_restore",
-        )
+        try:
+            refreshed = recorder.exchange(
+                f"{prefix}/09-refreshed-session{slot}.json",
+                refreshed_exchange,
+                kind="session_restore",
+            )
+        except _CollectionInterrupted as later:
+            raise _carry_recorded_failure(later, followup_interruption) from later
         timeline_exchange = client.get_turns(session_id)
-        timeline = recorder.exchange(
-            f"{prefix}/10-final-turns{slot}.json",
-            timeline_exchange,
-            kind="turn_timeline",
-        )
+        try:
+            timeline = recorder.exchange(
+                f"{prefix}/10-final-turns{slot}.json",
+                timeline_exchange,
+                kind="turn_timeline",
+            )
+        except _CollectionInterrupted as later:
+            raise _carry_recorded_failure(later, followup_interruption) from later
         check(
             "refresh_restored",
             refreshed_exchange.status_code == 200,
@@ -3144,11 +3989,14 @@ def _run_scenario(
         followup_evidence: dict[str, Any] = {}
         if isinstance(turn.get("turnId"), str):
             evidence_exchange = client.generation_evidence(session_id, turn["turnId"])
-            followup_evidence = recorder.exchange(
-                f"{prefix}/11-followup-generation-evidence{slot}.json",
-                evidence_exchange,
-                kind="generation_evidence",
-            )
+            try:
+                followup_evidence = recorder.exchange(
+                    f"{prefix}/11-followup-generation-evidence{slot}.json",
+                    evidence_exchange,
+                    kind="generation_evidence",
+                )
+            except _CollectionInterrupted as later:
+                raise _carry_recorded_failure(later, followup_interruption) from later
             check(
                 "followup_evidence_available",
                 evidence_exchange.status_code == 200,
@@ -3177,6 +4025,20 @@ def _run_scenario(
                         )
                     continue
                 check(name, passed, detail)
+
+        expected_manual_transport = (
+            followup_interruption is not None
+            and followup_interruption.get("stage") in MODEL_TRANSPORT_STAGES
+            and scenario.manual_only
+            and scenario.family == "hub-tool-failure"
+            and turn_spec.expected_turn_status == "failed"
+        )
+        if followup_interruption is not None and not expected_manual_transport:
+            raise _CollectionInterrupted(
+                f"{prefix}/08-create-followup{slot}.json",
+                followup,
+                recorded_failure=followup_interruption,
+            )
 
         selected = None
         if turn_spec.expected_turn_status == "completed":
@@ -3266,11 +4128,13 @@ def _run_scenario(
                 and executed.status_code == 200
                 and successor_execution.get("status") == "succeeded"
             ):
-                crosscheck = postgres_checker.check(selected, successor_execution)
-                recorder.json(
-                    f"{prefix}/14-postgres-successor{slot}.json",
-                    crosscheck,
+                crosscheck = database_check(
+                    relative_path=f"{prefix}/14-postgres-successor{slot}.json",
+                    operation="successor_postgres_crosscheck",
                     kind="postgres_crosscheck",
+                    call=lambda: postgres_checker.check(
+                        selected, successor_execution
+                    ),
                 )
                 check("successor_postgres_crosscheck", crosscheck["passed"], crosscheck)
             if (
@@ -3279,11 +4143,15 @@ def _run_scenario(
                 and executed.status_code == 200
                 and successor_execution.get("status") == "succeeded"
             ):
-                gold_result = gold_checker.check(selected, scenario.successor_gold_check)
-                recorder.json(
-                    f"{prefix}/16-gold-execution-match-successor{slot}.json",
-                    gold_result,
+                gold_result = database_check(
+                    relative_path=(
+                        f"{prefix}/16-gold-execution-match-successor{slot}.json"
+                    ),
+                    operation="successor_gold_execution_match",
                     kind="gold_execution_match",
+                    call=lambda: gold_checker.check(
+                        selected, scenario.successor_gold_check
+                    ),
                 )
                 check("successor_gold_execution_match", gold_result["passed"], gold_result)
 

@@ -115,6 +115,28 @@ def test_infrastructure_failures_stay_out_of_the_denominator(tmp_path: Path) -> 
     assert scored["scenarios"]["A1"]["scored"] == 1
 
 
+def test_recovery_history_is_counted_without_copying_failed_rows(
+    tmp_path: Path,
+) -> None:
+    run_dir = _write_run(
+        tmp_path,
+        {
+            "runId": "recovered-run",
+            "suiteId": "suite-1",
+            "results": [_row("A1", passed=True, outcomes=["ready"])],
+            "infrastructureFailures": [
+                {"runId": "source-1", "httpStatus": 503},
+                {"runId": "source-2", "httpStatus": 599},
+            ],
+        },
+    )
+
+    scored = score_run(run_dir)
+
+    assert scored["totals"]["scored"] == 1
+    assert scored["totals"]["infrastructureFailed"] == 2
+
+
 def test_outcome_accuracy_is_measured_against_what_was_expected(
     tmp_path: Path,
 ) -> None:

@@ -1,7 +1,8 @@
-"""Preserve the historical catalog v6 fixture without making it a product cap.
+"""Check the historical catalog v6 metadata without making it a product cap.
 
-These assertions describe the committed v6 evidence. The active runtime
-surface is every relation the configured read-only database role can read.
+The active runtime surface is every relation the configured read-only database
+role can read. These checks cover the optional metadata recorded for known
+relations; they do not fix its membership or size.
 """
 
 from __future__ import annotations
@@ -14,26 +15,6 @@ SOURCE = ROOT / "catalyst-sources" / "openmrs-hiv"
 CATALOG = SOURCE / "catalog" / "openmrs-hiv-catalog.json"
 OVERLAY = SOURCE / "catalog-overlay.json"
 
-CATALOG_V6_RELATIONS = {
-    # Preferred clinical relations
-    "analytics.hiv_observation_fact_v1",
-    "analytics.hiv_medication_request_fact_v1",
-    "analytics.hiv_visit_fact_v1",
-    "analytics.hiv_concept_mapping_v1",
-    "analytics.hiv_patient_dim_v1",
-    # Raw fallbacks
-    "public.patient_flat",
-    "public.encounter_flat",
-    "public.observation_flat",
-    "public.medication_request_flat",
-    "public.condition_flat",
-    "public.medication_flat",
-    # Operating records
-    "analytics.pipeline_run_v1",
-    "analytics.pipeline_freshness_v1",
-}
-
-
 def _catalog() -> dict:
     return json.loads(CATALOG.read_text(encoding="utf-8"))
 
@@ -45,18 +26,12 @@ def test_catalog_is_v6() -> None:
     assert catalog["schemaVersion"] == "analytics-v1"
 
 
-def test_catalog_v6_records_its_historical_thirteen_relations() -> None:
-    names = {view["name"] for view in _catalog()["views"]}
-    assert names == CATALOG_V6_RELATIONS
-    assert len(CATALOG_V6_RELATIONS) == 13
-
-
 def test_the_overlay_and_the_generated_catalog_agree() -> None:
     """The overlay is the reviewed input; the catalog is what it produced."""
     overlay = json.loads(OVERLAY.read_text(encoding="utf-8"))
-    assert {entry["name"] for entry in overlay["approvedViews"]} == (
-        CATALOG_V6_RELATIONS
-    )
+    catalog_names = {view["name"] for view in _catalog()["views"]}
+    overlay_names = {entry["name"] for entry in overlay["approvedViews"]}
+    assert overlay_names == catalog_names
     assert overlay["catalogVersion"] == _catalog()["catalogVersion"]
 
 

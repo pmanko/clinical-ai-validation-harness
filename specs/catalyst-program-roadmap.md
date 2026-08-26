@@ -21,7 +21,7 @@ evidence. They are not copied into this roadmap.
 
 | Phase | Product outcome | Completion rule |
 | --- | --- | --- |
-| **P1 — Session context** | The writer uses the same readable data surface as the human editor and can use the current instruction, relevant retained conversation history, relevant failure information, and verified examples. Separate session guidance remains an experiment, not a required interface. | The session-context behavior works through the real Catalyst path, and the planned three-team comparison is completed and published with complete evidence and rubric-based review. A preference is optional and does not gate Phase 1 or Phase 2. |
+| **P1 — Session context** | The writer uses the same readable data surface as the human editor and can use the current instruction, prior user instructions, relevant failure information, and verified examples. Separate session guidance remains an experiment, not a required interface. | The session-context behavior works through the real Catalyst path, and the planned three-team comparison is completed and published with complete evidence and rubric-based review. A preference is optional and does not gate Phase 1 or Phase 2. |
 | **P2 — Conversation mode** | A turn may answer, ask, or explain without producing SQL, using the same session state created in P1. | Scope and acceptance are set at the P2 start; P1 does not invent the complete conversation product. |
 | **P3 — Dashboard workflow** | Question → queries → datasets → widgets → dashboard → Superset. | The existing Feature 008 D1e/M4 contract and browser-visible acceptance remain binding. |
 
@@ -42,7 +42,7 @@ close a P3 gate.
 | Environments | Local and demonstration catalog identities are recorded separately and do not have to match. |
 | Interpretation | The roadmap defines no pass percentage, automatic disqualifier, ranking formula, tie-break, or required winner. Automated checks establish facts; the reader interprets the full evidence against the rubric. |
 | Collection interruptions | Machine and service interruptions are recorded separately from model behavior. There is no fixed allowance and no model-quality implication. Harness code and tests own collection recovery. |
-| Context | Retained conversation history is the current default. Whether separate session guidance adds useful behavior is an open research question. Context evidence records what was supplied and what was omitted, without a roadmap-defined cap, physical order, or ranking formula. |
+| Context | Every prior user instruction in the session is the current default. Whether separate session guidance adds useful behavior is an open research question. The first implementation supplies every eligible context item and records the actual per-model request. If that complete request does not fit, it records the capacity rejection rather than silently trimming or ranking context. |
 | Independent visit check | The visit answer must answer the independent visit question without irrelevant carryover; sharing a relation or SQL form with an earlier query is not itself a failure. |
 | Real database proof | Real PostgreSQL proof is required before the live comparison, not on every ordinary pull request. |
 | Repository administration | Branch settings, image publishing, and similar repository operations are not Phase 1 product blockers. |
@@ -50,15 +50,14 @@ close a P3 gate.
 ### 1. One shared readable data surface
 
 Generation, manual editing, completion suggestions, validation, and execution
-use every relation the configured read-only database role can read. The 13
-relations observed in one fixture are not an allowlist or product limit. A
-catalog refresh adds or removes relations as the role's access changes without
-altering the database schema.
+use every relation the configured read-only database role can read. A catalog
+refresh reflects changes to that access without turning an observed relation
+count into a product rule.
 
 Reviewed metadata improves descriptions and warnings for known relations but
 does not decide whether a readable relation is available. Published catalog v6
-remains unchanged as historical evidence; catalog v7 records the corrected
-behavior.
+remains unchanged as historical evidence. The repaired experiment records the
+catalog identity and readable surface it actually used.
 
 Manual validation remains advisory. A person may run the exact SQL and receive
 the database's result or diagnostic. The read-only database user, read-only
@@ -84,12 +83,16 @@ returned.
 
 ### 3. Session context and the open guidance question
 
-The writer can receive the current instruction, relevant retained conversation
-history, relevant failure information, and verified examples from the same
-session. Earlier material cannot silently replace the current instruction.
+The writer can receive the current instruction, every prior user instruction,
+relevant failure information, and verified examples from the same session.
+This is what this roadmap means by retained conversation history. Raw model
+replies are not replayed as trusted text; query versions, verified examples,
+and failure records carry the relevant model-side state. Earlier material
+cannot silently replace the current instruction.
 Verified examples come only from earlier kept queries in the same session that
-were validated and executed successfully against the same source. The current
-target can never receive its own answer as an example.
+have an advisory-validation record and executed successfully against the same
+source. Validator findings remain attached to the example but do not veto it.
+The current target can never receive its own answer as an example.
 
 The existing guidance storage or application programming interface may remain
 available as an experimental seam, but Phase 1 does not require a composer
@@ -100,7 +103,7 @@ history.
 Research on that question is separate from the core three-team comparison. It
 should use nearby scenarios to compare:
 
-1. retained conversation history alone;
+1. retained user-instruction history alone;
 2. explicit session guidance; and
 3. durable catalog metadata or verified examples for reusable knowledge.
 
@@ -115,6 +118,11 @@ count, request ordering, or selection algorithm. It forbids silent summary,
 truncation, or substitution. Missing or inconsistent context evidence means
 that case cannot support the comparison; it does not take unrelated product
 features offline.
+
+The first implementation sends all eligible context. If the Hub proves that
+the exact assembled request does not fit the selected model, it records that
+capacity rejection. It does not automatically remove context and retry; such a
+policy can be considered later if real evidence shows that it is needed.
 
 ### 4. Complete-system comparison
 
@@ -233,14 +241,14 @@ Recovery details live in harness code and tests rather than in product policy.
 
 ### G3 — shared data and outcome contracts
 
-Preserve catalog v6 under its historical identity and produce catalog v7 with
-one role-readable surface, patient names, advisory validation, and the three
-writer outcomes. Catalog metadata may guide use but may not hide readable
-relations. Preserve older request and turn readers.
+Preserve catalog v6 under its historical identity and use one role-readable
+surface with patient names, advisory validation, and the three writer outcomes.
+Catalog metadata may guide use but may not hide readable relations. Preserve
+older request and turn readers.
 
 ### G4 — honest context and guidance research
 
-Deliver retained conversation history, relevant failure information, and
+Deliver retained user-instruction history, relevant failure information, and
 verified examples with honest inclusion and omission evidence and session
 isolation. Existing explicit-guidance support may remain available for
 experiments, but no Pin interface is a Phase 1 gate. Compare history, explicit

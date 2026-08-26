@@ -27,11 +27,12 @@ Publishable Catalyst notebook runs additionally require:
 - `report_family = "catalyst"`
 - `suite_id`
 - `suite_sha256` (SHA-256 of the exact input suite bytes)
-- `resumedFrom` when this is a replacement for an interrupted Catalyst run;
+- `resumedFrom` when this recovers an interrupted Catalyst run;
 - `resumeAncestry`, ordered oldest to newest, when recovery spans one or more
   interrupted runs;
-- `evidence_status = "development"` until CVR-G16–G18 and final MS-D acceptance
-  pass; live publication alone does not promote the evidence status
+- `evidence_status = "development"` until the active Phase 1 roadmap's
+  experiment-publication and closeout requirements are met (currently R8 and
+  R10); live publication alone does not promote the evidence status
 
 The runner writes `run-config.json` before discovery, warm-up, or measured
 conversation calls. It is the exact public run seed: database passwords and
@@ -40,28 +41,54 @@ and security-group rule identifiers are rejected. The local password is resolved
 only in memory when a database check is requested. Scoring, reporting, and
 publication read the frozen file without resolving that password.
 
+A Phase 1 comparison run records one conversation for every declared
+team-and-scenario cell. A repeated measure is a separate complete run with its
+own identity; legacy notebook suites that repeat an individual cell do not
+define the Phase 1 collection shape.
+
 `run-status.json` is an atomically replaced lifecycle projection with
 `state = incomplete | invalid | complete`, `measurementValid`, the direct and
 full recovery ancestry, and infrastructure failures retained across that chain.
 An abrupt stop therefore leaves an actionable `incomplete` source; a normal
 completion writes `complete` only when every measured conversation is valid.
+Because Catalyst can persist an upstream or process interruption inside a
+successful workbench response, these entries retain both the actual HTTP status
+and the persisted `failureStage` and `failureCode`. Completed model answers and
+model-quality failures are not relabeled as interruptions. Harness-observed
+availability changes use separate `interruptionKind` and `interruptionCode`
+fields, so they cannot be mistaken for Catalyst's own turn-failure stages. Each
+interruption is also appended to signed `interruptions.jsonl`; recovery combines
+that record with the lifecycle projection without duplicating it. A recovery
+copies each inherited interruption file into its own source-qualified evidence
+directory, points the carried failure at that copy, and retains the original
+path as `sourceEvidencePath`.
 
-Every complete comparison records one excluded warm-up under
-`warmups/<profile>/` before that profile's measured cells. Warm-up sessions never
-appear in `rows.jsonl`, `results.jsonl`, `results.json`, or the scored count.
+The evidence index and checksum are refreshed through temporary files as
+evidence is written. Each completed `rows.jsonl` prefix is indexed before
+collection proceeds. A recovery accepts that signed prefix, ignores an entirely
+unsigned stream or unsigned tail, and rejects changed signed rows, missing
+indexed files, unindexed conversation files, or a bad index checksum.
+
+Every profile with new model calls records one excluded warm-up under
+`warmups/<profile>/` before those calls. A recovery that only reuses completed
+cells makes no new warm-up call; it copies the source warm-up beneath that same
+profile directory and records its source run. Warm-up sessions never appear in
+`rows.jsonl`, `results.jsonl`, `results.json`, or the scored count.
 Each measured row records `evidencePrefix`, `measurementValid`, and an
-outcome-specific `measurementEvidence` projection. Ready paths state the
+outcome-specific `measurementEvidence` projection, plus its original start and
+end times so recovered feeds retain trace correlation. Ready paths state the
 validation decision, execution decision, and oracle result. Clarification and
 unsupported paths prove that no new query, validation, execution, or oracle call
 occurred.
 
-A replacement run writes `recovery-import.json`. Before any warm-up or measured
+A recovery run writes `recovery-import.json`. Before any warm-up or measured
 model call, the runner checks the exact suite, frozen seed, revisions, discovery
 identities, scenario order, and every eligible source-evidence digest. Imported
-files are copied without rewriting, hashed again in the replacement, and indexed
+files are copied without rewriting, hashed again in the recovery run, and indexed
 with their source run and source digest. Model-quality failures remain eligible;
 infrastructure failures, pre-turn failures, partial cells, and duplicate cells do
-not.
+not. Recovered cells regenerate the normal result feed and events from their
+copied evidence, so the new run directory remains a complete reader-facing unit.
 
 Catalyst Dashboard Builder acceptance runs use
 `report_family = "catalyst_dashboard"` and additionally require:
@@ -136,16 +163,16 @@ Catalyst notebook streams use
   digests;
 - `execution` for an explicit execution linked to its immutable query version;
   and
-- `evaluation` with `evaluation_type = "catalyst_sql_judge"` only after the
-  three manual judge passes are finalized.
+- `evaluation` with `evaluation_type = "catalyst_sql_judge"` after a manually
+  initiated full-context rubric review is finalized.
 
 Notebook event `evidence_paths` are run-directory-relative, traversal-safe, and
 must resolve to materialized evidence. Judge evaluation events include provider,
-model, model version, rubric digest, composite and axis/rationale details, plus
-links to `judge.jsonl`, `judge_manifest.json`, and the source evidence. The
-finalizer appends these events idempotently and never rewrites the run-start
-manifest. SQL result rows, credentials, and raw model traces are excluded from
-the event stream.
+model, model version, rubric digest, and rationale details, plus links to
+`judge.jsonl`, `judge_manifest.json`, and the source evidence. A separately
+requested second perspective stays a separate review. The finalizer appends
+events idempotently and never rewrites the run-start manifest. SQL result rows,
+credentials, and raw model traces are excluded from the event stream.
 
 ### Catalyst Dashboard Builder events and acceptance
 
