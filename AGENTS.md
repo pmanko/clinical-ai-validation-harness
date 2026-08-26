@@ -7,14 +7,23 @@ Implementation is gated by G0–G6 in that plan. Before crossing a user gate,
 surface unresolved nondeterminism, inconsistencies, and environment decisions.
 
 For Catalyst program Phase 1, `specs/catalyst-program-roadmap.md` is the single
-authority for the reviewed data surface, context contract, model-team
-comparison, acceptance thresholds, and delivery order. Its workshop decisions
-are closed; supporting briefs and HTML artifacts do not reopen them. Phase 1
-does not change Feature 008's Dashboard Builder meaning or gates.
+authority for the shared readable data surface, context contract, model-team
+comparison, and delivery order. Supporting briefs and HTML artifacts do not
+override it. Phase 1 does not change Feature 008's Dashboard Builder meaning or
+gates. Apply explicit owner amendments to the roadmap before implementation.
+The data surface is every relation the configured read-only database role can
+read. Catalog metadata may guide use but cannot hide a readable relation, and
+manual validation remains advisory: selected SQL reaches PostgreSQL through the
+bounded read-only path and returns a result or diagnostic. Phase 1 is an
+exploratory comparison whose complete evidence is interpreted by the reader;
+do not introduce a pass threshold, automatic team selection, required result
+label, or deployment gate. Retained conversation history is the current
+baseline. Separate session guidance and any user-facing Pin control remain an
+open research question.
 `specs/catalyst-phase1-qualification-remediation-roadmap.md` is the active
-execution roadmap for making that locked comparison trustworthy. It may track
-repair status and pull requests but may not change the program roadmap's
-product meaning or thresholds.
+execution plan for making that comparison trustworthy. It may not change the
+program roadmap's product meaning or maintain a parallel decision or status
+ledger.
 
 For the program P3 Dashboard Builder milestone, the authoritative UX contract is
 `targets/catalyst/docs/dashboard-builder-mvp-design.md`; its reconciled

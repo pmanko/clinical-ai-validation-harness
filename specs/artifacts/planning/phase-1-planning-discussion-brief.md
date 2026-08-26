@@ -3,7 +3,16 @@
 **Status:** Workshop completed 2026-08-23. This file explains the evidence and
 the choices made. `specs/catalyst-program-roadmap.md` owns product decisions;
 `specs/catalyst-phase1-qualification-remediation-roadmap.md` owns the active
-repair sequence. This historical brief is not a current plan.
+repair sequence. This historical brief is not a current plan. On 2026-08-25,
+the owner corrected the data-boundary entry below: the number 13 described the
+then-current fixture and was never intended as a product allowlist. On the same
+date, the owner removed the brief's collection-count policy, numerical gates,
+infrastructure-failure budget, context caps, ranking formula, and validator
+execution gate. The owner then clarified that the report is evidence for the
+reader rather than a team-selection gate, and that explicit guidance or a Pin
+interface must remain an open research question beside ordinary conversation
+history. The tables below preserve the workshop state and are not current
+requirements. The active roadmaps contain the simpler direction.
 
 ## What the research established
 
@@ -19,54 +28,48 @@ important findings were:
    resulting patient-name gap was not.
 4. The prompt says to ask when information is missing, but the writer's output
    contract permits only a ready query.
-5. Repeating the same request at temperature zero produced different terminal
-   findings. A single live run cannot qualify a model setup.
+5. Identical requests at temperature zero produced different terminal
+   findings. The evidence must show that output variability honestly.
 6. The field evidence supports six practices: described data meaning,
    itemized retained guidance, verified examples, failure feedback, honest
    clarification, and bounded context with explicit omissions.
 
-## Owner decisions
+## Workshop decisions at close — historical
 
-| Question | Locked answer |
+| Question | Decision recorded at workshop close |
 | --- | --- |
-| Data boundary | One reviewed list of all 13 currently readable relations for the writer, editor, validator, and executor. Database permissions do not auto-expand it. |
+| Data boundary | The writer, editor, validator, and executor use every relation the configured read-only database role can read. Reviewed metadata guides use but does not hide readable relations. |
 | Writer outcomes | `ready`, `needs_clarification`, and `unsupported`; Gateway-owned `rejected` remains separate. |
-| Conversation state | Keep the initial instruction and five latest follow-ups, then add at most 20 verbatim guidance entries, one relevant failure, and three verified examples. |
+| Conversation state | Supply relevant retained instructions, person-pinned guidance, useful failure information, and prior verified examples within the configured model's capacity. Record what was supplied and every omission; do not lock counts, physical order, or ranking here. |
 | Guidance | Free text with provenance; composer pin and explicit pin-from-failure; no pin-from-success. Unpin and replacement are append-only events. |
 | Measurement | Qualify the completed Phase 1 system. Do not publish an old-system baseline or individual on/off comparisons. |
 | Model comparison | Gemma writer only; Gemma writer checked by Gemma; Gemma writer checked by Qwen. Treat them as complete product setups. |
-| Repetitions | One complete run measures each model/scenario pair once. Repeat the whole frozen suite three times. Extend the unchanged batch to five when a scored turn varies in outcome/correctness, a leave-one-run-out score changes qualification, or the leading teams differ by at most one complete-scenario success out of 36; never repeat an individual cell inside a run. |
 | Environments | Run the full comparison locally on the owner's GPU. Run three real browser journeys on the deployed server. |
-| Report | One consolidated report with absolute qualification gates, separate failure counts, database answers, token and timing evidence, and no causal claim about an individual context practice. |
+| Report | One consolidated report with separate model and infrastructure outcomes, database answers, context, token and timing evidence, and the documented owner-reviewed decision. No causal claim is made about an individual context practice. |
 
 ## Recommendations explicitly superseded
 
 The workshop rejected these recommendations from the original discussion
 pack. They must not reappear as open choices:
 
-- Keep a smaller generation-only catalog. The owner chose the shared reviewed
-  13-relation list.
+- Keep a smaller generation-only catalog. The owner chose the same complete
+  role-readable catalog for model and human paths; the current relation count
+  is not a limit.
 - Measure an old system and then remove or add each context practice in turn.
-  The owner chose one final integrated qualification.
-- Run the complete repeated matrix both locally and on the demo server. The
-  owner chose local GPU measurement plus limited deployed browser checks.
-- Repeat an individual model/scenario cell. The owner chose one measurement per
-  cell in a complete run, with repetition supplied only by rerunning the whole
-  frozen suite. Start with three complete runs and extend the whole batch to
-  five only for scored-turn variation, a leave-one-run-out qualification
-  change, or a leading-team margin of at most one success out of 36.
+  The integrated system, not individual levers, is the subject of the
+  comparison.
 - Allow only ready or clarification. The owner added an honest unsupported
   outcome while retaining Gateway rejection.
 
-These choices mean the final report can compare model teams and determine
-whether the finished product meets its bar. It cannot attribute a result to
-one context practice or claim local and server model performance are equal.
+The current roadmap further clarifies that the final report presents evidence
+for the reader. It does not automatically select a team, attribute a result to
+one context practice, or claim local and server model performance are equal.
 
 ## Historical implementation-readiness record
 
 At workshop close, no product-decision or repository blocker remained. The
 three readiness tasks below were complete. Later implementation and the first
-development comparison exposed qualification-system defects now governed by
+development comparison exposed evidence and reporting defects now governed by
 `specs/catalyst-phase1-qualification-remediation-roadmap.md`.
 
 1. The authoritative roadmap replaces stale PR #59, which is closed as
@@ -80,7 +83,7 @@ development comparison exposed qualification-system defects now governed by
    failure, and the harness pins its merged commit. The full local health and
    provenance gate passes.
 
-The exact interfaces, scenario set, model profiles, thresholds, implementation
+The interfaces, scenario set, model profiles, comparison method, implementation
 order, deployed browser checks, and unchanged Phase 3 gates are defined in the
 program roadmap.
 
@@ -88,7 +91,7 @@ program roadmap.
 
 - `specs/catalyst-program-roadmap.md` — current decisions and acceptance.
 - `specs/catalyst-phase1-qualification-remediation-roadmap.md` — active
-  execution, acceptance evidence, and pull-request tracker.
+  execution sequence.
 - `specs/artifacts/planning/what-the-writer-sees.html` sections 01–02 — writer
   context reconstruction and the six evidence-backed practices.
 - `specs/008-catalyst-query-workbench/remediation-roadmap.md` — completed

@@ -141,7 +141,7 @@ turns it into a publishable mp4 deterministically.
   button, reading the generated SQL or the result table. If it needs to be
   read, it needs to play at real speed.
 - **Captions describe what's happening, not what's on screen.** "The model
-  drafts a query using only the approved catalog" beats "SQL editor visible."
+  drafts a query using the role-readable catalog" beats "SQL editor visible."
 - **Close with a card**, don't just end on the last result table — one
   sentence on what the run demonstrated (matches the pattern already used in
   the published validation-run report narratives).

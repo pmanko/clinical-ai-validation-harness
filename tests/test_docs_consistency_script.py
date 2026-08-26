@@ -1,18 +1,27 @@
-import json
 import os
 import subprocess
 from pathlib import Path
+
+import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts" / "verify-docs-consistency.sh"
 TASKS = ROOT / "specs" / "008-catalyst-query-workbench" / "tasks.md"
 PROGRAM = ROOT / "specs" / "catalyst-program-roadmap.md"
-QUALIFICATION = ROOT / "specs" / "catalyst-phase1-qualification-remediation-roadmap.md"
+EXECUTION = ROOT / "specs" / "catalyst-phase1-qualification-remediation-roadmap.md"
 BRIEF = (
     ROOT / "specs" / "artifacts" / "planning" / "phase-1-planning-discussion-brief.md"
 )
 WRITER_ARTIFACT = (
     ROOT / "specs" / "artifacts" / "planning" / "what-the-writer-sees.html"
+)
+FEATURE_SPEC = ROOT / "specs" / "008-catalyst-query-workbench" / "spec.md"
+WORKBENCH_API = (
+    ROOT
+    / "specs"
+    / "008-catalyst-query-workbench"
+    / "contracts"
+    / "workbench-api.md"
 )
 PHASE1_SUITE = (
     ROOT / "datasets" / "validation" / "catalyst" / "catalyst-phase1-comparison-v1.json"
@@ -82,9 +91,11 @@ def test_missing_status_source_is_a_check_failure(tmp_path: Path) -> None:
 def _source_overrides(tmp_path: Path) -> dict[str, str]:
     sources = {
         "DOCS_PROGRAM_PATH": PROGRAM,
-        "DOCS_QUALIFICATION_PATH": QUALIFICATION,
+        "DOCS_EXECUTION_PATH": EXECUTION,
         "DOCS_BRIEF_PATH": BRIEF,
         "DOCS_WRITER_ARTIFACT_PATH": WRITER_ARTIFACT,
+        "DOCS_FEATURE_SPEC_PATH": FEATURE_SPEC,
+        "DOCS_WORKBENCH_API_PATH": WORKBENCH_API,
         "DOCS_PHASE1_SUITE_PATH": PHASE1_SUITE,
         "DOCS_CATALOG_V6_OVERLAY_PATH": CATALOG_V6_OVERLAY,
         "DOCS_CATALOG_V6_GENERATED_PATH": CATALOG_V6_GENERATED,
@@ -97,12 +108,41 @@ def _source_overrides(tmp_path: Path) -> dict[str, str]:
     return environment
 
 
-def test_obsolete_per_cell_repetition_rule_is_rejected(tmp_path: Path) -> None:
+@pytest.mark.parametrize(
+    ("environment_key", "marker", "expected_error"),
+    [
+        (
+            "DOCS_PROGRAM_PATH",
+            "## Phase 1 comparison and reader review",
+            "program roadmap is missing reader-led comparison",
+        ),
+        (
+            "DOCS_PROGRAM_PATH",
+            "### 3. Session context and the open guidance question",
+            "program roadmap is missing the open guidance question",
+        ),
+        (
+            "DOCS_EXECUTION_PATH",
+            "### Context-rich report and reader review",
+            "execution plan is missing full-context reader review",
+        ),
+        (
+            "DOCS_EXECUTION_PATH",
+            "### Honest session-context evidence",
+            "execution plan is missing session-context evidence",
+        ),
+    ],
+)
+def test_current_roadmap_structure_cannot_silently_disappear(
+    tmp_path: Path,
+    environment_key: str,
+    marker: str,
+    expected_error: str,
+) -> None:
     environment = _source_overrides(tmp_path)
-    program = Path(environment["DOCS_PROGRAM_PATH"])
-    program.write_text(
-        program.read_text(encoding="utf-8")
-        + "\nStart with three repetitions for every profile/scenario pair.\n",
+    source = Path(environment[environment_key])
+    source.write_text(
+        source.read_text(encoding="utf-8").replace(marker, "removed section", 1),
         encoding="utf-8",
     )
 
@@ -113,26 +153,7 @@ def test_obsolete_per_cell_repetition_rule_is_rejected(tmp_path: Path) -> None:
     )
 
     assert completed.returncode != 0
-    assert "obsolete per-cell Phase 1 repetition rule" in completed.stderr
-
-
-def test_phase1_suite_internal_repetitions_must_remain_one(tmp_path: Path) -> None:
-    environment = _source_overrides(tmp_path)
-    suite = Path(environment["DOCS_PHASE1_SUITE_PATH"])
-    payload = json.loads(suite.read_text(encoding="utf-8"))
-
-    for invalid_value in (3, 10, "1", True):
-        payload["repetitions"] = invalid_value
-        suite.write_text(json.dumps(payload), encoding="utf-8")
-
-        completed = _run_with_tasks(
-            tmp_path,
-            TASKS.read_text(encoding="utf-8"),
-            environment,
-        )
-
-        assert completed.returncode != 0
-        assert "suite repetitions must remain one" in completed.stderr
+    assert expected_error in completed.stderr
 
 
 def test_published_phase1_suite_v1_bytes_are_immutable(tmp_path: Path) -> None:
@@ -186,188 +207,23 @@ def test_published_catalog_v6_generated_bytes_are_immutable(tmp_path: Path) -> N
     assert "immutable catalog v6 generated file bytes changed" in completed.stderr
 
 
-def test_interrupted_run_must_use_a_new_linked_identity(tmp_path: Path) -> None:
-    environment = _source_overrides(tmp_path)
-    qualification = Path(environment["DOCS_QUALIFICATION_PATH"])
-    qualification.write_text(
-        qualification.read_text(encoding="utf-8")
-        + "\nResume continues the same run ID after interruption.\n",
-        encoding="utf-8",
-    )
-
-    completed = _run_with_tasks(
-        tmp_path,
-        TASKS.read_text(encoding="utf-8"),
-        environment,
-    )
-
-    assert completed.returncode != 0
-    assert "stale same-run recovery rule" in completed.stderr
-
-
-def test_owner_approved_m1_rule_cannot_disappear(tmp_path: Path) -> None:
-    environment = _source_overrides(tmp_path)
-    qualification = Path(environment["DOCS_QUALIFICATION_PATH"])
-    qualification.write_text(
-        qualification.read_text(encoding="utf-8").replace(
-            "All three M1 ready answers are scored",
-            "Only later M1 answers are scored",
-            1,
-        ),
-        encoding="utf-8",
-    )
-
-    completed = _run_with_tasks(
-        tmp_path,
-        TASKS.read_text(encoding="utf-8"),
-        environment,
-    )
-
-    assert completed.returncode != 0
-    assert "approved Phase 1 adjudication rule missing" in completed.stderr
-
-
-def test_owner_approved_m3_rule_cannot_disappear(tmp_path: Path) -> None:
-    environment = _source_overrides(tmp_path)
-    qualification = Path(environment["DOCS_QUALIFICATION_PATH"])
-    qualification.write_text(
-        qualification.read_text(encoding="utf-8").replace(
-            "reuses no",
-            "may reuse",
-        ),
-        encoding="utf-8",
-    )
-
-    completed = _run_with_tasks(
-        tmp_path,
-        TASKS.read_text(encoding="utf-8"),
-        environment,
-    )
-
-    assert completed.returncode != 0
-    assert "approved Phase 1 adjudication rule missing" in completed.stderr
-
-
-def test_unlisted_validation_warning_cannot_pass(tmp_path: Path) -> None:
-    environment = _source_overrides(tmp_path)
-    qualification = Path(environment["DOCS_QUALIFICATION_PATH"])
-    qualification.write_text(
-        qualification.read_text(encoding="utf-8").replace(
-            "an unlisted warning fails",
-            "an unlisted warning passes",
-        ),
-        encoding="utf-8",
-    )
-
-    completed = _run_with_tasks(
-        tmp_path,
-        TASKS.read_text(encoding="utf-8"),
-        environment,
-    )
-
-    assert completed.returncode != 0
-    assert "approved Phase 1 adjudication rule missing" in completed.stderr
-
-
-def test_no_qualifying_team_must_remain_an_explicit_outcome(tmp_path: Path) -> None:
-    environment = _source_overrides(tmp_path)
-    qualification = Path(environment["DOCS_QUALIFICATION_PATH"])
-    qualification.write_text(
-        qualification.read_text(encoding="utf-8").replace(
-            "If no team qualifies, record `none`",
-            "If no team qualifies, select a fallback",
-            1,
-        ),
-        encoding="utf-8",
-    )
-
-    completed = _run_with_tasks(
-        tmp_path,
-        TASKS.read_text(encoding="utf-8"),
-        environment,
-    )
-
-    assert completed.returncode != 0
-    assert "approved Phase 1 adjudication rule missing" in completed.stderr
-
-
-def test_approved_warm_up_rule_cannot_disappear(tmp_path: Path) -> None:
-    environment = _source_overrides(tmp_path)
-    qualification = Path(environment["DOCS_QUALIFICATION_PATH"])
-    qualification.write_text(
-        qualification.read_text(encoding="utf-8").replace(
-            "one excluded, recorded, unscored warm-up must run",
-            "warm-ups are optional",
-            1,
-        ),
-        encoding="utf-8",
-    )
-
-    completed = _run_with_tasks(
-        tmp_path,
-        TASKS.read_text(encoding="utf-8"),
-        environment,
-    )
-
-    assert completed.returncode != 0
-    assert "approved Phase 1 adjudication rule missing" in completed.stderr
-
-
-def test_whole_batch_extension_trigger_must_remain_computable(tmp_path: Path) -> None:
-    environment = _source_overrides(tmp_path)
-    qualification = Path(environment["DOCS_QUALIFICATION_PATH"])
-    qualification.write_text(
-        qualification.read_text(encoding="utf-8").replace(
-            "answer correctness varies",
-            "answer correctness is reviewed",
-            1,
-        ),
-        encoding="utf-8",
-    )
-
-    completed = _run_with_tasks(
-        tmp_path,
-        TASKS.read_text(encoding="utf-8"),
-        environment,
-    )
-
-    assert completed.returncode != 0
-    assert "approved Phase 1 adjudication rule missing" in completed.stderr
-
-
-def test_recovery_cannot_select_cells_by_answer_quality(tmp_path: Path) -> None:
-    environment = _source_overrides(tmp_path)
-    qualification = Path(environment["DOCS_QUALIFICATION_PATH"])
-    qualification.write_text(
-        qualification.read_text(encoding="utf-8").replace(
-            "conversation regardless",
-            "conversation only",
-            1,
-        ),
-        encoding="utf-8",
-    )
-
-    completed = _run_with_tasks(
-        tmp_path,
-        TASKS.read_text(encoding="utf-8"),
-        environment,
-    )
-
-    assert completed.returncode != 0
-    assert "approved Phase 1 adjudication rule missing" in completed.stderr
-
-
-def test_third_infrastructure_failure_must_invalidate_the_team_run(
+@pytest.mark.parametrize(
+    "stale_rule",
+    [
+        "The owner records a selected team.",
+        "Record `none` or `inconclusive`.",
+        "Deploy the selected team.",
+        "Use a composer pin.",
+    ],
+)
+def test_superseded_rule_cannot_return_to_an_active_roadmap(
     tmp_path: Path,
+    stale_rule: str,
 ) -> None:
     environment = _source_overrides(tmp_path)
-    qualification = Path(environment["DOCS_QUALIFICATION_PATH"])
-    qualification.write_text(
-        qualification.read_text(encoding="utf-8").replace(
-            "third infrastructure failure",
-            "fourth infrastructure failure",
-            1,
-        ),
+    execution = Path(environment["DOCS_EXECUTION_PATH"])
+    execution.write_text(
+        execution.read_text(encoding="utf-8") + f"\n{stale_rule}\n",
         encoding="utf-8",
     )
 
@@ -378,20 +234,57 @@ def test_third_infrastructure_failure_must_invalidate_the_team_run(
     )
 
     assert completed.returncode != 0
-    assert "approved Phase 1 adjudication rule missing" in completed.stderr
+    assert "an active roadmap restores a superseded Phase 1 rule" in completed.stderr
 
 
-def test_writer_artifact_must_name_catalog_v7_as_the_corrected_contract(
+def test_negative_team_selection_statement_is_allowed(tmp_path: Path) -> None:
+    environment = _source_overrides(tmp_path)
+    execution = Path(environment["DOCS_EXECUTION_PATH"])
+    execution.write_text(
+        execution.read_text(encoding="utf-8")
+        + "\nA team preference is not required.\n",
+        encoding="utf-8",
+    )
+
+    completed = _run_with_tasks(
+        tmp_path,
+        TASKS.read_text(encoding="utf-8"),
+        environment,
+    )
+
+    assert completed.returncode == 0, completed.stderr
+
+
+@pytest.mark.parametrize(
+    ("environment_key", "required_text", "expected_error"),
+    [
+        (
+            "DOCS_FEATURE_SPEC_PATH",
+            "include every relation the configured read-only database role can read",
+            "Feature 008 does not require the complete role-readable catalog",
+        ),
+        (
+            "DOCS_FEATURE_SPEC_PATH",
+            "Users MUST be able to run the exact displayed draft regardless of\n  its validator status",
+            "Feature 008 does not preserve advisory exact-SQL execution",
+        ),
+        (
+            "DOCS_WORKBENCH_API_PATH",
+            "Workbench validation is advisory",
+            "workbench API does not preserve advisory validation",
+        ),
+    ],
+)
+def test_durable_product_boundary_cannot_disappear(
     tmp_path: Path,
+    environment_key: str,
+    required_text: str,
+    expected_error: str,
 ) -> None:
     environment = _source_overrides(tmp_path)
-    artifact = Path(environment["DOCS_WRITER_ARTIFACT_PATH"])
-    artifact.write_text(
-        artifact.read_text(encoding="utf-8").replace(
-            "Catalog v7 records the corrected 13-relation decision",
-            "Catalog v6 records the decision",
-            1,
-        ),
+    source = Path(environment[environment_key])
+    source.write_text(
+        source.read_text(encoding="utf-8").replace(required_text, "removed boundary", 1),
         encoding="utf-8",
     )
 
@@ -402,60 +295,4 @@ def test_writer_artifact_must_name_catalog_v7_as_the_corrected_contract(
     )
 
     assert completed.returncode != 0
-    assert "writer artifact still assigns the corrected surface" in completed.stderr
-
-
-def test_program_roadmap_must_name_the_current_component_pins(
-    tmp_path: Path,
-) -> None:
-    environment = _source_overrides(tmp_path)
-    program = Path(environment["DOCS_PROGRAM_PATH"])
-    current_pin = subprocess.check_output(
-        ["git", "ls-tree", "HEAD", "targets/catalyst"],
-        cwd=ROOT,
-        text=True,
-    ).split()[2]
-    program.write_text(
-        program.read_text(encoding="utf-8").replace(
-            current_pin,
-            "0000000000000000000000000000000000000000",
-            1,
-        ),
-        encoding="utf-8",
-    )
-
-    completed = _run_with_tasks(
-        tmp_path,
-        TASKS.read_text(encoding="utf-8"),
-        environment,
-    )
-
-    assert completed.returncode != 0
-    assert "does not name the pinned Catalyst revision" in completed.stderr
-
-
-def test_program_roadmap_must_name_the_current_hub_pin(tmp_path: Path) -> None:
-    environment = _source_overrides(tmp_path)
-    program = Path(environment["DOCS_PROGRAM_PATH"])
-    current_pin = subprocess.check_output(
-        ["git", "ls-tree", "HEAD", "targets/med-agent-hub"],
-        cwd=ROOT,
-        text=True,
-    ).split()[2]
-    program.write_text(
-        program.read_text(encoding="utf-8").replace(
-            current_pin,
-            "0000000000000000000000000000000000000000",
-            1,
-        ),
-        encoding="utf-8",
-    )
-
-    completed = _run_with_tasks(
-        tmp_path,
-        TASKS.read_text(encoding="utf-8"),
-        environment,
-    )
-
-    assert completed.returncode != 0
-    assert "does not name the pinned Hub revision" in completed.stderr
+    assert expected_error in completed.stderr

@@ -12,7 +12,7 @@ history and implementation tasks.
 | --- | --- |
 | Accepted foundation | Query-to-table workbench and iterative Query vN notebook |
 | Program position | **P3 — Superset-backed Dashboard Builder MVP (D1 / feature 008 US7, T137–T182), unchanged behind P1 session context and P2 conversation mode** |
-| Active program work | P1 product foundation implemented; model-team qualification and evidence tooling under remediation in `specs/catalyst-phase1-qualification-remediation-roadmap.md` |
+| Active program work | P1 product foundation implemented; exploratory three-team evidence and reporting under repair in `specs/catalyst-phase1-qualification-remediation-roadmap.md`; no winning team is required to complete P1 or begin P2 |
 | Dependency | Accepted query/version/execution/table foundation only |
 | Release work kept separate | Harness PR #43 merged green at `136067a`; optional session-export/comparative expansion remains parallel |
 | Approved renderer/handoff | Superset 6.1.0; deterministic native ZIP written to a shared outbox and imported by a one-shot CLI service |

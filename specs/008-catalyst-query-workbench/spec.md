@@ -87,18 +87,20 @@ production authorization are deferred.
   buffer as a human version, and retain a dirty unresolved buffer as explicit
   turn input evidence without promoting it to a query version.
 - Q: How much prior context should models receive? → A: The exact base editor
-  snapshot, initial question, at most five most-recent follow-up instructions,
-  and only matching validation/execution summaries. Do not send result rows,
-  credentials, hidden reasoning, or an undifferentiated transcript.
+  snapshot, current instruction, relevant retained instructions, and matching
+  validation or execution information. Record what was supplied and why
+  anything was omitted. Do not send result rows, credentials, hidden reasoning,
+  or an undifferentiated transcript. Older fixed-window request versions remain
+  readable but do not set the Phase 1 limit.
 - Q: How many active query inputs should an evaluator see? → A: One canonical
   SQL editor plus one reusable natural-language composer. The composer handles
   the initial Ask before a session and every Refine instruction afterward; the
   original question remains in history instead of a disabled duplicate form.
-- Q: What should “Know what to ask” describe? → A: The reviewed supported query
-  catalog—exact relation names, columns, types, nullability, meanings, and
-  truthful runtime capabilities—from the same versioned source used for model
-  grounding and editor completion. Broad database grants are not implicit
-  product support.
+- Q: What should “Know what to ask” describe? → A: The runtime catalog—exact
+  relation names, columns, types, nullability, meanings, and truthful runtime
+  capabilities—from the same source used for model grounding and editor
+  completion. It includes every relation the configured read-only role can
+  read. Reviewed metadata may guide use but cannot hide a readable relation.
 - Q: Does “based on execution results” include returned row values? → A: The
   current approved boundary includes exact-digest status, schema, row count,
   timing, and diagnostics. Value-level context is pending the G2.9 user decision
@@ -141,7 +143,7 @@ production authorization are deferred.
   (`scripts/generate-catalyst-source-catalog.py`) introspects the curated
   SQL's `COMMENT ON VIEW` (grain) and `COMMENT ON COLUMN` (descriptions,
   authored alongside the views) plus one small hand-maintained
-  `catalog-overlay.json` per source (identity, approved views, semantic
+  `catalog-overlay.json` per source (identity, reviewed metadata, semantic
   canonical values — validated against live data at generation time, so a
   guessed display string that matches zero rows fails generation instead of
   silently producing empty results). Only the sections the gateway actually
@@ -285,7 +287,7 @@ question, prior draft, findings, and edit provenance.
 6. **Given** a generated or human-edited draft, **When** it is opened for
    editing, **Then** PostgreSQL syntax is highlighted, logical lines are
    numbered, and wrapping is on by default with an explicit wrap toggle.
-7. **Given** the approved catalog is available, **When** the user requests
+7. **Given** the runtime-readable catalog is available, **When** the user requests
    completion, **Then** PostgreSQL keywords/functions and catalog-backed schemas,
    views, and columns are suggested without a hard-coded UI vocabulary.
 8. **Given** an unformatted draft, **When** the user chooses Format twice on
@@ -534,11 +536,11 @@ catalog agreement, and independent PostgreSQL results.
    ingestion runs, **Then** the raw projection preserves every applicable row
    through upstream `forEachOrNull` semantics and performs no `.first()`-style
    lossy selection.
-5. **Given** curated analytics views with complete view/column comments and a
-   reviewed source overlay, **When** the catalog generator runs against the live
-   database, **Then** it emits only the Gateway-consumed catalog shape and fails
-   on missing metadata, unknown relations, or canonical semantic values that
-   match no live row.
+5. **Given** a role-readable database and a reviewed source overlay, **When**
+   the catalog generator runs, **Then** it emits every readable relation and
+   column. Missing descriptions remain visible metadata gaps rather than hiding
+   data. An overlay that names a nonexistent relation or a canonical semantic
+   value that matches no live row fails validation.
 6. **Given** a generated source catalog, **When** the schema guide, completion,
    deterministic validator, and model request are inspected, **Then** all four
    use the same source ID and catalog version and preserve that binding in
@@ -812,7 +814,7 @@ execution.
   a new workbench session, and MUST retain the active session's preference
   without changing query content or version digests.
 - **FR-027**: Completion MUST include PostgreSQL keywords/functions plus schema,
-  view, and column identifiers derived from the active approved catalog. Completion ordering MUST
+  view, and column identifiers derived from the active runtime catalog. Completion ordering MUST
   be deterministic for the same catalog and prefix, and the UI MUST NOT maintain
   a separate schema-name mapping.
 - **FR-028**: Format MUST be an explicit deterministic action: the same SQL and
@@ -903,9 +905,10 @@ execution.
   question, query, validation, execution, turn, and model context.
 - **FR-044**: Follow-up model context MUST contain the current instruction,
   exact editor snapshot and parameters, observed/effective base identifiers and
-  digests, original question, at most the five most-recent preceding follow-up
-  instructions, active catalog/policy/profile, and only validation findings or
-  an execution diagnostic/shape summary that matches the exact editor digest.
+  digests, relevant retained instructions, active catalog/policy/profile, and
+  only validation findings or an execution diagnostic/shape summary that
+  matches the exact editor digest. Existing fixed-window request versions remain
+  readable but do not set the Phase 1 context limit.
 - **FR-045**: Follow-up model context MUST NOT contain returned result rows,
   credentials, hidden reasoning, raw traces, unrelated-session history,
   historical SQL copies other than the exact submitted editor snapshot, or an
@@ -1008,11 +1011,9 @@ execution.
   execution row counts, and failures while keeping technical IDs and raw model
   evidence behind an explicit details action.
 - **FR-060**: The queryable-data guide, editor completion, deterministic
-  validation, and model grounding MUST derive from the same versioned runtime
-  catalog. The guide MUST show every reviewed supported relation and column with
-  qualified name, type, nullability, description, grain, and unit relationship
-  where applicable. It MUST distinguish the supported catalog from relations
-  merely reachable through database-role permissions.
+  validation, and model grounding MUST derive from the same runtime catalog and
+  include every relation the configured read-only database role can read.
+  Reviewed metadata may enrich that catalog but MUST NOT filter it.
 - **FR-061**: The Refine composer MUST visibly state whether its exact base has a
   matching execution summary, stale displayed results, or no execution. Until a
   bounded result-row attachment is explicitly approved and versioned, it MUST
@@ -1057,12 +1058,12 @@ execution.
   deterministic, repeatable SQL. Curated views MUST declare their grain and each
   exposed column's meaning through database comments, with tests that relate
   source rows, raw projection multiplicity, and curated output.
-- **FR-069**: Each source catalog MUST be generated from live curated
-  view/column metadata plus one reviewed source overlay. Generation MUST validate
-  approved relations, types, grain, semantic dimensions, and configured
-  canonical values against the live source and MUST fail rather than publish a
-  guessed or zero-match semantic value. Hand-edited generated catalogs are
-  prohibited.
+- **FR-069**: Each source catalog MUST be generated from the complete
+  role-readable information schema plus optional reviewed descriptions and
+  semantic metadata. Missing descriptions MUST remain visible gaps and MUST NOT
+  remove readable relations or columns. Generation MUST reject overlay claims
+  about nonexistent relations and guessed or zero-match semantic values.
+  Hand-edited generated catalogs are prohibited.
 - **FR-070**: Current readiness MUST explicitly describe its default-source-only
   scope. Full per-source readiness and live two-source acceptance MUST remain
   open until dedicated tasks and evidence prove every registered source; the
@@ -1281,7 +1282,7 @@ execution.
   with an explicit grain, described typed columns, tests, and live metadata used
   to generate the source catalog.
 - **Catalog Overlay**: The small reviewed source-specific input containing
-  identity, approved views, and semantic canonical values that cannot be derived
+  identity, reviewed relation metadata, and semantic canonical values that cannot be derived
   from PostgreSQL metadata alone.
 - **Dataset Draft**: A reusable governed virtual-dataset definition bound to one
   exact successful execution, including parameterized and compiled SQL, typed
@@ -1303,12 +1304,12 @@ execution.
 
 ### Evidence, Provenance & Data Boundaries
 
-- **Clinical evidence records**: Only records currently projected from the
-  connected OpenELIS instance through FHIR into versioned approved analytics
-  views are in scope; row identifiers and aggregate assertions remain linked to
-  the executing query version. Runtime synthetic/real classification MUST be
-  carried from authoritative provenance when available and MUST NOT be inferred
-  from the data shape or demo deployment mode.
+- **Clinical evidence records**: Records reachable through the selected data
+  source's configured read-only role are in scope; row identifiers and
+  aggregate assertions remain linked to the executing query version. Runtime
+  synthetic/real classification MUST be carried from authoritative provenance
+  when available and MUST NOT be inferred from data shape or demo deployment
+  mode.
 - **Decision rationale**: Each validation and repair-scope decision records the
   applicable rule and why it warned or proposed a repair; each execution records
   that manual Run bypassed validator gating and the database outcome was
@@ -1317,11 +1318,11 @@ execution.
   retained only as invalid evidence.
 - **Operating metadata**: Session lineage, query versions, validation runs,
   repair proposals, execution attempts, iteration turns, editor snapshots,
-  bounded revision-context membership, result staleness, profile/prompt/catalog/
-  dataset provenance, editor/formatter revision, and harness-compatible run
-  events.
+  recorded revision-context membership and omissions, result staleness,
+  profile/prompt/catalog/dataset provenance, editor/formatter revision, and
+  harness-compatible run events.
 - **Accepted deterministic inputs**: Versioned validator rules, repair templates,
-  SQL formatter and PostgreSQL keyword source, approved catalog, execution
+  SQL formatter and PostgreSQL keyword source, runtime-readable catalog, execution
   policy, Gateway query-profile registry/prompts, reviewed lossless
   ViewDefinitions, curated SQL/comments, catalog overlays/generator, and reviewed
   query-patch contract.
@@ -1372,7 +1373,7 @@ execution.
   execution outcome in the validation harness.
 - **SC-011**: Automated and manual checks prove PostgreSQL highlighting, logical
   line numbers, default-on wrap and toggle retention, keyboard completion from
-  keywords plus the approved catalog, and graceful no-catalog behavior at
+  keywords plus the runtime-readable catalog, and graceful no-catalog behavior at
   desktop, narrow viewport, and 200% zoom.
 - **SC-012**: Repeating Format on the same input produces identical SQL, and
   tests prove editing or formatting never mutates a stored version while
@@ -1393,8 +1394,8 @@ execution.
   snapshot, including the first request after `New session`.
 - **SC-015**: Automated acceptance checks cover reused, promoted-human,
   unresolved, locally empty, and stale editor states; failed generation; reviewer
-  correction of lint-clean SQL; bounded-history truncation; profile switching;
-  stale results; refresh; and New Session isolation.
+  correction of lint-clean SQL; recorded context inclusion and omissions;
+  profile switching; stale results; refresh; and New Session isolation.
 - **SC-016**: In every seeded generation failure, the base/current anchor remains
   current and editable when non-null, and the failed turn retains enough raw
   evidence and provenance to identify the failing stage and reproduce the
@@ -1442,8 +1443,8 @@ execution.
   states never claim matching execution context.
 - **SC-027**: The runtime schema guide, SQL completion vocabulary, deterministic
   validator, and model request reference the same catalog version, and automated
-  plus live information-schema checks prove that every reviewed physical
-  fact-view column appears exactly once with the correct name and type.
+  plus live information-schema checks prove that every role-readable relation
+  and column appears exactly once with the correct name and type.
 - **SC-028**: A 100-row execution keeps the document workflow bounded through a
   labelled result scroll region while its exact query-version label, stale
   status, row count, and keyboard navigation remain visible.
@@ -1465,8 +1466,9 @@ execution.
   retained before SQL curation; no upstream-default modification or additive
   projection is accepted without a reviewed provenance/diff record.
 - **SC-032**: Catalog generation is byte-stable for unchanged live metadata and
-  overlay inputs, rejects missing view/column comments and zero-match canonical
-  values, and matches live information-schema names/types for every approved
+  overlay inputs, preserves readable relations with explicit missing-description
+  gaps, rejects nonexistent overlay references and zero-match canonical values,
+  and matches live information-schema names/types for every role-readable
   relation in every acceptance source.
 - **SC-033**: For each accepted source, schema guide, completion vocabulary,
   validator request, model request, query version, execution, and harness event
@@ -1567,9 +1569,9 @@ execution.
 - Users are technical evaluators comparing model and validator behavior; no
   authentication or production role model is introduced in this iteration.
 - Existing isolated database credentials and permissions remain authoritative.
-  The approved-view catalog guides generation and validation but does not gate
-  manual Run; statement timeout and returned-row limits remain operational
-  controls.
+  The runtime catalog guides generation and validation but does not hide a
+  readable relation or gate manual Run; statement timeout and returned-row
+  limits remain operational controls.
 - Detailed dataset context is secondary to the query/validation task and begins
   collapsed while a compact identity-and-scale summary remains visible.
 - Query structure rather than arbitrary character offsets is the stable unit for
@@ -1593,11 +1595,12 @@ execution.
 - The exact visible editor buffer is authoritative for follow-up input. A dirty
   valid buffer becomes a human version, an unchanged buffer reuses its version,
   and an unresolved buffer remains evidence rather than accepted query state.
-- The initial question plus the five most-recent prior follow-up instructions
-  provide sufficient conversational context for this proof of concept. Matching
-  diagnostics and result schema/count summaries may be included. Result rows
-  remain excluded unless the G2.9 checkpoint explicitly replaces this boundary
-  with a versioned, user-visible bounded attachment.
+- The current instruction and relevant retained instructions provide the
+  conversational context for this proof of concept. The supplied and omitted
+  items are recorded without a fixed history count. Matching diagnostics and
+  result schema/count summaries may be included. Result rows remain excluded
+  unless the G2.9 checkpoint explicitly replaces this boundary with a
+  versioned, user-visible bounded attachment.
 - Profile changes are allowed per turn and recorded rather than treated as a
   new session. `New session` is reserved for unrelated work and begins with no
   inherited model context.

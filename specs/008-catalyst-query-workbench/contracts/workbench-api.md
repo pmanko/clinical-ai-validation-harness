@@ -8,11 +8,11 @@ unknown/stale entity references, or database behavior can prevent a Run.
 
 `GET /catalog`
 
-Returns the currently loaded, approved editor vocabulary from the same gateway
+Returns the currently loaded role-readable vocabulary from the same gateway
 catalog used to build Hub requests and deterministic validation. The response
 contains `contractVersion: catalyst.workbench.editor-catalog.v1`, catalog and
-schema versions, dialect, and ordered approved schemas/views/columns with their
-logical types. It contains no independent UI mapping and no unapproved relation.
+schema versions, dialect, and every relation and column the configured
+read-only database role can read. It contains no independent UI mapping.
 
 The UI uses this response only for completion and editor labels. Failure to load
 it disables catalog-identifier suggestions but never disables editing,
@@ -310,7 +310,8 @@ projection is built.
 
 Initial generation remains compatible with `catalyst.query.request.v1`: one
 user message contains the initial question and `catalystQuery` contains the
-target, approved catalog, policy, correlation, and required output contract.
+target, runtime-readable catalog, policy, correlation, and required output
+contract.
 
 Follow-up generation uses `catalyst.query.request.v2`. Its outer OpenAI-compatible
 request still contains exactly one user message (the current instruction), and
@@ -398,7 +399,12 @@ not an individual generation request.
 }
 ```
 
-Context selection is deterministic and bounded:
+The following selection rules document the historical v2 wire contract. Phase
+1 preserves v2 readers but does not treat its five-instruction window as the
+product limit; the successor records the context actually supplied and every
+omission without fixing a history count in this specification.
+
+The v2 selection is deterministic and bounded:
 
 - `currentInstruction` is byte-for-byte the sole user-message content and
   `instructionDigest` is lowercase SHA-256 of its exact UTF-8 bytes, with no

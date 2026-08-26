@@ -50,7 +50,7 @@ Use a reviewed code-editor integration rather than a plain text area because the
 required interaction includes PostgreSQL syntax highlighting, logical line
 numbers, keyboard completion, and wrap control. Default wrapping to on for the
 narrow workbench, retain the toggle as session presentation state, and source
-completion from a stable PostgreSQL keyword set plus the active approved catalog.
+completion from a stable PostgreSQL keyword set plus the active runtime catalog.
 Sort suggestions deterministically and remain fully editable if catalog loading
 fails; the UI must not carry a second schema mapping.
 
@@ -73,7 +73,7 @@ manual `formatDialect` action configured for PostgreSQL and Catalyst's `:name`
 parameters. The dependency graph remains pinned by `package-lock.json`.
 
 Expose completion identifiers through a small read-only workbench catalog route
-derived from the gateway's already-loaded approved catalog. This keeps the Hub
+derived from the gateway's already-loaded runtime catalog. This keeps the Hub
 prompt, deterministic validator, and editor on one vocabulary; when the route is
 unavailable, CodeMirror retains PostgreSQL dialect completion and ordinary
 editing without inventing identifiers.

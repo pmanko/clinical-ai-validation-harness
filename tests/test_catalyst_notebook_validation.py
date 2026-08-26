@@ -5,6 +5,7 @@ import json
 import runpy
 import sys
 import threading
+from collections import Counter
 from datetime import date, datetime, time, timezone
 from decimal import Decimal
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -62,11 +63,84 @@ def _version(version_id: str, sql: str, *, parent: str | None = None) -> dict[st
     }
 
 
-def _evidence(turn_id: str, instruction: str) -> dict[str, Any]:
+def _evidence(
+    turn_id: str,
+    instruction: str,
+    role_models: tuple[str, str | None] = ("gemma-4-12b", "qwen2.5-14b"),
+) -> dict[str, Any]:
+    evidence_digest = hashlib.sha256(f"evidence:{turn_id}".encode()).hexdigest()
+    candidate_digest = hashlib.sha256(f"candidate:{turn_id}".encode()).hexdigest()
+    revision_context = (
+        None
+        if turn_id == "turn-initial"
+        else {
+            "currentInstruction": instruction,
+            "instructionHistory": [
+                {
+                    "kind": "initial",
+                    "instruction": "Show patient identifiers.",
+                }
+            ],
+        }
+    )
     invocations = []
-    for index, (role, model_id) in enumerate(
-        (("writer", "gemma-4-12b"), ("reviewer", "qwen2.5-14b")), start=1
-    ):
+    roles = [("writer", role_models[0])]
+    if role_models[1] is not None:
+        roles.append(("reviewer", role_models[1]))
+    for index, (role, model_id) in enumerate(roles, start=1):
+        accounting = {
+            "tokenizer": model_id,
+            "contextWindow": 8192,
+            "outputReserve": 2048,
+            "promptTokens": 4000,
+        }
+        caller_payload: dict[str, Any] = {"instruction": instruction}
+        if revision_context is not None:
+            caller_payload["revision"] = revision_context
+        request = {
+            "profileId": PROFILE_ID,
+            "role": "query_generate" if role == "writer" else "query_review",
+            "model": model_id,
+            "messages": [
+                {"role": "system", "content": f"Exact {role} prompt."},
+                {
+                    "role": "user",
+                    "content": json.dumps(caller_payload, separators=(",", ":")),
+                },
+            ],
+            "responseFormat": {"type": "json_object"},
+            "config": {
+                "temperature": 0,
+                "dryMultiplier": 0,
+                "maxTokens": accounting["outputReserve"],
+            },
+        }
+        request_digest = hashlib.sha256(
+            json.dumps(
+                request,
+                sort_keys=True,
+                separators=(",", ":"),
+            ).encode("utf-8")
+        ).hexdigest()
+        rendered_prompt = f"<s>exact {role} request</s>"
+        request_evidence = {
+            "contractVersion": "med-agent-hub.catalyst-role-request-evidence.v1",
+            "request": request,
+            "requestDigest": request_digest,
+            "prompt": {
+                "renderedPrompt": rendered_prompt,
+                "renderedPromptDigest": hashlib.sha256(
+                    rendered_prompt.encode("utf-8")
+                ).hexdigest(),
+            },
+            "tokens": {
+                **accounting,
+                "requiredTokens": (
+                    accounting["promptTokens"] + accounting["outputReserve"]
+                ),
+                "fits": True,
+            },
+        }
         invocations.append(
             {
                 "invocationId": f"invocation-{turn_id}-{index}",
@@ -84,16 +158,18 @@ def _evidence(turn_id: str, instruction: str) -> dict[str, Any]:
                 "startedAt": f"2026-07-20T12:00:0{index}.000Z",
                 "endedAt": f"2026-07-20T12:00:0{index}.005Z",
                 "durationMs": 5,
-                "requestDigest": str(index) * 64,
+                "requestDigest": request_digest,
                 "responseDigest": str(index + 2) * 64,
                 "failureDigest": None,
+                "tokenAccounting": accounting,
+                "requestEvidence": request_evidence,
                 "outcome": "succeeded",
             }
         )
     return {
         "contractVersion": "catalyst.workbench.generation-evidence.v1",
         "evidenceId": f"evidence-{turn_id}",
-        "evidenceDigest": "a" * 64,
+        "evidenceDigest": evidence_digest,
         "sessionId": "session-1",
         "turnId": turn_id,
         "turnKind": "initial" if turn_id == "turn-initial" else "followup",
@@ -105,7 +181,7 @@ def _evidence(turn_id: str, instruction: str) -> dict[str, Any]:
         "observedBase": None,
         "effectiveBaseVersion": None,
         "manualVersion": None,
-        "revisionContext": {"instructionHistory": []},
+        "revisionContext": revision_context,
         "dataset": {},
         "catalog": {},
         "policy": {},
@@ -117,8 +193,8 @@ def _evidence(turn_id: str, instruction: str) -> dict[str, Any]:
         "hubRequest": {},
         "hubResponse": {},
         "invocations": invocations,
-        "totalInvocationDurationMs": 10,
-        "candidates": [],
+        "totalInvocationDurationMs": 5 * len(invocations),
+        "candidates": [{"candidateDigest": candidate_digest}],
         "finalSelection": {"status": "completed"},
         "omissions": [],
         "prohibitedClasses": [],
@@ -138,6 +214,8 @@ class _WorkbenchState:
         self.followup_turns: list[dict[str, Any]] = []
         self.turn_requests: list[dict[str, Any]] = []
         self.turn_status_sequence: list[str] | None = None
+        self.followup_failure_stage: str | None = None
+        self.followup_failure_code = "reviewer_transport_failed"
         self.session_id = "session-1"
         self.session_ids: list[str] = []
         self.profile_digest: str | None = None
@@ -145,17 +223,27 @@ class _WorkbenchState:
         # none, exactly as the Gateway does when the writer asks or
         # declines on the opening question.
         self.base_outcome = "ready"
+        self.base_failure_stage: str | None = None
+        self.base_failure_code = "writer_transport_failed"
         # Which profiles discovery advertises; a comparison suite needs
         # every team it names to be offered.
         self.profile_ids: list[str] = [PROFILE_ID]
         # Per-profile role models, so a comparison suite's teams are told
         # apart by what they actually offer.
         self.profile_models: dict[str, tuple[str, str | None]] = {}
+        self.current_profile_id = PROFILE_ID
         # A terminal answer that nonetheless left SQL in the session:
         # the exact contradiction the runner has to catch.
         self.leaves_a_query_behind = False
         self.turn_http_sequence: list[int] | None = None
+        self.turn_error_code = "unavailable"
         self.turn_attempts = 0
+        self.session_http_sequence: list[int] | None = None
+        self.session_error_code = "unavailable"
+        self.session_attempts = 0
+        self.generation_http_sequence: list[int] | None = None
+        self.generation_error_code = "unavailable"
+        self.generation_attempts = 0
         self.requests: list[tuple[str, str]] = []
         self.session_requests: list[dict[str, Any]] = []
         self.posts: list[tuple[str, str, dict[str, Any]]] = []
@@ -171,7 +259,10 @@ class _WorkbenchState:
         self.session_ids.append(self.session_id)
         self.versions = (
             []
-            if self.base_outcome != "ready" and not self.leaves_a_query_behind
+            if (
+                self.base_outcome != "ready" or self.base_failure_stage is not None
+            )
+            and not self.leaves_a_query_behind
             else [
                 _version(
                     "version-1",
@@ -225,6 +316,16 @@ class _WorkbenchState:
             turn["failure"] = {
                 "code": self.base_outcome,
                 "message": "The data records no home address.",
+            }
+        if self.base_failure_stage is not None:
+            turn["status"] = "failed"
+            turn.pop("writerOutcome", None)
+            turn["outputVersions"] = []
+            turn["selectedVersionId"] = None
+            turn["failure"] = {
+                "stage": self.base_failure_stage,
+                "code": self.base_failure_code,
+                "message": "The model service was unavailable.",
             }
         return turn
 
@@ -312,13 +413,36 @@ def _handler(state: _WorkbenchState):
                 self._send(200, state.session())
             elif self.path == f"/v1/catalyst/workbench/sessions/{state.session_id}/turns":
                 self._send(200, state.timeline())
-            elif self.path.endswith("turn-initial/generation-evidence"):
-                self._send(200, _evidence("turn-initial", "Show patient identifiers."))
             elif "/generation-evidence" in self.path:
                 turn_id = self.path.split("/turns/")[1].split("/")[0]
+                if state.generation_http_sequence:
+                    status = state.generation_http_sequence[
+                        min(
+                            state.generation_attempts,
+                            len(state.generation_http_sequence) - 1,
+                        )
+                    ]
+                    state.generation_attempts += 1
+                    if status != 200:
+                        self._send(
+                            status,
+                            {"error": {"code": state.generation_error_code}},
+                        )
+                        return
                 self._send(
                     200,
-                    _evidence(turn_id, "Return only distinct patients."),
+                    _evidence(
+                        turn_id,
+                        (
+                            "Show patient identifiers."
+                            if turn_id == "turn-initial"
+                            else "Return only distinct patients."
+                        ),
+                        state.profile_models.get(
+                            state.current_profile_id,
+                            ("gemma-4-12b", "qwen2.5-14b"),
+                        ),
+                    ),
                 )
             else:
                 self._send(404, {"error": {"code": "not_found"}})
@@ -338,6 +462,22 @@ def _handler(state: _WorkbenchState):
                 self._send(201, payload)
                 return
             if self.path == "/v1/catalyst/workbench/sessions":
+                state.current_profile_id = body.get("profileId", PROFILE_ID)
+                if state.session_http_sequence:
+                    status = state.session_http_sequence[
+                        min(
+                            state.session_attempts,
+                            len(state.session_http_sequence) - 1,
+                        )
+                    ]
+                    state.session_attempts += 1
+                    if status != 201:
+                        state.session_requests.append(body)
+                        self._send(
+                            status,
+                            {"error": {"code": state.session_error_code}},
+                        )
+                        return
                 state.reset()
                 state.session_requests.append(body)
                 self._send(201, state.session())
@@ -387,17 +527,52 @@ def _handler(state: _WorkbenchState):
                 state.executions.append(execution)
                 self._send(200, execution)
             elif self.path == f"/v1/catalyst/workbench/sessions/{state.session_id}/turns":
+                state.current_profile_id = body.get("profileId", PROFILE_ID)
                 state.turn_requests.append(body)
                 if state.turn_http_sequence:
                     status = state.turn_http_sequence[
                         min(state.turn_attempts, len(state.turn_http_sequence) - 1)
                     ]
                     state.turn_attempts += 1
-                    if status >= 500:
-                        self._send(status, {"error": {"code": "unavailable"}})
+                    if status != 201:
+                        self._send(
+                            status,
+                            {"error": {"code": state.turn_error_code}},
+                        )
                         return
                 ordinal = len(state.followup_turns) + 1
                 suffix = "" if ordinal == 1 else f"-{ordinal}"
+                if state.followup_failure_stage is not None:
+                    current_ref = (
+                        {
+                            "versionId": state.current["versionId"],
+                            "queryDigest": state.current["queryDigest"],
+                        }
+                        if state.current is not None
+                        else None
+                    )
+                    state.followup_turn = {
+                        "contractVersion": "catalyst.workbench.turn.v1",
+                        "sessionId": state.session_id,
+                        "turnId": f"turn-followup{suffix}",
+                        "ordinal": 1 + ordinal,
+                        "kind": "followup",
+                        "status": "failed",
+                        "snapshotClassification": "reused",
+                        "manualVersion": None,
+                        "profileSnapshot": {"profileId": state.current_profile_id},
+                        "outputVersions": [],
+                        "selectedVersionId": None,
+                        "resultingCurrentVersion": current_ref,
+                        "failure": {
+                            "stage": state.followup_failure_stage,
+                            "code": state.followup_failure_code,
+                            "message": "The reviewer service was unavailable.",
+                        },
+                    }
+                    state.followup_turns.append(state.followup_turn)
+                    self._send(201, state.followup_turn)
+                    return
                 successor = _version(
                     f"version-{2 + ordinal}",
                     "SELECT DISTINCT patient_id FROM analytics.lab_result_fact_v1"
@@ -427,7 +602,7 @@ def _handler(state: _WorkbenchState):
                     ),
                     "snapshotClassification": "reused",
                     "manualVersion": None,
-                    "profileSnapshot": {"profileId": PROFILE_ID},
+                    "profileSnapshot": {"profileId": state.current_profile_id},
                     "outputVersions": [
                         {
                             "versionId": successor["versionId"],
@@ -465,6 +640,13 @@ class _PassingPostgresChecker:
             "gatewayExecutionId": execution["executionId"],
             "passed": True,
         }
+
+
+class _UnavailablePostgresChecker:
+    def check(
+        self, version: dict[str, Any], execution: dict[str, Any]
+    ) -> dict[str, Any]:
+        raise ConnectionError("database host is unavailable")
 
 
 def test_real_http_client_runs_notebook_path_and_hashes_evidence(
@@ -570,8 +752,7 @@ def test_real_http_client_runs_notebook_path_and_hashes_evidence(
 
     index = json.loads((result.run_dir / "evidence-index.json").read_text())
     indexed_paths = {entry["path"] for entry in index["entries"]}
-    assert "events.jsonl" not in indexed_paths
-    assert "results.jsonl" not in indexed_paths
+    assert {"rows.jsonl", "events.jsonl", "results.jsonl"} <= indexed_paths
 
 
 class _PassingGoldChecker:
@@ -799,6 +980,59 @@ def test_postgres_crosscheck_uses_read_only_transaction_and_record_digests(
     assert statements[2][1] == {"test_name": "Viral Load"}
 
 
+def test_postgres_timeout_accepts_a_non_object_gateway_execution(
+    monkeypatch,
+) -> None:
+    import psycopg
+
+    class Cursor:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args: object) -> None:
+            return None
+
+        def execute(self, statement: str, parameters: object = None) -> None:
+            if statement == "SET TRANSACTION READ ONLY" or "set_config" in statement:
+                return
+            raise psycopg.errors.QueryCanceled(
+                "canceling statement due to statement timeout"
+            )
+
+    class Connection:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args: object) -> None:
+            return None
+
+        def cursor(self) -> Cursor:
+            return Cursor()
+
+    monkeypatch.setattr(psycopg, "connect", lambda *args, **kwargs: Connection())
+    version = {
+        "versionId": "version-1",
+        "queryDigest": "a" * 64,
+        "sql": "SELECT patient_id FROM analytics.lab_result_fact_v1",
+        "parameters": [],
+    }
+
+    result = PostgresReadOnlyChecker(
+        "postgresql://readonly:secret@127.0.0.1:15443/catalyst_analytics",
+        statement_timeout_ms=25,
+    ).check(version, [])
+
+    assert result["timedOut"] is True
+    assert result["passed"] is False
+    assert result["gatewayExecutionId"] is None
+    assert result["gateway"] == {
+        "columns": [],
+        "returned": None,
+        "truncated": None,
+        "recordDigests": [],
+    }
+
+
 class _GoldCheckCursor:
     """Stub cursor returning canned rows keyed by a marker substring in the
     executed SQL, so a single instance can serve the model + reference
@@ -820,6 +1054,39 @@ class _GoldCheckCursor:
 
     def execute(self, statement: str, parameters: object = None) -> None:
         self.statements.append((statement, parameters))
+        if "model_values AS" in statement:
+            model_columns, model_rows = next(
+                value
+                for marker, value in self.rows_by_marker.items()
+                if "model" in marker
+            )
+            reference_columns, reference_rows = next(
+                value
+                for marker, value in self.rows_by_marker.items()
+                if "reference" in marker
+            )
+            missing = list(
+                (Counter(reference_rows) - Counter(model_rows)).elements()
+            )
+            extra = list((Counter(model_rows) - Counter(reference_rows)).elements())
+            if "(SELECT count(*) FROM model_values)" in statement:
+                self._columns = [
+                    "model_count",
+                    "reference_count",
+                    "missing_count",
+                    "extra_count",
+                ]
+                self._rows = [
+                    (len(model_rows), len(reference_rows), len(missing), len(extra))
+                ]
+            elif (
+                "SELECT * FROM reference_values EXCEPT ALL "
+                "SELECT * FROM model_values" in statement
+            ):
+                self._columns, self._rows = reference_columns, missing[:20]
+            else:
+                self._columns, self._rows = model_columns, extra[:20]
+            return
         for marker, (columns, rows) in self.rows_by_marker.items():
             if marker in statement:
                 self._columns, self._rows = columns, rows
@@ -856,6 +1123,161 @@ def _gold_check_connection(
 
     monkeypatch.setattr(psycopg, "connect", lambda *args, **kwargs: Connection())
     return cursor
+
+
+def _row_set_version_and_check() -> tuple[dict[str, Any], Any]:
+    from harness.catalyst.notebook_validation import NotebookGoldCheck
+
+    return (
+        {
+            "versionId": "version-1",
+            "queryDigest": "a" * 64,
+            "sql": "SELECT observation_id FROM model_table",
+            "parameters": [],
+        },
+        NotebookGoldCheck(
+            mode="row_set",
+            reference_sql="SELECT observation_id FROM reference_table",
+            match_columns=("observation_id",),
+        ),
+    )
+
+
+@pytest.mark.parametrize(
+    ("trigger", "message", "raises"),
+    [
+        ("AS model_rows LIMIT 0", "model query could not be compared", False),
+        (
+            "AS reference_rows LIMIT 0",
+            "independent reference query could not be compared",
+            True,
+        ),
+        (
+            "(SELECT count(*) FROM model_values)",
+            "requested model columns could not be compared",
+            False,
+        ),
+    ],
+)
+def test_database_row_set_reports_query_and_comparison_errors(
+    trigger: str, message: str, raises: bool,
+) -> None:
+    import psycopg
+
+    from harness.catalyst.notebook_validation import PostgresGoldExecutionChecker
+
+    cursor = _GoldCheckCursor(
+        {
+            "model_table": (["observation_id"], [("o1",)]),
+            "reference_table": (["observation_id"], [("o1",)]),
+        }
+    )
+    execute = cursor.execute
+
+    def fail_selected(statement: str, parameters: object = None) -> None:
+        if trigger in statement:
+            raise psycopg.Error("comparison failed")
+        execute(statement, parameters)
+
+    cursor.execute = fail_selected  # type: ignore[method-assign]
+    version, gold_check = _row_set_version_and_check()
+    checker = PostgresGoldExecutionChecker("postgresql://unused")
+
+    if raises:
+        with pytest.raises(ValueError, match=message):
+            checker._database_row_set_check(cursor, version, gold_check)
+    else:
+        result = checker._database_row_set_check(cursor, version, gold_check)
+        assert result["passed"] is False
+        assert message in result["disagreement"]
+        assert result["databaseDiagnostic"] == {"sqlstate": None}
+
+
+@pytest.mark.parametrize("missing_from", ["model", "reference"])
+def test_database_row_set_names_missing_match_columns(missing_from: str) -> None:
+    from harness.catalyst.notebook_validation import PostgresGoldExecutionChecker
+
+    cursor = _GoldCheckCursor(
+        {
+            "model_table": (
+                ["wrong_column"] if missing_from == "model" else ["observation_id"],
+                [("o1",)],
+            ),
+            "reference_table": (
+                ["wrong_column"]
+                if missing_from == "reference"
+                else ["observation_id"],
+                [("o1",)],
+            ),
+        }
+    )
+    version, gold_check = _row_set_version_and_check()
+    checker = PostgresGoldExecutionChecker("postgresql://unused")
+
+    if missing_from == "reference":
+        with pytest.raises(ValueError, match="reference query is missing columns"):
+            checker._database_row_set_check(cursor, version, gold_check)
+    else:
+        result = checker._database_row_set_check(cursor, version, gold_check)
+        assert result["passed"] is False
+        assert "no column named 'observation_id'" in result["disagreement"]
+
+
+def test_database_row_set_requires_one_summary_row() -> None:
+    from harness.catalyst.notebook_validation import PostgresGoldExecutionChecker
+
+    cursor = _GoldCheckCursor(
+        {
+            "model_table": (["observation_id"], [("o1",)]),
+            "reference_table": (["observation_id"], [("o1",)]),
+        }
+    )
+    execute = cursor.execute
+
+    def omit_summary(statement: str, parameters: object = None) -> None:
+        execute(statement, parameters)
+        if "(SELECT count(*) FROM model_values)" in statement:
+            cursor._rows = []
+
+    cursor.execute = omit_summary  # type: ignore[method-assign]
+    version, gold_check = _row_set_version_and_check()
+
+    with pytest.raises(ValueError, match="returned no summary"):
+        PostgresGoldExecutionChecker("postgresql://unused")._database_row_set_check(
+            cursor, version, gold_check
+        )
+
+
+@pytest.mark.parametrize(
+    ("model_rows", "reference_rows", "missing_sample", "extra_sample"),
+    [
+        ([("o1",)], [("o1",), ("o2",)], [["o2"]], []),
+        ([("o1",), ("o2",)], [("o1",)], [], [["o2"]]),
+    ],
+)
+def test_database_row_set_samples_each_one_sided_difference(
+    model_rows: list[tuple[str]],
+    reference_rows: list[tuple[str]],
+    missing_sample: list[list[str]],
+    extra_sample: list[list[str]],
+) -> None:
+    from harness.catalyst.notebook_validation import PostgresGoldExecutionChecker
+
+    cursor = _GoldCheckCursor(
+        {
+            "model_table": (["observation_id"], model_rows),
+            "reference_table": (["observation_id"], reference_rows),
+        }
+    )
+    version, gold_check = _row_set_version_and_check()
+
+    result = PostgresGoldExecutionChecker(
+        "postgresql://unused"
+    )._database_row_set_check(cursor, version, gold_check)
+
+    assert result["passed"] is False
+    assert result["missingFromModelSample"] == missing_sample
+    assert result["extraInModelSample"] == extra_sample
 
 
 def test_gold_execution_checker_count_mode_compares_row_counts(monkeypatch) -> None:
@@ -994,6 +1416,85 @@ def test_gold_execution_checker_row_set_mode_passes_on_exact_match(monkeypatch) 
     ).check(version, gold_check)
 
     assert result["passed"] is True
+
+
+def test_row_set_can_ignore_csv_order_without_ignoring_membership(monkeypatch) -> None:
+    from harness.catalyst.notebook_validation import (
+        NotebookGoldCheck,
+        PostgresGoldExecutionChecker,
+    )
+
+    _gold_check_connection(
+        monkeypatch,
+        {
+            "model_table": (
+                ["patient_id", "medications"],
+                [("p1", "Tenofovir,  Dolutegravir")],
+            ),
+            "reference_table": (
+                ["patient_id", "medications"],
+                [("p1", "Dolutegravir, Tenofovir")],
+            ),
+        },
+    )
+    check = NotebookGoldCheck(
+        mode="row_set",
+        reference_sql="SELECT patient_id, medications FROM reference_table",
+        match_columns=("patient_id", "medications"),
+        normalizers={"medications": "unordered_csv"},
+    )
+    version = {
+        "versionId": "v",
+        "queryDigest": "a" * 64,
+        "sql": "SELECT patient_id, medications FROM model_table",
+        "parameters": [],
+    }
+
+    result = PostgresGoldExecutionChecker(
+        "postgresql://readonly:secret@127.0.0.1:15443/catalyst_analytics"
+    ).check(version, check)
+
+    assert result["passed"] is True
+    assert result["normalizers"] == {"medications": "unordered_csv"}
+
+
+def test_row_set_csv_normalizer_does_not_hide_a_duplicate_item(monkeypatch) -> None:
+    from harness.catalyst.notebook_validation import (
+        NotebookGoldCheck,
+        PostgresGoldExecutionChecker,
+    )
+
+    _gold_check_connection(
+        monkeypatch,
+        {
+            "model_table": (
+                ["patient_id", "medications"],
+                [("p1", "Dolutegravir, Tenofovir, Tenofovir")],
+            ),
+            "reference_table": (
+                ["patient_id", "medications"],
+                [("p1", "Dolutegravir, Tenofovir")],
+            ),
+        },
+    )
+    check = NotebookGoldCheck(
+        mode="row_set",
+        reference_sql="SELECT patient_id, medications FROM reference_table",
+        match_columns=("patient_id", "medications"),
+        normalizers={"medications": "unordered_csv"},
+    )
+    version = {
+        "versionId": "v",
+        "queryDigest": "a" * 64,
+        "sql": "SELECT patient_id, medications FROM model_table",
+        "parameters": [],
+    }
+
+    result = PostgresGoldExecutionChecker(
+        "postgresql://readonly:secret@127.0.0.1:15443/catalyst_analytics"
+    ).check(version, check)
+
+    assert result["passed"] is False
 
 
 def test_gold_execution_checker_aggregate_by_key_mode_detects_value_mismatch(
@@ -1326,6 +1827,80 @@ def test_suite_loader_rejects_invalid_suite_level_fields(
         load_notebook_suite(_write_suite(tmp_path, _suite_payload(**overrides)))
 
 
+@pytest.mark.parametrize(
+    "payload",
+    [
+        _suite_payload(id="catalyst-phase1-comparison-v2", repetitions=2),
+        _suite_payload(
+            id="catalyst-phase1-comparison-v2",
+            extendedRepetitions=5,
+        ),
+        _suite_payload(
+            id="catalyst-phase1-comparison-v2",
+            scenarios=[
+                {**_suite_payload()["scenarios"][0], "repetitions": 2}
+            ],
+        ),
+    ],
+)
+def test_phase1_repeated_measures_cannot_repeat_selected_cells(
+    tmp_path: Path,
+    payload: dict[str, Any],
+) -> None:
+    with pytest.raises(ValueError, match="separate full-suite runs"):
+        load_notebook_suite(_write_suite(tmp_path, payload))
+
+
+def test_phase1_repetition_override_cannot_repeat_selected_cells(
+    tmp_path: Path,
+) -> None:
+    state = _WorkbenchState()
+    suite = _suite_payload(id="catalyst-phase1-comparison-v2")
+    suite_path = _write_suite(tmp_path, suite)
+    server = ThreadingHTTPServer(("127.0.0.1", 0), _handler(state))
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        with pytest.raises(ValueError, match="repetition override must be one"):
+            run_notebook_suite(
+                suite_path=suite_path,
+                client=NotebookHttpClient(
+                    f"http://127.0.0.1:{server.server_port}"
+                ),
+                output_dir=tmp_path / "artifacts",
+                project_root=ROOT,
+                repetitions=2,
+                provenance_loader=lambda _: [],
+            )
+    finally:
+        server.shutdown()
+        thread.join(timeout=5)
+        server.server_close()
+
+    assert state.requests == []
+
+
+def test_phase1_run_cannot_select_only_part_of_the_frozen_suite(
+    tmp_path: Path,
+) -> None:
+    state = _WorkbenchState()
+    base = _suite_payload()["scenarios"][0]
+    suite = _suite_payload(
+        id="catalyst-phase1-comparison-v2",
+        scenarios=[{**base, "id": "first"}, {**base, "id": "second"}],
+    )
+
+    with pytest.raises(ValueError, match="complete frozen scenario set"):
+        _run_against_fake(
+            tmp_path,
+            suite,
+            state,
+            scenario_ids={"first"},
+        )
+
+    assert state.requests == []
+
+
 def test_suite_loader_allows_omitted_or_null_writer_only_reviewer(
     tmp_path: Path,
 ) -> None:
@@ -1502,6 +2077,79 @@ def test_suite_loader_parses_gold_checks_by_mode(tmp_path: Path) -> None:
     assert check.value_column == "patient_count"
 
 
+def test_reader_led_suite_gives_each_ready_turn_its_own_answer_check() -> None:
+    suite = load_notebook_suite(
+        ROOT
+        / "datasets"
+        / "validation"
+        / "catalyst"
+        / "catalyst-phase1-comparison-v2.json"
+    )
+
+    ready_turns = 0
+    for scenario in suite.scenarios:
+        assert scenario.pin_guidance == ()
+        if scenario.expected_base_outcome == "ready":
+            ready_turns += 1
+            assert scenario.base_gold_check is not None
+        for turn in scenario.turns:
+            if turn.expected_outcome == "ready":
+                ready_turns += 1
+                assert turn.gold_check is not None
+
+    assert len(suite.scenarios) == 12
+    assert ready_turns == 16
+    retained = next(item for item in suite.scenarios if item.id == "M2")
+    assert retained.successor_gold_check is None
+    assert "patient_gender" in retained.turns[0].gold_check.reference_sql
+    assert "LIMIT 10" in retained.turns[1].gold_check.reference_sql
+
+
+def test_reader_led_suite_refuses_a_ready_turn_without_its_own_check(
+    tmp_path: Path,
+) -> None:
+    payload = json.loads(
+        (
+            ROOT
+            / "datasets"
+            / "validation"
+            / "catalyst"
+            / "catalyst-phase1-comparison-v2.json"
+        ).read_text(encoding="utf-8")
+    )
+    del payload["scenarios"][5]["turns"][1]["goldCheck"]
+
+    with pytest.raises(ValueError, match="turn 2 needs its own independent answer"):
+        load_notebook_suite(_write_suite(tmp_path, payload))
+
+
+def test_reader_led_suite_refuses_hidden_guidance_and_an_unchecked_opening(
+    tmp_path: Path,
+) -> None:
+    base = _suite_payload()["scenarios"][0]
+    hidden_guidance = {
+        **base,
+        "pinGuidance": ["Exclude do_not_perform requests."],
+    }
+    with pytest.raises(ValueError, match="not pinGuidance"):
+        load_notebook_suite(
+            _write_suite(
+                tmp_path,
+                _suite_payload(
+                    reportMode="reader-led", scenarios=[hidden_guidance]
+                ),
+            )
+        )
+
+    with pytest.raises(ValueError, match="answer check for its opening turn"):
+        load_notebook_suite(
+            _write_suite(
+                tmp_path,
+                _suite_payload(reportMode="reader-led", scenarios=[base]),
+            )
+        )
+
+
 def test_suite_loader_rejects_invalid_gold_checks(tmp_path: Path) -> None:
     base = _suite_payload()["scenarios"][0]
 
@@ -1550,6 +2198,45 @@ def test_suite_loader_rejects_invalid_gold_checks(tmp_path: Path) -> None:
         load_notebook_suite(
             _write_suite(tmp_path, _suite_payload(scenarios=[write_verb_reference]))
         )
+
+
+@pytest.mark.parametrize(
+    ("payload", "message"),
+    [
+        (
+            _gold_check_payload(
+                mode="aggregate_by_key",
+                keyColumns=["group"],
+                valueColumns={"count": {}},
+                normalizers={"group": "unordered_csv"},
+            ),
+            "supported only for row_set",
+        ),
+        (
+            _gold_check_payload(
+                mode="row_set",
+                matchColumns=["patient_id"],
+                normalizers={"medications": "unordered_csv"},
+            ),
+            "outside matchColumns",
+        ),
+        (
+            _gold_check_payload(
+                mode="row_set",
+                matchColumns=["patient_id"],
+                normalizers={"patient_id": "lowercase"},
+            ),
+            "unsupported gold check normalizers",
+        ),
+    ],
+)
+def test_gold_check_normalizer_configuration_is_strict(
+    payload: dict[str, Any], message: str,
+) -> None:
+    from harness.catalyst.notebook_validation import _load_gold_check
+
+    with pytest.raises(ValueError, match=message):
+        _load_gold_check(payload)
 
 
 def test_run_suite_rejects_empty_selection_and_bad_repetitions(
@@ -1652,9 +2339,11 @@ def test_failed_session_creation_short_circuits_the_scenario(tmp_path: Path) -> 
         provenance_loader=lambda _: [],
     )
     assert result.passed_count == 0
-    results = json.loads((result.run_dir / "results.json").read_text())
-    assert results["results"][0]["status"] == "failed_before_turn"
-    assert results["results"][0]["sessionId"] is None
+    assert result.complete is False
+    assert not (result.run_dir / "results.json").exists()
+    row = json.loads((result.run_dir / "rows.jsonl").read_text())
+    assert row["status"] == "infrastructure_failed"
+    assert row["httpStatus"] == 503
 
 
 def test_missing_base_version_short_circuits_the_scenario(tmp_path: Path) -> None:
@@ -1674,30 +2363,33 @@ def test_missing_base_version_short_circuits_the_scenario(tmp_path: Path) -> Non
     assert assertions["base_version_available"] is False
 
 
-class _CrashingClient(_StubClient):
-    """Raises on the Nth call to create_session, simulating a hard crash
-    (e.g. a dropped connection) partway through a multi-scenario run."""
+class _CrashingClient:
+    """Raises on the Nth session call, simulating an unexpected code crash."""
 
-    def __init__(self, *, crash_on_call: int, **kwargs: Any) -> None:
-        super().__init__(**kwargs)
+    def __init__(self, delegate: NotebookHttpClient, *, crash_on_call: int) -> None:
+        self.delegate = delegate
         self._create_session_calls = 0
         self._crash_on_call = crash_on_call
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self.delegate, name)
 
     def create_session(self, question: str, profile_id: str) -> HttpExchange:
         self._create_session_calls += 1
         if self._create_session_calls == self._crash_on_call:
             raise RuntimeError("simulated transport failure")
-        return super().create_session(question, profile_id)
+        return self.delegate.create_session(question, profile_id)
 
 
 def test_results_jsonl_streams_incrementally_and_survives_a_mid_run_crash(
     tmp_path: Path,
 ) -> None:
-    """The whole point of streaming: a crash mid-run must not erase evidence
-    for scenarios that already completed. results.json/evidence-index.json
-    are written once at the very end (recorder.finish()), so a crash means
-    neither exists — but the streamed .jsonl rows for the first scenario
-    must already be on disk."""
+    """An unexpected code crash must not erase already streamed evidence.
+
+    Recognized HTTP and transport interruptions finalize an evidence index;
+    this raw exception exercises the fallback for an unclassified process
+    failure before normal finalization.
+    """
     suite_path = _write_suite(
         tmp_path,
         _suite_payload(
@@ -1707,23 +2399,44 @@ def test_results_jsonl_streams_incrementally_and_survives_a_mid_run_crash(
             ]
         ),
     )
-    client = _CrashingClient(crash_on_call=2, session_status=503, session_body={})
-
-    with pytest.raises(RuntimeError, match="simulated transport failure"):
-        run_notebook_suite(
-            suite_path=suite_path,
-            client=client,
-            output_dir=tmp_path / "artifacts",
-            project_root=ROOT,
-            provenance_loader=lambda _: [],
-        )
+    state = _WorkbenchState()
+    server = ThreadingHTTPServer(("127.0.0.1", 0), _handler(state))
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    client = _CrashingClient(
+        NotebookHttpClient(f"http://127.0.0.1:{server.server_port}"),
+        crash_on_call=2,
+    )
+    try:
+        with pytest.raises(RuntimeError, match="simulated transport failure"):
+            run_notebook_suite(
+                suite_path=suite_path,
+                client=client,
+                output_dir=tmp_path / "artifacts",
+                project_root=ROOT,
+                provenance_loader=lambda _: [],
+            )
+    finally:
+        server.shutdown()
+        thread.join(timeout=5)
+        server.server_close()
 
     run_dirs = list((tmp_path / "artifacts").iterdir())
     assert len(run_dirs) == 1
     run_dir = run_dirs[0]
 
     assert not (run_dir / "results.json").exists()
-    assert not (run_dir / "evidence-index.json").exists()
+    index_bytes = (run_dir / "evidence-index.json").read_bytes()
+    assert (run_dir / "evidence-index.sha256").read_text().startswith(
+        hashlib.sha256(index_bytes).hexdigest()
+    )
+    index = json.loads(index_bytes)
+    rows_entry = next(
+        item for item in index["entries"] if item["path"] == "rows.jsonl"
+    )
+    assert rows_entry["sha256"] == hashlib.sha256(
+        (run_dir / "rows.jsonl").read_bytes()
+    ).hexdigest()
 
     manifest = json.loads((run_dir / "run_manifest.json").read_text())
     assert manifest["report_family"] == "catalyst"
@@ -1753,10 +2466,10 @@ def test_results_jsonl_streams_incrementally_and_survives_a_mid_run_crash(
     row = result_rows[0]
     assert row["backend_id"] == PROFILE_ID
     assert row["turn"] == 1
-    assert row["metrics"]["passed"] is False
-    assert row["metrics"]["http_status"] == 503
-    assert row["metrics"]["latency_ms"] is None
-    assert row["error"] is not None
+    assert row["metrics"]["passed"] is True
+    assert row["metrics"]["http_status"] == 200
+    assert row["metrics"]["latency_ms"] is not None
+    assert row["error"] is None
 
 
 def test_persisting_an_absent_editor_query_is_a_configuration_error(
@@ -1969,6 +2682,185 @@ def test_evidence_reviewer_invocation_exactly_matches_profile() -> None:
     assert failed_before_review_checks["reviewer_model"] is True
 
 
+def _evidence_check_results(evidence: dict[str, Any]) -> dict[str, bool]:
+    return {
+        name: passed
+        for name, passed, _ in _evidence_checks(
+            evidence,
+            expected_profile={
+                "writerModelId": "gemma-4-12b",
+                "reviewerModelId": "qwen2.5-14b",
+            },
+        )
+    }
+
+
+def test_exact_hub_request_and_capacity_evidence_passes_for_every_role() -> None:
+    checks = _evidence_check_results(
+        _evidence("turn-followup", "Return only distinct patients.")
+    )
+
+    assert checks["hub_request_evidence"] is True
+    assert checks["hub_request_digest_match"] is True
+    assert checks["hub_capacity_evidence"] is True
+    assert checks["retained_instruction_context"] is True
+
+
+def test_a_model_invocation_missing_hub_request_evidence_fails() -> None:
+    evidence = _evidence("turn-followup", "Return only distinct patients.")
+    evidence["invocations"][0].pop("requestEvidence")
+
+    assert _evidence_check_results(evidence)["hub_request_evidence"] is False
+
+
+def test_the_invocation_digest_must_match_the_hub_request_digest() -> None:
+    evidence = _evidence("turn-followup", "Return only distinct patients.")
+    evidence["invocations"][0]["requestDigest"] = "f" * 64
+
+    assert _evidence_check_results(evidence)["hub_request_digest_match"] is False
+
+
+def test_an_exact_capacity_rejection_is_valid_and_an_inconsistent_one_is_not() -> None:
+    evidence = _evidence(
+        "turn-followup",
+        "Return only distinct patients.",
+        role_models=("gemma-4-12b", None),
+    )
+    invocation = evidence["invocations"][0]
+    invocation["outcome"] = "pre_dispatch_rejected"
+    invocation["responseDigest"] = None
+    invocation["failureDigest"] = "f" * 64
+    invocation.pop("tokenAccounting")
+    invocation["hubError"] = {
+        "code": "context_window_exceeded",
+        "httpStatus": 422,
+        "message": "The exact request exceeds the context window.",
+    }
+    tokens = invocation["requestEvidence"]["tokens"]
+    tokens["contextWindow"] = 5000
+    tokens["fits"] = False
+    evidence["status"] = "failed"
+    evidence["finalSelection"] = {
+        "status": "failed",
+        "failure": {
+            "stage": "writer_request",
+            "code": "context_window_exceeded",
+        },
+    }
+
+    expected_profile = {
+        "writerModelId": "gemma-4-12b",
+        "reviewerModelId": None,
+    }
+    checks = dict(
+        (name, passed)
+        for name, passed, _ in _evidence_checks(
+            evidence, expected_profile=expected_profile
+        )
+    )
+    assert checks["hub_capacity_evidence"] is True
+
+    tokens["fits"] = True
+    checks = dict(
+        (name, passed)
+        for name, passed, _ in _evidence_checks(
+            evidence, expected_profile=expected_profile
+        )
+    )
+    assert checks["hub_capacity_evidence"] is False
+
+
+def test_every_exact_followup_request_retains_the_prior_instruction() -> None:
+    evidence = _evidence("turn-followup", "Return only distinct patients.")
+    assert _evidence_check_results(evidence)["retained_instruction_context"] is True
+
+    reviewer = evidence["invocations"][1]
+    content = reviewer["requestEvidence"]["request"]["messages"][1]["content"]
+    payload = json.loads(content)
+    payload["revision"]["instructionHistory"] = []
+    reviewer["requestEvidence"]["request"]["messages"][1]["content"] = json.dumps(
+        payload, separators=(",", ":")
+    )
+
+    assert _evidence_check_results(evidence)["retained_instruction_context"] is False
+
+
+@pytest.mark.parametrize("malformed", [None, [], "not-an-object"])
+def test_followup_revision_context_must_be_an_object(malformed: Any) -> None:
+    evidence = _evidence("turn-followup", "Return only distinct patients.")
+    evidence["revisionContext"] = malformed
+
+    assert _evidence_check_results(evidence)["retained_instruction_context"] is False
+
+
+def test_followup_revision_context_must_be_present() -> None:
+    evidence = _evidence("turn-followup", "Return only distinct patients.")
+    evidence.pop("revisionContext")
+
+    assert _evidence_check_results(evidence)["retained_instruction_context"] is False
+    assert (
+        _evidence_check_results(_evidence("turn-initial", "Show patient identifiers."))[
+            "retained_instruction_context"
+        ]
+        is True
+    )
+
+
+def test_request_revision_skips_malformed_messages_before_a_valid_one() -> None:
+    from harness.catalyst.notebook_validation import _request_revision
+
+    expected = {
+        "currentInstruction": "Return only distinct patients.",
+        "instructionHistory": [],
+    }
+    invocation = {
+        "requestEvidence": {
+            "request": {
+                "messages": [
+                    "not-an-object",
+                    {"content": "{not-json"},
+                    {"content": ["not-an-object-payload"]},
+                    {"content": {"revision": ["not-an-object-revision"]}},
+                    {"content": {"revision": expected}},
+                ]
+            }
+        }
+    }
+
+    assert _request_revision(invocation) == expected
+
+
+def test_request_revision_and_capacity_tolerate_non_dispatch_records() -> None:
+    from harness.catalyst.notebook_validation import (
+        _capacity_evidence_is_coherent,
+        _request_revision,
+    )
+
+    assert _request_revision({"requestEvidence": {"request": []}}) is None
+    assert _request_revision(
+        {
+            "requestEvidence": {
+                "request": {"messages": [{"content": {"revision": None}}]}
+            }
+        }
+    ) is None
+    assert _capacity_evidence_is_coherent({"outcome": "transport_failed"}) is True
+
+
+@pytest.mark.parametrize("answer", ["needs_clarification", "unsupported"])
+def test_a_terminal_answer_with_no_model_invocation_remains_valid(answer: str) -> None:
+    evidence = _evidence("turn-followup", "Ask or decline deterministically.")
+    evidence["status"] = "failed"
+    evidence["invocations"] = []
+    evidence["totalInvocationDurationMs"] = 0
+    evidence["finalSelection"] = {
+        "status": "failed",
+        "failure": {"stage": "writer_decision", "code": answer},
+    }
+
+    assert all(_evidence_check_results(evidence).values())
+
+
 def test_discovery_gate_rejects_runtime_drift(tmp_path: Path) -> None:
     suite = load_notebook_suite(_write_suite(tmp_path, _suite_payload()))
     profiles = _exchange({"profiles": [_discovery_profile()]})
@@ -2151,6 +3043,196 @@ def test_evidence_recorder_rejects_paths_outside_run_directory(
         recorder.json("../escape.json", {}, kind="evidence")
 
 
+def test_recovered_evidence_cannot_escape_overwrite_or_change_after_preflight(
+    tmp_path: Path,
+) -> None:
+    from harness.catalyst.notebook_validation import _EvidenceRecorder
+
+    recorder = _EvidenceRecorder(tmp_path / "run", "run-1")
+    source = tmp_path / "source.json"
+    source.write_text("{}\n")
+    digest = hashlib.sha256(source.read_bytes()).hexdigest()
+
+    with pytest.raises(ValueError, match="must stay within the run directory"):
+        recorder.adopt(
+            "../escape.json",
+            source,
+            kind="recovered",
+            metadata={},
+            expected_sha256=digest,
+        )
+    recorder.run_dir.mkdir()
+    (recorder.run_dir / "exists.json").write_text("already here")
+    with pytest.raises(ValueError, match="would overwrite"):
+        recorder.adopt(
+            "exists.json",
+            source,
+            kind="recovered",
+            metadata={},
+            expected_sha256=digest,
+        )
+    with pytest.raises(ValueError, match="changed after preflight"):
+        recorder.adopt(
+            "changed.json",
+            source,
+            kind="recovered",
+            metadata={},
+            expected_sha256="0" * 64,
+        )
+
+
+def test_recovery_identity_exchange_must_exist_and_contain_an_object(
+    tmp_path: Path,
+) -> None:
+    from harness.catalyst.notebook_validation import _exchange_body
+
+    path = tmp_path / "exchange.json"
+    with pytest.raises(ValueError, match="cannot read recovery identity"):
+        _exchange_body(path)
+    path.write_text(json.dumps({"response": {"body": []}}))
+    with pytest.raises(ValueError, match="is not an object"):
+        _exchange_body(path)
+
+
+def test_a_malformed_recovery_evidence_index_is_refused(tmp_path: Path) -> None:
+    from harness.catalyst.notebook_validation import _preflight_recovery_evidence
+
+    (tmp_path / "evidence-index.json").write_text("{not-json")
+    with pytest.raises(ValueError, match="evidence index is invalid"):
+        _preflight_recovery_evidence(tmp_path, [])
+
+
+def _signed_public_evidence_run(
+    tmp_path: Path,
+    *,
+    run_config: dict[str, Any] | None = None,
+    include_suite: bool = True,
+    reader_rubric: str | None = None,
+) -> Path:
+    from harness.catalyst.notebook_validation import _EvidenceRecorder
+
+    run_dir = tmp_path / "run-public-evidence"
+    recorder = _EvidenceRecorder(run_dir, "run-public-evidence")
+    recorder.json(
+        "run_manifest.json",
+        {"run_id": "run-public-evidence"},
+        kind="run_manifest",
+    )
+    recorder.json("run-config.json", run_config or {}, kind="run_config")
+    if include_suite:
+        recorder.json("suite.json", {"id": "suite"}, kind="suite")
+    if reader_rubric is not None:
+        rubric_path = run_dir / "reader-rubric.md"
+        rubric_path.write_text(reader_rubric, encoding="utf-8")
+        recorder.file(
+            "reader-rubric.md",
+            kind="reader_rubric",
+            media_type="text/markdown",
+        )
+    return run_dir
+
+
+def _resign_indexed_file(run_dir: Path, relative: str, content: bytes) -> None:
+    path = run_dir / relative
+    path.write_bytes(content)
+    index_path = run_dir / "evidence-index.json"
+    index = json.loads(index_path.read_text(encoding="utf-8"))
+    entry = next(item for item in index["entries"] if item["path"] == relative)
+    entry["bytes"] = len(content)
+    entry["sha256"] = hashlib.sha256(content).hexdigest()
+    encoded = (
+        json.dumps(index, indent=2, ensure_ascii=False, allow_nan=False) + "\n"
+    ).encode("utf-8")
+    index_path.write_bytes(encoded)
+    (run_dir / "evidence-index.sha256").write_text(
+        f"{hashlib.sha256(encoded).hexdigest()}  evidence-index.json\n",
+        encoding="utf-8",
+    )
+
+
+def test_public_evidence_validator_accepts_a_complete_signed_inventory(
+    tmp_path: Path,
+) -> None:
+    from harness.catalyst.notebook_validation import validate_notebook_evidence
+
+    run_dir = _signed_public_evidence_run(tmp_path)
+
+    assert set(validate_notebook_evidence(run_dir)) == {
+        "run_manifest.json",
+        "run-config.json",
+        "suite.json",
+    }
+
+
+def test_public_evidence_validator_requires_a_readable_identified_manifest(
+    tmp_path: Path,
+) -> None:
+    from harness.catalyst.notebook_validation import validate_notebook_evidence
+
+    run_dir = tmp_path / "bad-public-evidence"
+    run_dir.mkdir()
+    (run_dir / "run_manifest.json").write_text("{not-json", encoding="utf-8")
+    with pytest.raises(ValueError, match="run manifest cannot be read"):
+        validate_notebook_evidence(run_dir)
+
+    (run_dir / "run_manifest.json").write_text("{}", encoding="utf-8")
+    with pytest.raises(ValueError, match="run manifest has no run_id"):
+        validate_notebook_evidence(run_dir)
+
+
+def test_public_evidence_validator_rejects_a_signed_malformed_run_config(
+    tmp_path: Path,
+) -> None:
+    from harness.catalyst.notebook_validation import validate_notebook_evidence
+
+    run_dir = _signed_public_evidence_run(tmp_path)
+    _resign_indexed_file(run_dir, "run-config.json", b"{not-json")
+
+    with pytest.raises(ValueError, match="run configuration cannot be read"):
+        validate_notebook_evidence(run_dir)
+
+
+def test_public_evidence_validator_requires_all_identity_files(
+    tmp_path: Path,
+) -> None:
+    from harness.catalyst.notebook_validation import validate_notebook_evidence
+
+    run_dir = _signed_public_evidence_run(tmp_path, include_suite=False)
+
+    with pytest.raises(ValueError, match="identity files are not indexed: suite.json"):
+        validate_notebook_evidence(run_dir)
+
+
+def test_public_evidence_validator_checks_the_frozen_reader_rubric(
+    tmp_path: Path,
+) -> None:
+    from harness.catalyst.notebook_validation import validate_notebook_evidence
+
+    run_dir = _signed_public_evidence_run(
+        tmp_path,
+        run_config={"readerRubricSha256": "0" * 64},
+        reader_rubric="# Reader rubric\n",
+    )
+
+    with pytest.raises(ValueError, match="reader rubric differs"):
+        validate_notebook_evidence(run_dir)
+
+
+def test_recovery_refuses_a_row_without_structural_conformance_checks() -> None:
+    from harness.catalyst.notebook_validation import _row_is_measurement_valid
+
+    assert not _row_is_measurement_valid(
+        {
+            "status": "completed",
+            "sessionId": "session-1",
+            "measurementEvidence": {"complete": True},
+            "assertions": [
+                {"name": "answer_match", "class": "model_quality", "passed": True}
+            ],
+        }
+    )
+
+
 def test_notebook_cli_wires_arguments_into_the_runner(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
@@ -2168,6 +3250,8 @@ def test_notebook_cli_wires_arguments_into_the_runner(
             passed_count=2,
             result_count=2,
             skipped_count=1,
+            complete=True,
+            measurement_valid=True,
         )
 
     monkeypatch.setattr(
@@ -2211,6 +3295,8 @@ def test_notebook_cli_wires_arguments_into_the_runner(
         "passed": 2,
         "total": 2,
         "skipped": 1,
+        "complete": True,
+        "measurement_valid": True,
     }
 
 
@@ -2231,6 +3317,8 @@ def test_notebook_cli_can_skip_the_postgres_cross_check(
             passed_count=0,
             result_count=1,
             skipped_count=0,
+            complete=True,
+            measurement_valid=True,
         )
 
     monkeypatch.setattr(
@@ -2251,10 +3339,181 @@ def test_notebook_cli_can_skip_the_postgres_cross_check(
     with pytest.raises(SystemExit) as exit_info:
         runpy.run_path(str(script_path), run_name="__main__")
 
-    assert exit_info.value.code == 1
+    # A wrong answer is still a successfully completed measurement.
+    assert exit_info.value.code == 0
     assert captured["postgres_checker"] is None
     assert captured["gold_checker"] is None
     capsys.readouterr()
+
+
+def test_notebook_cli_fails_an_invalid_measurement_even_if_the_command_finished(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    import harness.catalyst.notebook_validation as notebook_validation
+
+    monkeypatch.setattr(
+        notebook_validation,
+        "run_notebook_suite",
+        lambda **_: SimpleNamespace(
+            run_id="run-invalid",
+            run_dir=tmp_path / "run-invalid",
+            passed_count=1,
+            result_count=1,
+            skipped_count=0,
+            complete=True,
+            measurement_valid=False,
+        ),
+    )
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "run-catalyst-notebook-validation.py",
+            "--output-dir",
+            str(tmp_path),
+            "--no-postgres-cross-check",
+        ],
+    )
+
+    with pytest.raises(SystemExit) as exit_info:
+        runpy.run_path(
+            str(ROOT / "scripts" / "run-catalyst-notebook-validation.py"),
+            run_name="__main__",
+        )
+
+    assert exit_info.value.code == 1
+
+
+def test_notebook_cli_prints_the_exact_incomplete_run_for_explicit_resume(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    import harness.catalyst.notebook_validation as notebook_validation
+
+    run_dir = tmp_path / "run-incomplete"
+    monkeypatch.setattr(
+        notebook_validation,
+        "run_notebook_suite",
+        lambda **_: SimpleNamespace(
+            run_id="run-incomplete",
+            run_dir=run_dir,
+            passed_count=1,
+            result_count=1,
+            skipped_count=0,
+            complete=False,
+            measurement_valid=False,
+        ),
+    )
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "run-catalyst-notebook-validation.py",
+            "--output-dir",
+            str(tmp_path),
+            "--no-postgres-cross-check",
+        ],
+    )
+
+    with pytest.raises(SystemExit) as exit_info:
+        runpy.run_path(
+            str(ROOT / "scripts" / "run-catalyst-notebook-validation.py"),
+            run_name="__main__",
+        )
+
+    assert exit_info.value.code == 1
+    output = json.loads(capsys.readouterr().out)
+    assert output["run_id"] == "run-incomplete"
+    assert output["run_dir"] == str(run_dir)
+    assert output["complete"] is False
+
+
+def test_notebook_cli_resolves_one_frozen_seed_for_the_whole_run(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    from harness.catalyst import notebook_validation
+
+    captured: dict[str, Any] = {}
+
+    def fake_run_notebook_suite(**kwargs: Any) -> SimpleNamespace:
+        captured.update(kwargs)
+        return SimpleNamespace(
+            run_id="run-configured",
+            run_dir=tmp_path / "out" / "run-configured",
+            passed_count=0,
+            result_count=1,
+            skipped_count=0,
+            complete=True,
+            measurement_valid=True,
+        )
+
+    monkeypatch.setattr(
+        notebook_validation, "run_notebook_suite", fake_run_notebook_suite
+    )
+    monkeypatch.delenv("INTENTIONALLY_MISSING_DB_PASSWORD", raising=False)
+    config_path = tmp_path / "seed.json"
+    config_path.write_text(
+        json.dumps(
+            {
+                "suite": "frozen-suite.json",
+                "gatewayUrl": "http://127.0.0.1:18000",
+                "outputDir": str(tmp_path / "out").removeprefix("/"),
+                "warmupQuestion": "Warm the selected team once.",
+                "postgres": {
+                    "passwordEnv": "INTENTIONALLY_MISSING_DB_PASSWORD"
+                },
+                "gates": {"overall": 0.9, "perScenario": 0.8},
+                "invocation": {
+                    "scenarios": ["unchanged"],
+                    "repetitions": 2,
+                    "includeManual": False,
+                    "postgresCrossCheck": False,
+                    "timeoutSeconds": 321,
+                },
+                "publish": {"slug": "frozen"},
+            }
+        )
+    )
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "run-catalyst-notebook-validation.py",
+            "--run-config",
+            str(config_path),
+            "--scenario",
+            "unchanged",
+            "--scenario",
+            "unchanged",
+        ],
+    )
+
+    with pytest.raises(SystemExit) as exit_info:
+        runpy.run_path(
+            str(ROOT / "scripts" / "run-catalyst-notebook-validation.py"),
+            run_name="__main__",
+        )
+
+    assert exit_info.value.code == 0
+    assert captured["suite_path"] == Path("frozen-suite.json")
+    assert captured["client"].base_url == "http://127.0.0.1:18000"
+    assert captured["scenario_ids"] == {"unchanged"}
+    assert captured["repetitions"] == 2
+    assert captured["postgres_checker"] is None
+    assert captured["gold_checker"] is None
+    assert captured["client"].timeout_seconds == 321
+    assert captured["warmup_question"] == "Warm the selected team once."
+    assert "source" not in captured["frozen_config"]
+    assert captured["frozen_config"]["invocation"] == {
+        "scenarios": ["unchanged"],
+        "repetitions": 2,
+        "includeManual": False,
+        "postgresCrossCheck": False,
+        "timeoutSeconds": 321,
+    }
 
 
 def test_scenario_turns_default_to_the_single_recorded_followup(
@@ -2570,6 +3829,104 @@ def test_three_turn_scenario_runs_every_turn_against_the_current_query(
     assert "08-create-followup.json" in written
     assert "08-create-followup-t2.json" in written
 
+    candidate_digests = [
+        hashlib.sha256(f"candidate:{turn_id}".encode()).hexdigest()
+        for turn_id in ("turn-followup", "turn-followup-2")
+    ]
+    evidence_digests = [
+        hashlib.sha256(f"evidence:{turn_id}".encode()).hexdigest()
+        for turn_id in ("turn-followup", "turn-followup-2")
+    ]
+    versions = {item["versionId"]: item for item in state.versions}
+    selected_digests = [
+        versions[version_id]["queryDigest"]
+        for version_id in ("version-3", "version-4")
+    ]
+    assert row["baseExecutionId"] == "execution-version-1"
+    assert row["successorExecutionId"] == "execution-version-4"
+    assert row["successorExecutionIds"] == [
+        "execution-version-3",
+        "execution-version-4",
+    ]
+    assert row["followupCandidateDigests"] == candidate_digests
+    assert row["followupCandidateDigestSequences"] == [
+        [candidate_digests[0]],
+        [candidate_digests[1]],
+    ]
+    assert row["followupEvidenceDigests"] == evidence_digests
+    assert row["followupSelectedQueryDigests"] == selected_digests
+    assert [turn["executionId"] for turn in row["turns"]] == [
+        "execution-version-3",
+        "execution-version-4",
+    ]
+    assert [turn["candidateDigests"] for turn in row["turns"]] == [
+        [candidate_digests[0]],
+        [candidate_digests[1]],
+    ]
+
+    def elapsed(name: str) -> int:
+        return json.loads((repetition_dir / name).read_text())["elapsedMs"]
+
+    followup_walls = [
+        elapsed("08-create-followup.json"),
+        elapsed("08-create-followup-t2.json"),
+    ]
+    successor_execution_walls = [
+        elapsed("13-execute-successor.json"),
+        elapsed("13-execute-successor-t2.json"),
+    ]
+    timing = row["timing"]
+    assert timing["recordedInvocationDurationMs"] == 30
+    assert timing["followupGenerationWallMs"] == sum(followup_walls)
+    assert timing["baseExecutionWallMs"] == elapsed("06-execute-base.json")
+    assert timing["successorExecutionWallMs"] == sum(successor_execution_walls)
+    assert [item["generationWallMs"] for item in timing["followups"]] == (
+        followup_walls
+    )
+    assert [item["executionWallMs"] for item in timing["followups"]] == (
+        successor_execution_walls
+    )
+
+    events = read_jsonl(result.run_dir / "events.jsonl")
+    followup_events = [
+        event
+        for event in events
+        if event.get("event_type") == "turn"
+        and event.get("turn_role") == "followup"
+    ]
+    assert [event["turn_id"] for event in followup_events] == [
+        "turn-followup",
+        "turn-followup-2",
+    ]
+    assert followup_events[1]["evidence_paths"] == [
+        f"{row['evidencePrefix']}/08-create-followup-t2.json",
+        f"{row['evidencePrefix']}/10-final-turns-t2.json",
+        f"{row['evidencePrefix']}/11-followup-generation-evidence-t2.json",
+    ]
+    execution_events = [
+        event for event in events if event.get("event_type") == "execution"
+    ]
+    assert [event["execution_id"] for event in execution_events] == [
+        "execution-version-1",
+        "execution-version-3",
+        "execution-version-4",
+    ]
+    assert [event["execution_role"] for event in execution_events] == [
+        "base",
+        "successor",
+        "successor",
+    ]
+
+    stream_row = read_jsonl(result.run_dir / "results.jsonl")[0]
+    assert stream_row["request"]["question"] == (
+        "Show patient identifiers. ⇒ Return only distinct patients. ⇒ "
+        "Keep just the first row."
+    )
+    assert [turn["turnId"] for turn in stream_row["response"]["turns"]] == [
+        "turn-followup",
+        "turn-followup-2",
+    ]
+
 
 # --- adaptive repetitions --------------------------------------------------
 #
@@ -2670,7 +4027,15 @@ def _adaptive_suite(**scenario_overrides: Any) -> dict[str, Any]:
 
 
 def _run_against_fake(
-    tmp_path: Path, suite: dict[str, Any], state, *, resume_from: Path | None = None
+    tmp_path: Path,
+    suite: dict[str, Any],
+    state,
+    *,
+    resume_from: Path | None = None,
+    frozen_config: dict[str, Any] | None = None,
+    warmup_question: str | None = None,
+    postgres_checker: Any | None = None,
+    scenario_ids: set[str] | None = None,
 ) -> Any:
     suite_path = tmp_path / "suite.json"
     suite_path.write_text(json.dumps(suite), encoding="utf-8")
@@ -2685,11 +4050,49 @@ def _run_against_fake(
             project_root=ROOT,
             provenance_loader=lambda _: [],
             resume_from=resume_from,
+            frozen_config=frozen_config,
+            warmup_question=warmup_question,
+            postgres_checker=postgres_checker,
+            scenario_ids=scenario_ids,
         )
     finally:
         server.shutdown()
         thread.join(timeout=5)
         server.server_close()
+
+
+def _mark_interrupted(run_dir: Path) -> None:
+    """Checkpoint a completed test fixture as an interrupted run."""
+    (run_dir / "results.json").unlink(missing_ok=True)
+    index_path = run_dir / "evidence-index.json"
+    index = json.loads(index_path.read_text(encoding="utf-8"))
+    refreshed_entries = []
+    for entry in index["entries"]:
+        path = run_dir / entry["path"]
+        if not path.is_file():
+            continue
+        if entry["path"] == "rows.jsonl":
+            encoded = path.read_bytes()
+            entry = {
+                **entry,
+                "bytes": len(encoded),
+                "sha256": hashlib.sha256(encoded).hexdigest(),
+            }
+        refreshed_entries.append(entry)
+    index["entries"] = refreshed_entries
+    encoded_index = (
+        json.dumps(index, indent=2, ensure_ascii=False, allow_nan=False) + "\n"
+    ).encode("utf-8")
+    index_path.write_bytes(encoded_index)
+    (run_dir / "evidence-index.sha256").write_text(
+        f"{hashlib.sha256(encoded_index).hexdigest()}  evidence-index.json\n",
+        encoding="utf-8",
+    )
+    status_path = run_dir / "run-status.json"
+    status = json.loads(status_path.read_text(encoding="utf-8"))
+    status.update({"state": "incomplete", "measurementValid": False})
+    status.pop("reason", None)
+    status_path.write_text(json.dumps(status, indent=2) + "\n", encoding="utf-8")
 
 
 def test_a_settled_pair_stops_at_three_repetitions(tmp_path: Path) -> None:
@@ -2765,20 +4168,23 @@ def test_a_frozen_digest_the_gateway_does_not_advertise_is_unverifiable(
 
 # --- infrastructure vs model failures --------------------------------------
 #
-# A team is judged on what its models did. A Gateway that returned 503, or a
-# repetition that never reached a turn, says nothing about the model, so it is
-# counted separately, replaced up to twice, and invalidates the team's run on
-# a third.
+# A team is judged on what its models did. A Gateway 5xx or transport failure
+# says nothing about the model, so collection stops and the operator decides
+# when to resume it. Product and model failures remain experimental evidence.
 
 
 def test_a_server_error_is_an_infrastructure_failure() -> None:
     assert is_infrastructure_failure({"status": "completed", "httpStatus": 503}) is True
 
 
-def test_a_repetition_that_never_reached_a_turn_is_infrastructure() -> None:
+def test_a_malformed_success_response_is_not_an_infrastructure_failure() -> None:
     assert (
         is_infrastructure_failure({"status": "failed_before_turn", "httpStatus": 200})
-        is True
+        is False
+    )
+    assert (
+        is_infrastructure_failure({"status": "failed_before_turn", "httpStatus": 422})
+        is False
     )
 
 
@@ -2792,6 +4198,46 @@ def test_a_model_that_answered_badly_is_not_an_infrastructure_failure() -> None:
     )
 
 
+@pytest.mark.parametrize(
+    "stage",
+    [
+        "writer_transport",
+        "reviewer_transport",
+        "gateway_persistence",
+        "orphan_recovery",
+    ],
+)
+def test_a_persisted_service_interruption_is_infrastructure(stage: str) -> None:
+    assert (
+        is_infrastructure_failure(
+            {
+                "status": "infrastructure_failed",
+                "httpStatus": 201,
+                "failureStage": stage,
+            }
+        )
+        is True
+    )
+
+
+@pytest.mark.parametrize(
+    "stage",
+    [
+        "writer_output_contract",
+        "writer_findings",
+        "writer_decision",
+        "reviewer_output_contract",
+    ],
+)
+def test_a_persisted_model_failure_is_not_infrastructure(stage: str) -> None:
+    assert (
+        is_infrastructure_failure(
+            {"status": "failed", "httpStatus": 201, "failureStage": stage}
+        )
+        is False
+    )
+
+
 def test_a_client_error_is_the_products_problem_not_the_hosts() -> None:
     """422 is Catalyst rejecting the request — that belongs in the denominator."""
     assert (
@@ -2799,42 +4245,543 @@ def test_a_client_error_is_the_products_problem_not_the_hosts() -> None:
     )
 
 
-def test_infrastructure_failures_are_replaced_and_counted_apart(
+def test_a_profile_that_disappears_after_discovery_is_resumable(
     tmp_path: Path,
 ) -> None:
     state = _WorkbenchState()
-    # Repetition 1 hits a 503; its replacement succeeds.
+    state.session_http_sequence = [422]
+    state.session_error_code = "profile_unavailable"
+    suite = _adaptive_suite()
+    suite["repetitions"] = 1
+    suite.pop("extendedRepetitions", None)
+
+    result = _run_against_fake(tmp_path, suite, state)
+
+    assert result.complete is False
+    assert state.session_attempts == 1
+    status = json.loads((result.run_dir / "run-status.json").read_text())
+    failure = status["infrastructureFailures"][0]
+    assert failure["httpStatus"] == 422
+    assert failure["interruptionKind"] == "profile_availability"
+    assert failure["interruptionCode"] == "profile_unavailable"
+    assert "failureStage" not in failure
+
+
+def test_an_unrelated_422_remains_a_product_result(tmp_path: Path) -> None:
+    state = _WorkbenchState()
+    state.session_http_sequence = [422]
+    state.session_error_code = "invalid_request"
+    suite = _adaptive_suite()
+    suite["repetitions"] = 1
+    suite.pop("extendedRepetitions", None)
+
+    result = _run_against_fake(tmp_path, suite, state)
+
+    assert result.complete is True
+    assert result.measurement_valid is False
+    status = json.loads((result.run_dir / "run-status.json").read_text())
+    assert status["state"] == "invalid"
+    assert status["infrastructureFailures"] == []
+
+
+def test_a_followup_profile_that_disappears_is_resumable(tmp_path: Path) -> None:
+    state = _WorkbenchState()
+    state.turn_http_sequence = [422]
+    state.turn_error_code = "profile_unavailable"
+    suite = _adaptive_suite()
+    suite["repetitions"] = 1
+    suite.pop("extendedRepetitions", None)
+
+    result = _run_against_fake(tmp_path, suite, state)
+
+    assert result.complete is False
+    assert state.turn_attempts == 1
+    status = json.loads((result.run_dir / "run-status.json").read_text())
+    failure = status["infrastructureFailures"][0]
+    assert failure["interruptionKind"] == "profile_availability"
+    assert failure["evidencePath"].endswith("/08-create-followup.json")
+
+
+@pytest.mark.parametrize("legacy_budget", [None, 0, 2])
+def test_the_first_infrastructure_failure_stops_collection_without_retry(
+    tmp_path: Path, legacy_budget: int | None
+) -> None:
+    state = _WorkbenchState()
+    # A successful response is available, but only an explicit resume may use it.
     state.turn_http_sequence = [503, 201, 201, 201]
     suite = _adaptive_suite()
     suite["repetitions"] = 3
-    suite["infrastructureReplacements"] = 2
     suite.pop("extendedRepetitions", None)
+    if legacy_budget is not None:
+        suite["infrastructureReplacements"] = legacy_budget
     result = _run_against_fake(tmp_path, suite, state)
 
-    summary = json.loads((result.run_dir / "results.json").read_text())
-    assert summary["infrastructureFailureCount"] == 1
-    assert summary["resultCount"] == 3, "the denominator stays at three model runs"
-    scored = [
-        row
-        for row in summary["results"]
-        if row.get("status") not in {"skipped", "infrastructure_failed"}
+    assert result.complete is False
+    assert result.measurement_valid is False
+    assert result.result_count == 0
+    assert state.turn_attempts == 1
+    assert not (result.run_dir / "results.json").exists()
+    assert (result.run_dir / "evidence-index.json").is_file()
+    rows = [
+        json.loads(line)
+        for line in (result.run_dir / "rows.jsonl").read_text().splitlines()
     ]
-    assert len(scored) == 3
+    assert len(rows) == 1
+    assert rows[0]["status"] == "infrastructure_failed"
+    assert "replacement" not in rows[0]["evidencePrefix"]
+    status = json.loads((result.run_dir / "run-status.json").read_text())
+    assert status["state"] == "incomplete"
+    assert status["measurementValid"] is False
+    assert len(status["infrastructureFailures"]) == 1
+    failure = status["infrastructureFailures"][0]
+    assert failure["runId"] == result.run_id
+    assert failure["evidencePrefix"] == rows[0]["evidencePrefix"]
+    index = json.loads((result.run_dir / "evidence-index.json").read_text())
+    assert failure["evidencePath"] in {entry["path"] for entry in index["entries"]}
 
 
-def test_a_third_infrastructure_failure_invalidates_the_run(tmp_path: Path) -> None:
+@pytest.mark.parametrize(
+    ("stage", "code"),
+    [
+        ("writer_transport", "writer_transport_failed"),
+        ("gateway_persistence", "initial_generation_failed"),
+        ("orphan_recovery", "generation_interrupted"),
+    ],
+)
+def test_a_persisted_initial_service_failure_stops_after_its_evidence(
+    tmp_path: Path, stage: str, code: str,
+) -> None:
     state = _WorkbenchState()
-    state.turn_http_sequence = [503, 503, 503]
+    state.base_failure_stage = stage
+    state.base_failure_code = code
     suite = _adaptive_suite()
-    suite["repetitions"] = 3
-    suite["infrastructureReplacements"] = 2
+    suite["repetitions"] = 1
     suite.pop("extendedRepetitions", None)
-    with pytest.raises(ValueError, match="third infrastructure failure"):
-        _run_against_fake(tmp_path, suite, state)
 
-    # The budget is two replacements, so the third failure stops the run: one
-    # original attempt plus two replacements, and no fourth.
-    assert state.turn_attempts == 3
+    result = _run_against_fake(tmp_path, suite, state)
+
+    assert result.complete is False
+    assert result.result_count == 0
+    assert state.turn_requests == []
+    status = json.loads((result.run_dir / "run-status.json").read_text())
+    failure = status["infrastructureFailures"][0]
+    assert failure["httpStatus"] == 200
+    assert failure["failureStage"] == stage
+    assert failure["failureCode"] == code
+    assert failure["evidencePath"].endswith("/02-initial-turns.json")
+    indexed = {
+        item["path"]
+        for item in json.loads(
+            (result.run_dir / "evidence-index.json").read_text()
+        )["entries"]
+    }
+    assert failure["evidencePath"] in indexed
+    assert any(path.endswith("/03-initial-generation-evidence.json") for path in indexed)
+
+
+def test_a_later_evidence_503_keeps_the_persisted_initial_failure(
+    tmp_path: Path,
+) -> None:
+    state = _WorkbenchState()
+    state.base_failure_stage = "writer_transport"
+    state.base_failure_code = "writer_transport_failed"
+    state.generation_http_sequence = [503]
+    suite = _adaptive_suite()
+    suite["repetitions"] = 1
+    suite.pop("extendedRepetitions", None)
+
+    result = _run_against_fake(tmp_path, suite, state)
+
+    failure = json.loads((result.run_dir / "run-status.json").read_text())[
+        "infrastructureFailures"
+    ][0]
+    assert failure["httpStatus"] == 503
+    assert failure["failureStage"] == "writer_transport"
+    assert failure["failureCode"] == "writer_transport_failed"
+    assert failure["evidencePath"].endswith("/03-initial-generation-evidence.json")
+
+
+def test_a_persisted_output_contract_failure_is_not_called_an_interruption(
+    tmp_path: Path,
+) -> None:
+    state = _WorkbenchState()
+    state.base_failure_stage = "writer_output_contract"
+    state.base_failure_code = "writer_output_contract_failed"
+    suite = _adaptive_suite()
+    suite["repetitions"] = 1
+    suite.pop("extendedRepetitions", None)
+
+    result = _run_against_fake(tmp_path, suite, state)
+
+    assert result.complete is True
+    assert result.measurement_valid is False
+    status = json.loads((result.run_dir / "run-status.json").read_text())
+    assert status["state"] == "invalid"
+    assert status["infrastructureFailures"] == []
+
+
+def test_a_persisted_followup_transport_failure_stops_before_another_turn(
+    tmp_path: Path,
+) -> None:
+    state = _WorkbenchState()
+    state.followup_failure_stage = "reviewer_transport"
+    suite = _adaptive_suite()
+    suite["repetitions"] = 1
+    suite.pop("extendedRepetitions", None)
+    scenario = suite["scenarios"][0]
+    scenario.pop("followupInstruction")
+    scenario.pop("followupProfileId")
+    scenario["turns"] = [
+        {"instruction": "First refinement.", "profileId": PROFILE_ID},
+        {"instruction": "Second refinement.", "profileId": PROFILE_ID},
+    ]
+
+    result = _run_against_fake(tmp_path, suite, state)
+
+    assert result.complete is False
+    assert [item["instruction"] for item in state.turn_requests] == [
+        "First refinement."
+    ]
+    assert [item["versionId"] for item in state.executions] == ["version-1"]
+    status = json.loads((result.run_dir / "run-status.json").read_text())
+    failure = status["infrastructureFailures"][0]
+    assert failure["httpStatus"] == 201
+    assert failure["failureStage"] == "reviewer_transport"
+    assert failure["failureCode"] == "reviewer_transport_failed"
+    assert failure["evidencePath"].endswith("/08-create-followup.json")
+    indexed = {
+        item["path"]
+        for item in json.loads(
+            (result.run_dir / "evidence-index.json").read_text()
+        )["entries"]
+    }
+    assert any(path.endswith("/11-followup-generation-evidence.json") for path in indexed)
+
+
+def test_a_later_evidence_503_keeps_the_persisted_followup_failure(
+    tmp_path: Path,
+) -> None:
+    state = _WorkbenchState()
+    state.followup_failure_stage = "reviewer_transport"
+    state.generation_http_sequence = [200, 503]
+    suite = _adaptive_suite()
+    suite["repetitions"] = 1
+    suite.pop("extendedRepetitions", None)
+
+    result = _run_against_fake(tmp_path, suite, state)
+
+    failure = json.loads((result.run_dir / "run-status.json").read_text())[
+        "infrastructureFailures"
+    ][0]
+    assert failure["httpStatus"] == 503
+    assert failure["failureStage"] == "reviewer_transport"
+    assert failure["failureCode"] == "reviewer_transport_failed"
+    assert failure["evidencePath"].endswith(
+        "/11-followup-generation-evidence.json"
+    )
+
+
+def test_the_operator_controlled_transport_scenario_remains_a_measurement(
+    tmp_path: Path,
+) -> None:
+    state = _WorkbenchState()
+    state.followup_failure_stage = "writer_transport"
+    suite = _adaptive_suite()
+    suite["repetitions"] = 1
+    suite.pop("extendedRepetitions", None)
+    suite["scenarios"][0].update(
+        {
+            "family": "hub-tool-failure",
+            "expectedTurnStatus": "failed",
+            "manualOnly": True,
+        }
+    )
+    checkpoints: list[tuple[str, str]] = []
+
+    suite_path = _write_suite(tmp_path, suite)
+    server = ThreadingHTTPServer(("127.0.0.1", 0), _handler(state))
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        result = run_notebook_suite(
+            suite_path=suite_path,
+            client=NotebookHttpClient(f"http://127.0.0.1:{server.server_port}"),
+            output_dir=tmp_path / "artifacts",
+            project_root=ROOT,
+            include_manual=True,
+            manual_checkpoint=lambda scenario, session_id: checkpoints.append(
+                (scenario.id, session_id)
+            ),
+            provenance_loader=lambda _: [],
+        )
+    finally:
+        server.shutdown()
+        thread.join(timeout=5)
+        server.server_close()
+
+    assert result.complete is True
+    assert result.measurement_valid is True
+    assert len(checkpoints) == 1
+    summary = json.loads((result.run_dir / "results.json").read_text())
+    assert summary["infrastructureFailures"] == []
+    row = summary["results"][0]
+    assert row["status"] == "failed"
+    assert row["measurementValid"] is True
+    assert row["passed"] is False
+
+
+def test_a_first_turn_service_failure_prevents_later_model_turns(
+    tmp_path: Path,
+) -> None:
+    state = _WorkbenchState()
+    state.turn_http_sequence = [503, 201]
+    suite = _adaptive_suite()
+    suite["repetitions"] = 1
+    suite.pop("extendedRepetitions", None)
+    scenario = suite["scenarios"][0]
+    scenario.pop("followupInstruction")
+    scenario.pop("followupProfileId")
+    scenario["turns"] = [
+        {"instruction": "First refinement.", "profileId": PROFILE_ID},
+        {"instruction": "Second refinement.", "profileId": PROFILE_ID},
+    ]
+
+    result = _run_against_fake(tmp_path, suite, state)
+
+    assert result.complete is False
+    assert state.turn_attempts == 1
+    assert [request["instruction"] for request in state.turn_requests] == [
+        "First refinement."
+    ]
+
+
+def test_an_initial_evidence_service_failure_prevents_a_followup_model_call(
+    tmp_path: Path,
+) -> None:
+    state = _WorkbenchState()
+    state.generation_http_sequence = [503]
+    suite = _adaptive_suite()
+    suite["repetitions"] = 1
+    suite.pop("extendedRepetitions", None)
+
+    result = _run_against_fake(tmp_path, suite, state)
+
+    assert result.complete is False
+    assert state.generation_attempts == 1
+    assert state.turn_requests == []
+    status = json.loads((result.run_dir / "run-status.json").read_text())
+    assert status["infrastructureFailures"][0]["evidencePath"].endswith(
+        "/03-initial-generation-evidence.json"
+    )
+
+
+def test_a_database_outage_returns_a_resumable_run_with_safe_evidence(
+    tmp_path: Path,
+) -> None:
+    state = _WorkbenchState()
+    suite = _adaptive_suite(executeBase=True)
+    suite["repetitions"] = 1
+    suite.pop("extendedRepetitions", None)
+
+    result = _run_against_fake(
+        tmp_path,
+        suite,
+        state,
+        postgres_checker=_UnavailablePostgresChecker(),
+    )
+
+    assert result.complete is False
+    assert not (result.run_dir / "results.json").exists()
+    status = json.loads((result.run_dir / "run-status.json").read_text())
+    failure = status["infrastructureFailures"][0]
+    assert failure["interruptionKind"] == "database_availability"
+    assert failure["interruptionCode"] == "postgres_unavailable"
+    assert "failureStage" not in failure
+    evidence = json.loads((result.run_dir / failure["evidencePath"]).read_text())
+    assert evidence == {
+        "contractVersion": "harness.catalyst-notebook.service-interruption.v1",
+        "service": "postgresql",
+        "operation": "base_postgres_crosscheck",
+        "exceptionType": "ConnectionError",
+    }
+    assert "database host" not in (result.run_dir / failure["evidencePath"]).read_text()
+
+
+def test_a_database_statement_timeout_is_a_completed_wrong_answer(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    import psycopg
+
+    class Cursor:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args: object) -> None:
+            return None
+
+        def execute(self, statement: str, parameters: object = None) -> None:
+            if statement == "SET TRANSACTION READ ONLY" or "set_config" in statement:
+                return
+            raise psycopg.errors.QueryCanceled(
+                "canceling statement due to statement timeout"
+            )
+
+    class Connection:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args: object) -> None:
+            return None
+
+        def cursor(self) -> Cursor:
+            return Cursor()
+
+    monkeypatch.setattr(psycopg, "connect", lambda *args, **kwargs: Connection())
+    state = _WorkbenchState()
+    suite = _adaptive_suite(executeBase=True, executeSuccessor=False)
+    suite["repetitions"] = 1
+    suite.pop("extendedRepetitions", None)
+
+    result = _run_against_fake(
+        tmp_path,
+        suite,
+        state,
+        postgres_checker=PostgresReadOnlyChecker(
+            "postgresql://readonly:secret@127.0.0.1:15443/catalyst_analytics",
+            statement_timeout_ms=25,
+        ),
+    )
+
+    assert result.complete is True
+    assert result.measurement_valid is True
+    status = json.loads((result.run_dir / "run-status.json").read_text())
+    assert status["state"] == "complete"
+    assert status["infrastructureFailures"] == []
+    row = json.loads((result.run_dir / "results.json").read_text())["results"][0]
+    timeout_assertion = next(
+        item for item in row["assertions"] if item["name"] == "base_postgres_crosscheck"
+    )
+    assert timeout_assertion["class"] == "evaluation"
+    assert timeout_assertion["passed"] is False
+    evidence = json.loads(
+        (
+            result.run_dir
+            / "scenarios/adaptive/repetition-01/07-postgres-base.json"
+        ).read_text()
+    )
+    assert evidence["timedOut"] is True
+    assert evidence["statementTimeoutMs"] == 25
+    assert "statement timeout" in evidence["disagreement"]
+
+
+def test_a_warmup_service_failure_stops_before_a_measured_session(
+    tmp_path: Path,
+) -> None:
+    state = _WorkbenchState()
+    state.profile_ids = ["team-a"]
+    state.profile_models = {"team-a": ("gemma-4-12b", None)}
+    state.session_http_sequence = [503, 201]
+    suite = _comparison_suite(comparisonProfiles=["team-a"])
+    suite["profiles"] = {
+        "team-a": {"writerModelId": "gemma-4-12b", "reviewerModelId": None}
+    }
+    question = "Warm the selected team once."
+
+    result = _run_against_fake(
+        tmp_path,
+        suite,
+        state,
+        frozen_config={"warmupQuestion": question},
+        warmup_question=question,
+    )
+
+    assert result.complete is False
+    assert state.session_attempts == 1
+    assert len(state.session_requests) == 1
+    assert state.session_requests[0]["question"] == question
+    assert state.turn_requests == []
+    status = json.loads((result.run_dir / "run-status.json").read_text())
+    assert status["infrastructureFailures"][0]["phase"] == "warmup"
+
+
+def test_a_warmup_evidence_503_keeps_the_persisted_model_service_failure(
+    tmp_path: Path,
+) -> None:
+    state = _WorkbenchState()
+    state.profile_ids = ["team-a"]
+    state.profile_models = {"team-a": ("gemma-4-12b", None)}
+    state.base_failure_stage = "writer_transport"
+    state.generation_http_sequence = [503]
+    suite = _comparison_suite(comparisonProfiles=["team-a"])
+    suite["profiles"] = {
+        "team-a": {"writerModelId": "gemma-4-12b", "reviewerModelId": None}
+    }
+    question = "Warm the selected team once."
+
+    result = _run_against_fake(
+        tmp_path,
+        suite,
+        state,
+        frozen_config={"warmupQuestion": question},
+        warmup_question=question,
+    )
+
+    failure = json.loads((result.run_dir / "run-status.json").read_text())[
+        "infrastructureFailures"
+    ][0]
+    assert failure["phase"] == "warmup"
+    assert failure["httpStatus"] == 503
+    assert failure["failureStage"] == "writer_transport"
+    assert failure["failureCode"] == "writer_transport_failed"
+
+
+def test_discovery_stops_at_the_first_service_failure(tmp_path: Path) -> None:
+    class DiscoveryFailureClient(_StubClient):
+        def __init__(self) -> None:
+            super().__init__()
+            self.calls: list[str] = []
+
+        def profiles(self) -> HttpExchange:
+            self.calls.append("profiles")
+            return self._ok({"error": {"code": "unavailable"}}, status=503)
+
+        def dataset_overview(self) -> HttpExchange:
+            self.calls.append("dataset")
+            return super().dataset_overview()
+
+        def catalog(self) -> HttpExchange:
+            self.calls.append("catalog")
+            return super().catalog()
+
+        def create_session(self, question: str, profile_id: str) -> HttpExchange:
+            self.calls.append("session")
+            return super().create_session(question, profile_id)
+
+    client = DiscoveryFailureClient()
+    result = run_notebook_suite(
+        suite_path=_write_suite(tmp_path, _suite_payload()),
+        client=client,
+        output_dir=tmp_path / "artifacts",
+        project_root=ROOT,
+        provenance_loader=lambda _: [],
+    )
+
+    assert result.complete is False
+    assert client.calls == ["profiles"]
+    status = json.loads((result.run_dir / "run-status.json").read_text())
+    failure = status["infrastructureFailures"][0]
+    assert failure["phase"] == "discovery"
+    assert failure["evidencePath"] == "discovery/query-options.json"
+
+    resumed = _run_against_fake(
+        tmp_path,
+        _suite_payload(),
+        _WorkbenchState(),
+        resume_from=result.run_dir,
+    )
+    assert resumed.complete is True
+    assert resumed.measurement_valid is True
 
 
 # --- token evidence --------------------------------------------------------
@@ -2852,9 +4799,6 @@ def _accounting(**overrides: Any) -> dict[str, Any]:
             "contextWindow": 8192,
             "outputReserve": 1024,
             "promptTokens": 4000,
-            "includedItemIds": ["guidance-1"],
-            "omittedItemIds": [],
-            "omissions": [],
             **overrides,
         }
     }
@@ -3077,6 +5021,38 @@ def test_a_refused_opening_question_is_a_pass_not_a_failed_repetition(
     ]
 
 
+def test_a_wrong_terminal_opening_answer_remains_valid_evidence(
+    tmp_path: Path,
+) -> None:
+    """A complete refusal is still a result when the suite expected SQL."""
+    state = _WorkbenchState()
+    state.base_outcome = "unsupported"
+    suite = _adaptive_suite()
+    suite["repetitions"] = 1
+    suite.pop("extendedRepetitions", None)
+
+    result = _run_against_fake(tmp_path, suite, state)
+
+    assert result.complete is True
+    assert result.measurement_valid is True
+    assert result.passed_count == 0
+    assert state.turn_requests == []
+    row = json.loads((result.run_dir / "results.json").read_text())["results"][0]
+    assert row["status"] == "failed"
+    assert row["baseOutcome"] == "unsupported"
+    assert row["expectedBaseOutcome"] == "ready"
+    assert row["baseAnswerText"] == "The data records no home address."
+    assert row["baseOutcomeEndedConversation"] is True
+    assert row["measurementValid"] is True
+    assert row["measurementEvidence"]["complete"] is True
+    assert row["turns"] == []
+    failed = {item["name"] for item in row["assertions"] if not item["passed"]}
+    assert failed == {"base_writer_outcome"}
+    assert "base_version_available" not in {
+        item["name"] for item in row["assertions"]
+    }
+
+
 def test_an_opening_question_answered_with_sql_when_a_refusal_was_due_fails(
     tmp_path: Path,
 ) -> None:
@@ -3207,30 +5183,225 @@ def test_a_refusal_that_left_a_query_behind_is_caught(tmp_path: Path) -> None:
     assert row["passed"] is False
 
 
-def test_the_replacement_budget_is_the_runs_not_each_scenarios(
+def test_explicit_resume_reuses_complete_cells_and_runs_only_the_missing_cell(
     tmp_path: Path,
 ) -> None:
-    """Two replacements for the team, not two for every scenario it runs.
-
-    The budget exists to stop a team being scored on a host that keeps
-    falling over. Counted per scenario, a twelve-scenario suite silently
-    tolerates twenty-four failures while reporting a budget of two.
-    """
     state = _WorkbenchState()
-    # One 503 in each of the first three scenarios: within a per-scenario
-    # budget of two, but the third exhausts a run-wide one.
-    state.turn_http_sequence = [503, 201, 503, 201, 503, 201]
+    state.turn_http_sequence = [201, 503]
     suite = _adaptive_suite()
     suite["repetitions"] = 1
     suite["infrastructureReplacements"] = 2
     suite.pop("extendedRepetitions", None)
     base = suite["scenarios"][0]
-    suite["scenarios"] = [
-        {**base, "id": f"adaptive-{index}"} for index in range(1, 4)
-    ]
+    suite["scenarios"] = [{**base, "id": "finished"}, {**base, "id": "missing"}]
 
-    with pytest.raises(ValueError, match="third infrastructure failure"):
-        _run_against_fake(tmp_path, suite, state)
+    source = _run_against_fake(tmp_path, suite, state)
+    assert source.complete is False
+    source_rows = [
+        json.loads(line)
+        for line in (source.run_dir / "rows.jsonl").read_text().splitlines()
+    ]
+    finished_row = next(row for row in source_rows if row["scenarioId"] == "finished")
+    source_bytes = {
+        path.relative_to(source.run_dir).as_posix(): path.read_bytes()
+        for path in source.run_dir.rglob("*")
+        if path.is_file()
+    }
+
+    state.turn_http_sequence = [201]
+    state.turn_attempts = 0
+    state.turn_requests.clear()
+    resumed = _run_against_fake(tmp_path, suite, state, resume_from=source.run_dir)
+
+    assert resumed.complete is True
+    assert resumed.measurement_valid is True
+    assert len(state.turn_requests) == 1
+    summary = json.loads((resumed.run_dir / "results.json").read_text())
+    assert [row["scenarioId"] for row in summary["results"]] == ["finished", "missing"]
+    assert summary["results"][0] == finished_row
+    assert summary["infrastructureFailureCount"] == 1
+    assert source_bytes == {
+        path.relative_to(source.run_dir).as_posix(): path.read_bytes()
+        for path in source.run_dir.rglob("*")
+        if path.is_file()
+    }
+
+    from harness.catalyst.notebook_scoring import score_run
+
+    assert score_run(resumed.run_dir)["totals"]["infrastructureFailed"] == 1
+
+
+def test_recovery_reconstructs_an_interruption_missing_from_stale_status(
+    tmp_path: Path,
+) -> None:
+    state = _WorkbenchState()
+    state.turn_http_sequence = [503, 201]
+    suite = _adaptive_suite()
+    suite["repetitions"] = 1
+    suite.pop("extendedRepetitions", None)
+
+    source = _run_against_fake(tmp_path, suite, state)
+    interruptions = source.run_dir / "interruptions.jsonl"
+    source_failure = read_jsonl(interruptions)[0]
+    assert source_failure["httpStatus"] == 503
+    source_evidence = (
+        source.run_dir / source_failure["evidencePath"]
+    ).read_bytes()
+    indexed = json.loads((source.run_dir / "evidence-index.json").read_text())
+    assert "interruptions.jsonl" in {item["path"] for item in indexed["entries"]}
+    # Simulate a stop after the interruption stream was signed but before the
+    # final lifecycle projection was replaced.
+    status_path = source.run_dir / "run-status.json"
+    status = json.loads(status_path.read_text())
+    status["infrastructureFailures"] = []
+    status_path.write_text(json.dumps(status, indent=2) + "\n")
+    state.turn_requests.clear()
+
+    resumed = _run_against_fake(
+        tmp_path,
+        suite,
+        state,
+        resume_from=source.run_dir,
+    )
+
+    summary = json.loads((resumed.run_dir / "results.json").read_text())
+    assert summary["infrastructureFailureCount"] == 1
+    carried = summary["infrastructureFailures"][0]
+    assert carried["httpStatus"] == 503
+    assert carried["runId"] == source.run_id
+    assert carried["sourceEvidencePath"] == source_failure["evidencePath"]
+    assert carried["recoveredFromRunId"] == source.run_id
+    assert carried["evidencePath"].startswith(
+        f"interruptions/sources/{source.run_id}/"
+    )
+    assert (resumed.run_dir / carried["evidencePath"]).read_bytes() == source_evidence
+    retried = json.loads(
+        (resumed.run_dir / source_failure["evidencePath"]).read_text()
+    )
+    assert retried["response"]["httpStatus"] == 201
+
+
+def test_recovery_accepts_results_written_before_the_complete_status_flip(
+    tmp_path: Path,
+) -> None:
+    state = _WorkbenchState()
+    suite = _adaptive_suite()
+    suite["repetitions"] = 1
+    suite.pop("extendedRepetitions", None)
+
+    source = _run_against_fake(tmp_path, suite, state)
+    source_summary = json.loads((source.run_dir / "results.json").read_text())
+    # Simulate an abrupt stop after the signed summary was written but before
+    # the lifecycle status was atomically changed from incomplete to complete.
+    status_path = source.run_dir / "run-status.json"
+    status = json.loads(status_path.read_text())
+    status.update({"state": "incomplete", "measurementValid": False})
+    status_path.write_text(json.dumps(status, indent=2) + "\n")
+    state.turn_requests.clear()
+
+    resumed = _run_against_fake(
+        tmp_path,
+        suite,
+        state,
+        resume_from=source.run_dir,
+    )
+
+    assert state.turn_requests == []
+    assert resumed.complete is True
+    assert json.loads((resumed.run_dir / "results.json").read_text())["results"] == (
+        source_summary["results"]
+    )
+
+
+def test_recovery_keeps_completed_cells_across_an_early_failed_resume(
+    tmp_path: Path,
+) -> None:
+    state = _WorkbenchState()
+    state.turn_http_sequence = [201, 503]
+    suite = _adaptive_suite()
+    suite["repetitions"] = 1
+    suite.pop("extendedRepetitions", None)
+    base = suite["scenarios"][0]
+    suite["scenarios"] = [{**base, "id": "finished"}, {**base, "id": "missing"}]
+
+    first = _run_against_fake(tmp_path, suite, state)
+    assert first.complete is False
+    first_rows = [
+        json.loads(line)
+        for line in (first.run_dir / "rows.jsonl").read_text().splitlines()
+    ]
+    finished_row = next(row for row in first_rows if row["scenarioId"] == "finished")
+
+    class DiscoveryFailureClient(_StubClient):
+        def profiles(self) -> HttpExchange:
+            return self._ok({"error": {"code": "unavailable"}}, status=503)
+
+    second = run_notebook_suite(
+        suite_path=_write_suite(tmp_path, suite),
+        client=DiscoveryFailureClient(),
+        output_dir=tmp_path / "artifacts",
+        project_root=ROOT,
+        provenance_loader=lambda _: [],
+        resume_from=first.run_dir,
+    )
+    assert second.complete is False
+
+    resumed_state = _WorkbenchState()
+    final = _run_against_fake(
+        tmp_path,
+        suite,
+        resumed_state,
+        resume_from=second.run_dir,
+    )
+
+    assert final.complete is True
+    assert final.measurement_valid is True
+    assert len(resumed_state.turn_requests) == 1
+    summary = json.loads((final.run_dir / "results.json").read_text())
+    assert [row["scenarioId"] for row in summary["results"]] == [
+        "finished",
+        "missing",
+    ]
+    assert summary["results"][0] == finished_row
+    manifest = json.loads((final.run_dir / "run_manifest.json").read_text())
+    assert manifest["resumedFrom"] == second.run_id
+    assert manifest["resumeAncestry"] == [first.run_id, second.run_id]
+    assert summary["infrastructureFailureCount"] == 2
+    imports = json.loads((final.run_dir / "recovery-import.json").read_text())
+    measurement_import = next(
+        item for item in imports["imports"] if item["kind"] == "measurement_cell"
+    )
+    assert measurement_import["sourceRunId"] == first.run_id
+    assert measurement_import["scenarioId"] == "finished"
+
+
+def test_repeated_explicit_interruptions_never_invalidate_by_count(
+    tmp_path: Path,
+) -> None:
+    state = _WorkbenchState()
+    suite = _adaptive_suite()
+    suite["repetitions"] = 1
+    suite["infrastructureReplacements"] = 2
+    suite.pop("extendedRepetitions", None)
+    state.turn_http_sequence = [503]
+
+    first = _run_against_fake(tmp_path, suite, state)
+    assert first.complete is False
+    state.turn_attempts = 0
+    second = _run_against_fake(tmp_path, suite, state, resume_from=first.run_dir)
+    assert second.complete is False
+    second_status = json.loads((second.run_dir / "run-status.json").read_text())
+    assert second_status["state"] == "incomplete"
+    assert len(second_status["infrastructureFailures"]) == 2
+
+    state.turn_http_sequence = [201]
+    state.turn_attempts = 0
+    final = _run_against_fake(tmp_path, suite, state, resume_from=second.run_dir)
+    assert final.complete is True
+    assert final.measurement_valid is True
+    final_status = json.loads((final.run_dir / "run-status.json").read_text())
+    assert final_status["state"] == "complete"
+    assert len(final_status["infrastructureFailures"]) == 2
 
 
 # --- one frozen comparison, run once, resumable ----------------------------
@@ -3258,6 +5429,88 @@ def test_a_suite_can_name_the_teams_it_compares(tmp_path: Path) -> None:
     suite = load_notebook_suite(_write_suite(tmp_path, _comparison_suite()))
 
     assert suite.comparison_profiles == ("team-a", "team-b", "team-c")
+
+
+def test_the_frozen_seed_exists_before_the_first_live_call(tmp_path: Path) -> None:
+    output_dir = tmp_path / "artifacts"
+
+    class FreezeCheckingClient(_StubClient):
+        saw_seed = False
+
+        def profiles(self) -> HttpExchange:
+            run_dirs = list(output_dir.iterdir())
+            assert len(run_dirs) == 1
+            frozen = run_dirs[0] / "run-config.json"
+            assert frozen.is_file()
+            assert json.loads(frozen.read_text())["identity"] == "frozen-first"
+            self.saw_seed = True
+            return super().profiles()
+
+    client = FreezeCheckingClient(session_status=503, session_body={})
+    result = run_notebook_suite(
+        suite_path=_write_suite(tmp_path, _suite_payload()),
+        client=client,
+        output_dir=output_dir,
+        project_root=ROOT,
+        provenance_loader=lambda _: [],
+        frozen_config={"identity": "frozen-first"},
+    )
+
+    assert client.saw_seed is True
+    assert result.measurement_valid is False
+
+
+def test_each_team_gets_one_recorded_unscored_warmup(tmp_path: Path) -> None:
+    state = _WorkbenchState()
+    state.profile_ids = ["team-a", "team-b", "team-c"]
+    state.profile_models = {
+        "team-a": ("gemma-4-12b", None),
+        "team-b": ("gemma-4-12b", "gemma-4-12b"),
+        "team-c": ("gemma-4-12b", "qwen2.5-14b"),
+    }
+    suite = _comparison_suite()
+    suite["comparisonProfiles"] = ["team-a", "team-b"]
+    question = "How many distinct patients are represented in the approved HIV data?"
+
+    result = _run_against_fake(
+        tmp_path,
+        suite,
+        state,
+        frozen_config={"warmupQuestion": question},
+        warmup_question=question,
+    )
+
+    assert [
+        (item["profileId"], item["question"])
+        for item in state.session_requests
+    ] == [
+        ("team-a", question),
+        ("team-a", "Show patient identifiers."),
+        ("team-b", question),
+        ("team-b", "Show patient identifiers."),
+    ]
+    assert result.result_count == 2
+    rows = [
+        json.loads(line)
+        for line in (result.run_dir / "rows.jsonl").read_text().splitlines()
+    ]
+    assert len(rows) == 2
+    for profile_id in ("team-a", "team-b"):
+        assert (
+            result.run_dir / "warmups" / profile_id / "01-create-session.json"
+        ).is_file()
+        assert not any(
+            row.get("sessionId")
+            == json.loads(
+                (
+                    result.run_dir
+                    / "warmups"
+                    / profile_id
+                    / "01-create-session.json"
+                ).read_text()
+            )["response"]["body"]["sessionId"]
+            for row in rows
+        )
 
 
 def test_a_suite_that_names_no_teams_runs_the_profile_each_scenario_declares(
@@ -3342,6 +5595,12 @@ def test_a_resumed_run_keeps_finished_work_and_only_runs_what_is_left(
         "".join(json.dumps(row) + "\n" for row in team_a_rows), encoding="utf-8"
     )
     (first.run_dir / "results.json").unlink()
+    _mark_interrupted(first.run_dir)
+    source_bytes = {
+        path.relative_to(first.run_dir).as_posix(): path.read_bytes()
+        for path in first.run_dir.rglob("*")
+        if path.is_file()
+    }
 
     state.turn_requests.clear()
     resumed = _run_against_fake(tmp_path, suite, state, resume_from=first.run_dir)
@@ -3351,6 +5610,498 @@ def test_a_resumed_run_keeps_finished_work_and_only_runs_what_is_left(
     # team-a was reused, not re-run: only team-b cost model time.
     assert len(state.turn_requests) == finished_turns // 2
     assert rows[0] == team_a_rows[0]
+    assert source_bytes == {
+        path.relative_to(first.run_dir).as_posix(): path.read_bytes()
+        for path in first.run_dir.rglob("*")
+        if path.is_file()
+    }
+    manifest = json.loads((resumed.run_dir / "run_manifest.json").read_text())
+    assert manifest["resumedFrom"] == first.run_id
+    assert manifest["resumeAncestry"] == [first.run_id]
+    recovery = json.loads((resumed.run_dir / "recovery-import.json").read_text())
+    measurement_import = next(
+        item for item in recovery["imports"] if item["kind"] == "measurement_cell"
+    )
+    assert measurement_import["sourceRunId"] == first.run_id
+    assert measurement_import["evidence"]
+
+
+def test_recovery_reuses_a_complete_wrong_answer_without_rerunning_it(
+    tmp_path: Path,
+) -> None:
+    state = _WorkbenchState()
+    suite = _comparison_suite()
+    suite["comparisonProfiles"] = ["team-a"]
+    state.profile_ids = ["team-a", "team-b", "team-c"]
+    state.profile_models = {
+        "team-a": ("gemma-4-12b", None),
+        "team-b": ("gemma-4-12b", "gemma-4-12b"),
+        "team-c": ("gemma-4-12b", "qwen2.5-14b"),
+    }
+    state.base_outcome = "needs_clarification"
+    first = _run_against_fake(tmp_path, suite, state)
+    row = json.loads((first.run_dir / "rows.jsonl").read_text().splitlines()[0])
+    assert row["baseOutcome"] == "needs_clarification"
+    assert row["passed"] is False
+    assert row["measurementValid"] is True
+    _mark_interrupted(first.run_dir)
+    state.turn_requests.clear()
+
+    recovery = _run_against_fake(
+        tmp_path, suite, state, resume_from=first.run_dir
+    )
+
+    assert state.turn_requests == []
+    assert recovery.measurement_valid is True
+    assert recovery.passed_count == 0
+    adopted = json.loads((recovery.run_dir / "results.json").read_text())
+    assert adopted["results"][0]["passed"] is False
+
+
+def test_recovery_refuses_a_tampered_completed_row_before_live_calls(
+    tmp_path: Path,
+) -> None:
+    state = _WorkbenchState()
+    suite = _adaptive_suite()
+    suite["repetitions"] = 1
+    suite.pop("extendedRepetitions", None)
+    source = _run_against_fake(tmp_path, suite, state)
+    _mark_interrupted(source.run_dir)
+    rows_path = source.run_dir / "rows.jsonl"
+    original = rows_path.read_text(encoding="utf-8")
+    assert '"passed":true' in original
+    rows_path.write_text(
+        original.replace('"passed":true', '"passed":false', 1),
+        encoding="utf-8",
+    )
+    state.requests.clear()
+
+    with pytest.raises(ValueError, match="no longer matches.*rows"):
+        _run_against_fake(tmp_path, suite, state, resume_from=source.run_dir)
+
+    assert state.requests == []
+
+
+def test_recovery_refuses_a_cross_copied_run_status_before_live_calls(
+    tmp_path: Path,
+) -> None:
+    state = _WorkbenchState()
+    suite = _adaptive_suite()
+    source = _run_against_fake(tmp_path, suite, state)
+    _mark_interrupted(source.run_dir)
+    status_path = source.run_dir / "run-status.json"
+    status = json.loads(status_path.read_text(encoding="utf-8"))
+    status["runId"] = "another-run"
+    status_path.write_text(json.dumps(status, indent=2) + "\n", encoding="utf-8")
+    state.requests.clear()
+
+    with pytest.raises(ValueError, match="status is inconsistent"):
+        _run_against_fake(tmp_path, suite, state, resume_from=source.run_dir)
+
+    assert state.requests == []
+
+
+def test_recovery_refuses_unindexed_conversation_evidence_before_model_calls(
+    tmp_path: Path,
+) -> None:
+    state = _WorkbenchState()
+    suite = _adaptive_suite()
+    suite["repetitions"] = 1
+    suite.pop("extendedRepetitions", None)
+    source = _run_against_fake(tmp_path, suite, state)
+    _mark_interrupted(source.run_dir)
+    index_path = source.run_dir / "evidence-index.json"
+    index = json.loads(index_path.read_text(encoding="utf-8"))
+    removed = next(
+        item
+        for item in index["entries"]
+        if item["path"].endswith("/01-create-session.json")
+    )
+    index["entries"].remove(removed)
+    encoded = (
+        json.dumps(index, indent=2, ensure_ascii=False, allow_nan=False) + "\n"
+    ).encode("utf-8")
+    index_path.write_bytes(encoded)
+    (source.run_dir / "evidence-index.sha256").write_text(
+        f"{hashlib.sha256(encoded).hexdigest()}  evidence-index.json\n",
+        encoding="utf-8",
+    )
+    state.turn_requests.clear()
+
+    with pytest.raises(ValueError, match="evidence is not indexed"):
+        _run_against_fake(tmp_path, suite, state, resume_from=source.run_dir)
+
+    assert state.turn_requests == []
+
+
+def test_recovery_ignores_only_an_unsigned_trailing_row_fragment(
+    tmp_path: Path,
+) -> None:
+    state = _WorkbenchState()
+    suite = _adaptive_suite()
+    suite["repetitions"] = 1
+    suite.pop("extendedRepetitions", None)
+    source = _run_against_fake(tmp_path, suite, state)
+    _mark_interrupted(source.run_dir)
+    with (source.run_dir / "rows.jsonl").open("ab") as stream:
+        stream.write(b'{"scenarioId":"unfinished"')
+    state.turn_requests.clear()
+
+    resumed = _run_against_fake(
+        tmp_path,
+        suite,
+        state,
+        resume_from=source.run_dir,
+    )
+
+    assert resumed.complete is True
+    assert state.turn_requests == []
+    rows = read_jsonl(resumed.run_dir / "rows.jsonl")
+    assert [row["scenarioId"] for row in rows] == ["adaptive"]
+
+
+def test_recovery_reruns_a_wholly_unsigned_first_row(tmp_path: Path) -> None:
+    state = _WorkbenchState()
+    suite = _adaptive_suite()
+    suite["repetitions"] = 1
+    suite.pop("extendedRepetitions", None)
+    source = _run_against_fake(tmp_path, suite, state)
+    _mark_interrupted(source.run_dir)
+    index_path = source.run_dir / "evidence-index.json"
+    index = json.loads(index_path.read_text(encoding="utf-8"))
+    index["entries"] = [
+        item for item in index["entries"] if item["path"] != "rows.jsonl"
+    ]
+    encoded = (
+        json.dumps(index, indent=2, ensure_ascii=False, allow_nan=False) + "\n"
+    ).encode("utf-8")
+    index_path.write_bytes(encoded)
+    (source.run_dir / "evidence-index.sha256").write_text(
+        f"{hashlib.sha256(encoded).hexdigest()}  evidence-index.json\n",
+        encoding="utf-8",
+    )
+    state.turn_requests.clear()
+
+    resumed = _run_against_fake(
+        tmp_path,
+        suite,
+        state,
+        resume_from=source.run_dir,
+    )
+
+    assert resumed.complete is True
+    assert len(state.turn_requests) == 1
+    assert len(read_jsonl(resumed.run_dir / "rows.jsonl")) == 1
+
+
+def test_recovery_ignores_a_wholly_unsigned_interruption_stream(
+    tmp_path: Path,
+) -> None:
+    state = _WorkbenchState()
+    state.turn_http_sequence = [503, 201]
+    suite = _adaptive_suite()
+    suite["repetitions"] = 1
+    suite.pop("extendedRepetitions", None)
+    source = _run_against_fake(tmp_path, suite, state)
+    index_path = source.run_dir / "evidence-index.json"
+    index = json.loads(index_path.read_text(encoding="utf-8"))
+    index["entries"] = [
+        item
+        for item in index["entries"]
+        if item["path"] not in {"rows.jsonl", "interruptions.jsonl"}
+    ]
+    encoded = (
+        json.dumps(index, indent=2, ensure_ascii=False, allow_nan=False) + "\n"
+    ).encode("utf-8")
+    index_path.write_bytes(encoded)
+    (source.run_dir / "evidence-index.sha256").write_text(
+        f"{hashlib.sha256(encoded).hexdigest()}  evidence-index.json\n",
+        encoding="utf-8",
+    )
+    (source.run_dir / "rows.jsonl").unlink()
+    status_path = source.run_dir / "run-status.json"
+    status = json.loads(status_path.read_text())
+    status["infrastructureFailures"] = []
+    status_path.write_text(json.dumps(status, indent=2) + "\n")
+    state.turn_requests.clear()
+
+    resumed = _run_against_fake(
+        tmp_path,
+        suite,
+        state,
+        resume_from=source.run_dir,
+    )
+
+    assert resumed.complete is True
+    assert len(state.turn_requests) == 1
+    summary = json.loads((resumed.run_dir / "results.json").read_text())
+    assert summary["infrastructureFailures"] == []
+
+
+def test_recovery_names_a_truncated_signed_interruption_stream(
+    tmp_path: Path,
+) -> None:
+    state = _WorkbenchState()
+    state.turn_http_sequence = [503]
+    suite = _adaptive_suite()
+    suite["repetitions"] = 1
+    suite.pop("extendedRepetitions", None)
+    source = _run_against_fake(tmp_path, suite, state)
+    (source.run_dir / "interruptions.jsonl").write_bytes(b"")
+    state.requests.clear()
+
+    with pytest.raises(
+        ValueError,
+        match=(
+            r"recovery interruptions\.jsonl is shorter than its signed prefix"
+        ),
+    ):
+        _run_against_fake(
+            tmp_path,
+            suite,
+            state,
+            resume_from=source.run_dir,
+        )
+
+    assert state.requests == []
+
+
+def test_recovery_accepts_the_matching_checksum_left_between_index_renames(
+    tmp_path: Path,
+) -> None:
+    state = _WorkbenchState()
+    suite = _adaptive_suite()
+    suite["repetitions"] = 1
+    suite.pop("extendedRepetitions", None)
+    source = _run_against_fake(tmp_path, suite, state)
+    _mark_interrupted(source.run_dir)
+    index_digest = hashlib.sha256(
+        (source.run_dir / "evidence-index.json").read_bytes()
+    ).hexdigest()
+    (source.run_dir / ".evidence-index.sha256.tmp").write_text(
+        f"{index_digest}  evidence-index.json\n",
+        encoding="utf-8",
+    )
+    (source.run_dir / "evidence-index.sha256").write_text(
+        f"{'0' * 64}  evidence-index.json\n",
+        encoding="utf-8",
+    )
+    state.turn_requests.clear()
+
+    resumed = _run_against_fake(
+        tmp_path,
+        suite,
+        state,
+        resume_from=source.run_dir,
+    )
+
+    assert resumed.complete is True
+    assert state.turn_requests == []
+
+
+def test_recovery_prefers_a_complete_temporary_checkpoint_over_the_prior_one(
+    tmp_path: Path,
+) -> None:
+    state = _WorkbenchState()
+    suite = _adaptive_suite()
+    suite["repetitions"] = 2
+    suite.pop("extendedRepetitions", None)
+    source = _run_against_fake(tmp_path, suite, state)
+    _mark_interrupted(source.run_dir)
+    index_path = source.run_dir / "evidence-index.json"
+    current_bytes = index_path.read_bytes()
+    current = json.loads(current_bytes)
+    prior = json.loads(current_bytes)
+    first_row = (source.run_dir / "rows.jsonl").read_bytes().splitlines(keepends=True)[0]
+    prior_row = next(
+        item for item in prior["entries"] if item["path"] == "rows.jsonl"
+    )
+    prior_row["bytes"] = len(first_row)
+    prior_row["sha256"] = hashlib.sha256(first_row).hexdigest()
+    prior_bytes = (
+        json.dumps(prior, indent=2, ensure_ascii=False, allow_nan=False) + "\n"
+    ).encode("utf-8")
+    index_path.write_bytes(prior_bytes)
+    (source.run_dir / "evidence-index.sha256").write_text(
+        f"{hashlib.sha256(prior_bytes).hexdigest()}  evidence-index.json\n",
+        encoding="utf-8",
+    )
+    (source.run_dir / ".evidence-index.json.tmp").write_bytes(current_bytes)
+    (source.run_dir / ".evidence-index.sha256.tmp").write_text(
+        f"{hashlib.sha256(current_bytes).hexdigest()}  evidence-index.json\n",
+        encoding="utf-8",
+    )
+    state.turn_requests.clear()
+
+    resumed = _run_against_fake(
+        tmp_path,
+        suite,
+        state,
+        resume_from=source.run_dir,
+    )
+
+    assert resumed.complete is True
+    assert state.turn_requests == []
+    assert len(read_jsonl(resumed.run_dir / "rows.jsonl")) == 2
+
+
+def test_recovery_carries_the_source_warmup_without_warming_again(
+    tmp_path: Path,
+) -> None:
+    state = _WorkbenchState()
+    state.profile_ids = ["team-a"]
+    state.profile_models = {"team-a": ("gemma-4-12b", None)}
+    suite = _comparison_suite(comparisonProfiles=["team-a"])
+    suite["profiles"] = {
+        "team-a": {"writerModelId": "gemma-4-12b", "reviewerModelId": None}
+    }
+    question = "Warm the selected team once."
+    config = {"warmupQuestion": question}
+    source = _run_against_fake(
+        tmp_path,
+        suite,
+        state,
+        frozen_config=config,
+        warmup_question=question,
+    )
+    _mark_interrupted(source.run_dir)
+    state.session_requests.clear()
+
+    resumed = _run_against_fake(
+        tmp_path,
+        suite,
+        state,
+        resume_from=source.run_dir,
+        frozen_config=config,
+        warmup_question=question,
+    )
+
+    assert state.session_requests == []
+    copied = (
+        resumed.run_dir
+        / "warmups"
+        / "team-a"
+        / "sources"
+        / source.run_id
+        / "01-create-session.json"
+    )
+    assert copied.is_file()
+    imports = json.loads((resumed.run_dir / "recovery-import.json").read_text())
+    assert any(item.get("kind") == "excluded_warmup" for item in imports["imports"])
+
+    _mark_interrupted(resumed.run_dir)
+    state.session_requests.clear()
+    third = _run_against_fake(
+        tmp_path,
+        suite,
+        state,
+        resume_from=resumed.run_dir,
+        frozen_config=config,
+        warmup_question=question,
+    )
+    assert third.complete is True
+    assert state.session_requests == []
+
+
+def test_recovery_refuses_a_completed_source_before_any_live_call(
+    tmp_path: Path,
+) -> None:
+    state = _WorkbenchState()
+    source = _run_against_fake(tmp_path, _adaptive_suite(), state)
+    state.requests.clear()
+
+    with pytest.raises(ValueError, match="only an immutable incomplete run"):
+        _run_against_fake(tmp_path, _adaptive_suite(), state, resume_from=source.run_dir)
+
+    assert state.requests == []
+
+
+def test_recovery_identity_drift_stops_before_any_model_conversation(
+    tmp_path: Path,
+) -> None:
+    state = _WorkbenchState()
+    suite = _adaptive_suite()
+    source = _run_against_fake(tmp_path, suite, state)
+    (source.run_dir / "results.json").unlink()
+    _mark_interrupted(source.run_dir)
+    changed = json.loads(json.dumps(suite))
+    changed["scenarios"][0]["initialQuestion"] = "A changed question"
+    state.turn_requests.clear()
+
+    with pytest.raises(ValueError, match="recovery identity drifted"):
+        _run_against_fake(tmp_path, changed, state, resume_from=source.run_dir)
+
+    assert state.turn_requests == []
+
+
+def test_all_reusable_evidence_is_preflighted_before_any_warmup(
+    tmp_path: Path,
+) -> None:
+    state = _WorkbenchState()
+    state.profile_ids = ["team-a", "team-b", "team-c"]
+    state.profile_models = {
+        "team-a": ("gemma-4-12b", None),
+        "team-b": ("gemma-4-12b", "gemma-4-12b"),
+        "team-c": ("gemma-4-12b", "qwen2.5-14b"),
+    }
+    suite = _comparison_suite()
+    suite["comparisonProfiles"] = ["team-a", "team-b"]
+    question = "How many distinct patients are represented in the approved HIV data?"
+    config = {"warmupQuestion": question}
+    source = _run_against_fake(
+        tmp_path,
+        suite,
+        state,
+        frozen_config=config,
+        warmup_question=question,
+    )
+    (source.run_dir / "results.json").unlink()
+    _mark_interrupted(source.run_dir)
+    missing = source.run_dir / "scenarios" / "team-b"
+    missing.rename(source.run_dir / "missing-team-b-evidence")
+    state.session_requests.clear()
+
+    with pytest.raises(ValueError, match="recovery evidence is missing"):
+        _run_against_fake(
+            tmp_path,
+            suite,
+            state,
+            resume_from=source.run_dir,
+            frozen_config=config,
+            warmup_question=question,
+        )
+
+    assert state.session_requests == []
+
+
+def test_repeated_recovery_retains_the_complete_ancestry_without_duplicates(
+    tmp_path: Path,
+) -> None:
+    state = _WorkbenchState()
+    suite = _adaptive_suite()
+    first = _run_against_fake(tmp_path, suite, state)
+    (first.run_dir / "results.json").unlink()
+    _mark_interrupted(first.run_dir)
+    second = _run_against_fake(tmp_path, suite, state, resume_from=first.run_dir)
+    (second.run_dir / "results.json").unlink()
+    _mark_interrupted(second.run_dir)
+    state.turn_requests.clear()
+
+    third = _run_against_fake(tmp_path, suite, state, resume_from=second.run_dir)
+
+    manifest = json.loads((third.run_dir / "run_manifest.json").read_text())
+    assert manifest["resumedFrom"] == second.run_id
+    assert manifest["resumeAncestry"] == [first.run_id, second.run_id]
+    rows = [
+        json.loads(line)
+        for line in (third.run_dir / "rows.jsonl").read_text().splitlines()
+    ]
+    assert [(row["profileId"], row["scenarioId"], row["repetition"]) for row in rows] == [
+        (PROFILE_ID, "adaptive", 1),
+        (PROFILE_ID, "adaptive", 2),
+        (PROFILE_ID, "adaptive", 3),
+    ]
+    assert state.turn_requests == []
 
 
 def test_a_suite_bound_to_one_source_asks_that_source_everything(
@@ -3487,7 +6238,7 @@ def test_a_model_query_that_blows_the_row_cap_fails_the_check_not_the_run(
 
     The cap exists so a runaway query cannot stall the comparison; hitting it
     proves the model's answer is far larger than the reference, which is a
-    scored mismatch. Killing the whole run here would let one bad answer
+    factual mismatch. Killing the whole run here would let one bad answer
     erase hours of finished work.
     """
     from harness.catalyst.notebook_validation import (
@@ -3509,9 +6260,8 @@ def test_a_model_query_that_blows_the_row_cap_fails_the_check_not_the_run(
         "parameters": [],
     }
     gold_check = NotebookGoldCheck(
-        mode="row_set",
+        mode="count",
         reference_sql="SELECT patient_id FROM reference_table",
-        match_columns=("patient_id",),
     )
 
     result = PostgresGoldExecutionChecker(
@@ -3546,9 +6296,8 @@ def test_a_reference_that_blows_the_row_cap_is_a_suite_error(monkeypatch) -> Non
         "parameters": [],
     }
     gold_check = NotebookGoldCheck(
-        mode="row_set",
+        mode="count",
         reference_sql="SELECT patient_id FROM reference_table",
-        match_columns=("patient_id",),
     )
 
     with pytest.raises(ValueError, match="reference"):
@@ -3653,6 +6402,40 @@ def test_an_ambiguous_aggregate_names_the_columns_it_could_not_choose_between(
     assert result["passed"] is False
     assert "visits" in result["disagreement"]
     assert "n" in result["disagreement"] and "pct" in result["disagreement"]
+
+
+@pytest.mark.parametrize("duplicate_side", ["model", "reference"])
+def test_duplicate_aggregate_keys_are_disagreement_not_collapsed(
+    duplicate_side: str,
+) -> None:
+    from harness.catalyst.notebook_validation import _compare_aggregates
+
+    model_rows = [{"group": "a", "count": 2}]
+    reference_rows = [{"group": "a", "count": 2}]
+    duplicated = [
+        {"group": "a", "count": 1},
+        {"group": "a", "count": 2},
+    ]
+    if duplicate_side == "model":
+        model_rows = duplicated
+    else:
+        reference_rows = duplicated
+
+    result = _compare_aggregates(
+        model_rows,
+        reference_rows,
+        key_columns=("group",),
+        value_columns={"count": {"tolerance": 0}},
+    )
+
+    assert result["passed"] is False
+    duplicate_field = (
+        "duplicateModelKeys"
+        if duplicate_side == "model"
+        else "duplicateReferenceKeys"
+    )
+    assert result[duplicate_field] == [{"key": ["a"], "rowCount": 2}]
+    assert "duplicate aggregate keys" in result["disagreement"]
 
 
 def test_a_row_set_missing_its_match_column_says_so_in_one_sentence(
@@ -3768,6 +6551,7 @@ def test_a_partially_repeated_pair_is_rerun_not_reused(tmp_path: Path) -> None:
         json.dumps(rows[0]) + "\n", encoding="utf-8"
     )
     (first.run_dir / "results.json").unlink()
+    _mark_interrupted(first.run_dir)
     turns_before = len(state.turn_requests)
     state.turn_requests.clear()
 
@@ -3804,10 +6588,10 @@ def test_an_unstable_recorded_pair_is_only_reused_at_the_extended_count(
     assert _pair_is_complete(disagreeing, suite, scenario, 3) is True
 
 
-def test_replaced_infrastructure_attempts_do_not_complete_a_pair(
+def test_interrupted_infrastructure_attempts_do_not_complete_a_pair(
     tmp_path: Path,
 ) -> None:
-    """Two model runs plus one replaced 503 are not three repetitions."""
+    """Two model runs plus one interrupted 503 are not three repetitions."""
     from harness.catalyst.notebook_validation import _pair_is_complete
 
     suite = load_notebook_suite(_write_suite(tmp_path, _adaptive_suite()))
@@ -3829,14 +6613,7 @@ def test_replaced_infrastructure_attempts_do_not_complete_a_pair(
 def test_a_dropped_connection_is_an_infrastructure_failure_not_a_dead_run(
     tmp_path: Path,
 ) -> None:
-    """The host vanishing mid-request is exactly what the budget is for.
-
-    The first full comparison died here: the daemon under the stack stopped,
-    the client raised ConnectionError, and hours of scheduled work ended with
-    a traceback instead of a replaced repetition. A transport failure is now
-    an exchange with a synthetic 599, so it is replaced within the budget
-    and a third one still invalidates the team's run.
-    """
+    """A transport error is recorded and returned as an incomplete run."""
     state = _WorkbenchState()
     state.turn_http_sequence = [599, 201, 201, 201]
     suite = _adaptive_suite()
@@ -3846,9 +6623,12 @@ def test_a_dropped_connection_is_an_infrastructure_failure_not_a_dead_run(
 
     result = _run_against_fake(tmp_path, suite, state)
 
-    summary = json.loads((result.run_dir / "results.json").read_text())
-    assert summary["infrastructureFailureCount"] == 1
-    assert summary["resultCount"] == 3
+    assert result.complete is False
+    assert state.turn_attempts == 1
+    assert not (result.run_dir / "results.json").exists()
+    status = json.loads((result.run_dir / "run-status.json").read_text())
+    assert status["state"] == "incomplete"
+    assert status["infrastructureFailures"][0]["httpStatus"] == 599
 
 
 def test_the_client_translates_a_transport_error_into_an_exchange() -> None:
@@ -3885,8 +6665,10 @@ def test_a_resumed_run_directory_is_self_contained(tmp_path: Path) -> None:
     suite_path.write_text(json.dumps(suite), encoding="utf-8")
 
     first = _run_against_fake(tmp_path, suite, state)
+    source_feed = read_jsonl(first.run_dir / "results.jsonl")
     # The old run recorded its pair fully; the summary vanished with the crash.
     (first.run_dir / "results.json").unlink()
+    _mark_interrupted(first.run_dir)
 
     resumed = _run_against_fake(tmp_path, suite, state, resume_from=first.run_dir)
 
@@ -3903,6 +6685,23 @@ def test_a_resumed_run_directory_is_self_contained(tmp_path: Path) -> None:
     ]
     assert [entry["scenario_id"] for entry in feed] == ["adaptive"]
     assert feed[0]["metrics"]["passed"] is True
+    assert feed[0]["metrics"]["reused"] is True
+    assert feed[0]["request"] == source_feed[0]["request"]
+    assert feed[0]["response"] == source_feed[0]["response"]
+    assert feed[0]["started_at"] == source_feed[0]["started_at"]
+    assert feed[0]["ended_at"] == source_feed[0]["ended_at"]
+    events = read_jsonl(resumed.run_dir / "events.jsonl")
+    assert any(
+        event["event_type"] == "scenario"
+        and event["scenario_id"] == "adaptive"
+        for event in events
+    )
+    assert any(
+        event["event_type"] == "evaluation"
+        and event["scenario_id"] == "adaptive"
+        and event["reused"] is True
+        for event in events
+    )
     # The reused pair's evidence tree came along.
     assert (
         resumed.run_dir / "scenarios" / "adaptive" / "repetition-01"

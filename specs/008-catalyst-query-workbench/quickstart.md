@@ -55,7 +55,7 @@ evidence produced then.
    retain a manual finding.
 4. Add failing UI tests for failed-draft/raw-output retention, highlighting,
    line numbers, default wrap/toggle,
-   keyword and approved-catalog completion, deterministic Format, graceful
+   keyword and runtime-catalog completion, deterministic Format, graceful
    catalog failure, and immutable Validate/Run versioning.
 5. Record the reviewed editor/formatter versions and accessibility/build
    decision. Do not begin editor implementation until this evidence is present.
@@ -83,7 +83,7 @@ different validation scopes.
 5. Verify PostgreSQL highlighting and logical line numbers; wrapping starts on,
    the toggle is keyboard operable, and its session preference survives refresh
    without changing the query digest.
-6. Request completion for a PostgreSQL keyword and an approved catalog object;
+6. Request completion for a PostgreSQL keyword and a runtime-catalog object;
    suggestions must be stable, catalog-backed, and absent rather than invented
    when the catalog is unavailable.
 7. Format the same SQL twice and compare bytes and parsed meaning. Formatting
@@ -208,11 +208,12 @@ phrasing rather than hard-coding an assumed cohort.
    unchanged Validate/Run/follow-up reuses its version; a dirty buffer creates
    exactly one current human effective base before inference; an unresolved
    buffer remains only snapshot evidence with no effective version.
-4. Inspect the revision request. It contains the initial question and no more
-   than five preceding follow-ups in chronological order plus only exact-digest
-   validation/execution summaries. Confirm absence of result rows, credentials,
-   connection details, hidden reasoning, raw traces, historical SQL copies,
-   full chat replay, and unrelated-session content.
+4. Inspect the revision request. It contains the current instruction, relevant
+   retained instructions, and matching validation or execution information.
+   Confirm that included and omitted context is recorded with reasons. Confirm
+   absence of result rows, credentials, connection details, hidden reasoning,
+   raw traces, historical SQL copies, full chat replay, and unrelated-session
+   content.
 5. Prove selected-output integrity: reviewer approval selects the writer; a
    reviewer correction selects its immutable child; a failed turn selects
    nothing. Reviewer failure leaves any contract-valid writer immutable but
@@ -282,10 +283,11 @@ Implementation plumbing is not acceptance evidence. Before closing G2.10:
 2. Pin or record each base ViewDefinition's upstream provenance. Use a
    multi-coding/repeated-element fixture to prove the raw projection retains the
    full `forEachOrNull` multiplicity before SQL curation.
-3. Reapply curated SQL from a clean baseline, verify every approved view/column
-   comment, then run `scripts/generate-catalyst-source-catalog.py` twice and
-   compare bytes. Also prove missing comments and a zero-match canonical overlay
-   value fail generation.
+3. Reapply curated SQL from a clean baseline, then run
+   `scripts/generate-catalyst-source-catalog.py` twice and compare bytes. Prove
+   every role-readable relation remains present, missing descriptions are
+   reported without hiding relations, and nonexistent or zero-match overlay
+   claims fail validation.
 4. Compare each generated catalog with live information schema and confirm the
    schema guide, completion, validator, model request, versions, and executions
    carry the same `dataSourceId` and catalog version.
@@ -298,11 +300,13 @@ Implementation plumbing is not acceptance evidence. Before closing G2.10:
 
 ## D1 Superset-backed Dashboard Builder checkpoint
 
-This is the selected next product checkpoint. It requires only the accepted
-query/version/execution/table foundation; G2.10, W2, W3/CVR, R4, and R5 remain
-parallel. Commands below are the implementation contract for T137–T182; until
-those tasks are checked, an absent command is an expected open item rather than
-evidence that the runtime exists.
+This is the program's P3 product checkpoint; P1 session context and P2
+conversation mode come first in the program sequence. Its accepted
+query/version/execution/table foundation and Feature 008 contract remain
+unchanged. Within Feature 008, G2.10, W2, W3/CVR, R4, and R5 remain parallel.
+Commands below are the implementation contract for T137–T182; until those tasks
+are checked, an absent command is an expected open item rather than evidence
+that the runtime exists.
 
 ### Planned operator commands and endpoints
 

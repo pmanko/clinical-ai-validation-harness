@@ -11,6 +11,7 @@ from harness.catalyst.run_config import (
     freeze,
     load_frozen,
     postgres_dsn,
+    publishable,
     resolve,
 )
 
@@ -22,6 +23,7 @@ def _template(tmp_path: Path, **overrides) -> Path:
         "suite": "datasets/validation/catalyst/catalyst-phase1-comparison-v1.json",
         "gatewayUrl": "http://127.0.0.1:18000",
         "outputDir": "artifacts/catalyst-notebook-validation",
+        "warmupQuestion": "How many distinct patients are represented?",
         "postgres": {
             "host": "127.0.0.1",
             "port": 15443,
@@ -30,6 +32,13 @@ def _template(tmp_path: Path, **overrides) -> Path:
             "passwordEnv": "CATALYST_READONLY_PASSWORD",
         },
         "gates": {"overall": 0.90, "perScenario": 0.80},
+        "invocation": {
+            "scenarios": [],
+            "repetitions": None,
+            "includeManual": False,
+            "postgresCrossCheck": True,
+            "timeoutSeconds": 900,
+        },
         "publish": {"slug": "catalyst-phase1-comparison", "title": "T",
                     "summary": "S", "takeaway": "K"},
     }
@@ -42,18 +51,44 @@ def _template(tmp_path: Path, **overrides) -> Path:
 def test_the_password_never_reaches_the_frozen_seed(tmp_path, monkeypatch):
     """The seed is published with the evidence, so it carries the name of
     the secret, never the secret."""
-    monkeypatch.setenv("CATALYST_READONLY_PASSWORD", "hunter2")
+    monkeypatch.setenv("CATALYST_READONLY_PASSWORD", "runtime-only-test-value")
     config = resolve(_template(tmp_path))
 
-    assert "hunter2" in postgres_dsn(config)
+    assert "runtime-only-test-value" in postgres_dsn(config)
 
     run_dir = tmp_path / "run"
     run_dir.mkdir()
     freeze(config, run_dir)
 
     written = (run_dir / "run-config.json").read_text(encoding="utf-8")
-    assert "hunter2" not in written
+    assert "runtime-only-test-value" not in written
     assert "CATALYST_READONLY_PASSWORD" in written
+    assert str(tmp_path) not in written
+    assert "source" not in json.loads(written)
+
+
+@pytest.mark.parametrize(
+    "unsafe",
+    [
+        {"note": "/Users/example/private/config.json"},
+        {"note": "sgr-0123456789abcdef0"},
+        {"gatewayUrl": "http://192.168.1.20:18000"},
+        {"password": None},
+        {"postgresDsn": "postgresql://user:secret@db/example"},
+        {"note": "postgresql://user:secret@db/example"},
+        {"note": "workstation address 10.0.0.24 must not be published"},
+        {"nested": [{"password": None}]},
+    ],
+)
+def test_public_seed_rejects_private_runtime_details(unsafe):
+    with pytest.raises(ValueError, match="not safe to publish"):
+        publishable(unsafe)
+
+
+def test_loopback_endpoints_are_safe_reproducible_stack_coordinates():
+    assert publishable({"gatewayUrl": "http://127.0.0.1:18000"}) == {
+        "gatewayUrl": "http://127.0.0.1:18000"
+    }
 
 
 def test_a_finish_applies_the_gates_the_run_was_seeded_with(tmp_path, monkeypatch):
@@ -82,11 +117,49 @@ def test_the_shipped_template_is_the_one_the_comparison_runs(tmp_path):
         ROOT / "datasets" / "validation" / "catalyst" / "run-config.template.json",
         require_secrets=False,
     )
-    assert config["suite"].endswith("catalyst-phase1-comparison-v1.json")
+    assert config["suite"].endswith("catalyst-phase1-comparison-v2.json")
     assert (ROOT / config["suite"]).is_file()
-    assert config["gates"]["overall"] == 0.90
-    assert config["gates"]["per_scenario"] == 0.80
+    assert config["readerRubric"].endswith(
+        "catalyst-phase1-reader-rubric-v1.md"
+    )
+    assert (ROOT / config["readerRubric"]).is_file()
+    assert "gates" not in config
     assert config["publish"]["slug"]
+    assert config["warmupQuestion"].startswith("How many distinct patients")
+    assert config["invocation"] == {
+        "scenarios": [],
+        "repetitions": None,
+        "includeManual": False,
+        "postgresCrossCheck": True,
+        "timeoutSeconds": 900,
+    }
+
+
+@pytest.mark.parametrize(
+    "invocation, message",
+    [
+        ([], "invocation must be an object"),
+        ({"scenarios": [""]}, "invocation.scenarios must be a list of IDs"),
+        ({"repetitions": 0}, "invocation.repetitions must be a positive integer"),
+        ({"timeoutSeconds": 0}, "invocation.timeoutSeconds must be a positive integer"),
+        ({"includeManual": "false"}, "invocation.includeManual must be boolean"),
+        (
+            {"postgresCrossCheck": 1},
+            "invocation.postgresCrossCheck must be boolean",
+        ),
+    ],
+)
+def test_invalid_invocation_settings_are_refused(tmp_path, invocation, message):
+    with pytest.raises(SystemExit, match=message):
+        resolve(_template(tmp_path, invocation=invocation), require_secrets=False)
+
+
+def test_the_wrapper_uses_the_runner_result_instead_of_guessing_a_directory():
+    script = (ROOT / "scripts" / "catalyst-comparison.sh").read_text()
+    assert "--run-config" in script
+    assert "ls -td" not in script
+    assert "freeze_seed" not in script
+    assert 'OUT_DIR="${OUT_DIR:-' not in script
 
 
 def test_a_seed_that_cannot_be_read_refuses_before_anything_runs(tmp_path):

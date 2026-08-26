@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -27,6 +28,10 @@ def configure_parser(parent: argparse._SubParsersAction[Any]) -> None:
         "run", help="Run the real Catalyst notebook acceptance matrix"
     )
     run.add_argument("--suite", default=DEFAULT_SUITE)
+    run.add_argument(
+        "--run-config",
+        help="resolve and freeze one run seed before discovery or model calls",
+    )
     run.add_argument("--gateway-url", default=DEFAULT_GATEWAY_URL)
     run.add_argument("--output-dir", default=DEFAULT_OUTPUT_DIR)
     run.add_argument("--scenario", action="append", dest="scenarios")
@@ -56,7 +61,7 @@ def configure_parser(parent: argparse._SubParsersAction[Any]) -> None:
     run.add_argument(
         "--timeout-seconds",
         type=int,
-        default=900,
+        default=None,
         help="whole-request observation window; reviewed turns invoke roles sequentially",
     )
 
@@ -73,6 +78,16 @@ def _manual_checkpoint(scenario: Any, session_id: str) -> None:
         "Restore the Hub immediately after this scenario completes."
     )
     input()
+
+
+def _reader_led_run(run_dir: Path) -> bool:
+    """Return whether the frozen suite asks for the reader-led presentation."""
+
+    try:
+        suite = json.loads((run_dir / "suite.json").read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return False
+    return isinstance(suite, dict) and suite.get("reportMode") == "reader-led"
 
 
 def dispatch(args: argparse.Namespace, *, project_root: Path) -> int:
@@ -92,6 +107,70 @@ def dispatch(args: argparse.Namespace, *, project_root: Path) -> int:
         PostgresReadOnlyChecker,
         run_notebook_suite,
     )
+    from .run_config import postgres_dsn, publishable, resolve
+
+    frozen_config = None
+    warmup_question = None
+    reader_rubric_path = None
+    if args.run_config:
+        # Read the public seed first so a deliberately disabled database
+        # cross-check does not require a password it will never use.
+        config = resolve(args.run_config, require_secrets=False)
+        invocation = config["invocation"]
+        args.suite = config["suite"]
+        args.gateway_url = config["gatewayUrl"]
+        args.output_dir = config["outputDir"]
+        if args.scenarios is None:
+            args.scenarios = invocation["scenarios"] or None
+        if args.repetitions is None:
+            args.repetitions = invocation["repetitions"]
+        args.include_manual = args.include_manual or invocation["includeManual"]
+        args.no_postgres_cross_check = (
+            args.no_postgres_cross_check or not invocation["postgresCrossCheck"]
+        )
+        if not args.no_postgres_cross_check:
+            config = resolve(args.run_config)
+            args.postgres_dsn = postgres_dsn(config)
+        if args.timeout_seconds is None:
+            args.timeout_seconds = invocation["timeoutSeconds"]
+        effective_scenarios = list(dict.fromkeys(args.scenarios or []))
+        args.scenarios = effective_scenarios or None
+        config["invocation"] = {
+            "scenarios": effective_scenarios,
+            "repetitions": args.repetitions,
+            "includeManual": args.include_manual,
+            "postgresCrossCheck": not args.no_postgres_cross_check,
+            "timeoutSeconds": args.timeout_seconds,
+        }
+        if config.get("readerRubric"):
+            candidate = Path(str(config["readerRubric"]))
+            if not candidate.is_absolute():
+                candidate = project_root / candidate
+            if args.resume_from:
+                frozen_candidate = Path(args.resume_from) / "reader-rubric.md"
+                if frozen_candidate.is_file():
+                    candidate = frozen_candidate
+            try:
+                rubric_bytes = candidate.read_bytes()
+            except OSError as error:
+                raise SystemExit(
+                    f"cannot read reader rubric {candidate}: {error}"
+                ) from error
+            rubric_sha256 = hashlib.sha256(rubric_bytes).hexdigest()
+            recorded_rubric_sha256 = str(config.get("readerRubricSha256") or "")
+            if (
+                recorded_rubric_sha256
+                and recorded_rubric_sha256 != rubric_sha256
+            ):
+                raise SystemExit(
+                    "reader rubric bytes differ from the frozen run configuration"
+                )
+            config["readerRubricSha256"] = rubric_sha256
+            reader_rubric_path = candidate
+        frozen_config = publishable(config)
+        warmup_question = config.get("warmupQuestion") or None
+    if args.timeout_seconds is None:
+        args.timeout_seconds = 900
 
     checker = None
     gold_checker = None
@@ -114,17 +193,29 @@ def dispatch(args: argparse.Namespace, *, project_root: Path) -> int:
         gold_checker=gold_checker,
         manual_checkpoint=_manual_checkpoint if args.include_manual else None,
         resume_from=Path(args.resume_from) if args.resume_from else None,
+        frozen_config=frozen_config,
+        warmup_question=warmup_question,
+        reader_rubric_path=reader_rubric_path,
     )
-    print(
-        json.dumps(
-            {
-                "run_id": result.run_id,
-                "run_dir": str(result.run_dir),
-                "passed": result.passed_count,
-                "total": result.result_count,
-                "skipped": result.skipped_count,
-            },
-            indent=2,
-        )
-    )
-    return 0 if result.passed_count == result.result_count else 1
+    if _reader_led_run(Path(result.run_dir)):
+        summary = {
+            "run_id": result.run_id,
+            "run_dir": str(result.run_dir),
+            "recorded_conversations": result.result_count,
+            "skipped_conversations": result.skipped_count,
+            "collection_complete": result.complete,
+            "evidence_valid": result.measurement_valid,
+        }
+    else:
+        # Older suites retain their historical command output for reproducibility.
+        summary = {
+            "run_id": result.run_id,
+            "run_dir": str(result.run_dir),
+            "passed": result.passed_count,
+            "total": result.result_count,
+            "skipped": result.skipped_count,
+            "complete": result.complete,
+            "measurement_valid": result.measurement_valid,
+        }
+    print(json.dumps(summary, indent=2))
+    return 0 if result.complete and result.measurement_valid else 1

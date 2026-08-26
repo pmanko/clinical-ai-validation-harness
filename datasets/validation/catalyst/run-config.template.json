@@ -1,8 +1,10 @@
 {
-  "comment": "Seeds a Phase 1 comparison run. `catalyst-comparison.sh run` resolves this, freezes a secret-free copy into the run directory as run-config.json, and every later verb reads that frozen copy — so a finish applies the gates the run was started with. The password is referenced by environment variable and never written.",
-  "suite": "datasets/validation/catalyst/catalyst-phase1-comparison-v1.json",
+  "comment": "Seeds the reader-led Phase 1 comparison. `catalyst-comparison.sh run` freezes a secret-free copy into the run directory. Automated checks establish facts; the attached reader review interprets the full evidence without thresholds or an automatic team verdict. The password is referenced by environment variable and never written.",
+  "suite": "datasets/validation/catalyst/catalyst-phase1-comparison-v2.json",
+  "readerRubric": "datasets/validation/catalyst/catalyst-phase1-reader-rubric-v1.md",
   "gatewayUrl": "http://127.0.0.1:18000",
   "outputDir": "artifacts/catalyst-notebook-validation",
+  "warmupQuestion": "How many distinct patients are represented in the readable HIV data?",
   "postgres": {
     "host": "127.0.0.1",
     "port": 15443,
@@ -10,14 +12,17 @@
     "user": "catalyst_readonly",
     "passwordEnv": "CATALYST_READONLY_PASSWORD"
   },
-  "gates": {
-    "overall": 0.90,
-    "perScenario": 0.80
+  "invocation": {
+    "scenarios": [],
+    "repetitions": null,
+    "includeManual": false,
+    "postgresCrossCheck": true,
+    "timeoutSeconds": 900
   },
   "publish": {
     "slug": "catalyst-phase1-comparison",
     "title": "Catalyst Phase 1: three model teams on the locked HIV suite",
-    "summary": "Catalyst turns plain-English clinical questions into database queries it runs itself. Each team faced the same twelve questions about an HIV dataset — including vague ones they had to ask about, and impossible ones they had to refuse — with every answer checked row-for-row against an independently written reference.",
+    "summary": "Catalyst turns plain-English clinical questions into database queries it runs itself. Each team faced the same twelve conversations about an HIV dataset, including follow-up questions, vague requests, and unavailable data. Every database answer is compared with an independently written query for that specific request.",
     "takeaway": "",
     "plainSubject": "an HIV test-results database"
   }

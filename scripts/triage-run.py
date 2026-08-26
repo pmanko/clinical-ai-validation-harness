@@ -35,16 +35,29 @@ def _signature(row: dict) -> tuple[str, ...]:
     return _signature_of(row.get("assertions") or [])
 
 
-def _pass_gaps(row: dict) -> list[str]:
+def _reader_led_run(run_dir: Path) -> bool:
+    try:
+        suite = json.loads((run_dir / "suite.json").read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return False
+    return isinstance(suite, dict) and suite.get("reportMode") == "reader-led"
+
+
+def _evidence_gaps(row: dict) -> list[str]:
     names = {_SLOT.sub("", a["name"]) for a in row.get("assertions") or []}
-    scenario = str(row.get("scenarioId"))
     gaps: list[str] = []
     if "token_evidence_recorded" not in names:
         gaps.append("token evidence never asserted")
-    if scenario.startswith(("A", "B")) and not any(
-        "gold_execution_match" in n for n in names
-    ):
-        gaps.append("no independent-answer check ran")
+    measurement = row.get("measurementEvidence") or {}
+    query_paths = [measurement.get("base") or {}, *(measurement.get("turns") or [])]
+    for index, query_path in enumerate(query_paths, start=1):
+        if (
+            query_path.get("outcome") == "ready"
+            and query_path.get("oracleResult") != "recorded"
+        ):
+            label = "opening" if index == 1 else f"follow-up {index - 1}"
+            gaps.append(f"{label} has no independent answer check")
+    scenario = str(row.get("scenarioId"))
     if scenario.startswith(("B", "U")) and "no_sql_after_non_ready_base" not in names:
         gaps.append("terminal base not verified SQL-free")
     return gaps
@@ -58,7 +71,9 @@ def main() -> int:
         default="datasets/validation/catalyst/vetted-failure-signatures.json",
     )
     args = parser.parse_args()
-    rows_path = Path(args.run_dir) / "rows.jsonl"
+    run_dir = Path(args.run_dir)
+    rows_path = run_dir / "rows.jsonl"
+    reader_led = _reader_led_run(run_dir)
     vetted_path = Path(args.vetted)
     if not vetted_path.is_absolute() and not vetted_path.exists():
         # Default resolves against the repo the script lives in, so `finish`
@@ -87,7 +102,7 @@ def main() -> int:
 
     dispositions: dict[str, int] = defaultdict(int)
     invalid: list[dict] = []
-    judged = 0
+    answer_differences = 0
     for row in rows:
         if row.get("passed"):
             continue
@@ -98,21 +113,36 @@ def main() -> int:
             # to be re-graded before this run can be finished.
             invalid.append(row)
             continue
-        judged += 1
+        answer_differences += 1
         signature = _signature(row)
         entry = vetted.get(signature)
         if entry is not None:
             dispositions[entry["disposition"]] += 1
 
-    vacuous = [
-        (row, gaps) for row in rows if row.get("passed") and (gaps := _pass_gaps(row))
+    evidence_gaps = [
+        (row, gaps)
+        for row in rows
+        if (reader_led or row.get("passed"))
+        and (gaps := _evidence_gaps(row))
     ]
 
-    passed = sum(1 for r in rows if r.get("passed"))
-    print(
-        f"{len(rows)} conversations: {passed} passed, {judged} judged failures, "
-        f"{len(invalid)} invalid measurements"
-    )
+    if reader_led:
+        incomplete_ids = {id(row) for row in invalid}
+        incomplete_ids.update(id(row) for row, _ in evidence_gaps)
+        complete_evidence = len(rows) - len(incomplete_ids)
+        print(
+            f"{len(rows)} conversations collected: "
+            f"{complete_evidence} with complete evidence, "
+            f"{len(evidence_gaps)} with evidence gaps, "
+            f"{len(invalid)} invalid measurements"
+        )
+    else:
+        passed = sum(1 for r in rows if r.get("passed"))
+        print(
+            f"{len(rows)} conversations: {passed} passed, "
+            f"{answer_differences} judged failures, "
+            f"{len(invalid)} invalid measurements"
+        )
     for row in invalid:
         entry = vetted.get(_signature(row))
         print(
@@ -132,21 +162,34 @@ def main() -> int:
             print(f"    {a['name']} -> {json.dumps(evidence, default=str)[:200]}")
     for disposition, count in sorted(dispositions.items()):
         print(f"  vetted {disposition}: {count} rows")
-    for row, gaps in vacuous:
+    for row, gaps in evidence_gaps:
+        label = "EVIDENCE GAP" if reader_led else "VACUOUS PASS"
         print(
-            f"\nVACUOUS PASS {row.get('profileId','?')} × {row.get('scenarioId')} "
-            f"run {row.get('repetition')}: {gaps}"
+            f"\n{label} {row.get('profileId','?')} × "
+            f"{row.get('scenarioId')} run {row.get('repetition')}: {gaps}"
         )
-    if invalid or vacuous:
-        print(
-            "\nTRIAGE FAILED: re-grade every invalid measurement (fix the "
-            "cause, then resume the run) and close every vacuous pass. "
-            "Judged failures are the data and never block a finish."
-        )
+    if invalid or evidence_gaps:
+        if reader_led:
+            print(
+                "\nTRIAGE FAILED: repair every invalid measurement (fix the "
+                "cause, then resume the run) and close every evidence gap. "
+                "Answer differences and database diagnostics remain evidence "
+                "and never block a finish."
+            )
+        else:
+            print(
+                "\nTRIAGE FAILED: re-grade every invalid measurement (fix the "
+                "cause, then resume the run) and close every vacuous pass. "
+                "Judged failures are the data and never block a finish."
+            )
         return 1
-    print(
-        "triage clean: every conversation conformed, every pass exercised"
-    )
+    if reader_led:
+        print(
+            "triage clean: every conversation has complete, internally "
+            "consistent evidence"
+        )
+    else:
+        print("triage clean: every conversation conformed, every pass exercised")
     return 0
 
 

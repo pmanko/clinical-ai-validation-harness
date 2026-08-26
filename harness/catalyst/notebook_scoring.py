@@ -57,6 +57,20 @@ def _interval(successes: int, total: int) -> list[float]:
     return [round(low, _PRECISION), round(high, _PRECISION)]
 
 
+def _infrastructure_failure_count(
+    payload: dict[str, Any], rows: list[dict[str, Any]]
+) -> int:
+    """Read cumulative recovery history, with fallbacks for older summaries."""
+
+    count = payload.get("infrastructureFailureCount")
+    if isinstance(count, int) and count >= 0:
+        return count
+    failures = payload.get("infrastructureFailures")
+    if isinstance(failures, list):
+        return len(failures)
+    return sum(row.get("status") == "infrastructure_failed" for row in rows)
+
+
 def _score_rows(scored_rows: list[dict[str, Any]]) -> dict[str, Any]:
     """The aggregate view of a set of scored rows: totals, per-scenario
     rates, and outcome accuracy. Used pooled and once per compared team."""
@@ -163,8 +177,8 @@ def score_run(run_dir: Path | str, *, as_json: bool = False) -> dict[str, Any] |
         **_score_rows(scored_rows),
     }
     report["totals"]["skipped"] = sum(row.get("status") == "skipped" for row in rows)
-    report["totals"]["infrastructureFailed"] = sum(
-        row.get("status") == "infrastructure_failed" for row in rows
+    report["totals"]["infrastructureFailed"] = _infrastructure_failure_count(
+        payload, rows
     )
     team_ids = sorted(
         {str(row["profileId"]) for row in scored_rows if row.get("profileId")}
@@ -198,12 +212,12 @@ def score_runs(
         )
         run_ids.append(str(payload.get("runId")))
         suite_ids.append(str(payload.get("suiteId")))
-        for row in payload.get("results") or []:
+        payload_rows = list(payload.get("results") or [])
+        infrastructure_failed += _infrastructure_failure_count(payload, payload_rows)
+        for row in payload_rows:
             if row.get("status") == "skipped":
                 skipped += 1
-            elif row.get("status") == "infrastructure_failed":
-                infrastructure_failed += 1
-            else:
+            elif row.get("status") != "infrastructure_failed":
                 rows.append(row)
     if len(set(suite_ids)) > 1:
         raise ValueError(

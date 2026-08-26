@@ -259,6 +259,8 @@ def test_catalyst_run_dispatches_every_runner_option(monkeypatch, tmp_path, caps
             passed_count=1,
             result_count=1,
             skipped_count=0,
+            complete=True,
+            measurement_valid=True,
         )
 
     monkeypatch.setattr("harness.catalyst.notebook_validation.run_notebook_suite", fake_run)
@@ -307,6 +309,8 @@ def test_catalyst_run_dispatches_every_runner_option(monkeypatch, tmp_path, caps
     assert captured["postgres_checker"] == ("crosscheck", "postgresql://db")
     assert captured["gold_checker"] == ("gold", "postgresql://db")
     assert captured["manual_checkpoint"] is None
+    assert captured["frozen_config"] is None
+    assert captured["warmup_question"] is None
     assert captured["project_root"] == Path.cwd().resolve()
     assert json.loads(capsys.readouterr().out)["run_id"] == "run-1"
 
