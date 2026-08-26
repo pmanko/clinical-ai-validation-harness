@@ -182,6 +182,10 @@ EVALUATION_ASSERTIONS = frozenset(
         "exact_selected_output",
         "prior_results_stale_after_successor",
         "semantic_reviewer_correction",
+        # Keep the historical Feature 008 timing target visible as an
+        # observation. Local model and machine speed do not determine whether
+        # a Phase 1 conversation is valid evidence.
+        "successor_visible_under_three_minutes",
     }
 )
 """Judgments about the answer. These never mean the run misbehaved."""
@@ -202,7 +206,6 @@ CONFORMANCE_ASSERTIONS = frozenset(
         "base_version_saved",
         "base_validation_recorded",
         "successor_validation_recorded",
-        "successor_visible_under_three_minutes",
         "base_classification",
         "manual_version_classification",
         "failed_turn_preserved_base",

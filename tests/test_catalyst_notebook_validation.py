@@ -3233,6 +3233,26 @@ def test_recovery_refuses_a_row_without_structural_conformance_checks() -> None:
     )
 
 
+def test_a_slow_local_response_remains_valid_measurement_evidence() -> None:
+    from harness.catalyst.notebook_validation import _row_is_measurement_valid
+
+    assert _row_is_measurement_valid(
+        {
+            "status": "completed",
+            "sessionId": "session-1",
+            "measurementEvidence": {"complete": True},
+            "assertions": [
+                {"name": "session_created", "class": "conformance", "passed": True},
+                {
+                    "name": "successor_visible_under_three_minutes",
+                    "class": "evaluation",
+                    "passed": False,
+                },
+            ],
+        }
+    )
+
+
 def test_notebook_cli_wires_arguments_into_the_runner(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
@@ -7034,6 +7054,7 @@ def test_the_split_puts_judgment_on_one_side_and_the_contract_on_the_other():
         "exact_selected_output",
         "prior_results_stale_after_successor",
         "semantic_reviewer_correction",
+        "successor_visible_under_three_minutes",
     ):
         assert assertion_class(name) == "evaluation", name
 
