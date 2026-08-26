@@ -48,7 +48,8 @@ For each source actually included in the demonstration or comparison:
 - [ ] Connect Superset to the same Spark source.
 - [ ] Prove one successful browser query, one database error, and one saved
   Dataset-to-Superset render.
-- [ ] Confirm the chosen Spark query path cannot mutate source data.
+- [ ] Submit one intentional write attempt through the Spark connection, show
+  its visible refusal, and confirm source data is unchanged.
 - [ ] Remove the separate clinical analytics store, generated catalog, copied
   marts, sink scripts, preferred-engine wiring, fallback, and dedicated tests.
 - [ ] Carry forward only descriptions or relationships demonstrated to help the
@@ -98,6 +99,8 @@ model runs.
   collection is labelled incomplete.
 - [ ] Apply the shared rubric once through a deliberately selected full-context
   human or frontier-model reader.
+- [ ] If the reader is a frontier model, state in the report that this is one
+  model-reader pass rather than independent human review.
 - [ ] Publish the report and linked evidence without an automatic score,
   disqualification, rank, tie-break, winner, or production-readiness claim.
 - [ ] Pause for owner review before Phase 1 closeout.

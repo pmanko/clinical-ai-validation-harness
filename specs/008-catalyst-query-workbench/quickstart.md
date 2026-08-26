@@ -41,7 +41,8 @@ For each reference source actually included, confirm once when integrating it:
 - a manual Spark query proves the endpoint and one known fact;
 - Catalyst discovers the same readable tables;
 - Superset connects to the same Spark source;
-- the Spark query path cannot mutate source data; and
+- one intentional write attempt through the Spark connection is visibly
+  refused and leaves source data unchanged; and
 - no separate clinical analytics store or fallback participates.
 
 The manual Spark query is a connection/materialization check. Do not build a
@@ -106,7 +107,9 @@ For each selected model team:
 
 Initiate one full-context reader pass by default. The report does not compute a
 threshold, rank, disqualification, tie-break, or winner. Additional complete
-runs or readers are deliberate follow-up work.
+runs or readers are deliberate follow-up work. When the reader is a frontier
+model, state that the interpretation comes from one model-reader pass rather
+than independent human review.
 
 ## Proportional checks
 

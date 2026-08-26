@@ -135,6 +135,10 @@ capability. If another perspective is useful, run another reader with the same
 case evidence and rubric and retain its separate rationale. Do not average,
 score, or force consensus.
 
+When the reader is a frontier model, the published report states that the
+interpretation comes from one model-reader pass and is not independent human
+review.
+
 Choosing a model setup for a demonstration is a separate practical decision. It
 records what was chosen and why without claiming the comparison proved it
 superior or production-ready.

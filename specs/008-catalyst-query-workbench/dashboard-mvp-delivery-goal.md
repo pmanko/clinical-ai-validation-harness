@@ -34,7 +34,8 @@ Phase 1 covers one narrow Dashboard path:
 - Superset renders it;
 - one displayed value is inspected against the originating Catalyst result
   without a second database query; and
-- the chosen Spark query path cannot mutate source data.
+- one intentional write attempt through the Spark connection is visibly
+  refused and leaves source data unchanged.
 
 This proves the generic connection reaches Superset. It is not final
 Dashboard Builder acceptance.

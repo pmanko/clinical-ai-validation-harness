@@ -1,7 +1,7 @@
 # Catalyst implementation plan
 
-**Status:** Documentation alignment is in review. Generic-connection
-implementation has not started.
+**Status:** Documentation alignment is committed and awaiting pull-request
+review and merge. Generic-connection implementation has not started.
 
 `specs/catalyst-program-roadmap.md` owns product decisions and the Phase 1
 comparison. This file owns implementation order, checkpoints, and status.
@@ -30,7 +30,7 @@ Spark are not Catalyst product requirements.
 ## Current implementation
 
 The harness currently pins Catalyst revision
-`85be9ba3d4dd577d8327d988079dce14cf46e9b1`. At that revision:
+`57c1506622293054cda4fdf8411d8505f7be9f25`. At that revision:
 
 | Code | Current implementation | Selected implementation |
 | --- | --- | --- |
@@ -41,6 +41,8 @@ The harness currently pins Catalyst revision
 | `docs/contracts/catalyst-query-v1.schema.json` and `catalyst/service.py` | Require and emit `approvedViews`, restrict relation identifiers to one PostgreSQL-shaped form, and require descriptive metadata. | Use engine-native identifiers and make descriptions optional; no approved-relation field. |
 | `docker-compose.mvp.yml` | Turns off Parquet and Spark views and sends FHIR Data Pipes output to the `analytics-db` PostgreSQL service. | The selected reference deployment enables Parquet and Spark; Catalyst and Superset connect as SQL clients. |
 | `harness/catalyst/notebook_validation.py` and `harness/catalyst/cli.py` | Open a second PostgreSQL path for read-only and “gold” checks. | The harness executes selected model SQL only through Catalyst and uses reviewed design-time references. |
+
+Every row in this table was re-checked at that revision.
 
 Implementation reuses `AnalyticsProtocol`, `DataSourceBundle`, conversation and
 notebook state, query versions, the explicit Run action, results, model-team
@@ -81,8 +83,9 @@ restricted schema copy.
 - Validation is advisory. Exact selected SQL reaches the connection.
 - Catalyst relies on the connection's configured access, retains its time and
   returned-row limits, and records rows or the database error. The Spark
-  reference path must prevent mutation of its source data. Production
-  authorization is later work.
+  reference path must prevent mutation of its source data and demonstrate that
+  behavior with one intentional write attempt that is visibly refused.
+  Production authorization is later work.
 - This stage uses retained demo data with no sensitive records.
 - Retained test data is reused. No reseed, restart-persistence, or local/demo
   parity proof is required.
@@ -179,7 +182,8 @@ For the Catalyst-packaged OpenELIS source, when included:
 - one saved query publishes and renders through Superset;
 - one displayed value is inspected against the originating Catalyst result,
   without a second database query;
-- the chosen Spark query path cannot mutate the source data; and
+- one intentional write attempt reaches the Spark connection, is visibly
+  refused, and leaves source data unchanged; and
 - no separate clinical analytics store, shadow copy, or fallback participates.
 
 The direct Spark query above is a one-time connection/materialization check. Do
@@ -255,7 +259,9 @@ Acceptance:
 - one deliberately initiated reader applies the shared rubric to the complete
   stored set with the same context for every team;
 - the published report links to its evidence and makes no automatic winner or
-  production-readiness claim; and
+  production-readiness claim;
+- when the reader is a frontier model, the report states that its interpretation
+  comes from one model-reader pass rather than independent human review; and
 - the owner reviews the real product path and report before Phase 1 closeout.
 
 Another complete measurement or reader may be chosen later. Neither is a default

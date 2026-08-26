@@ -226,10 +226,13 @@ Phase 1 is accepted when:
 - FHIR Data Pipes produces nonempty Parquet and Spark exposes the expected
   reference relations;
 - Catalyst completes one successful and one invalid browser query through Spark;
+- one intentional write attempt reaches the Spark connection, is visibly
+  refused, and leaves source data unchanged;
 - one successful result is saved, published, imported, and rendered in Superset;
 - the harness has no direct analytics-database or per-run reference path;
 - the report gives a human or selected frontier reader the complete case and
-  rubric without an automatic verdict; and
+  rubric without an automatic verdict, and identifies a frontier-model review
+  as one model-reader pass rather than independent human review; and
 - the owner inspects the real product path and accepts the Phase 1 report.
 
 The Dataset-to-Superset step above is a regression smoke for the generic
