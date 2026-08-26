@@ -112,6 +112,25 @@ def test_an_unknown_clip_kind_is_rejected_instead_of_becoming_a_wait():
 
 
 @pytest.mark.parametrize(
+    "plan",
+    [{}, {"segments": None}, {"segments": {}}, {"segments": "clip"}, []],
+    ids=["missing", "null", "object", "string", "non-object-plan"],
+)
+def test_plan_segments_must_be_a_list(plan):
+    with pytest.raises(ValueError, match="plan 'segments' must be a list"):
+        at.build_timeline(plan, milestones(a=0.0), video_duration=1.0)
+
+
+def test_every_plan_segment_must_be_an_object():
+    with pytest.raises(ValueError, match="segment 0 must be an object"):
+        at.build_timeline(
+            {"segments": [None]},
+            milestones(a=0.0),
+            video_duration=1.0,
+        )
+
+
+@pytest.mark.parametrize(
     "entry",
     [{"type": "caption"}, {}],
     ids=["unknown", "missing"],
@@ -123,6 +142,31 @@ def test_an_unknown_or_missing_segment_type_has_a_clear_error(entry):
     ):
         at.build_timeline(
             {"segments": [entry]},
+            milestones(a=0.0),
+            video_duration=1.0,
+        )
+
+
+@pytest.mark.parametrize(
+    "card",
+    [
+        {"type": "card"},
+        {"type": "card", "duration": 0.0},
+        {"type": "card", "duration": -1.0},
+        {"type": "card", "duration": True},
+        {"type": "card", "duration": "3"},
+        {"type": "card", "duration": float("nan")},
+        {"type": "card", "duration": float("inf")},
+    ],
+    ids=["missing", "zero", "negative", "boolean", "string", "nan", "infinity"],
+)
+def test_card_duration_must_be_a_positive_finite_number(card):
+    with pytest.raises(
+        ValueError,
+        match="segment 0: card 'duration' must be a positive finite number",
+    ):
+        at.build_timeline(
+            {"segments": [card]},
             milestones(a=0.0),
             video_duration=1.0,
         )

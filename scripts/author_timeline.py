@@ -129,10 +129,15 @@ def build_timeline(
     video_duration: float,
 ) -> dict[str, Any]:
     """Turn a plan plus measured milestones into a renderable timeline."""
+    declared_segments = plan.get("segments") if isinstance(plan, dict) else None
+    if not isinstance(declared_segments, list):
+        raise ValueError("plan 'segments' must be a list")
     marks = marks_by_label(milestones)
     offset = recording_offset(milestones, video_duration)
     segments: list[dict[str, Any]] = []
-    for index, entry in enumerate(plan["segments"]):
+    for index, entry in enumerate(declared_segments):
+        if not isinstance(entry, dict):
+            raise ValueError(f"segment {index} must be an object")
         segment_type = entry.get("type")
         if segment_type not in {"card", "clip"}:
             raise ValueError(
@@ -140,6 +145,17 @@ def build_timeline(
                 f"got {segment_type!r}"
             )
         if segment_type == "card":
+            duration = entry.get("duration")
+            if (
+                isinstance(duration, bool)
+                or not isinstance(duration, (int, float))
+                or not math.isfinite(duration)
+                or duration <= 0
+            ):
+                raise ValueError(
+                    f"segment {index}: card 'duration' must be a positive "
+                    "finite number"
+                )
             segments.append({k: v for k, v in entry.items()})
             continue
         missing_boundaries = [key for key in ("from", "to") if key not in entry]
