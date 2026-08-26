@@ -42,7 +42,9 @@ outcome.
 - Machine or service interruptions are recorded separately from model
   behavior. The roadmap defines no fixed allowance. Recovery belongs in
   harness code and tests.
-- Retained conversation history is the current context baseline. The value of
+- Every prior user instruction in the session is the current context baseline.
+  Raw model replies are represented through query, verified-example, and
+  failure records rather than replayed as trusted text. The value of
   separate session guidance remains a research question, and Phase 1 requires
   no Pin interface.
 - Exact revisions, test totals, pull-request state, operational history, and
@@ -218,7 +220,7 @@ separate guidance control is useful.
 
 Acceptance:
 
-- evidence shows the current instruction, retained history, failure
+- evidence shows the current instruction, every prior user instruction, failure
   information, verified examples, and any explicit guidance actually supplied
   to every model call;
 - every eligible item is supplied; a request that does not fit the selected
@@ -231,9 +233,9 @@ Acceptance:
 - validator findings stay with those examples but do not veto their use;
 - existing application-programming-interface guidance may remain available for
   experiments, but no composer or Pin control is required;
-- separate nearby research cases compare retained history, explicit guidance,
-  and durable catalog or example knowledge before a user-facing design is
-  proposed;
+- separate nearby research cases compare retained user-instruction history,
+  explicit guidance, and durable catalog or example knowledge before a
+  user-facing design is proposed;
 - general reusable rules are evaluated as durable metadata or examples rather
   than assumed to belong in a session pin.
 

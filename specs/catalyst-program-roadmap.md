@@ -21,7 +21,7 @@ evidence. They are not copied into this roadmap.
 
 | Phase | Product outcome | Completion rule |
 | --- | --- | --- |
-| **P1 — Session context** | The writer uses the same readable data surface as the human editor and can use the current instruction, relevant retained conversation history, relevant failure information, and verified examples. Separate session guidance remains an experiment, not a required interface. | The session-context behavior works through the real Catalyst path, and the planned three-team comparison is completed and published with complete evidence and rubric-based review. A preference is optional and does not gate Phase 1 or Phase 2. |
+| **P1 — Session context** | The writer uses the same readable data surface as the human editor and can use the current instruction, prior user instructions, relevant failure information, and verified examples. Separate session guidance remains an experiment, not a required interface. | The session-context behavior works through the real Catalyst path, and the planned three-team comparison is completed and published with complete evidence and rubric-based review. A preference is optional and does not gate Phase 1 or Phase 2. |
 | **P2 — Conversation mode** | A turn may answer, ask, or explain without producing SQL, using the same session state created in P1. | Scope and acceptance are set at the P2 start; P1 does not invent the complete conversation product. |
 | **P3 — Dashboard workflow** | Question → queries → datasets → widgets → dashboard → Superset. | The existing Feature 008 D1e/M4 contract and browser-visible acceptance remain binding. |
 
@@ -42,7 +42,7 @@ close a P3 gate.
 | Environments | Local and demonstration catalog identities are recorded separately and do not have to match. |
 | Interpretation | The roadmap defines no pass percentage, automatic disqualifier, ranking formula, tie-break, or required winner. Automated checks establish facts; the reader interprets the full evidence against the rubric. |
 | Collection interruptions | Machine and service interruptions are recorded separately from model behavior. There is no fixed allowance and no model-quality implication. Harness code and tests own collection recovery. |
-| Context | Retained conversation history is the current default. Whether separate session guidance adds useful behavior is an open research question. The first implementation supplies every eligible context item and records the actual per-model request. If that complete request does not fit, it records the capacity rejection rather than silently trimming or ranking context. |
+| Context | Every prior user instruction in the session is the current default. Whether separate session guidance adds useful behavior is an open research question. The first implementation supplies every eligible context item and records the actual per-model request. If that complete request does not fit, it records the capacity rejection rather than silently trimming or ranking context. |
 | Independent visit check | The visit answer must answer the independent visit question without irrelevant carryover; sharing a relation or SQL form with an earlier query is not itself a failure. |
 | Real database proof | Real PostgreSQL proof is required before the live comparison, not on every ordinary pull request. |
 | Repository administration | Branch settings, image publishing, and similar repository operations are not Phase 1 product blockers. |
@@ -83,9 +83,12 @@ returned.
 
 ### 3. Session context and the open guidance question
 
-The writer can receive the current instruction, relevant retained conversation
-history, relevant failure information, and verified examples from the same
-session. Earlier material cannot silently replace the current instruction.
+The writer can receive the current instruction, every prior user instruction,
+relevant failure information, and verified examples from the same session.
+This is what this roadmap means by retained conversation history. Raw model
+replies are not replayed as trusted text; query versions, verified examples,
+and failure records carry the relevant model-side state. Earlier material
+cannot silently replace the current instruction.
 Verified examples come only from earlier kept queries in the same session that
 have an advisory-validation record and executed successfully against the same
 source. Validator findings remain attached to the example but do not veto it.
@@ -100,7 +103,7 @@ history.
 Research on that question is separate from the core three-team comparison. It
 should use nearby scenarios to compare:
 
-1. retained conversation history alone;
+1. retained user-instruction history alone;
 2. explicit session guidance; and
 3. durable catalog metadata or verified examples for reusable knowledge.
 
@@ -245,7 +248,7 @@ older request and turn readers.
 
 ### G4 — honest context and guidance research
 
-Deliver retained conversation history, relevant failure information, and
+Deliver retained user-instruction history, relevant failure information, and
 verified examples with honest inclusion and omission evidence and session
 isolation. Existing explicit-guidance support may remain available for
 experiments, but no Pin interface is a Phase 1 gate. Compare history, explicit
