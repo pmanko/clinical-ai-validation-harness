@@ -108,10 +108,10 @@ def test_primary_destinations_are_first_party_and_prominent():
 def test_catalyst_copy_distinguishes_the_recorded_example_from_its_data_surface():
     html, _ = parsed_landing()
 
-    assert "The demo uses the OpenELIS laboratory database" in html
-    assert "an OpenMRS HIV program database is a second configured example" in html
+    assert "This recording uses the current OpenELIS analytics source" in html
+    assert "an OpenMRS HIV program source is a second configured example" in html
     assert "a deterministic policy keeps database execution read-only" in html
-    assert "any relational source that its database role can read" in html
+    assert "It works against a configured analytics source and catalog" in html
     assert "The two sources shown here" not in html
 
 
