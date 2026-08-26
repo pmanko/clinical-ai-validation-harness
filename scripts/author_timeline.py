@@ -175,8 +175,10 @@ def build_timeline(
             )
         clip: dict[str, Any] = {
             "type": "clip",
-            "start": round(start, 2),
-            "end": round(clipped_end, 2),
+            # Preserve measured cut precision. Rounding each boundary can turn
+            # a valid short span into an invalid zero-length clip.
+            "start": start,
+            "end": clipped_end,
             "speed": round(
                 speed_for(
                     clipped_end - start,

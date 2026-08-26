@@ -293,6 +293,26 @@ def test_a_clipped_wait_uses_only_the_footage_that_will_render():
     assert clip["speed"] == 4.0
 
 
+def test_close_milestones_do_not_collapse_when_authored():
+    plan = {
+        "segments": [
+            {"type": "clip", "from": "a", "to": "b", "kind": "read"}
+        ]
+    }
+    data = milestones(a=1.001, b=1.004)
+
+    timeline = at.build_timeline(
+        plan,
+        data,
+        video_duration=data["testDuration"],
+    )
+
+    clip = timeline["segments"][0]
+    assert clip["start"] == pytest.approx(1.001)
+    assert clip["end"] == pytest.approx(1.004)
+    assert clip["end"] > clip["start"]
+
+
 def test_cards_and_captions_pass_through_untouched():
     plan = {
         "width": 1280,
