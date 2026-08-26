@@ -10,10 +10,11 @@ eyeballing back. This is that missing half.
 Two facts make it more than arithmetic:
 
 * Playwright starts recording at *context creation*, marginally before the
-  test body runs, so video time is milestone time plus a small constant. That
-  constant is recovered from the rendered capture's duration rather than
-  assumed to be zero: the last milestone should land at the end of the video,
-  and whatever is left over is the lead-in.
+  milestone clock starts. The milestone file's `testDuration` covers that
+  clock from its start through `save()`. Subtracting it from the rendered
+  capture duration estimates the constant that translates milestone time to
+  video time; the recording contract saves at the end of the test, so any
+  post-save footage should be negligible.
 * A span between two milestones is either something a viewer must read
   (typing, SQL, a result table) or something they must merely believe is
   happening (a model generating). The plan below labels each span, and the
@@ -32,6 +33,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import subprocess
 from pathlib import Path
 from typing import Any
@@ -62,13 +64,14 @@ def marks_by_label(milestones: dict[str, Any]) -> dict[str, float]:
 
 
 def recording_offset(milestones: dict[str, Any], video_duration: float) -> float:
-    """Seconds of video before the test body's first action.
+    """Estimated seconds between capture start and milestone-clock start.
 
-    The capture starts at context creation and ends after the last milestone
-    plus teardown, so the lead-in is what the video has that the test clock
-    does not. Never negative: a shorter video than test run means the capture
-    was cut short, and shifting backwards would land every cut in the wrong
-    place.
+    `testDuration` spans from the milestone clock's origin through `save()`.
+    The capture starts earlier and is expected to end at the same boundary, so
+    the duration difference estimates the lead-in. Any post-save recorder tail
+    is folded into that estimate. Never return a negative offset: a shorter
+    video means the capture was cut short, and shifting backwards would land
+    every cut in the wrong place.
     """
     test_duration = float(milestones["testDuration"])
     return max(0.0, video_duration - test_duration)
@@ -100,9 +103,22 @@ def speed_for(span_seconds: float, kind: str, target: float | None) -> float:
     seconds of screen time, bounded by MAX_SPEED, and are left alone when
     they are already short.
     """
+    if kind not in {"read", "wait"}:
+        raise ValueError(
+            f"clip 'kind' must be 'read' or 'wait'; got {kind!r}"
+        )
+    if target is not None and (
+        isinstance(target, bool)
+        or not isinstance(target, (int, float))
+        or not math.isfinite(target)
+        or target <= 0
+    ):
+        raise ValueError(
+            "clip 'target_seconds' must be a positive finite number"
+        )
     if kind == "read":
         return 1.0
-    if span_seconds < MIN_COMPRESSIBLE_SECONDS or not target:
+    if span_seconds < MIN_COMPRESSIBLE_SECONDS or target is None:
         return 1.0
     return min(MAX_SPEED, max(1.0, span_seconds / target))
 

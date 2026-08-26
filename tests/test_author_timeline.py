@@ -91,9 +91,67 @@ def test_a_short_wait_is_left_alone():
     assert timeline["segments"][0]["speed"] == 1.0
 
 
+def test_an_unknown_clip_kind_is_rejected_instead_of_becoming_a_wait():
+    plan = {
+        "segments": [
+            {
+                "type": "clip",
+                "from": "a",
+                "to": "b",
+                "kind": "waait",
+                "target_seconds": 2.0,
+            }
+        ]
+    }
+
+    with pytest.raises(
+        ValueError,
+        match="clip 'kind' must be 'read' or 'wait'; got 'waait'",
+    ):
+        at.build_timeline(plan, milestones(a=0.0, b=10.0), video_duration=11.0)
+
+
+@pytest.mark.parametrize(
+    "target",
+    [0.0, -1.0, True, "5", float("nan"), float("inf")],
+    ids=["zero", "negative", "boolean", "string", "nan", "infinity"],
+)
+def test_an_explicit_invalid_wait_target_is_rejected(target):
+    plan = {
+        "segments": [
+            {
+                "type": "clip",
+                "from": "a",
+                "to": "b",
+                "kind": "wait",
+                "target_seconds": target,
+            }
+        ]
+    }
+
+    with pytest.raises(
+        ValueError,
+        match="clip 'target_seconds' must be a positive finite number",
+    ):
+        at.build_timeline(plan, milestones(a=0.0, b=10.0), video_duration=11.0)
+
+
+def test_a_wait_without_a_target_remains_uncompressed():
+    plan = {
+        "segments": [
+            {"type": "clip", "from": "a", "to": "b", "kind": "wait"}
+        ]
+    }
+
+    timeline = at.build_timeline(
+        plan, milestones(a=0.0, b=10.0), video_duration=11.0
+    )
+
+    assert timeline["segments"][0]["speed"] == 1.0
+
+
 def test_cut_points_shift_by_the_recording_lead_in():
-    """Playwright starts recording before the test body runs, so video time is
-    milestone time plus a constant — recovered, not assumed."""
+    """The capture duration minus testDuration estimates the clock offset."""
     plan = {"segments": [{"type": "clip", "from": "a", "to": "b", "kind": "read"}]}
     data = milestones(a=1.0, b=5.0)  # testDuration 6.0
 
