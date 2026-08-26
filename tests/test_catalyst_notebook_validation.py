@@ -4945,6 +4945,34 @@ def test_recovery_ignores_a_wholly_unsigned_interruption_stream(
     assert summary["infrastructureFailures"] == []
 
 
+def test_recovery_names_a_truncated_signed_interruption_stream(
+    tmp_path: Path,
+) -> None:
+    state = _WorkbenchState()
+    state.turn_http_sequence = [503]
+    suite = _adaptive_suite()
+    suite["repetitions"] = 1
+    suite.pop("extendedRepetitions", None)
+    source = _run_against_fake(tmp_path, suite, state)
+    (source.run_dir / "interruptions.jsonl").write_bytes(b"")
+    state.requests.clear()
+
+    with pytest.raises(
+        ValueError,
+        match=(
+            r"recovery interruptions\.jsonl is shorter than its signed prefix"
+        ),
+    ):
+        _run_against_fake(
+            tmp_path,
+            suite,
+            state,
+            resume_from=source.run_dir,
+        )
+
+    assert state.requests == []
+
+
 def test_recovery_accepts_the_matching_checksum_left_between_index_renames(
     tmp_path: Path,
 ) -> None:

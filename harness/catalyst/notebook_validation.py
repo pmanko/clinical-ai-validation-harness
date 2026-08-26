@@ -2488,12 +2488,12 @@ def _validated_evidence_index(run_dir: Path) -> dict[str, dict[str, Any]]:
                     f"recovery evidence is missing or misplaced: {relative}"
                 )
             file_bytes = path.read_bytes()
-            # rows.jsonl is append-only. The signed prefix is authoritative;
-            # any later bytes were not committed as a completed row.
+            # These streams are append-only. The signed prefix is
+            # authoritative; any later bytes were not committed records.
             if relative in {"rows.jsonl", "interruptions.jsonl"}:
                 if len(file_bytes) < byte_count:
                     raise ValueError(
-                        "recovery rows are shorter than their signed prefix"
+                        f"recovery {relative} is shorter than its signed prefix"
                     )
                 signed_bytes = file_bytes[:byte_count]
             else:
