@@ -30,7 +30,8 @@ Spark are not Catalyst product requirements.
 ## Current implementation
 
 The harness currently pins Catalyst revision
-`57c1506622293054cda4fdf8411d8505f7be9f25`. At that revision:
+`75442c2d1d52507b81b524d9f8a480b4a24c0550`, the squash merge of Catalyst
+pull request #78. At that revision:
 
 | Code | Current implementation | Selected implementation |
 | --- | --- | --- |
