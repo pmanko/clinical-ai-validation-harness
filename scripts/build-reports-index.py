@@ -150,6 +150,7 @@ def gather(slug: str) -> dict:
     family = str(meta.get("report_family") or "chartsearchai")
     out: dict = {
         "family": family,
+        "reader_led": False,
         "cells": None,
         "patients": "",
         "date": None,
@@ -160,6 +161,14 @@ def gather(slug: str) -> dict:
     if not rdir:
         return out
     if family == "catalyst":
+        suite_path = rdir / "suite.json"
+        suite = (
+            json.loads(suite_path.read_text(encoding="utf-8"))
+            if suite_path.is_file()
+            else {}
+        )
+        reader_led = suite.get("reportMode") == "reader-led"
+        out["reader_led"] = reader_led
         results = json.loads((rdir / "results.json").read_text(encoding="utf-8"))
         rows = list(results.get("results") or [])
         out["cells"] = int(results.get("resultCount") or len(rows))
@@ -171,6 +180,19 @@ def gather(slug: str) -> dict:
             team = row.get("profileId")
             if isinstance(team, str):
                 teams.setdefault(team, []).append(row)
+        if reader_led:
+            parts = [
+                f"{len(teams)} model teams",
+                f"{len(rows)} conversations",
+                "full-evidence reader review",
+            ]
+            incomplete = sum(
+                row.get("measurementValid") is not True for row in rows
+            )
+            if incomplete:
+                parts.append(f"{incomplete} with incomplete evidence")
+            out["scoreline"] = " · ".join(parts)
+            return out
         if len(teams) > 1:
             # A comparison's headline is how the teams did, not how many
             # gold checks ran across all of them at once.
@@ -417,6 +439,25 @@ def main(
         print(f"warn: {slug} is staged under artifacts/reports/ but NOT in reports-index.json "
               f"(deployed but unlisted) — add it to the manifest to list it.", file=sys.stderr)
     cards = "\n".join(_card(r) for r in runs)
+    run_summaries = [gather(r["slug"]) for r in runs]
+    has_reader_led = any(summary.get("reader_led") for summary in run_summaries)
+    has_other_reports = any(
+        not summary.get("reader_led") for summary in run_summaries
+    )
+    scoring_note = str(manifest.get("scoring_note", ""))
+    if has_reader_led and has_other_reports:
+        scoring_note = (
+            "The numerical explanation below applies only to reports that "
+            "show score tables. Reader-led Catalyst comparisons show database "
+            "facts and prose review without numerical grading. "
+            + scoring_note
+        )
+    elif has_reader_led:
+        scoring_note = (
+            "Reader-led Catalyst comparisons present the database facts, the "
+            "complete conversation evidence, and the attached prose review "
+            "for the reader to assess."
+        )
     html = f"""<!doctype html>
 <html lang="en" data-theme="light">
 <head>
@@ -433,7 +474,7 @@ def main(
     <h1>Clinical AI validation runs</h1>
     <p class="intro">{manifest.get("intro", "")}</p>
   </header>
-  <div class="legend"><b>How to read the scores.</b> {manifest.get("scoring_note", "")}</div>
+  <div class="legend"><b>How to read these reports.</b> {scoring_note}</div>
 {cards}
   <footer class="page">Curated index — edit reports-index.json to change what appears. Hover an AI setup name for its exact model lineup.</footer>
 </div>
@@ -446,7 +487,12 @@ def main(
     print(f"wrote {out} ({len(runs)} curated runs)")
     for r in runs:
         g = gather(r["slug"])
-        print(f"  {r['slug']:38} {len(g['scout'])} setups scored — {r['title']}")
+        detail = (
+            "reader-led comparison"
+            if g.get("reader_led")
+            else f"{len(g['scout'])} setups scored"
+        )
+        print(f"  {r['slug']:38} {detail} — {r['title']}")
 
 
 if __name__ == "__main__":

@@ -124,7 +124,8 @@ def _upsert_manifest(
 ) -> None:
     payload = _load_json(path)
     runs = payload.setdefault("runs", [])
-    if not any(item.get("slug") == slug for item in runs):
+    existing = next((item for item in runs if item.get("slug") == slug), None)
+    if existing is None:
         runs.insert(
             0,
             {
@@ -137,7 +138,13 @@ def _upsert_manifest(
                 "family": family,
             },
         )
-        path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    else:
+        if title:
+            existing["title"] = title
+        existing["summary"] = summary
+        existing["takeaway"] = takeaway
+        existing["family"] = family
+    path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 
 
 def stage_report(
@@ -163,26 +170,30 @@ def stage_report(
     _assert_no_symlinks(run_dir)
     reports_root.mkdir(parents=True, exist_ok=True)
     destination = reports_root / slug
-    destination.mkdir(parents=True, exist_ok=True)
+    temporary = reports_root / f".{slug}.staging"
+    if temporary.exists():
+        shutil.rmtree(temporary)
 
     # Render from a staged copy so dry-run publishing mutates nothing outside
     # REPORTS_ROOT and every report-relative evidence link remains resolvable.
-    shutil.copytree(run_dir, destination, dirs_exist_ok=True, symlinks=True)
+    # Build a clean replacement so files from an older report using the same
+    # slug cannot survive into the new publication.
+    shutil.copytree(run_dir, temporary, symlinks=True)
     if family == "chartsearchai":
         comparison_set = _comparison_set(run_dir)
         family_meta = {"comparison_set": comparison_set}
-        report_args = ["validate", "report", "--run-dir", str(destination)]
+        report_args = ["validate", "report", "--run-dir", str(temporary)]
     else:
         suite_id, suite_sha256 = _catalyst_suite_identity(run_dir)
         family_meta = {"suite_id": suite_id, "suite_sha256": suite_sha256}
-        report_args = ["catalyst", "report", str(destination)]
+        report_args = ["catalyst", "report", str(temporary)]
 
     from harness.cli import main as harness_main
 
     if harness_main(report_args, project_root=root) != 0:
         raise RuntimeError(f"{family} report renderer failed")
-    rendered = destination / "report.html"
-    index_path = destination / "index.html"
+    rendered = temporary / "report.html"
+    index_path = temporary / "index.html"
     rendered.replace(index_path)
     meta = {
         "slug": slug,
@@ -191,9 +202,12 @@ def stage_report(
         **family_meta,
         "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
     }
-    (destination / "meta.json").write_text(
+    (temporary / "meta.json").write_text(
         json.dumps(meta, indent=2) + "\n", encoding="utf-8"
     )
+    if destination.exists():
+        shutil.rmtree(destination)
+    temporary.replace(destination)
     _upsert_manifest(
         manifest_path,
         slug=slug,
@@ -202,7 +216,7 @@ def stage_report(
         takeaway=takeaway,
         family=family,
     )
-    return index_path
+    return destination / "index.html"
 
 
 def main(argv: list[str] | None = None) -> int:
