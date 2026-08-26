@@ -142,6 +142,13 @@ def build_timeline(
         if segment_type == "card":
             segments.append({k: v for k, v in entry.items()})
             continue
+        missing_boundaries = [key for key in ("from", "to") if key not in entry]
+        if missing_boundaries:
+            missing = ", ".join(repr(key) for key in missing_boundaries)
+            raise ValueError(
+                f"segment {index}: clip requires 'from' and 'to'; "
+                f"missing {missing}"
+            )
         start, end = resolve_span(marks, entry["from"], entry["to"], offset)
         kind = entry.get("kind", "read")
         clipped_end = min(end, video_duration)

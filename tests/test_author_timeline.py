@@ -129,6 +129,25 @@ def test_an_unknown_or_missing_segment_type_has_a_clear_error(entry):
 
 
 @pytest.mark.parametrize(
+    ("entry", "missing"),
+    [
+        ({"type": "clip", "to": "b"}, "from"),
+        ({"type": "clip", "from": "a"}, "to"),
+    ],
+)
+def test_a_clip_missing_a_boundary_names_the_segment_and_key(entry, missing):
+    with pytest.raises(
+        ValueError,
+        match=f"segment 0: clip requires 'from' and 'to'; missing '{missing}'",
+    ):
+        at.build_timeline(
+            {"segments": [entry]},
+            milestones(a=0.0, b=1.0),
+            video_duration=2.0,
+        )
+
+
+@pytest.mark.parametrize(
     "target",
     [0.0, -1.0, True, "5", float("nan"), float("inf")],
     ids=["zero", "negative", "boolean", "string", "nan", "infinity"],

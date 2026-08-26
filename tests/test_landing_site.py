@@ -111,7 +111,7 @@ def test_catalyst_copy_distinguishes_the_recorded_example_from_its_data_surface(
     assert "The demo uses the OpenELIS laboratory database" in html
     assert "an OpenMRS HIV program database is a second configured example" in html
     assert "a deterministic policy keeps database execution read-only" in html
-    assert "any relational source its database role can read" in html
+    assert "any relational source that its database role can read" in html
     assert "The two sources shown here" not in html
 
 
