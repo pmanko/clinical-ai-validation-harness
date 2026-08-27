@@ -2,8 +2,8 @@
 --
 -- Layering rule (deliberate): the ingestion layer uses the upstream default
 -- ViewDefinitions essentially verbatim (lossless, one row per resource per
--- coding via forEachOrNull), and ALL curation happens here in SQL, where a
--- mistake costs a CREATE OR REPLACE VIEW instead of a full FHIR re-fetch.
+-- coding via forEachOrNull). The replaceable SQL views below define the
+-- query-facing shape without changing the ingestion projections.
 -- Do not add hand-written ingestion projections; extend these views instead.
 --
 -- Base tables (grain = resource x coding cross products):
@@ -63,8 +63,7 @@ SELECT
     END AS observed_lag_seconds
 FROM analytics.pipeline_run_v1;
 
--- Drop the previous generation (curated ingestion projections and the fact
--- views built on them); superseded by the default-table layering above.
+-- Clear object names used by the views defined below.
 DROP VIEW IF EXISTS analytics.hiv_observation_fact_v1;
 DROP VIEW IF EXISTS analytics.hiv_visit_fact_v1;
 DROP VIEW IF EXISTS analytics.hiv_medication_request_fact_v1;

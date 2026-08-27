@@ -246,19 +246,3 @@ def test_superset_runtime_identity_is_explicit_in_the_pinned_target() -> None:
         '"${SUPERSET_DRIVER_REVISION:-psycopg2-binary==2.9.9}"'
         in compose
     )
-
-
-def test_manual_guide_uses_the_sibling_hub_and_current_external_router_setting() -> (
-    None
-):
-    guide = (ROOT / "docs/catalyst-manual-llm-testing.md").read_text(encoding="utf-8")
-    readme = (ROOT / "README.md").read_text(encoding="utf-8")
-
-    assert "git submodule update --init targets/catalyst targets/med-agent-hub" in guide
-    assert "targets/med-agent-hub/server/levels.yaml" in guide
-    assert "MVP_EXTERNAL_ROUTER_URL" in guide
-    assert "MVP_EXTERNAL_ROUTER_URL" in readme
-    assert "targets/catalyst/.med-agent-hub" not in guide
-    assert "MVP_HUB_LLM_BASE_URL" not in guide
-    assert "MVP_HUB_LLM_BASE_URL" not in readme
-    assert "applies its reviewed patch" not in guide

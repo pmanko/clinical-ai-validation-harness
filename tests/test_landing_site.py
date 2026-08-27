@@ -83,15 +83,12 @@ def test_primary_destinations_are_first_party_and_prominent():
     assert "OpenMRS demo" in html
     assert "Evaluation reports" in html
 
-    # Catalyst is a first-class product section: laboratory + HIV program
-    # demos, the published acceptance run, and the project documentation.
+    # Catalyst is a first-class product section with the full product-flow
+    # recording and project documentation. Superseded reports are not linked.
     assert "Catalyst" in html
     assert "OpenELIS" in html
     assert "HIV" in html
-    assert (
-        "https://reports.openclinai.org/catalyst-notebook-t094-2026-07-22/"
-        in page.links
-    )
+    assert "https://reports.openclinai.org/catalyst-notebook-t094-2026-07-22/" not in page.links
     assert any(
         link.startswith("https://pmanko.github.io/clinical-ai-validation-harness/")
         for link in page.links
@@ -105,14 +102,35 @@ def test_primary_destinations_are_first_party_and_prominent():
     assert {"openmrs.openclinai.org", "reports.openclinai.org"} <= first_party_hosts
 
 
+def test_catalyst_copy_states_the_current_product_and_open_reference_work():
+    html, _ = parsed_landing()
+
+    assert "selected Catalyst contract" in html
+    assert "configured SQL source" in html
+    assert "complete readable schema" in html
+    assert "generic connection and Spark reference deployment are not yet implemented or accepted" in html
+    assert "recording demonstrates the existing conversation" in html
+    for obsolete in (
+        "Acceptance of the corrected Spark reference deployment remains open",
+        "generated catalog",
+        "independently authored gold queries",
+        "384 assertions",
+        "real models and PostgreSQL",
+    ):
+        assert obsolete not in html
+
+
 MEDIA_HOST = "https://catalyst.openelis-global.org/media/"
 
 
 def test_every_local_media_reference_exists_and_has_accessible_context():
     html, page = parsed_landing()
 
-    assert len(page.videos) == 4
-    assert len(page.sources) == 4
+    # Three recordings: the two ChartSearchAI sessions and Catalyst's single
+    # full-scenario cut (question -> checked SQL -> Datasets/Widgets ->
+    # published Superset dashboard), which replaced the two short clips.
+    assert len(page.videos) == 3
+    assert len(page.sources) == 3
     assert len(page.images) >= 3
     assert "1:45 · silent recording at 2× speed" in html
 

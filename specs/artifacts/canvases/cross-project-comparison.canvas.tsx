@@ -1,5 +1,3 @@
-// Historical artifact snapshot. Current architecture is documented by the hub consolidation
-// roadmap and its status amendments.
 import {
   Callout,
   Card,
@@ -45,15 +43,15 @@ const projectStages = {
     output: 'Multi-turn role-conditioned message',
   },
   catalyst: {
-    name: 'Catalyst (OpenELIS)',
-    badge: 'OpenELIS / Lab',
-    user: 'Lab tech or clinician',
-    entry: 'catalyst-gateway (A2A router)',
-    context: 'catalyst-mcp serves allowlisted schema (no PHI tables by default)',
-    retrieve: 'Schema RAG via MCP; read-only DB user; no PHI in context',
-    generate: 'catalyst-agents calling LM Studio or Gemini through provider abstraction',
-    execute: 'User reviews SQL; OE backend executes under RBAC + audit',
-    output: 'Generated SQL plus result rows from OE backend',
+    name: 'Catalyst',
+    badge: 'Selected target · implementation open',
+    user: 'Analyst or clinician',
+    entry: 'Catalyst browser -> Gateway',
+    context: 'Explicit dialect + complete connection-readable schema',
+    retrieve: 'Live schema discovery; optional descriptions do not filter it',
+    generate: 'Selected model team through med-agent-hub',
+    execute: 'User selects exact SQL; configured source enforces access',
+    output: 'Bounded typed rows or the database error',
   },
 };
 
@@ -220,18 +218,18 @@ function wrapToLines(text: string, maxChars: number): string[] {
 }
 
 const dimensionRows = [
-  ['Repository', 'github.com/openmrs/openmrs-module-chartsearchai', 'github.com/anichiti/openmrs_chatbot', 'github.com/DIGI-UW/OpenELIS-Global-2 · projects/catalyst'],
-  ['Language / runtime', 'Java 11+ inside OpenMRS Platform 2.8', 'Python (Flask/Django-style)', 'Python multi-service (uv + honcho)'],
-  ['Spec / status', 'Live demo at chartsearchai.openmrs.org; 485-case eval', 'Setup + workflow-trace docs only; no public eval', 'OGC-070 spec; M0.0 foundation in 3.2.1.3 release'],
-  ['Domain', 'Patient chart natural-language QA', 'Patient/doctor chat over OpenMRS data', 'NL-to-SQL lab data assistant'],
-  ['User type', 'Clinician at point of care', 'Patient or doctor (different UIs)', 'Lab tech or clinician'],
-  ['Architecture pattern', 'Embedded EMR module + ESM frontend', 'Multi-UI chatbot with agent teams', 'Gateway -> Agents -> MCP (A2A router)'],
-  ['Retrieval mode', 'Embedding + BM25 + RRF over serialized chart records', 'Conversational orchestration over OpenMRS data', 'MCP-served allowlisted schema (read-only DB user)'],
-  ['Generation surface', 'Structured JSON answer + record citations', 'Multi-turn role-conditioned chat reply', 'Generated SQL + result rows; user-reviewed before execution'],
-  ['Provider/LLM', 'Embedded llama-server (default Gemma 4 E4B) or LM Studio remote (MedGemma 1.5 4B / Gemma 4 26B MoE)', 'Provider unspecified in public docs', 'LM Studio or Gemini via provider abstraction'],
-  ['Indexing/data sync', 'AOP advice today; events in querystore migration', 'Implementation-defined', 'No write path; schema introspection at MCP boundary'],
-  ['Privacy stance', 'PHI handled inside OpenMRS module boundary; PromptInjectionEvalTest', 'Patient/doctor role isolation in UI', 'Default allowlist excludes PHI tables; RBAC at execution'],
-  ['Validation today', '485 enriched retrieval, citation, absent-data, prompt injection; 153 querystore retrieval', 'Iterative manual eval implied by debug docs', 'Provider/multi-agent E2E smoke scripts'],
+  ['Repository', 'github.com/openmrs/openmrs-module-chartsearchai', 'github.com/anichiti/openmrs_chatbot', 'github.com/DIGI-UW/openelis-catalyst'],
+  ['Language / runtime', 'Java 11+ inside OpenMRS Platform 2.8', 'Python (Flask/Django-style)', 'React workbench + Python Gateway + med-agent-hub'],
+  ['Spec / status', 'Live demo at chartsearchai.openmrs.org; 485-case eval', 'Setup + workflow-trace docs only; no public eval', 'Feature 008 generic connection, Spark reference path, and comparison open'],
+  ['Domain', 'Patient chart natural-language QA', 'Patient/doctor chat over OpenMRS data', 'Natural-language-to-SQL analysis and dashboards'],
+  ['User type', 'Clinician at point of care', 'Patient or doctor (different UIs)', 'Analyst or clinician'],
+  ['Architecture pattern', 'Embedded EMR module + ESM frontend', 'Multi-UI chatbot with agent teams', 'Browser -> Gateway -> med-agent-hub + configured SQL source'],
+  ['Retrieval mode', 'Embedding + BM25 + RRF over serialized chart records', 'Conversational orchestration over OpenMRS data', 'No separate retrieval layer; live complete readable schema is supplied directly'],
+  ['Generation surface', 'Structured JSON answer + record citations', 'Multi-turn role-conditioned chat reply', 'SQL, clarification, or unsupported response; execution remains explicit'],
+  ['Provider/LLM', 'Embedded llama-server (default Gemma 4 E4B) or LM Studio remote (MedGemma 1.5 4B / Gemma 4 26B MoE)', 'Provider unspecified in public docs', 'Selected med-agent-hub profile with resolved models recorded'],
+  ['Indexing/data sync', 'AOP advice today; events in querystore migration', 'Implementation-defined', 'External deployment owns ingestion; Catalyst discovers the source-readable schema'],
+  ['Privacy stance', 'PHI handled inside OpenMRS module boundary; PromptInjectionEvalTest', 'Patient/doctor role isolation in UI', 'Source/deployment access boundary; current work uses non-sensitive demo data'],
+  ['Validation today', '485 enriched retrieval, citation, absent-data, prompt injection; 153 querystore retrieval', 'Iterative manual eval implied by debug docs', 'One suite per selected team and one full-context reader after generic-connection implementation'],
 ];
 
 const riskRows = [
@@ -246,58 +244,58 @@ const riskRows = [
     'PHI exposure',
     'OpenMRS module boundary; local llama-server keeps prompts on box',
     'Role isolation in UI; full surface unclear',
-    'Allowlist + read-only DB user + RBAC at execution',
+    'Selected demo uses non-sensitive data; source and deployment controls define access',
     'Wiki: clinical data must not be sent to outside SaaS; expect local LLM hosting',
   ],
   [
     'Prompt injection',
     'PromptInjectionEvalTest (33 cases); structured JSON output',
     'Needs definition',
-    'SQL validation + allowlist + read-only user',
+    'Advisory findings remain visible; read-only access and query bounds are enforced at the connection',
     'Indirect injection via record text and lab notes is the cross-project gap',
   ],
   [
     'Schema / metadata drift',
     'Embeddings re-indexed; per-resource serializers',
     'Implementation-defined',
-    'Allowlist invalidation if MCP sees unexpected tables',
+    'Live discovery reflects every object readable through the configured connection',
     'Each project needs a periodic drift check, not just one-time setup',
   ],
   [
     'Provider drift',
     'Model id + file hash captured per eval run',
     'Unclear',
-    'Provider abstraction (LM Studio vs Gemini) is first-class',
+    'Resolved model-team configuration is fixed and recorded for one comparison batch',
     'Capture provider/model/version in run-manifest across all three',
   ],
   [
     'Network / latency',
     'Embedded llama-server stops idle after 30 minutes',
     'Unknown',
-    'Provider switch can move between local and cloud',
+    'Model and source interruptions are recorded separately from model behavior',
     'Resource-poor sites are the design baseline (chart-search wiki)',
   ],
 ];
 
 const providerRows = [
-  ['Default local LLM', 'Embedded llama-server (Gemma 4 E4B)', 'Unspecified in public docs', 'LM Studio (OpenAI-compat)'],
-  ['Production-recommended', 'Gemma 4 26B MoE', '—', 'LM Studio or Gemini per env'],
-  ['Reference healthcare model', 'MedGemma 1.5 4B', '—', 'Same MedGemma path possible via provider abstraction'],
-  ['Embedding models', 'all-MiniLM-L6-v2 (default), MedCPT', 'Unspecified', 'Schema RAG via MCP; embedding choice scoped to MCP'],
-  ['Endpoint pattern', 'http://localhost:18085/v1/chat/completions (local) or LM Studio remote', 'Unknown', 'http://localhost:1234 (LM Studio) or Gemini API'],
-  ['Provider switch contract', 'Global Property: chartsearchai.llm.engine + remote endpoint', 'Unknown', 'Env var: CATALYST_LLM_PROVIDER=lmstudio|gemini'],
+  ['Default local LLM', 'Embedded llama-server (Gemma 4 E4B)', 'Unspecified in public docs', 'Selected Phase 1 profile through med-agent-hub'],
+  ['Production-recommended', 'Gemma 4 26B MoE', '—', 'No production recommendation in Phase 1'],
+  ['Reference healthcare model', 'MedGemma 1.5 4B', '—', 'No required healthcare-specific model'],
+  ['Embedding models', 'all-MiniLM-L6-v2 (default), MedCPT', 'Unspecified', 'None in Catalyst core; the readable schema is supplied directly'],
+  ['Endpoint pattern', 'http://localhost:18085/v1/chat/completions (local) or LM Studio remote', 'Unknown', 'Gateway calls the selected med-agent-hub profile'],
+  ['Provider switch contract', 'Global Property: chartsearchai.llm.engine + remote endpoint', 'Unknown', 'Profile, models, prompts, and settings are resolved and recorded'],
 ];
 
 const validationCoverageRows = [
-  ['Test-data fidelity', 'Planned (large demo-data 2.8 remap)', 'Implementation-defined', 'Schema allowlist + dev DB; no PHI in retrieval context'],
-  ['Retrieval QA', 'Yes (485 enriched cases, 153 querystore)', 'Implied (response coverage)', 'Schema-RAG QA against allowlist'],
-  ['NL-to-SQL QA', 'Not applicable', 'Not applicable', 'Yes (primary surface; provider/multi-agent E2E)'],
-  ['Agent-team trace QA', 'Not applicable', 'Yes (workflow trace docs)', 'Yes (multi-agent E2E sign-off)'],
-  ['Citation / grounding', 'Yes (record-level citations)', 'Needs definition', 'Result-row attribution to executed SQL'],
-  ['Abstention / empty answer', 'Yes (AbsentDataEvalTest)', 'Needs definition', 'No-result handling; allowlist refusal'],
-  ['Prompt injection / safety', 'Yes (PromptInjectionEvalTest)', 'Needs definition', 'Allowlist + SQL validation + read-only user'],
-  ['Clinician/expert review', 'Planned (validation roadmap P6)', 'Implied (debug docs)', 'Lab-tech review on generated SQL'],
-  ['Governance metadata', 'Planned (run-manifest from spine)', 'Limited', 'Provider/version pinning, env templates'],
+  ['Test-data fidelity', 'Planned (large demo-data 2.8 remap)', 'Implementation-defined', 'Retained non-sensitive demo data through FHIR Data Pipes -> Parquet -> Spark'],
+  ['Retrieval QA', 'Yes (485 enriched cases, 153 querystore)', 'Implied (response coverage)', 'Not applicable; model and editor receive the complete readable schema'],
+  ['NL-to-SQL QA', 'Not applicable', 'Not applicable', 'Static design-time reference plus exact selected SQL executed once'],
+  ['Agent-team trace QA', 'Not applicable', 'Yes (workflow trace docs)', 'Actual model context and resolved team configuration are recorded'],
+  ['Citation / grounding', 'Yes (record-level citations)', 'Needs definition', 'Reader compares rows or database error with the static reference and rubric'],
+  ['Abstention / empty answer', 'Yes (AbsentDataEvalTest)', 'Needs definition', 'Ready, needs clarification, and unsupported are retained as distinct outcomes'],
+  ['Prompt injection / safety', 'Yes (PromptInjectionEvalTest)', 'Needs definition', 'Configured connection access plus time and returned-row limits'],
+  ['Clinician/expert review', 'Planned (validation roadmap P6)', 'Implied (debug docs)', 'One full-context reader pass followed by owner review'],
+  ['Governance metadata', 'Planned (run-manifest from spine)', 'Limited', 'Source, dialect, schema, models, prompts, query, and result provenance'],
 ];
 
 const decisionRows = [
@@ -305,9 +303,9 @@ const decisionRows = [
   ['Multi-turn conversational over EMR', 'Out of scope', 'Best fit', 'Out of scope'],
   ['Natural-language query over a tabular system', 'Out of scope', 'Possible', 'Best fit'],
   ['Embedded inside OpenMRS distribution', 'Best fit', 'Out of scope', 'Out of scope'],
-  ['Provider-portable (local + cloud LLM)', 'Partial (local + OpenAI-compat)', 'Unknown', 'Best fit (LM Studio + Gemini)'],
+  ['Provider-portable (local + cloud LLM)', 'Partial (local + OpenAI-compat)', 'Unknown', 'Possible through configured med-agent-hub profiles'],
   ['Read-only schema-grounded NL-to-SQL', 'Out of scope', 'Out of scope', 'Best fit'],
-  ['Strict no-PHI-in-LLM-context', 'Partial (chart text in context)', 'Implementation-defined', 'Best fit (allowlist excludes PHI tables)'],
+  ['Strict no-PHI-in-LLM-context', 'Partial (chart text in context)', 'Implementation-defined', 'Not a product guarantee; the reference deployment uses non-sensitive demo data'],
   ['Operates on resource-poor networks', 'Best fit (embedded LLM)', 'Unknown', 'Possible (depends on provider)'],
 ];
 
@@ -322,7 +320,7 @@ const lessonsRows = [
     'Retrieval is the bottleneck, not generation',
     'Large medical RAG eval found only 22% of top-16 passages relevant; evidence selection precision 41-43%, recall 27-49%.',
     '2025 arXiv:2511.06738 (Rethinking RAG for Medicine)',
-    'All three projects need stage-aware retrieval metrics. End-to-end accuracy hides where the actual failure lives.',
+    'Retrieval-based projects need stage-aware retrieval metrics. Catalyst instead needs complete schema context, exact execution evidence, and reader review.',
   ],
   [
     'Optimization Paradox',
@@ -334,19 +332,19 @@ const lessonsRows = [
     'Multi-agent is task-specific, not universal',
     'Multi-agent helps clinical workflow automation, but textual MQA and EHR-prediction often do as well or better with single LLMs or specialized methods.',
     '2026 npj AI review',
-    'openmrs_chatbot and Catalyst should justify multi-agent empirically per task type, not by default.',
+    'openmrs_chatbot should justify multi-agent per task type; Catalyst compares complete team setups without claiming causal isolation.',
   ],
   [
-    'NL-to-SQL needs Pass^N, not just Pass@N',
+    'Repeated trials can expose model variability',
     'EHR-ChatQA agents reach Pass@5 over 90% but Pass^5 (all 5 trials succeed) drops by up to 60 percentage points.',
     '2025 arXiv:2509.23415 (EHR-ChatQA)',
-    'Catalyst eval must include strict Pass^N consistency. Safety-critical NL-to-SQL needs the strict version.',
+    'Useful follow-up research, but Catalyst Phase 1 runs each selected team once and imposes no consistency threshold.',
   ],
   [
     'Silent provider-switch drift',
     'Single model handoff mid-conversation moves accuracy by -8 to +13 percentage points; about 70% of variance is captured by per-model prefix-influence + suffix-susceptibility.',
     '2026 arXiv (silent performance drift)',
-    'Catalyst\'s LM Studio + Gemini abstraction needs explicit handoff drift tests; otherwise provider portability becomes a regression surface.',
+    'Catalyst keeps resolved profiles fixed within a comparison batch; provider-handoff research remains separate.',
   ],
   [
     'Indirect injection is architectural',
@@ -376,10 +374,10 @@ const futureProofActions = {
     'Define a role-aware abstention contract (patient vs doctor) with separate empty-answer expectations per role.',
   ],
   catalyst: [
-    'Add Pass^N consistency to provider/multi-agent E2E, not just Pass@N.',
-    'Add provider-handoff drift tests when switching LM Studio and Gemini; capture prefix-influence vs suffix-susceptibility per model.',
-    'Spotlight schema context vs user input inside MCP responses to shrink the indirect-injection surface from poisoned schema docs.',
-    'Adopt CLINSQL-style execution-grounded scoring on a synthetic non-PHI schema before any production scoring on real OpenELIS data.',
+    'Implement the generic source, explicit dialect, and complete readable schema.',
+    'Prove the FHIR Data Pipes -> Parquet -> Spark reference deployment through Catalyst and Superset.',
+    'Run one complete suite for each selected team and retain the full conversation, context, SQL, rows or error, static reference, rubric, and provenance.',
+    'Use one full-context reader without automatic scoring, ranking, disqualification, or winner selection.',
   ],
 };
 
@@ -590,9 +588,9 @@ const sourceLinks = [
     'Comparator for conversational, role-aware clinical chat.',
   ],
   [
-    <Link href="https://github.com/DIGI-UW/OpenELIS-Global-2/tree/develop/projects/catalyst">OpenELIS Catalyst</Link>,
-    'Multi-service Python (catalyst-gateway / catalyst-agents / catalyst-mcp); OGC-070 spec; M0.0 foundation in release 3.2.1.3.',
-    'Comparator for NL-to-SQL with allowlisted schema RAG and RBAC-gated execution.',
+    <Link href="https://github.com/DIGI-UW/openelis-catalyst">Catalyst</Link>,
+    'Catalyst source and reference-deployment packaging; the Feature 008 product boundary is a generic SQL-connected workbench.',
+    'Comparator for question-to-SQL review with an explicit dialect, complete readable schema, and exact execution.',
   ],
   [
     <Link href="https://github.com/Google-Health/medgemma/blob/main/notebooks/ehr_navigator_agent.ipynb">Google MedGemma EHR Navigator</Link>,
@@ -622,7 +620,7 @@ const sourceLinks = [
   [
     <Link href="https://arxiv.org/html/2603.03541v1">RAG-X (arXiv 2026)</Link>,
     'Diagnostic framework for medical RAG; 14% gap between perceived success and evidence-based grounding.',
-    'Adopt diagnostic-style decomposition for retrieval failures across all three projects.',
+    'Adopt diagnostic-style decomposition where a project actually has a retrieval stage; do not invent one for Catalyst.',
   ],
   [
     <Link href="https://arxiv.org/abs/2506.06574">The Optimization Paradox in Clinical AI Multi-Agent Systems (arXiv 2026)</Link>,
@@ -632,7 +630,7 @@ const sourceLinks = [
   [
     <Link href="http://www.nature.com/articles/s44401-026-00077-0">Orchestrated multi-agents sustain accuracy under workload (npj Health Systems 2026)</Link>,
     'Multi-agent: 90.6% → 65.3% at 80 tasks vs single-agent 73.1% → 16.6%. Up to 65× fewer tokens.',
-    'Argues for multi-agent in workload-heavy regimes; relevant for Catalyst and openmrs_chatbot.',
+    'Useful research context for both projects, not a Catalyst Phase 1 acceptance gate.',
   ],
   [
     <Link href="http://www.nature.com/articles/s44387-026-00076-4">AI agent in healthcare: applications, evaluations, future directions (npj AI 2026)</Link>,
@@ -642,12 +640,12 @@ const sourceLinks = [
   [
     <Link href="https://arxiv.org/abs/2509.23415v2">EHR-ChatQA (arXiv 2025)</Link>,
     'NL-to-SQL agents reach Pass@5 over 90% but Pass^5 drops by up to 60 percentage points.',
-    'Catalyst eval should adopt strict Pass^N consistency, not only Pass@N.',
+    'Motivates optional variability research; it does not set Catalyst Phase 1 run counts or thresholds.',
   ],
   [
     <Link href="https://arxiv.org/abs/2601.09876">CLINSQL (arXiv 2026)</Link>,
     '633 expert-annotated tasks on MIMIC-IV v3.1. GPT-5-mini 74.7% execution, Gemini 2.5-Pro drops 85.5% → 67.2% on hard.',
-    'Reusable benchmark shape for Catalyst once it has a non-PHI synthetic schema.',
+    'Useful external research shape, not an automatic Catalyst scoring gate.',
   ],
   [
     <Link href="https://arxiv.org/html/2605.02240v1">PhysicianBench (arXiv 2026)</Link>,
@@ -657,7 +655,7 @@ const sourceLinks = [
   [
     <Link href="https://arxiv.org/abs/2602.16747v1">LiveClin (arXiv 2026)</Link>,
     'Live clinical benchmark refreshed biannually; resists training-data contamination.',
-    'Plan benchmark refresh cadence; supplement static golden baselines.',
+    'Plan benchmark refresh cadence; supplement static reference sets.',
   ],
   [
     <Link href="https://zylos.ai/research/2026-04-12-indirect-prompt-injection-defenses-agents-untrusted-content">Indirect Prompt Injection: 2026 SOTA (Zylos)</Link>,
@@ -699,7 +697,7 @@ export default function CrossProjectComparison() {
         <Text tone="secondary">
           Three early-prototype clinical-AI explorations compared against each other and against current research SOTA:
           chartsearchai (embedded EMR chart QA, MVP-tier), openmrs_chatbot (parallel multi-agent OpenMRS chatbot, POC-tier),
-          and OpenELIS Catalyst (NL-to-SQL lab assistant, POC moving toward MVP). Comparative synthesis, not a buying guide.
+          and Catalyst (generic SQL workbench with its Phase 1 implementation and comparison open). Comparative synthesis, not a buying guide.
         </Text>
         <Row gap={8} wrap>
           <Pill tone="info" active>Early prototypes</Pill>
@@ -707,7 +705,7 @@ export default function CrossProjectComparison() {
           <Pill tone="info" active>Conversational chat</Pill>
           <Pill tone="info" active>NL-to-SQL</Pill>
           <Pill tone="info" active>Agent teams</Pill>
-          <Pill tone="info" active>Schema RAG</Pill>
+          <Pill tone="info" active>Readable schema context</Pill>
           <Pill tone="warning" active>Mid-2026 SOTA</Pill>
         </Row>
       </Stack>
@@ -716,19 +714,19 @@ export default function CrossProjectComparison() {
         <Stat value="3" label="Early-prototype approaches" tone="info" />
         <Stat value="7" label="Architecture stages compared" tone="info" />
         <Stat value="9" label="Shared validation primitives" tone="success" />
-        <Stat value="2 of 3" label="Projects below MVP tier" tone="warning" />
+        <Stat value="3" label="Distinct prototype scopes" tone="warning" />
       </Grid>
 
       <Callout tone="warning" title="How to read these tables">
         These are <Text weight="semibold">early prototypes exploring different architectures</Text>, not mature products being
-        compared head-to-head. Every "Best fit", "Yes", or "Today" cell describes the prototype's current exploration, not a
-        deployable capability.
+        compared head-to-head. The Catalyst architecture and validation columns are labelled as the selected target because
+        its generic connection and Spark deployment are not yet implemented.
       </Callout>
 
       <Callout tone="info" title="Working hypothesis">
         The chartsearchai validation spine — per-case JSONL trace plus a run-manifest pinning provider, model, dataset, and
-        prompt version — should be portable to openmrs_chatbot and Catalyst. NL-to-SQL grading and agent-trace grading become
-        additional grade-gate types layered on the same record shape, not separate harnesses.
+        prompt version — should be portable to openmrs_chatbot and Catalyst. Catalyst will use the shared record shape to assemble
+        a full-context reader packet; automated checks establish collection and contract facts rather than a score.
       </Callout>
 
       <H2>Prototype Snapshots</H2>
@@ -767,16 +765,16 @@ export default function CrossProjectComparison() {
           </CardBody>
         </Card>
         <Card>
-          <CardHeader trailing={<Pill size="sm" tone="info" active>POC → MVP</Pill>}>
-            Catalyst · NL-to-SQL lab
+          <CardHeader trailing={<Pill size="sm" tone="warning" active>Implementation open</Pill>}>
+            Catalyst · generic SQL workbench
           </CardHeader>
           <CardBody>
             <Stack gap={8}>
-              <Text tone="secondary" size="small"><Link href="https://github.com/DIGI-UW/OpenELIS-Global-2/tree/develop/projects/catalyst">OpenELIS-Global-2 · projects/catalyst</Link></Text>
-              <Text><Text weight="semibold">Exploring:</Text> can a multi-service A2A Router → Agent → MCP architecture deliver schema-grounded NL-to-SQL with provider portability and RBAC-gated execution.</Text>
-              <Text><Text weight="semibold">Built today:</Text> OGC-070 spec; M0.0 foundation in release 3.2.1.3; provider and multi-agent E2E smoke; allowlist + RBAC by design.</Text>
-              <Text><Text weight="semibold">Out of scope at this tier:</Text> production scoring; CHER tracking; provider-handoff drift testing; CLINSQL-shaped execution-grounded eval.</Text>
-              <Text tone="secondary"><Text weight="semibold">Next watch:</Text> Pass^N consistency; MCP spotlighting; shared spine schema with chartsearchai.</Text>
+              <Text tone="secondary" size="small"><Link href="https://github.com/DIGI-UW/openelis-catalyst">github.com/DIGI-UW/openelis-catalyst</Link></Text>
+              <Text><Text weight="semibold">Exploring:</Text> can a person turn a question into reviewable SQL against any configured source, inspect rows or its database error, and carry a successful query into a dashboard.</Text>
+              <Text><Text weight="semibold">Built today:</Text> conversation, notebook, immutable query versions, explicit Run, results, and the Dashboard Builder base; the generic connection is open.</Text>
+              <Text><Text weight="semibold">Selected reference deployment:</Text> FHIR Data Pipes → Parquet → Spark SQL, with Catalyst and Superset as SQL clients; not yet implemented.</Text>
+              <Text tone="secondary"><Text weight="semibold">Next:</Text> implement the generic source and complete-schema behavior, run one suite per selected team, and publish one full-context reader report before Phase 2 and Phase 3.</Text>
             </Stack>
           </CardBody>
         </Card>
@@ -797,7 +795,7 @@ export default function CrossProjectComparison() {
 
       <H2>Dimensional Comparison</H2>
       <Table
-        headers={['Dimension', 'chartsearchai', 'openmrs_chatbot', 'Catalyst']}
+        headers={['Dimension', 'chartsearchai', 'openmrs_chatbot', 'Catalyst selected target']}
         rows={dimensionRows}
         striped
       />
@@ -805,10 +803,10 @@ export default function CrossProjectComparison() {
       <H2>Provider &amp; Model Surface</H2>
       <Text tone="secondary">
         Different provider strategies translate directly to different validation needs. chartsearchai pins a model file hash;
-        Catalyst pins a provider name plus model id; openmrs_chatbot has not yet declared a contract.
+        Catalyst resolves and records a complete model-team profile for a comparison batch; openmrs_chatbot has not yet declared a contract.
       </Text>
       <Table
-        headers={['Concern', 'chartsearchai', 'openmrs_chatbot', 'Catalyst']}
+        headers={['Concern', 'chartsearchai', 'openmrs_chatbot', 'Catalyst Phase 1 contract']}
         rows={providerRows}
         striped
       />
@@ -818,10 +816,10 @@ export default function CrossProjectComparison() {
       <H2>Risk Taxonomy Across Projects</H2>
       <Text tone="secondary">
         Risks framed by the OpenMRS Chart Search wiki — hallucination, PHI, and prompt injection in particular — apply to all three
-        projects. Each row shows how the risk surfaces and what the project does about it today.
+        projects. The chartsearchai and openmrs_chatbot cells describe current state; the Catalyst column states selected target behavior.
       </Text>
       <Table
-        headers={['Risk', 'chartsearchai', 'openmrs_chatbot', 'Catalyst', 'Cross-project note']}
+        headers={['Risk', 'chartsearchai', 'openmrs_chatbot', 'Catalyst selected target', 'Cross-project note']}
         rows={riskRows}
         striped
       />
@@ -845,7 +843,7 @@ export default function CrossProjectComparison() {
             <Stack gap={8}>
               <Text><Text weight="semibold">For chartsearchai:</Text> reconstruct every answer from model, prompt, retrieval records, citations, and eval labels.</Text>
               <Text><Text weight="semibold">For openmrs_chatbot:</Text> turn workflow traces into comparable agent-run records instead of free-form debugging logs.</Text>
-              <Text><Text weight="semibold">For Catalyst:</Text> align A2A router, agent, MCP, SQL preview, and execution events under one trace shape.</Text>
+              <Text><Text weight="semibold">For Catalyst:</Text> align session, turn, actual model context, query version, execution, and reader evidence under one trace shape.</Text>
               <Text tone="secondary">This is the practical version of "teach why": the constitution guides behavior; the metadata store proves what happened.</Text>
             </Stack>
           </CardBody>
@@ -856,7 +854,7 @@ export default function CrossProjectComparison() {
             <Stack gap={8}>
               <Text><Text weight="semibold">chartsearchai:</Text> run manifest + retrieval JSONL + answer JSON + evaluator output.</Text>
               <Text><Text weight="semibold">openmrs_chatbot:</Text> user role + conversation turn + agent handoff + tool call + response label.</Text>
-              <Text><Text weight="semibold">Catalyst:</Text> gateway request + agent plan + MCP schema context + SQL candidate + RBAC execution result.</Text>
+              <Text><Text weight="semibold">Catalyst:</Text> source and dialect + readable schema + model context + selected SQL + rows or database error + reader rationale.</Text>
             </Stack>
           </CardBody>
         </Card>
@@ -869,11 +867,11 @@ export default function CrossProjectComparison() {
 
       <H2>Validation Primitive Coverage</H2>
       <Text tone="secondary">
-        Cells reflect today, not the target. The validation spine schema should accommodate retrieval-grade, NL-to-SQL-grade, and
-        trace-grade case records without bespoke per-project tooling.
+        The chartsearchai and openmrs_chatbot cells describe their current state. Because Catalyst's generic connection implementation remains
+        open, its column describes the accepted target and must not be read as implemented evidence.
       </Text>
       <Table
-        headers={['Validation primitive', 'chartsearchai', 'openmrs_chatbot', 'Catalyst']}
+        headers={['Validation primitive', 'chartsearchai', 'openmrs_chatbot', 'Catalyst accepted target']}
         rows={validationCoverageRows}
         striped
       />
@@ -888,7 +886,7 @@ export default function CrossProjectComparison() {
         the right vehicle to investigate this problem".
       </Text>
       <Table
-        headers={['Problem shape', 'chartsearchai architecture', 'openmrs_chatbot architecture', 'Catalyst architecture']}
+        headers={['Problem shape', 'chartsearchai architecture', 'openmrs_chatbot architecture', 'Catalyst selected architecture']}
         rows={decisionRows}
         striped
       />
@@ -912,8 +910,8 @@ export default function CrossProjectComparison() {
             <Stack gap={8}>
               <Text><Text weight="semibold">chartsearchai:</Text> exact-baseline retrieval, model-aware noise profile, querystore parity once retrieval is delegated.</Text>
               <Text><Text weight="semibold">openmrs_chatbot:</Text> role-aware response coverage, multi-turn dialogue grounding, agent handoff correctness.</Text>
-              <Text><Text weight="semibold">Catalyst:</Text> NL-to-SQL syntactic and semantic correctness, allowlist enforcement, RBAC-honoring SQL preview, schema-drift detection.</Text>
-              <Text tone="secondary">Sharing the spine does not mean unifying the harness. Each project keeps its grade-gate logic.</Text>
+              <Text><Text weight="semibold">Catalyst:</Text> complete readable-schema grounding, advisory findings, exact selected-SQL execution, static references, and reader interpretation.</Text>
+              <Text tone="secondary">Sharing the run envelope does not mean unifying evaluation. Each project keeps its own evidence and review method.</Text>
             </Stack>
           </CardBody>
         </Card>
@@ -985,7 +983,7 @@ export default function CrossProjectComparison() {
         </Card>
         <Card>
           <CardHeader trailing={<Pill size="sm" tone="info" active>Catalyst</Pill>}>
-            NL-to-SQL lab
+            Supervised SQL workbench and Dashboard Builder
           </CardHeader>
           <CardBody>
             <Stack gap={8}>
@@ -1004,8 +1002,8 @@ export default function CrossProjectComparison() {
         </Callout>
         <Callout tone="warning" title="Rule of Two">
           No agent should hold all three of: process untrusted inputs, access sensitive systems, change state externally.
-          Catalyst already models this (MCP read-only; OE backend executes under RBAC). chartsearchai and openmrs_chatbot
-          should declare the constraint explicitly.
+          Catalyst currently relies on the configured source or deployment for access, with read-only query access and time
+          and row bounds; production identity and authorization remain later work.
         </Callout>
         <Callout tone="warning" title="Silent provider-switch drift">
           Provider portability is a feature; uncalibrated provider switching is a regression risk. Capture per-provider
@@ -1039,27 +1037,25 @@ export default function CrossProjectComparison() {
           </Text>
           <Text>
             For chartsearchai the yield is a portable spine schema. For openmrs_chatbot the yield is a place to graft evaluation
-            onto without inventing primitives from scratch. For Catalyst the yield is sharing dashboards, review tooling, and a
-            red-team corpus rather than building parallel ones.
+            onto without inventing primitives from scratch. For Catalyst the yield is a reader packet and review tooling over
+            the same run and evidence records rather than a second scoring harness.
           </Text>
         </Stack>
         <Stack gap={8}>
           <H3>Open questions</H3>
           <Text>What is openmrs_chatbot's actual provider/model contract? Public docs do not say.</Text>
           <Text>Should the 18/20 OpenMRS clinical questions be evaluated against the chatbot's patient and doctor interfaces too, with role-aware expectations?</Text>
-          <Text>Can Catalyst's allowlist concept be borrowed by chartsearchai for retrieval-context PHI scoping?</Text>
+          <Text>Which human or frontier-model reader should perform Catalyst's full-context Phase 1 review?</Text>
           <Text>Does shared run-manifest plus shared dashboards justify a small joint OpenMRS x OpenELIS dev call (already requested 2026-04-28)?</Text>
         </Stack>
       </Grid>
 
       <Callout tone="success" title="Concrete next step">
-        Draft the run-manifest and event schema with fields that satisfy all three prototypes while aligning to OpenTelemetry
-        GenAI conventions: <Code>project</Code>, <Code>component</Code>, <Code>git_sha</Code>, <Code>provider</Code>,
-        <Code>model_id</Code>, <Code>model_hash</Code>, <Code>prompt_version</Code>, <Code>dataset_id</Code>,
-        <Code>dataset_version</Code>, <Code>retrieval_pipeline</Code>, <Code>case_id</Code>, plus per-grade-gate
-        sub-records. Map these to canonical attributes such as <Code>gen_ai.system</Code>, <Code>gen_ai.agent.name</Code>,
-        <Code>gen_ai.request.model</Code>, and <Code>gen_ai.tool.name</Code> where available. If the schema survives review by
-        all three project owners, treat it as the cross-project validation contract.
+        Implement and validate the existing <Code>run_manifest.json</Code> and <Code>events.jsonl</Code> envelope in each emitter,
+        keeping project-specific evidence with the project that understands it. Map model metadata to current OpenTelemetry GenAI
+        attributes such as <Code>gen_ai.provider.name</Code>, <Code>gen_ai.agent.name</Code>,
+        <Code>gen_ai.request.model</Code>, and <Code>gen_ai.tool.name</Code> where available. Catalyst's implementation should emit
+        the simple reader packet defined by the current metadata guide rather than a second scoring system.
       </Callout>
 
       <H2>Sources</H2>

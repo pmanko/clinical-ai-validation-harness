@@ -24,11 +24,17 @@ The harness coordinates validation across four clinical AI projects:
 | `chartsearchai` | OpenMRS clinical-chat module with bundled and med-agent-hub provider paths | Product integration target: shared lifecycle UX, persistence, evidence display, cancellation, and security |
 | `querystore` | Read-optimized OpenMRS clinical-record projection and optional med-agent-hub source | Context-source validation: materialized records, indexing integrity, date/freshness semantics, and retrieval experiments |
 | `openmrs_chatbot` | Python clinical chatbot with patient/doctor interfaces and agent workflow scaffolding | Future expansion: multi-turn grounding and role-aware answer evaluation |
-| `Catalyst` (OpenELIS) | Supervised reporting workbench: OpenELIS → HAPI FHIR → FHIR Data Pipes → governed query/table → versioned Dataset/Widget/Dashboard drafts → Superset bundle | Query/notebook MVP accepted; program P1 product work is substantially implemented and its exploratory three-team evidence/report path is under repair; Superset-backed Dashboard Builder remains unchanged as P3; other paths remain independently gated |
+| `Catalyst` | SQL-connected supervised reporting workbench: question → query/table → versioned Dataset/Widget/Dashboard drafts → Superset bundle | Catalyst core is database- and ingestion-independent. The selected OpenELIS/OpenMRS reference deployment is FHIR Data Pipes → Parquet → Spark SQL. That deployment must be implemented before the exploratory three-team comparison resumes; Dashboard Builder remains P3. |
 
 The Catalyst program decisions live in `specs/catalyst-program-roadmap.md`.
-The active Phase 1 comparison-repair sequence lives in
-`specs/catalyst-phase1-qualification-remediation-roadmap.md`.
+The implementation and Phase 1 comparison sequence lives in
+`specs/catalyst-implementation-plan.md`.
+
+The Catalyst application is a generic SQL-connected product that consumes a
+declared connection, dialect, and its complete readable schema. The selected
+reference deployment is FHIR Data Pipes -> Parquet -> Spark SQL. Its
+implementation and acceptance are open, and it is not the Catalyst product
+contract.
 
 ## Current priority: the validation spine and active lanes
 
@@ -53,7 +59,7 @@ does not gate local integration. See the checked-in [roadmap](specs/artifacts/pl
 | Validation evidence model and evaluation methodology | [Validation research canvas](https://pmanko.github.io/clinical-ai-validation-harness/#/canvas/specs/artifacts/canvases/validation-research) |
 | Current priority operator walkthrough | [Feature 002 quickstart](https://github.com/pmanko/clinical-ai-validation-harness/blob/main/specs/002-openmrs-demo-data-2-8-remap/quickstart.md) |
 | Harness foundation and control-plane detail | [Feature 001 spec](https://github.com/pmanko/clinical-ai-validation-harness/blob/main/specs/001-harness-control-plane-foundation/spec.md) |
-| Catalyst product pathways and selected milestone | [Catalyst product roadmap status](specs/artifacts/planning/catalyst-product-roadmap-status.md) |
+| Catalyst product scope and program order | [Catalyst program roadmap](specs/catalyst-program-roadmap.md) |
 | All planning artifacts, canvases, and research docs | [specs/artifacts/](https://github.com/pmanko/clinical-ai-validation-harness/tree/main/specs/artifacts) |
 | Superseded pre-hub cloud guide | [docs/cloud-deploy.md](https://github.com/pmanko/clinical-ai-validation-harness/blob/main/docs/cloud-deploy.md) |
 
@@ -75,7 +81,7 @@ Human-facing docs use plain names. IDs appear in parentheses on first use and in
 | ChartSearchAI model gateway | F008 | `008` | Bundled and configured-Hub providers preserved behind the [dual-provider roadmap](specs/artifacts/planning/openmrs-dual-provider-parity-roadmap.md) |
 | Clinical knowledge base | F009 | `009` | [Brief + research](https://github.com/pmanko/clinical-ai-validation-harness/blob/main/specs/artifacts/planning/clinical-kb-brief.md) |
 | Retrieval evaluation | M4 | `010` | Planned |
-| Catalyst supervised reporting | M10 | `008` | Query/workbench foundation accepted; Dashboard Builder M3 accepted 2026-08-06; M4 release hardening in progress |
+| Catalyst supervised reporting | M10 | `008` | Query notebook and binding Dashboard design accepted; generic connection, Spark reference deployment, and Phase 1 comparison open; Phase 2 then final Dashboard acceptance follow |
 | Answer, citation, and abstention | M5 | `012` | Planned |
 | Safety and red-team | M6 | `013` | Planned |
 | Clinician governance review | M7 | `014` | Planned |
@@ -122,174 +128,44 @@ targets/       Pinned submodule checkouts of the four target projects
 
 ## Catalyst query workbench and dashboard direction
 
-Initialize the two sibling targets without `--recursive`:
+Catalyst is a generic SQL-connected reporting workbench. A configured source
+declares its identity, connection configuration or reference, and SQL dialect. The model, Available data
+view, and editor receive every table, view, column, and type readable through
+that connection. Optional descriptions may enrich the schema but cannot hide
+relations.
 
-```bash
-git submodule update --init targets/catalyst targets/med-agent-hub
+The selected reference deployment is:
+
+```text
+OpenELIS or OpenMRS FHIR
+  -> FHIR Data Pipes -> Parquet -> Spark SQL
+  -> Catalyst and Superset
 ```
 
-The local sandbox brings up OpenELIS, HAPI FHIR, FHIR Data Pipes, the analytics
-database, Catalyst Gateway, the pinned sibling Hub, and the sidecar UI; an
-explicit seed command loads the synthetic multi-analyte cohort. Hub owns the
-shared Catalyst query profile, prompts, role models, and model knobs. Gateway
-owns catalog/context assembly, SQL lint and policy, writer/reviewer
-orchestration, execution, and query-version lineage.
+Its implementation and acceptance are open. It does not define Catalyst core.
 
-The prior final-pin manual workbench was accepted on 2026-08-04 after a 12/12 real-model
-matrix, independent PostgreSQL/gold comparisons, bounded failure/recovery, and
-actual keyboard-only plus 200%-browser-zoom checks. The deterministic
-Playwright notebook path preserves the corresponding focus and reflow boundary.
-The Hub-owned profile migration and exact-pin live gate have passed; Dashboard
-Builder implementation is now in M4 release hardening.
+The next implementation connects Catalyst and Superset to Spark, uses static
+scenario references, executes model SQL only through Catalyst, and runs one
+complete comparison per selected model team. The reader receives the full conversation, model context,
+selected SQL, rows or diagnostic, static reference, and shared rubric. The
+harness does not compute a threshold, rank, disqualification, or winner.
 
-The Superset-backed Dashboard Builder is scheduled as program phase P3
-(order approved 2026-08-23 in `specs/catalyst-program-roadmap.md`; its D1e/M4
-contract is unchanged):
-promote governed executions through immutable Dataset, Widget, and multi-widget
-Dashboard drafts, then publish a deterministic native ZIP to a shared local
-outbox for import by pinned Superset 6.1.0. Catalyst owns the iterative desired
-configuration in this one-way MVP; Superset renders it. The prototype's Ask
-shell integrates the accepted query notebook without removing its profile/model evidence, single
-SQL editor, manual versions, Validate/Run, diagnostics/results, contextual
-follow-up, history, refresh, or New session behavior; only the dataset-preview
-presentation moves into the builder's Dataset tile/review panel. Multi-source/lossless
-onboarding, targeted SQL repair, session-export/comparative experiments,
-evidence-linked narratives, and production security are parallel pathways, not
-sequential prerequisites. Superset REST API publication, embedded viewing,
-cross-system reconciliation, model-generated visualization specifications,
-sharing, scheduling, automatic refresh, and production access control remain
-outside this milestone.
+Dashboard Builder keeps its accepted product scope: question -> query -> Dataset
+-> Widget -> Dashboard -> native Superset bundle and rendered dashboard. The
+connection work must preserve the real browser experience, not substitute
+backend evidence for it.
 
-The original table-only bundle/import implementation was a Superset import
-spike, not a smaller Dashboard MVP. The accepted M3 implementation integrates
-the real-profile query notebook with the binding 4c Dataset → Widget →
-Dashboard experience and native Superset import. M3 closed with focused D1d
-evidence and explicit user review on 2026-08-06; exhaustive recovery/evidence
-hardening is active M4 work. Actual 200% browser zoom is deferred polish rather
-than an MVP gate; desktop and 320/390/640-CSS-pixel reflow coverage remains.
-The D1b runtime/lifecycle checkpoint (T139/T140/T160–T162) now passes with
-the pinned Superset identity, DB-enforced read-only access, non-destructive
-volume restart, retained imported state, secret-free evidence, and synchronized
-tests. The deterministic seven-chart, five-family clean-import fixture at T141
-also passes; importer/state failure and recovery matrices T142/T163 are
-complete. The 15 remaining M4 gates are tracked in Feature 008 tasks and the
-unchanged P3 contract.
+Current authorities:
 
-The P5 Catalyst report is published at
-[reports.openclinai.org/catalyst-t094-release](https://reports.openclinai.org/catalyst-t094-release/):
-13/13 scenario repetitions and 411/411 deterministic assertions passed, with
-three advisory judge passes retained alongside record-level evidence. PR #43
-merged green at `136067a`; optional future evaluation expansion is parallel and
-is not a Dashboard MVP implementation dependency.
+- [Catalyst program roadmap](specs/catalyst-program-roadmap.md)
+- [Catalyst implementation plan](specs/catalyst-implementation-plan.md)
+- [Feature 008 specification](specs/008-catalyst-query-workbench/spec.md)
+- [Feature 008 current tasks](specs/008-catalyst-query-workbench/tasks.md)
 
-Start the local OpenAI-compatible router on port `1234`; it must advertise the
-exact `google/gemma-4-e4b` writer and `qwen2.5-14b-instruct-mlx` reviewer model
-IDs. The only supported manual path is then:
-
-```bash
-make catalyst-mvp-external
-```
-
-That first-time path starts the isolated stack and explicitly loads the demo
-OpenELIS → FHIR → analytics pipeline. Day-to-day restarts retain the stack's
-named Docker volumes and do not reload that data:
-
-```bash
-make catalyst-mvp-restart
-```
-
-Use `make catalyst-mvp-seed` only to deliberately reload the fixture and
-`make catalyst-mvp-reset` only to discard the isolated data state.
-
-When a Catalyst dashboard bundle is published, inspect or import it into the
-same isolated Superset instance with `make catalyst-superset-status` and
-`make catalyst-superset-import`. The latter records the exact Catalyst commit
-in its durable local receipt; it does not reload OpenELIS or FHIR data.
-
-The external model URL defaults to `http://host.docker.internal:1234`; override
-`MVP_EXTERNAL_ROUTER_URL` only when the real router is elsewhere. Startup fails
-if the router cannot advertise both configured profile models. Open
-`http://localhost:13000` after the health gate succeeds. Every `make
-catalyst-mvp-*` target runs the isolated stack
-(`compose/catalyst-mvp-isolated.override.yml`), which publishes the UI on
-`13000` and the gateway on `18000` so they cannot collide with another stack on
-this host. `3000` is Catalyst's own default, which you get only when running
-its compose directly from `targets/catalyst`. `CATALYST_UI_PORT` overrides
-either. The profile picker shows only available Hub-owned query profiles and
-their exact writer/reviewer models; see
-[Catalyst manual LLM testing](docs/catalyst-manual-llm-testing.md). This is
-demo-data engineering evidence, not a clinical-quality claim.
-
-After the real-model health gate passes, run the versioned validation suite
-against that live Gateway. Hub discovery records the exact model and prompt
-configuration used by each role.
-
-```bash
-uv run python scripts/run-catalyst-validation.py \
-  --suite datasets/validation/catalyst/catalyst-mvp-v1.json \
-  --gateway-url http://127.0.0.1:18000
-```
-
-Run evidence is written under `artifacts/catalyst-validation/<run-id>/`.
-
-The iterative-query notebook uses the same top-level CLI and reporting archive
-as ChartSearchAI. By default it independently checks both the selected query
-execution and the hand-authored gold query against read-only PostgreSQL:
-
-```bash
-uv run harness-cli catalyst run \
-  --suite datasets/validation/catalyst/catalyst-notebook-t094-v1.json
-
-uv run harness-cli catalyst report \
-  artifacts/catalyst-notebook-validation/<run-id>
-```
-
-The current `scripts/catalyst-judge-finalize.py` still expects the legacy
-three-pass format, so it is not yet the repaired Phase 1 review path. Roadmap
-R4 will make one manually initiated full-context review the default and keep an
-optional second model or agent's rationale separate. Once a compatible report
-has been prepared, stage or publish it and its relative evidence links with the
-family-aware publisher:
-
-```bash
-scripts/publish-report.sh catalyst \
-  artifacts/catalyst-notebook-validation/<run-id> \
-  catalyst-t094-release "Catalyst T094 validation"
-```
-
-Use `PUBLISH_DRY_RUN=1 REPORTS_ROOT=<temporary-directory>` to render, index,
-and verify a publication without cloud or VM access. The legacy
-`scripts/validate-publish.sh <run-id> ...` command remains a ChartSearchAI
-compatibility wrapper.
-
-```bash
-# 1. Install uv (Python environment manager) if not already installed
-curl -LsSf https://astral.sh/uv/install.sh | sh
-
-# 2. Set up the Python environment and install all dev dependencies
-make setup
-
-# 3. Bring up the OpenMRS Reference Application stack through its stable launcher
-make up
-
-# 4. Run a schema diff between the legacy 2.7 source and the clean 2.8 baseline
-uv run harness-cli schema-diff --output-dir artifacts/schema-diff
-
-# 5. Run the smoke test suite
-make smoke
-```
-
-If `make` is unavailable:
-
-```bash
-uv python install 3.11
-uv sync --extra dev
-uv run pytest evals/dataset_import evals/metadata
-```
-
-Python 3.11+ is required. The project tracks `.python-version = 3.11` and `requires-python = ">=3.11"` in `pyproject.toml`.
-
-For the full OpenMRS demo-data remap workflow, see [specs/002-openmrs-demo-data-2-8-remap/quickstart.md](https://github.com/pmanko/clinical-ai-validation-harness/blob/main/specs/002-openmrs-demo-data-2-8-remap/quickstart.md).
+The Phase 1 comparison begins after the implementation plan's connection,
+Spark, browser, and Superset checkpoints pass. Use
+`scripts/catalyst-mvp.sh` for stack lifecycle when implementing or validating
+those checkpoints; seeding and reset remain explicit operations.
 
 ## ChartSearch operations
 
