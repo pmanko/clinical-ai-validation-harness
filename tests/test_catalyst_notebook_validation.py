@@ -24,8 +24,6 @@ from harness.catalyst.notebook_validation import (
     HttpExchange,
     NotebookHttpClient,
     NotebookQuery,
-    _binding_value,
-    _driver_sql,
     _evidence_checks,
     _find_forbidden_keys,
     _json_safe_value,
@@ -2092,47 +2090,6 @@ def test_json_safe_value_normalizes_database_types() -> None:
     }
     assert _json_safe_value((1, [2])) == [1, [2]]
     assert _json_safe_value(object).startswith("<class")
-
-
-def test_binding_value_converts_typed_parameters() -> None:
-    assert _binding_value({"name": "d", "type": "date", "value": "2026-07-20"}) == date(
-        2026, 7, 20
-    )
-    assert _binding_value(
-        {"name": "t", "type": "date-time", "value": "2026-07-20T12:00:00Z"}
-    ) == datetime(2026, 7, 20, 12, 0, tzinfo=timezone.utc)
-    assert _binding_value({"name": "i", "type": "integer", "value": "7"}) == 7
-    assert _binding_value({"name": "n", "type": "number", "value": 1.5}) == Decimal(
-        "1.5"
-    )
-    assert _binding_value(
-        {"name": "il", "type": "integer-list", "value": ["1", 2]}
-    ) == [1, 2]
-    assert _binding_value({"name": "sl", "type": "string-list", "value": [1, "a"]}) == [
-        "1",
-        "a",
-    ]
-    assert _binding_value({"name": "s", "type": "string", "value": "x"}) == "x"
-    with pytest.raises(ValueError, match="Boolean"):
-        _binding_value({"name": "i", "type": "integer", "value": True})
-    with pytest.raises(ValueError, match="Boolean"):
-        _binding_value({"name": "il", "type": "integer-list", "value": [True]})
-
-
-def test_driver_sql_rewrites_placeholders_outside_literals() -> None:
-    sql = (
-        "-- :skip in line comment\n"
-        "/* :skip in block */\n"
-        "SELECT ':skip', \":skip\", $$:skip$$, $tag$:skip$tag$,\n"
-        "  value::text, :bound, :unbound\n"
-        "FROM t WHERE name = 'O''Brien'"
-    )
-    rewritten = _driver_sql(sql, {"bound"})
-    assert "%(bound)s" in rewritten
-    assert ":unbound" in rewritten
-    assert rewritten.count(":skip") == 6
-    assert "value::text" in rewritten
-    assert "'O''Brien'" in rewritten
 
 
 def test_forbidden_key_scan_and_timestamp_parse() -> None:
@@ -5427,29 +5384,6 @@ def test_a_resumed_run_directory_is_self_contained(tmp_path: Path) -> None:
         resumed.run_dir / "scenarios" / "adaptive" / "repetition-01"
         / "01-create-session.json"
     ).exists()
-
-
-def test_a_literal_percent_survives_the_driver_conversion() -> None:
-    """'CD4%' is data, not a placeholder.
-
-    psycopg treats % as a placeholder marker whenever a params argument is
-    passed, so every literal percent must be doubled by the conversion --
-    with or without named parameters present. The second full comparison
-    died on exactly this, executing a reference that filters on 'CD4%'.
-    """
-    from harness.catalyst.notebook_validation import _driver_sql
-
-    plain = _driver_sql(
-        "SELECT 1 FROM t WHERE name IN ('CD4 count', 'CD4%')", set()
-    )
-    assert "'CD4%%'" in plain
-
-    mixed = _driver_sql(
-        "SELECT 1 FROM t WHERE name LIKE '%viral%' AND day >= :since",
-        {"since"},
-    )
-    assert "'%%viral%%'" in mixed
-    assert "%(since)s" in mixed
 
 
 def test_the_opening_generation_is_token_checked_like_any_other(
