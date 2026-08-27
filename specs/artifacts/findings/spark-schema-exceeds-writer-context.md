@@ -1,68 +1,57 @@
-# The complete Spark schema does not fit the writer's context
+# Corrected: the complete Spark schema fits — the adapter was inflating it
 
-**Recorded 2026-08-27, on the running stack.** The implementation plan says
-that if the complete readable schema fails, the concrete failure is recorded
-and returned to the owner *before* adding selection, translation, fallback, or
-another subsystem. This is that record. No filtering was added.
+**Recorded 2026-08-27. The first version of this note was wrong and is
+superseded here.**
 
-## What happened
+## What the first version claimed
 
-A workbench turn against the OpenMRS HIV Spark source fails at
-`writer_request` with `context_window_exceeded` — the model backend rejects the
-query-generation request with HTTP 422.
+That a workbench turn failed with `context_window_exceeded` because the
+complete readable schema (24 relations / 470 columns, ~336 KB) was too large
+for the writer, and that the owner had to choose between raising the context
+window, changing snapshot retention, or using a smaller source.
 
-That is the specified behaviour, not a regression: Phase 1 requires the
-capacity error be recorded rather than context being quietly removed and
-retried.
+## What is actually true
 
-## Measured
+The schema was never the problem. The Spark dialect adapter synthesized a
+description for every column by embedding that column's **native type**:
 
-Discovery through the Spark connection returns, for the HIV source:
-
-| | relations | columns |
-| --- | --- | --- |
-| total discovered | 24 | 470 |
-| unversioned aliases | 12 | 235 |
-| timestamped snapshot twins | 12 | 235 |
-
-The editor-catalog payload is ~336 KB of JSON.
-
-Exactly half is snapshot twins. FHIR Data Pipes registers both an unversioned
-alias and a timestamped snapshot for every resource table and ViewDefinition
-view — for example `patient_flat` alongside
-`patient_flat_2026_08_27t07_11_10_617056696z_2026_08_27t07_11_10_617168156z`,
-with identical column shapes. `numOfDwhSnapshotsToRetain: 2` means the twins
-accumulate per run, so this grows with every ingestion.
-
-Discovery is behaving correctly: those twins are separately registered
-relations, and live discovery reports what the connection exposes.
-
-## What is not being done
-
-No relation allowlist, ranking, selection, or truncation was added. The
-guardrails forbid all four, and the failure is exactly the case they reserve
-for the owner.
-
-## Levers the owner may choose between
-
-1. **Raise the writer's context window.** The schema is large but not
-   pathological; this keeps the complete-schema principle intact.
-2. **Change snapshot retention in the reference deployment.** Registering one
-   set of relations per source rather than an accumulating pair halves the
-   schema today and stops unbounded growth. This is FHIR Data Pipes
-   configuration, not Catalyst selection.
-3. **Accept a smaller reference source** for the comparison.
-
-Options 1 and 2 compose. Both are deployment or model configuration; neither
-puts selection logic in Catalyst.
-
-## Reproduce
-
+```python
+"description": comment or f"{qualified}.{column_name} (Spark {database_type})"
 ```
-curl -s -X POST http://localhost:18000/v1/catalyst/workbench/sessions \
-  -H 'Content-Type: application/json' \
-  -d '{"contractVersion":"catalyst.workbench.session.request.v1",
-       "deploymentMode":"demo","question":"How many patients are in the system?",
-       "profileId":"catalyst-query-e4b-qwen14b","dataSourceId":"openmrs-hiv"}'
-curl -s http://localhost:18000/v1/catalyst/workbench/sessions/<id>/turns
+
+`request_catalog()` sends `description` to the model and strips
+`databaseType`, so the FHIR resource tables' deeply nested STRUCT types
+reached the writer anyway. One `Encounter.hospitalization` column's type text
+is ~5.9 KB on its own.
+
+Measured on the running stack, same 24 relations and 470 columns throughout:
+
+| | model request | approx tokens | ctx-size |
+| --- | --- | --- | --- |
+| before | 187,652 bytes | ~53,600 | 24,576 |
+| after | 24,145 bytes | ~6,900 | 24,576 |
+
+A description is now only a real column comment; the native type stays on
+`databaseType`, where the editor already receives it. The query-request
+contract required a description on every field — which is why the synthesized
+one existed — and that requirement is removed, as the implementation plan's
+own table prescribes.
+
+## Outcome
+
+The writer produced Spark SQL against the Spark-discovered schema:
+
+```sql
+SELECT count(t1.id) AS count FROM default.patient AS t1
 ```
+
+Run returned `5384` (BIGINT -> integer), matching the count read directly
+through beeline.
+
+## What this cost, and the lesson
+
+No relation allowlist, ranking, selection or truncation was ever added, and
+none is needed. Escalating to the owner would have asked for a decision about
+a constraint that did not exist. The measurement that settled it — sizing the
+actual model request, then finding which field dominated it — took one probe,
+and should have come before the escalation was drafted, not after.
