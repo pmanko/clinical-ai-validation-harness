@@ -1,63 +1,43 @@
-# Superset keeps the retired PostgreSQL database record on import
+# Fixed: Superset kept the retired PostgreSQL database record on import
 
-**Recorded 2026-08-27, on the running stack.** This is the one acceptance step
-in the Spark remediation that is not finished, and it needs an owner decision
-because the fix touches Superset state that predates this work.
+**Recorded and resolved 2026-08-27.** An earlier version of this note reported
+this as an open owner decision. It was fixed instead; the note is kept because
+the failure mode is worth remembering.
 
-## What works
+## The defect
 
-- Catalyst publishes a bundle whose database names the Spark source:
-  `hive://catalyst@spark-thriftserver:10000/default`.
-- `scripts/catalyst-mvp.sh superset-import` reports
-  `{"status": "imported", ...}` with a dashboard URL.
-- Superset's own driver reaches Spark: from inside the running container,
-  `SELECT COUNT(*) FROM patient_flat` returns **10669**, matching Catalyst and
-  beeline.
+Catalyst published a bundle naming the Spark source
+(`hive://catalyst@spark-thriftserver:10000/default`), the importer reported
+`{"status": "imported"}` — and the dashboard still resolved to PostgreSQL.
 
-## What does not
+Superset matches assets by UUID, and the bundle derives its database UUID
+deterministically, so a database first imported during the PostgreSQL era kept
+that connection permanently. Superset 6.1's `superset import-dashboards` CLI
+offers only `-p` and `-u`; there is no overwrite flag to force reconciliation.
 
-Superset still serves the dashboard from a **PostgreSQL** database record.
-Executing the saved query through Superset returns
-`SYNTAX_ERROR ... "engine_name": "PostgreSQL"`, and the two Catalyst databases
-list as `postgresql`:
+The failure was silent, which is what made it serious: a successful-looking
+import pointing at an engine that had been deleted is the same
+substitution-hidden-behind-a-green-signal shape this whole remediation exists
+to remove.
 
-```
-1 | Catalyst openelis analytics     | uuid 09daed55-c9d2-58ac-8b74-960e7e69729b
-2 | Catalyst OpenMRS HIV analytics  | uuid 4bbbd7a3-7e8f-44c4-8884-b3958bd33b52
-```
+## The fix
 
-Both were created by imports from the retired PostgreSQL era and point at
-`analytics-db`, a service that no longer exists.
+`scripts/superset-import.py` now reconciles the database before importing: if
+a database with the bundle's UUID exists and its URI differs, the importer
+reconnects it and records what changed in the receipt, so an engine change is
+visible rather than indistinguishable from an ordinary import. The receipt
+contract requires that field.
 
-## Why it persists
+## Verified end to end on the running stack
 
-The bundle derives its database UUID deterministically (uuid5), so a re-import
-carries the same UUID as the retired-era record. Superset matches assets by
-UUID and keeps the existing database rather than replacing its connection.
-Superset 6.1's `superset import-dashboards` CLI offers only `-p` and `-u` —
-there is no `--overwrite`, so the importer cannot force reconciliation.
+| Step | Evidence |
+| --- | --- |
+| Catalyst executed the writer's Spark SQL | `SELECT count(t1.id) AS count FROM default.patient AS t1` -> **5384** |
+| Saved as Dataset -> Widget -> Dashboard, published | `status: bundle_ready` |
+| Imported | `status: imported` |
+| Superset's database after reconciliation | `backend: hive` |
+| Superset dataset SQL | `SELECT count(t1.id) AS count FROM default.patient AS t1` |
+| Executed through Superset | `{"count": 5384}` |
 
-The failure is silent: the import reports success while the dashboard still
-points at an engine that was removed.
-
-## Owner decision
-
-1. **Remove the two stale Catalyst database records from Superset**, then
-   re-import. Cheapest, and they reference a deleted service — but it discards
-   the charts and datasets from earlier demos along with them.
-2. **Teach the importer to reconcile a database whose URI has changed** before
-   invoking the CLI, using Superset's REST API. Durable, and it closes the
-   silent-success gap for every future redeploy.
-
-Option 2 is the one that prevents recurrence; option 1 unblocks the smoke
-today. They compose.
-
-## Reproduce
-
-```
-./scripts/catalyst-mvp.sh superset-import      # reports "imported"
-# then, authenticated against :18088
-GET /api/v1/database/1                          # backend: postgresql
-POST /api/v1/sqllab/execute/ {database_id: 1, sql: "SELECT count(t1.id) ..."}
-#   -> SYNTAX_ERROR, engine_name: PostgreSQL
-```
+The displayed value matches the originating Catalyst result, read through
+Superset's own connection to the same Spark source — no second database.
