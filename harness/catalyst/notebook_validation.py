@@ -175,6 +175,9 @@ EVALUATION_ASSERTIONS = frozenset(
         "followup_terminal_status",
         "base_execution_succeeded",
         "successor_execution_succeeded",
+        # Nothing produces these any more. They stay so a report rendered over
+        # retained evidence still reads an old cross-check failure as a judged
+        # result rather than as contract breakage.
         "base_gold_execution_match",
         "successor_gold_execution_match",
         "base_postgres_crosscheck",
@@ -1394,7 +1397,7 @@ def query_digest(query: NotebookQuery | dict[str, Any]) -> str:
 
 # Numbered evidence-file stems that carry a real HTTP exchange (contract:
 # _EvidenceRecorder.exchange writes HttpExchange.as_dict(), which nests the
-# response under response.httpStatus). 07/14 (postgres) and 15/16 (gold) are
+# response under response.httpStatus). The 07/14 cross-check and 15/16 gold
 # recorder.json payloads with no httpStatus field, so they're excluded.
 _HTTP_STEP_STEMS = (
     "01-create-session",
@@ -1966,8 +1969,6 @@ def _append_result_outputs(
                     "evidence_paths": materialized(
                         [
                             f"{prefix}/13-execute-successor{slot}.json",
-                            f"{prefix}/14-postgres-successor{slot}.json",
-                            f"{prefix}/16-gold-execution-match-successor{slot}.json",
                         ]
                     ),
                 },

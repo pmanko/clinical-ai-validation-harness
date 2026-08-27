@@ -160,7 +160,6 @@ def _evidence_details(turn: dict[str, Any]) -> str:
     for label, title in (
         ("validation", "Advisory validator"),
         ("execution", "PostgreSQL result or diagnostic"),
-        ("postgresCrosscheck", "Independent execution cross-check"),
         ("independentAnswerCheck", "Question-specific database answer check"),
         ("generation", "Model context, calls, tokens, and exact requests"),
     ):

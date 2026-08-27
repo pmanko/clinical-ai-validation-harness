@@ -176,8 +176,6 @@ def notebook_result_events(
             result.get("baseVersionId"),
             [
                 f"{prefix}/06-execute-base.json",
-                f"{prefix}/07-postgres-base.json",
-                f"{prefix}/15-gold-execution-match-base.json",
             ],
         ),
         (
@@ -186,8 +184,6 @@ def notebook_result_events(
             result.get("selectedVersionId"),
             [
                 f"{prefix}/13-execute-successor.json",
-                f"{prefix}/14-postgres-successor.json",
-                f"{prefix}/16-gold-execution-match-successor.json",
             ],
         ),
     ):
