@@ -1082,8 +1082,10 @@ def test_committed_t094_suite_uses_current_profiles_and_switches_per_turn() -> N
     )
 
     assert suite.profiles == {
+        # The writer-only team runs the q4 build, which is what med-agent-hub
+        # advertises for this profile and what the program roadmap names.
         WRITER_ONLY_PROFILE_ID: {
-            "writerModelId": "gemma-4-12b",
+            "writerModelId": "gemma-4-12b-q4",
             "reviewerModelId": None,
         },
         PROFILE_ID: {

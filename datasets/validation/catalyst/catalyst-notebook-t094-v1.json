@@ -2,12 +2,12 @@
   "id": "catalyst-notebook-t094-v1",
   "datasetId": "catalyst-cohort-v1",
   "datasetVersion": "1",
-  "catalogVersion": "analytics-catalog-v1",
+  "catalogVersion": "live",
   "providerName": "llama.cpp",
   "repetitions": 3,
   "profiles": {
     "catalyst-query-gemma-4-12b": {
-      "writerModelId": "gemma-4-12b"
+      "writerModelId": "gemma-4-12b-q4"
     },
     "catalyst-query-gemma-4-12b-qwen2.5-14b-checked": {
       "writerModelId": "gemma-4-12b",
@@ -43,12 +43,16 @@
       "baseGoldCheck": {
         "mode": "row_set",
         "referenceSql": "SELECT observation_id FROM analytics.lab_result_fact_v1 WHERE observed_at >= '2026-01-01'",
-        "matchColumns": ["observation_id"]
+        "matchColumns": [
+          "observation_id"
+        ]
       },
       "successorGoldCheck": {
         "mode": "row_set",
         "referenceSql": "SELECT observation_id FROM analytics.lab_result_fact_v1 WHERE observed_at >= '2026-01-01' AND test_name = 'Viral Load' AND result_status = 'final'",
-        "matchColumns": ["observation_id"]
+        "matchColumns": [
+          "observation_id"
+        ]
       }
     },
     {
@@ -79,11 +83,19 @@
       "successorGoldCheck": {
         "mode": "aggregate_by_key",
         "referenceSql": "SELECT date_trunc('month', observed_at) AS observed_month, count(*) AS result_count, count(DISTINCT patient_id) AS distinct_patient_count, percentile_cont(0.5) WITHIN GROUP (ORDER BY result_value) AS median_result_value FROM analytics.lab_result_fact_v1 WHERE observed_at >= '2026-01-01' AND result_value IS NOT NULL GROUP BY 1",
-        "keyColumns": ["observed_month"],
+        "keyColumns": [
+          "observed_month"
+        ],
         "valueColumns": {
-          "result_count": {"tolerance": 0},
-          "distinct_patient_count": {"tolerance": 0},
-          "median_result_value": {"tolerance": 0.01}
+          "result_count": {
+            "tolerance": 0
+          },
+          "distinct_patient_count": {
+            "tolerance": 0
+          },
+          "median_result_value": {
+            "tolerance": 0.01
+          }
         }
       }
     },
@@ -115,7 +127,9 @@
       "successorGoldCheck": {
         "mode": "row_set",
         "referenceSql": "SELECT observation_id FROM analytics.lab_result_fact_v1 WHERE test_name = 'Viral Load'",
-        "matchColumns": ["observation_id"]
+        "matchColumns": [
+          "observation_id"
+        ]
       }
     },
     {
@@ -147,7 +161,9 @@
       "baseGoldCheck": {
         "mode": "row_set",
         "referenceSql": "SELECT patient_id FROM analytics.lab_result_fact_v1 WHERE observed_at >= '2026-01-01'",
-        "matchColumns": ["patient_id"]
+        "matchColumns": [
+          "patient_id"
+        ]
       },
       "successorGoldCheck": {
         "mode": "scalar",
@@ -186,7 +202,9 @@
       "baseGoldCheck": {
         "mode": "row_set",
         "referenceSql": "SELECT observation_id FROM analytics.lab_result_fact_v1 WHERE observed_at >= '2026-01-01'",
-        "matchColumns": ["observation_id"]
+        "matchColumns": [
+          "observation_id"
+        ]
       }
     }
   ]
