@@ -229,9 +229,6 @@ def test_catalyst_run_parser_exposes_every_compatibility_script_flag():
             "--repetitions",
             "3",
             "--include-manual",
-            "--postgres-dsn",
-            "postgresql://db",
-            "--no-postgres-cross-check",
             "--timeout-seconds",
             "42",
         ]
@@ -243,8 +240,6 @@ def test_catalyst_run_parser_exposes_every_compatibility_script_flag():
     assert args.scenarios == ["s1", "s2"]
     assert args.repetitions == 3
     assert args.include_manual is True
-    assert args.postgres_dsn == "postgresql://db"
-    assert args.no_postgres_cross_check is True
     assert args.timeout_seconds == 42
 
 
@@ -268,14 +263,6 @@ def test_catalyst_run_dispatches_every_runner_option(monkeypatch, tmp_path, caps
         "harness.catalyst.notebook_validation.NotebookHttpClient",
         lambda url, timeout_seconds: (url, timeout_seconds),
     )
-    monkeypatch.setattr(
-        "harness.catalyst.notebook_validation.PostgresReadOnlyChecker",
-        lambda dsn: ("crosscheck", dsn),
-    )
-    monkeypatch.setattr(
-        "harness.catalyst.notebook_validation.PostgresGoldExecutionChecker",
-        lambda dsn: ("gold", dsn),
-    )
 
     assert (
         main(
@@ -292,8 +279,6 @@ def test_catalyst_run_dispatches_every_runner_option(monkeypatch, tmp_path, caps
                 "s1",
                 "--repetitions",
                 "2",
-                "--postgres-dsn",
-                "postgresql://db",
                 "--timeout-seconds",
                 "45",
             ]
@@ -306,8 +291,6 @@ def test_catalyst_run_dispatches_every_runner_option(monkeypatch, tmp_path, caps
     assert captured["scenario_ids"] == {"s1"}
     assert captured["repetitions"] == 2
     assert captured["include_manual"] is False
-    assert captured["postgres_checker"] == ("crosscheck", "postgresql://db")
-    assert captured["gold_checker"] == ("gold", "postgresql://db")
     assert captured["manual_checkpoint"] is None
     assert captured["frozen_config"] is None
     assert captured["warmup_question"] is None

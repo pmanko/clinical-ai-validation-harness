@@ -10,7 +10,6 @@ import pytest
 from harness.catalyst.run_config import (
     freeze,
     load_frozen,
-    postgres_dsn,
     publishable,
     resolve,
 )
@@ -24,19 +23,11 @@ def _template(tmp_path: Path, **overrides) -> Path:
         "gatewayUrl": "http://127.0.0.1:18000",
         "outputDir": "artifacts/catalyst-notebook-validation",
         "warmupQuestion": "How many distinct patients are represented?",
-        "postgres": {
-            "host": "127.0.0.1",
-            "port": 15443,
-            "database": "catalyst_analytics_hiv",
-            "user": "catalyst_readonly",
-            "passwordEnv": "CATALYST_READONLY_PASSWORD",
-        },
         "gates": {"overall": 0.90, "perScenario": 0.80},
         "invocation": {
             "scenarios": [],
             "repetitions": None,
             "includeManual": False,
-            "postgresCrossCheck": True,
             "timeoutSeconds": 900,
         },
         "publish": {"slug": "catalyst-phase1-comparison", "title": "T",
@@ -46,25 +37,6 @@ def _template(tmp_path: Path, **overrides) -> Path:
     path = tmp_path / "run-config.json"
     path.write_text(json.dumps(config), encoding="utf-8")
     return path
-
-
-def test_the_password_never_reaches_the_frozen_seed(tmp_path, monkeypatch):
-    """The seed is published with the evidence, so it carries the name of
-    the secret, never the secret."""
-    monkeypatch.setenv("CATALYST_READONLY_PASSWORD", "runtime-only-test-value")
-    config = resolve(_template(tmp_path))
-
-    assert "runtime-only-test-value" in postgres_dsn(config)
-
-    run_dir = tmp_path / "run"
-    run_dir.mkdir()
-    freeze(config, run_dir)
-
-    written = (run_dir / "run-config.json").read_text(encoding="utf-8")
-    assert "runtime-only-test-value" not in written
-    assert "CATALYST_READONLY_PASSWORD" in written
-    assert str(tmp_path) not in written
-    assert "source" not in json.loads(written)
 
 
 @pytest.mark.parametrize(
@@ -104,13 +76,6 @@ def test_a_finish_applies_the_gates_the_run_was_seeded_with(tmp_path, monkeypatc
     assert frozen["gates"] == {"overall": 0.5, "per_scenario": 0.25}
 
 
-def test_a_missing_secret_is_refused_before_the_run_starts(tmp_path, monkeypatch):
-    monkeypatch.delenv("CATALYST_READONLY_PASSWORD", raising=False)
-    with pytest.raises(SystemExit) as caught:
-        resolve(_template(tmp_path))
-    assert "CATALYST_READONLY_PASSWORD" in str(caught.value)
-
-
 def test_the_shipped_template_is_the_one_the_comparison_runs(tmp_path):
     """The checked-in template must stay loadable and complete."""
     config = resolve(
@@ -130,7 +95,6 @@ def test_the_shipped_template_is_the_one_the_comparison_runs(tmp_path):
         "scenarios": [],
         "repetitions": None,
         "includeManual": False,
-        "postgresCrossCheck": True,
         "timeoutSeconds": 900,
     }
 
@@ -143,10 +107,6 @@ def test_the_shipped_template_is_the_one_the_comparison_runs(tmp_path):
         ({"repetitions": 0}, "invocation.repetitions must be a positive integer"),
         ({"timeoutSeconds": 0}, "invocation.timeoutSeconds must be a positive integer"),
         ({"includeManual": "false"}, "invocation.includeManual must be boolean"),
-        (
-            {"postgresCrossCheck": 1},
-            "invocation.postgresCrossCheck must be boolean",
-        ),
     ],
 )
 def test_invalid_invocation_settings_are_refused(tmp_path, invocation, message):

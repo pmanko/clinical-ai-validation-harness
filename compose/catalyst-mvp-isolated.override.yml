@@ -44,15 +44,15 @@ services:
     image: apache/superset:6.1.0-dev@sha256:5822dff49c41fd745ce33e38af502f9c64df30d133aeba148c5d89b35a1004ef
     platform: "${SUPERSET_PLATFORM:-linux/arm64}"
     environment:
-      CATALYST_SUPERSET_DRIVER_REVISION: "${SUPERSET_DRIVER_REVISION:-psycopg2-binary==2.9.9}"
+      CATALYST_SUPERSET_DRIVER_REVISION: "${SUPERSET_DRIVER_REVISION:-pyhive[hive]==0.7.0}"
 
   # Registers the second (OpenMRS HIV/ART program) data source alongside the
   # base OpenELIS one. The default path resolves relative to the first compose
   # file's directory (targets/catalyst) to the harness-level
   # catalyst-sources/openmrs-hiv directory; override with CATALYST_HIV_SOURCE_DIR
   # if the source lives elsewhere. Its ingestion pipeline (fhir-data-pipes
-  # against the OpenMRS FHIR2 R4 endpoint) is run separately and writes to the
-  # sibling catalyst_analytics_hiv database.
+  # against the OpenMRS FHIR2 R4 endpoint) is run separately and writes Parquet
+  # into the shared warehouse volume the Spark thriftserver reads.
   catalyst-gateway:
     environment:
       CATALYST_DATA_SOURCES_PATH: "/app/config/extra/data-sources.json"

@@ -236,13 +236,13 @@ def test_superset_runtime_identity_is_explicit_in_the_pinned_target() -> None:
     assert override.count(f"image: {superset_image}") >= 3
     assert (
         'CATALYST_SUPERSET_DRIVER_REVISION: '
-        '"${SUPERSET_DRIVER_REVISION:-psycopg2-binary==2.9.9}"'
+        '"${SUPERSET_DRIVER_REVISION:-pyhive[hive]==0.7.0}"'
         in override
     )
     assert "SUPERSET_PLATFORM=linux/arm64" in env
-    assert "SUPERSET_DRIVER_REVISION=psycopg2-binary==2.9.9" in env
+    assert "SUPERSET_DRIVER_REVISION=pyhive[hive]==0.7.0" in env
     assert (
         'CATALYST_SUPERSET_DRIVER_REVISION: '
-        '"${SUPERSET_DRIVER_REVISION:-psycopg2-binary==2.9.9}"'
+        '"${SUPERSET_DRIVER_REVISION:-pyhive[hive]==0.7.0}"'
         in compose
     )

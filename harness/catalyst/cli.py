@@ -13,10 +13,6 @@ from typing import Any
 DEFAULT_SUITE = "datasets/validation/catalyst/catalyst-notebook-t094-v1.json"
 DEFAULT_GATEWAY_URL = "http://127.0.0.1:18000"
 DEFAULT_OUTPUT_DIR = "artifacts/catalyst-notebook-validation"
-DEFAULT_POSTGRES_DSN = (
-    "postgresql://catalyst_readonly:demo-readonly-change-me@"
-    "127.0.0.1:15443/catalyst_analytics"
-)
 
 
 def configure_parser(parent: argparse._SubParsersAction[Any]) -> None:
@@ -40,15 +36,6 @@ def configure_parser(parent: argparse._SubParsersAction[Any]) -> None:
         "--include-manual",
         action="store_true",
         help="include scenarios requiring an operator-controlled external failure",
-    )
-    run.add_argument(
-        "--postgres-dsn",
-        default=os.environ.get("CATALYST_VALIDATION_POSTGRES_DSN", DEFAULT_POSTGRES_DSN),
-    )
-    run.add_argument(
-        "--no-postgres-cross-check",
-        action="store_true",
-        help="skip independent DB comparison (not valid for T094 acceptance)",
     )
     run.add_argument(
         "--resume",
@@ -101,13 +88,8 @@ def dispatch(args: argparse.Namespace, *, project_root: Path) -> int:
     if args.catalyst_action != "run":
         raise ValueError(f"unknown Catalyst action: {args.catalyst_action}")
 
-    from .notebook_validation import (
-        NotebookHttpClient,
-        PostgresGoldExecutionChecker,
-        PostgresReadOnlyChecker,
-        run_notebook_suite,
-    )
-    from .run_config import postgres_dsn, publishable, resolve
+    from .notebook_validation import NotebookHttpClient, run_notebook_suite
+    from .run_config import publishable, resolve
 
     frozen_config = None
     warmup_question = None
@@ -125,12 +107,6 @@ def dispatch(args: argparse.Namespace, *, project_root: Path) -> int:
         if args.repetitions is None:
             args.repetitions = invocation["repetitions"]
         args.include_manual = args.include_manual or invocation["includeManual"]
-        args.no_postgres_cross_check = (
-            args.no_postgres_cross_check or not invocation["postgresCrossCheck"]
-        )
-        if not args.no_postgres_cross_check:
-            config = resolve(args.run_config)
-            args.postgres_dsn = postgres_dsn(config)
         if args.timeout_seconds is None:
             args.timeout_seconds = invocation["timeoutSeconds"]
         effective_scenarios = list(dict.fromkeys(args.scenarios or []))
@@ -139,7 +115,6 @@ def dispatch(args: argparse.Namespace, *, project_root: Path) -> int:
             "scenarios": effective_scenarios,
             "repetitions": args.repetitions,
             "includeManual": args.include_manual,
-            "postgresCrossCheck": not args.no_postgres_cross_check,
             "timeoutSeconds": args.timeout_seconds,
         }
         if config.get("readerRubric"):
@@ -172,12 +147,6 @@ def dispatch(args: argparse.Namespace, *, project_root: Path) -> int:
     if args.timeout_seconds is None:
         args.timeout_seconds = 900
 
-    checker = None
-    gold_checker = None
-    if not args.no_postgres_cross_check:
-        checker = PostgresReadOnlyChecker(args.postgres_dsn)
-        gold_checker = PostgresGoldExecutionChecker(args.postgres_dsn)
-
     result = run_notebook_suite(
         suite_path=Path(args.suite),
         client=NotebookHttpClient(
@@ -189,8 +158,6 @@ def dispatch(args: argparse.Namespace, *, project_root: Path) -> int:
         scenario_ids=set(args.scenarios) if args.scenarios else None,
         repetitions=args.repetitions,
         include_manual=args.include_manual,
-        postgres_checker=checker,
-        gold_checker=gold_checker,
         manual_checkpoint=_manual_checkpoint if args.include_manual else None,
         resume_from=Path(args.resume_from) if args.resume_from else None,
         frozen_config=frozen_config,

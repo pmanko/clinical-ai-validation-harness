@@ -58,7 +58,6 @@ def _reader_run_config(
                     "scenarios": ["A1", "A1", "M1"],
                     "repetitions": 1,
                     "includeManual": False,
-                    "postgresCrossCheck": False,
                     "timeoutSeconds": 45,
                 },
             }
@@ -128,8 +127,6 @@ def test_reader_cli_freezes_the_exact_configured_rubric(
     assert captured["scenario_ids"] == {"A1", "M1"}
     assert captured["repetitions"] == 1
     assert captured["client"].timeout_seconds == 45
-    assert captured["postgres_checker"] is None
-    assert captured["gold_checker"] is None
 
 
 def test_reader_cli_resume_uses_the_rubric_frozen_with_the_source_run(

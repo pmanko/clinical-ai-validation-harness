@@ -493,22 +493,6 @@ class NotebookTransport(Protocol):
     ) -> HttpExchange: ...
 
 
-class PostgresChecker(Protocol):
-    def check(
-        self,
-        version: dict[str, Any],
-        execution: object,
-    ) -> dict[str, Any]: ...
-
-
-class GoldChecker(Protocol):
-    def check(
-        self,
-        version: dict[str, Any],
-        gold_check: "NotebookGoldCheck",
-    ) -> dict[str, Any]: ...
-
-
 class NotebookHttpClient:
     def __init__(
         self,
@@ -695,121 +679,6 @@ class NotebookHttpClient:
         )
 
 
-class PostgresReadOnlyChecker:
-    """Execute the selected immutable version through a separate DB connection."""
-
-    def __init__(
-        self,
-        dsn: str,
-        *,
-        statement_timeout_ms: int = 30_000,
-        max_rows: int = 100,
-    ) -> None:
-        self.dsn = dsn
-        self.statement_timeout_ms = statement_timeout_ms
-        self.max_rows = max_rows
-
-    def check(
-        self,
-        version: dict[str, Any],
-        execution: object,
-    ) -> dict[str, Any]:
-        import psycopg
-
-        parameters = list(version.get("parameters") or [])
-        bindings = {
-            str(parameter["name"]): _binding_value(parameter)
-            for parameter in parameters
-        }
-        driver_sql = _driver_sql(str(version["sql"]), set(bindings))
-        gateway_execution = execution if isinstance(execution, dict) else {}
-        result = gateway_execution.get("result")
-        gateway_columns = [
-            item.get("name") for item in (result or {}).get("columns", [])
-        ]
-        gateway_rows = [
-            [_gateway_cell_value(cell) for cell in row]
-            for row in (result or {}).get("rows", [])
-        ]
-        row_count = (result or {}).get("rowCount", {})
-        parsed = urlparse(self.dsn)
-        with psycopg.connect(self.dsn, connect_timeout=10) as connection:
-            with connection.cursor() as cursor:
-                cursor.execute("SET TRANSACTION READ ONLY")
-                cursor.execute(
-                    "SELECT set_config('statement_timeout', %s, true)",
-                    (f"{self.statement_timeout_ms}ms",),
-                )
-                try:
-                    cursor.execute(driver_sql, bindings)
-                except psycopg.errors.QueryCanceled:
-                    return {
-                        "contractVersion": (
-                            "harness.catalyst-notebook.postgres-crosscheck.v1"
-                        ),
-                        "readOnlyTransaction": True,
-                        "database": parsed.path.lstrip("/") or None,
-                        "versionId": version.get("versionId"),
-                        "queryDigest": version.get("queryDigest"),
-                        "gatewayExecutionId": gateway_execution.get("executionId"),
-                        "maxRows": self.max_rows,
-                        "statementTimeoutMs": self.statement_timeout_ms,
-                        "timedOut": True,
-                        "comparisons": {"queryCompleted": False},
-                        "passed": False,
-                        "disagreement": (
-                            "the model's query exceeded the "
-                            f"{self.statement_timeout_ms}ms statement timeout "
-                            "when re-executed independently"
-                        ),
-                        "gateway": {
-                            "columns": gateway_columns,
-                            "returned": row_count.get("returned"),
-                            "truncated": row_count.get("truncated"),
-                            "recordDigests": _row_digests(gateway_rows),
-                        },
-                        "postgres": {"queryCompleted": False},
-                    }
-                direct_rows = list(cursor.fetchmany(self.max_rows + 1))
-                direct_columns = [item.name for item in (cursor.description or ())]
-
-        direct_truncated = len(direct_rows) > self.max_rows
-        direct_rows = direct_rows[: self.max_rows]
-        normalized_direct = [
-            [_json_safe_value(value) for value in row] for row in direct_rows
-        ]
-        comparisons = {
-            "columns": gateway_columns == direct_columns,
-            "returnedRows": row_count.get("returned") == len(direct_rows),
-            "truncated": row_count.get("truncated") is direct_truncated,
-            "recordDigests": _row_digests(gateway_rows)
-            == _row_digests(normalized_direct),
-        }
-        return {
-            "contractVersion": "harness.catalyst-notebook.postgres-crosscheck.v1",
-            "readOnlyTransaction": True,
-            "database": parsed.path.lstrip("/") or None,
-            "versionId": version.get("versionId"),
-            "queryDigest": version.get("queryDigest"),
-            "gatewayExecutionId": gateway_execution.get("executionId"),
-            "maxRows": self.max_rows,
-            "comparisons": comparisons,
-            "passed": all(comparisons.values()),
-            "gateway": {
-                "columns": gateway_columns,
-                "returned": row_count.get("returned"),
-                "truncated": row_count.get("truncated"),
-                "recordDigests": _row_digests(gateway_rows),
-            },
-            "postgres": {
-                "columns": direct_columns,
-                "returned": len(direct_rows),
-                "truncated": direct_truncated,
-                "recordDigests": _row_digests(normalized_direct),
-            },
-        }
-
-
 def _escape_percents_outside_placeholders(sql: str) -> str:
     """Double every % that is not opening a %(name)s placeholder."""
     output: list[str] = []
@@ -853,321 +722,6 @@ def _fetch_all_rows(
         ],
         exceeded,
     )
-
-
-class PostgresGoldExecutionChecker:
-    """Prove a model's own SQL — executed directly and unbounded, bypassing the
-    Gateway's UI row cap — matches a hand-authored reference query's intent,
-    rather than merely matching its own (possibly truncated) visible page."""
-
-    def __init__(
-        self, dsn: str, *, statement_timeout_ms: int = 30_000, max_rows: int = 5_000
-    ) -> None:
-        self.dsn = dsn
-        self.statement_timeout_ms = statement_timeout_ms
-        self.max_rows = max_rows
-
-    @staticmethod
-    def _subquery(sql: str) -> str:
-        return sql.strip().removesuffix(";").rstrip()
-
-    @staticmethod
-    def _identifier(name: str) -> str:
-        return '"' + name.replace('"', '""') + '"'
-
-    def _database_row_set_check(
-        self,
-        cursor: Any,
-        version: dict[str, Any],
-        gold_check: "NotebookGoldCheck",
-    ) -> dict[str, Any]:
-        """Compare large plain row sets inside PostgreSQL.
-
-        Only the counts and small disagreement samples cross the process
-        boundary. This checks a complete large result without inventing a row
-        cutoff for the evidence tool.
-        """
-
-        import psycopg
-
-        model_parameters = list(version.get("parameters") or [])
-        bindings = {
-            str(parameter["name"]): _binding_value(parameter)
-            for parameter in model_parameters
-        }
-        model_sql = self._subquery(
-            _driver_sql(str(version["sql"]), set(bindings))
-        )
-        reference_sql = self._subquery(
-            _driver_sql(gold_check.reference_sql, set())
-        )
-        result: dict[str, Any] = {
-            "contractVersion": "harness.catalyst-notebook.gold-execution-match.v1",
-            "mode": gold_check.mode,
-            "versionId": version.get("versionId"),
-            "queryDigest": version.get("queryDigest"),
-            "matchColumns": list(gold_check.match_columns),
-            "normalizers": {},
-            "comparisonLocation": "postgresql",
-        }
-
-        try:
-            cursor.execute(
-                f"SELECT * FROM ({model_sql}) AS model_rows LIMIT 0",
-                bindings,
-            )
-        except psycopg.errors.QueryCanceled:
-            result.update(
-                {
-                    "passed": False,
-                    "disagreement": (
-                        "the model's query exceeded the "
-                        f"{self.statement_timeout_ms}ms statement timeout "
-                        "when re-executed independently"
-                    ),
-                }
-            )
-            return result
-        except psycopg.Error as error:
-            result.update(
-                {
-                    "passed": False,
-                    "disagreement": (
-                        "the model query could not be compared as a row set"
-                    ),
-                    "databaseDiagnostic": {"sqlstate": error.sqlstate},
-                }
-            )
-            return result
-        model_columns = [item.name for item in (cursor.description or ())]
-        missing_model_columns = [
-            column
-            for column in gold_check.match_columns
-            if column not in model_columns
-        ]
-        if missing_model_columns:
-            result.update(
-                {
-                    "passed": False,
-                    "disagreement": (
-                        "the model result has no column named "
-                        + ", ".join(repr(column) for column in missing_model_columns)
-                        + f"; its columns are {sorted(model_columns)}"
-                    ),
-                }
-            )
-            return result
-
-        try:
-            cursor.execute(
-                f"SELECT * FROM ({reference_sql}) AS reference_rows LIMIT 0",
-                {},
-            )
-        except psycopg.Error as error:
-            raise ValueError(
-                "the independent reference query could not be compared"
-            ) from error
-        reference_columns = [item.name for item in (cursor.description or ())]
-        missing_reference_columns = [
-            column
-            for column in gold_check.match_columns
-            if column not in reference_columns
-        ]
-        if missing_reference_columns:
-            raise ValueError(
-                "the independent reference query is missing columns: "
-                + ", ".join(missing_reference_columns)
-            )
-
-        projected = ", ".join(
-            self._identifier(column) for column in gold_check.match_columns
-        )
-        common = (
-            f"WITH model_rows AS ({model_sql}), "
-            f"reference_rows AS ({reference_sql}), "
-            f"model_values AS (SELECT {projected} FROM model_rows), "
-            f"reference_values AS (SELECT {projected} FROM reference_rows) "
-        )
-        try:
-            cursor.execute(
-                common
-                + "SELECT "
-                + "(SELECT count(*) FROM model_values), "
-                + "(SELECT count(*) FROM reference_values), "
-                + "(SELECT count(*) FROM ("
-                + "SELECT * FROM reference_values EXCEPT ALL "
-                + "SELECT * FROM model_values) AS missing), "
-                + "(SELECT count(*) FROM ("
-                + "SELECT * FROM model_values EXCEPT ALL "
-                + "SELECT * FROM reference_values) AS extra)",
-                bindings,
-            )
-            summary_rows = list(cursor.fetchmany(1))
-        except psycopg.Error as error:
-            result.update(
-                {
-                    "passed": False,
-                    "disagreement": (
-                        "the requested model columns could not be compared with "
-                        "the independent answer"
-                    ),
-                    "databaseDiagnostic": {"sqlstate": error.sqlstate},
-                }
-            )
-            return result
-        if len(summary_rows) != 1:
-            raise ValueError("database row-set comparison returned no summary")
-        model_count, reference_count, missing_count, extra_count = summary_rows[0]
-
-        def sample(first: str, second: str) -> list[list[Any]]:
-            cursor.execute(
-                common
-                + "SELECT * FROM ("
-                + f"SELECT * FROM {first} EXCEPT ALL SELECT * FROM {second}"
-                + ") AS difference LIMIT 20",
-                bindings,
-            )
-            return [
-                [_json_safe_value(value) for value in row]
-                for row in cursor.fetchmany(20)
-            ]
-
-        missing_sample = (
-            sample("reference_values", "model_values") if missing_count else []
-        )
-        extra_sample = (
-            sample("model_values", "reference_values") if extra_count else []
-        )
-        passed = not missing_count and not extra_count
-        result.update(
-            {
-                "modelRowCount": int(model_count),
-                "referenceRowCount": int(reference_count),
-                "missingFromModelCount": int(missing_count),
-                "extraInModelCount": int(extra_count),
-                "missingFromModelSample": missing_sample,
-                "extraInModelSample": extra_sample,
-                "passed": passed,
-            }
-        )
-        if not passed:
-            result["disagreement"] = (
-                f"{missing_count} row{'s' if missing_count != 1 else ''} missing "
-                f"from the answer and {extra_count} extra, compared on "
-                f"{', '.join(gold_check.match_columns)}"
-            )
-        return result
-
-    def check(
-        self,
-        version: dict[str, Any],
-        gold_check: "NotebookGoldCheck",
-    ) -> dict[str, Any]:
-        import psycopg
-
-        with psycopg.connect(self.dsn, connect_timeout=10) as connection:
-            with connection.cursor() as cursor:
-                cursor.execute("SET TRANSACTION READ ONLY")
-                cursor.execute(
-                    "SELECT set_config('statement_timeout', %s, true)",
-                    (f"{self.statement_timeout_ms}ms",),
-                )
-                if (
-                    gold_check.mode == "row_set"
-                    and not gold_check.normalizers
-                    and not gold_check.reference_parameters
-                ):
-                    return self._database_row_set_check(
-                        cursor, version, gold_check
-                    )
-                try:
-                    model_rows, model_exceeded = _fetch_all_rows(
-                        cursor,
-                        str(version["sql"]),
-                        list(version.get("parameters") or []),
-                        max_rows=self.max_rows,
-                    )
-                except psycopg.errors.QueryCanceled:
-                    # Too slow to answer within the product's own statement
-                    # timeout is a wrong answer, not a broken harness.
-                    return {
-                        "contractVersion": (
-                            "harness.catalyst-notebook.gold-execution-match.v1"
-                        ),
-                        "mode": gold_check.mode,
-                        "versionId": version.get("versionId"),
-                        "queryDigest": version.get("queryDigest"),
-                        "passed": False,
-                        "disagreement": (
-                            "the model's query exceeded the "
-                            f"{self.statement_timeout_ms}ms statement timeout "
-                            "when re-executed independently"
-                        ),
-                    }
-                reference_rows, reference_exceeded = _fetch_all_rows(
-                    cursor,
-                    gold_check.reference_sql,
-                    list(gold_check.reference_parameters),
-                    max_rows=self.max_rows,
-                )
-        # The reference is ours: oversized means the scenario is misauthored,
-        # and scoring against a truncated reference would be a quiet lie.
-        if reference_exceeded:
-            raise ValueError(
-                f"the reference query exceeded the {self.max_rows}-row safety "
-                "cap; narrow the scenario or raise max_rows"
-            )
-
-        result: dict[str, Any] = {
-            "contractVersion": "harness.catalyst-notebook.gold-execution-match.v1",
-            "mode": gold_check.mode,
-            "versionId": version.get("versionId"),
-            "queryDigest": version.get("queryDigest"),
-            "modelRowCount": len(model_rows),
-            "referenceRowCount": len(reference_rows),
-        }
-        if model_exceeded:
-            # An unfiltered model answer is a wrong answer, not a broken
-            # harness: score the mismatch instead of erasing finished work.
-            result["modelRowsExceededCap"] = True
-            result["passed"] = False
-            result["disagreement"] = (
-                f"the answer returned over {len(model_rows)} rows; the "
-                f"independent reference returns {len(reference_rows)}"
-            )
-            return result
-        if gold_check.mode == "count":
-            result["passed"] = len(model_rows) == len(reference_rows)
-            if not result["passed"]:
-                result["disagreement"] = (
-                    f"the answer returned {len(model_rows)} rows; the "
-                    f"independent reference returns {len(reference_rows)}"
-                )
-        elif gold_check.mode == "row_set":
-            result.update(
-                _compare_row_sets(
-                    model_rows,
-                    reference_rows,
-                    gold_check.match_columns,
-                    gold_check.normalizers,
-                )
-            )
-        elif gold_check.mode == "aggregate_by_key":
-            result.update(
-                _compare_aggregates(
-                    model_rows,
-                    reference_rows,
-                    gold_check.key_columns,
-                    gold_check.value_columns,
-                )
-            )
-        elif gold_check.mode == "scalar":
-            result.update(
-                _compare_scalars(model_rows, reference_rows, gold_check.value_column)
-            )
-        else:
-            raise ValueError(f"unsupported gold check mode {gold_check.mode!r}")
-        return result
 
 
 def _compare_row_sets(
@@ -2031,19 +1585,6 @@ def _profile_availability_drift(
     ):
         return True
     return False
-
-
-def _database_service_interruption(error: Exception) -> bool:
-    """Keep database availability failures separate from query judgments."""
-    if isinstance(error, OSError):
-        return True
-    try:
-        import psycopg
-    except ImportError:
-        return False
-    if isinstance(error, psycopg.errors.QueryCanceled):
-        return False
-    return isinstance(error, psycopg.OperationalError)
 
 
 def repetition_pair_is_unstable(runs: list[dict[str, Any]]) -> bool:
@@ -3260,8 +2801,6 @@ def run_notebook_suite(
     scenario_ids: set[str] | None = None,
     repetitions: int | None = None,
     include_manual: bool = False,
-    postgres_checker: PostgresChecker | None = None,
-    gold_checker: GoldChecker | None = None,
     manual_checkpoint: Callable[[NotebookScenario, str], None] | None = None,
     provenance_loader: Callable[[Path], list[dict[str, Any]]] = _target_provenance,
     resume_from: Path | str | None = None,
@@ -3837,8 +3376,6 @@ def run_notebook_suite(
                         client=client,
                         recorder=recorder,
                         prefix=prefix,
-                        postgres_checker=postgres_checker,
-                        gold_checker=gold_checker,
                         manual_checkpoint=manual_checkpoint,
                     )
                 except _CollectionInterrupted as interruption:
@@ -3976,8 +3513,6 @@ def _run_scenario(
     client: NotebookTransport,
     recorder: _EvidenceRecorder,
     prefix: str,
-    postgres_checker: PostgresChecker | None,
-    gold_checker: GoldChecker | None,
     manual_checkpoint: Callable[[NotebookScenario, str], None] | None,
 ) -> dict[str, Any]:
     assertions: list[dict[str, Any]] = []
@@ -3991,39 +3526,6 @@ def _run_scenario(
                 "evidence": evidence,
             }
         )
-
-    def database_check(
-        *,
-        relative_path: str,
-        operation: str,
-        kind: str,
-        call: Callable[[], dict[str, Any]],
-    ) -> dict[str, Any]:
-        try:
-            result = call()
-        except Exception as error:
-            if not _database_service_interruption(error):
-                raise
-            recorder.json(
-                relative_path,
-                {
-                    "contractVersion": (
-                        "harness.catalyst-notebook.service-interruption.v1"
-                    ),
-                    "service": "postgresql",
-                    "operation": operation,
-                    "exceptionType": type(error).__name__,
-                },
-                kind="service_interruption",
-            )
-            raise _CollectionInterrupted(
-                relative_path,
-                None,
-                interruption_kind="database_availability",
-                interruption_code="postgres_unavailable",
-            ) from error
-        recorder.json(relative_path, result, kind=kind)
-        return result
 
     create = client.create_session(
         scenario.initial_question, scenario.initial_profile_id
@@ -4258,33 +3760,6 @@ def _run_scenario(
                 "status": base_execution.get("status"),
             },
         )
-        if (
-            postgres_checker is not None
-            and executed.status_code == 200
-            and base_execution.get("status") == "succeeded"
-        ):
-            crosscheck = database_check(
-                relative_path=f"{prefix}/07-postgres-base.json",
-                operation="base_postgres_crosscheck",
-                kind="postgres_crosscheck",
-                call=lambda: postgres_checker.check(base_version, base_execution),
-            )
-            check("base_postgres_crosscheck", crosscheck["passed"], crosscheck)
-        if (
-            gold_checker is not None
-            and scenario.base_gold_check is not None
-            and executed.status_code == 200
-            and base_execution.get("status") == "succeeded"
-        ):
-            gold_result = database_check(
-                relative_path=f"{prefix}/15-gold-execution-match-base.json",
-                operation="base_gold_execution_match",
-                kind="gold_execution_match",
-                call=lambda: gold_checker.check(
-                    base_version, scenario.base_gold_check
-                ),
-            )
-            check("base_gold_execution_match", gold_result["passed"], gold_result)
 
     for pin_index, guidance_text in enumerate(scenario.pin_guidance, start=1):
         pin_exchange = client.pin_guidance(session_id, guidance_text)
@@ -4604,35 +4079,6 @@ def _run_scenario(
                     "diagnostic": successor_execution.get("databaseDiagnostic"),
                 },
             )
-            if (
-                postgres_checker is not None
-                and executed.status_code == 200
-                and successor_execution.get("status") == "succeeded"
-            ):
-                crosscheck = database_check(
-                    relative_path=f"{prefix}/14-postgres-successor{slot}.json",
-                    operation="successor_postgres_crosscheck",
-                    kind="postgres_crosscheck",
-                    call=lambda: postgres_checker.check(
-                        selected, successor_execution
-                    ),
-                )
-                check("successor_postgres_crosscheck", crosscheck["passed"], crosscheck)
-            if (
-                gold_checker is not None
-                and turn_gold_check is not None
-                and executed.status_code == 200
-                and successor_execution.get("status") == "succeeded"
-            ):
-                gold_result = database_check(
-                    relative_path=(
-                        f"{prefix}/16-gold-execution-match-successor{slot}.json"
-                    ),
-                    operation="successor_gold_execution_match",
-                    kind="gold_execution_match",
-                    call=lambda: gold_checker.check(selected, turn_gold_check),
-                )
-                check("successor_gold_execution_match", gold_result["passed"], gold_result)
 
         turn_candidate_digests = [
             str(item["candidateDigest"])
