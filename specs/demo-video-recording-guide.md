@@ -144,6 +144,30 @@ turns it into a publishable mp4 deterministically.
   sentence on what the run demonstrated (matches the pattern already used in
   the published validation-run report narratives).
 
+## Which spec to record
+
+| Spec | What it shows |
+| --- | --- |
+| `e2e/fhir-to-dashboard-demo.spec.ts` | The whole path: the FHIR Data Pipes control panel — configured FHIR endpoint, warehouse settings, a pipeline run, the snapshot it wrote — then Catalyst asking that warehouse a question, then Dataset → Widgets → Dashboard → published bundle → Superset. Start here when the audience asks where the data comes from. |
+| `e2e/full-scenario-demo.spec.ts` | Catalyst only, from a plain-language laboratory question to a published Superset dashboard. |
+| `e2e/openmrs-hiv-demo.spec.ts`, `e2e/openelis-lab-demo.spec.ts` | One data source each, conversation only, no dashboard. |
+
+`fhir-to-dashboard-demo` takes an extra environment variable:
+
+```bash
+CATALYST_DEMO_PIPELINE_MODE=INCREMENTAL   # default: merges what changed, seconds
+CATALYST_DEMO_PIPELINE_MODE=FULL          # rebuilds the snapshot from the whole server
+CATALYST_DEMO_SHOT_DIR=<dir>              # where its per-act screenshots land
+```
+
+It also needs `CATALYST_HARNESS_DIR` (the checkout that owns the running
+stack) because it calls the pinned Superset importer, and
+`CATALYST_DATA_PIPES_URL` if the controller is not on `:18091`.
+
+Its screenshots are evidence in their own right: Superset abbreviates a big
+number (5384 renders as `5.38k`), so the spec asserts structure and leaves
+reading values to `05-catalyst-result.png` and `07-superset-dashboard.png`.
+
 ## Reference implementation
 
 - `scripts/render_demo_video.py` — the renderer (pure functions:
