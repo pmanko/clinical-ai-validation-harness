@@ -19,7 +19,12 @@ configured connection + explicit SQL dialect
 ```
 
 Catalyst does not own ingestion, a clinical warehouse, or a preferred database
-engine. The selected reference deployment is separate:
+engine. This work targets **the Spark path only**: Spark SQL over the FHIR Data
+Pipes Parquet warehouse becomes the clinical analytics engine, and the
+PostgreSQL analytics path is retired rather than maintained beside it. The seam
+stays generic so a later engine is configuration plus one adapter module, but
+no second engine is built or supported here. The reference deployment is
+separate:
 
 ```text
 FHIR source -> FHIR Data Pipes -> Parquet -> Spark SQL
@@ -95,12 +100,20 @@ restricted schema copy.
   and column readable through the connection. Descriptions may enrich but cannot
   filter that information.
 - Catalyst does not translate SQL between engines.
-- **The engine is configuration, not code.** A source's connection string and
-  declared dialect select the client; the Gateway constructs connections from
-  that configuration alone. No module names an engine, no engine-specific
-  branch decides behavior, and adding an engine means adding a source entry and
-  whatever client library it needs — never a new adapter class or subsystem.
-  PostgreSQL and Spark are two configured sources of the same generic code.
+- **Configuration selects; code implements.** A source declares its
+  connection, its dialect, and — where behavior is genuinely dialect-specific —
+  the module implementing that behavior. Connection and execution are one
+  generic implementation driven by the connection string: transport is a client
+  library, not a per-engine class. Syntax-level behavior is the opposite kind
+  of problem and gets real code: parsing, linting, formatting, completion,
+  identifier quoting, and parameter style differ by grammar, and squeezing them
+  into configuration values would be as wrong as branching the core on engine
+  identity. So a dialect adapter is a small module that declares those things
+  (today: sqlglot's dialect name, the lint rules that apply, the quoting and
+  parameter conventions), and configuration names which adapter a source uses.
+  What is forbidden is the core asking *which engine is this* — no
+  `if dialect == …` in the Gateway, no engine-named construction outside the
+  adapter a source's configuration points at.
 - Generated and manually edited queries use shared connection-execution code.
 - Validation is advisory. Exact selected SQL reaches the connection.
 - Catalyst relies on the connection's configured access, retains its time and
@@ -167,30 +180,45 @@ behavior to availability, complete readable schema discovery, exact SQL
 execution with typed parameters and bounds, and rows or the database error.
 Source-specific dataset browsing is not part of this interface.
 
-One implementation satisfies that protocol for every source, constructed from
-configuration: connection string plus declared dialect in, a working connection
-out. `PostgresAnalyticsAdapter` is replaced rather than joined by a Spark
-sibling — a second engine-named class would recreate the coupling this work
-exists to remove. Where an engine genuinely differs (identifier quoting,
-parameter style, how a statement timeout and row bound are imposed, how
-read-only access is asserted), the difference is expressed as declared
-per-source configuration consumed by that one implementation, not as a branch
-on engine identity. Use whatever client library each configured dialect needs;
-record which library serves which dialect and what each one supports.
+Split the work by what kind of problem it is.
+
+*Connection and execution* is one implementation for every source, constructed
+from the connection string: availability, discovery, exact execution, rows or
+the error. `PostgresAnalyticsAdapter` is replaced rather than joined by a Spark
+sibling — a second engine-named transport class would recreate the coupling
+this work exists to remove.
+
+*Syntax* is real code behind a named module. One dialect adapter per dialect
+declares what its grammar needs — the sqlglot dialect for parsing and layout,
+which lint rules apply, identifier quoting, parameter style, the editor's
+language mode, and how the time limit, row bound, and read-only guarantee are
+imposed on that engine. A source's configuration names its adapter; the
+Gateway resolves it and asks it, and never asks which engine it is.
+
+This repository ships **one** production adapter, for Spark. PostgreSQL stops
+being the clinical analytics engine rather than becoming a second supported
+one; a fixture adapter in tests keeps the seam honest without a second engine
+to maintain. Use whatever client library the Spark dialect needs and record
+what it supports.
 
 Acceptance:
 
-- source configuration has identity, label, connection configuration, and
-  explicit dialect, with no preferred-engine default or fallback;
-- two sources of different dialects — the PostgreSQL demo source and the Spark
-  reference source — are served by the same connection implementation from
-  configuration alone, with no engine name appearing in a construction or
-  control-flow decision, proven by a test that swaps dialect through
-  configuration only;
+- source configuration has identity, label, connection configuration, explicit
+  dialect, and its dialect adapter, with no preferred-engine default or
+  fallback;
+- the Spark reference source is served entirely through configuration —
+  connection string, dialect, and named dialect adapter — with the Gateway
+  containing no engine-identity branch and no engine-named construction of its
+  own; a fixture source pointed at a different dialect adapter exercises the
+  same code path, which is how the seam is proven without building a second
+  production engine;
+- `query_lint.py`'s hard-coded `sqlglot.parse(sql, read="postgres")` and every
+  peer literal in parsing, layout, and the editor read their dialect from the
+  source's adapter instead;
 - typed parameters, the time limit, the returned-row bound, and the read-only
-  guarantee each have a recorded per-dialect mechanism; where a configured
-  dialect cannot honor one, the limitation is recorded and surfaced rather than
-  silently dropped or emulated in Catalyst;
+  guarantee each have a recorded mechanism for Spark; where Spark cannot honor
+  one, the limitation is recorded and surfaced rather than silently dropped or
+  emulated in Catalyst;
 - arbitrary fixture relations reach both the model request and editor; tests
   assert inclusion rather than a count;
 - relation and column identifiers preserve the configured engine's native names
@@ -339,10 +367,14 @@ is accepted by the owner.
 
 Do not add:
 
-- an engine-named adapter class per database, a plugin/connector framework,
-  registry, or capability-negotiation layer — one configuration-driven
-  connection implementation is the target, and a per-dialect setting is not a
-  framework;
+- an engine-identity branch in the Gateway, an engine-named transport class
+  beside the generic one, or a plugin registry, discovery mechanism, or
+  capability-negotiation layer around dialect adapters — configuration naming a
+  module is the whole mechanism, and one Spark adapter plus a test fixture is
+  the whole set;
+- a second production engine, dialect adapter, or client library beyond Spark
+  in this work, or preservation of the PostgreSQL analytics path as a supported
+  alternative;
 - a connector framework, SQL translator, custom query engine, second catalog
   service, relation allowlist/ranking, or fixed schema/context count;
 - a FHIR Data Pipes fork, namespace layer, shadow warehouse, or automatic
