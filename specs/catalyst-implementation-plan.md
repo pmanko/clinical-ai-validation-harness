@@ -1,7 +1,9 @@
 # Catalyst implementation plan
 
-**Status:** Documentation alignment is committed and awaiting pull-request
-review and merge. Generic-connection implementation has not started.
+**Status:** Documentation alignment is merged (harness `5ee052f`, Catalyst
+`75442c2`). Generic-connection implementation is the next work and has not
+started. The Spark reference deployment is shipped upstream at the pinned FHIR
+Data Pipes revision and is enabled by configuration, not built here.
 
 `specs/catalyst-program-roadmap.md` owns product decisions and the Phase 1
 comparison. This file owns implementation order, checkpoints, and status.
@@ -24,8 +26,20 @@ FHIR source -> FHIR Data Pipes -> Parquet -> Spark SQL
   -> Catalyst and Superset as SQL clients
 ```
 
-Implementation and acceptance of this deployment are open. FHIR Data Pipes and
-Spark are not Catalyst product requirements.
+FHIR Data Pipes ships this entire path at the revision this repository already
+pins (`3ea890884d674e2f31257a2da421601f2d75b5e9`). Its own
+`docker/compose-controller-spark-sql-single.yaml` runs the pipeline controller
+with `FHIRDATA_GENERATEPARQUETFILES`, `FHIRDATA_CREATEHIVERESOURCETABLES`, and
+`FHIRDATA_CREATEPARQUETVIEWS` defaulted to `true`, beside a
+`start-thriftserver.sh` Spark service that shares the `/dwh` Parquet volume and
+serves Hive Thrift on container port 10000. `config/thriftserver-hive-config.json`
+registers the pipeline's tables and views into that endpoint, and upstream's
+`e2e-tests/controller-spark/controller_spark_sql_validation.sh` exercises the
+result. This project disabled those three flags and redirected the sink to
+PostgreSQL; enabling the shipped path is configuration, not new infrastructure.
+
+FHIR Data Pipes and Spark remain outside the Catalyst product contract: Catalyst
+reaches this deployment as one configured SQL connection like any other.
 
 ## Current implementation
 
@@ -40,7 +54,7 @@ pull request #78. At that revision:
 | `catalyst-gateway/src/catalyst/catalog.py::Catalog` | Mixes live discovery and optional descriptions with an approval filter. | Live discovery supplies every readable relation and column; descriptions do not filter. |
 | `docs/contracts/catalyst-workbench-editor-catalog-v1.schema.json` | Fixes the editor dialect to PostgreSQL and names the readable schema as a catalog. | Records the declared dialect and complete readable schema. |
 | `docs/contracts/catalyst-query-v1.schema.json` and `catalyst/service.py` | Require and emit `approvedViews`, restrict relation identifiers to one PostgreSQL-shaped form, and require descriptive metadata. | Use engine-native identifiers and make descriptions optional; no approved-relation field. |
-| `docker-compose.mvp.yml` | Turns off Parquet and Spark views and sends FHIR Data Pipes output to the `analytics-db` PostgreSQL service. | The selected reference deployment enables Parquet and Spark; Catalyst and Superset connect as SQL clients. |
+| `docker-compose.mvp.yml` | Sets `FHIRDATA_GENERATEPARQUETFILES`, `FHIRDATA_CREATEHIVERESOURCETABLES`, and `FHIRDATA_CREATEPARQUETVIEWS` to `false` and points `FHIRDATA_SINKDBCONFIGPATH` at `config/postgres-sink.json`, so the shipped warehouse never materializes. | Those three flags return to `true`, the controller uses the upstream thriftserver config, and the Spark thriftserver service joins the stack sharing the existing `data-pipes-dwh` volume. Catalyst and Superset connect to it as SQL clients. |
 | `harness/catalyst/notebook_validation.py` and `harness/catalyst/cli.py` | Open a second PostgreSQL path for read-only and “gold” checks. | The harness executes selected model SQL only through Catalyst and uses reviewed design-time references. |
 
 Every row in this table was re-checked at that revision.
@@ -75,11 +89,18 @@ restricted schema copy.
 
 - A source has an identity, label, connection configuration or reference, and
   explicit SQL dialect. Use the simplest configuration supported by the chosen
-  client; do not add a connector framework.
+  client; do not add a connector framework. One implementation reads that
+  configuration for every source; the engine never appears in code.
 - Live discovery is authoritative. The model and editor receive every relation
   and column readable through the connection. Descriptions may enrich but cannot
   filter that information.
 - Catalyst does not translate SQL between engines.
+- **The engine is configuration, not code.** A source's connection string and
+  declared dialect select the client; the Gateway constructs connections from
+  that configuration alone. No module names an engine, no engine-specific
+  branch decides behavior, and adding an engine means adding a source entry and
+  whatever client library it needs — never a new adapter class or subsystem.
+  PostgreSQL and Spark are two configured sources of the same generic code.
 - Generated and manually edited queries use shared connection-execution code.
 - Validation is advisory. Exact selected SQL reaches the connection.
 - Catalyst relies on the connection's configured access, retains its time and
@@ -146,10 +167,30 @@ behavior to availability, complete readable schema discovery, exact SQL
 execution with typed parameters and bounds, and rows or the database error.
 Source-specific dataset browsing is not part of this interface.
 
+One implementation satisfies that protocol for every source, constructed from
+configuration: connection string plus declared dialect in, a working connection
+out. `PostgresAnalyticsAdapter` is replaced rather than joined by a Spark
+sibling — a second engine-named class would recreate the coupling this work
+exists to remove. Where an engine genuinely differs (identifier quoting,
+parameter style, how a statement timeout and row bound are imposed, how
+read-only access is asserted), the difference is expressed as declared
+per-source configuration consumed by that one implementation, not as a branch
+on engine identity. Use whatever client library each configured dialect needs;
+record which library serves which dialect and what each one supports.
+
 Acceptance:
 
 - source configuration has identity, label, connection configuration, and
   explicit dialect, with no preferred-engine default or fallback;
+- two sources of different dialects — the PostgreSQL demo source and the Spark
+  reference source — are served by the same connection implementation from
+  configuration alone, with no engine name appearing in a construction or
+  control-flow decision, proven by a test that swaps dialect through
+  configuration only;
+- typed parameters, the time limit, the returned-row bound, and the read-only
+  guarantee each have a recorded per-dialect mechanism; where a configured
+  dialect cannot honor one, the limitation is recorded and surfaced rather than
+  silently dropped or emulated in Catalyst;
 - arbitrary fixture relations reach both the model request and editor; tests
   assert inclusion rather than a count;
 - relation and column identifiers preserve the configured engine's native names
@@ -167,11 +208,25 @@ changing the reference deployment.
 
 #### Spark reference deployment and product smoke
 
-For each reference source included in the demo or comparison, use the pinned
-FHIR Data Pipes Parquet and Spark path. The sources do not need to be live
-simultaneously unless the selected demonstration explicitly requires that.
-Whether they can share a Spark endpoint is an implementation finding; do not
-design a namespace service in advance.
+For each reference source included in the demo or comparison, enable the Spark
+path FHIR Data Pipes already ships at the pinned revision. Concretely: restore
+`FHIRDATA_GENERATEPARQUETFILES`, `FHIRDATA_CREATEHIVERESOURCETABLES`, and
+`FHIRDATA_CREATEPARQUETVIEWS` to `true`; give the controller the upstream
+thriftserver config so its tables and views register; add the thriftserver
+service from upstream's `compose-controller-spark-sql-single.yaml`, sharing the
+existing `data-pipes-dwh` volume at `/dwh`; and publish its Hive Thrift port.
+Follow upstream's own compose and
+`e2e-tests/controller-spark/controller_spark_sql_validation.sh` rather than
+inventing a deployment. Every step lands as committed configuration in this
+repository's Compose files and scripts — nothing here is exploratory or
+throwaway, and the connection evidence below is the acceptance evidence.
+
+Retain the PostgreSQL analytics service only for as long as another component
+genuinely needs its own storage; it is no longer the clinical analytics engine.
+
+The sources do not need to be live simultaneously unless the selected
+demonstration explicitly requires that. Whether they can share a Spark endpoint
+is an implementation finding; do not design a namespace service in advance.
 
 For the Catalyst-packaged OpenELIS source, when included:
 
@@ -284,6 +339,10 @@ is accepted by the owner.
 
 Do not add:
 
+- an engine-named adapter class per database, a plugin/connector framework,
+  registry, or capability-negotiation layer — one configuration-driven
+  connection implementation is the target, and a per-dialect setting is not a
+  framework;
 - a connector framework, SQL translator, custom query engine, second catalog
   service, relation allowlist/ranking, or fixed schema/context count;
 - a FHIR Data Pipes fork, namespace layer, shadow warehouse, or automatic
