@@ -248,7 +248,7 @@
             <h2>Catalyst: from a question to a dashboard.</h2>
           </div>
           <p>
-            The selected Catalyst contract is an analytics and reporting workbench over a configured SQL source. A source declares its dialect and complete readable schema; a person reviews the generated SQL and chooses the exact query to run; successful results can become Datasets, Widgets, and dashboards published to Superset. The recording demonstrates the existing conversation, query, result, and Workbench-to-Superset flow on the current runtime. The generic connection and Spark reference deployment are not yet implemented or accepted.
+            The selected Catalyst contract is an analytics and reporting workbench over a configured SQL source. A source declares its dialect and complete readable schema; a person reviews the generated SQL and chooses the exact query to run; successful results can become Datasets, Widgets, and dashboards published to Superset. The recording demonstrates the current runtime end to end: FHIR Data Pipes builds the Parquet warehouse from a FHIR endpoint, Spark SQL serves it, and Catalyst and Superset connect to it as ordinary SQL clients. The generic connection and the OpenMRS HIV Spark reference path are implemented; the model-team comparison has not been rerun against them.
           </p>
         </div>
         <div class="page-width feature-media">
@@ -256,34 +256,36 @@
             controls
             playsinline
             preload="metadata"
-            poster="https://catalyst.openelis-global.org/media/catalyst-full-scenario-demo-20260825b-poster.jpg"
-            aria-label="Catalyst full-scenario demonstration: a plain-language laboratory question becomes checked SQL, saved Datasets and Widgets, and a published Superset dashboard"
+            poster="https://catalyst.openelis-global.org/media/catalyst-fhir-to-dashboard-demo-20260827-poster.jpg"
+            aria-label="Catalyst demonstration: FHIR Data Pipes builds a Parquet warehouse from an OpenMRS FHIR endpoint, a plain-language question becomes Spark SQL, and the result is published as a Superset dashboard"
           >
-            <source src="https://catalyst.openelis-global.org/media/catalyst-full-scenario-demo-20260825b.mp4" type="video/mp4" />
+            <source src="https://catalyst.openelis-global.org/media/catalyst-fhir-to-dashboard-demo-20260827.mp4" type="video/mp4" />
             Your browser does not support embedded video.
           </video>
           <div class="media-caption">
             <div>
               <strong>Full scenario</strong>
-              <span>From a plain-language question to a live Superset dashboard.</span>
+              <span>From a FHIR endpoint to a live Superset dashboard.</span>
             </div>
-            <span>1:48 · silent recording</span>
+            <span>1:41 · silent recording</span>
           </div>
           <details class="transcript">
             <summary>Transcript (silent recording)</summary>
             <ol>
-              <li>The question "Show viral load results since 2026-01-01 with patient, value, and observed date" is asked against the OpenELIS laboratory source.</li>
-              <li>A writer model drafts SQL from the source's readable schema, a reviewer checks it, and the selected query runs through the configured source; the typed result is saved as a Dataset.</li>
-              <li>A follow-up — "Now count the results by test name instead, highest count first" — refines the same query, and the aggregate is saved as a second Dataset.</li>
-              <li>A table Widget and a grouped-bar Widget are built over the saved Datasets and collected into a dashboard.</li>
-              <li>The dashboard publishes as a native Superset bundle, the pinned importer records its receipt, and the finished dashboard — the table and the chart — renders in Superset.</li>
+              <li>The FHIR Data Pipes control panel shows its configured source — an OpenMRS FHIR R4 endpoint — and the settings that write Parquet files and ViewDefinition views.</li>
+              <li>A pipeline run merges what changed since the last one and names the data-warehouse snapshot it wrote.</li>
+              <li>The question "How many patients are in this dataset?" is asked against that warehouse; Spark reports twenty-four readable relations, a writer model drafts Spark SQL over them, and a reviewer checks it.</li>
+              <li>The selected query runs and returns 5,384 patients read from Parquet; the typed result is saved as a Dataset.</li>
+              <li>A follow-up — "Now break that count down by gender, highest first" — refines the same query, and the counts are saved as a second Dataset.</li>
+              <li>Two Widgets are built over the saved Datasets and collected into a dashboard, which publishes as a native Superset bundle.</li>
+              <li>The pinned importer records its receipt, and Superset renders the same numbers from the same Spark source.</li>
             </ol>
           </details>
         </div>
         <div class="page-width lifecycle-row" role="list" aria-label="Catalyst validation summary">
           <div role="listitem"><span>01</span><strong>Selected source contract</strong><p>Source identity, connection information, SQL dialect, and every readable table and column define the data available to Catalyst.</p></div>
           <div role="listitem"><span>02</span><strong>Selected execution contract</strong><p>Findings are advisory. The exact selected SQL runs once and returns typed rows or the database error.</p></div>
-          <div role="listitem"><span>03</span><strong>Implementation status</strong><p>The generic connection and the OpenELIS and OpenMRS HIV Spark reference paths are not yet implemented. The fresh model-team comparison follows their integration checks.</p></div>
+          <div role="listitem"><span>03</span><strong>Implementation status</strong><p>The generic connection and the OpenMRS HIV Spark reference path are implemented and shown above. The OpenELIS source and the fresh model-team comparison follow.</p></div>
         </div>
 
         <div class="page-width section-heading-row hub-fold">
