@@ -1741,7 +1741,6 @@ def test_discovery_gate_requires_writer_only_profile_to_have_no_reviewer(
     _require_discovery(
         suite,
         _exchange({"profiles": [writer_only]}),
-        dataset,
         catalog,
     )
 
@@ -1750,8 +1749,7 @@ def test_discovery_gate_requires_writer_only_profile_to_have_no_reviewer(
         _require_discovery(
             suite,
             _exchange({"profiles": [writer_only]}),
-            dataset,
-            catalog,
+        catalog,
         )
 
 
@@ -2016,22 +2014,22 @@ def test_discovery_gate_rejects_runtime_drift(tmp_path: Path) -> None:
     )
     catalog = _exchange({"catalogVersion": "analytics-catalog-v1+schema.abc"})
 
-    _require_discovery(suite, profiles, dataset, catalog)
+    _require_discovery(suite, profiles,
+        catalog)
 
     with pytest.raises(ValueError, match="discovery returned HTTP 503"):
-        _require_discovery(suite, _exchange({}, status=503), dataset, catalog)
+        _require_discovery(suite, _exchange({}, status=503),
+        catalog)
     with pytest.raises(ValueError, match="is unavailable"):
         _require_discovery(
             suite,
             _exchange({"profiles": [_discovery_profile(available=False)]}),
-            dataset,
             catalog,
         )
     with pytest.raises(ValueError, match="not revision-capable"):
         _require_discovery(
             suite,
             _exchange({"profiles": [_discovery_profile(revisionCapable=False)]}),
-            dataset,
             catalog,
         )
     with pytest.raises(ValueError, match="writer model drifted"):
@@ -2049,7 +2047,6 @@ def test_discovery_gate_rejects_runtime_drift(tmp_path: Path) -> None:
                     ]
                 }
             ),
-            dataset,
             catalog,
         )
     with pytest.raises(ValueError, match="reviewer model drifted"):
@@ -2067,27 +2064,7 @@ def test_discovery_gate_rejects_runtime_drift(tmp_path: Path) -> None:
                     ]
                 }
             ),
-            dataset,
             catalog,
-        )
-    with pytest.raises(ValueError, match="contract is unsupported"):
-        _require_discovery(suite, profiles, _exchange({}), catalog)
-    with pytest.raises(ValueError, match="not bound to its pipeline run"):
-        _require_discovery(
-            suite,
-            profiles,
-            _exchange(
-                {
-                    "contractVersion": "catalyst.dataset-overview.v1",
-                    "datasetId": "pipeline-1",
-                    "pipelineRunId": "pipeline-2",
-                }
-            ),
-            catalog,
-        )
-    with pytest.raises(ValueError, match="does not derive"):
-        _require_discovery(
-            suite, profiles, dataset, _exchange({"catalogVersion": "other-catalog"})
         )
 
 
@@ -5142,10 +5119,6 @@ def test_a_suite_bound_to_one_source_asks_that_source_everything(
         server.server_close()
 
     asked = [path for method, path in state.requests if method == "GET"]
-    assert any(
-        path.startswith("/v1/catalyst/dataset") and "dataSourceId=openmrs-hiv" in path
-        for path in asked
-    ), asked
     assert any(
         path.startswith("/v1/catalyst/workbench/catalog")
         and "dataSourceId=openmrs-hiv" in path

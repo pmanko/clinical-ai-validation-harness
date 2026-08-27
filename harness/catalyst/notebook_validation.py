@@ -460,8 +460,6 @@ class NotebookRunResult:
 class NotebookTransport(Protocol):
     def profiles(self) -> HttpExchange: ...
 
-    def dataset_overview(self) -> HttpExchange: ...
-
     def catalog(self) -> HttpExchange: ...
 
     def create_session(self, question: str, profile_id: str) -> HttpExchange: ...
@@ -573,9 +571,6 @@ class NotebookHttpClient:
         if self.data_source_id is None:
             return path
         return f"{path}?dataSourceId={quote(self.data_source_id)}"
-
-    def dataset_overview(self) -> HttpExchange:
-        return self._request("GET", self._scoped("/v1/catalyst/dataset"))
 
     def catalog(self) -> HttpExchange:
         return self._request(
@@ -2660,7 +2655,6 @@ def _validate_recovery_identity(
     suite_sha256: str,
     manifest: RunManifest,
     profiles: dict[str, Any],
-    dataset: dict[str, Any],
     catalog: dict[str, Any],
     allow_incomplete_source_discovery: bool = False,
 ) -> None:
@@ -2692,7 +2686,6 @@ def _validate_recovery_identity(
             resume_from / "discovery/query-options.json",
             profiles,
         ),
-        ("dataset discovery", resume_from / "discovery/dataset.json", dataset),
         ("catalog discovery", resume_from / "discovery/catalog.json", catalog),
     )
     source_discovery: dict[str, dict[str, Any]] = {}
@@ -3191,10 +3184,6 @@ def run_notebook_suite(
             profiles_exchange,
             kind="profile_discovery",
         )
-        dataset_exchange = client.dataset_overview()
-        dataset = recorder.exchange(
-            "discovery/dataset.json", dataset_exchange, kind="dataset_discovery"
-        )
         catalog_exchange = client.catalog()
         catalog = recorder.exchange(
             "discovery/catalog.json", catalog_exchange, kind="catalog_discovery"
@@ -3205,7 +3194,7 @@ def run_notebook_suite(
             phase="discovery",
             evidence_prefix="discovery",
         )
-    _require_discovery(suite, profiles_exchange, dataset_exchange, catalog_exchange)
+    _require_discovery(suite, profiles_exchange, catalog_exchange)
     finished_sources = [
         (source, _finished_pairs(source)) for source in recovery_chain
     ]
@@ -3218,7 +3207,6 @@ def run_notebook_suite(
             suite_sha256=suite_sha256,
             manifest=manifest,
             profiles=profiles_exchange.response_body,
-            dataset=dataset_exchange.response_body,
             catalog=catalog_exchange.response_body,
             allow_incomplete_source_discovery=not bool(direct_finished),
         )
@@ -3268,8 +3256,7 @@ def run_notebook_suite(
                 suite_sha256=suite_sha256,
                 manifest=manifest,
                 profiles=profiles_exchange.response_body,
-                dataset=dataset_exchange.response_body,
-                catalog=catalog_exchange.response_body,
+                    catalog=catalog_exchange.response_body,
             )
             recovery_source_hashes[source] = source_header["treeSha256"]
         preflight_digests[source] = _preflight_recovery_evidence(
@@ -3470,7 +3457,6 @@ def run_notebook_suite(
         "contractVersion": "harness.catalyst-notebook.validation-run.v1",
         "runId": run_id,
         "suiteId": suite.id,
-        "dataset": dataset,
         "catalogVersion": catalog.get("catalogVersion"),
         "resultCount": result_count,
         "passedCount": passed_count,
@@ -4285,12 +4271,10 @@ def _nondeterminism_summary(results: list[dict[str, Any]]) -> list[dict[str, Any
 def _require_discovery(
     suite: NotebookSuite,
     profiles_exchange: HttpExchange,
-    dataset_exchange: HttpExchange,
     catalog_exchange: HttpExchange,
 ) -> None:
     for label, exchange in (
         ("profile", profiles_exchange),
-        ("dataset", dataset_exchange),
         ("catalog", catalog_exchange),
     ):
         if exchange.status_code != 200:
@@ -4325,17 +4309,6 @@ def _require_discovery(
                 )
             if advertised_digest != frozen_digest:
                 raise ValueError(f"profile {profile_id!r} profile digest drifted")
-    dataset = dataset_exchange.response_body
-    if dataset.get("contractVersion") != "catalyst.dataset-overview.v1":
-        raise ValueError("runtime dataset overview contract is unsupported")
-    runtime_dataset_id = dataset.get("datasetId")
-    pipeline_run_id = dataset.get("pipelineRunId")
-    if (
-        not isinstance(runtime_dataset_id, str)
-        or not runtime_dataset_id
-        or runtime_dataset_id != pipeline_run_id
-    ):
-        raise ValueError("runtime dataset is not bound to its pipeline run")
     catalog_version = catalog_exchange.response_body.get("catalogVersion")
     if not isinstance(catalog_version, str) or not catalog_version.startswith(
         suite.catalog_version
