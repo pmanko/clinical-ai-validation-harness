@@ -29,22 +29,19 @@ services:
 
   superset-init:
     container_name: ${CATALYST_MVP_CONTAINER_PREFIX:-catalyst-mvp-isolated}-superset-init
-    image: apache/superset:6.1.0-dev@sha256:5822dff49c41fd745ce33e38af502f9c64df30d133aeba148c5d89b35a1004ef
     platform: "${SUPERSET_PLATFORM:-linux/arm64}"
 
   superset:
     container_name: ${CATALYST_MVP_CONTAINER_PREFIX:-catalyst-mvp-isolated}-superset
-    image: apache/superset:6.1.0-dev@sha256:5822dff49c41fd745ce33e38af502f9c64df30d133aeba148c5d89b35a1004ef
     platform: "${SUPERSET_PLATFORM:-linux/arm64}"
     ports: !override
       - "127.0.0.1:${SUPERSET_PORT:-18088}:8088"
 
   superset-importer:
     container_name: ${CATALYST_MVP_CONTAINER_PREFIX:-catalyst-mvp-isolated}-superset-importer
-    image: apache/superset:6.1.0-dev@sha256:5822dff49c41fd745ce33e38af502f9c64df30d133aeba148c5d89b35a1004ef
     platform: "${SUPERSET_PLATFORM:-linux/arm64}"
     environment:
-      CATALYST_SUPERSET_DRIVER_REVISION: "${SUPERSET_DRIVER_REVISION:-pyhive[hive]==0.7.0}"
+      CATALYST_SUPERSET_DRIVER_REVISION: "${SUPERSET_DRIVER_REVISION:-pyhive[hive_pure_sasl]==0.7.0}"
 
   # Registers the second (OpenMRS HIV/ART program) data source alongside the
   # base OpenELIS one. The default path resolves relative to the first compose

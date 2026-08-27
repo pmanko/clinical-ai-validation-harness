@@ -232,17 +232,19 @@ def test_superset_runtime_identity_is_explicit_in_the_pinned_target() -> None:
 
     assert compose.count('platform: "${SUPERSET_PLATFORM:-linux/arm64}"') >= 3
     assert override.count('platform: "${SUPERSET_PLATFORM:-linux/arm64}"') >= 3
-    assert compose.count(f"image: {superset_image}") >= 3
-    assert override.count(f"image: {superset_image}") >= 3
+    # The Superset services run an image built FROM the pinned digest so it
+    # carries the Hive driver; the digest identity moves to the build arg.
+    assert compose.count("image: catalyst/superset:hive") >= 3
+    assert compose.count(f'SUPERSET_IMAGE: "{superset_image}"') >= 3
     assert (
         'CATALYST_SUPERSET_DRIVER_REVISION: '
-        '"${SUPERSET_DRIVER_REVISION:-pyhive[hive]==0.7.0}"'
+        '"${SUPERSET_DRIVER_REVISION:-pyhive[hive_pure_sasl]==0.7.0}"'
         in override
     )
     assert "SUPERSET_PLATFORM=linux/arm64" in env
-    assert "SUPERSET_DRIVER_REVISION=pyhive[hive]==0.7.0" in env
+    assert "SUPERSET_DRIVER_REVISION=pyhive[hive_pure_sasl]==0.7.0" in env
     assert (
         'CATALYST_SUPERSET_DRIVER_REVISION: '
-        '"${SUPERSET_DRIVER_REVISION:-pyhive[hive]==0.7.0}"'
+        '"${SUPERSET_DRIVER_REVISION:-pyhive[hive_pure_sasl]==0.7.0}"'
         in compose
     )
