@@ -4740,11 +4740,15 @@ def _run_scenario(
         "successorExecutionWallMs": successor_execution_wall_ms,
         "followups": turn_timing_summaries,
     }
-    scenario_check(
-        "successor_visible_under_three_minutes",
-        generation_wall_ms - invocation_ms < 180_000,
-        timing,
-    )
+    # Feature 008 retains its historical timing gate. Phase 1 model-team
+    # comparison records the same raw timing but does not turn local machine
+    # speed into a validity verdict.
+    if not suite.id.startswith(_PHASE1_COMPARISON_SUITE_PREFIX):
+        scenario_check(
+            "successor_visible_under_three_minutes",
+            generation_wall_ms - invocation_ms < 180_000,
+            timing,
+        )
 
     return {
         "scenarioId": scenario.id,

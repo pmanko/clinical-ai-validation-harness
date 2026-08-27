@@ -4061,6 +4061,21 @@ def _run_against_fake(
         server.server_close()
 
 
+def test_phase1_records_raw_timing_without_a_timing_verdict(tmp_path: Path) -> None:
+    suite = _adaptive_suite()
+    suite["id"] = "catalyst-phase1-comparison-test"
+    suite["repetitions"] = 1
+    suite.pop("extendedRepetitions", None)
+
+    result = _run_against_fake(tmp_path, suite, _WorkbenchState())
+    row = json.loads((result.run_dir / "results.json").read_text())["results"][0]
+
+    assert "generationWallMinusRecordedInvocationsMs" in row["timing"]
+    assert "successor_visible_under_three_minutes" not in {
+        assertion["name"] for assertion in row["assertions"]
+    }
+
+
 def _mark_interrupted(run_dir: Path) -> None:
     """Checkpoint a completed test fixture as an interrupted run."""
     (run_dir / "results.json").unlink(missing_ok=True)
@@ -7047,6 +7062,7 @@ def test_the_split_puts_judgment_on_one_side_and_the_contract_on_the_other():
         "base_classification",
         "revision_context_exclusions",
         "new_session_isolation",
+        "successor_visible_under_three_minutes",
     ):
         assert assertion_class(name) == "conformance", name
 
