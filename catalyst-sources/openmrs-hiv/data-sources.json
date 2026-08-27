@@ -3,8 +3,8 @@
     {
       "id": "openmrs-hiv",
       "label": "OpenMRS HIV/ART program",
-      "analyticsDsn": "postgresql://catalyst_readonly:demo-readonly-change-me@analytics-db:5432/catalyst_analytics_hiv",
-      "catalogPath": "/app/config/extra/catalog/openmrs-hiv-catalog.json"
+      "connectionUri": "hive2://catalyst@spark-thriftserver:10000/default",
+      "dialect": "spark"
     }
   ]
 }
