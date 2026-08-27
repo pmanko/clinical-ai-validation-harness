@@ -1,26 +1,7 @@
 {
-  "intro": "We test how reliably different AI setups work with clinical information. Some reports compare answers to patient-chart questions with a clinical scoring rubric. Catalyst reports instead examine how model setups turn plain-language requests into database queries and show the supporting database evidence. Each report states which method it uses.",
+  "intro": "We test how reliably different AI setups work with clinical information. The reports currently listed here compare answers to patient-chart questions with a clinical scoring rubric. Each report states which method it uses.",
   "scoring_note": "For reports with score tables, each answer is graded 0\u201310, higher is better \u2014 <b>Accuracy</b>: are the stated facts correct? <b>Completeness</b>: did it cover what mattered? <b>Relevance</b>: did it actually answer the question? <b>Unsafe answers</b> counts responses with a potential safety problem (lower is better). <b>Questions</b> is how many were scored per setup, and the best value in each column is highlighted. <b>Benchmark /100</b> is the headline aggregate \u2014 it combines the dimensions (accuracy and completeness weighted most) minus soft penalties for safety and citation problems, so one number summarizes each setup. These come from a single automated judge on a small sample \u2014 they're directional, not a formal benchmark.",
   "runs": [
-    {
-      "slug": "catalyst-phase1-comparison",
-      "title": "Catalyst Phase 1: three model teams on the locked HIV suite",
-      "summary": "Catalyst turns plain-English clinical questions into database queries it runs itself. Three AI team configurations each faced the same twelve questions about an HIV dataset \u2014 including vague ones they had to ask about, and impossible ones they had to refuse. A later audit found that some turn-level and row-level reference checks were incomplete, so this remains a development pass rather than final comparison evidence.",
-      "takeaway": "No team was selected from this development pass. The qwen-reviewed team produced the most scenario successes at 8/12, but incomplete turn-level and row-level reference checks mean this pass cannot establish relative strength. An independent AI judge rated the SQL itself consistently well-built (median 100/100 across 44 queries). The numerical rule used for this provisional report is retired; the repaired comparison will present complete evidence and rubric review for the reader to interpret.",
-      "family": "catalyst"
-    },
-    {
-      "slug": "catalyst-t094-release",
-      "title": "Catalyst T094 validation",
-      "summary": "",
-      "takeaway": ""
-    },
-    {
-      "slug": "catalyst-notebook-t094-2026-07-22",
-      "title": "Catalyst notebook acceptance: can an AI-drafted SQL conversation survive real refinement?",
-      "summary": "A different validation family from the chart-QA runs above: Catalyst turns a plain-language clinical question into governed SQL (a Gemma 4 12B writer drafted, a Qwen 2.5 14B reviewer checked, a deterministic policy enforcing read-only execution), then a follow-up instruction refines the exact current query. Four scenario families \u00d7 3 repetitions against the live stack and a real PostgreSQL: narrowing an unchanged base, aggregating from a dirty editor with a mid-session profile switch, correcting an unresolved parameter, and a semantic distinct-patient review. Every executed result is re-checked two ways \u2014 against an independently-run gold query (byte-level execution match) and by an independent read-only PostgreSQL cross-check.",
-      "takeaway": "All 12 scenario repetitions passed \u2014 384/384 assertions, including every gold execution-match: the SQL the models produced returned exactly the rows an independently-authored gold query returns, on every repetition. This is an acceptance gate on one synthetic 96-patient laboratory cohort, not a benchmark \u2014 it demonstrates the governed notebook loop (draft \u2192 review \u2192 validate \u2192 execute \u2192 refine) is reliable end-to-end on real infrastructure, not that the models never err (the advisory validator and deterministic policy exist precisely because they do)."
-    },
     {
       "slug": "small-model-answer-paths-2026-07-15",
       "title": "Small-model answer paths: E4B and 12B",

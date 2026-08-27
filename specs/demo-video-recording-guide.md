@@ -12,12 +12,9 @@ title/section cards, paces dead time, and burns in captions.
 
 ## Why this exists
 
-The first two Catalyst demos (`openelis-lab-demo`, `openmrs-hiv-demo`) were
-published as raw `--project=demo-video` Playwright captures: real-time,
-un-paced, no on-screen explanation of what the viewer is looking at or why.
-That is fine for a regression trace, not for something linked from the
-project homepage. This framework fixes both problems without hand-editing
-video in a GUI: an ordinary JSON file describes the cut, and
+The full-scenario browser check also produces the current product recording.
+This framework turns that raw capture into a useful explanation without
+hand-editing video in a GUI: an ordinary JSON file describes the cut, and
 `render_demo_video.py` (with unit tests, `tests/test_render_demo_video.py`)
 turns it into a publishable mp4 deterministically.
 
@@ -141,7 +138,8 @@ turns it into a publishable mp4 deterministically.
   button, reading the generated SQL or the result table. If it needs to be
   read, it needs to play at real speed.
 - **Captions describe what's happening, not what's on screen.** "The model
-  drafts a query using the role-readable catalog" beats "SQL editor visible."
+  drafts a query using the source's complete readable schema" beats "SQL
+  editor visible."
 - **Close with a card**, don't just end on the last result table — one
   sentence on what the run demonstrated (matches the pattern already used in
   the published validation-run report narratives).

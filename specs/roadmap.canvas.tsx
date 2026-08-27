@@ -65,10 +65,10 @@ const lanes: Record<
     purpose: "Querystore parity and reuse of the validation spine across sibling projects.",
   },
   openelis: {
-    label: "OpenELIS / Catalyst",
+    label: "Catalyst",
     shortLabel: "Catalyst",
     tone: "info",
-    purpose: "Supervised natural-language-to-SQL analysis over approved analytics data sources.",
+    purpose: "Generic SQL-connected conversation, query execution, comparison, and dashboard workflow.",
   },
 };
 
@@ -286,19 +286,18 @@ const features: Feature[] = [
     slug: "008-catalyst-query-workbench",
     lane: "openelis",
     purpose:
-      "Provide a supervised path from a natural-language question to an editable governed query, an executed result, and a manually configured versioned dashboard artifact.",
+      "Turn a question into reviewable SQL against a configured source, retain the result or database error, and carry successful queries into Dashboard Builder.",
     scope: [
-      "FHIR Data Pipes and other registered sources expose approved analytics views through generated catalogs.",
-      "Gateway-owned writer/reviewer profiles produce complete SQL with deterministic validation and retained model evidence.",
-      "One iterative workbench supports manual edits, validation, execution, follow-up turns, refresh restoration, and result lineage.",
-      "The selected next slice promotes one exact execution into one table, bar chart, or line chart with manual configuration, immutable versions, refresh restoration, and stale-source signaling.",
-      "Multi-source reliability, query repair, evaluation expansion, narrative reporting, and productionization remain parallel independently gated pathways.",
-      "Harness scenarios compare executed model SQL with independently authored PostgreSQL gold queries across model profiles.",
+      "Each source provides a connection configuration or reference, an explicit SQL dialect, and its complete readable schema to both model and editor.",
+      "Generated and manually edited queries share one execution path; validation is advisory, and exact selected SQL returns rows or the database error.",
+      "The selected reference deployment will use FHIR Data Pipes to produce Parquet queried through Spark SQL; Catalyst and Superset will be SQL clients. It is not yet implemented or accepted.",
+      "Phase 1 runs one full suite for each selected model team, then one full-context reader compares the stored cases against a shared rubric without automatic scores, ranks, or a winner.",
+      "Phase 2 defines the broader conversation mode after the Phase 1 report; Phase 3 completes the accepted Dashboard Builder experience.",
     ],
     evidence: [
-      "The accepted live scenario covers generation, manual editing, execution, follow-up generation, refresh restoration, and keyboard operation.",
-      "Validation artifacts preserve model identity, query/version digests, execution results, and independent gold-query comparisons.",
-      "Dashboard MVP acceptance will add deterministic contract/UI evidence plus one real Catalyst/PostgreSQL and accessibility checkpoint.",
+      "Connection proof shows arbitrary readable relations reach model and editor and both successful and invalid exact SQL reach the selected source.",
+      "The Phase 1 report shows each conversation, actual model context, selected SQL, rows or error, static reference, rubric, and provenance for owner review.",
+      "Phase 3 acceptance compares the live product side by side with the binding Dashboard Builder design and verifies the saved query renders through Superset.",
     ],
     needs: ["M0", "M2", "M3"],
     unlocks: [],
@@ -521,7 +520,7 @@ const statusById: Record<string, { label: string; tone: StatusTone }> = {
   M7: { label: "Planned", tone: "neutral" },
   M8: { label: "Planned", tone: "neutral" },
   M9: { label: "Planned", tone: "neutral" },
-  M10: { label: "Workbench accepted; dashboard next", tone: "info" },
+  M10: { label: "Phase 1 implementation open", tone: "warning" },
   F005: { label: "Shipped", tone: "success" },
   F007: { label: "Planned", tone: "neutral" },
   F008: { label: "Phase 0 shipped", tone: "info" },
@@ -597,8 +596,8 @@ const sequencingNotes: Array<[string, string]> = [
     "Querystore parity and cross-project expansion should reuse the validation spine rather than create separate harnesses.",
   ],
   [
-    "M10 is supervised Catalyst reporting",
-    "The accepted manual workbench is the shared base. Dashboard MVP is selected next and depends only on that base; data onboarding, query repair, evaluation expansion, narrative reporting, and productionization remain parallel pathways with independent gates.",
+    "M10 follows Phase 1 -> Phase 2 -> Phase 3",
+    "Phase 1 implements the generic SQL boundary and completes the reader-led model-team comparison. Phase 2 sets broader conversation behavior after that report is reviewed. Phase 3 completes Dashboard Builder against its binding design; the Phase 1 Superset smoke does not reduce that product scope.",
   ],
   [
     "F005 (med-agent-hub bridge) unlocks the gateway slot",
@@ -1131,7 +1130,7 @@ export default function SpecRoadmap() {
             that can stand in for one large model, entirely on your own hardware.
           </Text>
           <Text size="small" tone="secondary">
-            - Catalyst: lab-result AI over the OpenELIS lab system.
+            - Catalyst: a generic SQL workbench that turns questions into reviewable queries and dashboards; its selected FHIR Data Pipes → Parquet → Spark reference deployment is not yet implemented or accepted.
           </Text>
           <Text size="small" tone="secondary">
             - the harness: the shared bench that drives real questions through these on realistic data (a 5,284-patient
@@ -1162,7 +1161,7 @@ export default function SpecRoadmap() {
         <Stat value={laneCounts.openmrs} label="OpenMRS corpus/eval" />
         <Stat value={laneCounts.safety} label="Safety/governance" tone="warning" />
         <Stat value={laneCounts.expansion} label="Expansion/migration" tone="success" />
-        <Stat value={laneCounts.openelis} label="Catalyst/OpenELIS" tone="info" />
+        <Stat value={laneCounts.openelis} label="Catalyst" tone="info" />
       </Grid>
 
       <Callout tone="info" title="Reading this roadmap">

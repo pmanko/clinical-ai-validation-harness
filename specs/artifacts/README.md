@@ -1,21 +1,6 @@
 # Spec Artifact Index
 
-Durable planning and research artifacts that support the feature roadmap:
-
-- `planning/catalyst-open-pr-remediation-roadmap-2026-08-23.md`
-  - Closed historical record for the completed harness pull-request queue (#49–#57):
-    original acceptance criteria, execution order, and final closeout. It governs no current work.
-- `planning/phase-1-planning-discussion-brief.md`
-  - Closed workshop record: the established facts, the owner's locked choices, and the original
-    recommendations those choices superseded. The current plan remains
-    `specs/catalyst-program-roadmap.md`.
-- `planning/what-the-writer-sees.html`
-  - Self-contained context-engineering report for the Catalyst program (2026-08-23): recon of the
-    generation-context pipeline, field-convergence evidence (semantic grounding, ACE playbooks,
-    verified queries, correction-in-context), and the P1-P3 program view. Its recommendations are
-    supporting research; owner choices are recorded as accepted or superseded. Companion to
-    `specs/catalyst-program-roadmap.md`; published view at
-    claude.ai/code/artifact/e65204a5-7b0e-49fb-ac43-155f41c6cae2 (update file, republish same URL).
+Current planning and research artifacts that support the feature roadmap.
 - `planning/openmrs-dual-provider-parity-roadmap.md`
   - Approved canonical roadmap for preserving bundled ChartSearchAI and med-agent-hub behind one
     capability-driven OpenMRS interface. It supersedes the hub-only architecture roadmap.
@@ -41,18 +26,15 @@ Durable planning and research artifacts that support the feature roadmap:
     evidence and still-valid decisions are preserved by reference from the dual-provider roadmap.
 - `planning/hub-consolidation-roadmap-status.md`
   - Historical execution record for the superseded hub-only roadmap.
-- `planning/catalyst-validation-integration-roadmap.md`
-  - Approved remediation roadmap for Catalyst rubric/report/publish integration plus shared
-    report-shell extraction: decisions D1–D14, phases P0–P5, and gates CVR-G00–CVR-G18.
-- `planning/catalyst-validation-integration-roadmap-status.md`
-  - Mutable execution record for the Catalyst validation integration roadmap: baselines,
-    constitution check, gate board, signoffs, and 008-G5/G6 entry dependencies.
 - `planning/chart-context-cache-research-plan-2026-07-15.md`
   - Tracked post-release research and implementation plan for model residency, prompt-prefix reuse,
     source-neutral patient-ledger caching, deterministic selection efficiency, freshness, and
     authorization safeguards.
 - `canvases/validation-research.canvas.tsx`
   - Validation roadmap, architecture, validation flow, and demo-data remap plan.
+- `canvases/catalyst-demos.canvas.tsx`
+  - Current Catalyst product-flow recording and an explicit note that the Spark
+    reference deployment and fresh comparison remain open.
 - `canvases/cross-project-comparison.canvas.tsx`
   - Comparative synthesis across chartsearchai, openmrs_chatbot, and Catalyst.
 - `canvases/sqlmesh-transformation-flow.canvas.tsx`

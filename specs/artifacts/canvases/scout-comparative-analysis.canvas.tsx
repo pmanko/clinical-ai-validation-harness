@@ -72,15 +72,15 @@ const projectStages: Record<
     output: 'Multi-turn role-conditioned message',
   },
   catalyst: {
-    name: 'Catalyst (OpenELIS)',
-    badge: 'Python SQL workbench · M10 MVP',
-    user: 'Lab analyst or reviewer',
+    name: 'Catalyst',
+    badge: 'Selected target · implementation open',
+    user: 'Analyst or reviewer',
     entry: 'Catalyst iterative query workbench',
-    context: 'Approved generated catalogs over FHIR Data Pipes PostgreSQL and other registered analytics sources',
-    retrieve: 'Selected source catalog, schema metadata, validation findings, and the active query version',
-    generate: 'Gateway-owned Med-Agent Hub writer/reviewer profiles produce complete SQL revisions',
-    execute: 'Explicit manual validation and PostgreSQL execution with immutable versions and trace evidence',
-    output: 'Editable SQL, typed table results, validation findings, execution lineage, and model provenance',
+    context: 'Configured SQL source, explicit dialect, complete readable schema, current instruction, and session context',
+    retrieve: 'No separate retrieval layer; live discovery supplies every readable table, view, column, and type; the selected FHIR Data Pipes → Parquet → Spark SQL reference path still needs implementation proof',
+    generate: 'Gateway-owned Med-Agent Hub writer and optional checker produce editable SQL revisions',
+    execute: 'Validation is advisory; the exact selected SQL executes once through Catalyst within the deployment write boundary',
+    output: 'Editable SQL, typed rows or database error, advisory findings, query lineage, and model provenance',
   },
 };
 
@@ -263,49 +263,49 @@ const alignDivergeRows = [
     'Foundational; every claim has cited source span',
     'Foundational; structured JSON output with chart-record citations',
     'Implementation-defined',
-    'Implicit (SQL preview shows the executed query, not source rows)',
+    'Evidence-first rather than citation-first: actual model context, selected SQL, rows or database error, static reference, and reader rationale remain inspectable',
   ],
   [
     'Agentic multi-step orchestration',
     'Yes; orchestrator + per-domain subagents; fast/slow-path routing',
     'Single retrieval pipeline (config-selectable: embedding / lucene / hybrid / ES)',
     'Agent-team scaffolding (multi-agent orchestration in scope)',
-    'A2A router → agents → MCP; multi-agent E2E smoke',
+    'Gateway-owned writer plus optional checker; Med-Agent Hub executes the configured model roles',
   ],
   [
     'PHI in LLM context',
     'Yes — OpenAI GPT via Azure ZDR with BAA',
     'Yes — but local-first (embedded llama-server) keeps prompts on box; remote endpoint optional',
     'Implementation-defined',
-    'No PHI sent to LLM in FHIR POC path; FHIR resources are read-only; LocalPHI mode (full record in context) deferred',
+    'Current work uses approved demo data with no sensitive records; production identity, authorization, and data access remain later work',
   ],
   [
     'Provider strategy',
     'Single provider family (OpenAI GPT via Azure)',
     'Embedded LLM by default; remote OpenAI-compat optional',
     'Provider unspecified in public docs',
-    'Provider-portable by design (LM Studio + Gemini abstraction)',
+    'Configured model profiles through Med-Agent Hub; resolved provider and model identities are recorded',
   ],
   [
     'Retrieval substrate',
     'FHIR resources + uploaded PDFs',
     'Serialized text + dense embeddings + Lucene/RRF over OpenMRS data',
     'OpenMRS data via dialogue orchestration',
-    'Allowlisted relational schema (read-only DB user)',
+    'No retrieval service; complete readable schema from the configured SQL source',
   ],
   [
     'Conversational vs single-shot',
     'Single-shot per task; richer "set context" controls',
     'Single-shot per query; structured answer',
     'Multi-turn dialogue, role-conditioned',
-    'Single-shot SQL generation w/ user review',
+    'Iterative SQL session with contextual follow-ups, clarification, unsupported, and ready-query responses',
   ],
   [
     'Resource-constrained operability',
     'No — designed for cloud LLM + Azure tenancy',
     'Yes — embedded LLM is a design baseline; resource-poor sites are explicit target',
     'Unknown',
-    'Possible — depends on provider config',
+    'Depends on the configured model and SQL deployment; Catalyst core requires no specific database engine',
   ],
   [
     'Open vs closed source',
@@ -378,10 +378,10 @@ const chatbotActions = [
 ];
 
 const catalystActions = [
-  'Apply Scout\'s evidence-first presentation principle to the workbench: show the exact SQL, validation findings, selected profile, source catalog, and result lineage alongside every generated artifact.',
-  'Use writer-only and different-family writer/reviewer profiles as explicit experimental conditions; record the routing decision and both model candidates in the immutable trace.',
-  'Add NASA-TLX to lab-analyst evaluation once dashboard composition is testable. Workload reduction is independently measurable from SQL correctness and result accuracy.',
-  'Calibrate any LLM judge against independently executed PostgreSQL gold queries and human review; never treat syntactic validity or a model judge as proof that the returned dataset is correct.',
+  'Apply Scout\'s evidence-first presentation principle to the workbench: show the actual model context, exact selected SQL, advisory findings, rows or database error, and query lineage together.',
+  'Treat each configured writer/checker setup as a complete experimental condition and record the resolved roles, models, prompts, source, dialect, and readable schema without automatically scoring or ranking teams.',
+  'Use one reviewed static reference created at scenario-design time, then execute each selected SQL once through Catalyst and give one full-context reader the complete stored case and shared rubric.',
+  'Keep NASA-TLX as an optional future usability measure for Dashboard Builder; it is separate from the current SQL evidence review and does not become a product gate.',
 ];
 
 const usageCategoryRows = [
@@ -417,10 +417,10 @@ const privacyContrastRows = [
   ],
   [
     'Catalyst',
-    'LM Studio or Gemini via provider abstraction',
-    'No PHI in LLM context — allowlist excludes PHI tables; only schema is sent',
-    'Provider-portable by design; works in cloud or local',
-    'Strongest structural privacy stance of the four',
+    'Configured model profiles through Med-Agent Hub',
+    'Current work uses approved demo data with no sensitive records',
+    'Deployment and connection access prevent writes; production identity and authorization are later work',
+    'Generic SQL and ingestion-independent foundation without a premature production privacy claim',
   ],
 ];
 
@@ -519,7 +519,7 @@ export default function ScoutComparativeAnalysis() {
           Deep analysis of <Link href="https://dihi.org/scout/">Scout</Link>, an LLM-based EHR search and synthesis platform
           built at Duke Institute for Health Innovation, and how it aligns with, diverges from, and informs the three
           early-prototype projects this harness validates: <Code>chartsearchai</Code>, <Code>openmrs_chatbot</Code>, and
-          <Code> Catalyst (OpenELIS)</Code>. Comparative synthesis, not a buying guide.
+          <Code> Catalyst</Code>. Comparative synthesis, not a buying guide.
         </Text>
       </Stack>
 
@@ -574,8 +574,9 @@ export default function ScoutComparativeAnalysis() {
       <H2>Architecture matrix: Scout next to the three projects</H2>
       <Text tone="secondary">
         Same seven-stage frame used in <Code>cross-project-comparison.canvas.tsx</Code>, with Scout added as the
-        external comparator. Accent borders mark the load-bearing stages where divergence is sharpest:
-        context layer, retrieval, and execution boundary.
+        external comparator. The Catalyst column states its selected target; its generic connection and Spark deployment are
+        not yet implemented. Accent borders mark the load-bearing stages where divergence is sharpest: context layer,
+        retrieval, and execution boundary.
       </Text>
       <Card>
         <CardBody>
@@ -585,7 +586,7 @@ export default function ScoutComparativeAnalysis() {
 
       <H2>Where Scout aligns and diverges per dimension</H2>
       <Table
-        headers={['Dimension', 'Scout', 'chartsearchai', 'openmrs_chatbot', 'Catalyst']}
+        headers={['Dimension', 'Scout', 'chartsearchai', 'openmrs_chatbot', 'Catalyst selected target']}
         rows={alignDivergeRows}
         striped
       />
@@ -621,15 +622,15 @@ export default function ScoutComparativeAnalysis() {
           </CardBody>
         </Card>
         <Card>
-          <CardHeader trailing={<Pill size="sm" tone="info" active>Catalyst</Pill>}>
+          <CardHeader trailing={<Pill size="sm" tone="info" active>Catalyst selected target</Pill>}>
             Different primitive, shared discipline
           </CardHeader>
           <CardBody>
             <Stack gap={8}>
               <Text><Text weight="semibold">Aligns on:</Text> multi-step model collaboration, tool-call discipline, verification-first presentation, and separation of generation from execution.</Text>
-              <Text><Text weight="semibold">Diverges on:</Text> supervised SQL generation over approved analytics catalogs vs Scout's free-text synthesis over notes; explicit query execution vs an embedded answer modal.</Text>
-              <Text><Text weight="semibold">Take from Scout:</Text> LLM-as-judge calibration discipline, NASA-TLX for analyst workload, and non-inferiority margins for future controlled evaluation.</Text>
-              <Text tone="secondary"><Text weight="semibold">Catalyst's structural strength:</Text> read-only database credentials, visible editable SQL, deterministic validation, and explicit execution preserve a human verification boundary.</Text>
+              <Text><Text weight="semibold">Diverges on:</Text> supervised SQL generation over a generic configured source and complete readable schema vs Scout's free-text synthesis over notes; exact query execution vs an embedded answer modal.</Text>
+              <Text><Text weight="semibold">Take from Scout:</Text> evidence-first presentation and the lesson that a model judge's finding needs reader scrutiny; reserve NASA-TLX for optional future usability research.</Text>
+              <Text tone="secondary"><Text weight="semibold">Catalyst's structural strength:</Text> visible editable SQL, advisory findings, one exact execution, and a deployment/access boundary that prevents writes preserve a human verification boundary.</Text>
             </Stack>
           </CardBody>
         </Card>
@@ -773,15 +774,15 @@ export default function ScoutComparativeAnalysis() {
           </Text>
           <Text>
             For openmrs_chatbot and Catalyst, Scout supplies validated <Text weight="semibold">evaluation primitives</Text>
-            (rubrics, NASA-TLX, non-inferiority margins, 3-pillar monitoring) that don't need to be re-invented. The
-            architectures stay project-specific; the eval surface converges.
+            that can inform future research without overriding project-specific methods. Catalyst Phase 1 will use static
+            design-time references and one full-context reader rather than Scout's automated scores or monitoring model.
           </Text>
         </Stack>
         <Stack gap={8}>
           <H3>What Scout does <em>not</em> change</H3>
           <Text>The OpenMRS projects remain open-source and resource-poor-site-aware; Scout is closed and cloud-native.</Text>
           <Text>The constitution's PHI-in-context concerns are unaffected; Scout's permissive stance is institutional, not architectural.</Text>
-          <Text>chartsearchai's embedded-llama-server design and Catalyst's no-PHI-in-context allowlist remain the structurally appropriate stances.</Text>
+          <Text>chartsearchai's embedded-llama-server design remains local-first. Catalyst Phase 1 uses demo data and requires deployment and connection access that prevent writes; production data controls remain later work.</Text>
           <Text>External validation across OpenMRS deployment contexts is still required regardless of how strong Scout's Duke-only RCT is.</Text>
         </Stack>
       </Grid>

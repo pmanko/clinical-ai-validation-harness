@@ -195,8 +195,8 @@ const sourceRows = [
   ],
   [
     <Link href="https://github.com/DIGI-UW/OpenELIS-Global-2/tree/develop/projects/catalyst">OpenELIS Catalyst</Link>,
-    'Supervised analytics workbench over OpenELIS Global 2 and other registered data sources: natural-language question to editable SQL, deterministic validation, explicit execution, iterative revisions, and typed results. (M10 — manual MVP accepted)',
-    'Validation primitives for SQL generation, immutable query lineage, model-role provenance, execution correctness, source-catalog grounding, and independent PostgreSQL gold comparison.',
+    'Selected contract: supervised reporting workbench over a configured SQL source. The source declares its dialect and complete readable schema, a person can edit the generated SQL, validation findings are advisory, and the exact selected SQL executes once through Catalyst.',
+    'Phase 1 target: evidence preserves the conversation, model context, query lineage, selected SQL, rows or database error, one static design-time reference, and one full-context reader review.',
   ],
 ];
 
@@ -205,56 +205,56 @@ const parallelComparisonRows = [
     'Domain',
     'OpenMRS chart QA',
     'OpenMRS clinical chat',
-    'OpenELIS lab assistant',
+    'SQL-connected reporting workbench',
   ],
   [
     'Architecture',
     'Embedded Java module in OpenMRS; ONNX + Lucene + RRF retrieval over serialized chart records.',
     'Python chatbot with patient/doctor UIs and agent-team workflow scaffolding.',
-    'Python gateway and browser workbench over approved analytics PostgreSQL sources; Med-Agent Hub executes configured writer/reviewer model roles.',
+    'Python gateway and browser workbench over a generic configured SQL source with an explicit dialect and complete readable schema; Med-Agent Hub executes configured model roles.',
   ],
   [
     'Retrieval mode',
     'Embedding-driven retrieval over patient chart records; ranks by cosine + BM25 + RRF.',
     'Conversational retrieval/orchestration over OpenMRS data; role-aware context shaping.',
-    'Generated catalog and schema context for one selected analytics source; generated SQL remains editable before explicit execution.',
+    'No separate retrieval layer: live discovery supplies every readable table, view, column, and type; optional descriptions enrich that schema without filtering it.',
   ],
   [
     'Generation surface',
     'Structured JSON answer with chart-record citations.',
     'Multi-turn role-conditioned response (patient or doctor view).',
-    'Complete SQL revisions from recorded writer/reviewer profiles, with raw candidates, validation findings, and version digests retained.',
+    'Editable SQL revisions from recorded writer/reviewer profiles, with the declared dialect, complete schema context, advisory findings, and exact selected SQL retained.',
   ],
   [
     'Validation maturity',
     '485-case enriched retrieval, citation eval, absent-data eval, prompt-injection eval; planned spine and clinician adjudication.',
     'Early; setup, debug, and workflow-trace docs imply iterative manual eval; no published harness.',
-    'Manual MVP accepted after live generation, manual edit, validation/execution, contextual follow-up, refresh restoration, keyboard flow, and independent PostgreSQL result checks.',
+    'Generic-connection implementation and the fresh comparison remain open. Each case will use a reviewed static reference, one execution through Catalyst, and one full-context reader review without an automatic score or repeated-run rule.',
   ],
   [
     'Privacy/safety stance',
     'PHI handled through OpenMRS module boundary; PromptInjectionEvalTest covers direct injection.',
     'Patient/doctor role isolation in UI; safety surface needs definition.',
-    'Read-only analytics credentials and explicit execution boundary; catalog-grounded SQL with retained validation findings and database diagnostics.',
+    'The selected demo will use approved data with no sensitive records and a non-mutating Spark query path. The configured connection remains authoritative, and advisory findings never hide the exact execution result or database error.',
   ],
   [
     'Test data path',
     'Synthetic patient fixtures + planned large demo-data 2.8 remap.',
     'Likely in-app test fixtures; corpus and reproducibility unclear from public docs.',
-    'OpenELIS FHIR resources exported through FHIR Data Pipes into versioned analytics PostgreSQL views; additional sources carry their own database and generated catalog.',
+    'Selected reference deployment, not yet implemented: FHIR Data Pipes produces Parquet and Spark SQL tables for Catalyst and Superset. Catalyst itself remains independent of ingestion and database engine.',
   ],
 ];
 
 const primitiveMatrixRows = [
-  ['Test-data fidelity', 'Planned (2.8 remap)', 'Implementation-defined', 'FHIR Data Pipes export plus versioned analytics views and source watermark'],
-  ['Retrieval QA', 'Yes (golden baselines, 485 cases)', 'Implied (response coverage)', 'Catalog/schema grounding and independent result-set comparison'],
-  ['NL->SQL QA', 'Not applicable', 'Not applicable', 'Active: deterministic lint, database execution, and PostgreSQL gold-query comparison'],
-  ['Agent-team trace QA', 'Not applicable', 'Yes (workflow trace docs)', 'Writer/reviewer role, candidate, timing, digest, and failure evidence'],
-  ['Citation/grounding', 'Yes (record-level)', 'Needs definition', 'Source catalog, query lineage, FHIR identifiers in analytics rows, and execution provenance'],
-  ['Abstention/empty answer', 'Yes (AbsentDataEvalTest)', 'Needs definition', 'Empty-result and database-diagnostic handling without hiding the query'],
-  ['Prompt injection / safety', 'Yes (PromptInjectionEvalTest)', 'Needs definition', 'Read-only database role, explicit execution, and deterministic SQL validation'],
-  ['Clinician/expert review', 'Planned (P6 clinician adjudication)', 'Implied (debug docs)', 'Lab-analyst review of generated SQL, results, and future dashboards'],
-  ['Governance metadata', 'Planned (run-manifest from spine)', 'Limited', 'run_manifest.json + events.jsonl with model, query, execution, and source provenance'],
+  ['Test-data fidelity', 'Planned (2.8 remap)', 'Implementation-defined', 'FHIR Data Pipes → Parquet → Spark reference data, with source and readable-schema identity recorded'],
+  ['Retrieval QA', 'Yes (golden baselines, 485 cases)', 'Implied (response coverage)', 'Complete live readable-schema and actual model-context capture; no separate retrieval or result-comparison path'],
+  ['NL->SQL QA', 'Not applicable', 'Not applicable', 'Reviewed static reference, exact selected SQL executed once through Catalyst, and one full-context reader review'],
+  ['Agent-team trace QA', 'Not applicable', 'Yes (workflow trace docs)', 'Writer/reviewer role, candidates, context, timing, query lineage, and execution evidence'],
+  ['Citation/grounding', 'Yes (record-level)', 'Needs definition', 'Selected SQL, rows or database error, static reference, readable schema, and execution provenance'],
+  ['Abstention/empty answer', 'Yes (AbsentDataEvalTest)', 'Needs definition', 'Clarification and unsupported responses run no SQL; bad SQL and database errors remain visible observations'],
+  ['Prompt injection / safety', 'Yes (PromptInjectionEvalTest)', 'Needs definition', 'Configured-connection access, non-mutating Spark reference, time/result bounds, and advisory validation'],
+  ['Clinician/expert review', 'Planned (P6 clinician adjudication)', 'Implied (debug docs)', 'One full-context reader applies the shared rubric to complete case evidence; no automatic score or winner'],
+  ['Governance metadata', 'Planned (run-manifest from spine)', 'Limited', 'Model, source, dialect, readable schema, context, query, execution, and repository provenance'],
 ];
 
 const archLabels: Record<string, string> = {
@@ -951,7 +951,7 @@ export default function ValidationResearch() {
         <H1>Clinical AI Validation Research</H1>
         <Text tone="secondary">
           Anchored in chartsearchai and querystore validation, with comparative context on two parallel approaches:
-          openmrs_chatbot (Python multi-agent OpenMRS chatbot) and OpenELIS Catalyst (NL-to-SQL lab assistant).
+          openmrs_chatbot (Python multi-agent OpenMRS chatbot) and Catalyst (generic SQL-connected reporting workbench).
           The recommended shape is a layered validation system: modern test data first, deterministic retrieval gates next,
           model-dependent answer gates after that, and clinician adjudication and governance around all of it.
         </Text>
@@ -1010,7 +1010,8 @@ export default function ValidationResearch() {
           <CardHeader>Data model for eval results</CardHeader>
           <CardBody>
             <Stack gap={10}>
-              <Text>Every eval run should emit machine-readable records with query id, patient/dataset id, model id, retrieval pipeline, retrieved record ids, cited record ids, answer JSON, latency, pass/fail, and reviewer notes.</Text>
+              <Text>Every run should use the shared manifest and event envelope, then attach only the evidence its project can interpret.</Text>
+              <Text>Retrieval suites retain patient/dataset identity, retrieved and cited records, answers, latency, and review output. Catalyst retains source, dialect, readable schema, model context, selected SQL, rows or database error, and reader rationale.</Text>
               <Text>Every baseline update should preserve the returned records, not just counts, because false positives can look like progress until a clinician inspects the actual chart evidence.</Text>
               <Text>Model-dependent runs need pinned LM Studio model name, model file/hash where available, temperature, context length, prompt version, and endpoint URL.</Text>
             </Stack>
@@ -1094,12 +1095,11 @@ export default function ValidationResearch() {
 
       <Divider />
 
-      <H2>Target Validation Architecture</H2>
+      <H2>Retrieval and Chart-Answer Validation Architecture</H2>
       <Text tone="secondary">
-        Seven layers, left to right: demo data sources become an LLM-reviewed mapping spec, then an imported patient corpus,
-        then golden case sets and pinned models feed the eval drivers. Every driver writes the same artifacts; artifacts feed
-        dashboards, baseline diffs, and clinician review; gates consume reviewed evidence to allow PR merges, nightly green,
-        and release sign-off. Accent borders mark the lanes that change behavior most often.
+        This diagram applies to chartsearchai and other retrieval-based clinical-answer suites: demo data becomes a reviewed mapping,
+        imported corpus, cases, model runs, project-specific evidence, dashboards, and clinician review. Other projects reuse the
+        shared run envelope without inheriting these retrieval gates. Accent borders mark the lanes that change behavior most often.
       </Text>
       <Card>
         <CardBody>
@@ -1114,10 +1114,10 @@ export default function ValidationResearch() {
         <Pill tone="neutral">Accent border = high-change lane</Pill>
       </Row>
 
-      <H2>Per-Case Validation Flow</H2>
+      <H2>Retrieval-Suite Per-Case Flow</H2>
       <Text tone="secondary">
-        Each clinical question runs through the production pipeline once, then is graded by four parallel checks before being labeled.
-        This is the contract every eval driver must implement so cross-suite comparison stays honest.
+        For retrieval-based clinical-answer suites, each question runs through the production pipeline once and may use the four
+        project-specific checks below. This is not Catalyst's comparison method.
       </Text>
       <Card>
         <CardBody>
@@ -1126,7 +1126,7 @@ export default function ValidationResearch() {
       </Card>
       <Grid columns="1fr 1fr" gap={16}>
         <Card>
-          <CardHeader>What each grade gate produces</CardHeader>
+          <CardHeader>What each retrieval-suite check produces</CardHeader>
           <CardBody>
             <Stack gap={8}>
               <Text><Text weight="semibold">Faithfulness:</Text> per-claim support label against retrieved context (supported, partial, contradicted).</Text>
@@ -1137,7 +1137,7 @@ export default function ValidationResearch() {
           </CardBody>
         </Card>
         <Card>
-          <CardHeader>What every case record carries</CardHeader>
+          <CardHeader>What each retrieval-suite case carries</CardHeader>
           <CardBody>
             <Stack gap={8}>
               <Text>Query id, dataset id, patient id, retrieval pipeline, k, retrieved record ids, cited record ids.</Text>
@@ -1215,9 +1215,9 @@ export default function ValidationResearch() {
       />
 
       <Callout tone="success" title="Definition of done for the spine">
-        Every eval test class — including future querystore equivalents — emits the same JSON record per case, references a single
-        run-manifest, records dataset provenance, and stores both numeric metrics and the actual records returned. When that holds,
-        demo-data, retrieval, answer, safety, and clinician work can iterate independently without breaking comparability.
+        Every suite references the shared run manifest and event envelope. Retrieval and chart-answer suites retain their returned
+        records and applicable metrics; Catalyst retains its complete reader packet and rationale without an automatic score.
+        Project-owned payloads may differ without breaking provenance.
       </Callout>
 
       <Divider />
@@ -1225,8 +1225,8 @@ export default function ValidationResearch() {
       <H2>Parallel Approaches Under Validation</H2>
       <Text tone="secondary">
         Three different clinical-AI architectures with overlapping validation needs: chartsearchai (this repo, embedded chart QA),
-        openmrs_chatbot (parallel multi-agent OpenMRS chatbot), and OpenELIS Catalyst (NL-to-SQL lab assistant). Treat the comparison
-        as exploratory — where validation primitives overlap, share the harness; where they diverge, keep per-project gates.
+        openmrs_chatbot (parallel multi-agent OpenMRS chatbot), and Catalyst (generic SQL-connected reporting workbench). Treat the comparison
+        as exploratory — where validation primitives overlap, share the harness; where they diverge, keep per-project review methods.
       </Text>
 
       <Grid columns="1fr 1fr 1fr" gap={14}>
@@ -1258,16 +1258,16 @@ export default function ValidationResearch() {
           </CardBody>
         </Card>
         <Card>
-          <CardHeader trailing={<Pill size="sm" tone="info" active>OpenELIS / Lab</Pill>}>
+          <CardHeader trailing={<Pill size="sm" tone="warning" active>Selected target · implementation open</Pill>}>
             Catalyst (your effort)
           </CardHeader>
           <CardBody>
             <Stack gap={8}>
               <Text tone="secondary" size="small"><Link href="https://github.com/DIGI-UW/OpenELIS-Global-2/tree/develop/projects/catalyst">github.com/DIGI-UW/OpenELIS-Global-2 · projects/catalyst</Link></Text>
-              <Text><Text weight="semibold">Architecture:</Text> multi-service Python (catalyst-gateway / catalyst-agents / catalyst-mcp) over OpenELIS; provider abstraction (LM Studio + Gemini).</Text>
-              <Text><Text weight="semibold">Generation:</Text> NL-to-SQL with allowlisted schema context from MCP; OE backend executes after user review under RBAC.</Text>
-              <Text><Text weight="semibold">Validation today:</Text> M0/M1 milestones with provider and multi-agent E2E smoke; allowlist + read-only DB user.</Text>
-              <Text tone="secondary"><Text weight="semibold">Open question:</Text> what shared NL-to-SQL grading rubric maps to chart-record citation precision/recall?</Text>
+              <Text><Text weight="semibold">Selected architecture:</Text> gateway and browser workbench over a generic configured SQL source; Med-Agent Hub executes configured model roles.</Text>
+              <Text><Text weight="semibold">Selected generation behavior:</Text> the writer receives the explicit dialect and complete readable schema; findings are advisory and the exact selected SQL executes once through Catalyst.</Text>
+              <Text><Text weight="semibold">Selected reference deployment:</Text> FHIR Data Pipes → Parquet → Spark SQL, used by Catalyst and Superset without defining Catalyst core; not yet implemented.</Text>
+              <Text tone="secondary"><Text weight="semibold">Phase 1 review target:</Text> compare the complete stored case with one static design-time reference and shared rubric in one full-context reader pass.</Text>
             </Stack>
           </CardBody>
         </Card>
@@ -1275,22 +1275,22 @@ export default function ValidationResearch() {
 
       <H2>Comparative Validation View</H2>
       <Text tone="secondary">
-        Dimensional comparison across the three projects. Useful for spotting where validation work generalizes vs where each project
-        has unique surface area.
+        Dimensional comparison across the three projects. The Catalyst column states its selected target; the generic connection,
+        Spark reference deployment, and fresh comparison are not yet implemented.
       </Text>
       <Table
-        headers={['Dimension', 'chartsearchai', 'openmrs_chatbot', 'Catalyst']}
+        headers={['Dimension', 'chartsearchai', 'openmrs_chatbot', 'Catalyst selected target']}
         rows={parallelComparisonRows}
         striped
       />
 
       <H2>Validation Primitive Coverage</H2>
       <Text tone="secondary">
-        Cells reflect today's state, not the target. The point is to see which primitives are shared so the validation spine is
-        designed to absorb retrieval-grade, NL-to-SQL-grade, and trace-grade cases without bespoke per-project tooling.
+        The chartsearchai and openmrs_chatbot cells reflect current state. The Catalyst column states the selected Phase 1 target.
+        The comparison shows which evidence shapes can share the validation spine.
       </Text>
       <Table
-        headers={['Validation primitive', 'chartsearchai', 'openmrs_chatbot', 'Catalyst']}
+        headers={['Validation primitive', 'chartsearchai', 'openmrs_chatbot', 'Catalyst Phase 1 target']}
         rows={primitiveMatrixRows}
         striped
       />
@@ -1301,8 +1301,8 @@ export default function ValidationResearch() {
           <CardBody>
             <Stack gap={8}>
               <Text><Text weight="semibold">Test-data fidelity:</Text> all three need a documented, reproducible corpus and provenance recorded per run.</Text>
-              <Text><Text weight="semibold">Citation/grounding:</Text> chart-record citations (chartsearchai), result-row attribution (Catalyst), and message-level grounding (chatbot) all reduce to "what evidence did the model use".</Text>
-              <Text><Text weight="semibold">Abstention:</Text> "no record / no result / refuse" needs to be a first-class case label in all three.</Text>
+              <Text><Text weight="semibold">Citation/grounding:</Text> chart-record citations (chartsearchai), query/context/execution evidence (Catalyst), and message-level grounding (chatbot) all reduce to "what evidence supports the output".</Text>
+              <Text><Text weight="semibold">Abstention:</Text> "no record / no result / clarify / unsupported" needs to be a first-class case outcome across the projects.</Text>
               <Text><Text weight="semibold">Safety:</Text> prompt injection, system-prompt leakage, and PHI exfiltration share an OWASP LLM Top 10 backbone.</Text>
               <Text><Text weight="semibold">Governance:</Text> run manifest with model/provider/version/dataset metadata is identical across stacks.</Text>
             </Stack>
@@ -1314,7 +1314,7 @@ export default function ValidationResearch() {
             <Stack gap={8}>
               <Text><Text weight="semibold">chartsearchai:</Text> exact-baseline retrieval, model-aware noise profile, querystore parity once delegated.</Text>
               <Text><Text weight="semibold">openmrs_chatbot:</Text> role-aware response coverage (patient vs doctor), multi-turn dialogue grounding, agent handoff correctness.</Text>
-              <Text><Text weight="semibold">Catalyst:</Text> NL-to-SQL syntactic and semantic correctness, allowlist enforcement, RBAC-honoring execution preview, schema-drift detection.</Text>
+              <Text><Text weight="semibold">Catalyst:</Text> explicit-dialect SQL, complete readable-schema context, advisory findings, one exact execution through Catalyst, and full-context reader interpretation against a static reference.</Text>
             </Stack>
           </CardBody>
         </Card>
@@ -1323,8 +1323,8 @@ export default function ValidationResearch() {
       <Callout tone="info" title="Cross-project synthesis">
         The chartsearchai validation spine schema (per-case JSONL + run-manifest with model, dataset, provider, prompt version) is
         portable. If openmrs_chatbot and Catalyst adopt the same record shape, cross-project validation can share dashboards,
-        baselines, and clinician/expert review tooling. NL-to-SQL grading and agent-trace grading become extra grade-gate types,
-        not separate harnesses.
+        evidence navigation, and clinician/expert review tooling. Catalyst can retain its reader-led, non-scoring SQL review while
+        agent-trace review remains a separate project-specific interpretation, without creating separate harnesses.
       </Callout>
     </Stack>
   );
