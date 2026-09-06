@@ -1,7 +1,7 @@
 # Catalyst implementation plan
 
 **Status:** The generic connection and Spark reference configuration are
-implemented in Catalyst candidate revision `2acdffb`. The harness candidate
+implemented in Catalyst candidate revision `6bf1cd2`. The harness candidate
 configures a separate OpenMRS Spark catalog and removes its direct PostgreSQL
 comparison path. Live materialization, the browser and Superset smoke, owner
 review, publication, and fresh comparison evidence remain open.
