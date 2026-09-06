@@ -11,25 +11,25 @@ final Phase 3 Dashboard Builder acceptance remain open.
 
 ## Phase 1 — generic Catalyst connection
 
-- [x] Replace the required analytics address and generated-catalog configuration
+- [X] Replace the required analytics address and generated-catalog configuration
   with source ID, label, connection configuration or reference, explicit dialect,
   and optional non-filtering descriptions.
-- [x] Make source availability independent so one unavailable source does not
+- [X] Make source availability independent so one unavailable source does not
   prevent application startup or use of another source.
-- [x] Limit shared connection behavior to availability, complete readable schema
+- [X] Limit shared connection behavior to availability, complete readable schema
   discovery, exact SQL execution with typed parameters and bounds, and rows or
   the database error.
-- [x] Route generated and manually edited queries through the same shared
+- [X] Route generated and manually edited queries through the same shared
   connection-execution code.
-- [x] Supply the same source, dialect, and readable-schema snapshot to the model,
+- [X] Supply the same source, dialect, and readable-schema snapshot to the model,
   Available data, editor, validation, and recorded execution.
-- [x] Preserve database-native relation and column identifiers and the active
+- [X] Preserve database-native relation and column identifiers and the active
   engine's qualification rules; remove the PostgreSQL-shaped name restriction.
-- [x] Make editor highlighting, formatting, and keyword/function completion use
+- [X] Make editor highlighting, formatting, and keyword/function completion use
   the declared dialect.
-- [x] Keep validation advisory and prove that a warning cannot block exact
+- [X] Keep validation advisory and prove that a warning cannot block exact
   selected SQL.
-- [x] Add focused tests with arbitrary fixture relation names, successful
+- [X] Add focused tests with arbitrary fixture relation names, successful
   execution, database failure, and an unavailable source. Do not assert a
   relation count.
 
@@ -50,11 +50,11 @@ For each source actually included in the demonstration or comparison:
   Dataset-to-Superset render.
 - [ ] Submit one intentional write attempt through the Spark connection, show
   its visible refusal, and confirm source data is unchanged.
-- [x] Remove the separate clinical analytics store, generated catalog, copied
+- [X] Remove the separate clinical analytics store, generated catalog, copied
   marts, sink scripts, preferred-engine wiring, fallback, and dedicated tests.
 - [ ] Carry forward only descriptions or relationships demonstrated to help the
   accepted readable schema.
-- [x] Remove the standalone `catalyst-agents` and `catalyst-mcp` packages and
+- [X] Remove the standalone `catalyst-agents` and `catalyst-mcp` packages and
   their development wiring; the active Gateway/med-agent-hub path owns model
   execution.
 
@@ -70,7 +70,7 @@ not create a per-scenario or per-run Spark comparison path.
   source's readable schema.
 - [ ] If scenario design reveals a concrete missing semantic need, pause for
   owner review before adding one minimal source-owned view.
-- [x] Remove direct analytics-database access, separate read-only and “gold”
+- [X] Remove direct analytics-database access, separate read-only and “gold”
   execution, automatic result matching, their options/events, and dedicated
   tests. Do not translate them to Spark.
 - [ ] After the accepted readable schema exists, author and run each ready-turn
