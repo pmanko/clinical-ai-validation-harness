@@ -5,5 +5,5 @@
   "databasePort" : "10000",
   "databaseUser" : "hive",
   "databasePassword" : "",
-  "databaseName" : "default"
+  "databaseName" : "openmrs_hiv"
 }

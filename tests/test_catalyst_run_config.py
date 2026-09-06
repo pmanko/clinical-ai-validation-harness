@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import json
+import os
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -120,6 +123,47 @@ def test_the_wrapper_uses_the_runner_result_instead_of_guessing_a_directory():
     assert "ls -td" not in script
     assert "freeze_seed" not in script
     assert 'OUT_DIR="${OUT_DIR:-' not in script
+
+
+def test_the_wrapper_can_resolve_its_shipped_config_before_dispatch(tmp_path):
+    fake_uv = tmp_path / "uv"
+    fake_uv.write_text(
+        '#!/bin/sh\n[ "$1" = "run" ] || exit 64\nshift\n'
+        '[ "$1" = "python" ] || exit 64\nshift\nexec "$PYTHON_FOR_TEST" "$@"\n',
+        encoding="utf-8",
+    )
+    fake_uv.chmod(0o755)
+    environment = dict(os.environ)
+    environment["PATH"] = f"{tmp_path}:{environment['PATH']}"
+    environment["PYTHON_FOR_TEST"] = sys.executable
+    result = subprocess.run(
+        [str(ROOT / "scripts" / "catalyst-comparison.sh"), "not-a-command"],
+        cwd=ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+        env=environment,
+    )
+    assert result.returncode == 1
+    assert "unknown command not-a-command" in result.stderr
+
+
+def test_openmrs_hiv_uses_an_isolated_spark_database():
+    source = json.loads(
+        (ROOT / "catalyst-sources" / "openmrs-hiv" / "data-sources.json")
+        .read_text(encoding="utf-8")
+    )["dataSources"][0]
+    sink = json.loads(
+        (ROOT / "catalyst-sources" / "openmrs-hiv" / "config"
+         / "thriftserver-hive-config.json").read_text(encoding="utf-8")
+    )
+    runner = (
+        ROOT / "catalyst-sources" / "openmrs-hiv" / "run-ingestion.sh"
+    ).read_text(encoding="utf-8")
+
+    assert source["connectionUri"].endswith("/openmrs_hiv")
+    assert sink["databaseName"] == "openmrs_hiv"
+    assert "CREATE DATABASE IF NOT EXISTS openmrs_hiv" in runner
 
 
 def test_a_seed_that_cannot_be_read_refuses_before_anything_runs(tmp_path):

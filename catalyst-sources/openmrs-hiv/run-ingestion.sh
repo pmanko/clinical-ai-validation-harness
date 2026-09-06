@@ -26,9 +26,14 @@ OPENMRS_FHIR="${OPENMRS_FHIR:-http://localhost:8088/openmrs/ws/fhir2/R4}"
 OPENMRS_AUTH="${OPENMRS_AUTH:-admin:Admin123}"
 
 beeline_q() {
-  docker exec -i "${SPARK_CONTAINER}" beeline -u 'jdbc:hive2://localhost:10000' \
+  docker exec -i "${SPARK_CONTAINER}" beeline -u 'jdbc:hive2://localhost:10000/openmrs_hiv' \
     --silent=true --outputformat=tsv2 -e "$1"
 }
+
+# A shared thriftserver may also serve the OpenELIS warehouse. Give this source its own namespace
+# before the controller connects so identically named FHIR tables and views cannot overwrite it.
+docker exec -i "${SPARK_CONTAINER}" beeline -u 'jdbc:hive2://localhost:10000' \
+  --silent=true -e 'CREATE DATABASE IF NOT EXISTS openmrs_hiv;' >/dev/null
 
 echo "==> start one-shot fhir-data-pipes controller on :${CONTROLLER_PORT}"
 docker rm -f hiv-data-pipes >/dev/null 2>&1 || true

@@ -3,7 +3,7 @@
     {
       "id": "openmrs-hiv",
       "label": "OpenMRS HIV/ART program",
-      "connectionUri": "hive2://catalyst@spark-thriftserver:10000/default",
+      "connectionUri": "hive2://catalyst@spark-thriftserver:10000/openmrs_hiv",
       "dialect": "spark"
     }
   ]

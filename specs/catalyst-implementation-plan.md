@@ -1,9 +1,10 @@
 # Catalyst implementation plan
 
-**Status:** Documentation alignment is merged (harness `5ee052f`, Catalyst
-`75442c2`). Generic-connection implementation is the next work and has not
-started. The Spark reference deployment is shipped upstream at the pinned FHIR
-Data Pipes revision and is enabled by configuration, not built here.
+**Status:** The generic connection and Spark reference configuration are
+implemented in Catalyst candidate revision `c02484f`. The harness candidate
+configures a separate OpenMRS Spark catalog and removes its direct PostgreSQL
+comparison path. Live materialization, the browser and Superset smoke, owner
+review, publication, and fresh comparison evidence remain open.
 
 `specs/catalyst-program-roadmap.md` owns product decisions and the Phase 1
 comparison. This file owns implementation order, checkpoints, and status.
@@ -48,21 +49,14 @@ reaches this deployment as one configured SQL connection like any other.
 
 ## Current implementation
 
-The harness currently pins Catalyst revision
-`75442c2d1d52507b81b524d9f8a480b4a24c0550`, the squash merge of Catalyst
-pull request #78. At that revision:
+The candidate revisions now implement the selected structure:
 
-| Code | Current implementation | Selected implementation |
+| Area | Candidate state | Remaining acceptance |
 | --- | --- | --- |
-| `catalyst-gateway/src/config.py::DataSourceConfig` | Requires `analytics_dsn` and a generated catalog path, with a PostgreSQL default. | Source identity, label, connection configuration or reference, explicit dialect, and optional descriptions. |
-| `catalyst-gateway/src/gateway.py::_default_catalyst_service` | Builds every source with `PostgresAnalyticsAdapter`. | Builds each source from its configured connection without a preferred engine or fallback. |
-| `catalyst-gateway/src/catalyst/catalog.py::Catalog` | Mixes live discovery and optional descriptions with an approval filter. | Live discovery supplies every readable relation and column; descriptions do not filter. |
-| `docs/contracts/catalyst-workbench-editor-catalog-v1.schema.json` | Fixes the editor dialect to PostgreSQL and names the readable schema as a catalog. | Records the declared dialect and complete readable schema. |
-| `docs/contracts/catalyst-query-v1.schema.json` and `catalyst/service.py` | Require and emit `approvedViews`, restrict relation identifiers to one PostgreSQL-shaped form, and require descriptive metadata. | Use engine-native identifiers and make descriptions optional; no approved-relation field. |
-| `docker-compose.mvp.yml` | Sets `FHIRDATA_GENERATEPARQUETFILES`, `FHIRDATA_CREATEHIVERESOURCETABLES`, and `FHIRDATA_CREATEPARQUETVIEWS` to `false` and points `FHIRDATA_SINKDBCONFIGPATH` at `config/postgres-sink.json`, so the shipped warehouse never materializes. | Those three flags return to `true`, the controller uses the upstream thriftserver config, and the Spark thriftserver service joins the stack sharing the existing `data-pipes-dwh` volume. Catalyst and Superset connect to it as SQL clients. |
-| `harness/catalyst/notebook_validation.py` and `harness/catalyst/cli.py` | Open a second PostgreSQL path for read-only and “gold” checks. | The harness executes selected model SQL only through Catalyst and uses reviewed design-time references. |
-
-Every row in this table was re-checked at that revision.
+| Generic connection | Source identity, label, connection reference, dialect adapter, live readable-schema discovery, and shared exact-SQL execution are implemented without a preferred engine. | Review the behavior against a live reference source. |
+| Catalyst OpenELIS source | FHIR Data Pipes, Parquet, Spark SQL, Catalyst, and Superset are assembled in the MVP and demo configuration. The Spark catalog is `openelis`. | Materialize retained data and complete the manual query, browser, write-refusal, and Dataset-to-Superset smoke. |
+| Harness OpenMRS source | The source uses a separate `openmrs_hiv` Spark catalog. The comparison runner no longer imports or opens the removed PostgreSQL validation path. | Pin the accepted Catalyst revision, materialize retained data, review scenario references, and collect a fresh comparison. |
+| Dashboard publication | Spark timestamp literals and backslashes are rendered for the selected dialect, with focused regression coverage. | Verify the published artifact in the live Superset smoke. |
 
 Implementation reuses `AnalyticsProtocol`, `DataSourceBundle`, conversation and
 notebook state, query versions, the explicit Run action, results, model-team
