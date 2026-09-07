@@ -14,7 +14,10 @@ set -euo pipefail
 
 SRC_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 NETWORK="${NETWORK:-catalyst-mvp-isolated-network}"
-IMAGE="${IMAGE:-catalyst/fhir-data-pipes:3ea890884d674e2f31257a2da421601f2d75b5e9}"
+# Same digest-pinned upstream release the MVP compose runs. This used to name a locally
+# built `catalyst/fhir-data-pipes:<sha>` image; that build was removed when Catalyst moved
+# to the published release, so the old tag no longer exists on any host.
+IMAGE="${IMAGE:-us-docker.pkg.dev/cloud-build-fhir/fhir-analytics/main:0.6.0@sha256:000074117c2de36935d52ec6aee165262f9b5724eb7d26c5d3ccff86fa6ea4d8}"
 CONTROLLER_PORT="${CONTROLLER_PORT:-18091}"
 # The controller and the thriftserver must share one warehouse volume mounted
 # at the same path: the controller registers absolute Parquet locations into
