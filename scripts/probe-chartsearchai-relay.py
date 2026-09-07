@@ -375,6 +375,15 @@ def _stream_turn(
                     raise RuntimeError(
                         f"ChartSearchAI relay turn_error [{problem_code}]: {message}"
                     )
+                if event == "heartbeat":
+                    # Keep-alives are not lifecycle phases. The relay interleaves them so a
+                    # browser disconnect is detectable between real events (chartsearchai
+                    # db615bdf); recording them makes the phase-order assertion below
+                    # unsatisfiable against any live stream, which is how this probe failed
+                    # while the relay itself was healthy.
+                    event = ""
+                    data_lines = []
+                    continue
                 event_names.append(event)
                 phase_payloads[event] = payload
                 if event == "answer_done":
