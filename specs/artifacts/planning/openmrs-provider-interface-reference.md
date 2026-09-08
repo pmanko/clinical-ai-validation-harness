@@ -164,10 +164,14 @@ Capabilities on the wire (`ProviderCapability.java`): `answer`, `token_streaming
 
 ### 4.2 What the ESM consumes
 
-`src/api/chartsearchai.ts` (`chatPatientChartStream`) handles `turn_started`, `answer_done`,
-`answer_validation`, `evidence_updated`, `indepth_pending`, `indepth_done`, `indepth_error`,
-`turn_done`, `turn_error`, and folds each envelope into one message through the turn-phase model in
-`src/hooks/useChartSearchAi.ts` (`answering`, `checking`, `settled`, `in-depth`, `complete`, `error`).
+`src/api/chartsearchai.ts` (`chatPatientChartStream`) handles `turn_started`, `answer_delta` and
+`reasoning_delta` (text frames; one leading space stripped per SSE line, so a token's own leading
+space survives), `answer_done`, `answer_validation`, `evidence_updated`, `indepth_pending`,
+`indepth_done`, `indepth_error`, `turn_done`, `turn_error`, and folds each envelope into one message
+through the turn-phase model in `src/hooks/useChartSearchAi.ts` (`answering`, `checking`, `settled`,
+`in-depth`, `complete`, `error`). Deltas accumulate only while the phase is `answering`; `answer_done`
+restates the whole answer, so a provider that streams no tokens (the hub) renders the same as before
+and a stopped turn ignores late frames.
 The safety badge reads `safetyCheck.status ?? safetyStatus`; the same three values render the same way
 for both providers (`src/components/ai-response-panel.component.tsx`).
 
