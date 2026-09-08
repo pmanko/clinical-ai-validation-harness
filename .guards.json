@@ -1,0 +1,21 @@
+{
+  "drift": {
+    "submodule_pins_pushed": true,
+    "mirrored_files": [
+      [
+        "datasets/validation/conformance/dual-provider-conformance.v1.json",
+        "targets/chartsearchai/api/src/test/resources/conformance/dual-provider-conformance.v1.json",
+        "targets/querystore/api/src/test/resources/conformance/dual-provider-conformance.v1.json",
+        "targets/chartsearchai-esm/src/conformance/dual-provider-conformance.v1.json",
+        "targets/med-agent-hub/tests/conformance/dual-provider-conformance.v1.json"
+      ]
+    ],
+    "pinned_ref_in_file": [
+      {
+        "file": "targets/chartsearchai/.github/workflows/build.yml",
+        "gitlink": "targets/querystore",
+        "context": "pmanko/openmrs-module-querystore"
+      }
+    ]
+  }
+}
