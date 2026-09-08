@@ -151,10 +151,13 @@ Every envelope-bearing event's payload is the provider's `AnswerEnvelope.payload
 `messageId`, `provider`, `disclaimer` and, once persisted, `auditLogId`
 (`ChartSearchAiRestController.writeTurnEvent`). The bundled envelope carries `answer`, `blocks`,
 `references`, `safetyWarnings`, `safetyStatus`, `safetyCheck`, `inputTokens`, `outputTokens`,
-`cachedTokens` (`BundledClinicalAnswerProvider.toAnswerEnvelope`). The module's answer-limit statements
-(`misattributedOrderCitations`, `unstatedFindingSeverities`, `conditionRuleCoverage`, `interactionPairs`,
-`activeOrderClaims`) are published on `/search` and `/search/stream` by `putModuleStatements`; carrying
-them on the provider stream for the bundled provider is the change tracked in ChartSearchAI #157.
+`cachedTokens` (`BundledClinicalAnswerProvider.toAnswerEnvelope`), and, since ChartSearchAI #157 commit
+`817ed6e`, the module's answer-limit statements (`misattributedOrderCitations`,
+`unstatedFindingSeverities`, `conditionRuleCoverage`, `interactionPairs`, `activeOrderClaims`) plus the
+wire shape of the safety chips: the controller publishes them from the `ChartAnswer` the envelope keeps
+(`AnswerEnvelope.getSource()`), through the same `putModuleStatements` that `/search` and
+`/search/stream` use, on every envelope-bearing event and on the persisted turn. A relayed (hub)
+envelope has no source and passes through unchanged.
 
 Capabilities on the wire (`ProviderCapability.java`): `answer`, `token_streaming`, `answer_check`,
 `answer_review`, `indepth`, `grounding`, `drug_safety`, `structured_blocks`, `multi_turn_context`.
