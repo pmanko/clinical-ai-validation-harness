@@ -41,6 +41,26 @@ Engine selection: `chartsearchai.llm.engine` = `local` (the module manages a lla
 | `GET /health` | llama.cpp | readiness | `LocalLlmEngine.java:1034` |
 | `GET /slots` | llama.cpp | slot occupancy for KV-cache scoping | `LocalLlmEngine.java:677-681` |
 
+### 2.1 The three text channels
+
+The bundled pipeline streams three distinct kinds of text, and the provider stream keeps them
+distinct because two facts about the preview cannot be recovered from its text:
+
+| Channel | Event | What it is |
+|---|---|---|
+| preview | `preliminary_delta` | optional progressive reasoning over an independently-numbered top-K chart (`chartsearchai.progressiveReasoning.topK`). Its `[N]` markers do NOT index the records the committed answer cites, so a client must strip them; and it is provisional, so committed reasoning REPLACES it. |
+| committed reasoning | `reasoning_delta` | chain-of-thought over the full chart view. Render distinctly, never as the answer. |
+| answer | `answer_delta` | the answer text itself. |
+
+The legacy `/search/stream` names the same three (`preliminary`, `thinking`, `token`). Folding the
+preview into `reasoning_delta` is the specific defect ChartSearchAI #157 fixed after the collapse was
+found: the ESM would have rendered preview markers pointing at records the answer never cited.
+
+*Follow-up:* `dual-provider-conformance.v1.json` should gain a `provider_lifecycle` case for the
+preview channel's ordering and capability rules. It is byte-identical across four repositories, so
+that edit is one coordinated bump after QueryStore #68, ChartSearchAI #157 and ESM #23 land; until
+then `TurnLifecycleConformanceTest` pins both rules directly.
+
 Budget enforcement on this hop is the bundled path's own: a prompt whose exact count exceeds the configured
 input budget fails the turn with `ChartTooLargeException` (`LlmInferenceService.ensurePromptFits`), and
 mandatory evidence that cannot fit makes the turn abstain with `InsufficientContextException`
@@ -138,7 +158,8 @@ Base path `/openmrs/ws/rest/v1/chartsearchai` (`ChartSearchAiRestController.java
 |---|---|---|
 | `turn_started` | `session`, `messageId`, `provider` | exactly one, first |
 | `heartbeat` | none | keep-alive, any time |
-| `reasoning_delta` | text | only with `token_streaming`; ends once answer deltas begin |
+| `preliminary_delta` | text | the optional progressive PREVIEW (`chartsearchai.progressiveReasoning.enabled`, default off); only with `token_streaming`; repeats; may not resume once committed reasoning begins |
+| `reasoning_delta` | text | committed reasoning; only with `token_streaming`; ends once answer deltas begin |
 | `answer_delta` | text | only with `token_streaming` |
 | `answer_done` | the answer envelope | required before `turn_done` |
 | `answer_validation` | envelope with `answerValidation` | only with `answer_check` or `answer_review` |
@@ -164,14 +185,16 @@ Capabilities on the wire (`ProviderCapability.java`): `answer`, `token_streaming
 
 ### 4.2 What the ESM consumes
 
-`src/api/chartsearchai.ts` (`chatPatientChartStream`) handles `turn_started`, `answer_delta` and
-`reasoning_delta` (text frames; one leading space stripped per SSE line, so a token's own leading
-space survives), `answer_done`, `answer_validation`, `evidence_updated`, `indepth_pending`,
+`src/api/chartsearchai.ts` (`chatPatientChartStream`) handles `turn_started`, `preliminary_delta`,
+`answer_delta` and `reasoning_delta` (text frames; one leading space stripped per SSE line, so a
+token's own leading space survives), `answer_done`, `answer_validation`, `evidence_updated`, `indepth_pending`,
 `indepth_done`, `indepth_error`, `turn_done`, `turn_error`, and folds each envelope into one message
 through the turn-phase model in `src/hooks/useChartSearchAi.ts` (`answering`, `checking`, `settled`,
 `in-depth`, `complete`, `error`). Deltas accumulate only while the phase is `answering`; `answer_done`
 restates the whole answer, so a provider that streams no tokens (the hub) renders the same as before
-and a stopped turn ignores late frames.
+and a stopped turn ignores late frames. The preview accumulates into `ChatMessage.preliminaryReasoning`
+with the shared `citationStripPattern` applied to the whole accumulation (so a marker split across
+frames is still removed), and the first committed reasoning delta or answer token clears it.
 The safety badge reads `safetyCheck.status ?? safetyStatus`; the same three values render the same way
 for both providers (`src/components/ai-response-panel.component.tsx`).
 
