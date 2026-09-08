@@ -17,7 +17,7 @@ branch the direct OpenMRS PR head. The roadmap file alone under-describes these 
 | Roadmap | [`openmrs-dual-provider-parity-roadmap.md`](openmrs-dual-provider-parity-roadmap.md) |
 | Approval | Explicit user instruction to implement the roadmap on 2026-07-20 |
 | Approved roadmap SHA-256 | `a3948d648ba21303639b55e65226455a088e2fb61f693a16a2e769276f20bd72` (Revision 2, 2026-07-23; Revision 1 was `cf2c8b33c81ab69ece6150d0171ea3e940f89edfa3968e02c6bd9bf8abc274f5`, preserved at `8bc9caa`) |
-| Current boundary | Current OpenMRS upstream is merged into the integration line. QueryStore `56b49cf`, ChartSearchAI `25a098e`, and ESM `c9416c6` are the remote `harness-integration` heads and the heads of OpenMRS PRs #68, #157, and #23 respectively; med-agent-hub PR #19 is at `cb4e05f`. QueryStore and ChartSearchAI passed full paired-source builds at behavior commit `b3911aa`; `25a098e` changes only paired-CI's immutable QueryStore pin to `56b49cf`. Hub passed 664 tests, and the ESM change is covered by the previously green 230-test/lint/TypeScript/build sweep. Two independent reviews found no remaining code blocker after the fail-closed medication-safety, In-Depth explanation, and full-chart completeness fixes. The last deployed proof predates these heads, so the final exact-head live sweep, independent QA bundle, controlled evaluation, judging, and publication remain required. The parent pins and status update are carried in harness PR #45; Signoff 2 is not yet available. |
+| Current boundary | Current OpenMRS upstream is merged into every integration line, with zero drift. QueryStore `b4a767f`, ChartSearchAI `978cca8e`, ESM `5f920d9` and hub `9a33350` are the remote heads and the harness pins. Updated 2026-09-08. |
 | Supersedes | `MAH-CONSOLIDATION-2026-07-09-v1` for active architecture and execution authority |
 | Preserved prior decisions | Temporal-facts Git provenance, stable evaluation IDs, and medication-knowledge safety boundary remain active unless this roadmap explicitly changes them |
 | Signoff 1 | Granted by user on 2026-07-20: baseline, contracts, upstream dispositions, and branch-rebuild procedure approved |
@@ -876,3 +876,51 @@ complete ChartSearchAI reactor after installing that exact QueryStore working tr
 logs and one existing Starlette/httpx deprecation warning remain non-failing. Fresh public CI,
 exact-head deployment/browser proof, the full executable gate sweep, independent QA bundle, and
 the controlled evaluation/report remain open.
+
+## Execution Progress — 2026-09-08
+
+Heads: QueryStore `b4a767f`, ChartSearchAI `978cca8e`, ESM `5f920d9`, hub `9a33350`; harness `feat/spark-remediation`.
+
+**Upstream drift closed.** All three OpenMRS integration lines are 0 commits behind their upstream
+`main`. ESM absorbed upstream #26 (safety-answer-limit rendering, 14 conflicting files); the
+reconciliation decisions are recorded in the #23 description.
+
+**Two contract defects found and fixed, both red-first.**
+
+1. *Answer-limit statements were absent from the provider stream.* `/search` and `/search/stream`
+   published `misattributedOrderCitations`, `unstatedFindingSeverities`, `conditionRuleCoverage`,
+   `interactionPairs` and `activeOrderClaims` through the controller's `putModuleStatements`; the
+   bundled provider's envelope carried none of them, so a `/chat/stream` client lost every one and
+   so did the persisted turn. The bundled envelope now keeps its `ChartAnswer`
+   (`AnswerEnvelope.getSource()`) and the controller publishes the statements through the same
+   serializers (ChartSearchAI `817ed6e`, pinned by `ProviderRestContractTest`).
+2. *The progressive preview was folded into `reasoning_delta`.* `BundledClinicalAnswerProvider`
+   mapped both the committed-reasoning and the preview consumers onto one event, discarding two
+   facts a client cannot recover from the text: the preview's `[N]` markers index an
+   independently-numbered top-K chart, and the preview is provisional. Now
+   `TurnEventType.PRELIMINARY_DELTA`, staged before committed reasoning and gated on
+   `token_streaming` (ChartSearchAI `c89a136`); the ESM consumes it with the markers stripped and
+   clears it on the first committed delta (ESM `7120711`).
+
+**Live evidence at these heads** (identity-verified by `probe-chartsearchai-relay.py --identity-only`):
+
+| Observation | Result |
+|---|---|
+| bundled turn, token streaming | 27 `answer_delta` + 110 `reasoning_delta`; framing preserves a token's own leading space |
+| bundled `turn_done` payload | all five answer-limit statements plus `safetyStatus`/`safetyCheck` present |
+| hub turn, same stack | 0 deltas (declares no `token_streaming`), `answerValidation` and `inDepth` relayed |
+| bundled turn, preview on | 151 `preliminary_delta`, order `turn_started → preliminary_delta → reasoning_delta → answer_delta → answer_done → turn_done` |
+| preview citation markers | a live preview carried 19 real `[N]` markers ("records [1] through [8]"); the shipped `citationStripPattern` removes all 19 |
+| provider registry | bundled and hub both ready; explicit `provider_not_ready` when the bundled engine has no model |
+| engine parity | both arms verifiably on one llama-router model through per-arm taps (`make parity-engine-up`, AC-1 checks pass) |
+
+**Gate status.** Foundation phase 22/22 (the two missing PR-26/PR-12 rollback refs were restored
+from the closed PRs). Conformance fixture gained three `provider_lifecycle` cases for the preview
+channel, synced byte-identically into all four consumer repositories. Doc-consistency and
+repository-line gates clean.
+
+**Still open.** The FULL phase needs a hash-bound `dual_provider_parity_evidence.v1` bundle, and no
+script generates one today: each live-claiming gate (G04-G22) needs its artifacts listed with
+SHA-256 and its assertions expressed as `json_pointer_equals` over those artifacts. The live
+observations above are real but are not yet expressed in that form, so the full phase is not being
+claimed as passing.
