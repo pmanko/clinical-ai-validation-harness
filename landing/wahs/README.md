@@ -42,7 +42,8 @@ Updated discussion notes supplied on 9 September are incorporated: record search
 preparation and embedding choices, bounded model tool use, local serving and
 planned GPU capacity, multilingual follow-up, and the connectathon display option.
 Meeting-reported configurations are distinguished from inspected code and
-verified deployment. Three short pilot abstracts support partner discussion; there is no delivery plan.
+verified deployment. The lead abstract explores iterative AI-assisted conflict resolution, with search
+and AI history as supporting ideas. It is a discussion proposal, not a built pilot.
 
 For the initial release, the live homepage contains a newer Catalyst recording
 than this checkout. Apply only the WAHS homepage additions to that live page;
