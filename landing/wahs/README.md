@@ -37,3 +37,9 @@ The report cites inspected Hub and QueryStore revisions, the harness roadmap and
 run metadata, the WAHS meeting and transcript, research plans, and current FHIR
 guidance. UX sources are listed in its final section. No pilot results or patient
 usability findings are claimed.
+
+Updated discussion notes supplied on 9 September are incorporated: record search,
+preparation and embedding choices, bounded model tool use, local serving and
+planned GPU capacity, multilingual follow-up, and the connectathon display option.
+Meeting-reported configurations are distinguished from inspected code and
+verified deployment. The first pilot remains a proposal for partner discussion.
