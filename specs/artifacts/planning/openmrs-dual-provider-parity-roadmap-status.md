@@ -17,7 +17,7 @@ branch the direct OpenMRS PR head. The roadmap file alone under-describes these 
 | Roadmap | [`openmrs-dual-provider-parity-roadmap.md`](openmrs-dual-provider-parity-roadmap.md) |
 | Approval | Explicit user instruction to implement the roadmap on 2026-07-20 |
 | Approved roadmap SHA-256 | `a3948d648ba21303639b55e65226455a088e2fb61f693a16a2e769276f20bd72` (Revision 2, 2026-07-23; Revision 1 was `cf2c8b33c81ab69ece6150d0171ea3e940f89edfa3968e02c6bd9bf8abc274f5`, preserved at `8bc9caa`) |
-| Current boundary | Current OpenMRS upstream is merged into every integration line, with zero drift. QueryStore `b4a767f`, ChartSearchAI `978cca8e`, ESM `5f920d9` and hub `9a33350` are the remote heads and the harness pins. Updated 2026-09-08. |
+| Current boundary | Review-remediation pins: QueryStore `f2fca727`, ChartSearchAI `d46f517b`, ESM `77f61c8a`, hub `9a33350`. Source validation is distinct from deployment acceptance. Updated 2026-09-09 UTC. |
 | Supersedes | `MAH-CONSOLIDATION-2026-07-09-v1` for active architecture and execution authority |
 | Preserved prior decisions | Temporal-facts Git provenance, stable evaluation IDs, and medication-knowledge safety boundary remain active unless this roadmap explicitly changes them |
 | Signoff 1 | Granted by user on 2026-07-20: baseline, contracts, upstream dispositions, and branch-rebuild procedure approved |
@@ -26,21 +26,30 @@ branch the direct OpenMRS PR head. The roadmap file alone under-describes these 
 
 ## Current Status in Plain Language
 
-- **Merged:** med-agent-hub's paginated QueryStore reads, per-citation grounding, and complete
-  context-slice validation are on hub `main` through PR #17. The current safety hardening is on
-  ready PR #19 at `cb4e05f`.
+- **Hub pin:** `9a33350` on hub `main`; the OpenMRS companion changes below remain under review.
 - **Pinned OpenMRS work:** QueryStore, ChartSearchAI, and ChartSearchAI ESM each match the exact
   `harness-integration` head on the corresponding fork. OpenMRS PRs now originate directly from
   those branches: QueryStore #68, ChartSearchAI #157, and ESM #23.
-- **Current reviewed source:** QueryStore `56b49cf`, ChartSearchAI `25a098e`, ESM `c9416c6`, and hub
-  `cb4e05f` pass their complete source-level test/build contracts; the OpenMRS Java pair was tested
-  together from source.
-- **Last proven live:** the assembled local application at ESM `f26868c` passed source/artifact
-  identity, provider, persistence, multi-turn, cancellation, validation, evidence, and video checks.
-- **Next required work:** rebuild the exact current heads, repeat the live provider/demo sweep, run
-  the executable acceptance gates and hash-bound independent QA, then run the controlled evaluation.
-- **After that:** run the controlled provider/model comparison, judge it independently, and publish
-  only from the exact tested revisions.
+- **Review fixes:** ranked paging stops at its supported boundary; an unavailable explicit provider
+  selection stays selected; bundled safety reports actual data/read/completeness limitations; and
+  terminal delivery waits for audit persistence without duplicating rejected-turn errors.
+- **Source validation, 2026-09-09 UTC:** QueryStore's full Maven reactor ran API 520 and OMOD 51
+  tests (two skips); ChartSearchAI's ran API 2,126 and OMOD 198 (57 skips), with no failures or
+  errors. ESM's 462 tests, focused lint, TypeScript check and production build passed. Regression
+  failures were observed before fixes, and independent reviewers inspected the final diffs.
+- **Validation limits:** ordinary QueryStore builds do not run its optional MySQL/Elasticsearch
+  integration profile. ChartSearchAI's new persistence cases use real Spring/Hibernate services
+  with flush/reload inside a test transaction. They are not deployed browser acceptance.
+- **Live evidence:** the dated observations below describe older deployments, not the current
+  remediation pins. No fresh deployment or clinical parity acceptance is claimed here.
+- **Review dependency:** QueryStore #68 must merge before ChartSearchAI's upstream-HEAD
+  compatibility build can pass. Its updated API must also be published for the normal build
+  consuming that dependency. The paired build proves the explicitly pinned
+  source combination; it does not remove that merge-time dependency. Current PR checks, rather
+  than this status snapshot, determine CI results.
+- **Remaining:** finish the companion review repairs and final-head checks. Product signoffs still
+  require the roadmap's live provider/demo, acceptance and controlled-evaluation evidence; this
+  source-review checkpoint does not grant those signoffs.
 
 Repository ownership is intentionally simple: the harness and med-agent-hub land through pull
 requests into `main`; the three upstream-owned OpenMRS projects are pinned and published from their
