@@ -11,5 +11,5 @@
 @media(min-width:801px) and (max-width:1190px){.steps{grid-template-columns:repeat(5,1fr)}.steps li{padding:18px 12px;border-bottom:0}.steps li:nth-child(3){border-right:1px solid var(--line)}.steps li:last-child{border:0}.steps h3{font-size:14px}}
 @media(max-width:520px){.filters{flex-wrap:wrap}.filters select{max-width:100%}.filters label{max-width:100%}}
 
-.reading-steps{grid-template-columns:repeat(4,1fr)}.reading-steps li:nth-child(3){border-right:1px solid var(--line)}.reading-steps li{border-bottom:0}.pilot-options{margin:0 0 26px}.pilot-options p{max-width:850px}
+.reading-steps{grid-template-columns:repeat(4,1fr)}.reading-steps li:nth-child(3){border-right:1px solid var(--line)}.reading-steps li{border-bottom:0}
 @media(max-width:520px){.reading-steps{grid-template-columns:1fr}.reading-steps li,.reading-steps li:nth-child(3){border-right:0;border-bottom:1px solid var(--line)}.reading-steps li:last-child{border-bottom:0}}

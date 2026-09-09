@@ -42,4 +42,10 @@ Updated discussion notes supplied on 9 September are incorporated: record search
 preparation and embedding choices, bounded model tool use, local serving and
 planned GPU capacity, multilingual follow-up, and the connectathon display option.
 Meeting-reported configurations are distinguished from inspected code and
-verified deployment. The first pilot remains a proposal for partner discussion.
+verified deployment. Three short pilot abstracts support partner discussion; there is no delivery plan.
+
+For the initial release, the live homepage contains a newer Catalyst recording
+than this checkout. Apply only the WAHS homepage additions to that live page;
+do not replace its Catalyst section with the older repository snapshot. Validate
+the resulting page and retain a backup. The report distinguishes the public
+demonstration from its separately cited roadmap revision.
