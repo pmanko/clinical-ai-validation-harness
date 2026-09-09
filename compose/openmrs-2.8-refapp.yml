@@ -37,6 +37,8 @@ services:
       # Optional subdomain serving published validation reports (static files from
       # artifacts/reports). Dormant locally on a non-published port; cloud sets the real subdomain.
       CADDY_SITE_REPORTS: ${CADDY_SITE_REPORTS:-:8091}
+      # Optional static WAHS discussion report, using the existing landing volume.
+      CADDY_SITE_WAHS: ${CADDY_SITE_WAHS:-:8092}
       CADDY_EMAIL: ${CADDY_EMAIL:-nobody@example.com}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
