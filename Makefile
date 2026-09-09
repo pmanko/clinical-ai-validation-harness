@@ -433,8 +433,13 @@ dual-provider-up:
 parity-engine-up:
 	@./scripts/parity-engine-up.sh
 
-PATIENT ?= dd553355-1691-11df-97a5-7038c432aabf
-QUESTION ?= What was the patient's most recent weight, and when was it recorded?
+# The default fixture must exercise the mandatory clinical core (allergies plus
+# active conditions). parity-engine-diff.py refuses to certify parity on an empty
+# core, and only two patients in the demo corpus carry an allergy at all. Patient
+# dd5558ed has the Penicillins drug allergy plus 6 active conditions. Asking about
+# amoxicillin, a penicillin, also exercises the drug-reference path in both arms.
+PATIENT ?= dd5558ed-1691-11df-97a5-7038c432aabf
+QUESTION ?= Is it safe to start this patient on amoxicillin given their allergies and conditions?
 parity-engine-probe:
 	@$(UV) run scripts/parity-engine-probe.py --patient "$(PATIENT)" --question "$(QUESTION)"
 
