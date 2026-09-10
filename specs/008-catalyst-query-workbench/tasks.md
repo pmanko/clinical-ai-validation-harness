@@ -334,7 +334,7 @@ the private review bundle. The broader screen-by-screen comparison remains open.
   arrangement/library, and every publish/import state with the binding design.
 
 Arrangement iteration, 10 September: Catalyst
-[#95](https://github.com/DIGI-UW/catalyst-ai/pull/95), head `3876098`, implements
+[#95](https://github.com/DIGI-UW/catalyst-ai/pull/95), merged as `0109b5b`, implements
 saved chart revisions, Dashboard review/reordering and full/half/third-row widths.
 Reopening restores the immutable configuration; saving changes preserves the
 logical Dashboard identity and Superset address. Same-source charts can span
@@ -346,10 +346,10 @@ share its card treatment. The current binding design incorporates these details.
 
 | Stage | Arrangement iteration status |
 | --- | --- |
-| Implementation | `3876098`, Catalyst #95 |
+| Implementation | Catalyst #95, tested head `3876098` |
 | Self-validation | 87 Gateway/public-route/canonical bundle tests; 284 UI tests across the main run and loopback-permitted fixture rerun; 12 deterministic browser checks; build/type/lint and documentation/link checks passed. Light/dark arrangement screenshots inspected privately. |
-| Merge | Pending PR checks |
-| Local real-source validation | Both sources completed chart creation, arrangement save/reload/revision and deterministic bundle publication. Actual import exposed the missing-turn provenance defect described below; revalidation is pending the fix. |
+| Merge | Catalyst #95 merged as `0109b5b`; all five hosted checks passed |
+| Local real-source validation | Both sources passed chart creation, arrangement save/reload/revision, repeat deterministic publication, actual import receipts and native table/bar rendering after the provenance fix. Tested harness `d136098`, Catalyst `3876098`, Hub `75d0ff0`; final merged release refresh remains separate. |
 | Server deployment and demos | Pending the complete compatible release checkpoint |
 | Owner acceptance | Remains open separately from implementation and tests |
 
@@ -359,8 +359,13 @@ The correction records `turnId: null` for manual/reused SQL with no generated
 turn and retains all actual session/query/execution references. The public-route
 regression fails for both source identities with the old producer and passes
 with the correction; all 115 Gateway, public-route, canonical bundle and importer
-tests pass. Existing immutable saves and failed receipts remain untouched;
-corrected saves and real imports must be verified before release.
+tests pass. Existing immutable saves and failed receipts remain untouched. Corrected saves
+and real imports now pass for both sources. Inspected Superset screenshots show
+two half-width charts in the saved order; visible values match the originating
+Catalyst result (OpenELIS 49; OpenMRS 3,578), without a separate database query.
+Raw footage, requests, traces, exact revisions/configuration fingerprints, bundles
+and receipts are archived in the private review folder. This is local iteration
+proof; it does not close the full server/demo checkpoint or final owner review.
 
 ## Local/server deployment and evidence
 
