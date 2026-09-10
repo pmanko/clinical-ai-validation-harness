@@ -94,8 +94,18 @@ The approved disposition is in [the plan](plan.md#design-extension-review).
 - [X] Keep Explore / Saved work; integrate grouped saved queries, charts/tables
   and Dashboards plus saved-SQL reuse into current delivery. Schedule larger
   extensions after current UX and Superset completion.
-- [ ] Extend the approved mock with saved-work browsing and saved-SQL reuse;
-  review the interaction before implementing it. Follow-on A owns the combined
+- [X] Prepare the saved-work browsing and saved-SQL reuse mock extension in
+  Catalyst [#91](https://github.com/DIGI-UW/catalyst-ai/pull/91), tested at
+  `61c0805`. Four focused offline browser checks cover draft preservation,
+  cancellation, immutable SQL/typed values, another source, missing historical
+  results, and the retained chart-to-dashboard route. Light/dark and 320/390px
+  screenshots were inspected privately. The existing UI suite passed 274 unit
+  tests, type/lint/build and ten deterministic browser checks; documentation
+  checks passed. The private preview is supplied through the owning task.
+- [ ] Review and merge the saved-work mock interaction before implementing it,
+  then update the Catalyst pin and public preview together. Catalyst #91 is a
+  draft; this preparation does not record owner feedback on the local UX gate
+  or begin Dashboard implementation. Follow-on A retains the combined
   Widget/Dashboard request and SQL-dependent failure review.
 - [X] Merge Catalyst [#85](https://github.com/DIGI-UW/catalyst-ai/pull/85), which
   consolidates the proposals and saved-SQL contract, and update the harness pin
