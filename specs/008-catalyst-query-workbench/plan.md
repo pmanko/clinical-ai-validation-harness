@@ -1,9 +1,9 @@
 # Implementation plan: Catalyst Query Workbench and Dashboard Builder
 
-**Status:** Approved delivery roadmap. Persist this plan before baseline, product,
-deployment, or specification changes. The current work order is stable baseline,
-specification consolidation, the complete frozen usability design, Dashboard
-Builder functionality, and local/server evidence.
+**Status:** Current delivery roadmap. The roadmap and compatible baseline are
+merged, and the specification set is consolidated. The active work order is the
+complete frozen usability design, Dashboard Builder functionality, and
+local/server evidence.
 
 **Specification:** [spec.md](spec.md)
 
@@ -18,9 +18,10 @@ The [program roadmap](../catalyst-program-roadmap.md) retains evaluation,
 comparison, and broader-conversation decisions. The approved delivery priority
 is **usability first, then Dashboard Builder functionality**. Model comparison
 and broader conversation work remain visible, separately scheduled work and are
-not prerequisites for this delivery. The legacy
-[Catalyst implementation plan](../catalyst-implementation-plan.md) remains a
-source during the consolidation iteration; it no longer sets delivery order.
+not prerequisites for this delivery. The retired
+[Catalyst implementation plan](../catalyst-implementation-plan.md) and
+[Dashboard delivery goal](dashboard-mvp-delivery-goal.md) point here and define
+no current work.
 
 Feature 008 includes the accepted conversation, query notebook, manual Run flow,
 typed results, and Dashboard Builder experience over the generic connection.
@@ -40,6 +41,25 @@ person
 
 The configured data source is external to Catalyst. Its ingestion pipeline and
 warehouse lifecycle are deployment concerns.
+
+### Physical ownership
+
+| Concern | Owner |
+| --- | --- |
+| Application behavior, sessions, queries, results, saved objects, and bundles | Catalyst |
+| Interaction and visual contract | Catalyst product specification and binding design |
+| Profiles, prompts, role mapping, and model settings | med-agent-hub |
+| OpenELIS Spark reference assets | Catalyst `analytics/` |
+| OpenMRS Spark reference assets | Harness `catalyst-sources/openmrs-hiv/` |
+| Combined lifecycle, exact pins, deployments, evidence, and status dashboard | Harness |
+| Dashboard rendering and import target | Superset |
+
+The former plan's proposed removal of experimental Catalyst packages is
+superseded; assess a package only when an active iteration finds a concrete
+owner or dependency. Its comparison and reader-packet work remains separately
+scheduled in the program roadmap. Its direct-database replay, automatic scoring,
+repeated-judge, engine-specific core, and extra-framework proposals are excluded
+by the current authorities.
 
 ### Connection boundary
 

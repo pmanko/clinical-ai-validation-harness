@@ -12,7 +12,9 @@ For Catalyst, read these authorities in order:
 3. `specs/008-catalyst-query-workbench/spec.md` for integration requirements;
 4. `specs/catalyst-program-roadmap.md` for evaluation, comparison, and
    separately scheduled conversation decisions;
-5. `targets/catalyst/docs/dashboard-builder-mvp-design.md` and its populated
+5. `targets/catalyst/docs/specification.md` for Catalyst application behavior
+   and contracts; and
+6. `targets/catalyst/docs/dashboard-builder-mvp-design.md` and its populated
    binding 4c page for the Dashboard Builder interaction and visual
    contract.
 
@@ -23,9 +25,9 @@ Catalyst core is a generic SQL-connected application. A source declares its
 identity, label, connection configuration or reference, and SQL dialect. Model
 and human tools receive every readable table, view, column, and type. Optional
 descriptions may enrich that information but cannot hide relations. FHIR Data
-Pipes -> Parquet -> Spark SQL is the selected reference deployment; its merged
-harness baseline and live acceptance remain open. It is not the Catalyst product
-contract.
+Pipes -> Parquet -> Spark SQL is the selected reference deployment; its harness
+baseline is merged and live acceptance remains open. It is not the Catalyst
+product contract.
 
 Validation is advisory. Exact selected SQL reaches the configured connection
 through shared connection-execution code and returns bounded rows or the

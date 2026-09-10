@@ -22,14 +22,10 @@
     {
       "project": "catalyst",
       "title": "Catalyst",
-      "status": "Roadmap and stable baseline merged",
-      "summary": "The authoritative delivery roadmap and the compatible Catalyst, Hub, and harness baseline are now on main. Specification consolidation is next, followed by four usability iterations and the first local owner review gate.",
-      "evidence": "Roadmap PR #109 merged as 6e0f3cf. Catalyst #79 merged as 4c6a46f, Hub #24 as 75d0ff0, and harness baseline #100 as 2a75bcf. Their final hosted checks passed, the strict repository-line check passes from merged harness main, and live dual-source product acceptance remains open.",
+      "status": "Specifications consolidated; usability implementation next",
+      "summary": "The roadmap, compatible baseline, shared workspace, cloud evidence guard, and consolidated specification set are current. The active delivery work is the four usability iterations followed by the complete local dual-source owner gate.",
+      "evidence": "Harness #109, #100, #101, and #105 are merged with green checks. Catalyst #82 merged as b9d429f with all five jobs green. Harness #110 carries the consolidated Feature 008 authorities and exact Catalyst pin. Live dual-source product acceptance remains open.",
       "actions": [
-        [
-          "Consolidate the specifications",
-          "CAT-E10"
-        ],
         [
           "Implement the usability design",
           "CAT-E11"
@@ -38,13 +34,13 @@
     }
   ],
   "resumeIds": [
-    "CAT-E10",
     "CAT-E11",
     "clinical.dual_provider",
     "upstream.older_prs",
     "harness.public_surfaces"
   ],
   "laterIds": [
+    "CAT-E10",
     "CAT-E07",
     "CAT-E06",
     "CAT-E08",

@@ -1,15 +1,15 @@
 # Quickstart: Catalyst Query Workbench development
 
-**Status:** The generic connection and Spark reference deployment are not yet
-implemented. Begin the Phase 1 comparison after the implementation checkpoints
-pass.
+**Status:** The compatible Catalyst/Hub baseline is merged. Use this guide for
+the active usability implementation, then Dashboard functionality and the
+dual-source delivery gates. Model comparison remains separately scheduled.
 
 ## Read first
 
-1. [Catalyst program roadmap](../catalyst-program-roadmap.md)
-2. [Feature 008 implementation roadmap](plan.md)
-3. [Current tasks](tasks.md)
-4. [Feature specification](spec.md)
+1. [Feature 008 implementation roadmap](plan.md)
+2. [Current tasks](tasks.md)
+3. [Feature integration and acceptance specification](spec.md)
+4. [Catalyst program roadmap](../catalyst-program-roadmap.md)
 
 Initialize the two sibling targets from an isolated harness worktree:
 
@@ -71,9 +71,9 @@ Use the retained demo data and a real configured model profile:
 Pause for owner review after the connection proof and again after the browser and
 Superset smoke.
 
-This Dataset-to-Superset check covers the generic connection. Final
-Dashboard Builder acceptance happens in Phase 3 against
-[the delivery goal](dashboard-mvp-delivery-goal.md).
+This Dataset-to-Superset check covers the generic connection. Full Workbench,
+Dashboard Builder, local/server, and evidence acceptance are defined in the
+[Feature specification](spec.md).
 
 ## Scenario references
 

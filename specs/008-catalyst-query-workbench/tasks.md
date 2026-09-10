@@ -31,28 +31,28 @@ conversation work remain separately scheduled.
   harness `main` before local or server deployment.
 - [X] Close superseded child pull request #108 after accounting for its Catalyst
   and Hub repair revisions in the merged baseline.
-- [ ] Record a disposition for every superseded child pull request before
+- [X] Record a disposition for every superseded child pull request before
   closing it; finish reconciling dependent dashboard and cloud-evidence branches
   onto current `main` so stale pins cannot undo the baseline.
 
 ## Specification consolidation
 
-- [ ] Move legacy implementation sequence, physical ownership, checkpoints, and
+- [X] Move legacy implementation sequence, physical ownership, checkpoints, and
   complexity constraints into the Feature 008 plan; replace the retired
   implementation-plan body with a successor link.
-- [ ] Move the separate Dashboard delivery goal's unique integration and
+- [X] Move the separate Dashboard delivery goal's unique integration and
   acceptance requirements into the Feature 008 specification; replace its body
   with a successor link.
-- [ ] Apply the frozen navigation, composer, palette, Advanced-mode, nonmodal
+- [X] Apply the frozen navigation, composer, palette, Advanced-mode, nonmodal
   data-browser, result-review, and focus requirements to the Catalyst product
   specification and binding design without leaving contradictory old text.
-- [ ] Preserve frozen mocks, research, overlap findings, and prior handoffs as
+- [X] Preserve frozen mocks, research, overlap findings, and prior handoffs as
   dated evidence with current-authority pointers rather than live status.
-- [ ] Align README, AGENTS, CLAUDE, SpecKit, quickstart, and document checks with
+- [X] Align README, AGENTS, CLAUDE, SpecKit, quickstart, and document checks with
   the consolidated authority set.
-- [ ] Inventory prior efforts as completed with evidence, active in this
+- [X] Inventory prior efforts as completed with evidence, active in this
   delivery, superseded with a destination, or deferred with a next action.
-- [ ] Verify no unique capability or acceptance criterion disappeared; run
+- [X] Verify no unique capability or acceptance criterion disappeared; run
   current link, secret, architecture, and documentation checks.
 
 ## Usability iteration 1 — question writing
@@ -280,7 +280,7 @@ model runs.
   Dashboard library/arrangement, and publish/import states side by side with the
   binding design.
 - [ ] Confirm profile selection, generation/failure evidence, Clear/Restore,
-  complete Available data browsing, fixed composer/thread, single editor,
+  complete Available data browsing, resizable composer/thread, single editor,
   review panels, multiple Widgets, and actionable publication states remain.
 - [ ] Pass focused API, component, bundle, publication, keyboard, focus, error,
   desktop, and narrow-layout checks.
