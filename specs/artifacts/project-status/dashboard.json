@@ -1,0 +1,108 @@
+{
+  "as_of": "2026-09-09",
+  "description": "Curated overview copy and navigation groups. Update with the effort inventory; these groups do not define completion or product requirements.",
+  "cards": [
+    {
+      "project": "chartsearch",
+      "title": "ChartSearchAI",
+      "status": "Final acceptance open",
+      "summary": "QueryStore, ChartSearchAI, and the UI now include current upstream main and GitHub reports all three mergeable. Their current-head build checks pass. ChartSearchAI's terminal-event and XML response defects are fixed.",
+      "evidence": "QueryStore 6436ab6 passes Java 8, 11, 17 and 21. ESM 40d5525 passes OpenMRS CI. ChartSearchAI 31a8c162 passes paired Java 11, 17 and 21 plus 2,007 API and 162 OMOD tests locally after upstream main was merged again. Its advisory QueryStore-HEAD job stays red until #68 reaches upstream main. Fresh live acceptance remains open.",
+      "actions": [
+        [
+          "Reconcile upstream & verify both providers",
+          "clinical.dual_provider"
+        ],
+        [
+          "Review nine older contributions",
+          "upstream.older_prs"
+        ]
+      ]
+    },
+    {
+      "project": "catalyst",
+      "title": "Catalyst",
+      "status": "Roadmap and stable baseline merged",
+      "summary": "The authoritative delivery roadmap and the compatible Catalyst, Hub, and harness baseline are now on main. Specification consolidation is next, followed by four usability iterations and the first local owner review gate.",
+      "evidence": "Roadmap PR #109 merged as 6e0f3cf. Catalyst #79 merged as 4c6a46f, Hub #24 as 75d0ff0, and harness baseline #100 as 2a75bcf. Their final hosted checks passed, the strict repository-line check passes from merged harness main, and live dual-source product acceptance remains open.",
+      "actions": [
+        [
+          "Consolidate the specifications",
+          "CAT-E10"
+        ],
+        [
+          "Implement the usability design",
+          "CAT-E11"
+        ]
+      ]
+    }
+  ],
+  "resumeIds": [
+    "CAT-E10",
+    "CAT-E11",
+    "clinical.dual_provider",
+    "upstream.older_prs",
+    "harness.public_surfaces"
+  ],
+  "laterIds": [
+    "CAT-E07",
+    "CAT-E06",
+    "CAT-E08",
+    "clinical.controlled_comparison",
+    "harness.retrieval_eval",
+    "harness.red_team",
+    "harness.clinician_governance",
+    "harness.management_research",
+    "harness.chatbot_expansion",
+    "harness.retired_routes",
+    "querystore.old_migration_testbed",
+    "clinical.cache_efficiency"
+  ],
+  "projectAssociations": {
+    "spark-video": [
+      "catalyst"
+    ],
+    "superset-local": [
+      "catalyst"
+    ],
+    "pipes-local": [
+      "catalyst"
+    ],
+    "comparison-wrapper": [
+      "catalyst"
+    ],
+    "execution-guarantees": [
+      "catalyst"
+    ],
+    "source-separation": [
+      "catalyst"
+    ],
+    "clinical-acceptance": [
+      "chartsearch"
+    ],
+    "old-pr-disposition": [
+      "chartsearch"
+    ],
+    "prefix-reuse": [
+      "chartsearch"
+    ],
+    "tool-clinical_runner": [
+      "chartsearch"
+    ],
+    "tool-judge_pipeline": [
+      "chartsearch"
+    ],
+    "tool-human_adjudication": [
+      "chartsearch"
+    ],
+    "tool-report_generator": [
+      "chartsearch"
+    ],
+    "tool-provider_parity": [
+      "chartsearch"
+    ],
+    "tool-acceptance_gates": [
+      "chartsearch"
+    ]
+  }
+}

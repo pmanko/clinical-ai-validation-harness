@@ -1,0 +1,54 @@
+{
+  "as_of": "2026-09-06",
+  "description": "Relevant working conversations inspected. Codex titles are exact; Claude titles describe the recovered transcript. Conversations support, rather than replace, durable work/evidence records.",
+  "rows": [
+    {
+      "id": "019f0691-f45a-7b82-8f33-7b34da5127ef",
+      "title": "Chartsearchai",
+      "system": "Codex",
+      "last_work": "2026-08-06",
+      "state": "Source checkpoint pushed; final live acceptance and review left open",
+      "source": "Codex task 019f0691-f45a-7b82-8f33-7b34da5127ef"
+    },
+    {
+      "id": "019f6c76-863f-75e2-9487-f90fb045b8d2",
+      "title": "Catalyst",
+      "system": "Codex",
+      "last_work": "2026-08-07",
+      "state": "Earlier dashboard foundation; superseded milestone/status details",
+      "source": "Codex task 019f6c76-863f-75e2-9487-f90fb045b8d2"
+    },
+    {
+      "id": "01a02f79-6293-73c1-8895-28170617179c",
+      "title": "Review Catalyst open PRs",
+      "system": "Codex",
+      "last_work": "2026-08-27",
+      "state": "Documentation reset merged; predates later Spark implementation",
+      "source": "Codex task 01a02f79-6293-73c1-8895-28170617179c"
+    },
+    {
+      "id": "019f6c77-b31c-7c72-b704-c01fea981b2d",
+      "title": "Project Cleanup and Update (2)",
+      "system": "Codex",
+      "last_work": "2026-07-16",
+      "state": "Historical integration analysis; Hub-only premise superseded",
+      "source": "Codex task 019f6c77-b31c-7c72-b704-c01fea981b2d"
+    },
+    {
+      "id": "4f5a9e47-72c2-4f5b-a027-501cb7174bd6",
+      "title": "Spark remediation and FHIR-to-dashboard demonstration",
+      "system": "Claude",
+      "last_work": "2026-08-27",
+      "state": "Implemented, browser-demonstrated and published; unmerged branch pair",
+      "source": "Claude transcript 4f5a9e47-72c2-4f5b-a027-501cb7174bd6 (supporting evidence; durable results are linked from PR #100 and CAT-E01)"
+    },
+    {
+      "id": "67bcd3e3-9400-4f37-a288-efbf5da0bbad",
+      "title": "Catalyst roadmap correction and Spark handoff",
+      "system": "Claude",
+      "last_work": "2026-08-27",
+      "state": "Handoff prepared and main plan merged into remediation checkout",
+      "source": "Claude transcript 67bcd3e3-9400-4f37-a288-efbf5da0bbad (supporting evidence; the branch was merged as harness PR #37)"
+    }
+  ]
+}

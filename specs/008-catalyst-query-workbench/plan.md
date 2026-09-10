@@ -97,9 +97,9 @@ result. It does not open a second database path.
 
 ## Selected reference deployment
 
-The selected demonstration will use the following path. Harness `main` does not
-yet contain the accepted integration baseline; candidate integration exists and
-live acceptance remains open:
+The selected demonstration will use the following path. Harness `main` contains
+the accepted compatible integration baseline from pull request #100; live
+dual-source acceptance remains open:
 
 ```text
 OpenELIS or OpenMRS FHIR

@@ -1,0 +1,1140 @@
+{
+  "as_of": "2026-09-09",
+  "description": "Editable portfolio inventory. These identifiers link work; they do not replace approved milestone names. No implementation owners have been assigned by this report.",
+  "rows": [
+    {
+      "id": "harness.foundation",
+      "title": "Harness foundation",
+      "status": "Implemented; maintenance",
+      "intent": "One control plane for target pins, setup, metadata and real validation commands.",
+      "implemented": [
+        "Target registry, local/VM profiles, CLI, submodule and compose helpers."
+      ],
+      "evidence": [
+        "README records complete; implementation files and metadata tests exist."
+      ],
+      "acceptance": "Existing completion claim retained; current machine setup is not validated.",
+      "next_deliverable": "Restore a clean usable checkout and verify target readiness without disturbing preserved local state.",
+      "dependencies": [],
+      "sources": [
+        "README.md",
+        "harness/targets.yaml",
+        ".specify/memory/constitution.md",
+        "harness/cli.py",
+        "harness/submodules.py",
+        "specs/001-harness-control-plane-foundation/spec.md"
+      ],
+      "last_checked": "2026-09-06",
+      "implementation_owner": null,
+      "notes": [],
+      "related_pull_requests": [
+        "https://github.com/DIGI-UW/openelis-catalyst/pull/48",
+        "https://github.com/DIGI-UW/openelis-catalyst/pull/9",
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/84",
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/78",
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/54",
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/51",
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/49",
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/47",
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/40",
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/38"
+      ]
+    },
+    {
+      "id": "harness.corpus",
+      "title": "OpenMRS demo corpus remap",
+      "status": "Complete; restore proof needed",
+      "intent": "Preserve clinical meaning while remapping the 2.7 public demo database to the compatible 2.8 schema.",
+      "implemented": [
+        "Deterministic mapping, transforms, date transplant, provenance and import tooling."
+      ],
+      "evidence": [
+        "README records complete, canonical 5284-patient corpus.",
+        "Preserved 44057876-byte July22 compressed dump checksum matches its provenance in this assessment."
+      ],
+      "acceptance": "Corpus completion is separate from current database restore, indexing and application readiness.",
+      "next_deliverable": "Reuse the verified preserved dump; record one clean restored-runtime identity and import/readability proof.",
+      "dependencies": [
+        "harness.foundation"
+      ],
+      "sources": [
+        "README.md",
+        "specs/002-openmrs-demo-data-2-8-remap/spec.md",
+        "datasets/mappings/openmrs-2.7-to-2.8.yaml",
+        "harness/transform/gen_modules.py",
+        "artifacts/demo-data/refapp_28_demo.sql.gz.provenance.json"
+      ],
+      "last_checked": "2026-09-06",
+      "implementation_owner": null,
+      "notes": [],
+      "related_pull_requests": []
+    },
+    {
+      "id": "clinical.dual_provider",
+      "title": "ChartSearchAI dual-provider completion",
+      "status": "Mergeable candidates published; acceptance open",
+      "intent": "Bundled and Hub inference behind one OpenMRS conversation and evidence experience.",
+      "implemented": [
+        "Provider selection and truthful readiness; bundled default; no fallback; conversation persistence; final answer and evidence lifecycle; cancellation; browser rendering."
+      ],
+      "evidence": [
+        "Historical July-Aug5 real-path proof across providers.",
+        "Aug6 source-test checkpoint recovered by root: paired Java passed, frontend245 tests, hub684 tests; final exact-head live and independent review remained open.",
+        "Preserved Aug6 03:19UTC hub relay probe covers Chart25a098e,Query56b49cf,ESMc9416c6,Hubcb4e05f, not final Aug6 source heads.",
+        "September 6 merge-readiness heads are QueryStore 6436ab6, ChartSearchAI f14d2cbd, and ESM 40d5525. GitHub reports all three mergeable. QueryStore's Java 8, 11, 17 and 21 jobs, ChartSearchAI's paired Java 11, 17 and 21 jobs, and the ESM build pass. ChartSearchAI's advisory QueryStore-HEAD job remains red until #68 reaches upstream main."
+      ],
+      "acceptance": "Owner Signoff2 and Signoff3 remain pending in canonical record.",
+      "next_deliverable": "Complete upstream review, then run a fresh artifact-bound dual-provider product proof and obtain explicit owner acceptance.",
+      "dependencies": [
+        "harness.foundation",
+        "harness.corpus",
+        "querystore.context",
+        "clinical.hub"
+      ],
+      "sources": [
+        "specs/artifacts/planning/openmrs-dual-provider-parity-roadmap.md",
+        "specs/artifacts/planning/openmrs-dual-provider-parity-roadmap-status.md",
+        "specs/artifacts/planning/openmrs-dual-provider-conformance-contract.md",
+        "scripts/verify_dual_provider_parity_gates.py",
+        "artifacts/chartsearchai-local/relay-probe.json"
+      ],
+      "last_checked": "2026-09-06",
+      "implementation_owner": null,
+      "notes": [
+        "Status summary and upstream inventory need reconciliation; do not re-open completed fixes based on old prose."
+      ],
+      "related_pull_requests": [
+        "https://github.com/openmrs/openmrs-esm-chartsearchai/pull/23",
+        "https://github.com/openmrs/openmrs-esm-chartsearchai/pull/22",
+        "https://github.com/openmrs/openmrs-esm-chartsearchai/pull/12",
+        "https://github.com/openmrs/openmrs-esm-chartsearchai/pull/11",
+        "https://github.com/openmrs/openmrs-esm-chartsearchai/pull/10",
+        "https://github.com/openmrs/openmrs-esm-chartsearchai/pull/9",
+        "https://github.com/openmrs/openmrs-module-chartsearchai/pull/157",
+        "https://github.com/openmrs/openmrs-module-chartsearchai/pull/90",
+        "https://github.com/openmrs/openmrs-module-chartsearchai/pull/26",
+        "https://github.com/openmrs/openmrs-module-chartsearchai/pull/25",
+        "https://github.com/openmrs/openmrs-module-chartsearchai/pull/22",
+        "https://github.com/openmrs/openmrs-module-chartsearchai/pull/21",
+        "https://github.com/openmrs/openmrs-module-chartsearchai/pull/20",
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/45"
+      ]
+    },
+    {
+      "id": "querystore.context",
+      "title": "Shared patient context and freshness",
+      "status": "Implemented; revalidation open",
+      "intent": "Give both providers complete, authorized, consistently selected patient records.",
+      "implemented": [
+        "QueryStore owns shared tiered context selection and optional question interpretation; engines own token budgets/prompts.",
+        "Clinical vs administrative dates, snapshot/ETag, completeness, mixed-page rejection and no stale-on-error cache behavior."
+      ],
+      "evidence": [
+        "Published QueryStore candidate 6436ab6 includes current upstream main and adds deterministic context snapshots.",
+        "July22 context selection and July23 freshness proof recorded; source-level tests cover later fixes."
+      ],
+      "acceptance": "Current exact-head full-chart, context-slice and cache evidence remains part of provider completion.",
+      "next_deliverable": "Repeat chart-change/ETag/completeness and mandatory-context checks with recorded snapshot IDs.",
+      "dependencies": [
+        "harness.corpus"
+      ],
+      "sources": [
+        "specs/artifacts/planning/openmrs-dual-provider-parity-roadmap.md",
+        "specs/artifacts/planning/openmrs-dual-provider-conformance-contract.md",
+        "specs/artifacts/planning/openmrs-dual-provider-parity-roadmap-status.md",
+        "datasets/validation/conformance/dual-provider-conformance.v1.json",
+        "scripts/parity-engine-diff.py"
+      ],
+      "last_checked": "2026-09-06",
+      "implementation_owner": null,
+      "notes": [],
+      "related_pull_requests": [
+        "https://github.com/openmrs/openmrs-module-chartsearchai/pull/72",
+        "https://github.com/openmrs/openmrs-module-chartsearchai/pull/19",
+        "https://github.com/openmrs/openmrs-module-querystore/pull/68",
+        "https://github.com/openmrs/openmrs-module-querystore/pull/63"
+      ]
+    },
+    {
+      "id": "clinical.hub",
+      "title": "Shared med-agent-hub execution service",
+      "status": "Implemented shared service",
+      "intent": "Provide configured clinical stages and Catalyst model execution through one maintained service.",
+      "implemented": [
+        "Profile-driven clinical answer/check/evidence/In-Depth stages and source adapters.",
+        "Current shared Hub main also contains Catalyst request/context/token evidence changes."
+      ],
+      "evidence": [
+        "Pin939720e includes medication-safety PR19 Aug7 and Catalyst changes through Aug25.",
+        "Exact pinned source inspected through available local Git objects; no live service demonstrated."
+      ],
+      "acceptance": "Shared-service availability and each consumer regression need distinct proof.",
+      "next_deliverable": "Rebuild the pinned service and exercise both clinical and Catalyst consumers after shared changes.",
+      "dependencies": [
+        "harness.foundation"
+      ],
+      "sources": [
+        "README.md",
+        "specs/artifacts/planning/openmrs-dual-provider-parity-roadmap.md",
+        "specs/005-med-agent-hub-bridge/spec.md",
+        "targets/med-agent-hub/server/engine.py",
+        "targets/med-agent-hub/server/generic_role.py"
+      ],
+      "last_checked": "2026-09-06",
+      "implementation_owner": null,
+      "notes": [],
+      "related_pull_requests": [
+        "https://github.com/pmanko/med-agent-hub/pull/20",
+        "https://github.com/pmanko/med-agent-hub/pull/18",
+        "https://github.com/pmanko/med-agent-hub/pull/16"
+      ]
+    },
+    {
+      "id": "harness.validation_spine",
+      "title": "Scenario runs, review and evidence spine",
+      "status": "Implemented; status needs reconciliation",
+      "intent": "Run repeatable scenario-by-model experiments with traceable observations and separately recorded judgments.",
+      "implemented": [
+        "Clinical runner/client, results and events, source resolution, standalone reports, machine judges, human adjudication and recovery.",
+        "Mongo persistence remains an explicit stub."
+      ],
+      "evidence": [
+        "67 checked-in clinical scenario files and9 comparison-set files; metadata/source/report/adjudication tests exist.",
+        "Historical published and preserved run artifacts; none revalidated as current release proof."
+      ],
+      "acceptance": "README says in progress while spec006 says shipped spine; remaining as-built reconciliation must not be conflated with rebuilding working tooling.",
+      "next_deliverable": "Define one current completion checklist for reusable spine and finish per-run snapshot/cache/checking provenance required by clinical roadmap.",
+      "dependencies": [
+        "harness.foundation"
+      ],
+      "sources": [
+        "README.md",
+        "specs/006-validation-harness-mvp/spec.md",
+        "specs/artifacts/planning/openmrs-dual-provider-parity-roadmap-status.md",
+        "harness/validate/runner.py",
+        "harness/validate/repository.py",
+        "harness/validate/adjudicate.py",
+        "specs/artifacts/lanes/L3-validation-spine-asbuilt.md"
+      ],
+      "last_checked": "2026-09-06",
+      "implementation_owner": null,
+      "notes": [
+        "June lane kickoff is historical; its deployment assumptions are not current instructions."
+      ],
+      "related_pull_requests": [
+        "https://github.com/pmanko/med-agent-hub/pull/23",
+        "https://github.com/pmanko/med-agent-hub/pull/22"
+      ]
+    },
+    {
+      "id": "harness.real_adapters",
+      "title": "Real application adapter entrypoints",
+      "status": "Partly implemented",
+      "intent": "Run actual target APIs/builds rather than harness simulations.",
+      "implemented": [
+        "OpenMRS lifecycle/build/source-pair scripts, real ChartSearchAI chat client, QueryStore integration, Catalyst workflow wrapper.",
+        "Small legacy adapter classes expose command plans; they are not the whole runtime integration."
+      ],
+      "evidence": [
+        "Production-path historical evidence exists for clinical and Catalyst; registry still marks chatbot unavailable."
+      ],
+      "acceptance": "The old feature004 PoC is explicitly historical and even its hub-only supersession note predates current bundled-preserving authority.",
+      "next_deliverable": "Update entrypoint/readiness inventory around existing real wrappers and identify the remaining missing targets.",
+      "dependencies": [
+        "harness.foundation"
+      ],
+      "sources": [
+        "harness/targets.yaml",
+        "specs/004-real-adapter-entrypoints/spec.md",
+        "harness/adapters/chartsearchai.py",
+        "harness/validate/client.py",
+        "scripts/chartsearchai-local.sh",
+        "scripts/openmrs-source-pair-test.sh"
+      ],
+      "last_checked": "2026-09-06",
+      "implementation_owner": null,
+      "notes": [],
+      "related_pull_requests": []
+    },
+    {
+      "id": "clinical.controlled_comparison",
+      "title": "Controlled clinical provider/model comparison",
+      "status": "Follows product acceptance",
+      "intent": "Measure quality, latency and evidence differences while holding other inputs fixed.",
+      "implemented": [
+        "Scenario runner, request captures, provider attribution, deterministic checks and separately attributed judges already exist."
+      ],
+      "evidence": [
+        "Older directional clinical experiments retained in report catalog; not current dual-provider comparative release evidence."
+      ],
+      "acceptance": "Roadmap explicitly places full comparison, judging and publication after product Signoff2.",
+      "next_deliverable": "An owner-approved controlled matrix and then complete per-cell report from accepted product revisions.",
+      "dependencies": [
+        "clinical.dual_provider",
+        "harness.validation_spine"
+      ],
+      "sources": [
+        "specs/artifacts/planning/openmrs-dual-provider-parity-roadmap.md",
+        "specs/artifacts/planning/openmrs-dual-provider-parity-roadmap.md",
+        "reports-index.json"
+      ],
+      "last_checked": "2026-09-06",
+      "implementation_owner": null,
+      "notes": [
+        "Do not infer a winning model from historical single-judge results."
+      ],
+      "related_pull_requests": []
+    },
+    {
+      "id": "harness.retrieval_eval",
+      "title": "Broader retrieval evaluation",
+      "status": "Planned; supporting tools exist",
+      "intent": "Measure missed/supporting records, retrieval coverage and stage-specific latency.",
+      "implemented": [
+        "Shared-context parity instrument and source/citation utilities implemented; known-answer fixture shape tests exist."
+      ],
+      "evidence": [
+        "Historical parity captures and QueryStore tests do not complete the broader M4 benchmark."
+      ],
+      "acceptance": "README lists planned; formal feature010 folder absent in this checkout.",
+      "next_deliverable": "Scope a current retrieval-evaluation deliverable with reviewed cases, record-level misses and fixed source identity.",
+      "dependencies": [
+        "harness.corpus",
+        "harness.validation_spine",
+        "harness.real_adapters"
+      ],
+      "sources": [
+        "README.md",
+        "specs/roadmap.canvas.tsx",
+        "evals/retrieval/test_known_answer_fixture_shape.py",
+        "scripts/parity-engine-probe.py"
+      ],
+      "last_checked": "2026-09-06",
+      "implementation_owner": null,
+      "notes": [],
+      "related_pull_requests": []
+    },
+    {
+      "id": "clinical.answer_evaluation",
+      "title": "Answer, citation and abstention evaluation",
+      "status": "Partly implemented; broader evaluation planned",
+      "intent": "Explain whether answers are supported and refusals appropriate, with inspectable evidence.",
+      "implemented": [
+        "Clinical scoring, source normalization/audit, review-draft separation, citation presentation and final-answer checking."
+      ],
+      "evidence": [
+        "Source/report/adjudication code and tests; old report archive includes abstention and safety observations."
+      ],
+      "acceptance": "M5 remains planned in index; product safety checks and shipped006 evaluation subset do not amount to a completed expanded clinical benchmark.",
+      "next_deliverable": "Reconcile implemented subset and specify remaining evaluation depth against current clinical contract.",
+      "dependencies": [
+        "harness.validation_spine",
+        "harness.retrieval_eval"
+      ],
+      "sources": [
+        "README.md",
+        "specs/006-validation-harness-mvp/spec.md",
+        "harness/validate/sources.py",
+        "harness/validate/response_artifacts.py",
+        "specs/artifacts/planning/citation-evidence-ux-research-2026-06-27.md"
+      ],
+      "last_checked": "2026-09-06",
+      "implementation_owner": null,
+      "notes": [],
+      "related_pull_requests": []
+    },
+    {
+      "id": "clinical.medication_safety",
+      "title": "Medication-safety honesty and approved content",
+      "status": "Disclosure implemented; content work open",
+      "intent": "Show exactly which safety rules ran and where source/mapping coverage is limited.",
+      "implemented": [
+        "Provenance-aware checked/limited/unavailable states, strict package parsing, shared severity policy, visible source details and fail-closed completeness."
+      ],
+      "evidence": [
+        "Aug5-6 source review/tests and preserved relay probe; no newly verified comprehensive clinical content acceptance."
+      ],
+      "acceptance": "Equivalent approved interaction content, CIEL mappings, exposure resolution and linked medication-knowledge/CDS work remain separately reviewed.",
+      "next_deliverable": "Close exact-head clean/limited/unavailable product proof, then define a reviewed content/mapping deliverable separately.",
+      "dependencies": [
+        "clinical.dual_provider",
+        "querystore.context"
+      ],
+      "sources": [
+        "specs/artifacts/planning/openmrs-dual-provider-parity-roadmap.md",
+        "specs/artifacts/planning/openmrs-dual-provider-parity-roadmap-status.md",
+        "specs/artifacts/planning/openmrs-dual-provider-parity-roadmap.md",
+        "targets/med-agent-hub/server/drug_safety.py"
+      ],
+      "last_checked": "2026-09-06",
+      "implementation_owner": null,
+      "notes": [],
+      "related_pull_requests": [
+        "https://github.com/pmanko/med-agent-hub/pull/19"
+      ]
+    },
+    {
+      "id": "clinical.knowledge",
+      "title": "Clinical reference knowledge",
+      "status": "Embedded capability exists; old service plan superseded",
+      "intent": "Bring attributable clinical guidance into answers without confusing it with patient records.",
+      "implemented": [
+        "Pinned Hub kb.py uses SQLite FTS5/BM25 with keyword fallback, defaults to3 results, and returns source/version/url/license.",
+        "Optional StaticKnowledgeSource turns results into numbered KnowledgeReference ledger records."
+      ],
+      "evidence": [
+        "Current pinned kb.py inspected; broader standalone service not found in target registry."
+      ],
+      "acceptance": "Clinical-kb brief explicitly historical/superseded; README still links it as a future brief. Do not revive REST/MCP service or its old score thresholds as approved current scope.",
+      "next_deliverable": "Refresh the knowledge-content/coverage decision under current Hub source ownership before starting a separate service.",
+      "dependencies": [
+        "clinical.hub",
+        "clinical.medication_safety"
+      ],
+      "sources": [
+        "README.md",
+        "specs/artifacts/planning/clinical-kb-brief.md",
+        "specs/artifacts/planning/kb-scope.md",
+        "targets/med-agent-hub/server/kb.py"
+      ],
+      "last_checked": "2026-09-06",
+      "implementation_owner": null,
+      "notes": [],
+      "related_pull_requests": []
+    },
+    {
+      "id": "harness.red_team",
+      "title": "Broader safety and red-team evaluation",
+      "status": "Planned",
+      "intent": "Probe indirect instructions, disclosure and unsafe behavior across varied clinical contexts.",
+      "implemented": [
+        "Current clinical temporal/medication safety contracts cover narrower implemented protections."
+      ],
+      "evidence": [
+        "README and roadmap scope only; no formal013 folder."
+      ],
+      "acceptance": "Narrow deterministic clinical checks are not comprehensive red-team acceptance.",
+      "next_deliverable": "A bounded, reviewed adversarial scenario suite and rationale-bearing results.",
+      "dependencies": [
+        "harness.validation_spine",
+        "harness.real_adapters",
+        "clinical.answer_evaluation"
+      ],
+      "sources": [
+        "README.md",
+        "specs/roadmap.canvas.tsx",
+        ".specify/memory/constitution.md"
+      ],
+      "last_checked": "2026-09-06",
+      "implementation_owner": null,
+      "notes": [],
+      "related_pull_requests": []
+    },
+    {
+      "id": "harness.clinician_governance",
+      "title": "Clinician review and change governance",
+      "status": "Tools exist; review program planned",
+      "intent": "Make baseline changes and clinical acceptance traceable to named human reviewers.",
+      "implemented": [
+        "Constitution, change-record template, feedback and adjudication schemas/tools exist."
+      ],
+      "evidence": [
+        "Source implementation verifies human review capability; no clinician outcome study or final product signoff inferred."
+      ],
+      "acceptance": "Clinical governance milestone remains planned; model-only judgments do not replace owner/clinical acceptance.",
+      "next_deliverable": "Name required reviewers and a concrete review packet for the accepted clinical product stage.",
+      "dependencies": [
+        "harness.validation_spine",
+        "clinical.answer_evaluation",
+        "harness.red_team"
+      ],
+      "sources": [
+        "README.md",
+        ".specify/memory/constitution.md",
+        "specs/artifacts/planning/pccp-change-record-template.md",
+        "harness/validate/adjudicate.py"
+      ],
+      "last_checked": "2026-09-06",
+      "implementation_owner": null,
+      "notes": [],
+      "related_pull_requests": []
+    },
+    {
+      "id": "querystore.old_migration_testbed",
+      "title": "Original QueryStore migration/parity milestone",
+      "status": "Old premise superseded; scope needs reconciliation",
+      "intent": "Compare the old standalone ChartSearch retrieval with a future QueryStore path.",
+      "implemented": [
+        "QueryStore is already the current shared OpenMRS context surface.",
+        "Modern parity instrument compares bundled vs Hub over that shared source."
+      ],
+      "evidence": [
+        "Canonical contract and current code supersede the old canvas future-migration premise."
+      ],
+      "acceptance": "Do not call oldM8 complete without reconciling scope, or restart a migration already embodied in current architecture.",
+      "next_deliverable": "Replace stale migration wording with a current research question or explicitly close it as superseded.",
+      "dependencies": [
+        "querystore.context",
+        "harness.retrieval_eval"
+      ],
+      "sources": [
+        "README.md",
+        "specs/roadmap.canvas.tsx",
+        "specs/artifacts/planning/openmrs-dual-provider-conformance-contract.md"
+      ],
+      "last_checked": "2026-09-06",
+      "implementation_owner": null,
+      "notes": [],
+      "related_pull_requests": []
+    },
+    {
+      "id": "harness.management_research",
+      "title": "Management, medication reasoning and multilingual research axes",
+      "status": "Proposal; not committed work",
+      "intent": "Expand research beyond extracting facts toward localized guideline-grounded decisions.",
+      "implemented": [],
+      "evidence": [
+        "Detailed AMIE plan and brief exist; both explicitly planning/build scope under discussion."
+      ],
+      "acceptance": "No approved current build scope or completed implementation established by this assessment.",
+      "next_deliverable": "Reconfirm which research coordinate and reference artifacts deserve a bounded experiment after product proof.",
+      "dependencies": [
+        "clinical.dual_provider",
+        "clinical.knowledge",
+        "harness.clinician_governance"
+      ],
+      "sources": [
+        "specs/artifacts/planning/amie-management-axes-plan.md",
+        "specs/artifacts/planning/amie-management-axes-brief.md"
+      ],
+      "last_checked": "2026-09-06",
+      "implementation_owner": null,
+      "notes": [
+        "Dissertation/research directions are not synonymous with product implementation or harness infrastructure."
+      ],
+      "related_pull_requests": []
+    },
+    {
+      "id": "harness.reports",
+      "title": "Run dashboard, reports and feedback",
+      "status": "Implemented across several surfaces",
+      "intent": "Give operators live progress and readers complete, reviewable evidence.",
+      "implemented": [
+        "Live dashboard8099, standalone clinical report, actor-specific judgments, human feedback/adjudication, report index and publishing wrappers."
+      ],
+      "evidence": [
+        "Current source and tests;16 clinical report cards in tracked index; local saved archive and code-review videos survive."
+      ],
+      "acceptance": "A report existing/published is distinct from completeness, current revision proof and human acceptance.",
+      "next_deliverable": "Catalog every report with its run identity, method, completeness and review status; reconcile stale local copies and superseded claims.",
+      "dependencies": [
+        "harness.validation_spine"
+      ],
+      "sources": [
+        "scripts/validate-dashboard.py",
+        "harness/validate/report.py",
+        "harness/report_shell/document.py",
+        "reports-index.json",
+        "specs/artifacts/planning/reports-frontend-consolidation-roadmap.md"
+      ],
+      "last_checked": "2026-09-06",
+      "implementation_owner": null,
+      "notes": [],
+      "related_pull_requests": [
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/87",
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/86",
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/82",
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/81",
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/76",
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/72",
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/66",
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/43"
+      ]
+    },
+    {
+      "id": "harness.public_surfaces",
+      "title": "Landing page, documentation, evidence archive and live demos",
+      "status": "Published; source and deployed manifests differ",
+      "intent": "Give each public surface a distinct purpose and reproducible publication source.",
+      "implemented": [
+        "landing/ is front door; site/ renders docs; reports are generated evidence; OpenMRS demo requires runtime.",
+        "Tracked publish scripts distinguish website/report publishing from stack operations."
+      ],
+      "evidence": [
+        "41 public report, demo and documentation links returned HTTP 200 on 2026-09-06; functional runtime acceptance was not exercised.",
+        "Deployed report manifest contains 19 entries, main contains 16; three Catalyst reports are deployed-only."
+      ],
+      "acceptance": "Old July audit assertions about unmerged landing or VM-only reports are outdated; do not treat them as current.",
+      "next_deliverable": "Reconcile report manifest and family labels, preserve historical methods, and publish a reviewed current summary through existing flows.",
+      "dependencies": [
+        "harness.reports",
+        "clinical.dual_provider"
+      ],
+      "sources": [
+        "README.md",
+        "landing/index.html",
+        "scripts/publish-landing.sh",
+        "scripts/publish-report.sh",
+        ".github/workflows/pages.yml",
+        "specs/artifacts/planning/reports-frontend-consolidation-roadmap.md"
+      ],
+      "last_checked": "2026-09-06",
+      "implementation_owner": null,
+      "notes": [],
+      "related_pull_requests": [
+        "https://github.com/DIGI-UW/openelis-catalyst/pull/75",
+        "https://github.com/DIGI-UW/openelis-catalyst/pull/55",
+        "https://github.com/DIGI-UW/openelis-catalyst/pull/31",
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/91",
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/55",
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/50"
+      ]
+    },
+    {
+      "id": "clinical.cache_efficiency",
+      "title": "Context caching and prompt-prefix efficiency",
+      "status": "Cache implemented; prefix reuse deferred",
+      "intent": "Reduce repeated work while preserving freshness, authorization and clinical checks.",
+      "implemented": [
+        "Revalidated source/patient/authorization-scoped ledger cache.",
+        "No final-answer cache; no new disk KV persistence scope authorized."
+      ],
+      "evidence": [
+        "Cache tests and earlier source proof; exact-head live cache proof remains open."
+      ],
+      "acceptance": "Owner deferred prefix-reuse proof July24; not a Signoff2 blocker.",
+      "next_deliverable": "Verify current ledger-cache behavior; revisit prefix reuse only if full_chart_stable becomes deployment priority.",
+      "dependencies": [
+        "querystore.context",
+        "clinical.hub"
+      ],
+      "sources": [
+        "specs/artifacts/planning/openmrs-dual-provider-parity-roadmap-status.md",
+        "specs/artifacts/planning/openmrs-dual-provider-parity-roadmap.md",
+        "targets/med-agent-hub/server/patient_ledger_cache.py"
+      ],
+      "last_checked": "2026-09-06",
+      "implementation_owner": null,
+      "notes": [],
+      "related_pull_requests": []
+    },
+    {
+      "id": "harness.chatbot_expansion",
+      "title": "openmrs_chatbot and cross-project expansion",
+      "status": "Parked scaffolding",
+      "intent": "Reuse the common validation instrument for role-aware chat and handoffs.",
+      "implemented": [
+        "Pinned external chatbot repository; shared target metadata."
+      ],
+      "evidence": [
+        "Registry marks validation surface unavailable and scaffolding_only."
+      ],
+      "acceptance": "No real-path validation or release acceptance established.",
+      "next_deliverable": "A declared real adapter and one source-grounded conversation proof before broad comparison.",
+      "dependencies": [
+        "harness.validation_spine",
+        "harness.real_adapters",
+        "harness.red_team",
+        "harness.clinician_governance"
+      ],
+      "sources": [
+        "README.md",
+        "harness/targets.yaml",
+        "specs/roadmap.canvas.tsx"
+      ],
+      "last_checked": "2026-09-06",
+      "implementation_owner": null,
+      "notes": [],
+      "related_pull_requests": []
+    },
+    {
+      "id": "harness.retired_routes",
+      "title": "Retired endpoint overrides, hub-only consolidation and MCP/A2A work",
+      "status": "Superseded",
+      "intent": "Retain history without allowing obsolete runtime plans to direct resumption.",
+      "implemented": [],
+      "evidence": [
+        "README explicitly retires old config/MCP work; active dual-provider roadmap supersedes hub-only architecture."
+      ],
+      "acceptance": "These are not pending deliverables.",
+      "next_deliverable": "Maintain explicit superseded links in the inventory; no implementation action. ",
+      "dependencies": [],
+      "sources": [
+        "README.md",
+        "specs/artifacts/planning/hub-consolidation-roadmap.md",
+        "specs/artifacts/planning/hub-consolidation-roadmap-status.md",
+        "specs/artifacts/lanes/dev-roadmap.md",
+        "specs/007-llm-config-overrides/spec.md"
+      ],
+      "last_checked": "2026-09-06",
+      "implementation_owner": null,
+      "notes": [],
+      "related_pull_requests": []
+    },
+    {
+      "id": "CAT-E01",
+      "title": "Maintain the merged Catalyst integration baseline",
+      "status": "Roadmap, Catalyst, Hub, and harness integration revisions merged; strict repository-line verification passes from harness main; live Spark acceptance remains open",
+      "next_deliverable": "Use the exact merged baseline for specification consolidation and product implementation; perform the dual-source live acceptance at the roadmap's local owner gate rather than reopening the integration history.",
+      "acceptance": "Preserve merged baseline separately from branch implementation, tests, historical live evidence and owner acceptance; retain established Catalyst-then-harness pin sequence.",
+      "dependencies": [],
+      "sources": [
+        "https://github.com/pmanko/clinical-ai-validation-harness/blob/2cf3de8/specs/catalyst-program-roadmap.md",
+        "https://github.com/pmanko/clinical-ai-validation-harness/blob/2cf3de8/specs/catalyst-implementation-plan.md",
+        "https://github.com/pmanko/clinical-ai-validation-harness/blob/2cf3de8/specs/008-catalyst-query-workbench/tasks.md",
+        "https://github.com/DIGI-UW/openelis-catalyst/pull/79",
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/100",
+        "Claude transcript 4f5a9e47-72c2-4f5b-a027-501cb7174bd6 (supporting evidence)"
+      ],
+      "evidence": "Feature 008 roadmap PR #109 merged as 6e0f3cf. Catalyst #79 merged as 4c6a46f and is pinned at main revision 47c80d9; Hub #24 merged as 75d0ff0; harness #100 merged as 2a75bcf. The final Catalyst, Hub, and harness hosted checks passed. Forty-one focused harness tests, eight landing tests, the source-pair gate, documentation checks, and the strict repository-line verification passed against the resulting baseline. Superseded child PR #108 was closed after its content was accounted for. Merge and CI evidence do not establish live product acceptance.",
+      "last_checked": "2026-09-09",
+      "implementation_owner": null,
+      "related_pull_requests": [
+        "https://github.com/DIGI-UW/openelis-catalyst/pull/79",
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/100",
+        "https://github.com/DIGI-UW/openelis-catalyst/pull/78",
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/99",
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/98"
+      ],
+      "mergeReview": {
+        "reviewedAt": "2026-09-09",
+        "report": "reviews/2026-09-06.md",
+        "result": "The roadmap and compatible Catalyst, Hub, and harness integration baseline are merged with final checks passing. Live dual-source acceptance remains open for the roadmap's local owner gate.",
+        "findings": [
+          "Merged in harness 2a75bcf (PR #100): the comparison launcher uses the generic configuration resolver and the relay probe accepts keep-alive frames.",
+          "Merged across Catalyst 47c80d9 and harness 2a75bcf: OpenELIS uses openelis and OpenMRS uses openmrs_hiv.",
+          "Merged in Catalyst 47c80d9: the Spark release image is pinned and the timestamp and backslash regressions remain covered."
+        ]
+      }
+    },
+    {
+      "id": "CAT-E02",
+      "title": "Review generic connection and execution guarantees",
+      "status": "Implementation merged in the compatible baseline; live completion review outstanding",
+      "next_deliverable": "Exercise shared connection, source discovery, dialect behavior, exact SQL and native errors, and Superset connection reconciliation against both real sources at the local owner gate.",
+      "acceptance": "Same readable schema reaches model/editor; advisory validation permits exact SQL; source failure does not stop shell; no preferred-engine fallback; typed parameters, row/time bounds and source-write refusal have recorded mechanisms and limitations.",
+      "dependencies": [
+        "CAT-E01"
+      ],
+      "sources": [
+        "https://github.com/pmanko/clinical-ai-validation-harness/blob/2cf3de8/specs/catalyst-implementation-plan.md",
+        "https://github.com/pmanko/clinical-ai-validation-harness/blob/2cf3de8/specs/008-catalyst-query-workbench/spec.md",
+        "https://github.com/DIGI-UW/openelis-catalyst/tree/ce07504",
+        "https://github.com/pmanko/clinical-ai-validation-harness/blob/2cf3de8/specs/artifacts/findings/spark-schema-exceeds-writer-context.md",
+        "https://github.com/pmanko/clinical-ai-validation-harness/blob/2cf3de8/specs/artifacts/findings/superset-retains-the-retired-database-record.md",
+        "https://github.com/pmanko/clinical-ai-validation-harness/blob/2cf3de8/specs/008-catalyst-query-workbench/contracts/README.md",
+        "https://github.com/DIGI-UW/openelis-catalyst/blob/ce07504/tests/fixtures/superset-6.1/fixture.json",
+        "targets/catalyst/runtime/superset/receipts/latest/1ab809bea8ad2229b473ad95672f9d08eaf4b21dabda411b31c97fa49890db1d.json"
+      ],
+      "evidence": "Gateway connection and dialect work is included in merged Catalyst main pinned at 47c80d9. Final Catalyst and harness baseline checks passed; recorded live facts remain historical until the dual-source owner gate.",
+      "last_checked": "2026-09-09",
+      "implementation_owner": null,
+      "related_pull_requests": [
+        "https://github.com/DIGI-UW/openelis-catalyst/pull/78",
+        "https://github.com/DIGI-UW/openelis-catalyst/pull/73",
+        "https://github.com/DIGI-UW/openelis-catalyst/pull/71",
+        "https://github.com/DIGI-UW/openelis-catalyst/pull/64",
+        "https://github.com/DIGI-UW/openelis-catalyst/pull/63",
+        "https://github.com/DIGI-UW/openelis-catalyst/pull/62",
+        "https://github.com/DIGI-UW/openelis-catalyst/pull/61",
+        "https://github.com/DIGI-UW/openelis-catalyst/pull/60",
+        "https://github.com/DIGI-UW/openelis-catalyst/pull/59",
+        "https://github.com/DIGI-UW/openelis-catalyst/pull/57",
+        "https://github.com/DIGI-UW/openelis-catalyst/pull/56",
+        "https://github.com/DIGI-UW/openelis-catalyst/pull/47",
+        "https://github.com/DIGI-UW/openelis-catalyst/pull/46",
+        "https://github.com/DIGI-UW/openelis-catalyst/pull/45",
+        "https://github.com/DIGI-UW/openelis-catalyst/pull/44",
+        "https://github.com/DIGI-UW/openelis-catalyst/pull/43",
+        "https://github.com/DIGI-UW/openelis-catalyst/pull/42",
+        "https://github.com/DIGI-UW/openelis-catalyst/pull/41",
+        "https://github.com/DIGI-UW/openelis-catalyst/pull/40",
+        "https://github.com/DIGI-UW/openelis-catalyst/pull/37",
+        "https://github.com/DIGI-UW/openelis-catalyst/pull/36",
+        "https://github.com/DIGI-UW/openelis-catalyst/pull/34",
+        "https://github.com/DIGI-UW/openelis-catalyst/pull/33",
+        "https://github.com/DIGI-UW/openelis-catalyst/pull/32",
+        "https://github.com/DIGI-UW/openelis-catalyst/pull/30",
+        "https://github.com/DIGI-UW/openelis-catalyst/pull/29",
+        "https://github.com/DIGI-UW/openelis-catalyst/pull/28",
+        "https://github.com/DIGI-UW/openelis-catalyst/pull/27",
+        "https://github.com/DIGI-UW/openelis-catalyst/pull/26",
+        "https://github.com/DIGI-UW/openelis-catalyst/pull/25",
+        "https://github.com/DIGI-UW/openelis-catalyst/pull/24",
+        "https://github.com/DIGI-UW/openelis-catalyst/pull/23",
+        "https://github.com/DIGI-UW/openelis-catalyst/pull/22",
+        "https://github.com/DIGI-UW/openelis-catalyst/pull/21",
+        "https://github.com/DIGI-UW/openelis-catalyst/pull/20",
+        "https://github.com/DIGI-UW/openelis-catalyst/pull/19",
+        "https://github.com/DIGI-UW/openelis-catalyst/pull/18",
+        "https://github.com/DIGI-UW/openelis-catalyst/pull/17",
+        "https://github.com/DIGI-UW/openelis-catalyst/pull/16",
+        "https://github.com/DIGI-UW/openelis-catalyst/pull/15",
+        "https://github.com/DIGI-UW/openelis-catalyst/pull/14",
+        "https://github.com/DIGI-UW/openelis-catalyst/pull/13",
+        "https://github.com/DIGI-UW/openelis-catalyst/pull/12",
+        "https://github.com/DIGI-UW/openelis-catalyst/pull/11",
+        "https://github.com/DIGI-UW/openelis-catalyst/pull/10",
+        "https://github.com/DIGI-UW/openelis-catalyst/pull/6",
+        "https://github.com/DIGI-UW/openelis-catalyst/pull/5",
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/99",
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/98",
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/42",
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/41",
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/37"
+      ]
+    },
+    {
+      "id": "CAT-E03",
+      "title": "Separate reference sources and accept the Spark deployment",
+      "status": "OpenELIS and OpenMRS catalog identities are separated in the merged baseline; complete dual-source live acceptance remains open",
+      "next_deliverable": "Run one complete real source-to-browser proof for OpenELIS and OpenMRS at the local owner gate and confirm neither source exposes the other's registered relations.",
+      "acceptance": "Selected source does not expose another source's registered tables; Parquet and views exist; successful and invalid SQL reach Spark; write to source data refused; originating value renders through Superset.",
+      "dependencies": [
+        "CAT-E01",
+        "CAT-E02"
+      ],
+      "sources": [
+        "https://github.com/pmanko/clinical-ai-validation-harness/blob/2cf3de8/specs/catalyst-program-roadmap.md",
+        "https://github.com/pmanko/clinical-ai-validation-harness/blob/2cf3de8/specs/catalyst-implementation-plan.md",
+        "https://github.com/pmanko/clinical-ai-validation-harness/blob/2cf3de8/specs/008-catalyst-query-workbench/spec.md",
+        "https://github.com/pmanko/clinical-ai-validation-harness/blob/2cf3de8/catalyst-sources/openmrs-hiv",
+        "https://github.com/pmanko/clinical-ai-validation-harness/blob/2cf3de8/specs/artifacts/findings/two-sources-share-one-spark-namespace.md",
+        "https://github.com/DIGI-UW/openelis-catalyst/blob/ce07504/catalyst-ui/e2e/fhir-to-dashboard-demo.spec.ts"
+      ],
+      "evidence": "Merged Catalyst and harness configuration assigns OpenELIS to openelis and OpenMRS to openmrs_hiv; the earlier HIV-only browser demo remains historical evidence rather than dual-source acceptance.",
+      "last_checked": "2026-09-09",
+      "implementation_owner": null,
+      "related_pull_requests": [
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/63",
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/61",
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/52"
+      ]
+    },
+    {
+      "id": "CAT-E04",
+      "title": "Finish the reader-led harness and command cleanup",
+      "status": "Direct database execution and launcher repair merged; scenario references and reader packet remain separately scheduled",
+      "next_deliverable": "After the product usability gate, finish reviewed Spark references and produce the reader packet before any paid comparison run.",
+      "acceptance": "Ready selected SQL executes once through Catalyst; other writer outcomes execute none; no direct analytics connection, per-run reference execution, automatic factual equivalence, ranking or forced winner; incomplete collection remains visible.",
+      "dependencies": [
+        "CAT-E01",
+        "CAT-E02"
+      ],
+      "sources": [
+        "https://github.com/pmanko/clinical-ai-validation-harness/blob/2cf3de8/specs/catalyst-implementation-plan.md",
+        "https://github.com/pmanko/clinical-ai-validation-harness/blob/2cf3de8/specs/008-catalyst-query-workbench/spec.md",
+        "https://github.com/pmanko/clinical-ai-validation-harness/blob/2cf3de8/specs/008-catalyst-query-workbench/tasks.md",
+        "https://github.com/pmanko/clinical-ai-validation-harness/blob/2cf3de8/datasets/validation/catalyst/run-config.template.json",
+        "https://github.com/pmanko/clinical-ai-validation-harness/blob/2cf3de8/harness/catalyst/notebook_validation.py",
+        "https://github.com/pmanko/clinical-ai-validation-harness/blob/2cf3de8/scripts/catalyst-comparison.sh",
+        "https://github.com/pmanko/clinical-ai-validation-harness/blob/2cf3de8/harness/catalyst/reader_review.py",
+        "https://github.com/pmanko/clinical-ai-validation-harness/blob/2cf3de8/harness/catalyst/phase1_report.py",
+        "https://github.com/pmanko/clinical-ai-validation-harness/blob/2cf3de8/scripts/validate-dashboard.py",
+        "https://github.com/pmanko/clinical-ai-validation-harness/blob/2cf3de8/datasets/validation/catalyst/catalyst-notebook-t094-v1.json",
+        "https://github.com/pmanko/clinical-ai-validation-harness/blob/2cf3de8/specs/008-catalyst-query-workbench/contracts/README.md"
+      ],
+      "evidence": "Branch deletes database checker classes but retains gold-check schema/rationale; comparison wrapper imports removed helper; report retains older matching presentation. Exact remote source also showed catalyst-comparison.sh importing removed postgres_dsn at startup. The import is removed on the current harness PR #100 head (9d67fbb); the comparison has not been rerun.",
+      "last_checked": "2026-09-06",
+      "implementation_owner": null,
+      "related_pull_requests": [
+        "https://github.com/DIGI-UW/openelis-catalyst/pull/77",
+        "https://github.com/DIGI-UW/openelis-catalyst/pull/76",
+        "https://github.com/DIGI-UW/openelis-catalyst/pull/72",
+        "https://github.com/DIGI-UW/openelis-catalyst/pull/70",
+        "https://github.com/DIGI-UW/openelis-catalyst/pull/69",
+        "https://github.com/DIGI-UW/openelis-catalyst/pull/68",
+        "https://github.com/DIGI-UW/openelis-catalyst/pull/67",
+        "https://github.com/DIGI-UW/openelis-catalyst/pull/66",
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/97",
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/96",
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/95",
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/94",
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/93",
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/92",
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/90",
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/89",
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/85",
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/83",
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/80",
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/79",
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/77",
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/75",
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/74",
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/73",
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/71",
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/70",
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/69",
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/68",
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/67",
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/64",
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/62",
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/60",
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/59",
+        "https://github.com/pmanko/med-agent-hub/pull/21"
+      ]
+    },
+    {
+      "id": "CAT-E05",
+      "title": "Prepare reviewed Spark scenario references",
+      "status": "Not complete for current Spark schema",
+      "next_deliverable": "Current 12-scenario, 21-turn suite with source/schema identity, static ready-turn reference facts and reviewed non-SQL expectations.",
+      "acceptance": "Each ready reference authored, run and reviewed once through accepted Catalyst; clarification/unsupported expectations use actual readable schema; reference not replayed during comparison; owner reviews references and reader packet before paid collection.",
+      "dependencies": [
+        "CAT-E03",
+        "CAT-E04"
+      ],
+      "sources": [
+        "https://github.com/pmanko/clinical-ai-validation-harness/blob/2cf3de8/specs/catalyst-program-roadmap.md",
+        "https://github.com/pmanko/clinical-ai-validation-harness/blob/2cf3de8/specs/catalyst-implementation-plan.md",
+        "https://github.com/pmanko/clinical-ai-validation-harness/blob/2cf3de8/specs/008-catalyst-query-workbench/spec.md",
+        "https://github.com/pmanko/clinical-ai-validation-harness/blob/2cf3de8/datasets/validation/catalyst/catalyst-phase1-comparison-v2.json",
+        "https://github.com/pmanko/clinical-ai-validation-harness/blob/2cf3de8/datasets/validation/catalyst/catalyst-phase1-reader-rubric-v1.md",
+        "https://github.com/pmanko/clinical-ai-validation-harness/blob/2cf3de8/datasets/validation/catalyst/run-config.template.json"
+      ],
+      "evidence": "V2 suite still contains old catalog/source references and gold-check structures; plan lines 292-329 requires fresh design-time reference review.",
+      "last_checked": "2026-09-06",
+      "implementation_owner": null,
+      "related_pull_requests": []
+    },
+    {
+      "id": "CAT-E06",
+      "title": "Run and review the fresh Phase 1 model-team comparison",
+      "status": "Launcher and source configuration merged through harness #100; comparison remains separately scheduled and has not been rerun",
+      "next_deliverable": "After the product delivery gate and reviewed scenario references, run the complete suite per selected team and produce the reader-led report deliverables.",
+      "acceptance": "Same suite/rubric/configuration across selected teams; wrong SQL/errors remain observations; one full-context reader by default; frontier-model interpretation labelled as such; no automatic winner; owner accepts product path/report.",
+      "dependencies": [
+        "CAT-E04",
+        "CAT-E05"
+      ],
+      "sources": [
+        "https://github.com/pmanko/clinical-ai-validation-harness/blob/2cf3de8/specs/catalyst-program-roadmap.md",
+        "https://github.com/pmanko/clinical-ai-validation-harness/blob/2cf3de8/specs/catalyst-implementation-plan.md",
+        "https://github.com/pmanko/clinical-ai-validation-harness/blob/2cf3de8/specs/008-catalyst-query-workbench/spec.md",
+        "https://github.com/pmanko/clinical-ai-validation-harness/blob/2cf3de8/datasets/validation/catalyst/catalyst-phase1-comparison-v2.json",
+        "https://github.com/pmanko/clinical-ai-validation-harness/blob/2cf3de8/datasets/validation/catalyst/catalyst-phase1-reader-rubric-v1.md",
+        "https://github.com/pmanko/clinical-ai-validation-harness/blob/2cf3de8/datasets/validation/catalyst/run-config.template.json",
+        "https://github.com/pmanko/clinical-ai-validation-harness/blob/2cf3de8/scripts/catalyst-comparison.sh",
+        "https://github.com/pmanko/clinical-ai-validation-harness/blob/2cf3de8/harness/catalyst/reader_review.py",
+        "https://github.com/pmanko/clinical-ai-validation-harness/blob/2cf3de8/harness/catalyst/phase1_report.py",
+        "Expected future output: artifacts/catalyst-notebook-validation/<new-run-id>",
+        "https://reports.openclinai.org/"
+      ],
+      "evidence": "Current program roadmap Phase 1 completion; later Aug27 publication explicitly says comparison has not been rerun.",
+      "last_checked": "2026-09-06",
+      "implementation_owner": null,
+      "related_pull_requests": [
+        "https://github.com/DIGI-UW/openelis-catalyst/pull/77",
+        "https://github.com/DIGI-UW/openelis-catalyst/pull/76",
+        "https://github.com/DIGI-UW/openelis-catalyst/pull/72",
+        "https://github.com/DIGI-UW/openelis-catalyst/pull/70",
+        "https://github.com/DIGI-UW/openelis-catalyst/pull/69",
+        "https://github.com/DIGI-UW/openelis-catalyst/pull/68",
+        "https://github.com/DIGI-UW/openelis-catalyst/pull/67",
+        "https://github.com/DIGI-UW/openelis-catalyst/pull/66",
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/97",
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/96",
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/95",
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/94",
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/93",
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/92",
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/90",
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/89",
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/85",
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/83",
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/80",
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/79",
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/77",
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/75",
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/74",
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/73",
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/71",
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/70",
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/69",
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/68",
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/67",
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/64",
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/62",
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/60",
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/59",
+        "https://github.com/pmanko/med-agent-hub/pull/21"
+      ],
+      "mergeReview": {
+        "reviewedAt": "2026-09-06",
+        "report": "reviews/2026-09-06.md",
+        "result": "Obsolete import reproduced; 196 configuration/notebook tests pass but do not exercise the shell entry point. Fixed on harness 9d67fbb (PR #100); a fresh comparison still has to run."
+      }
+    },
+    {
+      "id": "CAT-E07",
+      "title": "Define Phase 2 conversation mode",
+      "status": "Planned; scope intentionally undecided",
+      "next_deliverable": "Owner-reviewed conversation behavior and acceptance: turns may answer, ask, explain or generate SQL using Phase 1 session state.",
+      "acceptance": "Scope and acceptance explicitly set after Phase 1 report review; no inferred implementation requirements or automatic team-selection prerequisite.",
+      "dependencies": [
+        "CAT-E06"
+      ],
+      "sources": [
+        "https://github.com/pmanko/clinical-ai-validation-harness/blob/2cf3de8/specs/catalyst-program-roadmap.md",
+        "https://github.com/pmanko/clinical-ai-validation-harness/blob/2cf3de8/specs/008-catalyst-query-workbench/tasks.md"
+      ],
+      "evidence": "Program roadmap phases table; tasks lines 108-112.",
+      "last_checked": "2026-09-06",
+      "implementation_owner": null,
+      "related_pull_requests": []
+    },
+    {
+      "id": "CAT-E08",
+      "title": "Complete Phase 3 Dashboard Builder against the binding design",
+      "status": "Accepted notebook/design and smoke; final implementation/visual acceptance open",
+      "next_deliverable": "Live side-by-side walkthrough of Workbench, Dataset/Widget/Dashboard reviews and libraries, arrangement, publication/import/error states and accessibility.",
+      "acceptance": "Required visible behavior preserved; immutable assets, compatible chart choice, multi-widget arrangement and deterministic import receipts; exact originating values render; focused API/component/bundle/accessibility tests and explicit owner browser acceptance.",
+      "dependencies": [
+        "CAT-E07"
+      ],
+      "sources": [
+        "https://github.com/pmanko/clinical-ai-validation-harness/blob/2cf3de8/specs/008-catalyst-query-workbench/spec.md",
+        "https://github.com/pmanko/clinical-ai-validation-harness/blob/2cf3de8/specs/008-catalyst-query-workbench/tasks.md",
+        "https://github.com/DIGI-UW/openelis-catalyst/blob/ce07504/docs/dashboard-builder-mvp-design.md",
+        "https://github.com/DIGI-UW/openelis-catalyst/blob/ce07504/docs/prototypes/dashboard-builder-mvp/Catalyst%20Dashboard%20Builder%204c.dc.html",
+        "https://github.com/pmanko/clinical-ai-validation-harness/blob/2cf3de8/specs/008-catalyst-query-workbench/dashboard-mvp-delivery-goal.md",
+        "https://github.com/pmanko/clinical-ai-validation-harness/blob/2cf3de8/specs/008-catalyst-query-workbench/contracts/README.md",
+        "https://github.com/DIGI-UW/openelis-catalyst/blob/ce07504/tests/fixtures/superset-6.1/fixture.json"
+      ],
+      "evidence": "Feature spec lines 241-249; delivery goal lines 43-102; narrow Aug27 browser smoke does not close full Phase 3.",
+      "last_checked": "2026-09-06",
+      "implementation_owner": null,
+      "related_pull_requests": [
+        "https://github.com/DIGI-UW/openelis-catalyst/pull/65",
+        "https://github.com/DIGI-UW/openelis-catalyst/pull/8",
+        "https://github.com/DIGI-UW/openelis-catalyst/pull/7",
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/48",
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/46",
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/44"
+      ]
+    },
+    {
+      "id": "CAT-E09",
+      "title": "Preserve the complete FHIR-to-dashboard demo and align public pointers",
+      "status": "Browser demo and video published; local recovery and canvas alignment needed",
+      "next_deliverable": "Recover remote demo spec/timeline/guide and current media pointers; align stale canvas with published landing state without losing historical recordings.",
+      "acceptance": "Recording clearly shows actual pipeline, generated query, results, saved assets, importer and Superset; raw evidence/revision/date retained; status copy distinguishes working demonstration from uncompleted model comparison and final acceptance.",
+      "dependencies": [
+        "CAT-E01"
+      ],
+      "sources": [
+        "https://github.com/pmanko/clinical-ai-validation-harness/blob/2cf3de8/specs/008-catalyst-query-workbench/spec.md",
+        "https://github.com/DIGI-UW/openelis-catalyst/blob/ce07504/catalyst-ui/e2e/fhir-to-dashboard-demo.spec.ts",
+        "https://github.com/DIGI-UW/openelis-catalyst/blob/ce07504/catalyst-ui/e2e/fhir-to-dashboard-demo.timeline.json",
+        "https://github.com/pmanko/clinical-ai-validation-harness/blob/2cf3de8/specs/demo-video-recording-guide.md",
+        "https://catalyst.openelis-global.org/media/catalyst-fhir-to-dashboard-demo-20260827.mp4",
+        "https://github.com/pmanko/clinical-ai-validation-harness/blob/2cf3de8/specs/artifacts/canvases/catalyst-demos.canvas.tsx",
+        "Claude transcript 4f5a9e47-72c2-4f5b-a027-501cb7174bd6 (supporting evidence)"
+      ],
+      "evidence": "Historical Playwright result 1 passed in 3.6m, seven screenshots; later video HTTP200 and remote commit push; raw scratchpad missing locally.",
+      "last_checked": "2026-09-06",
+      "implementation_owner": null,
+      "related_pull_requests": [
+        "https://github.com/DIGI-UW/openelis-catalyst/pull/75",
+        "https://github.com/DIGI-UW/openelis-catalyst/pull/55",
+        "https://github.com/DIGI-UW/openelis-catalyst/pull/31",
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/91",
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/55",
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/50"
+      ]
+    },
+    {
+      "id": "CAT-E10",
+      "title": "Consolidate Catalyst specifications and planning",
+      "status": "Authoritative roadmap merged; consolidation is the next active iteration",
+      "next_deliverable": "Absorb the legacy implementation plan and Dashboard delivery goal into the Feature 008 authority set, preserve dated design evidence, align agent and documentation pointers, and give every prior effort an evidence-backed disposition.",
+      "acceptance": "No unique current requirement disappears; no competing delivery sequence remains; product behavior, binding design, evaluation decisions, implementation sequence, and progress each have one named owner document.",
+      "dependencies": [
+        "CAT-E01"
+      ],
+      "sources": [
+        "specs/008-catalyst-query-workbench/plan.md",
+        "specs/008-catalyst-query-workbench/tasks.md",
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/109"
+      ],
+      "evidence": "Feature 008 roadmap PR #109 merged as 6e0f3cf with the consolidation responsibilities and exit criteria recorded in plan.md and tasks.md.",
+      "last_checked": "2026-09-09",
+      "implementation_owner": null,
+      "related_pull_requests": [
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/109"
+      ]
+    },
+    {
+      "id": "CAT-E11",
+      "title": "Implement the frozen Catalyst usability design",
+      "status": "Planned after specification consolidation",
+      "next_deliverable": "Deliver the shared resizable question composer, friendly shell and appearance, nonmodal Available data browser, and clear result review in small tested iterations, then deploy the complete experience locally against both real sources for owner review.",
+      "acceptance": "Clinical and program staff can ask and refine questions without SQL knowledge; analyst complexity remains available through a quiet workspace-wide Advanced mode; state and focus survive navigation, errors, retry, resizing, and theme changes.",
+      "dependencies": [
+        "CAT-E10"
+      ],
+      "sources": [
+        "specs/008-catalyst-query-workbench/plan.md",
+        "specs/008-catalyst-query-workbench/tasks.md",
+        "targets/catalyst/docs/dashboard-builder-mvp-design.md"
+      ],
+      "evidence": "The approved Feature 008 roadmap records four usability iterations and a complete local dual-source owner gate before Dashboard functionality expands.",
+      "last_checked": "2026-09-09",
+      "implementation_owner": null,
+      "related_pull_requests": [
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/109"
+      ]
+    },
+    {
+      "id": "upstream.older_prs",
+      "title": "Resolve older open OpenMRS contributions",
+      "status": "Disposition review needed",
+      "next_deliverable": "Compare nine older open pull requests with the active integration lines and record keep, incorporate, or close recommendations.",
+      "acceptance": "No closure or supersession inferred from titles alone; retain useful unique work and obtain approval before remote disposition.",
+      "sources": [
+        "https://github.com/openmrs/openmrs-esm-chartsearchai/pull/11",
+        "https://github.com/openmrs/openmrs-esm-chartsearchai/pull/10",
+        "https://github.com/openmrs/openmrs-esm-chartsearchai/pull/9",
+        "https://github.com/openmrs/openmrs-module-chartsearchai/pull/72",
+        "https://github.com/openmrs/openmrs-module-chartsearchai/pull/25",
+        "https://github.com/openmrs/openmrs-module-chartsearchai/pull/22",
+        "https://github.com/openmrs/openmrs-module-chartsearchai/pull/21",
+        "https://github.com/openmrs/openmrs-module-chartsearchai/pull/20",
+        "https://github.com/openmrs/openmrs-module-chartsearchai/pull/19"
+      ],
+      "last_checked": "2026-09-06",
+      "implementation_owner": null,
+      "related_pull_requests": [
+        "https://github.com/openmrs/openmrs-esm-chartsearchai/pull/11",
+        "https://github.com/openmrs/openmrs-esm-chartsearchai/pull/10",
+        "https://github.com/openmrs/openmrs-esm-chartsearchai/pull/9",
+        "https://github.com/openmrs/openmrs-module-chartsearchai/pull/72",
+        "https://github.com/openmrs/openmrs-module-chartsearchai/pull/25",
+        "https://github.com/openmrs/openmrs-module-chartsearchai/pull/22",
+        "https://github.com/openmrs/openmrs-module-chartsearchai/pull/21",
+        "https://github.com/openmrs/openmrs-module-chartsearchai/pull/20",
+        "https://github.com/openmrs/openmrs-module-chartsearchai/pull/19",
+        "https://github.com/openmrs/openmrs-module-querystore/pull/68",
+        "https://github.com/openmrs/openmrs-module-querystore/pull/63"
+      ]
+    },
+    {
+      "id": "coordination.status_hub",
+      "title": "Shared project status and artifact inventory",
+      "status": "Dashboard implemented; GitHub Pages publication pull request active",
+      "next_deliverable": "Merge harness #101 and use the GitHub Pages dashboard as the shared browser; update the repository inventory after meaningful work events.",
+      "acceptance": "Requirements remain in their approved authorities; current work and evidence can be found without replaying sessions.",
+      "sources": [
+        "specs/artifacts/project-status/README.md",
+        "specs/artifacts/project-status/maintenance.md"
+      ],
+      "last_checked": "2026-09-09",
+      "implementation_owner": null,
+      "related_pull_requests": [
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/101",
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/65",
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/57"
+      ]
+    }
+  ]
+}

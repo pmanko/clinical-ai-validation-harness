@@ -25,13 +25,15 @@ conversation work remain separately scheduled.
   revisions.
 - [X] Preserve valid OpenMRS integration pins while recording upstream
   publication as separately deferred work.
-- [ ] Run focused integration checks and the repository-line check allowed for
+- [X] Run focused integration checks and the repository-line check allowed for
   the harness branch; resolve concrete failures without weakening the gate.
-- [ ] Merge the baseline and run the strict ordinary repository-line check from
+- [X] Merge the baseline and run the strict ordinary repository-line check from
   harness `main` before local or server deployment.
+- [X] Close superseded child pull request #108 after accounting for its Catalyst
+  and Hub repair revisions in the merged baseline.
 - [ ] Record a disposition for every superseded child pull request before
-  closing it; update dependent dashboard/evidence branches so stale pins cannot
-  undo the baseline.
+  closing it; finish reconciling dependent dashboard and cloud-evidence branches
+  onto current `main` so stale pins cannot undo the baseline.
 
 ## Specification consolidation
 
