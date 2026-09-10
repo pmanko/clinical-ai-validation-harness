@@ -1,6 +1,7 @@
 # OpenMRS HIV Spark reference source
 
-**Status:** Not implemented.
+**Status:** Spark source configuration is integrated in the harness baseline.
+Live validation and owner acceptance remain tracked in Feature 008.
 
 This directory owns the OpenMRS HIV source assets used by the selected reference
 deployment:
@@ -13,7 +14,7 @@ retained OpenMRS demo data
   -> Catalyst and Superset as SQL clients
 ```
 
-The implementation must:
+The reference deployment uses these assets to:
 
 - enable the pinned FHIR Data Pipes Parquet path;
 - review and retain the applicable files under `config/views/`;
@@ -27,13 +28,14 @@ The implementation must:
 Optional descriptions may enrich the discovered schema. They do not approve,
 rank, or hide relations.
 
-The current runtime uses the PostgreSQL sink, SQL, catalog, registry, and
-ingestion files in this directory. The selected Spark deployment contains none
-of those components.
+The source is registered in `data-sources.json` with the Spark dialect and the
+`openmrs_hiv` catalog. The retained ViewDefinitions are in `config/views/`.
+The former PostgreSQL SQL and catalog files are retired; discover the current
+readable Spark schema when preparing or validating queries.
 
 Implementation order and acceptance are in the
 [Feature 008 plan](../../specs/008-catalyst-query-workbench/plan.md),
 [specification](../../specs/008-catalyst-query-workbench/spec.md), and
 [quickstart](../../specs/008-catalyst-query-workbench/quickstart.md).
-There is no supported source-local Spark command until that work lands. Seeding
-and reset remain explicit operations.
+Use the harness `scripts/catalyst-mvp.sh` lifecycle wrapper. Seeding and reset
+remain explicit operations.

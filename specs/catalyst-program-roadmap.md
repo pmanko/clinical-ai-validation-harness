@@ -24,6 +24,12 @@ Feature 008 owns its current product requirements and tasks. Phase 1 requires
 one Dataset-to-Superset regression smoke during Phase 1 connection implementation; that
 smoke does not close or reduce Phase 3.
 
+The [Feature 008 extension disposition](008-catalyst-query-workbench/plan.md#design-extension-review)
+adds saved-SQL reuse to current delivery and schedules multi-artifact design and
+shared controls, then Metabase and Evidence publication afterward. Those
+follow-ons retain the approved Explore / Saved work navigation. They do not
+replace the separately reviewed broader-conversation scope or model comparison.
+
 ## Phase 1 decisions
 
 | Area | Decision |

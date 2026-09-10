@@ -71,6 +71,24 @@ merged as `c181b6b` on 10 September 2026. All five hosted jobs passed. The
 complete UI unit suite (265 tests), type, lint, production build, deterministic
 composer checks, and the full deterministic query-to-table journey passed.
 
+## Combined Dashboard design review
+
+The approved disposition is in [the plan](plan.md#design-extension-review).
+
+- [X] Audit the HIV/output proposal against current storage, UI, turn contracts,
+  Spark exports, approved design and vendor documentation; gather the proposal,
+  prompt drafts and research in the Catalyst design home.
+- [X] Keep Explore / Saved work; integrate grouped saved queries, charts/tables
+  and Dashboards plus saved-SQL reuse into current delivery. Schedule larger
+  extensions after current UX and Superset completion.
+- [ ] Extend the approved mock with saved-work browsing and saved-SQL reuse;
+  review the interaction before implementing it. Follow-on A owns the combined
+  Widget/Dashboard request and SQL-dependent failure review.
+- [ ] Merge Catalyst [#85](https://github.com/DIGI-UW/catalyst-ai/pull/85), which
+  consolidates the proposals and saved-SQL contract, then
+  update the harness pin. Preview synchronization follows the current-scope
+  mock extension; future scenarios stay with their follow-on milestone.
+
 ## Usability iteration 2 — shell and appearance
 
 - [ ] Implement Explore/Saved work, frozen light/dark styling, View options, and
@@ -122,6 +140,16 @@ composer checks, and the full deterministic query-to-table journey passed.
   source, dialect, schema, query, and execution identity in immutable versions.
 - [ ] Restore saved Dataset versions and protect against stale or mismatched
   results.
+- [ ] Browse Saved queries, Charts and tables, and Dashboards within Saved work;
+  show source, saved version, dependencies and available review/reuse actions.
+  Returning to Explore preserves the ongoing draft and selected work.
+- [ ] Start from this SQL loads the exact saved parameterized SQL and typed
+  values into the one editor, retaining the Dataset version and source/dialect.
+  Preserve an existing draft; a different source requires an explicit new or
+  matching session. Loading never runs SQL or modifies saved versions.
+- [ ] Keep saved SQL/parameters accessible when historical execution details
+  are unavailable; label that evidence separately. Verify reuse, explicit Run,
+  failure/retry and a successful successor save for both real sources.
 - [ ] Finish deterministic visualization compatibility and allow a person to
   review, select, and save supported Widget versions.
 
@@ -156,6 +184,47 @@ composer checks, and the full deterministic query-to-table journey passed.
   filenames and update all public video/poster references together.
 - [ ] Record final local/server evidence, current public links, and explicit
   owner acceptance before marking this delivery complete.
+
+## Follow-on milestones after current delivery
+
+These milestones start after current UX/Superset deployment and owner acceptance.
+Their detailed contracts and vendor choices require review when each starts;
+they are not additional completion gates for the current goal.
+
+### A. Multi-artifact design requests and shared controls
+
+- [ ] Extend the approved mock within Explore / Saved work: one ask proposes a
+  Widget and Dashboard revision in one turn; a SQL-dependent variant shows
+  explicit Run, dependency order and failure recovery. Obtain design review.
+- [ ] Define and implement the reviewed proposal contract using existing state
+  owners and Hub-owned prompts. Prove compare/apply/discard/undo, immutable
+  saves, explicit downstream adoption and independent versus waiting changes.
+- [ ] Review HIV metric definitions against the live Spark source: deduplicated
+  visits, absolute-CD4 observations, unknown gender and undated medication
+  requests. Validate chronological grouping, partial periods, visible filter
+  exemptions and explicit saved defaults without changing metric meaning.
+- [ ] Verify the complete interaction and native Superset controls; record
+  implementation, merge, deployment, validation and owner acceptance separately.
+
+### B. Metabase publication
+
+- [ ] Select a supported runtime and ordinary object API or paid serialization
+  path; prove connection to the same configured Spark source before publishing.
+- [ ] Publish reviewed saved versions, verify native rendering and the agreed
+  period/grouping/filter semantics, then repeat publication without duplicates.
+- [ ] Prove actual receipts, actionable failures and independent configured
+  destinations. Record deployed revisions and owner acceptance.
+
+### C. Evidence publication
+
+- [ ] Pin compatible self-hosted runtime, components and a direct source
+  connector. Prove standalone Spark compatibility; if unavailable, retain the
+  draft and report the concrete limitation before any export implementation.
+- [ ] Publish a reviewable project from saved versions; prove native rendering,
+  selected grouping/filter behavior and repeat publication. Do not substitute
+  copied preview rows or introduce a replacement warehouse.
+- [ ] Prove actual deployment receipts, failure recovery and independent
+  destinations. Record deployed revisions and owner acceptance.
 
 ## Before product code
 

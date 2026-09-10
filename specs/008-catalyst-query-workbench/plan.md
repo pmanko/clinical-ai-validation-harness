@@ -26,6 +26,41 @@ no current work.
 Feature 008 includes the accepted conversation, query notebook, manual Run flow,
 typed results, and Dashboard Builder experience over the generic connection.
 
+## Design extension review
+
+The HIV workflow and output proposals are gathered in Catalyst's existing
+[staff Workbench design home](../../targets/catalyst/docs/specs/staff-workbench-ux/proposals/catalyst-output-integrations-hiv-draft.md).
+The owner approved this disposition on 10 September 2026: keep **Explore /
+Saved work**, integrate the richer saved-work structure and saved-SQL reuse,
+and schedule the larger extensions after the current usability and Superset
+delivery. There is one implementation effort and one approved shell.
+
+| Work | Current state | Roadmap disposition and acceptance |
+| --- | --- | --- |
+| Saved queries, charts/tables, Dashboards | Existing object storage and libraries; accepted scope | Keep these three groups in Saved work, using existing immutable object identities and review surfaces. The proposed permanent Workbench / Library sidebar is superseded. |
+| Start from saved SQL | Dataset storage retains parameterized SQL, parameters and compiled SQL; no reuse action exists in the UI | Approved for current saved-work delivery. Load exact saved SQL and typed parameters into the one editor without execution or overwriting saved work; preserve the saved reference and ongoing draft; explicitly handle another source and unavailable historical execution evidence. |
+| HIV dashboard walkthrough | Useful proposed scenario; exploratory counts are synthetic and older PostgreSQL links are retired | Check current Spark schema, record deduplication, CD4 count versus percentage, join meaning and unknown gender. The current medication export is undated and uses `doNotPerform`; keep any period exemption visible. Live proof remains required. |
+| One request changing several artifacts | Current turns carry SQL writer/reviewer versions; no combined Widget/Dashboard proposal contract | Follow-on A. One turn retains affected artifacts and dependencies; review/apply/discard/undo; exact SQL Run remains explicit; save Dataset → Widget → Dashboard dependencies; failures leave independent work reviewable and dependent work waiting. Demonstrate the combined request in the approved mock before implementation. |
+| Design advisors and shared date/filter controls | Proposed prompts and output behavior; currently deferred | Follow-on A. med-agent-hub owns installed prompts/profiles; Catalyst supplies context and validates proposals. Preserve metric meaning, explicit downstream adoption, true date ordering, partial periods, visible exemptions and saved defaults. No required competing agent team. |
+| Metabase output | No Catalyst publisher; vendor documents SparkSQL and time grouping | Follow-on B. Select runtime and API versus paid serialization; prove the same source, native render, filter/label semantics, repeat publication, actual receipts and separate configured destinations. |
+| Evidence output | No Catalyst publisher; standalone Spark connection unproven | Follow-on C. Pin a compatible self-hosted runtime and components; prove a direct source connection before export/publication work. No copied preview-row dataset or replacement warehouse. |
+| Superset date/filter remediation ([harness #111](https://github.com/pmanko/clinical-ai-validation-harness/pull/111)) | Separate active remediation effort; current Catalyst Compose still pins the 6.1.0-dev digest | Preserve existing Superset ownership and acceptance. Integrate only reviewed, merged compatible revisions; verify filters, chronological labels and import behavior in the existing deployment. Do not duplicate remediation in the new output work. |
+
+The current delivery finishes through step 5 below, including owner acceptance.
+Then schedule **A: multi-artifact design and shared controls**, **B: Metabase**,
+and **C: Evidence**. Each starts with a bounded design/compatibility review and
+the acceptance items in [tasks.md](tasks.md#follow-on-milestones-after-current-delivery).
+Scheduling these milestones does not approve their draft interfaces or vendor
+choices. They do not block current completion. Broader conversation and
+model-team comparison retain their separate scheduling.
+
+Extend the approved mock with current saved-work/reuse behavior before its
+implementation. Combined Widget/Dashboard requests and SQL-dependent failure
+states belong to follow-on A's review. Catalyst remains the design home; the
+harness owns publication. When preview files change, sync all six assets under
+`site/public/catalyst-design/` and its pinned specification link alongside the
+Catalyst revision; the gitlink alone does not change the website.
+
 ## Architecture
 
 ```text
@@ -218,7 +253,11 @@ Dashboard functionality expansion starts after feedback from this gate.
 
 First complete saved queries and visualizations: only a successful current
 execution may be saved; immutable versions restore; typed results retain their
-meaning; compatible visualizations can be reviewed, selected, and saved.
+meaning; compatible visualizations can be reviewed, selected, and saved. Saved
+work groups queries, charts/tables, and Dashboards. **Start from this SQL**
+creates a draft from the saved parameterized SQL and typed values without
+executing or modifying the saved version, even when historical run details are
+unavailable. Preserve the existing draft and source-bound session.
 
 Then complete Dashboards and publication: multiple Widgets can be arranged and
 restored; publication is deterministic; import status follows actual receipts;
@@ -280,7 +319,7 @@ Use the smallest proof that establishes each boundary:
   integrated;
 - one successful browser query and one native engine error;
 - one Dataset-to-Superset render; and
-- the final full comparison.
+- the complete local/server delivery journey and owner review.
 
 A live Spark service is not required for ordinary unrelated pull requests.
 Retained demo data is reused. Do not add reseed, restart-persistence,
