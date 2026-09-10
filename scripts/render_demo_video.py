@@ -10,6 +10,9 @@ from pathlib import Path
 
 def validate_timeline(timeline: dict) -> None:
     """Raise ValueError when the timeline cannot be rendered."""
+    band = timeline.get("caption_band_height", 0)
+    if not isinstance(band, int) or not 0 <= band < timeline["height"]:
+        raise ValueError("caption_band_height must leave space for the footage")
     for i, segment in enumerate(timeline["segments"]):
         if segment["type"] == "clip" and segment["end"] <= segment["start"]:
             raise ValueError(f"segment {i}: clip 'end' must exceed 'start'")
@@ -114,12 +117,14 @@ def build_filtergraph(timeline: dict, tmp_dir: "Path | None" = None) -> str:
             )
         else:
             w, h = timeline["width"], timeline["height"]
+            band = timeline.get("caption_band_height", 0)
+            picture_height = h - band
             chain = f"[0:v]trim=start={segment['start']}:end={segment['end']}"
             speed = segment.get("speed", 1.0)
             chain += f",setpts=(PTS-STARTPTS)/{speed}"
             chain += (
-                f",scale={w}:{h}:force_original_aspect_ratio=decrease"
-                f",pad={w}:{h}:(ow-iw)/2:(oh-ih)/2:color=0x24133F"
+                f",scale={w}:{picture_height}:force_original_aspect_ratio=decrease"
+                f",pad={w}:{h}:(ow-iw)/2:({picture_height}-ih)/2:color=0x24133F"
             )
             if segment.get("hold"):
                 chain += f",tpad=stop_mode=clone:stop_duration={segment['hold']}"
@@ -129,12 +134,16 @@ def build_filtergraph(timeline: dict, tmp_dir: "Path | None" = None) -> str:
                 # boxborderw matters more than it sounds: without padding the
                 # box is drawn tight to the glyphs and reads as a bug rather
                 # than a lower third.
+                caption_y = (
+                    f"{picture_height}+({band}-text_h)/2"
+                    if band else f"h-text_h-{int(h * 0.075)}"
+                )
                 chain += (
                     f",drawtext=font='{font}'"
                     f":textfile={drawtext_escape(str(caption_path))}"
-                    f":fontcolor=white:fontsize={int(h * 0.030)}"
-                    f":box=1:boxcolor=0x24133F@0.92:boxborderw={int(h * 0.022)}"
-                    f":x={int(w * 0.035)}:y=h-text_h-{int(h * 0.075)}"
+                    f":fontcolor=white:fontsize={int(picture_height * 0.030)}"
+                    f":box=1:boxcolor=0x24133F@0.92:boxborderw={int(picture_height * 0.022)}"
+                    f":x={int(w * 0.035)}:y={caption_y}"
                 )
         filters.append(f"{chain}[{label}]")
         labels.append(f"[{label}]")
