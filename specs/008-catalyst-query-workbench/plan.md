@@ -20,6 +20,10 @@ checkpoint; follow-on A/B/C and model comparison remain separately scheduled.
 - Validate the current working UI locally as changes are made, including the
   on/off Advanced mode switch and direct mock-style alignment. Local development
   and testing do not wait for a merge or a release build.
+- Verify visual fidelity against the approved public mock with matched light/dark
+  and wide/narrow screenshots. Match its type hierarchy, spacing, cards, borders,
+  controls and mark directly; inspect Saved work and review panels as well as
+  Explore. Fix demonstrated drift before the release checkpoint.
 - Complete saved-query reuse, compatible charts/tables, persistent Dashboard
   arrangement, publication and actual Superset import/rendering. Use both retained
   real sources and resolve concrete failures before calling the build ready.

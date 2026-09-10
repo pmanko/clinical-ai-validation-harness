@@ -13,6 +13,10 @@ conversation work remain separately scheduled.
 - [ ] Complete the saved-work, Dashboard, local/server verification and video
   acceptance items below; present the working server and both refreshed videos
   together with unresolved findings for owner review.
+- [ ] Verify the app against the approved mock with matched light/dark and
+  wide/narrow screenshots. Resolve the observed dense Saved queries table,
+  clipped actions and stray follow-up control; carry direct mock spacing/type
+  and component treatment across Explore, Saved work and review panels.
 - [ ] Record owner acceptance of that checkpoint. Implementation or green checks
   alone do not mark this accepted.
 
@@ -299,8 +303,22 @@ recorded identity and refuses to guess a missing source. A regression through
 the real operating store and public save route failed for both source identifiers
 before the fix and passed afterward. All 83 focused Gateway, saved-object and
 canonical Superset fixture tests passed, with formatting/lint checks. The
-compatible local refresh and renewed live reuse proof remain in progress; this
-is not server or owner acceptance. The preview assets include the same switch.
+local refresh and wrapper health checks passed with retained data. Real-source
+browser checks now pass for both OpenELIS and OpenMRS: saved SQL opens without
+execution, explicit Run succeeds, a separate immutable save retains source/SQL/
+parameters, and Return to previous draft restores the draft. Catalyst #93 merged
+as `05eda3d`; earlier incorrect private test saves were not rewritten. This is
+not final server or owner acceptance. The preview assets include the same switch.
+
+Visual alignment follow-up, 10 September: screenshots confirmed the dense Saved
+queries table, clipped actions and stray composer jump differed from the mock.
+Catalyst [#94](https://github.com/DIGI-UW/catalyst-ai/pull/94) replaces these with the approved
+cards and in-page category navigation, retains additional metadata in a
+disclosure, and matches the measured logo/wordmark font, dimensions and spacing.
+The binding design's obsolete table prescription is replaced. All 99 focused
+component tests, 11 deterministic browser checks, build/type, lint and current
+documentation/link checks passed. Light/dark, wide/narrow screenshots remain in
+the private review bundle. The broader screen-by-screen comparison remains open.
 
 ## Dashboard functionality — arrangement and publication
 
