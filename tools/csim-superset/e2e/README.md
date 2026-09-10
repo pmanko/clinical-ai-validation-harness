@@ -15,8 +15,8 @@ npm ci
 npx playwright install chromium
 python3 -m venv ../output/video-venv
 ../output/video-venv/bin/pip install -r video/requirements.txt
-npm test                              # assertions, step screenshots, video on failure
-npm run demo                          # same assertions, captioned video for every workflow
+npm test                              # all assertions and screenshots; no video
+npm run demo                          # same assertions; videos for dashboard workflows only
 CSIM_E2E_TARGET=server npm run demo    # published synthetic dashboard and overview
 CSIM_E2E_TARGET=server npm run check-publication # hosted media, playback, captions and mobile links
 npm test -- --grep '03'               # one workflow
@@ -65,8 +65,10 @@ Each run writes a dated directory under `../output/browser/`:
 
 Only `public/` is intended for the public `/superset/design/evidence/` route.
 The gallery is generated from test results, so failed workflows remain failed.
-`npm run demo` encodes title cards, section screens, burned-in captions, a caption
-track, and pauses on the actual asserted screenshots. `video/render.py` extracts
+`npm run demo` records only workflows 2–6, 8 and 9. It encodes an introduction,
+large screens for major topic changes, a compact caption strip below the full
+dashboard, and closing results or gaps. Minor control changes use captions.
+Result holds last at least six seconds and extend for longer captions. `video/render.py` extracts
 frames from the final MP4 and compares them with every checkpoint and title card.
 A mismatch fails publication preparation. Contact sheets are included for visual
 review of both the results and caption accuracy.
@@ -75,10 +77,10 @@ The renderer uses the caption guide saved with the run, preserves the recorded
 control interactions, and adds a caption strip below the dashboard pixels. It
 retains original raw footage privately. For a custom runtime, set
 `CSIM_VIDEO_PYTHON` and optionally `CSIM_FFMPEG` / `CSIM_VIDEO_FONT`.
-Each section includes instructions, expected results, a stable issue link and a live-dashboard link. The date, Time Unit and import workflows include the remaining gap as well as the working behavior. Video dimensions are reserved before loading so deep links do not shift.
+Each section includes instructions, expected results, a stable issue link and a live-dashboard link. The date, Time Unit and import videos state remaining gaps in their closing cards. They omit website footage. Video dimensions are reserved before loading so deep links do not shift.
 A successful screenshot does not override an assertion failure.
 
-After publication, `check-publication` checks every hosted asset, plays all nine
+After publication, `check-publication` checks every hosted asset, plays all seven dashboard
 videos in Chromium, verifies their dimensions, duration and caption tracks, and
 captures desktop and mobile navigation screenshots under `output/publication/`.
 It also catches duplicate recordings from workflows that open multiple pages.
@@ -107,3 +109,22 @@ network/HTTP/query failures still fail the suite. Each asserted chart result mus
 have a readable response, and axis assertions independently check painted labels.
 
 The independent bundle check runs the six dashboard scenarios on port 18094 after native import. It does not depend on the original private source snapshot. Source fingerprints include the native YAML files and import helpers.
+
+## Continuous integration
+
+`.github/workflows/csim-dashboard.yml` runs all nine workflows on pull requests
+and main changes to this tool. It starts two independent Superset instances,
+imports the native files, loads only invented fixtures, and runs numerical,
+relationship and browser checks. No shared server credentials are needed.
+
+`CI` disables recording even if `CSIM_RECORD=1` is also set. `assert-ci.mjs`
+requires all nine workflows to pass and rejects any generated video files.
+The website and navigation checks run alongside the dashboard checks, and
+remain in CI diagnostics; they are excluded from the public gallery and films.
+
+`report.mjs <directory> --preview` renders the same gallery navigation without
+execution results or media. CI serves this with the current overview source so
+navigation tests do not depend on previously published evidence. It cannot pass
+the publication guard. `CSIM_OVERVIEW_URL` adjusts the imported dashboard's
+overview links for the test installation; dataset SQL and filter definitions
+remain the native bundle's files.

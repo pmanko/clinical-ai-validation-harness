@@ -3,6 +3,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { spawnSync, execFileSync } from 'node:child_process';
 import { workflowGuide } from './workflow-guide.mjs';
+import { publication, recordingEnabled } from './policy.mjs';
 import { root, target, baseURL, overviewURL } from './settings.mjs';
 const stamp = new Date().toISOString().replace(/[:.]/g, '-');
 const runDir = path.join(root, 'output/browser', `${stamp}-${target}`);
@@ -15,11 +16,12 @@ for (const folder of ['dashboards','charts','datasets','databases']) {
 files.push('bundle/metadata.yaml','bundle/manifest.json','bundle.py','verify_bundle.py','e2e/video/render.py','e2e/video/requirements.txt');
 const provenance = { timestamp: stamp, target, baseURL, overviewURL, fixture: '262 invented records; hospitals 91 and 92; November 2025-May 2026', gitHead: execFileSync('git',['rev-parse','HEAD'],{cwd:root,encoding:'utf8'}).trim(), files: Object.fromEntries(files.map(f=>[f,sha(path.join(root,f))])) };
 fs.writeFileSync(path.join(runDir,'workflow-guide.json'),JSON.stringify(workflowGuide,null,2));
+fs.writeFileSync(path.join(runDir,'publication.json'),JSON.stringify(publication,null,2));
 fs.writeFileSync(path.join(runDir,'provenance.json'),JSON.stringify(provenance,null,2));
 const result = spawnSync(process.execPath, [path.join(root,'e2e/node_modules/@playwright/test/cli.js'),'test',...process.argv.slice(2)], { cwd:path.join(root,'e2e'),env:{...process.env,CSIM_RUN_DIR:runDir},stdio:'inherit' });
 fs.rmSync(path.join(runDir,'.auth.json'),{force:true});
 fs.rmSync(path.join(runDir,'.import-auth.json'),{force:true});
-if(process.env.CSIM_RECORD==='1' && result.status===0) {
+if(recordingEnabled && result.status===0) {
   const localPython=path.join(root,'output/video-venv/bin/python3');
   const python=process.env.CSIM_VIDEO_PYTHON || (fs.existsSync(localPython)?localPython:'python3');
   const film=spawnSync(python,[path.join(root,'e2e/video/render.py'),runDir],{stdio:'inherit'});

@@ -20,7 +20,7 @@ RUN = Path(sys.argv[1]).resolve()
 OUT = RUN / 'films'
 OUT.mkdir(exist_ok=True)
 FFMPEG = os.environ.get('CSIM_FFMPEG') or imageio_ffmpeg.get_ffmpeg_exe()
-WIDTH, CONTENT, HEIGHT, FPS = 1440, 1000, 1160, 24
+WIDTH, CONTENT, HEIGHT, FPS = 1440, 1000, 1080, 24
 FONT_PATHS = [os.environ.get('CSIM_VIDEO_FONT',''), '/System/Library/Fonts/Supplemental/Arial.ttf', '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf']
 FONT = next((p for p in FONT_PATHS if p and Path(p).is_file()), None)
 if not FONT:
@@ -56,7 +56,7 @@ def card(path, title, body, eyebrow='CSiM / Dashboard workflows'):
     d.text((94,224),eyebrow,font=font(26),fill='#24665f')
     y=draw_text(d,title,(90,305),56,'#24383c',1240,16)+38
     draw_text(d,body,(94,y),32,'#53686c',1220,17)
-    d.text((94,1050),'CSiM dashboard issues and solutions',font=font(22),fill='#53686c')
+    d.text((94,HEIGHT-70),'CSiM dashboard issues and solutions',font=font(22),fill='#53686c')
     im.save(path)
 
 
@@ -72,10 +72,10 @@ def checkpoint(source, banner_path, path):
 
 def banner(path, chapter, caption):
     im=Image.new('RGB',(WIDTH,HEIGHT-CONTENT),'#203936');d=ImageDraw.Draw(im)
-    d.text((36,15),chapter,font=font(24),fill='#bfddd0')
-    wrapped=lines(d,caption,25,1364)
-    if len(wrapped)>3: raise ValueError('Caption needs shortening: '+caption)
-    draw_text(d,caption,(36,53),25,'white',1364,7)
+    text=chapter+' · '+caption
+    wrapped=lines(d,text,22,1392)
+    if len(wrapped)>2: raise ValueError('Caption needs shortening: '+caption)
+    draw_text(d,text,(24,12),22,'white',1392,8)
     im.save(path)
 
 
@@ -122,21 +122,26 @@ def make_film(item):
         seconds=math.ceil(seconds*FPS)/FPS
         dest=work/f'part-{len(parts):03}.mp4';still(path,seconds,dest);parts.append(dest)
         captions.append((position,position+seconds,caption));position+=seconds
-    intro=work/'intro.png';card(intro,guide['label'],guide['try'])
-    add_still(intro,max(6,len(guide['try'].split())/3),guide['label']+'. '+guide['try'])
+    intro_text=guide.get('videoIntro',guide['try'])
+    intro=work/'intro.png';card(intro,guide['label'],intro_text)
+    add_still(intro,max(5,len(intro_text.split())/2.5),guide['label']+'. '+intro_text)
     intro_check={'time':2,'source':str(intro),'label':'Introduction'}
     checks.append(intro_check)
     raw_duration=duration(raw)
     for index,scene in enumerate(timeline['scenes']):
-        chapter=scene['chapter'];caption=scene['caption']
-        if chapter!=last_chapter:
-            chapter_card=work/f'chapter-{index}.png';card(chapter_card,chapter,caption,'CSiM / '+guide['label'])
-            before=position
-            add_still(chapter_card,max(3,len(caption.split())/4),chapter+'. '+caption)
-            checks.append({'time':before+1.5,'source':str(chapter_card),'label':chapter})
-            last_chapter=chapter
-        strip=work/f'caption-{index}.png';banner(strip,chapter,caption)
         end=min(raw_duration,max(last,scene['atSeconds']))
+        if not scene.get('publish',True):
+            last=end
+            continue
+        chapter=scene['chapter'];caption=scene['caption']
+        major=scene.get('majorBreak')
+        if major and major!=last_chapter:
+            chapter_card=work/f'chapter-{index}.png';card(chapter_card,major,'','CSiM / '+guide['label'])
+            before=position
+            add_still(chapter_card,4,major)
+            checks.append({'time':before+1.5,'source':str(chapter_card),'label':major})
+            last_chapter=major
+        strip=work/f'caption-{index}.png';banner(strip,chapter,caption)
         clip_seconds=math.floor((end-last)*FPS)/FPS
         if clip_seconds>=0.25:
             clip=work/f'part-{len(parts):03}.mp4'
@@ -150,16 +155,23 @@ def make_film(item):
             import base64
             source=work/f'source-{index}.png';source.write_bytes(base64.b64decode(attachment['body']))
         held=work/f'checkpoint-{index}.png';checkpoint(source,strip,held)
-        before=position;hold=max(4,len(caption.split())/3)
+        before=position;hold=max(6,len(caption.split())/2.5)
         add_still(held,hold,caption)
-        checks.append({'time':before+hold/2,'source':str(held),'label':scene['name'],'assertedScreenshot':str(source)})
-    end_card=work/'result.png';card(end_card,'Result and remaining gap' if number in ['03','08','09'] else 'Expected result confirmed',guide['expected'])
-    end_before=position;add_still(end_card,max(6,len(guide['expected'].split())/3),guide['expected'])
+        checks.append({'time':before+hold/2,'source':str(held),'label':scene['name'],'assertedScreenshot':str(source),'holdSeconds':hold})
+    outro=guide.get('videoOutro',guide['expected'])
+    end_card=work/'result.png';card(end_card,'What remains' if number in ['03','08','09'] else 'Result',outro)
+    end_before=position;add_still(end_card,max(6,len(outro.split())/2.5),outro)
     checks.append({'time':end_before+2,'source':str(end_card),'label':'Result'})
     listing=work/'parts.txt';listing.write_text(''.join("file '"+str(p).replace("'","'\\''")+"'\n" for p in parts))
     movie=OUT/f'workflow-{number}.mp4'
     subprocess.run([FFMPEG,'-hide_banner','-loglevel','error','-y','-f','concat','-safe','0','-i',str(listing),'-c','copy','-movflags','+faststart',str(movie)],check=True,stderr=subprocess.PIPE)
-    vtt=OUT/f'workflow-{number}.vtt';vtt.write_text('WEBVTT\n\n'+''.join(f'{timestamp(a)} --> {timestamp(b)}\n{text}\n\n' for a,b,text in captions))
+    # Keep an unchanged caption continuous across an interaction and its hold.
+    continuous=[]
+    for a,b,text in captions:
+        if continuous and continuous[-1][2]==text and abs(continuous[-1][1]-a)<0.001:
+            continuous[-1]=(continuous[-1][0],b,text)
+        else: continuous.append((a,b,text))
+    vtt=OUT/f'workflow-{number}.vtt';vtt.write_text('WEBVTT\n\n'+''.join(f'{timestamp(a)} --> {timestamp(b)}\n{text}\n\n' for a,b,text in continuous))
     # Check frames from the encoded final file, including every held result.
     for index,check in enumerate(checks):
         frame=work/f'encoded-{index:02}.png'
@@ -178,7 +190,7 @@ def make_film(item):
             frame=Image.open(check['frame']);frame.thumbnail((480,390));x=(j%3)*480;y=(j//3)*425
             sheet.paste(frame,(x,y+30));d.text((x+6,y+4),check['label'][:62],font=font(13),fill='#24383c')
         name=OUT/f'workflow-{number}-frames-{offset//9+1}.jpg';sheet.save(name,quality=88);sheets.append(str(name))
-    result={'title':item['title'],'file':str(movie),'captions':str(vtt),'durationSeconds':duration(movie),'scenes':len(timeline['scenes']),'framesChecked':len(checks),'maxPixelDifference':max(c['meanPixelDifference'] for c in checks),'contactSheets':sheets,'checkpoints':checks}
+    result={'title':item['title'],'file':str(movie),'captions':str(vtt),'durationSeconds':duration(movie),'scenes':sum(s.get('publish',True) for s in timeline['scenes']),'framesChecked':len(checks),'maxPixelDifference':max(c['meanPixelDifference'] for c in checks),'contactSheets':sheets,'checkpoints':checks}
     (work/'validation.json').write_text(json.dumps(result,indent=2))
     print(f'{number}: {len(checks)} encoded frames match; {result["durationSeconds"]:.1f}s',flush=True)
     return number,result
@@ -192,6 +204,8 @@ def collect(s):
     specs.extend(s.get('specs',[]))
     for child in s.get('suites',[]):collect(child)
 collect(report)
+policy=json.loads((RUN/'publication.json').read_text())
+specs=[spec for spec in specs if spec['title'][:2] in policy['workflowIds']]
 with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
     results=dict(pool.map(make_film,specs))
 (OUT/'manifest.json').write_text(json.dumps({'format':1,'run':provenance['timestamp'],'rendererSha256':hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),'encoder':subprocess.check_output([FFMPEG,'-version'],text=True).splitlines()[0],'workflows':results},indent=2))

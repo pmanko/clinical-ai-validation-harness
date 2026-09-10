@@ -1,0 +1,77 @@
+name: CSiM dashboard regression
+
+on:
+  pull_request:
+    paths: ['tools/csim-superset/**', '.github/workflows/csim-dashboard.yml']
+  push:
+    branches: [main]
+    paths: ['tools/csim-superset/**', '.github/workflows/csim-dashboard.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: csim-dashboard-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  dashboard:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      CI: 'true'
+      CSIM_RECORD: '0'
+      CSIM_IMPORT_EVIDENCE: '1'
+      CSIM_OVERVIEW_URL: http://127.0.0.1:18769/
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: tools/csim-superset/e2e/package-lock.json
+      - name: Install browser test dependencies
+        working-directory: tools/csim-superset/e2e
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+      - name: Start two independent dashboards with invented data
+        working-directory: tools/csim-superset
+        run: |
+          mkdir -p output
+          bash local.sh bundle-boot
+          bash local.sh full-test
+          bash bundle-check.sh up
+          bash bundle-check.sh import
+          bash bundle-check.sh test
+      - name: Serve the current overview and navigation preview
+        working-directory: tools/csim-superset
+        run: |
+          node e2e/report.mjs output/ci-navigation --preview
+          ln -s ../output/ci-navigation/public design/evidence
+          nohup python3 -m http.server 18769 --bind 127.0.0.1 --directory design > output/overview.log 2>&1 &
+      - name: Run all dashboard, overview and navigation checks without video
+        working-directory: tools/csim-superset/e2e
+        run: |
+          npm test
+          node assert-ci.mjs
+      - name: Save regression diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: csim-regression
+          retention-days: 14
+          path: |
+            tools/csim-superset/output/browser/*/results.json
+            tools/csim-superset/output/browser/*/regression-summary.json
+            tools/csim-superset/output/browser/*/provenance.json
+            tools/csim-superset/output/browser/*/results/**/*.png
+            tools/csim-superset/output/bundle-relationships.json
+            tools/csim-superset/output/bundle-verification.json
+      - name: Stop test instances
+        if: always()
+        working-directory: tools/csim-superset
+        run: |
+          bash bundle-check.sh down
+          bash local.sh down

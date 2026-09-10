@@ -1,4 +1,5 @@
 // Captions describe the visible checkpoint after its dashboard assertions pass.
+import { publication } from './policy.mjs';
 const captions = {
  'overview-and-available-examples':['Start here','Original issues, demonstrated solutions, and unresolved issues have separate sections.'],
  'available-dashboards-and-evidence':['Choose a resource','Open the working dashboard, watch a workflow, or download its native definition files.'],
@@ -40,11 +41,12 @@ const chartSections = [
  [/UC submissions|Number of UC/, 'Submission counts'],
 ];
 export function sceneFor(name, sequence, testTitle) {
- if (captions[name]) return {name,chapter:captions[name][0],caption:captions[name][1]};
+ if (captions[name]) return {name,chapter:captions[name][0],caption:captions[name][1],publish:!publication.excludeScenes.includes(name),majorBreak:name==='all-time-totals'?'Intentional filter exceptions':null};
  if (testTitle.startsWith('02')) {
   const chapter=chartSections.find(([pattern])=>pattern.test(name))?.[1] || 'Dashboard chart';
   let label=name.replace('Based on the most recent data submission, the comparison in inappropriate UTI diagnosis between your hospital, the cohort, and your state (regardless of location of UC submissions):','Latest-period diagnosis comparison').replace('Based on your most recent data submission, the comparison in average therapy duration (days) between your hospital, the cohort, and your state (regardless of location of UC submissions):','Latest-period therapy duration comparison').replace(' (across all UC submissions)','');
-  return {name,chapter,caption:`${sequence+1} of 21 · ${label}. Saved filters return data.`};
+  const majorBreak = ['Diagnosis measures','ASB measures','Urinalysis'].includes(chapter) ? 'Diagnosis and urinalysis' : ['Antibiotic duration','Antibiotics'].includes(chapter) ? 'Antibiotic use' : ['Care locations','Submission counts'].includes(chapter) ? 'Locations and submissions' : null;
+  return {name,chapter,majorBreak,publish:true,caption:`${sequence+1} of 21 · ${label}`};
  }
  throw new Error('Missing caption for '+name);
 }

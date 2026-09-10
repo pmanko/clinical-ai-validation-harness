@@ -10,3 +10,16 @@ export const workflowGuide = {
   '09': {id:'native-import', issue:'issue-transfer', label:'Native import and remaining production checks', try:'Review the dashboard imported into an independent test instance, then switch to Quarter. Open the deployment proposal for the remaining destination checks.', expected:'The import preserves 21 charts, eight datasets with exact SQL and six filter relationships despite changed chart IDs. Q1 remains 10%. Updates to shared production objects are not yet verified.'},
   '08': {id:'filter-options', issue:'issue-time-menu', label:'Check time choices and comparison selectors', try:'Open Time Unit, Your hospital, and Cohort/State. Follow the dashboard’s table of contents to an antibiotic or location section.', expected:'Month/Quarter/Year is an instance-wide workaround. Dashboard-specific choices remain open. Hospital and comparison selectors and section links work.'},
 };
+
+const videoCopy = {
+ '02': ['Review the complete dashboard with its saved filters.', 'All 21 charts return data with the saved hospital, care-location and date selections.'],
+ '03': ['Change Month, Quarter and Year while preserving dates and gaps.', 'Sortable labels work. Month names such as Nov 2025 still need separate display and ordering support.'],
+ '04': ['Select part of a quarter and check the intended exceptions.', 'The selected months determine the rate. All-time totals stay fixed, and the newest-data card uses actual observations.'],
+ '05': ['Change care location, then choose a different hospital.', 'Each selection changes the reported population and preserves its missing months.'],
+ '06': ['Clear the filters, then reopen the saved dashboard.', 'Empty required selections return no results. Reopening restores the saved defaults.'],
+ '08': ['Review the time, hospital and comparison choices.', 'Month/Quarter/Year currently applies to the whole instance. Different time menus on different dashboards are not yet demonstrated.'],
+ '09': ['Use the dashboard imported into a separate Superset instance.', 'The imported dashboard works. Updating shared charts in the production installation still needs a separate check.'],
+};
+for (const [id, [videoIntro, videoOutro]] of Object.entries(videoCopy)) {
+ Object.assign(workflowGuide[id], {videoIntro, videoOutro});
+}

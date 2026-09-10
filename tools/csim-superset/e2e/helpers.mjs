@@ -1,6 +1,7 @@
 import { expect } from '@playwright/test';
 import { dashboardURL } from './settings.mjs';
 import { sceneFor } from './scenes.mjs';
+import { recordsWorkflow } from './policy.mjs';
 const recording = new WeakMap();
 export function startRecording(page) { recording.set(page,{started:Date.now(),scenes:[]}); }
 export async function finishRecording(page, info) {
@@ -106,7 +107,7 @@ export async function capture(page, info, name, plot) {
   await page.waitForLoadState('networkidle');
   await expect(page.getByText('Waiting on CSiM synthetic only', {exact:true})).toHaveCount(0);
   const timeline=recording.get(page);
-  if (process.env.CSIM_RECORD === '1') await page.waitForTimeout(1800);
+  if (recordsWorkflow(info.title)) await page.waitForTimeout(1800);
   if(timeline) timeline.scenes.push({...sceneFor(name,timeline.scenes.length,info.title),atSeconds:(Date.now()-timeline.started)/1000});
   await info.attach(name, { body: await page.screenshot(), contentType: 'image/png' });
 }

@@ -109,8 +109,8 @@ symlink. The guide explains reporting needs, current problems, solutions and
 supported workflows. Details expand where needed.
 
 The Playwright harness is in `e2e/`. `npm test` runs assertions;
-`npm run demo` adds captioned recordings with title/section cards and checked
-video frames. The default eight workflows include the date-label and time-menu
+`npm run demo` adds seven dashboard recordings with short captions, major section screens
+and checked video frames; website checks run without recording. The default eight workflows include the date-label and time-menu
 gaps. `CSIM_IMPORT_EVIDENCE=1` includes the independent-import ninth workflow. To test the shared viewer:
 
 ```sh
@@ -118,8 +118,8 @@ CSIM_E2E_TARGET=server CSIM_USERNAME=csim-viewer \
   CSIM_ENV_FILE=../.env.viewer.server npm run demo
 ```
 
-`python3 publish_evidence.py output/browser/<run>` verifies all nine workflow
-results and encoded-frame checks, then publishes the curated files. It verifies
+`python3 publish_evidence.py output/browser/<run>` verifies all nine regression results and the seven dashboard films
+and their encoded-frame checks, then publishes the curated files. It verifies
 file hashes on the destination before changing the gallery link.
 Then run `CSIM_E2E_TARGET=server npm --prefix e2e run check-publication` to check
 hosted assets, video playback, captions and mobile links.

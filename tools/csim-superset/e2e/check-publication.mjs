@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { chromium, expect } from '@playwright/test';
+import { publication } from './policy.mjs';
 import { root, overviewURL } from './settings.mjs';
 
 // Check the hosted files and browser playback, in addition to chart assertions
@@ -22,7 +23,8 @@ try {
   assert.equal(response.status(), 200);
   const summary = await response.json();
   assert.equal(summary.completed, true);
-  assert.equal(summary.workflows.length, 9);
+  assert.equal(summary.workflows.length, publication.workflowIds.length);
+  assert.deepEqual(summary.workflows.map(w=>w.title.slice(0,2)),publication.workflowIds);
   const assets = summary.workflows.flatMap(workflow => {
     assert.equal(workflow.status, 'passed');
     assert.equal(workflow.assets.filter(a => a.type === 'video/mp4').length, 1);
@@ -38,7 +40,7 @@ try {
     }));
   }
   await page.goto(galleryURL);
-  await expect(page.locator('video')).toHaveCount(9);
+  await expect(page.locator('video')).toHaveCount(7);
   await expect(page.locator('#filter-options .gap')).toContainText('per-dashboard choice open');
   await page.screenshot({ path: path.join(output, 'gallery-desktop.png') });
   const playback = [];
@@ -56,7 +58,7 @@ try {
       return { width: element.videoWidth, height: element.videoHeight, duration: element.duration, cues: element.textTracks[0].cues?.length, error: element.error?.message };
     });
     assert.equal(state.width, 1440);
-    assert.equal(state.height, 1160);
+    assert.equal(state.height, 1080);
     assert.ok(Math.abs(state.duration - workflow.videoValidation.durationSeconds) < 0.15);
     assert.ok(state.cues > 0, `Missing captions: ${workflow.id}`);
     assert.equal(state.error, undefined);
@@ -76,7 +78,7 @@ try {
   await page.screenshot({ path: path.join(output, 'overview-issue-mobile.png') });
   assert.deepEqual(failures, []);
   fs.writeFileSync(path.join(output, 'checks.json'), JSON.stringify({ galleryURL, run: summary.timestamp, assetsChecked: assets.length, playback, failures }, null, 2));
-  console.log(`Verified ${assets.length} hosted assets, nine playing videos with captions, and mobile navigation. Screenshots: ${output}`);
+  console.log(`Verified ${assets.length} hosted assets, seven playing videos with captions, and mobile navigation. Screenshots: ${output}`);
 } finally {
   await browser.close();
 }

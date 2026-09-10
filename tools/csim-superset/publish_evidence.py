@@ -11,10 +11,13 @@ ROOT=Path(__file__).resolve().parent
 run=Path(sys.argv[1]).resolve()
 source=run/'public'
 summary=json.loads((source/'summary.json').read_text())
-expected={'overview','all-charts','time-grouping','date-range','filter-selection','clear-filters','navigation','filter-options','native-import'}
+expected={'all-charts','time-grouping','date-range','filter-selection','clear-filters','filter-options','native-import'}
+regression=json.loads((run/'regression-summary.json').read_text())
+assert regression['completed'] and len(regression['workflows'])==9
+assert all(w['status']=='passed' for w in regression['workflows'])
 assert summary['completed'] and {w['id'] for w in summary['workflows']}==expected
 assert all(w['status']=='passed' and w.get('videoValidation') for w in summary['workflows'])
-assert sum(a['type']=='video/mp4' for w in summary['workflows'] for a in w['assets'])==9
+assert sum(a['type']=='video/mp4' for w in summary['workflows'] for a in w['assets'])==7
 allowed={a['file'] for w in summary['workflows'] for a in w['assets']}|{'index.html','summary.json'}
 assert {p.name for p in source.iterdir()}==allowed
 assert all(Path(name).name==name for name in allowed)

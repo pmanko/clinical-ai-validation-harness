@@ -67,6 +67,9 @@ def packed(directory=BUNDLE):
     with zipfile.ZipFile(archive, 'w', zipfile.ZIP_DEFLATED) as target:
         for file in bundle_files(directory):
             text = public_text(file.read_text())
+            if file.parent.name == 'dashboards' and os.environ.get('CSIM_OVERVIEW_URL'):
+                text = text.replace('https://catalyst.openelis-global.org/superset/design/',
+                                    os.environ['CSIM_OVERVIEW_URL'].rstrip('/')+'/')
             entry=zipfile.ZipInfo('csim/'+file.relative_to(directory).as_posix(), date_time=(1980,1,1,0,0,0))
             entry.compress_type=zipfile.ZIP_DEFLATED
             target.writestr(entry, text)

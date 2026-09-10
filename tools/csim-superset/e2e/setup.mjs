@@ -21,14 +21,20 @@ export default async function setup() {
       const localEnv=fs.readFileSync(path.join(root,'.env.local'),'utf8');
       const importPassword=localEnv.match(/^CSIM_ADMIN_PASSWORD=(.+)$/m)?.[1];
       if(!importPassword)throw new Error('Missing independent import-test credentials');
-      await page.goto('http://127.0.0.1:18094/login/');
-      await page.locator('input#username').fill('demo');
-      await page.locator('input#password').fill(importPassword);
-      await page.locator('input[type="submit"], button[type="submit"]').click();
-      await expect(page).not.toHaveURL(/\/login\//);
-      const importAuth=path.join(runDir,'.import-auth.json');
-      await context.storageState({path:importAuth});
-      fs.chmodSync(importAuth,0o600);
+      // Cookies share a hostname across ports; authenticate each installation
+      // in its own context so the first login cannot bypass the second form.
+      const importContext=await browser.newContext();
+      try {
+        const importPage=await importContext.newPage();
+        await importPage.goto('http://127.0.0.1:18094/login/');
+        await importPage.locator('input#username').fill('demo');
+        await importPage.locator('input#password').fill(importPassword);
+        await importPage.locator('input[type="submit"], button[type="submit"]').click();
+        await expect(importPage).not.toHaveURL(/\/login\//);
+        const importAuth=path.join(runDir,'.import-auth.json');
+        await importContext.storageState({path:importAuth});
+        fs.chmodSync(importAuth,0o600);
+      } finally { await importContext.close(); }
     }
   } finally { await browser.close(); }
 }
