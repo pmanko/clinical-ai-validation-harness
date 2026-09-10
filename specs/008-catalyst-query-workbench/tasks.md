@@ -5,6 +5,21 @@ Builder functionality. This file is the sole detailed progress and acceptance
 register for the [Feature 008 roadmap](plan.md). Model comparison and broader
 conversation work remain separately scheduled.
 
+## Next owner checkpoint
+
+- [X] Record the owner's 10 September request in the existing plan: finish a
+  working server release and re-record both demos using the new styles, with
+  FHIR Data Pipes kept to a brief introduction.
+- [ ] Complete the saved-work, Dashboard, local/server verification and video
+  acceptance items below; present the working server and both refreshed videos
+  together with unresolved findings for owner review.
+- [ ] Record owner acceptance of that checkpoint. Implementation or green checks
+  alone do not mark this accepted.
+
+Local development now serves the working Catalyst UI at `localhost:13000`
+against the retained local Gateway and both real sources. Local testing does
+not wait for merges. Final release/acceptance revisions remain pinned and merged.
+
 ## Authoritative roadmap
 
 - [X] Record the approved delivery sequence, acceptance gates, deployment
@@ -272,8 +287,11 @@ The final composer correction passed 41 focused component tests and all 11
 browser checks against the active development checkout. Light, dark and narrow
 screenshots were inspected and remain private. All five hosted jobs passed on
 the final PR head `cf4e99d`. Compatible deployment and the real-source
-reuse/Run/successor-save proof are
-recorded separately before closing these acceptance items.
+reuse/Run/successor-save proof are recorded separately before closing these
+acceptance items. Harness [#125](https://github.com/pmanko/clinical-ai-validation-harness/pull/125)
+merged the compatible pin as `61ea6fd`. Local services were updated and wrapper
+health checks passed with retained data; the working UI is served directly for
+ongoing development. The on/off Advanced mode switch is the current follow-up.
 
 ## Dashboard functionality — arrangement and publication
 
@@ -298,6 +316,9 @@ recorded separately before closing these acceptance items.
   bundles, receipts, and visible-result evidence under one run identity.
 - [ ] Capture with the existing Playwright video project and archive raw footage
   before another run removes it.
+- [ ] Use the current styles in both new server demos. Keep the FHIR Data Pipes
+  introduction to about 10–15 seconds and focus the walkthrough on Catalyst;
+  preserve detailed pipeline evidence separately.
 - [ ] Render short cards/captions for at least 5 seconds, longer text at about 3
   words/second plus 2 seconds, and results/details for at least 8 seconds; retain
   captions during holds and label accelerated waits.

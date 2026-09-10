@@ -87,7 +87,9 @@ and conformance contract before changing provider, context, temporal, safety, or
 ## Repository Branch Policy
 
 - `clinical-ai-validation-harness` and `med-agent-hub` are maintained here. Changes use a
-  short-lived branch and pull request, then tested/deployed revisions must already be in `main`.
+  short-lived branch and pull request, then server release and final acceptance revisions must already be in `main`.
+  Local development and testing may use current unmerged work; do not make a
+  merge or release build a prerequisite for local UI review.
 - ChartSearchAI, ChartSearchAI ESM, and QueryStore are upstream-owned OpenMRS projects. Their
   proven companion work is consolidated on each fork's `harness-integration` branch, and this
   repository pins that exact remote head. The OpenMRS pull request must use
