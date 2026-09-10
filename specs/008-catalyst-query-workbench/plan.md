@@ -4,7 +4,8 @@
 merged, and the specification set is consolidated. All four usability iterations
 are merged and the first local dual-source walkthrough passed. On 10 September
 2026 the owner authorized continuing into saved-work and Dashboard functionality,
-with minor padding and typography polish deferred. Final local/server evidence
+with subsequent feedback bringing typography and composer style alignment into
+the saved-query iteration. Final local/server evidence
 and final owner acceptance remain open.
 
 **Specification:** [spec.md](spec.md)
@@ -40,7 +41,7 @@ delivery. There is one implementation effort and one approved shell.
 | Work | Current state | Roadmap disposition and acceptance |
 | --- | --- | --- |
 | Saved queries, charts/tables, Dashboards | Existing object storage and libraries; accepted scope | Keep these three groups in Saved work, using existing immutable object identities and review surfaces. The proposed permanent Workbench / Library sidebar is superseded. |
-| Start from saved SQL | Dataset storage retains parameterized SQL, parameters and compiled SQL; no reuse action exists in the UI | Approved for current saved-work delivery. Load exact saved SQL and typed parameters into the one editor without execution or overwriting saved work; preserve the saved reference and ongoing draft; explicitly handle another source and unavailable historical execution evidence. |
+| Start from saved SQL | Confirmed reuse is merged in Catalyst #92; compatible deployment and real-source acceptance remain open | Approved for current saved-work delivery. Load exact saved SQL and typed parameters into the one editor without execution or overwriting saved work; preserve the saved reference and ongoing draft; explicitly handle another source and unavailable historical execution evidence. |
 | HIV dashboard walkthrough | Useful proposed scenario; exploratory counts are synthetic and older PostgreSQL links are retired | Check current Spark schema, record deduplication, CD4 count versus percentage, join meaning and unknown gender. The current medication export is undated and uses `doNotPerform`; keep any period exemption visible. Live proof remains required. |
 | One request changing several artifacts | Current turns carry SQL writer/reviewer versions; no combined Widget/Dashboard proposal contract | Follow-on A. One turn retains affected artifacts and dependencies; review/apply/discard/undo; exact SQL Run remains explicit; save Dataset → Widget → Dashboard dependencies; failures leave independent work reviewable and dependent work waiting. Demonstrate the combined request in the approved mock before implementation. |
 | Design advisors and shared date/filter controls | Proposed prompts and output behavior; currently deferred | Follow-on A. med-agent-hub owns installed prompts/profiles; Catalyst supplies context and validates proposals. Preserve metric meaning, explicit downstream adoption, true date ordering, partial periods, visible exemptions and saved defaults. No required competing agent team. |

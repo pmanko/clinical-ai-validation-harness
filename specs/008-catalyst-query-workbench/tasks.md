@@ -199,9 +199,12 @@ The first local deployment and remaining acceptance are recorded below.
 - [X] Record owner feedback before starting Dashboard functionality expansion.
   On 10 September 2026 the owner authorized continuing, with minor padding and
   typography issues to polish later.
-- [ ] Polish padding and typography before final delivery, including the
-  composer/Run presentation on desktop and narrow layouts. This does not block
-  the approved saved-work and Dashboard implementation.
+- [ ] Finish visual alignment with the approved mock, including composer/Run
+  padding on desktop and narrow layouts. The owner clarified on 10 September
+  that the heading weights, font presentation and Catalyst mark should closely
+  match the mock in the current iteration; reusable Carbon controls are retained.
+  The owner also identified the follow-up form's old inner border and toolbar
+  padding; their correction is merged in Catalyst #92. Deployment review follows.
 
 Local implementation/deployment/self-validation, 10 September 2026: harness
 `e8f6cb3`, Catalyst `60cc7b5`, and Hub `75d0ff0` passed the strict repository-line
@@ -223,7 +226,9 @@ light/dark entry screen and result review.
 Owner feedback was received on 10 September 2026: continue implementation and
 polish the minor padding and font presentation issues later. The local UX gate
 is cleared for saved-work and Dashboard functionality. Carry the composer/Run
-spacing at a 720-pixel window height and typography into final polish. This
+spacing at a 720-pixel window height into final polish. The owner's subsequent
+feedback brought font hierarchy, the Catalyst mark and direct composer style
+alignment into the current iteration. This
 does not close the later saved-work, server, Superset or final owner acceptance.
 
 The live walkthrough exposed an incorrect execution URL in two browser-test
@@ -252,6 +257,23 @@ the recorded local proof above.
   failure/retry and a successful successor save for both real sources.
 - [ ] Finish deterministic visualization compatibility and allow a person to
   review, select, and save supported Widget versions.
+
+Saved-query iteration, 10 September 2026: Catalyst
+[#92](https://github.com/DIGI-UW/catalyst-ai/pull/92), merged as `905e1e6`,
+implements confirmed reuse,
+preserved question/follow-up/SQL/typed values, return to the earlier draft,
+independent access to saved configuration, and explicit dialect metadata on new
+saves. It also aligns typography, labels, buttons and the Catalyst mark with the
+rendered approved mock. Both composers use the mock's padding and focus spacing;
+the follow-up form's nested border and old toolbar layout are removed.
+Local checks passed: 277 UI tests, 77 focused Gateway
+tests, type/lint/build, 11 deterministic browser checks and documentation checks.
+The final composer correction passed 41 focused component tests and all 11
+browser checks against the active development checkout. Light, dark and narrow
+screenshots were inspected and remain private. All five hosted jobs passed on
+the final PR head `cf4e99d`. Compatible deployment and the real-source
+reuse/Run/successor-save proof are
+recorded separately before closing these acceptance items.
 
 ## Dashboard functionality — arrangement and publication
 
