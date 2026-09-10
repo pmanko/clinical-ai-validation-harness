@@ -369,6 +369,56 @@ proof; it does not close the full server/demo checkpoint or final owner review.
 
 ## Local/server deployment and evidence
 
+Release verification, 10 September: harness [#127](https://github.com/pmanko/clinical-ai-validation-harness/pull/127)
+merged as `6254b58`, pinning Catalyst `0109b5b` and Hub `75d0ff0`.
+The local owning checkout now runs these merged revisions; the strict repository
+check and full wrapper health gate passed without reseeding. The refreshed
+full-scenario recording test passed for **both real sources** (2 tests, 9.8 minutes):
+drafting and schema browsing, explicit execution and refinement, exact saved-SQL
+reuse with draft preservation, chart/table creation, arrangement save/reload and
+revision, deterministic publication, actual import receipts and native Superset
+rendering. Visible table values match the originating Catalyst result. Raw videos,
+screenshots, traces, requests, receipts, milestones and a revision/configuration
+manifest are archived privately under run `release-check-5`.
+
+Server access is restored and the same merged revisions are staged in the new
+owning checkout. Transferred retained-data hashes match; the restored
+OpenELIS/FHIR database passes PostgreSQL backup verification. The old server's
+saved-work database has a verified online backup. Spark started and all 54
+retained table/view definitions were restored across the two source namespaces.
+The server is ARM64; an incorrect staged AMD64 setting was corrected without
+changing image pins. The pinned x86 OpenELIS images require the Ubuntu emulation
+packages now installed. The 50 GB server disk filled during assembly; unused
+build/package cache was reclaimed, and the new isolated stack was stopped with
+its restored data retained while capacity is resolved. The public site still
+runs the previous deployment. AWS access needs refreshing before inspecting and
+expanding the disk; the server's Node/Playwright recording tools also remain to
+be installed after capacity is available.
+
+Catalyst [#96](https://github.com/DIGI-UW/catalyst-ai/pull/96), merged as `9ff0a89`,
+adds the hosted Superset path/public-link repair separately from the recording
+rewrite: 37 focused tests, root/prefix Compose resolution, lint and documentation
+checks passed, followed by all five hosted checks. Final deployment and browser
+verification remain separate.
+
+The owner approved the recording-contract update on 10 September. Catalyst
+[#97](https://github.com/DIGI-UW/catalyst-ai/pull/97), merged as `d5c4c0d`, contains the refreshed
+two-source scenario, retaining the laboratory fixture assertions, repeat-publication
+digest check and originating-result comparison. The recording guide now describes
+the actual capture and private evidence workflow. The remaining Workbench header
+and composer spacing were aligned directly with the frozen mock; saved-query
+review keeps the immutable name readable and the recorded source visible.
+Light/dark and narrow screenshots were inspected. Local checks passed: 284 UI tests, 52 analytics
+tests, 12 deterministic browser checks, type checking, lint, production build and
+documentation/link checks. The real-source recording passed on the earlier merged
+release described above; final proof must use the new merged release revisions.
+All five Catalyst hosted checks passed on the final pull-request head before merge.
+
+Server readiness, public routing, full server journeys, paced final cuts and
+owner acceptance remain open. The new server stack remains stopped with restored
+data retained while disk capacity is resolved; the public site still runs its
+previous version.
+
 - [ ] Deploy exact merged compatible revisions locally and to
   `catalyst.openelis-global.org` using the owning checkout and harness wrapper;
   preserve retained data and run importer actions in the tested environment.
