@@ -334,7 +334,7 @@ the private review bundle. The broader screen-by-screen comparison remains open.
   arrangement/library, and every publish/import state with the binding design.
 
 Arrangement iteration, 10 September: Catalyst
-[#95](https://github.com/DIGI-UW/catalyst-ai/pull/95), head `c1029ed`, implements
+[#95](https://github.com/DIGI-UW/catalyst-ai/pull/95), head `3876098`, implements
 saved chart revisions, Dashboard review/reordering and full/half/third-row widths.
 Reopening restores the immutable configuration; saving changes preserves the
 logical Dashboard identity and Superset address. Same-source charts can span
@@ -346,12 +346,21 @@ share its card treatment. The current binding design incorporates these details.
 
 | Stage | Arrangement iteration status |
 | --- | --- |
-| Implementation | `c1029ed`, Catalyst #95 |
+| Implementation | `3876098`, Catalyst #95 |
 | Self-validation | 87 Gateway/public-route/canonical bundle tests; 284 UI tests across the main run and loopback-permitted fixture rerun; 12 deterministic browser checks; build/type/lint and documentation/link checks passed. Light/dark arrangement screenshots inspected privately. |
 | Merge | Pending PR checks |
-| Local real-source validation | Pending updated Gateway and actual dual-source import/rendering; working UI is available for immediate development review. |
+| Local real-source validation | Both sources completed chart creation, arrangement save/reload/revision and deterministic bundle publication. Actual import exposed the missing-turn provenance defect described below; revalidation is pending the fix. |
 | Server deployment and demos | Pending the complete compatible release checkpoint |
 | Owner acceptance | Remains open separately from implementation and tests |
+
+The first real import rejected both reused-SQL bundles before Superset mutation:
+Dataset save converted an absent question-turn ID to the string `"None"`.
+The correction records `turnId: null` for manual/reused SQL with no generated
+turn and retains all actual session/query/execution references. The public-route
+regression fails for both source identities with the old producer and passes
+with the correction; all 115 Gateway, public-route, canonical bundle and importer
+tests pass. Existing immutable saves and failed receipts remain untouched;
+corrected saves and real imports must be verified before release.
 
 ## Local/server deployment and evidence
 
