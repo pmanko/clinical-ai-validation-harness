@@ -56,11 +56,11 @@
       "role": "status",
       "current_or_superseded": "Current tracking entry point; completion marks lag implementation",
       "effort": "CAT-E01; CAT-E02; CAT-E03; CAT-E04; CAT-E05; CAT-E06; CAT-E07; CAT-E08",
-      "status": "All current tasks remain unchecked despite implemented Spark branch and recorded smoke. Keep incomplete comparisons and owner gates open.",
-      "evidence_date": "2026-08-27",
-      "next_update": "Reconcile task rows against exact revisions and browser evidence; add links and dates for each completed item.",
-      "verified_source": "Local main read lines 3-139; branch contains no task-list update.",
-      "sources": "Local main read lines 3-139; branch contains no task-list update."
+      "status": "Question-writing acceptance is complete; later usability, Dashboard, deployment, evidence, and owner gates remain open.",
+      "evidence_date": "2026-09-10",
+      "next_update": "Record the shell and appearance iteration after its implementation and validation merge.",
+      "verified_source": "Catalyst #83 merged as c181b6b with all five hosted jobs passing; Feature 008 question-writing tasks link the focused and full UI validation.",
+      "sources": "Catalyst #83 merged as c181b6b with all five hosted jobs passing; Feature 008 question-writing tasks link the focused and full UI validation."
     },
     {
       "id": "CAT-A05",
