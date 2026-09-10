@@ -61,6 +61,11 @@ no current work.
 Feature 008 includes the accepted conversation, query notebook, manual Run flow,
 typed results, and Dashboard Builder experience over the generic connection.
 
+Separate [OpenELIS reporting integration planning](../openelis-reporting-catalyst-integration.md)
+records the proposed configurable CSV export, report queue and Catalyst
+equivalent-dataset demonstration. Its scope and architecture remain under
+review; it adds no prerequisite or acceptance requirement to this delivery.
+
 ## Design extension review
 
 The HIV workflow and output proposals are gathered in Catalyst's existing

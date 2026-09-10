@@ -1,0 +1,145 @@
+# OpenELIS reporting and Catalyst integration
+
+**Status:** Draft for joint scope review, 10 September 2026. Creating this
+planning record does not approve implementation or a production architecture.
+
+## Purpose and authority
+
+Give laboratory and program staff a simple way to choose and export the data
+they need, then separately demonstrate how Catalyst can meet the same need.
+The reported problem is a routine CSV export with fixed, sometimes irrelevant
+columns and long-running work that is difficult to return to.
+
+This document owns the proposed cross-project scope, unresolved decisions and
+milestones. The existing OpenELIS requirements own its export and queue details;
+Catalyst's [product specification](../targets/catalyst/docs/specification.md)
+owns its application contracts. Amend those documents when a decision changes
+their behavior; do not maintain competing copies here.
+
+The current [Catalyst delivery plan](008-catalyst-query-workbench/plan.md)
+continues through the server release and refreshed demos. This initiative has
+no assigned delivery date and adds no prerequisite to that checkpoint or its
+already scheduled follow-ons. Use this document as the planning home while
+scope is reviewed; implementation tasks belong with the product that delivers
+them. The project dashboard should link here rather than duplicate the register.
+
+## Working direction from the discussion
+
+| Workstream | Intended user outcome | Boundary |
+| --- | --- | --- |
+| OpenELIS configurable export | Choose appropriate fields and filters, save the choices, and download a CSV; rerun with a new reporting period. | Works without AI. Charts, Dashboards and automatic recurring jobs are outside the discussed export commitment. |
+| Report queue | Leave a generating report, return to its status, and retrieve completed output or retry a failure. | Separately named deliverable. Its relationship to patient-report printing needs reconciliation. A queue alone does not reduce database workload. |
+| Catalyst demonstration | Browse an OpenELIS data source, ask or refine a question, and produce the equivalent dataset. | Separate demonstration. Shared configuration, embedding and single sign-on remain options, not agreed interfaces. |
+
+Use familiar visual language where useful while keeping the OpenELIS workflow
+small. Do not make it inherit Catalyst's full Workbench or Dashboard experience.
+Monthly reuse means rerunning saved choices; it does not establish scheduling.
+
+## Existing efforts and overlap
+
+These are inspected design documents, not evidence of implementation or Jira
+completion. Product owners and delivery assignees remain to be confirmed.
+
+| Existing material | Responsibility and disposition |
+| --- | --- |
+| [Custom Data Export & My Report Queue, v1.1][export-spec] — OGC-479 / OGC-481 / OGC-483 | Reuse the existing draft for the wizard, saved choices and personal export queue. It couples export and required asynchronous retrieval in one release. Keep the stories distinct. |
+| [Patient Report Print Queue][gallery] — OGC-1031 | Reconcile with the meeting's common-queue idea before combining printing and export jobs. Do not absorb this effort by implication. |
+| [Report Management][report-management] | Owns report-template administration; configurable CSV export does not decide replacement of patient reports or Jasper templates. |
+| [Earlier Catalyst functional requirements, November 2025][earlier-catalyst] | Broader draft proposing reporting replacement, a wizard, multiple formats and scheduling. Retain as a proposal requiring disposition; it does not expand current delivery. |
+| [Current Catalyst delivery](008-catalyst-query-workbench/plan.md) and [program roadmap](catalyst-program-roadmap.md) | Retain the approved UX, saved-work, Dashboard and Superset delivery, plus separately scheduled research and output integrations. This new planning work does not reopen the frozen shell design. |
+
+Two overlaps require explicit reconciliation. The export draft proposes future
+shared `filterSpec`, variable catalog and queue use by Catalyst; the closing
+discussion did not settle that contract. Its FR-4-004 also specifies HQL/JPA
+queries with a possible mapped read view, while the discussion left the data
+platform open. Neither proposal becomes an integration decision merely by
+linking it here.
+
+## Decisions needed before implementation
+
+All rows are **open**. Record decisions and their rationale here, then update
+the affected product specification. Do not infer acceptance from a mock or a
+passing technical test.
+
+| Decision | What the review must settle |
+| --- | --- |
+| Smallest export and replacement scope | Select an initial reporting scenario; confirm fields, date meaning, lab-unit and other filters, result/order status, saved choices and completed-output delivery. Decide whether the routine CSV entry point is replaced or coexists. Jasper and patient-report replacement remain separate questions. |
+| Data meaning and coverage | Define what one row represents, joins, duplicate handling, derived values, units, missing values, status interpretation and date boundaries. Explain incompatible selections separately from permission restrictions. Verify mappings against actual data. |
+| Execution and database impact | Compare the smallest viable native query approach with a read-oriented layer or FHIR/Spark only where needed. Agree a representative workload and acceptable effect on normal laboratory operations before evaluating it. Record freshness and field-coverage tradeoffs; a new platform needs an explicit spec amendment. |
+| Permissions and retrieval | Confirm who may request which fields/sections, when authorization is checked, ownership and download behavior, and what happens when access changes after submission. The export draft silently drops some unauthorized selections: decide how users learn that output differs from their request. A program filter is not a program-access policy. |
+| Queue responsibility | Resolve personal export jobs versus patient printing, failure/retry behavior, retained-file access and expiry, and which existing story owns each behavior. Preserve the export/queue companion-release rule unless explicitly amended. |
+| Catalyst connection and equivalence | Choose a bounded demo source and scenario; decide whether Catalyst independently produces the dataset or uses an agreed OpenELIS request interface. Define equivalent output before running the comparison. |
+| Later production integration | Decide separately whether embedding, single sign-on or shared APIs justify implementation. Signing in to both applications does not establish equivalent data permissions. |
+
+## Proposed acceptance examples
+
+These criteria are for scope review; product-specific details stay in the
+linked requirements. They are not completed tests or owner acceptance.
+
+| User story | Reviewable acceptance |
+| --- | --- |
+| As a laboratory user, I can export the data for my reporting purpose without AI. | With AI unavailable, select the agreed fields and filters, save and reopen the choices, rerun for a different period and receive a valid CSV. Inspect included and excluded records, column values, dates, statuses and empty-output behavior against the agreed meaning. |
+| As a user, I can return to a report without keeping the generating screen open. | Submit work that uses the queue, navigate away, return and retrieve the result. Exercise generation failure, retry and expiry; verify direct download access and changed permissions with the agreed policy. Ordinary laboratory work remains within the workload limits agreed above. |
+| As a Catalyst user, I can produce the equivalent dataset from OpenELIS data. | Browse the real configured schema, draft and refine the question, inspect the selected SQL, explicitly run it, and save/reopen the result definition. Compare records and values against the OpenELIS scenario, including exclusions, duplicate/missing values and time boundaries. Record source freshness and explain any differences. |
+
+Catalyst exposes the complete schema readable through its configured generic
+SQL connection. OpenELIS's curated export fields must not become a core
+Catalyst relation allowlist. A Catalyst preview has a row limit; saving its
+query definition is not proof of a complete CSV export. The demo must label
+limits and establish completeness separately when claiming equivalence.
+
+Use retained demonstration data for the Catalyst exercise. Its current demo
+scope does not implement production identity or sensitive-data authorization;
+production use needs the separate permission decision and implementation.
+
+## Roadmap and progress
+
+Keep this milestone register small. Link product issues, PRs and evidence as
+they exist; track implementation, validation and owner acceptance separately.
+No release date or new product task is approved by this draft.
+
+| Milestone | Exit evidence | Current state |
+| --- | --- | --- |
+| 1. Confirm scope and reconcile existing plans | Approved minimum export scenario; disposition of overlapping queue/reporting proposals; named delivery ownership; decisions reflected in the owning specs. | Draft assembled; joint review pending. |
+| 2. Resolve the data, permission and workload questions | Reviewed field/row definitions and access behavior; measured representative workload; selected execution path with limitations recorded. | Open; no architecture selected. |
+| 3. Deliver the bounded OpenELIS export and required queue | Existing export/configuration/queue stories link their PRs, real workflow evidence and release revisions; record technical validation and owner acceptance separately. | Implementation and release status not audited in this planning pass. |
+| 4. Demonstrate the equivalent Catalyst dataset | Real-source walkthrough, reproducible query/configuration references, record-level comparison and review of differences; record owner acceptance. | Proposed; scenario and timing unassigned. |
+| 5. Decide further integration | Explicit go/defer decision for shared interfaces, production authorization, embedding or sign-on; only accepted scope receives implementation tasks. | Deferred decision; no implementation commitment. |
+
+Milestones 3 and 4 may proceed independently once their necessary decisions
+are settled. An independent Catalyst query demonstration need not wait for a
+shared API or production sign-on. It does need a reviewed definition of the
+same dataset and must distinguish a reference comparison from proof against a
+released OpenELIS export.
+
+## Validation and evidence
+
+Documentation changes receive existing consistency and link checks. Later
+behavior changes need focused product tests and real user-path validation;
+record-level comparisons catch incorrect joins and meanings that matching
+counts would miss, while workload measurements address the operational concern
+that a queue demonstration cannot answer.
+
+Follow the existing [harness constitution](../.specify/memory/constitution.md):
+record exact revisions, source/schema identities, accepted mappings, query or
+export configuration and relevant model/prompt provenance with each validation
+run. Use existing manifests and traces where applicable. Preserve raw evidence
+in ignored/private storage and link reviewable summaries; do not commit meeting
+transcripts, patient exports or generated screenshots as planning content.
+Explicitly label limitations and record owner acceptance separately from tests.
+
+## Sources
+
+- Owner-supplied consolidated discussion, reviewed 10 September 2026. It records
+  a working direction with scope still being decided; the transcript remains
+  private. Current application implementation was not comprehensively audited.
+- [OpenELIS export design preview][preview] and [functional draft][export-spec],
+  v1.1 dated 15 July 2026, inspected 10 September 2026.
+- [OpenELIS design catalog][gallery] and [earlier Catalyst proposal][earlier-catalyst].
+- Current Catalyst product specification and delivery plan linked above.
+
+[export-spec]: https://github.com/DIGI-UW/openelis-work/blob/main/designs/reports/custom-data-export.md
+[preview]: https://digi-uw.github.io/openelis-work/#/reports/custom-data-export
+[gallery]: https://digi-uw.github.io/openelis-work/catalog.html
+[report-management]: https://github.com/DIGI-UW/openelis-work/blob/main/designs/admin-config/report-management.md
+[earlier-catalyst]: https://github.com/DIGI-UW/openelis-work/blob/main/assets/requirements-docs/catalyst-functional-requirements.md

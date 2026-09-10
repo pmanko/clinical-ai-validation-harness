@@ -30,6 +30,12 @@ shared controls, then Metabase and Evidence publication afterward. Those
 follow-ons retain the approved Explore / Saved work navigation. They do not
 replace the separately reviewed broader-conversation scope or model comparison.
 
+The [OpenELIS reporting integration draft](openelis-reporting-catalyst-integration.md)
+tracks a separately scoped export/queue effort and proposed Catalyst
+equivalent-dataset demonstration. It links existing OpenELIS requirements and
+records unresolved integration decisions without changing Feature 008 delivery
+or the phase decisions below.
+
 ## Phase 1 decisions
 
 | Area | Decision |
