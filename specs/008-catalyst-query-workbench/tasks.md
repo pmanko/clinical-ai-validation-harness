@@ -55,6 +55,22 @@ conversation work remain separately scheduled.
 - [X] Verify no unique capability or acceptance criterion disappeared; run
   current link, secret, architecture, and documentation checks.
 
+### Prototype publication and cleanup correction — 10 September 2026
+
+- [X] Compare the actual local and published previews with screenshots. The
+  first publication used the wrong earlier Dashboard template; HTTP/file checks
+  did not establish visual correctness.
+- [X] Prepare the complete approved staff Workbench bundle and verify the built
+  page visually, including its sibling styles and scripts.
+- [X] Merge and deploy the corrected preview, then check screenshots of the
+  public URL against the approved local page.
+- [X] Merge Catalyst #84, pin it here, and retire the obsolete prototypes and
+  their competing authority pointers. The written binding design records the
+  disposition of their remaining requirements.
+
+Evidence: [public/local screenshot comparison](../artifacts/project-status/evidence/catalyst-preview-2026-09-10/review.md).
+Harness #114 deployed `89a03cf`; Catalyst #84 merged as `6c3451d`.
+
 ## Usability iteration 1 — question writing
 
 - [X] Share one presentation and sizing behavior across initial, follow-up, and

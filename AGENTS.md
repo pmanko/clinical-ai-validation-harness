@@ -14,9 +14,10 @@ For Catalyst, read these authorities in order:
    separately scheduled conversation decisions;
 5. `targets/catalyst/docs/specification.md` for Catalyst application behavior
    and contracts; and
-6. `targets/catalyst/docs/dashboard-builder-mvp-design.md` and its populated
-   binding 4c page for the Dashboard Builder interaction and visual
-   contract.
+6. `targets/catalyst/docs/dashboard-builder-mvp-design.md` for the binding
+   interaction contract and `targets/catalyst/docs/specs/staff-workbench-ux/index.html`
+   for the approved visual reference. Obsolete prototypes in Git history are
+   not current authorities.
 
 Only the listed current documents define requirements. Run reports record
 observations and do not define product behavior.

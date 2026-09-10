@@ -80,17 +80,17 @@
     {
       "id": "CAT-A07",
       "kind": "interactive prototype",
-      "title": "Earlier Dashboard Builder object-flow reference",
+      "title": "Retired Dashboard Builder prototypes",
       "path": null,
-      "url": "https://github.com/DIGI-UW/catalyst-ai/blob/b9d429f7b99945579efe09b0cd18bfaec30dacdd/docs/prototypes/dashboard-builder-mvp/Catalyst%20Dashboard%20Builder%204c.dc.html",
-      "role": "authority",
-      "current_or_superseded": "Retained for Dashboard object flow; superseded for Workbench appearance",
+      "url": "https://github.com/DIGI-UW/catalyst-ai/blob/6c3451d3096de069c84ffad1a90a800189d59292/docs/dashboard-builder-mvp-design.md#prototype-retirement",
+      "role": "evidence",
+      "current_or_superseded": "Retired; requirements absorbed into the written binding design",
       "effort": "CAT-E08",
-      "status": "Earlier reference for Dashboard libraries, arrangement, and publication. The current written binding design controls; the approved staff Workbench mock supersedes this page for shell, composer, data browsing, and appearance.",
+      "status": "Catalyst #84 removes the three obsolete HTML pages, support runtime, and server helper. The binding design accounts for retained requirements; the approved Workbench mock is CAT-A37.",
       "evidence_date": "2026-08-26",
-      "next_update": "Retire remaining prototype authority after its unique Dashboard requirements are accounted for in the written binding design.",
-      "verified_source": "Current binding design identifies the distinct scope of the earlier 4c reference and the staff Workbench mock.",
-      "sources": "https://github.com/DIGI-UW/catalyst-ai/blob/c181b6b7cddb64949068e497b5f18d5e8da60a04/docs/dashboard-builder-mvp-design.md"
+      "next_update": "No implementation work; consult the written contract and approved preview.",
+      "verified_source": "Catalyst #84 merged as 6c3451d; reviewed removal and requirement-disposition table.",
+      "sources": "https://github.com/DIGI-UW/catalyst-ai/pull/84"
     },
     {
       "id": "CAT-A37",
@@ -104,8 +104,11 @@
       "status": "Owner-frozen 9 September design: Explore and Saved work, resizable composer, nonmodal data browsing, neutral light/dark appearance, and Advanced mode. Fictional preview; no production requests.",
       "evidence_date": "2026-09-10",
       "next_update": "Compare the implemented UX against this preview at the local owner gate.",
-      "verified_source": "The six served assets at local port 18445 match docs/specs/staff-workbench-ux in merged Catalyst. Public wrapper changes only the specification link to its pinned GitHub URL.",
-      "sources": "https://github.com/DIGI-UW/catalyst-ai/blob/c181b6b7cddb64949068e497b5f18d5e8da60a04/docs/specs/staff-workbench-ux/index.html"
+      "verified_source": "Screenshots of the approved local preview and corrected public URL were inspected at 1280 × 720 on 10 September. Harness #114 deployed 89a03cf through GitHub Pages; all six assets were verified against the actual local preview.",
+      "sources": [
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/114",
+        "specs/artifacts/project-status/evidence/catalyst-preview-2026-09-10/review.md"
+      ]
     },
     {
       "id": "CAT-A08",
