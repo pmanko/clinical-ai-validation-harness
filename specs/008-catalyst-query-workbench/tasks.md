@@ -5,6 +5,25 @@ Builder functionality. This file is the sole detailed progress and acceptance
 register for the [Feature 008 roadmap](plan.md). Model comparison and broader
 conversation work remain separately scheduled.
 
+## Next owner checkpoint
+
+- [X] Record the owner's 10 September request in the existing plan: finish a
+  working server release and re-record both demos using the new styles, with
+  FHIR Data Pipes kept to a brief introduction.
+- [ ] Complete the saved-work, Dashboard, local/server verification and video
+  acceptance items below; present the working server and both refreshed videos
+  together with unresolved findings for owner review.
+- [ ] Verify the app against the approved mock with matched light/dark and
+  wide/narrow screenshots. Resolve the observed dense Saved queries table,
+  clipped actions and stray follow-up control; carry direct mock spacing/type
+  and component treatment across Explore, Saved work and review panels.
+- [ ] Record owner acceptance of that checkpoint. Implementation or green checks
+  alone do not mark this accepted.
+
+Local development now serves the working Catalyst UI at `localhost:13000`
+against the retained local Gateway and both real sources. Local testing does
+not wait for merges. Final release/acceptance revisions remain pinned and merged.
+
 ## Authoritative roadmap
 
 - [X] Record the approved delivery sequence, acceptance gates, deployment
@@ -272,8 +291,34 @@ The final composer correction passed 41 focused component tests and all 11
 browser checks against the active development checkout. Light, dark and narrow
 screenshots were inspected and remain private. All five hosted jobs passed on
 the final PR head `cf4e99d`. Compatible deployment and the real-source
-reuse/Run/successor-save proof are
-recorded separately before closing these acceptance items.
+reuse/Run/successor-save proof are recorded separately before closing these
+acceptance items. Harness [#125](https://github.com/pmanko/clinical-ai-validation-harness/pull/125)
+merged the compatible pin as `61ea6fd`. Local services were updated and wrapper
+health checks passed with retained data; the working UI is served directly for
+ongoing development. Catalyst [#93](https://github.com/DIGI-UW/catalyst-ai/pull/93) adds the on/off
+Advanced mode switch and fixes the source identity defect exposed by live reuse:
+the raw session stores its source in provenance, while Dataset save previously
+read a missing top-level field and defaulted to OpenELIS. Saving now uses the
+recorded identity and refuses to guess a missing source. A regression through
+the real operating store and public save route failed for both source identifiers
+before the fix and passed afterward. All 83 focused Gateway, saved-object and
+canonical Superset fixture tests passed, with formatting/lint checks. The
+local refresh and wrapper health checks passed with retained data. Real-source
+browser checks now pass for both OpenELIS and OpenMRS: saved SQL opens without
+execution, explicit Run succeeds, a separate immutable save retains source/SQL/
+parameters, and Return to previous draft restores the draft. Catalyst #93 merged
+as `05eda3d`; earlier incorrect private test saves were not rewritten. This is
+not final server or owner acceptance. The preview assets include the same switch.
+
+Visual alignment follow-up, 10 September: screenshots confirmed the dense Saved
+queries table, clipped actions and stray composer jump differed from the mock.
+Catalyst [#94](https://github.com/DIGI-UW/catalyst-ai/pull/94) replaces these with the approved
+cards and in-page category navigation, retains additional metadata in a
+disclosure, and matches the measured logo/wordmark font, dimensions and spacing.
+The binding design's obsolete table prescription is replaced. All 99 focused
+component tests, 11 deterministic browser checks, build/type, lint and current
+documentation/link checks passed. Light/dark, wide/narrow screenshots remain in
+the private review bundle. The broader screen-by-screen comparison remains open.
 
 ## Dashboard functionality — arrangement and publication
 
@@ -298,6 +343,9 @@ recorded separately before closing these acceptance items.
   bundles, receipts, and visible-result evidence under one run identity.
 - [ ] Capture with the existing Playwright video project and archive raw footage
   before another run removes it.
+- [ ] Use the current styles in both new server demos. Keep the FHIR Data Pipes
+  introduction to about 10–15 seconds and focus the walkthrough on Catalyst;
+  preserve detailed pipeline evidence separately.
 - [ ] Render short cards/captions for at least 5 seconds, longer text at about 3
   words/second plus 2 seconds, and results/details for at least 8 seconds; retain
   captions during holds and label accelerated waits.

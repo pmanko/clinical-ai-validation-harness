@@ -10,6 +10,38 @@ and final owner acceptance remain open.
 
 **Specification:** [spec.md](spec.md)
 
+## Next owner checkpoint — server release and refreshed demos
+
+Approved on 10 September 2026: the next reviewable checkpoint is a working
+server release with the current Workbench design and newly recorded demos for
+both sources. Finish the current saved-work and Dashboard delivery before this
+checkpoint; follow-on A/B/C and model comparison remain separately scheduled.
+
+- Validate the current working UI locally as changes are made, including the
+  on/off Advanced mode switch and direct mock-style alignment. Local development
+  and testing do not wait for a merge or a release build.
+- Verify visual fidelity against the approved public mock with matched light/dark
+  and wide/narrow screenshots. Match its type hierarchy, spacing, cards, borders,
+  controls and mark directly; inspect Saved work and review panels as well as
+  Explore. Fix demonstrated drift before the release checkpoint.
+- Complete saved-query reuse, compatible charts/tables, persistent Dashboard
+  arrangement, publication and actual Superset import/rendering. Use both retained
+  real sources and resolve concrete failures before calling the build ready.
+- Merge the tested compatible revisions and release them to the existing demo
+  server through the harness wrapper. Keep the final local acceptance build on
+  the same merged revisions, preserve retained data, and verify the real journey
+  in each environment.
+- Re-record the server demos with the new styles. Focus on asking, browsing data,
+  reviewing/refining results, reusing saved SQL, creating charts and arranging
+  and publishing a Dashboard. Limit FHIR Data Pipes to a brief context segment
+  (about 10–15 seconds); retain the detailed ingestion proof in the evidence.
+- Present the working server link, the two refreshed videos, local proof and
+  any unresolved findings for asynchronous owner review. Update existing public
+  video/poster references together. Record owner acceptance separately.
+
+Shorter demos remove repeated explanation; they do not accelerate reading or
+shorten the caption/result holds required in step 5 below.
+
 ## Authority and scope
 
 This file is the authoritative implementation roadmap and delivery goal for
@@ -247,7 +279,7 @@ Deliver small reviewable product changes in this order:
 4. **Result review:** one full result table, plain warnings and limits,
    accessible provenance, and preserved save/publication behavior.
 
-**First owner gate:** deploy the complete usability design locally against the
+**First owner gate:** run the complete usability design locally against the
 real OpenELIS and OpenMRS sources. Publish a side-by-side design comparison,
 focused browser evidence, and a paced walkthrough for asynchronous review.
 Dashboard functionality expansion starts after feedback from this gate.
@@ -306,6 +338,11 @@ contract tests plus UI type checking, lint, build, and deterministic browser
 checks, and records what ran and what remains unresolved. Live model and Spark
 proof is required at the named integration gates rather than every presentation
 pull request.
+
+Local development serves the current working UI against the real local services.
+It may include unmerged work; it is not a release or a final acceptance claim.
+The merged-revision requirement applies to the server release and final
+reproducible acceptance evidence.
 
 Owner review is asynchronous. Implementation, merge, deployment,
 self-validation, and owner acceptance remain separate task states. The project

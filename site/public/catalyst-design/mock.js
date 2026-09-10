@@ -226,6 +226,7 @@ function notify(message) {
 }
 $('#advanced-toggle').addEventListener('change', event => {
   advanced = event.target.checked;
+  $('#mode-state').textContent = advanced ? "On" : "Off";
   render();
   const reviewDetails = $('#panel-body details');
   if (reviewDetails && $('#panel-title').textContent === 'Review results') reviewDetails.open = advanced;
