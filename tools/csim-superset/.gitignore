@@ -1,0 +1,6 @@
+.env.*
+output/
+node_modules/
+__pycache__/
+design/evidence
+design/access.json

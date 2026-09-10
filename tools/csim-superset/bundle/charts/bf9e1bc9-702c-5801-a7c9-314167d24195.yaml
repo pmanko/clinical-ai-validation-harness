@@ -1,0 +1,112 @@
+slice_name: ASB prevalence (overall) - Ind
+description: null
+certified_by: null
+certification_details: null
+viz_type: echarts_timeseries_bar
+params:
+  datasource: 8__table
+  viz_type: echarts_timeseries_bar
+  matrixify_enable: false
+  matrixify_mode_columns: disabled
+  matrixify_dimension_selection_mode_columns: members
+  matrixify_dimension_columns:
+    dimension: ''
+    values: []
+  matrixify_topn_value_columns: 10
+  matrixify_all_sort_by_columns: a_to_z
+  matrixify_topn_order_columns: true
+  matrixify_show_column_headers: true
+  matrixify_fit_columns_dynamically: true
+  matrixify_mode_rows: disabled
+  matrixify_dimension_selection_mode_rows: members
+  matrixify_dimension_rows:
+    dimension: ''
+    values: []
+  matrixify_topn_value_rows: 10
+  matrixify_all_sort_by_rows: a_to_z
+  matrixify_topn_order_rows: true
+  matrixify_show_row_labels: true
+  matrixify_row_height: 300
+  matrixify_charts_per_row: 4
+  matrixify_cell_title_template: ''
+  x_axis: hosp_code
+  xAxisForceCategorical: false
+  metrics:
+  - aggregate: MAX
+    column:
+      advanced_data_type: null
+      certification_details: null
+      certified_by: null
+      column_name: prev
+      description: null
+      expression: ''
+      filterable: true
+      groupby: true
+      id: 739
+      is_certified: false
+      is_dttm: false
+      python_date_format: null
+      type: FLOAT
+      type_generic: 0
+      uuid: 1899aff5-3b53-4324-95a7-2f1eb85a02d6
+      verbose_name: null
+      warning_markdown: null
+    datasourceWarning: false
+    expressionType: SIMPLE
+    hasCustomLabel: true
+    label: ASB prevalence
+    optionName: metric_k6zg5edz5q_bkdkzbk8g4n
+    sqlExpression: null
+  groupby: []
+  adhoc_filters: []
+  group_others_when_limit_reached: false
+  row_limit: 10000
+  truncate_metric: true
+  show_empty_columns: true
+  comparison_type: values
+  annotation_layers: []
+  forecastEnabled: false
+  forecastPeriods: 10
+  forecastInterval: 0.8
+  orientation: vertical
+  x_axis_title: Hospital / State / Cohort
+  x_axis_title_margin: 30
+  y_axis_title: ASB prevalence
+  y_axis_title_margin: 50
+  y_axis_title_position: Left
+  sort_series_type: name
+  sort_series_ascending: true
+  color_scheme: supersetColors
+  show_value: true
+  color_by_primary_axis: false
+  minorTicks: false
+  zoomable: false
+  show_legend: false
+  x_axis_time_format: smart_date
+  x_axis_number_format: ~g
+  xAxisLabelRotation: 0
+  xAxisLabelInterval: auto
+  y_axis_format: ',.0%'
+  logAxis: false
+  minorSplitLine: false
+  truncateYAxis: true
+  y_axis_bounds:
+  - 0
+  - 1
+  truncateXAxis: false
+  force_max_interval: false
+  rich_tooltip: true
+  showTooltipTotal: false
+  showTooltipPercentage: false
+  tooltipSortByMetric: false
+  tooltipTimeFormat: smart_date
+  echart_options: '{}'
+  extra_form_data: {}
+  time_range: '2025-11-01 : 2026-06-01'
+  time_grain_sqla: P1M
+  granularity_sqla: filter_anchor
+query_context: null
+cache_timeout: null
+uuid: bf9e1bc9-702c-5801-a7c9-314167d24195
+version: 1.0.0
+dataset_uuid: 47b5ffab-52ad-52e1-bb0f-c06c3a8d2406
