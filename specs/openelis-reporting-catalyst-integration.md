@@ -39,12 +39,19 @@ The clarification session established these decisions:
 - The common example is monthly virology results. CSV/Dataset comparison is
   solely our parity review, not a staff-facing comparison feature.
 
-Build the interactive mock and one integration design specification in Catalyst's
-existing design documentation, reusing the approved Workbench assets directly.
-Keep the applications separate in the reviewer hub. Include preparation versus
-explicit execution, retained drafts, source-bound sessions, save/reopen, queue
-failure/retry/expiry, fresh dates after loading a configuration, shared sign-in
-and restricted-access examples. All data and identity behavior are fictional.
+The owner clarified the design homes during review: extend Casey's existing
+OpenELIS reporting mock and specification in `openelis-work`, using its existing
+OpenELIS styles. Catalyst owns only its independent connected-source experience
+and the integration design specification, reusing the approved Workbench assets.
+The reviewer hub links out to OpenELIS's gallery; it does not copy or embed those
+screens. Review links are outside the application surfaces.
+
+The OpenELIS draft covers field/filter selection, saved configurations, CSV
+output and queue failure/retry/expiry, including fresh dates when loading a
+configuration or expired job. The Catalyst draft covers preparation versus
+explicit execution, retained drafts, source-bound sessions and Dataset save/reopen.
+Both show fictional sign-in and restricted-access examples independently; the
+previews do not synchronize credentials or implement shared sign-in.
 
 Use August 2026 collection dates, a selected HIV viral-load test and validated
 results. Include one row per result, repeated accessions, blank values and date
@@ -60,10 +67,16 @@ implementation continues; new OE/integration implementation follows this design
 review. Shared sign-in and equivalent authorization are requirements for that
 integration, not functionality already supplied by the current Catalyst demo.
 
-Review artifacts: [integration draft][integration-preview] · [design specification][integration-design] · [Catalyst design PR #98](https://github.com/DIGI-UW/catalyst-ai/pull/98).
-The design source lives in Catalyst; the harness keeps a generated publication
-copy. The review hub's source link and `source.json` identify the exact published
-revision, independently of the runtime Catalyst pin.
+| Review artifact | Source and status |
+| --- | --- |
+| [OpenELIS reporting mock][preview] and [export specification][export-spec] | `openelis-work`; [MVP design PR #313](https://github.com/DIGI-UW/openelis-work/pull/313), merged by its existing repository automation after test/build passed. Gallery deployment of `2336f49c` passed; the live fixture asset matches the source. |
+| [Catalyst integration draft][integration-preview] and [design specification][integration-design] | Catalyst; initial PR #98 followed by [ownership correction PR #100](https://github.com/DIGI-UW/catalyst-ai/pull/100), which removes the duplicate OpenELIS screen. |
+| Cross-project decisions and publication | This roadmap and the harness review hub; owner design acceptance remains pending. |
+
+Catalyst is the source for its published preview files; the harness keeps a
+generated copy. The hub's source link and `source.json` identify that exact
+revision independently of the runtime Catalyst pin. OpenELIS remains in its own
+gallery; the hub links to its canonical permalink.
 
 ## Two delivery workstreams and one integration checkpoint
 
@@ -172,8 +185,8 @@ No release date or new product task is approved by this draft.
 
 | Milestone | Exit evidence | Current state |
 | --- | --- | --- |
-| 0. Build and review the mock/spec set | Interactive independent OE/Catalyst workflows and review-only parity examples; published source revision; browser, screenshot and documentation checks; explicit owner design review. | Mock/spec constructed and locally validated; source publication in this PR; owner design acceptance pending. |
-| 1. Agree where the streams meet | Reviewed initial report/comparison definition; field coverage on the existing source path; disposition of overlapping proposals; named ownership and links to each product's tasks. | Two-stream direction confirmed; specific scenario and ownership pending. |
+| 0. Build and review the mock/spec set | Interactive independent OE/Catalyst workflows and review-only parity examples; published source revision; browser, screenshot and documentation checks; explicit owner design review. | Design homes separated: OpenELIS MVP PR #313 merged by repository automation; Catalyst-side correction in PR #100; harness publication in this PR. Local tests/browser review pass; OpenELIS is published; corrected Catalyst/harness publication awaits PR merges. Owner acceptance is pending. |
+| 1. Agree where the streams meet | Reviewed initial report/comparison definition; field coverage on the existing source path; disposition of overlapping proposals; named ownership and links to each product's tasks. | Two-stream direction confirmed; fictional scenario and design ownership agreed; real-source comparison definition pending. |
 | 2A. Build from OpenELIS | Settle export permissions/workload choices; deliver the bounded export, saved choices and required queue; generate a verified CSV and prepare the source mapping/access information. Link existing OE issues, PRs and real-path evidence. | Implementation/release status not audited; existing draft is the starting point. |
 | 2B. Build from Catalyst | Continue the existing redesign/release tasks and prepare the real OE source connection; show schema browsing, question/refinement, explicit execution and saving through the approved Workbench. Link existing Catalyst tasks rather than duplicate them here. | Existing delivery remains active; integration-specific source gaps and readiness to be assessed. |
 | 3. Connect and validate together | Query the connected OE source through Catalyst and compare the generated Dataset with the verified native CSV using the agreed definition. Record exact builds, source state, limitations, technical validation and owner acceptance separately. | Required integration checkpoint; date unassigned. |
@@ -215,6 +228,9 @@ Explicitly label limitations and record owner acceptance separately from tests.
 - [OpenELIS export design preview][preview] and [functional draft][export-spec],
   v1.1 dated 15 July 2026, inspected 10 September 2026.
 - [OpenELIS design catalog][gallery] and [earlier Catalyst proposal][earlier-catalyst].
+- Owner clarification on 10 September 2026: OpenELIS mock/spec/style stay in
+  `openelis-work`; Catalyst owns its independent source workflow; the review
+  hub links out to OpenELIS. MVP changes are reviewed in PR #313.
 - Current Catalyst product specification and delivery plan linked above.
 
 [export-spec]: https://github.com/DIGI-UW/openelis-work/blob/main/designs/reports/custom-data-export.md

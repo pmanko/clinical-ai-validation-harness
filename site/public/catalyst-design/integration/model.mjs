@@ -35,19 +35,6 @@ export function exportRows(filters) {
     row.labSection === filters.lab && row.testName === filters.test &&
     (filters.status === 'All results' || row.resultStatus === filters.status));
 }
-export function dateError(filters) {
-  if (!filters.from || !filters.to) return 'Choose both dates before continuing.';
-  if (filters.from > filters.to) return 'Date to must be on or after date from.';
-  if ((Date.parse(filters.to) - Date.parse(filters.from)) / 86400000 + 1 > 90) return 'Date range cannot exceed 90 days in this example.';
-  return '';
-}
-export function saveConfiguration(fields, filters) {
-  const { from, to, ...reusableFilters } = filters;
-  return { fields: [...fields], filters: reusableFilters };
-}
-export function loadConfiguration(config) {
-  return { fields: [...config.fields], filters: { ...config.filters, from: '', to: '' } };
-}
 export function csv(rows, fields = defaultFields) {
   const cell = value => '"' + String(value ?? '').replaceAll('"', '""') + '"';
   return [fields.map(key => cell(columns[key])).join(','),

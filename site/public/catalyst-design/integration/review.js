@@ -4,14 +4,14 @@
   const query = new URLSearchParams(location.search);
   const design = document.querySelector('#design');
   design.value = query.get('view') === 'integration' ? 'integration' : 'approved';
-  let selected = ['oe', 'catalyst', 'parity'].includes(query.get('app')) ? query.get('app') : 'oe';
+  let selected = ['catalyst', 'parity'].includes(query.get('app')) ? query.get('app') : 'catalyst';
   function apply() {
     const integration = design.value === 'integration';
     frames.forEach(frame => { frame.hidden = frame.id !== (integration ? selected : 'approved'); });
     document.querySelector('#approved-controls').hidden = integration;
     document.querySelector('#integration-controls').hidden = !integration;
     document.querySelector('#spec-link').href = integration ? script.dataset.integrationSpec : script.dataset.approvedSpec;
-    document.querySelector('#context-note').textContent = integration ? 'Separate applications · shared sign-in and equivalent access are proposed, not implemented here.' : 'Approved presentation reference.';
+    document.querySelector('#context-note').textContent = integration ? 'Catalyst-side draft · OpenELIS reporting is designed separately in openelis-work. Shared sign-in and equivalent access still require implementation.' : 'Approved presentation reference.';
     document.querySelectorAll('[data-view]').forEach(button => {
       if (button.dataset.view === selected) button.setAttribute('aria-current', 'page');
       else button.removeAttribute('aria-current');
@@ -30,12 +30,6 @@
     const url = new URL(approved.src);
     url.searchParams.set('state', event.target.value);
     approved.src = url.href;
-  });
-  window.addEventListener('message', event => {
-    if (event.origin !== location.origin || !frames.some(frame => frame.contentWindow === event.source)) return;
-    if (event.data?.type !== 'integration-preview-user') return;
-    frames.filter(frame => ['oe', 'catalyst'].includes(frame.id) && frame.contentWindow !== event.source)
-      .forEach(frame => frame.contentWindow.postMessage(event.data, location.origin));
   });
   apply();
 })();

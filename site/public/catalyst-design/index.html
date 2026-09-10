@@ -31,8 +31,8 @@
     <div><h1>Design review</h1><p>Interactive mocks · fictional examples · no live sign-in, AI or clinical-data requests</p></div>
     <label>Design <select id="design"><option value="approved">Approved Catalyst</option><option value="integration">OpenELIS integration draft</option></select></label>
     <label>Width <select id="width"><option value="100%">Fill window</option><option value="1280px">1280 px</option><option value="640px">640 px</option><option value="390px">390 px</option><option value="320px">320 px</option></select></label>
-    <a id="spec-link" href="https://github.com/DIGI-UW/catalyst-ai/blob/bd695ad49434ede37f658d7ce2b3afbb4565deac/docs/specs/staff-workbench-ux/spec.md">Design specification</a>
-    <span class="revision">Source: <a id="source-revision" href="https://github.com/DIGI-UW/catalyst-ai/commit/bd695ad49434ede37f658d7ce2b3afbb4565deac">bd695ad49434</a></span>
+    <a id="spec-link" href="https://github.com/DIGI-UW/catalyst-ai/blob/ee7d0385adf457e1454fec83f56cc42cab3d9ed0/docs/specs/staff-workbench-ux/spec.md">Design specification</a>
+    <span class="revision">Source: <a id="source-revision" href="https://github.com/DIGI-UW/catalyst-ai/commit/ee7d0385adf457e1454fec83f56cc42cab3d9ed0">ee7d0385adf4</a></span>
   </header>
   <div class="subhead">
     <label id="approved-controls">Screen <select id="screen">
@@ -41,16 +41,15 @@
       <option value="widgets">Charts and tables</option><option value="dashboards">Dashboards</option><option value="imported">Dashboard imported</option><option value="import-failed">Dashboard import failed</option>
     </select></label>
     <nav id="integration-controls" aria-label="Review surfaces" hidden>
-      <button data-view="oe" aria-current="page">OpenELIS reporting</button><button data-view="catalyst">Catalyst</button><button data-view="parity">Parity review</button>
+      <button data-view="catalyst" aria-current="page">Catalyst</button><button data-view="parity">Parity review</button><a href="https://digi-uw.github.io/openelis-work/#/reports/custom-data-export" target="_blank" rel="noopener">OpenELIS reporting mock ↗</a>
     </nav>
     <p id="context-note">Approved presentation reference.</p>
   </div>
   <main>
     <iframe id="approved" title="Approved Catalyst mock" src="mock.html?state=empty"></iframe>
-    <iframe id="oe" title="OpenELIS reporting draft" src="integration/app.html?app=oe" hidden></iframe>
     <iframe id="catalyst" title="Catalyst integration draft" src="integration/app.html?app=catalyst" hidden></iframe>
     <iframe id="parity" title="Parity review examples" src="integration/app.html?app=parity" hidden></iframe>
   </main>
-  <script src="integration/review.js" data-approved-spec="https://github.com/DIGI-UW/catalyst-ai/blob/bd695ad49434ede37f658d7ce2b3afbb4565deac/docs/specs/staff-workbench-ux/spec.md" data-integration-spec="https://github.com/DIGI-UW/catalyst-ai/blob/bd695ad49434ede37f658d7ce2b3afbb4565deac/docs/specs/openelis-reporting-integration/spec.md"></script>
+  <script src="integration/review.js" data-approved-spec="https://github.com/DIGI-UW/catalyst-ai/blob/ee7d0385adf457e1454fec83f56cc42cab3d9ed0/docs/specs/staff-workbench-ux/spec.md" data-integration-spec="https://github.com/DIGI-UW/catalyst-ai/blob/ee7d0385adf457e1454fec83f56cc42cab3d9ed0/docs/specs/openelis-reporting-integration/spec.md"></script>
 </body>
 </html>

@@ -19,7 +19,12 @@ npx serve dist      # → http://localhost:3000/clinical-ai-validation-harness/
 ## Catalyst design review
 
 `/catalyst-design/` provides the approved Catalyst reference and the OpenELIS
-integration draft. Edit the design in Catalyst's `docs/specs/` source folders;
+integration draft. The draft includes only Catalyst and review-only parity
+examples. Its reviewer link opens the canonical OpenELIS reporting gallery at
+`https://digi-uw.github.io/openelis-work/#/reports/custom-data-export`; OpenELIS
+screens and styles belong in `openelis-work`.
+
+Edit the Catalyst design in its `docs/specs/` source folders;
 do not edit generated publication copies under `site/public/catalyst-design/`.
 
 Publish an exact reviewed Catalyst design commit from the harness root:
