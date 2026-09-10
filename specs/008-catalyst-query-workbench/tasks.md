@@ -11,6 +11,9 @@ conversation work remain separately scheduled.
   targets, and video pacing requirements in `plan.md`.
 - [X] Point current authority entry points to the Feature 008 plan and this task
   register without attempting the full specification consolidation.
+- [X] Repair the stale OpenMRS integration gitlinks exposed by the unchanged
+  source-pair gate, using the exact reviewed heads already present in the
+  existing integration baseline; do not include baseline product code.
 - [ ] Merge the roadmap pull request before baseline, specification, or product
   changes begin.
 
