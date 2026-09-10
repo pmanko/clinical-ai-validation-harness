@@ -1,5 +1,5 @@
 {
-  "as_of": "2026-09-06",
+  "as_of": "2026-09-10",
   "description": "Inventory of publication, product and operator surfaces. Public HTTP availability is distinct from runtime functionality. Local URLs are documented targets, not verified running services.",
   "rows": [
     {
@@ -37,6 +37,15 @@
       "status": "HTTP 200; functional behavior and deployed revision not checked today",
       "source": "targets/catalyst/catalyst-ui",
       "next_update": "Verify deployed revision after branch review and execute agreed product proof."
+    },
+    {
+      "id": "catalyst-design",
+      "title": "Catalyst frozen design preview",
+      "url": "https://pmanko.github.io/clinical-ai-validation-harness/catalyst-design/",
+      "role": "Interactive visual acceptance reference",
+      "status": "Published from the frozen design merged in Catalyst #82; fictional examples and no product requests",
+      "source": "site/public/catalyst-design/index.html",
+      "next_update": "Keep frozen for side-by-side implementation review; replace only through an approved design amendment."
     },
     {
       "id": "openmrs-app",

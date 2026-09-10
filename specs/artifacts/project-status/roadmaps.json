@@ -81,16 +81,16 @@
       "id": "CAT-A07",
       "kind": "interactive prototype",
       "title": "Populated Dashboard Builder 4c reference",
-      "path": null,
-      "url": "https://github.com/DIGI-UW/catalyst-ai/blob/b9d429f7b99945579efe09b0cd18bfaec30dacdd/docs/prototypes/dashboard-builder-mvp/Catalyst%20Dashboard%20Builder%204c.dc.html",
+      "path": "site/public/catalyst-design/index.html",
+      "url": "https://pmanko.github.io/clinical-ai-validation-harness/catalyst-design/",
       "role": "authority",
       "current_or_superseded": "Current binding visual reference",
       "effort": "CAT-E08",
       "status": "Populated design prototype with Dataset/Widget reviews, libraries and publication states; prototype data and JavaScript are illustrative, not production evidence.",
       "evidence_date": "2026-08-26",
       "next_update": "Compare current product screenshots side by side at final Phase 3 review.",
-      "verified_source": "Exact 75442c2 prototype read via git object; binding-design document names it explicitly.",
-      "sources": "Exact 75442c2 prototype read via git object; binding-design document names it explicitly."
+      "verified_source": "Exact frozen prototype from merged Catalyst #82, copied byte-for-byte into the existing GitHub Pages build.",
+      "sources": "Merged Catalyst #82; site/public/catalyst-design/index.html."
     },
     {
       "id": "CAT-A08",
