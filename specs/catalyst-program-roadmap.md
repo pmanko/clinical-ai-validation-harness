@@ -31,10 +31,11 @@ follow-ons retain the approved Explore / Saved work navigation. They do not
 replace the separately reviewed broader-conversation scope or model comparison.
 
 The [OpenELIS reporting integration draft](openelis-reporting-catalyst-integration.md)
-tracks a separately scoped export/queue effort and proposed Catalyst
-equivalent-dataset demonstration. It links existing OpenELIS requirements and
-records unresolved integration decisions without changing Feature 008 delivery
-or the phase decisions below.
+coordinates parallel OpenELIS reporting/source preparation and Catalyst
+upgrade/source readiness, converging on a working source connection and native
+CSV/generated Dataset comparison. It links the existing product efforts and
+records unresolved integration decisions without changing Feature 008's
+current release checkpoint or the phase decisions below.
 
 ## Phase 1 decisions
 
