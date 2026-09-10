@@ -19,7 +19,7 @@
     <div class="source-context"><span>Using <strong id="rail-source">OpenELIS Laboratory</strong></span><button class="text-button" data-dialog="source">Change data</button></div>
     <details class="view-options" id="view-options"><summary>View options<span id="mode-indicator" hidden> · Advanced</span></summary><div class="view-options-body">
       <label class="appearance-control">Appearance <select data-appearance-choice><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select></label>
-      <label class="mode-control"><input type="checkbox" id="advanced-toggle" aria-describedby="mode-help"> Advanced mode</label>
+      <div class="mode-control"><label for="advanced-toggle">Advanced mode</label><div class="mode-switch"><input type="checkbox" role="switch" id="advanced-toggle" aria-describedby="mode-help"><span id="mode-state" aria-hidden="true">Off</span></div></div>
       <p id="mode-help">Keep SQL, model settings, data names, and technical details visible across your workspace.</p>
     </div></details>
   </header>

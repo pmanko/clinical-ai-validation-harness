@@ -291,7 +291,16 @@ reuse/Run/successor-save proof are recorded separately before closing these
 acceptance items. Harness [#125](https://github.com/pmanko/clinical-ai-validation-harness/pull/125)
 merged the compatible pin as `61ea6fd`. Local services were updated and wrapper
 health checks passed with retained data; the working UI is served directly for
-ongoing development. The on/off Advanced mode switch is the current follow-up.
+ongoing development. Catalyst [#93](https://github.com/DIGI-UW/catalyst-ai/pull/93) adds the on/off
+Advanced mode switch and fixes the source identity defect exposed by live reuse:
+the raw session stores its source in provenance, while Dataset save previously
+read a missing top-level field and defaulted to OpenELIS. Saving now uses the
+recorded identity and refuses to guess a missing source. A regression through
+the real operating store and public save route failed for both source identifiers
+before the fix and passed afterward. All 83 focused Gateway, saved-object and
+canonical Superset fixture tests passed, with formatting/lint checks. The
+compatible local refresh and renewed live reuse proof remain in progress; this
+is not server or owner acceptance. The preview assets include the same switch.
 
 ## Dashboard functionality — arrangement and publication
 

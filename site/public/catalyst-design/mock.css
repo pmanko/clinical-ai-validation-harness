@@ -165,8 +165,13 @@ body.data-open main { padding-left: 24px; padding-right: 24px; }
 .view-options > summary { color: var(--muted); padding: 8px; white-space: nowrap; }
 .view-options-body { position: absolute; z-index: 8; right: 0; top: 100%; width: 280px; padding: 20px; border: 1px solid var(--control-border); border-radius: 10px; background: var(--layer); box-shadow: 0 8px 28px var(--shadow); }
 .view-options .appearance-control { justify-content: space-between; margin-bottom: 20px; font-size: 14px; }
-.view-options .mode-control { display: flex; align-items: center; gap: 10px; font-size: 15px; min-height: 44px; margin: 0; }
-.mode-control input { width: 18px; height: 18px; margin: 0; accent-color: var(--primary); }
+.view-options .mode-control { display: grid; gap: 8px; font-size: 14px; margin: 0; }
+.mode-control label { margin: 0; }
+.mode-switch { display: flex; align-items: center; gap: 8px; min-height: 44px; }
+.mode-control input { appearance: none; position: relative; width: 48px; height: 24px; margin: 0; padding: 0; border: 0; border-radius: 12px; background: #777; cursor: pointer; }
+.mode-control input::before { content: ""; position: absolute; width: 18px; height: 18px; left: 3px; top: 3px; border-radius: 50%; background: white; }
+.mode-control input:checked { background: var(--primary); }
+.mode-control input:checked::before { transform: translateX(24px); }
 .view-options p { font-size: 13px; color: var(--muted); margin: 6px 0 0; }
 #mode-indicator { color: var(--action-text); }
 .data-browser summary .relation-name { display: none; margin-top: 6px; }
