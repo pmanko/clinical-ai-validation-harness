@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script src="appearance.js?v=3"></script>
+  <link rel="stylesheet" href="appearance.css?v=4">
+  <title>Catalyst · Explore your data</title>
+  <link rel="stylesheet" href="mock.css?v=7">
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+  <header class="app-header">
+    <a class="brand" href="?state=empty"><span class="brand-mark" aria-hidden="true">C</span> Catalyst</a>
+    <nav aria-label="Main navigation">
+      <button class="nav-button" data-section="workbench" aria-current="page">Explore</button>
+      <button class="nav-button" data-section="datasets" id="saved-nav">Saved work</button>
+    </nav>
+    <div class="source-context"><span>Using <strong id="rail-source">OpenELIS Laboratory</strong></span><button class="text-button" data-dialog="source">Change data</button></div>
+    <details class="view-options" id="view-options"><summary>View options<span id="mode-indicator" hidden> · Advanced</span></summary><div class="view-options-body">
+      <label class="appearance-control">Appearance <select data-appearance-choice><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select></label>
+      <label class="mode-control"><input type="checkbox" id="advanced-toggle" aria-describedby="mode-help"> Advanced mode</label>
+      <p id="mode-help">Keep SQL, model settings, data names, and technical details visible across your workspace.</p>
+    </div></details>
+  </header>
+  <main id="main" tabindex="-1">
+    <header class="page-header"><div><p class="eyebrow" id="eyebrow">EXPLORE YOUR DATA</p><h1 id="page-title">What would you like to find out?</h1><p id="page-description">Start with a question, in your own words.</p></div><div class="page-tools"><button class="text-button" data-browse aria-expanded="false" aria-controls="data-browser">What data is available?</button></div></header>
+    <section id="advanced-tools" class="advanced-tools" aria-label="Advanced mode" hidden><p>AI profile: <strong id="profile-summary">Gemma + Qwen</strong></p><button class="text-button" data-dialog="ai">Query settings</button><p class="small muted">Advanced mode is on across your workspace. Your question, query and results stay the same.</p></section>
+    <nav id="library-nav" class="library-nav" aria-label="Saved work" hidden><button data-section="datasets">Saved queries</button><button data-section="widgets">Charts and tables</button><button data-section="dashboards">Dashboards</button></nav>
+    <section id="content" aria-label="Workspace"></section>
+  </main>
+  <section id="composer" class="composer" aria-label="Question composer">
+    <div class="composer-heading"><label for="question" id="question-label">Your question</label><button id="expand" class="text-button" type="button" aria-expanded="false" aria-controls="question">Expand writing area</button></div>
+    <p class="context" id="question-context"></p>
+    <form id="question-form">
+      <textarea id="question" rows="3" aria-describedby="question-context question-help" placeholder="Write your question here…"></textarea>
+      <div class="composer-actions"><button class="text-button" type="button" data-dialog="ai">Query settings</button><button id="prepare" type="submit">Continue <span aria-hidden="true">→</span></button></div>
+      <p id="question-help">Review the request before retrieving data. Ctrl / ⌘ + Enter to continue.</p>
+      <p id="composer-error" class="error-text" role="alert" hidden>Enter a question first.</p>
+    </form>
+  </section>
+  <aside id="data-browser" class="data-browser" aria-labelledby="data-title" hidden>
+    <div class="data-browser-heading"><h2 id="data-title">Available data</h2><button class="text-button" id="close-data" aria-label="Close available data">Close</button></div>
+    <p class="data-source" id="data-source"></p>
+    <p>See what you can ask about. Open an item to explore its fields, and keep writing your question below.</p>
+    <button class="text-button" id="return-to-question">Back to your question ↓</button>
+    <label for="search-data">Find data or a field</label>
+    <input id="search-data" type="search" placeholder="Search names or descriptions" aria-controls="data-list" autocomplete="off">
+    <p id="data-count" class="data-count" role="status"></p>
+    <ul id="data-list" class="data-list"></ul>
+    <div id="data-no-matches" hidden><p>No data matches your search. Try another term or view all data.</p><button class="text-button" id="clear-data-search">Clear search</button></div>
+    <p class="data-footnote">Design example: three fictional tables and descriptions. The product includes every readable table, view, and field from the selected source. This shows the data structure, not patient records.</p>
+  </aside>
+  <dialog id="panel" aria-labelledby="panel-title"><div class="panel-header"><h2 id="panel-title"></h2><button class="text-button" id="close-panel" aria-label="Close panel">Close</button></div><div id="panel-body"></div><div id="panel-footer"></div></dialog>
+  <div id="notice" class="notice" role="status" hidden></div>
+  <script src="mock.js?v=3"></script>
+</body>
+</html>

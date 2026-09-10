@@ -40,11 +40,11 @@
     },
     {
       "id": "catalyst-design",
-      "title": "Catalyst frozen design preview",
+      "title": "Approved Catalyst staff Workbench design preview",
       "url": "https://pmanko.github.io/clinical-ai-validation-harness/catalyst-design/",
       "role": "Interactive visual acceptance reference",
-      "status": "Published from the frozen design merged in Catalyst #82; fictional examples and no product requests",
-      "source": "site/public/catalyst-design/index.html",
+      "status": "Owner-frozen staff Workbench design from Catalyst #81, retained through #82. Fictional examples and no product requests.",
+      "source": "targets/catalyst/docs/specs/staff-workbench-ux/ → site/public/catalyst-design/",
       "next_update": "Keep frozen for side-by-side implementation review; replace only through an approved design amendment."
     },
     {
