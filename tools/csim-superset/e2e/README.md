@@ -144,3 +144,8 @@ The snapshot's native export/import check and full numerical assertions run
 before the browser comparison of Month/Quarter/Year with Hour/Day/Week.
 
 The same six full-dashboard browser workflows also run against the snapshot in CI.
+
+To validate an overview before publishing it, set `CSIM_OVERVIEW_URL` to its local
+preview and `CSIM_PUBLIC_OVERVIEW_URL` to its published destination. Evidence
+records both addresses and links readers to the published overview. Dashboard
+requests and recordings still use `CSIM_BASE_URL` (or the selected target).

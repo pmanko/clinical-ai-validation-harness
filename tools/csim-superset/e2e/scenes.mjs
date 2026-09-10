@@ -1,9 +1,9 @@
 // Captions describe the visible checkpoint after its dashboard assertions pass.
 import { publication } from './policy.mjs';
 const captions = {
- 'preview-csim-options':['CSiM · snapshot','This dashboard offers Month, Quarter and Year. The server still supports finer time units.'],
+ 'preview-csim-options':['Newer Superset · CSiM','Month, Quarter and Year are saved for this dashboard. Other dashboards can use different units.'],
  'preview-csim-quarter':['CSiM · Quarter','Q1 remains 10% after changing the reporting unit.'],
- 'preview-hourly-options':['Another dashboard · same snapshot','Hour, Day and Week are available here, independently of the CSiM menu.'],
+ 'preview-hourly-options':['Newer Superset · hourly dashboard','Hour, Day and Week are available on the same installation. CSiM keeps its own list.'],
  'preview-daily-totals':['Day · same records','Forty-eight hourly observations become two daily totals of 72 specimens each.'],
  'overview-and-available-examples':['Start here','Original issues, demonstrated solutions, and unresolved issues have separate sections.'],
  'available-dashboards-and-evidence':['Choose a resource','Open the working dashboard, watch a workflow, or download its native definition files.'],
@@ -25,7 +25,7 @@ const captions = {
  'restored-defaults':['Restore defaults','Reopening the dashboard restores hospital 91 and Cohort, Inpatient, and the monthly results.'],
  'issue-to-recorded-workflow':['Issue → evidence','The date issue opens its matching recording, expected result and dashboard link.'],
  'return-to-overview':['Dashboard → overview','The dashboard and evidence both provide a return path to the guide.'],
- 'month-quarter-year-options':['Time Unit · workaround only','Month, Quarter and Year work here because the entire demo instance uses those choices.'],
+ 'month-quarter-year-options':['Superset 6.1.0 · workaround','Month, Quarter and Year are available. The same restriction applies to every dashboard on this installation.'],
  'hospital-only-options':['Hospital selector · fixed','Your hospital lists hospital numbers only.'],
  'comparison-only-options':['Comparison selector · fixed','Cohort/State lists comparison groups separately from hospital numbers.'],
  'table-of-contents-section':['Section navigation · fixed','The table of contents moves to a section inside the same dashboard.'],

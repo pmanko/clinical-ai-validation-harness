@@ -10,7 +10,7 @@ test.afterEach(async ({page},info) => finishRecording(page,info));
 test('01 · Understand the problems and reveal supporting detail', async ({ page }, info) => {
   await page.goto(overviewURL);
   await expect(page.getByRole('heading', { name: 'What is available to use' })).toBeVisible();
-  const snapshotLink=page.locator('#snapshot-resource').getByRole('link',{name:'Open CSiM snapshot ↗',exact:true});
+  const snapshotLink=page.locator('#snapshot-resource').getByRole('link',{name:'Open CSiM in newer Superset ↗',exact:true});
   expect(await snapshotLink.evaluate(link=>link.href)).toBe('https://catalyst.openelis-global.org/superset-preview/superset/dashboard/csim-full-synthetic/');
   await expect(page.locator('details[open]')).toHaveCount(0);
   await capture(page, info, 'overview-and-available-examples');
@@ -48,6 +48,10 @@ test('07 · Follow an issue to evidence, the dashboard and back', async ({page, 
   const workflow=page.locator('#time-grouping');
   await expect(workflow.getByRole('heading',{name:'Dates, missing periods and grouping'})).toBeInViewport();
   await expect(workflow.getByText('Expected result',{exact:true})).toBeVisible();
+  await expect(page.locator('#filter-options .version')).toHaveText('Superset 6.1.0 · released version');
+  await expect(page.locator('#dashboard-time-units .version')).toHaveText('Newer Superset build · unreleased');
+  await expect(page.locator('#filter-options').getByRole('link',{name:'Compare with the per-dashboard fix ↓'})).toHaveAttribute('href','#dashboard-time-units');
+  await expect(page.locator('#dashboard-time-units').getByRole('link',{name:'Compare with the 6.1.0 workaround ↑'})).toHaveAttribute('href','#filter-options');
   await capture(page,info,'issue-to-recorded-workflow');
   const newPage=context.waitForEvent('page');
   await workflow.getByRole('link',{name:'Try in the full dashboard ↗',exact:true}).click();

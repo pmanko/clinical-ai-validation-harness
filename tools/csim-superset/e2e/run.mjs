@@ -15,7 +15,7 @@ for (const folder of ['dashboards','charts','datasets','databases']) {
 }
 if(process.env.CSIM_PREVIEW_EVIDENCE === '1') files.push('preview.json','preview.sh','preview_setup.py','verify_preview_import.py','preview_config.py','compose.preview.yaml','compose.preview.server.yaml');
 files.push('bundle/metadata.yaml','bundle/manifest.json','bundle.py','verify_bundle.py','e2e/video/render.py','e2e/video/requirements.txt');
-const provenance = { timestamp: stamp, target, baseURL, overviewURL, previewURL, snapshot: process.env.CSIM_PREVIEW_EVIDENCE === '1' ? JSON.parse(fs.readFileSync(path.join(root,'preview.json'))) : null, fixture: '262 invented records; hospitals 91 and 92; November 2025-May 2026', gitHead: execFileSync('git',['rev-parse','HEAD'],{cwd:root,encoding:'utf8'}).trim(), files: Object.fromEntries(files.map(f=>[f,sha(path.join(root,f))])) };
+const provenance = { timestamp: stamp, target, baseURL, overviewURL, publicOverviewURL: process.env.CSIM_PUBLIC_OVERVIEW_URL || overviewURL, previewURL, snapshot: process.env.CSIM_PREVIEW_EVIDENCE === '1' ? JSON.parse(fs.readFileSync(path.join(root,'preview.json'))) : null, fixture: '262 invented records; hospitals 91 and 92; November 2025-May 2026', gitHead: execFileSync('git',['rev-parse','HEAD'],{cwd:root,encoding:'utf8'}).trim(), files: Object.fromEntries(files.map(f=>[f,sha(path.join(root,f))])) };
 fs.writeFileSync(path.join(runDir,'workflow-guide.json'),JSON.stringify(workflowGuide,null,2));
 fs.writeFileSync(path.join(runDir,'publication.json'),JSON.stringify(publication,null,2));
 fs.writeFileSync(path.join(runDir,'provenance.json'),JSON.stringify(provenance,null,2));

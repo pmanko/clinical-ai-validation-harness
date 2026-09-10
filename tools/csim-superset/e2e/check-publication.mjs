@@ -41,8 +41,18 @@ try {
   }
   await page.goto(galleryURL);
   await expect(page.locator('video')).toHaveCount(publication.workflowIds.length);
-  await expect(page.locator('#filter-options .gap')).toContainText('instance-wide workaround');
+  await expect(page.locator('#filter-options .gap')).toHaveText('Workaround only');
+  await expect(page.locator('#filter-options .version')).toHaveText('Superset 6.1.0 · released version');
+  await expect(page.locator('#dashboard-time-units .pass')).toHaveText('Fix demonstrated');
+  await expect(page.locator('#dashboard-time-units .version')).toHaveText('Newer Superset build · unreleased');
+  await expect(page.locator('#filter-options + #dashboard-time-units')).toHaveCount(1);
+  assert.deepEqual(summary.workflows.find(w=>w.id==='filter-options').assets.filter(a=>a.type==='image/png').map(a=>a.name),['month-quarter-year-options']);
   await page.screenshot({ path: path.join(output, 'gallery-desktop.png') });
+  await page.locator('#filter-options').scrollIntoViewIfNeeded();
+  await page.screenshot({ path: path.join(output, 'time-workaround-desktop.png') });
+  await page.locator('#filter-options').getByRole('link',{name:'Compare with the per-dashboard fix ↓'}).click();
+  await expect(page.locator('#dashboard-time-units h2')).toBeInViewport();
+  await page.screenshot({ path: path.join(output, 'time-fix-desktop.png') });
   const playback = [];
   for (const workflow of summary.workflows) {
     const video = page.locator(`#${workflow.id} video`);
