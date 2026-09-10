@@ -2,9 +2,10 @@
 
 **Status:** Current delivery roadmap. The roadmap and compatible baseline are
 merged, and the specification set is consolidated. All four usability iterations
-are merged and the first local dual-source walkthrough passed. Owner review of
-the complete local usability design precedes Dashboard Builder functionality;
-final local/server evidence and owner acceptance remain open.
+are merged and the first local dual-source walkthrough passed. On 10 September
+2026 the owner authorized continuing into saved-work and Dashboard functionality,
+with minor padding and typography polish deferred. Final local/server evidence
+and final owner acceptance remain open.
 
 **Specification:** [spec.md](spec.md)
 

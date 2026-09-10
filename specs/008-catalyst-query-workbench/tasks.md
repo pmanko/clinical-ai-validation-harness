@@ -102,11 +102,14 @@ The approved disposition is in [the plan](plan.md#design-extension-review).
   screenshots were inspected privately. The existing UI suite passed 274 unit
   tests, type/lint/build and ten deterministic browser checks; documentation
   checks passed. The private preview is supplied through the owning task.
-- [ ] Review and merge the saved-work mock interaction before implementing it,
-  then update the Catalyst pin and public preview together. Catalyst #91 is a
-  draft; this preparation does not record owner feedback on the local UX gate
-  or begin Dashboard implementation. Follow-on A retains the combined
-  Widget/Dashboard request and SQL-dependent failure review.
+- [X] Review and merge the saved-work mock interaction before implementing it,
+  then update the Catalyst pin and public preview together. The owner approved
+  continuing on 10 September 2026. Catalyst
+  [#91](https://github.com/DIGI-UW/catalyst-ai/pull/91) merged as `f925176` after
+  all five hosted checks passed. This integration pins that revision and copies
+  all six preview assets, with its specification link pinned to the same source.
+  Follow-on A retains the combined Widget/Dashboard request and SQL-dependent
+  failure review.
 - [X] Merge Catalyst [#85](https://github.com/DIGI-UW/catalyst-ai/pull/85), which
   consolidates the proposals and saved-SQL contract, and update the harness pin
   in [#117](https://github.com/pmanko/clinical-ai-validation-harness/pull/117).
@@ -193,8 +196,12 @@ The first local deployment and remaining acceptance are recorded below.
 - [X] Provide private side-by-side design evidence and a paced local walkthrough for
   asynchronous owner review; record implementation, deployment, self-validation,
   and owner feedback separately.
-- [ ] Start Dashboard functionality expansion only after feedback from this
-  local gate is recorded in the plan/tasks.
+- [X] Record owner feedback before starting Dashboard functionality expansion.
+  On 10 September 2026 the owner authorized continuing, with minor padding and
+  typography issues to polish later.
+- [ ] Polish padding and typography before final delivery, including the
+  composer/Run presentation on desktop and narrow layouts. This does not block
+  the approved saved-work and Dashboard implementation.
 
 Local implementation/deployment/self-validation, 10 September 2026: harness
 `e8f6cb3`, Catalyst `60cc7b5`, and Hub `75d0ff0` passed the strict repository-line
@@ -213,10 +220,11 @@ waits. The SQL reading view was scrolled clear of the panel footer before the
 final recording. Screenshots compare the approved mock with the deployed
 light/dark entry screen and result review.
 
-Owner feedback and acceptance remain open. Review the composer/Run spacing at a
-720-pixel window height, where the Run controls can require scrolling, as well as
-the current Carbon typography and panel proportions. This local UX proof does
-not close the later saved-work, server or Superset acceptance.
+Owner feedback was received on 10 September 2026: continue implementation and
+polish the minor padding and font presentation issues later. The local UX gate
+is cleared for saved-work and Dashboard functionality. Carry the composer/Run
+spacing at a 720-pixel window height and typography into final polish. This
+does not close the later saved-work, server, Superset or final owner acceptance.
 
 The live walkthrough exposed an incorrect execution URL in two browser-test
 observers. Catalyst [#89](https://github.com/DIGI-UW/catalyst-ai/pull/89), merged as
