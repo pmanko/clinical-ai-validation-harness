@@ -1,0 +1,445 @@
+{
+  "as_of": "2026-09-06",
+  "description": "Inventory of publication, product and operator surfaces. Public HTTP availability is distinct from runtime functionality. Local URLs are documented targets, not verified running services.",
+  "rows": [
+    {
+      "id": "public-home",
+      "title": "Open Clinical AI landing page",
+      "url": "https://openclinai.org/",
+      "role": "Public product summary and demonstrations",
+      "status": "HTTP 200; Spark demo copy is ahead of main",
+      "source": "landing/index.html",
+      "next_update": "Publish a reviewed current summary and link accepted evidence."
+    },
+    {
+      "id": "public-docs",
+      "title": "Public documentation and roadmap canvases",
+      "url": "https://pmanko.github.io/clinical-ai-validation-harness/",
+      "role": "Public architecture, research and navigation",
+      "status": "HTTP 200; application shell only checked",
+      "source": "site/nav.ts; site/App.tsx; specs/roadmap.canvas.tsx",
+      "next_update": "Align public canvas summaries with current authorities and link the reviewed status summary."
+    },
+    {
+      "id": "public-reports",
+      "title": "Published reports index",
+      "url": "https://reports.openclinai.org/",
+      "role": "Curated historical and current run catalog",
+      "status": "HTTP 200; 19 deployed entries versus 16 in main",
+      "source": "reports-index.json; scripts/build-reports-index.py",
+      "next_update": "Reconcile the three Catalyst entries and explicit report-family/method labels."
+    },
+    {
+      "id": "catalyst-app",
+      "title": "Catalyst live application",
+      "url": "https://catalyst.openelis-global.org/",
+      "role": "Product interaction and acceptance",
+      "status": "HTTP 200; functional behavior and deployed revision not checked today",
+      "source": "targets/catalyst/catalyst-ui",
+      "next_update": "Verify deployed revision after branch review and execute agreed product proof."
+    },
+    {
+      "id": "openmrs-app",
+      "title": "OpenMRS demonstration",
+      "url": "https://openmrs.openclinai.org/",
+      "role": "Clinical product interaction and acceptance",
+      "status": "HTTP 200; functional behavior and deployed revision not checked today",
+      "source": "scripts/chartsearchai-local.sh; scripts/dual-provider-up.sh",
+      "next_update": "Restore and record exact-revision two-provider proof."
+    },
+    {
+      "id": "spark-video",
+      "title": "FHIR-to-dashboard recording",
+      "url": "https://catalyst.openelis-global.org/media/catalyst-fhir-to-dashboard-demo-20260827.mp4",
+      "role": "Dated product demonstration",
+      "status": "HTTP 200; published August 27, duration 1:41",
+      "source": "Catalyst feat/spark-connection; landing/index.html",
+      "next_update": "Preserve provenance and link current accepted deployment; keep demonstration distinct from final acceptance."
+    },
+    {
+      "id": "catalyst-comparison",
+      "title": "Historical Catalyst three-team comparison",
+      "url": "https://reports.openclinai.org/catalyst-phase1-comparison/comparison.html",
+      "role": "Historical comparison report",
+      "status": "HTTP 200; PostgreSQL-era method and thresholds",
+      "source": "scripts/publish-catalyst-profile-comparison.py",
+      "next_update": "Label historical scope and link the future reader-led Spark comparison."
+    },
+    {
+      "id": "catalyst-conversations",
+      "title": "Historical Catalyst conversation grid",
+      "url": "https://reports.openclinai.org/catalyst-phase1-comparison/dashboard.html",
+      "role": "Case-level historical evidence",
+      "status": "HTTP 200; no fresh Spark comparison",
+      "source": "scripts/validate-dashboard.py --freeze --run",
+      "next_update": "Keep older run evidence immutable; create new output for the Spark run."
+    },
+    {
+      "id": "superset-local",
+      "title": "Superset rendered dashboard",
+      "url": "http://localhost:18088",
+      "role": "Product output and numeric evidence",
+      "status": "August 27 demonstration; not running or inspected locally today",
+      "source": "scripts/catalyst-mvp.sh superset-status",
+      "next_update": "Check import receipt, source connection and rendered output at chosen revisions."
+    },
+    {
+      "id": "pipes-local",
+      "title": "FHIR Data Pipes control panel",
+      "url": "http://localhost:18091",
+      "role": "Reference pipeline operation",
+      "status": "August 27 demonstration; not inspected locally today",
+      "source": "catalyst-sources/openmrs-hiv/config/thriftserver-hive-config.json",
+      "next_update": "Separate source databases before another OpenELIS seed."
+    },
+    {
+      "id": "repo-hub",
+      "title": "Repository project status hub",
+      "url": "https://pmanko.github.io/clinical-ai-validation-harness/status/",
+      "path": "specs/artifacts/project-status/README.md",
+      "role": "Versioned cross-project overview and evidence browser",
+      "status": "GitHub Pages publication prepared in harness #101; the private September 6 site remains a legacy snapshot",
+      "source": "site/status; JSON inventories and render.py",
+      "next_update": "Merge harness #101, verify the published Pages build, and refresh the repository inventory after meaningful work events."
+    },
+    {
+      "id": "tool-dashboard",
+      "title": "Live validation dashboard",
+      "url": "http://localhost:8099",
+      "role": "Inspect progress, model residency and each conversation.",
+      "status": "Run observation, not authoritative roadmap status or acceptance.",
+      "source": "scripts/validate-dashboard.py; Makefile",
+      "next_update": "Use the exact run and revision; preserve outputs and link them to the owning effort.",
+      "details": {
+        "id": "dashboard",
+        "name": "Live validation dashboard",
+        "purpose": "Inspect progress, model residency and each conversation.",
+        "entrypoints": [
+          "python3 scripts/validate-dashboard.py",
+          "make dashboard-ensure",
+          "DASH_RUN=<run-id-or-path> to pin an exact run"
+        ],
+        "inputs": [
+          "Clinical artifacts/validate/*",
+          "Catalyst artifacts/catalyst-notebook-validation/*"
+        ],
+        "outputs": [
+          "http://localhost:8099",
+          "--freeze --run static snapshot"
+        ],
+        "scope_limit": "Run observation, not authoritative roadmap status or acceptance.",
+        "sources": [
+          "scripts/validate-dashboard.py",
+          "Makefile"
+        ],
+        "live_verified": false
+      }
+    },
+    {
+      "id": "tool-clinical_runner",
+      "title": "Clinical comparison runner",
+      "url": "https://github.com/pmanko/clinical-ai-validation-harness/blob/4053352/harness/validate/runner.py",
+      "role": "Replay multi-turn scenarios through real provider path.",
+      "status": "Full comparative stage requires recorded product Signoff2.",
+      "source": "harness/validate/runner.py; harness/validate/models.py; Makefile",
+      "next_update": "Use the exact run and revision; preserve outputs and link them to the owning effort.",
+      "details": {
+        "id": "clinical_runner",
+        "name": "Clinical comparison runner",
+        "purpose": "Replay multi-turn scenarios through real provider path.",
+        "entrypoints": [
+          "make validate-run SET=<set> REFERENCE_DATE=<date>",
+          "harness-cli validate run"
+        ],
+        "inputs": [
+          "scenario JSON",
+          "comparison-set JSON",
+          "backend/profile configuration"
+        ],
+        "outputs": [
+          "run_manifest.json",
+          "run_meta.json",
+          "events.jsonl",
+          "results.jsonl"
+        ],
+        "scope_limit": "Full comparative stage requires recorded product Signoff2.",
+        "sources": [
+          "harness/validate/runner.py",
+          "harness/validate/models.py",
+          "Makefile"
+        ],
+        "live_verified": false
+      }
+    },
+    {
+      "id": "tool-judge_pipeline",
+      "title": "Clinical machine review pipeline",
+      "url": "https://github.com/pmanko/clinical-ai-validation-harness/blob/4053352/Makefile",
+      "role": "Prepare full evidence, retain separate judge actors and finalize recorded results.",
+      "status": "Preparation/finalization do not themselves invoke a judge; historical Claude fan-out is described separately. Do not use clinical aggregate scores as Catalyst rules.",
+      "source": "Makefile; scripts/judge-prep.py; scripts/judge-finalize.py",
+      "next_update": "Use the exact run and revision; preserve outputs and link them to the owning effort.",
+      "details": {
+        "id": "judge_pipeline",
+        "name": "Clinical machine review pipeline",
+        "purpose": "Prepare full evidence, retain separate judge actors and finalize recorded results.",
+        "entrypoints": [
+          "make validate-judge-prep RUN=<id>",
+          "make validate-judge-finalize RUN=<id> ROWS=<file> JUDGE_ACTOR=<id>"
+        ],
+        "inputs": [
+          "final answers/blocks/sources",
+          "chart snapshots",
+          "judge output rows"
+        ],
+        "outputs": [
+          "judge-cells.jsonl",
+          "judge.jsonl",
+          "judges/<actor>/judge.jsonl"
+        ],
+        "scope_limit": "Preparation/finalization do not themselves invoke a judge; historical Claude fan-out is described separately. Do not use clinical aggregate scores as Catalyst rules.",
+        "sources": [
+          "Makefile",
+          "scripts/judge-prep.py",
+          "scripts/judge-finalize.py"
+        ],
+        "live_verified": false
+      }
+    },
+    {
+      "id": "tool-human_adjudication",
+      "title": "Human review",
+      "url": "https://github.com/pmanko/clinical-ai-validation-harness/blob/4053352/harness/validate/adjudicate.py",
+      "role": "Capture named reviewer scores and rationale against a displayed case.",
+      "status": "Availability of UI/tool is not completed clinician review.",
+      "source": "harness/validate/adjudicate.py; Makefile",
+      "next_update": "Use the exact run and revision; preserve outputs and link them to the owning effort.",
+      "details": {
+        "id": "human_adjudication",
+        "name": "Human review",
+        "purpose": "Capture named reviewer scores and rationale against a displayed case.",
+        "entrypoints": [
+          "make validate-adjudicate RUN=<id> REVIEWER=<id>",
+          "harness-cli validate adjudicate"
+        ],
+        "inputs": [
+          "judge rows",
+          "sample mode",
+          "chart and source artifacts"
+        ],
+        "outputs": [
+          "adjudication.jsonl",
+          "feedback export"
+        ],
+        "scope_limit": "Availability of UI/tool is not completed clinician review.",
+        "sources": [
+          "harness/validate/adjudicate.py",
+          "Makefile"
+        ],
+        "live_verified": false
+      }
+    },
+    {
+      "id": "tool-report_generator",
+      "title": "Clinical static report",
+      "url": "https://github.com/pmanko/clinical-ai-validation-harness/blob/4053352/harness/validate/report.py",
+      "role": "Render complete runs and independent review views.",
+      "status": "Current render must be tied to exact input version; historical report methods remain explicit.",
+      "source": "harness/validate/report.py; harness/report_shell/assets.py",
+      "next_update": "Use the exact run and revision; preserve outputs and link them to the owning effort.",
+      "details": {
+        "id": "report_generator",
+        "name": "Clinical static report",
+        "purpose": "Render complete runs and independent review views.",
+        "entrypoints": [
+          "make validate-report RUN=<id>"
+        ],
+        "inputs": [
+          "manifest",
+          "results",
+          "events",
+          "judges",
+          "adjudication",
+          "model/trace provenance"
+        ],
+        "outputs": [
+          "report.html"
+        ],
+        "scope_limit": "Current render must be tied to exact input version; historical report methods remain explicit.",
+        "sources": [
+          "harness/validate/report.py",
+          "harness/report_shell/assets.py"
+        ],
+        "live_verified": false
+      }
+    },
+    {
+      "id": "tool-report_publication",
+      "title": "Report staging and publication",
+      "url": "https://github.com/pmanko/clinical-ai-validation-harness/blob/4053352/scripts/stage-report.py",
+      "role": "Stage an explicit report then publish and index it.",
+      "status": "External mutation requires user authorization; publication does not certify clinical acceptance.",
+      "source": "scripts/stage-report.py; scripts/publish-report.sh; scripts/validate-publish.sh; scripts/build-reports-index.py",
+      "next_update": "Use the exact run and revision; preserve outputs and link them to the owning effort.",
+      "details": {
+        "id": "report_publication",
+        "name": "Report staging and publication",
+        "purpose": "Stage an explicit report then publish and index it.",
+        "entrypoints": [
+          "scripts/stage-report.py",
+          "scripts/publish-report.sh",
+          "make validate-publish RUN=<id> SLUG=<slug>",
+          "scripts/build-reports-index.py"
+        ],
+        "inputs": [
+          "run artifacts",
+          "reports-index.json"
+        ],
+        "outputs": [
+          "staged report corpus",
+          "public reports index"
+        ],
+        "scope_limit": "External mutation requires user authorization; publication does not certify clinical acceptance.",
+        "sources": [
+          "scripts/stage-report.py",
+          "scripts/publish-report.sh",
+          "scripts/validate-publish.sh",
+          "scripts/build-reports-index.py"
+        ],
+        "live_verified": false
+      }
+    },
+    {
+      "id": "tool-provider_parity",
+      "title": "Engine request capture and parity",
+      "url": "https://github.com/pmanko/clinical-ai-validation-harness/blob/4053352/scripts/engine-tap.py",
+      "role": "Compare provider requests and shared mandatory evidence.",
+      "status": "Identical answers are not required; approved residual differences remain explicit.",
+      "source": "scripts/engine-tap.py; scripts/parity-engine-probe.py; scripts/parity-engine-diff.py; datasets/validation/conformance/engine-parity.v1.json",
+      "next_update": "Use the exact run and revision; preserve outputs and link them to the owning effort.",
+      "details": {
+        "id": "provider_parity",
+        "name": "Engine request capture and parity",
+        "purpose": "Compare provider requests and shared mandatory evidence.",
+        "entrypoints": [
+          "scripts/engine-tap.py",
+          "scripts/parity-engine-probe.py",
+          "scripts/parity-engine-diff.py"
+        ],
+        "inputs": [
+          "real provider requests",
+          "engine-parity.v1.json"
+        ],
+        "outputs": [
+          "probe-manifest.json",
+          "captured requests",
+          "parity-diff.json"
+        ],
+        "scope_limit": "Identical answers are not required; approved residual differences remain explicit.",
+        "sources": [
+          "scripts/engine-tap.py",
+          "scripts/parity-engine-probe.py",
+          "scripts/parity-engine-diff.py",
+          "datasets/validation/conformance/engine-parity.v1.json"
+        ],
+        "live_verified": false
+      }
+    },
+    {
+      "id": "tool-acceptance_gates",
+      "title": "Dual-provider acceptance evaluator",
+      "url": "https://github.com/pmanko/clinical-ai-validation-harness/blob/4053352/scripts/verify_dual_provider_parity_gates.py",
+      "role": "Validate static ownership and fresh exact-revision artifact-bound observations.",
+      "status": "Default evidence age14 days; evaluates artifact values rather than trusting asserted success. Deferral and owner acceptance remain explicit.",
+      "source": "scripts/verify_dual_provider_parity_gates.py; scripts/verify-dual-provider-parity-gates.sh",
+      "next_update": "Use the exact run and revision; preserve outputs and link them to the owning effort.",
+      "details": {
+        "id": "acceptance_gates",
+        "name": "Dual-provider acceptance evaluator",
+        "purpose": "Validate static ownership and fresh exact-revision artifact-bound observations.",
+        "entrypoints": [
+          "scripts/verify-dual-provider-parity-gates.sh --phase full"
+        ],
+        "inputs": [
+          "clean component trees",
+          "source suites",
+          "structured evidence manifest",
+          "hash-bound artifacts"
+        ],
+        "outputs": [
+          "per-gate outcomes"
+        ],
+        "scope_limit": "Default evidence age14 days; evaluates artifact values rather than trusting asserted success. Deferral and owner acceptance remain explicit.",
+        "sources": [
+          "scripts/verify_dual_provider_parity_gates.py",
+          "scripts/verify-dual-provider-parity-gates.sh"
+        ],
+        "live_verified": false
+      }
+    },
+    {
+      "id": "tool-runtime_identity",
+      "title": "Build/deploy identity",
+      "url": "https://github.com/pmanko/clinical-ai-validation-harness/blob/4053352/scripts/artifact-provenance.py",
+      "role": "Record source revisions and content hashes for deployed artifacts.",
+      "status": "Old valid hashes establish recovery integrity, not current runtime availability.",
+      "source": "scripts/artifact-provenance.py; scripts/probe-chartsearchai-relay.py",
+      "next_update": "Use the exact run and revision; preserve outputs and link them to the owning effort.",
+      "details": {
+        "id": "runtime_identity",
+        "name": "Build/deploy identity",
+        "purpose": "Record source revisions and content hashes for deployed artifacts.",
+        "entrypoints": [
+          "scripts/artifact-provenance.py",
+          "scripts/probe-chartsearchai-relay.py"
+        ],
+        "inputs": [
+          "component source",
+          "OMOD/frontend artifacts",
+          "live relay"
+        ],
+        "outputs": [
+          "artifact_build_provenance.v1",
+          "chartsearchai_relay_probe.v2"
+        ],
+        "scope_limit": "Old valid hashes establish recovery integrity, not current runtime availability.",
+        "sources": [
+          "scripts/artifact-provenance.py",
+          "scripts/probe-chartsearchai-relay.py"
+        ],
+        "live_verified": false
+      }
+    },
+    {
+      "id": "tool-repository_lines",
+      "title": "Repository and publication checks",
+      "url": "https://github.com/pmanko/clinical-ai-validation-harness/blob/4053352/scripts/verify-repository-lines.sh",
+      "role": "Verify owned-repository branch and OpenMRS publication identities.",
+      "status": "Read current GitHub state; status Markdown is not a substitute.",
+      "source": "scripts/verify-repository-lines.sh",
+      "next_update": "Use the exact run and revision; preserve outputs and link them to the owning effort.",
+      "details": {
+        "id": "repository_lines",
+        "name": "Repository and publication checks",
+        "purpose": "Verify owned-repository branch and OpenMRS publication identities.",
+        "entrypoints": [
+          "scripts/verify-repository-lines.sh",
+          "scripts/verify-repository-lines.sh --check-publication-prs"
+        ],
+        "inputs": [
+          "local git lines",
+          "remote branches",
+          "GitHub PR/check metadata"
+        ],
+        "outputs": [
+          "branch/pin/publication gate result"
+        ],
+        "scope_limit": "Read current GitHub state; status Markdown is not a substitute.",
+        "sources": [
+          "scripts/verify-repository-lines.sh"
+        ],
+        "live_verified": false
+      }
+    }
+  ]
+}

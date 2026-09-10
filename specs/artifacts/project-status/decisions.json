@@ -1,0 +1,71 @@
+{
+  "as_of": "2026-09-06",
+  "description": "Open decisions and concrete findings requiring a next action. The inventory does not assign new acceptance conditions or reopen explicitly deferred work.",
+  "rows": [
+    {
+      "id": "source-separation",
+      "title": "Separate OpenELIS and OpenMRS Spark databases",
+      "state": "Open deployment choice",
+      "next_action": "Choose an explicitly HIV-only configuration first, or separate Spark databases before enabling both ingestion pipelines.",
+      "source": "https://github.com/pmanko/clinical-ai-validation-harness/blob/2cf3de8/specs/artifacts/findings/two-sources-share-one-spark-namespace.md"
+    },
+    {
+      "id": "execution-guarantees",
+      "title": "Accept or correct declared Spark execution limits",
+      "state": "Owner review remains",
+      "next_action": "Review Parquet write protection, unprotected table definitions, and client cancellation against the intended demo acceptance.",
+      "source": "https://github.com/DIGI-UW/openelis-catalyst/blob/ce07504/catalyst-gateway/src/catalyst/dialects.py#L207"
+    },
+    {
+      "id": "old-pr-disposition",
+      "title": "Disposition of nine older upstream pull requests",
+      "state": "Reviewed; retention decisions remain",
+      "next_action": "Retain or defer startup privilege provisioning, bundled-model management and wanted conversation behavior before closing older PRs.",
+      "source": "specs/artifacts/project-status/reviews/2026-09-06.md"
+    },
+    {
+      "id": "comparison-wrapper",
+      "title": "Comparison wrapper imports a removed function",
+      "state": "Confirmed source inconsistency",
+      "next_action": "Repair startup import and retired database plumbing before attempting the fresh collection.",
+      "source": "https://github.com/pmanko/clinical-ai-validation-harness/blob/2cf3de8/scripts/catalyst-comparison.sh#L29"
+    },
+    {
+      "id": "clinical-acceptance",
+      "title": "Final two-provider live acceptance",
+      "state": "Open",
+      "next_action": "Choose reconciled revisions, rebuild, rerun bounded product proof and record explicit owner decision.",
+      "source": "specs/artifacts/planning/openmrs-dual-provider-parity-roadmap-status.md"
+    },
+    {
+      "id": "report-source-drift",
+      "title": "Deployed report index and repository disagree",
+      "state": "Confirmed publication drift",
+      "next_action": "Reconcile three deployed-only Catalyst entries and correct family labels before next index publication.",
+      "source": "https://reports.openclinai.org/reports-index.json"
+    },
+    {
+      "id": "prefix-reuse",
+      "title": "Full-chart prompt-prefix reuse",
+      "state": "Deferred by owner",
+      "next_action": "Leave deferred unless the full-chart deployment target becomes near-term.",
+      "source": "specs/artifacts/planning/openmrs-dual-provider-parity-roadmap-status.md#L82"
+    },
+    {
+      "id": "clinical-terminal-exception",
+      "title": "Preserve terminal outcome after a Hub transport exception",
+      "state": "Resolved on PR head",
+      "next_action": "Complete upstream review and live paired acceptance for PR #157.",
+      "source": "https://github.com/openmrs/openmrs-module-chartsearchai/pull/157",
+      "effort": "clinical.dual_provider"
+    },
+    {
+      "id": "spark-export-literals",
+      "title": "Compile Superset parameters for the selected SQL dialect",
+      "state": "Confirmed compiler mismatch",
+      "next_action": "Correct date-time and escaped-string output for Spark and verify representative exports against the selected connection.",
+      "source": "https://github.com/DIGI-UW/openelis-catalyst/blob/ce07504bcd7cb295527e62df6b12586b127f2c1b/catalyst-gateway/src/catalyst/dashboard_builder.py#L123",
+      "effort": "CAT-E01"
+    }
+  ]
+}

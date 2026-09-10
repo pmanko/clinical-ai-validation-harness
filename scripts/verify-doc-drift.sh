@@ -52,6 +52,10 @@ ALWAYS_ALLOW = {
     "tests/test_hub_consolidation_gate_script.py",
     "tests/test_chartsearchai_local.py",
     "specs/artifacts/planning/hub-consolidation-roadmap.md",
+    # These retain verbatim GitHub pull-request titles as dated inventory data;
+    # they are status evidence, not product-behavior authorities.
+    "specs/artifacts/project-status/pull-requests.json",
+    "specs/artifacts/project-status/pull-requests.md",
     "targets/chartsearchai/api/src/test/java/org/openmrs/module/chartsearchai/api/impl/ArchitectureGuardTest.java",
 }
 

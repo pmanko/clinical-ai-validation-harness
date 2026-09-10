@@ -163,6 +163,43 @@ def test_documentation_gate_passes_the_current_dual_provider_docs():
     assert "PASS: scanned 7 repos" in result.stdout
 
 
+def test_dated_inventory_exemption_does_not_exempt_current_product_docs(tmp_path):
+    # Run the real scanner on a small Git repository. This probes term routing;
+    # the separate full-repository test covers required architecture statements.
+    script = tmp_path / "scripts/verify-doc-drift.sh"
+    script.parent.mkdir()
+    script.write_text(DOC_SCRIPT.read_text(encoding="utf-8"), encoding="utf-8")
+    (tmp_path / "README.md").write_text(
+        "ModelSwitchService is active.\n", encoding="utf-8"
+    )
+    inventory = tmp_path / "specs/artifacts/project-status"
+    inventory.mkdir(parents=True)
+    for name in ("pull-requests.json", "pull-requests.md"):
+        (inventory / name).write_text('"ModelSwitchService"\n', encoding="utf-8")
+    subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
+    subprocess.run(
+        [
+            "git",
+            "-C",
+            str(tmp_path),
+            "add",
+            "README.md",
+            "scripts/verify-doc-drift.sh",
+            "specs/artifacts/project-status/pull-requests.json",
+            "specs/artifacts/project-status/pull-requests.md",
+        ],
+        check=True,
+    )
+    result = subprocess.run(
+        ["bash", str(script)], capture_output=True, text=True, check=False
+    )
+    output = result.stdout + result.stderr
+    assert result.returncode == 1
+    assert "README.md: removed Java model switching" in output
+    assert "pull-requests.json: removed Java model switching" not in output
+    assert "pull-requests.md: removed Java model switching" not in output
+
+
 def test_consolidation_gate_script_executes_the_red_baseline(tmp_path):
     env = dict(os.environ)
     env["HUB_VENV"] = str(tmp_path / "missing-hub-venv")

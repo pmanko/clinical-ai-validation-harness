@@ -1,0 +1,371 @@
+[
+  {
+    "url": "https://reports.openclinai.org/aloice-run-5arm-2026-06-04/index.html",
+    "status": 200,
+    "final_url": "https://reports.openclinai.org/aloice-run-5arm-2026-06-04/index.html",
+    "content_type": "text/html; charset=utf-8",
+    "content_length": "504131",
+    "checked_at": "2026-09-06",
+    "scope": "HTTP availability only"
+  },
+  {
+    "url": "https://reports.openclinai.org/answer-indepth-parity-2026-06-21/dashboard.html",
+    "status": 200,
+    "final_url": "https://reports.openclinai.org/answer-indepth-parity-2026-06-21/dashboard.html",
+    "content_type": "text/html; charset=utf-8",
+    "content_length": "749648",
+    "checked_at": "2026-09-06",
+    "scope": "HTTP availability only"
+  },
+  {
+    "url": "https://reports.openclinai.org/answer-indepth-parity-2026-06-21/index.html",
+    "status": 200,
+    "final_url": "https://reports.openclinai.org/answer-indepth-parity-2026-06-21/index.html",
+    "content_type": "text/html; charset=utf-8",
+    "content_length": "612322",
+    "checked_at": "2026-09-06",
+    "scope": "HTTP availability only"
+  },
+  {
+    "url": "https://reports.openclinai.org/catalyst-notebook-t094-2026-07-22/index.html",
+    "status": 200,
+    "final_url": "https://reports.openclinai.org/catalyst-notebook-t094-2026-07-22/index.html",
+    "content_type": "text/html; charset=utf-8",
+    "content_length": "444895",
+    "checked_at": "2026-09-06",
+    "scope": "HTTP availability only"
+  },
+  {
+    "url": "https://reports.openclinai.org/catalyst-phase1-comparison/comparison.html",
+    "status": 200,
+    "final_url": "https://reports.openclinai.org/catalyst-phase1-comparison/comparison.html",
+    "content_type": "text/html; charset=utf-8",
+    "content_length": "18685",
+    "checked_at": "2026-09-06",
+    "scope": "HTTP availability only"
+  },
+  {
+    "url": "https://reports.openclinai.org/catalyst-phase1-comparison/dashboard.html",
+    "status": 200,
+    "final_url": "https://reports.openclinai.org/catalyst-phase1-comparison/dashboard.html",
+    "content_type": "text/html; charset=utf-8",
+    "content_length": "158424",
+    "checked_at": "2026-09-06",
+    "scope": "HTTP availability only"
+  },
+  {
+    "url": "https://reports.openclinai.org/catalyst-phase1-comparison/index.html",
+    "status": 200,
+    "final_url": "https://reports.openclinai.org/catalyst-phase1-comparison/index.html",
+    "content_type": "text/html; charset=utf-8",
+    "content_length": "1082681",
+    "checked_at": "2026-09-06",
+    "scope": "HTTP availability only"
+  },
+  {
+    "url": "https://reports.openclinai.org/catalyst-phase1-comparison/run-config.json",
+    "status": 200,
+    "final_url": "https://reports.openclinai.org/catalyst-phase1-comparison/run-config.json",
+    "content_type": "application/json",
+    "content_length": "780",
+    "checked_at": "2026-09-06",
+    "scope": "HTTP availability only"
+  },
+  {
+    "url": "https://reports.openclinai.org/catalyst-t094-release/index.html",
+    "status": 200,
+    "final_url": "https://reports.openclinai.org/catalyst-t094-release/index.html",
+    "content_type": "text/html; charset=utf-8",
+    "content_length": "529827",
+    "checked_at": "2026-09-06",
+    "scope": "HTTP availability only"
+  },
+  {
+    "url": "https://reports.openclinai.org/gemma-quant-curve-2026-06-25/dashboard.html",
+    "status": 200,
+    "final_url": "https://reports.openclinai.org/gemma-quant-curve-2026-06-25/dashboard.html",
+    "content_type": "text/html; charset=utf-8",
+    "content_length": "1582355",
+    "checked_at": "2026-09-06",
+    "scope": "HTTP availability only"
+  },
+  {
+    "url": "https://reports.openclinai.org/gemma-quant-curve-2026-06-25/index.html",
+    "status": 200,
+    "final_url": "https://reports.openclinai.org/gemma-quant-curve-2026-06-25/index.html",
+    "content_type": "text/html; charset=utf-8",
+    "content_length": "1660246",
+    "checked_at": "2026-09-06",
+    "scope": "HTTP availability only"
+  },
+  {
+    "url": "https://reports.openclinai.org/hub-profile-12b-checked-candidate-2026-07-13/dashboard.html",
+    "status": 200,
+    "final_url": "https://reports.openclinai.org/hub-profile-12b-checked-candidate-2026-07-13/dashboard.html",
+    "content_type": "text/html; charset=utf-8",
+    "content_length": "1948211",
+    "checked_at": "2026-09-06",
+    "scope": "HTTP availability only"
+  },
+  {
+    "url": "https://reports.openclinai.org/hub-profile-12b-checked-candidate-2026-07-13/index.html",
+    "status": 200,
+    "final_url": "https://reports.openclinai.org/hub-profile-12b-checked-candidate-2026-07-13/index.html",
+    "content_type": "text/html; charset=utf-8",
+    "content_length": "281824",
+    "checked_at": "2026-09-06",
+    "scope": "HTTP availability only"
+  },
+  {
+    "url": "https://reports.openclinai.org/hub-profile-team-focus-diagnostic-2026-07-13/dashboard.html",
+    "status": 200,
+    "final_url": "https://reports.openclinai.org/hub-profile-team-focus-diagnostic-2026-07-13/dashboard.html",
+    "content_type": "text/html; charset=utf-8",
+    "content_length": "2688058",
+    "checked_at": "2026-09-06",
+    "scope": "HTTP availability only"
+  },
+  {
+    "url": "https://reports.openclinai.org/hub-profile-team-focus-diagnostic-2026-07-13/index.html",
+    "status": 200,
+    "final_url": "https://reports.openclinai.org/hub-profile-team-focus-diagnostic-2026-07-13/index.html",
+    "content_type": "text/html; charset=utf-8",
+    "content_length": "371594",
+    "checked_at": "2026-09-06",
+    "scope": "HTTP availability only"
+  },
+  {
+    "url": "https://reports.openclinai.org/liquid-5arm-judged-2026-06-18/dashboard.html",
+    "status": 200,
+    "final_url": "https://reports.openclinai.org/liquid-5arm-judged-2026-06-18/dashboard.html",
+    "content_type": "text/html; charset=utf-8",
+    "content_length": "187361",
+    "checked_at": "2026-09-06",
+    "scope": "HTTP availability only"
+  },
+  {
+    "url": "https://reports.openclinai.org/liquid-5arm-judged-2026-06-18/index.html",
+    "status": 200,
+    "final_url": "https://reports.openclinai.org/liquid-5arm-judged-2026-06-18/index.html",
+    "content_type": "text/html; charset=utf-8",
+    "content_length": "209986",
+    "checked_at": "2026-09-06",
+    "scope": "HTTP availability only"
+  },
+  {
+    "url": "https://reports.openclinai.org/method-levers-dev-2026-06-26/dashboard.html",
+    "status": 200,
+    "final_url": "https://reports.openclinai.org/method-levers-dev-2026-06-26/dashboard.html",
+    "content_type": "text/html; charset=utf-8",
+    "content_length": "538614",
+    "checked_at": "2026-09-06",
+    "scope": "HTTP availability only"
+  },
+  {
+    "url": "https://reports.openclinai.org/method-levers-dev-2026-06-26/index.html",
+    "status": 200,
+    "final_url": "https://reports.openclinai.org/method-levers-dev-2026-06-26/index.html",
+    "content_type": "text/html; charset=utf-8",
+    "content_length": "933055",
+    "checked_at": "2026-09-06",
+    "scope": "HTTP availability only"
+  },
+  {
+    "url": "https://reports.openclinai.org/method-scaffolding-2026-06-25/dashboard.html",
+    "status": 200,
+    "final_url": "https://reports.openclinai.org/method-scaffolding-2026-06-25/dashboard.html",
+    "content_type": "text/html; charset=utf-8",
+    "content_length": "2186095",
+    "checked_at": "2026-09-06",
+    "scope": "HTTP availability only"
+  },
+  {
+    "url": "https://reports.openclinai.org/method-scaffolding-2026-06-25/index.html",
+    "status": 200,
+    "final_url": "https://reports.openclinai.org/method-scaffolding-2026-06-25/index.html",
+    "content_type": "text/html; charset=utf-8",
+    "content_length": "2005220",
+    "checked_at": "2026-09-06",
+    "scope": "HTTP availability only"
+  },
+  {
+    "url": "https://reports.openclinai.org/model-class-2call-q8q4-2026-06-22/dashboard.html",
+    "status": 200,
+    "final_url": "https://reports.openclinai.org/model-class-2call-q8q4-2026-06-22/dashboard.html",
+    "content_type": "text/html; charset=utf-8",
+    "content_length": "2225854",
+    "checked_at": "2026-09-06",
+    "scope": "HTTP availability only"
+  },
+  {
+    "url": "https://reports.openclinai.org/model-class-2call-q8q4-2026-06-22/index.html",
+    "status": 200,
+    "final_url": "https://reports.openclinai.org/model-class-2call-q8q4-2026-06-22/index.html",
+    "content_type": "text/html; charset=utf-8",
+    "content_length": "1438650",
+    "checked_at": "2026-09-06",
+    "scope": "HTTP availability only"
+  },
+  {
+    "url": "https://reports.openclinai.org/multiclass-baseline-2026-06-20/dashboard.html",
+    "status": 200,
+    "final_url": "https://reports.openclinai.org/multiclass-baseline-2026-06-20/dashboard.html",
+    "content_type": "text/html; charset=utf-8",
+    "content_length": "1208449",
+    "checked_at": "2026-09-06",
+    "scope": "HTTP availability only"
+  },
+  {
+    "url": "https://reports.openclinai.org/multiclass-baseline-2026-06-20/index.html",
+    "status": 200,
+    "final_url": "https://reports.openclinai.org/multiclass-baseline-2026-06-20/index.html",
+    "content_type": "text/html; charset=utf-8",
+    "content_length": "944494",
+    "checked_at": "2026-09-06",
+    "scope": "HTTP availability only"
+  },
+  {
+    "url": "https://reports.openclinai.org/priority-run-5arm-judged-2026-06-04/index.html",
+    "status": 200,
+    "final_url": "https://reports.openclinai.org/priority-run-5arm-judged-2026-06-04/index.html",
+    "content_type": "text/html; charset=utf-8",
+    "content_length": "374605",
+    "checked_at": "2026-09-06",
+    "scope": "HTTP availability only"
+  },
+  {
+    "url": "https://reports.openclinai.org/small-model-answer-paths-2026-07-15/dashboard.html",
+    "status": 200,
+    "final_url": "https://reports.openclinai.org/small-model-answer-paths-2026-07-15/dashboard.html",
+    "content_type": "text/html; charset=utf-8",
+    "content_length": "6338593",
+    "checked_at": "2026-09-06",
+    "scope": "HTTP availability only"
+  },
+  {
+    "url": "https://reports.openclinai.org/small-model-answer-paths-2026-07-15/index.html",
+    "status": 200,
+    "final_url": "https://reports.openclinai.org/small-model-answer-paths-2026-07-15/index.html",
+    "content_type": "text/html; charset=utf-8",
+    "content_length": "984411",
+    "checked_at": "2026-09-06",
+    "scope": "HTTP availability only"
+  },
+  {
+    "url": "https://reports.openclinai.org/team-liquid-judged-2026-06-19/dashboard.html",
+    "status": 200,
+    "final_url": "https://reports.openclinai.org/team-liquid-judged-2026-06-19/dashboard.html",
+    "content_type": "text/html; charset=utf-8",
+    "content_length": "283531",
+    "checked_at": "2026-09-06",
+    "scope": "HTTP availability only"
+  },
+  {
+    "url": "https://reports.openclinai.org/team-liquid-judged-2026-06-19/index.html",
+    "status": 200,
+    "final_url": "https://reports.openclinai.org/team-liquid-judged-2026-06-19/index.html",
+    "content_type": "text/html; charset=utf-8",
+    "content_length": "281154",
+    "checked_at": "2026-09-06",
+    "scope": "HTTP availability only"
+  },
+  {
+    "url": "https://reports.openclinai.org/team-liquid-validated-2026-06-20/dashboard.html",
+    "status": 200,
+    "final_url": "https://reports.openclinai.org/team-liquid-validated-2026-06-20/dashboard.html",
+    "content_type": "text/html; charset=utf-8",
+    "content_length": "482411",
+    "checked_at": "2026-09-06",
+    "scope": "HTTP availability only"
+  },
+  {
+    "url": "https://reports.openclinai.org/team-liquid-validated-2026-06-20/index.html",
+    "status": 200,
+    "final_url": "https://reports.openclinai.org/team-liquid-validated-2026-06-20/index.html",
+    "content_type": "text/html; charset=utf-8",
+    "content_length": "399456",
+    "checked_at": "2026-09-06",
+    "scope": "HTTP availability only"
+  },
+  {
+    "url": "https://reports.openclinai.org/temporal-ablation-7arm-2026-06-06/dashboard.html",
+    "status": 200,
+    "final_url": "https://reports.openclinai.org/temporal-ablation-7arm-2026-06-06/dashboard.html",
+    "content_type": "text/html; charset=utf-8",
+    "content_length": "846673",
+    "checked_at": "2026-09-06",
+    "scope": "HTTP availability only"
+  },
+  {
+    "url": "https://reports.openclinai.org/temporal-ablation-7arm-2026-06-06/index.html",
+    "status": 200,
+    "final_url": "https://reports.openclinai.org/temporal-ablation-7arm-2026-06-06/index.html",
+    "content_type": "text/html; charset=utf-8",
+    "content_length": "636161",
+    "checked_at": "2026-09-06",
+    "scope": "HTTP availability only"
+  },
+  {
+    "url": "https://reports.openclinai.org/three-patient-ablation-2026-06-20/dashboard.html",
+    "status": 200,
+    "final_url": "https://reports.openclinai.org/three-patient-ablation-2026-06-20/dashboard.html",
+    "content_type": "text/html; charset=utf-8",
+    "content_length": "2364074",
+    "checked_at": "2026-09-06",
+    "scope": "HTTP availability only"
+  },
+  {
+    "url": "https://reports.openclinai.org/three-patient-ablation-2026-06-20/index.html",
+    "status": 200,
+    "final_url": "https://reports.openclinai.org/three-patient-ablation-2026-06-20/index.html",
+    "content_type": "text/html; charset=utf-8",
+    "content_length": "1733916",
+    "checked_at": "2026-09-06",
+    "scope": "HTTP availability only"
+  },
+  {
+    "url": "https://openclinai.org/",
+    "status": 200,
+    "final_url": "https://openclinai.org/",
+    "content_type": "text/html; charset=utf-8",
+    "content_length": "23349",
+    "checked_at": "2026-09-06",
+    "scope": "HTTP availability only"
+  },
+  {
+    "url": "https://catalyst.openelis-global.org/",
+    "status": 200,
+    "final_url": "https://catalyst.openelis-global.org/",
+    "content_type": "text/html",
+    "content_length": "542",
+    "checked_at": "2026-09-06",
+    "scope": "HTTP availability only"
+  },
+  {
+    "url": "https://openmrs.openclinai.org/",
+    "status": 200,
+    "final_url": "https://openmrs.openclinai.org/openmrs/spa/home",
+    "content_type": "text/html",
+    "content_length": "3311",
+    "checked_at": "2026-09-06",
+    "scope": "HTTP availability only"
+  },
+  {
+    "url": "https://pmanko.github.io/clinical-ai-validation-harness/",
+    "status": 200,
+    "final_url": "https://pmanko.github.io/clinical-ai-validation-harness/",
+    "content_type": "text/html; charset=utf-8",
+    "content_length": "1112",
+    "checked_at": "2026-09-06",
+    "scope": "HTTP availability only"
+  },
+  {
+    "url": "https://catalyst.openelis-global.org/media/catalyst-fhir-to-dashboard-demo-20260827.mp4",
+    "status": 200,
+    "final_url": "https://catalyst.openelis-global.org/media/catalyst-fhir-to-dashboard-demo-20260827.mp4",
+    "content_type": "video/mp4",
+    "content_length": "3232872",
+    "checked_at": "2026-09-06",
+    "scope": "HTTP availability only"
+  }
+]

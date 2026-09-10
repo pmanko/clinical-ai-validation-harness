@@ -1,5 +1,9 @@
 # Spec Artifact Index
 
+The [project status hub](project-status/README.md) joins the current effort,
+pull-request, roadmap, artifact and publication inventories. It records progress
+and evidence while preserving each product's existing requirement authority.
+
 Current planning and research artifacts that support the feature roadmap.
 - `planning/openmrs-dual-provider-parity-roadmap.md`
   - Approved canonical roadmap for preserving bundled ChartSearchAI and med-agent-hub behind one

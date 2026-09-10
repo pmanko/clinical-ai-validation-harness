@@ -4,6 +4,10 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "status:dev": "vite --config status/vite.config.ts",
+    "status:build": "tsc --project status/tsconfig.json && vite build --config status/vite.config.ts",
+    "build:pages": "npm run build && npm run status:build && rm -rf dist/status && mkdir -p dist/status && cp -R status/dist/. dist/status/",
+    "status:test": "vitest run status/model.test.ts",
     "dev": "vite --host 127.0.0.1 --port 4321 --open",
     "build": "vite build && node prerender-run.mjs",
     "prerender": "node prerender-run.mjs",
