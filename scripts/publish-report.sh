@@ -78,4 +78,11 @@ gcp_ssh "chmod -R a+rX ${GCP_REMOTE_REPO}/artifacts/reports"
 
 SITE="$(awk -F= '/^CADDY_SITE_REPORTS=/{print $2}' "${ROOT}/.env.chartsearch.cloud" 2>/dev/null || true)"
 SITE="${SITE:-reports.openclinai.org}"
+
+# The VM is a serving copy, not the archive: every publish also lands in the versioned bucket.
+"${ROOT}/scripts/reports-backup.sh" || {
+  BACKUP_STATUS=$?
+  echo "error: report already published at https://${SITE}/${SLUG}/; mandatory backup failed (exit ${BACKUP_STATUS})." >&2
+  exit "${BACKUP_STATUS}"
+}
 echo "==> published: https://${SITE}/${SLUG}/"

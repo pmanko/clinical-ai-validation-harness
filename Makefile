@@ -14,7 +14,7 @@ export UV_PROJECT_ENVIRONMENT
         llama-router-up llama-router-down llama-router-models \
         med-agent-hub-build med-agent-hub-up med-agent-hub-logs med-agent-hub-restart med-agent-hub-test chartsearch-test chartsearch-e2e-low-confidence querystore-test querystore-test-integration querystore-reindex \
         dashboard-ensure dashboard-restart validate-preflight validate-run validate-judge-prep validate-judge-finalize validate-publish \
-        cloud-init cloud-sync cloud-down cloud-seed \
+        cloud-init cloud-sync cloud-down cloud-seed reports-backup \
         cloud-start cloud-stop cloud-ssh cloud-logs cloud-status cloud-destroy \
         catalyst-comparison-run catalyst-comparison-resume catalyst-comparison-finish \
         catalyst-mvp-up catalyst-mvp-external catalyst-mvp-seed catalyst-mvp-health catalyst-mvp-restart catalyst-mvp-down catalyst-mvp-reset catalyst-superset-status catalyst-superset-import
@@ -471,6 +471,9 @@ cloud-init:       ## one-time: reserve IP, firewall, VM, docker install
 
 cloud-sync:       ## rsync repo to VM (excludes .git, .venv, build caches, secrets)
 	@./scripts/cloud-sync.sh
+
+reports-backup:   ## back up artifacts/reports to the versioned GCS bucket (additive)
+	@./scripts/reports-backup.sh
 
 cloud-down:       ## compose down on VM; pass ARGS=--volumes to nuke data too
 	@./scripts/cloud-down.sh $(ARGS)

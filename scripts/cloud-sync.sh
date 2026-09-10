@@ -11,6 +11,8 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # shellcheck disable=SC1091
 . "${ROOT}/scripts/cloud-lib.sh"
+# shellcheck disable=SC1091
+. "${ROOT}/scripts/cloud-sync-lib.sh"
 
 if ! gcp_vm_exists; then
   echo "error: VM ${GCP_VM_NAME} not found. Run \`make cloud-init\` first." >&2
@@ -28,6 +30,22 @@ echo "==> rsync to ${GCP_SSH_USER}@${IP}:${GCP_REMOTE_REPO}/"
 gcp_ssh_keygen_once
 gcp_ssh "mkdir -p ${GCP_REMOTE_REPO}"
 
+# One shared definition of the argv (scripts/cloud-sync-lib.sh), read here and by the tests.
+RSYNC_ARGS=()
+while IFS= read -r arg; do RSYNC_ARGS+=("${arg}"); done \
+  < <(cloud_sync_rsync_args "${ROOT}" "${GCP_SSH_USER}@${IP}:${GCP_REMOTE_REPO}/" "${GCP_SSH_KEY}")
+
+# Say what is being shipped from where: a worktree missing gitignored artifacts is the shape that
+# mirrors an empty directory onto the VM.
+echo "==> source: ${ROOT} (branch $(git -C "${ROOT}" rev-parse --abbrev-ref HEAD 2>/dev/null || echo '?'), $(git -C "${ROOT}" status --porcelain 2>/dev/null | wc -l | tr -d ' ') uncommitted paths)"
+
+# Dry run first; the gate prints what would be deleted and refuses a mass or sensitive deletion.
+rsync --dry-run "${RSYNC_ARGS[@]}" | rsync_delete_gate
+if [[ "${CLOUD_SYNC_DRY_RUN:-0}" == "1" ]]; then
+  echo "==> CLOUD_SYNC_DRY_RUN=1: stopping before the real sync"
+  exit 0
+fi
+
 # Reclaim ownership of dirs we chown'd to 1001:0 on a previous run so this
 # rsync can write into them. Without this, an updated .omod cannot replace
 # the existing one (permission denied) and rsync exits 23 with the cosmetic
@@ -35,43 +53,7 @@ gcp_ssh "mkdir -p ${GCP_REMOTE_REPO}"
 # real container UID happens at the end of this script.
 gcp_ssh "sudo chown -R ${GCP_SSH_USER}:${GCP_SSH_USER} ${GCP_REMOTE_REPO}/artifacts/openmrs/modules ${GCP_REMOTE_REPO}/artifacts/openmrs/backend-logs 2>/dev/null || true"
 
-# Rsync filter rules — FIRST MATCH WINS. Includes come before broad excludes
-# so they survive. Notes:
-# - `.git` (no slash): matches both the repo-root .git dir AND submodule
-#   .git gitdir-pointer files. Covers both shapes.
-# - `.env.chartsearch.cloud`: the one .env we ship to the VM. Symlinked on
-#   the VM to .env.chartsearch by cloud-up.sh so scripts run there too.
-# - `.env.chartsearch`: protected from --delete (it's the symlink target).
-# - `artifacts/openmrs/modules/`: NOT excluded — that's where the built
-#   .omod lives; the whole point of cloud-deploy is to ship it.
-
-rsync -avz --delete \
-  --include='.env.chartsearch.cloud' \
-  --include='.env.*.example' \
-  --exclude='.env' \
-  --exclude='.env.*' \
-  --exclude='.env.chartsearch' \
-  --exclude='.git' \
-  --exclude='.venv/' \
-  --exclude='venv/' \
-  --exclude='__pycache__/' \
-  --exclude='.ruff_cache/' \
-  --exclude='.pytest_cache/' \
-  --exclude='.mypy_cache/' \
-  --exclude='node_modules/' \
-  --exclude='.DS_Store' \
-  --exclude='.idea/' \
-  --exclude='.vscode/' \
-  --exclude='*.iml' \
-  --exclude='artifacts/dev-*' \
-  --exclude='artifacts/openmrs/backend-logs/' \
-  --exclude='targets/*/target/' \
-  --exclude='targets/*/node_modules/' \
-  --exclude='targets/*/omod/target/' \
-  --exclude='targets/*/api/target/' \
-  -e "ssh -i ${GCP_SSH_KEY} -o StrictHostKeyChecking=accept-new" \
-  "${ROOT}/" \
-  "${GCP_SSH_USER}@${IP}:${GCP_REMOTE_REPO}/"
+rsync "${RSYNC_ARGS[@]}"
 
 # Lock down .env.chartsearch.cloud on the VM. The file contains the
 # CHARTSEARCH_LLM_REMOTE_APIKEY plus DB passwords, and rsync preserves
