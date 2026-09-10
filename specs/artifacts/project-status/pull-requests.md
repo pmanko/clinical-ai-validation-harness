@@ -1,6 +1,6 @@
 # Pull request inventory
 
-As of 2026-09-10T04:10:00Z. 151 entries.
+As of 2026-09-10T05:15:00Z. 152 entries.
 
 [Source JSON](pull-requests.json) · [CSV export](exports/pull-requests.csv)
 
@@ -14,6 +14,7 @@ Open pull requests appear first within each repository. Check dates and exact re
 
 | PR | Title | State | Head | Effort | Current signal | Next action |
 | --- | --- | --- | --- | --- | --- | --- |
+| [#82](<https://github.com/DIGI-UW/catalyst-ai/pull/82>) | docs: consolidate Catalyst product design authorities | merged | codex/consolidate-product-spec<br>7578d9fb7b41 | — | Merged with Gateway, Agents, MCP, UI, and MVP assembly passing; current product and binding authorities now include the frozen staff Workbench behavior. | Implement the Feature 008 question-writing iteration from merged Catalyst main. |
 | [#79](<https://github.com/DIGI-UW/openelis-catalyst/pull/79>) | Enable the generic Spark SQL connection and FHIR dashboard path | merged | feat/spark-connection<br>006b078289dc | Catalyst generic SQL and Spark transition | Merged as 4c6a46f with Gateway, Agents, MCP, UI and MVP assembly passing. The later compatible Catalyst main revision pinned by harness #100 is 47c80d9. Live dual-source acceptance remains open. | Use the merged baseline for the Feature 008 specification consolidation and usability iterations; prove the full dual-source path at the local owner gate. |
 | [#78](<https://github.com/DIGI-UW/openelis-catalyst/pull/78>) | Define Catalyst generic SQL architecture and Spark acceptance | merged | codex/generic-sql-architecture-docs<br>a90ee2a5e89d | Catalyst generic SQL and Spark transition | Latest merged main revision; current-main automated checks passed. Later Spark implementation is on an unmerged remote branch. | — |
 | [#77](<https://github.com/DIGI-UW/openelis-catalyst/pull/77>) | feat(catalyst): preserve complete Phase 1 context evidence | merged | codex/phase1-context-evidence<br>c978f9322d6b | Catalyst session context and model-team comparison | Merged into main; merge status does not establish current live acceptance. | — |
@@ -115,9 +116,9 @@ Open pull requests appear first within each repository. Check dates and exact re
 
 | PR | Title | State | Head | Effort | Current signal | Next action |
 | --- | --- | --- | --- | --- | --- | --- |
-| [#105](<https://github.com/pmanko/clinical-ai-validation-harness/pull/105>) | Guard cloud-sync against deleting VM-only evidence | open | fix/cloud-sync-delete-guard<br>616f35208420 | — | Its cloud-safety diff is being collapsed onto current main as one independent commit. | Revalidate, publish, and merge after current checks pass. |
-| [#101](<https://github.com/pmanko/clinical-ai-validation-harness/pull/101>) | Publish the project status dashboard through GitHub Pages | open | codex/project-status-dashboard<br>e5e762bdd4ca | — | Being collapsed onto current main as one dashboard/workspace commit with refreshed Catalyst status. | Validate, publish, and merge after current checks pass. |
 | [#109](<https://github.com/pmanko/clinical-ai-validation-harness/pull/109>) | docs: establish the Catalyst delivery roadmap | merged | codex/catalyst-delivery-roadmap<br>9288e096f1cf | — | Merged with all final hosted checks passing; Feature 008 plan and tasks now control implementation and acceptance tracking. | Consolidate the specification set, then begin usability implementation. |
+| [#105](<https://github.com/pmanko/clinical-ai-validation-harness/pull/105>) | Guard cloud-sync against deleting VM-only evidence | merged | fix/cloud-sync-delete-guard<br>48a3d5a598f9 | — | Merged as f61db1d after hosted checks passed. | Use the guarded sync and backup paths for server evidence publication. |
+| [#101](<https://github.com/pmanko/clinical-ai-validation-harness/pull/101>) | Publish the project status dashboard through GitHub Pages | merged | codex/project-status-dashboard<br>bd7ed956b642 | — | Merged as 94a9a1d after hosted checks passed; GitHub Pages deployment succeeded. | Keep synchronized with Feature 008 plan and tasks. |
 | [#100](<https://github.com/pmanko/clinical-ai-validation-harness/pull/100>) | Integrate isolated Spark sources and repair the Catalyst comparison path | merged | feat/spark-remediation<br>8a5935b48dac | Catalyst generic SQL and Spark transition | Merged as 2a75bcf with shellcheck, documentation checks, pytest and diff coverage, openmrs-integration-source, and GitGuardian passing. It pins the compatible Catalyst, Hub, ChartSearchAI, ESM, and QueryStore revisions; strict repository-line verification passes from merged main. | Keep live dual-source acceptance separate and perform it at the Feature 008 local owner gate. |
 | [#99](<https://github.com/pmanko/clinical-ai-validation-harness/pull/99>) | Plan: the Spark path is shipped configuration, and the engine leaves the code | merged | feat/spark-connection-plan<br>b56306e255f3 | Catalyst generic SQL and Spark transition | Merged implementation-plan correction. Spark connection implementation subsequently advanced on feat/spark-remediation, outside main. | — |
 | [#98](<https://github.com/pmanko/clinical-ai-validation-harness/pull/98>) | Reset Catalyst architecture and implementation roadmap | merged | codex/catalyst-generic-connection-plan<br>daaf2df8974b | Catalyst generic SQL and Spark transition | Merged architecture and roadmap reset; historical score thresholds, ranking and relation allowlists are not the current contract. | — |

@@ -3,7 +3,7 @@ import { filterRows, inventories, projectFor, relatedRecords, sourceHref } from 
 
 describe('project status browsing', () => {
   it('finds the complete open and conflicting upstream sets without counting merged history', () => {
-    expect(filterRows('pull-requests', 'all', '', 'open')).toHaveLength(14);
+    expect(filterRows('pull-requests', 'all', '', 'open')).toHaveLength(12);
     const conflicts = filterRows('pull-requests', 'all', '', 'conflicting');
     expect(conflicts).toHaveLength(7);
     expect(conflicts.some(r => r.id === 'openmrs/openmrs-module-querystore#68')).toBe(false);

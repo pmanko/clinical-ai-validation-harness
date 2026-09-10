@@ -15,28 +15,30 @@ err() { echo "FAIL: $*" >&2; fail=1; }
 
 TASKS="${DOCS_TASKS_PATH:-specs/008-catalyst-query-workbench/tasks.md}"
 PROGRAM="${DOCS_PROGRAM_PATH:-specs/catalyst-program-roadmap.md}"
-EXECUTION="${DOCS_EXECUTION_PATH:-specs/catalyst-implementation-plan.md}"
 FEATURE_SPEC="${DOCS_FEATURE_SPEC_PATH:-specs/008-catalyst-query-workbench/spec.md}"
 FEATURE_PLAN="${DOCS_FEATURE_PLAN_PATH:-specs/008-catalyst-query-workbench/plan.md}"
 QUICKSTART="${DOCS_QUICKSTART_PATH:-specs/008-catalyst-query-workbench/quickstart.md}"
 WORKBENCH_API="${DOCS_WORKBENCH_API_PATH:-specs/008-catalyst-query-workbench/contracts/workbench-api.md}"
-DASHBOARD_GOAL="${DOCS_DASHBOARD_GOAL_PATH:-specs/008-catalyst-query-workbench/dashboard-mvp-delivery-goal.md}"
+RETIRED_EXECUTION="${DOCS_RETIRED_EXECUTION_PATH:-specs/catalyst-implementation-plan.md}"
+RETIRED_DASHBOARD_GOAL="${DOCS_RETIRED_DASHBOARD_GOAL_PATH:-specs/008-catalyst-query-workbench/dashboard-mvp-delivery-goal.md}"
 
 CURRENT_DOCS=(
   README.md
   AGENTS.md
   "$PROGRAM"
-  "$EXECUTION"
   "$FEATURE_SPEC"
   "$FEATURE_PLAN"
   "$TASKS"
   "$QUICKSTART"
   "$WORKBENCH_API"
-  "$DASHBOARD_GOAL"
 )
 
 for file in "${CURRENT_DOCS[@]}"; do
   [ -f "$file" ] || err "missing current Catalyst document: $file"
+done
+for file in "$RETIRED_EXECUTION" "$RETIRED_DASHBOARD_GOAL"; do
+  [ -f "$file" ] || err "missing retired Catalyst pointer: $file"
+  grep -qi 'retired' "$file" || err "retired Catalyst pointer is not labelled retired: $file"
 done
 if [ "$fail" -ne 0 ]; then
   exit 1
@@ -105,7 +107,6 @@ PRODUCT_DOCS=(
   "$FEATURE_PLAN"
   "$QUICKSTART"
   "$WORKBENCH_API"
-  "$DASHBOARD_GOAL"
   landing/index.html
   targets/catalyst/README.md
   targets/catalyst/AGENTS.md

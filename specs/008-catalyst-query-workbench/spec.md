@@ -1,29 +1,33 @@
-# Feature specification: Catalyst Query Workbench and Dashboard Builder
+# Feature specification: Catalyst integration and delivery acceptance
 
-**Status:** The query notebook and binding Dashboard Builder design are
-accepted. The generic connection, Phase 1 comparison, and final browser-visible
-Dashboard Builder acceptance remain open.
+**Status:** Current integration and delivery-acceptance contract. The compatible
+Harness/Catalyst/Hub baseline is merged. Staff Workbench implementation,
+Dashboard Builder completion, dual-source local and server deployment, evidence,
+and owner acceptance remain open.
 
 ## Purpose
 
-Catalyst helps a person turn a question into reviewable SQL, run the exact query
-they select against a configured data source, inspect rows or the database
-diagnostic, refine the query in conversation, and promote a successful result
-into a Superset dashboard.
-
-Catalyst is a generic SQL-connected application. It does not own ingestion, a
-clinical warehouse, or a preferred database engine.
+This specification defines how Catalyst is assembled, deployed, and accepted in
+the Clinical AI Validation Harness. Catalyst application behavior belongs to its
+product specification; interaction and visual requirements belong to its
+binding design.
 
 ## Authorities
 
-- [plan.md](plan.md) owns the current implementation sequence and delivery
-  goal; [tasks.md](tasks.md) owns detailed progress and acceptance evidence.
-- `../catalyst-program-roadmap.md` owns evaluation, comparison, and separately
-  scheduled conversation decisions.
-- `targets/catalyst/docs/dashboard-builder-mvp-design.md` and its populated
-  binding 4c page own Dashboard Builder interaction and visual behavior.
+1. [plan.md](plan.md) owns implementation sequence and the delivery goal.
+2. [tasks.md](tasks.md) owns detailed progress and acceptance evidence.
+3. Catalyst [product specification](../../targets/catalyst/docs/specification.md)
+   owns application behavior and contracts.
+4. Catalyst [binding design](../../targets/catalyst/docs/dashboard-builder-mvp-design.md)
+   owns current interaction and visual requirements.
+5. The [program roadmap](../catalyst-program-roadmap.md) owns evaluation,
+   comparison, and separately scheduled conversation decisions.
 
-## Product boundary
+Frozen Catalyst Workbench mocks, research, overlap findings, and handoffs are
+dated evidence. The retired implementation plan and Dashboard delivery goal
+point to their successors and define no current work.
+
+## Integration boundary
 
 A data source supplies:
 
@@ -41,8 +45,11 @@ A session binds one data source when it is created. A person starts another
 session to use another source. An unavailable source is reported without
 preventing the application from starting or another source from being used.
 
-A Dashboard Builder `Dataset` is an immutable saved query and execution
-artifact. It is not a data source, warehouse, or restricted schema copy.
+The harness pins exact remote-reachable Catalyst and med-agent-hub revisions.
+Catalyst owns request context, query versions, advisory validation, connection
+execution, bounded results, saved objects, bundle generation, and importer
+status. med-agent-hub owns configured profiles, prompts, role mappings, and
+model settings. Superset owns Dashboard rendering.
 
 ## User journeys
 
@@ -178,25 +185,13 @@ bundle.
   bidirectional synchronization, sharing, scheduling, and model-generated chart
   specifications are outside this milestone.
 
-### Phase 1 evaluation
+### Evaluation boundary
 
-- Each ready-turn scenario reference is authored, run, and reviewed once after
-  the accepted Spark-readable source exists or when the scenario deliberately
-  changes. Clarification and unsupported turns have reviewed expected responses.
-- A comparison MUST NOT rerun reference SQL.
-- Each ready model turn submits its selected SQL through Catalyst exactly once
-  and retains either rows or the database error.
-- Clarification and unsupported turns execute no SQL.
-- The reader packet MUST contain the complete conversation, actual model
-  context, selected SQL, result or diagnostic, static reference, one
-  human-readable rubric, and relevant provenance.
-- Automated checks MAY establish collection and contract facts. They MUST NOT
-  compute factual equivalence, a score threshold, rank, tie-break, automatic
-  disqualification, or winner.
-- One full suite per selected model team and one full-context reader pass are the
-  default. Additional complete runs or readers require a deliberate choice.
-- An incomplete collection MUST be reported as incomplete rather than accepted
-  or invalidated by an arbitrary failure allowance.
+The program roadmap owns model comparison, reader packets, and broader
+conversation decisions. This delivery preserves the product path required for
+that future work but does not schedule or redefine it. The harness never reruns
+reference SQL, computes automatic factual equivalence, applies thresholds or
+rankings, or chooses a model team.
 
 ## Selected reference deployment
 
@@ -215,9 +210,16 @@ Catalyst core. The retained demo data is reused; ordinary development does not
 require reseeding, environment parity, or a live Spark service on every pull
 request.
 
-## Phase 1 acceptance
+Use [`scripts/catalyst-mvp.sh`](../../scripts/catalyst-mvp.sh) for lifecycle,
+health, and Superset operations. It owns isolated ports, sibling Hub context,
+source configuration, and the no-reseed default. Seeding and reset remain
+explicit. Whether both sources can share a Spark endpoint is an implementation
+finding; record and review a concrete failure before adding a namespace service,
+fork, shadow warehouse, fallback path, or extra connector.
 
-Phase 1 is accepted when:
+## Connection and source acceptance
+
+The integrated connection path is accepted when:
 
 - repository instructions and active contracts contain no conflicting engine,
   catalog, evaluation, or evidence requirements;
@@ -230,23 +232,60 @@ Phase 1 is accepted when:
   refused, and leaves source data unchanged;
 - one successful result is saved, published, imported, and rendered in Superset;
 - the harness has no direct analytics-database or per-run reference path;
-- the report gives a human or selected frontier reader the complete case and
-  rubric without an automatic verdict, and identifies a frontier-model review
-  as one model-reader pass rather than independent human review; and
-- the owner inspects the real product path and accepts the Phase 1 report.
+- exact merged revisions and the source, dialect, schema, query, execution,
+  saved-object, bundle, and receipt identities are recorded; and
+- the owner inspects the real product path.
 
 The Dataset-to-Superset step above is a regression smoke for the generic
 connection. It does not complete Dashboard Builder.
 
-## Phase 3 Dashboard Builder acceptance
+## Staff Workbench acceptance
+
+Before Dashboard functionality expands, the complete frozen Workbench design is
+deployed locally against the real OpenELIS and OpenMRS sources. Browser proof
+covers the shared resizable question composer, failure and retry, preparation
+without execution, Explore/Saved work, System/Light/Dark appearance, general
+Advanced mode without state loss, complete nonmodal Available data browsing,
+explicit execution, one full result table, honest errors and limits, accessible
+provenance, focus return, and desktop, short-viewport, 640-, 390-, and
+320-CSS-pixel layouts.
+
+The proof includes a side-by-side comparison with the current binding design
+and a paced walkthrough. Implementation, merge, local revision, local
+deployment, self-validation, owner feedback, and owner acceptance are recorded
+separately. Dashboard expansion starts after owner feedback is recorded.
+
+## Dashboard Builder acceptance
 
 Dashboard Builder completes only when the live Workbench, Dataset review and
 library, Widget review and library, Dashboard library and arrangement, and all
 publish/import states are compared side by side with the binding design. The
-comparison must confirm that profile selection, generation and failure evidence,
-Clear/Restore, complete Available data browsing, the fixed composer and thread,
-the single editor, review panels, multiple Widgets, and actionable publication
-states remain present. Final acceptance requires the owner's browser review.
+comparison proves immutable Dataset and Widget restore, multiple same-source
+Widgets, retained arrangement, deterministic same-byte publication, receipt-
+controlled status, actionable import failure, successful Superset rendering,
+and one displayed value inspected against the originating Catalyst result
+without another database query. Focused API, component, accessibility, type,
+lint, build, and deterministic browser checks support the gate. Final acceptance
+requires the owner's browser review.
+
+## Local, server, and evidence acceptance
+
+Deploy exact merged compatible revisions locally and to the existing Catalyst
+demo server with `scripts/catalyst-mvp.sh` and retained data. In each environment,
+both OpenELIS and OpenMRS complete the real path from drafting and schema
+browsing through preparation, explicit execution, refinement, Dataset save and
+restore, visualization, Dashboard arrangement, publication, import, and
+Superset rendering. Import operations run from the checkout that owns the
+tested environment.
+
+Archive raw footage, traces, timestamps, revisions, configuration, and receipts.
+Short captions and cards remain visible for at least five seconds; longer text
+uses about three words per second plus two seconds. Results and details remain
+for at least eight seconds. Normal reading and interaction speed is used,
+accelerated waits are labelled, holds retain captions, and captions do not cover
+demonstrated content. Watch final cuts at normal speed. Publish immutable server
+videos for both sources, link local proof, and update all public video and poster
+references together.
 
 ## Out of scope
 

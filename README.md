@@ -24,7 +24,7 @@ The harness coordinates validation across four clinical AI projects:
 | `chartsearchai` | OpenMRS clinical-chat module with bundled and med-agent-hub provider paths | Product integration target: shared lifecycle UX, persistence, evidence display, cancellation, and security |
 | `querystore` | Read-optimized OpenMRS clinical-record projection and optional med-agent-hub source | Context-source validation: materialized records, indexing integrity, date/freshness semantics, and retrieval experiments |
 | `openmrs_chatbot` | Python clinical chatbot with patient/doctor interfaces and agent workflow scaffolding | Future expansion: multi-turn grounding and role-aware answer evaluation |
-| `Catalyst` | SQL-connected supervised reporting workbench: question → query/table → versioned Dataset/Widget/Dashboard drafts → Superset bundle | Catalyst core is database- and ingestion-independent. The selected OpenELIS/OpenMRS reference deployment is FHIR Data Pipes → Parquet → Spark SQL. That deployment must be implemented before the exploratory three-team comparison resumes; Dashboard Builder remains P3. |
+| `Catalyst` | SQL-connected supervised reporting workbench: question → query/table → versioned Dataset/Widget/Dashboard drafts → Superset bundle | The compatible generic-SQL/Spark baseline is merged. The active delivery is usability first, Dashboard functionality second, then dual-source local/server evidence. Model comparison remains separately scheduled. |
 
 The Catalyst delivery sequence and goal live in
 `specs/008-catalyst-query-workbench/plan.md`; detailed progress and acceptance
@@ -33,9 +33,9 @@ evidence live in its `tasks.md`. Evaluation and comparison decisions remain in
 
 The Catalyst application is a generic SQL-connected product that consumes a
 declared connection, dialect, and its complete readable schema. The selected
-reference deployment is FHIR Data Pipes -> Parquet -> Spark SQL. Its
-implementation and acceptance are open, and it is not the Catalyst product
-contract.
+reference deployment is FHIR Data Pipes -> Parquet -> Spark SQL. The compatible
+baseline is merged; full local/server acceptance remains open. The reference
+deployment is not the Catalyst product contract.
 
 ## Current priority: the validation spine and active lanes
 
@@ -61,7 +61,7 @@ does not gate local integration. See the checked-in [roadmap](specs/artifacts/pl
 | Validation evidence model and evaluation methodology | [Validation research canvas](https://pmanko.github.io/clinical-ai-validation-harness/#/canvas/specs/artifacts/canvases/validation-research) |
 | Current priority operator walkthrough | [Feature 002 quickstart](https://github.com/pmanko/clinical-ai-validation-harness/blob/main/specs/002-openmrs-demo-data-2-8-remap/quickstart.md) |
 | Harness foundation and control-plane detail | [Feature 001 spec](https://github.com/pmanko/clinical-ai-validation-harness/blob/main/specs/001-harness-control-plane-foundation/spec.md) |
-| Catalyst product scope and program order | [Catalyst program roadmap](specs/catalyst-program-roadmap.md) |
+| Catalyst delivery sequence and goal | [Feature 008 plan](specs/008-catalyst-query-workbench/plan.md) |
 | All planning artifacts, canvases, and research docs | [specs/artifacts/](https://github.com/pmanko/clinical-ai-validation-harness/tree/main/specs/artifacts) |
 | Superseded pre-hub cloud guide | [docs/cloud-deploy.md](https://github.com/pmanko/clinical-ai-validation-harness/blob/main/docs/cloud-deploy.md) |
 
@@ -83,7 +83,7 @@ Human-facing docs use plain names. IDs appear in parentheses on first use and in
 | ChartSearchAI model gateway | F008 | `008` | Bundled and configured-Hub providers preserved behind the [dual-provider roadmap](specs/artifacts/planning/openmrs-dual-provider-parity-roadmap.md) |
 | Clinical knowledge base | F009 | `009` | [Brief + research](https://github.com/pmanko/clinical-ai-validation-harness/blob/main/specs/artifacts/planning/clinical-kb-brief.md) |
 | Retrieval evaluation | M4 | `010` | Planned |
-| Catalyst supervised reporting | M10 | `008` | Query notebook and binding Dashboard design accepted; generic connection, Spark reference deployment, and Phase 1 comparison open; Phase 2 then final Dashboard acceptance follow |
+| Catalyst supervised reporting | M10 | `008` | Compatible baseline and consolidated specifications complete; four usability iterations, local owner gate, Dashboard completion, and dual-source deployment/evidence remain |
 | Answer, citation, and abstention | M5 | `012` | Planned |
 | Safety and red-team | M6 | `013` | Planned |
 | Clinician governance review | M7 | `014` | Planned |
@@ -144,13 +144,14 @@ OpenELIS or OpenMRS FHIR
   -> Catalyst and Superset
 ```
 
-Its implementation and acceptance are open. It does not define Catalyst core.
+Its compatible implementation baseline is merged; full dual-source acceptance
+is open. It does not define Catalyst core.
 
-The next implementation connects Catalyst and Superset to Spark, uses static
-scenario references, executes model SQL only through Catalyst, and runs one
-complete comparison per selected model team. The reader receives the full conversation, model context,
-selected SQL, rows or diagnostic, static reference, and shared rubric. The
-harness does not compute a threshold, rank, disqualification, or winner.
+The next implementation delivers the frozen staff Workbench in four tested
+iterations: question writing, shell and appearance, Available data, and result
+review. The full experience then runs locally against both real sources for
+owner feedback before Dashboard functionality expands. Comparison and broader
+conversation work remain separately scheduled in the program roadmap.
 
 Dashboard Builder keeps its accepted product scope: question -> query -> Dataset
 -> Widget -> Dashboard -> native Superset bundle and rendered dashboard. The
@@ -161,7 +162,7 @@ Current authorities:
 
 - [Feature 008 implementation roadmap](specs/008-catalyst-query-workbench/plan.md)
 - [Feature 008 current tasks](specs/008-catalyst-query-workbench/tasks.md)
-- [Feature 008 specification](specs/008-catalyst-query-workbench/spec.md)
+- [Feature 008 integration and delivery specification](specs/008-catalyst-query-workbench/spec.md)
 - [Catalyst program roadmap](specs/catalyst-program-roadmap.md)
 
 The separately scheduled comparison begins after its current connection, Spark,

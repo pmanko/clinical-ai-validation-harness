@@ -32,7 +32,8 @@ ingestion files in this directory. The selected Spark deployment contains none
 of those components.
 
 Implementation order and acceptance are in the
-[Catalyst implementation plan](../../specs/catalyst-implementation-plan.md)
-and [Feature 008 quickstart](../../specs/008-catalyst-query-workbench/quickstart.md).
+[Feature 008 plan](../../specs/008-catalyst-query-workbench/plan.md),
+[specification](../../specs/008-catalyst-query-workbench/spec.md), and
+[quickstart](../../specs/008-catalyst-query-workbench/quickstart.md).
 There is no supported source-local Spark command until that work lands. Seeding
 and reset remain explicit operations.

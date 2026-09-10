@@ -1046,8 +1046,8 @@
     {
       "id": "CAT-E10",
       "title": "Consolidate Catalyst specifications and planning",
-      "status": "Authoritative roadmap merged; consolidation is the next active iteration",
-      "next_deliverable": "Absorb the legacy implementation plan and Dashboard delivery goal into the Feature 008 authority set, preserve dated design evidence, align agent and documentation pointers, and give every prior effort an evidence-backed disposition.",
+      "status": "Complete in the current consolidation delivery",
+      "next_deliverable": "Maintain the same authority set as implementation findings require amendments; do not create another delivery plan.",
       "acceptance": "No unique current requirement disappears; no competing delivery sequence remains; product behavior, binding design, evaluation decisions, implementation sequence, and progress each have one named owner document.",
       "dependencies": [
         "CAT-E01"
@@ -1057,17 +1057,19 @@
         "specs/008-catalyst-query-workbench/tasks.md",
         "https://github.com/pmanko/clinical-ai-validation-harness/pull/109"
       ],
-      "evidence": "Feature 008 roadmap PR #109 merged as 6e0f3cf with the consolidation responsibilities and exit criteria recorded in plan.md and tasks.md.",
-      "last_checked": "2026-09-09",
+      "evidence": "Catalyst #82 applies the frozen Workbench behavior to the product and binding authorities. Harness #110 makes the Feature 008 plan own sequence, its specification own integration acceptance, tasks own progress, and retired bodies link to those successors.",
+      "last_checked": "2026-09-10",
       "implementation_owner": null,
       "related_pull_requests": [
-        "https://github.com/pmanko/clinical-ai-validation-harness/pull/109"
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/109",
+        "https://github.com/DIGI-UW/catalyst-ai/pull/82",
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/110"
       ]
     },
     {
       "id": "CAT-E11",
       "title": "Implement the frozen Catalyst usability design",
-      "status": "Planned after specification consolidation",
+      "status": "Next active product iteration",
       "next_deliverable": "Deliver the shared resizable question composer, friendly shell and appearance, nonmodal Available data browser, and clear result review in small tested iterations, then deploy the complete experience locally against both real sources for owner review.",
       "acceptance": "Clinical and program staff can ask and refine questions without SQL knowledge; analyst complexity remains available through a quiet workspace-wide Advanced mode; state and focus survive navigation, errors, retry, resizing, and theme changes.",
       "dependencies": [
@@ -1079,7 +1081,7 @@
         "targets/catalyst/docs/dashboard-builder-mvp-design.md"
       ],
       "evidence": "The approved Feature 008 roadmap records four usability iterations and a complete local dual-source owner gate before Dashboard functionality expands.",
-      "last_checked": "2026-09-09",
+      "last_checked": "2026-09-10",
       "implementation_owner": null,
       "related_pull_requests": [
         "https://github.com/pmanko/clinical-ai-validation-harness/pull/109"

@@ -5,9 +5,10 @@ this repository. It supports the provenance and traceability rules in the
 [project constitution](../../../.specify/memory/constitution.md) without making
 one feature's evidence model mandatory for another.
 
-Catalyst Phase 1 will use this shared envelope. Its runtime writer is tracked in
-the [Catalyst implementation plan](../../catalyst-implementation-plan.md); only
-the fields below are current requirements.
+Catalyst delivery uses this shared envelope. Its integration and evidence
+requirements are tracked in the [Feature 008 specification](../../008-catalyst-query-workbench/spec.md)
+and [tasks](../../008-catalyst-query-workbench/tasks.md); only the fields below
+are current requirements.
 
 ## Stable run envelope
 
