@@ -108,11 +108,11 @@ def test_catalyst_copy_states_the_current_product_and_open_reference_work():
     assert "selected Catalyst contract" in html
     assert "configured SQL source" in html
     assert "complete readable schema" in html
-    # The Spark reference path is implemented and is what the recording now
-    # shows; the comparison against it is what remains open.
-    assert "OpenMRS HIV Spark reference path are implemented" in html
+    # Both Spark reference paths are implemented; exact merged-revision
+    # acceptance and the comparison remain open.
+    assert "OpenELIS and OpenMRS HIV Spark reference paths are implemented" in html
     assert "recording demonstrates the current runtime end to end" in html
-    assert "model-team comparison has not been rerun" in html
+    assert "exact merged-revision acceptance and the model-team comparison remain open" in html
     for obsolete in (
         "Acceptance of the corrected Spark reference deployment remains open",
         "are not yet implemented or accepted",
