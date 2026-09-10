@@ -23,12 +23,16 @@ test('01 · Understand the problems and reveal supporting detail', async ({ page
   await expect(page.locator('details[open]')).toHaveCount(0);
   await expect(page.locator('#reported-coverage')).toContainText('cached chart references still contain old IDs');
   await expect(page.locator('#reported-coverage tbody tr')).toHaveCount(4);
+  await expect(page.locator('#time-controls tbody tr')).toHaveCount(3);
+  await expect(page.locator('#time-controls')).toContainText('January stays excluded');
+  await expect(page.locator('#open-interactions')).toContainText('have not been reproduced');
   await capture(page, info, 'overview-and-available-examples');
   await page.locator('.resource.primary').scrollIntoViewIfNeeded();
   await capture(page, info, 'available-dashboards-and-evidence');
   await capture(page,info,'instance-logins',page.locator('#demo-access'));
   await page.getByRole('heading', {name:'The underlying reporting need'}).scrollIntoViewIfNeeded();
   await capture(page, info, 'reporting-need');
+  await info.attach('time-period-and-unit',{body:await page.locator('#time-controls').screenshot(),contentType:'image/png'});
   await capture(page, info, 'reported-issue-coverage',page.locator('#reported-coverage'));
   await test.step('Read the date-label and grouping solution', async () => {
     await page.locator('#issue-dates summary').click();

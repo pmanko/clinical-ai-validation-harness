@@ -26,6 +26,72 @@ Evidence: [date grouping](https://catalyst.openelis-global.org/superset/design/e
 
 ## Other issues in the channel and client documents
 
+### Time Period, Time Unit and the September 10 meeting
+
+Beth's meeting transcript supplied in this thread makes the primary requirement
+more specific: **keep the selected reporting window, grouping, labels and missing
+periods consistent through ordinary dashboard use.** Per-dashboard lists of allowed
+units address a separate configuration constraint.
+
+A unit inside the Time Period editor describes the look-back window. The
+dashboard's separate Time Unit control describes how charts group the selected
+records. Two controls mentioning years do not make them interchangeable.
+
+| Part | Required behavior |
+| --- | --- |
+| Time Period | Select the underlying observations, such as February–March 2026. |
+| Time Unit | Group those selected observations into Month, Quarter or Year; it is not only a label selector. Quarter must not add January to that example. |
+| Axis labels | Follow the selected grouping and stay chronological. A fixed Month–Year formatter cannot express all three groupings appropriately. |
+| Missing data | Preserve missing periods within the selected window without turning absent observations into zero rates. A cohort with no test records can legitimately have no result. |
+| Interaction state | Changing one control should preserve the other. Equivalent selections should give the same result in either selection order. Back/reload and cleared selections need explicit expectations. |
+
+The demonstration shows date filtering, grouping, sortable labels and missing
+periods in its stated examples.
+The recordings do not yet close Beth's intermittent disappearing Time Period
+selection, back-navigation behavior, or equality across both selection orders.
+An empty cohort by itself is not evidence that filtering is broken.
+
+Read-only API and page-configuration checks on the supplied test server at
+18:45 UTC on September 10 establish:
+
+- `ENABLE_TEMPLATE_PROCESSING` is enabled. This is the feature setting that lets
+  SQL templates use context such as `{{ time_grain }}`. `ALLOW_ADHOC_SUBQUERY` is
+  false; the two flags should not be conflated. See the
+  [Superset templating documentation](https://superset.apache.org/docs/configuration/sql-templating/).
+- Dataset **40, UTI Aggregate ALL DATA**, still contains the calculated string
+  column `time_aggregate`. It produces `YYYY-MM (Mon)` for Month, `YYYY-Qn` for
+  Quarter and `YYYY` for Year. This matches the original source snapshot.
+- All five saved time-series charts reference dataset 40 and use `month_date`
+  with fixed `%b %Y` formatting. They do not currently use `time_aggregate` as
+  their X-axis. Their chart-level defaults differ: chart 73 uses Quarter, chart
+  101 uses Year, and charts 80, 99 and 103 use Month. Check what happens when the
+  dashboard's unit selection is cleared rather than assuming those defaults
+  stay overridden.
+- Dataset **43, UTI Individual Current**, has a different column, `time_adaptive`.
+  Its saved expression includes literal Markdown code fences. That is an
+  additional definition defect; no execution of it or connection to the meeting
+  failure has been established. It is not used by those five saved trends.
+- The preceding 18:20 UTC comparison found the same dashboard layout/filter
+  metadata, 21 chart settings and six virtual-dataset SQL definitions as the
+  baseline used for the demo. That comparison did not check calculated-column
+  definitions; the specific column checks above extend it.
+
+The meeting reports a wrong dataset, a calculated column that was not visible,
+and lost customizations after changing datasets. **The saved test definitions
+do not establish an automatic dataset switch or a deleted `time_aggregate`
+column.** The transcript moves between production and test views and includes
+unsaved edits. Capture the affected chart, instance, dataset identity, edit/save
+action and before/after definitions to reproduce that authoring problem. Do not
+attribute it to import references or treat it as repaired without that evidence.
+
+Versioned dashboard coverage must therefore include **dataset bindings and
+calculated-column expressions**, alongside SQL, chart settings, filter state and
+layout. The remaining interaction checks should start from a known cohort with
+records and then cover an empty test cohort separately. They should not require
+Beth to reconstruct a column that is still present in the saved test dataset.
+
+### Other reports
+
 | Item | Coverage and disposition |
 | --- | --- |
 | Cohort selection sometimes shows every hospital | The client response document marks a prior repair done. Our hospital replacement and Clear all checks exercise related failure cases, but **do not reproduce and close the original intermittent cohort-only/permalink case**. Test the reported saved link and cohort-only state on a copy of the destination. |
