@@ -7,9 +7,9 @@ pass.
 ## Read first
 
 1. [Catalyst program roadmap](../catalyst-program-roadmap.md)
-2. [Catalyst implementation plan](../catalyst-implementation-plan.md)
-3. [Feature specification](spec.md)
-4. [Current tasks](tasks.md)
+2. [Feature 008 implementation roadmap](plan.md)
+3. [Current tasks](tasks.md)
+4. [Feature specification](spec.md)
 
 Initialize the two sibling targets from an isolated harness worktree:
 

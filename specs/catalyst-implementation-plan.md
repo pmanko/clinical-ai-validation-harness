@@ -1,13 +1,18 @@
 # Catalyst implementation plan
 
-**Status:** The generic connection and Spark reference configuration are
-implemented in Catalyst candidate revision `6bf1cd2`. The harness candidate
-configures a separate OpenMRS Spark catalog and removes its direct PostgreSQL
-comparison path. Live materialization, the browser and Superset smoke, owner
-review, publication, and fresh comparison evidence remain open.
+**Status:** Legacy implementation detail awaiting consolidation. The approved
+delivery sequence and current goal now live in
+`specs/008-catalyst-query-workbench/plan.md`, with detailed progress in its
+`tasks.md`. This body remains a source during the planned consolidation and must
+not be used as a competing roadmap.
 
-`specs/catalyst-program-roadmap.md` owns product decisions and the Phase 1
-comparison. This file owns implementation order, checkpoints, and status.
+The generic connection and Spark reference configuration are implemented in the
+merged Catalyst baseline. This harness integration configures a separate
+OpenMRS Spark catalog and removes its direct PostgreSQL comparison path. Fresh
+live materialization, browser and Superset proof, owner review, publication, and
+comparison evidence remain open.
+
+`specs/catalyst-program-roadmap.md` retains evaluation and comparison decisions.
 
 ## Required outcome
 
@@ -49,13 +54,14 @@ reaches this deployment as one configured SQL connection like any other.
 
 ## Current implementation
 
-The candidate revisions now implement the selected structure:
+The merged product revisions and this harness integration implement the selected
+structure:
 
-| Area | Candidate state | Remaining acceptance |
+| Area | Current state | Remaining acceptance |
 | --- | --- | --- |
 | Generic connection | Source identity, label, connection reference, dialect adapter, live readable-schema discovery, and shared exact-SQL execution are implemented without a preferred engine. | Review the behavior against a live reference source. |
 | Catalyst OpenELIS source | FHIR Data Pipes, Parquet, Spark SQL, Catalyst, and Superset are assembled in the MVP and demo configuration. The Spark catalog is `openelis`. | Materialize retained data and complete the manual query, browser, write-refusal, and Dataset-to-Superset smoke. |
-| Harness OpenMRS source | The source uses a separate `openmrs_hiv` Spark catalog. The comparison runner no longer imports or opens the removed PostgreSQL validation path. | Pin the accepted Catalyst revision, materialize retained data, review scenario references, and collect a fresh comparison. |
+| Harness OpenMRS source | The source uses a separate `openmrs_hiv` Spark catalog. The comparison runner no longer imports or opens the removed PostgreSQL validation path. | Materialize retained data, review scenario references, and collect a fresh comparison. |
 | Dashboard publication | Spark timestamp literals and backslashes are rendered for the selected dialect, with focused regression coverage. | Verify the published artifact in the live Superset smoke. |
 
 Implementation reuses `AnalyticsProtocol`, `DataSourceBundle`, conversation and

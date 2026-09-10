@@ -162,3 +162,10 @@
     root * /srv/reports
     file_server browse
 }
+
+# Optional WAHS report host. It shares the public landing volume and is dormant
+# locally unless configured with a hostname; the fallback port is not published.
+{$CADDY_SITE_WAHS::8092} {
+    root * /srv/landing/wahs
+    file_server
+}

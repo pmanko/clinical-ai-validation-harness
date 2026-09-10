@@ -1,14 +1,18 @@
 # Catalyst program roadmap
 
-**Status:** Phase 1 generic-connection implementation and comparison remain open. Phase 2
-and Phase 3 follow in that order.
+**Status:** The Phase 1 comparison and later conversation definition remain
+separately scheduled. The current product delivery order is usability followed
+by Dashboard Builder functionality, as recorded in the Feature 008 plan.
 
-This file is the single authority for Catalyst product scope, Phase meanings,
-context behavior, the model-team comparison, and program order. Implementation
-sequence and status live only in
-`specs/catalyst-implementation-plan.md`.
+This file owns Catalyst evaluation, comparison, context research, and separately
+scheduled conversation decisions. The current implementation sequence and
+delivery goal live in `specs/008-catalyst-query-workbench/plan.md`; detailed
+progress and acceptance evidence live in its `tasks.md`.
 
-## Program order
+## Program outcomes
+
+The phase labels below preserve the evaluation and scope model. They do not set
+the current implementation order; Feature 008 owns that sequence.
 
 | Phase | Product outcome | Completion |
 | --- | --- | --- |
@@ -25,7 +29,7 @@ smoke does not close or reduce Phase 3.
 | Area | Decision |
 | --- | --- |
 | Catalyst boundary | Catalyst owns SQL-connected conversation, notebook, execution, results, and Dashboard Builder behavior. It does not own FHIR ingestion, a clinical warehouse, or a mandatory database engine. |
-| Selected reference deployment | Each source included in the selected demo or comparison uses FHIR Data Pipes -> Parquet -> Spark SQL. The candidate branches implement the configured path and separate source catalogs; live materialization, browser evidence, and owner acceptance remain open. |
+| Selected reference deployment | Each source included in the selected demo or comparison uses FHIR Data Pipes -> Parquet -> Spark SQL. The merged product revisions and harness integration implement the configured path and separate source catalogs; exact-revision live materialization, browser evidence, and owner acceptance remain open. |
 | Data available to the model and editor | Every table, view, column, and type readable through the configured connection. Counts are observations, not product rules. Optional descriptions cannot hide relations. |
 | Session source | One source per session. A different source starts a different session. |
 | SQL execution | Validation is advisory. Exact selected SQL reaches the configured connection with a time limit and returned-row limit. Catalyst records rows or the database error. |

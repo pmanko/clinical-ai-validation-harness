@@ -35,6 +35,7 @@
         <a href="#openmrs">Chart Search</a>
         <a href="#catalyst">Catalyst</a>
         <a href="#evidence">Evidence</a>
+        <a href="https://wahs.openclinai.org/">WAHS report</a>
       </nav>
       <details class="nav-toggle">
         <summary>Menu</summary>
@@ -43,6 +44,7 @@
           <a href="#openmrs">Chart Search</a>
           <a href="#catalyst">Catalyst</a>
           <a href="#evidence">Evidence</a>
+          <a href="https://wahs.openclinai.org/">WAHS report</a>
           <a href="https://reports.openclinai.org/">Evaluation reports <span aria-hidden="true">&#8599;</span></a>
         </nav>
       </details>
@@ -248,7 +250,7 @@
             <h2>Catalyst: from a question to a dashboard.</h2>
           </div>
           <p>
-            The selected Catalyst contract is an analytics and reporting workbench over a configured SQL source. A source declares its dialect and complete readable schema; a person reviews the generated SQL and chooses the exact query to run; successful results can become Datasets, Widgets, and dashboards published to Superset. The recording demonstrates the current runtime end to end: FHIR Data Pipes builds the Parquet warehouse from a FHIR endpoint, Spark SQL serves it, and Catalyst and Superset connect to it as ordinary SQL clients. The generic connection and the OpenMRS HIV Spark reference path are implemented; the model-team comparison has not been rerun against them.
+            The selected Catalyst contract is an analytics and reporting workbench over a configured SQL source. A source declares its dialect and complete readable schema; a person reviews the generated SQL and chooses the exact query to run; successful results can become Datasets, Widgets, and dashboards published to Superset. The recording demonstrates the current runtime end to end: FHIR Data Pipes builds the Parquet warehouse from a FHIR endpoint, Spark SQL serves it, and Catalyst and Superset connect to it as ordinary SQL clients. The generic connection and the OpenELIS and OpenMRS HIV Spark reference paths are implemented; exact merged-revision acceptance and the model-team comparison remain open.
           </p>
         </div>
         <div class="page-width feature-media">
@@ -285,7 +287,7 @@
         <div class="page-width lifecycle-row" role="list" aria-label="Catalyst validation summary">
           <div role="listitem"><span>01</span><strong>Selected source contract</strong><p>Source identity, connection information, SQL dialect, and every readable table and column define the data available to Catalyst.</p></div>
           <div role="listitem"><span>02</span><strong>Selected execution contract</strong><p>Findings are advisory. The exact selected SQL runs once and returns typed rows or the database error.</p></div>
-          <div role="listitem"><span>03</span><strong>Implementation status</strong><p>The generic connection and the OpenMRS HIV Spark reference path are implemented and shown above. The OpenELIS source and the fresh model-team comparison follow.</p></div>
+          <div role="listitem"><span>03</span><strong>Implementation status</strong><p>The generic connection and both Spark reference paths are implemented. Exact merged-revision local and server acceptance, followed by the fresh model-team comparison, remain open.</p></div>
         </div>
 
         <div class="page-width section-heading-row hub-fold">
@@ -345,6 +347,15 @@
             />
             <figcaption>The report index links to each project's summary and individual run evidence.</figcaption>
           </figure>
+        </div>
+      </section>
+
+      <section id="wahs" class="section">
+        <div class="page-width">
+          <p class="section-kicker">Collaboration proposal</p>
+          <h2>Applying our experience to WA Health Summary.</h2>
+          <p>Explore how source-based review, human decisions and shared testing tools could support record reconciliation. The report proposes an iterative pilot where AI and people flag and resolve conflicts together, with methods that can transfer before code integration.</p>
+          <a class="text-link" href="https://wahs.openclinai.org/">Read the WAHS design report <span aria-hidden="true">&#8599;</span></a>
         </div>
       </section>
 

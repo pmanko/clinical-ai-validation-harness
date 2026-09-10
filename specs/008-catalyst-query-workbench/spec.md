@@ -16,10 +16,10 @@ clinical warehouse, or a preferred database engine.
 
 ## Authorities
 
-- `../catalyst-program-roadmap.md` owns program order and the Phase 1
-  comparison.
-- `../catalyst-implementation-plan.md` owns the current
-  implementation sequence and acceptance.
+- [plan.md](plan.md) owns the current implementation sequence and delivery
+  goal; [tasks.md](tasks.md) owns detailed progress and acceptance evidence.
+- `../catalyst-program-roadmap.md` owns evaluation, comparison, and separately
+  scheduled conversation decisions.
 - `targets/catalyst/docs/dashboard-builder-mvp-design.md` and its populated
   binding 4c page own Dashboard Builder interaction and visual behavior.
 

@@ -5,12 +5,14 @@ Active feature plan: `specs/008-catalyst-query-workbench/plan.md`
 
 For Catalyst, read these authorities in order:
 
-1. `specs/catalyst-program-roadmap.md` for phase order, product decisions,
-   context behavior, and the model-team comparison;
-2. `specs/catalyst-implementation-plan.md` for the current
-   implementation sequence, checkpoints, and status;
-3. the active Feature 008 specification and tasks for current product behavior;
-4. `targets/catalyst/docs/dashboard-builder-mvp-design.md` and its populated
+1. `specs/008-catalyst-query-workbench/plan.md` for the authoritative
+   implementation sequence and delivery goal;
+2. `specs/008-catalyst-query-workbench/tasks.md` for detailed progress and
+   acceptance evidence;
+3. `specs/008-catalyst-query-workbench/spec.md` for integration requirements;
+4. `specs/catalyst-program-roadmap.md` for evaluation, comparison, and
+   separately scheduled conversation decisions;
+5. `targets/catalyst/docs/dashboard-builder-mvp-design.md` and its populated
    binding 4c page for the Dashboard Builder interaction and visual
    contract.
 
@@ -21,8 +23,9 @@ Catalyst core is a generic SQL-connected application. A source declares its
 identity, label, connection configuration or reference, and SQL dialect. Model
 and human tools receive every readable table, view, column, and type. Optional
 descriptions may enrich that information but cannot hide relations. FHIR Data
-Pipes -> Parquet -> Spark SQL is the selected reference deployment and is not
-yet implemented; it is not the Catalyst product contract.
+Pipes -> Parquet -> Spark SQL is the selected reference deployment; its merged
+harness baseline and live acceptance remain open. It is not the Catalyst product
+contract.
 
 Validation is advisory. Exact selected SQL reaches the configured connection
 through shared connection-execution code and returns bounded rows or the
@@ -31,10 +34,11 @@ count, SQL translation, direct-database harness replay, automatic factual
 equivalence, score threshold, ranking, required repeated reader, or automatic
 team choice.
 
-Program order is Phase 1 session context and comparison, then definition of
-Phase 2 conversation mode, then Phase 3 Dashboard Builder completion. The
-Phase 1 connection implementation includes one Dataset-to-Superset regression smoke but does
-not close or reduce Phase 3.
+The approved delivery priority is the frozen usability design followed by
+Dashboard Builder functionality. Model comparison and broader conversation are
+separately scheduled in the program roadmap; do not make them prerequisites for
+this delivery. The narrow Dataset-to-Superset regression smoke does not close or
+reduce Dashboard Builder acceptance.
 
 Before each owner review pause, surface unresolved implementation findings and
 environment choices. Do not add a subsystem to solve a hypothetical problem;

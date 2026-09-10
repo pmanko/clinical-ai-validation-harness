@@ -26,9 +26,10 @@ The harness coordinates validation across four clinical AI projects:
 | `openmrs_chatbot` | Python clinical chatbot with patient/doctor interfaces and agent workflow scaffolding | Future expansion: multi-turn grounding and role-aware answer evaluation |
 | `Catalyst` | SQL-connected supervised reporting workbench: question → query/table → versioned Dataset/Widget/Dashboard drafts → Superset bundle | Catalyst core is database- and ingestion-independent. The selected OpenELIS/OpenMRS reference deployment is FHIR Data Pipes → Parquet → Spark SQL. That deployment must be implemented before the exploratory three-team comparison resumes; Dashboard Builder remains P3. |
 
-The Catalyst program decisions live in `specs/catalyst-program-roadmap.md`.
-The implementation and Phase 1 comparison sequence lives in
-`specs/catalyst-implementation-plan.md`.
+The Catalyst delivery sequence and goal live in
+`specs/008-catalyst-query-workbench/plan.md`; detailed progress and acceptance
+evidence live in its `tasks.md`. Evaluation and comparison decisions remain in
+`specs/catalyst-program-roadmap.md`.
 
 The Catalyst application is a generic SQL-connected product that consumes a
 declared connection, dialect, and its complete readable schema. The selected
@@ -157,13 +158,13 @@ backend evidence for it.
 
 Current authorities:
 
-- [Catalyst program roadmap](specs/catalyst-program-roadmap.md)
-- [Catalyst implementation plan](specs/catalyst-implementation-plan.md)
-- [Feature 008 specification](specs/008-catalyst-query-workbench/spec.md)
+- [Feature 008 implementation roadmap](specs/008-catalyst-query-workbench/plan.md)
 - [Feature 008 current tasks](specs/008-catalyst-query-workbench/tasks.md)
+- [Feature 008 specification](specs/008-catalyst-query-workbench/spec.md)
+- [Catalyst program roadmap](specs/catalyst-program-roadmap.md)
 
-The Phase 1 comparison begins after the implementation plan's connection,
-Spark, browser, and Superset checkpoints pass. Use
+The separately scheduled comparison begins after its current connection, Spark,
+browser, and Superset prerequisites pass. Use
 `scripts/catalyst-mvp.sh` for stack lifecycle when implementing or validating
 those checkpoints; seeding and reset remain explicit operations.
 

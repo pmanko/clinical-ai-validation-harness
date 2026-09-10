@@ -1,7 +1,7 @@
 <!-- SPECKIT START -->
-For additional context about technologies to be used, project structure,
-shell commands, and other important information, read the current plan:
-`specs/002-openmrs-demo-data-2-8-remap/plan.md`
+For Catalyst delivery, read the authoritative current plan and task register:
+`specs/008-catalyst-query-workbench/plan.md` and
+`specs/008-catalyst-query-workbench/tasks.md`.
 <!-- SPECKIT END -->
 
 ## Catalyst work: read these first
@@ -9,15 +9,9 @@ shell commands, and other important information, read the current plan:
 If `HANDOFF.md` exists at the repository root, it is a session handoff from the
 previous session — read it before any code.
 
-For Catalyst (query workbench, analytics connection, Phase 1 comparison), the
-authorities are, in order:
-
-1. `specs/catalyst-implementation-plan.md` — implementation sequence,
-   checkpoints, acceptance, guardrails, current status;
-2. `specs/catalyst-program-roadmap.md` — phase order and product decisions;
-3. `specs/008-catalyst-query-workbench/spec.md` and `tasks.md` — current
-   product behavior and open gates;
-4. `targets/catalyst/docs/specification.md` and `docs/roadmap.md` — the
-   Catalyst repository's own contract.
-
-The SPECKIT pointer above names Feature 002 and is unrelated to Catalyst work.
+Follow the Feature 008 plan and task register named above. Use
+`specs/catalyst-program-roadmap.md` for evaluation and comparison decisions,
+the Feature 008 specification for integration acceptance, and the pinned
+Catalyst product specification and binding design for application behavior and
+the frozen interaction contract. `HANDOFF.md` is supporting session evidence,
+not a requirements authority.

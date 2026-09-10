@@ -1,16 +1,26 @@
 # Implementation plan: Catalyst Query Workbench and Dashboard Builder
 
-**Status:** Generic connection, Spark reference deployment, and final product
-acceptance remain open.
+**Status:** Approved delivery roadmap. Persist this plan before baseline, product,
+deployment, or specification changes. The current work order is stable baseline,
+specification consolidation, the complete frozen usability design, Dashboard
+Builder functionality, and local/server evidence.
 
 **Specification:** [spec.md](spec.md)
 
 ## Authority and scope
 
-This plan describes how Feature 008 fits together. The implementation sequence,
-review pauses, and acceptance for the current implementation live in
-`../catalyst-implementation-plan.md`. The Catalyst program
-order and comparison method live in `../catalyst-program-roadmap.md`.
+This file is the authoritative implementation roadmap and delivery goal for
+Feature 008. [tasks.md](tasks.md) is its sole detailed progress and acceptance
+register. Scope or sequence changes amend these files rather than creating a
+parallel plan.
+
+The [program roadmap](../catalyst-program-roadmap.md) retains evaluation,
+comparison, and broader-conversation decisions. The approved delivery priority
+is **usability first, then Dashboard Builder functionality**. Model comparison
+and broader conversation work remain visible, separately scheduled work and are
+not prerequisites for this delivery. The legacy
+[Catalyst implementation plan](../catalyst-implementation-plan.md) remains a
+source during the consolidation iteration; it no longer sets delivery order.
 
 Feature 008 includes the accepted conversation, query notebook, manual Run flow,
 typed results, and Dashboard Builder experience over the generic connection.
@@ -87,8 +97,9 @@ result. It does not open a second database path.
 
 ## Selected reference deployment
 
-The selected demonstration will use the following path. Its implementation and
-acceptance are open:
+The selected demonstration will use the following path. Harness `main` does not
+yet contain the accepted integration baseline; candidate integration exists and
+live acceptance remains open:
 
 ```text
 OpenELIS or OpenMRS FHIR
@@ -106,87 +117,138 @@ Whether the two sources share a Spark endpoint is an implementation finding.
 Use the pinned upstream path first and return to the owner before adding a
 namespace service, fork, or shadow store.
 
-## Documentation status
+## Approved delivery sequence
 
-Current documents state one product and evaluation design, and local links and
-central architecture checks pass. Owner review of the planning diff remains
-open.
+### 0. Persist this roadmap
 
-## Delivery sequence
+Land this roadmap and its task register before the baseline implementation.
+Only the minimum authority pointers change with it. If the existing source-pair
+or conformance gates expose stale integration gitlinks or their canonical
+mirrored fixture on `main`, the roadmap pull request may advance them to the
+already-reviewed current integration baseline; it does not absorb baseline
+product code. Specification consolidation and product behavior begin after this
+source of truth is merged.
 
-### 1. Generic Catalyst connection
+Exit: current authority entry points name this plan and its task register;
+documentation checks and links pass; any required integration repair is limited
+to existing reviewed heads and their canonical fixture and passes the unchanged
+source-pair and conformance gates.
 
-Implement the thin connection boundary, live schema discovery, active-dialect
-editor behavior, advisory Run, rows/native diagnostics, and independent source
-availability.
+### 1. Establish a stable Harness/Catalyst/Hub baseline
 
-Exit:
+Use the existing harness integration work as the baseline. Account for the
+accepted Catalyst and med-agent-hub repair revisions, pin merged product
+revisions, preserve valid OpenMRS integration pins, and run existing repository
+and integration checks before merging the baseline to `main`. OpenMRS upstream
+publication is tracked separately and does not block Catalyst delivery.
 
-- arbitrary readable fixture relations reach model and editor;
-- descriptions do not filter;
-- valid and invalid exact SQL both reach the connection;
-- an unavailable source does not prevent startup;
-- focused connection and UI tests pass.
+Exit: one merged harness baseline names clean remote-reachable Catalyst and Hub
+revisions; the ordinary repository-line check passes from `main`; superseded
+child work has a recorded disposition; local Catalyst lifecycle uses that exact
+baseline without reseeding retained data.
 
-Pause for review before changing the reference deployment.
+### 2. Consolidate current specifications and planning
 
-### 2. Spark reference path
+Preserve one responsibility per current authority:
 
-Enable the pinned FHIR Data Pipes Parquet and Spark path, connect Catalyst and
-Superset, and prove each reference source actually included as it is integrated.
+| Authority | Responsibility |
+| --- | --- |
+| Catalyst product specification | Application behavior and contracts |
+| Catalyst binding design | Current interaction and visual requirements |
+| Harness program roadmap | Evaluation, comparison, and separately scheduled conversation decisions |
+| Feature 008 specification | Integration requirements and delivery acceptance |
+| This plan | Implementation sequence and delivery goal |
+| Feature 008 tasks | Detailed progress and acceptance evidence |
 
-Exit:
+Absorb the legacy implementation plan into this plan and the separate Dashboard
+delivery goal into the Feature 008 specification. Replace retired bodies with
+successor links. Preserve frozen mocks, research, overlap findings, and prior
+handoffs as dated evidence. Align README, agent instructions, SpecKit pointers,
+and existing document checks without adding prose hashes or another status
+ledger.
 
-- nonempty Parquet and applicable ViewDefinitions exist;
-- Spark and Catalyst return a known source fact;
-- one successful browser query and one native error are visible;
-- one Dataset-to-Superset render works;
-- no substituted clinical analytics store or fallback participates.
+Exit: no unique current requirement is lost; no competing implementation
+sequence remains; current documents agree on approved UX behavior; every prior
+effort is completed with evidence, active here, superseded with a destination,
+or deferred with a next action.
 
-Pause for owner review of the live product.
+### 3. Implement the frozen usability design
 
-### 3. One runtime path and reader-led harness
+Deliver small reviewable product changes in this order:
 
-Delete engine-specific analytics code, generated-catalog filtering, copied
-marts, sink scripts, direct-database harness checks, automatic result matching,
-automatic verdicts, and their dedicated tests. Re-author scenario references
-once against the accepted Spark surface.
+1. **Question writing:** shared resizable initial and follow-up composer with
+   Expand/Restore; preserve drafts and focus across failure and retry; preparing
+   a question never executes SQL.
+2. **Shell and appearance:** Explore/Saved work, frozen light/dark design, quiet
+   View options, and workspace-wide Advanced mode; retain every session and
+   analyst capability without losing question, editor, parameter, source,
+   profile, execution, or result state.
+3. **Available data:** complete nonmodal schema search beside the draft; expose
+   exact identifiers and types without fetching clinical result rows; handle
+   loading, retry, source changes, focus, and narrow layouts.
+4. **Result review:** one full result table, plain warnings and limits,
+   accessible provenance, and preserved save/publication behavior.
 
-Exit:
+**First owner gate:** deploy the complete usability design locally against the
+real OpenELIS and OpenMRS sources. Publish a side-by-side design comparison,
+focused browser evidence, and a paced walkthrough for asynchronous review.
+Dashboard functionality expansion starts after feedback from this gate.
 
-- the harness executes only selected model SQL through Catalyst;
-- design-time references are never rerun during comparison;
-- the reader receives complete cases and a human-usable rubric;
-- an incomplete collection is labelled incomplete;
-- focused harness/report tests and ordinary repository checks pass.
+### 4. Complete Dashboard Builder functionality
 
-### 4. Fresh Phase 1 comparison
+First complete saved queries and visualizations: only a successful current
+execution may be saved; immutable versions restore; typed results retain their
+meaning; compatible visualizations can be reviewed, selected, and saved.
 
-Run each selected model team through the same complete scenario suite once.
-Store the complete reader packet, apply one shared rubric in one deliberately
-initiated full-context review, publish the report, and pause for owner review.
+Then complete Dashboards and publication: multiple Widgets can be arranged and
+restored; publication is deterministic; import status follows actual receipts;
+failures remain actionable; successful import opens the rendered Superset
+Dashboard. Inspect one visible value against its originating Catalyst result
+without a second database query.
 
-### 5. Define Phase 2
+Exit: the live Workbench, Dataset review/library, Widget review/library,
+Dashboard library/arrangement, and every publish/import state are compared with
+the current binding design and pass focused API, component, accessibility,
+desktop, and narrow-layout checks.
 
-Review the Phase 1 report, then set the broader conversation-mode scope and
-acceptance. Do not infer Phase 2 requirements during Phase 1 implementation.
+### 5. Deploy and publish evidence
 
-### 6. Complete Phase 3 Dashboard Builder
+Deploy exact merged compatible revisions locally and to
+`catalyst.openelis-global.org` with the harness lifecycle wrapper and retained
+data. For OpenELIS and OpenMRS in each environment, prove drafting, schema
+browsing, generation, explicit execution, refinement, saving, visualization,
+Dashboard arrangement, publication, import, and Superset rendering. Run importer
+operations from the checkout that owns the tested environment.
 
-Finish the accepted product behavior against the generic connection:
+Reuse the existing Playwright capture and deterministic video renderer. Cards
+and short captions remain visible for at least five seconds; longer text uses
+approximately three words per second plus two seconds. Results and detailed
+views remain for at least eight seconds. Reading and interaction stay at normal
+speed, accelerated waits remain visible and labelled, holds retain captions,
+and captions do not cover the demonstrated information. Watch every final cut
+at normal speed before publication.
 
-- route coverage for Dataset, Widget, Dashboard, and publication actions;
-- lossless typed execution-to-Dataset conversion for the active dialect;
-- deterministic compatible visualization suggestions and overrides;
-- deterministic native Superset bundle and publication status;
-- browser-visible publish, import, stable URL, and rendered result;
-- evidence sufficient to trace the visible flow and diagnose failure; and
-- accepted keyboard, focus, error, desktop, and narrow-layout behavior.
+Archive raw footage immediately with traces, timestamps, exact revisions,
+source/model configuration, and importer receipts. Use new immutable media
+filenames and update every public video/poster reference together.
 
-Compare the live Workbench, Dataset review and library, Widget review and
-library, Dashboard library and arrangement, and publish/import states side by
-side with the binding design. Do not turn acceptance into repeated-run, restart,
-reset, recovery, or independent database-reconciliation programs.
+Exit: both local and server deployments have real-path evidence for both
+sources; paced public videos identify the matching revisions; current public
+references and explicit owner acceptance are recorded.
+
+## Iteration and tracking rules
+
+Each product iteration may use multiple small pull requests. Each pull request
+updates affected behavior tests and documentation, runs the relevant unit or
+contract tests plus UI type checking, lint, build, and deterministic browser
+checks, and records what ran and what remains unresolved. Live model and Spark
+proof is required at the named integration gates rather than every presentation
+pull request.
+
+Owner review is asynchronous. Implementation, merge, deployment,
+self-validation, and owner acceptance remain separate task states. The project
+status dashboard links to this plan, tasks, pull requests, deployments, and
+evidence; it does not duplicate this checklist.
 
 ## Validation strategy
 
