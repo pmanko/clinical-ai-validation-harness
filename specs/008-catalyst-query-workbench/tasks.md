@@ -167,7 +167,7 @@ The first local deployment and remaining acceptance are recorded below.
   revisions locally with `scripts/catalyst-mvp.sh`, preserving retained data.
 - [X] Exercise the real OpenELIS and OpenMRS sources through schema browse,
   drafting, preparation, explicit Run, results, refinement, and Advanced mode.
-- [ ] Publish side-by-side design evidence and a paced local walkthrough for
+- [X] Provide private side-by-side design evidence and a paced local walkthrough for
   asynchronous owner review; record implementation, deployment, self-validation,
   and owner feedback separately.
 - [ ] Start Dashboard functionality expansion only after feedback from this
@@ -183,9 +183,17 @@ profile was `catalyst-query-gemma-4-12b-qwen2.5-14b-checked`.
 
 The private review bundle is `catalyst-ux-gate-20260910`, supplied through the
 owning task rather than committed or publicly published. It retains raw footage,
-traces, exact revisions/configuration and execution responses. Design comparison,
-video review and owner acceptance are tracked separately above. This local UX
-proof does not close the later saved-work, server or Superset acceptance.
+traces, exact revisions/configuration and execution responses. Both final cuts
+were checked at normal playback speed: OpenELIS 2:18 and OpenMRS 2:15, with
+readable cards, eight-second result/details holds and labeled accelerated model
+waits. The SQL reading view was scrolled clear of the panel footer before the
+final recording. Screenshots compare the approved mock with the deployed
+light/dark entry screen and result review.
+
+Owner feedback and acceptance remain open. Review the composer/Run spacing at a
+720-pixel window height, where the Run controls can require scrolling, as well as
+the current Carbon typography and panel proportions. This local UX proof does
+not close the later saved-work, server or Superset acceptance.
 
 The live walkthrough exposed an incorrect execution URL in two browser-test
 observers. Catalyst [#89](https://github.com/DIGI-UW/catalyst-ai/pull/89), merged as
