@@ -369,17 +369,19 @@ proof; it does not close the full server/demo checkpoint or final owner review.
 
 ## Local/server deployment and evidence
 
-Release verification, 10 September: harness [#127](https://github.com/pmanko/clinical-ai-validation-harness/pull/127)
-merged as `6254b58`, pinning Catalyst `0109b5b` and Hub `75d0ff0`.
-The local owning checkout now runs these merged revisions; the strict repository
+Release verification, 10 September: harness [#129](https://github.com/pmanko/clinical-ai-validation-harness/pull/129)
+merged as `4726687`, pinning Catalyst `d5c4c0d` and Hub `75d0ff0`.
+The local owning checkout runs these merged revisions; the strict repository
 check and full wrapper health gate passed without reseeding. The refreshed
-full-scenario recording test passed for **both real sources** (2 tests, 9.8 minutes):
+full-scenario recording test passed for **both real sources** (2 tests, 11.3 minutes):
 drafting and schema browsing, explicit execution and refinement, exact saved-SQL
 reuse with draft preservation, chart/table creation, arrangement save/reload and
 revision, deterministic publication, actual import receipts and native Superset
 rendering. Visible table values match the originating Catalyst result. Raw videos,
 screenshots, traces, requests, receipts, milestones and a revision/configuration
-manifest are archived privately under run `release-check-5`.
+manifest are archived privately under run `release-4726687-local-2`.
+Both settled Superset screenshots were inspected: female/male counts are
+49/47 for OpenELIS and 3,578/1,806 for OpenMRS, matching the originating results.
 
 Server access is restored and the same merged revisions are staged in the new
 owning checkout. Transferred retained-data hashes match; the restored
@@ -410,9 +412,18 @@ and composer spacing were aligned directly with the frozen mock; saved-query
 review keeps the immutable name readable and the recorded source visible.
 Light/dark and narrow screenshots were inspected. Local checks passed: 284 UI tests, 52 analytics
 tests, 12 deterministic browser checks, type checking, lint, production build and
-documentation/link checks. The real-source recording passed on the earlier merged
-release described above; final proof must use the new merged release revisions.
+documentation/link checks. The real-source recording now passes on the merged
+release described above; final server proof remains separate.
 All five Catalyst hosted checks passed on the final pull-request head before merge.
+
+Import isolation: Catalyst [#99](https://github.com/DIGI-UW/catalyst-ai/pull/99),
+merged as `3439c97`, removes implicit service startup from Dashboard import.
+Import requires healthy services in the owning checkout with matching resolved
+configuration; inherited port changes fail before import or service mutation.
+All 57 analytics/assembly tests and all five hosted jobs passed. This follow-up
+changes the operator script only; the UI and query code in the recorded journey
+above are unchanged. Live verification of the new guard is tracked separately
+from that recording and final server delivery.
 
 Server readiness, public routing, full server journeys, paced final cuts and
 owner acceptance remain open. The new server stack remains stopped with restored
