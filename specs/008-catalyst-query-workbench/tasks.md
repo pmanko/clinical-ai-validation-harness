@@ -112,8 +112,8 @@ were not run for this shell-only iteration.
 - [X] Merge the shell PR.
 - [X] Merge the compatible harness pin and task-register update in
   [#118](https://github.com/pmanko/clinical-ai-validation-harness/pull/118).
-- [ ] Complete local/server deployment and owner acceptance at the gates below,
-  after Available data and result review are ready.
+- [ ] Complete owner acceptance and final local/server delivery at the gates
+  below.
 
 ## Usability iteration 3 — Available data
 
@@ -133,8 +133,9 @@ tests, type/build, lint and eight deterministic browser checks passed. Checks
 cover whole-schema search across pages, no incidental row/execution requests,
 source-change races and retry, and preserved focus, draft and browser scroll.
 Desktop/narrow screenshots and the real OpenELIS schema were inspected privately.
-The compatible harness pin merged in [harness #119](https://github.com/pmanko/clinical-ai-validation-harness/pull/119). Complete
-dual-source deployment and owner acceptance remain open.
+The compatible harness pin merged in [harness #119](https://github.com/pmanko/clinical-ai-validation-harness/pull/119).
+The first local dual-source proof is recorded below; final server delivery and
+owner acceptance remain open.
 
 ## Usability iteration 4 — result review
 
@@ -156,20 +157,43 @@ includes exact earlier-run review, save guards, missing saved-query evidence,
 full-table paging and types, keyboard focus, disclosure, 320/390/640px layouts,
 and the existing save-to-publication regression. Light/dark/narrow screenshots
 were inspected privately; warning overlap was corrected and covered. Documentation
-links, consistency and drift checks passed. The compatible harness pin is included
-here; complete local deployment and owner acceptance remain open below.
+links, consistency and drift checks passed. The compatible harness pin merged in
+[#120](https://github.com/pmanko/clinical-ai-validation-harness/pull/120).
+The first local deployment and remaining acceptance are recorded below.
 
 ## First owner gate — complete usability design locally
 
-- [ ] Merge the complete usability implementation and deploy exact compatible
+- [X] Merge the complete usability implementation and deploy exact compatible
   revisions locally with `scripts/catalyst-mvp.sh`, preserving retained data.
-- [ ] Exercise the real OpenELIS and OpenMRS sources through schema browse,
+- [X] Exercise the real OpenELIS and OpenMRS sources through schema browse,
   drafting, preparation, explicit Run, results, refinement, and Advanced mode.
 - [ ] Publish side-by-side design evidence and a paced local walkthrough for
   asynchronous owner review; record implementation, deployment, self-validation,
   and owner feedback separately.
 - [ ] Start Dashboard functionality expansion only after feedback from this
   local gate is recorded in the plan/tasks.
+
+Local implementation/deployment/self-validation, 10 September 2026: harness
+`e8f6cb3`, Catalyst `60cc7b5`, and Hub `75d0ff0` passed the strict repository-line
+check, wrapper startup and health checks in the checkout owning the isolated
+stack. Retained mount locations and environment configuration were unchanged;
+no seed or reset was run. Both real-source browser journeys passed, each with
+two explicit executions and no execution during preparation. The selected real
+profile was `catalyst-query-gemma-4-12b-qwen2.5-14b-checked`.
+
+The private review bundle is `catalyst-ux-gate-20260910`, supplied through the
+owning task rather than committed or publicly published. It retains raw footage,
+traces, exact revisions/configuration and execution responses. Design comparison,
+video review and owner acceptance are tracked separately above. This local UX
+proof does not close the later saved-work, server or Superset acceptance.
+
+The live walkthrough exposed an incorrect execution URL in two browser-test
+observers. Catalyst [#89](https://github.com/DIGI-UW/catalyst-ai/pull/89), merged as
+`4d9c1e9`, corrects those observers and proves an explicit Run is counted in the
+existing query-to-Dashboard test. Four focused browser checks, type checking and
+lint passed, as did all five hosted jobs. It changes tests only; this harness
+pins that merged revision while preserving the exact application revision of
+the recorded local proof above.
 
 ## Dashboard functionality — saved work
 

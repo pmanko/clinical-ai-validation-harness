@@ -1,9 +1,10 @@
 # Implementation plan: Catalyst Query Workbench and Dashboard Builder
 
 **Status:** Current delivery roadmap. The roadmap and compatible baseline are
-merged, and the specification set is consolidated. The active work order is the
-complete frozen usability design, Dashboard Builder functionality, and
-local/server evidence.
+merged, and the specification set is consolidated. All four usability iterations
+are merged and the first local dual-source walkthrough passed. Owner review of
+the complete local usability design precedes Dashboard Builder functionality;
+final local/server evidence and owner acceptance remain open.
 
 **Specification:** [spec.md](spec.md)
 
