@@ -84,21 +84,35 @@ The approved disposition is in [the plan](plan.md#design-extension-review).
 - [ ] Extend the approved mock with saved-work browsing and saved-SQL reuse;
   review the interaction before implementing it. Follow-on A owns the combined
   Widget/Dashboard request and SQL-dependent failure review.
-- [ ] Merge Catalyst [#85](https://github.com/DIGI-UW/catalyst-ai/pull/85), which
-  consolidates the proposals and saved-SQL contract, then
-  update the harness pin. Preview synchronization follows the current-scope
-  mock extension; future scenarios stay with their follow-on milestone.
+- [X] Merge Catalyst [#85](https://github.com/DIGI-UW/catalyst-ai/pull/85), which
+  consolidates the proposals and saved-SQL contract, and update the harness pin
+  in [#117](https://github.com/pmanko/clinical-ai-validation-harness/pull/117).
+  Preview synchronization follows the current-scope mock extension; future scenarios stay with their follow-on milestone.
 
 ## Usability iteration 2 — shell and appearance
 
-- [ ] Implement Explore/Saved work, frozen light/dark styling, View options, and
+- [X] Implement Explore/Saved work, frozen light/dark styling, View options, and
   workspace-wide Advanced mode using current Carbon controls and theme state.
-- [ ] Relocate session creation, reopening, renaming, source selection, and turn
+- [X] Relocate session creation, reopening, renaming, source selection, and turn
   navigation before removing the current rail.
-- [ ] Preserve question, SQL, parameters, source, profile, execution, result,
+- [X] Preserve question, SQL, parameters, source, profile, execution, result,
   selected asset, and browse state through mode, theme, and navigation changes.
-- [ ] Keep every analyst capability directly reachable and avoid a second
+- [X] Keep every analyst capability directly reachable and avoid a second
   preference, editor, or state owner.
+
+Implementation and self-validation: Catalyst
+[#86](https://github.com/DIGI-UW/catalyst-ai/pull/86), merged as `e7b0896`
+on 10 September 2026 with all five hosted jobs passing. All 269 UI unit
+tests, lint, type/build checks and seven deterministic browser checks passed.
+The browser checks cover draft/profile retention, SQL selection and undo,
+keyboard and narrow layouts, and the existing execution-to-publication flow.
+Light/dark/narrow screenshots were inspected privately. Live/demo recordings
+were not run for this shell-only iteration.
+
+- [X] Merge the shell PR.
+- [ ] Merge the compatible harness pin and this task-register update.
+- [ ] Complete local/server deployment and owner acceptance at the gates below,
+  after Available data and result review are ready.
 
 ## Usability iteration 3 — Available data
 
