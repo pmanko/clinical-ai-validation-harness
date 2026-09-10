@@ -110,24 +110,36 @@ Light/dark/narrow screenshots were inspected privately. Live/demo recordings
 were not run for this shell-only iteration.
 
 - [X] Merge the shell PR.
-- [ ] Merge the compatible harness pin and this task-register update.
+- [X] Merge the compatible harness pin and task-register update in
+  [#118](https://github.com/pmanko/clinical-ai-validation-harness/pull/118).
 - [ ] Complete local/server deployment and owner acceptance at the gates below,
   after Available data and result review are ready.
 
 ## Usability iteration 3 — Available data
 
-- [ ] Provide complete, nonmodal whole-schema search over relation names,
+- [X] Provide complete, nonmodal whole-schema search over relation names,
   reviewed descriptions, and columns while the question remains available.
-- [ ] Show exact identifiers and types and use exact names when reviewed friendly
+- [X] Show exact identifiers and types and use exact names when reviewed friendly
   metadata is absent; do not invent clinical descriptions.
-- [ ] Separate schema browsing from legacy Dataset row effects so opening,
+- [X] Separate schema browsing from legacy Dataset row effects so opening,
   searching, and retrying never fetches clinical result rows.
-- [ ] Prevent stale-source schema during source changes and cover loading,
+- [X] Prevent stale-source schema during source changes and cover loading,
   no-match, empty, error/retry, close/reopen, keyboard return, and narrow layout.
+
+Implementation and self-validation: Catalyst
+[#87](https://github.com/DIGI-UW/catalyst-ai/pull/87), merged as `f50e6ce`
+on 10 September 2026 with all five hosted jobs passing. All 271 UI unit
+tests, type/build, lint and eight deterministic browser checks passed. Checks
+cover whole-schema search across pages, no incidental row/execution requests,
+source-change races and retry, and preserved focus, draft and browser scroll.
+Desktop/narrow screenshots and the real OpenELIS schema were inspected privately.
+The compatible harness pin is included with this register update. Complete
+dual-source deployment and owner acceptance remain open.
 
 ## Usability iteration 4 — result review
 
-- [ ] Give Dataset review the sole full result table; keep useful thread
+- [ ] Give Dataset review the sole full result table, including access to each
+  retained earlier execution without saving the wrong current result; keep useful thread
   summaries and make database errors, warnings, and row limits plain and visible.
 - [ ] Keep exact provenance in a named disclosure and restore focus to the
   control that opened review.
