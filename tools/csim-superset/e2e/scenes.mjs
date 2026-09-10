@@ -1,6 +1,8 @@
 // Captions describe the visible checkpoint after its dashboard assertions pass.
 import { publication } from './policy.mjs';
 const captions = {
+ 'instance-logins':['Choose an instance','Each Superset installation has its own login and direct dashboard link.'],
+ 'mobile-instance-login':['Instance login on mobile','The build label, credentials and matching dashboard link stay together.'],
  'reported-issue-coverage':['Reported issues','The overview distinguishes fixes, workarounds and remaining gaps.'],
  'mobile-reported-coverage':['Reported issues on mobile','The same coverage remains readable on a narrow screen.'],
  'preview-csim-options':['Newer Superset · CSiM','Month, Quarter and Year are saved for this dashboard. Other dashboards can use different units.'],

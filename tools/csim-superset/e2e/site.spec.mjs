@@ -12,12 +12,21 @@ test('01 · Understand the problems and reveal supporting detail', async ({ page
   await expect(page.getByRole('heading', { name: 'What is available to use' })).toBeVisible();
   const snapshotLink=page.locator('#snapshot-resource').getByRole('link',{name:'Open CSiM in newer Superset ↗',exact:true});
   expect(await snapshotLink.evaluate(link=>link.href)).toBe('https://catalyst.openelis-global.org/superset-preview/superset/dashboard/csim-full-synthetic/');
+  const releasedLogin=page.locator('#demo-instance');
+  const newerLogin=page.locator('#snapshot-instance');
+  await expect(releasedLogin.getByRole('heading',{name:'Superset 6.1.0',exact:true})).toBeVisible();
+  await expect(releasedLogin.locator('#demo-credentials')).toHaveCount(1);
+  expect(new URL(await releasedLogin.getByRole('link',{name:'Open Superset 6.1.0 ↗',exact:true}).evaluate(link=>link.href)).pathname).toMatch(/^\/(?:superset\/)?superset\/dashboard\/csim-full-synthetic\/$/);
+  await expect(newerLogin.locator('#snapshot-credentials')).toHaveCount(1);
+  expect(await newerLogin.getByRole('link',{name:'Open newer Superset ↗',exact:true}).evaluate(link=>link.href)).toBe('https://catalyst.openelis-global.org/superset-preview/superset/dashboard/csim-full-synthetic/');
+  expect(await newerLogin.getByRole('link',{name:'Open hourly example in this instance ↗',exact:true}).evaluate(link=>link.href)).toBe('https://catalyst.openelis-global.org/superset-preview/superset/dashboard/hourly-reporting-preview/');
   await expect(page.locator('details[open]')).toHaveCount(0);
   await expect(page.locator('#reported-coverage')).toContainText('cached chart references still contain old IDs');
   await expect(page.locator('#reported-coverage tbody tr')).toHaveCount(4);
   await capture(page, info, 'overview-and-available-examples');
   await page.locator('.resource.primary').scrollIntoViewIfNeeded();
   await capture(page, info, 'available-dashboards-and-evidence');
+  await capture(page,info,'instance-logins',page.locator('#demo-access'));
   await page.getByRole('heading', {name:'The underlying reporting need'}).scrollIntoViewIfNeeded();
   await capture(page, info, 'reporting-need');
   await capture(page, info, 'reported-issue-coverage',page.locator('#reported-coverage'));
@@ -42,6 +51,9 @@ test('01 · Understand the problems and reveal supporting detail', async ({ page
   await page.locator('#reported-coverage').scrollIntoViewIfNeeded();
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
   await capture(page, info, 'mobile-reported-coverage');
+  await newerLogin.scrollIntoViewIfNeeded();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+  await capture(page,info,'mobile-instance-login');
 });
 
 
