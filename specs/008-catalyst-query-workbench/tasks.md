@@ -133,20 +133,31 @@ tests, type/build, lint and eight deterministic browser checks passed. Checks
 cover whole-schema search across pages, no incidental row/execution requests,
 source-change races and retry, and preserved focus, draft and browser scroll.
 Desktop/narrow screenshots and the real OpenELIS schema were inspected privately.
-The compatible harness pin is included with this register update. Complete
+The compatible harness pin merged in [harness #119](https://github.com/pmanko/clinical-ai-validation-harness/pull/119). Complete
 dual-source deployment and owner acceptance remain open.
 
 ## Usability iteration 4 — result review
 
-- [ ] Give Dataset review the sole full result table, including access to each
+- [X] Give Dataset review the sole full result table, including access to each
   retained earlier execution without saving the wrong current result; keep useful thread
   summaries and make database errors, warnings, and row limits plain and visible.
-- [ ] Keep exact provenance in a named disclosure and restore focus to the
+- [X] Keep exact provenance in a named disclosure and restore focus to the
   control that opened review.
-- [ ] Apply clear Saved work labels without changing Dataset, Widget, Dashboard,
+- [X] Apply clear Saved work labels without changing Dataset, Widget, Dashboard,
   immutable-save, stale-result, publication, or receipt identities.
-- [ ] Run affected component/API tests, UI type checking, lint, build, and
+- [X] Run affected component/API tests, UI type checking, lint, build, and
   deterministic desktop/narrow browser checks for all four usability iterations.
+
+Implementation, merge and self-validation: Catalyst
+[#88](https://github.com/DIGI-UW/catalyst-ai/pull/88), merged as `60cc7b5`
+on 10 September 2026 with all five hosted jobs passing. All 274 UI unit tests,
+type checking, lint, build and nine deterministic browser checks passed. Coverage
+includes exact earlier-run review, save guards, missing saved-query evidence,
+full-table paging and types, keyboard focus, disclosure, 320/390/640px layouts,
+and the existing save-to-publication regression. Light/dark/narrow screenshots
+were inspected privately; warning overlap was corrected and covered. Documentation
+links, consistency and drift checks passed. The compatible harness pin is included
+here; complete local deployment and owner acceptance remain open below.
 
 ## First owner gate — complete usability design locally
 
