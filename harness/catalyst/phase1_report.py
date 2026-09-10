@@ -82,7 +82,7 @@ def _turn_fact(turn: dict[str, Any]) -> tuple[str, str]:
     if isinstance(execution, dict) and execution:
         status = execution.get("status")
         if status and status != "succeeded":
-            return f"PostgreSQL returned {status}", "different"
+            return f"database returned {status}", "different"
     if expected and observed:
         if expected == observed:
             return "outcome was as expected", "ok"
@@ -159,8 +159,7 @@ def _evidence_details(turn: dict[str, Any]) -> str:
     chunks: list[str] = []
     for label, title in (
         ("validation", "Advisory validator"),
-        ("execution", "PostgreSQL result or diagnostic"),
-        ("postgresCrosscheck", "Independent execution cross-check"),
+        ("execution", "Execution result or diagnostic"),
         ("independentAnswerCheck", "Question-specific database answer check"),
         ("generation", "Model context, calls, tokens, and exact requests"),
     ):

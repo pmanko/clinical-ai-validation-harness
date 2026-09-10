@@ -5,18 +5,10 @@
   "gatewayUrl": "http://127.0.0.1:18000",
   "outputDir": "artifacts/catalyst-notebook-validation",
   "warmupQuestion": "How many distinct patients are represented in the readable HIV data?",
-  "postgres": {
-    "host": "127.0.0.1",
-    "port": 15443,
-    "database": "catalyst_analytics_hiv",
-    "user": "catalyst_readonly",
-    "passwordEnv": "CATALYST_READONLY_PASSWORD"
-  },
   "invocation": {
     "scenarios": [],
     "repetitions": null,
     "includeManual": false,
-    "postgresCrossCheck": true,
     "timeoutSeconds": 900
   },
   "publish": {

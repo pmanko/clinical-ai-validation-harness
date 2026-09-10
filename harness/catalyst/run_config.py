@@ -26,10 +26,11 @@ _IPV4 = re.compile(r"(?<![\d.])(?:\d{1,3}\.){3}\d{1,3}(?![\d.])")
 
 
 def resolve(path: str | Path, *, require_secrets: bool = True) -> dict[str, Any]:
-    """Read a config file and normalize it, resolving secret references.
+    """Read a config file and normalize it.
 
-    `require_secrets=False` is for reading a template without the runtime
-    environment, such as documentation and tests.
+    The runner reaches its data only through Catalyst, so a run config carries
+    no database credential to resolve. ``require_secrets`` is retained as an
+    accepted no-op so existing callers and templates keep working.
     """
     source = Path(path)
     try:
@@ -38,15 +39,6 @@ def resolve(path: str | Path, *, require_secrets: bool = True) -> dict[str, Any]
         raise SystemExit(f"cannot read run config {source}: {error}") from error
     except json.JSONDecodeError as error:
         raise SystemExit(f"run config {source} is not valid JSON: {error}") from error
-
-    postgres = dict(raw.get("postgres") or {})
-    password_env = postgres.get("passwordEnv")
-    password = os.environ.get(password_env) if password_env else None
-    if require_secrets and password_env and not password:
-        raise SystemExit(
-            f"run config {source} needs the database password in "
-            f"${password_env}, which is not set"
-        )
 
     invocation = raw.get("invocation", {})
     if invocation is None:
@@ -78,7 +70,7 @@ def resolve(path: str | Path, *, require_secrets: bool = True) -> dict[str, Any]
         raise SystemExit(
             f"run config {source} invocation.timeoutSeconds must be a positive integer"
         )
-    for field in ("includeManual", "postgresCrossCheck"):
+    for field in ("includeManual",):
         if field in invocation and not isinstance(invocation[field], bool):
             raise SystemExit(
                 f"run config {source} invocation.{field} must be boolean"
@@ -90,13 +82,10 @@ def resolve(path: str | Path, *, require_secrets: bool = True) -> dict[str, Any]
         "gatewayUrl": str(raw.get("gatewayUrl") or ""),
         "outputDir": str(raw.get("outputDir") or ""),
         "warmupQuestion": str(raw.get("warmupQuestion") or ""),
-        "postgres": postgres,
-        "_password": password,
         "invocation": {
             "scenarios": list(dict.fromkeys(scenarios)),
             "repetitions": repetitions,
             "includeManual": invocation.get("includeManual", False),
-            "postgresCrossCheck": invocation.get("postgresCrossCheck", True),
             "timeoutSeconds": timeout_seconds,
         },
         "publish": dict(raw.get("publish") or {}),
@@ -111,18 +100,6 @@ def resolve(path: str | Path, *, require_secrets: bool = True) -> dict[str, Any]
             "per_scenario": gates.get("perScenario", gates.get("per_scenario")),
         }
     return resolved
-
-
-def postgres_dsn(config: dict[str, Any]) -> str:
-    """The DSN the runner connects with. Never written to disk."""
-    postgres = config.get("postgres") or {}
-    password = config.get("_password") or ""
-    user = postgres.get("user", "")
-    credentials = f"{user}:{password}@" if user else ""
-    return (
-        f"postgresql://{credentials}{postgres.get('host', '')}:"
-        f"{postgres.get('port', '')}/{postgres.get('database', '')}"
-    )
 
 
 def _unsafe_public_value(value: Any, path: str = "$") -> str | None:

@@ -118,8 +118,12 @@ def compare_record_sets(a: dict[str, Any], b: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+# "Status: ACTIVE" is matched in full, with a trailing word boundary: a bare "ACTIVE"
+# substring also matches "INACTIVE", which would let resolved history alone satisfy the
+# non-empty-core guard that exists to prove active problems were actually exercised.
 _MANDATORY_LINE_RE = re.compile(
-    r"^\[\d+\] (?:\(\d{4}-\d{2}-\d{2}\) )?(Allergy: .*?|Condition: .*?ACTIVE.*?)\s*$",
+    r"^\[\d+\] (?:\(\d{4}-\d{2}-\d{2}\) )?"
+    r"(Allergy: .*?|Condition: .*?\bStatus: ACTIVE\b.*?)\s*$",
     re.MULTILINE,
 )
 

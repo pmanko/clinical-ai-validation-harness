@@ -455,7 +455,7 @@ def test_collection_summary_supports_one_unnamed_profile_and_ignores_nonresults(
     [
         (
             {"evidence": {"execution": {"status": "timed_out"}}},
-            ("PostgreSQL returned timed_out", "different"),
+            ("database returned timed_out", "different"),
         ),
         (
             {"expectedOutcome": "ready", "observedOutcome": "ready"},
@@ -786,3 +786,11 @@ def test_reader_led_report_uses_full_evidence_without_legacy_verdicts(
     assert "gold FAIL detail" not in html
     assert "Qualified:" not in html
     assert "No team qualified" not in html
+
+
+def test_evidence_details_titles_the_execution_evidence_without_naming_an_engine() -> None:
+    html = _evidence_details(
+        {"evidence": {"execution": {"status": "ok", "rows": [[1]]}}}
+    )
+    assert "<summary>" in html
+    assert "PostgreSQL" not in html

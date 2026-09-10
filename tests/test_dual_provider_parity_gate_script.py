@@ -423,6 +423,52 @@ def test_parity_diff_itself_rejects_an_unexercised_mandatory_core(tmp_path: Path
     assert "mandatory clinical core is empty" in result.stdout
 
 
+def test_parity_diff_core_excludes_conditions_that_are_not_active(tmp_path: Path) -> None:
+    """The mandatory core is allergies plus ACTIVE conditions. A substring match on
+    "ACTIVE" also admits "INACTIVE", which would let a chart with no active problem
+    at all satisfy the non-empty-core guard on resolved history alone."""
+    chart = "\n".join(
+        [
+            "[1] Condition: Sprained ankle. Status: INACTIVE",
+            "[2] Condition: Pneumonia. Status: RESOLVED",
+        ]
+    )
+    body = {"messages": [{"role": "user", "content": chart}]}
+    request_a = _write(tmp_path, "a.json", json.dumps(body))
+    request_b = _write(tmp_path, "b.json", json.dumps(body))
+    contract = _write(
+        tmp_path,
+        "contract.json",
+        json.dumps(
+            {
+                "schema_version": "engine-parity.v1",
+                "must_match": [],
+                "documented_divergences": [],
+            }
+        ),
+    )
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(ROOT / "scripts/parity-engine-diff.py"),
+            str(request_a),
+            str(request_b),
+            "--contract",
+            str(contract),
+            "--out",
+            str(tmp_path / "report.json"),
+        ],
+        text=True,
+        capture_output=True,
+    )
+
+    report = json.loads((tmp_path / "report.json").read_text(encoding="utf-8"))
+    assert report["mandatory_core"]["core_a"] == []
+    assert result.returncode == 1
+    assert "mandatory clinical core is empty" in result.stdout
+
+
 def test_foundation_remains_the_default_and_placeholder_failures_are_gone() -> None:
     shell_source = SCRIPT.read_text(encoding="utf-8")
     evaluator_source = EVALUATOR.read_text(encoding="utf-8")

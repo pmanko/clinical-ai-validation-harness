@@ -26,15 +26,12 @@ cfg() {
   (cd "${ROOT}" && uv run python -c '
 import sys
 field = sys.argv[2]
-from harness.catalyst.run_config import postgres_dsn, resolve
-config = resolve(sys.argv[1], require_secrets=(field == "dsn"))
-if field == "dsn":
-    print(postgres_dsn(config))
-else:
-    value = config
-    for part in field.split("."):
-        value = (value or {}).get(part)
-    print(value if value is not None else "")
+from harness.catalyst.run_config import resolve
+config = resolve(sys.argv[1], require_secrets=False)
+value = config
+for part in field.split("."):
+    value = (value or {}).get(part)
+print(value if value is not None else "")
 ' "$1" "$2")
 }
 

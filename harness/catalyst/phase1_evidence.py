@@ -79,7 +79,6 @@ def _turn_evidence(
             "generation": "03-initial-generation-evidence.json",
             "validation": "05-validate-base.json",
             "execution": "06-execute-base.json",
-            "postgresCrosscheck": "07-postgres-base.json",
             "independentAnswerCheck": "15-gold-execution-match-base.json",
         }
     else:
@@ -89,7 +88,6 @@ def _turn_evidence(
             "generation": f"11-followup-generation-evidence{suffix}.json",
             "validation": f"12-validate-successor{suffix}.json",
             "execution": f"13-execute-successor{suffix}.json",
-            "postgresCrosscheck": f"14-postgres-successor{suffix}.json",
             "independentAnswerCheck": (
                 f"16-gold-execution-match-successor{suffix}.json"
             ),

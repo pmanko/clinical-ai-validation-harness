@@ -29,7 +29,7 @@ smoke does not close or reduce Phase 3.
 | Area | Decision |
 | --- | --- |
 | Catalyst boundary | Catalyst owns SQL-connected conversation, notebook, execution, results, and Dashboard Builder behavior. It does not own FHIR ingestion, a clinical warehouse, or a mandatory database engine. |
-| Selected reference deployment | Each source included in the selected demo or comparison will use FHIR Data Pipes -> Parquet -> Spark SQL. Catalyst and Superset will connect as SQL clients. This path is not yet implemented or accepted. |
+| Selected reference deployment | Each source included in the selected demo or comparison uses FHIR Data Pipes -> Parquet -> Spark SQL. The merged product revisions and harness integration implement the configured path and separate source catalogs; exact-revision live materialization, browser evidence, and owner acceptance remain open. |
 | Data available to the model and editor | Every table, view, column, and type readable through the configured connection. Counts are observations, not product rules. Optional descriptions cannot hide relations. |
 | Session source | One source per session. A different source starts a different session. |
 | SQL execution | Validation is advisory. Exact selected SQL reaches the configured connection with a time limit and returned-row limit. Catalyst records rows or the database error. |

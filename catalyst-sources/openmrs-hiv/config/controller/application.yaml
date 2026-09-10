@@ -10,20 +10,20 @@ fhirdata:
   structureDefinitionsPath: "classpath:/r4-us-core-definitions"
 
   numThreads: 1
-  # A cron is required by the pinned controller. Sink-only refreshes are
+  # A cron is required by the pinned controller. Warehouse refreshes are
   # operator-triggered FULL runs; this far-future cadence is not an SLA.
   incrementalSchedule: "0 0 0 1 1 *"
   purgeSchedule: "0 30 * * * *"
   numOfDwhSnapshotsToRetain: 2
   recursiveDepth: 1
 
-  generateParquetFiles: false
-  dwhRootPrefix: "dwh/catalyst_hiv_DWH"
-  createHiveResourceTables: false
-  createParquetViews: false
+  generateParquetFiles: true
+  dwhRootPrefix: "/dwh/catalyst_hiv_DWH"
+  createHiveResourceTables: true
+  createParquetViews: true
 
   viewDefinitionsDir: "config/views"
-  sinkDbConfigPath: "config/postgres-sink.json"
+  thriftserverHiveConfig: "config/thriftserver-hive-config.json"
 
 management:
   endpoints:

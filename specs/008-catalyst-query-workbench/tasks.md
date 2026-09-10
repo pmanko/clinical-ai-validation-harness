@@ -15,15 +15,15 @@ conversation work remain separately scheduled.
   exposed by the unchanged source-pair and conformance gates, using the exact
   reviewed baseline already present in the integration pull request; do not
   include baseline product code.
-- [ ] Merge the roadmap pull request before baseline, specification, or product
+- [X] Merge the roadmap pull request before baseline, specification, or product
   changes begin.
 
 ## Stable Harness/Catalyst/Hub baseline
 
-- [ ] Reconcile the accepted Catalyst and med-agent-hub repair revisions into
+- [X] Reconcile the accepted Catalyst and med-agent-hub repair revisions into
   the existing harness integration baseline and pin merged, remote-reachable
   revisions.
-- [ ] Preserve valid OpenMRS integration pins while recording upstream
+- [X] Preserve valid OpenMRS integration pins while recording upstream
   publication as separately deferred work.
 - [ ] Run focused integration checks and the repository-line check allowed for
   the harness branch; resolve concrete failures without weakening the gate.
@@ -157,25 +157,25 @@ conversation work remain separately scheduled.
 
 ## Phase 1 — generic Catalyst connection
 
-- [ ] Replace the required analytics address and generated-catalog configuration
+- [X] Replace the required analytics address and generated-catalog configuration
   with source ID, label, connection configuration or reference, explicit dialect,
   and optional non-filtering descriptions.
-- [ ] Make source availability independent so one unavailable source does not
+- [X] Make source availability independent so one unavailable source does not
   prevent application startup or use of another source.
-- [ ] Limit shared connection behavior to availability, complete readable schema
+- [X] Limit shared connection behavior to availability, complete readable schema
   discovery, exact SQL execution with typed parameters and bounds, and rows or
   the database error.
-- [ ] Route generated and manually edited queries through the same shared
+- [X] Route generated and manually edited queries through the same shared
   connection-execution code.
-- [ ] Supply the same source, dialect, and readable-schema snapshot to the model,
+- [X] Supply the same source, dialect, and readable-schema snapshot to the model,
   Available data, editor, validation, and recorded execution.
-- [ ] Preserve database-native relation and column identifiers and the active
+- [X] Preserve database-native relation and column identifiers and the active
   engine's qualification rules; remove the PostgreSQL-shaped name restriction.
-- [ ] Make editor highlighting, formatting, and keyword/function completion use
+- [X] Make editor highlighting, formatting, and keyword/function completion use
   the declared dialect.
-- [ ] Keep validation advisory and prove that a warning cannot block exact
+- [X] Keep validation advisory and prove that a warning cannot block exact
   selected SQL.
-- [ ] Add focused tests with arbitrary fixture relation names, successful
+- [X] Add focused tests with arbitrary fixture relation names, successful
   execution, database failure, and an unavailable source. Do not assert a
   relation count.
 
@@ -196,11 +196,11 @@ For each source actually included in the demonstration or comparison:
   Dataset-to-Superset render.
 - [ ] Submit one intentional write attempt through the Spark connection, show
   its visible refusal, and confirm source data is unchanged.
-- [ ] Remove the separate clinical analytics store, generated catalog, copied
+- [X] Remove the separate clinical analytics store, generated catalog, copied
   marts, sink scripts, preferred-engine wiring, fallback, and dedicated tests.
 - [ ] Carry forward only descriptions or relationships demonstrated to help the
   accepted readable schema.
-- [ ] Remove the standalone `catalyst-agents` and `catalyst-mcp` packages and
+- [X] Remove the standalone `catalyst-agents` and `catalyst-mcp` packages and
   their development wiring; the active Gateway/med-agent-hub path owns model
   execution.
 
@@ -216,7 +216,7 @@ not create a per-scenario or per-run Spark comparison path.
   source's readable schema.
 - [ ] If scenario design reveals a concrete missing semantic need, pause for
   owner review before adding one minimal source-owned view.
-- [ ] Remove direct analytics-database access, separate read-only and “gold”
+- [X] Remove direct analytics-database access, separate read-only and “gold”
   execution, automatic result matching, their options/events, and dedicated
   tests. Do not translate them to Spark.
 - [ ] After the accepted readable schema exists, author and run each ready-turn

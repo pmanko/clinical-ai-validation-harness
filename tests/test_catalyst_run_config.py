@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import json
+import os
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -10,7 +13,6 @@ import pytest
 from harness.catalyst.run_config import (
     freeze,
     load_frozen,
-    postgres_dsn,
     publishable,
     resolve,
 )
@@ -24,19 +26,11 @@ def _template(tmp_path: Path, **overrides) -> Path:
         "gatewayUrl": "http://127.0.0.1:18000",
         "outputDir": "artifacts/catalyst-notebook-validation",
         "warmupQuestion": "How many distinct patients are represented?",
-        "postgres": {
-            "host": "127.0.0.1",
-            "port": 15443,
-            "database": "catalyst_analytics_hiv",
-            "user": "catalyst_readonly",
-            "passwordEnv": "CATALYST_READONLY_PASSWORD",
-        },
         "gates": {"overall": 0.90, "perScenario": 0.80},
         "invocation": {
             "scenarios": [],
             "repetitions": None,
             "includeManual": False,
-            "postgresCrossCheck": True,
             "timeoutSeconds": 900,
         },
         "publish": {"slug": "catalyst-phase1-comparison", "title": "T",
@@ -46,25 +40,6 @@ def _template(tmp_path: Path, **overrides) -> Path:
     path = tmp_path / "run-config.json"
     path.write_text(json.dumps(config), encoding="utf-8")
     return path
-
-
-def test_the_password_never_reaches_the_frozen_seed(tmp_path, monkeypatch):
-    """The seed is published with the evidence, so it carries the name of
-    the secret, never the secret."""
-    monkeypatch.setenv("CATALYST_READONLY_PASSWORD", "runtime-only-test-value")
-    config = resolve(_template(tmp_path))
-
-    assert "runtime-only-test-value" in postgres_dsn(config)
-
-    run_dir = tmp_path / "run"
-    run_dir.mkdir()
-    freeze(config, run_dir)
-
-    written = (run_dir / "run-config.json").read_text(encoding="utf-8")
-    assert "runtime-only-test-value" not in written
-    assert "CATALYST_READONLY_PASSWORD" in written
-    assert str(tmp_path) not in written
-    assert "source" not in json.loads(written)
 
 
 @pytest.mark.parametrize(
@@ -104,13 +79,6 @@ def test_a_finish_applies_the_gates_the_run_was_seeded_with(tmp_path, monkeypatc
     assert frozen["gates"] == {"overall": 0.5, "per_scenario": 0.25}
 
 
-def test_a_missing_secret_is_refused_before_the_run_starts(tmp_path, monkeypatch):
-    monkeypatch.delenv("CATALYST_READONLY_PASSWORD", raising=False)
-    with pytest.raises(SystemExit) as caught:
-        resolve(_template(tmp_path))
-    assert "CATALYST_READONLY_PASSWORD" in str(caught.value)
-
-
 def test_the_shipped_template_is_the_one_the_comparison_runs(tmp_path):
     """The checked-in template must stay loadable and complete."""
     config = resolve(
@@ -130,7 +98,6 @@ def test_the_shipped_template_is_the_one_the_comparison_runs(tmp_path):
         "scenarios": [],
         "repetitions": None,
         "includeManual": False,
-        "postgresCrossCheck": True,
         "timeoutSeconds": 900,
     }
 
@@ -143,10 +110,6 @@ def test_the_shipped_template_is_the_one_the_comparison_runs(tmp_path):
         ({"repetitions": 0}, "invocation.repetitions must be a positive integer"),
         ({"timeoutSeconds": 0}, "invocation.timeoutSeconds must be a positive integer"),
         ({"includeManual": "false"}, "invocation.includeManual must be boolean"),
-        (
-            {"postgresCrossCheck": 1},
-            "invocation.postgresCrossCheck must be boolean",
-        ),
     ],
 )
 def test_invalid_invocation_settings_are_refused(tmp_path, invocation, message):
@@ -160,6 +123,47 @@ def test_the_wrapper_uses_the_runner_result_instead_of_guessing_a_directory():
     assert "ls -td" not in script
     assert "freeze_seed" not in script
     assert 'OUT_DIR="${OUT_DIR:-' not in script
+
+
+def test_the_wrapper_can_resolve_its_shipped_config_before_dispatch(tmp_path):
+    fake_uv = tmp_path / "uv"
+    fake_uv.write_text(
+        '#!/bin/sh\n[ "$1" = "run" ] || exit 64\nshift\n'
+        '[ "$1" = "python" ] || exit 64\nshift\nexec "$PYTHON_FOR_TEST" "$@"\n',
+        encoding="utf-8",
+    )
+    fake_uv.chmod(0o755)
+    environment = dict(os.environ)
+    environment["PATH"] = f"{tmp_path}:{environment['PATH']}"
+    environment["PYTHON_FOR_TEST"] = sys.executable
+    result = subprocess.run(
+        [str(ROOT / "scripts" / "catalyst-comparison.sh"), "not-a-command"],
+        cwd=ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+        env=environment,
+    )
+    assert result.returncode == 1
+    assert "unknown command not-a-command" in result.stderr
+
+
+def test_openmrs_hiv_uses_an_isolated_spark_database():
+    source = json.loads(
+        (ROOT / "catalyst-sources" / "openmrs-hiv" / "data-sources.json")
+        .read_text(encoding="utf-8")
+    )["dataSources"][0]
+    sink = json.loads(
+        (ROOT / "catalyst-sources" / "openmrs-hiv" / "config"
+         / "thriftserver-hive-config.json").read_text(encoding="utf-8")
+    )
+    runner = (
+        ROOT / "catalyst-sources" / "openmrs-hiv" / "run-ingestion.sh"
+    ).read_text(encoding="utf-8")
+
+    assert source["connectionUri"].endswith("/openmrs_hiv")
+    assert sink["databaseName"] == "openmrs_hiv"
+    assert "CREATE DATABASE IF NOT EXISTS openmrs_hiv" in runner
 
 
 def test_a_seed_that_cannot_be_read_refuses_before_anything_runs(tmp_path):
