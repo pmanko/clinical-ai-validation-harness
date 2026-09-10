@@ -20,25 +20,37 @@ turns it into a publishable mp4 deterministically.
 
 ## Pipeline
 
-1. **Capture.** Run the Playwright spec with the `demo-video` project against
-   the live stack (unchanged from before):
+1. **Capture.** Run the current full-scenario spec with the `demo-video` project
+   against the live stack. It covers both retained sources, one at a time because
+   they share the operator's current outbox pointer:
    ```bash
    cd targets/catalyst/catalyst-ui
    PLAYWRIGHT_LIVE=true PLAYWRIGHT_USE_MOCK_API=false \
-     PLAYWRIGHT_BASE_URL=http://127.0.0.1:13000 \
-     npx playwright test e2e/<spec>.spec.ts --project=demo-video
+     PLAYWRIGHT_BASE_URL=http://127.0.0.1:13001 \
+     CATALYST_HARNESS_DIR=/path/to/owning/harness \
+     DEMO_MILESTONES_DIR=/private/review/run/milestones \
+     npx playwright test e2e/full-scenario-demo.spec.ts \
+       --project=demo-video --workers=1 --output=/private/review/run/capture
    ```
-   The raw capture lands at `test-results/<test-dir>/video.webm` and is
-   **wiped on the next run** — copy it out immediately:
-   ```bash
-   cp test-results/*/video.webm /tmp/<spec>-raw.webm
-   ```
-2. **Find the cut points.** Open the raw capture (or its trace,
-   `test-results/*/trace.zip` via `npx playwright show-trace`) and note the
-   wall-clock second of each turn boundary: when the question is typed, when
-   "Generate query" is clicked, when `Refine Query v1` appears, when
-   validate/run happen, when the follow-up starts, etc. The long silent gaps
-   (waiting for the writer/reviewer model) are exactly the spans to speed up.
+   Use the actual UI URL and run the import from the checkout owning that
+   environment. For server evidence, run the spec on that server with its owning
+   checkout; a local outbox is not the server's outbox. Set
+   `PLAYWRIGHT_SUPERSET_URL` to the tested Superset URL, including any path prefix.
+   `CATALYST_DEMO_PROFILE` optionally selects an explicit available profile;
+   otherwise the existing UI default is used and recorded. Credentials stay in
+   the private runtime environment. `CATALYST_DEMO_RUN_ID` names a take without
+   deleting earlier saved work. Use `--grep openelis` or `--grep openmrs-hiv` for
+   one source, and a new output directory for every attempt: Playwright clears
+   its selected output directory when a run begins.
+
+   The same journey runs without recording holds under `--project=deterministic`.
+   Captures, traces, requests/results, proof files and measured milestones stay
+   private until the final cuts are reviewed.
+2. **Find the cut points.** Use `full-scenario-<source>.json` from the milestone
+   directory to locate question preparation, explicit execution, result review,
+   reuse, arrangement and import. Align these times with the actual recording
+   and trace. Only the silent model/import waits may be accelerated. Exclude the
+   Superset sign-in segment from the published cut.
 3. **Author a timeline JSON** (see schema below) with `card` segments at the
    start, before each new turn, and at the end, and `clip` segments in
    between — normal speed for the parts a viewer should read (typing,
@@ -60,7 +72,8 @@ turns it into a publishable mp4 deterministically.
    and point `FFMPEG_BIN` at `$(brew --prefix ffmpeg-full)/bin/ffmpeg`. CI/other
    machines may have a fuller stock `ffmpeg`; `render_demo_video.py` defaults
    to plain `ffmpeg` if `FFMPEG_BIN` is unset.
-5. **Publish** — upload the rendered mp4 + poster to the demo host, then
+5. **Review and publish** — watch both final cuts at normal speed, then upload
+   the rendered mp4 + poster to the demo host and
    update the page:
 
    ```sh
@@ -93,7 +106,7 @@ turns it into a publishable mp4 deterministically.
   "segments": [
     {
       "type": "card",
-      "duration": 3.0,
+      "duration": 6.0,
       "kicker": "CATALYST DEMO",
       "heading": "OpenELIS laboratory data",
       "lines": ["A plain-language question becomes checked, executable SQL."]
@@ -103,7 +116,8 @@ turns it into a publishable mp4 deterministically.
       "start": 0.0, "end": 8.0, "speed": 1.0,
       "caption": "The question is typed in plain language."
     },
-    { "type": "clip", "start": 8.0, "end": 74.0, "speed": 5.0 }
+    { "type": "clip", "start": 8.0, "end": 74.0, "speed": 5.0,
+      "caption": "Preparing the query — wait shown at 5x speed" }
   ]
 }
 ```
@@ -127,6 +141,12 @@ turns it into a publishable mp4 deterministically.
 
 ## Pacing guidance (what "proper" means here)
 
+- **Cards and captions last at least five seconds**, longer for longer text.
+  Results and technical details stay readable for at least eight seconds.
+  The renderer's optional `hold` extends a clip while retaining its caption.
+- **Keep the FHIR Data Pipes introduction to about 10–15 seconds** in the current
+  release demos. The full ingestion proof remains separate evidence; ordinary
+  recording does not rerun ingestion or reseed either dataset.
 - **Every distinct turn gets its own title card** naming the scenario/turn in
   plain language — never cut straight from one Q&A turn to the next with no
   transition.
@@ -134,6 +154,8 @@ turns it into a publishable mp4 deterministically.
   a compressed version of the wait (rather than a hard cut) is what tells the
   viewer "the system is actually thinking," which matters for a project whose
   whole pitch is a small model doing real generation work, not a canned demo.
+  Every accelerated segment says so on screen. Use cards or uncrowded areas for
+  captions so they do not cover the composer, result cells or action buttons.
 - **Keep human-legible moments at 1x**: typing the question, clicking a
   button, reading the generated SQL or the result table. If it needs to be
   read, it needs to play at real speed.
@@ -148,9 +170,9 @@ turns it into a publishable mp4 deterministically.
 
 | Spec | What it shows |
 | --- | --- |
-| `e2e/fhir-to-dashboard-demo.spec.ts` | The whole path: the FHIR Data Pipes control panel — configured FHIR endpoint, warehouse settings, a pipeline run, the snapshot it wrote — then Catalyst asking that warehouse a question, then Dataset → Widgets → Dashboard → published bundle → Superset. Start here when the audience asks where the data comes from. |
-| `e2e/full-scenario-demo.spec.ts` | Catalyst only, from a plain-language laboratory question to a published Superset dashboard. |
-| `e2e/openmrs-hiv-demo.spec.ts`, `e2e/openelis-lab-demo.spec.ts` | One data source each, conversation only, no dashboard. |
+| `e2e/full-scenario-demo.spec.ts` | Current release walkthrough for OpenELIS and OpenMRS: drafting and schema browsing, explicit execution, refinement, saved SQL reuse, light/dark and Advanced mode, two charts, restored arrangement, deterministic publication, actual import receipt and rendered Superset rows compared with the originating Catalyst result. |
+| `e2e/fhir-to-dashboard-demo.spec.ts` | Earlier ingestion-focused recording. Refresh its screen assumptions before reuse; it is not the current release walkthrough. |
+| `e2e/openmrs-hiv-demo.spec.ts`, `e2e/openelis-lab-demo.spec.ts` | Earlier source-specific conversation recordings. Refresh their screen assumptions before reuse. |
 
 `fhir-to-dashboard-demo` takes an extra environment variable:
 
