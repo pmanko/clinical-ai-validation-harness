@@ -80,7 +80,7 @@ retains original raw footage privately. For a custom runtime, set
 Each section includes instructions, expected results, a stable issue link and a live-dashboard link. The date, Time Unit and import videos state remaining gaps in their closing cards. They omit website footage. Video dimensions are reserved before loading so deep links do not shift.
 A successful screenshot does not override an assertion failure.
 
-After publication, `check-publication` checks every hosted asset, plays all seven dashboard
+After publication, `check-publication` checks every hosted asset, plays all eight dashboard
 videos in Chromium, verifies their dimensions, duration and caption tracks, and
 captures desktop and mobile navigation screenshots under `output/publication/`.
 It also catches duplicate recordings from workflows that open multiple pages.
@@ -112,13 +112,13 @@ The independent bundle check runs the six dashboard scenarios on port 18094 afte
 
 ## Continuous integration
 
-`.github/workflows/csim-dashboard.yml` runs all nine workflows on pull requests
-and main changes to this tool. It starts two independent Superset instances,
+`.github/workflows/csim-dashboard.yml` runs all ten workflows on pull requests
+and main changes to this tool. It starts two release instances and a pinned upstream snapshot,
 imports the native files, loads only invented fixtures, and runs numerical,
 relationship and browser checks. No shared server credentials are needed.
 
 `CI` disables recording even if `CSIM_RECORD=1` is also set. `assert-ci.mjs`
-requires all nine workflows to pass and rejects any generated video files.
+requires every selected workflow to pass and rejects any generated video files.
 The website and navigation checks run alongside the dashboard checks, and
 remain in CI diagnostics; they are excluded from the public gallery and films.
 
@@ -128,3 +128,19 @@ navigation tests do not depend on previously published evidence. It cannot pass
 the publication guard. `CSIM_OVERVIEW_URL` adjusts the imported dashboard's
 overview links for the test installation; dataset SQL and filter definitions
 remain the native bundle's files.
+
+## Snapshot comparison
+
+Set `CSIM_PREVIEW_EVIDENCE=1` to include workflow 10. Start the snapshot with
+`../preview.sh up`, `seed` and `import` first. CI starts it automatically and runs
+all ten workflows without video. A complete published run also sets
+`CSIM_IMPORT_EVIDENCE=1`, producing eight dashboard films and two unrecorded
+website checks.
+
+For the shared server, set `CSIM_PREVIEW_URL` if needed, and provide
+`CSIM_PREVIEW_ENV_FILE` plus `CSIM_PREVIEW_USERNAME`. Authentication happens before
+recording. The default local preview uses its separate `.env.preview` account.
+The snapshot's native export/import check and full numerical assertions run
+before the browser comparison of Month/Quarter/Year with Hour/Day/Week.
+
+The same six full-dashboard browser workflows also run against the snapshot in CI.

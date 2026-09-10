@@ -44,6 +44,7 @@ def connection():
     response = client.get(base+'/api/v1/security/csrf_token/', timeout=30)
     response.raise_for_status()
     client.headers['X-CSRFToken'] = response.json()['result']
+    client.headers['Referer'] = base+'/'
     return base, client
 
 
@@ -126,8 +127,10 @@ def import_bundle():
     passwords={file.relative_to(BUNDLE).as_posix():os.environ['CSIM_DB_PASSWORD'] for file in (BUNDLE/'databases').glob('*.yaml')}
     response = client.post(base+'/api/v1/dashboard/import/',
         files={'formData':('csim-dashboard.zip', packed(), 'application/zip')},
-        data={'passwords':json.dumps(passwords),'overwrite':'true'}, timeout=120)
+        data={'passwords':json.dumps(passwords),'overwrite':'true'}, timeout=120, allow_redirects=False)
     response.raise_for_status()
+    if response.status_code != 200 or response.json().get('message') != 'OK':
+        raise ValueError('Native import did not return a successful JSON response')
     print(json.dumps({'native_import_status':response.status_code}))
 
 

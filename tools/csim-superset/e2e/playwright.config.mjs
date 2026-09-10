@@ -1,7 +1,7 @@
 import { defineConfig } from '@playwright/test';
 import { runDir, authFile, baseURL } from './settings.mjs';
 export default defineConfig({
-  testDir: '.', testMatch: ['workflows.spec.mjs','site.spec.mjs'],
+  testDir: '.', testMatch: ['workflows.spec.mjs','site.spec.mjs', ...(process.env.CSIM_PREVIEW_EVIDENCE === '1' ? ['preview.spec.mjs'] : [])],
   globalSetup: './setup.mjs', globalTeardown: './teardown.mjs',
   timeout: 240_000, expect: { timeout: 30_000 },
   fullyParallel: false, workers: 1, retries: 0, forbidOnly: !!process.env.CI,

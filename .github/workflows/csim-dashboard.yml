@@ -23,6 +23,7 @@ jobs:
       CI: 'true'
       CSIM_RECORD: '0'
       CSIM_IMPORT_EVIDENCE: '1'
+      CSIM_PREVIEW_EVIDENCE: '1'
       CSIM_OVERVIEW_URL: http://127.0.0.1:18769/
     steps:
       - uses: actions/checkout@v4
@@ -45,6 +46,13 @@ jobs:
           bash bundle-check.sh up
           bash bundle-check.sh import
           bash bundle-check.sh test
+      - name: Start the pinned upstream snapshot and its independent time menus
+        working-directory: tools/csim-superset
+        run: |
+          bash preview.sh up
+          bash preview.sh seed
+          bash preview.sh import
+          bash preview.sh test
       - name: Serve the current overview and navigation preview
         working-directory: tools/csim-superset
         run: |
@@ -56,6 +64,14 @@ jobs:
         run: |
           npm test
           node assert-ci.mjs
+      - name: Run the full dashboard browser suite on the snapshot without video
+        working-directory: tools/csim-superset/e2e
+        env:
+          CSIM_BASE_URL: http://127.0.0.1:18095
+          CSIM_ENV_FILE: ../.env.preview
+          CSIM_PREVIEW_EVIDENCE: '0'
+          CSIM_IMPORT_EVIDENCE: '0'
+        run: npm test -- --grep '02 ·|03 ·|04 ·|05 ·|06 ·|08 ·'
       - name: Save regression diagnostics
         if: always()
         uses: actions/upload-artifact@v4
@@ -69,9 +85,12 @@ jobs:
             tools/csim-superset/output/browser/*/results/**/*.png
             tools/csim-superset/output/bundle-relationships.json
             tools/csim-superset/output/bundle-verification.json
+            tools/csim-superset/output/preview-verification.json
+            tools/csim-superset/output/preview-import-check.json
       - name: Stop test instances
         if: always()
         working-directory: tools/csim-superset
         run: |
+          bash preview.sh down
           bash bundle-check.sh down
           bash local.sh down

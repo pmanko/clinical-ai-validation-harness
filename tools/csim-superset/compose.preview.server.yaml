@@ -1,0 +1,10 @@
+services:
+  superset:
+    networks:
+      local:
+      proxy:
+        aliases: [csim-superset-preview]
+networks:
+  proxy:
+    external: true
+    name: catalyst-demo_default

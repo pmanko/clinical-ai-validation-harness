@@ -75,7 +75,7 @@ export async function watchDashboard(page, url = dashboardURL) {
   });
   await page.goto(url);
   await expect(page.getByRole('button', { name: 'Apply filters', exact: true })).toBeVisible();
-  await expect(page.locator('.chart-container')).toHaveCount(21);
+  await expect(page.locator('a[href*="slice_id="]')).toHaveCount(21);
   return { replies, failures, captureNotes, settle: () => Promise.all([...pending]) };
 }
 
@@ -85,7 +85,7 @@ export async function chart(page, title) {
   expect(id).toBeGreaterThan(0);
   const plot = page.locator(`#chart-id-${id}`);
   await plot.scrollIntoViewIfNeeded();
-  await expect(plot.locator('canvas, table, .header-line').first()).toBeVisible();
+  await expect(plot.locator('canvas, table, [role="grid"], .header-line').first()).toBeVisible();
   return { id, plot };
 }
 
@@ -123,7 +123,7 @@ export async function range(page, from, until) {
   const editor = page.getByRole('tooltip').filter({ hasText: 'Edit time range' });
   await editor.getByRole('textbox').nth(0).fill(from);
   await editor.getByRole('textbox').nth(1).fill(until);
-  await editor.getByRole('button', { name: 'APPLY', exact: true }).click();
+  await editor.getByRole('button', { name: /^apply$/i }).click();
   await page.getByRole('button', { name: 'Apply filters', exact: true }).click();
 }
 

@@ -59,4 +59,3 @@ test('07 · Follow an issue to evidence, the dashboard and back', async ({page, 
   await expect(page.getByRole('heading',{name:'What is available to use'})).toBeVisible();
   await capture(page,info,'return-to-overview');
 });
-

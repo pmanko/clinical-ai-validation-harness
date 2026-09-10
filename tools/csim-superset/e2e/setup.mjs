@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import { chromium, expect } from '@playwright/test';
 import path from 'node:path';
-import { baseURL, password, username, authFile, runDir, root } from './settings.mjs';
+import { baseURL, password, username, authFile, runDir, root, previewURL, previewAuthFile } from './settings.mjs';
 export default async function setup() {
   if (!password) throw new Error('Set CSIM_ADMIN_PASSWORD or provide the private demo env file.');
   fs.mkdirSync(runDir, { recursive: true, mode: 0o700 });
@@ -17,6 +17,22 @@ export default async function setup() {
     await expect(page).not.toHaveURL(/\/login\//);
     await context.storageState({ path: authFile });
     fs.chmodSync(authFile, 0o600);
+    if (process.env.CSIM_PREVIEW_EVIDENCE === '1') {
+      const previewEnv=fs.readFileSync(process.env.CSIM_PREVIEW_ENV_FILE || path.join(root,'.env.preview'),'utf8');
+      const [,previewPassword]=previewEnv.match(/^CSIM_ADMIN_PASSWORD=(.+)$/m) || [];
+      if (!previewPassword) throw new Error('Missing snapshot credentials');
+      const previewContext=await browser.newContext();
+      try {
+        const previewPage=await previewContext.newPage();
+        await previewPage.goto(previewURL+'/login/');
+        await previewPage.locator('input#username').fill(process.env.CSIM_PREVIEW_USERNAME || 'demo');
+        await previewPage.locator('input#password').fill(previewPassword);
+        await previewPage.locator('input[type="submit"], button[type="submit"]').click();
+        await expect(previewPage).not.toHaveURL(/\/login\//);
+        await previewContext.storageState({path:previewAuthFile});
+        fs.chmodSync(previewAuthFile,0o600);
+      } finally { await previewContext.close(); }
+    }
     if(process.env.CSIM_IMPORT_EVIDENCE === '1') {
       const localEnv=fs.readFileSync(path.join(root,'.env.local'),'utf8');
       const importPassword=localEnv.match(/^CSIM_ADMIN_PASSWORD=(.+)$/m)?.[1];

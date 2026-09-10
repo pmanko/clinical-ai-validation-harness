@@ -13,3 +13,5 @@ export const password = process.env.CSIM_ADMIN_PASSWORD || saved.CSIM_ADMIN_PASS
 export const runDir = process.env.CSIM_RUN_DIR || path.join(root, 'output/browser/latest');
 export const authFile = path.join(runDir, '.auth.json');
 export const dashboardURL = `${baseURL}/superset/dashboard/csim-full-synthetic/`;
+export const previewURL = process.env.CSIM_PREVIEW_URL || (target === 'server' ? 'https://catalyst.openelis-global.org/superset-preview' : 'http://127.0.0.1:18095');
+export const previewAuthFile = path.join(runDir, '.preview-auth.json');

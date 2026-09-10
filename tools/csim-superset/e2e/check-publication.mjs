@@ -40,8 +40,8 @@ try {
     }));
   }
   await page.goto(galleryURL);
-  await expect(page.locator('video')).toHaveCount(7);
-  await expect(page.locator('#filter-options .gap')).toContainText('per-dashboard choice open');
+  await expect(page.locator('video')).toHaveCount(publication.workflowIds.length);
+  await expect(page.locator('#filter-options .gap')).toContainText('instance-wide workaround');
   await page.screenshot({ path: path.join(output, 'gallery-desktop.png') });
   const playback = [];
   for (const workflow of summary.workflows) {
@@ -78,7 +78,7 @@ try {
   await page.screenshot({ path: path.join(output, 'overview-issue-mobile.png') });
   assert.deepEqual(failures, []);
   fs.writeFileSync(path.join(output, 'checks.json'), JSON.stringify({ galleryURL, run: summary.timestamp, assetsChecked: assets.length, playback, failures }, null, 2));
-  console.log(`Verified ${assets.length} hosted assets, seven playing videos with captions, and mobile navigation. Screenshots: ${output}`);
+  console.log(`Verified ${assets.length} hosted assets, dashboard videos playing with captions, and mobile navigation. Screenshots: ${output}`);
 } finally {
   await browser.close();
 }

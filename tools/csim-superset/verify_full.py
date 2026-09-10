@@ -9,6 +9,7 @@ import requests
 BASE = os.environ.get('CSIM_TEST_URL','http://localhost:8088'+os.environ.get('SUPERSET_APP_ROOT','/').rstrip('/'))
 if os.environ.get('CSIM_PUBLIC_HTTPS')=='1':BASE=os.environ['CSIM_PUBLIC_URL'].rstrip('/')
 s=requests.Session()
+s.headers['Referer']=BASE+'/'
 r=s.post(BASE+'/api/v1/security/login',json={'username':'demo','password':os.environ['CSIM_ADMIN_PASSWORD'],'provider':'db'},timeout=30);r.raise_for_status()
 s.headers['Authorization']='Bearer '+r.json()['access_token']
 r=s.get(BASE+'/api/v1/security/csrf_token/',timeout=30);r.raise_for_status();s.headers['X-CSRFToken']=r.json()['result']

@@ -1,4 +1,4 @@
 {
-  "workflowIds": ["02", "03", "04", "05", "06", "08", "09"],
+  "workflowIds": ["02", "03", "04", "05", "06", "08", "09", "10"],
   "excludeScenes": ["friendly-label-gap", "per-dashboard-time-gap", "production-promotion-gap", "table-of-contents-section"]
 }

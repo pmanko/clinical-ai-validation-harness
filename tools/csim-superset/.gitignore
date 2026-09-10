@@ -4,3 +4,4 @@ node_modules/
 __pycache__/
 design/evidence
 design/access.json
+design/preview-access.json

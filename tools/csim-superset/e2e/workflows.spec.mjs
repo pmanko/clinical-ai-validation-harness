@@ -46,10 +46,11 @@ test('08 · Time choices and comparison selectors fit the reporting task', async
   await comparison.press('Escape');
   const sectionLinks=page.locator('.dashboard-markdown a[href^="#HEADER-"]');
   expect(await sectionLinks.count()).toBeGreaterThan(0);
+  const pagePath=new URL(page.url()).pathname;
   const link=sectionLinks.last(), href=await link.getAttribute('href');
   await link.click();
   await expect(page.locator(href)).toBeInViewport();
-  expect(new URL(page.url()).pathname).toBe(new URL(dashboardURL).pathname);
+  expect(new URL(page.url()).pathname).toBe(pagePath);
   await capture(page,info,'table-of-contents-section');
   await attachResults(info,watch);
   await page.goto(overviewURL+'#open-time-menu');

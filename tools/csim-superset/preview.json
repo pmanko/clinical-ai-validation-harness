@@ -1,0 +1,7 @@
+{
+  "image": "apache/superset:e22ce197866ded732e4990063ae74697d89d383a-dev@sha256:4abe143d471d0e2b3985b6903a3c2595e0ac94bb9f0c68f5e09934a9ec2a3adb",
+  "commit": "e22ce197866ded732e4990063ae74697d89d383a",
+  "channel": "upstream development snapshot",
+  "csimTimeGrains": ["P1M", "P3M", "P1Y"],
+  "comparisonTimeGrains": ["PT1H", "P1D", "P1W"]
+}

@@ -57,6 +57,47 @@ bash local.sh down         # stop, retaining volumes
 invented fixture. The Catalyst application has its own lifecycle wrapper,
 `scripts/catalyst-mvp.sh`.
 
+## Upstream snapshot alongside the release
+
+The separate instance at `/superset-preview/` uses the exact image and upstream
+commit in `preview.json`. It is development code, not a stable or preview release.
+The official image embeds commit `e22ce197866ded732e4990063ae74697d89d383a`.
+Docker Hub's `master` and `master-dev` tags still point to March 2024 images;
+use the verified commit tag and digest rather than those mutable names.
+
+- Directory: `/home/ubuntu/csim-superset-preview`
+- Docker project: `csim-upstream-preview`; loopback port: `18095`
+- Proxy alias: `csim-superset-preview`; cookie: `csim_preview_session`
+- Independent PostgreSQL and metadata volumes; all database time units enabled
+- CSiM control: Month/Quarter/Year; hourly example control: Hour/Day/Week
+
+`preview.sh` uses the common Compose services with explicit preview overrides.
+It does not use the release instance's environment or volumes. On a new server,
+set `CSIM_PREVIEW_SERVER=1` for `up`; configure and validate the route with
+`prepare_preview_route.py` before importing through HTTPS. Local runs omit that
+variable and use port 18095 directly.
+
+```sh
+bash preview.sh up
+bash preview.sh seed       # explicit invented fixture
+bash preview.sh import     # native import, saved menus, export/import assertions
+bash preview.sh test       # the same 91 full-dashboard data checks
+bash preview.sh status
+bash preview.sh down       # retain volumes
+```
+
+The snapshot no longer injects `from_dttm` and `to_dttm` into virtual SQL.
+`sql/preview-date-context.sql` obtains those values from `get_time_filter` before
+the existing date, calendar and calculation expressions run. The seven affected
+virtual datasets receive this versioned prefix in `preview_setup.py`.
+Quarter intervals use PostgreSQL’s explicit `3 months` spelling.
+The native export contains the resulting SQL and each control's `time_grains`.
+`verify_preview_import.py` changes the menus and proves import restores them,
+including defaults. The browser tests check the actual chart values afterward. The snapshot enables
+its table renderer because native import migrates two comparison tables to it.
+Cleared controls can be applied so the dataset guards return empty results;
+required-control validation otherwise leaves the preceding results visible.
+
 ## Proxy connection settings
 
 The Superset route uses `transport http { keepalive 1s }`. The proxy must retire
@@ -109,16 +150,17 @@ symlink. The guide explains reporting needs, current problems, solutions and
 supported workflows. Details expand where needed.
 
 The Playwright harness is in `e2e/`. `npm test` runs assertions;
-`npm run demo` adds seven dashboard recordings with short captions, major section screens
-and checked video frames; website checks run without recording. The default eight workflows include the date-label and time-menu
-gaps. `CSIM_IMPORT_EVIDENCE=1` includes the independent-import ninth workflow. To test the shared viewer:
+`npm run demo` adds dashboard recordings with short captions, major section screens
+and checked video frames; website checks run without recording. The default eight checks include two website checks and six dashboard workflows.
+`CSIM_IMPORT_EVIDENCE=1` adds the independent-import workflow;
+`CSIM_PREVIEW_EVIDENCE=1` adds the snapshot comparison. Set both for publication. To test the shared viewer:
 
 ```sh
 CSIM_E2E_TARGET=server CSIM_USERNAME=csim-viewer \
   CSIM_ENV_FILE=../.env.viewer.server npm run demo
 ```
 
-`python3 publish_evidence.py output/browser/<run>` verifies all nine regression results and the seven dashboard films
+`python3 publish_evidence.py output/browser/<run>` verifies all ten regression results and the eight dashboard films
 and their encoded-frame checks, then publishes the curated files. It verifies
 file hashes on the destination before changing the gallery link.
 Then run `CSIM_E2E_TARGET=server npm --prefix e2e run check-publication` to check

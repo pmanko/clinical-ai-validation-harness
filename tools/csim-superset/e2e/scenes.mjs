@@ -1,6 +1,10 @@
 // Captions describe the visible checkpoint after its dashboard assertions pass.
 import { publication } from './policy.mjs';
 const captions = {
+ 'preview-csim-options':['CSiM · snapshot','This dashboard offers Month, Quarter and Year. The server still supports finer time units.'],
+ 'preview-csim-quarter':['CSiM · Quarter','Q1 remains 10% after changing the reporting unit.'],
+ 'preview-hourly-options':['Another dashboard · same snapshot','Hour, Day and Week are available here, independently of the CSiM menu.'],
+ 'preview-daily-totals':['Day · same records','Forty-eight hourly observations become two daily totals of 72 specimens each.'],
  'overview-and-available-examples':['Start here','Original issues, demonstrated solutions, and unresolved issues have separate sections.'],
  'available-dashboards-and-evidence':['Choose a resource','Open the working dashboard, watch a workflow, or download its native definition files.'],
  'reporting-need':['Reporting need','Choose a hospital, care location and reporting window; keep that meaning across charts.'],
@@ -41,7 +45,7 @@ const chartSections = [
  [/UC submissions|Number of UC/, 'Submission counts'],
 ];
 export function sceneFor(name, sequence, testTitle) {
- if (captions[name]) return {name,chapter:captions[name][0],caption:captions[name][1],publish:!publication.excludeScenes.includes(name),majorBreak:name==='all-time-totals'?'Intentional filter exceptions':null};
+ if (captions[name]) return {name,chapter:captions[name][0],caption:captions[name][1],publish:!publication.excludeScenes.includes(name),majorBreak:name==='all-time-totals'?'Intentional filter exceptions':name==='preview-hourly-options'?'A different dashboard on the same Superset':null};
  if (testTitle.startsWith('02')) {
   const chapter=chartSections.find(([pattern])=>pattern.test(name))?.[1] || 'Dashboard chart';
   let label=name.replace('Based on the most recent data submission, the comparison in inappropriate UTI diagnosis between your hospital, the cohort, and your state (regardless of location of UC submissions):','Latest-period diagnosis comparison').replace('Based on your most recent data submission, the comparison in average therapy duration (days) between your hospital, the cohort, and your state (regardless of location of UC submissions):','Latest-period therapy duration comparison').replace(' (across all UC submissions)','');
