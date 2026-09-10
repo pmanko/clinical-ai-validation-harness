@@ -10,6 +10,8 @@ test.afterEach(async ({page},info) => finishRecording(page,info));
 test('01 · Understand the problems and reveal supporting detail', async ({ page }, info) => {
   await page.goto(overviewURL);
   await expect(page.getByRole('heading', { name: 'What is available to use' })).toBeVisible();
+  const snapshotLink=page.locator('#snapshot-resource').getByRole('link',{name:'Open CSiM snapshot ↗',exact:true});
+  expect(await snapshotLink.evaluate(link=>link.href)).toBe('https://catalyst.openelis-global.org/superset-preview/superset/dashboard/csim-full-synthetic/');
   await expect(page.locator('details[open]')).toHaveCount(0);
   await capture(page, info, 'overview-and-available-examples');
   await page.locator('.resource.primary').scrollIntoViewIfNeeded();
