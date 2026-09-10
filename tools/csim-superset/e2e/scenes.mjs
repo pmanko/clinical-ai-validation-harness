@@ -1,6 +1,8 @@
 // Captions describe the visible checkpoint after its dashboard assertions pass.
 import { publication } from './policy.mjs';
 const captions = {
+ 'reported-issue-coverage':['Reported issues','The overview distinguishes fixes, workarounds and remaining gaps.'],
+ 'mobile-reported-coverage':['Reported issues on mobile','The same coverage remains readable on a narrow screen.'],
  'preview-csim-options':['Newer Superset · CSiM','Month, Quarter and Year are saved for this dashboard. Other dashboards can use different units.'],
  'preview-csim-quarter':['CSiM · Quarter','Q1 remains 10% after changing the reporting unit.'],
  'preview-hourly-options':['Newer Superset · hourly dashboard','Hour, Day and Week are available on the same installation. CSiM keeps its own list.'],

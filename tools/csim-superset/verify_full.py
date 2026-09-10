@@ -21,7 +21,8 @@ chart_ids=set(receipt['charts'].values())
 
 def charts_in_scope(f):
  # Superset derives native-filter coverage from the layout root and exclusions.
- # chartsInScope is cached editor state and is not remapped by native import.
+ # Released 6.1.0 does not remap chartsInScope caches. verify_bundle.py reports
+ # that gap separately; these requests exercise root/exclusion-derived coverage.
  assert f['scope']['rootPath']==['ROOT_ID'],('Unexpected scope root',f['name'])
  return chart_ids-set(f['scope'].get('excluded',[]))
 
@@ -109,5 +110,5 @@ if __name__=='__main__':
  for f in filters:
   if f.get('type')=='NATIVE_FILTER':
    assert set(f['scope']['excluded'])<=chart_ids,(f['name'],'exclusion references a missing chart')
- report={'source_charts':21,'chart_requests':request_count,'checks':['Every chart returns results for Month, Quarter, Year','Chronology and missing/zero/undefined rates','Category charts retain missing months','Partial first and last periods retained','Original cohort weighting preserved','Overall measures respect date range','Hospital and care-location selections','Latest date uses observations, not calendar','All-time count exclusions retained','Cleared selections do not combine overlapping totals','All chart/filter references mapped'],'results':results}
+ report={'source_charts':21,'chart_requests':request_count,'checks':['Every chart returns results for Month, Quarter, Year','Chronology and missing/zero/undefined rates','Category charts retain missing months','Partial first and last periods retained','Original cohort weighting preserved','Overall measures respect date range','Hospital and care-location selections','Latest date uses observations, not calendar','All-time count exclusions retained','Cleared selections do not combine overlapping totals','Layout and native filter exclusions reference imported charts'],'results':results}
  Path('/tmp/csim-full-verification.json').write_text(json.dumps(report,indent=2))

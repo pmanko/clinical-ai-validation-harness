@@ -151,11 +151,18 @@ test('06 · Clearing selections does not combine overlapping totals', async ({ p
 });
 
 
-if (process.env.CSIM_IMPORT_EVIDENCE === '1') test('09 · Native import preserves the full dashboard and its filters', async ({page,context},info) => {
+if (process.env.CSIM_IMPORT_EVIDENCE === '1') test('09 · Native import works while cached chart references remain stale', async ({page,context},info) => {
   const imported='http://127.0.0.1:18094/superset/dashboard/csim-full-synthetic/';
   const proof=JSON.parse(fs.readFileSync(path.join(root,'output/bundle-relationships.json')));
   const receipt=JSON.parse(fs.readFileSync(path.join(root,'output/bundle-import-receipt.json')));
   expect(proof).toMatchObject({charts:21,datasets:8,filters:6,changed_chart_identifiers:21});
+  // This assertion substantiates the published gap in the pinned release.
+  // When a newer importer fixes it, update the recorded claim and this check.
+  await test.step('The released importer still has the reported cached-reference gap',async()=>{
+    expect(proof.cached_scope_references).toMatchObject({all_match:false,global_matches:false});
+    expect(proof.cached_scope_references.filters).toHaveLength(6);
+    expect(proof.cached_scope_references.filters.every(f=>f.matches===false)).toBe(true);
+  });
   const auth=JSON.parse(fs.readFileSync(path.join(runDir,'.import-auth.json')));
   await context.addCookies(auth.cookies);
   const watch=await watchDashboard(page,imported);

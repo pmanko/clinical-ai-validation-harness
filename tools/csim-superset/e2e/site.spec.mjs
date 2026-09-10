@@ -13,11 +13,14 @@ test('01 · Understand the problems and reveal supporting detail', async ({ page
   const snapshotLink=page.locator('#snapshot-resource').getByRole('link',{name:'Open CSiM in newer Superset ↗',exact:true});
   expect(await snapshotLink.evaluate(link=>link.href)).toBe('https://catalyst.openelis-global.org/superset-preview/superset/dashboard/csim-full-synthetic/');
   await expect(page.locator('details[open]')).toHaveCount(0);
+  await expect(page.locator('#reported-coverage')).toContainText('cached chart references still contain old IDs');
+  await expect(page.locator('#reported-coverage tbody tr')).toHaveCount(4);
   await capture(page, info, 'overview-and-available-examples');
   await page.locator('.resource.primary').scrollIntoViewIfNeeded();
   await capture(page, info, 'available-dashboards-and-evidence');
   await page.getByRole('heading', {name:'The underlying reporting need'}).scrollIntoViewIfNeeded();
   await capture(page, info, 'reporting-need');
+  await capture(page, info, 'reported-issue-coverage',page.locator('#reported-coverage'));
   await test.step('Read the date-label and grouping solution', async () => {
     await page.locator('#issue-dates summary').click();
     await expect(page.locator('#issue-dates')).toContainText('A fixed Month–Year format does not adapt to quarters or years.');
@@ -36,6 +39,9 @@ test('01 · Understand the problems and reveal supporting detail', async ({ page
   await page.getByRole('navigation', {name:'Mobile overview sections'}).getByRole('link',{name:'1. Original issues'}).click();
   await expect(page.getByRole('heading',{name:'1. The original issues'})).toBeInViewport();
   await capture(page, info, 'mobile-issues-and-statuses');
+  await page.locator('#reported-coverage').scrollIntoViewIfNeeded();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+  await capture(page, info, 'mobile-reported-coverage');
 });
 
 

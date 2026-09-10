@@ -1,6 +1,7 @@
 # CSiM source definitions and remediation boundaries
 
-Status date: September 9, 2026 Pacific / September 10 UTC.
+Status date: September 10, 2026. See [reported-issue coverage](REPORT-COVERAGE.md)
+for the distinction between demonstrated fixes, existing team fixes and open cases.
 
 ## Dashboard authority
 
@@ -42,8 +43,10 @@ The full synthetic setup uses six virtual datasets (source IDs 35, 36, 37, 38,
 Those relations contain generated records in the demonstration database only.
 The native bundle contains eight datasets, including the hospital lookup and a
 separate dataset supplying actual observation dates for the newest-data card.
-A clean native import preserves all SQL exactly and passes 91 chart-data checks
-and six browser workflows. See `bundle/` and `bundle-check.sh`.
+A clean native import preserves all SQL exactly and passes 91 chart-data requests
+with targeted assertions and six browser workflows. The cached `chartsInScope`
+lists remain stale in 6.1.0; this is reported separately by `verify_bundle.py`.
+See `bundle/` and `bundle-check.sh`.
 
 ## Behavior by issue
 
@@ -53,11 +56,11 @@ and six browser workflows. See `bundle/` and `bundle-check.sh`.
 | Missing periods | Calendar joins for trends and category charts; NULL retained | Definition of complete reporting |
 | Incorrect quarter/year measures | Filter original months, then group before hospital/cohort calculations | Clinical agreement on definitions and weighting |
 | Partial periods or overall charts lost by outer date filter | Dedicated filter column inside the chosen range | Other runtime versions and dialects |
-| Chart/filter references | Native ZIP import preserves UUID relationships with all chart IDs changed | Existing shared-object updates and production promotion |
+| Chart/filter references | Native ZIP import preserves UUID relationships, defaults and exclusions with all chart IDs changed | Cached scope lists remain stale in 6.1.0; newer remapping, shared-object updates and production promotion need checks |
 | Overlapping required selections | SQL guards on hospital and care location | Existing Superset UI still permits Clear all |
 | Newest-data card with three hospital selectors | Main selector only; actual observation date | Agreed meaning of latest data across selections |
 | PostgreSQL-incompatible selector expression | Numeric hospital identity separates hospital and comparison options | Other data models/dialects |
-| Excessive time-unit options | Dedicated instance restricted to Month/Quarter/Year | Per-dashboard allowlist remains separate |
+| Excessive time-unit options | Released instance restricted globally; separate upstream snapshot saves different choices with each dashboard's control | Per-control feature not available in stable 6.1.0; production adoption remains separate |
 
 The original clinical calculations and submission-weighted cohort rule remain.
 In particular, `prev` and `txrate` divide by `COUNT(*)`, while displayed definitions
@@ -101,7 +104,8 @@ Metabase and Evidence remain alternative output candidates.
 - [Filter-reference repair](https://digi-team-uw.slack.com/archives/C09PMAC93PV/p1788384231145719)
 - [September client issues](https://docs.google.com/document/d/1YPqHSzG93kqgNCySb3QfcsUwUgAITtGAERFqGdFlZqo/edit)
 - [Deployment handover](https://docs.google.com/document/d/1xRwl4IQwoJ_N17mfwurtP-W5tWQmDEPyMubUABNqDHM/edit)
-- [Superset dashboard-specific time-unit proposal](https://github.com/apache/superset/pull/42849) (open September 9)
+- [Per-control time-unit implementation](https://github.com/apache/superset/pull/38922) and [display-control follow-up](https://github.com/apache/superset/pull/40000)
+- [Separate dashboard-wide time-unit proposal](https://github.com/apache/superset/pull/42849) (open September 10; not used by this demo)
 - [Chart-reference import fix](https://github.com/apache/superset/pull/40140) and [follow-up](https://github.com/apache/superset/pull/38171)
 
 The full comparison charts use sortable date labels because Superset pivots and

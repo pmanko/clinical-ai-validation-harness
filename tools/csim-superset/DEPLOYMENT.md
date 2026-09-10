@@ -135,6 +135,10 @@ normal API into a separate instance on port 18094. All 21 numeric chart IDs diff
 from the exporter. Exact SQL, chart-to-dataset UUIDs, filter targets, defaults and
 exclusions match the files. The imported dashboard passes 91 chart-data checks
 and six browser workflows. No custom Superset importer is required.
+The 6.1.0 importer nevertheless leaves cached `chartsInScope` lists stale.
+The relationship receipt reports that defect separately, and workflow 09 verifies
+the remaining gap as well as the working interactions. A green run is not a claim
+that the original import defect is fully fixed. See [report coverage](REPORT-COVERAGE.md).
 
 Reports: `output/bundle-relationships.json`, `output/bundle-verification.json`,
 and the dated browser run directories. See [reproduction commands](README.md).

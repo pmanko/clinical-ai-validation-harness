@@ -27,7 +27,7 @@ const outcomes={
   '03':['Fix shown · label enhancement open',true], '04':['Fix demonstrated',false],
   '05':['Fix demonstrated',false], '06':['Fix demonstrated',false],
   '07':['Navigation checked',false], '08':['Workaround only',true],
-  '09':['Import verified · production update open',true], '10':['Fix demonstrated',false],
+  '09':['Works in demo · reference gap remains',true], '10':['Fix demonstrated',false],
 };
 const regression={completed:!preview && !(report.errors || []).length && specs.every(s=>s.tests[0].results.at(-1)?.status==='passed'),workflows:specs.map(s=>({id:s.title.slice(0,2),title:s.title,status:s.tests[0].results.at(-1)?.status || 'not-run'}))};
 fs.writeFileSync(path.join(dir,'regression-summary.json'),JSON.stringify(regression,null,2));

@@ -46,6 +46,8 @@ try {
   await expect(page.locator('#dashboard-time-units .pass')).toHaveText('Fix demonstrated');
   await expect(page.locator('#dashboard-time-units .version')).toHaveText('Newer Superset build · unreleased');
   await expect(page.locator('#filter-options + #dashboard-time-units')).toHaveCount(1);
+  await expect(page.locator('#native-import .gap')).toHaveText('Works in demo · reference gap remains');
+  await expect(page.locator('#native-import')).toContainText('Cached chart-reference lists still contain old IDs');
   assert.deepEqual(summary.workflows.find(w=>w.id==='filter-options').assets.filter(a=>a.type==='image/png').map(a=>a.name),['month-quarter-year-options']);
   await page.screenshot({ path: path.join(output, 'gallery-desktop.png') });
   await page.locator('#filter-options').scrollIntoViewIfNeeded();

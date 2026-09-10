@@ -124,10 +124,13 @@ observations and only the main hospital selector.
   in the current SQL; their displayed definitions name positive urine cultures
   and ASB cases respectively. The full example retains the formulas and displays
   the discrepancy. Clinical agreement is required.
-- **Time choices:** Month, Quarter and Year are restricted across the dedicated
-  demo instance. This is not dashboard-specific support in Superset.
-- **Transfer:** scripted identifier mapping works in this demo. The full native bundle passes import into an independent test instance.
-  The actual production route remains untested.
+- **Time choices:** the released 6.1.0 instance restricts Month, Quarter and Year
+  globally. The separate upstream snapshot demonstrates per-control choices;
+  stable-release adoption remains open.
+- **Transfer:** the native bundle's tested interactions work after independent
+  import. Its SQL, UUIDs, defaults and exclusions match, but 6.1.0 leaves cached
+  chart references stale. The newer importer and actual production route need
+  separate remapping and promotion checks.
 - **Production:** development has 21 charts; equivalence with
   `superset.uwcsim.org` is not established. Production data, permissions, WordPress
   embedding, printing and accessibility need their own acceptance.
@@ -149,7 +152,15 @@ SQLite holds demo metadata. These choices do not establish behavior of a
 separately built production release.
 
 The focused lab's ZIP export helper masks its database password and checks for
-generated credentials. Supply the destination password when importing. The full native bundle has also been imported into an independent instance: all 21 chart identifiers changed, eight dataset SQL definitions and six filter relationships matched, 91 chart-data checks passed, and six browser workflows passed.
+generated credentials. Supply the destination password when importing. The full
+native bundle has also been imported into an independent instance: all 21 chart
+identifiers changed, eight dataset SQL definitions and six filter defaults and
+exclusions matched, 91 chart-data requests with targeted assertions passed, and
+six browser workflows passed. Cached scope references are reported separately;
+they do not match after the 6.1.0 import.
+
+See [reported-issue coverage](REPORT-COVERAGE.md) for Ian's three original issues,
+Beth's missing-period report, other client requests, and the limits of each check.
 
 See [DEPLOYMENT.md](DEPLOYMENT.md) for runtime paths, publication and rollback.
 
