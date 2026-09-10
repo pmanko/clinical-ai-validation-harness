@@ -71,6 +71,19 @@ merged as `c181b6b` on 10 September 2026. All five hosted jobs passed. The
 complete UI unit suite (265 tests), type, lint, production build, deterministic
 composer checks, and the full deterministic query-to-table journey passed.
 
+Post-gate correction: the earlier checks preserved draft/focus but did not
+measure actual expansion. The deployed field remained 96 pixels high after
+Expand because its layout effect reapplied the remembered height. Catalyst
+[#90](https://github.com/DIGI-UW/catalyst-ai/pull/90) corrects that effect and
+adds real browser height checks for initial and follow-up questions. Local
+validation passed all 274 UI unit tests, type checking, lint, build and ten
+deterministic browser checks; live development measurements were 96 → 288 → 96
+pixels at a 720-pixel window height. The correction merged as `ae3ad4b` with all
+five hosted jobs passing and is pinned by this integration update. Keep deployment
+and measured resize proof in the private local review bundle, separately from
+its original query-workflow recordings. The broader composer/Run layout remains
+part of owner review.
+
 ## Combined Dashboard design review
 
 The approved disposition is in [the plan](plan.md#design-extension-review).
