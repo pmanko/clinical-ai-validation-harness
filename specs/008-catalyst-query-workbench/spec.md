@@ -81,6 +81,17 @@ Clarification and unsupported turns do not execute SQL or replace the previous
 selected query. Gateway contract or orchestration failures remain failures, not
 writer outcomes.
 
+### Reuse a saved query
+
+From Saved work, the person reviews a saved Dataset and selects **Start from
+this SQL**. Its exact parameterized SQL and typed values become a draft in the
+single editor, with the saved version and source/dialect retained. Existing
+drafts are preserved; a different source requires an explicit matching or new
+session. Loading does not execute SQL or change saved versions. Saved query
+configuration remains available independently of historical execution details.
+Both real-source acceptance journeys include reuse, explicit Run, failure/retry
+and saving a successful successor version.
+
 ### Build and publish a dashboard
 
 1. A successful current execution creates or refreshes one Dataset draft.
