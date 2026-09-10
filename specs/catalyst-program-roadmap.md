@@ -3,10 +3,10 @@
 **Status:** Phase 1 generic-connection implementation and comparison remain open. Phase 2
 and Phase 3 follow in that order.
 
-This file is the single authority for Catalyst product scope, Phase meanings,
-context behavior, the model-team comparison, and program order. Implementation
-sequence and status live only in
-`specs/catalyst-implementation-plan.md`.
+This file owns Catalyst evaluation, comparison, context research, and separately
+scheduled conversation decisions. The current implementation sequence and
+delivery goal live in `specs/008-catalyst-query-workbench/plan.md`; detailed
+progress and acceptance evidence live in its `tasks.md`.
 
 ## Program order
 
