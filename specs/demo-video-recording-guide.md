@@ -37,11 +37,16 @@ turns it into a publishable mp4 deterministically.
    checkout; a local outbox is not the server's outbox. Set
    `PLAYWRIGHT_SUPERSET_URL` to the tested Superset URL, including any path prefix.
    `CATALYST_DEMO_PROFILE` optionally selects an explicit available profile;
-   otherwise the existing UI default is used and recorded. Credentials stay in
-   the private runtime environment. `CATALYST_DEMO_RUN_ID` names a take without
-   deleting earlier saved work. Use `--grep openelis` or `--grep openmrs-hiv` for
-   one source, and a new output directory for every attempt: Playwright clears
+   otherwise the existing UI default is used and recorded. Pass recording
+   credentials explicitly in the private process environment; let the owning
+   wrapper load its runtime file and isolated port settings. Do not export the
+   entire Catalyst `.env` into the recording process. `CATALYST_DEMO_RUN_ID` names
+   a take without deleting earlier saved work. Use `--grep openelis` or
+   `--grep openmrs-hiv` for one source, and a new output directory for every attempt: Playwright clears
    its selected output directory when a run begins.
+   Import checks the running services' readiness, owning checkout and resolved
+   configuration. It never starts or reconfigures them; correct the invocation
+   settings or deliberately use the lifecycle wrapper before retrying.
 
    The same journey runs without recording holds under `--project=deterministic`.
    Captures, traces, requests/results, proof files and measured milestones stay
