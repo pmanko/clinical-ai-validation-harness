@@ -1,9 +1,9 @@
 # OpenELIS reporting and Catalyst integration
 
-**Status:** Draft implementation scope, 10 September 2026. The owner clarified
-the delivery direction: build from the OpenELIS and Catalyst sides in parallel
-and meet at a working source connection and CSV/dataset comparison. Detailed
-report scope, execution architecture and acceptance examples remain for review.
+**Status:** Mock/spec construction approved on 10 September 2026. Two parallel
+delivery streams meet at a real source connection and CSV/Dataset parity review.
+The first new checkpoint is the integrated mock/spec set below; owner design
+acceptance and production implementation remain separate.
 
 ## Purpose and authority
 
@@ -25,6 +25,45 @@ no assigned delivery date and adds no prerequisite to that checkpoint or its
 already scheduled follow-ons. Use this document as the planning home while
 scope is reviewed; implementation tasks belong with the product that delivers
 them. The project dashboard should link here rather than duplicate the register.
+
+## Approved next checkpoint: create and review the mock/spec set
+
+The clarification session established these decisions:
+
+- OpenELIS reporting is fully independent of AI and Catalyst.
+- The applications open independently with shared organizational sign-in and
+  equivalent lab-unit/identifying-field access. No application links, embedded
+  Catalyst or report-criteria transfer are included.
+- The first OpenELIS mock covers configurable CSV export, saved configurations
+  and My Report Queue. Patient printing and Jasper replacement remain separate.
+- The common example is monthly virology results. CSV/Dataset comparison is
+  solely our parity review, not a staff-facing comparison feature.
+
+Build the interactive mock and one integration design specification in Catalyst's
+existing design documentation, reusing the approved Workbench assets directly.
+Keep the applications separate in the reviewer hub. Include preparation versus
+explicit execution, retained drafts, source-bound sessions, save/reopen, queue
+failure/retry/expiry, fresh dates after loading a configuration, shared sign-in
+and restricted-access examples. All data and identity behavior are fictional.
+
+Use August 2026 collection dates, a selected HIV viral-load test and validated
+results. Include one row per result, repeated accessions, blank values and date
+boundaries. Provide a downloadable example CSV and a separately represented
+Catalyst Dataset. These illustrate comparison; they prove no live integration.
+
+Publish the draft beside the approved reference in the existing design-preview
+hub. Display the actual source revision and verify copied assets. Check the
+complete journeys, keyboard/focus, desktop/narrow and light/dark screenshots,
+CSV output, documentation links and the site build before owner review.
+Screenshots and raw test evidence stay outside Git. The exact approved product
+implementation continues; new OE/integration implementation follows this design
+review. Shared sign-in and equivalent authorization are requirements for that
+integration, not functionality already supplied by the current Catalyst demo.
+
+Review artifacts: [integration draft][integration-preview] · [design specification][integration-design] · [Catalyst design PR #98](https://github.com/DIGI-UW/catalyst-ai/pull/98).
+The design source lives in Catalyst; the harness keeps a generated publication
+copy. The review hub's source link and `source.json` identify the exact published
+revision, independently of the runtime Catalyst pin.
 
 ## Two delivery workstreams and one integration checkpoint
 
@@ -77,7 +116,7 @@ linking it here.
 
 ## Decisions needed before implementation
 
-All rows are **open**. Record decisions and their rationale here, then update
+The delivery decisions above are approved. Implementation details in these rows remain **open**. Record decisions and their rationale here, then update
 the affected product specification. Do not infer acceptance from a mock or a
 passing technical test.
 
@@ -89,7 +128,7 @@ passing technical test.
 | Permissions and retrieval | Confirm who may request which fields/sections, when authorization is checked, ownership and download behavior, and what happens when access changes after submission. The export draft silently drops some unauthorized selections: decide how users learn that output differs from their request. A program filter is not a program-access policy. |
 | Queue responsibility | Resolve personal export jobs versus patient printing, failure/retry behavior, retained-file access and expiry, and which existing story owns each behavior. Preserve the export/queue companion-release rule unless explicitly amended. |
 | Catalyst connection and equivalence | The target is an independently generated Catalyst dataset queried from the connected OpenELIS source. Select the initial reporting scenario, check existing source coverage and agree the connection path, snapshot/freshness and comparison rules below. A shared export-request interface remains an optional later decision. |
-| Later production integration | Decide separately whether embedding, single sign-on or shared APIs justify implementation. Signing in to both applications does not establish equivalent data permissions. |
+| Shared sign-in and authorization | Required integration direction: the same signed-in person receives equivalent lab-unit and identifying-field access. Select and implement the enforcement and identity wiring; shared sign-in alone does not establish equivalent permissions. Embedding, application links and report-criteria transfer are excluded from the approved mock. |
 
 ## Proposed acceptance examples
 
@@ -133,16 +172,18 @@ No release date or new product task is approved by this draft.
 
 | Milestone | Exit evidence | Current state |
 | --- | --- | --- |
+| 0. Build and review the mock/spec set | Interactive independent OE/Catalyst workflows and review-only parity examples; published source revision; browser, screenshot and documentation checks; explicit owner design review. | Mock/spec constructed and locally validated; source publication in this PR; owner design acceptance pending. |
 | 1. Agree where the streams meet | Reviewed initial report/comparison definition; field coverage on the existing source path; disposition of overlapping proposals; named ownership and links to each product's tasks. | Two-stream direction confirmed; specific scenario and ownership pending. |
 | 2A. Build from OpenELIS | Settle export permissions/workload choices; deliver the bounded export, saved choices and required queue; generate a verified CSV and prepare the source mapping/access information. Link existing OE issues, PRs and real-path evidence. | Implementation/release status not audited; existing draft is the starting point. |
 | 2B. Build from Catalyst | Continue the existing redesign/release tasks and prepare the real OE source connection; show schema browsing, question/refinement, explicit execution and saving through the approved Workbench. Link existing Catalyst tasks rather than duplicate them here. | Existing delivery remains active; integration-specific source gaps and readiness to be assessed. |
 | 3. Connect and validate together | Query the connected OE source through Catalyst and compare the generated Dataset with the verified native CSV using the agreed definition. Record exact builds, source state, limitations, technical validation and owner acceptance separately. | Required integration checkpoint; date unassigned. |
-| 4. Decide further integration | Explicit go/defer decision for shared interfaces, production authorization, embedding or sign-on; only accepted scope receives implementation tasks. | Deferred decision; no implementation commitment. |
+| 4. Complete shared identity and access | Real shared sign-in and equivalent authorization across both applications, including download and access-revocation behavior; verification separate from source parity. Shared export APIs remain optional later scope. | Required for production integration; implementation approach open. |
 
 Workstreams 2A and 2B proceed in parallel once their necessary initial decisions
 are settled. Exercise an early complete reporting scenario before expanding
 coverage. Each product can be reviewed and released independently; completion
-of this integration initiative requires checkpoint 3 from both ends. A new
+of this integration initiative requires source parity at checkpoint 3 and real
+shared identity/access at checkpoint 4. A new
 Catalyst capability discovered here gets one task in its owning plan and a
 dependency link here; it does not silently expand the current release scope.
 
@@ -181,3 +222,6 @@ Explicitly label limitations and record owner acceptance separately from tests.
 [gallery]: https://digi-uw.github.io/openelis-work/catalog.html
 [report-management]: https://github.com/DIGI-UW/openelis-work/blob/main/designs/admin-config/report-management.md
 [earlier-catalyst]: https://github.com/DIGI-UW/openelis-work/blob/main/assets/requirements-docs/catalyst-functional-requirements.md
+
+[integration-preview]: https://pmanko.github.io/clinical-ai-validation-harness/catalyst-design/?view=integration
+[integration-design]: https://github.com/DIGI-UW/catalyst-ai/blob/main/docs/specs/openelis-reporting-integration/spec.md

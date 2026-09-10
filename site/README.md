@@ -14,3 +14,25 @@ npm install
 npm run build       # → dist/
 npx serve dist      # → http://localhost:3000/clinical-ai-validation-harness/
 ```
+
+
+## Catalyst design review
+
+`/catalyst-design/` provides the approved Catalyst reference and the OpenELIS
+integration draft. Edit the design in Catalyst's `docs/specs/` source folders;
+do not edit generated publication copies under `site/public/catalyst-design/`.
+
+Publish an exact reviewed Catalyst design commit from the harness root:
+
+```bash
+python3 scripts/sync-catalyst-design.py --source /path/to/catalyst --revision FULL_COMMIT
+python3 scripts/sync-catalyst-design.py --source /path/to/catalyst --revision FULL_COMMIT --check
+cd site
+npm run build:pages
+```
+
+Commit the generated assets and `source.json` together. The manifest records the
+source revision and asset hashes; the wrapper links specifications at that same
+revision. This design revision is independent of the application's runtime pin.
+After Pages publishes, verify its source manifest and inspect the live preview.
+Keep screenshots and raw browser evidence in private/ignored storage.

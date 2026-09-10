@@ -35,7 +35,9 @@ coordinates parallel OpenELIS reporting/source preparation and Catalyst
 upgrade/source readiness, converging on a working source connection and native
 CSV/generated Dataset comparison. It links the existing product efforts and
 records unresolved integration decisions without changing Feature 008's
-current release checkpoint or the phase decisions below.
+current release checkpoint or the phase decisions below. Its next checkpoint
+is owner review of the independent OpenELIS/Catalyst mock and integration
+specification, before new reporting/integration implementation.
 
 ## Phase 1 decisions
 
