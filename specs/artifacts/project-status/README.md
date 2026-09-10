@@ -2,9 +2,9 @@
 
 [Open the project dashboard](https://pmanko.github.io/clinical-ai-validation-harness/status/) for the visual overview, searchable inventories, report reader, and linked detail panels. The dashboard uses the source files in this directory. [Local preview and maintenance instructions](../../../site/status/README.md).
 
-**Current Catalyst baseline checked 9 September 2026; broader inventory checked 6 September 2026.** Start here to resume ChartSearchAI, Catalyst, and the supporting validation work. This hub joins current work, source changes, requirements, evidence, and public outputs. Product scope and acceptance remain in the existing approved authorities.
+**Current Catalyst delivery checked 10 September 2026; broader inventory checked 6 September 2026.** Start here to resume ChartSearchAI, Catalyst, and the supporting validation work. This hub joins current work, source changes, requirements, evidence, and public outputs. Product scope and acceptance remain in the existing approved authorities.
 
-Both products have substantial implemented functionality. ChartSearchAI needs upstream reconciliation and final two-provider live acceptance. Catalyst's authoritative roadmap and compatible Spark baseline are now merged. The next active work is specification consolidation, followed by the four usability iterations and a local dual-source owner gate. The fresh model comparison remains separately scheduled.
+Both products have substantial implemented functionality. ChartSearchAI needs upstream reconciliation and final two-provider live acceptance. Catalyst's roadmap, compatible Spark baseline, and consolidated specification set are merged. The question-writing iteration is complete; shell and appearance is next, followed by Available data, result review, and a local dual-source owner gate. The fresh model comparison remains separately scheduled.
 
 | Reference | What it contains | Editable input |
 |---|---|---|
@@ -26,8 +26,8 @@ The [CSV exports](exports/) provide the same rows for sorting or spreadsheet use
 
 | Priority | Work | Concrete next deliverable |
 |---|---|---|
-| First | Consolidate Catalyst specifications and planning | Fold the legacy implementation plan and Dashboard delivery goal into the Feature 008 authority set without losing a unique requirement |
-| Next | Implement the frozen Catalyst usability design | Deliver the composer, shell, Available data, and result-review iterations, then run the complete local dual-source owner gate |
+| Complete | Consolidate Catalyst specifications and planning | Maintain the Feature 008 authority set as implementation findings require amendments |
+| First | Implement the frozen Catalyst usability design | Question writing is merged; deliver shell and appearance, Available data, and result review, then run the complete local dual-source owner gate |
 | First, in parallel | Reconcile the three active OpenMRS integration pull requests | Review current upstream changes, resolve backend/frontend conflicts bottom-up, then rerun paired source checks |
 | At the local owner gate | Validate both Spark source databases | OpenELIS and OpenMRS must retain independent catalogs and complete real paths through drafting, browsing, Run, results, and refinement |
 | Separately scheduled | Prepare the Catalyst comparison | Use the merged launcher and source isolation, then finish reviewed Spark references and reader-led evidence without the retired database/scoring path |

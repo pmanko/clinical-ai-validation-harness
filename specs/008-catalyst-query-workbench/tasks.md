@@ -57,14 +57,19 @@ conversation work remain separately scheduled.
 
 ## Usability iteration 1 — question writing
 
-- [ ] Share one presentation and sizing behavior across initial, follow-up, and
+- [X] Share one presentation and sizing behavior across initial, follow-up, and
   clarification question inputs.
-- [ ] Preserve an eight-line draft, selection, and focus through manual vertical
+- [X] Preserve an eight-line draft, selection, and focus through manual vertical
   resize, Expand/Restore, request failure, and retry.
-- [ ] Make Enter insert a newline and Ctrl/Command+Enter prepare once; preparing
+- [X] Make Enter insert a newline and Ctrl/Command+Enter prepare once; preparing
   never runs SQL.
-- [ ] Remove automatic composer tucking without making actions unreachable at
+- [X] Remove automatic composer tucking without making actions unreachable at
   narrow widths or short heights; replace obsolete expectations deliberately.
+
+Evidence: Catalyst [#83](https://github.com/DIGI-UW/catalyst-ai/pull/83)
+merged as `c181b6b` on 10 September 2026. All five hosted jobs passed. The
+complete UI unit suite (265 tests), type, lint, production build, deterministic
+composer checks, and the full deterministic query-to-table journey passed.
 
 ## Usability iteration 2 — shell and appearance
 
