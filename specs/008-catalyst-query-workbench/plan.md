@@ -123,14 +123,16 @@ namespace service, fork, or shadow store.
 
 Land this roadmap and its task register before the baseline implementation.
 Only the minimum authority pointers change with it. If the existing source-pair
-gate exposes a stale integration gitlink on `main`, the roadmap pull request may
-advance that gitlink to the already-reviewed current integration head; it does
-not absorb baseline product code. Specification consolidation and product
-behavior begin after this source of truth is merged.
+or conformance gates expose stale integration gitlinks or their canonical
+mirrored fixture on `main`, the roadmap pull request may advance them to the
+already-reviewed current integration baseline; it does not absorb baseline
+product code. Specification consolidation and product behavior begin after this
+source of truth is merged.
 
 Exit: current authority entry points name this plan and its task register;
-documentation checks and links pass; any required gitlink repair is limited to
-existing reviewed integration heads and passes the unchanged source-pair gate.
+documentation checks and links pass; any required integration repair is limited
+to existing reviewed heads and their canonical fixture and passes the unchanged
+source-pair and conformance gates.
 
 ### 1. Establish a stable Harness/Catalyst/Hub baseline
 
