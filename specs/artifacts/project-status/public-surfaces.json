@@ -43,7 +43,7 @@
       "title": "Approved Catalyst staff Workbench design preview",
       "url": "https://pmanko.github.io/clinical-ai-validation-harness/catalyst-design/",
       "role": "Interactive visual acceptance reference",
-      "status": "Approved staff Workbench mock published by harness #114; public screenshot checked against the local preview on 10 September. Fictional examples, no product requests.",
+      "status": "Approved staff Workbench mock. Fictional examples, no product requests.",
       "source": "targets/catalyst/docs/specs/staff-workbench-ux/ → site/public/catalyst-design/",
       "next_update": "Keep frozen for side-by-side implementation review; replace only through an approved design amendment."
     },

@@ -119,10 +119,9 @@
       "status": "Owner-frozen 9 September design: Explore and Saved work, resizable composer, nonmodal data browsing, neutral light/dark appearance, and Advanced mode. Fictional preview; no production requests.",
       "evidence_date": "2026-09-10",
       "next_update": "Compare the implemented UX against this preview at the local owner gate.",
-      "verified_source": "Screenshots of the approved local preview and corrected public URL were inspected at 1280 × 720 on 10 September. Harness #114 deployed 89a03cf through GitHub Pages; all six assets were verified against the actual local preview.",
+      "verified_source": "Approved preview published through GitHub Pages.",
       "sources": [
-        "https://github.com/pmanko/clinical-ai-validation-harness/pull/114",
-        "specs/artifacts/project-status/evidence/catalyst-preview-2026-09-10/review.md"
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/114"
       ]
     },
     {
