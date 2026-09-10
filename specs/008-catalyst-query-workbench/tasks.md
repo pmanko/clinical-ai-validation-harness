@@ -333,6 +333,26 @@ the private review bundle. The broader screen-by-screen comparison remains open.
 - [ ] Compare the live Workbench, Dataset and Widget review/libraries, Dashboard
   arrangement/library, and every publish/import state with the binding design.
 
+Arrangement iteration, 10 September: Catalyst
+[#95](https://github.com/DIGI-UW/catalyst-ai/pull/95), head `c1029ed`, implements
+saved chart revisions, Dashboard review/reordering and full/half/third-row widths.
+Reopening restores the immutable configuration; saving changes preserves the
+logical Dashboard identity and Superset address. Same-source charts can span
+catalog refreshes while their saved-query schema provenance stays intact.
+Chart placement into an existing Dashboard retains the saved chart and selection
+on failure, and retry does not create another chart version. The review panel
+uses the approved mock's full height and width, and chart/Dashboard libraries
+share its card treatment. The current binding design incorporates these details.
+
+| Stage | Arrangement iteration status |
+| --- | --- |
+| Implementation | `c1029ed`, Catalyst #95 |
+| Self-validation | 87 Gateway/public-route/canonical bundle tests; 284 UI tests across the main run and loopback-permitted fixture rerun; 12 deterministic browser checks; build/type/lint and documentation/link checks passed. Light/dark arrangement screenshots inspected privately. |
+| Merge | Pending PR checks |
+| Local real-source validation | Pending updated Gateway and actual dual-source import/rendering; working UI is available for immediate development review. |
+| Server deployment and demos | Pending the complete compatible release checkpoint |
+| Owner acceptance | Remains open separately from implementation and tests |
+
 ## Local/server deployment and evidence
 
 - [ ] Deploy exact merged compatible revisions locally and to
