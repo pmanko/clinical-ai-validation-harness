@@ -1,0 +1,46 @@
+# rsync filter rules for scripts/cloud-sync.sh (read with --filter='merge scripts/cloud-sync.filter').
+# FIRST MATCH WINS. Includes come before broad excludes so they survive.
+#
+# VM-canonical paths, anchored with a leading / to the transfer root: an unanchored `data/` would
+# match every directory called data at any depth, code included. cloud-sync ships the checkout; it
+# must never delete what only the VM holds.
+# Excluded dirs are neither uploaded nor deleted on the VM (rsync never deletes excluded paths
+# without --delete-excluded). Reports ship through publish-report.sh, seeds through cloud-seed.sh.
+- /artifacts/reports/
+- /artifacts/validate/
+- /data/
+- /logs/
+# Tracked comparison sets still sync; ones that exist only on the VM, and the directory holding
+# them, are protected from deletion.
+P /datasets/validation/comparison_sets/
+P /datasets/validation/comparison_sets/**
+#
+# Notes on the rules below:
+# - `.git` (no slash): matches both the repo-root .git dir AND submodule .git gitdir-pointer files.
+# - `.env.chartsearch.cloud`: the one .env shipped to the VM; cloud-up.sh symlinks .env.chartsearch to it.
+# - `.env.chartsearch`: protected from --delete (it is the symlink target).
+# - `artifacts/openmrs/modules/`: NOT excluded; the built .omod lives there and shipping it is the
+#   point of cloud-deploy. Deleting a module there is a deliberate act the delete gate makes you force.
++ .env.chartsearch.cloud
++ .env.*.example
+- .env
+- .env.*
+- .env.chartsearch
+- .git
+- .venv/
+- venv/
+- __pycache__/
+- .ruff_cache/
+- .pytest_cache/
+- .mypy_cache/
+- node_modules/
+- .DS_Store
+- .idea/
+- .vscode/
+- *.iml
+- artifacts/dev-*
+- artifacts/openmrs/backend-logs/
+- targets/*/target/
+- targets/*/node_modules/
+- targets/*/omod/target/
+- targets/*/api/target/

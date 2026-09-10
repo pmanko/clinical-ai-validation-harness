@@ -111,6 +111,48 @@ For changes that don't touch chartsearchai code (compose, Caddyfile,
 chartsearch-configure values), use `cloud-sync` alone, or `cloud-up` for a
 full recreate.
 
+## What `cloud-sync` will never delete
+
+`make cloud-sync` is `rsync --delete` of the checkout onto the VM, so a checkout that lacks a
+directory makes the VM lack it too. `artifacts/**` is gitignored, which means a fresh worktree or
+clone looks exactly like a checkout that deleted every report. On 2026-09-07 that shape erased all
+published reports under `artifacts/reports/` and six distribution `.omod` files. Three guards now
+stand between the command and that outcome:
+
+1. **Run it from the main checkout only**, never from a worktree or fresh clone. The script prints
+   `==> source: <path> (branch …, N uncommitted paths)` first; read it.
+2. **`scripts/cloud-sync.filter`** excludes `artifacts/reports/`, `artifacts/validate/`, `data/` and
+   `logs/` (neither uploaded nor deleted) and protects `datasets/validation/comparison_sets/**` from
+   deletion. Reports ship through `publish-report.sh`, seeds through `cloud-seed.sh`.
+3. **The delete gate** dry-runs first and prints what would be deleted, by top-level path. It
+   refuses more than `CLOUD_SYNC_MAX_DELETES` (default 50) deletions, or any deletion under
+   `artifacts/openmrs/modules/`, unless `CLOUD_SYNC_FORCE_DELETE=1`. `CLOUD_SYNC_DRY_RUN=1 make cloud-sync`
+   shows the plan and stops.
+
+The VM is a serving copy, not the archive. `make reports-backup` (run automatically by
+`publish-report.sh`) syncs `artifacts/reports` into a versioned GCS bucket; the bucket and a daily
+disk snapshot schedule are one-time operator setup:
+
+```bash
+gcloud storage buckets create gs://clinical-ai-harness-reports --project clinical-ai-harness \
+    --location us-central1 --uniform-bucket-level-access --public-access-prevention
+gcloud storage buckets update gs://clinical-ai-harness-reports --versioning
+gcloud compute resource-policies create snapshot-schedule harness-chartsearch-daily \
+    --project clinical-ai-harness --region us-central1 --daily-schedule --start-time 08:00 \
+    --max-retention-days 14 --on-source-disk-delete keep-auto-snapshots --storage-location us-central1
+gcloud compute disks add-resource-policies harness-chartsearch --zone us-central1-a \
+    --project clinical-ai-harness --resource-policies harness-chartsearch-daily
+```
+
+To restore reports to the VM after any loss:
+
+```bash
+rsync -az artifacts/reports/ <user>@<vm>:clinical-ai-validation-harness/artifacts/reports/
+```
+
+Then run `chmod -R a+rX` on that path (the same stanza `publish-report.sh` uses). The
+restore is additive and safe to repeat.
+
 ## Lifecycle
 
 | Goal | Command |
