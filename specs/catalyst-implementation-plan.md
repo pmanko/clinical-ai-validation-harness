@@ -1,12 +1,12 @@
 # Catalyst implementation plan
 
-**Status:** Documentation alignment is merged (harness `5ee052f`, Catalyst
-`75442c2`). Generic-connection implementation is the next work and has not
-started. The Spark reference deployment is shipped upstream at the pinned FHIR
-Data Pipes revision and is enabled by configuration, not built here.
+**Status:** Legacy implementation detail awaiting consolidation. The approved
+delivery sequence and current goal now live in
+`specs/008-catalyst-query-workbench/plan.md`, with detailed progress in its
+`tasks.md`. This body remains a source during the planned consolidation and must
+not be used as a competing roadmap.
 
-`specs/catalyst-program-roadmap.md` owns product decisions and the Phase 1
-comparison. This file owns implementation order, checkpoints, and status.
+`specs/catalyst-program-roadmap.md` retains evaluation and comparison decisions.
 
 ## Required outcome
 

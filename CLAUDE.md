@@ -1,5 +1,5 @@
 <!-- SPECKIT START -->
-For additional context about technologies to be used, project structure,
-shell commands, and other important information, read the current plan:
-`specs/002-openmrs-demo-data-2-8-remap/plan.md`
+For Catalyst delivery, read the authoritative current plan and task register:
+`specs/008-catalyst-query-workbench/plan.md` and
+`specs/008-catalyst-query-workbench/tasks.md`.
 <!-- SPECKIT END -->
