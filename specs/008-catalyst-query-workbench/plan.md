@@ -64,6 +64,67 @@ continued after the client stopped and initiated another repair attempt. Do not
 repeat the full journey until the incomplete-response and cancellation behavior
 is corrected or deliberately dispositioned.
 
+### Remediate the observed generation failure
+
+The 11 September owner feedback rejects the observed performance. Fix the
+request lifecycle and avoidable model work before another full server journey;
+the model options and session-navigation expansion in step 6 remain separately
+tracked. Increasing timeouts alone is not remediation.
+
+Code inspection at Catalyst `c93a3d6` and Hub `75d0ff0` identifies the actual
+path: the Gateway runs `query_engine` through `LocalHub`, calls Hub's named-role
+`/v1/hub/query-profiles/{profile_id}/roles/{role}/generate` endpoint, and awaits
+each whole response. Neither the Workbench turn route nor that Hub role route
+watches for client disconnect. The separate chat-completions streaming adapter
+does not govern this path; changing `stream: false` in the request builder alone
+cannot fix it. The rendered query payload also places the changing question
+before the complete catalog, defeating reuse of that catalog as a stable prefix.
+
+Deliver these repairs in order, retaining the existing state owners and tests:
+
+1. **Bound and cancel the whole operation.** Use one elapsed-time deadline across
+   queueing, generation, repairs, and optional review, with downstream timeouts
+   bounded by its remaining time. Propagate explicit cancellation, request loss,
+   and deadline expiry through Gateway, Hub role calls, and the model connection;
+   do not start another repair afterward. Record a terminal turn state, release
+   the session's busy state, and preserve the draft and prior result. Return a
+   structured error when the client is still connected; handle empty or truncated
+   responses without exposing a JSON parser exception as the user message.
+2. **Preserve useful prompt work.** Put stable instructions, target, complete
+   schema, and policy ahead of question, correlation IDs, and revision context.
+   Keep equivalent schema serialization stable and remove only proven duplicate
+   context. Preserve every readable relation/column and required session context.
+   Measure the actual rendered prefix on initial, follow-up, and repair calls,
+   including alternating sources; a same-question cache hit alone is insufficient.
+3. **Correct the avoidable repair cycle.** Replay the preserved projection and
+   patch failures, retrieve the follow-up's exact findings, and repair the
+   prompt/output-contract mismatch. If a correction can be derived unambiguously
+   from the SQL parser, change only that metadata and retain provenance; never
+   guess types, rewrite selected SQL, or bypass ambiguous-patch checks. Count all
+   retries against the shared deadline. Verify useful output, not just earlier
+   failure, on the unchanged count and follow-up scenarios plus varied cases.
+4. **Make a measured capacity decision.** Compare the writer-only E4B candidate
+   from step 6 with the repaired 12B path on both actual sources. Retain the
+   chosen model's identity and explicit reviewer setting. If CPU execution still
+   misses the reviewed target, present measured GPU-backed deployment options
+   and cost before changing infrastructure. Neither extra CPU concurrency nor a
+   pre-warm request is assumed to make the current capacity adequate.
+
+Proposed targets for owner review, not measured results or silently adopted
+acceptance changes: visible acknowledgement or queue state within 1 second;
+usable simple initial/follow-up queries within 30 seconds on a warm fast profile;
+a 120-second total interactive deadline including queue and repair; and no active
+downstream call or later repair within 5 seconds of cancellation. Report each
+observed timing, cold and repeated requests, query correctness, and two-session
+contention. A small case set does not establish production percentiles. If a
+target is missed, keep the finding open rather than extending the test wait.
+
+First prove the failure/timeout/cancellation boundaries with focused tests, then
+repeat the short real dual-source questions on the intended server hardware.
+Only after that passes, rerun the full saved-work-to-Superset journey. Live stage
+feedback in step 6 improves visibility but does not substitute for these timing
+and correctness checks.
+
 ## Authority and scope
 
 This file is the authoritative implementation roadmap and delivery goal for
@@ -403,10 +464,12 @@ Then deliver four small, reviewable iterations:
    for the active source/profile. Warm-up never runs SQL, fetches result rows, or
    loops in the background. A cache miss remains correct, and evidence must show
    whether the change reduces prompt processing rather than only moving the wait.
-3. **Live progress and streaming.** Exercise the Hub's request-level staged
-   streaming path through the Gateway and UI. The Hub already has a staged
-   stream adapter, while Catalyst currently sends `stream: false`; first verify
-   that the adapter emits useful live events rather than adding a profile flag.
+3. **Live progress and streaming.** Carry actual Gateway query-engine events and,
+   where supported, Hub named-role progress through to the UI. The Hub's separate
+   chat-completions staged adapter is not Catalyst's current execution path;
+   preserve Catalyst-owned orchestration and extend the existing role contract
+   only as needed. A profile flag or request-builder `stream` flag alone is not
+   an implementation. Verify useful live events on the actual query path.
    Show plain stages such as
    **Checking available data**, **Writing the query**, and **Reviewing the query**
    in a persistent status region. Stream user-facing model content only when it

@@ -556,6 +556,23 @@ full server run remain separate evidence below.
   cancellation defect before another full run. A client timeout or explicit
   cancel must stop the active downstream call and prevent later repair attempts;
   the typed draft and prior result remain available.
+- [ ] Implement and test one total generation deadline across queue, writer,
+  repairs, and optional reviewer on the actual Gateway-to-Hub named-role path.
+  Cancellation releases the busy session, records a terminal outcome, and closes
+  the active model call. Test disconnect and deadline at each boundary, no later
+  repair, preserved draft/result, and useful handling of incomplete responses.
+- [ ] Move the stable complete schema/instructions before changing question and
+  revision context in the rendered prompt. Verify full-schema/context coverage
+  and measure reused prompt work for real follow-ups, repairs, and source changes.
+- [ ] Recover the follow-up's exact repair findings and fix the reproduced
+  projection/ambiguous-patch cycle without weakening its checks. Verify useful
+  count and follow-up results plus varied cases; preserve selected SQL and record
+  any unambiguous parser-derived metadata correction.
+- [ ] Review the proposed timing targets in the plan, then run a short real
+  dual-source server check before repeating the full journey. Record usable-query
+  timings, cancellation, cold/warm behavior, and two-session contention. If the
+  repaired runtime is still too slow, make the measured model/hardware decision
+  described in the plan rather than increasing waits or declaring success.
 - [ ] Prove the full real path for OpenELIS and OpenMRS on both deployments and
   retain revisions, source/model configuration, traces, screenshots, timestamps,
   bundles, receipts, and visible-result evidence under one run identity.
@@ -601,8 +618,9 @@ when each starts; they are not additional completion gates for the current goal.
   model is not merely loading, warm requests reduce prompt-processing work, a
   cache miss stays correct, and no warm-up executes SQL, reads result rows, or
   runs as a permanent background loop.
-- [ ] Carry request-level staged streaming from med-agent-hub through the Gateway
-  to a persistent Workbench status region. Use plain stages and expose partial
+- [ ] Carry real Gateway query-engine and Hub named-role progress through to a
+  persistent Workbench status region; the separate chat-completions stream is not
+  the current Catalyst path. Use plain stages and expose partial
   user-facing text only when it is distinct from incomplete structured JSON or
   unvalidated SQL.
 - [ ] Preserve the draft and prior result through disconnect, timeout, cancel,
