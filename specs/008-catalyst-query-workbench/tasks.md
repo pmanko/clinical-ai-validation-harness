@@ -539,7 +539,9 @@ recapture must fix both and focus on model-created SQL and plain-language
 refinement. Include only one brief model repair of supplied broken SQL across
 the two videos; retain deliberate engine-error/retry coverage separately.
 
-- [ ] Correct review recognition and formatting provenance, with regression tests.
+- [X] Correct review recognition and formatting provenance, with regression tests
+  ([Catalyst #106](https://github.com/DIGI-UW/catalyst-ai/pull/106)); local
+  implementation and CI pass, merge and final footage acceptance remain open.
 - [ ] Recapture both light-mode stories with actual reviewer decisions, one brief
   supplied-SQL repair, matching Superset results and no staged manual fixes.
 - [ ] Review the new cuts at normal speed and replace public video/poster links.
