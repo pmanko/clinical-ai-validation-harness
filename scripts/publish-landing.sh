@@ -67,7 +67,7 @@ echo "==> syncing tested landing files only"
 rsync -avz --delete -e "${SSH_TRANSPORT}" \
   "${ROOT}/landing/" \
   "${GCP_SSH_USER}@${IP}:${GCP_REMOTE_REPO}/landing/"
-CONFIG_CHANGES="$(rsync -az --itemize-changes -e "${SSH_TRANSPORT}" \
+CONFIG_CHANGES="$(rsync -azc --itemize-changes -e "${SSH_TRANSPORT}" \
   "${ROOT}/compose/Caddyfile" \
   "${ROOT}/compose/openmrs-2.8-refapp.yml" \
   "${GCP_SSH_USER}@${IP}:${GCP_REMOTE_REPO}/compose/")"
