@@ -482,6 +482,22 @@ Both cuts are approximately 3:05, with a 13-second pipeline introduction and
 captions below the application image. Final review and publication are tracked
 below; server workflow and owner acceptance remain separate.
 
+Publication completed on 10 September (11 September UTC), from merged harness
+[PR #132](https://github.com/pmanko/clinical-ai-validation-harness/pull/132),
+`320090d`. Both final cuts were watched at normal speed. The immutable videos and
+posters were uploaded and verified by HTTPS byte hashes; the separate
+[OpenClinAI homepage](https://openclinai.org/#catalyst) now embeds both. Browser
+inspection confirmed both 1280 × 800 players load without errors. Raw evidence,
+media checksums, homepage backup and publication receipts remain private.
+
+A public OpenMRS preparation at 05:02–05:08 UTC failed with `writer_timeout`
+before any SQL execution. The new isolated stack had inherited a 360-second
+Gateway timeout and the Hub's 600-second default, whereas the former demo stack
+configured 1,800 seconds at both layers. Server-only settings now restore those
+budgets; wrapper health passed after applying them. Slow CPU inference remains
+an observed limitation. Fresh public query verification is recorded separately
+from the already-passed local journeys.
+
 - [X] Deploy exact merged compatible revisions locally and to
   `catalyst.openelis-global.org` using the owning checkout and harness wrapper;
   preserve retained data. Full server importer and journey proof remains below.
@@ -497,7 +513,7 @@ below; server workflow and owner acceptance remain separate.
 - [X] Render short cards/captions for at least 5 seconds, longer text at about 3
   words/second plus 2 seconds, and results/details for at least 8 seconds; retain
   captions during holds and label accelerated waits.
-- [ ] Watch each final cut at normal speed, confirm captions neither disappear
+- [X] Watch each final cut at normal speed, confirm captions neither disappear
   early nor cover demonstrated information, then publish new immutable media
   filenames and update all public video/poster references together.
 - [ ] Record final local/server evidence, current public links, and explicit

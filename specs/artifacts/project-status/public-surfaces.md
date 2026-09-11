@@ -1,6 +1,6 @@
 # Public surfaces
 
-As of 2026-09-10. 24 entries.
+As of 2026-09-11. 24 entries.
 
 Inventory of publication, product and operator surfaces. Public HTTP availability is distinct from runtime functionality. Local URLs are documented targets, not verified running services.
 
@@ -30,7 +30,7 @@ Inventory of publication, product and operator surfaces. Public HTTP availabilit
 | Dual-provider acceptance evaluator | [Open](<https://github.com/pmanko/clinical-ai-validation-harness/blob/4053352/scripts/verify_dual_provider_parity_gates.py>) | Validate static ownership and fresh exact-revision artifact-bound observations. | Default evidence age14 days; evaluates artifact values rather than trusting asserted success. Deferral and owner acceptance remain explicit. | Use the exact run and revision; preserve outputs and link them to the owning effort. |
 | Build/deploy identity | [Open](<https://github.com/pmanko/clinical-ai-validation-harness/blob/4053352/scripts/artifact-provenance.py>) | Record source revisions and content hashes for deployed artifacts. | Old valid hashes establish recovery integrity, not current runtime availability. | Use the exact run and revision; preserve outputs and link them to the owning effort. |
 | Repository and publication checks | [Open](<https://github.com/pmanko/clinical-ai-validation-harness/blob/4053352/scripts/verify-repository-lines.sh>) | Verify owned-repository branch and OpenMRS publication identities. | Read current GitHub state; status Markdown is not a substitute. | Use the exact run and revision; preserve outputs and link them to the owning effort. |
-| Catalyst local demonstration — OpenELIS | [Open](<https://catalyst.openelis-global.org/media/catalyst-openelis-local-20260910-d070fe7.mp4>) | Current product demonstration, recorded locally | Full local journey passed with actual writer and reviewer evidence; current Workbench, saved work and Superset rendering. | Owner review; server workflow acceptance remains separate. |
-| Catalyst local demonstration — OpenMRS HIV | [Open](<https://catalyst.openelis-global.org/media/catalyst-openmrs-hiv-local-20260910-d070fe7.mp4>) | Current product demonstration, recorded locally | Full local journey passed with actual writer and reviewer evidence; current Workbench, saved work and Superset rendering. | Owner review; server workflow acceptance remains separate. |
+| Catalyst local demonstration — OpenELIS | [Open](<https://catalyst.openelis-global.org/media/catalyst-openelis-local-20260910-d070fe7.mp4>) | Current product demonstration, recorded locally | Published and embedded on openclinai.org; reviewed at normal speed. HTTPS video/poster hashes and browser playback readiness verified. | Owner review; server workflow acceptance remains separate. |
+| Catalyst local demonstration — OpenMRS HIV | [Open](<https://catalyst.openelis-global.org/media/catalyst-openmrs-hiv-local-20260910-d070fe7.mp4>) | Current product demonstration, recorded locally | Published and embedded on openclinai.org; reviewed at normal speed. HTTPS video/poster hashes and browser playback readiness verified. | Owner review; server workflow acceptance remains separate. |
 
 Generated from the source JSON by `render.py`. Edit the JSON, then regenerate this view.

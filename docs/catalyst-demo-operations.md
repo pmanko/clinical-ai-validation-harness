@@ -50,7 +50,7 @@ database startup. Full wrapper health passed after the replacement.
 
 The server override at
 `/home/ubuntu/catalyst-release-config/isolated.override.yml` preserves the harness
-configuration and changes only the Data Pipes service entrypoint:
+configuration and changes the Data Pipes service entrypoint as follows:
 
 ```yaml
 entrypoint: ["/bin/bash", "-c", "exec java $${JAVA_OPTS} -jar /app/controller-bundled.jar"]
@@ -62,6 +62,21 @@ This bypasses the image's failing jemalloc preload while keeping the pinned JAR,
 Java options, mounts and source data. The original entrypoint failed even for
 `java -version` with that preload; the controller now starts successfully.
 Keep this explicit server compatibility setting when rebuilding the override.
+
+## Model timeout settings
+
+The server override retains the previous CPU demo budgets: set
+`CATALYST_HUB_TIMEOUT_SECONDS: "1800"` on `catalyst-gateway` and
+`LLM_REQUEST_TIMEOUT_SECONDS: "1800"` on `med-agent-hub`. The isolated stack's
+360-second Gateway default caused a verified OpenMRS preparation failure on
+11 September UTC, before SQL execution. Model processing in the same time window
+exceeded nine minutes. Restoring the previous budget prevents that premature
+cutoff but does not make inference faster or guarantee successful generation.
+
+Check for active preparations before applying lifecycle changes. The wrapper's
+`up` rebuilds services and can recreate otherwise unchanged application containers;
+run it outside recording, import and query validation. Keep each validation run
+on an uninterrupted deployment.
 
 ## Capacity, evidence and publication
 

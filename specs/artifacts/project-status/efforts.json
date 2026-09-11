@@ -1,5 +1,5 @@
 {
-  "as_of": "2026-09-10",
+  "as_of": "2026-09-11",
   "description": "Editable portfolio inventory. These identifiers link work; they do not replace approved milestone names. No implementation owners have been assigned by this report.",
   "rows": [
     {
@@ -1016,9 +1016,9 @@
     {
       "id": "CAT-E09",
       "title": "Deliver the deployed Catalyst release and local writer/verifier demos",
-      "status": "Public release deployed; both local writer/verifier journeys passed; replacement cuts prepared for publication",
-      "next_deliverable": "Publish and review the local replacement videos; complete remaining server validation and owner acceptance in Feature 008 tasks.",
-      "acceptance": "Both real sources complete drafting, schema browsing, execution, refinement, saved-SQL reuse, charts, Dashboard arrangement, actual import and Superset rendering. Preserve exact revisions and raw evidence privately. Limit the pipeline introduction to 10\u201315 seconds; retain readable captions and result holds. Record owner acceptance separately.",
+      "status": "Public release deployed; both local writer/verifier videos published on OpenClinAI; server timeout correction applied, fresh query checks in progress",
+      "next_deliverable": "Complete remaining public-server workflow validation and owner acceptance in Feature 008 tasks.",
+      "acceptance": "Both real sources complete drafting, schema browsing, execution, refinement, saved-SQL reuse, charts, Dashboard arrangement, actual import and Superset rendering. Preserve exact revisions and raw evidence privately. Limit the pipeline introduction to 10–15 seconds; retain readable captions and result holds. Record owner acceptance separately.",
       "dependencies": [
         "CAT-E01"
       ],
@@ -1032,8 +1032,8 @@
         "https://catalyst.openelis-global.org/media/catalyst-openelis-local-20260910-d070fe7.mp4",
         "https://catalyst.openelis-global.org/media/catalyst-openmrs-hiv-local-20260910-d070fe7.mp4"
       ],
-      "evidence": "10 September: harness d070fe7 / Catalyst e163726 / Hub 75d0ff0. New local capture: 2 passed in 9.5 minutes. Gemma 4 12B writer and Qwen 2.5 14B reviewer invocation evidence verified for both initial and follow-up turns on both sources. Import receipt and bundle digests match. The owner explicitly chose local recording; server latency and acceptance remain separate.",
-      "last_checked": "2026-09-10",
+      "evidence": "10 September: harness d070fe7 / Catalyst e163726 / Hub 75d0ff0. New local capture: 2 passed in 9.5 minutes. Gemma 4 12B writer and Qwen 2.5 14B reviewer invocation evidence verified for both initial and follow-up turns on both sources. Import receipt and bundle digests match. The owner explicitly chose local recording; server latency and acceptance remain separate. 11 September UTC: both final cuts reviewed at normal speed and published on openclinai.org; video/poster and homepage HTTPS hashes verified, both players inspected. Public OpenMRS writer_timeout traced to 360-second Gateway budget; previous 1800-second Gateway/Hub settings restored and wrapper health passed.",
+      "last_checked": "2026-09-11",
       "implementation_owner": "Feature 008 plan and tasks",
       "related_pull_requests": [
         "https://github.com/DIGI-UW/openelis-catalyst/pull/75",
@@ -1043,7 +1043,8 @@
         "https://github.com/pmanko/clinical-ai-validation-harness/pull/55",
         "https://github.com/pmanko/clinical-ai-validation-harness/pull/50",
         "https://github.com/pmanko/clinical-ai-validation-harness/pull/131",
-        "https://github.com/DIGI-UW/catalyst-ai/pull/101"
+        "https://github.com/DIGI-UW/catalyst-ai/pull/101",
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/132"
       ]
     },
     {
