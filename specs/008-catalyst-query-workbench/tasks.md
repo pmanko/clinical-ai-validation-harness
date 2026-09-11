@@ -533,6 +533,17 @@ and [poster](https://catalyst.openelis-global.org/media/catalyst-openmrs-cd4-mon
 were HTTPS hash-verified before the homepage reference changed. The prior
 OpenMRS asset remains immutable evidence; OpenELIS is unchanged.
 
+The 11 September owner review found misleading “unreviewed” badges and
+formatting-only “human” versions despite recorded reviewer approvals. Public
+recapture must fix both and focus on model-created SQL and plain-language
+refinement. Include only one brief model repair of supplied broken SQL across
+the two videos; retain deliberate engine-error/retry coverage separately.
+
+- [ ] Correct review recognition and formatting provenance, with regression tests.
+- [ ] Recapture both light-mode stories with actual reviewer decisions, one brief
+  supplied-SQL repair, matching Superset results and no staged manual fixes.
+- [ ] Review the new cuts at normal speed and replace public video/poster links.
+
 Final server-proof release candidate, 11 September: Catalyst `c93a3d6` combines
 the configurable server generation window from
 [#103](https://github.com/DIGI-UW/catalyst-ai/pull/103), accurate FHIR Data Pipes

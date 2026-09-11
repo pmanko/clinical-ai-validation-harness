@@ -43,6 +43,11 @@ checkpoint; follow-on A/B/C and model comparison remain separately scheduled.
   reviewing/refining results, reusing saved SQL, creating charts and arranging
   and publishing a Dashboard. Limit FHIR Data Pipes to a brief context segment
   (about 10–15 seconds); retain the detailed ingestion proof in the evidence.
+- Center the public videos on model-created SQL and plain-language refinement.
+  Include at most one brief supplied-broken-SQL repair across the two videos;
+  the model fixes it. Do not deliberately damage a working query on camera.
+  Keep database-error/retry coverage in the regression journey. Before recapture,
+  verify that approvals are visible and automatic formatting preserves authorship.
 - Present the working server link, the two refreshed videos, local proof and
   their local recording environment and any unresolved server findings for
   asynchronous owner review. Update existing public

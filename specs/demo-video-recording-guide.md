@@ -28,6 +28,7 @@ turns it into a publishable mp4 deterministically.
    PLAYWRIGHT_LIVE=true PLAYWRIGHT_USE_MOCK_API=false \
      PLAYWRIGHT_BASE_URL=http://127.0.0.1:13001 \
      CATALYST_HARNESS_DIR=/path/to/owning/harness \
+     CATALYST_DEMO_STORY=true \
      DEMO_MILESTONES_DIR=/private/review/run/milestones \
      npx playwright test e2e/full-scenario-demo.spec.ts \
        --project=demo-video --workers=1 --output=/private/review/run/capture
@@ -52,6 +53,12 @@ turns it into a publishable mp4 deterministically.
    and invalidate recording timings.
 
    The same journey runs without recording holds under `--project=deterministic`.
+   The public story emphasizes model-created SQL and plain-language refinement.
+   Only OpenELIS includes a brief request to repair supplied SQL; neither video
+   deliberately breaks a working query. Omit `CATALYST_DEMO_STORY` to run the
+   full error/retry regression journey. Keep its failure coverage separate from
+   the public cut. The public story requires an actual reviewer decision and
+   checks that automatic formatting retains the executed model-authored version.
    Captures, traces, requests/results, proof files and measured milestones stay
    private until the final cuts are reviewed.
 2. **Find the cut points.** Use `full-scenario-<source>.json` from the milestone
