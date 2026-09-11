@@ -673,9 +673,17 @@ when each starts; they are not additional completion gates for the current goal.
   Changing to a nonresident profile may require a visible cold load; the chooser
   must report actual state and never silently route to another model. Use measured
   cold, repeated, memory and concurrency behavior to set residency and warmup for
-  each deployment. Merge, checksum-verified installation, router configuration,
-  deployment and direct E4B inference remain pending; the new profile does not
-  change the default.
+  each deployment. Live inspection also found that the shared public router is an
+  orphan from an older Catalyst Compose definition: its Docker labels still name
+  `docker-compose.demo.yml`, while the current file intentionally treats the
+  router as external and no longer declares that service. The server has no host
+  `llama-server` binary. Before a clean deployment, give the external router an
+  explicit harness/deployment lifecycle with a pinned image, verified model files,
+  configurable residency, selected-model warmup, health checks, and stable
+  `model-router` reachability from both Catalyst networks. Remove the orphan only
+  after that replacement passes direct Hub inference. Merge, checksum-verified
+  installation, router replacement, deployment and direct E4B inference remain
+  pending; the new profile does not change the default.
 - [ ] Compare E4B and 12B on the same bounded dual-source Catalyst SQL cases.
   Record speed and observed query behavior; treat the published OpenClinAI
   E4B/A4B chart-answer results as candidate evidence rather than SQL proof, and
