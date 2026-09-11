@@ -546,6 +546,14 @@ the two videos; retain deliberate engine-error/retry coverage separately.
   supplied-SQL repair, matching Superset results and no staged manual fixes.
 - [ ] Review the new cuts at normal speed and replace public video/poster links.
 
+Recording validation, 11 September: OpenELIS passed the real writer/reviewer,
+saved-work and rendered Superset path. Its 3:04 light cut includes one 26-second
+supplied-query repair and passed normal-speed review. OpenMRS recapture remains
+open: the earlier demographic join multiplied the monthly totals despite model
+approval. The recorder now checks that refinement preserves the original totals;
+this scenario check does not establish general clinical correctness. Public
+replacement remains pending final OpenMRS review and media-host access.
+
 Final server-proof release candidate, 11 September: Catalyst `c93a3d6` combines
 the configurable server generation window from
 [#103](https://github.com/DIGI-UW/catalyst-ai/pull/103), accurate FHIR Data Pipes
