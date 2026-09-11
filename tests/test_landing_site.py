@@ -123,6 +123,19 @@ def test_catalyst_copy_identifies_local_recordings_and_actual_model_roles():
         assert obsolete not in html
 
 
+def test_catalyst_recordings_link_to_the_matching_youtube_uploads():
+    html, page = parsed_landing()
+
+    assert "https://youtu.be/PRs3jAzQk38" in page.links
+    assert "https://youtu.be/7p83cGMhOzw" in page.links
+    assert html.index("catalyst-openelis-local-light-20260911-d070fe7.mp4") < html.index(
+        "https://youtu.be/PRs3jAzQk38"
+    )
+    assert html.index("catalyst-openmrs-cd4-monitoring-local-light-20260911-373cac8.mp4") < html.index(
+        "https://youtu.be/7p83cGMhOzw"
+    )
+
+
 MEDIA_HOST = "https://catalyst.openelis-global.org/media/"
 
 
