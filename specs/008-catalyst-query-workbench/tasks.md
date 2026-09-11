@@ -551,10 +551,12 @@ saved-work and rendered Superset path. Its 3:04 light cut includes one 26-second
 supplied-query repair and passed normal-speed review. OpenMRS recapture remains
 open: one take multiplied monthly totals; the next failed because generated SQL
 and declared output names disagreed. Both were rejected. The recorder checks
-unchanged totals, and the Gateway now shares the formatter-spacing fix so a
-follow-up retains its model-authored base (41 focused tests pass). Latest CI,
-local redeployment, successful OpenMRS recapture and media-host access remain
-pending. These scenario checks do not establish general clinical correctness.
+unchanged totals. Gateway fixes preserve model authorship across formatter-only
+changes and constrain projection-metadata repairs to output names, never SQL
+([Catalyst #106](https://github.com/DIGI-UW/catalyst-ai/pull/106), all five CI
+jobs and 56 focused checks pass). Local redeployment, successful OpenMRS
+recapture and media-host access remain pending. These scenario checks do not
+establish general clinical correctness.
 
 Final server-proof release candidate, 11 September: Catalyst `c93a3d6` combines
 the configurable server generation window from
