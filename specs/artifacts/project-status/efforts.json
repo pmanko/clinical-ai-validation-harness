@@ -1015,32 +1015,34 @@
     },
     {
       "id": "CAT-E09",
-      "title": "Preserve the complete FHIR-to-dashboard demo and align public pointers",
-      "status": "Browser demo and video published; local recovery and canvas alignment needed",
-      "next_deliverable": "Recover remote demo spec/timeline/guide and current media pointers; align stale canvas with published landing state without losing historical recordings.",
-      "acceptance": "Recording clearly shows actual pipeline, generated query, results, saved assets, importer and Superset; raw evidence/revision/date retained; status copy distinguishes working demonstration from uncompleted model comparison and final acceptance.",
+      "title": "Deliver the current Catalyst release and replace both source demos",
+      "status": "New public release is live; local two-source proof passed; server recording and replacement publication remain open",
+      "next_deliverable": "Complete the server journeys, review paced cuts for both sources, and replace the current openclinai.org video and poster references. Feature 008 tasks remains the acceptance register.",
+      "acceptance": "Both real sources complete drafting, schema browsing, execution, refinement, saved-SQL reuse, charts, Dashboard arrangement, actual import and Superset rendering. Preserve exact revisions and raw evidence privately. Limit the pipeline introduction to 10\u201315 seconds; retain readable captions and result holds. Record owner acceptance separately.",
       "dependencies": [
         "CAT-E01"
       ],
       "sources": [
-        "https://github.com/pmanko/clinical-ai-validation-harness/blob/2cf3de8/specs/008-catalyst-query-workbench/spec.md",
-        "https://github.com/DIGI-UW/openelis-catalyst/blob/ce07504/catalyst-ui/e2e/fhir-to-dashboard-demo.spec.ts",
-        "https://github.com/DIGI-UW/openelis-catalyst/blob/ce07504/catalyst-ui/e2e/fhir-to-dashboard-demo.timeline.json",
-        "https://github.com/pmanko/clinical-ai-validation-harness/blob/2cf3de8/specs/demo-video-recording-guide.md",
-        "https://catalyst.openelis-global.org/media/catalyst-fhir-to-dashboard-demo-20260827.mp4",
-        "https://github.com/pmanko/clinical-ai-validation-harness/blob/2cf3de8/specs/artifacts/canvases/catalyst-demos.canvas.tsx",
-        "Claude transcript 4f5a9e47-72c2-4f5b-a027-501cb7174bd6 (supporting evidence)"
+        "specs/008-catalyst-query-workbench/plan.md",
+        "specs/008-catalyst-query-workbench/tasks.md",
+        "docs/catalyst-demo-operations.md",
+        "https://github.com/DIGI-UW/catalyst-ai/blob/e163726/catalyst-ui/e2e/full-scenario-demo.spec.ts",
+        "specs/demo-video-recording-guide.md",
+        "https://catalyst.openelis-global.org/",
+        "https://catalyst.openelis-global.org/media/catalyst-fhir-to-dashboard-demo-20260827.mp4"
       ],
-      "evidence": "Historical Playwright result 1 passed in 3.6m, seven screenshots; later video HTTP200 and remote commit push; raw scratchpad missing locally.",
-      "last_checked": "2026-09-06",
-      "implementation_owner": null,
+      "evidence": "10 September: harness d070fe7 / Catalyst e163726 / Hub 75d0ff0 deployed publicly; strict repository and full health checks passed. Local recording: 2 passed in 11.2 minutes. First server take invalidated by restart; next take timed out after 10 minutes of model preparation. Old published video remains current until replacement cuts are verified.",
+      "last_checked": "2026-09-10",
+      "implementation_owner": "Feature 008 plan and tasks",
       "related_pull_requests": [
         "https://github.com/DIGI-UW/openelis-catalyst/pull/75",
         "https://github.com/DIGI-UW/openelis-catalyst/pull/55",
         "https://github.com/DIGI-UW/openelis-catalyst/pull/31",
         "https://github.com/pmanko/clinical-ai-validation-harness/pull/91",
         "https://github.com/pmanko/clinical-ai-validation-harness/pull/55",
-        "https://github.com/pmanko/clinical-ai-validation-harness/pull/50"
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/50",
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/131",
+        "https://github.com/DIGI-UW/catalyst-ai/pull/101"
       ]
     },
     {

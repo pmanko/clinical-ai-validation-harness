@@ -383,19 +383,12 @@ manifest are archived privately under run `release-4726687-local-2`.
 Both settled Superset screenshots were inspected: female/male counts are
 49/47 for OpenELIS and 3,578/1,806 for OpenMRS, matching the originating results.
 
-Server access is restored and the same merged revisions are staged in the new
-owning checkout. Transferred retained-data hashes match; the restored
-OpenELIS/FHIR database passes PostgreSQL backup verification. The old server's
-saved-work database has a verified online backup. Spark started and all 54
-retained table/view definitions were restored across the two source namespaces.
-The server is ARM64; an incorrect staged AMD64 setting was corrected without
-changing image pins. The pinned x86 OpenELIS images require the Ubuntu emulation
-packages now installed. The 50 GB server disk filled during assembly; unused
-build/package cache was reclaimed, and the new isolated stack was stopped with
-its restored data retained while capacity is resolved. The public site still
-runs the previous deployment. AWS access needs refreshing before inspecting and
-expanding the disk; the server's Node/Playwright recording tools also remain to
-be installed after capacity is available.
+During server staging, transferred retained-data hashes matched, the restored
+OpenELIS/FHIR database passed PostgreSQL backup verification, and the old
+saved-work database received a verified online backup. All 54 retained Spark
+table/view definitions were restored across both source namespaces. Disk
+capacity and ARM compatibility initially blocked startup; the current release
+status below supersedes that staging checkpoint.
 
 Catalyst [#96](https://github.com/DIGI-UW/catalyst-ai/pull/96), merged as `9ff0a89`,
 adds the hosted Superset path/public-link repair separately from the recording
@@ -448,14 +441,34 @@ the caption remains below the picture during a hold. All 29 renderer and
 documentation-check tests passed. Final edited videos have not been reviewed
 or published; the sample does not close the video acceptance items below.
 
-Server readiness, public routing, full server journeys, paced final cuts and
-owner acceptance remain open. The new server stack remains stopped with restored
-data retained while disk capacity is resolved; the public site still runs its
-previous version.
+Current release: harness `d070fe7`, Catalyst `e163726` and Hub `75d0ff0` are
+running in the local acceptance stack and on the public demo server. The local
+two-source recording passed again (2 tests, 11.2 minutes), with matching bundle
+and import-receipt digests archived privately as `replacement-demo-d070fe7-local`.
 
-- [ ] Deploy exact merged compatible revisions locally and to
+The server root volume was expanded from 50 to 100 GiB after a recovery snapshot;
+targeted cache pruning preserved application volumes. Persistent QEMU registration
+and a server-only Data Pipes entrypoint correction resolved the observed ARM
+startup failures. Strict repository verification and full wrapper health passed
+in the server's owning checkout. The public proxy now serves the new UI, API and
+`/catalyst-dashboards/`; existing Superset routes and media were preserved. The
+rendered public Workbench was inspected, and HTTPS checks passed for the UI,
+source registration and Superset routes. See the
+[operator guide](../../docs/catalyst-demo-operations.md) for the exact server
+configuration and lifecycle entry point.
+
+The first server capture was invalidated by a service restart during preparation
+and is retained only as failure evidence. The next take reached its ten-minute
+preparation wait while the UI still showed generation in progress. An unchanged
+retry follows model warmup; no assertions or model selection were changed.
+CPU-based model preparation remains an observed responsiveness issue.
+Complete server journeys, reviewed final cuts, replacement
+publication and explicit owner acceptance are still open. The videos currently
+on `openclinai.org` have not yet been replaced.
+
+- [X] Deploy exact merged compatible revisions locally and to
   `catalyst.openelis-global.org` using the owning checkout and harness wrapper;
-  preserve retained data and run importer actions in the tested environment.
+  preserve retained data. Full server importer and journey proof remains below.
 - [ ] Prove the full real path for OpenELIS and OpenMRS on both deployments and
   retain revisions, source/model configuration, traces, screenshots, timestamps,
   bundles, receipts, and visible-result evidence under one run identity.
