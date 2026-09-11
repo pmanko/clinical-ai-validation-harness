@@ -231,6 +231,11 @@ def test_stable_publish_entrypoint_verifies_the_live_page():
     assert 'if [ -n "${CONFIG_CHANGES}" ]' in publish
     assert "proxy config unchanged; no service restart needed" in publish
     assert "docker compose -f compose/openmrs-2.8-refapp.yml up -d --no-deps --force-recreate proxy" in publish
+    assert 'PUBLISH_MODE="${1:-full}"' in publish
+    assert '"${PUBLISH_MODE}" != "--landing-only"' in publish
+    assert 'if [ "${PUBLISH_MODE}" = "--landing-only" ]; then' in publish
+    assert "landing-only mode; proxy configuration and services unchanged" in publish
+    assert "grep -oE 'https://youtu.be/[A-Za-z0-9_-]+'" in publish
     assert "backend" not in publish
     assert "gateway" not in publish
     assert "frontend" not in publish
