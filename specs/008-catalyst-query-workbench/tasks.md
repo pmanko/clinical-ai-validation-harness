@@ -650,11 +650,25 @@ when each starts; they are not additional completion gates for the current goal.
   the standard 12B profile. Give both plain outcome-based labels, keep exact
   identities in Technical details, fail visibly when the selected profile is
   unavailable, and never fall back silently. Do not call the existing
-  E4B-plus-Qwen-14B reviewed profile the fast path.
+  E4B-plus-Qwen-14B reviewed profile the fast path. The profile contract is in
+  [Hub #27](https://github.com/pmanko/med-agent-hub/pull/27) (`b284ef4`): one
+  `gemma-e4b` writer, no reviewer, **Faster question preparation** and
+  **Standard question preparation** labels, exact model metadata, and an
+  explicit unavailable reason when the router does not advertise E4B. The
+  regression failed before configuration; 48 focused and 708 full Hub tests
+  pass. Live inspection of both the public and isolated Hubs on 11 September
+  found only `gemma-4-12b-q4` advertised, and the router model directory contains
+  only the 12B artifact. Merge, explicit model installation/router configuration,
+  deployment and direct E4B inference remain pending; the new profile does not
+  change the default.
 - [ ] Compare E4B and 12B on the same bounded dual-source Catalyst SQL cases.
   Record speed and observed query behavior; treat the published OpenClinAI
   E4B/A4B chart-answer results as candidate evidence rather than SQL proof, and
-  review this direct evidence before changing the public default.
+  review this direct evidence before changing the public default. The published
+  [35-turn temporal comparison](https://reports.openclinai.org/temporal-ablation-7arm-2026-06-06/)
+  recorded 11,557 ms average / 54,212 ms maximum for E4B and 28,456 ms average /
+  248,720 ms maximum for the 12B baseline. Those chart-answer measurements select
+  a candidate; they do not predict Catalyst's complete-schema SQL workload.
 - [ ] Stabilize the reusable instruction/schema prefix and test the runtime's
   supported prompt cache or smallest safe priming/slot configuration. Prove the
   model is not merely loading, warm requests reduce prompt-processing work, a
