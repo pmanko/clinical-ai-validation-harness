@@ -68,6 +68,12 @@ def test_validate_timeline_rejects_a_card_with_non_positive_duration():
         rdv.validate_timeline(timeline)
 
 
+@pytest.mark.parametrize("height", [-1, 720, 1.5])
+def test_caption_band_must_leave_a_valid_picture_area(height):
+    with pytest.raises(ValueError, match="caption_band_height"):
+        rdv.validate_timeline(minimal_timeline(caption_band_height=height))
+
+
 def test_final_duration_sums_cards_and_speed_adjusted_clips():
     # 2.0s card + 8.0s clip at 1x + 12.0s clip at 4x = 2 + 8 + 3 = 13.0
     assert rdv.final_duration(minimal_timeline()) == pytest.approx(13.0)
@@ -248,6 +254,36 @@ def test_smoke_render_produces_expected_duration_and_poster(tmp_path):
     )
     # 1.5s card + 4.0s clip at 2x = 1.5 + 2.0 = 3.5s
     assert float(probe.stdout.strip()) == pytest.approx(3.5, abs=0.4)
+
+
+@pytest.mark.skipif(not _ffmpeg_has_drawtext(), reason="ffmpeg lacks drawtext")
+def test_caption_stays_below_the_picture_during_a_hold(tmp_path):
+    source, output = tmp_path / "red.mp4", tmp_path / "captioned.mp4"
+    subprocess.run([
+        "ffmpeg", "-v", "error", "-f", "lavfi", "-i",
+        "color=red:size=1280x720:duration=1:rate=25", str(source),
+    ], check=True)
+    timeline = {
+        "width": 1280, "height": 800, "caption_band_height": 80,
+        "segments": [{"type": "clip", "start": 0, "end": 0.4,
+                      "hold": 0.6, "caption": "Readable caption"}],
+    }
+    rdv.validate_timeline(timeline)
+    subprocess.run(rdv.build_command(timeline, source=str(source), output=str(output)),
+                   check=True, capture_output=True)
+    # Inspect an encoded frame during the hold. Its source picture stays red;
+    # the white caption must be confined to the added band underneath it.
+    frame = subprocess.check_output([
+        "ffmpeg", "-v", "error", "-ss", "0.7", "-i", str(output),
+        "-frames:v", "1", "-f", "rawvideo", "-pix_fmt", "rgb24", "-",
+    ])
+    assert len(frame) == 1280 * 800 * 3
+    picture = frame[:1280 * 718 * 3]  # Exclude the codec's chroma boundary.
+    assert all(r > 200 and g < 40 and b < 40
+               for r, g, b in zip(picture[0::3], picture[1::3], picture[2::3]))
+    band = frame[1280 * 722 * 3:]
+    assert any(min(r, g, b) > 200
+               for r, g, b in zip(band[0::3], band[1::3], band[2::3]))
 
 
 @pytest.mark.skipif(

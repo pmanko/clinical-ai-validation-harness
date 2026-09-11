@@ -47,6 +47,9 @@ turns it into a publishable mp4 deterministically.
    Import checks the running services' readiness, owning checkout and resolved
    configuration. It never starts or reconfigures them; correct the invocation
    settings or deliberately use the lifecycle wrapper before retrying.
+   On a Mac, prefix a long recording command with `caffeinate -i` to prevent
+   idle sleep for that process only; a sleeping host can interrupt generation
+   and invalidate recording timings.
 
    The same journey runs without recording holds under `--project=deterministic`.
    Captures, traces, requests/results, proof files and measured milestones stay
@@ -107,7 +110,8 @@ turns it into a publishable mp4 deterministically.
 
 ```json
 {
-  "width": 1280, "height": 720, "fps": 25,
+  "width": 1280, "height": 800, "fps": 25,
+  "caption_band_height": 80,
   "segments": [
     {
       "type": "card",
@@ -132,6 +136,11 @@ turns it into a publishable mp4 deterministically.
   optional. Renders in the landing page's own palette (`0x24133F` purple-ink
   background, `0xF2C75C` gold kicker, `0xCFC6E0` muted body) so it reads as
   part of the same product, not a stock screen recording.
+- `caption_band_height` — optional space below the footage for captions.
+  An 80-pixel band on a 1280×800 canvas preserves the complete 1280×720
+  recording at its native size and keeps captions away from the page's text
+  and controls. Use this for the current release cuts. Omit it for older
+  timelines that deliberately position captions over footage.
 - `clip` — a window of the raw source, `start`/`end` in source seconds.
   `speed` (default `1.0`) time-compresses it — use this instead of trimming
   away generation waits entirely, so the viewer still sees that something is
