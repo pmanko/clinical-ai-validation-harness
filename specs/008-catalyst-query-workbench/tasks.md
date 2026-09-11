@@ -514,6 +514,24 @@ verified HTTPS hashes. The homepage and demo canvas reference those same assets.
 appearance in recording mode while retaining the ordinary dark-theme test path.
 Runtime application revisions are unchanged; the recorder is separately pinned.
 
+On 11 September, the owner asked that the public OpenMRS walkthrough stop
+duplicating the OpenELIS patient-count workflow. The replacement run
+`openmrs-cd4-monitoring-light-local` uses aggregate 2026 CD4 counts by month,
+then a gender breakdown; it displays no patient-level rows. The committed
+recorder change `373cac8` passed the complete real local path before capture,
+then passed again while recording: six initial aggregate rows, ten refined
+aggregate rows, the visible database-error/retry path, saved-query reuse,
+widgets, arrangement, deterministic import and a native Superset table checked
+cell-by-cell against the originating result. Generation evidence records the
+Gemma 4 12B writer and Qwen 2.5 14B reviewer for both question turns. The
+3:08 light-only cut, raw footage, trace, requests, proof, timing plan and exact
+runtime revisions are archived privately under that run. It was watched at 1×;
+its eight-second FHIR Data Pipes introduction is shorter than the prior cut.
+The new immutable [OpenMRS video](https://catalyst.openelis-global.org/media/catalyst-openmrs-cd4-monitoring-local-light-20260911-373cac8.mp4)
+and [poster](https://catalyst.openelis-global.org/media/catalyst-openmrs-cd4-monitoring-local-light-20260911-373cac8-poster.jpg)
+were HTTPS hash-verified before the homepage reference changed. The prior
+OpenMRS asset remains immutable evidence; OpenELIS is unchanged.
+
 - [X] Deploy exact merged compatible revisions locally and to
   `catalyst.openelis-global.org` using the owning checkout and harness wrapper;
   preserve retained data. Full server importer and journey proof remains below.

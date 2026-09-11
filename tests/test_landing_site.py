@@ -136,7 +136,7 @@ def test_every_local_media_reference_exists_and_has_accessible_context():
     catalyst_sources = [src for src in page.sources if "catalyst-" in src]
     assert len(catalyst_sources) == 2
     assert any("openelis-local-" in src for src in catalyst_sources)
-    assert any("openmrs-hiv-local-" in src for src in catalyst_sources)
+    assert any("openmrs-cd4-monitoring-local-" in src for src in catalyst_sources)
     assert all("20260827" not in src for src in catalyst_sources)
     assert len(page.images) >= 3
     assert "1:45 · silent recording at 2× speed" in html
