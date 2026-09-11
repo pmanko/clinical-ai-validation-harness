@@ -517,10 +517,11 @@ Runtime application revisions are unchanged; the recorder is separately pinned.
 On 11 September, the owner asked that the public OpenMRS walkthrough stop
 duplicating the OpenELIS patient-count workflow. The replacement run
 `openmrs-cd4-monitoring-light-local` uses aggregate 2026 CD4 counts by month,
-then a gender breakdown; it displays no patient-level rows. The committed
-recorder change `373cac8` passed the complete real local path before capture,
-then passed again while recording: six initial aggregate rows, ten refined
-aggregate rows, the visible database-error/retry path, saved-query reuse,
+then a gender breakdown; it displays no patient-level rows. The recorder change
+merged in Catalyst [#105](https://github.com/DIGI-UW/catalyst-ai/pull/105) as
+`c93a3d6`. Its local commit `373cac8` passed the complete real local path
+before capture, then passed again while recording: six initial aggregate rows,
+ten refined aggregate rows, the visible database-error/retry path, saved-query reuse,
 widgets, arrangement, deterministic import and a native Superset table checked
 cell-by-cell against the originating result. Generation evidence records the
 Gemma 4 12B writer and Qwen 2.5 14B reviewer for both question turns. The
@@ -531,6 +532,17 @@ The new immutable [OpenMRS video](https://catalyst.openelis-global.org/media/cat
 and [poster](https://catalyst.openelis-global.org/media/catalyst-openmrs-cd4-monitoring-local-light-20260911-373cac8-poster.jpg)
 were HTTPS hash-verified before the homepage reference changed. The prior
 OpenMRS asset remains immutable evidence; OpenELIS is unchanged.
+
+Final server-proof release candidate, 11 September: Catalyst `c93a3d6` combines
+the configurable server generation window from
+[#103](https://github.com/DIGI-UW/catalyst-ai/pull/103), accurate FHIR Data Pipes
+Parquet and Spark warehouse provenance from
+[#104](https://github.com/DIGI-UW/catalyst-ai/pull/104), and the distinct OpenMRS
+CD4 workflow plus complete rendered-row verification from #105. All five
+Catalyst jobs passed on #105 after its companion analytics contract was aligned;
+the focused five-test contract and full 57-test analytics suite also passed
+locally. This harness update pins that exact merged revision. Deployment and the
+full server run remain separate evidence below.
 
 - [X] Deploy exact merged compatible revisions locally and to
   `catalyst.openelis-global.org` using the owning checkout and harness wrapper;

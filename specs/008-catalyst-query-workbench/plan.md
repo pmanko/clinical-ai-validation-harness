@@ -2,11 +2,11 @@
 
 **Status:** Current delivery roadmap. The roadmap and compatible baseline are
 merged, and the specification set is consolidated. All four usability iterations
-are merged and the first local dual-source walkthrough passed. On 10 September
+are merged and the complete local dual-source walkthroughs passed. On 10 September
 2026 the owner authorized continuing into saved-work and Dashboard functionality,
 with subsequent feedback bringing typography and composer style alignment into
-the saved-query iteration. Final local/server evidence
-and final owner acceptance remain open.
+the saved-query iteration. The replacement light-mode videos are published.
+Final full server evidence and owner acceptance remain open.
 
 **Specification:** [spec.md](spec.md)
 
