@@ -371,7 +371,7 @@ proof; it does not close the full server/demo checkpoint or final owner review.
 
 Release verification, 10 September: harness [#129](https://github.com/pmanko/clinical-ai-validation-harness/pull/129)
 merged as `4726687`, pinning Catalyst `d5c4c0d` and Hub `75d0ff0`.
-The local owning checkout runs these merged revisions; the strict repository
+At that checkpoint, the local owning checkout ran these merged revisions; the strict repository
 check and full wrapper health gate passed without reseeding. The refreshed
 full-scenario recording test passed for **both real sources** (2 tests, 11.3 minutes):
 drafting and schema browsing, explicit execution and refinement, exact saved-SQL
@@ -422,8 +422,31 @@ Import requires healthy services in the owning checkout with matching resolved
 configuration; inherited port changes fail before import or service mutation.
 All 57 analytics/assembly tests and all five hosted jobs passed. This follow-up
 changes the operator script only; the UI and query code in the recorded journey
-above are unchanged. Live verification of the new guard is tracked separately
-from that recording and final server delivery.
+above are unchanged. Harness [#130](https://github.com/pmanko/clinical-ai-validation-harness/pull/130),
+merged as `c69ee22`, pins this correction. The local owning checkout passed
+the strict repository and full health checks. A real import with a conflicting
+port was rejected before mutation; the correctly configured repeat import
+returned `already_imported`. Service identities, start times and ports were
+unchanged in both cases. Private proof: `import-isolation-3439c97`.
+
+Recovery follow-up: Catalyst [#101](https://github.com/DIGI-UW/catalyst-ai/pull/101),
+merged as `e163726`, fixes a real failure hidden in reused-SQL sessions without
+question turns. The diagnostic remains visible once, with the error color,
+and the SQL stays available for correction. The regression failed before the
+fix; 285 UI tests, 12 deterministic browser checks, five recording-contract
+tests, type/lint/build and all five hosted checks passed. Both complete real-source
+journeys passed again, including native database failure/retry and successor
+save (2 tests, 9.3 minutes). Private run `recovery-a3bab21-local` used the working
+UI and the merged owning services; its application code matches this merge.
+Both Superset screenshots and matching bundle/receipt digests were verified.
+The final recording-only adjustment brings the diagnostic into the viewport
+before its eight-second hold; final server recording remains separate.
+
+The renderer now supports an 80-pixel caption band below the full 1280×720
+picture. A rendered sample was inspected privately; an encoded-frame test proves
+the caption remains below the picture during a hold. All 29 renderer and
+documentation-check tests passed. Final edited videos have not been reviewed
+or published; the sample does not close the video acceptance items below.
 
 Server readiness, public routing, full server journeys, paced final cuts and
 owner acceptance remain open. The new server stack remains stopped with restored
