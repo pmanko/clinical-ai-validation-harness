@@ -563,17 +563,30 @@ full server run remain separate evidence below.
   the active model call. Test disconnect and deadline at each boundary, no later
   repair, preserved draft/result, and useful handling of incomplete responses.
   Implementation is in [Catalyst #107](https://github.com/DIGI-UW/catalyst-ai/pull/107)
-  (`397ba96`) and [Hub #25](https://github.com/pmanko/med-agent-hub/pull/25)
+  (`00c9b9d`) and [Hub #25](https://github.com/pmanko/med-agent-hub/pull/25)
   (`8942322`), both submitted for review. Local checks: Gateway 352 passed / one
   existing skip; assembly/contracts 47 passed; Hub 718 passed, including two
   real loopback HTTP cancellation tests against a blocking fixture endpoint.
   New route/role interruption tests failed before the fixes. Formatting/lint
   passed. Gateway mypy retains the same ten findings verified on its clean base.
-  Merge, paired deployment, explicit UI cancellation, and live-model/server
-  verification remain pending; these tests do not establish model throughput.
+  Catalyst also includes **Stop preparing** in both composers, retained text and
+  focus, Retry, and abort on unmount. UI suite: 289 passed, followed by 113
+  focused tests after the final notice layout adjustment; four light/dark
+  browser cases prove HTTP disconnect, no duplicate submission, preserved input
+  and the previous rendered result using a real stalled local HTTP fixture.
+  The browser checks caught and verified a cancel-click resubmission defect that
+  component tests missed. Desktop/narrow screenshots were inspected privately;
+  type check, lint and build passed. Hub CI is green; Catalyst CI is rerunning
+  for the added UI repair. Merge, paired deployment, and live-model/server
+  verification remain pending; these checks do not establish model throughput.
 - [ ] Move the stable complete schema/instructions before changing question and
   revision context in the rendered prompt. Verify full-schema/context coverage
   and measure reused prompt work for real follow-ups, repairs, and source changes.
+  [Catalyst #108](https://github.com/DIGI-UW/catalyst-ai/pull/108) (`ecd949f`)
+  contains the prompt-order repair with green CI. Its prefix regression failed
+  before the change; 22 focused tests pass and verify complete schema retention,
+  changed schema, and stable initial-to-follow-up request prefixes. Actual model
+  cache reuse, timings on both sources, merge, and deployment remain pending.
 - [X] Recover the follow-up's stored outcome: one timed-out Hub invocation, no
   returned model validation findings. Separate queueing from generation before
   attributing other router tasks to this turn.
