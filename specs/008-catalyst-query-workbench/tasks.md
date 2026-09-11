@@ -547,6 +547,77 @@ full server run remain separate evidence below.
 - [X] Deploy exact merged compatible revisions locally and to
   `catalyst.openelis-global.org` using the owning checkout and harness wrapper;
   preserve retained data. Full server importer and journey proof remains below.
+- [X] Preserve the failed 11 September exact-release server run as evidence. The
+  initial OpenELIS question became ready after about 10 minutes and three model
+  calls; its SQL ran in 165 milliseconds. Recovered follow-up evidence records
+  one Hub invocation with `writer_timeout` after 1,800,003 milliseconds. Later
+  router activity is not reliably attributable to that turn; the earlier
+  follow-up-retry attribution is withdrawn. OpenMRS did not run.
+- [ ] Correct or explicitly disposition the incomplete follow-up response and
+  cancellation defect before another full run. A client timeout or explicit
+  cancel must stop the active downstream call and prevent later repair attempts;
+  the typed draft and prior result remain available.
+- [ ] Implement and test one total generation deadline across queue, writer,
+  repairs, and optional reviewer on the actual Gateway-to-Hub named-role path.
+  Cancellation releases the busy session, records a terminal outcome, and closes
+  the active model call. Test disconnect and deadline at each boundary, no later
+  repair, preserved draft/result, and useful handling of incomplete responses.
+  Implementation is in [Catalyst #107](https://github.com/DIGI-UW/catalyst-ai/pull/107)
+  (`fa3c38c`) and [Hub #25](https://github.com/pmanko/med-agent-hub/pull/25)
+  (`8942322`), both submitted for review. Local checks: Gateway 357 passed / one
+  existing skip; assembly/contracts 47 passed; Hub 720 passed, including two
+  real loopback HTTP cancellation tests against a blocking fixture endpoint.
+  New route/role interruption tests failed before the fixes. Formatting/lint
+  passed. Gateway mypy retains the same ten findings verified on its clean base.
+  Catalyst also includes **Stop preparing** in both composers, retained text and
+  focus, Retry, and abort on unmount. A writer request for clarification or an
+  unsupported question now produces a neutral next step rather than a red
+  composer error; the question remains in the focused input, while genuine
+  generation failures remain errors. UI suite: 290 passed, followed by 113
+  focused tests after the final notice layout adjustment; four light/dark
+  browser cases prove HTTP disconnect, no duplicate submission, preserved input
+  and the previous rendered result using a real stalled local HTTP fixture.
+  The browser checks caught and verified a cancel-click resubmission defect that
+  component tests missed. Desktop/narrow screenshots were inspected privately;
+  type check, lint and build passed. CI is green on both exact heads. Merge,
+  paired deployment, and live-model/server
+  verification remain pending; these checks do not establish model throughput.
+- [ ] Move the stable complete schema/instructions before changing question and
+  revision context in the rendered prompt. Verify full-schema/context coverage
+  and measure reused prompt work for real follow-ups, repairs, and source changes.
+  [Catalyst #108](https://github.com/DIGI-UW/catalyst-ai/pull/108) (`ecd949f`)
+  contains the prompt-order repair with green CI. Its prefix regression failed
+  before the change; 22 focused tests pass and verify complete schema retention,
+  changed schema, and stable initial-to-follow-up request prefixes. Actual model
+  cache reuse, timings on both sources, merge, and deployment remain pending.
+- [X] Recover the follow-up's stored outcome: one timed-out Hub invocation, no
+  returned model validation findings. Separate queueing from generation before
+  attributing other router tasks to this turn.
+- [ ] Fix the initial question's reproduced projection/ambiguous-patch cycle
+  without weakening its checks. Verify useful
+  count and follow-up results plus varied cases; preserve selected SQL and record
+  any unambiguous parser-derived metadata correction. The retained server
+  evidence identifies the full chain: the first model call returned an
+  unaliased `COUNT(*)` while declaring the output name `count`; deterministic
+  validation reported the projection mismatch; the second model call returned
+  the same valid alias replacement twice; and Catalyst rejected those identical
+  operations as overlapping edits, forcing a third model call. The narrow
+  repairs are [Catalyst #109](https://github.com/DIGI-UW/catalyst-ai/pull/109)
+  (`7b934be`), which collapses only exact duplicate operations while preserving
+  rejection of conflicting edits, and
+  [Hub #26](https://github.com/pmanko/med-agent-hub/pull/26) (`6ea4612`), which
+  requires explicit aliases for aggregate/calculated projections matching
+  `expectedColumns`. The exact engine regression now reaches ready in two model
+  calls instead of three; the conflicting-edit control still fails closed.
+  Complete local checks: Gateway 345 passed / one existing skip with Ruff
+  format and lint; Hub 708 passed, plus the focused 44-test prompt/generic-role
+  check. Merge, paired deployment, varied live questions and real timing remain
+  pending.
+- [ ] Review the proposed timing targets in the plan, then run a short real
+  dual-source server check before repeating the full journey. Record usable-query
+  timings, cancellation, cold/warm behavior, and two-session contention. If the
+  repaired runtime is still too slow, make the measured model/hardware decision
+  described in the plan rather than increasing waits or declaring success.
 - [ ] Prove the full real path for OpenELIS and OpenMRS on both deployments and
   retain revisions, source/model configuration, traces, screenshots, timestamps,
   bundles, receipts, and visible-result evidence under one run identity.
@@ -568,8 +639,93 @@ full server run remain separate evidence below.
 ## Follow-on milestones after current delivery
 
 These milestones start after current UX/Superset deployment and owner acceptance.
-Their detailed contracts and vendor choices require review when each starts;
-they are not additional completion gates for the current goal.
+Responsiveness and session navigation are first; follow-on A/B/C retain their
+existing order after it. Detailed contracts and vendor choices require review
+when each starts; they are not additional completion gates for the current goal.
+
+### Responsiveness and URL-addressable sessions
+
+- [ ] Record one cold and repeated baseline for a simple initial question and a
+  follow-up on both public sources: first honest status, first model output when
+  available, usable-query time, tokens, prefix reuse, model calls/repairs,
+  cancellation, and CPU/memory use.
+- [ ] Serve and advertise a writer-only Gemma E4B Catalyst query profile alongside
+  the standard 12B profile. Give both plain outcome-based labels, keep exact
+  identities in Technical details, fail visibly when the selected profile is
+  unavailable, and never fall back silently. Do not call the existing
+  E4B-plus-Qwen-14B reviewed profile the fast path. The profile contract is in
+  [Hub #27](https://github.com/pmanko/med-agent-hub/pull/27) (`b284ef4`): one
+  `gemma-e4b` writer, no reviewer, **Faster question preparation** and
+  **Standard question preparation** labels, exact model metadata, and an
+  explicit unavailable reason when the router does not advertise E4B. The
+  regression failed before configuration; 48 focused and 708 full Hub tests
+  pass. Live inspection of both the public and isolated Hubs on 11 September
+  found only `gemma-4-12b-q4` advertised, and the router model directory contains
+  only the 12B artifact. The selected deployment artifact is Unsloth's
+  [`gemma-4-E4B-it-Q4_K_M.gguf`](https://huggingface.co/unsloth/gemma-4-E4B-it-GGUF/blob/eed1c5c07e1d365ec8769e33b396bdfce2f5f0a0/gemma-4-E4B-it-Q4_K_M.gguf)
+  at revision `eed1c5c07e1d365ec8769e33b396bdfce2f5f0a0`, about 5 GB, with
+  SHA-256 `e1bc442709fe780aa4b2ec9b22c16a7fcdff542f17f01ed0e3203114d28f9f34`.
+  It is a quantization of Google's Apache-2.0 Gemma 4 E4B instruction model and
+  matches the filename and quantization previously exercised through the harness.
+  The server had 31 GB of disk free on 11 September, but no matching local file
+  to reuse. Its fixed 12B router used 14.8 GiB of the host's 30.75 GiB RAM while
+  the public and isolated stacks left 6.1 GiB available. Run the comparison
+  serially and configure this host for one resident model, prewarming the
+  selected/default model. Residency remains an operator setting: GPU-backed or
+  higher-memory deployments may retain more models after capacity validation.
+  Changing to a nonresident profile may require a visible cold load; the chooser
+  must report actual state and never silently route to another model. Use measured
+  cold, repeated, memory and concurrency behavior to set residency and warmup for
+  each deployment. Live inspection also found that the shared public router is an
+  orphan from an older Catalyst Compose definition: its Docker labels still name
+  `docker-compose.demo.yml`, while the current file intentionally treats the
+  router as external and no longer declares that service. The server has no host
+  `llama-server` binary. Before a clean deployment, give the external router an
+  explicit harness/deployment lifecycle with a pinned image, verified model files,
+  configurable residency, selected-model warmup, health checks, and stable
+  `model-router` reachability from both Catalyst networks. Remove the orphan only
+  after that replacement passes direct Hub inference. The implementation is
+  reviewable in [harness PR #143](https://github.com/pmanko/clinical-ai-validation-harness/pull/143)
+  at `b1b7c56`; its default one-model cap is deployment-configurable so GPU and
+  higher-memory hosts can use a separately validated capacity. Merge,
+  checksum-verified installation, router replacement, deployment and direct E4B
+  inference remain pending; the new profile does not change the default.
+- [ ] Compare E4B and 12B on the same bounded dual-source Catalyst SQL cases.
+  Record speed and observed query behavior; treat the published OpenClinAI
+  E4B/A4B chart-answer results as candidate evidence rather than SQL proof, and
+  review this direct evidence before changing the public default. The published
+  [35-turn temporal comparison](https://reports.openclinai.org/temporal-ablation-7arm-2026-06-06/)
+  recorded 11,557 ms average / 54,212 ms maximum for E4B and 28,456 ms average /
+  248,720 ms maximum for the 12B baseline. Those chart-answer measurements select
+  a candidate; they do not predict Catalyst's complete-schema SQL workload.
+- [ ] Stabilize the reusable instruction/schema prefix and test the runtime's
+  supported prompt cache or smallest safe priming/slot configuration. Prove the
+  model is not merely loading, warm requests reduce prompt-processing work, a
+  cache miss stays correct, and no warm-up executes SQL, reads result rows, or
+  runs as a permanent background loop.
+- [ ] Carry real Gateway query-engine and Hub named-role progress through to a
+  persistent Workbench status region; the separate chat-completions stream is not
+  the current Catalyst path. Use plain stages and expose partial
+  user-facing text only when it is distinct from incomplete structured JSON or
+  unvalidated SQL.
+- [ ] Preserve the draft and prior result through disconnect, timeout, cancel,
+  retry, and final failure. Prove cancellation stops the downstream model call
+  and any later repair attempt.
+- [ ] Replace the current standalone technical selectors/notices with the approved
+  Workbench components: one quiet disclosure for infrequent model/view controls,
+  radio choices where only two options exist, and an accessible long-running
+  status treatment without fake progress or warning styling.
+- [ ] Put the active session identifier in the query string. Direct open, reload,
+  recent-session selection, and Back/Forward restore the exact source-bound
+  session; a conflicting source parameter is normalized to the session source.
+- [ ] Prove two tabs with different session URLs keep independent drafts, results,
+  and generation status. Different sessions run or visibly queue according to
+  measured capacity; same-session concurrent generation remains an explicit
+  conflict, and leaving a view does not create unowned work.
+- [ ] Pass focused Hub/Gateway streaming and cancellation tests, UI state and
+  accessibility tests, session-URL/browser-history tests, matched light/dark and
+  narrow screenshots, and a real dual-source server check. Record revisions,
+  timings, limitations, deployment, and owner acceptance separately.
 
 ### A. Multi-artifact design requests and shared controls
 
