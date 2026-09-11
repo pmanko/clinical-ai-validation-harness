@@ -39,7 +39,10 @@ fi
 # recut published to landing/ before its video/poster reached the demo host)
 # fails here and leaves the currently published page untouched.
 MEDIA_HOST="https://catalyst.openelis-global.org/media/"
-mapfile -t REMOTE_MEDIA_ASSETS < <(
+REMOTE_MEDIA_ASSETS=()
+while IFS= read -r asset; do
+  REMOTE_MEDIA_ASSETS+=("${asset}")
+done < <(
   grep -oE "${MEDIA_HOST}[A-Za-z0-9._-]+" "${ROOT}/landing/index.html" | sort -u
 )
 if [ "${#REMOTE_MEDIA_ASSETS[@]}" -eq 0 ]; then
