@@ -61,6 +61,14 @@ no current work.
 Feature 008 includes the accepted conversation, query notebook, manual Run flow,
 typed results, and Dashboard Builder experience over the generic connection.
 
+Separate [OpenELIS reporting integration planning](../openelis-reporting-catalyst-integration.md)
+coordinates two parallel efforts: OpenELIS's reporting MVP and source
+preparation, and this Catalyst upgrade with source readiness. They meet at a
+working OE connection and native CSV/generated Dataset comparison. The
+integration plan links Catalyst work here rather than creating a second
+implementation effort; it adds no prerequisite or acceptance requirement to
+this delivery's current release checkpoint.
+
 ## Design extension review
 
 The HIV workflow and output proposals are gathered in Catalyst's existing

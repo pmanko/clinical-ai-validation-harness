@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Catalyst OpenELIS source · interactive draft</title>
+  <script src="../appearance.js"></script>
+  <link rel="stylesheet" href="../appearance.css">
+  <link rel="stylesheet" href="../mock.css">
+  <link rel="stylesheet" href="integration.css">
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+  <aside class="preview-controls" aria-label="Preview controls">
+    <span>Fictional preview</span>
+    <label>User state <select id="user-state"><option value="signed-in">Signed in · Virology staff</option><option value="restricted">No reporting access</option><option value="signed-out">Sign-in required</option></select></label>
+    <label id="outcome-label">Next request <select id="outcome"><option value="success">Succeeds</option><option value="failure">Fails once</option></select></label>
+    <label>Appearance <select data-appearance-choice><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select></label>
+  </aside>
+  <div id="product"></div>
+  <script type="module" src="app.mjs"></script>
+</body>
+</html>
