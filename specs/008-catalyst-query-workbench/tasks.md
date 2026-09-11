@@ -658,9 +658,16 @@ when each starts; they are not additional completion gates for the current goal.
   regression failed before configuration; 48 focused and 708 full Hub tests
   pass. Live inspection of both the public and isolated Hubs on 11 September
   found only `gemma-4-12b-q4` advertised, and the router model directory contains
-  only the 12B artifact. Merge, explicit model installation/router configuration,
-  deployment and direct E4B inference remain pending; the new profile does not
-  change the default.
+  only the 12B artifact. The selected deployment artifact is Unsloth's
+  [`gemma-4-E4B-it-Q4_K_M.gguf`](https://huggingface.co/unsloth/gemma-4-E4B-it-GGUF/blob/eed1c5c07e1d365ec8769e33b396bdfce2f5f0a0/gemma-4-E4B-it-Q4_K_M.gguf)
+  at revision `eed1c5c07e1d365ec8769e33b396bdfce2f5f0a0`, about 5 GB, with
+  SHA-256 `e1bc442709fe780aa4b2ec9b22c16a7fcdff542f17f01ed0e3203114d28f9f34`.
+  It is a quantization of Google's Apache-2.0 Gemma 4 E4B instruction model and
+  matches the filename and quantization previously exercised through the harness.
+  The server had
+  31 GB free on 11 September, but no matching local file to reuse. Merge,
+  checksum-verified installation, router configuration, deployment and direct
+  E4B inference remain pending; the new profile does not change the default.
 - [ ] Compare E4B and 12B on the same bounded dual-source Catalyst SQL cases.
   Record speed and observed query behavior; treat the published OpenClinAI
   E4B/A4B chart-answer results as candidate evidence rather than SQL proof, and
