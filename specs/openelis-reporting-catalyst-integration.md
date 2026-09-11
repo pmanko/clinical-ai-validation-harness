@@ -3,8 +3,9 @@
 **Status:** Mock/spec construction approved on 10 September 2026. Two parallel
 delivery streams meet at a real source connection and CSV/Dataset parity review.
 The baseline mock/spec set is published. The current checkpoint is
-[OpenELIS design revision and implementation readiness][export-readiness],
-recorded on 11 September 2026; its revised mock, owner acceptance and production
+[OpenELIS design revision and implementation readiness][export-readiness].
+OpenELIS [design PR #315][export-pr] now contains the v1.3 mock/spec revision and
+implementation slices; live publication, owner acceptance and production
 implementation remain pending and separately tracked.
 
 ## Purpose and authority
@@ -71,7 +72,7 @@ integration, not functionality already supplied by the current Catalyst demo.
 
 | Review artifact | Source and status |
 | --- | --- |
-| [OpenELIS reporting mock][preview] and [export specification][export-spec] | `openelis-work`; [MVP design PR #313](https://github.com/DIGI-UW/openelis-work/pull/313), merged by its existing repository automation after test/build passed. Gallery deployment of `2336f49c` passed; the live fixture asset matches the source. |
+| [OpenELIS reporting mock][preview] and [export specification][export-spec] | `openelis-work`; baseline PR #313 is merged. [Design-readiness PR #315][export-pr] contains the v1.3 landing, builder and queue revision. Local browser checks, 268 tests and the gallery build pass; the live URL still shows the merged baseline until PR #315 is merged and deployed. |
 | [Catalyst integration draft][integration-preview] and [design specification][integration-design] | Catalyst; initial PR #98 followed by merged [ownership correction PR #100](https://github.com/DIGI-UW/catalyst-ai/pull/100), which removes the duplicate OpenELIS screen. Published source is recorded in the hub manifest. |
 | Cross-project decisions and publication | This roadmap and the harness review hub; owner design acceptance remains pending. |
 
@@ -83,18 +84,19 @@ gallery; the hub links to its canonical permalink.
 ## Current checkpoint: OpenELIS design readiness
 
 The owner expects a roughly even mix of new exports and rerunning familiar
-reports. The next goal is to revise the existing OpenELIS mock and specification
-for both paths, verify the published review experience and prepare a small,
-evidence-backed implementation backlog. The authoritative sequence, acceptance
+reports. PR #315 revises the existing OpenELIS mock and specification for both
+paths and records a small implementation backlog. The remaining checkpoint is
+to resolve the recorded owner decisions, verify the published revision and record
+acceptance. The authoritative sequence, acceptance
 register and copyable goal live in [section 14 of the OpenELIS specification][export-readiness].
 Update that register rather than duplicating its tasks here.
 
 The prior UX review identified field-selection overload, implicit report-type
 selection, a cumbersome saved-report entry path, premature date errors, ambiguous
 save/create actions, narrow-screen queue actions and missing accordion keyboard
-behavior. The current goal records these as required revision work; the published
-v1.2 mock has not yet incorporated them. Amend affected requirements alongside
-the mock and account for previous requirements before retiring conflicting text.
+behavior. The v1.3 review branch now incorporates those changes and reconciles
+the affected requirements. The public gallery remains the earlier v1.2 baseline
+until PR #315 is merged and its exact deployed revision is verified.
 
 OpenELIS owns the interactive HTML, fictional CSV helper and its component
 reference. The existing Catalyst integration spec/mock remain the independent
@@ -267,6 +269,7 @@ Explicitly label limitations and record owner acceptance separately from tests.
 
 [export-spec]: https://github.com/DIGI-UW/openelis-work/blob/main/designs/reports/custom-data-export.md
 [export-readiness]: https://github.com/DIGI-UW/openelis-work/blob/main/designs/reports/custom-data-export.md#14-design-revision-and-implementation-readiness
+[export-pr]: https://github.com/DIGI-UW/openelis-work/pull/315
 [preview]: https://digi-uw.github.io/openelis-work/#/reports/custom-data-export
 [gallery]: https://digi-uw.github.io/openelis-work/catalog.html
 [report-management]: https://github.com/DIGI-UW/openelis-work/blob/main/designs/admin-config/report-management.md
