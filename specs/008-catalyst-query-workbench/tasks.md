@@ -576,8 +576,8 @@ full server run remain separate evidence below.
   and the previous rendered result using a real stalled local HTTP fixture.
   The browser checks caught and verified a cancel-click resubmission defect that
   component tests missed. Desktop/narrow screenshots were inspected privately;
-  type check, lint and build passed. Hub CI is green; Catalyst CI is rerunning
-  for the added UI repair. Merge, paired deployment, and live-model/server
+  type check, lint and build passed. CI is green on both exact heads. Merge,
+  paired deployment, and live-model/server
   verification remain pending; these checks do not establish model throughput.
 - [ ] Move the stable complete schema/instructions before changing question and
   revision context in the rendered prompt. Verify full-schema/context coverage
@@ -593,7 +593,23 @@ full server run remain separate evidence below.
 - [ ] Fix the initial question's reproduced projection/ambiguous-patch cycle
   without weakening its checks. Verify useful
   count and follow-up results plus varied cases; preserve selected SQL and record
-  any unambiguous parser-derived metadata correction.
+  any unambiguous parser-derived metadata correction. The retained server
+  evidence identifies the full chain: the first model call returned an
+  unaliased `COUNT(*)` while declaring the output name `count`; deterministic
+  validation reported the projection mismatch; the second model call returned
+  the same valid alias replacement twice; and Catalyst rejected those identical
+  operations as overlapping edits, forcing a third model call. The narrow
+  repairs are [Catalyst #109](https://github.com/DIGI-UW/catalyst-ai/pull/109)
+  (`7b934be`), which collapses only exact duplicate operations while preserving
+  rejection of conflicting edits, and
+  [Hub #26](https://github.com/pmanko/med-agent-hub/pull/26) (`6ea4612`), which
+  requires explicit aliases for aggregate/calculated projections matching
+  `expectedColumns`. The exact engine regression now reaches ready in two model
+  calls instead of three; the conflicting-edit control still fails closed.
+  Complete local checks: Gateway 345 passed / one existing skip with Ruff
+  format and lint; Hub 708 passed, plus the focused 44-test prompt/generic-role
+  check. Merge, paired deployment, varied live questions and real timing remain
+  pending.
 - [ ] Review the proposed timing targets in the plan, then run a short real
   dual-source server check before repeating the full journey. Record usable-query
   timings, cancellation, cold/warm behavior, and two-session contention. If the
