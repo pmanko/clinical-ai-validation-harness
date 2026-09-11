@@ -666,12 +666,14 @@ when each starts; they are not additional completion gates for the current goal.
   matches the filename and quantization previously exercised through the harness.
   The server had 31 GB of disk free on 11 September, but no matching local file
   to reuse. Its fixed 12B router used 14.8 GiB of the host's 30.75 GiB RAM while
-  the public and isolated stacks left 6.1 GiB available. Run the first comparison
-  serially with one resident model; do not claim the chooser keeps both models
-  warm. Choose the production residency and prewarm policy from measured cold,
-  repeated and memory behavior. Merge, checksum-verified installation, router
-  configuration, deployment and direct E4B inference remain pending; the new
-  profile does not change the default.
+  the public and isolated stacks left 6.1 GiB available. Run the comparison
+  serially. Production keeps exactly one selected/default model resident and
+  prewarms only that model. Changing profiles may require a visible cold load;
+  the chooser must not imply both models are warm or silently route to the
+  resident model. Use measured cold, repeated and memory behavior to tune the
+  warmup mechanism without increasing residency. Merge, checksum-verified
+  installation, router configuration, deployment and direct E4B inference
+  remain pending; the new profile does not change the default.
 - [ ] Compare E4B and 12B on the same bounded dual-source Catalyst SQL cases.
   Record speed and observed query behavior; treat the published OpenClinAI
   E4B/A4B chart-answer results as candidate evidence rather than SQL proof, and
