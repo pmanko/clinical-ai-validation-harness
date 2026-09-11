@@ -549,10 +549,12 @@ the two videos; retain deliberate engine-error/retry coverage separately.
 Recording validation, 11 September: OpenELIS passed the real writer/reviewer,
 saved-work and rendered Superset path. Its 3:04 light cut includes one 26-second
 supplied-query repair and passed normal-speed review. OpenMRS recapture remains
-open: the earlier demographic join multiplied the monthly totals despite model
-approval. The recorder now checks that refinement preserves the original totals;
-this scenario check does not establish general clinical correctness. Public
-replacement remains pending final OpenMRS review and media-host access.
+open: one take multiplied monthly totals; the next failed because generated SQL
+and declared output names disagreed. Both were rejected. The recorder checks
+unchanged totals, and the Gateway now shares the formatter-spacing fix so a
+follow-up retains its model-authored base (41 focused tests pass). Latest CI,
+local redeployment, successful OpenMRS recapture and media-host access remain
+pending. These scenario checks do not establish general clinical correctness.
 
 Final server-proof release candidate, 11 September: Catalyst `c93a3d6` combines
 the configurable server generation window from
