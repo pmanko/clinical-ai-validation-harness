@@ -6,7 +6,11 @@ are merged and the complete local dual-source walkthroughs passed. On 10 Septemb
 2026 the owner authorized continuing into saved-work and Dashboard functionality,
 with subsequent feedback bringing typography and composer style alignment into
 the saved-query iteration. The replacement light-mode videos are published.
-Final full server evidence and owner acceptance remain open.
+The exact merged server release is healthy, but its first full evidence run
+failed during a slow follow-up generation and exposed downstream work continuing
+after the browser timed out. Final full server evidence and owner acceptance
+remain open. Responsiveness and URL-addressable sessions are the next product
+checkpoint after the current release is stabilized and accepted.
 
 **Specification:** [spec.md](spec.md)
 
@@ -50,6 +54,15 @@ checkpoint; follow-on A/B/C and model comparison remain separately scheduled.
 
 Shorter demos remove repeated explanation; they do not accelerate reading or
 shorten the caption/result holds required in step 5 below.
+
+The first exact-release server run on 11 September is preserved as failure
+evidence. Its initial OpenELIS question required three model calls and became
+ready after about 10 minutes; the database query itself took 165 milliseconds.
+The follow-up lost most prompt-prefix reuse, spent about 16 minutes on one model
+call, then exceeded the 30-minute browser window during another call. That call
+continued after the client stopped and initiated another repair attempt. Do not
+repeat the full journey until the incomplete-response and cancellation behavior
+is corrected or deliberately dispositioned.
 
 ## Authority and scope
 
@@ -352,6 +365,84 @@ filenames and update every public video/poster reference together.
 Exit: both local and server deployments have real-path evidence for both
 sources; paced public videos identify the matching revisions; current public
 references and explicit owner acceptance are recorded.
+
+### 6. Improve responsiveness and session navigation
+
+This is the first product checkpoint after the current deployment is stable and
+accepted. It precedes follow-on A/B/C and does not change the one-source-per-session
+rule or the current Dashboard acceptance contract.
+
+Start with one measured baseline for a simple initial question and a follow-up
+against both public data sources. Record time to the first honest status update,
+time to the first model output when available, time to a usable query, prompt and
+output tokens, prompt-prefix reuse, model-call and repair counts, cancellation,
+and CPU/memory use. Separate cold and repeated requests. Do not infer model speed
+from SQL execution time or from a spinner.
+
+Then deliver four small, reviewable iterations:
+
+1. **Fast model option.** Start with a writer-only Gemma E4B candidate served
+   through the existing Hub profile and discovery contracts. The published
+   OpenClinAI [E4B comparison](https://reports.openclinai.org/small-model-answer-paths-2026-07-15/)
+   and [A4B efficiency sweep](https://reports.openclinai.org/method-levers-dev-2026-06-26/)
+   justify this as a candidate size class, but they
+   measure chart answers rather than Catalyst SQL; the fixed Catalyst query set
+   remains the decision evidence. Do not use the existing E4B-plus-Qwen-14B
+   reviewed profile as the fast path because its second large-model call defeats
+   the purpose. Present a short outcome-based label such as **Fast draft** and
+   keep the exact model and profile in Technical details. A missing selected
+   profile fails visibly; there is no silent fallback. Compare the E4B and
+   standard 12B profiles on the same small dual-source query set and publish
+   their measured timing and observed query behavior before choosing a default.
+2. **Useful warm path.** Distinguish model-load warm-up from prompt-prefix reuse.
+   The current llama.cpp process already keeps its model resident and performs
+   startup warm-up; the observed cost is rereading a roughly 10–12-thousand-token
+   follow-up after its reusable prefix was lost. Keep stable instructions and
+   schema first, enable supported prompt caching explicitly, and evaluate the
+   smallest slot/checkpoint or safe priming change that preserves useful prefixes
+   for the active source/profile. Warm-up never runs SQL, fetches result rows, or
+   loops in the background. A cache miss remains correct, and evidence must show
+   whether the change reduces prompt processing rather than only moving the wait.
+3. **Live progress and streaming.** Exercise the Hub's request-level staged
+   streaming path through the Gateway and UI. The Hub already has a staged
+   stream adapter, while Catalyst currently sends `stream: false`; first verify
+   that the adapter emits useful live events rather than adding a profile flag.
+   Show plain stages such as
+   **Checking available data**, **Writing the query**, and **Reviewing the query**
+   in a persistent status region. Stream user-facing model content only when it
+   can be separated from the structured query contract; partial JSON or unvalidated
+   SQL is never presented as ready. Disconnect, timeout, explicit cancel, retry,
+   and final failure preserve the draft and stop downstream work. If the current
+   structured output cannot provide useful partial text, retain honest stage
+   progress and record that limitation rather than simulating token progress.
+4. **URL-addressable sessions.** Add a session identifier to the query string.
+   Opening the URL restores that exact session and its bound source; selecting a
+   recent session updates the URL, and browser Back/Forward restores the expected
+   session. Two tabs with different session URLs retain independent drafts,
+   results, and generation status. Different sessions may run or queue according
+   to measured model capacity; the UI states which is happening. A second turn in
+   the same running session retains the existing explicit conflict. Switching or
+   closing a view does not leave unowned model work.
+
+Use the same approved Workbench visual system for the model selector, View
+options, and progress treatment. Keep infrequent choices in one quiet disclosure;
+use labeled radios for two-choice appearance settings rather than another
+dropdown. Long work uses a persistent, accessible status region without fake
+percentages or a warning-style box. Technical model names, attempts, tokens, and
+traces remain available in Advanced mode.
+
+Review the implementation against the primary guidance for
+[llama.cpp server warm-up, prompt caching, slots, and streaming](https://github.com/ggml-org/llama.cpp/blob/master/tools/server/README.md),
+[Carbon disclosures](https://carbondesignsystem.com/patterns/disclosures-pattern/),
+[Carbon dropdowns](https://carbondesignsystem.com/components/dropdown/usage/),
+and [accessible status messages](https://www.w3.org/WAI/WCAG22/Understanding/status-messages.html).
+
+Exit: the public deployment offers a tested fast option and standard option;
+cold/warm and cancellation evidence explains their actual behavior; progress is
+plain, live, and accessible; separate session URLs survive reload and work in two
+tabs; and exact profiles, revisions, and limitations are recorded. Product,
+Hub, and harness changes land in their owning repositories and are pinned only
+after their focused checks pass.
 
 ## Iteration and tracking rules
 

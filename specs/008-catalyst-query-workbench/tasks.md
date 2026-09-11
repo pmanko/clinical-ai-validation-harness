@@ -547,6 +547,15 @@ full server run remain separate evidence below.
 - [X] Deploy exact merged compatible revisions locally and to
   `catalyst.openelis-global.org` using the owning checkout and harness wrapper;
   preserve retained data. Full server importer and journey proof remains below.
+- [X] Preserve the failed 11 September exact-release server run as evidence. The
+  initial OpenELIS question became ready after about 10 minutes and three model
+  calls; its SQL ran in 165 milliseconds. The follow-up exceeded the 30-minute
+  browser window after losing most prompt-prefix reuse, and downstream model
+  work continued after the client stopped. OpenMRS did not run.
+- [ ] Correct or explicitly disposition the incomplete follow-up response and
+  cancellation defect before another full run. A client timeout or explicit
+  cancel must stop the active downstream call and prevent later repair attempts;
+  the typed draft and prior result remain available.
 - [ ] Prove the full real path for OpenELIS and OpenMRS on both deployments and
   retain revisions, source/model configuration, traces, screenshots, timestamps,
   bundles, receipts, and visible-result evidence under one run identity.
@@ -568,8 +577,52 @@ full server run remain separate evidence below.
 ## Follow-on milestones after current delivery
 
 These milestones start after current UX/Superset deployment and owner acceptance.
-Their detailed contracts and vendor choices require review when each starts;
-they are not additional completion gates for the current goal.
+Responsiveness and session navigation are first; follow-on A/B/C retain their
+existing order after it. Detailed contracts and vendor choices require review
+when each starts; they are not additional completion gates for the current goal.
+
+### Responsiveness and URL-addressable sessions
+
+- [ ] Record one cold and repeated baseline for a simple initial question and a
+  follow-up on both public sources: first honest status, first model output when
+  available, usable-query time, tokens, prefix reuse, model calls/repairs,
+  cancellation, and CPU/memory use.
+- [ ] Serve and advertise a writer-only Gemma E4B Catalyst query profile alongside
+  the standard 12B profile. Give both plain outcome-based labels, keep exact
+  identities in Technical details, fail visibly when the selected profile is
+  unavailable, and never fall back silently. Do not call the existing
+  E4B-plus-Qwen-14B reviewed profile the fast path.
+- [ ] Compare E4B and 12B on the same bounded dual-source Catalyst SQL cases.
+  Record speed and observed query behavior; treat the published OpenClinAI
+  E4B/A4B chart-answer results as candidate evidence rather than SQL proof, and
+  review this direct evidence before changing the public default.
+- [ ] Stabilize the reusable instruction/schema prefix and test the runtime's
+  supported prompt cache or smallest safe priming/slot configuration. Prove the
+  model is not merely loading, warm requests reduce prompt-processing work, a
+  cache miss stays correct, and no warm-up executes SQL, reads result rows, or
+  runs as a permanent background loop.
+- [ ] Carry request-level staged streaming from med-agent-hub through the Gateway
+  to a persistent Workbench status region. Use plain stages and expose partial
+  user-facing text only when it is distinct from incomplete structured JSON or
+  unvalidated SQL.
+- [ ] Preserve the draft and prior result through disconnect, timeout, cancel,
+  retry, and final failure. Prove cancellation stops the downstream model call
+  and any later repair attempt.
+- [ ] Replace the current standalone technical selectors/notices with the approved
+  Workbench components: one quiet disclosure for infrequent model/view controls,
+  radio choices where only two options exist, and an accessible long-running
+  status treatment without fake progress or warning styling.
+- [ ] Put the active session identifier in the query string. Direct open, reload,
+  recent-session selection, and Back/Forward restore the exact source-bound
+  session; a conflicting source parameter is normalized to the session source.
+- [ ] Prove two tabs with different session URLs keep independent drafts, results,
+  and generation status. Different sessions run or visibly queue according to
+  measured capacity; same-session concurrent generation remains an explicit
+  conflict, and leaving a view does not create unowned work.
+- [ ] Pass focused Hub/Gateway streaming and cancellation tests, UI state and
+  accessibility tests, session-URL/browser-history tests, matched light/dark and
+  narrow screenshots, and a real dual-source server check. Record revisions,
+  timings, limitations, deployment, and owner acceptance separately.
 
 ### A. Multi-artifact design requests and shared controls
 
