@@ -250,7 +250,7 @@
             <h2>Catalyst: from a question to a dashboard.</h2>
           </div>
           <p>
-            The selected Catalyst contract is an analytics and reporting workbench over a configured SQL source. A source declares its dialect and complete readable schema; a person reviews the generated SQL and chooses the exact query to run; successful results can become Datasets, Widgets, and dashboards published to Superset. The recording demonstrates the current runtime end to end: FHIR Data Pipes builds the Parquet warehouse from a FHIR endpoint, Spark SQL serves it, and Catalyst and Superset connect to it as ordinary SQL clients. The generic connection and the OpenELIS and OpenMRS HIV Spark reference paths are implemented; exact merged-revision acceptance and the model-team comparison remain open.
+            Ask a question, review the proposed query, and turn its results into saved tables, charts and dashboards. These local demonstrations use OpenELIS laboratory data and OpenMRS HIV data. Gemma 4 12B drafts each query and Qwen 2.5 14B reviews it; their findings are advisory, and you choose when to run the query. FHIR Data Pipes prepares the source data for the Spark SQL warehouse. The walkthroughs focus on the work you do in Catalyst.
           </p>
         </div>
         <div class="page-width feature-media">
@@ -258,36 +258,69 @@
             controls
             playsinline
             preload="metadata"
-            poster="https://catalyst.openelis-global.org/media/catalyst-fhir-to-dashboard-demo-20260827-poster.jpg"
-            aria-label="Catalyst demonstration: FHIR Data Pipes builds a Parquet warehouse from an OpenMRS FHIR endpoint, a plain-language question becomes Spark SQL, and the result is published as a Superset dashboard"
+            poster="https://catalyst.openelis-global.org/media/catalyst-openelis-local-20260910-d070fe7-poster.jpg"
+            aria-label="Catalyst with OpenELIS laboratory data: a local demonstration with Gemma writing and Qwen verifying, from a question to a rendered Superset dashboard"
           >
-            <source src="https://catalyst.openelis-global.org/media/catalyst-fhir-to-dashboard-demo-20260827.mp4" type="video/mp4" />
+            <source src="https://catalyst.openelis-global.org/media/catalyst-openelis-local-20260910-d070fe7.mp4" type="video/mp4" />
             Your browser does not support embedded video.
           </video>
           <div class="media-caption">
             <div>
-              <strong>Full scenario</strong>
-              <span>From a FHIR endpoint to a live Superset dashboard.</span>
+              <strong>OpenELIS laboratory data</strong>
+              <span>Explore laboratory patient counts and review the breakdown by gender.</span>
             </div>
-            <span>1:41 · silent recording</span>
+            <span>About 3 min · recorded locally · silent</span>
           </div>
           <details class="transcript">
             <summary>Transcript (silent recording)</summary>
             <ol>
-              <li>The FHIR Data Pipes control panel shows its configured source — an OpenMRS FHIR R4 endpoint — and the settings that write Parquet files and ViewDefinition views.</li>
-              <li>A pipeline run merges what changed since the last one and names the data-warehouse snapshot it wrote.</li>
-              <li>The question "How many patients are in this dataset?" is asked against that warehouse; Spark reports twenty-four readable relations, a writer model drafts Spark SQL over them, and a reviewer checks it.</li>
-              <li>The selected query runs and returns 5,384 patients read from Parquet; the typed result is saved as a Dataset.</li>
-              <li>A follow-up — "Now break that count down by gender, highest first" — refines the same query, and the counts are saved as a second Dataset.</li>
-              <li>Two Widgets are built over the saved Datasets and collected into a dashboard, which publishes as a native Superset bundle.</li>
-              <li>The pinned importer records its receipt, and Superset renders the same numbers from the same Spark source.</li>
+              <li>FHIR Data Pipes prepares the source data for Spark SQL; this walkthrough was recorded against the local deployment.</li>
+              <li>Write a question, expand the writing area and browse the available tables and fields without losing the draft.</li>
+              <li>Gemma 4 12B writes the query and Qwen 2.5 14B reviews it. Preparing the draft does not retrieve results: choose Get results to run it.</li>
+              <li>Inspect the result and its technical details, then ask for a breakdown by gender, including missing gender.</li>
+              <li>Save the successful query and reuse its exact SQL while preserving the unfinished question. Dark appearance and Advanced mode keep technical tools accessible.</li>
+              <li>An invalid SQL edit shows the database error. Correct it, run again and save a new version without replacing the original.</li>
+              <li>Create a table and chart, arrange them on a Dashboard and reopen the saved arrangement.</li>
+              <li>Publish to Superset, inspect the actual import receipt and compare the rendered table with the originating Catalyst result.</li>
+            </ol>
+          </details>
+        </div>
+        <div class="page-width feature-media">
+          <video
+            controls
+            playsinline
+            preload="metadata"
+            poster="https://catalyst.openelis-global.org/media/catalyst-openmrs-hiv-local-20260910-d070fe7-poster.jpg"
+            aria-label="Catalyst with OpenMRS HIV data: a local demonstration with Gemma writing and Qwen verifying, from a question to a rendered Superset dashboard"
+          >
+            <source src="https://catalyst.openelis-global.org/media/catalyst-openmrs-hiv-local-20260910-d070fe7.mp4" type="video/mp4" />
+            Your browser does not support embedded video.
+          </video>
+          <div class="media-caption">
+            <div>
+              <strong>OpenMRS HIV data</strong>
+              <span>Explore the retained OpenMRS patient dataset and review the breakdown by gender.</span>
+            </div>
+            <span>About 3 min · recorded locally · silent</span>
+          </div>
+          <details class="transcript">
+            <summary>Transcript (silent recording)</summary>
+            <ol>
+              <li>FHIR Data Pipes prepares the source data for Spark SQL; this walkthrough was recorded against the local deployment.</li>
+              <li>Write a question, expand the writing area and browse the available tables and fields without losing the draft.</li>
+              <li>Gemma 4 12B writes the query and Qwen 2.5 14B reviews it. Preparing the draft does not retrieve results: choose Get results to run it.</li>
+              <li>Inspect the result and its technical details, then ask for a breakdown by gender, including missing gender.</li>
+              <li>Save the successful query and reuse its exact SQL while preserving the unfinished question. Dark appearance and Advanced mode keep technical tools accessible.</li>
+              <li>An invalid SQL edit shows the database error. Correct it, run again and save a new version without replacing the original.</li>
+              <li>Create a table and chart, arrange them on a Dashboard and reopen the saved arrangement.</li>
+              <li>Publish to Superset, inspect the actual import receipt and compare the rendered table with the originating Catalyst result.</li>
             </ol>
           </details>
         </div>
         <div class="page-width lifecycle-row" role="list" aria-label="Catalyst validation summary">
-          <div role="listitem"><span>01</span><strong>Selected source contract</strong><p>Source identity, connection information, SQL dialect, and every readable table and column define the data available to Catalyst.</p></div>
+          <div role="listitem"><span>01</span><strong>Selected source contract</strong><p>A configured SQL source exposes its complete readable schema: source identity, SQL dialect, and every readable table and column.</p></div>
           <div role="listitem"><span>02</span><strong>Selected execution contract</strong><p>Findings are advisory. The exact selected SQL runs once and returns typed rows or the database error.</p></div>
-          <div role="listitem"><span>03</span><strong>Implementation status</strong><p>The generic connection and both Spark reference paths are implemented. Exact merged-revision local and server acceptance, followed by the fresh model-team comparison, remain open.</p></div>
+          <div role="listitem"><span>03</span><strong>Implementation status</strong><p>The current Workbench is deployed locally and on the demo server. These videos show local validation; final server workflow validation, model-team comparison and owner acceptance remain open.</p></div>
         </div>
 
         <div class="page-width section-heading-row hub-fold">
@@ -296,7 +329,7 @@
             <h3>How each query is produced.</h3>
           </div>
           <p>
-            Catalyst Gateway owns source context, query versions, optional writer/reviewer composition, advisory findings, and execution. It calls Med Agent Hub only to run configured model roles. The four stages below are the lifecycle shown in the recording.
+            Catalyst Gateway owns source context, query versions, optional writer/reviewer composition, advisory findings, and execution. It calls Med Agent Hub only to run configured model roles. The four stages below are the lifecycle shown in both local recordings.
           </p>
         </div>
         <div class="page-width stage-flow" role="list" aria-label="Catalyst query stages">

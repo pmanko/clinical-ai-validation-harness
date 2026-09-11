@@ -58,12 +58,12 @@
     },
     {
       "id": "spark-video",
-      "title": "FHIR-to-dashboard recording",
+      "title": "Historical August 27 FHIR-to-dashboard recording",
       "url": "https://catalyst.openelis-global.org/media/catalyst-fhir-to-dashboard-demo-20260827.mp4",
       "role": "Dated product demonstration",
-      "status": "August 27 recording is still published; replacement videos for the current two-source Workbench are pending.",
+      "status": "Retained historical asset; current homepage uses the two local writer/verifier cuts.",
       "source": "landing/index.html; specs/008-catalyst-query-workbench/tasks.md",
-      "next_update": "Replace current public references only after both server cuts are verified. Preserve this immutable historical asset."
+      "next_update": "Keep this dated asset immutable; current recordings link to Feature 008 acceptance."
     },
     {
       "id": "catalyst-comparison",
@@ -449,6 +449,24 @@
         ],
         "live_verified": false
       }
+    },
+    {
+      "id": "catalyst-video-openelis",
+      "title": "Catalyst local demonstration \u2014 OpenELIS",
+      "url": "https://catalyst.openelis-global.org/media/catalyst-openelis-local-20260910-d070fe7.mp4",
+      "role": "Current product demonstration, recorded locally",
+      "status": "Full local journey passed with actual writer and reviewer evidence; current Workbench, saved work and Superset rendering.",
+      "source": "landing/index.html; specs/008-catalyst-query-workbench/tasks.md",
+      "next_update": "Owner review; server workflow acceptance remains separate."
+    },
+    {
+      "id": "catalyst-video-openmrs-hiv",
+      "title": "Catalyst local demonstration \u2014 OpenMRS HIV",
+      "url": "https://catalyst.openelis-global.org/media/catalyst-openmrs-hiv-local-20260910-d070fe7.mp4",
+      "role": "Current product demonstration, recorded locally",
+      "status": "Full local journey passed with actual writer and reviewer evidence; current Workbench, saved work and Superset rendering.",
+      "source": "landing/index.html; specs/008-catalyst-query-workbench/tasks.md",
+      "next_update": "Owner review; server workflow acceptance remains separate."
     }
   ]
 }

@@ -10,11 +10,16 @@ and final owner acceptance remain open.
 
 **Specification:** [spec.md](spec.md)
 
-## Next owner checkpoint — server release and refreshed demos
+## Next owner checkpoint — deployed release and local verified demos
 
 Approved on 10 September 2026: the next reviewable checkpoint is a working
 server release with the current Workbench design and newly recorded demos for
-both sources. Finish the current saved-work and Dashboard delivery before this
+both sources. The owner clarified the recording environment on 10 September:
+**record both replacement videos locally with a verifier**. Use the available
+Gemma 4 12B writer / Qwen 2.5 14B reviewer profile and retain evidence that both
+roles actually ran. Label the recordings as local; server validation remains
+separate and does not delay publication of verified local cuts.
+Finish the current saved-work and Dashboard delivery before this
 checkpoint; follow-on A/B/C and model comparison remain separately scheduled.
 
 - Validate the current working UI locally as changes are made, including the
@@ -31,12 +36,14 @@ checkpoint; follow-on A/B/C and model comparison remain separately scheduled.
   server through the harness wrapper. Keep the final local acceptance build on
   the same merged revisions, preserve retained data, and verify the real journey
   in each environment.
-- Re-record the server demos with the new styles. Focus on asking, browsing data,
+- Record the local demos with the new styles and the writer/reviewer profile.
+  Focus on asking, browsing data,
   reviewing/refining results, reusing saved SQL, creating charts and arranging
   and publishing a Dashboard. Limit FHIR Data Pipes to a brief context segment
   (about 10–15 seconds); retain the detailed ingestion proof in the evidence.
 - Present the working server link, the two refreshed videos, local proof and
-  any unresolved findings for asynchronous owner review. Update existing public
+  their local recording environment and any unresolved server findings for
+  asynchronous owner review. Update existing public
   video/poster references together. Record owner acceptance separately.
 
 Shorter demos remove repeated explanation; they do not accelerate reading or
@@ -313,6 +320,12 @@ data. For OpenELIS and OpenMRS in each environment, prove drafting, schema
 browsing, generation, explicit execution, refinement, saving, visualization,
 Dashboard arrangement, publication, import, and Superset rendering. Run importer
 operations from the checkout that owns the tested environment.
+
+Record the two public replacement demos locally with both the writer and
+reviewer enabled. Verify actual role execution in the saved generation evidence;
+the selected profile alone is not proof that review ran. Identify the local
+environment, models and application revisions in the recording evidence and
+public context. Preserve server validation findings separately.
 
 Reuse the existing Playwright capture and deterministic video renderer. Cards
 and short captions remain visible for at least five seconds; longer text uses

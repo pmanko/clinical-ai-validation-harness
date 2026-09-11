@@ -102,17 +102,16 @@ def test_primary_destinations_are_first_party_and_prominent():
     assert {"openmrs.openclinai.org", "reports.openclinai.org"} <= first_party_hosts
 
 
-def test_catalyst_copy_states_the_current_product_and_open_reference_work():
+def test_catalyst_copy_identifies_local_recordings_and_actual_model_roles():
     html, _ = parsed_landing()
 
-    assert "selected Catalyst contract" in html
     assert "configured SQL source" in html
     assert "complete readable schema" in html
-    # Both Spark reference paths are implemented; exact merged-revision
-    # acceptance and the comparison remain open.
-    assert "OpenELIS and OpenMRS HIV Spark reference paths are implemented" in html
-    assert "recording demonstrates the current runtime end to end" in html
-    assert "exact merged-revision acceptance and the model-team comparison remain open" in html
+    assert "OpenELIS laboratory data and OpenMRS HIV data" in html
+    assert "Gemma 4 12B drafts each query and Qwen 2.5 14B reviews it" in html
+    assert "their findings are advisory" in html
+    assert "recorded locally" in html
+    assert "final server workflow validation, model-team comparison and owner acceptance remain open" in html
     for obsolete in (
         "Acceptance of the corrected Spark reference deployment remains open",
         "are not yet implemented or accepted",
@@ -130,11 +129,15 @@ MEDIA_HOST = "https://catalyst.openelis-global.org/media/"
 def test_every_local_media_reference_exists_and_has_accessible_context():
     html, page = parsed_landing()
 
-    # Three recordings: the two ChartSearchAI sessions and Catalyst's single
-    # full-scenario cut (question -> checked SQL -> Datasets/Widgets ->
-    # published Superset dashboard), which replaced the two short clips.
-    assert len(page.videos) == 3
-    assert len(page.sources) == 3
+    # Keep both ChartSearchAI recordings and one complete local Catalyst
+    # journey per retained source, with accessible playback controls.
+    assert len(page.videos) == 4
+    assert len(page.sources) == 4
+    catalyst_sources = [src for src in page.sources if "catalyst-" in src]
+    assert len(catalyst_sources) == 2
+    assert any("openelis-local-" in src for src in catalyst_sources)
+    assert any("openmrs-hiv-local-" in src for src in catalyst_sources)
+    assert all("20260827" not in src for src in catalyst_sources)
     assert len(page.images) >= 3
     assert "1:45 · silent recording at 2× speed" in html
 

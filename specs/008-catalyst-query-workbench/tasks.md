@@ -460,11 +460,27 @@ configuration and lifecycle entry point.
 The first server capture was invalidated by a service restart during preparation
 and is retained only as failure evidence. The next take reached its ten-minute
 preparation wait while the UI still showed generation in progress. An unchanged
-retry follows model warmup; no assertions or model selection were changed.
+retry completed the initial OpenELIS query but did not complete the full journey.
 CPU-based model preparation remains an observed responsiveness issue.
-Complete server journeys, reviewed final cuts, replacement
-publication and explicit owner acceptance are still open. The videos currently
-on `openclinai.org` have not yet been replaced.
+
+Recording direction, 10 September: the owner explicitly requested **local
+recordings with a verifier**. The new capture uses the existing real-source
+scenario and `catalyst-query-gemma-4-12b-qwen2.5-14b-checked`: Gemma writes and
+Qwen reviews. Verify both actual role invocations in the saved evidence. The
+replacement videos will identify the local environment; server journey proof
+remains separate and does not block publication of the verified local cuts.
+
+The new local run `replacement-demo-d070fe7-verified-local` passed both complete
+journeys (2 tests, 9.5 minutes) on the same merged revisions. Saved generation
+evidence confirms the Gemma writer and Qwen reviewer actually ran for both initial
+and follow-up turns on each source. One initial writer output was marked
+`validation_failed`; its reviewer completed and the session produced the selected
+query. This outcome is preserved in the evidence rather than relabelled successful.
+All four reviewer invocations completed successfully. Bundle and actual import
+receipt digests were checked and archived with raw video, traces and model evidence.
+Both cuts are approximately 3:05, with a 13-second pipeline introduction and
+captions below the application image. Final review and publication are tracked
+below; server workflow and owner acceptance remain separate.
 
 - [X] Deploy exact merged compatible revisions locally and to
   `catalyst.openelis-global.org` using the owning checkout and harness wrapper;
@@ -472,12 +488,13 @@ on `openclinai.org` have not yet been replaced.
 - [ ] Prove the full real path for OpenELIS and OpenMRS on both deployments and
   retain revisions, source/model configuration, traces, screenshots, timestamps,
   bundles, receipts, and visible-result evidence under one run identity.
-- [ ] Capture with the existing Playwright video project and archive raw footage
+- [X] Capture with the existing Playwright video project and archive raw footage
   before another run removes it.
-- [ ] Use the current styles in both new server demos. Keep the FHIR Data Pipes
+- [X] Use the current styles in both new local demos with an actual writer and
+  verifier run recorded for each source. Keep the FHIR Data Pipes
   introduction to about 10–15 seconds and focus the walkthrough on Catalyst;
   preserve detailed pipeline evidence separately.
-- [ ] Render short cards/captions for at least 5 seconds, longer text at about 3
+- [X] Render short cards/captions for at least 5 seconds, longer text at about 3
   words/second plus 2 seconds, and results/details for at least 8 seconds; retain
   captions during holds and label accelerated waits.
 - [ ] Watch each final cut at normal speed, confirm captions neither disappear

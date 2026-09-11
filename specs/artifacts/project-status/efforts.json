@@ -1015,9 +1015,9 @@
     },
     {
       "id": "CAT-E09",
-      "title": "Deliver the current Catalyst release and replace both source demos",
-      "status": "New public release is live; local two-source proof passed; server recording and replacement publication remain open",
-      "next_deliverable": "Complete the server journeys, review paced cuts for both sources, and replace the current openclinai.org video and poster references. Feature 008 tasks remains the acceptance register.",
+      "title": "Deliver the deployed Catalyst release and local writer/verifier demos",
+      "status": "Public release deployed; both local writer/verifier journeys passed; replacement cuts prepared for publication",
+      "next_deliverable": "Publish and review the local replacement videos; complete remaining server validation and owner acceptance in Feature 008 tasks.",
       "acceptance": "Both real sources complete drafting, schema browsing, execution, refinement, saved-SQL reuse, charts, Dashboard arrangement, actual import and Superset rendering. Preserve exact revisions and raw evidence privately. Limit the pipeline introduction to 10\u201315 seconds; retain readable captions and result holds. Record owner acceptance separately.",
       "dependencies": [
         "CAT-E01"
@@ -1029,9 +1029,10 @@
         "https://github.com/DIGI-UW/catalyst-ai/blob/e163726/catalyst-ui/e2e/full-scenario-demo.spec.ts",
         "specs/demo-video-recording-guide.md",
         "https://catalyst.openelis-global.org/",
-        "https://catalyst.openelis-global.org/media/catalyst-fhir-to-dashboard-demo-20260827.mp4"
+        "https://catalyst.openelis-global.org/media/catalyst-openelis-local-20260910-d070fe7.mp4",
+        "https://catalyst.openelis-global.org/media/catalyst-openmrs-hiv-local-20260910-d070fe7.mp4"
       ],
-      "evidence": "10 September: harness d070fe7 / Catalyst e163726 / Hub 75d0ff0 deployed publicly; strict repository and full health checks passed. Local recording: 2 passed in 11.2 minutes. First server take invalidated by restart; next take timed out after 10 minutes of model preparation. Old published video remains current until replacement cuts are verified.",
+      "evidence": "10 September: harness d070fe7 / Catalyst e163726 / Hub 75d0ff0. New local capture: 2 passed in 9.5 minutes. Gemma 4 12B writer and Qwen 2.5 14B reviewer invocation evidence verified for both initial and follow-up turns on both sources. Import receipt and bundle digests match. The owner explicitly chose local recording; server latency and acceptance remain separate.",
       "last_checked": "2026-09-10",
       "implementation_owner": "Feature 008 plan and tasks",
       "related_pull_requests": [
