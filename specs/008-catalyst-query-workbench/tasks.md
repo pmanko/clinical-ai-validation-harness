@@ -549,9 +549,10 @@ full server run remain separate evidence below.
   preserve retained data. Full server importer and journey proof remains below.
 - [X] Preserve the failed 11 September exact-release server run as evidence. The
   initial OpenELIS question became ready after about 10 minutes and three model
-  calls; its SQL ran in 165 milliseconds. The follow-up exceeded the 30-minute
-  browser window after losing most prompt-prefix reuse, and downstream model
-  work continued after the client stopped. OpenMRS did not run.
+  calls; its SQL ran in 165 milliseconds. Recovered follow-up evidence records
+  one Hub invocation with `writer_timeout` after 1,800,003 milliseconds. Later
+  router activity is not reliably attributable to that turn; the earlier
+  follow-up-retry attribution is withdrawn. OpenMRS did not run.
 - [ ] Correct or explicitly disposition the incomplete follow-up response and
   cancellation defect before another full run. A client timeout or explicit
   cancel must stop the active downstream call and prevent later repair attempts;
@@ -561,11 +562,23 @@ full server run remain separate evidence below.
   Cancellation releases the busy session, records a terminal outcome, and closes
   the active model call. Test disconnect and deadline at each boundary, no later
   repair, preserved draft/result, and useful handling of incomplete responses.
+  Implementation is in [Catalyst #107](https://github.com/DIGI-UW/catalyst-ai/pull/107)
+  (`397ba96`) and [Hub #25](https://github.com/pmanko/med-agent-hub/pull/25)
+  (`8942322`), both submitted for review. Local checks: Gateway 352 passed / one
+  existing skip; assembly/contracts 47 passed; Hub 718 passed, including two
+  real loopback HTTP cancellation tests against a blocking fixture endpoint.
+  New route/role interruption tests failed before the fixes. Formatting/lint
+  passed. Gateway mypy retains the same ten findings verified on its clean base.
+  Merge, paired deployment, explicit UI cancellation, and live-model/server
+  verification remain pending; these tests do not establish model throughput.
 - [ ] Move the stable complete schema/instructions before changing question and
   revision context in the rendered prompt. Verify full-schema/context coverage
   and measure reused prompt work for real follow-ups, repairs, and source changes.
-- [ ] Recover the follow-up's exact repair findings and fix the reproduced
-  projection/ambiguous-patch cycle without weakening its checks. Verify useful
+- [X] Recover the follow-up's stored outcome: one timed-out Hub invocation, no
+  returned model validation findings. Separate queueing from generation before
+  attributing other router tasks to this turn.
+- [ ] Fix the initial question's reproduced projection/ambiguous-patch cycle
+  without weakening its checks. Verify useful
   count and follow-up results plus varied cases; preserve selected SQL and record
   any unambiguous parser-derived metadata correction.
 - [ ] Review the proposed timing targets in the plan, then run a short real

@@ -7,8 +7,8 @@ are merged and the complete local dual-source walkthroughs passed. On 10 Septemb
 with subsequent feedback bringing typography and composer style alignment into
 the saved-query iteration. The replacement light-mode videos are published.
 The exact merged server release is healthy, but its first full evidence run
-failed during a slow follow-up generation and exposed downstream work continuing
-after the browser timed out. Final full server evidence and owner acceptance
+failed during a slow follow-up generation and exposed missing downstream
+cancellation. Final full server evidence and owner acceptance
 remain open. Responsiveness and URL-addressable sessions are the next product
 checkpoint after the current release is stabilized and accepted.
 
@@ -58,11 +58,13 @@ shorten the caption/result holds required in step 5 below.
 The first exact-release server run on 11 September is preserved as failure
 evidence. Its initial OpenELIS question required three model calls and became
 ready after about 10 minutes; the database query itself took 165 milliseconds.
-The follow-up lost most prompt-prefix reuse, spent about 16 minutes on one model
-call, then exceeded the 30-minute browser window during another call. That call
-continued after the client stopped and initiated another repair attempt. Do not
-repeat the full journey until the incomplete-response and cancellation behavior
-is corrected or deliberately dispositioned.
+The recovered turn evidence records one follow-up Hub invocation lasting
+1,800,003 milliseconds before a writer timeout. Router logs show expensive
+prompt processing, low prefix reuse, and continuing activity, but do not establish
+which later router tasks belong to that invocation. The earlier attribution of
+those tasks to follow-up repairs is withdrawn. Measure queue wait separately from
+active model time; do not repeat the full journey until the incomplete-response
+and cancellation behavior is corrected or deliberately dispositioned.
 
 ### Remediate the observed generation failure
 
@@ -96,12 +98,14 @@ Deliver these repairs in order, retaining the existing state owners and tests:
    context. Preserve every readable relation/column and required session context.
    Measure the actual rendered prefix on initial, follow-up, and repair calls,
    including alternating sources; a same-question cache hit alone is insufficient.
-3. **Correct the avoidable repair cycle.** Replay the preserved projection and
-   patch failures, retrieve the follow-up's exact findings, and repair the
+3. **Correct the avoidable repair cycle.** Replay the initial question's preserved
+   projection and patch failures and repair the
    prompt/output-contract mismatch. If a correction can be derived unambiguously
    from the SQL parser, change only that metadata and retain provenance; never
    guess types, rewrite selected SQL, or bypass ambiguous-patch checks. Count all
-   retries against the shared deadline. Verify useful output, not just earlier
+   retries against the shared deadline. The failed follow-up records one timed-out
+   invocation and no returned validation findings, not a proven repair loop.
+   Verify useful output, not just earlier
    failure, on the unchanged count and follow-up scenarios plus varied cases.
 4. **Make a measured capacity decision.** Compare the writer-only E4B candidate
    from step 6 with the repaired 12B path on both actual sources. Retain the
