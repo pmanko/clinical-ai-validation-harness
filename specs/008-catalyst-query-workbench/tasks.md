@@ -383,19 +383,12 @@ manifest are archived privately under run `release-4726687-local-2`.
 Both settled Superset screenshots were inspected: female/male counts are
 49/47 for OpenELIS and 3,578/1,806 for OpenMRS, matching the originating results.
 
-Server access is restored and the same merged revisions are staged in the new
-owning checkout. Transferred retained-data hashes match; the restored
-OpenELIS/FHIR database passes PostgreSQL backup verification. The old server's
-saved-work database has a verified online backup. Spark started and all 54
-retained table/view definitions were restored across the two source namespaces.
-The server is ARM64; an incorrect staged AMD64 setting was corrected without
-changing image pins. The pinned x86 OpenELIS images require the Ubuntu emulation
-packages now installed. The 50 GB server disk filled during assembly; unused
-build/package cache was reclaimed, and the new isolated stack was stopped with
-its restored data retained while capacity is resolved. The public site still
-runs the previous deployment. AWS access needs refreshing before inspecting and
-expanding the disk; the server's Node/Playwright recording tools also remain to
-be installed after capacity is available.
+During server staging, transferred retained-data hashes matched, the restored
+OpenELIS/FHIR database passed PostgreSQL backup verification, and the old
+saved-work database received a verified online backup. All 54 retained Spark
+table/view definitions were restored across both source namespaces. Disk
+capacity and ARM compatibility initially blocked startup; the current release
+status below supersedes that staging checkpoint.
 
 Catalyst [#96](https://github.com/DIGI-UW/catalyst-ai/pull/96), merged as `9ff0a89`,
 adds the hosted Superset path/public-link repair separately from the recording
@@ -448,23 +441,60 @@ the caption remains below the picture during a hold. All 29 renderer and
 documentation-check tests passed. Final edited videos have not been reviewed
 or published; the sample does not close the video acceptance items below.
 
-Server readiness, public routing, full server journeys, paced final cuts and
-owner acceptance remain open. The new server stack remains stopped with restored
-data retained while disk capacity is resolved; the public site still runs its
-previous version.
+Current release: harness `d070fe7`, Catalyst `e163726` and Hub `75d0ff0` are
+running in the local acceptance stack and on the public demo server. The local
+two-source recording passed again (2 tests, 11.2 minutes), with matching bundle
+and import-receipt digests archived privately as `replacement-demo-d070fe7-local`.
 
-- [ ] Deploy exact merged compatible revisions locally and to
+The server root volume was expanded from 50 to 100 GiB after a recovery snapshot;
+targeted cache pruning preserved application volumes. Persistent QEMU registration
+and a server-only Data Pipes entrypoint correction resolved the observed ARM
+startup failures. Strict repository verification and full wrapper health passed
+in the server's owning checkout. The public proxy now serves the new UI, API and
+`/catalyst-dashboards/`; existing Superset routes and media were preserved. The
+rendered public Workbench was inspected, and HTTPS checks passed for the UI,
+source registration and Superset routes. See the
+[operator guide](../../docs/catalyst-demo-operations.md) for the exact server
+configuration and lifecycle entry point.
+
+The first server capture was invalidated by a service restart during preparation
+and is retained only as failure evidence. The next take reached its ten-minute
+preparation wait while the UI still showed generation in progress. An unchanged
+retry completed the initial OpenELIS query but did not complete the full journey.
+CPU-based model preparation remains an observed responsiveness issue.
+
+Recording direction, 10 September: the owner explicitly requested **local
+recordings with a verifier**. The new capture uses the existing real-source
+scenario and `catalyst-query-gemma-4-12b-qwen2.5-14b-checked`: Gemma writes and
+Qwen reviews. Verify both actual role invocations in the saved evidence. The
+replacement videos will identify the local environment; server journey proof
+remains separate and does not block publication of the verified local cuts.
+
+The new local run `replacement-demo-d070fe7-verified-local` passed both complete
+journeys (2 tests, 9.5 minutes) on the same merged revisions. Saved generation
+evidence confirms the Gemma writer and Qwen reviewer actually ran for both initial
+and follow-up turns on each source. One initial writer output was marked
+`validation_failed`; its reviewer completed and the session produced the selected
+query. This outcome is preserved in the evidence rather than relabelled successful.
+All four reviewer invocations completed successfully. Bundle and actual import
+receipt digests were checked and archived with raw video, traces and model evidence.
+Both cuts are approximately 3:05, with a 13-second pipeline introduction and
+captions below the application image. Final review and publication are tracked
+below; server workflow and owner acceptance remain separate.
+
+- [X] Deploy exact merged compatible revisions locally and to
   `catalyst.openelis-global.org` using the owning checkout and harness wrapper;
-  preserve retained data and run importer actions in the tested environment.
+  preserve retained data. Full server importer and journey proof remains below.
 - [ ] Prove the full real path for OpenELIS and OpenMRS on both deployments and
   retain revisions, source/model configuration, traces, screenshots, timestamps,
   bundles, receipts, and visible-result evidence under one run identity.
-- [ ] Capture with the existing Playwright video project and archive raw footage
+- [X] Capture with the existing Playwright video project and archive raw footage
   before another run removes it.
-- [ ] Use the current styles in both new server demos. Keep the FHIR Data Pipes
+- [X] Use the current styles in both new local demos with an actual writer and
+  verifier run recorded for each source. Keep the FHIR Data Pipes
   introduction to about 10–15 seconds and focus the walkthrough on Catalyst;
   preserve detailed pipeline evidence separately.
-- [ ] Render short cards/captions for at least 5 seconds, longer text at about 3
+- [X] Render short cards/captions for at least 5 seconds, longer text at about 3
   words/second plus 2 seconds, and results/details for at least 8 seconds; retain
   captions during holds and label accelerated waits.
 - [ ] Watch each final cut at normal speed, confirm captions neither disappear

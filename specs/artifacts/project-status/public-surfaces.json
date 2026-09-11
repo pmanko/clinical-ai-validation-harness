@@ -34,9 +34,9 @@
       "title": "Catalyst live application",
       "url": "https://catalyst.openelis-global.org/",
       "role": "Product interaction and acceptance",
-      "status": "HTTP 200; functional behavior and deployed revision not checked today",
-      "source": "targets/catalyst/catalyst-ui",
-      "next_update": "Verify deployed revision after branch review and execute agreed product proof."
+      "status": "10 September: new Workbench is public at harness d070fe7 / Catalyst e163726 / Hub 75d0ff0. Full health and HTTPS checks passed; complete server journey proof remains open.",
+      "source": "docs/catalyst-demo-operations.md; specs/008-catalyst-query-workbench/tasks.md",
+      "next_update": "Resolve the observed model-preparation delay, complete both server journeys and link the replacement videos. Owner acceptance remains separate."
     },
     {
       "id": "catalyst-design",
@@ -44,7 +44,7 @@
       "url": "https://pmanko.github.io/clinical-ai-validation-harness/catalyst-design/",
       "role": "Interactive visual acceptance reference",
       "status": "Approved staff Workbench mock. Fictional examples, no product requests.",
-      "source": "targets/catalyst/docs/specs/staff-workbench-ux/ → site/public/catalyst-design/",
+      "source": "targets/catalyst/docs/specs/staff-workbench-ux/ \u2192 site/public/catalyst-design/",
       "next_update": "Keep frozen for side-by-side implementation review; replace only through an approved design amendment."
     },
     {
@@ -58,12 +58,12 @@
     },
     {
       "id": "spark-video",
-      "title": "FHIR-to-dashboard recording",
+      "title": "Historical August 27 FHIR-to-dashboard recording",
       "url": "https://catalyst.openelis-global.org/media/catalyst-fhir-to-dashboard-demo-20260827.mp4",
       "role": "Dated product demonstration",
-      "status": "HTTP 200; published August 27, duration 1:41",
-      "source": "Catalyst feat/spark-connection; landing/index.html",
-      "next_update": "Preserve provenance and link current accepted deployment; keep demonstration distinct from final acceptance."
+      "status": "Retained historical asset; current homepage uses the two local writer/verifier cuts.",
+      "source": "landing/index.html; specs/008-catalyst-query-workbench/tasks.md",
+      "next_update": "Keep this dated asset immutable; current recordings link to Feature 008 acceptance."
     },
     {
       "id": "catalyst-comparison",
@@ -449,6 +449,24 @@
         ],
         "live_verified": false
       }
+    },
+    {
+      "id": "catalyst-video-openelis",
+      "title": "Catalyst local demonstration \u2014 OpenELIS",
+      "url": "https://catalyst.openelis-global.org/media/catalyst-openelis-local-20260910-d070fe7.mp4",
+      "role": "Current product demonstration, recorded locally",
+      "status": "Full local journey passed with actual writer and reviewer evidence; current Workbench, saved work and Superset rendering.",
+      "source": "landing/index.html; specs/008-catalyst-query-workbench/tasks.md",
+      "next_update": "Owner review; server workflow acceptance remains separate."
+    },
+    {
+      "id": "catalyst-video-openmrs-hiv",
+      "title": "Catalyst local demonstration \u2014 OpenMRS HIV",
+      "url": "https://catalyst.openelis-global.org/media/catalyst-openmrs-hiv-local-20260910-d070fe7.mp4",
+      "role": "Current product demonstration, recorded locally",
+      "status": "Full local journey passed with actual writer and reviewer evidence; current Workbench, saved work and Superset rendering.",
+      "source": "landing/index.html; specs/008-catalyst-query-workbench/tasks.md",
+      "next_update": "Owner review; server workflow acceptance remains separate."
     }
   ]
 }

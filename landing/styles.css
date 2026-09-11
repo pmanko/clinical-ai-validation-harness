@@ -422,6 +422,10 @@ video:focus-visible {
   border-radius: 6px 6px 0 0;
 }
 
+#catalyst .feature-media video {
+  aspect-ratio: 16 / 10;
+}
+
 .media-caption {
   display: flex;
   justify-content: space-between;

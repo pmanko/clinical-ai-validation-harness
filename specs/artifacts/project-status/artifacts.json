@@ -507,11 +507,11 @@
       "path": null,
       "url": "https://catalyst.openelis-global.org/media/catalyst-fhir-to-dashboard-demo-20260827.mp4",
       "role": "publication",
-      "current_or_superseded": "Current latest recorded Spark demo; live reachability handled by root",
+      "current_or_superseded": "Historical August 27 recording; retained immutable evidence",
       "effort": "CAT-E09",
       "status": "1:41 edited recording; tool-confirmed upload/public response on August 27; former local scratchpad video and screenshots missing on recovered machine.",
       "evidence_date": "2026-08-27",
-      "next_update": "Retain reachable media as historical evidence; recover source recipe from remote before re-recording.",
+      "next_update": "Use the new local writer/verifier recordings for the current Workbench; retain this dated asset.",
       "verified_source": "Claude transcript 4f5a9e47-72c2-4f5b-a027-501cb7174bd6 line 3985 (supporting publication output); scratchpad was absent on 2026-09-06.",
       "sources": "Claude transcript 4f5a9e47-72c2-4f5b-a027-501cb7174bd6 line 3985 (supporting publication output); scratchpad was absent on 2026-09-06."
     },
@@ -646,7 +646,7 @@
     },
     {
       "id": "CLIN-A08",
-      "title": "Feature 006: Validation Harness MVP — scenario × backend comparison with human adjudication",
+      "title": "Feature 006: Validation Harness MVP \u2014 scenario \u00d7 backend comparison with human adjudication",
       "path": "specs/006-validation-harness-mvp/spec.md",
       "url": "https://github.com/pmanko/clinical-ai-validation-harness/blob/4053352dba3c57a10fcaa41f2f987bd9a14c6d40/specs/006-validation-harness-mvp/spec.md#L3",
       "role": "partially-current-spec",
@@ -694,7 +694,7 @@
     },
     {
       "id": "CLIN-A22",
-      "title": "Feature 005: med-agent-hub bridge — a chartsearchai-selectable in-process agent team",
+      "title": "Feature 005: med-agent-hub bridge \u2014 a chartsearchai-selectable in-process agent team",
       "path": "specs/005-med-agent-hub-bridge/spec.md",
       "url": "https://github.com/pmanko/clinical-ai-validation-harness/blob/4053352dba3c57a10fcaa41f2f987bd9a14c6d40/specs/005-med-agent-hub-bridge/spec.md#L1",
       "role": "historical-spec",
@@ -706,7 +706,7 @@
     },
     {
       "id": "CLIN-A28",
-      "title": "L3 — Validation spine: specs/006 as-built + close M2-F.1",
+      "title": "L3 \u2014 Validation spine: specs/006 as-built + close M2-F.1",
       "path": "specs/artifacts/lanes/L3-validation-spine-asbuilt.md",
       "url": "https://github.com/pmanko/clinical-ai-validation-harness/blob/4053352dba3c57a10fcaa41f2f987bd9a14c6d40/specs/artifacts/lanes/L3-validation-spine-asbuilt.md#L1",
       "role": "historical-lane",
@@ -718,7 +718,7 @@
     },
     {
       "id": "CLIN-A29",
-      "title": "Feature 004: Real Adapter Entrypoints — chartsearchai PoC",
+      "title": "Feature 004: Real Adapter Entrypoints \u2014 chartsearchai PoC",
       "path": "specs/004-real-adapter-entrypoints/spec.md",
       "url": "https://github.com/pmanko/clinical-ai-validation-harness/blob/4053352dba3c57a10fcaa41f2f987bd9a14c6d40/specs/004-real-adapter-entrypoints/spec.md#L7",
       "role": "historical-spec",
@@ -742,7 +742,7 @@
     },
     {
       "id": "CLIN-A41",
-      "title": "Clinical Knowledge Base Service — Source Brief",
+      "title": "Clinical Knowledge Base Service \u2014 Source Brief",
       "path": "specs/artifacts/planning/clinical-kb-brief.md",
       "url": "https://github.com/pmanko/clinical-ai-validation-harness/blob/4053352dba3c57a10fcaa41f2f987bd9a14c6d40/specs/artifacts/planning/clinical-kb-brief.md#L3",
       "role": "superseded-design",
@@ -754,7 +754,7 @@
     },
     {
       "id": "CLIN-A42",
-      "title": "Clinical KB — scope overview (current → MVP target → F009)",
+      "title": "Clinical KB \u2014 scope overview (current \u2192 MVP target \u2192 F009)",
       "path": "specs/artifacts/planning/kb-scope.md",
       "url": "https://github.com/pmanko/clinical-ai-validation-harness/blob/4053352dba3c57a10fcaa41f2f987bd9a14c6d40/specs/artifacts/planning/kb-scope.md#L7",
       "role": "historical-scope",
@@ -1055,6 +1055,36 @@
         "source": "artifacts/roadmap/code-qa/evidence-bundle-artifact/manifest.json",
         "claim_limit": "Historical artifact; not current exact-head acceptance."
       }
+    },
+    {
+      "id": "CAT-VIDEO-OPENELIS",
+      "kind": "published video",
+      "title": "Catalyst local writer/verifier demonstration \u2014 OpenELIS laboratory data",
+      "path": null,
+      "url": "https://catalyst.openelis-global.org/media/catalyst-openelis-local-20260910-d070fe7.mp4",
+      "role": "publication",
+      "current_or_superseded": "Current replacement recording",
+      "effort": "CAT-E09",
+      "status": "Local full workflow passed, with Gemma 4 12B writer and Qwen 2.5 14B reviewer invocations verified; paced cut about 3:05. Server acceptance remains separate.",
+      "evidence_date": "2026-09-10",
+      "next_update": "Record owner acceptance in Feature 008 tasks; retain private raw footage and actual import receipts.",
+      "verified_source": "specs/008-catalyst-query-workbench/tasks.md; private run replacement-demo-d070fe7-verified-local",
+      "sources": "Harness d070fe7, Catalyst e163726, Hub 75d0ff0; landing/index.html"
+    },
+    {
+      "id": "CAT-VIDEO-OPENMRS-HIV",
+      "kind": "published video",
+      "title": "Catalyst local writer/verifier demonstration \u2014 OpenMRS HIV data",
+      "path": null,
+      "url": "https://catalyst.openelis-global.org/media/catalyst-openmrs-hiv-local-20260910-d070fe7.mp4",
+      "role": "publication",
+      "current_or_superseded": "Current replacement recording",
+      "effort": "CAT-E09",
+      "status": "Local full workflow passed, with Gemma 4 12B writer and Qwen 2.5 14B reviewer invocations verified; paced cut about 3:05. Server acceptance remains separate.",
+      "evidence_date": "2026-09-10",
+      "next_update": "Record owner acceptance in Feature 008 tasks; retain private raw footage and actual import receipts.",
+      "verified_source": "specs/008-catalyst-query-workbench/tasks.md; private run replacement-demo-d070fe7-verified-local",
+      "sources": "Harness d070fe7, Catalyst e163726, Hub 75d0ff0; landing/index.html"
     }
   ]
 }
