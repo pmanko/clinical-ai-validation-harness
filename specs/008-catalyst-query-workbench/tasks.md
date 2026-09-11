@@ -563,14 +563,17 @@ full server run remain separate evidence below.
   the active model call. Test disconnect and deadline at each boundary, no later
   repair, preserved draft/result, and useful handling of incomplete responses.
   Implementation is in [Catalyst #107](https://github.com/DIGI-UW/catalyst-ai/pull/107)
-  (`00c9b9d`) and [Hub #25](https://github.com/pmanko/med-agent-hub/pull/25)
-  (`8942322`), both submitted for review. Local checks: Gateway 352 passed / one
-  existing skip; assembly/contracts 47 passed; Hub 718 passed, including two
+  (`fa3c38c`) and [Hub #25](https://github.com/pmanko/med-agent-hub/pull/25)
+  (`8942322`), both submitted for review. Local checks: Gateway 357 passed / one
+  existing skip; assembly/contracts 47 passed; Hub 720 passed, including two
   real loopback HTTP cancellation tests against a blocking fixture endpoint.
   New route/role interruption tests failed before the fixes. Formatting/lint
   passed. Gateway mypy retains the same ten findings verified on its clean base.
   Catalyst also includes **Stop preparing** in both composers, retained text and
-  focus, Retry, and abort on unmount. UI suite: 289 passed, followed by 113
+  focus, Retry, and abort on unmount. A writer request for clarification or an
+  unsupported question now produces a neutral next step rather than a red
+  composer error; the question remains in the focused input, while genuine
+  generation failures remain errors. UI suite: 290 passed, followed by 113
   focused tests after the final notice layout adjustment; four light/dark
   browser cases prove HTTP disconnect, no duplicate submission, preserved input
   and the previous rendered result using a real stalled local HTTP fixture.
