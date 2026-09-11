@@ -453,18 +453,18 @@
     {
       "id": "catalyst-video-openelis",
       "title": "Catalyst local demonstration — OpenELIS",
-      "url": "https://catalyst.openelis-global.org/media/catalyst-openelis-local-20260910-d070fe7.mp4",
+      "url": "https://catalyst.openelis-global.org/media/catalyst-openelis-local-light-20260911-d070fe7.mp4",
       "role": "Current product demonstration, recorded locally",
-      "status": "Published and embedded on openclinai.org; reviewed at normal speed. HTTPS video/poster hashes and browser playback readiness verified.",
+      "status": "Light-only replacement published under immutable filenames and referenced by the homepage and demo canvas. Final review, HTTPS hashes and actual writer/reviewer/import evidence verified.",
       "source": "landing/index.html; specs/008-catalyst-query-workbench/tasks.md",
       "next_update": "Owner review; server workflow acceptance remains separate."
     },
     {
       "id": "catalyst-video-openmrs-hiv",
       "title": "Catalyst local demonstration — OpenMRS HIV",
-      "url": "https://catalyst.openelis-global.org/media/catalyst-openmrs-hiv-local-20260910-d070fe7.mp4",
+      "url": "https://catalyst.openelis-global.org/media/catalyst-openmrs-hiv-local-light-20260911-d070fe7.mp4",
       "role": "Current product demonstration, recorded locally",
-      "status": "Published and embedded on openclinai.org; reviewed at normal speed. HTTPS video/poster hashes and browser playback readiness verified.",
+      "status": "Light-only replacement published under immutable filenames and referenced by the homepage and demo canvas. Final review, HTTPS hashes and actual writer/reviewer/import evidence verified.",
       "source": "landing/index.html; specs/008-catalyst-query-workbench/tasks.md",
       "next_update": "Owner review; server workflow acceptance remains separate."
     }

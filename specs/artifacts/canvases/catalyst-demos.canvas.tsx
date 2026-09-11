@@ -42,10 +42,10 @@ const clips: DemoClip[] = [
     pill: 'Local · writer and reviewer',
     question: 'How many patients are there?',
     followup: 'Break down that patient count by gender, including patients with missing gender. Return gender and patient_count.',
-    file: 'catalyst-openelis-local-20260910-d070fe7.mp4',
-    poster: 'catalyst-openelis-local-20260910-d070fe7-poster.jpg',
+    file: 'catalyst-openelis-local-light-20260911-d070fe7.mp4',
+    poster: 'catalyst-openelis-local-light-20260911-d070fe7-poster.jpg',
     sizeLabel: '~4 MB',
-    durationLabel: '3:06',
+    durationLabel: '3:08',
   },
   {
     id: 'catalyst-openmrs-hiv-local',
@@ -53,10 +53,10 @@ const clips: DemoClip[] = [
     pill: 'Local · writer and reviewer',
     question: 'How many patients are there?',
     followup: 'Break down that patient count by gender, including patients with missing gender. Return gender and patient_count.',
-    file: 'catalyst-openmrs-hiv-local-20260910-d070fe7.mp4',
-    poster: 'catalyst-openmrs-hiv-local-20260910-d070fe7-poster.jpg',
+    file: 'catalyst-openmrs-hiv-local-light-20260911-d070fe7.mp4',
+    poster: 'catalyst-openmrs-hiv-local-light-20260911-d070fe7-poster.jpg',
     sizeLabel: '~4 MB',
-    durationLabel: '3:05',
+    durationLabel: '3:06',
   },
 ];
 

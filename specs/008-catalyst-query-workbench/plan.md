@@ -14,7 +14,9 @@ and final owner acceptance remain open.
 
 Approved on 10 September 2026: the next reviewable checkpoint is a working
 server release with the current Workbench design and newly recorded demos for
-both sources. The owner clarified the recording environment on 10 September:
+both sources. Keep both published walkthroughs in light mode throughout, including
+saved-SQL reuse and Advanced mode; dark appearance remains a separate validation
+concern. The owner clarified the recording environment on 10 September:
 **record both replacement videos locally with a verifier**. Use the available
 Gemma 4 12B writer / Qwen 2.5 14B reviewer profile and retain evidence that both
 roles actually ran. Label the recordings as local; server validation remains

@@ -1016,8 +1016,8 @@
     {
       "id": "CAT-E09",
       "title": "Deliver the deployed Catalyst release and local writer/verifier demos",
-      "status": "Public release deployed; both local writer/verifier videos published on OpenClinAI; server timeout correction applied, fresh query checks in progress",
-      "next_deliverable": "Complete remaining public-server workflow validation and owner acceptance in Feature 008 tasks.",
+      "status": "Public release deployed; light-only local writer/verifier videos published; both public source query checks pass, full server acceptance remains open",
+      "next_deliverable": "Complete remaining public-server Dashboard workflow validation and owner acceptance in Feature 008 tasks.",
       "acceptance": "Both real sources complete drafting, schema browsing, execution, refinement, saved-SQL reuse, charts, Dashboard arrangement, actual import and Superset rendering. Preserve exact revisions and raw evidence privately. Limit the pipeline introduction to 10–15 seconds; retain readable captions and result holds. Record owner acceptance separately.",
       "dependencies": [
         "CAT-E01"
@@ -1029,10 +1029,10 @@
         "https://github.com/DIGI-UW/catalyst-ai/blob/e163726/catalyst-ui/e2e/full-scenario-demo.spec.ts",
         "specs/demo-video-recording-guide.md",
         "https://catalyst.openelis-global.org/",
-        "https://catalyst.openelis-global.org/media/catalyst-openelis-local-20260910-d070fe7.mp4",
-        "https://catalyst.openelis-global.org/media/catalyst-openmrs-hiv-local-20260910-d070fe7.mp4"
+        "https://catalyst.openelis-global.org/media/catalyst-openelis-local-light-20260911-d070fe7.mp4",
+        "https://catalyst.openelis-global.org/media/catalyst-openmrs-hiv-local-light-20260911-d070fe7.mp4"
       ],
-      "evidence": "10 September: harness d070fe7 / Catalyst e163726 / Hub 75d0ff0. New local capture: 2 passed in 9.5 minutes. Gemma 4 12B writer and Qwen 2.5 14B reviewer invocation evidence verified for both initial and follow-up turns on both sources. Import receipt and bundle digests match. The owner explicitly chose local recording; server latency and acceptance remain separate. 11 September UTC: both final cuts reviewed at normal speed and published on openclinai.org; video/poster and homepage HTTPS hashes verified, both players inspected. Public OpenMRS writer_timeout traced to 360-second Gateway budget; previous 1800-second Gateway/Hub settings restored and wrapper health passed.",
+      "evidence": "10 September: harness d070fe7 / Catalyst e163726 / Hub 75d0ff0. New local capture: 2 passed in 9.5 minutes. Gemma 4 12B writer and Qwen 2.5 14B reviewer invocation evidence verified for both initial and follow-up turns on both sources. Import receipt and bundle digests match. The owner explicitly chose local recording; server latency and acceptance remain separate. 11 September UTC: both final cuts reviewed at normal speed and published on openclinai.org; video/poster and homepage HTTPS hashes verified, both players inspected. Public OpenMRS writer_timeout traced to 360-second Gateway budget; previous 1800-second Gateway/Hub settings restored and wrapper health passed. Owner requested light-only videos: fresh local run passed both journeys (2 tests, 10.9 minutes); 665 captured application theme observations are light. Public OpenMRS count returned 5384 after restoring model timeouts; preparation remains slow. Light-only media reviewed at 1x and published with HTTPS hashes verified. Public query checks: OpenMRS 5384 (674 s preparation / 118 ms execution), OpenELIS 96 (536 s / 111 ms).",
       "last_checked": "2026-09-11",
       "implementation_owner": "Feature 008 plan and tasks",
       "related_pull_requests": [

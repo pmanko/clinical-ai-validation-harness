@@ -1061,14 +1061,14 @@
       "kind": "published video",
       "title": "Catalyst local writer/verifier demonstration — OpenELIS laboratory data",
       "path": null,
-      "url": "https://catalyst.openelis-global.org/media/catalyst-openelis-local-20260910-d070fe7.mp4",
+      "url": "https://catalyst.openelis-global.org/media/catalyst-openelis-local-light-20260911-d070fe7.mp4",
       "role": "publication",
       "current_or_superseded": "Current replacement recording",
       "effort": "CAT-E09",
-      "status": "Local full workflow passed, with Gemma 4 12B writer and Qwen 2.5 14B reviewer invocations verified; paced cut about 3:05. Server acceptance remains separate. Published on openclinai.org; final normal-speed review, HTTPS hashes and both browser players verified.",
+      "status": "Light-only local workflow passed (2 tests, 10.9 minutes), actual Gemma writer/Qwen reviewer invocations and imports verified. Final cuts reviewed at 1x and uploaded with HTTPS hash verification; durations 3:08 and 3:06. Public query checks pass; full server acceptance remains separate.",
       "evidence_date": "2026-09-11",
       "next_update": "Record owner acceptance in Feature 008 tasks; retain private raw footage and actual import receipts.",
-      "verified_source": "specs/008-catalyst-query-workbench/tasks.md; private run replacement-demo-d070fe7-verified-local",
+      "verified_source": "specs/008-catalyst-query-workbench/tasks.md; private run replacement-demo-d070fe7-light-local",
       "sources": "Harness d070fe7, Catalyst e163726, Hub 75d0ff0; landing/index.html"
     },
     {
@@ -1076,14 +1076,14 @@
       "kind": "published video",
       "title": "Catalyst local writer/verifier demonstration — OpenMRS HIV data",
       "path": null,
-      "url": "https://catalyst.openelis-global.org/media/catalyst-openmrs-hiv-local-20260910-d070fe7.mp4",
+      "url": "https://catalyst.openelis-global.org/media/catalyst-openmrs-hiv-local-light-20260911-d070fe7.mp4",
       "role": "publication",
       "current_or_superseded": "Current replacement recording",
       "effort": "CAT-E09",
-      "status": "Local full workflow passed, with Gemma 4 12B writer and Qwen 2.5 14B reviewer invocations verified; paced cut about 3:05. Server acceptance remains separate. Published on openclinai.org; final normal-speed review, HTTPS hashes and both browser players verified.",
+      "status": "Light-only local workflow passed (2 tests, 10.9 minutes), actual Gemma writer/Qwen reviewer invocations and imports verified. Final cuts reviewed at 1x and uploaded with HTTPS hash verification; durations 3:08 and 3:06. Public query checks pass; full server acceptance remains separate.",
       "evidence_date": "2026-09-11",
       "next_update": "Record owner acceptance in Feature 008 tasks; retain private raw footage and actual import receipts.",
-      "verified_source": "specs/008-catalyst-query-workbench/tasks.md; private run replacement-demo-d070fe7-verified-local",
+      "verified_source": "specs/008-catalyst-query-workbench/tasks.md; private run replacement-demo-d070fe7-light-local",
       "sources": "Harness d070fe7, Catalyst e163726, Hub 75d0ff0; landing/index.html"
     }
   ]
