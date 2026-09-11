@@ -2,8 +2,10 @@
 
 **Status:** Mock/spec construction approved on 10 September 2026. Two parallel
 delivery streams meet at a real source connection and CSV/Dataset parity review.
-The first new checkpoint is the integrated mock/spec set below; owner design
-acceptance and production implementation remain separate.
+The baseline mock/spec set is published. The current checkpoint is
+[OpenELIS design revision and implementation readiness][export-readiness],
+recorded on 11 September 2026; its revised mock, owner acceptance and production
+implementation remain pending and separately tracked.
 
 ## Purpose and authority
 
@@ -26,7 +28,7 @@ already scheduled follow-ons. Use this document as the planning home while
 scope is reviewed; implementation tasks belong with the product that delivers
 them. The project dashboard should link here rather than duplicate the register.
 
-## Approved next checkpoint: create and review the mock/spec set
+## Mock/spec baseline and ownership
 
 The clarification session established these decisions:
 
@@ -78,6 +80,36 @@ generated copy. The hub's source link and `source.json` identify that exact
 revision independently of the runtime Catalyst pin. OpenELIS remains in its own
 gallery; the hub links to its canonical permalink.
 
+## Current checkpoint: OpenELIS design readiness
+
+The owner expects a roughly even mix of new exports and rerunning familiar
+reports. The next goal is to revise the existing OpenELIS mock and specification
+for both paths, verify the published review experience and prepare a small,
+evidence-backed implementation backlog. The authoritative sequence, acceptance
+register and copyable goal live in [section 14 of the OpenELIS specification][export-readiness].
+Update that register rather than duplicating its tasks here.
+
+The prior UX review identified field-selection overload, implicit report-type
+selection, a cumbersome saved-report entry path, premature date errors, ambiguous
+save/create actions, narrow-screen queue actions and missing accordion keyboard
+behavior. The current goal records these as required revision work; the published
+v1.2 mock has not yet incorporated them. Amend affected requirements alongside
+the mock and account for previous requirements before retiring conflicting text.
+
+OpenELIS owns the interactive HTML, fictional CSV helper and its component
+reference. The existing Catalyst integration spec/mock remain the independent
+Catalyst-side review; the harness owns cross-project decisions and publication
+links. Do not create another OpenELIS screen or implementation checklist here.
+
+Readiness requires an inspected current-code baseline, resolved product decisions
+for the first slice, tested and published mock/spec agreement, explicit owner
+review and implementation slices linked to the existing OpenELIS stories. Start
+with a complete export/retrieval journey, preserving the export/queue companion
+release requirement. Staff usability testing is distinct from automated checks;
+if participants are unavailable, record it as pending rather than claiming it
+passed. Application implementation, real-source parity and shared authorization
+remain later milestones; Catalyst's current upgrade continues independently.
+
 ## Two delivery workstreams and one integration checkpoint
 
 | Workstream | Delivery target | Boundary |
@@ -114,7 +146,7 @@ completion. Product owners and delivery assignees remain to be confirmed.
 
 | Existing material | Responsibility and disposition |
 | --- | --- |
-| [Custom Data Export & My Report Queue, v1.1][export-spec] — OGC-479 / OGC-481 / OGC-483 | Reuse the existing draft for the wizard, saved choices and personal export queue. It couples export and required asynchronous retrieval in one release. Keep the stories distinct. |
+| [Custom Data Export & My Report Queue][export-spec] — OGC-479 / OGC-481 / OGC-483 | Reuse the existing draft for the wizard, saved choices and personal export queue. Its [design-readiness checkpoint][export-readiness] owns the next revision and handoff. It couples export and required asynchronous retrieval in one release. Keep the stories distinct. |
 | [Patient Report Print Queue][gallery] — OGC-1031 | Reconcile with the meeting's common-queue idea before combining printing and export jobs. Do not absorb this effort by implication. |
 | [Report Management][report-management] | Owns report-template administration; configurable CSV export does not decide replacement of patient reports or Jasper templates. |
 | [Earlier Catalyst functional requirements, November 2025][earlier-catalyst] | Broader draft proposing reporting replacement, a wizard, multiple formats and scheduling. Retain as a proposal requiring disposition; it does not expand current delivery. |
@@ -185,7 +217,7 @@ No release date or new product task is approved by this draft.
 
 | Milestone | Exit evidence | Current state |
 | --- | --- | --- |
-| 0. Build and review the mock/spec set | Interactive independent OE/Catalyst workflows and review-only parity examples; published source revision; browser, screenshot and documentation checks; explicit owner design review. | Design homes separated: OpenELIS MVP PR #313 merged by repository automation; Catalyst-side correction PR #100 merged; harness publication in PR #128. Local tests/browser review pass; OpenELIS is published; corrected Catalyst publication is delivered through [PR #128](https://github.com/pmanko/clinical-ai-validation-harness/pull/128) and its GitHub Pages deployment. Owner acceptance is pending. |
+| 0. Revise and review the mock/spec set | Independent OE/Catalyst workflows, synchronized specifications, published source revision, relevant checks and explicit owner design review. OpenELIS revision and implementation handoff follow [its own acceptance register][export-readiness]. | Baseline: OpenELIS PR #313, Catalyst correction PR #100 and harness publication [PR #128](https://github.com/pmanko/clinical-ai-validation-harness/pull/128). The 11 September OpenELIS UX/readiness plan is recorded; revised mock, revised validation and owner acceptance remain pending. Earlier baseline checks do not complete the revision. |
 | 1. Agree where the streams meet | Reviewed initial report/comparison definition; field coverage on the existing source path; disposition of overlapping proposals; named ownership and links to each product's tasks. | Two-stream direction confirmed; fictional scenario and design ownership agreed; real-source comparison definition pending. |
 | 2A. Build from OpenELIS | Settle export permissions/workload choices; deliver the bounded export, saved choices and required queue; generate a verified CSV and prepare the source mapping/access information. Link existing OE issues, PRs and real-path evidence. | Implementation/release status not audited; existing draft is the starting point. |
 | 2B. Build from Catalyst | Continue the existing redesign/release tasks and prepare the real OE source connection; show schema browsing, question/refinement, explicit execution and saving through the approved Workbench. Link existing Catalyst tasks rather than duplicate them here. | Existing delivery remains active; integration-specific source gaps and readiness to be assessed. |
@@ -234,6 +266,7 @@ Explicitly label limitations and record owner acceptance separately from tests.
 - Current Catalyst product specification and delivery plan linked above.
 
 [export-spec]: https://github.com/DIGI-UW/openelis-work/blob/main/designs/reports/custom-data-export.md
+[export-readiness]: https://github.com/DIGI-UW/openelis-work/blob/main/designs/reports/custom-data-export.md#14-design-revision-and-implementation-readiness
 [preview]: https://digi-uw.github.io/openelis-work/#/reports/custom-data-export
 [gallery]: https://digi-uw.github.io/openelis-work/catalog.html
 [report-management]: https://github.com/DIGI-UW/openelis-work/blob/main/designs/admin-config/report-management.md
