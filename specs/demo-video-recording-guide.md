@@ -106,6 +106,11 @@ turns it into a publishable mp4 deterministically.
      (`scripts/render_demo_video.py`'s output goes here too; nothing
      regenerates this file automatically).
 
+The current product walkthroughs stay in light appearance throughout, including
+saved-SQL reuse and Advanced mode. The ordinary non-recording scenario still
+covers dark appearance. Confirm the recorded theme and update both consumers
+when publishing a new cut.
+
 ## Timeline JSON schema
 
 ```json

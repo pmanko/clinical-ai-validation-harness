@@ -482,6 +482,38 @@ Both cuts are approximately 3:05, with a 13-second pipeline introduction and
 captions below the application image. Final review and publication are tracked
 below; server workflow and owner acceptance remain separate.
 
+Publication completed on 10 September (11 September UTC), from merged harness
+[PR #132](https://github.com/pmanko/clinical-ai-validation-harness/pull/132),
+`320090d`. Both final cuts were watched at normal speed. The immutable videos and
+posters were uploaded and verified by HTTPS byte hashes; the separate
+[OpenClinAI homepage](https://openclinai.org/#catalyst) now embeds both. Browser
+inspection confirmed both 1280 × 800 players load without errors. Raw evidence,
+media checksums, homepage backup and publication receipts remain private.
+
+A public OpenMRS preparation at 05:02–05:08 UTC failed with `writer_timeout`
+before any SQL execution. The new isolated stack had inherited a 360-second
+Gateway timeout and the Hub's 600-second default, whereas the former demo stack
+configured 1,800 seconds at both layers. Server-only settings now restore those
+budgets; wrapper health passed after applying them. Slow CPU inference remains
+an observed limitation. A fresh public OpenMRS browser journey subsequently
+prepared and ran the query, returning 5,384 patients without a database error;
+preparation took 674 seconds. Public OpenELIS also prepared and ran successfully,
+returning 96 patients after 536 seconds of preparation. SQL execution took 118 ms
+and 111 ms respectively. These checks verify the reported timeout repair, not
+full server workflow acceptance.
+
+The owner then requested light appearance throughout both videos. The new local
+run `replacement-demo-d070fe7-light-local` passed both full journeys (2 tests,
+10.9 minutes). All 665 captured application theme observations were light.
+Gemma and Qwen actually ran on all four turns; both initial writer drafts were
+recorded as `validation_failed` and their reviewers succeeded. All bundle/import
+receipt digests match. The replacement cuts are 3:08 and 3:06; both were reviewed
+at normal speed and published under new immutable light-only filenames with
+verified HTTPS hashes. The homepage and demo canvas reference those same assets.
+[Catalyst #102](https://github.com/DIGI-UW/catalyst-ai/pull/102) preserves light
+appearance in recording mode while retaining the ordinary dark-theme test path.
+Runtime application revisions are unchanged; the recorder is separately pinned.
+
 - [X] Deploy exact merged compatible revisions locally and to
   `catalyst.openelis-global.org` using the owning checkout and harness wrapper;
   preserve retained data. Full server importer and journey proof remains below.
@@ -497,7 +529,7 @@ below; server workflow and owner acceptance remain separate.
 - [X] Render short cards/captions for at least 5 seconds, longer text at about 3
   words/second plus 2 seconds, and results/details for at least 8 seconds; retain
   captions during holds and label accelerated waits.
-- [ ] Watch each final cut at normal speed, confirm captions neither disappear
+- [X] Watch each final cut at normal speed, confirm captions neither disappear
   early nor cover demonstrated information, then publish new immutable media
   filenames and update all public video/poster references together.
 - [ ] Record final local/server evidence, current public links, and explicit
