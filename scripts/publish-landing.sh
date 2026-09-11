@@ -33,7 +33,7 @@ if ! gcp_vm_exists || [ "$(gcp_vm_status)" != "RUNNING" ]; then
   exit 1
 fi
 
-if [ ! -f "${ROOT}/.env.chartsearch.cloud" ]; then
+if [ "${PUBLISH_MODE}" = "full" ] && [ ! -f "${ROOT}/.env.chartsearch.cloud" ]; then
   echo "error: .env.chartsearch.cloud is required for the published Caddy host" >&2
   exit 1
 fi
@@ -94,8 +94,12 @@ else
   fi
 fi
 
-SITE="$(awk -F= '/^CADDY_SITE=/{print $2}' "${ROOT}/.env.chartsearch.cloud" | tail -1)"
-SITE="${SITE:-openclinai.org}"
+if [ "${PUBLISH_MODE}" = "--landing-only" ]; then
+  SITE="${CADDY_SITE:-openclinai.org}"
+else
+  SITE="$(awk -F= '/^CADDY_SITE=/{print $2}' "${ROOT}/.env.chartsearch.cloud" | tail -1)"
+  SITE="${SITE:-openclinai.org}"
+fi
 
 echo "==> verifying https://${SITE}/"
 SITE_HTML="$(curl -fsS --retry 8 --retry-connrefused --retry-delay 2 --max-time 20 "https://${SITE}/")"
