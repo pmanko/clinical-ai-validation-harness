@@ -681,9 +681,12 @@ when each starts; they are not additional completion gates for the current goal.
   explicit harness/deployment lifecycle with a pinned image, verified model files,
   configurable residency, selected-model warmup, health checks, and stable
   `model-router` reachability from both Catalyst networks. Remove the orphan only
-  after that replacement passes direct Hub inference. Merge, checksum-verified
-  installation, router replacement, deployment and direct E4B inference remain
-  pending; the new profile does not change the default.
+  after that replacement passes direct Hub inference. The implementation is
+  reviewable in [harness PR #143](https://github.com/pmanko/clinical-ai-validation-harness/pull/143)
+  at `b1b7c56`; its default one-model cap is deployment-configurable so GPU and
+  higher-memory hosts can use a separately validated capacity. Merge,
+  checksum-verified installation, router replacement, deployment and direct E4B
+  inference remain pending; the new profile does not change the default.
 - [ ] Compare E4B and 12B on the same bounded dual-source Catalyst SQL cases.
   Record speed and observed query behavior; treat the published OpenClinAI
   E4B/A4B chart-answer results as candidate evidence rather than SQL proof, and
