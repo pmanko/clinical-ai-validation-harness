@@ -84,13 +84,13 @@ SITE="$(awk -F= '/^CADDY_SITE=/{print $2}' "${ROOT}/.env.chartsearch.cloud" | ta
 SITE="${SITE:-openclinai.org}"
 
 echo "==> verifying https://${SITE}/"
-curl -fsS --retry 8 --retry-delay 2 --max-time 20 "https://${SITE}/" \
+curl -fsS --retry 8 --retry-connrefused --retry-delay 2 --max-time 20 "https://${SITE}/" \
   | grep -q '<h1 id="hero-title">Open Clinical AI</h1>'
-curl -fsS --retry 8 --retry-delay 2 --max-time 20 "https://${SITE}/" \
+curl -fsS --retry 8 --retry-connrefused --retry-delay 2 --max-time 20 "https://${SITE}/" \
   | grep -q '1:45 · silent recording at 2× speed'
-curl -fsS --retry 8 --retry-delay 2 --max-time 20 "https://${SITE}/" \
+curl -fsS --retry 8 --retry-connrefused --retry-delay 2 --max-time 20 "https://${SITE}/" \
   | grep -q '>Catalyst</a>'
-curl -fsS --retry 8 --retry-delay 2 --max-time 20 "https://${SITE}/media/openmrs-evidence-poster.png" \
+curl -fsS --retry 8 --retry-connrefused --retry-delay 2 --max-time 20 "https://${SITE}/media/openmrs-evidence-poster.png" \
   -o /dev/null
 # Separate post-publish verification: the demo-host assets were already
 # confirmed reachable above, before this deploy touched anything, but the
