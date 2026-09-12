@@ -16,10 +16,12 @@ environment from an environment verified ready for the intended evaluation.
 This implements the September 11, 2026 setup request. It does not replace the
 [dual-provider roadmap](openmrs-dual-provider-parity-roadmap.md): bundled and Hub
 remain supported providers, there is no silent fallback, and no clinical data
-mappings or scoring rules change as a setup side effect. The September 11 scope
-correction also requires authenticated account context and reviewed role-based
-agent instructions across both providers. Those are explicit product changes,
-not an incidental effect of creating accounts.
+mappings or scoring rules change as a setup side effect. The latest September 11
+scope clarification keeps this effort focused on reusable environment setup.
+Retain the implemented authenticated account-context capture, but do not add an
+automatic role-to-instruction policy, an active-role picker, or a prompt/cache
+redesign as setup prerequisites. Ross can customize system prompts for his
+experiments; setup must preserve that local configuration.
 
 ## One request, explicit decisions
 
@@ -103,55 +105,32 @@ destructive operation automatically after an observation timeout.
 The [spreadsheet](https://docs.google.com/spreadsheets/d/1wcs2PswDRXWMmYcGkCvcW0NmPOGO1CIKv9pMSuxTEas/edit)
 has five primary roles (clinical officer, nurse, pharmaceutical technologist,
 adherence counsellor, health records officer) and two secondary roles (doctor,
-peer educator). Testing counsellor is optional; population reporting is excluded.
+peer educator). All seven accounts are required; population reporting is excluded.
 
 The development TurnRequest and HttpHubStreamTransport now carry server-captured
 account roles and session location as metadata, with the same snapshot persisted
 on answer events and saved turns. Neither provider yet applies reviewed role-based
-model instructions. That remaining gap must be closed for the requested evaluation;
-setup reports context as unverified and instruction policy as unimplemented until
-the complete real path is verified. Prompt-described personas are not authenticated
-role-context evidence.
+model instructions. Automatic instruction selection is outside setup scope, not
+a readiness blocker. Setup reports context as unverified until the live metadata
+path is verified and discloses instruction policy as unimplemented. Prompt-described
+personas are not authenticated role-context evidence.
 Restricted outreach/HIV visibility is not established by a role name or prompt.
 Use synthetic/demo data for this study.
 
-## Authenticated context and instruction selection
+## Account context and experiment control
 
-The required path is `OpenMRS login -> server-derived account context -> reviewed
-instruction selection -> bundled or Hub provider -> recorded evaluation evidence`.
+Keep the existing path: OpenMRS login, server-captured roles/session location,
+provider request metadata, and saved-turn evidence. Verify this path in the live
+environment without claiming that metadata alone changes model instructions.
+Accounts can have multiple assigned and inherited roles; preserve them without
+inventing a primary role. OpenMRS still enforces permissions and patient access.
 
-- Resolve the authenticated user and assigned/inherited roles on the OpenMRS
-  request thread, before provider work moves to another thread. Capture login
-  location from the real OpenMRS session mechanism; do not infer it from a role,
-  a patient's encounter location, or text in a question. Verify the pinned
-  session API before selecting its implementation hook. Missing location stays
-  explicitly unknown, not a fabricated clinic.
-- Carry an immutable context snapshot through the common provider request and
-  Hub transport. Keep account identifiers in access-controlled audit metadata;
-  prompts need occupational context, not passwords or personal names.
-- Separate occupational roles from inherited technical access roles. Use reviewed
-  configuration mapping supported occupational roles to instruction sections.
-  The same role policy applies to Answer and In-Depth across both providers.
-  Exact role-specific clinical wording must be reviewed before the experiment;
-  do not invent scope-of-practice claims or change the evaluator's golden answers.
-- Role context is an input signal and a deterministic instruction selector, not
-  an authorization engine. Retain OpenMRS privilege and patient-access checks.
-  Client-supplied role claims cannot grant authority. Direct Hub caller metadata
-  must not be labelled OpenMRS-authenticated without a trusted integration source.
-- Multiple occupational roles require an explicit selection policy. The proposed
-  path is a visible active work role chosen only from assigned roles and checked
-  server-side; owner confirmation is pending. Do not silently choose the first,
-  most privileged, or highest-status role. Unknown mappings use an explicitly
-  recorded general instruction set and do not pretend role testing succeeded.
-- Trace the context and instruction-policy identity for each turn. Any cached
-  answer must be scoped by the effective role policy and permissions/context;
-  switching roles or accounts must not reuse another role's final answer.
-- Test the actual login-to-provider path for every baseline account, both
-  providers, inherited roles, unknown/multiple roles, role changes, missing
-  location, spoofed client role metadata, logout/login, and conversation reload.
-  Compare the same patient/question under different accounts and retain actual
-  prompt-policy evidence alongside the answers; word-choice differences alone
-  do not prove context propagation.
+Ross controls system prompts and experiment instructions using the existing
+configuration. Setup must not overwrite those choices, choose clinical wording,
+or change golden answers. Automatic role-based prompting and a role-selection
+interface are separate future product decisions; they do not block delivery of
+the reusable environment. The earlier multi-role selection question is deferred
+with that work, not a pending setup decision.
 
 Concrete targets, inspected September 11:
 
@@ -164,13 +143,8 @@ Concrete targets, inspected September 11:
   [HubCallRequest](../../../targets/chartsearchai/api/src/main/java/org/openmrs/module/chartsearchai/api/provider/HubCallRequest.java),
   [Hub transport](../../../targets/chartsearchai/api/src/main/java/org/openmrs/module/chartsearchai/api/provider/HttpHubStreamTransport.java),
   and [bundled provider](../../../targets/chartsearchai/api/src/main/java/org/openmrs/module/chartsearchai/api/provider/BundledClinicalAnswerProvider.java):
-  both provider paths must consume the same authenticated context contract.
-- [Hub input](../../../targets/med-agent-hub/server/openai_compat.py),
-  [prompt loader](../../../targets/med-agent-hub/server/prompt_loader.py), and
-  [answer/review logic](../../../targets/med-agent-hub/server/team.py):
-  role-policy application, trace identity, and instruction propagation.
-- [ESM chat hook](../../../targets/chartsearchai-esm/src/hooks/useChartSearchAi.ts):
-  visible context and role-switch/session behavior, not permission decisions.
+  both provider paths receive the same authenticated context contract; this is
+  metadata transport, not automatic prompt selection.
 
 ## Executable acceptance
 
@@ -183,7 +157,7 @@ Concrete targets, inspected September 11:
 | Repeatable accounts | Second provisioning run retains credentials and account IDs; existing unrelated accounts/roles remain unchanged; each login and chart/chat access verified |
 | Complete evaluation baseline | Initialize, preserve/update, and explicit reset all provision or verify every planned role account; account setup failure cannot report prepared |
 | Authenticated account signal | Both providers receive roles and session location derived from the real login; forged client roles are rejected and missing context is disclosed |
-| Role-guided instructions | Reviewed mapping selects the intended Answer/In-Depth instructions for each role; policy identity is recorded; switching accounts/roles cannot reuse stale role-specific answers |
+| Experiment control | Setup preserves local prompt/provider choices; missing automatic role instructions is disclosed, not treated as a setup failure |
 | Real readiness | Browser and API evidence for installed providers, completed answer, evidence, and reload; failures cannot produce a ready receipt |
 | One Claude request | Checked-in discoverable skill runs the complete current scripts and reports preserve/reset explicitly |
 | Portable first setup | Host detection and documented supported runtime paths have tests; live proof identifies the actual platform; no developer-specific paths or unconditional macOS commands |
@@ -222,14 +196,17 @@ Drive folder. No live reset is authorized by implementation of this workflow.
 - [x] Implement source-update helper and real Git fixture tests (CLI receipt still needs coverage).
 - [x] Implement preserve/reset helper and backup-failure tests using existing scripts (not live-verified).
 - [ ] Supply pinned assets and verify host/model prerequisites.
+  - Parent `assets` action checks/fetches selected pinned model files and the
+    portable baseline with adjacent provenance. Existing files are never replaced;
+    no services or database operations run. Shared baseline distribution and
+    complete model/runtime readiness remain open.
 - [x] Implement required account provisioner with repeatability and ownership tests (live access checks pending).
 - [x] Connect parent preparation commands, Docker ownership checks, and tested receipt/failure handling.
 - [x] Add and structurally validate the Claude skill and operator guide (end-to-end use still pending).
 - [ ] Complete model/provider setup and readiness checks after core preparation.
-- [ ] Implement authenticated account/role/session-location propagation across both providers.
+- [x] Implement authenticated account/role/session-location metadata propagation across both providers.
   - Request snapshot, Hub transport, and stored-turn metadata implemented and tested.
-  - Prompt consumption, role-policy selection, and live login-to-model proof remain open.
-- [ ] Confirm multi-role behavior, review role-to-instruction mapping, and test actual prompt selection and cache isolation.
+- [ ] Verify the implemented account-context metadata in the live login/provider/reload path.
 - [ ] Implement and prove full-backup recovery; portable corpus seeding is not a full-backup restore path.
 - [ ] Verify preserve twice, reset/restore in a disposable environment, and UI.
 - [ ] Review, commit, publish through a PR, then verify on Ross's machine.
@@ -262,6 +239,18 @@ The full ChartSearchAI Maven suite then completed with 2,332 cases: 2,275 passed
 or browser acceptance. The harness setup/reference suite contains 157 cases;
 its initial documentation-format assertion was corrected by explicitly naming
 the fields inside `context`, without changing the test or wire format.
+
+The asset step was exercised against the actual 44,057,876-byte portable package:
+copy and checksum/provenance verification succeeded, without restoring a database.
+The existing local E4B file differs from the catalog's pinned download identity;
+the read-only check reported the mismatch and left the file/symlink unchanged.
+This is not a model-quality failure or permission to replace a selected model.
+The expanded setup/assets/reference and model-catalog suite passes 191 tests,
+including interrupted acquisition, wrong checksums, concurrent destination
+changes, retained existing files, read-only checks, CLI separation from database
+operations, and removal of automatic role prompting from setup prerequisites.
+Python lint, documentation links, and Claude skill structure pass. HTTPS transfer
+control is unit-tested; no new model download or live service restart was performed.
 
 A read-only Docker check on September 11 refused the running Hub because its
 Compose ownership labels point to a different worktree. The check supplied the

@@ -294,7 +294,6 @@ def prepare_environment(
             "patient retrieval",
             "study-user chart and chat access",
             "authenticated roles and login location reach both providers",
-            "role-to-instruction mapping and role-switch isolation",
             "real answer and conversation reload",
             "browser workflow",
         ],

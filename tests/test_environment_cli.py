@@ -110,3 +110,72 @@ def test_accounts_cannot_be_made_optional_with_study_flag(cli, monkeypatch):
     with pytest.raises(SystemExit) as error:
         cli.main()
     assert error.value.code == 2
+
+
+def test_assets_never_start_environment_preparation(cli, tmp_path, monkeypatch):
+    monkeypatch.setattr(
+        sys, "argv", ["setup-environment.py", "assets", "--model", "gemma-e4b"]
+    )
+    monkeypatch.setattr(
+        cli, "prepare_environment", lambda *a, **k: pytest.fail("services changed")
+    )
+
+    def check(root, **kwargs):
+        assert root == tmp_path
+        assert kwargs == {
+            "model": "gemma-e4b",
+            "baseline": None,
+            "baseline_source": None,
+            "fetch": False,
+        }
+        return {"status": "assets_verified", "readiness": "not_checked"}
+
+    monkeypatch.setattr(cli, "prepare_assets", check)
+    assert cli.main() == 0
+    receipt = json.loads(
+        next(
+            (tmp_path / "artifacts/evaluation-setup").glob("environment-*.json")
+        ).read_text()
+    )
+    assert receipt["status"] == "assets_verified"
+    assert receipt["readiness"] == "not_checked"
+
+
+def test_explicit_asset_fetch_passes_selection_but_not_private_source_to_receipt(
+    cli, tmp_path, monkeypatch
+):
+    source = "https://example.test/baseline.sql.gz?token=private"
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["setup-environment.py", "assets", "--baseline-source", source, "--fetch"],
+    )
+
+    def fetch(root, **kwargs):
+        assert kwargs["fetch"] is True
+        assert kwargs["baseline_source"] == source
+        raise SetupError("Asset download failed; check source access")
+
+    monkeypatch.setattr(cli, "prepare_assets", fetch)
+    assert cli.main() == 1
+    receipt = next(
+        (tmp_path / "artifacts/evaluation-setup").glob("environment-*.json")
+    ).read_text()
+    assert "private" not in receipt
+    assert "failed" in receipt
+
+
+@pytest.mark.parametrize(
+    "args",
+    [
+        ["prepare", "--fetch"],
+        ["check", "--model", "gemma-e4b"],
+        ["assets", "--data", "reset"],
+        ["assets", "--confirm-demo-data"],
+    ],
+)
+def test_asset_flags_cannot_accidentally_change_a_database(cli, monkeypatch, args):
+    monkeypatch.setattr(sys, "argv", ["setup-environment.py", *args])
+    with pytest.raises(SystemExit) as error:
+        cli.main()
+    assert error.value.code == 2

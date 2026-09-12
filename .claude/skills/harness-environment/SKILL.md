@@ -26,6 +26,11 @@ model/login/browser readiness or promise an unverified first install.
    the corresponding documented `--data` mode with a verified baseline. Missing
    prerequisites/assets must be resolved explicitly; never guess a different
    dataset, reindex on every update, or take over another checkout's services.
+   Use the same script's `assets` action to verify selected model/baseline files;
+   add `--fetch` only when acquiring missing assets is requested. Use the reviewed
+   catalog and baseline identity. Do not fetch a baseline during a preserve-only
+   update or replace the operator's different model. Asset preparation alone
+   does not establish runtime readiness.
 4. Required role accounts are part of every evaluation preparation. Do not skip
    them or present them as an optional study. Preserve managed credentials on
    updates and recreate the account configuration after an explicit baseline
@@ -38,8 +43,9 @@ model/login/browser readiness or promise an unverified first install.
    another one because a wait timed out.
 6. Report source revisions, preserve/initialize/reset choice, local UI URL,
    private credential-file location if applicable, completed checks, and pending
-   checks. Authenticated roles/session location and the intended role-specific
-   instructions must be verified across both providers. If that work,
-   first-install assets, model setup, backup recovery, or browser proof is missing,
-   say the environment is incomplete. Do not certify readiness from
-   unit tests or container health alone.
+   checks. Verify authenticated roles/session location as provider metadata, not
+   proof of role-guided answers. Automatic role instructions and an active-role
+   picker are outside setup scope; preserve the tester's prompt configuration.
+   If first-install assets, model setup, backup recovery, or browser proof is
+   missing, report that limitation. Do not certify readiness from unit tests or
+   container health alone.

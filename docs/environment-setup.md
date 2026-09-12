@@ -1,8 +1,8 @@
 # Local Harness Setup and Updates
 
 **Implementation preview:** source updating, core preparation, required evaluation
-accounts, and guarded baseline restore are implemented. Model provisioning and
-complete login/browser verification are still being connected. A successful
+accounts, verified asset acquisition, and guarded baseline restore are implemented.
+Model startup and complete login/browser verification are still being connected. A successful
 `prepare` command is not yet an out-of-the-box evaluation readiness result.
 
 This workflow belongs to the parent harness. ChartSearchAI is its first supported
@@ -61,10 +61,24 @@ explicit migration.
 
 ## First Install or Requested Reset
 
-Large data packages are not in Git. Obtain the reviewed portable baseline and
-its matching `.provenance.json` sidecar from an approved project source. The
-canonical local path is `artifacts/demo-data/refapp_28_demo.sql.gz`; `--baseline`
-accepts another explicit path. There is not yet a configured shared download URL.
+Large data packages are not in Git. The reviewed baseline identity is recorded in
+[evaluation-baseline.json](../datasets/sources/evaluation-baseline.json). Obtain
+the matching SQL package and its `.provenance.json` sidecar from an approved project
+source. There is not yet a configured shared download URL.
+
+The parent setup command can copy a local package or fetch an explicitly supplied
+HTTPS source, verifying the checksum and portable-data provenance before installing
+either file. This only prepares files; it does not import data or start services:
+
+```bash
+bash scripts/setup-environment.sh assets --baseline-source /path/to/refapp_28_demo.sql.gz --fetch
+```
+
+The default destination is `artifacts/demo-data/refapp_28_demo.sql.gz`; `--baseline`
+selects another destination. For HTTPS sources, the sidecar must be at the same
+URL with `.provenance.json` appended to the path. A plain `assets --baseline PATH`
+checks an existing package without copying or downloading it. Existing files are
+never overwritten, and ordinary preserve/update does not acquire baseline data.
 
 Only when no deployment or data volumes exist:
 
@@ -90,6 +104,26 @@ and full backup. Do not pass a full backup to the portable-corpus seed command:
 that command intentionally rejects module-bearing backups. A tested full-backup
 restore command is still required before this workflow is called complete.
 
+## Model Files
+
+Check the selected E4B model against its pinned identity, then explicitly fetch it
+if missing:
+
+```bash
+bash scripts/setup-environment.sh assets --model gemma-e4b
+bash scripts/setup-environment.sh assets --model gemma-e4b --fetch
+```
+
+Files use `LLAMA_MODEL_DIR`, or `~/.cache/llama-router-models` when unset, and the
+filenames expected by the main router. The existing
+[pinned model catalog](../scripts/catalyst-model-router.models.tsv) also provides
+`gemma-4-12b-q4`; using its identities does not start or require Catalyst.
+The chosen model's license and download access requirements still apply.
+Only `--fetch` downloads anything. An existing different model, including a
+symlink, is reported without replacement; it is not evidence that the existing
+model is broken. Keep custom model choices unless intentionally changing them.
+Verified files are not proof of a working model server or a completed chat.
+
 ## Required Evaluation Accounts
 
 All successful evaluation preparation runs include the accounts in
@@ -110,9 +144,11 @@ proof of production least-privilege policy. The development chat endpoint now
 captures assigned/inherited roles and session location, passes the snapshot to
 the selected provider, and stores it with the answer. The Hub receives it as
 request metadata. This does not yet supply role-guided model instructions.
-Reviewed instruction selection, account-scoped answer caching, and live UI proof
-remain required. The setup receipt therefore states `account_context: not_verified`
-and `instruction_policy: not_implemented` rather than implying role testing is ready.
+Automatic role-based instruction selection is outside this setup work. Ross can
+customize system prompts for experiments; ordinary updates preserve local
+configuration. The receipt currently states `account_context: not_verified` and
+`instruction_policy: not_implemented`: live context verification remains open,
+but a new instruction policy is not a setup prerequisite.
 
 ## Readiness and Handoff
 
@@ -120,10 +156,10 @@ Receipts distinguish source update, preflight, preparation, and failure. They do
 not mark an environment ready merely because its containers run. Before handing
 the environment to a tester, verify each advertised provider, model response,
 test-user login, patient chart, visible chat, citations, and conversation reload.
-Also verify that the actual authenticated role and session location reach the
-provider, the intended role instructions are applied, and switching users cannot
-reuse another role's answer or instructions. Account setup does not replace any
-OpenMRS permission or patient-access check.
+Also verify that authenticated roles and session location reach the provider as
+metadata. Do not claim role-guided answers from that alone. Account setup does
+not replace any OpenMRS permission or patient-access check, and it does not add
+an active-role picker or choose the tester's instructions.
 An honest model abstention is an evaluation result; a request that never finishes
 is not a ready environment. Browser checks and repeat-update/reset proofs remain
 open in the [implementation plan](../specs/artifacts/planning/harness-environment-setup.md).

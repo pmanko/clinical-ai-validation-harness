@@ -39,6 +39,7 @@ def test_evaluation_preparation_includes_required_accounts_without_settings_or_r
     assert report["readiness"] == "not_checked"
     assert report["account_context"] == "not_verified"
     assert report["instruction_policy"] == "not_implemented"
+    assert not any("role-to-instruction" in check for check in report["next_checks"])
 
 
 def test_check_stops_before_mutation(tmp_path, actions):
