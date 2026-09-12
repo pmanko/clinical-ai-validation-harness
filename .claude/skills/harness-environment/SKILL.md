@@ -10,6 +10,11 @@ Read [the operator workflow](../../../docs/environment-setup.md) and the
 The workflow is still in implementation: do not describe preparation as complete
 model/login/browser readiness or promise an unverified first install.
 
+For an explicitly requested preview test, follow the guide's **Test This Preview**
+section using the published feature branch and its exact submodule pins. Skip the
+main-only updater in step 2; retain every data-preservation and verification rule.
+The recipient's live test does not require prior deployment on the author's machine.
+
 1. Establish the actual repository root, branch, local changes, host platform,
    and which checkout owns the existing stack. Use Python 3.11 or later. Preserve
    data unless the user explicitly requests a baseline reset; an unavailable

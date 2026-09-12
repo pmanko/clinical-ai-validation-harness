@@ -25,6 +25,11 @@ experiments; setup must preserve that local configuration.
 
 ## Keep setup small
 
+- The September 11 handoff clarification permits a published preview branch and
+  privately supplied verified baseline for Ross or another contributor to test.
+  The author's local deployment and merged-main release acceptance are not
+  prerequisites for this test handoff. Keep them distinct: the recipient records
+  live evidence; normal shared-main delivery and full acceptance remain open.
 - Keep one normal contributor workflow: update the parent, then run its setup
   command. Existing component scripts own builds, startup, configuration, and
   model serving; do not add a parallel installer or service manager.
@@ -215,6 +220,26 @@ and support a reviewed shared download location, without assuming a Ross-specifi
 Drive folder. No live reset is authorized by implementation of this workflow.
 
 ## Implementation order and progress
+
+### Preview handoff evidence, September 11
+
+The contributor guide now has an explicit published-branch test handoff and a
+Claude request. The skill skips its main-only updater for this requested preview;
+it retains data preservation and verification. The privately shareable baseline
+ZIP contains exactly the canonical SQL archive and its provenance, with both
+archive integrity and extracted SQL identity verified. Its SHA-256 is
+`25382e8bfeb2d5b1263f3fb1c6459ce3aadba966aed722979166cca611572c48`.
+
+Fresh checks: 242 focused parent tests, seven embedding-initializer tests in an
+offline Linux container, and 49 account-context/provider/persistence Java tests
+passed. Skill validation and local documentation links passed. The unrestricted
+Java rerun resolved the restricted attempt's local socket/log-directory failures.
+The broader parent test run is **not green**: 1,494 passed, 105 failed, 45 skipped,
+and four deselected. Failure output identifies 84 permission restrictions, nine
+missing Catalyst checkout cases, 11 missing Playwright browser cases, and one
+old-system-Bash incompatibility. This is not full CI or release acceptance.
+Ross's live setup and browser testing remain to be recorded; they do not block
+providing this clearly labeled preview handoff. No local application was restarted.
 
 - [x] Inspect actual scripts, current main, corpus verifier, and role boundary.
 - [x] Implement source-update helper and real Git fixture tests (CLI receipt still needs coverage).

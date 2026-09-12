@@ -12,6 +12,55 @@ environment. Its baseline includes the planned role accounts, not a separate
 optional study installation. Existing provider choices, patient data, chats, and local results
 are preserved during ordinary updates.
 
+## Test This Preview
+
+Contributors can test this implementation before it is merged. Use the published
+[`codex/ross-evaluation-setup` branch](https://github.com/pmanko/clinical-ai-validation-harness/tree/codex/ross-evaluation-setup),
+including its exact submodule pins. This is a test handoff, not a verified release.
+It does not depend on testing or restarting somebody else's development instance.
+
+On a machine without an existing harness checkout, clone it into a persistent
+working directory, not a temporary folder:
+
+```bash
+git clone --branch codex/ross-evaluation-setup --recurse-submodules https://github.com/pmanko/clinical-ai-validation-harness.git
+cd clinical-ai-validation-harness
+```
+
+If an existing checkout owns the local environment, use that checkout and retain
+its data and private configuration. Inspect local changes before switching to the
+preview; never discard work or start a competing stack. Do **not** run the
+main-only source updater on this preview branch. The normal update instructions
+below apply after this work is merged.
+
+Give Claude this request in the checkout:
+
+> Test the ChartSearchAI environment setup on this published preview branch.
+> Read AGENTS.md, docs/environment-setup.md, and the harness-environment skill.
+> Use the existing setup commands. Preserve any existing data, accounts, and
+> prompt/provider settings; do not reset. For a genuinely new installation,
+> initialize using the supplied verified demo baseline and acquire the pinned
+> E4B model. Check prerequisites first and ask before installing missing host
+> tools. Verify all seven account logins and patient/chart access, then test a
+> completed answer and conversation reload with both enabled providers. Record
+> the exact revisions, provider/model, results, and any failure in the setup
+> receipt. A weak model answer is a test result, not permission to change the
+> setup or reset data. Do not merge branches or publish results.
+
+For a first install, supply `refapp_28_demo.sql.gz` and its adjacent
+`refapp_28_demo.sql.gz.provenance.json` together. The handoff ZIP contains only
+these two files, not anybody's private configuration or generated account
+passwords. Extract it outside the checkout and use its SQL file as
+`--baseline-source` in [first install](#first-install-or-requested-reset).
+The expected SQL archive checksum is
+`f76619b40b45f0261467ceaeb2708b97795d115d99a7b2c2a7c73b38d9a8512a`.
+Share this research-data package privately; do not upload it to a public code PR.
+
+Return the setup receipt, which provider was tested, and any failing step or
+screenshot. Keep passwords and patient record text out of shared reports.
+Automated setup and account-context tests pass, but first-install and browser
+behavior are what this handoff asks the recipient to test, not preverified claims.
+
 ## Quick Reference
 
 Use one persistent local checkout to run the environment. These are shared
@@ -35,8 +84,9 @@ accounts on production data, or reset because a model is slow or unavailable.
 
 ## Prerequisites
 
-Use a persistent checkout with Python 3.11+, Git, Bash, Make, curl, and a running
-local Docker engine with Compose. Source builds additionally need the Java/Maven
+Use a persistent checkout with Python 3.11+, Git, Bash, Make, curl, rsync, and a running
+local Docker engine with Compose. Local model serving also needs `llama-server`
+available on the command path. Source builds additionally need the Java/Maven
 and Node/Yarn versions required by the pinned submodules; the existing builder
 checks their availability. macOS and Linux are the intended execution paths.
 Windows users should use a Linux WSL2 shell with Docker integration; this has not
