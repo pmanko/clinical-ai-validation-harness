@@ -32,11 +32,12 @@ stop path and no recurring warmup loop.
 
 The initial implementation reused the normal question-request transport and its
 existing deadline, so the server stopped the full-schema warmup before it could
-produce a receipt. Hub #29 and Catalyst #118 correct that concrete failure with
-an internal lifecycle warm route: it runs until the prefix completes or the
-lifecycle caller disconnects. Normal question preparation keeps its existing
-Stop path. The next harness pin must carry both merged revisions before local or
-server warmup evidence is refreshed.
+produce a receipt. Hub #29 and Catalyst #118 established an internal lifecycle
+warm route: it runs until the prefix completes or the lifecycle caller
+disconnects. Hub #30 corrects a remaining client-level deadline in that route.
+Normal question preparation keeps its existing Stop path and configuration. The
+next harness pin must carry all three merged revisions before local or server
+warmup evidence is refreshed.
 
 Then roll out the exact merged compatible revisions to the existing CPU demo
 server and verify the real two-source question path. Record implementation,
