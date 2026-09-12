@@ -17,7 +17,7 @@ export UV_PROJECT_ENVIRONMENT
         cloud-init cloud-sync cloud-down cloud-seed reports-backup \
         cloud-start cloud-stop cloud-ssh cloud-logs cloud-status cloud-destroy \
         catalyst-comparison-run catalyst-comparison-resume catalyst-comparison-finish \
-        catalyst-mvp-up catalyst-mvp-external catalyst-mvp-seed catalyst-mvp-health catalyst-mvp-restart catalyst-mvp-down catalyst-mvp-reset catalyst-superset-status catalyst-superset-import
+        catalyst-mvp-up catalyst-mvp-external catalyst-mvp-seed catalyst-mvp-warm catalyst-mvp-health catalyst-mvp-restart catalyst-mvp-down catalyst-mvp-reset catalyst-superset-status catalyst-superset-import
 
 # --- compose lifecycle ---
 up:
@@ -68,6 +68,9 @@ catalyst-mvp-external:
 
 catalyst-mvp-seed:
 	./scripts/catalyst-mvp.sh seed
+
+catalyst-mvp-warm:
+	./scripts/catalyst-mvp.sh warm
 
 catalyst-mvp-health:
 	./scripts/catalyst-mvp.sh health

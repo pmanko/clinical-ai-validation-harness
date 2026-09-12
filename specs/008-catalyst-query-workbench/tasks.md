@@ -179,16 +179,16 @@ outside Git.
 - [ ] Implement a finite warmup through the existing lifecycle wrapper using
   “What information is available in this data source?” with each configured
   source's complete schema and ordinary writer profile. Discard the exchange;
-  create no sessions, previews, saved examples, guidance or executed SQL.
+  create no sessions, previews, saved examples, guidance, generated SQL, or
+  clinical-row retrieval. Use only live schema metadata discovery.
 - [ ] Verify with a different real question on each local source that common
   instructions/schema are reused and the warmup question/answer are absent from
   its request. Check switching sources, cache misses, failures and explicit Stop.
   Record actual cache observations; model-loaded health alone is insufficient.
-- [ ] Merge the tested changes and pin the exact compatible revisions. The
-  automatic application-cutoff removal is in
-  [Catalyst #111](https://github.com/DIGI-UW/catalyst-ai/pull/111); the warmup
-  implementation is in [Catalyst #112](https://github.com/DIGI-UW/catalyst-ai/pull/112)
-  and is not deployed.
+- [X] Merge the tested changes and pin the exact compatible Catalyst revision.
+  [Catalyst #111](https://github.com/DIGI-UW/catalyst-ai/pull/111) merged as
+  `c0a1b431`; [Catalyst #112](https://github.com/DIGI-UW/catalyst-ai/pull/112)
+  merged as `18bd9ef2`. The harness pins #112; it is not deployed yet.
 - [ ] Deploy through the lifecycle wrapper to the existing CPU server, preserve
   retained data, and verify preparation and execution against both sources.
 - [ ] Present the observed workflow and remaining limitations for owner review.
