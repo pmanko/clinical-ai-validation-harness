@@ -155,12 +155,30 @@ wait_for_catalog() {
   return 1
 }
 
+model_is_loaded() {
+  curl -fsS --max-time 5 "${ROUTER_URL}/models" \
+      | WARM_MODEL="$1" python3 -c '
+import json, os, sys
+models = json.load(sys.stdin).get("data") or []
+wanted = os.environ["WARM_MODEL"]
+raise SystemExit(0 if any(
+    str(item.get("id")) == wanted
+    and (item.get("status") or {}).get("value") == "loaded"
+    for item in models if isinstance(item, dict)
+) else 1)
+'
+}
+
 warm_model() {
   local alias="$1" response attempt
   model_record "${alias}" >/dev/null || {
     echo "ERROR: unsupported Catalyst router model: ${alias}" >&2
     return 2
   }
+  if model_is_loaded "${alias}"; then
+    echo "warm model already loaded: ${alias}"
+    return 0
+  fi
   response="$(curl -fsS --max-time 10 \
     -H 'Content-Type: application/json' \
     -d "{\"model\":\"${alias}\"}" \
@@ -174,17 +192,7 @@ if payload.get("success") is not True:
     raise SystemExit(f"router rejected model load: {payload}")
 PY
   for attempt in $(seq 1 "${READY_TIMEOUT_SECONDS}"); do
-    if curl -fsS --max-time 5 "${ROUTER_URL}/models" \
-      | WARM_MODEL="${alias}" python3 -c '
-import json, os, sys
-models = json.load(sys.stdin).get("data") or []
-wanted = os.environ["WARM_MODEL"]
-raise SystemExit(0 if any(
-    str(item.get("id")) == wanted
-    and (item.get("status") or {}).get("value") == "loaded"
-    for item in models if isinstance(item, dict)
-) else 1)
-'; then
+    if model_is_loaded "${alias}"; then
       echo "warm model loaded: ${alias}"
       return 0
     fi

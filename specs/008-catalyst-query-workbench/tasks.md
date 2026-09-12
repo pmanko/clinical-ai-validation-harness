@@ -45,6 +45,27 @@ complete projections now repair declared output names; unnamed expressions or
 a different projection count may still request SQL repair. This does not rewrite
 user-selected SQL. The repaired engine tests pass together.
 
+The `a6980ce` release is running locally and on the demo server; both wrapper
+health checks and the public two-source discovery endpoint passed. The server
+uses the maintained router with one resident model and its original 12B default;
+the legacy router is stopped and retained for rollback. Full server workflow and
+latency acceptance remain open.
+
+The exact-release local OpenMRS take was rejected: a direct join to `patient_flat`
+doubled all six monthly totals, including January 200 to 400. That source view
+expands names and identifiers, so patient ID is not unique. The recording checks
+are unchanged. Hub #28 adds writer/reviewer guidance to preserve fact grain,
+retain unmatched facts when missing categories are requested, and avoid arbitrary
+conflict resolution. Its 71 focused tests and CI pass; this release follow-up pins
+the merged repair. Successful live regeneration and final publication remain open.
+
+Server rollout found that the pinned router rejects `POST /models/load` for an
+already-running model. The warm/smoke wrapper now checks actual loaded state
+first and succeeds without another load request. The regression reproduced the
+HTTP 400 before the fix; five router tests cover already-loaded and cold-load
+paths. Candidate E4B inference returned a real response; this smoke alone does
+not establish query quality or acceptable interactive latency.
+
 ## Authoritative roadmap
 
 - [X] Record the approved delivery sequence, acceptance gates, deployment
