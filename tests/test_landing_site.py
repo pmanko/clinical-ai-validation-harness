@@ -123,6 +123,19 @@ def test_catalyst_copy_identifies_local_recordings_and_actual_model_roles():
         assert obsolete not in html
 
 
+def test_catalyst_recordings_link_to_the_matching_youtube_uploads():
+    html, page = parsed_landing()
+
+    assert "https://youtu.be/PRs3jAzQk38" in page.links
+    assert "https://youtu.be/7p83cGMhOzw" in page.links
+    assert html.index("catalyst-openelis-local-reviewed-light-20260911-abaf54f.mp4") < html.index(
+        "https://youtu.be/PRs3jAzQk38"
+    )
+    assert html.index("catalyst-openmrs-cd4-monitoring-local-reviewed-light-20260911-6fa6917.mp4") < html.index(
+        "https://youtu.be/7p83cGMhOzw"
+    )
+
+
 MEDIA_HOST = "https://catalyst.openelis-global.org/media/"
 
 
@@ -136,7 +149,7 @@ def test_every_local_media_reference_exists_and_has_accessible_context():
     catalyst_sources = [src for src in page.sources if "catalyst-" in src]
     assert len(catalyst_sources) == 2
     assert any("openelis-local-" in src for src in catalyst_sources)
-    assert any("openmrs-hiv-local-" in src for src in catalyst_sources)
+    assert any("openmrs-cd4-monitoring-local-" in src for src in catalyst_sources)
     assert all("20260827" not in src for src in catalyst_sources)
     assert len(page.images) >= 3
     assert "1:45 · silent recording at 2× speed" in html
@@ -218,6 +231,13 @@ def test_stable_publish_entrypoint_verifies_the_live_page():
     assert 'if [ -n "${CONFIG_CHANGES}" ]' in publish
     assert "proxy config unchanged; no service restart needed" in publish
     assert "docker compose -f compose/openmrs-2.8-refapp.yml up -d --no-deps --force-recreate proxy" in publish
+    assert 'PUBLISH_MODE="${1:-full}"' in publish
+    assert '"${PUBLISH_MODE}" != "--landing-only"' in publish
+    assert 'if [ "${PUBLISH_MODE}" = "--landing-only" ]; then' in publish
+    assert "landing-only mode; proxy configuration and services unchanged" in publish
+    assert 'if [ "${PUBLISH_MODE}" = "full" ] && [ ! -f "${ROOT}/.env.chartsearch.cloud" ]; then' in publish
+    assert 'SITE="${CADDY_SITE:-openclinai.org}"' in publish
+    assert "grep -oE 'https://youtu.be/[A-Za-z0-9_-]+'" in publish
     assert "backend" not in publish
     assert "gateway" not in publish
     assert "frontend" not in publish

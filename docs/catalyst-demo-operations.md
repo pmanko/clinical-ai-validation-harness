@@ -17,13 +17,41 @@ it for **every** lifecycle or Superset import operation. Use the harness wrapper
 the older checkout's Compose files do not describe the current public topology.
 Do not rebuild or restart services during a recording or an import.
 
+## Local development storage
+
+Keep the local runtime checkout under a persistent code directory, never `/tmp`
+or the operating system's temporary directory. The wrapper refuses startup,
+seeding, and imports from temporary checkouts. Review/build checkouts may still
+be temporary. Run lifecycle and import commands from the checkout that owns the
+environment, with the same Compose project name on every invocation.
+
+For a new local environment, put this setting in `targets/catalyst/.env` before
+the first `up`:
+
+```bash
+CATALYST_OPENELIS_DATABASE_STORAGE=openelis-data
+```
+
+This selects the project-scoped Docker volume for the OpenELIS and HAPI database.
+Existing deployments retain their original database bind mount by default.
+**Do not change storage on a populated installation without a stopped-database
+backup and explicit migration.** Selecting an empty volume does not migrate data.
+The current local recovery explicitly rebuilds the approved synthetic fixture.
+
+Gateway state, the analytics warehouse, and Superset metadata already use named
+volumes. Publication bundles and receipts remain under the persistent checkout's
+`targets/catalyst/runtime/superset/`; preserve that directory when relocating it.
+`restart` and `down` retain data; `reset` and Docker volume pruning are destructive.
+Seed only for an explicitly requested fixture rebuild, never as a startup repair.
+
 ## What runs here
 
 | Group | Role |
 | --- | --- |
 | `catalyst-mvp-isolated-*` | Current Catalyst UI, Gateway, Hub, Spark, OpenELIS, FHIR, Data Pipes and Superset services, with retained datasets |
 | `catalyst-demo-caddy-1` | Shared HTTPS entry point and immutable demo media |
-| `catalyst-demo-model-router-1` | Shared model inference service |
+| `catalyst-router-model-router-1` | Current shared CPU model inference service |
+| `catalyst-demo-model-router-1` | Stopped legacy router retained for rollback |
 | Older `catalyst-demo-*` UI, Gateway, Hub and analytics database | Previous application retained for rollback pending final release proof |
 | `csim-*` | Separate Superset investigation and preview stacks; not owned by Catalyst release cleanup |
 
@@ -36,6 +64,114 @@ The proxy and shared model service have explicit Docker network connections to
 the isolated stack. Those connections survive container restart but must be
 restored if either container is recreated. Inspect the live network and Caddy
 configuration before changing them; the proxy serves other applications too.
+
+## Shared model router
+
+Catalyst intentionally consumes an external model router. The harness owns the
+containerized server lifecycle so a clean Catalyst deployment does not depend on
+a router left behind by an older Compose file. Configure the current demo host in
+`/home/ubuntu/catalyst-release-config/env.sh`:
+
+```bash
+export CATALYST_ROUTER_MODEL_DIR=/home/ubuntu/catalyst-demo/models
+export CATALYST_ROUTER_PUBLIC_NETWORK=catalyst-demo_default
+export CATALYST_ROUTER_APPLICATION_NETWORK=catalyst-mvp-isolated-network
+export CATALYST_ROUTER_MODELS_MAX=1
+export CATALYST_ROUTER_WARM_MODEL=gemma-e4b
+export CATALYST_ROUTER_NETWORK_ALIAS=model-router
+export MVP_PROFILE_ID=catalyst-query-gemma-4-e4b
+```
+
+`CATALYST_ROUTER_MODELS_MAX` is a deployment capacity setting. One is appropriate
+for this 30 GiB CPU host. The base deployment targets low-resource CPU inference.
+The E4B writer is the owner-selected default; the existing 12B alternative remains
+selectable. Increasing residency requires measured memory and concurrency evidence.
+
+Model warmup loads the weights; it does not prime either source schema. The
+`warm` lifecycle action additionally sends the neutral question “What
+information is available in this data source?” through each source's ordinary
+writer request and discards the answers. It does not seed, reset, run generated
+or user-visible queries, retrieve clinical rows, or create user work. It makes
+only the metadata calls necessary to discover each live schema.
+Follow it with a different real question on each source to inspect actual schema
+reuse. Record observed timings as diagnostic evidence; no response-time or
+cancellation threshold defines acceptance.
+
+Fetch and verify only the model that is missing, then verify the complete set:
+
+```bash
+scripts/catalyst-model-router.sh fetch gemma-e4b
+scripts/catalyst-model-router.sh verify
+```
+
+The default network alias is `model-router-candidate`, so a candidate can start,
+warm, and receive direct router smoke requests without taking traffic from the
+existing Hubs:
+
+```bash
+scripts/catalyst-model-router.sh config
+scripts/catalyst-model-router.sh up
+scripts/catalyst-model-router.sh health
+scripts/catalyst-model-router.sh smoke
+```
+
+For cutover, first confirm there is no active Catalyst generation. Stop the old
+router without removing it, set `CATALYST_ROUTER_NETWORK_ALIAS=model-router`, and
+run `up` again. Both Hubs already use `http://model-router:8077`. Prove the
+selected profile through each Hub and both Catalyst sources before removing the
+stopped legacy container. If validation fails, restore the legacy router rather
+than changing a profile or falling back silently.
+
+## Cancellation repair image
+
+The pinned upstream router can leave a non-streaming model request running after
+its caller disconnects. The small patch in `patches/catalyst-router-cancellation.patch`
+closes that downstream HTTP request and keeps unrelated queue results from
+extending the disconnect-check deadline. The CPU preset bounds prompt batches
+at 128 tokens so a long evaluation does not postpone that check indefinitely.
+This does not change the model, selected SQL, or application timeout.
+
+Build on a local machine for the destination architecture:
+
+```bash
+scripts/build-catalyst-model-router.sh
+```
+
+The default is `linux/arm64`, matching the demo host; override
+`CATALYST_ROUTER_BUILD_PLATFORM` for another host. The builder fetches an exact
+upstream commit, applies the checked-in patch, and uses its CPU Dockerfile.
+`artifacts/catalyst-router-build/build.json` records the resulting immutable image
+ID, upstream revision and patch checksum. Build source and outputs stay outside Git.
+
+Set `CATALYST_ROUTER_IMAGE` to that verified image ID for the isolated candidate.
+The wrapper rejects mutable image tags. An unset override retains the original
+upstream image for rollback; it does **not** enable the cancellation repair.
+After loading/warming the candidate, run both nonclinical checks while it is idle:
+
+```bash
+python3 scripts/probe-catalyst-router-cancellation.py \
+  --url http://127.0.0.1:8077 --model gemma-e4b --phase generation \
+  --output artifacts/cancel-generation.json
+python3 scripts/probe-catalyst-router-cancellation.py \
+  --url http://127.0.0.1:8077 --model gemma-e4b --phase prefill \
+  --output artifacts/cancel-prefill.json
+scripts/catalyst-model-router.sh smoke gemma-e4b
+```
+
+Each probe observes the requested active phase, disconnects, then requires idle
+within five seconds, including the time spent waiting for status responses.
+A late idle response fails. Run these against the candidate, never during another
+person's generation. Local timings do not certify server cancellation or latency.
+
+For the existing SSH deployment, transfer a `docker save` archive of the tested
+image and the build receipt. Verify the archive checksum before `docker load`,
+then verify the loaded image's architecture and patch label against the receipt.
+Docker engines can represent the image index differently: select the loaded
+immutable image ID, not a transport tag. Save the prior environment/image ID
+before setting `CATALYST_ROUTER_IMAGE` and using the router cutover procedure
+above. Re-run cancellation, ordinary generation and both-source application
+checks on the server. Restore the prior image and environment if they fail.
+Keep receipts private; changing the router requires no database reset or reseed.
 
 ## ARM compatibility
 
@@ -70,8 +206,9 @@ The server override retains the previous CPU demo budgets: set
 `LLM_REQUEST_TIMEOUT_SECONDS: "1800"` on `med-agent-hub`. The isolated stack's
 360-second Gateway default caused a verified OpenMRS preparation failure on
 11 September UTC, before SQL execution. Model processing in the same time window
-exceeded nine minutes. Restoring the previous budget prevents that premature
-cutoff but does not make inference faster or guarantee successful generation.
+exceeded nine minutes. These older per-call budgets do not override the current
+120-second total preparation deadline, which includes queueing and repair.
+Increasing them does not make inference faster or establish successful generation.
 
 Check for active preparations before applying lifecycle changes. The wrapper's
 `up` rebuilds services and can recreate otherwise unchanged application containers;
@@ -84,9 +221,11 @@ The root volume is now 100 GiB. The expansion and targeted Docker cache pruning
 preserved all application volumes. Check `df -h /` and `docker system df` before
 cleaning; do not prune volumes or remove other stacks as part of cache cleanup.
 
-Release evidence lives under `/home/ubuntu/catalyst-release-evidence/`, outside
-Git. Keep raw footage, traces, exact revisions, configuration and import receipts
-together. Current acceptance is tracked only in
+All recording, editing, and video verification run locally with local inference.
+Keep raw footage and review receipts privately alongside the local recordings,
+outside Git. Server deployment and query-check receipts may live under
+`/home/ubuntu/catalyst-release-evidence/`; the server is not the recorder.
+Current acceptance is tracked only in
 [Feature 008 tasks](../specs/008-catalyst-query-workbench/tasks.md).
 
 Final videos and posters go into

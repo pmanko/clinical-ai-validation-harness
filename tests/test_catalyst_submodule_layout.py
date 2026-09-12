@@ -113,8 +113,10 @@ def test_harness_runner_defaults_to_a_tracked_isolated_compose_override() -> Non
     assert "MVP_FAKE_" not in runner
     assert "MVP_EXPECTED_ROLE_MODELS_JSON" not in runner
     assert "catalyst-query-gemma-4-12b" not in runner
-    assert "restart  Stop then start services while retaining all named volumes" in runner
+    assert "restart  Stop then start services, health-check, and warm sources while retaining all named volumes" in runner
     assert "restart)" in runner
+    assert "warm     Prime each configured source's schema prefix without seeding" in runner
+    assert "warm) run_catalyst mvp-warm.sh" in runner
     assert "superset-status  Show the published-bundle import state" in runner
     assert "superset-import) run_catalyst mvp-superset.sh import" in runner
     assert "MVP_FAKE_BACKEND" not in runner
@@ -159,6 +161,9 @@ def test_harness_exposes_the_isolated_superset_operator_commands() -> None:
     assert "catalyst-superset-import" in phony_declarations
     assert "catalyst-superset-import:" in makefile
     assert "./scripts/catalyst-mvp.sh superset-import" in makefile
+    assert "catalyst-mvp-warm" in phony_declarations
+    assert "catalyst-mvp-warm:" in makefile
+    assert "./scripts/catalyst-mvp.sh warm" in makefile
 
 
 def test_catalyst_owns_and_ignores_superset_runtime_state() -> None:
@@ -199,6 +204,9 @@ def test_harness_restart_retains_volumes_and_clean_target_guard_remains_active()
     restart_case = runner[runner.index("  restart)") : runner.index("  down)")]
     assert "run_catalyst mvp-down.sh" in restart_case
     assert "run_catalyst mvp-up.sh" in restart_case
+    assert "run_catalyst mvp-health.sh" in restart_case
+    assert "run_catalyst mvp-warm.sh" in restart_case
+    assert restart_case.index("mvp-health.sh") < restart_case.index("mvp-warm.sh")
     assert "mvp-seed.sh" not in restart_case
     assert "mvp-reset.sh" not in restart_case
     assert "down --volumes" not in down
@@ -215,6 +223,20 @@ def test_harness_restart_retains_volumes_and_clean_target_guard_remains_active()
         )
         == ""
     )
+
+
+def test_harness_warmup_is_explicit_and_does_not_seed() -> None:
+    runner = (ROOT / "scripts/catalyst-mvp.sh").read_text(encoding="utf-8")
+
+    warm_case = runner[runner.index("  warm)") : runner.index("  health)")]
+    assert "run_catalyst mvp-warm.sh" in warm_case
+    assert "mvp-seed.sh" not in warm_case
+    assert "mvp-reset.sh" not in warm_case
+
+    boot_case = runner[runner.index("  boot)") : runner.index("  restart)")]
+    assert boot_case.index("mvp-up.sh") < boot_case.index("mvp-seed.sh")
+    assert boot_case.index("mvp-seed.sh") < boot_case.index("mvp-health.sh")
+    assert boot_case.index("mvp-health.sh") < boot_case.index("mvp-warm.sh")
 
 
 def test_superset_runtime_identity_is_explicit_in_the_pinned_target() -> None:

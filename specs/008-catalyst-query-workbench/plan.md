@@ -2,13 +2,49 @@
 
 **Status:** Current delivery roadmap. The roadmap and compatible baseline are
 merged, and the specification set is consolidated. All four usability iterations
-are merged and the first local dual-source walkthrough passed. On 10 September
+are merged and the complete local dual-source walkthroughs passed. On 10 September
 2026 the owner authorized continuing into saved-work and Dashboard functionality,
 with subsequent feedback bringing typography and composer style alignment into
-the saved-query iteration. Final local/server evidence
-and final owner acceptance remain open.
+the saved-query iteration. The replacement light-mode videos are published.
+The exact merged server release is healthy, but its first full evidence run
+failed during a slow follow-up generation and exposed missing downstream
+cancellation. Final full server evidence and owner acceptance
+remain open. Responsiveness and URL-addressable sessions are the next product
+checkpoint after the current release is stabilized and accepted.
 
 **Specification:** [spec.md](spec.md)
+
+## Immediate next step — neutral-question warmup
+
+The owner selected this as the next step: ask **“What information is available
+in this data source?”** through the configured source's ordinary writer request,
+using its complete readable schema and selected model profile. Discard the
+response. The warmup question and response must never become user conversation
+history, saved examples, guidance, or an executed query.
+
+First validate locally with both retained sources. Follow warmup with a different
+real question and inspect the actual model request and cache evidence: the shared
+instructions and schema may be reused, while the warmup exchange is absent from
+the new request. Check source switching and cache misses as well as success;
+model residency alone does not establish useful schema reuse. Keep this a finite
+deployment operation through the existing lifecycle wrapper, with an explicit
+stop path and no recurring warmup loop.
+
+The initial implementation reused the normal question-request transport and its
+existing deadline, so the server stopped the full-schema warmup before it could
+produce a receipt. Hub #29 and Catalyst #118 established an internal lifecycle
+warm route: it runs until the prefix completes or the lifecycle caller
+disconnects. Hub #30 corrects a remaining client-level deadline in that route.
+Normal question preparation keeps its existing Stop path and configuration. The
+next harness pin must carry all three merged revisions before local or server
+warmup evidence is refreshed.
+
+Then roll out the exact merged compatible revisions to the existing CPU demo
+server and verify the real two-source question path. Record implementation,
+local validation, merge, deployment and owner review separately in [tasks.md](tasks.md).
+The owner direction is low-resource CPU deployment, useful responsiveness,
+warmup that helps real queries, and a working Stop control. Timings are diagnostic
+evidence; no numeric response-time or cancellation target is approved.
 
 ## Next owner checkpoint — deployed release and local verified demos
 
@@ -43,6 +79,11 @@ checkpoint; follow-on A/B/C and model comparison remain separately scheduled.
   reviewing/refining results, reusing saved SQL, creating charts and arranging
   and publishing a Dashboard. Limit FHIR Data Pipes to a brief context segment
   (about 10–15 seconds); retain the detailed ingestion proof in the evidence.
+- Center the public videos on model-created SQL and plain-language refinement.
+  Include at most one brief supplied-broken-SQL repair across the two videos;
+  the model fixes it. Do not deliberately damage a working query on camera.
+  Keep database-error/retry coverage in the regression journey. Before recapture,
+  verify that approvals are visible and automatic formatting preserves authorship.
 - Present the working server link, the two refreshed videos, local proof and
   their local recording environment and any unresolved server findings for
   asynchronous owner review. Update existing public
@@ -50,6 +91,89 @@ checkpoint; follow-on A/B/C and model comparison remain separately scheduled.
 
 Shorter demos remove repeated explanation; they do not accelerate reading or
 shorten the caption/result holds required in step 5 below.
+
+The first exact-release server run on 11 September is preserved as failure
+evidence. Its initial OpenELIS question required three model calls and became
+ready after about 10 minutes; the database query itself took 165 milliseconds.
+The recovered turn evidence records one follow-up Hub invocation lasting
+1,800,003 milliseconds before a writer timeout. Router logs show expensive
+prompt processing, low prefix reuse, and continuing activity, but do not establish
+which later router tasks belong to that invocation. The earlier attribution of
+those tasks to follow-up repairs is withdrawn. Measure queue wait separately from
+active model time; do not repeat the full journey until the incomplete-response
+and cancellation behavior is corrected or deliberately dispositioned.
+
+### Remediate the observed generation failure
+
+The 11 September owner feedback rejects the observed performance. Fix the
+request lifecycle and avoidable model work before another full server journey;
+the model options and session-navigation expansion in step 6 remain separately
+tracked. Increasing timeouts alone is not remediation.
+
+Code inspection at Catalyst `c93a3d6` and Hub `75d0ff0` identifies the actual
+path: the Gateway runs `query_engine` through `LocalHub`, calls Hub's named-role
+`/v1/hub/query-profiles/{profile_id}/roles/{role}/generate` endpoint, and awaits
+each whole response. Neither the Workbench turn route nor that Hub role route
+watches for client disconnect. The separate chat-completions streaming adapter
+does not govern this path; changing `stream: false` in the request builder alone
+cannot fix it. The rendered query payload also places the changing question
+before the complete catalog, defeating reuse of that catalog as a stable prefix.
+
+Deliver these repairs in order, retaining the existing state owners and tests:
+
+1. **Keep preparation active and support Stop.** Remove the automatic interactive
+   deadline. Propagate explicit cancellation and request loss through Gateway,
+   Hub role calls, and the model connection;
+   do not start another repair afterward. Record a terminal turn state, release
+   the session's busy state, and preserve the draft and prior result. Return a
+   structured error when the client is still connected; handle empty or truncated
+   responses without exposing a JSON parser exception as the user message.
+2. **Preserve useful prompt work.** Put stable instructions, target, complete
+   schema, and policy ahead of question, correlation IDs, and revision context.
+   Keep equivalent schema serialization stable and remove only proven duplicate
+   context. Preserve every readable relation/column and required session context.
+   Measure the actual rendered prefix on initial, follow-up, and repair calls,
+   including alternating sources; a same-question cache hit alone is insufficient.
+3. **Correct the avoidable repair cycle.** Replay the initial question's preserved
+   projection and patch failures and repair the
+   prompt/output-contract mismatch. If a correction can be derived unambiguously
+   from the SQL parser, change only that metadata and retain provenance; never
+   guess types, rewrite selected SQL, or bypass ambiguous-patch checks. Count all
+   retries in the request evidence. The failed follow-up records one timed-out
+   invocation and no returned validation findings, not a proven repair loop.
+   Verify useful output, not just earlier
+   failure, on the unchanged count and follow-up scenarios plus varied cases.
+4. **Make a measured capacity decision.** Compare the writer-only E4B candidate
+   from step 6 with the repaired 12B path on both actual sources. Retain the
+   chosen model's identity and explicit reviewer setting. The owner reaffirmed a
+   low-resource, non-GPU baseline. All video recording
+   and verification use local inference. The server should use a measured smaller
+   model with warmup and a lightweight selectable alternative. Distinguish cold,
+   loaded-model, and repeated-query timings on both sources. If CPU execution
+   remains impractical in the observed workflow, report the limitation and remaining CPU-only
+   options; do not substitute GPU capacity. The proposed GPU trial is withdrawn.
+   Neither extra CPU concurrency nor a
+   pre-warm request is assumed to make the current capacity adequate.
+
+The previous numeric targets and total interactive deadline are withdrawn by
+owner direction. Report observed timings, cold and repeated requests, query
+correctness, and contention as evidence. Evaluate whether the actual workflow is
+useful without treating an agent-selected number as a product requirement.
+
+First prove failure handling and explicit cancellation with focused tests, then
+repeat the short real dual-source questions on the intended server hardware.
+Only after that passes, rerun the full saved-work-to-Superset journey. Live stage
+feedback in step 6 improves visibility but does not substitute for these workflow
+and correctness checks.
+
+### Current release integration
+
+The owner-authorized release sequence is roadmap #142; combined Catalyst
+#106–#109 and Hub #25–#27; router #143 with their exact merged revisions;
+local/server deployment; then the distinct light-mode OpenMRS replacement
+walkthrough and publication in #141. Record each stage in [tasks.md](tasks.md).
+Keep #134 and #111 outside this release. Local recordings use the real reviewed
+profile; server model-capacity decisions require the measured checks above.
 
 ## Authority and scope
 
@@ -352,6 +476,86 @@ filenames and update every public video/poster reference together.
 Exit: both local and server deployments have real-path evidence for both
 sources; paced public videos identify the matching revisions; current public
 references and explicit owner acceptance are recorded.
+
+### 6. Improve responsiveness and session navigation
+
+This is the first product checkpoint after the current deployment is stable and
+accepted. It precedes follow-on A/B/C and does not change the one-source-per-session
+rule or the current Dashboard acceptance contract.
+
+Start with one measured baseline for a simple initial question and a follow-up
+against both public data sources. Record time to the first honest status update,
+time to the first model output when available, time to a usable query, prompt and
+output tokens, prompt-prefix reuse, model-call and repair counts, cancellation,
+and CPU/memory use. Separate cold and repeated requests. Do not infer model speed
+from SQL execution time or from a spinner.
+
+Then deliver four small, reviewable iterations:
+
+1. **Fast model option.** Start with a writer-only Gemma E4B candidate served
+   through the existing Hub profile and discovery contracts. The published
+   OpenClinAI [E4B comparison](https://reports.openclinai.org/small-model-answer-paths-2026-07-15/)
+   and [A4B efficiency sweep](https://reports.openclinai.org/method-levers-dev-2026-06-26/)
+   justify this as a candidate size class, but they
+   measure chart answers rather than Catalyst SQL; the fixed Catalyst query set
+   remains the decision evidence. Do not use the existing E4B-plus-Qwen-14B
+   reviewed profile as the fast path because its second large-model call defeats
+   the purpose. Present a short outcome-based label such as **Fast draft** and
+   keep the exact model and profile in Technical details. A missing selected
+   profile fails visibly; there is no silent fallback. Compare the E4B and
+   standard 12B profiles on the same small dual-source query set and publish
+   their measured timing and observed query behavior before choosing a default.
+2. **Useful warm path.** Distinguish model-load warm-up from prompt-prefix reuse.
+   The current llama.cpp process already keeps its model resident and performs
+   startup warm-up; the observed cost is rereading a roughly 10–12-thousand-token
+   follow-up after its reusable prefix was lost. Keep stable instructions and
+   schema first, enable supported prompt caching explicitly, and evaluate the
+   smallest slot/checkpoint or safe priming change that preserves useful prefixes
+   for the active source/profile. Warm-up never runs SQL, fetches result rows, or
+   loops in the background. A cache miss remains correct, and evidence must show
+   whether the change reduces prompt processing rather than only moving the wait.
+3. **Live progress and streaming.** Carry actual Gateway query-engine events and,
+   where supported, Hub named-role progress through to the UI. The Hub's separate
+   chat-completions staged adapter is not Catalyst's current execution path;
+   preserve Catalyst-owned orchestration and extend the existing role contract
+   only as needed. A profile flag or request-builder `stream` flag alone is not
+   an implementation. Verify useful live events on the actual query path.
+   Show plain stages such as
+   **Checking available data**, **Writing the query**, and **Reviewing the query**
+   in a persistent status region. Stream user-facing model content only when it
+   can be separated from the structured query contract; partial JSON or unvalidated
+   SQL is never presented as ready. Disconnect, timeout, explicit cancel, retry,
+   and final failure preserve the draft and stop downstream work. If the current
+   structured output cannot provide useful partial text, retain honest stage
+   progress and record that limitation rather than simulating token progress.
+4. **URL-addressable sessions.** Add a session identifier to the query string.
+   Opening the URL restores that exact session and its bound source; selecting a
+   recent session updates the URL, and browser Back/Forward restores the expected
+   session. Two tabs with different session URLs retain independent drafts,
+   results, and generation status. Different sessions may run or queue according
+   to measured model capacity; the UI states which is happening. A second turn in
+   the same running session retains the existing explicit conflict. Switching or
+   closing a view does not leave unowned model work.
+
+Use the same approved Workbench visual system for the model selector, View
+options, and progress treatment. Keep infrequent choices in one quiet disclosure;
+use labeled radios for two-choice appearance settings rather than another
+dropdown. Long work uses a persistent, accessible status region without fake
+percentages or a warning-style box. Technical model names, attempts, tokens, and
+traces remain available in Advanced mode.
+
+Review the implementation against the primary guidance for
+[llama.cpp server warm-up, prompt caching, slots, and streaming](https://github.com/ggml-org/llama.cpp/blob/master/tools/server/README.md),
+[Carbon disclosures](https://carbondesignsystem.com/patterns/disclosures-pattern/),
+[Carbon dropdowns](https://carbondesignsystem.com/components/dropdown/usage/),
+and [accessible status messages](https://www.w3.org/WAI/WCAG22/Understanding/status-messages.html).
+
+Exit: the public deployment offers a tested fast option and standard option;
+cold/warm and cancellation evidence explains their actual behavior; progress is
+plain, live, and accessible; separate session URLs survive reload and work in two
+tabs; and exact profiles, revisions, and limitations are recorded. Product,
+Hub, and harness changes land in their owning repositories and are pinned only
+after their focused checks pass.
 
 ## Iteration and tracking rules
 

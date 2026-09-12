@@ -22,6 +22,15 @@ Compose file alone; the harness wrapper supplies the isolated ports, sibling
 Hub context, and source-deployment configuration. Seeding and reset are explicit
 operations, not ordinary startup steps.
 
+After the services are ready, `scripts/catalyst-mvp.sh warm` sends the neutral
+question “What information is available in this data source?” through each
+configured source's ordinary writer request. It discards each answer; it does
+not seed, reset, execute generated or user-visible SQL, retrieve clinical rows,
+or create saved work. It makes only the source metadata calls needed to discover
+the live schema. `boot` and `restart` run that finite operation visibly after
+startup. Follow it with a different real question before treating a loaded model
+as useful schema reuse.
+
 ## Expected architecture
 
 ```text

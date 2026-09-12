@@ -20,9 +20,191 @@ conversation work remain separately scheduled.
 - [ ] Record owner acceptance of that checkpoint. Implementation or green checks
   alone do not mark this accepted.
 
-Local development now serves the working Catalyst UI at `localhost:13000`
+Local development now serves the working Catalyst UI at `localhost:13001`
 against the retained local Gateway and both real sources. Local testing does
 not wait for merges. Final release/acceptance revisions remain pinned and merged.
+
+## Current release integration — 11 September 2026
+
+The owner authorized this sequence: roadmap #142, combined Catalyst #106–#109
+and Hub #25–#27, router #143 with exact merged pins, local/server deployment,
+then the OpenMRS replacement recording and publication in #141. This checkpoint
+supersedes earlier unmerged-status notes below. #134 and #111 remain separate.
+
+| Deliverable | Implementation and merge | Validation | Deployment / acceptance |
+| --- | --- | --- | --- |
+| Roadmap #142 | Merged as `6d7a327` | All PR checks passed | Authoritative plan updated |
+| Catalyst #106–#109 | Merged as `f2a46b0`; current pin `1fd4a03` adds the recording-only correction | Combined tree: 364 Gateway tests passed, one existing skip; 294 UI tests; 16 deterministic browser checks, eight live-only skips; type/lint/build passed; final #106 CI passed | Running locally and on the server; full workflow acceptance pending |
+| Hub #25–#28 | Merged; current pin `1ddaa1e51ebb88735808ae9775ec046ba0b3101b` | #25–#27 combined suite: 720 tests passed; #28: 71 focused tests and CI passed | Running locally and on the server; local OpenMRS query-grain check passed |
+| Router #143 and release follow-up #144 | Merged as `a6980ce` and `b6fe09a` | Release CI passed; five router tests and 18 focused router/documentation/repository checks passed | Server router repair deployed at `735ad53`; persistent local source continuity verified; cold-query and full server workflow acceptance remain open |
+| Replacement OpenMRS walkthrough / #141 | Corrected local take 8 passed on runtime `b6fe09a`; recorder fix #110 merged as `1fd4a03` | Full real-model browser test passed: monthly totals preserved, saved SQL reused, two visualizations arranged, repeat publication/import and rendered Superset checked | Merged as `dfee0e2`; both videos and posters published and verified over HTTPS; owner acceptance separate |
+| Hub #29/#30 and Catalyst #118 lifecycle warmup | Merged as `88b48c4`, `d806c90`, and `2f85f1c` | Hub #29: 32 focused role/lifecycle tests; Hub #30: 35 focused tests; Catalyst: 27 focused warmup/query tests; all hosted CI sets passed | This follow-up harness pin, local two-source receipts, server deployment, and real-question evidence remain open |
+
+The combined review reproduced a conflict between #106's metadata-only repair
+and #109's duplicate alias-repair regression. Both tests are retained. Named,
+complete projections now repair declared output names; unnamed expressions or
+a different projection count may still request SQL repair. This does not rewrite
+user-selected SQL. The repaired engine tests pass together.
+
+The initial `b6fe09a` release ran locally and on the demo server; both wrapper
+health checks and the public two-source discovery endpoint passed. The server
+used the maintained router with one resident model and its original 12B default;
+the legacy router is stopped and retained for rollback. Full server workflow and
+latency acceptance remain open.
+
+The first server timing probe used `a6980ce` and the exact question “How many
+patients are there?” for both sources with each writer-only profile. All four
+requests ended with `generation_timeout`: OpenELIS/12B 120.134 s,
+OpenMRS/12B 120.167 s, OpenELIS/E4B 120.202 s, and OpenMRS/E4B
+120.136 s. Router logs show E4B still processing its roughly 11,000-token prompt
+at 271.74 s (9,477 tokens processed), after the caller timed out. Its process
+used about 15 CPU cores. These are failed sequential requests, not valid warm
+latency measurements: abandoned model work interfered with subsequent requests.
+The pinned inference build is llama.cpp `12127def` (`b10015`). Its proxy cleanup
+closes the local pipe without stopping the downstream HTTP client; this is a
+concrete cancellation gap to reproduce independently before a fix. Do not claim
+that releasing the Hub lock proves release of the actual model slot. Keep the
+public default unchanged; no extra hardware or inference subsystem is approved
+by these observations. Raw timing responses and logs remain private review
+artifacts, not checked-in media.
+
+The exact-release local OpenMRS take was rejected: a direct join to `patient_flat`
+doubled all six monthly totals, including January 200 to 400. That source view
+expands names and identifiers, so patient ID is not unique. The recording checks
+are unchanged. Hub #28 adds writer/reviewer guidance to preserve fact grain,
+retain unmatched facts when missing categories are requested, and avoid arbitrary
+conflict resolution. Its 71 focused tests and CI pass; this release follow-up pins
+the merged repair. The next exact-release take passed in 5.9 minutes. The model used a left join
+and distinct observation IDs; all six monthly totals were preserved. The real
+Gemma 12B writer and Qwen 14B reviewer completed both preparations, followed by
+saved-SQL reuse, table/chart arrangement, repeat publication, import and rendered
+Superset verification. This proves the recorded scenario, not all joins. Final
+video review and publication remain open.
+
+The initial passing take was rejected in visual review because its bar chart
+collapsed the month dimension. Catalyst #110 selects the existing recommended
+monthly line chart and asserts month, gender, and count bindings. It changes
+only the recording test; all clinical-total and publication assertions remain.
+Take 6 failed model review and is retained privately as a reliability finding.
+Take 7 exposed a recording-checkout/import-owner mismatch. After restoring the
+runtime's exact pins and separating the recorder checkout, take 8 passed the
+complete real-model browser workflow in 5.6 minutes, including Superset rendering.
+The final edited replacement is 3:06. Full normal-speed local playback review
+passed: light appearance, readable captions, labeled accelerated waits, no manual
+SQL editing, and the monthly line chart beside its matching table. Both final
+MP4s and posters were published under immutable names. PR #141 merged as
+`dfee0e2`; the landing-only publication matches that exact merged source over
+HTTPS (page SHA-256 `3f43dd488ca4050d7aa9edde6f86626174fff534a93f7a3852779fde94f8b74b`).
+OpenMRS SHA-256 starts `6fa6917`; the previously reviewed OpenELIS cut
+starts `abaf54f` and runs 3:04, with one brief supplied-SQL repair. The OpenELIS
+cut predates the current release and is not current-release server evidence.
+Raw footage, traces, and rejected takes remain private.
+
+The owner reaffirmed that all recording and video verification are local.
+Server work is deployment and query validation: a smaller model, warmup, and a
+lightweight selectable alternative. The installed fast candidate is Gemma E4B;
+A4B is a different model. No GPU was provisioned and the GPU proposal is withdrawn.
+The base approach targets low-resource, non-GPU environments. Model loading and
+repeated-query warmup must be measured separately; a loaded model alone does not
+prove acceptable query latency. Success on the existing 16-core server alone is
+not proof of low-resource suitability.
+
+Server rollout found that the pinned router rejects `POST /models/load` for an
+already-running model. The warm/smoke wrapper now checks actual loaded state
+first and succeeds without another load request. The regression reproduced the
+HTTP 400 before the fix; five router tests cover already-loaded and cold-load
+paths. Candidate E4B inference returned a real response; this smoke alone does
+not establish query quality or acceptable interactive latency.
+
+### CPU server and local restoration follow-up
+
+The installed Gemma E4B model was warmed after confirming the shared task was
+inactive, the recording had exited, and the server model slot was idle. All new
+performance probes prepare SQL without retrieving clinical rows and retain only
+operating metadata. The first OpenELIS preparation hit the 120-second deadline;
+router timing showed 373.342 seconds processing 11,278 prompt tokens and 7.103
+seconds generating 102 tokens. The next same-question preparation succeeded in
+50.8 seconds. Its reviewed SQL counted distinct patient IDs; execution through
+Catalyst returned 96 in 924 ms. This establishes a useful warm-query improvement,
+not the proposed 30-second target or general query reliability. The first
+OpenMRS preparation timed out at 120.071 seconds; its repeat succeeded in 33.069
+seconds. Reviewed distinct-patient-count SQL executed through Catalyst and
+returned 5,384 in 193 ms. Both probes finished before the server was updated to
+`dfee0e2` with the owner-selected E4B default and E4B model warmup. The strict
+repository-pin check and full server health gate passed. Differently worded
+questions after switching datasets also timed out at 120 seconds for both
+sources. Model loading and repeated-query caching do not yet establish general
+responsiveness; cold-start and abandoned-work findings remain open.
+
+Local recovery is complete at merged harness `cada140` (PR #145), with the
+same Catalyst and Hub application pins. Runtime ownership is now a persistent
+checkout; OpenELIS/HAPI use a project-scoped Docker volume. The approved fixture
+rebuild restored 96 patients and 1,152 results through the real export and
+analytics pipeline. A full harness restart without seeding passed every health
+gate, with identical patient/result fingerprints before and after. Both Spark
+sources remain readable: OpenELIS 96 patients; OpenMRS 5,384. Recovery receipts
+remain private, outside Git. Server storage was not changed by this recovery.
+
+### Downstream cancellation repair
+
+The unchanged inference build reproduced continued generation after client
+disconnect. Two concrete causes were isolated: proxy cleanup did not stop the
+child HTTP request, and unrelated response-queue notifications repeatedly reset
+its wait timeout. The merged repair fixes both against the exact deployed upstream
+source. The short-prompt measurements below are operating observations, not
+performance or product acceptance criteria.
+
+Local CPU checks exercised cancellation and an ordinary response using the
+cached E4B model. The local file differs from the server-pinned model revision.
+They are diagnostic observations, not server acceptance or a product
+responsiveness target. Image build provenance and raw results remain private,
+outside Git.
+
+- [X] Merge the reviewed CPU image patch, build/selection support, bounded batch
+  preset and cancellation probe: PR #147 merged as `735ad53`. All CI checks
+  passed, along with 17 focused local tests and the real CPU checks above.
+- [X] Deploy the exact verified image through the existing router lifecycle and
+  check cancellation plus ordinary generation on the CPU demo server. Harness
+  `735ad53` runs the tested ARM64 CPU image (ID starts `b06299c`). Cancellation,
+  ordinary inference, and full application health were checked. Small synthetic
+  checks do not establish behavior under a real source schema, so no numeric
+  cancellation target is accepted. Image/archive checksums and rollback
+  configuration are retained privately. The application-level deadline and full
+  workflow remain separate checks below.
+- [ ] Resolve remaining long-running first-query and varied cross-source failures;
+  complete the real saved-work through Superset journey for both sources before
+  closing server acceptance. Videos are already published and remain local work.
+
+## Next checkpoint — neutral-question warmup
+
+- [X] Merge [Harness #155](https://github.com/pmanko/clinical-ai-validation-harness/pull/155),
+  pinning Hub `88b48c4` and Catalyst `2f85f1c`; run the strict repository-line
+  check from `main` before using these revisions locally or on the server.
+- [ ] Merge the follow-up pin for Hub `d806c90`, which removes the remaining
+  client-level deadline only from lifecycle warmup. Do not turn a diagnostic
+  observation into a product timing requirement.
+- [X] Implement a finite warmup through the existing lifecycle wrapper using
+  “What information is available in this data source?” with each configured
+  source's complete schema and ordinary writer profile. Discard the exchange;
+  create no sessions, previews, saved examples, guidance, generated SQL, or
+  clinical-row retrieval. Use only live schema metadata discovery. Catalyst
+  #118 and Hub #29 establish the lifecycle route; Hub #30 also removes its
+  underlying client deadline. Normal question transport and its Stop behavior
+  are unchanged.
+- [ ] Verify with a different real question on each local source that common
+  instructions/schema are reused and the warmup question/answer are absent from
+  its request. Check switching sources, cache misses, failures and explicit Stop.
+  Record actual cache observations; model-loaded health alone is insufficient.
+- [X] Merge the tested changes and pin the exact compatible Catalyst revision.
+  [Catalyst #111](https://github.com/DIGI-UW/catalyst-ai/pull/111) merged as
+  `c0a1b431`; [Catalyst #112](https://github.com/DIGI-UW/catalyst-ai/pull/112)
+  merged as `18bd9ef2`. Hub #29 and Catalyst #118 supersede that deployment
+  pin for warmup; the pending exact pin above records their integration.
+- [ ] Deploy through the lifecycle wrapper to the existing CPU server, preserve
+  retained data, and verify preparation and execution against both sources.
+- [ ] Present the observed workflow and remaining limitations for owner review.
+  No numeric responsiveness or cancellation threshold is approved; timings are
+  diagnostic evidence. Videos remain locally recorded work.
 
 ## Authoritative roadmap
 
@@ -514,9 +696,136 @@ verified HTTPS hashes. The homepage and demo canvas reference those same assets.
 appearance in recording mode while retaining the ordinary dark-theme test path.
 Runtime application revisions are unchanged; the recorder is separately pinned.
 
+On 11 September, the owner asked that the public OpenMRS walkthrough stop
+duplicating the OpenELIS patient-count workflow. The replacement run
+`openmrs-cd4-monitoring-light-local` uses aggregate 2026 CD4 counts by month,
+then a gender breakdown; it displays no patient-level rows. The recorder change
+merged in Catalyst [#105](https://github.com/DIGI-UW/catalyst-ai/pull/105) as
+`c93a3d6`. Its local commit `373cac8` passed the complete real local path
+before capture, then passed again while recording: six initial aggregate rows,
+ten refined aggregate rows, the visible database-error/retry path, saved-query reuse,
+widgets, arrangement, deterministic import and a native Superset table checked
+cell-by-cell against the originating result. Generation evidence records the
+Gemma 4 12B writer and Qwen 2.5 14B reviewer for both question turns. The
+3:08 light-only cut, raw footage, trace, requests, proof, timing plan and exact
+runtime revisions are archived privately under that run. It was watched at 1×;
+its eight-second FHIR Data Pipes introduction is shorter than the prior cut.
+The new immutable [OpenMRS video](https://catalyst.openelis-global.org/media/catalyst-openmrs-cd4-monitoring-local-light-20260911-373cac8.mp4)
+and [poster](https://catalyst.openelis-global.org/media/catalyst-openmrs-cd4-monitoring-local-light-20260911-373cac8-poster.jpg)
+were HTTPS hash-verified before the homepage reference changed. The prior
+OpenMRS asset remains immutable evidence; OpenELIS is unchanged.
+
+The 11 September owner review found misleading “unreviewed” badges and
+formatting-only “human” versions despite recorded reviewer approvals. Public
+recapture must fix both and focus on model-created SQL and plain-language
+refinement. Include only one brief model repair of supplied broken SQL across
+the two videos; retain deliberate engine-error/retry coverage separately.
+
+- [X] Correct review recognition and formatting provenance, with regression tests
+  ([Catalyst #106](https://github.com/DIGI-UW/catalyst-ai/pull/106)); local
+  implementation and CI pass, merge and final footage acceptance remain open.
+- [ ] Recapture both light-mode stories with actual reviewer decisions, one brief
+  supplied-SQL repair, matching Superset results and no staged manual fixes.
+- [ ] Review the new cuts at normal speed and replace public video/poster links.
+
+Recording validation, 11 September: OpenELIS passed the real writer/reviewer,
+saved-work and rendered Superset path. Its 3:04 light cut includes one 26-second
+supplied-query repair and passed normal-speed review. OpenMRS recapture remains
+open: one take multiplied monthly totals; the next failed because generated SQL
+and declared output names disagreed. Both were rejected. The recorder checks
+unchanged totals. Gateway fixes preserve model authorship across formatter-only
+changes and constrain projection-metadata repairs to output names, never SQL
+([Catalyst #106](https://github.com/DIGI-UW/catalyst-ai/pull/106), all five CI
+jobs and 56 focused checks pass). Local redeployment, successful OpenMRS
+recapture and media-host access remain pending. These scenario checks do not
+establish general clinical correctness.
+
+Final server-proof release candidate, 11 September: Catalyst `c93a3d6` combines
+the configurable server generation window from
+[#103](https://github.com/DIGI-UW/catalyst-ai/pull/103), accurate FHIR Data Pipes
+Parquet and Spark warehouse provenance from
+[#104](https://github.com/DIGI-UW/catalyst-ai/pull/104), and the distinct OpenMRS
+CD4 workflow plus complete rendered-row verification from #105. All five
+Catalyst jobs passed on #105 after its companion analytics contract was aligned;
+the focused five-test contract and full 57-test analytics suite also passed
+locally. This harness update pins that exact merged revision. Deployment and the
+full server run remain separate evidence below.
+
 - [X] Deploy exact merged compatible revisions locally and to
   `catalyst.openelis-global.org` using the owning checkout and harness wrapper;
   preserve retained data. Full server importer and journey proof remains below.
+- [X] Preserve the failed 11 September exact-release server run as evidence. The
+  initial OpenELIS question became ready after about 10 minutes and three model
+  calls; its SQL ran in 165 milliseconds. Recovered follow-up evidence records
+  one Hub invocation with `writer_timeout` after 1,800,003 milliseconds. Later
+  router activity is not reliably attributable to that turn; the earlier
+  follow-up-retry attribution is withdrawn. OpenMRS did not run.
+- [ ] Correct or explicitly disposition the incomplete follow-up response and
+  cancellation defect before another full run. A client timeout or explicit
+  cancel must stop the active downstream call and prevent later repair attempts;
+  the typed draft and prior result remain available.
+- [ ] Remove the automatic total generation deadline; retain explicit Stop and
+  request-loss handling on the actual Gateway-to-Hub named-role path.
+  Cancellation releases the busy session, records a terminal outcome, and closes
+  the active model call. Test disconnect and Stop at each boundary, no later
+  repair, preserved draft/result, and useful handling of incomplete responses.
+  The original implementation, including the now-withdrawn deadline, is in
+  [Catalyst #107](https://github.com/DIGI-UW/catalyst-ai/pull/107)
+  (`fa3c38c`) and [Hub #25](https://github.com/pmanko/med-agent-hub/pull/25)
+  (`8942322`), both submitted for review. Local checks: Gateway 357 passed / one
+  existing skip; assembly/contracts 47 passed; Hub 720 passed, including two
+  real loopback HTTP cancellation tests against a blocking fixture endpoint.
+  New route/role interruption tests failed before the fixes. Formatting/lint
+  passed. Gateway mypy retains the same ten findings verified on its clean base.
+  Catalyst also includes **Stop preparing** in both composers, retained text and
+  focus, Retry, and abort on unmount. A writer request for clarification or an
+  unsupported question now produces a neutral next step rather than a red
+  composer error; the question remains in the focused input, while genuine
+  generation failures remain errors. UI suite: 290 passed, followed by 113
+  focused tests after the final notice layout adjustment; four light/dark
+  browser cases prove HTTP disconnect, no duplicate submission, preserved input
+  and the previous rendered result using a real stalled local HTTP fixture.
+  The browser checks caught and verified a cancel-click resubmission defect that
+  component tests missed. Desktop/narrow screenshots were inspected privately;
+  type check, lint and build passed. CI is green on both exact heads. Merge,
+  paired deployment, and live-model/server
+  verification remain pending; these checks do not establish model throughput.
+- [ ] Move the stable complete schema/instructions before changing question and
+  revision context in the rendered prompt. Verify full-schema/context coverage
+  and measure reused prompt work for real follow-ups, repairs, and source changes.
+  [Catalyst #108](https://github.com/DIGI-UW/catalyst-ai/pull/108) (`ecd949f`)
+  contains the prompt-order repair with green CI. Its prefix regression failed
+  before the change; 22 focused tests pass and verify complete schema retention,
+  changed schema, and stable initial-to-follow-up request prefixes. Actual model
+  cache reuse, timings on both sources, merge, and deployment remain pending.
+- [X] Recover the follow-up's stored outcome: one timed-out Hub invocation, no
+  returned model validation findings. Separate queueing from generation before
+  attributing other router tasks to this turn.
+- [ ] Fix the initial question's reproduced projection/ambiguous-patch cycle
+  without weakening its checks. Verify useful
+  count and follow-up results plus varied cases; preserve selected SQL and record
+  any unambiguous parser-derived metadata correction. The retained server
+  evidence identifies the full chain: the first model call returned an
+  unaliased `COUNT(*)` while declaring the output name `count`; deterministic
+  validation reported the projection mismatch; the second model call returned
+  the same valid alias replacement twice; and Catalyst rejected those identical
+  operations as overlapping edits, forcing a third model call. The narrow
+  repairs are [Catalyst #109](https://github.com/DIGI-UW/catalyst-ai/pull/109)
+  (`7b934be`), which collapses only exact duplicate operations while preserving
+  rejection of conflicting edits, and
+  [Hub #26](https://github.com/pmanko/med-agent-hub/pull/26) (`6ea4612`), which
+  requires explicit aliases for aggregate/calculated projections matching
+  `expectedColumns`. The exact engine regression now reaches ready in two model
+  calls instead of three; the conflicting-edit control still fails closed.
+  Complete local checks: Gateway 345 passed / one existing skip with Ruff
+  format and lint; Hub 708 passed, plus the focused 44-test prompt/generic-role
+  check. Merge, paired deployment, varied live questions and real timing remain
+  pending.
+- [ ] Review the proposed timing targets in the plan, then run a short real
+  dual-source server check before repeating the full journey. Record usable-query
+  timings, cancellation, cold/warm behavior, and two-session contention. If the
+  repaired runtime is still too slow, make the measured model/hardware decision
+  described in the plan rather than increasing waits or declaring success.
 - [ ] Prove the full real path for OpenELIS and OpenMRS on both deployments and
   retain revisions, source/model configuration, traces, screenshots, timestamps,
   bundles, receipts, and visible-result evidence under one run identity.
@@ -538,8 +847,93 @@ Runtime application revisions are unchanged; the recorder is separately pinned.
 ## Follow-on milestones after current delivery
 
 These milestones start after current UX/Superset deployment and owner acceptance.
-Their detailed contracts and vendor choices require review when each starts;
-they are not additional completion gates for the current goal.
+Responsiveness and session navigation are first; follow-on A/B/C retain their
+existing order after it. Detailed contracts and vendor choices require review
+when each starts; they are not additional completion gates for the current goal.
+
+### Responsiveness and URL-addressable sessions
+
+- [ ] Record one cold and repeated baseline for a simple initial question and a
+  follow-up on both public sources: first honest status, first model output when
+  available, usable-query time, tokens, prefix reuse, model calls/repairs,
+  cancellation, and CPU/memory use.
+- [ ] Serve and advertise a writer-only Gemma E4B Catalyst query profile alongside
+  the standard 12B profile. Give both plain outcome-based labels, keep exact
+  identities in Technical details, fail visibly when the selected profile is
+  unavailable, and never fall back silently. Do not call the existing
+  E4B-plus-Qwen-14B reviewed profile the fast path. The profile contract is in
+  [Hub #27](https://github.com/pmanko/med-agent-hub/pull/27) (`b284ef4`): one
+  `gemma-e4b` writer, no reviewer, **Faster question preparation** and
+  **Standard question preparation** labels, exact model metadata, and an
+  explicit unavailable reason when the router does not advertise E4B. The
+  regression failed before configuration; 48 focused and 708 full Hub tests
+  pass. Live inspection of both the public and isolated Hubs on 11 September
+  found only `gemma-4-12b-q4` advertised, and the router model directory contains
+  only the 12B artifact. The selected deployment artifact is Unsloth's
+  [`gemma-4-E4B-it-Q4_K_M.gguf`](https://huggingface.co/unsloth/gemma-4-E4B-it-GGUF/blob/eed1c5c07e1d365ec8769e33b396bdfce2f5f0a0/gemma-4-E4B-it-Q4_K_M.gguf)
+  at revision `eed1c5c07e1d365ec8769e33b396bdfce2f5f0a0`, about 5 GB, with
+  SHA-256 `e1bc442709fe780aa4b2ec9b22c16a7fcdff542f17f01ed0e3203114d28f9f34`.
+  It is a quantization of Google's Apache-2.0 Gemma 4 E4B instruction model and
+  matches the filename and quantization previously exercised through the harness.
+  The server had 31 GB of disk free on 11 September, but no matching local file
+  to reuse. Its fixed 12B router used 14.8 GiB of the host's 30.75 GiB RAM while
+  the public and isolated stacks left 6.1 GiB available. Run the comparison
+  serially and configure this host for one resident model, prewarming the
+  selected/default model. Residency remains an operator setting: GPU-backed or
+  higher-memory deployments may retain more models after capacity validation.
+  Changing to a nonresident profile may require a visible cold load; the chooser
+  must report actual state and never silently route to another model. Use measured
+  cold, repeated, memory and concurrency behavior to set residency and warmup for
+  each deployment. Live inspection also found that the shared public router is an
+  orphan from an older Catalyst Compose definition: its Docker labels still name
+  `docker-compose.demo.yml`, while the current file intentionally treats the
+  router as external and no longer declares that service. The server has no host
+  `llama-server` binary. Before a clean deployment, give the external router an
+  explicit harness/deployment lifecycle with a pinned image, verified model files,
+  configurable residency, selected-model warmup, health checks, and stable
+  `model-router` reachability from both Catalyst networks. Remove the orphan only
+  after that replacement passes direct Hub inference. The implementation is
+  reviewable in [harness PR #143](https://github.com/pmanko/clinical-ai-validation-harness/pull/143)
+  at `b1b7c56`; its default one-model cap is deployment-configurable so GPU and
+  higher-memory hosts can use a separately validated capacity. Merge,
+  checksum-verified installation, router replacement, deployment and direct E4B
+  inference remain pending; the new profile does not change the default.
+- [ ] Compare E4B and 12B on the same bounded dual-source Catalyst SQL cases.
+  Record speed and observed query behavior; treat the published OpenClinAI
+  E4B/A4B chart-answer results as candidate evidence rather than SQL proof, and
+  review this direct evidence before changing the public default. The published
+  [35-turn temporal comparison](https://reports.openclinai.org/temporal-ablation-7arm-2026-06-06/)
+  recorded 11,557 ms average / 54,212 ms maximum for E4B and 28,456 ms average /
+  248,720 ms maximum for the 12B baseline. Those chart-answer measurements select
+  a candidate; they do not predict Catalyst's complete-schema SQL workload.
+- [ ] Stabilize the reusable instruction/schema prefix and test the runtime's
+  supported prompt cache using the neutral-question warmup checkpoint above. Prove the
+  model is not merely loading, warm requests reduce prompt-processing work, a
+  cache miss stays correct, and no warm-up executes SQL, reads result rows, or
+  runs as a permanent background loop.
+- [ ] Carry real Gateway query-engine and Hub named-role progress through to a
+  persistent Workbench status region; the separate chat-completions stream is not
+  the current Catalyst path. Use plain stages and expose partial
+  user-facing text only when it is distinct from incomplete structured JSON or
+  unvalidated SQL.
+- [ ] Preserve the draft and prior result through disconnect, timeout, cancel,
+  retry, and final failure. Prove cancellation stops the downstream model call
+  and any later repair attempt.
+- [ ] Replace the current standalone technical selectors/notices with the approved
+  Workbench components: one quiet disclosure for infrequent model/view controls,
+  radio choices where only two options exist, and an accessible long-running
+  status treatment without fake progress or warning styling.
+- [ ] Put the active session identifier in the query string. Direct open, reload,
+  recent-session selection, and Back/Forward restore the exact source-bound
+  session; a conflicting source parameter is normalized to the session source.
+- [ ] Prove two tabs with different session URLs keep independent drafts, results,
+  and generation status. Different sessions run or visibly queue according to
+  measured capacity; same-session concurrent generation remains an explicit
+  conflict, and leaving a view does not create unowned work.
+- [ ] Pass focused Hub/Gateway streaming and cancellation tests, UI state and
+  accessibility tests, session-URL/browser-history tests, matched light/dark and
+  narrow screenshots, and a real dual-source server check. Record revisions,
+  timings, limitations, deployment, and owner acceptance separately.
 
 ### A. Multi-artifact design requests and shared controls
 

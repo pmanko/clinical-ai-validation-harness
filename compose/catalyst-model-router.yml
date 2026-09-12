@@ -1,0 +1,44 @@
+name: ${CATALYST_ROUTER_PROJECT_NAME:-catalyst-router}
+
+services:
+  model-router:
+    image: ${CATALYST_ROUTER_IMAGE:-ghcr.io/ggml-org/llama.cpp@sha256:6bc9134e3278a0ecab23d7ef2f6a46b4595740014fe9bc2f67e8ba7dca8395b4}
+    restart: unless-stopped
+    command:
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8077"
+      - --models-preset
+      - /config/catalyst-model-router.ini
+      - --models-max
+      - "${CATALYST_ROUTER_MODELS_MAX:-1}"
+      - --models-autoload
+      - --warmup
+      - --jinja
+    volumes:
+      - "${CATALYST_ROUTER_MODEL_DIR:?set CATALYST_ROUTER_MODEL_DIR to the verified GGUF directory}:/models:ro"
+      - ../scripts/catalyst-model-router.ini:/config/catalyst-model-router.ini:ro
+    ports:
+      - "127.0.0.1:${CATALYST_ROUTER_PORT:-8077}:8077"
+    expose:
+      - "8077"
+    networks:
+      public:
+        aliases: ["${CATALYST_ROUTER_NETWORK_ALIAS:-model-router-candidate}"]
+      application:
+        aliases: ["${CATALYST_ROUTER_NETWORK_ALIAS:-model-router-candidate}"]
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8077/v1/models"]
+      interval: 10s
+      timeout: 5s
+      retries: 60
+      start_period: 20s
+
+networks:
+  public:
+    external: true
+    name: ${CATALYST_ROUTER_PUBLIC_NETWORK:?set CATALYST_ROUTER_PUBLIC_NETWORK}
+  application:
+    external: true
+    name: ${CATALYST_ROUTER_APPLICATION_NETWORK:?set CATALYST_ROUTER_APPLICATION_NETWORK}

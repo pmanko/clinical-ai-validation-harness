@@ -258,18 +258,19 @@
             controls
             playsinline
             preload="metadata"
-            poster="https://catalyst.openelis-global.org/media/catalyst-openelis-local-light-20260911-d070fe7-poster.jpg"
+            poster="https://catalyst.openelis-global.org/media/catalyst-openelis-local-reviewed-light-20260911-abaf54f-poster.jpg"
             aria-label="Catalyst with OpenELIS laboratory data: a local demonstration with Gemma writing and Qwen verifying, from a question to a rendered Superset dashboard"
           >
-            <source src="https://catalyst.openelis-global.org/media/catalyst-openelis-local-light-20260911-d070fe7.mp4" type="video/mp4" />
+            <source src="https://catalyst.openelis-global.org/media/catalyst-openelis-local-reviewed-light-20260911-abaf54f.mp4" type="video/mp4" />
             Your browser does not support embedded video.
           </video>
           <div class="media-caption">
             <div>
               <strong>OpenELIS laboratory data</strong>
               <span>Explore laboratory patient counts and review the breakdown by gender.</span>
+              <a class="video-external-link" href="https://youtu.be/PRs3jAzQk38" target="_blank" rel="noopener noreferrer">Earlier walkthrough on YouTube <span aria-hidden="true">↗</span></a>
             </div>
-            <span>About 3 min · recorded locally · silent</span>
+            <span>3:04 · recorded locally · silent</span>
           </div>
           <details class="transcript">
             <summary>Transcript (silent recording)</summary>
@@ -279,7 +280,7 @@
               <li>Gemma 4 12B writes the query and Qwen 2.5 14B reviews it. Preparing the draft does not retrieve results: choose Get results to run it.</li>
               <li>Inspect the result and its technical details, then ask for a breakdown by gender, including missing gender.</li>
               <li>Save the successful query and reuse its exact SQL while preserving the unfinished question. Advanced mode keeps technical tools accessible while the walkthrough stays in light appearance.</li>
-              <li>An invalid SQL edit shows the database error. Correct it, run again and save a new version without replacing the original.</li>
+              <li>In one brief repair example, the model fixes supplied broken SQL; run the repaired query and preserve the saved original.</li>
               <li>Create a table and chart, arrange them on a Dashboard and reopen the saved arrangement.</li>
               <li>Publish to Superset, inspect the actual import receipt and compare the rendered table with the originating Catalyst result.</li>
             </ol>
@@ -290,28 +291,29 @@
             controls
             playsinline
             preload="metadata"
-            poster="https://catalyst.openelis-global.org/media/catalyst-openmrs-hiv-local-light-20260911-d070fe7-poster.jpg"
-            aria-label="Catalyst with OpenMRS HIV data: a local demonstration with Gemma writing and Qwen verifying, from a question to a rendered Superset dashboard"
+            poster="https://catalyst.openelis-global.org/media/catalyst-openmrs-cd4-monitoring-local-reviewed-light-20260911-6fa6917-poster.jpg"
+            aria-label="Catalyst with OpenMRS HIV data: a local demonstration of aggregate CD4 monitoring with Gemma writing and Qwen reviewing, from a question to a rendered Superset dashboard"
           >
-            <source src="https://catalyst.openelis-global.org/media/catalyst-openmrs-hiv-local-light-20260911-d070fe7.mp4" type="video/mp4" />
+            <source src="https://catalyst.openelis-global.org/media/catalyst-openmrs-cd4-monitoring-local-reviewed-light-20260911-6fa6917.mp4" type="video/mp4" />
             Your browser does not support embedded video.
           </video>
           <div class="media-caption">
             <div>
               <strong>OpenMRS HIV data</strong>
-              <span>Explore the retained OpenMRS patient dataset and review the breakdown by gender.</span>
+              <span>Explore 2026 CD4 monitoring results by month, then refine the report by gender.</span>
+              <a class="video-external-link" href="https://youtu.be/7p83cGMhOzw" target="_blank" rel="noopener noreferrer">Earlier walkthrough on YouTube <span aria-hidden="true">↗</span></a>
             </div>
-            <span>About 3 min · recorded locally · silent</span>
+            <span>3:06 · recorded locally · silent</span>
           </div>
           <details class="transcript">
             <summary>Transcript (silent recording)</summary>
             <ol>
-              <li>FHIR Data Pipes prepares the source data for Spark SQL; this walkthrough was recorded against the local deployment.</li>
+              <li>FHIR Data Pipes prepares the source for Spark SQL; this walkthrough focuses on questions and saved reports in the local deployment.</li>
               <li>Write a question, expand the writing area and browse the available tables and fields without losing the draft.</li>
               <li>Gemma 4 12B writes the query and Qwen 2.5 14B reviews it. Preparing the draft does not retrieve results: choose Get results to run it.</li>
-              <li>Inspect the result and its technical details, then ask for a breakdown by gender, including missing gender.</li>
+              <li>Inspect monthly CD4 count results and their technical details, then ask for a 2026 breakdown by gender, including missing gender.</li>
               <li>Save the successful query and reuse its exact SQL while preserving the unfinished question. Advanced mode keeps technical tools accessible while the walkthrough stays in light appearance.</li>
-              <li>An invalid SQL edit shows the database error. Correct it, run again and save a new version without replacing the original.</li>
+              <li>Keep the model-created SQL and create a monthly line chart with a separate series for each gender.</li>
               <li>Create a table and chart, arrange them on a Dashboard and reopen the saved arrangement.</li>
               <li>Publish to Superset, inspect the actual import receipt and compare the rendered table with the originating Catalyst result.</li>
             </ol>

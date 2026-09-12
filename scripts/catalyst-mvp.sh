@@ -5,7 +5,7 @@
 # bootstrap dependencies remain disposable checkouts, never nested submodules.
 set -euo pipefail
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 CATALYST_DIR="${ROOT_DIR}/targets/catalyst"
 HUB_DIR="${ROOT_DIR}/targets/med-agent-hub"
 DEFAULT_MVP_COMPOSE_OVERRIDE_FILE="${ROOT_DIR}/compose/catalyst-mvp-isolated.override.yml"
@@ -37,13 +37,14 @@ fi
 
 usage() {
   cat <<'EOF'
-Usage: scripts/catalyst-mvp.sh {up|seed|health|boot|restart|down|reset|superset-status|superset-import}
+Usage: scripts/catalyst-mvp.sh {up|seed|warm|health|boot|restart|down|reset|superset-status|superset-import}
 
   up       Start the Catalyst services against the external model router without changing persisted data.
   seed     Explicitly reload the pinned synthetic OpenELIS fixture and FHIR mart.
+  warm     Prime each configured source's schema prefix without seeding, user-query execution, or clinical-row retrieval.
   health   Run the full MVP health and provenance gate.
-  boot     First-time initialization: run up, seed, and health in sequence.
-  restart  Stop then start services while retaining all named volumes; does not seed.
+  boot     First-time initialization: run up, seed, health, and warm in sequence.
+  restart  Stop then start services, health-check, and warm sources while retaining all named volumes; does not seed.
   down     Stop the disposable MVP services while retaining all named volumes.
   reset    Remove the disposable MVP state and volumes.
   superset-status  Show the published-bundle import state for this isolated stack.
@@ -52,9 +53,21 @@ EOF
 }
 
 command_name="${1:-}"
-if [[ $# -ne 1 ]] || [[ ! "${command_name}" =~ ^(up|seed|health|boot|restart|down|reset|superset-status|superset-import)$ ]]; then
+if [[ $# -ne 1 ]] || [[ ! "${command_name}" =~ ^(up|seed|warm|health|boot|restart|down|reset|superset-status|superset-import)$ ]]; then
   usage >&2
   exit 2
+fi
+
+# Runtime bind mounts must outlive temporary review/build checkouts. Cleanup
+# and inspection remain available so an old temporary stack can be retired.
+if [[ "${command_name}" =~ ^(up|boot|restart|seed|warm|superset-import)$ ]]; then
+  case "${ROOT_DIR}/" in
+    /tmp/*|/private/tmp/*|/var/tmp/*|/private/var/tmp/*|"${TMPDIR:-/tmp/}"*)
+      echo "ERROR: start Catalyst from a persistent checkout, not ${ROOT_DIR}." >&2
+      echo "Keep the dev checkout under your code directory; see docs/catalyst-demo-operations.md." >&2
+      exit 1
+      ;;
+  esac
 fi
 
 require_pinned_clean_target() {
@@ -105,15 +118,19 @@ run_catalyst() {
 case "${command_name}" in
   up) run_catalyst mvp-up.sh ;;
   seed) run_catalyst mvp-seed.sh ;;
+  warm) run_catalyst mvp-warm.sh ;;
   health) run_catalyst mvp-health.sh ;;
   boot)
     run_catalyst mvp-up.sh
     run_catalyst mvp-seed.sh
     run_catalyst mvp-health.sh
+    run_catalyst mvp-warm.sh
     ;;
   restart)
     run_catalyst mvp-down.sh
     run_catalyst mvp-up.sh
+    run_catalyst mvp-health.sh
+    run_catalyst mvp-warm.sh
     ;;
   down) run_catalyst mvp-down.sh ;;
   reset) run_catalyst mvp-reset.sh ;;
