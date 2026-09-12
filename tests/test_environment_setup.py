@@ -1,9 +1,14 @@
 """The parent workflow must not turn startup trouble into a data reset."""
 
+import gzip
+import hashlib
+import json
+
 import pytest
 
 import harness.environment_setup as setup
-from harness.evaluation_setup import SetupError
+from harness.environment_assets import prepare_assets
+from harness.evaluation_setup import SetupError, verify_baseline
 
 
 @pytest.fixture
@@ -14,9 +19,6 @@ def actions(monkeypatch):
     )
     monkeypatch.setattr(setup, "command", lambda root, args: calls.append(args))
     monkeypatch.setattr(
-        setup, "verify_baseline", lambda path: {"output_sha256": "verified"}
-    )
-    monkeypatch.setattr(
         setup,
         "prepare_inference",
         lambda root, client, **kwargs: {"provider_discovery": "checked"},
@@ -24,7 +26,10 @@ def actions(monkeypatch):
     monkeypatch.setattr(
         setup,
         "prepare_assets",
-        lambda root, **kwargs: {"model": {"status": "verified"}},
+        lambda root, **kwargs: {
+            "model": {"status": "verified"},
+            "baseline": {"sha256": "verified"},
+        },
     )
     return calls
 
@@ -88,13 +93,72 @@ def test_initialize_has_to_pass_baseline_verification_before_build(
         setup, "inspect_environment", lambda root: {"deployment": "absent"}
     )
 
-    def invalid(path):
+    def invalid(root, *, model, baseline):
         raise SetupError("corrupt baseline")
 
-    monkeypatch.setattr(setup, "verify_baseline", invalid)
+    monkeypatch.setattr(setup, "prepare_assets", invalid)
     with pytest.raises(SetupError, match="corrupt"):
         setup.prepare_environment(
             tmp_path, data_action="initialize", confirm_demo_data=True
+        )
+    assert actions == []
+
+
+@pytest.mark.parametrize("data_action", ["initialize", "reset"])
+def test_self_consistent_but_unapproved_baseline_is_rejected_before_mutation(
+    tmp_path, actions, monkeypatch, data_action
+):
+    monkeypatch.setattr(
+        setup,
+        "inspect_environment",
+        lambda root: {
+            "deployment": "absent" if data_action == "initialize" else "existing"
+        },
+    )
+    monkeypatch.setattr(setup, "prepare_assets", prepare_assets)
+    source_dir = tmp_path / "datasets/sources"
+    source_dir.mkdir(parents=True)
+    scripts = tmp_path / "scripts"
+    scripts.mkdir()
+    models = tmp_path / "models"
+    models.mkdir()
+    model = b"test model"
+    (models / "gemma-e4b.gguf").write_bytes(model)
+    (scripts / "catalyst-model-router.models.tsv").write_text(
+        f"gemma-e4b\tmodel.gguf\t{hashlib.sha256(model).hexdigest()}\thttps://example.test/model\n"
+    )
+    monkeypatch.setenv("LLAMA_MODEL_DIR", str(models))
+    approved = gzip.compress(b"CREATE TABLE `patient` (`id` integer);\n", mtime=0)
+    (source_dir / "evaluation-baseline.json").write_text(
+        json.dumps(
+            {
+                "filename": "baseline.sql.gz",
+                "sha256": hashlib.sha256(approved).hexdigest(),
+                "bytes": len(approved),
+            }
+        )
+    )
+    other = tmp_path / "other.sql.gz"
+    other.write_bytes(
+        gzip.compress(b"CREATE TABLE `patient` (`different` integer);\n", mtime=0)
+    )
+    other.with_name(other.name + ".provenance.json").write_text(
+        json.dumps(
+            {
+                "output_sha256": hashlib.sha256(other.read_bytes()).hexdigest(),
+                "output_bytes": other.stat().st_size,
+                "module_state_included": False,
+                "excluded_module_prefixes": ["chartsearchai", "querystore"],
+            }
+        )
+    )
+    assert (
+        verify_baseline(other)["output_sha256"]
+        == hashlib.sha256(other.read_bytes()).hexdigest()
+    )
+    with pytest.raises(SetupError, match="checksum mismatch"):
+        setup.prepare_environment(
+            tmp_path, data_action=data_action, baseline=other, confirm_demo_data=True
         )
     assert actions == []
 
@@ -111,7 +175,7 @@ def test_baseline_model_is_verified_before_any_mutation(
         },
     )
 
-    def invalid_model(root, *, model):
+    def invalid_model(root, *, model, baseline):
         assert root == tmp_path and model == "gemma-e4b"
         raise SetupError("model checksum mismatch")
 

@@ -15,7 +15,7 @@ from urllib.parse import urlsplit
 
 from harness.common.openmrs import OpenMrsClient
 from harness.environment_assets import prepare_assets
-from harness.evaluation_setup import SetupError, prepare_data, verify_baseline
+from harness.evaluation_setup import SetupError, prepare_data
 
 
 def check_ownership(
@@ -393,9 +393,9 @@ def prepare_environment(
         baseline = (
             baseline or root / "artifacts/demo-data/refapp_28_demo.sql.gz"
         ).resolve()
-        source = verify_baseline(baseline)
-        state["baseline_sha256"] = source["output_sha256"]
-        state["model_asset"] = prepare_assets(root, model="gemma-e4b")["model"]
+        assets = prepare_assets(root, model="gemma-e4b", baseline=baseline)
+        state["baseline_sha256"] = assets["baseline"]["sha256"]
+        state["model_asset"] = assets["model"]
     state["data_action"] = data_action
     state["evaluation_accounts"] = "required"
     command(

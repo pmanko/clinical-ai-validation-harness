@@ -41,6 +41,9 @@ experiments; setup must preserve that local configuration.
 - Finish model startup and live setup proof before adding more features. Role
   automation, a setup wizard, generic workflow frameworks, and new configuration
   layers are outside this work.
+- Prioritize the three ordinary workflows: preserve/update, a first install, and
+  an explicitly requested baseline reset. Document uncommon operator configurations
+  and their limits rather than expanding setup to handle every hypothetical case.
 
 ## One request, explicit decisions
 
@@ -323,6 +326,13 @@ the real shell/checksum tools and simulated downloads. These tests run on Linux,
 matching the backend image, rather than requiring equivalent host shell utilities.
 The real upstream model and vocabulary were separately downloaded and their
 SHA-256 values matched the recorded constants. No application stack was restarted.
+
+Review also found that local baseline restoration checked portable-dump validity
+but omitted the approved corpus identity enforced during acquisition. Preparation
+now uses the existing asset verifier for both model and baseline. Two regressions
+first demonstrated that a different, self-consistent dump was accepted, then passed
+with refusal before service or data changes. The focused setup/assets/CLI/reset
+suite passes 64 tests. No new validation subsystem was added.
 
 `scripts/seed-local.sh` still needs explicit administrator-access handling before
 reset closeout: it authenticates after restore using local administrator settings
