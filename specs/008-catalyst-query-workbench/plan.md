@@ -114,9 +114,14 @@ Deliver these repairs in order, retaining the existing state owners and tests:
    failure, on the unchanged count and follow-up scenarios plus varied cases.
 4. **Make a measured capacity decision.** Compare the writer-only E4B candidate
    from step 6 with the repaired 12B path on both actual sources. Retain the
-   chosen model's identity and explicit reviewer setting. If CPU execution still
-   misses the reviewed target, present measured GPU-backed deployment options
-   and cost before changing infrastructure. Neither extra CPU concurrency nor a
+   chosen model's identity and explicit reviewer setting. The owner reaffirmed a
+   low-resource, non-GPU baseline. All video recording
+   and verification use local inference. The server should use a measured smaller
+   model with warmup and a lightweight selectable alternative. Distinguish cold,
+   loaded-model, and repeated-query timings on both sources. If CPU execution
+   misses the reviewed target, report the limitation and remaining CPU-only
+   options; do not substitute GPU capacity. The proposed GPU trial is withdrawn.
+   Neither extra CPU concurrency nor a
    pre-warm request is assumed to make the current capacity adequate.
 
 Proposed targets for owner review, not measured results or silently adopted

@@ -37,7 +37,7 @@ supersedes earlier unmerged-status notes below. #134 and #111 remain separate.
 | Catalyst #106–#109 | Merged; pin `f2a46b017f2adc5d43057de4e90d46dbf3129171` | Combined tree: 364 Gateway tests passed, one existing skip; 294 UI tests; 16 deterministic browser checks, eight live-only skips; type/lint/build passed; final #106 CI passed | Running locally and on the server; full workflow acceptance pending |
 | Hub #25–#28 | Merged; current pin `1ddaa1e51ebb88735808ae9775ec046ba0b3101b` | #25–#27 combined suite: 720 tests passed; #28: 71 focused tests and CI passed | Running locally and on the server; local OpenMRS query-grain check passed |
 | Router #143 and release follow-up #144 | Merged as `a6980ce` and `b6fe09a` | Release CI passed; five router tests and 18 focused router/documentation/repository checks passed | Both deployments at `b6fe09a`; health passed; server usable-query and cancellation checks failed |
-| Replacement OpenMRS walkthrough / #141 | New local take recorded on exact release `b6fe09a`; editing in progress | Full real-model browser test passed: monthly totals preserved, saved SQL reused, two visualizations arranged, repeat publication/import and rendered Superset checked | Final video review/publication pending; owner acceptance separate |
+| Replacement OpenMRS walkthrough / #141 | Corrected local take 8 passed on runtime `b6fe09a`; recorder fix #110 merged as `1fd4a03` | Full real-model browser test passed: monthly totals preserved, saved SQL reused, two visualizations arranged, repeat publication/import and rendered Superset checked | Normal-speed local video review passed; media uploaded; landing publication pending; owner acceptance separate |
 
 The combined review reproduced a conflict between #106's metadata-only repair
 and #109's duplicate alias-repair regression. Both tests are retained. Named,
@@ -79,6 +79,32 @@ Gemma 12B writer and Qwen 14B reviewer completed both preparations, followed by
 saved-SQL reuse, table/chart arrangement, repeat publication, import and rendered
 Superset verification. This proves the recorded scenario, not all joins. Final
 video review and publication remain open.
+
+The initial passing take was rejected in visual review because its bar chart
+collapsed the month dimension. Catalyst #110 selects the existing recommended
+monthly line chart and asserts month, gender, and count bindings. It changes
+only the recording test; all clinical-total and publication assertions remain.
+Take 6 failed model review and is retained privately as a reliability finding.
+Take 7 exposed a recording-checkout/import-owner mismatch. After restoring the
+runtime's exact pins and separating the recorder checkout, take 8 passed the
+complete real-model browser workflow in 5.6 minutes, including Superset rendering.
+The final edited replacement is 3:06. Full normal-speed local playback review
+passed: light appearance, readable captions, labeled accelerated waits, no manual
+SQL editing, and the monthly line chart beside its matching table. Both final
+MP4s and posters were uploaded under immutable names; landing publication follows
+this PR. OpenMRS SHA-256 starts `6fa6917`; the previously reviewed OpenELIS cut
+starts `abaf54f` and runs 3:04, with one brief supplied-SQL repair. The OpenELIS
+cut predates the current release and is not current-release server evidence.
+Raw footage, traces, and rejected takes remain private.
+
+The owner reaffirmed that all recording and video verification are local.
+Server work is deployment and query validation: a smaller model, warmup, and a
+lightweight selectable alternative. The installed fast candidate is Gemma E4B;
+A4B is a different model. No GPU was provisioned and the GPU proposal is withdrawn.
+The base approach targets low-resource, non-GPU environments. Model loading and
+repeated-query warmup must be measured separately; a loaded model alone does not
+prove acceptable query latency. Success on the existing 16-core server alone is
+not proof of low-resource suitability.
 
 Server rollout found that the pinned router rejects `POST /models/load` for an
 already-running model. The warm/smoke wrapper now checks actual loaded state
