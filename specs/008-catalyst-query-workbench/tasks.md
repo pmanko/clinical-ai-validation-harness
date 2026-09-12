@@ -21,7 +21,7 @@ conversation work remain separately scheduled.
   alone do not mark this accepted.
 
 The retained local release runs from `/Users/pmanko/code/catalyst-dev` at
-`localhost:13000`, on merged harness `a5703cc` with both real sources.
+`localhost:13000`, on merged harness `b632d2c` with both real sources.
 The server checkout is `/home/ubuntu/catalyst-release` at the same revision.
 Separate UI development and its owner review do not change this release evidence.
 
@@ -45,15 +45,17 @@ reporting-planning documentation; #111 remains a separate dashboard draft.
 
 ### 12 September release evidence
 
-- **Repair candidate:** this release pins merged Catalyst #124 (`699d700`) with
+- **Deployed repair:** harness #159 (`b632d2c`) pins merged Catalyst #124 (`699d700`) with
   unchanged Hub `6120c31`. Tokenization errors now reach the existing model
   correction flow, retaining raw non-executable evidence on failure. Six
   regression cases cover Spark backticks, unfinished string literals, model
   correction and retained diagnostics. Gateway tests: 374 passed, one existing
   skip; formatting, lint and all five hosted CI jobs passed. Type checking
-  reports 10 findings in unchanged analytics/service files. Deployment and
-  ordinary server questions on this new pin remain unverified.
-- **Runtime:** harness `a5703cc`, Catalyst `742ee58`, Hub `6120c31` are deployed
+  reports 10 findings in unchanged analytics/service files. Harness verification:
+  31 focused tests, documentation consistency, local links and repository-line
+  checks passed; hosted CI passed. Deployment and the three ordinary questions
+  now pass on this pin in both environments.
+- **Runtime:** harness `b632d2c`, Catalyst `699d700`, Hub `6120c31` are deployed
   locally and on the CPU server. The strict repository-line check passed.
   Server lifecycle health and neutral warmup for both sources passed.
 - **Local neutral-warmup validation:** OpenELIS test counts, OpenMRS encounter
@@ -87,13 +89,24 @@ reporting-planning documentation; #111 remains a separate dashboard draft.
   Publication #158 merged as `0df04b8`. The landing-only publisher ran from
   that merged revision, and live HTML matches it byte for byte. Browser review
   confirmed the new poster, video and 3:56 label; earlier YouTube links remain.
-- **Server query finding:** the first ordinary OpenELIS question prepared and
-  executed successfully. The unchanged OpenMRS encounter-count question then
-  returned unfinished backticks in SQL. `TokenError` escaped the parse-finding
-  handler, so the turn was rejected without its candidate diagnostics. This
-  was not a timeout. Repair this path, then repeat that question and the
-  two-source workflow on the exact merged release. A loaded model and completed
-  warmup do not establish query correctness or retained cache reuse.
+- **Server ordinary questions:** OpenELIS test counts, OpenMRS encounter counts,
+  and a return to OpenELIS for distinct patients all prepared and executed on
+  `b632d2c`. Their recorded requests contain no warmup exchange. Catalyst #124
+  repaired the previously observed unfinished-backtick tokenization failure;
+  that failure was not a timeout.
+- **Server refinement finding:** the gender breakdown of those OpenMRS visits
+  produced syntactically valid SQL but zero rows. The candidate joined
+  `encounter_flat.patient_id` to `patient_flat.identifier_value`; the checked-in
+  source views define the patient resource key as `patient_flat.id`. The
+  inner join also fails the requested retention of unmatched patients. Normal
+  corrective feedback is under test, with no SQL hand edit, prompt change,
+  model switch or new deadline. The failed candidate and result remain private
+  evidence; basic-query success does not close this correctness finding.
+- **Server saved work:** the successful OpenELIS result was saved through the
+  application API, with a table, chart and a second Dashboard version preserving
+  the changed arrangement. This is API persistence evidence only. Browser review,
+  publication, import from the owning server checkout and rendered-result checks
+  remain open. OpenMRS saved-work verification awaits a correct current result.
 
 The combined review reproduced a conflict between #106's metadata-only repair
 and #109's duplicate alias-repair regression. Both tests are retained. Named,
@@ -259,8 +272,11 @@ outside Git.
   pin for warmup; harness #157 (`a5703cc`) records their later integration.
 - [X] Deploy through the lifecycle wrapper to the existing CPU server and
   preserve retained data. Both lifecycle warmups passed on harness `a5703cc`.
-- [ ] Verify ordinary preparation and execution against both server sources;
-  resolve the tokenization failure recorded above before the full journey.
+- [X] Verify ordinary preparation and execution against both server sources;
+  Catalyst #124 resolves the tokenization handling failure. The unchanged
+  OpenMRS count and OpenELIS → OpenMRS → OpenELIS sequence pass on `b632d2c`.
+- [ ] Complete the server refinement and saved-work-to-Superset journey on both
+  sources, retaining the incorrect-join observation and any correction separately.
 - [ ] Present the observed workflow and remaining limitations for owner review.
   No numeric responsiveness or cancellation threshold is approved; timings are
   diagnostic evidence. Videos remain locally recorded work.
