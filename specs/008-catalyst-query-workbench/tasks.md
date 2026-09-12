@@ -34,10 +34,10 @@ supersedes earlier unmerged-status notes below. #134 and #111 remain separate.
 | Deliverable | Implementation and merge | Validation | Deployment / acceptance |
 | --- | --- | --- | --- |
 | Roadmap #142 | Merged as `6d7a327` | All PR checks passed | Authoritative plan updated |
-| Catalyst #106–#109 | Merged; pin `f2a46b017f2adc5d43057de4e90d46dbf3129171` | Combined tree: 364 Gateway tests passed, one existing skip; 294 UI tests; 16 deterministic browser checks, eight live-only skips; type/lint/build passed; final #106 CI passed | Running locally and on the server; full workflow acceptance pending |
+| Catalyst #106–#109 | Merged as `f2a46b0`; current pin `1fd4a03` adds the recording-only correction | Combined tree: 364 Gateway tests passed, one existing skip; 294 UI tests; 16 deterministic browser checks, eight live-only skips; type/lint/build passed; final #106 CI passed | Running locally and on the server; full workflow acceptance pending |
 | Hub #25–#28 | Merged; current pin `1ddaa1e51ebb88735808ae9775ec046ba0b3101b` | #25–#27 combined suite: 720 tests passed; #28: 71 focused tests and CI passed | Running locally and on the server; local OpenMRS query-grain check passed |
-| Router #143 and release follow-up #144 | Merged as `a6980ce` and `b6fe09a` | Release CI passed; five router tests and 18 focused router/documentation/repository checks passed | Both deployments at `b6fe09a`; health passed; server usable-query and cancellation checks failed |
-| Replacement OpenMRS walkthrough / #141 | Corrected local take 8 passed on runtime `b6fe09a`; recorder fix #110 merged as `1fd4a03` | Full real-model browser test passed: monthly totals preserved, saved SQL reused, two visualizations arranged, repeat publication/import and rendered Superset checked | Normal-speed local video review passed; media uploaded; landing publication pending; owner acceptance separate |
+| Router #143 and release follow-up #144 | Merged as `a6980ce` and `b6fe09a` | Release CI passed; five router tests and 18 focused router/documentation/repository checks passed | Both checkouts now at `dfee0e2`; server health passed with E4B; local source continuity and cold-query/cancellation checks remain open |
+| Replacement OpenMRS walkthrough / #141 | Corrected local take 8 passed on runtime `b6fe09a`; recorder fix #110 merged as `1fd4a03` | Full real-model browser test passed: monthly totals preserved, saved SQL reused, two visualizations arranged, repeat publication/import and rendered Superset checked | Merged as `dfee0e2`; both videos and posters published and verified over HTTPS; owner acceptance separate |
 
 The combined review reproduced a conflict between #106's metadata-only repair
 and #109's duplicate alias-repair regression. Both tests are retained. Named,
@@ -45,9 +45,9 @@ complete projections now repair declared output names; unnamed expressions or
 a different projection count may still request SQL repair. This does not rewrite
 user-selected SQL. The repaired engine tests pass together.
 
-The `b6fe09a` release is running locally and on the demo server; both wrapper
+The initial `b6fe09a` release ran locally and on the demo server; both wrapper
 health checks and the public two-source discovery endpoint passed. The server
-uses the maintained router with one resident model and its original 12B default;
+used the maintained router with one resident model and its original 12B default;
 the legacy router is stopped and retained for rollback. Full server workflow and
 latency acceptance remain open.
 
@@ -91,8 +91,10 @@ complete real-model browser workflow in 5.6 minutes, including Superset renderin
 The final edited replacement is 3:06. Full normal-speed local playback review
 passed: light appearance, readable captions, labeled accelerated waits, no manual
 SQL editing, and the monthly line chart beside its matching table. Both final
-MP4s and posters were uploaded under immutable names; landing publication follows
-this PR. OpenMRS SHA-256 starts `6fa6917`; the previously reviewed OpenELIS cut
+MP4s and posters were published under immutable names. PR #141 merged as
+`dfee0e2`; the landing-only publication matches that exact merged source over
+HTTPS (page SHA-256 `3f43dd488ca4050d7aa9edde6f86626174fff534a93f7a3852779fde94f8b74b`).
+OpenMRS SHA-256 starts `6fa6917`; the previously reviewed OpenELIS cut
 starts `abaf54f` and runs 3:04, with one brief supplied-SQL repair. The OpenELIS
 cut predates the current release and is not current-release server evidence.
 Raw footage, traces, and rejected takes remain private.
@@ -112,6 +114,37 @@ first and succeeds without another load request. The regression reproduced the
 HTTP 400 before the fix; five router tests cover already-loaded and cold-load
 paths. Candidate E4B inference returned a real response; this smoke alone does
 not establish query quality or acceptable interactive latency.
+
+### CPU server and local restoration follow-up
+
+The installed Gemma E4B model was warmed after confirming the shared task was
+inactive, the recording had exited, and the server model slot was idle. All new
+performance probes prepare SQL without retrieving clinical rows and retain only
+operating metadata. The first OpenELIS preparation hit the 120-second deadline;
+router timing showed 373.342 seconds processing 11,278 prompt tokens and 7.103
+seconds generating 102 tokens. The next same-question preparation succeeded in
+50.8 seconds. Its reviewed SQL counted distinct patient IDs; execution through
+Catalyst returned 96 in 924 ms. This establishes a useful warm-query improvement,
+not the proposed 30-second target or general query reliability. The first
+OpenMRS preparation timed out at 120.071 seconds; its repeat succeeded in 33.069
+seconds. Reviewed distinct-patient-count SQL executed through Catalyst and
+returned 5,384 in 193 ms. Both probes finished before the server was updated to
+`dfee0e2` with the owner-selected E4B default and E4B model warmup. The strict
+repository-pin check and full server health gate passed. Differently worded
+questions after switching datasets remain under test; cold-start and abandoned
+work findings remain open.
+
+The local Docker service was stopped and the temporary runtime checkout was
+missing when work resumed. The checkout and dependencies were restored at
+`dfee0e2`, the existing local inference service was restarted with its prior
+two-model limit, and the harness lifecycle wrapper was run without reseeding.
+The local Gateway reports ready, including Hub, model, analytics, and execution.
+The source application started, but the full health gate is waiting on HAPI
+fixture resources. The OpenELIS source patient count is now zero. Its
+PostgreSQL storage is a bind mount under the temporary checkout, so source-data
+continuity is not established; Gateway readiness alone does not prove it.
+Owner approval to rebuild the local synthetic source with the existing harness
+seeding command is pending. No reseeding or reset has been performed.
 
 ## Authoritative roadmap
 

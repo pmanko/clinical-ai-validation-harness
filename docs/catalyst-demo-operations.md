@@ -23,7 +23,8 @@ Do not rebuild or restart services during a recording or an import.
 | --- | --- |
 | `catalyst-mvp-isolated-*` | Current Catalyst UI, Gateway, Hub, Spark, OpenELIS, FHIR, Data Pipes and Superset services, with retained datasets |
 | `catalyst-demo-caddy-1` | Shared HTTPS entry point and immutable demo media |
-| `catalyst-demo-model-router-1` | Shared model inference service |
+| `catalyst-router-model-router-1` | Current shared CPU model inference service |
+| `catalyst-demo-model-router-1` | Stopped legacy router retained for rollback |
 | Older `catalyst-demo-*` UI, Gateway, Hub and analytics database | Previous application retained for rollback pending final release proof |
 | `csim-*` | Separate Superset investigation and preview stacks; not owned by Catalyst release cleanup |
 
@@ -49,12 +50,20 @@ export CATALYST_ROUTER_MODEL_DIR=/home/ubuntu/catalyst-demo/models
 export CATALYST_ROUTER_PUBLIC_NETWORK=catalyst-demo_default
 export CATALYST_ROUTER_APPLICATION_NETWORK=catalyst-mvp-isolated-network
 export CATALYST_ROUTER_MODELS_MAX=1
-export CATALYST_ROUTER_WARM_MODEL=gemma-4-12b-q4
+export CATALYST_ROUTER_WARM_MODEL=gemma-e4b
+export CATALYST_ROUTER_NETWORK_ALIAS=model-router
+export MVP_PROFILE_ID=catalyst-query-gemma-4-e4b
 ```
 
 `CATALYST_ROUTER_MODELS_MAX` is a deployment capacity setting. One is appropriate
-for this 30 GiB CPU host. A GPU or higher-memory deployment may configure a
-larger value after measuring memory, cold/repeated latency, and concurrency.
+for this 30 GiB CPU host. The base deployment targets low-resource CPU inference.
+The E4B writer is the owner-selected default; the existing 12B alternative remains
+selectable. Increasing residency requires measured memory and concurrency evidence.
+
+Model warmup loads the weights; it does not prime either source schema. Measured
+repeat count preparations took 50.8 seconds for OpenELIS and 33.1 seconds for
+OpenMRS, while both first preparations hit the 120-second application deadline.
+Do not describe loaded-model health as proof of a responsive first query.
 
 Fetch and verify only the model that is missing, then verify the complete set:
 
@@ -114,8 +123,9 @@ The server override retains the previous CPU demo budgets: set
 `LLM_REQUEST_TIMEOUT_SECONDS: "1800"` on `med-agent-hub`. The isolated stack's
 360-second Gateway default caused a verified OpenMRS preparation failure on
 11 September UTC, before SQL execution. Model processing in the same time window
-exceeded nine minutes. Restoring the previous budget prevents that premature
-cutoff but does not make inference faster or guarantee successful generation.
+exceeded nine minutes. These older per-call budgets do not override the current
+120-second total preparation deadline, which includes queueing and repair.
+Increasing them does not make inference faster or establish successful generation.
 
 Check for active preparations before applying lifecycle changes. The wrapper's
 `up` rebuilds services and can recreate otherwise unchanged application containers;
@@ -128,9 +138,11 @@ The root volume is now 100 GiB. The expansion and targeted Docker cache pruning
 preserved all application volumes. Check `df -h /` and `docker system df` before
 cleaning; do not prune volumes or remove other stacks as part of cache cleanup.
 
-Release evidence lives under `/home/ubuntu/catalyst-release-evidence/`, outside
-Git. Keep raw footage, traces, exact revisions, configuration and import receipts
-together. Current acceptance is tracked only in
+All recording, editing, and video verification run locally with local inference.
+Keep raw footage and review receipts privately alongside the local recordings,
+outside Git. Server deployment and query-check receipts may live under
+`/home/ubuntu/catalyst-release-evidence/`; the server is not the recorder.
+Current acceptance is tracked only in
 [Feature 008 tasks](../specs/008-catalyst-query-workbench/tasks.md).
 
 Final videos and posters go into
