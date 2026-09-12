@@ -4,10 +4,12 @@
 delivery streams meet at a real source connection and CSV/Dataset parity review.
 The baseline mock/spec set is published. The current checkpoint is
 [OpenELIS design revision and implementation readiness][export-readiness].
-OpenELIS [design PR #315][export-pr] now contains the v1.3 mock/spec revision and
-implementation slices and was merged as `cb1ff0c` on 12 September. The owner
-approved the six first-slice reporting defaults. Live publication is verified; final visual acceptance and production
-implementation remain separately tracked.
+OpenELIS [design PR #320][export-pr] carries the v1.4 field browser and editable
+CSV-column order, following the owner's approval on 12 September. Local tests,
+gallery build and desktop/narrow browser checks pass. It is merged and published
+at `6028d4d`, with exact live assets verified. The first-slice reporting
+defaults remain approved; final visual acceptance and production implementation
+remain separate milestones.
 
 ## Purpose and authority
 
@@ -73,7 +75,7 @@ integration, not functionality already supplied by the current Catalyst demo.
 
 | Review artifact | Source and status |
 | --- | --- |
-| [OpenELIS reporting mock][preview] and [export specification][export-spec] | `openelis-work`; baseline PR #313 is merged. [Design-readiness PR #315][export-pr] contains the v1.3 landing, builder and queue revision. Local browser checks, 268 tests and the gallery build pass; PR #315 is merged as `cb1ff0c`. The exact live publication is verified separately below. |
+| [OpenELIS reporting mock][preview] and [export specification][export-spec] | `openelis-work`; [column-builder PR #320][export-pr] updates the existing mock/spec to v1.4. Its ordered columns replace the fixed-order/checkbox rule while retaining new/saved paths, permissions, drafts and queue recovery. Publication evidence follows below; detailed acceptance stays in its own register. |
 | [Catalyst integration draft][integration-preview] and [design specification][integration-design] | Catalyst; initial PR #98 followed by merged [ownership correction PR #100](https://github.com/DIGI-UW/catalyst-ai/pull/100), which removes the duplicate OpenELIS screen. Published source is recorded in the hub manifest. |
 | Cross-project decisions and publication | This roadmap and the harness review hub; owner design acceptance remains pending. |
 
@@ -85,18 +87,17 @@ gallery; the hub links to its canonical permalink.
 ## Current checkpoint: OpenELIS design readiness
 
 The owner expects a roughly even mix of new exports and rerunning familiar
-reports. PR #315 revises the existing OpenELIS mock and specification for both
-paths and records a small implementation backlog. The remaining checkpoint is
-to record final visual acceptance of the verified published revision. The six
-reporting defaults were approved on 12 September. The authoritative sequence, acceptance
-register and copyable goal live in [section 14 of the OpenELIS specification][export-readiness].
-Update that register rather than duplicating its tasks here.
+reports. The v1.3 landing, builder and queue revision is retained. Feedback then
+approved a searchable **Available fields** browser beside **Your CSV columns**,
+with Add/Remove and editable order. PR #320 reconciles that direction in the
+existing mock, specification and implementation slices; saved settings, submitted
+jobs, retries and CSV output preserve the chosen order. This amends the former
+mandatory catalog-order rule without reducing field coverage or permissions.
 
-The prior UX review identified field-selection overload, implicit report-type
-selection, a cumbersome saved-report entry path, premature date errors, ambiguous
-save/create actions, narrow-screen queue actions and missing accordion keyboard
-behavior. The v1.3 review branch now incorporates those changes and reconciles
-the affected requirements. The v1.3 revision is merged and its deployed HTML and CSV helper match source byte for byte.
+The authoritative sequence, acceptance register and copyable goal live in
+[section 14 of the OpenELIS specification][export-readiness]. Update that register
+rather than duplicating tasks here. Final visual review remains open; approval
+of the design direction is not final acceptance or production implementation.
 
 OpenELIS owns the interactive HTML, fictional CSV helper and its component
 reference. The existing Catalyst integration spec/mock remain the independent
@@ -118,14 +119,16 @@ harness #151 does not amend the original roadmap. This reporting change adds no
 new prerequisite to Catalyst delivery. The [dated PR review](artifacts/project-status/reviews/2026-09-12.md)
 records lane boundaries and remaining backlog disposition.
 
-Live verification on 12 September: [gallery deployment](https://github.com/DIGI-UW/openelis-work/actions/runs/34710334884)
-at `cb1ff0c` passed. The live HTML and CSV helper match the source exactly. The
-export-to-queue journey exposes the expected fictional CSV, and sign-in recovery
-restores the draft. Desktop screenshots were inspected. The requested narrow
-viewport was not applied to the OpenELIS tab in this session, so this does not
-replace the earlier dated narrow-screen check. [OpenELIS #317](https://github.com/DIGI-UW/openelis-work/pull/317)
-merged as `e3256d7` after hosted test/build passed; it aligns the remaining validation/security tables with the approved permission rule
-and records publication in its authoritative progress register.
+Publication receipt — 12 September 2026: [PR #320][export-pr] merged as
+`6028d4df603b3a482179b96148de4eeb30dd2394`; GitHub test/build checks and
+[gallery deployment](https://github.com/DIGI-UW/openelis-work/actions/runs/34718413037)
+passed. The live HTML, specification and CSV helper match the tested source byte
+for byte. The published gallery was exercised and screenshot-inspected with a
+reordered first column and field search; the selected list preserved the order.
+The preceding v1.3 publication and return-to-overview fixes (PRs #315, #317–319)
+remain the baseline. The new revision has 273 passing repository tests and a
+passing gallery build; desktop and 390-pixel browser checks cover ordered columns
+and retained workflows. Final visual acceptance is still an owner checkpoint.
 
 ## Two delivery workstreams and one integration checkpoint
 
@@ -234,7 +237,7 @@ No release date or new product task is approved by this draft.
 
 | Milestone | Exit evidence | Current state |
 | --- | --- | --- |
-| 0. Revise and review the mock/spec set | Independent OE/Catalyst workflows, synchronized specifications, published source revision, relevant checks and explicit owner design review. OpenELIS revision and implementation handoff follow [its own acceptance register][export-readiness]. | Baseline: OpenELIS PR #313, Catalyst correction PR #100 and harness publication [PR #128](https://github.com/pmanko/clinical-ai-validation-harness/pull/128). PR #315 v1.3 is merged; 268 tests/build pass and the six defaults are approved. Live revision verification passes; final owner visual acceptance remains open. |
+| 0. Revise and review the mock/spec set | Independent OE/Catalyst workflows, synchronized specifications, published source revision, relevant checks and explicit owner design review. OpenELIS revision and implementation handoff follow [its own acceptance register][export-readiness]. | Baseline: OpenELIS PR #313, Catalyst correction PR #100 and harness publication [PR #128](https://github.com/pmanko/clinical-ai-validation-harness/pull/128). v1.4 column-builder direction approved; PR #320 merged and published with local/CI tests and exact live verification passing (receipt above). Final owner visual acceptance remains open. |
 | 1. Agree where the streams meet | Reviewed initial report/comparison definition; field coverage on the existing source path; disposition of overlapping proposals; named ownership and links to each product's tasks. | Two-stream direction confirmed; fictional scenario and design ownership agreed; real-source comparison definition pending. |
 | 2A. Build from OpenELIS | Settle export permissions/workload choices; deliver the bounded export, saved choices and required queue; generate a verified CSV and prepare the source mapping/access information. Link existing OE issues, PRs and real-path evidence. | No matching OGC-479/481/483 implementation PR identified in the September 12 metadata scan. Production-code mapping/workload verification remains part of the first slice. |
 | 2B. Build from Catalyst | Continue the existing redesign/release tasks and prepare the real OE source connection; show schema browsing, question/refinement, explicit execution and saving through the approved Workbench. Link existing Catalyst tasks rather than duplicate them here. | Existing delivery remains active; integration-specific source gaps and readiness to be assessed. |
@@ -284,7 +287,7 @@ Explicitly label limitations and record owner acceptance separately from tests.
 
 [export-spec]: https://github.com/DIGI-UW/openelis-work/blob/main/designs/reports/custom-data-export.md
 [export-readiness]: https://github.com/DIGI-UW/openelis-work/blob/main/designs/reports/custom-data-export.md#14-design-revision-and-implementation-readiness
-[export-pr]: https://github.com/DIGI-UW/openelis-work/pull/315
+[export-pr]: https://github.com/DIGI-UW/openelis-work/pull/320
 [preview]: https://digi-uw.github.io/openelis-work/#/reports/custom-data-export
 [gallery]: https://digi-uw.github.io/openelis-work/catalog.html
 [report-management]: https://github.com/DIGI-UW/openelis-work/blob/main/designs/admin-config/report-management.md
