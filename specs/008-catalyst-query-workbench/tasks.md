@@ -36,8 +36,8 @@ reporting-planning documentation; #111 remains a separate dashboard draft.
 | Deliverable | Implementation and merge | Validation | Deployment / acceptance |
 | --- | --- | --- | --- |
 | Roadmap #142 | Merged as `6d7a327` | All PR checks passed | Authoritative plan updated |
-| Catalyst #106–#109 | Merged as `f2a46b0`; current pin `1fd4a03` adds the recording-only correction | Combined tree: 364 Gateway tests passed, one existing skip; 294 UI tests; 16 deterministic browser checks, eight live-only skips; type/lint/build passed; final #106 CI passed | Running locally and on the server; full workflow acceptance pending |
-| Hub #25–#28 | Merged; current pin `1ddaa1e51ebb88735808ae9775ec046ba0b3101b` | #25–#27 combined suite: 720 tests passed; #28: 71 focused tests and CI passed | Running locally and on the server; local OpenMRS query-grain check passed |
+| Catalyst #106–#109 | Merged as `f2a46b0`; baseline pin `1fd4a03` adds the recording-only correction | Combined tree: 364 Gateway tests passed, one existing skip; 294 UI tests; 16 deterministic browser checks, eight live-only skips; type/lint/build passed; final #106 CI passed | Running locally and on the server; full workflow acceptance pending |
+| Hub #25–#28 | Merged; baseline pin `1ddaa1e51ebb88735808ae9775ec046ba0b3101b` | #25–#27 combined suite: 720 tests passed; #28: 71 focused tests and CI passed | Running locally and on the server; local OpenMRS query-grain check passed |
 | Router #143 and release follow-up #144 | Merged as `a6980ce` and `b6fe09a` | Release CI passed; five router tests and 18 focused router/documentation/repository checks passed | Server router repair deployed at `735ad53`; persistent local source continuity verified; cold-query and full server workflow acceptance remain open |
 | Replacement OpenMRS walkthrough / #141 | Corrected local take 8 passed on runtime `b6fe09a`; recorder fix #110 merged as `1fd4a03` | Full real-model browser test passed: monthly totals preserved, saved SQL reused, two visualizations arranged, repeat publication/import and rendered Superset checked | Merged as `dfee0e2`; both videos and posters published and verified over HTTPS; owner acceptance separate |
 | Hub #29/#30 and Catalyst #118 lifecycle warmup | Merged as `88b48c4`, `d806c90`, and `2f85f1c`; harness #156 pins the compatible baseline as `ecf8647` | Hub #29: 32 focused role/lifecycle tests; Hub #30: 35 focused tests; Catalyst: 27 focused warmup/query tests; all hosted CI sets passed | Local and server two-source lifecycle warmups passed. Ordinary-question evidence remains separate. |
@@ -45,6 +45,14 @@ reporting-planning documentation; #111 remains a separate dashboard draft.
 
 ### 12 September release evidence
 
+- **Repair candidate:** this release pins merged Catalyst #124 (`699d700`) with
+  unchanged Hub `6120c31`. Tokenization errors now reach the existing model
+  correction flow, retaining raw non-executable evidence on failure. Six
+  regression cases cover Spark backticks, unfinished string literals, model
+  correction and retained diagnostics. Gateway tests: 374 passed, one existing
+  skip; formatting, lint and all five hosted CI jobs passed. Type checking
+  reports 10 findings in unchanged analytics/service files. Deployment and
+  ordinary server questions on this new pin remain unverified.
 - **Runtime:** harness `a5703cc`, Catalyst `742ee58`, Hub `6120c31` are deployed
   locally and on the CPU server. The strict repository-line check passed.
   Server lifecycle health and neutral warmup for both sources passed.
@@ -75,9 +83,17 @@ reporting-planning documentation; #111 remains a separate dashboard draft.
   final cut completed normal-speed playback review and uses a ten-second data-pipe
   introduction, longer title cards, captions below the footage, labelled fast
   waits, and normal-speed interactions. Its MP4 and poster are published under
-  immutable September 12 URLs; HTTPS bytes match the local SHA-256 hashes. This
-  change updates both public consumers. Landing deployment and server
-  ordinary-question completion remain separate verification steps.
+  immutable September 12 URLs; HTTPS bytes match the local SHA-256 hashes.
+  Publication #158 merged as `0df04b8`. The landing-only publisher ran from
+  that merged revision, and live HTML matches it byte for byte. Browser review
+  confirmed the new poster, video and 3:56 label; earlier YouTube links remain.
+- **Server query finding:** the first ordinary OpenELIS question prepared and
+  executed successfully. The unchanged OpenMRS encounter-count question then
+  returned unfinished backticks in SQL. `TokenError` escaped the parse-finding
+  handler, so the turn was rejected without its candidate diagnostics. This
+  was not a timeout. Repair this path, then repeat that question and the
+  two-source workflow on the exact merged release. A loaded model and completed
+  warmup do not establish query correctness or retained cache reuse.
 
 The combined review reproduced a conflict between #106's metadata-only repair
 and #109's duplicate alias-repair regression. Both tests are retained. Named,
@@ -240,9 +256,11 @@ outside Git.
   [Catalyst #111](https://github.com/DIGI-UW/catalyst-ai/pull/111) merged as
   `c0a1b431`; [Catalyst #112](https://github.com/DIGI-UW/catalyst-ai/pull/112)
   merged as `18bd9ef2`. Hub #29 and Catalyst #118 supersede that deployment
-  pin for warmup; the pending exact pin above records their integration.
-- [ ] Deploy through the lifecycle wrapper to the existing CPU server, preserve
-  retained data, and verify preparation and execution against both sources.
+  pin for warmup; harness #157 (`a5703cc`) records their later integration.
+- [X] Deploy through the lifecycle wrapper to the existing CPU server and
+  preserve retained data. Both lifecycle warmups passed on harness `a5703cc`.
+- [ ] Verify ordinary preparation and execution against both server sources;
+  resolve the tokenization failure recorded above before the full journey.
 - [ ] Present the observed workflow and remaining limitations for owner review.
   No numeric responsiveness or cancellation threshold is approved; timings are
   diagnostic evidence. Videos remain locally recorded work.

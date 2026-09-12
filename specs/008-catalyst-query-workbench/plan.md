@@ -10,21 +10,33 @@ historical evidence. The 12 September local OpenMRS replacement capture passed
 with the planned Gemma 4 12B writer and Qwen 2.5 14B reviewer: model-created SQL,
 monthly totals preserved after refinement, saved-SQL reuse, two visualizations,
 restored arrangement, deterministic publication, native import, and matching
-rendered Superset rows. The 3:56 paced cut has completed normal-speed playback review; its video and
-poster are uploaded and hash-verified, and this change updates both public references.
+rendered Superset rows. The 3:56 paced cut completed normal-speed playback review
+and was published through #158 (`0df04b8`); live page, MP4 and poster hashes match
+the reviewed sources.
 Harness `a5703cc`, Catalyst `742ee58`, and Hub `6120c31` now run locally and on the
 CPU server; server lifecycle health and both neutral warmups passed. Local
 OpenELIS → OpenMRS → OpenELIS ordinary questions all prepared and executed,
-with the warmup exchange absent and observed schema-prefix reuse. Server
-ordinary-question validation, final visual acceptance, and owner acceptance
+with the warmup exchange absent and observed schema-prefix reuse. The first
+server OpenELIS question passed, but the unchanged OpenMRS encounter-count
+question returned malformed SQL that escaped tokenization-error handling.
+Server ordinary-question validation, final visual acceptance, and owner acceptance
 remain open. Responsiveness and URL-addressable sessions remain the next product
 checkpoint after this release is stabilized and accepted.
 
 **Specification:** [spec.md](spec.md)
 
-## Immediate next step — neutral-question warmup
+## Immediate next step — complete server query validation
 
-The owner selected this as the next step: ask **“What information is available
+Neutral warmup and the local two-source baseline are complete. Merged Catalyst
+#124 handles SQL tokenization errors through the existing parse-finding and
+model correction path, preserving failed candidate evidence. Deploy the exact merged
+repair, then repeat the unchanged OpenMRS question and source-switch sequence
+before continuing the server saved-work-to-Superset journey. This is an error
+handling repair, not a change to prompts, model choice, retry policy or deadlines.
+
+### Established neutral-question warmup
+
+The owner selected this behavior: ask **“What information is available
 in this data source?”** through the configured source's ordinary writer request,
 using its complete readable schema and selected model profile. Discard the
 response. The warmup question and response must never become user conversation
