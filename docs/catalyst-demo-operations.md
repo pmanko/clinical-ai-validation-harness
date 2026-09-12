@@ -117,6 +117,57 @@ selected profile through each Hub and both Catalyst sources before removing the
 stopped legacy container. If validation fails, restore the legacy router rather
 than changing a profile or falling back silently.
 
+## Cancellation repair image
+
+The pinned upstream router can leave a non-streaming model request running after
+its caller disconnects. The small patch in `patches/catalyst-router-cancellation.patch`
+closes that downstream HTTP request and keeps unrelated queue results from
+extending the disconnect-check deadline. The CPU preset bounds prompt batches
+at 128 tokens so a long evaluation does not postpone that check indefinitely.
+This does not change the model, selected SQL, or application timeout.
+
+Build on a local machine for the destination architecture:
+
+```bash
+scripts/build-catalyst-model-router.sh
+```
+
+The default is `linux/arm64`, matching the demo host; override
+`CATALYST_ROUTER_BUILD_PLATFORM` for another host. The builder fetches an exact
+upstream commit, applies the checked-in patch, and uses its CPU Dockerfile.
+`artifacts/catalyst-router-build/build.json` records the resulting immutable image
+ID, upstream revision and patch checksum. Build source and outputs stay outside Git.
+
+Set `CATALYST_ROUTER_IMAGE` to that verified image ID for the isolated candidate.
+The wrapper rejects mutable image tags. An unset override retains the original
+upstream image for rollback; it does **not** enable the cancellation repair.
+After loading/warming the candidate, run both nonclinical checks while it is idle:
+
+```bash
+python3 scripts/probe-catalyst-router-cancellation.py \
+  --url http://127.0.0.1:8077 --model gemma-e4b --phase generation \
+  --output artifacts/cancel-generation.json
+python3 scripts/probe-catalyst-router-cancellation.py \
+  --url http://127.0.0.1:8077 --model gemma-e4b --phase prefill \
+  --output artifacts/cancel-prefill.json
+scripts/catalyst-model-router.sh smoke gemma-e4b
+```
+
+Each probe observes the requested active phase, disconnects, then requires idle
+within five seconds, including the time spent waiting for status responses.
+A late idle response fails. Run these against the candidate, never during another
+person's generation. Local timings do not certify server cancellation or latency.
+
+For the existing SSH deployment, transfer a `docker save` archive of the tested
+image and the build receipt. Verify the archive checksum before `docker load`,
+then verify the loaded image's architecture and patch label against the receipt.
+Docker engines can represent the image index differently: select the loaded
+immutable image ID, not a transport tag. Save the prior environment/image ID
+before setting `CATALYST_ROUTER_IMAGE` and using the router cutover procedure
+above. Re-run cancellation, ordinary generation and both-source application
+checks on the server. Restore the prior image and environment if they fail.
+Keep receipts private; changing the router requires no database reset or reseed.
+
 ## ARM compatibility
 
 The host is ARM64. The pinned OpenELIS and Data Pipes images contain x86 binaries.

@@ -2,7 +2,7 @@ name: ${CATALYST_ROUTER_PROJECT_NAME:-catalyst-router}
 
 services:
   model-router:
-    image: ghcr.io/ggml-org/llama.cpp@sha256:6bc9134e3278a0ecab23d7ef2f6a46b4595740014fe9bc2f67e8ba7dca8395b4
+    image: ${CATALYST_ROUTER_IMAGE:-ghcr.io/ggml-org/llama.cpp@sha256:6bc9134e3278a0ecab23d7ef2f6a46b4595740014fe9bc2f67e8ba7dca8395b4}
     restart: unless-stopped
     command:
       - --host

@@ -31,7 +31,10 @@ def test_router_compose_is_pinned_private_and_capacity_configurable():
     compose = yaml.safe_load(COMPOSE_PATH.read_text())
     service = compose["services"]["model-router"]
 
-    assert re.fullmatch(r"ghcr\.io/ggml-org/llama\.cpp@sha256:[a-f0-9]{64}", service["image"])
+    assert re.fullmatch(
+        r"\$\{CATALYST_ROUTER_IMAGE:-ghcr\.io/ggml-org/llama\.cpp@sha256:[a-f0-9]{64}\}",
+        service["image"],
+    )
     command = service["command"]
     assert command[command.index("--models-max") + 1] == "${CATALYST_ROUTER_MODELS_MAX:-1}"
     assert "--models-autoload" in command
@@ -58,6 +61,20 @@ def test_router_presets_and_verified_sources_describe_the_same_models():
             r"https://huggingface\.co/[^/]+/[^/]+/resolve/[a-f0-9]{40}/[^/]+\.gguf",
             record["source"],
         )
+
+
+@pytest.mark.parametrize("image", ["router:latest", "router:v1", "sha256:abc", "repo@sha256:abc"])
+def test_router_rejects_mutable_or_incomplete_image_override(image):
+    import os
+    import subprocess
+
+    result = subprocess.run(
+        ["bash", str(SCRIPT_PATH), "config"],
+        env={**os.environ, "CATALYST_ROUTER_IMAGE": image},
+        capture_output=True, text=True, check=False,
+    )
+    assert result.returncode == 2
+    assert "must be an immutable image ID or registry digest" in result.stderr
 
 
 def test_router_wrapper_verifies_before_start_and_checks_loaded_state():
@@ -122,3 +139,23 @@ def test_warm_model_handles_loaded_and_unloaded_states(already_loaded):
         server.shutdown()
         server.server_close()
         thread.join()
+
+
+@pytest.mark.parametrize("image", ["sha256:" + "a" * 64, "registry.example/router@sha256:" + "b" * 64])
+def test_router_passes_verified_image_override_to_compose(tmp_path, image):
+    import os
+    import subprocess
+
+    docker = tmp_path / "docker"
+    docker.write_text('#!/bin/sh\nprintf "%s\\n" "$CATALYST_ROUTER_IMAGE" "$@"\n')
+    docker.chmod(0o755)
+    result = subprocess.run(
+        ["bash", str(SCRIPT_PATH), "config"],
+        env={**os.environ, "PATH": str(tmp_path) + os.pathsep + os.environ["PATH"],
+             "CATALYST_ROUTER_IMAGE": image,
+             "CATALYST_ROUTER_PUBLIC_NETWORK": "public",
+             "CATALYST_ROUTER_APPLICATION_NETWORK": "application"},
+        capture_output=True, text=True, check=False,
+    )
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.splitlines() == [image, "compose", "-f", str(COMPOSE_PATH), "config"]

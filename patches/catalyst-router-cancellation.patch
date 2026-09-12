@@ -1,0 +1,37 @@
+diff --git a/tools/server/server-models.cpp b/tools/server/server-models.cpp
+index 7c6bfda..a575cf6 100644
+--- a/tools/server/server-models.cpp
++++ b/tools/server/server-models.cpp
+@@ -2116,9 +2116,10 @@ server_http_proxy::server_http_proxy(
+     cli->set_write_timeout(timeout_read, 0); // reversed for cli (client) vs srv (server)
+     cli->set_read_timeout(timeout_write, 0);
+     this->status = 500; // to be overwritten upon response
+-    this->cleanup = [pipe]() {
++    this->cleanup = [pipe, cli]() {
+         pipe->close_read();
+         pipe->close_write();
++        cli->stop();
+     };
+ 
+     // wire up the receive end of the pipe
+diff --git a/tools/server/server-queue.cpp b/tools/server/server-queue.cpp
+index 5d37c34..ee240d4 100644
+--- a/tools/server/server-queue.cpp
++++ b/tools/server/server-queue.cpp
+@@ -287,6 +287,7 @@ server_task_result_ptr server_response::recv(const std::unordered_set<int> & id_
+ }
+ 
+ server_task_result_ptr server_response::recv_with_timeout(const std::unordered_set<int> & id_tasks, int timeout) {
++    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(timeout);
+     while (true) {
+         std::unique_lock<std::mutex> lock(mutex_results);
+ 
+@@ -298,7 +299,7 @@ server_task_result_ptr server_response::recv_with_timeout(const std::unordered_s
+             }
+         }
+ 
+-        std::cv_status cr_res = condition_results.wait_for(lock, std::chrono::seconds(timeout));
++        std::cv_status cr_res = condition_results.wait_until(lock, deadline);
+         if (!running) {
+             RES_DBG("%s : queue result stop\n", __func__);
+             std::terminate(); // we cannot return here since the caller is HTTP code

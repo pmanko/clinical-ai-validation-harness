@@ -20,7 +20,7 @@ conversation work remain separately scheduled.
 - [ ] Record owner acceptance of that checkpoint. Implementation or green checks
   alone do not mark this accepted.
 
-Local development now serves the working Catalyst UI at `localhost:13000`
+Local development now serves the working Catalyst UI at `localhost:13001`
 against the retained local Gateway and both real sources. Local testing does
 not wait for merges. Final release/acceptance revisions remain pinned and merged.
 
@@ -143,6 +143,30 @@ analytics pipeline. A full harness restart without seeding passed every health
 gate, with identical patient/result fingerprints before and after. Both Spark
 sources remain readable: OpenELIS 96 patients; OpenMRS 5,384. Recovery receipts
 remain private, outside Git. Server storage was not changed by this recovery.
+
+### Downstream cancellation repair
+
+The unchanged inference build reproduced continued generation after client
+disconnect. Two concrete causes were isolated: proxy cleanup did not stop the
+child HTTP request, and unrelated response-queue notifications repeatedly reset
+its wait timeout. The candidate fixes both against the exact deployed upstream
+source. A CPU prefill check still exceeded five seconds until prompt batches
+were bounded to 128 tokens; the acceptance deadline was not relaxed.
+
+Local ARM64 CPU container checks using the cached E4B model passed: active generation stopped in
+0.9 seconds and prompt processing in 2.2 seconds, followed by a nonempty normal
+response. The local E4B file differs from the server-pinned model revision. These are
+candidate checks, not server acceptance. The regression
+probe also rejects late idle observations and ongoing work in either phase.
+Image build provenance and raw results remain private, outside Git.
+
+- [ ] Merge the reviewed CPU image patch, build/selection support, bounded batch
+  preset and cancellation probe after CI.
+- [ ] Deploy the exact verified image through the existing router lifecycle and
+  check cancellation plus ordinary generation on the CPU demo server.
+- [ ] Resolve remaining first-query and varied cross-source 120-second failures;
+  complete the real saved-work through Superset journey for both sources before
+  closing server acceptance. Videos are already published and remain local work.
 
 ## Authoritative roadmap
 
