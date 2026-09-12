@@ -23,6 +23,25 @@ automatic role-to-instruction policy, an active-role picker, or a prompt/cache
 redesign as setup prerequisites. Ross can customize system prompts for his
 experiments; setup must preserve that local configuration.
 
+## Keep setup small
+
+- Keep one normal contributor workflow: update the parent, then run its setup
+  command. Existing component scripts own builds, startup, configuration, and
+  model serving; do not add a parallel installer or service manager.
+- Consolidate duplicate behavior before adding another helper. Account
+  provisioning already verifies every login; a separate readiness layer must
+  not repeat that work. Reuse existing probes where their contracts fit, and
+  extend the owning code only for a demonstrated missing check.
+- Separate implementation acceptance from routine use. Prove preserve/reset and
+  browser behavior during development; ordinary updates do not rerun a clinical
+  evaluation campaign, reset data, or require prompt experiments to pass.
+- Preserve protections against data loss, wrong-checkout changes, credential
+  replacement, and silent provider fallback. Simplification must not remove
+  these protections or hide incomplete startup.
+- Finish model startup and live setup proof before adding more features. Role
+  automation, a setup wizard, generic workflow frameworks, and new configuration
+  layers are outside this work.
+
 ## One request, explicit decisions
 
 Normal request: "Update my ChartSearchAI evaluation environment to the latest
@@ -173,8 +192,10 @@ Concrete targets, inspected September 11:
 - `scripts/dual-provider-up.sh`: unconditional reset and seed; unsuitable as the
   default update path.
 - `scripts/seed-local.sh`, `scripts/verify-portable-dump.py`: portable corpus
-  verification and restore. `dump-loaded.sh --include-module-state` provides
-  full backups; its default portable-corpus mode is NOT a user-state backup.
+  verification and restore, with explicit `--restore-backup` and
+  `--require-full-backup` modes reusing the same import and verification paths.
+  `dump-loaded.sh --include-module-state` provides full backups; its default
+  portable-corpus mode is NOT a user-state backup.
 - `scripts/provision-querystore-service-account.py`: existing REST provisioner
   for a service identity, not a study-user provisioner.
 - `scripts/probe-chartsearchai-relay.py`: actual stream and persistence checks;
@@ -208,6 +229,11 @@ Drive folder. No live reset is authorized by implementation of this workflow.
   - Request snapshot, Hub transport, and stored-turn metadata implemented and tested.
 - [ ] Verify the implemented account-context metadata in the live login/provider/reload path.
 - [ ] Implement and prove full-backup recovery; portable corpus seeding is not a full-backup restore path.
+  - Explicit recovery mode is implemented in the existing restore script; shared
+    verification replaces duplicate backup validation in setup. Damaged or partial
+    backups and failed backend stops prevent replacement. A disposable MariaDB
+    round trip preserves accounts, chat records, and custom prompt settings.
+    Full OpenMRS recovery, derived-index rebuild, and browser checks remain open.
 - [ ] Verify preserve twice, reset/restore in a disposable environment, and UI.
 - [ ] Review, commit, publish through a PR, then verify on Ross's machine.
 
@@ -251,6 +277,14 @@ changes, retained existing files, read-only checks, CLI separation from database
 operations, and removal of automatic role prompting from setup prerequisites.
 Python lint, documentation links, and Claude skill structure pass. HTTPS transfer
 control is unit-tested; no new model download or live service restart was performed.
+
+Recovery testing exposed a Bash 3.2 empty-array failure in the existing full-dump
+path. The dump script now guards optional table flags, retaining the existing
+portable exclusions. The actual MariaDB dump/import test passes on this Mac;
+it uses only its own disposable database container. This does not prove live
+OpenMRS recovery or change the existing application stack.
+The setup regression suite now passes 207 tests, plus the separate real MariaDB
+round-trip test. Python lint, shell syntax, and local documentation links pass.
 
 A read-only Docker check on September 11 refused the running Hub because its
 Compose ownership labels point to a different worktree. The check supplied the

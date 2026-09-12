@@ -114,6 +114,11 @@ COMMON_FLAGS=(
   --skip-comments --skip-dump-date --skip-tz-utc --skip-add-locks --skip-disable-keys
   --single-transaction --quick --extended-insert --hex-blob --default-character-set=utf8mb4
 )
+# Bash 3.2 treats an empty array expansion as unset under nounset.
+BODY_FLAGS=("${COMMON_FLAGS[@]}")
+if (( ${#IGNORE_TABLE_FLAGS[@]} > 0 )); then
+  BODY_FLAGS+=("${IGNORE_TABLE_FLAGS[@]}")
+fi
 
 # Stream the dump. Target-NEUTRAL: no `--databases`, so the dump carries no
 # CREATE DATABASE / USE statements (matching the original portable demo-data dump,
@@ -139,7 +144,7 @@ dump_stream() {
     done
     # (1) The body: everything except liquibasechangelog and global_property (module tables
     #     are already dropped via IGNORE_TABLE_FLAGS).
-    docker exec "$DB_CONTAINER" mariadb-dump "${COMMON_FLAGS[@]}" "${IGNORE_TABLE_FLAGS[@]}" \
+    docker exec "$DB_CONTAINER" mariadb-dump "${BODY_FLAGS[@]}" \
       --ignore-table="${SOURCE_DB}.liquibasechangelog" \
       --ignore-table="${SOURCE_DB}.global_property" "$SOURCE_DB"
     # (2) liquibasechangelog WITHOUT the module's rows.
@@ -154,7 +159,7 @@ dump_stream() {
       --where="$gp_where" \
       "$SOURCE_DB" global_property
   else
-    docker exec "$DB_CONTAINER" mariadb-dump "${COMMON_FLAGS[@]}" "${IGNORE_TABLE_FLAGS[@]}" \
+    docker exec "$DB_CONTAINER" mariadb-dump "${BODY_FLAGS[@]}" \
       "$SOURCE_DB"
   fi
 }

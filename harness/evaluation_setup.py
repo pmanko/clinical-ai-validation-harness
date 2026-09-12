@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import subprocess
-import gzip
 import json
 import os
 import re
@@ -252,16 +251,13 @@ def prepare_data(
             )
         finally:
             os.umask(mask)
-        provenance, issues = verify_dump(backup, Path(f"{backup}.provenance.json"))
-        if issues or provenance.get("module_state_included") is not True:
+        provenance, issues = verify_dump(
+            backup, Path(f"{backup}.provenance.json"), require_full_backup=True
+        )
+        if issues:
             raise SetupError(
                 "Full backup verification failed; the database was not reset."
             )
-        # Full backups intentionally skip portable-corpus SQL checks. Still read
-        # through the gzip trailer so a truncated archive cannot authorize reset.
-        with gzip.open(backup, "rb") as stream:
-            while stream.read(1024 * 1024):
-                pass
     except Exception:
         run(["docker", "start", "harness-openmrs-backend"])
         raise

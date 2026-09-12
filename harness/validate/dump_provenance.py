@@ -1,10 +1,11 @@
-"""Verify portable OpenMRS dump identity and consumer-module cleanliness."""
+"""Verify OpenMRS dump integrity and portable-corpus or full-backup metadata."""
 
 from __future__ import annotations
 
 import gzip
 import hashlib
 import json
+import zlib
 from pathlib import Path
 from typing import Any, BinaryIO
 
@@ -26,7 +27,12 @@ def verify_dump(
     provenance_path: Path,
     *,
     require_portable: bool = False,
+    require_full_backup: bool = False,
 ) -> tuple[dict[str, Any], list[str]]:
+    if require_portable and require_full_backup:
+        raise ValueError(
+            "Choose portable corpus or full backup verification, not both."
+        )
     issues: list[str] = []
     if not dump_path.is_file():
         return {}, [f"dump missing: {dump_path}"]
@@ -36,6 +42,8 @@ def verify_dump(
         provenance = json.loads(provenance_path.read_text(encoding="utf-8"))
     except Exception as exc:
         return {}, [f"invalid provenance JSON: {exc}"]
+    if not isinstance(provenance, dict):
+        return {}, ["provenance must be a JSON object"]
     actual_sha = sha256_file(dump_path)
     if provenance.get("output_sha256") != actual_sha:
         issues.append(
@@ -48,7 +56,14 @@ def verify_dump(
     ]
     module_state_included = bool(provenance.get("module_state_included"))
     if require_portable and module_state_included:
-        issues.append("seed input must be a portable corpus without consumer-module state")
+        issues.append(
+            "seed input must be a portable corpus without consumer-module state"
+        )
+    if require_full_backup:
+        if provenance.get("module_state_included") is not True:
+            issues.append("recovery requires a full backup with module state")
+        if provenance.get("excluded_tables") != []:
+            issues.append("full backup must declare no excluded tables")
     if not module_state_included:
         missing_prefixes = {"chartsearchai", "querystore"} - set(prefixes)
         if missing_prefixes:
@@ -56,12 +71,15 @@ def verify_dump(
                 "portable corpus provenance must exclude chartsearchai and querystore; "
                 f"missing {', '.join(sorted(missing_prefixes))}"
             )
-        table_needles = {
-            prefix: f"CREATE TABLE `{prefix}_".encode() for prefix in prefixes
-        }
-        changelog_header = b"INSERT INTO `liquibasechangelog`"
+    table_needles = {prefix: f"CREATE TABLE `{prefix}_".encode() for prefix in prefixes}
+    changelog_header = b"INSERT INTO `liquibasechangelog`"
+    try:
+        # Full backups also need a complete read: a hash can match a truncated
+        # gzip archive if its sidecar was generated after the interrupted dump.
         with _stream(dump_path) as stream:
             for line in stream:
+                if module_state_included:
+                    continue
                 for prefix, needle in table_needles.items():
                     if needle in line:
                         issues.append(f"consumer-module table survived: {prefix}")
@@ -73,4 +91,6 @@ def verify_dump(
                             )
                 if issues and any("survived" in issue for issue in issues):
                     break
+    except (OSError, EOFError, zlib.error):
+        issues.append("dump could not be read completely")
     return provenance, issues

@@ -29,7 +29,9 @@ def _docker(
     os.getenv("RUN_DOCKER_TESTS") != "1",
     reason="set RUN_DOCKER_TESTS=1 to run the real MariaDB dump/restore contract",
 )
-def test_portable_dump_round_trip_excludes_consumer_module_state(tmp_path: Path) -> None:
+def test_portable_dump_round_trip_excludes_consumer_module_state(
+    tmp_path: Path,
+) -> None:
     container = f"harness-dump-test-{uuid4().hex[:10]}"
     portable = tmp_path / "portable.sql.gz"
     full = tmp_path / "full.sql.gz"
@@ -70,6 +72,13 @@ CREATE TABLE chartsearchai_session (id INT PRIMARY KEY);
 INSERT INTO chartsearchai_session VALUES (10);
 CREATE TABLE querystore_document (id INT PRIMARY KEY);
 INSERT INTO querystore_document VALUES (20);
+CREATE TABLE global_property (property VARCHAR(255), property_value VARCHAR(255));
+INSERT INTO global_property VALUES
+  ('chartsearchai.llm.systemPrompt', 'locally customized prompt'),
+  ('module.chartsearchai.version', 'test-build'),
+  ('defaultLocale', 'en');
+CREATE TABLE users (user_id INT PRIMARY KEY, username VARCHAR(50), password VARCHAR(255));
+INSERT INTO users VALUES (1, 'eval-nurse', 'test-password-hash');
 CREATE TABLE liquibasechangelog (id VARCHAR(255), filename VARCHAR(255));
 INSERT INTO liquibasechangelog VALUES
   ('core-001', 'liquibase/core.xml'),
@@ -130,8 +139,11 @@ INSERT INTO liquibasechangelog VALUES
         assert "querystore_document" not in portable_sql
         assert "chartsearchai-001" not in portable_sql
         assert "querystore-001" not in portable_sql
+        assert "locally customized prompt" not in portable_sql
+        assert "module.chartsearchai.version" not in portable_sql
         assert "chartsearchai_session" in full_sql
         assert "querystore_document" in full_sql
+        assert "locally customized prompt" in full_sql
 
         rejected = subprocess.run(
             [
@@ -148,6 +160,20 @@ INSERT INTO liquibasechangelog VALUES
         )
         assert rejected.returncode == 1
         assert "seed input must be a portable corpus" in rejected.stdout
+
+        subprocess.run(
+            [
+                "python3",
+                "scripts/verify-portable-dump.py",
+                "--dump",
+                str(full),
+                "--require-full-backup",
+            ],
+            cwd=ROOT,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
 
         _docker(
             "exec",
@@ -187,5 +213,45 @@ INSERT INTO liquibasechangelog VALUES
             query,
         )
         assert result.stdout.decode().splitlines() == ["0", "0"]
+
+        _docker(
+            "exec",
+            container,
+            "mariadb",
+            "--user=root",
+            "--password=openmrs",
+            "-e",
+            "CREATE DATABASE recovered;",
+        )
+        _docker(
+            "exec",
+            "-i",
+            container,
+            "mariadb",
+            "--user=root",
+            "--password=openmrs",
+            "recovered",
+            input=gzip.decompress(full.read_bytes()),
+        )
+        recovered = _docker(
+            "exec",
+            container,
+            "mariadb",
+            "--user=root",
+            "--password=openmrs",
+            "-N",
+            "-B",
+            "-e",
+            "SELECT id FROM recovered.chartsearchai_session;"
+            "SELECT id FROM recovered.querystore_document;"
+            "SELECT property_value FROM recovered.global_property WHERE property='chartsearchai.llm.systemPrompt';"
+            "SELECT username, password FROM recovered.users;",
+        )
+        assert recovered.stdout.decode().splitlines() == [
+            "10",
+            "20",
+            "locally customized prompt",
+            "eval-nurse\ttest-password-hash",
+        ]
     finally:
         _docker("rm", "-f", container, check=False)

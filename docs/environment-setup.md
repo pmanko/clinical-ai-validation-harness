@@ -99,10 +99,32 @@ scripts. A failed backup prevents the reset. A restore/index failure is reported
 without an automatic destructive retry. The full backup and reset receipt are in
 `artifacts/evaluation-setup/backups/` and `data-reset.json`.
 
-**Recovery is not yet acceptance-tested.** Retain the original source revisions
-and full backup. Do not pass a full backup to the portable-corpus seed command:
-that command intentionally rejects module-bearing backups. A tested full-backup
-restore command is still required before this workflow is called complete.
+### Recover a Full Backup
+
+Recovery is an explicit, destructive operator action, never an automatic retry.
+Use the owning checkout, verify its deployment ownership with `make environment-check`,
+and retain a separate backup of the current database before replacing it. Use
+module builds compatible with the backup's recorded source revisions; a database
+restore does not roll back application binaries or local files.
+
+The existing restore script has a separate full-backup mode:
+
+```bash
+bash scripts/seed-local.sh --restore-backup /path/to/full-backup.sql.gz
+```
+
+It verifies the adjacent provenance, checksum, archive readability, and declaration
+that no tables were excluded before stopping the backend and importing the database.
+A failed backend stop prevents replacement. Ordinary `--dump` remains restricted
+to portable data and rejects full backups. The low-level restore command does not
+create a safety backup or check checkout ownership for you.
+
+Full backups retain database accounts, custom settings, chats, and module state.
+Rebuild the derived QueryStore index after recovery using `make querystore-reindex`
+and verify patient retrieval before resuming testing. Local files and external
+indexes are not included in the SQL backup. **Database round-trip and command
+ordering tests pass; complete live OpenMRS recovery and browser acceptance remain
+open.** Do not describe recovery as fully verified yet.
 
 ## Model Files
 

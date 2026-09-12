@@ -22,6 +22,7 @@ def dump(path: Path, *, full=False):
                 "output_sha256": sha256_file(path),
                 "output_bytes": path.stat().st_size,
                 "module_state_included": full,
+                "excluded_tables": [],
                 "excluded_module_prefixes": []
                 if full
                 else ["chartsearchai", "querystore"],
