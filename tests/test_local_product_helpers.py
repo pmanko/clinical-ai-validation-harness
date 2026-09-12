@@ -345,13 +345,17 @@ def test_provisioner_creates_only_patient_reader_and_protects_secret_file(tmp_pa
     assert values["QUERYSTORE_PASSWORD"].startswith("Hub")
 
 
-def test_provisioner_reuses_saved_account_without_rotating_it(tmp_path):
+@pytest.mark.parametrize("restored_baseline", [False, True])
+def test_provisioner_reapplies_password_only_after_baseline_restore(
+    tmp_path, restored_baseline
+):
     output = tmp_path / "service.env"
+    test_password = provisioner._password()
     provisioner._write_env(
         output,
         base_url="http://backend:8080/openmrs",
         username="med-agent-hub",
-        password="HubSavedPassword9a",
+        password=test_password,
     )
     client = FakeOpenMrs()
     client.objects[("role", "name", provisioner.ROLE_NAME)] = {
@@ -365,10 +369,21 @@ def test_provisioner_reuses_saved_account_without_rotating_it(tmp_path):
         "roles": [{"uuid": "role-uuid"}],
     }
 
-    provisioner.provision(client, output, internal_base_url="http://backend:8080/openmrs")
+    provisioner.provision(
+        client, output, internal_base_url="http://backend:8080/openmrs",
+        restore_credentials=restored_baseline,
+    )
 
-    assert not [request for request in client.requests if request[0] == "POST"]
-    assert provisioner._read_env(output)["QUERYSTORE_PASSWORD"] == "HubSavedPassword9a"
+    writes = [request for request in client.requests if request[0] == "POST"]
+    if restored_baseline:
+        assert writes == [
+            ("POST", "user/user-uuid", {
+                "password": test_password, "roles": ["role-uuid"]
+            })
+        ]
+    else:
+        assert writes == []
+    assert provisioner._read_env(output)["QUERYSTORE_PASSWORD"] == test_password
 
 
 def test_provisioner_removes_extra_inherited_and_user_roles(tmp_path):
@@ -501,7 +516,10 @@ def test_openmrs_client_posts_json_with_basic_auth(monkeypatch):
     assert timeout == 30
 
 
-def test_provisioner_cli_uses_declared_endpoints(tmp_path, monkeypatch, capsys):
+@pytest.mark.parametrize("restore_credentials", [False, True])
+def test_provisioner_cli_uses_declared_endpoints(
+    tmp_path, monkeypatch, capsys, restore_credentials
+):
     client = object()
     calls = []
     result = {
@@ -517,13 +535,11 @@ def test_provisioner_cli_uses_declared_endpoints(tmp_path, monkeypatch, capsys):
             calls.append((base_url, username, password)) or client
         ),
     )
-    monkeypatch.setattr(
-        provisioner,
-        "provision",
-        lambda actual_client, output, *, internal_base_url: (
-            calls.append((actual_client, output, internal_base_url)) or result
-        ),
-    )
+    def provision(actual_client, output, *, internal_base_url, restore_credentials):
+        calls.append((actual_client, output, internal_base_url, restore_credentials))
+        return result
+
+    monkeypatch.setattr(provisioner, "provision", provision)
     monkeypatch.setattr(
         sys,
         "argv",
@@ -539,13 +555,13 @@ def test_provisioner_cli_uses_declared_endpoints(tmp_path, monkeypatch, capsys):
             "secret",
             "--output",
             str(tmp_path / "service.env"),
-        ],
+        ] + (["--restore-credentials"] if restore_credentials else []),
     )
 
     assert provisioner.main() == 0
     assert calls == [
         ("http://openmrs", "admin", "secret"),
-        (client, tmp_path / "service.env", "http://backend:8080/openmrs"),
+        (client, tmp_path / "service.env", "http://backend:8080/openmrs", restore_credentials),
     ]
     assert json.loads(capsys.readouterr().out) == result
 

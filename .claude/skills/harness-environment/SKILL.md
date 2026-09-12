@@ -31,6 +31,9 @@ model/login/browser readiness or promise an unverified first install.
    catalog and baseline identity. Do not fetch a baseline during a preserve-only
    update or replace the operator's different model. Asset preparation alone
    does not establish runtime readiness.
+   Explicit initialize/reset uses the documented E4B local evaluation defaults;
+   verify that model before mutation. Reset replaces database-stored settings as
+   well as clinical data. Ordinary updates must not apply those defaults.
 4. Required role accounts are part of every evaluation preparation. Do not skip
    them or present them as an optional study. Preserve managed credentials on
    updates and recreate the account configuration after an explicit baseline

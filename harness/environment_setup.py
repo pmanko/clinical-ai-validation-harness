@@ -14,6 +14,7 @@ from typing import Any
 from urllib.parse import urlsplit
 
 from harness.common.openmrs import OpenMrsClient
+from harness.environment_assets import prepare_assets
 from harness.evaluation_setup import SetupError, prepare_data, verify_baseline
 
 
@@ -203,7 +204,9 @@ def inspect_environment(root: Path) -> dict[str, Any]:
     }
 
 
-def prepare_inference(root: Path, client: OpenMrsClient) -> dict[str, Any]:
+def prepare_inference(
+    root: Path, client: OpenMrsClient, *, restored_baseline: bool = False
+) -> dict[str, Any]:
     """Start managed dependencies of saved providers without changing their settings."""
     discovery = client.request("GET", "chartsearchai/providers")
     enabled = {
@@ -262,10 +265,16 @@ def prepare_inference(root: Path, client: OpenMrsClient) -> dict[str, Any]:
             raise SetupError(
                 "Set all three QueryStore connection values together; credentials were retained."
             )
-        provision_source = not any(external) and not source_file.is_file()
-        if provision_source and (
-            client.exact("user", "username", "med-agent-hub")
-            or client.exact("role", "name", "Med Agent Hub Patient Reader")
+        provision_source = not any(external) and (
+            restored_baseline or not source_file.is_file()
+        )
+        if (
+            provision_source
+            and not restored_baseline
+            and (
+                client.exact("user", "username", "med-agent-hub")
+                or client.exact("role", "name", "Med Agent Hub Patient Reader")
+            )
         ):
             raise SetupError(
                 "The patient reader already exists but its local credentials are missing. "
@@ -290,7 +299,8 @@ def prepare_inference(root: Path, client: OpenMrsClient) -> dict[str, Any]:
                 os.environ.get("CHARTSEARCH_ADMIN_PASSWORD", "Admin123"),
                 "--output",
                 str(source_file),
-            ],
+            ]
+            + (["--restore-credentials"] if restored_baseline else []),
         )
     if local_hub:
         # Empty example values are not overrides of the saved reader credentials.
@@ -385,6 +395,7 @@ def prepare_environment(
         ).resolve()
         source = verify_baseline(baseline)
         state["baseline_sha256"] = source["output_sha256"]
+        state["model_asset"] = prepare_assets(root, model="gemma-e4b")["model"]
     state["data_action"] = data_action
     state["evaluation_accounts"] = "required"
     command(
@@ -425,6 +436,10 @@ def prepare_environment(
             root,
             ["make", "querystore-recreate-index", "ALLOW_QUERYSTORE_INDEX_RESET=1"],
         )
+    if data_action != "preserve":
+        command(
+            root, ["bash", "scripts/chartsearch-configure.sh", "--local-evaluation"]
+        )
     port = os.environ.get("HARNESS_PROXY_HTTP_PORT", "8088")
     command(
         root,
@@ -444,6 +459,7 @@ def prepare_environment(
                 os.environ.get("CHARTSEARCH_ADMIN_USER", "admin"),
                 os.environ.get("CHARTSEARCH_ADMIN_PASSWORD", "Admin123"),
             ),
+            restored_baseline=data_action != "preserve",
         )
     except RuntimeError as error:
         raise SetupError(str(error)) from error

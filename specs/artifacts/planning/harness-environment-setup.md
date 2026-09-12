@@ -228,8 +228,12 @@ Drive folder. No live reset is authorized by implementation of this workflow.
   - Ordinary preparation now reads the saved provider configuration and starts
     only its managed local dependencies through the existing router/Hub commands.
     It preserves disabled/remote providers and local credentials, checks discovery,
-    and never chooses replacement settings. First-install provider/model defaults,
-    real inference, and browser acceptance remain open.
+    and never chooses replacement settings. Explicit initialize/reset now checks
+    the pinned E4B asset and applies the local evaluation defaults through the
+    existing configuration script. Both answer pipelines share the local router;
+    this does not test the Java-managed embedded model server. Baseline restore
+    reapplies local reader credentials before Hub startup and configures QueryStore
+    before index rebuilding. Real inference and browser acceptance remain open.
 - [x] Implement authenticated account/role/session-location metadata propagation across both providers.
   - Request snapshot, Hub transport, and stored-turn metadata implemented and tested.
 - [ ] Verify the implemented account-context metadata in the live login/provider/reload path.
@@ -300,6 +304,22 @@ managed startup and health checks. These are isolated tests, not live inference 
 The expanded focused suite passes 227 tests; lint, shell syntax, and edited links
 pass. Read-only preflight still refuses the other checkout's live stack, which was
 not modified for this validation.
+
+Baseline configuration and credential reconciliation bring the focused suite to
+240 passing tests. The configuration script is exercised with an isolated settings
+transport: ordinary invocation writes only its existing three properties; the
+explicit baseline mode adds the bundled E4B settings. Parent tests prove model
+verification precedes mutation, preserve never requests default-model assets,
+and only baseline restore reapplies saved local reader credentials. These do not prove a
+live restore, source login, or model answer. The contributor quick reference is
+linked from the root README, docs index, and project overview.
+
+Two first-install/reset details still require verification before closeout:
+`compose/backend-init.sh` downloads embedding assets from a floating revision
+directly into their final paths, and `scripts/seed-local.sh` authenticates after
+restore using local administrator settings that may differ from the imported
+baseline. Resolve these in their existing owners, without adding another setup
+framework or silently changing administrator credentials.
 
 A read-only Docker check on September 11 refused the running Hub because its
 Compose ownership labels point to a different worktree. The check supplied the

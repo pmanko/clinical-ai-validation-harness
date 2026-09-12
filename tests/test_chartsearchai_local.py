@@ -351,14 +351,12 @@ def test_local_router_down_does_not_kill_unrelated_non_macos_pid(tmp_path):
         unrelated.wait(timeout=5)
 
 
-def test_chartsearch_configure_writes_only_current_hub_properties():
+def test_chartsearch_configure_has_no_retired_or_querystore_properties():
     configure = _read("scripts/chartsearch-configure.sh")
 
     assert 'set_openmrs_property "chartsearchai.hub.endpointUrl"' in configure
     assert "chartsearchai.hub.profileId" not in configure
     assert "querystore.embedding" not in configure
-    assert "chartsearchai.llm.remote.endpointUrl" not in configure
-    assert "chartsearchai.llm.remote.modelName" not in configure
     assert "chartsearchai.llm.remote.endpoints" not in configure
 
 

@@ -67,7 +67,8 @@ def test_reset_backs_up_all_module_state_before_seed(tmp_path):
     assert "scripts/dump-loaded.sh" in calls[1]
     assert "scripts/seed-local.sh" in calls[2]
     assert "--dump" in calls[2]
-    assert calls[3] == [
+    assert calls[3] == ["bash", "scripts/querystore-configure.sh"]
+    assert calls[4] == [
         "make",
         "querystore-recreate-index",
         "ALLOW_QUERYSTORE_INDEX_RESET=1",

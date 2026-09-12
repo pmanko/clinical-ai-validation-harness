@@ -3,13 +3,35 @@
 **Implementation preview:** source updating, core preparation, required evaluation
 accounts, verified asset acquisition, and guarded baseline restore are implemented.
 Preparation now starts the local dependencies required by saved provider settings.
-Initial provider/model configuration and complete browser verification remain open.
+Explicit baseline setup configures both providers with the existing E4B model.
+Shared baseline distribution and complete browser verification remain open.
 A successful `prepare` command is not yet an out-of-the-box evaluation readiness result.
 
 This workflow belongs to the parent harness. ChartSearchAI is its first supported
 environment. Its baseline includes the planned role accounts, not a separate
 optional study installation. Existing provider choices, patient data, chats, and local results
 are preserved during ordinary updates.
+
+## Quick Reference
+
+Use one persistent local checkout to run the environment. These are shared
+contributor instructions, not a personal machine configuration. The workflow
+must be merged into the shared `main` branch before asking another contributor
+to update to it.
+
+| Task | What to do |
+| --- | --- |
+| Ask Claude to update | "Update my local ChartSearchAI evaluation environment using the harness-environment skill. Keep my data and settings. Tell me what you verified and what remains unchecked." |
+| Update manually | From clean `main`, run `python3 scripts/update-evaluation-checkout.py`, reread this guide, then `make environment-check` and `make environment-prepare CONFIRM_DEMO_DATA=1`. |
+| Install for the first time | Follow [first install](#first-install-or-requested-reset): acquire the verified baseline and E4B model, then explicitly choose `initialize`. An unreachable database is not a new installation. |
+| Restore the baseline | Explicitly ask to restore the evaluation baseline and back up current data first, or use the documented `--data reset` command below. This replaces database data, chats, and stored settings. |
+| Log in for role testing | Open [local OpenMRS](http://localhost:8088/openmrs/spa), unless a different local port is configured. Use the seven required accounts listed below; their passwords are in private `artifacts/evaluation-setup/credentials.json`. |
+| Change experiment instructions | Customize the existing system prompts/settings for the selected provider. Normal updates preserve them; setup does not automatically choose instructions from the user's role. |
+| Check what worked | Read the latest receipt in `artifacts/evaluation-setup/`. `prepared` is not proof that chat works: verify a completed answer and conversation reload for each enabled provider. |
+
+`CONFIRM_DEMO_DATA=1` confirms this is a synthetic-data evaluation environment;
+it does **not** authorize a reset. Do not share credential files, use these
+accounts on production data, or reset because a model is slow or unavailable.
 
 ## Prerequisites
 
@@ -99,6 +121,10 @@ never overwritten, and ordinary preserve/update does not acquire baseline data.
 
 Only when no deployment or data volumes exist:
 
+First complete [model file acquisition](#model-files) for `gemma-e4b`. Baseline
+initialization and reset verify this pinned model before changing the environment;
+ordinary updates retain the installed model and do not require this default.
+
 ```bash
 bash scripts/setup-environment.sh check --data initialize --baseline /path/to/baseline.sql.gz
 bash scripts/setup-environment.sh prepare --data initialize --baseline /path/to/baseline.sql.gz --confirm-demo-data
@@ -115,6 +141,20 @@ including module/session data, then invokes the existing seed and index-rebuild
 scripts. A failed backup prevents the reset. A restore/index failure is reported
 without an automatic destructive retry. The full backup and reset receipt are in
 `artifacts/evaluation-setup/backups/` and `data-reset.json`.
+
+Initialization and reset then apply the local evaluation defaults through the
+existing configuration script: both providers enabled, bundled selected by default,
+and bundled inference using `gemma-e4b` through the local router. With the supplied
+configuration, Hub's default checked profile uses the same model and router.
+This exercises the bundled and Hub answer pipelines, **not** the Java-managed
+embedded model server. Explicit environment overrides still apply.
+
+Restoring a baseline replaces database-stored prompt/provider settings; the full
+backup retains their prior values. Private local files are kept. The imported Hub
+reader account is reconciled with the saved local password (or a newly generated
+password on first setup), before Hub starts. Externally configured source credentials
+are not changed. Ordinary preserve/update runs do not apply these baseline defaults
+or reapply passwords.
 
 ### Recover a Full Backup
 
@@ -187,7 +227,7 @@ proof of production least-privilege policy. The development chat endpoint now
 captures assigned/inherited roles and session location, passes the snapshot to
 the selected provider, and stores it with the answer. The Hub receives it as
 request metadata. This does not yet supply role-guided model instructions.
-Automatic role-based instruction selection is outside this setup work. Ross can
+Automatic role-based instruction selection is outside this setup work. Testers can
 customize system prompts for experiments; ordinary updates preserve local
 configuration. The receipt currently states `account_context: not_verified` and
 `instruction_policy: not_implemented`: live context verification remains open,

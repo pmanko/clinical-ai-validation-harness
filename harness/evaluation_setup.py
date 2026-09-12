@@ -284,6 +284,7 @@ def prepare_data(
                 database,
             ]
         )
+        run(["bash", "scripts/querystore-configure.sh"])
         run(["make", "querystore-recreate-index", "ALLOW_QUERYSTORE_INDEX_RESET=1"])
     except Exception as error:
         receipt.update(

@@ -19,14 +19,23 @@ def actions(monkeypatch):
     monkeypatch.setattr(
         setup,
         "prepare_inference",
-        lambda root, client: {"provider_discovery": "checked"},
+        lambda root, client, **kwargs: {"provider_discovery": "checked"},
+    )
+    monkeypatch.setattr(
+        setup,
+        "prepare_assets",
+        lambda root, **kwargs: {"model": {"status": "verified"}},
     )
     return calls
 
 
 def test_evaluation_preparation_includes_required_accounts_without_settings_or_reset(
-    tmp_path, actions
+    tmp_path, actions, monkeypatch
 ):
+    def unexpected_assets(*args, **kwargs):
+        pytest.fail("Preserving an installation must not require the baseline model")
+
+    monkeypatch.setattr(setup, "prepare_assets", unexpected_assets)
     report = setup.prepare_environment(tmp_path, confirm_demo_data=True)
     assert actions == [
         ["bash", "scripts/chartsearchai-local.sh", "--prepare-core", "--check"],
@@ -90,6 +99,30 @@ def test_initialize_has_to_pass_baseline_verification_before_build(
     assert actions == []
 
 
+@pytest.mark.parametrize("data_action", ["initialize", "reset"])
+def test_baseline_model_is_verified_before_any_mutation(
+    tmp_path, actions, monkeypatch, data_action
+):
+    monkeypatch.setattr(
+        setup,
+        "inspect_environment",
+        lambda root: {
+            "deployment": "absent" if data_action == "initialize" else "existing"
+        },
+    )
+
+    def invalid_model(root, *, model):
+        assert root == tmp_path and model == "gemma-e4b"
+        raise SetupError("model checksum mismatch")
+
+    monkeypatch.setattr(setup, "prepare_assets", invalid_model)
+    with pytest.raises(SetupError, match="model checksum mismatch"):
+        setup.prepare_environment(
+            tmp_path, data_action=data_action, confirm_demo_data=True
+        )
+    assert actions == []
+
+
 def test_explicit_initialize_restores_verified_package_and_materializes_index(
     tmp_path, actions, monkeypatch
 ):
@@ -114,6 +147,11 @@ def test_explicit_initialize_restores_verified_package_and_materializes_index(
         "querystore-recreate-index",
         "ALLOW_QUERYSTORE_INDEX_RESET=1",
     ]
+    assert actions[5] == [
+        "bash",
+        "scripts/chartsearch-configure.sh",
+        "--local-evaluation",
+    ]
     assert report["baseline_sha256"] == "verified"
     assert "scripts/provision-evaluation-users.py" in actions[-1]
 
@@ -130,6 +168,11 @@ def test_reset_backups_precede_any_application_upgrade(tmp_path, actions, monkey
     )
     assert actions[1] == ["verified-backup-and-reset"]
     assert actions[2] == ["bash", "scripts/chartsearchai-local.sh", "--prepare-core"]
+    assert actions[3] == [
+        "bash",
+        "scripts/chartsearch-configure.sh",
+        "--local-evaluation",
+    ]
     assert report["data"]["backup"] == "private-backup.sql.gz"
     assert "scripts/provision-evaluation-users.py" in actions[-1]
 
@@ -195,16 +238,29 @@ def test_invalid_data_action_is_rejected_before_any_inspection(tmp_path, actions
     assert actions == []
 
 
-def test_parent_runs_saved_provider_preparation_after_required_accounts(
-    tmp_path, actions, monkeypatch
+@pytest.mark.parametrize("data_action", ["preserve", "initialize", "reset"])
+def test_parent_runs_provider_preparation_after_required_accounts(
+    tmp_path, actions, monkeypatch, data_action
 ):
-    def prepare(root, client):
+    monkeypatch.setattr(
+        setup,
+        "inspect_environment",
+        lambda root: {
+            "deployment": "absent" if data_action == "initialize" else "existing"
+        },
+    )
+    monkeypatch.setattr(setup, "prepare_data", lambda root, **kwargs: {})
+
+    def prepare(root, client, *, restored_baseline):
         assert "scripts/provision-evaluation-users.py" in actions[-1]
         assert client.base_url == "http://127.0.0.1:8088/openmrs"
+        assert restored_baseline is (data_action != "preserve")
         return {"provider_discovery": "checked", "model_response": "not_checked"}
 
     monkeypatch.setattr(setup, "prepare_inference", prepare)
-    report = setup.prepare_environment(tmp_path, confirm_demo_data=True)
+    report = setup.prepare_environment(
+        tmp_path, data_action=data_action, confirm_demo_data=True
+    )
     assert report["inference"]["provider_discovery"] == "checked"
     assert report["readiness"] == "not_checked"
 
@@ -212,7 +268,7 @@ def test_parent_runs_saved_provider_preparation_after_required_accounts(
 def test_provider_preparation_failure_cannot_report_prepared_or_retry_reset(
     tmp_path, actions, monkeypatch
 ):
-    def fail(root, client):
+    def fail(root, client, **kwargs):
         raise RuntimeError("provider unavailable")
 
     monkeypatch.setattr(setup, "prepare_inference", fail)

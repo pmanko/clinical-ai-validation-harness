@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import secrets
 import shlex
 import stat
@@ -93,6 +92,7 @@ def provision(
     *,
     internal_base_url: str,
     service_username: str = SERVICE_USERNAME,
+    restore_credentials: bool = False,
 ) -> dict[str, str]:
     saved = _read_env(output)
     username = saved.get("QUERYSTORE_USERNAME") or service_username
@@ -136,7 +136,7 @@ def provision(
         )
     else:
         assigned = {item.get("uuid") for item in user.get("roles", [])}
-        if assigned != {role["uuid"]} or not saved:
+        if assigned != {role["uuid"]} or not saved or restore_credentials:
             client.request("POST", f"user/{user['uuid']}", user_payload)
 
     verified_role = _full(client, "role", str(role["uuid"]))
@@ -177,12 +177,18 @@ def main() -> int:
     parser.add_argument("--admin-user", required=True)
     parser.add_argument("--admin-password", required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument(
+        "--restore-credentials",
+        action="store_true",
+        help="after an explicit database baseline restore, reapply the saved local reader password",
+    )
     args = parser.parse_args()
 
     result = provision(
         OpenMrsClient(args.base_url, args.admin_user, args.admin_password),
         args.output,
         internal_base_url=args.internal_base_url,
+        restore_credentials=args.restore_credentials,
     )
     print(json.dumps(result, sort_keys=True))
     return 0

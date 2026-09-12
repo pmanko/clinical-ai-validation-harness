@@ -140,6 +140,30 @@ def test_missing_reader_credentials_never_rotate_an_existing_account(
     assert commands == []
 
 
+@pytest.mark.parametrize("saved_credentials", [False, True])
+def test_explicit_baseline_restore_reconciles_the_imported_reader(
+    tmp_path, commands, saved_credentials
+):
+    if saved_credentials:
+        credentials = tmp_path / "artifacts/chartsearchai-local/querystore-service.env"
+        credentials.parent.mkdir(parents=True)
+        credentials.write_text("# saved local reader credentials\n")
+    client = Client(
+        [provider("hub")],
+        {
+            "chartsearchai.hub.endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
+        },
+    )
+    client.existing_service_user = True
+    setup.prepare_inference(tmp_path, client, restored_baseline=True)
+    provision = next(
+        call
+        for call in commands
+        if "scripts/provision-querystore-service-account.py" in call
+    )
+    assert "--restore-credentials" in provision
+
+
 def test_unconfigured_hub_is_reported_not_configured_automatically(tmp_path, commands):
     client = Client([provider("hub", ready=False)])
     with pytest.raises(SetupError, match="endpoint"):
@@ -183,8 +207,9 @@ def test_first_local_reader_uses_existing_provisioner(tmp_path, commands):
 
 
 @pytest.mark.parametrize("external", [False, True])
+@pytest.mark.parametrize("restored_baseline", [False, True])
 def test_saved_source_credentials_are_not_overridden_by_empty_defaults(
-    tmp_path, commands, monkeypatch, external
+    tmp_path, commands, monkeypatch, external, restored_baseline
 ):
     source = tmp_path / "artifacts/chartsearchai-local/querystore-service.env"
     source.parent.mkdir(parents=True)
@@ -202,11 +227,17 @@ def test_saved_source_credentials_are_not_overridden_by_empty_defaults(
             "chartsearchai.hub.endpointUrl": "http://med-agent-hub:8080/v1/chat/completions",
         },
     )
-    setup.prepare_inference(tmp_path, client)
+    setup.prepare_inference(tmp_path, client, restored_baseline=restored_baseline)
     assert captured[-1] == (
         ["make", "med-agent-hub-up"],
         {"extra_env": {} if external else {key: None for key in keys}},
     )
+    provisioning = [
+        args
+        for args, _ in captured
+        if "scripts/provision-querystore-service-account.py" in args
+    ]
+    assert bool(provisioning) is (restored_baseline and not external)
 
 
 def test_command_can_unset_example_overrides_without_mutating_parent_environment(
