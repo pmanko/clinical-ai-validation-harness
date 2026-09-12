@@ -4,7 +4,8 @@
 accounts, verified asset acquisition, and guarded baseline restore are implemented.
 Preparation now starts the local dependencies required by saved provider settings.
 Explicit baseline setup configures both providers with the existing E4B model.
-Shared baseline distribution and complete browser verification remain open.
+The baseline package is available in the shared project Drive; complete browser
+verification remains open.
 A successful `prepare` command is not yet an out-of-the-box evaluation readiness result.
 
 This workflow belongs to the parent harness. ChartSearchAI is its first supported
@@ -18,6 +19,8 @@ Contributors can test this implementation before it is merged. Use the published
 [`codex/ross-evaluation-setup` branch](https://github.com/pmanko/clinical-ai-validation-harness/tree/codex/ross-evaluation-setup),
 including its exact submodule pins. This is a test handoff, not a verified release.
 It does not depend on testing or restarting somebody else's development instance.
+The shared [Start here document](https://docs.google.com/document/d/1tI5oRg7L4N54-6NJnfq5ydwftj1buyeCtGpuWK9ulS0/edit)
+links the same instructions, baseline package, and study materials.
 
 On a machine without an existing harness checkout, clone it into a persistent
 working directory, not a temporary folder:
@@ -152,8 +155,11 @@ explicit migration.
 
 Large data packages are not in Git. The reviewed baseline identity is recorded in
 [evaluation-baseline.json](../datasets/sources/evaluation-baseline.json). Obtain
-the matching SQL package and its `.provenance.json` sidecar from an approved project
-source. There is not yet a configured shared download URL.
+the matching SQL package and its `.provenance.json` sidecar from the
+[project Drive baseline ZIP](https://drive.google.com/file/d/1FxuaYxOfthzMHVL4bUPleLj_P7n_EN-X/view)
+(project-folder access required). Download and extract the ZIP, then pass the SQL
+archive to `--baseline-source` below. The Drive page is not a direct SQL download
+URL; authenticated Drive download is separate from the setup command's HTTPS fetch.
 
 The parent setup command can copy a local package or fetch an explicitly supplied
 HTTPS source, verifying the checksum and portable-data provenance before installing

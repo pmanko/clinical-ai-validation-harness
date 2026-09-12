@@ -214,10 +214,12 @@ Concrete targets, inspected September 11:
 
 The local portable corpus was verified read-only on September 11:
 `f76619b40b45f0261467ceaeb2708b97795d115d99a7b2c2a7c73b38d9a8512a`,
-44,057,876 bytes. A shared acquisition location remains unverified. Baseline
-acquisition must be configurable in the harness: accept a verified local package
-and support a reviewed shared download location, without assuming a Ross-specific
-Drive folder. No live reset is authorized by implementation of this workflow.
+44,057,876 bytes. The verified ZIP is now available in the
+[shared project Drive](https://drive.google.com/file/d/1FxuaYxOfthzMHVL4bUPleLj_P7n_EN-X/view),
+with recipient access and uploaded size confirmed. Download/extraction supplies
+the existing local-package input; authenticated Drive download is not an automatic
+HTTPS-fetch source. Other contributors can supply the same verified local package
+or an approved direct HTTPS source. No live reset is authorized by this workflow.
 
 ## Implementation order and progress
 
@@ -247,8 +249,8 @@ providing this clearly labeled preview handoff. No local application was restart
 - [ ] Supply pinned assets and verify host/model prerequisites.
   - Parent `assets` action checks/fetches selected pinned model files and the
     portable baseline with adjacent provenance. Existing files are never replaced;
-    no services or database operations run. Shared baseline distribution and
-    complete model/runtime readiness remain open.
+    no services or database operations run. Private project Drive distribution is
+    available; complete model/runtime readiness remains open.
 - [x] Implement required account provisioner with repeatability and ownership tests (live access checks pending).
 - [x] Connect parent preparation commands, Docker ownership checks, and tested receipt/failure handling.
 - [x] Add and structurally validate the Claude skill and operator guide (end-to-end use still pending).
