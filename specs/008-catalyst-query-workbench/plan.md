@@ -14,6 +14,29 @@ checkpoint after the current release is stabilized and accepted.
 
 **Specification:** [spec.md](spec.md)
 
+## Immediate next step — neutral-question warmup
+
+The owner selected this as the next step: ask **“What information is available
+in this data source?”** through the configured source's ordinary writer request,
+using its complete readable schema and selected model profile. Discard the
+response. The warmup question and response must never become user conversation
+history, saved examples, guidance, or an executed query.
+
+First validate locally with both retained sources. Follow warmup with a different
+real question and inspect the actual model request and cache evidence: the shared
+instructions and schema may be reused, while the warmup exchange is absent from
+the new request. Check source switching and cache misses as well as success;
+model residency alone does not establish useful schema reuse. Keep this a finite
+deployment operation through the existing lifecycle wrapper, with an explicit
+stop path and no recurring warmup loop.
+
+Then roll out the exact merged compatible revisions to the existing CPU demo
+server and verify the real two-source question path. Record implementation,
+local validation, merge, deployment and owner review separately in [tasks.md](tasks.md).
+The owner direction is low-resource CPU deployment, useful responsiveness,
+warmup that helps real queries, and a working Stop control. Timings are diagnostic
+evidence; no numeric response-time or cancellation target is approved.
+
 ## Next owner checkpoint — deployed release and local verified demos
 
 Approved on 10 September 2026: the next reviewable checkpoint is a working
@@ -89,10 +112,9 @@ before the complete catalog, defeating reuse of that catalog as a stable prefix.
 
 Deliver these repairs in order, retaining the existing state owners and tests:
 
-1. **Bound and cancel the whole operation.** Use one elapsed-time deadline across
-   queueing, generation, repairs, and optional review, with downstream timeouts
-   bounded by its remaining time. Propagate explicit cancellation, request loss,
-   and deadline expiry through Gateway, Hub role calls, and the model connection;
+1. **Keep preparation active and support Stop.** Remove the automatic interactive
+   deadline. Propagate explicit cancellation and request loss through Gateway,
+   Hub role calls, and the model connection;
    do not start another repair afterward. Record a terminal turn state, release
    the session's busy state, and preserve the draft and prior result. Return a
    structured error when the client is still connected; handle empty or truncated
@@ -108,7 +130,7 @@ Deliver these repairs in order, retaining the existing state owners and tests:
    prompt/output-contract mismatch. If a correction can be derived unambiguously
    from the SQL parser, change only that metadata and retain provenance; never
    guess types, rewrite selected SQL, or bypass ambiguous-patch checks. Count all
-   retries against the shared deadline. The failed follow-up records one timed-out
+   retries in the request evidence. The failed follow-up records one timed-out
    invocation and no returned validation findings, not a proven repair loop.
    Verify useful output, not just earlier
    failure, on the unchanged count and follow-up scenarios plus varied cases.
@@ -119,24 +141,20 @@ Deliver these repairs in order, retaining the existing state owners and tests:
    and verification use local inference. The server should use a measured smaller
    model with warmup and a lightweight selectable alternative. Distinguish cold,
    loaded-model, and repeated-query timings on both sources. If CPU execution
-   misses the reviewed target, report the limitation and remaining CPU-only
+   remains impractical in the observed workflow, report the limitation and remaining CPU-only
    options; do not substitute GPU capacity. The proposed GPU trial is withdrawn.
    Neither extra CPU concurrency nor a
    pre-warm request is assumed to make the current capacity adequate.
 
-Proposed targets for owner review, not measured results or silently adopted
-acceptance changes: visible acknowledgement or queue state within 1 second;
-usable simple initial/follow-up queries within 30 seconds on a warm fast profile;
-a 120-second total interactive deadline including queue and repair; and no active
-downstream call or later repair within 5 seconds of cancellation. Report each
-observed timing, cold and repeated requests, query correctness, and two-session
-contention. A small case set does not establish production percentiles. If a
-target is missed, keep the finding open rather than extending the test wait.
+The previous numeric targets and total interactive deadline are withdrawn by
+owner direction. Report observed timings, cold and repeated requests, query
+correctness, and contention as evidence. Evaluate whether the actual workflow is
+useful without treating an agent-selected number as a product requirement.
 
-First prove the failure/timeout/cancellation boundaries with focused tests, then
+First prove failure handling and explicit cancellation with focused tests, then
 repeat the short real dual-source questions on the intended server hardware.
 Only after that passes, rerun the full saved-work-to-Superset journey. Live stage
-feedback in step 6 improves visibility but does not substitute for these timing
+feedback in step 6 improves visibility but does not substitute for these workflow
 and correctness checks.
 
 ### Current release integration
