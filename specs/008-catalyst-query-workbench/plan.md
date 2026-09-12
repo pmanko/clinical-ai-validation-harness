@@ -5,10 +5,13 @@ merged, and the specification set is consolidated. All four usability iterations
 are merged and the complete local dual-source walkthroughs passed. On 10 September
 2026 the owner authorized continuing into saved-work and Dashboard functionality,
 with subsequent feedback bringing typography and composer style alignment into
-the saved-query iteration. The replacement light-mode videos are published.
-The exact merged server release is healthy, but its first full evidence run
-failed during a slow follow-up generation and exposed missing downstream
-cancellation. Final full server evidence and owner acceptance
+the saved-query iteration. Earlier light-mode videos remain published as
+historical evidence. A new local OpenMRS replacement is still required: its
+first current capture exposed SQLite `strftime` in generated SQL, which Spark
+does not support. Catalyst #119 now reports that dialect mismatch before
+execution. The exact merged server release is healthy, but its first full
+evidence run exposed downstream cancellation and automatic deadline behavior.
+Final full server evidence, the replacement recording, and owner acceptance
 remain open. Responsiveness and URL-addressable sessions are the next product
 checkpoint after the current release is stabilized and accepted.
 
@@ -30,14 +33,15 @@ model residency alone does not establish useful schema reuse. Keep this a finite
 deployment operation through the existing lifecycle wrapper, with an explicit
 stop path and no recurring warmup loop.
 
-The initial implementation reused the normal question-request transport and its
-existing deadline, so the server stopped the full-schema warmup before it could
-produce a receipt. Hub #29 and Catalyst #118 established an internal lifecycle
-warm route: it runs until the prefix completes or the lifecycle caller
-disconnects. Hub #30 corrects a remaining client-level deadline in that route.
-Normal question preparation keeps its existing Stop path and configuration. The
-next harness pin must carry all three merged revisions before local or server
-warmup evidence is refreshed.
+Hub #29 and Catalyst #118 established an internal lifecycle warm route: it runs
+until the prefix completes or the lifecycle caller disconnects. Hub #30 removed
+its remaining client-level deadline. Hub #31 and Catalyst #120 now remove the
+automatic total deadline from the normal named query route as well, while
+retaining explicit Stop and request-loss handling. Catalyst #119 adds the
+Spark-function diagnostic that blocked the current OpenMRS recording; it does
+not translate or rewrite selected SQL. The next harness pin carries Catalyst
+`742ee58` and Hub `6120c31`; refresh local/server warmup and ordinary-question
+evidence only after that exact release is deployed.
 
 Then roll out the exact merged compatible revisions to the existing CPU demo
 server and verify the real two-source question path. Record implementation,
