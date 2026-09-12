@@ -129,6 +129,15 @@ Only after that passes, rerun the full saved-work-to-Superset journey. Live stag
 feedback in step 6 improves visibility but does not substitute for these timing
 and correctness checks.
 
+### Current release integration
+
+The owner-authorized release sequence is roadmap #142; combined Catalyst
+#106–#109 and Hub #25–#27; router #143 with their exact merged revisions;
+local/server deployment; then the distinct light-mode OpenMRS replacement
+walkthrough and publication in #141. Record each stage in [tasks.md](tasks.md).
+Keep #134 and #111 outside this release. Local recordings use the real reviewed
+profile; server model-capacity decisions require the measured checks above.
+
 ## Authority and scope
 
 This file is the authoritative implementation roadmap and delivery goal for

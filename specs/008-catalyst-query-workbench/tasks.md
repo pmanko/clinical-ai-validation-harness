@@ -24,6 +24,27 @@ Local development now serves the working Catalyst UI at `localhost:13000`
 against the retained local Gateway and both real sources. Local testing does
 not wait for merges. Final release/acceptance revisions remain pinned and merged.
 
+## Current release integration — 11 September 2026
+
+The owner authorized this sequence: roadmap #142, combined Catalyst #106–#109
+and Hub #25–#27, router #143 with exact merged pins, local/server deployment,
+then the OpenMRS replacement recording and publication in #141. This checkpoint
+supersedes earlier unmerged-status notes below. #134 and #111 remain separate.
+
+| Deliverable | Implementation and merge | Validation | Deployment / acceptance |
+| --- | --- | --- | --- |
+| Roadmap #142 | Merged as `6d7a327` | All PR checks passed | Authoritative plan updated |
+| Catalyst #106–#109 | Merged; pin `f2a46b017f2adc5d43057de4e90d46dbf3129171` | Combined tree: 364 Gateway tests passed, one existing skip; 294 UI tests; 16 deterministic browser checks, eight live-only skips; type/lint/build passed; final #106 CI passed | Pending |
+| Hub #25–#27 | Merged; pin `ac545b140e18bbb2293c3bb7ba98caffb08491e3` | Combined suite: 720 tests passed; individual PR checks passed | Pending |
+| Router #143 and release pins | Prepared in #143 | Three router contract tests and shell syntax passed; release CI pending | Pending |
+| Replacement OpenMRS walkthrough / #141 | Recording and publication pending | Must use the real local reviewed model profile, preserve monthly totals, and verify the rendered Superset result | Pending; owner acceptance separate |
+
+The combined review reproduced a conflict between #106's metadata-only repair
+and #109's duplicate alias-repair regression. Both tests are retained. Named,
+complete projections now repair declared output names; unnamed expressions or
+a different projection count may still request SQL repair. This does not rewrite
+user-selected SQL. The repaired engine tests pass together.
+
 ## Authoritative roadmap
 
 - [X] Record the approved delivery sequence, acceptance gates, deployment
