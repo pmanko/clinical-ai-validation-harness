@@ -38,6 +38,7 @@ supersedes earlier unmerged-status notes below. #134 and #111 remain separate.
 | Hub #25–#28 | Merged; current pin `1ddaa1e51ebb88735808ae9775ec046ba0b3101b` | #25–#27 combined suite: 720 tests passed; #28: 71 focused tests and CI passed | Running locally and on the server; local OpenMRS query-grain check passed |
 | Router #143 and release follow-up #144 | Merged as `a6980ce` and `b6fe09a` | Release CI passed; five router tests and 18 focused router/documentation/repository checks passed | Server router repair deployed at `735ad53`; persistent local source continuity verified; cold-query and full server workflow acceptance remain open |
 | Replacement OpenMRS walkthrough / #141 | Corrected local take 8 passed on runtime `b6fe09a`; recorder fix #110 merged as `1fd4a03` | Full real-model browser test passed: monthly totals preserved, saved SQL reused, two visualizations arranged, repeat publication/import and rendered Superset checked | Merged as `dfee0e2`; both videos and posters published and verified over HTTPS; owner acceptance separate |
+| Hub #29 and Catalyst #118 lifecycle warmup | Merged as `88b48c4` and `2f85f1c` | Hub: 32 focused role/lifecycle tests; Catalyst: 27 focused warmup/query tests; both hosted CI sets passed | This harness pin, local two-source receipts, server deployment, and real-question evidence remain open |
 
 The combined review reproduced a conflict between #106's metadata-only repair
 and #109's duplicate alias-repair regression. Both tests are retained. Named,
@@ -176,11 +177,17 @@ outside Git.
 
 ## Next checkpoint — neutral-question warmup
 
-- [ ] Implement a finite warmup through the existing lifecycle wrapper using
+- [ ] Merge the harness pin for Hub `88b48c4` and Catalyst `2f85f1c`; run the
+  strict repository-line check from `main` before using these revisions locally
+  or on the server.
+- [X] Implement a finite warmup through the existing lifecycle wrapper using
   “What information is available in this data source?” with each configured
   source's complete schema and ordinary writer profile. Discard the exchange;
   create no sessions, previews, saved examples, guidance, generated SQL, or
-  clinical-row retrieval. Use only live schema metadata discovery.
+  clinical-row retrieval. Use only live schema metadata discovery. Catalyst
+  #118 and Hub #29 correct the initial implementation so this lifecycle work
+  waits for completion or disconnect rather than inheriting a normal-question
+  deadline; normal question transport and its Stop behavior are unchanged.
 - [ ] Verify with a different real question on each local source that common
   instructions/schema are reused and the warmup question/answer are absent from
   its request. Check switching sources, cache misses, failures and explicit Stop.
@@ -188,7 +195,8 @@ outside Git.
 - [X] Merge the tested changes and pin the exact compatible Catalyst revision.
   [Catalyst #111](https://github.com/DIGI-UW/catalyst-ai/pull/111) merged as
   `c0a1b431`; [Catalyst #112](https://github.com/DIGI-UW/catalyst-ai/pull/112)
-  merged as `18bd9ef2`. The harness pins #112; it is not deployed yet.
+  merged as `18bd9ef2`. Hub #29 and Catalyst #118 supersede that deployment
+  pin for warmup; the pending exact pin above records their integration.
 - [ ] Deploy through the lifecycle wrapper to the existing CPU server, preserve
   retained data, and verify preparation and execution against both sources.
 - [ ] Present the observed workflow and remaining limitations for owner review.
