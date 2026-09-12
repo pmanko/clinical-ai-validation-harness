@@ -14,7 +14,7 @@ export type Project = 'all' | 'chartsearch' | 'catalyst' | 'shared';
 export const projects = { all: 'All projects', chartsearch: 'ChartSearchAI', catalyst: 'Catalyst', shared: 'Shared work' };
 export const inventories: Record<string, { title: string; description: string; rows: Row[] }> = {
   efforts: { title: 'Efforts', description: efforts.description, rows: efforts.rows },
-  'pull-requests': { title: 'Pull requests', description: 'Open contributions and recent history. All maintained-repository pull requests updated since August 1, plus open upstream contributions by pmanko and relevant predecessors. Not an all-time export.', rows: prs.pullRequests },
+  'pull-requests': { title: 'Pull requests', description: 'September 12 snapshot: maintained repositories, OpenELIS design, owned OpenELIS application work, fork dependencies and OpenMRS upstream contributions. Historical records are retained. This is a triage inventory, not a code-review verdict.', rows: prs.pullRequests },
   roadmaps: { title: 'Roadmaps & plans', description: roadmaps.description, rows: roadmaps.rows },
   artifacts: { title: 'Artifacts & evidence', description: artifacts.description, rows: artifacts.rows },
   decisions: { title: 'Findings & decisions', description: decisions.description, rows: decisions.rows },
@@ -74,7 +74,7 @@ export function sourceHref(value: string): string | null {
   const internal = value.replace(/^(\.\.\/|\.\/)+/, '').replace(/\.md$/, '');
   if (inventories[internal]) return `#view=${internal}`;
   if (internal === 'maintenance') return '#view=guide';
-  if (internal === 'reviews/2026-09-06' || internal === 'specs/artifacts/project-status/reviews/2026-09-06') return '#view=review';
+  if (internal === 'reviews/2026-09-12' || internal === 'specs/artifacts/project-status/reviews/2026-09-12') return '#view=review';
   const [, path, line] = value.match(/^(.*?)(?::(\d+))?$/) || [];
   const reference = inventories.sources.rows.find(r => r.path === path || r.repository_relative_path === path);
   if (reference?.url) return line ? reference.url.replace(/#.*$/, '') + `#L${line}` : reference.url;

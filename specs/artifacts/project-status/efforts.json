@@ -1,6 +1,6 @@
 {
-  "as_of": "2026-09-11",
-  "description": "Editable portfolio inventory. These identifiers link work; they do not replace approved milestone names. No implementation owners have been assigned by this report.",
+  "as_of": "2026-09-12",
+  "description": "Portfolio inventory with per-effort evidence dates. Catalyst delivery, reporting and PR coordination refreshed September 12; other dated findings retain their own last_checked values. Product acceptance stays in the owning specifications.",
   "rows": [
     {
       "id": "harness.foundation",
@@ -72,7 +72,7 @@
     {
       "id": "clinical.dual_provider",
       "title": "ChartSearchAI dual-provider completion",
-      "status": "Mergeable candidates published; acceptance open",
+      "status": "Canonical upstream PRs active; backend conflict and final acceptance open",
       "intent": "Bundled and Hub inference behind one OpenMRS conversation and evidence experience.",
       "implemented": [
         "Provider selection and truthful readiness; bundled default; no fallback; conversation persistence; final answer and evidence lifecycle; cancellation; browser rendering."
@@ -84,7 +84,7 @@
         "September 6 merge-readiness heads are QueryStore 6436ab6, ChartSearchAI f14d2cbd, and ESM 40d5525. GitHub reports all three mergeable. QueryStore's Java 8, 11, 17 and 21 jobs, ChartSearchAI's paired Java 11, 17 and 21 jobs, and the ESM build pass. ChartSearchAI's advisory QueryStore-HEAD job remains red until #68 reaches upstream main."
       ],
       "acceptance": "Owner Signoff2 and Signoff3 remain pending in canonical record.",
-      "next_deliverable": "Complete upstream review, then run a fresh artifact-bound dual-provider product proof and obtain explicit owner acceptance.",
+      "next_deliverable": "Reconcile backend #157, retain frontend #23 and QueryStore #68, then finish current-revision two-provider acceptance. Fork #33 must precede contributor harness #148.",
       "dependencies": [
         "harness.foundation",
         "harness.corpus",
@@ -98,7 +98,7 @@
         "scripts/verify_dual_provider_parity_gates.py",
         "artifacts/chartsearchai-local/relay-probe.json"
       ],
-      "last_checked": "2026-09-06",
+      "last_checked": "2026-09-12",
       "implementation_owner": null,
       "notes": [
         "Status summary and upstream inventory need reconciliation; do not re-open completed fixes based on old prose."
@@ -674,8 +674,8 @@
     {
       "id": "CAT-E01",
       "title": "Maintain the merged Catalyst integration baseline",
-      "status": "Roadmap, Catalyst, Hub, and harness integration revisions merged; strict repository-line verification passes from harness main; live Spark acceptance remains open",
-      "next_deliverable": "Use the exact merged baseline for specification consolidation and product implementation; perform the dual-source live acceptance at the roadmap's local owner gate rather than reopening the integration history.",
+      "status": "Spark baseline merged; runtime acceptance continues",
+      "next_deliverable": "Use current Feature 008 main pins and its runtime acceptance register; the old Spark branch recovery is complete.",
       "acceptance": "Preserve merged baseline separately from branch implementation, tests, historical live evidence and owner acceptance; retain established Catalyst-then-harness pin sequence.",
       "dependencies": [],
       "sources": [
@@ -686,8 +686,8 @@
         "https://github.com/pmanko/clinical-ai-validation-harness/pull/100",
         "Claude transcript 4f5a9e47-72c2-4f5b-a027-501cb7174bd6 (supporting evidence)"
       ],
-      "evidence": "Feature 008 roadmap PR #109 merged as 6e0f3cf. Catalyst #79 merged as 4c6a46f and is pinned at main revision 47c80d9; Hub #24 merged as 75d0ff0; harness #100 merged as 2a75bcf. The final Catalyst, Hub, and harness hosted checks passed. Forty-one focused harness tests, eight landing tests, the source-pair gate, documentation checks, and the strict repository-line verification passed against the resulting baseline. Superseded child PR #108 was closed after its content was accounted for. Merge and CI evidence do not establish live product acceptance.",
-      "last_checked": "2026-09-09",
+      "evidence": "Catalyst #79 and harness #100 are merged; current compatible pins include lifecycle harness #157.",
+      "last_checked": "2026-09-12",
       "implementation_owner": null,
       "related_pull_requests": [
         "https://github.com/DIGI-UW/openelis-catalyst/pull/79",
@@ -787,8 +787,8 @@
     {
       "id": "CAT-E03",
       "title": "Separate reference sources and accept the Spark deployment",
-      "status": "OpenELIS and OpenMRS catalog identities are separated in the merged baseline; complete dual-source live acceptance remains open",
-      "next_deliverable": "Run one complete real source-to-browser proof for OpenELIS and OpenMRS at the local owner gate and confirm neither source exposes the other's registered relations.",
+      "status": "Two-source local walkthroughs recorded; current server evidence open",
+      "next_deliverable": "Follow the Feature 008 two-source release evidence checkpoint; do not reopen the already selected source configuration.",
       "acceptance": "Selected source does not expose another source's registered tables; Parquet and views exist; successful and invalid SQL reach Spark; write to source data refused; originating value renders through Superset.",
       "dependencies": [
         "CAT-E01",
@@ -802,8 +802,8 @@
         "https://github.com/pmanko/clinical-ai-validation-harness/blob/2cf3de8/specs/artifacts/findings/two-sources-share-one-spark-namespace.md",
         "https://github.com/DIGI-UW/openelis-catalyst/blob/ce07504/catalyst-ui/e2e/fhir-to-dashboard-demo.spec.ts"
       ],
-      "evidence": "Merged Catalyst and harness configuration assigns OpenELIS to openelis and OpenMRS to openmrs_hiv; the earlier HIV-only browser demo remains historical evidence rather than dual-source acceptance.",
-      "last_checked": "2026-09-09",
+      "evidence": "Current Feature 008 plan records complete local walkthroughs; the lifecycle release is being verified separately.",
+      "last_checked": "2026-09-12",
       "implementation_owner": null,
       "related_pull_requests": [
         "https://github.com/pmanko/clinical-ai-validation-harness/pull/63",
@@ -1073,8 +1073,8 @@
     {
       "id": "CAT-E11",
       "title": "Implement the frozen Catalyst usability design",
-      "status": "Question writing merged; shell and appearance next",
-      "next_deliverable": "Implement the friendly light and dark shell, View options, and workspace-wide Advanced mode while preserving every current session and analyst capability.",
+      "status": "All four usability iterations merged; visual remediation and release acceptance open",
+      "next_deliverable": "Finish Catalyst #117 visual review and runtime verification under the unchanged Feature 008 plan.",
       "acceptance": "Clinical and program staff can ask and refine questions without SQL knowledge; analyst complexity remains available through a quiet workspace-wide Advanced mode; state and focus survive navigation, errors, retry, resizing, and theme changes.",
       "dependencies": [
         "CAT-E10"
@@ -1084,18 +1084,18 @@
         "specs/008-catalyst-query-workbench/tasks.md",
         "targets/catalyst/docs/dashboard-builder-mvp-design.md"
       ],
-      "evidence": "Catalyst #83 merged as c181b6b with all five hosted jobs passing. The complete UI unit suite (265 tests), type, lint, production build, deterministic composer checks, and the full deterministic query-to-table journey passed. This establishes the question-writing behavior; live dual-source owner acceptance remains open.",
-      "last_checked": "2026-09-10",
+      "evidence": "Feature 008 main records complete local two-source walkthroughs and authorization to continue saved work. Catalyst #117 has five green hosted checks at ccd5d06. Harness #157 merged as a5703cc; the runtime task owns deployment/evidence. Closed #151 does not amend the roadmap.",
+      "last_checked": "2026-09-12",
       "implementation_owner": null,
       "related_pull_requests": [
-        "https://github.com/pmanko/clinical-ai-validation-harness/pull/109",
-        "https://github.com/DIGI-UW/catalyst-ai/pull/83"
+        "https://github.com/DIGI-UW/catalyst-ai/pull/117",
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/157"
       ]
     },
     {
       "id": "upstream.older_prs",
       "title": "Resolve older open OpenMRS contributions",
-      "status": "Disposition review needed",
+      "status": "Nine older contributions remain open; disposition required",
       "next_deliverable": "Compare nine older open pull requests with the active integration lines and record keep, incorporate, or close recommendations.",
       "acceptance": "No closure or supersession inferred from titles alone; retain useful unique work and obtain approval before remote disposition.",
       "sources": [
@@ -1109,7 +1109,7 @@
         "https://github.com/openmrs/openmrs-module-chartsearchai/pull/20",
         "https://github.com/openmrs/openmrs-module-chartsearchai/pull/19"
       ],
-      "last_checked": "2026-09-06",
+      "last_checked": "2026-09-12",
       "implementation_owner": null,
       "related_pull_requests": [
         "https://github.com/openmrs/openmrs-esm-chartsearchai/pull/11",
@@ -1123,24 +1123,44 @@
         "https://github.com/openmrs/openmrs-module-chartsearchai/pull/19",
         "https://github.com/openmrs/openmrs-module-querystore/pull/68",
         "https://github.com/openmrs/openmrs-module-querystore/pull/63"
-      ]
+      ],
+      "evidence": "All 12 owned upstream open PRs refreshed September 12: three active integration lines plus nine older candidates. No title-only closure."
     },
     {
       "id": "coordination.status_hub",
       "title": "Shared project status and artifact inventory",
-      "status": "Dashboard implemented; GitHub Pages publication pull request active",
-      "next_deliverable": "Merge harness #101 and use the GitHub Pages dashboard as the shared browser; update the repository inventory after meaningful work events.",
+      "status": "Published dashboard; September 12 refresh in harness #134",
+      "next_deliverable": "Publish the current lane/dependency review and keep existing product registers authoritative.",
       "acceptance": "Requirements remain in their approved authorities; current work and evidence can be found without replaying sessions.",
       "sources": [
         "specs/artifacts/project-status/README.md",
         "specs/artifacts/project-status/maintenance.md"
       ],
-      "last_checked": "2026-09-09",
+      "last_checked": "2026-09-12",
       "implementation_owner": null,
       "related_pull_requests": [
         "https://github.com/pmanko/clinical-ai-validation-harness/pull/101",
         "https://github.com/pmanko/clinical-ai-validation-harness/pull/65",
         "https://github.com/pmanko/clinical-ai-validation-harness/pull/57"
+      ],
+      "evidence": "Dashboard #101 is merged. This refresh includes current maintained PRs, OpenELIS design and owned application PRs, fork dependencies and OpenMRS contributions."
+    },
+    {
+      "id": "OE-reporting",
+      "title": "OpenELIS reporting and Catalyst integration",
+      "status": "Defaults approved; v1.3 published and verified; final visual acceptance open",
+      "next_deliverable": "Complete final visual owner review in OpenELIS Section 14, then begin the authorized CSV/queue slice in the existing stories.",
+      "acceptance": "OpenELIS Section 14 owns design readiness. Implementation, source parity, shared identity and production deployment are separate milestones.",
+      "sources": [
+        "specs/openelis-reporting-catalyst-integration.md",
+        "https://github.com/DIGI-UW/openelis-work/blob/main/designs/reports/custom-data-export.md#14-design-revision-and-implementation-readiness",
+        "https://digi-uw.github.io/openelis-work/#/reports/custom-data-export"
+      ],
+      "last_checked": "2026-09-12",
+      "implementation_owner": null,
+      "related_pull_requests": [
+        "https://github.com/DIGI-UW/openelis-work/pull/315",
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/134"
       ]
     }
   ]
