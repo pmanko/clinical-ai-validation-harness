@@ -38,7 +38,8 @@ supersedes earlier unmerged-status notes below. #134 and #111 remain separate.
 | Hub #25–#28 | Merged; current pin `1ddaa1e51ebb88735808ae9775ec046ba0b3101b` | #25–#27 combined suite: 720 tests passed; #28: 71 focused tests and CI passed | Running locally and on the server; local OpenMRS query-grain check passed |
 | Router #143 and release follow-up #144 | Merged as `a6980ce` and `b6fe09a` | Release CI passed; five router tests and 18 focused router/documentation/repository checks passed | Server router repair deployed at `735ad53`; persistent local source continuity verified; cold-query and full server workflow acceptance remain open |
 | Replacement OpenMRS walkthrough / #141 | Corrected local take 8 passed on runtime `b6fe09a`; recorder fix #110 merged as `1fd4a03` | Full real-model browser test passed: monthly totals preserved, saved SQL reused, two visualizations arranged, repeat publication/import and rendered Superset checked | Merged as `dfee0e2`; both videos and posters published and verified over HTTPS; owner acceptance separate |
-| Hub #29/#30 and Catalyst #118 lifecycle warmup | Merged as `88b48c4`, `d806c90`, and `2f85f1c` | Hub #29: 32 focused role/lifecycle tests; Hub #30: 35 focused tests; Catalyst: 27 focused warmup/query tests; all hosted CI sets passed | This follow-up harness pin, local two-source receipts, server deployment, and real-question evidence remain open |
+| Hub #29/#30 and Catalyst #118 lifecycle warmup | Merged as `88b48c4`, `d806c90`, and `2f85f1c`; harness #156 pins the compatible baseline as `ecf8647` | Hub #29: 32 focused role/lifecycle tests; Hub #30: 35 focused tests; Catalyst: 27 focused warmup/query tests; all hosted CI sets passed | Local and server two-source lifecycle warmups passed. Ordinary-question evidence remains separate. |
+| Normal query lifecycle and Spark-function diagnostic | Hub #31 `6120c31`, Catalyst #119 `a1f52cc`, and Catalyst #120 `742ee58` are merged; harness pin pending | Hub #31: 716 tests; Catalyst #119: 367 tests; Catalyst #120: 366 tests, each with hosted CI green | Deploy exact pins, prove normal question preparation/execution on both sources, then record the local OpenMRS replacement walkthrough. |
 
 The combined review reproduced a conflict between #106's metadata-only repair
 and #109's duplicate alias-repair regression. Both tests are retained. Named,
@@ -180,9 +181,9 @@ outside Git.
 - [X] Merge [Harness #155](https://github.com/pmanko/clinical-ai-validation-harness/pull/155),
   pinning Hub `88b48c4` and Catalyst `2f85f1c`; run the strict repository-line
   check from `main` before using these revisions locally or on the server.
-- [ ] Merge the follow-up pin for Hub `d806c90`, which removes the remaining
-  client-level deadline only from lifecycle warmup. Do not turn a diagnostic
-  observation into a product timing requirement.
+- [X] Merge the follow-up pin for Hub `d806c90`, which removes the remaining
+  client-level deadline only from lifecycle warmup, as harness #156 (`ecf8647`).
+  Do not turn a diagnostic observation into a product timing requirement.
 - [X] Implement a finite warmup through the existing lifecycle wrapper using
   “What information is available in this data source?” with each configured
   source's complete schema and ordinary writer profile. Discard the exchange;
@@ -764,32 +765,14 @@ full server run remain separate evidence below.
   cancellation defect before another full run. A client timeout or explicit
   cancel must stop the active downstream call and prevent later repair attempts;
   the typed draft and prior result remain available.
-- [ ] Remove the automatic total generation deadline; retain explicit Stop and
-  request-loss handling on the actual Gateway-to-Hub named-role path.
-  Cancellation releases the busy session, records a terminal outcome, and closes
-  the active model call. Test disconnect and Stop at each boundary, no later
-  repair, preserved draft/result, and useful handling of incomplete responses.
-  The original implementation, including the now-withdrawn deadline, is in
-  [Catalyst #107](https://github.com/DIGI-UW/catalyst-ai/pull/107)
-  (`fa3c38c`) and [Hub #25](https://github.com/pmanko/med-agent-hub/pull/25)
-  (`8942322`), both submitted for review. Local checks: Gateway 357 passed / one
-  existing skip; assembly/contracts 47 passed; Hub 720 passed, including two
-  real loopback HTTP cancellation tests against a blocking fixture endpoint.
-  New route/role interruption tests failed before the fixes. Formatting/lint
-  passed. Gateway mypy retains the same ten findings verified on its clean base.
-  Catalyst also includes **Stop preparing** in both composers, retained text and
-  focus, Retry, and abort on unmount. A writer request for clarification or an
-  unsupported question now produces a neutral next step rather than a red
-  composer error; the question remains in the focused input, while genuine
-  generation failures remain errors. UI suite: 290 passed, followed by 113
-  focused tests after the final notice layout adjustment; four light/dark
-  browser cases prove HTTP disconnect, no duplicate submission, preserved input
-  and the previous rendered result using a real stalled local HTTP fixture.
-  The browser checks caught and verified a cancel-click resubmission defect that
-  component tests missed. Desktop/narrow screenshots were inspected privately;
-  type check, lint and build passed. CI is green on both exact heads. Merge,
-  paired deployment, and live-model/server
-  verification remain pending; these checks do not establish model throughput.
+- [X] Remove the automatic total generation deadline from the normal
+  Gateway-to-Hub named-role path. Hub #31 (`6120c31`) and Catalyst #120
+  (`742ee58`) are merged with their full hosted CI sets green. Hub tests cover
+  disconnect-driven cancellation and model-slot release; Catalyst tests prove it
+  sends neither a timeout header nor a client deadline. Explicit Stop, retained
+  draft/result, and incomplete-response handling remain product behavior and
+  must be proven again in the exact two-source release. This removes an arbitrary
+  cutoff; it does not set a substitute timing target or change model logic.
 - [ ] Move the stable complete schema/instructions before changing question and
   revision context in the rendered prompt. Verify full-schema/context coverage
   and measure reused prompt work for real follow-ups, repairs, and source changes.
@@ -821,11 +804,9 @@ full server run remain separate evidence below.
   format and lint; Hub 708 passed, plus the focused 44-test prompt/generic-role
   check. Merge, paired deployment, varied live questions and real timing remain
   pending.
-- [ ] Review the proposed timing targets in the plan, then run a short real
-  dual-source server check before repeating the full journey. Record usable-query
-  timings, cancellation, cold/warm behavior, and two-session contention. If the
-  repaired runtime is still too slow, make the measured model/hardware decision
-  described in the plan rather than increasing waits or declaring success.
+- [X] Withdraw the proposed timing targets. Record observed cold/warm behavior,
+  cancellation, source switching and contention as evidence, without treating an
+  agent-selected duration as a product requirement.
 - [ ] Prove the full real path for OpenELIS and OpenMRS on both deployments and
   retain revisions, source/model configuration, traces, screenshots, timestamps,
   bundles, receipts, and visible-result evidence under one run identity.
@@ -841,6 +822,10 @@ full server run remain separate evidence below.
 - [X] Watch each final cut at normal speed, confirm captions neither disappear
   early nor cover demonstrated information, then publish new immutable media
   filenames and update all public video/poster references together.
+- [ ] Record and verify the current OpenMRS replacement locally after the exact
+  post-#119/#120 release. Keep light mode throughout, use model-created Spark
+  SQL, and make its workflow distinct from the published OpenELIS cut. Do not
+  record on the server or manually edit SQL to bypass a model/dialect failure.
 - [ ] Record final local/server evidence, current public links, and explicit
   owner acceptance before marking this delivery complete.
 
