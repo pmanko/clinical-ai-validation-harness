@@ -5,7 +5,7 @@
 # bootstrap dependencies remain disposable checkouts, never nested submodules.
 set -euo pipefail
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 CATALYST_DIR="${ROOT_DIR}/targets/catalyst"
 HUB_DIR="${ROOT_DIR}/targets/med-agent-hub"
 DEFAULT_MVP_COMPOSE_OVERRIDE_FILE="${ROOT_DIR}/compose/catalyst-mvp-isolated.override.yml"
@@ -55,6 +55,18 @@ command_name="${1:-}"
 if [[ $# -ne 1 ]] || [[ ! "${command_name}" =~ ^(up|seed|health|boot|restart|down|reset|superset-status|superset-import)$ ]]; then
   usage >&2
   exit 2
+fi
+
+# Runtime bind mounts must outlive temporary review/build checkouts. Cleanup
+# and inspection remain available so an old temporary stack can be retired.
+if [[ "${command_name}" =~ ^(up|boot|restart|seed|superset-import)$ ]]; then
+  case "${ROOT_DIR}/" in
+    /tmp/*|/private/tmp/*|/var/tmp/*|/private/var/tmp/*|"${TMPDIR:-/tmp/}"*)
+      echo "ERROR: start Catalyst from a persistent checkout, not ${ROOT_DIR}." >&2
+      echo "Keep the dev checkout under your code directory; see docs/catalyst-demo-operations.md." >&2
+      exit 1
+      ;;
+  esac
 fi
 
 require_pinned_clean_target() {

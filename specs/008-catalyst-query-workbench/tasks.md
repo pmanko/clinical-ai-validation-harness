@@ -143,8 +143,11 @@ The source application started, but the full health gate is waiting on HAPI
 fixture resources. The OpenELIS source patient count is now zero. Its
 PostgreSQL storage is a bind mount under the temporary checkout, so source-data
 continuity is not established; Gateway readiness alone does not prove it.
-Owner approval to rebuild the local synthetic source with the existing harness
-seeding command is pending. No reseeding or reset has been performed.
+The owner approved rebuilding the local synthetic source with the existing
+harness seeding command. Recovery first moves runtime ownership to a persistent
+checkout and selects a project-scoped database volume. Startup from temporary
+checkouts is rejected. Fixture restoration and a stop/start persistence check
+remain pending; no reset has been performed.
 
 ## Authoritative roadmap
 

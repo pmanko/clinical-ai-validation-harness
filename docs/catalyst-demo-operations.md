@@ -17,6 +17,33 @@ it for **every** lifecycle or Superset import operation. Use the harness wrapper
 the older checkout's Compose files do not describe the current public topology.
 Do not rebuild or restart services during a recording or an import.
 
+## Local development storage
+
+Keep the local runtime checkout under a persistent code directory, never `/tmp`
+or the operating system's temporary directory. The wrapper refuses startup,
+seeding, and imports from temporary checkouts. Review/build checkouts may still
+be temporary. Run lifecycle and import commands from the checkout that owns the
+environment, with the same Compose project name on every invocation.
+
+For a new local environment, put this setting in `targets/catalyst/.env` before
+the first `up`:
+
+```bash
+CATALYST_OPENELIS_DATABASE_STORAGE=openelis-data
+```
+
+This selects the project-scoped Docker volume for the OpenELIS and HAPI database.
+Existing deployments retain their original database bind mount by default.
+**Do not change storage on a populated installation without a stopped-database
+backup and explicit migration.** Selecting an empty volume does not migrate data.
+The current local recovery explicitly rebuilds the approved synthetic fixture.
+
+Gateway state, the analytics warehouse, and Superset metadata already use named
+volumes. Publication bundles and receipts remain under the persistent checkout's
+`targets/catalyst/runtime/superset/`; preserve that directory when relocating it.
+`restart` and `down` retain data; `reset` and Docker volume pruning are destructive.
+Seed only for an explicitly requested fixture rebuild, never as a startup repair.
+
 ## What runs here
 
 | Group | Role |
