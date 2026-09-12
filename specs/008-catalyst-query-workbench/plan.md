@@ -30,6 +30,14 @@ model residency alone does not establish useful schema reuse. Keep this a finite
 deployment operation through the existing lifecycle wrapper, with an explicit
 stop path and no recurring warmup loop.
 
+The initial implementation reused the normal question-request transport and its
+existing deadline, so the server stopped the full-schema warmup before it could
+produce a receipt. Hub #29 and Catalyst #118 correct that concrete failure with
+an internal lifecycle warm route: it runs until the prefix completes or the
+lifecycle caller disconnects. Normal question preparation keeps its existing
+Stop path. The next harness pin must carry both merged revisions before local or
+server warmup evidence is refreshed.
+
 Then roll out the exact merged compatible revisions to the existing CPU demo
 server and verify the real two-source question path. Record implementation,
 local validation, merge, deployment and owner review separately in [tasks.md](tasks.md).
