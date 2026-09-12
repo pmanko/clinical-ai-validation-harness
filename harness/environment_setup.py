@@ -8,9 +8,12 @@ import platform
 import shutil
 import socket
 import subprocess
+import time
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 
+from harness.common.openmrs import OpenMrsClient
 from harness.evaluation_setup import SetupError, prepare_data, verify_baseline
 
 
@@ -96,15 +99,21 @@ def command(
     args: list[str],
     *,
     capture: bool = False,
-    extra_env: dict[str, str] | None = None,
+    extra_env: dict[str, str | None] | None = None,
 ) -> str:
+    env = os.environ.copy()
+    for key, value in (extra_env or {}).items():
+        if value is None:
+            env.pop(key, None)
+        else:
+            env[key] = value
     result = subprocess.run(
         args,
         cwd=root,
         text=True,
         capture_output=capture,
         check=False,
-        env={**os.environ, **(extra_env or {})},
+        env=env,
     )
     if result.returncode:
         # Command output can contain local credentials. It is not copied into
@@ -194,6 +203,152 @@ def inspect_environment(root: Path) -> dict[str, Any]:
     }
 
 
+def prepare_inference(root: Path, client: OpenMrsClient) -> dict[str, Any]:
+    """Start managed dependencies of saved providers without changing their settings."""
+    discovery = client.request("GET", "chartsearchai/providers")
+    enabled = {
+        item["id"] for item in discovery["providers"] if item.get("enabled") is True
+    }
+    if not enabled or enabled - {"bundled", "hub"}:
+        raise SetupError("No supported configured providers; review OpenMRS settings.")
+    if discovery.get("defaultProvider") not in enabled:
+        raise SetupError(
+            "The saved default provider is not enabled; settings were retained."
+        )
+
+    def setting(name: str, default: str = "") -> str:
+        row = client.exact("systemsetting", "property", name)
+        return str(row.get("value") or default).strip() if row else default
+
+    def uses_local_router(endpoint: str) -> bool:
+        parsed = urlsplit(endpoint)
+        return (
+            parsed.scheme == "http"
+            and parsed.hostname == "host.docker.internal"
+            and parsed.port == int(os.environ.get("LLAMA_ROUTER_PORT", "8077"))
+        )
+
+    local_hub = False
+    router_needed = False
+    if "hub" in enabled:
+        endpoint = setting("chartsearchai.hub.endpointUrl")
+        if not endpoint:
+            raise SetupError(
+                "The enabled Hub has no endpoint; configure it explicitly."
+            )
+        local_hub = (
+            endpoint.rstrip("/") == "http://med-agent-hub:8080/v1/chat/completions"
+        )
+        router_needed = local_hub and uses_local_router(
+            os.environ.get("MED_AGENT_LLM_BASE_URL", "http://host.docker.internal:8077")
+        )
+    if (
+        "bundled" in enabled
+        and setting("chartsearchai.llm.engine", "local").lower() == "remote"
+    ):
+        endpoint = setting("chartsearchai.llm.remote.endpointUrl")
+        if not endpoint:
+            raise SetupError(
+                "The bundled remote engine has no endpoint; settings were retained."
+            )
+        router_needed = router_needed or uses_local_router(endpoint)
+
+    source_file = root / "artifacts/chartsearchai-local/querystore-service.env"
+    provision_source = False
+    source_keys = ("QUERYSTORE_BASE_URL", "QUERYSTORE_USERNAME", "QUERYSTORE_PASSWORD")
+    if local_hub:
+        external = [os.environ.get(name) for name in source_keys]
+        if any(external) and not all(external):
+            raise SetupError(
+                "Set all three QueryStore connection values together; credentials were retained."
+            )
+        provision_source = not any(external) and not source_file.is_file()
+        if provision_source and (
+            client.exact("user", "username", "med-agent-hub")
+            or client.exact("role", "name", "Med Agent Hub Patient Reader")
+        ):
+            raise SetupError(
+                "The patient reader already exists but its local credentials are missing. "
+                "Restore them or configure the existing credentials; setup will not replace them."
+            )
+
+    if router_needed:
+        command(root, ["bash", "scripts/llama-router-up.sh", "--daemon"])
+    if provision_source:
+        command(
+            root,
+            [
+                "python3",
+                "scripts/provision-querystore-service-account.py",
+                "--base-url",
+                client.base_url,
+                "--internal-base-url",
+                "http://backend:8080/openmrs",
+                "--admin-user",
+                os.environ.get("CHARTSEARCH_ADMIN_USER", "admin"),
+                "--admin-password",
+                os.environ.get("CHARTSEARCH_ADMIN_PASSWORD", "Admin123"),
+                "--output",
+                str(source_file),
+            ],
+        )
+    if local_hub:
+        # Empty example values are not overrides of the saved reader credentials.
+        # Let the existing Make target load its private service environment file.
+        command(
+            root,
+            ["make", "med-agent-hub-up"],
+            extra_env=({} if all(external) else {key: None for key in source_keys}),
+        )
+
+    # The bundled provider caches endpoint reachability for ten seconds. Wait
+    # for a fresh verdict after starting its dependency, without retrying startup.
+    for attempt in range(7):
+        final = client.request("GET", "chartsearchai/providers")
+        current = {p["id"] for p in final["providers"] if p.get("enabled") is True}
+        if current != enabled or final.get("defaultProvider") != discovery.get(
+            "defaultProvider"
+        ):
+            raise SetupError(
+                "Provider choices changed during setup; inspect without resetting."
+            )
+        unavailable = [
+            p["id"]
+            for p in final["providers"]
+            if p["id"] in enabled and p.get("ready") is not True
+        ]
+        if not unavailable:
+            break
+        if attempt == 6:
+            raise SetupError(
+                "Configured providers are unavailable: " + ", ".join(unavailable)
+            )
+        time.sleep(2)
+
+    result = {
+        "providers": sorted(enabled),
+        "default_provider": final["defaultProvider"],
+        "provider_discovery": "checked",
+        "model_response": "not_checked",
+    }
+    if "hub" in enabled:
+        profiles = client.request("GET", "chartsearchai/models")
+        defaults = [
+            p
+            for p in profiles.get("data", [])
+            if p.get("visibility") == "product"
+            and p.get("available") is True
+            and p.get("default") is True
+            and p.get("id")
+        ]
+        if len(defaults) != 1:
+            raise SetupError(
+                "Hub discovery has no unique available default profile; no profile was substituted."
+            )
+        result["hub_default_profile"] = defaults[0]["id"]
+    return result
+
+
 def prepare_environment(
     root: Path,
     *,
@@ -281,6 +436,17 @@ def prepare_environment(
             f"http://127.0.0.1:{port}/openmrs",
         ],
     )
+    try:
+        inference = prepare_inference(
+            root,
+            OpenMrsClient(
+                f"http://127.0.0.1:{port}/openmrs",
+                os.environ.get("CHARTSEARCH_ADMIN_USER", "admin"),
+                os.environ.get("CHARTSEARCH_ADMIN_PASSWORD", "Admin123"),
+            ),
+        )
+    except RuntimeError as error:
+        raise SetupError(str(error)) from error
     return {
         **state,
         "status": "prepared",
@@ -289,8 +455,9 @@ def prepare_environment(
         "evaluation_accounts": "provisioned",
         "account_context": "not_verified",
         "instruction_policy": "not_implemented",
+        "inference": inference,
         "next_checks": [
-            "provider and model readiness",
+            "completed model response for each enabled provider",
             "patient retrieval",
             "study-user chart and chat access",
             "authenticated roles and login location reach both providers",

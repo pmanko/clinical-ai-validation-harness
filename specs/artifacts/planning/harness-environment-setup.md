@@ -225,6 +225,11 @@ Drive folder. No live reset is authorized by implementation of this workflow.
 - [x] Connect parent preparation commands, Docker ownership checks, and tested receipt/failure handling.
 - [x] Add and structurally validate the Claude skill and operator guide (end-to-end use still pending).
 - [ ] Complete model/provider setup and readiness checks after core preparation.
+  - Ordinary preparation now reads the saved provider configuration and starts
+    only its managed local dependencies through the existing router/Hub commands.
+    It preserves disabled/remote providers and local credentials, checks discovery,
+    and never chooses replacement settings. First-install provider/model defaults,
+    real inference, and browser acceptance remain open.
 - [x] Implement authenticated account/role/session-location metadata propagation across both providers.
   - Request snapshot, Hub transport, and stored-turn metadata implemented and tested.
 - [ ] Verify the implemented account-context metadata in the live login/provider/reload path.
@@ -285,6 +290,16 @@ it uses only its own disposable database container. This does not prove live
 OpenMRS recovery or change the existing application stack.
 The setup regression suite now passes 207 tests, plus the separate real MariaDB
 round-trip test. Python lint, shell syntax, and local documentation links pass.
+
+The subsequent inference preparation tests cover saved bundled/Hub choices,
+externally managed endpoints, disabled providers, retained reader credentials,
+missing configuration, unavailable profiles, and startup failures without reset
+or silent fallback. Router tests reproduce and prevent relinking a running server's
+models or removing its still-starting job. The configured port is forwarded to
+managed startup and health checks. These are isolated tests, not live inference proof.
+The expanded focused suite passes 227 tests; lint, shell syntax, and edited links
+pass. Read-only preflight still refuses the other checkout's live stack, which was
+not modified for this validation.
 
 A read-only Docker check on September 11 refused the running Hub because its
 Compose ownership labels point to a different worktree. The check supplied the

@@ -16,6 +16,11 @@ def actions(monkeypatch):
     monkeypatch.setattr(
         setup, "verify_baseline", lambda path: {"output_sha256": "verified"}
     )
+    monkeypatch.setattr(
+        setup,
+        "prepare_inference",
+        lambda root, client: {"provider_discovery": "checked"},
+    )
     return calls
 
 
@@ -188,3 +193,30 @@ def test_invalid_data_action_is_rejected_before_any_inspection(tmp_path, actions
     with pytest.raises(SetupError, match="Data action"):
         setup.prepare_environment(tmp_path, data_action="guess")
     assert actions == []
+
+
+def test_parent_runs_saved_provider_preparation_after_required_accounts(
+    tmp_path, actions, monkeypatch
+):
+    def prepare(root, client):
+        assert "scripts/provision-evaluation-users.py" in actions[-1]
+        assert client.base_url == "http://127.0.0.1:8088/openmrs"
+        return {"provider_discovery": "checked", "model_response": "not_checked"}
+
+    monkeypatch.setattr(setup, "prepare_inference", prepare)
+    report = setup.prepare_environment(tmp_path, confirm_demo_data=True)
+    assert report["inference"]["provider_discovery"] == "checked"
+    assert report["readiness"] == "not_checked"
+
+
+def test_provider_preparation_failure_cannot_report_prepared_or_retry_reset(
+    tmp_path, actions, monkeypatch
+):
+    def fail(root, client):
+        raise RuntimeError("provider unavailable")
+
+    monkeypatch.setattr(setup, "prepare_inference", fail)
+    with pytest.raises(SetupError, match="provider unavailable"):
+        setup.prepare_environment(tmp_path, confirm_demo_data=True)
+    assert len(actions) == 3
+    assert not any("scripts/seed-local.sh" in call for call in actions)

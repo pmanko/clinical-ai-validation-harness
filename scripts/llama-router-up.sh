@@ -18,6 +18,7 @@ RUNTIME_DIR="${LLAMA_ROUTER_RUNTIME_DIR:-${ROOT}/artifacts/llama-router}"
 RUNTIME_MODELS="${RUNTIME_DIR}/models"
 READY_TIMEOUT_SECONDS="${LLAMA_ROUTER_READY_TIMEOUT_SECONDS:-60}"
 DAEMON=0
+ROUTER_URL="http://127.0.0.1:${ROUTER_PORT}/v1/models"
 
 if [ "${1:-}" = "--daemon" ]; then
   DAEMON=1
@@ -26,6 +27,11 @@ elif [ "$#" -gt 0 ]; then
   exit 2
 fi
 
+cd "${ROOT}"
+if [ "${DAEMON}" = "1" ] && curl -fsS --max-time 3 "${ROUTER_URL}" >/dev/null 2>&1; then
+  echo "llama.cpp router already reachable on :${ROUTER_PORT}; configuration retained"
+  exit 0
+fi
 if [ ! -d "${MODEL_DIR}" ]; then
   echo "ERROR: LLAMA_MODEL_DIR does not exist: ${MODEL_DIR}" >&2
   echo "Place GGUF files there using the filenames in scripts/llama-router.ini," >&2
@@ -33,20 +39,20 @@ if [ ! -d "${MODEL_DIR}" ]; then
   exit 1
 fi
 
-mkdir -p "${EMPTY_HF}" "${RUNTIME_DIR}"
-if [ -e "${RUNTIME_MODELS}" ] && [ ! -L "${RUNTIME_MODELS}" ]; then
-  echo "ERROR: ${RUNTIME_MODELS} exists and is not a symlink." >&2
-  exit 1
-fi
-ln -sfn "${MODEL_DIR}" "${RUNTIME_MODELS}"
-cd "${ROOT}"
-
 if [ "${DAEMON}" = "1" ]; then
-  if curl -fsS --max-time 3 http://127.0.0.1:8077/v1/models >/dev/null 2>&1; then
-    echo "llama.cpp router already reachable on :8077"
+  # Startup is shared across checkouts. Never replace a still-starting job or
+  # relink its model directory just because its HTTP endpoint is not ready yet.
+  LOCK="${HOME}/.cache/llama-router-start-${ROUTER_PORT}.lock"
+  mkdir -p "$(dirname "${LOCK}")"
+  if ! mkdir "${LOCK}" 2>/dev/null; then
+    echo "ERROR: router startup is already in progress; inspect ${LOCK} before retrying." >&2
+    exit 1
+  fi
+  trap 'rmdir "${LOCK}"' EXIT
+  if curl -fsS --max-time 3 "${ROUTER_URL}" >/dev/null 2>&1; then
+    echo "llama.cpp router already reachable on :${ROUTER_PORT}; configuration retained"
     exit 0
   fi
-
   command -v llama-server >/dev/null 2>&1 || {
     echo "ERROR: llama-server is not on PATH" >&2
     exit 1
@@ -60,7 +66,10 @@ if [ "${DAEMON}" = "1" ]; then
       echo "ERROR: launchctl is required for managed macOS startup" >&2
       exit 1
     }
-    launchctl remove "${LABEL}" >/dev/null 2>&1 || true
+    if launchctl print "gui/$(id -u)/${LABEL}" >/dev/null 2>&1; then
+      echo "ERROR: an existing router job is not ready; it was not stopped or replaced." >&2
+      exit 1
+    fi
     launchctl submit \
       -l "${LABEL}" \
       -o "${RUNTIME_DIR}/router.stdout.log" \
@@ -70,26 +79,35 @@ if [ "${DAEMON}" = "1" ]; then
       PATH="${PATH}" \
       LLAMA_MODEL_DIR="${MODEL_DIR}" \
       LLAMA_ROUTER_RUNTIME_DIR="${RUNTIME_DIR}" \
+      LLAMA_ROUTER_PORT="${ROUTER_PORT}" \
       LLAMA_ROUTER_MODELS_MAX="${LLAMA_ROUTER_MODELS_MAX:-4}" \
       "${ROOT}/scripts/llama-router-up.sh"
   else
+    if [ -f "${RUNTIME_DIR}/router.pid" ]; then
+      ROUTER_PID="$(cat "${RUNTIME_DIR}/router.pid")"
+      if [[ "${ROUTER_PID}" =~ ^[1-9][0-9]*$ ]] && kill -0 "${ROUTER_PID}" 2>/dev/null; then
+        echo "ERROR: an existing router process is not ready; it was not replaced." >&2
+        exit 1
+      fi
+    fi
     nohup env \
       LLAMA_MODEL_DIR="${MODEL_DIR}" \
       LLAMA_ROUTER_RUNTIME_DIR="${RUNTIME_DIR}" \
+      LLAMA_ROUTER_PORT="${ROUTER_PORT}" \
       LLAMA_ROUTER_MODELS_MAX="${LLAMA_ROUTER_MODELS_MAX:-4}" \
       "${ROOT}/scripts/llama-router-up.sh" \
-      >"${RUNTIME_DIR}/router.log" 2>&1 &
+      >"${RUNTIME_DIR}/router.log" 2>&1 </dev/null &
     echo "$!" >"${RUNTIME_DIR}/router.pid"
   fi
 
   for _ in $(seq 1 "${READY_TIMEOUT_SECONDS}"); do
-    if curl -fsS --max-time 3 http://127.0.0.1:8077/v1/models >/dev/null 2>&1; then
+    if curl -fsS --max-time 3 "${ROUTER_URL}" >/dev/null 2>&1; then
       if [ "${PLATFORM}" = "Darwin" ]; then
         ROUTER_PID="$(launchctl print "gui/$(id -u)/${LABEL}" 2>/dev/null \
           | awk '/pid =/ {print $3; exit}' || true)"
         [ -z "${ROUTER_PID}" ] || printf '%s\n' "${ROUTER_PID}" >"${RUNTIME_DIR}/router.pid"
       fi
-      echo "llama.cpp router ready on :8077"
+      echo "llama.cpp router ready on :${ROUTER_PORT}"
       exit 0
     fi
     sleep 1
@@ -109,6 +127,13 @@ if [ "${DAEMON}" = "1" ]; then
   tail -n 40 "${RUNTIME_DIR}/router.log" >&2 2>/dev/null || true
   exit 1
 fi
+
+mkdir -p "${EMPTY_HF}" "${RUNTIME_DIR}"
+if [ -e "${RUNTIME_MODELS}" ] && [ ! -L "${RUNTIME_MODELS}" ]; then
+  echo "ERROR: ${RUNTIME_MODELS} exists and is not a symlink." >&2
+  exit 1
+fi
+ln -sfn "${MODEL_DIR}" "${RUNTIME_MODELS}"
 
 # LLAMA_ROUTER_MODELS_MAX caps how many model instances stay co-resident, and it MUST be
 # set per-workload — the tiers have wildly different footprints on this 64G host (Metal

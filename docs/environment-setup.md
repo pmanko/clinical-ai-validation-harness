@@ -2,8 +2,9 @@
 
 **Implementation preview:** source updating, core preparation, required evaluation
 accounts, verified asset acquisition, and guarded baseline restore are implemented.
-Model startup and complete login/browser verification are still being connected. A successful
-`prepare` command is not yet an out-of-the-box evaluation readiness result.
+Preparation now starts the local dependencies required by saved provider settings.
+Initial provider/model configuration and complete browser verification remain open.
+A successful `prepare` command is not yet an out-of-the-box evaluation readiness result.
 
 This workflow belongs to the parent harness. ChartSearchAI is its first supported
 environment. Its baseline includes the planned role accounts, not a separate
@@ -51,6 +52,22 @@ checks existing managed accounts without changing their passwords or roles.
 `CONFIRM_DEMO_DATA=1` confirms the target is a synthetic-data evaluation instance;
 it does not request a reset. Normal OpenMRS/module startup migrations still
 apply when upgrading an existing installation.
+
+After account preparation, the command reads OpenMRS provider settings rather than
+running the configuration script again. Bundled local inference retains its own
+model setup. A bundled endpoint using `host.docker.internal` and the configured
+router port starts the existing router launcher. A Hub endpoint using the standard
+`med-agent-hub:8080` service starts the existing Hub target and, when selected, its
+local router. Other endpoints are treated as operator-managed services, not
+replaced with local defaults. Disabled providers do not trigger startup.
+
+Saved patient-reader credentials are reused. If the reader already exists but
+its credentials are missing, setup stops rather than changing its password. A
+new reader uses the existing provisioner. Provider discovery and the Hub's
+available default profile are checked afterward; no new default profile is chosen.
+The receipt records these checks separately from the still-unverified model
+response and browser workflow. An unconfigured provider is an explicit failure,
+not permission to change settings.
 
 The command refuses containers owned by another checkout, occupied ports, or
 data volumes whose ownership cannot be established. A partial stack without the
@@ -145,6 +162,10 @@ Only `--fetch` downloads anything. An existing different model, including a
 symlink, is reported without replacement; it is not evidence that the existing
 model is broken. Keep custom model choices unless intentionally changing them.
 Verified files are not proof of a working model server or a completed chat.
+Router startup preserves an already-running server and its model directory. It
+refuses to replace an existing, not-yet-ready process or another startup operation.
+Investigate the owning process before clearing a reported startup lock; do not
+delete it merely because a startup request was slow.
 
 ## Required Evaluation Accounts
 
