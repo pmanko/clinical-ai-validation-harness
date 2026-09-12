@@ -87,10 +87,15 @@ for this 30 GiB CPU host. The base deployment targets low-resource CPU inference
 The E4B writer is the owner-selected default; the existing 12B alternative remains
 selectable. Increasing residency requires measured memory and concurrency evidence.
 
-Model warmup loads the weights; it does not prime either source schema. Measured
-repeat count preparations took 50.8 seconds for OpenELIS and 33.1 seconds for
-OpenMRS, while both first preparations hit the 120-second application deadline.
-Do not describe loaded-model health as proof of a responsive first query.
+Model warmup loads the weights; it does not prime either source schema. The
+`warm` lifecycle action additionally sends the neutral question “What
+information is available in this data source?” through each source's ordinary
+writer request and discards the answers. It does not seed, reset, run generated
+or user-visible queries, retrieve clinical rows, or create user work. It makes
+only the metadata calls necessary to discover each live schema.
+Follow it with a different real question on each source to inspect actual schema
+reuse. Record observed timings as diagnostic evidence; no response-time or
+cancellation threshold defines acceptance.
 
 Fetch and verify only the model that is missing, then verify the complete set:
 
