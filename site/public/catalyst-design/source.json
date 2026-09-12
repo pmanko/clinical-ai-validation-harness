@@ -1,19 +1,19 @@
 {
   "repository": "https://github.com/DIGI-UW/catalyst-ai",
-  "revision": "b7b39d5e5230de2603b1fe9a9cf2582526478c8a",
-  "integrationSpecification": "https://github.com/DIGI-UW/catalyst-ai/blob/b7b39d5e5230de2603b1fe9a9cf2582526478c8a/docs/specs/openelis-reporting-integration/spec.md",
-  "approvedSpecification": "https://github.com/DIGI-UW/catalyst-ai/blob/b7b39d5e5230de2603b1fe9a9cf2582526478c8a/docs/specs/staff-workbench-ux/spec.md",
+  "revision": "ed22781a3895a1d40f98bcefe1e37df625f4a7e5",
+  "integrationSpecification": "https://github.com/DIGI-UW/catalyst-ai/blob/ed22781a3895a1d40f98bcefe1e37df625f4a7e5/docs/specs/openelis-reporting-integration/spec.md",
+  "approvedSpecification": "https://github.com/DIGI-UW/catalyst-ai/blob/ed22781a3895a1d40f98bcefe1e37df625f4a7e5/docs/specs/staff-workbench-ux/spec.md",
   "files": {
     "appearance.css": "8f49f774fcb6c267ce7b16789629dfd81fd3529d483540c8772f54c3dda731d9",
     "appearance.js": "8b4388c505fba0f7424cf17eddbbd880462c6cc686369ce9aaafba3c75fa4ae9",
-    "mock.css": "ca7b2ce9ce264728fe07896d5811bdd9fbf4f4baa3d3d6e374f083adac31810a",
-    "mock.js": "d0410a6f3bbb64a73121bcc4f5a6efe0bae3797bc3185fe83af3265c12c568b4",
-    "mock.html": "28faf7640e1492f1752f227046bef2705c25b96c3cd7732d739b38c8dd3bbbc6",
+    "mock.css": "03d1bcb9af57e865e25c1a4793228ce5b1617f523e2ddd99aeb4ebca6894bd80",
+    "mock.js": "884eb536960151465b65c1f14ed4b40474e7610f7c02a4ced03f23656022c8fc",
+    "mock.html": "05ae3bb90cd603049eb7f0ce93d816a952b2fbf20f8a6500764b177e7b33cb6e",
     "integration/app.html": "f50ee345817f9b18f07ecfee9f1a268dc24ead0c30aa308d0f6688637e68b1bf",
     "integration/app.mjs": "c141b0d95a1fb0f07741d28bddc1cb29ec7b50f347554d24e55f6441d6df654e",
     "integration/integration.css": "6813003e237ce46bb9a7598f289fa04e79606cbc098660099461734f77b55128",
     "integration/model.mjs": "b88950e084a9761aac196c8a95ff3a13c381b462923046a0bb22def740604903",
     "integration/review.js": "2391dced64b8604d4dee6d4571c62695748cd96abffe35277836ce5b83f0e9e5",
-    "index.html": "13d9a70aec4e8e537be21a0b323e091658846926e1a8bc41ee288dc1c3a73379"
+    "index.html": "d700e46928d12943ad10de793197236bf71fe81b14be34425b13fa2ea0f78e1e"
   }
 }

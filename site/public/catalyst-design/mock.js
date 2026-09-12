@@ -10,8 +10,9 @@ let saved = ['datasets', 'widgets', 'dashboards', 'imported', 'import-failed'].i
 let widget = ['dashboards', 'imported', 'import-failed'].includes(state);
 let publication = state === 'imported' ? 'imported' : state === 'import-failed' ? 'failed' : 'draft';
 let expanded = false;
-let advanced = false;
-let priorHeight = 88;
+let advanced = state === 'advanced';
+const queryDetailsOpen = new Map();
+let priorHeight = 72;
 let opener;
 let dataOpener;
 let dataOpen = false;
@@ -100,6 +101,43 @@ const table = (item = startingQuery) => `<div class="table-scroll"><table><capti
 const technical = () => `<details ${advanced ? "open" : ""}><summary>Query and technical details</summary><p class="small">Source: ${escapeHtml(source)}<br>SQL dialect: Spark SQL<br>Query version: 1 · execution: 1</p><pre>${escapeHtml(draftSql)}</pre><p class="small">Schema and trace identifiers are available here in the product. This mock has no live provenance.</p></details>`;
 const sqlEditor = () => `<details id="sql-details" ${advanced || startingQuery ? "open" : ""}><summary>View or edit SQL</summary><label for="sql">SQL query</label><textarea class="sql" id="sql" spellcheck="false">${escapeHtml(draftSql)}</textarea><p class="small muted">Sample SQL only. The mock does not validate or execute it.</p><div class="actions"><button class="secondary" data-action="validate">Validate</button><button class="secondary" data-action="format">Format</button><button class="text-button" data-action="restore">Restore</button><button class="text-button" data-action="clear">Clear draft</button></div><details ${advanced || startingQuery ? "open" : ""}><summary>Parameters and generation details</summary>${parameterFields()}<p class="small muted">Typed values stay with this draft. Recorded run details remain separate.</p></details></details>`;
 
+// Recorded-looking facts below are fictional layout examples, never clinical evidence.
+const summaryTurn = (ordinal, instruction, variant = 'results') => {
+  const pending = variant === 'preparing';
+  const stopped = variant === 'cancelled';
+  const failed = variant === 'prepare-error';
+  const count = variant === 'empty-result' ? 0 : variant === 'limited' ? 100 : 6;
+  const outcome = pending ? 'Preparing your next question…' : stopped ? 'Preparation stopped' : failed ? 'Could not prepare this question' : `${count} rows returned`;
+  const hasResult = !pending && !stopped && !failed;
+  const open = queryDetailsOpen.get(ordinal) ?? (state === 'query-details');
+  return `<article class="conversation-turn" aria-label="Question ${ordinal}">
+    <header><p class="small muted">Question ${ordinal}</p><h2>${escapeHtml(instruction)}</h2><p class="small muted">${escapeHtml(source)} · ${outcome}</p></header>
+    ${hasResult ? `<p><strong>${count ? 'Results ready' : 'No rows returned'}</strong></p><p class="small">Returned fields: <strong>month, completed_tests</strong></p>
+      ${variant === 'limited' ? '<p class="notice-warning">Showing the first 100 rows. More are available; total unknown.</p>' : ''}
+      ${variant === 'stale' ? '<p class="notice-warning">This result belongs to an earlier query version. Run the current query to refresh it.</p>' : ''}
+      ${count === 0 ? '<p>Try another date range or refine your question.</p>' : ''}
+      <div class="actions"><button class="secondary" data-dialog="review">Review results</button></div>${count ? `<div class="turn-row-preview" tabindex="0" role="region" aria-label="Question ${ordinal} result preview"><table><caption>First 3 of ${count} returned rows · fictional example</caption><thead><tr><th scope="col">month</th><th scope="col">completed_tests</th></tr></thead><tbody><tr><td>2026-03</td><td>184</td></tr><tr><td>2026-04</td><td>206</td></tr><tr><td>2026-05</td><td>198</td></tr></tbody></table></div>` : ''}` : `<p role="${failed ? 'alert' : 'status'}">${pending ? 'We’re preparing a query for you to review. No data has been retrieved.' : stopped ? 'Your draft is still available. Continue when you are ready.' : 'The question service did not respond. Your draft is still available; try again.'}</p><button class="secondary" data-action="${pending ? 'stop' : 'retry'}">${pending ? 'Stop' : 'Try again'}</button>`}
+    ${hasResult ? `${advanced && !open ? `<pre class="query-preview">${escapeHtml(draftSql.split('\n').slice(0, 2).join('\n'))}\n…</pre>` : ''}
+    <div class="query-evidence"><button class="text-button query-details-toggle" data-query-toggle="${ordinal}" aria-expanded="${open}" aria-controls="query-evidence-${ordinal}">View query details</button><div id="query-evidence-${ordinal}" ${open ? '' : 'hidden'}><p class="small">Source: ${escapeHtml(source)} · Spark SQL<br>Query version ${ordinal} · execution ${ordinal}</p><pre>${escapeHtml(draftSql)}</pre><p class="small muted">Illustrative SQL and facts only. No live provenance is available in this mock.</p></div></div>` : ''}
+  </article>`;
+};
+function styleDisclosures() {
+  document.querySelectorAll('summary').forEach(summary => {
+    if (summary.querySelector('.disclosure-chevron')) return;
+    const label = document.createElement('span');
+    while (summary.firstChild) label.append(summary.firstChild);
+    summary.append(label);
+    summary.insertAdjacentHTML('beforeend', '<svg class="disclosure-chevron" width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 11 3 6 3.7 5.3 8 9.6 12.3 5.3 13 6z"/></svg>');
+  });
+}
+document.addEventListener('keydown', event => {
+  const evidence = event.target.closest('.query-evidence');
+  const toggle = evidence?.querySelector('[data-query-toggle]');
+  if (event.key === 'Escape' && toggle?.getAttribute('aria-expanded') === 'true') { event.preventDefault(); toggle.click(); toggle.focus(); return; }
+  const details = event.target.closest('details');
+  if (event.key === 'Escape' && details?.open) { event.preventDefault(); details.open = false; details.querySelector('summary').focus(); }
+});
+
 function render() {
   document.body.dataset.state = state;
   document.body.dataset.advanced = String(advanced);
@@ -112,8 +150,10 @@ function render() {
   $('#composer').hidden = isLibrary();
   $('#return-to-question').hidden = isLibrary();
   $('#data-source').textContent = source;
-  $('#advanced-tools').hidden = !advanced;
-  $('#composer [data-dialog="ai"]').hidden = advanced;
+  $('#advanced-tools').hidden = true;
+  $('#advanced-toggle').checked = advanced;
+  $('#mode-state').textContent = advanced ? 'On' : 'Off';
+  $('#composer [data-dialog="ai"]').hidden = false;
   $('#profile-summary').textContent = profile;
   $('#library-nav').hidden = !isLibrary();
   if (isLibrary()) $('#saved-nav').setAttribute('aria-current', 'page');
@@ -125,7 +165,7 @@ function render() {
   $('#page-title').textContent = ({datasets:'Saved queries',widgets:'Charts and tables',dashboards:'Dashboards'})[section] || (startingQuery ? 'Start from saved work' : state === 'empty' ? 'What would you like to find out?' : 'Your question');
   $('#page-description').textContent = ({datasets:'Saved queries you can reuse in charts and dashboards.',widgets:'Charts and tables built from your saved queries.',dashboards:'Bring your charts together and open them in Superset.'})[section] || (startingQuery ? 'Review the SQL and values before getting new results.' : state === 'empty' ? 'Start with a question, in your own words.' : 'Explore the results, or refine your question below.');
   $('#question-label').textContent = state === 'empty' ? 'Your question' : state === 'clarify' ? 'Your answer' : 'Ask a follow-up';
-  $('#question-context').textContent = state === 'empty' ? '' : `Refining “${question}”`;
+  $('#question-context').textContent = state === 'empty' ? '' : 'Following question ' + (state === 'multi-turn' ? 2 : 1);
   let body = '';
   if (state === 'empty') {
     body = `<div class="intro"><p>Catalyst helps you explore information from your connected data. You choose what to retrieve and what to save.</p></div>`;
@@ -147,7 +187,12 @@ function render() {
       body += `<div class="card"><div class="card-header"><div><h2>Your results are ready</h2><p class="muted">${state === "limited" ? "100 rows returned · total unknown" : "6 rows returned"}</p></div></div>${state === 'limited' ? '<div class="callout warning"><strong>Showing the first 100 rows</strong><p>More are available; the total is unknown. Refine your question if you need a smaller result.</p></div>' : ''}<div class="actions"><button data-dialog="review">View results</button><button class="text-button" data-action="edit">View or edit SQL</button></div>${advanced ? `${sqlEditor()}<button data-action="run">Run query</button>` : ""}<details><summary>About these results</summary><p class="small">The database returned a result. This does not establish that the answer is correct. SQL findings: none recorded in this example. AI review status: unknown.</p><p class="small">Exact query and technical evidence are available with the full results.</p></details></div>`;
     }
   }
+  if (['results','limited','multi-turn','query-details','advanced','preparing','cancelled','prepare-error','empty-result','stale'].includes(state)) {
+    body = summaryTurn(1, question, state === 'multi-turn' ? 'results' : state);
+    if (state === 'multi-turn') body += summaryTurn(2, 'Use only completed tests from the last six months');
+  }
   $('#content').innerHTML = body;
+  styleDisclosures();
   document.querySelectorAll('[data-browse]').forEach(button => button.setAttribute('aria-expanded', String(dataOpen)));
 }
 
@@ -281,6 +326,7 @@ document.addEventListener('input', event => {
 document.addEventListener('click', event => {
   const button = event.target.closest('button');
   if (!button) return;
+  if (button.dataset.queryToggle) { const ordinal = Number(button.dataset.queryToggle); const open = button.getAttribute('aria-expanded') !== 'true'; queryDetailsOpen.set(ordinal, open); button.setAttribute('aria-expanded', String(open)); document.getElementById(button.getAttribute('aria-controls')).hidden = !open; const preview = button.closest('.conversation-turn').querySelector('.query-preview'); if (preview) preview.hidden = open; return; }
   if (button.dataset.section) { navigate(button.dataset.section); return; }
   if (button.dataset.resume) { restoreDraft(Number(button.dataset.resume)); return; }
   if (button.hasAttribute('data-browse')) { toggleData(!dataOpen, button); return; }
@@ -290,6 +336,8 @@ document.addEventListener('click', event => {
   if (action === 'reuse') requestReuse(savedQueries.find(item => item.id === button.dataset.query), button);
   if (action === 'confirm-reuse') loadSavedQuery(savedQueries.find(item => item.id === button.dataset.query));
   if (action === 'new') { rememberDraft(); source = $('#source').value; startingQuery = null; draftSql = sql; draftParameters = []; state = workbenchState = 'empty'; $('#question').value = ''; $('#search-data').value = ''; filterData(); closePanel(); render(); }
+  if (action === 'stop') { state = 'cancelled'; render(); }
+  if (action === 'retry') { state = 'ready'; render(); }
   if (action === 'run') { state = 'results'; render(); notify('Showing fictional results for layout review. No SQL was executed.'); }
   if (action === 'edit') { state = 'ready'; render(); $('#sql-details').open = true; $('#sql').focus(); }
   if (action === 'validate' || action === 'format') notify('Preview only. SQL validation and formatting use the existing editor in the product.');

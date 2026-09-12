@@ -25,6 +25,13 @@ The retained local release runs from `/Users/pmanko/code/catalyst-dev` at
 The server checkout is `/home/ubuntu/catalyst-release` at the same revision.
 Separate UI development and its owner review do not change this release evidence.
 
+The owner merged Catalyst #117 (`ed22781`) on 12 September and requested a live
+rollout. This integration pin includes that revision; ancestry verification
+confirms that it retains parser repair `699d700`. Local/server rollout and
+rendered light/dark checks remain pending; do not treat the earlier runtime or
+video as evidence of this newer UI. The design publication copy is synchronized
+from the same immutable source; its publication remains a separate check.
+
 ## Current release integration — 11 September 2026
 
 The owner authorized this sequence: roadmap #142, combined Catalyst #106–#109
@@ -99,14 +106,18 @@ reporting-planning documentation; #111 remains a separate dashboard draft.
   `encounter_flat.patient_id` to `patient_flat.identifier_value`; the checked-in
   source views define the patient resource key as `patient_flat.id`. The
   inner join also fails the requested retention of unmatched patients. Normal
-  corrective feedback is under test, with no SQL hand edit, prompt change,
-  model switch or new deadline. The failed candidate and result remain private
-  evidence; basic-query success does not close this correctness finding.
+  corrective feedback ended with a browser `Failed to fetch` and a server
+  `generation_cancelled` record; no corrected answer was produced. The cause
+  needs transport/log inspection, not attribution to a deadline. No SQL hand
+  edit, prompt change, model switch or new deadline was applied. The failed
+  candidate, result and interrupted correction remain private evidence;
+  basic-query success does not close this correctness finding.
 - **Server saved work:** the successful OpenELIS result was saved through the
   application API, with a table, chart and a second Dashboard version preserving
-  the changed arrangement. This is API persistence evidence only. Browser review,
-  publication, import from the owning server checkout and rendered-result checks
-  remain open. OpenMRS saved-work verification awaits a correct current result.
+  the changed arrangement. Browser review confirmed the nine recorded rows and
+  the reversed two-widget arrangement; publication produced a ready bundle.
+  Import from the owning server checkout and rendered-result checks remain open.
+  OpenMRS saved-work verification awaits a correct current result.
 
 The combined review reproduced a conflict between #106's metadata-only repair
 and #109's duplicate alias-repair regression. Both tests are retained. Named,

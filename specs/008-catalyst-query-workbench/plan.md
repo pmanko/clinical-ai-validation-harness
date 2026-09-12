@@ -20,13 +20,20 @@ with the warmup exchange absent and observed schema-prefix reuse. The same
 three-question sequence now passes on the server after the tokenization-error
 repair. A subsequent OpenMRS gender refinement executed but returned no rows:
 the model joined the encounter patient reference to an identifier value instead
-of the patient resource key. Its normal corrective-feedback path is being
-checked; basic-query success does not close refinement correctness or the full
+of the patient resource key. A corrective-feedback attempt ended with a browser
+connection error and a recorded cancelled request; it produced no answer to
+assess. Basic-query success does not close refinement correctness or the full
 server saved-work-to-Superset journey. Those checks, final visual acceptance, and
 owner acceptance remain open. Responsiveness and URL-addressable sessions remain the next product
 checkpoint after this release is stabilized and accepted.
 
 **Specification:** [spec.md](spec.md)
+
+The owner merged Catalyst #117 as `ed22781` on 12 September and requested it
+live. The release pin now includes that visual update and retains the deployed
+`699d700` repair. Deployment and rendered light/dark verification of `ed22781`
+are the next operation; the runtime evidence above remains tied to `b632d2c`
+until that rollout is verified. Model profiles and retained datasets stay unchanged.
 
 ## Immediate next step — complete server workflow verification
 
@@ -35,8 +42,9 @@ Neutral warmup and the local two-source baseline are complete. Merged Catalyst
 model correction path, preserving failed candidate evidence. The exact merged
 repair is deployed and the unchanged OpenMRS question and source-switch sequence
 pass. Verify the observed incorrect-join refinement through the existing user
-feedback path, preserving the failed result and any correction as separate
-evidence, then complete server saved-work-to-Superset verification for both
+feedback path once the interrupted connection is diagnosed, preserving the
+failed result and any correction as separate evidence, then complete server
+saved-work-to-Superset verification for both
 sources. Do not describe a successful SQL execution as a correct answer. This is an error
 handling repair, not a change to prompts, model choice, retry policy or deadlines.
 
