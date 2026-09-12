@@ -30,10 +30,9 @@
     <section id="content" aria-label="Workspace"></section>
   </main>
   <section id="composer" class="composer" aria-label="Question composer">
-    <div class="composer-heading"><label for="question" id="question-label">Your question</label><button id="expand" class="text-button" type="button" aria-expanded="false" aria-controls="question">Expand writing area</button></div>
-    <p class="context" id="question-context"></p>
+    <div class="composer-heading"><div class="composer-label"><label for="question" id="question-label">Your question</label><span class="context" id="question-context"></span></div><button id="expand" class="text-button" type="button" aria-expanded="false" aria-controls="question">Expand writing area</button></div>
     <form id="question-form">
-      <textarea id="question" rows="3" aria-describedby="question-context question-help" placeholder="Write your question here…"></textarea>
+      <textarea id="question" rows="2" aria-describedby="question-context question-help" placeholder="Write your question here…"></textarea>
       <div class="composer-actions"><button class="text-button" type="button" data-dialog="ai">Query settings</button><button id="prepare" type="submit">Continue <span aria-hidden="true">→</span></button></div>
       <p id="question-help">Review the request before retrieving data. Ctrl / ⌘ + Enter to continue.</p>
       <p id="composer-error" class="error-text" role="alert" hidden>Enter a question first.</p>

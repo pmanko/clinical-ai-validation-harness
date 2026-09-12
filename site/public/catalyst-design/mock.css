@@ -75,13 +75,13 @@ table { width: 100%; border-collapse: collapse; font-size: 14px; text-align: lef
 caption { text-align: left; padding-bottom: 8px; color: var(--muted); }
 th { background: var(--raised); font-weight: 600; }
 td, th { padding: 12px 16px; border-bottom: 1px solid var(--border); }
-.composer { width: calc(100% - 48px); max-width: 876px; margin: 0 auto 20px; padding: 16px 22px; background: var(--layer); border: 1px solid var(--control-border); border-radius: 16px; box-shadow: 0 6px 24px var(--shadow); max-height: 65dvh; overflow-y: auto; }
+.composer { width: calc(100% - 48px); max-width: 876px; margin: 0 auto 20px; padding: 8px 16px; background: var(--layer); border: 1px solid var(--control-border); border-radius: 16px; box-shadow: 0 6px 24px var(--shadow); max-height: 65dvh; overflow-y: auto; }
 .composer-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 .composer-heading label { margin: 0; font-size: 17px; }
 .context, #question-help { font-size: 12px; color: var(--muted); margin: 0 0 8px; }
 .context:empty { display: none; }
-#question { display: block; height: 88px; min-height: 72px; max-height: min(40dvh, 360px); resize: vertical; line-height: 1.5; border: 0; background: var(--layer); padding: 12px 0; font-size: 17px; }
-.composer-actions { display: flex; justify-content: space-between; gap: 12px; align-items: center; padding: 8px 0; }
+#question { display: block; height: 72px; min-height: 72px; max-height: min(40dvh, 360px); resize: vertical; line-height: 1.5; border: 0; background: var(--layer); padding: 8px 0; font-size: 17px; }
+.composer-actions { display: flex; justify-content: space-between; gap: 12px; align-items: center; padding: 0; }
 .composer-actions .text-button { padding-left: 0; }
 #question-help { margin-bottom: 0; }
 #prepare { margin-left: auto; }
@@ -178,3 +178,30 @@ body.data-open main { padding-left: 24px; padding-right: 24px; }
 body[data-advanced="true"] .data-browser summary .relation-name { display: block; }
 body:not([data-advanced="true"]) .advanced-only { display: none; }
 @media (max-width: 760px) { .view-options { margin-left: auto; } }
+
+/* Workbench remediation: the same neutral hierarchy and disclosure geometry as the app. */
+.conversation-turn { background: var(--layer); border: 1px solid var(--border); border-radius: 14px; padding: 20px 24px; margin-bottom: 20px; }
+.conversation-turn header h2 { font-size: 18px; font-weight: 600; line-height: 1.5; margin: 6px 0; }
+.conversation-turn p { line-height: 1.5; }
+.conversation-turn header p { margin: 4px 0; }
+.conversation-turn pre { background: var(--field); border: 0; border-radius: 8px; color: var(--text); }
+.conversation-turn .query-preview { font-size: 13px; }
+.notice-warning { color: var(--text); border-left: 3px solid var(--control-border); padding-left: 12px; font-size: 14px; }
+summary { display: flex; align-items: center; justify-content: space-between; gap: 10px; width: fit-content; max-width: 100%; min-height: 44px; list-style: none; padding: 10px 12px; border-radius: 8px; color: var(--text); font-weight: 500; line-height: 1.5; }
+summary::marker, summary::-webkit-details-marker { display: none; content: ''; }
+summary:hover { background: var(--field); }
+summary > .disclosure-chevron { flex: none; transition: transform 120ms ease; }
+details[open] > summary > .disclosure-chevron { transform: rotate(180deg); }
+.view-options > summary { color: var(--text); }
+select, input { border-radius: 8px; }
+@media (max-width: 640px) { .conversation-turn { padding: 16px; } .conversation-turn header h2 { font-size: 16px; } }
+@media (prefers-reduced-motion: reduce) { summary > .disclosure-chevron { transition: none; } }
+
+.query-details-toggle[aria-expanded="true"] { background: var(--field); box-shadow: inset 0 -2px var(--focus); }
+
+.turn-row-preview { overflow-x: auto; margin: 16px 0; }
+.turn-row-preview table { font-size: 14px; }
+.turn-row-preview caption { font-size: 13px; color: var(--muted); text-align: left; }
+
+.composer-label { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 12px; }
+.composer-label .context { margin: 0; }

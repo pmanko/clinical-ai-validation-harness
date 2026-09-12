@@ -13,25 +13,39 @@ restored arrangement, deterministic publication, native import, and matching
 rendered Superset rows. The 3:56 paced cut completed normal-speed playback review
 and was published through #158 (`0df04b8`); live page, MP4 and poster hashes match
 the reviewed sources.
-Harness `a5703cc`, Catalyst `742ee58`, and Hub `6120c31` now run locally and on the
+Harness `b632d2c`, Catalyst `699d700`, and Hub `6120c31` now run locally and on the
 CPU server; server lifecycle health and both neutral warmups passed. Local
 OpenELIS → OpenMRS → OpenELIS ordinary questions all prepared and executed,
-with the warmup exchange absent and observed schema-prefix reuse. The first
-server OpenELIS question passed, but the unchanged OpenMRS encounter-count
-question returned malformed SQL that escaped tokenization-error handling.
-Server ordinary-question validation, final visual acceptance, and owner acceptance
-remain open. Responsiveness and URL-addressable sessions remain the next product
+with the warmup exchange absent and observed schema-prefix reuse. The same
+three-question sequence now passes on the server after the tokenization-error
+repair. A subsequent OpenMRS gender refinement executed but returned no rows:
+the model joined the encounter patient reference to an identifier value instead
+of the patient resource key. A corrective-feedback attempt ended with a browser
+connection error and a recorded cancelled request; it produced no answer to
+assess. Basic-query success does not close refinement correctness or the full
+server saved-work-to-Superset journey. Those checks, final visual acceptance, and
+owner acceptance remain open. Responsiveness and URL-addressable sessions remain the next product
 checkpoint after this release is stabilized and accepted.
 
 **Specification:** [spec.md](spec.md)
 
-## Immediate next step — complete server query validation
+The owner merged Catalyst #117 as `ed22781` on 12 September and requested it
+live. The release pin now includes that visual update and retains the deployed
+`699d700` repair. Deployment and rendered light/dark verification of `ed22781`
+are the next operation; the runtime evidence above remains tied to `b632d2c`
+until that rollout is verified. Model profiles and retained datasets stay unchanged.
+
+## Immediate next step — complete server workflow verification
 
 Neutral warmup and the local two-source baseline are complete. Merged Catalyst
 #124 handles SQL tokenization errors through the existing parse-finding and
-model correction path, preserving failed candidate evidence. Deploy the exact merged
-repair, then repeat the unchanged OpenMRS question and source-switch sequence
-before continuing the server saved-work-to-Superset journey. This is an error
+model correction path, preserving failed candidate evidence. The exact merged
+repair is deployed and the unchanged OpenMRS question and source-switch sequence
+pass. Verify the observed incorrect-join refinement through the existing user
+feedback path once the interrupted connection is diagnosed, preserving the
+failed result and any correction as separate evidence, then complete server
+saved-work-to-Superset verification for both
+sources. Do not describe a successful SQL execution as a correct answer. This is an error
 handling repair, not a change to prompts, model choice, retry policy or deadlines.
 
 ### Established neutral-question warmup
@@ -59,10 +73,11 @@ Spark-function diagnostic that blocked the current OpenMRS recording; it does
 not translate or rewrite selected SQL. Harness #157 (`a5703cc`) pins Catalyst
 `742ee58` and Hub `6120c31`.
 Local/server lifecycle health and neutral warmups passed on that release.
-Local ordinary-question and source-switch evidence passed; complete the remaining
-server ordinary-question evidence before calling deployment verified.
+Harness #159 (`b632d2c`) adds Catalyst #124 (`699d700`) without changing Hub.
+Local and server ordinary-question/source-switch evidence passed on that repair.
+The broader server workflow and its correctness evidence remain separate.
 
-Complete the ordinary two-source question verification on the existing CPU
+Complete the remaining two-source workflow verification on the existing CPU
 server using the deployed exact merged revisions. Record implementation,
 local validation, merge, deployment and owner review separately in [tasks.md](tasks.md).
 The owner direction is low-resource CPU deployment, useful responsiveness,
