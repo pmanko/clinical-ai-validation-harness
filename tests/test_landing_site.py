@@ -131,7 +131,7 @@ def test_catalyst_recordings_link_to_the_matching_youtube_uploads():
     assert html.index("catalyst-openelis-local-reviewed-light-20260911-abaf54f.mp4") < html.index(
         "https://youtu.be/PRs3jAzQk38"
     )
-    assert html.index("catalyst-openmrs-cd4-monitoring-local-reviewed-light-20260911-6fa6917.mp4") < html.index(
+    assert html.index("catalyst-openmrs-cd4-monitoring-local-reviewed-light-20260912-742ee58.mp4") < html.index(
         "https://youtu.be/7p83cGMhOzw"
     )
 

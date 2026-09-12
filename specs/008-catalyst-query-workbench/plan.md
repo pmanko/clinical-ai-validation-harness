@@ -6,14 +6,19 @@ are merged and the complete local dual-source walkthroughs passed. On 10 Septemb
 2026 the owner authorized continuing into saved-work and Dashboard functionality,
 with subsequent feedback bringing typography and composer style alignment into
 the saved-query iteration. Earlier light-mode videos remain published as
-historical evidence. A new local OpenMRS replacement is still required: its
-first current capture exposed SQLite `strftime` in generated SQL, which Spark
-does not support. Catalyst #119 now reports that dialect mismatch before
-execution. The exact merged server release is healthy, but its first full
-evidence run exposed downstream cancellation and automatic deadline behavior.
-Final full server evidence, the replacement recording, and owner acceptance
-remain open. Responsiveness and URL-addressable sessions are the next product
-checkpoint after the current release is stabilized and accepted.
+historical evidence. The 12 September local OpenMRS replacement capture passed
+with the planned Gemma 4 12B writer and Qwen 2.5 14B reviewer: model-created SQL,
+monthly totals preserved after refinement, saved-SQL reuse, two visualizations,
+restored arrangement, deterministic publication, native import, and matching
+rendered Superset rows. The 3:56 paced cut has completed normal-speed playback review; its video and
+poster are uploaded and hash-verified, and this change updates both public references.
+Harness `a5703cc`, Catalyst `742ee58`, and Hub `6120c31` now run locally and on the
+CPU server; server lifecycle health and both neutral warmups passed. Local
+OpenELIS → OpenMRS → OpenELIS ordinary questions all prepared and executed,
+with the warmup exchange absent and observed schema-prefix reuse. Server
+ordinary-question validation, final visual acceptance, and owner acceptance
+remain open. Responsiveness and URL-addressable sessions remain the next product
+checkpoint after this release is stabilized and accepted.
 
 **Specification:** [spec.md](spec.md)
 
@@ -39,12 +44,14 @@ its remaining client-level deadline. Hub #31 and Catalyst #120 now remove the
 automatic total deadline from the normal named query route as well, while
 retaining explicit Stop and request-loss handling. Catalyst #119 adds the
 Spark-function diagnostic that blocked the current OpenMRS recording; it does
-not translate or rewrite selected SQL. The next harness pin carries Catalyst
-`742ee58` and Hub `6120c31`; refresh local/server warmup and ordinary-question
-evidence only after that exact release is deployed.
+not translate or rewrite selected SQL. Harness #157 (`a5703cc`) pins Catalyst
+`742ee58` and Hub `6120c31`.
+Local/server lifecycle health and neutral warmups passed on that release.
+Local ordinary-question and source-switch evidence passed; complete the remaining
+server ordinary-question evidence before calling deployment verified.
 
-Then roll out the exact merged compatible revisions to the existing CPU demo
-server and verify the real two-source question path. Record implementation,
+Complete the ordinary two-source question verification on the existing CPU
+server using the deployed exact merged revisions. Record implementation,
 local validation, merge, deployment and owner review separately in [tasks.md](tasks.md).
 The owner direction is low-resource CPU deployment, useful responsiveness,
 warmup that helps real queries, and a working Stop control. Timings are diagnostic
