@@ -42,6 +42,20 @@ def test_first_install_has_no_existing_containers_or_volumes(tmp_path):
     assert check_ownership(tmp_path, definition(tmp_path), [], []) == "absent"
 
 
+def test_leftover_application_container_does_not_prove_database_exists(tmp_path):
+    value = container(tmp_path, name="harness-openmrs-backend", service="backend")
+    value["Mounts"] = []
+    with pytest.raises(SetupError, match="database container"):
+        check_ownership(tmp_path, definition(tmp_path), [value], [])
+
+
+def test_database_container_must_retain_its_expected_data_mount(tmp_path):
+    value = container(tmp_path)
+    value["Mounts"] = []
+    with pytest.raises(SetupError, match="database volume"):
+        check_ownership(tmp_path, definition(tmp_path), [value], [])
+
+
 def test_existing_stack_belongs_to_this_checkout(tmp_path):
     assert (
         check_ownership(

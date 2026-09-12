@@ -1,6 +1,6 @@
 {
   "schema_version": "evaluation_roles.v1",
-  "purpose": "Synthetic-data role-persona research, not production access-control certification",
+  "purpose": "Required synthetic-data evaluation accounts for authenticated role-context and agent-instruction testing, not production access-control certification",
   "source": "https://docs.google.com/spreadsheets/d/1wcs2PswDRXWMmYcGkCvcW0NmPOGO1CIKv9pMSuxTEas/edit",
   "access_role": "Application: Uses ChartSearchAI (Research)",
   "required_privileges": [

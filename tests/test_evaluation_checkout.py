@@ -187,3 +187,41 @@ def test_fetch_failure_never_changes_checkout(repositories):
     with pytest.raises(SetupError, match="fetch failed"):
         update_checkout(ross, expected_origin=str(unavailable))
     assert git(ross, "rev-parse", "HEAD") == before
+
+
+@pytest.mark.parametrize("collision", [True, False])
+def test_submodule_ignored_configuration_is_preserved(
+    repositories, tmp_path, collision
+):
+    publisher, local, remote = repositories
+    child = tmp_path / "child"
+    child.mkdir()
+    git(child, "init", "--initial-branch=main")
+    (child / ".gitignore").write_text("local.env\n")
+    git(child, "add", ".gitignore")
+    original = commit(child, "child baseline")
+    git(publisher, "submodule", "add", str(child), "targets/component")
+    git(publisher, "commit", "-am", "pin child")
+    git(publisher, "push", "origin", "main")
+    update_checkout(local, expected_origin=str(remote))
+    private = local / "targets/component/local.env"
+    private.write_text("private local settings")
+    if collision:
+        (child / "local.env").write_text("incoming defaults")
+        git(child, "add", "-f", "local.env")
+    updated = commit(child, "child update")
+    git(publisher / "targets/component", "fetch", "origin")
+    git(publisher / "targets/component", "checkout", updated)
+    git(publisher, "commit", "-am", "update child pin")
+    git(publisher, "push", "origin", "main")
+    before = git(local, "rev-parse", "HEAD")
+
+    if collision:
+        with pytest.raises(SetupError, match="overwrite local"):
+            update_checkout(local, expected_origin=str(remote))
+        assert git(local, "rev-parse", "HEAD") == before
+        assert git(local / "targets/component", "rev-parse", "HEAD") == original
+    else:
+        update_checkout(local, expected_origin=str(remote))
+        assert git(local / "targets/component", "rev-parse", "HEAD") == updated
+    assert private.read_text() == "private local settings"

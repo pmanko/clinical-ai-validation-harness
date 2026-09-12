@@ -26,8 +26,11 @@ def main() -> int:
         "--data", choices=("preserve", "initialize", "reset"), default="preserve"
     )
     parser.add_argument("--baseline", type=Path)
-    parser.add_argument("--study", choices=("roles",))
-    parser.add_argument("--confirm-demo-data", action="store_true")
+    parser.add_argument(
+        "--confirm-demo-data",
+        action="store_true",
+        help="confirm this evaluation instance uses synthetic/demo data; role accounts are required",
+    )
     args = parser.parse_args()
     if sys.platform == "win32":
         parser.error(
@@ -58,7 +61,6 @@ def main() -> int:
                     ROOT,
                     data_action=args.data,
                     baseline=args.baseline,
-                    study=args.study == "roles",
                     confirm_demo_data=args.confirm_demo_data,
                     check_only=args.action == "check",
                 )

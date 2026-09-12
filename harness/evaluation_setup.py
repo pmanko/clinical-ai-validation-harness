@@ -71,6 +71,56 @@ def _submodule_heads(root: Path) -> dict[str, str]:
     return heads
 
 
+def _check_update_collisions(root: Path, target: str) -> None:
+    """Inspect incoming files at every initialized repo boundary before checkout.
+
+    Fetching a pinned object is safe here; checking it out is not. Git's default
+    submodule checkout can replace ignored files that normal status omits.
+    """
+    added = _git(
+        root,
+        "diff",
+        "--no-renames",
+        "--name-only",
+        "--diff-filter=A",
+        "-z",
+        "HEAD",
+        target,
+    )
+    for relative in filter(None, added.split("\0")):
+        path = root / relative
+        if path.exists() or path.is_symlink():
+            raise SetupError(
+                f"The shared update would overwrite local content at {path}. "
+                "Preserve it explicitly before updating; ignored files also count."
+            )
+    for row in filter(None, _git(root, "ls-tree", "-rz", target).split("\0")):
+        metadata, _, relative = row.partition("\t")
+        mode, _, sha = metadata.split()
+        if mode != "160000":
+            continue
+        child = root / relative
+        if not (child / ".git").exists():
+            # Refuse before the parent advances, rather than discovering this
+            # collision later when submodule initialization tries to clone here.
+            if child.exists() and any(child.iterdir()):
+                raise SetupError(
+                    f"Uninitialized submodule contains local content: {child}"
+                )
+            continue
+        _require_clean(child)
+        if _git(child, "rev-parse", "HEAD") == sha:
+            continue
+        available = subprocess.run(
+            ["git", "-C", str(child), "cat-file", "-e", f"{sha}^{{commit}}"],
+            capture_output=True,
+            check=False,
+        )
+        if available.returncode:
+            _git(child, "fetch", "--no-recurse-submodules", "origin", sha)
+        _check_update_collisions(child, sha)
+
+
 def update_checkout(
     root: Path,
     *,
@@ -114,23 +164,7 @@ def update_checkout(
         )
     # Recheck after the network operation in case someone edited during fetch.
     _require_clean(root)
-    added = _git(
-        root,
-        "diff",
-        "--no-renames",
-        "--name-only",
-        "--diff-filter=A",
-        "-z",
-        "HEAD",
-        target,
-    )
-    for relative in filter(None, added.split("\0")):
-        path = root / relative
-        if path.exists() or path.is_symlink():
-            raise SetupError(
-                f"The shared update would overwrite local content at {relative}. "
-                "Preserve it explicitly before updating; ignored files also count."
-            )
+    _check_update_collisions(root, target)
     if check_only:
         return {
             "status": "update_available" if before != target else "current",

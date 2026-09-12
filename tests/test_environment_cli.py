@@ -31,7 +31,7 @@ def test_check_receipt_is_not_a_ready_receipt(cli, tmp_path, monkeypatch, capsys
     def check(root, **kwargs):
         assert root == tmp_path and kwargs["check_only"] is True
         assert kwargs["data_action"] == "preserve"
-        assert kwargs["study"] is False
+        assert "study" not in kwargs
         return {"status": "preflight_passed", "applied": False}
 
     monkeypatch.setattr(cli, "prepare_environment", check)
@@ -97,6 +97,15 @@ def test_source_update_and_preparation_share_a_real_process_lock(
 def test_unsupported_environment_is_not_guessed(cli, monkeypatch):
     monkeypatch.setattr(
         sys, "argv", ["setup-environment.py", "prepare", "--environment", "anything"]
+    )
+    with pytest.raises(SystemExit) as error:
+        cli.main()
+    assert error.value.code == 2
+
+
+def test_accounts_cannot_be_made_optional_with_study_flag(cli, monkeypatch):
+    monkeypatch.setattr(
+        sys, "argv", ["setup-environment.py", "prepare", "--study", "roles"]
     )
     with pytest.raises(SystemExit) as error:
         cli.main()

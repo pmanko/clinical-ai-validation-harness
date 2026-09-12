@@ -20,13 +20,13 @@ export UV_PROJECT_ENVIRONMENT
         catalyst-mvp-up catalyst-mvp-external catalyst-mvp-seed catalyst-mvp-health catalyst-mvp-restart catalyst-mvp-down catalyst-mvp-reset catalyst-superset-status catalyst-superset-import
 
 # --- compose lifecycle ---
-# Parent setup preserves data. Baseline initialization/reset and optional study
-# accounts use explicit arguments documented in docs/environment-setup.md.
+# Evaluation setup preserves data and includes the required role accounts.
+# CONFIRM_DEMO_DATA=1 confirms the target is a synthetic-data evaluation instance.
 environment-check:
 	bash scripts/setup-environment.sh check
 
 environment-prepare:
-	bash scripts/setup-environment.sh prepare
+	bash scripts/setup-environment.sh prepare $(if $(filter 1,$(CONFIRM_DEMO_DATA)),--confirm-demo-data,)
 
 up:
 	./scripts/stack-up.sh --wait

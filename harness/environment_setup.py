@@ -29,6 +29,7 @@ def check_ownership(
     }
     volumes = {value["name"] for value in compose.get("volumes", {}).values()}
     owned_volumes: set[str] = set()
+    owned_database_volumes: set[str] | None = None
     found = False
     for item in containers:
         name = item.get("Name", "").removeprefix("/")
@@ -65,6 +66,8 @@ def check_ownership(
             raise SetupError(f"Container ownership labels do not match for {name}.")
         found = True
         owned_volumes.update(mounted)
+        if expected[name] == "db":
+            owned_database_volumes = mounted
     unowned = volumes.intersection(volume_names) - owned_volumes
     if unowned:
         raise SetupError(
@@ -72,6 +75,19 @@ def check_ownership(
             + ", ".join(sorted(unowned))
             + ". Recover its original deployment; do not initialize over it."
         )
+    if found:
+        if owned_database_volumes is None:
+            raise SetupError(
+                "The database container is missing from this partial deployment; recover it before updating."
+            )
+        database_volume = compose["volumes"]["db-data"]["name"]
+        if (
+            database_volume not in owned_database_volumes
+            or database_volume not in volume_names
+        ):
+            raise SetupError(
+                "The expected database volume is missing or not mounted; do not create an empty replacement."
+            )
     return "existing" if found else "absent"
 
 
@@ -183,7 +199,6 @@ def prepare_environment(
     *,
     data_action: str = "preserve",
     baseline: Path | None = None,
-    study: bool = False,
     confirm_demo_data: bool = False,
     check_only: bool = False,
 ) -> dict[str, Any]:
@@ -195,9 +210,10 @@ def prepare_environment(
     """
     if data_action not in {"preserve", "initialize", "reset"}:
         raise SetupError("Data action must be preserve, initialize, or reset.")
-    if study and not confirm_demo_data:
+    if not check_only and not confirm_demo_data:
         raise SetupError(
-            "Role-study accounts require explicit confirmation of synthetic/demo data."
+            "Evaluation preparation includes the required role accounts. Confirm "
+            "synthetic/demo data with --confirm-demo-data before changing this instance."
         )
     state = inspect_environment(root)
     if data_action == "initialize" and state["deployment"] != "absent":
@@ -215,7 +231,7 @@ def prepare_environment(
         source = verify_baseline(baseline)
         state["baseline_sha256"] = source["output_sha256"]
     state["data_action"] = data_action
-    state["study_accounts"] = "requested" if study else "not_requested"
+    state["evaluation_accounts"] = "required"
     command(
         root, ["bash", "scripts/chartsearchai-local.sh", "--prepare-core", "--check"]
     )
@@ -254,27 +270,30 @@ def prepare_environment(
             root,
             ["make", "querystore-recreate-index", "ALLOW_QUERYSTORE_INDEX_RESET=1"],
         )
-    if study:
-        port = os.environ.get("HARNESS_PROXY_HTTP_PORT", "8088")
-        command(
-            root,
-            [
-                "python3",
-                "scripts/provision-evaluation-users.py",
-                "--confirm-demo-data",
-                "--base-url",
-                f"http://127.0.0.1:{port}/openmrs",
-            ],
-        )
+    port = os.environ.get("HARNESS_PROXY_HTTP_PORT", "8088")
+    command(
+        root,
+        [
+            "python3",
+            "scripts/provision-evaluation-users.py",
+            "--confirm-demo-data",
+            "--base-url",
+            f"http://127.0.0.1:{port}/openmrs",
+        ],
+    )
     return {
         **state,
         "status": "prepared",
         "applied": True,
         "readiness": "not_checked",
+        "evaluation_accounts": "provisioned",
+        "account_context": "not_implemented",
         "next_checks": [
             "provider and model readiness",
             "patient retrieval",
             "study logins",
+            "authenticated roles and login location reach both providers",
+            "role-to-instruction mapping and role-switch isolation",
             "real answer and conversation reload",
             "browser workflow",
         ],

@@ -3,6 +3,7 @@
 import copy
 import json
 import stat
+from pathlib import Path
 
 import pytest
 
@@ -206,3 +207,52 @@ def test_write_privileges_are_rejected_before_any_mutation(tmp_path, config):
     with pytest.raises(RuntimeError, match="read privileges"):
         provision_users(client, config, tmp_path / "private.json")
     assert not client.writes
+
+
+def test_complete_baseline_manifest_provisions_all_planned_accounts(tmp_path):
+    config = json.loads(
+        (
+            Path(__file__).resolve().parents[1]
+            / "datasets/validation/evaluation-roles.json"
+        ).read_text()
+    )
+    client = Rest()
+    for name in config["required_privileges"]:
+        client.records["privilege"][name] = {"uuid": name, "name": name}
+    for name in ("Organizational: Doctor", "Organizational: Nurse"):
+        client.records["role"][name] = {
+            "uuid": name,
+            "name": name,
+            "inheritedRoles": [],
+            "privileges": [],
+        }
+    path = tmp_path / "private.json"
+    result = provision_users(client, config, path)
+    assert {a["username"] for a in result["accounts"]} == {
+        "eval-clinical-officer",
+        "eval-nurse",
+        "eval-pharmacy",
+        "eval-counsellor",
+        "eval-records",
+        "eval-doctor",
+        "eval-peer",
+    }
+    saved = path.read_bytes()
+    writes = len(client.writes)
+    assert provision_users(client, config, path) == result
+    assert path.read_bytes() == saved
+    assert len(client.writes) == writes
+
+
+def test_explicit_database_reset_recreates_accounts_with_retained_passwords(
+    tmp_path, config
+):
+    path = tmp_path / "private.json"
+    provision_users(Rest(), config, path)
+    original = json.loads(path.read_text())["accounts"]["eval-peer"]["password"]
+    restored = Rest()  # Portable clinical corpus contains no managed study users.
+    result = provision_users(restored, config, path)
+    assert result["accounts"][0]["username"] == "eval-peer"
+    assert json.loads(path.read_text())["accounts"]["eval-peer"]["password"] == original
+    user_payload = next(payload for kind, payload in restored.writes if kind == "user")
+    assert user_payload["password"] == original
