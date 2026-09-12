@@ -2,6 +2,7 @@ import configparser
 import re
 from pathlib import Path
 
+import pytest
 import yaml
 
 
@@ -69,3 +70,55 @@ def test_router_wrapper_verifies_before_start_and_checks_loaded_state():
     assert '"${ROUTER_URL}/v1/chat/completions"' in script
     assert 'get("value") == "loaded"' in script
     assert "model-router-candidate" in script
+
+
+@pytest.mark.parametrize("already_loaded", [True, False])
+def test_warm_model_handles_loaded_and_unloaded_states(already_loaded):
+    import json
+    import os
+    import subprocess
+    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+    from threading import Thread
+
+    requests = []
+    loaded = already_loaded
+
+    class Router(BaseHTTPRequestHandler):
+        def do_GET(self):
+            requests.append(("GET", self.path))
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write(json.dumps({"data": [{"id": "gemma-e4b", "status": {"value": "loaded" if loaded else "unloaded"}}]}).encode())
+
+        def do_POST(self):
+            nonlocal loaded
+            requests.append(("POST", self.path))
+            if loaded:
+                self.send_response(400)
+                self.end_headers()
+                self.wfile.write(b'{"error":{"message":"model is already running"}}')
+            else:
+                loaded = True
+                self.send_response(200)
+                self.end_headers()
+                self.wfile.write(b'{"success":true}')
+
+        def log_message(self, *args):
+            pass
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Router)
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        result = subprocess.run(
+            ["bash", str(SCRIPT_PATH), "warm", "gemma-e4b"],
+            env={**os.environ, "CATALYST_ROUTER_PORT": str(server.server_port)},
+            capture_output=True, text=True, timeout=10,
+        )
+        assert result.returncode == 0, result.stderr
+        assert ("GET", "/models") in requests
+        assert requests.count(("POST", "/models/load")) == (0 if already_loaded else 1)
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join()

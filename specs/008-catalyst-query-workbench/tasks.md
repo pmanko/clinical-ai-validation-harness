@@ -45,6 +45,13 @@ complete projections now repair declared output names; unnamed expressions or
 a different projection count may still request SQL repair. This does not rewrite
 user-selected SQL. The repaired engine tests pass together.
 
+Server rollout found that the pinned router rejects `POST /models/load` for an
+already-running model. The warm/smoke wrapper now checks actual loaded state
+first and succeeds without another load request. The regression reproduced the
+HTTP 400 before the fix; five router tests cover already-loaded and cold-load
+paths. Candidate E4B inference returned a real response; this smoke alone does
+not establish query quality or acceptable interactive latency.
+
 ## Authoritative roadmap
 
 - [X] Record the approved delivery sequence, acceptance gates, deployment
