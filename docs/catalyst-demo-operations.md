@@ -37,6 +37,50 @@ the isolated stack. Those connections survive container restart but must be
 restored if either container is recreated. Inspect the live network and Caddy
 configuration before changing them; the proxy serves other applications too.
 
+## Shared model router
+
+Catalyst intentionally consumes an external model router. The harness owns the
+containerized server lifecycle so a clean Catalyst deployment does not depend on
+a router left behind by an older Compose file. Configure the current demo host in
+`/home/ubuntu/catalyst-release-config/env.sh`:
+
+```bash
+export CATALYST_ROUTER_MODEL_DIR=/home/ubuntu/catalyst-demo/models
+export CATALYST_ROUTER_PUBLIC_NETWORK=catalyst-demo_default
+export CATALYST_ROUTER_APPLICATION_NETWORK=catalyst-mvp-isolated-network
+export CATALYST_ROUTER_MODELS_MAX=1
+export CATALYST_ROUTER_WARM_MODEL=gemma-4-12b-q4
+```
+
+`CATALYST_ROUTER_MODELS_MAX` is a deployment capacity setting. One is appropriate
+for this 30 GiB CPU host. A GPU or higher-memory deployment may configure a
+larger value after measuring memory, cold/repeated latency, and concurrency.
+
+Fetch and verify only the model that is missing, then verify the complete set:
+
+```bash
+scripts/catalyst-model-router.sh fetch gemma-e4b
+scripts/catalyst-model-router.sh verify
+```
+
+The default network alias is `model-router-candidate`, so a candidate can start,
+warm, and receive direct router smoke requests without taking traffic from the
+existing Hubs:
+
+```bash
+scripts/catalyst-model-router.sh config
+scripts/catalyst-model-router.sh up
+scripts/catalyst-model-router.sh health
+scripts/catalyst-model-router.sh smoke
+```
+
+For cutover, first confirm there is no active Catalyst generation. Stop the old
+router without removing it, set `CATALYST_ROUTER_NETWORK_ALIAS=model-router`, and
+run `up` again. Both Hubs already use `http://model-router:8077`. Prove the
+selected profile through each Hub and both Catalyst sources before removing the
+stopped legacy container. If validation fails, restore the legacy router rather
+than changing a profile or falling back silently.
+
 ## ARM compatibility
 
 The host is ARM64. The pinned OpenELIS and Data Pipes images contain x86 binaries.
