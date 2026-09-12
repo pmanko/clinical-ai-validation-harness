@@ -37,6 +37,8 @@ def test_evaluation_preparation_includes_required_accounts_without_settings_or_r
     assert report["data_action"] == "preserve"
     assert report["evaluation_accounts"] == "provisioned"
     assert report["readiness"] == "not_checked"
+    assert report["account_context"] == "not_verified"
+    assert report["instruction_policy"] == "not_implemented"
 
 
 def test_check_stops_before_mutation(tmp_path, actions):

@@ -105,10 +105,13 @@ has five primary roles (clinical officer, nurse, pharmaceutical technologist,
 adherence counsellor, health records officer) and two secondary roles (doctor,
 peer educator). Testing counsellor is optional; population reporting is excluded.
 
-The inspected TurnRequest and HttpHubStreamTransport do not supply authenticated
-roles or login location to the model. This is an implementation gap that must be
-closed for the requested evaluation; setup must report it until the real path is
-verified. Prompt-described personas are not authenticated role-context evidence.
+The development TurnRequest and HttpHubStreamTransport now carry server-captured
+account roles and session location as metadata, with the same snapshot persisted
+on answer events and saved turns. Neither provider yet applies reviewed role-based
+model instructions. That remaining gap must be closed for the requested evaluation;
+setup reports context as unverified and instruction policy as unimplemented until
+the complete real path is verified. Prompt-described personas are not authenticated
+role-context evidence.
 Restricted outreach/HIV visibility is not established by a role name or prompt.
 Use synthetic/demo data for this study.
 
@@ -224,6 +227,8 @@ Drive folder. No live reset is authorized by implementation of this workflow.
 - [x] Add and structurally validate the Claude skill and operator guide (end-to-end use still pending).
 - [ ] Complete model/provider setup and readiness checks after core preparation.
 - [ ] Implement authenticated account/role/session-location propagation across both providers.
+  - Request snapshot, Hub transport, and stored-turn metadata implemented and tested.
+  - Prompt consumption, role-policy selection, and live login-to-model proof remain open.
 - [ ] Confirm multi-role behavior, review role-to-instruction mapping, and test actual prompt selection and cache isolation.
 - [ ] Implement and prove full-backup recovery; portable corpus seeding is not a full-backup restore path.
 - [ ] Verify preserve twice, reset/restore in a disposable environment, and UI.
@@ -240,8 +245,23 @@ New checks cover mandatory provisioning on preserve/initialize/reset, refusal
 when account provisioning fails, all seven manifest accounts, retained passwords
 after account recreation, ignored submodule configuration, and partial stacks
 missing their database. Python lint, shell syntax, local documentation links,
-and Claude skill structure pass. Authenticated context and role-policy execution
-are still unimplemented and are not claimed by these setup tests.
+and Claude skill structure pass. These setup tests do not prove authenticated
+context or role-policy execution.
+
+The subsequent account-context change passes 79 focused Java tests: scalar
+snapshot isolation, multiple/inherited roles, missing location, server-derived
+context on the real chat handler for both providers, outbound Hub serialization,
+database reload, and existing provider/streaming behavior. The public-endpoint
+test first failed because the provider received no account identity. This is
+metadata-path evidence, not prompt consumption or live-browser acceptance.
+Account provisioning now verifies every saved credential against the OpenMRS
+session endpoint on each run; false authentication, wrong identity, and request
+failure stop setup without password replacement or credential leakage.
+The full ChartSearchAI Maven suite then completed with 2,332 cases: 2,275 passed,
+57 skipped, zero failures/errors. Skips remain visible and this is not live-model
+or browser acceptance. The harness setup/reference suite contains 157 cases;
+its initial documentation-format assertion was corrected by explicitly naming
+the fields inside `context`, without changing the test or wire format.
 
 A read-only Docker check on September 11 refused the running Hub because its
 Compose ownership labels point to a different worktree. The check supplied the

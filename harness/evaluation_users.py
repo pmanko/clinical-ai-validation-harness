@@ -27,6 +27,28 @@ def _authenticate(base_url: str, username: str, password: str) -> dict[str, Any]
     return OpenMrsClient(base_url, username, password).request("GET", "session")
 
 
+def _verify_login(
+    authenticate: Callable[[str, str, str], dict[str, Any]],
+    base_url: str,
+    username: str,
+    password: str,
+    user_uuid: str,
+) -> None:
+    try:
+        session = authenticate(base_url, username, password)
+        if (
+            session.get("authenticated") is True
+            and session.get("user", {}).get("uuid") == user_uuid
+        ):
+            return
+    except Exception:
+        # A provider error can echo the credential. Never copy it into a receipt.
+        pass
+    raise RuntimeError(
+        f"Cannot verify login for {username}; the saved password was not reset."
+    ) from None
+
+
 def provision_users(
     client: OpenMrsClient,
     config: dict[str, Any],
@@ -80,6 +102,7 @@ def provision_users(
     # half the study provisioned or take over a real user's login.
     existing = {}
     roles = {}
+    verified_logins = set()
     for account in accounts:
         username, role_name = account["username"], account["role"]
         role = client.exact("role", "name", role_name)
@@ -101,14 +124,10 @@ def provision_users(
                 )
             # A prior request may have succeeded just before the client lost its
             # connection. Only the saved random credential can establish ownership.
-            session = authenticate(client.base_url, username, saved["password"])
-            if (
-                not session.get("authenticated")
-                or session.get("user", {}).get("uuid") != user["uuid"]
-            ):
-                raise RuntimeError(
-                    f"Cannot verify ownership of existing user {username}."
-                )
+            _verify_login(
+                authenticate, client.base_url, username, saved["password"], user["uuid"]
+            )
+            verified_logins.add(username)
         existing[username] = user
 
     if access is None:
@@ -188,6 +207,10 @@ def provision_users(
             client, current_access
         ) != required or current_access.get("inheritedRoles"):
             raise RuntimeError("Server did not retain the requested study access role.")
+        if username not in verified_logins:
+            _verify_login(
+                authenticate, client.base_url, username, saved["password"], user["uuid"]
+            )
         report.append(
             {
                 "username": username,
@@ -200,6 +223,7 @@ def provision_users(
         "schema_version": "evaluation_accounts.v1",
         "accounts": report,
         "credentials_file": str(credentials),
-        "login_and_ui_access": "not_yet_verified",
+        "login": "verified",
+        "ui_access": "not_yet_verified",
         "role_context_status": "not_verified_by_setup",
     }

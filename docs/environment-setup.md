@@ -99,16 +99,20 @@ officer, doctor, and peer educator. Initialization and reset recreate the same
 account setup after restoring the clinical corpus. There is no `--study` opt-in.
 Repeated provisioning retains generated passwords and user identities. It does
 not take over an existing unrelated username or broaden existing OpenMRS roles.
+Every provisioning run verifies that each saved credential logs in as the expected
+account. A failed login stops setup without resetting its password. This API
+login check does not prove that the account can open the patient chart or chat UI.
 Passwords are stored in the private, mode-0600
 `artifacts/evaluation-setup/credentials.json`; the separate account report omits them.
 
 Doctor and Nurse roles may inherit broad access. These are research accounts, not
-proof of production least-privilege policy. The current chat request does not
-send authenticated occupational roles or login location to the LLM. Account
-setup alone does not make the model role-aware. Supplying authenticated account
-context to both providers and selecting reviewed role-specific instructions are
-required remaining implementation, not optional follow-up work. The setup receipt
-currently states `account_context: not_implemented` rather than implying this works.
+proof of production least-privilege policy. The development chat endpoint now
+captures assigned/inherited roles and session location, passes the snapshot to
+the selected provider, and stores it with the answer. The Hub receives it as
+request metadata. This does not yet supply role-guided model instructions.
+Reviewed instruction selection, account-scoped answer caching, and live UI proof
+remain required. The setup receipt therefore states `account_context: not_verified`
+and `instruction_policy: not_implemented` rather than implying role testing is ready.
 
 ## Readiness and Handoff
 
