@@ -1,20 +1,156 @@
 # Implementation plan: Catalyst Query Workbench and Dashboard Builder
 
-**Status:** Current delivery roadmap. The roadmap and compatible baseline are
-merged, and the specification set is consolidated. All four usability iterations
-are merged and the complete local dual-source walkthroughs passed. On 10 September
-2026 the owner authorized continuing into saved-work and Dashboard functionality,
-with subsequent feedback bringing typography and composer style alignment into
-the saved-query iteration. The replacement light-mode videos are published.
-The exact merged server release is healthy, but its first full evidence run
-failed during a slow follow-up generation and exposed missing downstream
-cancellation. Final full server evidence and owner acceptance
-remain open. Responsiveness and URL-addressable sessions are the next product
-checkpoint after the current release is stabilized and accepted.
+**Status:** Current delivery roadmap. The roadmap, compatible baseline,
+specification consolidation, four functional Workbench iterations, saved-work
+flow, and Dashboard path are merged. Local dual-source journeys and replacement
+light-mode videos prove those behaviors at their recorded revisions. They do not
+establish final visual acceptance. On 11 September 2026, owner review rejected
+the working product's deeper visual hierarchy: completed turns, disclosure
+controls, technical notices, dark surfaces, density, and cross-screen polish do
+not yet match the quality of the opening shell. The visual-coherence remediation
+below is therefore open and required before final product acceptance. The
+current cancellation and warmup release checks also remain open. Broader
+responsiveness, model choice, streaming, and URL-addressable sessions remain the
+next product checkpoint after the current release is stable and accepted. Final
+current-release evidence waits for the visual gate and current server checks;
+the follow-on checkpoint does not block visual review.
 
 **Specification:** [spec.md](spec.md)
 
-## Immediate next step — neutral-question warmup
+## Immediate product checkpoint — Workbench visual coherence
+
+The current implementation is functionally advanced but visually incomplete.
+Its later states combine square bordered turns, nested status and SQL boxes,
+native disclosure markers, literal triangle characters, Carbon controls, and
+one-off menus. Dark mode makes the nested surfaces more prominent. The existing
+binding design also contains conflicting radius and result-presentation rules,
+and the approved mock does not demonstrate a realistic multi-turn history.
+
+This is a bounded interaction and presentation remediation. It does not reopen
+the query engine, saved-object model, publication contracts, navigation choice,
+or Dashboard scope. Keep **Explore / Saved work**, the single resizable composer,
+one workspace-wide Advanced mode, nonmodal Available data, immutable saved work,
+and explicit Run. Use Catalyst's existing React, Carbon, CodeMirror, theme, and
+state owners. Do not add another UI framework, token system, icon library, theme
+service, state store, SQL engine, or parallel mock.
+
+### Research basis and proposed binding amendment
+
+The remediation applies these sources to Catalyst's clinical/program-staff-first
+audience and analyst-second audience:
+
+- [Nielsen Norman Group progressive disclosure](https://www.nngroup.com/articles/progressive-disclosure/): keep frequent information in the initial view and avoid deep disclosure chains.
+- [USWDS accordion guidance](https://designsystem.digital.gov/components/accordion/), [GOV.UK details guidance](https://design-system.service.gov.uk/components/details/), and [Carbon accordion guidance](https://carbondesignsystem.com/components/accordion/usage/): use collapse only for bounded secondary material; do not hide the main information most people need.
+- [W3C disclosure pattern](https://www.w3.org/WAI/ARIA/apg/patterns/disclosure/): use a labeled button with accurate expanded state and keyboard behavior rather than browser-dependent or literal glyph controls.
+- [USWDS typography guidance](https://designsystem.digital.gov/components/typography/) and [design tokens](https://designsystem.digital.gov/design-tokens/): use a consistent type, spacing, color, and surface hierarchy with readable line length and spacing.
+- [USWDS color guidance](https://designsystem.digital.gov/design-tokens/color/overview/): preserve contrast and pair status color with text or an icon.
+
+These sources support the disclosure, readability, consistency, and
+accessibility rules. The following turn hierarchy records the owner's direction
+as the required outcome for the Catalyst product specification and binding
+design to formalize before implementation. It does not replace those owning
+documents:
+
+1. A completed turn always shows the person's question, plain outcome, source,
+   returned-row count or limit, warnings, and a compact account of what ran.
+   Use facts already recorded for the turn: the instruction, source label,
+   execution state, returned columns, row limit, and safe schema labels. Where
+   the revised mock needs query shape such as source relations, filters,
+   grouping, ordering, or date range, expose one typed server-owned projection
+   through the existing SQL parser and store it with the turn. Omit unknown
+   facts. Do not parse SQL in the browser, add a model call or second SQL parser,
+   or claim that SQL captures the person's intent merely to produce friendly
+   prose.
+2. Standard mode shows that useful summary and one clearly labeled **View query
+   details** action. Advanced mode may also show a bounded one- or two-line
+   formatted SQL preview. One expansion exposes the complete formatted,
+   selectable SQL, parameters, execution facts, warnings, and provenance.
+3. The turn itself is not an accordion. Its question, outcome, limitation, and
+   next action remain visible. The Dataset review panel remains the sole full
+   result table; the thread links to it without duplicating the table.
+4. Clarification, unsupported, preparation failure, database failure, stale
+   result, and running states use the same hierarchy. Staff-facing copy states
+   what is happening and what can be done next. Model IDs, traces, attempts,
+   tokens, and internal status codes remain in Advanced or technical details.
+
+### Remediation iterations
+
+1. **Binding design and full-state mock.** Amend Catalyst's current product
+   specification and binding design to resolve the contradictory square/rounded
+   surface rules and result-summary ownership. Extend the existing staff
+   Workbench mock in place; do not create another design home. Cover first
+   question, preparation/Stop, clarification, prepared query, successful
+   multi-turn execution, empty and limited results, stale state, database and
+   preparation failure/retry, query details closed/open, Advanced SQL preview,
+   Available data beside an unfinished draft, saved-query reuse, review panels,
+   Dashboard arrangement, and publish/import success and failure. Show the
+   relevant states in light/dark and wide/narrow layouts. Obtain owner approval
+   of the revised multi-state direction before production styling changes.
+2. **Shared visual and control foundation.** Reconcile page, surface, raised
+   surface, text, muted text, border, action, focus, and semantic status roles
+   through existing Carbon and Catalyst theme variables. Define one small radius,
+   spacing, typography, and shadow role map in the binding design. Replace raw
+   native markers, literal triangles, and one-off disclosure/menu styling with
+   shared Carbon-icon controls that keep correct button, focus, Escape, Enter,
+   Space, `aria-expanded`, and controlled-region behavior. Dependency upgrades
+   are excluded unless a demonstrated missing Carbon capability requires one.
+3. **Conversation and query evidence.** Replace nested square turn cards with a
+   readable transcript hierarchy. Implement the always-visible completed-turn
+   summary and the single query-details expansion above. Preserve chronological
+   order, current/earlier-turn distinction, AI review evidence, exact SQL,
+   result review, retry, and current editor ownership. The summary must remain
+   useful in a several-turn conversation without becoming a sparse one-line
+   heading or another full result view.
+4. **Supporting surfaces and language.** Carry the same controls, type,
+   spacing, radii, and semantic palette through the composer, preparation
+   status, View options, Query settings, Available data, Saved work, review
+   panels, Dashboard arrangement, and publication states. Remove the composer's
+   heavy accent bar and warning-box treatment for ordinary progress. Keep normal
+   text neutral in both themes; reserve violet for brand, action, selection, and
+   focus, with gold only as the small brand highlight. Preserve current logo and
+   wordmark proportions from the approved mock. Use plain stage and recovery
+   language while retaining exact technical evidence on demand.
+5. **Full-state verification and owner gate.** Replace the stale rail-era visual
+   baseline with deterministic current-shell captures. Compare approved mock
+   and implementation at the agreed desktop, short-viewport, 640-, 390-, and
+   320-CSS-pixel layouts in light and dark. Exercise keyboard flow, disclosure,
+   focus return, reduced motion, contrast, long content, and preservation of
+   draft, editor, result, source, session, theme, Advanced mode, and browse state.
+   Then run the real local OpenELIS and OpenMRS paths and present the full state
+   comparison for explicit owner acceptance.
+
+The first four Workbench implementation iterations remain completed engineering
+history. The former local gate authorized Dashboard work to continue; it did not
+accept the product's final visual quality. This remediation closes that missing
+gate rather than relabeling earlier tests or videos as design approval.
+
+### Visual acceptance
+
+The checkpoint exits only when all of the following are true:
+
+- every completed, warning, clarification, and failure turn keeps its question,
+  outcome, source, useful query/execution summary, and relevant limitation
+  visible without expansion;
+- complete query evidence is reachable through one labeled disclosure action;
+  Advanced mode shows only a bounded formatted SQL preview before expansion;
+- the Workbench contains no user-visible browser-default disclosure markers or
+  literal triangle carets, and shared controls pass keyboard and state tests;
+- turns use one primary surface hierarchy rather than nested bordered cards;
+  saved objects, review panels, menus, and notices follow the same documented
+  radius, spacing, type, icon, surface, and status roles;
+- ordinary text is neutral, status never relies on color alone, normal text
+  meets 4.5:1 contrast, and large text meets 3:1 in both themes;
+- multiline question, answer, and explanatory text uses readable body sizing
+  and at least 1.5 line height; small text is limited to secondary metadata;
+- theme, Advanced mode, resizing, browsing, disclosure, retry, and navigation
+  preserve the current draft and accepted product state;
+- the updated mock, binding design, deterministic visual matrix, local
+  dual-source proof, and owner decision all refer to exact revisions and are
+  recorded separately from implementation and merge; and
+- no new framework, duplicate state owner, result table, mock authority, or
+  infrastructure requirement was introduced to achieve the presentation.
+
+## Parallel runtime checkpoint — neutral-question warmup
 
 The owner selected this as the next step: ask **“What information is available
 in this data source?”** through the configured source's ordinary writer request,
@@ -37,19 +173,17 @@ The owner direction is low-resource CPU deployment, useful responsiveness,
 warmup that helps real queries, and a working Stop control. Timings are diagnostic
 evidence; no numeric response-time or cancellation target is approved.
 
-## Next owner checkpoint — deployed release and local verified demos
+## Delivery evidence checkpoint — remediated release and verified local demos
 
-Approved on 10 September 2026: the next reviewable checkpoint is a working
-server release with the current Workbench design and newly recorded demos for
-both sources. Keep both published walkthroughs in light mode throughout, including
-saved-SQL reuse and Advanced mode; dark appearance remains a separate validation
-concern. The owner clarified the recording environment on 10 September:
+After the visual-coherence gate and current cancellation/warmup checks pass, the next
+delivery review is a working server release plus newly recorded local demos for
+both sources. Keep both published walkthroughs in light mode throughout,
+including saved-SQL reuse and Advanced mode; dark appearance remains a separate
+validation concern. The owner clarified the recording environment on 10 September:
 **record both replacement videos locally with a verifier**. Use the available
 Gemma 4 12B writer / Qwen 2.5 14B reviewer profile and retain evidence that both
 roles actually ran. Label the recordings as local; server validation remains
-separate and does not delay publication of verified local cuts.
-Finish the current saved-work and Dashboard delivery before this
-checkpoint; follow-on A/B/C and model comparison remain separately scheduled.
+separate. Follow-on A/B/C and model comparison remain separately scheduled.
 
 - Validate the current working UI locally as changes are made, including the
   on/off Advanced mode switch and direct mock-style alignment. Local development
@@ -163,8 +297,9 @@ The owner-authorized release sequence is roadmap #142; combined Catalyst
 #106–#109 and Hub #25–#27; router #143 with their exact merged revisions;
 local/server deployment; then the distinct light-mode OpenMRS replacement
 walkthrough and publication in #141. Record each stage in [tasks.md](tasks.md).
-Keep #134 and #111 outside this release. Local recordings use the real reviewed
-profile; server model-capacity decisions require the measured checks above.
+Keep harness #134 and the independent Superset remediation in harness #111
+outside this release. Local recordings use the real reviewed profile; server
+model-capacity decisions require the measured checks above.
 
 ## Authority and scope
 
@@ -411,10 +546,18 @@ Deliver small reviewable product changes in this order:
 4. **Result review:** one full result table, plain warnings and limits,
    accessible provenance, and preserved save/publication behavior.
 
-**First owner gate:** run the complete usability design locally against the
-real OpenELIS and OpenMRS sources. Publish a side-by-side design comparison,
-focused browser evidence, and a paced walkthrough for asynchronous review.
-Dashboard functionality expansion starts after feedback from this gate.
+The four iterations above are merged and their behavioral checks remain valid.
+The first local owner gate allowed Dashboard work to continue, but its limited
+entry/result comparison did not exercise the full multi-turn visual system. The
+later full-state review reopened visual acceptance. Complete the five
+**Workbench visual coherence** iterations defined at the start of this plan,
+including the revised binding mock, before final acceptance.
+
+**Current owner gate:** run the remediated Workbench locally against the real
+OpenELIS and OpenMRS sources. Present matched full-state mock/implementation
+captures, focused browser evidence, and a paced walkthrough for asynchronous
+review. Record implementation, merge, deployment, self-validation, feedback,
+and owner acceptance separately.
 
 ### 4. Complete Dashboard Builder functionality
 
@@ -438,6 +581,11 @@ the current binding design and pass focused API, component, accessibility,
 desktop, and narrow-layout checks.
 
 ### 5. Deploy and publish evidence
+
+Begin final acceptance evidence after the Workbench visual-coherence gate and
+the applicable cancellation/responsiveness checks pass. Earlier deployments and
+videos remain valid point-in-time behavior evidence; they are not visual
+acceptance for the remediated product.
 
 Deploy exact merged compatible revisions locally and to
 `catalyst.openelis-global.org` with the harness lifecycle wrapper and retained
@@ -470,9 +618,11 @@ references and explicit owner acceptance are recorded.
 
 ### 6. Improve responsiveness and session navigation
 
-This is the first product checkpoint after the current deployment is stable and
-accepted. It precedes follow-on A/B/C and does not change the one-source-per-session
-rule or the current Dashboard acceptance contract.
+This is the first product checkpoint after the remediated current deployment is
+stable and accepted. Its research and design may be coordinated with the visual
+work, but its implementation does not block the current visual owner gate or
+release acceptance. It precedes follow-on A/B/C and does not change the
+one-source-per-session rule or the current Dashboard acceptance contract.
 
 Start with one measured baseline for a simple initial question and a follow-up
 against both public data sources. Record time to the first honest status update,

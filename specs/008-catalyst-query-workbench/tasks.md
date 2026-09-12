@@ -1,40 +1,52 @@
 # Feature 008 tasks — current work only
 
-**Status:** The owner approved usability-first delivery followed by Dashboard
-Builder functionality. This file is the sole detailed progress and acceptance
-register for the [Feature 008 roadmap](plan.md). Model comparison and broader
-conversation work remain separately scheduled.
+**Status:** Functional Workbench, saved-work, and Dashboard implementation is
+merged. The owner has not accepted the complete browser-visible design. The
+current checkpoint is the visual-coherence remediation in the
+[Feature 008 roadmap](plan.md), followed by remaining runtime/server evidence
+and explicit owner acceptance. This file is the sole detailed progress and
+acceptance register. Model comparison and broader conversation work remain
+separately scheduled.
 
 ## Next owner checkpoint
 
-- [X] Record the owner's 10 September request in the existing plan: finish a
-  working server release and re-record both demos using the new styles, with
-  FHIR Data Pipes kept to a brief introduction.
-- [ ] Complete the saved-work, Dashboard, local/server verification and video
-  acceptance items below; present the working server and both refreshed videos
-  together with unresolved findings for owner review.
-- [ ] Verify the app against the approved mock with matched light/dark and
-  wide/narrow screenshots. Resolve the observed dense Saved queries table,
-  clipped actions and stray follow-up control; carry direct mock spacing/type
-  and component treatment across Explore, Saved work and review panels.
-- [ ] Record owner acceptance of that checkpoint. Implementation or green checks
-  alone do not mark this accepted.
+- [X] Record the 11 September owner finding that the opening shell is more
+  polished than the working multi-turn, result, disclosure, notice, Saved-work,
+  and dark-mode states. Earlier functional checks and videos do not establish
+  visual acceptance.
+- [X] Save the research-backed remediation sequence and acceptance criteria in
+  the existing Feature 008 plan and this register, without creating another
+  roadmap or mock authority.
+- [ ] Amend the Catalyst product specification and binding design, extend the
+  existing staff Workbench mock through the complete state matrix, and obtain
+  owner approval of that multi-state direction before production styling work.
+- [ ] Implement and merge the shared visual/control foundation, compact
+  completed-turn query summary, supporting-surface cleanup, and current visual
+  baselines described below.
+- [ ] Run matched light/dark and wide/narrow browser comparison plus real local
+  OpenELIS and OpenMRS journeys, then record explicit owner acceptance.
+- [ ] Complete cancellation, warmup, final server, and post-remediation video
+  items before closing the current release. Keep broader responsiveness, model
+  choice, streaming, and session URLs as the follow-on checkpoint already
+  defined in the roadmap.
 
 Local development now serves the working Catalyst UI at `localhost:13001`
 against the retained local Gateway and both real sources. Local testing does
-not wait for merges. Final release/acceptance revisions remain pinned and merged.
+not wait for merges. Merged implementation revisions are pinned; final release
+evidence and owner acceptance remain open.
 
 ## Current release integration — 11 September 2026
 
 The owner authorized this sequence: roadmap #142, combined Catalyst #106–#109
 and Hub #25–#27, router #143 with exact merged pins, local/server deployment,
 then the OpenMRS replacement recording and publication in #141. This checkpoint
-supersedes earlier unmerged-status notes below. #134 and #111 remain separate.
+supersedes earlier unmerged-status notes below. Harness #134 and the independent
+Superset remediation in harness #111 remain separate.
 
 | Deliverable | Implementation and merge | Validation | Deployment / acceptance |
 | --- | --- | --- | --- |
 | Roadmap #142 | Merged as `6d7a327` | All PR checks passed | Authoritative plan updated |
-| Catalyst #106–#109 | Merged as `f2a46b0`; current pin `1fd4a03` adds the recording-only correction | Combined tree: 364 Gateway tests passed, one existing skip; 294 UI tests; 16 deterministic browser checks, eight live-only skips; type/lint/build passed; final #106 CI passed | Running locally and on the server; full workflow acceptance pending |
+| Catalyst #106–#112 | #106–#109 merged as `f2a46b0`; the current harness pin is `18bd9ef2` after the recording correction and finite schema-warmup changes | Earlier combined tree: 364 Gateway tests passed, one existing skip; 294 UI tests; 16 deterministic browser checks, eight live-only skips; type/lint/build passed; later focused validation is recorded below | The earlier application pin is running locally and on the server; `18bd9ef2` is pinned but not yet deployed; full workflow acceptance remains open |
 | Hub #25–#28 | Merged; current pin `1ddaa1e51ebb88735808ae9775ec046ba0b3101b` | #25–#27 combined suite: 720 tests passed; #28: 71 focused tests and CI passed | Running locally and on the server; local OpenMRS query-grain check passed |
 | Router #143 and release follow-up #144 | Merged as `a6980ce` and `b6fe09a` | Release CI passed; five router tests and 18 focused router/documentation/repository checks passed | Server router repair deployed at `735ad53`; persistent local source continuity verified; cold-query and full server workflow acceptance remain open |
 | Replacement OpenMRS walkthrough / #141 | Corrected local take 8 passed on runtime `b6fe09a`; recorder fix #110 merged as `1fd4a03` | Full real-model browser test passed: monthly totals preserved, saved SQL reused, two visualizations arranged, repeat publication/import and rendered Superset checked | Merged as `dfee0e2`; both videos and posters published and verified over HTTPS; owner acceptance separate |
@@ -174,9 +186,9 @@ outside Git.
   complete the real saved-work through Superset journey for both sources before
   closing server acceptance. Videos are already published and remain local work.
 
-## Next checkpoint — neutral-question warmup
+## Parallel runtime checkpoint — neutral-question warmup
 
-- [ ] Implement a finite warmup through the existing lifecycle wrapper using
+- [X] Implement a finite warmup through the existing lifecycle wrapper using
   “What information is available in this data source?” with each configured
   source's complete schema and ordinary writer profile. Discard the exchange;
   create no sessions, previews, saved examples, guidance, generated SQL, or
@@ -377,7 +389,7 @@ links, consistency and drift checks passed. The compatible harness pin merged in
 [#120](https://github.com/pmanko/clinical-ai-validation-harness/pull/120).
 The first local deployment and remaining acceptance are recorded below.
 
-## First owner gate — complete usability design locally
+## Earlier owner gate — functional continuation, visual acceptance open
 
 - [X] Merge the complete usability implementation and deploy exact compatible
   revisions locally with `scripts/catalyst-mvp.sh`, preserving retained data.
@@ -389,12 +401,9 @@ The first local deployment and remaining acceptance are recorded below.
 - [X] Record owner feedback before starting Dashboard functionality expansion.
   On 10 September 2026 the owner authorized continuing, with minor padding and
   typography issues to polish later.
-- [ ] Finish visual alignment with the approved mock, including composer/Run
-  padding on desktop and narrow layouts. The owner clarified on 10 September
-  that the heading weights, font presentation and Catalyst mark should closely
-  match the mock in the current iteration; reusable Carbon controls are retained.
-  The owner also identified the follow-up form's old inner border and toolbar
-  padding; their correction is merged in Catalyst #92. Deployment review follows.
+- [ ] Superseded by the full visual-coherence checkpoint below. Composer/Run
+  spacing, heading weights, font presentation, Catalyst mark, and the corrected
+  follow-up border remain required, but no longer describe the whole gap.
 
 Local implementation/deployment/self-validation, 10 September 2026: harness
 `e8f6cb3`, Catalyst `60cc7b5`, and Hub `75d0ff0` passed the strict repository-line
@@ -413,13 +422,12 @@ waits. The SQL reading view was scrolled clear of the panel footer before the
 final recording. Screenshots compare the approved mock with the deployed
 light/dark entry screen and result review.
 
-Owner feedback was received on 10 September 2026: continue implementation and
-polish the minor padding and font presentation issues later. The local UX gate
-is cleared for saved-work and Dashboard functionality. Carry the composer/Run
-spacing at a 720-pixel window height into final polish. The owner's subsequent
-feedback brought font hierarchy, the Catalyst mark and direct composer style
-alignment into the current iteration. This
-does not close the later saved-work, server, Superset or final owner acceptance.
+Owner feedback on 10 September 2026 allowed saved-work and Dashboard
+functionality to continue while retaining padding and type follow-up. The
+broader 11 September review found that the later product states still lack a
+coherent visual hierarchy. This earlier gate therefore proves functional
+continuation and real-source exercise only. It does not close Workbench visual,
+server, Superset, or final owner acceptance.
 
 The live walkthrough exposed an incorrect execution URL in two browser-test
 observers. Catalyst [#89](https://github.com/DIGI-UW/catalyst-ai/pull/89), merged as
@@ -429,24 +437,169 @@ lint passed, as did all five hosted jobs. It changes tests only; this harness
 pins that merged revision while preserving the exact application revision of
 the recorded local proof above.
 
+## Current remediation — Workbench visual coherence
+
+The current Catalyst pin already uses Carbon theme variables throughout the
+Workbench CSS. The older hard-coded-color migration plan is historical and is
+not revived. The remaining work is to reconcile the binding design and compose
+the existing tokens and components consistently across real product states.
+The details below are proposed acceptance for the Catalyst-owned amendment;
+they become the application contract only after the product specification and
+binding design are updated and reviewed.
+
+### Iteration 1 — binding design and existing mock
+
+- [ ] Amend Catalyst's product specification so a completed turn always shows
+  the question, plain outcome, source, returned-row count or limit, relevant
+  warning, and a compact query/execution summary; keep the full result table in
+  Dataset review.
+- [ ] Reconcile the binding design's conflicting square-turn, rounded-card, and
+  result-ownership rules. Define one surface, radius, spacing, type, shadow,
+  icon, and semantic-status role map for the whole Workbench and Saved work.
+- [ ] Extend the existing staff Workbench mock in place. Do not create another
+  mock or copy of the application. Cover first question, preparation/Stop,
+  prepared query, successful multi-turn execution, clarification, empty and
+  limited results, stale state, preparation and database failure/retry, query
+  details closed/open, Advanced SQL preview, Available data while drafting,
+  saved-query reuse, review panels, Dashboard arrangement, and publish/import
+  success and failure.
+- [ ] Show the applicable mock states in light/dark and desktop, short,
+  640-, 390-, and 320-CSS-pixel layouts. Verify that its disclosure markers and
+  controls express the proposed production treatment rather than retaining the
+  mock's own browser-default carets.
+- [ ] Record owner approval of the multi-state mock and binding amendment before
+  implementation. Approval of the prior first-screen mock does not satisfy this
+  item.
+
+### Iteration 2 — shared visual and control foundation
+
+- [ ] Use existing React, Carbon, CodeMirror, Catalyst theme variables, and
+  current state owners. Add no UI framework, icon library, token system, theme
+  service, global store, SQL engine, or dependency upgrade without a concrete
+  missing capability.
+- [ ] Implement shared labeled disclosure/menu controls with Carbon icons and
+  consistent target size, focus, hover, expanded, disabled, and dark states.
+  Remove user-visible native markers and literal `▸`/`▾` glyphs from the
+  Workbench while preserving Enter, Space, Escape, `aria-expanded`, controlled
+  region, and focus-return behavior.
+- [ ] Apply the binding role map to page, surface, raised surface, border, text,
+  muted text, action, focus, warning, error, success, spacing, radius, type, and
+  shadow. Status remains labeled or icon-supported and never depends on color.
+- [ ] Keep ordinary text neutral in light and dark. Reserve violet for the mark,
+  action, selection, and focus; keep gold as the small brand detail. Preserve
+  warning, error, and success meaning rather than recoloring them as branding.
+
+### Iteration 3 — transcript and compact query evidence
+
+- [ ] Replace the nested square-card treatment with one readable transcript
+  hierarchy. The question, outcome, source, limitations, and next action remain
+  visible when query details are closed.
+- [ ] Build the compact summary from facts already recorded for the turn:
+  instruction, source label, execution status, returned rows or limit, returned
+  column labels, and safe supplied schema labels. If the revised mock needs
+  source relations, filters, grouping, ordering, or date range, add one typed
+  server-owned projection through the existing SQL parser and store it with the
+  turn. Omit unknown facts. Do not parse SQL in the UI, add another model call or
+  SQL parser, invent clinical meaning, or state that SQL captured intent.
+- [ ] In Standard mode, expose one **View query details** action. In Advanced
+  mode, also allow a one- or two-line formatted SQL preview. The same expansion
+  shows complete selectable SQL, typed parameters, execution facts, warnings,
+  and provenance without a second disclosure layer.
+- [ ] Preserve chronological turns, current/earlier distinction, AI-review
+  evidence, selected query, exact SQL, current editor ownership, stale result,
+  retry, and access to every retained earlier result.
+- [ ] Cover success, warning, empty, stale, clarification, unsupported,
+  preparation failure, database failure, running, and cancelled states. A
+  several-turn session must be distinguishable at a glance without sparse
+  one-line headers or a full table in each turn.
+
+### Iteration 4 — supporting surfaces and plain language
+
+- [ ] Carry the same hierarchy and controls through the resizable composer,
+  View options, Query settings, model selection when exposed, Available data,
+  Saved work, review panels, Dashboard arrangement, and publication states.
+  Preserve the approved Explore / Saved work navigation and existing
+  saved-object identities.
+- [ ] Replace the composer's heavy top accent and ordinary-progress warning box
+  with the approved writing surface and persistent neutral status treatment.
+  Show plain stages and recovery actions; keep raw model/profile IDs, attempts,
+  tokens, traces, and internal status codes in Advanced or technical details.
+- [ ] Keep the current workspace-wide Advanced toggle as a secondary setting,
+  rather than a primary action. Entering or leaving it preserves session,
+  source, draft, selection, editor, parameters, expanded state, results,
+  selected saved work, theme, browse state, and focus.
+- [ ] Preserve the implemented composer resize/Expand/Restore behavior and
+  nonmodal complete-schema browser. Opening, searching, closing, retrying, and
+  changing source never fetches result rows or discards the question.
+- [ ] Match the approved logo and wordmark proportions, type hierarchy, padding,
+  and icon treatment throughout the working screens, not only the first layer.
+
+### Iteration 5 — deterministic visual matrix and owner acceptance
+
+- [ ] Replace the stale rail-era visual test with named deterministic captures
+  for the current header, first question, multi-turn history, compact and
+  expanded query summary, composer, Available data, result review, Saved work,
+  Dashboard review/arrangement, and publication states.
+- [ ] Capture the agreed state matrix in light and dark at desktop,
+  short-viewport, 640-, 390-, and 320-CSS-pixel layouts. Limit snapshots to
+  representative combinations while ensuring every component and state appears
+  at least once; do not create a Cartesian test matrix.
+- [ ] Verify normal text contrast of at least 4.5:1 and large text of at least
+  3:1, multiline body line height of at least 1.5, readable line length,
+  keyboard order, visible focus, reduced motion, disclosure semantics, Escape
+  and focus return, long SQL, long questions, warnings, and overflowing labels.
+- [ ] Prove theme, Advanced mode, resizing, browsing, retry, disclosure, session
+  switching, and navigation preserve the current draft and product state.
+- [ ] Run focused component/accessibility tests, UI type checking, lint, build,
+  and deterministic browser checks. Each PR records exactly which checks ran;
+  live-model and Spark proof remains at the integration gate.
+- [ ] Deploy exact compatible revisions locally through the harness wrapper and
+  run real OpenELIS and OpenMRS journeys through question, multi-turn summary,
+  query details, Run, result review, saved-query reuse, visualization,
+  Dashboard arrangement, and publication.
+- [ ] Present the approved mock and working product side by side, including dark
+  and narrow states, and record explicit owner acceptance. Implementation,
+  merge, local deployment, self-validation, feedback, and acceptance remain
+  separate facts.
+
+### Remediation release boundary
+
+- [ ] Merge the Catalyst design/specification change before the styling PRs;
+  merge each small implementation iteration only after its focused acceptance
+  evidence passes.
+- [ ] Pin only merged, compatible Catalyst revisions in the harness and update
+  the existing public mock assets together when the approved mock changes. A
+  Catalyst gitlink change alone does not update the public preview.
+- [ ] Complete the current cancellation, warmup, and server gates before final
+  release evidence. Keep broader responsiveness, model choice, streaming, and
+  session URLs in the roadmap's follow-on checkpoint. Visual polish does not
+  establish model performance, and performance evidence does not establish
+  visual acceptance.
+- [ ] Re-record final light-mode walkthroughs only after the remediated product
+  and current server gates pass. Keep FHIR Data Pipes brief, use actual
+  writer/reviewer evidence, preserve normal reading pace, and review each final
+  cut at normal speed before replacing public references.
+
 ## Dashboard functionality — saved work
 
-- [ ] Save only a successful current execution; preserve exact SQL, typed values,
+- [X] Save only a successful current execution; preserve exact SQL, typed values,
   source, dialect, schema, query, and execution identity in immutable versions.
-- [ ] Restore saved Dataset versions and protect against stale or mismatched
+- [X] Restore saved Dataset versions and protect against stale or mismatched
   results.
-- [ ] Browse Saved queries, Charts and tables, and Dashboards within Saved work;
+- [X] Browse Saved queries, Charts and tables, and Dashboards within Saved work;
   show source, saved version, dependencies and available review/reuse actions.
   Returning to Explore preserves the ongoing draft and selected work.
-- [ ] Start from this SQL loads the exact saved parameterized SQL and typed
+- [X] Start from this SQL loads the exact saved parameterized SQL and typed
   values into the one editor, retaining the Dataset version and source/dialect.
   Preserve an existing draft; a different source requires an explicit new or
   matching session. Loading never runs SQL or modifies saved versions.
-- [ ] Keep saved SQL/parameters accessible when historical execution details
+- [X] Keep saved SQL/parameters accessible when historical execution details
   are unavailable; label that evidence separately. Verify reuse, explicit Run,
   failure/retry and a successful successor save for both real sources.
-- [ ] Finish deterministic visualization compatibility and allow a person to
+- [X] Finish deterministic visualization compatibility and allow a person to
   review, select, and save supported Widget versions.
+- [ ] Reverify these merged behaviors on the exact remediated release and record
+  server evidence and owner acceptance in the shared release section below.
 
 Saved-query iteration, 10 September 2026: Catalyst
 [#92](https://github.com/DIGI-UW/catalyst-ai/pull/92), merged as `905e1e6`,
@@ -493,13 +646,13 @@ the private review bundle. The broader screen-by-screen comparison remains open.
 
 ## Dashboard functionality — arrangement and publication
 
-- [ ] Arrange and restore multiple same-source Widgets without losing accepted
+- [X] Arrange and restore multiple same-source Widgets without losing accepted
   layout behavior.
-- [ ] Generate deterministic native Superset bundles and expose publication
+- [X] Generate deterministic native Superset bundles and expose publication
   status only from actual importer receipts.
-- [ ] Keep import failures actionable and open the stable Superset URL only
+- [X] Keep import failures actionable and open the stable Superset URL only
   after successful import.
-- [ ] Inspect one rendered value against the originating Catalyst result without
+- [X] Inspect one rendered value against the originating Catalyst result without
   a second database query.
 - [ ] Compare the live Workbench, Dataset and Widget review/libraries, Dashboard
   arrangement/library, and every publish/import state with the binding design.
@@ -959,57 +1112,83 @@ when each starts; they are not additional completion gates for the current goal.
 - [ ] Prove actual deployment receipts, failure recovery and independent
   destinations. Record deployed revisions and owner acceptance.
 
-## Before product code
+## Legacy checklist disposition
 
-- [ ] Review the current program roadmap, implementation plan, product
+The sections below repeat pre-consolidation work. This table assigns each
+responsibility to its current authority; the retained detail is traceability
+only and does not define current order or status.
+
+| Former section | Current owner and retained requirement |
+| --- | --- |
+| Before product code | Authority review is required by the roadmap's design iteration and the current remediation owner gate above. |
+| Phase 1 generic connection | Product behavior remains in Catalyst's product specification; integration acceptance remains in [spec.md](spec.md#connection-and-source-acceptance); merged implementation evidence remains in **Stable Harness/Catalyst/Hub baseline** above. |
+| Phase 1 Spark reference sources | Live materialization, Catalyst/Superset connection, write refusal, native error, and Dataset-to-Superset proof remain in [spec.md](spec.md#connection-and-source-acceptance) and **Local/server deployment and evidence** above. |
+| Phase 1 reader-led harness and references | Evaluation method, reference authorship, complete reader packets, and the no-automatic-score boundary remain in the [program roadmap](../catalyst-program-roadmap.md); they are separately scheduled and are not current delivery tasks. |
+| Model comparison | Team runs, reader review, publication, and owner review remain in the [program roadmap](../catalyst-program-roadmap.md#phase-1-completion). |
+| Broader conversation scope | Definition after comparison review remains in the [program roadmap](../catalyst-program-roadmap.md#program-outcomes). |
+| Phase 3 Dashboard Builder | Current implementation, live proof, visual comparison, and owner acceptance remain in **Dashboard functionality — saved work**, **Dashboard functionality — arrangement and publication**, **Current remediation — Workbench visual coherence**, and **Local/server deployment and evidence** above. |
+| Guardrails | Current complexity limits remain in [plan.md](plan.md#implementation-rule) and [spec.md](spec.md#out-of-scope). |
+
+## Retained legacy detail — superseded by the dispositions above
+
+<details>
+<summary>Show superseded pre-consolidation detail</summary>
+
+This block is preserved for requirement-level traceability. It is not a second
+current sequence or checklist; update the current sections and named authority
+documents above.
+
+### Before product code
+
+- Review the current program roadmap, implementation plan, product
   specification, tasks, and binding Dashboard design with the owner.
 
-## Phase 1 — generic Catalyst connection
+### Phase 1 — generic Catalyst connection
 
-- [X] Replace the required analytics address and generated-catalog configuration
+- Replace the required analytics address and generated-catalog configuration
   with source ID, label, connection configuration or reference, explicit dialect,
   and optional non-filtering descriptions.
-- [X] Make source availability independent so one unavailable source does not
+- Make source availability independent so one unavailable source does not
   prevent application startup or use of another source.
-- [X] Limit shared connection behavior to availability, complete readable schema
+- Limit shared connection behavior to availability, complete readable schema
   discovery, exact SQL execution with typed parameters and bounds, and rows or
   the database error.
-- [X] Route generated and manually edited queries through the same shared
+- Route generated and manually edited queries through the same shared
   connection-execution code.
-- [X] Supply the same source, dialect, and readable-schema snapshot to the model,
+- Supply the same source, dialect, and readable-schema snapshot to the model,
   Available data, editor, validation, and recorded execution.
-- [X] Preserve database-native relation and column identifiers and the active
+- Preserve database-native relation and column identifiers and the active
   engine's qualification rules; remove the PostgreSQL-shaped name restriction.
-- [X] Make editor highlighting, formatting, and keyword/function completion use
+- Make editor highlighting, formatting, and keyword/function completion use
   the declared dialect.
-- [X] Keep validation advisory and prove that a warning cannot block exact
+- Keep validation advisory and prove that a warning cannot block exact
   selected SQL.
-- [X] Add focused tests with arbitrary fixture relation names, successful
+- Add focused tests with arbitrary fixture relation names, successful
   execution, database failure, and an unavailable source. Do not assert a
   relation count.
 
 **Pause:** Review the connection behavior and focused proof before changing a
 reference deployment.
 
-## Phase 1 — Spark reference sources
+### Phase 1 — Spark reference sources
 
 For each source actually included in the demonstration or comparison:
 
-- [ ] Enable the pinned FHIR Data Pipes Parquet path and materialize applicable
+- Enable the pinned FHIR Data Pipes Parquet path and materialize applicable
   ViewDefinitions against retained demo data.
-- [ ] Run one manual Spark query to prove materialization and one known fact.
-- [ ] Connect Spark through the generic Catalyst connection and prove Catalyst
+- Run one manual Spark query to prove materialization and one known fact.
+- Connect Spark through the generic Catalyst connection and prove Catalyst
   discovers the same readable tables.
-- [ ] Connect Superset to the same Spark source.
-- [ ] Prove one successful browser query, one database error, and one saved
+- Connect Superset to the same Spark source.
+- Prove one successful browser query, one database error, and one saved
   Dataset-to-Superset render.
-- [ ] Submit one intentional write attempt through the Spark connection, show
+- Submit one intentional write attempt through the Spark connection, show
   its visible refusal, and confirm source data is unchanged.
-- [X] Remove the separate clinical analytics store, generated catalog, copied
+- Remove the separate clinical analytics store, generated catalog, copied
   marts, sink scripts, preferred-engine wiring, fallback, and dedicated tests.
-- [ ] Carry forward only descriptions or relationships demonstrated to help the
+- Carry forward only descriptions or relationships demonstrated to help the
   accepted readable schema.
-- [X] Remove the standalone `catalyst-agents` and `catalyst-mcp` packages and
+- Remove the standalone `catalyst-agents` and `catalyst-mcp` packages and
   their development wiring; the active Gateway/med-agent-hub path owns model
   execution.
 
@@ -1018,86 +1197,86 @@ not create a per-scenario or per-run Spark comparison path.
 
 **Pause:** Review the live Catalyst and Superset smoke before merge.
 
-## Phase 1 — reader-led harness and scenario references
+### Phase 1 — reader-led harness and scenario references
 
-- [ ] Pin the accepted Catalyst revision.
-- [ ] Confirm the OpenMRS source used by the comparison does not mix another
+- Pin the accepted Catalyst revision.
+- Confirm the OpenMRS source used by the comparison does not mix another
   source's readable schema.
-- [ ] If scenario design reveals a concrete missing semantic need, pause for
+- If scenario design reveals a concrete missing semantic need, pause for
   owner review before adding one minimal source-owned view.
-- [X] Remove direct analytics-database access, separate read-only and “gold”
+- Remove direct analytics-database access, separate read-only and “gold”
   execution, automatic result matching, their options/events, and dedicated
   tests. Do not translate them to Spark.
-- [ ] After the accepted readable schema exists, author and run each ready-turn
+- After the accepted readable schema exists, author and run each ready-turn
   reference once through Catalyst and store its expected facts.
-- [ ] Review clarification and unsupported expected responses without SQL,
+- Review clarification and unsupported expected responses without SQL,
   including whether each data-availability question is answerable.
-- [ ] Make each ready model turn execute selected SQL once through Catalyst;
+- Make each ready model turn execute selected SQL once through Catalyst;
   clarification and unsupported turns execute none.
-- [ ] Present the conversation, actual model context, SQL, rows or error, static
+- Present the conversation, actual model context, SQL, rows or error, static
   reference or expected response, rubric, and recorded configuration without an
   automatic verdict.
-- [ ] Add focused tests for the simplified runner, incomplete-collection label,
+- Add focused tests for the simplified runner, incomplete-collection label,
   and reader packet.
 
 **Pause:** Review the scenario references and reader packet before paid live
 model runs.
 
-## Separately scheduled — model comparison
+### Separately scheduled — model comparison
 
-- [ ] Start a new result set after the generic connection, included reference
+- Start a new result set after the generic connection, included reference
   sources, and scenario references are accepted.
-- [ ] Hold the selected suite, rubric, data, and model-team definitions constant
+- Hold the selected suite, rubric, data, and model-team definitions constant
   for this batch and record the identities actually used.
-- [ ] Run the complete suite once for each selected model team.
-- [ ] Verify every case contains the complete reader packet and an incomplete
+- Run the complete suite once for each selected model team.
+- Verify every case contains the complete reader packet and an incomplete
   collection is labelled incomplete.
-- [ ] Apply the shared rubric once through a deliberately selected full-context
+- Apply the shared rubric once through a deliberately selected full-context
   human or frontier-model reader.
-- [ ] If the reader is a frontier model, state in the report that this is one
+- If the reader is a frontier model, state in the report that this is one
   model-reader pass rather than independent human review.
-- [ ] Publish the report and linked evidence without an automatic score,
+- Publish the report and linked evidence without an automatic score,
   disqualification, rank, tie-break, winner, or production-readiness claim.
-- [ ] Pause for owner review before Phase 1 closeout.
+- Pause for owner review before Phase 1 closeout.
 
-## Separately scheduled — broader conversation scope
+### Separately scheduled — broader conversation scope
 
-- [ ] Review the Phase 1 report with the owner.
-- [ ] Define the broader conversation-mode behavior and acceptance before
+- Review the Phase 1 report with the owner.
+- Define the broader conversation-mode behavior and acceptance before
   implementation. Do not infer it from Phase 1.
 
-## Phase 3 — Dashboard Builder completion
+### Phase 3 — Dashboard Builder completion
 
-- [ ] Cover Dataset, Widget, Dashboard, and publication actions through their
+- Cover Dataset, Widget, Dashboard, and publication actions through their
   public Gateway routes.
-- [ ] Convert a successful typed execution into an immutable Dataset without
+- Convert a successful typed execution into an immutable Dataset without
   engine-specific literal rules.
-- [ ] Preserve exact SQL and typed values for the active dialect and return an
+- Preserve exact SQL and typed values for the active dialect and return an
   actionable error when publication cannot represent them safely.
-- [ ] Finish deterministic compatibility and reviewable suggestions for the
+- Finish deterministic compatibility and reviewable suggestions for the
   accepted visualization families.
-- [ ] Finish deterministic native Superset bundle generation and publication
+- Finish deterministic native Superset bundle generation and publication
   status based on explicit importer receipts.
-- [ ] Run the real model-assisted browser workflow through Spark: ask, edit,
+- Run the real model-assisted browser workflow through Spark: ask, edit,
   format, Run, save Dataset versions, save Widgets, arrange and publish a
   Dashboard, import it, and open its stable Superset URL.
-- [ ] Inspect one rendered value against the originating Catalyst result without
+- Inspect one rendered value against the originating Catalyst result without
   a second database query.
-- [ ] Compare the live Workbench, Dataset review/library, Widget review/library,
+- Compare the live Workbench, Dataset review/library, Widget review/library,
   Dashboard library/arrangement, and publish/import states side by side with the
   binding design.
-- [ ] Confirm profile selection, generation/failure evidence, Clear/Restore,
+- Confirm profile selection, generation/failure evidence, Clear/Restore,
   complete Available data browsing, resizable composer/thread, single editor,
   review panels, multiple Widgets, and actionable publication states remain.
-- [ ] Pass focused API, component, bundle, publication, keyboard, focus, error,
+- Pass focused API, component, bundle, publication, keyboard, focus, error,
   desktop, and narrow-layout checks.
-- [ ] Obtain final owner acceptance of the browser-visible workflow.
+- Obtain final owner acceptance of the browser-visible workflow.
 
 Phase 3 does not require repeated model runs, restart/reset matrices, environment
 parity, independent database reconciliation, or exhaustive infrastructure
 failure simulation.
 
-## Guardrails
+### Guardrails
 
 - Use the smallest change that satisfies a current acceptance item.
 - Remove behavior with no current requirement and its tests; do not preserve it behind a
@@ -1112,3 +1291,5 @@ failure simulation.
 - If the thin connection, complete readable schema, or pinned FHIR Data Pipes
   path fails, record the concrete failure and return to the owner before adding
   another subsystem.
+
+</details>

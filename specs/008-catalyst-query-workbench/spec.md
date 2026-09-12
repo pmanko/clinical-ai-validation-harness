@@ -1,9 +1,9 @@
 # Feature specification: Catalyst integration and delivery acceptance
 
 **Status:** Current integration and delivery-acceptance contract. The compatible
-Harness/Catalyst/Hub baseline is merged. Staff Workbench implementation,
-Dashboard Builder completion, dual-source local and server deployment, evidence,
-and owner acceptance remain open.
+Harness/Catalyst/Hub baseline and the functional Workbench, saved-work, and
+Dashboard paths are merged. Browser-visible visual coherence, remaining
+dual-source server proof, responsiveness, and owner acceptance remain open.
 
 ## Purpose
 
@@ -252,19 +252,52 @@ connection. It does not complete Dashboard Builder.
 
 ## Staff Workbench acceptance
 
-Before Dashboard functionality expands, the complete frozen Workbench design is
-deployed locally against the real OpenELIS and OpenMRS sources. Browser proof
-covers the shared resizable question composer, failure and retry, preparation
-without execution, Explore/Saved work, System/Light/Dark appearance, general
-Advanced mode without state loss, complete nonmodal Available data browsing,
-explicit execution, one full result table, honest errors and limits, accessible
-provenance, focus return, and desktop, short-viewport, 640-, 390-, and
-320-CSS-pixel layouts.
+The merged functional Workbench remains subject to browser-visible design
+acceptance. The earlier local gate permitted Dashboard implementation to
+continue; it did not accept the complete multi-turn presentation. The following
+items are delivery acceptance for the proposed amendment; Catalyst's product
+specification and binding design must own the resulting behavior and visual
+contract before implementation, and the existing staff Workbench mock must
+demonstrate it across the full state matrix. A second mock or design authority
+is not created.
 
-The proof includes a side-by-side comparison with the current binding design
-and a paced walkthrough. Implementation, merge, local revision, local
-deployment, self-validation, owner feedback, and owner acceptance are recorded
-separately. Dashboard expansion starts after owner feedback is recorded.
+Every completed turn keeps the person's question, outcome, source, returned-row
+count or limit, relevant warning, and a useful query/execution summary visible.
+The summary uses recorded instruction, execution, result-shape, and safe schema
+facts and omits anything it cannot support. If the accepted design needs query
+shape beyond those recorded facts, Catalyst exposes one typed server-owned
+projection through its existing SQL parser and stores it with the turn; the UI
+does not parse SQL. It does not add an AI summary call, another SQL parser, or an
+assurance that the SQL captures the person's intent. Standard mode offers one
+**View query details** action. Advanced mode may also show a bounded formatted
+SQL preview. The same single expansion reveals full selectable SQL, parameters,
+execution facts, warnings, and provenance. The Dataset review panel remains the
+sole full result table.
+
+Turns, progress, menus, settings, Available data, Saved work, review panels,
+Dashboard arrangement, and publication states use the same documented Carbon
+and Catalyst tokens, icon controls, typography, spacing, radius, surface, and
+semantic-status roles. User-visible native disclosure markers and literal
+triangle carets are replaced by consistent labeled controls with correct focus,
+keyboard, and expanded-state behavior. Ordinary progress is not presented as a
+warning. Normal text remains neutral in both themes; violet is reserved for
+brand, action, selection, and focus, and status is not communicated by color
+alone.
+
+Browser proof covers the resizable question composer, failure and retry,
+preparation without execution, compact and expanded multi-turn summaries,
+Explore/Saved work, System/Light/Dark appearance, general Advanced mode without
+state loss, complete nonmodal Available data browsing, explicit execution, one
+full result table, honest errors and limits, accessible provenance, focus
+return, and desktop, short-viewport, 640-, 390-, and 320-CSS-pixel layouts. It
+also covers the current Saved-work and Dashboard states so first-screen polish
+cannot substitute for complete-product review.
+
+The proof includes a side-by-side comparison with the revised binding mock, a
+deterministic light/dark visual matrix, and a paced real-source walkthrough.
+Implementation, merge, local revision, local deployment, self-validation, owner
+feedback, and owner acceptance are recorded separately. Only explicit owner
+acceptance closes this gate.
 
 ## Dashboard Builder acceptance
 
@@ -294,9 +327,10 @@ Short captions and cards remain visible for at least five seconds; longer text
 uses about three words per second plus two seconds. Results and details remain
 for at least eight seconds. Normal reading and interaction speed is used,
 accelerated waits are labelled, holds retain captions, and captions do not cover
-demonstrated content. Watch final cuts at normal speed. Publish immutable server
-videos for both sources, link local proof, and update all public video and poster
-references together.
+demonstrated content. Watch final cuts at normal speed. Record the public
+walkthroughs locally with the verified writer/reviewer configuration, publish
+immutable videos for both sources, link server proof separately, and update all
+public video and poster references together.
 
 ## Out of scope
 

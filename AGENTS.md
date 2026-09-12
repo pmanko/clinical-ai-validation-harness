@@ -37,11 +37,12 @@ count, SQL translation, direct-database harness replay, automatic factual
 equivalence, score threshold, ranking, required repeated reader, or automatic
 team choice.
 
-The approved delivery priority is the frozen usability design followed by
-Dashboard Builder functionality. Model comparison and broader conversation are
-separately scheduled in the program roadmap; do not make them prerequisites for
-this delivery. The narrow Dataset-to-Superset regression smoke does not close or
-reduce Dashboard Builder acceptance.
+The functional Workbench, Saved-work, and Dashboard iterations are merged, but
+complete browser-visible design acceptance is open. Follow the Feature 008
+visual-coherence checkpoint before final acceptance. Model comparison and
+broader conversation remain separately scheduled in the program roadmap. The
+narrow Dataset-to-Superset smoke, component tests, first-screen mock, or working
+backend cannot substitute for the full product review.
 
 Before each owner review pause, surface unresolved implementation findings and
 environment choices. Do not add a subsystem to solve a hypothetical problem;
