@@ -36,7 +36,7 @@ supersedes earlier unmerged-status notes below. #134 and #111 remain separate.
 | Roadmap #142 | Merged as `6d7a327` | All PR checks passed | Authoritative plan updated |
 | Catalyst #106–#109 | Merged as `f2a46b0`; current pin `1fd4a03` adds the recording-only correction | Combined tree: 364 Gateway tests passed, one existing skip; 294 UI tests; 16 deterministic browser checks, eight live-only skips; type/lint/build passed; final #106 CI passed | Running locally and on the server; full workflow acceptance pending |
 | Hub #25–#28 | Merged; current pin `1ddaa1e51ebb88735808ae9775ec046ba0b3101b` | #25–#27 combined suite: 720 tests passed; #28: 71 focused tests and CI passed | Running locally and on the server; local OpenMRS query-grain check passed |
-| Router #143 and release follow-up #144 | Merged as `a6980ce` and `b6fe09a` | Release CI passed; five router tests and 18 focused router/documentation/repository checks passed | Both checkouts now at `dfee0e2`; server health passed with E4B; local source continuity and cold-query/cancellation checks remain open |
+| Router #143 and release follow-up #144 | Merged as `a6980ce` and `b6fe09a` | Release CI passed; five router tests and 18 focused router/documentation/repository checks passed | Server router repair deployed at `735ad53`; persistent local source continuity verified; cold-query and full server workflow acceptance remain open |
 | Replacement OpenMRS walkthrough / #141 | Corrected local take 8 passed on runtime `b6fe09a`; recorder fix #110 merged as `1fd4a03` | Full real-model browser test passed: monthly totals preserved, saved SQL reused, two visualizations arranged, repeat publication/import and rendered Superset checked | Merged as `dfee0e2`; both videos and posters published and verified over HTTPS; owner acceptance separate |
 
 The combined review reproduced a conflict between #106's metadata-only repair
@@ -149,24 +149,51 @@ remain private, outside Git. Server storage was not changed by this recovery.
 The unchanged inference build reproduced continued generation after client
 disconnect. Two concrete causes were isolated: proxy cleanup did not stop the
 child HTTP request, and unrelated response-queue notifications repeatedly reset
-its wait timeout. The candidate fixes both against the exact deployed upstream
-source. A CPU prefill check still exceeded five seconds until prompt batches
-were bounded to 128 tokens; the acceptance deadline was not relaxed.
+its wait timeout. The merged repair fixes both against the exact deployed upstream
+source. The short-prompt measurements below are operating observations, not
+performance or product acceptance criteria.
 
-Local ARM64 CPU container checks using the cached E4B model passed: active generation stopped in
-0.9 seconds and prompt processing in 2.2 seconds, followed by a nonempty normal
-response. The local E4B file differs from the server-pinned model revision. These are
-candidate checks, not server acceptance. The regression
-probe also rejects late idle observations and ongoing work in either phase.
-Image build provenance and raw results remain private, outside Git.
+Local CPU checks exercised cancellation and an ordinary response using the
+cached E4B model. The local file differs from the server-pinned model revision.
+They are diagnostic observations, not server acceptance or a product
+responsiveness target. Image build provenance and raw results remain private,
+outside Git.
 
-- [ ] Merge the reviewed CPU image patch, build/selection support, bounded batch
-  preset and cancellation probe after CI.
-- [ ] Deploy the exact verified image through the existing router lifecycle and
-  check cancellation plus ordinary generation on the CPU demo server.
-- [ ] Resolve remaining first-query and varied cross-source 120-second failures;
+- [X] Merge the reviewed CPU image patch, build/selection support, bounded batch
+  preset and cancellation probe: PR #147 merged as `735ad53`. All CI checks
+  passed, along with 17 focused local tests and the real CPU checks above.
+- [X] Deploy the exact verified image through the existing router lifecycle and
+  check cancellation plus ordinary generation on the CPU demo server. Harness
+  `735ad53` runs the tested ARM64 CPU image (ID starts `b06299c`). Cancellation,
+  ordinary inference, and full application health were checked. Small synthetic
+  checks do not establish behavior under a real source schema, so no numeric
+  cancellation target is accepted. Image/archive checksums and rollback
+  configuration are retained privately. The application-level deadline and full
+  workflow remain separate checks below.
+- [ ] Resolve remaining long-running first-query and varied cross-source failures;
   complete the real saved-work through Superset journey for both sources before
   closing server acceptance. Videos are already published and remain local work.
+
+## Next checkpoint — neutral-question warmup
+
+- [ ] Implement a finite warmup through the existing lifecycle wrapper using
+  “What information is available in this data source?” with each configured
+  source's complete schema and ordinary writer profile. Discard the exchange;
+  create no sessions, previews, saved examples, guidance or executed SQL.
+- [ ] Verify with a different real question on each local source that common
+  instructions/schema are reused and the warmup question/answer are absent from
+  its request. Check switching sources, cache misses, failures and explicit Stop.
+  Record actual cache observations; model-loaded health alone is insufficient.
+- [ ] Merge the tested changes and pin the exact compatible revisions. The
+  automatic application-cutoff removal is in
+  [Catalyst #111](https://github.com/DIGI-UW/catalyst-ai/pull/111); the warmup
+  implementation is in [Catalyst #112](https://github.com/DIGI-UW/catalyst-ai/pull/112)
+  and is not deployed.
+- [ ] Deploy through the lifecycle wrapper to the existing CPU server, preserve
+  retained data, and verify preparation and execution against both sources.
+- [ ] Present the observed workflow and remaining limitations for owner review.
+  No numeric responsiveness or cancellation threshold is approved; timings are
+  diagnostic evidence. Videos remain locally recorded work.
 
 ## Authoritative roadmap
 
@@ -726,12 +753,13 @@ full server run remain separate evidence below.
   cancellation defect before another full run. A client timeout or explicit
   cancel must stop the active downstream call and prevent later repair attempts;
   the typed draft and prior result remain available.
-- [ ] Implement and test one total generation deadline across queue, writer,
-  repairs, and optional reviewer on the actual Gateway-to-Hub named-role path.
+- [ ] Remove the automatic total generation deadline; retain explicit Stop and
+  request-loss handling on the actual Gateway-to-Hub named-role path.
   Cancellation releases the busy session, records a terminal outcome, and closes
-  the active model call. Test disconnect and deadline at each boundary, no later
+  the active model call. Test disconnect and Stop at each boundary, no later
   repair, preserved draft/result, and useful handling of incomplete responses.
-  Implementation is in [Catalyst #107](https://github.com/DIGI-UW/catalyst-ai/pull/107)
+  The original implementation, including the now-withdrawn deadline, is in
+  [Catalyst #107](https://github.com/DIGI-UW/catalyst-ai/pull/107)
   (`fa3c38c`) and [Hub #25](https://github.com/pmanko/med-agent-hub/pull/25)
   (`8942322`), both submitted for review. Local checks: Gateway 357 passed / one
   existing skip; assembly/contracts 47 passed; Hub 720 passed, including two
@@ -868,7 +896,7 @@ when each starts; they are not additional completion gates for the current goal.
   248,720 ms maximum for the 12B baseline. Those chart-answer measurements select
   a candidate; they do not predict Catalyst's complete-schema SQL workload.
 - [ ] Stabilize the reusable instruction/schema prefix and test the runtime's
-  supported prompt cache or smallest safe priming/slot configuration. Prove the
+  supported prompt cache using the neutral-question warmup checkpoint above. Prove the
   model is not merely loading, warm requests reduce prompt-processing work, a
   cache miss stays correct, and no warm-up executes SQL, reads result rows, or
   runs as a permanent background loop.
