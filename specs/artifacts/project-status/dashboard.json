@@ -1,13 +1,13 @@
 {
-  "as_of": "2026-09-10",
+  "as_of": "2026-09-12",
   "description": "Curated overview copy and navigation groups. Update with the effort inventory; these groups do not define completion or product requirements.",
   "cards": [
     {
       "project": "chartsearch",
       "title": "ChartSearchAI",
-      "status": "Final acceptance open",
-      "summary": "QueryStore, ChartSearchAI, and the UI now include current upstream main and GitHub reports all three mergeable. Their current-head build checks pass. ChartSearchAI's terminal-event and XML response defects are fixed.",
-      "evidence": "QueryStore 6436ab6 passes Java 8, 11, 17 and 21. ESM 40d5525 passes OpenMRS CI. ChartSearchAI 31a8c162 passes paired Java 11, 17 and 21 plus 2,007 API and 162 OMOD tests locally after upstream main was merged again. Its advisory QueryStore-HEAD job stays red until #68 reaches upstream main. Fresh live acceptance remains open.",
+      "status": "Upstream reconciliation and acceptance open",
+      "summary": "Three canonical upstream contributions remain active. Backend #157 now conflicts with upstream main; frontend #23 and QueryStore #68 are mergeable. Nine older PRs still need content-based disposition.",
+      "evidence": "Current paired backend builds, frontend build and QueryStore Java checks pass. Advisory QueryStore-HEAD remains red. Fork #33 and harness #148 are a separate contributor-setup dependency; #148 has failing checks.",
       "actions": [
         [
           "Reconcile upstream & verify both providers",
@@ -22,19 +22,33 @@
     {
       "project": "catalyst",
       "title": "Catalyst",
-      "status": "Question writing complete; shell and appearance next",
-      "summary": "The first usability iteration is merged: every question input now shares a resizable, durable composer. The next iteration makes the shell friendlier while keeping analyst tools available through Advanced mode.",
-      "evidence": "Catalyst #83 merged as c181b6b with all five hosted jobs green. The complete UI unit suite, type, lint, production build, deterministic composer checks, and the full deterministic query-to-table journey passed. Live dual-source product acceptance remains open.",
+      "status": "Visual remediation and release acceptance",
+      "summary": "All four usability iterations are merged. Catalyst #117 carries the current visual corrections; the runtime release is merged through harness #157. The original delivery roadmap is unchanged.",
+      "evidence": "Current runtime and visual tasks were cross-checked against GitHub. Two-source server evidence and final owner acceptance remain open; OpenELIS reporting design is a separate parallel checkpoint.",
       "actions": [
         [
           "Implement the usability design",
           "CAT-E11"
         ]
       ]
+    },
+    {
+      "project": "shared",
+      "title": "OpenELIS reporting",
+      "status": "Defaults approved; revised mock merged",
+      "summary": "New export and saved-report paths now share the revised OpenELIS mock. The six first-slice defaults are recorded in its specification.",
+      "evidence": "PR #315 merged as cb1ff0c after 268 tests and passing builds. The live HTML and CSV helper match source; export/queue and sign-in recovery were inspected. Final owner visual acceptance remains open.",
+      "actions": [
+        [
+          "Review reporting readiness",
+          "OE-reporting"
+        ]
+      ]
     }
   ],
   "resumeIds": [
     "CAT-E11",
+    "OE-reporting",
     "clinical.dual_provider",
     "upstream.older_prs",
     "harness.public_surfaces"

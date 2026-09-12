@@ -23,8 +23,18 @@ github() {
 Run each command, review its output, then update pull-requests.json with the
 new head, mergeability, checks, and a dated evidence summary before `refresh`.
 
-gh pr view 79 --repo DIGI-UW/openelis-catalyst --json headRefOid,mergeStateStatus,mergeable,updatedAt,statusCheckRollup
-gh pr view 100 --repo pmanko/clinical-ai-validation-harness --json headRefOid,mergeStateStatus,mergeable,updatedAt,statusCheckRollup
+First discover current work instead of assuming yesterday's PR numbers:
+
+for repo in pmanko/clinical-ai-validation-harness DIGI-UW/catalyst-ai pmanko/med-agent-hub DIGI-UW/openelis-work pmanko/openmrs-module-chartsearchai; do
+  gh pr list --repo "$repo" --state open --limit 100 --json number,title,author,headRefName,headRefOid,baseRefName,isDraft,mergeable,updatedAt,url
+done
+for repo in openmrs/openmrs-module-chartsearchai openmrs/openmrs-module-querystore openmrs/openmrs-esm-chartsearchai DIGI-UW/OpenELIS-Global-2; do
+  gh pr list --repo "$repo" --author pmanko --state open --limit 100 --json number,title,author,headRefName,headRefOid,baseRefName,isDraft,mergeable,updatedAt,url
+done
+
+For each active PR, read its files and checks on the same head. Examples:
+
+gh pr view 117 --repo DIGI-UW/catalyst-ai --json headRefOid,mergeStateStatus,mergeable,updatedAt,statusCheckRollup,files
 gh pr view 68 --repo openmrs/openmrs-module-querystore --json headRefOid,mergeStateStatus,mergeable,updatedAt,statusCheckRollup
 gh pr view 23 --repo openmrs/openmrs-esm-chartsearchai --json headRefOid,mergeStateStatus,mergeable,updatedAt,statusCheckRollup
 gh pr view 157 --repo openmrs/openmrs-module-chartsearchai --json headRefOid,mergeStateStatus,mergeable,updatedAt,statusCheckRollup
