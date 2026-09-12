@@ -314,12 +314,20 @@ and only baseline restore reapplies saved local reader credentials. These do not
 live restore, source login, or model answer. The contributor quick reference is
 linked from the root README, docs index, and project overview.
 
-Two first-install/reset details still require verification before closeout:
-`compose/backend-init.sh` downloads embedding assets from a floating revision
-directly into their final paths, and `scripts/seed-local.sh` authenticates after
-restore using local administrator settings that may differ from the imported
-baseline. Resolve these in their existing owners, without adding another setup
-framework or silently changing administrator credentials.
+The embedding download follow-up is now fixed in `compose/backend-init.sh`.
+It uses an immutable revision, verifies new bytes before installation, and removes
+incomplete downloads on failure. Existing non-empty files are retained and reported
+as unverified if they differ from the pinned default. Seven tests first failed on
+the original script, then passed in an offline disposable Linux container using
+the real shell/checksum tools and simulated downloads. These tests run on Linux,
+matching the backend image, rather than requiring equivalent host shell utilities.
+The real upstream model and vocabulary were separately downloaded and their
+SHA-256 values matched the recorded constants. No application stack was restarted.
+
+`scripts/seed-local.sh` still needs explicit administrator-access handling before
+reset closeout: it authenticates after restore using local administrator settings
+that may differ from the imported baseline. Resolve this in the existing owner,
+without another setup framework or silently changing administrator credentials.
 
 A read-only Docker check on September 11 refused the running Hub because its
 Compose ownership labels point to a different worktree. The check supplied the
@@ -328,6 +336,7 @@ any service. The current live stack must not be taken over for this work's proof
 
 ## References
 
+- [Pinned QueryStore embedding source](https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2/tree/1110a243fdf4706b3f48f1d95db1a4f5529b4d41)
 - [OpenMRS roles and inheritance](https://guide.openmrs.org/administering-openmrs/user-management-and-access-control/)
 - [OpenMRS User API: assigned roles, inherited roles, and privileges](https://docs.openmrs.org/doc/org/openmrs/User.html)
 - [OpenMRS session metadata](https://github.com/openmrs/openmrs-module-webservices.rest/blob/master/omod/src/main/java/org/openmrs/module/webservices/rest/web/v1_0/controller/openmrs1_9/SessionController1_9.java)

@@ -207,6 +207,15 @@ refuses to replace an existing, not-yet-ready process or another startup operati
 Investigate the owning process before clearing a reported startup lock; do not
 delete it merely because a startup request was slow.
 
+The backend container also needs a small embedding model and vocabulary for
+QueryStore. Its existing initializer downloads missing files from a pinned source,
+checks their checksums, and only then installs them. A failed download stops startup
+without leaving a partial installed file. Existing non-empty files are retained;
+files differing from the default are explicitly reported as unverified, not replaced.
+An empty file or broken link requires explicit repair. These checks run inside
+the Linux container on either a Mac or Linux host; they do not rebuild the index
+or validate retrieval results.
+
 ## Required Evaluation Accounts
 
 All successful evaluation preparation runs include the accounts in
