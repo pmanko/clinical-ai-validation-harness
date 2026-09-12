@@ -1,6 +1,6 @@
 # Harness backend image: the stock OpenMRS RefApp backend rebased off Amazon
-# Linux 2 (glibc 2.26) onto Ubuntu/temurin (glibc 2.39), running chartsearchai's
-# own backend-init.sh as the entrypoint.
+# Linux 2 (glibc 2.26) onto Ubuntu/temurin (glibc 2.39), running the harness's
+# backend-init.sh as the entrypoint.
 #
 # Why temurin: querystore's onnxruntime embedder ships native libs needing glibc >= 2.27; the
 # official RefApp backend is Amazon Linux 2 (glibc 2.26), so the embedder dies at load with
@@ -8,10 +8,10 @@
 # same reason.
 #
 # Why backend-init.sh (not the bare stock entrypoint): we are running
-# chartsearch, so we use chartsearch's own runtime setup. It heals the data
-# volume's ownership, downloads the ONNX embedding model + vocab that BOTH
-# querystore and chartsearchai read, then drops to uid 1001 and runs OpenMRS
-# startup — turning the cloud bring-up into a single step. No module is baked:
+# ChartSearchAI with QueryStore. The initializer heals the data volume's ownership,
+# drops to uid 1001, and prepares QueryStore's embedding assets before OpenMRS
+# startup. New assets are downloaded from an immutable revision and checksum-checked.
+# Existing non-empty assets are retained. No module is baked:
 # the harness bind-mounts its locally-built omods at /openmrs/data/modules (a
 # baked omod would be clobbered when OpenMRS copies distribution modules on
 # startup). Only the base OS changes; the OpenMRS app stays at the pinned tag.

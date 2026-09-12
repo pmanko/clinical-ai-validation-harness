@@ -10,6 +10,8 @@
 # plus changelog rows stripped by dump-loaded.sh), so both consumer modules install
 # themselves fresh on boot. The dump and provenance sidecar are verified before the
 # target database is touched; seed-local never repairs an invalid dump after restore.
+# Explicit --restore-backup mode retains all module state instead. Use it only
+# after verifying deployment ownership and compatibility with the backed-up build.
 #
 # Serves BOTH provisioning modes:
 #   - reset-provision (canonical):  make reset && make up && make seed
@@ -18,6 +20,7 @@
 # Usage:
 #   ./scripts/seed-local.sh                      # the canonical artifacts/demo-data/refapp_28_demo.sql.gz → openmrs
 #   ./scripts/seed-local.sh --dump PATH          # explicit dump file (.sql or .sql.gz)
+#   ./scripts/seed-local.sh --restore-backup PATH # recover a verified full database backup
 #   ./scripts/seed-local.sh --from-schema openmrs_test   # dump that schema now (module-clean), then load it
 #   ./scripts/seed-local.sh --target openmrs --no-reindex
 set -euo pipefail
@@ -29,21 +32,43 @@ DB_ROOT_PASS="${MYSQL_ROOT_PASSWORD:-openmrs}"
 DB_USER="${OMRS_DB_USER:-openmrs}"
 BACKEND="${OPENMRS_BACKEND:-harness-openmrs-backend}"
 PROXY_PORT="${PROXY_PORT:-${HARNESS_PROXY_HTTP_PORT:-8088}}"
+ADMIN_AUTH="${CHARTSEARCH_ADMIN_USER:-admin}:${CHARTSEARCH_ADMIN_PASSWORD:-Admin123}"
 TARGET_DB="${SEED_TARGET_DB:-openmrs}"
 DUMP=""
 FROM_SCHEMA=""
+BACKUP=""
+RESTORE_KIND="portable_corpus"
 REINDEX=1
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --dump) DUMP="$2"; shift 2 ;;
+    --restore-backup)
+      [[ $# -ge 2 && -n "$2" ]] || { echo "ERROR: --restore-backup requires a file path." >&2; exit 2; }
+      BACKUP="$2"; shift 2 ;;
     --from-schema) FROM_SCHEMA="$2"; shift 2 ;;
     --target) TARGET_DB="$2"; shift 2 ;;
     --no-reindex) REINDEX=0; shift ;;
-    -h|--help) sed -n '2,22p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,/^set -euo pipefail/{ /^set -euo pipefail/d; p; }' "$0"; exit 0 ;;
     *) echo "unknown arg: $1" >&2; exit 1 ;;
   esac
 done
+
+if [[ -n "${BACKUP}" && ( -n "${DUMP}" || -n "${FROM_SCHEMA}" ) ]] \
+  || [[ -n "${DUMP}" && -n "${FROM_SCHEMA}" ]]; then
+  echo "ERROR: choose one input: --dump, --from-schema, or --restore-backup." >&2
+  exit 2
+fi
+if [[ -n "${BACKUP}" ]]; then
+  DUMP="${BACKUP}"
+  RESTORE_KIND="full_backup"
+fi
+
+if ! [[ "${TARGET_DB}" =~ ^[A-Za-z][A-Za-z0-9_]*$ ]] \
+  || ! [[ "${DB_USER}" =~ ^[A-Za-z][A-Za-z0-9_]*$ ]]; then
+  echo "ERROR: target database and database user must be simple SQL identifiers." >&2
+  exit 2
+fi
 
 # --- resolve the dump to restore ---
 if [[ -n "$FROM_SCHEMA" ]]; then
@@ -68,9 +93,15 @@ fi
 echo "==> dump: ${DUMP} ($(du -h "$DUMP" | cut -f1))"
 
 PROVENANCE="${DUMP}.provenance.json"
-echo "==> verifying portable corpus provenance before database mutation"
+if [[ "${RESTORE_KIND}" == "full_backup" ]]; then
+  echo "==> verifying full backup provenance before database mutation"
+  VERIFY_KIND="--require-full-backup"
+else
+  echo "==> verifying portable corpus provenance before database mutation"
+  VERIFY_KIND="--require-portable"
+fi
 python3 "${ROOT}/scripts/verify-portable-dump.py" \
-  --dump "${DUMP}" --provenance "${PROVENANCE}" --require-portable
+  --dump "${DUMP}" --provenance "${PROVENANCE}" "${VERIFY_KIND}"
 
 if ! docker exec "$DB_CONTAINER" sh -c 'true' 2>/dev/null; then
   echo "ERROR: container '${DB_CONTAINER}' not running. Run 'make up' first." >&2
@@ -79,7 +110,10 @@ fi
 
 # --- stop the backend so the schema swap doesn't race a live Hibernate/Liquibase ---
 echo "==> stopping backend '${BACKEND}' (provision into a quiescent DB)"
-docker stop "$BACKEND" >/dev/null 2>&1 || true
+if ! docker stop "$BACKEND" >/dev/null; then
+  echo "ERROR: backend stop failed; database was not changed." >&2
+  exit 1
+fi
 
 # --- DROP/CREATE the target schema + restore (target-neutral dump → named DB) ---
 echo "==> recreating '${TARGET_DB}' and restoring the dump"
@@ -116,7 +150,7 @@ UP=0
 for attempt in 1 2 3; do
   echo "    waiting for backend health (first boot runs Liquibase; can take minutes) [attempt ${attempt}/3]..."
   for i in $(seq 1 100); do
-    code=$(curl -s -o /dev/null -w "%{http_code}" -u admin:Admin123 \
+    code=$(curl -s -o /dev/null -w "%{http_code}" -u "${ADMIN_AUTH}" \
       "http://localhost:${PROXY_PORT}/openmrs/ws/fhir2/R4/Patient?_count=1" || true)
     [ "$code" = "200" ] && { echo "    backend up (~$((i*6))s)"; UP=1; break; }
     sleep 6
@@ -133,7 +167,7 @@ done
 #     to start (e.g. a Liquibase checksum mismatch) — checked here so a broken seed fails loudly at
 #     seed time instead of being discovered later during manual QA. ---
 echo "==> verifying every OpenMRS module started cleanly"
-FAILED_MODULES="$(curl -fsS -u admin:Admin123 \
+FAILED_MODULES="$(curl -fsS -u "${ADMIN_AUTH}" \
   "http://localhost:${PROXY_PORT}/openmrs/ws/rest/v1/module?v=custom:(name,started,startupErrorMessage)" \
   | python3 -c "
 import json, sys
@@ -153,7 +187,7 @@ echo "    all modules started"
 # manifests copy this receipt so a published run can be traced back to the dump bytes.
 CORPUS_RECEIPT="${ROOT}/artifacts/chartsearchai-local/corpus-provenance.json"
 mkdir -p "$(dirname "${CORPUS_RECEIPT}")"
-python3 - "${DUMP}" "${PROVENANCE}" "${CORPUS_RECEIPT}" "${TARGET_DB}" <<'PY'
+python3 - "${DUMP}" "${PROVENANCE}" "${CORPUS_RECEIPT}" "${TARGET_DB}" "${RESTORE_KIND}" <<'PY'
 import json
 import os
 import sys
@@ -172,6 +206,7 @@ receipt = {
     "dump_sha256": provenance["output_sha256"],
     "dump_bytes": provenance["output_bytes"],
     "source_schema": provenance.get("source_schema"),
+    "restore_kind": sys.argv[5],
     "restored_at": datetime.now(timezone.utc).isoformat(),
 }
 tmp = receipt_path.with_suffix(receipt_path.suffix + ".tmp")
@@ -184,12 +219,12 @@ echo "    corpus receipt: ${CORPUS_RECEIPT}"
 #     index is empty until a full reindex. Synchronous; ~30-60s for 5K patients. ---
 if [[ "$REINDEX" == "1" ]]; then
   echo "==> triggering Hibernate Search reindex (synchronous)"
-  curl -fsS -u admin:Admin123 -m 600 -X POST \
+  curl -fsS -u "${ADMIN_AUTH}" -m 600 -X POST \
     "http://localhost:${PROXY_PORT}/openmrs/ws/rest/v1/searchindexupdate" >/dev/null \
     && echo "    reindex complete" \
     || echo "    WARNING: reindex POST failed — run it manually once the backend settles."
 fi
 
 echo ""
-echo "✓ seeded '${TARGET_DB}' from ${DUMP}."
+echo "Restored '${TARGET_DB}' from ${DUMP} (${RESTORE_KIND})."
 echo "  ChartSearchAI reads the Querystore index — rebuild it with: make querystore-reindex"

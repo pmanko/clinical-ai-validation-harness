@@ -55,6 +55,7 @@ does not gate local integration. See the checked-in [roadmap](specs/artifacts/pl
 | What you need | Where to go |
 |---------------|-------------|
 | Current cross-project status, efforts, pull requests, roadmaps and evidence links | [Project status hub](specs/artifacts/project-status/README.md) |
+| Contributor setup cheatsheet: one Claude request, updates, explicit reset, role logins and verification | [Local evaluation quick reference](docs/environment-setup.md#quick-reference) (implementation in progress) |
 | Visual project overview and navigation | [Public docs site](https://pmanko.github.io/clinical-ai-validation-harness/) |
 | Roadmap — what is planned, why, and in what order | [Feature roadmap canvas](https://pmanko.github.io/clinical-ai-validation-harness/#/canvas/specs/roadmap) |
 | Development operating plan — lanes, gates, launch sequence | `specs/artifacts/lanes/` (in-repo) |

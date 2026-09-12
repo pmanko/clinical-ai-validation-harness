@@ -8,6 +8,7 @@ Both products have substantial implemented functionality. ChartSearchAI needs up
 
 | Reference | What it contains | Editable input |
 |---|---|---|
+| [Local evaluation quick reference](../../../docs/environment-setup.md#quick-reference) | Shared contributor setup, preserve/reset choices, role-account logins and verification; implementation in progress | [Operator guide](../../../docs/environment-setup.md), [setup plan](../planning/harness-environment-setup.md) |
 | [Comprehensive report](reports/2026-09-06.md) | Findings, demonstrated behavior, gaps, chronology, recovery and restart recommendation | Dated narrative snapshot |
 | [Merge review](reviews/2026-09-06.md) | Review of all 12 open PRs and both Spark branches, findings, tests and next actions | Dated review; current assessments also live in the inventories |
 | [Effort inventory](efforts.md) | 32 efforts with current state, next deliverable, acceptance boundary and sources | [efforts.json](efforts.json) |

@@ -17,15 +17,24 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--dump", type=Path, required=True)
     parser.add_argument("--provenance", type=Path)
-    parser.add_argument(
+    kind = parser.add_mutually_exclusive_group()
+    kind.add_argument(
         "--require-portable",
         action="store_true",
         help="reject full backups that retain consumer-module state",
     )
+    kind.add_argument(
+        "--require-full-backup",
+        action="store_true",
+        help="require module state, no excluded tables, and a readable complete archive",
+    )
     args = parser.parse_args()
     provenance_path = args.provenance or Path(f"{args.dump}.provenance.json")
     provenance, issues = verify_dump(
-        args.dump, provenance_path, require_portable=args.require_portable
+        args.dump,
+        provenance_path,
+        require_portable=args.require_portable,
+        require_full_backup=args.require_full_backup,
     )
     if issues:
         for issue in issues:

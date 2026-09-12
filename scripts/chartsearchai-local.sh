@@ -9,12 +9,14 @@ HUB_BUILD_REVISION="$(git -C targets/med-agent-hub rev-parse HEAD)"
 export HUB_BUILD_REVISION
 
 CHECK_ONLY=0
-if [ "${1:-}" = "--check" ]; then
-  CHECK_ONLY=1
-elif [ "$#" -gt 0 ]; then
-  echo "usage: $0 [--check]" >&2
-  exit 2
-fi
+PREPARE_CORE=0
+for arg in "$@"; do
+  case "${arg}" in
+    --check) CHECK_ONLY=1 ;;
+    --prepare-core) PREPARE_CORE=1 ;;
+    *) echo "usage: $0 [--check] [--prepare-core]" >&2; exit 2 ;;
+  esac
+done
 
 load_config_value() {
   local name="$1" file value
@@ -219,18 +221,24 @@ fi
 "${COMPOSE[@]}" config --quiet
 
 ROUTER_REACHABLE=0
-if curl -fsS --max-time 3 "${ROUTER_URL}/v1/models" >/dev/null 2>&1; then
-  ROUTER_REACHABLE=1
-else
-  require_command llama-server
-  [ -d "${MODEL_DIR}" ] || fail "model directory not found: ${MODEL_DIR}"
-  [ -f "${MODEL_DIR}/gemma-e4b.gguf" ] || fail "default model missing: ${MODEL_DIR}/gemma-e4b.gguf"
+if [ "${PREPARE_CORE}" = "0" ]; then
+  if curl -fsS --max-time 3 "${ROUTER_URL}/v1/models" >/dev/null 2>&1; then
+    ROUTER_REACHABLE=1
+  else
+    require_command llama-server
+    [ -d "${MODEL_DIR}" ] || fail "model directory not found: ${MODEL_DIR}"
+    [ -f "${MODEL_DIR}/gemma-e4b.gguf" ] || fail "default model missing: ${MODEL_DIR}/gemma-e4b.gguf"
+  fi
 fi
 
 if [ "${CHECK_ONLY}" = "1" ]; then
   say "ChartSearchAI local prerequisites are present."
-  say "  model directory: ${MODEL_DIR}"
-  say "  router: $([ "${ROUTER_REACHABLE}" = "1" ] && echo existing || echo host-native prerequisites)"
+  if [ "${PREPARE_CORE}" = "0" ]; then
+    say "  model directory: ${MODEL_DIR}"
+    say "  router: $([ "${ROUTER_REACHABLE}" = "1" ] && echo existing || echo host-native prerequisites)"
+  else
+    say "  core preparation only; model/provider readiness not checked"
+  fi
   say "  temporal timezone: ${HUB_TIMEZONE}"
   exit 0
 fi
@@ -254,18 +262,20 @@ if ! cmp -s "${CHARTSEARCH_OMOD_PROVENANCE}" "${DEPLOYED_CHARTSEARCH_PROVENANCE}
   MODULES_CHANGED=1
 fi
 
-say "==> llama.cpp router"
-if [ "${ROUTER_REACHABLE}" = "1" ]; then
-  say "  existing router: reachable"
-else
-  env \
-    LLAMA_MODEL_DIR="${MODEL_DIR}" \
-    LLAMA_ROUTER_MODELS_MAX="${LLAMA_ROUTER_MODELS_MAX:-2}" \
-    ./scripts/llama-router-up.sh --daemon
-  wait_http "llama.cpp router" "${ROUTER_URL}/v1/models" 60
+if [ "${PREPARE_CORE}" = "0" ]; then
+  say "==> llama.cpp router"
+  if [ "${ROUTER_REACHABLE}" = "1" ]; then
+    say "  existing router: reachable"
+  else
+    env \
+      LLAMA_MODEL_DIR="${MODEL_DIR}" \
+      LLAMA_ROUTER_MODELS_MAX="${LLAMA_ROUTER_MODELS_MAX:-2}" \
+      ./scripts/llama-router-up.sh --daemon
+    wait_http "llama.cpp router" "${ROUTER_URL}/v1/models" 60
+  fi
+  curl -fsS "${ROUTER_URL}/v1/models" \
+    | python3 -c "import json,sys; ids={x.get('id') for x in json.load(sys.stdin).get('data',[])}; assert 'gemma-e4b' in ids, 'router does not advertise gemma-e4b'"
 fi
-curl -fsS "${ROUTER_URL}/v1/models" \
-  | python3 -c "import json,sys; ids={x.get('id') for x in json.load(sys.stdin).get('data',[])}; assert 'gemma-e4b' in ids, 'router does not advertise gemma-e4b'"
 
 say "==> OpenMRS core stack"
 "${COMPOSE[@]}" up -d --build db elasticsearch backend frontend gateway proxy
@@ -289,6 +299,12 @@ build_if_needed \
   targets/chartsearchai-esm \
   "${CHARTSEARCH_ESM_PROVENANCE}" \
   targets/chartsearchai-esm/src targets/chartsearchai-esm/package.json targets/chartsearchai-esm/yarn.lock
+
+if [ "${PREPARE_CORE}" = "1" ]; then
+  say "OpenMRS core prepared; provider settings and chart data were not configured or reset."
+  say "Model, patient retrieval, and chat readiness still require verification."
+  exit 0
+fi
 
 if [ -n "${QUERYSTORE_BASE_URL:-}" ] || [ -n "${QUERYSTORE_USERNAME:-}" ] || [ -n "${QUERYSTORE_PASSWORD:-}" ]; then
   [ -n "${QUERYSTORE_BASE_URL:-}" ] && [ -n "${QUERYSTORE_USERNAME:-}" ] && [ -n "${QUERYSTORE_PASSWORD:-}" ] \

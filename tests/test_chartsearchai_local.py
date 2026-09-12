@@ -160,6 +160,7 @@ def test_local_router_daemon_uses_launchd_on_macos(
         "uname": "#!/bin/sh\nprintf 'Darwin\\n'\n",
         "curl": (
             "#!/bin/sh\n"
+            'case "$*" in *127.0.0.1:19077/v1/models*) ;; *) exit 1 ;; esac\n'
             '[ -f "$ROUTER_READY" ]\n'
         ),
         "launchctl": (
@@ -168,6 +169,7 @@ def test_local_router_daemon_uses_launchd_on_macos(
             '  printf "%s\\n" "$@" > "$LAUNCHCTL_ARGS"\n'
             '  touch "$ROUTER_READY"\n'
             'elif [ "$1" = print ]; then\n'
+            '  [ -f "$ROUTER_READY" ] || exit 1\n'
             '  [ "$LAUNCHCTL_PRINT_FAIL" = 1 ] && exit 1\n'
             "  printf 'pid = 123\\n'\n"
             "fi\n"
@@ -191,6 +193,7 @@ def test_local_router_daemon_uses_launchd_on_macos(
             "LAUNCHCTL_PRINT_FAIL": "1" if launchctl_print_fails else "0",
             "LLAMA_MODEL_DIR": str(model_dir),
             "LLAMA_ROUTER_MODELS_MAX": "2",
+            "LLAMA_ROUTER_PORT": "19077",
             "LLAMA_ROUTER_RUNTIME_DIR": str(runtime_dir),
             "ROUTER_READY": str(ready),
         }
@@ -210,6 +213,7 @@ def test_local_router_daemon_uses_launchd_on_macos(
     assert f"LLAMA_MODEL_DIR={model_dir}" in args
     assert f"LLAMA_ROUTER_RUNTIME_DIR={runtime_dir}" in args
     assert "LLAMA_ROUTER_MODELS_MAX=2" in args
+    assert "LLAMA_ROUTER_PORT=19077" in args
     assert str(ROOT / "scripts/llama-router-up.sh") in args
     if launchctl_print_fails:
         assert not (runtime_dir / "router.pid").exists()
@@ -231,6 +235,7 @@ def test_local_router_daemon_removes_launchd_job_when_readiness_times_out(tmp_pa
         "launchctl": (
             "#!/bin/sh\n"
             'printf "%s\\n" "$*" >> "$LAUNCHCTL_CALLS"\n'
+            '[ "$1" != print ]\n'
         ),
     }.items():
         executable = fake_bin / name
@@ -263,7 +268,7 @@ def test_local_router_daemon_removes_launchd_job_when_readiness_times_out(tmp_pa
     assert result.returncode == 1
     assert "was not ready after 1s" in result.stderr
     calls = launchctl_calls.read_text(encoding="utf-8").splitlines()
-    assert calls[0] == "remove org.openclinai.llama-router"
+    assert calls[0].startswith("print gui/")
     assert calls[1].startswith("submit -l org.openclinai.llama-router ")
     assert calls[-1] == "remove org.openclinai.llama-router"
     assert not (runtime_dir / "router.pid").exists()
@@ -346,14 +351,12 @@ def test_local_router_down_does_not_kill_unrelated_non_macos_pid(tmp_path):
         unrelated.wait(timeout=5)
 
 
-def test_chartsearch_configure_writes_only_current_hub_properties():
+def test_chartsearch_configure_has_no_retired_or_querystore_properties():
     configure = _read("scripts/chartsearch-configure.sh")
 
     assert 'set_openmrs_property "chartsearchai.hub.endpointUrl"' in configure
     assert "chartsearchai.hub.profileId" not in configure
     assert "querystore.embedding" not in configure
-    assert "chartsearchai.llm.remote.endpointUrl" not in configure
-    assert "chartsearchai.llm.remote.modelName" not in configure
     assert "chartsearchai.llm.remote.endpoints" not in configure
 
 
@@ -686,3 +689,93 @@ def test_local_shell_entrypoint_is_syntactically_valid():
     )
 
     assert result.returncode == 0, result.stderr
+
+
+@pytest.mark.parametrize("ready", [True, False])
+def test_daemon_reuse_never_repoints_models_or_removes_a_starting_job(tmp_path, ready):
+    fake_bin = tmp_path / "bin"
+    fake_bin.mkdir()
+    calls = tmp_path / "launchctl-calls"
+    for name, body in {
+        "curl": "#!/bin/sh\nexit " + ("0\n" if ready else "1\n"),
+        "uname": "#!/bin/sh\necho Darwin\n",
+        "llama-server": "#!/bin/sh\nexit 0\n",
+        "launchctl": '#!/bin/sh\necho "$*" >> "$TEST_LAUNCHCTL_CALLS"\nexit 0\n',
+    }.items():
+        binary = fake_bin / name
+        binary.write_text(body)
+        binary.chmod(0o755)
+    existing = tmp_path / "existing"
+    existing.mkdir()
+    requested = tmp_path / "requested"
+    requested.mkdir()
+    runtime = tmp_path / "runtime"
+    runtime.mkdir()
+    (runtime / "models").symlink_to(existing)
+    result = subprocess.run(
+        ["bash", str(ROOT / "scripts/llama-router-up.sh"), "--daemon"],
+        env={**os.environ, "PATH": f"{fake_bin}:/usr/bin:/bin", "HOME": str(tmp_path),
+             "LLAMA_MODEL_DIR": str(requested), "LLAMA_ROUTER_RUNTIME_DIR": str(runtime),
+             "LLAMA_ROUTER_READY_TIMEOUT_SECONDS": "1", "TEST_LAUNCHCTL_CALLS": str(calls)},
+        text=True, capture_output=True, timeout=10,
+    )
+    assert result.returncode == (0 if ready else 1)
+    assert (runtime / "models").resolve() == existing
+    assert not calls.exists() or not any(
+        line.startswith(("remove ", "submit ")) for line in calls.read_text().splitlines()
+    )
+
+
+def test_daemon_refuses_an_existing_startup_lock_without_removing_it(tmp_path):
+    binaries = tmp_path / "bin"
+    binaries.mkdir()
+    curl = binaries / "curl"
+    curl.write_text("#!/bin/sh\nexit 1\n")
+    curl.chmod(0o755)
+    models = tmp_path / "models"
+    models.mkdir()
+    lock = tmp_path / ".cache/llama-router-start-19078.lock"
+    lock.mkdir(parents=True)
+    result = subprocess.run(
+        ["bash", str(ROOT / "scripts/llama-router-up.sh"), "--daemon"],
+        env={**os.environ, "PATH": f"{binaries}:/usr/bin:/bin", "HOME": str(tmp_path),
+             "LLAMA_MODEL_DIR": str(models), "LLAMA_ROUTER_PORT": "19078"},
+        text=True, capture_output=True, timeout=10,
+    )
+    assert result.returncode == 1
+    assert "startup is already in progress" in result.stderr
+    assert lock.is_dir()
+
+
+def test_linux_daemon_preserves_an_existing_live_process(tmp_path):
+    binaries = tmp_path / "bin"
+    binaries.mkdir()
+    for name, body in {
+        "curl": "#!/bin/sh\nexit 1\n",
+        "uname": "#!/bin/sh\necho Linux\n",
+        "llama-server": "#!/bin/sh\nexit 0\n",
+    }.items():
+        binary = binaries / name
+        binary.write_text(body)
+        binary.chmod(0o755)
+    models = tmp_path / "models"
+    models.mkdir()
+    runtime = tmp_path / "runtime"
+    runtime.mkdir()
+    process = subprocess.Popen(["sleep", "30"])
+    try:
+        pid_file = runtime / "router.pid"
+        pid_file.write_text(str(process.pid))
+        result = subprocess.run(
+            ["bash", str(ROOT / "scripts/llama-router-up.sh"), "--daemon"],
+            env={**os.environ, "PATH": f"{binaries}:/usr/bin:/bin", "HOME": str(tmp_path),
+                 "LLAMA_MODEL_DIR": str(models), "LLAMA_ROUTER_RUNTIME_DIR": str(runtime)},
+            text=True, capture_output=True, timeout=10,
+        )
+        assert result.returncode == 1
+        assert "existing router process" in result.stderr
+        assert process.poll() is None
+        assert pid_file.read_text() == str(process.pid)
+    finally:
+        process.terminate()
+        process.wait(timeout=10)

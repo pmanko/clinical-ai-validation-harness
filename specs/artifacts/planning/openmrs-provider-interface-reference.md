@@ -80,15 +80,28 @@ The body is an OpenAI `ChatCompletionRequest` (`med-agent-hub/server/openai_comp
 `ChatCompletionRequest`): `model`, `messages`, `stream`, `temperature`, `max_tokens`,
 `response_format`, plus these extensions:
 
+The `context` object holds `session`, `request_id`, `require_product_profile`, and
+`account_context`; these are not top-level request fields.
+
 | Extension field | Meaning | Module source |
 |---|---|---|
 | `model` | the hub product profile id (from `/v1/models`) | `HubCallRequest.profileId` |
 | `messages` | the question and prior clinical turns as chat messages | `HubCallRequest.question`, `priorTurns` |
 | `patient` | the OpenMRS patient uuid the hub may retrieve context for | `HubCallRequest.patientUuid` |
-| `session` | the conversation id, for multi-turn context | `HubCallRequest.conversationId` |
-| `request_id` | correlation id for one turn | `HubCallRequest.requestId` |
-| `require_product_profile` | refuse a bare model; a staged product profile is required | `HubClinicalAnswerProvider` |
-| `context` | module-supplied context object (chart slice, scopes) | `HubClinicalAnswerProvider` |
+| `context.session` | the conversation id, for multi-turn context | `HubCallRequest.conversationId` |
+| `context.request_id` | correlation id for one turn | `HubCallRequest.requestId` |
+| `context.require_product_profile` | refuse a bare model; a staged product profile is required | `HttpHubStreamTransport.requestJson` |
+| `context.account_context` | snapshot of the OpenMRS session account, assigned/effective roles, locale, and session location | `AccountContext`, `HubCallRequest.accountContext` |
+
+`ChartSearchAiRestController.chatStream` captures account context after authorization and before
+provider dispatch. It is a scalar snapshot, not a shared `UserContext`. The same snapshot is
+available to the bundled provider on `TurnRequest`. The module adds it to answer events and stored
+turn payloads as `accountContext`, overriding any provider-supplied value for that field. Role
+names are sorted, multiple roles are retained, and an absent session location is explicitly null.
+User UUID is audit metadata; personal names, usernames, credentials, and user properties are excluded.
+The `source` label describes capture origin, not remote authentication: a direct Hub request cannot
+establish OpenMRS identity merely by supplying it. Model instruction selection is still pending;
+this metadata transport must not be reported as role-aware prompting or authorization enforcement.
 
 ### 3.2 Response stream
 

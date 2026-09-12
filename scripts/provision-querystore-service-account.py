@@ -4,75 +4,22 @@
 from __future__ import annotations
 
 import argparse
-import base64
 import json
-import os
 import secrets
 import shlex
 import stat
-import urllib.error
-import urllib.parse
-import urllib.request
+import sys
 from pathlib import Path
 from typing import Any
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from harness.common.openmrs import OpenMrsClient  # noqa: E402
 
 
 ROLE_NAME = "Med Agent Hub Patient Reader"
 SERVICE_USERNAME = "med-agent-hub"
 REQUIRED_PRIVILEGE = "Get Patients"
-
-
-class OpenMrsClient:
-    def __init__(self, base_url: str, username: str, password: str) -> None:
-        self.base_url = base_url.rstrip("/")
-        token = base64.b64encode(f"{username}:{password}".encode()).decode()
-        self.headers = {"Authorization": f"Basic {token}", "Accept": "application/json"}
-
-    def request(self, method: str, path: str, payload: dict[str, Any] | None = None) -> Any:
-        data = None
-        headers = dict(self.headers)
-        if payload is not None:
-            data = json.dumps(payload).encode()
-            headers["Content-Type"] = "application/json"
-        request = urllib.request.Request(
-            f"{self.base_url}/ws/rest/v1/{path.lstrip('/')}",
-            data=data,
-            headers=headers,
-            method=method,
-        )
-        try:
-            with urllib.request.urlopen(request, timeout=30) as response:
-                body = response.read()
-        except urllib.error.HTTPError as error:
-            detail = error.read().decode(errors="replace")
-            raise RuntimeError(f"OpenMRS {method} {path} failed: HTTP {error.code}: {detail}") from error
-        return json.loads(body) if body else {}
-
-    def exact(self, resource: str, field: str, value: str) -> dict[str, Any] | None:
-        query = urllib.parse.urlencode({"q": value, "v": "full", "limit": 100})
-        payload = self.request("GET", f"{resource}?{query}")
-        match = next(
-            (item for item in payload.get("results", []) if item.get(field) == value),
-            None,
-        )
-        if match is not None:
-            return match
-
-        # Some OpenMRS REST resources, notably Privilege, silently ignore or do
-        # not implement `q`. Page the collection rather than falling back to SQL.
-        start = 0
-        while True:
-            page_query = urllib.parse.urlencode(
-                {"v": "full", "limit": 100, "startIndex": start}
-            )
-            page = self.request("GET", f"{resource}?{page_query}")
-            rows = page.get("results", [])
-            match = next((item for item in rows if item.get(field) == value), None)
-            if match is not None:
-                return match
-            if len(rows) < 100:
-                return None
-            start += len(rows)
 
 
 def _password() -> str:
@@ -145,6 +92,7 @@ def provision(
     *,
     internal_base_url: str,
     service_username: str = SERVICE_USERNAME,
+    restore_credentials: bool = False,
 ) -> dict[str, str]:
     saved = _read_env(output)
     username = saved.get("QUERYSTORE_USERNAME") or service_username
@@ -188,7 +136,7 @@ def provision(
         )
     else:
         assigned = {item.get("uuid") for item in user.get("roles", [])}
-        if assigned != {role["uuid"]} or not saved:
+        if assigned != {role["uuid"]} or not saved or restore_credentials:
             client.request("POST", f"user/{user['uuid']}", user_payload)
 
     verified_role = _full(client, "role", str(role["uuid"]))
@@ -229,12 +177,18 @@ def main() -> int:
     parser.add_argument("--admin-user", required=True)
     parser.add_argument("--admin-password", required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument(
+        "--restore-credentials",
+        action="store_true",
+        help="after an explicit database baseline restore, reapply the saved local reader password",
+    )
     args = parser.parse_args()
 
     result = provision(
         OpenMrsClient(args.base_url, args.admin_user, args.admin_password),
         args.output,
         internal_base_url=args.internal_base_url,
+        restore_credentials=args.restore_credentials,
     )
     print(json.dumps(result, sort_keys=True))
     return 0

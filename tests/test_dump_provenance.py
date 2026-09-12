@@ -5,6 +5,8 @@ import importlib.util
 import json
 from pathlib import Path
 
+import pytest
+
 from harness.validate.dump_provenance import sha256_file, verify_dump
 
 
@@ -30,6 +32,7 @@ def _write_dump(
                 "output_sha256": sha256_file(dump),
                 "output_bytes": dump.stat().st_size,
                 "excluded_module_prefixes": ["chartsearchai", "querystore"],
+                "excluded_tables": [],
                 "module_state_included": module_state_included,
             }
         ),
@@ -140,7 +143,9 @@ def test_verify_dump_cli_reports_success(tmp_path: Path, monkeypatch, capsys) ->
     assert "verified dump sha256" in capsys.readouterr().out
 
 
-def test_verify_dump_cli_reports_all_issues(tmp_path: Path, monkeypatch, capsys) -> None:
+def test_verify_dump_cli_reports_all_issues(
+    tmp_path: Path, monkeypatch, capsys
+) -> None:
     dump, provenance = _write_dump(tmp_path, b"SELECT 1;\n")
     metadata = json.loads(provenance.read_text(encoding="utf-8"))
     metadata["output_sha256"] = "0" * 64
@@ -159,3 +164,48 @@ def test_verify_dump_cli_reports_all_issues(tmp_path: Path, monkeypatch, capsys)
 
     assert VERIFY_DUMP.main() == 1
     assert "ERROR: dump sha256 mismatch" in capsys.readouterr().out
+
+
+def test_full_restore_requires_module_state(tmp_path):
+    dump, provenance = _write_dump(tmp_path, b"SELECT 1;\n")
+    _, issues = verify_dump(dump, provenance, require_full_backup=True)
+    assert "recovery requires a full backup with module state" in issues
+
+
+@pytest.mark.parametrize("excluded", [["chartsearchai_chat_session"], None, ""])
+def test_full_restore_rejects_excluded_or_unknown_tables(tmp_path, excluded):
+    dump, provenance = _write_dump(tmp_path, b"SELECT 1;\n", module_state_included=True)
+    metadata = json.loads(provenance.read_text())
+    if excluded is None:
+        del metadata["excluded_tables"]
+    else:
+        metadata["excluded_tables"] = excluded
+    provenance.write_text(json.dumps(metadata))
+    _, issues = verify_dump(dump, provenance, require_full_backup=True)
+    assert "full backup must declare no excluded tables" in issues
+
+
+@pytest.mark.parametrize("full", [False, True])
+def test_corrupt_gzip_fails_even_when_hash_matches(tmp_path, full):
+    dump, provenance = _write_dump(tmp_path, b"SELECT 1;\n", module_state_included=full)
+    dump.write_bytes(dump.read_bytes()[:-8])
+    metadata = json.loads(provenance.read_text())
+    metadata.update(output_sha256=sha256_file(dump), output_bytes=dump.stat().st_size)
+    provenance.write_text(json.dumps(metadata))
+    _, issues = verify_dump(dump, provenance, require_full_backup=full)
+    assert "dump could not be read completely" in issues
+
+
+def test_full_backup_cli_retains_module_records(tmp_path, monkeypatch, capsys):
+    dump, provenance = _write_dump(
+        tmp_path,
+        b"CREATE TABLE `chartsearchai_chat_session` (`id` int);\n",
+        module_state_included=True,
+    )
+    monkeypatch.setattr(
+        VERIFY_DUMP.sys,
+        "argv",
+        ["verify-portable-dump.py", "--dump", str(dump), "--require-full-backup"],
+    )
+    assert VERIFY_DUMP.main() == 0
+    assert "verified dump sha256" in capsys.readouterr().out
