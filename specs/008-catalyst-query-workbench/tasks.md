@@ -131,23 +131,18 @@ seconds. Reviewed distinct-patient-count SQL executed through Catalyst and
 returned 5,384 in 193 ms. Both probes finished before the server was updated to
 `dfee0e2` with the owner-selected E4B default and E4B model warmup. The strict
 repository-pin check and full server health gate passed. Differently worded
-questions after switching datasets remain under test; cold-start and abandoned
-work findings remain open.
+questions after switching datasets also timed out at 120 seconds for both
+sources. Model loading and repeated-query caching do not yet establish general
+responsiveness; cold-start and abandoned-work findings remain open.
 
-The local Docker service was stopped and the temporary runtime checkout was
-missing when work resumed. The checkout and dependencies were restored at
-`dfee0e2`, the existing local inference service was restarted with its prior
-two-model limit, and the harness lifecycle wrapper was run without reseeding.
-The local Gateway reports ready, including Hub, model, analytics, and execution.
-The source application started, but the full health gate is waiting on HAPI
-fixture resources. The OpenELIS source patient count is now zero. Its
-PostgreSQL storage is a bind mount under the temporary checkout, so source-data
-continuity is not established; Gateway readiness alone does not prove it.
-The owner approved rebuilding the local synthetic source with the existing
-harness seeding command. Recovery first moves runtime ownership to a persistent
-checkout and selects a project-scoped database volume. Startup from temporary
-checkouts is rejected. Fixture restoration and a stop/start persistence check
-remain pending; no reset has been performed.
+Local recovery is complete at merged harness `cada140` (PR #145), with the
+same Catalyst and Hub application pins. Runtime ownership is now a persistent
+checkout; OpenELIS/HAPI use a project-scoped Docker volume. The approved fixture
+rebuild restored 96 patients and 1,152 results through the real export and
+analytics pipeline. A full harness restart without seeding passed every health
+gate, with identical patient/result fingerprints before and after. Both Spark
+sources remain readable: OpenELIS 96 patients; OpenMRS 5,384. Recovery receipts
+remain private, outside Git. Server storage was not changed by this recovery.
 
 ## Authoritative roadmap
 
