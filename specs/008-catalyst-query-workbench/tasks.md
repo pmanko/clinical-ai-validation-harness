@@ -46,7 +46,7 @@ Superset remediation in harness #111 remain separate.
 | Deliverable | Implementation and merge | Validation | Deployment / acceptance |
 | --- | --- | --- | --- |
 | Roadmap #142 | Merged as `6d7a327` | All PR checks passed | Authoritative plan updated |
-| Catalyst #106–#112 | #106–#109 merged as `f2a46b0`; the current harness pin is `18bd9ef2` after the recording correction and finite schema-warmup changes | Earlier combined tree: 364 Gateway tests passed, one existing skip; 294 UI tests; 16 deterministic browser checks, eight live-only skips; type/lint/build passed; later focused validation is recorded below | The earlier application pin is running locally and on the server; `18bd9ef2` is pinned but not yet deployed; full workflow acceptance remains open |
+| Catalyst #106–#112 | #106–#109 merged as `f2a46b0`; the current harness pin is `18bd9ef2` after the recording correction and finite schema-warmup changes | Earlier combined tree: 364 Gateway tests passed, one existing skip; 294 UI tests; 16 deterministic browser checks, eight live-only skips; type/lint/build passed; later focused validation is recorded below | `18bd9ef2` and its warmup are running locally; the server still runs the earlier application pin; full workflow acceptance remains open |
 | Hub #25–#28 | Merged; current pin `1ddaa1e51ebb88735808ae9775ec046ba0b3101b` | #25–#27 combined suite: 720 tests passed; #28: 71 focused tests and CI passed | Running locally and on the server; local OpenMRS query-grain check passed |
 | Router #143 and release follow-up #144 | Merged as `a6980ce` and `b6fe09a` | Release CI passed; five router tests and 18 focused router/documentation/repository checks passed | Server router repair deployed at `735ad53`; persistent local source continuity verified; cold-query and full server workflow acceptance remain open |
 | Replacement OpenMRS walkthrough / #141 | Corrected local take 8 passed on runtime `b6fe09a`; recorder fix #110 merged as `1fd4a03` | Full real-model browser test passed: monthly totals preserved, saved SQL reused, two visualizations arranged, repeat publication/import and rendered Superset checked | Merged as `dfee0e2`; both videos and posters published and verified over HTTPS; owner acceptance separate |
@@ -193,10 +193,16 @@ outside Git.
   source's complete schema and ordinary writer profile. Discard the exchange;
   create no sessions, previews, saved examples, guidance, generated SQL, or
   clinical-row retrieval. Use only live schema metadata discovery.
-- [ ] Verify with a different real question on each local source that common
-  instructions/schema are reused and the warmup question/answer are absent from
-  its request. Check switching sources, cache misses, failures and explicit Stop.
-  Record actual cache observations; model-loaded health alone is insufficient.
+- [X] Verify the safe local path with a different real question on each source.
+  At the exact merged harness main, OpenELIS and OpenMRS warmup completed through
+  the wrapper, and each subsequent ordinary draft reached ready with the selected
+  `catalyst-query-e4b-qwen14b` profile (`gemma-e4b` writer and `qwen2.5-14b`
+  reviewer), generated SQL present, no execution, and no warmup question in
+  session history. The retained catalog identities start
+  `live+schema.ddea0ff38989b137` and `live+schema.32eb5cbc4c336643`.
+- [ ] Measure actual prefix/cache reuse and check source switching, cache misses,
+  failures, and explicit Stop. The safe local path above is not a cache-hit or
+  responsiveness measurement; model-loaded health alone remains insufficient.
 - [X] Merge the tested changes and pin the exact compatible Catalyst revision.
   [Catalyst #111](https://github.com/DIGI-UW/catalyst-ai/pull/111) merged as
   `c0a1b431`; [Catalyst #112](https://github.com/DIGI-UW/catalyst-ai/pull/112)
