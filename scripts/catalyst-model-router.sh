@@ -22,6 +22,10 @@ Required for config/up/down:
   CATALYST_ROUTER_PUBLIC_NETWORK       Docker network for the public/rollback Hub
   CATALYST_ROUTER_APPLICATION_NETWORK  Docker network for the current Catalyst Hub
 
+Image override:
+  CATALYST_ROUTER_IMAGE  Verified immutable image ID or registry digest
+                        (default: pinned upstream CPU image)
+
 Capacity settings:
   CATALYST_ROUTER_MODELS_MAX  Maximum resident models (default: 1)
   CATALYST_ROUTER_WARM_MODEL  Model loaded after startup (default: gemma-4-12b-q4)
@@ -115,6 +119,11 @@ fetch_model() {
 }
 
 validate_capacity() {
+  if [[ -n "${CATALYST_ROUTER_IMAGE:-}" ]] &&
+     [[ ! "${CATALYST_ROUTER_IMAGE}" =~ ^(sha256:|[a-zA-Z0-9./:_-]+@sha256:)[a-f0-9]{64}$ ]]; then
+    echo "ERROR: CATALYST_ROUTER_IMAGE must be an immutable image ID or registry digest" >&2
+    return 2
+  fi
   case "${MODELS_MAX}" in
     ''|*[!0-9]*)
       echo "ERROR: CATALYST_ROUTER_MODELS_MAX must be a non-negative integer" >&2
@@ -143,8 +152,8 @@ compose() {
 }
 
 wait_for_catalog() {
-  local attempt
-  for attempt in $(seq 1 "${READY_TIMEOUT_SECONDS}"); do
+  local _attempt
+  for _attempt in $(seq 1 "${READY_TIMEOUT_SECONDS}"); do
     if curl -fsS --max-time 3 "${ROUTER_URL}/v1/models" >/dev/null 2>&1; then
       return 0
     fi
@@ -170,7 +179,7 @@ raise SystemExit(0 if any(
 }
 
 warm_model() {
-  local alias="$1" response attempt
+  local alias="$1" response _attempt
   model_record "${alias}" >/dev/null || {
     echo "ERROR: unsupported Catalyst router model: ${alias}" >&2
     return 2
@@ -191,7 +200,7 @@ payload = json.loads(os.environ["ROUTER_RESPONSE"])
 if payload.get("success") is not True:
     raise SystemExit(f"router rejected model load: {payload}")
 PY
-  for attempt in $(seq 1 "${READY_TIMEOUT_SECONDS}"); do
+  for _attempt in $(seq 1 "${READY_TIMEOUT_SECONDS}"); do
     if model_is_loaded "${alias}"; then
       echo "warm model loaded: ${alias}"
       return 0

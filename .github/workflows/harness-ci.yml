@@ -31,6 +31,8 @@ jobs:
             scripts/local-stack-up.sh \
             scripts/local-stack-down.sh \
             scripts/catalyst-comparison.sh \
+            scripts/catalyst-model-router.sh \
+            scripts/build-catalyst-model-router.sh \
             scripts/verify-repository-lines.sh \
             scripts/verify-docs-consistency.sh
 
