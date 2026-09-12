@@ -1,0 +1,133 @@
+slice_name: Inappropriate UTI diagnosis (time series) - Ind
+description: null
+certified_by: null
+certification_details: null
+viz_type: echarts_timeseries_line
+params:
+  datasource: 7__table
+  viz_type: echarts_timeseries_line
+  matrixify_enable: false
+  matrixify_mode_columns: disabled
+  matrixify_dimension_selection_mode_columns: members
+  matrixify_dimension_columns:
+    dimension: ''
+    values: []
+  matrixify_topn_value_columns: 10
+  matrixify_all_sort_by_columns: a_to_z
+  matrixify_topn_order_columns: true
+  matrixify_show_column_headers: true
+  matrixify_fit_columns_dynamically: true
+  matrixify_mode_rows: disabled
+  matrixify_dimension_selection_mode_rows: members
+  matrixify_dimension_rows:
+    dimension: ''
+    values: []
+  matrixify_topn_value_rows: 10
+  matrixify_all_sort_by_rows: a_to_z
+  matrixify_topn_order_rows: true
+  matrixify_show_row_labels: true
+  matrixify_row_height: 300
+  matrixify_charts_per_row: 4
+  matrixify_cell_title_template: ''
+  x_axis: time_aggregate
+  time_grain_sqla: P1M
+  xAxisForceCategorical: false
+  x_axis_sort_asc: true
+  metrics:
+  - aggregate: MAX
+    column:
+      advanced_data_type: null
+      certification_details: null
+      certified_by: null
+      column_name: inappdx
+      description: null
+      expression: ''
+      filterable: true
+      groupby: true
+      id: 718
+      is_certified: false
+      is_dttm: false
+      python_date_format: null
+      type: FLOAT
+      type_generic: 0
+      uuid: 8325ec24-23bf-47d1-83b8-cf9f5e2c9d13
+      verbose_name: null
+      warning_markdown: null
+    datasourceWarning: false
+    expressionType: SIMPLE
+    hasCustomLabel: false
+    label: MAX(inappdx)
+    optionName: metric_7yqltxiecap_qg5xaegibo
+    sqlExpression: null
+  groupby:
+  - hosp_code
+  adhoc_filters:
+  - clause: WHERE
+    comparator: No filter
+    expressionType: SIMPLE
+    operator: TEMPORAL_RANGE
+    subject: filter_anchor
+  group_others_when_limit_reached: false
+  order_desc: false
+  row_limit: 1000
+  truncate_metric: true
+  show_empty_columns: true
+  comparison_type: values
+  annotation_layers: []
+  forecastEnabled: false
+  forecastPeriods: 10
+  forecastInterval: 0.8
+  x_axis_title: Time
+  x_axis_title_margin: 45
+  y_axis_title: '% Inappropriate UTI Diagnosis'
+  y_axis_title_margin: 50
+  y_axis_title_position: Left
+  sort_series_type: name
+  sort_series_ascending: true
+  color_scheme: googleCategory20c
+  time_shift_color: true
+  show_value: false
+  only_total: true
+  percentage_threshold: 0
+  area: false
+  opacity: 0.2
+  markerEnabled: true
+  markerSize: 5
+  zoomable: false
+  minorTicks: false
+  show_legend: true
+  legendType: scroll
+  legendOrientation: top
+  legendSort: null
+  x_axis_time_format: '%b %Y'
+  x_axis_number_format: ~g
+  xAxisLabelRotation: 90
+  xAxisLabelInterval: '0'
+  force_max_interval: true
+  rich_tooltip: true
+  showTooltipTotal: false
+  showTooltipPercentage: false
+  tooltipSortByMetric: false
+  tooltipTimeFormat: smart_date
+  y_axis_format: ',.0%'
+  logAxis: false
+  minorSplitLine: false
+  truncateXAxis: false
+  truncateYAxis: true
+  y_axis_bounds:
+  - 0
+  - 1
+  echart_options: '{}'
+  extra_form_data: {}
+  time_range: '2025-11-01 : 2026-06-01'
+  granularity_sqla: filter_anchor
+  x_axis_sort: name
+  timeseries_limit_metric: Period order
+  x_axis_force_categorical: true
+  x_axis_label_interval: 0
+  x_axis_label_rotation: 30
+query_context: null
+cache_timeout: null
+uuid: d2eb0100-d6df-54ac-b02c-cf7df1cc8361
+version: 1.0.0
+dataset_uuid: 689dc928-163a-5b50-9ca9-d8da32c158aa

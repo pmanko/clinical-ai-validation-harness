@@ -1,0 +1,219 @@
+table_name: CSiM synthetic full — UTI Location - Ind
+main_dttm_col: filter_anchor
+currency_code_column: null
+description: null
+default_endpoint: null
+offset: 0
+cache_timeout: null
+catalog: null
+schema: v1
+sql: "SELECT p.*,\n{% if from_dttm %} TIMESTAMP '{{ from_dttm }}'\n{% elif to_dttm %} TIMESTAMP '{{ to_dttm\
+  \ }}' - INTERVAL '1 microsecond'\n{% else %} TIMESTAMP '1970-01-01' {% endif %} AS filter_anchor\nFROM\
+  \ (\n{% set grain = {'P1M':'month','P3M':'quarter','P1Y':'year'}.get(time_grain, 'month') %}\n{% set\
+  \ label_format = {'month':'YYYY-MM','quarter':'YYYY \"Q\"Q','year':'YYYY'}[grain] %}\n{% set tf = {'from_expr':\
+  \ \"TIMESTAMP '\" ~ from_dttm ~ \"'\" if from_dttm else none,\n             'to_expr': \"TIMESTAMP '\"\
+  \ ~ to_dttm ~ \"'\" if to_dttm else none} %}WITH observed AS (\n\nSELECT * FROM (\nWITH source_raw AS\
+  \ (\n    SELECT\n        hosp_name, location, month, year\n    FROM \"v1\".\"UTI Individual Current\"\
+  \n    WHERE hosp_name IS NOT NULL\n      AND qi_asb_complete = 2\n      AND month IS NOT NULL\n    \
+  \  AND year IS NOT NULL\n\n    UNION ALL\n\n    SELECT\n        hosp_name, location, month, year\n \
+  \   FROM \"v1\".\"UTI Individual Historical\"\n    WHERE hosp_name IS NOT NULL\n      AND month IS NOT\
+  \ NULL\n      AND year IS NOT NULL\n), raw_data AS (\nSELECT hosp_name, location, EXTRACT(month FROM\
+  \ date_trunc('{{ grain }}', make_date(year::int, month::int, 1)))::int AS month, EXTRACT(year FROM date_trunc('{{\
+  \ grain }}', make_date(year::int, month::int, 1)))::int AS year FROM source_raw\nWHERE TRUE\n{% if tf.from_expr\
+  \ %} AND make_date(year::int, month::int, 1) >= {{ tf.from_expr }} {% endif %}\n{% if tf.to_expr %}\
+  \ AND make_date(year::int, month::int, 1) < {{ tf.to_expr }} {% endif %}\n), hospital_loc AS (\n   \
+  \ SELECT \n        i.hosp_name AS hosp_num,\n        LPAD(i.hosp_name::TEXT, 2, '0') AS hosp_code,\n\
+  \        TRIM(h.state) AS state,\n        CASE i.location\n            WHEN 1 THEN 'Ambulatory care\
+  \ clinic'\n            WHEN 2 THEN 'Emergency Department'\n            WHEN 3 THEN 'Inpatient'\n   \
+  \         WHEN 4 THEN 'Rehab or long-term care'\n            WHEN 5 THEN 'Urgent or quick care'\n  \
+  \          WHEN 6 THEN 'Other'\n        END AS location_name,\n        i.location AS location_code,\n\
+  \        TO_DATE(i.year::TEXT || '-' || LPAD(i.month::TEXT, 2, '0') || '-01', 'YYYY-MM-DD') AS month_date,\n\
+  \        COUNT(*) AS n_submissions\n    FROM raw_data i\n    LEFT JOIN \"v1\".\"CSiM Hospitals and States\"\
+  \ h \n        ON i.hosp_name = h.hosp_code\n    WHERE h.hosp_code IS NOT NULL\n    GROUP BY i.hosp_name,\
+  \ TRIM(h.state), i.location, i.month, i.year\n),\n\n-- All locations combined per hospital per month\n\
+  hospital_loc_allloc AS (\n    SELECT \n        i.hosp_name AS hosp_num,\n        LPAD(i.hosp_name::TEXT,\
+  \ 2, '0') AS hosp_code,\n        TRIM(h.state) AS state,\n        'All locations' AS location_name,\n\
+  \        0 AS location_code,\n        TO_DATE(i.year::TEXT || '-' || LPAD(i.month::TEXT, 2, '0') ||\
+  \ '-01', 'YYYY-MM-DD') AS month_date,\n        COUNT(*) AS n_submissions\n    FROM raw_data i\n    LEFT\
+  \ JOIN \"v1\".\"CSiM Hospitals and States\" h \n        ON i.hosp_name = h.hosp_code\n    WHERE h.hosp_code\
+  \ IS NOT NULL\n    GROUP BY i.hosp_name, TRIM(h.state), i.month, i.year\n),\n\ncombined AS (\n    SELECT\
+  \ * FROM hospital_loc\n    UNION ALL\n    SELECT * FROM hospital_loc_allloc\n),\n\nstate_loc AS (\n\
+  \    SELECT \n        NULL::BIGINT AS hosp_num,\n        state AS hosp_code,\n        state,\n     \
+  \   location_name,\n        location_code,\n        month_date,\n        SUM(n_submissions) AS n_submissions\n\
+  \    FROM combined\n    GROUP BY state, location_name, location_code, month_date\n),\n\ncohort_loc AS\
+  \ (\n    SELECT \n        NULL::BIGINT AS hosp_num,\n        'Cohort' AS hosp_code,\n        'ALL' AS\
+  \ state,\n        location_name,\n        location_code,\n        month_date,\n        SUM(n_submissions)\
+  \ AS n_submissions\n    FROM combined\n    GROUP BY location_name, location_code, month_date\n)\n\n\
+  SELECT * FROM combined\nUNION ALL\nSELECT * FROM state_loc\nUNION ALL\nSELECT * FROM cohort_loc\nORDER\
+  \ BY month_date, hosp_code, location_code\n) selected WHERE {{ 'TRUE' if filter_values('hosp_code')\
+  \ | length > 0 else 'FALSE' }}\n), bounds AS (\nSELECT {% if from_dttm %} TIMESTAMP '{{ from_dttm }}'\
+  \ {% else %} MIN(month_date) {% endif %} AS start_at,\n       {% if to_dttm %} TIMESTAMP '{{ to_dttm\
+  \ }}' {% else %} MAX(month_date)+INTERVAL '1 {{ grain }}' {% endif %} AS end_at\nFROM observed HAVING\
+  \ COUNT(*) >= 0\n), calendar AS (\nSELECT d::date AS month_date FROM bounds CROSS JOIN LATERAL generate_series(\n\
+  date_trunc('{{ grain }}',start_at),date_trunc('{{ grain }}',end_at-INTERVAL '1 microsecond'),INTERVAL\
+  \ '1 {{ grain }}') d\n), dimensions AS (SELECT DISTINCT hosp_num,hosp_code,state,location_name,location_code\
+  \ FROM observed)\nSELECT s.*,c.month_date,EXTRACT(EPOCH FROM c.month_date) AS period_sort,\n       to_char(c.month_date,'{{\
+  \ label_format }}') AS time_aggregate,b.n_submissions\nFROM dimensions s CROSS JOIN calendar c LEFT\
+  \ JOIN observed b ON b.hosp_code=s.hosp_code AND b.location_code=s.location_code AND b.month_date=c.month_date\n\
+  ) p"
+params: null
+template_params: null
+filter_select_enabled: true
+fetch_values_predicate: null
+extra: null
+normalize_columns: false
+always_filter_main_dttm: false
+folders: null
+uuid: 737ca324-bf44-557d-bd48-7fa31f1d5fa0
+metrics:
+- metric_name: Period order
+  verbose_name: null
+  metric_type: null
+  expression: MIN(period_sort)
+  description: null
+  d3format: null
+  currency: null
+  extra: null
+  warning_text: null
+- metric_name: count
+  verbose_name: COUNT(*)
+  metric_type: count
+  expression: COUNT(*)
+  description: null
+  d3format: null
+  currency: null
+  extra: null
+  warning_text: null
+columns:
+- column_name: n_submissions
+  verbose_name: null
+  is_dttm: false
+  is_active: true
+  type: DECIMAL
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: ''
+  description: null
+  python_date_format: null
+  datetime_format: null
+  extra: null
+- column_name: period_sort
+  verbose_name: null
+  is_dttm: false
+  is_active: true
+  type: DECIMAL
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: ''
+  description: null
+  python_date_format: null
+  datetime_format: null
+  extra: null
+- column_name: filter_anchor
+  verbose_name: null
+  is_dttm: true
+  is_active: true
+  type: DATETIME
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: ''
+  description: null
+  python_date_format: null
+  datetime_format: null
+  extra: null
+- column_name: month_date
+  verbose_name: null
+  is_dttm: true
+  is_active: true
+  type: DATE
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: ''
+  description: null
+  python_date_format: null
+  datetime_format: null
+  extra: null
+- column_name: hosp_num
+  verbose_name: null
+  is_dttm: false
+  is_active: true
+  type: LONGINTEGER
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: ''
+  description: null
+  python_date_format: null
+  datetime_format: null
+  extra: null
+- column_name: location_code
+  verbose_name: null
+  is_dttm: false
+  is_active: true
+  type: INTEGER
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: ''
+  description: null
+  python_date_format: null
+  datetime_format: null
+  extra: null
+- column_name: location_name
+  verbose_name: null
+  is_dttm: false
+  is_active: true
+  type: STRING
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: ''
+  description: null
+  python_date_format: null
+  datetime_format: null
+  extra: null
+- column_name: time_aggregate
+  verbose_name: null
+  is_dttm: false
+  is_active: true
+  type: STRING
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: ''
+  description: null
+  python_date_format: null
+  datetime_format: null
+  extra: null
+- column_name: hosp_code
+  verbose_name: null
+  is_dttm: false
+  is_active: true
+  type: STRING
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: ''
+  description: null
+  python_date_format: null
+  datetime_format: null
+  extra: null
+- column_name: state
+  verbose_name: null
+  is_dttm: false
+  is_active: true
+  type: STRING
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: ''
+  description: null
+  python_date_format: null
+  datetime_format: null
+  extra: null
+version: 1.0.0
+database_uuid: f0b39747-1f2b-5a2d-997d-8ed0ccb25d75

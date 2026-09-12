@@ -1,0 +1,207 @@
+slice_name: Abx duration (own hospital stacked) - Ind
+description: null
+certified_by: null
+certification_details: null
+viz_type: echarts_timeseries_bar
+params:
+  datasource: 7__table
+  viz_type: echarts_timeseries_bar
+  matrixify_enable: false
+  matrixify_mode_columns: disabled
+  matrixify_dimension_selection_mode_columns: members
+  matrixify_dimension_columns:
+    dimension: ''
+    values: []
+  matrixify_topn_value_columns: 10
+  matrixify_all_sort_by_columns: a_to_z
+  matrixify_topn_order_columns: true
+  matrixify_show_column_headers: true
+  matrixify_fit_columns_dynamically: true
+  matrixify_mode_rows: disabled
+  matrixify_dimension_selection_mode_rows: members
+  matrixify_dimension_rows:
+    dimension: ''
+    values: []
+  matrixify_topn_value_rows: 10
+  matrixify_all_sort_by_rows: a_to_z
+  matrixify_topn_order_rows: true
+  matrixify_show_row_labels: true
+  matrixify_row_height: 300
+  matrixify_charts_per_row: 4
+  matrixify_cell_title_template: ''
+  x_axis: time_aggregate
+  time_grain_sqla: P1M
+  x_axis_sort_asc: true
+  metrics:
+  - aggregate: SUM
+    column:
+      advanced_data_type: null
+      changed_on: '2026-03-17T18:08:24.135563'
+      column_name: dur_cat_1
+      created_on: '2026-03-17T18:08:24.018584'
+      description: null
+      expression: ''
+      extra: null
+      filterable: true
+      groupby: true
+      id: 425
+      is_active: true
+      is_dttm: false
+      python_date_format: null
+      type: DECIMAL
+      type_generic: 0
+      uuid: 90a2fcea-950e-4332-a919-f2d4f6caf159
+      verbose_name: null
+    datasourceWarning: false
+    expressionType: SIMPLE
+    hasCustomLabel: true
+    label: <=3 days
+    optionName: metric_2fx4sysd7py_mwapt5qjyt
+    sqlExpression: null
+  - aggregate: SUM
+    column:
+      advanced_data_type: null
+      changed_on: '2026-03-17T18:08:24.135571'
+      column_name: dur_cat_2
+      created_on: '2026-03-17T18:08:24.018604'
+      description: null
+      expression: ''
+      extra: null
+      filterable: true
+      groupby: true
+      id: 426
+      is_active: true
+      is_dttm: false
+      python_date_format: null
+      type: DECIMAL
+      type_generic: 0
+      uuid: 69af81c4-a7e7-4fa2-9caf-ca5f7d91ac40
+      verbose_name: null
+    datasourceWarning: false
+    expressionType: SIMPLE
+    hasCustomLabel: true
+    label: '>3 to 5 days'
+    optionName: metric_ovlc8w69oj_6xka7wjdm5y
+    sqlExpression: null
+  - aggregate: SUM
+    column:
+      advanced_data_type: null
+      changed_on: '2026-03-17T18:08:24.135578'
+      column_name: dur_cat_3
+      created_on: '2026-03-17T18:08:24.018623'
+      description: null
+      expression: ''
+      extra: null
+      filterable: true
+      groupby: true
+      id: 427
+      is_active: true
+      is_dttm: false
+      python_date_format: null
+      type: DECIMAL
+      type_generic: 0
+      uuid: b13cc836-71ef-4edd-9c2b-a30877a1370f
+      verbose_name: null
+    datasourceWarning: false
+    expressionType: SIMPLE
+    hasCustomLabel: true
+    label: '>5 to 7 days'
+    optionName: metric_jrz8xoxx9g_qfeumqc4ngl
+    sqlExpression: null
+  - aggregate: SUM
+    column:
+      advanced_data_type: null
+      changed_on: '2026-03-17T18:08:24.135585'
+      column_name: dur_cat_4
+      created_on: '2026-03-17T18:08:24.018642'
+      description: null
+      expression: ''
+      extra: null
+      filterable: true
+      groupby: true
+      id: 428
+      is_active: true
+      is_dttm: false
+      python_date_format: null
+      type: DECIMAL
+      type_generic: 0
+      uuid: 5e098d80-8b2a-4825-9c4f-85b6f5652bc1
+      verbose_name: null
+    datasourceWarning: false
+    expressionType: SIMPLE
+    hasCustomLabel: true
+    label: '>7 days'
+    optionName: metric_5nxy3olipf7_p0gigzdb35
+    sqlExpression: null
+  groupby: []
+  adhoc_filters:
+  - clause: WHERE
+    comparator: No filter
+    datasourceWarning: false
+    expressionType: SIMPLE
+    filterOptionName: filter_e1mzbmkjvo4_mn5cs3j4ygb
+    isExtra: false
+    isNew: false
+    operator: TEMPORAL_RANGE
+    sqlExpression: null
+    subject: filter_anchor
+  order_desc: false
+  row_limit: 1000
+  truncate_metric: true
+  show_empty_columns: true
+  comparison_type: values
+  annotation_layers: []
+  forecastEnabled: false
+  forecastPeriods: 10
+  forecastInterval: 0.8
+  orientation: vertical
+  x_axis_title: Time
+  x_axis_title_margin: 45
+  y_axis_title: Number of treated patients
+  y_axis_title_margin: 30
+  y_axis_title_position: Left
+  sort_series_type: name
+  sort_series_ascending: true
+  color_scheme: presetColors
+  time_shift_color: true
+  show_value: false
+  stack: Stack
+  only_total: true
+  percentage_threshold: 0
+  minorTicks: false
+  zoomable: false
+  show_legend: true
+  legendType: scroll
+  legendOrientation: left
+  x_axis_time_format: '%b %Y'
+  x_axis_number_format: ~g
+  xAxisLabelRotation: 90
+  xAxisLabelInterval: auto
+  y_axis_format: SMART_NUMBER
+  logAxis: false
+  minorSplitLine: false
+  truncateYAxis: false
+  y_axis_bounds:
+  - null
+  - null
+  truncateXAxis: false
+  force_max_interval: false
+  rich_tooltip: true
+  showTooltipTotal: true
+  showTooltipPercentage: true
+  tooltipSortByMetric: false
+  tooltipTimeFormat: smart_date
+  echart_options: '{}'
+  extra_form_data: {}
+  time_range: '2025-11-01 : 2026-06-01'
+  granularity_sqla: filter_anchor
+  x_axis_sort: name
+  timeseries_limit_metric: Period order
+  x_axis_force_categorical: true
+  x_axis_label_interval: 0
+  x_axis_label_rotation: 30
+query_context: null
+cache_timeout: null
+uuid: 0a58f700-4799-5419-9c9b-a2395ea3299a
+version: 1.0.0
+dataset_uuid: 689dc928-163a-5b50-9ca9-d8da32c158aa
