@@ -1,0 +1,25 @@
+{
+  "schema_version": "evaluation_roles.v1",
+  "purpose": "Synthetic-data role-persona research, not production access-control certification",
+  "source": "https://docs.google.com/spreadsheets/d/1wcs2PswDRXWMmYcGkCvcW0NmPOGO1CIKv9pMSuxTEas/edit",
+  "access_role": "Application: Uses ChartSearchAI (Research)",
+  "required_privileges": [
+    "AI Query Patient Data",
+    "Get Patients",
+    "Get Observations",
+    "Get Encounters",
+    "Get Visits",
+    "Get Orders",
+    "Get Allergies",
+    "Get Conditions"
+  ],
+  "accounts": [
+    {"username": "eval-clinical-officer", "role": "Organizational: Clinical Officer", "tier": "primary"},
+    {"username": "eval-nurse", "role": "Organizational: Nurse", "tier": "primary", "require_existing_role": true},
+    {"username": "eval-pharmacy", "role": "Organizational: Pharmaceutical Technologist", "tier": "primary"},
+    {"username": "eval-counsellor", "role": "Organizational: Adherence Counsellor", "tier": "primary"},
+    {"username": "eval-records", "role": "Organizational: Health Records Officer", "tier": "primary"},
+    {"username": "eval-doctor", "role": "Organizational: Doctor", "tier": "secondary", "require_existing_role": true},
+    {"username": "eval-peer", "role": "Organizational: Peer Educator", "tier": "secondary"}
+  ]
+}

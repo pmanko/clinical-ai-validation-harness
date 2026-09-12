@@ -484,7 +484,9 @@ def test_openmrs_client_posts_json_with_basic_auth(monkeypatch):
         requests.append((request, timeout))
         return Response()
 
-    monkeypatch.setattr(provisioner.urllib.request, "urlopen", urlopen)
+    from harness.common import openmrs
+
+    monkeypatch.setattr(openmrs.urllib.request, "urlopen", urlopen)
     client = provisioner.OpenMrsClient("http://openmrs/", "admin", "secret")
 
     assert client.request("POST", "/role", {"name": "Reader"}) == {

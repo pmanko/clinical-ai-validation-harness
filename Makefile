@@ -3,7 +3,7 @@ PYTHON_VERSION ?= 3.11
 UV_PROJECT_ENVIRONMENT ?= .venv
 export UV_PROJECT_ENVIRONMENT
 
-.PHONY: setup python-pin test smoke validate-plan clean-venv \
+.PHONY: setup python-pin test smoke validate-plan clean-venv environment-check environment-prepare \
         up down local-stack-up local-stack-down reset status logs \
         ciel-fetch ciel-baseline \
         reset-transform sqlmesh-status \
@@ -20,6 +20,14 @@ export UV_PROJECT_ENVIRONMENT
         catalyst-mvp-up catalyst-mvp-external catalyst-mvp-seed catalyst-mvp-health catalyst-mvp-restart catalyst-mvp-down catalyst-mvp-reset catalyst-superset-status catalyst-superset-import
 
 # --- compose lifecycle ---
+# Parent setup preserves data. Baseline initialization/reset and optional study
+# accounts use explicit arguments documented in docs/environment-setup.md.
+environment-check:
+	bash scripts/setup-environment.sh check
+
+environment-prepare:
+	bash scripts/setup-environment.sh prepare
+
 up:
 	./scripts/stack-up.sh --wait
 

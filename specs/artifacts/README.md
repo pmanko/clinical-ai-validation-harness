@@ -5,6 +5,9 @@ pull-request, roadmap, artifact and publication inventories. It records progress
 and evidence while preserving each product's existing requirement authority.
 
 Current planning and research artifacts that support the feature roadmap.
+- [Harness environment setup](planning/harness-environment-setup.md)
+  - In-progress preserve-by-default source update, baseline reset, research
+    accounts, asset provisioning, and real-path readiness workflow.
 - `planning/openmrs-dual-provider-parity-roadmap.md`
   - Approved canonical roadmap for preserving bundled ChartSearchAI and med-agent-hub behind one
     capability-driven OpenMRS interface. It supersedes the hub-only architecture roadmap.

@@ -29,6 +29,7 @@ DB_ROOT_PASS="${MYSQL_ROOT_PASSWORD:-openmrs}"
 DB_USER="${OMRS_DB_USER:-openmrs}"
 BACKEND="${OPENMRS_BACKEND:-harness-openmrs-backend}"
 PROXY_PORT="${PROXY_PORT:-${HARNESS_PROXY_HTTP_PORT:-8088}}"
+ADMIN_AUTH="${CHARTSEARCH_ADMIN_USER:-admin}:${CHARTSEARCH_ADMIN_PASSWORD:-Admin123}"
 TARGET_DB="${SEED_TARGET_DB:-openmrs}"
 DUMP=""
 FROM_SCHEMA=""
@@ -44,6 +45,12 @@ while [[ $# -gt 0 ]]; do
     *) echo "unknown arg: $1" >&2; exit 1 ;;
   esac
 done
+
+if ! [[ "${TARGET_DB}" =~ ^[A-Za-z][A-Za-z0-9_]*$ ]] \
+  || ! [[ "${DB_USER}" =~ ^[A-Za-z][A-Za-z0-9_]*$ ]]; then
+  echo "ERROR: target database and database user must be simple SQL identifiers." >&2
+  exit 2
+fi
 
 # --- resolve the dump to restore ---
 if [[ -n "$FROM_SCHEMA" ]]; then
@@ -116,7 +123,7 @@ UP=0
 for attempt in 1 2 3; do
   echo "    waiting for backend health (first boot runs Liquibase; can take minutes) [attempt ${attempt}/3]..."
   for i in $(seq 1 100); do
-    code=$(curl -s -o /dev/null -w "%{http_code}" -u admin:Admin123 \
+    code=$(curl -s -o /dev/null -w "%{http_code}" -u "${ADMIN_AUTH}" \
       "http://localhost:${PROXY_PORT}/openmrs/ws/fhir2/R4/Patient?_count=1" || true)
     [ "$code" = "200" ] && { echo "    backend up (~$((i*6))s)"; UP=1; break; }
     sleep 6
@@ -133,7 +140,7 @@ done
 #     to start (e.g. a Liquibase checksum mismatch) — checked here so a broken seed fails loudly at
 #     seed time instead of being discovered later during manual QA. ---
 echo "==> verifying every OpenMRS module started cleanly"
-FAILED_MODULES="$(curl -fsS -u admin:Admin123 \
+FAILED_MODULES="$(curl -fsS -u "${ADMIN_AUTH}" \
   "http://localhost:${PROXY_PORT}/openmrs/ws/rest/v1/module?v=custom:(name,started,startupErrorMessage)" \
   | python3 -c "
 import json, sys
@@ -184,7 +191,7 @@ echo "    corpus receipt: ${CORPUS_RECEIPT}"
 #     index is empty until a full reindex. Synchronous; ~30-60s for 5K patients. ---
 if [[ "$REINDEX" == "1" ]]; then
   echo "==> triggering Hibernate Search reindex (synchronous)"
-  curl -fsS -u admin:Admin123 -m 600 -X POST \
+  curl -fsS -u "${ADMIN_AUTH}" -m 600 -X POST \
     "http://localhost:${PROXY_PORT}/openmrs/ws/rest/v1/searchindexupdate" >/dev/null \
     && echo "    reindex complete" \
     || echo "    WARNING: reindex POST failed — run it manually once the backend settles."
