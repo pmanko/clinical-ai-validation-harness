@@ -20,16 +20,18 @@ conversation work remain separately scheduled.
 - [ ] Record owner acceptance of that checkpoint. Implementation or green checks
   alone do not mark this accepted.
 
-Local development now serves the working Catalyst UI at `localhost:13001`
-against the retained local Gateway and both real sources. Local testing does
-not wait for merges. Final release/acceptance revisions remain pinned and merged.
+The retained local release runs from `/Users/pmanko/code/catalyst-dev` at
+`localhost:13000`, on merged harness `a5703cc` with both real sources.
+The server checkout is `/home/ubuntu/catalyst-release` at the same revision.
+Separate UI development and its owner review do not change this release evidence.
 
 ## Current release integration — 11 September 2026
 
 The owner authorized this sequence: roadmap #142, combined Catalyst #106–#109
 and Hub #25–#27, router #143 with exact merged pins, local/server deployment,
-then the OpenMRS replacement recording and publication in #141. This checkpoint
-supersedes earlier unmerged-status notes below. #134 and #111 remain separate.
+then the OpenMRS replacement recording and publication in #141 (now merged).
+The 12 September replacement below is its follow-up. #134 merged separately as
+reporting-planning documentation; #111 remains a separate dashboard draft.
 
 | Deliverable | Implementation and merge | Validation | Deployment / acceptance |
 | --- | --- | --- | --- |
@@ -39,7 +41,43 @@ supersedes earlier unmerged-status notes below. #134 and #111 remain separate.
 | Router #143 and release follow-up #144 | Merged as `a6980ce` and `b6fe09a` | Release CI passed; five router tests and 18 focused router/documentation/repository checks passed | Server router repair deployed at `735ad53`; persistent local source continuity verified; cold-query and full server workflow acceptance remain open |
 | Replacement OpenMRS walkthrough / #141 | Corrected local take 8 passed on runtime `b6fe09a`; recorder fix #110 merged as `1fd4a03` | Full real-model browser test passed: monthly totals preserved, saved SQL reused, two visualizations arranged, repeat publication/import and rendered Superset checked | Merged as `dfee0e2`; both videos and posters published and verified over HTTPS; owner acceptance separate |
 | Hub #29/#30 and Catalyst #118 lifecycle warmup | Merged as `88b48c4`, `d806c90`, and `2f85f1c`; harness #156 pins the compatible baseline as `ecf8647` | Hub #29: 32 focused role/lifecycle tests; Hub #30: 35 focused tests; Catalyst: 27 focused warmup/query tests; all hosted CI sets passed | Local and server two-source lifecycle warmups passed. Ordinary-question evidence remains separate. |
-| Normal query lifecycle and Spark-function diagnostic | Hub #31 `6120c31`, Catalyst #119 `a1f52cc`, and Catalyst #120 `742ee58` are merged; harness pin pending | Hub #31: 716 tests; Catalyst #119: 367 tests; Catalyst #120: 366 tests, each with hosted CI green | Deploy exact pins, prove normal question preparation/execution on both sources, then record the local OpenMRS replacement walkthrough. |
+| Normal query lifecycle and Spark-function diagnostic | Hub #31 `6120c31`, Catalyst #119 `a1f52cc`, and Catalyst #120 `742ee58` are merged; harness #157 pins them as `a5703cc` | Hub #31: 716 tests; Catalyst #119: 367 tests; Catalyst #120: 366 tests, each with hosted CI green | Exact release deployed; local post-warmup source switching and the OpenMRS replacement capture passed. Server ordinary-question completion remains open. |
+
+### 12 September release evidence
+
+- **Runtime:** harness `a5703cc`, Catalyst `742ee58`, Hub `6120c31` are deployed
+  locally and on the CPU server. The strict repository-line check passed.
+  Server lifecycle health and neutral warmup for both sources passed.
+- **Local neutral-warmup validation:** OpenELIS test counts, OpenMRS encounter
+  counts, and a return to OpenELIS for distinct patients all prepared and executed
+  through Catalyst. Their recorded writer requests contain no warmup exchange or
+  conversation history. The model processed 523, 528, and 516 new prompt tokens
+  for requests containing 14,965, 8,930, and 14,964 tokens respectively; the
+  source-specific warmups processed 14,960 and 7,483 tokens. These are observed
+  cache reuse and source-switch behavior, not speed requirements. One explicit
+  local client Stop after writer activity returned `generation_cancelled`,
+  released both model slots, and executed no SQL.
+- **OpenMRS replacement:** local take C passed the complete real-model browser
+  path with the planned Gemma 4 12B writer and Qwen 2.5 14B reviewer. Both queries
+  were model-authored and approved; all six monthly totals survived refinement.
+  Exact saved SQL was reused, table and time-series chart arrangement persisted,
+  repeat publication retained its digest, and imported Superset rows matched.
+  Merged Catalyst #123 makes the date-valued month requirement explicit in this recording
+  and checks chart compatibility before selection. Type checks, lint, the live
+  OpenMRS scenario, and all five hosted CI checks passed.
+- **Observed limitations:** an earlier E4B/reviewer take doubled monthly counts
+  despite reviewer approval; the unchanged total-preservation assertion rejected
+  it. A successful 12B take does not resolve that E4B reliability finding.
+  Catalyst #117 remains separate and is not included in the capture. Final visual
+  and owner acceptance remain open.
+- **Private evidence:** raw capture, requests/results, trace, screenshots and
+  revision manifest are retained in the local Movies/Catalyst archive. The 3:56
+  final cut completed normal-speed playback review and uses a ten-second data-pipe
+  introduction, longer title cards, captions below the footage, labelled fast
+  waits, and normal-speed interactions. Its MP4 and poster are published under
+  immutable September 12 URLs; HTTPS bytes match the local SHA-256 hashes. This
+  change updates both public consumers. Landing deployment and server
+  ordinary-question completion remain separate verification steps.
 
 The combined review reproduced a conflict between #106's metadata-only repair
 and #109's duplicate alias-repair regression. Both tests are retained. Named,
@@ -192,10 +230,12 @@ outside Git.
   #118 and Hub #29 establish the lifecycle route; Hub #30 also removes its
   underlying client deadline. Normal question transport and its Stop behavior
   are unchanged.
-- [ ] Verify with a different real question on each local source that common
+- [X] Verify with a different real question on each local source that common
   instructions/schema are reused and the warmup question/answer are absent from
   its request. Check switching sources, cache misses, failures and explicit Stop.
-  Record actual cache observations; model-loaded health alone is insufficient.
+  The 12 September evidence above records actual cache reuse, a cold initial
+  prefix, source switching, and explicit cancellation; model-loaded health alone
+  is insufficient.
 - [X] Merge the tested changes and pin the exact compatible Catalyst revision.
   [Catalyst #111](https://github.com/DIGI-UW/catalyst-ai/pull/111) merged as
   `c0a1b431`; [Catalyst #112](https://github.com/DIGI-UW/catalyst-ai/pull/112)

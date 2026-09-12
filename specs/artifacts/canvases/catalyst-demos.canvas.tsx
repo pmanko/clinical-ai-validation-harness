@@ -53,10 +53,10 @@ const clips: DemoClip[] = [
     pill: 'Local · writer and reviewer',
     question: 'How many CD4 count results were recorded in each month of 2026?',
     followup: 'Break down the monthly CD4 counts by gender, including missing gender.',
-    file: 'catalyst-openmrs-cd4-monitoring-local-reviewed-light-20260911-6fa6917.mp4',
-    poster: 'catalyst-openmrs-cd4-monitoring-local-reviewed-light-20260911-6fa6917-poster.jpg',
+    file: 'catalyst-openmrs-cd4-monitoring-local-reviewed-light-20260912-742ee58.mp4',
+    poster: 'catalyst-openmrs-cd4-monitoring-local-reviewed-light-20260912-742ee58-poster.jpg',
     sizeLabel: '~4.7 MB',
-    durationLabel: '3:06',
+    durationLabel: '3:56',
   },
 ];
 
