@@ -34,10 +34,10 @@ supersedes earlier unmerged-status notes below. #134 and #111 remain separate.
 | Deliverable | Implementation and merge | Validation | Deployment / acceptance |
 | --- | --- | --- | --- |
 | Roadmap #142 | Merged as `6d7a327` | All PR checks passed | Authoritative plan updated |
-| Catalyst #106–#109 | Merged; pin `f2a46b017f2adc5d43057de4e90d46dbf3129171` | Combined tree: 364 Gateway tests passed, one existing skip; 294 UI tests; 16 deterministic browser checks, eight live-only skips; type/lint/build passed; final #106 CI passed | Pending |
-| Hub #25–#27 | Merged; pin `ac545b140e18bbb2293c3bb7ba98caffb08491e3` | Combined suite: 720 tests passed; individual PR checks passed | Pending |
-| Router #143 and release pins | Prepared in #143 | Three router contract tests and shell syntax passed; release CI pending | Pending |
-| Replacement OpenMRS walkthrough / #141 | Recording and publication pending | Must use the real local reviewed model profile, preserve monthly totals, and verify the rendered Superset result | Pending; owner acceptance separate |
+| Catalyst #106–#109 | Merged; pin `f2a46b017f2adc5d43057de4e90d46dbf3129171` | Combined tree: 364 Gateway tests passed, one existing skip; 294 UI tests; 16 deterministic browser checks, eight live-only skips; type/lint/build passed; final #106 CI passed | Running locally and on the server; full workflow acceptance pending |
+| Hub #25–#28 | Merged; current pin `1ddaa1e51ebb88735808ae9775ec046ba0b3101b` | #25–#27 combined suite: 720 tests passed; #28: 71 focused tests and CI passed | Running locally and on the server; local OpenMRS query-grain check passed |
+| Router #143 and release follow-up #144 | Merged as `a6980ce` and `b6fe09a` | Release CI passed; five router tests and 18 focused router/documentation/repository checks passed | Both deployments at `b6fe09a`; health passed; server usable-query and cancellation checks failed |
+| Replacement OpenMRS walkthrough / #141 | Corrected local take 8 passed on runtime `b6fe09a`; recorder fix #110 merged as `1fd4a03` | Full real-model browser test passed: monthly totals preserved, saved SQL reused, two visualizations arranged, repeat publication/import and rendered Superset checked | Normal-speed local video review passed; media uploaded; landing publication pending; owner acceptance separate |
 
 The combined review reproduced a conflict between #106's metadata-only repair
 and #109's duplicate alias-repair regression. Both tests are retained. Named,
@@ -45,11 +45,27 @@ complete projections now repair declared output names; unnamed expressions or
 a different projection count may still request SQL repair. This does not rewrite
 user-selected SQL. The repaired engine tests pass together.
 
-The `a6980ce` release is running locally and on the demo server; both wrapper
+The `b6fe09a` release is running locally and on the demo server; both wrapper
 health checks and the public two-source discovery endpoint passed. The server
 uses the maintained router with one resident model and its original 12B default;
 the legacy router is stopped and retained for rollback. Full server workflow and
 latency acceptance remain open.
+
+The first server timing probe used `a6980ce` and the exact question “How many
+patients are there?” for both sources with each writer-only profile. All four
+requests ended with `generation_timeout`: OpenELIS/12B 120.134 s,
+OpenMRS/12B 120.167 s, OpenELIS/E4B 120.202 s, and OpenMRS/E4B
+120.136 s. Router logs show E4B still processing its roughly 11,000-token prompt
+at 271.74 s (9,477 tokens processed), after the caller timed out. Its process
+used about 15 CPU cores. These are failed sequential requests, not valid warm
+latency measurements: abandoned model work interfered with subsequent requests.
+The pinned inference build is llama.cpp `12127def` (`b10015`). Its proxy cleanup
+closes the local pipe without stopping the downstream HTTP client; this is a
+concrete cancellation gap to reproduce independently before a fix. Do not claim
+that releasing the Hub lock proves release of the actual model slot. Keep the
+public default unchanged; no extra hardware or inference subsystem is approved
+by these observations. Raw timing responses and logs remain private review
+artifacts, not checked-in media.
 
 The exact-release local OpenMRS take was rejected: a direct join to `patient_flat`
 doubled all six monthly totals, including January 200 to 400. That source view
@@ -57,7 +73,38 @@ expands names and identifiers, so patient ID is not unique. The recording checks
 are unchanged. Hub #28 adds writer/reviewer guidance to preserve fact grain,
 retain unmatched facts when missing categories are requested, and avoid arbitrary
 conflict resolution. Its 71 focused tests and CI pass; this release follow-up pins
-the merged repair. Successful live regeneration and final publication remain open.
+the merged repair. The next exact-release take passed in 5.9 minutes. The model used a left join
+and distinct observation IDs; all six monthly totals were preserved. The real
+Gemma 12B writer and Qwen 14B reviewer completed both preparations, followed by
+saved-SQL reuse, table/chart arrangement, repeat publication, import and rendered
+Superset verification. This proves the recorded scenario, not all joins. Final
+video review and publication remain open.
+
+The initial passing take was rejected in visual review because its bar chart
+collapsed the month dimension. Catalyst #110 selects the existing recommended
+monthly line chart and asserts month, gender, and count bindings. It changes
+only the recording test; all clinical-total and publication assertions remain.
+Take 6 failed model review and is retained privately as a reliability finding.
+Take 7 exposed a recording-checkout/import-owner mismatch. After restoring the
+runtime's exact pins and separating the recorder checkout, take 8 passed the
+complete real-model browser workflow in 5.6 minutes, including Superset rendering.
+The final edited replacement is 3:06. Full normal-speed local playback review
+passed: light appearance, readable captions, labeled accelerated waits, no manual
+SQL editing, and the monthly line chart beside its matching table. Both final
+MP4s and posters were uploaded under immutable names; landing publication follows
+this PR. OpenMRS SHA-256 starts `6fa6917`; the previously reviewed OpenELIS cut
+starts `abaf54f` and runs 3:04, with one brief supplied-SQL repair. The OpenELIS
+cut predates the current release and is not current-release server evidence.
+Raw footage, traces, and rejected takes remain private.
+
+The owner reaffirmed that all recording and video verification are local.
+Server work is deployment and query validation: a smaller model, warmup, and a
+lightweight selectable alternative. The installed fast candidate is Gemma E4B;
+A4B is a different model. No GPU was provisioned and the GPU proposal is withdrawn.
+The base approach targets low-resource, non-GPU environments. Model loading and
+repeated-query warmup must be measured separately; a loaded model alone does not
+prove acceptable query latency. Success on the existing 16-core server alone is
+not proof of low-resource suitability.
 
 Server rollout found that the pinned router rejects `POST /models/load` for an
 already-running model. The warm/smoke wrapper now checks actual loaded state
@@ -574,6 +621,31 @@ The new immutable [OpenMRS video](https://catalyst.openelis-global.org/media/cat
 and [poster](https://catalyst.openelis-global.org/media/catalyst-openmrs-cd4-monitoring-local-light-20260911-373cac8-poster.jpg)
 were HTTPS hash-verified before the homepage reference changed. The prior
 OpenMRS asset remains immutable evidence; OpenELIS is unchanged.
+
+The 11 September owner review found misleading “unreviewed” badges and
+formatting-only “human” versions despite recorded reviewer approvals. Public
+recapture must fix both and focus on model-created SQL and plain-language
+refinement. Include only one brief model repair of supplied broken SQL across
+the two videos; retain deliberate engine-error/retry coverage separately.
+
+- [X] Correct review recognition and formatting provenance, with regression tests
+  ([Catalyst #106](https://github.com/DIGI-UW/catalyst-ai/pull/106)); local
+  implementation and CI pass, merge and final footage acceptance remain open.
+- [ ] Recapture both light-mode stories with actual reviewer decisions, one brief
+  supplied-SQL repair, matching Superset results and no staged manual fixes.
+- [ ] Review the new cuts at normal speed and replace public video/poster links.
+
+Recording validation, 11 September: OpenELIS passed the real writer/reviewer,
+saved-work and rendered Superset path. Its 3:04 light cut includes one 26-second
+supplied-query repair and passed normal-speed review. OpenMRS recapture remains
+open: one take multiplied monthly totals; the next failed because generated SQL
+and declared output names disagreed. Both were rejected. The recorder checks
+unchanged totals. Gateway fixes preserve model authorship across formatter-only
+changes and constrain projection-metadata repairs to output names, never SQL
+([Catalyst #106](https://github.com/DIGI-UW/catalyst-ai/pull/106), all five CI
+jobs and 56 focused checks pass). Local redeployment, successful OpenMRS
+recapture and media-host access remain pending. These scenario checks do not
+establish general clinical correctness.
 
 Final server-proof release candidate, 11 September: Catalyst `c93a3d6` combines
 the configurable server generation window from

@@ -447,6 +447,18 @@ video:focus-visible {
   font-size: 13px;
 }
 
+.video-external-link {
+  width: fit-content;
+  margin-top: 8px;
+  color: var(--purple);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.video-external-link:hover {
+  color: var(--purple-dark);
+}
+
 .transcript {
   margin-top: 14px;
   font-size: 13px;
