@@ -12,7 +12,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 @pytest.mark.parametrize(
-    "command", ["up", "boot", "restart", "seed", "warm", "superset-import"]
+    "command", ["up", "ui-update", "boot", "restart", "seed", "warm", "superset-import"]
 )
 def test_temporary_runtime_rejected_before_target_or_docker_access(tmp_path, command):
     (tmp_path / "scripts").mkdir()

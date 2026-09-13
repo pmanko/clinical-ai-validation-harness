@@ -21,8 +21,10 @@ conversation work remain separately scheduled.
   alone do not mark this accepted.
 
 The retained local release runs from `/Users/pmanko/code/catalyst-dev` at
-`localhost:13000`, on merged harness `8070237` with both real sources.
-The server checkout is `/home/ubuntu/catalyst-release` at the same revision.
+`localhost:13000`, on merged harness `8cd18f6` with both real sources.
+The server checkout is `/home/ubuntu/catalyst-release` at `78169be`.
+Both retain Catalyst `a59d883` and Hub `6120c31`; the UI-only rollout tracked
+below updates the harness and Catalyst pins without replacing backend services.
 Separate UI development and its owner review do not change this release evidence.
 
 The owner merged Catalyst #117 (`ed22781`) on 12 September and requested a live
@@ -143,8 +145,9 @@ reporting-planning documentation; #111 remains a separate dashboard draft.
   newly replaced file. Both wrapper imports returned `already_imported`. The
   public proxy's missing Dashboard route and stale Catalyst
   API deadline were repaired with a backed-up, validated graceful reload.
-  Superset now reaches its sign-in page; the documented default login is rejected
-  and owner sign-in is pending. Rendered-result checks remain open. The corrected
+  The configured server credential works in the public browser; the local default
+  is not the server credential. Both rendered-result checks passed on 13 September
+  (see the closeout entry below). The corrected
   OpenMRS query was saved from the browser as Dataset version `ac279460`, then
   used for a table and grouped-bar chart. Dashboard version `c74e05e0` restores
   chart then table, each at half width; both order and widths were checked in
@@ -321,6 +324,41 @@ outside Git.
 - [ ] Resolve remaining long-running first-query and varied cross-source failures;
   complete the real saved-work through Superset journey for both sources before
   closing server acceptance. Videos are already published and remain local work.
+
+## Release closeout — 13 September 2026
+
+- [X] Verify the actual public Superset dashboards after authenticated sign-in.
+  OpenMRS: all nine encounter/gender rows match the saved Catalyst execution,
+  totaling 28,564 visits. OpenELIS: all nine test groups match, with eight groups
+  of 96 and Viral Load 384. Rendered tables and charts were inspected; comparison
+  uses retained Catalyst results, not a separate SQL replay. Private evidence:
+  `Movies/Catalyst/2026-09-12/release-evidence/8070237/`
+  `superset-browser-verification-20260913/verification.json`.
+- [X] Confirm Catalyst and CSiM deployment isolation: distinct Superset containers,
+  metadata stores, volumes and proxy routes. No credential reset or CSiM change.
+- [ ] Merge and apply the composer cleanup: padded Available data button; stable
+  bottom clearance in narrow/wide layouts; no inner focus-border collision;
+  shared Query settings dialog preserving profile, draft, focus and Stop behavior.
+  [Catalyst #126](https://github.com/DIGI-UW/catalyst-ai/pull/126) is merged as
+  `bb783c8`; all five hosted checks passed on its reviewed head. Harness #169
+  pins this revision with unchanged Hub `6120c31` and adds a UI-only lifecycle
+  update that leaves dependencies running. Runtime update and owner review
+  remain separate.
+  Unit suite: 300 passed. Deterministic browser suite: 17 passed, with 8 live-only
+  scenarios skipped. Build and lint pass; existing bundle-size warning remains.
+  The UI-only wrapper path has 19 passing focused lifecycle/layout tests,
+  including retained isolation settings, dependency exclusion and failure
+  propagation; ShellCheck passes. Exact-head harness CI is required before merge.
+- [ ] Remediate snapshot pollution at the FHIR Data Pipes source boundary.
+  Current local discovery exposes OpenELIS 10 stable views + 30 snapshot tables
+  and OpenMRS 12 stable views + 12 snapshot tables. The pinned controller creates
+  both in the same JDBC database. A clean current-data namespace preserving the
+  original snapshots/saved SQL is proposed; the owner's history-browsing choice
+  is pending. No tables, snapshots or source connections have been changed.
+- [ ] Correct the Superset header logo/base-link visual defect.
+- [ ] Deploy the merged cleanup through the harness wrapper and compare both
+  real sources with the approved design in light/dark and narrow/wide layouts.
+  Synchronize any required video/public references, then record owner acceptance.
 
 ## Next checkpoint — neutral-question warmup
 
