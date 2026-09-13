@@ -298,8 +298,26 @@ outside Git.
   generation-smoke deadline, as explicitly directed by the owner.
   The earlier 128-token preset and cancellation timing gate are superseded.
   This changes neither model/prompt selection nor the downstream disconnect fix.
-  Exact deployed preset hashes and rollout status remain in the private release
-  receipt; this implementation entry does not claim deployment or owner acceptance.
+  [Harness #165](https://github.com/pmanko/clinical-ai-validation-harness/pull/165)
+  merged as `78169be`; the corresponding local preset change in
+  [#166](https://github.com/pmanko/clinical-ai-validation-harness/pull/166)
+  merged as `8cd18f6`. Both hosted CI sets passed, with 11 existing server-router
+  tests and 27 existing local-router policy tests passing locally.
+- [X] Apply the correction to the CPU server and persistent local development
+  checkout through their existing router lifecycle scripts. On 13 September,
+  the server ran `78169be` and local ran `8cd18f6`, both with unchanged Catalyst
+  `a59d883` and Hub `6120c31`. The running server child process and both restored
+  local models were verified with 4,096/1,024 batch arguments. Strict repository
+  verification and application health passed; neutral warmup completed for
+  OpenELIS and OpenMRS in each environment. Model files, sampling, retained data,
+  and the local model catalogue and two-model capacity were preserved. No new
+  performance benchmark or timing criterion was introduced. Rollout logs and
+  hashes are in the private release receipt under
+  `Movies/Catalyst/2026-09-12/release-evidence/8070237/batch-correction-20260913`.
+- [X] Recheck the published replacement after the rollout: the current OpenMRS
+  MP4 and poster return HTTP 200 and match the reviewed SHA-256 hashes; the
+  OpenClinAI homepage still references them and retains both YouTube convenience
+  links. This confirms publication, not final owner acceptance.
 - [ ] Resolve remaining long-running first-query and varied cross-source failures;
   complete the real saved-work through Superset journey for both sources before
   closing server acceptance. Videos are already published and remain local work.
