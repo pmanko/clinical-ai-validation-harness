@@ -86,7 +86,7 @@ reporting-planning documentation; #111 remains a separate dashboard draft.
 - **Observed limitations:** an earlier E4B/reviewer take doubled monthly counts
   despite reviewer approval; the unchanged total-preservation assertion rejected
   it. A successful 12B take does not resolve that E4B reliability finding.
-  Catalyst #117 remains separate and is not included in the capture. Final visual
+  Catalyst #117 is deployed but is not included in the capture. Final visual
   and owner acceptance remain open.
 - **Private evidence:** raw capture, requests/results, trace, screenshots and
   revision manifest are retained in the local Movies/Catalyst archive. The 3:56
@@ -106,16 +106,27 @@ reporting-planning documentation; #111 remains a separate dashboard draft.
   produced syntactically valid SQL but zero rows. The candidate joined
   `encounter_flat.patient_id` to `patient_flat.identifier_value`; the checked-in
   source views define the patient resource key as `patient_flat.id`. The
-  inner join also fails the requested retention of unmatched patients. Normal
-  corrective feedback ended with a browser `Failed to fetch` and a server
-  `generation_cancelled` record; no corrected answer was produced. The cause
-  needs transport/log inspection, not attribution to a deadline. No SQL hand
-  edit, prompt change, model switch or new deadline was applied. The failed
-  candidate, result and interrupted correction remain private evidence;
-  basic-query success does not close this correctness finding. A second browser
-  retry also ended with `Failed to fetch` and a recorded `generation_cancelled`
-  while the router was still processing the prompt. No corrected candidate was
-  produced; this remains a transport finding as well as an unresolved refinement.
+  inner join also fails the requested retention of unmatched patients. External
+  corrective-feedback attempts ended with `generation_cancelled` before producing
+  an answer. The same payload subsequently completed through the server-local
+  application API with the unchanged E4B profile (turn `aa9090e1`), using the
+  patient resource key, a left join and distinct encounter counts. Its exact
+  model-created SQL was executed from the browser: nine rows, with all five
+  original encounter-type totals preserved (28,564 visits). No SQL hand edit,
+  prompt change, model switch or new deadline was applied. The returned result has no
+  missing-gender row, so that branch is supported by SQL inspection rather than
+  observed fixture coverage. The failed candidates and corrected result remain
+  separate private evidence. Laptop power logs show sleep during both the second
+  browser failure and the public-API diagnostic; this confounds attribution to
+  a server connection limit. The subsequent public-browser follow-up (turn
+  `88887517`) completed with temporary sleep prevention and the unchanged E4B
+  profile. Its exact model-created query executed from the browser; all nine
+  aggregate rows matched the prior result and were sorted by encounter type,
+  then gender as requested. Preparation did not execute SQL. Router evidence
+  records 12,282 processed prompt tokens and 274 generated tokens; its roughly
+  24-minute model invocation is an observation, not a response-time target or
+  acceptance of responsiveness. The temporary sleep assertion was stopped after
+  verification. No connection failure reproduced in this controlled run.
 - **Server saved work:** the successful OpenELIS result was saved through the
   application API, with a table, chart and a second Dashboard version preserving
   the changed arrangement. Browser review confirmed the nine recorded rows and
@@ -133,8 +144,16 @@ reporting-planning documentation; #111 remains a separate dashboard draft.
   public proxy's missing Dashboard route and stale Catalyst
   API deadline were repaired with a backed-up, validated graceful reload.
   Superset now reaches its sign-in page; the documented default login is rejected
-  and owner sign-in is pending. Rendered-result checks remain open. OpenMRS
-  saved-work verification awaits a correct current result.
+  and owner sign-in is pending. Rendered-result checks remain open. The corrected
+  OpenMRS query was saved from the browser as Dataset version `ac279460`, then
+  used for a table and grouped-bar chart. Dashboard version `c74e05e0` restores
+  chart then table, each at half width; both order and widths were checked in
+  the browser. Repeat publication preserved bundle digest
+  `81358e8af557f13c404396f4d06286152a60b74010735b9fd608fd3e624abfb2`.
+  The native import ran from the server checkout and returned receipt
+  `049b44e0-83ce-466a-8aa1-7eb8ccd5e3cf`; the library displays Imported for both
+  sources. Full requests, rows, receipts and screenshots are retained privately
+  under `Movies/Catalyst/2026-09-12/release-evidence/8070237`.
 - **Visual release:** harness #160 (`f4998f5`), Catalyst `ed22781`, and unchanged
   Hub `6120c31` were verified locally and on the CPU server. Browser light/dark
   checks
@@ -832,23 +851,20 @@ refinement. Include only one brief model repair of supplied broken SQL across
 the two videos; retain deliberate engine-error/retry coverage separately.
 
 - [X] Correct review recognition and formatting provenance, with regression tests
-  ([Catalyst #106](https://github.com/DIGI-UW/catalyst-ai/pull/106)); local
-  implementation and CI pass, merge and final footage acceptance remain open.
-- [ ] Recapture both light-mode stories with actual reviewer decisions, one brief
+  ([Catalyst #106](https://github.com/DIGI-UW/catalyst-ai/pull/106), merged
+  `f2a46b0`); focused tests and hosted CI passed.
+- [X] Recapture both light-mode stories with actual reviewer decisions, one brief
   supplied-SQL repair, matching Superset results and no staged manual fixes.
-- [ ] Review the new cuts at normal speed and replace public video/poster links.
+  OpenELIS passed on 11 September; the successful 12 September OpenMRS replacement
+  and rejected earlier takes are accounted for in the release evidence above.
+- [X] Review the new cuts at normal speed and replace public video/poster links.
+  Publication #141 (`dfee0e2`) and its replacement #158 (`0df04b8`) are merged;
+  current page, MP4 and poster hashes were verified. Owner acceptance is separate.
 
-Recording validation, 11 September: OpenELIS passed the real writer/reviewer,
-saved-work and rendered Superset path. Its 3:04 light cut includes one 26-second
-supplied-query repair and passed normal-speed review. OpenMRS recapture remains
-open: one take multiplied monthly totals; the next failed because generated SQL
-and declared output names disagreed. Both were rejected. The recorder checks
-unchanged totals. Gateway fixes preserve model authorship across formatter-only
-changes and constrain projection-metadata repairs to output names, never SQL
-([Catalyst #106](https://github.com/DIGI-UW/catalyst-ai/pull/106), all five CI
-jobs and 56 focused checks pass). Local redeployment, successful OpenMRS
-recapture and media-host access remain pending. These scenario checks do not
-establish general clinical correctness.
+The OpenELIS 3:04 light cut includes one 26-second supplied-query repair. Earlier
+OpenMRS takes that changed monthly totals or produced inconsistent output names
+were rejected; the later successful capture retains those checks. Scenario
+verification does not establish general clinical correctness.
 
 Final server-proof release candidate, 11 September: Catalyst `c93a3d6` combines
 the configurable server generation window from
@@ -931,10 +947,12 @@ full server run remain separate evidence below.
 - [X] Watch each final cut at normal speed, confirm captions neither disappear
   early nor cover demonstrated information, then publish new immutable media
   filenames and update all public video/poster references together.
-- [ ] Record and verify the current OpenMRS replacement locally after the exact
+- [X] Record and verify the current OpenMRS replacement locally after the exact
   post-#119/#120 release. Keep light mode throughout, use model-created Spark
   SQL, and make its workflow distinct from the published OpenELIS cut. Do not
   record on the server or manually edit SQL to bypass a model/dialect failure.
+  Local take C on `a5703cc`/`742ee58`/`6120c31` passed and was published through
+  #158. The recording predates the later #117 visual patch.
 - [ ] Record final local/server evidence, current public links, and explicit
   owner acceptance before marking this delivery complete.
 
