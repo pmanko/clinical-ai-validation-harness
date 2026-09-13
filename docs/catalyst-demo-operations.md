@@ -155,9 +155,10 @@ than changing a profile or falling back silently.
 The pinned upstream router can leave a non-streaming model request running after
 its caller disconnects. The small patch in `patches/catalyst-router-cancellation.patch`
 closes that downstream HTTP request and keeps unrelated queue results from
-extending the disconnect-check deadline. The CPU preset bounds prompt batches
-at 128 tokens so a long evaluation does not postpone that check indefinitely.
-This does not change the model, selected SQL, or application timeout.
+extending the disconnect-check deadline. The CPU preset uses ChartSearchAI's
+4,096-token logical batch and 1,024-token physical batch for prompt processing.
+Batch sizing is not tuned for cancellation latency. No numeric generation or
+cancellation acceptance threshold is approved.
 
 Build on a local machine for the destination architecture:
 
@@ -174,22 +175,15 @@ ID, upstream revision and patch checksum. Build source and outputs stay outside 
 Set `CATALYST_ROUTER_IMAGE` to that verified image ID for the isolated candidate.
 The wrapper rejects mutable image tags. An unset override retains the original
 upstream image for rollback; it does **not** enable the cancellation repair.
-After loading/warming the candidate, run both nonclinical checks while it is idle:
+After loading/warming the candidate, verify ordinary inference while it is idle:
 
 ```bash
-python3 scripts/probe-catalyst-router-cancellation.py \
-  --url http://127.0.0.1:8077 --model gemma-e4b --phase generation \
-  --output artifacts/cancel-generation.json
-python3 scripts/probe-catalyst-router-cancellation.py \
-  --url http://127.0.0.1:8077 --model gemma-e4b --phase prefill \
-  --output artifacts/cancel-prefill.json
 scripts/catalyst-model-router.sh smoke gemma-e4b
 ```
 
-Each probe observes the requested active phase, disconnects, then requires idle
-within five seconds, including the time spent waiting for status responses.
-A late idle response fails. Run these against the candidate, never during another
-person's generation. Local timings do not certify server cancellation or latency.
+The former five-second cancellation probe and its tests are removed. Run the
+inference check against an idle candidate, never during another person's
+generation. Local timings are observations, not server performance requirements.
 
 For the existing SSH deployment, transfer a `docker save` archive of the tested
 image and the build receipt. Verify the archive checksum before `docker load`,
@@ -197,7 +191,7 @@ then verify the loaded image's architecture and patch label against the receipt.
 Docker engines can represent the image index differently: select the loaded
 immutable image ID, not a transport tag. Save the prior environment/image ID
 before setting `CATALYST_ROUTER_IMAGE` and using the router cutover procedure
-above. Re-run cancellation, ordinary generation and both-source application
+above. Re-run ordinary generation and both-source application
 checks on the server. Restore the prior image and environment if they fail.
 Keep receipts private; changing the router requires no database reset or reseed.
 
@@ -229,14 +223,11 @@ Keep this explicit server compatibility setting when rebuilding the override.
 
 ## Model timeout settings
 
-The server override retains the previous CPU demo budgets: set
-`CATALYST_HUB_TIMEOUT_SECONDS: "1800"` on `catalyst-gateway` and
-`LLM_REQUEST_TIMEOUT_SECONDS: "1800"` on `med-agent-hub`. The isolated stack's
-360-second Gateway default caused a verified OpenMRS preparation failure on
-11 September UTC, before SQL execution. Model processing in the same time window
-exceeded nine minutes. These older per-call budgets do not override the current
-120-second total preparation deadline, which includes queueing and repair.
-Increasing them does not make inference faster or establish successful generation.
+Normal Catalyst query preparation and neutral-question warmup have no automatic
+total generation deadline. Catalyst #120 and Hub #31 removed those deadlines;
+older instructions for a 120-second total limit or 360/1,800-second query budgets
+are superseded. Existing explicit Stop and request-loss handling remain in place.
+Connection and health-check timeouts do not define an inference acceptance target.
 
 Check for active preparations before applying lifecycle changes. The wrapper's
 `up` rebuilds services and can recreate otherwise unchanged application containers;

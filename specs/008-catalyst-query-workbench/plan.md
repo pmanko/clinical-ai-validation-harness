@@ -111,6 +111,11 @@ The owner direction is low-resource CPU deployment, useful responsiveness,
 warmup that helps real queries, and a working Stop control. Timings are diagnostic
 evidence; no numeric response-time or cancellation target is approved.
 
+Use ChartSearchAI's CPU batch configuration: 4,096 logical tokens and 1,024
+physical tokens. This replaces the cancellation-oriented 128-token override.
+The five-second cancellation gate is retired; do not reintroduce it as a
+deployment requirement or tune normal inference around cancellation speed.
+
 ## Next owner checkpoint — deployed release and local verified demos
 
 Approved on 10 September 2026: the next reviewable checkpoint is a working
