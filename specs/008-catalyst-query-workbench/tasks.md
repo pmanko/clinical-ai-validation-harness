@@ -143,8 +143,9 @@ reporting-planning documentation; #111 remains a separate dashboard draft.
   newly replaced file. Both wrapper imports returned `already_imported`. The
   public proxy's missing Dashboard route and stale Catalyst
   API deadline were repaired with a backed-up, validated graceful reload.
-  Superset now reaches its sign-in page; the documented default login is rejected
-  and owner sign-in is pending. Rendered-result checks remain open. The corrected
+  The configured server credential works in the public browser; the local default
+  is not the server credential. Both rendered-result checks passed on 13 September
+  (see the closeout entry below). The corrected
   OpenMRS query was saved from the browser as Dataset version `ac279460`, then
   used for a table and grouped-bar chart. Dashboard version `c74e05e0` restores
   chart then table, each at half width; both order and widths were checked in
@@ -321,6 +322,36 @@ outside Git.
 - [ ] Resolve remaining long-running first-query and varied cross-source failures;
   complete the real saved-work through Superset journey for both sources before
   closing server acceptance. Videos are already published and remain local work.
+
+## Release closeout — 13 September 2026
+
+- [X] Verify the actual public Superset dashboards after authenticated sign-in.
+  OpenMRS: all nine encounter/gender rows match the saved Catalyst execution,
+  totaling 28,564 visits. OpenELIS: all nine test groups match, with eight groups
+  of 96 and Viral Load 384. Rendered tables and charts were inspected; comparison
+  uses retained Catalyst results, not a separate SQL replay. Private evidence:
+  `Movies/Catalyst/2026-09-12/release-evidence/8070237/`
+  `superset-browser-verification-20260913/verification.json`.
+- [X] Confirm Catalyst and CSiM deployment isolation: distinct Superset containers,
+  metadata stores, volumes and proxy routes. No credential reset or CSiM change.
+- [ ] Merge and apply the composer cleanup: padded Available data button; stable
+  bottom clearance in narrow/wide layouts; no inner focus-border collision;
+  shared Query settings dialog preserving profile, draft, focus and Stop behavior.
+  Implementation and local UI verification are prepared in
+  [Catalyst #126](https://github.com/DIGI-UW/catalyst-ai/pull/126) (`452c470`);
+  merge, runtime update and owner review remain separate.
+  Unit suite: 300 passed. Deterministic browser suite: 17 passed, with 8 live-only
+  scenarios skipped. Build and lint pass; existing bundle-size warning remains.
+- [ ] Remediate snapshot pollution at the FHIR Data Pipes source boundary.
+  Current local discovery exposes OpenELIS 10 stable views + 30 snapshot tables
+  and OpenMRS 12 stable views + 12 snapshot tables. The pinned controller creates
+  both in the same JDBC database. A clean current-data namespace preserving the
+  original snapshots/saved SQL is proposed; the owner's history-browsing choice
+  is pending. No tables, snapshots or source connections have been changed.
+- [ ] Correct the Superset header logo/base-link visual defect.
+- [ ] Deploy the merged cleanup through the harness wrapper and compare both
+  real sources with the approved design in light/dark and narrow/wide layouts.
+  Synchronize any required video/public references, then record owner acceptance.
 
 ## Next checkpoint — neutral-question warmup
 

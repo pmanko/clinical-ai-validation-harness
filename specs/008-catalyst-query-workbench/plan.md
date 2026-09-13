@@ -26,7 +26,8 @@ application API with the unchanged E4B profile; browser execution returned nine
 rows and preserved all five original encounter-type totals. Both source
 Dashboards are now imported. A subsequent public-browser refinement completed
 with sleep temporarily prevented and preserved all nine aggregate rows while
-sorting them as requested. Rendered Superset results, final visual acceptance
+sorting them as requested. Both server Superset dashboards were rendered and
+checked against their originating Catalyst results on 13 September. Final visual
 and owner acceptance remain open.
 Responsiveness and URL-addressable sessions remain the next product
 checkpoint after this release is stabilized and accepted.
@@ -59,8 +60,10 @@ A subsequent public-browser refinement completed with temporary sleep prevention
 all nine rows matched the prior result and the requested ordering was correct.
 This did not require an application, prompt, model or deadline change. It proves
 completion of that request, not a general responsiveness or correctness claim.
-Superset reaches its sign-in page; owner sign-in is pending for rendered-data
-verification. Final visual and owner acceptance remain open.
+The configured server credential now works in the public Superset browser. Both
+imported dashboards render; all nine rows per source match the retained Catalyst
+results. Catalyst and CSiM use separate Superset containers and metadata stores.
+Final visual and owner acceptance remain open.
 
 The 13 September batch correction is merged and applied: harness #165 (`78169be`)
 on the CPU server and #166 (`8cd18f6`) locally, with unchanged Catalyst and Hub
@@ -71,7 +74,7 @@ video and poster still match the reviewed files. Deployment logs and publication
 hashes remain private; [tasks.md](tasks.md#downstream-cancellation-repair) records
 the checks separately from rendered-data and owner acceptance.
 
-## Immediate next step — complete server workflow verification
+## Immediate next step — finish the observed release cleanup
 
 Neutral warmup and the local two-source baseline are complete. Merged Catalyst
 #124 handles SQL tokenization errors through the existing parse-finding and
@@ -79,10 +82,25 @@ model correction path, preserving failed candidate evidence. The exact merged
 repair is deployed and the unchanged OpenMRS question and source-switch sequence
 pass. The public-browser refinement check now passes with the client kept awake;
 the failed candidates and server-local correction remain separate evidence.
-Verify both imported Dashboards' actual Superset rows after owner sign-in, then
-complete visual and owner acceptance. Do not describe a successful SQL execution
-or import as a correct rendered answer. This verification keeps prompts, model
-choice, retry policy and deadline behavior unchanged.
+The rendered-data check is complete, with private browser screenshots and a
+comparison to each originating Catalyst execution. Complete these owner-requested
+fixes before final acceptance:
+
+1. Correct the Available data button, bottom-composer overlap/padding and
+   Query settings interaction against the approved design. Use the shared
+   composer and existing Carbon controls; preserve state and explicit execution.
+2. Resolve FHIR Data Pipes snapshot/current-view duplication at the reference
+   source boundary. Preserve retained snapshots and existing saved SQL. Review
+   the current-data publication namespace versus explicit history presentation
+   with the owner before changing discovery behavior. Catalyst must not gain a
+   FHIR-specific relation filter.
+3. Merge tested compatible revisions, update the exact harness pin, and apply
+   the cleanup locally and on the existing server using the lifecycle wrapper.
+   Keep final visual, video alignment and owner acceptance separate.
+
+The Superset header logo/base-link visual defect also remains to be corrected.
+This cleanup does not change model profiles, generation deadlines or ingestion
+contents. Detailed status and evidence live only in [tasks.md](tasks.md).
 
 ### Established neutral-question warmup
 
