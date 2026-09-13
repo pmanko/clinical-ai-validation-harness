@@ -94,8 +94,9 @@ fixes before final acceptance:
    the current-data publication namespace versus explicit history presentation
    with the owner before changing discovery behavior. Catalyst must not gain a
    FHIR-specific relation filter.
-3. Merge tested compatible revisions, update the exact harness pin, and apply
-   the cleanup locally and on the existing server using the lifecycle wrapper.
+3. Catalyst #126 is merged as `bb783c8`. Harness #169 pins that revision and adds
+   the wrapper's `ui-update` operation to apply only the UI locally and on the
+   existing server, preserving running services, model configuration and data.
    Keep final visual, video alignment and owner acceptance separate.
 
 The Superset header logo/base-link visual defect also remains to be corrected.

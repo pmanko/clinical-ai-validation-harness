@@ -234,6 +234,15 @@ Check for active preparations before applying lifecycle changes. The wrapper's
 run it outside recording, import and query validation. Keep each validation run
 on an uninterrupted deployment.
 
+For a UI-only release, update the persistent checkout to the merged harness
+revision, initialize its exact Catalyst and Hub pins, and run
+`scripts/catalyst-mvp.sh ui-update` with the environment used for that stack.
+This uses the same isolated override and existing `.env`, rebuilds only
+`catalyst-ui`, and passes `--no-deps` so Gateway, Hub, models, source databases
+and Superset keep running. It does not seed, warm models or import dashboards.
+Verify the served asset hashes and the browser afterward. Use normal `up` when
+the release also changes backend services.
+
 ## Capacity, evidence and publication
 
 The root volume is now 100 GiB. The expansion and targeted Docker cache pruning
