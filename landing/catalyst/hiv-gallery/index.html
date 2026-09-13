@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="A widescreen screenshot walkthrough of Catalyst with OpenMRS HIV demo data: write a CD4 monitoring question, review results, and create a dashboard." />
+    <title>Catalyst HIV walkthrough · Open Clinical AI</title>
+    <link rel="canonical" href="https://openclinai.org/catalyst/hiv-gallery/" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="/styles.css" />
+    <style>
+      .gallery-header { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 20px; padding: 20px 32px; border-bottom: 1px solid var(--line); }
+      .gallery-header > a:last-child { align-self: center; font-size: 14px; font-weight: 600; text-underline-offset: 4px; }
+      .gallery-intro { padding: 64px 0 36px; max-width: 850px; }
+      .gallery-intro h1 { margin: 10px 0 20px; font-size: clamp(32px, 5vw, 52px); font-weight: 750; line-height: 1.12; letter-spacing: -0.035em; }
+      .gallery-intro > p { max-width: 740px; font-size: 18px; }
+      .gallery-intro .gallery-meta { color: var(--muted); font-size: 14px; }
+      .gallery-actions { display: flex; flex-wrap: wrap; gap: 12px; margin: 26px 0 20px; }
+      .gallery-note { border-left: 3px solid var(--line); padding: 2px 0 2px 16px; color: var(--muted); font-size: 14px; }
+      .gallery-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 36px 28px; padding-bottom: 64px; }
+      .gallery-card { margin: 0; min-width: 0; }
+      .gallery-card > a { display: block; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--soft); }
+      .gallery-card img { width: 100%; height: auto; aspect-ratio: 16 / 9; }
+      .gallery-card figcaption { padding: 17px 2px 0; }
+      .gallery-step { color: var(--muted); font-size: 12px; font-weight: 650; letter-spacing: 0.06em; text-transform: uppercase; }
+      .gallery-card h2 { margin: 4px 0 7px; font-size: 20px; line-height: 1.3; font-weight: 700; }
+      .gallery-card p { margin: 0 0 10px; color: var(--muted); font-size: 15px; }
+      .gallery-card figcaption > a { font-size: 14px; font-weight: 650; text-underline-offset: 4px; }
+      .gallery-footer { padding: 28px 0 40px; border-top: 1px solid var(--line); color: var(--muted); font-size: 14px; }
+      @media (max-width: 760px) {
+        .gallery-header { padding: 20px 24px; }
+        .gallery-intro { padding-top: 40px; }
+        .gallery-grid { grid-template-columns: 1fr; gap: 32px; }
+      }
+    </style>
+  </head>
+  <body>
+    <a class="skip-link" href="#main-content">Skip to content</a>
+    <header class="gallery-header">
+      <a class="brand" href="/" aria-label="Open Clinical AI home">
+        <span class="brand-mark" aria-hidden="true"><span></span></span>
+        <span>Open Clinical AI</span>
+      </a>
+      <a href="/#catalyst">Back to Catalyst videos</a>
+    </header>
+    <main id="main-content" class="page-width">
+      <div class="gallery-intro">
+        <p class="section-kicker">Catalyst · Question and saved-results walkthrough</p>
+        <h1>From an HIV program question to a dashboard.</h1>
+        <p>Explore a CD4 monitoring question, browse available data, and inspect retained results, chart settings and a dashboard. Select any image to see its full detail.</p>
+        <p class="gallery-meta">Captured locally · 13 September 2026 · 1920 × 1080 images</p>
+        <div class="gallery-actions">
+          <a class="button button-primary" href="https://catalyst.openelis-global.org/media/catalyst-hiv-gallery-20260913/hiv-demo-screenshots.zip">Download all screenshots</a>
+          <a class="button button-secondary" href="/#catalyst">Watch the walkthroughs</a>
+        </div>
+        <aside class="gallery-note">The Catalyst screens show retained OpenMRS HIV demo results. The opening FHIR Data Pipes control panel shows the reference OpenELIS pipeline, not a new HIV ingestion run.</aside>
+      </div>
+      <div class="gallery-grid">
+        <figure class="gallery-card">
+          <a href="https://catalyst.openelis-global.org/media/catalyst-hiv-gallery-20260913/01-fhir-data-pipes-overview.jpg" aria-label="Open full-size FHIR Data Pipes reference control panel">
+            <img src="https://catalyst.openelis-global.org/media/catalyst-hiv-gallery-20260913/01-fhir-data-pipes-overview.jpg" alt="FHIR Pipelines Control Panel with pipeline run controls, snapshot information and configuration sections" width="1920" height="1080" />
+          </a>
+          <figcaption><span class="gallery-step">01 · Reference pipeline</span><h2>Prepare data for analysis</h2><p>FHIR Data Pipes provides the ingestion and snapshot controls. This reference control panel is connected to the local OpenELIS source.</p><a href="https://catalyst.openelis-global.org/media/catalyst-hiv-gallery-20260913/01-fhir-data-pipes-overview.jpg">View full size</a></figcaption>
+        </figure>
+        <figure class="gallery-card">
+          <a href="https://catalyst.openelis-global.org/media/catalyst-hiv-gallery-20260913/02-ask-about-cd4.jpg" aria-label="Open full-size CD4 question draft">
+            <img src="https://catalyst.openelis-global.org/media/catalyst-hiv-gallery-20260913/02-ask-about-cd4.jpg" alt="Catalyst question area containing a request for monthly CD4 result counts during 2026" width="1920" height="1080" />
+          </a>
+          <figcaption><span class="gallery-step">02 · Ask a question</span><h2>Describe the report you need</h2><p>Ask for monthly CD4 result counts in 2026, with a date column suitable for a line chart.</p><a href="https://catalyst.openelis-global.org/media/catalyst-hiv-gallery-20260913/02-ask-about-cd4.jpg">View full size</a></figcaption>
+        </figure>
+        <figure class="gallery-card">
+          <a href="https://catalyst.openelis-global.org/media/catalyst-hiv-gallery-20260913/03-browse-data-while-writing.jpg" aria-label="Open full-size available data panel alongside the question">
+            <img src="https://catalyst.openelis-global.org/media/catalyst-hiv-gallery-20260913/03-browse-data-while-writing.jpg" alt="Available data panel showing the OpenMRS observation fields alongside the unfinished CD4 question" width="1920" height="1080" loading="lazy" />
+          </a>
+          <figcaption><span class="gallery-step">03 · Explore available data</span><h2>Browse without losing your draft</h2><p>Search tables and inspect fields next to the question. Browsing this schema does not retrieve clinical rows.</p><a href="https://catalyst.openelis-global.org/media/catalyst-hiv-gallery-20260913/03-browse-data-while-writing.jpg">View full size</a></figcaption>
+        </figure>
+        <figure class="gallery-card">
+          <a href="https://catalyst.openelis-global.org/media/catalyst-hiv-gallery-20260913/04-review-cd4-results.jpg" aria-label="Open full-size saved CD4 results">
+            <img src="https://catalyst.openelis-global.org/media/catalyst-hiv-gallery-20260913/04-review-cd4-results.jpg" alt="Saved CD4 query results with month, gender and result count columns" width="1920" height="1080" loading="lazy" />
+          </a>
+          <figcaption><span class="gallery-step">04 · Review results</span><h2>Inspect the monthly breakdown</h2><p>The saved result includes the later refinement by patient gender. Review the returned rows before building a visualization.</p><a href="https://catalyst.openelis-global.org/media/catalyst-hiv-gallery-20260913/04-review-cd4-results.jpg">View full size</a></figcaption>
+        </figure>
+        <figure class="gallery-card">
+          <a href="https://catalyst.openelis-global.org/media/catalyst-hiv-gallery-20260913/05-saved-sql-and-values.jpg" aria-label="Open full-size saved SQL and parameter values">
+            <img src="https://catalyst.openelis-global.org/media/catalyst-hiv-gallery-20260913/05-saved-sql-and-values.jpg" alt="Saved SQL and values for the CD4 result query, including test and date parameters" width="1920" height="1080" loading="lazy" />
+          </a>
+          <figcaption><span class="gallery-step">05 · Inspect and reuse</span><h2>Keep the query behind the answer</h2><p>Saved work retains the exact SQL and values. Technical details remain available when you need to inspect or reuse them.</p><a href="https://catalyst.openelis-global.org/media/catalyst-hiv-gallery-20260913/05-saved-sql-and-values.jpg">View full size</a></figcaption>
+        </figure>
+        <figure class="gallery-card">
+          <a href="https://catalyst.openelis-global.org/media/catalyst-hiv-gallery-20260913/06-cd4-chart-configuration.jpg" aria-label="Open full-size CD4 line chart configuration">
+            <img src="https://catalyst.openelis-global.org/media/catalyst-hiv-gallery-20260913/06-cd4-chart-configuration.jpg" alt="Saved CD4 line chart configuration with month, result count and gender settings, alongside a placeholder preview" width="1920" height="1080" loading="lazy" />
+          </a>
+          <figcaption><span class="gallery-step">06 · Create a chart</span><h2>Make the pattern visible</h2><p>Inspect the saved chart settings: month on the horizontal axis, result counts as the measure, and a series for each gender. The rendered chart appears in the final screen.</p><a href="https://catalyst.openelis-global.org/media/catalyst-hiv-gallery-20260913/06-cd4-chart-configuration.jpg">View full size</a></figcaption>
+        </figure>
+        <figure class="gallery-card">
+          <a href="https://catalyst.openelis-global.org/media/catalyst-hiv-gallery-20260913/07-arrange-hiv-dashboard.jpg" aria-label="Open full-size saved HIV dashboard arrangement">
+            <img src="https://catalyst.openelis-global.org/media/catalyst-hiv-gallery-20260913/07-arrange-hiv-dashboard.jpg" alt="Catalyst dashboard arrangement combining the CD4 chart and result table" width="1920" height="1080" loading="lazy" />
+          </a>
+          <figcaption><span class="gallery-step">07 · Arrange saved work</span><h2>Bring the chart and table together</h2><p>Place the visualizations on a dashboard and preserve the arrangement for later use.</p><a href="https://catalyst.openelis-global.org/media/catalyst-hiv-gallery-20260913/07-arrange-hiv-dashboard.jpg">View full size</a></figcaption>
+        </figure>
+        <figure class="gallery-card">
+          <a href="https://catalyst.openelis-global.org/media/catalyst-hiv-gallery-20260913/08-superset-hiv-dashboard.jpg" aria-label="Open full-size rendered Superset CD4 dashboard">
+            <img src="https://catalyst.openelis-global.org/media/catalyst-hiv-gallery-20260913/08-superset-hiv-dashboard.jpg" alt="Published Superset dashboard displaying monthly CD4 results by gender alongside the result table" width="1920" height="1080" loading="lazy" />
+          </a>
+          <figcaption><span class="gallery-step">08 · View the dashboard</span><h2>Read the published result</h2><p>The retained dashboard renders in the local Superset instance with its chart and table.</p><a href="https://catalyst.openelis-global.org/media/catalyst-hiv-gallery-20260913/08-superset-hiv-dashboard.jpg">View full size</a></figcaption>
+        </figure>
+      </div>
+    </main>
+    <footer class="gallery-footer page-width"><a href="/#catalyst">Catalyst overview and videos</a> · Demo data; experimental software.</footer>
+  </body>
+</html>
