@@ -62,6 +62,15 @@ completion of that request, not a general responsiveness or correctness claim.
 Superset reaches its sign-in page; owner sign-in is pending for rendered-data
 verification. Final visual and owner acceptance remain open.
 
+The 13 September batch correction is merged and applied: harness #165 (`78169be`)
+on the CPU server and #166 (`8cd18f6`) locally, with unchanged Catalyst and Hub
+application pins. Both routers restarted with verified 4,096/1,024 batch arguments;
+application health and neutral warmup passed for both sources in each environment.
+The cancellation timing probe and its tests are removed. The published OpenMRS
+video and poster still match the reviewed files. Deployment logs and publication
+hashes remain private; [tasks.md](tasks.md#downstream-cancellation-repair) records
+the checks separately from rendered-data and owner acceptance.
+
 ## Immediate next step — complete server workflow verification
 
 Neutral warmup and the local two-source baseline are complete. Merged Catalyst
