@@ -30,10 +30,20 @@ checkpoint after this release is stabilized and accepted.
 **Specification:** [spec.md](spec.md)
 
 The owner merged Catalyst #117 as `ed22781` on 12 September and requested it
-live. The release pin now includes that visual update and retains the deployed
-`699d700` repair. Deployment and rendered light/dark verification of `ed22781`
-are the next operation; the runtime evidence above remains tied to `b632d2c`
-until that rollout is verified. Model profiles and retained datasets stay unchanged.
+live. Harness #160 (`f4998f5`) now runs locally and on the CPU server, including
+that visual update and the `699d700` repair. Light/dark browser checks confirmed
+the new UI assets and retained results on both environments; the public mock is
+synchronized with `ed22781`. Both server neutral warmups completed.
+
+Server publication exposed a Linux ownership mismatch: Gateway-created bundle
+files were unreadable by the Superset importer. Catalyst #125 (`a59d883`) is
+merged with regression coverage for shared-group access and unchanged repeat
+publication bytes. This release pins that repair; rollout and a new publication
+without manual permission changes remain to verify. A separately backed-up
+public proxy repair restores `/catalyst-dashboards/` and removes the stale
+Catalyst API deadline. Model profiles and retained datasets stay unchanged.
+OpenMRS refinement correctness, rendered server dashboards and owner acceptance
+remain open.
 
 ## Immediate next step — complete server workflow verification
 
