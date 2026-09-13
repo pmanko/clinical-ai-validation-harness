@@ -256,6 +256,14 @@ outside Git. Server deployment and query-check receipts may live under
 Current acceptance is tracked only in
 [Feature 008 tasks](../specs/008-catalyst-query-workbench/tasks.md).
 
+Keep the client awake throughout a browser check or recording. For automated
+checks on macOS, run the existing test command under `caffeinate -i`; its sleep
+assertion ends with that command. For an interactive check, stop the temporary
+assertion when the check ends. Record sleep or network changes when investigating
+a disconnected request: two failed September 12 external checks overlapped
+laptop sleep and could not establish a server timeout. This is a test-environment
+precaution, not a generation deadline or a persistent power-setting change.
+
 Final videos and posters go into
 `/home/ubuntu/catalyst-demo/targets/catalyst/runtime/media` with new immutable
 filenames. Verify the public media before changing `openclinai.org`, whose

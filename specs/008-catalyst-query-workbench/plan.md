@@ -20,11 +20,15 @@ with the warmup exchange absent and observed schema-prefix reuse. The same
 three-question sequence now passes on the server after the tokenization-error
 repair. A subsequent OpenMRS gender refinement executed but returned no rows:
 the model joined the encounter patient reference to an identifier value instead
-of the patient resource key. A corrective-feedback attempt ended with a browser
-connection error and a recorded cancelled request; it produced no answer to
-assess. Basic-query success does not close refinement correctness or the full
-server saved-work-to-Superset journey. Those checks, final visual acceptance, and
-owner acceptance remain open. Responsiveness and URL-addressable sessions remain the next product
+of the patient resource key. External corrective-feedback attempts lost their
+connections. The identical feedback completed through the server-local
+application API with the unchanged E4B profile; browser execution returned nine
+rows and preserved all five original encounter-type totals. Both source
+Dashboards are now imported. A subsequent public-browser refinement completed
+with sleep temporarily prevented and preserved all nine aggregate rows while
+sorting them as requested. Rendered Superset results, final visual acceptance
+and owner acceptance remain open.
+Responsiveness and URL-addressable sessions remain the next product
 checkpoint after this release is stabilized and accepted.
 
 **Specification:** [spec.md](spec.md)
@@ -46,10 +50,17 @@ bundle bytes in each environment; both native imports returned already imported.
 A separately backed-up
 public proxy repair restores `/catalyst-dashboards/` and removes the stale
 Catalyst API deadline. Model profiles and retained datasets stay unchanged.
-OpenMRS refinement correctness, rendered server dashboards and owner acceptance
-remain open. The second browser correction also lost its connection before any
-answer was produced. Superset now reaches its sign-in page; owner sign-in is
-pending for rendered-data verification.
+The corrected OpenMRS query was saved, charted and published; repeat publication
+retained its digest and the native importer recorded success. Browser review
+confirmed its saved arrangement and Imported state. Laptop sleep overlapped
+both the second failed browser request and the separate failed public-API
+request, so those runs cannot establish a server deadline or connection defect.
+A subsequent public-browser refinement completed with temporary sleep prevention;
+all nine rows matched the prior result and the requested ordering was correct.
+This did not require an application, prompt, model or deadline change. It proves
+completion of that request, not a general responsiveness or correctness claim.
+Superset reaches its sign-in page; owner sign-in is pending for rendered-data
+verification. Final visual and owner acceptance remain open.
 
 ## Immediate next step — complete server workflow verification
 
@@ -57,12 +68,12 @@ Neutral warmup and the local two-source baseline are complete. Merged Catalyst
 #124 handles SQL tokenization errors through the existing parse-finding and
 model correction path, preserving failed candidate evidence. The exact merged
 repair is deployed and the unchanged OpenMRS question and source-switch sequence
-pass. Verify the observed incorrect-join refinement through the existing user
-feedback path once the interrupted connection is diagnosed, preserving the
-failed result and any correction as separate evidence, then complete server
-saved-work-to-Superset verification for both
-sources. Do not describe a successful SQL execution as a correct answer. This is an error
-handling repair, not a change to prompts, model choice, retry policy or deadlines.
+pass. The public-browser refinement check now passes with the client kept awake;
+the failed candidates and server-local correction remain separate evidence.
+Verify both imported Dashboards' actual Superset rows after owner sign-in, then
+complete visual and owner acceptance. Do not describe a successful SQL execution
+or import as a correct rendered answer. This verification keeps prompts, model
+choice, retry policy and deadline behavior unchanged.
 
 ### Established neutral-question warmup
 
