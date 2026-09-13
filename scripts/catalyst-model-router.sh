@@ -214,7 +214,7 @@ PY
 smoke_model() {
   local alias="$1" response
   warm_model "${alias}"
-  response="$(curl -fsS --max-time 1800 \
+  response="$(curl -fsS \
     -H 'Content-Type: application/json' \
     -d "{\"model\":\"${alias}\",\"messages\":[{\"role\":\"user\",\"content\":\"Reply with OK.\"}],\"max_tokens\":8,\"temperature\":0}" \
     "${ROUTER_URL}/v1/chat/completions")"

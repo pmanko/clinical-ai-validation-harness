@@ -293,6 +293,13 @@ outside Git.
   cancellation target is accepted. Image/archive checksums and rollback
   configuration are retained privately. The application-level deadline and full
   workflow remain separate checks below.
+- [X] Correct the router preset to match ChartSearchAI's 4,096/1,024 batching;
+  remove the arbitrary five-second cancellation probe, its tests, and the
+  generation-smoke deadline, as explicitly directed by the owner.
+  The earlier 128-token preset and cancellation timing gate are superseded.
+  This changes neither model/prompt selection nor the downstream disconnect fix.
+  Exact deployed preset hashes and rollout status remain in the private release
+  receipt; this implementation entry does not claim deployment or owner acceptance.
 - [ ] Resolve remaining long-running first-query and varied cross-source failures;
   complete the real saved-work through Superset journey for both sources before
   closing server acceptance. Videos are already published and remain local work.

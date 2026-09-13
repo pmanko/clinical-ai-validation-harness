@@ -40,6 +40,6 @@ assert re.fullmatch(r"sha256:[a-f0-9]{64}", image), image
     "imageId": image, "upstreamRevision": revision,
     "patchSha256": patch, "platform": platform,
 }, indent=2) + "\n")
-print(f"Built {image}; run the cancellation probe before rollout.")
+print(f"Built {image}; verify ordinary inference before rollout.")
 print(f"export CATALYST_ROUTER_IMAGE={image}")
 PY
