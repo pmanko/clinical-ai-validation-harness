@@ -60,6 +60,34 @@ is `/catalyst-dashboards/`. Existing `/superset/`, `/superset-preview/`, media a
 CSIM domains remain independent. The public proxy configuration is currently
 `/home/ubuntu/catalyst-demo/targets/catalyst/Caddyfile`.
 
+The Catalyst host block must include the following routes before its SPA fallback.
+Superset is configured with `SUPERSET_APP_ROOT=/catalyst-dashboards`; preserve
+that prefix with `handle`, rather than stripping it. Named query preparation has
+no proxy response deadline.
+
+```caddyfile
+handle /v1/catalyst/* {
+    reverse_proxy catalyst-mvp-isolated-catalyst-gateway-1:8000
+}
+redir /catalyst-dashboards /catalyst-dashboards/ 308
+handle /catalyst-dashboards/* {
+    reverse_proxy catalyst-mvp-isolated-superset:8088
+}
+```
+
+For this shared host, inspect and back up the live file before a narrow route
+change; preserve the media and CSiM blocks. Validate the candidate using the
+running Caddy version. Caddy 2.11, started with `caddy run --config` and without
+`--resume`, supports a graceful `SIGUSR1` reload when its admin endpoint is off.
+Confirm the reload in its logs and open an actual published Dashboard in the
+browser: a `200` response alone can be the Catalyst SPA fallback.
+
+Publication ZIPs use the existing outbox directory group and mode `0640`, so the
+Gateway and importer can share files without granting access to other users.
+Keep the outbox group readable by the importer when provisioning this Linux
+host. Run `superset-import` through this checkout's wrapper, then verify both the
+persisted receipt and the rendered data.
+
 The proxy and shared model service have explicit Docker network connections to
 the isolated stack. Those connections survive container restart but must be
 restored if either container is recreated. Inspect the live network and Caddy

@@ -116,8 +116,23 @@ reporting-planning documentation; #111 remains a separate dashboard draft.
   application API, with a table, chart and a second Dashboard version preserving
   the changed arrangement. Browser review confirmed the nine recorded rows and
   the reversed two-widget arrangement; publication produced a ready bundle.
-  Import from the owning server checkout and rendered-result checks remain open.
-  OpenMRS saved-work verification awaits a correct current result.
+  Import initially failed because the Gateway's root-owned bundle had mode
+  `0600`. A narrowly scoped operational group/mode correction allowed the exact
+  bundle to import; its receipt is persisted and the library shows Imported.
+  Catalyst #125 (`a59d883`) makes the existing outbox group and mode `0640`
+  permanent at publication, including repeat publication without changed bytes.
+  Gateway tests: 374 passed, one existing skip; all five CI jobs passed. This
+  release pins it; deployment and publication without manual permission repair
+  remain to verify. The public proxy's missing Dashboard route and stale Catalyst
+  API deadline were repaired with a backed-up, validated graceful reload.
+  Rendered-result checks remain open. OpenMRS saved-work verification awaits a
+  correct current result.
+- **Visual release:** harness #160 (`f4998f5`), Catalyst `ed22781`, and unchanged
+  Hub `6120c31` run locally and on the CPU server. Browser light/dark checks
+  confirmed the new assets and retained results on both; local draft text
+  survived composer resizing, theme changes and Advanced mode. Server health
+  and both neutral warmups passed. All 11 published preview assets match the
+  approved Catalyst source. These checks do not constitute owner acceptance.
 
 The combined review reproduced a conflict between #106's metadata-only repair
 and #109's duplicate alias-repair regression. Both tests are retained. Named,
