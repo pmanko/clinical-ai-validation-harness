@@ -13,8 +13,8 @@ restored arrangement, deterministic publication, native import, and matching
 rendered Superset rows. The 3:56 paced cut completed normal-speed playback review
 and was published through #158 (`0df04b8`); live page, MP4 and poster hashes match
 the reviewed sources.
-Harness `b632d2c`, Catalyst `699d700`, and Hub `6120c31` now run locally and on the
-CPU server; server lifecycle health and both neutral warmups passed. Local
+The earlier harness `b632d2c`, Catalyst `699d700`, and Hub `6120c31` release
+passed local/server lifecycle health and both neutral warmups. Local
 OpenELIS → OpenMRS → OpenELIS ordinary questions all prepared and executed,
 with the warmup exchange absent and observed schema-prefix reuse. The same
 three-question sequence now passes on the server after the tokenization-error
@@ -30,20 +30,26 @@ checkpoint after this release is stabilized and accepted.
 **Specification:** [spec.md](spec.md)
 
 The owner merged Catalyst #117 as `ed22781` on 12 September and requested it
-live. Harness #160 (`f4998f5`) now runs locally and on the CPU server, including
-that visual update and the `699d700` repair. Light/dark browser checks confirmed
+live. Harness #160 (`f4998f5`) deployed that visual update and the `699d700`
+repair locally and on the CPU server. Light/dark browser checks confirmed
 the new UI assets and retained results on both environments; the public mock is
 synchronized with `ed22781`. Both server neutral warmups completed.
 
 Server publication exposed a Linux ownership mismatch: Gateway-created bundle
 files were unreadable by the Superset importer. Catalyst #125 (`a59d883`) is
 merged with regression coverage for shared-group access and unchanged repeat
-publication bytes. This release pins that repair; rollout and a new publication
-without manual permission changes remain to verify. A separately backed-up
+publication bytes. Harness #162 (`8070237`), Catalyst `a59d883`, and unchanged
+Hub `6120c31` now run locally and on the CPU server. Both health gates passed,
+and server neutral warmups completed for both sources. Repeat publication
+created the proper shared-group permissions automatically and retained the exact
+bundle bytes in each environment; both native imports returned already imported.
+A separately backed-up
 public proxy repair restores `/catalyst-dashboards/` and removes the stale
 Catalyst API deadline. Model profiles and retained datasets stay unchanged.
 OpenMRS refinement correctness, rendered server dashboards and owner acceptance
-remain open.
+remain open. The second browser correction also lost its connection before any
+answer was produced. Superset now reaches its sign-in page; owner sign-in is
+pending for rendered-data verification.
 
 ## Immediate next step — complete server workflow verification
 

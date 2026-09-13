@@ -21,16 +21,16 @@ conversation work remain separately scheduled.
   alone do not mark this accepted.
 
 The retained local release runs from `/Users/pmanko/code/catalyst-dev` at
-`localhost:13000`, on merged harness `b632d2c` with both real sources.
+`localhost:13000`, on merged harness `8070237` with both real sources.
 The server checkout is `/home/ubuntu/catalyst-release` at the same revision.
 Separate UI development and its owner review do not change this release evidence.
 
 The owner merged Catalyst #117 (`ed22781`) on 12 September and requested a live
-rollout. This integration pin includes that revision; ancestry verification
-confirms that it retains parser repair `699d700`. Local/server rollout and
-rendered light/dark checks remain pending; do not treat the earlier runtime or
-video as evidence of this newer UI. The design publication copy is synchronized
-from the same immutable source; its publication remains a separate check.
+rollout. That UI was deployed through harness #160 (`f4998f5`) and is retained in
+the current release, along with parser repair `699d700`. Local/server light/dark
+browser checks confirmed the new assets and retained results. The public design
+copy's 11 asset hashes match `ed22781`. The earlier video predates this UI patch;
+final visual and owner acceptance remain separate.
 
 ## Current release integration — 11 September 2026
 
@@ -62,9 +62,10 @@ reporting-planning documentation; #111 remains a separate dashboard draft.
   31 focused tests, documentation consistency, local links and repository-line
   checks passed; hosted CI passed. Deployment and the three ordinary questions
   now pass on this pin in both environments.
-- **Runtime:** harness `b632d2c`, Catalyst `699d700`, Hub `6120c31` are deployed
-  locally and on the CPU server. The strict repository-line check passed.
-  Server lifecycle health and neutral warmup for both sources passed.
+- **Runtime:** harness #162 (`8070237`), Catalyst #125 (`a59d883`), and unchanged
+  Hub `6120c31` are deployed locally and on the CPU server. The strict
+  repository-line checks and both lifecycle health gates passed. Server neutral
+  warmup completed for both sources. Model configuration and datasets are retained.
 - **Local neutral-warmup validation:** OpenELIS test counts, OpenMRS encounter
   counts, and a return to OpenELIS for distinct patients all prepared and executed
   through Catalyst. Their recorded writer requests contain no warmup exchange or
@@ -111,7 +112,10 @@ reporting-planning documentation; #111 remains a separate dashboard draft.
   needs transport/log inspection, not attribution to a deadline. No SQL hand
   edit, prompt change, model switch or new deadline was applied. The failed
   candidate, result and interrupted correction remain private evidence;
-  basic-query success does not close this correctness finding.
+  basic-query success does not close this correctness finding. A second browser
+  retry also ended with `Failed to fetch` and a recorded `generation_cancelled`
+  while the router was still processing the prompt. No corrected candidate was
+  produced; this remains a transport finding as well as an unresolved refinement.
 - **Server saved work:** the successful OpenELIS result was saved through the
   application API, with a table, chart and a second Dashboard version preserving
   the changed arrangement. Browser review confirmed the nine recorded rows and
@@ -122,13 +126,18 @@ reporting-planning documentation; #111 remains a separate dashboard draft.
   Catalyst #125 (`a59d883`) makes the existing outbox group and mode `0640`
   permanent at publication, including repeat publication without changed bytes.
   Gateway tests: 374 passed, one existing skip; all five CI jobs passed. This
-  release pins it; deployment and publication without manual permission repair
-  remain to verify. The public proxy's missing Dashboard route and stale Catalyst
+  release is deployed through harness #162 (`8070237`). Local and server repeat
+  publication created mode `0640` automatically and retained the exact bundle
+  bytes; the Linux server also retained the expected outbox group `1000` on the
+  newly replaced file. Both wrapper imports returned `already_imported`. The
+  public proxy's missing Dashboard route and stale Catalyst
   API deadline were repaired with a backed-up, validated graceful reload.
-  Rendered-result checks remain open. OpenMRS saved-work verification awaits a
-  correct current result.
+  Superset now reaches its sign-in page; the documented default login is rejected
+  and owner sign-in is pending. Rendered-result checks remain open. OpenMRS
+  saved-work verification awaits a correct current result.
 - **Visual release:** harness #160 (`f4998f5`), Catalyst `ed22781`, and unchanged
-  Hub `6120c31` run locally and on the CPU server. Browser light/dark checks
+  Hub `6120c31` were verified locally and on the CPU server. Browser light/dark
+  checks
   confirmed the new assets and retained results on both; local draft text
   survived composer resizing, theme changes and Advanced mode. Server health
   and both neutral warmups passed. All 11 published preview assets match the
