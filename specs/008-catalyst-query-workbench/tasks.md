@@ -1064,13 +1064,24 @@ when each starts; they are not additional completion gates for the current goal.
   recent-session selection, and Back/Forward restore the exact source-bound
   session; a conflicting source parameter is normalized to the session source.
 - [ ] Prove two tabs with different session URLs keep independent drafts, results,
-  and generation status. Different sessions run or visibly queue according to
-  measured capacity; same-session concurrent generation remains an explicit
-  conflict, and leaving a view does not create unowned work.
+  and generation status. Retain existing model-call serialization; same-session
+  concurrent generation remains an explicit conflict, and leaving a view does
+  not create unowned work. User-visible queue management is deferred below.
 - [ ] Pass focused Hub/Gateway streaming and cancellation tests, UI state and
   accessibility tests, session-URL/browser-history tests, matched light/dark and
   narrow screenshots, and a real dual-source server check. Record revisions,
   timings, limitations, deployment, and owner acceptance separately.
+
+### Deferred queue management with user management
+
+Owner decision, 13 September 2026: this is deferred until user management is
+scoped, not a gate for the current delivery or responsiveness/session-navigation
+checkpoint. Basic generation progress and session URLs remain separately planned.
+
+- [ ] Revisit user-visible queue management and multi-user scheduling with user
+  management, reviewing request ownership and waiting behavior together. Retain
+  existing model-call serialization meanwhile. No new queue subsystem, deadline,
+  or cancellation-performance target is approved by this deferral.
 
 ### A. Multi-artifact design requests and shared controls
 
