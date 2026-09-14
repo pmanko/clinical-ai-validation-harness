@@ -1148,8 +1148,8 @@
     {
       "id": "OE-reporting",
       "title": "OpenELIS–Catalyst four reporting pathways",
-      "status": "Direction approved; specification consolidation in progress",
-      "next_deliverable": "Persist one parent roadmap and review the CSV-import/PostgreSQL mock extensions; product implementation remains in existing registers.",
+      "status": "Roadmap merged; extended mock ready for owner review",
+      "next_deliverable": "Review CSV import, typed columns and PostgreSQL/FHIR source choices in the existing integration mock. Then implement through the parent roadmap's iterations.",
       "acceptance": "Four useful local/server pathways with verified outputs, paced videos and owner acceptance. No ranking; shared identity and existing AI-design Follow-on A remain later milestones.",
       "sources": [
         "specs/openelis-reporting-catalyst-integration.md",
@@ -1181,7 +1181,7 @@
       "status": "Native ten-PR delivery in progress; Referrals available in UAT; Non-Conformance and full acceptance pending",
       "next_deliverable": "Follow the existing native reporting plan and current PR ownership; qualify the CSV output needed by lanes 1 and 2.",
       "acceptance": "Native plan/tasks and live UAT own full reporting acceptance; these pathways do not duplicate that checklist.",
-      "evidence": "PR metadata and repository plan read September 14. Native deployment/results reported by that effort, not rerun here. The replacement stack referenced in PR #4292 could not be resolved."
+      "evidence": "Native owner confirmed the ten replacement PRs and cleanup ownership; #4306 identifies their GitHub stack. #4291/#4292/#4295 await coverage/disposition. Native runtime and human UAT remain with that effort."
     },
     {
       "last_checked": "2026-09-14",

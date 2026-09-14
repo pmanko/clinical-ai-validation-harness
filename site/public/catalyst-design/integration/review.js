@@ -11,7 +11,7 @@
     document.querySelector('#approved-controls').hidden = integration;
     document.querySelector('#integration-controls').hidden = !integration;
     document.querySelector('#spec-link').href = integration ? script.dataset.integrationSpec : script.dataset.approvedSpec;
-    document.querySelector('#context-note').textContent = integration ? 'Catalyst-side draft · OpenELIS reporting is designed separately in openelis-work. Shared sign-in and equivalent access still require implementation.' : 'Approved presentation reference.';
+    document.querySelector('#context-note').textContent = integration ? 'Review CSV import and PostgreSQL/FHIR source choices in Catalyst. Native export stays in openelis-work; shared identity and AI dashboard design follow later.' : 'Approved presentation reference.';
     document.querySelectorAll('[data-view]').forEach(button => {
       if (button.dataset.view === selected) button.setAttribute('aria-current', 'page');
       else button.removeAttribute('aria-current');

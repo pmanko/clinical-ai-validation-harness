@@ -1,8 +1,8 @@
 {
   "repository": "https://github.com/DIGI-UW/catalyst-ai",
-  "revision": "ed22781a3895a1d40f98bcefe1e37df625f4a7e5",
-  "integrationSpecification": "https://github.com/DIGI-UW/catalyst-ai/blob/ed22781a3895a1d40f98bcefe1e37df625f4a7e5/docs/specs/openelis-reporting-integration/spec.md",
-  "approvedSpecification": "https://github.com/DIGI-UW/catalyst-ai/blob/ed22781a3895a1d40f98bcefe1e37df625f4a7e5/docs/specs/staff-workbench-ux/spec.md",
+  "revision": "852492592e199afead8f65f0ed9fd4158812a222",
+  "integrationSpecification": "https://github.com/DIGI-UW/catalyst-ai/blob/852492592e199afead8f65f0ed9fd4158812a222/docs/specs/openelis-reporting-integration/spec.md",
+  "approvedSpecification": "https://github.com/DIGI-UW/catalyst-ai/blob/852492592e199afead8f65f0ed9fd4158812a222/docs/specs/staff-workbench-ux/spec.md",
   "files": {
     "appearance.css": "8f49f774fcb6c267ce7b16789629dfd81fd3529d483540c8772f54c3dda731d9",
     "appearance.js": "8b4388c505fba0f7424cf17eddbbd880462c6cc686369ce9aaafba3c75fa4ae9",
@@ -10,10 +10,10 @@
     "mock.js": "884eb536960151465b65c1f14ed4b40474e7610f7c02a4ced03f23656022c8fc",
     "mock.html": "05ae3bb90cd603049eb7f0ce93d816a952b2fbf20f8a6500764b177e7b33cb6e",
     "integration/app.html": "f50ee345817f9b18f07ecfee9f1a268dc24ead0c30aa308d0f6688637e68b1bf",
-    "integration/app.mjs": "c141b0d95a1fb0f07741d28bddc1cb29ec7b50f347554d24e55f6441d6df654e",
-    "integration/integration.css": "6813003e237ce46bb9a7598f289fa04e79606cbc098660099461734f77b55128",
-    "integration/model.mjs": "b88950e084a9761aac196c8a95ff3a13c381b462923046a0bb22def740604903",
-    "integration/review.js": "2391dced64b8604d4dee6d4571c62695748cd96abffe35277836ce5b83f0e9e5",
-    "index.html": "d700e46928d12943ad10de793197236bf71fe81b14be34425b13fa2ea0f78e1e"
+    "integration/app.mjs": "10d9d0c142a164d6e7e4354c45ee4d93c7898b53070b922c686d6068c0b0e8c8",
+    "integration/integration.css": "a2a4f183948bd14ec04fb208a21f38f1c78077c19e50c56cfebab79daf08e8ea",
+    "integration/model.mjs": "f2214de3a8258acc409acb15d60dc4b5f4f98958c276b4cc4dfa3081c8e76a54",
+    "integration/review.js": "a5ba288e5167cb968ddb974ae945e7abd92744d78116532136b546c628dec3b3",
+    "index.html": "7aaa348953c9e87e0be5705e90da6598d3332b172effbebd6296dee7253b8dd2"
   }
 }

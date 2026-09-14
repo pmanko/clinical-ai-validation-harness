@@ -35,7 +35,7 @@
     {
       "project": "shared",
       "title": "OpenELIS–Catalyst reporting",
-      "status": "Four pathways approved; consolidate and review",
+      "status": "Roadmap merged; review the extended Catalyst mock",
       "summary": "Native CSV/Superset, CSV imported into Catalyst, native PostgreSQL, and FHIR/Spark are complementary starting points. One roadmap coordinates the existing product efforts.",
       "evidence": "Native reporting is in implementation/UAT. CSV import and ordinary PostgreSQL support are approved additions. Four-pathway runtime evidence and owner acceptance remain pending.",
       "actions": [

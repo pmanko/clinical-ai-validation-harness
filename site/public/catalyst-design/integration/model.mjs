@@ -60,3 +60,42 @@ export function differences(left, right, fields = defaultFields) {
   };
   return { missing: consume(left, right), extra: consume(right, left) };
 }
+
+// Browser-only design helper, not a production import implementation.
+// Keep original cells so changing a reviewed type never destroys the file data.
+export function readPreviewCsv(text) {
+  const records = []; let row = [], cell = '', quoted = false, closed = false;
+  const input = text.replace(/^\uFEFF/, '');
+  for (let i = 0; i < input.length; i++) {
+    const ch = input[i];
+    if (quoted) {
+      if (ch === '"' && input[i + 1] === '"') { cell += '"'; i++; }
+      else if (ch === '"') { quoted = false; closed = true; }
+      else cell += ch;
+    } else if (ch === ',' || ch === '\r' || ch === '\n') {
+      row.push(cell); cell = ''; closed = false;
+      if (ch !== ',') { records.push(row); row = []; if (ch === '\r' && input[i + 1] === '\n') i++; }
+    } else if (ch === '"' && !cell && !closed) quoted = true;
+    else { if (closed || ch === '"') throw Error('Check the quotation marks in your CSV.'); cell += ch; }
+  }
+  if (quoted) throw Error('The CSV ends inside a quoted value. Choose a complete file.');
+  if (cell || row.length || closed) records.push([...row, cell]);
+  const [headers, ...rows] = records;
+  if (!headers?.length || headers.some(h => !h.trim()) || new Set(headers).size !== headers.length) throw Error('Use one unique, nonempty heading for each column.');
+  if (!rows.length) throw Error('This file has headings but no results. Choose a report with data.');
+  if (rows.some(r => r.length !== headers.length)) throw Error('Some rows have a different number of columns. Check the CSV and try again.');
+  return { headers, rows, types: headers.map((_, i) => {
+    const values = rows.map(r => r[i]).filter(v => v !== '');
+    if (values.length && values.every(v => /^\d{4}-\d{2}-\d{2}$/.test(v))) return 'date';
+    if (values.length && values.every(v => /^-?(?:0|[1-9]\d*)(?:\.\d+)?$/.test(v) && Number.isFinite(Number(v)))) return 'number';
+    return 'text';
+  }) };
+}
+export function previewTypeErrors(file) {
+  return file.headers.flatMap((name, index) => {
+    const values = file.rows.map(row => row[index]).filter(value => value !== '');
+    const invalid = file.types[index] === 'number' ? values.some(value => !/^-?(?:0|[1-9]\d*)(?:\.\d+)?$/.test(value))
+      : file.types[index] === 'date' ? values.some(value => !/^\d{4}-\d{2}-\d{2}$/.test(value) || Number.isNaN(Date.parse(value)) || new Date(value).toISOString().slice(0, 10) !== value) : false;
+    return invalid ? [`${name}: choose Text to preserve mixed values or identifiers, or correct the file.`] : [];
+  });
+}

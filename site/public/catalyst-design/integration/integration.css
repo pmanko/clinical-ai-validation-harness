@@ -33,6 +33,10 @@ body { display: flex; flex-direction: column; height: 100dvh; overflow: hidden; 
 .table-scroll table { min-width: 660px; }
 .table-scroll:focus-visible { outline: 2px solid var(--focus); }
 .empty-copy { text-align: center; padding: 30px; color: var(--muted); }
+.column-review { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 16px; margin: 20px 0; }
+.column-review label { min-width: 0; overflow-wrap: anywhere; }
+.file-checksum { display: block; overflow-wrap: anywhere; white-space: normal; color: var(--text); }
+input[type="file"] { max-width: 100%; padding: 12px 0; }
 @media (max-width: 850px) {
   .comparison-grid { grid-template-columns: 1fr; }
   .schema-browser { width: 260px; }
