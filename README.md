@@ -160,9 +160,10 @@ backend evidence for it.
 
 Current authorities:
 
-- [Feature 008 implementation roadmap](specs/008-catalyst-query-workbench/plan.md)
-- [Feature 008 current tasks](specs/008-catalyst-query-workbench/tasks.md)
-- [Feature 008 integration and delivery specification](specs/008-catalyst-query-workbench/spec.md)
+- [OpenELIS–Catalyst four-pathway roadmap](specs/openelis-reporting-catalyst-integration.md)
+- [Catalyst integration and delivery plan](specs/008-catalyst-query-workbench/plan.md)
+- [Catalyst current tasks](specs/008-catalyst-query-workbench/tasks.md)
+- [Catalyst integration and delivery specification](specs/008-catalyst-query-workbench/spec.md)
 - [Catalyst program roadmap](specs/catalyst-program-roadmap.md)
 
 The separately scheduled comparison begins after its current connection, Spark,

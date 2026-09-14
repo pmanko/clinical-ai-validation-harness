@@ -1,9 +1,36 @@
-# Feature 008 tasks — current work only
+# Catalyst integration and delivery tasks
 
 **Status:** The owner approved usability-first delivery followed by Dashboard
 Builder functionality. This file is the sole detailed progress and acceptance
 register for the [Feature 008 roadmap](plan.md). Model comparison and broader
 conversation work remain separately scheduled.
+
+## Four-pathway delivery
+
+The [integration roadmap](../openelis-reporting-catalyst-integration.md) owns
+scope, iteration order and cross-pathway owner acceptance. This is the one
+detailed Catalyst/shared-integration register; native implementation tasks stay
+in OpenELIS's existing reporting register. Existing release tasks below remain
+their own scope. Plan approval does not mark implementation or acceptance done.
+
+| Task | Implementation and behavioral acceptance | Implementation | Checks | Merge | Local/server | Owner acceptance |
+| --- | --- | --- | --- | --- | --- | --- |
+| FP-001 | Persist the approved roadmap; reconcile authorities and existing work; refresh linked dashboard records without duplicate checklists. | Harness authority/inventory aligned; product alignment continues with FP-002 | 25 focused tests, five dashboard tests, documentation checks and site build pass | Pending | Dashboard locally inspected; publication pending | Direction approved; result pending |
+| FP-002 | Extend the existing integration mock/spec for CSV import, origin-aware Dataset review and PostgreSQL source selection. Preserve approved shell, drafts and explicit execution; review desktop/narrow and light/dark. | Pending | Pending | Pending | Mock preview pending | Pending |
+| FP-003 | Reuse the native reporting effort's actual export and saved-report rerun; verify lane-1 CSV, native Superset upload, table and summary chart. Record early FHIR field coverage against this same OE instance. | Native work exists; integration pending | Pending | Native PR status separate | Pending | Pending |
+| FP-004 | Ordinary PostgreSQL connection, complete readable catalog, parameters/types/bounds, editor, native question/refinement/Run/save/reopen. Reuse compatible history; retain Spark behavior and no relation allowlist. | Pending | Pending | Pending | Pending | Pending |
+| FP-005 | Resolve publication by actual Dataset backing connection and declared dialect. Preserve exact saved artifacts, deterministic bundles, retry/receipts and verify PostgreSQL/Spark rendering. | Pending | Pending | Pending | Pending | Pending |
+| FP-006 | Add origin-aware Dataset contracts and CSV upload/review/confirmation with durable import storage. Verify types/order/values, no fabricated SQL, invalid/empty/interrupted import, retry, reload/restart and existing saved artifacts. | Pending | Pending | Pending | Pending | Pending |
+| FP-007 | Shared meaningful chart controls over imported rows, including grouping/counts. Verify values, immutable versions, saved arrangement and publication without required SQL interaction. | Pending | Pending | Pending | Pending | Pending |
+| FP-008 | Consume the reporting instance's real FHIR output through existing Data Pipes/Spark; verify useful query/Dataset/dashboard, record provenance and explain coverage/freshness differences. | Existing reference path; reporting-instance integration pending | Pending | Pending | Pending | Pending |
+| FP-009 | Exercise four complete local journeys, compare approved mocks at desktop/narrow and light/dark, inspect rendered values, retain drafts/state, record findings and owner review. | Pending | Pending | Pending | Pending | Pending |
+| FP-010 | Deploy compatible reviewed revisions with existing lifecycle tools and retained data; prove four server journeys, pace/review recordings, synchronize public references and reconcile all authoritative documents. | Pending | Pending | Pending | Pending | Pending |
+
+AI-assisted Widget/Dashboard refinement remains the existing
+[Follow-on A](#follow-on-milestones-after-current-delivery), not another task
+family here. Its context must support both Dataset origins; file imports must
+not acquire fabricated SQL provenance. Shared identity/per-user authorization
+remain a later production milestone in the integration roadmap.
 
 ## Next owner checkpoint
 

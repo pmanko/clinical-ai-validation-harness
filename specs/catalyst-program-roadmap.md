@@ -30,14 +30,14 @@ shared controls, then Metabase and Evidence publication afterward. Those
 follow-ons retain the approved Explore / Saved work navigation. They do not
 replace the separately reviewed broader-conversation scope or model comparison.
 
-The [OpenELIS reporting integration draft](openelis-reporting-catalyst-integration.md)
-coordinates parallel OpenELIS reporting/source preparation and Catalyst
-upgrade/source readiness, converging on a working source connection and native
-CSV/generated Dataset comparison. It links the existing product efforts and
-records unresolved integration decisions without changing Feature 008's
-current release checkpoint or the phase decisions below. Its next checkpoint
-is owner review of the independent OpenELIS/Catalyst mock and integration
-specification, before new reporting/integration implementation.
+The approved [OpenELIS–Catalyst reporting roadmap](openelis-reporting-catalyst-integration.md)
+owns the four complementary pathways: native CSV/Superset, imported Catalyst
+Datasets, ordinary PostgreSQL, and FHIR/Spark. Its sequence and cross-pathway
+acceptance live there; detailed Catalyst work stays in the existing task register
+and native reporting stays in OpenELIS. These demonstrations do not rank
+equivalent alternatives. Existing Follow-on A retains AI-assisted Widget and
+Dashboard refinement, extended to both Dataset origins after the four-pathway
+goal. The selected Spark model-comparison program below is unchanged.
 
 ## Phase 1 decisions
 

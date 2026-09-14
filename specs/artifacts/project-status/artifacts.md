@@ -1,6 +1,6 @@
 # Target artifacts
 
-As of 2026-09-11. 74 entries.
+As of 2026-09-11. 75 entries.
 
 Artifact registry: requirements, implementation/status records, configurations, evidence, tools and outputs. Role distinguishes authority from observation.
 
@@ -82,5 +82,6 @@ Artifact registry: requirements, implementation/status records, configurations, 
 | RECOVERY-6 | manifest.json | preserved historical evidence | Historical artifact; not current exact-head acceptance. | Preserve before local cleanup; pair any reuse with current provenance. | `artifacts/roadmap/code-qa/evidence-bundle-artifact/manifest.json` |
 | CAT-VIDEO-OPENELIS | Catalyst local writer/verifier demonstration — OpenELIS laboratory data | publication | Light-only local workflow passed (2 tests, 10.9 minutes), actual Gemma writer/Qwen reviewer invocations and imports verified. Final cuts reviewed at 1x and uploaded with HTTPS hash verification; durations 3:08 and 3:06. Public query checks pass; full server acceptance remains separate. | Record owner acceptance in Feature 008 tasks; retain private raw footage and actual import receipts. | [Source](<https://catalyst.openelis-global.org/media/catalyst-openelis-local-light-20260911-d070fe7.mp4>) |
 | CAT-VIDEO-OPENMRS-HIV | Catalyst local writer/verifier demonstration — OpenMRS HIV data | publication | Light-only local workflow passed (2 tests, 10.9 minutes), actual Gemma writer/Qwen reviewer invocations and imports verified. Final cuts reviewed at 1x and uploaded with HTTPS hash verification; durations 3:08 and 3:06. Public query checks pass; full server acceptance remains separate. | Record owner acceptance in Feature 008 tasks; retain private raw footage and actual import receipts. | [Source](<https://catalyst.openelis-global.org/media/catalyst-openmrs-hiv-local-light-20260911-d070fe7.mp4>) |
+| OE-INTEGRATION-DESIGN | Catalyst reporting pathway design | binding interaction design | Extend the existing design for direct CSV import and native PostgreSQL. Do not duplicate OpenELIS screens. | Publish and inspect exact extended source before owner review. | [Source](<https://github.com/DIGI-UW/catalyst-ai/blob/main/docs/specs/openelis-reporting-integration/spec.md>) |
 
 Generated from the source JSON by `render.py`. Edit the JSON, then regenerate this view.

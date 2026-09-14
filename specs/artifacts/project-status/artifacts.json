@@ -1085,6 +1085,21 @@
       "next_update": "Record owner acceptance in Feature 008 tasks; retain private raw footage and actual import receipts.",
       "verified_source": "specs/008-catalyst-query-workbench/tasks.md; private run replacement-demo-d070fe7-light-local",
       "sources": "Harness d070fe7, Catalyst e163726, Hub 75d0ff0; landing/index.html"
+    },
+    {
+      "id": "OE-INTEGRATION-DESIGN",
+      "kind": "design specification",
+      "title": "Catalyst reporting pathway design",
+      "url": "https://github.com/DIGI-UW/catalyst-ai/blob/main/docs/specs/openelis-reporting-integration/spec.md",
+      "role": "binding interaction design",
+      "current_or_superseded": "Existing source; four-pathway extension pending review",
+      "effort": "OE-reporting; OE-lane-2; OE-lane-3",
+      "status": "Extend the existing design for direct CSV import and native PostgreSQL. Do not duplicate OpenELIS screens.",
+      "evidence_date": "2026-09-14",
+      "next_update": "Publish and inspect exact extended source before owner review.",
+      "sources": [
+        "specs/openelis-reporting-catalyst-integration.md"
+      ]
     }
   ]
 }

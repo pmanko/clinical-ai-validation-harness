@@ -35,30 +35,30 @@
     {
       "id": "CAT-A03",
       "kind": "specification",
-      "title": "Feature 008 integration and delivery specification",
+      "title": "Catalyst integration and delivery specification",
       "path": "specs/008-catalyst-query-workbench/spec.md",
-      "url": "https://github.com/pmanko/clinical-ai-validation-harness/blob/2cf3de8/specs/008-catalyst-query-workbench/spec.md",
+      "url": "https://github.com/pmanko/clinical-ai-validation-harness/blob/main/specs/008-catalyst-query-workbench/spec.md",
       "role": "authority",
       "current_or_superseded": "Current",
       "effort": "CAT-E02; CAT-E06; CAT-E08",
       "status": "Owns harness integration, dual-source deployment, evidence, and delivery acceptance without redefining Catalyst product behavior.",
       "evidence_date": "2026-08-26",
-      "next_update": "Change only where owner-approved scope actually changes; link evidence to acceptance items without redefining them.",
+      "next_update": "Keep existing Catalyst delivery and tasks; the four-pathway parent roadmap owns cross-project sequencing.",
       "verified_source": "Local main read lines 26-45, 92-249.",
       "sources": "Local main read lines 26-45, 92-249."
     },
     {
       "id": "CAT-A05",
       "kind": "feature plan",
-      "title": "Feature 008 architecture plan",
+      "title": "Catalyst integration and delivery plan",
       "path": "specs/008-catalyst-query-workbench/plan.md",
-      "url": "https://github.com/pmanko/clinical-ai-validation-harness/blob/2cf3de8/specs/008-catalyst-query-workbench/plan.md",
+      "url": "https://github.com/pmanko/clinical-ai-validation-harness/blob/main/specs/008-catalyst-query-workbench/plan.md",
       "role": "authority",
       "current_or_superseded": "Authoritative implementation roadmap and delivery goal",
       "effort": "CAT-E01; CAT-E02",
       "status": "Merged through harness #109. Defines the stable baseline, specification consolidation, four usability iterations, local owner gate, Dashboard functionality, and local/server evidence sequence.",
       "evidence_date": "2026-09-09",
-      "next_update": "Amend this same plan only when scope or sequence changes; record detailed progress and acceptance in tasks.md.",
+      "next_update": "Keep existing Catalyst delivery and tasks; the four-pathway parent roadmap owns cross-project sequencing.",
       "verified_source": "Local main read lines 3-16, 20-29, 109-175.",
       "sources": "Local main read lines 3-16, 20-29, 109-175."
     },
@@ -426,6 +426,20 @@
       "next_update": "Reconcile current-status claims with code and evidence; retain documented historical scope.",
       "evidence_date": "2026-07-10T11:07:24-10:00",
       "sources": ""
+    },
+    {
+      "id": "OE-ROADMAP",
+      "kind": "integration roadmap",
+      "title": "OpenELIS–Catalyst four reporting pathways",
+      "path": "specs/openelis-reporting-catalyst-integration.md",
+      "url": "https://github.com/pmanko/clinical-ai-validation-harness/blob/main/specs/openelis-reporting-catalyst-integration.md",
+      "role": "authority",
+      "current_or_superseded": "Current parent roadmap; direction approved September 14",
+      "effort": "OE-reporting; OE-lane-1; OE-lane-2; OE-lane-3; OE-lane-4",
+      "status": "One sequence and acceptance home; product requirements and detailed tasks remain in their existing authorities.",
+      "evidence_date": "2026-09-14",
+      "next_update": "Complete consolidation and review extended mock/spec; preserve existing AI-design Follow-on A.",
+      "sources": "Owner-approved consolidated plan and current repository/PR inspection."
     }
   ]
 }

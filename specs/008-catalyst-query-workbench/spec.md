@@ -7,6 +7,13 @@ and owner acceptance remain open.
 
 ## Purpose
 
+The approved [four-pathway reporting roadmap](../openelis-reporting-catalyst-integration.md)
+owns the new cross-project scope and order. This harness specification remains
+the integration contract, not OpenELIS's reporting product specification. Its
+query-backed journeys below remain required; imported Dataset acceptance adds
+file upload/review/save without a fabricated query execution. Catalyst's product
+specification owns that additive contract and ordinary PostgreSQL support.
+
 This specification defines how Catalyst is assembled, deployed, and accepted in
 the Clinical AI Validation Harness. Catalyst application behavior belongs to its
 product specification; interaction and visual requirements belong to its
