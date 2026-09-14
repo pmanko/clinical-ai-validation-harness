@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="Short Catalyst videos showing real questions, model-generated queries and recorded results with OpenELIS and OpenMRS HIV demo data." />
+  <title>Questions in Catalyst · Open Clinical AI</title>
+  <link rel="canonical" href="https://openclinai.org/catalyst/questions/" />
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="/styles.css?v=20260913-questions" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <a class="skip-link" href="#main-content">Skip to content</a>
+  <header class="question-header">
+    <a class="brand" href="/" aria-label="Open Clinical AI home"><span class="brand-mark" aria-hidden="true"><span></span></span><span>Open Clinical AI</span></a>
+    <a href="/#catalyst">Back to Catalyst</a>
+  </header>
+  <main class="page-width" id="main-content">
+    <div class="question-intro">
+      <p class="section-kicker">Catalyst · Questions in practice</p>
+      <h1>Start with a question.<br />See where it takes you.</h1>
+      <p>Three short examples of asking, reviewing and refining questions about data. See the actual query and result, with the full prompt a click away.</p>
+    </div>
+    <nav class="question-menu" aria-label="Choose a question">
+      <a href="#openelis-patients"><small>Count a population · 0:52</small><strong>How many patients are there?</strong><small>OpenELIS →</small></a>
+      <a href="#openmrs-monthly"><small>Look at a trend · 1:10</small><strong>How many CD4 results each month?</strong><small>OpenMRS HIV →</small></a>
+      <a href="#openmrs-gender"><small>Refine a question · 1:08</small><strong>How does that vary by gender?</strong><small>OpenMRS HIV →</small></a>
+    </nav>
+    <section class="question-example" id="openelis-patients" aria-labelledby="openelis-patients-title">
+      <p class="question-label">Count a population · OpenELIS</p>
+      <h2 id="openelis-patients-title">How many patients are there?</h2>
+      <p class="question-result"><strong>96 patients.</strong> A short question becomes a query you can review and run.</p>
+      <video controls playsinline preload="metadata" poster="https://catalyst.openelis-global.org/media/catalyst-questions-20260913-v1/openelis-patients-poster.jpg" aria-label="OpenELIS: How many patients are there?">
+        <source src="https://catalyst.openelis-global.org/media/catalyst-questions-20260913-v1/openelis-patients.mp4" type="video/mp4" />
+        Your browser does not support embedded video. <a href="https://catalyst.openelis-global.org/media/catalyst-questions-20260913-v1/openelis-patients.mp4">Open the MP4</a>.
+      </video>
+      <div class="question-video-meta">
+        <span>0:52 · Captioned, silent · Recorded locally</span>
+        <span><a href="https://catalyst.openelis-global.org/media/catalyst-questions-20260913-v1/openelis-patients.mp4">Open MP4</a> · <a href="/#catalyst-openelis-video">Full walkthrough</a></span>
+      </div>
+      <details class="question-details">
+        <summary>Exact question, model details and transcript</summary>
+        <h3>What was asked</h3>
+        <blockquote>How many patients are there?</blockquote>
+        
+        <dl>
+          <dt>Data</dt><dd>OpenELIS demonstration data</dd>
+          <dt>Query writer</dt><dd>Gemma 4 12B</dd>
+          <dt>Query reviewer</dt><dd>Qwen 2.5 14B</dd>
+          <dt>Observed review</dt><dd>The reviewer requested an automatic repair; the executed model-repaired SQL returned 96. No human SQL edit.</dd>
+          <dt>Recorded</dt><dd>11 September 2026, locally in light mode</dd>
+        </dl>
+        <h3>Transcript</h3>
+        <ol>
+          <li>Write “How many patients are there?” and browse the available data.</li>
+          <li>Gemma drafts SQL; Qwen requests a correction and the model repairs it.</li>
+          <li>Choose Get results. The recorded source returns 96 patients.</li>
+        </ol>
+        <p>Only waiting periods are accelerated, with the speed labeled on screen. Model review is advisory; it does not establish clinical correctness.</p>
+      </details>
+    </section>
+    <section class="question-example" id="openmrs-monthly" aria-labelledby="openmrs-monthly-title">
+      <p class="question-label">Look at a trend · OpenMRS HIV</p>
+      <h2 id="openmrs-monthly-title">How many CD4 results each month?</h2>
+      <p class="question-result"><strong>211 CD4 results across six months.</strong> An explicit reporting question produces monthly counts.</p>
+      <video controls playsinline preload="metadata" poster="https://catalyst.openelis-global.org/media/catalyst-questions-20260913-v1/openmrs-monthly-poster.jpg" aria-label="OpenMRS HIV: How many CD4 results each month?">
+        <source src="https://catalyst.openelis-global.org/media/catalyst-questions-20260913-v1/openmrs-monthly.mp4" type="video/mp4" />
+        Your browser does not support embedded video. <a href="https://catalyst.openelis-global.org/media/catalyst-questions-20260913-v1/openmrs-monthly.mp4">Open the MP4</a>.
+      </video>
+      <div class="question-video-meta">
+        <span>1:10 · Captioned, silent · Recorded locally</span>
+        <span><a href="https://catalyst.openelis-global.org/media/catalyst-questions-20260913-v1/openmrs-monthly.mp4">Open MP4</a> · <a href="/#catalyst-openmrs-video">Full walkthrough</a></span>
+      </div>
+      <details class="question-details">
+        <summary>Exact question, model details and transcript</summary>
+        <h3>What was asked</h3>
+        <blockquote>Count CD4 count results from 2026-01-01 through 2026-12-31 by month for a line chart. Return month as a date (the first day of each month), and result_count.</blockquote>
+        <p>The title above summarizes the question. The recorded prompt specifies the test, date range and output columns.</p>
+        <dl>
+          <dt>Data</dt><dd>OpenMRS HIV demonstration data</dd>
+          <dt>Query writer</dt><dd>Gemma 4 12B</dd>
+          <dt>Query reviewer</dt><dd>Qwen 2.5 14B</dd>
+          <dt>Observed review</dt><dd>Gemma 4 12B generated the SQL; Qwen 2.5 14B approved it. No human SQL edit.</dd>
+          <dt>Recorded</dt><dd>12 September 2026, locally in light mode</dd>
+        </dl>
+        <h3>Transcript</h3>
+        <ol>
+          <li>Ask for monthly CD4 counts, specifying the 2026 period and output columns.</li>
+          <li>Browse available data while the question stays in place. Gemma writes SQL and Qwen reviews it.</li>
+          <li>Run the query. Six monthly rows contain 211 CD4 results.</li>
+        </ol>
+        <p>Only waiting periods are accelerated, with the speed labeled on screen. Model review is advisory; it does not establish clinical correctness.</p>
+      </details>
+    </section>
+    <section class="question-example" id="openmrs-gender" aria-labelledby="openmrs-gender-title">
+      <p class="question-label">Refine a question · OpenMRS HIV</p>
+      <h2 id="openmrs-gender-title">How does that vary by gender?</h2>
+      <p class="question-result"><strong>The same 211 results, grouped by gender.</strong> A follow-up adds detail while preserving the monthly totals.</p>
+      <video controls playsinline preload="metadata" poster="https://catalyst.openelis-global.org/media/catalyst-questions-20260913-v1/openmrs-gender-poster.jpg" aria-label="OpenMRS HIV: How does that vary by gender?">
+        <source src="https://catalyst.openelis-global.org/media/catalyst-questions-20260913-v1/openmrs-gender.mp4" type="video/mp4" />
+        Your browser does not support embedded video. <a href="https://catalyst.openelis-global.org/media/catalyst-questions-20260913-v1/openmrs-gender.mp4">Open the MP4</a>.
+      </video>
+      <div class="question-video-meta">
+        <span>1:08 · Captioned, silent · Recorded locally</span>
+        <span><a href="https://catalyst.openelis-global.org/media/catalyst-questions-20260913-v1/openmrs-gender.mp4">Open MP4</a> · <a href="/#catalyst-openmrs-video">Full walkthrough</a></span>
+      </div>
+      <details class="question-details">
+        <summary>Exact question, model details and transcript</summary>
+        <h3>What was asked</h3>
+        <blockquote>Break those same CD4 results down by patient gender, including missing gender. Count each result once so the monthly totals stay the same. Keep the 2026 date range and month as a date for the line chart. Return month, gender, and result_count.</blockquote>
+        <p>The title above summarizes the question. The recorded prompt specifies the test, date range and output columns.</p><p>This is a follow-up to <a href="#openmrs-monthly">the monthly CD4 question</a>. Missing gender was requested; the recorded output contains female and male groups only.</p>
+        <dl>
+          <dt>Data</dt><dd>OpenMRS HIV demonstration data</dd>
+          <dt>Query writer</dt><dd>Gemma 4 12B</dd>
+          <dt>Query reviewer</dt><dd>Qwen 2.5 14B</dd>
+          <dt>Observed review</dt><dd>Gemma 4 12B generated the refinement; Qwen 2.5 14B approved it. No human SQL edit. Recorded checks confirm unchanged monthly totals.</dd>
+          <dt>Recorded</dt><dd>12 September 2026, locally in light mode</dd>
+        </dl>
+        <h3>Transcript</h3>
+        <ol>
+          <li>Continue the monthly CD4 question with a breakdown by patient gender.</li>
+          <li>Gemma generates the refinement and Qwen reviews it; no manual SQL editing is shown.</li>
+          <li>Run and save the result. Ten grouped rows retain the same monthly totals.</li>
+        </ol>
+        <p>Only waiting periods are accelerated, with the speed labeled on screen. Model review is advisory; it does not establish clinical correctness.</p>
+      </details>
+    </section>
+    <footer class="question-footer">
+      <p>These excerpts use demonstration data and show the interface as recorded on 11–12 September 2026. They illustrate particular outcomes, not a measure of overall model performance.</p>
+      <p><a href="/catalyst/hiv-gallery/">Explore the screenshot walkthrough</a> · <a href="/#catalyst">Watch the complete journeys</a></p>
+    </footer>
+  </main>
+</body>
+</html>

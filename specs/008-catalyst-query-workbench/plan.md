@@ -575,6 +575,28 @@ Exit: both local and server deployments have real-path evidence for both
 sources; paced public videos identify the matching revisions; current public
 references and explicit owner acceptance are recorded.
 
+### Question-led video gallery
+
+Approved on 13 September: extend the existing OpenClinAI site with short clips
+organized around the questions being tested. Begin with the reviewed local
+OpenELIS patient count, OpenMRS monthly CD4 count, and gender-refinement recordings.
+Show the question focus, dataset and observed outcome, with the exact recorded
+prompt and model/reviewer details available to expand. Preserve light appearance,
+readable captions, normal interaction speed and clearly labelled accelerated waits.
+
+Reuse the existing static site, native video controls and recording tools. Keep
+media and private verification records outside Git. Publish the tested page from
+merged source with verified media hashes; retain local MP4s for sharing. Recent
+failed natural-language runs remain private. Subsequent clips use the same page
+and review process; this gallery is not a model comparison or release-acceptance
+claim. Progress is recorded in [tasks.md](tasks.md#question-led-video-gallery).
+
+The same publication makes the reports index and a representative historical
+ChartSearchAI report visible in the homepage Evaluation section, using existing
+captioned light-mode screenshots. Its caption describes the engine as supporting
+many clinical and health scenarios that may benefit from AI-based inference;
+the historical example is not a claim of validation across all such scenarios.
+
 ### 6. Improve responsiveness and session navigation
 
 This is the first product checkpoint after the current deployment is stable and

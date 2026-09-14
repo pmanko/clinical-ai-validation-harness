@@ -577,6 +577,17 @@ video:focus-visible {
   color: #cce0df;
 }
 
+.report-previews {
+  display: grid;
+  gap: 28px;
+}
+
+.report-figure figcaption a {
+  color: inherit;
+  font-weight: 650;
+  text-underline-offset: 3px;
+}
+
 .report-figure {
   margin: 0;
 }
@@ -584,7 +595,7 @@ video:focus-visible {
 .report-figure img {
   width: 100%;
   height: auto;
-  aspect-ratio: 1440 / 900;
+  aspect-ratio: 16 / 9;
   border: 1px solid rgba(255, 255, 255, 0.4);
   border-radius: 6px;
 }

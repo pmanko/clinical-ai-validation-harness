@@ -1019,6 +1019,23 @@ full server run remain separate evidence below.
 - [ ] Record final local/server evidence, current public links, and explicit
   owner acceptance before marking this delivery complete.
 
+## Question-led video gallery
+
+- [X] Record the owner's 13 September approval in the existing delivery plan.
+- [X] Produce three short clips from the verified local source recordings:
+  OpenELIS patient count, OpenMRS monthly CD4 counts, and gender refinement.
+  Preserve caption/result reading time, light appearance and labelled fast waits.
+- [X] Add the static question gallery with accessible video controls, exact
+  prompts, observed outcomes, recording dates and expandable model details;
+  link it from the existing homepage and screenshot story.
+- [X] Review final cuts at normal speed, verify source/evidence identity and
+  desktop/narrow browser presentation, and run relevant site checks.
+- [X] Add light-mode screenshots of the reports index and a representative
+  ChartSearchAI report to the homepage Evaluation section, with a caption
+  describing the wider clinical and health scenarios the AI engine can support.
+- [ ] Merge and publish using the landing-only workflow; verify live page and
+  media hashes and retain local MP4s. Owner review remains separate from publication.
+
 ## Follow-on milestones after current delivery
 
 These milestones start after current UX/Superset deployment and owner acceptance.
