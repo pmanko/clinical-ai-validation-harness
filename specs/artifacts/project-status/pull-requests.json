@@ -30,20 +30,20 @@
     "triage": "Active lanes, dependency order and older disposition candidates. Titles and mergeability alone do not establish safe closure or production readiness."
   },
   "counts": {
-    "total": 293,
+    "total": 295,
     "byState": {
       "closed": 38,
-      "merged": 209,
+      "merged": 211,
       "open": 46
     },
     "byRepository": {
       "DIGI-UW/OpenELIS-Global-2": 26,
-      "DIGI-UW/catalyst-ai": 105,
+      "DIGI-UW/catalyst-ai": 106,
       "DIGI-UW/openelis-work": 12,
       "openmrs/openmrs-esm-chartsearchai": 6,
       "openmrs/openmrs-module-chartsearchai": 9,
       "openmrs/openmrs-module-querystore": 2,
-      "pmanko/clinical-ai-validation-harness": 116,
+      "pmanko/clinical-ai-validation-harness": 117,
       "pmanko/med-agent-hub": 15,
       "pmanko/openmrs-module-chartsearchai": 2
     },
@@ -69,7 +69,7 @@
       "Older OpenMRS contribution": 9,
       "OpenELIS application work": 13,
       "OpenELIS reporting design readiness": 1,
-      "OpenELIS reporting pathways": 14,
+      "OpenELIS reporting pathways": 16,
       "OpenMRS chart context and QueryStore integration": 1,
       "OpenMRS dual-provider integration": 5,
       "Program planning and inventory": 2,
@@ -10767,7 +10767,7 @@
         "OE-native-reporting"
       ],
       "currentSignal": "Current metadata; runtime and owner acceptance are separate. Checks not recollected in this documentation pass.",
-      "nextAction": "Continue existing native reporting effort; verify unresolved replacement-stack references before changing PR ownership.",
+      "nextAction": "Native implementation owner accounts for content in the ten replacement PRs before retiring this earlier work; no competing merge owner.",
       "mergeability": {
         "mergeable": true,
         "reportedState": "MERGEABLE",
@@ -10802,7 +10802,7 @@
         "OE-native-reporting"
       ],
       "currentSignal": "Current metadata; runtime and owner acceptance are separate. Checks not recollected in this documentation pass.",
-      "nextAction": "Continue existing native reporting effort; verify unresolved replacement-stack references before changing PR ownership.",
+      "nextAction": "Native implementation owner accounts for content in the ten replacement PRs before retiring this earlier work; no competing merge owner.",
       "mergeability": {
         "mergeable": true,
         "reportedState": "MERGEABLE",
@@ -11111,6 +11111,42 @@
       "checks": null,
       "reviews": null,
       "mergeability": null,
+      "metadataCheckedAt": "2026-09-14"
+    },
+    {
+      "id": "DIGI-UW/catalyst-ai#127",
+      "repository": "DIGI-UW/catalyst-ai",
+      "number": 127,
+      "title": "Extend reporting design for CSV Datasets and PostgreSQL",
+      "url": "https://github.com/DIGI-UW/catalyst-ai/pull/127",
+      "state": "merged",
+      "headSha": "0d0595a1c90606233a55cd3b12141484940ccdf0",
+      "mergeCommitSha": "852492592e199afead8f65f0ed9fd4158812a222",
+      "effort": "OpenELIS reporting pathways",
+      "relatedEffortIds": [
+        "OE-reporting",
+        "OE-lane-2",
+        "OE-lane-3"
+      ],
+      "currentSignal": "All five hosted checks pass; mock/spec artifacts merged. Owner interaction acceptance remains pending.",
+      "nextAction": "Review the published integration draft before production implementation.",
+      "metadataCheckedAt": "2026-09-14"
+    },
+    {
+      "id": "pmanko/clinical-ai-validation-harness#173",
+      "repository": "pmanko/clinical-ai-validation-harness",
+      "number": 173,
+      "title": "Consolidate four OpenELIS–Catalyst reporting pathways",
+      "url": "https://github.com/pmanko/clinical-ai-validation-harness/pull/173",
+      "state": "merged",
+      "headSha": "f6ace0cdfe2b9c4e6ea2f632ce174312a532bfdd",
+      "mergeCommitSha": "b21a9208176e1ca762d71cb4b9a467239d9fc3c1",
+      "effort": "OpenELIS reporting pathways",
+      "relatedEffortIds": [
+        "OE-reporting"
+      ],
+      "currentSignal": "Roadmap and existing dashboard aligned; all four PR checks passed and Pages publication succeeded.",
+      "nextAction": "Use the existing roadmap and task register; native cleanup remains with its implementation owner.",
       "metadataCheckedAt": "2026-09-14"
     }
   ],

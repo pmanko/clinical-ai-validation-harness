@@ -1094,7 +1094,7 @@
       "role": "binding interaction design",
       "current_or_superseded": "Existing source; four-pathway extension pending review",
       "effort": "OE-reporting; OE-lane-2; OE-lane-3",
-      "status": "Extend the existing design for direct CSV import and native PostgreSQL. Do not duplicate OpenELIS screens.",
+      "status": "Catalyst #127 adds interactive CSV import/review and PostgreSQL/FHIR source selection, reusing the approved appearance. Owner acceptance pending; OpenELIS screens remain external.",
       "evidence_date": "2026-09-14",
       "next_update": "Publish and inspect exact extended source before owner review.",
       "sources": [
