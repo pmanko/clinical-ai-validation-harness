@@ -597,6 +597,25 @@ captioned light-mode screenshots. Its caption describes the engine as supporting
 many clinical and health scenarios that may benefit from AI-based inference;
 the historical example is not a claim of validation across all such scenarios.
 
+The owner approved the next screenshot script on 13 September before capture:
+start with a labelled FHIR Data Pipes reference, ask “How many CD4 count results
+are recorded?”, show the actual total, then ask “Show those results by patient
+gender, including any without a recorded gender.” Show the complete refined
+output, save its chart and table, arrange them, and finish with the actual
+Superset dashboard. Use one local 12B writer/reviewer session throughout; verify
+that the result population and saved/published values agree. Keep the local
+package and public gallery synchronized. Changes to the script return to the
+owner before another capture iteration. The first total was 2,656, while the
+gender refinement returned 5,314 after an expanding join; the reviewer approved
+it incorrectly. The owner approved one visible correction turn asking to count
+each result once, preserve 2,656, and include missing gender. Keep the failed
+refinement and correction in the story; only use a reconciled result for the
+Dashboard. The corrected third turn returns 1,792 female and 864 male results.
+The saved query, both visualizations, publication bundle and actual local
+Superset table preserve those values; independent review passed. The screenshot
+story ends at that rendered Dashboard, with all three generated queries available
+as supporting detail. Public publication and owner acceptance are tracked separately.
+
 ### 6. Improve responsiveness and session navigation
 
 This is the first product checkpoint after the current deployment is stable and
