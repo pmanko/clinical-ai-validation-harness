@@ -157,7 +157,11 @@ def test_every_local_media_reference_exists_and_has_accessible_context():
     for image in page.images:
         assert image.get("src")
         assert image.get("alt") is not None
-        assert local_asset(str(image["src"])).is_file()
+        image_src = str(image["src"])
+        if image_src.startswith("https://"):
+            assert image_src.startswith(MEDIA_HOST)
+        else:
+            assert local_asset(image_src).is_file()
 
     for video in page.videos:
         assert video.get("controls") is None
@@ -224,7 +228,8 @@ def test_stable_publish_entrypoint_verifies_the_live_page():
     # asset list is derived from the page itself, not hand-maintained here, so
     # a recut is caught by editing the page alone -- and verified before
     # syncing anything, so a missing asset leaves the live page untouched.
-    assert 'grep -oE "${MEDIA_HOST}[A-Za-z0-9._-]+" "${ROOT}/landing/index.html"' in publish
+    assert '"${MEDIA_HOST}[A-Za-z0-9._/-]+" "${ROOT}/landing/"' in publish
+    assert "--include='*.html'" in publish
     assert publish.index("REMOTE_MEDIA_ASSETS") < publish.index('rsync -avz --delete')
     assert publish.count('curl -fsS --retry 8 --retry-delay 2 --max-time 30 "${asset}" -o /dev/null') == 2
     assert "CONFIG_CHANGES=" in publish
@@ -242,3 +247,32 @@ def test_stable_publish_entrypoint_verifies_the_live_page():
     assert "gateway" not in publish
     assert "frontend" not in publish
     assert "https://${SITE}/media/openmrs-evidence-poster.png" in publish
+
+
+def test_question_gallery_has_playable_clips_details_and_working_navigation():
+    _, home = parsed_landing()
+    gallery_path = LANDING / "catalyst/questions/index.html"
+    gallery = LandingParser()
+    markup = gallery_path.read_text(encoding="utf-8")
+    gallery.feed(markup)
+    assert "/catalyst/questions/" in home.links
+    assert gallery.h1_count == 1
+    assert gallery.videos and len(gallery.videos) == len(gallery.sources)
+    assert markup.count("<details") == len(gallery.videos)
+    assert gallery.scripts == []
+    for video in gallery.videos:
+        assert "controls" in video and "playsinline" in video
+        assert "autoplay" not in video
+        assert video.get("preload") == "metadata"
+        assert video.get("aria-label")
+        assert str(video.get("poster")).startswith(MEDIA_HOST)
+    for source in gallery.sources:
+        assert source.startswith(MEDIA_HOST) and source.endswith(".mp4")
+        assert source in gallery.links
+    for link in gallery.links:
+        if link.startswith("#"):
+            assert link[1:] in gallery.ids
+        elif link.startswith("/#"):
+            assert link[2:] in home.ids
+        elif link.startswith("/") and link.endswith("/"):
+            assert (LANDING / link.lstrip("/") / "index.html").is_file()

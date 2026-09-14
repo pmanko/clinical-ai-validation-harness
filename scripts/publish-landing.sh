@@ -38,24 +38,23 @@ if [ "${PUBLISH_MODE}" = "full" ] && [ ! -f "${ROOT}/.env.chartsearch.cloud" ]; 
   exit 1
 fi
 
-# The page is the source of truth for which demo-host assets it needs, not a
-# list maintained here: a recut changes the <source>/poster URL in
-# landing/index.html, and that edit alone must be enough to keep this script
-# correct. Extracted before any deployment mutation, so a missing asset (a
-# recut published to landing/ before its video/poster reached the demo host)
-# fails here and leaves the currently published page untouched.
+# The published pages are the source of truth for their demo-host assets.
+# Include subpages and nested asset directories so galleries receive the same
+# missing-media protection as the homepage recordings. Extract before any
+# deployment mutation: a page referencing missing media must fail here and
+# leave the currently published page untouched.
 MEDIA_HOST="https://catalyst.openelis-global.org/media/"
 REMOTE_MEDIA_ASSETS=()
 while IFS= read -r asset; do
   REMOTE_MEDIA_ASSETS+=("${asset}")
 done < <(
-  grep -oE "${MEDIA_HOST}[A-Za-z0-9._-]+" "${ROOT}/landing/index.html" | sort -u
+  grep -rhoE --include='*.html' "${MEDIA_HOST}[A-Za-z0-9._/-]+" "${ROOT}/landing/" | sort -u
 )
 if [ "${#REMOTE_MEDIA_ASSETS[@]}" -eq 0 ]; then
-  echo "error: no ${MEDIA_HOST}<asset> references found in landing/index.html" >&2
+  echo "error: no ${MEDIA_HOST}<asset> references found in landing HTML" >&2
   exit 1
 fi
-echo "==> verifying ${#REMOTE_MEDIA_ASSETS[@]} demo-host asset(s) referenced by landing/index.html"
+echo "==> verifying ${#REMOTE_MEDIA_ASSETS[@]} demo-host asset(s) referenced by landing HTML"
 for asset in "${REMOTE_MEDIA_ASSETS[@]}"; do
   curl -fsS --retry 8 --retry-delay 2 --max-time 30 "${asset}" -o /dev/null
 done
