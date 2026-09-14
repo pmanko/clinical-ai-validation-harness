@@ -1,4 +1,8 @@
 <!-- SPECKIT START -->
+For four-pathway OpenELIS–Catalyst delivery, start with
+`specs/openelis-reporting-catalyst-integration.md`; it owns the shared sequence.
+Keep native reporting tasks in OpenELIS and Catalyst tasks in the existing
+register below. Product behavior and binding mocks remain product-owned.
 For Catalyst delivery, read the authoritative current plan and task register:
 `specs/008-catalyst-query-workbench/plan.md` and
 `specs/008-catalyst-query-workbench/tasks.md`.

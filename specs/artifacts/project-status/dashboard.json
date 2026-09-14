@@ -1,5 +1,5 @@
 {
-  "as_of": "2026-09-12",
+  "as_of": "2026-09-14",
   "description": "Curated overview copy and navigation groups. Update with the effort inventory; these groups do not define completion or product requirements.",
   "cards": [
     {
@@ -22,9 +22,9 @@
     {
       "project": "catalyst",
       "title": "Catalyst",
-      "status": "Visual remediation and release acceptance",
-      "summary": "All four usability iterations are merged. Catalyst #117 carries the current visual corrections; the runtime release is merged through harness #157. The original delivery roadmap is unchanged.",
-      "evidence": "Current runtime and visual tasks were cross-checked against GitHub. Two-source server evidence and final owner acceptance remain open; OpenELIS reporting design is a separate parallel checkpoint.",
+      "status": "Existing release and four-pathway extension",
+      "summary": "Current Catalyst release evidence stays in its delivery register. The four-pathway initiative adds imported Datasets and ordinary PostgreSQL without duplicating the approved Workbench or AI-design roadmap.",
+      "evidence": "Main includes the merged Workbench visual update; current source inspection confirms query-backed Datasets and Spark. New pathway implementation and acceptance remain separate.",
       "actions": [
         [
           "Implement the usability design",
@@ -34,21 +34,41 @@
     },
     {
       "project": "shared",
-      "title": "OpenELIS reporting",
-      "status": "Defaults approved; revised mock merged",
-      "summary": "New export and saved-report paths now share the revised OpenELIS mock. The six first-slice defaults are recorded in its specification.",
-      "evidence": "PR #315 merged as cb1ff0c after 268 tests and passing builds. The live HTML and CSV helper match source; export/queue and sign-in recovery were inspected. Final owner visual acceptance remains open.",
+      "title": "OpenELIS–Catalyst reporting",
+      "status": "Four pathways approved; consolidate and review",
+      "summary": "Native CSV/Superset, CSV imported into Catalyst, native PostgreSQL, and FHIR/Spark are complementary starting points. One roadmap coordinates the existing product efforts.",
+      "evidence": "Native reporting is in implementation/UAT. CSV import and ordinary PostgreSQL support are approved additions. Four-pathway runtime evidence and owner acceptance remain pending.",
       "actions": [
         [
-          "Review reporting readiness",
+          "Open the parent roadmap",
           "OE-reporting"
+        ],
+        [
+          "CSV → Superset",
+          "OE-lane-1"
+        ],
+        [
+          "CSV → Catalyst Dataset",
+          "OE-lane-2"
+        ],
+        [
+          "Native PostgreSQL → Catalyst",
+          "OE-lane-3"
+        ],
+        [
+          "FHIR analytics → Catalyst",
+          "OE-lane-4"
         ]
       ]
     }
   ],
   "resumeIds": [
-    "CAT-E11",
     "OE-reporting",
+    "OE-lane-1",
+    "OE-lane-2",
+    "OE-lane-3",
+    "OE-lane-4",
+    "CAT-E11",
     "clinical.dual_provider",
     "upstream.older_prs",
     "harness.public_surfaces"
@@ -113,6 +133,24 @@
     ],
     "tool-acceptance_gates": [
       "chartsearch"
+    ],
+    "OE-reporting": [
+      "catalyst"
+    ],
+    "OE-native-reporting": [
+      "catalyst"
+    ],
+    "OE-lane-1": [
+      "catalyst"
+    ],
+    "OE-lane-2": [
+      "catalyst"
+    ],
+    "OE-lane-3": [
+      "catalyst"
+    ],
+    "OE-lane-4": [
+      "catalyst"
     ]
   }
 }

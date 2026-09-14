@@ -3,15 +3,15 @@
 [Open the dashboard](https://pmanko.github.io/clinical-ai-validation-harness/status/)
 for the visual overview, searchable PR inventory and linked detail panels.
 
-**Core delivery and PR coordination refreshed 12 September 2026.** Other inventory
+**Four-pathway reporting refreshed 14 September 2026.** Other inventory
 entries retain their individual evidence dates. This is a maintained snapshot,
 not a live GitHub feed. Product requirements and acceptance stay in their existing
 specifications.
 
 | Current work | Next checkpoint | Authority |
 | --- | --- | --- |
-| Catalyst | Visual remediation in #117; runtime release #157 is merged and its owning task is verifying two sources and server evidence. | [Feature 008 plan](../../008-catalyst-query-workbench/plan.md) and [tasks](../../008-catalyst-query-workbench/tasks.md). Closed #151 does not change their sequence. |
-| OpenELIS reporting | Defaults approved and v1.3 mock/spec #315 merged; publication verified; finish visual owner review. | [Reporting roadmap](../../openelis-reporting-catalyst-integration.md) links to OpenELIS Section 14; no duplicate checklist here. |
+| Catalyst | Current release remains in its own register; imported Datasets and ordinary PostgreSQL are approved extensions awaiting design/implementation. | [Catalyst delivery plan](../../008-catalyst-query-workbench/plan.md) and [shared tasks](../../008-catalyst-query-workbench/tasks.md#four-pathway-delivery). Existing AI-design Follow-on A is retained. |
+| OpenELIS–Catalyst reporting | Four complementary pathways approved; consolidate specifications and review mock extensions. Native reporting implementation/UAT is already active; mock PR #322 is open. | [Parent reporting roadmap](../../openelis-reporting-catalyst-integration.md), with native reporting and Catalyst task links. No per-lane specification family or duplicate checklist. |
 | ChartSearchAI | Reconcile upstream backend #157, retain frontend #23 and QueryStore #68, then complete current-revision provider acceptance. | [Dual-provider roadmap](../planning/openmrs-dual-provider-parity-roadmap.md). |
 | PR cleanup | Nine older OpenMRS contributions need content-based disposition. Contributor setup #33 → #148 and the older OpenELIS stacks retain explicit dependency order. | [September 12 PR review](reviews/2026-09-12.md). |
 

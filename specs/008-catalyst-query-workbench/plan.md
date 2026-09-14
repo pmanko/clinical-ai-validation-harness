@@ -1,5 +1,22 @@
 # Implementation plan: Catalyst Query Workbench and Dashboard Builder
 
+## Relationship to four-pathway reporting delivery
+
+The owner-approved [OpenELIS–Catalyst reporting roadmap](../openelis-reporting-catalyst-integration.md)
+is the parent for that initiative's scope, iterations and cross-pathway acceptance.
+This existing plan retains the Catalyst release and subsequent design milestones;
+its [task register](tasks.md#four-pathway-delivery) owns each shared Catalyst
+implementation task once. Native reporting work stays in OpenELIS. Do not copy
+the four-pathway sequence here or make this harness feature the parent of OE work.
+
+The next review is the extended product mock/spec. Imported Datasets and ordinary
+PostgreSQL support are approved but not yet implemented. Existing Follow-on A
+already covers conversational Widget/Dashboard design: extend its artifact
+context to imported as well as query-backed Datasets, without inventing SQL
+history for files. Its implementation follows completion of the four-pathway
+demonstration goal; Metabase/Evidence remain subsequent milestones. Current
+release findings and older evidence below retain their own dates and scope.
+
 **Status:** Current delivery roadmap. The roadmap and compatible baseline are
 merged, and the specification set is consolidated. All four usability iterations
 are merged and the complete local dual-source walkthroughs passed. On 10 September
