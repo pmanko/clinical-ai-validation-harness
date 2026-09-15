@@ -1198,13 +1198,13 @@
       ],
       "id": "OE-lane-1",
       "title": "Lane 1 · OpenELIS CSV to Superset",
-      "status": "Native reporting exists; end-to-end pathway unverified",
-      "next_deliverable": "Verify the actual detailed-result CSV, saved-report rerun, native Superset upload, table and summary chart.",
+      "status": "Native CSV uploaded and rendered locally; full pathway acceptance pending",
+      "next_deliverable": "Complete native saved-report rerun and broader fixture checks, then repeat the lane on the demo server.",
       "dependencies": [
         "OE-native-reporting"
       ],
       "acceptance": "See the parent roadmap for this lane's exit criteria. Implementation, checks, merge, local/server proof and owner acceptance stay separate; no lane is currently accepted.",
-      "evidence": "Four synthetic reporting result identities verified locally; native public CSVs preserve repeated values, 30/90-minute turnaround and separate Result IDs. All six report/queue files match their published hashes. Existing Catalyst Superset has only Hive connections with upload disabled; the separate upload destination and actual CSV-to-dashboard journey remain pending."
+      "evidence": "Local native Superset upload uses separate catalyst_imports/report_uploads storage. Dataset 31 and dashboard 31 preserve the two native CSV result IDs 1158/1159, result values 450/450 and validation intervals 30/90; raw table and bar-chart values inspected in the browser. Existing Hive connections and other deployments remain unchanged. Saved-report rerun and final/server evidence remain pending."
     },
     {
       "last_checked": "2026-09-14",

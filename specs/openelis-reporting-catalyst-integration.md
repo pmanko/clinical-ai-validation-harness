@@ -114,7 +114,7 @@ This is the sole cross-project sequence. Detailed tasks stay in linked registers
 | --- | --- | --- |
 | 0. Consolidate and establish authority | Persist direction, reconcile work, remove competing sequences without losing requirements, refresh dashboard references. | Harness #173 and Catalyst #127 merged; native cleanup retains its owner. FP-001. |
 | 1. Align mocks and contracts | Interactive CSV import/review and PostgreSQL source journeys reuse approved styles; failure/recovery and saved work represented; specs agree and owner reviews additions. | Catalyst #127/#128 merged; all five checks pass on #128 head `9728294`; owner approved additions for implementation on 14 September. FP-002. |
-| 2. Reporting example and lane 1 | Native saved-report rerun and real CSV → Superset table plus meaningful summary chart; inspect values, repeated results and dates. Begin FHIR coverage check. | Native milestones plus FP-003 integration verification. |
+| 2. Reporting example and lane 1 | Native saved-report rerun and real CSV → Superset table plus meaningful summary chart; inspect values, repeated results and dates. Begin FHIR coverage check. | Local native CSV upload/table/chart verified; saved-report rerun and server proof remain. Native milestones plus FP-003. |
 | 3. PostgreSQL and lane 3 | Full readable schema, question/refinement, explicit Run, save/reopen, publish and rendered Superset; Spark regression passes. | Pending; FP-004 and shared publication FP-005. |
 | 4. Imported Dataset foundation | Lane-1 CSV uploads/reviews/saves without SQL; values/order/types survive reload/restart; retry works and a table publishes. | Pending; FP-006 and FP-005. |
 | 5. Lane 2 visualization | Correct grouping/aggregation, saved/restored arrangement and rendered publication without SQL interaction. | Pending; FP-007. |
@@ -163,7 +163,16 @@ acceptance are separate facts. No date or automatic acceptance is implied.
 
 ### Early integration readiness — checked 14 September 2026
 
-- The native public [deployment receipt][native-deployment] identifies application,
+- Lane 1 now has a verified local native Superset CSV upload and saved dashboard
+  `31`, with raw table `61` and validation-interval bar chart `62`. The uploaded
+  detailed CSV retains result IDs `1158`/`1159`, values `450`/`450` and intervals
+  `30`/`90` minutes. Database `catalyst_imports` and schema `report_uploads` are
+  separate from clinical data and Superset metadata; the existing PostgreSQL
+  service is reused. The setup was rerun without changing its identity. These
+  are browser-checked local results, not complete lane/server acceptance. See
+  [upload operations](../docs/catalyst-demo-operations.md#native-csv-reporting-uploads).
+
+- At the initial readiness check, the native public [deployment receipt][native-deployment] identified application,
   frontend and backend `8005e4cc0b2b05d054489730aef969027d773093`, deployment
   `20260914T234348Z-8005e4cc0b2b`. This verifies the published identity, not the
   completed journey. The updated receipt reports public browser checks and CI
@@ -186,9 +195,12 @@ acceptance are separate facts. No date or automatic acceptance is implied.
   IDs. The native owner also reports no proof of normal FHIR emission. Coordinate
   actual reporting-instance emission/routing before lane 4; do not manufacture
   matching resources or treat the existing Catalyst cohort as parity evidence.
-- Local Catalyst Superset has only the OpenELIS and OpenMRS Hive connections,
-  both with file upload disabled. Lane 1 needs the separate writable upload
-  destination; do not enable writes to clinical data or Superset metadata.
+- The subsequent native-owner update identifies frontend/test `7cca586e`, with
+  backend `8005e4c` and synthetic records/CSV evidence unchanged. The owner
+  reports the change only clears a stale shared-report conflict warning.
+- Local Catalyst Superset retains both OpenELIS/OpenMRS Hive connections with
+  upload disabled. The separate reporting-upload connection above now supplies
+  lane 1; clinical data and Superset metadata remain outside its destination.
 
 These are scoped readiness findings, not lane acceptance. Native deployment,
 PR cleanup and UAT remain with their existing owners. Raw audit output stays
