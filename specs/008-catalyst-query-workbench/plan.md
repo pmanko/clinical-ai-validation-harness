@@ -10,9 +10,12 @@ implementation task once. Native reporting work stays in OpenELIS. Do not copy
 the four-pathway sequence here or make this harness feature the parent of OE work.
 
 The owner approved the extended product mock/spec on 14 September 2026;
-Catalyst #128 merged as `5164449`. The next integration checkpoint is the native
-CSV-to-Superset pathway in the parent roadmap. Imported Datasets and ordinary
-PostgreSQL support are approved but not yet implemented. Existing Follow-on A
+Catalyst #128 merged as `5164449`. The native CSV-to-Superset pathway now has
+a verified local example. PostgreSQL and
+source-aware query publication are merged in Catalyst #129/#130, and the CSV
+import/table foundation is merged in #131. Next verify native Superset rendering
+and the compatible local runtime, then add the approved raw-row grouping and
+summary charts. Full pathway and owner acceptance remain open. Existing Follow-on A
 already covers conversational Widget/Dashboard design: extend its artifact
 context to imported as well as query-backed Datasets, without inventing SQL
 history for files. Its implementation follows completion of the four-pathway
