@@ -155,8 +155,9 @@ is the drift this roadmap exists to remove.
 ### I2: #68 hygiene findings and thread closeout
 
 - Scope: the four smaller findings in §2; one reply per thread citing the commit. Then one
-  reply on each of the ten 2026-09-08 threads asking the maintainer to resolve or restate.
-  Threads are left open for the maintainer to resolve; we do not resolve our own (§8 A2).
+  PR-level summary of the round (finding, commit, test) that also notes the ten 2026-09-08
+  threads are answered and waiting on the maintainer's pass; ten near-identical per-thread
+  pings would be noise. Threads are left open for the maintainer to resolve (§8 A2).
 - Depends on: I1 pushed (so replies cite final SHAs).
 - Validation: 1.1 returns 0; 1.3 holds; 1.7 for querystore.
 - Exit: #68 has no thread whose last comment is not ours.
@@ -292,6 +293,7 @@ gh pr list --repo openmrs/openmrs-esm-chartsearchai    --author pmanko --state o
 | 2026-09-14 | baseline | querystore `f2fca727`, chartsearchai `d46f517b`, esm `77f61c8a` | recorded | §2; submodule pins reset to PR heads this day |
 | 2026-09-14 | I0 | harness `docs/openmrs-upstream-merge-roadmap` | done | `roadmaps.json` row CLIN-A60; efforts `clinical.dual_provider` and `upstream.older_prs` repointed; hub README row; `render.py --check` 16/16 views match; `status:test` 5/5; `status:build` OK; `verify-docs-consistency.sh` OK |
 | 2026-09-14 | I1 | querystore `f2fca727` -> `1b1c995f` (branch `codex/qs-68-review-round-2`, fast-forwarded to `harness-integration`) | done | three red-first tests failed on `f2fca727` (Lucene `truncated=false docs=1`; service `truncated=false`; interpreter `pain knee`), pass on `d675fe9` / `3057478` / `1b1c995`; full reactor API 523 + OMOD 51, 0 failures, 2 skips; #68 CI Java 8/11/17/21 SUCCESS on `1b1c995f`; three thread replies posted, threads left open |
+| 2026-09-14 | I2 | querystore `1b1c995f` -> `d10e9e41` (fast-forwarded to `harness-integration`) | done | overloads `ba6bfc1`, page ceiling + `rest-api.md` boundary `d8c1e17`, ADR slice sentence + `date_kind` advisory `d10e9e4`; focused tests 23/1/28 green; full reactor API 523 + OMOD 51, 0 failures; #68 CI Java 8/11/17/21 SUCCESS on `d10e9e41`; four thread replies + one round summary posted; AC 1.1 = 0 |
 
 ## 8. Amendments
 
