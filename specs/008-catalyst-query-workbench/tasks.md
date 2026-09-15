@@ -54,8 +54,8 @@ acceptance is claimed.
 
 | Lane | Observed working step | Next obstacle to resolve |
 | --- | --- | --- |
-| 1 | Fresh native May5 CSV uploaded through Superset's native API into Dataset 38. Browser-created table 80 preserves column order and IDs 1154/1155, both value 450; chart 81 groups by accession and counts 2. Dashboard 38 saves/reopens and its rendered screenshot was inspected. Earlier dashboard 32 remains a separate May6 interval example. | Browser file attachment, broader fixtures, paced recording and server journey remain. API upload is partial evidence, not the complete recorded user journey. |
-| 2 | Existing imported CSV retains both rows. Repaired publication now renders count 2, average 60 and total 120 in Superset; screenshots inspected. | Fresh native upload/type-recovery/save and browser chart/arrangement/publication smoke now pass (details below). Generic CSV browser checks now pass in both themes. The complete native-file recording, remaining visual review, broader failures and server validation remain. |
+| 1 | Fresh native May5 CSV uploaded through Superset's native API into Dataset 38. Browser-created table 80 preserves column order and IDs 1154/1155, both value 450; chart 81 groups by accession and counts 2. Dashboard 38 saves/reopens and its rendered screenshot was inspected. Earlier dashboard 32 remains a separate May6 interval example. | Native-file browser upload, raw table and grouped-count Dashboard now pass (Dashboard 40; details below). Broader fixtures, paced recording and server journey remain. |
+| 2 | Existing imported CSV retains both rows. Repaired publication now renders count 2, average 60 and total 120 in Superset; screenshots inspected. | Fresh native upload/type-recovery/save and browser chart/arrangement/publication smoke now pass (details below). Generic CSV browser checks pass in both themes and the native-file browser journey now reaches Superset (details below). Resolve the table-control display finding, then complete the paced recording, broader failures and server validation. |
 | 3 | `openelis-reporting` uses a restricted PostgreSQL reader and discovers all 380 readable relations. Browser schema search preserves the draft. Explicit manual execution returned IDs 1154/1155/1158/1159 with values 450; Dataset `1dd3de0a-6754-4cc2-9097-56a49cb3c8dd` saves and reopens with the correct source. Its table dashboard publishes/imports and renders all four exact rows in Superset. | Full-schema preparation now fits the E4B 98,304-token context. Four real model turns still chose the wrong relation or join; executed turns returned zero rows. Manual correction now passes through save/reopen, publication and exact Superset rendering. Complete the broader lane demonstration, server run and paced recording; retain model errors as limitations, not an accuracy gate. |
 | 4 | Existing Spark/HAPI services run. Native owner verified the reporting instance still points at an isolated loopback FHIR endpoint; Catalyst's existing endpoint requires its trusted client connection. | Native connection using the existing Catalyst network/certificates awaits approval in the native task, with metadata/readiness first. No seeding/backfill or real reporting FHIR emission has been performed. |
 
@@ -154,6 +154,31 @@ the existing foreground launcher is serving successfully, but durable startup
 has not been verified. FHIR connection remains pending the native task's approval
 review; normal reporting emission has not run. Four-pathway and server acceptance
 remain open.
+
+Native CSV browser journeys (15 September): both lanes used the exact May5
+export and checksum recorded above through a real file chooser. Superset's native
+CSV form imported `report_uploads.oe_native_may5_browser_20260915` into Dataset
+40 with text identifiers; browser-created table 83 and grouped-count chart 84
+save to [local Dashboard 40](http://localhost:18088/superset/dashboard/40/).
+It renders the original column order, IDs 1154/1155, value 450 for both, and count
+2; the saved dashboard screenshot was inspected. This closes the earlier lane-1
+browser attachment gap, while final recordings/server acceptance remain.
+
+Catalyst's Choose CSV button imported the same file. Choosing Number for the
+accession showed the specific invalid value and prevented confirmation without
+losing the file/name; choosing Text recovered. Imported Dataset version
+`cbefc25a-74de-43df-820b-95f8a007b1d0` retains the file checksum, complete two-row
+count and text identifiers. No SQL interaction or query provenance was introduced.
+Browser controls saved a full-row table, an accession-grouped record count and a
+table-first Dashboard. Explicit publication and the native importer produced
+bundle `4e7b6ec0c7b4add72595d2b0740bc16bfa4d066a8a01572a234b3876e3d7136c`;
+[local Superset](http://localhost:18088/superset/dashboard/catalyst-f182d760-776f-4f82-bca8-ecc2e822f568/)
+renders exact rows and count 2, with both screenshots inspected. The imported
+table's page-size control displays 0 and its search field exposes `c0`; resolve
+this presentation issue before final recording. These are local browser proofs,
+not the final paced demonstrations. The export itself was produced earlier by
+the native reporting task. Raw proof is outside Git in the existing evidence
+folder (`native-browser-verification.json`, `lane1-browser-*`, `lane2-browser-*`).
 
 Manual recovery browser smoke (15 September): session
 `cfc16f44-6081-4364-b0a7-8550d90f1fc1` retained all three model turns and added
