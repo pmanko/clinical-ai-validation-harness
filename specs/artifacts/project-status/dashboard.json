@@ -24,7 +24,7 @@
       "title": "Catalyst",
       "status": "Four-pathway testing in progress",
       "summary": "Current Catalyst release evidence stays in its delivery register. The four-pathway initiative adds imported Datasets and ordinary PostgreSQL without duplicating the approved Workbench or AI-design roadmap.",
-      "evidence": "The same native CSV now passes browser upload in Superset and Catalyst, through saved tables/count charts and rendered dashboards. PostgreSQL manual correction passes through saving and actual Superset rendering. Records and screenshots are verified locally. Imported-table control labels need polish. FHIR routing, full server journeys, paced videos and owner acceptance remain; exact proof is in the task register.",
+      "evidence": "The same native CSV now passes browser upload in Superset and Catalyst, through saved tables/count charts and rendered dashboards. PostgreSQL manual correction passes through saving and actual Superset rendering. The deployed imported-table repair removes the false warning for the two-row CSV while preserving 1,101-row pagination through QA-1101. FHIR routing, full server journeys, paced videos and owner acceptance remain; exact proof is in the task register.",
       "actions": [
         [
           "Review the current delivery checkpoint",
@@ -37,7 +37,7 @@
       "title": "OpenELIS\u2013Catalyst reporting",
       "status": "Four-pathway testing in progress",
       "summary": "Native CSV/Superset, CSV imported into Catalyst, native PostgreSQL, and FHIR/Spark are complementary starting points. One roadmap coordinates the existing product efforts.",
-      "evidence": "The same native CSV now passes browser upload in Superset and Catalyst, through saved tables/count charts and rendered dashboards. PostgreSQL manual correction passes through saving and actual Superset rendering. Records and screenshots are verified locally. Imported-table control labels need polish. FHIR routing, full server journeys, paced videos and owner acceptance remain; exact proof is in the task register.",
+      "evidence": "The same native CSV now passes browser upload in Superset and Catalyst, through saved tables/count charts and rendered dashboards. PostgreSQL manual correction passes through saving and actual Superset rendering. The deployed imported-table repair removes the false warning for the two-row CSV while preserving 1,101-row pagination through QA-1101. FHIR routing, full server journeys, paced videos and owner acceptance remain; exact proof is in the task register.",
       "actions": [
         [
           "Open the parent roadmap",

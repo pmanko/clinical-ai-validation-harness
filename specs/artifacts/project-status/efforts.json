@@ -1148,7 +1148,7 @@
     {
       "id": "OE-reporting",
       "title": "OpenELIS–Catalyst four reporting pathways",
-      "status": "Three local browser pathways verified; FHIR connection pending",
+      "status": "Three local browser pathways verified; imported-table publication repair deployed; FHIR connection pending",
       "next_deliverable": "Complete browser CSV recordings, the broader PostgreSQL demonstration and normal reporting FHIR emission; then server validation and videos.",
       "acceptance": "Four useful local/server pathways with verified outputs, paced videos and owner acceptance. No ranking; shared identity and existing AI-design Follow-on A remain later milestones.",
       "sources": [
@@ -1178,9 +1178,10 @@
         "https://github.com/pmanko/clinical-ai-validation-harness/pull/185",
         "https://github.com/DIGI-UW/catalyst-ai/pull/137",
         "https://github.com/pmanko/clinical-ai-validation-harness/pull/186",
-        "https://github.com/DIGI-UW/catalyst-ai/pull/138"
+        "https://github.com/DIGI-UW/catalyst-ai/pull/138",
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/187"
       ],
-      "evidence": "Three local browser pathways are verified: native CSV through Superset, CSV through Catalyst and Superset, and PostgreSQL manual correction through saved/rendered results. Harness #186/Catalyst #137 preserve all saved artifacts and storage mounts. A final imported-table warning correction merged as Catalyst #138 and awaits deployed rendering. The server remains on the earlier release and has no dedicated import database/configuration. FHIR native connection still needs approval. See the task register for exact revisions, receipts and outstanding videos/acceptance."
+      "evidence": "Three local browser pathways are verified: native CSV through Superset, CSV through Catalyst and Superset, and PostgreSQL manual correction through saved/rendered results. Harness #187/Catalyst #138 pass wrapper health and preserve 82 Datasets, 81 Widgets and 70 Dashboards. Browser proof shows the two-row imported CSV without a false warning and the 1,101-row regression table through QA-1101 on page 12. The server remains on the earlier release and has no dedicated import database/configuration. FHIR native connection still needs approval. See the task register for exact revisions, receipts and outstanding videos/acceptance."
     },
     {
       "last_checked": "2026-09-15",
@@ -1245,14 +1246,14 @@
       ],
       "id": "OE-lane-2",
       "title": "Lane 2 · Imported Dataset in Catalyst",
-      "status": "Native CSV browser journey through Superset verified locally",
-      "next_deliverable": "Integrate and browser-verify the table pagination repair, then record the complete native-export journey and validate the server.",
+      "status": "Native CSV browser journey through Catalyst and Superset verified locally; table repair deployed",
+      "next_deliverable": "Record the complete native-export journey and validate the server.",
       "dependencies": [
         "OE-native-reporting",
         "CAT-E11"
       ],
       "acceptance": "See the parent roadmap for this lane's exit criteria. Implementation, checks, merge, local/server proof and owner acceptance stay separate; no lane is currently accepted.",
-      "evidence": "Native CSV browser upload/type recovery, Dataset save, table/count chart, arrangement and publication are verified. Harness #186/Catalyst #137 re-import preserves result IDs1154/1155 and value450 with simple controls. Superset falsely warns when complete rows equal the limit; merged #138 leaves one row of headroom. Its 47 focused checks pass; deployment/rendered verification remains. The existing evidence record retains original and repaired bundle receipts and screenshots."
+      "evidence": "Native CSV browser upload/type recovery, Dataset save, table/count chart, arrangement and publication are verified. Harness #187/Catalyst #138 re-import preserves result IDs 1154/1155 and value 450 without a false warning. The 1,101-row regression table remains paginated and its final page renders QA-1101. The 47 focused checks passed; browser-rendered verification is complete. The existing private evidence record retains original and repaired bundle receipts and screenshots."
     },
     {
       "last_checked": "2026-09-15",
