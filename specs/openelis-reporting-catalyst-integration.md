@@ -169,7 +169,8 @@ acceptance are separate facts. No date or automatic acceptance is implied.
   `30`/`90` minutes. Database `catalyst_imports` and schema `report_uploads` are
   separate from clinical data and Superset metadata; the existing PostgreSQL
   service is reused. The setup was rerun without changing its identity. These
-  are browser-checked local results, not complete lane/server acceptance. See
+  use the published server CSV in local Superset: they verify local import and
+  rendering, not the full local export journey or lane/server acceptance. See
   [upload operations](../docs/catalyst-demo-operations.md#native-csv-reporting-uploads).
 
 - At the initial readiness check, the native public [deployment receipt][native-deployment] identified application,

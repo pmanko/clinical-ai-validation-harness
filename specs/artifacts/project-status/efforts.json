@@ -1204,7 +1204,7 @@
         "OE-native-reporting"
       ],
       "acceptance": "See the parent roadmap for this lane's exit criteria. Implementation, checks, merge, local/server proof and owner acceptance stay separate; no lane is currently accepted.",
-      "evidence": "Local native Superset upload uses separate catalyst_imports/report_uploads storage. Dataset 31 and dashboard 31 preserve the two native CSV result IDs 1158/1159, result values 450/450 and validation intervals 30/90; raw table and bar-chart values inspected in the browser. Existing Hive connections and other deployments remain unchanged. Saved-report rerun and final/server evidence remain pending."
+      "evidence": "Published native server CSV imported into local Superset using separate catalyst_imports/report_uploads storage. Dataset 31 and dashboard 31 preserve result IDs 1158/1159, values 450/450 and validation intervals 30/90; raw table and bar chart inspected and reopened. This proves local import/rendering, not a complete local source journey. Fresh local export/rerun, server rendering and final acceptance remain pending; existing analytics and other deployments are unchanged."
     },
     {
       "last_checked": "2026-09-14",

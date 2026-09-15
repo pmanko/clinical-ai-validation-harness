@@ -121,11 +121,13 @@ numeric/mixed-value columns for the actual file rather than assuming every resul
 is numeric. A raw-record table must preserve the exported column order and each
 result row. Aggregated charts must name the selected measurement and grouping.
 
-The 14 September local baseline uploaded the native detailed CSV from backend
-`8005e4c` as `report_uploads.oe_results_202605_8005`. Its two result IDs, `1158` and
+The 14 September local import baseline used the native team's published server
+CSV from backend `8005e4c`, uploaded into local Superset as `report_uploads.oe_results_202605_8005`. Its two result IDs, `1158` and
 `1159`, retain value `450` and distinct result-to-validation times of `30` and
 `90` minutes. This is native Superset file upload; it does not implement lane 2's
-Catalyst Dataset import or establish server/final owner acceptance. Raw files,
+Catalyst Dataset import. A fresh export from the local reporting instance is
+still required for the complete local lane; this check does not establish
+server/final owner acceptance. Raw files,
 setup receipts and screenshots remain outside Git. The integration task register
 owns current validation status.
 
