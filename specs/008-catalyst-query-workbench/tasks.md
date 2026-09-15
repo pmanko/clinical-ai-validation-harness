@@ -35,8 +35,8 @@ remain a later production milestone in the integration roadmap.
 ## Immediate four-pathway test checkpoint
 
 Follow the [workflow acceptance boundary](../openelis-reporting-catalyst-integration.md#workflow-acceptance-and-scope).
-The next lane-3 action is manual correction of the retained failed proposal,
-explicit execution, record verification, save/reopen and Dashboard publication.
+The lane-3 manual correction, execution, record verification, save/reopen and
+Dashboard publication smoke now passes locally (evidence below).
 Model errors below are observations, not a model-tuning backlog. Older performance
 investigations in this register do not block this delivery. All lane acceptance
 still requires the complete recorded journey and verified final outputs.
@@ -56,7 +56,7 @@ acceptance is claimed.
 | --- | --- | --- |
 | 1 | Fresh native May5 CSV uploaded through Superset's native API into Dataset 38. Browser-created table 80 preserves column order and IDs 1154/1155, both value 450; chart 81 groups by accession and counts 2. Dashboard 38 saves/reopens and its rendered screenshot was inspected. Earlier dashboard 32 remains a separate May6 interval example. | Browser file attachment, broader fixtures, paced recording and server journey remain. API upload is partial evidence, not the complete recorded user journey. |
 | 2 | Existing imported CSV retains both rows. Repaired publication now renders count 2, average 60 and total 120 in Superset; screenshots inspected. | Fresh native upload/type-recovery/save and browser chart/arrangement/publication smoke now pass (details below). Generic CSV browser checks now pass in both themes. The complete native-file recording, remaining visual review, broader failures and server validation remain. |
-| 3 | `openelis-reporting` uses a restricted PostgreSQL reader and discovers all 380 readable relations. Browser schema search preserves the draft. Explicit manual execution returned IDs 1154/1155/1158/1159 with values 450; Dataset `1dd3de0a-6754-4cc2-9097-56a49cb3c8dd` saves and reopens with the correct source. Its table dashboard publishes/imports and renders all four exact rows in Superset. | Full-schema preparation now fits the E4B 98,304-token context. Four real model turns still chose the wrong relation or join; executed turns returned zero rows. Use the supported manual correction path, verify records, and continue through save/reopen and publication. Retain model errors as limitations, not an accuracy gate. |
+| 3 | `openelis-reporting` uses a restricted PostgreSQL reader and discovers all 380 readable relations. Browser schema search preserves the draft. Explicit manual execution returned IDs 1154/1155/1158/1159 with values 450; Dataset `1dd3de0a-6754-4cc2-9097-56a49cb3c8dd` saves and reopens with the correct source. Its table dashboard publishes/imports and renders all four exact rows in Superset. | Full-schema preparation now fits the E4B 98,304-token context. Four real model turns still chose the wrong relation or join; executed turns returned zero rows. Manual correction now passes through save/reopen, publication and exact Superset rendering. Complete the broader lane demonstration, server run and paced recording; retain model errors as limitations, not an accuracy gate. |
 | 4 | Existing Spark/HAPI services run. Native owner verified the reporting instance still points at an isolated loopback FHIR endpoint; Catalyst's existing endpoint requires its trusted client connection. | Native connection using the existing Catalyst network/certificates awaits approval in the native task, with metadata/readiness first. No seeding/backfill or real reporting FHIR emission has been performed. |
 
 Retained services and model router were restored through existing launchers,
@@ -154,6 +154,24 @@ the existing foreground launcher is serving successfully, but durable startup
 has not been verified. FHIR connection remains pending the native task's approval
 review; normal reporting emission has not run. Four-pathway and server acceptance
 remain open.
+
+Manual recovery browser smoke (15 September): session
+`cfc16f44-6081-4364-b0a7-8550d90f1fc1` retained all three model turns and added
+an **Edited by hand** turn. Correcting the analysis/sample-item join in the visible
+editor produced human version `5532ec55-cf21-4105-a926-79d3d8f14f9d` and execution
+`660521cd-77d4-4e19-9125-930afb9f076d`. The result contains accession
+`REPORTING-MVP-REPEAT`, distinct result IDs 1154/1155 and value 450 for each.
+The follow-up draft survived execution and saving. Dataset and full-width table
+Dashboard save/reopen passed through browser controls. Explicit publication and
+the harness importer produced bundle
+`57fda15fd399b736bea8f94bc0e1991635bd3a1236d5de2e2648d2c4af0c2d5e`;
+[local Superset](http://localhost:18088/superset/dashboard/catalyst-c3e0cc9a-6611-4f80-988c-1042937f0cdb/)
+renders both exact rows, with the screenshot inspected. Session/turn records,
+import receipt and screenshot are retained outside Git under
+`~/code/catalyst-evidence/four-pathways/2026-09-15/manual-recovery-*`.
+This proves the supported local recovery through publication. No new model call
+or performance test was performed. The complete lane demonstration, server run,
+paced video and owner acceptance remain separate.
 
 CSV browser regression (15 September): the existing `e2e/csv-import.spec.ts`
 suite ran against the retained local demo through its real web proxy and Gateway.

@@ -1149,7 +1149,7 @@
       "id": "OE-reporting",
       "title": "OpenELIS\u2013Catalyst four reporting pathways",
       "status": "Four-pathway testing: native export recovered; CSV summaries repaired locally",
-      "next_deliverable": "Complete browser CSV journeys, PostgreSQL human-correction through publication, and normal reporting FHIR emission.",
+      "next_deliverable": "Complete browser CSV recordings, the broader PostgreSQL demonstration and normal reporting FHIR emission; then server validation and videos.",
       "acceptance": "Four useful local/server pathways with verified outputs, paced videos and owner acceptance. No ranking; shared identity and existing AI-design Follow-on A remain later milestones.",
       "sources": [
         "specs/openelis-reporting-catalyst-integration.md",
@@ -1260,13 +1260,13 @@
       ],
       "id": "OE-lane-3",
       "title": "Lane 3 \u00b7 OpenELIS PostgreSQL in Catalyst",
-      "status": "Manual query/save/publication verified; complete correction journey next",
-      "next_deliverable": "Correct the retained model proposal in the SQL editor, verify results, save/reopen and publish; record the complete workflow.",
+      "status": "Human correction through Superset rendering verified locally",
+      "next_deliverable": "Complete the lane demonstration, server validation and paced recording using the supported review/correction workflow.",
       "dependencies": [
         "CAT-E11"
       ],
       "acceptance": "See the parent roadmap for this lane's exit criteria. Implementation, checks, merge, local/server proof and owner acceptance stay separate; no lane is currently accepted.",
-      "evidence": "All 380 readable relations remain available. Manual query/save/Superset proof is retained. The existing Faster question preparation profile now fits 63,561\u201367,183 prompt tokens in a scoped 98,304-token E4B context. Four real model turns retained a wrong relation or join despite refinements; executed turns returned zero rows. Full rendered requests confirm instructions reached the model. The task register records exact session evidence and the missing foreign-key metadata finding. This does not pass the staff question/refinement journey. Human correction is accepted. The remaining demonstration must preserve the edit and verify final results, not achieve AI-only correctness."
+      "evidence": "The retained session preserves three model turns and an Edited by hand correction. Browser execution, draft retention, Dataset save/reopen, Dashboard layout save/reopen and explicit publication pass. The harness importer records bundle 57fda15f; Superset dashboard c3e0cc9a-6611-4f80-988c-1042937f0cdb renders accession REPORTING-MVP-REPEAT and distinct IDs 1154/1155, each value 450. Screenshot inspected. This is local recovery proof; broader demonstration, server, paced video and owner acceptance remain."
     },
     {
       "last_checked": "2026-09-15",
