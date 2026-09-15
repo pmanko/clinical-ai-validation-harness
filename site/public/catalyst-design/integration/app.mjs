@@ -29,7 +29,7 @@ function download(rows, fields, name) {
 function header(kind) {
   if (kind === 'parity') return '<header class="app-header"><strong>Integration review</strong><span class="muted small">Fictional comparison examples · outside both applications</span></header>';
   return `<header class="app-header"><a class="brand" href="#main"><span class="brand-mark" aria-hidden="true">C</span> Catalyst</a>
-    <nav aria-label="Main navigation">${button('explore', 'Explore', 'nav-button', catalyst.page === 'explore' ? 'aria-current="page"' : '')}${button('saved', 'Saved work', 'nav-button', catalyst.page === 'saved' ? 'aria-current="page"' : '')}</nav>
+    <nav aria-label="Main navigation">${button('explore', 'Explore', 'nav-button', catalyst.page === 'explore' ? 'aria-current="page"' : '')}${button('saved', 'Saved work', 'nav-button', ['saved', 'import', 'dataset'].includes(catalyst.page) ? 'aria-current="page"' : '')}</nav>
     <div class="source-context">${catalyst.page === 'import' || catalyst.page === 'dataset' ? '<span>File-based Dataset</span>' : `<span>Using <strong>${escape(session().source)}</strong></span>${button('sources', 'Change data', 'text-button')}`}</div>
     <details class="view-options"><summary>View options${catalyst.advanced ? ' · Advanced' : ''}</summary><div class="view-options-body">${appearance}<label class="mode-control" for="advanced">Advanced mode <span class="mode-switch"><input type="checkbox" role="switch" id="advanced" ${catalyst.advanced ? 'checked' : ''}><span aria-hidden="true">${catalyst.advanced ? 'On' : 'Off'}</span></span></label><p class="small muted">Maya Chen · Virology</p></div></details></header>`;
 }
@@ -46,7 +46,7 @@ function fileTable(file, caption) {
 function importView() {
   const file = catalyst.imported;
   const errors = file ? previewTypeErrors(file) : [];
-  return `<header class="page-header"><p class="eyebrow">ADD A DATASET</p><h1>Bring your report with you</h1><p>Upload a CSV, check its columns, and save it for charts and dashboards.</p>${button('explore', 'Return to your question', 'text-button')}</header>
+  return `<header class="page-header"><p class="eyebrow">ADD A DATASET</p><h1>Bring your report with you</h1><p>Upload a CSV, check its columns, and save it for charts and dashboards.</p>${button('saved', 'Back to Datasets', 'text-button')}</header>
     <section class="card"><h2>${file ? 'Review your file' : 'Choose a CSV'}</h2><p class="small muted">Use fictional data in this preview. Your file stays in this page; nothing is uploaded to a server. Maximum preview size: 100 KB.</p><label class="inline-label" for="csv-file">CSV file<input id="csv-file" type="file" accept=".csv,text/csv" ${catalyst.importing ? 'disabled' : ''}></label>${button('example-import', 'Use the fictional virology CSV', 'text-button', catalyst.importing ? 'disabled' : '')}${notice(catalyst.importError, 'error')}
     ${file ? `<p><strong>${escape(file.name)}</strong> · ${file.rows.length} rows · ${file.headers.length} columns</p><label class="inline-label" for="dataset-title">Dataset name<input id="dataset-title" value="${escape(catalyst.importTitle)}" ${catalyst.importing ? 'disabled' : ''}></label><h3>Check the column types</h3><p class="small muted">Keep identifiers and mixed values such as “&lt;20” as Text. Blank values and repeated result rows are retained.</p><div class="column-review">${file.headers.map((name, index) => `<label class="inline-label">${escape(name)}<select data-column="${index}" aria-label="Type for ${escape(name)}" ${catalyst.importing ? 'disabled' : ''}>${['text', 'number', 'date'].map(type => `<option value="${type}" ${file.types[index] === type ? 'selected' : ''}>${type[0].toUpperCase() + type.slice(1)}</option>`).join('')}</select></label>`).join('')}</div>${errors.map(error => notice(error, 'error')).join('')}${fileTable(file, 'All rows in this preview file')}<details><summary>File details</summary><p class="small muted">Complete file · ${file.rows.length} rows · SHA-256</p><code class="file-checksum">${escape(file.checksum)}</code><p class="small muted">Saving creates a separate version. Another upload will not replace a saved Dataset or published dashboard.</p></details><div class="actions">${button('confirm-import', catalyst.importing ? 'Saving…' : 'Confirm import and save Dataset', '', errors.length || catalyst.importing ? 'disabled' : '')}${catalyst.importing ? button('cancel-import', 'Cancel', 'secondary') : ''}</div>` : ''}</section>`;
 }
@@ -80,11 +80,11 @@ function catalystView() {
   if (catalyst.page === 'import') content += importView();
   else if (catalyst.page === 'dataset') content += importedDatasetView();
   else if (catalyst.page === 'saved') {
-    content += `<header class="page-header"><p class="eyebrow">SAVED WORK</p><h1>Datasets</h1><p>Your saved queries and imported files, ready to use again.</p>${button('import', 'Upload CSV', '')}</header>`;
+    content += `<header class="page-header"><p class="eyebrow">SAVED WORK</p><div class="card-header"><div><h1>Datasets</h1><p>Your saved queries and imported files, ready to use again.</p></div>${button('import', 'Upload CSV', '')}</div></header>`;
     content += catalyst.saved.length ? catalyst.saved.map((saved, index) => `<article class="card"><h2>${escape(saved.name)}</h2><p class="muted small">${saved.origin === 'file' ? `Imported CSV · ${saved.file.rows.length} complete rows` : `Query · ${escape(saved.source)} · ${saved.rows.length} results at save`} · Version 1</p>${button('restore', 'Open Dataset', 'secondary', 'data-index="' + index + '"')}</article>`).join('') : '<div class="empty-copy">Save a query result or upload a CSV to find it here.</div>';
   } else {
     content += `<header class="page-header"><p class="eyebrow">EXPLORE YOUR DATA</p><h1>${current.rows ? 'Your results, ready to explore' : 'What would you like to find out?'}</h1><p>${current.rows ? 'Review the result and keep what is useful.' : 'Start with a question, in your own words.'}</p><div class="page-tools">${button('browse', 'What data is available?', 'text-button', 'aria-expanded="' + catalyst.browse + '"')}</div></header>`;
-    if (current.stage === 'empty') content += `<section class="intro"><p>Ask about the laboratory information available to you.</p>${button('example', 'Try the monthly virology example', 'text-button')}<p>Already have a report?</p>${button('import', 'Upload a CSV', 'secondary')}</section>`;
+    if (current.stage === 'empty') content += `<section class="intro"><p>Ask about the laboratory information available to you.</p>${button('example', 'Try the monthly virology example', 'text-button')}</section>`;
     if (current.stage === 'preparing') content += '<section class="card" role="status"><h2>Preparing your question…</h2><p>Your data has not been retrieved.</p></section>';
     if (current.stage === 'ready' || current.stage === 'error') content += `<section class="card"><h2>Ready to get your results</h2><p>Validated HIV viral load results collected in August 2026, from Virology.</p><p class="small muted">Collection dates: August 1 through August 31 · One row per result</p>${notice(current.error, 'error')}${sqlDetails()}${button('run', current.error ? 'Try again' : 'Get results', '')}</section>`;
     if (current.stage === 'running') content += '<section class="card" role="status"><h2>Getting your results…</h2></section>';
@@ -226,3 +226,14 @@ if (app === 'parity') {
   document.querySelector('#user-state').closest('label').hidden = true;
 }
 render();
+
+function tryCsvImport() {
+  if (app !== 'catalyst' || user !== 'signed-in') return;
+  catalyst.page = 'import'; catalyst.sourcePicker = false; catalyst.message = '';
+  if (catalyst.imported || catalyst.importing) render('main');
+  else void loadFile(new File([csv(exportRows(defaultFilters))], 'fictional-virology-august-2026.csv', { type: 'text/csv' }));
+}
+window.addEventListener('message', event => {
+  if (event.origin === location.origin && event.source === parent && event.data?.type === 'preview:csv') tryCsvImport();
+});
+if (new URLSearchParams(location.search).get('try') === 'csv') tryCsvImport();

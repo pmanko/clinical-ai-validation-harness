@@ -11,7 +11,7 @@
     document.querySelector('#approved-controls').hidden = integration;
     document.querySelector('#integration-controls').hidden = !integration;
     document.querySelector('#spec-link').href = integration ? script.dataset.integrationSpec : script.dataset.approvedSpec;
-    document.querySelector('#context-note').textContent = integration ? 'Review CSV import and PostgreSQL/FHIR source choices in Catalyst. Native export stays in openelis-work; shared identity and AI dashboard design follow later.' : 'Approved presentation reference.';
+    document.querySelector('#context-note').textContent = integration ? 'Quick test: Try CSV import → Confirm import and save Dataset → Open Dataset. The example is prefilled; nothing is sent to a server. Reloading resets this preview.' : 'Approved presentation reference.';
     document.querySelectorAll('[data-view]').forEach(button => {
       if (button.dataset.view === selected) button.setAttribute('aria-current', 'page');
       else button.removeAttribute('aria-current');
@@ -24,6 +24,11 @@
   }
   design.addEventListener('change', apply);
   document.querySelectorAll('[data-view]').forEach(button => button.addEventListener('click', () => { selected = button.dataset.view; apply(); }));
+  document.querySelector('#try-csv').addEventListener('click', () => {
+    selected = 'catalyst';
+    apply();
+    document.querySelector('#catalyst').contentWindow.postMessage({ type: 'preview:csv' }, location.origin);
+  });
   document.querySelector('#width').addEventListener('change', event => frames.forEach(frame => { frame.style.width = event.target.value; }));
   document.querySelector('#screen').addEventListener('change', event => {
     const approved = document.querySelector('#approved');
@@ -31,5 +36,13 @@
     url.searchParams.set('state', event.target.value);
     approved.src = url.href;
   });
+  if (query.get('try') === 'csv') {
+    design.value = 'integration';
+    selected = 'catalyst';
+    const frame = document.querySelector('#catalyst');
+    const url = new URL(frame.src);
+    url.searchParams.set('try', 'csv');
+    frame.src = url.href;
+  }
   apply();
 })();

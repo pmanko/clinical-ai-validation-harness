@@ -1,8 +1,8 @@
 {
   "repository": "https://github.com/DIGI-UW/catalyst-ai",
-  "revision": "852492592e199afead8f65f0ed9fd4158812a222",
-  "integrationSpecification": "https://github.com/DIGI-UW/catalyst-ai/blob/852492592e199afead8f65f0ed9fd4158812a222/docs/specs/openelis-reporting-integration/spec.md",
-  "approvedSpecification": "https://github.com/DIGI-UW/catalyst-ai/blob/852492592e199afead8f65f0ed9fd4158812a222/docs/specs/staff-workbench-ux/spec.md",
+  "revision": "51644492076e5e17b24b133a9f35c31e82d0bc77",
+  "integrationSpecification": "https://github.com/DIGI-UW/catalyst-ai/blob/51644492076e5e17b24b133a9f35c31e82d0bc77/docs/specs/openelis-reporting-integration/spec.md",
+  "approvedSpecification": "https://github.com/DIGI-UW/catalyst-ai/blob/51644492076e5e17b24b133a9f35c31e82d0bc77/docs/specs/staff-workbench-ux/spec.md",
   "files": {
     "appearance.css": "8f49f774fcb6c267ce7b16789629dfd81fd3529d483540c8772f54c3dda731d9",
     "appearance.js": "8b4388c505fba0f7424cf17eddbbd880462c6cc686369ce9aaafba3c75fa4ae9",
@@ -10,10 +10,10 @@
     "mock.js": "884eb536960151465b65c1f14ed4b40474e7610f7c02a4ced03f23656022c8fc",
     "mock.html": "05ae3bb90cd603049eb7f0ce93d816a952b2fbf20f8a6500764b177e7b33cb6e",
     "integration/app.html": "f50ee345817f9b18f07ecfee9f1a268dc24ead0c30aa308d0f6688637e68b1bf",
-    "integration/app.mjs": "10d9d0c142a164d6e7e4354c45ee4d93c7898b53070b922c686d6068c0b0e8c8",
+    "integration/app.mjs": "0d168cd011a15aea431991018f308460911677fdc1e96b0ddf7185784eedc5b5",
     "integration/integration.css": "a2a4f183948bd14ec04fb208a21f38f1c78077c19e50c56cfebab79daf08e8ea",
     "integration/model.mjs": "f2214de3a8258acc409acb15d60dc4b5f4f98958c276b4cc4dfa3081c8e76a54",
-    "integration/review.js": "a5ba288e5167cb968ddb974ae945e7abd92744d78116532136b546c628dec3b3",
-    "index.html": "7aaa348953c9e87e0be5705e90da6598d3332b172effbebd6296dee7253b8dd2"
+    "integration/review.js": "92ee5808bc0f9d6ff41af951be3a1f0c13023e7155a74ddc7786a969ac34d4c4",
+    "index.html": "dbf0ff21aabe86b48c24555f2704ee33df851090fc6b9d3144fb00cb1f16853c"
   }
 }
