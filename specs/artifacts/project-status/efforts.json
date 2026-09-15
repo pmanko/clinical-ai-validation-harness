@@ -1148,8 +1148,8 @@
     {
       "id": "OE-reporting",
       "title": "OpenELIS–Catalyst four reporting pathways",
-      "status": "Roadmap merged; extended mock ready for owner review",
-      "next_deliverable": "Review CSV import, typed columns and PostgreSQL/FHIR source choices in the existing integration mock. Then implement through the parent roadmap's iterations.",
+      "status": "Extended mock approved and merged; native CSV-to-Superset checkpoint next",
+      "next_deliverable": "Verify native CSV upload in Superset with a table and meaningful summary chart, then continue PostgreSQL and imported Dataset implementation through the parent roadmap.",
       "acceptance": "Four useful local/server pathways with verified outputs, paced videos and owner acceptance. No ranking; shared identity and existing AI-design Follow-on A remain later milestones.",
       "sources": [
         "specs/openelis-reporting-catalyst-integration.md",
@@ -1161,8 +1161,10 @@
       "related_pull_requests": [
         "https://github.com/DIGI-UW/openelis-work/pull/322",
         "https://github.com/DIGI-UW/OpenELIS-Global-2/pull/4291",
-        "https://github.com/DIGI-UW/OpenELIS-Global-2/pull/4292"
-      ]
+        "https://github.com/DIGI-UW/OpenELIS-Global-2/pull/4292",
+        "https://github.com/DIGI-UW/catalyst-ai/pull/128"
+      ],
+      "evidence": "Owner approved the extended mock for implementation on 14 September. Catalyst #128 merged as 5164449; all five CI checks passed at 9728294. Mock approval is separate from application implementation and four-lane acceptance."
     },
     {
       "last_checked": "2026-09-14",
@@ -1216,7 +1218,7 @@
       "id": "OE-lane-2",
       "title": "Lane 2 · Imported Dataset in Catalyst",
       "status": "Approved; import capability not implemented",
-      "next_deliverable": "Review Upload CSV → columns/types → save Dataset, then implement shared imported-data and visualization contracts.",
+      "next_deliverable": "Implement the approved CSV upload/review/save journey after the native CSV baseline and PostgreSQL iteration; share imported-data and visualization contracts.",
       "dependencies": [
         "OE-native-reporting",
         "CAT-E11"

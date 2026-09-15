@@ -2,9 +2,11 @@
 
 **Status:** Four-pathway delivery and specification consolidation approved by the
 owner on 14 September 2026. The roadmap merged in harness #173. Product
-alignment and the extended mock merged in Catalyst #127 (`8524925`); the next checkpoint is
-owner review of those additions. This is the parent
-roadmap; plan approval is not implementation, deployment or acceptance.
+alignment and the extended mock merged in Catalyst #127 (`8524925`), followed by
+the approved CSV navigation/quick-test update in #128 (`5164449`). The owner
+approved these additions for implementation on 14 September. Next is the native
+CSV-to-Superset pathway. This is the parent roadmap; mock approval does not
+establish application implementation, deployment or final acceptance.
 
 ## Outcome
 
@@ -111,7 +113,7 @@ This is the sole cross-project sequence. Detailed tasks stay in linked registers
 | Iteration | Outcome and exit criteria | Current state / detailed owner |
 | --- | --- | --- |
 | 0. Consolidate and establish authority | Persist direction, reconcile work, remove competing sequences without losing requirements, refresh dashboard references. | Harness #173 and Catalyst #127 merged; native cleanup retains its owner. FP-001. |
-| 1. Align mocks and contracts | Interactive CSV import/review and PostgreSQL source journeys reuse approved styles; failure/recovery and saved work represented; specs agree and owner reviews additions. | Extended mock in Catalyst #127; technical checks passed, owner review pending. FP-002. |
+| 1. Align mocks and contracts | Interactive CSV import/review and PostgreSQL source journeys reuse approved styles; failure/recovery and saved work represented; specs agree and owner reviews additions. | Catalyst #127/#128 merged; all five checks pass on #128 head `9728294`; owner approved additions for implementation on 14 September. FP-002. |
 | 2. Reporting example and lane 1 | Native saved-report rerun and real CSV → Superset table plus meaningful summary chart; inspect values, repeated results and dates. Begin FHIR coverage check. | Native milestones plus FP-003 integration verification. |
 | 3. PostgreSQL and lane 3 | Full readable schema, question/refinement, explicit Run, save/reopen, publish and rendered Superset; Spark regression passes. | Pending; FP-004 and shared publication FP-005. |
 | 4. Imported Dataset foundation | Lane-1 CSV uploads/reviews/saves without SQL; values/order/types survive reload/restart; retry works and a table publishes. | Pending; FP-006 and FP-005. |
@@ -242,7 +244,7 @@ and status links after verified publication.
 | Evidence | Current state |
 | --- | --- |
 | Owner approval of direction | Approved 14 September 2026; recorded here. |
-| Updated mock/spec owner review | Pending iteration 1. |
+| Updated mock/spec owner review | Approved 14 September 2026 after local CSV journey review; Catalyst #128 merged as `5164449`. |
 | Lane 1 / 2 / 3 / 4 local proof | Pending; native stage evidence alone does not establish a lane. |
 | Four server journeys and rendered values | Pending. |
 | Paced videos and public references | Pending. Existing videos document earlier capabilities. |
