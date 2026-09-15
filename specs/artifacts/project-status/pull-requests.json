@@ -1,6 +1,6 @@
 {
   "schemaVersion": "project-status.pull-requests.v1",
-  "asOf": "2026-09-12T18:10:00Z",
+  "asOf": "2026-09-15T05:06:25Z",
   "dateWindowStart": "2026-08-01T00:00:00Z",
   "scope": {
     "maintainedRepositories": [
@@ -2964,7 +2964,7 @@
       "id": "DIGI-UW/catalyst-ai#44",
       "repository": "DIGI-UW/catalyst-ai",
       "number": 44,
-      "title": "refactor(ui): QueryWorkspace becomes composition \u2014 the five-hook split",
+      "title": "refactor(ui): QueryWorkspace becomes composition — the five-hook split",
       "url": "https://github.com/DIGI-UW/catalyst-ai/pull/44",
       "state": "merged",
       "draft": false,
@@ -3306,7 +3306,7 @@
       "id": "DIGI-UW/catalyst-ai#32",
       "repository": "DIGI-UW/catalyst-ai",
       "number": 32,
-      "title": "feat: Query Workbench UX v2 \u2014 notebook cells, session rail, and a Carbon-native visual pass",
+      "title": "feat: Query Workbench UX v2 — notebook cells, session rail, and a Carbon-native visual pass",
       "url": "https://github.com/DIGI-UW/catalyst-ai/pull/32",
       "state": "merged",
       "draft": false,
@@ -4621,7 +4621,7 @@
       "id": "DIGI-UW/openelis-work#308",
       "repository": "DIGI-UW/openelis-work",
       "number": 308,
-      "title": "design(results-validation): register Runs \u2014 QC, reagent lot & result review (v0.2)",
+      "title": "design(results-validation): register Runs — QC, reagent lot & result review (v0.2)",
       "url": "https://github.com/DIGI-UW/openelis-work/pull/308",
       "state": "merged",
       "draft": false,
@@ -5763,70 +5763,70 @@
       "author": "pmanko",
       "head": "harness-integration",
       "headRepository": "pmanko/openmrs-module-querystore",
-      "headSha": "f2fca727e527fcef6f230a18efb1c44248650a73",
+      "headSha": "1b1c995f6d3d7269b449f2891f3a58602b2a4104",
       "base": "main",
       "baseRepository": "openmrs/openmrs-module-querystore",
       "baseSha": null,
       "mergeCommitSha": "86803d02bce285172f6f4dcd54933b754cee5850",
       "createdAt": "2026-08-05T18:22:20Z",
-      "updatedAt": "2026-09-09T23:45:15Z",
+      "updatedAt": "2026-09-15T05:03:34Z",
       "closedAt": null,
       "mergedAt": null,
       "inclusionReason": "updated_since_2026_08_01",
       "effortGroup": "Active OpenMRS integration",
       "effort": "Active OpenMRS integration",
-      "currentSignal": "build / Prepare: SUCCESS; build / Build with Java 8: SUCCESS; build / Build with Java 11: SUCCESS; build / Build with Java 17: SUCCESS; build / Build with Java 21: SUCCESS; build / Deploy SNAPSHOT to Maven: SKIPPED; owasp-dependency-check: SKIPPED",
-      "nextAction": "Upstream review; Java 8/11/17/21 pass. Preserve this canonical integration line and paired dependencies.",
+      "currentSignal": "build / Deploy SNAPSHOT to Maven: SKIPPED; build / Build with Java 11: SUCCESS; build / Build with Java 8: SUCCESS; build / Build with Java 17: SUCCESS; build / Build with Java 21: SUCCESS; build / Prepare: SUCCESS; owasp-dependency-check: SKIPPED",
+      "nextAction": "Iteration I1 of the upstream merge roadmap done 2026-09-14: the three 2026-09-09 correctness findings (Lucene stale-lock completeness d675fe9, failed cold touch 3057478, right/nor/off stopwords 1b1c995) fixed red-first, replied on their threads, full reactor API 523 + OMOD 51 green. Next: I2, the four hygiene findings, then a round summary for the maintainer.",
       "mergeability": {
         "mergeable": true,
         "reportedState": "CLEAN",
-        "checkedAt": "2026-09-12T18:10:00Z"
+        "checkedAt": "2026-09-15T05:06:25Z"
       },
       "checks": {
-        "checkedCommitSha": "f2fca727e527fcef6f230a18efb1c44248650a73",
-        "checkedAt": "2026-09-12T18:10:00Z",
+        "checkedCommitSha": "1b1c995f6d3d7269b449f2891f3a58602b2a4104",
+        "checkedAt": "2026-09-15T05:06:25Z",
         "checkRuns": [
           {
-            "name": "build / Prepare",
+            "name": "build / Deploy SNAPSHOT to Maven",
             "status": "COMPLETED",
-            "conclusion": "SUCCESS",
-            "url": "https://github.com/openmrs/openmrs-module-querystore/actions/runs/34318398190/job/102359421630"
-          },
-          {
-            "name": "build / Build with Java 8",
-            "status": "COMPLETED",
-            "conclusion": "SUCCESS",
-            "url": "https://github.com/openmrs/openmrs-module-querystore/actions/runs/34318398190/job/102359540975"
+            "conclusion": "SKIPPED",
+            "url": "https://github.com/openmrs/openmrs-module-querystore/actions/runs/34931165160/job/104259845847"
           },
           {
             "name": "build / Build with Java 11",
             "status": "COMPLETED",
             "conclusion": "SUCCESS",
-            "url": "https://github.com/openmrs/openmrs-module-querystore/actions/runs/34318398190/job/102359540920"
+            "url": "https://github.com/openmrs/openmrs-module-querystore/actions/runs/34931165160/job/104259590662"
+          },
+          {
+            "name": "build / Build with Java 8",
+            "status": "COMPLETED",
+            "conclusion": "SUCCESS",
+            "url": "https://github.com/openmrs/openmrs-module-querystore/actions/runs/34931165160/job/104259590760"
           },
           {
             "name": "build / Build with Java 17",
             "status": "COMPLETED",
             "conclusion": "SUCCESS",
-            "url": "https://github.com/openmrs/openmrs-module-querystore/actions/runs/34318398190/job/102359540935"
+            "url": "https://github.com/openmrs/openmrs-module-querystore/actions/runs/34931165160/job/104259590765"
           },
           {
             "name": "build / Build with Java 21",
             "status": "COMPLETED",
             "conclusion": "SUCCESS",
-            "url": "https://github.com/openmrs/openmrs-module-querystore/actions/runs/34318398190/job/102359540890"
+            "url": "https://github.com/openmrs/openmrs-module-querystore/actions/runs/34931165160/job/104259590697"
           },
           {
-            "name": "build / Deploy SNAPSHOT to Maven",
+            "name": "build / Prepare",
             "status": "COMPLETED",
-            "conclusion": "SKIPPED",
-            "url": "https://github.com/openmrs/openmrs-module-querystore/actions/runs/34318398190/job/102359826151"
+            "conclusion": "SUCCESS",
+            "url": "https://github.com/openmrs/openmrs-module-querystore/actions/runs/34931165160/job/104259475433"
           },
           {
             "name": "owasp-dependency-check",
             "status": "COMPLETED",
             "conclusion": "SKIPPED",
-            "url": "https://github.com/openmrs/openmrs-module-querystore/actions/runs/34318398190/job/102359422277"
+            "url": "https://github.com/openmrs/openmrs-module-querystore/actions/runs/34931165160/job/104259476251"
           }
         ]
       },
@@ -5835,7 +5835,7 @@
       "relatedEffortIds": [
         "querystore.context"
       ],
-      "metadataCheckedAt": "2026-09-12T18:10:00Z",
+      "metadataCheckedAt": "2026-09-15T05:06:25Z",
       "historicalMergeReview": {
         "reviewedAt": "2026-09-06",
         "headSha": "6436ab6e02eba6464066605d8f3ba81645cf7693",
@@ -8759,7 +8759,7 @@
       "id": "pmanko/clinical-ai-validation-harness#76",
       "repository": "pmanko/clinical-ai-validation-harness",
       "number": 76,
-      "title": "feat(dashboard): legible cells \u2014 script once, repetitions diffed, reds blamed",
+      "title": "feat(dashboard): legible cells — script once, repetitions diffed, reds blamed",
       "url": "https://github.com/pmanko/clinical-ai-validation-harness/pull/76",
       "state": "merged",
       "draft": false,
@@ -9223,7 +9223,7 @@
       "id": "pmanko/clinical-ai-validation-harness#64",
       "repository": "pmanko/clinical-ai-validation-harness",
       "number": 64,
-      "title": "feat(G5): one frozen comparison \u2014 resumable, per-team scored, reviewable per cell",
+      "title": "feat(G5): one frozen comparison — resumable, per-team scored, reviewable per cell",
       "url": "https://github.com/pmanko/clinical-ai-validation-harness/pull/64",
       "state": "merged",
       "draft": false,
@@ -9262,7 +9262,7 @@
       "id": "pmanko/clinical-ai-validation-harness#63",
       "repository": "pmanko/clinical-ai-validation-harness",
       "number": 63,
-      "title": "feat(G3a): catalog v6 \u2014 one reviewed 13-relation surface with patient names",
+      "title": "feat(G3a): catalog v6 — one reviewed 13-relation surface with patient names",
       "url": "https://github.com/pmanko/clinical-ai-validation-harness/pull/63",
       "state": "merged",
       "draft": false,
@@ -9989,7 +9989,7 @@
       "id": "pmanko/clinical-ai-validation-harness#41",
       "repository": "pmanko/clinical-ai-validation-harness",
       "number": 41,
-      "title": "Feature 011: Catalyst FHIR sidecar POC (M10) \u2014 spec, plan, and full implementation",
+      "title": "Feature 011: Catalyst FHIR sidecar POC (M10) — spec, plan, and full implementation",
       "url": "https://github.com/pmanko/clinical-ai-validation-harness/pull/41",
       "state": "closed",
       "draft": false,
@@ -11190,7 +11190,7 @@
       "id": "pmanko/clinical-ai-validation-harness#173",
       "repository": "pmanko/clinical-ai-validation-harness",
       "number": 173,
-      "title": "Consolidate four OpenELIS\u2013Catalyst reporting pathways",
+      "title": "Consolidate four OpenELIS–Catalyst reporting pathways",
       "url": "https://github.com/pmanko/clinical-ai-validation-harness/pull/173",
       "state": "merged",
       "headSha": "f6ace0cdfe2b9c4e6ea2f632ce174312a532bfdd",

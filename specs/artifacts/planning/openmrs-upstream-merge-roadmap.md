@@ -291,6 +291,7 @@ gh pr list --repo openmrs/openmrs-esm-chartsearchai    --author pmanko --state o
 |---|---|---|---|---|
 | 2026-09-14 | baseline | querystore `f2fca727`, chartsearchai `d46f517b`, esm `77f61c8a` | recorded | §2; submodule pins reset to PR heads this day |
 | 2026-09-14 | I0 | harness `docs/openmrs-upstream-merge-roadmap` | done | `roadmaps.json` row CLIN-A60; efforts `clinical.dual_provider` and `upstream.older_prs` repointed; hub README row; `render.py --check` 16/16 views match; `status:test` 5/5; `status:build` OK; `verify-docs-consistency.sh` OK |
+| 2026-09-14 | I1 | querystore `f2fca727` -> `1b1c995f` (branch `codex/qs-68-review-round-2`, fast-forwarded to `harness-integration`) | done | three red-first tests failed on `f2fca727` (Lucene `truncated=false docs=1`; service `truncated=false`; interpreter `pain knee`), pass on `d675fe9` / `3057478` / `1b1c995`; full reactor API 523 + OMOD 51, 0 failures, 2 skips; #68 CI Java 8/11/17/21 SUCCESS on `1b1c995f`; three thread replies posted, threads left open |
 
 ## 8. Amendments
 
