@@ -12,7 +12,7 @@ specifications.
 | --- | --- | --- |
 | Catalyst | Current release remains in its own register; PostgreSQL and imported-Dataset/table support are merged; grouping, runtime verification and final acceptance remain. | [Catalyst delivery plan](../../008-catalyst-query-workbench/plan.md) and [shared tasks](../../008-catalyst-query-workbench/tasks.md#four-pathway-delivery). Existing AI-design Follow-on A is retained. |
 | OpenELIS–Catalyst reporting | Four complementary pathways approved; consolidate specifications and review mock extensions. Native reporting implementation/UAT is already active; mock PR #322 is open. | [Parent reporting roadmap](../../openelis-reporting-catalyst-integration.md), with native reporting and Catalyst task links. No per-lane specification family or duplicate checklist. |
-| ChartSearchAI | Reconcile upstream backend #157, retain frontend #23 and QueryStore #68, then complete current-revision provider acceptance. | [Dual-provider roadmap](../planning/openmrs-dual-provider-parity-roadmap.md). |
+| ChartSearchAI | Land QueryStore #68, ChartSearchAI #157 and ESM #23 upstream and retire the fork buffer. Now: seven unanswered #68 review threads (I1, I2), nine older PRs to close (I3), #157 resync after the querystore-api SNAPSHOT publishes (I4). | [Upstream merge roadmap](../planning/openmrs-upstream-merge-roadmap.md) for sequence and acceptance; [dual-provider roadmap](../planning/openmrs-dual-provider-parity-roadmap.md) for requirements. |
 | PR cleanup | Nine older OpenMRS contributions need content-based disposition. Contributor setup #33 → #148 and the older OpenELIS stacks retain explicit dependency order. | [September 12 PR review](reviews/2026-09-12.md). |
 
 | Reference | Purpose |

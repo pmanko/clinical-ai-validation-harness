@@ -72,7 +72,7 @@
     {
       "id": "clinical.dual_provider",
       "title": "ChartSearchAI dual-provider completion",
-      "status": "Canonical upstream PRs active; backend conflict and final acceptance open",
+      "status": "Canonical upstream PRs active; #157 conflicting; seven unanswered maintainer threads on #68 since 2026-09-09",
       "intent": "Bundled and Hub inference behind one OpenMRS conversation and evidence experience.",
       "implemented": [
         "Provider selection and truthful readiness; bundled default; no fallback; conversation persistence; final answer and evidence lifecycle; cancellation; browser rendering."
@@ -81,10 +81,11 @@
         "Historical July-Aug5 real-path proof across providers.",
         "Aug6 source-test checkpoint recovered by root: paired Java passed, frontend245 tests, hub684 tests; final exact-head live and independent review remained open.",
         "Preserved Aug6 03:19UTC hub relay probe covers Chart25a098e,Query56b49cf,ESMc9416c6,Hubcb4e05f, not final Aug6 source heads.",
-        "September 6 merge-readiness heads are QueryStore 6436ab6, ChartSearchAI f14d2cbd, and ESM 40d5525. GitHub reports all three mergeable. QueryStore's Java 8, 11, 17 and 21 jobs, ChartSearchAI's paired Java 11, 17 and 21 jobs, and the ESM build pass. ChartSearchAI's advisory QueryStore-HEAD job remains red until #68 reaches upstream main."
+        "September 6 merge-readiness heads are QueryStore 6436ab6, ChartSearchAI f14d2cbd, and ESM 40d5525. GitHub reports all three mergeable. QueryStore's Java 8, 11, 17 and 21 jobs, ChartSearchAI's paired Java 11, 17 and 21 jobs, and the ESM build pass. ChartSearchAI's advisory QueryStore-HEAD job remains red until #68 reaches upstream main.",
+        "2026-09-14 live read: #68 CLEAN, 17 unresolved threads (7 new 2026-09-09); #157 CONFLICTING, 19 behind upstream main, eight conflict files, advisory querystore-HEAD build fails on the ContextSlice types #68 adds; #23 CLEAN, 0 behind. Pins equal PR heads."
       ],
       "acceptance": "Owner Signoff2 and Signoff3 remain pending in canonical record.",
-      "next_deliverable": "Reconcile backend #157, retain frontend #23 and QueryStore #68, then finish current-revision two-provider acceptance. Fork #33 must precede contributor harness #148.",
+      "next_deliverable": "Execute M1 of the OpenMRS Upstream Merge Roadmap: answer the seven #68 threads with red-first fixes (I1, I2), close the nine older PRs (I3), then resync #157 once the querystore-api SNAPSHOT publishes (I4). Fork #33 is held on its branch pending the disposition in that roadmap section 8.",
       "dependencies": [
         "harness.foundation",
         "harness.corpus",
@@ -92,13 +93,14 @@
         "clinical.hub"
       ],
       "sources": [
+        "specs/artifacts/planning/openmrs-upstream-merge-roadmap.md",
         "specs/artifacts/planning/openmrs-dual-provider-parity-roadmap.md",
         "specs/artifacts/planning/openmrs-dual-provider-parity-roadmap-status.md",
         "specs/artifacts/planning/openmrs-dual-provider-conformance-contract.md",
         "scripts/verify_dual_provider_parity_gates.py",
         "artifacts/chartsearchai-local/relay-probe.json"
       ],
-      "last_checked": "2026-09-12",
+      "last_checked": "2026-09-14",
       "implementation_owner": null,
       "notes": [
         "Status summary and upstream inventory need reconciliation; do not re-open completed fixes based on old prose."
@@ -1018,7 +1020,7 @@
       "title": "Deliver the deployed Catalyst release and local writer/verifier demos",
       "status": "Public release deployed; light-only local writer/verifier videos published; both public source query checks pass, full server acceptance remains open",
       "next_deliverable": "Complete remaining public-server Dashboard workflow validation and owner acceptance in Feature 008 tasks.",
-      "acceptance": "Both real sources complete drafting, schema browsing, execution, refinement, saved-SQL reuse, charts, Dashboard arrangement, actual import and Superset rendering. Preserve exact revisions and raw evidence privately. Limit the pipeline introduction to 10\u201315 seconds; retain readable captions and result holds. Record owner acceptance separately.",
+      "acceptance": "Both real sources complete drafting, schema browsing, execution, refinement, saved-SQL reuse, charts, Dashboard arrangement, actual import and Superset rendering. Preserve exact revisions and raw evidence privately. Limit the pipeline introduction to 10–15 seconds; retain readable captions and result holds. Record owner acceptance separately.",
       "dependencies": [
         "CAT-E01"
       ],
@@ -1096,9 +1098,10 @@
       "id": "upstream.older_prs",
       "title": "Resolve older open OpenMRS contributions",
       "status": "Nine older contributions remain open; disposition required",
-      "next_deliverable": "Compare nine older open pull requests with the active integration lines and record keep, incorporate, or close recommendations.",
+      "next_deliverable": "Iteration I3 of the OpenMRS Upstream Merge Roadmap: confirm each of the nine PRs is subsumed by #157/#23 or deliberately dropped per the upstream inventory, then close with a supersession comment. Owner approval before remote disposition.",
       "acceptance": "No closure or supersession inferred from titles alone; retain useful unique work and obtain approval before remote disposition.",
       "sources": [
+        "specs/artifacts/planning/openmrs-upstream-merge-roadmap.md",
         "https://github.com/openmrs/openmrs-esm-chartsearchai/pull/11",
         "https://github.com/openmrs/openmrs-esm-chartsearchai/pull/10",
         "https://github.com/openmrs/openmrs-esm-chartsearchai/pull/9",
@@ -1109,7 +1112,7 @@
         "https://github.com/openmrs/openmrs-module-chartsearchai/pull/20",
         "https://github.com/openmrs/openmrs-module-chartsearchai/pull/19"
       ],
-      "last_checked": "2026-09-12",
+      "last_checked": "2026-09-14",
       "implementation_owner": null,
       "related_pull_requests": [
         "https://github.com/openmrs/openmrs-esm-chartsearchai/pull/11",
@@ -1147,7 +1150,7 @@
     },
     {
       "id": "OE-reporting",
-      "title": "OpenELIS\u2013Catalyst four reporting pathways",
+      "title": "OpenELIS–Catalyst four reporting pathways",
       "status": "Local CSV baseline verified; PostgreSQL and imported-Dataset/table foundations merged",
       "next_deliverable": "Verify imported table rendering and compatible local deployment, then implement raw-row grouping and summary charts; coordinate the native source and FHIR handoff.",
       "acceptance": "Four useful local/server pathways with verified outputs, paced videos and owner acceptance. No ranking; shared identity and existing AI-design Follow-on A remain later milestones.",
@@ -1203,7 +1206,7 @@
         "specs/008-catalyst-query-workbench/tasks.md#four-pathway-delivery"
       ],
       "id": "OE-lane-1",
-      "title": "Lane 1 \u00b7 OpenELIS CSV to Superset",
+      "title": "Lane 1 · OpenELIS CSV to Superset",
       "status": "Local saved-period export and Superset example verified; server acceptance pending",
       "next_deliverable": "Broaden shared-fixture coverage and repeat the native export/upload/render journey on the server.",
       "dependencies": [
@@ -1224,7 +1227,7 @@
         "specs/008-catalyst-query-workbench/tasks.md#four-pathway-delivery"
       ],
       "id": "OE-lane-2",
-      "title": "Lane 2 \u00b7 Imported Dataset in Catalyst",
+      "title": "Lane 2 · Imported Dataset in Catalyst",
       "status": "CSV import/table foundation merged; charts and runtime acceptance remain",
       "next_deliverable": "Verify the lane-1 CSV through Catalyst and native Superset, then add reviewed grouping, aggregation and record-count charts.",
       "dependencies": [
@@ -1247,7 +1250,7 @@
         "specs/008-catalyst-query-workbench/tasks.md#four-pathway-delivery"
       ],
       "id": "OE-lane-3",
-      "title": "Lane 3 \u00b7 OpenELIS PostgreSQL in Catalyst",
+      "title": "Lane 3 · OpenELIS PostgreSQL in Catalyst",
       "status": "PostgreSQL and source-aware query publication merged; native source integration remains",
       "next_deliverable": "Deploy the merged revision, connect the reporting OpenELIS source, then verify question/refinement/save/reopen and Superset rendering.",
       "dependencies": [
@@ -1266,7 +1269,7 @@
         "specs/008-catalyst-query-workbench/tasks.md#four-pathway-delivery"
       ],
       "id": "OE-lane-4",
-      "title": "Lane 4 \u00b7 OpenELIS FHIR analytics in Catalyst",
+      "title": "Lane 4 · OpenELIS FHIR analytics in Catalyst",
       "status": "Reporting-instance FHIR emission/routing missing from verified local pathway",
       "next_deliverable": "Check the same reporting instance's FHIR field coverage early, then verify its real pipeline, query and rendered dashboard.",
       "dependencies": [

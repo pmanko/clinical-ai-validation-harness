@@ -63,6 +63,18 @@ Stale PRs from the pre-integration-branch model, still open under pmanko: charts
 Test baselines from the 2026-09-09 source validation: querystore API 520 + OMOD 51 (two skips);
 chartsearchai API 2,126 + OMOD 198 (57 skips); esm 462.
 
+Status hub (`specs/artifacts/project-status/`, published at `/status/`): `pull-requests.json`
+(as of 2026-09-12) carries all twelve PRs above with `nextAction` text; efforts
+`clinical.dual_provider` and `upstream.older_prs` name the same work; `roadmaps.json` has no
+row for this roadmap; the hub README's ChartSearchAI row points at the parity roadmap only. The
+crosswalk already marks the parity status doc (CLIN-A03) and the upstream inventory (CLIN-A05)
+as stale.
+
+Pending fork work that the scope guard in §9 applies to: `pmanko/openmrs-module-chartsearchai`
+#33 (account-context transport, +542 / -32, 12 files, base `harness-integration`, MERGEABLE,
+paired with harness #148). It is new capability, not a review fix or resync; landing it on
+`harness-integration` grows #157. Its disposition is an open decision recorded in §8.
+
 ## 3. Milestones and Acceptance Criteria
 
 Each criterion has a check that returns a value. "Now" is the 2026-09-14 reading.
@@ -80,6 +92,7 @@ Definition: nothing on any of the three PRs is waiting on us.
 | 1.5 | #157's `build.yml` carries no paired-build machinery | `git diff upstream/main origin/harness-integration -- .github/workflows/build.yml` is empty | +72 / -1 |
 | 1.6 | The nine stale PRs are closed with a supersession comment | `gh pr list --author pmanko --state open` on both repos returns only #157 and #23 | 9 open |
 | 1.7 | Full reactors green at the final heads with no fewer tests than the baseline in §2 | commands in §5 | baseline |
+| 1.8 | Status hub current: this roadmap has a `roadmaps.json` row; `clinical.dual_provider` and `upstream.older_prs` name it as the next deliverable; every PR row touched by an iteration carries that iteration's head and next action | `scripts/project-status.sh check` exits 0; `roadmaps.json` row exists | no row |
 
 ### M2: Merged (maintainer)
 
@@ -101,11 +114,28 @@ re-running I4 if #157 goes red while waiting.
 | 3.3 | Repository-line gate passes under the new model | `scripts/verify-repository-lines.sh --check-publication-prs` exits 0 after it stops expecting fork PRs |
 | 3.4 | Stack works at the merged heads: one bundled and one hub turn complete on `/chat/stream` | `scripts/probe-chartsearchai-relay.py --identity-only` succeeds for both providers |
 | 3.5 | The parity roadmap status doc records the merge SHAs and marks Signoff 3's merges-and-publication item done | `openmrs-dual-provider-parity-roadmap-status.md` |
+| 3.6 | No current surface still describes `harness-integration` as the publication head; historical surfaces are labelled, not rewritten | the I7 inventory is worked through; `git grep -n harness-integration -- ':!targets' ':!specs/artifacts/planning/archive' ':!specs/artifacts/lanes'` returns only labelled history and this roadmap; `verify-docs-consistency.sh` exits 0 |
 
 ## 4. Iterations
 
 Each iteration is validated on its own and logged in §7 before the next starts. An iteration
 whose validation fails is "open", never "done".
+
+Every iteration's exit includes the status-hub update: refresh the `pull-requests.json` rows
+for the PRs it touched (head, mergeability, checks, dated `nextAction`), update the effort row's
+`status`, `next_deliverable`, `evidence` and `last_checked`, append the §7 log row, then run
+`scripts/project-status.sh refresh`. The hub is the dashboard; a roadmap that moves without it
+is the drift this roadmap exists to remove.
+
+### I0: Register the roadmap in the status hub
+
+- Scope: add a `roadmaps.json` row for this file (current authority for the merge and
+  retirement sequence; the parity roadmap keeps requirement authority); point
+  `clinical.dual_provider` and `upstream.older_prs` at it as the next deliverable; make the hub
+  README's ChartSearchAI row name it.
+- Depends on: nothing.
+- Validation: `scripts/project-status.sh refresh` exits 0; 1.8 holds.
+- Exit: the dashboard shows this roadmap as the ChartSearchAI next checkpoint.
 
 ### I1: #68 correctness fixes
 
@@ -168,6 +198,36 @@ whose validation fails is "open", never "done".
 - Exit: harness PR merged into `main`; the forks' `harness-integration` branches are left in
   place as history, not deleted.
 
+### I7: Consolidation sweep
+
+- Scope: every tracked surface that still encodes the fork or integration-branch model, read
+  on 2026-09-14 with `git grep -n -E 'harness-integration|pmanko/openmrs' -- ':!targets'`.
+  Three groups:
+  1. Rewire or remove (they will be wrong, not just stale):
+     `AGENTS.md:103-105` (publication-head rule); `Makefile:172,204` and the targets those
+     comments annotate; `.github/workflows/harness-ci.yml:59` (fetches `harness-integration`);
+     `scripts/openmrs-source-pair-test.sh` and `tests/test_openmrs_source_pair_script.py`
+     (assert HEAD equals `origin/harness-integration`); `scripts/verify-repository-lines.sh`
+     and `tests/test_repository_lines_script.py` (I6); the `.guards.json`
+     `pinned_ref_in_file` rule for `build.yml` and `targets/querystore` (dead once I4 removes
+     the paired build; drop it in I4, not here).
+  2. Reconcile status prose to the merged state: the parity roadmap status doc (CLIN-A03) and
+     upstream inventory (CLIN-A05), both already marked stale in the crosswalk; hub
+     `efforts.json` rows `clinical.dual_provider`, `upstream.older_prs`, `querystore.context`;
+     hub `README.md` current-work row and `dashboard.json` ChartSearchAI summary; the
+     published canvases `specs/artifacts/canvases/upstream-contribution-and-compatibility.canvas.tsx`
+     (models `harness-integration -> openmrs`) and `chartsearchai-and-querystore.canvas.tsx`
+     (pin figures from 2026-06-12); `landing/wahs/index.html:125` (cites fork revision
+     `8dc6ef9`; cite the merged upstream revision or label it as dated evidence).
+  3. Leave as labelled history: `specs/artifacts/lanes/L4-*`, `lanes/dev-roadmap.md`,
+     `specs/artifacts/planning/archive/*`, `hub-consolidation-roadmap*.md`, `specs/004-*`,
+     `specs/007-*`, `specs/ux-staged-states-remediation.md`, `specs/roadmap.canvas.tsx` (its
+     two hits already describe the hub buffer's retirement).
+- Depends on: I6.
+- Validation: 3.6; `verify-docs-consistency.sh` exits 0; `scripts/project-status.sh check`
+  exits 0; the docs site build that prerenders the canvases passes.
+- Exit: one harness PR; the crosswalk rows CLIN-A03 and CLIN-A05 no longer read "stale".
+
 ## 5. Validation Commands
 
 Unresolved #68 threads waiting on us (1.1):
@@ -210,16 +270,33 @@ gh pr list --repo openmrs/openmrs-esm-chartsearchai    --author pmanko --state o
 3. Same-day reply to any new maintainer thread on any of the three PRs while M2 is open.
 4. Nothing in this roadmap needs the parity roadmap's `dual_provider_parity_evidence.v1`
    bundle. That bundle remains open there and is not a gate here.
+5. Status-hub sync is part of every iteration's exit (§4), not a separate cleanup at the end.
+   I7 exists for the surfaces that can only be corrected once the merged state is known.
+6. Fork #33 is held on its own branch until its disposition in §8 is decided. Harness #148
+   pins #33's exact commit, so preview testing does not need it on `harness-integration`.
 
 ## 7. Iteration Log
 
 | Date (UTC) | Iteration | Heads touched | Result | Evidence |
 |---|---|---|---|---|
 | 2026-09-14 | baseline | querystore `f2fca727`, chartsearchai `d46f517b`, esm `77f61c8a` | recorded | §2; submodule pins reset to PR heads this day |
+| 2026-09-14 | I0 | harness `docs/openmrs-upstream-merge-roadmap` | done | `roadmaps.json` row CLIN-A60; efforts `clinical.dual_provider` and `upstream.older_prs` repointed; hub README row; `render.py --check` 16/16 views match; `status:test` 5/5; `status:build` OK; `verify-docs-consistency.sh` OK |
 
 ## 8. Amendments
 
-None.
+### A1, 2026-09-14: status-hub integration and consolidation sweep
+
+Added before the roadmap PR merged, on user direction that the roadmap must include the meta
+work of keeping the existing specs, dashboards and docs consistent. Adds the per-iteration
+status-hub exit rule, I0 (register in the hub), I7 (consolidation sweep with the grounded
+surface inventory), acceptance criteria 1.8 and 3.6, sequencing rules 5 and 6, and the §2
+paragraphs on the status hub and on fork #33.
+
+Open decision recorded here, not made here: whether fork #33 (account-context transport)
+lands on `harness-integration` before M2, growing #157 by twelve files, or waits on its own
+branch (harness #148 pins its exact commit either way) and goes upstream as its own PR after
+M2. The scope guard in §9 says wait; the #148 companion note says land first. The owner
+decides; until then rule 6 holds.
 
 ## 9. Scope Guard
 

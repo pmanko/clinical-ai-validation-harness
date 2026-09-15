@@ -1,5 +1,5 @@
 {
-  "as_of": "2026-09-09",
+  "as_of": "2026-09-14",
   "description": "Roadmap and specification crosswalk. A current authority can contain stale status prose; preserve its requirements and reconcile only factual progress.",
   "rows": [
     {
@@ -198,6 +198,18 @@
       "next_update": "Reconcile current-status claims with code and evidence; retain documented historical scope.",
       "evidence_date": "2026-08-06T17:54:38-07:00",
       "sources": "Last recorded integration/publication heads are older than current pins; use live GitHub for current state."
+    },
+    {
+      "id": "CLIN-A60",
+      "title": "OpenMRS Upstream Merge Roadmap",
+      "path": "specs/artifacts/planning/openmrs-upstream-merge-roadmap.md",
+      "url": "https://github.com/pmanko/clinical-ai-validation-harness/blob/docs/openmrs-upstream-merge-roadmap/specs/artifacts/planning/openmrs-upstream-merge-roadmap.md",
+      "role": "sequence-authority",
+      "kind": "roadmap or supporting authority",
+      "status": "Current authority for landing QueryStore #68, ChartSearchAI #157 and ESM #23 upstream and retiring the fork buffer; validated iterations I0-I7 with an iteration log. Requirement authority stays with CLIN-A02.",
+      "next_update": "After each iteration exit: log row, PR heads, effort rows.",
+      "evidence_date": "2026-09-14",
+      "sources": "Live GitHub, CI and fetched-clone readings dated 2026-09-14 in the roadmap section 2."
     },
     {
       "id": "CLIN-A06",
