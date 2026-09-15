@@ -19,8 +19,11 @@ Superset table rendering. Upload-size repair #132 is merged; the owner-approved
 summary controls are merged in #133 (`f548e04`), with all five checks passing.
 The compatible local runtime then verified native count and average summaries
 and exposed invalid PostgreSQL grouping for an ungrouped total. Catalyst #134
-repairs that publication adapter and is merged as `a15ecb8`; the harness pin and
-post-repair rendered-value check are next. Full pathway and owner acceptance remain open. Existing Follow-on A
+repairs that publication adapter; merged #135 (`387de1e`) also repairs retained
+Superset chart identity on reimport. Local count, average and total now render
+correctly. The [current task checkpoint](tasks.md#immediate-four-pathway-test-checkpoint)
+records the remaining model-query, FHIR routing, browser and server work.
+Full pathway and owner acceptance remain open. Existing Follow-on A
 already covers conversational Widget/Dashboard design: extend its artifact
 context to imported as well as query-backed Datasets, without inventing SQL
 history for files. Its implementation follows completion of the four-pathway

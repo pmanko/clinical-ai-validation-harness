@@ -128,7 +128,17 @@ No SQL was manually replaced in this session and no successful Dataset is claime
 PostgreSQL discovery currently supplies readable columns/types/comments but no
 foreign-key relationship metadata. This is an observed enrichment gap to assess,
 not proof that adding it alone will fix model behavior. Retain this failed case
-when validating any remedy. Exact requests remain in local generation evidence;
+when validating any remedy. [Catalyst #136](https://github.com/DIGI-UW/catalyst-ai/pull/136)
+adds declared foreign-key joins to the existing relationship context while keeping
+all readable relations and excluding partially readable keys. Its 21 focused
+checks and full Gateway suite (446 passed, one skip) pass against disposable
+PostgreSQL. A read-only check of the reporting source exposes 525 declared
+relationships across the same 380 relations. All five hosted checks passed and
+#136 merged as `a385f5e`; harness #183 pins that exact revision. The enriched
+initial prompt measures 83,348 tokens (85,396 with output allowance), within the
+98,304 serving context. Deployment and the repeated model journey remain pending;
+metadata coverage alone does not close FP-004.
+Exact requests remain in local generation evidence;
 raw inspection copies are outside Git. Managed router startup also timed out;
 the existing foreground launcher is serving successfully, but durable startup
 has not been verified. FHIR connection remains pending the native task's approval
