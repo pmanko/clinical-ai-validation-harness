@@ -7,9 +7,10 @@
       "title": "Open Clinical AI landing page",
       "url": "https://openclinai.org/",
       "role": "Public initiative overview: ChartSearchAI, Catalyst, Med Agent Hub and Validation Harness",
-      "status": "15 September: owner approved the hierarchy and descriptive copy and authorized publication after checks. Consolidated PR #184 records the merged revision and live publication verification.",
+      "status": "Local review: direct Catalyst screenshot walkthrough link added to the published four-project homepage.",
       "source": "landing/README.md; landing/index.html",
-      "next_update": "Use website PR #184 for the release record; refresh this surface when its content changes."
+      "next_update": "Review the local navigation changes; publication remains pending.",
+      "last_checked": "2026-09-15"
     },
     {
       "id": "public-openmrs-upstream",
@@ -25,18 +26,20 @@
       "title": "Public documentation and roadmap canvases",
       "url": "https://pmanko.github.io/clinical-ai-validation-harness/",
       "role": "Public architecture, research and navigation",
-      "status": "HTTP 200; application shell only checked",
+      "status": "Local review: practical documentation index, shared explicit publication selection and public parent links.",
       "source": "site/nav.ts; site/App.tsx; specs/roadmap.canvas.tsx",
-      "next_update": "Align public canvas summaries with current authorities and link the reviewed status summary."
+      "next_update": "Review interactive and static documentation before merging or publishing Pages.",
+      "last_checked": "2026-09-15"
     },
     {
       "id": "public-reports",
       "title": "Published reports index",
       "url": "https://reports.openclinai.org/",
       "role": "Curated historical and current run catalog",
-      "status": "HTTP 200; 19 deployed entries versus 16 in main",
+      "status": "Local catalog reconciled to all 19 published entries. T094 release destination returned 404; retained and labelled unavailable. Other historical findings unchanged.",
       "source": "reports-index.json; scripts/build-reports-index.py",
-      "next_update": "Reconcile the three Catalyst entries and explicit report-family/method labels."
+      "next_update": "Review the regenerated local index; publish separately with the existing report publisher.",
+      "last_checked": "2026-09-15"
     },
     {
       "id": "catalyst-app",
@@ -52,9 +55,10 @@
       "title": "Approved Catalyst staff Workbench design preview",
       "url": "https://pmanko.github.io/clinical-ai-validation-harness/catalyst-design/",
       "role": "Interactive visual acceptance reference",
-      "status": "Approved staff Workbench mock. Fictional examples, no product requests.",
+      "status": "Local review: harness wrapper adds project parent links; Catalyst mock source remains f548e04d4dcc.",
       "source": "targets/catalyst/docs/specs/staff-workbench-ux/ \u2192 site/public/catalyst-design/",
-      "next_update": "Keep frozen for side-by-side implementation review; replace only through an approved design amendment."
+      "next_update": "Verify the generated source manifest and navigation; no product design changes.",
+      "last_checked": "2026-09-15"
     },
     {
       "id": "openmrs-app",
@@ -116,9 +120,10 @@
       "url": "https://pmanko.github.io/clinical-ai-validation-harness/status/",
       "path": "specs/artifacts/project-status/README.md",
       "role": "Versioned cross-project overview and evidence browser",
-      "status": "GitHub Pages publication prepared in harness #101; the private September 6 site remains a legacy snapshot",
+      "status": "Local review: project status has a public parent link and explicitly dated snapshot label. Other records retain their individual check dates.",
       "source": "site/status; JSON inventories and render.py",
-      "next_update": "Merge harness #101, verify the published Pages build, and refresh the repository inventory after meaningful work events."
+      "next_update": "Review navigation before Pages publication; do not treat this index refresh as a runtime or PR recheck.",
+      "last_checked": "2026-09-15"
     },
     {
       "id": "tool-dashboard",
@@ -491,9 +496,10 @@
       "title": "Catalyst overview",
       "url": "https://openclinai.org/catalyst/",
       "role": "Reporting workflows, query/import examples and Dashboard resources",
-      "status": "15 September: owner approved the hierarchy and descriptive copy and authorized publication after checks. Consolidated PR #184 records the merged revision and live publication verification.",
+      "status": "Local review: screenshot walkthrough promoted before embedded videos; existing galleries and recordings retained.",
       "source": "landing/catalyst/index.html",
-      "next_update": "Use website PR #184 for the release record; refresh this surface when its content changes."
+      "next_update": "Review the opening actions and screenshot destination on desktop and narrow screens.",
+      "last_checked": "2026-09-15"
     },
     {
       "id": "public-med-agent-hub",
@@ -521,6 +527,16 @@
       "status": "15 September: owner approved the hierarchy and descriptive copy and authorized publication after checks. Consolidated PR #184 records the merged revision and live publication verification.",
       "source": "landing/catalyst/reporting-pathways/index.html",
       "next_update": "Use website PR #184 for the release record; refresh this surface when its content changes."
+    },
+    {
+      "id": "catalyst-screenshot-walkthrough",
+      "title": "Catalyst narrated screenshot walkthrough",
+      "url": "https://openclinai.org/catalyst/hiv-gallery/",
+      "role": "Illustrated question-to-dashboard example",
+      "status": "Live gallery verified; direct homepage and opening Catalyst links prepared for local review. Recorded 13 September 2026 against demo data.",
+      "last_checked": "2026-09-15",
+      "source": "landing/catalyst/hiv-gallery/index.html; landing/README.md",
+      "next_update": "Review discoverability before publication; retain the dated example context."
     }
   ]
 }

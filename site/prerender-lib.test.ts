@@ -156,8 +156,10 @@ describe('planOutputs extras', () => {
     expect(byPath()['topic/data.html']).toContain('canvas/specs/roadmap.html');
   });
 
-  it('puts the "why" framing and topics on the welcome twin and llms.txt', () => {
-    expect(byPath()['welcome.html']).toContain('Why this matters');
+  it('makes the static index a documentation entry with topics and a public parent', () => {
+    expect(byPath()['welcome.html']).toContain('Documentation');
+    expect(byPath()['welcome.html']).toContain('https://openclinai.org/');
+    expect(byPath()['welcome.html']).not.toContain('Patient data never leaves');
     expect(byPath()['welcome.html']).toContain('topic/data.html');
     expect(byPath()['llms.txt']).toContain('## Topics');
     expect(byPath()['llms.txt']).toContain('topic/data.html');

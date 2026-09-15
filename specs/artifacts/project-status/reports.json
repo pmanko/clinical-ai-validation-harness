@@ -9,13 +9,14 @@
       "source_date": "2026-08-25",
       "url": "https://reports.openclinai.org/catalyst-phase1-comparison/index.html",
       "claim_limit": "Historical PostgreSQL path; not the fresh Spark comparison",
-      "in_main_manifest": false,
+      "in_main_manifest": true,
       "declared_family": "catalyst",
       "status": "Published link HTTP 200",
       "summary": "Catalyst turns plain-English clinical questions into database queries it runs itself. Three AI team configurations each faced the same twelve questions about an HIV dataset — including vague ones they had to ask about, and impossible ones they had to refuse — with every answer checked row-for-row against an independently written reference.",
       "recorded_takeaway": "No team cleared the acceptance bar (≥90% overall, ≥80% per scenario). Best: the qwen-reviewed team at 8/12. An independent AI judge rated the SQL itself consistently well-built (median 100/100 across 44 queries) — the failures came from misreading ambiguous questions, the same two follow-ups for every team. Next lever: question understanding, not query craft.",
       "source": "https://reports.openclinai.org/reports-index.json",
-      "last_checked": "2026-09-06"
+      "last_checked": "2026-09-15",
+      "catalog_status": "Reconciled in local review source; publication pending. Historical conclusions unchanged."
     },
     {
       "id": "catalyst-t094-release",
@@ -24,13 +25,14 @@
       "source_date": "Not dated in slug",
       "url": "https://reports.openclinai.org/catalyst-t094-release/index.html",
       "claim_limit": "Historical PostgreSQL path; not the fresh Spark comparison",
-      "in_main_manifest": false,
-      "declared_family": "Absent; builder defaults to ChartSearchAI",
-      "status": "Published link HTTP 200",
+      "in_main_manifest": true,
+      "declared_family": "catalyst in reconciled local catalog; absent from original live entry",
+      "status": "Report unavailable: public destination returned HTTP 404 on 15 September 2026",
       "summary": "",
       "recorded_takeaway": "",
       "source": "https://reports.openclinai.org/reports-index.json",
-      "last_checked": "2026-09-06"
+      "last_checked": "2026-09-15",
+      "catalog_status": "Historical catalog entry retained; public report URL returned 404 on 15 September 2026. Local index labels it unavailable."
     },
     {
       "id": "catalyst-notebook-t094-2026-07-22",
@@ -39,13 +41,14 @@
       "source_date": "2026-07-22",
       "url": "https://reports.openclinai.org/catalyst-notebook-t094-2026-07-22/index.html",
       "claim_limit": "Historical PostgreSQL path; not the fresh Spark comparison",
-      "in_main_manifest": false,
-      "declared_family": "Absent; builder defaults to ChartSearchAI",
+      "in_main_manifest": true,
+      "declared_family": "catalyst in reconciled local catalog; absent from original live entry",
       "status": "Published link HTTP 200",
       "summary": "A different validation family from the chart-QA runs above: Catalyst turns a plain-language clinical question into governed SQL (a Gemma 4 12B writer drafted, a Qwen 2.5 14B reviewer checked, a deterministic policy enforcing read-only execution), then a follow-up instruction refines the exact current query. Four scenario families × 3 repetitions against the live stack and a real PostgreSQL: narrowing an unchanged base, aggregating from a dirty editor with a mid-session profile switch, correcting an unresolved parameter, and a semantic distinct-patient review. Every executed result is re-checked two ways — against an independently-run gold query (byte-level execution match) and by an independent read-only PostgreSQL cross-check.",
       "recorded_takeaway": "All 12 scenario repetitions passed — 384/384 assertions, including every gold execution-match: the SQL the models produced returned exactly the rows an independently-authored gold query returns, on every repetition. This is an acceptance gate on one synthetic 96-patient laboratory cohort, not a benchmark — it demonstrates the governed notebook loop (draft → review → validate → execute → refine) is reliable end-to-end on real infrastructure, not that the models never err (the advisory validator and deterministic policy exist precisely because they do).",
       "source": "https://reports.openclinai.org/reports-index.json",
-      "last_checked": "2026-09-06"
+      "last_checked": "2026-09-15",
+      "catalog_status": "Reconciled in local review source; publication pending. Historical conclusions unchanged."
     },
     {
       "id": "small-model-answer-paths-2026-07-15",

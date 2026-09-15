@@ -51,6 +51,16 @@ def expected_files(source: Path, revision: str) -> dict[str, bytes]:
         'id="source-revision" href="spec.md">Working tree',
         f'id="source-revision" href="{REPOSITORY}/commit/{sha}">{sha[:12]}',
     )
+    if "<header>" not in wrapper:
+        raise ValueError("Design review wrapper has no header for site navigation")
+    wrapper = wrapper.replace(
+        "<header>",
+        '<header><nav aria-label="Project navigation" style="flex-basis:100%;align-items:center;gap:8px">'
+        '<a href="https://openclinai.org/">Open Clinical AI</a><span aria-hidden="true">/</span>'
+        '<a href="https://openclinai.org/catalyst/">Catalyst</a><span aria-hidden="true">/</span>'
+        '<span>Design review</span></nav>',
+        1,
+    )
     files["index.html"] = wrapper.encode()
     manifest = {
         "repository": REPOSITORY,

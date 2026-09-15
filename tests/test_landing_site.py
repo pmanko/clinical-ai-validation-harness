@@ -237,3 +237,12 @@ def test_question_gallery_has_playable_clips_details_and_working_navigation():
             assert link[2:] in home.ids
         elif link.startswith("/") and link.endswith("/"):
             assert (LANDING / link.lstrip("/") / "index.html").is_file()
+
+
+def test_screenshot_walkthrough_is_easy_to_find_without_browsing_videos():
+    home, parser = parsed_landing()
+    assert "/catalyst/hiv-gallery/" in parser.links
+    catalyst, _ = parsed_page("catalyst/index.html")
+    opening = catalyst.split("<video", 1)[0]
+    assert 'href="/catalyst/hiv-gallery/"' in opening
+    assert "Screenshot walkthrough" in opening

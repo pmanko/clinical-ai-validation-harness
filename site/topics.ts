@@ -39,7 +39,7 @@ export const topics: Topic[] = [
   {
     id: 'lab-ai',
     title: 'Catalyst — query-to-table for lab and program data',
-    blurb: 'Ask a clinical question in plain language; a writer/reviewer model team drafts governed SQL against a database-generated catalog, a deterministic policy enforces read-only execution, and the result is a typed table — running today on two independent data sources, OpenELIS lab data and OpenMRS HIV/ART program data.',
+    blurb: 'Technical examples of source context, advisory query review, explicit execution and saved results in Catalyst. Recorded examples retain their own deployment dates; current capabilities and walkthroughs are described on the Catalyst project page.',
     links: [
       { kind: 'canvas', slug: 'specs/artifacts/canvases/catalyst-demos', label: 'Demos — see it answer real questions (canvas)' },
     ],

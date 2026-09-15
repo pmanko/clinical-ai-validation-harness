@@ -1,42 +1,34 @@
 import { describe, it, expect } from 'vitest';
-import { GO_DEEPER, DEMO_URL } from './landing-content';
+import { GO_DEEPER, HERO } from './landing-content';
 import { topics } from './topics';
+import { canvasModules, repoMd } from './published-content';
+import { flattenLeaves } from './nav';
 
-// The landing's authored content must not rot: every "go deeper" deep-link has to
-// resolve to a real route (a spec/canvas file on disk, or a real topic id) — the
-// guard against silent scent-link rot when files move or get renamed.
-const specKeys = new Set(Object.keys(import.meta.glob('../specs/**/*.md')));
-const repoMdKeys = new Set(Object.keys(import.meta.glob(['../README.md', '../docs/**/*.md'])));
-const canvasSlugs = new Set(
-  Object.keys(import.meta.glob('../specs/**/*.canvas.tsx')).map((p) =>
-    p.replace(/^\.\.\//, '').replace(/\.canvas\.tsx$/, ''),
-  ),
-);
-const topicIds = new Set(topics.map((t) => t.id));
-
-function specExists(slug: string): boolean {
-  const target = slug === 'README' ? '../README.md' : `../${slug}.md`;
-  return specKeys.has(target) || repoMdKeys.has(target);
-}
-
-const links = GO_DEEPER.flatMap((card) => card.links.map((l) => ({ card: card.title, ...l })));
-
-describe('landing-content GO_DEEPER', () => {
-  it('has four reader paths, each with at least two deep-links', () => {
-    expect(GO_DEEPER).toHaveLength(4);
-    for (const card of GO_DEEPER) expect(card.links.length).toBeGreaterThanOrEqual(2);
+const links = GO_DEEPER.flatMap(card => card.links);
+describe('documentation entry and public sources', () => {
+  it('introduces documentation rather than a competing project pitch', () => {
+    expect(HERO.headline).toBe('Documentation');
+    expect(HERO.valueProp).toContain('Setup guides');
+    expect(GO_DEEPER.every(card => card.links.length > 0)).toBe(true);
   });
 
-  it.each(links)('"$card" → $to resolves to a real route', ({ to }) => {
-    const m = /^\/(spec|canvas|topic)\/(.+)$/.exec(to);
-    expect(m, `${to} is not a /spec|/canvas|/topic route`).not.toBeNull();
-    const [, kind, rest] = m!;
-    if (kind === 'spec') expect(specExists(rest), `${rest} (spec) missing on disk`).toBe(true);
-    else if (kind === 'canvas') expect(canvasSlugs.has(rest), `${rest} (canvas) missing on disk`).toBe(true);
-    else expect(topicIds.has(rest), `${rest} (topic) is not a real topic id`).toBe(true);
+  it.each(links)('$label points to published content at $to', ({to}) => {
+    const [, kind, ...rest] = to.split('/');
+    const slug = rest.join('/');
+    if (kind === 'topic') expect(topics.some(t => t.id === slug)).toBe(true);
+    else if (kind === 'canvas') expect(canvasModules[`../${slug}.canvas.tsx`]).toBeDefined();
+    else {
+      expect(kind).toBe('spec');
+      expect(repoMd[`../${slug}.md`]).toBeDefined();
+    }
   });
 
-  it('points the demo CTA at the live clinical demo', () => {
-    expect(DEMO_URL).toContain('openclinai.org');
+  it('every published source has an explicit navigation owner', () => {
+    const leaves = flattenLeaves();
+    for (const path of [...Object.keys(repoMd), ...Object.keys(canvasModules)]) {
+      const slug = path.slice(3).replace(/\.canvas\.tsx$|\.md$/, '');
+      expect(leaves[slug], `Uncurated publication: ${path}`).toBeDefined();
+    }
+    expect(repoMd['../specs/008-catalyst-query-workbench/plan.md']).toBeUndefined();
   });
 });

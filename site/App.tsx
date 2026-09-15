@@ -5,7 +5,8 @@ import { completeNav } from './nav-auto';
 import { htmlHrefFor } from './prerender-lib';
 import { topics } from './topics';
 import { filterEntries, toPlainText, SearchEntry } from './search';
-import { HERO, PROBLEM, APPROACH, PROOF, GO_DEEPER } from './landing-content';
+import { HERO, GO_DEEPER } from './landing-content';
+import { canvasModules, repoMd } from './published-content';
 
 // Link from the interactive view to its full-static-HTML twin (the LLM-readable
 // mirror emitted by the prerender pass). Same mirror-routes-minus-hash mapping.
@@ -14,24 +15,7 @@ function PlainHtmlLink({ kind, slug }: { kind: 'spec' | 'canvas'; slug: string }
   return <a className="plain-html-link" href={href} title="Full static HTML — readable without JavaScript">View as plain HTML ↗</a>;
 }
 
-// ---------- raw module discovery (file presence; the IA lives in nav.ts) -----
-
-const canvasModules = import.meta.glob('../specs/**/*.canvas.tsx', { eager: true }) as Record<string, { default: React.ComponentType }>;
-// The published site is the public-facing surface: README + canvases + the mission/
-// background + research pages (the allowlist below). All other specs/ markdown (feature
-// specs, plans, briefs, contracts, planning notes, handoffs, lanes) is dev-internal —
-// in the repo, not published. Canvases (globbed above) stay public.
-const repoMd        = import.meta.glob([
-  '../README.md',
-  '../specs/background/**/*.md',
-  '../specs/artifacts/planning/global-health-ai-background-research-2026-06-14.md',
-  '../specs/artifacts/planning/guardrails-methodology-research.md',
-], { eager: true }) as Record<string, { html?: string; default: string }>;
-
-// The published surface is the allowlisted markdown (README + background + research)
-// plus all canvases; the curated nav orders them. Dev-internal specs under specs/ are
-// not published. completeNav still merges any uncurated published page into a deep
-// section — but with the allowlist, that set is just the curated pages.
+// The shared explicit source list also supplies the static renderer and search.
 const fullNavTree = completeNav(
   Object.keys(repoMd),
   Object.keys(canvasModules),
@@ -170,10 +154,10 @@ function Sidebar({ onClose, onNavigate }: { onClose: () => void; onNavigate: () 
   return (
     <aside id="site-sidebar" className="sidebar">
       <div className="sidebar-header">
-        <Link to="/" className="sidebar-brand" onClick={onNavigate}>clinical-ai-validation-harness</Link>
+        <Link to="/" className="sidebar-brand" onClick={onNavigate}>Documentation</Link>
         <button type="button" className="sidebar-close" onClick={onClose} aria-label="Close navigation">Close</button>
       </div>
-      <div className="sidebar-sub">Overview &amp; canvases</div>
+      <div className="sidebar-sub">Guides, architecture and research</div>
       <SearchBox onNavigate={onNavigate} />
       <nav className="sidebar-nav">
         {fullNavTree.map((s, i) => <SidebarSection key={`top-${i}-${s.title}`} section={s} depth={0} onNavigate={onNavigate} />)}
@@ -205,47 +189,16 @@ function HomeView() {
         <p>{HERO.valueProp}</p>
       </header>
 
-      <section className="landing-section why">
-        <h2>{PROBLEM.heading}</h2>
-        {PROBLEM.paragraphs.map((para, i) => (
-          <p className="landing-prose" key={i}>{para}</p>
-        ))}
-        <p className="landing-prose">
-          <Link className="landing-inline-link" to="/spec/specs/background/why-local-first-clinical-ai">
-            See the evidence behind these claims →
-          </Link>
-        </p>
-      </section>
-
-      <section className="landing-section approach">
-        <h2>{APPROACH.heading}</h2>
-        <p className="landing-section-sub">{APPROACH.lead}</p>
-        <div className="surface-grid">
-          {APPROACH.pillars.map((pillar) => (
-            <div className="surface" key={pillar.title}>
-              <strong>{pillar.title}</strong> — {pillar.body}
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <section className="landing-section proof">
-        <h2>{PROOF.heading}</h2>
-        <p className="landing-prose">{PROOF.body}</p>
-        <div className="proof-actions">
-          <a className="proof-demo-cta" href={PROOF.demoUrl} target="_blank" rel="noreferrer">{PROOF.demoLabel} ↗</a>
-          <Link className="proof-demo-cta proof-demo-cta-secondary" to={PROOF.secondaryDemoTo}>{PROOF.secondaryDemoLabel} →</Link>
-        </div>
-        <p className="proof-honesty">{PROOF.honesty}</p>
-      </section>
+      <p className="landing-prose">
+        New to the projects? <a className="landing-inline-link" href="https://openclinai.org/#projects">Explore the tools and demonstrations →</a>
+      </p>
 
       <section className="landing-section go-deeper">
-        <h2>Go deeper</h2>
-        <p className="landing-section-sub">Follow the path that fits what you came for.</p>
+        <h2>Browse documentation</h2>
         <div className="card-grid">
           {GO_DEEPER.map((card) => (
             <div className="go-deeper-card" key={card.title}>
-              <div className="go-deeper-card-title">{card.title}</div>
+              <h3 className="go-deeper-card-title">{card.title}</h3>
               <div className="go-deeper-card-outcome">{card.outcome}</div>
               <div className="go-deeper-card-links">
                 {card.links.map((l) => (
@@ -373,6 +326,7 @@ export default function App() {
 
   return (
     <div className={`layout${sidebarOpen ? ' sidebar-open' : ''}`}>
+      <a className="skip-link" href="#main-content" onClick={e => { e.preventDefault(); document.getElementById('main-content')?.focus(); }}>Skip to content</a>
       <button
         type="button"
         className="mobile-nav-toggle"
@@ -390,7 +344,10 @@ export default function App() {
         onClick={() => setSidebarOpen(false)}
         aria-label="Close navigation"
       />
-      <main className="content">{main}</main>
+      <main id="main-content" tabIndex={-1} className="content">
+        <nav className="site-parent" aria-label="Site navigation"><a href="https://openclinai.org/">Open Clinical AI</a><span aria-hidden="true">/</span><Link to="/">Documentation</Link></nav>
+        {main}
+      </main>
     </div>
   );
 }

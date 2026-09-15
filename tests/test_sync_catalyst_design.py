@@ -32,7 +32,7 @@ def source(tmp_path, monkeypatch):
     for name in ['app.mjs', 'integration.css', 'model.mjs', 'review.js']:
         (integration / name).write_text('draft ' + name)
     (integration / 'app.html').write_text('<link href="../staff-workbench-ux/mock.css">')
-    (integration / 'index.html').write_text('''<script src="../staff-workbench-ux/appearance.js"></script>
+    (integration / 'index.html').write_text('''<header></header><script src="../staff-workbench-ux/appearance.js"></script>
 <iframe src="../staff-workbench-ux/mock.html"></iframe><iframe src="app.html?app=catalyst"></iframe>
 <a id="spec-link" href="../staff-workbench-ux/spec.md">Spec</a>
 <a id="source-revision" href="spec.md">Working tree</a>
@@ -97,3 +97,13 @@ def test_incomplete_commit_does_not_replace_existing_publication(source):
     with pytest.raises(subprocess.CalledProcessError):
         publish.expected_files(repo, 'HEAD')
     assert (dest / 'source.json').read_bytes() == original
+
+
+def test_publication_adds_parent_navigation_without_changing_product_mock(source):
+    repo, revision = source
+    files = publish.expected_files(repo, revision)
+    wrapper = files['index.html'].decode()
+    assert 'https://openclinai.org/' in wrapper
+    assert 'https://openclinai.org/catalyst/' in wrapper
+    assert 'aria-label="Project navigation"' in wrapper
+    assert files['mock.html'] == b'approved mock.html'

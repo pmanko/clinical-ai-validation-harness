@@ -16,21 +16,7 @@ import { completeNav } from './nav-auto';
 import { planOutputs, type RenderedPage } from './prerender-lib';
 import { topics } from './topics';
 
-const canvasModules = import.meta.glob('../specs/**/*.canvas.tsx', { eager: true }) as Record<
-  string,
-  { default: React.ComponentType }
->;
-// Published site = README + canvases + mission/background + research (allowlist); everything
-// else under specs/ is dev-internal (mirror of App.tsx).
-const repoMd = import.meta.glob([
-  '../README.md',
-  '../specs/background/**/*.md',
-  '../specs/artifacts/planning/global-health-ai-background-research-2026-06-14.md',
-  '../specs/artifacts/planning/guardrails-methodology-research.md',
-], { eager: true }) as Record<
-  string,
-  { html?: string; raw?: string; default: string }
->;
+import { canvasModules, repoMd } from './published-content';
 
 function pathToSlug(p: string): string {
   return p.replace(/^\.\.\//, '').replace(/\.canvas\.tsx$/, '').replace(/\.md$/, '').replace(/\.tsx$/, '');
@@ -46,8 +32,7 @@ function findSpec(slug: string) {
 
 /** Build the full output plan, with every doc/canvas body rendered via Vite. */
 export function plan(base: string, meta: { title: string; summary: string }) {
-  // Build the nav from the published allowlist (README + background + research) plus
-  // all canvases. Dev-internal specs under specs/ are not published. (Mirrors App.tsx.)
+  // Use the same explicit public sources as the interactive site.
   const fullTree = completeNav(
     Object.keys(repoMd),
     Object.keys(canvasModules),
