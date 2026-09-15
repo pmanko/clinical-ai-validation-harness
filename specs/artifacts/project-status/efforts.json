@@ -1176,7 +1176,7 @@
         "https://github.com/DIGI-UW/catalyst-ai/pull/135",
         "https://github.com/pmanko/clinical-ai-validation-harness/pull/183"
       ],
-      "evidence": "Retained runtime restored without seeding. Native owner verified login/export. Catalyst discovers all 380 reporting relations; manual query returned all four retained records and saved/reopened its Dataset. Local Superset renders CSV count 2, average 60 and total 120 after the chart-identity repair in merged Catalyst #135. Full-schema E4B preparation now fits a scoped 98,304-token context; real refinements still chose wrong relations/joins and returned zero rows. Native FHIR connection awaits approval. See the existing task register for exact revisions and remaining acceptance. Fresh native-file lane2 smoke now verifies API error recovery and browser chart/arrangement/publication through rendered count2; file-picker automation remains unverified."
+      "evidence": "Retained runtime restored without seeding. Native owner verified login/export. Catalyst discovers all 380 reporting relations; manual query returned all four retained records and saved/reopened its Dataset. Local Superset renders CSV count 2, average 60 and total 120 after the chart-identity repair in merged Catalyst #135. Full-schema E4B preparation now fits a scoped 98,304-token context; real refinements still chose wrong relations/joins and returned zero rows. Native FHIR connection awaits approval. See the existing task register for exact revisions and remaining acceptance. Fresh native-file lane2 smoke now verifies API error recovery and browser chart/arrangement/publication through rendered count2; five generic CSV browser tests now pass in both themes; complete native-file recordings remain."
     },
     {
       "last_checked": "2026-09-15",
@@ -1238,7 +1238,7 @@
       "id": "OE-lane-2",
       "title": "Lane 2 \u00b7 Imported Dataset in Catalyst",
       "status": "Fresh native CSV import through rendered dashboard verified locally",
-      "next_deliverable": "Complete browser file-picker, narrow/theme and broader failure checks, then server validation.",
+      "next_deliverable": "Complete the native-file browser recording, remaining visual and failure checks, then server validation.",
       "dependencies": [
         "OE-native-reporting",
         "CAT-E11"

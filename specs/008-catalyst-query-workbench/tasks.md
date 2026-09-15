@@ -48,7 +48,7 @@ acceptance is claimed.
 | Lane | Observed working step | Next obstacle to resolve |
 | --- | --- | --- |
 | 1 | Fresh native May5 CSV uploaded through Superset's native API into Dataset 38. Browser-created table 80 preserves column order and IDs 1154/1155, both value 450; chart 81 groups by accession and counts 2. Dashboard 38 saves/reopens and its rendered screenshot was inspected. Earlier dashboard 32 remains a separate May6 interval example. | Browser file attachment, broader fixtures, paced recording and server journey remain. API upload is partial evidence, not the complete recorded user journey. |
-| 2 | Existing imported CSV retains both rows. Repaired publication now renders count 2, average 60 and total 120 in Superset; screenshots inspected. | Fresh native upload/type-recovery/save and browser chart/arrangement/publication smoke now pass (details below). Browser file-picker automation, narrow/theme review, broader failures and server validation remain. |
+| 2 | Existing imported CSV retains both rows. Repaired publication now renders count 2, average 60 and total 120 in Superset; screenshots inspected. | Fresh native upload/type-recovery/save and browser chart/arrangement/publication smoke now pass (details below). Generic CSV browser checks now pass in both themes. The complete native-file recording, remaining visual review, broader failures and server validation remain. |
 | 3 | `openelis-reporting` uses a restricted PostgreSQL reader and discovers all 380 readable relations. Browser schema search preserves the draft. Explicit manual execution returned IDs 1154/1155/1158/1159 with values 450; Dataset `1dd3de0a-6754-4cc2-9097-56a49cb3c8dd` saves and reopens with the correct source. Its table dashboard publishes/imports and renders all four exact rows in Superset. | Full-schema preparation now fits the E4B 98,304-token context. Four real model turns still chose the wrong relation or join; executed turns returned zero rows. Resolve query quality and prove question/refinement; manual execution does not complete that journey. |
 | 4 | Existing Spark/HAPI services run. Native owner verified the reporting instance still points at an isolated loopback FHIR endpoint; Catalyst's existing endpoint requires its trusted client connection. | Native connection using the existing Catalyst network/certificates awaits approval in the native task, with metadata/readiness first. No seeding/backfill or real reporting FHIR emission has been performed. |
 
@@ -104,7 +104,8 @@ Import bundle: `55b3a1ff5fe8d5369a992a390ef42865a1f6592db01e9dbf0b8c068789a7be93
 No SQL or model request was needed for the import/chart/dashboard path. The
 browser-control surface does not support file attachment, so initial upload/type
 review/save used the actual application endpoints, not browser controls. The
-remaining browser-file-picker check is explicit, not treated as passed.
+subsequent generic CSV browser regression below covers file selection; a complete
+native-file browser recording remains outstanding.
 
 PostgreSQL model smoke (15 September): the existing Faster question preparation
 profile used Gemma E4B with a scoped 98,304-token serving context; other presets
@@ -144,6 +145,28 @@ the existing foreground launcher is serving successfully, but durable startup
 has not been verified. FHIR connection remains pending the native task's approval
 review; normal reporting emission has not run. Four-pathway and server acceptance
 remain open.
+
+CSV browser regression (15 September): the existing `e2e/csv-import.spec.ts`
+suite ran against the retained local demo through its real web proxy and Gateway.
+All five tests passed. File selection, invalid-type correction, retained question
+and import drafts, immutable Dataset reload, saved chart settings, and upload
+bounds were exercised; light/dark desktop and 390px screenshots were captured.
+Reviewed screenshots show readable import controls and visible narrow-screen
+save/close actions. The narrow result table is wider than its panel; a transient
+save notification overlaps File details in the immediate capture, so final
+recordings must wait for it to clear before demonstrating that disclosure.
+Raw videos/traces/screenshots are outside Git. This closes the earlier generic
+browser-file-selection uncertainty; the complete native-file-to-Superset recorded
+journey and final visual/owner review remain open. These fast regression clips
+are not the paced four server demonstrations.
+
+Harness integration gate: the OpenMRS owning task supplied the canonical pair
+ChartSearchAI `58d1c797` / QueryStore `cfced363`, including the test constructor
+compatibility repair, after a successful paired Maven build (2,126 API tests,
+57 existing skips; 198 OMOD tests; no failures/errors). Harness #183 incorporates
+those exact pins; its own source-pair CI must pass before merge. Upstream
+ChartSearchAI PR #157 still has a separate merge conflict and is not being
+published/merged as part of this Catalyst checkpoint.
 
 ## Current local reporting checkpoint
 
