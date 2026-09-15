@@ -1149,7 +1149,7 @@
       "id": "OE-reporting",
       "title": "OpenELIS\u2013Catalyst four reporting pathways",
       "status": "Four-pathway testing: native export recovered; CSV summaries repaired locally",
-      "next_deliverable": "Complete browser CSV journeys, resolve PostgreSQL query quality, and connect normal reporting FHIR emission.",
+      "next_deliverable": "Complete browser CSV recordings, the broader PostgreSQL demonstration and normal reporting FHIR emission; then server validation and videos.",
       "acceptance": "Four useful local/server pathways with verified outputs, paced videos and owner acceptance. No ranking; shared identity and existing AI-design Follow-on A remain later milestones.",
       "sources": [
         "specs/openelis-reporting-catalyst-integration.md",
@@ -1176,7 +1176,7 @@
         "https://github.com/DIGI-UW/catalyst-ai/pull/135",
         "https://github.com/pmanko/clinical-ai-validation-harness/pull/183"
       ],
-      "evidence": "Retained runtime restored without seeding. Native owner verified login/export. Catalyst discovers all 380 reporting relations; manual query returned all four retained records and saved/reopened its Dataset. Local Superset renders CSV count 2, average 60 and total 120 after the chart-identity repair in merged Catalyst #135. Full-schema E4B preparation now fits a scoped 98,304-token context; real refinements still chose wrong relations/joins and returned zero rows. Native FHIR connection awaits approval. See the existing task register for exact revisions and remaining acceptance. Fresh native-file lane2 smoke now verifies API error recovery and browser chart/arrangement/publication through rendered count2; five generic CSV browser tests now pass in both themes; complete native-file recordings remain."
+      "evidence": "Retained runtime restored without seeding. Native owner verified login/export. Catalyst discovers all 380 reporting relations; manual query returned all four retained records and saved/reopened its Dataset. Local Superset renders CSV count 2, average 60 and total 120 after the chart-identity repair in merged Catalyst #135. Full-schema E4B preparation now fits a scoped 98,304-token context; real refinements still chose wrong relations/joins and returned zero rows. Native FHIR connection awaits approval. See the existing task register for exact revisions and remaining acceptance. Fresh native-file lane2 smoke now verifies API error recovery and browser chart/arrangement/publication through rendered count2; five generic CSV browser tests now pass in both themes; complete native-file recordings remain. Model errors do not block the supported manual correction workflow; no model optimization or performance testing is scheduled by this goal."
     },
     {
       "last_checked": "2026-09-15",
@@ -1210,13 +1210,13 @@
       ],
       "id": "OE-lane-1",
       "title": "Lane 1 \u00b7 OpenELIS CSV to Superset",
-      "status": "Local saved-period export and Superset example verified; server acceptance pending",
-      "next_deliverable": "Broaden shared-fixture coverage and repeat the native export/upload/render journey on the server.",
+      "status": "Native CSV browser upload and Superset dashboard verified locally",
+      "next_deliverable": "Complete the native export-to-dashboard recording, broader fixtures and server validation.",
       "dependencies": [
         "OE-native-reporting"
       ],
       "acceptance": "See the parent roadmap for this lane's exit criteria. Implementation, checks, merge, local/server proof and owner acceptance stay separate; no lane is currently accepted.",
-      "evidence": "Native owner verified local May5 export, saved configuration reopening with blank dates, and fresh May6 export. Exact local May6 CSV imported as Dataset32; saved/reopened dashboard32 table63 and chart64 preserve text IDs 1158/1159, values 450/450 and intervals 30/90. Screenshot inspected. Earlier dashboard31 used server CSV in local Superset and is preliminary proof. Final visual and owner acceptance remain open."
+      "evidence": "Exact native May5 CSV uploaded through the Superset file chooser/form into Dataset 40 with text identifiers. Table 83 preserves source column order and IDs 1154/1155 with value 450; chart 84 counts 2 by accession. Saved Dashboard 40 renders both; screenshot inspected. Earlier API-upload proofs remain dated evidence. Final recordings, server and owner acceptance remain."
     },
     {
       "last_checked": "2026-09-15",
@@ -1237,14 +1237,14 @@
       ],
       "id": "OE-lane-2",
       "title": "Lane 2 \u00b7 Imported Dataset in Catalyst",
-      "status": "Fresh native CSV import through rendered dashboard verified locally",
-      "next_deliverable": "Complete the native-file browser recording, remaining visual and failure checks, then server validation.",
+      "status": "Native CSV browser journey through Superset verified locally",
+      "next_deliverable": "Correct the imported-table page-size/search labels, then complete paced recording and server validation.",
       "dependencies": [
         "OE-native-reporting",
         "CAT-E11"
       ],
       "acceptance": "See the parent roadmap for this lane's exit criteria. Implementation, checks, merge, local/server proof and owner acceptance stay separate; no lane is currently accepted.",
-      "evidence": "Fresh native May5 detailed CSV passed actual upload API, invalid-type recovery and immutable-save retry. All values/order and repeated results match. Browser Dataset review, table/grouped-count creation, draft retention, saved layout and explicit publication pass. Superset dashboard d050f4a1-e68a-4d39-b722-0f990f62e94b renders both rows and grouped count2; screenshot inspected. Initial upload/type-save used application endpoints because browser automation cannot attach files. Earlier summary dashboard retains count2/average60/total120. Server/owner acceptance remains open."
+      "evidence": "Same native CSV selected through Catalyst Choose CSV. Invalid numeric accession type retains file/name and recovers to Text. Immutable file Dataset cbefc25a retains checksum and two distinct rows; browser-created table/count/layout publish through bundle 4e7b6ec0. Superset f182d760-776f-4f82-bca8-ecc2e822f568 renders exact IDs 1154/1155, value 450 and count2; screenshots inspected. Page-size 0 and internal c0 search label remain a visual finding. Final recordings/server/owner acceptance remain."
     },
     {
       "last_checked": "2026-09-15",
@@ -1260,13 +1260,13 @@
       ],
       "id": "OE-lane-3",
       "title": "Lane 3 \u00b7 OpenELIS PostgreSQL in Catalyst",
-      "status": "Full-schema model preparation works; query/refinement accuracy still fails",
-      "next_deliverable": "Resolve observed relation/join errors, retain the failed case, then prove the complete question-to-dashboard journey.",
+      "status": "Human correction through Superset rendering verified locally",
+      "next_deliverable": "Complete the lane demonstration, server validation and paced recording using the supported review/correction workflow.",
       "dependencies": [
         "CAT-E11"
       ],
       "acceptance": "See the parent roadmap for this lane's exit criteria. Implementation, checks, merge, local/server proof and owner acceptance stay separate; no lane is currently accepted.",
-      "evidence": "All 380 readable relations remain available. Manual query/save/Superset proof is retained. The existing Faster question preparation profile now fits 63,561\u201367,183 prompt tokens in a scoped 98,304-token E4B context. Four real model turns retained a wrong relation or join despite refinements; executed turns returned zero rows. Full rendered requests confirm instructions reached the model. The task register records exact session evidence and the missing foreign-key metadata finding. This does not pass the staff question/refinement journey."
+      "evidence": "The retained session preserves three model turns and an Edited by hand correction. Browser execution, draft retention, Dataset save/reopen, Dashboard layout save/reopen and explicit publication pass. The harness importer records bundle 57fda15f; Superset dashboard c3e0cc9a-6611-4f80-988c-1042937f0cdb renders accession REPORTING-MVP-REPEAT and distinct IDs 1154/1155, each value 450. Screenshot inspected. This is local recovery proof; broader demonstration, server, paced video and owner acceptance remain."
     },
     {
       "last_checked": "2026-09-15",

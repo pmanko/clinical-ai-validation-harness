@@ -10,6 +10,12 @@ implementation task once. Native reporting work stays in OpenELIS. Do not copy
 the four-pathway sequence here or make this harness feature the parent of OE work.
 The [public demonstration checkpoint](../openelis-reporting-catalyst-integration.md#review-checkpoint-four-pathways-videos-and-public-explanation) defines the four videos and openclinai.org presentation; FP-010 tracks delivery and owner acceptance.
 
+The parent roadmap's [workflow acceptance and scope](../openelis-reporting-catalyst-integration.md#workflow-acceptance-and-scope)
+governs this delivery: manual correction is a valid path through execution,
+saving and publication. Model optimization and performance benchmarking are not
+prerequisites. Earlier release/performance sequences below retain their original
+scope and do not schedule more model investigations within the four-pathway goal.
+
 The owner approved the extended product mock/spec on 14 September 2026;
 Catalyst #128 merged as `5164449`. The native CSV-to-Superset pathway now has
 a verified local example. PostgreSQL and
@@ -22,7 +28,7 @@ and exposed invalid PostgreSQL grouping for an ungrouped total. Catalyst #134
 repairs that publication adapter; merged #135 (`387de1e`) also repairs retained
 Superset chart identity on reimport. Local count, average and total now render
 correctly. The [current task checkpoint](tasks.md#immediate-four-pathway-test-checkpoint)
-records the remaining model-query, FHIR routing, browser and server work.
+records the remaining human-correction journey, FHIR routing, browser and server work.
 Full pathway and owner acceptance remain open. Existing Follow-on A
 already covers conversational Widget/Dashboard design: extend its artifact
 context to imported as well as query-backed Datasets, without inventing SQL
