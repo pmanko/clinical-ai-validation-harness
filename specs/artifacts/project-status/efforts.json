@@ -1148,8 +1148,8 @@
     {
       "id": "OE-reporting",
       "title": "OpenELIS–Catalyst four reporting pathways",
-      "status": "Three local browser pathways verified; FHIR connection repaired; scoped emission pending",
-      "next_deliverable": "Complete browser CSV recordings, the broader PostgreSQL demonstration and normal reporting FHIR emission; then server validation and videos.",
+      "status": "All four local pathway smokes verified; server and recordings remain",
+      "next_deliverable": "Complete broader local review and recordings; merge the native repair, then verify all four server journeys.",
       "acceptance": "Four useful local/server pathways with verified outputs, paced videos and owner acceptance. No ranking; shared identity and existing AI-design Follow-on A remain later milestones.",
       "sources": [
         "specs/openelis-reporting-catalyst-integration.md",
@@ -1288,14 +1288,14 @@
       ],
       "id": "OE-lane-4",
       "title": "Lane 4 · OpenELIS FHIR analytics in Catalyst",
-      "status": "Native FHIR connection verified; selected-sample replay repair in progress",
-      "next_deliverable": "Expose the existing native sample transform for explicit selected IDs, then verify emission, pipeline ingestion and rendered results.",
+      "status": "Selected native FHIR records rendered through Spark, Catalyst and Superset locally",
+      "next_deliverable": "Merge native replay PR #4323; complete broader review, automatic-emission checks, server proof and recording.",
       "dependencies": [
         "OE-native-reporting",
         "CAT-E11"
       ],
       "acceptance": "See the parent roadmap for this lane's exit criteria. Implementation, checks, merge, local/server proof and owner acceptance stay separate; no lane is currently accepted.",
-      "evidence": "Reporting app reaches HAPI through the existing proxy. Native FHIR reads return all four retained result IDs, dates, final status and 450 copies/ml values; HAPI still lacks them. Readiness passes and retained rows are unchanged. Existing bulk replay cannot select samples; result PUT rewrites dates, so a scoped native replay repair is needed. No seeding or backfill performed."
+      "evidence": "Native scoped replay emitted samples 1154/1157 through the existing transform. Data Pipes refreshed and four exact result UUIDs, dates, statuses, units and values match Spark and rendered Superset dashboard cc95f6ea. Dataset save and dashboard reload passed; actual import bundle 9300cfa4 verified. Clinical rows unchanged. Native PR #4323 remains open; local proof only."
     }
   ]
 }

@@ -9,11 +9,12 @@ through exact rendered results. The verified local deployment is harness #187
 storage mounts. CSV summary repairs and full-file table pagination are included.
 Browser review confirms the original two rows render without a false limit warning;
 the 1,101-row regression table retains pagination and reaches its final row.
-The reporting instance's FHIR connection is repaired and verified. Its native
-FHIR API returns all four retained reporting results with their distinct IDs,
-dates, final status and values (450 copies/ml); those resources are still absent
-from the pipeline's HAPI store. Scoped native emission and downstream ingestion
-remain open. Complete server journeys, paced videos, public references
+The reporting instance's real FHIR output now reaches Spark and a saved Catalyst
+Dataset/dashboard rendered in Superset: all four selected result identities,
+dates, final status and values (450 copies/ml) match. Scoped replay uses native
+OpenELIS PR #4323 (still open); retained clinical rows are unchanged. FHIR specimen
+accessions include a sample-item suffix, unlike the native CSV's order accession.
+Complete server journeys, paced videos, public references
 and owner acceptance remain open. This roadmap owns cross-project sequence;
 the [task register](008-catalyst-query-workbench/tasks.md#immediate-four-pathway-test-checkpoint)
 contains current per-lane evidence and gaps.
@@ -153,7 +154,7 @@ This is the sole cross-project sequence. Detailed tasks stay in linked registers
 | 3. PostgreSQL and lane 3 | Full readable schema, question/refinement, explicit Run, save/reopen, publish and rendered Superset; Spark regression passes. | Connection/editor and publication support are merged. Local manual query/save/Superset proof passes. Model join failures are retained observations; manual correction now passes through saving/reopening and actual Superset rendering. Complete the broader demonstration, server run and paced video. Relationship metadata #136 is deployed locally through merged harness #183. FP-004 and FP-005 own detailed evidence. |
 | 4. Imported Dataset foundation | Lane-1 CSV uploads/reviews/saves without SQL; values/order/types survive reload/restart; retry works and a table publishes. | Catalyst #131 merged and verified in the retained local stack, including the same native CSV and Superset table. Upload repair #132 merged; server and broader fixture acceptance remain. FP-006 and FP-005. |
 | 5. Lane 2 visualization | Correct grouping/aggregation, saved/restored arrangement and rendered publication without SQL interaction. | Catalyst #133–#135 are integrated locally. Native count 2, average 60 and total 120 render after grouping/chart-identity repairs; a 101-row table proves pagination. Fresh native CSV error recovery and saved chart/arrangement/publication checks pass. Browser file attachment, broader fixtures and server acceptance remain. FP-007 owns detailed evidence. |
-| 6. Lane 4 | Actual reporting-instance FHIR output reaches the existing pipeline; useful Dataset/dashboard, traceable records, coverage and freshness. | Pending; FP-008. |
+| 6. Lane 4 | Actual reporting-instance FHIR output reaches the existing pipeline; useful Dataset/dashboard, traceable records, coverage and freshness. | Local record-level path and Superset rendering verified; native repair PR, broader review and server proof remain. FP-008. |
 | 7. Complete local review | Four real journeys, desktop/narrow light/dark mock comparison, retained state, owner feedback and unresolved findings. | Pending; FP-009. |
 | 8. Server demonstration and closeout | Compatible reviewed revisions, four server journeys, verified rendered data, paced recordings, current references and owner acceptance. | Pending; FP-010. |
 
