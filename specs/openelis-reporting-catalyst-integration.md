@@ -1,19 +1,19 @@
 # OpenELIS–Catalyst reporting pathways
 
-**Status:** Four-pathway delivery and specification consolidation approved by the
-owner on 14 September 2026. The roadmap merged in harness #173. Product
-alignment and the extended mock merged in Catalyst #127 (`8524925`), followed by
-the approved CSV navigation/quick-test update in #128 (`5164449`). The owner
-approved these additions for implementation on 14 September. A local native
-CSV-to-Superset example is verified; Catalyst #129/#130/#131 now provide
-PostgreSQL, source-aware query publication and imported-Dataset/table support.
-The compatible local runtime and native imported table rendering are now verified.
-The approved grouping/count/total/average controls are merged in Catalyst
-#133 (`f548e04`). Local native count and average rendering passed, while total
-rendering exposed a PostgreSQL grouping defect in the publication adapter.
-Catalyst #134 repairs that boundary and is merged as `a15ecb8`; exact harness
-integration and post-repair rendering remain. This is the parent roadmap; mock approval does not
-establish application implementation, deployment or final acceptance.
+**Status:** Four-pathway delivery and consolidation were approved on 14 September
+2026. The mock additions and chart controls are approved and implemented. Local
+browser proof now covers native CSV upload into Superset, CSV upload/type recovery
+in Catalyst through tables/charts/publication, and PostgreSQL query correction
+through exact rendered results. The verified local deployment is harness #186
+(`730b522`) with Catalyst #137 (`182ba87`), preserving all saved artifacts and
+storage mounts. CSV summary repairs and full-file table pagination are included.
+Browser review confirmed the original records and exposed a false limit warning;
+Catalyst #138 (`364c5bc`) corrects it and awaits integrated deployment/browser proof.
+The reporting instance's FHIR connection still requires approval in the native
+implementation task. Complete server journeys, paced videos, public references
+and owner acceptance remain open. This roadmap owns cross-project sequence;
+the [task register](008-catalyst-query-workbench/tasks.md#immediate-four-pathway-test-checkpoint)
+contains current per-lane evidence and gaps.
 
 ## Outcome
 
@@ -35,6 +35,31 @@ protections and read-only source access. Shared sign-in and equivalent per-user
 authorization remain a separately scheduled production integration milestone.
 OpenELIS reporting works without AI or Catalyst. No embedded application,
 automatic application handoff or transferred report criteria is required.
+
+## Workflow acceptance and scope
+
+Catalyst is a human-in-the-loop tool. For lanes 3 and 4, manual SQL correction
+is a valid completion path: ask a question, review the generated query or error,
+edit SQL where needed, explicitly execute, verify the returned records, save the
+Dataset, and continue through Dashboard publication and rendered Superset results.
+Retain generated and human-edited versions and show the correction honestly in
+the demonstration. Correct final outputs and working recovery are required;
+AI-only success is not required. An incorrect model proposal is an observation,
+not a delivery blocker when the supported correction workflow works.
+
+Model accuracy optimization, repeated prompt coaching, model comparison and
+performance benchmarking are outside this four-pathway delivery goal. Do not
+turn a model mistake into a prerequisite to resume delivery. Repair application
+failures that prevent the user from reviewing, correcting, executing, retaining,
+saving or publishing work; otherwise record the limitation and continue the lane.
+Any separately authorized performance test must use at least a Gemma 4 12B
+writer with the Qwen reviewer/validator enabled and retain evidence of both roles.
+That configuration requirement does not authorize a performance investigation.
+
+This restores the intended workflow; it does not add a new product requirement
+or relax verification of final data, deployment, videos or owner acceptance.
+Older model investigations remain dated evidence or separately scheduled work,
+not prerequisites for this goal.
 
 ## Authority and consolidation
 
@@ -122,7 +147,7 @@ This is the sole cross-project sequence. Detailed tasks stay in linked registers
 | 0. Consolidate and establish authority | Persist direction, reconcile work, remove competing sequences without losing requirements, refresh dashboard references. | Harness #173 and Catalyst #127 merged; native cleanup retains its owner. FP-001. |
 | 1. Align mocks and contracts | Interactive CSV import/review and PostgreSQL source journeys reuse approved styles; failure/recovery and saved work represented; specs agree and owner reviews additions. | Catalyst #127/#128 merged; all five checks pass on #128 head `9728294`; owner approved additions for implementation on 14 September. FP-002. |
 | 2. Reporting example and lane 1 | Native saved-report rerun and real CSV → Superset table plus meaningful summary chart; inspect values, repeated results and dates. Begin FHIR coverage check. | Local native saved-period rerun and CSV upload/table/chart verified; broader fixture and server proof remain. Native milestones plus FP-003. |
-| 3. PostgreSQL and lane 3 | Full readable schema, question/refinement, explicit Run, save/reopen, publish and rendered Superset; Spark regression passes. | Connection/editor and publication support are merged. Local manual query/save/Superset proof passes; full-schema model preparation fits, but query/refinement accuracy still fails. Declared relationship metadata repair merged in Catalyst #136; deployment and the repeated question test remain. FP-004 and FP-005 own detailed evidence. |
+| 3. PostgreSQL and lane 3 | Full readable schema, question/refinement, explicit Run, save/reopen, publish and rendered Superset; Spark regression passes. | Connection/editor and publication support are merged. Local manual query/save/Superset proof passes. Model join failures are retained observations; manual correction now passes through saving/reopening and actual Superset rendering. Complete the broader demonstration, server run and paced video. Relationship metadata #136 is deployed locally through merged harness #183. FP-004 and FP-005 own detailed evidence. |
 | 4. Imported Dataset foundation | Lane-1 CSV uploads/reviews/saves without SQL; values/order/types survive reload/restart; retry works and a table publishes. | Catalyst #131 merged and verified in the retained local stack, including the same native CSV and Superset table. Upload repair #132 merged; server and broader fixture acceptance remain. FP-006 and FP-005. |
 | 5. Lane 2 visualization | Correct grouping/aggregation, saved/restored arrangement and rendered publication without SQL interaction. | Catalyst #133–#135 are integrated locally. Native count 2, average 60 and total 120 render after grouping/chart-identity repairs; a 101-row table proves pagination. Fresh native CSV error recovery and saved chart/arrangement/publication checks pass. Browser file attachment, broader fixtures and server acceptance remain. FP-007 owns detailed evidence. |
 | 6. Lane 4 | Actual reporting-instance FHIR output reaches the existing pipeline; useful Dataset/dashboard, traceable records, coverage and freshness. | Pending; FP-008. |
@@ -298,8 +323,9 @@ Acceptance requires:
   not evidence that these four journeys passed.
 - The videos show the actual lane-specific steps through rendered Superset
   results, including file upload for lanes 1 and 2 and model question/refinement
-  plus explicit execution for lanes 3 and 4. API-only upload checks and manual SQL
-  are useful partial evidence, not substitutes for those recorded journeys.
+  with review, manual SQL correction when needed, and explicit execution for lanes
+  3 and 4. Show human edits and verify the final results. API-only upload checks
+  do not substitute for recorded file selection; AI-only SQL success is not a gate.
 - The pacing rules above pass normal-speed viewing. The published page works on
   desktop and narrow screens; all four videos, posters and evidence links load.
   Verify deployed HTML/media against the reviewed revisions and checksums.
@@ -341,7 +367,10 @@ rendered publication, paced videos and owner acceptance. Keep raw evidence
 private and status references current. Finish with consistent scope, terms and
 remaining work across the roadmap, product specs, mocks, task registers and
 dashboard. Preserve existing AI-assisted Widget/Dashboard refinement as the next
-stage, supporting both Dataset origins.
+stage, supporting both Dataset origins. Accept the supported human correction
+workflow when AI fails; preserve the edits and verify final results. Do not expand
+this delivery into model optimization or performance benchmarking. Separately
+authorized performance tests require at least a 12B writer plus Qwen validation.
 
 [native-plan]: https://github.com/DIGI-UW/OpenELIS-Global-2/blob/codex/reporting-ui/specs/479-reporting-mvp/plan.md
 [native-review]: https://github.com/DIGI-UW/OpenELIS-Global-2/blob/codex/reporting-ui/specs/479-reporting-mvp/review-stopping-point.md

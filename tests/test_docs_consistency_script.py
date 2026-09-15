@@ -113,3 +113,23 @@ def test_missing_local_markdown_link_fails(tmp_path: Path) -> None:
 
     assert completed.returncode != 0
     assert "missing does-not-exist.md" in completed.stderr
+
+
+def test_reporting_accuracy_gate_is_rejected(tmp_path: Path) -> None:
+    tasks = tmp_path / "tasks.md"
+    tasks.write_text(TASKS.read_text().replace(
+        "## Immediate four-pathway test checkpoint",
+        "## Immediate four-pathway test checkpoint\n\nResolve query quality and prove question/refinement; manual execution does not complete that journey.",
+    ))
+    completed = run_guard({"DOCS_TASKS_PATH": str(tasks), "DOCS_SKIP_LINK_CHECK": "1"})
+    assert completed.returncode != 0
+    assert "restores the rejected AI-only delivery gate" in completed.stderr
+
+
+def test_reporting_manual_recovery_exclusion_is_rejected(tmp_path: Path) -> None:
+    roadmap = tmp_path / "roadmap.md"
+    source = ROOT / "specs" / "openelis-reporting-catalyst-integration.md"
+    roadmap.write_text(source.read_text() + "\nAPI-only upload checks and manual SQL\nare useful partial evidence, not substitutes for those recorded journeys.\n")
+    completed = run_guard({"DOCS_REPORTING_ROADMAP_PATH": str(roadmap), "DOCS_SKIP_LINK_CHECK": "1"})
+    assert completed.returncode != 0
+    assert "restores the rejected AI-only delivery gate" in completed.stderr

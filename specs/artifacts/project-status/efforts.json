@@ -1018,7 +1018,7 @@
       "title": "Deliver the deployed Catalyst release and local writer/verifier demos",
       "status": "Public release deployed; light-only local writer/verifier videos published; both public source query checks pass, full server acceptance remains open",
       "next_deliverable": "Complete remaining public-server Dashboard workflow validation and owner acceptance in Feature 008 tasks.",
-      "acceptance": "Both real sources complete drafting, schema browsing, execution, refinement, saved-SQL reuse, charts, Dashboard arrangement, actual import and Superset rendering. Preserve exact revisions and raw evidence privately. Limit the pipeline introduction to 10\u201315 seconds; retain readable captions and result holds. Record owner acceptance separately.",
+      "acceptance": "Both real sources complete drafting, schema browsing, execution, refinement, saved-SQL reuse, charts, Dashboard arrangement, actual import and Superset rendering. Preserve exact revisions and raw evidence privately. Limit the pipeline introduction to 10–15 seconds; retain readable captions and result holds. Record owner acceptance separately.",
       "dependencies": [
         "CAT-E01"
       ],
@@ -1147,9 +1147,9 @@
     },
     {
       "id": "OE-reporting",
-      "title": "OpenELIS\u2013Catalyst four reporting pathways",
-      "status": "Four-pathway testing: native export recovered; CSV summaries repaired locally",
-      "next_deliverable": "Complete browser CSV journeys, resolve PostgreSQL query quality, and connect normal reporting FHIR emission.",
+      "title": "OpenELIS–Catalyst four reporting pathways",
+      "status": "Three local browser pathways verified; FHIR connection pending",
+      "next_deliverable": "Complete browser CSV recordings, the broader PostgreSQL demonstration and normal reporting FHIR emission; then server validation and videos.",
       "acceptance": "Four useful local/server pathways with verified outputs, paced videos and owner acceptance. No ranking; shared identity and existing AI-design Follow-on A remain later milestones.",
       "sources": [
         "specs/openelis-reporting-catalyst-integration.md",
@@ -1174,9 +1174,13 @@
         "https://github.com/pmanko/clinical-ai-validation-harness/pull/182",
         "https://github.com/DIGI-UW/catalyst-ai/pull/134",
         "https://github.com/DIGI-UW/catalyst-ai/pull/135",
-        "https://github.com/pmanko/clinical-ai-validation-harness/pull/183"
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/183",
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/185",
+        "https://github.com/DIGI-UW/catalyst-ai/pull/137",
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/186",
+        "https://github.com/DIGI-UW/catalyst-ai/pull/138"
       ],
-      "evidence": "Retained runtime restored without seeding. Native owner verified login/export. Catalyst discovers all 380 reporting relations; manual query returned all four retained records and saved/reopened its Dataset. Local Superset renders CSV count 2, average 60 and total 120 after the chart-identity repair in merged Catalyst #135. Full-schema E4B preparation now fits a scoped 98,304-token context; real refinements still chose wrong relations/joins and returned zero rows. Native FHIR connection awaits approval. See the existing task register for exact revisions and remaining acceptance. Fresh native-file lane2 smoke now verifies API error recovery and browser chart/arrangement/publication through rendered count2; five generic CSV browser tests now pass in both themes; complete native-file recordings remain."
+      "evidence": "Three local browser pathways are verified: native CSV through Superset, CSV through Catalyst and Superset, and PostgreSQL manual correction through saved/rendered results. Harness #186/Catalyst #137 preserve all saved artifacts and storage mounts. A final imported-table warning correction merged as Catalyst #138 and awaits deployed rendering. The server remains on the earlier release and has no dedicated import database/configuration. FHIR native connection still needs approval. See the task register for exact revisions, receipts and outstanding videos/acceptance."
     },
     {
       "last_checked": "2026-09-15",
@@ -1209,14 +1213,14 @@
         "specs/008-catalyst-query-workbench/tasks.md#four-pathway-delivery"
       ],
       "id": "OE-lane-1",
-      "title": "Lane 1 \u00b7 OpenELIS CSV to Superset",
-      "status": "Local saved-period export and Superset example verified; server acceptance pending",
-      "next_deliverable": "Broaden shared-fixture coverage and repeat the native export/upload/render journey on the server.",
+      "title": "Lane 1 · OpenELIS CSV to Superset",
+      "status": "Native CSV browser upload and Superset dashboard verified locally",
+      "next_deliverable": "Complete the native export-to-dashboard recording, broader fixtures and server validation.",
       "dependencies": [
         "OE-native-reporting"
       ],
       "acceptance": "See the parent roadmap for this lane's exit criteria. Implementation, checks, merge, local/server proof and owner acceptance stay separate; no lane is currently accepted.",
-      "evidence": "Native owner verified local May5 export, saved configuration reopening with blank dates, and fresh May6 export. Exact local May6 CSV imported as Dataset32; saved/reopened dashboard32 table63 and chart64 preserve text IDs 1158/1159, values 450/450 and intervals 30/90. Screenshot inspected. Earlier dashboard31 used server CSV in local Superset and is preliminary proof. Final visual and owner acceptance remain open."
+      "evidence": "Exact native May5 CSV uploaded through the Superset file chooser/form into Dataset 40 with text identifiers. Table 83 preserves source column order and IDs 1154/1155 with value 450; chart 84 counts 2 by accession. Saved Dashboard 40 renders both; screenshot inspected. Earlier API-upload proofs remain dated evidence. Final recordings, server and owner acceptance remain."
     },
     {
       "last_checked": "2026-09-15",
@@ -1228,7 +1232,11 @@
         "https://github.com/pmanko/clinical-ai-validation-harness/pull/182",
         "https://github.com/DIGI-UW/catalyst-ai/pull/134",
         "https://github.com/DIGI-UW/catalyst-ai/pull/135",
-        "https://github.com/pmanko/clinical-ai-validation-harness/pull/183"
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/183",
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/185",
+        "https://github.com/DIGI-UW/catalyst-ai/pull/137",
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/186",
+        "https://github.com/DIGI-UW/catalyst-ai/pull/138"
       ],
       "parent_effort": "OE-reporting",
       "sources": [
@@ -1236,15 +1244,15 @@
         "specs/008-catalyst-query-workbench/tasks.md#four-pathway-delivery"
       ],
       "id": "OE-lane-2",
-      "title": "Lane 2 \u00b7 Imported Dataset in Catalyst",
-      "status": "Fresh native CSV import through rendered dashboard verified locally",
-      "next_deliverable": "Complete the native-file browser recording, remaining visual and failure checks, then server validation.",
+      "title": "Lane 2 · Imported Dataset in Catalyst",
+      "status": "Native CSV browser journey through Superset verified locally",
+      "next_deliverable": "Integrate and browser-verify the table pagination repair, then record the complete native-export journey and validate the server.",
       "dependencies": [
         "OE-native-reporting",
         "CAT-E11"
       ],
       "acceptance": "See the parent roadmap for this lane's exit criteria. Implementation, checks, merge, local/server proof and owner acceptance stay separate; no lane is currently accepted.",
-      "evidence": "Fresh native May5 detailed CSV passed actual upload API, invalid-type recovery and immutable-save retry. All values/order and repeated results match. Browser Dataset review, table/grouped-count creation, draft retention, saved layout and explicit publication pass. Superset dashboard d050f4a1-e68a-4d39-b722-0f990f62e94b renders both rows and grouped count2; screenshot inspected. Initial upload/type-save used application endpoints because browser automation cannot attach files. Earlier summary dashboard retains count2/average60/total120. Server/owner acceptance remains open."
+      "evidence": "Native CSV browser upload/type recovery, Dataset save, table/count chart, arrangement and publication are verified. Harness #186/Catalyst #137 re-import preserves result IDs1154/1155 and value450 with simple controls. Superset falsely warns when complete rows equal the limit; merged #138 leaves one row of headroom. Its 47 focused checks pass; deployment/rendered verification remains. The existing evidence record retains original and repaired bundle receipts and screenshots."
     },
     {
       "last_checked": "2026-09-15",
@@ -1259,14 +1267,14 @@
         "specs/008-catalyst-query-workbench/tasks.md#four-pathway-delivery"
       ],
       "id": "OE-lane-3",
-      "title": "Lane 3 \u00b7 OpenELIS PostgreSQL in Catalyst",
-      "status": "Full-schema model preparation works; query/refinement accuracy still fails",
-      "next_deliverable": "Resolve observed relation/join errors, retain the failed case, then prove the complete question-to-dashboard journey.",
+      "title": "Lane 3 · OpenELIS PostgreSQL in Catalyst",
+      "status": "Human correction through Superset rendering verified locally",
+      "next_deliverable": "Complete the lane demonstration, server validation and paced recording using the supported review/correction workflow.",
       "dependencies": [
         "CAT-E11"
       ],
       "acceptance": "See the parent roadmap for this lane's exit criteria. Implementation, checks, merge, local/server proof and owner acceptance stay separate; no lane is currently accepted.",
-      "evidence": "All 380 readable relations remain available. Manual query/save/Superset proof is retained. The existing Faster question preparation profile now fits 63,561\u201367,183 prompt tokens in a scoped 98,304-token E4B context. Four real model turns retained a wrong relation or join despite refinements; executed turns returned zero rows. Full rendered requests confirm instructions reached the model. The task register records exact session evidence and the missing foreign-key metadata finding. This does not pass the staff question/refinement journey."
+      "evidence": "The retained session preserves three model turns and an Edited by hand correction. Browser execution, draft retention, Dataset save/reopen, Dashboard layout save/reopen and explicit publication pass. The harness importer records bundle 57fda15f; Superset dashboard c3e0cc9a-6611-4f80-988c-1042937f0cdb renders accession REPORTING-MVP-REPEAT and distinct IDs 1154/1155, each value 450. Screenshot inspected. This is local recovery proof; broader demonstration, server, paced video and owner acceptance remain."
     },
     {
       "last_checked": "2026-09-15",
@@ -1278,7 +1286,7 @@
         "specs/008-catalyst-query-workbench/tasks.md#four-pathway-delivery"
       ],
       "id": "OE-lane-4",
-      "title": "Lane 4 \u00b7 OpenELIS FHIR analytics in Catalyst",
+      "title": "Lane 4 · OpenELIS FHIR analytics in Catalyst",
       "status": "Native FHIR connection under recovery; emission not yet verified",
       "next_deliverable": "Prove the existing HAPI connection with the native owner, then normal reporting emission and pipeline ingestion.",
       "dependencies": [
