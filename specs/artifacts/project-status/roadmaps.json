@@ -201,14 +201,17 @@
     },
     {
       "id": "CLIN-A60",
+      "kind": "roadmap or supporting authority",
       "title": "OpenMRS Upstream Merge Roadmap",
       "path": "specs/artifacts/planning/openmrs-upstream-merge-roadmap.md",
       "url": "https://github.com/pmanko/clinical-ai-validation-harness/blob/docs/openmrs-upstream-merge-roadmap/specs/artifacts/planning/openmrs-upstream-merge-roadmap.md",
       "role": "sequence-authority",
-      "kind": "roadmap or supporting authority",
+      "current_or_superseded": "current",
+      "effort": "clinical.dual_provider; upstream.older_prs",
       "status": "Current authority for landing QueryStore #68, ChartSearchAI #157 and ESM #23 upstream and retiring the fork buffer; validated iterations I0-I7 with an iteration log. Requirement authority stays with CLIN-A02.",
-      "next_update": "After each iteration exit: log row, PR heads, effort rows.",
       "evidence_date": "2026-09-14",
+      "next_update": "After each iteration exit: log row, PR heads, effort rows.",
+      "verified_source": "Live GitHub (gh pr view / GraphQL reviewThreads), CI job logs, and fetched submodule clones on 2026-09-14.",
       "sources": "Live GitHub, CI and fetched-clone readings dated 2026-09-14 in the roadmap section 2."
     },
     {
