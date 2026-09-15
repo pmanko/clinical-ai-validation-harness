@@ -1,6 +1,6 @@
 # Pull request inventory
 
-As of 2026-09-15T05:17:43Z. 306 entries.
+As of 2026-09-15T16:36:28Z. 306 entries.
 
 [Source JSON](pull-requests.json) · [CSV export](exports/pull-requests.csv)
 
@@ -204,7 +204,7 @@ Open pull requests appear first within each repository. Check dates and exact re
 
 | PR | Title | State | Head | Effort | Current signal | Next action |
 | --- | --- | --- | --- | --- | --- | --- |
-| [#68](<https://github.com/openmrs/openmrs-module-querystore/pull/68>) | Add a REST read API for the patient record | open | harness-integration<br>d10e9e413910 | Active OpenMRS integration | build / Deploy SNAPSHOT to Maven: SKIPPED; build / Build with Java 8: SUCCESS; build / Build with Java 11: SUCCESS; build / Build with Java 17: SUCCESS; build / Build with Java 21: SUCCESS; build / Prepare: SUCCESS; owasp-dependency-check: SKIPPED | Iterations I1 and I2 of the upstream merge roadmap done 2026-09-14: all seven 2026-09-09 review findings fixed (d675fe9, 3057478, 1b1c995 red-first; ba6bfc1, d8c1e17, d10e9e4), every thread replied and left open for the maintainer, round summary posted. Nothing on this PR waits on us. Next: maintainer pass; the SNAPSHOT publish on merge unblocks ChartSearchAI #157 (I4). |
+| [#68](<https://github.com/openmrs/openmrs-module-querystore/pull/68>) | Add a REST read API for the patient record | open | harness-integration<br>cfced36360e4 | Active OpenMRS integration | build / Deploy SNAPSHOT to Maven: SKIPPED; build / Build with Java 8: SUCCESS; build / Build with Java 11: SUCCESS; build / Build with Java 17: SUCCESS; build / Build with Java 21: SUCCESS; build / Prepare: SUCCESS; owasp-dependency-check: SKIPPED | Second maintainer round (2026-09-15, five threads) answered the same day at cfced36: ES incomplete-read WARN names its cause (69e12fe), back/down/i stopwords (87619c4), unused ContextSlice constructors (936bee7), Cache-Control on ranked and context exits plus the property-pinned page-ceiling test (cfced36). Reactor API 525 + OMOD 53 green; Java 8/11/17/21 CI green. Nothing waits on us; next is the maintainer pass, then the SNAPSHOT publish that unblocks ChartSearchAI #157 (I4). |
 | [#63](<https://github.com/openmrs/openmrs-module-querystore/pull/63>) | Add a REST read API for the patient record (patientrecord endpoint) | closed | feat/patientrecord-read-api<br>6197e4b316d5 | OpenMRS chart context and QueryStore integration | Closed without merge; successor PR #68 explicitly identifies this as superseded. | — |
 
 ## pmanko/clinical-ai-validation-harness
