@@ -16,7 +16,10 @@ source-aware query publication are merged in Catalyst #129/#130, and the CSV
 import/table foundation is merged in #131 and verified locally with native
 Superset table rendering. Upload-size repair #132 is merged; the owner-approved
 summary controls are merged in #133 (`f548e04`), with all five checks passing.
-Next verify native rendered summaries and the compatible runtime integration. Full pathway and owner acceptance remain open. Existing Follow-on A
+The compatible local runtime then verified native count and average summaries
+and exposed invalid PostgreSQL grouping for an ungrouped total. Catalyst #134
+repairs that publication adapter and is merged as `a15ecb8`; the harness pin and
+post-repair rendered-value check are next. Full pathway and owner acceptance remain open. Existing Follow-on A
 already covers conversational Widget/Dashboard design: extend its artifact
 context to imported as well as query-backed Datasets, without inventing SQL
 history for files. Its implementation follows completion of the four-pathway

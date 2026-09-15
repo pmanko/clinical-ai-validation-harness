@@ -21,7 +21,7 @@ their own scope. Plan approval does not mark implementation or acceptance done.
 | FP-004 | Ordinary PostgreSQL connection, complete readable catalog, parameters/types/bounds, editor, native question/refinement/Run/save/reopen. Reuse compatible history; retain Spark behavior and no relation allowlist. | Connection/catalog/types/bounds and editor implemented in Catalyst #129; native workflow integration remains | 389 Gateway tests including real PostgreSQL, 302 UI, 17 browser and 57 assembly tests passed; all five hosted checks green | Catalyst #129 merged as 6513c88 | Code deployed locally at c91ae23 with harness a988bb8; native-source connection and full lane proof remain | Pending |
 | FP-005 | Resolve publication by actual Dataset backing connection and declared dialect. Preserve exact saved artifacts, deterministic bundles, retry/receipts and verify PostgreSQL/Spark rendering. | Query-backed source resolution and dialect-aware compiler merged in Catalyst #130; imported-file publication follows FP-006 | 403 Gateway tests including real PostgreSQL, 50 final focused checks, legacy bundle byte parity and all five CI checks pass at 6ad1d09 | Catalyst #130 merged as 3b8882f | Code deployed locally at c91ae23; imported table rendering verified below; native query-backed rendering remains | Pending |
 | FP-006 | Add origin-aware Dataset contracts and CSV upload/review/confirmation with durable import storage. Verify types/order/values, no fabricated SQL, invalid/empty/interrupted import, retry, reload/restart and existing saved artifacts. | CSV upload/type review, durable drafts, immutable PostgreSQL storage and raw-table publication implemented in Catalyst #131; grouping remains FP-007 | Latest 70 focused backend checks including real PostgreSQL, 306 UI checks across full/retry runs, real Gateway import browser journeys in light/dark; desktop/narrow screenshots inspected; all five hosted checks pass at 0011cd7 | Catalyst #131 merged as c91ae23; upload-size repair #132 merged as 4d41978 with all five checks green | Retained local a988bb8/c91ae23 verified through wrapper health, unchanged mounts/ports and both-theme browser checks. Native May6 CSV yields exact 1158→30 and 1159→90 rows in Catalyst and Superset chart 65. Server and broader fixtures remain | Pending |
-| FP-007 | Shared meaningful chart controls over imported rows, including grouping/counts. Verify values, immutable versions, saved arrangement and publication without required SQL interaction. | Approved controls and aligned mock/contracts implemented in Catalyst #133; count/total/average, grouping/split and immutable choices | 440 Gateway checks pass (one optional live Spark skip), 309 UI checks pass, final 26 component checks pass, real Gateway/PostgreSQL five CSV/browser checks pass; five edited-document links, build and static checks pass | #133 merged as f548e04; all five hosted checks pass at ded1c06 | Development browser screenshots inspected in both themes and desktop/narrow; native Superset summary rendering and retained/server update remain | Chart-control design approved 14 September; application/lane acceptance pending |
+| FP-007 | Shared meaningful chart controls over imported rows, including grouping/counts. Verify values, immutable versions, saved arrangement and publication without required SQL interaction. | Approved controls and aligned mock/contracts implemented in Catalyst #133; #134 repairs PostgreSQL publication for an ungrouped whole-file summary and advances its mapping revision | #133: 440 Gateway, 309 UI, 26 component and five real CSV/browser checks. #134: 443 Gateway checks against PostgreSQL plus all five hosted checks; count/sum/average regression uses 122 persisted rows beyond the preview bound | #133 merged as f548e04; #134 merged as a15ecb8 | Retained runtime at harness f0ff2c7/Catalyst f548e04 preserves saved artifacts. Native Superset shows count 2 and average 60; ungrouped total exposed the repaired adapter defect. A 101-row table proves native pagination. Apply a15ecb8 and verify total 120 plus retained results next | Chart-control design approved 14 September; application/lane acceptance pending |
 | FP-008 | Consume the reporting instance's real FHIR output through existing Data Pipes/Spark; verify useful query/Dataset/dashboard, record provenance and explain coverage/freshness differences. | Existing reference path; reporting-instance emission/routing pending | None of the four known reporting Observation IDs found in local Catalyst HAPI; native owner has no emission proof | Pending | Existing separate cohort is not reporting-instance parity | Pending |
 | FP-009 | Exercise four complete local journeys, compare approved mocks at desktop/narrow and light/dark, inspect rendered values, retain drafts/state, record findings and owner review. | Pending | Pending | Pending | Pending | Pending |
 | FP-010 | Deploy compatible reviewed revisions with existing lifecycle tools and retained data; prove four server journeys, pace/review recordings, synchronize public references and reconcile all authoritative documents. | Pending | Pending | Pending | Pending | Pending |
@@ -34,27 +34,33 @@ remain a later production milestone in the integration roadmap.
 
 ## Current local reporting checkpoint
 
-On 14 September, the retained local stack was updated through the lifecycle
-wrapper to harness `a988bb8b34c4d67f94e878bbc1eed8b4d20be030` and Catalyst
-`c91ae23260df31520c453741b7892b5223217b44`. Health and strict repository checks
-passed; retained mount destinations and ports matched the pre-update receipt.
+On 15 September, the retained local stack was updated through the lifecycle
+wrapper to harness `f0ff2c74b5f50a1415f90961a6648937cefddc13` and Catalyst
+`f548e04d4dcc4220ff211b7783fa5a842cb40127`. Health and strict repository checks
+passed; retained mount destinations, ports, 72 Datasets, 67 Widgets and 64
+Dashboards matched the pre-update receipt.
 The same native May6 CSV used for lane 1 was imported through Catalyst and
 published through the owning checkout's native Superset importer. Dataset
-`fa8461c3-9297-42f1-8bbf-3be9f6880192` and chart 65 preserve the two distinct
+`30d520f1-460e-475d-98d9-56596233efad` and its detailed table preserve the two distinct
 results: IDs 1158/1159, values 450/450 and intervals 30/90. The file checksum is
 `ed64b5bd7a084f56d0bc712f8305dcb41eca90ffbe73a45cf3f0f125a2e38680`.
-The [local imported table](http://localhost:18088/superset/dashboard/catalyst-a3aaa076-de9c-461e-a291-3cac2c46736d/)
-was inspected alongside Catalyst's saved rows. Raw receipts/screenshots remain
-outside Git. This verifies the table foundation, not complete lane acceptance.
+The local Superset dashboard was inspected alongside Catalyst's saved rows.
+Count renders as 2 and grouped average as 60. A separate 101-row imported table
+renders rows 1–100 and row 101 on its second page, proving the configured bound
+does not hide later rows. Raw receipts/screenshots remain outside Git. This is
+local validation, not server or owner acceptance.
 
-Two observed presentation findings stay with FP-007: native Superset's small
+Two presentation findings stay with FP-007: native Superset's small
 raw table shows “0 entries per page” despite a saved page size of 100, and its
-search selector shows the physical field name. Check native pagination beyond
-100 rows and readable labels during the summary-chart proof. The local proxy
-also rejected supported files above 1 MB; merged Catalyst #132 corrects its limit.
-The runtime still needs that repair applied at this record's checkpoint. The
-new chart controls were approved separately and merged in #133; server deployment,
-four complete pathways and final owner acceptance remain open.
+search selector shows the physical field name. Pagination itself is verified
+above. The local proxy now accepts supported files above 1 MB and retains an
+actionable response above 10 MB. The summary run also exposed one functional
+finding: an ungrouped total emitted a bare text constant that PostgreSQL treated
+as an invalid grouping position. Catalyst #134 changes that axis to an explicit
+text expression and advances the imported-summary mapping revision; its 443-test
+Gateway suite and all five hosted jobs pass. Pin, deploy and verify the expected
+total of 120 next. Server deployment, four complete pathways and final owner
+acceptance remain open.
 
 ## Next owner checkpoint
 

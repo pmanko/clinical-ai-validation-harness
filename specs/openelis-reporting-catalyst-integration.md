@@ -9,7 +9,10 @@ CSV-to-Superset example is verified; Catalyst #129/#130/#131 now provide
 PostgreSQL, source-aware query publication and imported-Dataset/table support.
 The compatible local runtime and native imported table rendering are now verified.
 The approved grouping/count/total/average controls are merged in Catalyst
-#133 (`f548e04`), with native Superset summary rendering and integration still ahead. This is the parent roadmap; mock approval does not
+#133 (`f548e04`). Local native count and average rendering passed, while total
+rendering exposed a PostgreSQL grouping defect in the publication adapter.
+Catalyst #134 repairs that boundary and is merged as `a15ecb8`; exact harness
+integration and post-repair rendering remain. This is the parent roadmap; mock approval does not
 establish application implementation, deployment or final acceptance.
 
 ## Outcome
@@ -121,7 +124,7 @@ This is the sole cross-project sequence. Detailed tasks stay in linked registers
 | 2. Reporting example and lane 1 | Native saved-report rerun and real CSV → Superset table plus meaningful summary chart; inspect values, repeated results and dates. Begin FHIR coverage check. | Local native saved-period rerun and CSV upload/table/chart verified; broader fixture and server proof remain. Native milestones plus FP-003. |
 | 3. PostgreSQL and lane 3 | Full readable schema, question/refinement, explicit Run, save/reopen, publish and rendered Superset; Spark regression passes. | PostgreSQL connection/editor support merged in Catalyst #129; query-backed publication merged in #130. Real native workflow, deployment and rendered results remain. FP-004 and FP-005. |
 | 4. Imported Dataset foundation | Lane-1 CSV uploads/reviews/saves without SQL; values/order/types survive reload/restart; retry works and a table publishes. | Catalyst #131 merged and verified in the retained local stack, including the same native CSV and Superset table. Upload repair #132 merged; server and broader fixture acceptance remain. FP-006 and FP-005. |
-| 5. Lane 2 visualization | Correct grouping/aggregation, saved/restored arrangement and rendered publication without SQL interaction. | Owner approved chart controls; Catalyst #133 merged as f548e04 with all five hosted checks passing. Integrated runtime and native rendered summaries remain. FP-007. |
+| 5. Lane 2 visualization | Correct grouping/aggregation, saved/restored arrangement and rendered publication without SQL interaction. | Catalyst #133 is integrated locally. Native count 2 and average 60 render, and a 101-row table proves pagination. The total exposed invalid ungrouped PostgreSQL grouping; #134 repairs it and merged as a15ecb8 after 443 Gateway tests and all five hosted checks. Pin/deploy a15ecb8 and verify total 120 plus retained results. FP-007. |
 | 6. Lane 4 | Actual reporting-instance FHIR output reaches the existing pipeline; useful Dataset/dashboard, traceable records, coverage and freshness. | Pending; FP-008. |
 | 7. Complete local review | Four real journeys, desktop/narrow light/dark mock comparison, retained state, owner feedback and unresolved findings. | Pending; FP-009. |
 | 8. Server demonstration and closeout | Compatible reviewed revisions, four server journeys, verified rendered data, paced recordings, current references and owner acceptance. | Pending; FP-010. |

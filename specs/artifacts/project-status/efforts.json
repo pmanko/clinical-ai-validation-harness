@@ -1,6 +1,6 @@
 {
   "as_of": "2026-09-14",
-  "description": "Portfolio snapshot with per-effort dates. Four-pathway reporting scope and native reporting references refreshed September 14; unrelated rows retain their earlier evidence dates.",
+  "description": "Portfolio snapshot with per-effort dates. Four-pathway scope was reconciled September 14; selected reporting integration and rendering rows were refreshed September 15 while unrelated rows retain their earlier evidence dates.",
   "rows": [
     {
       "id": "harness.foundation",
@@ -1148,15 +1148,15 @@
     {
       "id": "OE-reporting",
       "title": "OpenELIS\u2013Catalyst four reporting pathways",
-      "status": "Local imported table verified; approved chart controls merged",
-      "next_deliverable": "Integrate Catalyst #133 and verify native Superset summary values; keep native source/FHIR work coordinated.",
+      "status": "Lane 2 integrated locally; publication repair merged",
+      "next_deliverable": "Pin and deploy Catalyst #134, then verify native Superset total 120 and retained count/average/table values; keep native source/FHIR work coordinated.",
       "acceptance": "Four useful local/server pathways with verified outputs, paced videos and owner acceptance. No ranking; shared identity and existing AI-design Follow-on A remain later milestones.",
       "sources": [
         "specs/openelis-reporting-catalyst-integration.md",
         "specs/008-catalyst-query-workbench/tasks.md#four-pathway-delivery",
         "https://github.com/DIGI-UW/OpenELIS-Global-2/blob/codex/reporting-ui/specs/479-reporting-mvp/plan.md"
       ],
-      "last_checked": "2026-09-14",
+      "last_checked": "2026-09-15",
       "implementation_owner": "Catalyst - OE2 Integration",
       "related_pull_requests": [
         "https://github.com/DIGI-UW/openelis-work/pull/322",
@@ -1170,12 +1170,14 @@
         "https://github.com/DIGI-UW/catalyst-ai/pull/131",
         "https://github.com/pmanko/clinical-ai-validation-harness/pull/179",
         "https://github.com/DIGI-UW/catalyst-ai/pull/132",
-        "https://github.com/DIGI-UW/catalyst-ai/pull/133"
+        "https://github.com/DIGI-UW/catalyst-ai/pull/133",
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/182",
+        "https://github.com/DIGI-UW/catalyst-ai/pull/134"
       ],
-      "evidence": "Retained local harness a988bb8/Catalyst c91ae23 passes wrapper health and both-theme import checks. The same native May6 CSV renders exact 1158\u219230 and 1159\u219290 rows in Catalyst and Superset chart 65. Chart controls approved 14 September; #133 merged as f548e04 after 440 Gateway / 309 UI checks, real browser checks and all five hosted checks. Integrated runtime and rendered summaries remain. Server and lane acceptance remain open."
+      "evidence": "Retained local harness f0ff2c7/Catalyst f548e04 passes wrapper health with saved artifacts, mounts and ports preserved. The native May6 CSV retains exact IDs 1158/1159 and intervals 30/90. Superset renders count 2 and average 60, and a 101-row table proves pagination. Ungrouped total exposed the publication-adapter defect repaired by #134; 443 Gateway tests and all five hosted checks pass at a15ecb8. Post-repair total rendering, server delivery and lane acceptance remain open."
     },
     {
-      "last_checked": "2026-09-14",
+      "last_checked": "2026-09-15",
       "implementation_owner": "OE2 Catalyst Implementation",
       "related_pull_requests": [
         "https://github.com/DIGI-UW/OpenELIS-Global-2/pull/4291",
@@ -1215,12 +1217,14 @@
       "evidence": "Native owner verified local May5 export, saved configuration reopening with blank dates, and fresh May6 export. Exact local May6 CSV imported as Dataset32; saved/reopened dashboard32 table63 and chart64 preserve text IDs 1158/1159, values 450/450 and intervals 30/90. Screenshot inspected. Earlier dashboard31 used server CSV in local Superset and is preliminary proof. Final visual and owner acceptance remain open."
     },
     {
-      "last_checked": "2026-09-14",
+      "last_checked": "2026-09-15",
       "implementation_owner": null,
       "related_pull_requests": [
         "https://github.com/DIGI-UW/catalyst-ai/pull/131",
         "https://github.com/DIGI-UW/catalyst-ai/pull/132",
-        "https://github.com/DIGI-UW/catalyst-ai/pull/133"
+        "https://github.com/DIGI-UW/catalyst-ai/pull/133",
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/182",
+        "https://github.com/DIGI-UW/catalyst-ai/pull/134"
       ],
       "parent_effort": "OE-reporting",
       "sources": [
@@ -1229,14 +1233,14 @@
       ],
       "id": "OE-lane-2",
       "title": "Lane 2 \u00b7 Imported Dataset in Catalyst",
-      "status": "Local imported table verified; approved chart controls merged",
-      "next_deliverable": "Integrate Catalyst #133 and verify native Superset summary values; keep native source/FHIR work coordinated.",
+      "status": "Lane 2 integrated locally; publication repair merged",
+      "next_deliverable": "Pin and deploy Catalyst #134, then verify native Superset total 120 and retained count/average/table values.",
       "dependencies": [
         "OE-native-reporting",
         "CAT-E11"
       ],
       "acceptance": "See the parent roadmap for this lane's exit criteria. Implementation, checks, merge, local/server proof and owner acceptance stay separate; no lane is currently accepted.",
-      "evidence": "Retained local harness a988bb8/Catalyst c91ae23 passes wrapper health and both-theme import checks. The same native May6 CSV renders exact 1158\u219230 and 1159\u219290 rows in Catalyst and Superset chart 65. Chart controls approved 14 September; #133 merged as f548e04 after 440 Gateway / 309 UI checks, real browser checks and all five hosted checks. Integrated runtime and rendered summaries remain. Server and lane acceptance remain open."
+      "evidence": "Retained local harness f0ff2c7/Catalyst f548e04 passes wrapper health and preserves existing artifacts. The native May6 CSV retains exact IDs 1158/1159 and intervals 30/90. Superset renders count 2 and average 60; a 101-row table proves pagination. The ungrouped total exposed the publication-adapter defect repaired by #134, which passed 443 Gateway tests and all five hosted checks. Post-repair total rendering, server delivery and lane acceptance remain open."
     },
     {
       "last_checked": "2026-09-14",
