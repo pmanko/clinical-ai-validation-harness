@@ -30,20 +30,20 @@
     "triage": "Active lanes, dependency order and older disposition candidates. Titles and mergeability alone do not establish safe closure or production readiness."
   },
   "counts": {
-    "total": 301,
+    "total": 303,
     "byState": {
       "closed": 38,
-      "merged": 217,
+      "merged": 219,
       "open": 46
     },
     "byRepository": {
       "DIGI-UW/OpenELIS-Global-2": 26,
-      "DIGI-UW/catalyst-ai": 109,
+      "DIGI-UW/catalyst-ai": 110,
       "DIGI-UW/openelis-work": 12,
       "openmrs/openmrs-esm-chartsearchai": 6,
       "openmrs/openmrs-module-chartsearchai": 9,
       "openmrs/openmrs-module-querystore": 2,
-      "pmanko/clinical-ai-validation-harness": 120,
+      "pmanko/clinical-ai-validation-harness": 121,
       "pmanko/med-agent-hub": 15,
       "pmanko/openmrs-module-chartsearchai": 2
     },
@@ -69,7 +69,7 @@
       "Older OpenMRS contribution": 9,
       "OpenELIS application work": 13,
       "OpenELIS reporting design readiness": 1,
-      "OpenELIS reporting pathways": 22,
+      "OpenELIS reporting pathways": 24,
       "OpenMRS chart context and QueryStore integration": 1,
       "OpenMRS dual-provider integration": 5,
       "Program planning and inventory": 2,
@@ -11190,7 +11190,7 @@
       "id": "pmanko/clinical-ai-validation-harness#173",
       "repository": "pmanko/clinical-ai-validation-harness",
       "number": 173,
-      "title": "Consolidate four OpenELIS–Catalyst reporting pathways",
+      "title": "Consolidate four OpenELIS\u2013Catalyst reporting pathways",
       "url": "https://github.com/pmanko/clinical-ai-validation-harness/pull/173",
       "state": "merged",
       "headSha": "f6ace0cdfe2b9c4e6ea2f632ce174312a532bfdd",
@@ -11310,6 +11310,60 @@
       "currentSignal": "Merged and published; owner approved the mock additions on 14 September. Runtime implementation and final acceptance remain separate.",
       "nextAction": "Continue the existing integration roadmap; no further mock approval is required for this approved scope.",
       "metadataCheckedAt": "2026-09-15T00:56:38Z"
+    },
+    {
+      "id": "DIGI-UW/catalyst-ai#131",
+      "repository": "DIGI-UW/catalyst-ai",
+      "number": 131,
+      "title": "Import reviewed CSV files as immutable Datasets",
+      "url": "https://github.com/DIGI-UW/catalyst-ai/pull/131",
+      "state": "merged",
+      "draft": false,
+      "author": "pmanko",
+      "head": "codex/imported-datasets",
+      "headSha": "0011cd7a1c60df95de829360aa83eb5c42807d53",
+      "base": "main",
+      "baseSha": null,
+      "createdAt": "2026-09-15T03:27:13Z",
+      "updatedAt": "2026-09-15T03:30:34Z",
+      "mergedAt": "2026-09-15T03:30:34Z",
+      "closedAt": "2026-09-15T03:30:34Z",
+      "mergeCommitSha": "c91ae23260df31520c453741b7892b5223217b44",
+      "effort": "OpenELIS reporting pathways",
+      "effortGroup": "OpenELIS reporting pathways",
+      "relatedEffortIds": [
+        "OE-reporting"
+      ],
+      "currentSignal": "Merged; all recorded hosted checks passed. Deployment and owner acceptance remain separate.",
+      "nextAction": "Continue the existing integration roadmap; no merge action remains.",
+      "metadataCheckedAt": "2026-09-15T03:30:34Z"
+    },
+    {
+      "id": "pmanko/clinical-ai-validation-harness#179",
+      "repository": "pmanko/clinical-ai-validation-harness",
+      "number": 179,
+      "title": "Integrate source-aware query publication and reporting status",
+      "url": "https://github.com/pmanko/clinical-ai-validation-harness/pull/179",
+      "state": "merged",
+      "draft": false,
+      "author": "pmanko",
+      "head": "codex/source-publication-integration",
+      "headSha": "8b2033a190631ed6b427d92355475cb427eb731a",
+      "base": "main",
+      "baseSha": null,
+      "createdAt": "2026-09-15T02:40:08Z",
+      "updatedAt": "2026-09-15T02:46:30Z",
+      "mergedAt": "2026-09-15T02:46:28Z",
+      "closedAt": "2026-09-15T02:46:28Z",
+      "mergeCommitSha": "462a83988c420ba834dd8034180a7b6a0080fce9",
+      "effort": "OpenELIS reporting pathways",
+      "effortGroup": "OpenELIS reporting pathways",
+      "relatedEffortIds": [
+        "OE-reporting"
+      ],
+      "currentSignal": "Merged; all recorded hosted checks passed. Deployment and owner acceptance remain separate.",
+      "nextAction": "Continue the existing integration roadmap; no merge action remains.",
+      "metadataCheckedAt": "2026-09-15T02:46:30Z"
     }
   ],
   "effortMappingNote": "Scope grouping for navigation; a linked PR is not proof that the effort is accepted.",
