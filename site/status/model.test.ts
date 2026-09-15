@@ -4,7 +4,15 @@ import { filterRows, inventories, projectFor, relatedRecords, sourceHref } from 
 describe('project status browsing', () => {
   it('distinguishes active contributions, conflicts, and retired proposals across repositories', () => {
     const open = filterRows('pull-requests', 'all', '', 'open');
-    expect(open.filter(r => r.repository.startsWith('openmrs/'))).toHaveLength(12);
+    expect(open.filter(r => r.repository.startsWith('openmrs/')).map(r => r.id).sort()).toEqual([
+      'openmrs/openmrs-esm-chartsearchai#23',
+      'openmrs/openmrs-module-chartsearchai#157',
+      'openmrs/openmrs-module-querystore#68',
+    ]);
+    const closedOlder = filterRows('pull-requests', 'all', '', 'closed').map(r => r.id);
+    for (const id of ['openmrs/openmrs-module-chartsearchai#72', 'openmrs/openmrs-module-chartsearchai#19', 'openmrs/openmrs-esm-chartsearchai#9']) {
+      expect(closedOlder).toContain(id);
+    }
     expect(open.some(r => r.id === 'DIGI-UW/catalyst-ai#117')).toBe(true);
     expect(open.some(r => r.id === 'pmanko/clinical-ai-validation-harness#151')).toBe(false);
     expect(filterRows('pull-requests', 'all', '151', 'closed').map(r => r.id)).toContain('pmanko/clinical-ai-validation-harness#151');
