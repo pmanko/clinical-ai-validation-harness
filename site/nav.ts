@@ -1,12 +1,12 @@
 /**
  * Hand-curated information architecture for the PUBLIC docs site.
  *
- * The public site is the non-technical, public-facing surface: the README, the
- * landing, the visual **canvases**, and the mission/background + research pages.
+ * Documentation complements the project introductions on openclinai.org.
+ * Published sources are explicitly selected in published-content.ts.
  * The implementation detail under `specs/` (feature specs, plans, briefs,
  * contracts, planning notes, handoffs, lanes) is dev-internal — it lives in the
- * repo but is NOT published (see the import.meta.glob allowlist in App.tsx /
- * prerender-entry.tsx). Canvases are the one *.canvas.tsx surface that stays public.
+ * repo but is NOT automatically published. Adding a canvas requires explicit
+ * selection in published-content.ts and a reviewed navigation entry here.
  *
  * Each leaf points at an existing route slug:
  *   - home:    'welcome'
@@ -38,7 +38,7 @@ export const navTree: NavSection[] = [
   {
     title: 'Start here',
     items: [
-      { kind: 'home',   slug: 'welcome',                                      title: 'Welcome — overview',         blurb: 'The mission in plain terms — the problem, the approach, and where to go deeper.' },
+      { kind: 'home',   slug: 'welcome',                                      title: 'Documentation index',         blurb: 'Setup guides, architecture, validation methods and research.' },
       { kind: 'spec',   slug: 'specs/background/why-local-first-clinical-ai', title: 'Why local-first clinical AI', blurb: 'The cited evidence behind the mission — offline realities, data sovereignty, right-sized open models, and WHO SMART Guidelines.' },
       { kind: 'spec',   slug: 'README',                                       title: 'Project README',             blurb: 'What this harness is, who it is for, how to get started, and key terms.' },
       { kind: 'canvas', slug: 'specs/roadmap',                                title: 'Validation roadmap',         blurb: 'Milestones, lanes, and dependencies — start here to understand sequencing.' },

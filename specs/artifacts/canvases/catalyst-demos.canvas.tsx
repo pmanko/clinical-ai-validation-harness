@@ -109,7 +109,11 @@ export default function CatalystDemosCanvas() {
   return (
     <Stack gap={24}>
       <Stack gap={6}>
-        <H1>Catalyst — from a question to a dashboard</H1>
+        <H1>Catalyst query execution and recorded examples</H1>
+        <Text tone="secondary">
+          Technical context for the recorded workflows. For the capability overview and narrated walkthrough,
+          {' '}<a href="https://openclinai.org/catalyst/">visit the Catalyst project page</a>.
+        </Text>
         <Text tone="secondary">
           The selected Catalyst contract uses a configured SQL source, its declared dialect, and every table and column
           the connection can read. A writer drafts SQL, a selected profile may add a reviewer, advisory findings remain
@@ -121,7 +125,7 @@ export default function CatalystDemosCanvas() {
       <Callout tone="warning">
         <Text size="small">
           <strong>Recorded locally with a writer and reviewer.</strong> Gemma 4 12B drafts and Qwen 2.5 14B reviews
-          each query. Both demonstrations use the current Spark deployment and show actual Superset rendering.
+          each query. These September 2026 recordings use a Spark source and show Superset rendering.
           These local recordings do not establish final server or owner acceptance.
         </Text>
       </Callout>
@@ -197,7 +201,7 @@ export default function CatalystDemosCanvas() {
         <Text size="small">
           <strong>Try the public application.</strong> <a href="https://catalyst.openelis-global.org/">Open Catalyst</a>
           {' '}to explore the deployed Workbench. The videos above were recorded in the local acceptance stack;
-          server verification and owner acceptance are tracked in Feature 008 tasks.
+          current delivery progress is linked from the <a href="https://pmanko.github.io/clinical-ai-validation-harness/status/#view=overview&amp;project=catalyst">project status page</a>.
         </Text>
       </Callout>
     </Stack>

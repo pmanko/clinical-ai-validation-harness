@@ -25,6 +25,8 @@ fi
 # shellcheck disable=SC1091
 . "${ROOT}/scripts/cloud-lib.sh"
 
+echo "==> generating landing discovery files"
+python3 "${ROOT}/scripts/build-landing-sitemap.py"
 echo "==> running landing regression checks"
 ( cd "${ROOT}" && uv run pytest -q tests/test_landing_site.py )
 
@@ -108,7 +110,7 @@ while IFS= read -r local_page; do
   echo "==> verifying ${relative_page}"
   curl -fsS --retry 8 --retry-connrefused --retry-delay 2 --max-time 30 \
     "https://${SITE}/${relative_page}" | cmp - "${local_page}"
-done < <(find "${ROOT}/landing" -type f \( -name '*.html' -o -name '*.css' \) | sort)
+done < <(find "${ROOT}/landing" -type f \( -name '*.html' -o -name '*.css' -o -name 'sitemap.xml' \) | sort)
 curl -fsS --retry 8 --retry-connrefused --retry-delay 2 --max-time 20 "https://${SITE}/media/openmrs-evidence-poster.png" \
   -o /dev/null
 # Separate post-publish verification: the demo-host assets were already

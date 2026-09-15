@@ -72,7 +72,7 @@ rsync -avz --delete \
   "${GCP_SSH_USER}@${IP}:${GCP_REMOTE_REPO}/artifacts/reports/${SLUG}/"
 rsync -avz \
   -e "ssh -i ${GCP_SSH_KEY} -o StrictHostKeyChecking=accept-new" \
-  "${REPORTS_ROOT}/index.html" "${REPORTS_ROOT}/reports-index.json" \
+  "${REPORTS_ROOT}/index.html" "${REPORTS_ROOT}/reports-index.json" "${REPORTS_ROOT}/sitemap.xml" \
   "${GCP_SSH_USER}@${IP}:${GCP_REMOTE_REPO}/artifacts/reports/"
 gcp_ssh "chmod -R a+rX ${GCP_REMOTE_REPO}/artifacts/reports"
 

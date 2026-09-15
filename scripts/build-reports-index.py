@@ -19,6 +19,7 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from statistics import median
+from xml.etree.ElementTree import Element, SubElement, tostring
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
@@ -324,7 +325,7 @@ def _card(entry: dict) -> str:
     if g["date"]:
         facts.append(esc(g["date"]))
     subtitle = " · ".join(facts)
-    family = str(g.get("family") or "chartsearchai")
+    family = str(entry.get("family") or g.get("family") or "chartsearchai")
     if family == "catalyst":
         # Labels name the question each page answers, not the artifact kind.
         links = [f'<a class="btn" href="{esc(slug)}/index.html">Read the report</a>']
@@ -341,6 +342,16 @@ def _card(entry: dict) -> str:
             links.append(f'<a class="btn ghost" href="{esc(slug)}/comparison.html">Team comparison</a>')
         if (REPORTS / slug / "dashboard.html").exists():
             links.append(f'<a class="btn ghost" href="{esc(slug)}/dashboard.html">Interactive dashboard</a>')
+    unavailable = entry.get("availability") == "unavailable"
+    if unavailable:
+        links = ['<span class="unscored">Report unavailable</span>']
+    statistics = "" if unavailable else (
+        f'<div class="unscored">{esc(g["scoreline"])}</div>' if g.get("scoreline") and not g["scout"]
+        else _scout_table(g["scout"]) if g["scout"]
+        else '<div class="unscored">Open the report for its recorded methods and results.</div>'
+    )
+    if g["scout"] and not unavailable:
+        statistics = '<div class="report-table-scroll" role="region" aria-label="Recorded score tables" tabindex="0">' + statistics + '</div>'
     takeaway = (f'<p class="takeaway"><span class="tk">Takeaway</span>{esc(entry["takeaway"])}</p>'
                 if entry.get("takeaway") else "")
     family_label = "Catalyst SQL" if family == "catalyst" else "ChartSearchAI"
@@ -349,8 +360,9 @@ def _card(entry: dict) -> str:
     <div class="titles"><span class="family {esc(family)}">{esc(family_label)}</span><h2>{esc(entry["title"])}</h2><div class="slug">{subtitle}</div></div>
     <div class="links">{"".join(links)}</div>
   </header>
+  {f'<p class="report-context">{esc(entry["context"])}</p>' if entry.get("context") else ""}
   <p class="summary">{esc(entry.get("summary", ""))}</p>
-  {f'<div class="unscored">{esc(g.get("scoreline", ""))}</div>' if (g.get("scoreline") and not g["scout"]) else _scout_table(g["scout"])}
+  {statistics}
   {takeaway}
   </article>"""
 
@@ -365,6 +377,12 @@ _STYLE_CORE = """
   *{box-sizing:border-box;} body{margin:0;background:var(--bg);color:var(--text);
     font:15px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;padding:36px 24px 72px;}
   .wrap{max-width:960px;margin:0 auto;}
+  .site-parent{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:20px;padding-right:40px;font-size:14px;}
+  .site-parent a{color:var(--accent);text-decoration:underline;text-underline-offset:3px;}
+  .report-table-scroll{max-width:100%;overflow-x:auto;}
+  .report-table-scroll:focus-visible{outline:3px solid var(--accent);outline-offset:3px;}
+  a:focus-visible,button:focus-visible{outline:3px solid var(--accent);outline-offset:3px;}
+  .report-context{font-size:14px;color:var(--muted);border-left:3px solid var(--border);padding-left:12px;}
   header.page h1{font-size:27px;margin:0 0 10px;color:var(--ink);font-weight:600;}
   .intro{color:var(--text);font-size:15px;margin:0 0 20px;max-width:760px;}
   .intro b{color:var(--ink);}
@@ -464,24 +482,35 @@ def main(
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>OpenClinAI — clinical AI validation runs</title>
+<meta name="description" content="Dated ChartSearchAI evaluations and Catalyst workflow reports, with recorded methods, results and limitations.">
+<link rel="canonical" href="https://reports.openclinai.org/">
+<link rel="sitemap" type="application/xml" href="https://reports.openclinai.org/sitemap.xml">
 <script>{theme_bootstrap_js("oc-theme-index")}</script>
 <style>{STYLE}</style>
 </head>
 <body>
 {THEME_TOGGLE_BUTTON_HTML}
 <div class="wrap">
+  <nav class="site-parent" aria-label="Site navigation"><a href="https://openclinai.org/">Open Clinical AI</a> / <a href="https://openclinai.org/validation-harness/">Validation Harness</a> / Reports</nav>
   <header class="page">
     <h1>Clinical AI validation runs</h1>
     <p class="intro">{manifest.get("intro", "")}</p>
   </header>
   <div class="legend"><b>How to read these reports.</b> {scoring_note}</div>
 {cards}
-  <footer class="page">Curated index — edit reports-index.json to change what appears. Hover an AI setup name for its exact model lineup.</footer>
+  <footer class="page">These reports describe dated runs, not current deployment or release acceptance. Hover an AI setup name for its model lineup.</footer>
 </div>
 <script>{theme_toggle_js("oc-theme-index")}</script>
 </body>
 </html>
 """
+    sitemap = Element('urlset', xmlns='http://www.sitemaps.org/schemas/sitemap/0.9')
+    urls = ['https://reports.openclinai.org/'] + [
+        f"https://reports.openclinai.org/{r['slug']}/index.html" for r in runs
+        if r.get('availability') != 'unavailable']
+    for url in urls:
+        SubElement(SubElement(sitemap, 'url'), 'loc').text = url
+    (REPORTS / 'sitemap.xml').write_bytes(tostring(sitemap, encoding='utf-8', xml_declaration=True))
     out = REPORTS / "index.html"
     out.write_text(html, encoding="utf-8")
     print(f"wrote {out} ({len(runs)} curated runs)")
