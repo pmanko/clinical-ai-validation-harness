@@ -1148,8 +1148,8 @@
     {
       "id": "OE-reporting",
       "title": "OpenELIS\u2013Catalyst four reporting pathways",
-      "status": "Lane 2 integrated locally; publication repair merged",
-      "next_deliverable": "Pin and deploy Catalyst #134, then verify native Superset total 120 and retained count/average/table values; keep native source/FHIR work coordinated.",
+      "status": "Four-pathway testing: native export recovered; CSV summaries repaired locally",
+      "next_deliverable": "Complete fresh CSV paths, resolve PostgreSQL model context, and connect normal reporting FHIR emission.",
       "acceptance": "Four useful local/server pathways with verified outputs, paced videos and owner acceptance. No ranking; shared identity and existing AI-design Follow-on A remain later milestones.",
       "sources": [
         "specs/openelis-reporting-catalyst-integration.md",
@@ -1172,9 +1172,11 @@
         "https://github.com/DIGI-UW/catalyst-ai/pull/132",
         "https://github.com/DIGI-UW/catalyst-ai/pull/133",
         "https://github.com/pmanko/clinical-ai-validation-harness/pull/182",
-        "https://github.com/DIGI-UW/catalyst-ai/pull/134"
+        "https://github.com/DIGI-UW/catalyst-ai/pull/134",
+        "https://github.com/DIGI-UW/catalyst-ai/pull/135",
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/183"
       ],
-      "evidence": "Retained local harness f0ff2c7/Catalyst f548e04 passes wrapper health with saved artifacts, mounts and ports preserved. The native May6 CSV retains exact IDs 1158/1159 and intervals 30/90. Superset renders count 2 and average 60, and a 101-row table proves pagination. Ungrouped total exposed the publication-adapter defect repaired by #134; 443 Gateway tests and all five hosted checks pass at a15ecb8. Post-repair total rendering, server delivery and lane acceptance remain open."
+      "evidence": "Retained runtime restored without seeding. Native owner verified login/export. Catalyst discovers all 380 reporting relations; manual query returned all four retained records and saved/reopened its Dataset. Local Superset renders CSV count 2, average 60 and total 120 after the chart-identity repair in pending Catalyst #135. Full AI question path exceeds model context; native FHIR routing is being connected. See the existing task register for exact revisions and remaining acceptance."
     },
     {
       "last_checked": "2026-09-15",
@@ -1224,7 +1226,9 @@
         "https://github.com/DIGI-UW/catalyst-ai/pull/132",
         "https://github.com/DIGI-UW/catalyst-ai/pull/133",
         "https://github.com/pmanko/clinical-ai-validation-harness/pull/182",
-        "https://github.com/DIGI-UW/catalyst-ai/pull/134"
+        "https://github.com/DIGI-UW/catalyst-ai/pull/134",
+        "https://github.com/DIGI-UW/catalyst-ai/pull/135",
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/183"
       ],
       "parent_effort": "OE-reporting",
       "sources": [
@@ -1233,17 +1237,17 @@
       ],
       "id": "OE-lane-2",
       "title": "Lane 2 \u00b7 Imported Dataset in Catalyst",
-      "status": "Lane 2 integrated locally; publication repair merged",
-      "next_deliverable": "Pin and deploy Catalyst #134, then verify native Superset total 120 and retained count/average/table values.",
+      "status": "CSV summaries render locally; chart-identity repair in review",
+      "next_deliverable": "Repeat fresh upload/type-review/save/chart journey; finish grouped rendering, arrangement and server checks.",
       "dependencies": [
         "OE-native-reporting",
         "CAT-E11"
       ],
       "acceptance": "See the parent roadmap for this lane's exit criteria. Implementation, checks, merge, local/server proof and owner acceptance stay separate; no lane is currently accepted.",
-      "evidence": "Retained local harness f0ff2c7/Catalyst f548e04 passes wrapper health and preserves existing artifacts. The native May6 CSV retains exact IDs 1158/1159 and intervals 30/90. Superset renders count 2 and average 60; a 101-row table proves pagination. The ungrouped total exposed the publication-adapter defect repaired by #134, which passed 443 Gateway tests and all five hosted checks. Post-repair total rendering, server delivery and lane acceptance remain open."
+      "evidence": "Catalyst b90f95f republishes the retained two-row CSV dashboard with new native chart identities. Superset now renders IDs 1158/1159, intervals 30/90, count 2, average 60 and total 120; screenshot inspected. Import bundle ba09c4c8e75bf91c2adba6ab5c53c33e83cc2e3000f623f64fe4db9314cbc851. PR #135 is pending; neither server deployment nor owner acceptance is complete."
     },
     {
-      "last_checked": "2026-09-14",
+      "last_checked": "2026-09-15",
       "implementation_owner": null,
       "related_pull_requests": [
         "https://github.com/DIGI-UW/catalyst-ai/pull/129",
@@ -1256,16 +1260,16 @@
       ],
       "id": "OE-lane-3",
       "title": "Lane 3 \u00b7 OpenELIS PostgreSQL in Catalyst",
-      "status": "PostgreSQL and source-aware query publication merged; native source integration remains",
-      "next_deliverable": "Connect the reporting OpenELIS source to the locally deployed PostgreSQL support, then verify question/refinement/save/reopen and Superset rendering.",
+      "status": "Reporting source connected; manual query/save pass; AI context limit exposed",
+      "next_deliverable": "Resolve complete-schema model capacity, then run question/refinement and publish the native-source dashboard.",
       "dependencies": [
         "CAT-E11"
       ],
       "acceptance": "See the parent roadmap for this lane's exit criteria. Implementation, checks, merge, local/server proof and owner acceptance stay separate; no lane is currently accepted.",
-      "evidence": "Catalyst #129 merged6513c88 and #130 merged3b8882f; all five checks passed for each. Publication preserves legacy SQL and refuses to redirect old connections. Native runtime deployment and rendered-value acceptance remain open. Connection and publication code are now deployed locally at c91ae23; the approved native source handoff and actual native-source journey remain."
+      "evidence": "Restricted openelis-reporting connection discovers 380 readable clinlims relations. Browser schema search retains the question. Manual execution returned result IDs1154/1155/1158/1159 with values450 and saved/reopened Dataset1dd3de0a-6754-4cc2-9097-56a49cb3c8dd. AI preparation fails because63582 input tokens exceed24576 configured context. Manual proof does not complete the question journey."
     },
     {
-      "last_checked": "2026-09-14",
+      "last_checked": "2026-09-15",
       "implementation_owner": null,
       "related_pull_requests": [],
       "parent_effort": "OE-reporting",
@@ -1275,14 +1279,14 @@
       ],
       "id": "OE-lane-4",
       "title": "Lane 4 \u00b7 OpenELIS FHIR analytics in Catalyst",
-      "status": "Reporting-instance FHIR emission/routing missing from verified local pathway",
-      "next_deliverable": "Check the same reporting instance's FHIR field coverage early, then verify its real pipeline, query and rendered dashboard.",
+      "status": "Native FHIR connection under recovery; emission not yet verified",
+      "next_deliverable": "Prove the existing HAPI connection with the native owner, then normal reporting emission and pipeline ingestion.",
       "dependencies": [
         "OE-native-reporting",
         "CAT-E11"
       ],
       "acceptance": "See the parent roadmap for this lane's exit criteria. Implementation, checks, merge, local/server proof and owner acceptance stay separate; no lane is currently accepted.",
-      "evidence": "The reporting stack maps the FHIR host to loopback. Its four known synthetic Observation IDs are absent from the separate Catalyst HAPI store; native owner has no normal-emission proof. Preserve actual-source lineage rather than seeding a matching substitute."
+      "evidence": "Native owner found the reporting instance still targets isolated loopback. Existing Catalyst HAPI is reachable but requires the trusted connection. Coordinating the existing network/proxy configuration; no replacement cohort, seeding or backfill. Actual reporting-instance FHIR output and downstream rendering remain unverified."
     }
   ]
 }
