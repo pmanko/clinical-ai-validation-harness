@@ -114,8 +114,8 @@ This is the sole cross-project sequence. Detailed tasks stay in linked registers
 | --- | --- | --- |
 | 0. Consolidate and establish authority | Persist direction, reconcile work, remove competing sequences without losing requirements, refresh dashboard references. | Harness #173 and Catalyst #127 merged; native cleanup retains its owner. FP-001. |
 | 1. Align mocks and contracts | Interactive CSV import/review and PostgreSQL source journeys reuse approved styles; failure/recovery and saved work represented; specs agree and owner reviews additions. | Catalyst #127/#128 merged; all five checks pass on #128 head `9728294`; owner approved additions for implementation on 14 September. FP-002. |
-| 2. Reporting example and lane 1 | Native saved-report rerun and real CSV → Superset table plus meaningful summary chart; inspect values, repeated results and dates. Begin FHIR coverage check. | Local native CSV upload/table/chart verified; saved-report rerun and server proof remain. Native milestones plus FP-003. |
-| 3. PostgreSQL and lane 3 | Full readable schema, question/refinement, explicit Run, save/reopen, publish and rendered Superset; Spark regression passes. | Pending; FP-004 and shared publication FP-005. |
+| 2. Reporting example and lane 1 | Native saved-report rerun and real CSV → Superset table plus meaningful summary chart; inspect values, repeated results and dates. Begin FHIR coverage check. | Local native saved-period rerun and CSV upload/table/chart verified; broader fixture and server proof remain. Native milestones plus FP-003. |
+| 3. PostgreSQL and lane 3 | Full readable schema, question/refinement, explicit Run, save/reopen, publish and rendered Superset; Spark regression passes. | PostgreSQL connection/editor support merged in Catalyst #129; real native workflow and source-aware publication remain. FP-004 and FP-005. |
 | 4. Imported Dataset foundation | Lane-1 CSV uploads/reviews/saves without SQL; values/order/types survive reload/restart; retry works and a table publishes. | Pending; FP-006 and FP-005. |
 | 5. Lane 2 visualization | Correct grouping/aggregation, saved/restored arrangement and rendered publication without SQL interaction. | Pending; FP-007. |
 | 6. Lane 4 | Actual reporting-instance FHIR output reaches the existing pipeline; useful Dataset/dashboard, traceable records, coverage and freshness. | Pending; FP-008. |
@@ -163,15 +163,34 @@ acceptance are separate facts. No date or automatic acceptance is implied.
 
 ### Early integration readiness — checked 14 September 2026
 
-- Lane 1 now has a verified local native Superset CSV upload and saved dashboard
-  `31`, with raw table `61` and validation-interval bar chart `62`. The uploaded
-  detailed CSV retains result IDs `1158`/`1159`, values `450`/`450` and intervals
-  `30`/`90` minutes. Database `catalyst_imports` and schema `report_uploads` are
-  separate from clinical data and Superset metadata; the existing PostgreSQL
-  service is reused. The setup was rerun without changing its identity. These
-  use the published server CSV in local Superset: they verify local import and
-  rendering, not the full local export journey or lane/server acceptance. See
-  [upload operations](../docs/catalyst-demo-operations.md#native-csv-reporting-uploads).
+- The native owner exercised the actual local saved-report journey: export 5 May
+  2026, reopen the saved configuration with blank dates, then export 6 May.
+  Both downloads and job/definition receipts are retained privately. Frontend
+  revision `36eb98edda492e7419b5486ba35d1c14baab18c7`, backend `8005e4`.
+  May 5 preserves distinct results `1154`/`1155`, both `450`, with zero-minute
+  validation intervals. May 6 preserves `1158`/`1159`, both `450`, at 30/90
+  minutes. The uniquely named test definition was removed after success; the
+  completed jobs remain. This was a bounded synthetic check without reseeding.
+- That exact **local** May 6 CSV was uploaded through native local Superset into
+  Dataset `32`, preserving identifiers as text and CSV column order. Saved and
+  reopened dashboard `32` contains raw table `63` and interval bar chart `64`;
+  rendered rows and chart values match `1158 → 30`, `1159 → 90`. The screenshot
+  was inspected. This establishes the local saved-period example, not broader
+  fixture coverage, server delivery, final styling or owner acceptance.
+- Earlier dashboard `31` used the published server CSV in local Superset and
+  remains distinguishable as preliminary import/rendering proof. Both use the
+  separate `catalyst_imports` database and `report_uploads` schema on the existing
+  PostgreSQL service. [Upload operations](../docs/catalyst-demo-operations.md#native-csv-reporting-uploads)
+  remain the operator reference; no Catalyst import implementation is implied.
+- Catalyst [#129](https://github.com/DIGI-UW/catalyst-ai/pull/129) merged as
+  `6513c886e44b5c68a0bcf99cc92d7543a33288eb`: shared PostgreSQL transport,
+  readable catalog, result typing, server timeout and editor grammar. All five
+  hosted checks passed at `10397a1`; local checks passed 389 Gateway tests
+  (including real PostgreSQL), 302 UI tests, 17 browser workflows and 57 assembly
+  tests. One opt-in live Spark and eight live-demo browser tests were skipped.
+  The existing Spark-driver typing warning and bundle-size warning remain.
+  The harness now pins this merged code. It is not yet deployed; native query
+  refinement/save/reopen and source-aware Superset publication remain open.
 
 - At the initial readiness check, the native public [deployment receipt][native-deployment] identified application,
   frontend and backend `8005e4cc0b2b05d054489730aef969027d773093`, deployment
