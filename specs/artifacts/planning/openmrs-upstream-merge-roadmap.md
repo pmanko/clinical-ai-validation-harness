@@ -24,6 +24,11 @@ is small.
 Every number below was read live on 2026-09-14 from GitHub, CI, or a fetched clone. The
 submodule pins equal the PR heads byte for byte.
 
+Names used in this roadmap, so the numbers are not load-bearing: the **QueryStore read-API PR**
+is querystore #68; the **backend PR** is chartsearchai #157; the **frontend PR** is esm #23;
+the **account-context PR** is fork #33; the **nine stale PRs** are chartsearchai #72, #25,
+#22, #21, #20, #19 and esm #11, #10, #9.
+
 | Line | PR | Head | Age | Size | Mergeable | vs upstream `main` | CI | Maintainer threads |
 |---|---|---|---|---|---|---|---|---|
 | querystore | [#68](https://github.com/openmrs/openmrs-module-querystore/pull/68) | `f2fca727` | 40 d | +4,438 / -91, 59 files, 16 commits | CLEAN | 16 ahead, 20 behind | green | 19 total, 17 unresolved |
@@ -151,6 +156,7 @@ is the drift this roadmap exists to remove.
 
 - Scope: the four smaller findings in §2; one reply per thread citing the commit. Then one
   reply on each of the ten 2026-09-08 threads asking the maintainer to resolve or restate.
+  Threads are left open for the maintainer to resolve; we do not resolve our own (§8 A2).
 - Depends on: I1 pushed (so replies cite final SHAs).
 - Validation: 1.1 returns 0; 1.3 holds; 1.7 for querystore.
 - Exit: #68 has no thread whose last comment is not ours.
@@ -159,7 +165,9 @@ is the drift this roadmap exists to remove.
 
 - Scope: for each of the nine PRs, confirm its delta is either in #157/#23 or deliberately
   dropped (per the disposition record in `openmrs-dual-provider-upstream-inventory.md`), then
-  close with a one-line supersession comment naming the successor.
+  close with a one-line supersession comment naming the successor. Owner approval for
+  content-confirmed closures was granted 2026-09-14 (§8 A2); a PR carrying unique live work
+  stays open and is reported instead.
 - Depends on: nothing. Do it before I4 so #157 is the only chartsearchai PR of ours on the
   board.
 - Validation: 1.6 returns only #157 and #23.
@@ -174,8 +182,8 @@ is the drift this roadmap exists to remove.
   `safetyStatus` on `ChartAnswer` per the recorded decision. Remove the paired-build jobs and
   the `build against querystore HEAD` job from `.github/workflows/build.yml` so the file
   matches upstream.
-- Depends on: 2.1 (the published SNAPSHOT is what makes the plain `build` job resolve). See
-  the contingency in §6 if 2.1 is slow.
+- Depends on: 2.1 (the published SNAPSHOT is what makes the plain `build` job resolve). Rule 2
+  in §6: no resync before then unless work must land on the branch.
 - Validation: install querystore from `targets/querystore` first, build chartsearchai with
   `-nsu`; 1.7 for chartsearchai; push; 1.4 MERGEABLE; every check green including the plain
   `build`; 1.5 empty diff.
@@ -264,16 +272,18 @@ gh pr list --repo openmrs/openmrs-esm-chartsearchai    --author pmanko --state o
 
 1. I1 and I2 before anything on #157. #68 is CLEAN, its upstream is quiet, and it gates the
    rest; nothing is gained by touching #157 first.
-2. I4 waits for 2.1. If #68 shows no maintainer activity for seven days after I2 closes, run
-   a conflict-only resync of #157 (keep the paired-build jobs) so it is not sitting DIRTY, and
-   accept that it may need repeating.
+2. Resync the backend PR only when there is a reason to touch it: I4, once the querystore-api
+   SNAPSHOT publishes, or when work must land on the branch. No calendar-driven resync; a
+   DIRTY badge while nobody is reviewing costs nothing.
 3. Same-day reply to any new maintainer thread on any of the three PRs while M2 is open.
 4. Nothing in this roadmap needs the parity roadmap's `dual_provider_parity_evidence.v1`
    bundle. That bundle remains open there and is not a gate here.
 5. Status-hub sync is part of every iteration's exit (§4), not a separate cleanup at the end.
    I7 exists for the surfaces that can only be corrected once the merged state is known.
-6. Fork #33 is held on its own branch until its disposition in §8 is decided. Harness #148
-   pins #33's exact commit, so preview testing does not need it on `harness-integration`.
+6. The account-context PR stays on its own branch until M2 closes, then goes upstream as its
+   own PR (§8 A2). Harness #148 waits with it: `scripts/openmrs-source-pair-test.sh` requires
+   the pin to equal `origin/harness-integration`, so #148 cannot pass its source-pair check
+   with #33 on a side branch.
 
 ## 7. Iteration Log
 
@@ -295,8 +305,21 @@ paragraphs on the status hub and on fork #33.
 Open decision recorded here, not made here: whether fork #33 (account-context transport)
 lands on `harness-integration` before M2, growing #157 by twelve files, or waits on its own
 branch (harness #148 pins its exact commit either way) and goes upstream as its own PR after
-M2. The scope guard in §9 says wait; the #148 companion note says land first. The owner
-decides; until then rule 6 holds.
+M2. The scope guard in §9 says wait; the #148 companion note says land first. Decided in A2.
+
+### A2, 2026-09-14: four owner decisions
+
+1. The account-context PR (#33) is held on its branch until M2 closes; harness #148 waits
+   with it. Rule 6 updated.
+2. The backend PR (#157) is resynced only when there is a reason to touch it (I4, or new work
+   landing on the branch), never on a calendar. Rule 2 replaced; the seven-day contingency is
+   withdrawn.
+3. The nine stale PRs: audit each against the frontend and backend PRs and the upstream
+   inventory, then close the content-confirmed ones with a supersession comment without a
+   second approval round. Anything with unique live work stays open and is reported. I3
+   updated.
+4. On the QueryStore read-API PR, replies cite the fixing commit and test and threads are
+   left for the maintainer to resolve. I2 updated; 1.1 stays as written.
 
 ## 9. Scope Guard
 
