@@ -310,7 +310,7 @@ Acceptance requires:
 
 A page draft or partial recording can be reviewed earlier, but does not close
 this checkpoint. As of 15 September, four final recordings and this public
-section are pending; earlier Catalyst videos remain live.
+section are not published. The existing homepage source now has a draft explanation; earlier Catalyst videos remain live.
 
 ### Cross-pathway acceptance record
 
