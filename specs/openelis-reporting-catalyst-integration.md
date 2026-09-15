@@ -4,11 +4,11 @@
 2026. The mock additions and chart controls are approved and implemented. Local
 browser proof now covers native CSV upload into Superset, CSV upload/type recovery
 in Catalyst through tables/charts/publication, and PostgreSQL query correction
-through exact rendered results. The verified local deployment is harness #186
-(`730b522`) with Catalyst #137 (`182ba87`), preserving all saved artifacts and
+through exact rendered results. The verified local deployment is harness #187
+(`659190e`) with Catalyst #138 (`364c5bc`), preserving all saved artifacts and
 storage mounts. CSV summary repairs and full-file table pagination are included.
-Browser review confirmed the original records and exposed a false limit warning;
-Catalyst #138 (`364c5bc`) corrects it and awaits integrated deployment/browser proof.
+Browser review confirms the original two rows render without a false limit warning;
+the 1,101-row regression table retains pagination and reaches its final row.
 The reporting instance's FHIR connection still requires approval in the native
 implementation task. Complete server journeys, paced videos, public references
 and owner acceptance remain open. This roadmap owns cross-project sequence;
