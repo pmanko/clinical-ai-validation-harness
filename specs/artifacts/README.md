@@ -14,6 +14,10 @@ Current planning and research artifacts that support the feature roadmap.
 - `planning/openmrs-dual-provider-upstream-inventory.md`
   - Refreshed repository baseline plus the required keep/port/replace disposition for upstream
     and companion-branch changes before the ChartSearchAI and ESM rebuilds.
+- `planning/openmrs-upstream-merge-roadmap.md`
+  - Approved roadmap for landing querystore #68, chartsearchai #157 and esm #23 upstream and
+    retiring the fork buffer: validated baseline, milestone acceptance criteria, validated
+    iterations, and the iteration log.
 - `planning/openmrs-dual-provider-conformance-contract.md`
   - Provider-neutral lifecycle, context, QueryStore freshness, temporal, and safety contract that
     maps the versioned fixtures to their Java, Python, TypeScript, and harness test owners.
