@@ -1,0 +1,265 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Catalyst · Open Clinical AI</title>
+<meta name="description" content="Turn clinical and program data into reviewable queries, reusable Datasets and dashboards. Human review and manual correction remain part of the workflow." />
+<link rel="canonical" href="https://openclinai.org/catalyst/" />
+<meta property="og:url" content="https://openclinai.org/catalyst/" />
+<meta property="og:title" content="Catalyst" />
+<meta property="og:description" content="Turn clinical and program data into reviewable queries, reusable Datasets and dashboards. Human review and manual correction remain part of the workflow." />
+<meta property="og:image" content="https://catalyst.openelis-global.org/media/catalyst-openelis-local-reviewed-light-20260911-abaf54f-poster.jpg" />
+<meta name="theme-color" content="#4b2e83" />
+<meta name="twitter:card" content="summary_large_image" />
+<link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+<link rel="stylesheet" href="/styles.css?v=20260915-projects" />
+<link rel="stylesheet" href="/projects.css?v=20260915-projects" />
+</head>
+<body>
+<a class="skip-link" href="#main-content">Skip to content</a>
+<header class="site-header project-header">
+<a class="brand" href="/" aria-label="Open Clinical AI home">
+<span class="brand-mark" aria-hidden="true">
+<span>
+</span>
+</span>
+<span>Open Clinical AI</span>
+</a>
+<nav class="primary-nav" aria-label="Primary navigation">
+<a href="/#projects">Projects</a>
+<a href="https://reports.openclinai.org/">Evidence</a>
+<a href="/#about">About</a>
+</nav>
+<details class="nav-toggle">
+<summary>Menu</summary>
+<nav aria-label="Mobile navigation">
+<a href="/#projects">Projects</a>
+<a href="https://reports.openclinai.org/">Evidence</a>
+<a href="/#about">About</a>
+</nav>
+</details>
+</header>
+<main id="main-content" tabindex="-1">
+<section class="project-intro page-width">
+<nav class="breadcrumbs" aria-label="Breadcrumb">
+<a href="/#projects">All projects</a>
+</nav>
+<div class="overview-grid with-image">
+<div>
+<p class="section-kicker">Catalyst</p>
+<h1>Build reports from clinical and program data.</h1>
+<p class="overview-lead">Explore clinical and program data, review the work and turn the results into saved tables, charts and dashboards. Start with a connected source or bring a CSV.</p>
+<div class="project-actions">
+<a class="button button-primary" href="/catalyst/questions/">See questions in practice <span aria-hidden="true">→</span>
+</a>
+<a class="button button-secondary" href="#catalyst-openelis-video">Watch a walkthrough <span aria-hidden="true">→</span>
+</a>
+</div>
+</div>
+<figure class="overview-image">
+<img src="https://catalyst.openelis-global.org/media/catalyst-hiv-story-20260913-5a324158/05-first-result.jpg" alt="Catalyst Workbench with a question and reviewable result" width="1920" height="1200" />
+<figcaption>The Workbench: ask, review and choose what to run.</figcaption>
+</figure>
+</div>
+</section>
+<section class="page-width project-workflow" aria-labelledby="workflow-title">
+<h2 id="workflow-title">Working with data in Catalyst</h2>
+<div class="workflow-grid">
+<article>
+<span>01</span>
+<h3>Start with your data</h3>
+<p>Browse a connected source and ask a question, or import a CSV and review its columns.</p>
+</article>
+<article>
+<span>02</span>
+<h3>Review and refine</h3>
+<p>Inspect results and correct SQL when needed. AI suggestions are advisory; you choose when a query runs.</p>
+</article>
+<article>
+<span>03</span>
+<h3>Save and share</h3>
+<p>Save a Dataset, build charts and tables, arrange a dashboard and publish it to Superset.</p>
+</article>
+</div>
+</section>
+<section class="page-width project-callout">
+<div>
+<p class="section-kicker">OpenELIS reporting</p>
+<h2>OpenELIS reporting pathways</h2>
+<p>Four complementary paths connect native reporting, CSV imports, direct database queries and FHIR-derived data to dashboards.</p>
+<p class="scope-note">Integrated demonstrations are in progress.</p>
+</div>
+<a class="button button-secondary" href="/catalyst/reporting-pathways/">Explore the four reporting paths <span aria-hidden="true">→</span>
+</a>
+</section>      <section id="catalyst" class="section catalyst-section">
+        <div class="page-width section-heading-row">
+          <div>
+            <p class="section-kicker">Recorded examples · Local deployments</p>
+            <h2>Catalyst: from a question to a dashboard.</h2>
+          </div>
+          <p>
+            Ask a question, review the proposed query, and turn its results into saved tables, charts and dashboards. The earlier local walkthroughs below use OpenELIS laboratory data and OpenMRS HIV data. Gemma 4 12B drafts each query and Qwen 2.5 14B reviews it; their findings are advisory, and you choose when to run the query. FHIR Data Pipes prepares the source data for the Spark SQL warehouse. The walkthroughs focus on the work you do in Catalyst.
+          </p>
+        </div>
+        <div class="page-width earlier-walkthroughs">
+          <h3>Earlier Catalyst walkthroughs</h3>
+          <p>These earlier recordings show local query-to-dashboard journeys. The new four-pathway demonstrations remain a separate delivery checkpoint.</p>
+        </div>
+        <div class="page-width hub-links">
+          <a class="text-link" href="/catalyst/questions/">Explore short videos by question <span aria-hidden="true">→</span>
+</a>
+        </div>
+        <div class="page-width feature-media" id="catalyst-openelis-video">
+          <video
+            controls
+            playsinline
+            preload="metadata"
+            poster="https://catalyst.openelis-global.org/media/catalyst-openelis-local-reviewed-light-20260911-abaf54f-poster.jpg"
+            aria-label="Catalyst with OpenELIS laboratory data: a local demonstration with Gemma writing and Qwen verifying, from a question to a rendered Superset dashboard"
+          >
+            <source src="https://catalyst.openelis-global.org/media/catalyst-openelis-local-reviewed-light-20260911-abaf54f.mp4" type="video/mp4" />
+            Your browser does not support embedded video.
+          </video>
+          <div class="media-caption">
+            <div>
+              <strong>OpenELIS laboratory data</strong>
+              <span>Explore laboratory patient counts and review the breakdown by gender.</span>
+              <a class="video-external-link" href="https://youtu.be/PRs3jAzQk38" target="_blank" rel="noopener noreferrer">Earlier walkthrough on YouTube <span aria-hidden="true">↗</span>
+</a>
+            </div>
+            <span>3:04 · recorded locally · silent</span>
+          </div>
+          <details class="transcript">
+            <summary>Transcript (silent recording)</summary>
+            <ol>
+              <li>FHIR Data Pipes prepares the source data for Spark SQL; this walkthrough was recorded against the local deployment.</li>
+              <li>Write a question, expand the writing area and browse the available tables and fields without losing the draft.</li>
+              <li>Gemma 4 12B writes the query and Qwen 2.5 14B reviews it. Preparing the draft does not retrieve results: choose Get results to run it.</li>
+              <li>Inspect the result and its technical details, then ask for a breakdown by gender, including missing gender.</li>
+              <li>Save the successful query and reuse its exact SQL while preserving the unfinished question. Advanced mode keeps technical tools accessible while the walkthrough stays in light appearance.</li>
+              <li>In one brief repair example, the model fixes supplied broken SQL; run the repaired query and preserve the saved original.</li>
+              <li>Create a table and chart, arrange them on a Dashboard and reopen the saved arrangement.</li>
+              <li>Publish to Superset, inspect the actual import receipt and compare the rendered table with the originating Catalyst result.</li>
+            </ol>
+          </details>
+        </div>
+        <div class="page-width feature-media" id="catalyst-openmrs-video">
+          <video
+            controls
+            playsinline
+            preload="metadata"
+            poster="https://catalyst.openelis-global.org/media/catalyst-openmrs-cd4-monitoring-local-reviewed-light-20260912-742ee58-poster.jpg"
+            aria-label="Catalyst with OpenMRS HIV data: a local demonstration of aggregate CD4 monitoring with Gemma writing and Qwen reviewing, from a question to a rendered Superset dashboard"
+          >
+            <source src="https://catalyst.openelis-global.org/media/catalyst-openmrs-cd4-monitoring-local-reviewed-light-20260912-742ee58.mp4" type="video/mp4" />
+            Your browser does not support embedded video.
+          </video>
+          <div class="media-caption">
+            <div>
+              <strong>OpenMRS HIV data</strong>
+              <span>Explore 2026 CD4 monitoring results by month, then refine the report by gender.</span>
+              <a class="video-external-link" href="/catalyst/hiv-gallery/">Browse the screenshot walkthrough <span aria-hidden="true">→</span>
+</a>
+              <a class="video-external-link" href="https://youtu.be/7p83cGMhOzw" target="_blank" rel="noopener noreferrer">Earlier walkthrough on YouTube <span aria-hidden="true">↗</span>
+</a>
+            </div>
+            <span>3:56 · recorded locally · silent</span>
+          </div>
+          <details class="transcript">
+            <summary>Transcript (silent recording)</summary>
+            <ol>
+              <li>FHIR Data Pipes prepares the source for Spark SQL; this walkthrough focuses on questions and saved reports in the local deployment.</li>
+              <li>Write a question, expand the writing area and browse the available tables and fields without losing the draft.</li>
+              <li>Gemma 4 12B writes the query and Qwen 2.5 14B reviews it. Preparing the draft does not retrieve results: choose Get results to run it.</li>
+              <li>Inspect monthly CD4 count results and their technical details, then ask for a 2026 breakdown by gender, including missing gender.</li>
+              <li>Save the successful query and reuse its exact SQL while preserving the unfinished question. Advanced mode keeps technical tools accessible while the walkthrough stays in light appearance.</li>
+              <li>Keep the model-created SQL and create a monthly line chart with a separate series for each gender.</li>
+              <li>Create a table and chart, arrange them on a Dashboard and reopen the saved arrangement.</li>
+              <li>Publish to Superset, inspect the actual import receipt and compare the rendered table with the originating Catalyst result.</li>
+            </ol>
+          </details>
+        </div>
+        <div class="page-width lifecycle-row" role="list" aria-label="Catalyst validation summary">
+          <div role="listitem">
+<span>01</span>
+<strong>Selected source contract</strong>
+<p>A configured SQL source exposes its complete readable schema: source identity, SQL dialect, and every readable table and column.</p>
+</div>
+          <div role="listitem">
+<span>02</span>
+<strong>Selected execution contract</strong>
+<p>Findings are advisory. The exact selected SQL runs once and returns typed rows or the database error.</p>
+</div>
+          <div role="listitem">
+<span>03</span>
+<strong>Implementation status</strong>
+<p>The current Workbench is deployed locally and on the demo server. These videos show local validation; final four-pathway server validation and owner acceptance remain open. Model-team comparison is separately scheduled.</p>
+</div>
+        </div>
+
+        <div class="page-width section-heading-row hub-fold">
+          <div>
+            <p class="section-kicker">Catalyst pipeline</p>
+            <h3>How each query is produced.</h3>
+          </div>
+          <p>
+            Catalyst Gateway owns source context, query versions, optional writer/reviewer composition, advisory findings, and execution. It calls Med Agent Hub only to run configured model roles. The four stages below are the lifecycle shown in both local recordings.
+          </p>
+        </div>
+        <div class="page-width stage-flow" role="list" aria-label="Catalyst query stages">
+          <div class="stage" role="listitem">
+            <span>1</span>
+            <strong>Draft</strong>
+            <p>A writer model drafts SQL from the source context supplied by the current runtime.</p>
+          </div>
+          <div class="stage" role="listitem">
+            <span>2</span>
+            <strong>Review</strong>
+            <p>When selected, a reviewer model checks the draft against the same question and schema.</p>
+          </div>
+          <div class="stage" role="listitem">
+            <span>3</span>
+            <strong>Inspect</strong>
+            <p>The person can edit the query and inspect advisory findings without losing the draft.</p>
+          </div>
+          <div class="stage" role="listitem">
+            <span>4</span>
+            <strong>Execute</strong>
+            <p>The exact selected query runs through the configured source and returns rows or its database error.</p>
+          </div>
+        </div>
+        <div class="page-width hub-links">
+          <a class="text-link" href="https://pmanko.github.io/clinical-ai-validation-harness/#/canvas/specs/artifacts/canvases/catalyst-demos">Catalyst demo docs <span aria-hidden="true">&#8599;</span>
+</a>
+          <a class="text-link" href="https://github.com/DIGI-UW/catalyst-ai">Catalyst source (GitHub) <span aria-hidden="true">&#8599;</span>
+</a>
+        </div>
+      </section>
+
+</main>
+<footer class="site-footer">
+<div class="page-width footer-grid">
+<div>
+<a class="brand footer-brand" href="/">
+<span class="brand-mark" aria-hidden="true">
+<span>
+</span>
+</span>
+<span>Open Clinical AI</span>
+</a>
+<p>Open-source tools for clinical questions, reporting and reproducible evaluation.</p>
+</div>
+<nav aria-label="Project links">
+<a href="/chartsearchai/">ChartSearchAI</a>
+<a href="/catalyst/">Catalyst</a>
+<a href="/med-agent-hub/">Med Agent Hub</a>
+<a href="/validation-harness/">Validation Harness</a>
+</nav>
+<p class="footer-disclaimer">For research and demonstration. AI output can be inaccurate and requires review.<br />
+<a href="https://digi.uw.edu/">DIGI at the University of Washington</a>
+</p>
+</div>
+</footer>
+</body>
+</html>
