@@ -1,8 +1,8 @@
 {
   "repository": "https://github.com/DIGI-UW/catalyst-ai",
-  "revision": "6513c886e44b5c68a0bcf99cc92d7543a33288eb",
-  "integrationSpecification": "https://github.com/DIGI-UW/catalyst-ai/blob/6513c886e44b5c68a0bcf99cc92d7543a33288eb/docs/specs/openelis-reporting-integration/spec.md",
-  "approvedSpecification": "https://github.com/DIGI-UW/catalyst-ai/blob/6513c886e44b5c68a0bcf99cc92d7543a33288eb/docs/specs/staff-workbench-ux/spec.md",
+  "revision": "3b8882fc6dc8e16f3b55f289bf8c22d2636c539c",
+  "integrationSpecification": "https://github.com/DIGI-UW/catalyst-ai/blob/3b8882fc6dc8e16f3b55f289bf8c22d2636c539c/docs/specs/openelis-reporting-integration/spec.md",
+  "approvedSpecification": "https://github.com/DIGI-UW/catalyst-ai/blob/3b8882fc6dc8e16f3b55f289bf8c22d2636c539c/docs/specs/staff-workbench-ux/spec.md",
   "files": {
     "appearance.css": "8f49f774fcb6c267ce7b16789629dfd81fd3529d483540c8772f54c3dda731d9",
     "appearance.js": "8b4388c505fba0f7424cf17eddbbd880462c6cc686369ce9aaafba3c75fa4ae9",
@@ -14,6 +14,6 @@
     "integration/integration.css": "a2a4f183948bd14ec04fb208a21f38f1c78077c19e50c56cfebab79daf08e8ea",
     "integration/model.mjs": "f2214de3a8258acc409acb15d60dc4b5f4f98958c276b4cc4dfa3081c8e76a54",
     "integration/review.js": "92ee5808bc0f9d6ff41af951be3a1f0c13023e7155a74ddc7786a969ac34d4c4",
-    "index.html": "19c3ca88430c663865439b25877eb0efaec6be5932cb69963c51b6e5ba075a22"
+    "index.html": "6c737dd2f6ccf1457cb6953e91302354fb02ec800242e7e842a81fcdb45a2a3a"
   }
 }
