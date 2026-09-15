@@ -48,7 +48,7 @@ acceptance is claimed.
 | Lane | Observed working step | Next obstacle to resolve |
 | --- | --- | --- |
 | 1 | Native owner recovered the same reporting runtime and passed login/export checks, preserving repeated results and the four fixture records. UI is `http://127.0.0.1:18489/reports/custom-data-export`. Existing Superset dashboard 32 renders result 1158→30 and 1159→90. | Repeat the complete fresh export → native Superset upload journey after recovery. |
-| 2 | Existing imported CSV retains both rows. Repaired publication now renders count 2, average 60 and total 120 in Superset; screenshots inspected. | Repeat fresh upload/type review/save/chart flow and complete arrangement/failure/narrow-theme review. Grouped count rendering still needs its own settled check. |
+| 2 | Existing imported CSV retains both rows. Repaired publication now renders count 2, average 60 and total 120 in Superset; screenshots inspected. | Fresh native upload/type-recovery/save and browser chart/arrangement/publication smoke now pass (details below). Browser file-picker automation, narrow/theme review, broader failures and server validation remain. |
 | 3 | `openelis-reporting` uses a restricted PostgreSQL reader and discovers all 380 readable relations. Browser schema search preserves the draft. Explicit manual execution returned IDs 1154/1155/1158/1159 with values 450; Dataset `1dd3de0a-6754-4cc2-9097-56a49cb3c8dd` saves and reopens with the correct source. Its table dashboard publishes/imports and renders all four exact rows in Superset. | Model preparation rejects the complete schema: 63,582 input tokens exceed 24,576 configured context. Resolve model capacity, then prove the complete question/refinement journey. Manual execution does not complete that journey. |
 | 4 | Existing Spark/HAPI services run. Native owner verified the reporting instance still points at an isolated loopback FHIR endpoint; Catalyst's existing endpoint requires its trusted client connection. | Native owner is connecting the retained app using the existing Catalyst network/certificates, with metadata/readiness first. No seeding/backfill or real reporting FHIR emission has been performed. |
 
@@ -73,6 +73,34 @@ broader Gateway run had 419 passed, 25 skipped and the expected fixture mismatch
 the regenerated fixture subsequently passed its focused checks. Raw evidence
 and runtime credentials remain outside Git. Repository-wide OpenMRS CI is owned
 by its separate effort and is not being repaired in this Catalyst task.
+
+Fresh native-file lane-2 smoke (15 September): the recovered native detailed CSV
+`reporting-detailed-2026-05-05.csv` has SHA-256
+`c6ace94933a1e2377d28d3d89bf96995e46474b0009c6594c8eece8e1cad56f4`.
+The application upload API accepted those exact bytes; invalid numeric conversion
+was rejected at confirm, retained its draft/error, and succeeded after type
+correction. Identical confirmation retry retained Dataset version
+`2072efc1-129b-4c4d-acb9-6f4a0c5fcd06`. Every returned value and column matched
+the file, preserving the two distinct repeated result records.
+
+Browser review then opened that Dataset, saved a full-row table and a record-count
+chart grouped by accession, retained the chart draft across close/reopen, and
+saved/reopened table-first order with full/half-row widths. Explicit browser
+publication showed Bundle ready before the operator import and Imported/Open
+Superset afterward. Dashboard `d050f4a1-e68a-4d39-b722-0f990f62e94b` renders both
+native rows and grouped count 2, with the saved layout; screenshot inspected.
+Import bundle: `55b3a1ff5fe8d5369a992a390ef42865a1f6592db01e9dbf0b8c068789a7be93`.
+No SQL or model request was needed for the import/chart/dashboard path. The
+browser-control surface does not support file attachment, so initial upload/type
+review/save used the actual application endpoints, not browser controls. The
+remaining browser-file-picker check is explicit, not treated as passed.
+
+Dashboard validation also passed its five model tests and production status
+build. Cached GGUF metadata declares Gemma E4B context 131,072 and Qwen 14B context
+32,768; the existing serving configuration is 24,576. The proposed existing
+E4B-only profile/larger-context test is awaiting owner preference. FHIR runtime
+connection remains pending the native task's approval review; normal emission
+has not run. These are not four-pathway or server acceptance claims.
 
 ## Current local reporting checkpoint
 

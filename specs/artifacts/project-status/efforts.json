@@ -1176,7 +1176,7 @@
         "https://github.com/DIGI-UW/catalyst-ai/pull/135",
         "https://github.com/pmanko/clinical-ai-validation-harness/pull/183"
       ],
-      "evidence": "Retained runtime restored without seeding. Native owner verified login/export. Catalyst discovers all 380 reporting relations; manual query returned all four retained records and saved/reopened its Dataset. Local Superset renders CSV count 2, average 60 and total 120 after the chart-identity repair in merged Catalyst #135. Full AI question path exceeds model context; native FHIR routing is being connected. See the existing task register for exact revisions and remaining acceptance."
+      "evidence": "Retained runtime restored without seeding. Native owner verified login/export. Catalyst discovers all 380 reporting relations; manual query returned all four retained records and saved/reopened its Dataset. Local Superset renders CSV count 2, average 60 and total 120 after the chart-identity repair in merged Catalyst #135. Full AI question path exceeds model context; native FHIR routing is being connected. See the existing task register for exact revisions and remaining acceptance. Fresh native-file lane2 smoke now verifies API error recovery and browser chart/arrangement/publication through rendered count2; file-picker automation remains unverified."
     },
     {
       "last_checked": "2026-09-15",
@@ -1237,14 +1237,14 @@
       ],
       "id": "OE-lane-2",
       "title": "Lane 2 \u00b7 Imported Dataset in Catalyst",
-      "status": "CSV summaries render locally; publication repair merged",
-      "next_deliverable": "Repeat fresh upload/type-review/save/chart journey; finish grouped rendering, arrangement and server checks.",
+      "status": "Fresh native CSV import through rendered dashboard verified locally",
+      "next_deliverable": "Complete browser file-picker, narrow/theme and broader failure checks, then server validation.",
       "dependencies": [
         "OE-native-reporting",
         "CAT-E11"
       ],
       "acceptance": "See the parent roadmap for this lane's exit criteria. Implementation, checks, merge, local/server proof and owner acceptance stay separate; no lane is currently accepted.",
-      "evidence": "Catalyst b90f95f republishes the retained two-row CSV dashboard with new native chart identities. Superset now renders IDs 1158/1159, intervals 30/90, count 2, average 60 and total 120; screenshot inspected. Import bundle ba09c4c8e75bf91c2adba6ab5c53c33e83cc2e3000f623f64fe4db9314cbc851. PR #135 merged as 387de1e with all five CI checks passing; neither server deployment nor owner acceptance is complete."
+      "evidence": "Fresh native May5 detailed CSV passed actual upload API, invalid-type recovery and immutable-save retry. All values/order and repeated results match. Browser Dataset review, table/grouped-count creation, draft retention, saved layout and explicit publication pass. Superset dashboard d050f4a1-e68a-4d39-b722-0f990f62e94b renders both rows and grouped count2; screenshot inspected. Initial upload/type-save used application endpoints because browser automation cannot attach files. Earlier summary dashboard retains count2/average60/total120. Server/owner acceptance remains open."
     },
     {
       "last_checked": "2026-09-15",
