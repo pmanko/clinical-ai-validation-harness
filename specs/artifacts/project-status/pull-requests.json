@@ -1,6 +1,6 @@
 {
   "schemaVersion": "project-status.pull-requests.v1",
-  "asOf": "2026-09-15T16:36:28Z",
+  "asOf": "2026-09-15T19:09:09Z",
   "dateWindowStart": "2026-08-01T00:00:00Z",
   "scope": {
     "maintainedRepositories": [
@@ -5146,24 +5146,24 @@
       "author": "pmanko",
       "head": "harness-integration",
       "headRepository": "pmanko/openmrs-module-chartsearchai",
-      "headSha": "d46f517b594c9b89a85229912e3f492294b17141",
+      "headSha": "fed441ea9f0e756a27f4a6de15d39883164f83db",
       "base": "main",
       "baseRepository": "openmrs/openmrs-module-chartsearchai",
       "baseSha": null,
       "mergeCommitSha": null,
       "createdAt": "2026-08-05T18:22:37Z",
-      "updatedAt": "2026-09-09T06:58:00Z",
+      "updatedAt": "2026-09-15T19:07:15Z",
       "closedAt": null,
       "mergedAt": null,
       "inclusionReason": "updated_since_2026_08_01",
       "effortGroup": "Active OpenMRS integration",
       "effort": "Active OpenMRS integration",
-      "currentSignal": "build: SKIPPED; Paired build with Java 11: SUCCESS; Paired build with Java 17: SUCCESS; Paired build with Java 21: SUCCESS; eval harness selftests: SUCCESS; backend-init.sh lint (the demo entrypoint nothing else parses): SUCCESS; build against querystore HEAD (not a required check): FAILURE; owasp-dependency-check: SKIPPED",
-      "nextAction": "Resolve current upstream conflict, preserve bundled and Hub providers, rerun the paired source checks. Advisory QueryStore-HEAD failure remains distinct from paired checks.",
+      "currentSignal": "No check runs on fed441e: pull_request workflows do not run while the PR is CONFLICTING against upstream main. fed441e changes only the paired-build pin (QueryStore f2fca727 -> cfced36); code unchanged since d46f517 (paired Java 11/17/21 green there). grep on the branch finds no call to the API surface #68 removed in review (snapshotId two-arg, ContextSlice five/six-arg).",
+      "nextAction": "I4 of the upstream merge roadmap: resync against upstream main and drop the paired-build jobs once QueryStore #68 merges and its querystore-api snapshot publishes. Body aligned with the catalogue on 2026-09-15 (dependency SHA, paired-build SHA, status, companion links).",
       "mergeability": {
         "mergeable": false,
         "reportedState": "DIRTY",
-        "checkedAt": "2026-09-12T18:10:00Z"
+        "checkedAt": "2026-09-15T19:09:09Z"
       },
       "checks": {
         "checkedCommitSha": "d46f517b594c9b89a85229912e3f492294b17141",
@@ -5224,7 +5224,7 @@
       "relatedEffortIds": [
         "clinical.dual_provider"
       ],
-      "metadataCheckedAt": "2026-09-12T18:10:00Z",
+      "metadataCheckedAt": "2026-09-15T19:09:09Z",
       "historicalMergeReview": {
         "reviewedAt": "2026-09-06",
         "headSha": "31a8c162ee95cd5c75802a4f7490f48e1aff6bc0",

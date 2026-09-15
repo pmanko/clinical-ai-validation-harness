@@ -1,6 +1,6 @@
 # Pull request inventory
 
-As of 2026-09-15T16:36:28Z. 306 entries.
+As of 2026-09-15T19:09:09Z. 306 entries.
 
 [Source JSON](pull-requests.json) · [CSV export](exports/pull-requests.csv)
 
@@ -190,7 +190,7 @@ Open pull requests appear first within each repository. Check dates and exact re
 
 | PR | Title | State | Head | Effort | Current signal | Next action |
 | --- | --- | --- | --- | --- | --- | --- |
-| [#157](<https://github.com/openmrs/openmrs-module-chartsearchai/pull/157>) | Dual-provider clinical answer boundary and shared context slice | open | harness-integration<br>d46f517b594c | Active OpenMRS integration | build: SKIPPED; Paired build with Java 11: SUCCESS; Paired build with Java 17: SUCCESS; Paired build with Java 21: SUCCESS; eval harness selftests: SUCCESS; backend-init.sh lint (the demo entrypoint nothing else parses): SUCCESS; build against querystore HEAD (not a required check): FAILURE; owasp-dependency-check: SKIPPED | Resolve current upstream conflict, preserve bundled and Hub providers, rerun the paired source checks. Advisory QueryStore-HEAD failure remains distinct from paired checks. |
+| [#157](<https://github.com/openmrs/openmrs-module-chartsearchai/pull/157>) | Dual-provider clinical answer boundary and shared context slice | open | harness-integration<br>fed441ea9f0e | Active OpenMRS integration | No check runs on fed441e: pull_request workflows do not run while the PR is CONFLICTING against upstream main. fed441e changes only the paired-build pin (QueryStore f2fca727 -> cfced36); code unchanged since d46f517 (paired Java 11/17/21 green there). grep on the branch finds no call to the API surface #68 removed in review (snapshotId two-arg, ContextSlice five/six-arg). | I4 of the upstream merge roadmap: resync against upstream main and drop the paired-build jobs once QueryStore #68 merges and its querystore-api snapshot publishes. Body aligned with the catalogue on 2026-09-15 (dependency SHA, paired-build SHA, status, companion links). |
 | [#90](<https://github.com/openmrs/openmrs-module-chartsearchai/pull/90>) | Dual-provider rebuild: provider boundary + shared querystore context slice | closed | codex/dual-provider-rebuild<br>5025d77255f2 | OpenMRS dual-provider integration | Closed without merge; successor PR #157 explicitly identifies this as superseded. | — |
 | [#72](<https://github.com/openmrs/openmrs-module-chartsearchai/pull/72>) | Consume querystore behind a QueryStoreClient seam | closed | feat/querystore-client-seam<br>c1c6aa4ea269 | Older OpenMRS contribution | Closed with a supersession comment; branch kept. | Closed 2026-09-14 as superseded by #157: typed querystore-api consumption (ADR Decision 17 ContextSlice) replaces the QueryStoreClient seam; ConversationService replaces the bundled ChatService stack. |
 | [#26](<https://github.com/openmrs/openmrs-module-chartsearchai/pull/26>) | [DRAFT] Rebuild ChartSearchAI as a thin med-agent-hub relay | closed | harness-integration<br>7ebca9c837c1 | OpenMRS dual-provider integration | Closed without merge; overlap and disposition were not re-reviewed. | — |
