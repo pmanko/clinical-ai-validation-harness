@@ -61,6 +61,10 @@ def expected_files(source: Path, revision: str) -> dict[str, bytes]:
         '<span>Design review</span></nav>',
         1,
     )
+    wrapper = wrapper.replace("</head>",
+        '<meta name="description" content="Review the approved Catalyst Workbench and integration draft. These interactive designs are not a live application.">'
+        '<link rel="canonical" href="https://pmanko.github.io/clinical-ai-validation-harness/catalyst-design/">'
+        '</head>', 1)
     files["index.html"] = wrapper.encode()
     manifest = {
         "repository": REPOSITORY,

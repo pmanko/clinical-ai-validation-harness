@@ -211,3 +211,31 @@ References: [Google JavaScript SEO](https://developers.google.com/search/docs/cr
 [canonical URLs](https://developers.google.com/search/docs/crawling-indexing/consolidate-duplicate-urls),
 [sitemaps](https://developers.google.com/search/docs/crawling-indexing/sitemaps/build-sitemap),
 and [OpenAI crawler roles](https://developers.openai.com/api/docs/bots).
+
+
+### Authorized completion and publication — 15 September 2026
+
+The owner authorized completing and publishing this iteration without another
+routine local-review pause. Navigation/consolidation changes and discovery fixes
+ship together through the existing landing, Pages and report-catalog flows.
+
+Implemented: canonical URLs and descriptions for static documentation, status,
+design review and the report index; readable documentation/status entry content;
+sitemaps generated from existing page outputs, landing canonical links and the
+report catalog; and the WAHS heading/navigation correction. The sitemap omits the
+unavailable historical report and the landing alias owned by the WAHS subdomain.
+
+Search and training permissions remain unchanged. Draft designs and dated status
+records retain explicit context; this release introduces no crawler exclusions
+or promise of indexing. The historical Catalyst release report is absent from
+the serving host and the configured archive bucket is unavailable, so its catalog
+entry remains labelled unavailable. No historical result has been recreated.
+
+Local checks: 28 focused Python tests, 94 site tests, documentation checks and the
+Pages build passed. Mobile WAHS navigation/focus and static documentation were
+inspected. Browser-controlled 200% text zoom is unverified; narrow-layout checks
+are not a substitute for it. Existing bundle-size warnings remain. The full
+repository-line gate encounters pre-existing application checkout differences;
+this static-only release excludes those gitlinks and changes no running service.
+Public file hashes, destination checks and publication receipts are captured in
+the private website audit after deployment; source approval is not that receipt.

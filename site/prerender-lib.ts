@@ -30,6 +30,12 @@ export function htmlHrefFor(leaf: NavLeaf, base: string): string {
   return base + outPathFor(leaf);
 }
 
+const PUBLIC_ORIGIN = 'https://pmanko.github.io';
+function discoveryHead(href: string, description: string): string {
+  return `<link rel="canonical" href="${esc(new URL(href, PUBLIC_ORIGIN).href)}">` +
+    `<meta name="description" content="${esc(description)}">`;
+}
+
 function esc(s: string): string {
   return s
     .replace(/&/g, '&amp;')
@@ -97,7 +103,7 @@ export function topicTwinOutputs(topics: Topic[], base: string): Array<{ outPath
     }).replace(/</g, '\\u003c');
     const contents =
       '<!doctype html>\n<html lang="en"><head><meta charset="utf-8">' + STATIC_HEAD +
-      `<title>${esc(t.title)}</title>` +
+      `<title>${esc(t.title)}</title>` + discoveryHead(`${base}topic/${t.id}.html`, t.blurb) +
       `<link rel="alternate" type="text/markdown" href="${base}llms-full.txt">` +
       `<script type="application/json" id="page-meta">${meta}</script>` +
       '</head><body>' +
@@ -144,6 +150,10 @@ export function planOutputs(input: {
     });
   }
   out.push(...topicTwinOutputs(topics, base));
+  const urls = out.filter(p => p.outPath.endsWith('.html')).map(p =>
+    `<url><loc>${esc(new URL(base + p.outPath, PUBLIC_ORIGIN).href)}</loc></url>`);
+  out.push({ outPath: 'sitemap.xml', contents: '<?xml version="1.0" encoding="UTF-8"?>\n' +
+    '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' + urls.join('') + '</urlset>\n' });
   out.push({ outPath: 'search.json', contents: buildSearchIndex({ leaves, rendered, topics }) });
   out.push({ outPath: 'llms.txt', contents: buildLlmsTxt(leaves, base, meta, topics) });
 
@@ -180,7 +190,7 @@ export function documentShell(input: {
 
   return (
     '<!doctype html>\n<html lang="en"><head><meta charset="utf-8">' + STATIC_HEAD +
-    `<title>${esc(leaf.title)}</title>` +
+    `<title>${esc(leaf.title)}</title>` + discoveryHead(htmlHrefFor(leaf, base), leaf.blurb || `${leaf.title} — Open Clinical AI documentation.`) +
     `<link rel="alternate" type="text/markdown" href="${base}llms-full.txt">` +
     `<script type="application/json" id="page-meta">${meta}</script>` +
     '</head><body>' +

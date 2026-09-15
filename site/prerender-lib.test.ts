@@ -165,3 +165,22 @@ describe('planOutputs extras', () => {
     expect(byPath()['llms.txt']).toContain('topic/data.html');
   });
 });
+
+
+describe('search discovery', () => {
+  it('uses an absolute static canonical and escapes the description', () => {
+    const html = documentShell({leaf: {...doc, blurb: 'Setup "notes" & limits'}, base: BASE, innerHtml: '<p>Guide</p>'});
+    expect(html).toContain('rel="canonical" href="https://pmanko.github.io/clinical-ai-validation-harness/spec/specs/002/plan.html"');
+    expect(html).toContain('content="Setup &quot;notes&quot; &amp; limits"');
+  });
+  it('lists only generated HTML destinations, without fragment routes', () => {
+    const outputs = planOutputs({leaves: [home, doc, canvas], base: BASE,
+      meta: {title: 'Docs', summary: 'Guides'}, rendered: {[doc.slug]: {innerHtml: '<p>Guide</p>'}}});
+    const xml = outputs.find(p => p.outPath === 'sitemap.xml')!.contents;
+    expect(xml).toContain('welcome.html</loc>');
+    expect(xml).toContain('spec/specs/002/plan.html</loc>');
+    expect(xml).not.toContain('canvas/');
+    expect(xml).not.toContain('#');
+    expect(xml).not.toContain('search.json');
+  });
+});

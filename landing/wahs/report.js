@@ -12,7 +12,7 @@
       if (link.hash === '#' + section.id) link.setAttribute('aria-current', 'page');
       else link.removeAttribute('aria-current');
     });
-    document.title = section.id === 'overview' ? initialTitle : `${section.querySelector('h1').textContent} — WAHS design report`;
+    document.title = section.id === 'overview' ? initialTitle : `${section.querySelector('h1, .section-title').textContent} — WAHS design report`;
     if (target?.tagName === 'DETAILS') target.open = true;
     if (target && target !== section) {
       target.scrollIntoView({block:'start'});
@@ -21,7 +21,7 @@
     } else {
       window.scrollTo(0, 0);
       if (focus) {
-        const heading = section.querySelector('h1');
+        const heading = section.querySelector('h1, .section-title');
         heading.tabIndex = -1;
         heading.focus({preventScroll:true});
       }

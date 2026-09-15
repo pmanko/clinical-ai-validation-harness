@@ -45,5 +45,28 @@ def test_catalog_generation_keeps_entries_and_adds_parent_links(tmp_path, monkey
     assert 'https://openclinai.org/' in html
     assert 'https://openclinai.org/validation-harness/' in html
     assert 'Old recorded result' in html and 'Available result' in html
+    assert 'rel="canonical" href="https://reports.openclinai.org/"' in html
+    xml = (reports / 'sitemap.xml').read_text()
+    assert 'available-run/index.html' in xml
+    assert 'old-run' not in xml
     assert 'available-run/index.html' in html
     assert 'old-run/index.html' not in html
+
+
+def test_landing_sitemap_uses_canonical_urls_and_excludes_other_origins(tmp_path):
+    import runpy
+    build = runpy.run_path(str(ROOT / 'scripts/build-landing-sitemap.py'))['build']
+    (tmp_path / 'index.html').write_text('<link rel="canonical" href="https://openclinai.org/">')
+    (tmp_path / 'alias.html').write_text('<link rel="canonical" href="https://wahs.openclinai.org/">')
+    xml = build(tmp_path).decode()
+    assert 'https://openclinai.org/' in xml
+    assert 'wahs.openclinai.org' not in xml
+
+
+def test_landing_sitemap_fails_for_unclassified_page(tmp_path):
+    import runpy
+    import pytest
+    build = runpy.run_path(str(ROOT / 'scripts/build-landing-sitemap.py'))['build']
+    (tmp_path / 'index.html').write_text('<h1>Missing canonical</h1>')
+    with pytest.raises(ValueError, match='expected one canonical'):
+        build(tmp_path)

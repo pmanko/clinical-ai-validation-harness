@@ -19,6 +19,7 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from statistics import median
+from xml.etree.ElementTree import Element, SubElement, tostring
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
@@ -481,6 +482,9 @@ def main(
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>OpenClinAI — clinical AI validation runs</title>
+<meta name="description" content="Dated ChartSearchAI evaluations and Catalyst workflow reports, with recorded methods, results and limitations.">
+<link rel="canonical" href="https://reports.openclinai.org/">
+<link rel="sitemap" type="application/xml" href="https://reports.openclinai.org/sitemap.xml">
 <script>{theme_bootstrap_js("oc-theme-index")}</script>
 <style>{STYLE}</style>
 </head>
@@ -500,6 +504,13 @@ def main(
 </body>
 </html>
 """
+    sitemap = Element('urlset', xmlns='http://www.sitemaps.org/schemas/sitemap/0.9')
+    urls = ['https://reports.openclinai.org/'] + [
+        f"https://reports.openclinai.org/{r['slug']}/index.html" for r in runs
+        if r.get('availability') != 'unavailable']
+    for url in urls:
+        SubElement(SubElement(sitemap, 'url'), 'loc').text = url
+    (REPORTS / 'sitemap.xml').write_bytes(tostring(sitemap, encoding='utf-8', xml_declaration=True))
     out = REPORTS / "index.html"
     out.write_text(html, encoding="utf-8")
     print(f"wrote {out} ({len(runs)} curated runs)")
