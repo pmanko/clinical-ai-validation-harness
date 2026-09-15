@@ -1176,9 +1176,11 @@
         "https://github.com/DIGI-UW/catalyst-ai/pull/135",
         "https://github.com/pmanko/clinical-ai-validation-harness/pull/183",
         "https://github.com/pmanko/clinical-ai-validation-harness/pull/185",
-        "https://github.com/DIGI-UW/catalyst-ai/pull/137"
+        "https://github.com/DIGI-UW/catalyst-ai/pull/137",
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/186",
+        "https://github.com/DIGI-UW/catalyst-ai/pull/138"
       ],
-      "evidence": "The same native May5 CSV now passes actual browser upload in both Superset and Catalyst, retaining identifiers, values and count. PostgreSQL manual correction passes execution, Dataset save/reopen and Superset rendering. Harness #185 merged this evidence and the intended human-recovery acceptance; its dashboard is published. Catalyst #137 repairs complete-file table pagination; local deployment proof remains pending. FHIR connection needs native-task approval. Server journeys, paced videos and owner acceptance remain open."
+      "evidence": "Three local browser pathways are verified: native CSV through Superset, CSV through Catalyst and Superset, and PostgreSQL manual correction through saved/rendered results. Harness #186/Catalyst #137 preserve all saved artifacts and storage mounts. A final imported-table warning correction merged as Catalyst #138 and awaits deployed rendering. The server remains on the earlier release and has no dedicated import database/configuration. FHIR native connection still needs approval. See the task register for exact revisions, receipts and outstanding videos/acceptance."
     },
     {
       "last_checked": "2026-09-15",
@@ -1232,7 +1234,9 @@
         "https://github.com/DIGI-UW/catalyst-ai/pull/135",
         "https://github.com/pmanko/clinical-ai-validation-harness/pull/183",
         "https://github.com/pmanko/clinical-ai-validation-harness/pull/185",
-        "https://github.com/DIGI-UW/catalyst-ai/pull/137"
+        "https://github.com/DIGI-UW/catalyst-ai/pull/137",
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/186",
+        "https://github.com/DIGI-UW/catalyst-ai/pull/138"
       ],
       "parent_effort": "OE-reporting",
       "sources": [
@@ -1248,7 +1252,7 @@
         "CAT-E11"
       ],
       "acceptance": "See the parent roadmap for this lane's exit criteria. Implementation, checks, merge, local/server proof and owner acceptance stay separate; no lane is currently accepted.",
-      "evidence": "Same native CSV selected through Catalyst Choose CSV. Invalid numeric accession type retains file/name and recovers to Text. Immutable file Dataset cbefc25a retains checksum and two distinct rows; browser-created table/count/layout publish through bundle 4e7b6ec0. Superset f182d760-776f-4f82-bca8-ecc2e822f568 renders exact IDs 1154/1155, value 450 and count2; screenshots inspected. Page-size 0 and internal c0 search label remain a visual finding. Final recordings/server/owner acceptance remain."
+      "evidence": "Native CSV browser upload/type recovery, Dataset save, table/count chart, arrangement and publication are verified. Harness #186/Catalyst #137 re-import preserves result IDs1154/1155 and value450 with simple controls. Superset falsely warns when complete rows equal the limit; merged #138 leaves one row of headroom. Its 47 focused checks pass; deployment/rendered verification remains. The existing evidence record retains original and repaired bundle receipts and screenshots."
     },
     {
       "last_checked": "2026-09-15",

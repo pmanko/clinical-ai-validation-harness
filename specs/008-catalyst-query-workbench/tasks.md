@@ -46,22 +46,34 @@ test. Run a bounded smoke per lane, record its first failing step, fix that
 integration, and repeat the path. This advances FP-003 through FP-009 without
 replacing full local/server acceptance. CSV tests do not depend on AI availability.
 
-Latest local runtime: retained checkout `~/code/catalyst-dev`, harness #183
-(`ea8f153`) and Catalyst #136 (`a385f5e`). Harness #185 merged the scope correction
-and browser evidence; its status dashboard is published. Application revisions
-have not changed since the verified local baseline. Server deployment and owner
-acceptance are not claimed.
+Latest verified local deployment: harness #186 (`730b522`) and Catalyst #137
+(`182ba87`). Wrapper health passed and all 81 Datasets, 80 Widgets, 69 Dashboards
+and storage mounts remained exactly unchanged. Re-publication of the existing
+native CSV Dashboard imported bundle `2913597c66b995c518c957193268cf3e411d9ea2dc0d360f4a0cf21166be5e6b`.
+Superset chart 87 displays IDs 1154/1155 and value 450 for each, without the small
+file's unnecessary page-size/search controls. Screenshot inspection caught a
+false row-limit warning because the complete row count equalled the limit.
 
-Publication follow-up: [Catalyst #137](https://github.com/DIGI-UW/catalyst-ai/pull/137)
-fixes the observed table controls for small immutable files and removes the
-1,000-row cap from the native pagination count. The original export capped that
-count despite retaining the complete file. Local regressions cover 2, 100, 101
-and 1,101 rows, preserved values and final pages; 449 Gateway tests pass with
-one skip. All five hosted checks passed and #137 merged as `182ba87`; this
-harness change pins that exact revision. Deployment and rendered verification
-remain pending. Superset's
-search selector still exposes storage names on larger paginated tables; this is
-an upstream presentation limitation, not missing data or a model-quality gate.
+[Catalyst #138](https://github.com/DIGI-UW/catalyst-ai/pull/138), merged as
+`364c5bc` with all five hosted checks passing, leaves one row of headroom above
+the immutable file count to avoid that warning. This harness change pins that
+merged revision. The 47 focused PostgreSQL import/publication checks pass at
+2, 100, 101 and 1,101 rows; #137's full Gateway suite passed 449 tests with one
+skip. The #138 deployment and final browser check remain pending. Larger tables
+retain server pagination; Superset's search selector still uses storage names,
+an upstream presentation limitation. Raw deployment, exact before/after state,
+receipt and screenshot live in the existing private evidence folder under
+`table-repair-*` and `table-publication-repair.json`.
+
+Server readiness, 15 September: the owning checkout is clean at harness
+`0befb80` / Catalyst `bb783c8`; the reporting UAT services are running separately.
+The Catalyst PostgreSQL service has only `postgres` and
+`catalyst_superset_metadata`; CSV import configuration is absent. Provision the
+separate import database/role and upload destination using the existing operations
+guide during the server iteration. This was read-only inspection; no server
+update or four-pathway acceptance is claimed. FHIR connection still awaits the
+native task's direct approval. The separate website task owns landing changes;
+this effort supplies verified evidence and current status records.
 
 | Lane | Observed working step | Next obstacle to resolve |
 | --- | --- | --- |
