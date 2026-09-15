@@ -1,19 +1,19 @@
 # OpenELIS–Catalyst reporting pathways
 
-**Status:** Four-pathway delivery and specification consolidation approved by the
-owner on 14 September 2026. The roadmap merged in harness #173. Product
-alignment and the extended mock merged in Catalyst #127 (`8524925`), followed by
-the approved CSV navigation/quick-test update in #128 (`5164449`). The owner
-approved these additions for implementation on 14 September. A local native
-CSV-to-Superset example is verified; Catalyst #129/#130/#131 now provide
-PostgreSQL, source-aware query publication and imported-Dataset/table support.
-The compatible local runtime and native imported table rendering are now verified.
-The approved grouping/count/total/average controls are merged in Catalyst
-#133 (`f548e04`). Local native count and average rendering passed, while total
-rendering exposed a PostgreSQL grouping defect in the publication adapter.
-Catalyst #134 repairs that boundary and is merged as `a15ecb8`; exact harness
-integration and post-repair rendering remain. This is the parent roadmap; mock approval does not
-establish application implementation, deployment or final acceptance.
+**Status:** Four-pathway delivery and consolidation were approved on 14 September
+2026. The mock additions and chart controls are approved and implemented. Local
+browser proof now covers native CSV upload into Superset, CSV upload/type recovery
+in Catalyst through tables/charts/publication, and PostgreSQL query correction
+through exact rendered results. The deployed local baseline is harness #183
+(`ea8f153`) with Catalyst #136 (`a385f5e`); harness #185 merged the corrected
+human-recovery acceptance and evidence. CSV summary publication repairs #134/#135
+are included and their results verified. Catalyst #137 merged as `182ba87` and repairs the
+imported-table pagination limit; its deployment/rendering proof remains pending.
+The reporting instance's FHIR connection still requires approval in the native
+implementation task. Complete server journeys, paced videos, public references
+and owner acceptance remain open. This roadmap owns cross-project sequence;
+the [task register](008-catalyst-query-workbench/tasks.md#immediate-four-pathway-test-checkpoint)
+contains current per-lane evidence and gaps.
 
 ## Outcome
 

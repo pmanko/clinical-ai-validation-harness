@@ -18,6 +18,17 @@ hand-editing video in a GUI: an ordinary JSON file describes the cut, and
 `render_demo_video.py` (with unit tests, `tests/test_render_demo_video.py`)
 turns it into a publishable mp4 deterministically.
 
+## Four reporting pathways
+
+For the current OpenELIS–Catalyst delivery, the
+[integration roadmap](openelis-reporting-catalyst-integration.md#workflow-acceptance-and-scope)
+controls the story and acceptance. Record the two CSV journeys without SQL or
+model requests. For PostgreSQL and FHIR/Spark, a visible AI error followed by
+human SQL correction, explicit execution and verified publication is a valid
+journey. Preserve its actual authorship; do not repeat prompts to obtain an
+AI-only take. The older two-source walkthrough below is reusable recording
+machinery, not an additional model-success gate for these four demonstrations.
+
 ## Pipeline
 
 1. **Capture.** Run the current full-scenario spec with the `demo-video` project
