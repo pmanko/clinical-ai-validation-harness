@@ -1,5 +1,5 @@
 {
-  "as_of": "2026-09-11",
+  "as_of": "2026-09-15",
   "description": "Inventory of publication, product and operator surfaces. Public HTTP availability is distinct from runtime functionality. Local URLs are documented targets, not verified running services.",
   "rows": [
     {
@@ -10,6 +10,15 @@
       "status": "HTTP 200; Spark demo copy is ahead of main",
       "source": "landing/index.html",
       "next_update": "Publish a reviewed current summary and link accepted evidence."
+    },
+    {
+      "id": "public-openmrs-upstream",
+      "title": "OpenMRS upstream contributions page",
+      "url": "https://openclinai.org/docs/openmrs-upstream/",
+      "role": "Shareable documentation: what QueryStore #68, ChartSearchAI #157 and ESM #23 carry upstream, in merge order, with the review ledger",
+      "status": "HTTP 200; published 2026-09-15 from landing commit 587ec8a (harness #184); linked from the homepage footer and the ChartSearchAI link row, not the primary navigation",
+      "source": "landing/docs/openmrs-upstream/index.html",
+      "next_update": "Refresh heads, CI state and the review ledger at each upstream-merge-roadmap iteration exit; after M2, restate as merged."
     },
     {
       "id": "public-docs",

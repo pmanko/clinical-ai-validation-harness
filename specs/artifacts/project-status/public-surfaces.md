@@ -1,6 +1,6 @@
 # Public surfaces
 
-As of 2026-09-11. 24 entries.
+As of 2026-09-15. 25 entries.
 
 Inventory of publication, product and operator surfaces. Public HTTP availability is distinct from runtime functionality. Local URLs are documented targets, not verified running services.
 
@@ -9,6 +9,7 @@ Inventory of publication, product and operator surfaces. Public HTTP availabilit
 | Surface | Link | Role | Status | Next update |
 | --- | --- | --- | --- | --- |
 | Open Clinical AI landing page | [Open](<https://openclinai.org/>) | Public product summary and demonstrations | HTTP 200; Spark demo copy is ahead of main | Publish a reviewed current summary and link accepted evidence. |
+| OpenMRS upstream contributions page | [Open](<https://openclinai.org/docs/openmrs-upstream/>) | Shareable documentation: what QueryStore #68, ChartSearchAI #157 and ESM #23 carry upstream, in merge order, with the review ledger | HTTP 200; published 2026-09-15 from landing commit 587ec8a (harness #184); linked from the homepage footer and the ChartSearchAI link row, not the primary navigation | Refresh heads, CI state and the review ledger at each upstream-merge-roadmap iteration exit; after M2, restate as merged. |
 | Public documentation and roadmap canvases | [Open](<https://pmanko.github.io/clinical-ai-validation-harness/>) | Public architecture, research and navigation | HTTP 200; application shell only checked | Align public canvas summaries with current authorities and link the reviewed status summary. |
 | Published reports index | [Open](<https://reports.openclinai.org/>) | Curated historical and current run catalog | HTTP 200; 19 deployed entries versus 16 in main | Reconcile the three Catalyst entries and explicit report-family/method labels. |
 | Catalyst live application | [Open](<https://catalyst.openelis-global.org/>) | Product interaction and acceptance | 10 September: new Workbench is public at harness d070fe7 / Catalyst e163726 / Hub 75d0ff0. Full health and HTTPS checks passed; complete server journey proof remains open. | Resolve the observed model-preparation delay, complete both server journeys and link the replacement videos. Owner acceptance remains separate. |
