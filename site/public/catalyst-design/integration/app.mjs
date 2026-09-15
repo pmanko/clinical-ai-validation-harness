@@ -1,5 +1,5 @@
 import { columns, defaultFields, defaultFilters, sampleQuestion, exampleSql, exportRows,
-  csv, catalystRecords, comparisonRows, differences, readPreviewCsv, previewTypeErrors } from './model.mjs';
+  csv, catalystRecords, comparisonRows, differences, readPreviewCsv, previewTypeErrors, summarizePreview } from './model.mjs';
 
 const app = new URLSearchParams(location.search).get('app') === 'parity' ? 'parity' : 'catalyst';
 document.body.dataset.app = app;
@@ -14,6 +14,9 @@ const isOpenElis = () => session().source.startsWith('OpenELIS');
 let importRequest = 0;
 let user = 'signed-in';
 let comparison = 'match';
+let chartDraft = null;
+let chartError = '';
+let chartOpen = false;
 const session = () => catalyst.sessions[catalyst.index];
 
 function table(rows, fields = defaultFields, caption = 'Results') {
@@ -52,7 +55,27 @@ function importView() {
 }
 function importedDatasetView() {
   const saved = catalyst.saved[catalyst.selected];
-  return `<header class="page-header"><p class="eyebrow">SAVED WORK · DATASET</p><h1>${escape(saved.name)}</h1><p>Imported CSV · Version 1 · ${saved.file.rows.length} complete rows</p>${button('saved', 'Back to Datasets', 'text-button')}</header><section class="card"><h2>Your saved data</h2>${fileTable(saved.file, 'Imported Dataset — recorded file values')}<p class="small muted">${saved.file.headers.map((name, i) => escape(name) + ': ' + saved.file.types[i]).join(' · ')}</p><details><summary>File and version details</summary><p>${escape(saved.file.name)} · No query or question history</p><code class="file-checksum">${saved.file.checksum}</code><p class="small muted">This saved version is unchanged by later uploads. In the application it will support the same charts and dashboards as query-backed Datasets.</p></details></section>`;
+  return `<header class="page-header"><p class="eyebrow">SAVED WORK · DATASET</p><h1>${escape(saved.name)}</h1><p>Imported CSV · Version 1 · ${saved.file.rows.length} complete rows</p>${button('saved', 'Back to Datasets', 'text-button')}</header><section class="card"><div class="card-header"><h2>Your saved data</h2>${button('chart', 'Create chart or table', '', 'id="create-chart"')}</div>${fileTable(saved.file, 'Imported Dataset — recorded file values')}<p class="small muted">${saved.file.headers.map((name, i) => escape(name) + ': ' + saved.file.types[i]).join(' · ')}</p><details><summary>File and version details</summary><p>${escape(saved.file.name)} · No query or question history</p><code class="file-checksum">${saved.file.checksum}</code><p class="small muted">This saved version is unchanged by later uploads.</p></details></section>${(saved.widgets || []).map((widget, index) => `<article class="card"><h2>${escape(widget.name)}</h2><p class="small muted">${widget.display === 'table' ? 'Table · Original rows' : escape(summaryDescription(saved.file, widget))} · Chart version ${widget.version} · Dataset version 1</p>${button('review-chart', 'Review chart or table', 'secondary', `data-index="${index}"`)}</article>`).join('')}`;
+}
+function summaryDescription(file, draft) {
+  const measure = draft.measure === 'count' ? 'Number of records' : `${draft.measure === 'sum' ? 'Total' : 'Average'} of ${file.headers[Number(draft.value)]}`;
+  return measure + (draft.group === '' ? ' · All records' : ` · By ${file.headers[Number(draft.group)]}`);
+}
+function chartPanel() {
+  const file = catalyst.saved[catalyst.selected].file;
+  const draft = chartDraft;
+  const numeric = file.headers.flatMap((label, index) => file.types[index] === 'number' ? [[String(index), label]] : []);
+  const select = (id, label, choices, value) => `<div><label for="${id}">${label}</label><select id="${id}">${choices.map(([key, text]) => `<option value="${key}" ${value === key ? 'selected' : ''}>${escape(text)}</option>`).join('')}</select></div>`;
+  const summary = draft.display === 'table' ? [] : summarizePreview(file, draft);
+  const maximum = Math.max(1, ...summary.map(item => Math.abs(item.value || 0)));
+  return `<dialog id="chart-panel" aria-labelledby="chart-heading"><header class="panel-header"><h2 id="chart-heading">Create chart or table</h2>${button('close-chart', 'Close', 'text-button')}</header><div id="panel-body"><p class="small muted">${escape(catalyst.saved[catalyst.selected].name)} · Saved version 1 · ${file.rows.length} complete rows</p><label for="chart-name">Name</label><input id="chart-name" value="${escape(draft.name)}"><div class="chart-controls">${select('chart-display', 'Display as', [['table', 'Table'], ['bar', 'Bar chart'], ['number', 'Single value']], draft.display)}
+  ${draft.display !== 'table' ? `${select('chart-measure', 'Show', [['count', 'Number of records'], ...(numeric.length ? [['sum', 'Total'], ['average', 'Average']] : [])], draft.measure)}${draft.measure !== 'count' ? select('chart-value', 'Of', numeric, draft.value) : ''}${draft.display === 'bar' ? select('chart-group', 'For each', [['', 'All records'], ...file.headers.map((label, index) => [String(index), label])], draft.group) : ''}</div><p class="small muted">${draft.measure === 'count' ? 'Every row counts, including repeated records and rows with blank values.' : 'Blank numeric values are excluded. Text values and identifiers are never converted for a calculation.'}</p>${!numeric.length ? '<p class="small muted">This file has no Number columns. Mixed results such as “&lt;20” stay as Text; you can still count records.</p>' : ''}<figure class="summary-preview"><figcaption>${escape(summaryDescription(file, draft))}</figcaption>${summary.map(item => `<div class="summary-row"><span>${escape(item.label)}</span><span class="summary-bar" aria-hidden="true" style="--length:${100 * Math.abs(item.value || 0) / maximum}%"></span><strong>${item.value === null ? 'No numeric values' : escape(Number(item.value.toFixed(4)))}</strong></div>`).join('')}</figure><p class="small muted">Illustrative summary of this fictional file. Superset renders the real chart after publication.</p>` : '</div><p>Keep every original row and column. No grouping or calculation is applied.</p>'}
+  ${notice(chartError, 'error')}<p class="small muted">Saving retains these choices with this Dataset version. Editing later creates another saved version.</p></div><footer id="panel-footer">${button('save-chart', 'Save chart or table', '')}${button('close-chart', 'Cancel', 'secondary')}</footer></dialog>`;
+}
+function closeChart() {
+  chartOpen = false;
+  root.querySelector('#chart-panel')?.close();
+  render('create-chart');
 }
 async function loadFile(file) {
   if (!file) return;
@@ -123,6 +146,12 @@ function render(focus) {
   const kind = app;
   document.body.dataset.state = app === 'catalyst' && session().stage === 'empty' && catalyst.page === 'explore' ? 'empty' : 'results';
   root.innerHTML = header(kind) + (app !== 'parity' && user !== 'signed-in' ? accessScreen() : app === 'catalyst' ? catalystView() : parityView());
+  if (chartOpen && user === 'signed-in') {
+    root.insertAdjacentHTML('beforeend', chartPanel());
+    const panel = root.querySelector('#chart-panel');
+    panel.addEventListener('cancel', event => { event.preventDefault(); closeChart(); });
+    panel.showModal();
+  }
   if (viewOptionsOpen && root.querySelector('.view-options')) root.querySelector('.view-options').open = true;
   document.querySelectorAll('[data-appearance-choice]').forEach(control => { control.value = document.documentElement.dataset.appearance || 'system'; });
   const nextFocus = document.getElementById(focus || activeId);
@@ -147,6 +176,7 @@ root.addEventListener('input', event => {
   const { id, value } = event.target;
   if (id === 'question') session().question = value;
   if (id === 'dataset-title') catalyst.importTitle = value;
+  if (id === 'chart-name') chartDraft.name = value;
   if (id === 'sql') session().sql = value;
   if (id === 'schema-search') {
     catalyst.search = value;
@@ -161,6 +191,11 @@ root.addEventListener('change', event => {
   if (id === 'advanced') { catalyst.advanced = checked; render(); }
   if (id === 'comparison') { comparison = value; render('comparison'); }
   if (id === 'csv-file') void loadFile(event.target.files[0]);
+  if (id.startsWith('chart-') && chartDraft) {
+    chartDraft[id.slice(6)] = value;
+    if (id === 'chart-display' && value === 'number') chartDraft.group = '';
+    chartError = ''; render(id);
+  }
   if (event.target.dataset.column !== undefined && catalyst.imported) {
     const index = Number(event.target.dataset.column);
     catalyst.imported.types[index] = value; render();
@@ -176,6 +211,23 @@ root.addEventListener('click', event => {
   if (!control) return;
   const action = control.dataset.action;
   if (action === 'signin') { setUser('signed-in'); return; }
+  if (action === 'chart' || action === 'review-chart') {
+    const saved = catalyst.saved[catalyst.selected];
+    if (action === 'review-chart') chartDraft = structuredClone(saved.widgets[Number(control.dataset.index)]);
+    else if (chartDraft?.dataset !== catalyst.selected) chartDraft = { dataset: catalyst.selected, name: saved.name + ' · Chart', display: 'table', measure: 'count', value: String(saved.file.types.indexOf('number')), group: '', version: 0 };
+    chartOpen = true; chartError = ''; render('chart-name');
+  }
+  if (action === 'close-chart') closeChart();
+  if (action === 'save-chart') {
+    if (!chartDraft.name.trim()) { chartError = 'Give this chart or table a name.'; render('chart-name'); return; }
+    if (failNext()) { chartError = 'The chart was not saved. Your choices are retained; try again.'; render('chart-name'); return; }
+    const saved = catalyst.saved[catalyst.selected];
+    saved.widgets ||= [];
+    saved.widgets.push({ ...structuredClone(chartDraft), version: chartDraft.version + 1 });
+    chartDraft = null; chartOpen = false;
+    catalyst.message = 'Chart saved in this preview. Nothing has been published to Superset.';
+    render('create-chart');
+  }
   if (action === 'explore' || action === 'saved') { catalyst.page = action; catalyst.message = ''; render('main'); }
   if (action === 'import') { catalyst.page = 'import'; catalyst.sourcePicker = false; catalyst.message = ''; render('main'); }
   if (action === 'example-import') void loadFile(new File([csv(exportRows(defaultFilters))], 'fictional-virology-august-2026.csv', { type: 'text/csv' }));
