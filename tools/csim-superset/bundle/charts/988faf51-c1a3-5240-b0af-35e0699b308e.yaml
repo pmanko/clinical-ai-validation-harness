@@ -1,0 +1,57 @@
+slice_name: Inappropriate UTI diagnosis (latest month comparison) - Ind
+description: null
+certified_by: null
+certification_details: null
+viz_type: table
+params:
+  datasource: 3__table
+  viz_type: table
+  query_mode: aggregate
+  groupby:
+  - hosp_code
+  - Month
+  - Your Hospital
+  - Comparison
+  - Cohort
+  - Your State
+  - State
+  temporal_columns_lookup: {}
+  all_columns: []
+  percent_metrics: []
+  adhoc_filters: []
+  order_by_cols: []
+  server_pagination: false
+  server_page_length: 10
+  row_limit: 1000
+  percent_metric_calculation: row_limit
+  show_totals: false
+  table_timestamp_format: smart_date
+  include_search: false
+  allow_rearrange_columns: true
+  allow_render_html: true
+  column_config:
+    Cohort:
+      d3NumberFormat: ',.1%'
+    Your Hospital:
+      d3NumberFormat: ',.1%'
+    Your State:
+      d3NumberFormat: ',.1%'
+    hosp_code:
+      columnWidth: null
+      truncateLongCells: false
+  show_cell_bars: false
+  align_pn: true
+  color_pn: false
+  comparison_color_enabled: false
+  comparison_color_scheme: Green
+  conditional_formatting: []
+  comparison_type: values
+  extra_form_data: {}
+  time_range: '2025-11-01 : 2026-06-01'
+  time_grain_sqla: P1M
+  granularity_sqla: filter_anchor
+query_context: null
+cache_timeout: null
+uuid: 988faf51-c1a3-5240-b0af-35e0699b308e
+version: 1.0.0
+dataset_uuid: 848499a2-d584-5ac1-90dc-46990506e6a5

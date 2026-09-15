@@ -1,0 +1,17 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+export const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+export const target = process.env.CSIM_E2E_TARGET || 'local';
+if (!['local', 'server','import'].includes(target)) throw new Error('CSIM_E2E_TARGET must be local, server or import');
+const envPath = process.env.CSIM_ENV_FILE || path.join(root, `.env.${target==='import'?'local':target}`);
+const saved = fs.existsSync(envPath) ? Object.fromEntries(fs.readFileSync(envPath, 'utf8').split('\n').filter(x => x && !x.startsWith('#')).map(x => [x.slice(0,x.indexOf('=')),x.slice(x.indexOf('=')+1)])) : {};
+export const baseURL = process.env.CSIM_BASE_URL || (target === 'server' ? 'https://catalyst.openelis-global.org/superset' : target === 'import' ? 'http://127.0.0.1:18094' : 'http://127.0.0.1:18089');
+export const overviewURL = process.env.CSIM_OVERVIEW_URL || (target === 'server' ? `${baseURL}/design/` : 'http://127.0.0.1:18769/');
+export const username = process.env.CSIM_USERNAME || 'demo';
+export const password = process.env.CSIM_ADMIN_PASSWORD || saved.CSIM_ADMIN_PASSWORD;
+export const runDir = process.env.CSIM_RUN_DIR || path.join(root, 'output/browser/latest');
+export const authFile = path.join(runDir, '.auth.json');
+export const dashboardURL = `${baseURL}/superset/dashboard/csim-full-synthetic/`;
+export const previewURL = process.env.CSIM_PREVIEW_URL || (target === 'server' ? 'https://catalyst.openelis-global.org/superset-preview' : 'http://127.0.0.1:18095');
+export const previewAuthFile = path.join(runDir, '.preview-auth.json');

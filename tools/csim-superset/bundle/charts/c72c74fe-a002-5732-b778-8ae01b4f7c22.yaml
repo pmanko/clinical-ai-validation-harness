@@ -1,0 +1,123 @@
+slice_name: Volume of UC submissions (time series) - Ind
+description: null
+certified_by: null
+certification_details: null
+viz_type: echarts_timeseries_line
+params:
+  datasource: 7__table
+  viz_type: echarts_timeseries_line
+  matrixify_enable: false
+  matrixify_mode_columns: disabled
+  matrixify_dimension_selection_mode_columns: members
+  matrixify_dimension_columns:
+    dimension: ''
+    values: []
+  matrixify_topn_value_columns: 10
+  matrixify_all_sort_by_columns: a_to_z
+  matrixify_topn_order_columns: true
+  matrixify_show_column_headers: true
+  matrixify_fit_columns_dynamically: true
+  matrixify_mode_rows: disabled
+  matrixify_dimension_selection_mode_rows: members
+  matrixify_dimension_rows:
+    dimension: ''
+    values: []
+  matrixify_topn_value_rows: 10
+  matrixify_all_sort_by_rows: a_to_z
+  matrixify_topn_order_rows: true
+  matrixify_show_row_labels: true
+  matrixify_row_height: 300
+  matrixify_charts_per_row: 4
+  matrixify_cell_title_template: ''
+  x_axis: time_aggregate
+  time_grain_sqla: P1M
+  metrics:
+  - aggregate: SUM
+    column:
+      advanced_data_type: null
+      changed_on: '2026-03-12T17:38:27.533573'
+      column_name: ucsub
+      created_on: '2026-03-12T17:38:27.533569'
+      description: null
+      expression: null
+      extra: null
+      filterable: true
+      groupby: true
+      id: 389
+      is_active: true
+      is_dttm: false
+      python_date_format: null
+      type: LONGINTEGER
+      type_generic: 0
+      uuid: ea1aada2-17bb-4dfa-9ced-1d61f2c42430
+      verbose_name: null
+    datasourceWarning: false
+    expressionType: SIMPLE
+    hasCustomLabel: false
+    label: SUM(ucsub)
+    optionName: metric_crskhv9dihl_rkctbakutu
+    sqlExpression: null
+  groupby:
+  - hosp_code
+  adhoc_filters:
+  - clause: WHERE
+    comparator: No filter
+    expressionType: SIMPLE
+    operator: TEMPORAL_RANGE
+    subject: filter_anchor
+  row_limit: 1000
+  truncate_metric: true
+  show_empty_columns: true
+  comparison_type: values
+  annotation_layers: []
+  forecastEnabled: false
+  forecastPeriods: 10
+  forecastInterval: 0.8
+  x_axis_title: Time
+  x_axis_title_margin: 45
+  y_axis_title: Number of UC Submissions
+  y_axis_title_margin: 30
+  y_axis_title_position: Left
+  sort_series_type: name
+  sort_series_ascending: true
+  color_scheme: googleCategory20c
+  show_value: false
+  area: false
+  markerEnabled: true
+  markerSize: 5
+  zoomable: false
+  minorTicks: false
+  show_legend: true
+  legendType: scroll
+  legendOrientation: top
+  x_axis_time_format: '%b %Y'
+  x_axis_number_format: ~g
+  xAxisLabelRotation: 90
+  xAxisLabelInterval: auto
+  force_max_interval: false
+  rich_tooltip: true
+  showTooltipTotal: false
+  showTooltipPercentage: false
+  tooltipSortByMetric: false
+  tooltipTimeFormat: smart_date
+  y_axis_format: SMART_NUMBER
+  logAxis: false
+  minorSplitLine: false
+  truncateXAxis: false
+  truncateYAxis: false
+  echart_options: '{}'
+  extra_form_data: {}
+  time_range: '2025-11-01 : 2026-06-01'
+  granularity_sqla: filter_anchor
+  x_axis_sort: name
+  x_axis_sort_asc: true
+  timeseries_limit_metric: Period order
+  x_axis_force_categorical: true
+  x_axis_label_interval: 0
+  x_axis_label_rotation: 30
+  order_desc: false
+query_context: null
+cache_timeout: null
+uuid: c72c74fe-a002-5732-b778-8ae01b4f7c22
+version: 1.0.0
+dataset_uuid: 689dc928-163a-5b50-9ca9-d8da32c158aa

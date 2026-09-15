@@ -1,0 +1,18 @@
+database_name: CSiM synthetic only
+sqlalchemy_uri: postgresql+psycopg2://csim:XXXXXXXXXX@db:5432/csim_synthetic
+cache_timeout: null
+expose_in_sqllab: true
+allow_run_async: false
+allow_ctas: false
+allow_cvas: false
+allow_dml: false
+allow_file_upload: false
+extra:
+  metadata_params: {}
+  engine_params: {}
+  metadata_cache_timeout: {}
+  schemas_allowed_for_file_upload: []
+impersonate_user: false
+configuration_method: sqlalchemy_form
+uuid: f0b39747-1f2b-5a2d-997d-8ed0ccb25d75
+version: 1.0.0

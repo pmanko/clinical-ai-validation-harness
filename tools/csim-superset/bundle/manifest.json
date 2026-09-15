@@ -1,0 +1,33 @@
+{
+  "format": "superset-native-yaml",
+  "dashboard_slug": "csim-full-synthetic",
+  "source_chart_uuids": {
+    "73": "d2eb0100-d6df-54ac-b02c-cf7df1cc8361",
+    "74": "183556b2-87ed-5d90-a825-7bcf48b84abf",
+    "75": "988faf51-c1a3-5240-b0af-35e0699b308e",
+    "77": "bf9e1bc9-702c-5801-a7c9-314167d24195",
+    "79": "b1ea29b0-8cfd-5c7a-b6da-f29c0d838f80",
+    "80": "39427450-d84e-58eb-a7fd-ce7bd82de1ea",
+    "81": "2e01490a-59ba-5fb0-b45e-368ccd385577",
+    "82": "a805ac3e-cb15-550f-8db7-bfc60c1e6372",
+    "85": "d9486ec5-35c3-5fda-bab0-595c970ba600",
+    "93": "62034ae9-6ae6-57b4-9913-f05e60bb06de",
+    "94": "ca73d788-34bf-51cb-9c7f-8b0bde57f9d9",
+    "95": "0a58f700-4799-5419-9c9b-a2395ea3299a",
+    "97": "01982605-8743-51db-b39b-a7bb09c1deb3",
+    "99": "c72c74fe-a002-5732-b778-8ae01b4f7c22",
+    "100": "fa4291d3-2afd-52b2-b67e-7e1af08ca74e",
+    "101": "51fd7d73-e9dc-5437-b911-952774b95311",
+    "102": "5783ea4c-9249-5b43-bfa3-461722b579af",
+    "103": "84e4f381-d45f-5538-a735-53f3c46ef2af",
+    "104": "ed4be1bd-4686-510e-8c0d-bbc061353698",
+    "106": "d32e7193-8719-53f7-a3de-a1f9e0acf38b",
+    "107": "5b2c11a9-29a4-5765-bbbe-093e97b45676"
+  },
+  "fixture": "sql/synthetic.sql + sql/baseline.sql + sql/antibiotic-fixture.sql",
+  "limits": [
+    "Synthetic data only",
+    "Clinical definitions need agreement",
+    "Production route needs separate verification"
+  ]
+}
