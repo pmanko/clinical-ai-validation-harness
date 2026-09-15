@@ -1148,8 +1148,8 @@
     {
       "id": "OE-reporting",
       "title": "OpenELIS\u2013Catalyst four reporting pathways",
-      "status": "Local CSV baseline verified; PostgreSQL and imported-Dataset/table foundations merged",
-      "next_deliverable": "Verify imported table rendering and compatible local deployment, then implement raw-row grouping and summary charts; coordinate the native source and FHIR handoff.",
+      "status": "Local imported table verified; approved chart controls merged",
+      "next_deliverable": "Integrate Catalyst #133 and verify native Superset summary values; keep native source/FHIR work coordinated.",
       "acceptance": "Four useful local/server pathways with verified outputs, paced videos and owner acceptance. No ranking; shared identity and existing AI-design Follow-on A remain later milestones.",
       "sources": [
         "specs/openelis-reporting-catalyst-integration.md",
@@ -1168,9 +1168,11 @@
         "https://github.com/DIGI-UW/catalyst-ai/pull/130",
         "https://github.com/pmanko/clinical-ai-validation-harness/pull/178",
         "https://github.com/DIGI-UW/catalyst-ai/pull/131",
-        "https://github.com/pmanko/clinical-ai-validation-harness/pull/179"
+        "https://github.com/pmanko/clinical-ai-validation-harness/pull/179",
+        "https://github.com/DIGI-UW/catalyst-ai/pull/132",
+        "https://github.com/DIGI-UW/catalyst-ai/pull/133"
       ],
-      "evidence": "Catalyst #129/#130/#131 merged with all five checks green on each. #131 has real Gateway/PostgreSQL light/dark import journeys, preserved drafts/types/order and restart/retry proof. Local native CSV/Superset dashboard32 is verified. Retained runtime update and full lane acceptance remain open."
+      "evidence": "Retained local harness a988bb8/Catalyst c91ae23 passes wrapper health and both-theme import checks. The same native May6 CSV renders exact 1158\u219230 and 1159\u219290 rows in Catalyst and Superset chart 65. Chart controls approved 14 September; #133 merged as f548e04 after 440 Gateway / 309 UI checks, real browser checks and all five hosted checks. Integrated runtime and rendered summaries remain. Server and lane acceptance remain open."
     },
     {
       "last_checked": "2026-09-14",
@@ -1210,13 +1212,15 @@
         "OE-native-reporting"
       ],
       "acceptance": "See the parent roadmap for this lane's exit criteria. Implementation, checks, merge, local/server proof and owner acceptance stay separate; no lane is currently accepted.",
-      "evidence": "Native owner verified local May5 export, saved configuration reopening with blank dates, and fresh May6 export. Exact local May6 CSV imported as Dataset32; saved/reopened dashboard32 table63 and chart64 preserve text IDs1158/1159, values450/450 and intervals30/90. Screenshot inspected. Earlier dashboard31 used server CSV in local Superset and is preliminary proof. Final visual and owner acceptance remain open."
+      "evidence": "Native owner verified local May5 export, saved configuration reopening with blank dates, and fresh May6 export. Exact local May6 CSV imported as Dataset32; saved/reopened dashboard32 table63 and chart64 preserve text IDs 1158/1159, values 450/450 and intervals 30/90. Screenshot inspected. Earlier dashboard31 used server CSV in local Superset and is preliminary proof. Final visual and owner acceptance remain open."
     },
     {
       "last_checked": "2026-09-14",
       "implementation_owner": null,
       "related_pull_requests": [
-        "https://github.com/DIGI-UW/catalyst-ai/pull/131"
+        "https://github.com/DIGI-UW/catalyst-ai/pull/131",
+        "https://github.com/DIGI-UW/catalyst-ai/pull/132",
+        "https://github.com/DIGI-UW/catalyst-ai/pull/133"
       ],
       "parent_effort": "OE-reporting",
       "sources": [
@@ -1225,14 +1229,14 @@
       ],
       "id": "OE-lane-2",
       "title": "Lane 2 \u00b7 Imported Dataset in Catalyst",
-      "status": "CSV import/table foundation merged; charts and runtime acceptance remain",
-      "next_deliverable": "Verify the lane-1 CSV through Catalyst and native Superset, then add reviewed grouping, aggregation and record-count charts.",
+      "status": "Local imported table verified; approved chart controls merged",
+      "next_deliverable": "Integrate Catalyst #133 and verify native Superset summary values; keep native source/FHIR work coordinated.",
       "dependencies": [
         "OE-native-reporting",
         "CAT-E11"
       ],
       "acceptance": "See the parent roadmap for this lane's exit criteria. Implementation, checks, merge, local/server proof and owner acceptance stay separate; no lane is currently accepted.",
-      "evidence": "Catalyst #131 merged as c91ae23; five hosted checks passed at 0011cd7. Actual development browser import/type correction/save/reopen works in light/dark without query session or execution; native Superset rendering and retained deployment are not yet claimed."
+      "evidence": "Retained local harness a988bb8/Catalyst c91ae23 passes wrapper health and both-theme import checks. The same native May6 CSV renders exact 1158\u219230 and 1159\u219290 rows in Catalyst and Superset chart 65. Chart controls approved 14 September; #133 merged as f548e04 after 440 Gateway / 309 UI checks, real browser checks and all five hosted checks. Integrated runtime and rendered summaries remain. Server and lane acceptance remain open."
     },
     {
       "last_checked": "2026-09-14",
@@ -1249,12 +1253,12 @@
       "id": "OE-lane-3",
       "title": "Lane 3 \u00b7 OpenELIS PostgreSQL in Catalyst",
       "status": "PostgreSQL and source-aware query publication merged; native source integration remains",
-      "next_deliverable": "Deploy the merged revision, connect the reporting OpenELIS source, then verify question/refinement/save/reopen and Superset rendering.",
+      "next_deliverable": "Connect the reporting OpenELIS source to the locally deployed PostgreSQL support, then verify question/refinement/save/reopen and Superset rendering.",
       "dependencies": [
         "CAT-E11"
       ],
       "acceptance": "See the parent roadmap for this lane's exit criteria. Implementation, checks, merge, local/server proof and owner acceptance stay separate; no lane is currently accepted.",
-      "evidence": "Catalyst #129 merged6513c88 and #130 merged3b8882f; all five checks passed for each. Publication preserves legacy SQL and refuses to redirect old connections. Native runtime deployment and rendered-value acceptance remain open."
+      "evidence": "Catalyst #129 merged6513c88 and #130 merged3b8882f; all five checks passed for each. Publication preserves legacy SQL and refuses to redirect old connections. Native runtime deployment and rendered-value acceptance remain open. Connection and publication code are now deployed locally at c91ae23; the approved native source handoff and actual native-source journey remain."
     },
     {
       "last_checked": "2026-09-14",

@@ -1,8 +1,8 @@
 {
   "repository": "https://github.com/DIGI-UW/catalyst-ai",
-  "revision": "c91ae23260df31520c453741b7892b5223217b44",
-  "integrationSpecification": "https://github.com/DIGI-UW/catalyst-ai/blob/c91ae23260df31520c453741b7892b5223217b44/docs/specs/openelis-reporting-integration/spec.md",
-  "approvedSpecification": "https://github.com/DIGI-UW/catalyst-ai/blob/c91ae23260df31520c453741b7892b5223217b44/docs/specs/staff-workbench-ux/spec.md",
+  "revision": "f548e04d4dcc4220ff211b7783fa5a842cb40127",
+  "integrationSpecification": "https://github.com/DIGI-UW/catalyst-ai/blob/f548e04d4dcc4220ff211b7783fa5a842cb40127/docs/specs/openelis-reporting-integration/spec.md",
+  "approvedSpecification": "https://github.com/DIGI-UW/catalyst-ai/blob/f548e04d4dcc4220ff211b7783fa5a842cb40127/docs/specs/staff-workbench-ux/spec.md",
   "files": {
     "appearance.css": "8f49f774fcb6c267ce7b16789629dfd81fd3529d483540c8772f54c3dda731d9",
     "appearance.js": "8b4388c505fba0f7424cf17eddbbd880462c6cc686369ce9aaafba3c75fa4ae9",
@@ -10,10 +10,10 @@
     "mock.js": "884eb536960151465b65c1f14ed4b40474e7610f7c02a4ced03f23656022c8fc",
     "mock.html": "05ae3bb90cd603049eb7f0ce93d816a952b2fbf20f8a6500764b177e7b33cb6e",
     "integration/app.html": "f50ee345817f9b18f07ecfee9f1a268dc24ead0c30aa308d0f6688637e68b1bf",
-    "integration/app.mjs": "0d168cd011a15aea431991018f308460911677fdc1e96b0ddf7185784eedc5b5",
-    "integration/integration.css": "a2a4f183948bd14ec04fb208a21f38f1c78077c19e50c56cfebab79daf08e8ea",
-    "integration/model.mjs": "f2214de3a8258acc409acb15d60dc4b5f4f98958c276b4cc4dfa3081c8e76a54",
+    "integration/app.mjs": "918bf4a027a8930921eb647dafacc9b200308c4eed2626caecf9065ac9c04a65",
+    "integration/integration.css": "f30d0fba0749f461e9b0a5a92df5cdb0fbdf6ec5dae5629c75f0d3e7f1bed036",
+    "integration/model.mjs": "a03bdca840047db355bfe826cae4ac50f3c0875d8919a48d81fb345d960ce4b6",
     "integration/review.js": "92ee5808bc0f9d6ff41af951be3a1f0c13023e7155a74ddc7786a969ac34d4c4",
-    "index.html": "7856777c9ef788641cec69a7d26fc649cb5853b13a27a18a64d9a9b94f63a3c7"
+    "index.html": "6b0cb724e1b3da41494a28967e67246e62e620ad4b89be64d5b579db9ffc416e"
   }
 }

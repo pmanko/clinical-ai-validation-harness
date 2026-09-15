@@ -24,7 +24,7 @@
       "title": "Catalyst",
       "status": "Existing release and four-pathway extension",
       "summary": "Current Catalyst release evidence stays in its delivery register. The four-pathway initiative adds imported Datasets and ordinary PostgreSQL without duplicating the approved Workbench or AI-design roadmap.",
-      "evidence": "PostgreSQL, source-aware query publication and the imported-Dataset/table foundation are merged in #129\u2013131. Actual import browser checks pass; retained runtime verification, grouping and final acceptance remain.",
+      "evidence": "Imported Dataset/table foundation is verified in the retained local runtime and native Superset. Upload repair #132 and approved chart controls #133 merged with all hosted checks passing; integrated runtime and rendered-summary proof remain.",
       "actions": [
         [
           "Review the current delivery checkpoint",
@@ -35,9 +35,9 @@
     {
       "project": "shared",
       "title": "OpenELIS\u2013Catalyst reporting",
-      "status": "Mock approved; CSV foundation merged; runtime verification next",
+      "status": "Local imported table verified; chart controls merged",
       "summary": "Native CSV/Superset, CSV imported into Catalyst, native PostgreSQL, and FHIR/Spark are complementary starting points. One roadmap coordinates the existing product efforts.",
-      "evidence": "Local native CSV/Superset example verified. Catalyst PostgreSQL and CSV import/table support are merged and checked. Meaningful imported charts, complete local/server pathways and owner acceptance remain.",
+      "evidence": "The same native CSV is verified through lanes 1 and 2 table paths. Approved chart controls merged in Catalyst #133. Native source/FHIR handoffs, complete local/server pathways and owner acceptance remain.",
       "actions": [
         [
           "Open the parent roadmap",
