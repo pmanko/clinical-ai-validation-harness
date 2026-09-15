@@ -22,7 +22,7 @@ their own scope. Plan approval does not mark implementation or acceptance done.
 | FP-005 | Resolve publication by actual Dataset backing connection and declared dialect. Preserve exact saved artifacts, deterministic bundles, retry/receipts and verify PostgreSQL/Spark rendering. | Query-backed source resolution and dialect-aware compiler merged in Catalyst #130; imported-file publication follows FP-006 | 403 Gateway tests including real PostgreSQL, 50 final focused checks, legacy bundle byte parity and all five CI checks pass at 6ad1d09 | Catalyst #130 merged as 3b8882f | Code deployed locally at c91ae23; imported table rendering verified below; native query-backed rendering remains | Pending |
 | FP-006 | Add origin-aware Dataset contracts and CSV upload/review/confirmation with durable import storage. Verify types/order/values, no fabricated SQL, invalid/empty/interrupted import, retry, reload/restart and existing saved artifacts. | CSV upload/type review, durable drafts, immutable PostgreSQL storage and raw-table publication implemented in Catalyst #131; grouping remains FP-007 | Latest 70 focused backend checks including real PostgreSQL, 306 UI checks across full/retry runs, real Gateway import browser journeys in light/dark; desktop/narrow screenshots inspected; all five hosted checks pass at 0011cd7 | Catalyst #131 merged as c91ae23; upload-size repair #132 merged as 4d41978 with all five checks green | Retained local a988bb8/c91ae23 verified through wrapper health, unchanged mounts/ports and both-theme browser checks. Native May6 CSV yields exact 1158→30 and 1159→90 rows in Catalyst and Superset chart 65. Server and broader fixtures remain | Pending |
 | FP-007 | Shared meaningful chart controls over imported rows, including grouping/counts. Verify values, immutable versions, saved arrangement and publication without required SQL interaction. | Approved controls and aligned mock/contracts implemented in Catalyst #133; #134 repairs PostgreSQL publication for an ungrouped whole-file summary and advances its mapping revision | #133: 440 Gateway, 309 UI, 26 component and five real CSV/browser checks. #134: 443 Gateway checks against PostgreSQL plus all five hosted checks; count/sum/average regression uses 122 persisted rows beyond the preview bound | #133 merged as f548e04; #134 merged as a15ecb8 | Retained runtime at harness f0ff2c7/Catalyst f548e04 preserves saved artifacts. Native Superset shows count 2 and average 60; ungrouped total exposed the repaired adapter defect. A 101-row table proves native pagination. Apply a15ecb8 and verify total 120 plus retained results next | Chart-control design approved 14 September; application/lane acceptance pending |
-| FP-008 | Consume the reporting instance's real FHIR output through existing Data Pipes/Spark; verify useful query/Dataset/dashboard, record provenance and explain coverage/freshness differences. | Existing reference path; reporting-instance emission/routing pending | None of the four known reporting Observation IDs found in local Catalyst HAPI; native owner has no emission proof | Pending | Existing separate cohort is not reporting-instance parity | Pending |
+| FP-008 | Consume the reporting instance's real FHIR output through existing Data Pipes/Spark; verify useful query/Dataset/dashboard, record provenance and explain coverage/freshness differences. | Reporting app connected to the existing FHIR proxy; scoped emission and pipeline ingestion pending | Native FHIR API returns all four retained result identities, dates, final status and 450 copies/ml values. App-to-store metadata succeeds; those Observations remain absent in HAPI | Runtime configuration repair; no new product revision | Reporting/login return 200; database/web containers and retained result rows unchanged. End-to-end lane remains unproven | Pending |
 | FP-009 | Exercise four complete local journeys, compare approved mocks at desktop/narrow and light/dark, inspect rendered values, retain drafts/state, record findings and owner review. | Pending | Pending | Pending | Pending | Pending |
 | FP-010 | Deploy compatible reviewed revisions with retained data; prove four server journeys and deliver the [four-pathway videos and openclinai.org review checkpoint](../openelis-reporting-catalyst-integration.md#review-checkpoint-four-pathways-videos-and-public-explanation), including readable recordings, live playback, local evidence links and reconciled authoritative documents. | Existing homepage draft explains four pathways and separates earlier videos; four new recordings remain pending | 10 landing tests passed; desktop and 390px review-frame screenshots inspected | Homepage draft in harness #183 | Local preview only; public section/server recordings pending | Pending |
 
@@ -61,7 +61,7 @@ merged revision. The 47 focused PostgreSQL import/publication checks pass at 2,
 skip. The deployed browser check now passes: the two-row Dashboard has no warning,
 and the 1,101-row QA Dashboard retains pagination and reaches `QA-1101` on page
 12 after re-publication (bundle
-`23edc5ea2987ec14e448a107a20abffdf904e8eb92b91796306ae5ac25e1d0c2d`).
+`23edc5ea2987ec14e448a107a20abffdf904e8eb92b91796306ae5ac25e1d0c2`).
 Larger tables retain server pagination; Superset's search selector still uses
 storage names, an upstream presentation limitation. Raw deployment, exact
 before/after state, receipts and screenshots live in the existing private evidence
@@ -74,8 +74,9 @@ The Catalyst PostgreSQL service has only `postgres` and
 `catalyst_superset_metadata`; CSV import configuration is absent. Provision the
 separate import database/role and upload destination using the existing operations
 guide during the server iteration. This was read-only inspection; no server
-update or four-pathway acceptance is claimed. FHIR connection still awaits the
-native task's direct approval. The separate website task owns landing changes;
+update or four-pathway acceptance is claimed. The owner subsequently authorized
+the FHIR connection repair; it is applied and verified as recorded below.
+The separate website task owns landing changes;
 this effort supplies verified evidence and current status records.
 
 | Lane | Observed working step | Next obstacle to resolve |
@@ -83,7 +84,16 @@ this effort supplies verified evidence and current status records.
 | 1 | Fresh native May5 CSV uploaded through Superset's native API into Dataset 38. Browser-created table 80 preserves column order and IDs 1154/1155, both value 450; chart 81 groups by accession and counts 2. Dashboard 38 saves/reopens and its rendered screenshot was inspected. Earlier dashboard 32 remains a separate May6 interval example. | Native-file browser upload, raw table and grouped-count Dashboard now pass (Dashboard 40; details below). Broader fixtures, paced recording and server journey remain. |
 | 2 | Existing imported CSV retains both rows. Repaired publication renders IDs 1154/1155 with value 450 and no false warning; the 1,101-row regression table reaches its last row through pagination. Screenshots inspected. | Fresh native upload/type-recovery/save and browser chart/arrangement/publication smoke now pass (details below). Generic CSV browser checks pass in both themes and the native-file browser journey now reaches Superset (details below). Complete the paced recording, broader failures and server validation. |
 | 3 | `openelis-reporting` uses a restricted PostgreSQL reader and discovers all 380 readable relations. Browser schema search preserves the draft. Explicit manual execution returned IDs 1154/1155/1158/1159 with values 450; Dataset `1dd3de0a-6754-4cc2-9097-56a49cb3c8dd` saves and reopens with the correct source. Its table dashboard publishes/imports and renders all four exact rows in Superset. | Full-schema preparation now fits the E4B 98,304-token context. Four real model turns still chose the wrong relation or join; executed turns returned zero rows. Manual correction now passes through save/reopen, publication and exact Superset rendering. Complete the broader lane demonstration, server run and paced recording; retain model errors as limitations, not an accuracy gate. |
-| 4 | Existing Spark/HAPI services run. Native owner verified the reporting instance still points at an isolated loopback FHIR endpoint; Catalyst's existing endpoint requires its trusted client connection. | Native connection using the existing Catalyst network/certificates awaits approval in the native task, with metadata/readiness first. No seeding/backfill or real reporting FHIR emission has been performed. |
+| 4 | Reporting app now reaches the existing HAPI proxy on the Catalyst network. Its native FHIR facade correctly returns results 1154/1155/1158/1159; login/reporting readiness and retained values pass. | Publish the existing reporting records through the native transform and run the pipeline. HAPI still lacks those four Observations. No seeding/backfill or clinical emission has been performed. |
+
+The FHIR connection repair reused the existing proxy/network and restarted only
+native reporting's app. Read-only native FHIR responses preserve result IDs
+1154/1155 on May 5 and 1158/1159 on May 6, all final at 450 copies/ml. Samples
+1154 and 1157 contain exactly these four results. The remaining native repair
+is bounded replay through the existing sample transform: the current HTTP
+backfill cannot select samples, and re-saving Observations assigns today's
+result date. Native implementation owns that repair; this register tracks its
+integration outcome. No model tuning or clinical-record rewrite is required.
 
 Retained services and model router were restored through existing launchers,
 without seeding or replacing data. A newly opened manual session still requires
@@ -177,8 +187,8 @@ model coaching. Metadata coverage alone does not close FP-004.
 Exact requests remain in local generation evidence;
 raw inspection copies are outside Git. Managed router startup also timed out;
 the existing foreground launcher is serving successfully, but durable startup
-has not been verified. FHIR connection remains pending the native task's approval
-review; normal reporting emission has not run. Four-pathway and server acceptance
+has not been verified. The subsequent FHIR connection repair passes metadata and
+native readiness checks; reporting emission has not run. Four-pathway and server acceptance
 remain open.
 
 Native CSV browser journeys (15 September): both lanes used the exact May5
