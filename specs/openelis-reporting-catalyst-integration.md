@@ -278,6 +278,40 @@ through holds, label accelerated waits, avoid covering relevant content and
 watch final cuts at normal speed. Synchronize public videos/posters, review hub
 and status links after verified publication.
 
+### Review checkpoint: four pathways, videos and public explanation
+
+Iteration 8 is reviewable when the existing Catalyst section of
+`https://openclinai.org/` presents the four pathways together, with a brief
+overview and four independently watchable videos. Use the existing `landing/`
+site and publication flow; do not create another tracker or documentation site.
+FP-010 owns this delivery, with FP-009 supplying the local validation.
+
+Acceptance requires:
+
+- Each pathway explains its starting point, complete journey, when it is useful,
+  and its data coverage/freshness limits. Present complementary choices without
+  ranking them as equivalent alternatives.
+- Each of the four pathway entries embeds its own verified server recording,
+  with playback controls, a descriptive poster, duration and readable transcript
+  or step summary. Clearly identify the environment and link the corresponding
+  local proof. Existing earlier walkthroughs remain labeled as earlier examples,
+  not evidence that these four journeys passed.
+- The videos show the actual lane-specific steps through rendered Superset
+  results, including file upload for lanes 1 and 2 and model question/refinement
+  plus explicit execution for lanes 3 and 4. API-only upload checks and manual SQL
+  are useful partial evidence, not substitutes for those recorded journeys.
+- The pacing rules above pass normal-speed viewing. The published page works on
+  desktop and narrow screens; all four videos, posters and evidence links load.
+  Verify deployed HTML/media against the reviewed revisions and checksums.
+- Record the four journey results, publication verification and explicit owner
+  acceptance separately in the existing task and acceptance records. Synchronize
+  the existing status dashboard to link here and to the live section. Keep raw
+  recordings, traces and personal handoffs outside Git.
+
+A page draft or partial recording can be reviewed earlier, but does not close
+this checkpoint. As of 15 September, four final recordings and this public
+section are pending; earlier Catalyst videos remain live.
+
 ### Cross-pathway acceptance record
 
 | Evidence | Current state |
@@ -286,7 +320,7 @@ and status links after verified publication.
 | Updated mock/spec owner review | Approved 14 September 2026 after local CSV journey review; Catalyst #128 merged as `5164449`. |
 | Lane 1 / 2 / 3 / 4 local proof | Pending; native stage evidence alone does not establish a lane. |
 | Four server journeys and rendered values | Pending. |
-| Paced videos and public references | Pending. Existing videos document earlier capabilities. |
+| [Four-pathway videos and public explanation](#review-checkpoint-four-pathways-videos-and-public-explanation) | Pending: four final server recordings, openclinai.org section, playback/publication verification and owner review. Existing videos document earlier capabilities. |
 | Specification/dashboard consistency and owner acceptance | Pending final review. |
 
 Completion requires every line above, distinguishing implementation, merge,

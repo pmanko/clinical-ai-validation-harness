@@ -8,6 +8,7 @@ This existing plan retains the Catalyst release and subsequent design milestones
 its [task register](tasks.md#four-pathway-delivery) owns each shared Catalyst
 implementation task once. Native reporting work stays in OpenELIS. Do not copy
 the four-pathway sequence here or make this harness feature the parent of OE work.
+The [public demonstration checkpoint](../openelis-reporting-catalyst-integration.md#review-checkpoint-four-pathways-videos-and-public-explanation) defines the four videos and openclinai.org presentation; FP-010 tracks delivery and owner acceptance.
 
 The owner approved the extended product mock/spec on 14 September 2026;
 Catalyst #128 merged as `5164449`. The native CSV-to-Superset pathway now has
