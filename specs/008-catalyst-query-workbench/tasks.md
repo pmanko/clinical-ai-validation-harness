@@ -46,11 +46,22 @@ test. Run a bounded smoke per lane, record its first failing step, fix that
 integration, and repeat the path. This advances FP-003 through FP-009 without
 replacing full local/server acceptance. CSV tests do not depend on AI availability.
 
-Latest local check: retained checkout `~/code/catalyst-dev`, Catalyst `b90f95f`
-(merged as `387de1e` in [repair PR #135](https://github.com/DIGI-UW/catalyst-ai/pull/135)); harness
-integration remains in [PR #183](https://github.com/pmanko/clinical-ai-validation-harness/pull/183).
-Local testing used `b90f95f`; the checkout now pins its identical merged tree. Neither server deployment nor owner
-acceptance is claimed.
+Latest local runtime: retained checkout `~/code/catalyst-dev`, harness #183
+(`ea8f153`) and Catalyst #136 (`a385f5e`). Harness #185 merged the scope correction
+and browser evidence; its status dashboard is published. Application revisions
+have not changed since the verified local baseline. Server deployment and owner
+acceptance are not claimed.
+
+Publication follow-up: [Catalyst #137](https://github.com/DIGI-UW/catalyst-ai/pull/137)
+fixes the observed table controls for small immutable files and removes the
+1,000-row cap from the native pagination count. The original export capped that
+count despite retaining the complete file. Local regressions cover 2, 100, 101
+and 1,101 rows, preserved values and final pages; 449 Gateway tests pass with
+one skip. All five hosted checks passed and #137 merged as `182ba87`; this
+harness change pins that exact revision. Deployment and rendered verification
+remain pending. Superset's
+search selector still exposes storage names on larger paginated tables; this is
+an upstream presentation limitation, not missing data or a model-quality gate.
 
 | Lane | Observed working step | Next obstacle to resolve |
 | --- | --- | --- |
@@ -89,8 +100,9 @@ text and the value column is numeric. Browser controls created/saved raw table
 `80` and grouped-count chart `81`; reopening
 `http://localhost:18088/superset/dashboard/38/` restored both exact result rows
 and count 2. The visible screenshot was inspected. The dashboard remains a local
-Superset draft; this is not public publication or owner acceptance. File-picker
-automation remains unsupported in the current browser-control surface.
+Superset draft; this is not public publication or owner acceptance. This earlier
+API-first run is supplemented by the native-file browser proof
+below, which uses supported file-chooser automation.
 
 Fresh native-file lane-2 smoke (15 September): the recovered native detailed CSV
 `reporting-detailed-2026-05-05.csv` has SHA-256
@@ -108,11 +120,10 @@ publication showed Bundle ready before the operator import and Imported/Open
 Superset afterward. Dashboard `d050f4a1-e68a-4d39-b722-0f990f62e94b` renders both
 native rows and grouped count 2, with the saved layout; screenshot inspected.
 Import bundle: `55b3a1ff5fe8d5369a992a390ef42865a1f6592db01e9dbf0b8c068789a7be93`.
-No SQL or model request was needed for the import/chart/dashboard path. The
-browser-control surface does not support file attachment, so initial upload/type
-review/save used the actual application endpoints, not browser controls. The
-subsequent generic CSV browser regression below covers file selection; a complete
-native-file browser recording remains outstanding.
+No SQL or model request was needed for the import/chart/dashboard path. This
+earlier run used the application endpoints for upload/type review/save.
+The later native-file browser journey below now covers those interactions too;
+final paced recordings remain outstanding.
 
 PostgreSQL model smoke (15 September): the existing Faster question preparation
 profile used Gemma E4B with a scoped 98,304-token serving context; other presets
@@ -133,7 +144,7 @@ sample_item.id. A targeted correction still retained the wrong join. Explicit
 browser execution of turns 1, 3 and 4 returned zero rows; turn 2 was not executed.
 No SQL was manually replaced in this session and no successful Dataset is claimed.
 
-PostgreSQL discovery currently supplies readable columns/types/comments but no
+The pre-#136 PostgreSQL discovery supplied readable columns/types/comments but no
 foreign-key relationship metadata. This is an observed enrichment gap to assess,
 not proof that adding it alone will fix model behavior. Retain this failed case
 when validating any remedy. [Catalyst #136](https://github.com/DIGI-UW/catalyst-ai/pull/136)
