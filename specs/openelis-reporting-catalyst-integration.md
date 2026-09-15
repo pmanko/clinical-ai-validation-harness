@@ -164,10 +164,15 @@ acceptance are separate facts. No date or automatic acceptance is implied.
 - The native public [deployment receipt][native-deployment] identifies application,
   frontend and backend `8005e4cc0b2b05d054489730aef969027d773093`, deployment
   `20260914T234348Z-8005e4cc0b2b`. This verifies the published identity, not the
-  completed journey. The receipt still reports public browser checks and human
-  acceptance pending. The owner's proposed `20260914-review-8005` evidence
-  directory returned the application shell during this check; its CSVs and
-  videos have not yet been independently inspected.
+  completed journey. The updated receipt reports public browser checks and CI
+  passed; human acceptance remains pending. The published [native evidence
+  bundle][native-evidence] identifies the same application and test revision.
+  All six report/queue CSV downloads match its checksums and each pair is
+  byte-identical. Parsed Sample & Testing files preserve two `450` readings
+  with 30/90-minute turnaround; the detailed layout retains separate Result IDs
+  `1158`/`1159`. Referrals retains two completed results and a blank pending
+  result. This audit inspected the CSVs, not the owner's video recordings; it
+  does not establish their final four-lane demonstration pacing.
 - The local reporting database contains four synthetic results: two independent
   `450` readings for `REPORTING-MVP-REPEAT` on 5 May, and two for
   `REPORTING-MVP-TURNAROUND` on 6 May. The first pair shares one analysis but has
@@ -188,6 +193,7 @@ PR cleanup and UAT remain with their existing owners. Raw audit output stays
 outside Git; FP-003 and FP-008 track the resulting integration work.
 
 [native-deployment]: https://reporting.catalyst.openelis-global.org/__review/target.json
+[native-evidence]: https://reporting.catalyst.openelis-global.org/reporting-evidence/20260914-review-8005/
 
 ## Verification and demonstration contract
 
