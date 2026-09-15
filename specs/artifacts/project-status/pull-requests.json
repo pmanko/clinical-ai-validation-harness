@@ -1,6 +1,6 @@
 {
   "schemaVersion": "project-status.pull-requests.v1",
-  "asOf": "2026-09-15T05:13:13Z",
+  "asOf": "2026-09-15T05:17:43Z",
   "dateWindowStart": "2026-08-01T00:00:00Z",
   "scope": {
     "maintainedRepositories": [
@@ -32,9 +32,9 @@
   "counts": {
     "total": 303,
     "byState": {
-      "closed": 38,
+      "closed": 47,
       "merged": 219,
-      "open": 46
+      "open": 37
     },
     "byRepository": {
       "DIGI-UW/OpenELIS-Global-2": 26,
@@ -4947,7 +4947,7 @@
       "number": 11,
       "title": "feat(picker): LM Studio sub-category + load state + pre-load on select",
       "url": "https://github.com/openmrs/openmrs-esm-chartsearchai/pull/11",
-      "state": "open",
+      "state": "closed",
       "draft": false,
       "author": "pmanko",
       "head": "feat/picker-lm-studio-grouping",
@@ -4958,14 +4958,14 @@
       "baseSha": null,
       "mergeCommitSha": "e4769580716c70306b16f9d57234c8c6bb1bde3a",
       "createdAt": "2026-05-29T03:42:22Z",
-      "updatedAt": "2026-05-29T05:51:20Z",
-      "closedAt": null,
+      "updatedAt": "2026-09-15T05:16:53Z",
+      "closedAt": "2026-09-15T05:16:53Z",
       "mergedAt": null,
       "inclusionReason": "current_open_before_window",
       "effortGroup": "Older OpenMRS contribution",
       "effort": "Older OpenMRS contribution",
-      "currentSignal": "No hosted checks reported.",
-      "nextAction": "Compare the unique delta with the active integration successor; keep, incorporate or close only after content is accounted for.",
+      "currentSignal": "Closed with a supersession comment; branch kept.",
+      "nextAction": "Closed 2026-09-14: depended on #10 (superseded by #23) and LM Studio is no longer a stack target.",
       "mergeability": {
         "mergeable": true,
         "reportedState": "CLEAN",
@@ -4981,7 +4981,7 @@
       "relatedEffortIds": [
         "upstream.older_prs"
       ],
-      "metadataCheckedAt": "2026-09-12T18:10:00Z",
+      "metadataCheckedAt": "2026-09-15T05:17:43Z",
       "historicalMergeReview": {
         "reviewedAt": "2026-09-06",
         "headSha": "fef33ba82b64f6e81a926d3d15f536b81ef3ec65",
@@ -5001,7 +5001,7 @@
       "number": 10,
       "title": "feat(picker): inline model picker in chat panel footer",
       "url": "https://github.com/openmrs/openmrs-esm-chartsearchai/pull/10",
-      "state": "open",
+      "state": "closed",
       "draft": false,
       "author": "pmanko",
       "head": "feat/model-picker",
@@ -5012,14 +5012,14 @@
       "baseSha": null,
       "mergeCommitSha": null,
       "createdAt": "2026-05-18T23:34:19Z",
-      "updatedAt": "2026-05-18T23:34:19Z",
-      "closedAt": null,
+      "updatedAt": "2026-09-15T05:16:55Z",
+      "closedAt": "2026-09-15T05:16:55Z",
       "mergedAt": null,
       "inclusionReason": "current_open_before_window",
       "effortGroup": "Older OpenMRS contribution",
       "effort": "Older OpenMRS contribution",
-      "currentSignal": "build: FAILURE; release: SKIPPED",
-      "nextAction": "Compare the unique delta with the active integration successor; keep, incorporate or close only after content is accounted for.",
+      "currentSignal": "Closed with a supersession comment; branch kept.",
+      "nextAction": "Closed 2026-09-14 as superseded by #23: provider picker plus hub product-profile picker; the per-model picker has no backend after #157.",
       "mergeability": {
         "mergeable": false,
         "reportedState": "DIRTY",
@@ -5048,7 +5048,7 @@
       "relatedEffortIds": [
         "upstream.older_prs"
       ],
-      "metadataCheckedAt": "2026-09-12T18:10:00Z",
+      "metadataCheckedAt": "2026-09-15T05:17:43Z",
       "historicalMergeReview": {
         "reviewedAt": "2026-09-06",
         "headSha": "5a4ede4af4452e4580b0b2c426879650bab498e2",
@@ -5068,7 +5068,7 @@
       "number": 9,
       "title": "feat(chat): multi-turn chat history continuity",
       "url": "https://github.com/openmrs/openmrs-esm-chartsearchai/pull/9",
-      "state": "open",
+      "state": "closed",
       "draft": false,
       "author": "pmanko",
       "head": "multi-turn-chat",
@@ -5079,14 +5079,14 @@
       "baseSha": null,
       "mergeCommitSha": null,
       "createdAt": "2026-05-18T15:05:38Z",
-      "updatedAt": "2026-05-18T15:05:38Z",
-      "closedAt": null,
+      "updatedAt": "2026-09-15T05:16:57Z",
+      "closedAt": "2026-09-15T05:16:57Z",
       "mergedAt": null,
       "inclusionReason": "current_open_before_window",
       "effortGroup": "Older OpenMRS contribution",
       "effort": "Older OpenMRS contribution",
-      "currentSignal": "build: FAILURE; release: SKIPPED; CodeRabbit: SUCCESS",
-      "nextAction": "Compare the unique delta with the active integration successor; keep, incorporate or close only after content is accounted for.",
+      "currentSignal": "Closed with a supersession comment; branch kept.",
+      "nextAction": "Closed 2026-09-14 as superseded by #23: chat-session.store and the /chat/stream TurnPhase lifecycle carry multi-turn continuity.",
       "mergeability": {
         "mergeable": false,
         "reportedState": "DIRTY",
@@ -5121,7 +5121,7 @@
       "relatedEffortIds": [
         "upstream.older_prs"
       ],
-      "metadataCheckedAt": "2026-09-12T18:10:00Z",
+      "metadataCheckedAt": "2026-09-15T05:17:43Z",
       "historicalMergeReview": {
         "reviewedAt": "2026-09-06",
         "headSha": "41517dff15e2360aa722296e22307a41b804fdd9",
@@ -5278,7 +5278,7 @@
       "number": 72,
       "title": "Consume querystore behind a QueryStoreClient seam",
       "url": "https://github.com/openmrs/openmrs-module-chartsearchai/pull/72",
-      "state": "open",
+      "state": "closed",
       "draft": false,
       "author": "pmanko",
       "head": "feat/querystore-client-seam",
@@ -5289,14 +5289,14 @@
       "baseSha": null,
       "mergeCommitSha": null,
       "createdAt": "2026-06-26T04:01:39Z",
-      "updatedAt": "2026-07-16T10:16:32Z",
-      "closedAt": null,
+      "updatedAt": "2026-09-15T05:16:40Z",
+      "closedAt": "2026-09-15T05:16:40Z",
       "mergedAt": null,
       "inclusionReason": "current_open_before_window",
       "effortGroup": "Older OpenMRS contribution",
       "effort": "Older OpenMRS contribution",
-      "currentSignal": "No hosted checks reported.",
-      "nextAction": "Compare the unique delta with the active integration successor; keep, incorporate or close only after content is accounted for.",
+      "currentSignal": "Closed with a supersession comment; branch kept.",
+      "nextAction": "Closed 2026-09-14 as superseded by #157: typed querystore-api consumption (ADR Decision 17 ContextSlice) replaces the QueryStoreClient seam; ConversationService replaces the bundled ChatService stack.",
       "mergeability": {
         "mergeable": false,
         "reportedState": "DIRTY",
@@ -5312,7 +5312,7 @@
       "relatedEffortIds": [
         "upstream.older_prs"
       ],
-      "metadataCheckedAt": "2026-09-12T18:10:00Z",
+      "metadataCheckedAt": "2026-09-15T05:17:43Z",
       "historicalMergeReview": {
         "reviewedAt": "2026-09-06",
         "headSha": "c1c6aa4ea269e811fcd42d0bd2180ca80ea4a6f5",
@@ -5365,7 +5365,7 @@
       "number": 25,
       "title": "feat(model-switch): probe LM Studio /api/v1/models with OpenAI fallback",
       "url": "https://github.com/openmrs/openmrs-module-chartsearchai/pull/25",
-      "state": "open",
+      "state": "closed",
       "draft": false,
       "author": "pmanko",
       "head": "feat/model-switch-lm-studio-v1",
@@ -5376,14 +5376,14 @@
       "baseSha": null,
       "mergeCommitSha": "b7ae410b4e9c786b48490a29c13ede65be8d7168",
       "createdAt": "2026-05-29T03:40:21Z",
-      "updatedAt": "2026-07-16T10:16:28Z",
-      "closedAt": null,
+      "updatedAt": "2026-09-15T05:16:42Z",
+      "closedAt": "2026-09-15T05:16:42Z",
       "mergedAt": null,
       "inclusionReason": "current_open_before_window",
       "effortGroup": "Older OpenMRS contribution",
       "effort": "Older OpenMRS contribution",
-      "currentSignal": "No hosted checks reported.",
-      "nextAction": "Compare the unique delta with the active integration successor; keep, incorporate or close only after content is accounted for.",
+      "currentSignal": "Closed with a supersession comment; branch kept.",
+      "nextAction": "Closed 2026-09-14: depended on #22 (superseded by #157) and LM Studio is no longer a stack target.",
       "mergeability": {
         "mergeable": true,
         "reportedState": "CLEAN",
@@ -5399,7 +5399,7 @@
       "relatedEffortIds": [
         "upstream.older_prs"
       ],
-      "metadataCheckedAt": "2026-09-12T18:10:00Z",
+      "metadataCheckedAt": "2026-09-15T05:17:43Z",
       "historicalMergeReview": {
         "reviewedAt": "2026-09-06",
         "headSha": "bd67fbc09a593f2959e99e0c0488790eb227ae2f",
@@ -5419,7 +5419,7 @@
       "number": 22,
       "title": "feat(api): ModelSwitchService + REST endpoints for runtime model swap",
       "url": "https://github.com/openmrs/openmrs-module-chartsearchai/pull/22",
-      "state": "open",
+      "state": "closed",
       "draft": false,
       "author": "pmanko",
       "head": "feat/model-switch-service",
@@ -5430,14 +5430,14 @@
       "baseSha": null,
       "mergeCommitSha": null,
       "createdAt": "2026-05-18T23:24:44Z",
-      "updatedAt": "2026-07-16T10:16:26Z",
-      "closedAt": null,
+      "updatedAt": "2026-09-15T05:16:44Z",
+      "closedAt": "2026-09-15T05:16:44Z",
       "mergedAt": null,
       "inclusionReason": "current_open_before_window",
       "effortGroup": "Older OpenMRS contribution",
       "effort": "Older OpenMRS contribution",
-      "currentSignal": "build / Prepare: SUCCESS; build / Build with Java 11: SUCCESS; build / Build with Java 17: SUCCESS; build / Build with Java 21: SUCCESS; build / Deploy SNAPSHOT to Maven: SKIPPED; owasp-dependency-check: SKIPPED",
-      "nextAction": "Compare the unique delta with the active integration successor; keep, incorporate or close only after content is accounted for.",
+      "currentSignal": "Closed with a supersession comment; branch kept.",
+      "nextAction": "Closed 2026-09-14 as superseded by #157: provider registry, /providers and the hub profile relay replace ModelSwitchService; runtime bundled-model swap and RequestLlmOverride are not in the dual-provider design.",
       "mergeability": {
         "mergeable": false,
         "reportedState": "DIRTY",
@@ -5490,7 +5490,7 @@
       "relatedEffortIds": [
         "upstream.older_prs"
       ],
-      "metadataCheckedAt": "2026-09-12T18:10:00Z",
+      "metadataCheckedAt": "2026-09-15T05:17:43Z",
       "historicalMergeReview": {
         "reviewedAt": "2026-09-06",
         "headSha": "3dd0c132bd101ed790b3a59e9fdbc2c92930f9e3",
@@ -5510,7 +5510,7 @@
       "number": 21,
       "title": "fix(activator): provision privileges + role bindings on every startup",
       "url": "https://github.com/openmrs/openmrs-module-chartsearchai/pull/21",
-      "state": "open",
+      "state": "closed",
       "draft": false,
       "author": "pmanko",
       "head": "fix/activator-provision-privilege",
@@ -5521,14 +5521,14 @@
       "baseSha": null,
       "mergeCommitSha": null,
       "createdAt": "2026-05-18T21:46:03Z",
-      "updatedAt": "2026-07-16T10:16:24Z",
-      "closedAt": null,
+      "updatedAt": "2026-09-15T05:16:46Z",
+      "closedAt": "2026-09-15T05:16:46Z",
       "mergedAt": null,
       "inclusionReason": "current_open_before_window",
       "effortGroup": "Older OpenMRS contribution",
       "effort": "Older OpenMRS contribution",
-      "currentSignal": "build / Prepare: SUCCESS; build / Build with Java 11: SUCCESS; build / Build with Java 17: SUCCESS; build / Build with Java 21: SUCCESS; build / Deploy SNAPSHOT to Maven: SKIPPED; owasp-dependency-check: SKIPPED; CodeRabbit: SUCCESS",
-      "nextAction": "Compare the unique delta with the active integration successor; keep, incorporate or close only after content is accounted for.",
+      "currentSignal": "Closed with a supersession comment; branch kept.",
+      "nextAction": "Closed 2026-09-14 by decision: #157 declares its three privileges in config.xml and does no startup provisioning; role binding is a deployment concern.",
       "mergeability": {
         "mergeable": false,
         "reportedState": "DIRTY",
@@ -5587,7 +5587,7 @@
       "relatedEffortIds": [
         "upstream.older_prs"
       ],
-      "metadataCheckedAt": "2026-09-12T18:10:00Z",
+      "metadataCheckedAt": "2026-09-15T05:17:43Z",
       "historicalMergeReview": {
         "reviewedAt": "2026-09-06",
         "headSha": "72c6a11f27b3144309884929defad485e3777612",
@@ -5607,7 +5607,7 @@
       "number": 20,
       "title": "feat(chat): multi-turn chat with frozen-session chart in stable prefix",
       "url": "https://github.com/openmrs/openmrs-module-chartsearchai/pull/20",
-      "state": "open",
+      "state": "closed",
       "draft": false,
       "author": "pmanko",
       "head": "multi-turn-chat",
@@ -5618,14 +5618,14 @@
       "baseSha": null,
       "mergeCommitSha": null,
       "createdAt": "2026-05-18T15:04:47Z",
-      "updatedAt": "2026-07-16T10:16:23Z",
-      "closedAt": null,
+      "updatedAt": "2026-09-15T05:16:48Z",
+      "closedAt": "2026-09-15T05:16:48Z",
       "mergedAt": null,
       "inclusionReason": "current_open_before_window",
       "effortGroup": "Older OpenMRS contribution",
       "effort": "Older OpenMRS contribution",
-      "currentSignal": "No hosted checks reported.",
-      "nextAction": "Compare the unique delta with the active integration successor; keep, incorporate or close only after content is accounted for.",
+      "currentSignal": "Closed with a supersession comment; branch kept.",
+      "nextAction": "Closed 2026-09-14 as superseded by #157 (ConversationService, /chat/new, GET /chat, /chat/stream). Frozen-session prompt prefix not carried: prefix reuse is deferred in the parity roadmap.",
       "mergeability": {
         "mergeable": false,
         "reportedState": "DIRTY",
@@ -5641,7 +5641,7 @@
       "relatedEffortIds": [
         "upstream.older_prs"
       ],
-      "metadataCheckedAt": "2026-09-12T18:10:00Z",
+      "metadataCheckedAt": "2026-09-15T05:17:43Z",
       "historicalMergeReview": {
         "reviewedAt": "2026-09-06",
         "headSha": "a89b33d165c38b4d72c4de00d6b3516ed3a34c28",
@@ -5661,7 +5661,7 @@
       "number": 19,
       "title": "fix(QueryStoreChartBuilder): access querystore-api reflectively, drop Maven dep",
       "url": "https://github.com/openmrs/openmrs-module-chartsearchai/pull/19",
-      "state": "open",
+      "state": "closed",
       "draft": false,
       "author": "pmanko",
       "head": "fix/optional-querystore-api",
@@ -5672,14 +5672,14 @@
       "baseSha": null,
       "mergeCommitSha": null,
       "createdAt": "2026-05-17T16:40:01Z",
-      "updatedAt": "2026-07-16T10:16:21Z",
-      "closedAt": null,
+      "updatedAt": "2026-09-15T05:16:50Z",
+      "closedAt": "2026-09-15T05:16:50Z",
       "mergedAt": null,
       "inclusionReason": "current_open_before_window",
       "effortGroup": "Older OpenMRS contribution",
       "effort": "Older OpenMRS contribution",
-      "currentSignal": "build / Prepare: SUCCESS; build / Build with Java 11: SUCCESS; build / Build with Java 17: SUCCESS; build / Build with Java 21: SUCCESS; build / Deploy SNAPSHOT to Maven: SKIPPED; owasp-dependency-check: SKIPPED; CodeRabbit: SUCCESS",
-      "nextAction": "Compare the unique delta with the active integration successor; keep, incorporate or close only after content is accounted for.",
+      "currentSignal": "Closed with a supersession comment; branch kept.",
+      "nextAction": "Closed 2026-09-14 by decision: the reflective querystore access was reverted to the typed bridge; #157 keeps the querystore-api dependency and proves the pair in CI.",
       "mergeability": {
         "mergeable": false,
         "reportedState": "DIRTY",
@@ -5738,7 +5738,7 @@
       "relatedEffortIds": [
         "upstream.older_prs"
       ],
-      "metadataCheckedAt": "2026-09-12T18:10:00Z",
+      "metadataCheckedAt": "2026-09-15T05:17:43Z",
       "historicalMergeReview": {
         "reviewedAt": "2026-09-06",
         "headSha": "bb5fba69076fc519570432a83a27557e531766dc",

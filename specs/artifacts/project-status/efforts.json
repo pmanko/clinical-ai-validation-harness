@@ -87,7 +87,7 @@
         "2026-09-14 I2: QueryStore #68 head d10e9e4; four hygiene findings fixed (ba6bfc1, d8c1e17, d10e9e4); reactor API 523 + OMOD 51 green; Java 8/11/17/21 CI green; unresolved threads waiting on us: 0 of 17."
       ],
       "acceptance": "Owner Signoff2 and Signoff3 remain pending in canonical record.",
-      "next_deliverable": "M1 continues: I3 audit and close the nine older PRs; I4 resync ChartSearchAI #157 once QueryStore #68 merges and its querystore-api SNAPSHOT publishes. Fork #33 held on its branch pending M2.",
+      "next_deliverable": "M1: I4 resync ChartSearchAI #157 once QueryStore #68 merges and its querystore-api SNAPSHOT publishes; I5 refresh ESM #23 if drifted. Fork #33 held on its branch pending M2.",
       "dependencies": [
         "harness.foundation",
         "harness.corpus",
@@ -1099,8 +1099,8 @@
     {
       "id": "upstream.older_prs",
       "title": "Resolve older open OpenMRS contributions",
-      "status": "Nine older contributions remain open; disposition required",
-      "next_deliverable": "Iteration I3 of the OpenMRS Upstream Merge Roadmap: confirm each of the nine PRs is subsumed by #157/#23 or deliberately dropped per the upstream inventory, then close with a supersession comment. Owner approval before remote disposition.",
+      "status": "Complete: all nine older contributions closed 2026-09-14 with content-based supersession comments",
+      "next_deliverable": "None. Two deltas were deliberately not carried and are recorded on the closed PRs: the frozen-session prompt prefix (#20, deferred by the parity roadmap) and runtime bundled-model swap (#22, outside the dual-provider design).",
       "acceptance": "No closure or supersession inferred from titles alone; retain useful unique work and obtain approval before remote disposition.",
       "sources": [
         "specs/artifacts/planning/openmrs-upstream-merge-roadmap.md",
@@ -1129,7 +1129,7 @@
         "https://github.com/openmrs/openmrs-module-querystore/pull/68",
         "https://github.com/openmrs/openmrs-module-querystore/pull/63"
       ],
-      "evidence": "All 12 owned upstream open PRs refreshed September 12: three active integration lines plus nine older candidates. No title-only closure."
+      "evidence": "2026-09-14 audit: no closed head is an ancestor of either integration branch (July rebuild); by content, none of their key classes exist on the integration heads (ModelSwitchService, RequestLlmOverride, QueryStoreClient, ChatService, ResponseBlock, LM Studio) while their successors do (ConversationService, ClinicalAnswerProviderRegistry, HubProfileService, /providers, /chat/*, provider-picker, hub-profile model-picker). Dispositions are on each closed PR."
     },
     {
       "id": "coordination.status_hub",
