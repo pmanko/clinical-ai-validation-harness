@@ -99,3 +99,19 @@ export function previewTypeErrors(file) {
     return invalid ? [`${name}: choose Text to preserve mixed values or identifiers, or correct the file.`] : [];
   });
 }
+
+// Illustrative summaries over the complete fictional file, never its first page.
+export function summarizePreview(file, { group = '', measure = 'count', value = '' }) {
+  if (!['count', 'sum', 'average'].includes(measure)) throw Error('Choose a supported summary.');
+  if (group !== '' && !file.headers[Number(group)]) throw Error('Choose a grouping column.');
+  if (measure !== 'count' && (value === '' || file.types[Number(value)] !== 'number')) throw Error('Choose a Number column for totals or averages.');
+  const groups = new Map();
+  for (const row of file.rows) {
+    const key = group === '' ? null : row[Number(group)];
+    const item = groups.get(key) || { label: key === null ? 'All records' : key === '' ? 'Not recorded' : key, count: 0, values: [] };
+    item.count++;
+    if (measure !== 'count' && row[Number(value)] !== '') item.values.push(Number(row[Number(value)]));
+    groups.set(key, item);
+  }
+  return [...groups.values()].map(item => ({ label: item.label, value: measure === 'count' ? item.count : item.values.length ? item.values.reduce((a, b) => a + b, 0) / (measure === 'average' ? item.values.length : 1) : null }));
+}

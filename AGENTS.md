@@ -8,8 +8,8 @@ For the four OpenELIS–Catalyst reporting pathways, first read
 scope and iteration sequence. Feature 008 remains the Catalyst delivery task
 register; native reporting stays in OpenELIS's existing specification and tasks.
 Do not create a specification family or checklist per pathway. PostgreSQL
-support and the CSV import/table foundation are merged. Raw-row grouping,
-runtime verification and four-pathway acceptance remain; existing AI-assisted
+support, CSV import/table support and the approved raw-row chart controls are
+merged. Integrated rendering, runtime verification and four-pathway acceptance remain; existing AI-assisted
 Widget/Dashboard design remains Follow-on A.
 
 For Catalyst, read these authorities in order:
