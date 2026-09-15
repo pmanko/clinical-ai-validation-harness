@@ -46,24 +46,27 @@ test. Run a bounded smoke per lane, record its first failing step, fix that
 integration, and repeat the path. This advances FP-003 through FP-009 without
 replacing full local/server acceptance. CSV tests do not depend on AI availability.
 
-Latest verified local deployment: harness #186 (`730b522`) and Catalyst #137
-(`182ba87`). Wrapper health passed and all 81 Datasets, 80 Widgets, 69 Dashboards
-and storage mounts remained exactly unchanged. Re-publication of the existing
-native CSV Dashboard imported bundle `2913597c66b995c518c957193268cf3e411d9ea2dc0d360f4a0cf21166be5e6b`.
-Superset chart 87 displays IDs 1154/1155 and value 450 for each, without the small
-file's unnecessary page-size/search controls. Screenshot inspection caught a
-false row-limit warning because the complete row count equalled the limit.
+Latest verified local deployment: harness #187 (`659190e`) and Catalyst #138
+(`364c5bc`). Wrapper health passed and the retained state remained at 82 Datasets,
+81 Widgets and 70 Dashboards. Re-publication of the existing native CSV Dashboard
+now imports bundle `7643b9ddbbc3b291237ec9cb87d555fef74f117cf85291c1db21a4827b7fe2f3`.
+Superset chart 89 displays IDs 1154/1155 and value 450 for each, without the small
+file's unnecessary page-size/search controls or false row-limit warning.
 
 [Catalyst #138](https://github.com/DIGI-UW/catalyst-ai/pull/138), merged as
 `364c5bc` with all five hosted checks passing, leaves one row of headroom above
-the immutable file count to avoid that warning. This harness change pins that
-merged revision. The 47 focused PostgreSQL import/publication checks pass at
-2, 100, 101 and 1,101 rows; #137's full Gateway suite passed 449 tests with one
-skip. The #138 deployment and final browser check remain pending. Larger tables
-retain server pagination; Superset's search selector still uses storage names,
-an upstream presentation limitation. Raw deployment, exact before/after state,
-receipt and screenshot live in the existing private evidence folder under
-`table-repair-*` and `table-publication-repair.json`.
+the immutable file count to avoid the false warning. This harness change pins the
+merged revision. The 47 focused PostgreSQL import/publication checks pass at 2,
+100, 101 and 1,101 rows; #137's full Gateway suite passed 449 tests with one
+skip. The deployed browser check now passes: the two-row Dashboard has no warning,
+and the 1,101-row QA Dashboard retains pagination and reaches `QA-1101` on page
+12 after re-publication (bundle
+`23edc5ea2987ec14e448a107a20abffdf904e8eb92b91796306ae5ac25e1d0c2d`).
+Larger tables retain server pagination; Superset's search selector still uses
+storage names, an upstream presentation limitation. Raw deployment, exact
+before/after state, receipts and screenshots live in the existing private evidence
+folder under `table-warning-*`, `qa-pagination-1101-*` and
+`table-publication-repair.json`.
 
 Server readiness, 15 September: the owning checkout is clean at harness
 `0befb80` / Catalyst `bb783c8`; the reporting UAT services are running separately.
@@ -78,7 +81,7 @@ this effort supplies verified evidence and current status records.
 | Lane | Observed working step | Next obstacle to resolve |
 | --- | --- | --- |
 | 1 | Fresh native May5 CSV uploaded through Superset's native API into Dataset 38. Browser-created table 80 preserves column order and IDs 1154/1155, both value 450; chart 81 groups by accession and counts 2. Dashboard 38 saves/reopens and its rendered screenshot was inspected. Earlier dashboard 32 remains a separate May6 interval example. | Native-file browser upload, raw table and grouped-count Dashboard now pass (Dashboard 40; details below). Broader fixtures, paced recording and server journey remain. |
-| 2 | Existing imported CSV retains both rows. Repaired publication now renders count 2, average 60 and total 120 in Superset; screenshots inspected. | Fresh native upload/type-recovery/save and browser chart/arrangement/publication smoke now pass (details below). Generic CSV browser checks pass in both themes and the native-file browser journey now reaches Superset (details below). Resolve the table-control display finding, then complete the paced recording, broader failures and server validation. |
+| 2 | Existing imported CSV retains both rows. Repaired publication renders IDs 1154/1155 with value 450 and no false warning; the 1,101-row regression table reaches its last row through pagination. Screenshots inspected. | Fresh native upload/type-recovery/save and browser chart/arrangement/publication smoke now pass (details below). Generic CSV browser checks pass in both themes and the native-file browser journey now reaches Superset (details below). Complete the paced recording, broader failures and server validation. |
 | 3 | `openelis-reporting` uses a restricted PostgreSQL reader and discovers all 380 readable relations. Browser schema search preserves the draft. Explicit manual execution returned IDs 1154/1155/1158/1159 with values 450; Dataset `1dd3de0a-6754-4cc2-9097-56a49cb3c8dd` saves and reopens with the correct source. Its table dashboard publishes/imports and renders all four exact rows in Superset. | Full-schema preparation now fits the E4B 98,304-token context. Four real model turns still chose the wrong relation or join; executed turns returned zero rows. Manual correction now passes through save/reopen, publication and exact Superset rendering. Complete the broader lane demonstration, server run and paced recording; retain model errors as limitations, not an accuracy gate. |
 | 4 | Existing Spark/HAPI services run. Native owner verified the reporting instance still points at an isolated loopback FHIR endpoint; Catalyst's existing endpoint requires its trusted client connection. | Native connection using the existing Catalyst network/certificates awaits approval in the native task, with metadata/readiness first. No seeding/backfill or real reporting FHIR emission has been performed. |
 
