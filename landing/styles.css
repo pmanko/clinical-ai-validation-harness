@@ -905,3 +905,6 @@ video:focus-visible {
 .pathway-limit { padding-top: 12px; border-top: 1px solid var(--line); }
 .pathways-status { margin: 28px 0 14px; color: var(--muted); }
 .earlier-walkthroughs { margin-top: 56px; }
+
+/* Resource links wrap on narrow screens. */
+.hub-links { display: flex; flex-wrap: wrap; gap: 12px 22px; }

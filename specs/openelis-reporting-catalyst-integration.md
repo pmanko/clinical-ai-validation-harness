@@ -305,9 +305,10 @@ and status links after verified publication.
 
 ### Review checkpoint: four pathways, videos and public explanation
 
-Iteration 8 is reviewable when the existing Catalyst section of
-`https://openclinai.org/` presents the four pathways together, with a brief
-overview and four independently watchable videos. Use the existing `landing/`
+Iteration 8 is reviewable when
+`https://openclinai.org/catalyst/reporting-pathways/` presents the four pathways
+together, with a brief overview and four independently watchable videos. The
+homepage introduces Catalyst; its project overview links to this reporting page. Use the existing `landing/`
 site and publication flow; do not create another tracker or documentation site.
 FP-010 owns this delivery, with FP-009 supplying the local validation.
 
@@ -331,12 +332,14 @@ Acceptance requires:
   Verify deployed HTML/media against the reviewed revisions and checksums.
 - Record the four journey results, publication verification and explicit owner
   acceptance separately in the existing task and acceptance records. Synchronize
-  the existing status dashboard to link here and to the live section. Keep raw
+  the existing status dashboard to link here and to the live reporting page. Keep raw
   recordings, traces and personal handoffs outside Git.
 
 A page draft or partial recording can be reviewed earlier, but does not close
-this checkpoint. As of 15 September, four final recordings and this public
-section are not published. The existing homepage source now has a draft explanation; earlier Catalyst videos remain live.
+this checkpoint. As of 15 September, four final recordings remain unpublished. The owner-approved
+website hierarchy and reporting page are delivered through website PR #184;
+earlier Catalyst videos remain labelled as earlier examples. Website sequence and acceptance
+live in `landing/README.md`; this roadmap retains four-pathway acceptance.
 
 ### Cross-pathway acceptance record
 
@@ -346,7 +349,7 @@ section are not published. The existing homepage source now has a draft explanat
 | Updated mock/spec owner review | Approved 14 September 2026 after local CSV journey review; Catalyst #128 merged as `5164449`. |
 | Lane 1 / 2 / 3 / 4 local proof | Pending; native stage evidence alone does not establish a lane. |
 | Four server journeys and rendered values | Pending. |
-| [Four-pathway videos and public explanation](#review-checkpoint-four-pathways-videos-and-public-explanation) | Pending: four final server recordings, openclinai.org section, playback/publication verification and owner review. Existing videos document earlier capabilities. |
+| [Four-pathway videos and public explanation](#review-checkpoint-four-pathways-videos-and-public-explanation) | Pending: four final server recordings, openclinai.org reporting page, playback/publication verification and owner review. Existing videos document earlier capabilities. |
 | Specification/dashboard consistency and owner acceptance | Pending final review. |
 
 Completion requires every line above, distinguishing implementation, merge,
