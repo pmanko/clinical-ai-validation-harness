@@ -24,7 +24,7 @@
       "title": "Catalyst",
       "status": "Four-pathway testing in progress",
       "summary": "Current Catalyst release evidence stays in its delivery register. The four-pathway initiative adds imported Datasets and ordinary PostgreSQL without duplicating the approved Workbench or AI-design roadmap.",
-      "evidence": "Native export recovered. Local CSV dashboard renders count 2, average 60 and total 120 after the chart-identity repair in Catalyst #135. Reporting PostgreSQL schema/manual query/save work; AI preparation exceeds model context. Native FHIR routing, complete local/server journeys and owner acceptance remain. Exact evidence is in the existing delivery register.",
+      "evidence": "Native export recovered. Local CSV dashboard renders count 2, average 60 and total 120 after the chart-identity repair merged in Catalyst #135. Reporting PostgreSQL schema/manual query/save/Superset table work; AI preparation exceeds model context. Native FHIR routing, complete local/server journeys and owner acceptance remain. Exact evidence is in the existing delivery register.",
       "actions": [
         [
           "Review the current delivery checkpoint",
@@ -37,7 +37,7 @@
       "title": "OpenELIS\u2013Catalyst reporting",
       "status": "Four-pathway testing in progress",
       "summary": "Native CSV/Superset, CSV imported into Catalyst, native PostgreSQL, and FHIR/Spark are complementary starting points. One roadmap coordinates the existing product efforts.",
-      "evidence": "Native export recovered. Local CSV dashboard renders count 2, average 60 and total 120 after the chart-identity repair in Catalyst #135. Reporting PostgreSQL schema/manual query/save work; AI preparation exceeds model context. Native FHIR routing, complete local/server journeys and owner acceptance remain. Exact evidence is in the existing delivery register.",
+      "evidence": "Native export recovered. Local CSV dashboard renders count 2, average 60 and total 120 after the chart-identity repair merged in Catalyst #135. Reporting PostgreSQL schema/manual query/save/Superset table work; AI preparation exceeds model context. Native FHIR routing, complete local/server journeys and owner acceptance remain. Exact evidence is in the existing delivery register.",
       "actions": [
         [
           "Open the parent roadmap",

@@ -40,16 +40,16 @@ integration, and repeat the path. This advances FP-003 through FP-009 without
 replacing full local/server acceptance. CSV tests do not depend on AI availability.
 
 Latest local check: retained checkout `~/code/catalyst-dev`, Catalyst `b90f95f`
-([repair PR #135](https://github.com/DIGI-UW/catalyst-ai/pull/135)); harness
+(merged as `387de1e` in [repair PR #135](https://github.com/DIGI-UW/catalyst-ai/pull/135)); harness
 integration remains in [PR #183](https://github.com/pmanko/clinical-ai-validation-harness/pull/183).
-Local testing uses those pending changes; neither server deployment nor owner
+Local testing used `b90f95f`; the checkout now pins its identical merged tree. Neither server deployment nor owner
 acceptance is claimed.
 
 | Lane | Observed working step | Next obstacle to resolve |
 | --- | --- | --- |
 | 1 | Native owner recovered the same reporting runtime and passed login/export checks, preserving repeated results and the four fixture records. UI is `http://127.0.0.1:18489/reports/custom-data-export`. Existing Superset dashboard 32 renders result 1158→30 and 1159→90. | Repeat the complete fresh export → native Superset upload journey after recovery. |
 | 2 | Existing imported CSV retains both rows. Repaired publication now renders count 2, average 60 and total 120 in Superset; screenshots inspected. | Repeat fresh upload/type review/save/chart flow and complete arrangement/failure/narrow-theme review. Grouped count rendering still needs its own settled check. |
-| 3 | `openelis-reporting` uses a restricted PostgreSQL reader and discovers all 380 readable relations. Browser schema search preserves the draft. Explicit manual execution returned IDs 1154/1155/1158/1159 with values 450; Dataset `1dd3de0a-6754-4cc2-9097-56a49cb3c8dd` saves and reopens with the correct source. | Model preparation rejects the complete schema: 63,582 input tokens exceed 24,576 configured context. Resolve model capacity, then prove question/refinement and publication. Manual execution does not complete that journey. |
+| 3 | `openelis-reporting` uses a restricted PostgreSQL reader and discovers all 380 readable relations. Browser schema search preserves the draft. Explicit manual execution returned IDs 1154/1155/1158/1159 with values 450; Dataset `1dd3de0a-6754-4cc2-9097-56a49cb3c8dd` saves and reopens with the correct source. Its table dashboard publishes/imports and renders all four exact rows in Superset. | Model preparation rejects the complete schema: 63,582 input tokens exceed 24,576 configured context. Resolve model capacity, then prove the complete question/refinement journey. Manual execution does not complete that journey. |
 | 4 | Existing Spark/HAPI services run. Native owner verified the reporting instance still points at an isolated loopback FHIR endpoint; Catalyst's existing endpoint requires its trusted client connection. | Native owner is connecting the retained app using the existing Catalyst network/certificates, with metadata/readiness first. No seeding/backfill or real reporting FHIR emission has been performed. |
 
 Retained services and model router were restored through existing launchers,
@@ -59,11 +59,15 @@ before router recovery and remains a product finding.
 
 Actual Superset reimport exposed an additional publication defect: dashboard
 import keeps existing chart UUIDs, so the SQL repair alone left old charts active.
-PR #135 includes the generated mapping in native chart identity, preserving the
+Merged PR #135 includes the generated mapping in native chart identity, preserving the
 Dashboard address and saved versions. The successful local import bundle digest
 is `ba09c4c8e75bf91c2adba6ab5c53c33e83cc2e3000f623f64fe4db9314cbc851`.
 The rendered CSV Dashboard is
 `http://localhost:18088/superset/dashboard/catalyst-913de3ca-ae7a-48aa-9f36-8b7421345b83/`.
+PostgreSQL table dashboard `955959c8-0b99-4bfd-991b-0523c32c4360` renders the
+four exact result/analysis/value rows (screenshot inspected), using bundle
+`ef96afe25250fb1739e6830bceb0c8c76e9474f6a25673abc96c00df4d47c67e`.
+All five Catalyst PR #135 CI checks passed before merge.
 Publication/fixture tests: 25 passed; focused lint/type/diff checks passed. The
 broader Gateway run had 419 passed, 25 skipped and the expected fixture mismatch;
 the regenerated fixture subsequently passed its focused checks. Raw evidence

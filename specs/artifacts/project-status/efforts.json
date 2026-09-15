@@ -1176,7 +1176,7 @@
         "https://github.com/DIGI-UW/catalyst-ai/pull/135",
         "https://github.com/pmanko/clinical-ai-validation-harness/pull/183"
       ],
-      "evidence": "Retained runtime restored without seeding. Native owner verified login/export. Catalyst discovers all 380 reporting relations; manual query returned all four retained records and saved/reopened its Dataset. Local Superset renders CSV count 2, average 60 and total 120 after the chart-identity repair in pending Catalyst #135. Full AI question path exceeds model context; native FHIR routing is being connected. See the existing task register for exact revisions and remaining acceptance."
+      "evidence": "Retained runtime restored without seeding. Native owner verified login/export. Catalyst discovers all 380 reporting relations; manual query returned all four retained records and saved/reopened its Dataset. Local Superset renders CSV count 2, average 60 and total 120 after the chart-identity repair in merged Catalyst #135. Full AI question path exceeds model context; native FHIR routing is being connected. See the existing task register for exact revisions and remaining acceptance."
     },
     {
       "last_checked": "2026-09-15",
@@ -1237,14 +1237,14 @@
       ],
       "id": "OE-lane-2",
       "title": "Lane 2 \u00b7 Imported Dataset in Catalyst",
-      "status": "CSV summaries render locally; chart-identity repair in review",
+      "status": "CSV summaries render locally; publication repair merged",
       "next_deliverable": "Repeat fresh upload/type-review/save/chart journey; finish grouped rendering, arrangement and server checks.",
       "dependencies": [
         "OE-native-reporting",
         "CAT-E11"
       ],
       "acceptance": "See the parent roadmap for this lane's exit criteria. Implementation, checks, merge, local/server proof and owner acceptance stay separate; no lane is currently accepted.",
-      "evidence": "Catalyst b90f95f republishes the retained two-row CSV dashboard with new native chart identities. Superset now renders IDs 1158/1159, intervals 30/90, count 2, average 60 and total 120; screenshot inspected. Import bundle ba09c4c8e75bf91c2adba6ab5c53c33e83cc2e3000f623f64fe4db9314cbc851. PR #135 is pending; neither server deployment nor owner acceptance is complete."
+      "evidence": "Catalyst b90f95f republishes the retained two-row CSV dashboard with new native chart identities. Superset now renders IDs 1158/1159, intervals 30/90, count 2, average 60 and total 120; screenshot inspected. Import bundle ba09c4c8e75bf91c2adba6ab5c53c33e83cc2e3000f623f64fe4db9314cbc851. PR #135 merged as 387de1e with all five CI checks passing; neither server deployment nor owner acceptance is complete."
     },
     {
       "last_checked": "2026-09-15",
@@ -1260,13 +1260,13 @@
       ],
       "id": "OE-lane-3",
       "title": "Lane 3 \u00b7 OpenELIS PostgreSQL in Catalyst",
-      "status": "Reporting source connected; manual query/save pass; AI context limit exposed",
-      "next_deliverable": "Resolve complete-schema model capacity, then run question/refinement and publish the native-source dashboard.",
+      "status": "Manual PostgreSQL query through Superset verified; AI context limit exposed",
+      "next_deliverable": "Resolve complete-schema model capacity, then prove question/refinement and the full native-source journey.",
       "dependencies": [
         "CAT-E11"
       ],
       "acceptance": "See the parent roadmap for this lane's exit criteria. Implementation, checks, merge, local/server proof and owner acceptance stay separate; no lane is currently accepted.",
-      "evidence": "Restricted openelis-reporting connection discovers 380 readable clinlims relations. Browser schema search retains the question. Manual execution returned result IDs1154/1155/1158/1159 with values450 and saved/reopened Dataset1dd3de0a-6754-4cc2-9097-56a49cb3c8dd. AI preparation fails because63582 input tokens exceed24576 configured context. Manual proof does not complete the question journey."
+      "evidence": "Restricted openelis-reporting connection discovers 380 readable clinlims relations. Browser schema search retains the question. Manual execution returned result IDs1154/1155/1158/1159 with values450 and saved/reopened Dataset1dd3de0a-6754-4cc2-9097-56a49cb3c8dd. AI preparation fails because63582 input tokens exceed24576 configured context. Manual proof does not complete the question journey. Its published table dashboard renders all four exact result/analysis/value rows through the configured reporting database; screenshot inspected. Full AI question/refinement remains unverified."
     },
     {
       "last_checked": "2026-09-15",
