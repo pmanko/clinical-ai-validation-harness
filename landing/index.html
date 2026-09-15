@@ -250,8 +250,57 @@
             <h2>Catalyst: from a question to a dashboard.</h2>
           </div>
           <p>
-            Ask a question, review the proposed query, and turn its results into saved tables, charts and dashboards. These local demonstrations use OpenELIS laboratory data and OpenMRS HIV data. Gemma 4 12B drafts each query and Qwen 2.5 14B reviews it; their findings are advisory, and you choose when to run the query. FHIR Data Pipes prepares the source data for the Spark SQL warehouse. The walkthroughs focus on the work you do in Catalyst.
+            Ask a question, review the proposed query, and turn its results into saved tables, charts and dashboards. The earlier local walkthroughs below use OpenELIS laboratory data and OpenMRS HIV data. Gemma 4 12B drafts each query and Qwen 2.5 14B reviews it; their findings are advisory, and you choose when to run the query. FHIR Data Pipes prepares the source data for the Spark SQL warehouse. The walkthroughs focus on the work you do in Catalyst.
           </p>
+        </div>
+        <section class="page-width reporting-pathways" id="reporting-pathways" aria-labelledby="reporting-pathways-title">
+          <p class="section-kicker">OpenELIS reporting · In progress</p>
+          <h3 id="reporting-pathways-title">Four ways from laboratory records to a dashboard.</h3>
+          <p class="pathways-intro">Start with a report you already know, or ask a new question. These pathways serve different needs: they are complementary choices, not equivalent alternatives to rank. OpenELIS reporting works independently of Catalyst and AI.</p>
+          <div class="video-grid">
+            <article class="video-item" id="reporting-path-1">
+              <div>
+                <p class="video-meta">Path 1 · Export and visualize</p>
+                <h4>Use a familiar OpenELIS report</h4>
+                <p class="pathway-flow">OpenELIS report builder → CSV → Superset</p>
+                <p>Choose fields and filters, generate a CSV, then upload it into Superset to build a table, chart and dashboard. No Catalyst or AI step is required.</p>
+                <p class="pathway-limit"><strong>Data:</strong> a snapshot for the selected reporting period. Export and upload again when you need a new snapshot.</p>
+              </div>
+            </article>
+            <article class="video-item" id="reporting-path-2">
+              <div>
+                <p class="video-meta">Path 2 · Bring your report</p>
+                <h4>Build on a CSV in Catalyst</h4>
+                <p class="pathway-flow">OpenELIS report builder → CSV → Catalyst → Superset</p>
+                <p>Upload the report, review its columns and types, and save a Dataset. Create charts, arrange a dashboard and publish it to Superset without writing SQL.</p>
+                <p class="pathway-limit"><strong>Data:</strong> an imported snapshot with a saved version. A later file does not silently replace an existing published report.</p>
+              </div>
+            </article>
+            <article class="video-item" id="reporting-path-3">
+              <div>
+                <p class="video-meta">Path 3 · Ask the database</p>
+                <h4>Explore OpenELIS directly</h4>
+                <p class="pathway-flow">OpenELIS PostgreSQL → Catalyst → Superset</p>
+                <p>Browse available data, ask and refine a question, review the proposed SQL and choose when to run it. Save the result as a Dataset, then build and publish a dashboard.</p>
+                <p class="pathway-limit"><strong>Data:</strong> queried from the connected operational database. This avoids a file export; results depend on the query and when it runs.</p>
+              </div>
+            </article>
+            <article class="video-item" id="reporting-path-4">
+              <div>
+                <p class="video-meta">Path 4 · Ask the reporting warehouse</p>
+                <h4>Explore the FHIR reporting source</h4>
+                <p class="pathway-flow">OpenELIS FHIR → Data Pipes / Spark → Catalyst → Superset</p>
+                <p>Use the same question, review and dashboard workflow over the FHIR reporting source. The pipeline prepares OpenELIS FHIR data for SQL analysis.</p>
+                <p class="pathway-limit"><strong>Data:</strong> limited to what OpenELIS exports to FHIR and the latest pipeline refresh. Coverage and freshness can differ from the operational database.</p>
+              </div>
+            </article>
+          </div>
+          <p class="pathways-status"><strong>Four-pathway videos are in preparation.</strong> Partial local checks are available; complete server journeys and owner acceptance remain open. Each pathway will have its own recording here once verified. The applications currently use their existing sign-ins; shared sign-in and equivalent per-user access are separately planned.</p>
+          <a class="text-link" href="https://github.com/pmanko/clinical-ai-validation-harness/blob/main/specs/openelis-reporting-catalyst-integration.md">Reporting roadmap and evidence <span aria-hidden="true">↗</span></a>
+        </section>
+        <div class="page-width earlier-walkthroughs">
+          <h3>Earlier Catalyst walkthroughs</h3>
+          <p>These recordings show earlier local query-to-dashboard journeys. They are separate from the four-pathway demonstrations above.</p>
         </div>
         <div class="page-width hub-links">
           <a class="text-link" href="/catalyst/questions/">Explore short videos by question <span aria-hidden="true">→</span></a>

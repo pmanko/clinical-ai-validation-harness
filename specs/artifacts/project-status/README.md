@@ -3,15 +3,15 @@
 [Open the dashboard](https://pmanko.github.io/clinical-ai-validation-harness/status/)
 for the visual overview, searchable PR inventory and linked detail panels.
 
-**Four-pathway reporting refreshed 14 September 2026.** Other inventory
+**Four-pathway reporting refreshed 15 September 2026.** Other inventory
 entries retain their individual evidence dates. This is a maintained snapshot,
 not a live GitHub feed. Product requirements and acceptance stay in their existing
 specifications.
 
 | Current work | Next checkpoint | Authority |
 | --- | --- | --- |
-| Catalyst | Imported Dataset/table support is verified in the retained local runtime and native Superset. Upload repair #132 merged; approved chart controls merged in #133. Rendered summaries and final acceptance remain. | [Catalyst delivery plan](../../008-catalyst-query-workbench/plan.md) and [shared tasks](../../008-catalyst-query-workbench/tasks.md#four-pathway-delivery). Existing AI-design Follow-on A is retained. |
-| OpenELIS–Catalyst reporting | Four complementary pathways approved; native reporting retains its implementation/UAT owner. The imported chart mock extension is approved; complete source handoffs, local/server journeys and owner acceptance remain. | [Parent reporting roadmap](../../openelis-reporting-catalyst-integration.md), with native reporting and Catalyst task links. No per-lane specification family or duplicate checklist. |
+| Catalyst | Imported Dataset/table and chart controls are integrated locally. Native Superset count 2, average 60 and pagination past 100 rows are verified. Catalyst #134 repairs the discovered ungrouped-total publication defect; exact pin/deployment, total 120 and final acceptance remain. | [Catalyst delivery plan](../../008-catalyst-query-workbench/plan.md) and [shared tasks](../../008-catalyst-query-workbench/tasks.md#four-pathway-delivery). Existing AI-design Follow-on A is retained. |
+| OpenELIS–Catalyst reporting | Four complementary pathways approved; native reporting retains its implementation/UAT owner. Lane 2 is in local rendered-value validation; complete native-source/FHIR handoffs, local/server journeys and owner acceptance remain. | [Parent reporting roadmap](../../openelis-reporting-catalyst-integration.md), with native reporting and Catalyst task links. No per-lane specification family or duplicate checklist. |
 | ChartSearchAI | Reconcile upstream backend #157, retain frontend #23 and QueryStore #68, then complete current-revision provider acceptance. | [Dual-provider roadmap](../planning/openmrs-dual-provider-parity-roadmap.md). |
 | PR cleanup | Nine older OpenMRS contributions need content-based disposition. Contributor setup #33 → #148 and the older OpenELIS stacks retain explicit dependency order. | [September 12 PR review](reviews/2026-09-12.md). |
 

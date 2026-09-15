@@ -21,10 +21,10 @@ their own scope. Plan approval does not mark implementation or acceptance done.
 | FP-004 | Ordinary PostgreSQL connection, complete readable catalog, parameters/types/bounds, editor, native question/refinement/Run/save/reopen. Reuse compatible history; retain Spark behavior and no relation allowlist. | Connection/catalog/types/bounds and editor implemented in Catalyst #129; native workflow integration remains | 389 Gateway tests including real PostgreSQL, 302 UI, 17 browser and 57 assembly tests passed; all five hosted checks green | Catalyst #129 merged as 6513c88 | Code deployed locally at c91ae23 with harness a988bb8; native-source connection and full lane proof remain | Pending |
 | FP-005 | Resolve publication by actual Dataset backing connection and declared dialect. Preserve exact saved artifacts, deterministic bundles, retry/receipts and verify PostgreSQL/Spark rendering. | Query-backed source resolution and dialect-aware compiler merged in Catalyst #130; imported-file publication follows FP-006 | 403 Gateway tests including real PostgreSQL, 50 final focused checks, legacy bundle byte parity and all five CI checks pass at 6ad1d09 | Catalyst #130 merged as 3b8882f | Code deployed locally at c91ae23; imported table rendering verified below; native query-backed rendering remains | Pending |
 | FP-006 | Add origin-aware Dataset contracts and CSV upload/review/confirmation with durable import storage. Verify types/order/values, no fabricated SQL, invalid/empty/interrupted import, retry, reload/restart and existing saved artifacts. | CSV upload/type review, durable drafts, immutable PostgreSQL storage and raw-table publication implemented in Catalyst #131; grouping remains FP-007 | Latest 70 focused backend checks including real PostgreSQL, 306 UI checks across full/retry runs, real Gateway import browser journeys in light/dark; desktop/narrow screenshots inspected; all five hosted checks pass at 0011cd7 | Catalyst #131 merged as c91ae23; upload-size repair #132 merged as 4d41978 with all five checks green | Retained local a988bb8/c91ae23 verified through wrapper health, unchanged mounts/ports and both-theme browser checks. Native May6 CSV yields exact 1158→30 and 1159→90 rows in Catalyst and Superset chart 65. Server and broader fixtures remain | Pending |
-| FP-007 | Shared meaningful chart controls over imported rows, including grouping/counts. Verify values, immutable versions, saved arrangement and publication without required SQL interaction. | Approved controls and aligned mock/contracts implemented in Catalyst #133; count/total/average, grouping/split and immutable choices | 440 Gateway checks pass (one optional live Spark skip), 309 UI checks pass, final 26 component checks pass, real Gateway/PostgreSQL five CSV/browser checks pass; five edited-document links, build and static checks pass | #133 merged as f548e04; all five hosted checks pass at ded1c06 | Development browser screenshots inspected in both themes and desktop/narrow; native Superset summary rendering and retained/server update remain | Chart-control design approved 14 September; application/lane acceptance pending |
+| FP-007 | Shared meaningful chart controls over imported rows, including grouping/counts. Verify values, immutable versions, saved arrangement and publication without required SQL interaction. | Approved controls and aligned mock/contracts implemented in Catalyst #133; #134 repairs PostgreSQL publication for an ungrouped whole-file summary and advances its mapping revision | #133: 440 Gateway, 309 UI, 26 component and five real CSV/browser checks. #134: 443 Gateway checks against PostgreSQL plus all five hosted checks; count/sum/average regression uses 122 persisted rows beyond the preview bound | #133 merged as f548e04; #134 merged as a15ecb8 | Retained runtime at harness f0ff2c7/Catalyst f548e04 preserves saved artifacts. Native Superset shows count 2 and average 60; ungrouped total exposed the repaired adapter defect. A 101-row table proves native pagination. Apply a15ecb8 and verify total 120 plus retained results next | Chart-control design approved 14 September; application/lane acceptance pending |
 | FP-008 | Consume the reporting instance's real FHIR output through existing Data Pipes/Spark; verify useful query/Dataset/dashboard, record provenance and explain coverage/freshness differences. | Existing reference path; reporting-instance emission/routing pending | None of the four known reporting Observation IDs found in local Catalyst HAPI; native owner has no emission proof | Pending | Existing separate cohort is not reporting-instance parity | Pending |
 | FP-009 | Exercise four complete local journeys, compare approved mocks at desktop/narrow and light/dark, inspect rendered values, retain drafts/state, record findings and owner review. | Pending | Pending | Pending | Pending | Pending |
-| FP-010 | Deploy compatible reviewed revisions with existing lifecycle tools and retained data; prove four server journeys, pace/review recordings, synchronize public references and reconcile all authoritative documents. | Pending | Pending | Pending | Pending | Pending |
+| FP-010 | Deploy compatible reviewed revisions with retained data; prove four server journeys and deliver the [four-pathway videos and openclinai.org review checkpoint](../openelis-reporting-catalyst-integration.md#review-checkpoint-four-pathways-videos-and-public-explanation), including readable recordings, live playback, local evidence links and reconciled authoritative documents. | Existing homepage draft explains four pathways and separates earlier videos; four new recordings remain pending | 10 landing tests passed; desktop and 390px review-frame screenshots inspected | Homepage draft in harness #183 | Local preview only; public section/server recordings pending | Pending |
 
 AI-assisted Widget/Dashboard refinement remains the existing
 [Follow-on A](#follow-on-milestones-after-current-delivery), not another task
@@ -32,29 +32,171 @@ family here. Its context must support both Dataset origins; file imports must
 not acquire fabricated SQL provenance. Shared identity/per-user authorization
 remain a later production milestone in the integration roadmap.
 
+## Immediate four-pathway test checkpoint
+
+Owner direction, 15 September: prioritize four runnable paths for a short owner
+test. Run a bounded smoke per lane, record its first failing step, fix that
+integration, and repeat the path. This advances FP-003 through FP-009 without
+replacing full local/server acceptance. CSV tests do not depend on AI availability.
+
+Latest local check: retained checkout `~/code/catalyst-dev`, Catalyst `b90f95f`
+(merged as `387de1e` in [repair PR #135](https://github.com/DIGI-UW/catalyst-ai/pull/135)); harness
+integration remains in [PR #183](https://github.com/pmanko/clinical-ai-validation-harness/pull/183).
+Local testing used `b90f95f`; the checkout now pins its identical merged tree. Neither server deployment nor owner
+acceptance is claimed.
+
+| Lane | Observed working step | Next obstacle to resolve |
+| --- | --- | --- |
+| 1 | Fresh native May5 CSV uploaded through Superset's native API into Dataset 38. Browser-created table 80 preserves column order and IDs 1154/1155, both value 450; chart 81 groups by accession and counts 2. Dashboard 38 saves/reopens and its rendered screenshot was inspected. Earlier dashboard 32 remains a separate May6 interval example. | Browser file attachment, broader fixtures, paced recording and server journey remain. API upload is partial evidence, not the complete recorded user journey. |
+| 2 | Existing imported CSV retains both rows. Repaired publication now renders count 2, average 60 and total 120 in Superset; screenshots inspected. | Fresh native upload/type-recovery/save and browser chart/arrangement/publication smoke now pass (details below). Generic CSV browser checks now pass in both themes. The complete native-file recording, remaining visual review, broader failures and server validation remain. |
+| 3 | `openelis-reporting` uses a restricted PostgreSQL reader and discovers all 380 readable relations. Browser schema search preserves the draft. Explicit manual execution returned IDs 1154/1155/1158/1159 with values 450; Dataset `1dd3de0a-6754-4cc2-9097-56a49cb3c8dd` saves and reopens with the correct source. Its table dashboard publishes/imports and renders all four exact rows in Superset. | Full-schema preparation now fits the E4B 98,304-token context. Four real model turns still chose the wrong relation or join; executed turns returned zero rows. Resolve query quality and prove question/refinement; manual execution does not complete that journey. |
+| 4 | Existing Spark/HAPI services run. Native owner verified the reporting instance still points at an isolated loopback FHIR endpoint; Catalyst's existing endpoint requires its trusted client connection. | Native connection using the existing Catalyst network/certificates awaits approval in the native task, with metadata/readiness first. No seeding/backfill or real reporting FHIR emission has been performed. |
+
+Retained services and model router were restored through existing launchers,
+without seeding or replacing data. A newly opened manual session still requires
+an available model profile; the unavailable-profile response was reproduced
+before router recovery and remains a product finding.
+
+Actual Superset reimport exposed an additional publication defect: dashboard
+import keeps existing chart UUIDs, so the SQL repair alone left old charts active.
+Merged PR #135 includes the generated mapping in native chart identity, preserving the
+Dashboard address and saved versions. The successful local import bundle digest
+is `ba09c4c8e75bf91c2adba6ab5c53c33e83cc2e3000f623f64fe4db9314cbc851`.
+The rendered CSV Dashboard is
+`http://localhost:18088/superset/dashboard/catalyst-913de3ca-ae7a-48aa-9f36-8b7421345b83/`.
+PostgreSQL table dashboard `955959c8-0b99-4bfd-991b-0523c32c4360` renders the
+four exact result/analysis/value rows (screenshot inspected), using bundle
+`ef96afe25250fb1739e6830bceb0c8c76e9474f6a25673abc96c00df4d47c67e`.
+All five Catalyst PR #135 CI checks passed before merge.
+Publication/fixture tests: 25 passed; focused lint/type/diff checks passed. The
+broader Gateway run had 419 passed, 25 skipped and the expected fixture mismatch;
+the regenerated fixture subsequently passed its focused checks. Raw evidence
+and runtime credentials remain outside Git. Repository-wide OpenMRS CI is owned
+by its separate effort and is not being repaired in this Catalyst task.
+
+Fresh native Superset lane-1 smoke (15 September) uses the same May5 CSV and
+checksum as lane 2 below. The supported native upload endpoint returned 201;
+the dedicated Reporting CSV uploads connection created
+`report_uploads.oe_native_may5_c6ace949`, Dataset `38`. Identifier columns remain
+text and the value column is numeric. Browser controls created/saved raw table
+`80` and grouped-count chart `81`; reopening
+`http://localhost:18088/superset/dashboard/38/` restored both exact result rows
+and count 2. The visible screenshot was inspected. The dashboard remains a local
+Superset draft; this is not public publication or owner acceptance. File-picker
+automation remains unsupported in the current browser-control surface.
+
+Fresh native-file lane-2 smoke (15 September): the recovered native detailed CSV
+`reporting-detailed-2026-05-05.csv` has SHA-256
+`c6ace94933a1e2377d28d3d89bf96995e46474b0009c6594c8eece8e1cad56f4`.
+The application upload API accepted those exact bytes; invalid numeric conversion
+was rejected at confirm, retained its draft/error, and succeeded after type
+correction. Identical confirmation retry retained Dataset version
+`2072efc1-129b-4c4d-acb9-6f4a0c5fcd06`. Every returned value and column matched
+the file, preserving the two distinct repeated result records.
+
+Browser review then opened that Dataset, saved a full-row table and a record-count
+chart grouped by accession, retained the chart draft across close/reopen, and
+saved/reopened table-first order with full/half-row widths. Explicit browser
+publication showed Bundle ready before the operator import and Imported/Open
+Superset afterward. Dashboard `d050f4a1-e68a-4d39-b722-0f990f62e94b` renders both
+native rows and grouped count 2, with the saved layout; screenshot inspected.
+Import bundle: `55b3a1ff5fe8d5369a992a390ef42865a1f6592db01e9dbf0b8c068789a7be93`.
+No SQL or model request was needed for the import/chart/dashboard path. The
+browser-control surface does not support file attachment, so initial upload/type
+review/save used the actual application endpoints, not browser controls. The
+subsequent generic CSV browser regression below covers file selection; a complete
+native-file browser recording remains outstanding.
+
+PostgreSQL model smoke (15 September): the existing Faster question preparation
+profile used Gemma E4B with a scoped 98,304-token serving context; other presets
+and the product default were unchanged. All 380 readable relations remain in the
+request. The cached model limit is 131,072; Qwen 14B remains at its existing
+24,576 serving context. The 27 router-policy, 12 status-renderer and five dashboard model tests pass;
+the production status build, documentation drift and diff checks pass.
+
+Session `0dd94174-67aa-4c18-8dea-4235f98e7277` preserves four real model turns.
+The first used 63,561 prompt tokens and 141.8 seconds across model invocations;
+subsequent turns used 65,941–67,183 tokens and 16.8–25.2 seconds. Full rendered
+request evidence confirms the current refinement and all relations reached the
+model without truncation. Capacity is resolved for this tested profile, but
+query quality is not: the first query selected analyzer messages; the first
+refinement retained that relation. Explicit analyst join guidance changed to
+laboratory results but incorrectly joined sample_item.sampitem_id instead of
+sample_item.id. A targeted correction still retained the wrong join. Explicit
+browser execution of turns 1, 3 and 4 returned zero rows; turn 2 was not executed.
+No SQL was manually replaced in this session and no successful Dataset is claimed.
+
+PostgreSQL discovery currently supplies readable columns/types/comments but no
+foreign-key relationship metadata. This is an observed enrichment gap to assess,
+not proof that adding it alone will fix model behavior. Retain this failed case
+when validating any remedy. [Catalyst #136](https://github.com/DIGI-UW/catalyst-ai/pull/136)
+adds declared foreign-key joins to the existing relationship context while keeping
+all readable relations and excluding partially readable keys. Its 21 focused
+checks and full Gateway suite (446 passed, one skip) pass against disposable
+PostgreSQL. A read-only check of the reporting source exposes 525 declared
+relationships across the same 380 relations. All five hosted checks passed and
+#136 merged as `a385f5e`; harness #183 pins that exact revision. The enriched
+initial prompt measures 83,348 tokens (85,396 with output allowance), within the
+98,304 serving context. Deployment and the repeated model journey remain pending;
+metadata coverage alone does not close FP-004.
+Exact requests remain in local generation evidence;
+raw inspection copies are outside Git. Managed router startup also timed out;
+the existing foreground launcher is serving successfully, but durable startup
+has not been verified. FHIR connection remains pending the native task's approval
+review; normal reporting emission has not run. Four-pathway and server acceptance
+remain open.
+
+CSV browser regression (15 September): the existing `e2e/csv-import.spec.ts`
+suite ran against the retained local demo through its real web proxy and Gateway.
+All five tests passed. File selection, invalid-type correction, retained question
+and import drafts, immutable Dataset reload, saved chart settings, and upload
+bounds were exercised; light/dark desktop and 390px screenshots were captured.
+Reviewed screenshots show readable import controls and visible narrow-screen
+save/close actions. The narrow result table is wider than its panel; a transient
+save notification overlaps File details in the immediate capture, so final
+recordings must wait for it to clear before demonstrating that disclosure.
+Raw videos/traces/screenshots are outside Git. This closes the earlier generic
+browser-file-selection uncertainty; the complete native-file-to-Superset recorded
+journey and final visual/owner review remain open. These fast regression clips
+are not the paced four server demonstrations.
+
+Harness integration gate: the OpenMRS owning task supplied the canonical pair
+ChartSearchAI `58d1c797` / QueryStore `cfced363`, including the test constructor
+compatibility repair, after a successful paired Maven build (2,126 API tests,
+57 existing skips; 198 OMOD tests; no failures/errors). Harness #183 incorporates
+those exact pins; its own source-pair CI must pass before merge. Upstream
+ChartSearchAI PR #157 still has a separate merge conflict and is not being
+published/merged as part of this Catalyst checkpoint.
+
 ## Current local reporting checkpoint
 
-On 14 September, the retained local stack was updated through the lifecycle
-wrapper to harness `a988bb8b34c4d67f94e878bbc1eed8b4d20be030` and Catalyst
-`c91ae23260df31520c453741b7892b5223217b44`. Health and strict repository checks
-passed; retained mount destinations and ports matched the pre-update receipt.
+On 15 September, the retained local stack was updated through the lifecycle
+wrapper to harness `f0ff2c74b5f50a1415f90961a6648937cefddc13` and Catalyst
+`f548e04d4dcc4220ff211b7783fa5a842cb40127`. Health and strict repository checks
+passed; retained mount destinations, ports, 72 Datasets, 67 Widgets and 64
+Dashboards matched the pre-update receipt.
 The same native May6 CSV used for lane 1 was imported through Catalyst and
 published through the owning checkout's native Superset importer. Dataset
-`fa8461c3-9297-42f1-8bbf-3be9f6880192` and chart 65 preserve the two distinct
+`30d520f1-460e-475d-98d9-56596233efad` and its detailed table preserve the two distinct
 results: IDs 1158/1159, values 450/450 and intervals 30/90. The file checksum is
 `ed64b5bd7a084f56d0bc712f8305dcb41eca90ffbe73a45cf3f0f125a2e38680`.
-The [local imported table](http://localhost:18088/superset/dashboard/catalyst-a3aaa076-de9c-461e-a291-3cac2c46736d/)
-was inspected alongside Catalyst's saved rows. Raw receipts/screenshots remain
-outside Git. This verifies the table foundation, not complete lane acceptance.
+The local Superset dashboard was inspected alongside Catalyst's saved rows.
+Count renders as 2 and grouped average as 60. A separate 101-row imported table
+renders rows 1–100 and row 101 on its second page, proving the configured bound
+does not hide later rows. Raw receipts/screenshots remain outside Git. This is
+local validation, not server or owner acceptance.
 
-Two observed presentation findings stay with FP-007: native Superset's small
+Two presentation findings stay with FP-007: native Superset's small
 raw table shows “0 entries per page” despite a saved page size of 100, and its
-search selector shows the physical field name. Check native pagination beyond
-100 rows and readable labels during the summary-chart proof. The local proxy
-also rejected supported files above 1 MB; merged Catalyst #132 corrects its limit.
-The runtime still needs that repair applied at this record's checkpoint. The
-new chart controls were approved separately and merged in #133; server deployment,
-four complete pathways and final owner acceptance remain open.
+search selector shows the physical field name. Pagination itself is verified
+above. The local proxy now accepts supported files above 1 MB and retains an
+actionable response above 10 MB. The summary run also exposed one functional
+finding: an ungrouped total emitted a bare text constant that PostgreSQL treated
+as an invalid grouping position. Catalyst #134 changes that axis to an explicit
+text expression and advances the imported-summary mapping revision; its 443-test
+Gateway suite and all five hosted jobs pass. Pin, deploy and verify the expected
+total of 120 next. Server deployment, four complete pathways and final owner
+acceptance remain open.
 
 ## Next owner checkpoint
 

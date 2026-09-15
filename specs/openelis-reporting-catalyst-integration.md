@@ -9,7 +9,10 @@ CSV-to-Superset example is verified; Catalyst #129/#130/#131 now provide
 PostgreSQL, source-aware query publication and imported-Dataset/table support.
 The compatible local runtime and native imported table rendering are now verified.
 The approved grouping/count/total/average controls are merged in Catalyst
-#133 (`f548e04`), with native Superset summary rendering and integration still ahead. This is the parent roadmap; mock approval does not
+#133 (`f548e04`). Local native count and average rendering passed, while total
+rendering exposed a PostgreSQL grouping defect in the publication adapter.
+Catalyst #134 repairs that boundary and is merged as `a15ecb8`; exact harness
+integration and post-repair rendering remain. This is the parent roadmap; mock approval does not
 establish application implementation, deployment or final acceptance.
 
 ## Outcome
@@ -119,9 +122,9 @@ This is the sole cross-project sequence. Detailed tasks stay in linked registers
 | 0. Consolidate and establish authority | Persist direction, reconcile work, remove competing sequences without losing requirements, refresh dashboard references. | Harness #173 and Catalyst #127 merged; native cleanup retains its owner. FP-001. |
 | 1. Align mocks and contracts | Interactive CSV import/review and PostgreSQL source journeys reuse approved styles; failure/recovery and saved work represented; specs agree and owner reviews additions. | Catalyst #127/#128 merged; all five checks pass on #128 head `9728294`; owner approved additions for implementation on 14 September. FP-002. |
 | 2. Reporting example and lane 1 | Native saved-report rerun and real CSV → Superset table plus meaningful summary chart; inspect values, repeated results and dates. Begin FHIR coverage check. | Local native saved-period rerun and CSV upload/table/chart verified; broader fixture and server proof remain. Native milestones plus FP-003. |
-| 3. PostgreSQL and lane 3 | Full readable schema, question/refinement, explicit Run, save/reopen, publish and rendered Superset; Spark regression passes. | PostgreSQL connection/editor support merged in Catalyst #129; query-backed publication merged in #130. Real native workflow, deployment and rendered results remain. FP-004 and FP-005. |
+| 3. PostgreSQL and lane 3 | Full readable schema, question/refinement, explicit Run, save/reopen, publish and rendered Superset; Spark regression passes. | Connection/editor and publication support are merged. Local manual query/save/Superset proof passes; full-schema model preparation fits, but query/refinement accuracy still fails. Declared relationship metadata repair merged in Catalyst #136; deployment and the repeated question test remain. FP-004 and FP-005 own detailed evidence. |
 | 4. Imported Dataset foundation | Lane-1 CSV uploads/reviews/saves without SQL; values/order/types survive reload/restart; retry works and a table publishes. | Catalyst #131 merged and verified in the retained local stack, including the same native CSV and Superset table. Upload repair #132 merged; server and broader fixture acceptance remain. FP-006 and FP-005. |
-| 5. Lane 2 visualization | Correct grouping/aggregation, saved/restored arrangement and rendered publication without SQL interaction. | Owner approved chart controls; Catalyst #133 merged as f548e04 with all five hosted checks passing. Integrated runtime and native rendered summaries remain. FP-007. |
+| 5. Lane 2 visualization | Correct grouping/aggregation, saved/restored arrangement and rendered publication without SQL interaction. | Catalyst #133–#135 are integrated locally. Native count 2, average 60 and total 120 render after grouping/chart-identity repairs; a 101-row table proves pagination. Fresh native CSV error recovery and saved chart/arrangement/publication checks pass. Browser file attachment, broader fixtures and server acceptance remain. FP-007 owns detailed evidence. |
 | 6. Lane 4 | Actual reporting-instance FHIR output reaches the existing pipeline; useful Dataset/dashboard, traceable records, coverage and freshness. | Pending; FP-008. |
 | 7. Complete local review | Four real journeys, desktop/narrow light/dark mock comparison, retained state, owner feedback and unresolved findings. | Pending; FP-009. |
 | 8. Server demonstration and closeout | Compatible reviewed revisions, four server journeys, verified rendered data, paced recordings, current references and owner acceptance. | Pending; FP-010. |
@@ -275,6 +278,40 @@ through holds, label accelerated waits, avoid covering relevant content and
 watch final cuts at normal speed. Synchronize public videos/posters, review hub
 and status links after verified publication.
 
+### Review checkpoint: four pathways, videos and public explanation
+
+Iteration 8 is reviewable when the existing Catalyst section of
+`https://openclinai.org/` presents the four pathways together, with a brief
+overview and four independently watchable videos. Use the existing `landing/`
+site and publication flow; do not create another tracker or documentation site.
+FP-010 owns this delivery, with FP-009 supplying the local validation.
+
+Acceptance requires:
+
+- Each pathway explains its starting point, complete journey, when it is useful,
+  and its data coverage/freshness limits. Present complementary choices without
+  ranking them as equivalent alternatives.
+- Each of the four pathway entries embeds its own verified server recording,
+  with playback controls, a descriptive poster, duration and readable transcript
+  or step summary. Clearly identify the environment and link the corresponding
+  local proof. Existing earlier walkthroughs remain labeled as earlier examples,
+  not evidence that these four journeys passed.
+- The videos show the actual lane-specific steps through rendered Superset
+  results, including file upload for lanes 1 and 2 and model question/refinement
+  plus explicit execution for lanes 3 and 4. API-only upload checks and manual SQL
+  are useful partial evidence, not substitutes for those recorded journeys.
+- The pacing rules above pass normal-speed viewing. The published page works on
+  desktop and narrow screens; all four videos, posters and evidence links load.
+  Verify deployed HTML/media against the reviewed revisions and checksums.
+- Record the four journey results, publication verification and explicit owner
+  acceptance separately in the existing task and acceptance records. Synchronize
+  the existing status dashboard to link here and to the live section. Keep raw
+  recordings, traces and personal handoffs outside Git.
+
+A page draft or partial recording can be reviewed earlier, but does not close
+this checkpoint. As of 15 September, four final recordings and this public
+section are not published. The existing homepage source now has a draft explanation; earlier Catalyst videos remain live.
+
 ### Cross-pathway acceptance record
 
 | Evidence | Current state |
@@ -283,7 +320,7 @@ and status links after verified publication.
 | Updated mock/spec owner review | Approved 14 September 2026 after local CSV journey review; Catalyst #128 merged as `5164449`. |
 | Lane 1 / 2 / 3 / 4 local proof | Pending; native stage evidence alone does not establish a lane. |
 | Four server journeys and rendered values | Pending. |
-| Paced videos and public references | Pending. Existing videos document earlier capabilities. |
+| [Four-pathway videos and public explanation](#review-checkpoint-four-pathways-videos-and-public-explanation) | Pending: four final server recordings, openclinai.org section, playback/publication verification and owner review. Existing videos document earlier capabilities. |
 | Specification/dashboard consistency and owner acceptance | Pending final review. |
 
 Completion requires every line above, distinguishing implementation, merge,
