@@ -47,7 +47,7 @@ acceptance is claimed.
 
 | Lane | Observed working step | Next obstacle to resolve |
 | --- | --- | --- |
-| 1 | Native owner recovered the same reporting runtime and passed login/export checks, preserving repeated results and the four fixture records. UI is `http://127.0.0.1:18489/reports/custom-data-export`. Existing Superset dashboard 32 renders result 1158→30 and 1159→90. | Repeat the complete fresh export → native Superset upload journey after recovery. |
+| 1 | Fresh native May5 CSV uploaded through Superset's native API into Dataset 38. Browser-created table 80 preserves column order and IDs 1154/1155, both value 450; chart 81 groups by accession and counts 2. Dashboard 38 saves/reopens and its rendered screenshot was inspected. Earlier dashboard 32 remains a separate May6 interval example. | Browser file attachment, broader fixtures, paced recording and server journey remain. API upload is partial evidence, not the complete recorded user journey. |
 | 2 | Existing imported CSV retains both rows. Repaired publication now renders count 2, average 60 and total 120 in Superset; screenshots inspected. | Fresh native upload/type-recovery/save and browser chart/arrangement/publication smoke now pass (details below). Browser file-picker automation, narrow/theme review, broader failures and server validation remain. |
 | 3 | `openelis-reporting` uses a restricted PostgreSQL reader and discovers all 380 readable relations. Browser schema search preserves the draft. Explicit manual execution returned IDs 1154/1155/1158/1159 with values 450; Dataset `1dd3de0a-6754-4cc2-9097-56a49cb3c8dd` saves and reopens with the correct source. Its table dashboard publishes/imports and renders all four exact rows in Superset. | Model preparation rejects the complete schema: 63,582 input tokens exceed 24,576 configured context. Resolve model capacity, then prove the complete question/refinement journey. Manual execution does not complete that journey. |
 | 4 | Existing Spark/HAPI services run. Native owner verified the reporting instance still points at an isolated loopback FHIR endpoint; Catalyst's existing endpoint requires its trusted client connection. | Native owner is connecting the retained app using the existing Catalyst network/certificates, with metadata/readiness first. No seeding/backfill or real reporting FHIR emission has been performed. |
@@ -73,6 +73,17 @@ broader Gateway run had 419 passed, 25 skipped and the expected fixture mismatch
 the regenerated fixture subsequently passed its focused checks. Raw evidence
 and runtime credentials remain outside Git. Repository-wide OpenMRS CI is owned
 by its separate effort and is not being repaired in this Catalyst task.
+
+Fresh native Superset lane-1 smoke (15 September) uses the same May5 CSV and
+checksum as lane 2 below. The supported native upload endpoint returned 201;
+the dedicated Reporting CSV uploads connection created
+`report_uploads.oe_native_may5_c6ace949`, Dataset `38`. Identifier columns remain
+text and the value column is numeric. Browser controls created/saved raw table
+`80` and grouped-count chart `81`; reopening
+`http://localhost:18088/superset/dashboard/38/` restored both exact result rows
+and count 2. The visible screenshot was inspected. The dashboard remains a local
+Superset draft; this is not public publication or owner acceptance. File-picker
+automation remains unsupported in the current browser-control surface.
 
 Fresh native-file lane-2 smoke (15 September): the recovered native detailed CSV
 `reporting-detailed-2026-05-05.csv` has SHA-256
