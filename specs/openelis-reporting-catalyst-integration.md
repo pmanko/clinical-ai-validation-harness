@@ -9,8 +9,11 @@ through exact rendered results. The verified local deployment is harness #187
 storage mounts. CSV summary repairs and full-file table pagination are included.
 Browser review confirms the original two rows render without a false limit warning;
 the 1,101-row regression table retains pagination and reaches its final row.
-The reporting instance's FHIR connection still requires approval in the native
-implementation task. Complete server journeys, paced videos, public references
+The reporting instance's FHIR connection is repaired and verified. Its native
+FHIR API returns all four retained reporting results with their distinct IDs,
+dates, final status and values (450 copies/ml); those resources are still absent
+from the pipeline's HAPI store. Scoped native emission and downstream ingestion
+remain open. Complete server journeys, paced videos, public references
 and owner acceptance remain open. This roadmap owns cross-project sequence;
 the [task register](008-catalyst-query-workbench/tasks.md#immediate-four-pathway-test-checkpoint)
 contains current per-lane evidence and gaps.
